@@ -1,0 +1,15 @@
+feeder-id: spice-protocol
+name: SPICE Protocol
+role: curator
+accountable-company: SPICE
+website: https://spiceprotocol.xyz/
+twitter: SpiceProtocol
+linkedin: spice-protocol
+short_description: SPICE Protocol helps investors access and monitor private-credit investments.
+long_description: |
+  SPICE Protocol connects funding with private-credit investments. It provides records intended to help lenders understand collateral, repayments and how money is used. Accountable lists SPICE as the manager of the SPICE Credit Vault.
+other-links:
+  - title: Accountable YieldApp API - SPICE listed as manager of the SPICE Credit Vault
+    url: https://yield.accountable.capital/api/loan/602260898
+  - title: SPICE official LinkedIn - SPICE Credit Vault powered by Accountable
+    url: https://www.linkedin.com/company/spice-protocol/

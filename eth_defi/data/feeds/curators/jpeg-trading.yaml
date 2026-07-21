@@ -1,0 +1,17 @@
+feeder-id: jpeg-trading
+name: JPEG Trading
+role: curator
+accountable-company: JPEG Trading
+website: https://jpeg-trading.com/
+twitter: jpegtrading
+linkedin: jpeg-trading
+short_description: JPEG Trading is a cryptocurrency trading firm that helps markets stay easy to buy and sell, and invests in digital-asset businesses.
+long_description: |
+  JPEG Trading is a proprietary trading firm working in cryptocurrency markets. It trades and helps markets remain easy to buy and sell, and also invests in early-stage digital-asset companies. For its vault-curation work, it reviews selected digital assets and helps develop the markets around them.
+other-links:
+  - title: JPEG Trading - launch of its real-world asset curation business
+    url: https://www.jpeg-trading.com/blog/jpeg-trading-launches-rwa-curation-business
+  - title: Accountable YieldApp - JPEG Trading vault manager metadata
+    url: https://yield.accountable.capital/api/loan/606161431
+  - title: JPEG Trading
+    url: https://jpeg-trading.com/

@@ -1,0 +1,26 @@
+# Yuzu Money curator - feeds provided by protocols/yuzu-money.yaml
+#
+# Alias rationale:
+# - Yuzu Money operates the Accountable vault that uses its name. Accountable's
+#   public loan record lists the organisation as the vault manager.
+# - The official Yuzu Money social and RSS sources are already carried by the
+#   source-bearing protocol feeder, so this alias avoids collecting them twice.
+#
+# Description sources:
+# - https://yuzu.money/
+# - https://yield.accountable.capital/api/loan/512191476
+feeder-id: yuzu-money
+name: Yuzu Money
+role: curator
+canonical-feeder-id: yuzu-money
+accountable-company: Yuzu Money
+short_description: Yuzu Money offers managed investment products for people who hold digital assets.
+long_description: |
+  Yuzu Money offers managed vaults and structured investment products for people who hold digital assets.
+  Its website says it serves wealth managers and accredited investors, with an emphasis on risk management and transparency.
+  Accountable lists Yuzu Money as the manager of its Yuzu Money vault.
+other-links:
+  - title: Accountable YieldApp - public Yuzu Money loan record naming Yuzu Money as the vault manager
+    url: https://yield.accountable.capital/api/loan/512191476
+  - title: Yuzu Money - official website describing its managed vaults and yield products
+    url: https://yuzu.money/

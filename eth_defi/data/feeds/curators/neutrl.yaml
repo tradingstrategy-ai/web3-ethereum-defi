@@ -1,0 +1,17 @@
+feeder-id: neutrl
+name: Neutrl
+role: curator
+website: https://neutrl.finance/
+twitter: Neutrl
+linkedin: neutrl-labs
+accountable-company: Neutrl
+short_description: Neutrl is a crypto asset manager that operates NUSD, a digital dollar designed to reduce exposure to crypto price swings.
+long_description: |
+  Neutrl operates NUSD, a digital dollar backed by actively managed strategies intended to reduce exposure to broad crypto price movements. It also offers sNUSD, a token for people who choose to stake NUSD and receive strategy returns. Accountable identifies Neutrl as the manager of the Neutrl Ecosystem Vault.
+other-links:
+  - title: Accountable YieldApp - Neutrl vault manager metadata
+    url: https://yield.accountable.capital/api/loan/604131200
+  - title: Neutrl documentation - overview of NUSD and sNUSD
+    url: https://docs.neutrl.finance/
+  - title: Neutrl - official domain migration announcement
+    url: https://www.neutrl.finance/blog/domain-migration-neutrl-finance

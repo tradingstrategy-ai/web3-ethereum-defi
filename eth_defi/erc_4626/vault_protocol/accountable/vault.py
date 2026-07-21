@@ -296,6 +296,23 @@ class AccountableVault(ERC4626Vault):
             return self.accountable_metadata.get("short_description")
         return None
 
+    @property
+    def manager_name(self) -> str | None:
+        """Curator company name from Accountable's public vault API.
+
+        Accountable separates the ERC-4626 share-token name from the strategy
+        manager.  Its ``company_name`` metadata therefore provides the
+        canonical curator identity for the generic vault scan and export.
+
+        :return:
+            Accountable's manager display name, or ``None`` when the vault is
+            not present in the public metadata API.
+        """
+        metadata = self.accountable_metadata
+        if metadata:
+            return metadata.get("company_name")
+        return None
+
     def get_management_fee(self, block_identifier: BlockIdentifier) -> float | None:
         """Management fee is not publicly available.
 

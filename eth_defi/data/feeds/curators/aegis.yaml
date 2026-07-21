@@ -1,0 +1,15 @@
+feeder-id: aegis
+name: Aegis
+role: curator
+accountable-company: Aegis
+website: https://aegis.im/
+twitter: aegis_im
+linkedin: aegis-im
+short_description: Aegis offers digital dollars designed to maintain a dollar value while generating yield.
+long_description: |
+  Aegis provides YUSD and jUSD, digital dollars designed to maintain a dollar value while generating yield. YUSD is backed by Bitcoin and uses hedging to reduce exposure to Bitcoin price movements, while jUSD uses JLP collateral. Aegis publishes information about its reserves and market positions on its website. Accountable lists Aegis as the manager of the Aegis Yield Vault.
+other-links:
+  - title: Accountable YieldApp - Aegis vault manager metadata
+    url: https://yield.accountable.capital/api/loan/512221757
+  - title: Aegis - digital dollar product overview and reserve transparency
+    url: https://aegis.im/
