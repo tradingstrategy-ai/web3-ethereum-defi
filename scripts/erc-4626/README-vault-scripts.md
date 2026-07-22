@@ -162,12 +162,12 @@ poetry run python scripts/erc-4626/scan-vaults-all-chains.py
 | `LOG_LEVEL` | Optional. Default: WARNING. |
 | `PIPELINE_DATA_DIR` | Optional. Directory for all pipeline files (parquet, pickle, DuckDB, state). Default: `~/.tradingstrategy/vaults`. |
 | `LOOP_INTERVAL_SECONDS` | Optional. When >0, enables looped mode — ticks every N seconds. Default: 0 (single run). |
-| `SCAN_CYCLES` | Optional. Per-item cycle intervals, e.g. `Ethereum=8h,Base=8h,Arbitrum=8h,Lighter=4h,GRVT=4h,Hypercore=4h,Hibachi=4h,Core3=24h`. |
+| `SCAN_CYCLES` | Optional. Per-item cycle intervals, e.g. `Ethereum=8h,Base=8h,Arbitrum=8h,Lighter Ethereum=4h,Lighter Robinhood=4h,GRVT=4h,Hypercore=4h,Hibachi=4h,Core3=24h`. Legacy `Lighter=4h` applies to both Lighter deployments. |
 | `DEFAULT_CYCLE` | Optional. Default cycle for items not in `SCAN_CYCLES`. Default: `24h`. |
 | `MAX_CYCLES` | Optional. Exit after N cycles (for testing). Default: 0 (unlimited). |
 | `SCAN_HYPERCORE` | Optional. Enable Hyperliquid native vault scanning. Default: false. |
 | `SCAN_GRVT` | Optional. Enable GRVT native vault scanning. Default: false. |
-| `SCAN_LIGHTER` | Optional. Enable Lighter native pool scanning. Default: false. |
+| `SCAN_LIGHTER` | Optional. Enable native pool scanning for both Lighter Ethereum and Lighter Robinhood. Default: false. |
 | `SCAN_HIBACHI` | Optional. Enable Hibachi native vault scanning. Default: false. |
 | `SCAN_VAULT_SETTLEMENTS` | Optional. Scan Lagoon and D2 settlement events during each successful EVM chain cycle. Default: true. The scan fills `vault-settlements.duckdb` before price cleaning; `vault_settlement_at` is then merged into the cleaned price frame during cleaning. Set to `false` only for debugging runs where new settlement event reads are deliberately skipped. Settlement scan failures are logged and shown in the dashboard without aborting the rest of the scanner cycle. |
 | `VAULT_SETTLEMENT_START_BLOCK` | Optional. Inclusive settlement scan start block for forced backfills. Normally unset so scans continue incrementally from `vault-settlements.duckdb`. |

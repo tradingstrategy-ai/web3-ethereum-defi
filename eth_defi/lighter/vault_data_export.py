@@ -33,11 +33,18 @@ import pandas as pd
 
 from eth_defi.compat import native_datetime_utc_now
 from eth_defi.erc_4626.core import ERC4262VaultDetection, ERC4626Feature
-from eth_defi.lighter.constants import LIGHTER_CHAIN_ID, LIGHTER_DENOMINATION, LIGHTER_POOL_FEE_MODE, LIGHTER_POOL_LOCKUP
+from eth_defi.lighter.constants import (
+    LIGHTER_DEPLOYMENTS,
+    LIGHTER_DEPLOYMENTS_BY_SLUG,
+    LIGHTER_ETHEREUM,
+    LIGHTER_LEGACY_ROBINHOOD_CHAIN_ID,
+    LIGHTER_POOL_FEE_MODE,
+    LighterAPIConfig,
+)
 from eth_defi.lighter.daily_metrics import LighterDailyMetricsDatabase
 from eth_defi.vault.base import VaultHistoricalRead, VaultSpec
 from eth_defi.vault.fee import FeeData
-from eth_defi.vault.flag import VaultFlag
+from eth_defi.vault.flag import VaultFlag, get_notes
 from eth_defi.vault.risk import get_vault_risk
 from eth_defi.vault.vaultdb import VaultDatabase, VaultRow
 
@@ -53,6 +60,7 @@ def create_lighter_pool_row(
     operator_fee: float = 0.0,
     is_llp: bool = False,
     status: int = 0,
+    deployment: LighterAPIConfig = LIGHTER_ETHEREUM,
 ) -> tuple[VaultSpec, VaultRow]:
     """Create a synthetic VaultRow for a Lighter pool.
 
@@ -71,7 +79,7 @@ def create_lighter_pool_row(
     :param description:
         Pool description text.
     :param tvl:
-        Current TVL in USDC.
+        Current TVL in the deployment's collateral currency.
     :param created_at:
         Pool creation timestamp.
     :param operator_fee:
@@ -80,11 +88,14 @@ def create_lighter_pool_row(
         Whether this is the LLP protocol pool.
     :param status:
         Pool status code from the API (0 = active).
+    :param deployment:
+        Lighter deployment configuration. Defaults to Ethereum for backwards
+        compatibility.
     :return:
         Tuple of (VaultSpec, VaultRow).
     """
-    address = f"lighter-pool-{account_index}"
-    chain_id = LIGHTER_CHAIN_ID
+    address = deployment.format_pool_address(account_index)
+    chain_id = deployment.chain_id
 
     # Convert operator_fee from percentage to decimal fraction
     perf_fee = operator_fee / 100.0 if operator_fee else 0.0
@@ -114,12 +125,12 @@ def create_lighter_pool_row(
         "Symbol": (name or "")[:10],
         "Name": name or "",
         "Address": address,
-        "Denomination": LIGHTER_DENOMINATION,
+        "Denomination": deployment.denomination,
         "Share token": (name or "")[:10],
         "NAV": Decimal(str(tvl)),
         "Shares": Decimal("0"),
         "Protocol": "Lighter",
-        "Link": f"https://app.lighter.xyz/public-pools/{account_index}",
+        "Link": deployment.format_pool_link(account_index),
         "First seen": created_at,
         "Mgmt fee": 0.0,
         "Perf fee": perf_fee,
@@ -127,11 +138,11 @@ def create_lighter_pool_row(
         "Withdraw fee": 0.0,
         "Features": "",
         "_detection_data": detection,
-        "_denomination_token": {"address": "0x0000000000000000000000000000000000000000", "symbol": "USDC", "decimals": 6},
+        "_denomination_token": {"address": "0x0000000000000000000000000000000000000000", "symbol": deployment.denomination, "decimals": 6},
         "_share_token": None,
         "_fees": fee_data,
         "_flags": flags,
-        "_lockup": LIGHTER_POOL_LOCKUP,
+        "_lockup": deployment.lockup,
         "_description": description,
         "_short_description": description.split(".")[0].strip() + "." if description else None,
         "_available_liquidity": None,
@@ -140,7 +151,22 @@ def create_lighter_pool_row(
         "_deposit_next_open": None,
         "_redemption_closed_reason": None,
         "_redemption_next_open": None,
+        # Persist the deployment-specific manual note in VaultDatabase instead
+        # of relying only on lifetime-metrics fallback lookup. For now this is
+        # important for Lighter on Robinhood because its USDG insurance-fund
+        # note must not inherit Ethereum LLP's USDC/LIT staking requirements.
+        "_notes": get_notes(address, chain_id=chain_id, protocol_name="Lighter"),
         "_risk": get_vault_risk("Lighter", address),
+        # Keep the deployment slug in static vault metadata so the generic
+        # lifetime-metrics code does not need to import Lighter configuration.
+        # For now this is exported to distinguish Lighter on Robinhood from
+        # the original Ethereum deployment.
+        "_deployment": deployment.slug,
+        # ``chain_id`` above is intentionally the shared synthetic Lighter ID
+        # (9998) and must remain the VaultSpec and price-partition namespace.
+        # This associated EVM chain ID (1/4663) is additional metadata
+        # introduced specifically for Lighter on Robinhood metrics consumers.
+        "_deployment_chain_id": deployment.deployment_chain_id,
     }
 
     spec = VaultSpec(chain_id=chain_id, vault_address=address)
@@ -169,16 +195,22 @@ def build_raw_prices_dataframe(db: LighterDailyMetricsDatabase) -> pd.DataFrame:
     if prices_df.empty:
         return pd.DataFrame()
 
-    chain_id = LIGHTER_CHAIN_ID
+    unknown_deployments = set(prices_df["deployment"].unique()) - set(LIGHTER_DEPLOYMENTS_BY_SLUG)
+    if unknown_deployments:
+        raise ValueError(f"Unknown Lighter deployments in daily metrics database: {sorted(unknown_deployments)}")
 
-    # Build synthetic address from account_index
-    addresses = prices_df["account_index"].apply(lambda idx: f"lighter-pool-{idx}")
+    deployments = prices_df["deployment"].apply(LIGHTER_DEPLOYMENTS_BY_SLUG.__getitem__)
+    chain_ids = deployments.apply(lambda deployment: deployment.chain_id)
+    addresses = prices_df.apply(
+        lambda row: LIGHTER_DEPLOYMENTS_BY_SLUG[row["deployment"]].format_pool_address(int(row["account_index"])),
+        axis=1,
+    )
 
     # Use .values to strip the DuckDB RangeIndex — otherwise pandas
     # tries to align it with the new index and fills everything with NaN.
     result = pd.DataFrame(
         {
-            "chain": chain_id,
+            "chain": chain_ids.values,
             "address": addresses.values,
             "block_number": 0,
             "timestamp": pd.to_datetime(prices_df["date"]).values,
@@ -226,18 +258,57 @@ def merge_into_vault_database(
 
     metadata_df = db.get_all_pool_metadata()
 
+    # The first Robinhood implementation used synthetic chain 9996. Both
+    # deployments now share Lighter chain 9998 and are kept unique by their
+    # deployment-specific address prefixes. Remove the short-lived legacy
+    # VaultSpec rows automatically once Robinhood metadata is present, so the
+    # normal metadata merge cannot leave duplicate Robinhood vaults behind.
+    has_robinhood_metadata = "robinhood" in set(metadata_df["deployment"]) if not metadata_df.empty else False
+    legacy_specs: list[VaultSpec] = []
+    if has_robinhood_metadata:
+        legacy_specs = [spec for spec in vault_db.rows if spec.chain_id == LIGHTER_LEGACY_ROBINHOOD_CHAIN_ID and str(spec.vault_address).startswith("lighter-pool-robinhood-")]
+        for spec in legacy_specs:
+            del vault_db.rows[spec]
+        if legacy_specs:
+            logger.info(
+                "Removed %d legacy Lighter Robinhood VaultSpec rows from synthetic chain %d",
+                len(legacy_specs),
+                LIGHTER_LEGACY_ROBINHOOD_CHAIN_ID,
+            )
+
     added = 0
     updated = 0
     for _, row in metadata_df.iterrows():
+        deployment_slug = str(row["deployment"])
+        try:
+            deployment = LIGHTER_DEPLOYMENTS_BY_SLUG[deployment_slug]
+        except KeyError as e:
+            raise ValueError(f"Unknown Lighter deployment in pool metadata: {deployment_slug}") from e
+
+        # DuckDB nullable scalar columns arrive through Pandas as NaN/NaT.
+        # Normalise them explicitly because ``NaN or 0`` still returns NaN and
+        # would make FeeData validation fail during an automatic legacy merge.
+        description = row.get("description")
+        description = None if pd.isna(description) else str(description)
+        created_at = row.get("created_at")
+        created_at = None if pd.isna(created_at) else created_at
+        tvl = row.get("total_asset_value")
+        tvl = 0.0 if pd.isna(tvl) else float(tvl)
+        operator_fee = row.get("operator_fee")
+        operator_fee = 0.0 if pd.isna(operator_fee) else float(operator_fee)
+        status = row.get("status")
+        status = 0 if pd.isna(status) else int(status)
+
         spec, vault_row = create_lighter_pool_row(
             account_index=int(row["account_index"]),
             name=row["name"],
-            description=row.get("description"),
-            tvl=row.get("total_asset_value", 0.0) or 0.0,
-            created_at=row.get("created_at"),
-            operator_fee=row.get("operator_fee", 0.0) or 0.0,
+            description=description,
+            tvl=tvl,
+            created_at=created_at,
+            operator_fee=operator_fee,
             is_llp=bool(row.get("is_llp", False)),
-            status=int(row.get("status", 0) or 0),
+            status=status,
+            deployment=deployment,
         )
 
         if spec in vault_db.rows:
@@ -271,8 +342,8 @@ def merge_into_uncleaned_parquet(
     (:py:func:`~eth_defi.research.wrangle_vault_prices.process_raw_vault_scan_data`)
     can process all vaults together.
 
-    Reads the existing Parquet, removes any prior Lighter rows
-    (chain == 9998), appends fresh Lighter daily price rows,
+    Reads the existing Parquet, removes prior rows for every configured
+    Lighter deployment, appends fresh Lighter daily price rows,
     and writes back. Idempotent: running twice produces the same result.
 
     If the Parquet file does not exist, creates a new one.
@@ -296,8 +367,12 @@ def merge_into_uncleaned_parquet(
     if parquet_path.exists():
         existing_df = pd.read_parquet(parquet_path)
 
-        # Remove any existing Lighter rows
-        existing_df = existing_df[existing_df["chain"] != LIGHTER_CHAIN_ID]
+        # Remove the current shared Lighter partition and the short-lived 9996
+        # Robinhood partition. Fresh Ethereum and Robinhood rows are then
+        # written together under chain 9998 with distinct address prefixes.
+        lighter_chain_ids = {deployment.chain_id for deployment in LIGHTER_DEPLOYMENTS}
+        lighter_chain_ids.add(LIGHTER_LEGACY_ROBINHOOD_CHAIN_ID)
+        existing_df = existing_df[~existing_df["chain"].isin(lighter_chain_ids)]
 
         combined = pd.concat([existing_df, lighter_df], ignore_index=True)
     else:

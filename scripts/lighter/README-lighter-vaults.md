@@ -2,8 +2,8 @@
 
 ## Overview
 
-Scans Lighter DEX native pools (vaults), fetches share price history
-from the public REST API, and merges the data into the existing
+Scans the Ethereum and Robinhood Chain Lighter DEX deployments, fetches
+native pool (vault) share price history from their public REST APIs, and merges the data into the existing
 ERC-4626 vault metrics pipeline so that `vault-analysis-json.py` produces
 a single unified JSON with EVM, Hyperliquid, GRVT, and Lighter pools.
 
@@ -16,8 +16,9 @@ pipeline as EVM vaults.
 
 - [Lighter homepage](https://lighter.xyz)
 - [Public pools app](https://app.lighter.xyz/public-pools)
-- [Public pools documentation](https://docs.lighter.xyz/perpetual-futures/public-pools)
-- [Fees documentation](https://docs.lighter.xyz/perpetual-futures/fees)
+- [Robinhood Lighter app](https://robinhoodchain.lighter.xyz/public-pools)
+- [Public pools documentation](https://docs.lighter.xyz/trading/public-pools)
+- [Fees documentation](https://docs.lighter.xyz/trading/trading-fees)
 - [API reference (Swagger)](https://apidocs.lighter.xyz/)
 - [DeFi Llama](https://defillama.com/protocol/lighter-perps)
 
@@ -60,30 +61,93 @@ lighter-pools.duckdb  ------merge----->  vault-metadata-db.pickle
                                           EVM + Hyperliquid + GRVT + Lighter
 ```
 
-### Chain ID
+### Deployments and chain IDs
 
-Lighter pools use synthetic chain ID `9998` (constant `LIGHTER_CHAIN_ID`).
+Lighter pools use deployment-specific synthetic chain IDs because they are
+native rollup pools rather than EVM ERC-4626 contracts:
+
+| Deployment | API | Synthetic chain ID | Associated EVM chain ID | Denomination | Address format |
+|------------|-----|--------------------|-------------------------|--------------|----------------|
+| Ethereum | `https://mainnet.zklighter.elliot.ai` | `9998` | `1` | USDC | `lighter-pool-{account_index}` |
+| Robinhood Chain | `https://api.rh.lighter.xyz` | `9998` | `4663` | USDG | `lighter-pool-robinhood-{account_index}` |
+
+Both deployments intentionally share synthetic chain `9998` because it is the
+native Lighter dataset namespace. Their deployment-specific synthetic address
+prefixes provide VaultSpec and price-series uniqueness even when Lighter reuses
+the same account index on both deployments.
+
+These settings cover native pool discovery, metrics storage and vault-dataset
+export. The Lagoon custody and Guard helpers remain Ethereum-only because they
+target the verified Ethereum `ZkLighter` proxy and its USDC asset index.
+Supporting Robinhood custody requires the canonical Robinhood Relayer contract
+address and ABI to be published and verified before those transaction helpers
+can be parameterised safely.
+
+### Lifetime-metrics chain identity
+
+Lighter needs two chain identities in `calculate_lifetime_metrics()` output:
+
+- `chain_id` is the shared synthetic native-pool dataset identity (`9998`).
+  It keys price partitions and `VaultSpec` records and must not be replaced by
+  an EVM chain ID.
+- `deployment_chain_id` is the associated EVM deployment chain (`1` for
+  Ethereum or `4663` for Robinhood Chain).
+- `deployment` is the stable deployment slug (`ethereum` or `robinhood`).
+
+For now the two additive deployment fields exist specifically to support
+Lighter on Robinhood in lifetime-metrics and JSON consumers. They are carried
+through Lighter `VaultRow` metadata; existing non-Lighter vault rows export
+`None`. No DuckDB or Parquet migration is required, because the normal Lighter
+metadata merge refreshes the pickle rows with these fields.
 
 ### Denomination token
 
-All Lighter pools are denominated in USDC.
+Ethereum Lighter pools are denominated in USDC. Robinhood Lighter pools are
+denominated in USDG.
 
 ### Pool discovery
 
-Pools are discovered via `/api/v1/publicPoolsMetadata`. The LLP
-(Lighter Liquidity Pool) is a special system pool **not** listed in
-this endpoint — it is fetched separately from `/api/v1/account` using
-the `liquidity_pool_index` from `/api/v1/systemConfig`.
+Pools are discovered via `/api/v1/publicPoolsMetadata`. When a deployment's
+LLP (Lighter Liquidity Pool) is not listed there, it is fetched separately
+from `/api/v1/account` using the `liquidity_pool_index` from
+`/api/v1/systemConfig`. Robinhood currently lists its LLP directly with
+account type `3`.
 
-Each pool has a single integer identifier:
+Each pool has a deployment-local integer identifier:
 
-- **Account index** (e.g. `281474976710654` for LLP) — primary key across all endpoints
+- **Account index** (e.g. `281474976710654` for LLP) — unique only within one deployment
 
-Pool addresses in the pipeline are synthetic strings: `lighter-pool-{account_index}`.
+Account indexes overlap between deployments: `281474976710654` is used by
+both Ethereum and Robinhood Lighter. DuckDB therefore keys rows by
+`(deployment, account_index)` and price rows by
+`(deployment, account_index, date)`.
+
+### Robinhood pool availability
+
+As checked against the live API on 2026-07-22, Robinhood Lighter exposes one
+active pool through `publicPoolsMetadata`:
+
+- Account index `281474976710654`
+- Account type `3`, the protocol-operated LLP/insurance pool
+- USDG denomination and 0% operator fee
+- Daily share-price and total-share history available from the standard
+  `account` and `pnl` endpoints
+
+The Robinhood API currently leaves the pool name and description empty, so the
+scanner supplies the canonical `Lighter Liquidity Provider (LLP)` label. Its
+`systemConfig.liquidity_pool_index` points to `281474976710655`, which is not
+yet an initialised account; account type `3` is therefore also used to identify
+the live LLP. TVL and APY are deliberately read live rather than documented as
+fixed values.
+
+Robinhood's product documentation confirms that the deployment uses USDG on
+Robinhood Chain and that liquidation fees and bankrupt positions flow to the
+LLP insurance fund: <https://robinhood.com/us/en/support/articles/robinhood-wallet-perpetual-futures/>.
 
 ### Public API endpoints
 
-Base URL: `https://mainnet.zklighter.elliot.ai`
+Base URLs are `https://mainnet.zklighter.elliot.ai` for Ethereum and
+`https://api.rh.lighter.xyz` for Robinhood.
 
 All endpoints are GET requests. No authentication required.
 
@@ -116,10 +180,10 @@ Response fields per pool in `public_pools[]`:
 | `annual_percentage_yield` | float | Current APY |
 | `sharpe_ratio` | string | Risk-adjusted return metric |
 | `operator_fee` | string | Fee percentage (e.g. "10" = 10%) |
-| `total_asset_value` | string | TVL in USDC |
+| `total_asset_value` | string | TVL in the deployment's collateral currency |
 | `total_shares` | int | Outstanding shares |
 | `status` | int | 0 = active |
-| `account_type` | int | 2 = pool |
+| `account_type` | int | 2 = public pool; 3 = protocol liquidity/insurance pool |
 | `master_account_index` | int | Operator's main account |
 | `created_at` | int | Unix timestamp |
 
@@ -138,7 +202,7 @@ Response fields (inside `accounts[0]`):
 |-------|------|-------------|
 | `name` | string | Pool name |
 | `description` | string | Pool strategy description |
-| `total_asset_value` | string | TVL in USDC |
+| `total_asset_value` | string | TVL in the deployment's collateral currency |
 | `pool_info.share_prices` | array | `[{"timestamp": int, "share_price": float}, ...]` |
 | `pool_info.daily_returns` | array | `[{"timestamp": int, "daily_return": float}, ...]` |
 | `pool_info.operator_fee` | string | Operator fee percentage |
@@ -219,8 +283,9 @@ retention window.
 ```
 pool_metadata                         pool_daily_prices
 =============                         =================
-account_index    BIGINT PK            account_index  BIGINT  \
-name             VARCHAR               date           DATE    > composite PK
+deployment       VARCHAR \            deployment     VARCHAR \
+account_index    BIGINT   > PK         account_index  BIGINT  > composite PK
+name             VARCHAR               date           DATE   /
 description      VARCHAR               share_price    DOUBLE
 l1_address       VARCHAR               tvl            DOUBLE
 is_llp           BOOLEAN               daily_return   DOUBLE
@@ -231,6 +296,9 @@ sharpe_ratio     DOUBLE
 created_at       TIMESTAMP
 last_updated     TIMESTAMP
 ```
+
+Opening a legacy database performs a transactional migration. All existing
+rows are retained and labelled `ethereum`; no rescan is needed.
 
 ### Fees
 
@@ -287,7 +355,7 @@ MIN_TVL=10000 MAX_POOLS=20 \
 | `LOG_LEVEL` | `warning` | Logging level |
 | `DB_PATH` | `~/.tradingstrategy/vaults/lighter-pools.duckdb` | DuckDB database path |
 | `POOL_INDICES` | *(all pools)* | Comma-separated pool account indices to scan |
-| `MIN_TVL` | `1000` | Minimum TVL in USDC to include a pool |
+| `MIN_TVL` | `1000` | Minimum TVL in the deployment's collateral currency |
 | `MAX_POOLS` | `200` | Maximum number of pools to scan |
 | `MAX_WORKERS` | `16` | Number of parallel workers |
 | `VAULT_DB_PATH` | `~/.tradingstrategy/vaults/vault-metadata-db.pickle` | VaultDatabase pickle path |
@@ -305,7 +373,7 @@ MIN_TVL=10000 MAX_POOLS=20 \
 
 ## Running the full pipeline (Lighter only)
 
-To run the full pipeline scanning only Lighter pools (no EVM chains),
+To run the full pipeline scanning both Lighter deployments (no EVM chains),
 disable all other chains and set `SCAN_LIGHTER=true`:
 
 ```shell
@@ -319,7 +387,7 @@ poetry run python scripts/erc-4626/scan-vaults-all-chains.py
 
 This runs through the following stages:
 
-1. **Lighter scan** (~20s) — discovers pools from the public API, fetches share price
+1. **Lighter scans** — independently discovers Ethereum and Robinhood pools from their public APIs, fetches share price
    history and total shares, stores in `lighter-pools.duckdb`
 2. **Merge vault metadata** — upserts Lighter VaultRows into `vault-metadata-db.pickle`
 3. **Merge prices** — appends Lighter daily prices into `vault-prices-1h.parquet`
@@ -354,12 +422,16 @@ daily prices before they are merged into the unified pipeline.
 
 ### Step 2: Purge Lighter rows from the uncleaned Parquet
 
-Use `purge-price-data.py` with the Lighter synthetic chain ID
-(`9998`) to strip Lighter rows from the shared Parquet file:
+Use `purge-price-data.py` with the shared Lighter synthetic chain ID to strip
+Lighter rows from the shared Parquet file:
 
 ```shell
 CHAIN_ID=9998 python scripts/erc-4626/purge-price-data.py
 ```
+
+The pipeline automatically removes any rows written under the legacy
+Robinhood-only synthetic chain `9996` during the next successful Lighter price
+merge; operators do not need to purge that temporary partition manually.
 
 ### Step 3: Rescan
 

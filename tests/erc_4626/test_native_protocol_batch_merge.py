@@ -9,7 +9,7 @@ from eth_defi.grvt.constants import GRVT_CHAIN_ID
 from eth_defi.hibachi.constants import HIBACHI_CHAIN_ID
 from eth_defi.hyperliquid import vault_data_export
 from eth_defi.hyperliquid.constants import HYPERCORE_CHAIN_ID
-from eth_defi.lighter.constants import LIGHTER_CHAIN_ID
+from eth_defi.lighter.constants import LIGHTER_CHAIN_ID, LIGHTER_LEGACY_ROBINHOOD_CHAIN_ID
 from eth_defi.vault import base, post_processing
 from eth_defi.vault.base import ParquetVerificationError, VaultHistoricalRead
 
@@ -59,6 +59,7 @@ def test_merge_native_protocols_rewrites_parquet_once_and_preserves_empty_source
             _prices(HYPERCORE_CHAIN_ID, "hypercore-old", "2025-01-01"),
             _prices(GRVT_CHAIN_ID, "grvt-old", "2025-01-01"),
             _prices(LIGHTER_CHAIN_ID, "lighter-old", "2025-01-01"),
+            _prices(LIGHTER_LEGACY_ROBINHOOD_CHAIN_ID, "lighter-robinhood-legacy-old", "2025-01-01"),
             _prices(HIBACHI_CHAIN_ID, "hibachi-old", "2025-01-01"),
         ],
         ignore_index=True,
@@ -75,7 +76,13 @@ def test_merge_native_protocols_rewrites_parquet_once_and_preserves_empty_source
             pass
 
     fresh_grvt = _prices(GRVT_CHAIN_ID, "grvt-new", "2025-01-02")
-    fresh_lighter = _prices(LIGHTER_CHAIN_ID, "lighter-new", "2025-01-02")
+    fresh_lighter = pd.concat(
+        [
+            _prices(LIGHTER_CHAIN_ID, "lighter-new", "2025-01-02"),
+            _prices(LIGHTER_CHAIN_ID, "lighter-robinhood-new", "2025-01-02"),
+        ],
+        ignore_index=True,
+    )
     fresh_hypercore = _prices(HYPERCORE_CHAIN_ID, "hypercore-new", "2025-01-02")
     fresh_hypercore["account_pnl"] = 123.0
     monkeypatch.setattr(post_processing, "HyperliquidDailyMetricsDatabase", FakeDatabase)
@@ -130,8 +137,11 @@ def test_merge_native_protocols_rewrites_parquet_once_and_preserves_empty_source
         "hypercore-new",
         "grvt-new",
         "lighter-new",
+        "lighter-robinhood-new",
         "hibachi-old",
     }
+    assert LIGHTER_LEGACY_ROBINHOOD_CHAIN_ID not in set(result_df["chain"])
+    assert set(result_df.loc[result_df["address"].str.startswith("lighter-"), "chain"]) == {LIGHTER_CHAIN_ID}
     assert result_df.loc[result_df["address"] == "hypercore-new", "account_pnl"].iloc[0] == pytest.approx(123.0)
 
 

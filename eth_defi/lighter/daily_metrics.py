@@ -32,9 +32,10 @@ from joblib import Parallel, delayed
 from tqdm_loggable.auto import tqdm
 
 from eth_defi.compat import native_datetime_utc_now
-from eth_defi.lighter.constants import LIGHTER_DAILY_METRICS_DATABASE
+from eth_defi.lighter.constants import LIGHTER_DAILY_METRICS_DATABASE, LIGHTER_ETHEREUM
 from eth_defi.lighter.session import LighterSession
 from eth_defi.lighter.vault import (
+    LIGHTER_LLP_DESCRIPTION,
     LighterPoolSummary,
     fetch_all_pools,
     fetch_pool_detail,
@@ -63,11 +64,111 @@ class LighterDailyMetricsDatabase:
         self.con = duckdb.connect(str(path))
         self._init_schema()
 
-    def _init_schema(self):
-        """Create tables if they do not exist."""
-        self.con.execute("""
-            CREATE TABLE IF NOT EXISTS pool_metadata (
-                account_index BIGINT PRIMARY KEY,
+    def _init_schema(self) -> None:
+        """Create or migrate the deployment-aware database schema.
+
+        The original schema keyed both tables only by ``account_index``.
+        Lighter deployments reuse account indexes, so legacy rows are copied
+        transactionally into composite-key tables and labelled ``ethereum``.
+        Any migration failure aborts database opening without discarding the
+        original tables.
+        """
+        if not self._table_exists("pool_metadata"):
+            self._create_pool_metadata_table("pool_metadata")
+        if not self._table_exists("pool_daily_prices"):
+            self._create_pool_daily_prices_table("pool_daily_prices")
+
+        metadata_columns = self._get_table_columns("pool_metadata")
+        if "status" not in metadata_columns:
+            self.con.execute("ALTER TABLE pool_metadata ADD COLUMN status INTEGER DEFAULT 0")
+
+        price_columns = self._get_table_columns("pool_daily_prices")
+        if "written_at" not in price_columns:
+            self.con.execute("ALTER TABLE pool_daily_prices ADD COLUMN written_at TIMESTAMP")
+
+        metadata_needs_migration = "deployment" not in metadata_columns
+        prices_need_migration = "deployment" not in price_columns
+        if not metadata_needs_migration and not prices_need_migration:
+            return
+
+        logger.info("Migrating legacy Lighter DuckDB schema to deployment-aware composite keys")
+        self.con.execute("BEGIN TRANSACTION")
+        try:
+            if metadata_needs_migration:
+                self._create_pool_metadata_table("pool_metadata_v2")
+                self.con.execute(
+                    """
+                    INSERT INTO pool_metadata_v2 (
+                        deployment, account_index, name, description, l1_address,
+                        is_llp, status, operator_fee, total_asset_value,
+                        annual_percentage_yield, sharpe_ratio, created_at, last_updated
+                    )
+                    SELECT ?, account_index, name, description, l1_address,
+                        is_llp, status, operator_fee, total_asset_value,
+                        annual_percentage_yield, sharpe_ratio, created_at, last_updated
+                    FROM pool_metadata
+                    """,
+                    [LIGHTER_ETHEREUM.slug],
+                )
+                self.con.execute("DROP TABLE pool_metadata")
+                self.con.execute("ALTER TABLE pool_metadata_v2 RENAME TO pool_metadata")
+
+            if prices_need_migration:
+                self._create_pool_daily_prices_table("pool_daily_prices_v2")
+                self.con.execute(
+                    """
+                    INSERT INTO pool_daily_prices_v2 (
+                        deployment, account_index, date, share_price, tvl,
+                        daily_return, annual_percentage_yield, written_at
+                    )
+                    SELECT ?, account_index, date, share_price, tvl,
+                        daily_return, annual_percentage_yield, written_at
+                    FROM pool_daily_prices
+                    """,
+                    [LIGHTER_ETHEREUM.slug],
+                )
+                self.con.execute("DROP TABLE pool_daily_prices")
+                self.con.execute("ALTER TABLE pool_daily_prices_v2 RENAME TO pool_daily_prices")
+        except duckdb.Error:
+            self.con.execute("ROLLBACK")
+            raise
+        else:
+            self.con.execute("COMMIT")
+
+    def _table_exists(self, table_name: str) -> bool:
+        """Check whether a DuckDB table exists.
+
+        :param table_name:
+            Unquoted internal table name.
+        :return:
+            ``True`` when the table exists.
+        """
+        row = self.con.execute(
+            "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = 'main' AND table_name = ?",
+            [table_name],
+        ).fetchone()
+        return bool(row and row[0])
+
+    def _get_table_columns(self, table_name: str) -> set[str]:
+        """Read column names for an internal DuckDB table.
+
+        :param table_name:
+            Unquoted internal table name.
+        :return:
+            Column-name set.
+        """
+        return {row[1] for row in self.con.execute(f"PRAGMA table_info('{table_name}')").fetchall()}
+
+    def _create_pool_metadata_table(self, table_name: str) -> None:
+        """Create a deployment-aware pool metadata table.
+
+        :param table_name:
+            Trusted internal table name used during schema migration.
+        """
+        self.con.execute(f"""
+            CREATE TABLE {table_name} (
+                deployment VARCHAR NOT NULL,
+                account_index BIGINT NOT NULL,
                 name VARCHAR NOT NULL,
                 description VARCHAR,
                 l1_address VARCHAR,
@@ -78,17 +179,20 @@ class LighterDailyMetricsDatabase:
                 annual_percentage_yield DOUBLE,
                 sharpe_ratio DOUBLE,
                 created_at TIMESTAMP,
-                last_updated TIMESTAMP NOT NULL
+                last_updated TIMESTAMP NOT NULL,
+                PRIMARY KEY (deployment, account_index)
             )
         """)
-        # Migrate existing databases that lack the status column
-        try:
-            self.con.execute("ALTER TABLE pool_metadata ADD COLUMN status INTEGER DEFAULT 0")
-        except duckdb.CatalogException:
-            pass  # Column already exists
 
-        self.con.execute("""
-            CREATE TABLE IF NOT EXISTS pool_daily_prices (
+    def _create_pool_daily_prices_table(self, table_name: str) -> None:
+        """Create a deployment-aware daily price table.
+
+        :param table_name:
+            Trusted internal table name used during schema migration.
+        """
+        self.con.execute(f"""
+            CREATE TABLE {table_name} (
+                deployment VARCHAR NOT NULL,
                 account_index BIGINT NOT NULL,
                 date DATE NOT NULL,
                 share_price DOUBLE NOT NULL,
@@ -96,18 +200,13 @@ class LighterDailyMetricsDatabase:
                 daily_return DOUBLE,
                 annual_percentage_yield DOUBLE,
                 written_at TIMESTAMP,
-                PRIMARY KEY (account_index, date)
+                PRIMARY KEY (deployment, account_index, date)
             )
         """)
 
-        # Migration for existing databases: add written_at column for data auditability
-        try:
-            self.con.execute("ALTER TABLE pool_daily_prices ADD COLUMN written_at TIMESTAMP")
-        except duckdb.CatalogException:
-            pass
-
     def upsert_pool_metadata(
         self,
+        deployment: str,
         account_index: int,
         name: str,
         description: str | None = None,
@@ -122,8 +221,10 @@ class LighterDailyMetricsDatabase:
     ):
         """Insert or update pool metadata.
 
+        :param deployment:
+            Stable deployment slug.
         :param account_index:
-            Pool account index (primary key).
+            Pool account index, unique within the deployment.
         :param name:
             Pool display name.
         :param description:
@@ -148,11 +249,11 @@ class LighterDailyMetricsDatabase:
         self.con.execute(
             """
             INSERT INTO pool_metadata (
-                account_index, name, description, l1_address, is_llp,
+                deployment, account_index, name, description, l1_address, is_llp,
                 status, operator_fee, total_asset_value, annual_percentage_yield,
                 sharpe_ratio, created_at, last_updated
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            ON CONFLICT (account_index) DO UPDATE SET
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT (deployment, account_index) DO UPDATE SET
                 name = excluded.name,
                 description = excluded.description,
                 l1_address = excluded.l1_address,
@@ -166,6 +267,7 @@ class LighterDailyMetricsDatabase:
                 last_updated = excluded.last_updated
             """,
             [
+                deployment,
                 account_index,
                 name,
                 description,
@@ -183,11 +285,14 @@ class LighterDailyMetricsDatabase:
 
     def upsert_daily_prices(
         self,
+        deployment: str,
         rows: list[tuple],
         cutoff_date: datetime.date | None = None,
     ):
         """Bulk upsert daily price rows for a pool.
 
+        :param deployment:
+            Stable deployment slug applied to every row.
         :param rows:
             List of tuples: ``(account_index, date, share_price, tvl, daily_return, annual_percentage_yield, written_at)``.
         :param cutoff_date:
@@ -203,94 +308,124 @@ class LighterDailyMetricsDatabase:
         self.con.executemany(
             """
             INSERT INTO pool_daily_prices (
-                account_index, date, share_price, tvl,
+                deployment, account_index, date, share_price, tvl,
                 daily_return, annual_percentage_yield, written_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?)
-            ON CONFLICT (account_index, date) DO UPDATE SET
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT (deployment, account_index, date) DO UPDATE SET
                 share_price = excluded.share_price,
                 tvl = excluded.tvl,
                 daily_return = excluded.daily_return,
                 annual_percentage_yield = excluded.annual_percentage_yield,
                 written_at = excluded.written_at
             """,
-            rows,
+            [(deployment, *row) for row in rows],
         )
 
-    def get_all_daily_prices(self) -> pd.DataFrame:
+    def get_all_daily_prices(self, deployment: str | None = None) -> pd.DataFrame:
         """Retrieve all daily price data.
 
+        :param deployment:
+            Optional deployment slug filter.
         :return:
             DataFrame with columns: account_index, date, share_price, tvl,
             daily_return, annual_percentage_yield.
         """
-        return self.con.execute("SELECT * FROM pool_daily_prices ORDER BY account_index, date").fetchdf()
+        if deployment is None:
+            return self.con.execute("SELECT * FROM pool_daily_prices ORDER BY deployment, account_index, date").fetchdf()
+        return self.con.execute(
+            "SELECT * FROM pool_daily_prices WHERE deployment = ? ORDER BY account_index, date",
+            [deployment],
+        ).fetchdf()
 
-    def get_pool_daily_prices(self, account_index: int) -> pd.DataFrame:
+    def get_pool_daily_prices(self, account_index: int, deployment: str = LIGHTER_ETHEREUM.slug) -> pd.DataFrame:
         """Get daily prices for a specific pool.
 
         :param account_index:
             Pool account index.
+        :param deployment:
+            Stable deployment slug. Defaults to Ethereum for compatibility.
         :return:
             DataFrame with daily price data for the pool.
         """
         return self.con.execute(
-            "SELECT * FROM pool_daily_prices WHERE account_index = ? ORDER BY date",
-            [account_index],
+            "SELECT * FROM pool_daily_prices WHERE deployment = ? AND account_index = ? ORDER BY date",
+            [deployment, account_index],
         ).fetchdf()
 
-    def get_all_pool_metadata(self) -> pd.DataFrame:
+    def get_all_pool_metadata(self, deployment: str | None = None) -> pd.DataFrame:
         """Retrieve all pool metadata ordered by TVL.
 
+        :param deployment:
+            Optional deployment slug filter.
         :return:
             DataFrame with pool metadata.
         """
-        return self.con.execute("SELECT * FROM pool_metadata ORDER BY total_asset_value DESC").fetchdf()
+        if deployment is None:
+            return self.con.execute("SELECT * FROM pool_metadata ORDER BY deployment, total_asset_value DESC").fetchdf()
+        return self.con.execute(
+            "SELECT * FROM pool_metadata WHERE deployment = ? ORDER BY total_asset_value DESC",
+            [deployment],
+        ).fetchdf()
 
-    def get_pool_count(self) -> int:
+    def get_pool_count(self, deployment: str | None = None) -> int:
         """Get number of pools with daily price data.
 
+        :param deployment:
+            Optional deployment slug filter.
         :return:
             Count of unique pools.
         """
-        result = self.con.execute("SELECT COUNT(DISTINCT account_index) FROM pool_daily_prices").fetchone()
+        if deployment is None:
+            result = self.con.execute("SELECT COUNT(*) FROM (SELECT DISTINCT deployment, account_index FROM pool_daily_prices)").fetchone()
+        else:
+            result = self.con.execute(
+                "SELECT COUNT(DISTINCT account_index) FROM pool_daily_prices WHERE deployment = ?",
+                [deployment],
+            ).fetchone()
         return result[0] if result else 0
 
-    def get_vault_count(self) -> int:
+    def get_vault_count(self, deployment: str | None = None) -> int:
         """Get number of pools with daily price data.
 
         Alias for :py:meth:`get_pool_count` to unify the interface
         across Hyperliquid, GRVT, and Lighter scanners.
 
+        :param deployment:
+            Optional deployment slug filter.
         :return:
             Count of unique pools.
         """
-        return self.get_pool_count()
+        return self.get_pool_count(deployment=deployment)
 
-    def get_pool_daily_price_count(self, account_index: int) -> int:
+    def get_pool_daily_price_count(self, account_index: int, deployment: str = LIGHTER_ETHEREUM.slug) -> int:
         """Get number of daily price records for a specific pool.
 
         :param account_index:
             Pool account index.
+        :param deployment:
+            Stable deployment slug. Defaults to Ethereum for compatibility.
         :return:
             Count of daily price records.
         """
         result = self.con.execute(
-            "SELECT COUNT(*) FROM pool_daily_prices WHERE account_index = ?",
-            [account_index],
+            "SELECT COUNT(*) FROM pool_daily_prices WHERE deployment = ? AND account_index = ?",
+            [deployment, account_index],
         ).fetchone()
         return result[0] if result else 0
 
-    def get_pool_last_date(self, account_index: int) -> datetime.date | None:
+    def get_pool_last_date(self, account_index: int, deployment: str = LIGHTER_ETHEREUM.slug) -> datetime.date | None:
         """Get the latest date with price data for a pool.
 
         :param account_index:
             Pool account index.
+        :param deployment:
+            Stable deployment slug. Defaults to Ethereum for compatibility.
         :return:
             Latest date or ``None`` if no data.
         """
         result = self.con.execute(
-            "SELECT MAX(date) FROM pool_daily_prices WHERE account_index = ?",
-            [account_index],
+            "SELECT MAX(date) FROM pool_daily_prices WHERE deployment = ? AND account_index = ?",
+            [deployment, account_index],
         ).fetchone()
         if result and result[0] is not None:
             val = result[0]
@@ -371,9 +506,10 @@ def fetch_and_store_pool(
 
     # Store metadata
     db.upsert_pool_metadata(
+        deployment=session.deployment.slug,
         account_index=summary.account_index,
         name=detail.name or summary.name,
-        description=detail.description,
+        description=detail.description or (LIGHTER_LLP_DESCRIPTION if summary.is_llp else ""),
         l1_address=summary.l1_address,
         is_llp=summary.is_llp,
         status=summary.status,
@@ -400,7 +536,11 @@ def fetch_and_store_pool(
             )
         )
 
-    db.upsert_daily_prices(rows, cutoff_date=cutoff_date)
+    db.upsert_daily_prices(
+        deployment=session.deployment.slug,
+        rows=rows,
+        cutoff_date=cutoff_date,
+    )
 
     logger.debug(
         "Stored %d daily prices for pool %s (%d)",
@@ -475,7 +615,7 @@ def run_daily_scan(
             else:
                 raise
 
-    logger.info("Fetched %d pools from Lighter", len(all_pools))
+    logger.info("Fetched %d pools from %s", len(all_pools), session.deployment.name)
 
     # Filter pools
     if pool_indices is not None:
@@ -496,7 +636,7 @@ def run_daily_scan(
     logger.info("Processing %d pools", len(filtered))
 
     # Fetch details and store in parallel
-    desc = "Fetching Lighter pool details"
+    desc = f"Fetching {session.deployment.name} pool details"
     results = Parallel(n_jobs=max_workers, backend="threading")(delayed(_process_pool_worker)(session, db, summary, cutoff_date, timeout) for summary in tqdm(filtered, desc=desc))
 
     success_count = sum(1 for r in results if r)
@@ -505,7 +645,8 @@ def run_daily_scan(
     db.save()
 
     logger.info(
-        "Daily scan complete. Processed %d pools (%d successful, %d failed) into %s",
+        "%s daily scan complete. Processed %d pools (%d successful, %d failed) into %s",
+        session.deployment.name,
         len(filtered),
         success_count,
         fail_count,

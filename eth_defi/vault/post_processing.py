@@ -30,7 +30,7 @@ from eth_defi.hyperliquid.constants import HYPERCORE_CHAIN_ID, HYPERLIQUID_DAILY
 from eth_defi.hyperliquid.daily_metrics import HyperliquidDailyMetricsDatabase
 from eth_defi.hyperliquid.high_freq_metrics import HyperliquidHighFreqMetricsDatabase
 from eth_defi.hyperliquid.vault_data_export import build_hypercore_prices_dataframe
-from eth_defi.lighter.constants import LIGHTER_CHAIN_ID, LIGHTER_DAILY_METRICS_DATABASE
+from eth_defi.lighter.constants import LIGHTER_DAILY_METRICS_DATABASE, LIGHTER_DEPLOYMENTS, LIGHTER_LEGACY_ROBINHOOD_CHAIN_ID
 from eth_defi.lighter.daily_metrics import LighterDailyMetricsDatabase
 from eth_defi.lighter.vault_data_export import build_raw_prices_dataframe as build_lighter_prices_dataframe
 from eth_defi.research.wrangle_vault_prices import generate_cleaned_vault_datasets
@@ -313,7 +313,11 @@ def _align_native_merge_table(table: pa.Table, schema: pa.Schema) -> pa.Table:
     return pa.Table.from_arrays(arrays, schema=schema)
 
 
-def _write_native_partitions_to_uncleaned_parquet(parquet_path: Path, replacements: dict[int, pd.DataFrame]) -> int:
+def _write_native_partitions_to_uncleaned_parquet(
+    parquet_path: Path,
+    replacements: dict[int, pd.DataFrame],
+    remove_chain_ids: set[int] | None = None,
+) -> int:
     """Replace native chain partitions using PyArrow without full pandas conversion.
 
     The existing file is read as an Arrow table, only the successful native
@@ -325,6 +329,10 @@ def _write_native_partitions_to_uncleaned_parquet(parquet_path: Path, replacemen
         Raw vault-price parquet to update.
     :param replacements:
         Fresh, non-empty source frames keyed by their synthetic chain IDs.
+    :param remove_chain_ids:
+        Additional obsolete chain partitions to remove without replacing.
+        Currently used to clean the legacy Lighter Robinhood synthetic chain
+        9996 after both Lighter deployments were consolidated under 9998.
     :return:
         Total row count in the new raw parquet.
     """
@@ -336,7 +344,9 @@ def _write_native_partitions_to_uncleaned_parquet(parquet_path: Path, replacemen
     native_table = pa.concat_tables(replacement_tables)
 
     if existing_table is not None:
-        chain_mask = pc.is_in(existing_table["chain"], value_set=pa.array(list(replacements)))
+        replaced_chain_ids = set(replacements)
+        replaced_chain_ids.update(remove_chain_ids or set())
+        chain_mask = pc.is_in(existing_table["chain"], value_set=pa.array(list(replaced_chain_ids)))
         retained_table = _align_native_merge_table(existing_table.filter(pc.invert(chain_mask)), schema)
         combined_table = pa.concat_tables([retained_table, native_table])
     else:
@@ -398,6 +408,7 @@ def merge_native_protocols(
     parquet_path = uncleaned_parquet_path or DEFAULT_UNCLEANED_PRICE_DATABASE
     steps: dict[str, bool] = {}
     replacements: dict[int, pd.DataFrame] = {}
+    remove_chain_ids: set[int] = set()
 
     if merge_hypercore:
         try:
@@ -463,7 +474,12 @@ def merge_native_protocols(
             if lighter_df.empty:
                 logger.warning("No Lighter data to merge")
             else:
-                replacements[LIGHTER_CHAIN_ID] = lighter_df
+                for chain_id, deployment_df in lighter_df.groupby("chain"):
+                    replacements[int(chain_id)] = deployment_df
+                # A successful fresh Lighter export now contains Ethereum and
+                # Robinhood addresses together under chain 9998. Remove the
+                # obsolete 9996 partition in the same atomic Parquet rewrite.
+                remove_chain_ids.add(LIGHTER_LEGACY_ROBINHOOD_CHAIN_ID)
             logger.info("Lighter price merge: %d fresh Lighter price entries", len(lighter_df))
             steps["lighter-price-merge"] = True
         except Exception:
@@ -493,7 +509,11 @@ def merge_native_protocols(
         return steps
 
     try:
-        total_rows = _write_native_partitions_to_uncleaned_parquet(parquet_path, replacements)
+        total_rows = _write_native_partitions_to_uncleaned_parquet(
+            parquet_path,
+            replacements,
+            remove_chain_ids=remove_chain_ids,
+        )
         logger.info(
             "Merged %d native protocol chain partitions (%d fresh rows, %d total rows) into uncleaned %s in one PyArrow parquet write",
             len(replacements),
@@ -506,11 +526,12 @@ def merge_native_protocols(
         for step_name, chain_id in (
             ("hypercore-price-merge", HYPERCORE_CHAIN_ID),
             ("grvt-price-merge", GRVT_CHAIN_ID),
-            ("lighter-price-merge", LIGHTER_CHAIN_ID),
             ("hibachi-price-merge", HIBACHI_CHAIN_ID),
         ):
             if chain_id in replacements:
                 steps[step_name] = False
+        if any(deployment.chain_id in replacements for deployment in LIGHTER_DEPLOYMENTS):
+            steps["lighter-price-merge"] = False
 
     return steps
 

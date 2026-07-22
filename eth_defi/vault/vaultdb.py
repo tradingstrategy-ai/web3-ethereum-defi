@@ -9,7 +9,7 @@ from dataclasses import dataclass, field
 from decimal import Decimal
 from io import BufferedIOBase
 from pathlib import Path
-from typing import TypeAlias, TypedDict
+from typing import NotRequired, TypeAlias, TypedDict
 
 import pandas as pd
 from atomicwrites import atomic_write
@@ -135,6 +135,21 @@ class VaultRow(TypedDict):
 
     #: Human-readable vault note captured by the vault scanner.
     _notes: str | None
+
+    #: Protocol deployment slug for native vault integrations.
+    #:
+    #: For now this is populated by Lighter so the metrics export can state
+    #: whether a native Lighter pool belongs to the ``ethereum`` or
+    #: ``robinhood`` deployment. It is optional for existing EVM vault rows.
+    _deployment: NotRequired[str | None]
+
+    #: Real EVM chain associated with a native protocol deployment.
+    #:
+    #: For now this is populated for Lighter on Ethereum (1) and Lighter on
+    #: Robinhood Chain (4663). It must not replace the synthetic chain ID in
+    #: ``_detection_data`` because that ID is the Lighter price-partition and
+    #: :class:`~eth_defi.vault.base.VaultSpec` identity.
+    _deployment_chain_id: NotRequired[int | None]
 
     __annotations__ = {
         "First seen at": datetime.datetime,

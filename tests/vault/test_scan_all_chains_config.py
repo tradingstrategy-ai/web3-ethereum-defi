@@ -1,11 +1,13 @@
 """Test all-chain vault scanner configuration."""
 
+import datetime
 import json
 from pathlib import Path
 
 import pytest
 
 from eth_defi.chain import POA_MIDDLEWARE_NEEDED_CHAIN_IDS
+from eth_defi.lighter.constants import LIGHTER_DEPLOYMENTS
 from eth_defi.vault import scan_all_chains
 from eth_defi.vault.scan_all_chains import build_chain_configs
 from eth_defi.version_info import VersionInfo
@@ -21,6 +23,28 @@ def test_robinhood_chain_is_scheduled_for_vault_scans():
     robinhood = configs["Robinhood"]
     assert robinhood.env_var == "JSON_RPC_ROBINHOOD"
     assert robinhood.scan_vaults is True
+
+
+def test_both_lighter_deployments_are_scheduled() -> None:
+    """``SCAN_LIGHTER`` expands into independently resumable deployment scans."""
+    protocols = scan_all_chains.build_active_protocols(
+        scan_hypercore=False,
+        scan_grvt=False,
+        scan_lighter=True,
+        scan_hibachi=False,
+        scan_core3=False,
+        scan_currency_rates=False,
+    )
+
+    assert protocols == [deployment.name for deployment in LIGHTER_DEPLOYMENTS]
+
+
+def test_legacy_lighter_cycle_override_applies_to_both_deployments() -> None:
+    """Keep existing ``Lighter=4h`` operator configuration working."""
+    cycle = datetime.timedelta(hours=4)
+    overrides = scan_all_chains.ensure_default_scan_cycles({"Lighter": cycle})
+
+    assert all(overrides[deployment.name] == cycle for deployment in LIGHTER_DEPLOYMENTS)
 
 
 def test_tempo_chain_is_scheduled_for_vault_scans():

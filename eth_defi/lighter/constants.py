@@ -6,6 +6,7 @@ Shared constants used across the Lighter modules
 """
 
 import datetime
+from dataclasses import dataclass
 from pathlib import Path
 
 from eth_typing import HexAddress
@@ -23,6 +24,40 @@ from eth_defi.vault.fee import VaultFeeMode
 #:     lives on Ethereum mainnet (chain id 1); see
 #:     :py:data:`LIGHTER_L1_CONTRACT` below.
 LIGHTER_CHAIN_ID: int = 9998
+
+#: Legacy synthetic chain ID used by the first implementation of Lighter on
+#: Robinhood support.
+#:
+#: Both deployments now intentionally use :py:data:`LIGHTER_CHAIN_ID` because
+#: they belong to one native Lighter dataset namespace. Keep this old value
+#: only so Parquet and VaultDatabase migrations can remove rows written by the
+#: short-lived split-chain implementation.
+LIGHTER_LEGACY_ROBINHOOD_CHAIN_ID: int = 9996
+
+#: Ethereum mainnet chain ID associated with the original Lighter deployment.
+#:
+#: This is deliberately separate from :py:data:`LIGHTER_CHAIN_ID`. The latter
+#: is the synthetic vault-dataset ID used to partition native Lighter prices,
+#: whereas this value identifies the EVM chain associated with the deployment.
+#: This distinction became necessary when adding Lighter on Robinhood Chain.
+LIGHTER_ETHEREUM_DEPLOYMENT_CHAIN_ID: int = 1
+
+#: Robinhood Chain ID associated with the Robinhood Lighter deployment.
+#:
+#: For now this field exists specifically so lifetime-metrics consumers can
+#: distinguish Lighter on Robinhood Chain from Lighter on Ethereum without
+#: replacing the synthetic IDs used by the vault price pipeline.
+LIGHTER_ROBINHOOD_DEPLOYMENT_CHAIN_ID: int = 4663
+
+#: LLP account index exposed by the Robinhood Lighter public-pools API.
+#:
+#: For now this override exists specifically for Lighter on Robinhood. Its
+#: ``systemConfig.liquidity_pool_index`` currently points at the next,
+#: uninitialised account instead of the live USDG LLP account. Account type 3
+#: cannot be used as a generic fallback because Ethereum currently exposes both
+#: LLP and XLP with that account type. Keeping the workaround in deployment
+#: configuration prevents XLP from being misclassified as the canonical LLP.
+LIGHTER_ROBINHOOD_LLP_ACCOUNT_INDEX: int = 281474976710654
 
 #: Lighter L1 contract (``ZkLighter`` proxy), Ethereum mainnet (chain id 1).
 #:
@@ -43,6 +78,9 @@ LIGHTER_USDC_ETHEREUM: HexAddress = "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48"
 
 #: Lighter mainnet API base URL.
 LIGHTER_API_URL: str = "https://mainnet.zklighter.elliot.ai"
+
+#: Lighter API for the deployment settling on Robinhood Chain.
+LIGHTER_ROBINHOOD_API_URL: str = "https://api.rh.lighter.xyz"
 
 #: Default path for Lighter daily metrics DuckDB database.
 LIGHTER_DAILY_METRICS_DATABASE: Path = Path.home() / ".tradingstrategy" / "vaults" / "lighter-pools.duckdb"
@@ -70,6 +108,136 @@ LIGHTER_DENOMINATION: str = "USDC"
 LIGHTER_POOL_LOCKUP: datetime.timedelta = datetime.timedelta(minutes=5)
 
 
+@dataclass(frozen=True, slots=True)
+class LighterAPIConfig:
+    """Configuration for one independently indexed Lighter deployment.
+
+    Lighter account indexes are only unique within a deployment. In
+    particular, account ``281474976710654`` exists on both Ethereum Lighter
+    and Robinhood Lighter, so downstream storage must always pair an account
+    index with :py:attr:`slug`.
+
+    :param slug:
+        Stable storage identifier for the deployment.
+    :param name:
+        Human-readable scanner and scheduling name.
+    :param chain_id:
+        Synthetic vault-dataset chain ID. This remains the primary identity
+        used for price partitions and :class:`~eth_defi.vault.base.VaultSpec`.
+    :param deployment_chain_id:
+        Real EVM chain associated with this Lighter deployment. For now this
+        separate identity is needed to expose whether a Lighter pool belongs
+        to the Ethereum or Robinhood deployment in lifetime-metrics exports.
+    :param api_url:
+        REST API base URL.
+    :param app_url:
+        Web application base URL used for vault links.
+    :param address_prefix:
+        Synthetic vault address prefix. Deployment-specific prefixes prevent
+        address-only metadata rules from leaking between deployments.
+    :param denomination:
+        Pool collateral symbol.
+    :param lockup:
+        Public-pool withdrawal cooldown reported by ``systemConfig``.
+    :param llp_account_index_override:
+        Deployment-specific canonical LLP account override. ``None`` trusts
+        ``systemConfig``. For now Robinhood needs an override because its live
+        system configuration points at an uninitialised account.
+    """
+
+    slug: str
+    name: str
+    chain_id: int
+
+    #: Real EVM chain associated with this deployment.
+    #:
+    #: Do not use this value as the Lighter vault's primary ``chain_id``. The
+    #: synthetic :py:attr:`chain_id` is still required to keep native Lighter
+    #: price rows separate from ordinary ERC-4626 vaults. Both Lighter
+    #: deployments share that synthetic ID and use deployment-specific address
+    #: prefixes for uniqueness. For now this second chain ID supports Lighter
+    #: on Robinhood in downstream lifetime-metrics exports.
+    deployment_chain_id: int
+
+    api_url: str
+    app_url: str
+    address_prefix: str
+    denomination: str
+    lockup: datetime.timedelta
+
+    #: Canonical LLP account override for deployments with unreliable system
+    #: configuration. For now only Lighter on Robinhood uses this field.
+    llp_account_index_override: int | None = None
+
+    def format_pool_address(self, account_index: int) -> str:
+        """Create a globally unique synthetic pool address.
+
+        :param account_index:
+            Deployment-local Lighter account index.
+        :return:
+            Synthetic address accepted by :class:`eth_defi.vault.base.VaultSpec`.
+        """
+        return f"{self.address_prefix}-{account_index}"
+
+    def format_pool_link(self, account_index: int) -> str:
+        """Create the deployment-specific public-pool application link.
+
+        :param account_index:
+            Deployment-local Lighter account index.
+        :return:
+            Public-pool detail URL.
+        """
+        return f"{self.app_url}/public-pools/{account_index}"
+
+
+#: Ethereum-settled Lighter deployment. The legacy address format and
+#: synthetic chain ID are intentionally retained for dataset compatibility.
+LIGHTER_ETHEREUM: LighterAPIConfig = LighterAPIConfig(
+    slug="ethereum",
+    name="Lighter Ethereum",
+    chain_id=LIGHTER_CHAIN_ID,
+    # Associated EVM deployment chain exported alongside synthetic ID 9998.
+    deployment_chain_id=LIGHTER_ETHEREUM_DEPLOYMENT_CHAIN_ID,
+    api_url=LIGHTER_API_URL,
+    app_url="https://app.lighter.xyz",
+    address_prefix="lighter-pool",
+    denomination=LIGHTER_DENOMINATION,
+    lockup=LIGHTER_POOL_LOCKUP,
+)
+
+#: Robinhood Chain-settled Lighter deployment. Its live API reports USDG as
+#: collateral and a zero public-pool cooldown.
+LIGHTER_ROBINHOOD: LighterAPIConfig = LighterAPIConfig(
+    slug="robinhood",
+    name="Lighter Robinhood",
+    # Both Lighter deployments belong to the same synthetic dataset chain.
+    # The Robinhood address prefix below prevents VaultSpec/address collisions.
+    chain_id=LIGHTER_CHAIN_ID,
+    # Associated EVM deployment chain exported specifically so consumers can
+    # identify this pool as Lighter on Robinhood rather than Ethereum.
+    deployment_chain_id=LIGHTER_ROBINHOOD_DEPLOYMENT_CHAIN_ID,
+    api_url=LIGHTER_ROBINHOOD_API_URL,
+    app_url="https://robinhoodchain.lighter.xyz",
+    address_prefix="lighter-pool-robinhood",
+    denomination="USDG",
+    lockup=datetime.timedelta(0),
+    # For now Robinhood's systemConfig points at account 281474976710655,
+    # which is uninitialised, while publicPoolsMetadata exposes the live USDG
+    # LLP at 281474976710654. Do not replace this with ``account_type == 3``:
+    # Ethereum also exposes XLP as account type 3 and it is not the LLP.
+    llp_account_index_override=LIGHTER_ROBINHOOD_LLP_ACCOUNT_INDEX,
+)
+
+#: Production Lighter deployments scanned by the all-chain vault pipeline.
+LIGHTER_DEPLOYMENTS: tuple[LighterAPIConfig, ...] = (
+    LIGHTER_ETHEREUM,
+    LIGHTER_ROBINHOOD,
+)
+
+#: Deployment lookup for DuckDB export and migration code.
+LIGHTER_DEPLOYMENTS_BY_SLUG: dict[str, LighterAPIConfig] = {deployment.slug: deployment for deployment in LIGHTER_DEPLOYMENTS}
+
+
 #: Set of Lighter system pool addresses (protocol-curated).
 #:
 #: The LLP (Lighter Liquidity Pool) is the protocol's own liquidity pool;
@@ -77,10 +245,13 @@ LIGHTER_POOL_LOCKUP: datetime.timedelta = datetime.timedelta(minutes=5)
 #: experimental markets.  Both are community-owned and protocol-operated.
 #: Uses the synthetic address format ``lighter-pool-{account_index}``.
 #:
-#: These are protocol-operated pools with special properties (no operator fee,
-#: not listed in ``publicPoolsMetadata``, fetched separately via ``systemConfig``).
-#: Useful for filtering protocol pools from user-created pools.
+#: These are protocol-operated pools with special properties (no operator fee).
+#: Ethereum system pools are fetched separately via ``systemConfig`` when they
+#: are absent from ``publicPoolsMetadata``; the Robinhood LLP is currently
+#: present in that listing. Useful for filtering protocol pools from
+#: user-created pools.
 LIGHTER_SYSTEM_POOL_ADDRESSES: set[str] = {
     "lighter-pool-281474976710654",  # LLP (Lighter Liquidity Pool)
     "lighter-pool-281474976680784",  # XLP (Experimental Liquidity Provider)
+    "lighter-pool-robinhood-281474976710654",  # Robinhood LLP / insurance pool
 }
