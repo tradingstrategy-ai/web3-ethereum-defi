@@ -7,7 +7,7 @@ via public endpoints:
   TVL, APY, Sharpe ratio, and operator fee
 - **Pool details** (share price history, daily returns, positions) via
   ``/api/v1/account`` — per-pool detailed data
-- **System config** via ``/api/v1/systemConfig`` — LLP account index
+- **System config** via ``/api/v1/systemConfig`` — reported LLP account index
 
 No authentication required.
 
@@ -20,7 +20,7 @@ For more information about Lighter:
 import datetime
 import logging
 from dataclasses import dataclass
-from typing import Any, Iterator
+from typing import Any
 
 import pandas as pd
 
@@ -28,6 +28,13 @@ from eth_defi.lighter.session import LighterSession
 from eth_defi.types import Percent
 
 logger = logging.getLogger(__name__)
+
+#: Display-name fallback for the canonical protocol liquidity pool. The
+#: Robinhood deployment currently returns an empty API name for this account.
+LIGHTER_LLP_NAME = "Lighter Liquidity Provider (LLP)"
+
+#: Description fallback for the same protocol-operated insurance pool.
+LIGHTER_LLP_DESCRIPTION = "Protocol-operated liquidity and insurance pool that provides market-making liquidity and handles liquidations on Lighter."
 
 
 @dataclass(slots=True)
@@ -43,7 +50,7 @@ class LighterPoolSummary:
     #: Pool display name (e.g. "ETH 3x long")
     name: str
 
-    #: L1 (Ethereum) address of the pool operator
+    #: Operator address from the API's legacy ``l1_address`` field
     l1_address: str
 
     #: Annual percentage yield
@@ -55,7 +62,7 @@ class LighterPoolSummary:
     #: Operator fee percentage (e.g. 10.0 = 10%)
     operator_fee: Percent
 
-    #: Total asset value (TVL) in USDC
+    #: Total asset value (TVL) in the deployment's collateral currency
     total_asset_value: float
 
     #: Total shares outstanding
@@ -93,7 +100,7 @@ class LighterPoolDetail:
     #: Pool description text
     description: str
 
-    #: Total asset value in USDC
+    #: Total asset value in the deployment's collateral currency
     total_asset_value: float
 
     #: Operator fee percentage (e.g. 10.0 = 10%)
@@ -124,14 +131,15 @@ def fetch_system_config(
 ) -> dict[str, Any]:
     """Fetch Lighter system configuration.
 
-    Returns system config including the LLP account index.
+    Returns system config including the deployment's reported LLP account
+    index. Deployment configuration may override a stale reported value.
 
     :param session:
         HTTP session.
     :param timeout:
         HTTP request timeout.
     :return:
-        System config dict with key field ``liquidity_pool_index``.
+        System config dict with reported ``liquidity_pool_index`` field.
     """
     url = f"{session.api_url}/api/v1/systemConfig"
     resp = session.get(url, timeout=timeout)
@@ -147,7 +155,8 @@ def fetch_all_pools(
     """Fetch all Lighter public pools.
 
     Uses ``/api/v1/publicPoolsMetadata`` with pagination.
-    Also fetches system config to identify the LLP pool.
+    Also fetches system config and applies any deployment-specific LLP account
+    override to identify the canonical pool exactly.
 
     :param session:
         HTTP session.
@@ -158,9 +167,14 @@ def fetch_all_pools(
     :return:
         List of :py:class:`LighterPoolSummary` objects.
     """
-    # Get LLP index from system config
+    # Get the canonical LLP index from deployment configuration when the API
+    # cannot currently provide it reliably. For now this override is needed by
+    # Lighter on Robinhood: its systemConfig points at an uninitialised account,
+    # while the live USDG LLP is present in publicPoolsMetadata at the preceding
+    # index. Ethereum continues to trust its systemConfig value.
     config = fetch_system_config(session, timeout=timeout)
-    llp_index = config.get("liquidity_pool_index")
+    reported_llp_index = config.get("liquidity_pool_index")
+    llp_index = session.deployment.llp_account_index_override or reported_llp_index
 
     all_pools = []
 
@@ -181,6 +195,13 @@ def fetch_all_pools(
 
         for p in pools_data:
             account_index = int(p["account_index"])
+            account_type = int(p.get("account_type", 0))
+            # Identify LLP by its canonical deployment-local account index.
+            # Account type 3 is not sufficient: Ethereum currently exposes both
+            # LLP and XLP with that type. This distinction became load-bearing
+            # when adding Lighter on Robinhood because its systemConfig LLP
+            # index needs the deployment override above.
+            is_llp = account_index == llp_index
             created_ts = p.get("created_at")
             created_at = datetime.datetime.fromtimestamp(created_ts) if created_ts else None
 
@@ -190,7 +211,7 @@ def fetch_all_pools(
             all_pools.append(
                 LighterPoolSummary(
                     account_index=account_index,
-                    name=p.get("name", ""),
+                    name=p.get("name") or (LIGHTER_LLP_NAME if is_llp else ""),
                     l1_address=p.get("l1_address", ""),
                     annual_percentage_yield=float(p.get("annual_percentage_yield", 0)),
                     sharpe_ratio=sharpe_val,
@@ -198,10 +219,10 @@ def fetch_all_pools(
                     total_asset_value=float(p.get("total_asset_value", "0")),
                     total_shares=int(p.get("total_shares", 0)),
                     status=int(p.get("status", 0)),
-                    account_type=int(p.get("account_type", 0)),
+                    account_type=account_type,
                     master_account_index=int(p.get("master_account_index", 0)),
                     created_at=created_at,
-                    is_llp=(account_index == llp_index),
+                    is_llp=is_llp,
                 )
             )
 
@@ -214,9 +235,11 @@ def fetch_all_pools(
         if start_index < 0:
             break
 
-    # The LLP (Lighter Liquidity Pool) is a special system pool that
-    # is NOT included in publicPoolsMetadata. Add it explicitly by
-    # fetching its account details.
+    # The LLP can be absent from publicPoolsMetadata on some deployments. Add
+    # the exact canonical account explicitly, without allowing another type-3
+    # protocol pool such as Ethereum XLP to suppress this recovery path. For
+    # now Robinhood reaches the correct canonical identity through its
+    # deployment-specific override above.
     llp_in_listing = any(p.account_index == llp_index for p in all_pools)
     if llp_index and not llp_in_listing:
         try:

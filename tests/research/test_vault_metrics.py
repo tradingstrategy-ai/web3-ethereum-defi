@@ -12,6 +12,8 @@ import zstandard as zstd
 from plotly.graph_objects import Figure
 
 from eth_defi.erc_4626.vault_protocol.d2.vault import D2_PROTOCOL_NAME, format_d2_vault_note
+from eth_defi.lighter.constants import LIGHTER_ETHEREUM, LIGHTER_ROBINHOOD, LighterAPIConfig
+from eth_defi.lighter.vault_data_export import create_lighter_pool_row
 from eth_defi.research import vault_metrics
 from eth_defi.research.sparkline import export_sparkline_as_png, export_sparkline_as_svg, extract_vault_price_data, render_sparkline_simple
 from eth_defi.research.vault_benchmark import visualise_vault_return_benchmark
@@ -421,6 +423,49 @@ def test_calculate_lifetime_metrics(
 
     # Verify period_results is not in formatted output
     # assert "period_results" not in formatted.columns
+
+
+@pytest.mark.parametrize(
+    ("deployment", "expected_slug", "expected_deployment_chain_id"),
+    (
+        (LIGHTER_ETHEREUM, "ethereum", 1),
+        (LIGHTER_ROBINHOOD, "robinhood", 4663),
+    ),
+)
+def test_calculate_lifetime_metrics_exports_lighter_deployment_chain(
+    price_df: pd.DataFrame,
+    deployment: LighterAPIConfig,
+    expected_slug: str,
+    expected_deployment_chain_id: int,
+) -> None:
+    """Keep Lighter dataset identity separate from its associated EVM chain."""
+    source_vault_id = "43111-0x05c2e246156d37b39a825a25dd08d5589e3fd883"
+    spec, vault_row = create_lighter_pool_row(
+        account_index=281474976710654,
+        name="Lighter Liquidity Provider (LLP)",
+        description="Lighter protocol liquidity and insurance pool.",
+        tvl=1_000_000.0,
+        created_at=None,
+        is_llp=True,
+        deployment=deployment,
+    )
+    vault_prices = price_df.loc[price_df["id"] == source_vault_id].copy()
+    vault_prices["id"] = spec.as_string_id()
+    vault_prices["chain"] = deployment.chain_id
+
+    metrics = calculate_lifetime_metrics(vault_prices, {spec: vault_row})
+
+    row = metrics.iloc[0]
+    # The synthetic ID must remain unchanged because it keys the Lighter price
+    # partition; the added fields identify Ethereum versus Robinhood Lighter.
+    assert row["chain_id"] == deployment.chain_id
+    assert row["deployment"] == expected_slug
+    assert row["deployment_chain_id"] == expected_deployment_chain_id
+
+    exported = export_lifetime_row(row)
+    assert exported["chain_id"] == deployment.chain_id
+    assert exported["deployment"] == expected_slug
+    assert exported["deployment_chain_id"] == expected_deployment_chain_id
 
 
 @pytest.mark.parametrize(
