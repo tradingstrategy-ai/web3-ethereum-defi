@@ -53,6 +53,8 @@ def web3(anvil_arbitrum_fork: AnvilLaunch) -> Web3:
 
 
 @pytest.mark.skipif(JSON_RPC_ARBITRUM is None, reason="JSON_RPC_ARBITRUM needed to run this test")
+# CI flaky since 2026-07-22: Anvil could not create the fork at block
+# 486,151,800 when the selected RPC lacked archive state; later runs pass.
 @flaky.flaky
 def test_bulla_factoring_classification(web3: Web3) -> None:
     """Classify Bulla's TCS Settlement Pool without advertising transaction support."""
