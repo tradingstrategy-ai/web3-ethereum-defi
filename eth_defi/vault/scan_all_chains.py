@@ -377,7 +377,7 @@ def get_due_items(
     return due_chains, due_protocols
 
 
-@dataclass
+@dataclass(slots=True)
 class ChainConfig:
     """Configuration for scanning a single chain"""
 
@@ -391,7 +391,7 @@ class ChainConfig:
     scan_vaults: bool
 
 
-@dataclass
+@dataclass(slots=True)
 class ChainResult:
     """Result of scanning a single chain"""
 

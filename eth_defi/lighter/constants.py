@@ -111,7 +111,7 @@ LIGHTER_DENOMINATION: str = "USDC"
 LIGHTER_POOL_LOCKUP: datetime.timedelta = datetime.timedelta(minutes=5)
 
 
-@dataclass(frozen=True, slots=True)
+@dataclass(slots=True, frozen=True)
 class LighterAPIConfig:
     """Configuration for one independently indexed Lighter deployment.
 
@@ -119,37 +119,18 @@ class LighterAPIConfig:
     particular, account ``281474976710654`` exists on both Ethereum Lighter
     and Robinhood Lighter, so downstream storage must always pair an account
     index with :py:attr:`slug`.
-
-    :param slug:
-        Stable storage identifier for the deployment.
-    :param name:
-        Human-readable scanner and scheduling name.
-    :param chain_id:
-        Synthetic vault-dataset chain ID. This remains the primary identity
-        used for price partitions and :class:`~eth_defi.vault.base.VaultSpec`.
-    :param deployment_chain_id:
-        Real EVM chain associated with this Lighter deployment. For now this
-        separate identity is needed to expose whether a Lighter pool belongs
-        to the Ethereum or Robinhood deployment in lifetime-metrics exports.
-    :param api_url:
-        REST API base URL.
-    :param app_url:
-        Web application base URL used for vault links.
-    :param address_prefix:
-        Synthetic vault address prefix. Deployment-specific prefixes prevent
-        address-only metadata rules from leaking between deployments.
-    :param denomination:
-        Pool collateral symbol.
-    :param lockup:
-        Public-pool withdrawal cooldown reported by ``systemConfig``.
-    :param llp_account_index_override:
-        Deployment-specific canonical LLP account override. ``None`` trusts
-        ``systemConfig``. For now Robinhood needs an override because its live
-        system configuration points at an uninitialised account.
     """
 
+    #: Stable storage identifier for the deployment.
     slug: str
+
+    #: Human-readable scanner and scheduling name.
     name: str
+
+    #: Synthetic vault-dataset chain ID.
+    #:
+    #: This remains the primary identity used for price partitions and
+    #: :class:`~eth_defi.vault.base.VaultSpec` records.
     chain_id: int
 
     #: Real EVM chain associated with this deployment.
@@ -162,14 +143,30 @@ class LighterAPIConfig:
     #: on Robinhood in downstream lifetime-metrics exports.
     deployment_chain_id: int
 
+    #: REST API base URL.
     api_url: str
+
+    #: Web application base URL used for vault links.
     app_url: str
+
+    #: Synthetic vault address prefix.
+    #:
+    #: Deployment-specific prefixes prevent address-only metadata rules from
+    #: leaking between deployments.
     address_prefix: str
+
+    #: Pool collateral symbol.
     denomination: str
+
+    #: Public-pool withdrawal cooldown reported by ``systemConfig``.
     lockup: datetime.timedelta
 
     #: Canonical LLP account override for deployments with unreliable system
-    #: configuration. For now only Lighter on Robinhood uses this field.
+    #: configuration.
+    #:
+    #: ``None`` trusts ``systemConfig``. For now only Lighter on Robinhood uses
+    #: an override because its live system configuration points at an
+    #: uninitialised account.
     llp_account_index_override: int | None = None
 
     def format_pool_address(self, account_index: int) -> str:
