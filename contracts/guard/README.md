@@ -27,6 +27,7 @@ for their whitelist state.
 │                     │ ◄─────────────────────── │  VeloraLib.sol   │
 │                     │ ◄─────────────────────── │  GmxLib.sol      │
 │                     │ ◄─────────────────────── │  HypercoreVaultLi│
+│                     │ ◄─────────────────────── │  LagoonLib.sol   │
 └─────────────────────┘                          └──────────────────┘
          ▲
          │ validateCall()
@@ -70,6 +71,61 @@ Every trade or action must pass through these checks:
 3. **Asset whitelisting** — tokens involved in trades must be on the allowed list (unless `anyAsset` mode)
 4. **Receiver validation** — swap output, deposit shares, and withdrawal proceeds can only go to whitelisted addresses
 5. **Protocol-specific validation** — each supported protocol has tailored checks (swap paths, order parameters, balance envelopes, etc.)
+
+### Lagoon v0.5 asset-manager settlement safety
+
+Lagoon deployments may set `LagoonConfig.max_settlement_amount` as a safety limit on
+the gross underlying amount processed by an asset-manager settlement transaction.
+The default is `None`, which preserves the legacy unlimited behaviour. When the
+feature is enabled, `LagoonConfig.settlement_cooldown` also rate-limits non-zero
+asset-manager settlements and defaults to 24 hours.
+
+The complete amount-and-cooldown policy is identified by Guard internal version 3 and
+`TradingStrategyModuleV0` ABI version `v0.5`.
+
+Stock Lagoon v0.5 does not expose one public value covering the gross underlying
+movement of both deposit and redemption queues, and it always settles a snapshotted
+queue in full. `GuardV0Base` therefore asks `LagoonLib` for an opaque snapshot of the
+relevant underlying balances immediately before the Safe call and routes it back to
+the library after execution:
+
+```text
+deposit assets = Silo balance before - Silo balance after
+redeem assets  = vault balance after - vault balance before
+gross amount   = deposit assets + redeem assets
+```
+
+The complete transaction reverts when `gross amount > maxSettlementAmount`, rolling
+back Lagoon accounting and all token transfers. This is a reject policy, not partial
+settlement. Governance may recover an oversized queue with a direct Safe transaction.
+Direct Safe transactions intentionally bypass module policy.
+
+A per-call amount limit would still let an asset manager submit several individually
+valid non-zero settlements to drain the vault. After every successful capped settlement
+with non-zero gross movement, `LagoonLib` records the block timestamp and rejects
+another non-zero asset-manager settlement until the configured positive cooldown has
+elapsed. Because the gross amount is only known after Lagoon executes, this check runs
+in atomic post-call validation: rejection rolls back the Safe and Lagoon transaction.
+Empty settlements do not start or extend the cooldown and remain callable while it is
+active. Rejected or reverted settlements also leave cooldown state unchanged. The
+onchain and Python API default is 86,400 seconds (24 hours).
+
+`TradingStrategyModuleV0` only carries a generic post-call validation context around
+Safe execution. Validator selection is a hardcoded `GuardV0Base` enum and dispatcher;
+there is no governance-configurable plugin or arbitrary validator address. Future
+vault integrations can add another reviewed validator kind without adding
+protocol-specific execution code to the module.
+
+Re-calling `whitelistLagoonWithSettlementLimit()` updates an existing cap and applies
+the 24-hour cooldown default. `whitelistLagoonWithSettlementLimitAndCooldown()` accepts
+an explicit positive cooldown. Calling the backwards-compatible `whitelistLagoon()`
+resets the vault to unlimited mode. The cap is stored in raw underlying-token units
+onchain; Python deployment configuration accepts a human-readable `Decimal` and
+performs the conversion.
+
+The balance-envelope guarantee assumes a conventional non-rebasing token without
+transfer fees. It does not validate the `_newTotalAssets` settlement argument, which is
+the proposed Lagoon NAV rather than a transfer amount.
 
 See the [contract size and optimisation notes](../../docs/README-contract-size.md) for details
 on the library extraction pattern and compiler settings.
@@ -168,13 +224,13 @@ which handles the full deployment flow:
 
 1. Deploy a Safe 1.4.1 multisig (or attach to an existing one)
 2. Deploy the Lagoon vault contract
-3. Deploy GuardV0, link all required protocol libraries (UniswapLib, CowSwapLib, VeloraLib, GmxLib, HypercoreVaultLib)
-4. Deploy TradingStrategyModuleV0 and enable it as a Safe module
+3. Deploy and link the required protocol libraries (UniswapLib, CowSwapLib, VeloraLib, GmxLib, HypercoreVaultLib, LagoonLib)
+4. Deploy the GuardV0-based TradingStrategyModuleV0 and enable it as a Safe module
 5. Whitelist routers, assets, and protocol-specific contracts
 6. Optionally verify all contracts on Etherscan/Blockscout/Sourcify
 
 See [`eth_defi.erc_4626.vault_protocol.lagoon.deployment`](../../eth_defi/erc_4626/vault_protocol/lagoon/deployment.py)
-for the full source and [`LagoonDeploymentParameters`](../../eth_defi/erc_4626/vault_protocol/lagoon/deployment.py) for configuration options.
+for the full source and [`LagoonConfig`](../../eth_defi/erc_4626/vault_protocol/lagoon/deployment.py) for configuration options.
 
 For manual single-contract deployment with Forge:
 
