@@ -300,11 +300,9 @@ class LibearaVault(TokenisedFundVault):
         return f"{self.product.product_name} uses a permissioned CMTAT share token. The adapter reads issuer-maintained NAV and does not certify price freshness, investor eligibility or public dealing availability."
 
     def get_link(self, referral: str | None = None) -> str:
-        """Return Libeara's platform URL.
+        """Return the fund's reviewed product-information URL.
 
         :param referral: Ignored.
-        :return: Official platform homepage.
+        :return: Product-specific issuer or public record page.
         """
-        if self.is_ultra:
-            return "https://libeara.com/libeara-partners-with-wellington-and-fundbridge-capital-to-launch-a-u-s-treasuries-fund-tokenised-on-public-blockchain/"
-        return "https://libeara.com/"
+        return self.product.homepage

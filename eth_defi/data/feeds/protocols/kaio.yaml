@@ -1,0 +1,17 @@
+feeder-id: kaio
+name: KAIO
+role: protocol
+website: https://www.kaio.xyz/
+linkedin: kaio-digital
+short_description: KAIO provides permissioned tokenisation and investor-registry infrastructure for institutional funds.
+long_description: |
+  KAIO provides the tokenisation, investor-registry and settlement infrastructure for CASHx, a feeder share class of Libre SAF VCC that invests in the BlackRock ICS US Dollar Liquidity Fund.
+other-links:
+  - title: KAIO smart-contract overview
+    url: https://docs.kaio.xyz/how-kaio-works/smart-contracts
+  - title: KAIO architecture overview
+    url: https://docs.kaio.xyz/how-kaio-works/architecture
+  - title: BlackRock ICS US Dollar Liquidity Fund page
+    url: https://www.blackrock.com/cash/en-gb/products/229271/blackrock-ics-us-dollar-liquidity-select-acc-fund
+  - title: CASHx public product record
+    url: https://app.rwa.xyz/assets/CASHx

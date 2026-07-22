@@ -33,7 +33,7 @@ from eth_defi.vault.lower_case_dict import LowercaseDict
 SPIKO_PERMISSIONED_FLOW_REASON = "Spiko USTBL subscriptions, transfers and redemptions require eligibility checks and issuer-operated daily servicing"
 
 #: USTBL's published annual management fee. The reported NAV is net of this fee.
-#: https://www.spiko.io/use-cases/web3
+#: https://www.spiko.io/spiko-treasury-bills-dollar
 USTBL_MANAGEMENT_FEE: Percent = 0.0025
 
 _ORACLE_ABI = [

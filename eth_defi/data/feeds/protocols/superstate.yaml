@@ -5,3 +5,13 @@ website: https://superstate.com/
 twitter: superstateinc
 linkedin: superstate
 # rss: not found - the Superstate website does not advertise an RSS or Atom feed
+short_description: Superstate issues and services tokenised investment funds with public onchain ownership and NAV data.
+long_description: |
+  Superstate operates the reviewed USTB tokenised private fund, including its investor lifecycle, token contracts and continuous NAV oracle.
+other-links:
+  - title: Superstate USTB fund page
+    url: https://superstate.com/ustb
+  - title: Superstate USTB product documentation
+    url: https://docs.superstate.com/superstate-funds/ustb
+  - title: Superstate official smart-contract registry
+    url: https://docs.superstate.com/welcome-to-superstate/smart-contracts
