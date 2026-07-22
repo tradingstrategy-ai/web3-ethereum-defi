@@ -1,5 +1,6 @@
 # 1.2
 
+- fix: Publish Bulla Network protocol metadata under the canonical `bulla-network` slug (2026-07-22)
 - feat: Add Bulla Network Factoring vault recognition, native fee reads and safe read-only support (2026-07-21)
 - feat: Track per-chain vault scanner JSON-RPC calls and errors in DuckDB (2026-07-20)
 - feat: Add Hypersync-backed Chainlink bundle aggregator history and FILQ NAV support (2026-07-20)
