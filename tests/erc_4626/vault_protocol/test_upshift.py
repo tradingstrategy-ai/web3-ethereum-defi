@@ -207,6 +207,8 @@ def test_upshift_multi_asset_fee_units(web3: Web3) -> None:
     assert fee_data.performance == UPSHIFT_GAMMA_BTC_PERFORMANCE_FEE
 
 
+# CI flaky since 2026-07-22: a fixed-fork historical RPC read timed out; the
+# retry passed in the same CI run without a code change.
 @flaky.flaky
 def test_upshift_tori_historical_reader_7d_share_price(
     tmp_path: Path,

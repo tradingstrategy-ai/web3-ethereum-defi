@@ -11,5 +11,7 @@ bytecode_hash = "none"
 # See more config options https://github.com/foundry-rs/foundry/blob/master/crates/config/README.md#all-options
 optimizer = true
 optimizer_runs = 1
-via_ir = true
-
+# The legacy pipeline produces substantially smaller TradingStrategyModuleV0
+# runtime bytecode at optimizer_runs=1. Keep Guard libraries on via_ir=true;
+# their deployed bytecode is smaller with IR and remains ABI/link compatible.
+via_ir = false

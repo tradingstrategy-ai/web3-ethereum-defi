@@ -67,6 +67,22 @@ jobs:
           poetry install
           poetry install -E data -E test -E hypersync -E ccxt -E duckdb -E posts
 
+      # Slow tests may include Anvil mainnet forks. Keep this version in sync
+      # with the main test workflow so both suites exercise the same EVM.
+      - name: Cache Foundry
+        uses: actions/cache@v4
+        with:
+          path: ~/.foundry
+          key: foundry-v1.2.3-${{ runner.os }}
+          restore-keys: |
+            foundry-v1.2.3-
+            foundry-
+
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+        with:
+          version: "v1.2.3"
+
       - name: Run slow tests
         run: |
           poetry run pytest --timeout-method=thread --tb=native -v -s --capture=no --ignore=tests/gmx -m slow

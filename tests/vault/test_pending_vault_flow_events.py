@@ -3,6 +3,7 @@
 import datetime
 import os
 
+import flaky
 import hypersync
 import pytest
 
@@ -48,6 +49,9 @@ def _create_hypersync_client(chain_id: int) -> hypersync.HypersyncClient:
 
 
 @pytest.mark.skipif(not JSON_RPC_BASE, reason="JSON_RPC_BASE needed")
+# CI flaky since 2026-07-22: Hypersync returned HTTP 400 for this fixed Base
+# range while adjacent Ember and Ostium flow queries succeeded.
+@flaky.flaky
 def test_lagoon_fetch_vault_flow_events_from_hypersync() -> None:
     """Fetch Lagoon ERC-7540 deposit and redemption request events.
 
