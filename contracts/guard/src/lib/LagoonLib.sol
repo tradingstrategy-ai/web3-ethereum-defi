@@ -163,6 +163,13 @@ library LagoonLib {
     /// A settlement was attempted against a Lagoon vault not on the allowlist.
     error LagoonVaultNotAllowed(address vault);
 
+    /// Governance attempted to repoint a guard already paired with a vault.
+    ///
+    /// Lagoon deployments have a one-vault, one-Safe and one-guard topology.
+    /// Refusing a second vault makes this deployment invariant explicit and
+    /// avoids leaving stale call-site permissions or indexer records behind.
+    error LagoonVaultAlreadyConfigured(address configuredVault, address requestedVault);
+
     /// The measured deposit-plus-redemption movement was above the cap.
     error LagoonSettlementLimitExceeded(uint256 actualAmount, uint256 maxAmount);
 
@@ -232,12 +239,13 @@ library LagoonLib {
     /// This is the backwards-compatible route used by existing deployments.
     /// Reapplying it to a previously capped vault intentionally clears all cap
     /// metadata, providing an explicit governance-controlled way to disable
-    /// enforcement while preserving the original whitelist API and event.
+    /// enforcement while preserving the original whitelist API and event. A
+    /// different vault cannot replace the vault paired during deployment.
     ///
     /// @param vault Lagoon vault whose settlement selectors will be permitted.
     /// @param notes Human-readable governance audit note.
     function whitelistVault(address vault, string calldata notes) external {
-        if (vault == address(0)) revert LagoonInvalidAddress(vault);
+        _validateVaultAssignment(vault);
 
         LagoonStorage storage config = _storage();
         config.vault = vault;
@@ -420,11 +428,11 @@ library LagoonLib {
 
     /// Check that configured addresses describe one stock Lagoon vault setup.
     ///
-    /// Lagoon v0.5 does expose pendingSilo(), but the guard intentionally takes
-    /// the Silo as an explicit governance input to avoid adding another Lagoon
-    /// interface dependency to the execution path. The non-zero allowance from
-    /// Silo to vault binds the supplied address to the protocol's deposit pull
-    /// relationship; asset() binds the supplied ERC-20 to the vault.
+    /// Stock Lagoon v0.5 removed the public pendingSilo() getter, so the guard
+    /// takes the Silo as an explicit governance input. The deployment API reads
+    /// the canonical ERC-7201 storage slot. Onchain, a non-zero Silo-to-vault
+    /// allowance checks the expected deposit-pull relationship, while asset()
+    /// binds the supplied ERC-20 to the vault.
     ///
     /// These checks are performed at configuration time. A later Lagoon upgrade
     /// or token mutation that breaks the balance invariant will fail closed in
@@ -438,7 +446,7 @@ library LagoonLib {
         address asset,
         address pendingSilo
     ) private view {
-        if (vault == address(0)) revert LagoonInvalidAddress(vault);
+        _validateVaultAssignment(vault);
         if (asset == address(0)) revert LagoonInvalidAddress(asset);
         if (pendingSilo == address(0)) revert LagoonInvalidAddress(pendingSilo);
         if (vault.code.length == 0) revert LagoonAddressHasNoCode(vault);
@@ -455,6 +463,23 @@ library LagoonLib {
         // is almost certainly the wrong address and must not be accepted.
         if (IERC20(asset).allowance(pendingSilo, vault) == 0) {
             revert LagoonSiloAllowanceMissing(pendingSilo, vault);
+        }
+    }
+
+    /// Enforce the singleton Lagoon deployment topology during configuration.
+    ///
+    /// Reconfiguring the same vault remains supported so governance can change
+    /// or disable its settlement cap. Assigning another vault is rejected: the
+    /// surrounding GuardV0Base call-site allowlist is append-only, so silently
+    /// switching the singleton would otherwise retain obsolete permissions.
+    ///
+    /// @param vault Lagoon vault requested by governance.
+    function _validateVaultAssignment(address vault) private view {
+        if (vault == address(0)) revert LagoonInvalidAddress(vault);
+
+        address configuredVault = _storage().vault;
+        if (configuredVault != address(0) && configuredVault != vault) {
+            revert LagoonVaultAlreadyConfigured(configuredVault, vault);
         }
     }
 }

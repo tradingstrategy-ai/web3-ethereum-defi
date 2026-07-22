@@ -81,9 +81,10 @@ is `None`, which preserves the legacy unlimited behaviour.
 Settlement-limit support is identified by Guard internal version 2 and
 `TradingStrategyModuleV0` ABI version `v0.5`.
 
-Stock Lagoon v0.5 does not expose a dependable queued-underlying getter and always
-settles its snapshotted queue in full. `TradingStrategyModuleV0` therefore snapshots
-the underlying balances immediately before the Safe call and validates them after it:
+Stock Lagoon v0.5 does not expose one public value covering the gross underlying
+movement of both deposit and redemption queues, and it always settles a snapshotted
+queue in full. `TradingStrategyModuleV0` therefore snapshots the relevant underlying
+balances immediately before the Safe call and validates them after it:
 
 ```text
 deposit assets = Silo balance before - Silo balance after
@@ -202,8 +203,8 @@ which handles the full deployment flow:
 
 1. Deploy a Safe 1.4.1 multisig (or attach to an existing one)
 2. Deploy the Lagoon vault contract
-3. Deploy GuardV0, link all required protocol libraries (UniswapLib, CowSwapLib, VeloraLib, GmxLib, HypercoreVaultLib, LagoonLib)
-4. Deploy TradingStrategyModuleV0 and enable it as a Safe module
+3. Deploy and link the required protocol libraries (UniswapLib, CowSwapLib, VeloraLib, GmxLib, HypercoreVaultLib, LagoonLib)
+4. Deploy the GuardV0-based TradingStrategyModuleV0 and enable it as a Safe module
 5. Whitelist routers, assets, and protocol-specific contracts
 6. Optionally verify all contracts on Etherscan/Blockscout/Sourcify
 

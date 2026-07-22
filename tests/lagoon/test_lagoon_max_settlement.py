@@ -9,12 +9,53 @@ from web3 import Web3
 from web3._utils.events import EventLogErrorFlags
 
 from eth_defi.abi import get_deployed_contract
-from eth_defi.erc_4626.vault_protocol.lagoon.deployment import LagoonAutomatedDeployment, LagoonDeploymentParameters, deploy_automated_lagoon_vault
+from eth_defi.erc_4626.vault_protocol.lagoon.deployment import (
+    LagoonAutomatedDeployment,
+    LagoonConfig,
+    LagoonDeploymentParameters,
+    deploy_automated_lagoon_vault,
+)
 from eth_defi.hotwallet import HotWallet
 from eth_defi.provider.fallback import ExtraValueError
 from eth_defi.safe.execute import execute_safe_tx
 from eth_defi.token import USDC_NATIVE_TOKEN, TokenDetails
 from eth_defi.trace import assert_transaction_success_with_explanation
+
+
+@pytest.mark.parametrize(
+    ("config_overrides", "expected_error"),
+    (
+        ({"satellite_chain": True}, "satellite chain"),
+        ({"vault_abi": "lagoon/Vault.json"}, "stock Lagoon v0.5 vault ABI"),
+        ({"vault_abi": "lagoon/v0.6.0/Vault.json"}, "stock Lagoon v0.5 vault ABI"),
+    ),
+)
+def test_lagoon_config_rejects_unenforceable_settlement_limit(
+    config_overrides: dict[str, object],
+    expected_error: str,
+) -> None:
+    """Reject public configurations whose deployment topology cannot enforce the cap.
+
+    :param config_overrides:
+        Unsupported public configuration fields to apply.
+    :param expected_error:
+        Diagnostic fragment explaining why enforcement is unavailable.
+    """
+    parameters = LagoonDeploymentParameters(
+        underlying=USDC_NATIVE_TOKEN[8453],
+        name="Unsupported capped Lagoon",
+        symbol="CAP",
+    )
+
+    with pytest.raises(AssertionError, match=expected_error):
+        LagoonConfig(
+            parameters=parameters,
+            asset_manager="0x0000000000000000000000000000000000000001",
+            safe_owners=["0x0000000000000000000000000000000000000002"],
+            safe_threshold=1,
+            max_settlement_amount=Decimal(1),
+            **config_overrides,
+        )
 
 
 def _deploy_capped_vault(
@@ -23,6 +64,8 @@ def _deploy_capped_vault(
     asset_manager: HexAddress,
     safe_owner: HexAddress,
     max_settlement_amount: Decimal,
+    *,
+    use_config_api: bool,
 ) -> LagoonAutomatedDeployment:
     """Deploy a stock Lagoon v0.5 vault with a one-owner Safe and a settlement cap.
 
@@ -40,6 +83,10 @@ def _deploy_capped_vault(
         Additional Safe owner address.
     :param max_settlement_amount:
         Maximum gross settlement in human-readable USDC units.
+    :param use_config_api:
+        Use :class:`LagoonConfig` when true and the backwards-compatible direct
+        deployment keyword when false. The two end-to-end tests exercise both
+        publicly supported deployment APIs without adding another deployment.
     :return:
         Complete Lagoon deployment.
     """
@@ -48,16 +95,26 @@ def _deploy_capped_vault(
         name="Capped Lagoon",
         symbol="CAP",
     )
+    deployment_kwargs = {
+        "asset_manager": asset_manager,
+        "parameters": parameters,
+        "safe_owners": [safe_owner],
+        "safe_threshold": 1,
+        "uniswap_v2": None,
+        "uniswap_v3": None,
+        "max_settlement_amount": max_settlement_amount,
+    }
+    if use_config_api:
+        return deploy_automated_lagoon_vault(
+            web3=web3,
+            deployer=deployer,
+            config=LagoonConfig(**deployment_kwargs),
+        )
+
     return deploy_automated_lagoon_vault(
         web3=web3,
         deployer=deployer,
-        asset_manager=asset_manager,
-        parameters=parameters,
-        safe_owners=[safe_owner],
-        safe_threshold=1,
-        uniswap_v2=None,
-        uniswap_v3=None,
-        max_settlement_amount=max_settlement_amount,
+        **deployment_kwargs,
     )
 
 
@@ -102,6 +159,7 @@ def test_lagoon_v05_max_settlement_accepts_deposit_and_redemption(
         asset_manager,
         web3.eth.accounts[2],
         cap,
+        use_config_api=True,
     )
     vault = deployment.vault
     module = deployment.trading_strategy_module
@@ -116,6 +174,22 @@ def test_lagoon_v05_max_settlement_accepts_deposit_and_redemption(
         vault.silo_address,
         cap_raw,
     ]
+
+    # The deployment topology is deliberately one vault per guard and Safe.
+    # Reconfiguration may update this vault's cap, but must not leave stale
+    # permissions behind by silently replacing it with another vault.
+    replacement_vault = web3.eth.accounts[9]
+    already_configured_selector = Web3.keccak(text="LagoonVaultAlreadyConfigured(address,address)")[:4]
+    with pytest.raises(ExtraValueError) as exc_info:
+        module.functions.whitelistLagoon(
+            replacement_vault,
+            "Unexpected replacement",
+        ).call({"from": vault.safe_address})
+    revert_data = Web3.to_bytes(hexstr=exc_info.value.args[0]["data"])
+    assert revert_data[:4] == already_configured_selector
+    configured_vault, requested_vault = decode(["address", "address"], revert_data[4:])
+    assert Web3.to_checksum_address(configured_vault) == vault.address
+    assert Web3.to_checksum_address(requested_vault) == replacement_vault
 
     tx_hash = vault.post_new_valuation(Decimal(0)).transact({"from": asset_manager})
     assert_transaction_success_with_explanation(web3, tx_hash)
@@ -221,6 +295,7 @@ def test_lagoon_v05_max_settlement_rejects_atomically_and_safe_can_recover(
         asset_manager,
         web3.eth.accounts[2],
         Decimal(8),
+        use_config_api=False,
     )
     vault = deployment.vault
     module = deployment.trading_strategy_module

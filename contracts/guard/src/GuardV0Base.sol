@@ -263,6 +263,11 @@ abstract contract GuardV0Base is IGuard, Multicall {
     event AnyAssetSet(bool value, string notes);
     event AnyVaultSet(bool value, string notes);
 
+    // LagoonLib emits this event through DELEGATECALL. Declaring the matching
+    // signature here keeps it in GuardV0Base-derived ABIs for backwards
+    // compatibility with consumers which do not load the library ABI.
+    event LagoonVaultApproved(address vault, string notes);
+
     // Velora events are in VeloraLib (VeloraSwapperApproved, VeloraSwapExecuted)
     event ERC4626Approved(address vault, string notes);
     event CCTPMessengerApproved(address tokenMessenger, string notes);
