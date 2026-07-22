@@ -40,6 +40,7 @@ def test_gains_features(web3):
     assert ERC4626Feature.gains_like in features, f"Got features: {features}"
 
 
+@pytest.mark.slow
 def test_gains_read_data(web3, vault: GainsVault):
     assert vault.name == "gTrade (Gains Network USDC)"
     # https://arbiscan.io/address/0xBF55C78132ab06a2B217040b7A7F20B5cBD47982#readContract
