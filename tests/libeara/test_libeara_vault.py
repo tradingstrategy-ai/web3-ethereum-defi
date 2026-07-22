@@ -58,6 +58,7 @@ def test_libeara_adapter_reads_cmtat_nav(web3: Web3, product) -> None:
     assert isinstance(vault, LibearaVault)
     assert vault.manager_name == product.manager_name
     assert vault.curator_slug == product.curator_slug
+    assert vault.get_link() == product.homepage
     assert vault.fetch_total_supply(TEST_BLOCK) == expected_supply
     assert vault.fetch_share_price(TEST_BLOCK) == expected_price
     assert vault.fetch_total_assets(TEST_BLOCK) == expected_supply * expected_price

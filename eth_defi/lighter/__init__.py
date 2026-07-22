@@ -3,8 +3,10 @@
 This module provides tools for interacting with the `Lighter <https://lighter.xyz/>`__
 decentralised perpetuals exchange, including pool data extraction and daily metrics.
 
-Lighter is a ZK-rollup perp DEX on Ethereum with public pools (vaults)
-including the LLP (Lighter Liquidity Pool) and user-created leveraged pools.
+The metrics integration indexes public pools (vaults) from Lighter deployments
+associated with Ethereum and Robinhood Chain, including protocol liquidity
+pools and user-created leveraged pools. Custody and Guard helpers remain
+specific to the original Ethereum deployment.
 
 See :py:mod:`eth_defi.lighter.vault` for pool-related functionality,
 :py:mod:`eth_defi.lighter.daily_metrics` for the daily metrics pipeline and

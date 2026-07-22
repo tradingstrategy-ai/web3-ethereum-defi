@@ -17,6 +17,7 @@ class LibearaProduct:
     :param description: Short public product description.
     :param manager_name: Organisation responsible for portfolio management.
     :param curator_slug: Curator metadata slug used by vault exports.
+    :param homepage: Product-specific public information page.
     :param first_seen_at_block: First block with proxy bytecode.
     :param first_seen_at: Proxy deployment timestamp as naive UTC.
     """
@@ -28,6 +29,7 @@ class LibearaProduct:
     description: str
     manager_name: str
     curator_slug: str
+    homepage: str
     first_seen_at_block: int
     first_seen_at: datetime.datetime
 
@@ -45,6 +47,7 @@ CUMIU_ETHEREUM = LibearaProduct(
     "US-dollar digital money-market strategy.",
     "China Asset Management (Hong Kong)",
     "chinaamc-hong-kong",
+    "https://www.chinaamc.com.hk/product/chinaamc-usd-digital-money-market-fund-listedclass/",
     23_038_326,
     datetime.datetime(2025, 7, 31, 6, 34, 35, tzinfo=datetime.UTC).replace(tzinfo=None),
 )
@@ -59,6 +62,7 @@ BELIF_ETHEREUM = LibearaProduct(
     "Liquidity-income strategy.",
     "Bosera Asset Management (International)",
     "bosera-asset-management-international",
+    "https://app.rwa.xyz/assets/BELIF",
     23_595_754,
     datetime.datetime(2025, 10, 17, 9, 1, 23, tzinfo=datetime.UTC).replace(tzinfo=None),
 )
@@ -72,6 +76,7 @@ LIBEARA_ULTRA_ARBITRUM = LibearaProduct(
     "Ultra-short U.S. Treasury strategy.",
     "Wellington Management",
     "wellington-management",
+    "https://libeara.com/libeara-partners-with-wellington-and-fundbridge-capital-to-launch-a-u-s-treasuries-fund-tokenised-on-public-blockchain/",
     358_954_981,
     datetime.datetime(2025, 7, 18, 7, 9, 32, tzinfo=datetime.UTC).replace(tzinfo=None),
 )
@@ -89,6 +94,7 @@ LIBEARA_ULTRA_ETHEREUM = LibearaProduct(
     "Ultra-short U.S. Treasury strategy.",
     "Wellington Management",
     "wellington-management",
+    "https://libeara.com/libeara-partners-with-wellington-and-fundbridge-capital-to-launch-a-u-s-treasuries-fund-tokenised-on-public-blockchain/",
     21_469_784,
     datetime.datetime(2024, 12, 24, 3, 55, 23, tzinfo=datetime.UTC).replace(tzinfo=None),
 )

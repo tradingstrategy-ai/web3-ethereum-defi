@@ -89,6 +89,7 @@ Supported protocols
    auto_finance/index
    basevol/index
    brink/index
+   bulla/index
    cap/index
    centrifuge/index
    crystalclear/index

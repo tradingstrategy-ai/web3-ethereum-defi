@@ -61,6 +61,7 @@ from eth_defi.hibachi.vault_data_export import merge_into_vault_database as hiba
 from eth_defi.hyperliquid.daily_metrics import run_daily_scan as hyperliquid_run_daily_scan
 from eth_defi.hyperliquid.session import create_hyperliquid_session
 from eth_defi.hypersync.utils import configure_hypersync_from_env
+from eth_defi.lighter.constants import LIGHTER_DAILY_METRICS_DATABASE, LIGHTER_DEPLOYMENTS, LIGHTER_ETHEREUM, LighterAPIConfig
 from eth_defi.lighter.daily_metrics import run_daily_scan as lighter_run_daily_scan
 from eth_defi.lighter.session import create_lighter_session
 from eth_defi.lighter.vault_data_export import merge_into_vault_database as lighter_merge_vault_db
@@ -149,6 +150,10 @@ def ensure_default_scan_cycles(cycle_overrides: dict[str, datetime.timedelta]) -
         Copy of the overrides with built-in defaults applied.
     """
     result = dict(cycle_overrides)
+    legacy_lighter_cycle = result.pop("Lighter", None)
+    if legacy_lighter_cycle is not None:
+        for deployment in LIGHTER_DEPLOYMENTS:
+            result.setdefault(deployment.name, legacy_lighter_cycle)
     result.setdefault(CURRENCY_RATES_PROTOCOL_NAME, CURRENCY_RATES_DEFAULT_CYCLE)
     return result
 
@@ -247,7 +252,7 @@ def build_active_protocols(
     if scan_grvt:
         all_protocols.append("GRVT")
     if scan_lighter:
-        all_protocols.append("Lighter")
+        all_protocols.extend(deployment.name for deployment in LIGHTER_DEPLOYMENTS)
     if scan_hibachi:
         all_protocols.append("Hibachi")
     if scan_core3:
@@ -372,7 +377,7 @@ def get_due_items(
     return due_chains, due_protocols
 
 
-@dataclass
+@dataclass(slots=True)
 class ChainConfig:
     """Configuration for scanning a single chain"""
 
@@ -386,7 +391,7 @@ class ChainConfig:
     scan_vaults: bool
 
 
-@dataclass
+@dataclass(slots=True)
 class ChainResult:
     """Result of scanning a single chain"""
 
@@ -1220,13 +1225,15 @@ def scan_lighter_fn(
     max_workers: int,
     db_path: Path | None = None,
     vault_db_path: Path = DEFAULT_VAULT_DATABASE,
+    deployment: LighterAPIConfig = LIGHTER_ETHEREUM,
 ) -> ChainResult:
     """Scan Lighter native pools via public endpoints.
 
     Runs the Lighter daily metrics pipeline: discovers pools from the
     public API, fetches share price history, stores in DuckDB, and
-    merges into the shared ERC-4626 pipeline files (VaultDatabase pickle
-    + cleaned Parquet).
+    merges pool metadata into the shared VaultDatabase pickle. Price rows are
+    merged into the shared uncleaned Parquet later by post-processing, after
+    all independently scheduled Lighter deployments have had a chance to run.
 
     No authentication required.
 
@@ -1236,19 +1243,19 @@ def scan_lighter_fn(
         Path to the Lighter DuckDB file.  ``None`` uses the default.
     :param vault_db_path:
         Path to the vault database pickle.
+    :param deployment:
+        Lighter deployment to scan. Defaults to Ethereum for compatibility.
     :return:
         Scan result with vault count and duration.
     """
-    from eth_defi.lighter.constants import LIGHTER_DAILY_METRICS_DATABASE
-
     if db_path is None:
         db_path = LIGHTER_DAILY_METRICS_DATABASE
 
-    result = ChainResult(name="Lighter", status="running")
+    result = ChainResult(name=deployment.name, status="running")
     start_time = time.time()
 
     try:
-        session = create_lighter_session()
+        session = create_lighter_session(deployment=deployment)
 
         db = lighter_run_daily_scan(
             session=session,
@@ -1257,7 +1264,7 @@ def scan_lighter_fn(
         )
 
         try:
-            vault_count = db.get_vault_count()
+            vault_count = db.get_vault_count(deployment=deployment.slug)
             result.vault_count = vault_count
             result.vault_scan_ok = True
 
@@ -1269,7 +1276,7 @@ def scan_lighter_fn(
         result.status = "success"
 
     except Exception as e:
-        logger.exception("Lighter scan failed")
+        logger.exception("%s scan failed", deployment.name)
         result.status = "failed"
         result.error = str(e)
         result.traceback_str = traceback.format_exc()
@@ -2029,22 +2036,34 @@ def run_scan_tick(
             logger.error("GRVT: FAILED - %s", r.error)
         print_dashboard(results, display_order, uncleaned_price_path=uncleaned_price_path)
 
-    if scan_lighter and "Lighter" in active_protocols:
-        logger.info("Scanning Lighter (native pools)")
-        try:
-            results["Lighter"] = scan_lighter_fn(max_workers, db_path=lighter_db_path, vault_db_path=vault_db_path)
-        except Exception as e:
-            logger.exception("Lighter scan crashed with unhandled exception")
-            results["Lighter"] = ChainResult(name="Lighter", status="failed", error=str(e), traceback_str=traceback.format_exc())
-        r = results["Lighter"]
-        if r.status == "success":
-            logger.info("Lighter: SUCCESS - %d pools", r.vault_count or 0)
-            # Save cycle state for data fetching progress — not related to post-processing
-            if on_item_success:
-                on_item_success("Lighter")
-        elif r.status == "failed":
-            logger.error("Lighter: FAILED - %s", r.error)
-        print_dashboard(results, display_order, uncleaned_price_path=uncleaned_price_path)
+    if scan_lighter:
+        for deployment in LIGHTER_DEPLOYMENTS:
+            if deployment.name not in active_protocols:
+                continue
+            logger.info("Scanning %s (native pools)", deployment.name)
+            try:
+                results[deployment.name] = scan_lighter_fn(
+                    max_workers,
+                    db_path=lighter_db_path,
+                    vault_db_path=vault_db_path,
+                    deployment=deployment,
+                )
+            except Exception as e:
+                logger.exception("%s scan crashed with unhandled exception", deployment.name)
+                results[deployment.name] = ChainResult(
+                    name=deployment.name,
+                    status="failed",
+                    error=str(e),
+                    traceback_str=traceback.format_exc(),
+                )
+            result = results[deployment.name]
+            if result.status == "success":
+                logger.info("%s: SUCCESS - %d pools", deployment.name, result.vault_count or 0)
+                if on_item_success:
+                    on_item_success(deployment.name)
+            elif result.status == "failed":
+                logger.error("%s: FAILED - %s", deployment.name, result.error)
+            print_dashboard(results, display_order, uncleaned_price_path=uncleaned_price_path)
 
     if scan_hibachi and "Hibachi" in active_protocols:
         logger.info("Scanning Hibachi (native vaults)")

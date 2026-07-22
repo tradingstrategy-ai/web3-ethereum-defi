@@ -1,6 +1,9 @@
 # 1.2
 
 - feat: Add optional atomic gross-settlement and cooldown safety controls for asset-manager Lagoon v0.5 transactions (2026-07-22)
+- fix: Publish Bulla Network protocol metadata under the canonical `bulla-network` slug (2026-07-22)
+- feat: Add Bulla Network Factoring vault recognition, native fee reads and safe read-only support (2026-07-21)
+- feat: Add multi-deployment Lighter vault scanning for Ethereum and Robinhood Chain with deployment-aware metrics and automatic legacy data migration (2026-07-22)
 - feat: Track per-chain vault scanner JSON-RPC calls and errors in DuckDB (2026-07-20)
 - feat: Add Hypersync-backed Chainlink bundle aggregator history and FILQ NAV support (2026-07-20)
 - feat: Backfill OpenEden TBILL oracle price history while preserving supply-only FDIT and CASHx metadata (2026-07-20)
