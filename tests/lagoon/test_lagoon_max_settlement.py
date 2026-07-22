@@ -110,7 +110,7 @@ def _deploy_capped_vault(
         deployment keyword when false. The two end-to-end tests exercise both
         publicly supported deployment APIs without adding another deployment.
     :param settlement_cooldown:
-        Minimum seconds between successful asset-manager settlements.
+        Minimum seconds between non-zero asset-manager settlements.
     :return:
         Complete Lagoon deployment.
     """
@@ -204,6 +204,16 @@ def test_lagoon_v05_settlement_safety_accepts_after_cooldown_and_rejects_repeat(
         0,
         0,
     ]
+    assert module.functions.getLagoonSettlementSafetyConfig(vault.address).call() == [
+        True,
+        True,
+        base_usdc.address,
+        vault.silo_address,
+        cap_raw,
+        DEFAULT_LAGOON_SETTLEMENT_COOLDOWN,
+        0,
+        0,
+    ]
 
     # The deployment topology is deliberately one vault per guard and Safe.
     # Reconfiguration may update this vault's cap, but must not leave stale
@@ -224,6 +234,26 @@ def test_lagoon_v05_settlement_safety_accepts_after_cooldown_and_rejects_repeat(
     tx_hash = vault.post_new_valuation(Decimal(0)).transact({"from": asset_manager})
     assert_transaction_success_with_explanation(web3, tx_hash)
 
+    # An empty settlement is permitted and does not start a cooldown. The next
+    # non-zero settlement may therefore execute immediately.
+    empty_settle_call = vault.settle_via_trading_strategy_module(Decimal(0))
+    tx_hash = empty_settle_call.transact({"from": asset_manager, "gas": 1_000_000})
+    empty_receipt = assert_transaction_success_with_explanation(web3, tx_hash)
+    empty_settlement_events = lagoon_events.events.LagoonSettlementValidated().process_receipt(empty_receipt, errors=EventLogErrorFlags.Discard)
+    assert len(empty_settlement_events) == 1
+    assert empty_settlement_events[0]["args"]["grossSettlementAmount"] == 0
+    assert lagoon_events.events.LagoonSettlementCooldownStarted().process_receipt(empty_receipt, errors=EventLogErrorFlags.Discard) == ()
+    assert module.functions.getLagoonSettlementSafetyConfig(vault.address).call() == [
+        True,
+        True,
+        base_usdc.address,
+        vault.silo_address,
+        cap_raw,
+        DEFAULT_LAGOON_SETTLEMENT_COOLDOWN,
+        0,
+        0,
+    ]
+
     _request_deposit(deployment, base_usdc, new_depositor, cap_raw)
     assert vault.get_flow_manager().fetch_pending_deposit(web3.eth.block_number) == cap
     tx_hash = vault.post_new_valuation(Decimal(0)).transact({"from": asset_manager})
@@ -243,16 +273,35 @@ def test_lagoon_v05_settlement_safety_accepts_after_cooldown_and_rejects_repeat(
     first_settlement_timestamp = int(web3.eth.get_block(receipt["blockNumber"])["timestamp"])
     assert cooldown_events[0]["args"]["settlementTimestamp"] == first_settlement_timestamp
     assert cooldown_events[0]["args"]["nextSettlementTimestamp"] == first_settlement_timestamp + DEFAULT_LAGOON_SETTLEMENT_COOLDOWN
-    assert module.functions.getLagoonSettlementCooldownConfig(vault.address).call() == [
+    expected_safety_config = [
+        True,
+        True,
+        base_usdc.address,
+        vault.silo_address,
+        cap_raw,
         DEFAULT_LAGOON_SETTLEMENT_COOLDOWN,
         first_settlement_timestamp,
         first_settlement_timestamp + DEFAULT_LAGOON_SETTLEMENT_COOLDOWN,
     ]
+    assert module.functions.getLagoonSettlementSafetyConfig(vault.address).call() == expected_safety_config
     assert vault.get_flow_manager().fetch_pending_deposit(web3.eth.block_number) == 0
     assert base_usdc.fetch_raw_balance_of(vault.safe_address) == cap_raw
 
     tx_hash = vault.finalise_deposit(new_depositor).transact({"from": new_depositor})
     assert_transaction_success_with_explanation(web3, tx_hash)
+
+    # Empty settlement remains callable during an active cooldown and must not
+    # extend the next non-zero settlement epoch.
+    tx_hash = vault.post_new_valuation(cap).transact({"from": asset_manager})
+    assert_transaction_success_with_explanation(web3, tx_hash)
+    empty_settle_call = vault.settle_via_trading_strategy_module(cap)
+    tx_hash = empty_settle_call.transact({"from": asset_manager, "gas": 1_000_000})
+    empty_receipt = assert_transaction_success_with_explanation(web3, tx_hash)
+    empty_settlement_events = lagoon_events.events.LagoonSettlementValidated().process_receipt(empty_receipt, errors=EventLogErrorFlags.Discard)
+    assert len(empty_settlement_events) == 1
+    assert empty_settlement_events[0]["args"]["grossSettlementAmount"] == 0
+    assert lagoon_events.events.LagoonSettlementCooldownStarted().process_receipt(empty_receipt, errors=EventLogErrorFlags.Discard) == ()
+    assert module.functions.getLagoonSettlementSafetyConfig(vault.address).call() == expected_safety_config
 
     redeem_amount = Decimal(4)
     redeem_raw = vault.share_token.convert_to_raw(redeem_amount)
@@ -265,8 +314,8 @@ def test_lagoon_v05_settlement_safety_accepts_after_cooldown_and_rejects_repeat(
     settle_call = vault.settle_via_trading_strategy_module(cap)
     vault_assets_before = base_usdc.fetch_raw_balance_of(vault.address)
 
-    # A second below-cap settlement would pass the amount check, but must fail
-    # before Safe execution while the asset-manager safety cooldown is active.
+    # A second non-zero below-cap settlement passes the amount check, but its
+    # post-call validation atomically reverts while the cooldown is active.
     cooldown_selector = Web3.keccak(text="LagoonSettlementCooldownActive(uint256,uint256)")[:4]
     with pytest.raises(ExtraValueError) as exc_info:
         settle_call.call({"from": asset_manager})
@@ -281,11 +330,7 @@ def test_lagoon_v05_settlement_safety_accepts_after_cooldown_and_rejects_repeat(
     cooldown_receipt = web3.eth.wait_for_transaction_receipt(tx_hash)
     assert cooldown_receipt["status"] == 0
     assert vault.get_flow_manager().fetch_pending_redemption(web3.eth.block_number) == redeem_amount
-    assert module.functions.getLagoonSettlementCooldownConfig(vault.address).call() == [
-        DEFAULT_LAGOON_SETTLEMENT_COOLDOWN,
-        first_settlement_timestamp,
-        first_settlement_timestamp + DEFAULT_LAGOON_SETTLEMENT_COOLDOWN,
-    ]
+    assert module.functions.getLagoonSettlementSafetyConfig(vault.address).call() == expected_safety_config
 
     mine(web3, increase_timestamp=DEFAULT_LAGOON_SETTLEMENT_COOLDOWN)
     tx_hash = settle_call.transact({"from": asset_manager, "gas": 1_000_000})
@@ -314,7 +359,7 @@ def test_lagoon_v05_settlement_safety_accepts_after_cooldown_and_rejects_repeat(
     tx_hash = vault.post_new_valuation(Decimal(5)).transact({"from": asset_manager})
     assert_transaction_success_with_explanation(web3, tx_hash)
 
-    # Move beyond the second successful settlement's cooldown so this branch
+    # Move beyond the second non-zero settlement's cooldown so this branch
     # reaches and exercises the independent gross-amount rejection.
     mine(web3, increase_timestamp=DEFAULT_LAGOON_SETTLEMENT_COOLDOWN)
 

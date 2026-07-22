@@ -245,7 +245,7 @@ class LagoonSettlementLimitConfig:
     #: Whether the limit is currently enforced
     enabled: bool
 
-    #: Minimum seconds between successful asset-manager settlements.
+    #: Minimum seconds between non-zero asset-manager settlements.
     #:
     #: The default preserves the fail-safe interpretation of amount-only
     #: configuration events emitted before the explicit cooldown event existed.

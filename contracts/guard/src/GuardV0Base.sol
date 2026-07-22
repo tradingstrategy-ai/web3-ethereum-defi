@@ -489,7 +489,7 @@ abstract contract GuardV0Base is IGuard, Multicall {
     /// @param asset Vault underlying token measured by LagoonLib.
     /// @param pendingSilo Pending-deposit Silo measured by LagoonLib.
     /// @param maxSettlementAmount Maximum gross asset-manager settlement.
-    /// @param settlementCooldown Minimum seconds between successful settlements.
+    /// @param settlementCooldown Minimum seconds between non-zero settlements.
     /// @param notes Human-readable governance audit note.
     function whitelistLagoonWithSettlementLimitAndCooldown(
         address vault,
@@ -622,6 +622,39 @@ abstract contract GuardV0Base is IGuard, Multicall {
     ) {
         require(LagoonLib.isDeployed());
         return LagoonLib.getSettlementCooldownConfig(vault);
+    }
+
+    /// Return the complete Lagoon asset-manager settlement safety state.
+    ///
+    /// This additive convenience interface combines the established amount
+    /// configuration and cooldown getters. Integrations can use one GuardV0Base
+    /// call to discover whether safety is enabled, the measured contracts and
+    /// maximum gross amount, and the Unix epoch when another non-zero automated
+    /// settlement may complete. Empty settlements are not subject to that epoch.
+    ///
+    /// @param vault Paired Lagoon vault to query.
+    /// @return allowed Whether the singleton vault is allowlisted.
+    /// @return limitEnabled Whether amount-and-cooldown safety is enabled.
+    /// @return asset Underlying ERC-20 measured by LagoonLib.
+    /// @return pendingSilo Pending-deposit Silo measured by LagoonLib.
+    /// @return maxSettlementAmount Inclusive gross amount safety limit.
+    /// @return settlementCooldown Delay between non-zero settlements in seconds.
+    /// @return lastSettlementTimestamp Latest non-zero settlement Unix timestamp.
+    /// @return nextSettlementTimestamp Earliest next non-zero settlement Unix timestamp.
+    function getLagoonSettlementSafetyConfig(
+        address vault
+    ) public view returns (
+        bool allowed,
+        bool limitEnabled,
+        address asset,
+        address pendingSilo,
+        uint256 maxSettlementAmount,
+        uint256 settlementCooldown,
+        uint256 lastSettlementTimestamp,
+        uint256 nextSettlementTimestamp
+    ) {
+        require(LagoonLib.isDeployed());
+        return LagoonLib.getSettlementSafetyConfig(vault);
     }
 
     function isAllowedCowSwap(address settlement) public view returns (bool) {

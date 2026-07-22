@@ -64,7 +64,7 @@ logger = logging.getLogger(__name__)
 
 DEFAULT_RATE_UPDATE_COOLDOWN = 86400
 
-#: Default minimum delay between successful asset-manager Lagoon settlements.
+#: Default minimum delay between non-zero asset-manager Lagoon settlements.
 #:
 #: The maximum gross settlement amount is a safety feature, so it must also
 #: rate-limit repeated below-cap calls. Twenty-four hours gives governance time
@@ -118,7 +118,7 @@ def _validate_lagoon_settlement_limit_config(
     :param max_settlement_amount:
         Human-readable underlying-token limit, or ``None`` for unlimited mode.
     :param settlement_cooldown:
-        Minimum seconds between successful asset-manager settlements. Used only
+        Minimum seconds between non-zero asset-manager settlements. Used only
         when ``max_settlement_amount`` enables the safety feature.
     :param vault_abi:
         Packaged Lagoon vault ABI selected by the deployment.
@@ -297,11 +297,12 @@ class LagoonConfig:
     post-call validation in ``TradingStrategyModuleV0``.
 
     The safety feature controls gross underlying-token movement in one
-    asset-manager settlement transaction and rate-limits successful calls.
+    asset-manager settlement transaction and rate-limits non-zero calls.
     Deposit assets moving from the Silo to the Safe and redemption assets
     moving from the Safe to the vault are added rather than netted. The paired
     :attr:`settlement_cooldown` defaults to 24 hours so an asset manager cannot
-    drain the vault with repeated individually valid calls. It does not
+    drain the vault with repeated individually valid non-zero calls. Empty
+    settlements neither start nor wait for cooldown. The policy does not
     validate the NAV supplied to Lagoon. Safe governance can still settle
     directly without going through the asset-manager module.
     """
@@ -413,12 +414,14 @@ class LagoonConfig:
     #: the post-call balance check.
     max_settlement_amount: Decimal | None = None
 
-    #: Minimum delay between successful asset-manager Lagoon settlements.
+    #: Minimum delay between non-zero asset-manager Lagoon settlements.
     #:
     #: Expressed in seconds and enforced only when ``max_settlement_amount`` is
-    #: configured. The default is 24 hours. The value must be positive because
-    #: a zero cooldown would allow repeated below-cap calls and defeat the
-    #: safety feature. Direct Safe governance calls bypass this module policy.
+    #: configured. The default is 24 hours. Empty settlements do not start or
+    #: extend the cooldown and remain callable while it is active. The value
+    #: must be positive because a zero cooldown would allow repeated non-zero
+    #: below-cap calls and defeat the safety feature. Direct Safe governance
+    #: calls bypass this module policy.
     settlement_cooldown: int = DEFAULT_LAGOON_SETTLEMENT_COOLDOWN
 
     #: Hypercore native vault addresses to whitelist (HyperEVM only).
@@ -1542,7 +1545,7 @@ def setup_guard(
     ``avatar`` and ``target`` must both be the supplied Safe.
 
     Lagoon settlement safety requires an execution-aware module because it
-    compare token balances before and after the Safe call in the same atomic
+    compares token balances before and after the Safe call in the same atomic
     transaction. A standalone ``GuardV0.validateCall()`` can perform only the
     pre-call half and must never be used to configure this guarantee. This
     function verifies the module/Safe pairing before broadcasting any policy
@@ -1579,9 +1582,10 @@ def setup_guard(
         unlimited legacy policy; ``0`` enables a zero-movement-only policy.
 
     :param lagoon_settlement_cooldown:
-        Minimum seconds between successful capped asset-manager settlements.
-        Defaults to 24 hours. Repeated calls within this window revert before
-        Safe execution; direct Safe governance transactions remain available.
+        Minimum seconds between non-zero capped asset-manager settlements.
+        Defaults to 24 hours. A repeated non-zero call inside this window
+        reverts during atomic post-call validation; empty and direct Safe
+        governance transactions remain available.
 
     :return:
         List of :class:`WhitelistEntry` recording everything that was whitelisted.
@@ -1987,20 +1991,17 @@ def setup_guard(
         assert_transaction_success_with_explanation(web3, tx_hash, timeout=DEFAULT_TX_CONFIRMATION_TIMEOUT)
         entries.append(WhitelistEntry("Vault settlement", "Lagoon vault", vault.address))
         if lagoon_max_settlement_amount_raw is not None:
-            configured = module.functions.getLagoonSettlementConfig(vault.address).call()
+            configured = module.functions.getLagoonSettlementSafetyConfig(vault.address).call()
             assert configured == [
                 True,
                 True,
                 Web3.to_checksum_address(underlying_token_address),
                 Web3.to_checksum_address(lagoon_pending_silo_address),
                 lagoon_max_settlement_amount_raw,
-            ], f"Unexpected Lagoon settlement configuration: {configured}"
-            cooldown_config = module.functions.getLagoonSettlementCooldownConfig(vault.address).call()
-            assert cooldown_config == [
                 lagoon_settlement_cooldown,
                 0,
                 0,
-            ], f"Unexpected Lagoon settlement cooldown configuration: {cooldown_config}"
+            ], f"Unexpected Lagoon settlement safety configuration: {configured}"
             limit_description = f"{lagoon_max_settlement_amount_raw} raw units; {lagoon_settlement_cooldown}s cooldown; asset {underlying_token_address}; Silo {lagoon_pending_silo_address}"
             entries.append(WhitelistEntry("Vault settlement safety", limit_description, vault.address))
     else:
@@ -2086,9 +2087,10 @@ def deploy_automated_lagoon_vault(
     deposits and redemptions, so opposite flows cannot evade the limit by
     netting. A rejected settlement reverts the complete Lagoon transaction.
     ``None`` preserves the historical unlimited settlement behaviour, while
-    ``Decimal(0)`` permits only zero measured movement. Every successful call
-    starts ``settlement_cooldown``, which defaults to 24 hours, so the asset
-    manager cannot drain the vault through repeated below-cap settlements.
+    ``Decimal(0)`` permits only zero measured movement. Every successful
+    non-zero call starts ``settlement_cooldown``, which defaults to 24 hours,
+    so the asset manager cannot drain the vault through repeated below-cap
+    settlements. Empty settlements do not start, extend or wait for cooldown.
 
     The amount check is per transaction and the cooldown rate-limits those
     transactions over time. It does not validate the NAV passed to Lagoon or
@@ -2114,9 +2116,9 @@ def deploy_automated_lagoon_vault(
         semantics and supported topology.
 
     :param settlement_cooldown:
-        Positive minimum delay in seconds between successful capped
-        asset-manager settlements. Defaults to 24 hours. Ignored when the
-        maximum amount safety feature is disabled.
+        Positive minimum delay in seconds between non-zero capped asset-manager
+        settlements. Defaults to 24 hours. Empty settlements do not start or
+        wait for it. Ignored when the maximum amount safety feature is disabled.
 
     :param guard_only:
         Deploy a new version of the guard smart contract and skip deploying the actual vault.

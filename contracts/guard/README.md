@@ -77,7 +77,7 @@ Every trade or action must pass through these checks:
 Lagoon deployments may set `LagoonConfig.max_settlement_amount` as a safety limit on
 the gross underlying amount processed by an asset-manager settlement transaction.
 The default is `None`, which preserves the legacy unlimited behaviour. When the
-feature is enabled, `LagoonConfig.settlement_cooldown` also rate-limits successful
+feature is enabled, `LagoonConfig.settlement_cooldown` also rate-limits non-zero
 asset-manager settlements and defaults to 24 hours.
 
 The complete amount-and-cooldown policy is identified by Guard internal version 3 and
@@ -101,12 +101,14 @@ settlement. Governance may recover an oversized queue with a direct Safe transac
 Direct Safe transactions intentionally bypass module policy.
 
 A per-call amount limit would still let an asset manager submit several individually
-valid settlements to drain the vault. After every successful capped settlement,
-`LagoonLib` records the block timestamp and rejects another asset-manager settlement
-until the configured positive cooldown has elapsed. This check runs before Safe
-execution. Rejected or reverted settlements do not consume the cooldown, while a
-successful zero-movement settlement does. The onchain and Python API default is 86,400
-seconds (24 hours).
+valid non-zero settlements to drain the vault. After every successful capped settlement
+with non-zero gross movement, `LagoonLib` records the block timestamp and rejects
+another non-zero asset-manager settlement until the configured positive cooldown has
+elapsed. Because the gross amount is only known after Lagoon executes, this check runs
+in atomic post-call validation: rejection rolls back the Safe and Lagoon transaction.
+Empty settlements do not start or extend the cooldown and remain callable while it is
+active. Rejected or reverted settlements also leave cooldown state unchanged. The
+onchain and Python API default is 86,400 seconds (24 hours).
 
 `TradingStrategyModuleV0` only carries a generic post-call validation context around
 Safe execution. Validator selection is a hardcoded `GuardV0Base` enum and dispatcher;
