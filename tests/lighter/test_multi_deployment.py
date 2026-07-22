@@ -13,6 +13,7 @@ from eth_defi.lighter.constants import (
     LIGHTER_LEGACY_ROBINHOOD_CHAIN_ID,
     LIGHTER_ROBINHOOD,
     LIGHTER_ROBINHOOD_LLP_ACCOUNT_INDEX,
+    identify_lighter_pool_deployment,
 )
 from eth_defi.lighter.daily_metrics import LighterDailyMetricsDatabase
 from eth_defi.lighter.session import LighterSession
@@ -22,6 +23,17 @@ from eth_defi.vault.base import VaultHistoricalRead, VaultSpec
 from eth_defi.vault.vaultdb import VaultDatabase
 
 ACCOUNT_INDEX = 281474976710654
+
+
+def test_synthetic_pool_addresses_resolve_to_exact_deployment() -> None:
+    """Do not let the shorter Ethereum prefix capture Robinhood addresses."""
+    ethereum_address = LIGHTER_ETHEREUM.format_pool_address(ACCOUNT_INDEX)
+    robinhood_address = LIGHTER_ROBINHOOD.format_pool_address(ACCOUNT_INDEX)
+
+    assert identify_lighter_pool_deployment(ethereum_address) == LIGHTER_ETHEREUM
+    assert identify_lighter_pool_deployment(robinhood_address) == LIGHTER_ROBINHOOD
+    assert identify_lighter_pool_deployment("lighter-pool-robinhood-not-an-index") is None
+    assert identify_lighter_pool_deployment("lighter-pool-robinhood-123-extra") is None
 
 
 def test_robinhood_llp_override_does_not_misclassify_other_type_three_pools() -> None:

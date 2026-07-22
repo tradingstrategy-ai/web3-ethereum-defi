@@ -183,6 +183,14 @@ poetry run python scripts/erc-4626/scan-vaults-all-chains.py
 | `HYPERSYNC_CONCURRENCY` | Optional. Hypersync stream concurrency. Default: 1 (sequential) in the all-chains scanner to avoid API pressure when scanning many chains. Set higher for faster throughput. See [Envio StreamConfig tuning](https://docs.envio.dev/docs/HyperSync/stream-config-tuning). |
 | `RPC_TRACKING_DATABASE_PATH` | Optional. Shared JSON-RPC accounting DuckDB used by all EVM vault scanners. Default: `~/.tradingstrategy/rpc-tracking.duckdb`. |
 
+Both Lighter deployments use synthetic native-pool chain ID `9998`; their
+address prefixes distinguish price series. Lifetime-metrics export the
+additional `deployment_chain_id` (`1` for Ethereum or `4663` for Robinhood)
+and `deployment` slug. The Lighter DuckDB schema migration runs automatically
+when an existing database is opened. See the
+[Lighter native-pool pipeline](../lighter/README-lighter-vaults.md) for the
+storage and partial-scan replacement rules.
+
 #### JSON-RPC usage accounting
 
 The all-chain scanner, `scan-vaults.py`, and `scan-prices.py` store physical

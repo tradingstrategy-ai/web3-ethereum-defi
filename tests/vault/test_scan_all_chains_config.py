@@ -45,6 +45,7 @@ def test_legacy_lighter_cycle_override_applies_to_both_deployments() -> None:
     overrides = scan_all_chains.ensure_default_scan_cycles({"Lighter": cycle})
 
     assert all(overrides[deployment.name] == cycle for deployment in LIGHTER_DEPLOYMENTS)
+    assert "Lighter" not in overrides
 
 
 def test_tempo_chain_is_scheduled_for_vault_scans():

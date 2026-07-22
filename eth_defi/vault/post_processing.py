@@ -30,7 +30,7 @@ from eth_defi.hyperliquid.constants import HYPERCORE_CHAIN_ID, HYPERLIQUID_DAILY
 from eth_defi.hyperliquid.daily_metrics import HyperliquidDailyMetricsDatabase
 from eth_defi.hyperliquid.high_freq_metrics import HyperliquidHighFreqMetricsDatabase
 from eth_defi.hyperliquid.vault_data_export import build_hypercore_prices_dataframe
-from eth_defi.lighter.constants import LIGHTER_DAILY_METRICS_DATABASE, LIGHTER_DEPLOYMENTS, LIGHTER_DEPLOYMENTS_BY_SLUG, LIGHTER_LEGACY_ROBINHOOD_CHAIN_ID
+from eth_defi.lighter.constants import LIGHTER_DAILY_METRICS_DATABASE, LIGHTER_DEPLOYMENTS, LIGHTER_LEGACY_ROBINHOOD_CHAIN_ID, LIGHTER_ROBINHOOD
 from eth_defi.lighter.daily_metrics import LighterDailyMetricsDatabase
 from eth_defi.lighter.vault_data_export import build_raw_prices_dataframe as build_lighter_prices_dataframe
 from eth_defi.lighter.vault_data_export import get_lighter_price_deployments
@@ -504,18 +504,18 @@ def merge_native_protocols(
             if lighter_df.empty:
                 logger.warning("No Lighter data to merge")
             else:
-                fresh_deployment_slugs = get_lighter_price_deployments(lighter_df)
+                fresh_deployments = get_lighter_price_deployments(lighter_df)
                 for chain_id, deployment_df in lighter_df.groupby("chain"):
                     replacements[int(chain_id)] = deployment_df
                     # Both Lighter deployments share chain 9998 but are scanned
                     # independently. Restrict replacement to deployment address
                     # namespaces present in this fresh export, preventing a
                     # partial scan from deleting the other deployment's data.
-                    replacement_address_patterns[int(chain_id)] = {f"^{LIGHTER_DEPLOYMENTS_BY_SLUG[slug].address_prefix}-[0-9]+$" for slug in fresh_deployment_slugs}
+                    replacement_address_patterns[int(chain_id)] = {deployment.pool_address_pattern for deployment in fresh_deployments}
                 # The short-lived 9996 partition contains Robinhood only. Do
                 # not remove it until fresh Robinhood data is available; an
                 # Ethereum-only scan is not a valid replacement for it.
-                if "robinhood" in fresh_deployment_slugs:
+                if LIGHTER_ROBINHOOD in fresh_deployments:
                     remove_chain_ids.add(LIGHTER_LEGACY_ROBINHOOD_CHAIN_ID)
             logger.info("Lighter price merge: %d fresh Lighter price entries", len(lighter_df))
             steps["lighter-price-merge"] = True

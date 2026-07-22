@@ -230,7 +230,7 @@ class LighterDailyMetricsDatabase:
         :param description:
             Pool description text.
         :param l1_address:
-            L1 Ethereum address.
+            Operator address reported in the API's legacy ``l1_address`` field.
         :param is_llp:
             Whether this is the LLP protocol pool.
         :param status:
@@ -238,7 +238,7 @@ class LighterDailyMetricsDatabase:
         :param operator_fee:
             Operator fee percentage.
         :param total_asset_value:
-            Total value locked in USDC.
+            Total value locked in the deployment's collateral currency.
         :param annual_percentage_yield:
             Current APY.
         :param sharpe_ratio:
@@ -584,7 +584,7 @@ def run_daily_scan(
     :param db_path:
         Path to the DuckDB database file.
     :param min_tvl:
-        Minimum TVL in USDC to include a pool.
+        Minimum TVL in the deployment's collateral currency to include a pool.
         Ignored when ``pool_indices`` is provided.
     :param max_pools:
         Maximum number of pools to process (sorted by TVL descending).

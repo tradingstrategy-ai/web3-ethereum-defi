@@ -61,7 +61,7 @@ from eth_defi.hibachi.vault_data_export import merge_into_vault_database as hiba
 from eth_defi.hyperliquid.daily_metrics import run_daily_scan as hyperliquid_run_daily_scan
 from eth_defi.hyperliquid.session import create_hyperliquid_session
 from eth_defi.hypersync.utils import configure_hypersync_from_env
-from eth_defi.lighter.constants import LIGHTER_DEPLOYMENTS, LIGHTER_ETHEREUM, LighterAPIConfig
+from eth_defi.lighter.constants import LIGHTER_DAILY_METRICS_DATABASE, LIGHTER_DEPLOYMENTS, LIGHTER_ETHEREUM, LighterAPIConfig
 from eth_defi.lighter.daily_metrics import run_daily_scan as lighter_run_daily_scan
 from eth_defi.lighter.session import create_lighter_session
 from eth_defi.lighter.vault_data_export import merge_into_vault_database as lighter_merge_vault_db
@@ -150,7 +150,7 @@ def ensure_default_scan_cycles(cycle_overrides: dict[str, datetime.timedelta]) -
         Copy of the overrides with built-in defaults applied.
     """
     result = dict(cycle_overrides)
-    legacy_lighter_cycle = result.get("Lighter")
+    legacy_lighter_cycle = result.pop("Lighter", None)
     if legacy_lighter_cycle is not None:
         for deployment in LIGHTER_DEPLOYMENTS:
             result.setdefault(deployment.name, legacy_lighter_cycle)
@@ -1231,8 +1231,9 @@ def scan_lighter_fn(
 
     Runs the Lighter daily metrics pipeline: discovers pools from the
     public API, fetches share price history, stores in DuckDB, and
-    merges into the shared ERC-4626 pipeline files (VaultDatabase pickle
-    + cleaned Parquet).
+    merges pool metadata into the shared VaultDatabase pickle. Price rows are
+    merged into the shared uncleaned Parquet later by post-processing, after
+    all independently scheduled Lighter deployments have had a chance to run.
 
     No authentication required.
 
@@ -1247,8 +1248,6 @@ def scan_lighter_fn(
     :return:
         Scan result with vault count and duration.
     """
-    from eth_defi.lighter.constants import LIGHTER_DAILY_METRICS_DATABASE
-
     if db_path is None:
         db_path = LIGHTER_DAILY_METRICS_DATABASE
 

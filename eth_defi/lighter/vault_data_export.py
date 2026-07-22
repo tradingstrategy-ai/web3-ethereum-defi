@@ -39,6 +39,7 @@ from eth_defi.lighter.constants import (
     LIGHTER_ETHEREUM,
     LIGHTER_LEGACY_ROBINHOOD_CHAIN_ID,
     LIGHTER_POOL_FEE_MODE,
+    LIGHTER_ROBINHOOD,
     LighterAPIConfig,
     identify_lighter_pool_deployment,
 )
@@ -52,8 +53,8 @@ from eth_defi.vault.vaultdb import VaultDatabase, VaultRow
 logger = logging.getLogger(__name__)
 
 
-def get_lighter_price_deployments(prices_df: pd.DataFrame) -> set[str]:
-    """Resolve deployment slugs represented by a Lighter raw-price frame.
+def get_lighter_price_deployments(prices_df: pd.DataFrame) -> set[LighterAPIConfig]:
+    """Resolve deployments represented by a Lighter raw-price frame.
 
     The frame must contain synthetic Lighter addresses in its ``address``
     column. Unknown addresses abort the merge because treating an incomplete
@@ -63,14 +64,14 @@ def get_lighter_price_deployments(prices_df: pd.DataFrame) -> set[str]:
     :param prices_df:
         Lighter raw-price DataFrame with string ``address`` values.
     :return:
-        Deployment slugs represented by at least one row.
+        Deployment configurations represented by at least one row.
     """
     assert "address" in prices_df.columns, f"Lighter price frame is missing address column: {prices_df.columns}"
     deployments = prices_df["address"].apply(identify_lighter_pool_deployment)
     unknown_addresses = prices_df.loc[deployments.isna(), "address"].drop_duplicates().tolist()
     if unknown_addresses:
         raise ValueError(f"Cannot identify Lighter deployment for price addresses: {unknown_addresses}")
-    return {deployment.slug for deployment in deployments}
+    return set(deployments)
 
 
 def create_lighter_pool_row(
@@ -388,7 +389,7 @@ def merge_into_uncleaned_parquet(
             return pd.read_parquet(parquet_path)
         return pd.DataFrame()
 
-    fresh_deployment_slugs = get_lighter_price_deployments(lighter_df)
+    fresh_deployments = get_lighter_price_deployments(lighter_df)
 
     if parquet_path.exists():
         existing_df = pd.read_parquet(parquet_path)
@@ -400,12 +401,12 @@ def merge_into_uncleaned_parquet(
         shared_lighter_mask = existing_df["chain"].isin({deployment.chain_id for deployment in LIGHTER_DEPLOYMENTS})
         existing_deployments = existing_df.loc[shared_lighter_mask, "address"].apply(identify_lighter_pool_deployment)
         replace_current_mask = pd.Series(False, index=existing_df.index)
-        replace_current_mask.loc[shared_lighter_mask] = existing_deployments.apply(lambda deployment: deployment is not None and deployment.slug in fresh_deployment_slugs)
+        replace_current_mask.loc[shared_lighter_mask] = existing_deployments.isin(fresh_deployments)
 
         # Remove the short-lived 9996 partition only when fresh Robinhood data
         # is available to replace it. An Ethereum-only standalone scan must
         # leave legacy Robinhood history intact until Robinhood succeeds.
-        replace_legacy_robinhood_mask = existing_df["chain"].eq(LIGHTER_LEGACY_ROBINHOOD_CHAIN_ID) if "robinhood" in fresh_deployment_slugs else pd.Series(False, index=existing_df.index)
+        replace_legacy_robinhood_mask = existing_df["chain"].eq(LIGHTER_LEGACY_ROBINHOOD_CHAIN_ID) if LIGHTER_ROBINHOOD in fresh_deployments else pd.Series(False, index=existing_df.index)
         existing_df = existing_df[~(replace_current_mask | replace_legacy_robinhood_mask)]
 
         combined = pd.concat([existing_df, lighter_df], ignore_index=True)

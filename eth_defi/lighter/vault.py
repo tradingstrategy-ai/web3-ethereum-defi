@@ -7,7 +7,7 @@ via public endpoints:
   TVL, APY, Sharpe ratio, and operator fee
 - **Pool details** (share price history, daily returns, positions) via
   ``/api/v1/account`` — per-pool detailed data
-- **System config** via ``/api/v1/systemConfig`` — LLP account index
+- **System config** via ``/api/v1/systemConfig`` — reported LLP account index
 
 No authentication required.
 
@@ -20,7 +20,7 @@ For more information about Lighter:
 import datetime
 import logging
 from dataclasses import dataclass
-from typing import Any, Iterator
+from typing import Any
 
 import pandas as pd
 
@@ -29,7 +29,7 @@ from eth_defi.types import Percent
 
 logger = logging.getLogger(__name__)
 
-#: Display-name fallback for account-type-3 protocol liquidity pools. The
+#: Display-name fallback for the canonical protocol liquidity pool. The
 #: Robinhood deployment currently returns an empty API name for this account.
 LIGHTER_LLP_NAME = "Lighter Liquidity Provider (LLP)"
 
@@ -50,7 +50,7 @@ class LighterPoolSummary:
     #: Pool display name (e.g. "ETH 3x long")
     name: str
 
-    #: L1 (Ethereum) address of the pool operator
+    #: Operator address from the API's legacy ``l1_address`` field
     l1_address: str
 
     #: Annual percentage yield
@@ -131,14 +131,15 @@ def fetch_system_config(
 ) -> dict[str, Any]:
     """Fetch Lighter system configuration.
 
-    Returns system config including the LLP account index.
+    Returns system config including the deployment's reported LLP account
+    index. Deployment configuration may override a stale reported value.
 
     :param session:
         HTTP session.
     :param timeout:
         HTTP request timeout.
     :return:
-        System config dict with key field ``liquidity_pool_index``.
+        System config dict with reported ``liquidity_pool_index`` field.
     """
     url = f"{session.api_url}/api/v1/systemConfig"
     resp = session.get(url, timeout=timeout)
@@ -154,7 +155,8 @@ def fetch_all_pools(
     """Fetch all Lighter public pools.
 
     Uses ``/api/v1/publicPoolsMetadata`` with pagination.
-    Also fetches system config to identify the LLP pool.
+    Also fetches system config and applies any deployment-specific LLP account
+    override to identify the canonical pool exactly.
 
     :param session:
         HTTP session.

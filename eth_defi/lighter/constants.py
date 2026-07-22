@@ -20,9 +20,10 @@ from eth_defi.vault.fee import VaultFeeMode
 #: .. warning::
 #:
 #:     This is a synthetic id used by the off-chain pool-metrics pipeline — it
-#:     is **not** an EVM chain. The on-chain Lighter deposit/withdraw contract
-#:     lives on Ethereum mainnet (chain id 1); see
-#:     :py:data:`LIGHTER_L1_CONTRACT` below.
+#:     is **not** an EVM chain. The original deployment's onchain Lighter
+#:     deposit/withdraw contract lives on Ethereum mainnet (chain id 1); see
+#:     :py:data:`LIGHTER_L1_CONTRACT` below. The Robinhood metrics deployment
+#:     is associated with Robinhood Chain (chain id 4663).
 LIGHTER_CHAIN_ID: int = 9998
 
 #: Legacy synthetic chain ID used by the first implementation of Lighter on
@@ -99,12 +100,14 @@ LIGHTER_POOL_FEE_MODE: VaultFeeMode = VaultFeeMode.internalised_skimming
 
 #: Pool denomination currency.
 #:
-#: Lighter uses USDC as the exchange base currency.
+#: The original Ethereum Lighter deployment uses USDC as its collateral
+#: currency. Robinhood deployment configuration overrides this with USDG.
 LIGHTER_DENOMINATION: str = "USDC"
 
 #: Pool cooldown period for withdrawals.
 #:
-#: From ``systemConfig.liquidity_pool_cooldown_period`` (300000ms = 5 minutes).
+#: Ethereum value from ``systemConfig.liquidity_pool_cooldown_period``
+#: (300000ms = 5 minutes). Robinhood deployment configuration overrides it.
 LIGHTER_POOL_LOCKUP: datetime.timedelta = datetime.timedelta(minutes=5)
 
 
@@ -189,6 +192,34 @@ class LighterAPIConfig:
         """
         return f"{self.app_url}/public-pools/{account_index}"
 
+    def matches_pool_address(self, address: str) -> bool:
+        """Check whether a synthetic pool address belongs to this deployment.
+
+        A numeric suffix is required because the backwards-compatible
+        Ethereum prefix ``lighter-pool`` is also the beginning of the
+        Robinhood prefix ``lighter-pool-robinhood``. This exact check lets
+        partial price merges distinguish the two deployments without relying
+        on prefix ordering.
+
+        :param address:
+            Synthetic Lighter vault address.
+        :return:
+            ``True`` when the address has this deployment's prefix and a
+            numeric Lighter account index.
+        """
+        prefix = f"{self.address_prefix}-"
+        address = str(address)
+        return address.startswith(prefix) and address.removeprefix(prefix).isdigit()
+
+    @property
+    def pool_address_pattern(self) -> str:
+        """Return the PyArrow regex for this deployment's pool addresses.
+
+        :return:
+            Anchored regular expression matching synthetic pool addresses.
+        """
+        return f"^{self.address_prefix}-[0-9]+$"
+
 
 #: Ethereum-settled Lighter deployment. The legacy address format and
 #: synthetic chain ID are intentionally retained for dataset compatibility.
@@ -241,23 +272,18 @@ LIGHTER_DEPLOYMENTS_BY_SLUG: dict[str, LighterAPIConfig] = {deployment.slug: dep
 def identify_lighter_pool_deployment(address: str) -> LighterAPIConfig | None:
     """Resolve a synthetic Lighter pool address to its deployment.
 
-    Deployment prefixes are checked longest-first because the backwards-
-    compatible Ethereum prefix ``lighter-pool`` is also the beginning of the
-    Robinhood prefix ``lighter-pool-robinhood``. This helper is used by partial
-    Parquet replacement so an independently completed Ethereum or Robinhood
-    scan cannot remove the other deployment's retained history.
+    This helper is used by partial Parquet replacement so an independently
+    completed Ethereum or Robinhood scan cannot remove the other deployment's
+    retained history. :py:meth:`LighterAPIConfig.matches_pool_address`
+    validates the numeric account-index suffix, preventing the shorter
+    Ethereum prefix from matching Robinhood addresses.
 
     :param address:
         Synthetic Lighter vault address.
     :return:
         Matching deployment, or ``None`` when the address is not recognised.
     """
-    address = str(address)
-    deployments_by_prefix_length = sorted(LIGHTER_DEPLOYMENTS, key=lambda deployment: len(deployment.address_prefix), reverse=True)
-    return next(
-        (deployment for deployment in deployments_by_prefix_length if address.startswith(f"{deployment.address_prefix}-")),
-        None,
-    )
+    return next((deployment for deployment in LIGHTER_DEPLOYMENTS if deployment.matches_pool_address(address)), None)
 
 
 #: Set of Lighter system pool addresses (protocol-curated).
@@ -265,7 +291,7 @@ def identify_lighter_pool_deployment(address: str) -> LighterAPIConfig | None:
 #: The LLP (Lighter Liquidity Pool) is the protocol's own liquidity pool;
 #: the XLP (Experimental Liquidity Provider) is the protocol-run pool for
 #: experimental markets.  Both are community-owned and protocol-operated.
-#: Uses the synthetic address format ``lighter-pool-{account_index}``.
+#: Uses each deployment's synthetic pool-address format.
 #:
 #: These are protocol-operated pools with special properties (no operator fee).
 #: Ethereum system pools are fetched separately via ``systemConfig`` when they

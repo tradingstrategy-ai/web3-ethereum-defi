@@ -9,6 +9,15 @@ This document describes how the on-chain guard whitelisting works. It mirrors
 the GMX (`eth_defi/gmx/README-GMX-Lagoon.md`) and Hypercore
 (`docs/README-Hypercore-guard.md`) guard integrations.
 
+> Deployment scope: this guard integration supports only the original
+> **Ethereum-settled Lighter deployment** and its USDC `ZkLighter` custody
+> contract. The Robinhood work currently covers native-pool discovery,
+> metrics and export only. Do not use `LighterDeployment.create_ethereum()`,
+> the whitelisting helpers or public-key helpers for
+> Robinhood. Robinhood documents USDG deposits into a Lighter Relayer smart
+> contract on Robinhood Chain (chain id 4663), but this repository has not
+> configured or verified that contract's address and ABI for guard use.
+>
 > Guard scope: **deposit / withdraw only** (the on-chain L1 custody flow).
 > Lighter account creation happens when the Safe receives its first credited
 > deposit. On-book trading (`createOrder`) is signed with the Lighter API key,
@@ -147,9 +156,13 @@ Funds are released on-chain directly to the Safe address.
 
 ## Account valuation (off-chain)
 
-Lighter account NAV is read off-chain from the public account API, not through
-the guard. Use `eth_defi.lighter.valuation.fetch_lighter_total_equity()` with
-the Safe's Lighter account index to fetch `LighterEquity`.
+Ethereum Lighter account NAV is read off-chain from the public account API, not
+through the guard. Use
+`eth_defi.lighter.valuation.fetch_lighter_total_equity()` with the Safe's
+Lighter account index and an explicit `LighterSession` to fetch
+`LighterEquity`. This section's Safe and USDC flow uses an Ethereum session;
+reading another deployment through its session does not configure its custody
+contracts or Guard support.
 
 `LighterEquity.get_total()` returns Lighter's canonical `total_asset_value`
 field in USDC. The helper also exposes collateral, unrealised PnL, available
@@ -236,6 +249,10 @@ tests reuse the same function.
 
 ## Limitations (current scope)
 
+- **Ethereum deployment only.** The configured `ZkLighter` proxy, USDC token,
+  Safe whitelisting, API-key rotation and example flows all target Ethereum
+  mainnet. The deployment-aware native-pool metrics pipeline does not make
+  these custody helpers multi-chain.
 - **USDC-only.** A single deposit asset (USDC) is whitelisted; its asset index
   is read from `ZkLighter.USDC_ASSET_INDEX()`. Additional assets are not
   supported yet — `whitelistLighter` takes one `assetIndex` per call (each call
@@ -256,7 +273,8 @@ guard/module at deployment time, exactly like `GmxLib` and `HypercoreVaultLib`
 
 ## Manual test recipe
 
-On an Anvil **Ethereum mainnet fork** (Lighter is L1):
+On an Anvil **Ethereum mainnet fork** (this guard integration targets Lighter's
+Ethereum L1 custody contract):
 
 1. Deploy the guard with `LighterLib` linked; run `setup_lighter_whitelisting`
    (`whitelistLighter(zkLighter, usdc, usdcAssetIndex, notes)` + `allowReceiver(safe)`).
@@ -271,6 +289,7 @@ On an Anvil **Ethereum mainnet fork** (Lighter is L1):
 
 - Lighter deposits and withdrawals: <https://apidocs.lighter.xyz/docs/deposits-transfers-and-withdrawals>
 - Lighter docs: <https://docs.lighter.xyz>
+- Robinhood Wallet perpetual futures: <https://robinhood.com/us/en/support/articles/robinhood-wallet-perpetual-futures/>
 - `ZkLighter` on Etherscan: <https://etherscan.io/address/0x831ef69bab8af8b1037a4961b8d0674b124e7008>
 - Guard core: `contracts/guard/src/GuardV0Base.sol`
 - Lighter library: `contracts/guard/src/lib/LighterLib.sol`
