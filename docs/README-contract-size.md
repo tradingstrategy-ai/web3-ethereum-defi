@@ -7,7 +7,7 @@ to stay within the [EIP-170 24,576-byte limit](https://eips.ethereum.org/EIPS/ei
 
 | Contract | Project | Size (bytes) | % of 24,576 limit | Margin (bytes) |
 |----------|---------|-------------:|------------------:|---------------:|
-| TradingStrategyModuleV0 | safe-integration | 22,697 | 92.3% | 1,879 |
+| TradingStrategyModuleV0 | safe-integration | 22,582 | 91.9% | 1,994 |
 | GuardV0 | guard | 22,503 | 91.6% | 2,073 |
 | GmxLib | guard | 5,165 | 21.0% | 19,411 |
 | HypercoreVaultLib | guard | 3,761 | 15.3% | 20,815 |
@@ -50,7 +50,7 @@ via_ir = false
 |--------|--------|---------|
 | `optimizer_runs = 1` | Optimise for minimal deployment size over execution gas cost. Value of 1 (vs default 200) tells the compiler to prefer smaller bytecode even if function calls cost slightly more gas at runtime. | Major |
 | `via_ir = true` (Guard and libraries) | Use the Yul IR pipeline, which produces smaller deployed protocol libraries. | Library-specific |
-| `via_ir = false` (TradingStrategyModuleV0) | Use the legacy compiler pipeline. With `optimizer_runs=1`, this avoids verbose IR-generated dispatch and error-handling bytecode in the large inherited module. | 2,146 bytes |
+| `via_ir = false` (TradingStrategyModuleV0) | Use the legacy compiler pipeline. With `optimizer_runs=1`, this avoids verbose IR-generated dispatch and error-handling bytecode in the large inherited module. | 2,190 bytes |
 | `bytecode_hash = "none"` | Removes the CBOR-encoded metadata hash appended to contract bytecode. This hash (typically ~50 bytes) encodes the compiler version and source code hash for verification. Safe to remove because metadata is available from the ABI JSON files. | ~50 bytes |
 | `evm_version = "cancun"` | Enables `PUSH0` opcode (EIP-3855) which replaces `PUSH1 0x00` sequences, saving 1 byte per zero-value push. HyperEVM supports Cancun opcodes. | ~10-30 bytes |
 | `solc_version = "0.8.26"` | Newer compiler versions sometimes generate tighter code through improved optimisation passes. | Incremental |
@@ -86,9 +86,9 @@ Other settings tested:
 ### via_ir analysis
 
 With the current generic post-call validation and Lagoon amount-and-cooldown
-safety implementation, `optimizer_runs=1` and **`via_ir=false` produce 2,146
-bytes smaller module bytecode** than `via_ir=true` (22,697 vs 24,843), turning
-an EIP-170 excess of 267 bytes into 1,879 bytes of margin. The module ABI and Forge
+safety implementation, `optimizer_runs=1` and **`via_ir=false` produce 2,190
+bytes smaller module bytecode** than `via_ir=true` (22,582 vs 24,772), turning
+an EIP-170 excess of 196 bytes into 1,994 bytes of margin. The module ABI and Forge
 library names are identical under both
 pipelines, so it can safely link to the smaller IR-compiled protocol libraries.
 
@@ -158,7 +158,7 @@ If additional space is needed in future:
 | Consolidate CowSwap validation into `CowSwapLib` | ~550 bytes | Combined validate+create function | Done |
 | Consolidate Velora validation into `VeloraLib` | ~450 bytes | Combined validate+balance function | Done |
 | Error bubbling helper | ~150 bytes | Shared `_bubbleUpRevert()` in module | Done |
-| Switch TradingStrategyModuleV0 to `via_ir=false` | 2,146 bytes | Config change; potentially higher runtime gas | Done |
+| Switch TradingStrategyModuleV0 to `via_ir=false` | 2,190 bytes | Config change; potentially higher runtime gas | Done |
 | Shorten revert strings (e.g. "GMX:R01" codes) | ~1,000 bytes | All validators; hurts debuggability | Available |
 | Extract CCTP validation to `CctpLib` | ~800 bytes | New library | Available |
 

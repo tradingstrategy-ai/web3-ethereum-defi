@@ -480,9 +480,9 @@ abstract contract GuardV0Base is IGuard, Multicall {
 
     /// Enable Lagoon asset-manager settlement safety with a custom cooldown.
     ///
-    /// The existing whitelistLagoonWithSettlementLimit() ABI applies the
-    /// conservative 24-hour default. This explicit variant lets governance
-    /// choose a different positive delay without weakening old integrations.
+    /// The amount-only whitelistLagoonWithSettlementLimit() overload applies
+    /// the conservative 24-hour default. This explicit variant lets governance
+    /// choose a different positive delay without changing that shorter API.
     /// Direct Safe governance settlement remains outside module policy.
     ///
     /// @param vault Paired stock Lagoon v0.5 vault.
@@ -611,8 +611,8 @@ abstract contract GuardV0Base is IGuard, Multicall {
 
     /// Return the cooldown state paired with a Lagoon settlement amount cap.
     ///
-    /// Kept separate from getLagoonSettlementConfig() so its established tuple
-    /// ABI remains backwards compatible for existing deployment tooling.
+    /// Kept separate from getLagoonSettlementConfig() so integrations which
+    /// only need cooldown state can read a smaller focused tuple.
     function getLagoonSettlementCooldownConfig(
         address vault
     ) public view returns (
@@ -626,8 +626,8 @@ abstract contract GuardV0Base is IGuard, Multicall {
 
     /// Return the complete Lagoon asset-manager settlement safety state.
     ///
-    /// This additive convenience interface combines the established amount
-    /// configuration and cooldown getters. Integrations can use one GuardV0Base
+    /// This convenience interface combines the focused amount configuration
+    /// and cooldown getters. Integrations can use one GuardV0Base
     /// call to discover whether safety is enabled, the measured contracts and
     /// maximum gross amount, and the Unix epoch when another non-zero automated
     /// settlement may complete. Empty settlements are not subject to that epoch.
@@ -930,7 +930,9 @@ abstract contract GuardV0Base is IGuard, Multicall {
         if (context.kind == PostCallValidationKind.None) return;
 
         if (context.kind == PostCallValidationKind.LagoonSettlement) {
-            require(LagoonLib.isDeployed());
+            // _validateCallInternal() created this kind only after proving the
+            // immutable linked library address has code. The address cannot
+            // change between capture and this internal post-call dispatch.
             LagoonLib.validatePostCall(context.payload);
             return;
         }

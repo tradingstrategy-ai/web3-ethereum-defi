@@ -61,10 +61,11 @@
 // reads and writes happen in the caller's storage. A deterministic diamond
 // storage slot isolates Lagoon configuration from GuardV0Base storage.
 //
-// The caller must verify isDeployed() before invoking this library. A linked
-// zero address can otherwise make a void-returning DELEGATECALL look successful
-// while doing nothing. GuardV0Base performs this fail-closed check on both the
-// pre-call capture and hardcoded post-call dispatch paths.
+// The caller must verify isDeployed() before creating a validation context. A
+// linked zero address can otherwise make a void-returning DELEGATECALL look
+// successful while doing nothing. GuardV0Base performs this fail-closed check
+// before capture; the linked address is immutable and the internal post-call
+// dispatcher can only receive a Lagoon kind created by that successful path.
 
 pragma solidity ^0.8.0;
 
@@ -318,11 +319,9 @@ library LagoonLib {
 
     /// Allowlist a Lagoon vault with the default 24-hour cooldown.
     ///
-    /// This entry point preserves the first settlement-limit library ABI. The
-    /// amount was originally the only enforced dimension; applying the safe
-    /// default here ensures old Guard callers gain rate limiting without a new
-    /// argument. New callers needing an override use the explicit function
-    /// below.
+    /// This shorter entry point accepts only the settlement amount. Applying
+    /// the safe default here ensures callers gain rate limiting without another
+    /// argument. Callers needing an override use the explicit function below.
     ///
     /// @param vault Stock Lagoon vault to allowlist.
     /// @param asset Vault underlying ERC-20 returned by vault.asset().
@@ -426,8 +425,8 @@ library LagoonLib {
 
     /// Return the complete stored Lagoon configuration for a vault.
     ///
-    /// Keeping this as an explicit getter preserves access to namespaced
-    /// library state and preserves the existing GuardV0Base query ABI.
+    /// Keeping this as an explicit getter exposes namespaced library state
+    /// through a focused GuardV0Base query.
     ///
     /// @param vault Lagoon vault address to inspect.
     /// @return allowed Whether the vault is allowlisted.
@@ -498,8 +497,8 @@ library LagoonLib {
     /// GuardV0Base exposes this convenience read to offchain deployment and
     /// monitoring tools. Keeping the storage aggregation here avoids two
     /// separate external-library delegatecalls and duplicate ABI decoding in
-    /// the size-constrained module. The older focused getters remain available
-    /// unchanged for backwards compatibility.
+    /// the size-constrained module. The focused getters remain available for
+    /// callers which need only one half of the policy.
     ///
     /// @param vault Lagoon vault address to inspect.
     /// @return allowed Whether the singleton vault is allowlisted.
