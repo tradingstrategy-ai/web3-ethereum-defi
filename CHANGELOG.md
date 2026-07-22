@@ -1,5 +1,6 @@
 # 1.2
 
+- fix: Publish Bulla Network protocol metadata under the canonical `bulla-network` slug (2026-07-22)
 - feat: Add Bulla Network Factoring vault recognition, native fee reads and safe read-only support (2026-07-21)
 - feat: Add multi-deployment Lighter vault scanning for Ethereum and Robinhood Chain with deployment-aware metrics and automatic legacy data migration (2026-07-22)
 - feat: Track per-chain vault scanner JSON-RPC calls and errors in DuckDB (2026-07-20)

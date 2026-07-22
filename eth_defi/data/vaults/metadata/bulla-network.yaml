@@ -1,5 +1,5 @@
 name: Bulla Network
-slug: bulla
+slug: bulla-network
 short_description: |
   Permissioned stablecoin liquidity pools for financing trade invoices and loans.
 long_description: |
@@ -30,7 +30,7 @@ links:
   defillama: ""
   audits: https://github.com/bulla-network/factoring-contracts/tree/main/audits
   fees: https://github.com/bulla-network/factoring-contracts/blob/main/contracts/BullaFactoring.sol
-  trading_strategy: https://tradingstrategy.ai/trading-view/vaults/protocols/bulla
+  trading_strategy: https://tradingstrategy.ai/trading-view/vaults/protocols/bulla-network
   integration_documentation: https://web3-ethereum-defi.readthedocs.io/vaults/bulla/index.html
 example_smart_contracts:
   - https://arbiscan.io/address/0xc099773267308D8e9E805f47EABf9ab13bBc9e37

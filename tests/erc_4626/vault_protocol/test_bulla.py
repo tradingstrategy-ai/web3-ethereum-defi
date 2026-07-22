@@ -14,6 +14,7 @@ from eth_defi.erc_4626.vault_protocol.bulla.offchain_metadata import get_bulla_v
 from eth_defi.erc_4626.vault_protocol.bulla.vault import BullaFeeData, BullaVault
 from eth_defi.provider.anvil import AnvilLaunch, fork_network_anvil
 from eth_defi.provider.multi_provider import create_multi_provider_web3
+from eth_defi.research.vault_metrics import slugify_protocol
 from eth_defi.vault.fee import VaultFeeMode, get_vault_fee_mode
 from eth_defi.vault.protocol_metadata import build_metadata_json
 from eth_defi.vault.risk import VaultTechnicalRisk, get_vault_risk
@@ -141,13 +142,14 @@ def test_bulla_public_metadata_is_address_scoped() -> None:
 
 def test_bulla_protocol_metadata_risk_and_fee_data() -> None:
     """Export Bulla metadata while preserving its pool-specific fee and risk model."""
-    metadata = build_metadata_json(Path("eth_defi/data/vaults/metadata/bulla.yaml"), "https://example.invalid")
+    metadata = build_metadata_json(Path("eth_defi/data/vaults/metadata/bulla-network.yaml"), "https://example.invalid")
 
     assert metadata["name"] == "Bulla Network"
-    assert metadata["slug"] == "bulla"
-    assert metadata["logos"]["generic"] == "https://example.invalid/vault-protocol-metadata/bulla/generic.png"
-    assert metadata["logos"]["light"] == "https://example.invalid/vault-protocol-metadata/bulla/light.png"
-    assert metadata["logos"]["dark"] == "https://example.invalid/vault-protocol-metadata/bulla/dark.png"
+    assert metadata["slug"] == "bulla-network"
+    assert metadata["logos"]["generic"] == "https://example.invalid/vault-protocol-metadata/bulla-network/generic.png"
+    assert metadata["logos"]["light"] == "https://example.invalid/vault-protocol-metadata/bulla-network/light.png"
+    assert metadata["logos"]["dark"] == "https://example.invalid/vault-protocol-metadata/bulla-network/dark.png"
     assert get_vault_protocol_name({ERC4626Feature.bulla_like}) == "Bulla Network"
+    assert slugify_protocol(get_vault_protocol_name({ERC4626Feature.bulla_like})) == metadata["slug"]
     assert get_vault_risk("Bulla Network") == VaultTechnicalRisk.low
     assert get_vault_fee_mode("Bulla Network", BULLA_VAULT_ADDRESS) == VaultFeeMode.internalised_skimming
