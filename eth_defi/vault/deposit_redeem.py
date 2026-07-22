@@ -16,6 +16,7 @@ from web3 import Web3
 from web3.contract.contract import ContractFunction
 
 from eth_defi.timestamp import get_block_timestamp
+from eth_defi.provider.anvil import is_anvil
 from eth_defi.trace import assert_transaction_success_with_explanation
 from eth_defi.vault.flow_events import PendingVaultFlow, VaultFlowDirection
 
@@ -118,10 +119,31 @@ class VaultTransactionFailed(Exception):
     """One of vault deposit/redeem transactions reverted"""
 
 
+class UnsupportedVaultSimulation(RuntimeError):
+    """A vault settlement simulation cannot safely run on this provider."""
+
+
 @dataclass(slots=True)
 class DepositRedeemEventFailure:
+    """Structured failed-flow diagnostic returned by a vault manager."""
+
     tx_hash: HexBytes
     revert_reason: str | None
+
+    #: Protocol adapter that analysed the failed flow, when available.
+    protocol: str | None = None
+
+    #: Vault whose lifecycle was being processed, when available.
+    vault_address: HexAddress | None = None
+
+    #: ``deposit`` or ``redeem`` when the manager knows the direction.
+    direction: Literal["deposit", "redeem"] | None = None
+
+    #: Lifecycle phase, such as ``request`` or ``claim``.
+    phase: str | None = None
+
+    #: Receipt status when it was available to the analyser.
+    receipt_status: int | None = None
 
 
 @dataclass(slots=True)
@@ -208,6 +230,32 @@ class RedemptionTicket:
         - Needed for settlement
         """
         raise NotImplementedError()
+
+
+@dataclass(frozen=True, slots=True)
+class VaultForcedSettlementResult:
+    """Outcome of an Anvil-only forced settlement attempt.
+
+    Synchronous managers return a no-op result because their successful
+    request transaction already completes the lifecycle. Asynchronous managers
+    return the ticket status before and after their protocol-specific
+    settlement transaction(s).
+    """
+
+    #: Ticket progressed by the simulation, or None for synchronous flows.
+    ticket: DepositTicket | RedemptionTicket | None
+
+    #: False when the completed flow does not need a settlement transaction.
+    settlement_required: bool
+
+    #: Request status before settlement, when a ticket was supplied.
+    status_before: AsyncVaultRequestStatus | None
+
+    #: Request status after settlement, when a ticket was supplied.
+    status_after: AsyncVaultRequestStatus | None
+
+    #: Transactions broadcast by the forced settlement helper.
+    transaction_hashes: tuple[HexBytes, ...] = ()
 
 
 class CannotParseRedemptionTransaction(Exception):
@@ -420,7 +468,18 @@ class DepositRequest:
 
 
 class VaultDepositManager(ABC):
-    """Abstraction over different deposit/redeem flows of vaults."""
+    """Abstraction over different deposit/redeem flows of vaults.
+
+    Supported simulation path: every manager exposes force_settle() for
+    Anvil-based integration tests. Synchronous managers use its no-op
+    implementation; asynchronous managers override it when their selected
+    test lifecycle needs settlement.
+
+    Known limitations: the common interface cannot infer protocol-specific
+    settlement roles, valuations or queues. Each protocol manager documents
+    the concrete asynchronous path it supports and raises
+    UnsupportedVaultSimulation when it has no safe Anvil driver.
+    """
 
     def __init__(
         self,
@@ -431,6 +490,36 @@ class VaultDepositManager(ABC):
     @property
     def web3(self) -> Web3:
         return self.vault.web3
+
+    def force_settle(
+        self,
+        ticket: DepositTicket | RedemptionTicket | None,
+    ) -> VaultForcedSettlementResult:
+        """Force the selected ticket forward on an Anvil simulation.
+
+        Synchronous managers do not require settlement and return a no-op
+        result when called with None. Asynchronous managers must override this
+        method and supply their request ticket.
+
+        :param ticket:
+            Pending async request ticket, or None for a synchronous flow.
+        :return:
+            Settlement outcome with before/after status and transaction hashes.
+        :raise UnsupportedVaultSimulation:
+            If the provider is not Anvil or an async manager lacks a driver.
+        """
+        if not is_anvil(self.web3):
+            raise UnsupportedVaultSimulation(f"{self.__class__.__name__}.force_settle() requires an Anvil provider")
+
+        if ticket is None and (self.has_synchronous_deposit() or self.has_synchronous_redemption()):
+            return VaultForcedSettlementResult(
+                ticket=None,
+                settlement_required=False,
+                status_before=None,
+                status_after=None,
+            )
+
+        raise UnsupportedVaultSimulation(f"{self.__class__.__name__} has no Anvil settlement driver for {type(ticket).__name__}")
 
     @abstractmethod
     def has_synchronous_deposit(self) -> bool:

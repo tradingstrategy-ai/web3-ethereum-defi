@@ -15,7 +15,7 @@ from eth_defi.erc_4626.core import ERC4626Feature
 from eth_defi.erc_4626.vault import ERC4626Vault, VaultReaderState
 from eth_defi.event_reader.conversion import convert_int256_bytes_to_int
 from eth_defi.event_reader.multicall_batcher import EncodedCall, EncodedCallResult
-from eth_defi.token import TokenDetails
+from eth_defi.token import TokenDetails, fetch_erc20_details
 from eth_defi.vault.base import VaultHistoricalRead, VaultHistoricalReader
 from eth_defi.vault.fee import VaultFeeMode
 
@@ -266,6 +266,86 @@ class UpshiftVault(ERC4626Vault):
         """Alias for the Upshift implementation-specific vault contract."""
 
         return self.vault_contract
+
+    @cached_property
+    def assets_whitelist_contract(self) -> Contract:
+        """Get the multi-asset denomination-token whitelist contract.
+
+        :return:
+            The configured whitelist contract.
+        :raise ValueError:
+            If this is not an Upshift multi-asset vault.
+        """
+        if not self.multi_asset_like:
+            raise ValueError("Only Upshift multi-asset vaults have an assets whitelist")
+        address = self.upshift_contract.functions.assetsWhitelistAddress().call()
+        return get_deployed_contract(
+            self.web3,
+            "upshift/EnableOnlyAssetsWhitelist.json",
+            address,
+        )
+
+    def fetch_all_denomination_tokens(self) -> tuple[TokenDetails, ...]:
+        """Fetch every configured multi-asset denomination token.
+
+        The returned tuple preserves the onchain whitelist ordering. That
+        ordering determines the primary token returned by
+        :meth:`fetch_denomination_token`.
+
+        :return:
+            Whitelisted denomination tokens in protocol order. Standard
+            single-asset Upshift vaults return their normal denomination token.
+        :raise ValueError:
+            If a configured token cannot be read as an ERC-20.
+        """
+        if not self.multi_asset_like:
+            token = super().fetch_denomination_token()
+            return (token,) if token is not None else ()
+
+        addresses = self.assets_whitelist_contract.functions.getWhitelistedAssets().call()
+        if not addresses:
+            # Older multi-asset proxies can expose a whitelist contract before
+            # it has any configured assets. Their ERC-4626 asset remains the
+            # only observable primary denomination token.
+            token = super().fetch_denomination_token()
+            return (token,) if token is not None else ()
+        tokens = []
+        for address in addresses:
+            token = fetch_erc20_details(
+                self.web3,
+                address,
+                chain_id=self.spec.chain_id,
+                raise_on_error=False,
+                cause_diagnostics_message=f"Upshift vault {self.address} denomination token lookup",
+                cache=self.token_cache,
+            )
+            if token is None:
+                raise ValueError(f"Could not fetch Upshift denomination token {address} for vault {self.address}")
+            tokens.append(token)
+        return tuple(tokens)
+
+    def fetch_denomination_token(self) -> TokenDetails | None:
+        """Fetch Upshift's primary denomination token.
+
+        **Supported simulation path**
+
+        Multi-asset vaults use the first token in the onchain whitelist as
+        their primary denomination token. The representative integration path
+        uses a vault whose first token is USDC.
+
+        **Known limitations**
+
+        Only the first token is selected as the primary denomination token.
+        Remaining whitelisted tokens are discovered by
+        :meth:`fetch_all_denomination_tokens` but are not supported by the
+        deposit manager yet.
+
+        :return:
+            First whitelisted token for a multi-asset vault, or the normal
+            ERC-4626 denomination token for a standard Upshift vault.
+        """
+        tokens = self.fetch_all_denomination_tokens()
+        return tokens[0] if tokens else None
 
     def fetch_share_token_address(self, block_identifier: BlockIdentifier = "latest") -> HexAddress:
         """Get the share token address.

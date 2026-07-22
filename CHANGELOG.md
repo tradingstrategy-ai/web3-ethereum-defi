@@ -2,6 +2,7 @@
 
 - feat: Add optional atomic gross-settlement and cooldown safety controls for asset-manager Lagoon v0.5 transactions (2026-07-22)
 - fix: Publish Bulla Network protocol metadata under the canonical `bulla-network` slug (2026-07-22)
+- fix: `is_blacklisted_address()` no longer asserts a `0x` prefix; synthetic non-EVM vault ids (e.g. Lighter `lighter-pool-`) return `False` instead of raising, since the rugpull blacklist only holds EVM addresses (2026-07-22)
 - feat: Add Bulla Network Factoring vault recognition, native fee reads and safe read-only support (2026-07-21)
 - feat: Add multi-deployment Lighter vault scanning for Ethereum and Robinhood Chain with deployment-aware metrics and automatic legacy data migration (2026-07-22)
 - feat: Track per-chain vault scanner JSON-RPC calls and errors in DuckDB (2026-07-20)
