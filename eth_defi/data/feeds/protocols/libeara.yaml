@@ -5,3 +5,17 @@ website: https://libeara.com/
 twitter: libeara_
 linkedin: libeara
 # rss: not found — the public website has no advertised RSS or Atom feed
+short_description: Libeara provides tokenisation and lifecycle infrastructure for regulated fund shares.
+long_description: |
+  Libeara supplies the tokenisation platform for the reviewed CUMIU, BELIF and ULTRA fund-share deployments. The underlying funds retain their own investment managers and accounting currencies.
+other-links:
+  - title: ChinaAMC USD Digital Money Market Fund product page
+    url: https://www.chinaamc.com.hk/product/chinaamc-usd-digital-money-market-fund-listedclass/
+  - title: ChinaAMC USD Digital Money Market Fund factsheet
+    url: https://www.chinaamc.com.hk/wp-content/uploads/chinaamc/resources/Factsheet_USDDTMMF_20260430_EN.pdf
+  - title: BELIF onchain fund record
+    url: https://etherscan.io/token/0x237c717df1b60501f8d029d3fe7385fd090df180
+  - title: ULTRA fund launch and product structure
+    url: https://libeara.com/libeara-partners-with-wellington-and-fundbridge-capital-to-launch-a-u-s-treasuries-fund-tokenised-on-public-blockchain/
+  - title: ULTRA multi-chain expansion
+    url: https://libeara.com/libeara-expands-support-of-fundbridge-issued-ultra-and-mg-999-to-solana-with-theo-to-allocate-on-solana/

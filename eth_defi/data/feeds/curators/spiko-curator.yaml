@@ -17,3 +17,8 @@ other-links:
     url: https://tech.spiko.io/posts/spiko-smart-contracts/
   - title: Spiko contracts repository - USTBL token and Oracle deployment configuration
     url: https://github.com/spiko-tech/contracts/blob/main/subgraph/config/mainnet.json
+  # 2026-07-22 maintain-curators: added the individual USD fund and official NAV sources.
+  - title: Spiko US T-Bills Money Market Fund product page
+    url: https://www.spiko.io/spiko-treasury-bills-dollar
+  - title: Spiko official product factsheets and NAV data
+    url: https://data.spiko.io/

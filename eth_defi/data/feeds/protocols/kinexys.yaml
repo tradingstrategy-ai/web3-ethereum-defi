@@ -5,4 +5,14 @@ website: https://www.jpmorgan.com/kinexys/index
 twitter: jpmorgan
 linkedin: jpmorgan
 # rss: not found - Kinexys content hub and J.P. Morgan newsroom pages do not expose RSS/Atom links
+short_description: Kinexys provides J.P. Morgan's blockchain infrastructure for tokenised money-market funds and settlement.
+long_description: |
+  Kinexys Digital Assets provides the tokenisation and settlement infrastructure used by J.P. Morgan's reviewed JLTXX and MONY fund products. J.P. Morgan Asset Management remains the investment manager, while Kinexys supplies the onchain issuance surface.
+other-links:
+  - title: Kinexys tokenised money-market funds product family
+    url: https://www.jpmorgan.com/kinexys/tokenized-money-market-funds
+  - title: J.P. Morgan Asset Management MONY launch announcement
+    url: https://www.prnewswire.com/news-releases/jp-morgan-asset-management-launches-its-first-tokenized-money-market-fund-302642262.html
+  - title: JLTXX official fact sheet
+    url: https://am.jpmorgan.com/content/dam/jpm-am-aem/americas/us/en/literature/fact-sheet/money-market/fs-ocltmm-t.pdf
 linkedin-rss-hub-disabled-at: 2026-07-04
