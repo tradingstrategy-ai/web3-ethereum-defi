@@ -4,6 +4,7 @@ import logging
 import time
 from decimal import Decimal
 
+from hexbytes import HexBytes
 from web3 import Web3
 
 from eth_typing import HexAddress
@@ -323,33 +324,39 @@ def redeem_vault_shares(
 def force_lagoon_settle(
     vault: LagoonVault,
     asset_manager: HexAddress,
-    raw_nav: int = None,
+    settlement_manager: HexAddress | None = None,
+    raw_nav: int | None = None,
     gas_limit: int = 15_000_000,
-):
+) -> tuple[HexBytes, HexBytes]:
     """Force settling of the Lagoon vault.
 
     - Used in the testing to move the vault to the next epoch
 
     :param asset_manager:
-        Spoofed account in Anvil
+        Valuation-manager account, spoofed in Anvil.
+    :param settlement_manager:
+        Safe account that submits the settlement. Defaults to
+        ``asset_manager`` for legacy test callers where both roles coincide.
     """
 
     assert asset_manager.startswith("0x"), f"asset_manager should be an address, got: {asset_manager}"
+    if settlement_manager is None:
+        settlement_manager = asset_manager
+    assert settlement_manager.startswith("0x"), f"settlement_manager should be an address, got: {settlement_manager}"
 
     web3 = vault.web3
-    balance = web3.eth.get_balance(asset_manager)
+    for account in (asset_manager, settlement_manager):
+        balance = web3.eth.get_balance(account)
+        if balance < 10**18:
+            tx_hash = web3.eth.send_transaction({"to": account, "from": web3.eth.accounts[0], "value": 5 * 10**18})
+            assert_transaction_success_with_explanation(web3, tx_hash)
 
-    # Top up if needed
-    if balance < 10**18:
-        tx_hash = web3.eth.send_transaction({"to": asset_manager, "from": web3.eth.accounts[0], "value": 5 * 10**18})
-        assert_transaction_success_with_explanation(web3, tx_hash)
-
-    if not raw_nav:
+    if raw_nav is None:
         nav = vault.fetch_nav()
         raw_nav = vault.denomination_token.convert_to_raw(nav)
 
-    tx_hash = vault.vault_contract.functions.updateNewTotalAssets(raw_nav).transact({"from": asset_manager, "gas": gas_limit})
-    assert_transaction_success_with_explanation(web3, tx_hash)
+    valuation_tx_hash = vault.vault_contract.functions.updateNewTotalAssets(raw_nav).transact({"from": asset_manager, "gas": gas_limit})
+    assert_transaction_success_with_explanation(web3, valuation_tx_hash)
 
     # Lagoon security fix
     #     function settleDeposit(uint256 _newTotalAssets) public virtual;
@@ -361,8 +368,9 @@ def force_lagoon_settle(
         extra_data=None,
     )
     tx_data = call.transact(
-        from_=asset_manager,
+        from_=settlement_manager,
         gas_limit=gas_limit,
     )
-    tx_hash = web3.eth.send_transaction(tx_data)
-    assert_transaction_success_with_explanation(web3, tx_hash)
+    settlement_tx_hash = web3.eth.send_transaction(tx_data)
+    assert_transaction_success_with_explanation(web3, settlement_tx_hash)
+    return HexBytes(valuation_tx_hash), HexBytes(settlement_tx_hash)

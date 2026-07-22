@@ -19,6 +19,7 @@ from eth_defi.abi import ZERO_ADDRESS_STR, get_topic_signature_from_event
 from eth_defi.event_reader.conversion import BadAddressError, convert_bytes32_to_address, convert_bytes32_to_uint, convert_int256_bytes_to_int
 from eth_defi.event_reader.multicall_batcher import EncodedCall
 from eth_defi.middleware import ProbablyNodeHasNoBlock
+from eth_defi.provider.anvil import is_anvil, make_anvil_custom_rpc_request
 from eth_defi.timestamp import get_block_timestamp
 from eth_defi.vault.flow_events import (
     PendingVaultFlow,
@@ -41,6 +42,8 @@ from eth_defi.vault.deposit_redeem import (
     RedemptionRequest,
     RedemptionTicket,
     VaultDepositManager,
+    UnsupportedVaultSimulation,
+    VaultForcedSettlementResult,
 )
 
 
@@ -166,13 +169,18 @@ class ERC7540RedemptionRequest(RedemptionRequest):
 class ERC7540DepositManager(VaultDepositManager):
     """ERC-7540 async deposit/redeem flow.
 
-    - Currently coded for Lagoon, but should work with any vault.
+    **Supported simulation path**
 
-    Example:
+    Lagoon deposit and redemption requests can be moved to claimable state on
+    an Anvil fork through :meth:`force_settle`. The manager resolves the
+    deployed valuation-manager and Safe roles and delegates the low-level calls to
+    :func:`eth_defi.erc_4626.vault_protocol.lagoon.testing.force_lagoon_settle`.
 
-    .. code-block:: python
+    **Known limitations**
 
-
+    This manager currently supports Lagoon only. It does not model partial
+    settlements, repeated epochs, operator delegation, cancellation or
+    reclaim.
     """
 
     def __init__(self, vault: "eth_defi.erc_7540.vault.ERC7540Vault"):
@@ -180,6 +188,62 @@ class ERC7540DepositManager(VaultDepositManager):
 
         assert isinstance(vault, LagoonVault), f"Got {type(vault)}"
         self.vault = vault
+
+    def force_settle(
+        self,
+        ticket: DepositTicket | RedemptionTicket | None,
+    ) -> VaultForcedSettlementResult:
+        """Force one Lagoon settlement round on an Anvil fork.
+
+        :param ticket:
+            Pending deposit or redemption ticket to progress.
+        :return:
+            Before/after status and settlement transaction hashes.
+        :raise UnsupportedVaultSimulation:
+            If the provider is not Anvil, the ticket is unsupported, or the
+            settlement does not make the request claimable.
+        """
+        if not is_anvil(self.web3):
+            raise UnsupportedVaultSimulation("Lagoon force_settle() requires an Anvil provider")
+        if ticket is None:
+            raise UnsupportedVaultSimulation("Lagoon force_settle() requires an async request ticket")
+
+        if isinstance(ticket, ERC7540DepositTicket):
+            status_before = self.get_deposit_request_status(ticket)
+        elif isinstance(ticket, ERC7540RedemptionTicket):
+            status_before = self.get_redemption_request_status(ticket)
+        else:
+            raise UnsupportedVaultSimulation(f"Unsupported Lagoon ticket type: {type(ticket)}")
+
+        from eth_defi.erc_4626.vault_protocol.lagoon.testing import force_lagoon_settle
+
+        valuation_manager = self.vault.valuation_manager
+        safe_address = self.vault.safe_address
+        make_anvil_custom_rpc_request(self.web3, "anvil_impersonateAccount", [valuation_manager])
+        make_anvil_custom_rpc_request(self.web3, "anvil_setBalance", [valuation_manager, hex(10**18)])
+        make_anvil_custom_rpc_request(self.web3, "anvil_impersonateAccount", [safe_address])
+        make_anvil_custom_rpc_request(self.web3, "anvil_setBalance", [safe_address, hex(10**18)])
+        tx_hashes = force_lagoon_settle(
+            self.vault,
+            valuation_manager,
+            settlement_manager=safe_address,
+        )
+
+        if isinstance(ticket, ERC7540DepositTicket):
+            status_after = self.get_deposit_request_status(ticket)
+        else:
+            status_after = self.get_redemption_request_status(ticket)
+
+        if status_after is not AsyncVaultRequestStatus.claimable:
+            raise UnsupportedVaultSimulation(f"Lagoon settlement did not make {type(ticket).__name__} claimable: {status_before.value} -> {status_after.value}")
+
+        return VaultForcedSettlementResult(
+            ticket=ticket,
+            settlement_required=True,
+            status_before=status_before,
+            status_after=status_after,
+            transaction_hashes=tx_hashes,
+        )
 
     def fetch_vault_flow_events(
         self,
