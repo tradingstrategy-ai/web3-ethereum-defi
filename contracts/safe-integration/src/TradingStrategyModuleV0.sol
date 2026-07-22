@@ -14,6 +14,7 @@ pragma solidity ^0.8.26;
 
 import "@gnosis.pm/zodiac/contracts/core/Module.sol";
 import "@guard/GuardV0Base.sol";
+import {LagoonLib} from "@guard/lib/LagoonLib.sol";
 
 /**
  * Trading Strategy integration as Zodiac Module.
@@ -22,6 +23,15 @@ import "@guard/GuardV0Base.sol";
  * - Add automated trading strategy support w/whitelisted trading universe and trade executors
  * - Support Lagoon, Gnosis Safe and other Gnosis Safe-based ecosystems which support Zodiac modules
  * - Owner should point to Gnosis Safe / DAO
+ *
+ * Lagoon deployment topology:
+ *
+ * - One Lagoon vault, one Safe and one TradingStrategyModuleV0 guard module
+ *   are always deployed as a dedicated, inseparable set.
+ * - The module avatar and target are that Safe, and the Lagoon vault is
+ *   configured to use the same Safe.
+ * - A guard module or Safe is never shared by multiple Lagoon vaults. Deploy
+ *   another complete set instead of pairing a second vault with this module.
  *
  */
 contract TradingStrategyModuleV0 is Module, GuardV0Base {
@@ -36,13 +46,21 @@ contract TradingStrategyModuleV0 is Module, GuardV0Base {
         _;
     }
 
-    // Identify the deployed ABI
+    /**
+     * Identify the deployed TradingStrategyModuleV0 ABI version.
+     *
+     * Version history:
+     *
+     * - v0.4: Added asset-manager-funded native token forwarding through
+     *   payable performCall().
+     * - v0.5: Added atomic Lagoon v0.5 maximum settlement validation.
+     */
     function getTradingStrategyModuleVersion()
         public
         pure
         returns (string memory)
     {
-        return "v0.4";
+        return "v0.5";
     }
 
     /**
@@ -108,7 +126,11 @@ contract TradingStrategyModuleV0 is Module, GuardV0Base {
     ) public payable {
         // Check that the asset manager can perform this function.
         // Will revert() on error
-        _validateCallInternal(msg.sender, target, callData);
+        LagoonLib.SettlementSnapshot memory lagoonSnapshot = _validateCallInternal(
+            msg.sender,
+            target,
+            callData
+        );
 
         // Forward any ETH sent by the caller to the Safe.
         // The Safe's receive() function accepts plain ETH transfers.
@@ -127,6 +149,14 @@ contract TradingStrategyModuleV0 is Module, GuardV0Base {
         );
 
         _bubbleUpRevert(success, response);
+
+        // Pre-execution Lagoon routing and balance capture are part of
+        // _validateCallInternal(). Only the state-dependent half must remain
+        // here, after the Safe has produced the balances being validated.
+        if (lagoonSnapshot.limitEnabled) {
+            require(LagoonLib.isDeployed());
+            LagoonLib.verifySettlement(target, lagoonSnapshot);
+        }
     }
 
     /**

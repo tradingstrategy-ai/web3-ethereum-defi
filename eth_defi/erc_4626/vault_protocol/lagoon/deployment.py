@@ -327,6 +327,12 @@ class LagoonConfig:
     #: Deploy fresh Lagoon protocol (fee registry + vault implementation + factory)
     from_the_scratch: bool = False
 
+    #: Maximum gross Lagoon settlement per asset-manager transaction.
+    #:
+    #: Human-readable underlying-token units. ``None`` preserves the legacy
+    #: unlimited settlement behaviour.
+    max_settlement_amount: Decimal | None = None
+
     #: Hypercore native vault addresses to whitelist (HyperEVM only).
     #: When set, also whitelists CoreWriter and CoreDepositWallet.
     hypercore_vaults: list[HexAddress | str] | None = None
@@ -359,6 +365,9 @@ class LagoonConfig:
         """Populate multi-key config from the legacy single-key field."""
         if self.asset_managers is None and self.asset_manager is not None:
             self.asset_managers = [self.asset_manager]
+        if self.max_settlement_amount is not None:
+            assert isinstance(self.max_settlement_amount, Decimal), "max_settlement_amount must be Decimal"
+            assert self.max_settlement_amount >= 0, "max_settlement_amount cannot be negative"
 
 
 @dataclass(slots=True, frozen=True)
@@ -1167,6 +1176,7 @@ def deploy_safe_trading_strategy_module(
     velora: bool = False,
     gmx_deployment: GMXDeployment | None = None,
     lighter_deployment: "LighterDeployment | None" = None,
+    lagoon: bool = True,
 ) -> Contract:
     """Deploy TradingStrategyModuleV0 for Safe and Lagoon.
 
@@ -1186,6 +1196,10 @@ def deploy_safe_trading_strategy_module(
     :param enable_on_safe:
         Automatically enable this module on the Safe multisig.
         Must be 1-of-1 deployer address multisig.
+
+    :param lagoon:
+        Deploy and link ``LagoonLib``. Satellite modules without
+        a Lagoon vault link the zero address and fail closed on Lagoon calls.
 
     :return:
         TradingStrategyModuleV0 instance
@@ -1238,6 +1252,19 @@ def deploy_safe_trading_strategy_module(
         chain_id = web3.eth.chain_id
 
         library_addresses = {}
+
+        if lagoon:
+            lagoon_lib = deploy_contract(
+                web3,
+                "guard/LagoonLib.json",
+                deployer,
+                gas=guard_gas,
+            )
+            library_addresses["LagoonLib"] = lagoon_lib.address
+            logger.info("Deployed LagoonLib at %s", lagoon_lib.address)
+        else:
+            library_addresses["LagoonLib"] = ZERO_ADDRESS
+            logger.info("LagoonLib not needed, linking with zero address")
 
         if uniswap_v2 or uniswap_v3:
             uniswap_lib = deploy_contract(
@@ -1393,6 +1420,8 @@ def setup_guard(
     assets: list[HexAddress | str] | None = None,
     multicall_chunk_size=40,
     underlying_token_address: HexAddress | None = None,
+    lagoon_pending_silo_address: HexAddress | None = None,
+    lagoon_max_settlement_amount_raw: int | None = None,
 ) -> list[WhitelistEntry]:
     """Setups up TradingStrategyModuleV0 guard on the Lagoon vault.
 
@@ -1400,6 +1429,9 @@ def setup_guard(
       and enables it on the Safe multisig as a module.
 
     - Runs through various whitelisting rules as transactions against this contract
+
+    ``lagoon_max_settlement_amount_raw`` opts the vault into atomic gross
+    settlement validation. ``None`` keeps the legacy unlimited policy.
 
     :param vault:
         The deployed Lagoon vault contract. ``None`` on satellite chains.
@@ -1769,9 +1801,34 @@ def setup_guard(
     # Whitelist vault settle
     if vault is not None:
         logger.info("Whitelist vault settlement")
-        tx_hash = _broadcast(module.functions.whitelistLagoon(vault.address, "Whitelist vault settlement"))
+        if lagoon_max_settlement_amount_raw is None:
+            call = module.functions.whitelistLagoon(vault.address, "Whitelist vault settlement")
+        else:
+            internal_version = module.functions.getInternalVersion().call()
+            assert internal_version >= 2, f"Lagoon settlement limits require GuardV0 internal version 2 or newer, got {internal_version}"
+            assert underlying_token_address is not None, "Lagoon settlement limit requires underlying token"
+            assert lagoon_pending_silo_address is not None, "Lagoon settlement limit requires pending Silo"
+            call = module.functions.whitelistLagoonWithSettlementLimit(
+                vault.address,
+                underlying_token_address,
+                lagoon_pending_silo_address,
+                lagoon_max_settlement_amount_raw,
+                "Whitelist capped vault settlement",
+            )
+        tx_hash = _broadcast(call)
         assert_transaction_success_with_explanation(web3, tx_hash, timeout=DEFAULT_TX_CONFIRMATION_TIMEOUT)
         entries.append(WhitelistEntry("Vault settlement", "Lagoon vault", vault.address))
+        if lagoon_max_settlement_amount_raw is not None:
+            configured = module.functions.getLagoonSettlementConfig(vault.address).call()
+            assert configured == [
+                True,
+                True,
+                Web3.to_checksum_address(underlying_token_address),
+                Web3.to_checksum_address(lagoon_pending_silo_address),
+                lagoon_max_settlement_amount_raw,
+            ], f"Unexpected Lagoon settlement configuration: {configured}"
+            limit_description = f"{lagoon_max_settlement_amount_raw} raw units; asset {underlying_token_address}; Silo {lagoon_pending_silo_address}"
+            entries.append(WhitelistEntry("Vault settlement limit", limit_description, vault.address))
     else:
         logger.info("Skipping vault settlement whitelisting (satellite chain, no vault)")
 
@@ -1813,6 +1870,7 @@ def deploy_automated_lagoon_vault(
     assets: list[HexAddress | str] | None = None,
     safe_salt_nonce: int | None = None,
     safe_proxy_factory_address: HexAddress | str | None = None,
+    max_settlement_amount: Decimal | None = None,
 ) -> LagoonAutomatedDeployment:
     """Deploy a full Lagoon setup with a guard.
 
@@ -1898,6 +1956,7 @@ def deploy_automated_lagoon_vault(
         forge_cache_dir = config.forge_cache_dir
         deploy_retries = config.deploy_retries
         satellite_chain = config.satellite_chain
+        max_settlement_amount = config.max_settlement_amount
     else:
         # Legacy kwargs: validate required arguments
         assert parameters is not None, "parameters required when config not provided"
@@ -1906,6 +1965,10 @@ def deploy_automated_lagoon_vault(
         forge_cache_dir = None
         deploy_retries = 1
         satellite_chain = False
+
+    if max_settlement_amount is not None:
+        assert isinstance(max_settlement_amount, Decimal), "max_settlement_amount must be Decimal"
+        assert max_settlement_amount >= 0, "max_settlement_amount cannot be negative"
 
     normalised_asset_managers = _normalise_asset_managers(asset_manager, asset_managers)
     primary_asset_manager = normalised_asset_managers[0]
@@ -2159,6 +2222,7 @@ def deploy_automated_lagoon_vault(
         velora=velora,
         gmx_deployment=gmx_deployment,
         lighter_deployment=lighter_deployment,
+        lagoon=not satellite_chain,
     )
 
     if not is_anvil(web3):
@@ -2167,6 +2231,20 @@ def deploy_automated_lagoon_vault(
 
     if isinstance(deployer, HotWallet):
         deployer.sync_nonce(web3)
+
+    lagoon_pending_silo_address = None
+    lagoon_max_settlement_amount_raw = None
+    if vault_contract is not None and max_settlement_amount is not None:
+        lagoon_vault_for_setup = LagoonVault(
+            web3,
+            VaultSpec(chain_id, vault_contract.address),
+            trading_strategy_module_address=module.address,
+            vault_abi=vault_abi,
+            default_block_identifier="latest",
+        )
+        underlying = fetch_erc20_details(web3, parameters.underlying, chain_id=chain_id)
+        lagoon_pending_silo_address = lagoon_vault_for_setup.silo_address
+        lagoon_max_settlement_amount_raw = underlying.convert_to_raw(max_settlement_amount)
 
     # Configure TradingStrategyModuleV0 guard — runs in small blocks
     whitelisted_items = setup_guard(
@@ -2190,7 +2268,9 @@ def deploy_automated_lagoon_vault(
         any_asset=any_asset,
         broadcast_func=_broadcast,
         assets=assets,
-        underlying_token_address=parameters.underlying if satellite_chain else None,
+        underlying_token_address=parameters.underlying,
+        lagoon_pending_silo_address=lagoon_pending_silo_address,
+        lagoon_max_settlement_amount_raw=lagoon_max_settlement_amount_raw,
     )
 
     # Approve GMX collateral tokens for SyntheticsRouter via performCall.

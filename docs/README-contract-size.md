@@ -7,14 +7,16 @@ to stay within the [EIP-170 24,576-byte limit](https://eips.ethereum.org/EIPS/ei
 
 | Contract | Project | Size (bytes) | % of 24,576 limit | Margin (bytes) |
 |----------|---------|-------------:|------------------:|---------------:|
-| TradingStrategyModuleV0 | safe-integration | 19,215 | 78.2% | 5,361 |
-| GuardV0 | guard | 17,203 | 70.0% | 7,373 |
-| GmxLib | guard | 4,577 | 18.6% | 19,999 |
-| HypercoreVaultLib | guard | 3,198 | 13.0% | 21,378 |
+| TradingStrategyModuleV0 | safe-integration | 23,875 | 97.1% | 701 |
+| GuardV0 | guard | 21,624 | 88.0% | 2,952 |
+| GmxLib | guard | 5,165 | 21.0% | 19,411 |
+| HypercoreVaultLib | guard | 3,761 | 15.3% | 20,815 |
+| LagoonLib | guard | 2,988 | 12.2% | 21,588 |
 | CowSwapLib | guard | 2,757 | 11.2% | 21,819 |
 | UniswapLib | guard | 2,448 | 10.0% | 22,128 |
 | VeloraLib | guard | 2,247 | 9.1% | 22,329 |
 | SimpleVaultV0 | guard | 2,201 | 9.0% | 22,375 |
+| LighterLib | guard | 1,862 | 7.6% | 22,714 |
 | MockCoreWriter | guard | 1,632 | 6.6% | 22,944 |
 | MockCoreDepositWallet | guard | 755 | 3.1% | 23,821 |
 | MockSafe | safe-integration | 737 | 3.0% | 23,839 |
@@ -112,8 +114,8 @@ optimising for execution gas. But at runs=1 (deployment size focus), the legacy 
 ### Bytecode composition (via_ir=true, runs=1, pre-library extraction)
 
 This breakdown was measured before library extraction. After extraction,
-TSM is 19,215 bytes; validation logic now lives in separate libraries
-(GmxLib, UniswapLib, HypercoreVaultLib, CowSwapLib, VeloraLib).
+validation logic now lives in separate libraries
+(GmxLib, UniswapLib, HypercoreVaultLib, CowSwapLib, VeloraLib, LagoonLib).
 
 | Category | Approx. bytes | % of total | Notes |
 |----------|-------------:|----------:|----|
@@ -160,11 +162,13 @@ DELEGATECALL context.
 
 | Library | Purpose | Size (bytes) | Storage slot |
 |---------|---------|-------------:|-------------|
-| `GmxLib` | GMX V2 perpetuals: router/market whitelisting, multicall validation | 4,577 | `keccak256("eth_defi.gmx.v1")` |
-| `HypercoreVaultLib` | Hypercore vault deposit/action validation, CoreWriter checking | 3,198 | `keccak256("eth_defi.hypercore.vault.v1")` |
+| `GmxLib` | GMX V2 perpetuals: router/market whitelisting, multicall validation | 5,165 | `keccak256("eth_defi.gmx.v1")` |
+| `HypercoreVaultLib` | Hypercore vault deposit/action validation, CoreWriter checking | 3,761 | `keccak256("eth_defi.hypercore.vault.v1")` |
+| `LagoonLib` | Lagoon allowlisting and atomic gross-settlement balance validation | 2,988 | `keccak256("eth_defi.lagoon.v1")` |
 | `CowSwapLib` | CowSwap order creation, GPv2Order hashing, presigning, and swap validation | 2,757 | `keccak256("eth_defi.cowswap.v1")` |
 | `UniswapLib` | Uniswap V2 swap path validation, V3 exactInput/exactOutput/SwapRouter02 recipient checks | 2,448 | None (stateless) |
 | `VeloraLib` | Velora (ParaSwap) swapper whitelisting, swap validation, balance-envelope verification | 2,247 | `keccak256("eth_defi.velora.v1")` |
+| `LighterLib` | Lighter deposits, withdrawals and asset-index validation | 1,862 | `keccak256("eth_defi.lighter.v1")` |
 
 On chains where a library is not needed, it is linked with the zero address
 (`0x0000...0000`) so the library code is never actually called and doesn't need

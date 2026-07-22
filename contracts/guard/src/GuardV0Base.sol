@@ -29,6 +29,13 @@ import {
 import {UniswapLib} from "./lib/UniswapLib.sol";
 import {VeloraLib} from "./lib/VeloraLib.sol";
 import {
+    LagoonLib,
+    SEL_SETTLE_DEPOSIT,
+    SEL_SETTLE_REDEEM,
+    SEL_SETTLE_DEPOSIT_UINT,
+    SEL_SETTLE_REDEEM_UINT
+} from "./lib/LagoonLib.sol";
+import {
     LighterLib,
     SEL_LIGHTER_DEPOSIT,
     SEL_LIGHTER_WITHDRAW,
@@ -55,12 +62,6 @@ bytes4 constant SEL_EXACT_INPUT_ROUTER02 = 0xb858183f; // SwapRouter02 exactInpu
 // ===== Aave V3 =====
 bytes4 constant SEL_AAVE_SUPPLY = 0x617ba037; // supply(address,uint256,address,uint16)
 bytes4 constant SEL_AAVE_WITHDRAW = 0x69328dec; // withdraw(address,uint256,address)
-
-// ===== Lagoon =====
-bytes4 constant SEL_SETTLE_DEPOSIT = 0x559ec80d; // settleDeposit()
-bytes4 constant SEL_SETTLE_REDEEM = 0xa03d55e3; // settleRedeem()
-bytes4 constant SEL_SETTLE_DEPOSIT_UINT = 0xd24ca58a; // settleDeposit(uint256)
-bytes4 constant SEL_SETTLE_REDEEM_UINT = 0xa627df66; // settleRedeem(uint256)
 
 // ===== ERC-4626 =====
 bytes4 constant SEL_DEPOSIT = 0x6e553f65; // deposit(uint256,address)
@@ -166,12 +167,7 @@ abstract contract GuardV0Base is IGuard, Multicall {
         public allowedDelegationApprovalDestinations;
 
     // ----- Protocol: Lagoon -----
-
-    // Allowed Lagoon vault settlement destinations
-    //
-    // We need to perform this action as a Safe multisig by calling Vault.settleDeposit() and Vault.settleRedeem()
-    //
-    mapping(address destination => bool allowed) public allowedLagoonVaults;
+    // Storage is in LagoonLib diamond storage (keccak256("eth_defi.lagoon.v1"))
 
     // ----- Protocol: CowSwap -----
     // Storage is in CowSwapLib diamond storage (keccak256("eth_defi.cowswap.v1"))
@@ -267,8 +263,6 @@ abstract contract GuardV0Base is IGuard, Multicall {
     event AnyAssetSet(bool value, string notes);
     event AnyVaultSet(bool value, string notes);
 
-    event LagoonVaultApproved(address vault, string notes);
-
     // Velora events are in VeloraLib (VeloraSwapperApproved, VeloraSwapExecuted)
     event ERC4626Approved(address vault, string notes);
     event CCTPMessengerApproved(address tokenMessenger, string notes);
@@ -281,14 +275,14 @@ abstract contract GuardV0Base is IGuard, Multicall {
     // Implementation needs to provide its own ownership policy hooks
     function getGovernanceAddress() public view virtual returns (address);
 
-
     /**
      * Track version during internal development.
      *
      * We bump up when new whitelistings added.
+     * Version 2 adds Lagoon v0.5 settlement-limit configuration.
      */
     function getInternalVersion() public pure returns (uint8) {
-        return 1;
+        return 2;
     }
 
     function allowCallSite(
@@ -419,19 +413,53 @@ abstract contract GuardV0Base is IGuard, Multicall {
         address vault,
         string calldata notes
     ) public onlyGuardOwner {
-        allowedLagoonVaults[vault] = true;
+        require(LagoonLib.isDeployed());
+        LagoonLib.whitelistVault(vault, notes);
+        _allowLagoonSettlementCallSites(vault, notes);
+    }
+
+    function whitelistLagoonWithSettlementLimit(
+        address vault,
+        address asset,
+        address pendingSilo,
+        uint256 maxSettlementAmount,
+        string calldata notes
+    ) public onlyGuardOwner {
+        require(LagoonLib.isDeployed());
+        LagoonLib.whitelistVaultWithSettlementLimit(
+            vault,
+            asset,
+            pendingSilo,
+            maxSettlementAmount,
+            notes
+        );
+        _allowLagoonSettlementCallSites(vault, notes);
+    }
+
+    function _allowLagoonSettlementCallSites(
+        address vault,
+        string calldata notes
+    ) internal {
         allowCallSite(vault, SEL_SETTLE_DEPOSIT, notes);
         allowCallSite(vault, SEL_SETTLE_REDEEM, notes);
         // Lagoon v0.5.0+
         allowCallSite(vault, SEL_SETTLE_DEPOSIT_UINT, notes);
         allowCallSite(vault, SEL_SETTLE_REDEEM_UINT, notes);
-        emit LagoonVaultApproved(vault, notes);
     }
 
     function isAnyTokenApproveSelector(
         bytes4 selector
     ) internal pure returns (bool) {
         return selector == SEL_APPROVE;
+    }
+
+    function _isLagoonSettlementSelector(
+        bytes4 selector
+    ) internal pure returns (bool) {
+        return selector == SEL_SETTLE_DEPOSIT ||
+            selector == SEL_SETTLE_REDEEM ||
+            selector == SEL_SETTLE_DEPOSIT_UINT ||
+            selector == SEL_SETTLE_REDEEM_UINT;
     }
 
     // Basic check if any target contract is whitelisted
@@ -484,8 +512,26 @@ abstract contract GuardV0Base is IGuard, Multicall {
         return anyAsset || allowedAssets[token];
     }
 
+    function allowedLagoonVaults(address vault) public view returns (bool) {
+        require(LagoonLib.isDeployed());
+        return LagoonLib.isAllowedVault(vault);
+    }
+
     function isAllowedLagoonVault(address vault) public view returns (bool) {
-        return allowedLagoonVaults[vault];
+        return allowedLagoonVaults(vault);
+    }
+
+    function getLagoonSettlementConfig(
+        address vault
+    ) public view returns (
+        bool allowed,
+        bool limitEnabled,
+        address asset,
+        address pendingSilo,
+        uint256 maxSettlementAmount
+    ) {
+        require(LagoonLib.isDeployed());
+        return LagoonLib.getVaultConfig(vault);
     }
 
     function isAllowedCowSwap(address settlement) public view returns (bool) {
@@ -577,11 +623,23 @@ abstract contract GuardV0Base is IGuard, Multicall {
         _validateCallInternal(sender, target, callDataWithSelector);
     }
 
+    /// Validate a proposed guarded call and capture Lagoon pre-execution state.
+    ///
+    /// Most protocol calls return an empty Lagoon snapshot. A capped Lagoon
+    /// settlement returns the balance baselines that the execution module must
+    /// verify after the Safe call. The public validateCall() entry point
+    /// intentionally discards this internal execution context because it only
+    /// answers whether a proposed call is currently valid.
+    ///
+    /// @param sender Account proposing the guarded call.
+    /// @param target Contract the Safe will call.
+    /// @param callDataWithSelector Complete target calldata.
+    /// @return lagoonSnapshot Pre-execution Lagoon state, when applicable.
     function _validateCallInternal(
         address sender,
         address target,
         bytes calldata callDataWithSelector
-    ) internal view {
+    ) internal view returns (LagoonLib.SettlementSnapshot memory lagoonSnapshot) {
         // SECURITY NOTE: Intentional full bypass for governance.
         //
         // The governance address (Safe multisig / DAO) can always perform
@@ -591,7 +649,7 @@ abstract contract GuardV0Base is IGuard, Multicall {
         // other emergency situations that the asset manager cannot resolve
         // within the normal whitelisted operations.
         if (sender == getGovernanceAddress()) {
-            return;
+            return lagoonSnapshot;
         }
 
         // Assume sender is trade-executor hot wallet
@@ -653,13 +711,9 @@ abstract contract GuardV0Base is IGuard, Multicall {
             validate_aaveWithdraw(callData);
 
             // --- Lagoon vault settlement ---
-        } else if (
-            selector == SEL_SETTLE_DEPOSIT ||
-            selector == SEL_SETTLE_REDEEM ||
-            selector == SEL_SETTLE_DEPOSIT_UINT ||
-            selector == SEL_SETTLE_REDEEM_UINT
-        ) {
-            validate_lagoonSettle(target);
+        } else if (_isLagoonSettlementSelector(selector)) {
+            require(LagoonLib.isDeployed());
+            lagoonSnapshot = LagoonLib.captureSettlement(target);
 
             // --- ERC-4626 / ERC-7540 vaults ---
         } else if (selector == SEL_DEPOSIT) {
@@ -882,10 +936,6 @@ abstract contract GuardV0Base is IGuard, Multicall {
         allowCallSite(lendingPool, SEL_AAVE_SUPPLY, notes);
         allowCallSite(lendingPool, SEL_AAVE_WITHDRAW, notes);
         allowApprovalDestination(lendingPool, notes);
-    }
-
-    function validate_lagoonSettle(address vault) internal view {
-        require(isAllowedLagoonVault(vault), "Vault not allowed");
     }
 
     // https://github.com/cowprotocol/contracts/tree/main/deployments
