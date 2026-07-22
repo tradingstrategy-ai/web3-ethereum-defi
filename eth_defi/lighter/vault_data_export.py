@@ -40,6 +40,7 @@ from eth_defi.lighter.constants import (
     LIGHTER_LEGACY_ROBINHOOD_CHAIN_ID,
     LIGHTER_POOL_FEE_MODE,
     LighterAPIConfig,
+    identify_lighter_pool_deployment,
 )
 from eth_defi.lighter.daily_metrics import LighterDailyMetricsDatabase
 from eth_defi.vault.base import VaultHistoricalRead, VaultSpec
@@ -49,6 +50,27 @@ from eth_defi.vault.risk import get_vault_risk
 from eth_defi.vault.vaultdb import VaultDatabase, VaultRow
 
 logger = logging.getLogger(__name__)
+
+
+def get_lighter_price_deployments(prices_df: pd.DataFrame) -> set[str]:
+    """Resolve deployment slugs represented by a Lighter raw-price frame.
+
+    The frame must contain synthetic Lighter addresses in its ``address``
+    column. Unknown addresses abort the merge because treating an incomplete
+    export as a whole-chain replacement could discard the other deployment's
+    history now that Ethereum and Robinhood share synthetic chain 9998.
+
+    :param prices_df:
+        Lighter raw-price DataFrame with string ``address`` values.
+    :return:
+        Deployment slugs represented by at least one row.
+    """
+    assert "address" in prices_df.columns, f"Lighter price frame is missing address column: {prices_df.columns}"
+    deployments = prices_df["address"].apply(identify_lighter_pool_deployment)
+    unknown_addresses = prices_df.loc[deployments.isna(), "address"].drop_duplicates().tolist()
+    if unknown_addresses:
+        raise ValueError(f"Cannot identify Lighter deployment for price addresses: {unknown_addresses}")
+    return {deployment.slug for deployment in deployments}
 
 
 def create_lighter_pool_row(
@@ -342,9 +364,11 @@ def merge_into_uncleaned_parquet(
     (:py:func:`~eth_defi.research.wrangle_vault_prices.process_raw_vault_scan_data`)
     can process all vaults together.
 
-    Reads the existing Parquet, removes prior rows for every configured
-    Lighter deployment, appends fresh Lighter daily price rows,
-    and writes back. Idempotent: running twice produces the same result.
+    Reads the existing Parquet, removes prior rows only for deployments present
+    in the fresh export, appends fresh Lighter daily price rows, and writes
+    back. Idempotent: running twice produces the same result. This
+    deployment-scoped replacement preserves Robinhood history during an
+    Ethereum-only scan, and vice versa.
 
     If the Parquet file does not exist, creates a new one.
 
@@ -364,15 +388,25 @@ def merge_into_uncleaned_parquet(
             return pd.read_parquet(parquet_path)
         return pd.DataFrame()
 
+    fresh_deployment_slugs = get_lighter_price_deployments(lighter_df)
+
     if parquet_path.exists():
         existing_df = pd.read_parquet(parquet_path)
 
-        # Remove the current shared Lighter partition and the short-lived 9996
-        # Robinhood partition. Fresh Ethereum and Robinhood rows are then
-        # written together under chain 9998 with distinct address prefixes.
-        lighter_chain_ids = {deployment.chain_id for deployment in LIGHTER_DEPLOYMENTS}
-        lighter_chain_ids.add(LIGHTER_LEGACY_ROBINHOOD_CHAIN_ID)
-        existing_df = existing_df[~existing_df["chain"].isin(lighter_chain_ids)]
+        # Ethereum and Robinhood share chain 9998 but scan independently. Only
+        # remove address namespaces represented by this fresh export, otherwise
+        # a successful Ethereum scan followed by a failed Robinhood scan would
+        # silently erase valid Robinhood history (or vice versa).
+        shared_lighter_mask = existing_df["chain"].isin({deployment.chain_id for deployment in LIGHTER_DEPLOYMENTS})
+        existing_deployments = existing_df.loc[shared_lighter_mask, "address"].apply(identify_lighter_pool_deployment)
+        replace_current_mask = pd.Series(False, index=existing_df.index)
+        replace_current_mask.loc[shared_lighter_mask] = existing_deployments.apply(lambda deployment: deployment is not None and deployment.slug in fresh_deployment_slugs)
+
+        # Remove the short-lived 9996 partition only when fresh Robinhood data
+        # is available to replace it. An Ethereum-only standalone scan must
+        # leave legacy Robinhood history intact until Robinhood succeeds.
+        replace_legacy_robinhood_mask = existing_df["chain"].eq(LIGHTER_LEGACY_ROBINHOOD_CHAIN_ID) if "robinhood" in fresh_deployment_slugs else pd.Series(False, index=existing_df.index)
+        existing_df = existing_df[~(replace_current_mask | replace_legacy_robinhood_mask)]
 
         combined = pd.concat([existing_df, lighter_df], ignore_index=True)
     else:

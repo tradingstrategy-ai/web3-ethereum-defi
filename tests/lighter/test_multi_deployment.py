@@ -5,6 +5,7 @@ from pathlib import Path
 from unittest.mock import MagicMock
 
 import duckdb
+import pandas as pd
 
 from eth_defi.lighter.constants import (
     LIGHTER_CHAIN_ID,
@@ -16,8 +17,8 @@ from eth_defi.lighter.constants import (
 from eth_defi.lighter.daily_metrics import LighterDailyMetricsDatabase
 from eth_defi.lighter.session import LighterSession
 from eth_defi.lighter.vault import fetch_all_pools
-from eth_defi.lighter.vault_data_export import build_raw_prices_dataframe, create_lighter_pool_row, merge_into_vault_database
-from eth_defi.vault.base import VaultSpec
+from eth_defi.lighter.vault_data_export import build_raw_prices_dataframe, create_lighter_pool_row, merge_into_uncleaned_parquet, merge_into_vault_database
+from eth_defi.vault.base import VaultHistoricalRead, VaultSpec
 from eth_defi.vault.vaultdb import VaultDatabase
 
 ACCOUNT_INDEX = 281474976710654
@@ -239,5 +240,54 @@ def test_vault_database_merge_removes_legacy_robinhood_chain(tmp_path: Path) -> 
         assert len(merged.rows) == 1
         assert merged.rows[new_spec]["_deployment"] == "robinhood"
         assert merged.rows[new_spec]["_deployment_chain_id"] == 4663
+    finally:
+        metrics_db.close()
+
+
+def test_standalone_ethereum_parquet_merge_preserves_robinhood_history(tmp_path: Path) -> None:
+    """Retain current and legacy Robinhood rows during an Ethereum-only export."""
+    metrics_path = tmp_path / "lighter-pools.duckdb"
+    parquet_path = tmp_path / "vault-prices-1h.parquet"
+    metrics_db = LighterDailyMetricsDatabase(metrics_path)
+    try:
+        metrics_db.upsert_daily_prices(
+            deployment=LIGHTER_ETHEREUM.slug,
+            rows=[
+                (
+                    ACCOUNT_INDEX,
+                    datetime.date(2026, 7, 1),
+                    1.0,
+                    1_000.0,
+                    0.0,
+                    5.0,
+                    datetime.datetime(2026, 7, 1),
+                )
+            ],
+        )
+        existing_df = pd.DataFrame(
+            {
+                "chain": pd.array(
+                    [LIGHTER_CHAIN_ID, LIGHTER_LEGACY_ROBINHOOD_CHAIN_ID],
+                    dtype="uint32",
+                ),
+                "address": [
+                    LIGHTER_ROBINHOOD.format_pool_address(ACCOUNT_INDEX),
+                    LIGHTER_ROBINHOOD.format_pool_address(ACCOUNT_INDEX - 1),
+                ],
+                "timestamp": pd.to_datetime(["2026-06-30", "2026-06-30"]),
+                "share_price": [0.001, 0.001],
+            }
+        )
+        VaultHistoricalRead.write_uncleaned_parquet(existing_df, parquet_path)
+
+        merged_df = merge_into_uncleaned_parquet(metrics_db, parquet_path)
+
+        assert set(merged_df["address"]) == {
+            LIGHTER_ETHEREUM.format_pool_address(ACCOUNT_INDEX),
+            LIGHTER_ROBINHOOD.format_pool_address(ACCOUNT_INDEX),
+            LIGHTER_ROBINHOOD.format_pool_address(ACCOUNT_INDEX - 1),
+        }
+        legacy_address = LIGHTER_ROBINHOOD.format_pool_address(ACCOUNT_INDEX - 1)
+        assert set(merged_df.loc[merged_df["address"] == legacy_address, "chain"]) == {LIGHTER_LEGACY_ROBINHOOD_CHAIN_ID}
     finally:
         metrics_db.close()

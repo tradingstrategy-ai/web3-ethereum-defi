@@ -238,6 +238,28 @@ LIGHTER_DEPLOYMENTS: tuple[LighterAPIConfig, ...] = (
 LIGHTER_DEPLOYMENTS_BY_SLUG: dict[str, LighterAPIConfig] = {deployment.slug: deployment for deployment in LIGHTER_DEPLOYMENTS}
 
 
+def identify_lighter_pool_deployment(address: str) -> LighterAPIConfig | None:
+    """Resolve a synthetic Lighter pool address to its deployment.
+
+    Deployment prefixes are checked longest-first because the backwards-
+    compatible Ethereum prefix ``lighter-pool`` is also the beginning of the
+    Robinhood prefix ``lighter-pool-robinhood``. This helper is used by partial
+    Parquet replacement so an independently completed Ethereum or Robinhood
+    scan cannot remove the other deployment's retained history.
+
+    :param address:
+        Synthetic Lighter vault address.
+    :return:
+        Matching deployment, or ``None`` when the address is not recognised.
+    """
+    address = str(address)
+    deployments_by_prefix_length = sorted(LIGHTER_DEPLOYMENTS, key=lambda deployment: len(deployment.address_prefix), reverse=True)
+    return next(
+        (deployment for deployment in deployments_by_prefix_length if address.startswith(f"{deployment.address_prefix}-")),
+        None,
+    )
+
+
 #: Set of Lighter system pool addresses (protocol-curated).
 #:
 #: The LLP (Lighter Liquidity Pool) is the protocol's own liquidity pool;
