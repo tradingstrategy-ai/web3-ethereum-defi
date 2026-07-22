@@ -104,6 +104,9 @@ The underlying Lighter storage migration is automatic. Opening an older
 `lighter-pools.duckdb` transactionally adds the `deployment` column and changes
 the primary keys to `(deployment, account_index)` and
 `(deployment, account_index, date)`, labelling existing rows as `ethereum`.
+This assumes the database predates Robinhood support, as production databases
+do. If a development database was created by an intermediate, unmerged version
+of the Robinhood work, delete that development database and rescan it.
 The metadata merge refreshes existing pickle rows with deployment identity.
 The price merge removes the short-lived Robinhood synthetic-chain `9996`
 partition only after fresh Robinhood data is available to replace it.

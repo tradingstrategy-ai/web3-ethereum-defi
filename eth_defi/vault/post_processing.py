@@ -334,7 +334,7 @@ def _write_native_partitions_to_uncleaned_parquet(
     :param remove_chain_ids:
         Additional obsolete chain partitions to remove without replacing.
         Currently used to clean the legacy Lighter Robinhood synthetic chain
-        9996 after both Lighter deployments were consolidated under 9998.
+        9996 once Robinhood data is available under the shared chain 9998.
     :param replacement_address_patterns:
         Optional regular-expression address namespaces for partial replacement
         within a shared synthetic chain. Currently used by Lighter so an
