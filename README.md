@@ -27,6 +27,7 @@ Web-Ethereum-DeFi (`eth_defi`) allows you to integrate [EVM-compatible](https://
 
 Use cases for this package include
 
+- Vaults and automated DeFi strategies
 - Trading and bots
 - Data research, extraction, transformation and loading
 - Portfolio management and accounting
