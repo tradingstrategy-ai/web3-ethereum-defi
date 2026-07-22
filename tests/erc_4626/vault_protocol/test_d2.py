@@ -2,24 +2,21 @@
 
 import datetime
 import os
+from decimal import Decimal
 from pathlib import Path
 
-import pytest
-
-from web3 import Web3
 import flaky
-
-from decimal import Decimal
+import pytest
+from web3 import Web3
 
 from eth_defi.abi import ZERO_ADDRESS_STR
 from eth_defi.erc_4626.classification import create_vault_instance_autodetect
-from eth_defi.erc_4626.vault_protocol.d2.vault import D2HistoricalReader, D2Vault, Epoch
-from eth_defi.provider.anvil import fork_network_anvil, AnvilLaunch
+from eth_defi.erc_4626.vault_protocol.d2.vault import D2DepositManager, D2HistoricalReader, D2Vault, Epoch
+from eth_defi.provider.anvil import AnvilLaunch, fork_network_anvil
 from eth_defi.provider.multi_provider import create_multi_provider_web3
 from eth_defi.vault.base import (
     DEPOSIT_CLOSED_FUNDING_PHASE,
     REDEMPTION_CLOSED_FUNDS_CUSTODIED,
-    VaultTechnicalRisk,
 )
 
 JSON_RPC_ARBITRUM = os.environ.get("JSON_RPC_ARBITRUM")
@@ -61,6 +58,14 @@ def test_d2(
     assert vault.get_management_fee("latest") == 0.00
     assert vault.get_performance_fee("latest") == 0.20
     assert vault.has_custom_fees() is False
+
+    manager = vault.get_deposit_manager()
+    assert isinstance(manager, D2DepositManager)
+    with pytest.raises(ValueError, match="D2 deposit is unavailable"):
+        manager.estimate_deposit(web3.eth.accounts[0], Decimal("1"))
+    settlement = manager.force_settle(None)
+    assert settlement.settlement_required is False
+    assert settlement.transaction_hashes == ()
 
     epoch_id = vault.fetch_current_epoch_id()
     assert epoch_id == 12

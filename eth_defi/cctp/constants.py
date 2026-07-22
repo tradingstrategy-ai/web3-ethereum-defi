@@ -47,6 +47,9 @@ CCTP_DOMAIN_BASE = 6
 #: CCTP domain ID for Polygon PoS
 CCTP_DOMAIN_POLYGON = 7
 
+#: CCTP domain ID for Avalanche C-Chain
+CCTP_DOMAIN_AVALANCHE = 1
+
 #: CCTP domain ID for Monad
 #:
 #: For the full list of supported chains and domains, see:
@@ -64,6 +67,7 @@ CCTP_DOMAIN_HYPEREVM = 19
 #: https://developers.circle.com/cctp/concepts/supported-chains-and-domains
 CHAIN_ID_TO_CCTP_DOMAIN: dict[int, int] = {
     1: CCTP_DOMAIN_ETHEREUM,
+    43114: CCTP_DOMAIN_AVALANCHE,
     42161: CCTP_DOMAIN_ARBITRUM,
     8453: CCTP_DOMAIN_BASE,
     137: CCTP_DOMAIN_POLYGON,
@@ -77,6 +81,7 @@ CCTP_DOMAIN_TO_CHAIN_ID: dict[int, int] = {v: k for k, v in CHAIN_ID_TO_CCTP_DOM
 #: Mapping from CCTP domain ID to human-readable chain name.
 CCTP_DOMAIN_NAMES: dict[int, str] = {
     CCTP_DOMAIN_ETHEREUM: "Ethereum",
+    CCTP_DOMAIN_AVALANCHE: "Avalanche",
     CCTP_DOMAIN_ARBITRUM: "Arbitrum",
     CCTP_DOMAIN_BASE: "Base",
     CCTP_DOMAIN_POLYGON: "Polygon",

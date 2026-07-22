@@ -121,7 +121,49 @@ class AccountableRedemptionRequest(RedemptionRequest):
 
 
 class AccountableDepositManager(ERC4626DepositManager):
-    """Accountable adapter with synchronous deposits and claimed redemptions."""
+    """Accountable adapter with synchronous deposits and claimed redemptions.
+
+    Supported simulation path: standard ERC-4626 deposits complete
+    immediately and use the shared ``force_settle(None)`` Anvil no-op.
+
+    Known limitations: redemptions depend on the live strategy's valuation and
+    liquidity checks. This manager has no safe generic Anvil settlement driver
+    for an Accountable redemption ticket, so ``force_settle(ticket)`` raises
+    :class:`UnsupportedVaultSimulation`. Multiple concurrent controller
+    requests, partial claims, repeated settlement rounds and delegated
+    controllers are likewise unsupported.
+    """
+
+    def estimate_deposit(
+        self,
+        owner: HexAddress | None,
+        amount: Decimal,
+        block_identifier: BlockIdentifier = "latest",
+    ) -> Decimal:
+        """Estimate Accountable shares without calling ``previewDeposit``.
+
+        The reported Hyperithm deployment rejects the generic ERC-4626
+        preview call even though its conversion function remains available.
+        ``convertToShares`` is the value used by the contract's synchronous
+        deposit path and gives callers a non-reverting estimate.
+
+        :param owner:
+            Deposit owner. Accountable's conversion is owner-independent.
+        :param amount:
+            Denomination-token amount to deposit.
+        :param block_identifier:
+            Block number or ``"latest"``.
+        :return:
+            Estimated decimal share amount.
+        :raise ValueError:
+            If the vault reports a zero share estimate.
+        """
+        del owner
+        raw_amount = self.vault.denomination_token.convert_to_raw(amount)
+        raw_shares = self.vault.vault_contract.functions.convertToShares(raw_amount).call(block_identifier=block_identifier)
+        if raw_shares <= 0:
+            raise ValueError(f"Accountable deposit estimate is zero for {amount} {self.vault.denomination_token.symbol}")
+        return self.vault.share_token.convert_to_decimals(raw_shares)
 
     def create_deposit_request(
         self,

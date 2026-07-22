@@ -107,7 +107,7 @@ def test_upshift(
 @pytest.mark.parametrize(
     "case",
     [
-        (UPSHIFT_TORI_VAULT, "Tori Ecosystem Vault", "etrUSD", "trUSD", 18),
+        (UPSHIFT_TORI_VAULT, "Tori Ecosystem Vault", "etrUSD", "USDC", 18),
         (UPSHIFT_CTUSD_VAULT, "Earn ctUSD", "EctUSD", "USDC", 6),
     ],
 )
@@ -126,7 +126,7 @@ def test_upshift_multi_asset_vault_metadata(
     Implementation: https://etherscan.io/address/0xEB5f80aCEa6060764E91c185bE93752Ab40F01c2#code
     """
 
-    vault_address, expected_name, expected_symbol, expected_denomination_symbol, expected_share_decimals = case
+    vault_address, expected_name, expected_symbol, expected_primary_denomination_symbol, expected_share_decimals = case
 
     vault = create_vault_instance_autodetect(
         web3,
@@ -141,7 +141,10 @@ def test_upshift_multi_asset_vault_metadata(
     assert vault.name == expected_name
     assert vault.symbol == expected_symbol
     assert vault.share_token.decimals == expected_share_decimals
-    assert vault.denomination_token.symbol == expected_denomination_symbol
+    denomination_tokens = vault.fetch_all_denomination_tokens()
+    assert denomination_tokens
+    assert denomination_tokens[0].symbol == expected_primary_denomination_symbol
+    assert vault.denomination_token == denomination_tokens[0]
 
     assert isinstance(vault.get_historical_reader(stateful=False), UpshiftMultiAssetHistoricalReader)
     assert vault.fetch_share_price(UPSHIFT_MULTI_ASSET_FORK_BLOCK) > 0
