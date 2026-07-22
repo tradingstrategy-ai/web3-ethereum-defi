@@ -108,6 +108,42 @@ bytes4 constant SEL_CCTP_DEPOSIT_FOR_BURN = 0x8e0250ee; // depositForBurn(uint25
 abstract contract GuardV0Base is IGuard, Multicall {
 
     // ========================================================================
+    //                       POST-CALL VALIDATION CONTEXT
+    // ========================================================================
+
+    /// Select the hardcoded validator which must run after a successful call.
+    ///
+    /// The enum is deliberately static rather than a governance-configurable
+    /// validator address. Post-call validators execute in the guard/module's
+    /// security boundary, so allowing arbitrary plugin addresses would create
+    /// a delegatecall-like extension point with unnecessary storage-corruption
+    /// and misconfiguration risk. Supporting another protocol means adding an
+    /// audited enum member and dispatch branch in this contract.
+    enum PostCallValidationKind {
+        None,
+        LagoonSettlement
+    }
+
+    /// Opaque state carried from pre-call validation to post-call validation.
+    ///
+    /// GuardV0Base owns the generic two-phase lifecycle, while each protocol
+    /// library owns the payload schema. The payload exists only in EVM memory
+    /// during one performCall() execution: it is never accepted from external
+    /// calldata or persisted between transactions. This prevents a caller from
+    /// selecting a validator or substituting another call's captured state.
+    struct PostCallValidationContext {
+        // Hardcoded post-call validator selected by _validateCallInternal().
+        PostCallValidationKind kind;
+
+        // Protocol-specific pre-call state. Empty when no post-call check is
+        // required. LagoonLib alone encodes and decodes its settlement data.
+        bytes payload;
+    }
+
+    /// Internal dispatch reached an unsupported post-call validator kind.
+    error UnknownPostCallValidationKind(uint8 kind);
+
+    // ========================================================================
     //                           STORAGE VARIABLES
     // ========================================================================
 
@@ -628,23 +664,24 @@ abstract contract GuardV0Base is IGuard, Multicall {
         _validateCallInternal(sender, target, callDataWithSelector);
     }
 
-    /// Validate a proposed guarded call and capture Lagoon pre-execution state.
+    /// Validate a proposed guarded call and capture optional post-call state.
     ///
-    /// Most protocol calls return an empty Lagoon snapshot. A capped Lagoon
-    /// settlement returns the balance baselines that the execution module must
-    /// verify after the Safe call. The public validateCall() entry point
-    /// intentionally discards this internal execution context because it only
-    /// answers whether a proposed call is currently valid.
+    /// Most protocol calls return a context whose kind is None. Protocols that
+    /// need to compare state across execution return an opaque payload and a
+    /// hardcoded validator kind. TradingStrategyModuleV0 retains this context
+    /// in memory and passes it to _validateCallAfter() only after the Safe call
+    /// succeeds. The public validateCall() entry point intentionally discards
+    /// the context because it only answers whether a proposed call is valid.
     ///
     /// @param sender Account proposing the guarded call.
     /// @param target Contract the Safe will call.
     /// @param callDataWithSelector Complete target calldata.
-    /// @return lagoonSnapshot Pre-execution Lagoon state, when applicable.
+    /// @return context Validator kind and protocol-owned pre-call state.
     function _validateCallInternal(
         address sender,
         address target,
         bytes calldata callDataWithSelector
-    ) internal view returns (LagoonLib.SettlementSnapshot memory lagoonSnapshot) {
+    ) internal view returns (PostCallValidationContext memory context) {
         // SECURITY NOTE: Intentional full bypass for governance.
         //
         // The governance address (Safe multisig / DAO) can always perform
@@ -654,7 +691,7 @@ abstract contract GuardV0Base is IGuard, Multicall {
         // other emergency situations that the asset manager cannot resolve
         // within the normal whitelisted operations.
         if (sender == getGovernanceAddress()) {
-            return lagoonSnapshot;
+            return context;
         }
 
         // Assume sender is trade-executor hot wallet
@@ -718,7 +755,11 @@ abstract contract GuardV0Base is IGuard, Multicall {
             // --- Lagoon vault settlement ---
         } else if (_isLagoonSettlementSelector(selector)) {
             require(LagoonLib.isDeployed());
-            lagoonSnapshot = LagoonLib.captureSettlement(target);
+            bytes memory payload = LagoonLib.capturePostCallContext(target);
+            if (payload.length != 0) {
+                context.kind = PostCallValidationKind.LagoonSettlement;
+                context.payload = payload;
+            }
 
             // --- ERC-4626 / ERC-7540 vaults ---
         } else if (selector == SEL_DEPOSIT) {
@@ -787,6 +828,32 @@ abstract contract GuardV0Base is IGuard, Multicall {
         } else {
             revert("Unknown function selector");
         }
+    }
+
+    /// Run the hardcoded validator selected during pre-call validation.
+    ///
+    /// This function must be called in the same top-level transaction and only
+    /// after the guarded Safe call succeeds. A validator revert propagates back
+    /// through TradingStrategyModuleV0, atomically rolling back the Safe call,
+    /// target state changes, token transfers and emitted logs.
+    ///
+    /// The dispatcher is intentionally explicit. Adding another post-call
+    /// validator requires a reviewed code change rather than accepting an
+    /// arbitrary runtime address from governance or the asset manager.
+    ///
+    /// @param context Context returned by _validateCallInternal().
+    function _validateCallAfter(
+        PostCallValidationContext memory context
+    ) internal {
+        if (context.kind == PostCallValidationKind.None) return;
+
+        if (context.kind == PostCallValidationKind.LagoonSettlement) {
+            require(LagoonLib.isDeployed());
+            LagoonLib.validatePostCall(context.payload);
+            return;
+        }
+
+        revert UnknownPostCallValidationKind(uint8(context.kind));
     }
 
     // Gains/Ostium: validate makeWithdrawRequest(uint256,address) receiver

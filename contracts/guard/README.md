@@ -83,8 +83,9 @@ Settlement-limit support is identified by Guard internal version 2 and
 
 Stock Lagoon v0.5 does not expose one public value covering the gross underlying
 movement of both deposit and redemption queues, and it always settles a snapshotted
-queue in full. `TradingStrategyModuleV0` therefore snapshots the relevant underlying
-balances immediately before the Safe call and validates them after it:
+queue in full. `GuardV0Base` therefore asks `LagoonLib` for an opaque snapshot of the
+relevant underlying balances immediately before the Safe call and routes it back to
+the library after execution:
 
 ```text
 deposit assets = Silo balance before - Silo balance after
@@ -96,6 +97,12 @@ The complete transaction reverts when `gross amount > maxSettlementAmount`, roll
 back Lagoon accounting and all token transfers. This is a reject policy, not partial
 settlement. Governance may recover an oversized queue with a direct Safe transaction.
 Direct Safe transactions intentionally bypass module policy.
+
+`TradingStrategyModuleV0` only carries a generic post-call validation context around
+Safe execution. Validator selection is a hardcoded `GuardV0Base` enum and dispatcher;
+there is no governance-configurable plugin or arbitrary validator address. Future
+vault integrations can add another reviewed validator kind without adding
+protocol-specific execution code to the module.
 
 Re-calling `whitelistLagoonWithSettlementLimit()` updates an existing cap. Calling the
 backwards-compatible `whitelistLagoon()` resets the vault to unlimited mode. The cap is

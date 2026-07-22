@@ -11,11 +11,11 @@
 //
 // This guard deliberately uses a reject approach instead of attempting to
 // reproduce Lagoon's private queue accounting. GuardV0Base call validation
-// takes a snapshot before the module executes the Safe call, and the module
-// asks this library to validate the resulting ERC-20 balance changes
-// afterwards. If the gross movement is over the configured limit, verification
-// reverts. EVM atomicity then rolls back the Safe call, Lagoon state updates,
-// token transfers and event logs.
+// asks this library for an opaque snapshot before the module executes the Safe
+// call. GuardV0Base routes the same payload back to this library afterwards.
+// If the gross movement is over the configured limit, validation reverts. EVM
+// atomicity then rolls back the Safe call, Lagoon state updates, token transfers
+// and event logs.
 // Thus the epoch is either settled in full below the limit or not settled at
 // all; this library never creates a partial settlement.
 //
@@ -53,8 +53,8 @@
 //
 // The caller must verify isDeployed() before invoking this library. A linked
 // zero address can otherwise make a void-returning DELEGATECALL look successful
-// while doing nothing. GuardV0Base and TradingStrategyModuleV0 both perform
-// this fail-closed check on their respective validation and execution paths.
+// while doing nothing. GuardV0Base performs this fail-closed check on both the
+// pre-call capture and hardcoded post-call dispatch paths.
 
 pragma solidity ^0.8.0;
 
@@ -81,9 +81,9 @@ interface ILagoonVaultV05 {
 
 /// Store the paired Lagoon vault configuration and enforce settlement limits.
 ///
-/// Configuration and pre-execution snapshot functions are called through
-/// GuardV0Base. Post-call validation is called by TradingStrategyModuleV0
-/// after execution of an asset-manager transaction through the Safe.
+/// Configuration, pre-execution capture and post-call validation are all
+/// routed through GuardV0Base. TradingStrategyModuleV0 only carries an opaque
+/// generic context around execution and has no Lagoon-specific dependency.
 ///
 /// A Lagoon deployment always pairs exactly one vault, one Safe and one
 /// TradingStrategyModuleV0 guard. Unlike protocol libraries which allow many
@@ -105,7 +105,7 @@ library LagoonLib {
         // The only Lagoon vault paired with this guard module and Safe.
         address vault;
 
-        // Whether captureSettlement()/verifySettlement() enforce the cap.
+        // Whether capturePostCallContext()/validatePostCall() enforce the cap.
         // Legacy whitelistLagoon() entries leave this false.
         bool limitEnabled;
 
@@ -122,13 +122,12 @@ library LagoonLib {
 
     /// Transient pre-execution values used for atomic post-call verification.
     ///
-    /// This struct is passed through module memory/calldata only. It is not
-    /// persisted in diamond storage and cannot leak between Safe transactions.
+    /// Only LagoonLib encodes or decodes this structure. GuardV0Base and the
+    /// execution module carry its ABI encoding as opaque bytes, preventing the
+    /// generic post-call lifecycle from depending on Lagoon-specific fields.
+    /// The snapshot remains in EVM memory for one performCall() transaction and
+    /// cannot leak into another call.
     struct SettlementSnapshot {
-        // False for backwards-compatible uncapped vaults, allowing a cheap
-        // no-op verification path.
-        bool limitEnabled;
-
         // ERC-20 balance source copied from LagoonStorage before execution.
         address asset;
 
@@ -341,51 +340,61 @@ library LagoonLib {
 
     // ----- Atomic settlement validation -----
 
-    /// Capture relevant token balances immediately before Safe execution.
+    /// Capture an opaque Lagoon context immediately before Safe execution.
     ///
-    /// Uncapped legacy configurations return the zero-valued snapshot. Capped
-    /// configurations copy both immutable-for-this-call configuration and the
-    /// two balance baselines required by the v0.5 invariant. The module must
-    /// obtain this from GuardV0Base validation before invoking the Lagoon vault.
+    /// Uncapped legacy configurations return empty bytes, signalling that the
+    /// generic GuardV0Base lifecycle does not need a post-call validator. For a
+    /// capped vault, the payload binds the exact vault address, configuration
+    /// and pre-call balances into one value which only validatePostCall()
+    /// decodes. The payload is produced internally and is never caller input.
     ///
     /// @param vault Allowlisted Lagoon vault about to receive a settlement call.
-    /// @return snapshot Configuration and balance baselines for verification.
-    function captureSettlement(
+    /// @return context Empty for unlimited mode, otherwise encoded Lagoon state.
+    function capturePostCallContext(
         address vault
-    ) external view returns (SettlementSnapshot memory snapshot) {
+    ) external view returns (bytes memory context) {
         LagoonStorage storage config = _storage();
         if (config.vault == address(0) || config.vault != vault) {
             revert LagoonVaultNotAllowed(vault);
         }
-        if (!config.limitEnabled) return snapshot;
+        if (!config.limitEnabled) return context;
 
-        snapshot.limitEnabled = true;
+        SettlementSnapshot memory snapshot;
         snapshot.asset = config.asset;
         snapshot.pendingSilo = config.pendingSilo;
         snapshot.maxSettlementAmount = config.maxSettlementAmount;
         snapshot.siloBalanceBefore = IERC20(config.asset).balanceOf(config.pendingSilo);
         snapshot.vaultBalanceBefore = IERC20(config.asset).balanceOf(vault);
+
+        // Include the vault in the library-owned payload. The post-call caller
+        // therefore cannot accidentally supply a different target alongside a
+        // valid snapshot when more validator kinds are added in the future.
+        return abi.encode(vault, snapshot);
     }
 
-    /// Validate Lagoon token movement immediately after Safe execution.
+    /// Validate an opaque Lagoon context immediately after Safe execution.
     ///
-    /// The function rejects unexpected balance directions, calculates deposit
-    /// and redemption deltas independently, and compares their gross sum with
-    /// the configured inclusive cap. Equality is accepted; only actual amounts
+    /// Only capturePostCallContext() creates this payload. Decoding stays inside
+    /// LagoonLib so the generic GuardV0Base post-call mechanism never imports
+    /// SettlementSnapshot or assumes how Lagoon measures a settlement. The
+    /// function rejects unexpected balance directions, calculates deposit and
+    /// redemption deltas independently, and compares their gross sum with the
+    /// configured inclusive cap. Equality is accepted; only actual amounts
     /// strictly greater than maxSettlementAmount revert.
     ///
     /// A revert propagates through TradingStrategyModuleV0 and Safe execution,
     /// atomically undoing the settlement. This property is the enforcement
     /// mechanism: stock Lagoon v0.5 is not modified and no queue item is split.
     ///
-    /// @param vault Lagoon vault that has just executed its settlement call.
-    /// @param snapshot Values returned by captureSettlement() before execution.
+    /// @param context Value returned by capturePostCallContext() before execution.
     /// @return grossSettlementAmount Deposit plus redemption assets in raw units.
-    function verifySettlement(
-        address vault,
-        SettlementSnapshot calldata snapshot
+    function validatePostCall(
+        bytes calldata context
     ) external returns (uint256 grossSettlementAmount) {
-        if (!snapshot.limitEnabled) return 0;
+        (address vault, SettlementSnapshot memory snapshot) = abi.decode(
+            context,
+            (address, SettlementSnapshot)
+        );
 
         uint256 siloBalanceAfter = IERC20(snapshot.asset).balanceOf(snapshot.pendingSilo);
         uint256 vaultBalanceAfter = IERC20(snapshot.asset).balanceOf(vault);

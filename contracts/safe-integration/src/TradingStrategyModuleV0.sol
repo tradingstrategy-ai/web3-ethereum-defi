@@ -14,7 +14,6 @@ pragma solidity ^0.8.26;
 
 import "@gnosis.pm/zodiac/contracts/core/Module.sol";
 import "@guard/GuardV0Base.sol";
-import {LagoonLib} from "@guard/lib/LagoonLib.sol";
 
 /**
  * Trading Strategy integration as Zodiac Module.
@@ -126,7 +125,7 @@ contract TradingStrategyModuleV0 is Module, GuardV0Base {
     ) public payable {
         // Check that the asset manager can perform this function.
         // Will revert() on error
-        LagoonLib.SettlementSnapshot memory lagoonSnapshot = _validateCallInternal(
+        PostCallValidationContext memory validationContext = _validateCallInternal(
             msg.sender,
             target,
             callData
@@ -150,13 +149,10 @@ contract TradingStrategyModuleV0 is Module, GuardV0Base {
 
         _bubbleUpRevert(success, response);
 
-        // Pre-execution Lagoon routing and balance capture are part of
-        // _validateCallInternal(). Only the state-dependent half must remain
-        // here, after the Safe has produced the balances being validated.
-        if (lagoonSnapshot.limitEnabled) {
-            require(LagoonLib.isDeployed());
-            LagoonLib.verifySettlement(target, lagoonSnapshot);
-        }
+        // Complete any state-dependent validation selected before execution.
+        // The context and dispatcher are protocol-agnostic at the module layer;
+        // GuardV0Base routes opaque payloads only to hardcoded validators.
+        _validateCallAfter(validationContext);
     }
 
     /**
