@@ -321,9 +321,10 @@ abstract contract GuardV0Base is IGuard, Multicall {
      *
      * We bump up when new whitelistings added.
      * Version 2 adds Lagoon v0.5 settlement-limit configuration.
+     * Version 3 makes the limit an amount-and-cooldown safety policy.
      */
     function getInternalVersion() public pure returns (uint8) {
-        return 2;
+        return 3;
     }
 
     function allowCallSite(
@@ -477,6 +478,39 @@ abstract contract GuardV0Base is IGuard, Multicall {
         _allowLagoonSettlementCallSites(vault, notes);
     }
 
+    /// Enable Lagoon asset-manager settlement safety with a custom cooldown.
+    ///
+    /// The existing whitelistLagoonWithSettlementLimit() ABI applies the
+    /// conservative 24-hour default. This explicit variant lets governance
+    /// choose a different positive delay without weakening old integrations.
+    /// Direct Safe governance settlement remains outside module policy.
+    ///
+    /// @param vault Paired stock Lagoon v0.5 vault.
+    /// @param asset Vault underlying token measured by LagoonLib.
+    /// @param pendingSilo Pending-deposit Silo measured by LagoonLib.
+    /// @param maxSettlementAmount Maximum gross asset-manager settlement.
+    /// @param settlementCooldown Minimum seconds between successful settlements.
+    /// @param notes Human-readable governance audit note.
+    function whitelistLagoonWithSettlementLimitAndCooldown(
+        address vault,
+        address asset,
+        address pendingSilo,
+        uint256 maxSettlementAmount,
+        uint256 settlementCooldown,
+        string calldata notes
+    ) public onlyGuardOwner {
+        require(LagoonLib.isDeployed());
+        LagoonLib.whitelistVaultWithSettlementLimitAndCooldown(
+            vault,
+            asset,
+            pendingSilo,
+            maxSettlementAmount,
+            settlementCooldown,
+            notes
+        );
+        _allowLagoonSettlementCallSites(vault, notes);
+    }
+
     function _allowLagoonSettlementCallSites(
         address vault,
         string calldata notes
@@ -573,6 +607,21 @@ abstract contract GuardV0Base is IGuard, Multicall {
     ) {
         require(LagoonLib.isDeployed());
         return LagoonLib.getVaultConfig(vault);
+    }
+
+    /// Return the cooldown state paired with a Lagoon settlement amount cap.
+    ///
+    /// Kept separate from getLagoonSettlementConfig() so its established tuple
+    /// ABI remains backwards compatible for existing deployment tooling.
+    function getLagoonSettlementCooldownConfig(
+        address vault
+    ) public view returns (
+        uint256 settlementCooldown,
+        uint256 lastSettlementTimestamp,
+        uint256 nextSettlementTimestamp
+    ) {
+        require(LagoonLib.isDeployed());
+        return LagoonLib.getSettlementCooldownConfig(vault);
     }
 
     function isAllowedCowSwap(address settlement) public view returns (bool) {

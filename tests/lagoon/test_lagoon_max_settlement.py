@@ -1,4 +1,4 @@
-"""Anvil mainnet-fork tests for Lagoon v0.5 settlement limits."""
+"""Anvil mainnet-fork tests for Lagoon v0.5 settlement safety controls."""
 
 from decimal import Decimal
 
@@ -10,12 +10,14 @@ from web3._utils.events import EventLogErrorFlags
 
 from eth_defi.abi import get_deployed_contract
 from eth_defi.erc_4626.vault_protocol.lagoon.deployment import (
+    DEFAULT_LAGOON_SETTLEMENT_COOLDOWN,
     LagoonAutomatedDeployment,
     LagoonConfig,
     LagoonDeploymentParameters,
     deploy_automated_lagoon_vault,
 )
 from eth_defi.hotwallet import HotWallet
+from eth_defi.provider.anvil import mine
 from eth_defi.provider.fallback import ExtraValueError
 from eth_defi.safe.execute import execute_safe_tx
 from eth_defi.token import USDC_NATIVE_TOKEN, TokenDetails
@@ -58,6 +60,25 @@ def test_lagoon_config_rejects_unenforceable_settlement_limit(
         )
 
 
+def test_lagoon_config_rejects_zero_settlement_cooldown() -> None:
+    """Reject an amount cap without a positive asset-manager cooldown."""
+    parameters = LagoonDeploymentParameters(
+        underlying=USDC_NATIVE_TOKEN[8453],
+        name="Unsafe Lagoon cooldown",
+        symbol="COOL",
+    )
+
+    with pytest.raises(AssertionError, match="settlement_cooldown must be positive"):
+        LagoonConfig(
+            parameters=parameters,
+            asset_manager="0x0000000000000000000000000000000000000001",
+            safe_owners=["0x0000000000000000000000000000000000000002"],
+            safe_threshold=1,
+            max_settlement_amount=Decimal(1),
+            settlement_cooldown=0,
+        )
+
+
 def _deploy_capped_vault(
     web3: Web3,
     deployer: HotWallet,
@@ -66,8 +87,9 @@ def _deploy_capped_vault(
     max_settlement_amount: Decimal,
     *,
     use_config_api: bool,
+    settlement_cooldown: int = DEFAULT_LAGOON_SETTLEMENT_COOLDOWN,
 ) -> LagoonAutomatedDeployment:
-    """Deploy a stock Lagoon v0.5 vault with a one-owner Safe and a settlement cap.
+    """Deploy a stock Lagoon v0.5 vault with settlement safety enabled.
 
     A one-owner Safe keeps the governance recovery path deterministic in the
     test: the deployment hot wallet remains a Safe owner and can submit a
@@ -82,11 +104,13 @@ def _deploy_capped_vault(
     :param safe_owner:
         Additional Safe owner address.
     :param max_settlement_amount:
-        Maximum gross settlement in human-readable USDC units.
+        Asset-manager safety limit in human-readable USDC units.
     :param use_config_api:
         Use :class:`LagoonConfig` when true and the backwards-compatible direct
         deployment keyword when false. The two end-to-end tests exercise both
         publicly supported deployment APIs without adding another deployment.
+    :param settlement_cooldown:
+        Minimum seconds between successful asset-manager settlements.
     :return:
         Complete Lagoon deployment.
     """
@@ -103,6 +127,7 @@ def _deploy_capped_vault(
         "uniswap_v2": None,
         "uniswap_v3": None,
         "max_settlement_amount": max_settlement_amount,
+        "settlement_cooldown": settlement_cooldown,
     }
     if use_config_api:
         return deploy_automated_lagoon_vault(
@@ -142,14 +167,14 @@ def _request_deposit(
     assert_transaction_success_with_explanation(web3, tx_hash)
 
 
-def test_lagoon_v05_max_settlement_accepts_deposit_and_redemption(
+def test_lagoon_v05_settlement_safety_accepts_after_cooldown_and_rejects_repeat(
     web3: Web3,
     base_usdc: TokenDetails,
     topped_up_asset_manager: HexAddress,
     new_depositor: HexAddress,
     deployer_hot_wallet: HotWallet,
 ) -> None:
-    """Accept deposit and redemption settlements at or below the configured cap."""
+    """Accept below-cap settlements but reject repeats until cooldown expiry."""
     asset_manager = topped_up_asset_manager
     cap = Decimal(9)
     cap_raw = base_usdc.convert_to_raw(cap)
@@ -165,7 +190,7 @@ def test_lagoon_v05_max_settlement_accepts_deposit_and_redemption(
     module = deployment.trading_strategy_module
     lagoon_events = get_deployed_contract(web3, "guard/LagoonLib.json", module.address)
 
-    assert module.functions.getInternalVersion().call() == 2
+    assert module.functions.getInternalVersion().call() == 3
     assert module.functions.getTradingStrategyModuleVersion().call() == "v0.5"
     assert module.functions.getLagoonSettlementConfig(vault.address).call() == [
         True,
@@ -173,6 +198,11 @@ def test_lagoon_v05_max_settlement_accepts_deposit_and_redemption(
         base_usdc.address,
         vault.silo_address,
         cap_raw,
+    ]
+    assert module.functions.getLagoonSettlementCooldownConfig(vault.address).call() == [
+        DEFAULT_LAGOON_SETTLEMENT_COOLDOWN,
+        0,
+        0,
     ]
 
     # The deployment topology is deliberately one vault per guard and Safe.
@@ -208,6 +238,16 @@ def test_lagoon_v05_max_settlement_accepts_deposit_and_redemption(
     assert settlement_events[0]["args"]["depositAssets"] == cap_raw
     assert settlement_events[0]["args"]["redeemAssets"] == 0
     assert settlement_events[0]["args"]["grossSettlementAmount"] == cap_raw
+    cooldown_events = lagoon_events.events.LagoonSettlementCooldownStarted().process_receipt(receipt, errors=EventLogErrorFlags.Discard)
+    assert len(cooldown_events) == 1
+    first_settlement_timestamp = int(web3.eth.get_block(receipt["blockNumber"])["timestamp"])
+    assert cooldown_events[0]["args"]["settlementTimestamp"] == first_settlement_timestamp
+    assert cooldown_events[0]["args"]["nextSettlementTimestamp"] == first_settlement_timestamp + DEFAULT_LAGOON_SETTLEMENT_COOLDOWN
+    assert module.functions.getLagoonSettlementCooldownConfig(vault.address).call() == [
+        DEFAULT_LAGOON_SETTLEMENT_COOLDOWN,
+        first_settlement_timestamp,
+        first_settlement_timestamp + DEFAULT_LAGOON_SETTLEMENT_COOLDOWN,
+    ]
     assert vault.get_flow_manager().fetch_pending_deposit(web3.eth.block_number) == 0
     assert base_usdc.fetch_raw_balance_of(vault.safe_address) == cap_raw
 
@@ -224,6 +264,30 @@ def test_lagoon_v05_max_settlement_accepts_deposit_and_redemption(
 
     settle_call = vault.settle_via_trading_strategy_module(cap)
     vault_assets_before = base_usdc.fetch_raw_balance_of(vault.address)
+
+    # A second below-cap settlement would pass the amount check, but must fail
+    # before Safe execution while the asset-manager safety cooldown is active.
+    cooldown_selector = Web3.keccak(text="LagoonSettlementCooldownActive(uint256,uint256)")[:4]
+    with pytest.raises(ExtraValueError) as exc_info:
+        settle_call.call({"from": asset_manager})
+    revert_data = Web3.to_bytes(hexstr=exc_info.value.args[0]["data"])
+    assert revert_data[:4] == cooldown_selector
+    current_timestamp, next_settlement_timestamp = decode(["uint256", "uint256"], revert_data[4:])
+    assert current_timestamp < next_settlement_timestamp
+    assert next_settlement_timestamp == first_settlement_timestamp + DEFAULT_LAGOON_SETTLEMENT_COOLDOWN
+    assert vault.get_flow_manager().fetch_pending_redemption(web3.eth.block_number) == redeem_amount
+
+    tx_hash = settle_call.transact({"from": asset_manager, "gas": 1_000_000})
+    cooldown_receipt = web3.eth.wait_for_transaction_receipt(tx_hash)
+    assert cooldown_receipt["status"] == 0
+    assert vault.get_flow_manager().fetch_pending_redemption(web3.eth.block_number) == redeem_amount
+    assert module.functions.getLagoonSettlementCooldownConfig(vault.address).call() == [
+        DEFAULT_LAGOON_SETTLEMENT_COOLDOWN,
+        first_settlement_timestamp,
+        first_settlement_timestamp + DEFAULT_LAGOON_SETTLEMENT_COOLDOWN,
+    ]
+
+    mine(web3, increase_timestamp=DEFAULT_LAGOON_SETTLEMENT_COOLDOWN)
     tx_hash = settle_call.transact({"from": asset_manager, "gas": 1_000_000})
     receipt = assert_transaction_success_with_explanation(web3, tx_hash)
     vault_assets_after = base_usdc.fetch_raw_balance_of(vault.address)
@@ -249,6 +313,10 @@ def test_lagoon_v05_max_settlement_accepts_deposit_and_redemption(
     assert_transaction_success_with_explanation(web3, tx_hash)
     tx_hash = vault.post_new_valuation(Decimal(5)).transact({"from": asset_manager})
     assert_transaction_success_with_explanation(web3, tx_hash)
+
+    # Move beyond the second successful settlement's cooldown so this branch
+    # reaches and exercises the independent gross-amount rejection.
+    mine(web3, increase_timestamp=DEFAULT_LAGOON_SETTLEMENT_COOLDOWN)
 
     combined_state_before = {
         "pending_deposit": vault.get_flow_manager().fetch_pending_deposit(web3.eth.block_number),
@@ -296,10 +364,16 @@ def test_lagoon_v05_max_settlement_rejects_atomically_and_safe_can_recover(
         web3.eth.accounts[2],
         Decimal(8),
         use_config_api=False,
+        settlement_cooldown=3_600,
     )
     vault = deployment.vault
     module = deployment.trading_strategy_module
     lagoon_events = get_deployed_contract(web3, "guard/LagoonLib.json", module.address)
+    assert module.functions.getLagoonSettlementCooldownConfig(vault.address).call() == [
+        3_600,
+        0,
+        0,
+    ]
 
     tx_hash = vault.post_new_valuation(Decimal(0)).transact({"from": asset_manager})
     assert_transaction_success_with_explanation(web3, tx_hash)
@@ -341,6 +415,11 @@ def test_lagoon_v05_max_settlement_rejects_atomically_and_safe_can_recover(
     }
     assert state_after == state_before
     assert state_after["pending_deposit"] == deposit_amount
+    assert module.functions.getLagoonSettlementCooldownConfig(vault.address).call() == [
+        3_600,
+        0,
+        0,
+    ]
 
     direct_settlement = vault.vault_contract.functions.settleDeposit(0)
     safe_tx = vault.safe.build_multisig_tx(
@@ -360,3 +439,8 @@ def test_lagoon_v05_max_settlement_rejects_atomically_and_safe_can_recover(
 
     assert vault.get_flow_manager().fetch_pending_deposit(web3.eth.block_number) == 0
     assert base_usdc.fetch_raw_balance_of(vault.safe_address) == deposit_raw
+    assert module.functions.getLagoonSettlementCooldownConfig(vault.address).call() == [
+        3_600,
+        0,
+        0,
+    ]

@@ -40,7 +40,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import os
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
 import eth_abi
 from eth_typing import HexAddress
@@ -116,6 +116,7 @@ GUARD_CONFIG_EVENT_NAMES: frozenset[str] = frozenset(
         "AnyVaultSet",
         "LagoonVaultApproved",
         "LagoonSettlementLimitSet",
+        "LagoonSettlementCooldownSet",
         "ERC4626Approved",
         "CCTPMessengerApproved",
         "CCTPDestinationApproved",
@@ -154,6 +155,7 @@ _EVENT_ADDRESS_PARAMS: dict[str, list[tuple[str, str]]] = {
         ("asset", "Settlement asset"),
         ("pendingSilo", "Lagoon pending Silo"),
     ],
+    "LagoonSettlementCooldownSet": [("vault", "Lagoon vault")],
     "ERC4626Approved": [("vault", "ERC-4626 vault")],
     "CCTPMessengerApproved": [("tokenMessenger", "CCTP TokenMessenger")],
     "CowSwapApproved": [("settlementContract", "CowSwap settlement")],
@@ -226,7 +228,7 @@ class GuardEventScanInfo:
 
 @dataclass(slots=True, frozen=True)
 class LagoonSettlementLimitConfig:
-    """Current maximum-settlement configuration for one Lagoon vault."""
+    """Current asset-manager settlement safety policy for one Lagoon vault."""
 
     #: Lagoon vault address
     vault: HexAddress
@@ -237,11 +239,17 @@ class LagoonSettlementLimitConfig:
     #: Lagoon pending Silo holding deposit requests
     pending_silo: HexAddress
 
-    #: Maximum gross settlement in raw underlying-token units
+    #: Maximum gross asset-manager settlement in raw underlying-token units
     max_settlement_amount: int
 
     #: Whether the limit is currently enforced
     enabled: bool
+
+    #: Minimum seconds between successful asset-manager settlements.
+    #:
+    #: The default preserves the fail-safe interpretation of amount-only
+    #: configuration events emitted before the explicit cooldown event existed.
+    settlement_cooldown: int = 24 * 60 * 60
 
 
 @dataclass(slots=True, frozen=True)
@@ -314,7 +322,7 @@ class ChainGuardConfig:
     #: Whitelisted (target, selector_hex) tuples
     call_sites: tuple[tuple[HexAddress, str], ...]
 
-    #: Per-vault Lagoon settlement-limit configuration
+    #: Per-vault Lagoon settlement safety configuration
     lagoon_settlement_limits: tuple[LagoonSettlementLimitConfig, ...] = ()
 
 
@@ -358,10 +366,10 @@ class MultichainGuardConfig:
             _section(lines, "Lagoon vaults", cfg.lagoon_vaults)
             if cfg.lagoon_vaults:
                 limits_by_vault = {limit.vault: limit for limit in cfg.lagoon_settlement_limits}
-                lines.append("  Lagoon settlement limits:")
+                lines.append("  Lagoon settlement safety:")
                 for vault in cfg.lagoon_vaults:
                     limit = limits_by_vault.get(vault)
-                    status = f"{limit.max_settlement_amount} raw units" if limit and limit.enabled else "unlimited"
+                    status = f"{limit.max_settlement_amount} raw units; {limit.settlement_cooldown}s cooldown" if limit and limit.enabled else "unlimited"
                     lines.append(f"    {vault}: {status}")
             _section(lines, "ERC-4626 vaults", cfg.erc4626_vaults)
 
@@ -722,9 +730,9 @@ def format_chain_config_detailed(
         settlement_limits = []
         for vault in cfg.lagoon_vaults:
             limit = limits_by_vault.get(vault)
-            status = f"{limit.max_settlement_amount} raw units" if limit and limit.enabled else "unlimited"
+            status = f"{limit.max_settlement_amount} raw units; {limit.settlement_cooldown}s cooldown" if limit and limit.enabled else "unlimited"
             settlement_limits.append(f"{_label(vault)}: {status}")
-        sections.append(("Lagoon settlement limits", settlement_limits))
+        sections.append(("Lagoon settlement safety", settlement_limits))
 
     if cfg.erc4626_vaults:
         sections.append(("ERC-4626 vaults", [_label(addr) for addr in cfg.erc4626_vaults]))
@@ -1122,9 +1130,9 @@ def _format_chain_config_markdown(
         settlement_limits = []
         for vault in cfg.lagoon_vaults:
             limit = limits_by_vault.get(vault)
-            status = f"{limit.max_settlement_amount} raw units" if limit and limit.enabled else "unlimited"
+            status = f"{limit.max_settlement_amount} raw units; {limit.settlement_cooldown}s cooldown" if limit and limit.enabled else "unlimited"
             settlement_limits.append(f"{_addr_labelled(vault)}: {status}")
-        sections.append(("Lagoon settlement limits", settlement_limits))
+        sections.append(("Lagoon settlement safety", settlement_limits))
 
     if cfg.erc4626_vaults:
         sections.append(("ERC-4626 vaults", [_addr_labelled(a) for a in cfg.erc4626_vaults]))
@@ -2228,6 +2236,14 @@ def _build_chain_config(
                 max_settlement_amount=args["maxSettlementAmount"],
                 enabled=args["enabled"],
             )
+        elif name == "LagoonSettlementCooldownSet":
+            vault = args["vault"]
+            current_limit = lagoon_settlement_limits.get(vault)
+            if current_limit is not None:
+                lagoon_settlement_limits[vault] = replace(
+                    current_limit,
+                    settlement_cooldown=args["settlementCooldown"],
+                )
         elif name == "ERC4626Approved":
             erc4626_vaults.add(args["vault"])
         elif name == "CCTPMessengerApproved":

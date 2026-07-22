@@ -72,13 +72,15 @@ Every trade or action must pass through these checks:
 4. **Receiver validation** — swap output, deposit shares, and withdrawal proceeds can only go to whitelisted addresses
 5. **Protocol-specific validation** — each supported protocol has tailored checks (swap paths, order parameters, balance envelopes, etc.)
 
-### Lagoon v0.5 maximum settlement
+### Lagoon v0.5 asset-manager settlement safety
 
-Lagoon deployments may set `LagoonConfig.max_settlement_amount` to cap the gross
-underlying amount processed by one asset-manager settlement transaction. The default
-is `None`, which preserves the legacy unlimited behaviour.
+Lagoon deployments may set `LagoonConfig.max_settlement_amount` as a safety limit on
+the gross underlying amount processed by an asset-manager settlement transaction.
+The default is `None`, which preserves the legacy unlimited behaviour. When the
+feature is enabled, `LagoonConfig.settlement_cooldown` also rate-limits successful
+asset-manager settlements and defaults to 24 hours.
 
-Settlement-limit support is identified by Guard internal version 2 and
+The complete amount-and-cooldown policy is identified by Guard internal version 3 and
 `TradingStrategyModuleV0` ABI version `v0.5`.
 
 Stock Lagoon v0.5 does not expose one public value covering the gross underlying
@@ -98,16 +100,26 @@ back Lagoon accounting and all token transfers. This is a reject policy, not par
 settlement. Governance may recover an oversized queue with a direct Safe transaction.
 Direct Safe transactions intentionally bypass module policy.
 
+A per-call amount limit would still let an asset manager submit several individually
+valid settlements to drain the vault. After every successful capped settlement,
+`LagoonLib` records the block timestamp and rejects another asset-manager settlement
+until the configured positive cooldown has elapsed. This check runs before Safe
+execution. Rejected or reverted settlements do not consume the cooldown, while a
+successful zero-movement settlement does. The onchain and Python API default is 86,400
+seconds (24 hours).
+
 `TradingStrategyModuleV0` only carries a generic post-call validation context around
 Safe execution. Validator selection is a hardcoded `GuardV0Base` enum and dispatcher;
 there is no governance-configurable plugin or arbitrary validator address. Future
 vault integrations can add another reviewed validator kind without adding
 protocol-specific execution code to the module.
 
-Re-calling `whitelistLagoonWithSettlementLimit()` updates an existing cap. Calling the
-backwards-compatible `whitelistLagoon()` resets the vault to unlimited mode. The cap is
-stored in raw underlying-token units onchain; Python deployment configuration accepts a
-human-readable `Decimal` and performs the conversion.
+Re-calling `whitelistLagoonWithSettlementLimit()` updates an existing cap and applies
+the 24-hour cooldown default. `whitelistLagoonWithSettlementLimitAndCooldown()` accepts
+an explicit positive cooldown. Calling the backwards-compatible `whitelistLagoon()`
+resets the vault to unlimited mode. The cap is stored in raw underlying-token units
+onchain; Python deployment configuration accepts a human-readable `Decimal` and
+performs the conversion.
 
 The balance-envelope guarantee assumes a conventional non-rebasing token without
 transfer fees. It does not validate the `_newTotalAssets` settlement argument, which is

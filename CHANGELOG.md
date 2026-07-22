@@ -1,6 +1,6 @@
 # 1.2
 
-- feat: Add optional atomic gross-settlement limits for asset-manager Lagoon v0.5 transactions (2026-07-22)
+- feat: Add optional atomic gross-settlement and cooldown safety controls for asset-manager Lagoon v0.5 transactions (2026-07-22)
 - feat: Track per-chain vault scanner JSON-RPC calls and errors in DuckDB (2026-07-20)
 - feat: Add Hypersync-backed Chainlink bundle aggregator history and FILQ NAV support (2026-07-20)
 - feat: Backfill OpenEden TBILL oracle price history while preserving supply-only FDIT and CASHx metadata (2026-07-20)

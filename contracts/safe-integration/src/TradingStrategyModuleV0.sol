@@ -52,7 +52,8 @@ contract TradingStrategyModuleV0 is Module, GuardV0Base {
      *
      * - v0.4: Added asset-manager-funded native token forwarding through
      *   payable performCall().
-     * - v0.5: Added atomic Lagoon v0.5 maximum settlement validation.
+     * - v0.5: Added Lagoon v0.5 maximum gross settlement and cooldown safety
+     *   validation for asset-manager calls.
      */
     function getTradingStrategyModuleVersion()
         public
