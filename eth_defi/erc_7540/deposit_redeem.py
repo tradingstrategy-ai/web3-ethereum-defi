@@ -805,7 +805,15 @@ class ERC7540DepositManager(VaultDepositManager):
         receipt = web3.eth.get_transaction_receipt(tx_hash)
 
         if receipt["status"] != 1:
-            return DepositRedeemEventFailure(tx_hash=tx_hash, revert_reason=receipt["revert_"])
+            return DepositRedeemEventFailure(
+                tx_hash=HexBytes(tx_hash),
+                revert_reason="Transaction reverted",
+                protocol=vault.get_protocol_name(),
+                vault_address=vault.address,
+                direction="deposit",
+                phase="claim",
+                receipt_status=int(receipt["status"]),
+            )
 
         tx = web3.eth.get_transaction(tx_hash)
 
@@ -883,7 +891,15 @@ class ERC7540DepositManager(VaultDepositManager):
         receipt = web3.eth.get_transaction_receipt(tx_hash)
 
         if receipt["status"] != 1:
-            return DepositRedeemEventFailure(tx_hash=tx_hash, revert_reason=receipt["revert_"])
+            return DepositRedeemEventFailure(
+                tx_hash=HexBytes(tx_hash),
+                revert_reason="Transaction reverted",
+                protocol=vault.get_protocol_name(),
+                vault_address=vault.address,
+                direction="redeem",
+                phase="claim",
+                receipt_status=int(receipt["status"]),
+            )
 
         tx = web3.eth.get_transaction(tx_hash)
 

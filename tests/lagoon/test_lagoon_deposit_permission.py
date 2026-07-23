@@ -69,7 +69,7 @@ def test_reported_lagoon_private_vault_memberships_without_policy_getter(
 
             manager = vault.get_deposit_manager()
             assert manager.can_create_deposit_request(REPORT_CALLER) is False
-            with pytest.raises(VaultFlowUnavailable, match="not whitelisted") as exc_info:
+            with pytest.raises(VaultFlowUnavailable, match="not allowed") as exc_info:
                 manager.create_deposit_request(REPORT_CALLER, raw_amount=1)
             assert exc_info.value.decoded_error == "NotWhitelisted"
             assert exc_info.value.function_selector == REQUEST_DEPOSIT_SELECTOR
