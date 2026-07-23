@@ -80,6 +80,7 @@ def test_non_lagoon_protocols_use_generic_erc7540_manager(vault_class: type[ERC7
         "can_redeem": True,
         "deposit_flow": "asynchronous",
         "redemption_flow": "asynchronous",
+        "supports_anvil_settlement": False,
     }
 
 
