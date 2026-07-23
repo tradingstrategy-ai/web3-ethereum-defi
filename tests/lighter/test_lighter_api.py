@@ -54,6 +54,11 @@ def test_fetch_pool_detail(lighter_session, lighter_llp_pool):
     assert len(detail.daily_returns) > 0
     assert detail.total_shares > 0
     assert detail.operator_shares >= 0
+    assert detail.snapshot.total_shares == detail.total_shares
+    assert detail.snapshot.operator_shares == detail.operator_shares
+    assert detail.snapshot.total_asset_value == pytest.approx(detail.total_asset_value)
+    assert detail.snapshot.position_count is not None
+    assert detail.snapshot.source_account["positions"] is not None
     # LLP should have substantial history
     assert len(detail.share_prices) > 100
 
@@ -84,3 +89,6 @@ def test_fetch_pool_daily_pnl_history(lighter_session, lighter_llp_pool):
     assert latest.cumulative_pool_outflow is not None
     assert latest.cumulative_pool_inflow >= 0
     assert latest.cumulative_pool_outflow >= 0
+    assert latest.trade_pnl is not None
+    assert latest.pool_pnl is not None
+    assert latest.volume is not None

@@ -44,6 +44,11 @@ def test_fetch_and_store_single_pool(tmp_path):
         metadata_df = db.get_all_pool_metadata()
         assert len(metadata_df) == 1
         assert metadata_df.iloc[0]["is_llp"]
+
+        snapshots = db.get_pool_snapshot_history(llp.account_index)
+        assert len(snapshots) == 1
+        assert snapshots.iloc[0]["operator_shares"] >= 0
+        assert snapshots.iloc[0]["source_account_json"]
     finally:
         db.close()
 

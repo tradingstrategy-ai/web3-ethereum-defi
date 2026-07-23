@@ -39,11 +39,13 @@ Lighter public endpoints               ERC-4626 pipeline
   per-pool share price history                 |
   pool_info.share_prices (~379 entries)        |
   pool_info.daily_returns                      |
+  ownership, balances, margins, positions      |
       |                                        |
       v                                        |
 lighter-pools.duckdb  ------merge----->  vault-metadata-db.pickle
   pool_metadata table                    vault-prices-1h.parquet (uncleaned)
   pool_daily_prices table                      |
+  pool_snapshots table                         |
                                                v
                                         process_raw_vault_scan_data()
                                           fix_outlier_share_prices()
@@ -136,21 +138,57 @@ Response fields (inside `accounts[0]`):
 
 | Field | Type | Description |
 |-------|------|-------------|
+| `account_index` | int | Pool account index |
+| `index` | int | Account index alias returned by the endpoint |
+| `code` | int | Account code |
+| `created_at` | int | Account creation timestamp |
 | `name` | string | Pool name |
 | `description` | string | Pool strategy description |
+| `l1_address` | string | Pool account L1 address |
+| `status` | int | Account status |
+| `account_type` | int | Account type |
+| `account_trading_mode` | int | Trading mode |
 | `total_asset_value` | string | TVL in USDC |
+| `cross_asset_value` | string | Cross-margin asset value in USDC |
+| `collateral` | string | Account collateral in USDC |
+| `available_balance` | string | Free balance in USDC |
+| `cross_initial_margin_requirement` | string | Initial margin requirement in USDC |
+| `cross_maintenance_margin_requirement` | string | Maintenance margin requirement in USDC |
+| `pending_order_count` | int | Account-level pending orders |
+| `total_order_count` | int | Lifetime order count |
+| `total_isolated_order_count` | int | Lifetime isolated-order count |
+| `transaction_time` | int | Source transaction-time marker |
+| `positions` | array | Current per-market positions and position-attached orders |
+| `assets` | array | Current asset balances and margin balances |
+| `pending_unlocks` | array | Current pending pool unlocks |
+| `shares` | array | Current account share records |
+| `metadata` | object | Current account metadata |
+| `can_invite` | bool | Whether invitations are enabled |
+| `can_rfq` | bool | Whether RFQ is enabled |
+| `can_rfq_market_ids` | array | RFQ-enabled market IDs |
+| `cancel_all_time` | int | Cancel-all source timestamp or sequence marker |
+| `referral_points_percentage` | string | Referral-points percentage |
 | `pool_info.share_prices` | array | `[{"timestamp": int, "share_price": float}, ...]` |
 | `pool_info.daily_returns` | array | `[{"timestamp": int, "daily_return": float}, ...]` |
 | `pool_info.operator_fee` | string | Operator fee percentage |
+| `pool_info.min_operator_share_rate` | string | Minimum operator ownership rate |
 | `pool_info.annual_percentage_yield` | float | Current APY |
 | `pool_info.sharpe_ratio` | string | Risk-adjusted return metric |
 | `pool_info.total_shares` | int | Outstanding shares |
 | `pool_info.operator_shares` | int | Operator's shares |
+| `pool_info.status` | int | Pool status |
+| `pool_info.strategies` | array | Current strategy collateral records |
 
-The scanner keeps these as a current ownership snapshot. The unified metrics
-JSON exposes the raw counts and their ratio under
-`other_data.lighter.operator_share_fraction`; it does not treat the current
-value as historical ownership.
+The scanner appends these current values to `pool_snapshots` on every
+successful scan. This creates historical operator ownership, fee, risk,
+activity, and exposure data from the collection start onwards. The unified
+metrics JSON continues to expose only the latest raw ownership counts and ratio
+under `other_data.lighter.operator_share_fraction`.
+
+Lighter does not provide historical `/api/v1/account` snapshots. The scanner
+does not copy the first observed value backwards: all dates before collection
+started are missing and appear as SQL `NULL` or Pandas `NaN` when snapshot data
+is joined to older price history.
 
 Share price arrays have different retention depending on pool type
 (see [Share price history limitations](#share-price-history-limitations) below).
@@ -179,12 +217,17 @@ Response fields (inside `pnl[]`):
 | `trade_pnl` | float | Cumulative trading PnL (USDC) |
 | `trade_spot_pnl` | float | Cumulative spot PnL |
 | `pool_pnl` | float | Pool-level PnL |
+| `inflow` | float | Cumulative account inflow |
+| `outflow` | float | Cumulative account outflow |
 | `pool_inflow` | float | Cumulative deposit inflow (USDC) |
 | `pool_outflow` | float | Cumulative withdrawal outflow (USDC) |
 | `pool_total_shares` | int | Total outstanding shares at this point |
+| `spot_inflow` | float | Cumulative spot inflow |
+| `spot_outflow` | float | Cumulative spot outflow |
 | `staking_pnl` | float | LIT staking PnL |
 | `staking_inflow` | float | Staking inflow |
 | `staking_outflow` | float | Staking outflow |
+| `volume` | float | Source trading-volume value |
 
 **Note:** This endpoint does **not** return `share_price`. The
 `pool_total_shares` field cannot be trivially combined with PnL fields
@@ -193,8 +236,8 @@ to reconstruct share price — the data model is more complex than
 this endpoint for its TVL/balance chart, but uses the separate
 `share_prices` array from `/api/v1/account` for the NAV chart.
 
-The pipeline stores `pool_inflow` and `pool_outflow` as source cumulative USDC
-counters. At export it differences only consecutive completed UTC-day
+The pipeline stores every PnL metric field above as source daily data. It
+differences only consecutive completed UTC-day `pool_inflow` and `pool_outflow`
 observations to produce daily deposit/withdrawal USD amounts. The first
 observation, a missing-day gap, a counter reset, and the current UTC day remain
 unknown rather than zero. The API does not expose transaction counts, so
@@ -247,6 +290,34 @@ sharpe_ratio              DOUBLE
 created_at                TIMESTAMP
 last_updated              TIMESTAMP
 ```
+
+`pool_daily_prices` also retains all other numeric `/api/v1/pnl` fields:
+account/spot/staking inflow and outflow, trade/spot/pool/staking PnL, and
+volume. New nullable columns are added to existing databases; older rows remain
+`NULL` if the public endpoint cannot backfill a field.
+
+#### Point-in-time snapshots
+
+`pool_snapshots` is append-only with primary key
+`(snapshot_timestamp, account_index)`. Its columns are grouped as follows:
+
+| Group | Columns |
+|-------|---------|
+| Identity/status | `snapshot_timestamp`, `account_index`, `account_status`, `pool_status`, `account_type`, `account_trading_mode` |
+| Ownership/economics | `total_shares`, `operator_shares`, `operator_share_fraction`, `operator_fee`, `min_operator_share_rate`, `annual_percentage_yield`, `sharpe_ratio` |
+| Balance/margin | `total_asset_value`, `cross_asset_value`, `collateral`, `available_balance`, `initial_margin_requirement`, `maintenance_margin_requirement` |
+| Activity | `pending_order_count`, `total_order_count`, `total_isolated_order_count`, `transaction_time`, `open_order_count` |
+| Exposure | `position_count`, `gross_position_value`, `net_position_value`, `long_position_value`, `short_position_value`, `top_position_fraction`, `allocated_margin`, `unrealised_pnl`, `realised_pnl`, `funding_paid_out` |
+| Other current state | `asset_count`, `strategy_count`, `strategy_collateral`, `pending_unlock_count` |
+| Complete current state | `source_account_json` |
+
+`source_account_json` preserves all current scalar and nested fields even when
+Lighter adds new properties. Historical `share_prices` and `daily_returns`
+arrays are excluded from snapshot JSON because `pool_daily_prices` already
+stores them.
+
+No snapshot rows are backfilled before the deployment date; downstream joins
+must preserve those earlier values as `NULL`/`NaN`.
 
 ### Fees
 
@@ -336,8 +407,8 @@ poetry run python scripts/erc-4626/scan-vaults-all-chains.py
 This runs through the following stages:
 
 1. **Lighter scan** (~20s) — discovers pools from the public API, fetches share price
-   history, current ownership, and cumulative flow counters, stores them in
-   `lighter-pools.duckdb`
+   history, daily PnL/activity fields, and current ownership/risk/exposure
+   snapshots, then stores them in `lighter-pools.duckdb`
 2. **Merge vault metadata** — upserts Lighter VaultRows into `vault-metadata-db.pickle`
 3. **Merge prices** — appends Lighter daily prices into `vault-prices-1h.parquet`
    (uncleaned), replacing any prior Lighter rows

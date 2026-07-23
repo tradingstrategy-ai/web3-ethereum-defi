@@ -6,7 +6,8 @@ can be used as selection priors without inventing missing event data.
 
 **Architecture:** Keep Lighter’s public REST API as the sole source. Extend the
 existing `/api/v1/account` snapshot path to retain `pool_info.operator_shares`
-and `pool_info.total_shares` in `pool_metadata`. Extend the existing daily
+and `pool_info.total_shares` in `pool_metadata` and an append-only
+`pool_snapshots` table. Extend the existing daily
 `/api/v1/pnl` read to retain `pool_total_shares`, `pool_inflow`, and
 `pool_outflow`; retain those cumulative counters in Lighter DuckDB and derive
 day-to-day USD deltas only for export, then pass them through the existing
@@ -23,10 +24,12 @@ neither ownership skin nor cash-flow priors.
 
 **Data-contract decisions (locked before implementation):**
 
-- `operator_share_fraction = operator_shares / total_shares` is a **current
-  snapshot**, not history. Export the raw share counts, the fraction, and the
-  `last_updated` provenance timestamp in `other_data["lighter"]`; use `null`
-  when total shares is zero or the source field is absent.
+- `operator_share_fraction = operator_shares / total_shares` is a scan-time
+  snapshot. Append it and the other current account/pool fields to
+  `pool_snapshots`; export the latest raw share counts, fraction, and
+  `last_updated` provenance timestamp in `other_data["lighter"]`. Use `null`
+  when total shares is zero or the source field is absent. Never backfill the
+  first observation into dates before snapshot collection started.
 - The PnL API reports cumulative `pool_inflow` and `pool_outflow`. Sort and
   de-duplicate by UTC day, retain the last sample per day in DuckDB, and
   calculate daily deposits/withdrawals as consecutive positive deltas at
@@ -103,6 +106,10 @@ volatile balances.
   `pool_metadata`, and backfill existing database schemas with idempotent
   `ALTER TABLE ADD COLUMN` migrations. Populate both from `LighterPoolDetail`
   on every successful scan.
+- [ ] Add an append-only `pool_snapshots` table for current ownership, fees,
+  balances, margin requirements, order activity, exposure aggregates, and raw
+  current API collections. Existing databases start with no historical
+  snapshot rows; earlier joined dates must remain `NULL`/`NaN`.
 - [ ] Add nullable `total_shares`, `cumulative_pool_inflow`, and
   `cumulative_pool_outflow` columns to `pool_daily_prices`, including
   idempotent migrations and `ON CONFLICT` update behaviour. Persist source
@@ -144,10 +151,10 @@ from which the export can correctly derive daily USD flow values.
   complete UTC-day observations exist, and export the stored Lighter
   `total_shares` as `total_supply`. Add explicit null-valued daily count
   columns; do not put a zero in any field merely to satisfy a common schema.
-- [ ] Keep `operator_share_fraction` metadata-only: do **not** add a raw or
-  cleaned historical column, forward-fill it, or use a latest-value mechanism.
-  Calculate it while merging metadata and read it directly in the metrics
-  layer, so historical price rows never masquerade as ownership history.
+- [ ] Keep `operator_share_fraction` out of raw and cleaned price history: do
+  **not** forward-fill it across price rows. Retain genuine scan-time history
+  in `pool_snapshots`, while the metrics layer reads the latest value from
+  Lighter metadata.
 - [ ] Generalise `_calculate_netflow_metrics()` to require the two USD amount
   columns, with count columns optional. Return `None` only when monetary flow
   data is absent; when counts are unavailable, emit `deposit_count=None` and
@@ -225,6 +232,6 @@ the snapshot as historical ownership or `null` as zero.
   errors are hard failures and must not be converted into an empty dataset.
 
 **Out of scope:** Reconstructing individual Lighter deposit/withdrawal events,
-historical operator ownership, changing selection policy/UI ranking, or adding
-onchain/RPC reads. Those require data the stated public endpoints do not
-provide.
+backfilling operator ownership before point-in-time collection started,
+changing selection policy/UI ranking, or adding onchain/RPC reads. Those
+require data the stated public endpoints do not provide.
