@@ -29,6 +29,9 @@ BSC = 56
 MONAD = 143
 MANTLE = 5000
 AVALANCHE = 43114
+HYPEREVM = 999
+INK = 57073
+PLASMA = 9745
 
 
 def test_vault_street_hardcoded_protocol_is_ethereum_only() -> None:
@@ -75,6 +78,17 @@ def test_fraxlend_probe_requires_event_derived_deployer() -> None:
     )
     fork_features = identify_vault_features(address, fork_calls, debug_text=None, chain_id=ETHEREUM_MAINNET)
     assert ERC4626Feature.frax_like not in fork_features
+
+
+def test_upshift_multi_asset_probe_is_unrestricted() -> None:
+    """Probe Upshift's multi-asset discriminator on every EVM chain."""
+
+    test_address = "0x0000000000000000000000000000000000000001"
+    upshift_chain_ids = (ETHEREUM_MAINNET, POLYGON, MONAD, HYPEREVM, BASE, PLASMA, AVALANCHE, INK)
+
+    for chain_id in upshift_chain_ids:
+        call_names = {call.func_name for call in create_probe_calls([test_address], chain_id=chain_id)}
+        assert "assetsWhitelistAddress" in call_names
 
 
 def test_chain_probe_filtering():

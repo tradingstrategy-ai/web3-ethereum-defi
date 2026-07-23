@@ -1,6 +1,8 @@
 feeder-id: august-digital
 name: August Digital
 role: curator
+upshift-strategist:
+  - August
 website: https://www.augustdigital.io
 short_description: 'August Digital builds institutional on-chain prime brokerage infrastructure for digital assets.'
 long_description: |

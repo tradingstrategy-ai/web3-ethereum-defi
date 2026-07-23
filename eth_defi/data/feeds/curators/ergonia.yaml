@@ -1,0 +1,13 @@
+feeder-id: ergonia
+name: Ergonia
+role: curator
+upshift-strategist:
+  - Ergonia
+website: https://www.ergonia.io
+short_description: Ergonia is a DeFi trading and venture-building firm that provides an Upshift vault strategy on Monad.
+long_description: |
+  Ergonia describes itself as a DeFi-centric proprietary onchain trading arm and venture builder. Its trading business focuses on liquidity provision and market-trading infrastructure, while Ergonia Labs supports blockchain projects with capital, research, infrastructure and operational input.
+  Upshift lists Ergonia as a strategist for the Kintsu superMON Vault on Monad. The mapping retains this protocol-native strategist attribution alongside the vault's other named strategist.
+other-links:
+  - title: Upshift - Kintsu superMON Vault
+    url: https://app.upshift.finance/pools/143/0x792C7c5fB5C996E588b9F4A5FB201C79974e267C

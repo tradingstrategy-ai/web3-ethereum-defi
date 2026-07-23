@@ -3,6 +3,8 @@ name: RockawayX
 role: curator
 accountable-company: RockawayX
 morpho-curator: RockawayX
+upshift-strategist:
+  - RockawayX
 website: https://www.rockawayx.com
 short_description: 'RockawayX is a digital asset investment and engineering firm spanning venture, liquidity, and blockchain infrastructure.'
 long_description: |
