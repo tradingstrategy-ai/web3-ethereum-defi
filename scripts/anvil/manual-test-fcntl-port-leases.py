@@ -42,8 +42,11 @@ repository's command-line script conventions:
     a deliberately crowded range.
 
 The script does not use chain RPC credentials. Standalone Anvil nodes report
-the default development chain id ``31337``. Any duplicate port, wrong chain
-id, child error, or leaked child process makes the script exit unsuccessfully.
+the default development chain id ``31337``. This confirms each live listener
+is an Anvil development node, but because every worker uses the same chain id
+it does not exercise fork-specific upstream chain-id mismatch rejection. Any
+duplicate port, unexpected chain id, child error, or leaked child process makes
+the script exit unsuccessfully.
 """
 
 import logging
@@ -147,8 +150,10 @@ def _run_worker(
     """Launch and retain one Anvil while sibling processes contend for ports.
 
     The child publishes its result only after the localhost listener answers
-    with the expected chain id. It then waits for the parent to release the
-    round, ensuring all reported ports remain concurrently occupied.
+    with standalone Anvil's default chain id. This is a basic listener sanity
+    check, not coverage for fork-specific chain-id mismatch rejection. The
+    child then waits for the parent to release the round, ensuring all reported
+    ports remain concurrently occupied.
 
     :param config:
         Immutable worker identity and shared port-range configuration.

@@ -35,6 +35,7 @@ The code was originally lifted from Brownie project.
 """
 
 import fcntl
+import inspect
 import logging
 import os
 import random
@@ -46,9 +47,10 @@ import time
 import warnings
 from dataclasses import dataclass
 from decimal import Decimal
+from functools import wraps
 from pathlib import Path
 from subprocess import DEVNULL, PIPE
-from typing import TYPE_CHECKING, Any, Optional, TextIO, Union
+from typing import TYPE_CHECKING, Any, Callable, Concatenate, Optional, ParamSpec, TextIO, Union
 
 import psutil
 import requests
@@ -211,7 +213,15 @@ def _try_reserve_anvil_port(port: int) -> _AnvilPortLease | None:
     # ``a+`` creates the stable coordination inode when it does not exist and
     # never truncates it. No data is stored in the file; only its descriptor
     # and inode identity matter to ``flock()``.
-    lock_file = lock_path.open("a+", encoding="utf-8")
+    try:
+        lock_file = lock_path.open("a+", encoding="utf-8")
+    except PermissionError:
+        # Shared CI hosts may retain a 0644 lock file created by another user.
+        # That inode cannot coordinate this process, but it must not abort the
+        # whole random candidate search. Treat the port as unavailable and let
+        # the caller try another candidate.
+        logger.debug("Cannot open Anvil port lock %s because it belongs to another user", lock_path)
+        return None
     try:
         fcntl.flock(lock_file.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
     except BlockingIOError:
@@ -232,16 +242,18 @@ def _try_reserve_anvil_port(port: int) -> _AnvilPortLease | None:
     return _AnvilPortLease(port=port, path=lock_path, file=lock_file)
 
 
-def _reserve_anvil_port(port: int | tuple[int, int, int]) -> _AnvilPortLease:
+def _reserve_anvil_port(port: int | tuple[int, int] | tuple[int, int, int]) -> _AnvilPortLease:
     """Reserve an explicit port or choose a leased random port from a range.
 
-    The tuple form matches the historical ``launch_anvil(port=...)`` contract:
-    ``(minimum, maximum, attempts)`` with an exclusive maximum. Candidate
+    The tuple form matches the historical ``launch_anvil(port=...)`` contract.
+    Both ``(minimum, maximum)`` and ``(minimum, maximum, attempts)`` are
+    accepted, with an exclusive maximum and 20 attempts by default. Candidate
     selection remains random so parallel jobs spread across the range, while
     the per-port ``flock()`` makes the selection safe across processes.
 
     :param port:
-        Explicit port number or ``(minimum, maximum, attempts)`` tuple.
+        Explicit port number, ``(minimum, maximum)`` tuple, or
+        ``(minimum, maximum, attempts)`` tuple.
 
     :return:
         Exclusive lease that must be retained until Anvil is shut down.
@@ -256,7 +268,13 @@ def _reserve_anvil_port(port: int | tuple[int, int, int]) -> _AnvilPortLease:
             raise RuntimeError(f"Cannot reserve explicit Anvil port {port}: it is leased or already listening")
         return lease
 
-    min_port, max_port, max_attempts = port
+    match port:
+        case (min_port, max_port):
+            max_attempts = 20
+        case (min_port, max_port, max_attempts):
+            pass
+        case _:
+            raise ValueError(f"Invalid Anvil port tuple {port!r}: expected (minimum, maximum) or (minimum, maximum, attempts)")
     assert type(min_port) is int
     assert type(max_port) is int
     assert type(max_attempts) is int
@@ -624,6 +642,133 @@ class AnvilLaunch:
                     self._port_lease.release()
 
 
+@dataclass(slots=True)
+class _AnvilStartupGuard:
+    """Own partially constructed launch resources until startup succeeds.
+
+    Anvil startup performs several independent operations after reserving a
+    port: spawning the child, polling JSON-RPC, warming a fork, registering
+    metadata and unlocking accounts. Any of these operations may raise an
+    exception type that the launch code did not anticipate. Enumerating every
+    transport, decoding and operating-system exception at each call site is
+    brittle and previously left the child, managed proxy and port lease alive
+    on less common failures.
+
+    The public :py:func:`launch_anvil` function is wrapped with
+    :py:func:`_guard_anvil_startup`. Until the function returns an
+    :py:class:`AnvilLaunch`, this guard is the sole fallback owner for all
+    resources created during startup. The wrapper catches even cancellation
+    exceptions, cleans up without replacing the original error, and disarms
+    the guard only after ownership has transferred to :class:`AnvilLaunch`.
+    """
+
+    #: Latest Anvil subprocess created by the current startup attempt.
+    process: psutil.Popen | None = None
+
+    #: Managed or caller-owned upstream failover proxy.
+    proxy: Any | None = None
+
+    #: Whether :py:attr:`proxy` was created by :py:func:`launch_anvil`.
+    proxy_managed: bool = False
+
+    #: Port lease retained across retry attempts.
+    port_lease: _AnvilPortLease | None = None
+
+    #: Local JSON-RPC URL whose metadata may have been registered.
+    json_rpc_url: str | None = None
+
+    #: Whether startup cleanup still owns the resources.
+    armed: bool = True
+
+    def cleanup(self) -> None:
+        """Release every resource still owned by a failed startup.
+
+        Cleanup errors are logged but never replace the exception that caused
+        startup to fail. The lease is released last: cooperative launchers must
+        not reuse the port until we have at least attempted to terminate the
+        child process.
+
+        :return:
+            ``None`` after all applicable cleanup steps have been attempted.
+        """
+
+        if not self.armed:
+            return
+
+        self.armed = False
+
+        if self.process is not None:
+            try:
+                # Do not wait for a port check here. A foreign listener may be
+                # the reason startup failed, and waiting for a port not owned by
+                # this child would mask the original exception for 30 seconds.
+                shutdown_hard(self.process, log_level=logging.ERROR, block=False)
+            except BaseException:
+                logger.exception("Failed to terminate Anvil after a startup error")
+
+        if self.json_rpc_url is not None:
+            _unregister_anvil_launch_metadata(self.json_rpc_url)
+
+        if self.proxy is not None and self.proxy_managed:
+            try:
+                self.proxy.close()
+            except BaseException:
+                logger.exception("Failed to close the managed RPC proxy after an Anvil startup error")
+
+        if self.port_lease is not None:
+            try:
+                self.port_lease.release()
+            except BaseException:
+                logger.exception("Failed to release the Anvil port lease after a startup error")
+
+    def disarm(self) -> None:
+        """Transfer resource ownership to a returned :class:`AnvilLaunch`.
+
+        :return:
+            ``None`` after disabling fallback cleanup.
+        """
+
+        self.armed = False
+
+
+_LaunchAnvilParameters = ParamSpec("_LaunchAnvilParameters")
+
+
+def _guard_anvil_startup(
+    func: Callable[Concatenate[_AnvilStartupGuard, _LaunchAnvilParameters], AnvilLaunch],
+) -> Callable[_LaunchAnvilParameters, AnvilLaunch]:
+    """Add exception-safe resource cleanup without changing the public API.
+
+    The decorated implementation receives a private guard as its first
+    positional argument. ``__signature__`` removes that implementation detail
+    from introspection so Sphinx, IDEs and callers continue to see the original
+    :py:func:`launch_anvil` parameters.
+
+    :param func:
+        Internal launch implementation accepting a startup guard first.
+
+    :return:
+        Public wrapper with the guard parameter removed.
+    """
+
+    @wraps(func)
+    def wrapper(*args: _LaunchAnvilParameters.args, **kwargs: _LaunchAnvilParameters.kwargs) -> AnvilLaunch:
+        startup_guard = _AnvilStartupGuard()
+        try:
+            launch = func(startup_guard, *args, **kwargs)
+        except BaseException:
+            startup_guard.cleanup()
+            raise
+
+        startup_guard.disarm()
+        return launch
+
+    parameters = tuple(inspect.signature(func).parameters.values())[1:]
+    wrapper.__signature__ = inspect.signature(func).replace(parameters=parameters)  # type: ignore[attr-defined]
+    wrapper.__annotations__.pop("_startup_guard", None)
+    return wrapper
+
+
 def _verify_archive_node_access(
     web3: Web3,
     rpc_url: str,
@@ -802,11 +947,14 @@ def _select_safe_fork_block_number(
     return None
 
 
+@_guard_anvil_startup
 def launch_anvil(
+    _startup_guard: _AnvilStartupGuard,
+    /,
     fork_url: Optional[str] = None,
     unlocked_addresses: list[Union[HexAddress, str]] = None,
     cmd="anvil",
-    port: int | tuple[int, int, int] = (19999, 29999, 25),
+    port: int | tuple[int, int] | tuple[int, int, int] = (19999, 29999, 25),
     block_time=0,
     launch_wait_seconds=20.0,
     attempts=3,
@@ -950,8 +1098,9 @@ def launch_anvil(
     :param port:
         Localhost port we bind for Anvil JSON-RPC.
 
-        The tuple format is ``(minimum port, exclusive maximum port,
-        reservation attempts)``.
+        The tuple format is ``(minimum port, exclusive maximum port)`` or
+        ``(minimum port, exclusive maximum port, reservation attempts)``.
+        The two-element form retains its historical default of 20 attempts.
 
         A tuple makes parallel launches choose random candidates from the
         range. Each candidate is protected by a per-port ``fcntl.flock()``
@@ -1195,6 +1344,12 @@ def launch_anvil(
         if cleaned_fork_url:
             upstream_rpc_urls = (cleaned_fork_url,)
 
+    # From this point onwards the wrapper owns managed proxy cleanup until a
+    # fully initialised AnvilLaunch is returned. Caller-provided proxies are
+    # recorded for context but deliberately never closed by the guard.
+    _startup_guard.proxy = proxy
+    _startup_guard.proxy_managed = proxy_managed
+
     # Check given RPC works.
     # When a proxy is active, smoke-test one of the upstream URLs directly
     # rather than through the proxy. The proxy has its own (longer) timeout
@@ -1212,9 +1367,6 @@ def launch_anvil(
             # being mistaken for the Anvil fork we intended to start.
             expected_chain_id = web3.eth.chain_id
         except Exception as e:
-            # Clean up the proxy if we started one
-            if proxy is not None and proxy_managed:
-                proxy.close()
             raise ValueError(f"RPC smoke test failed for {smoke_test_url}: {e}") from e
 
         fork_block_number = _select_safe_fork_block_number(
@@ -1225,32 +1377,29 @@ def launch_anvil(
 
         # If archive mode and fork_block_number specified, verify RPC can access historical blocks
         if archive and fork_block_number is not None:
-            try:
-                _verify_archive_node_access(
-                    web3=web3,
-                    rpc_url=smoke_test_url,
-                    fork_block_number=fork_block_number,
-                    current_block=current_rpc_block,
-                    timeout=test_request_timeout,
-                )
-            except Exception:
-                if proxy is not None and proxy_managed:
-                    proxy.close()
-                raise
+            _verify_archive_node_access(
+                web3=web3,
+                rpc_url=smoke_test_url,
+                fork_block_number=fork_block_number,
+                current_block=current_rpc_block,
+                timeout=test_request_timeout,
+            )
+
+    # Validate command options before taking a port lease. These assertions do
+    # not need any local resource cleanup and must not retain a candidate port
+    # when caller input is invalid.
+    if fork_block_number:
+        assert cleaned_fork_url, f"launch_anvil(): passed fork_block_number {fork_url} without JSON-RPC URL. Did you configure environment variables correctly?"
+
+    if block_time not in (0, None):
+        assert block_time > 0, f"Got bad block time {block_time}"
 
     # Acquire an inter-process lease only after remote RPC validation and
     # immediately before constructing the Anvil command. Unlike the previous
     # check-then-use allocator, this descriptor remains locked until
     # ``AnvilLaunch.close()`` has stopped the local listener.
-    try:
-        port_lease = _reserve_anvil_port(port_spec)
-    except (OSError, RuntimeError):
-        # A managed proxy may already be running because upstream validation
-        # occurs before local port allocation. Do not leak its listening
-        # thread when every candidate port is occupied.
-        if proxy is not None and proxy_managed:
-            proxy.close()
-        raise
+    port_lease = _reserve_anvil_port(port_spec)
+    _startup_guard.port_lease = port_lease
     port = port_lease.port
     url = f"http://localhost:{port}"
 
@@ -1269,10 +1418,8 @@ def launch_anvil(
 
     if fork_block_number:
         args["fork_block_number"] = fork_block_number
-        assert cleaned_fork_url, f"launch_anvil(): passed fork_block_number {fork_url} without JSON-RPC URL. Did you configure environment variables correctly?"
 
     if block_time not in (0, None):
-        assert block_time > 0, f"Got bad block time {block_time}"
         args["block_time"] = block_time
 
     current_block = chain_id = None
@@ -1280,21 +1427,12 @@ def launch_anvil(
     while attempts_left > 0:
         current_block = None
         chain_id = None
-        try:
-            process, final_cmd = _launch(
-                cmd,
-                inherit_stdio=inherit_stdio,
-                **args,
-            )
-        except OSError:
-            # ``Popen`` can fail before an Anvil process exists, for example
-            # if the executable disappears after ``shutil.which()``. Release
-            # resources here because no :class:`AnvilLaunch` will be returned
-            # to give the caller a normal ``close()`` path.
-            port_lease.release()
-            if proxy is not None and proxy_managed:
-                proxy.close()
-            raise
+        process, final_cmd = _launch(
+            cmd,
+            inherit_stdio=inherit_stdio,
+            **args,
+        )
+        _startup_guard.process = process
 
         # Wait until Anvil is responsive
         timeout = time.time() + launch_wait_seconds
@@ -1303,54 +1441,48 @@ def launch_anvil(
         web3 = Web3(HTTPProvider(url, request_kwargs={"timeout": test_request_timeout}))
         while time.time() < timeout:
             try:
-                # See if web3 RPC works
-                current_block = web3.eth.block_number
-                chain_id = web3.eth.chain_id
-
-                # A successful HTTP response is not enough to prove that our
-                # child owns this port. Before the fcntl lease existed, a child
-                # losing the bind race could exit while another worker's Anvil
-                # answered these requests. Never accept readiness from a dead
-                # subprocess.
-                if process.poll() is not None:
-                    stdout, stderr = process.communicate()
-                    port_lease.release()
-                    if proxy is not None and proxy_managed:
-                        proxy.close()
-                    # ``communicate()`` returns ``None`` streams when Anvil
-                    # inherited the parent's stdio. Normalise these only for
-                    # diagnostics so the intended startup error is preserved.
-                    stdout_tail = stdout[-500:] if stdout else b""
-                    stderr_tail = stderr[-500:] if stderr else b""
-                    raise RuntimeError(
-                        f"Anvil process exited during startup while localhost:{port} answered JSON-RPC; possible foreign listener or bind failure. stdout={stdout_tail!r}, stderr={stderr_tail!r}",
-                    )
-
-                # The upstream smoke test establishes the fork identity. A
-                # mismatch here means either a non-cooperating process captured
-                # the port or the configured fork proxy contains mixed-chain
-                # endpoints. Both cases are unsafe: returning this Web3 would
-                # let a test transact against the wrong network state.
-                if expected_chain_id is not None and chain_id != expected_chain_id:
-                    try:
-                        shutdown_hard(process, log_level=logging.ERROR, block=False)
-                    finally:
-                        # Diagnostic shutdown can itself fail, but neither the
-                        # lease nor a managed proxy may outlive a rejected
-                        # startup attempt.
-                        port_lease.release()
-                        if proxy is not None and proxy_managed:
-                            proxy.close()
-                    raise RuntimeError(
-                        f"Anvil chain id mismatch at {url}: expected upstream chain {expected_chain_id}, but the local listener reported {chain_id}. Refusing to attach to a possible foreign Anvil process.",
-                    )
-                break
-            except (requests.exceptions.ConnectionError, requests.exceptions.ReadTimeout) as e:
+                # Fetch both identity values into temporary variables. Do not
+                # mark the endpoint ready after only ``eth_blockNumber``
+                # succeeds: if ``eth_chainId`` times out at the deadline, the
+                # launch must fail closed rather than return ``chain_id=None``.
+                observed_block = web3.eth.block_number
+                observed_chain_id = web3.eth.chain_id
+            except Exception as e:
                 if log_wait:
                     logger.info("Anvil not ready, got exception %s", e)
-                # requests.exceptions.ConnectionError: ('Connection aborted.', ConnectionResetError(54, 'Connection reset by peer'))
+                current_block = None
+                chain_id = None
                 time.sleep(0.1)
                 continue
+
+            current_block = observed_block
+            chain_id = observed_chain_id
+
+            # A successful HTTP response is not enough to prove that our child
+            # owns this port. Before the fcntl lease existed, a child losing the
+            # bind race could exit while another worker's Anvil answered these
+            # requests. Never accept readiness from a dead subprocess.
+            if process.poll() is not None:
+                stdout, stderr = process.communicate()
+                # ``communicate()`` returns ``None`` streams when Anvil
+                # inherited the parent's stdio. Normalise these only for
+                # diagnostics so the intended startup error is preserved.
+                stdout_tail = stdout[-500:] if stdout else b""
+                stderr_tail = stderr[-500:] if stderr else b""
+                raise RuntimeError(
+                    f"Anvil process exited during startup while localhost:{port} answered JSON-RPC; possible foreign listener or bind failure. stdout={stdout_tail!r}, stderr={stderr_tail!r}",
+                )
+
+            # The upstream smoke test establishes the fork identity. A mismatch
+            # here means either a non-cooperating process captured the port or
+            # the configured fork proxy contains mixed-chain endpoints. Both
+            # cases are unsafe: returning this Web3 would let a test transact
+            # against the wrong network state.
+            if expected_chain_id is not None and chain_id != expected_chain_id:
+                raise RuntimeError(
+                    f"Anvil chain id mismatch at {url}: expected upstream chain {expected_chain_id}, but the local listener reported {chain_id}. Refusing to attach to a possible foreign Anvil process.",
+                )
+            break
 
         if current_block is None:
             logger.error("Could not read the latest block from anvil %s within %f seconds, shutting down and dumping output", url, launch_wait_seconds)
@@ -1360,6 +1492,10 @@ def launch_anvil(
                 block=True,
                 check_port=port,
             )
+            # ``inherit_stdio=True`` makes shutdown return ``None`` streams.
+            # Normalise them so diagnostics cannot mask the startup failure.
+            stdout = stdout or b""
+            stderr = stderr or b""
 
             # Check if Anvil failed because the RPC lacks archive data.
             #
@@ -1394,11 +1530,6 @@ def launch_anvil(
             # behind the tip, but keep this comment here because this stderr is
             # otherwise very confusing when seen in logs or CI output.
             if fork_block_number and any(p in stderr_str for p in archive_error_patterns):
-                # Anvil has stopped, so release its port before auxiliary proxy
-                # cleanup. A proxy error must not retain an unrelated port.
-                port_lease.release()
-                if proxy is not None and proxy_managed:
-                    proxy.close()
                 raise ArchiveNodeRequired(
                     f"Anvil failed to fork {cleaned_fork_url} at block {fork_block_number:,}: the RPC does not provide full archive state access. Anvil stderr: {stderr_str[:500]}",
                     rpc_url=cleaned_fork_url,
@@ -1413,9 +1544,6 @@ def launch_anvil(
                     logger.info("anvil did not start properly, try again, attempts left %d", attempts_left)
                     continue
 
-            port_lease.release()
-            if proxy is not None and proxy_managed:
-                proxy.close()
             raise AssertionError(f"Could not read block number from Anvil after the launch with command '{cmd}': at {url}, stdout is {len(stdout)} bytes, stderr is {len(stderr)} bytes")
         else:
             warm_up_target_block = fork_block_number if fork_url else None
@@ -1425,14 +1553,11 @@ def launch_anvil(
             if warm_up_block and warm_up_target_block is not None:
                 try:
                     _warm_up_fork_block(url, warm_up_target_block)
-                except (
-                    RequestsConnectionError,
-                    requests.exceptions.HTTPError,
-                    requests.exceptions.ReadTimeout,
-                    requests.exceptions.Timeout,
-                    ValueError,
-                    RPCRequestError,
-                ) as e:
+                except Exception as e:
+                    # Warm-up involves HTTP transport, response decoding and
+                    # Web3 result validation. All ordinary failures are
+                    # retryable; any final failure escapes to the startup guard
+                    # for process, proxy and lease cleanup.
                     logger.error(
                         "Anvil fork block warm-up failed at block %d: %s",
                         warm_up_target_block,
@@ -1452,9 +1577,6 @@ def launch_anvil(
                         )
                         continue
 
-                    port_lease.release()
-                    if proxy is not None and proxy_managed:
-                        proxy.close()
                     raise
 
             # We have a successful launch
@@ -1468,6 +1590,7 @@ def launch_anvil(
         fork_block_number=fork_block_number,
         effective_fork_url=cleaned_fork_url,
     )
+    _startup_guard.json_rpc_url = url
     _register_anvil_launch_metadata(url, fork_metadata)
 
     # Perform unlock accounts for all accounts
