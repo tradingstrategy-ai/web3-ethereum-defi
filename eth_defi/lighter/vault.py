@@ -20,10 +20,11 @@ For more information about Lighter:
 import datetime
 import logging
 from dataclasses import dataclass
-from typing import Any, Iterator
+from typing import Any
 
 import pandas as pd
 
+from eth_defi.compat import native_datetime_utc_now
 from eth_defi.lighter.session import LighterSession
 from eth_defi.types import Percent
 
@@ -118,6 +119,31 @@ class LighterPoolDetail:
     operator_shares: int
 
 
+@dataclass(slots=True)
+class LighterPoolDailyPnl:
+    """One daily Lighter pool PnL observation.
+
+    The Lighter PnL endpoint exposes cumulative flow counters rather than
+    individual deposit and withdrawal events.  Keep the source counters intact
+    until export, where adjacent complete-day observations can be safely
+    differenced.
+
+    :param date:
+        UTC calendar date of the observation.
+    :param total_shares:
+        Outstanding pool shares at the observation.
+    :param cumulative_pool_inflow:
+        Cumulative USDC deposited into the pool, if supplied by the API.
+    :param cumulative_pool_outflow:
+        Cumulative USDC withdrawn from the pool, if supplied by the API.
+    """
+
+    date: datetime.date
+    total_shares: int | None
+    cumulative_pool_inflow: float | None
+    cumulative_pool_outflow: float | None
+
+
 def fetch_system_config(
     session: LighterSession,
     timeout: float = 30.0,
@@ -182,7 +208,7 @@ def fetch_all_pools(
         for p in pools_data:
             account_index = int(p["account_index"])
             created_ts = p.get("created_at")
-            created_at = datetime.datetime.fromtimestamp(created_ts) if created_ts else None
+            created_at = datetime.datetime.fromtimestamp(created_ts, tz=datetime.timezone.utc).replace(tzinfo=None) if created_ts else None
 
             sharpe_str = p.get("sharpe_ratio")
             sharpe_val = float(sharpe_str) if sharpe_str else None
@@ -313,20 +339,21 @@ def fetch_pool_detail(
     )
 
 
-def fetch_pool_total_shares_history(
+def fetch_pool_daily_pnl_history(
     session: LighterSession,
     account_index: int,
     start_timestamp: int | None = None,
     timeout: float = 30.0,
-) -> dict[datetime.date, int]:
-    """Fetch historical total shares from the PnL endpoint.
+) -> dict[datetime.date, LighterPoolDailyPnl]:
+    """Fetch daily Lighter pool shares and cumulative flow counters.
 
-    Uses ``/api/v1/pnl`` at daily resolution to get ``pool_total_shares``
-    at each timestamp. This is the only endpoint that provides full
-    history for all pool types (including user pools).
+    Uses ``/api/v1/pnl`` at daily resolution. This endpoint provides share
+    history for all pool types (including user pools) and exposes the
+    cumulative ``pool_inflow``/``pool_outflow`` counters.
 
-    The returned shares can be combined with share prices to compute
-    historical TVL: ``tvl = pool_total_shares * share_price``.
+    Lighter reports human-readable USDC values.  The counters are retained as
+    source values; do not calculate flows here because a bounded re-scan must
+    not overwrite a previously known daily delta with an unknown first row.
 
     :param session:
         HTTP session.
@@ -337,13 +364,16 @@ def fetch_pool_total_shares_history(
     :param timeout:
         HTTP request timeout.
     :return:
-        Mapping of ``{date: pool_total_shares}``.
+        Mapping of UTC date to source PnL observation. Duplicate observations
+        for a date retain the last API entry.
     """
     if start_timestamp is None:
-        start_timestamp = int(datetime.datetime(2025, 1, 1).timestamp())
+        start_timestamp = int(datetime.datetime(2025, 1, 1, tzinfo=datetime.timezone.utc).timestamp())
 
-    # Use a far-future end timestamp to get all available data
-    end_timestamp = int(datetime.datetime(2030, 1, 1).timestamp())
+    # Bound the request at the current UTC time. A far-future range can make
+    # the API return a synthetic end-of-range observation as future history.
+    now = native_datetime_utc_now()
+    end_timestamp = int(now.replace(tzinfo=datetime.timezone.utc).timestamp())
 
     url = f"{session.api_url}/api/v1/pnl"
     params = {
@@ -353,35 +383,73 @@ def fetch_pool_total_shares_history(
         "start_timestamp": str(start_timestamp),
         "end_timestamp": str(end_timestamp),
         "count_back": "0",
-        "ignore_transfers": "true",
+        "ignore_transfers": "false",
     }
     resp = session.get(url, params=params, timeout=timeout)
     resp.raise_for_status()
     data = resp.json()
 
-    result = {}
-    now = datetime.datetime(2030, 1, 1)
+    result: dict[datetime.date, LighterPoolDailyPnl] = {}
     for entry in data.get("pnl", []):
         ts = int(entry["timestamp"])
-        dt = datetime.datetime.fromtimestamp(ts)
-        # Skip entries with future timestamps (API sometimes returns
-        # a "current state" entry with a far-future timestamp)
-        if dt > now:
+        dt = datetime.datetime.fromtimestamp(ts, tz=datetime.timezone.utc).replace(tzinfo=None)
+        # Defensive guard in case the API still includes a future state.
+        if dt.date() > now.date():
             continue
-        total_shares = int(entry.get("pool_total_shares", 0))
-        result[dt.date()] = total_shares
+        raw_total_shares = entry.get("pool_total_shares")
+        raw_inflow = entry.get("pool_inflow")
+        raw_outflow = entry.get("pool_outflow")
+        result[dt.date()] = LighterPoolDailyPnl(
+            date=dt.date(),
+            total_shares=int(raw_total_shares) if raw_total_shares is not None else None,
+            cumulative_pool_inflow=float(raw_inflow) if raw_inflow is not None else None,
+            cumulative_pool_outflow=float(raw_outflow) if raw_outflow is not None else None,
+        )
 
     logger.debug(
-        "Fetched %d daily total_shares entries for pool %d",
+        "Fetched %d daily PnL entries for pool %d",
         len(result),
         account_index,
     )
     return result
 
 
+def fetch_pool_total_shares_history(
+    session: LighterSession,
+    account_index: int,
+    start_timestamp: int | None = None,
+    timeout: float = 30.0,
+) -> dict[datetime.date, int]:
+    """Fetch historical total shares from the daily PnL endpoint.
+
+    Compatibility helper for existing callers that only need the share
+    history. New pipeline code should use :py:func:`fetch_pool_daily_pnl_history`
+    to retain the cumulative flow counters as well.
+
+    :param session:
+        HTTP session.
+    :param account_index:
+        Pool account index.
+    :param start_timestamp:
+        Unix timestamp for the start of the range.
+    :param timeout:
+        HTTP request timeout.
+    :return:
+        Mapping of UTC date to total shares for entries that supply shares.
+    """
+    history = fetch_pool_daily_pnl_history(
+        session,
+        account_index,
+        start_timestamp=start_timestamp,
+        timeout=timeout,
+    )
+    return {date: observation.total_shares for date, observation in history.items() if observation.total_shares is not None}
+
+
 def pool_detail_to_daily_dataframe(
     detail: LighterPoolDetail,
     total_shares_by_date: dict[datetime.date, int] | None = None,
+    pnl_history_by_date: dict[datetime.date, LighterPoolDailyPnl] | None = None,
 ) -> pd.DataFrame:
     """Convert pool detail share prices into a daily DataFrame.
 
@@ -395,7 +463,7 @@ def pool_detail_to_daily_dataframe(
     defaults to 0.
 
     The share price array from the API contains daily entries with unix
-    timestamps. We convert to dates and compute daily returns via
+    timestamps. We convert to UTC dates and compute daily returns via
     ``pct_change()``.
 
     :param detail:
@@ -403,16 +471,21 @@ def pool_detail_to_daily_dataframe(
     :param total_shares_by_date:
         Mapping of ``{date: pool_total_shares}`` from the PnL endpoint.
         Used to compute historical TVL.
+    :param pnl_history_by_date:
+        Daily source PnL observations. When supplied, the output also includes
+        ``total_shares``, ``cumulative_pool_inflow``, and
+        ``cumulative_pool_outflow`` for later storage and export.
     :return:
-        DataFrame indexed by date with ``share_price``,
-        ``daily_return``, and ``tvl`` columns. Empty if insufficient data.
+        DataFrame indexed by date with ``share_price``, ``daily_return``, and
+        ``tvl`` columns plus available PnL source columns. Empty if
+        insufficient data.
     """
     if len(detail.share_prices) < 2:
         return pd.DataFrame(columns=["share_price", "daily_return", "tvl"])
 
     records = []
     for ts, price in detail.share_prices:
-        dt = datetime.datetime.fromtimestamp(ts)
+        dt = datetime.datetime.fromtimestamp(ts, tz=datetime.timezone.utc).replace(tzinfo=None)
         records.append(
             {
                 "date": dt.date(),
@@ -431,6 +504,9 @@ def pool_detail_to_daily_dataframe(
     daily["daily_return"] = daily["share_price"].pct_change().fillna(0.0)
 
     # Compute historical TVL from total_shares * share_price
+    if pnl_history_by_date:
+        total_shares_by_date = {date: observation.total_shares for date, observation in pnl_history_by_date.items() if observation.total_shares is not None}
+
     if total_shares_by_date:
         shares_series = pd.Series(total_shares_by_date, name="total_shares")
         shares_series.index = pd.to_datetime(shares_series.index)
@@ -439,7 +515,22 @@ def pool_detail_to_daily_dataframe(
         # Reindex to match daily dates, forward-fill gaps
         shares_aligned = shares_series.reindex(daily.index).ffill().fillna(0)
         daily["tvl"] = daily["share_price"] * shares_aligned
+        daily["total_shares"] = shares_aligned
     else:
         daily["tvl"] = 0.0
+        daily["total_shares"] = pd.NA
+
+    if pnl_history_by_date:
+        pnl_df = pd.DataFrame(
+            [
+                {
+                    "date": entry.date,
+                    "cumulative_pool_inflow": entry.cumulative_pool_inflow,
+                    "cumulative_pool_outflow": entry.cumulative_pool_outflow,
+                }
+                for entry in pnl_history_by_date.values()
+            ]
+        ).set_index("date")
+        daily = daily.join(pnl_df, how="left")
 
     return daily

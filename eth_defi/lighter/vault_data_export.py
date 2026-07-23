@@ -29,12 +29,14 @@ import logging
 from decimal import Decimal
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
 
 from eth_defi.compat import native_datetime_utc_now
 from eth_defi.erc_4626.core import ERC4262VaultDetection, ERC4626Feature
 from eth_defi.lighter.constants import LIGHTER_CHAIN_ID, LIGHTER_DENOMINATION, LIGHTER_POOL_FEE_MODE, LIGHTER_POOL_LOCKUP
 from eth_defi.lighter.daily_metrics import LighterDailyMetricsDatabase
+from eth_defi.types import Percent
 from eth_defi.vault.base import VaultHistoricalRead, VaultSpec
 from eth_defi.vault.fee import FeeData
 from eth_defi.vault.flag import VaultFlag
@@ -51,6 +53,9 @@ def create_lighter_pool_row(
     tvl: float,
     created_at: datetime.datetime | None,
     operator_fee: float = 0.0,
+    total_shares: int | None = None,
+    operator_shares: int | None = None,
+    ownership_updated_at: datetime.datetime | None = None,
     is_llp: bool = False,
     status: int = 0,
 ) -> tuple[VaultSpec, VaultRow]:
@@ -76,6 +81,12 @@ def create_lighter_pool_row(
         Pool creation timestamp.
     :param operator_fee:
         Operator fee percentage (e.g. 10.0 = 10%).
+    :param total_shares:
+        Current total pool shares from the Lighter API.
+    :param operator_shares:
+        Current pool shares owned by the operator.
+    :param ownership_updated_at:
+        Naive UTC timestamp of the ownership snapshot.
     :param is_llp:
         Whether this is the LLP protocol pool.
     :param status:
@@ -88,6 +99,7 @@ def create_lighter_pool_row(
 
     # Convert operator_fee from percentage to decimal fraction
     perf_fee = operator_fee / 100.0 if operator_fee else 0.0
+    operator_share_fraction: Percent | None = operator_shares / total_shares if total_shares and operator_shares is not None else None
 
     flags = {VaultFlag.perp_dex_trading_vault}
 
@@ -141,10 +153,64 @@ def create_lighter_pool_row(
         "_redemption_closed_reason": None,
         "_redemption_next_open": None,
         "_risk": get_vault_risk("Lighter", address),
+        "_lighter_operator_shares": operator_shares,
+        "_lighter_total_shares": total_shares,
+        "_lighter_operator_share_fraction": operator_share_fraction,
+        "_lighter_ownership_updated_at": ownership_updated_at,
     }
 
     spec = VaultSpec(chain_id=chain_id, vault_address=address)
     return spec, row
+
+
+def _derive_daily_flow_columns(
+    prices_df: pd.DataFrame,
+    current_date: datetime.date,
+) -> pd.DataFrame:
+    """Derive safe daily cash flows from Lighter cumulative counters.
+
+    A flow value is available only when the current and preceding observations
+    are consecutive completed UTC days and the corresponding cumulative counter
+    did not decrease. The current UTC day remains provisional, while gaps,
+    resets, and source-null counters remain unknown.
+
+    :param prices_df:
+        Lighter daily-price rows with cumulative source counters.
+    :param current_date:
+        Current UTC date, excluded from completed daily flow output.
+    :return:
+        Copy of ``prices_df`` with daily USD deposit and withdrawal columns.
+    """
+    result = prices_df.sort_values(["account_index", "date"]).copy()
+    result["daily_deposit_usd"] = np.nan
+    result["daily_withdrawal_usd"] = np.nan
+
+    observation_dates = pd.to_datetime(result["date"])
+    prior_dates = observation_dates.groupby(result["account_index"], sort=False).shift()
+    is_completed = observation_dates.dt.date < current_date
+    is_consecutive = (observation_dates - prior_dates).eq(pd.Timedelta(days=1))
+
+    for source_column, target_column in [
+        ("cumulative_pool_inflow", "daily_deposit_usd"),
+        ("cumulative_pool_outflow", "daily_withdrawal_usd"),
+    ]:
+        values = result[source_column]
+        prior_values = values.groupby(result["account_index"], sort=False).shift()
+        delta = values - prior_values
+        values_known = values.notna() & prior_values.notna()
+        valid_delta = is_completed & is_consecutive & values_known & delta.ge(0)
+        decreased_counter = is_completed & is_consecutive & values_known & delta.lt(0)
+
+        if decreased_counter.any():
+            logger.warning(
+                "Lighter %s counter decreased for %d completed daily observations; withholding those flows",
+                source_column,
+                int(decreased_counter.sum()),
+            )
+
+        result[target_column] = delta.where(valid_delta)
+
+    return result
 
 
 def build_raw_prices_dataframe(db: LighterDailyMetricsDatabase) -> pd.DataFrame:
@@ -169,6 +235,8 @@ def build_raw_prices_dataframe(db: LighterDailyMetricsDatabase) -> pd.DataFrame:
     if prices_df.empty:
         return pd.DataFrame()
 
+    prices_df = _derive_daily_flow_columns(prices_df, current_date=native_datetime_utc_now().date())
+
     chain_id = LIGHTER_CHAIN_ID
 
     # Build synthetic address from account_index
@@ -184,10 +252,16 @@ def build_raw_prices_dataframe(db: LighterDailyMetricsDatabase) -> pd.DataFrame:
             "timestamp": pd.to_datetime(prices_df["date"]).values,
             "share_price": prices_df["share_price"].values,
             "total_assets": prices_df["tvl"].values if "tvl" in prices_df.columns else 0.0,
-            "total_supply": 0.0,
+            "total_supply": prices_df["total_shares"].values if "total_shares" in prices_df.columns else np.nan,
             "performance_fee": 0.0,
             "management_fee": 0.0,
             "errors": "",
+            # Lighter's public PnL endpoint exposes cumulative monetary
+            # counters, not event-level counts. Keep count values unknown.
+            "daily_deposit_count": np.nan,
+            "daily_withdrawal_count": np.nan,
+            "daily_deposit_usd": prices_df["daily_deposit_usd"].values,
+            "daily_withdrawal_usd": prices_df["daily_withdrawal_usd"].values,
             "written_at": prices_df["written_at"].values if "written_at" in prices_df.columns else pd.NaT,
         },
     )
@@ -236,6 +310,9 @@ def merge_into_vault_database(
             tvl=row.get("total_asset_value", 0.0) or 0.0,
             created_at=row.get("created_at"),
             operator_fee=row.get("operator_fee", 0.0) or 0.0,
+            total_shares=int(row["total_shares"]) if pd.notna(row.get("total_shares")) else None,
+            operator_shares=int(row["operator_shares"]) if pd.notna(row.get("operator_shares")) else None,
+            ownership_updated_at=row.get("last_updated"),
             is_llp=bool(row.get("is_llp", False)),
             status=int(row.get("status", 0) or 0),
         )

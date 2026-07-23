@@ -24,10 +24,12 @@ Example::
 
 import datetime
 import logging
+from dataclasses import dataclass
 from pathlib import Path
 
 import duckdb
 import pandas as pd
+import requests
 from joblib import Parallel, delayed
 from tqdm_loggable.auto import tqdm
 
@@ -37,12 +39,68 @@ from eth_defi.lighter.session import LighterSession
 from eth_defi.lighter.vault import (
     LighterPoolSummary,
     fetch_all_pools,
+    fetch_pool_daily_pnl_history,
     fetch_pool_detail,
-    fetch_pool_total_shares_history,
     pool_detail_to_daily_dataframe,
 )
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass(slots=True)
+class LighterDailyPriceRow:
+    """One Lighter daily price observation ready for DuckDB storage.
+
+    Stores source cumulative counters rather than derived daily flows. This
+    preserves valid history across bounded PnL API re-scans.
+
+    :param account_index:
+        Lighter pool account index.
+    :param date:
+        UTC calendar date of the share-price observation.
+    :param share_price:
+        Pool share price in USDC.
+    :param tvl:
+        Derived total value locked in USDC.
+    :param daily_return:
+        Price return for the UTC day.
+    :param annual_percentage_yield:
+        Current API APY snapshot.
+    :param total_shares:
+        Outstanding pool shares at this date, if available.
+    :param cumulative_pool_inflow:
+        Source cumulative USDC inflow counter, if available.
+    :param cumulative_pool_outflow:
+        Source cumulative USDC outflow counter, if available.
+    :param written_at:
+        Naive UTC time when the row was written.
+    """
+
+    account_index: int
+    date: datetime.date
+    share_price: float
+    tvl: float
+    daily_return: float
+    annual_percentage_yield: float
+    total_shares: int | None
+    cumulative_pool_inflow: float | None
+    cumulative_pool_outflow: float | None
+    written_at: datetime.datetime
+
+    def as_db_tuple(self) -> tuple[object, ...]:
+        """Convert the row to the current DuckDB insert layout."""
+        return (
+            self.account_index,
+            self.date,
+            self.share_price,
+            self.tvl,
+            self.daily_return,
+            self.annual_percentage_yield,
+            self.total_shares,
+            self.cumulative_pool_inflow,
+            self.cumulative_pool_outflow,
+            self.written_at,
+        )
 
 
 class LighterDailyMetricsDatabase:
@@ -77,15 +135,22 @@ class LighterDailyMetricsDatabase:
                 total_asset_value DOUBLE,
                 annual_percentage_yield DOUBLE,
                 sharpe_ratio DOUBLE,
+                total_shares BIGINT,
+                operator_shares BIGINT,
                 created_at TIMESTAMP,
                 last_updated TIMESTAMP NOT NULL
             )
         """)
-        # Migrate existing databases that lack the status column
-        try:
-            self.con.execute("ALTER TABLE pool_metadata ADD COLUMN status INTEGER DEFAULT 0")
-        except duckdb.CatalogException:
-            pass  # Column already exists
+        # Migrate databases created before the fields above were added.
+        for column, type_sql in [
+            ("status", "INTEGER DEFAULT 0"),
+            ("total_shares", "BIGINT"),
+            ("operator_shares", "BIGINT"),
+        ]:
+            try:
+                self.con.execute(f"ALTER TABLE pool_metadata ADD COLUMN {column} {type_sql}")
+            except duckdb.CatalogException:
+                pass
 
         self.con.execute("""
             CREATE TABLE IF NOT EXISTS pool_daily_prices (
@@ -95,16 +160,25 @@ class LighterDailyMetricsDatabase:
                 tvl DOUBLE,
                 daily_return DOUBLE,
                 annual_percentage_yield DOUBLE,
+                total_shares BIGINT,
+                cumulative_pool_inflow DOUBLE,
+                cumulative_pool_outflow DOUBLE,
                 written_at TIMESTAMP,
                 PRIMARY KEY (account_index, date)
             )
         """)
 
-        # Migration for existing databases: add written_at column for data auditability
-        try:
-            self.con.execute("ALTER TABLE pool_daily_prices ADD COLUMN written_at TIMESTAMP")
-        except duckdb.CatalogException:
-            pass
+        # Migrate databases created before source accounting columns were added.
+        for column, type_sql in [
+            ("written_at", "TIMESTAMP"),
+            ("total_shares", "BIGINT"),
+            ("cumulative_pool_inflow", "DOUBLE"),
+            ("cumulative_pool_outflow", "DOUBLE"),
+        ]:
+            try:
+                self.con.execute(f"ALTER TABLE pool_daily_prices ADD COLUMN {column} {type_sql}")
+            except duckdb.CatalogException:
+                pass
 
     def upsert_pool_metadata(
         self,
@@ -118,6 +192,8 @@ class LighterDailyMetricsDatabase:
         total_asset_value: float | None = None,
         annual_percentage_yield: float | None = None,
         sharpe_ratio: float | None = None,
+        total_shares: int | None = None,
+        operator_shares: int | None = None,
         created_at: datetime.datetime | None = None,
     ):
         """Insert or update pool metadata.
@@ -142,6 +218,10 @@ class LighterDailyMetricsDatabase:
             Current APY.
         :param sharpe_ratio:
             Risk-adjusted return metric.
+        :param total_shares:
+            Current outstanding pool shares.
+        :param operator_shares:
+            Current shares owned by the pool operator.
         :param created_at:
             Pool creation timestamp.
         """
@@ -150,8 +230,8 @@ class LighterDailyMetricsDatabase:
             INSERT INTO pool_metadata (
                 account_index, name, description, l1_address, is_llp,
                 status, operator_fee, total_asset_value, annual_percentage_yield,
-                sharpe_ratio, created_at, last_updated
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                sharpe_ratio, total_shares, operator_shares, created_at, last_updated
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT (account_index) DO UPDATE SET
                 name = excluded.name,
                 description = excluded.description,
@@ -162,6 +242,8 @@ class LighterDailyMetricsDatabase:
                 total_asset_value = excluded.total_asset_value,
                 annual_percentage_yield = excluded.annual_percentage_yield,
                 sharpe_ratio = excluded.sharpe_ratio,
+                total_shares = excluded.total_shares,
+                operator_shares = excluded.operator_shares,
                 created_at = excluded.created_at,
                 last_updated = excluded.last_updated
             """,
@@ -176,6 +258,8 @@ class LighterDailyMetricsDatabase:
                 total_asset_value,
                 annual_percentage_yield,
                 sharpe_ratio,
+                total_shares,
+                operator_shares,
                 created_at,
                 native_datetime_utc_now(),
             ],
@@ -183,19 +267,19 @@ class LighterDailyMetricsDatabase:
 
     def upsert_daily_prices(
         self,
-        rows: list[tuple],
+        rows: list[LighterDailyPriceRow],
         cutoff_date: datetime.date | None = None,
     ):
         """Bulk upsert daily price rows for a pool.
 
         :param rows:
-            List of tuples: ``(account_index, date, share_price, tvl, daily_return, annual_percentage_yield, written_at)``.
+            Daily price rows with source share and cumulative flow counters.
         :param cutoff_date:
             If provided, only store rows up to this date (inclusive).
             Used for incremental scanning / testing.
         """
         if cutoff_date is not None:
-            rows = [r for r in rows if r[1] <= cutoff_date]
+            rows = [r for r in rows if r.date <= cutoff_date]
 
         if not rows:
             return
@@ -204,24 +288,27 @@ class LighterDailyMetricsDatabase:
             """
             INSERT INTO pool_daily_prices (
                 account_index, date, share_price, tvl,
-                daily_return, annual_percentage_yield, written_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?)
+                daily_return, annual_percentage_yield, total_shares,
+                cumulative_pool_inflow, cumulative_pool_outflow, written_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT (account_index, date) DO UPDATE SET
                 share_price = excluded.share_price,
                 tvl = excluded.tvl,
                 daily_return = excluded.daily_return,
                 annual_percentage_yield = excluded.annual_percentage_yield,
+                total_shares = COALESCE(excluded.total_shares, pool_daily_prices.total_shares),
+                cumulative_pool_inflow = COALESCE(excluded.cumulative_pool_inflow, pool_daily_prices.cumulative_pool_inflow),
+                cumulative_pool_outflow = COALESCE(excluded.cumulative_pool_outflow, pool_daily_prices.cumulative_pool_outflow),
                 written_at = excluded.written_at
             """,
-            rows,
+            [row.as_db_tuple() for row in rows],
         )
 
     def get_all_daily_prices(self) -> pd.DataFrame:
         """Retrieve all daily price data.
 
         :return:
-            DataFrame with columns: account_index, date, share_price, tvl,
-            daily_return, annual_percentage_yield.
+            DataFrame with price, source-share, and cumulative-flow columns.
         """
         return self.con.execute("SELECT * FROM pool_daily_prices ORDER BY account_index, date").fetchdf()
 
@@ -335,7 +422,7 @@ def fetch_and_store_pool(
     """
     try:
         detail = fetch_pool_detail(session, summary.account_index, timeout=timeout)
-    except Exception as e:
+    except (requests.RequestException, KeyError, TypeError, ValueError) as e:
         logger.warning(
             "Failed to fetch pool details for %s (%d): %s",
             summary.name,
@@ -344,23 +431,24 @@ def fetch_and_store_pool(
         )
         return False
 
-    # Fetch historical total shares for TVL computation
+    # Fetch historical shares and source cumulative flow counters for TVL and
+    # later flow export. A failure must not discard share-price ingestion.
     try:
-        total_shares_by_date = fetch_pool_total_shares_history(
+        pnl_history_by_date = fetch_pool_daily_pnl_history(
             session,
             summary.account_index,
             timeout=timeout,
         )
-    except Exception as e:
+    except (requests.RequestException, KeyError, TypeError, ValueError) as e:
         logger.warning(
-            "Failed to fetch PnL shares for %s (%d), using current TVL: %s",
+            "Failed to fetch PnL history for %s (%d), storing null source counters: %s",
             summary.name,
             summary.account_index,
             e,
         )
-        total_shares_by_date = None
+        pnl_history_by_date = None
 
-    daily_df = pool_detail_to_daily_dataframe(detail, total_shares_by_date=total_shares_by_date)
+    daily_df = pool_detail_to_daily_dataframe(detail, pnl_history_by_date=pnl_history_by_date)
     if daily_df.empty:
         logger.debug(
             "Skipping pool %s (%d): empty share price history",
@@ -381,22 +469,27 @@ def fetch_and_store_pool(
         total_asset_value=summary.total_asset_value,
         annual_percentage_yield=detail.annual_percentage_yield,
         sharpe_ratio=detail.sharpe_ratio,
+        total_shares=detail.total_shares,
+        operator_shares=detail.operator_shares,
         created_at=summary.created_at,
     )
 
     # Build daily price rows
     written_at = native_datetime_utc_now()
-    rows = []
+    rows: list[LighterDailyPriceRow] = []
     for date_val, row_data in daily_df.iterrows():
         rows.append(
-            (
-                summary.account_index,
-                date_val,
-                row_data["share_price"],
-                row_data["tvl"],
-                row_data["daily_return"],
-                summary.annual_percentage_yield,
-                written_at,
+            LighterDailyPriceRow(
+                account_index=summary.account_index,
+                date=date_val,
+                share_price=float(row_data["share_price"]),
+                tvl=float(row_data["tvl"]),
+                daily_return=float(row_data["daily_return"]),
+                annual_percentage_yield=summary.annual_percentage_yield,
+                total_shares=int(row_data["total_shares"]) if pd.notna(row_data["total_shares"]) else None,
+                cumulative_pool_inflow=float(row_data["cumulative_pool_inflow"]) if pd.notna(row_data.get("cumulative_pool_inflow")) else None,
+                cumulative_pool_outflow=float(row_data["cumulative_pool_outflow"]) if pd.notna(row_data.get("cumulative_pool_outflow")) else None,
+                written_at=written_at,
             )
         )
 

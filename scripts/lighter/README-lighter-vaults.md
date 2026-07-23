@@ -147,14 +147,19 @@ Response fields (inside `accounts[0]`):
 | `pool_info.total_shares` | int | Outstanding shares |
 | `pool_info.operator_shares` | int | Operator's shares |
 
+The scanner keeps these as a current ownership snapshot. The unified metrics
+JSON exposes the raw counts and their ratio under
+`other_data.lighter.operator_share_fraction`; it does not treat the current
+value as historical ownership.
+
 Share price arrays have different retention depending on pool type
 (see [Share price history limitations](#share-price-history-limitations) below).
 
 #### PnL history (`/api/v1/pnl`)
 
 Per-account PnL and balance history with configurable resolution and
-time range. This is the **only endpoint with full history** back to
-pool inception for all pools.
+time range. The pipeline uses it to obtain the historical counters for
+all pool types.
 
 | Parameter | Type | Description |
 |-----------|------|-------------|
@@ -188,6 +193,15 @@ to reconstruct share price — the data model is more complex than
 this endpoint for its TVL/balance chart, but uses the separate
 `share_prices` array from `/api/v1/account` for the NAV chart.
 
+The pipeline stores `pool_inflow` and `pool_outflow` as source cumulative USDC
+counters. At export it differences only consecutive completed UTC-day
+observations to produce daily deposit/withdrawal USD amounts. The first
+observation, a missing-day gap, a counter reset, and the current UTC day remain
+unknown rather than zero. The API does not expose transaction counts, so
+Lighter netflow records have null event-count fields. A netflow period with
+unknown amounts is marked `data_complete: false` and has null monetary totals
+rather than a misleading partial sum.
+
 ### Share price history limitations
 
 The `/api/v1/account` endpoint's `share_prices` array has **different
@@ -195,8 +209,8 @@ retention depending on pool type**:
 
 | Pool type | History | Entries (as of Mar 2026) |
 |-----------|---------|------------------------|
-| **LLP (protocol pool)** | Full history from inception (Jan 2025) | ~409 |
-| **User-created pools** | Rolling window of ~208 days | ~208 max |
+| **LLP (protocol pool)** | Full history from inception (Jan 2025) | ~409 in Mar 2026 |
+| **User-created pools** | Rolling window of ~208 days | ~208 max in Mar 2026 |
 
 User pools created before the rolling window cutoff (around Aug 2025)
 have their earliest share price entries truncated. Pools created within
@@ -207,9 +221,9 @@ to capture share prices before they fall off the rolling window for user
 pools. The DuckDB database preserves all previously fetched data, so
 historical entries are not lost once stored.
 
-The `/api/v1/pnl` endpoint **does** return full history (409+ entries)
-for all pools, but only provides `pool_total_shares` and cumulative PnL
-fields — not share prices. The Lighter website's "All-time" TVL chart
+The `/api/v1/pnl` endpoint returns retained history for all pools, but
+only provides `pool_total_shares` and cumulative PnL fields — not share
+prices. The Lighter website's "All-time" TVL chart
 uses this PnL endpoint (which is why TVL goes back to Jan 2025 for all
 pools), while the NAV/share-price chart is limited by the `share_prices`
 retention window.
@@ -219,17 +233,19 @@ retention window.
 ```
 pool_metadata                         pool_daily_prices
 =============                         =================
-account_index    BIGINT PK            account_index  BIGINT  \
-name             VARCHAR               date           DATE    > composite PK
-description      VARCHAR               share_price    DOUBLE
-l1_address       VARCHAR               tvl            DOUBLE
-is_llp           BOOLEAN               daily_return   DOUBLE
-operator_fee     DOUBLE                annual_percentage_yield DOUBLE
-total_asset_value DOUBLE
-annual_percentage_yield DOUBLE
-sharpe_ratio     DOUBLE
-created_at       TIMESTAMP
-last_updated     TIMESTAMP
+account_index             BIGINT PK    account_index               BIGINT  \
+name                      VARCHAR      date                        DATE    > composite PK
+description               VARCHAR      share_price                 DOUBLE
+l1_address                VARCHAR      tvl                         DOUBLE
+is_llp                    BOOLEAN      daily_return                DOUBLE
+operator_fee              DOUBLE       annual_percentage_yield     DOUBLE
+total_shares              BIGINT       total_shares                BIGINT
+operator_shares           BIGINT       cumulative_pool_inflow      DOUBLE
+total_asset_value         DOUBLE       cumulative_pool_outflow     DOUBLE
+annual_percentage_yield   DOUBLE       written_at                  TIMESTAMP
+sharpe_ratio              DOUBLE
+created_at                TIMESTAMP
+last_updated              TIMESTAMP
 ```
 
 ### Fees
@@ -320,7 +336,8 @@ poetry run python scripts/erc-4626/scan-vaults-all-chains.py
 This runs through the following stages:
 
 1. **Lighter scan** (~20s) — discovers pools from the public API, fetches share price
-   history and total shares, stores in `lighter-pools.duckdb`
+   history, current ownership, and cumulative flow counters, stores them in
+   `lighter-pools.duckdb`
 2. **Merge vault metadata** — upserts Lighter VaultRows into `vault-metadata-db.pickle`
 3. **Merge prices** — appends Lighter daily prices into `vault-prices-1h.parquet`
    (uncleaned), replacing any prior Lighter rows
@@ -358,7 +375,7 @@ Use `purge-price-data.py` with the Lighter synthetic chain ID
 (`9998`) to strip Lighter rows from the shared Parquet file:
 
 ```shell
-CHAIN_ID=9998 python scripts/erc-4626/purge-price-data.py
+source .local-test.env && CHAIN_ID=9998 poetry run python scripts/erc-4626/purge-price-data.py
 ```
 
 ### Step 3: Rescan
@@ -366,15 +383,16 @@ CHAIN_ID=9998 python scripts/erc-4626/purge-price-data.py
 Run the Lighter-only full pipeline to rebuild from scratch:
 
 ```shell
+source .local-test.env && \
 SCAN_LIGHTER=true \
 DISABLE_CHAINS=Sonic,Monad,Hyperliquid,Base,Arbitrum,Ethereum,Linea,Gnosis,Zora,Polygon,Avalanche,Berachain,Unichain,Hemi,Plasma,Binance,Mantle,Katana,Ink,Blast,Soneium,Optimism \
 MAX_WORKERS=20 \
 LOG_LEVEL=info \
-python scripts/erc-4626/scan-vaults-all-chains.py
+poetry run python scripts/erc-4626/scan-vaults-all-chains.py
 ```
 
-## Running Lighter-specic tests
+## Running Lighter-specific tests
 
 ```shell
-poetry run pytest tests/lighter/ -x --timeout=300
+source .local-test.env && poetry run pytest tests/lighter/ -x --timeout=300
 ```
