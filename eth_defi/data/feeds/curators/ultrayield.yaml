@@ -1,6 +1,8 @@
 feeder-id: ultrayield
 name: UltraYield
 role: curator
+upshift-strategist:
+  - UltraYield
 website: https://ultrayield.app
 short_description: 'UltraYield is a vault curator and infrastructure provider for CeFi and DeFi yield strategies.'
 long_description: |

@@ -1,0 +1,14 @@
+feeder-id: hardcore-labs
+name: Hardcore Labs
+role: curator
+upshift-strategist:
+  - Hardcore Labs
+website: https://hardcorelabs.fund/
+linkedin: hardcorelabs
+short_description: Hardcore Labs is a multi-strategy crypto hedge fund using quantitative and market-neutral DeFi strategies.
+long_description: |
+  Hardcore Labs describes itself as a multi-strategy crypto hedge fund that combines quantitative research, analytics and market-neutral trading. Its DeFi strategy allocates capital across a diversified set of protocols, supported by algorithms for allocation and hedging.
+  Upshift lists Hardcore Labs as the strategist for its Stroom BTC vault on Ethereum.
+other-links:
+  - title: Upshift - Hardcore Labs Stroom BTC vault
+    url: https://app.upshift.finance/pools/1/0x787f5541Ee40cD0c94175251686DDBbcf69A7344

@@ -27,6 +27,7 @@ vault curator detection:
 - `euler-entity`: Euler offchain API `entity` value.
 - `morpho-curator`: Morpho offchain API curator display name.
 - `lagoon-curator`: Lagoon API curator display name.
+- `upshift-strategist`: Upshift API `hardcoded_strategists[].strategist_name` display names.
 
 These fields are not feed sources. They map protocol-native manager names to
 the repository's canonical curator records so vault scans can resolve curators

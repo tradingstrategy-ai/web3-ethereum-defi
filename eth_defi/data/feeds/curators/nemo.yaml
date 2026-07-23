@@ -1,0 +1,13 @@
+feeder-id: nemo
+name: NEMO
+role: curator
+upshift-strategist:
+  - NEMO
+website: https://nemo.trading/
+short_description: NEMO is the strategist for Upshift's Prime yield vaults on Ethereum.
+long_description: |
+  Upshift lists NEMO as the strategist for its NEMO USDC Prime and NEMO ETH Prime vaults on Ethereum. The strategist label is the public protocol-native attribution used for the vaults because Upshift does not expose a separate curator field.
+  This record maps that exact NEMO label for curator attribution while retaining the associated vault details as the source of the role.
+other-links:
+  - title: Upshift - NEMO USDC Prime vault
+    url: https://app.upshift.finance/pools/1/0x955256B31097dDf47a9E47A95aDfDFB4460D8522
