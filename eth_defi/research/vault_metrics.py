@@ -1004,7 +1004,6 @@ def _calculate_netflow_metrics(
     """
     amount_cols = ["daily_deposit_usd", "daily_withdrawal_usd"]
     count_cols = ["daily_deposit_count", "daily_withdrawal_count"]
-
     if not all(col in prices_df.columns for col in amount_cols):
         return None
 
@@ -1025,12 +1024,11 @@ def _calculate_netflow_metrics(
 
         subset = prices_df.loc[mask]
         amounts = subset[amount_cols]
-        known_amount_rows = amounts.dropna(how="all")
         data_complete = not subset.empty and amounts.notna().all(axis=1).all()
 
         if data_complete:
-            dep_usd = float(known_amount_rows["daily_deposit_usd"].sum())
-            wd_usd = float(known_amount_rows["daily_withdrawal_usd"].sum())
+            dep_usd = float(amounts["daily_deposit_usd"].sum())
+            wd_usd = float(amounts["daily_withdrawal_usd"].sum())
             net_flow_usd = dep_usd - wd_usd
         else:
             dep_usd = None

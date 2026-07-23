@@ -135,10 +135,10 @@ class LighterPoolSnapshot:
 
     Values come from one ``/api/v1/account`` response. Historical arrays such
     as ``share_prices`` and ``daily_returns`` are deliberately excluded because
-    they are stored in the daily-price table. Collection is append-only from
-    the collection start date; the API cannot reconstruct earlier snapshots, so
-    pre-collection values remain SQL ``NULL``/Pandas ``NaN`` when joined to
-    older price history.
+    the daily-history pipeline handles them separately. Collection is
+    append-only from the collection start date; the API cannot reconstruct
+    earlier snapshots, so pre-collection values remain SQL ``NULL``/Pandas
+    ``NaN`` when joined to older price history.
     """
 
     #: Naive UTC time at which the API response was observed
@@ -346,8 +346,8 @@ def parse_lighter_pool_snapshot(
 
     Captures every current account/pool collection exposed by the public API
     while deriving queryable exposure aggregates from ``positions``. Historical
-    share-price and return arrays are excluded because the daily-price table
-    already retains them.
+    share-price and return arrays are excluded because the daily-history
+    pipeline handles them separately.
 
     :param account:
         Raw account object from ``/api/v1/account``.
@@ -469,6 +469,8 @@ def fetch_all_pools(
     Uses ``/api/v1/publicPoolsMetadata`` with pagination.
     Also fetches system config and applies any deployment-specific LLP account
     override to identify the canonical pool exactly.
+    See the `Lighter public-pools API reference
+    <https://apidocs.lighter.xyz/reference/publicpoolsmetadata>`__.
 
     :param session:
         HTTP session.
@@ -590,6 +592,8 @@ def fetch_pool_detail(
     Uses ``/api/v1/account?by=index&value={account_index}``.
     The response includes ``pool_info`` with ``share_prices`` and
     ``daily_returns`` arrays for pool accounts.
+    See the `Lighter account API reference
+    <https://apidocs.lighter.xyz/reference/account-1>`__.
 
     :param session:
         HTTP session.
@@ -662,6 +666,8 @@ def fetch_pool_daily_pnl_history(
     Uses ``/api/v1/pnl`` at daily resolution. This endpoint provides share
     history for all pool types (including user pools) and exposes the
     cumulative flow counters, PnL components, and trading volume.
+    See the `Lighter PnL API reference
+    <https://apidocs.lighter.xyz/reference/pnl>`__.
 
     Lighter reports human-readable values in the deployment's collateral
     currency. The counters are retained as source values; do not calculate
@@ -709,14 +715,11 @@ def fetch_pool_daily_pnl_history(
         # Defensive guard in case the API still includes a future state.
         if dt.date() > now.date():
             continue
-        raw_total_shares = entry.get("pool_total_shares")
-        raw_inflow = entry.get("pool_inflow")
-        raw_outflow = entry.get("pool_outflow")
         result[dt.date()] = LighterPoolDailyPnl(
             date=dt.date(),
-            total_shares=int(raw_total_shares) if raw_total_shares is not None else None,
-            cumulative_pool_inflow=float(raw_inflow) if raw_inflow is not None else None,
-            cumulative_pool_outflow=float(raw_outflow) if raw_outflow is not None else None,
+            total_shares=_parse_optional_int(entry.get("pool_total_shares")),
+            cumulative_pool_inflow=_parse_optional_float(entry.get("pool_inflow")),
+            cumulative_pool_outflow=_parse_optional_float(entry.get("pool_outflow")),
             cumulative_account_inflow=_parse_optional_float(entry.get("inflow")),
             cumulative_account_outflow=_parse_optional_float(entry.get("outflow")),
             cumulative_spot_inflow=_parse_optional_float(entry.get("spot_inflow")),
@@ -790,6 +793,10 @@ def pool_detail_to_daily_dataframe(
     timestamps. We convert to UTC dates and compute daily returns via
     ``pct_change()``.
 
+    PnL values are joined only on matching UTC dates. Total shares may be
+    forward-filled for TVL, but flow, PnL, and volume fields are never moved to
+    a different date.
+
     :param detail:
         Pool detail with share_prices array.
     :param total_shares_by_date:
@@ -836,8 +843,9 @@ def pool_detail_to_daily_dataframe(
         shares_series.index = pd.to_datetime(shares_series.index)
         shares_series.index = shares_series.index.date
 
-        # Reindex to match daily dates, forward-fill gaps
-        shares_aligned = shares_series.reindex(daily.index).ffill().fillna(0)
+        # Reindex to match daily dates and forward-fill only after the first
+        # source observation. Earlier share counts and TVL remain unknown.
+        shares_aligned = shares_series.reindex(daily.index).ffill()
         daily["tvl"] = daily["share_price"] * shares_aligned
         daily["total_shares"] = shares_aligned
     else:

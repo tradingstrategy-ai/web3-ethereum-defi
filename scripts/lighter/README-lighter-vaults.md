@@ -43,6 +43,10 @@ Lighter public endpoints               ERC-4626 pipeline
   ownership, balances, margins, positions      |
       |                                        |
       v                                        |
+/api/v1/pnl                                    |
+  daily shares, flows, PnL, volume             |
+      |                                        |
+      v                                        |
 lighter-pools.duckdb  ------merge----->  vault-metadata-db.pickle
   pool_metadata table                    vault-prices-1h.parquet (uncleaned)
   pool_daily_prices table                      |
@@ -239,7 +243,7 @@ Response fields (inside `accounts[0]`):
 | `total_order_count` | int | Lifetime order count |
 | `total_isolated_order_count` | int | Lifetime isolated-order count |
 | `transaction_time` | int | Source transaction-time marker |
-| `positions` | array | Current per-market positions and position-attached orders |
+| `positions` | array | Current per-market positions and attached order counts |
 | `assets` | array | Current asset balances and margin balances |
 | `pending_unlocks` | array | Current pending pool unlocks |
 | `shares` | array | Current account share records |
@@ -263,8 +267,8 @@ Response fields (inside `accounts[0]`):
 The scanner appends these current values to `pool_snapshots` on every
 successful scan. This creates historical operator ownership, fee, risk,
 activity, and exposure data from the collection start onwards. The unified
-metrics JSON continues to expose only the latest raw ownership counts and ratio
-under `other_data.lighter.operator_share_fraction`.
+metrics JSON exposes only the latest raw ownership counts and ratio under
+`other_data.lighter`.
 
 Lighter does not provide historical `/api/v1/account` snapshots. The scanner
 does not copy the first observed value backwards: all dates before collection
@@ -317,7 +321,8 @@ to reconstruct share price — the data model is more complex than
 this endpoint for its TVL/balance chart, but uses the separate
 `share_prices` array from `/api/v1/account` for the NAV chart.
 
-The pipeline stores every PnL metric field above as source daily data. It
+The pipeline stores every available matching-date PnL metric field above as
+source daily data. It
 differences only consecutive completed UTC-day `pool_inflow` and `pool_outflow`
 observations to produce daily deposit/withdrawal USD amounts. The first
 observation, a missing-day gap, a counter reset, and the current UTC day remain
@@ -325,6 +330,12 @@ unknown rather than zero. The API does not expose transaction counts, so
 Lighter netflow records have null event-count fields. A netflow period with
 unknown amounts is marked `data_complete: false` and has null monetary totals
 rather than a misleading partial sum.
+
+`pool_daily_prices` remains a share-price-indexed table. A PnL observation is
+stored only when its UTC date matches a retained share-price date; total shares
+may be forward-filled for TVL, but flow, PnL and volume fields are not. An
+unmatched PnL date therefore remains unavailable to the current price-based
+export rather than being attached to the wrong date.
 
 ### Share price history limitations
 
@@ -388,8 +399,8 @@ follows:
 
 `source_account_json` preserves all current scalar and nested fields even when
 Lighter adds new properties. Historical `share_prices` and `daily_returns`
-arrays are excluded from snapshot JSON because `pool_daily_prices` already
-stores them.
+arrays are excluded from snapshot JSON because the daily-history pipeline
+handles those time series separately.
 
 No snapshot rows are backfilled before collection started; downstream joins
 must preserve those earlier values as `NULL`/`NaN`.

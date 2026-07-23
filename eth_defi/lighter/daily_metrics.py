@@ -137,7 +137,15 @@ class LighterDailyPriceRow:
     volume: float | None = None
 
     def as_db_tuple(self) -> tuple[object, ...]:
-        """Convert the row to the current DuckDB insert layout."""
+        """Convert the row to the current DuckDB insert layout.
+
+        Keeps the positional SQL boundary in one place so callers cannot
+        accidentally desynchronise the dataclass and insert statement.
+
+        :return:
+            Twenty-one values in ``pool_daily_prices`` column order, excluding
+            the deployment slug supplied by the database method.
+        """
         return (
             self.account_index,
             self.date,
@@ -225,7 +233,7 @@ class LighterDailyMetricsDatabase:
         Path to the DuckDB database file.
     """
 
-    def __init__(self, path: Path):
+    def __init__(self, path: Path) -> None:
         self.path = path
         path.parent.mkdir(parents=True, exist_ok=True)
         self.con = duckdb.connect(str(path))
@@ -507,7 +515,7 @@ class LighterDailyMetricsDatabase:
         total_shares: int | None = None,
         operator_shares: int | None = None,
         created_at: datetime.datetime | None = None,
-    ):
+    ) -> None:
         """Insert or update pool metadata.
 
         :param deployment:
@@ -679,44 +687,7 @@ class LighterDailyMetricsDatabase:
                 ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
                 ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
             )
-            ON CONFLICT (deployment, snapshot_timestamp, account_index) DO UPDATE SET
-                account_status = excluded.account_status,
-                pool_status = excluded.pool_status,
-                account_type = excluded.account_type,
-                account_trading_mode = excluded.account_trading_mode,
-                total_asset_value = excluded.total_asset_value,
-                cross_asset_value = excluded.cross_asset_value,
-                collateral = excluded.collateral,
-                available_balance = excluded.available_balance,
-                initial_margin_requirement = excluded.initial_margin_requirement,
-                maintenance_margin_requirement = excluded.maintenance_margin_requirement,
-                operator_fee = excluded.operator_fee,
-                min_operator_share_rate = excluded.min_operator_share_rate,
-                annual_percentage_yield = excluded.annual_percentage_yield,
-                sharpe_ratio = excluded.sharpe_ratio,
-                total_shares = excluded.total_shares,
-                operator_shares = excluded.operator_shares,
-                operator_share_fraction = excluded.operator_share_fraction,
-                pending_order_count = excluded.pending_order_count,
-                total_order_count = excluded.total_order_count,
-                total_isolated_order_count = excluded.total_isolated_order_count,
-                transaction_time = excluded.transaction_time,
-                position_count = excluded.position_count,
-                gross_position_value = excluded.gross_position_value,
-                net_position_value = excluded.net_position_value,
-                long_position_value = excluded.long_position_value,
-                short_position_value = excluded.short_position_value,
-                top_position_fraction = excluded.top_position_fraction,
-                allocated_margin = excluded.allocated_margin,
-                unrealised_pnl = excluded.unrealised_pnl,
-                realised_pnl = excluded.realised_pnl,
-                funding_paid_out = excluded.funding_paid_out,
-                open_order_count = excluded.open_order_count,
-                asset_count = excluded.asset_count,
-                strategy_count = excluded.strategy_count,
-                strategy_collateral = excluded.strategy_collateral,
-                pending_unlock_count = excluded.pending_unlock_count,
-                source_account_json = excluded.source_account_json
+            ON CONFLICT (deployment, snapshot_timestamp, account_index) DO NOTHING
             """,
             [
                 deployment,
@@ -923,11 +894,11 @@ class LighterDailyMetricsDatabase:
             return val.date() if hasattr(val, "date") else val
         return None
 
-    def save(self):
+    def save(self) -> None:
         """Force checkpoint to disk."""
         self.con.execute("CHECKPOINT")
 
-    def close(self):
+    def close(self) -> None:
         """Close database connection."""
         logger.info("Closing daily metrics database at %s", self.path)
         if self.con is not None:

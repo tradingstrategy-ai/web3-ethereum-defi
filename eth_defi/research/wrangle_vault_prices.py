@@ -1561,7 +1561,22 @@ def fix_outlier_share_prices(
         if len(prices_df) == 0:
             return prices_df
 
+        # Flow rows are interval observations, not state snapshots. Preserve
+        # their unknown markers while filling sparse vault state used by the
+        # share-price cleaner.
+        flow_columns = [
+            column
+            for column in (
+                "daily_deposit_count",
+                "daily_withdrawal_count",
+                "daily_deposit_usd",
+                "daily_withdrawal_usd",
+            )
+            if column in group.columns
+        ]
+        source_flows = group[flow_columns].copy()
         group = group.ffill()
+        group[flow_columns] = source_flows
 
         # Compute row-based shift from actual time spacing so that vaults
         # with non-hourly polling (daily, weekly) get a sensible window.

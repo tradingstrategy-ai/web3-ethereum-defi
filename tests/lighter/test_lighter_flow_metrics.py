@@ -10,7 +10,7 @@ import pandas as pd
 import pytest
 
 from eth_defi.lighter.daily_metrics import LighterDailyMetricsDatabase, LighterDailyPriceRow
-from eth_defi.lighter.vault import fetch_pool_daily_pnl_history, parse_lighter_pool_snapshot
+from eth_defi.lighter.vault import fetch_pool_daily_pnl_history, parse_lighter_pool_snapshot, pool_detail_to_daily_dataframe
 from eth_defi.lighter.vault_data_export import _derive_daily_flow_columns, build_raw_prices_dataframe, create_lighter_pool_row, merge_into_uncleaned_parquet
 from eth_defi.research.vault_metrics import _calculate_netflow_metrics, calculate_hourly_returns_for_all_vaults, calculate_lifetime_metrics, export_lifetime_row
 from eth_defi.research.wrangle_vault_prices import process_raw_vault_scan_data
@@ -40,8 +40,8 @@ def _make_daily_row(
     )
 
 
-def test_lighter_pnl_history_excludes_future_placeholder() -> None:
-    """Keep API future placeholders out of the daily source history."""
+def test_lighter_pnl_history_excludes_future_and_preserves_unknown_leading_dates() -> None:
+    """Keep future placeholders out and pre-history shares unknown."""
     known_timestamp = int(datetime.datetime(2025, 1, 2, tzinfo=datetime.timezone.utc).timestamp())
     future_timestamp = int(datetime.datetime(2030, 1, 1, tzinfo=datetime.timezone.utc).timestamp())
     response = Mock()
@@ -59,6 +59,17 @@ def test_lighter_pnl_history_excludes_future_placeholder() -> None:
     assert list(history) == [datetime.date(2025, 1, 2)]
     assert history[datetime.date(2025, 1, 2)].cumulative_pool_inflow == pytest.approx(100.0)
     assert session.get.call_args.kwargs["params"]["ignore_transfers"] == "false"
+
+    detail = Mock(
+        share_prices=[
+            (int(datetime.datetime(2025, 1, 1, tzinfo=datetime.timezone.utc).timestamp()), 1.0),
+            (known_timestamp, 1.1),
+        ]
+    )
+    daily = pool_detail_to_daily_dataframe(detail, pnl_history_by_date=history)
+    assert pd.isna(daily.loc[datetime.date(2025, 1, 1), "total_shares"])
+    assert pd.isna(daily.loc[datetime.date(2025, 1, 1), "tvl"])
+    assert daily.loc[datetime.date(2025, 1, 2), "total_shares"] == 1_000
 
 
 def test_lighter_database_migration_leaves_pre_collection_fields_unknown(tmp_path) -> None:
@@ -222,16 +233,19 @@ def test_lighter_flow_derivation_rejects_gaps_resets_and_current_day() -> None:
     """Leave invalid, incomplete, and provisional Lighter flow intervals unknown."""
     prices = pd.DataFrame(
         {
-            "account_index": [42, 42, 42, 42, 42],
+            "deployment": ["ethereum", "ethereum", "ethereum", "ethereum", "ethereum", "robinhood", "robinhood"],
+            "account_index": [42, 42, 42, 42, 42, 42, 42],
             "date": [
                 datetime.date(2025, 1, 1),
                 datetime.date(2025, 1, 2),
                 datetime.date(2025, 1, 4),
                 datetime.date(2025, 1, 5),
                 datetime.date(2025, 1, 6),
+                datetime.date(2025, 1, 1),
+                datetime.date(2025, 1, 2),
             ],
-            "cumulative_pool_inflow": [100.0, 120.0, 130.0, 5.0, 10.0],
-            "cumulative_pool_outflow": [0.0, 0.0, 0.0, 0.0, 0.0],
+            "cumulative_pool_inflow": [100.0, 120.0, 130.0, 5.0, 10.0, 50.0, 70.0],
+            "cumulative_pool_outflow": [0.0, 0.0, 0.0, 0.0, 0.0, 10.0, 12.0],
         }
     )
 
@@ -242,10 +256,12 @@ def test_lighter_flow_derivation_rejects_gaps_resets_and_current_day() -> None:
     assert pd.isna(result.loc[2, "daily_deposit_usd"]), "A gap must not be assigned to its closing day"
     assert pd.isna(result.loc[3, "daily_deposit_usd"]), "A counter reset must not become an outflow"
     assert pd.isna(result.loc[4, "daily_deposit_usd"]), "The current UTC day is provisional"
+    assert result.loc[6, "daily_deposit_usd"] == pytest.approx(20.0), "Deployments sharing an account index must be isolated"
+    assert result.loc[6, "daily_withdrawal_usd"] == pytest.approx(2.0)
 
 
-def test_amount_only_netflow_preserves_unknown_event_counts() -> None:
-    """Export monetary Lighter flow without pretending it has event counts."""
+def test_netflow_preserves_unknown_counts_and_incomplete_amounts() -> None:
+    """Keep unavailable counts and incomplete monetary totals unknown."""
     dates = pd.date_range("2025-01-01", periods=3, freq="D")
     prices = pd.DataFrame(
         {
@@ -272,6 +288,8 @@ def test_amount_only_netflow_preserves_unknown_event_counts() -> None:
     assert incomplete is not None
     week = next(row for row in incomplete if row.period == "7d")
     assert not week.data_complete
+    assert week.deposit_count is None
+    assert week.withdrawal_count is None
     assert week.deposit_usd is None
     assert week.withdrawal_usd is None
     assert week.net_flow_usd is None
@@ -298,7 +316,7 @@ def test_lighter_ownership_reaches_metrics_json(tmp_path) -> None:
                     daily_return=0.0001,
                     annual_percentage_yield=0.0,
                     total_shares=1_000,
-                    cumulative_pool_inflow=1_000.0 + offset,
+                    cumulative_pool_inflow=10.0 if offset == 89 else 1_000.0 + offset,
                     cumulative_pool_outflow=0.0,
                     written_at=datetime.datetime(2025, 4, 1),
                 )
@@ -317,6 +335,8 @@ def test_lighter_ownership_reaches_metrics_json(tmp_path) -> None:
             ownership_updated_at=datetime.datetime(2025, 4, 1),
         )
         cleaned = process_raw_vault_scan_data({spec: vault_row}, raw, logger=lambda _: None, display=lambda _: None)
+        reset_timestamp = pd.Timestamp(start + datetime.timedelta(days=89))
+        assert pd.isna(cleaned.loc[reset_timestamp, "daily_deposit_usd"]), "Cleaning must preserve unknown reset intervals"
         returns = calculate_hourly_returns_for_all_vaults(cleaned)
         metrics = calculate_lifetime_metrics(returns, {spec: vault_row})
         exported = export_lifetime_row(metrics.iloc[0])
@@ -326,5 +346,8 @@ def test_lighter_ownership_reaches_metrics_json(tmp_path) -> None:
         assert lighter["total_shares"] == 1_000
         assert lighter["operator_share_fraction"] == pytest.approx(0.125)
         assert lighter["ownership_updated_at"] == "2025-04-01T00:00:00"
+        week = next(row for row in exported["netflow"] if row["period"] == "7d")
+        assert not week["data_complete"]
+        assert week["net_flow_usd"] is None
     finally:
         db.close()

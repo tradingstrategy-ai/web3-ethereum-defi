@@ -47,8 +47,9 @@ neither ownership skin nor cash-flow priors.
   outflow. Log it and emit `null` for that affected daily amount until the
   source contract is understood. Do not clip it to zero or create a false cash
   flow. A netflow period containing an unknown amount is incomplete: expose
-  null monetary/count totals plus an explicit completeness indicator instead
-  of silently reporting a partial sum as a complete period.
+  null monetary totals plus an explicit completeness indicator instead of
+  silently reporting a partial sum as a complete period. Genuine event counts
+  from other native sources remain independently reportable.
 - Store `pool_total_shares` for each daily row and export it as native
   `total_supply`, rather than the current synthetic zero. Align it with share
   prices using the same per-day last-value/forward-fill policy already used for

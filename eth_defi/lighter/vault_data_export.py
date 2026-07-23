@@ -230,12 +230,14 @@ def _derive_daily_flow_columns(
     :return:
         Copy of ``prices_df`` with daily USD deposit and withdrawal columns.
     """
-    result = prices_df.sort_values(["account_index", "date"]).copy()
+    group_columns = ["deployment", "account_index"]
+    result = prices_df.sort_values([*group_columns, "date"]).copy()
     result["daily_deposit_usd"] = np.nan
     result["daily_withdrawal_usd"] = np.nan
 
     observation_dates = pd.to_datetime(result["date"])
-    prior_dates = observation_dates.groupby(result["account_index"], sort=False).shift()
+    group_values = [result[column] for column in group_columns]
+    prior_dates = observation_dates.groupby(group_values, sort=False).shift()
     is_completed = observation_dates.dt.date < current_date
     is_consecutive = (observation_dates - prior_dates).eq(pd.Timedelta(days=1))
 
@@ -244,7 +246,7 @@ def _derive_daily_flow_columns(
         ("cumulative_pool_outflow", "daily_withdrawal_usd"),
     ]:
         values = result[source_column]
-        prior_values = values.groupby(result["account_index"], sort=False).shift()
+        prior_values = values.groupby(group_values, sort=False).shift()
         delta = values - prior_values
         values_known = values.notna() & prior_values.notna()
         valid_delta = is_completed & is_consecutive & values_known & delta.ge(0)
