@@ -21,6 +21,7 @@ from eth_defi.token import TokenDiskCache
 from eth_defi.tokenised_fund.centrifuge.constants import ETHEREUM_CHAIN_ID, JTRSY_ETHEREUM
 from eth_defi.tokenised_fund.centrifuge.historical import CentrifugeTrancheHistoricalReader
 from eth_defi.tokenised_fund.centrifuge.vault import CENTRIFUGE_TRANCHE_BLOCKED_FLOW_REASON, CentrifugeTrancheVault
+from eth_defi.tokenised_fund.vault import TokenisedFundDepositManager
 from eth_defi.vault.curator import identify_curator
 
 JSON_RPC_ETHEREUM = os.environ.get("JSON_RPC_ETHEREUM")
@@ -101,10 +102,8 @@ def test_jtrsy_adapter_blocks_public_flows() -> None:
     assert get_vault_protocol_name({ERC4626Feature.centrifuge_tranche_like}) == "Centrifuge"
     assert vault.fetch_deposit_closed_reason() == CENTRIFUGE_TRANCHE_BLOCKED_FLOW_REASON
     assert vault.fetch_redemption_closed_reason() == CENTRIFUGE_TRANCHE_BLOCKED_FLOW_REASON
-    assert vault.get_deposit_manager_capability() is None
-
-    with pytest.raises(NotImplementedError, match="not the subscription/redemption vault"):
-        vault.get_deposit_manager()
+    assert vault.get_deposit_manager_capability().as_initial_public_schema() == {"can_deposit": False, "can_redeem": False}
+    assert isinstance(vault.get_deposit_manager(), TokenisedFundDepositManager)
     reader = vault.get_historical_reader(stateful=True)
     assert isinstance(reader.reader_state, VaultReaderState)
 
@@ -158,7 +157,7 @@ def test_jtrsy_live_token_surface(web3: Web3) -> None:
     assert vault.fetch_total_supply(JTRSY_TEST_BLOCK) == JTRSY_EXPECTED_TOTAL_SUPPLY
     assert vault.fetch_compliance_hook(JTRSY_TEST_BLOCK) == JTRSY_EXPECTED_HOOK
     assert vault.fetch_linked_vault(USDC_ETHEREUM, JTRSY_TEST_BLOCK) == JTRSY_EXPECTED_USDC_VAULT
-    assert vault.get_deposit_manager_capability() is None
+    assert vault.get_deposit_manager_capability().as_initial_public_schema() == {"can_deposit": False, "can_redeem": False}
 
     with pytest.raises(NotImplementedError, match="does not expose NAV/share"):
         vault.fetch_share_price(JTRSY_TEST_BLOCK)
@@ -189,5 +188,5 @@ def test_jtrsy_scan_record_is_unpriced_not_broken(web3: Web3) -> None:
     assert record["Protocol"] == "Centrifuge"
     assert record["NAV"] is None
     assert record["Shares"] == JTRSY_EXPECTED_TOTAL_SUPPLY
-    assert record["_deposit_manager"] is None
+    assert record["_deposit_manager"] == {"can_deposit": False, "can_redeem": False}
     assert record["_deposit_closed_reason"] == CENTRIFUGE_TRANCHE_BLOCKED_FLOW_REASON

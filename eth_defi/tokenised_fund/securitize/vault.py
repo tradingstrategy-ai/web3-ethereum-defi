@@ -18,7 +18,7 @@ from eth_defi.tokenised_fund.securitize.historical import SecuritizeVaultHistori
 from eth_defi.tokenised_fund.securitize.redstone import REDSTONE_SECURITIZE_FEEDS, RedstoneSecuritizeFeed, fetch_redstone_feed_contract, fetch_redstone_price_at
 from eth_defi.tokenised_fund.vault import TokenisedFundVault
 from eth_defi.types import Percent
-from eth_defi.vault.base import TradingUniverse, VaultDepositManager, VaultFlowManager, VaultHistoricalReader, VaultInfo, VaultPortfolio, VaultSpec
+from eth_defi.vault.base import TradingUniverse, VaultFlowManager, VaultHistoricalReader, VaultInfo, VaultPortfolio, VaultSpec
 from eth_defi.vault.fee import BROKEN_FEE_DATA, FeeData
 from eth_defi.vault.lower_case_dict import LowercaseDict
 
@@ -396,16 +396,6 @@ class SecuritizeVault(TokenisedFundVault):
         """
 
         message = "Securitize DSToken flow accounting is not implemented"
-        raise NotImplementedError(message)
-
-    def get_deposit_manager(self) -> VaultDepositManager:
-        """Reject unsupported active subscription and redemption.
-
-        :raises NotImplementedError:
-            Always, because DSToken flows are permissioned.
-        """
-
-        message = "Securitize DSToken subscriptions and redemptions are not implemented"
         raise NotImplementedError(message)
 
     def fetch_deposit_closed_reason(self) -> str | None:

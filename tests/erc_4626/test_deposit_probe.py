@@ -8,7 +8,7 @@ import pytest
 from hexbytes import HexBytes
 
 import eth_defi.erc_4626.deposit_redeem as erc_4626_deposit_redeem
-from eth_defi.erc_4626.deposit_probe import DEFAULT_STATUS_PATH, VaultDepositProbeCandidate, VaultDepositProbeOutput, fetch_max_deposit_guidance, log_probe_tables, require_simulation, run_from_environment, select_candidates, update_status
+from eth_defi.erc_4626.deposit_probe import DEFAULT_STATUS_PATH, VaultDepositProbeCandidate, VaultDepositProbeOutput, fetch_max_deposit_guidance, log_probe_tables, merge_redemption_flow_failure, prepare_probe_deposit_request, require_simulation, run_from_environment, select_candidates, update_status
 from eth_defi.erc_4626.deposit_redeem import ERC4626DepositManager
 from eth_defi.erc_4626.vault import CERTIFIED_SYNCHRONOUS_DEPOSIT_MANAGER_CLASSES, ERC4626Vault
 from eth_defi.erc_4626.vault_protocol.gains.deposit_redeem import GainsDepositManager, GainsRedemptionTicket
@@ -16,18 +16,22 @@ from eth_defi.erc_4626.vault_protocol.kiln.vault import KilnVault
 from eth_defi.erc_4626.vault_protocol.summer.vault import SummerVault
 from eth_defi.erc_4626.vault_protocol.yearn.vault import YearnV3Vault
 from eth_defi.vault.base import VaultSpec
-from eth_defi.vault.deposit_redeem import VaultDepositManagerCapability
+from eth_defi.vault.deposit_redeem import VaultDepositManagerCapability, VaultFlowUnavailable
 from eth_defi.vault.vaultdb import VaultDatabase
 
 
 def test_vault_deposit_manager_capability_suppresses_partial_public_support() -> None:
-    """The initial JSON schema advertises only complete two-way managers."""
+    """The initial JSON schema advertises only symmetric manager support."""
     complete = VaultDepositManagerCapability(True, True, "synchronous", "asynchronous")
     assert complete.as_initial_public_schema() == {
         "can_deposit": True,
         "can_redeem": True,
         "deposit_flow": "synchronous",
         "redemption_flow": "asynchronous",
+    }
+    assert VaultDepositManagerCapability(False, False).as_initial_public_schema() == {
+        "can_deposit": False,
+        "can_redeem": False,
     }
     assert VaultDepositManagerCapability(True, False, "synchronous", None).as_initial_public_schema() is None
     assert VaultDepositManagerCapability(False, True, None, "asynchronous").as_initial_public_schema() is None
@@ -111,6 +115,92 @@ def test_generic_redemption_manager_accepts_raw_shares(monkeypatch: pytest.Monke
     )
     assert request.raw_shares == 123
     assert request.funcs == [function]
+
+
+def test_probe_records_preflight_refusal_without_aborting() -> None:
+    """A manager policy denial becomes a per-vault probe result."""
+
+    class RefusingManager:
+        """Minimal manager that rejects before creating a transaction."""
+
+        @staticmethod
+        def create_deposit_request(**_kwargs):
+            reason = "Account is not whitelisted"
+            raise VaultFlowUnavailable(
+                reason,
+                protocol="Example",
+                direction="deposit",
+                phase="preflight",
+                decoded_error="NotWhitelisted",
+                function_selector=HexBytes("0x85b77f45"),
+                error_selector=HexBytes("0x584a7938"),
+            )
+
+    capability = {
+        "can_deposit": True,
+        "can_redeem": True,
+        "deposit_flow": "asynchronous",
+        "redemption_flow": "asynchronous",
+    }
+    request, failure = prepare_probe_deposit_request(
+        RefusingManager(),
+        "0x0000000000000000000000000000000000000001",
+        1,
+        capability,
+        "not available",
+    )
+
+    assert request is None
+    assert failure is not None
+    assert failure["outcome"] == "flow_unavailable"
+    assert failure["deposit_manager"] == capability
+    assert failure["flow_error"] == {
+        "protocol": "Example",
+        "direction": "deposit",
+        "phase": "preflight",
+        "decoded_error": "NotWhitelisted",
+        "function_selector": "85b77f45",
+        "error_selector": "584a7938",
+        "access_delay": None,
+    }
+
+
+def test_probe_preserves_successful_deposit_when_redemption_is_unavailable() -> None:
+    """An immediate redemption delay must not erase successful deposit evidence."""
+    result = {
+        "outcome": "success",
+        "message": None,
+        "deposit_manager": {
+            "can_deposit": True,
+            "can_redeem": True,
+            "deposit_flow": "synchronous",
+            "redemption_flow": "synchronous",
+        },
+        "minted_share_amount_raw": "123",
+    }
+    error = VaultFlowUnavailable(
+        "IPOR redemption is temporarily locked",
+        protocol="IPOR",
+        direction="redeem",
+        phase="preflight",
+        access_delay=3600,
+    )
+
+    merged = merge_redemption_flow_failure(result, error)
+
+    assert merged["outcome"] == "success"
+    assert merged["minted_share_amount_raw"] == "123"
+    assert merged["redemption_status_detail"] == "flow_unavailable"
+    assert merged["redemption_message"] == ("IPOR redemption is temporarily locked (protocol=IPOR, direction=redeem, phase=preflight, access_delay=3600)")
+    assert merged["redemption_flow_error"] == {
+        "protocol": "IPOR",
+        "direction": "redeem",
+        "phase": "preflight",
+        "decoded_error": None,
+        "function_selector": None,
+        "error_selector": None,
+        "access_delay": 3600,
+    }
 
 
 def test_probe_requires_explicit_simulation(monkeypatch: pytest.MonkeyPatch) -> None:

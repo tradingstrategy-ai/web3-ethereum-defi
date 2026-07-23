@@ -27,9 +27,11 @@ import logging
 from dataclasses import asdict
 from decimal import Decimal
 from functools import cached_property
+from typing import TYPE_CHECKING
 
 import eth_abi
 from eth.typing import BlockRange
+from eth_abi.exceptions import InsufficientDataBytes
 from eth_typing import BlockIdentifier, ChecksumAddress, HexAddress
 from hexbytes import HexBytes
 from safe_eth.safe import Safe
@@ -37,20 +39,21 @@ from safe_eth.safe.exceptions import CannotRetrieveSafeInfoException
 from web3 import Web3
 from web3.contract import Contract
 from web3.contract.contract import ContractFunction
-from web3.exceptions import ContractLogicError, BadFunctionCallOutput
+from web3.exceptions import BadFunctionCallOutput, ContractLogicError
 
-from eth_defi.vault.base import VaultFlowManager, VaultInfo, VaultSpec
-from eth_defi.vault.flag import MISSING_IN_PROTOCOL_FRONTEND, VaultFlag
-from eth_defi.erc_7540.vault import ERC7540Vault
-from eth_defi.erc_4626.vault_protocol.lagoon.offchain_metadata import LagoonVaultMetadata, fetch_lagoon_vault_metadata
-
-from eth_defi.abi import encode_function_call, get_deployed_contract, get_function_abi_by_name, get_function_selector, present_solidity_args
+from eth_defi.abi import ZERO_ADDRESS_STR, encode_function_call, get_deployed_contract, get_function_abi_by_name, get_function_selector, present_solidity_args
 from eth_defi.erc_4626.core import ERC4626Feature
+from eth_defi.erc_4626.vault_protocol.lagoon.offchain_metadata import LagoonVaultMetadata, fetch_lagoon_vault_metadata
+from eth_defi.erc_7540.vault import ERC7540Vault
 from eth_defi.event_reader.multicall_batcher import EncodedCall
+from eth_defi.provider.fallback import ExtraValueError
 from eth_defi.safe.safe_compat import create_safe_ethereum_client
 from eth_defi.trace import assert_transaction_success_with_explanation
+from eth_defi.vault.base import VaultFlowManager, VaultInfo, VaultSpec
+from eth_defi.vault.flag import MISSING_IN_PROTOCOL_FRONTEND, VaultFlag
 
-from eth_abi.exceptions import InsufficientDataBytes
+if TYPE_CHECKING:
+    from eth_defi.erc_4626.vault_protocol.lagoon.deposit_redeem import LagoonDepositManager
 
 
 logger = logging.getLogger(__name__)
@@ -60,6 +63,40 @@ DEFAULT_LAGOON_POST_VALUATION_GAS = 500_000
 
 #: How much gas we use for valuation post
 DEFAULT_LAGOON_SETTLE_GAS = 500_000
+
+#: Minimal interface for Lagoon v0.6's access-policy view.
+#:
+#: Canonical source:
+#: https://github.com/hopperlabsxyz/lagoon-v0/blob/a8e73f5a5276aa4047b901083cbce127d7f7b470/src/v0.6.0/Accessable.sol
+LAGOON_V06_ACCESS_ABI = [
+    {
+        "inputs": [{"internalType": "address", "name": "account", "type": "address"}],
+        "name": "isAllowed",
+        "outputs": [{"internalType": "bool", "name": "", "type": "bool"}],
+        "stateMutability": "view",
+        "type": "function",
+    },
+]
+
+
+def _is_empty_execution_revert(error: ExtraValueError) -> bool:
+    """Check whether a provider error represents a missing-view empty revert.
+
+    The multi-provider wrapper raises :class:`ExtraValueError` both for
+    malformed RPC responses and for deterministic EVM reverts.  Lagoon v0.5's
+    removed ``isWhitelistActivated()`` getter has the specific response
+    ``code=3``, ``message=execution reverted``, ``data=0x``.  Only that shape
+    may activate the version-gated sentinel fallback.
+
+    :param error:
+        Provider response error raised by the whitelist policy call.
+    :return:
+        ``True`` only for the deterministic empty EVM revert shape.
+    """
+    if not error.args or not isinstance(error.args[0], dict):
+        return False
+    response = error.args[0]
+    return response.get("code") == 3 and response.get("data") == "0x" and "execution reverted" in str(response.get("message", "")).lower()
 
 
 class LagoonVaultInfo(VaultInfo):
@@ -216,7 +253,7 @@ class AutomatedSafe:
         try:
             version_bytes = probe_call.call(self._automated_safe_web3, block_identifier="latest")
             return version_bytes.decode("utf-8")
-        except (ValueError, ContractLogicError) as e:
+        except (ValueError, ContractLogicError):
             # getTradingStrategyModuleVersion() was not yet created
             return "v0.1.0"
 
@@ -437,7 +474,7 @@ class LagoonVault(ERC7540Vault, AutomatedSafe):
                 return LagoonVersion.v_0_6_0
             else:
                 raise NotImplementedError(f"Unknown Lagoon version {decoded_version} for vault {self.spec.vault_address}")
-        except (ValueError, ContractLogicError, InsufficientDataBytes) as e:
+        except (ValueError, ContractLogicError, InsufficientDataBytes):
             pass
 
         probe_call = EncodedCall.from_keccak_signature(
@@ -451,7 +488,7 @@ class LagoonVault(ERC7540Vault, AutomatedSafe):
         try:
             probe_call.call(self.web3, block_identifier="latest")
             version = LagoonVersion.legacy
-        except (ValueError, ContractLogicError, InsufficientDataBytes) as e:
+        except (ValueError, ContractLogicError, InsufficientDataBytes):
             version = LagoonVersion.v_0_5_0
 
         return version
@@ -544,6 +581,149 @@ class LagoonVault(ERC7540Vault, AutomatedSafe):
             self.vault_abi,
             self.spec.vault_address,
         )
+
+    @cached_property
+    def whitelist_contract(self) -> Contract:
+        """Get the stable whitelist interface at the vault address.
+
+        Lagoon's version-specific vault ABIs do not consistently include the
+        inherited whitelist views.  The shared interface contains both
+        selectors and can be safely bound to every Lagoon vault deployment.
+        Unsupported selectors are translated to ``NotImplementedError`` by
+        the public accessors below.
+        """
+        return get_deployed_contract(
+            self.web3,
+            "lagoon/Whitelistable.json",
+            self.spec.vault_address,
+        )
+
+    @cached_property
+    def access_contract(self) -> Contract:
+        """Get Lagoon v0.6's ``isAllowed(address)`` access interface.
+
+        Lagoon v0.6 replaced ``Whitelistable`` with the canonical
+        `Accessable contract
+        <https://github.com/hopperlabsxyz/lagoon-v0/blob/a8e73f5a5276aa4047b901083cbce127d7f7b470/src/v0.6.0/Accessable.sol>`__.
+        This is versioned source on the upstream ``main`` branch; the pinned
+        revision did not have a ``v0.6.0`` GitHub release or tag.
+        The one-function interface is bound separately because the repository
+        intentionally continues to use the compatible v0.5 vault ABI for
+        general v0.6 reads.
+
+        :return:
+            Contract proxy exposing ``isAllowed(address)``.
+        """
+        return self.web3.eth.contract(
+            address=Web3.to_checksum_address(self.spec.vault_address),
+            abi=LAGOON_V06_ACCESS_ABI,
+        )
+
+    def is_whitelisted_deposit(self) -> bool:
+        """Determine whether a Lagoon vault uses whitelist-mode deposits.
+
+        Lagoon released ``isWhitelistActivated()`` in
+        `v0.3.0 <https://github.com/hopperlabsxyz/lagoon-v0/releases/tag/v0.3.0>`__
+        and retained it in the canonical
+        `v0.4.0 Whitelistable source <https://github.com/hopperlabsxyz/lagoon-v0/blob/v0.4.0/src/v0.4.0/Whitelistable.sol>`__.
+        The getter was removed from the
+        `v0.5.0 Whitelistable source <https://github.com/hopperlabsxyz/lagoon-v0/blob/v0.5.0/src/v0.5.0/Whitelistable.sol>`__,
+        despite ``isWhitelisted(address)`` remaining available.  For v0.5
+        deployments only, use the zero-address sentinel: its ``False`` result
+        means whitelist enforcement is active, while ``True`` means deposits
+        are permissionless.  This follows the v0.5 implementation's
+        ``isWhitelisted`` branch for a disabled whitelist.
+
+        Lagoon v0.6 replaces ``Whitelistable`` with an access layer supporting
+        whitelist mode, blacklist mode and an external sanctions oracle. Its
+        canonical `AccessableLib.isAllowed implementation
+        <https://github.com/hopperlabsxyz/lagoon-v0/blob/a8e73f5a5276aa4047b901083cbce127d7f7b470/src/v0.6.0/libraries/AccessableLib.sol#L131-L161>`__
+        returns ``False`` for the zero address in whitelist mode and ``True``
+        under the default-open blacklist mode. Therefore v0.6 uses
+        ``isAllowed(0x0)`` as its version-specific sentinel. Individual
+        account admission must still be checked separately because blacklist
+        and sanctions rules may deny an otherwise default-open account.
+
+        :return:
+            ``True`` when the vault uses whitelist mode.
+
+        :raise NotImplementedError:
+            If the deployed Lagoon version exposes neither the policy getter
+            nor its version-specific account-access fallback.
+        """
+        if self.version == LagoonVersion.v_0_6_0:
+            try:
+                # The zero address can never submit a transaction and granting
+                # it explicit access has no meaningful use.
+                return not self.is_account_whitelisted(ZERO_ADDRESS_STR)
+            except NotImplementedError as e:
+                raise NotImplementedError(f"Lagoon v0.6.0 vault {self.address} does not expose isAllowed(address)") from e
+
+        try:
+            return bool(self.whitelist_contract.functions.isWhitelistActivated().call())
+        except ExtraValueError as e:
+            if not _is_empty_execution_revert(e):
+                raise
+            getter_error = e
+        except (BadFunctionCallOutput, ContractLogicError) as e:
+            getter_error = e
+
+        if self.version != LagoonVersion.v_0_5_0:
+            raise NotImplementedError(f"Lagoon {self.version.value} vault {self.address} does not expose isWhitelistActivated()") from getter_error
+        try:
+            # The zero address can never submit a transaction and will never
+            # be whitelisted because granting it admission has no meaning.
+            return not self.is_account_whitelisted(ZERO_ADDRESS_STR)
+        except NotImplementedError:
+            raise NotImplementedError(f"Lagoon vault {self.address} does not expose usable whitelist policy views") from getter_error
+
+    def is_account_whitelisted(self, address: HexAddress) -> bool:
+        """Determine whether an account passes Lagoon's versioned access view.
+
+        In the versioned v0.5 implementation, the canonical
+        `isWhitelisted source <https://github.com/hopperlabsxyz/lagoon-v0/blob/v0.5.0/src/v0.5.0/Whitelistable.sol>`__
+        returns ``True`` for every account when the whitelist is disabled and
+        returns mapping membership when it is active.  Thus this probe is a
+        reliable whitelist-admission result even where the v0.5 deployment
+        lacks ``isWhitelistActivated()``.  It does not establish allowance,
+        capacity, pause state, or an open ERC-7540 request window.
+
+        Lagoon v0.6 instead calls ``isAllowed(address)``. The canonical
+        `versioned AccessableLib implementation
+        <https://github.com/hopperlabsxyz/lagoon-v0/blob/a8e73f5a5276aa4047b901083cbce127d7f7b470/src/v0.6.0/libraries/AccessableLib.sol#L131-L161>`__
+        combines whitelist or blacklist mode with an optional external
+        sanctions oracle. Thus this method's historical name means "admitted
+        by Lagoon's access policy" for v0.6. The pinned upstream revision did
+        not have a ``v0.6.0`` GitHub release or tag.
+
+        :param address:
+            Account whose access status is queried.
+
+        :return:
+            ``True`` when Lagoon's versioned access policy accepts the account.
+
+        :raise NotImplementedError:
+            If the deployed Lagoon version does not expose its expected access
+            getter.
+        """
+        if self.version == LagoonVersion.v_0_6_0:
+            try:
+                return bool(self.access_contract.functions.isAllowed(Web3.to_checksum_address(address)).call())
+            except ExtraValueError as e:
+                if not _is_empty_execution_revert(e):
+                    raise
+                raise NotImplementedError(f"Lagoon v0.6.0 vault {self.address} does not expose isAllowed(address)") from e
+            except (BadFunctionCallOutput, ContractLogicError) as e:
+                raise NotImplementedError(f"Lagoon v0.6.0 vault {self.address} does not expose isAllowed(address)") from e
+
+        try:
+            return bool(self.whitelist_contract.functions.isWhitelisted(Web3.to_checksum_address(address)).call())
+        except ExtraValueError as e:
+            if not _is_empty_execution_revert(e):
+                raise
+            raise NotImplementedError(f"Lagoon vault {self.address} does not expose isWhitelisted(address)") from e
+        except (BadFunctionCallOutput, ContractLogicError) as e:
+            raise NotImplementedError(f"Lagoon vault {self.address} does not expose isWhitelisted(address)") from e
 
     def has_block_range_event_support(self):
         return True
@@ -705,7 +885,7 @@ class LagoonVault(ERC7540Vault, AutomatedSafe):
         """
         assert self.trading_strategy_module_address, "TradingStrategyModuleV0 not configured"
         if self.version != LagoonVersion.legacy:
-            assert valuation is not None, f"Lagoon v0.5.0+ needs valuation raw amount when calling settle"
+            assert valuation is not None, "Lagoon v0.5.0+ needs valuation raw amount when calling settle"
             assert isinstance(valuation, Decimal), f"Expected DEcimal, got {type(valuation)}"
             raw_amount = self.denomination_token.convert_to_raw(valuation)
         else:
@@ -764,105 +944,6 @@ class LagoonVault(ERC7540Vault, AutomatedSafe):
 
         return tx_hash
 
-    def request_deposit(
-        self,
-        depositor: HexAddress,
-        raw_amount: int,
-        check_allowance=True,
-        check_balance=True,
-    ) -> ContractFunction:
-        """Build a deposit transction.
-
-        - Phase 1 of deposit before settlement
-        - Used for testing
-        - Must be approved() first
-        - Uses the vault underlying token (USDC)
-
-        .. note::
-
-            Legacy. Use :py:meth:`get_deposit_manager` instead.
-
-        :param raw_amount:
-            Raw amount in underlying token
-        """
-        assert type(raw_amount) == int, f"Deposit amount must be int, got {raw_amount} {type(raw_amount)}"
-        underlying = self.underlying_token
-
-        assert underlying is not None, "denomiation_token is missing. Did fetch_denomination_token() run successfully? Did you run against a flaky RPC?"
-
-        existing_balance = underlying.fetch_raw_balance_of(depositor)
-        if check_balance:
-            assert existing_balance >= raw_amount, f"Cannot deposit {underlying.symbol} by {depositor}. Have: {existing_balance}, asked to deposit: {raw_amount}"
-        existing_allowance = underlying.contract.functions.allowance(depositor, self.vault_address).call()
-        if check_allowance:
-            assert existing_allowance >= raw_amount, f"Cannot deposit {underlying.symbol} by {depositor}. Allowance: {existing_allowance}, asked to deposit: {raw_amount}"
-        return self.vault_contract.functions.requestDeposit(
-            raw_amount,
-            depositor,
-            depositor,
-        )
-
-    def finalise_deposit(self, depositor: HexAddress, raw_amount: int | None = None) -> ContractFunction:
-        """Move shares we received to the user wallet.
-
-        - Phase 2 of deposit after settlement
-        - Uses the 3-argument ERC-7540 ``deposit(assets, receiver, controller)``
-          to claim async deposits, where the depositor is both receiver and
-          controller
-        """
-
-        if raw_amount is None:
-            raw_amount = self.vault_contract.functions.maxDeposit(depositor).call()
-
-        return self.vault_contract.functions.deposit(raw_amount, depositor, depositor)
-
-    def request_redeem(self, depositor: HexAddress, raw_amount: int, check_enough_token: bool = True) -> ContractFunction:
-        """Build a redeem transction.
-
-        - Phase 1 of redemption, before settlement
-        - Used for testing
-        - Sets up a redemption request for X shares
-
-        :param raw_amount:
-            Raw amount in share token
-
-        :param check_enough_token:
-            Assert the depositor still holds the shares. Set to False when only
-            rebuilding the request object to parse an already-broadcast
-            ``requestRedeem()`` transaction, because the shares have by then been
-            moved into the vault escrow and the depositor balance reads as zero.
-        """
-        assert type(raw_amount) == int, f"Got {raw_amount} {type(raw_amount)}"
-        shares = self.share_token
-        block_number = self.web3.eth.block_number
-
-        # Check we have shares
-        if check_enough_token:
-            owned_raw_amount = shares.fetch_raw_balance_of(depositor, block_number)
-            assert owned_raw_amount >= raw_amount, f"Cannot redeem, has only {owned_raw_amount} shares when {raw_amount} needed"
-
-        human_amount = shares.convert_to_decimals(raw_amount)
-        total_shares = self.fetch_total_supply(block_number)
-        logger.info("Setting up redemption for %s %s shares out of %s, for %s", human_amount, shares.symbol, total_shares, depositor)
-        return self.vault_contract.functions.requestRedeem(
-            raw_amount,
-            depositor,
-            depositor,
-        )
-
-    def finalise_redeem(self, depositor: HexAddress, raw_amount: int | None = None) -> ContractFunction:
-        """Move redeemed assets to the user wallet.
-
-        - Phase 2 of the redemption
-        """
-
-        assert type(depositor) == str, f"Got {depositor} {type(depositor)}"
-
-        if raw_amount is None:
-            raw_amount = self.vault_contract.functions.maxRedeem(depositor).call()
-
-        return self.vault_contract.functions.redeem(raw_amount, depositor, depositor)
-
     def get_management_fee(self, block_identifier: BlockIdentifier) -> float:
         """Get Lagoon vault rates"""
         rates = self.vault_contract.functions.feeRates().call(block_identifier=block_identifier)
@@ -882,25 +963,18 @@ class LagoonVault(ERC7540Vault, AutomatedSafe):
         assert self.trading_strategy_module_address, "TradingStrategyModuleV0 address must be separately given in the configuration"
         return self.safe.contract.functions.isModuleEnabled(self.trading_strategy_module_address).call() == True
 
-    def get_deposit_manager(self) -> "eth_defi.lagoon.deposit_redeem.ERC7540DepositManager":
-        from eth_defi.erc_4626.vault_protocol.lagoon.deposit_redeem import ERC7540DepositManager
+    def get_deposit_manager(self) -> "LagoonDepositManager":
+        """Create Lagoon's ERC-7540 deposit manager.
 
-        return ERC7540DepositManager(self)
-
-    def get_deposit_manager_capability(self) -> "VaultDepositManagerCapability | None":
-        """Declare Lagoon's ERC-7540 request-and-claim lifecycle.
+        Lagoon uses the generic ERC-7540 lifecycle with protocol-specific
+        access-policy checks and an Anvil settlement driver.
 
         :return:
-            Two-way asynchronous capability.
+            Lagoon-specific extension of the generic ERC-7540 manager.
         """
-        from eth_defi.vault.deposit_redeem import VaultDepositManagerCapability
+        from eth_defi.erc_4626.vault_protocol.lagoon.deposit_redeem import LagoonDepositManager
 
-        return VaultDepositManagerCapability(
-            can_deposit=True,
-            can_redeem=True,
-            deposit_flow="asynchronous",
-            redemption_flow="asynchronous",
-        )
+        return LagoonDepositManager(self)
 
     def can_check_deposit(self) -> bool:
         """Lagoon's maxDeposit does not work correctly for deposit availability checks."""

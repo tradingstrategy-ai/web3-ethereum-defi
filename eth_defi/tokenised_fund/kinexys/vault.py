@@ -34,7 +34,7 @@ from eth_defi.token import TokenDetails, fetch_erc20_details
 from eth_defi.tokenised_fund.kinexys.historical import OdaFactVaultHistoricalReader
 from eth_defi.tokenised_fund.vault import TokenisedFundVault
 from eth_defi.types import Percent
-from eth_defi.vault.base import TradingUniverse, VaultDepositManager, VaultFlowManager, VaultHistoricalReader, VaultInfo, VaultPortfolio, VaultSpec
+from eth_defi.vault.base import TradingUniverse, VaultFlowManager, VaultHistoricalReader, VaultInfo, VaultPortfolio, VaultSpec
 from eth_defi.vault.fee import BROKEN_FEE_DATA, FeeData, VaultFeeMode
 from eth_defi.vault.lower_case_dict import LowercaseDict
 
@@ -493,17 +493,6 @@ class OdaFactVault(TokenisedFundVault):
         """
 
         message = "ODA-FACT flow accounting is not implemented"
-        raise NotImplementedError(message)
-
-    def get_deposit_manager(self) -> VaultDepositManager:
-        """Get deposit manager.
-
-        :raises NotImplementedError:
-            Always, because active ODA-FACT subscription and redemption are not
-            implemented.
-        """
-
-        message = "ODA-FACT active subscription/redemption is not implemented"
         raise NotImplementedError(message)
 
     def fetch_deposit_closed_reason(self) -> str | None:

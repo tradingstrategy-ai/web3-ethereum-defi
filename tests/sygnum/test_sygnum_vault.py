@@ -20,6 +20,7 @@ from eth_defi.event_reader.multicall_batcher import EncodedCall, EncodedCallResu
 from eth_defi.tokenised_fund.sygnum.constants import FILQ_A_BUNDLE_FIRST_SEEN_AT_BLOCK, FILQ_A_ETHEREUM_ADDRESS, FILQ_A_ETHEREUM_FIRST_SEEN_AT_BLOCK, FILQ_BUNDLE_AGGREGATOR_ADDRESS, SYGNUM_ETHEREUM_CHAIN_ID, SYGNUM_HARDCODED_LEADS
 from eth_defi.tokenised_fund.sygnum.historical import SygnumVaultHistoricalReader, SygnumVaultReaderState
 from eth_defi.tokenised_fund.sygnum.vault import SYGNUM_RESTRICTED_FLOW_REASON, SygnumVault
+from eth_defi.tokenised_fund.vault import TokenisedFundDepositManager
 from eth_defi.vault.base import VaultSpec
 from eth_defi.vault.curator import get_curator_name, identify_curator, is_protocol_curator
 from eth_defi.vault.historical import VaultHistoricalReadMulticaller
@@ -97,9 +98,8 @@ def test_sygnum_vault_blocks_public_flows_and_decodes_bundle_nav() -> None:
     assert vault.manager_name == "Fidelity International"
     assert vault.curator_slug == "fidelity"
     assert vault.fetch_scan_record_extra_data()["_curator_slug"] == "fidelity"
-    assert vault.get_deposit_manager_capability() is None
-    with pytest.raises(NotImplementedError, match="Sygnum-approved"):
-        vault.get_deposit_manager()
+    assert vault.get_deposit_manager_capability().as_initial_public_schema() == {"can_deposit": False, "can_redeem": False}
+    assert isinstance(vault.get_deposit_manager(), TokenisedFundDepositManager)
     bundle = (192).to_bytes(32, "big") + (1_006_781).to_bytes(32, "big")
     assert vault.decode_bundle_nav(bundle) == Decimal("100.6781")
     info = vault.fetch_info()

@@ -425,6 +425,76 @@ def test_calculate_lifetime_metrics(
     # assert "period_results" not in formatted.columns
 
 
+def test_calculate_lifetime_metrics_exports_deposit_permission(
+    vault_db: VaultDatabase,
+    price_df: pd.DataFrame,
+) -> None:
+    """Lifetime reports add scan permission without mutating stored capability data."""
+    vault_id = "43111-0x05c2e246156d37b39a825a25dd08d5589e3fd883"
+    vault_spec = VaultSpec.parse_string(vault_id)
+    vault_row = dict(vault_db.rows[vault_spec])
+    stored_manager = {"can_deposit": True, "can_redeem": True, "deposit_flow": "synchronous", "redemption_flow": "synchronous"}
+    vault_row["_deposit_manager"] = stored_manager
+    vault_row["_deposit_permission"] = "whitelisted"
+
+    metrics = calculate_lifetime_metrics(price_df.loc[price_df["id"] == vault_id], {vault_spec: vault_row})
+
+    assert metrics.iloc[0]["deposit_manager"] == stored_manager | {"deposit_permission": "whitelisted"}
+    assert stored_manager == {"can_deposit": True, "can_redeem": True, "deposit_flow": "synchronous", "redemption_flow": "synchronous"}
+
+
+def test_calculate_lifetime_metrics_defaults_legacy_deposit_permission_to_unknown(
+    vault_db: VaultDatabase,
+    price_df: pd.DataFrame,
+) -> None:
+    """Old metadata pickles with a manager receive a safe report default."""
+    vault_id = "43111-0x05c2e246156d37b39a825a25dd08d5589e3fd883"
+    vault_spec = VaultSpec.parse_string(vault_id)
+    vault_row = dict(vault_db.rows[vault_spec])
+    vault_row["_deposit_manager"] = {"can_deposit": True, "can_redeem": True, "deposit_flow": "synchronous", "redemption_flow": "synchronous"}
+    vault_row.pop("_deposit_permission", None)
+
+    metrics = calculate_lifetime_metrics(price_df.loc[price_df["id"] == vault_id], {vault_spec: vault_row})
+
+    assert metrics.iloc[0]["deposit_manager"]["deposit_permission"] == "unknown"
+
+
+def test_calculate_lifetime_metrics_exports_permission_for_refusing_manager(
+    vault_db: VaultDatabase,
+    price_df: pd.DataFrame,
+) -> None:
+    """Permissioned funds retain policy metadata while refusing public flows."""
+    vault_id = "43111-0x05c2e246156d37b39a825a25dd08d5589e3fd883"
+    vault_spec = VaultSpec.parse_string(vault_id)
+    vault_row = dict(vault_db.rows[vault_spec])
+    vault_row["_deposit_manager"] = {"can_deposit": False, "can_redeem": False}
+    vault_row["_deposit_permission"] = "whitelisted"
+
+    metrics = calculate_lifetime_metrics(price_df.loc[price_df["id"] == vault_id], {vault_spec: vault_row})
+
+    assert metrics.iloc[0]["deposit_manager"] == {
+        "can_deposit": False,
+        "can_redeem": False,
+        "deposit_permission": "whitelisted",
+    }
+
+
+def test_calculate_lifetime_metrics_preserves_null_deposit_manager(
+    vault_db: VaultDatabase,
+    price_df: pd.DataFrame,
+) -> None:
+    """Permission reporting does not fabricate an unsupported manager object."""
+    vault_id = "43111-0x05c2e246156d37b39a825a25dd08d5589e3fd883"
+    vault_spec = VaultSpec.parse_string(vault_id)
+    vault_row = dict(vault_db.rows[vault_spec])
+    vault_row["_deposit_manager"] = None
+    vault_row["_deposit_permission"] = "permissionless"
+
+    metrics = calculate_lifetime_metrics(price_df.loc[price_df["id"] == vault_id], {vault_spec: vault_row})
+
+    assert metrics.iloc[0]["deposit_manager"] is None
+
+
 @pytest.mark.parametrize(
     ("deployment", "expected_slug", "expected_deployment_chain_id"),
     (

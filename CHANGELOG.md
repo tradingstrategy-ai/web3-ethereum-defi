@@ -1,5 +1,6 @@
 # 1.2
 
+- feat: Report vault deposit permission policy, preflight IPOR Fusion and Lagoon access restrictions, and classify tokenised-fund deposits as permissioned (2026-07-23)
 - feat: Add capacity-aware cSigma V2 deposit and redemption simulation support (2026-07-22)
 - feat: Add optional atomic gross-settlement and cooldown safety controls for asset-manager Lagoon v0.5 transactions (2026-07-22)
 - fix: Publish Bulla Network protocol metadata under the canonical `bulla-network` slug (2026-07-22)

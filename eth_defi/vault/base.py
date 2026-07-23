@@ -1135,6 +1135,43 @@ class VaultBase(ABC):
         """
         return None
 
+    def is_whitelisted_deposit(self) -> bool:
+        """Determine whether this vault applies a deposit whitelist policy.
+
+        Protocol adapters override this predicate only when their deployed
+        contract version exposes a reliable vault-wide policy read.  ``True``
+        means the vault requires account permission; ``False`` means its
+        policy is permissionless.  This is independent of a caller's current
+        balance, allowance, pause state, capacity, and request lifecycle.
+
+        :return:
+            ``True`` for a whitelist-restricted vault and ``False`` for a
+            permissionless vault.
+
+        :raise NotImplementedError:
+            If the adapter cannot safely determine the policy.
+        """
+        raise NotImplementedError()
+
+    def is_account_whitelisted(self, address: HexAddress) -> bool:
+        """Determine whether an account belongs to the vault deposit policy.
+
+        The result concerns policy membership only.  A protocol may still
+        require scheduling, an allowance, available capacity, or an open epoch
+        before a deposit can be submitted.  Callers must use the relevant
+        deposit manager pre-flight before broadcasting a transaction.
+
+        :param address:
+            Account whose deposit-policy membership is queried.
+
+        :return:
+            ``True`` when the account belongs to the applicable policy.
+
+        :raise NotImplementedError:
+            If the adapter cannot safely query account membership.
+        """
+        raise NotImplementedError()
+
     @abstractmethod
     def has_block_range_event_support(self) -> bool:
         """Does this vault support block range-based event queries for deposits and redemptions.

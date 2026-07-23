@@ -21,7 +21,7 @@ from eth_defi.tokenised_fund.centrifuge.constants import CENTRIFUGE_TRANCHE_PROD
 from eth_defi.tokenised_fund.centrifuge.historical import CentrifugeTrancheHistoricalReader
 from eth_defi.tokenised_fund.vault import TokenisedFundVault
 from eth_defi.types import Percent
-from eth_defi.vault.base import TradingUniverse, VaultDepositManager, VaultFlowManager, VaultHistoricalReader, VaultInfo, VaultPortfolio, VaultSpec
+from eth_defi.vault.base import TradingUniverse, VaultFlowManager, VaultHistoricalReader, VaultInfo, VaultPortfolio, VaultSpec
 from eth_defi.vault.fee import BROKEN_FEE_DATA, FeeData
 from eth_defi.vault.lower_case_dict import LowercaseDict
 
@@ -364,16 +364,6 @@ class CentrifugeTrancheVault(TokenisedFundVault):
 
         message = "Centrifuge Tranche token flow accounting is not implemented"
         raise NotImplementedError(message)
-
-    def get_deposit_manager(self) -> VaultDepositManager:
-        """Reject public subscription/redemption operations.
-
-        :raises NotImplementedError:
-            Always, because public dealing must use a separately supported
-            linked Centrifuge vault route.
-        """
-
-        raise NotImplementedError(CENTRIFUGE_TRANCHE_BLOCKED_FLOW_REASON)
 
     def fetch_deposit_closed_reason(self) -> str:
         """Explain why public subscriptions remain unavailable.
