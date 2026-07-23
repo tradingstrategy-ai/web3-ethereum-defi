@@ -17,6 +17,11 @@ to the read-only methods needed by vault classification and historical pricing:
 - `maxDepositAmount()`
 - `maxWithdrawalAmount()`
 
+`EnableOnlyAssetsWhitelist.json` is the narrow runtime interface used to
+resolve the ordered denomination-token whitelist of an Upshift multi-asset
+vault. It contains only `getWhitelistedAssets()` and was reduced from the
+shared verified implementation ABI below.
+
 `IMultiAssetVaultEvents.json` is an event-only interface for Upshift
 `multiAssetVault` discovery. It contains the custom multi-asset deposit event
 and the matching withdrawal request/processed events:

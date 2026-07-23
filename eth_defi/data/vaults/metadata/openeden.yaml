@@ -1,0 +1,24 @@
+name: OpenEden
+slug: openeden
+short_description: |
+  Tokenised U.S. Treasury bill fund for eligible professional investors.
+long_description: |
+  OpenEden's TBILL product tokenises exposure to a fund that holds short-dated U.S. Treasury bills. The token is designed to provide onchain settlement and a value that follows the fund's net asset value.
+
+  Access to TBILL is restricted to eligible investors and subscriptions or redemptions can require prior approval. Availability varies by jurisdiction.
+fee_description: |
+  The product page publishes the applicable transaction fee and expense ratio. Investors should also review the offering and onboarding documents for any costs that apply to their account.
+links:
+  homepage: https://openeden.com/
+  app: https://app.openeden.com/tbill
+  twitter: https://x.com/openeden_labs
+  github:
+  documentation: https://docs.openeden.com/
+  fact_sheet:
+  defillama: https://defillama.com/protocol/openeden
+  audits: https://openeden.com/static/Verichains%20Public%20Audit%20Report%20-%20OpenEden%20Vault%20-%20310323.pdf
+  fees: https://app.openeden.com/tbill
+  trading_strategy: https://tradingstrategy.ai/trading-view/vaults/protocols/openeden
+  integration_documentation:
+example_smart_contracts:
+  - https://etherscan.io/address/0xdd50c053c096cb04a3e3362e2b622529ec5f2e8a

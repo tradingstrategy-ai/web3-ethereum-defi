@@ -15,9 +15,10 @@ from hexbytes import HexBytes
 from web3 import Web3
 from web3.contract.contract import ContractFunction
 
+from eth_defi.provider.anvil import is_anvil
 from eth_defi.timestamp import get_block_timestamp
 from eth_defi.trace import assert_transaction_success_with_explanation
-from eth_defi.vault.flow_events import PendingVaultFlow, VaultFlowDirection
+from eth_defi.vault.flow_events import PendingVaultFlow
 
 logger = logging.getLogger(__name__)
 
@@ -114,14 +115,118 @@ class AsyncVaultRequestStatus(enum.Enum):
     reclaimable = "reclaimable"
 
 
-class VaultTransactionFailed(Exception):
-    """One of vault deposit/redeem transactions reverted"""
+class VaultFlowError(Exception):
+    """Structured failure while preparing or executing a vault flow.
+
+    Preflight failures use :class:`VaultFlowUnavailable`; mined transaction
+    failures use :class:`VaultTransactionFailed`.  The common fields let a
+    caller preserve useful context without treating a rejected request as a
+    transaction that needs receipt handling.
+
+    :param reason:
+        Human-readable reason for the failed flow.
+    :param protocol:
+        Protocol adapter that detected the failure, when known.
+    :param vault_address:
+        Vault address whose flow was attempted, when known.
+    :param caller:
+        Address for which the flow was prepared, when known.
+    :param direction:
+        ``deposit`` or ``redeem`` when known.
+    :param phase:
+        Lifecycle phase such as ``request`` or ``transaction``.
+    :param decoded_error:
+        Protocol-specific decoded error name, when available.
+    :param raw_revert_data:
+        Raw revert payload, when available.
+    :param requested_raw_amount:
+        Requested amount in the contract's native raw unit, when applicable.
+    :param available_raw_amount:
+        Available amount in the contract's native raw unit, when applicable.
+    """
+
+    def __init__(
+        self,
+        reason: str,
+        *,
+        protocol: str | None = None,
+        vault_address: HexAddress | None = None,
+        caller: HexAddress | None = None,
+        direction: Literal["deposit", "redeem"] | None = None,
+        phase: str | None = None,
+        decoded_error: str | None = None,
+        raw_revert_data: HexBytes | None = None,
+        requested_raw_amount: int | None = None,
+        available_raw_amount: int | None = None,
+    ) -> None:
+        """Store structured context for a vault-flow failure."""
+        super().__init__(reason)
+        self.reason = reason
+        self.protocol = protocol
+        self.vault_address = vault_address
+        self.caller = caller
+        self.direction = direction
+        self.phase = phase
+        self.decoded_error = decoded_error
+        self.raw_revert_data = raw_revert_data
+        self.requested_raw_amount = requested_raw_amount
+        self.available_raw_amount = available_raw_amount
+
+    def __str__(self) -> str:
+        """Format the failure reason with available flow context."""
+        context = []
+        if self.protocol:
+            context.append(f"protocol={self.protocol}")
+        if self.vault_address:
+            context.append(f"vault={self.vault_address}")
+        if self.caller:
+            context.append(f"caller={self.caller}")
+        if self.direction:
+            context.append(f"direction={self.direction}")
+        if self.phase:
+            context.append(f"phase={self.phase}")
+        if self.decoded_error:
+            context.append(f"decoded_error={self.decoded_error}")
+        if self.requested_raw_amount is not None:
+            context.append(f"requested_raw_amount={self.requested_raw_amount}")
+        if self.available_raw_amount is not None:
+            context.append(f"available_raw_amount={self.available_raw_amount}")
+        return f"{self.reason} ({', '.join(context)})" if context else self.reason
+
+
+class VaultTransactionFailed(VaultFlowError):  # noqa: N818
+    """One of vault deposit/redeem transactions reverted."""
+
+
+class VaultFlowUnavailable(VaultFlowError):  # noqa: N818
+    """A vault flow cannot be safely created before transaction broadcast."""
+
+
+class UnsupportedVaultSimulation(RuntimeError):
+    """A vault settlement simulation cannot safely run on this provider."""
 
 
 @dataclass(slots=True)
 class DepositRedeemEventFailure:
+    """Structured failed-flow diagnostic returned by a vault manager."""
+
     tx_hash: HexBytes
     revert_reason: str | None
+
+    #: Protocol adapter that analysed the failed flow, when available.
+    protocol: str | None = None
+
+    #: Vault whose lifecycle was being processed, when available.
+    vault_address: HexAddress | None = None
+
+    #: ``deposit`` or ``redeem`` when the manager knows the direction.
+    direction: Literal["deposit", "redeem"] | None = None
+
+    #: Lifecycle phase, such as ``request`` or ``claim``.
+    phase: str | None = None
+
+    #: Receipt status when it was available to the analyser.
+    receipt_status: int | None = None
 
 
 @dataclass(slots=True)
@@ -208,6 +313,32 @@ class RedemptionTicket:
         - Needed for settlement
         """
         raise NotImplementedError()
+
+
+@dataclass(frozen=True, slots=True)
+class VaultForcedSettlementResult:
+    """Outcome of an Anvil-only forced settlement attempt.
+
+    Synchronous managers return a no-op result because their successful
+    request transaction already completes the lifecycle. Asynchronous managers
+    return the ticket status before and after their protocol-specific
+    settlement transaction(s).
+    """
+
+    #: Ticket progressed by the simulation, or None for synchronous flows.
+    ticket: DepositTicket | RedemptionTicket | None
+
+    #: False when the completed flow does not need a settlement transaction.
+    settlement_required: bool
+
+    #: Request status before settlement, when a ticket was supplied.
+    status_before: AsyncVaultRequestStatus | None
+
+    #: Request status after settlement, when a ticket was supplied.
+    status_after: AsyncVaultRequestStatus | None
+
+    #: Transactions broadcast by the forced settlement helper.
+    transaction_hashes: tuple[HexBytes, ...] = ()
 
 
 class CannotParseRedemptionTransaction(Exception):
@@ -420,7 +551,18 @@ class DepositRequest:
 
 
 class VaultDepositManager(ABC):
-    """Abstraction over different deposit/redeem flows of vaults."""
+    """Abstraction over different deposit/redeem flows of vaults.
+
+    Supported simulation path: every manager exposes force_settle() for
+    Anvil-based integration tests. Synchronous managers use its no-op
+    implementation; asynchronous managers override it when their selected
+    test lifecycle needs settlement.
+
+    Known limitations: the common interface cannot infer protocol-specific
+    settlement roles, valuations or queues. Each protocol manager documents
+    the concrete asynchronous path it supports and raises
+    UnsupportedVaultSimulation when it has no safe Anvil driver.
+    """
 
     def __init__(
         self,
@@ -431,6 +573,36 @@ class VaultDepositManager(ABC):
     @property
     def web3(self) -> Web3:
         return self.vault.web3
+
+    def force_settle(
+        self,
+        ticket: DepositTicket | RedemptionTicket | None,
+    ) -> VaultForcedSettlementResult:
+        """Force the selected ticket forward on an Anvil simulation.
+
+        Synchronous managers do not require settlement and return a no-op
+        result when called with None. Asynchronous managers must override this
+        method and supply their request ticket.
+
+        :param ticket:
+            Pending async request ticket, or None for a synchronous flow.
+        :return:
+            Settlement outcome with before/after status and transaction hashes.
+        :raise UnsupportedVaultSimulation:
+            If the provider is not Anvil or an async manager lacks a driver.
+        """
+        if not is_anvil(self.web3):
+            raise UnsupportedVaultSimulation(f"{self.__class__.__name__}.force_settle() requires an Anvil provider")
+
+        if ticket is None and (self.has_synchronous_deposit() or self.has_synchronous_redemption()):
+            return VaultForcedSettlementResult(
+                ticket=None,
+                settlement_required=False,
+                status_before=None,
+                status_after=None,
+            )
+
+        raise UnsupportedVaultSimulation(f"{self.__class__.__name__} has no Anvil settlement driver for {type(ticket).__name__}")
 
     @abstractmethod
     def has_synchronous_deposit(self) -> bool:

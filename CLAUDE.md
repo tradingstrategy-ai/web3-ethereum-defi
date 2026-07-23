@@ -141,6 +141,39 @@ No test plan or verification section. Use Markdown formatting, headings.
 - When watching CI for pull request merge readiness, never wait for documentation-only workflows like `Build documentation`; merge once non-documentation required checks are green, unless the user explicitly asks to wait for docs.
 - If continuous integration (CI) tests fail on your PR, and they are marked flaky, run tests locally to repeat the issue if it is real flakiness or regression
 
+### Healing flaky CI tests
+
+Use this escalation process for tests that fail nondeterministically because of
+RPC providers, Anvil forks, live APIs, indexed data services, timing or shared
+CI resources. A deterministic product or test regression must be fixed and
+must never be hidden behind retries or a CI skip.
+
+1. **Identify and reproduce the issue.** Read the complete failed-job traceback,
+   record the exact failing test and symptom, and check whether the affected
+   code differs from `master`. Run the focused test locally with
+   `.local-test.env`. Attempt a bounded root-cause fix first, such as pinning a
+   fork block, correcting an assertion, reducing cross-test contention or
+   installing a missing workflow dependency.
+2. **Mark a genuinely nondeterministic test flaky.** Add `@flaky.flaky` and a
+   source line comment immediately above it. The comment must state when the
+   problem was first observed, the concrete CI symptom, and the evidence that
+   the test passes locally, on retry or in a later CI run. Keep the test enabled
+   in CI; a flaky marker is a temporary diagnostic and retry mechanism, not a
+   substitute for fixing a reproducible defect. Move resource-heavy live or
+   fork tests to the slow workflow when reduced contention is the appropriate
+   fix, and ensure that workflow installs all required dependencies.
+3. **Disable an endemic test on CI only as a last resort.** If a flaky test
+   continues to fail on at least two distinct CI runs, still passes locally,
+   and the external or runner-specific cause cannot be fixed in this
+   repository, add a dated `@pytest.mark.skipif(CI, reason=...)`. The line
+   comment and skip reason must describe the recurring symptom. Keep the test
+   runnable locally; never add an unconditional skip. Retain or create focused
+   local coverage so the disabled integration does not silently disappear.
+
+Periodically audit CI-disabled tests. Re-enable one when the provider, workflow
+or fixture has been healed, run it locally, and require a green CI run before
+removing its flaky history comment.
+
 ## Pushing to master
 
 - If you push directly to master, the commit message most follow *Commentary format* section

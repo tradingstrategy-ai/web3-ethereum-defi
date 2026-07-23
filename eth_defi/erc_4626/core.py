@@ -327,6 +327,11 @@ class ERC4626Feature(enum.Enum):
     #:
     plutus_like = "plutus_like"
 
+    #: Bulla Network invoice-factoring vaults.
+    #:
+    #: https://www.bulla.network/
+    bulla_like = "bulla_like"
+
     #: D2 Finance
     #:
     #:
@@ -1015,6 +1020,8 @@ def get_vault_protocol_name(features: set[ERC4626Feature]) -> str:
         return "Umami"
     elif ERC4626Feature.plutus_like in features:
         return "Plutus"
+    elif ERC4626Feature.bulla_like in features:
+        return "Bulla Network"
     elif ERC4626Feature.d2_like in features:
         return "D2 Finance"
     elif ERC4626Feature.untangled_like in features:

@@ -42,6 +42,7 @@ See :ref:`tutorials <tutorials>` for guides and examples on how to use the libra
    enzyme/index
    aera/index
    asseto/index
+   bulla/index
    ondo/index
    nara/index
    franklin/index

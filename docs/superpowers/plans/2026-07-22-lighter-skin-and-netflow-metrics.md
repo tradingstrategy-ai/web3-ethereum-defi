@@ -71,9 +71,10 @@ neither ownership skin nor cash-flow priors.
   `operator_shares`, `total_shares`, `pool_total_shares`, `pool_inflow`, and
   `pool_outflow` have the documented units and whether `ignore_transfers=false`
   is required for the flow counters. Confirm explicitly that values are human
-  USDC rather than 6-decimal raw units, with a fixture assertion for that
-  conversion decision. Record the relevant field shapes in the Lighter README;
-  do not rely on an undocumented response shape.
+  collateral-currency units (USDC for Ethereum and USDG for Robinhood) rather
+  than 6-decimal raw units, with a fixture assertion for that conversion
+  decision. Record the relevant field shapes in the Lighter README; do not rely
+  on an undocumented response shape.
 - [ ] Replace the shares-only PnL helper with a typed daily-history model (for
   example a slots dataclass containing date, total shares, cumulative inflow,
   and cumulative outflow), or add a new helper alongside it and migrate the

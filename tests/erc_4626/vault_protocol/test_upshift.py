@@ -16,6 +16,7 @@ from eth_defi.event_reader.multicall_batcher import read_multicall_historical
 from eth_defi.provider.anvil import AnvilLaunch, fork_network_anvil
 from eth_defi.provider.multi_provider import MultiProviderWeb3Factory, create_multi_provider_web3
 from eth_defi.token import TokenDiskCache
+from eth_defi.vault.fee import VaultFeeMode
 from eth_defi.vault.risk import VaultTechnicalRisk
 
 JSON_RPC_ETHEREUM = os.environ.get("JSON_RPC_ETHEREUM")
@@ -25,6 +26,11 @@ pytestmark = pytest.mark.skipif(JSON_RPC_ETHEREUM is None, reason="JSON_RPC_ETHE
 UPSHIFT_MULTI_ASSET_FORK_BLOCK = 25_405_251
 UPSHIFT_TORI_VAULT = "0xcd69123b3FBBfC666E1f6a501da27B564C00De54"
 UPSHIFT_CTUSD_VAULT = "0xc87DBBB8C67e4F19fCD2E297c05937567b2572Ce"
+UPSHIFT_SENTORA_USD_EARN_VAULT = "0x74ad2f789ed583dbd141bbdafc673fe1f033718b"
+UPSHIFT_SENTORA_INSTANT_REDEMPTION_FEE = 0.002
+UPSHIFT_GAMMA_BTC_VAULT = "0x3e4ef6ccc7e4a045c9d3f48b08813d59df14e256"
+UPSHIFT_GAMMA_BTC_MANAGEMENT_FEE = 0.005
+UPSHIFT_GAMMA_BTC_PERFORMANCE_FEE = 0.1
 UPSHIFT_TORI_HISTORY_START_BLOCK = 25_355_071
 UPSHIFT_TORI_HISTORY_STEP_BLOCKS = 7_200
 UPSHIFT_TORI_HISTORY_SAMPLE_COUNT = 8
@@ -74,6 +80,7 @@ def test_upshift(
     assert vault.has_custom_fees() is True
     assert vault.get_management_fee("latest") is None
     assert vault.get_performance_fee("latest") is None
+    assert vault.get_fee_mode() is None
 
     # Upshift uses a daily claim processing system
     assert vault.get_estimated_lock_up().days == 1
@@ -100,7 +107,7 @@ def test_upshift(
 @pytest.mark.parametrize(
     "case",
     [
-        (UPSHIFT_TORI_VAULT, "Tori Ecosystem Vault", "etrUSD", "trUSD", 18),
+        (UPSHIFT_TORI_VAULT, "Tori Ecosystem Vault", "etrUSD", "USDC", 18),
         (UPSHIFT_CTUSD_VAULT, "Earn ctUSD", "EctUSD", "USDC", 6),
     ],
 )
@@ -119,7 +126,7 @@ def test_upshift_multi_asset_vault_metadata(
     Implementation: https://etherscan.io/address/0xEB5f80aCEa6060764E91c185bE93752Ab40F01c2#code
     """
 
-    vault_address, expected_name, expected_symbol, expected_denomination_symbol, expected_share_decimals = case
+    vault_address, expected_name, expected_symbol, expected_primary_denomination_symbol, expected_share_decimals = case
 
     vault = create_vault_instance_autodetect(
         web3,
@@ -134,7 +141,10 @@ def test_upshift_multi_asset_vault_metadata(
     assert vault.name == expected_name
     assert vault.symbol == expected_symbol
     assert vault.share_token.decimals == expected_share_decimals
-    assert vault.denomination_token.symbol == expected_denomination_symbol
+    denomination_tokens = vault.fetch_all_denomination_tokens()
+    assert denomination_tokens
+    assert denomination_tokens[0].symbol == expected_primary_denomination_symbol
+    assert vault.denomination_token == denomination_tokens[0]
 
     assert isinstance(vault.get_historical_reader(stateful=False), UpshiftMultiAssetHistoricalReader)
     assert vault.fetch_share_price(UPSHIFT_MULTI_ASSET_FORK_BLOCK) > 0
@@ -153,6 +163,52 @@ def test_upshift_multi_asset_vault_metadata(
     assert Web3.to_checksum_address(vault_address) in link
 
 
+@flaky.flaky
+def test_upshift_multi_asset_fee_data(web3: Web3) -> None:
+    """Read the complete shared fee model from Sentora USD Earn.
+
+    Sentora USD Earn is an Upshift multi-asset vault with a separate 20-basis-
+    point instant-redemption fee.  That fee is intentionally exposed through a
+    protocol-specific accessor, not the standard queued-withdrawal field.
+
+    :param web3:
+        Web3 client connected to the deterministic Ethereum fork.
+    """
+    vault = create_vault_instance_autodetect(web3, vault_address=UPSHIFT_SENTORA_USD_EARN_VAULT)
+
+    assert isinstance(vault, UpshiftVault)
+    assert vault.multi_asset_like is True
+    assert vault.has_custom_fees() is True
+    assert vault.fetch_instant_redemption_fee("latest") == UPSHIFT_SENTORA_INSTANT_REDEMPTION_FEE
+
+    fee_data = vault.get_fee_data()
+    assert fee_data.fee_mode == VaultFeeMode.internalised_skimming
+    assert fee_data.management == 0.0
+    assert fee_data.performance == 0.0
+    assert fee_data.deposit == 0.0
+    assert fee_data.withdraw == 0.0
+
+
+@flaky.flaky
+def test_upshift_multi_asset_fee_units(web3: Web3) -> None:
+    """Read non-zero Upshift multi-asset fees with their protocol-specific units.
+
+    Management fees use basis points, while performance fees use parts per
+    million in the verified ``TokenizedVault`` implementation.
+
+    :param web3:
+        Web3 client connected to the deterministic Ethereum fork.
+    """
+    vault = create_vault_instance_autodetect(web3, vault_address=UPSHIFT_GAMMA_BTC_VAULT)
+
+    assert isinstance(vault, UpshiftVault)
+    fee_data = vault.get_fee_data()
+    assert fee_data.management == UPSHIFT_GAMMA_BTC_MANAGEMENT_FEE
+    assert fee_data.performance == UPSHIFT_GAMMA_BTC_PERFORMANCE_FEE
+
+
+# CI flaky since 2026-07-22: a fixed-fork historical RPC read timed out; the
+# retry passed in the same CI run without a code change.
 @flaky.flaky
 def test_upshift_tori_historical_reader_7d_share_price(
     tmp_path: Path,

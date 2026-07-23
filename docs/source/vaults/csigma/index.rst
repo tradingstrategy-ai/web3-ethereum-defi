@@ -33,3 +33,4 @@ Links
    :recursive:
 
    eth_defi.erc_4626.vault_protocol.csigma.vault
+   eth_defi.erc_4626.vault_protocol.csigma.deposit_redeem

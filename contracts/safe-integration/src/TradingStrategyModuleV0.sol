@@ -23,6 +23,15 @@ import "@guard/GuardV0Base.sol";
  * - Support Lagoon, Gnosis Safe and other Gnosis Safe-based ecosystems which support Zodiac modules
  * - Owner should point to Gnosis Safe / DAO
  *
+ * Lagoon deployment topology:
+ *
+ * - One Lagoon vault, one Safe and one TradingStrategyModuleV0 guard module
+ *   are always deployed as a dedicated, inseparable set.
+ * - The module avatar and target are that Safe, and the Lagoon vault is
+ *   configured to use the same Safe.
+ * - A guard module or Safe is never shared by multiple Lagoon vaults. Deploy
+ *   another complete set instead of pairing a second vault with this module.
+ *
  */
 contract TradingStrategyModuleV0 is Module, GuardV0Base {
     constructor(address _owner, address _target) {
@@ -36,13 +45,22 @@ contract TradingStrategyModuleV0 is Module, GuardV0Base {
         _;
     }
 
-    // Identify the deployed ABI
+    /**
+     * Identify the deployed TradingStrategyModuleV0 ABI version.
+     *
+     * Version history:
+     *
+     * - v0.4: Added asset-manager-funded native token forwarding through
+     *   payable performCall().
+     * - v0.5: Added Lagoon v0.5 maximum gross settlement and cooldown safety
+     *   validation for asset-manager calls.
+     */
     function getTradingStrategyModuleVersion()
         public
         pure
         returns (string memory)
     {
-        return "v0.4";
+        return "v0.5";
     }
 
     /**
@@ -108,7 +126,11 @@ contract TradingStrategyModuleV0 is Module, GuardV0Base {
     ) public payable {
         // Check that the asset manager can perform this function.
         // Will revert() on error
-        _validateCallInternal(msg.sender, target, callData);
+        PostCallValidationContext memory validationContext = _validateCallInternal(
+            msg.sender,
+            target,
+            callData
+        );
 
         // Forward any ETH sent by the caller to the Safe.
         // The Safe's receive() function accepts plain ETH transfers.
@@ -127,6 +149,11 @@ contract TradingStrategyModuleV0 is Module, GuardV0Base {
         );
 
         _bubbleUpRevert(success, response);
+
+        // Complete any state-dependent validation selected before execution.
+        // The context and dispatcher are protocol-agnostic at the module layer;
+        // GuardV0Base routes opaque payloads only to hardcoded validators.
+        _validateCallAfter(validationContext);
     }
 
     /**
