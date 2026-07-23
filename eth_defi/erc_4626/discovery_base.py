@@ -721,6 +721,9 @@ class VaultDiscoveryBase(abc.ABC):
                     first_seen_at=first_seen_at,
                     deposit_count=0,
                     withdrawal_count=0,
+                    # Reviewed migration-pool deployments have a verified
+                    # T3tris configuration event but no vault-local flow log.
+                    configuration_count=1 if protocol_name == "T3tris" else 0,
                 )
                 report.new_leads += 1
                 logger.info("Added hardcoded %s vault lead %s", protocol_name, address)
@@ -804,6 +807,7 @@ class VaultDiscoveryBase(abc.ABC):
                 updated_at=native_datetime_utc_now(),
                 deposit_count=lead.deposit_count,
                 redeem_count=lead.withdrawal_count,
+                configuration_count=getattr(lead, "configuration_count", 0),
             )
             report.detections[feature_probe.address] = detection
 

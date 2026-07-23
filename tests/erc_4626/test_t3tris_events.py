@@ -1,5 +1,6 @@
 """Test T3tris migration-pool lead discovery."""
 
+import dataclasses
 import datetime
 from collections.abc import Iterator
 from types import SimpleNamespace
@@ -10,7 +11,7 @@ from web3 import Web3
 from eth_defi.abi import get_topic_signature_from_event
 from eth_defi.erc_4626 import discovery_base as discovery_base_module
 from eth_defi.erc_4626.classification import VaultFeatureProbe
-from eth_defi.erc_4626.core import ERC4262VaultDetection, ERC4626Feature, is_activity_filter_exempt
+from eth_defi.erc_4626.core import ERC4262VaultDetection, ERC4626Feature, is_activity_filter_exempt, passes_price_scan_activity_filter
 from eth_defi.erc_4626.discovery_base import DEFAULT_HARDCODED_VAULT_LEAD_SOURCES, LeadScanReport, PotentialVaultMatch, VaultDiscoveryBase, VaultEventKind, get_t3tris_vault_configuration_discovery_events, get_vault_discovery_events, get_vault_event_topic_map
 from eth_defi.erc_4626.vault_protocol.t3tris.constants import ARBITRUM_CHAIN_ID, STRADA_YIELD_ARBITRUM_ADDRESS, STRADA_YIELD_ARBITRUM_FIRST_SEEN_AT, STRADA_YIELD_ARBITRUM_FIRST_SEEN_AT_BLOCK, T3TRIS_HARDCODED_LEADS
 
@@ -76,10 +77,11 @@ def test_t3tris_strada_yield_is_a_hardcoded_lead(monkeypatch: pytest.MonkeyPatch
     )
     assert report.new_leads == 1
     assert report.detections[STRADA_YIELD_ARBITRUM_ADDRESS].features == {ERC4626Feature.t3tris_like}
+    assert report.detections[STRADA_YIELD_ARBITRUM_ADDRESS].configuration_count == 1
 
 
-def test_t3tris_migration_lead_is_not_dropped_for_missing_flow_events() -> None:
-    """Keep migrated T3tris vaults eligible for historical price scanning."""
+def test_t3tris_migration_lead_needs_configuration_event_for_missing_flow_events() -> None:
+    """Allow zero deposits only after a T3tris configuration event was recorded."""
     detection = ERC4262VaultDetection(
         chain=ARBITRUM_CHAIN_ID,
         address=STRADA_YIELD_ARBITRUM_ADDRESS,
@@ -89,6 +91,11 @@ def test_t3tris_migration_lead_is_not_dropped_for_missing_flow_events() -> None:
         updated_at=STRADA_YIELD_ARBITRUM_FIRST_SEEN_AT,
         deposit_count=0,
         redeem_count=0,
+        configuration_count=1,
     )
 
-    assert is_activity_filter_exempt(detection)
+    assert is_activity_filter_exempt(detection) is False
+    assert passes_price_scan_activity_filter(detection, min_deposit_threshold=5) is True
+
+    missing_configuration = dataclasses.replace(detection, configuration_count=0)
+    assert passes_price_scan_activity_filter(missing_configuration, min_deposit_threshold=5) is False

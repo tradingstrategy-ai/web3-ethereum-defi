@@ -55,7 +55,7 @@ from web3 import Web3
 from eth_defi.abi import ZERO_ADDRESS_STR
 from eth_defi.chain import get_chain_name
 from eth_defi.erc_4626.classification import HARDCODED_PROTOCOLS, create_vault_instance
-from eth_defi.erc_4626.core import ERC4262VaultDetection, get_vault_protocol_name, is_activity_filter_exempt
+from eth_defi.erc_4626.core import ERC4262VaultDetection, get_vault_protocol_name, passes_price_scan_activity_filter
 from eth_defi.event_reader.fast_json_rpc import get_last_headers
 from eth_defi.event_reader.multicall_batcher import EncodedCall
 from eth_defi.provider.env import read_json_rpc_url
@@ -353,7 +353,7 @@ def get_hyperevm_vault_rows(vault_db: VaultDatabase, min_deposit_threshold: int)
 
         address = detection.address.lower()
         if min_deposit_threshold > 0:
-            if detection.deposit_count < min_deposit_threshold and address not in HARDCODED_PROTOCOLS and not is_activity_filter_exempt(detection):
+            if address not in HARDCODED_PROTOCOLS and not passes_price_scan_activity_filter(detection, min_deposit_threshold):
                 continue
 
         selected.append((spec, row))

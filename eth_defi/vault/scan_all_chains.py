@@ -47,7 +47,7 @@ from eth_defi.currency_api.constants import (
 )
 from eth_defi.currency_api.scanner import run_incremental_scan as currency_run_incremental_scan
 from eth_defi.erc_4626.classification import HARDCODED_PROTOCOLS, create_vault_instance
-from eth_defi.erc_4626.core import MIN_PRICE_SCAN_DEPOSIT_COUNT, is_activity_filter_exempt
+from eth_defi.erc_4626.core import MIN_PRICE_SCAN_DEPOSIT_COUNT, passes_price_scan_activity_filter
 from eth_defi.erc_4626.lead_scan_core import scan_leads
 from eth_defi.erc_4626.settlement_scan import (
     fetch_and_store_vault_settlements_for_chain,
@@ -594,11 +594,11 @@ def scan_prices_for_chain(
         for row in chain_vaults:
             detection = row["_detection_data"]
 
-            # Skip vaults with low activity (but keep hardcoded protocol vaults
-            # and Mellow factory-discovered vaults). Mellow stores zero counts
-            # because the canonical Vault does not emit user flow events; those
-            # live on queue contracts and need a later second-stage scan.
-            if detection.deposit_count < min_deposit_threshold and detection.address.lower() not in HARDCODED_PROTOCOLS and not is_activity_filter_exempt(detection):
+            # Skip vaults with low activity while retaining hardcoded protocol
+            # vaults and protocol-specific alternative evidence. Mellow stores
+            # zero counts because its canonical Vault does not emit user flows;
+            # T3tris migration pools use a reviewed configuration event.
+            if detection.address.lower() not in HARDCODED_PROTOCOLS and not passes_price_scan_activity_filter(detection, min_deposit_threshold):
                 continue
 
             vault = create_vault_instance(web3, detection.address, detection.features, token_cache=token_cache)

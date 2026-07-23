@@ -22,6 +22,10 @@ from eth_defi.vault.base import VaultSpec
 #: Low-activity vaults are skipped unless protocol-specific exemptions apply.
 MIN_PRICE_SCAN_DEPOSIT_COUNT = 5
 
+#: Minimum configuration events for a T3tris migration-pool vault to bypass
+#: :py:data:`MIN_PRICE_SCAN_DEPOSIT_COUNT`.
+MIN_PRICE_SCAN_CONFIGURATION_EVENT_COUNT = 1
+
 
 class ERC4626Feature(enum.Enum):
     """Additional extensionsERc-4626 vault may have.
@@ -860,9 +864,9 @@ def is_activity_filter_exempt(detection: "ERC4262VaultDetection") -> bool:
     contracts. Upshift multi-asset vaults are another exception: older
     production metadata can be seeded or refreshed by address after the custom
     event support lands, and targeted price rescans should not be blocked by a
-    stale low deposit counter. T3tris migration-pool vaults are a third case:
-    the migration can initialise the vault without vault-local flow events,
-    while its T3tris configuration batch identifies the vault.
+    stale low deposit counter. T3tris migration-pool vaults are handled
+    separately by :py:func:`passes_price_scan_activity_filter`, which requires
+    a recorded configuration event instead of broadly exempting the protocol.
 
     :param detection:
         Shared vault detection envelope.
@@ -876,9 +880,28 @@ def is_activity_filter_exempt(detection: "ERC4262VaultDetection") -> bool:
         for feature in (
             ERC4626Feature.mellow_like,
             ERC4626Feature.upshift_multi_asset_like,
-            ERC4626Feature.t3tris_like,
         )
     )
+
+
+def passes_price_scan_activity_filter(detection: "ERC4262VaultDetection", min_deposit_threshold: int) -> bool:
+    """Check whether a vault has enough activity for historical price scanning.
+
+    :param detection:
+        Shared vault detection envelope.
+
+    :param min_deposit_threshold:
+        Minimum number of vault-local deposit events for ordinary vaults.
+
+    :return:
+        ``True`` when the deposit threshold is met, the protocol has a known
+        alternative activity source, or a T3tris vault has at least one
+        configuration event.
+    """
+    if detection.deposit_count >= min_deposit_threshold or is_activity_filter_exempt(detection):
+        return True
+
+    return ERC4626Feature.t3tris_like in detection.features and getattr(detection, "configuration_count", 0) >= MIN_PRICE_SCAN_CONFIGURATION_EVENT_COUNT
 
 
 GENERIC_ERC4626_PROTOCOL_NAME = "ERC-4626"
@@ -1291,6 +1314,13 @@ class ERC4262VaultDetection:
     #:
     #: Zero for native protocols that do not support on-chain event tracking.
     redeem_count: int
+
+    #: Number of vault configuration events observed.
+    #:
+    #: Used by T3tris migration-pool vaults, which may never emit vault-local
+    #: deposit events. ``getattr`` access in activity filtering keeps old
+    #: persisted detections compatible after this slot was added.
+    configuration_count: int = 0
 
     def get_spec(self) -> VaultSpec:
         """Chain id/address tuple identifying this vault."""

@@ -20,7 +20,7 @@ from web3.datastructures import AttributeDict
 from web3.exceptions import Web3Exception
 
 from eth_defi.erc_4626.classification import HARDCODED_PROTOCOLS, create_vault_instance
-from eth_defi.erc_4626.core import MIN_PRICE_SCAN_DEPOSIT_COUNT, ERC4626Feature, is_activity_filter_exempt
+from eth_defi.erc_4626.core import MIN_PRICE_SCAN_DEPOSIT_COUNT, ERC4626Feature, passes_price_scan_activity_filter
 from eth_defi.erc_4626.settlement_events import (
     fetch_vault_settlement_logs_for_addresses,
     normalise_log_topic,
@@ -721,7 +721,7 @@ def _is_price_scan_candidate(row: VaultRow) -> bool:
     """
     detection = row["_detection_data"]
     address = str(detection.address).lower()
-    return int(detection.deposit_count) >= MIN_PRICE_SCAN_DEPOSIT_COUNT or address in HARDCODED_PROTOCOLS or is_activity_filter_exempt(detection)
+    return address in HARDCODED_PROTOCOLS or passes_price_scan_activity_filter(detection, MIN_PRICE_SCAN_DEPOSIT_COUNT)
 
 
 def _prepare_settlement_vault(
