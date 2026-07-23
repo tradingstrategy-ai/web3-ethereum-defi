@@ -8,11 +8,12 @@ import datetime
 import json
 from pathlib import Path
 
+import duckdb
 import pandas as pd
 import pytest
 
 from eth_defi.core3.constants import INDEX_SLUG
-from eth_defi.core3.database import Core3Database
+from eth_defi.core3.database import CORE3_PAYLOAD_COMPRESSION_QUERIES, Core3Database
 from eth_defi.core3.vault_protocol import get_core3_protocol_record
 
 
@@ -35,6 +36,125 @@ def _make_project_json(slug: str, rank: int, pol_score: float, market_cap: str |
     if market_cap is not None:
         result["market_cap"] = {"in_usd": market_cap}
     return result
+
+
+def test_migrate_legacy_database_to_latest_storage_with_zstd_payloads(tmp_path: Path):
+    """Migrate all legacy Core3 rows and native-compress their raw JSON.
+
+    The old default DuckDB storage version cannot use Zstandard compression for
+    ``VARCHAR`` columns. Opening this fixture through :class:`Core3Database`
+    must atomically rebuild it in the latest format without losing snapshots,
+    time-series rows or sync watermarks.
+
+    :param tmp_path:
+        Pytest-provided directory for the legacy and migrated DuckDB files.
+    """
+    database_path = tmp_path / "legacy-core3.duckdb"
+    fetched_at = datetime.datetime(2026, 7, 23, 12, 0, 0)
+    project_payload = json.dumps(
+        {
+            "slug": "aave",
+            "description": "Core3 historical payload. " * 1_000,
+            "pol": {"score": 12.5, "rating": "A"},
+        }
+    )
+    section_payload = json.dumps({"audit": "Passed. " * 1_000})
+
+    legacy = duckdb.connect(str(database_path))
+    try:
+        legacy.execute("""
+            CREATE TABLE project_snapshots (
+                slug VARCHAR NOT NULL,
+                fetched_at TIMESTAMP NOT NULL,
+                name VARCHAR,
+                rank INTEGER,
+                pol_score DOUBLE,
+                pol_rating VARCHAR,
+                market_cap_usd VARCHAR,
+                payload VARCHAR NOT NULL
+            )
+        """)
+        legacy.execute("""
+            CREATE TABLE section_snapshots (
+                slug VARCHAR NOT NULL,
+                section VARCHAR NOT NULL,
+                fetched_at TIMESTAMP NOT NULL,
+                section_pol_score DOUBLE,
+                payload VARCHAR NOT NULL
+            )
+        """)
+        legacy.execute("""
+            CREATE TABLE pol_daily (
+                slug VARCHAR NOT NULL,
+                ts TIMESTAMP NOT NULL,
+                pol_score DOUBLE NOT NULL,
+                fetched_at TIMESTAMP NOT NULL
+            )
+        """)
+        legacy.execute("""
+            CREATE TABLE pol_category_daily (
+                slug VARCHAR NOT NULL,
+                ts TIMESTAMP NOT NULL,
+                security_score DOUBLE,
+                financial_score DOUBLE,
+                operational_score DOUBLE,
+                reputational_score DOUBLE,
+                regulatory_score DOUBLE,
+                fetched_at TIMESTAMP NOT NULL
+            )
+        """)
+        legacy.execute("""
+            CREATE TABLE sync_state (
+                slug VARCHAR NOT NULL,
+                data_type VARCHAR NOT NULL,
+                last_ts BIGINT,
+                backfill_done BOOLEAN NOT NULL DEFAULT FALSE,
+                last_synced TIMESTAMP NOT NULL
+            )
+        """)
+        legacy.execute(
+            "INSERT INTO project_snapshots VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+            ["aave", fetched_at, "Aave", 1, 12.5, "A", "1000000", project_payload],
+        )
+        legacy.execute(
+            "INSERT INTO section_snapshots VALUES (?, ?, ?, ?, ?)",
+            ["aave", "security", fetched_at, 10.0, section_payload],
+        )
+        legacy.execute(
+            "INSERT INTO pol_daily VALUES (?, ?, ?, ?)",
+            ["aave", fetched_at, 12.5, fetched_at],
+        )
+        legacy.execute(
+            "INSERT INTO pol_category_daily VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+            ["aave", fetched_at, 10.0, 11.0, 12.0, 13.0, 14.0, fetched_at],
+        )
+        legacy.execute(
+            "INSERT INTO sync_state VALUES (?, ?, ?, ?, ?)",
+            ["aave", "pol_daily", 1_753_267_200, True, fetched_at],
+        )
+        legacy.execute("CHECKPOINT")
+    finally:
+        legacy.close()
+
+    database = Core3Database(database_path)
+    try:
+        storage_version = database.con.execute("SELECT tags['storage_version'] FROM duckdb_databases() WHERE database_name = current_database()").fetchone()[0]
+        assert database._uses_latest_storage_format(storage_version)
+        assert database.get_project_count() == 1
+        assert database.get_snapshot_count() == 1
+        assert database.get_pol_daily_count() == 1
+
+        snapshot_payload = database.con.execute("SELECT payload FROM project_snapshots").fetchone()[0]
+        assert snapshot_payload == project_payload
+        assert database.con.execute("SELECT COUNT(*) FROM section_snapshots").fetchone()[0] == 1
+        assert database.con.execute("SELECT COUNT(*) FROM pol_category_daily").fetchone()[0] == 1
+        assert database.con.execute("SELECT COUNT(*) FROM sync_state").fetchone()[0] == 1
+
+        for table_name in ("project_snapshots", "section_snapshots"):
+            compression = database.con.execute(CORE3_PAYLOAD_COMPRESSION_QUERIES[table_name]).fetchone()[0]
+            assert compression == "ZSTD"
+    finally:
+        database.close()
 
 
 def test_insert_and_query_project_snapshots(db: Core3Database):
