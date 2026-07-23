@@ -1322,6 +1322,24 @@ class ERC4262VaultDetection:
     #: persisted detections compatible after this slot was added.
     configuration_count: int = 0
 
+    def __setstate__(self, state: list[object] | tuple[object, ...]) -> None:
+        """Restore persisted detections created before configuration events were tracked.
+
+        Vault metadata databases store this slotted dataclass in pickle files.  Pickles
+        written before :attr:`configuration_count` was introduced contain one fewer
+        value, so populate the new slot with its backwards-compatible default while
+        restoring the existing fields.
+
+        :param state:
+            Pickled dataclass field values in declaration order.
+        """
+        fields = dataclasses.fields(self)
+        for field, value in zip(fields, state):
+            object.__setattr__(self, field.name, value)
+
+        if len(state) < len(fields):
+            object.__setattr__(self, "configuration_count", 0)
+
     def get_spec(self) -> VaultSpec:
         """Chain id/address tuple identifying this vault."""
         return VaultSpec(self.chain, self.address)
