@@ -7,8 +7,9 @@ The pipeline:
 
 1. Bulk-fetches all pools from ``/api/v1/publicPoolsMetadata``
 2. Filters by TVL and open status
-3. Fetches per-pool share price history via ``/api/v1/account``
-4. Stores daily prices and metadata in DuckDB
+3. Fetches per-pool share prices and current account state via ``/api/v1/account``
+4. Fetches historical PnL, volume, shares, and flow counters via ``/api/v1/pnl``
+5. Stores daily history, current metadata, and append-only snapshots in DuckDB
 
 Example::
 
@@ -23,11 +24,14 @@ Example::
 """
 
 import datetime
+import json
 import logging
+from dataclasses import dataclass
 from pathlib import Path
 
 import duckdb
 import pandas as pd
+import requests
 from joblib import Parallel, delayed
 from tqdm_loggable.auto import tqdm
 
@@ -36,29 +40,200 @@ from eth_defi.lighter.constants import LIGHTER_DAILY_METRICS_DATABASE, LIGHTER_E
 from eth_defi.lighter.session import LighterSession
 from eth_defi.lighter.vault import (
     LIGHTER_LLP_DESCRIPTION,
+    LighterPoolSnapshot,
     LighterPoolSummary,
     fetch_all_pools,
+    fetch_pool_daily_pnl_history,
     fetch_pool_detail,
-    fetch_pool_total_shares_history,
     pool_detail_to_daily_dataframe,
 )
 
 logger = logging.getLogger(__name__)
 
 
+def _optional_dataframe_float(value: object) -> float | None:
+    """Convert an optional DataFrame cell to a Python float.
+
+    DuckDB/Pandas use several missing-value representations. Normalise all of
+    them to ``None`` before inserting nullable source metrics.
+
+    :param value:
+        DataFrame cell value.
+    :return:
+        Float value, or ``None`` when the cell is missing.
+    """
+    return float(value) if pd.notna(value) else None
+
+
+@dataclass(slots=True)
+class LighterDailyPriceRow:
+    """One Lighter daily price observation ready for DuckDB storage.
+
+    Stores source cumulative counters rather than derived daily flows. This
+    preserves valid history across bounded PnL API re-scans.
+    """
+
+    #: Lighter pool account index
+    account_index: int
+
+    #: UTC calendar date of the share-price observation
+    date: datetime.date
+
+    #: Pool share price in the deployment's collateral currency
+    share_price: float
+
+    #: Derived total value locked in the deployment's collateral currency
+    tvl: float
+
+    #: Price return for the UTC day
+    daily_return: float
+
+    #: Current API APY snapshot
+    annual_percentage_yield: float
+
+    #: Outstanding pool shares at this date
+    total_shares: int | None
+
+    #: Source cumulative pool inflow in the deployment's collateral currency
+    cumulative_pool_inflow: float | None
+
+    #: Source cumulative pool outflow in the deployment's collateral currency
+    cumulative_pool_outflow: float | None
+
+    #: Naive UTC time when the row was written
+    written_at: datetime.datetime
+
+    #: Source cumulative account-level inflow
+    cumulative_account_inflow: float | None = None
+
+    #: Source cumulative account-level outflow
+    cumulative_account_outflow: float | None = None
+
+    #: Source cumulative spot inflow
+    cumulative_spot_inflow: float | None = None
+
+    #: Source cumulative spot outflow
+    cumulative_spot_outflow: float | None = None
+
+    #: Source cumulative staking inflow
+    cumulative_staking_inflow: float | None = None
+
+    #: Source cumulative staking outflow
+    cumulative_staking_outflow: float | None = None
+
+    #: Source trade PnL
+    trade_pnl: float | None = None
+
+    #: Source spot-trade PnL
+    trade_spot_pnl: float | None = None
+
+    #: Source pool PnL
+    pool_pnl: float | None = None
+
+    #: Source staking PnL
+    staking_pnl: float | None = None
+
+    #: Source trading volume
+    volume: float | None = None
+
+    def as_db_tuple(self) -> tuple[object, ...]:
+        """Convert the row to the current DuckDB insert layout.
+
+        Keeps the positional SQL boundary in one place so callers cannot
+        accidentally desynchronise the dataclass and insert statement.
+
+        :return:
+            Twenty-one values in ``pool_daily_prices`` column order, excluding
+            the deployment slug supplied by the database method.
+        """
+        return (
+            self.account_index,
+            self.date,
+            self.share_price,
+            self.tvl,
+            self.daily_return,
+            self.annual_percentage_yield,
+            self.total_shares,
+            self.cumulative_pool_inflow,
+            self.cumulative_pool_outflow,
+            self.written_at,
+            self.cumulative_account_inflow,
+            self.cumulative_account_outflow,
+            self.cumulative_spot_inflow,
+            self.cumulative_spot_outflow,
+            self.cumulative_staking_inflow,
+            self.cumulative_staking_outflow,
+            self.trade_pnl,
+            self.trade_spot_pnl,
+            self.pool_pnl,
+            self.staking_pnl,
+            self.volume,
+        )
+
+
+def _normalise_daily_price_row(
+    row: LighterDailyPriceRow | tuple[object, ...],
+) -> tuple[object, ...]:
+    """Convert current and legacy daily-row inputs to the database layout.
+
+    Deployment-aware callers predating source-accounting fields pass a
+    seven-item tuple. Preserve that API while filling the new nullable fields
+    with ``None``. New scanner code uses :class:`LighterDailyPriceRow`.
+
+    :param row:
+        Typed current row or legacy seven-item tuple.
+    :return:
+        Twenty-one values matching ``pool_daily_prices`` after ``deployment``.
+    """
+    if isinstance(row, LighterDailyPriceRow):
+        return row.as_db_tuple()
+
+    if len(row) == 21:
+        return row
+    if len(row) != 7:
+        raise ValueError(f"Expected a LighterDailyPriceRow or 7-item legacy tuple, got {len(row)} items")
+
+    account_index, date, share_price, tvl, daily_return, annual_percentage_yield, written_at = row
+    return (
+        account_index,
+        date,
+        share_price,
+        tvl,
+        daily_return,
+        annual_percentage_yield,
+        None,
+        None,
+        None,
+        written_at,
+        None,
+        None,
+        None,
+        None,
+        None,
+        None,
+        None,
+        None,
+        None,
+        None,
+        None,
+    )
+
+
 class LighterDailyMetricsDatabase:
     """DuckDB database for storing Lighter pool daily metrics.
 
-    Stores two tables:
+    Stores three tables:
 
     - ``pool_metadata``: Pool information (name, description, fees, TVL, etc.)
     - ``pool_daily_prices``: Daily share price time series with returns
+    - ``pool_snapshots``: Append-only scan-time account, ownership, risk, and
+      exposure observations
 
     :param path:
         Path to the DuckDB database file.
     """
 
-    def __init__(self, path: Path):
+    def __init__(self, path: Path) -> None:
         self.path = path
         path.parent.mkdir(parents=True, exist_ok=True)
         self.con = duckdb.connect(str(path))
@@ -67,9 +242,10 @@ class LighterDailyMetricsDatabase:
     def _init_schema(self) -> None:
         """Create or migrate the deployment-aware database schema.
 
-        The original schema keyed both tables only by ``account_index``.
+        The original schema keyed its tables only by ``account_index``.
         Lighter deployments reuse account indexes, so legacy rows are copied
         transactionally into composite-key tables and labelled ``ethereum``.
+        New source fields are nullable and preserve older rows as unknown.
         Any migration failure aborts database opening without discarding the
         original tables.
         """
@@ -78,62 +254,100 @@ class LighterDailyMetricsDatabase:
         if not self._table_exists("pool_daily_prices"):
             self._create_pool_daily_prices_table("pool_daily_prices")
 
+        self._ensure_columns(
+            "pool_metadata",
+            {
+                "status": "INTEGER DEFAULT 0",
+                "total_shares": "BIGINT",
+                "operator_shares": "BIGINT",
+            },
+        )
+        self._ensure_columns(
+            "pool_daily_prices",
+            {
+                "written_at": "TIMESTAMP",
+                "total_shares": "BIGINT",
+                "cumulative_pool_inflow": "DOUBLE",
+                "cumulative_pool_outflow": "DOUBLE",
+                "cumulative_account_inflow": "DOUBLE",
+                "cumulative_account_outflow": "DOUBLE",
+                "cumulative_spot_inflow": "DOUBLE",
+                "cumulative_spot_outflow": "DOUBLE",
+                "cumulative_staking_inflow": "DOUBLE",
+                "cumulative_staking_outflow": "DOUBLE",
+                "trade_pnl": "DOUBLE",
+                "trade_spot_pnl": "DOUBLE",
+                "pool_pnl": "DOUBLE",
+                "staking_pnl": "DOUBLE",
+                "volume": "DOUBLE",
+            },
+        )
+
         metadata_columns = self._get_table_columns("pool_metadata")
-        if "status" not in metadata_columns:
-            self.con.execute("ALTER TABLE pool_metadata ADD COLUMN status INTEGER DEFAULT 0")
-
         price_columns = self._get_table_columns("pool_daily_prices")
-        if "written_at" not in price_columns:
-            self.con.execute("ALTER TABLE pool_daily_prices ADD COLUMN written_at TIMESTAMP")
-
         metadata_needs_migration = "deployment" not in metadata_columns
         prices_need_migration = "deployment" not in price_columns
-        if not metadata_needs_migration and not prices_need_migration:
-            return
-
-        logger.info("Migrating legacy Lighter DuckDB schema to deployment-aware composite keys")
-        self.con.execute("BEGIN TRANSACTION")
-        try:
-            if metadata_needs_migration:
-                self._create_pool_metadata_table("pool_metadata_v2")
-                self.con.execute(
-                    """
-                    INSERT INTO pool_metadata_v2 (
-                        deployment, account_index, name, description, l1_address,
-                        is_llp, status, operator_fee, total_asset_value,
-                        annual_percentage_yield, sharpe_ratio, created_at, last_updated
+        if metadata_needs_migration or prices_need_migration:
+            logger.info("Migrating legacy Lighter DuckDB schema to deployment-aware composite keys")
+            self.con.execute("BEGIN TRANSACTION")
+            try:
+                if metadata_needs_migration:
+                    self._create_pool_metadata_table("pool_metadata_v2")
+                    self.con.execute(
+                        """
+                        INSERT INTO pool_metadata_v2 (
+                            deployment, account_index, name, description, l1_address,
+                            is_llp, status, operator_fee, total_asset_value,
+                            annual_percentage_yield, sharpe_ratio, total_shares,
+                            operator_shares, created_at, last_updated
+                        )
+                        SELECT ?, account_index, name, description, l1_address,
+                            is_llp, status, operator_fee, total_asset_value,
+                            annual_percentage_yield, sharpe_ratio, total_shares,
+                            operator_shares, created_at, last_updated
+                        FROM pool_metadata
+                        """,
+                        [LIGHTER_ETHEREUM.slug],
                     )
-                    SELECT ?, account_index, name, description, l1_address,
-                        is_llp, status, operator_fee, total_asset_value,
-                        annual_percentage_yield, sharpe_ratio, created_at, last_updated
-                    FROM pool_metadata
-                    """,
-                    [LIGHTER_ETHEREUM.slug],
-                )
-                self.con.execute("DROP TABLE pool_metadata")
-                self.con.execute("ALTER TABLE pool_metadata_v2 RENAME TO pool_metadata")
+                    self.con.execute("DROP TABLE pool_metadata")
+                    self.con.execute("ALTER TABLE pool_metadata_v2 RENAME TO pool_metadata")
 
-            if prices_need_migration:
-                self._create_pool_daily_prices_table("pool_daily_prices_v2")
-                self.con.execute(
-                    """
-                    INSERT INTO pool_daily_prices_v2 (
-                        deployment, account_index, date, share_price, tvl,
-                        daily_return, annual_percentage_yield, written_at
+                if prices_need_migration:
+                    self._create_pool_daily_prices_table("pool_daily_prices_v2")
+                    self.con.execute(
+                        """
+                        INSERT INTO pool_daily_prices_v2 (
+                            deployment, account_index, date, share_price, tvl,
+                            daily_return, annual_percentage_yield, total_shares,
+                            cumulative_pool_inflow, cumulative_pool_outflow,
+                            written_at, cumulative_account_inflow,
+                            cumulative_account_outflow, cumulative_spot_inflow,
+                            cumulative_spot_outflow, cumulative_staking_inflow,
+                            cumulative_staking_outflow, trade_pnl, trade_spot_pnl,
+                            pool_pnl, staking_pnl, volume
+                        )
+                        SELECT ?, account_index, date, share_price, tvl,
+                            daily_return, annual_percentage_yield, total_shares,
+                            cumulative_pool_inflow, cumulative_pool_outflow,
+                            written_at, cumulative_account_inflow,
+                            cumulative_account_outflow, cumulative_spot_inflow,
+                            cumulative_spot_outflow, cumulative_staking_inflow,
+                            cumulative_staking_outflow, trade_pnl, trade_spot_pnl,
+                            pool_pnl, staking_pnl, volume
+                        FROM pool_daily_prices
+                        """,
+                        [LIGHTER_ETHEREUM.slug],
                     )
-                    SELECT ?, account_index, date, share_price, tvl,
-                        daily_return, annual_percentage_yield, written_at
-                    FROM pool_daily_prices
-                    """,
-                    [LIGHTER_ETHEREUM.slug],
-                )
-                self.con.execute("DROP TABLE pool_daily_prices")
-                self.con.execute("ALTER TABLE pool_daily_prices_v2 RENAME TO pool_daily_prices")
-        except duckdb.Error:
-            self.con.execute("ROLLBACK")
-            raise
-        else:
-            self.con.execute("COMMIT")
+                    self.con.execute("DROP TABLE pool_daily_prices")
+                    self.con.execute("ALTER TABLE pool_daily_prices_v2 RENAME TO pool_daily_prices")
+            except duckdb.Error:
+                self.con.execute("ROLLBACK")
+                raise
+            else:
+                self.con.execute("COMMIT")
+
+        if not self._table_exists("pool_snapshots"):
+            self._create_pool_snapshots_table("pool_snapshots")
 
     def _table_exists(self, table_name: str) -> bool:
         """Check whether a DuckDB table exists.
@@ -159,6 +373,19 @@ class LighterDailyMetricsDatabase:
         """
         return {row[1] for row in self.con.execute(f"PRAGMA table_info('{table_name}')").fetchall()}
 
+    def _ensure_columns(self, table_name: str, columns: dict[str, str]) -> None:
+        """Add missing nullable source columns to an existing table.
+
+        :param table_name:
+            Trusted internal table name.
+        :param columns:
+            Mapping of column names to trusted DuckDB type declarations.
+        """
+        existing = self._get_table_columns(table_name)
+        for column_name, type_sql in columns.items():
+            if column_name not in existing:
+                self.con.execute(f"ALTER TABLE {table_name} ADD COLUMN {column_name} {type_sql}")
+
     def _create_pool_metadata_table(self, table_name: str) -> None:
         """Create a deployment-aware pool metadata table.
 
@@ -178,6 +405,8 @@ class LighterDailyMetricsDatabase:
                 total_asset_value DOUBLE,
                 annual_percentage_yield DOUBLE,
                 sharpe_ratio DOUBLE,
+                total_shares BIGINT,
+                operator_shares BIGINT,
                 created_at TIMESTAMP,
                 last_updated TIMESTAMP NOT NULL,
                 PRIMARY KEY (deployment, account_index)
@@ -199,16 +428,82 @@ class LighterDailyMetricsDatabase:
                 tvl DOUBLE,
                 daily_return DOUBLE,
                 annual_percentage_yield DOUBLE,
+                total_shares BIGINT,
+                cumulative_pool_inflow DOUBLE,
+                cumulative_pool_outflow DOUBLE,
                 written_at TIMESTAMP,
+                cumulative_account_inflow DOUBLE,
+                cumulative_account_outflow DOUBLE,
+                cumulative_spot_inflow DOUBLE,
+                cumulative_spot_outflow DOUBLE,
+                cumulative_staking_inflow DOUBLE,
+                cumulative_staking_outflow DOUBLE,
+                trade_pnl DOUBLE,
+                trade_spot_pnl DOUBLE,
+                pool_pnl DOUBLE,
+                staking_pnl DOUBLE,
+                volume DOUBLE,
                 PRIMARY KEY (deployment, account_index, date)
+            )
+        """)
+
+    def _create_pool_snapshots_table(self, table_name: str) -> None:
+        """Create a deployment-aware point-in-time snapshot table.
+
+        :param table_name:
+            Trusted internal table name.
+        """
+        self.con.execute(f"""
+            CREATE TABLE {table_name} (
+                deployment VARCHAR NOT NULL,
+                snapshot_timestamp TIMESTAMP NOT NULL,
+                account_index BIGINT NOT NULL,
+                account_status INTEGER,
+                pool_status INTEGER,
+                account_type INTEGER,
+                account_trading_mode INTEGER,
+                total_asset_value DOUBLE,
+                cross_asset_value DOUBLE,
+                collateral DOUBLE,
+                available_balance DOUBLE,
+                initial_margin_requirement DOUBLE,
+                maintenance_margin_requirement DOUBLE,
+                operator_fee DOUBLE,
+                min_operator_share_rate DOUBLE,
+                annual_percentage_yield DOUBLE,
+                sharpe_ratio DOUBLE,
+                total_shares BIGINT,
+                operator_shares BIGINT,
+                operator_share_fraction DOUBLE,
+                pending_order_count INTEGER,
+                total_order_count BIGINT,
+                total_isolated_order_count BIGINT,
+                transaction_time BIGINT,
+                position_count INTEGER,
+                gross_position_value DOUBLE,
+                net_position_value DOUBLE,
+                long_position_value DOUBLE,
+                short_position_value DOUBLE,
+                top_position_fraction DOUBLE,
+                allocated_margin DOUBLE,
+                unrealised_pnl DOUBLE,
+                realised_pnl DOUBLE,
+                funding_paid_out DOUBLE,
+                open_order_count INTEGER,
+                asset_count INTEGER,
+                strategy_count INTEGER,
+                strategy_collateral DOUBLE,
+                pending_unlock_count INTEGER,
+                source_account_json VARCHAR NOT NULL,
+                PRIMARY KEY (deployment, snapshot_timestamp, account_index)
             )
         """)
 
     def upsert_pool_metadata(
         self,
-        deployment: str,
         account_index: int,
         name: str,
+        deployment: str = LIGHTER_ETHEREUM.slug,
         description: str | None = None,
         l1_address: str | None = None,
         is_llp: bool = False,
@@ -217,8 +512,10 @@ class LighterDailyMetricsDatabase:
         total_asset_value: float | None = None,
         annual_percentage_yield: float | None = None,
         sharpe_ratio: float | None = None,
+        total_shares: int | None = None,
+        operator_shares: int | None = None,
         created_at: datetime.datetime | None = None,
-    ):
+    ) -> None:
         """Insert or update pool metadata.
 
         :param deployment:
@@ -243,6 +540,10 @@ class LighterDailyMetricsDatabase:
             Current APY.
         :param sharpe_ratio:
             Risk-adjusted return metric.
+        :param total_shares:
+            Current outstanding pool shares.
+        :param operator_shares:
+            Current shares owned by the pool operator.
         :param created_at:
             Pool creation timestamp.
         """
@@ -251,8 +552,8 @@ class LighterDailyMetricsDatabase:
             INSERT INTO pool_metadata (
                 deployment, account_index, name, description, l1_address, is_llp,
                 status, operator_fee, total_asset_value, annual_percentage_yield,
-                sharpe_ratio, created_at, last_updated
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                sharpe_ratio, total_shares, operator_shares, created_at, last_updated
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT (deployment, account_index) DO UPDATE SET
                 name = excluded.name,
                 description = excluded.description,
@@ -263,6 +564,8 @@ class LighterDailyMetricsDatabase:
                 total_asset_value = excluded.total_asset_value,
                 annual_percentage_yield = excluded.annual_percentage_yield,
                 sharpe_ratio = excluded.sharpe_ratio,
+                total_shares = excluded.total_shares,
+                operator_shares = excluded.operator_shares,
                 created_at = excluded.created_at,
                 last_updated = excluded.last_updated
             """,
@@ -278,6 +581,8 @@ class LighterDailyMetricsDatabase:
                 total_asset_value,
                 annual_percentage_yield,
                 sharpe_ratio,
+                total_shares,
+                operator_shares,
                 created_at,
                 native_datetime_utc_now(),
             ],
@@ -285,41 +590,197 @@ class LighterDailyMetricsDatabase:
 
     def upsert_daily_prices(
         self,
-        deployment: str,
-        rows: list[tuple],
+        rows: list[LighterDailyPriceRow | tuple[object, ...]],
+        deployment: str = LIGHTER_ETHEREUM.slug,
         cutoff_date: datetime.date | None = None,
-    ):
+    ) -> None:
         """Bulk upsert daily price rows for a pool.
 
         :param deployment:
             Stable deployment slug applied to every row.
         :param rows:
-            List of tuples: ``(account_index, date, share_price, tvl, daily_return, annual_percentage_yield, written_at)``.
+            Daily price rows with source share and cumulative flow counters.
         :param cutoff_date:
             If provided, only store rows up to this date (inclusive).
             Used for incremental scanning / testing.
         """
         if cutoff_date is not None:
-            rows = [r for r in rows if r[1] <= cutoff_date]
+            rows = [row for row in rows if (row.date if isinstance(row, LighterDailyPriceRow) else row[1]) <= cutoff_date]
 
         if not rows:
             return
 
+        normalised_rows = [_normalise_daily_price_row(row) for row in rows]
         self.con.executemany(
             """
             INSERT INTO pool_daily_prices (
                 deployment, account_index, date, share_price, tvl,
-                daily_return, annual_percentage_yield, written_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                daily_return, annual_percentage_yield, total_shares,
+                cumulative_pool_inflow, cumulative_pool_outflow, written_at,
+                cumulative_account_inflow, cumulative_account_outflow,
+                cumulative_spot_inflow, cumulative_spot_outflow,
+                cumulative_staking_inflow, cumulative_staking_outflow,
+                trade_pnl, trade_spot_pnl, pool_pnl, staking_pnl, volume
+            ) VALUES (
+                ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+            )
             ON CONFLICT (deployment, account_index, date) DO UPDATE SET
                 share_price = excluded.share_price,
                 tvl = excluded.tvl,
                 daily_return = excluded.daily_return,
                 annual_percentage_yield = excluded.annual_percentage_yield,
-                written_at = excluded.written_at
+                total_shares = COALESCE(excluded.total_shares, pool_daily_prices.total_shares),
+                cumulative_pool_inflow = COALESCE(excluded.cumulative_pool_inflow, pool_daily_prices.cumulative_pool_inflow),
+                cumulative_pool_outflow = COALESCE(excluded.cumulative_pool_outflow, pool_daily_prices.cumulative_pool_outflow),
+                written_at = excluded.written_at,
+                cumulative_account_inflow = COALESCE(excluded.cumulative_account_inflow, pool_daily_prices.cumulative_account_inflow),
+                cumulative_account_outflow = COALESCE(excluded.cumulative_account_outflow, pool_daily_prices.cumulative_account_outflow),
+                cumulative_spot_inflow = COALESCE(excluded.cumulative_spot_inflow, pool_daily_prices.cumulative_spot_inflow),
+                cumulative_spot_outflow = COALESCE(excluded.cumulative_spot_outflow, pool_daily_prices.cumulative_spot_outflow),
+                cumulative_staking_inflow = COALESCE(excluded.cumulative_staking_inflow, pool_daily_prices.cumulative_staking_inflow),
+                cumulative_staking_outflow = COALESCE(excluded.cumulative_staking_outflow, pool_daily_prices.cumulative_staking_outflow),
+                trade_pnl = COALESCE(excluded.trade_pnl, pool_daily_prices.trade_pnl),
+                trade_spot_pnl = COALESCE(excluded.trade_spot_pnl, pool_daily_prices.trade_spot_pnl),
+                pool_pnl = COALESCE(excluded.pool_pnl, pool_daily_prices.pool_pnl),
+                staking_pnl = COALESCE(excluded.staking_pnl, pool_daily_prices.staking_pnl),
+                volume = COALESCE(excluded.volume, pool_daily_prices.volume)
             """,
-            [(deployment, *row) for row in rows],
+            [(deployment, *row) for row in normalised_rows],
         )
+
+    def insert_pool_snapshot(
+        self,
+        snapshot: LighterPoolSnapshot,
+        deployment: str = LIGHTER_ETHEREUM.slug,
+    ) -> None:
+        """Insert one append-only Lighter pool snapshot.
+
+        Stores queryable selection and risk metrics plus a complete JSON copy
+        of the current account state. Historical price/return arrays are
+        removed from that JSON because the daily table already stores them.
+        The method does not backfill older dates: snapshots exist only from the
+        time this collector starts, and earlier history remains missing/``NaN``
+        in downstream joins.
+
+        :param snapshot:
+            Current account and pool state parsed from one public API response.
+        :param deployment:
+            Stable deployment slug. Defaults to Ethereum for compatibility.
+        """
+        self.con.execute(
+            """
+            INSERT INTO pool_snapshots (
+                deployment, snapshot_timestamp, account_index, account_status, pool_status,
+                account_type, account_trading_mode,
+                total_asset_value, cross_asset_value, collateral, available_balance,
+                initial_margin_requirement, maintenance_margin_requirement,
+                operator_fee, min_operator_share_rate, annual_percentage_yield,
+                sharpe_ratio, total_shares, operator_shares, operator_share_fraction,
+                pending_order_count, total_order_count, total_isolated_order_count,
+                transaction_time, position_count,
+                gross_position_value, net_position_value, long_position_value,
+                short_position_value, top_position_fraction, allocated_margin,
+                unrealised_pnl, realised_pnl, funding_paid_out, open_order_count,
+                asset_count, strategy_count, strategy_collateral, pending_unlock_count,
+                source_account_json
+            ) VALUES (
+                ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
+                ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+            )
+            ON CONFLICT (deployment, snapshot_timestamp, account_index) DO NOTHING
+            """,
+            [
+                deployment,
+                snapshot.snapshot_timestamp,
+                snapshot.account_index,
+                snapshot.account_status,
+                snapshot.pool_status,
+                snapshot.account_type,
+                snapshot.account_trading_mode,
+                snapshot.total_asset_value,
+                snapshot.cross_asset_value,
+                snapshot.collateral,
+                snapshot.available_balance,
+                snapshot.initial_margin_requirement,
+                snapshot.maintenance_margin_requirement,
+                snapshot.operator_fee,
+                snapshot.min_operator_share_rate,
+                snapshot.annual_percentage_yield,
+                snapshot.sharpe_ratio,
+                snapshot.total_shares,
+                snapshot.operator_shares,
+                snapshot.operator_share_fraction,
+                snapshot.pending_order_count,
+                snapshot.total_order_count,
+                snapshot.total_isolated_order_count,
+                snapshot.transaction_time,
+                snapshot.position_count,
+                snapshot.gross_position_value,
+                snapshot.net_position_value,
+                snapshot.long_position_value,
+                snapshot.short_position_value,
+                snapshot.top_position_fraction,
+                snapshot.allocated_margin,
+                snapshot.unrealised_pnl,
+                snapshot.realised_pnl,
+                snapshot.funding_paid_out,
+                snapshot.open_order_count,
+                snapshot.asset_count,
+                snapshot.strategy_count,
+                snapshot.strategy_collateral,
+                snapshot.pending_unlock_count,
+                json.dumps(snapshot.source_account),
+            ],
+        )
+
+    def get_pool_snapshot_history(
+        self,
+        account_index: int,
+        deployment: str = LIGHTER_ETHEREUM.slug,
+    ) -> pd.DataFrame:
+        """Retrieve point-in-time snapshots for one Lighter pool.
+
+        :param account_index:
+            Lighter pool account index.
+        :param deployment:
+            Stable deployment slug. Defaults to Ethereum for compatibility.
+        :return:
+            Snapshot rows ordered from oldest to newest. The result starts at
+            the collection start date; no earlier values are fabricated.
+        """
+        return self.con.execute(
+            """
+            SELECT *
+            FROM pool_snapshots
+            WHERE deployment = ? AND account_index = ?
+            ORDER BY snapshot_timestamp
+            """,
+            [deployment, account_index],
+        ).fetchdf()
+
+    def get_latest_pool_snapshots(self, deployment: str | None = None) -> pd.DataFrame:
+        """Retrieve the most recent point-in-time snapshot for every pool.
+
+        :param deployment:
+            Optional deployment slug filter.
+        :return:
+            Latest snapshot per account, ordered by current TVL.
+        """
+        where_clause = "" if deployment is None else "WHERE deployment = ?"
+        parameters = [] if deployment is None else [deployment]
+        return self.con.execute(
+            f"""
+                SELECT *
+                FROM pool_snapshots
+                {where_clause}
+                QUALIFY ROW_NUMBER() OVER (
+                    PARTITION BY deployment, account_index
+                    ORDER BY snapshot_timestamp DESC
+                ) = 1
+                ORDER BY deployment, total_asset_value DESC NULLS LAST
+            """,
+            parameters,
+        ).fetchdf()
 
     def get_all_daily_prices(self, deployment: str | None = None) -> pd.DataFrame:
         """Retrieve all daily price data.
@@ -327,8 +788,7 @@ class LighterDailyMetricsDatabase:
         :param deployment:
             Optional deployment slug filter.
         :return:
-            DataFrame with columns: account_index, date, share_price, tvl,
-            daily_return, annual_percentage_yield.
+            DataFrame with price, source-share, and cumulative-flow columns.
         """
         if deployment is None:
             return self.con.execute("SELECT * FROM pool_daily_prices ORDER BY deployment, account_index, date").fetchdf()
@@ -434,11 +894,11 @@ class LighterDailyMetricsDatabase:
             return val.date() if hasattr(val, "date") else val
         return None
 
-    def save(self):
+    def save(self) -> None:
         """Force checkpoint to disk."""
         self.con.execute("CHECKPOINT")
 
-    def close(self):
+    def close(self) -> None:
         """Close database connection."""
         logger.info("Closing daily metrics database at %s", self.path)
         if self.con is not None:
@@ -470,7 +930,7 @@ def fetch_and_store_pool(
     """
     try:
         detail = fetch_pool_detail(session, summary.account_index, timeout=timeout)
-    except Exception as e:
+    except (requests.RequestException, KeyError, TypeError, ValueError) as e:
         logger.warning(
             "Failed to fetch pool details for %s (%d): %s",
             summary.name,
@@ -479,32 +939,25 @@ def fetch_and_store_pool(
         )
         return False
 
-    # Fetch historical total shares for TVL computation
+    # Fetch historical shares and source cumulative flow counters for TVL and
+    # later flow export. A failure must not discard share-price ingestion.
     try:
-        total_shares_by_date = fetch_pool_total_shares_history(
+        pnl_history_by_date = fetch_pool_daily_pnl_history(
             session,
             summary.account_index,
             timeout=timeout,
         )
-    except Exception as e:
+    except (requests.RequestException, KeyError, TypeError, ValueError) as e:
         logger.warning(
-            "Failed to fetch PnL shares for %s (%d), using current TVL: %s",
+            "Failed to fetch PnL history for %s (%d), storing null source counters: %s",
             summary.name,
             summary.account_index,
             e,
         )
-        total_shares_by_date = None
+        pnl_history_by_date = None
 
-    daily_df = pool_detail_to_daily_dataframe(detail, total_shares_by_date=total_shares_by_date)
-    if daily_df.empty:
-        logger.debug(
-            "Skipping pool %s (%d): empty share price history",
-            summary.name,
-            summary.account_index,
-        )
-        return False
-
-    # Store metadata
+    # Store current metadata and the point-in-time snapshot even when this
+    # account does not yet have enough price history for a daily row.
     db.upsert_pool_metadata(
         deployment=session.deployment.slug,
         account_index=summary.account_index,
@@ -517,22 +970,51 @@ def fetch_and_store_pool(
         total_asset_value=summary.total_asset_value,
         annual_percentage_yield=detail.annual_percentage_yield,
         sharpe_ratio=detail.sharpe_ratio,
+        total_shares=detail.total_shares,
+        operator_shares=detail.operator_shares,
         created_at=summary.created_at,
     )
+    db.insert_pool_snapshot(
+        detail.snapshot,
+        deployment=session.deployment.slug,
+    )
+
+    daily_df = pool_detail_to_daily_dataframe(detail, pnl_history_by_date=pnl_history_by_date)
+    if daily_df.empty:
+        logger.debug(
+            "Skipping daily prices for pool %s (%d): empty share price history",
+            summary.name,
+            summary.account_index,
+        )
+        return False
 
     # Build daily price rows
     written_at = native_datetime_utc_now()
-    rows = []
+    rows: list[LighterDailyPriceRow] = []
     for date_val, row_data in daily_df.iterrows():
         rows.append(
-            (
-                summary.account_index,
-                date_val,
-                row_data["share_price"],
-                row_data["tvl"],
-                row_data["daily_return"],
-                summary.annual_percentage_yield,
-                written_at,
+            LighterDailyPriceRow(
+                account_index=summary.account_index,
+                date=date_val,
+                share_price=float(row_data["share_price"]),
+                tvl=float(row_data["tvl"]),
+                daily_return=float(row_data["daily_return"]),
+                annual_percentage_yield=summary.annual_percentage_yield,
+                total_shares=int(row_data["total_shares"]) if pd.notna(row_data["total_shares"]) else None,
+                cumulative_pool_inflow=_optional_dataframe_float(row_data.get("cumulative_pool_inflow")),
+                cumulative_pool_outflow=_optional_dataframe_float(row_data.get("cumulative_pool_outflow")),
+                written_at=written_at,
+                cumulative_account_inflow=_optional_dataframe_float(row_data.get("cumulative_account_inflow")),
+                cumulative_account_outflow=_optional_dataframe_float(row_data.get("cumulative_account_outflow")),
+                cumulative_spot_inflow=_optional_dataframe_float(row_data.get("cumulative_spot_inflow")),
+                cumulative_spot_outflow=_optional_dataframe_float(row_data.get("cumulative_spot_outflow")),
+                cumulative_staking_inflow=_optional_dataframe_float(row_data.get("cumulative_staking_inflow")),
+                cumulative_staking_outflow=_optional_dataframe_float(row_data.get("cumulative_staking_outflow")),
+                trade_pnl=_optional_dataframe_float(row_data.get("trade_pnl")),
+                trade_spot_pnl=_optional_dataframe_float(row_data.get("trade_spot_pnl")),
+                pool_pnl=_optional_dataframe_float(row_data.get("pool_pnl")),
+                staking_pnl=_optional_dataframe_float(row_data.get("staking_pnl")),
+                volume=_optional_dataframe_float(row_data.get("volume")),
             )
         )
 
@@ -576,8 +1058,8 @@ def run_daily_scan(
 
     1. Bulk-fetches all pools from ``publicPoolsMetadata``
     2. Filters by TVL and pool limit (or by explicit index list)
-    3. Fetches per-pool details and share price history in parallel
-    4. Stores everything in DuckDB
+    3. Fetches per-pool details, daily PnL, and share-price history in parallel
+    4. Stores daily history and an append-only current-state snapshot in DuckDB
 
     :param session:
         HTTP session with rate limiting.

@@ -172,28 +172,30 @@ class NetflowMetrics:
     Aggregates daily deposit/withdrawal event counts and USD values
     over a given period (e.g. ``"1d"``, ``"7d"``, ``"30d"``).
 
-    Only available for chains that support vault flow tracking
-    (currently Hyperliquid). For other chains this will be ``None``
-    in the vault record.
+    Only available for chains that support vault flow tracking. Sources that
+    expose monetary counters but not individual events retain null counts.
     """
 
     #: Period label (e.g. ``"1d"``, ``"7d"``, ``"30d"``)
     period: str
 
     #: Number of deposit events in the period
-    deposit_count: int = 0
+    deposit_count: int | None = None
 
     #: Number of withdrawal events in the period
-    withdrawal_count: int = 0
+    withdrawal_count: int | None = None
 
     #: Total USD deposited in the period
-    deposit_usd: float = 0.0
+    deposit_usd: float | None = None
 
     #: Total USD withdrawn in the period (positive value)
-    withdrawal_usd: float = 0.0
+    withdrawal_usd: float | None = None
 
     #: Net flow (deposit_usd - withdrawal_usd)
-    net_flow_usd: float = 0.0
+    net_flow_usd: float | None = None
+
+    #: Whether all monetary observations in the period are known.
+    data_complete: bool = False
 
 
 #: Period -> Perioud duration, max sparse sample mismatch
@@ -984,13 +986,15 @@ def _calculate_netflow_metrics(
     Computes :py:class:`NetflowMetrics` for 1d, 7d, and 30d periods by
     summing the daily flow columns in ``prices_df``.
 
-    Only complete days are considered. If the required flow columns are
-    missing or contain no non-null data, returns ``None``.
+    If monetary flow columns are missing or contain no non-null data, returns
+    ``None``. Count columns are optional because some native APIs expose only
+    cumulative monetary counters. Periods with a source-null flow observation
+    return null monetary totals rather than silently reporting a partial sum.
 
     :param prices_df:
         Cleaned price DataFrame with a DatetimeIndex and optional columns
-        ``daily_deposit_count``, ``daily_withdrawal_count``,
-        ``daily_deposit_usd``, ``daily_withdrawal_usd``.
+        ``daily_deposit_usd`` and ``daily_withdrawal_usd`` plus optional event
+        count columns.
     :param now_:
         Reference timestamp for period lookback. Defaults to the last
         timestamp in the DataFrame.
@@ -998,39 +1002,51 @@ def _calculate_netflow_metrics(
         List of :py:class:`NetflowMetrics` for periods 1d, 7d, 30d,
         or ``None`` if flow data is unavailable.
     """
-    flow_cols = ["daily_deposit_count", "daily_withdrawal_count", "daily_deposit_usd", "daily_withdrawal_usd"]
-
-    if not all(col in prices_df.columns for col in flow_cols):
+    amount_cols = ["daily_deposit_usd", "daily_withdrawal_usd"]
+    count_cols = ["daily_deposit_count", "daily_withdrawal_count"]
+    if not all(col in prices_df.columns for col in amount_cols):
         return None
 
-    # Check if there is any non-null flow data at all
-    has_data = any(prices_df[col].notna().any() for col in flow_cols)
+    # Check if there is any non-null monetary flow data at all.
+    has_data = any(prices_df[col].notna().any() for col in amount_cols)
     if not has_data:
         return None
 
     if now_ is None:
         now_ = prices_df.index.max()
 
+    source_has_counts = {column: column in prices_df.columns and prices_df[column].notna().any() for column in count_cols}
+
     results = []
     for period_label, days in [("1d", 1), ("7d", 7), ("30d", 30)]:
         cutoff = now_ - pd.Timedelta(days=days)
         mask = prices_df.index > cutoff
 
-        subset = prices_df.loc[mask, flow_cols].dropna(how="all")
+        subset = prices_df.loc[mask]
+        amounts = subset[amount_cols]
+        data_complete = not subset.empty and amounts.notna().all(axis=1).all()
 
-        dep_count = int(subset["daily_deposit_count"].sum()) if not subset.empty else 0
-        wd_count = int(subset["daily_withdrawal_count"].sum()) if not subset.empty else 0
-        dep_usd = float(subset["daily_deposit_usd"].sum()) if not subset.empty else 0.0
-        wd_usd = float(subset["daily_withdrawal_usd"].sum()) if not subset.empty else 0.0
+        if data_complete:
+            dep_usd = float(amounts["daily_deposit_usd"].sum())
+            wd_usd = float(amounts["daily_withdrawal_usd"].sum())
+            net_flow_usd = dep_usd - wd_usd
+        else:
+            dep_usd = None
+            wd_usd = None
+            net_flow_usd = None
+
+        deposit_count = int(subset["daily_deposit_count"].sum()) if source_has_counts["daily_deposit_count"] else None
+        withdrawal_count = int(subset["daily_withdrawal_count"].sum()) if source_has_counts["daily_withdrawal_count"] else None
 
         results.append(
             NetflowMetrics(
                 period=period_label,
-                deposit_count=dep_count,
-                withdrawal_count=wd_count,
+                deposit_count=deposit_count,
+                withdrawal_count=withdrawal_count,
                 deposit_usd=dep_usd,
                 withdrawal_usd=wd_usd,
-                net_flow_usd=dep_usd - wd_usd,
+                net_flow_usd=net_flow_usd,
+                data_complete=bool(data_complete),
             )
         )
 
@@ -1858,6 +1874,17 @@ def calculate_vault_record(
         # YELLOW flags do not trigger VaultFlag.morpho_issues. Example: ["bad_debt_realized", "not_whitelisted"]
         "morpho_yellow_flags": morpho_yellow_flags,
     }
+
+    if protocol == "Lighter":
+        # Ownership is an API snapshot captured alongside pool metadata. It is
+        # deliberately not carried through historical price rows: doing so
+        # would make a current operator stake look like historical ownership.
+        other_data["lighter"] = {
+            "operator_shares": vault_metadata.get("_lighter_operator_shares"),
+            "total_shares": vault_metadata.get("_lighter_total_shares"),
+            "operator_share_fraction": vault_metadata.get("_lighter_operator_share_fraction"),
+            "ownership_updated_at": vault_metadata.get("_lighter_ownership_updated_at"),
+        }
 
     # Manual review decision from the Hyperliquid review Google Sheet.
     # Captured into the pickle by

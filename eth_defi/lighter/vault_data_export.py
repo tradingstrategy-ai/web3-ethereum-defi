@@ -29,6 +29,7 @@ import logging
 from decimal import Decimal
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
 
 from eth_defi.compat import native_datetime_utc_now
@@ -44,6 +45,7 @@ from eth_defi.lighter.constants import (
     identify_lighter_pool_deployment,
 )
 from eth_defi.lighter.daily_metrics import LighterDailyMetricsDatabase
+from eth_defi.types import Percent
 from eth_defi.vault.base import VaultHistoricalRead, VaultSpec
 from eth_defi.vault.fee import FeeData
 from eth_defi.vault.flag import VaultFlag, get_notes
@@ -81,6 +83,9 @@ def create_lighter_pool_row(
     tvl: float,
     created_at: datetime.datetime | None,
     operator_fee: float = 0.0,
+    total_shares: int | None = None,
+    operator_shares: int | None = None,
+    ownership_updated_at: datetime.datetime | None = None,
     is_llp: bool = False,
     status: int = 0,
     deployment: LighterAPIConfig = LIGHTER_ETHEREUM,
@@ -107,6 +112,12 @@ def create_lighter_pool_row(
         Pool creation timestamp.
     :param operator_fee:
         Operator fee percentage (e.g. 10.0 = 10%).
+    :param total_shares:
+        Current total pool shares from the Lighter API.
+    :param operator_shares:
+        Current pool shares owned by the operator.
+    :param ownership_updated_at:
+        Naive UTC timestamp of the ownership snapshot.
     :param is_llp:
         Whether this is the LLP protocol pool.
     :param status:
@@ -122,6 +133,7 @@ def create_lighter_pool_row(
 
     # Convert operator_fee from percentage to decimal fraction
     perf_fee = operator_fee / 100.0 if operator_fee else 0.0
+    operator_share_fraction: Percent | None = operator_shares / total_shares if total_shares and operator_shares is not None else None
 
     flags = {VaultFlag.perp_dex_trading_vault}
 
@@ -180,6 +192,10 @@ def create_lighter_pool_row(
         # note must not inherit Ethereum LLP's USDC/LIT staking requirements.
         "_notes": get_notes(address, chain_id=chain_id, protocol_name="Lighter"),
         "_risk": get_vault_risk("Lighter", address),
+        "_lighter_operator_shares": operator_shares,
+        "_lighter_total_shares": total_shares,
+        "_lighter_operator_share_fraction": operator_share_fraction,
+        "_lighter_ownership_updated_at": ownership_updated_at,
         # Keep the deployment slug in static vault metadata so the generic
         # lifetime-metrics code does not need to import Lighter configuration.
         # For now this is exported to distinguish Lighter on Robinhood from
@@ -194,6 +210,58 @@ def create_lighter_pool_row(
 
     spec = VaultSpec(chain_id=chain_id, vault_address=address)
     return spec, row
+
+
+def _derive_daily_flow_columns(
+    prices_df: pd.DataFrame,
+    current_date: datetime.date,
+) -> pd.DataFrame:
+    """Derive safe daily cash flows from Lighter cumulative counters.
+
+    A flow value is available only when the current and preceding observations
+    are consecutive completed UTC days and the corresponding cumulative counter
+    did not decrease. The current UTC day remains provisional, while gaps,
+    resets, and source-null counters remain unknown.
+
+    :param prices_df:
+        Lighter daily-price rows with cumulative source counters.
+    :param current_date:
+        Current UTC date, excluded from completed daily flow output.
+    :return:
+        Copy of ``prices_df`` with daily USD deposit and withdrawal columns.
+    """
+    group_columns = ["deployment", "account_index"]
+    result = prices_df.sort_values([*group_columns, "date"]).copy()
+    result["daily_deposit_usd"] = np.nan
+    result["daily_withdrawal_usd"] = np.nan
+
+    observation_dates = pd.to_datetime(result["date"])
+    group_values = [result[column] for column in group_columns]
+    prior_dates = observation_dates.groupby(group_values, sort=False).shift()
+    is_completed = observation_dates.dt.date < current_date
+    is_consecutive = (observation_dates - prior_dates).eq(pd.Timedelta(days=1))
+
+    for source_column, target_column in [
+        ("cumulative_pool_inflow", "daily_deposit_usd"),
+        ("cumulative_pool_outflow", "daily_withdrawal_usd"),
+    ]:
+        values = result[source_column]
+        prior_values = values.groupby(group_values, sort=False).shift()
+        delta = values - prior_values
+        values_known = values.notna() & prior_values.notna()
+        valid_delta = is_completed & is_consecutive & values_known & delta.ge(0)
+        decreased_counter = is_completed & is_consecutive & values_known & delta.lt(0)
+
+        if decreased_counter.any():
+            logger.warning(
+                "Lighter %s counter decreased for %d completed daily observations; withholding those flows",
+                source_column,
+                int(decreased_counter.sum()),
+            )
+
+        result[target_column] = delta.where(valid_delta)
+
+    return result
 
 
 def build_raw_prices_dataframe(db: LighterDailyMetricsDatabase) -> pd.DataFrame:
@@ -218,6 +286,8 @@ def build_raw_prices_dataframe(db: LighterDailyMetricsDatabase) -> pd.DataFrame:
     if prices_df.empty:
         return pd.DataFrame()
 
+    prices_df = _derive_daily_flow_columns(prices_df, current_date=native_datetime_utc_now().date())
+
     unknown_deployments = set(prices_df["deployment"].unique()) - set(LIGHTER_DEPLOYMENTS_BY_SLUG)
     if unknown_deployments:
         raise ValueError(f"Unknown Lighter deployments in daily metrics database: {sorted(unknown_deployments)}")
@@ -239,10 +309,16 @@ def build_raw_prices_dataframe(db: LighterDailyMetricsDatabase) -> pd.DataFrame:
             "timestamp": pd.to_datetime(prices_df["date"]).values,
             "share_price": prices_df["share_price"].values,
             "total_assets": prices_df["tvl"].values if "tvl" in prices_df.columns else 0.0,
-            "total_supply": 0.0,
+            "total_supply": prices_df["total_shares"].values if "total_shares" in prices_df.columns else np.nan,
             "performance_fee": 0.0,
             "management_fee": 0.0,
             "errors": "",
+            # Lighter's public PnL endpoint exposes cumulative monetary
+            # counters, not event-level counts. Keep count values unknown.
+            "daily_deposit_count": np.nan,
+            "daily_withdrawal_count": np.nan,
+            "daily_deposit_usd": prices_df["daily_deposit_usd"].values,
+            "daily_withdrawal_usd": prices_df["daily_withdrawal_usd"].values,
             "written_at": prices_df["written_at"].values if "written_at" in prices_df.columns else pd.NaT,
         },
     )
@@ -321,6 +397,12 @@ def merge_into_vault_database(
         operator_fee = 0.0 if pd.isna(operator_fee) else float(operator_fee)
         status = row.get("status")
         status = 0 if pd.isna(status) else int(status)
+        total_shares = row.get("total_shares")
+        total_shares = None if pd.isna(total_shares) else int(total_shares)
+        operator_shares = row.get("operator_shares")
+        operator_shares = None if pd.isna(operator_shares) else int(operator_shares)
+        ownership_updated_at = row.get("last_updated")
+        ownership_updated_at = None if pd.isna(ownership_updated_at) else ownership_updated_at
 
         spec, vault_row = create_lighter_pool_row(
             account_index=int(row["account_index"]),
@@ -329,6 +411,9 @@ def merge_into_vault_database(
             tvl=tvl,
             created_at=created_at,
             operator_fee=operator_fee,
+            total_shares=total_shares,
+            operator_shares=operator_shares,
+            ownership_updated_at=ownership_updated_at,
             is_llp=bool(row.get("is_llp", False)),
             status=status,
             deployment=deployment,

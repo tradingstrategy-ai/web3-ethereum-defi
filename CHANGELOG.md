@@ -1,5 +1,6 @@
 # 1.2
 
+- feat: Export Lighter ownership, point-in-time risk/exposure snapshots and net-flow selection priors (2026-07-23)
 - feat: Add capacity-aware cSigma V2 deposit and redemption simulation support (2026-07-22)
 - feat: Add optional atomic gross-settlement and cooldown safety controls for asset-manager Lagoon v0.5 transactions (2026-07-22)
 - fix: Publish Bulla Network protocol metadata under the canonical `bulla-network` slug (2026-07-22)
