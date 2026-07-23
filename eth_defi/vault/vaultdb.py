@@ -130,9 +130,9 @@ class VaultRow(TypedDict):
     #: Vault-wide deposit policy as ``whitelisted``, ``permissionless``, or
     #: ``unknown``.
     #:
-    #: Stored independently from ``_deposit_manager`` so a vault whose
-    #: transaction lifecycle is unsupported can still report a reliable
-    #: admission policy. Missing from legacy pickles means ``unknown``.
+    #: Stored independently from ``_deposit_manager`` in scanner metadata.
+    #: The lifetime report nests this value in a non-null deposit-manager
+    #: capability object; missing values in legacy pickles mean ``unknown``.
     _deposit_permission: NotRequired[str]
 
     #: Protocol-supplied vault manager or curator display name.

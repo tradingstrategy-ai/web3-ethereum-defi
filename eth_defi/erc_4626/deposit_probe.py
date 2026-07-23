@@ -41,6 +41,7 @@ from eth_defi.simple_vault.transact import encode_simple_vault_transaction
 from eth_defi.token import fetch_erc20_details
 from eth_defi.utils import wait_other_writers
 from eth_defi.vault.base import VaultSpec
+from eth_defi.vault.deposit_redeem import DepositRequest, VaultDepositManager, VaultFlowError
 from eth_defi.vault.vaultdb import DEFAULT_VAULT_DATABASE, VaultDatabase, VaultRow
 
 logger = logging.getLogger(__name__)
@@ -67,6 +68,77 @@ PROBE_EXECUTION_EXCEPTIONS = (
 
 class AnvilProbeTransactionError(RuntimeError):
     """Anvil mined a probe transaction with a failing status."""
+
+
+def _format_vault_flow_failure(
+    error: VaultFlowError,
+    capability_data: dict[str, object] | None = None,
+    max_deposit_guidance: str | None = None,
+) -> ProbeResult:
+    """Convert a structured preflight refusal to persistent probe data."""
+    result: ProbeResult = {
+        "outcome": "flow_unavailable",
+        "message": str(error),
+        "flow_error": {
+            "protocol": error.protocol,
+            "direction": error.direction,
+            "phase": error.phase,
+            "decoded_error": error.decoded_error,
+            "function_selector": error.function_selector.hex() if error.function_selector else None,
+            "error_selector": error.error_selector.hex() if error.error_selector else None,
+            "access_delay": error.access_delay,
+        },
+    }
+    if capability_data is not None:
+        result["deposit_manager"] = capability_data
+    if max_deposit_guidance is not None:
+        result["max_deposit_guidance"] = max_deposit_guidance
+    return result
+
+
+def prepare_probe_deposit_request(
+    manager: VaultDepositManager,
+    owner: HexAddress,
+    raw_amount: int,
+    capability_data: dict[str, object],
+    max_deposit_guidance: str,
+) -> tuple[DepositRequest | None, ProbeResult | None]:
+    """Prepare one manager request and convert expected refusal to probe data.
+
+    Protocol managers use :class:`~eth_defi.vault.deposit_redeem.VaultFlowError`
+    for known pre-broadcast denials such as a whitelist rejection.  These are
+    per-vault probe results, not pipeline failures, and must not abort the
+    remaining candidate sweep.
+
+    :param manager:
+        Protocol deposit manager selected for the candidate.
+    :param owner:
+        Probe vault that will own and receive the deposit.
+    :param raw_amount:
+        Deposit amount in denomination-token raw units.
+    :param capability_data:
+        Scanner capability metadata copied to the probe result.
+    :param max_deposit_guidance:
+        Informational ERC-4626 capacity response.
+    :return:
+        Prepared request and no failure, or no request and a persistent
+        ``flow_unavailable``/``adapter_error`` result.
+    """
+    try:
+        if isinstance(manager, ERC4626DepositManager):
+            request = manager.create_deposit_request(owner=owner, to=owner, raw_amount=raw_amount, check_max_deposit=False)
+        else:
+            request = manager.create_deposit_request(owner=owner, to=owner, raw_amount=raw_amount)
+    except VaultFlowError as e:
+        return None, _format_vault_flow_failure(e, capability_data, max_deposit_guidance)
+    except PROBE_EXECUTION_EXCEPTIONS as e:
+        return None, {
+            "outcome": "adapter_error",
+            "message": str(e),
+            "deposit_manager": capability_data,
+            "max_deposit_guidance": max_deposit_guidance,
+        }
+    return request, None
 
 
 @dataclass(frozen=True, slots=True)
@@ -554,13 +626,16 @@ def probe_candidate(  # noqa: PLR0914
         return {"outcome": "funding_error", "message": str(e), "deposit_manager": capability_data, "max_deposit_guidance": max_deposit_guidance}
     if manager is None:
         manager = vault.get_deposit_manager()
-    try:
-        if isinstance(manager, ERC4626DepositManager):
-            request = manager.create_deposit_request(owner=simple_vault.address, to=simple_vault.address, raw_amount=raw_amount, check_max_deposit=False)
-        else:
-            request = manager.create_deposit_request(owner=simple_vault.address, to=simple_vault.address, raw_amount=raw_amount)
-    except PROBE_EXECUTION_EXCEPTIONS as e:
-        return {"outcome": "adapter_error", "message": str(e), "deposit_manager": capability_data, "max_deposit_guidance": max_deposit_guidance}
+    request, request_failure = prepare_probe_deposit_request(
+        manager,
+        simple_vault.address,
+        raw_amount,
+        capability_data,
+        max_deposit_guidance,
+    )
+    if request_failure is not None:
+        return request_failure
+    assert request is not None
     if request.value:
         return {"outcome": "guard_value_unsupported", "message": "SimpleVaultV0 cannot forward native value", "deposit_manager": capability_data, "max_deposit_guidance": max_deposit_guidance}
 
@@ -633,6 +708,9 @@ def probe_candidate(  # noqa: PLR0914
     else:
         try:
             ticket = request.parse_deposit_transaction(request_hashes)
+        except VaultFlowError as e:
+            logger.info("Probe flow unavailable for %s: %s", candidate.key, e)
+            return {**result, **_format_vault_flow_failure(e, capability_data, max_deposit_guidance)}
         except PROBE_EXECUTION_EXCEPTIONS as e:
             return {**result, "outcome": "adapter_error", "message": f"Could not parse async deposit ticket: {e}"}
         if ticket.owner.lower() != simple_vault.address.lower() or ticket.to.lower() != simple_vault.address.lower():
@@ -650,7 +728,7 @@ def probe_candidate(  # noqa: PLR0914
     return result
 
 
-def run_from_environment() -> int:
+def run_from_environment() -> int:  # noqa: PLR0914
     """Run the guarded Anvil probe configured through environment variables.
 
     Candidate selection comes from the local vault database. The function
@@ -711,6 +789,9 @@ def run_from_environment() -> int:
                 raise RuntimeError(f"Anvil launch chain id {launch.chain_id} does not match {candidate_chain_id}")
             fork_block_number = launch.fork_block_number or web3.eth.block_number
             result = probe_candidate(web3, candidate, amount, fork_block_number)
+        except VaultFlowError as e:
+            logger.info("Probe flow unavailable for %s: %s", candidate.key, e)
+            result = _format_vault_flow_failure(e)
         except PROBE_EXECUTION_EXCEPTIONS as e:
             logger.exception("Probe failed for %s", candidate.key)
             result = {"outcome": "rpc_error", "message": str(e)}

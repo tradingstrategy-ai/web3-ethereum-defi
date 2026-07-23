@@ -63,6 +63,26 @@ DEFAULT_LAGOON_POST_VALUATION_GAS = 500_000
 DEFAULT_LAGOON_SETTLE_GAS = 500_000
 
 
+def _is_empty_execution_revert(error: ExtraValueError) -> bool:
+    """Check whether a provider error represents a missing-view empty revert.
+
+    The multi-provider wrapper raises :class:`ExtraValueError` both for
+    malformed RPC responses and for deterministic EVM reverts.  Lagoon v0.5's
+    removed ``isWhitelistActivated()`` getter has the specific response
+    ``code=3``, ``message=execution reverted``, ``data=0x``.  Only that shape
+    may activate the version-gated sentinel fallback.
+
+    :param error:
+        Provider response error raised by the whitelist policy call.
+    :return:
+        ``True`` only for the deterministic empty EVM revert shape.
+    """
+    if not error.args or not isinstance(error.args[0], dict):
+        return False
+    response = error.args[0]
+    return response.get("code") == 3 and response.get("data") == "0x" and "execution reverted" in str(response.get("message", "")).lower()
+
+
 class LagoonVaultInfo(VaultInfo):
     """Capture information about Lagoon vault deployment."""
 
@@ -572,10 +592,11 @@ class LagoonVault(ERC7540Vault, AutomatedSafe):
         The getter was removed from the
         `v0.5.0 Whitelistable source <https://github.com/hopperlabsxyz/lagoon-v0/blob/v0.5.0/src/v0.5.0/Whitelistable.sol>`__,
         despite ``isWhitelisted(address)`` remaining available.  For v0.5
-        deployments, use the zero-address sentinel: its ``False`` result means
-        whitelist enforcement is active, while ``True`` means deposits are
-        permissionless.  This follows the versioned implementation's
-        ``isWhitelisted`` branch for a disabled whitelist.
+        deployments only, use the zero-address sentinel: its ``False`` result
+        means whitelist enforcement is active, while ``True`` means deposits
+        are permissionless.  This follows the v0.5 implementation's
+        ``isWhitelisted`` branch for a disabled whitelist.  Other versions do
+        not use this fallback unless their own policy getter succeeds.
 
         :return:
             ``True`` when deposits require whitelisted accounts.
@@ -586,13 +607,21 @@ class LagoonVault(ERC7540Vault, AutomatedSafe):
         """
         try:
             return bool(self.whitelist_contract.functions.isWhitelistActivated().call())
-        except (BadFunctionCallOutput, ContractLogicError, ExtraValueError) as e:
-            try:
-                # The zero address can never submit a transaction and will never
-                # be whitelisted because granting it admission has no meaning.
-                return not self.is_account_whitelisted(ZERO_ADDRESS_STR)
-            except NotImplementedError:
-                raise NotImplementedError(f"Lagoon vault {self.address} does not expose usable whitelist policy views") from e
+        except ExtraValueError as e:
+            if not _is_empty_execution_revert(e):
+                raise
+            getter_error = e
+        except (BadFunctionCallOutput, ContractLogicError) as e:
+            getter_error = e
+
+        if self.version != LagoonVersion.v_0_5_0:
+            raise NotImplementedError(f"Lagoon {self.version.value} vault {self.address} does not expose isWhitelistActivated()") from getter_error
+        try:
+            # The zero address can never submit a transaction and will never
+            # be whitelisted because granting it admission has no meaning.
+            return not self.is_account_whitelisted(ZERO_ADDRESS_STR)
+        except NotImplementedError:
+            raise NotImplementedError(f"Lagoon vault {self.address} does not expose usable whitelist policy views") from getter_error
 
     def is_account_whitelisted(self, address: HexAddress) -> bool:
         """Determine whether an account passes Lagoon's whitelist membership view.
@@ -617,7 +646,7 @@ class LagoonVault(ERC7540Vault, AutomatedSafe):
         """
         try:
             return bool(self.whitelist_contract.functions.isWhitelisted(Web3.to_checksum_address(address)).call())
-        except (BadFunctionCallOutput, ContractLogicError, ExtraValueError) as e:
+        except (BadFunctionCallOutput, ContractLogicError) as e:
             raise NotImplementedError(f"Lagoon vault {self.address} does not expose isWhitelisted(address)") from e
 
     def has_block_range_event_support(self):

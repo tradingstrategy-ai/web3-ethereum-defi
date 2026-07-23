@@ -14,6 +14,7 @@ from web3.types import BlockIdentifier
 
 from eth_defi.abi import ZERO_ADDRESS_STR, get_deployed_contract, get_function_selector
 from eth_defi.chain import get_chain_name
+from eth_defi.erc_4626.deposit_redeem import ERC4626DepositManager
 from eth_defi.erc_4626.vault import ERC4626HistoricalReader, ERC4626Vault
 from eth_defi.erc_4626.vault_protocol.ipor.deposit_redeem import IPORDepositManager
 from eth_defi.erc_4626.vault_protocol.ipor.offchain_metadata import IPORVaultMetadata, fetch_ipor_vault_atomist, fetch_ipor_vault_is_listed, fetch_ipor_vault_metadata
@@ -546,16 +547,20 @@ class IPORVault(ERC4626Vault):  # noqa: PLR0904
         immediate, delay = self.fetch_selector_access(address, self.get_deposit_function_selector())
         return immediate or delay > 0
 
-    def get_deposit_manager(self) -> IPORDepositManager:
+    def get_deposit_manager(self) -> IPORDepositManager | ERC4626DepositManager:
         """Create the IPOR manager with AccessManager admission pre-flights.
 
         IPOR uses ordinary ERC-4626 transaction shapes after the caller is
-        admitted, so its specialised manager extends the shared synchronous
-        manager instead of duplicating receipt analysis.
+        admitted.  Deployments without a readable AccessManager retain the
+        generic ERC-4626 manager behaviour; their deposit permission is
+        reported as ``unknown`` instead of refusing every account.
 
         :return:
-            Caller-aware IPOR deposit manager.
+            Caller-aware IPOR manager when its AccessManager is available,
+            otherwise the generic synchronous ERC-4626 manager.
         """
+        if self.access_manager is None:
+            return ERC4626DepositManager(self)
         return IPORDepositManager(self)
 
     def get_deposit_manager_capability(self) -> VaultDepositManagerCapability:

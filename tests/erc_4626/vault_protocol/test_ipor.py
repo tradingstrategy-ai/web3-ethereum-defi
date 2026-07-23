@@ -7,6 +7,7 @@ import pytest
 from web3 import Web3
 
 from eth_defi.erc_4626.core import ERC4626Feature
+from eth_defi.erc_4626.deposit_redeem import ERC4626DepositManager
 from eth_defi.erc_4626.vault_protocol.ipor.deposit_redeem import IPORDepositManager
 from eth_defi.erc_4626.vault_protocol.ipor.vault import IPORVault
 from eth_defi.provider.multi_provider import create_multi_provider_web3
@@ -160,3 +161,21 @@ def test_ipor_deposit_permission_and_restricted_caller_preflight(web3: Web3):
 
     assert exc_info.value.function_selector == restricted_vault.get_deposit_function_selector()
     assert exc_info.value.access_delay == 0
+
+
+def test_ipor_without_access_manager_uses_generic_manager() -> None:
+    """An unreadable AccessManager does not disable standard ERC-4626 flows."""
+    vault = object.__new__(IPORVault)
+    vault.spec = VaultSpec(chain_id=1, vault_address=IPOR_BDUSD_ETHEREUM)
+    vault.__dict__["access_manager"] = None
+
+    manager = vault.get_deposit_manager()
+
+    assert isinstance(manager, ERC4626DepositManager)
+    assert not isinstance(manager, IPORDepositManager)
+    assert vault.get_deposit_manager_capability().as_initial_public_schema() == {
+        "can_deposit": True,
+        "can_redeem": True,
+        "deposit_flow": "synchronous",
+        "redemption_flow": "synchronous",
+    }

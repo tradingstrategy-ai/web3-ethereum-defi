@@ -561,6 +561,17 @@ class ERC7540DepositManager(VaultDepositManager):
         return AsyncVaultRequestStatus.none
 
     def can_create_deposit_request(self, owner: HexAddress) -> bool:
+        """Return whether Lagoon can safely accept a request from an owner.
+
+        Unknown whitelist policy fails closed.  A transient provider error is
+        still propagated so callers can distinguish an unavailable RPC read
+        from a known policy denial.
+
+        :param owner:
+            Request owner and controller used by ``requestDeposit``.
+        :return:
+            ``True`` only when the current policy views admit the owner.
+        """
         if self._is_vault_paused():
             return False
         try:
@@ -568,9 +579,7 @@ class ERC7540DepositManager(VaultDepositManager):
                 return True
             return self.vault.is_account_whitelisted(owner)
         except NotImplementedError:
-            # Lagoon v0.5 has no activation getter, but its documented
-            # isWhitelisted() result still answers this caller's admission.
-            return self.vault.is_account_whitelisted(owner)
+            return False
 
     def can_create_redemption_request(self, owner: HexAddress) -> bool:
         return not self._is_vault_paused()
@@ -578,10 +587,10 @@ class ERC7540DepositManager(VaultDepositManager):
     def _assert_deposit_whitelist(self, owner: HexAddress) -> None:
         """Reject a known Lagoon whitelist denial before request broadcast.
 
-        Lagoon v0.5 lacks an activation getter, but its versioned
-        ``isWhitelisted()`` implementation returns true for every account
-        when disabled.  Its caller-specific result is therefore sufficient to
-        reject a known denial without inventing a vault-wide Boolean policy.
+        Lagoon v0.5 lacks an activation getter, but
+        :meth:`LagoonVault.is_whitelisted_deposit` handles its documented
+        zero-address sentinel internally.  If neither supported policy view
+        can determine admission, request construction fails closed.
 
         :param owner:
             Request owner and controller used by ``requestDeposit``.
@@ -602,10 +611,29 @@ class ERC7540DepositManager(VaultDepositManager):
         try:
             if not self.vault.is_whitelisted_deposit():
                 return
-        except NotImplementedError:
-            pass
+        except NotImplementedError as e:
+            raise VaultFlowUnavailable(
+                "Lagoon deposit whitelist policy cannot be determined",
+                protocol="Lagoon",
+                vault_address=self.vault.address,
+                caller=owner,
+                direction="deposit",
+                phase="preflight",
+            ) from e
 
-        if not self.vault.is_account_whitelisted(owner):
+        try:
+            account_whitelisted = self.vault.is_account_whitelisted(owner)
+        except NotImplementedError as e:
+            raise VaultFlowUnavailable(
+                "Lagoon deposit whitelist membership cannot be determined",
+                protocol="Lagoon",
+                vault_address=self.vault.address,
+                caller=owner,
+                direction="deposit",
+                phase="preflight",
+            ) from e
+
+        if not account_whitelisted:
             raise VaultFlowUnavailable(
                 "Lagoon deposit account is not whitelisted",
                 protocol="Lagoon",

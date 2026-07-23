@@ -111,6 +111,9 @@ def test_erc_7540_deposit_722_capital(
     """Use DepositManager interface to deposit into ERC-7540 vault on Lagoon run by 722 Capital"""
     deposit_manager = vault.get_deposit_manager()
     assert isinstance(deposit_manager, ERC7540DepositManager)
+    assert vault.is_whitelisted_deposit() is False
+    assert vault.is_account_whitelisted(test_user) is True
+    assert deposit_manager.can_create_deposit_request(test_user) is True
     assert not deposit_manager.has_synchronous_deposit()
     assert not deposit_manager.is_deposit_in_progress(test_user)
 

@@ -8,7 +8,7 @@ import pytest
 from hexbytes import HexBytes
 
 import eth_defi.erc_4626.deposit_redeem as erc_4626_deposit_redeem
-from eth_defi.erc_4626.deposit_probe import DEFAULT_STATUS_PATH, VaultDepositProbeCandidate, VaultDepositProbeOutput, fetch_max_deposit_guidance, log_probe_tables, require_simulation, run_from_environment, select_candidates, update_status
+from eth_defi.erc_4626.deposit_probe import DEFAULT_STATUS_PATH, VaultDepositProbeCandidate, VaultDepositProbeOutput, fetch_max_deposit_guidance, log_probe_tables, prepare_probe_deposit_request, require_simulation, run_from_environment, select_candidates, update_status
 from eth_defi.erc_4626.deposit_redeem import ERC4626DepositManager
 from eth_defi.erc_4626.vault import CERTIFIED_SYNCHRONOUS_DEPOSIT_MANAGER_CLASSES, ERC4626Vault
 from eth_defi.erc_4626.vault_protocol.gains.deposit_redeem import GainsDepositManager, GainsRedemptionTicket
@@ -16,7 +16,7 @@ from eth_defi.erc_4626.vault_protocol.kiln.vault import KilnVault
 from eth_defi.erc_4626.vault_protocol.summer.vault import SummerVault
 from eth_defi.erc_4626.vault_protocol.yearn.vault import YearnV3Vault
 from eth_defi.vault.base import VaultSpec
-from eth_defi.vault.deposit_redeem import VaultDepositManagerCapability
+from eth_defi.vault.deposit_redeem import VaultDepositManagerCapability, VaultFlowUnavailable
 from eth_defi.vault.vaultdb import VaultDatabase
 
 
@@ -115,6 +115,54 @@ def test_generic_redemption_manager_accepts_raw_shares(monkeypatch: pytest.Monke
     )
     assert request.raw_shares == 123
     assert request.funcs == [function]
+
+
+def test_probe_records_preflight_refusal_without_aborting() -> None:
+    """A manager policy denial becomes a per-vault probe result."""
+
+    class RefusingManager:
+        """Minimal manager that rejects before creating a transaction."""
+
+        @staticmethod
+        def create_deposit_request(**_kwargs):
+            reason = "Account is not whitelisted"
+            raise VaultFlowUnavailable(
+                reason,
+                protocol="Example",
+                direction="deposit",
+                phase="preflight",
+                decoded_error="NotWhitelisted",
+                function_selector=HexBytes("0x85b77f45"),
+                error_selector=HexBytes("0x584a7938"),
+            )
+
+    capability = {
+        "can_deposit": True,
+        "can_redeem": True,
+        "deposit_flow": "asynchronous",
+        "redemption_flow": "asynchronous",
+    }
+    request, failure = prepare_probe_deposit_request(
+        RefusingManager(),
+        "0x0000000000000000000000000000000000000001",
+        1,
+        capability,
+        "not available",
+    )
+
+    assert request is None
+    assert failure is not None
+    assert failure["outcome"] == "flow_unavailable"
+    assert failure["deposit_manager"] == capability
+    assert failure["flow_error"] == {
+        "protocol": "Example",
+        "direction": "deposit",
+        "phase": "preflight",
+        "decoded_error": "NotWhitelisted",
+        "function_selector": "85b77f45",
+        "error_selector": "584a7938",
+        "access_delay": None,
+    }
 
 
 def test_probe_requires_explicit_simulation(monkeypatch: pytest.MonkeyPatch) -> None:
