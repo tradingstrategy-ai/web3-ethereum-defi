@@ -1,5 +1,6 @@
 """Clean vault price data"""
 
+import dataclasses
 import logging
 import os.path
 import pickle
@@ -57,6 +58,16 @@ def raw_price_df() -> Path:
     """
     raw_prices = Path(os.path.dirname(__file__)) / "chain-hemi-raw-prices-1h.parquet"
     return raw_prices
+
+
+def test_vault_database_migrates_old_detection_event_counts(vault_db: Path) -> None:
+    """Old pickled detections receive the configuration-event count default."""
+    with vault_db.open("rb") as f:
+        database = pickle.load(f)
+
+    detection = next(iter(database.values()))["_detection_data"]
+    assert detection.configuration_count == 0
+    assert dataclasses.asdict(detection)["configuration_count"] == 0
 
 
 def test_clean_vault_price_data(

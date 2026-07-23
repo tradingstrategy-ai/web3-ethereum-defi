@@ -351,7 +351,9 @@ poetry run python scripts/erc-4626/scan-prices.py
 Targeted repair script for all supported EVM T3tris vaults returned by the
 official T3tris API. The script has a baked API snapshot as a fallback, so
 operators can review the current vault address list in the script even if the
-API is temporarily unavailable.
+API is temporarily unavailable. It also always retains the reviewed migration
+registry, including Strada Yield, because these vaults can be absent from the
+frontend API and do not have vault-local flow events for discovery.
 
 This follows the [required protocol-specific lead migrations](#required-protocol-specific-lead-migrations)
 for adding T3tris vaults to an existing production database after protocol
@@ -372,7 +374,7 @@ source .local-test.env && poetry run python scripts/erc-4626/fix-t3tris-vaults.p
 |----------|-------------|
 | `DRY_RUN` | Optional. Show planned work without writing metadata or prices. Default: false. |
 | `T3TRIS_FETCH_API` | Optional. Fetch the live T3tris API and prefer it over the baked snapshot. Default: true. |
-| `T3TRIS_VERIFIED_ONLY` | Optional. Process only API-verified vaults. Default: false. |
+| `T3TRIS_VERIFIED_ONLY` | Optional. Process only API-verified vaults, while retaining reviewed migration vaults. Default: false. |
 | `T3TRIS_SCAN_PRICES` | Optional. Set to `false` to update only leads and metadata. Default: true. |
 | `T3TRIS_REWRITE_TARGETED` | Optional. Rescan every selected T3tris vault from its first known API block and rewrite only that vault's rows. Default: false. |
 | `T3TRIS_REFRESH_EXISTING_METADATA` | Optional. Refresh existing good metadata rows as well as missing or broken rows. Default: false. |
