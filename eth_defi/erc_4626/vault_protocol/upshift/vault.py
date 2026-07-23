@@ -13,6 +13,7 @@ from web3.contract import Contract
 from eth_defi.abi import get_deployed_contract
 from eth_defi.erc_4626.core import ERC4626Feature
 from eth_defi.erc_4626.vault import ERC4626Vault, VaultReaderState
+from eth_defi.erc_4626.vault_protocol.upshift.offchain_metadata import UpshiftVaultMetadata, fetch_upshift_vault_metadata
 from eth_defi.event_reader.conversion import convert_int256_bytes_to_int
 from eth_defi.event_reader.multicall_batcher import EncodedCall, EncodedCallResult
 from eth_defi.token import TokenDetails, fetch_erc20_details
@@ -225,6 +226,65 @@ class UpshiftVault(ERC4626Vault):
     See the `TokenizedAccount implementation <https://etherscan.io/address/0x83AF2736AD2f59BA60F2da1493DE95730Bc0649d#code>`__
     for the fee collection logic.
     """
+
+    @cached_property
+    def upshift_metadata(self) -> UpshiftVaultMetadata | None:
+        """Fetch cached public Upshift vault metadata.
+
+        Upshift supplies descriptions, named strategists and named operator
+        wallets through its `vault API <https://docs.upshift.finance/developer-docs/api-reference/vaults>`__.
+        The API does not expose a curator field, so strategist identities must
+        not be treated as verified curator records without an external mapping.
+
+        :return:
+            Parsed public metadata, or ``None`` when no API record is
+            accessible for this vault.
+        """
+
+        return fetch_upshift_vault_metadata(self.web3, self.vault_address)
+
+    @property
+    def description(self) -> str | None:
+        """Return the Upshift-supplied vault strategy description.
+
+        :return:
+            Public Upshift description, or ``None`` when it is not available.
+        """
+
+        if self.upshift_metadata is None:
+            return None
+        return self.upshift_metadata["description"]
+
+    @property
+    def manager_name(self) -> str | None:
+        """Expose Upshift strategist brands through the generic manager field.
+
+        :return:
+            Comma-separated strategist display names, or ``None`` when the API
+            does not publish any strategist names.
+        """
+
+        return self.fetch_strategist()
+
+    def fetch_strategist(self) -> str | None:
+        """Fetch the Upshift strategist identity from public metadata.
+
+        Upshift calls these records ``hardcoded_strategists``. This is the
+        closest available offchain manager identity, but it is not an explicit
+        curator field. Named EOA operators are intentionally not used because
+        they identify operational wallets rather than the strategy brand.
+
+        :return:
+            Comma-separated strategist display names, or ``None`` when the API
+            does not publish any strategist names.
+        """
+
+        metadata = self.upshift_metadata
+        if metadata is None:
+            return None
+
+        strategist_names = metadata["strategist_names"]
+        return ", ".join(strategist_names) or None
 
     @cached_property
     def multi_asset_like(self) -> bool:
