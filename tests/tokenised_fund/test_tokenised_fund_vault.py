@@ -52,6 +52,12 @@ def test_all_tokenised_fund_adapters_use_shared_classification(vault_class: type
     assert issubclass(vault_class, TokenisedFundVault)
 
 
+@pytest.mark.parametrize("vault_class", TOKENISED_FUND_VAULT_CLASSES)
+def test_all_tokenised_fund_adapters_report_permissioned_deposits(vault_class: type[VaultBase]) -> None:
+    """Classify every tokenised-fund subscription as permissioned."""
+    assert vault_class.is_whitelisted_deposit(object()) is True
+
+
 def test_tokenised_fund_adapter_always_adds_descriptive_flag() -> None:
     """Add the listing flag even when no address-specific flag exists."""
 

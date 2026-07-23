@@ -42,9 +42,13 @@ from eth_defi.vault.deposit_redeem import (
     RedemptionRequest,
     RedemptionTicket,
     VaultDepositManager,
+    VaultFlowUnavailable,
     UnsupportedVaultSimulation,
     VaultForcedSettlementResult,
 )
+
+#: ``NotWhitelisted()`` custom-error selector in Lagoon deployments.
+NOT_WHITELISTED_SELECTOR = HexBytes("0x584a7938")
 
 
 @dataclass(slots=True)
@@ -385,6 +389,8 @@ class ERC7540DepositManager(VaultDepositManager):
     ) -> ERC7540DepositRequest:
         assert not to, f"Unsupported to={to}"
 
+        self._assert_deposit_whitelist(owner)
+
         # TODO: check_max_deposit
         # TODO: check_enough_token
 
@@ -552,10 +558,61 @@ class ERC7540DepositManager(VaultDepositManager):
         return AsyncVaultRequestStatus.none
 
     def can_create_deposit_request(self, owner: HexAddress) -> bool:
-        return not self._is_vault_paused()
+        if self._is_vault_paused():
+            return False
+        try:
+            if not self.vault.is_whitelisted_deposit():
+                return True
+            return self.vault.is_account_whitelisted(owner)
+        except NotImplementedError:
+            # Lagoon v0.5 has no activation getter, but its documented
+            # isWhitelisted() result still answers this caller's admission.
+            return self.vault.is_account_whitelisted(owner)
 
     def can_create_redemption_request(self, owner: HexAddress) -> bool:
         return not self._is_vault_paused()
+
+    def _assert_deposit_whitelist(self, owner: HexAddress) -> None:
+        """Reject a known Lagoon whitelist denial before request broadcast.
+
+        Lagoon v0.5 lacks an activation getter, but its versioned
+        ``isWhitelisted()`` implementation returns true for every account
+        when disabled.  Its caller-specific result is therefore sufficient to
+        reject a known denial without inventing a vault-wide Boolean policy.
+
+        :param owner:
+            Request owner and controller used by ``requestDeposit``.
+
+        :raise VaultFlowUnavailable:
+            If the vault is paused or the owner is known to be denied.
+        """
+        if self._is_vault_paused():
+            raise VaultFlowUnavailable(
+                "Lagoon deposit requests are paused",
+                protocol="Lagoon",
+                vault_address=self.vault.address,
+                caller=owner,
+                direction="deposit",
+                phase="preflight",
+            )
+
+        try:
+            if not self.vault.is_whitelisted_deposit():
+                return
+        except NotImplementedError:
+            pass
+
+        if not self.vault.is_account_whitelisted(owner):
+            raise VaultFlowUnavailable(
+                "Lagoon deposit account is not whitelisted",
+                protocol="Lagoon",
+                vault_address=self.vault.address,
+                caller=owner,
+                direction="deposit",
+                phase="preflight",
+                decoded_error="NotWhitelisted",
+                function_selector=NOT_WHITELISTED_SELECTOR,
+            )
 
     def _is_vault_paused(self) -> bool:
         """Read Lagoon's optional paused() flag defensively."""

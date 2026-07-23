@@ -36,6 +36,7 @@ from eth_defi.research.wrangle_vault_prices import forward_fill_vault
 from eth_defi.token import is_stablecoin_like, normalise_token_symbol
 from eth_defi.vault.base import VaultSpec
 from eth_defi.vault.curator import get_curator_name, identify_curator, is_protocol_curator
+from eth_defi.vault.deposit_redeem import VaultDepositPermission
 from eth_defi.vault.fee import FeeData, VaultFeeMode, get_vault_fee_mode
 from eth_defi.vault.flag import (
     ABNORMAL_SHARE_PRICE,
@@ -1703,6 +1704,20 @@ def calculate_vault_record(
     protocol_slug = vault_metadata["protocol_slug"]
     risk_numeric = risk.value if isinstance(risk, VaultTechnicalRisk) else None
 
+    stored_deposit_manager = vault_metadata.get("_deposit_manager")
+    if stored_deposit_manager is None:
+        deposit_manager = None
+    else:
+        # Keep the persisted capability mapping immutable: it can be reused by
+        # other report rows during this export.
+        deposit_manager = dict(stored_deposit_manager)
+        deposit_permission = vault_metadata.get("_deposit_permission", VaultDepositPermission.unknown.value)
+        try:
+            deposit_permission = VaultDepositPermission(deposit_permission).value
+        except (TypeError, ValueError):
+            deposit_permission = VaultDepositPermission.unknown.value
+        deposit_manager["deposit_permission"] = deposit_permission
+
     # Compact per-vault Core3 risk summary for the vault's protocol.
     # Core3 data is per-protocol, so all vaults of the same protocol share
     # the same summary. None when no Core3 records were supplied or the
@@ -2134,7 +2149,7 @@ def calculate_vault_record(
             # Static adapter support, distinct from the live closed-reason
             # fields immediately above.  Old metadata pickles safely export
             # null until they have been rescanned.
-            "deposit_manager": vault_metadata.get("_deposit_manager"),
+            "deposit_manager": deposit_manager,
             # Lending protocol statistics
             "available_liquidity": available_liquidity,
             "utilisation": utilisation,

@@ -44,9 +44,10 @@ from eth_defi.vault.flag import MISSING_IN_PROTOCOL_FRONTEND, VaultFlag
 from eth_defi.erc_7540.vault import ERC7540Vault
 from eth_defi.erc_4626.vault_protocol.lagoon.offchain_metadata import LagoonVaultMetadata, fetch_lagoon_vault_metadata
 
-from eth_defi.abi import encode_function_call, get_deployed_contract, get_function_abi_by_name, get_function_selector, present_solidity_args
+from eth_defi.abi import ZERO_ADDRESS_STR, encode_function_call, get_deployed_contract, get_function_abi_by_name, get_function_selector, present_solidity_args
 from eth_defi.erc_4626.core import ERC4626Feature
 from eth_defi.event_reader.multicall_batcher import EncodedCall
+from eth_defi.provider.fallback import ExtraValueError
 from eth_defi.safe.safe_compat import create_safe_ethereum_client
 from eth_defi.trace import assert_transaction_success_with_explanation
 
@@ -544,6 +545,78 @@ class LagoonVault(ERC7540Vault, AutomatedSafe):
             self.vault_abi,
             self.spec.vault_address,
         )
+
+    @cached_property
+    def whitelist_contract(self) -> Contract:
+        """Get the stable whitelist interface at the vault address.
+
+        Lagoon's version-specific vault ABIs do not consistently include the
+        inherited whitelist views.  The shared interface contains both
+        selectors and can be safely bound to every Lagoon vault deployment.
+        Unsupported selectors are translated to ``NotImplementedError`` by
+        the public accessors below.
+        """
+        return get_deployed_contract(
+            self.web3,
+            "lagoon/Whitelistable.json",
+            self.spec.vault_address,
+        )
+
+    def is_whitelisted_deposit(self) -> bool:
+        """Determine whether a Lagoon vault has enabled investor whitelisting.
+
+        Lagoon released ``isWhitelistActivated()`` in
+        `v0.3.0 <https://github.com/hopperlabsxyz/lagoon-v0/releases/tag/v0.3.0>`__
+        and retained it in the canonical
+        `v0.4.0 Whitelistable source <https://github.com/hopperlabsxyz/lagoon-v0/blob/v0.4.0/src/v0.4.0/Whitelistable.sol>`__.
+        The getter was removed from the
+        `v0.5.0 Whitelistable source <https://github.com/hopperlabsxyz/lagoon-v0/blob/v0.5.0/src/v0.5.0/Whitelistable.sol>`__,
+        despite ``isWhitelisted(address)`` remaining available.  For v0.5
+        deployments, use the zero-address sentinel: its ``False`` result means
+        whitelist enforcement is active, while ``True`` means deposits are
+        permissionless.  This follows the versioned implementation's
+        ``isWhitelisted`` branch for a disabled whitelist.
+
+        :return:
+            ``True`` when deposits require whitelisted accounts.
+
+        :raise NotImplementedError:
+            If the deployed Lagoon version exposes neither the policy getter
+            nor the ``isWhitelisted(address)`` fallback.
+        """
+        try:
+            return bool(self.whitelist_contract.functions.isWhitelistActivated().call())
+        except (BadFunctionCallOutput, ContractLogicError, ExtraValueError) as e:
+            try:
+                return not self.is_account_whitelisted(ZERO_ADDRESS_STR)
+            except NotImplementedError:
+                raise NotImplementedError(f"Lagoon vault {self.address} does not expose usable whitelist policy views") from e
+
+    def is_account_whitelisted(self, address: HexAddress) -> bool:
+        """Determine whether an account passes Lagoon's whitelist membership view.
+
+        In the versioned v0.5 implementation, the canonical
+        `isWhitelisted source <https://github.com/hopperlabsxyz/lagoon-v0/blob/v0.5.0/src/v0.5.0/Whitelistable.sol>`__
+        returns ``True`` for every account when the whitelist is disabled and
+        returns mapping membership when it is active.  Thus this probe is a
+        reliable whitelist-admission result even where the v0.5 deployment
+        lacks ``isWhitelistActivated()``.  It does not establish allowance,
+        capacity, pause state, or an open ERC-7540 request window.
+
+        :param address:
+            Account whose whitelist status is queried.
+
+        :return:
+            ``True`` when Lagoon's whitelist policy accepts the account.
+
+        :raise NotImplementedError:
+            If the deployed Lagoon version does not expose a usable membership
+            getter.
+        """
+        try:
+            return bool(self.whitelist_contract.functions.isWhitelisted(Web3.to_checksum_address(address)).call())
+        except (BadFunctionCallOutput, ContractLogicError, ExtraValueError) as e:
+            raise NotImplementedError(f"Lagoon vault {self.address} does not expose isWhitelisted(address)") from e
 
     def has_block_range_event_support(self):
         return True

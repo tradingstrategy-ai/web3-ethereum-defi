@@ -127,6 +127,14 @@ class VaultRow(TypedDict):
     #: export.  It is deliberately cleared when a rescan is broken.
     _deposit_manager: dict | None
 
+    #: Vault-wide deposit policy as ``whitelisted``, ``permissionless``, or
+    #: ``unknown``.
+    #:
+    #: Stored independently from ``_deposit_manager`` so a vault whose
+    #: transaction lifecycle is unsupported can still report a reliable
+    #: admission policy. Missing from legacy pickles means ``unknown``.
+    _deposit_permission: NotRequired[str]
+
     #: Protocol-supplied vault manager or curator display name.
     #:
     #: Used by :py:func:`eth_defi.vault.curator.identify_curator` when the

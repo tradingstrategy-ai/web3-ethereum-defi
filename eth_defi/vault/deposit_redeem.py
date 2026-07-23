@@ -26,6 +26,27 @@ logger = logging.getLogger(__name__)
 VaultDepositFlow = Literal["synchronous", "asynchronous"]
 
 
+class VaultDepositPermission(str, enum.Enum):
+    """Vault-wide policy for accepting deposits.
+
+    This class deliberately represents only whether the vault applies a
+    whitelist policy.  It does not describe a particular account's balance,
+    allowance, pause state, capacity, or whether an asynchronous request is
+    currently claimable.
+
+    The string values are persisted in vault metadata and public reports.
+    """
+
+    #: Deposits require protocol-specific account permission.
+    whitelisted = "whitelisted"
+
+    #: Any account may pass the protocol's permission policy.
+    permissionless = "permissionless"
+
+    #: The adapter cannot safely determine the vault-wide policy.
+    unknown = "unknown"
+
+
 @dataclass(frozen=True, slots=True)
 class VaultDepositManagerCapability:
     """Static public integration capability of a vault deposit manager.
@@ -143,6 +164,11 @@ class VaultFlowError(Exception):
         Requested amount in the contract's native raw unit, when applicable.
     :param available_raw_amount:
         Available amount in the contract's native raw unit, when applicable.
+    :param function_selector:
+        Four-byte selector of the denied protocol entry point, when known.
+    :param access_delay:
+        Access-manager scheduling delay in seconds, when a caller is eligible
+        only after delayed execution.
     """
 
     def __init__(
@@ -158,6 +184,8 @@ class VaultFlowError(Exception):
         raw_revert_data: HexBytes | None = None,
         requested_raw_amount: int | None = None,
         available_raw_amount: int | None = None,
+        function_selector: HexBytes | None = None,
+        access_delay: int | None = None,
     ) -> None:
         """Store structured context for a vault-flow failure."""
         super().__init__(reason)
@@ -171,6 +199,8 @@ class VaultFlowError(Exception):
         self.raw_revert_data = raw_revert_data
         self.requested_raw_amount = requested_raw_amount
         self.available_raw_amount = available_raw_amount
+        self.function_selector = function_selector
+        self.access_delay = access_delay
 
     def __str__(self) -> str:
         """Format the failure reason with available flow context."""
@@ -187,6 +217,10 @@ class VaultFlowError(Exception):
             context.append(f"phase={self.phase}")
         if self.decoded_error:
             context.append(f"decoded_error={self.decoded_error}")
+        if self.function_selector:
+            context.append(f"function_selector={self.function_selector.hex()}")
+        if self.access_delay is not None:
+            context.append(f"access_delay={self.access_delay}")
         if self.requested_raw_amount is not None:
             context.append(f"requested_raw_amount={self.requested_raw_amount}")
         if self.available_raw_amount is not None:

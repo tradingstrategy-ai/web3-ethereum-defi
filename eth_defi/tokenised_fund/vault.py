@@ -12,6 +12,21 @@ class TokenisedFundVault(VaultBase):
     dynamically from issuer registries, such as Asseto funds.
     """
 
+    def is_whitelisted_deposit(self) -> bool:
+        """Classify tokenised-fund subscriptions as permissioned.
+
+        Tokenised-fund adapters model issuer-operated products whose
+        subscriptions require investor eligibility, issuer approval, or both.
+        This is a vault-wide classification: individual adapters may expose
+        different KYC, allow-list, transfer-agent, or offchain settlement
+        mechanisms, so :meth:`is_account_whitelisted` remains
+        protocol-specific.
+
+        :return:
+            Always ``True`` because tokenised-fund deposits are permissioned.
+        """
+        return True
+
     def get_flags(self) -> set[VaultFlag]:
         """Return vault flags including the tokenised fund classification.
 
