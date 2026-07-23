@@ -200,5 +200,26 @@ def test_upshift_vault_uses_strategist_as_manager_not_curator() -> None:
     }
 
     assert vault.description == NEMO_API_RESPONSE["description"]
+    assert vault.short_description == NEMO_API_RESPONSE["description"]
     assert vault.fetch_strategist() == "NEMO"
     assert vault.manager_name == "NEMO"
+
+
+def test_upshift_vault_derives_short_description_from_metadata() -> None:
+    """Use the first sentence when Upshift metadata has a long description."""
+
+    vault = object.__new__(UpshiftVault)
+    vault.__dict__["upshift_metadata"] = {
+        "chain_id": 1,
+        "vault_address": Web3.to_checksum_address(UPSHIFT_NEMO_VAULT),
+        "name": "NEMO USDC Yield",
+        "description": "Automated market-neutral yield strategy. Strategies are actively rebalanced.",
+        "strategist_names": ("NEMO",),
+        "operator_names": (),
+        "status": "active",
+        "internal_type": "multiAssetVault",
+        "is_visible": True,
+    }
+
+    assert vault.description == "Automated market-neutral yield strategy. Strategies are actively rebalanced."
+    assert vault.short_description == "Automated market-neutral yield strategy."

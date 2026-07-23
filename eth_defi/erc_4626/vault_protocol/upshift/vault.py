@@ -245,7 +245,7 @@ class UpshiftVault(ERC4626Vault):
 
     @property
     def description(self) -> str | None:
-        """Return the Upshift-supplied vault strategy description.
+        """Return the full Upshift-supplied vault strategy description.
 
         :return:
             Public Upshift description, or ``None`` when it is not available.
@@ -254,6 +254,28 @@ class UpshiftVault(ERC4626Vault):
         if self.upshift_metadata is None:
             return None
         return self.upshift_metadata["description"]
+
+    @property
+    def short_description(self) -> str | None:
+        """Derive a one-sentence vault summary from Upshift's API description.
+
+        Upshift does not expose a dedicated short-description field, so this
+        follows the IPOR metadata convention and uses the first sentence of
+        its long-form strategy description.
+
+        :return:
+            First sentence of the public Upshift description, or ``None`` when
+            the API does not supply one.
+        """
+        description = self.description
+        if not description:
+            return None
+
+        sentence_end = description.find(". ")
+        if sentence_end >= 0:
+            return description[: sentence_end + 1]
+
+        return description.rstrip(".") + "."
 
     @property
     def manager_name(self) -> str | None:

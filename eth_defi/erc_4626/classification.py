@@ -509,7 +509,6 @@ CHAIN_RESTRICTED_PROBES: dict[str, set[int]] = {
     "poolId": {1, 8453, 42161},  # Centrifuge - Ethereum, Base, Arbitrum
     "wards": {1, 8453, 42161},  # Centrifuge - Ethereum, Base, Arbitrum
     "SPOKE_REVISION": {1},  # Aave v4 Tokenization Spoke - Ethereum only
-    "assetsWhitelistAddress": {1},  # Upshift multi-asset vaults - Ethereum only
 }
 
 
