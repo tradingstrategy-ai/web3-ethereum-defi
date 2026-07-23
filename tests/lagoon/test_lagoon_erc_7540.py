@@ -11,13 +11,12 @@ from web3 import Web3
 
 from eth_defi.erc_4626.classification import create_vault_instance
 from eth_defi.erc_4626.core import ERC4626Feature
-from eth_defi.erc_4626.flow import approve_and_deposit_4626, approve_and_redeem_4626
 from eth_defi.erc_4626.vault import ERC4626Vault
 from eth_defi.erc_4626.vault_protocol.lagoon.deployment import LagoonAutomatedDeployment, LagoonDeploymentParameters, deploy_automated_lagoon_vault
 from eth_defi.erc_4626.vault_protocol.lagoon.testing import force_lagoon_settle
 from eth_defi.erc_4626.vault_protocol.lagoon.vault import LagoonVault, LagoonVersion
 from eth_defi.hotwallet import HotWallet
-from eth_defi.provider.anvil import AnvilLaunch, fork_network_anvil, mine
+from eth_defi.provider.anvil import AnvilLaunch, fork_network_anvil
 from eth_defi.token import USDC_NATIVE_TOKEN, TokenDetails
 from eth_defi.trace import TransactionAssertionError, assert_transaction_success_with_explanation
 
@@ -152,14 +151,9 @@ def test_lagoon_erc_7540(
     tx_hash = deposit_func.transact({"from": depositor})
     assert_transaction_success_with_explanation(web3, tx_hash)
 
-    # Regression for ABIEventNotFound: parse the requestDeposit receipt on the
-    # freshly deployed non-legacy (v0.5.0) Lagoon vault. parse_deposit_transaction()
-    # has two branches: the legacy branch parses the raw Referral topic, while the
-    # non-legacy branch reads the ERC-7540 DepositRequest event. A typo
-    # (DepositRequested) silently broke the non-legacy branch for every modern
-    # Lagoon vault, yet no test caught it because all ERC-7540 fixtures point at the
-    # legacy 722 Capital vault. This exercises the non-legacy branch and asserts it
-    # resolves the event and returns a usable request_id.
+    # Regression for ABIEventNotFound: parse the standard ERC-7540
+    # DepositRequest event on a freshly deployed v0.5.0 Lagoon vault and
+    # confirm its request identifier is usable.
     assert vault.version != LagoonVersion.legacy
     fresh_deposit_request = vault.get_deposit_manager().create_deposit_request(
         depositor,
@@ -336,14 +330,9 @@ def test_lagoon_erc_7540_malicious_redemption(
     tx_hash = deposit_func.transact({"from": depositor})
     assert_transaction_success_with_explanation(web3, tx_hash)
 
-    # Regression for ABIEventNotFound: parse the requestDeposit receipt on the
-    # freshly deployed non-legacy (v0.5.0) Lagoon vault. parse_deposit_transaction()
-    # has two branches: the legacy branch parses the raw Referral topic, while the
-    # non-legacy branch reads the ERC-7540 DepositRequest event. A typo
-    # (DepositRequested) silently broke the non-legacy branch for every modern
-    # Lagoon vault, yet no test caught it because all ERC-7540 fixtures point at the
-    # legacy 722 Capital vault. This exercises the non-legacy branch and asserts it
-    # resolves the event and returns a usable request_id.
+    # Regression for ABIEventNotFound: parse the standard ERC-7540
+    # DepositRequest event on a freshly deployed v0.5.0 Lagoon vault and
+    # confirm its request identifier is usable.
     assert vault.version != LagoonVersion.legacy
     fresh_deposit_request = vault.get_deposit_manager().create_deposit_request(
         depositor,

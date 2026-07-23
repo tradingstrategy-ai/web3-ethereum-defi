@@ -10,7 +10,8 @@ import pytest
 from eth_defi.erc_4626.classification import create_vault_instance_autodetect
 from eth_defi.erc_4626.vault_protocol.ember.deposit_redeem import EmberDepositManager, EmberRedemptionTicket
 from eth_defi.erc_4626.vault_protocol.gains.deposit_redeem import OstiumDepositTicket, OstiumRedemptionTicket, OstiumV15DepositManager
-from eth_defi.erc_4626.vault_protocol.lagoon.deposit_redeem import ERC7540DepositManager, ERC7540DepositTicket, ERC7540RedemptionTicket
+from eth_defi.erc_4626.vault_protocol.lagoon.deposit_redeem import LagoonDepositManager
+from eth_defi.erc_7540.deposit_redeem import ERC7540DepositTicket, ERC7540RedemptionTicket
 from eth_defi.hypersync.server import get_hypersync_server
 from eth_defi.provider.multi_provider import create_multi_provider_web3
 from eth_defi.vault.flow_events import VaultFlowDirection
@@ -63,7 +64,7 @@ def test_lagoon_fetch_vault_flow_events_from_hypersync() -> None:
     web3 = create_multi_provider_web3(JSON_RPC_BASE)
     vault = create_vault_instance_autodetect(web3, "0xb09f761cb13baca8ec087ac476647361b6314f98")
     manager = vault.get_deposit_manager()
-    assert isinstance(manager, ERC7540DepositManager)
+    assert isinstance(manager, LagoonDepositManager)
 
     # 2. Fetch a small historical block range with known request events.
     flows = list(

@@ -12,8 +12,9 @@ from web3 import Web3
 
 from eth_defi.erc_4626.classification import create_vault_instance_autodetect
 from eth_defi.erc_4626.vault import ERC4626Vault
-from eth_defi.erc_4626.vault_protocol.lagoon.deposit_redeem import ERC7540DepositManager, ERC7540DepositRequest, ERC7540DepositTicket, ERC7540RedemptionTicket
+from eth_defi.erc_4626.vault_protocol.lagoon.deposit_redeem import LagoonDepositManager, LagoonDepositRequest
 from eth_defi.erc_4626.vault_protocol.lagoon.vault import LagoonVault, LagoonVersion
+from eth_defi.erc_7540.deposit_redeem import ERC7540DepositTicket, ERC7540RedemptionTicket
 from eth_defi.provider.anvil import AnvilLaunch, fork_network_anvil
 from eth_defi.provider.multi_provider import create_multi_provider_web3
 from eth_defi.token import USDC_WHALE, TokenDetails, fetch_erc20_details
@@ -110,7 +111,7 @@ def test_erc_7540_deposit_722_capital(
 ):
     """Use DepositManager interface to deposit into ERC-7540 vault on Lagoon run by 722 Capital"""
     deposit_manager = vault.get_deposit_manager()
-    assert isinstance(deposit_manager, ERC7540DepositManager)
+    assert isinstance(deposit_manager, LagoonDepositManager)
     assert vault.is_whitelisted_deposit() is False
     assert vault.is_account_whitelisted(test_user) is True
     assert deposit_manager.can_create_deposit_request(test_user) is True
@@ -134,7 +135,7 @@ def test_erc_7540_deposit_722_capital(
         test_user,
         amount=amount,
     )
-    assert isinstance(request, ERC7540DepositRequest)
+    assert isinstance(request, LagoonDepositRequest)
     deposit_ticket = request.broadcast()
     assert isinstance(deposit_ticket, ERC7540DepositTicket)
     assert deposit_ticket.request_id == 33
@@ -187,7 +188,7 @@ def test_erc_7540_redeem_722_capital(
 ):
     """Use DepositManager interface to redeem into ERC-7540 vault on Lagoon run by 722 Capital"""
     deposit_manager = vault.get_deposit_manager()
-    assert isinstance(deposit_manager, ERC7540DepositManager)
+    assert isinstance(deposit_manager, LagoonDepositManager)
     assert not deposit_manager.has_synchronous_redemption()
     assert not deposit_manager.is_deposit_in_progress(test_user)
     assert not deposit_manager.is_redemption_in_progress(test_user)

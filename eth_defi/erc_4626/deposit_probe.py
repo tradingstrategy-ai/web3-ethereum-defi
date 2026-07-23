@@ -70,6 +70,28 @@ class AnvilProbeTransactionError(RuntimeError):
     """Anvil mined a probe transaction with a failing status."""
 
 
+def _format_vault_flow_error_context(error: VaultFlowError) -> dict[str, object]:
+    """Convert structured flow-error fields to JSON-compatible values.
+
+    Byte selectors are rendered as hexadecimal strings so the diagnostic can
+    be persisted in the probe's JSON status file.
+
+    :param error:
+        Flow failure raised by a protocol manager.
+    :return:
+        Protocol-neutral diagnostic fields without changing probe outcome.
+    """
+    return {
+        "protocol": error.protocol,
+        "direction": error.direction,
+        "phase": error.phase,
+        "decoded_error": error.decoded_error,
+        "function_selector": error.function_selector.hex() if error.function_selector else None,
+        "error_selector": error.error_selector.hex() if error.error_selector else None,
+        "access_delay": error.access_delay,
+    }
+
+
 def _format_vault_flow_failure(
     error: VaultFlowError,
     capability_data: dict[str, object] | None = None,
@@ -79,21 +101,39 @@ def _format_vault_flow_failure(
     result: ProbeResult = {
         "outcome": "flow_unavailable",
         "message": str(error),
-        "flow_error": {
-            "protocol": error.protocol,
-            "direction": error.direction,
-            "phase": error.phase,
-            "decoded_error": error.decoded_error,
-            "function_selector": error.function_selector.hex() if error.function_selector else None,
-            "error_selector": error.error_selector.hex() if error.error_selector else None,
-            "access_delay": error.access_delay,
-        },
+        "flow_error": _format_vault_flow_error_context(error),
     }
     if capability_data is not None:
         result["deposit_manager"] = capability_data
     if max_deposit_guidance is not None:
         result["max_deposit_guidance"] = max_deposit_guidance
     return result
+
+
+def merge_redemption_flow_failure(
+    result: ProbeResult,
+    error: VaultFlowError,
+) -> ProbeResult:
+    """Preserve a successful deposit while recording redemption unavailability.
+
+    A synchronous probe may successfully deposit before a protocol-specific
+    redemption delay rejects the immediate redemption request. The vault is
+    still depositable, so this condition must not replace the successful
+    top-level outcome.
+
+    :param result:
+        Successful deposit result accumulated by the probe.
+    :param error:
+        Structured redemption failure.
+    :return:
+        Copy of the result with redemption-specific failure diagnostics.
+    """
+    return {
+        **result,
+        "redemption_status_detail": "flow_unavailable",
+        "redemption_message": str(error),
+        "redemption_flow_error": _format_vault_flow_error_context(error),
+    }
 
 
 def prepare_probe_deposit_request(
@@ -689,6 +729,8 @@ def probe_candidate(  # noqa: PLR0914
             encoded_redemptions = [encode_simple_vault_transaction(function) for function in redemption.funcs]
             for target, calldata in encoded_redemptions:
                 guard.functions.validateCall(control.address, target, calldata).call()
+        except VaultFlowError as e:
+            return merge_redemption_flow_failure(result, e)
         except (*PROBE_EXECUTION_EXCEPTIONS, AssertionError) as e:
             return {**result, "outcome": "guard_validation_error", "message": f"Synchronous redemption validation failed: {e}"}
         try:

@@ -8,7 +8,7 @@ import pytest
 from hexbytes import HexBytes
 
 import eth_defi.erc_4626.deposit_redeem as erc_4626_deposit_redeem
-from eth_defi.erc_4626.deposit_probe import DEFAULT_STATUS_PATH, VaultDepositProbeCandidate, VaultDepositProbeOutput, fetch_max_deposit_guidance, log_probe_tables, prepare_probe_deposit_request, require_simulation, run_from_environment, select_candidates, update_status
+from eth_defi.erc_4626.deposit_probe import DEFAULT_STATUS_PATH, VaultDepositProbeCandidate, VaultDepositProbeOutput, fetch_max_deposit_guidance, log_probe_tables, merge_redemption_flow_failure, prepare_probe_deposit_request, require_simulation, run_from_environment, select_candidates, update_status
 from eth_defi.erc_4626.deposit_redeem import ERC4626DepositManager
 from eth_defi.erc_4626.vault import CERTIFIED_SYNCHRONOUS_DEPOSIT_MANAGER_CLASSES, ERC4626Vault
 from eth_defi.erc_4626.vault_protocol.gains.deposit_redeem import GainsDepositManager, GainsRedemptionTicket
@@ -162,6 +162,44 @@ def test_probe_records_preflight_refusal_without_aborting() -> None:
         "function_selector": "85b77f45",
         "error_selector": "584a7938",
         "access_delay": None,
+    }
+
+
+def test_probe_preserves_successful_deposit_when_redemption_is_unavailable() -> None:
+    """An immediate redemption delay must not erase successful deposit evidence."""
+    result = {
+        "outcome": "success",
+        "message": None,
+        "deposit_manager": {
+            "can_deposit": True,
+            "can_redeem": True,
+            "deposit_flow": "synchronous",
+            "redemption_flow": "synchronous",
+        },
+        "minted_share_amount_raw": "123",
+    }
+    error = VaultFlowUnavailable(
+        "IPOR redemption is temporarily locked",
+        protocol="IPOR",
+        direction="redeem",
+        phase="preflight",
+        access_delay=3600,
+    )
+
+    merged = merge_redemption_flow_failure(result, error)
+
+    assert merged["outcome"] == "success"
+    assert merged["minted_share_amount_raw"] == "123"
+    assert merged["redemption_status_detail"] == "flow_unavailable"
+    assert merged["redemption_message"] == ("IPOR redemption is temporarily locked (protocol=IPOR, direction=redeem, phase=preflight, access_delay=3600)")
+    assert merged["redemption_flow_error"] == {
+        "protocol": "IPOR",
+        "direction": "redeem",
+        "phase": "preflight",
+        "decoded_error": None,
+        "function_selector": None,
+        "error_selector": None,
+        "access_delay": 3600,
     }
 
 
