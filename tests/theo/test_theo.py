@@ -114,7 +114,7 @@ def test_thbill_scan_record_is_unpriced_not_broken() -> None:
     assert record["Protocol"] == "Theo"
     assert record["NAV"] is None
     assert record["Shares"] == THBILL_EXPECTED_TOTAL_SUPPLY
-    assert record["_deposit_manager"] is None
+    assert record["_deposit_manager"] == {"can_deposit": False, "can_redeem": False}
     assert record["_deposit_closed_reason"] == THEO_ITOKEN_RESTRICTED_FLOW_REASON
 
 

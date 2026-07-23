@@ -188,5 +188,5 @@ def test_jtrsy_scan_record_is_unpriced_not_broken(web3: Web3) -> None:
     assert record["Protocol"] == "Centrifuge"
     assert record["NAV"] is None
     assert record["Shares"] == JTRSY_EXPECTED_TOTAL_SUPPLY
-    assert record["_deposit_manager"] is None
+    assert record["_deposit_manager"] == {"can_deposit": False, "can_redeem": False}
     assert record["_deposit_closed_reason"] == CENTRIFUGE_TRANCHE_BLOCKED_FLOW_REASON
