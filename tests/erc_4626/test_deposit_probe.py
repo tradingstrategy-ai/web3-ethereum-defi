@@ -21,13 +21,17 @@ from eth_defi.vault.vaultdb import VaultDatabase
 
 
 def test_vault_deposit_manager_capability_suppresses_partial_public_support() -> None:
-    """The initial JSON schema advertises only complete two-way managers."""
+    """The initial JSON schema advertises only symmetric manager support."""
     complete = VaultDepositManagerCapability(True, True, "synchronous", "asynchronous")
     assert complete.as_initial_public_schema() == {
         "can_deposit": True,
         "can_redeem": True,
         "deposit_flow": "synchronous",
         "redemption_flow": "asynchronous",
+    }
+    assert VaultDepositManagerCapability(False, False).as_initial_public_schema() == {
+        "can_deposit": False,
+        "can_redeem": False,
     }
     assert VaultDepositManagerCapability(True, False, "synchronous", None).as_initial_public_schema() is None
     assert VaultDepositManagerCapability(False, True, None, "asynchronous").as_initial_public_schema() is None

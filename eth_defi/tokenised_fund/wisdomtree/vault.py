@@ -22,7 +22,7 @@ from eth_defi.tokenised_fund.wisdomtree.constants import WISDOMTREE_PRODUCTS, Wi
 from eth_defi.tokenised_fund.wisdomtree.historical import WisdomTreeVaultHistoricalReader
 from eth_defi.tokenised_fund.wisdomtree.nav import WisdomTreeNAVPoint, fetch_wisdomtree_nav_history
 from eth_defi.types import Percent
-from eth_defi.vault.base import TradingUniverse, VaultDepositManager, VaultFlowManager, VaultHistoricalReader, VaultInfo, VaultPortfolio, VaultSpec
+from eth_defi.vault.base import TradingUniverse, VaultFlowManager, VaultHistoricalReader, VaultInfo, VaultPortfolio, VaultSpec
 from eth_defi.vault.fee import FeeData, VaultFeeMode
 from eth_defi.vault.lower_case_dict import LowercaseDict
 
@@ -254,15 +254,6 @@ class WisdomTreeVault(TokenisedFundVault):
         """
 
         message = "WisdomTree flow accounting is not implemented"
-        raise NotImplementedError(message)
-
-    def get_deposit_manager(self) -> VaultDepositManager:
-        """Reject incomplete public subscription/redemption support.
-
-        :raise NotImplementedError: Always.
-        """
-
-        message = "WisdomTree public subscription/redemption is not implemented"
         raise NotImplementedError(message)
 
     def fetch_deposit_closed_reason(self) -> str | None:

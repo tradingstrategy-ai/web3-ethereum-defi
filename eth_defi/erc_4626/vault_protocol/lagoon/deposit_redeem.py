@@ -15,12 +15,26 @@ from web3._utils.events import EventLogErrorFlags
 from web3.contract.contract import ContractFunction
 from web3.exceptions import BadFunctionCallOutput
 
-from eth_defi.abi import ZERO_ADDRESS_STR, get_topic_signature_from_event
+from eth_defi.abi import get_topic_signature_from_event
 from eth_defi.event_reader.conversion import BadAddressError, convert_bytes32_to_address, convert_bytes32_to_uint, convert_int256_bytes_to_int
 from eth_defi.event_reader.multicall_batcher import EncodedCall
 from eth_defi.middleware import ProbablyNodeHasNoBlock
 from eth_defi.provider.anvil import is_anvil, make_anvil_custom_rpc_request
 from eth_defi.timestamp import get_block_timestamp
+from eth_defi.vault.deposit_redeem import (
+    AsyncVaultRequestStatus,
+    CannotParseRedemptionTransaction,
+    DepositRedeemEventAnalysis,
+    DepositRedeemEventFailure,
+    DepositRequest,
+    DepositTicket,
+    RedemptionRequest,
+    RedemptionTicket,
+    UnsupportedVaultSimulation,
+    VaultDepositManager,
+    VaultFlowUnavailable,
+    VaultForcedSettlementResult,
+)
 from eth_defi.vault.flow_events import (
     PendingVaultFlow,
     VaultFlowDirection,
@@ -32,23 +46,12 @@ from eth_defi.vault.flow_events import (
     fetch_vault_flow_logs_hypersync,
     normalise_event_topic,
 )
-from eth_defi.vault.deposit_redeem import (
-    AsyncVaultRequestStatus,
-    CannotParseRedemptionTransaction,
-    DepositRedeemEventAnalysis,
-    DepositRedeemEventFailure,
-    DepositRequest,
-    DepositTicket,
-    RedemptionRequest,
-    RedemptionTicket,
-    VaultDepositManager,
-    VaultFlowUnavailable,
-    UnsupportedVaultSimulation,
-    VaultForcedSettlementResult,
-)
 
 #: ``NotWhitelisted()`` custom-error selector in Lagoon deployments.
 NOT_WHITELISTED_SELECTOR = HexBytes("0x584a7938")
+
+#: ``requestDeposit(uint256,address,address)`` Lagoon entry-point selector.
+REQUEST_DEPOSIT_SELECTOR = HexBytes("0x85b77f45")
 
 
 @dataclass(slots=True)
@@ -143,7 +146,7 @@ class ERC7540RedemptionRequest(RedemptionRequest):
     """Synchronous deposit request for ERC-7540 vaults."""
 
     def parse_redeem_transaction(self, tx_hashes: list[HexBytes]) -> RedemptionTicket:
-        from eth_defi.erc_4626.vault_protocol.lagoon.vault import LagoonVault, LagoonVersion
+        from eth_defi.erc_4626.vault_protocol.lagoon.vault import LagoonVault
 
         tx_hash = tx_hashes[-1]
 
@@ -611,7 +614,8 @@ class ERC7540DepositManager(VaultDepositManager):
                 direction="deposit",
                 phase="preflight",
                 decoded_error="NotWhitelisted",
-                function_selector=NOT_WHITELISTED_SELECTOR,
+                function_selector=REQUEST_DEPOSIT_SELECTOR,
+                error_selector=NOT_WHITELISTED_SELECTOR,
             )
 
     def _is_vault_paused(self) -> bool:

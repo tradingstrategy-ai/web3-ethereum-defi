@@ -13,6 +13,8 @@ from eth_defi.provider.fallback import ExtraValueError
 from eth_defi.vault.base import VaultBase, VaultSpec
 from eth_defi.vault.deposit_redeem import VaultDepositPermission, VaultFlowUnavailable
 
+ACCESS_DELAY = 3600
+
 
 class PermissionVault:
     """Minimal scan adapter used to exercise permission error boundaries."""
@@ -95,7 +97,7 @@ def test_ipor_delayed_access_is_not_immediately_admissible() -> None:
     """Keep scheduled IPOR membership distinct from immediate admission."""
     vault = object.__new__(IPORVault)
     vault.spec = VaultSpec(1, "0x0000000000000000000000000000000000000001")
-    vault.fetch_selector_access = lambda *_: (False, 3600)
+    vault.fetch_selector_access = lambda *_: (False, ACCESS_DELAY)
     manager = IPORDepositManager(vault)
 
     with pytest.raises(VaultFlowUnavailable, match="delayed execution") as exc_info:
@@ -105,5 +107,5 @@ def test_ipor_delayed_access_is_not_immediately_admissible() -> None:
             "deposit",
         )
 
-    assert exc_info.value.decoded_error == "AccessManagerNotScheduled"
-    assert exc_info.value.access_delay == 3600
+    assert exc_info.value.decoded_error is None
+    assert exc_info.value.access_delay == ACCESS_DELAY

@@ -101,15 +101,18 @@ class VaultDepositManagerCapability:
     def as_initial_public_schema(self) -> dict[str, bool | str] | None:
         """Return the initial public schema or fail closed for partial support.
 
-        The first export version intentionally advertises only two-way manager
-        support.  Keeping the internal representation directional leaves room
-        for a future schema revision without making a partial manager look
-        depositable today.
+        The first export version advertises only symmetric manager support:
+        both directions must either be implemented or explicitly unsupported.
+        Keeping the internal representation directional leaves room for a
+        future schema revision without making a partial manager look
+        depositable today. An explicit ``False``/``False`` capability remains
+        useful because it distinguishes a deliberate refusing manager from an
+        adapter whose transaction support is unknown.
 
         :return:
-            Two-way public capability object, or ``None`` for partial support.
+            Symmetric public capability object, or ``None`` for partial support.
         """
-        if not (self.can_deposit and self.can_redeem):
+        if self.can_deposit != self.can_redeem:
             return None
         return self.as_dict()
 
@@ -166,6 +169,8 @@ class VaultFlowError(Exception):
         Available amount in the contract's native raw unit, when applicable.
     :param function_selector:
         Four-byte selector of the denied protocol entry point, when known.
+    :param error_selector:
+        Four-byte selector of the expected or decoded custom error, when known.
     :param access_delay:
         Access-manager scheduling delay in seconds, when a caller is eligible
         only after delayed execution.
@@ -185,6 +190,7 @@ class VaultFlowError(Exception):
         requested_raw_amount: int | None = None,
         available_raw_amount: int | None = None,
         function_selector: HexBytes | None = None,
+        error_selector: HexBytes | None = None,
         access_delay: int | None = None,
     ) -> None:
         """Store structured context for a vault-flow failure."""
@@ -200,6 +206,7 @@ class VaultFlowError(Exception):
         self.requested_raw_amount = requested_raw_amount
         self.available_raw_amount = available_raw_amount
         self.function_selector = function_selector
+        self.error_selector = error_selector
         self.access_delay = access_delay
 
     def __str__(self) -> str:
@@ -219,6 +226,8 @@ class VaultFlowError(Exception):
             context.append(f"decoded_error={self.decoded_error}")
         if self.function_selector:
             context.append(f"function_selector={self.function_selector.hex()}")
+        if self.error_selector:
+            context.append(f"error_selector={self.error_selector.hex()}")
         if self.access_delay is not None:
             context.append(f"access_delay={self.access_delay}")
         if self.requested_raw_amount is not None:

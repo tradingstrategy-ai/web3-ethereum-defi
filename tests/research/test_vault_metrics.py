@@ -459,6 +459,26 @@ def test_calculate_lifetime_metrics_defaults_legacy_deposit_permission_to_unknow
     assert metrics.iloc[0]["deposit_manager"]["deposit_permission"] == "unknown"
 
 
+def test_calculate_lifetime_metrics_exports_permission_for_refusing_manager(
+    vault_db: VaultDatabase,
+    price_df: pd.DataFrame,
+) -> None:
+    """Permissioned funds retain policy metadata while refusing public flows."""
+    vault_id = "43111-0x05c2e246156d37b39a825a25dd08d5589e3fd883"
+    vault_spec = VaultSpec.parse_string(vault_id)
+    vault_row = dict(vault_db.rows[vault_spec])
+    vault_row["_deposit_manager"] = {"can_deposit": False, "can_redeem": False}
+    vault_row["_deposit_permission"] = "whitelisted"
+
+    metrics = calculate_lifetime_metrics(price_df.loc[price_df["id"] == vault_id], {vault_spec: vault_row})
+
+    assert metrics.iloc[0]["deposit_manager"] == {
+        "can_deposit": False,
+        "can_redeem": False,
+        "deposit_permission": "whitelisted",
+    }
+
+
 def test_calculate_lifetime_metrics_preserves_null_deposit_manager(
     vault_db: VaultDatabase,
     price_df: pd.DataFrame,

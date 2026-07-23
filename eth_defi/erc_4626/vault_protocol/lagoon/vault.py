@@ -588,6 +588,8 @@ class LagoonVault(ERC7540Vault, AutomatedSafe):
             return bool(self.whitelist_contract.functions.isWhitelistActivated().call())
         except (BadFunctionCallOutput, ContractLogicError, ExtraValueError) as e:
             try:
+                # The zero address can never submit a transaction and will never
+                # be whitelisted because granting it admission has no meaning.
                 return not self.is_account_whitelisted(ZERO_ADDRESS_STR)
             except NotImplementedError:
                 raise NotImplementedError(f"Lagoon vault {self.address} does not expose usable whitelist policy views") from e

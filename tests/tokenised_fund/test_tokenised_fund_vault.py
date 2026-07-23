@@ -10,8 +10,9 @@ import pytest
 import eth_defi.tokenised_fund
 from eth_defi.tokenised_fund.theo.constants import THBILL_ETHEREUM
 from eth_defi.tokenised_fund.theo.vault import TheoITokenVault
-from eth_defi.tokenised_fund.vault import TokenisedFundVault
+from eth_defi.tokenised_fund.vault import TokenisedFundDepositManager, TokenisedFundVault
 from eth_defi.vault.base import VaultBase, VaultSpec
+from eth_defi.vault.deposit_redeem import VaultFlowUnavailable
 from eth_defi.vault.flag import VaultFlag
 
 
@@ -56,6 +57,34 @@ def test_all_tokenised_fund_adapters_use_shared_classification(vault_class: type
 def test_all_tokenised_fund_adapters_report_permissioned_deposits(vault_class: type[VaultBase]) -> None:
     """Classify every tokenised-fund subscription as permissioned."""
     assert vault_class.is_whitelisted_deposit(object()) is True
+
+
+@pytest.mark.parametrize("vault_class", TOKENISED_FUND_VAULT_CLASSES)
+def test_all_tokenised_fund_adapters_refuse_public_actions(vault_class: type[VaultBase]) -> None:
+    """Expose an explicit manager that refuses unsupported public dealing."""
+    vault = object.__new__(vault_class)
+    manager = vault.get_deposit_manager()
+
+    assert isinstance(manager, TokenisedFundDepositManager)
+    assert manager.can_create_deposit_request("0x0000000000000000000000000000000000000001") is False
+    assert manager.can_create_redemption_request("0x0000000000000000000000000000000000000001") is False
+    with pytest.raises(VaultFlowUnavailable, match="issuer-specific permission"):
+        manager.create_deposit_request(
+            "0x0000000000000000000000000000000000000001",
+            raw_amount=1,
+        )
+    with pytest.raises(VaultFlowUnavailable, match="issuer-specific permission"):
+        manager.create_redemption_request(
+            "0x0000000000000000000000000000000000000001",
+            raw_shares=1,
+        )
+    with pytest.raises(VaultFlowUnavailable, match="issuer-specific permission"):
+        manager.force_settle(None)
+
+    assert vault.get_deposit_manager_capability().as_initial_public_schema() == {
+        "can_deposit": False,
+        "can_redeem": False,
+    }
 
 
 def test_tokenised_fund_adapter_always_adds_descriptive_flag() -> None:

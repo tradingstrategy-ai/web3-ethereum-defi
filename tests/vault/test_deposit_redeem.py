@@ -32,15 +32,17 @@ def test_vault_flow_unavailable_preserves_context() -> None:
 
 
 def test_vault_flow_unavailable_preserves_access_context() -> None:
-    """Keep selector and access-delay diagnostics for admission pre-flights."""
+    """Keep function, error, and access-delay diagnostics distinct."""
     error = VaultFlowUnavailable(
         "Access must be scheduled",
         caller=HexAddress("0x0000000000000000000000000000000000000002"),
         direction="deposit",
         function_selector=HexBytes("0x6e553f65"),
+        error_selector=HexBytes("0x068ca9d8"),
         access_delay=ACCESS_DELAY,
     )
 
     assert error.function_selector == HexBytes("0x6e553f65")
+    assert error.error_selector == HexBytes("0x068ca9d8")
     assert error.access_delay == ACCESS_DELAY
-    assert str(error) == "Access must be scheduled (caller=0x0000000000000000000000000000000000000002, direction=deposit, function_selector=6e553f65, access_delay=3600)"
+    assert str(error) == "Access must be scheduled (caller=0x0000000000000000000000000000000000000002, direction=deposit, function_selector=6e553f65, error_selector=068ca9d8, access_delay=3600)"

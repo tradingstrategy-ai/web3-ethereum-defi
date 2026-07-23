@@ -3,7 +3,9 @@
 import os
 
 import pytest
+from hexbytes import HexBytes
 
+from eth_defi.erc_4626.vault_protocol.lagoon.deposit_redeem import NOT_WHITELISTED_SELECTOR, REQUEST_DEPOSIT_SELECTOR
 from eth_defi.erc_4626.vault_protocol.lagoon.vault import LagoonVault, LagoonVersion
 from eth_defi.provider.anvil import fork_network_anvil
 from eth_defi.provider.multi_provider import create_multi_provider_web3
@@ -70,5 +72,9 @@ def test_reported_lagoon_private_vault_memberships_without_policy_getter(
             with pytest.raises(VaultFlowUnavailable, match="not whitelisted") as exc_info:
                 manager.create_deposit_request(REPORT_CALLER, raw_amount=1)
             assert exc_info.value.decoded_error == "NotWhitelisted"
+            assert exc_info.value.function_selector == REQUEST_DEPOSIT_SELECTOR
+            assert exc_info.value.error_selector == NOT_WHITELISTED_SELECTOR
+            assert exc_info.value.function_selector == HexBytes("0x85b77f45")
+            assert exc_info.value.error_selector == HexBytes("0x584a7938")
     finally:
         launch.close()

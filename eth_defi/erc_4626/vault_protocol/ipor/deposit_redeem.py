@@ -69,7 +69,7 @@ class IPORDepositManager(ERC4626DepositManager):
 
         if delay > 0:
             reason = "IPOR access requires delayed execution"
-            decoded_error = "AccessManagerNotScheduled"
+            decoded_error = None
         else:
             # ``canCall() == (False, 0)`` can mean an unauthorised caller, a
             # closed target, or an IPOR-specific temporary redemption lock.
@@ -97,7 +97,7 @@ class IPORDepositManager(ERC4626DepositManager):
         raw_amount: int | None = None,
         check_max_deposit: bool = True,
         check_enough_token: bool = True,
-    ) -> ERC4626DepositRequest:  # noqa: PLR0917, FBT001, FBT002
+    ) -> ERC4626DepositRequest:
         """Create a standard ERC-4626 deposit after access admission.
 
         :param owner:
@@ -133,7 +133,7 @@ class IPORDepositManager(ERC4626DepositManager):
         raw_shares: int | None = None,
         check_max_deposit: bool = True,
         check_enough_token: bool = True,
-    ) -> ERC4626RedemptionRequest:  # noqa: PLR0917, FBT001, FBT002
+    ) -> ERC4626RedemptionRequest:
         """Create a standard ERC-4626 redemption after access admission.
 
         :param owner:
