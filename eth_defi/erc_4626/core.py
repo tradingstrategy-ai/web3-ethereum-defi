@@ -860,7 +860,9 @@ def is_activity_filter_exempt(detection: "ERC4262VaultDetection") -> bool:
     contracts. Upshift multi-asset vaults are another exception: older
     production metadata can be seeded or refreshed by address after the custom
     event support lands, and targeted price rescans should not be blocked by a
-    stale low deposit counter.
+    stale low deposit counter. T3tris migration-pool vaults are a third case:
+    the migration can initialise the vault without vault-local flow events,
+    while its T3tris configuration batch identifies the vault.
 
     :param detection:
         Shared vault detection envelope.
@@ -874,6 +876,7 @@ def is_activity_filter_exempt(detection: "ERC4262VaultDetection") -> bool:
         for feature in (
             ERC4626Feature.mellow_like,
             ERC4626Feature.upshift_multi_asset_like,
+            ERC4626Feature.t3tris_like,
         )
     )
 
