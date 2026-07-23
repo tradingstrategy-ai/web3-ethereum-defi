@@ -20,6 +20,7 @@ from eth_defi.tokenised_fund.theo import backfill
 from eth_defi.tokenised_fund.theo.constants import ETHEREUM_CHAIN_ID, THBILL_ETHEREUM
 from eth_defi.tokenised_fund.theo.historical import TheoITokenHistoricalReader
 from eth_defi.tokenised_fund.theo.vault import THEO_ITOKEN_RESTRICTED_FLOW_REASON, TheoITokenVault
+from eth_defi.tokenised_fund.vault import TokenisedFundDepositManager
 from eth_defi.vault.curator import identify_curator
 
 JSON_RPC_ETHEREUM = os.environ.get("JSON_RPC_ETHEREUM")
@@ -47,9 +48,8 @@ def test_thbill_adapter_blocks_unreviewed_public_flows() -> None:
     assert get_vault_protocol_name({ERC4626Feature.theo_itoken_like}) == "Theo"
     assert vault.fetch_deposit_closed_reason() == THEO_ITOKEN_RESTRICTED_FLOW_REASON
     assert vault.fetch_redemption_closed_reason() == THEO_ITOKEN_RESTRICTED_FLOW_REASON
-    assert vault.get_deposit_manager_capability() is None
-    with pytest.raises(NotImplementedError, match="KYC approval"):
-        vault.get_deposit_manager()
+    assert vault.get_deposit_manager_capability().as_initial_public_schema() == {"can_deposit": False, "can_redeem": False}
+    assert isinstance(vault.get_deposit_manager(), TokenisedFundDepositManager)
     reader = vault.get_historical_reader(stateful=True)
     assert isinstance(reader.reader_state, VaultReaderState)
 
@@ -90,7 +90,7 @@ def test_thbill_live_token_surface() -> None:
     assert vault.fetch_total_supply(THBILL_TEST_BLOCK) == THBILL_EXPECTED_TOTAL_SUPPLY
     with pytest.raises(NotImplementedError, match="no reviewed scalar NAV/share source"):
         vault.fetch_share_price(THBILL_TEST_BLOCK)
-    assert vault.get_deposit_manager_capability() is None
+    assert vault.get_deposit_manager_capability().as_initial_public_schema() == {"can_deposit": False, "can_redeem": False}
 
 
 @flaky.flaky

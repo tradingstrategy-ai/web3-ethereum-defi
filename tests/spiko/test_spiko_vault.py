@@ -16,6 +16,7 @@ from eth_defi.provider.multi_provider import create_multi_provider_web3
 from eth_defi.tokenised_fund.spiko.constants import USTBL_FIRST_SEEN_AT, USTBL_FIRST_SEEN_AT_BLOCK, USTBL_TOKEN_ADDRESS
 from eth_defi.tokenised_fund.spiko.historical import SpikoHistoricalReader, SpikoVaultReaderState
 from eth_defi.tokenised_fund.spiko.vault import SPIKO_PERMISSIONED_FLOW_REASON, USTBL_MANAGEMENT_FEE, SpikoVault
+from eth_defi.tokenised_fund.vault import TokenisedFundDepositManager
 from eth_defi.vault.curator import identify_curator, is_protocol_curator
 from eth_defi.vault.fee import VaultFeeMode
 
@@ -76,8 +77,7 @@ def test_spiko_adapter_and_historical_reader(web3: Web3) -> None:
     assert vault.fetch_redemption_closed_reason() == SPIKO_PERMISSIONED_FLOW_REASON
     assert vault.get_fee_data().fee_mode is VaultFeeMode.internalised_skimming
     assert vault.get_fee_data().management == USTBL_MANAGEMENT_FEE
-    with pytest.raises(NotImplementedError):
-        vault.get_deposit_manager()
+    assert isinstance(vault.get_deposit_manager(), TokenisedFundDepositManager)
 
     reader = vault.get_historical_reader(stateful=True)
     assert isinstance(reader, SpikoHistoricalReader)

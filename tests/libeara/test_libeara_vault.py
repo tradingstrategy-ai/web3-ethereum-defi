@@ -14,6 +14,7 @@ from eth_defi.provider.multi_provider import create_multi_provider_web3
 from eth_defi.tokenised_fund.libeara.constants import BELIF_ETHEREUM, CUMIU_ETHEREUM, ETHEREUM_CHAIN_ID
 from eth_defi.tokenised_fund.libeara.historical import LibearaVaultHistoricalReader, LibearaVaultReaderState
 from eth_defi.tokenised_fund.libeara.vault import LIBEARA_RESTRICTED_FLOW_REASON, LibearaVault
+from eth_defi.tokenised_fund.vault import TokenisedFundDepositManager
 from eth_defi.vault.curator import identify_curator
 
 JSON_RPC_ETHEREUM = os.environ.get("JSON_RPC_ETHEREUM")
@@ -62,11 +63,10 @@ def test_libeara_adapter_reads_cmtat_nav(web3: Web3, product) -> None:
     assert vault.fetch_total_supply(TEST_BLOCK) == expected_supply
     assert vault.fetch_share_price(TEST_BLOCK) == expected_price
     assert vault.fetch_total_assets(TEST_BLOCK) == expected_supply * expected_price
-    assert vault.get_deposit_manager_capability() is None
+    assert vault.get_deposit_manager_capability().as_initial_public_schema() == {"can_deposit": False, "can_redeem": False}
     assert vault.fetch_deposit_closed_reason() == LIBEARA_RESTRICTED_FLOW_REASON
     assert vault.fetch_redemption_closed_reason() == LIBEARA_RESTRICTED_FLOW_REASON
-    with pytest.raises(NotImplementedError):
-        vault.get_deposit_manager()
+    assert isinstance(vault.get_deposit_manager(), TokenisedFundDepositManager)
     with pytest.raises(NotImplementedError):
         vault.get_flow_manager()
 
