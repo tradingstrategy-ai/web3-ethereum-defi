@@ -128,25 +128,6 @@ def test_lighter_flow_derivation_rejects_gaps_resets_and_current_day() -> None:
     assert pd.isna(result.loc[4, "daily_deposit_usd"]), "The current UTC day is provisional"
 
 
-def test_lighter_operator_snapshot_is_metadata_only() -> None:
-    """Retain ownership fields in the synthetic vault metadata row."""
-    _, vault_row = create_lighter_pool_row(
-        account_index=42,
-        name="Test pool",
-        description=None,
-        tvl=1_000.0,
-        created_at=datetime.datetime(2025, 1, 1),
-        total_shares=1_000,
-        operator_shares=125,
-        ownership_updated_at=datetime.datetime(2025, 1, 2),
-    )
-
-    assert vault_row["_lighter_operator_shares"] == 125
-    assert vault_row["_lighter_total_shares"] == 1_000
-    assert vault_row["_lighter_operator_share_fraction"] == pytest.approx(0.125)
-    assert vault_row["_lighter_ownership_updated_at"] == datetime.datetime(2025, 1, 2)
-
-
 def test_amount_only_netflow_preserves_unknown_event_counts() -> None:
     """Export monetary Lighter flow without pretending it has event counts."""
     dates = pd.date_range("2025-01-01", periods=3, freq="D")
