@@ -65,7 +65,7 @@ We keep forking real chains; we stop paying for the same fork many times over.
   expected per-vault-validation caveat: not every test can be normalised.
 
   To stop the isolated vault workflow rate-limiting the archive provider,
-  `test-vault-protocol.yml` caps pytest workers (`-n ${MAX_WORKERS:-4}`) instead
+  `test-vault-protocol.yml` caps pytest workers (`-n ${MAX_WORKERS:-8}`, timeout 30 min) instead
   of `-n auto`; the shared-fork pool further cuts the total fork count.
 
   Being read-only, this PoC validates fork-sharing + xdist co-location but does
