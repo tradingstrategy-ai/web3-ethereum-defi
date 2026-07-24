@@ -29,6 +29,7 @@ def is_good_multichain_address(address: str) -> bool:
     - Non-EVM protocols like GRVT use platform-specific IDs (e.g. ``VLT:xxx``)
     - Lighter pools use synthetic IDs (e.g. ``lighter-pool-281474976710654``)
     - Hibachi vaults use synthetic IDs (e.g. ``hibachi-vault-2``)
+    - ApeX vaults use synthetic IDs (e.g. ``apex-vault-2044287989957394432``)
 
     :param address:
         The vault address string to validate.
@@ -36,7 +37,7 @@ def is_good_multichain_address(address: str) -> bool:
         ``True`` if the address starts with a known prefix.
     """
     addr_lower = address.lower()
-    return addr_lower.startswith("0x") or addr_lower.startswith("vlt:") or addr_lower.startswith("lighter-pool-") or addr_lower.startswith("hibachi-vault-")
+    return addr_lower.startswith("0x") or addr_lower.startswith("vlt:") or addr_lower.startswith("lighter-pool-") or addr_lower.startswith("hibachi-vault-") or addr_lower.startswith("apex-vault-")
 
 
 def sanitise_string(s: str, max_length: int | None = None) -> str:

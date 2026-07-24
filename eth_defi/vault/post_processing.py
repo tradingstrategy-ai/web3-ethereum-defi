@@ -1,6 +1,6 @@
 """Post-processing pipeline for vault price data.
 
-Merges native protocol data (Hypercore, GRVT, Lighter) into the
+Merges native protocol data (Hypercore, GRVT, Lighter, Hibachi, ApeX) into the
 uncleaned parquet, runs the cleaning pipeline, and optionally
 uploads results to R2.
 
@@ -19,6 +19,9 @@ import pyarrow as pa
 import pyarrow.compute as pc
 import pyarrow.parquet as pq
 
+from eth_defi.apex.constants import APEX_CHAIN_ID, APEX_METRICS_DATABASE
+from eth_defi.apex.metrics import ApexMetricsDatabase
+from eth_defi.apex.vault_data_export import build_raw_prices_dataframe as build_apex_prices_dataframe
 from eth_defi.cloudflare_r2 import calculate_bytes_digest, copy_r2_object_daily_backup, create_r2_client, upload_bytes_to_r2, upload_file_to_r2
 from eth_defi.grvt.constants import GRVT_CHAIN_ID, GRVT_DAILY_METRICS_DATABASE
 from eth_defi.grvt.daily_metrics import GRVTDailyMetricsDatabase
@@ -393,17 +396,58 @@ def _write_native_partitions_to_uncleaned_parquet(
     return len(combined_table)
 
 
+def _merge_apex_prices_with_existing_parquet(
+    parquet_path: Path,
+    fresh_df: pd.DataFrame,
+) -> pd.DataFrame:
+    """Preserve ApeX history that is absent from the current DuckDB export.
+
+    ApeX retains only a bounded amount of platform history, and its local
+    DuckDB may be rebuilt after state loss. A non-empty current export is
+    therefore not necessarily a complete replacement for the ApeX synthetic
+    chain partition. Existing rows are retained unless a fresh row has the
+    same synthetic vault address and exact timestamp, in which case the fresh
+    observation corrects the earlier value.
+
+    Only the ApeX partition is read into pandas. The full Parquet file remains
+    in Arrow form for the later atomic native-protocol batch write.
+
+    :param parquet_path:
+        Existing raw vault-price Parquet path.
+    :param fresh_df:
+        Non-empty ApeX raw price rows exported from the current DuckDB.
+    :return:
+        Append-and-correct ApeX rows containing both retained and fresh
+        observations.
+    """
+    assert not fresh_df.empty, "A non-empty ApeX frame is required"
+    if not parquet_path.exists():
+        return fresh_df
+
+    existing_table = pq.read_table(
+        parquet_path,
+        filters=[("chain", "=", APEX_CHAIN_ID)],
+    )
+    if len(existing_table) == 0:
+        return fresh_df
+
+    existing_df = existing_table.to_pandas()
+    return pd.concat([existing_df, fresh_df], ignore_index=True).drop_duplicates(subset=["address", "timestamp"], keep="last").reset_index(drop=True)
+
+
 def merge_native_protocols(
     merge_hypercore: bool = False,
     merge_grvt: bool = False,
     merge_lighter: bool = False,
     merge_hibachi: bool = False,
+    merge_apex: bool = False,
     uncleaned_parquet_path: Path | None = None,
     hyperliquid_db_path: Path | None = None,
     hyperliquid_hf_db_path: Path | None = None,
     grvt_db_path: Path | None = None,
     lighter_db_path: Path | None = None,
     hibachi_db_path: Path | None = None,
+    apex_db_path: Path | None = None,
 ) -> dict[str, bool]:
     """Merge native protocol price data into the uncleaned parquet in one pass.
 
@@ -414,8 +458,10 @@ def merge_native_protocols(
     merged together so that switching between modes never loses
     historical data. All enabled native sources are collected before the
     existing parquet is read, then their chain partitions are replaced and
-    the result is written once. This avoids repeatedly rewriting the much
-    larger EVM data set.
+    the result is written once. ApeX is append-and-correct by synthetic vault
+    address and exact timestamp because its source may no longer return older
+    observations. This avoids repeatedly rewriting the much larger EVM data
+    set without risking loss of previously collected ApeX history.
 
     An unavailable, empty, or failed source leaves its existing chain
     partition untouched. This preserves the previous per-source failure
@@ -426,12 +472,14 @@ def merge_native_protocols(
     :param merge_grvt: Merge GRVT native vault data
     :param merge_lighter: Merge Lighter native pool data
     :param merge_hibachi: Merge Hibachi native vault data
+    :param merge_apex: Merge ApeX native vault data
     :param uncleaned_parquet_path: Override for the uncleaned parquet path
     :param hyperliquid_db_path: Override for the daily Hyperliquid DuckDB path
     :param hyperliquid_hf_db_path: Override for the HF Hyperliquid DuckDB path
     :param grvt_db_path: Override for the GRVT DuckDB path
     :param lighter_db_path: Override for the Lighter DuckDB path
     :param hibachi_db_path: Override for the Hibachi DuckDB path
+    :param apex_db_path: Override for the ApeX DuckDB path
     :return: Dictionary mapping step name to success boolean
     """
     parquet_path = uncleaned_parquet_path or DEFAULT_UNCLEANED_PRICE_DATABASE
@@ -542,6 +590,28 @@ def merge_native_protocols(
             logger.exception("Hibachi price merge failed")
             steps["hibachi-price-merge"] = False
 
+    if merge_apex:
+        try:
+            logger.info("Merging ApeX prices into uncleaned parquet")
+            a_db_path = apex_db_path or APEX_METRICS_DATABASE
+            db = ApexMetricsDatabase(a_db_path)
+            try:
+                apex_df = build_apex_prices_dataframe(db)
+            finally:
+                db.close()
+            if apex_df.empty:
+                logger.warning("No ApeX data to merge")
+            else:
+                replacements[APEX_CHAIN_ID] = _merge_apex_prices_with_existing_parquet(
+                    parquet_path,
+                    apex_df,
+                )
+            logger.info("ApeX price merge: %d fresh ApeX price entries", len(apex_df))
+            steps["apex-price-merge"] = True
+        except Exception:
+            logger.exception("ApeX price merge failed")
+            steps["apex-price-merge"] = False
+
     if not replacements:
         return steps
 
@@ -565,6 +635,7 @@ def merge_native_protocols(
             ("hypercore-price-merge", HYPERCORE_CHAIN_ID),
             ("grvt-price-merge", GRVT_CHAIN_ID),
             ("hibachi-price-merge", HIBACHI_CHAIN_ID),
+            ("apex-price-merge", APEX_CHAIN_ID),
         ):
             if chain_id in replacements:
                 steps[step_name] = False
@@ -884,6 +955,7 @@ def run_post_processing(
     scan_grvt: bool = False,
     scan_lighter: bool = False,
     scan_hibachi: bool = False,
+    scan_apex: bool = False,
     skip_cleaning: bool = False,
     skip_top_vaults: bool = False,
     skip_sparklines: bool = False,
@@ -896,6 +968,7 @@ def run_post_processing(
     grvt_db_path: Path | None = None,
     lighter_db_path: Path | None = None,
     hibachi_db_path: Path | None = None,
+    apex_db_path: Path | None = None,
     vault_db_path: Path | None = None,
     cleaned_path: Path | None = None,
     settlement_db_path: Path | None = None,
@@ -917,6 +990,7 @@ def run_post_processing(
     :param scan_grvt: Whether to merge GRVT data
     :param scan_lighter: Whether to merge Lighter data
     :param scan_hibachi: Whether to merge Hibachi data
+    :param scan_apex: Whether to merge ApeX data
     :param skip_cleaning: Skip price cleaning step
     :param skip_top_vaults: Skip top-vaults JSON generation and R2 upload
     :param skip_sparklines: Skip sparkline image export to R2
@@ -929,6 +1003,7 @@ def run_post_processing(
     :param grvt_db_path: Override for the GRVT DuckDB path
     :param lighter_db_path: Override for the Lighter DuckDB path
     :param hibachi_db_path: Override for the Hibachi DuckDB path
+    :param apex_db_path: Override for the ApeX DuckDB path
     :param vault_db_path: Override for the vault database pickle path
     :param cleaned_path: Override for the cleaned parquet output path
     :param settlement_db_path: Override for the vault settlement DuckDB path
@@ -944,12 +1019,14 @@ def run_post_processing(
         merge_grvt=scan_grvt,
         merge_lighter=scan_lighter,
         merge_hibachi=scan_hibachi,
+        merge_apex=scan_apex,
         uncleaned_parquet_path=uncleaned_parquet_path,
         hyperliquid_db_path=hyperliquid_db_path,
         hyperliquid_hf_db_path=hyperliquid_hf_db_path,
         grvt_db_path=grvt_db_path,
         lighter_db_path=lighter_db_path,
         hibachi_db_path=hibachi_db_path,
+        apex_db_path=apex_db_path,
     )
     steps.update(merge_results)
 

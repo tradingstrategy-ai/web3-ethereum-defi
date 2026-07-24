@@ -1,5 +1,6 @@
 # 1.2
 
+- feat: Add an ApeX Omni all-vault reader with bounded public API access, flexible timestamp observations, historical backfills, DuckDB storage and all-chain vault pipeline integration (2026-07-23)
 - feat: Automatically migrate Core3 risk databases to the latest DuckDB format and native Zstandard-compress historical raw JSON snapshots (2026-07-23)
 - feat: Report vault deposit permission policy, preflight IPOR Fusion and Lagoon access restrictions, and classify tokenised-fund deposits as permissioned (2026-07-23)
 - feat: Add capacity-aware cSigma V2 deposit and redemption simulation support (2026-07-22)

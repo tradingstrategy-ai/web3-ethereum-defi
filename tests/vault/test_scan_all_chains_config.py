@@ -32,11 +32,29 @@ def test_both_lighter_deployments_are_scheduled() -> None:
         scan_grvt=False,
         scan_lighter=True,
         scan_hibachi=False,
+        scan_apex=False,
         scan_core3=False,
         scan_currency_rates=False,
     )
 
     assert protocols == [deployment.name for deployment in LIGHTER_DEPLOYMENTS]
+
+
+def test_apex_is_scheduled_as_a_native_protocol() -> None:
+    """``SCAN_APEX`` adds one independently resumable four-hour item."""
+    protocols = scan_all_chains.build_active_protocols(
+        scan_hypercore=False,
+        scan_grvt=False,
+        scan_lighter=False,
+        scan_hibachi=False,
+        scan_apex=True,
+        scan_core3=False,
+        scan_currency_rates=False,
+    )
+
+    assert protocols == ["ApeX"]
+    cycles = scan_all_chains.parse_scan_cycles("ApeX=4h")
+    assert cycles["ApeX"] == datetime.timedelta(hours=4)
 
 
 def test_legacy_lighter_cycle_override_applies_to_both_deployments() -> None:

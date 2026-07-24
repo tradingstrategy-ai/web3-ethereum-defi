@@ -1,7 +1,7 @@
 """Scan ERC-4626 vaults across all supported chains.
 
 Multi-chain vault scanning pipeline with retry logic, native protocol
-support (Hypercore, GRVT, Lighter), looped scheduling, and
+support (Hypercore, GRVT, Lighter, Hibachi, ApeX), looped scheduling, and
 post-processing.  Extracted from the
 ``scripts/erc-4626/scan-vaults-all-chains.py`` CLI wrapper.
 
@@ -34,6 +34,11 @@ import duckdb
 from atomicwrites import atomic_write
 from filelock import Timeout as FileLockTimeout
 
+from eth_defi.apex.constants import APEX_METRICS_DATABASE
+from eth_defi.apex.metrics import ApexMetricsDatabase
+from eth_defi.apex.metrics import run_scan as apex_run_scan
+from eth_defi.apex.session import create_apex_session_pool
+from eth_defi.apex.vault_data_export import merge_into_vault_database as apex_merge_vault_db
 from eth_defi.chain import get_chain_name
 from eth_defi.compat import native_datetime_utc_now
 from eth_defi.core3.constants import resolve_core3_database_path
@@ -222,6 +227,7 @@ def build_active_protocols(
     scan_grvt: bool,
     scan_lighter: bool,
     scan_hibachi: bool,
+    scan_apex: bool,
     scan_core3: bool,
     scan_currency_rates: bool,
 ) -> list[str]:
@@ -239,6 +245,8 @@ def build_active_protocols(
         Include Lighter native pools.
     :param scan_hibachi:
         Include Hibachi native vaults.
+    :param scan_apex:
+        Include ApeX native vaults.
     :param scan_core3:
         Include Core3 enrichment data.
     :param scan_currency_rates:
@@ -255,6 +263,8 @@ def build_active_protocols(
         all_protocols.extend(deployment.name for deployment in LIGHTER_DEPLOYMENTS)
     if scan_hibachi:
         all_protocols.append("Hibachi")
+    if scan_apex:
+        all_protocols.append("ApeX")
     if scan_core3:
         all_protocols.append(CORE3_PROTOCOL_NAME)
     if scan_currency_rates:
@@ -1339,6 +1349,59 @@ def scan_hibachi_fn(
     return result
 
 
+def scan_apex_fn(
+    max_workers: int,
+    db_path: Path | None = None,
+    vault_db_path: Path = DEFAULT_VAULT_DATABASE,
+) -> ChainResult:
+    """Scan ApeX native vaults through the public web API.
+
+    One invocation records a complete ranking observation, performs any
+    independently due history maintenance, checkpoints DuckDB, and merges
+    current metadata into the shared vault database. The ApeX database keeps
+    exact source timestamps and decides history eligibility internally.
+
+    :param max_workers:
+        Number of threaded history readers.
+    :param db_path:
+        ApeX DuckDB path. ``None`` uses the standalone reader default.
+    :param vault_db_path:
+        Shared vault metadata pickle path.
+    :return:
+        Scan result with discovered vault and history-row counts.
+    """
+    result = ChainResult(name="ApeX", status="running")
+    start_time = time.time()
+    database: ApexMetricsDatabase | None = None
+    try:
+        with create_apex_session_pool(pool_maxsize=max_workers) as session_pool:
+            database = ApexMetricsDatabase(db_path or APEX_METRICS_DATABASE)
+            scan_result = apex_run_scan(
+                session_pool,
+                database,
+                max_workers=max_workers,
+            )
+            apex_merge_vault_db(database, vault_db_path)
+            result.vault_count = scan_result.selected_vaults
+            result.price_rows = database.get_price_count()
+            result.vault_scan_ok = True
+            result.price_scan_ok = scan_result.failed_histories == 0
+            if scan_result.failed_histories:
+                result.error = f"{scan_result.failed_histories} ApeX vault histories failed and remain due"
+        result.status = "success"
+    except Exception as exc:
+        logger.exception("ApeX scan failed")
+        result.status = "failed"
+        result.error = str(exc)
+        result.traceback_str = traceback.format_exc()
+    finally:
+        if database is not None and database.con is not None:
+            database.close()
+
+    result.duration = time.time() - start_time
+    return result
+
+
 def scan_core3_fn(
     core3_db_path: Path,
     max_workers: int = 8,
@@ -1759,6 +1822,7 @@ def run_scan_tick(
     scan_grvt: bool,
     scan_lighter: bool,
     scan_hibachi: bool,
+    scan_apex: bool,
     scan_core3: bool,
     scan_currency_rates: bool,
     max_workers: int,
@@ -1781,6 +1845,7 @@ def run_scan_tick(
     grvt_db_path: Path,
     lighter_db_path: Path,
     hibachi_db_path: Path,
+    apex_db_path: Path,
     bkp_files: list[Path],
     bkp_dir: Path,
     cleaned_price_path: Path | None = None,
@@ -2081,6 +2146,31 @@ def run_scan_tick(
             logger.error("Hibachi: FAILED - %s", r.error)
         print_dashboard(results, display_order, uncleaned_price_path=uncleaned_price_path)
 
+    if scan_apex and "ApeX" in active_protocols:
+        logger.info("Scanning ApeX (native vaults)")
+        try:
+            results["ApeX"] = scan_apex_fn(
+                max_workers,
+                db_path=apex_db_path,
+                vault_db_path=vault_db_path,
+            )
+        except Exception as exc:
+            logger.exception("ApeX scan crashed with unhandled exception")
+            results["ApeX"] = ChainResult(
+                name="ApeX",
+                status="failed",
+                error=str(exc),
+                traceback_str=traceback.format_exc(),
+            )
+        apex_result = results["ApeX"]
+        if apex_result.status == "success":
+            logger.info("ApeX: SUCCESS - %d vaults", apex_result.vault_count or 0)
+            if on_item_success:
+                on_item_success("ApeX")
+        elif apex_result.status == "failed":
+            logger.error("ApeX: FAILED - %s", apex_result.error)
+        print_dashboard(results, display_order, uncleaned_price_path=uncleaned_price_path)
+
     if scan_core3 and CORE3_PROTOCOL_NAME in active_protocols:
         logger.info("Scanning Core3 (risk intelligence enrichment)")
         results[CORE3_PROTOCOL_NAME] = scan_core3_fn(
@@ -2188,6 +2278,7 @@ def run_scan_tick(
             scan_grvt=scan_grvt,
             scan_lighter=scan_lighter,
             scan_hibachi=scan_hibachi,
+            scan_apex=scan_apex,
             skip_cleaning=skip_cleaning,
             skip_top_vaults=skip_top_vaults,
             skip_sparklines=skip_sparklines,
@@ -2200,6 +2291,7 @@ def run_scan_tick(
             grvt_db_path=grvt_db_path,
             lighter_db_path=lighter_db_path,
             hibachi_db_path=hibachi_db_path,
+            apex_db_path=apex_db_path,
             vault_db_path=vault_db_path,
             cleaned_path=cleaned_price_path,
             settlement_db_path=settlement_db_path,
@@ -2280,6 +2372,7 @@ def main():
     scan_grvt = os.environ.get("SCAN_GRVT", "false").lower() == "true"
     scan_lighter = os.environ.get("SCAN_LIGHTER", "false").lower() == "true"
     scan_hibachi = os.environ.get("SCAN_HIBACHI", "false").lower() == "true"
+    scan_apex = os.environ.get("SCAN_APEX", "false").lower() == "true"
     skip_core3 = os.environ.get("SKIP_CORE3", "false").lower() == "true"
     scan_core3 = should_scan_core3(skip_core3=skip_core3, core3_api_key=os.environ.get("CORE3_API_KEY"))
     skip_currency_rates = os.environ.get("SKIP_CURRENCY_RATES", "false").lower() == "true"
@@ -2338,6 +2431,7 @@ def main():
     backup_dir = data_dir / "backups"
     lighter_db_path = data_dir / "lighter-pools.duckdb"
     hibachi_db_path = data_dir / "hibachi-vaults.duckdb"
+    apex_db_path = data_dir / "apex-vaults.duckdb"
     hypercore_mode = os.environ.get("HYPERCORE_MODE", "daily").strip().lower()
     hyperliquid_db_path = data_dir / "hyperliquid-vaults.duckdb"
     hyperliquid_hf_db_path = data_dir / "hyperliquid-vaults-hf.duckdb"
@@ -2362,6 +2456,7 @@ def main():
         grvt_db_path,
         lighter_db_path,
         hibachi_db_path,
+        apex_db_path,
         settlement_db_path,
         core3_db_path,
         currency_api_db_path,
@@ -2381,12 +2476,13 @@ def main():
     version_info = VersionInfo.read_docker_version()
     logger.info("Docker image version: tag=%s, commit=%s", version_info.tag, version_info.commit_hash)
     logger.info(
-        "SCAN_PRICES: %s, SCAN_HYPERCORE: %s, SCAN_GRVT: %s, SCAN_LIGHTER: %s, SCAN_HIBACHI: %s, SKIP_CORE3: %s, CORE3: %s, SKIP_CURRENCY_RATES: %s, CURRENCY_RATES: %s, RETRY_COUNT: %d, MAX_WORKERS: %d, CORE3_MAX_WORKERS: %d, CURRENCY_API_MAX_WORKERS: %d, FREQUENCY: %s",
+        "SCAN_PRICES: %s, SCAN_HYPERCORE: %s, SCAN_GRVT: %s, SCAN_LIGHTER: %s, SCAN_HIBACHI: %s, SCAN_APEX: %s, SKIP_CORE3: %s, CORE3: %s, SKIP_CURRENCY_RATES: %s, CURRENCY_RATES: %s, RETRY_COUNT: %d, MAX_WORKERS: %d, CORE3_MAX_WORKERS: %d, CURRENCY_API_MAX_WORKERS: %d, FREQUENCY: %s",
         scan_prices,
         scan_hypercore,
         scan_grvt,
         scan_lighter,
         scan_hibachi,
+        scan_apex,
         skip_core3,
         scan_core3,
         skip_currency_rates,
@@ -2474,6 +2570,7 @@ def main():
         scan_grvt=scan_grvt,
         scan_lighter=scan_lighter,
         scan_hibachi=scan_hibachi,
+        scan_apex=scan_apex,
         scan_core3=scan_core3,
         scan_currency_rates=scan_currency_rates,
     )
@@ -2498,6 +2595,7 @@ def main():
         scan_grvt=scan_grvt,
         scan_lighter=scan_lighter,
         scan_hibachi=scan_hibachi,
+        scan_apex=scan_apex,
         scan_core3=scan_core3,
         scan_currency_rates=scan_currency_rates,
         max_workers=max_workers,
@@ -2521,6 +2619,7 @@ def main():
         grvt_db_path=grvt_db_path,
         lighter_db_path=lighter_db_path,
         hibachi_db_path=hibachi_db_path,
+        apex_db_path=apex_db_path,
         bkp_files=bkp_files,
         bkp_dir=backup_dir,
         cleaned_price_path=cleaned_price_path,
