@@ -34,7 +34,20 @@ logger = logging.getLogger(__name__)
 
 
 def _parse_float(value: object, field_name: str, *, required: bool = False) -> float | None:
-    """Parse one finite public API numeric value."""
+    """Parse one finite public API numeric value.
+
+    Empty optional fields become ``None`` while booleans, malformed scalars
+    and non-finite values are rejected as source API errors.
+
+    :param value:
+        Untrusted JSON field value.
+    :param field_name:
+        Source field name for diagnostics.
+    :param required:
+        Whether an empty value is invalid.
+    :return:
+        Parsed finite float or ``None``.
+    """
     if value is None or value == "":
         if required:
             raise ApexAPIError(f"ApeX field {field_name} is required")
@@ -51,7 +64,20 @@ def _parse_float(value: object, field_name: str, *, required: bool = False) -> f
 
 
 def _parse_millisecond_timestamp(value: object, field_name: str, *, zero_is_none: bool = False) -> datetime.datetime | None:
-    """Convert one millisecond unix timestamp to naive UTC."""
+    """Convert one millisecond Unix timestamp to naive UTC.
+
+    Fractional and boolean values are rejected instead of silently truncating
+    them, and optional zero sentinels can be normalised to ``None``.
+
+    :param value:
+        Untrusted JSON timestamp value.
+    :param field_name:
+        Source field name for diagnostics.
+    :param zero_is_none:
+        Treat a zero timestamp as an absent value.
+    :return:
+        Naive UTC datetime or ``None``.
+    """
     if value is None or value == "":
         return None
     if isinstance(value, bool) or (isinstance(value, float) and not value.is_integer()):
@@ -71,7 +97,16 @@ def _parse_millisecond_timestamp(value: object, field_name: str, *, zero_is_none
 
 
 def _parse_envelope(payload: object) -> dict:
-    """Validate the common ApeX HTTP-200 application envelope."""
+    """Validate the common ApeX HTTP-200 application envelope.
+
+    HTTP success is not sufficient for these web-app endpoints because
+    application errors are returned through the JSON ``code`` field.
+
+    :param payload:
+        Decoded untrusted JSON response.
+    :return:
+        Validated object stored in the envelope's ``data`` field.
+    """
     if not isinstance(payload, dict):
         raise ApexAPIError("ApeX response must be a JSON object")
     code = payload.get("code")
@@ -303,7 +338,20 @@ def _fetch_ranking_pass(
     limit: int,
     operation_deadline: float,
 ) -> tuple[ApexVaultSummary, ...]:
-    """Fetch and validate one complete in-memory ranking pass."""
+    """Fetch and validate one complete in-memory ranking pass.
+
+    Every reported page is fetched under one shared deadline, then total size
+    and platform vault-ID uniqueness are checked before returning any rows.
+
+    :param session_pool:
+        Configured bounded ApeX session pool.
+    :param limit:
+        Positive ranking page size.
+    :param operation_deadline:
+        Monotonic deadline shared across every page in the pass.
+    :return:
+        Complete validated ranking in source order.
+    """
     first = fetch_ranking_page(session_pool, 0, limit=limit, operation_deadline=operation_deadline)
     page_count = (first.total_size + limit - 1) // limit
     vaults = list(first.vaults)

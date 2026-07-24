@@ -56,6 +56,16 @@ class _ApexRetryableHTTPError(ApexAPIError):
     """Internal retryable HTTP status with an optional server delay."""
 
     def __init__(self, status_code: int, retry_after: str | None) -> None:
+        """Create an internal retryable status exception.
+
+        The optional raw server delay is retained for bounded ``Retry-After``
+        parsing by the request loop.
+
+        :param status_code:
+            Retryable HTTP response status.
+        :param retry_after:
+            Optional raw ``Retry-After`` header.
+        """
         super().__init__(f"Retryable ApeX HTTP status {status_code}")
         self.retry_after = retry_after
 
@@ -80,7 +90,14 @@ class ApexTimeoutPolicy:
     max_response_bytes: int = APEX_DEFAULT_MAX_RESPONSE_BYTES
 
     def __post_init__(self) -> None:
-        """Validate all timeout policy fields."""
+        """Validate all timeout policy fields.
+
+        Invalid values fail configuration before a request or worker session
+        can be created.
+
+        :return:
+            None.
+        """
         finite_values = (
             self.connect_timeout,
             self.read_timeout,
@@ -205,7 +222,14 @@ class ApexSessionPool:
         self._closed = False
 
     def _create_session(self) -> requests.Session:
-        """Create one requests session with adapter retries disabled."""
+        """Create one requests session with adapter retries disabled.
+
+        Retry timing is implemented by this integration so it can honour the
+        shared monotonic operation budget.
+
+        :return:
+            Configured private requests session.
+        """
         session = requests.Session()
         adapter = HTTPAdapter(max_retries=0, pool_connections=self._pool_maxsize, pool_maxsize=self._pool_maxsize)
         session.mount("http://", adapter)
@@ -478,7 +502,13 @@ class ApexSessionPool:
             self._scan_lock.release()
 
     def __enter__(self) -> "ApexSessionPool":
-        """Return this open pool for context-manager use."""
+        """Return this open pool for context-manager use.
+
+        The corresponding exit method closes every registered session.
+
+        :return:
+            This configured session pool.
+        """
         return self
 
     def __exit__(
@@ -487,7 +517,20 @@ class ApexSessionPool:
         exc_value: BaseException | None,
         traceback: TracebackType | None,
     ) -> None:
-        """Close all sessions when leaving a context manager."""
+        """Close all sessions when leaving a context manager.
+
+        Exception information is accepted for the context-manager protocol but
+        is not suppressed.
+
+        :param exc_type:
+            Optional exception type raised inside the context.
+        :param exc_value:
+            Optional exception instance raised inside the context.
+        :param traceback:
+            Optional exception traceback.
+        :return:
+            None.
+        """
         self.close()
 
 

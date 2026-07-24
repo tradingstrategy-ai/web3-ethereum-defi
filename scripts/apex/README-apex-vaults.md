@@ -108,10 +108,17 @@ SCAN_APEX=true \
 ```
 
 The looped Docker scanner enables ApeX by default and schedules `ApeX=4h`.
-Override that cadence through `SCAN_CYCLES`; for example,
-`SCAN_CYCLES="ApeX=2h"`. The all-chain scheduler controls ranking
-observations, while `run_scan()` retains the independent 24-hour historical
-eligibility gate.
+Override that cadence through `SCAN_CYCLES`. This variable replaces the whole
+per-item override list: omitted items fall back to `DEFAULT_CYCLE`, which is
+24 hours by default. Preserve the other Docker defaults when changing only
+ApeX, for example:
+
+```shell
+SCAN_CYCLES="Ethereum=8h,Base=8h,Arbitrum=8h,Hypercore=4h,GRVT=4h,Lighter Ethereum=4h,Lighter Robinhood=4h,Hibachi=4h,ApeX=2h,Core3=24h"
+```
+
+The all-chain scheduler controls ranking observations, while `run_scan()`
+retains the independent 24-hour historical eligibility gate.
 
 The unified Parquet export is append-and-correct by synthetic vault address
 and exact timestamp. If ApeX later omits older source history or the local

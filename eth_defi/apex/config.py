@@ -58,7 +58,20 @@ def parse_apex_duration(value: str) -> datetime.timedelta:
 
 
 def _parse_positive_float(environ: Mapping[str, str], name: str, default: float) -> float:
-    """Parse one finite positive floating-point environment value."""
+    """Parse one finite positive floating-point environment value.
+
+    Missing values fall back to the supplied protocol default before the same
+    finite-positive validation is applied.
+
+    :param environ:
+        Environment mapping to read.
+    :param name:
+        Environment variable name.
+    :param default:
+        Fallback numeric value.
+    :return:
+        Parsed finite positive value.
+    """
     raw = environ.get(name, str(default))
     try:
         value = float(raw)
@@ -70,7 +83,20 @@ def _parse_positive_float(environ: Mapping[str, str], name: str, default: float)
 
 
 def _parse_positive_int(environ: Mapping[str, str], name: str, default: int) -> int:
-    """Parse one positive integer environment value."""
+    """Parse one positive integer environment value.
+
+    Missing values fall back to the supplied protocol default and malformed or
+    non-positive values fail configuration before any network access.
+
+    :param environ:
+        Environment mapping to read.
+    :param name:
+        Environment variable name.
+    :param default:
+        Fallback integer value.
+    :return:
+        Parsed positive integer.
+    """
     raw = environ.get(name, str(default))
     try:
         value = int(raw)
@@ -82,7 +108,20 @@ def _parse_positive_int(environ: Mapping[str, str], name: str, default: int) -> 
 
 
 def _parse_bool(environ: Mapping[str, str], name: str, *, default: bool = False) -> bool:
-    """Parse a conventional boolean environment value."""
+    """Parse a conventional boolean environment value.
+
+    Both numeric and textual true/false spellings are accepted so Compose and
+    direct shell invocations behave consistently.
+
+    :param environ:
+        Environment mapping to read.
+    :param name:
+        Environment variable name.
+    :param default:
+        Value used when the variable is absent.
+    :return:
+        Parsed boolean value.
+    """
     raw = environ.get(name)
     if raw is None:
         return default

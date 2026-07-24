@@ -110,7 +110,14 @@ class ApexMetricsDatabase:
         self._init_schema()
 
     def _assert_owner(self) -> duckdb.DuckDBPyConnection:
-        """Return the connection after enforcing creating-thread ownership."""
+        """Return the connection after enforcing creating-thread ownership.
+
+        DuckDB access is serialised through the thread that created this
+        database object; workers return parsed values and never touch it.
+
+        :return:
+            Open owner-thread DuckDB connection.
+        """
         if threading.get_ident() != self._owner_thread_id:
             raise RuntimeError("ApexMetricsDatabase may only be used by its creating thread")
         if self.con is None:
@@ -118,7 +125,14 @@ class ApexMetricsDatabase:
         return self.con
 
     def _init_schema(self) -> None:
-        """Create the forward-compatible ART-index-free schema."""
+        """Create the forward-compatible ART-index-free schema.
+
+        Logical keys are maintained transactionally in application code to
+        avoid DuckDB automatic index growth during repeated replacements.
+
+        :return:
+            None.
+        """
         con = self._assert_owner()
         con.execute("""
             CREATE TABLE IF NOT EXISTS vault_metadata (
@@ -206,25 +220,56 @@ class ApexMetricsDatabase:
 
     @staticmethod
     def _rows_as_dicts(cursor: duckdb.DuckDBPyConnection) -> list[dict[str, object]]:
-        """Convert the current result set to dictionaries."""
+        """Convert the current result set to dictionaries.
+
+        Column names are paired strictly with each materialised result row.
+
+        :param cursor:
+            Executed DuckDB cursor with a result description.
+        :return:
+            Materialised result rows keyed by column name.
+        """
         columns = [item[0] for item in cursor.description]
         return [dict(zip(columns, row, strict=True)) for row in cursor.fetchall()]
 
     def _metadata_by_id(self) -> dict[str, dict[str, object]]:
-        """Read all logical metadata records."""
+        """Read all logical metadata records.
+
+        The table is materialised by stable platform vault ID for lifecycle
+        reconciliation during a ranking transaction.
+
+        :return:
+            Metadata rows keyed by platform vault ID.
+        """
         con = self._assert_owner()
         rows = self._rows_as_dicts(con.execute("SELECT * FROM vault_metadata"))
         return {str(row["vault_id"]): row for row in rows}
 
     def _sync_by_id(self) -> dict[str, dict[str, object]]:
-        """Read all logical history state records."""
+        """Read all logical history state records.
+
+        The table is materialised by platform vault ID so due-history and
+        terminal-generation state can be updated without worker access.
+
+        :return:
+            History sync rows keyed by platform vault ID.
+        """
         con = self._assert_owner()
         rows = self._rows_as_dicts(con.execute("SELECT * FROM history_sync"))
         return {str(row["vault_id"]): row for row in rows}
 
     @staticmethod
     def _new_sync(vault_id: str) -> dict[str, object]:
-        """Create one empty history state record."""
+        """Create one empty history state record.
+
+        Every nullable diagnostic and lifecycle field starts unset while the
+        cumulative retained history count starts at zero.
+
+        :param vault_id:
+            Stable ApeX platform vault ID.
+        :return:
+            New history state row in logical column form.
+        """
         return {
             "vault_id": vault_id,
             "latest_attempt_at": None,
@@ -250,7 +295,16 @@ class ApexMetricsDatabase:
 
     @staticmethod
     def _metadata_values(row: dict[str, object]) -> list[object]:
-        """Serialise one metadata row in table column order."""
+        """Serialise one metadata row in table column order.
+
+        Explicit ordering keeps application-managed replacement independent of
+        dictionary insertion order.
+
+        :param row:
+            Logical metadata row keyed by column name.
+        :return:
+            Values ordered for ``vault_metadata`` insertion.
+        """
         columns = (
             "vault_id",
             "synthetic_address",
@@ -276,7 +330,16 @@ class ApexMetricsDatabase:
 
     @staticmethod
     def _sync_values(row: dict[str, object]) -> list[object]:
-        """Serialise one history state row in table column order."""
+        """Serialise one history state row in table column order.
+
+        Explicit ordering keeps application-managed replacement independent of
+        dictionary insertion order.
+
+        :param row:
+            Logical history sync row keyed by column name.
+        :return:
+            Values ordered for ``history_sync`` insertion.
+        """
         columns = (
             "vault_id",
             "latest_attempt_at",
@@ -302,7 +365,16 @@ class ApexMetricsDatabase:
         return [row[column] for column in columns]
 
     def _replace_metadata(self, rows: Iterable[dict[str, object]]) -> None:
-        """Replace logical metadata rows inside the caller's transaction."""
+        """Replace logical metadata rows inside the caller's transaction.
+
+        Duplicate staged keys fail before deleting current rows. The caller
+        owns the surrounding transaction and therefore the atomicity boundary.
+
+        :param rows:
+            Staged metadata rows with unique platform vault IDs.
+        :return:
+            None.
+        """
         con = self._assert_owner()
         materialised = list(rows)
         if not materialised:
@@ -321,7 +393,16 @@ class ApexMetricsDatabase:
         )
 
     def _replace_sync(self, rows: Iterable[dict[str, object]]) -> None:
-        """Replace logical history state rows inside the caller's transaction."""
+        """Replace logical history state rows inside the caller's transaction.
+
+        Duplicate staged keys fail before deleting current rows. The caller
+        owns the surrounding transaction and therefore the atomicity boundary.
+
+        :param rows:
+            Staged history state rows with unique platform vault IDs.
+        :return:
+            None.
+        """
         con = self._assert_owner()
         materialised = list(rows)
         if not materialised:
@@ -739,7 +820,20 @@ def _fetch_history_worker(
     vault_id: str,
     operation_timeout: float,
 ) -> ApexHistoryFetchResult:
-    """Fetch and parse one history without accessing DuckDB."""
+    """Fetch and parse one history without accessing DuckDB.
+
+    The worker owns a bounded session scope and converts expected ApeX API
+    failures into a serialisable result for the database owner thread.
+
+    :param session_pool:
+        Shared bounded ApeX session pool.
+    :param vault_id:
+        Platform vault ID to fetch.
+    :param operation_timeout:
+        Per-vault monotonic operation budget in seconds.
+    :return:
+        Successful points or an isolated API error result.
+    """
     with session_pool.history_worker_scope():
         try:
             points = fetch_vault_history(session_pool, vault_id, operation_timeout=operation_timeout)

@@ -17,7 +17,14 @@ logger = logging.getLogger(__name__)
 
 
 def main() -> None:
-    """Run one scan or the configured sequential scan loop."""
+    """Run one scan or the configured sequential scan loop.
+
+    Environment configuration owns logging, scheduling, bounded HTTP access
+    and DuckDB location. All long-lived resources are closed on exit.
+
+    :return:
+        None.
+    """
     config = ApexReaderConfig.from_environment()
     setup_console_logging(
         default_log_level=config.log_level,
