@@ -77,6 +77,35 @@ We keep forking real chains; we stop paying for the same fork many times over.
   snapshot/revert (via
   `eth_defi.testing.evm_snapshot_fixture.evm_snapshot_revert`) before rollout.
 
+## Per-chain fork normalisation + cache persistence (2026-07-24)
+
+Extending the shared-fork idea to its natural conclusion: **all read-only
+vault_protocol characterisation tests are normalised onto one canonical midnight
+block per chain** (`eth_defi/testing/fork_blocks.py`, `MIDNIGHT_BLOCKS` keyed by
+chain id — the 2026-07-24 00:00 UTC block for each). Every same-chain test then
+(a) shares one Anvil fork via `xdist_group("fork:<chain>:midnight")` and (b)
+replays its archive reads from a **dense** on-disk RPC cache covering that single
+block — so warm runs hit the upstream archive far less.
+
+- **Arbitrum: 11 tests** share block 487,039,644 (earlier batch).
+- **Ethereum: 18 tests** share block 25,598,869 (validated locally: 18/19 pass at
+  the midnight block; `test_csigma` reverted — one of its tests deposits/redeems
+  and needs signer setup the shared read-only fork doesn't provide).
+- Remaining chains have midnight blocks recorded in `fork_blocks.py`
+  (Base, Hyperliquid, Avalanche, Plasma, Sonic, Berachain, BNB, Polygon) ready
+  for the same conversion. **Excluded:** Monad (no archive history) and any
+  mutating / signer-dependent test.
+
+**Cache persistence (the key "use RPC less" fix).** The fork RPC cache only
+helps if it survives between runs, but `actions/cache@v4` **saves only on job
+success** — and the fork-heavy jobs were failing, so the cache stayed cold and
+every run re-hammered the archive (the 476 s stalls). All three fork workflows
+(`test.yml`, `test-gmx.yml`, `test-vault-protocol.yml`) now split the RPC cache
+into `actions/cache/restore` + `actions/cache/save` with `if: always()`, so
+blocks read on one run — even a failing one — replay from disk on the next.
+Combined with per-chain normalisation (one block per chain), the warm cache is
+small and dense.
+
 ## Critical-path fixes (2026-07-24, after first CI results)
 
 The first CI runs showed the levers above missed the actual critical path: the

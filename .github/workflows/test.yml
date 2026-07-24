@@ -119,15 +119,17 @@ jobs:
         id: cache-month
         run: echo "month=$(date -u +%Y-%m)" >> "$GITHUB_OUTPUT"
 
-      - name: Cache Foundry fork RPC cache
-        uses: actions/cache@v4
+      # Restore the Anvil fork RPC cache (layout rpc/<network-name>/<block>/*.json).
+      # Split from the save step (end of job) so the cache is saved with
+      # `if: always()` even on failure — a plain actions/cache@v4 only saves on
+      # success, which kept the cache cold and re-hammered the archive provider.
+      - name: Restore Foundry fork RPC cache
+        uses: actions/cache/restore@v4
         with:
-          # Layout is rpc/<network-name>/<block>/*.json; cache the whole tree.
           path: ~/.foundry/cache/rpc
           key: foundry-rpc-v1.2.3-${{ runner.os }}-${{ steps.cache-month.outputs.month }}-${{ github.run_id }}
-          # Restore only within the same month so the cache genuinely rebuilds
-          # each month (bounding growth). No cross-month fallback on purpose —
-          # the first run of a new month is cold.
+          # Restore only within the same month so the cache rebuilds each month
+          # (bounding growth). No cross-month fallback on purpose.
           restore-keys: |
             foundry-rpc-v1.2.3-${{ runner.os }}-${{ steps.cache-month.outputs.month }}-
 
@@ -261,6 +263,16 @@ jobs:
           else
             echo "No pytest log captured." >> "$GITHUB_STEP_SUMMARY"
           fi
+
+      # Persist the fork RPC cache even on failure so blocks read this run
+      # replay from disk next run (fewer archive round-trips). run_id key always
+      # writes a fresh entry; the restore step's month prefix picks up the latest.
+      - name: Save Foundry fork RPC cache
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: ~/.foundry/cache/rpc
+          key: foundry-rpc-v1.2.3-${{ runner.os }}-${{ steps.cache-month.outputs.month }}-${{ github.run_id }}
 
       # Ruff format check now runs in .github/workflows/lint.yml on the free
       # ubuntu-latest runner. Keeping it out of the Beefy job saves billable

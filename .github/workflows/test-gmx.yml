@@ -91,13 +91,15 @@ jobs:
         id: cache-month
         run: echo "month=$(date -u +%Y-%m)" >> "$GITHUB_OUTPUT"
 
-      - name: Cache Foundry fork RPC cache
-        uses: actions/cache@v4
+      # Restore the fork RPC cache; saved with `if: always()` at the end of the
+      # job (GMX frequently hits its timeout, and a plain actions/cache@v4 only
+      # saves on success, so the cache stayed cold). See test.yml for rationale.
+      - name: Restore Foundry fork RPC cache
+        uses: actions/cache/restore@v4
         with:
           path: ~/.foundry/cache/rpc
           key: foundry-rpc-v1.2.3-${{ runner.os }}-${{ steps.cache-month.outputs.month }}-${{ github.run_id }}
-          # Restore only within the same month so the cache genuinely rebuilds
-          # each month (bounding growth). First run of a new month is cold.
+          # Restore only within the same month so the cache rebuilds each month.
           restore-keys: |
             foundry-rpc-v1.2.3-${{ runner.os }}-${{ steps.cache-month.outputs.month }}-
 
@@ -246,5 +248,17 @@ jobs:
           # Private key for GMX test transactions on Arbitrum Sepolia testnet
           # Required for testnet tests that need to submit transactions
           ARBITRUM_GMX_TEST_SEPOLIA_PRIVATE_KEY: ${{ secrets.ARBITRUM_GMX_TEST_SEPOLIA_PRIVATE_KEY }}
+
+      # Persist the fork RPC cache even on timeout/failure so the Arbitrum fork
+      # blocks replay from disk next run. GMX regularly hits its 12-min timeout,
+      # and a plain actions/cache@v4 only saves on success — a warm cache is one
+      # of the few things that could get GMX under its cap.
+      - name: Save Foundry fork RPC cache
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: ~/.foundry/cache/rpc
+          key: foundry-rpc-v1.2.3-${{ runner.os }}-${{ steps.cache-month.outputs.month }}-${{ github.run_id }}
+
       # NOTE: We don't run linting here as it's already done in the main workflow
       # Ruff lint check is only needed once per PR, not per test suite
