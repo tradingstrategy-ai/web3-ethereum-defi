@@ -47,6 +47,29 @@ from eth_defi.provider.anvil import AnvilLaunch, fork_network_anvil
 from eth_defi.provider.multi_provider import create_multi_provider_web3
 
 
+def _freeze(value: Any) -> Any:
+    """Recursively turn a value into a hashable, order-stable form.
+
+    Used to build the pool's cache key from arbitrary ``launch_anvil`` keyword
+    arguments — some of which are lists (e.g. ``unlocked_addresses``) or dicts —
+    which are otherwise unhashable and cannot be used in a ``dict`` key.
+
+    :param value:
+        Any launch-argument value.
+
+    :return:
+        A hashable representation (lists/tuples become tuples, dicts become
+        sorted key/value tuples, sets become sorted tuples, scalars unchanged).
+    """
+    if isinstance(value, dict):
+        return tuple(sorted((k, _freeze(v)) for k, v in value.items()))
+    if isinstance(value, (list, tuple)):
+        return tuple(_freeze(v) for v in value)
+    if isinstance(value, (set, frozenset)):
+        return tuple(sorted(_freeze(v) for v in value))
+    return value
+
+
 @dataclasses.dataclass(slots=True)
 class AnvilForkPool:
     """Registry of shared Anvil forks keyed by launch configuration.
@@ -87,7 +110,7 @@ class AnvilForkPool:
         :return:
             The shared :class:`~eth_defi.provider.anvil.AnvilLaunch`.
         """
-        key = (rpc_url, fork_block_number, tuple(sorted(launch_kwargs.items())))
+        key = (rpc_url, fork_block_number, _freeze(launch_kwargs))
         launch = self.launches.get(key)
         if launch is None:
             launch = fork_network_anvil(
@@ -137,8 +160,10 @@ class AnvilForkPool:
         for launch in launches:
             try:
                 launch.close()
-            except OSError as e:
-                # Anvil teardown is best-effort; record and continue so one
+            except (OSError, AssertionError) as e:
+                # Anvil teardown is best-effort. shutdown_hard() raises
+                # AssertionError if the process will not terminate in time and
+                # OSError on process/socket issues; record and continue so one
                 # wedged process does not leak the rest. Re-raised below.
                 errors.append(e)
         if errors:

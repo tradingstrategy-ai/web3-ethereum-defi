@@ -34,14 +34,32 @@ We keep forking real chains; we stop paying for the same fork many times over.
   removals (see the revised lever below).** Every `@flaky` test inspected reaches
   the network (body or fixture); validation of any removal needs test execution /
   failure history, so no test files were changed.
-- **Lever 1 (shared forks) — INFRA + BOUNDED PoC landed, CI-GATED.**
+- **Lever 1 (shared forks) — INFRA + VALIDATED read-only PoC.**
   `eth_defi/testing/anvil_fork_pool.py` provides the reusable `AnvilForkPool`;
   `tests/conftest.py` exposes it as an opt-in session-scoped `anvil_fork_pool`
-  fixture. `test_d2.py` and `test_goat.py` (Arbitrum @ 392,313,989, **read-only**)
-  share one fork via an `xdist_group` marker. This PoC validates fork-sharing and
-  xdist co-location only; because the tests are read-only it does **not** exercise
-  the snapshot/revert-under-xdist hang risk. Converting any *mutating* test to a
-  shared fork requires a separate CI PoC with snapshot/revert (via
+  fixture. To let many tests share one fork, characterisation tests are
+  **normalised onto a canonical midnight block per chain**
+  (`eth_defi/testing/fork_blocks.py`, `ARBITRUM_MIDNIGHT_BLOCK` = the last block
+  at/before 2026-07-24 00:00 UTC — recent enough that the PoC vaults have state,
+  fixed and cache-friendly; each vault is validated before normalising its test).
+  `test_goat.py`, `test_harvest.py` and
+  `test_plutus.py` (Arbitrum, **read-only**) now share one fork via an
+  `xdist_group("fork:arbitrum:midnight")` marker.
+
+  **Measured locally** (anvil 1.7.1, real Arbitrum archive): the three modules
+  launch **one** Anvil instead of three; they co-locate on one worker under
+  `-n2 --dist loadgroup` and all pass. Moving off the old block changed
+  block-dependent asserts — `test_goat`'s `fetch_pnl` and `test_plutus`'s
+  share-price/TVL values were refreshed from the new block; `test_harvest`
+  (pure metadata) was unchanged. `test_d2.py` was **reverted** to its own fork —
+  its epoch/phase assertions are too block-state-dependent to normalise safely.
+  The run also hit (and `@flaky`-retried) a transient RPC timeout, confirming
+  these tests genuinely need their retry decorator (Lever 4).
+
+  Being read-only, this PoC validates fork-sharing + xdist co-location but does
+  **not** exercise the snapshot/revert-under-xdist hang risk. Converting any
+  *mutating* test to a shared fork still requires a separate CI PoC with
+  snapshot/revert (via
   `eth_defi.testing.evm_snapshot_fixture.evm_snapshot_revert`) before rollout.
 
 ## Why
@@ -55,19 +73,20 @@ The suite is an integration suite behaving like a unit suite:
 - The **slowest 20 durations are 100% Anvil fork setup/call**, 18–46s each
   (`tests/lagoon/test_deploy_base.py`, `tests/guard/test_guard_simple_vault_erc_4626.py`,
   `tests/ipor/test_ipor_deposit.py`, `tests/cctp/test_cctp_lagoon_fork.py`, …).
-- Many forks target the **same `(chain, block)`**: 11 tests fork HyperEVM at
-  block `392_313_989`, 7 at `375_216_652`, and so on. Today each pays a full
-  cold fork.
-- **`--dist loadgroup` is configured but no test uses `xdist_group`** — the
-  grouping mechanism that would let tests share a fork safely is unused, so
-  module-scoped forks can still be rebuilt on multiple xdist workers.
+- Many forks target the **same `(chain, block)`**: 11 tests fork Arbitrum at
+  block `392_313_989`, 7 at `375_216_652`, and so on. Before this work each paid
+  a full cold fork.
+- **`--dist loadgroup` was configured but no test used `xdist_group`** — the
+  grouping mechanism that lets tests share a fork safely was unused, so
+  module-scoped forks could be rebuilt on multiple xdist workers. (The Lever 1
+  PoC below normalises three of these onto a shared midnight block.)
 - **394 `@flaky` decorators across 158 files** (173 files reference `flaky` at
   all). Blanket retries do not multiply runtime for *passing* tests — they only
   add time when an attempt fails — but on non-network tests they still mask real
   regressions (a test passing 1-in-3 reports green) and slow down genuine
   failures.
 
-The four levers below are independent and can land as separate PRs. Rollout
+The five levers below are independent and can land as separate PRs. Rollout
 order and the mandatory proof-of-concept gate for Lever 1 are at the end.
 
 ## Lever 1 — session-scoped Anvil forks that are xdist-safe
@@ -135,7 +154,7 @@ launch-count / revert-count caps and periodic Anvil recycling as a safety valve.
    `--dist loadgroup` sends all tests sharing an `xdist_group` to one worker.
    Crucially, **a fixture cannot add the group at fixture-execution time** — by
    then the scheduler has already assigned tests. The group must be a static
-   marker (`@pytest.mark.xdist_group("fork:hyperevm:392313989")`), a marked
+   marker (`@pytest.mark.xdist_group("fork:arbitrum:392313989")`), a marked
    fixture parameter, or applied via a collection hook (`pytest_collection_modifyitems`).
    Keep groups at `(chain, block, config)` granularity so distinct forks still
    spread across workers.
@@ -433,11 +452,15 @@ a fixed schedule — **Monday, Wednesday and Saturday** — plus on-demand.
 4. **Lever 3** (change-aware vault gating) — only after the always-triggered
    required-check job and the periodic/full fallback are in place, with the broad
    path set.
-5. **Lever 1** (session-scoped shared forks) — **gated on a bounded CI
-   proof-of-concept** against the highest-duplication group (HyperEVM
-   `392_313_989`) proving no xdist hang across many revert cycles, using the
-   existing `create_anvil_snapshot_state`/`reset_anvil_snapshot` helpers. Only
-   then roll out incrementally.
+5. **Lever 1** (session-scoped shared forks) — landed as a **read-only** bounded
+   PoC (three Arbitrum tests normalised onto the midnight block, sharing one
+   fork — validated locally: one Anvil for three tests, co-located under
+   `--dist loadgroup`), which validates fork-sharing and xdist co-location but
+   **not** the snapshot/revert hang risk.
+   Converting any *mutating* test additionally requires a bounded CI PoC that
+   proves no xdist hang across revert cycles, using the existing
+   `create_anvil_snapshot_state`/`reset_anvil_snapshot` (or
+   `evm_snapshot_revert`) helpers. Only then roll out incrementally.
 
 ## Out of scope
 

@@ -1,7 +1,7 @@
 name: Vault protocol tests
 
-# The tests/erc_4626/vault_protocol/ group (~98 single-vault characterisation
-# tests, each forking a chain) is the largest slice of the suite. It only needs
+# The tests/erc_4626/vault_protocol/ group (~98 files, mostly single-vault
+# characterisation tests that fork a chain) is the largest slice of the suite. It only needs
 # to run when vault protocol code — or the shared provider/ABI/token/fixture
 # code it depends on — changes. It is therefore excluded from the main test.yml
 # run (via --ignore) and gated here.
@@ -44,12 +44,15 @@ jobs:
               - 'eth_defi/data/vaults/**'
               - 'eth_defi/vault/**'
               - 'eth_defi/tokenised_fund/**'
+              - 'eth_defi/mellow/**'
+              - 'eth_defi/research/**'
               - 'eth_defi/provider/**'
               - 'eth_defi/event_reader/**'
               - 'eth_defi/hypersync/**'
               - 'eth_defi/abi/**'
               - 'eth_defi/token.py'
               - 'eth_defi/chain.py'
+              - 'eth_defi/trace.py'
               - 'eth_defi/testing/**'
               - 'tests/erc_4626/vault_protocol/**'
               - 'tests/conftest.py'
