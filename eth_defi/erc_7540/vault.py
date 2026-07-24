@@ -8,10 +8,10 @@ from eth_typing import HexAddress
 from web3.contract.contract import ContractFunction
 
 from eth_defi.erc_4626.vault import ERC4626Vault
+from eth_defi.vault.deposit_redeem import VaultDepositManagerCapability
 
 if TYPE_CHECKING:
     from eth_defi.erc_7540.deposit_redeem import ERC7540DepositManager
-    from eth_defi.vault.deposit_redeem import VaultDepositManagerCapability
 
 
 logger = logging.getLogger(__name__)
@@ -168,7 +168,7 @@ class ERC7540Vault(ERC4626Vault):
 
         return ERC7540DepositManager(self)
 
-    def get_deposit_manager_capability(self) -> "VaultDepositManagerCapability":
+    def get_deposit_manager_capability(self) -> VaultDepositManagerCapability:
         """Declare the standard ERC-7540 request-and-claim lifecycle.
 
         Both directions require a request followed by operator settlement and
@@ -177,13 +177,12 @@ class ERC7540Vault(ERC4626Vault):
         :return:
             Two-way asynchronous capability.
         """
-        from eth_defi.vault.deposit_redeem import VaultDepositManagerCapability
-
         return VaultDepositManagerCapability(
             can_deposit=True,
             can_redeem=True,
             deposit_flow="asynchronous",
             redemption_flow="asynchronous",
+            supports_anvil_settlement=False,
         )
 
     def get_estimated_lock_up(self) -> datetime.timedelta | None:
