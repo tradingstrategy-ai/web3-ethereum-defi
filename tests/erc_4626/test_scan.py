@@ -90,6 +90,14 @@ def test_4626_scan_hypersync(web3):
     assert any(r["Name"] == "Staked EURA" for r in rows)
 
 
+# Disabled on CI (2026-07-24): a ~110s pure-RPC block scan — the slowest test in
+# the slow-test workflow — that exercises the external RPC provider more than our
+# code. Runs locally. Set RUN_HYPERSYNC_TESTS=true to force it on CI (shares the
+# toggle with the Hypersync scans; see docs/README-hypersync-tests.md).
+@pytest.mark.skipif(
+    CI and not RUN_HYPERSYNC_TESTS,
+    reason="Slow RPC block scan, disabled on CI by default. Set RUN_HYPERSYNC_TESTS=true - see docs/README-hypersync-tests.md",
+)
 @pytest.mark.slow
 def test_4626_scan_rpc(web3):
     """Read vaults of early Base chain using raw RPC calls"""
