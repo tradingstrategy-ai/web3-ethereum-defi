@@ -486,6 +486,27 @@ class RawVaultPriceRow(TypedDict, total=False):
     #: When this row was actually written/fetched (naive UTC). ``None`` until stamped at write time.
     written_at: "pd.Timestamp | None"
 
+    #: Current long open-position notional for native perp vault accounts.
+    perp_long_notional: float
+
+    #: Current absolute short open-position notional for native perp vault accounts.
+    perp_short_notional: float
+
+    #: Count of non-zero current perp positions for native vault accounts.
+    perp_open_position_count: int
+
+    #: Largest absolute current perp position notional.
+    perp_largest_position_notional: float
+
+    #: Exact source denomination for the perp notionals.
+    perp_quote_asset: str
+
+    #: Generic current position-data availability state.
+    perp_position_data_status: str
+
+    #: Source position effective time for the materialised metrics.
+    perp_metrics_observed_at: "pd.Timestamp | None"
+
 
 @dataclass(slots=True, frozen=False)
 class VaultHistoricalRead:
@@ -664,6 +685,13 @@ class VaultHistoricalRead:
                 ("available_liquidity", pa.float64()),
                 ("utilisation", pa.float32()),
                 ("written_at", pa.timestamp("ms")),  # When this row was actually written/fetched (naive UTC)
+                ("perp_long_notional", pa.float64()),
+                ("perp_short_notional", pa.float64()),
+                ("perp_open_position_count", pa.int64()),
+                ("perp_largest_position_notional", pa.float64()),
+                ("perp_quote_asset", pa.string()),
+                ("perp_position_data_status", pa.string()),
+                ("perp_metrics_observed_at", pa.timestamp("ms")),
             ]
         )
         return schema
@@ -695,6 +723,12 @@ class VaultHistoricalRead:
         import pyarrow as pa
 
         target_schema = VaultHistoricalRead.to_pyarrow_schema()
+        # Pandas metadata describes the schema at the time a DataFrame was
+        # written and becomes stale after a migration.  Perp capability
+        # metadata, in contrast, is part of the reproducibility contract for
+        # the raw artefact and must survive an ordinary schema migration.
+        source_metadata = existing_table.schema.metadata or {}
+        preserved_metadata = {key: value for key, value in source_metadata.items() if key.startswith(b"perp_dex.")}
         existing_names = set(existing_table.schema.names)
 
         # Add missing canonical columns as null arrays
@@ -724,8 +758,9 @@ class VaultHistoricalRead:
                     col.cast(target_field.type, safe=False),
                 )
 
-        # Strip pandas metadata to avoid stale schema info
-        existing_table = existing_table.replace_schema_metadata(None)
+        # Strip pandas metadata to avoid stale schema info, while retaining
+        # the immutable perp capability registry for deterministic re-cleaning.
+        existing_table = existing_table.replace_schema_metadata(preserved_metadata or None)
 
         return existing_table
 

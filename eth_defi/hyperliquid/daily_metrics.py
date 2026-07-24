@@ -40,8 +40,8 @@ from tqdm_loggable.auto import tqdm
 from eth_defi.compat import native_datetime_utc_now
 from eth_defi.hyperliquid.combined_analysis import _calculate_share_price, align_share_price_curve_to_anchor
 from eth_defi.hyperliquid.constants import HYPERCORE_CHAIN_ID, HYPERLIQUID_DAILY_METRICS_DATABASE
-from eth_defi.hyperliquid.vault_metrics_db import HyperliquidMetricsDatabaseBase
 from eth_defi.hyperliquid.deposit import aggregate_daily_flows, fetch_vault_deposits
+from eth_defi.hyperliquid.perp_metrics import collect_hyperliquid_vault_observations
 from eth_defi.hyperliquid.session import HyperliquidSession
 from eth_defi.hyperliquid.vault import (
     HyperliquidVault,
@@ -50,6 +50,7 @@ from eth_defi.hyperliquid.vault import (
     VaultSummary,
     fetch_all_vaults,
 )
+from eth_defi.hyperliquid.vault_metrics_db import HyperliquidMetricsDatabaseBase
 
 logger = logging.getLogger(__name__)
 
@@ -1457,6 +1458,14 @@ def run_daily_scan(
     success_count = sum(1 for r in results if r)
     fail_count = sum(1 for r in results if not r)
 
+    position_attempts = collect_hyperliquid_vault_observations(
+        session,
+        db.con,
+        filtered,
+        max_workers=max_workers,
+        timeout=timeout,
+    )
+
     # Update TVL for existing metadata entries that were not fully processed.
     # This prevents stale TVL values for vaults that dropped below min_tvl.
     if vault_addresses is None:
@@ -1493,10 +1502,11 @@ def run_daily_scan(
     db.save()
 
     logger.info(
-        "Daily scan complete. Processed %d vaults (%d successful, %d failed) into %s",
+        "Daily scan complete. Processed %d vaults (%d successful, %d failed, %d position reads) into %s",
         len(filtered),
         success_count,
         fail_count,
+        position_attempts,
         db_path,
     )
 

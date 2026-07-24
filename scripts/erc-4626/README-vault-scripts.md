@@ -16,6 +16,33 @@ them once its state trie has been evicted. Do not retry an old `eth_call`, set
 `START_BLOCK=1`, or delete these rows in an attempt to run a full Monad archive
 backfill: that state history is unavailable by design.
 
+## Perp DEX vault account metrics
+
+Native perpetual DEX readers persist fundamental account observations and
+non-zero signed position notionals in their protocol DuckDB database. Native
+post-processing applies one shared backward temporal join to raw price rows;
+the cleaner carries the results to `cleaned-vault-prices-1h.parquet`, and the
+JSON exporter derives gross/net exposure and concentration under
+`other_data.perp_dex`. No protocol-specific JSON reader is maintained.
+
+| Protocol | Public account equity | Public open positions | Exported position status |
+|---|---|---|---|
+| Hyperliquid | Yes | Yes | `available` |
+| Lighter | Yes | Yes | `available` |
+| Pacifica | Parser prepared | Parser prepared | Not yet exported |
+| GRVT | Yes | No | `authentication_required` |
+| Hibachi | Yes | No | `not_public` |
+| ApeX | Yes | No | `authentication_required` |
+
+The shared cleaned columns are `perp_long_notional`, `perp_short_notional`,
+`perp_open_position_count`, `perp_largest_position_notional`,
+`perp_quote_asset`, `perp_position_data_status` and
+`perp_metrics_observed_at`. The source deliberately excludes cross-margin,
+portfolio-margin, margin-account, leverage, liquidation and order fields.
+Unavailable positions are null and never interpreted as zero. See
+[`perp-dex-account-metrics.rst`](../../docs/source/vaults/perp-dex-account-metrics.rst)
+for formulas, storage and temporal-staleness semantics.
+
 ## Production pipeline
 
 These scripts form the core data pipeline for vault discovery, price scanning, and export.

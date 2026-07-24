@@ -27,6 +27,7 @@ See :ref:`tutorials <tutorials>` for guides and examples on how to use the libra
    derive/index
    gmx/index
    hyperliquid/index
+   perp_dex/index
    apex/index
    grvt/index
    lighter/index
