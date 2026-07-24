@@ -39,6 +39,7 @@ UPSHIFT_SENTORA_INSTANT_REDEMPTION_FEE = 0.002
 UPSHIFT_GAMMA_BTC_VAULT = "0x3e4ef6ccc7e4a045c9d3f48b08813d59df14e256"
 UPSHIFT_GAMMA_BTC_MANAGEMENT_FEE = 0.005
 UPSHIFT_GAMMA_BTC_PERFORMANCE_FEE = 0.1
+EIGHTEEN_DECIMALS = 18
 UPSHIFT_TORI_HISTORY_START_BLOCK = 25_355_071
 UPSHIFT_TORI_HISTORY_STEP_BLOCKS = 7_200
 UPSHIFT_TORI_HISTORY_SAMPLE_COUNT = 8
@@ -194,9 +195,8 @@ def test_upshift_multi_asset_vault_metadata(
     assert Web3.to_checksum_address(vault_address) in link
 
 
-@flaky.flaky
 @pytest.mark.xdist_group("fork:ethereum:midnight")
-def test_upshift_sentora_multi_asset_deposit_lifecycle(sentora_web3: Web3, sentora_snapshot: None) -> None:
+def test_upshift_sentora_multi_asset_deposit_lifecycle(sentora_web3: Web3, sentora_snapshot: None, monkeypatch: pytest.MonkeyPatch) -> None:
     """Deposit the selected whitelist asset into Sentora USD Earn on Anvil.
 
     The request contains its required ERC-20 approval followed by Upshift's
@@ -236,7 +236,7 @@ def test_upshift_sentora_multi_asset_deposit_lifecycle(sentora_web3: Web3, sento
     assert manager.estimate_deposit_for_asset(owner, Decimal(1), asset.address) == Decimal("0.969683")
     max_deposit = manager.fetch_max_deposit_for_asset(asset.address)
     assert max_deposit == asset.convert_to_raw(Decimal(100_000_000))
-    eighteen_decimal_asset = next(token for token in manager.fetch_accepted_assets() if token.decimals == 18)
+    eighteen_decimal_asset = next(token for token in manager.fetch_accepted_assets() if token.decimals == EIGHTEEN_DECIMALS)
     assert manager.estimate_deposit_for_asset(owner, Decimal(1), eighteen_decimal_asset.address) == Decimal("0.969683")
     eighteen_decimal_max_deposit = manager.fetch_max_deposit_for_asset(eighteen_decimal_asset.address)
     assert eighteen_decimal_asset.convert_to_decimals(eighteen_decimal_max_deposit) == asset.convert_to_decimals(max_deposit)
@@ -256,6 +256,7 @@ def test_upshift_sentora_multi_asset_deposit_lifecycle(sentora_web3: Web3, sento
         raw_amount=raw_amount,
         accepted_asset=asset.address,
     ).broadcast()
+    monkeypatch.setattr(manager, "fetch_accepted_assets", lambda: ())
     analysis = manager.analyse_deposit(deposit_ticket.tx_hash, deposit_ticket)
     assert analysis.denomination_amount == Decimal(1)
     assert analysis.share_count == Decimal("0.969683")

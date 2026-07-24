@@ -11,7 +11,7 @@ from web3._utils.events import EventLogErrorFlags  # noqa: PLC2701
 from eth_defi.abi import ZERO_ADDRESS_STR, get_deployed_contract
 from eth_defi.erc_4626.deposit_redeem import ERC4626DepositManager, ERC4626DepositRequest
 from eth_defi.timestamp import get_block_timestamp
-from eth_defi.token import TokenDetails
+from eth_defi.token import TokenDetails, fetch_erc20_details
 from eth_defi.vault.deposit_redeem import DepositRedeemEventAnalysis, DepositRedeemEventFailure, DepositTicket, VaultFlowUnavailable
 
 
@@ -389,7 +389,11 @@ class UpshiftMultiAssetDepositManager(ERC4626DepositManager):
             reason = f"Expected exactly one Upshift Deposit event, got {len(logs)} at {claim_tx_hash}"
             raise ValueError(reason)
         args = logs[0]["args"]
-        asset = self._fetch_accepted_asset(args["senderAddr"], args["assetIn"])
+        asset = fetch_erc20_details(
+            self.vault.web3,
+            args["assetIn"],
+            chain_id=self.vault.chain_id,
+        )
         return DepositRedeemEventAnalysis(
             from_=Web3.to_checksum_address(args["senderAddr"]),
             to=Web3.to_checksum_address(args["receiverAddr"]),
