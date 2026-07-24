@@ -80,15 +80,23 @@ def test_fraxlend_probe_requires_event_derived_deployer() -> None:
     assert ERC4626Feature.frax_like not in fork_features
 
 
-def test_upshift_multi_asset_probe_is_unrestricted() -> None:
-    """Probe Upshift's multi-asset discriminator on every EVM chain."""
+def test_upshift_multi_asset_probe_restricted_to_ethereum() -> None:
+    """Probe Upshift's multi-asset discriminator on Ethereum only.
+
+    ``assetsWhitelistAddress`` was added to ``CHAIN_RESTRICTED_PROBES`` as
+    Ethereum-only (Upshift multi-asset vaults are deployed on Ethereum mainnet;
+    the restriction landed with the Symbiotic vault protocol support), so the
+    probe must yield on Ethereum and be filtered on every other chain.
+    """
 
     test_address = "0x0000000000000000000000000000000000000001"
-    upshift_chain_ids = (ETHEREUM_MAINNET, POLYGON, MONAD, HYPEREVM, BASE, PLASMA, AVALANCHE, INK)
 
-    for chain_id in upshift_chain_ids:
+    eth_call_names = {call.func_name for call in create_probe_calls([test_address], chain_id=ETHEREUM_MAINNET)}
+    assert "assetsWhitelistAddress" in eth_call_names
+
+    for chain_id in (POLYGON, MONAD, HYPEREVM, BASE, PLASMA, AVALANCHE, INK):
         call_names = {call.func_name for call in create_probe_calls([test_address], chain_id=chain_id)}
-        assert "assetsWhitelistAddress" in call_names
+        assert "assetsWhitelistAddress" not in call_names, f"Ethereum-only probe leaked on chain {chain_id}"
 
 
 def test_chain_probe_filtering():
