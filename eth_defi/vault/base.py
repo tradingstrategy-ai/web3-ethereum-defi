@@ -505,6 +505,8 @@ class RawVaultPriceRow(TypedDict, total=False):
     perp_position_data_status: str
 
     #: Source position effective time for the materialised metrics.
+    #: Account-level data uses one-second resolution. The timestamp stays
+    #: attached to stale and forward-aligned values so their age is explicit.
     perp_metrics_observed_at: "pd.Timestamp | None"
 
 
@@ -691,6 +693,9 @@ class VaultHistoricalRead:
                 ("perp_largest_position_notional", pa.float64()),
                 ("perp_quote_asset", pa.string()),
                 ("perp_position_data_status", pa.string()),
+                # One-second accuracy is sufficient for account-level perp
+                # metrics and remains attached to stale/aligned observations.
+                # Parquet needs the ms logical type for a stable round trip.
                 ("perp_metrics_observed_at", pa.timestamp("ms")),
             ]
         )

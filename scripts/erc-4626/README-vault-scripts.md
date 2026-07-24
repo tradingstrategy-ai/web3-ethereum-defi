@@ -20,16 +20,18 @@ backfill: that state history is unavailable by design.
 
 Native perpetual DEX readers persist fundamental account observations and
 non-zero signed position notionals in their protocol DuckDB database. Native
-post-processing applies one shared backward temporal join to raw price rows;
-the cleaner carries the results to `cleaned-vault-prices-1h.parquet`, and the
-JSON exporter derives gross/net exposure and concentration under
-`other_data.perp_dex`. No protocol-specific JSON reader is maintained.
+post-processing applies one shared temporal join to raw price rows. A bounded
+generic latest-row alignment handles daily or delayed feeds such as Lighter
+without changing the original measurement timestamp. The cleaner carries the
+results to `cleaned-vault-prices-1h.parquet`, and the JSON exporter derives
+gross/net exposure and concentration under `other_data.perp_dex`. No
+protocol-specific JSON reader is maintained.
 
 | Protocol | Public account equity | Public open positions | Exported position status |
 |---|---|---|---|
 | Hyperliquid | Yes | Yes | `available` |
 | Lighter | Yes | Yes | `available` |
-| Pacifica | Parser prepared | Parser prepared | Not yet exported |
+| Pacifica | Unsupported | Unsupported | Unsupported |
 | GRVT | Yes | No | `authentication_required` |
 | Hibachi | Yes | No | `not_public` |
 | ApeX | Yes | No | `authentication_required` |
@@ -37,7 +39,9 @@ JSON exporter derives gross/net exposure and concentration under
 The shared cleaned columns are `perp_long_notional`, `perp_short_notional`,
 `perp_open_position_count`, `perp_largest_position_notional`,
 `perp_quote_asset`, `perp_position_data_status` and
-`perp_metrics_observed_at`. The source deliberately excludes cross-margin,
+`perp_metrics_observed_at`. The timestamp uses one-second resolution and remains
+attached when values are stale, allowing consumers to calculate measurement
+age. The source deliberately excludes cross-margin,
 portfolio-margin, margin-account, leverage, liquidation and order fields.
 Unavailable positions are null and never interpreted as zero. See
 [`perp-dex-account-metrics.rst`](../../docs/source/vaults/perp-dex-account-metrics.rst)

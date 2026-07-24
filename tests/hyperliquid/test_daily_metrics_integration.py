@@ -16,20 +16,22 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from eth_defi.erc_4626.core import ERC4626Feature, ERC4262VaultDetection
+from eth_defi.erc_4626.core import ERC4262VaultDetection, ERC4626Feature
 from eth_defi.hyperliquid.constants import HYPERCORE_CHAIN_ID
 from eth_defi.hyperliquid.daily_metrics import (
     HyperliquidDailyMetricsDatabase,
     fetch_and_store_vault,
+    run_daily_scan,
 )
 from eth_defi.hyperliquid.session import create_hyperliquid_session
-from eth_defi.hyperliquid.vault import HyperliquidVault, VaultSummary, fetch_all_vaults
+from eth_defi.hyperliquid.vault import VaultSummary, fetch_all_vaults
 from eth_defi.hyperliquid.vault_data_export import (
     LEADER_FRACTION_WARNING_THRESHOLD,
     _get_deposit_closed_reason,
     merge_into_uncleaned_parquet,
     merge_into_vault_database,
 )
+from eth_defi.perp_dex.storage import read_perp_vault_observations
 from eth_defi.research.vault_metrics import (
     calculate_hourly_returns_for_all_vaults,
     calculate_lifetime_metrics,
@@ -38,6 +40,7 @@ from eth_defi.research.vault_metrics import (
 from eth_defi.research.wrangle_vault_prices import generate_cleaned_vault_datasets
 from eth_defi.vault.base import VaultSpec
 from eth_defi.vault.fee import FeeData, VaultFeeMode
+from eth_defi.vault.post_processing import merge_native_protocols
 from eth_defi.vault.vaultdb import VaultDatabase, VaultRow
 
 
@@ -133,6 +136,85 @@ def _create_mock_arbitrum_vault_data(
     prices_df.to_parquet(uncleaned_path, compression="zstd")
 
     return vault_db, prices_df
+
+
+@pytest.mark.slow
+@pytest.mark.timeout(180)
+def test_live_hyperliquid_perp_metrics_reach_cleaned_parquet_and_json(tmp_path: Path) -> None:  # noqa: PLR0914
+    """Collect one live Hyperliquid account and export its account metrics.
+
+    This deliberately uses ``run_daily_scan()`` instead of the lower-level
+    price-only writer: the scan invokes the public ``clearinghouseState``
+    collector, writes its common observation bundle, merges it into raw
+    Parquet, cleans it, and produces the final JSON-shaped vault record.
+
+    :param tmp_path:
+        Isolated pytest directory for the live DuckDB and Parquet artefacts.
+    """
+    vault_address = "0x3df9769bbbb335340872f01d8157c779d73c6ed0"
+    duckdb_path = tmp_path / "hyperliquid-live-metrics.duckdb"
+    vault_db_path = tmp_path / "vault-metadata-db.pickle"
+    uncleaned_path = tmp_path / "vault-prices-1h.parquet"
+    cleaned_path = tmp_path / "cleaned-vault-prices-1h.parquet"
+    session = create_hyperliquid_session()
+
+    database = run_daily_scan(
+        session,
+        db_path=duckdb_path,
+        vault_addresses=[vault_address],
+        max_workers=1,
+        flow_backfill_days=0,
+        timeout=30.0,
+    )
+    try:
+        accounts, positions = read_perp_vault_observations(database.con)
+        account_rows = accounts[accounts["dataset_address"] == vault_address]
+        assert len(account_rows) == 1
+        assert account_rows.iloc[0]["position_data_status"] == "available"
+        assert bool(account_rows.iloc[0]["position_set_complete"])
+        assert pd.notna(account_rows.iloc[0]["observed_at"])
+        assert set(positions["snapshot_id"]).issubset(set(account_rows["snapshot_id"]))
+        merge_into_vault_database(database, vault_db_path)
+    finally:
+        database.close()
+
+    merge_steps = merge_native_protocols(
+        merge_hypercore=True,
+        uncleaned_parquet_path=uncleaned_path,
+        hyperliquid_db_path=duckdb_path,
+        hyperliquid_hf_db_path=tmp_path / "no-high-frequency-metrics.duckdb",
+    )
+    assert merge_steps["hypercore-price-merge"]
+
+    raw_prices = pd.read_parquet(uncleaned_path)
+    raw_vault_rows = raw_prices[(raw_prices["chain"] == HYPERCORE_CHAIN_ID) & (raw_prices["address"].str.lower() == vault_address)]
+    assert not raw_vault_rows.empty
+    assert raw_vault_rows["perp_position_data_status"].eq("available").any()
+    assert raw_vault_rows["perp_metrics_observed_at"].notna().any()
+
+    generate_cleaned_vault_datasets(
+        vault_db_path=vault_db_path,
+        price_df_path=uncleaned_path,
+        cleaned_price_df_path=cleaned_path,
+    )
+    cleaned_prices = pd.read_parquet(cleaned_path)
+    cleaned_vault_rows = cleaned_prices[(cleaned_prices["chain"] == HYPERCORE_CHAIN_ID) & (cleaned_prices["address"].str.lower() == vault_address)]
+    assert not cleaned_vault_rows.empty
+    latest_cleaned_row = cleaned_vault_rows.sort_values("timestamp").iloc[-1]
+    assert latest_cleaned_row["perp_position_data_status"] == "available"
+    assert latest_cleaned_row["perp_quote_asset"] == "USDC"
+    assert pd.notna(latest_cleaned_row["perp_metrics_observed_at"])
+
+    vault_db = VaultDatabase.read(vault_db_path)
+    returns = calculate_hourly_returns_for_all_vaults(cleaned_prices)
+    lifetime_metrics = calculate_lifetime_metrics(returns, vault_db)
+    assert len(lifetime_metrics) == 1
+    exported = export_lifetime_row(lifetime_metrics.iloc[0])
+    json.dumps(exported, allow_nan=False)
+    perp_dex = exported["other_data"]["perp_dex"]
+    assert perp_dex["position_data_status"] == "available"
+    assert perp_dex["quote_asset"] == "USDC"
+    assert perp_dex["observed_at"] is not None
 
 
 @pytest.mark.timeout(120)
@@ -260,7 +342,7 @@ def test_unified_vault_metrics_json(tmp_path):
         assert len(lifetime) == 1, f"Missing lifetime period for vault {vault.get('name')}"
 
     # Hyperliquid vault should have netflow metrics with 1d, 7d, 30d periods
-    assert "netflow" in hl_vault, f"Missing netflow field for Hyperliquid vault"
+    assert "netflow" in hl_vault, "Missing netflow field for Hyperliquid vault"
     hl_netflow = hl_vault["netflow"]
     assert hl_netflow is not None, "Hyperliquid vault should have netflow data"
     assert isinstance(hl_netflow, list), f"Expected netflow to be a list, got {type(hl_netflow)}"

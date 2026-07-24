@@ -18,11 +18,14 @@ is **USDC**.
 
 ## Shared vault-account metrics
 
-The prepared public parser maps `GET /account` equity and one signed notional
-for every non-zero `GET /positions` result. It values `amount` at the same-cycle
-`GET /info/prices` mark, using `bid` as long and `ask` as short. Pacifica is not
-yet a production scanner source: its DuckDB database, native price exporter and
-all-chain scheduling still need wiring before it can enter Parquet or JSON.
+Pacifica vault-account metrics are currently unsupported. Parser groundwork
+maps `GET /account` equity and one signed notional for every non-zero
+`GET /positions` result, valuing `amount` at the same-cycle
+`GET /info/prices` mark and using `bid` as long and `ask` as short.
+
+TODO: enable this only after the DuckDB database, native price exporter,
+all-chain scheduling and mark/position timestamp-skew validation are
+implemented. Until then Pacifica does not enter Parquet or JSON.
 Cross-margin, portfolio-margin, isolated-margin, liquidation and order data are
 intentionally excluded. The target shared raw-to-cleaned Parquet and JSON
 contract is documented in

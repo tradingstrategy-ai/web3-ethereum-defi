@@ -4,10 +4,11 @@ import datetime
 import logging
 import uuid
 from collections.abc import Iterable
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 from typing import Any
 
 import duckdb
+import requests
 from joblib import Parallel, delayed
 
 from eth_defi.compat import native_datetime_utc_now
@@ -39,6 +40,9 @@ def build_lighter_pool_observation_bundle(
     Lighter reports an absolute position value and a separate integer sign.
     The public account parser uses ``sign >= 0`` for a long, which this adapter
     preserves after filtering zero source quantities.
+
+    See Lighter's `account endpoint documentation
+    <https://apidocs.lighter.xyz/reference/account>`__.
 
     :param account:
         Raw first object from ``GET /api/v1/account``.
@@ -122,12 +126,25 @@ def _fetch_lighter_pool_bundle(
     summary: LighterPoolSummary,
     timeout: float,
 ) -> tuple[PerpVaultObservationBundle, dict[str, Any]]:
-    """Fetch and normalise one pool without writing to the shared DuckDB handle."""
+    """Fetch and normalise one pool without writing to the shared DuckDB handle.
+
+    Expected source and parsing failures become an explicit unavailable bundle;
+    programming defects continue to propagate.
+
+    :param session:
+        Configured public Lighter session.
+    :param summary:
+        Pool identity and account equity discovered by the daily scanner.
+    :param timeout:
+        HTTP request timeout in seconds.
+    :return:
+        Normalised common observation and whitelisted audit payload.
+    """
     observed_at = native_datetime_utc_now()
     try:
         account = fetch_lighter_account_by_index(session, summary.account_index, timeout=timeout)
         return build_lighter_pool_observation_bundle(account, session.deployment, observed_at)
-    except Exception as exc:
+    except (requests.RequestException, InvalidOperation, KeyError, TypeError, ValueError) as exc:
         identity = PerpVaultIdentity(
             protocol_slug="lighter",
             deployment_slug=session.deployment.slug,
@@ -155,6 +172,9 @@ def collect_lighter_pool_observations(
     timeout: float,
 ) -> int:
     """Collect public Lighter positions in parallel and persist bundles serially.
+
+    The collector reads Lighter's `public account endpoint
+    <https://apidocs.lighter.xyz/reference/account>`__.
 
     :param session:
         Configured public Lighter HTTP session.

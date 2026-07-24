@@ -1,4 +1,4 @@
-"""Public Pacifica lake account and open-position metric collection."""
+"""Unsupported Pacifica lake account and open-position parser groundwork."""
 
 import datetime
 import uuid
@@ -7,7 +7,7 @@ from typing import Any
 
 import requests
 
-from eth_defi.compat import native_datetime_utc_fromtimestamp, native_datetime_utc_now
+from eth_defi.compat import native_datetime_utc_fromtimestamp
 from eth_defi.pacifica.constants import PACIFICA_API_URL, PACIFICA_CHAIN_ID
 from eth_defi.perp_dex.metrics import (
     PerpVaultAccountObservation,
@@ -17,11 +17,23 @@ from eth_defi.perp_dex.metrics import (
     PositionValuationBasis,
     SourcePositionDataStatus,
 )
-from eth_defi.perp_dex.storage import write_perp_vault_observation_bundle
+
+#: Pacifica is intentionally excluded from the production capability registry
+#: and native price pipeline.
+PACIFICA_PERP_VAULT_METRICS_SUPPORTED = False
+
+# TODO: Enable Pacifica only after its native price reader is implemented and
+# mark/position timestamp skew is validated against the shared metric contract.
 
 
 def _unwrap_pacifica_response(response: requests.Response) -> Any:
-    """Validate Pacifica's standard response envelope and return ``data``."""
+    """Validate Pacifica's standard response envelope.
+
+    :param response:
+        HTTP response returned by the public Pacifica API.
+    :return:
+        The response envelope's ``data`` value.
+    """
     response.raise_for_status()
     payload = response.json()
     if payload.get("success") is not True:
@@ -30,23 +42,63 @@ def _unwrap_pacifica_response(response: requests.Response) -> Any:
 
 
 def fetch_pacifica_lakes(session: requests.Session, timeout: float) -> tuple[dict[str, Any], ...]:
-    """Fetch the publicly listed Pacifica lakes/vaults."""
+    """Fetch the publicly listed Pacifica lakes/vaults.
+
+    This unsupported parser groundwork follows Pacifica's `public API
+    documentation <https://docs.pacifica.fi/>`__ and does not write to the
+    production observation store.
+
+    :param session:
+        Configured HTTP session.
+    :param timeout:
+        Request timeout in seconds.
+    :return:
+        Immutable sequence of raw lake records.
+    """
     data = _unwrap_pacifica_response(session.get(f"{PACIFICA_API_URL}/lake/list", timeout=timeout))
     return tuple(data.get("lakes") or ())
 
 
 def fetch_pacifica_account(session: requests.Session, lake_address: str, timeout: float) -> dict[str, Any]:
-    """Fetch a current public account equity snapshot for one lake."""
+    """Fetch a current public account equity snapshot for one lake.
+
+    :param session:
+        Configured HTTP session.
+    :param lake_address:
+        Pacifica lake account identifier.
+    :param timeout:
+        Request timeout in seconds.
+    :return:
+        Raw public account response.
+    """
     return _unwrap_pacifica_response(session.get(f"{PACIFICA_API_URL}/account", params={"account": lake_address}, timeout=timeout))
 
 
 def fetch_pacifica_positions(session: requests.Session, lake_address: str, timeout: float) -> tuple[dict[str, Any], ...]:
-    """Fetch the complete public current position set for one lake."""
+    """Fetch the complete public current position set for one lake.
+
+    :param session:
+        Configured HTTP session.
+    :param lake_address:
+        Pacifica lake account identifier.
+    :param timeout:
+        Request timeout in seconds.
+    :return:
+        Immutable sequence of raw open-position records.
+    """
     return tuple(_unwrap_pacifica_response(session.get(f"{PACIFICA_API_URL}/positions", params={"account": lake_address}, timeout=timeout)))
 
 
 def fetch_pacifica_marks(session: requests.Session, timeout: float) -> dict[str, tuple[Decimal, datetime.datetime]]:
-    """Fetch current mark prices once and index them by Pacifica symbol."""
+    """Fetch current mark prices once and index them by Pacifica symbol.
+
+    :param session:
+        Configured HTTP session.
+    :param timeout:
+        Request timeout in seconds.
+    :return:
+        Symbol mapping to a decimal mark and naive UTC source timestamp.
+    """
     prices = _unwrap_pacifica_response(session.get(f"{PACIFICA_API_URL}/info/prices", timeout=timeout))
     result: dict[str, tuple[Decimal, datetime.datetime]] = {}
     for price in prices:
@@ -71,6 +123,22 @@ def build_pacifica_lake_observation_bundle(
     units. The only valuation retained is base amount multiplied by the same
     collection cycle's public mark; margin and liquidation fields are not
     collected.
+
+    This function remains parser groundwork only; Pacifica is not registered
+    in the production collection or export pipeline.
+
+    :param lake:
+        Raw lake identity record.
+    :param account:
+        Raw account equity response.
+    :param positions:
+        Complete raw open-position response.
+    :param marks:
+        Symbol mapping to decimal marks and naive UTC source timestamps.
+    :param observed_at:
+        Naive UTC collection time.
+    :return:
+        Normalised common observation and whitelisted audit payload.
     """
     address = str(lake["address"])
     snapshot_id = uuid.uuid4().hex
@@ -132,26 +200,3 @@ def build_pacifica_lake_observation_bundle(
         "account_updated_at": account_updated_at,
         "positions": payload_positions,
     }
-
-
-def collect_pacifica_lake_observations(
-    session: requests.Session,
-    connection: Any,
-    lakes: tuple[dict[str, Any], ...],
-    timeout: float,
-) -> int:
-    """Collect public Pacifica lake facts and persist them through common storage.
-
-    Marks are fetched once per cycle to give every account a consistent market
-    valuation basis. Writes remain serial because the owning DuckDB connection
-    is not shared across worker threads.
-    """
-    marks = fetch_pacifica_marks(session, timeout)
-    for lake in lakes:
-        observed_at = native_datetime_utc_now()
-        address = str(lake["address"])
-        account = fetch_pacifica_account(session, address, timeout)
-        positions = fetch_pacifica_positions(session, address, timeout)
-        bundle, payload = build_pacifica_lake_observation_bundle(lake, account, positions, marks, observed_at)
-        write_perp_vault_observation_bundle(connection, bundle, payload)
-    return len(lakes)

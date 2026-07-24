@@ -59,9 +59,9 @@ logger = logging.getLogger(__name__)
 
 PERP_DEX_CAPABILITY_REGISTRY = PerpDexCapabilityRegistry(
     capabilities=(
-        PerpDexCapability("hyperliquid", "hypercore", "USDC", True, "available", 3600, 300),
-        PerpDexCapability("lighter", "ethereum", "USDC", True, "available", 3600, 300),
-        PerpDexCapability("lighter", "robinhood", "USDG", True, "available", 3600, 300),
+        PerpDexCapability("hyperliquid", "hypercore", "USDC", True, "available", 14_400, 300),
+        PerpDexCapability("lighter", "ethereum", "USDC", True, "available", 14_400, 300),
+        PerpDexCapability("lighter", "robinhood", "USDG", True, "available", 14_400, 300),
         PerpDexCapability("grvt", "mainnet", "USDT", False, "authentication_required", 86_400, 0),
         PerpDexCapability("hibachi", "mainnet", "USDT", False, "not_public", 86_400, 0),
         PerpDexCapability("apex", "omni", "USDT", False, "authentication_required", 14_400, 0),

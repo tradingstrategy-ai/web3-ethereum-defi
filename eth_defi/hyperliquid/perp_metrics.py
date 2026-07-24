@@ -4,9 +4,11 @@ import datetime
 import logging
 import uuid
 from collections.abc import Iterable
+from decimal import InvalidOperation
 from typing import Any
 
 import duckdb
+import requests
 from joblib import Parallel, delayed
 
 from eth_defi.compat import native_datetime_utc_now
@@ -38,6 +40,9 @@ def build_hyperliquid_vault_observation_bundle(
     Hyperliquid's ``positionValue`` is absolute, while signed ``szi`` carries
     direction.  The adapter signs the value from non-zero size and excludes
     all margin, leverage and liquidation fields from its payload.
+
+    See Hyperliquid's `clearinghouse state documentation
+    <https://hyperliquid.gitbook.io/hyperliquid-docs/for-developers/api/info-endpoint/perpetuals>`__.
 
     :param summary:
         Public vault-listing identity and optional account equity.
@@ -100,13 +105,26 @@ def _fetch_hyperliquid_vault_bundle(
     summary: VaultSummary,
     timeout: float,
 ) -> tuple[PerpVaultObservationBundle, dict[str, Any]]:
-    """Fetch and normalise one public vault without sharing a DuckDB writer."""
+    """Fetch and normalise one public vault without sharing a DuckDB writer.
+
+    Expected source and parsing failures become an explicit unavailable bundle;
+    programming defects continue to propagate.
+
+    :param session:
+        Configured public Hyperliquid session.
+    :param summary:
+        Vault identity and account equity discovered by the daily scanner.
+    :param timeout:
+        HTTP request timeout in seconds.
+    :return:
+        Normalised common observation and whitelisted audit payload.
+    """
     observed_at = native_datetime_utc_now()
     address = str(summary.vault_address).lower()
     try:
         state = fetch_perp_clearinghouse_state(session, address, timeout=timeout)
         return build_hyperliquid_vault_observation_bundle(summary, state, observed_at)
-    except Exception as exc:
+    except (requests.RequestException, InvalidOperation, KeyError, TypeError, ValueError) as exc:
         bundle = create_unavailable_perp_vault_observation_bundle(
             identity=PerpVaultIdentity("hyperliquid", "hypercore", address, HYPERCORE_CHAIN_ID, address),
             observed_at=observed_at,
@@ -127,6 +145,10 @@ def collect_hyperliquid_vault_observations(
     timeout: float,
 ) -> int:
     """Collect public vault positions with threaded reads and serial writes.
+
+    Hyperliquid's public clearinghouse endpoint is read according to its
+    `canonical API documentation
+    <https://hyperliquid.gitbook.io/hyperliquid-docs/for-developers/api/info-endpoint/perpetuals>`__.
 
     :param session:
         Configured public Hyperliquid HTTP session.

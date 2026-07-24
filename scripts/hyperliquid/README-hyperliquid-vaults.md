@@ -11,6 +11,14 @@ Hypercore data goes through `process_raw_vault_scan_data()`, where its raw
 scanner price is replaced by a conservative PnL/NAV economic-performance index
 before returns and TVL filters are calculated.
 
+Current public positions are stored through the shared perp DEX observation
+tables and attached to the combined daily/high-frequency price frame by the
+generic temporal join. If the newest price row precedes the account read, the
+same bounded latest-row alignment used by other delayed native feeds applies.
+`perp_metrics_observed_at` retains the actual one-second-resolution measurement
+time through raw Parquet, cleaned Parquet and `other_data.perp_dex`, including
+when the values are stale.
+
 ## Architecture
 
 ```

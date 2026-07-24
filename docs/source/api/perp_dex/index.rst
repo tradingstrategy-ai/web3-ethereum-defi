@@ -1,6 +1,9 @@
 Perp DEX vault account API
 ==========================
 
+.. automodule:: eth_defi.perp_dex.adapter
+   :members:
+
 .. automodule:: eth_defi.perp_dex.metrics
    :members:
 
@@ -10,3 +13,5 @@ Perp DEX vault account API
 .. automodule:: eth_defi.perp_dex.parquet
    :members:
 
+.. automodule:: eth_defi.perp_dex.export
+   :members:

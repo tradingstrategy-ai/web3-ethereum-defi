@@ -32,12 +32,20 @@ class PerpDexCapabilityRegistry:
     schema_version: int = 1
 
     def to_json(self) -> str:
-        """Return deterministic JSON suitable for Parquet schema metadata."""
+        """Return deterministic JSON suitable for Parquet schema metadata.
+
+        :return:
+            Canonical compact JSON sorted by protocol and deployment.
+        """
         records = sorted((asdict(capability) for capability in self.capabilities), key=lambda item: (item["protocol_slug"], item["deployment_slug"]))
         return json.dumps({"schema_version": self.schema_version, "capabilities": records}, sort_keys=True, separators=(",", ":"))
 
     def sha256(self) -> str:
-        """Return the deterministic registry JSON digest."""
+        """Return the deterministic registry JSON digest.
+
+        :return:
+            Lower-case hexadecimal SHA-256 digest.
+        """
         return hashlib.sha256(self.to_json().encode("utf-8")).hexdigest()
 
 

@@ -17,10 +17,19 @@ def build_perp_dex_other_data(row: Mapping[str, Any]) -> dict[str, Any] | None:
         Latest cleaned price-row mapping.
     :return:
         Additive JSON object, or ``None`` for a non-perp vault.
+    :raises ValueError:
+        If an available or stale measurement has lost its observation
+        timestamp.
     """
 
     def missing(value: Any) -> bool:
-        """Return whether a scalar carries a pandas or ordinary null."""
+        """Return whether a scalar carries a pandas or ordinary null.
+
+        :param value:
+            Scalar value from the cleaned row.
+        :return:
+            ``True`` when the value is absent.
+        """
         return value is None or bool(pd.isna(value))
 
     status = row.get("perp_position_data_status")
@@ -28,6 +37,13 @@ def build_perp_dex_other_data(row: Mapping[str, Any]) -> dict[str, Any] | None:
         return None
 
     def number(name: str) -> float | None:
+        """Read one finite numeric field from the cleaned row.
+
+        :param name:
+            Cleaned Parquet column name.
+        :return:
+            Finite float, or ``None`` for missing or invalid input.
+        """
         value = row.get(name)
         if missing(value):
             return None
@@ -48,11 +64,17 @@ def build_perp_dex_other_data(row: Mapping[str, Any]) -> dict[str, Any] | None:
         count = None
     else:
         count = int(count)
+    # Values may be stale or deliberately aligned to a delayed daily price
+    # row. Always export the original measurement time alongside them so
+    # consumers can apply their own freshness threshold.
     observed_at = row.get("perp_metrics_observed_at")
+    if status in {"available", "stale"} and missing(observed_at):
+        msg = f"Perp metric status {status} requires perp_metrics_observed_at"
+        raise ValueError(msg)
     quote_asset = row.get("perp_quote_asset")
     return {
         "schema_version": 1,
-        "observed_at": observed_at.isoformat(timespec="milliseconds") if not missing(observed_at) else None,
+        "observed_at": observed_at.isoformat(timespec="seconds") if not missing(observed_at) else None,
         "quote_asset": quote_asset if not missing(quote_asset) and quote_asset else None,
         "position_data_status": status,
         "long_notional": long_notional,

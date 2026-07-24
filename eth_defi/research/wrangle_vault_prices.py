@@ -34,7 +34,7 @@ from tqdm_loggable.auto import tqdm
 from eth_defi.chain import get_chain_name
 from eth_defi.hyperliquid.constants import HYPERCORE_CHAIN_ID
 from eth_defi.perp_dex.adapter import embed_perp_capability_registry, load_perp_capability_registry
-from eth_defi.perp_dex.parquet import PERP_DEX_NATIVE_CHAIN_IDS, finalise_perp_metric_columns
+from eth_defi.perp_dex.parquet import PERP_DEX_NATIVE_CHAIN_IDS, build_registered_perp_vault_index, finalise_perp_metric_columns
 from eth_defi.token import is_stablecoin_like
 from eth_defi.types import Percent
 from eth_defi.vault.base import VaultSpec, verify_parquet_file
@@ -298,6 +298,32 @@ class CleanedVaultPriceRow(TypedDict, total=False):
     #:
     #: General — present for all protocols.
     written_at: "pd.Timestamp"
+
+    # -- Native perp DEX account columns --
+
+    #: Sum of current positive position notionals in ``perp_quote_asset``.
+    perp_long_notional: float
+
+    #: Sum of absolute current negative position notionals.
+    perp_short_notional: float
+
+    #: Count of current non-zero source-market positions.
+    perp_open_position_count: int
+
+    #: Largest absolute current position notional.
+    perp_largest_position_notional: float
+
+    #: Exact source denomination for all materialised position notionals.
+    perp_quote_asset: str
+
+    #: Position availability or freshness state, such as ``available`` or
+    #: ``stale``. Stale numeric values remain present for auditability.
+    perp_position_data_status: str
+
+    #: Actual source measurement time at one-second resolution.
+    #: This remains attached to stale values and observations forward-aligned
+    #: to the latest row of a delayed native price feed.
+    perp_metrics_observed_at: "pd.Timestamp"
 
     #: Latest asynchronous vault settlement timestamp in the interval ending at this price row.
     #:
@@ -1809,7 +1835,7 @@ def process_raw_vault_scan_data(
         prices_df,
         logger,
     )
-    registered_perp_vaults = {(int(row.chain), str(row.address).lower()) for row in prices_df[["chain", "address"]].itertuples(index=False) if int(row.chain) in PERP_DEX_NATIVE_CHAIN_IDS}
+    registered_perp_vaults = build_registered_perp_vault_index(prices_df)
     prices_df = finalise_perp_metric_columns(prices_df, registered_perp_vaults)
     return prices_df
 
@@ -2137,6 +2163,6 @@ def forward_fill_vault(
     assert isinstance(vault_df.index, pd.DatetimeIndex), f"Got: {type(vault_df.index)}"
     resampled = vault_df.resample("h").last().ffill()
     if "chain" in resampled.columns and "address" in resampled.columns:
-        registered_perp_vaults = {(int(row.chain), str(row.address).lower()) for row in resampled[["chain", "address"]].dropna().itertuples(index=False) if int(row.chain) in PERP_DEX_NATIVE_CHAIN_IDS}
+        registered_perp_vaults = build_registered_perp_vault_index(resampled)
         resampled = finalise_perp_metric_columns(resampled, registered_perp_vaults)
     return resampled
