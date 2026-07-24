@@ -33,6 +33,8 @@ from tqdm_loggable.auto import tqdm
 
 from eth_defi.chain import get_chain_name
 from eth_defi.hyperliquid.constants import HYPERCORE_CHAIN_ID
+from eth_defi.perp_dex.adapter import embed_perp_capability_registry, load_perp_capability_registry
+from eth_defi.perp_dex.parquet import PERP_DEX_NATIVE_CHAIN_IDS, build_registered_perp_vault_index, finalise_perp_metric_columns
 from eth_defi.token import is_stablecoin_like
 from eth_defi.types import Percent
 from eth_defi.vault.base import VaultSpec, verify_parquet_file
@@ -297,6 +299,32 @@ class CleanedVaultPriceRow(TypedDict, total=False):
     #: General — present for all protocols.
     written_at: "pd.Timestamp"
 
+    # -- Native perp DEX account columns --
+
+    #: Sum of current positive position notionals in ``perp_quote_asset``.
+    perp_long_notional: float
+
+    #: Sum of absolute current negative position notionals.
+    perp_short_notional: float
+
+    #: Count of current non-zero source-market positions.
+    perp_open_position_count: int
+
+    #: Largest absolute current position notional.
+    perp_largest_position_notional: float
+
+    #: Exact source denomination for all materialised position notionals.
+    perp_quote_asset: str
+
+    #: Position availability or freshness state, such as ``available`` or
+    #: ``stale``. Stale numeric values remain present for auditability.
+    perp_position_data_status: str
+
+    #: Actual source measurement time at one-second resolution.
+    #: This remains attached to stale values and observations forward-aligned
+    #: to the latest row of a delayed native price feed.
+    perp_metrics_observed_at: "pd.Timestamp"
+
     #: Latest asynchronous vault settlement timestamp in the interval ending at this price row.
     #:
     #: General — populated by merging ``vault-settlements.duckdb`` after
@@ -440,6 +468,13 @@ VAULT_STATE_COLUMNS = {
     # Latest asynchronous vault settlement timestamp in the interval ending at
     # this price row. Merged from vault-settlements.duckdb after cleaning.
     "vault_settlement_at": pd.NaT,
+    "perp_long_notional": float("nan"),
+    "perp_short_notional": float("nan"),
+    "perp_open_position_count": pd.NA,
+    "perp_largest_position_notional": float("nan"),
+    "perp_quote_asset": "",
+    "perp_position_data_status": "",
+    "perp_metrics_observed_at": pd.NaT,
 }
 
 
@@ -1800,6 +1835,8 @@ def process_raw_vault_scan_data(
         prices_df,
         logger,
     )
+    registered_perp_vaults = build_registered_perp_vault_index(prices_df)
+    prices_df = finalise_perp_metric_columns(prices_df, registered_perp_vaults)
     return prices_df
 
 
@@ -1889,7 +1926,18 @@ def generate_cleaned_vault_datasets(
     vault_db: VaultDatabase = pickle.load(vault_db_path.open("rb"))
 
     logger(f"Loading prices {price_df_path}")
+    raw_schema = pq.read_schema(price_df_path)
     prices_df = pd.read_parquet(price_df_path, dtype_backend="pyarrow")
+
+    # A registry is mandatory once an artefact contains collected perp DEX
+    # metrics. This deliberately fails rather than silently consulting a
+    # mutable process-global registry: re-cleaning must retain the historical
+    # capability declaration used to collect the raw data. Old native price
+    # histories without these columns remain readable.
+    metric_status = prices_df.get("perp_position_data_status")
+    metric_observed_at = prices_df.get("perp_metrics_observed_at")
+    contains_collected_perp_metrics = "chain" in prices_df.columns and prices_df["chain"].isin(PERP_DEX_NATIVE_CHAIN_IDS).any() and ((metric_status is not None and metric_status.fillna("").ne("").any()) or (metric_observed_at is not None and metric_observed_at.notna().any()))
+    perp_capability_registry = load_perp_capability_registry(raw_schema) if contains_collected_perp_metrics else None
 
     logger(f"We have {vault_db.get_lead_count():,} vault leads in the vault database and {len(prices_df):,} price rows in the raw prices DataFrame")
 
@@ -1920,6 +1968,8 @@ def generate_cleaned_vault_datasets(
     try:
         os.close(temp_fd)
         table = pa.Table.from_pandas(enhanced_prices_df)
+        if perp_capability_registry is not None:
+            table = table.replace_schema_metadata(embed_perp_capability_registry(table.schema, perp_capability_registry).metadata)
         table = table.replace_schema_metadata(stamp_parquet_schema_metadata(table.schema).metadata)
         pq.write_table(table, temp_path, compression="zstd")
         verify_parquet_file(
@@ -2112,4 +2162,7 @@ def forward_fill_vault(
     """
     assert isinstance(vault_df.index, pd.DatetimeIndex), f"Got: {type(vault_df.index)}"
     resampled = vault_df.resample("h").last().ffill()
+    if "chain" in resampled.columns and "address" in resampled.columns:
+        registered_perp_vaults = build_registered_perp_vault_index(resampled)
+        resampled = finalise_perp_metric_columns(resampled, registered_perp_vaults)
     return resampled

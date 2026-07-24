@@ -37,6 +37,9 @@ from eth_defi.lighter.constants import LIGHTER_DAILY_METRICS_DATABASE, LIGHTER_D
 from eth_defi.lighter.daily_metrics import LighterDailyMetricsDatabase
 from eth_defi.lighter.vault_data_export import build_raw_prices_dataframe as build_lighter_prices_dataframe
 from eth_defi.lighter.vault_data_export import get_lighter_price_deployments
+from eth_defi.perp_dex.adapter import PerpDexCapability, PerpDexCapabilityRegistry, embed_perp_capability_registry
+from eth_defi.perp_dex.parquet import attach_perp_metrics_to_price_rows, derive_perp_vault_metric_snapshots
+from eth_defi.perp_dex.storage import read_perp_vault_observations
 from eth_defi.research.wrangle_vault_prices import generate_cleaned_vault_datasets
 from eth_defi.vault import top_vaults_json
 from eth_defi.vault.base import VaultHistoricalRead
@@ -52,6 +55,39 @@ _R2_TOP_VAULTS_REQUIRED_ENV_VARS = (
 )
 
 logger = logging.getLogger(__name__)
+
+
+PERP_DEX_CAPABILITY_REGISTRY = PerpDexCapabilityRegistry(
+    capabilities=(
+        PerpDexCapability("hyperliquid", "hypercore", "USDC", True, "available", 14_400, 300),
+        PerpDexCapability("lighter", "ethereum", "USDC", True, "available", 14_400, 300),
+        PerpDexCapability("lighter", "robinhood", "USDG", True, "available", 14_400, 300),
+        PerpDexCapability("grvt", "mainnet", "USDT", False, "authentication_required", 86_400, 0),
+        PerpDexCapability("hibachi", "mainnet", "USDT", False, "not_public", 86_400, 0),
+        PerpDexCapability("apex", "omni", "USDT", False, "authentication_required", 14_400, 0),
+    )
+)
+
+
+def _append_perp_metric_snapshots(database: object, target: list[pd.DataFrame]) -> None:
+    """Append shared observation snapshots when a native database supports them.
+
+    Lightweight test doubles and pre-migration third-party database wrappers
+    may not expose a DuckDB connection.  Their price merge must retain its
+    previous behaviour; a missing shared table simply means no metrics attach.
+
+    :param database:
+        Native metrics database object.
+    :param target:
+        Mutable snapshot list used by the current native merge.
+    :return:
+        ``None``.
+    """
+    connection = getattr(database, "con", None)
+    if connection is None:
+        return
+    accounts, positions = read_perp_vault_observations(connection)
+    target.append(derive_perp_vault_metric_snapshots(accounts, positions))
 
 
 def _mask_access_key_id(access_key_id: str | None) -> str:
@@ -322,6 +358,7 @@ def _write_native_partitions_to_uncleaned_parquet(
     replacements: dict[int, pd.DataFrame],
     remove_chain_ids: set[int] | None = None,
     replacement_address_patterns: dict[int, set[str]] | None = None,
+    capability_registry: PerpDexCapabilityRegistry | None = None,
 ) -> int:
     """Replace native chain partitions using PyArrow without full pandas conversion.
 
@@ -390,6 +427,9 @@ def _write_native_partitions_to_uncleaned_parquet(
         sort_keys=[("chain", "ascending"), ("address", "ascending"), ("timestamp", "ascending")],
     )
     combined_table = combined_table.take(sort_indices)
+
+    if capability_registry is not None:
+        combined_table = combined_table.replace_schema_metadata(embed_perp_capability_registry(combined_table.schema, capability_registry).metadata)
 
     VaultHistoricalRead.write_uncleaned_arrow_table(combined_table, parquet_path)
 
@@ -487,6 +527,7 @@ def merge_native_protocols(
     replacements: dict[int, pd.DataFrame] = {}
     remove_chain_ids: set[int] = set()
     replacement_address_patterns: dict[int, set[str]] = {}
+    perp_snapshots: list[pd.DataFrame] = []
 
     if merge_hypercore:
         try:
@@ -505,6 +546,8 @@ def merge_native_protocols(
                     hypercore_df = pd.DataFrame()
                 else:
                     hypercore_df = build_hypercore_prices_dataframe(daily_db=daily_db, hf_db=hf_db)
+                    if daily_db is not None:
+                        _append_perp_metric_snapshots(daily_db, perp_snapshots)
             finally:
                 if daily_db is not None:
                     daily_db.close()
@@ -528,6 +571,7 @@ def merge_native_protocols(
             db = GRVTDailyMetricsDatabase(g_db_path)
             try:
                 grvt_df = build_grvt_prices_dataframe(db)
+                _append_perp_metric_snapshots(db, perp_snapshots)
             finally:
                 db.close()
             if grvt_df.empty:
@@ -547,6 +591,7 @@ def merge_native_protocols(
             db = LighterDailyMetricsDatabase(l_db_path)
             try:
                 lighter_df = build_lighter_prices_dataframe(db)
+                _append_perp_metric_snapshots(db, perp_snapshots)
             finally:
                 db.close()
             if lighter_df.empty:
@@ -578,6 +623,7 @@ def merge_native_protocols(
             db = HibachiDailyMetricsDatabase(h_db_path)
             try:
                 hibachi_df = build_hibachi_prices_dataframe(db)
+                _append_perp_metric_snapshots(db, perp_snapshots)
             finally:
                 db.close()
             if hibachi_df.empty:
@@ -597,6 +643,7 @@ def merge_native_protocols(
             db = ApexMetricsDatabase(a_db_path)
             try:
                 apex_df = build_apex_prices_dataframe(db)
+                _append_perp_metric_snapshots(db, perp_snapshots)
             finally:
                 db.close()
             if apex_df.empty:
@@ -615,12 +662,22 @@ def merge_native_protocols(
     if not replacements:
         return steps
 
+    non_empty_snapshots = [snapshot for snapshot in perp_snapshots if not snapshot.empty]
+    if non_empty_snapshots:
+        all_perp_snapshots = pd.concat(non_empty_snapshots, ignore_index=True)
+        for chain_id, replacement in replacements.items():
+            replacements[chain_id] = attach_perp_metrics_to_price_rows(
+                replacement,
+                all_perp_snapshots[all_perp_snapshots["chain"] == chain_id],
+            )
+
     try:
         total_rows = _write_native_partitions_to_uncleaned_parquet(
             parquet_path,
             replacements,
             remove_chain_ids=remove_chain_ids,
             replacement_address_patterns=replacement_address_patterns,
+            capability_registry=PERP_DEX_CAPABILITY_REGISTRY,
         )
         logger.info(
             "Merged %d native protocol chain partitions (%d fresh rows, %d total rows) into uncleaned %s in one PyArrow parquet write",

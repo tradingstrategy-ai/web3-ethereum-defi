@@ -72,6 +72,11 @@ Supported protocols
 .. toctree::
    :maxdepth: 1
 
+   perp-dex-account-metrics
+
+.. toctree::
+   :maxdepth: 1
+
    aave/index
    asseto/index
    ondo/index

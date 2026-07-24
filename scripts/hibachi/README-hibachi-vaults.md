@@ -55,3 +55,16 @@ be scheduled via `SCAN_CYCLES="...,Hibachi=4h"`.
 
 Both vaults are denominated in USDT. Chain ID 9997 is a synthetic
 in-house identifier (not an EVM JSON-RPC chain ID).
+
+## Perp account metrics availability
+
+`GET /vault/info` supplies the public TVL used for the shared account
+observation. Hibachi does not expose current vault positions through the public
+data API; account endpoints use the separate authenticated API. The collector
+therefore exports `not_public` with null exposure, count and concentration —
+never invented zeroes. Margin-account fields and credentials are intentionally
+out of scope. This limitation was verified on 2026-07-24 against the public
+[Hibachi data API](https://data-api.hibachi.xyz/vault/info).
+
+See [perp DEX vault account metrics](../../docs/source/vaults/perp-dex-account-metrics.rst)
+for the shared storage, temporal join and JSON export contract.

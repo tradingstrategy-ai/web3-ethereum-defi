@@ -19,6 +19,7 @@ import pandas as pd
 from eth_typing import HexAddress
 
 from eth_defi.compat import native_datetime_utc_now
+from eth_defi.perp_dex.storage import initialise_perp_vault_observation_schema
 
 logger = logging.getLogger(__name__)
 
@@ -71,6 +72,7 @@ class HyperliquidMetricsDatabaseBase:
 
     def _init_metadata_schema(self):
         """Create the shared vault_metadata table."""
+        initialise_perp_vault_observation_schema(self.con)
         self.con.execute("""
             CREATE TABLE IF NOT EXISTS vault_metadata (
                 vault_address VARCHAR PRIMARY KEY,

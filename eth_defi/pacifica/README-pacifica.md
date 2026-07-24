@@ -16,6 +16,21 @@ of 3x–50x. All accounts, vaults and signatures use **Solana base58 addresses a
 ed25519 keys** — not EVM addresses. The single settlement and collateral currency
 is **USDC**.
 
+## Shared vault-account metrics
+
+Pacifica vault-account metrics are currently unsupported. Parser groundwork
+maps `GET /account` equity and one signed notional for every non-zero
+`GET /positions` result, valuing `amount` at the same-cycle
+`GET /info/prices` mark and using `bid` as long and `ask` as short.
+
+TODO: enable this only after the DuckDB database, native price exporter,
+all-chain scheduling and mark/position timestamp-skew validation are
+implemented. Until then Pacifica does not enter Parquet or JSON.
+Cross-margin, portfolio-margin, isolated-margin, liquidation and order data are
+intentionally excluded. The target shared raw-to-cleaned Parquet and JSON
+contract is documented in
+[`perp-dex-account-metrics.rst`](../../docs/source/vaults/perp-dex-account-metrics.rst).
+
 All facts below were verified against the live mainnet API on 2026-06-26.
 
 ---
