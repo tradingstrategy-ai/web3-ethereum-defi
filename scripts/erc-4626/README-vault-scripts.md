@@ -980,6 +980,36 @@ source .local-test.env && poetry run python scripts/erc-4626/heal-broken-vaults.
 | `JSON_RPC_<CHAIN>` | Required per chain with broken vaults. |
 | `LOG_LEVEL` | Optional. Default: info. |
 
+### migrate-vault-token-metadata.py
+
+Refresh persisted vault `Name` and `Symbol` fields when an ERC-20/ERC-4626
+share token changes its `name()` or `symbol()` accessor value. The script reads
+all recognised EVM vault rows through Multicall3, tabulates differences, and
+does not overwrite metadata when either accessor fails or returns an empty
+value. Native vault datasets and known Multicall-unsafe contracts are skipped.
+
+Always inspect the dry run before writing the vault database:
+
+```shell
+# Report changes without writing (default)
+source .local-test.env && \
+  DRY_RUN=true \
+  poetry run python scripts/erc-4626/migrate-vault-token-metadata.py
+
+# Persist complete name/symbol pairs after review
+source .local-test.env && \
+  DRY_RUN=false \
+  poetry run python scripts/erc-4626/migrate-vault-token-metadata.py
+```
+
+| Variable | Description |
+|----------|-------------|
+| `VAULT_DB_PATH` | Optional vault metadata pickle path. Default: `~/.tradingstrategy/vaults/vault-metadata-db.pickle`. |
+| `DRY_RUN` | Optional. Report only when true. Default: true. |
+| `MAX_WORKERS` | Optional Multicall worker threads per chain. Default: 8. |
+| `JSON_RPC_<CHAIN>` | Required for every recognised EVM chain represented in the vault database. |
+| `LOG_LEVEL` | Optional. Default: info. |
+
 ### prepopulate-timestamps.py
 
 Prepopulate the Hypersync block timestamp DuckDB cache for all scanner chains.
