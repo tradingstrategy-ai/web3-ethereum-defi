@@ -6,6 +6,7 @@ import datetime
 import threading
 from collections.abc import Iterator
 from pathlib import Path
+from unittest.mock import Mock
 
 import pandas as pd
 import pytest
@@ -308,3 +309,13 @@ def test_run_scan_records_each_nonterminal_invocation(database: ApexMetricsDatab
     run_scan(object(), database, history_mode="none")
     run_scan(object(), database, history_mode="none")
     assert len(database.get_vault_prices("1")) == 2
+
+
+def test_run_scan_closes_history_worker_sessions_each_cycle(database: ApexMetricsDatabase, monkeypatch: MonkeyPatch) -> None:
+    """Release completed joblib worker sessions after every scan cycle."""
+    session_pool = Mock()
+    monkeypatch.setattr("eth_defi.apex.metrics.fetch_stabilised_vaults", lambda *args, **kwargs: (_vault("1"),))
+    monkeypatch.setattr("eth_defi.apex.metrics.fetch_vault_history", lambda *args, **kwargs: ())
+    run_scan(session_pool, database, history_mode="refresh", max_workers=2)
+    run_scan(session_pool, database, history_mode="refresh", max_workers=2)
+    assert session_pool.close_worker_sessions.call_count == 2

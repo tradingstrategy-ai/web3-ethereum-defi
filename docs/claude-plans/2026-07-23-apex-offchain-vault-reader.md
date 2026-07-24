@@ -134,7 +134,9 @@ Create ``eth_defi/apex/`` with these public modules:
   remaining absolute deadline. Close the response on deadline, size, parse or
   envelope failure. Give each worker its own configured ``requests.Session``
   while every session shares the same limiter; never mutate a session after
-  construction or share it between worker threads.
+  construction or share it between worker threads. Close all history-worker
+  sessions after each completed joblib fetch phase, retaining only the calling
+  thread's ranking session between loop cycles.
 - ``vault.py``: slots dataclasses and typed fetch/parse functions for ranking
   pages and net-value history. Retain all returned vaults with no TVL or status
   filter.

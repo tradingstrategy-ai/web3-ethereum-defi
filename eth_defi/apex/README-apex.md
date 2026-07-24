@@ -224,6 +224,10 @@ rate limiter. Network reads have:
 - a maximum streamed JSON response size; and
 - response closure on success and failure.
 
+History worker sessions are closed after every scan cycle. The calling thread's
+ranking session is retained until command shutdown so loop mode does not
+accumulate connection pools from completed joblib workers.
+
 Ranking failures abort before any database mutation. Per-vault history failures
 are recorded independently and remain retryable without erasing other vaults.
 A stabilised empty ranking is also rejected when the database already contains

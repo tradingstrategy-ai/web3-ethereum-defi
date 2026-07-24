@@ -246,3 +246,31 @@ def test_close_cannot_race_with_session_registration() -> None:
     assert not closer.is_alive()
     assert session.closed
     assert pool._sessions == []
+
+
+def test_worker_sessions_are_closed_after_repeated_cycles() -> None:
+    """Retain only the caller session across repeated worker-pool cycles."""
+    created_sessions: list[_Session] = []
+    pool = _pool(_Session([]))
+
+    def create_session() -> _Session:
+        session = _Session([])
+        created_sessions.append(session)
+        return session
+
+    pool._create_session = create_session
+    main_session = pool.get_session()
+    try:
+        for _ in range(10):
+            workers = [threading.Thread(target=pool.get_session) for _ in range(4)]
+            for worker in workers:
+                worker.start()
+            for worker in workers:
+                worker.join()
+            pool.close_worker_sessions()
+            assert len(pool._sessions) == 1
+            assert not main_session.closed
+        assert all(session.closed for session in created_sessions if session is not main_session)
+    finally:
+        pool.close()
+    assert main_session.closed

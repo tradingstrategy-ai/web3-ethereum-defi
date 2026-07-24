@@ -51,9 +51,11 @@ terminal vaults are not repeatedly written.
 
 History has a separate internal eligibility gate controlled by
 `HISTORY_REFRESH_INTERVAL`, which defaults to 24 hours. New vaults are
-backfilled immediately. Non-terminal vaults are refreshed when due, while
-terminal and disappeared vaults receive one final non-empty history sync per
-lifecycle generation.
+backfilled immediately. Non-terminal vaults are refreshed when due. Terminal
+vaults receive one final non-empty history sync after their terminal
+observation. A disappeared non-terminal vault receives a separate final sync;
+a disappeared terminal vault is fetched only when its terminal final sync is
+still incomplete.
 
 Both defaults are operational settings only. Any positive seconds, minutes,
 hours or days duration can be selected later without a schema migration or

@@ -185,7 +185,7 @@ class ApexSessionPool:
         self._limiter = _DeadlineRateLimiter(requests_per_second, clock=clock, sleeper=sleeper)
         self._pool_maxsize = pool_maxsize
         self._local = threading.local()
-        self._sessions: list[requests.Session] = []
+        self._sessions: list[tuple[int, requests.Session]] = []
         self._sessions_lock = threading.Lock()
         self._closed = False
 
@@ -206,8 +206,23 @@ class ApexSessionPool:
             if session is None:
                 session = self._create_session()
                 self._local.session = session
-                self._sessions.append(session)
+                self._sessions.append((threading.get_ident(), session))
         return session
+
+    def close_worker_sessions(self) -> None:
+        """Close sessions created outside the calling thread.
+
+        A new joblib thread pool is created for each scan cycle. Closing its
+        worker-local sessions after the fetch phase prevents dead worker
+        threads and their connection pools from accumulating during loop mode.
+        The calling thread's ranking session remains available for reuse.
+        """
+        current_thread_id = threading.get_ident()
+        with self._sessions_lock:
+            worker_sessions = tuple(session for thread_id, session in self._sessions if thread_id != current_thread_id)
+            self._sessions = [(thread_id, session) for thread_id, session in self._sessions if thread_id == current_thread_id]
+        for session in worker_sessions:
+            session.close()
 
     def _retry_delay(self, attempt: int, retry_after: str | None, deadline: float) -> float:
         """Calculate one capped deadline-aware retry delay.
@@ -372,7 +387,7 @@ class ApexSessionPool:
     def close(self) -> None:
         """Close every worker-local session created by this pool."""
         with self._sessions_lock:
-            sessions = tuple(self._sessions)
+            sessions = tuple(session for _, session in self._sessions)
             self._sessions.clear()
             self._closed = True
         for session in sessions:

@@ -172,7 +172,10 @@ def parse_vault_summary(raw: object) -> ApexVaultSummary:
     """
     if not isinstance(raw, dict):
         raise ApexAPIError("ApeX vaultList entry must be an object")
-    vault_id = str(raw.get("vaultId", "")).strip()
+    raw_vault_id = raw.get("vaultId")
+    if isinstance(raw_vault_id, bool) or not isinstance(raw_vault_id, (str, int)):
+        raise ApexAPIError("ApeX vaultId must be a string or integer")
+    vault_id = str(raw_vault_id).strip()
     if not vault_id:
         raise ApexAPIError("ApeX vaultId is required")
     raw_address = str(raw.get("vaultEthAddress", "")).strip()

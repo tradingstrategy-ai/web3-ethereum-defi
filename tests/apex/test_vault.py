@@ -57,6 +57,22 @@ def test_parse_ranking_page_rejects_bad_envelope(payload: dict) -> None:
         parse_ranking_page(payload)
 
 
+@pytest.mark.parametrize("vault_id", ({}, [], True, 1.5, None))
+def test_parse_ranking_page_rejects_compound_vault_ids(vault_id: object) -> None:
+    """Reject non-string and non-integer values as persistent vault identities."""
+    payload = _fixture("ranking-page.json")
+    payload["data"]["vaultList"][0]["vaultId"] = vault_id
+    with pytest.raises(ApexAPIError, match="vaultId must be"):
+        parse_ranking_page(payload)
+
+
+def test_parse_ranking_page_accepts_integer_vault_id() -> None:
+    """Normalise a scalar integer vault identity to its string key."""
+    payload = _fixture("ranking-page.json")
+    payload["data"]["vaultList"][0]["vaultId"] = 1001
+    assert parse_ranking_page(payload).vaults[0].vault_id == "1001"
+
+
 def test_parse_history_orders_and_derives_supply() -> None:
     """Order exact source timestamps and derive valid share supply."""
     points = parse_history(_fixture("history.json"))

@@ -496,10 +496,7 @@ class ApexMetricsDatabase:
             state = sync.get(vault_id, self._new_sync(vault_id))
             terminal = row["status"] == APEX_TERMINAL_STATUS
             if is_missing:
-                if terminal:
-                    due = state["final_history_sync_at"] is None
-                else:
-                    due = state["final_missing_history_sync_at"] is None
+                due = state["final_history_sync_at"] is None if terminal else state["final_missing_history_sync_at"] is None
             elif mode == "refresh":
                 due = True
             elif terminal:
@@ -742,10 +739,16 @@ def run_scan(
         include_missing=vault_ids is None,
     )
 
-    results = Parallel(n_jobs=max_workers, backend="threading", return_as="generator_unordered")(delayed(_fetch_history_worker)(session_pool, vault_id, history_timeout) for vault_id in candidates)
+    results: tuple[ApexHistoryFetchResult, ...] = ()
+    if candidates:
+        try:
+            result_iterator = Parallel(n_jobs=max_workers, backend="threading", return_as="generator_unordered")(delayed(_fetch_history_worker)(session_pool, vault_id, history_timeout) for vault_id in candidates)
+            results = tuple(tqdm(result_iterator, total=len(candidates), desc="Fetching ApeX vault histories"))
+        finally:
+            session_pool.close_worker_sessions()
     successful = 0
     failed = 0
-    for result in tqdm(results, total=len(candidates), desc="Fetching ApeX vault histories"):
+    for result in results:
         attempted_at = native_datetime_utc_now()
         if result.points is not None:
             database.apply_history_success(result.vault_id, result.points, attempted_at)
