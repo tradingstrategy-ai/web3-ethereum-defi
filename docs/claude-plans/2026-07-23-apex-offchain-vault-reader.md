@@ -104,7 +104,10 @@ The initial standalone scope did not make ``apex-vault-*`` a
 all-chain integration adds that compatibility surface without changing the
 persisted ApeX identity: synthetic addresses remain
 ``apex-vault-{vault_id}``, chain ``9995`` owns the shared Parquet partition,
-and exact source timestamps are exported without resampling.
+and exact source timestamps are exported without resampling. The shared
+Parquet merge is also append-and-correct by synthetic address and timestamp:
+fresh logical keys supersede old values, while source-omitted timestamps are
+retained if the local DuckDB is partial or rebuilt.
 
 ## Package design
 
@@ -391,10 +394,11 @@ to the existing database.
 
 The follow-up all-chain integration registers ``SCAN_APEX`` in
 ``scan-vaults-all-chains.py`` and Docker Compose. It backs up the ApeX DuckDB,
-merges metadata into ``VaultDatabase``, and replaces only synthetic chain
-``9995`` during the batched native-price merge. The looped container enables
-the source by default with ``ApeX=4h``; the one-shot container keeps it opt-in,
-matching the other native sources.
+merges metadata into ``VaultDatabase``, and append-and-corrects synthetic chain
+``9995`` during the batched native-price merge. The merge preserves unmatched
+existing ApeX timestamps if the current DuckDB export has lost older source
+history. The looped container enables the source by default with ``ApeX=4h``;
+the one-shot container keeps it opt-in, matching the other native sources.
 
 Add ``scripts/apex/README-apex-vaults.md`` with endpoint links, the observed
 30-second ranking tick, age-adaptive historical resolution, the distinction
@@ -457,7 +461,8 @@ intervals.
    timestamps update, latest-attempt and latest-non-empty fields remain distinct,
    canonical retained-history bounds/count stay accurate, row-count shrinkage
    logs only at debug, maximum-timestamp regression warns, and absent vault rows
-   remain.
+   remain. Also verify that the shared Parquet merge retains an unmatched older
+   ApeX timestamp while a fresh duplicate logical key corrects its prior value.
 7. Inject a database failure between history replacement and sync-state update and
    assert the per-vault transaction rolls back. Verify ranking writes are
    atomic, including failure injection around terminal transition, reactivation

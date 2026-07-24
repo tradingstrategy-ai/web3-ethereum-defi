@@ -18,11 +18,11 @@ logger = logging.getLogger(__name__)
 
 def main() -> None:
     """Run one scan or the configured sequential scan loop."""
+    config = ApexReaderConfig.from_environment()
     setup_console_logging(
-        default_log_level="info",
+        default_log_level=config.log_level,
         log_file=Path("logs/apex-vault-metrics.log"),
     )
-    config = ApexReaderConfig.from_environment()
     timeout_policy = ApexTimeoutPolicy(
         connect_timeout=config.connect_timeout,
         read_timeout=config.read_timeout,

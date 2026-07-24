@@ -396,6 +396,45 @@ def _write_native_partitions_to_uncleaned_parquet(
     return len(combined_table)
 
 
+def _merge_apex_prices_with_existing_parquet(
+    parquet_path: Path,
+    fresh_df: pd.DataFrame,
+) -> pd.DataFrame:
+    """Preserve ApeX history that is absent from the current DuckDB export.
+
+    ApeX retains only a bounded amount of platform history, and its local
+    DuckDB may be rebuilt after state loss. A non-empty current export is
+    therefore not necessarily a complete replacement for the ApeX synthetic
+    chain partition. Existing rows are retained unless a fresh row has the
+    same synthetic vault address and exact timestamp, in which case the fresh
+    observation corrects the earlier value.
+
+    Only the ApeX partition is read into pandas. The full Parquet file remains
+    in Arrow form for the later atomic native-protocol batch write.
+
+    :param parquet_path:
+        Existing raw vault-price Parquet path.
+    :param fresh_df:
+        Non-empty ApeX raw price rows exported from the current DuckDB.
+    :return:
+        Append-and-correct ApeX rows containing both retained and fresh
+        observations.
+    """
+    assert not fresh_df.empty, "A non-empty ApeX frame is required"
+    if not parquet_path.exists():
+        return fresh_df
+
+    existing_table = pq.read_table(
+        parquet_path,
+        filters=[("chain", "=", APEX_CHAIN_ID)],
+    )
+    if len(existing_table) == 0:
+        return fresh_df
+
+    existing_df = existing_table.to_pandas()
+    return pd.concat([existing_df, fresh_df], ignore_index=True).drop_duplicates(subset=["address", "timestamp"], keep="last").reset_index(drop=True)
+
+
 def merge_native_protocols(
     merge_hypercore: bool = False,
     merge_grvt: bool = False,
@@ -419,8 +458,10 @@ def merge_native_protocols(
     merged together so that switching between modes never loses
     historical data. All enabled native sources are collected before the
     existing parquet is read, then their chain partitions are replaced and
-    the result is written once. This avoids repeatedly rewriting the much
-    larger EVM data set.
+    the result is written once. ApeX is append-and-correct by synthetic vault
+    address and exact timestamp because its source may no longer return older
+    observations. This avoids repeatedly rewriting the much larger EVM data
+    set without risking loss of previously collected ApeX history.
 
     An unavailable, empty, or failed source leaves its existing chain
     partition untouched. This preserves the previous per-source failure
@@ -561,7 +602,10 @@ def merge_native_protocols(
             if apex_df.empty:
                 logger.warning("No ApeX data to merge")
             else:
-                replacements[APEX_CHAIN_ID] = apex_df
+                replacements[APEX_CHAIN_ID] = _merge_apex_prices_with_existing_parquet(
+                    parquet_path,
+                    apex_df,
+                )
             logger.info("ApeX price merge: %d fresh ApeX price entries", len(apex_df))
             steps["apex-price-merge"] = True
         except Exception:

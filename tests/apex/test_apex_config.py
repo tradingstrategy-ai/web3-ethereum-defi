@@ -35,6 +35,7 @@ def test_parse_apex_environment() -> None:
     """Parse and deduplicate a complete command environment."""
     config = ApexReaderConfig.from_environment(
         {
+            "LOG_LEVEL": "debug",
             "DB_PATH": "/tmp/custom-apex.duckdb",
             "VAULT_IDS": "2,1,2",
             "MAX_WORKERS": "3",
@@ -45,6 +46,7 @@ def test_parse_apex_environment() -> None:
             "SCAN_INTERVAL": "1.5h",
         }
     )
+    assert config.log_level == "debug"
     assert str(config.db_path) == "/tmp/custom-apex.duckdb"
     assert config.vault_ids == ("2", "1")
     assert config.max_workers == 3

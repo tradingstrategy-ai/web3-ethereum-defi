@@ -51,9 +51,12 @@ def test_merge_native_protocols_rewrites_parquet_once_and_preserves_empty_source
     2. Stub Hypercore, GRVT, Lighter, and ApeX exports with fresh data and
        Hibachi with no data.
     3. Merge all five sources and count Parquet writes.
-    4. Assert one write replaced fresh partitions but retained stale Hibachi data.
+    4. Assert one write replaced fresh partitions, retained stale Hibachi
+       data, and append-and-corrected ApeX history.
     """
     parquet_path = tmp_path / "vault-prices-1h.parquet"
+    existing_apex_overlap = _prices(APEX_CHAIN_ID, "apex-vault-new", "2025-01-02")
+    existing_apex_overlap["share_price"] = 0.9
     existing_df = pd.concat(
         [
             _prices(1, "0xevm", "2025-01-01"),
@@ -64,6 +67,7 @@ def test_merge_native_protocols_rewrites_parquet_once_and_preserves_empty_source
             _prices(LIGHTER_LEGACY_ROBINHOOD_CHAIN_ID, "lighter-robinhood-legacy-old", "2025-01-01"),
             _prices(HIBACHI_CHAIN_ID, "hibachi-old", "2025-01-01"),
             _prices(APEX_CHAIN_ID, "apex-vault-old", "2025-01-01"),
+            existing_apex_overlap,
         ],
         ignore_index=True,
     )
@@ -148,11 +152,13 @@ def test_merge_native_protocols_rewrites_parquet_once_and_preserves_empty_source
         "lighter-pool-200",
         "lighter-pool-robinhood-200",
         "hibachi-old",
+        "apex-vault-old",
         "apex-vault-new",
     }
     assert LIGHTER_LEGACY_ROBINHOOD_CHAIN_ID not in set(result_df["chain"])
     assert set(result_df.loc[result_df["address"].str.startswith("lighter-"), "chain"]) == {LIGHTER_CHAIN_ID}
     assert result_df.loc[result_df["address"] == "hypercore-new", "account_pnl"].iloc[0] == pytest.approx(123.0)
+    assert result_df.loc[result_df["address"] == "apex-vault-new", "share_price"].iloc[0] == pytest.approx(1.0)
 
 
 def test_partial_lighter_merge_preserves_other_deployment_and_legacy_partition(

@@ -113,6 +113,11 @@ Override that cadence through `SCAN_CYCLES`; for example,
 observations, while `run_scan()` retains the independent 24-hour historical
 eligibility gate.
 
+The unified Parquet export is append-and-correct by synthetic vault address
+and exact timestamp. If ApeX later omits older source history or the local
+DuckDB is rebuilt, the export preserves previously collected unmatched rows;
+fresh rows still correct existing values at the same logical key.
+
 ## Environment configuration
 
 - `DB_PATH`: DuckDB path. Defaults to

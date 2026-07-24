@@ -185,6 +185,10 @@ All history writes are append-and-correct. Returned timestamps replace earlier
 values at the same logical key, but a later shortened or empty response never
 deletes timestamps that the source omitted.
 
+The all-chain Parquet export applies the same policy by synthetic vault address
+and exact timestamp. It preserves unmatched rows already present in Parquet
+even if the current DuckDB is partial or rebuilt.
+
 Durations accept positive decimal seconds, minutes, hours and days, for example
 `30s`, `30m`, `1.5h` and `2d`.
 

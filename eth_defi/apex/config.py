@@ -98,6 +98,9 @@ def _parse_bool(environ: Mapping[str, str], name: str, *, default: bool = False)
 class ApexReaderConfig:
     """Validated standalone ApeX reader configuration."""
 
+    #: Console log level.
+    log_level: str
+
     #: DuckDB database path.
     db_path: Path
 
@@ -159,6 +162,7 @@ class ApexReaderConfig:
         if history_mode not in {"incremental", "refresh", "none"}:
             raise ValueError(f"Invalid HISTORY_MODE: {history_mode!r}")
         return cls(
+            log_level=env.get("LOG_LEVEL", "info"),
             db_path=Path(env.get("DB_PATH", str(APEX_METRICS_DATABASE))).expanduser(),
             vault_ids=vault_ids,
             max_workers=_parse_positive_int(env, "MAX_WORKERS", APEX_DEFAULT_MAX_WORKERS),
