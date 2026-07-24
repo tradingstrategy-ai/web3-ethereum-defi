@@ -81,7 +81,12 @@ def test_fraxlend_probe_requires_event_derived_deployer() -> None:
 
 
 def test_upshift_multi_asset_probe_is_unrestricted() -> None:
-    """Probe Upshift's multi-asset discriminator on every EVM chain."""
+    """Probe Upshift's multi-asset discriminator on every EVM chain.
+
+    ``assetsWhitelistAddress`` is intentionally unrestricted (not in
+    ``CHAIN_RESTRICTED_PROBES``): Upshift multi-asset vaults may appear on any
+    chain, so the probe must yield regardless of ``chain_id``.
+    """
 
     test_address = "0x0000000000000000000000000000000000000001"
     upshift_chain_ids = (ETHEREUM_MAINNET, POLYGON, MONAD, HYPEREVM, BASE, PLASMA, AVALANCHE, INK)

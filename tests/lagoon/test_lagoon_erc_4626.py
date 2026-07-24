@@ -12,7 +12,7 @@ from eth_defi.erc_4626.core import ERC4626Feature
 from eth_defi.erc_4626.flow import approve_and_deposit_4626, approve_and_redeem_4626
 from eth_defi.erc_4626.vault import ERC4626Vault
 from eth_defi.hotwallet import HotWallet
-from eth_defi.erc_4626.vault_protocol.lagoon.deployment import LagoonAutomatedDeployment, LagoonDeploymentParameters, deploy_automated_lagoon_vault
+from eth_defi.erc_4626.vault_protocol.lagoon.deployment import LagoonDeploymentParameters, deploy_automated_lagoon_vault
 from eth_defi.provider.anvil import mine
 from eth_defi.token import TokenDetails, USDC_NATIVE_TOKEN
 from eth_defi.trace import assert_transaction_success_with_explanation
@@ -36,7 +36,6 @@ def erc4626_vault(web3) -> ERC4626Vault:
 
 def test_lagoon_erc_4626(
     web3: Web3,
-    automated_lagoon_vault: LagoonAutomatedDeployment,
     base_usdc: TokenDetails,
     base_weth: TokenDetails,
     topped_up_asset_manager: HexAddress,

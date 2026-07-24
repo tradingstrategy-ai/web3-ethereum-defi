@@ -25,6 +25,7 @@ from eth_defi.uniswap_v2.swap import swap_with_slippage_protection
 from eth_defi.utils import addr
 from eth_defi.vault.base import TradingUniverse
 from eth_defi.vault.valuation import NetAssetValueCalculator, UniswapV2Router02Quoter
+from eth_defi.testing.fork_blocks import BINANCE_MIDNIGHT_BLOCK
 
 
 JSON_RPC_BINANCE = os.environ.get("JSON_RPC_BINANCE", None)
@@ -46,6 +47,7 @@ def anvil_binance_fork(vault_owner, usdt_holder, asset_manager, valuation_manage
     """
     launch = fork_network_anvil(
         JSON_RPC_BINANCE,
+        fork_block_number=BINANCE_MIDNIGHT_BLOCK,
         unlocked_addresses=[vault_owner, usdt_holder, asset_manager, valuation_manager],
         # code_size_limit=99_999,
     )

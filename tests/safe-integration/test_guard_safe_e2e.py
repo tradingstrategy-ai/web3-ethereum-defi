@@ -23,6 +23,7 @@ from eth_defi.token import USDC_WHALE, TokenDetails, fetch_erc20_details
 from eth_defi.trace import assert_transaction_success_with_explanation
 from eth_defi.uniswap_v2.constants import UNISWAP_V2_DEPLOYMENTS
 from eth_defi.uniswap_v2.deployment import FOREVER_DEADLINE, UniswapV2Deployment, fetch_deployment
+from eth_defi.testing.fork_blocks import BASE_MIDNIGHT_BLOCK
 
 JSON_RPC_BASE = os.environ.get("JSON_RPC_BASE")
 
@@ -99,6 +100,7 @@ def anvil_base_fork(request, usdc_whale) -> AnvilLaunch:
     assert JSON_RPC_BASE, "JSON_RPC_BASE not set"
     launch = fork_network_anvil(
         JSON_RPC_BASE,
+        fork_block_number=BASE_MIDNIGHT_BLOCK,
         unlocked_addresses=[usdc_whale],
     )
     try:

@@ -11,28 +11,28 @@ from web3 import Web3
 from eth_defi.erc_4626.classification import create_vault_instance_autodetect
 from eth_defi.erc_4626.core import ERC4626Feature
 from eth_defi.erc_4626.vault_protocol.liquid_royalty.vault import LiquidRoyaltyVault
-from eth_defi.provider.anvil import AnvilLaunch, fork_network_anvil
-from eth_defi.provider.multi_provider import create_multi_provider_web3
+
+from eth_defi.testing.anvil_fork_pool import AnvilForkPool
+from eth_defi.testing.fork_blocks import BERACHAIN_MIDNIGHT_BLOCK
 
 JSON_RPC_BERACHAIN = os.environ.get("JSON_RPC_BERACHAIN")
 
-pytestmark = pytest.mark.skipif(JSON_RPC_BERACHAIN is None, reason="JSON_RPC_BERACHAIN needed to run these tests")
+pytestmark = [
+    pytest.mark.skipif(JSON_RPC_BERACHAIN is None, reason="JSON_RPC_BERACHAIN needed to run these tests"),
+    # Shared with the other Berachain midnight-block characterisation tests.
+    pytest.mark.xdist_group("fork:berachain:midnight"),
+]
 
 
 @pytest.fixture(scope="module")
-def anvil_berachain_fork(request) -> AnvilLaunch:
-    """Fork at a specific block for reproducibility."""
-    launch = fork_network_anvil(JSON_RPC_BERACHAIN, fork_block_number=18_193_000)
-    try:
-        yield launch
-    finally:
-        launch.close()
+def web3(anvil_fork_pool: AnvilForkPool) -> Web3:
+    """Web3 backed by a shared Berachain fork from the session-scoped pool.
 
-
-@pytest.fixture(scope="module")
-def web3(anvil_berachain_fork):
-    web3 = create_multi_provider_web3(anvil_berachain_fork.json_rpc_url)
-    return web3
+    Reuses one Anvil process across every module carrying the matching
+    ``xdist_group`` marker. Read-only test, so no snapshot/revert reset is
+    needed between tests.
+    """
+    return anvil_fork_pool.get_web3(JSON_RPC_BERACHAIN, BERACHAIN_MIDNIGHT_BLOCK)
 
 
 @flaky.flaky

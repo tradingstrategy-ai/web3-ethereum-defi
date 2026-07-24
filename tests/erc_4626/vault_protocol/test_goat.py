@@ -12,28 +12,29 @@ from eth_defi.abi import ZERO_ADDRESS_STR
 from eth_defi.erc_4626.classification import create_vault_instance_autodetect
 from eth_defi.erc_4626.core import ERC4626Feature
 from eth_defi.erc_4626.vault_protocol.goat.vault import GoatVault
-from eth_defi.provider.anvil import AnvilLaunch, fork_network_anvil
-from eth_defi.provider.multi_provider import create_multi_provider_web3
+from eth_defi.testing.anvil_fork_pool import AnvilForkPool
+from eth_defi.testing.fork_blocks import ARBITRUM_MIDNIGHT_BLOCK
 
 JSON_RPC_ARBITRUM = os.environ.get("JSON_RPC_ARBITRUM")
 
-pytestmark = pytest.mark.skipif(JSON_RPC_ARBITRUM is None, reason="JSON_RPC_ARBITRUM needed to run these tests")
+pytestmark = [
+    pytest.mark.skipif(JSON_RPC_ARBITRUM is None, reason="JSON_RPC_ARBITRUM needed to run these tests"),
+    # Every Arbitrum characterisation test normalised onto the midnight block
+    # carries this same group so they share one Anvil process on a single worker
+    # under --dist loadgroup.
+    pytest.mark.xdist_group("fork:arbitrum:midnight"),
+]
 
 
 @pytest.fixture(scope="module")
-def anvil_arbitrum_fork(request) -> AnvilLaunch:
-    launch = fork_network_anvil(JSON_RPC_ARBITRUM, fork_block_number=392_313_989)
-    try:
-        yield launch
-    finally:
-        # Wind down Anvil process after the test is complete
-        launch.close()
+def web3(anvil_fork_pool: AnvilForkPool) -> Web3:
+    """Web3 backed by a shared Arbitrum fork from the session-scoped pool.
 
-
-@pytest.fixture(scope="module")
-def web3(anvil_arbitrum_fork):
-    web3 = create_multi_provider_web3(anvil_arbitrum_fork.json_rpc_url)
-    return web3
+    Reuses one Anvil process across every module carrying the matching
+    ``xdist_group`` marker instead of launching a per-module fork. Read-only
+    test, so no snapshot/revert reset is needed between tests.
+    """
+    return anvil_fork_pool.get_web3(JSON_RPC_ARBITRUM, ARBITRUM_MIDNIGHT_BLOCK)
 
 
 @flaky.flaky
@@ -58,8 +59,10 @@ def test_goat_protocol(
     assert vault.denomination_token.address == "0xFF970A61A04b1cA14834A43f5dE4533eBDDB5CC8"
     assert vault.denomination_token.symbol == "USDC.e"
 
+    # PnL is read at the pinned midnight fork block (see fork_blocks.py); update
+    # these values if the canonical block is bumped.
     profit, loss = vault.fetch_pnl()
-    assert profit == Decimal("5.310608")
+    assert profit == Decimal("0")
     assert loss == 0
 
     # Check maxDeposit/maxRedeem with address(0)

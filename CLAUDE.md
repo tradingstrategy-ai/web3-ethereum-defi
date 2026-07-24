@@ -142,6 +142,24 @@ otherwise the test cannot find environment variables.
 
 Avoid running the whole test suite as it takes several minutes. Only run specific test cases.
 
+Hypersync block scan tests (`tests/erc_4626/test_scan.py`) are disabled on CI by
+default because they dominated the CI critical path; they still run locally. To
+run them on CI (e.g. when touching Hypersync discovery code), see
+`docs/README-hypersync-tests.md`. Apply the same `skip_hypersync_scan_on_ci`
+marker pattern to any new multi-minute Hypersync scan test.
+
+When writing a new Anvil mainnet-fork test, you **must** use the shared Anvil
+fork + fixed fork-block + warm RPC-cache pattern rather than launching a
+per-file `fork_network_anvil` at `latest` or an ad-hoc block. The canonical,
+authoritative description of this pattern — why it matters (warm CI RPC cache)
+and exactly how to apply it (shared `anvil_fork_pool` fixture, chain
+`*_MIDNIGHT_BLOCK` constant, `xdist_group` marker, read-only vs mutating
+caveat, copy-paste skeleton) — is the **module docstring of
+`eth_defi/testing/anvil_fork_pool.py`**. Read it first. Use `evm_snapshot_revert`
+for per-test isolation and deploy expensive Safe/vault fixtures once per session.
+Reference tests: `tests/erc_4626/vault_protocol/test_goat.py` (read-only pooled)
+and `tests/lagoon/conftest.py` (shared fork + once-per-session deployment).
+
 When running pytest or any test commands, always use an extended timeout
 by specifying `timeout: 180000` (3 minutes) in the bash tool parameters.
 
@@ -430,6 +448,8 @@ Consult these for domain-specific context. Logo READMEs under `eth_defi/data/vau
 | `contracts/safe-integration/README.md` | Trading Strategy Zodiac-module for Safe multisig wallets |
 | `docs/README-Hypercore-guard.md` | Hypercore native vault guard integration |
 | `docs/README-hyperevm-goldsky-failure.md` | HyperEVM goldsky eRPC "not enough agreement" consensus failure and Alchemy failover |
+| `docs/README-hypersync-tests.md` | Hypersync scan tests — disabled on CI by default, how to run them on CI when needed |
+| `docs/README-test-suite-performance.md` | Test suite performance plan — CI caching, shared Anvil forks, vault-protocol gating |
 | `docs/README-contract-size.md` | Contract sizes and compiler optimisation |
 | `docs/derive-onboarding/README-derive-trader.md` | Derive session key for vault traders |
 | `docs/protocol-research/README.md` | AI-assisted vault protocol discovery notes |
@@ -450,6 +470,7 @@ Consult these for domain-specific context. Logo READMEs under `eth_defi/data/vau
 | `eth_defi/gmx/ccxt/README.md` | GMX CCXT adapter implementation |
 | `eth_defi/gmx/graphql/README.md` | GMX Subsquid GraphQL integration |
 | `eth_defi/lighter/README-lighter-guard.md` | Lighter (zk-rollup perps DEX) L1 deposit/withdraw guard integration — architecture, security model, operator flow |
+| `eth_defi/testing/README.md` | Fast Anvil fork tests — shared session forks, per-chain midnight block cache, snapshot/revert, once-per-session deployments, reference tests |
 | `scripts/base/README.md` | Base chain related manual test scripts |
 | `scripts/debian-bullseye-compatibility/README.md` | Running on Debian Bullseye |
 | `scripts/erc-4626/README-vault-scripts.md` | ERC-4626 vault scripts |

@@ -512,7 +512,6 @@ CHAIN_RESTRICTED_PROBES: dict[str, set[int]] = {
     "poolId": {1, 8453, 42161},  # Centrifuge - Ethereum, Base, Arbitrum
     "wards": {1, 8453, 42161},  # Centrifuge - Ethereum, Base, Arbitrum
     "SPOKE_REVISION": {1},  # Aave v4 Tokenization Spoke - Ethereum only
-    "assetsWhitelistAddress": {1},  # Upshift multi-asset vaults - Ethereum only
     "withdrawalQueue": {1},  # Symbiotic Core V2 - Ethereum only
 }
 
@@ -1129,14 +1128,15 @@ def create_probe_calls(
         # ``lpTokenAddress()``, ``getSharePrice()`` and ``getTotalAssets()``
         # later after this feature flag routes the vault to UpshiftVault.
         # https://etherscan.io/address/0xEB5f80aCEa6060764E91c185bE93752Ab40F01c2#code
-        if _should_yield_probe("assetsWhitelistAddress", chain_id):
-            yield EncodedCall.from_keccak_signature(
-                address=address,
-                signature=Web3.keccak(text="assetsWhitelistAddress()")[0:4],
-                function="assetsWhitelistAddress",
-                data=b"",
-                extra_data=None,
-            )
+        # Unrestricted: Upshift multi-asset vaults may appear on any chain, so
+        # probe on every chain rather than gating via CHAIN_RESTRICTED_PROBES.
+        yield EncodedCall.from_keccak_signature(
+            address=address,
+            signature=Web3.keccak(text="assetsWhitelistAddress()")[0:4],
+            function="assetsWhitelistAddress",
+            data=b"",
+            extra_data=None,
+        )
 
         # Centrifuge - Ethereum, Base, Arbitrum only
         # LiquidityPool vaults for RWA financing

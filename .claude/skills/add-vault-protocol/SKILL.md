@@ -318,9 +318,18 @@ PY
 
 ### Step 10: Create test file
 
-First the latest block number for the selected chain using `get-block-number` skill.
+New Anvil mainnet-fork characterisation tests **must** use the shared Anvil fork
++ fixed fork-block + warm RPC-cache pattern (shared `anvil_fork_pool` fixture,
+chain `*_MIDNIGHT_BLOCK` constant, `xdist_group` marker). **Do not** launch a
+per-file `fork_network_anvil` at `latest` or an ad-hoc block — that is
+non-reproducible, unshareable and defeats the CI RPC cache. The canonical,
+authoritative description of the pattern (rationale + how-to + copy-paste
+skeleton) lives in the **module docstring of
+`eth_defi/testing/anvil_fork_pool.py`** — read it before writing the test.
 
-Create `tests/erc_4626/vault_protocol/test_{protocol_slug}.py` following the pattern in `tests/erc_4626/vault_protocol/test_plutus.py` and. `tests/erc_4626/vault_protocol/test_goat.py`:
+Create `tests/erc_4626/vault_protocol/test_{protocol_slug}.py` following the
+reference tests `tests/erc_4626/vault_protocol/test_goat.py` and
+`tests/erc_4626/vault_protocol/test_aarna.py` (both read-only pooled forks):
 
 ```python
 """Test {Protocol Name} vault metadata"""
@@ -333,35 +342,30 @@ from web3 import Web3
 import flaky
 
 from eth_defi.erc_4626.classification import create_vault_instance_autodetect
-from eth_defi.erc_4626.core import get_vault_protocol_name
-from eth_defi.erc_4626.vault_protocol.{protocol_slug}.vault import {ProtocolName}Vault
-from eth_defi.provider.anvil import fork_network_anvil, AnvilLaunch
-from eth_defi.provider.multi_provider import create_multi_provider_web3
-from eth_defi.vault.base import VaultTechnicalRisk
 from eth_defi.erc_4626.core import ERC4626Feature
+from eth_defi.erc_4626.vault_protocol.{protocol_slug}.vault import {ProtocolName}Vault
+from eth_defi.testing.anvil_fork_pool import AnvilForkPool
+from eth_defi.testing.fork_blocks import {CHAIN}_MIDNIGHT_BLOCK
+from eth_defi.vault.base import VaultTechnicalRisk
 
 JSON_RPC_{CHAIN} = os.environ.get("JSON_RPC_{CHAIN}")
 
-pytestmark = pytest.mark.skipif(
-    JSON_RPC_{CHAIN} is None,
-    reason="JSON_RPC_{CHAIN} needed to run these tests"
-)
+pytestmark = [
+    pytest.mark.skipif(JSON_RPC_{CHAIN} is None, reason="JSON_RPC_{CHAIN} needed to run these tests"),
+    # Co-locate every same-block {chain} sharer on one xdist worker so they
+    # reuse a single Anvil process under --dist loadgroup.
+    pytest.mark.xdist_group("fork:{chain}:midnight"),
+]
 
 
 @pytest.fixture(scope="module")
-def anvil_{chain}_fork(request) -> AnvilLaunch:
-    """Fork at a specific block for reproducibility"""
-    launch = fork_network_anvil(JSON_RPC_{CHAIN}, fork_block_number={block_number})
-    try:
-        yield launch
-    finally:
-        launch.close()
+def web3(anvil_fork_pool: AnvilForkPool) -> Web3:
+    """Web3 backed by a shared {chain} fork from the session-scoped pool.
 
-
-@pytest.fixture(scope="module")
-def web3(anvil_{chain}_fork):
-    web3 = create_multi_provider_web3(anvil_{chain}_fork.json_rpc_url, retries=2)
-    return web3
+    Read-only test: shares one Anvil fork, so no snapshot/revert reset is
+    needed between tests.
+    """
+    return anvil_fork_pool.get_web3(JSON_RPC_{CHAIN}, {CHAIN}_MIDNIGHT_BLOCK)
 
 
 @flaky.flaky
@@ -391,9 +395,16 @@ def test_{protocol_slug}(
 
 ```
 
-- Update the test file for a correct blockchain
-- Use the blockchain explorer to get the latest block number using given JSON-RPC URL and Python's Web3.py `web3.eth.block_number` call
-- When you run the test and if the user does not have JSON-RPC configured for this chain, interrupt the skill and tell user to update his test environment variables
+- Update the test file for the correct blockchain, using that chain's
+  `*_MIDNIGHT_BLOCK` constant from `eth_defi/testing/fork_blocks.py`. If the
+  chain has no constant yet, add one (see the `fork_blocks.py` module docstring)
+  or, for a chain without archive history (e.g. Monad), fall back to a
+  state-relative assertion per `CLAUDE.md`.
+- Validate that the example vault actually has state at that block before
+  normalising onto it; if it does not, give the test its own fixed block.
+- When you run the test and if the user does not have JSON-RPC configured for
+  this chain, interrupt the skill and tell user to update his test environment
+  variables.
 
 After adding it, run the test module and fix any issues.
 

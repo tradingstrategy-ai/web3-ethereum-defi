@@ -12,7 +12,7 @@ from web3 import Web3
 from eth_defi.erc_4626.classification import create_vault_instance
 from eth_defi.erc_4626.core import ERC4626Feature
 from eth_defi.erc_4626.vault import ERC4626Vault
-from eth_defi.erc_4626.vault_protocol.lagoon.deployment import LagoonAutomatedDeployment, LagoonDeploymentParameters, deploy_automated_lagoon_vault
+from eth_defi.erc_4626.vault_protocol.lagoon.deployment import LagoonDeploymentParameters, deploy_automated_lagoon_vault
 from eth_defi.erc_4626.vault_protocol.lagoon.testing import force_lagoon_settle
 from eth_defi.erc_4626.vault_protocol.lagoon.vault import LagoonVault, LagoonVersion
 from eth_defi.hotwallet import HotWallet
@@ -82,7 +82,6 @@ def erc_vault_7540(web3) -> LagoonVault:
 @flaky.flaky
 def test_lagoon_erc_7540(
     web3: Web3,
-    automated_lagoon_vault: LagoonAutomatedDeployment,
     base_usdc: TokenDetails,
     base_weth: TokenDetails,
     topped_up_asset_manager: HexAddress,
@@ -263,7 +262,6 @@ def test_lagoon_erc_7540(
 @flaky.flaky
 def test_lagoon_erc_7540_malicious_redemption(
     web3: Web3,
-    automated_lagoon_vault: LagoonAutomatedDeployment,
     base_usdc: TokenDetails,
     base_weth: TokenDetails,
     topped_up_asset_manager: HexAddress,

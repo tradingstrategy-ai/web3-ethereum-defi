@@ -17,6 +17,7 @@ from eth_defi.uniswap_v3.deployment import (
     fetch_deployment,
 )
 from eth_defi.uniswap_v3.swap import swap_with_slippage_protection
+from eth_defi.testing.fork_blocks import BASE_MIDNIGHT_BLOCK
 
 JSON_RPC_BASE = os.environ.get("JSON_RPC_BASE")
 
@@ -40,6 +41,7 @@ def anvil_base_fork(request, usdc_holder) -> AnvilLaunch:
     assert JSON_RPC_BASE, "JSON_RPC_BASE not set"
     launch = fork_network_anvil(
         JSON_RPC_BASE,
+        fork_block_number=BASE_MIDNIGHT_BLOCK,
         unlocked_addresses=[usdc_holder],
     )
     try:

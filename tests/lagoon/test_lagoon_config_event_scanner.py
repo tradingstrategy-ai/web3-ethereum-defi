@@ -46,6 +46,7 @@ from eth_defi.provider.multi_provider import create_multi_provider_web3
 from eth_defi.token import USDC_NATIVE_TOKEN, USDC_WHALE, WRAPPED_NATIVE_TOKEN
 from eth_defi.uniswap_v3.constants import UNISWAP_V3_DEPLOYMENTS
 from eth_defi.uniswap_v3.deployment import fetch_deployment as fetch_deployment_uni_v3
+from eth_defi.testing.fork_blocks import ARBITRUM_MIDNIGHT_BLOCK, BASE_MIDNIGHT_BLOCK
 
 logger = logging.getLogger(__name__)
 
@@ -80,6 +81,7 @@ def deployer() -> LocalAccount:
 def anvil_arbitrum() -> AnvilLaunch:
     launch = fork_network_anvil(
         _first_rpc_url(JSON_RPC_ARBITRUM),
+        fork_block_number=ARBITRUM_MIDNIGHT_BLOCK,
         unlocked_addresses=[USDC_WHALE[42161]],
     )
     try:
@@ -92,6 +94,7 @@ def anvil_arbitrum() -> AnvilLaunch:
 def anvil_base() -> AnvilLaunch:
     launch = fork_network_anvil(
         _first_rpc_url(JSON_RPC_BASE),
+        fork_block_number=BASE_MIDNIGHT_BLOCK,
         unlocked_addresses=[USDC_WHALE[8453]],
     )
     try:

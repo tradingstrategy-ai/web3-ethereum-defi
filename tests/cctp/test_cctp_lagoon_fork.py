@@ -39,6 +39,7 @@ from eth_defi.provider.anvil import AnvilLaunch, AnvilSnapshotState, create_anvi
 from eth_defi.provider.multi_provider import create_multi_provider_web3
 from eth_defi.token import TokenDetails, fetch_erc20_details, USDC_NATIVE_TOKEN, USDC_WHALE
 from eth_defi.trace import assert_transaction_success_with_explanation
+from eth_defi.testing.fork_blocks import BASE_MIDNIGHT_BLOCK
 
 logger = logging.getLogger(__name__)
 
@@ -67,6 +68,7 @@ def usdc_holder() -> HexAddress:
 def anvil_base_fork(usdc_holder, asset_manager) -> AnvilLaunch:
     launch = fork_network_anvil(
         JSON_RPC_BASE,
+        fork_block_number=BASE_MIDNIGHT_BLOCK,
         unlocked_addresses=[usdc_holder, asset_manager],
     )
     try:
