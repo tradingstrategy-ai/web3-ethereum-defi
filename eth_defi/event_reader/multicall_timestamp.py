@@ -222,6 +222,12 @@ def fetch_block_timestamps_multiprocess_auto_backend(
 
     :return:
         Pandas series block number (int) -> block timestamp (datetime)
+
+        The mapping is deliberately keyed by block number. Modern chains such
+        as Monad can produce multiple blocks in one second, while block-header
+        timestamps retain one-second precision. Do not reverse this mapping or
+        treat timestamp values as unique; retaining the same timestamp for
+        multiple blocks is correct for the scanner's intended precision.
     """
 
     if hypersync_client:

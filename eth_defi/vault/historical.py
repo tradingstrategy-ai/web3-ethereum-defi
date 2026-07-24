@@ -692,6 +692,9 @@ def scan_historical_prices_to_parquet(
       provenance, matching vault scanner JSON exports
     - On Monad, dynamically clip the requested start to the provider's
       historical-state window before deleting or replacing Parquet rows
+    - Preserve separate sampled blocks even when their second-resolution
+      block timestamps are equal; modern chains such as Monad can produce
+      multiple blocks per second, and block number remains the row identity
 
     :param output_fname:
         Path to a destination Parquet file.
@@ -731,6 +734,11 @@ def scan_historical_prices_to_parquet(
 
     :param step:
         What is the step is in number of blocks.
+
+        Sampling is block-based, not timestamp-based. Equal timestamps from
+        separate blocks are valid input and output because the scanner only
+        requires one-second time accuracy, not synthetic higher-resolution
+        timestamps.
 
     :param chunk_size:
         How many rows to write to the Parquet file in one buffer.
