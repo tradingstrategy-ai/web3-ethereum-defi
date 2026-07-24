@@ -50,6 +50,7 @@ from eth_defi.provider.fallback import ExtraValueError
 from eth_defi.safe.safe_compat import create_safe_ethereum_client
 from eth_defi.trace import assert_transaction_success_with_explanation
 from eth_defi.vault.base import VaultFlowManager, VaultInfo, VaultSpec
+from eth_defi.vault.deposit_redeem import VaultDepositManagerCapability
 from eth_defi.vault.flag import MISSING_IN_PROTOCOL_FRONTEND, VaultFlag
 
 if TYPE_CHECKING:
@@ -975,6 +976,30 @@ class LagoonVault(ERC7540Vault, AutomatedSafe):
         from eth_defi.erc_4626.vault_protocol.lagoon.deposit_redeem import LagoonDepositManager
 
         return LagoonDepositManager(self)
+
+    def get_deposit_manager_capability(self) -> VaultDepositManagerCapability:
+        """Declare Lagoon's asynchronously settleable manager lifecycle.
+
+        Lagoon accepts the standard ERC-7540 request types and its selected
+        manager can force-settle both ticket directions on Anvil.
+
+        .. note::
+
+            Trade-executor may call ``force_settle()`` for a full-lifecycle
+            simulation only when this capability flag is true and it holds the
+            matching ERC-7540 request ticket. Request-only behaviour remains
+            unchanged.
+
+        :return:
+            Two-way asynchronous capability with Anvil settlement support.
+        """
+        return VaultDepositManagerCapability(
+            can_deposit=True,
+            can_redeem=True,
+            deposit_flow="asynchronous",
+            redemption_flow="asynchronous",
+            supports_anvil_settlement=True,
+        )
 
     def can_check_deposit(self) -> bool:
         """Lagoon's maxDeposit does not work correctly for deposit availability checks."""

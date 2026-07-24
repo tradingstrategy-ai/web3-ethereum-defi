@@ -18,6 +18,7 @@ from eth_defi.event_reader.conversion import convert_int256_bytes_to_int
 from eth_defi.event_reader.multicall_batcher import EncodedCall, EncodedCallResult
 from eth_defi.token import TokenDetails, fetch_erc20_details
 from eth_defi.vault.base import VaultHistoricalRead, VaultHistoricalReader
+from eth_defi.vault.deposit_redeem import VaultDepositManagerCapability
 from eth_defi.vault.fee import VaultFeeMode
 
 logger = logging.getLogger(__name__)
@@ -627,20 +628,32 @@ class UpshiftVault(ERC4626Vault):
 
         return super().get_deposit_manager()
 
-    def get_deposit_manager_capability(self) -> "VaultDepositManagerCapability | None":
+    def get_deposit_manager_capability(self) -> VaultDepositManagerCapability:
         """Declare only Upshift's normal ERC-4626 vault shape.
 
         Multi-asset accounting vaults use a separate application flow and must
-        never be represented as generic deposit-manager support.
+        never be represented as generic deposit-manager support. They expose a
+        deliberate refusing capability so consumers can report this as adapter
+        support rather than a failed transaction.
+
+        .. note::
+
+            Trade-executor must inspect this capability before calling
+            :meth:`get_deposit_manager` and map its stable reason to
+            ``adapter_unsupported`` without broadcasting an approval or
+            request.
 
         :return:
-            Synchronous two-way capability for the normal shape, or ``None``
-            for multi-asset vaults.
+            Synchronous two-way capability for the normal shape, or an explicit
+            refusing capability for multi-asset vaults.
         """
         if self.multi_asset_like:
-            return None
-
-        from eth_defi.vault.deposit_redeem import VaultDepositManagerCapability
+            return VaultDepositManagerCapability(
+                can_deposit=False,
+                can_redeem=False,
+                deposit_unsupported_reason="multi_asset_application_flow_not_implemented",
+                redemption_unsupported_reason="multi_asset_application_flow_not_implemented",
+            )
 
         return VaultDepositManagerCapability(
             can_deposit=True,

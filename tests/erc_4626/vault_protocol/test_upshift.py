@@ -148,6 +148,12 @@ def test_upshift_multi_asset_vault_metadata(
 
     assert isinstance(vault.get_historical_reader(stateful=False), UpshiftMultiAssetHistoricalReader)
     assert vault.fetch_share_price(UPSHIFT_MULTI_ASSET_FORK_BLOCK) > 0
+    assert vault.get_deposit_manager_capability().as_dict() == {
+        "can_deposit": False,
+        "can_redeem": False,
+        "deposit_unsupported_reason": "multi_asset_application_flow_not_implemented",
+        "redemption_unsupported_reason": "multi_asset_application_flow_not_implemented",
+    }
     assert vault.fetch_total_assets(UPSHIFT_MULTI_ASSET_FORK_BLOCK) > 0
     assert vault.fetch_total_supply(UPSHIFT_MULTI_ASSET_FORK_BLOCK) > 0
     assert vault.fetch_available_liquidity(UPSHIFT_MULTI_ASSET_FORK_BLOCK) is not None

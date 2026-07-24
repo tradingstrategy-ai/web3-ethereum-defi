@@ -64,12 +64,23 @@ class VaultDepositManagerCapability:
         Request lifecycle for deposits when supported.
     :param redemption_flow:
         Request lifecycle for redemptions when supported.
+    :param deposit_unsupported_reason:
+        Stable adapter reason when deposits are deliberately unsupported.
+    :param redemption_unsupported_reason:
+        Stable adapter reason when redemptions are deliberately unsupported.
+    :param supports_anvil_settlement:
+        Whether the advertised asynchronous lifecycle can be advanced with its
+        protocol-specific ticket on an Anvil fork. ``None`` means no
+        asynchronous lifecycle is advertised.
     """
 
     can_deposit: bool
     can_redeem: bool
     deposit_flow: VaultDepositFlow | None = None
     redemption_flow: VaultDepositFlow | None = None
+    deposit_unsupported_reason: str | None = None
+    redemption_unsupported_reason: str | None = None
+    supports_anvil_settlement: bool | None = None
 
     def __post_init__(self) -> None:
         """Validate that supported operations have a lifecycle declaration.
@@ -81,6 +92,12 @@ class VaultDepositManagerCapability:
             raise ValueError("deposit_flow must be present exactly when deposits are supported")
         if (self.redemption_flow is not None) != self.can_redeem:
             raise ValueError("redemption_flow must be present exactly when redemptions are supported")
+        if self.can_deposit and self.deposit_unsupported_reason is not None:
+            raise ValueError("deposit_unsupported_reason is valid only when deposits are unsupported")
+        if self.can_redeem and self.redemption_unsupported_reason is not None:
+            raise ValueError("redemption_unsupported_reason is valid only when redemptions are unsupported")
+        if self.supports_anvil_settlement is not None and "asynchronous" not in (self.deposit_flow, self.redemption_flow):
+            raise ValueError("supports_anvil_settlement requires an asynchronous lifecycle")
 
     def as_dict(self) -> dict[str, bool | str]:
         """Convert the capability to JSON-compatible primitives.
@@ -96,6 +113,12 @@ class VaultDepositManagerCapability:
             result["deposit_flow"] = self.deposit_flow
         if self.redemption_flow is not None:
             result["redemption_flow"] = self.redemption_flow
+        if self.deposit_unsupported_reason is not None:
+            result["deposit_unsupported_reason"] = self.deposit_unsupported_reason
+        if self.redemption_unsupported_reason is not None:
+            result["redemption_unsupported_reason"] = self.redemption_unsupported_reason
+        if self.supports_anvil_settlement is not None:
+            result["supports_anvil_settlement"] = self.supports_anvil_settlement
         return result
 
     def as_initial_public_schema(self) -> dict[str, bool | str] | None:
@@ -115,6 +138,48 @@ class VaultDepositManagerCapability:
         if self.can_deposit != self.can_redeem:
             return None
         return self.as_dict()
+
+
+@dataclass(frozen=True, slots=True)
+class VaultRedemptionPreflight:
+    """Amount-aware immediate-redemption guidance from a vault manager.
+
+    The result is advisory because capacity can change before a transaction is
+    mined. The manager's request constructor must repeat an available-capacity
+    check before broadcasting. It is currently returned only by adapters that
+    have an owner-specific immediate-capacity query, such as cSigma's
+    `ERC-4626 maxRedeem <https://eips.ethereum.org/EIPS/eip-4626#maxredeem>`__.
+
+    .. note::
+
+        Trade-executor integrations must map an unavailable result, or a
+        matching :class:`VaultFlowUnavailable` from request construction, to a
+        capacity result before their generic receipt-analysis error handling.
+
+    :param available:
+        Whether the requested raw shares can be redeemed immediately.
+    :param requested_raw_shares:
+        Requested vault-share amount in native units.
+    :param available_raw_shares:
+        Current immediate capacity in native share units, when the adapter can
+        determine it.
+    :param reason:
+        Stable adapter reason when the request is unavailable.
+    """
+
+    available: bool
+    requested_raw_shares: int
+    available_raw_shares: int | None = None
+    reason: str | None = None
+
+    def __post_init__(self) -> None:
+        """Validate the available-capacity representation."""
+        if self.requested_raw_shares < 0:
+            raise ValueError("requested_raw_shares must not be negative")
+        if self.available and self.reason is not None:
+            raise ValueError("available preflight cannot have an unavailable reason")
+        if not self.available and self.reason is None:
+            raise ValueError("unavailable preflight must have a reason")
 
 
 class AsyncVaultRequestStatus(enum.Enum):

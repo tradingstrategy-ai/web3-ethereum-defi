@@ -11,8 +11,10 @@ import eth_defi.erc_4626.deposit_redeem as erc_4626_deposit_redeem
 from eth_defi.erc_4626.deposit_probe import DEFAULT_STATUS_PATH, VaultDepositProbeCandidate, VaultDepositProbeOutput, fetch_max_deposit_guidance, log_probe_tables, merge_redemption_flow_failure, prepare_probe_deposit_request, require_simulation, run_from_environment, select_candidates, update_status
 from eth_defi.erc_4626.deposit_redeem import ERC4626DepositManager
 from eth_defi.erc_4626.vault import CERTIFIED_SYNCHRONOUS_DEPOSIT_MANAGER_CLASSES, ERC4626Vault
+from eth_defi.erc_4626.vault_protocol.csigma.deposit_redeem import CsigmaDepositManager
 from eth_defi.erc_4626.vault_protocol.gains.deposit_redeem import GainsDepositManager, GainsRedemptionTicket
 from eth_defi.erc_4626.vault_protocol.kiln.vault import KilnVault
+from eth_defi.erc_4626.vault_protocol.lagoon.vault import LagoonVault
 from eth_defi.erc_4626.vault_protocol.summer.vault import SummerVault
 from eth_defi.erc_4626.vault_protocol.yearn.vault import YearnV3Vault
 from eth_defi.vault.base import VaultSpec
@@ -37,6 +39,62 @@ def test_vault_deposit_manager_capability_suppresses_partial_public_support() ->
     assert VaultDepositManagerCapability(False, True, None, "asynchronous").as_initial_public_schema() is None
     with pytest.raises(ValueError, match="deposit_flow"):
         VaultDepositManagerCapability(True, True, None, "asynchronous")
+    with pytest.raises(ValueError, match="deposit_unsupported_reason"):
+        VaultDepositManagerCapability(True, True, "synchronous", "synchronous", deposit_unsupported_reason="unsupported")
+    with pytest.raises(ValueError, match="supports_anvil_settlement"):
+        VaultDepositManagerCapability(True, True, "synchronous", "synchronous", supports_anvil_settlement=True)
+
+
+def test_lagoon_capability_advertises_verified_anvil_settlement() -> None:
+    """Lagoon advertises only the ticketed settlement driver it implements."""
+    assert object.__new__(LagoonVault).get_deposit_manager_capability().as_dict() == {
+        "can_deposit": True,
+        "can_redeem": True,
+        "deposit_flow": "asynchronous",
+        "redemption_flow": "asynchronous",
+        "supports_anvil_settlement": True,
+    }
+
+
+def test_csigma_redemption_preflight_preserves_raw_share_capacity() -> None:
+    """cSigma exposes maxRedeem() as an amount-aware preflight result."""
+
+    available_raw_shares = 45_388
+    requested_raw_shares = 907_757
+
+    class Call:
+        """Minimal contract-call result."""
+
+        @staticmethod
+        def call() -> int:
+            """Return fixed immediate redemption capacity."""
+            return available_raw_shares
+
+    class Functions:
+        """Minimal cSigma contract namespace."""
+
+        @staticmethod
+        def maxRedeem(owner: str) -> Call:  # noqa: N802
+            """Build an owner-specific capacity call."""
+            assert owner == "0x0000000000000000000000000000000000000001"
+            return Call()
+
+    manager = object.__new__(CsigmaDepositManager)
+    manager.vault = type("Vault", (), {"vault_contract": type("Contract", (), {"functions": Functions()})()})()
+
+    available = manager.fetch_redemption_preflight("0x0000000000000000000000000000000000000001", available_raw_shares)
+    assert available.available is True
+    assert available.available_raw_shares == available_raw_shares
+
+    zero = manager.fetch_redemption_preflight("0x0000000000000000000000000000000000000001", 0)
+    assert zero.available is True
+    assert zero.requested_raw_shares == 0
+
+    unavailable = manager.fetch_redemption_preflight("0x0000000000000000000000000000000000000001", requested_raw_shares)
+    assert unavailable.available is False
+    assert unavailable.requested_raw_shares == requested_raw_shares
+    assert unavailable.available_raw_shares == available_raw_shares
+    assert unavailable.reason == "redemption_capacity_limited"
 
 
 def test_erc4626_subclass_can_use_probe_generic_fallback_after_interface_check() -> None:
