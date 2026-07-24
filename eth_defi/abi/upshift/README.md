@@ -5,13 +5,16 @@ the Upshift vault integration.
 
 `MultiAssetVault.json` is the narrow runtime interface used by the Upshift
 multi-asset adapter. It was reduced from the shared verified implementation ABI
-to the read-only methods needed by vault classification and historical pricing:
+to the methods needed by vault classification, historical pricing and deposits:
 
+- `deposit(address,uint256,address)`
 - `asset()`
 - `assetsWhitelistAddress()`
 - `lpTokenAddress()`
 - `getSharePrice()`
+- `previewDeposit(address,uint256)`
 - `getTotalAssets()`
+- `depositCap()`
 - `depositsPaused()`
 - `withdrawalsPaused()`
 - `maxDepositAmount()`

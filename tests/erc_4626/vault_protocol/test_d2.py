@@ -18,6 +18,7 @@ from eth_defi.vault.base import (
     DEPOSIT_CLOSED_FUNDING_PHASE,
     REDEMPTION_CLOSED_FUNDS_CUSTODIED,
 )
+from eth_defi.vault.deposit_redeem import VaultFlowUnavailable
 
 JSON_RPC_ARBITRUM = os.environ.get("JSON_RPC_ARBITRUM")
 
@@ -61,8 +62,15 @@ def test_d2(
 
     manager = vault.get_deposit_manager()
     assert isinstance(manager, D2DepositManager)
-    with pytest.raises(ValueError, match="D2 deposit is unavailable"):
+    with pytest.raises(VaultFlowUnavailable, match=DEPOSIT_CLOSED_FUNDING_PHASE) as exc_info:
         manager.estimate_deposit(web3.eth.accounts[0], Decimal("1"))
+    assert exc_info.value.direction == "deposit"
+    assert exc_info.value.phase == "preflight"
+    assert exc_info.value.next_open == datetime.datetime(2025, 11, 7, 8, 0)
+    with pytest.raises(VaultFlowUnavailable, match=DEPOSIT_CLOSED_FUNDING_PHASE):
+        manager.create_deposit_request(web3.eth.accounts[0], None, None, 1, True, True)
+    with pytest.raises(VaultFlowUnavailable, match=REDEMPTION_CLOSED_FUNDS_CUSTODIED):
+        manager.create_redemption_request(web3.eth.accounts[0], None, None, 1, True, True)
     settlement = manager.force_settle(None)
     assert settlement.settlement_required is False
     assert settlement.transaction_hashes == ()

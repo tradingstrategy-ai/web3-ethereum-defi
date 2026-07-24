@@ -22,8 +22,8 @@ from eth_defi.vault.deposit_redeem import VaultDepositManagerCapability, VaultFl
 from eth_defi.vault.vaultdb import VaultDatabase
 
 
-def test_vault_deposit_manager_capability_suppresses_partial_public_support() -> None:
-    """The initial JSON schema advertises only symmetric manager support."""
+def test_vault_deposit_manager_capability_exposes_directional_public_support() -> None:
+    """The public JSON schema preserves directional and multi-asset support."""
     complete = VaultDepositManagerCapability(True, True, "synchronous", "asynchronous")
     assert complete.as_initial_public_schema() == {
         "can_deposit": True,
@@ -36,6 +36,19 @@ def test_vault_deposit_manager_capability_suppresses_partial_public_support() ->
         "can_redeem": False,
     }
     assert VaultDepositManagerCapability(True, False, "synchronous", None).as_initial_public_schema() is None
+    assert VaultDepositManagerCapability(
+        True,
+        False,
+        "synchronous",
+        None,
+        deposit_assets=("0x0000000000000000000000000000000000000001",),
+        publish_partial=True,
+    ).as_initial_public_schema() == {
+        "can_deposit": True,
+        "can_redeem": False,
+        "deposit_flow": "synchronous",
+        "deposit_assets": ["0x0000000000000000000000000000000000000001"],
+    }
     assert VaultDepositManagerCapability(False, True, None, "asynchronous").as_initial_public_schema() is None
     with pytest.raises(ValueError, match="deposit_flow"):
         VaultDepositManagerCapability(True, True, None, "asynchronous")
@@ -43,6 +56,8 @@ def test_vault_deposit_manager_capability_suppresses_partial_public_support() ->
         VaultDepositManagerCapability(True, True, "synchronous", "synchronous", deposit_unsupported_reason="unsupported")
     with pytest.raises(ValueError, match="supports_anvil_settlement"):
         VaultDepositManagerCapability(True, True, "synchronous", "synchronous", supports_anvil_settlement=True)
+    with pytest.raises(ValueError, match="deposit_assets"):
+        VaultDepositManagerCapability(False, False, deposit_assets=("0x0000000000000000000000000000000000000001",))
 
 
 def test_lagoon_capability_advertises_verified_anvil_settlement() -> None:

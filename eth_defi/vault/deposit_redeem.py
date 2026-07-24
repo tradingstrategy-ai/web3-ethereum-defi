@@ -82,6 +82,12 @@ class VaultDepositManagerCapability:
     redemption_unsupported_reason: str | None = None
     supports_anvil_settlement: bool | None = None
 
+    #: Accepted token addresses for an explicit multi-asset deposit flow.
+    deposit_assets: tuple[HexAddress, ...] = ()
+
+    #: Allow the initial public schema to expose only one flow direction.
+    publish_partial: bool = False
+
     def __post_init__(self) -> None:
         """Validate that supported operations have a lifecycle declaration.
 
@@ -98,14 +104,16 @@ class VaultDepositManagerCapability:
             raise ValueError("redemption_unsupported_reason is valid only when redemptions are unsupported")
         if self.supports_anvil_settlement is not None and "asynchronous" not in (self.deposit_flow, self.redemption_flow):
             raise ValueError("supports_anvil_settlement requires an asynchronous lifecycle")
+        if self.deposit_assets and not self.can_deposit:
+            raise ValueError("deposit_assets requires deposit support")
 
-    def as_dict(self) -> dict[str, bool | str]:
+    def as_dict(self) -> dict[str, bool | str | list[HexAddress]]:
         """Convert the capability to JSON-compatible primitives.
 
         :return:
             Directional capability object suitable for internal persistence.
         """
-        result: dict[str, bool | str] = {
+        result: dict[str, bool | str | list[HexAddress]] = {
             "can_deposit": self.can_deposit,
             "can_redeem": self.can_redeem,
         }
@@ -119,23 +127,21 @@ class VaultDepositManagerCapability:
             result["redemption_unsupported_reason"] = self.redemption_unsupported_reason
         if self.supports_anvil_settlement is not None:
             result["supports_anvil_settlement"] = self.supports_anvil_settlement
+        if self.deposit_assets:
+            result["deposit_assets"] = list(self.deposit_assets)
         return result
 
-    def as_initial_public_schema(self) -> dict[str, bool | str] | None:
-        """Return the initial public schema or fail closed for partial support.
+    def as_initial_public_schema(self) -> dict[str, bool | str | list[HexAddress]] | None:
+        """Return the initial public capability schema.
 
-        The first export version advertises only symmetric manager support:
-        both directions must either be implemented or explicitly unsupported.
-        Keeping the internal representation directional leaves room for a
-        future schema revision without making a partial manager look
-        depositable today. An explicit ``False``/``False`` capability remains
-        useful because it distinguishes a deliberate refusing manager from an
-        adapter whose transaction support is unknown.
+        Existing partial adapters remain fail-closed unless they explicitly
+        opt in after their supported direction has been fork-proven.
 
         :return:
-            Symmetric public capability object, or ``None`` for partial support.
+            JSON-compatible capability object, or ``None`` for an unpublished
+            partial adapter.
         """
-        if self.can_deposit != self.can_redeem:
+        if self.can_deposit != self.can_redeem and not self.publish_partial:
             return None
         return self.as_dict()
 
@@ -220,6 +226,8 @@ class VaultFlowError(Exception):
         Vault address whose flow was attempted, when known.
     :param caller:
         Address for which the flow was prepared, when known.
+    :param asset_address:
+        Input asset selected for a multi-asset flow, when known.
     :param direction:
         ``deposit`` or ``redeem`` when known.
     :param phase:
@@ -232,6 +240,8 @@ class VaultFlowError(Exception):
         Requested amount in the contract's native raw unit, when applicable.
     :param available_raw_amount:
         Available amount in the contract's native raw unit, when applicable.
+    :param minimum_raw_amount:
+        Protocol minimum in the contract's native raw unit, when applicable.
     :param function_selector:
         Four-byte selector of the denied protocol entry point, when known.
     :param error_selector:
@@ -239,6 +249,8 @@ class VaultFlowError(Exception):
     :param access_delay:
         Access-manager scheduling delay in seconds, when a caller is eligible
         only after delayed execution.
+    :param next_open:
+        Naive UTC time at which a predictable closed protocol window next opens.
     """
 
     def __init__(
@@ -248,15 +260,18 @@ class VaultFlowError(Exception):
         protocol: str | None = None,
         vault_address: HexAddress | None = None,
         caller: HexAddress | None = None,
+        asset_address: HexAddress | None = None,
         direction: Literal["deposit", "redeem"] | None = None,
         phase: str | None = None,
         decoded_error: str | None = None,
         raw_revert_data: HexBytes | None = None,
         requested_raw_amount: int | None = None,
         available_raw_amount: int | None = None,
+        minimum_raw_amount: int | None = None,
         function_selector: HexBytes | None = None,
         error_selector: HexBytes | None = None,
         access_delay: int | None = None,
+        next_open: datetime.datetime | None = None,
     ) -> None:
         """Store structured context for a vault-flow failure."""
         super().__init__(reason)
@@ -264,15 +279,18 @@ class VaultFlowError(Exception):
         self.protocol = protocol
         self.vault_address = vault_address
         self.caller = caller
+        self.asset_address = asset_address
         self.direction = direction
         self.phase = phase
         self.decoded_error = decoded_error
         self.raw_revert_data = raw_revert_data
         self.requested_raw_amount = requested_raw_amount
         self.available_raw_amount = available_raw_amount
+        self.minimum_raw_amount = minimum_raw_amount
         self.function_selector = function_selector
         self.error_selector = error_selector
         self.access_delay = access_delay
+        self.next_open = next_open
 
     def __str__(self) -> str:
         """Format the failure reason with available flow context."""
@@ -283,6 +301,8 @@ class VaultFlowError(Exception):
             context.append(f"vault={self.vault_address}")
         if self.caller:
             context.append(f"caller={self.caller}")
+        if self.asset_address:
+            context.append(f"asset={self.asset_address}")
         if self.direction:
             context.append(f"direction={self.direction}")
         if self.phase:
@@ -295,10 +315,14 @@ class VaultFlowError(Exception):
             context.append(f"error_selector={self.error_selector.hex()}")
         if self.access_delay is not None:
             context.append(f"access_delay={self.access_delay}")
+        if self.next_open is not None:
+            context.append(f"next_open={self.next_open.isoformat()}")
         if self.requested_raw_amount is not None:
             context.append(f"requested_raw_amount={self.requested_raw_amount}")
         if self.available_raw_amount is not None:
             context.append(f"available_raw_amount={self.available_raw_amount}")
+        if self.minimum_raw_amount is not None:
+            context.append(f"minimum_raw_amount={self.minimum_raw_amount}")
         return f"{self.reason} ({', '.join(context)})" if context else self.reason
 
 

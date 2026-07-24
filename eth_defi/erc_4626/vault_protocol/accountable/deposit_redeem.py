@@ -29,6 +29,7 @@ from eth_defi.vault.deposit_redeem import (
     CannotParseRedemptionTransaction,
     RedemptionRequest,
     RedemptionTicket,
+    VaultFlowUnavailable,
 )
 from eth_defi.vault.flow_events import (
     PendingVaultFlow,
@@ -42,6 +43,10 @@ from eth_defi.vault.flow_events import (
 
 if TYPE_CHECKING:
     import hypersync
+
+
+#: ``InsufficientAmount()`` from the verified AccountableAsyncRedeemVault ABI.
+ACCOUNTABLE_INSUFFICIENT_AMOUNT_SELECTOR = HexBytes("0x5945ea56")
 
 
 @dataclass(slots=True)
@@ -194,6 +199,34 @@ class AccountableDepositManager(ERC4626DepositManager):
             raw_amount = self.vault.denomination_token.convert_to_raw(amount)
         if raw_amount <= 0:
             raise ValueError("Accountable deposit amount must be positive")
+        minimum = int(self.vault.vault_contract.functions.MIN_AMOUNT_WEI().call())
+        if raw_amount < minimum:
+            raise VaultFlowUnavailable(
+                f"Accountable deposit amount {raw_amount} is below minimum {minimum}",
+                protocol="Accountable",
+                vault_address=self.vault.address,
+                caller=owner,
+                direction="deposit",
+                phase="preflight",
+                decoded_error="InsufficientAmount",
+                requested_raw_amount=raw_amount,
+                minimum_raw_amount=minimum,
+                error_selector=ACCOUNTABLE_INSUFFICIENT_AMOUNT_SELECTOR,
+            )
+        if check_max_deposit:
+            max_deposit = int(self.vault.vault_contract.functions.maxDeposit(to).call())
+            if raw_amount > max_deposit:
+                reason = "Accountable deposit exceeds current admission capacity"
+                raise VaultFlowUnavailable(
+                    reason,
+                    protocol="Accountable",
+                    vault_address=self.vault.address,
+                    caller=owner,
+                    direction="deposit",
+                    phase="preflight",
+                    requested_raw_amount=raw_amount,
+                    available_raw_amount=max_deposit,
+                )
         func = deposit_4626(
             self.vault,
             owner,

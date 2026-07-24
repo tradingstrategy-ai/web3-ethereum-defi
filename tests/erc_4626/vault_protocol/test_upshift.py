@@ -2,6 +2,8 @@
 
 import datetime
 import os
+from collections.abc import Iterator
+from decimal import Decimal
 from pathlib import Path
 
 import flaky
@@ -11,11 +13,16 @@ from web3 import Web3
 from eth_defi.abi import ZERO_ADDRESS_STR
 from eth_defi.erc_4626.classification import create_vault_instance, create_vault_instance_autodetect
 from eth_defi.erc_4626.core import ERC4626Feature
+from eth_defi.erc_4626.vault_protocol.upshift.deposit_redeem import UpshiftMultiAssetDepositManager
 from eth_defi.erc_4626.vault_protocol.upshift.vault import UpshiftMultiAssetHistoricalReader, UpshiftVault
 from eth_defi.event_reader.multicall_batcher import read_multicall_historical
-from eth_defi.provider.anvil import AnvilLaunch, fork_network_anvil
+from eth_defi.provider.anvil import AnvilLaunch, fork_network_anvil, fund_erc20_on_anvil
 from eth_defi.provider.multi_provider import MultiProviderWeb3Factory, create_multi_provider_web3
+from eth_defi.testing.anvil_fork_pool import AnvilForkPool
+from eth_defi.testing.evm_snapshot_fixture import evm_snapshot_revert
+from eth_defi.testing.fork_blocks import ETHEREUM_MIDNIGHT_BLOCK
 from eth_defi.token import TokenDiskCache
+from eth_defi.vault.deposit_redeem import VaultFlowUnavailable
 from eth_defi.vault.fee import VaultFeeMode
 from eth_defi.vault.risk import VaultTechnicalRisk
 
@@ -27,6 +34,7 @@ UPSHIFT_MULTI_ASSET_FORK_BLOCK = 25_405_251
 UPSHIFT_TORI_VAULT = "0xcd69123b3FBBfC666E1f6a501da27B564C00De54"
 UPSHIFT_CTUSD_VAULT = "0xc87DBBB8C67e4F19fCD2E297c05937567b2572Ce"
 UPSHIFT_SENTORA_USD_EARN_VAULT = "0x74ad2f789ed583dbd141bbdafc673fe1f033718b"
+UPSHIFT_SENTORA_ONE_USDT_RAW_SHARES = 969_683
 UPSHIFT_SENTORA_INSTANT_REDEMPTION_FEE = 0.002
 UPSHIFT_GAMMA_BTC_VAULT = "0x3e4ef6ccc7e4a045c9d3f48b08813d59df14e256"
 UPSHIFT_GAMMA_BTC_MANAGEMENT_FEE = 0.005
@@ -51,6 +59,24 @@ def anvil_ethereum_fork() -> AnvilLaunch:
 def web3(anvil_ethereum_fork):
     web3 = create_multi_provider_web3(anvil_ethereum_fork.json_rpc_url)
     return web3
+
+
+@pytest.fixture(scope="module")
+def anvil_sentora_deposit_fork(anvil_fork_pool: AnvilForkPool) -> AnvilLaunch:
+    """Share the canonical fixed Ethereum fork for Sentora tests."""
+    return anvil_fork_pool.get_launch(JSON_RPC_ETHEREUM, ETHEREUM_MIDNIGHT_BLOCK)
+
+
+@pytest.fixture(scope="module")
+def sentora_web3(anvil_sentora_deposit_fork: AnvilLaunch) -> Web3:
+    """Connect to the deterministic Sentora lifecycle fork."""
+    return create_multi_provider_web3(anvil_sentora_deposit_fork.json_rpc_url)
+
+
+@pytest.fixture
+def sentora_snapshot(anvil_sentora_deposit_fork: AnvilLaunch) -> Iterator[None]:
+    """Restore the shared Sentora fork after a mutating lifecycle test."""
+    yield from evm_snapshot_revert(anvil_sentora_deposit_fork)
 
 
 @flaky.flaky
@@ -107,13 +133,13 @@ def test_upshift(
 @pytest.mark.parametrize(
     "case",
     [
-        (UPSHIFT_TORI_VAULT, "Tori Ecosystem Vault", "etrUSD", "USDC", 18),
-        (UPSHIFT_CTUSD_VAULT, "Earn ctUSD", "EctUSD", "USDC", 6),
+        (UPSHIFT_TORI_VAULT, "Tori Ecosystem Vault", "etrUSD", "trUSD", 18, None),
+        (UPSHIFT_CTUSD_VAULT, "Earn ctUSD", "EctUSD", "USDC", 6, "Upshift depositCap() has been reached"),
     ],
 )
 def test_upshift_multi_asset_vault_metadata(
     web3: Web3,
-    case: tuple[str, str, str, str, int],
+    case: tuple[str, str, str, str, int, str | None],
 ):
     """Read Upshift multi-asset vault metadata.
 
@@ -126,7 +152,7 @@ def test_upshift_multi_asset_vault_metadata(
     Implementation: https://etherscan.io/address/0xEB5f80aCEa6060764E91c185bE93752Ab40F01c2#code
     """
 
-    vault_address, expected_name, expected_symbol, expected_primary_denomination_symbol, expected_share_decimals = case
+    vault_address, expected_name, expected_symbol, expected_accounting_symbol, expected_share_decimals, expected_deposit_closed_reason = case
 
     vault = create_vault_instance_autodetect(
         web3,
@@ -143,30 +169,98 @@ def test_upshift_multi_asset_vault_metadata(
     assert vault.share_token.decimals == expected_share_decimals
     denomination_tokens = vault.fetch_all_denomination_tokens()
     assert denomination_tokens
-    assert denomination_tokens[0].symbol == expected_primary_denomination_symbol
-    assert vault.denomination_token == denomination_tokens[0]
+    assert vault.denomination_token.symbol == expected_accounting_symbol
 
     assert isinstance(vault.get_historical_reader(stateful=False), UpshiftMultiAssetHistoricalReader)
     assert vault.fetch_share_price(UPSHIFT_MULTI_ASSET_FORK_BLOCK) > 0
     assert vault.get_deposit_manager_capability().as_dict() == {
-        "can_deposit": False,
+        "can_deposit": True,
         "can_redeem": False,
-        "deposit_unsupported_reason": "multi_asset_application_flow_not_implemented",
+        "deposit_flow": "synchronous",
         "redemption_unsupported_reason": "multi_asset_application_flow_not_implemented",
+        "deposit_assets": [token.address for token in denomination_tokens],
     }
     assert vault.fetch_total_assets(UPSHIFT_MULTI_ASSET_FORK_BLOCK) > 0
     assert vault.fetch_total_supply(UPSHIFT_MULTI_ASSET_FORK_BLOCK) > 0
     assert vault.fetch_available_liquidity(UPSHIFT_MULTI_ASSET_FORK_BLOCK) is not None
-    assert vault.fetch_deposit_closed_reason() is None
+    assert vault.fetch_deposit_closed_reason() == expected_deposit_closed_reason
     assert vault.fetch_redemption_closed_reason() == "Upshift withdrawalsPaused() is true"
     assert vault.can_check_deposit() is False
 
-    with pytest.raises(NotImplementedError):
-        vault.get_deposit_manager()
+    assert isinstance(vault.get_deposit_manager(), UpshiftMultiAssetDepositManager)
 
     link = vault.get_link()
     assert "app.upshift.finance" in link
     assert Web3.to_checksum_address(vault_address) in link
+
+
+@flaky.flaky
+@pytest.mark.xdist_group("fork:ethereum:midnight")
+def test_upshift_sentora_multi_asset_deposit_lifecycle(sentora_web3: Web3, sentora_snapshot: None) -> None:
+    """Deposit the selected whitelist asset into Sentora USD Earn on Anvil.
+
+    The request contains its required ERC-20 approval followed by Upshift's
+    non-ERC-4626 ``deposit(asset, assets, receiver)`` call.  The exact vault's
+    fixed-block whitelist contains USDT, allowing the test to directly fund the
+    Anvil account without relying on a mutable mainnet token holder.
+    """
+    del sentora_snapshot
+    vault = create_vault_instance_autodetect(sentora_web3, vault_address=UPSHIFT_SENTORA_USD_EARN_VAULT)
+    assert isinstance(vault, UpshiftVault)
+    manager = vault.get_deposit_manager()
+    assert isinstance(manager, UpshiftMultiAssetDepositManager)
+
+    owner = sentora_web3.eth.accounts[0]
+    asset = next(asset for asset in manager.fetch_accepted_assets() if asset.symbol == "USDT")
+    raw_amount = asset.convert_to_raw(Decimal(1))
+    capability = vault.get_deposit_manager_capability()
+    assert capability.as_initial_public_schema() == {
+        "can_deposit": True,
+        "can_redeem": False,
+        "deposit_flow": "synchronous",
+        "redemption_unsupported_reason": "multi_asset_application_flow_not_implemented",
+        "deposit_assets": [token.address for token in manager.fetch_accepted_assets()],
+    }
+    assert manager.has_synchronous_deposit() is True
+    assert manager.has_synchronous_redemption() is False
+    assert manager.can_create_deposit_request(owner) is True
+    assert manager.can_create_redemption_request(owner) is False
+
+    with pytest.raises(VaultFlowUnavailable, match="explicitly selected"):
+        manager.create_deposit_request(owner=owner, raw_amount=raw_amount)
+    with pytest.raises(VaultFlowUnavailable, match="explicitly selected"):
+        manager.estimate_deposit(owner, Decimal(1))
+    with pytest.raises(VaultFlowUnavailable, match="not implemented"):
+        manager.estimate_redeem(owner, Decimal(1))
+
+    assert manager.estimate_deposit_for_asset(owner, Decimal(1), asset.address) == Decimal("0.969683")
+    max_deposit = manager.fetch_max_deposit_for_asset(asset.address)
+    assert max_deposit == asset.convert_to_raw(Decimal(100_000_000))
+    eighteen_decimal_asset = next(token for token in manager.fetch_accepted_assets() if token.decimals == 18)
+    assert manager.estimate_deposit_for_asset(owner, Decimal(1), eighteen_decimal_asset.address) == Decimal("0.969683")
+    eighteen_decimal_max_deposit = manager.fetch_max_deposit_for_asset(eighteen_decimal_asset.address)
+    assert eighteen_decimal_asset.convert_to_decimals(eighteen_decimal_max_deposit) == asset.convert_to_decimals(max_deposit)
+    with pytest.raises(VaultFlowUnavailable, match="protocol limits") as exc_info:
+        manager.create_deposit_request(
+            owner=owner,
+            raw_amount=max_deposit + 1,
+            accepted_asset=asset.address,
+            check_enough_token=False,
+        )
+    assert exc_info.value.available_raw_amount == max_deposit
+    assert exc_info.value.requested_raw_amount == max_deposit + 1
+
+    fund_erc20_on_anvil(sentora_web3, asset.address, owner, raw_amount)
+    deposit_ticket = manager.create_deposit_request(
+        owner=owner,
+        raw_amount=raw_amount,
+        accepted_asset=asset.address,
+    ).broadcast()
+    analysis = manager.analyse_deposit(deposit_ticket.tx_hash, deposit_ticket)
+    assert analysis.denomination_amount == Decimal(1)
+    assert analysis.share_count == Decimal("0.969683")
+    assert vault.share_token.fetch_raw_balance_of(owner) == UPSHIFT_SENTORA_ONE_USDT_RAW_SHARES
+    assert manager.force_settle(None).settlement_required is False
 
 
 @flaky.flaky

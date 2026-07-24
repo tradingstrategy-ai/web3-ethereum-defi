@@ -18,7 +18,7 @@ from web3 import Web3
 from eth_defi.abi import ZERO_ADDRESS_STR
 from eth_defi.erc_4626.classification import create_vault_instance_autodetect
 from eth_defi.erc_4626.core import ERC4626Feature
-from eth_defi.erc_4626.vault_protocol.accountable.deposit_redeem import AccountableDepositManager, AccountableRedemptionTicket
+from eth_defi.erc_4626.vault_protocol.accountable.deposit_redeem import ACCOUNTABLE_INSUFFICIENT_AMOUNT_SELECTOR, AccountableDepositManager, AccountableRedemptionTicket
 from eth_defi.erc_4626.vault_protocol.accountable.offchain_metadata import (
     fetch_accountable_vaults,
 )
@@ -27,7 +27,7 @@ from eth_defi.provider.anvil import AnvilLaunch, fork_network_anvil
 from eth_defi.provider.multi_provider import create_multi_provider_web3
 from eth_defi.token import TokenDetails
 from eth_defi.trace import assert_transaction_success_with_explanation
-from eth_defi.vault.deposit_redeem import AsyncVaultRequestStatus
+from eth_defi.vault.deposit_redeem import AsyncVaultRequestStatus, VaultFlowUnavailable
 
 JSON_RPC_MONAD = os.environ.get("JSON_RPC_MONAD")
 MONAD_USDC_WHALE = HexAddress(HexStr("0xf89d7b9c864f589bbF53a82105107622B35EaA40"))
@@ -113,6 +113,21 @@ def test_accountable_deposit_and_redemption_request_lifecycle(web3: Web3) -> Non
     assert isinstance(manager, AccountableDepositManager)
     assert manager.has_synchronous_deposit() is True
     assert manager.has_synchronous_redemption() is False
+
+    minimum = int(vault.vault_contract.functions.MIN_AMOUNT_WEI().call())
+    with pytest.raises(VaultFlowUnavailable, match="below minimum") as exc_info:
+        manager.create_deposit_request(owner=web3.eth.accounts[1], raw_amount=minimum - 1)
+    assert exc_info.value.decoded_error == "InsufficientAmount"
+    assert exc_info.value.error_selector == ACCOUNTABLE_INSUFFICIENT_AMOUNT_SELECTOR
+    assert exc_info.value.minimum_raw_amount == minimum
+    assert exc_info.value.available_raw_amount is None
+    unchecked_request = manager.create_deposit_request(
+        owner=web3.eth.accounts[1],
+        raw_amount=minimum,
+        check_max_deposit=False,
+        check_enough_token=False,
+    )
+    assert unchecked_request.raw_amount == minimum
 
     synchronous_settlement = manager.force_settle(None)
     assert synchronous_settlement.settlement_required is False

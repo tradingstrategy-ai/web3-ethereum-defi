@@ -13,6 +13,7 @@ from web3.contract import Contract
 from eth_defi.abi import get_deployed_contract
 from eth_defi.erc_4626.core import ERC4626Feature
 from eth_defi.erc_4626.vault import ERC4626Vault, VaultReaderState
+from eth_defi.erc_4626.vault_protocol.upshift.deposit_redeem import UpshiftMultiAssetDepositManager
 from eth_defi.erc_4626.vault_protocol.upshift.offchain_metadata import UpshiftVaultMetadata, fetch_upshift_vault_metadata
 from eth_defi.event_reader.conversion import convert_int256_bytes_to_int
 from eth_defi.event_reader.multicall_batcher import EncodedCall, EncodedCallResult
@@ -77,6 +78,7 @@ class UpshiftMultiAssetHistoricalReader(VaultHistoricalReader):
             "depositsPaused": upshift.depositsPaused(),
             "withdrawalsPaused": upshift.withdrawalsPaused(),
             "maxDepositAmount": upshift.maxDepositAmount(),
+            "depositCap": upshift.depositCap(),
             "maxWithdrawalAmount": upshift.maxWithdrawalAmount(),
         }
 
@@ -131,9 +133,11 @@ class UpshiftMultiAssetHistoricalReader(VaultHistoricalReader):
         else:
             errors.append("getSharePrice call failed")
 
+        raw_total_assets = None
         total_assets_result = call_by_name.get("getTotalAssets")
         if denomination_token is not None and total_assets_result is not None and total_assets_result.success:
-            total_assets = denomination_token.convert_to_decimals(convert_int256_bytes_to_int(total_assets_result.result))
+            raw_total_assets = convert_int256_bytes_to_int(total_assets_result.result)
+            total_assets = denomination_token.convert_to_decimals(raw_total_assets)
         else:
             errors.append("getTotalAssets call failed")
 
@@ -158,8 +162,14 @@ class UpshiftMultiAssetHistoricalReader(VaultHistoricalReader):
             redemption_open = not bool(convert_int256_bytes_to_int(withdrawals_paused_result.result))
 
         max_deposit_result = call_by_name.get("maxDepositAmount")
-        if denomination_token is not None and max_deposit_result is not None and max_deposit_result.success:
-            max_deposit = denomination_token.convert_to_decimals(convert_int256_bytes_to_int(max_deposit_result.result))
+        deposit_cap_result = call_by_name.get("depositCap")
+        if denomination_token is not None and raw_total_assets is not None and max_deposit_result is not None and max_deposit_result.success and deposit_cap_result is not None and deposit_cap_result.success:
+            raw_per_deposit_limit = convert_int256_bytes_to_int(max_deposit_result.result)
+            raw_total_limit = convert_int256_bytes_to_int(deposit_cap_result.result)
+            raw_remaining_capacity = max(raw_total_limit - raw_total_assets, 0)
+            max_deposit = denomination_token.convert_to_decimals(min(raw_per_deposit_limit, raw_remaining_capacity))
+            if deposits_open:
+                deposits_open = max_deposit > 0
 
         max_withdrawal_result = call_by_name.get("maxWithdrawalAmount")
         if denomination_token is not None and max_withdrawal_result is not None and max_withdrawal_result.success:
@@ -360,7 +370,8 @@ class UpshiftVault(ERC4626Vault):
             If this is not an Upshift multi-asset vault.
         """
         if not self.multi_asset_like:
-            raise ValueError("Only Upshift multi-asset vaults have an assets whitelist")
+            reason = "Only Upshift multi-asset vaults have an assets whitelist"
+            raise ValueError(reason)
         address = self.upshift_contract.functions.assetsWhitelistAddress().call()
         return get_deployed_contract(
             self.web3,
@@ -371,9 +382,9 @@ class UpshiftVault(ERC4626Vault):
     def fetch_all_denomination_tokens(self) -> tuple[TokenDetails, ...]:
         """Fetch every configured multi-asset denomination token.
 
-        The returned tuple preserves the onchain whitelist ordering. That
-        ordering determines the primary token returned by
-        :meth:`fetch_denomination_token`.
+        The returned tuple preserves the onchain whitelist ordering. These are
+        accepted deposit assets and may differ from the accounting asset
+        returned by :meth:`fetch_denomination_token`.
 
         :return:
             Whitelisted denomination tokens in protocol order. Standard
@@ -403,32 +414,31 @@ class UpshiftVault(ERC4626Vault):
                 cache=self.token_cache,
             )
             if token is None:
-                raise ValueError(f"Could not fetch Upshift denomination token {address} for vault {self.address}")
+                reason = f"Could not fetch Upshift denomination token {address} for vault {self.address}"
+                raise ValueError(reason)
             tokens.append(token)
         return tuple(tokens)
 
     def fetch_denomination_token(self) -> TokenDetails | None:
-        """Fetch Upshift's primary denomination token.
+        """Fetch Upshift's accounting denomination token.
 
         **Supported simulation path**
 
-        Multi-asset vaults use the first token in the onchain whitelist as
-        their primary denomination token. The representative integration path
-        uses a vault whose first token is USDC.
+        Multi-asset vaults retain the ERC-4626 ``asset()`` token as their
+        accounting unit even when deposits accept a separate token whitelist.
+        Keeping these concepts separate is required when the first accepted
+        token uses different decimals from the accounting asset.
 
         **Known limitations**
 
-        Only the first token is selected as the primary denomination token.
-        Remaining whitelisted tokens are discovered by
-        :meth:`fetch_all_denomination_tokens` but are not supported by the
-        deposit manager yet.
+        Accepted assets are exposed separately through
+        :meth:`fetch_all_denomination_tokens`; callers must explicitly select
+        one when creating or estimating a multi-asset deposit.
 
         :return:
-            First whitelisted token for a multi-asset vault, or the normal
-            ERC-4626 denomination token for a standard Upshift vault.
+            ERC-4626 accounting asset configured by the vault.
         """
-        tokens = self.fetch_all_denomination_tokens()
-        return tokens[0] if tokens else None
+        return super().fetch_denomination_token()
 
     def fetch_share_token_address(self, block_identifier: BlockIdentifier = "latest") -> HexAddress:
         """Get the share token address.
@@ -624,35 +634,35 @@ class UpshiftVault(ERC4626Vault):
         """
 
         if self.multi_asset_like:
-            raise NotImplementedError("Upshift multi-asset vault deposits are not supported by the generic ERC-4626 deposit manager")
+            return UpshiftMultiAssetDepositManager(self)
 
         return super().get_deposit_manager()
 
     def get_deposit_manager_capability(self) -> VaultDepositManagerCapability:
-        """Declare only Upshift's normal ERC-4626 vault shape.
+        """Declare Upshift's fork-proven directional lifecycle support.
 
-        Multi-asset accounting vaults use a separate application flow and must
-        never be represented as generic deposit-manager support. They expose a
-        deliberate refusing capability so consumers can report this as adapter
-        support rather than a failed transaction.
+        Multi-asset accounting vaults support synchronous deposits through
+        Upshift's protocol-specific ``deposit(asset, amount, receiver)`` entry
+        point. Redemption remains deliberately unsupported until its complete
+        request and settlement lifecycle is fork-proven.
 
         .. note::
 
-            Trade-executor must inspect this capability before calling
-            :meth:`get_deposit_manager` and map its stable reason to
-            ``adapter_unsupported`` without broadcasting an approval or
-            request.
+            Trade-executor must inspect the matching directional flag and use
+            ``deposit_assets`` to require an explicit accepted-asset selection.
 
         :return:
-            Synchronous two-way capability for the normal shape, or an explicit
-            refusing capability for multi-asset vaults.
+            Directional capability and accepted assets for the vault shape.
         """
         if self.multi_asset_like:
+            accepted_assets = tuple(token.address for token in self.fetch_all_denomination_tokens())
             return VaultDepositManagerCapability(
-                can_deposit=False,
+                can_deposit=True,
                 can_redeem=False,
-                deposit_unsupported_reason="multi_asset_application_flow_not_implemented",
+                deposit_flow="synchronous",
                 redemption_unsupported_reason="multi_asset_application_flow_not_implemented",
+                deposit_assets=accepted_assets,
+                publish_partial=True,
             )
 
         return VaultDepositManagerCapability(
@@ -684,9 +694,15 @@ class UpshiftVault(ERC4626Vault):
         if self.upshift_contract.functions.depositsPaused().call():
             return "Upshift depositsPaused() is true"
 
-        raw_max_deposit = self.upshift_contract.functions.maxDepositAmount().call()
+        functions = self.upshift_contract.functions
+        raw_max_deposit = functions.maxDepositAmount().call()
         if raw_max_deposit == 0:
             return "Upshift maxDepositAmount() is zero"
+
+        raw_deposit_cap = functions.depositCap().call()
+        raw_total_assets = functions.getTotalAssets().call()
+        if raw_total_assets >= raw_deposit_cap:
+            return "Upshift depositCap() has been reached"
 
         return None
 
@@ -734,7 +750,7 @@ class UpshiftVault(ERC4626Vault):
         raw_amount = self.upshift_contract.functions.maxWithdrawalAmount().call(block_identifier=block_identifier)
         return token.convert_to_decimals(raw_amount)
 
-    def get_historical_reader(self, stateful: bool) -> VaultHistoricalReader:
+    def get_historical_reader(self, stateful: bool) -> VaultHistoricalReader:  # noqa: FBT001
         """Get the historical reader for this Upshift vault.
 
         :param stateful:
@@ -765,6 +781,7 @@ class UpshiftVault(ERC4626Vault):
 
         URL format: https://app.upshift.finance/pools/{chain_id}/{checksummed_address}
         """
+        del referral
         chain_id = self.chain_id
         checksummed_address = Web3.to_checksum_address(self.vault_address)
         return f"https://app.upshift.finance/pools/{chain_id}/{checksummed_address}"
