@@ -4,7 +4,9 @@ Verifies that we can scan Lighter pools and store metrics in DuckDB.
 """
 
 import json
+from collections.abc import Mapping
 from pathlib import Path
+from typing import Any
 
 import pandas as pd
 import pytest
@@ -27,6 +29,70 @@ from eth_defi.research.vault_metrics import (
 from eth_defi.research.wrangle_vault_prices import generate_cleaned_vault_datasets
 from eth_defi.vault.post_processing import merge_native_protocols
 from eth_defi.vault.vaultdb import VaultDatabase
+
+
+def _derive_live_position_fundamentals(positions: pd.DataFrame, snapshot_id: str) -> dict[str, float | int]:
+    """Derive expected metric facts directly from persisted live positions.
+
+    This deliberately does not use the production Parquet derivation helper,
+    allowing the end-to-end test to detect a regression between the stored
+    signed notionals and the materialised export values.
+
+    :param positions:
+        Common live position-observation rows from the protocol DuckDB file.
+    :param snapshot_id:
+        Account observation whose position set is being asserted.
+    :return:
+        Fundamental positive long/short notionals, position count and largest
+        absolute position notional.
+    """
+    signed_notionals = pd.to_numeric(positions.loc[positions["snapshot_id"] == snapshot_id, "signed_notional"], errors="raise").astype(float)
+    return {
+        "long_notional": float(signed_notionals.clip(lower=0).sum()),
+        "short_notional": float(-signed_notionals.clip(upper=0).sum()),
+        "open_position_count": len(signed_notionals),
+        "largest_position_notional": float(signed_notionals.abs().max()) if not signed_notionals.empty else 0.0,
+    }
+
+
+def _assert_materialised_perp_fundamentals(row: Mapping[str, Any], expected: Mapping[str, float | int]) -> None:
+    """Assert a raw or cleaned row retains all stored position fundamentals.
+
+    :param row:
+        Raw or cleaned price row containing common ``perp_*`` fields.
+    :param expected:
+        Fundamental values independently derived from the persisted positions.
+    :return:
+        ``None``. The helper raises an assertion failure on a changed value.
+    """
+    assert float(row["perp_long_notional"]) == pytest.approx(expected["long_notional"])
+    assert float(row["perp_short_notional"]) == pytest.approx(expected["short_notional"])
+    assert int(row["perp_open_position_count"]) == expected["open_position_count"]
+    assert float(row["perp_largest_position_notional"]) == pytest.approx(expected["largest_position_notional"])
+
+
+def _assert_exported_perp_fundamentals(perp_dex: Mapping[str, Any], expected: Mapping[str, float | int]) -> None:
+    """Assert JSON exposure derivations retain the stored fundamental facts.
+
+    :param perp_dex:
+        Final ``other_data.perp_dex`` JSON object.
+    :param expected:
+        Fundamental values independently derived from the persisted positions.
+    :return:
+        ``None``. The helper raises an assertion failure on a changed value.
+    """
+    long_notional = float(expected["long_notional"])
+    short_notional = float(expected["short_notional"])
+    gross_notional = long_notional + short_notional
+    assert perp_dex["long_notional"] == pytest.approx(long_notional)
+    assert perp_dex["short_notional"] == pytest.approx(short_notional)
+    assert perp_dex["gross_notional"] == pytest.approx(gross_notional)
+    assert perp_dex["net_notional"] == pytest.approx(long_notional - short_notional)
+    assert perp_dex["open_position_count"] == expected["open_position_count"]
+    if gross_notional:
+        assert perp_dex["largest_position_fraction"] == pytest.approx(float(expected["largest_position_notional"]) / gross_notional)
+    else:
+        assert perp_dex["largest_position_fraction"] is None
 
 
 @pytest.mark.timeout(120)
@@ -124,6 +190,8 @@ def test_live_lighter_perp_metrics_reach_cleaned_parquet_and_json(tmp_path: Path
         assert bool(account_rows.iloc[0]["position_set_complete"])
         assert pd.notna(account_rows.iloc[0]["observed_at"])
         assert set(positions["snapshot_id"]).issubset(set(account_rows["snapshot_id"]))
+        expected_fundamentals = _derive_live_position_fundamentals(positions, account_rows.iloc[0]["snapshot_id"])
+        expected_observed_at = pd.Timestamp(account_rows.iloc[0]["observed_at"]).floor("s")
         merge_into_vault_database(database, vault_db_path)
     finally:
         database.close()
@@ -138,8 +206,9 @@ def test_live_lighter_perp_metrics_reach_cleaned_parquet_and_json(tmp_path: Path
     raw_prices = pd.read_parquet(uncleaned_path)
     raw_vault_rows = raw_prices[raw_prices["address"] == expected_address]
     assert not raw_vault_rows.empty
-    assert raw_vault_rows["perp_position_data_status"].eq("available").any()
-    assert raw_vault_rows["perp_metrics_observed_at"].notna().any()
+    raw_metric_row = raw_vault_rows[raw_vault_rows["perp_position_data_status"] == "available"].sort_values("timestamp").iloc[-1]
+    _assert_materialised_perp_fundamentals(raw_metric_row, expected_fundamentals)
+    assert raw_metric_row["perp_metrics_observed_at"] == expected_observed_at
 
     generate_cleaned_vault_datasets(
         vault_db_path=vault_db_path,
@@ -152,7 +221,8 @@ def test_live_lighter_perp_metrics_reach_cleaned_parquet_and_json(tmp_path: Path
     latest_cleaned_row = cleaned_vault_rows.sort_values("timestamp").iloc[-1]
     assert latest_cleaned_row["perp_position_data_status"] == "available"
     assert latest_cleaned_row["perp_quote_asset"] == deployment.denomination
-    assert pd.notna(latest_cleaned_row["perp_metrics_observed_at"])
+    _assert_materialised_perp_fundamentals(latest_cleaned_row, expected_fundamentals)
+    assert latest_cleaned_row["perp_metrics_observed_at"] == expected_observed_at
 
     vault_db = VaultDatabase.read(vault_db_path)
     returns = calculate_hourly_returns_for_all_vaults(cleaned_prices)
@@ -163,4 +233,5 @@ def test_live_lighter_perp_metrics_reach_cleaned_parquet_and_json(tmp_path: Path
     perp_dex = exported["other_data"]["perp_dex"]
     assert perp_dex["position_data_status"] == "available"
     assert perp_dex["quote_asset"] == deployment.denomination
-    assert perp_dex["observed_at"] is not None
+    assert perp_dex["observed_at"] == expected_observed_at.isoformat()
+    _assert_exported_perp_fundamentals(perp_dex, expected_fundamentals)
