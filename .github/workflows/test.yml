@@ -100,12 +100,13 @@ jobs:
 
       # Split the Foundry cache in two:
       #  1. The pinned toolchain binaries — immutable key, never needs updating.
-      #  2. The Anvil fork RPC cache (~/.foundry/cache/rpc) — must GROW across
-      #     runs as new (chain, block) fork reads are recorded. GitHub caches are
-      #     immutable and only saved on a key miss, so this needs a rolling key
-      #     (run_id) plus a restore-keys prefix, month-namespaced so it rebuilds
-      #     periodically and stays within quota. Sharing one immutable ~/.foundry
-      #     key (the previous behaviour) froze the RPC cache forever.
+      #  2. The Anvil fork RPC cache (~/.foundry/cache/rpc) — one STABLE,
+      #     accumulating cache. GitHub caches are immutable and saved only on a
+      #     key miss, so to keep it GROWING we use a unique per-run key
+      #     (github.run_id) + a stable restore-keys prefix, and save it with
+      #     `if: always()` (end of job). Each run restores the newest cache and
+      #     saves back a superset, so it self-warms and persists across runs —
+      #     no monthly reset. Bounded naturally (finite fixed fork blocks).
       - name: Cache Foundry toolchain
         uses: actions/cache@v4
         with:
@@ -115,10 +116,6 @@ jobs:
             foundry-toolchain-v1.2.3-
             foundry-toolchain-
 
-      - name: Compute cache month
-        id: cache-month
-        run: echo "month=$(date -u +%Y-%m)" >> "$GITHUB_OUTPUT"
-
       # Restore the Anvil fork RPC cache (layout rpc/<network-name>/<block>/*.json).
       # Split from the save step (end of job) so the cache is saved with
       # `if: always()` even on failure — a plain actions/cache@v4 only saves on
@@ -127,11 +124,11 @@ jobs:
         uses: actions/cache/restore@v4
         with:
           path: ~/.foundry/cache/rpc
-          key: foundry-rpc-v1.2.3-${{ runner.os }}-${{ steps.cache-month.outputs.month }}-${{ github.run_id }}
-          # Restore only within the same month so the cache rebuilds each month
-          # (bounding growth). No cross-month fallback on purpose.
+          key: foundry-rpc-v1.2.3-${{ runner.os }}-${{ github.run_id }}
+          # Stable prefix: restore the newest accumulated cache from any prior
+          # run (the fork cache is naturally bounded — finite fixed blocks).
           restore-keys: |
-            foundry-rpc-v1.2.3-${{ runner.os }}-${{ steps.cache-month.outputs.month }}-
+            foundry-rpc-v1.2.3-${{ runner.os }}-
 
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@v1
@@ -266,13 +263,13 @@ jobs:
 
       # Persist the fork RPC cache even on failure so blocks read this run
       # replay from disk next run (fewer archive round-trips). run_id key always
-      # writes a fresh entry; the restore step's month prefix picks up the latest.
+      # writes a fresh entry; the restore step's stable prefix picks up the latest.
       - name: Save Foundry fork RPC cache
         if: always()
         uses: actions/cache/save@v4
         with:
           path: ~/.foundry/cache/rpc
-          key: foundry-rpc-v1.2.3-${{ runner.os }}-${{ steps.cache-month.outputs.month }}-${{ github.run_id }}
+          key: foundry-rpc-v1.2.3-${{ runner.os }}-${{ github.run_id }}
 
       # Ruff format check now runs in .github/workflows/lint.yml on the free
       # ubuntu-latest runner. Keeping it out of the Beefy job saves billable

@@ -24,8 +24,8 @@ We keep forking real chains; we stop paying for the same fork many times over.
 - **Lever 2 (CI caching) — DONE inline.** All four workflows key the built-in
   `actions/setup-python` Poetry cache on `poetry.lock` and rely on it as the
   single venv-cache mechanism (the redundant explicit `Cache poetry venv` steps
-  were removed everywhere). Foundry toolchain split from a rolling
-  month-namespaced `~/.foundry/cache/rpc` cache in `test.yml`, `test-gmx.yml` and
+  were removed everywhere). Foundry toolchain split from a single stable,
+  accumulating `~/.foundry/cache/rpc` cache in `test.yml`, `test-gmx.yml` and
   `test-vault-protocol.yml`; `test.yml` checkout bumped to v4. **Deferred:** the
   DRY composite action and the submodule/ganache caching (documented below) —
   needs CI iteration.
@@ -309,23 +309,25 @@ immutable so it never accumulates new fork state.
    drifting keys (`gmx-venv-…`, `slow-venv-…`, `docs-venv-…`). All four explicit
    steps were removed so the built-in cache is the single mechanism everywhere.
 
-3. **Split the Foundry cache: immutable toolchain vs rolling RPC cache. (done)**
-   Previously every workflow cached all of `~/.foundry` under the static key
-   `foundry-v1.2.3-${{ runner.os }}`, so the toolchain and the fork RPC cache
-   shared one immutable key and **new fork reads under `~/.foundry/cache/rpc` were
-   never saved**.
+3. **Split the Foundry cache: immutable toolchain vs one stable accumulating RPC
+   cache. (done)** Previously every workflow cached all of `~/.foundry` under the
+   static key `foundry-v1.2.3-${{ runner.os }}`, so the toolchain and the fork RPC
+   cache shared one immutable key and **new fork reads under `~/.foundry/cache/rpc`
+   were never saved**.
    - Keep the *toolchain* (`~/.foundry/bin`) under an immutable
      `foundry-toolchain-v1.2.3-*` key. (`foundry-rs/foundry-toolchain` also caches
      the binary itself — the explicit toolchain cache is a belt-and-braces.)
-   - Put **`~/.foundry/cache/rpc` in its own `actions/cache` step** with a rolling
-     key namespaced by Foundry version, OS and **month**:
-     `foundry-rpc-v1.2.3-${{ runner.os }}-<month>-${{ github.run_id }}`, with a
-     `restore-keys` prefix that includes the month
-     (`foundry-rpc-v1.2.3-${{ runner.os }}-<month>-`) **and no cross-month
-     fallback**. Within a month the cache accumulates via `run_id` + prefix; at a
-     new month it starts cold and rebuilds, bounding growth. (A cross-month
-     restore prefix would defeat the rebuild — it would restore last month's cache
-     and republish it under the new key forever.)
+   - The fork RPC cache is **one stable, self-warming cache** — the simplest
+     design that persists and grows without any resets or a separate warmer job.
+     Because GitHub caches are immutable (saved only on a key miss), a *fixed* key
+     would freeze after the first save; so we use a unique-per-run key
+     `foundry-rpc-v1.2.3-${{ runner.os }}-${{ github.run_id }}` with a **stable
+     restore-keys prefix** `foundry-rpc-v1.2.3-${{ runner.os }}-`, split into
+     `actions/cache/restore` + `actions/cache/save` with **`if: always()`**. Each
+     run restores the newest accumulated cache and saves back a superset, so the
+     cache **self-warms and persists across runs with no monthly reset**. It is
+     naturally bounded (a finite set of fixed fork blocks), and GitHub's 7-day
+     eviction / 10 GB LRU handle any dead entries.
    - Anvil writes fork reads under `~/.foundry/cache/rpc/`. The observed layout is
      `rpc/<network-name>/<block>/storage.json` (e.g. `rpc/base/48956940/storage.json`)
      — keyed by Foundry's **network name, not chain id**, with a per-block
@@ -363,7 +365,7 @@ immutable so it never accumulates new fork state.
   install` is a near no-op) with no separate venv-cache step.
 - Warm-cache runs show reduced archive RPC traffic and faster fork setup on
   repeat blocks; the immutable toolchain cache size stays flat while the RPC
-  cache grows across runs within a month.
+  cache grows and persists across runs (self-warming, no reset).
 - All workflows share one caching approach (ideally via a shared composite
   action once deferred item 6 lands).
 

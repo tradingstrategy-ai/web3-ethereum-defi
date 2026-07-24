@@ -117,10 +117,6 @@ jobs:
             foundry-toolchain-v1.2.3-
             foundry-toolchain-
 
-      - name: Compute cache month
-        id: cache-month
-        run: echo "month=$(date -u +%Y-%m)" >> "$GITHUB_OUTPUT"
-
       # Restore the Anvil fork RPC cache. Split from the save step (below) so we
       # can save it with `if: always()`: this suite's jobs sometimes fail on
       # transient archive-provider timeouts, and a plain actions/cache@v4 only
@@ -132,11 +128,10 @@ jobs:
         uses: actions/cache/restore@v4
         with:
           path: ~/.foundry/cache/rpc
-          key: foundry-rpc-v1.2.3-${{ runner.os }}-${{ steps.cache-month.outputs.month }}-${{ github.run_id }}
-          # Restore only within the same month so the cache rebuilds each month
-          # (bounding growth). First run of a new month is cold.
+          key: foundry-rpc-v1.2.3-${{ runner.os }}-${{ github.run_id }}
+          # Stable prefix: restore the newest accumulated cache from any prior run.
           restore-keys: |
-            foundry-rpc-v1.2.3-${{ runner.os }}-${{ steps.cache-month.outputs.month }}-
+            foundry-rpc-v1.2.3-${{ runner.os }}-
 
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@v1
@@ -186,13 +181,13 @@ jobs:
       # Persist the fork RPC cache even when the tests fail/time out, so the
       # blocks read this run replay from disk next run. Keyed on run_id so it
       # always writes a fresh entry (no same-key skip); the restore step's
-      # month prefix picks up the latest.
+      # stable prefix picks up the latest.
       - name: Save Foundry fork RPC cache
         if: always()
         uses: actions/cache/save@v4
         with:
           path: ~/.foundry/cache/rpc
-          key: foundry-rpc-v1.2.3-${{ runner.os }}-${{ steps.cache-month.outputs.month }}-${{ github.run_id }}
+          key: foundry-rpc-v1.2.3-${{ runner.os }}-${{ github.run_id }}
 
   # Always-run gate: this is the job to mark as the required status check.
   # It fails if change detection itself failed (so a broken filter cannot let

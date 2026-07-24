@@ -87,10 +87,6 @@ jobs:
             foundry-toolchain-v1.2.3-
             foundry-toolchain-
 
-      - name: Compute cache month
-        id: cache-month
-        run: echo "month=$(date -u +%Y-%m)" >> "$GITHUB_OUTPUT"
-
       # Restore the fork RPC cache; saved with `if: always()` at the end of the
       # job (GMX frequently hits its timeout, and a plain actions/cache@v4 only
       # saves on success, so the cache stayed cold). See test.yml for rationale.
@@ -98,10 +94,10 @@ jobs:
         uses: actions/cache/restore@v4
         with:
           path: ~/.foundry/cache/rpc
-          key: foundry-rpc-v1.2.3-${{ runner.os }}-${{ steps.cache-month.outputs.month }}-${{ github.run_id }}
-          # Restore only within the same month so the cache rebuilds each month.
+          key: foundry-rpc-v1.2.3-${{ runner.os }}-${{ github.run_id }}
+          # Stable prefix: restore the newest accumulated cache from any prior run.
           restore-keys: |
-            foundry-rpc-v1.2.3-${{ runner.os }}-${{ steps.cache-month.outputs.month }}-
+            foundry-rpc-v1.2.3-${{ runner.os }}-
 
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@v1
@@ -258,7 +254,7 @@ jobs:
         uses: actions/cache/save@v4
         with:
           path: ~/.foundry/cache/rpc
-          key: foundry-rpc-v1.2.3-${{ runner.os }}-${{ steps.cache-month.outputs.month }}-${{ github.run_id }}
+          key: foundry-rpc-v1.2.3-${{ runner.os }}-${{ github.run_id }}
 
       # NOTE: We don't run linting here as it's already done in the main workflow
       # Ruff lint check is only needed once per PR, not per test suite
