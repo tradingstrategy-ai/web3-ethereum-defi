@@ -31,6 +31,7 @@ from eth_defi.erc_4626.classification import HARDCODED_PROTOCOLS
 from eth_defi.erc_4626.core import ERC4262VaultDetection
 from eth_defi.erc_4626.vault_protocol.morpho.flag_analytics import MorphoFlagAnalytics, analyze_morpho_flags
 from eth_defi.feed.stablecoin_rate import DenominationTokenRate, StablecoinRateFeeder
+from eth_defi.perp_dex.export import build_perp_dex_other_data
 from eth_defi.research.value_table import format_grouped_series_as_multi_column_grid, format_series_as_multi_column_grid
 from eth_defi.research.wrangle_vault_prices import forward_fill_vault
 from eth_defi.token import is_stablecoin_like, normalise_token_symbol
@@ -1873,6 +1874,9 @@ def calculate_vault_record(
         # YELLOW flags do not trigger VaultFlag.morpho_issues. Example: ["bad_debt_realized", "not_whitelisted"]
         "morpho_yellow_flags": morpho_yellow_flags,
     }
+    perp_dex_data = build_perp_dex_other_data(prices_df.iloc[-1])
+    if perp_dex_data is not None:
+        other_data["perp_dex"] = perp_dex_data
 
     # Manual review decision from the Hyperliquid review Google Sheet.
     # Captured into the pickle by

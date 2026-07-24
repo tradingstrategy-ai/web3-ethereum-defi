@@ -33,6 +33,7 @@ from tqdm_loggable.auto import tqdm
 
 from eth_defi.compat import native_datetime_utc_now
 from eth_defi.lighter.constants import LIGHTER_DAILY_METRICS_DATABASE, LIGHTER_ETHEREUM
+from eth_defi.lighter.perp_metrics import collect_lighter_pool_observations
 from eth_defi.lighter.session import LighterSession
 from eth_defi.lighter.vault import (
     LIGHTER_LLP_DESCRIPTION,
@@ -42,6 +43,7 @@ from eth_defi.lighter.vault import (
     fetch_pool_total_shares_history,
     pool_detail_to_daily_dataframe,
 )
+from eth_defi.perp_dex.storage import initialise_perp_vault_observation_schema
 
 logger = logging.getLogger(__name__)
 
@@ -73,6 +75,7 @@ class LighterDailyMetricsDatabase:
         Any migration failure aborts database opening without discarding the
         original tables.
         """
+        initialise_perp_vault_observation_schema(self.con)
         if not self._table_exists("pool_metadata"):
             self._create_pool_metadata_table("pool_metadata")
         if not self._table_exists("pool_daily_prices"):
@@ -642,14 +645,23 @@ def run_daily_scan(
     success_count = sum(1 for r in results if r)
     fail_count = sum(1 for r in results if not r)
 
+    position_attempts = collect_lighter_pool_observations(
+        session,
+        db.con,
+        filtered,
+        max_workers=max_workers,
+        timeout=timeout,
+    )
+
     db.save()
 
     logger.info(
-        "%s daily scan complete. Processed %d pools (%d successful, %d failed) into %s",
+        "%s daily scan complete. Processed %d pools (%d successful, %d failed, %d position reads) into %s",
         session.deployment.name,
         len(filtered),
         success_count,
         fail_count,
+        position_attempts,
         db_path,
     )
 

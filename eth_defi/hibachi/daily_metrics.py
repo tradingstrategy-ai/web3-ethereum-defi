@@ -22,6 +22,7 @@ Example::
 """
 
 import logging
+from decimal import Decimal
 from pathlib import Path
 
 import duckdb
@@ -29,13 +30,19 @@ import pandas as pd
 from tqdm_loggable.auto import tqdm
 
 from eth_defi.compat import native_datetime_utc_now
-from eth_defi.hibachi.constants import HIBACHI_DAILY_METRICS_DATABASE
+from eth_defi.hibachi.constants import HIBACHI_CHAIN_ID, HIBACHI_DAILY_METRICS_DATABASE
 from eth_defi.hibachi.session import HibachiSession
 from eth_defi.hibachi.vault import (
     HibachiVaultInfo,
     fetch_vault_info,
     fetch_vault_performance,
 )
+from eth_defi.perp_dex.metrics import (
+    PerpVaultIdentity,
+    SourcePositionDataStatus,
+    create_unavailable_perp_vault_observation_bundle,
+)
+from eth_defi.perp_dex.storage import initialise_perp_vault_observation_schema, write_perp_vault_observation_bundle
 
 logger = logging.getLogger(__name__)
 
@@ -81,6 +88,7 @@ class HibachiDailyMetricsDatabase:
 
     def _init_schema(self):
         """Create tables if they don't exist."""
+        initialise_perp_vault_observation_schema(self.con)
         self.con.execute("""
             CREATE TABLE IF NOT EXISTS vault_metadata (
                 vault_id INTEGER PRIMARY KEY,
@@ -319,6 +327,28 @@ def fetch_and_store_vault(
         )
 
     db.upsert_daily_prices(rows)
+
+    observed_at = native_datetime_utc_now()
+    account_bundle = create_unavailable_perp_vault_observation_bundle(
+        identity=PerpVaultIdentity(
+            protocol_slug="hibachi",
+            deployment_slug="mainnet",
+            vault_id=str(vault_info.vault_id),
+            dataset_chain_id=HIBACHI_CHAIN_ID,
+            dataset_address=f"hibachi-vault-{vault_info.vault_id}",
+        ),
+        observed_at=observed_at,
+        total_equity=Decimal(str(vault_info.tvl)) if vault_info.tvl is not None else None,
+        quote_asset="USDT",
+        status=SourcePositionDataStatus.not_public,
+        reason="Hibachi does not expose current vault positions through its public API",
+        source_endpoint="GET /vault/info",
+    )
+    write_perp_vault_observation_bundle(
+        db.con,
+        account_bundle,
+        {"vault_id": vault_info.vault_id, "tvl": str(vault_info.tvl)},
+    )
 
     logger.debug("Stored %d daily prices for vault %s (vault %d)", len(rows), vault_info.symbol, vault_info.vault_id)
     return True

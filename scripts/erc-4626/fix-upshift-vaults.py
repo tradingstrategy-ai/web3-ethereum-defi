@@ -19,6 +19,11 @@ the earliest block any selected Upshift vault needs, while parquet deletion
 remains scoped to those selected Upshift addresses. Each supported chain is
 scanned at most once per run.
 
+Monad does not provide archive-complete historical state. Its Upshift price
+scan probes the configured RPC provider and begins at the oldest block whose
+state it can read; do not retry it from genesis after state eviction. Existing
+earlier rows remain preserved.
+
 API documentation:
 
 - https://docs.upshift.finance/developer-docs/api-reference
@@ -49,7 +54,8 @@ Useful environment variables:
      - If ``false``, update only leads and metadata. Default: ``true``.
    * - ``UPSHIFT_REWRITE_TARGETED``
      - If ``true``, rescan each target vault from its first known block and rewrite only
-       that vault's rows. Default: ``false``.
+       that vault's rows. On Monad, the provider historical-state boundary still clips
+       the effective start block. Default: ``false``.
    * - ``MAX_WORKERS``
      - Historical multicall worker count. Default: ``8``.
    * - ``FREQUENCY``

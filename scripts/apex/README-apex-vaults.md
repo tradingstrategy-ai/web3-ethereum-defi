@@ -19,6 +19,20 @@ The command uses two public endpoints:
 
 No API key is required.
 
+## Perp account metrics availability
+
+The public ranking endpoint supplies vault TVL/NAV and is stored as a shared
+account observation. ApeX does not expose anonymously readable current vault
+positions through the integrated vault endpoints, so the collector records
+`authentication_required`. Exposure, open-position count and concentration are
+null, not zero. Margin-account data and trader credentials are intentionally
+out of scope. This was verified against the public web API on 2026-07-24; the
+official [ApeX API documentation](https://api-docs.pro.apex.exchange/) does not
+document a public vault-position endpoint.
+
+See [perp DEX vault account metrics](../../docs/source/vaults/perp-dex-account-metrics.rst)
+for the shared storage, Parquet and JSON contract.
+
 ## Source behaviour
 
 The ranking endpoint uses zero-based pages. The reader makes two complete

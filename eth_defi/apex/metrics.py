@@ -13,6 +13,7 @@ import threading
 from collections.abc import Iterable, Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass
+from decimal import Decimal
 from pathlib import Path
 
 import duckdb
@@ -22,6 +23,7 @@ from tqdm_loggable.auto import tqdm
 
 from eth_defi.apex.config import HistoryMode
 from eth_defi.apex.constants import (
+    APEX_CHAIN_ID,
     APEX_DEFAULT_HISTORY_DEADLINE,
     APEX_DEFAULT_HISTORY_INTERVAL,
     APEX_DEFAULT_MAX_WORKERS,
@@ -32,6 +34,12 @@ from eth_defi.apex.constants import (
 from eth_defi.apex.session import ApexAPIError, ApexSessionPool
 from eth_defi.apex.vault import ApexHistoryPoint, ApexVaultSummary, fetch_stabilised_vaults, fetch_vault_history
 from eth_defi.compat import native_datetime_utc_now
+from eth_defi.perp_dex.metrics import (
+    PerpVaultIdentity,
+    SourcePositionDataStatus,
+    create_unavailable_perp_vault_observation_bundle,
+)
+from eth_defi.perp_dex.storage import initialise_perp_vault_observation_schema, write_perp_vault_observation_bundle
 
 logger = logging.getLogger(__name__)
 
@@ -134,6 +142,7 @@ class ApexMetricsDatabase:
             None.
         """
         con = self._assert_owner()
+        initialise_perp_vault_observation_schema(con)
         con.execute("""
             CREATE TABLE IF NOT EXISTS vault_metadata (
                 vault_id VARCHAR NOT NULL,
@@ -949,6 +958,27 @@ def _run_scan(
 
     observed_at = native_datetime_utc_now()
     database.apply_ranking(selected, observed_at, manage_disappearance=vault_ids is None)
+    for vault in selected:
+        account_bundle = create_unavailable_perp_vault_observation_bundle(
+            identity=PerpVaultIdentity(
+                protocol_slug="apex",
+                deployment_slug="omni",
+                vault_id=vault.vault_id,
+                dataset_chain_id=APEX_CHAIN_ID,
+                dataset_address=vault.synthetic_address.lower(),
+            ),
+            observed_at=observed_at,
+            total_equity=Decimal(str(vault.tvl)) if vault.tvl is not None else None,
+            quote_asset="USDT",
+            status=SourcePositionDataStatus.authentication_required,
+            reason="ApeX only exposes positions through authenticated account endpoints",
+            source_endpoint="GET /api/v3/vault/ranking",
+        )
+        write_perp_vault_observation_bundle(
+            database.con,
+            account_bundle,
+            {"vault_id": vault.vault_id, "tvl": str(vault.tvl)},
+        )
     selected_ids = {vault.vault_id for vault in selected}
     candidates = database.select_history_candidates(
         selected_ids,

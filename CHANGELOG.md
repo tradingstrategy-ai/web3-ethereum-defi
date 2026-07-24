@@ -1,5 +1,6 @@
 # 1.2
 
+- feat: Add shared perp DEX vault exposure metrics for Hyperliquid and Lighter, explicit unavailable-position states for GRVT, Hibachi and ApeX, and cleaned-Parquet/JSON export support (2026-07-24)
 - feat: Add an ApeX Omni all-vault reader with bounded public API access, flexible timestamp observations, historical backfills, DuckDB storage and all-chain vault pipeline integration (2026-07-23)
 - feat: Automatically migrate Core3 risk databases to the latest DuckDB format and native Zstandard-compress historical raw JSON snapshots (2026-07-23)
 - feat: Report vault deposit permission policy, preflight IPOR Fusion and Lagoon access restrictions, and classify tokenised-fund deposits as permissioned (2026-07-23)
@@ -97,6 +98,8 @@
 - docs: Restore and improve generated documentation. [Read the Docs](https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/1113) now publishes pre-built HTML from GitHub Actions, and Python 3.13/3.14 Sphinx builds work through the [`standard-imghdr` backport](https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/1083)
 
 # 1.1
+
+- Add Symbiotic Core V2 vault detection, fee reading, metadata and documentation (2026-07-24)
 
 - **Add: GMX Lagoon tutorial with testnet support, dynamic market resolution, and forward_eth keeper fee funding (2026-03-03)**
 - **Add: GMX order cancellation for all order types**

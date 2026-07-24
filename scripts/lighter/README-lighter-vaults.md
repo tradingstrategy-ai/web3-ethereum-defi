@@ -12,6 +12,20 @@ pipeline as EVM vaults.
 
 **No authentication is required** — all data comes from public endpoints.
 
+### Perp account metric alignment
+
+The scanner stores each public pool's current non-zero positions through the
+shared perp DEX observation tables. Lighter price history uses UTC-midnight
+daily timestamps, while positions are measured later during the scan. After
+the ordinary backward as-of join, the shared bounded alignment helper overlays
+only the newest eligible observation on that pool's latest price row. Older
+price rows never receive the newer observation.
+
+`perp_metrics_observed_at` retains the actual collection time at one-second
+resolution in raw Parquet, cleaned Parquet and `other_data.perp_dex`. Stale
+values are retained with this timestamp so consumers can calculate their age.
+No Lighter-specific Parquet or JSON transformation is used.
+
 ## Lighter canonical documentation
 
 - [Lighter homepage](https://lighter.xyz)

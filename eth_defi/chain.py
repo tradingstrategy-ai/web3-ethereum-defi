@@ -137,6 +137,7 @@ SEQUENCERS: dict[int, dict[str, str]] = {
 #: Manually maintained shorthand names for different EVM chains
 CHAIN_NAMES = {
     325: "Grvt",  # GRVT (Gravity Markets) decentralised perp DEX
+    9994: "Pacifica",  # Synthetic in-house ID for Pacifica/Solana native vaults (non-EVM)
     9995: "ApeX",  # Synthetic in-house ID for ApeX Omni native vaults (non-EVM)
     9997: "Hibachi",  # Synthetic in-house ID for Hibachi native vaults (non-EVM, not an EVM JSON-RPC chain ID)
     9998: "Lighter",  # Synthetic in-house ID for Lighter DEX pools (ZK-rollup)

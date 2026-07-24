@@ -21,6 +21,16 @@ The reader is designed for a default four-hour observation schedule, but actual
 timestamps are stored without buckets. Changing the schedule later requires no
 database migration.
 
+## Perp account metrics availability
+
+The public ranking API yields vault TVL/NAV and feeds the common account
+observation table. Current vault positions are not anonymously exposed by the
+integrated ApeX API, so position availability is recorded as
+`authentication_required`; exposure, position count and concentration remain
+null rather than zero. Margin-account information and trader credentials are
+intentionally outside this reader's scope. Verified 2026-07-24 against the
+public application API and [official API documentation](https://api-docs.pro.apex.exchange/).
+
 ## Canonical links
 
 - [ApeX homepage](https://www.apex.exchange/)

@@ -831,6 +831,13 @@ class ERC4626Feature(enum.Enum):
     #: https://app.atoma.fi/
     atoma_like = "atoma_like"
 
+    #: Symbiotic Core V2 vault.
+    #:
+    #: Symbiotic vaults use a Universal Delegator to allocate collateral across
+    #: applications and external strategies, with a withdrawal queue for exits.
+    #: https://docs.symbiotic.fi/get-started/what/components/vaults
+    symbiotic_like = "symbiotic_like"
+
 
 #: Features that identify lending protocol vaults.
 #:
@@ -949,6 +956,8 @@ def get_vault_protocol_name(features: set[ERC4626Feature]) -> str:
         return "Mellow"
     elif ERC4626Feature.atoma_like in features:
         return "Atoma"
+    elif ERC4626Feature.symbiotic_like in features:
+        return "Symbiotic"
     elif ERC4626Feature.morpho_v2_like in features:
         return "Morpho"
     elif ERC4626Feature.morpho_like in features:

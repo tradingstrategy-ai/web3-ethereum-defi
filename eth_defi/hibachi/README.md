@@ -17,6 +17,16 @@ Reverse-engineered notes on the Hibachi public data API, used to fetch vault met
 
 All responses are JSON.
 
+## Perp account metrics availability
+
+The native vault collector derives public account equity from `GET /vault/info`.
+Current vault positions are not available from this anonymous data API; the
+separate account API requires authentication. It writes the explicit
+`not_public` state to common perp DEX observations, leaving exposure,
+open-position count and concentration null rather than treating the vault as
+flat. Cross-margin, margin-account and trader credential data are intentionally
+out of scope. Verified 2026-07-24.
+
 ---
 
 ## Public endpoints
