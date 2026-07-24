@@ -112,6 +112,64 @@ codex exec --json --sandbox read-only "Review uncommitted changes for correctnes
   > /tmp/codex-review.jsonl
 ```
 
+### Codex short model names (e.g. sol) need the full id — observed on one build
+
+The following is a **version- and auth-specific observation**, not general Codex
+guarantees: verified with `codex-cli 0.144.4` on a **ChatGPT-account** auth (see
+`codex doctor` output — `stored auth mode: chatgpt`). Other builds/auth modes may
+differ; re-check rather than assume.
+
+Passing the bare short name `-m sol` failed two ways at once:
+
+```text
+Model metadata for `sol` not found. Defaulting to fallback metadata; this can degrade performance and cause issues.
+...
+{"type":"error","status":400,"error":{"type":"invalid_request_error",
+ "message":"The 'sol' model is not supported when using Codex with a ChatGPT account."}}
+```
+
+The **full model id `gpt-5.6-sol`** worked (confirmed by the smoke test below).
+So when a user asks for a short name like "sol", try the `gpt-5.6-<name>` form:
+
+```shell
+# Failed — bare short name rejected on this build/auth.
+codex exec --json --sandbox read-only -m sol "…" < /dev/null > /tmp/codex.jsonl
+
+# Worked — full id, smoke-tested.
+codex exec --json --sandbox read-only -m gpt-5.6-sol "…" < /dev/null > /tmp/codex.jsonl
+```
+
+`gpt-5.6-terra` and `gpt-5.6-luna` appear alongside `gpt-5.6-sol` in the binary
+strings (below) as sibling family members; only `gpt-5.6-sol` was actually
+smoke-tested here, so treat the `terra`/`luna` short-name → full-id mapping as
+inferred, not confirmed.
+
+Notes:
+
+- Model availability depends on the auth mode. Check with `codex doctor` if that
+  version supports it (look for `stored auth mode` / `auth mode` — `chatgpt` vs
+  API key). Some ids that work on API-key auth are rejected on a ChatGPT account,
+  and vice versa. Extracting strings from the binary only proves a string exists,
+  not that the id is a usable model — always smoke-test.
+- The build's candidate ids can be discovered from the binary when there is no
+  `list-models` command:
+
+  ```shell
+  strings "$(command -v codex)" | grep -oE "gpt-5[a-z0-9.\-]*|o3|o4-mini" | sort -u
+  ```
+
+  This repository's Codex build (`codex-cli 0.144.4`, ChatGPT auth) exposed:
+  `gpt-5.1`, `gpt-5.1-codex-max`, `gpt-5.1-codex-mini`, `gpt-5.2`,
+  `gpt-5.2-codex`, `gpt-5.3-codex`, `gpt-5.4`/`-mini`/`-nano`, `gpt-5.5`,
+  `gpt-5.5-pro`, `gpt-5.6-sol`, `gpt-5.6-terra`, `gpt-5.6-luna`, plus legacy
+  `o3` and `o4-mini`.
+- Always smoke-test a model id before a long review so a rejected id does not
+  masquerade as a hang:
+
+  ```shell
+  codex exec --json --sandbox read-only -m gpt-5.6-sol "Reply with exactly: OK" < /dev/null
+  ```
+
 ## Claude CLI
 
 Claude CLI is useful for independent second opinions, code reviews, background agents, and checking whether another agent's change makes sense.

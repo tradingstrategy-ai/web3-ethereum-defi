@@ -23,7 +23,24 @@ JSON_RPC_BASE = os.environ.get("JSON_RPC_BASE")
 
 HYPERSYNC_API_KEY = os.environ.get("HYPERSYNC_API_KEY")
 
+CI = os.environ.get("CI") == "true"
+
+#: Set RUN_HYPERSYNC_TESTS=true to run the multi-minute Hypersync block scans on CI.
+#: See docs/README-hypersync-tests.md for instructions.
+RUN_HYPERSYNC_TESTS = os.environ.get("RUN_HYPERSYNC_TESTS") == "true"
+
 pytestmark = pytest.mark.skipif(JSON_RPC_BASE is None or HYPERSYNC_API_KEY is None, reason="JSON_RPC_BASE and HYPERSYNC_API_KEY needed to run these tests")
+
+# Hypersync scans stream millions of blocks from the Hypersync service and are
+# the slowest tests on the CI critical path (70-85s each on a Beefy runner,
+# 2026-07-24 CI durations report). They exercise the external Hypersync service
+# more than our code, so they are disabled on CI by default (2026-07-24) and run
+# locally and on demand instead. See docs/README-hypersync-tests.md for how to
+# run them on CI when needed (RUN_HYPERSYNC_TESTS=true).
+skip_hypersync_scan_on_ci = pytest.mark.skipif(
+    CI and not RUN_HYPERSYNC_TESTS,
+    reason="Slow Hypersync block scan, disabled on CI by default. Set RUN_HYPERSYNC_TESTS=true to run - see docs/README-hypersync-tests.md",
+)
 
 
 @pytest.fixture(scope="module")
@@ -34,6 +51,7 @@ def web3() -> Web3:
 
 # CI flaky since 2026-07-22: a 145-second Hypersync scan omitted the expected
 # Staked EURA row, although the same fixed range succeeds on other runs.
+@skip_hypersync_scan_on_ci
 @flaky.flaky
 def test_4626_scan_hypersync(web3):
     """Read vaults of early Base chain"""
@@ -108,6 +126,7 @@ def test_4626_scan_rpc(web3):
     assert based_eth[0]["_detection_data"].deposit_count == 1
 
 
+@skip_hypersync_scan_on_ci
 @pytest.mark.parametrize("backend", ["auto", "hypersync"])
 def test_lead_scan_core_hypersync(tmp_path, backend):
     """Test lead scan CLI core, incremental for both Hypersync and RPC scan"""

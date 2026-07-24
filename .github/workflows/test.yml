@@ -5,6 +5,14 @@ on:
     branches: [master]
   pull_request:
     branches: [master]
+  # Manual runs, e.g. to re-enable the Hypersync scan tests that are disabled
+  # on CI by default. See docs/README-hypersync-tests.md.
+  workflow_dispatch:
+    inputs:
+      run_hypersync_tests:
+        description: "Run Hypersync scan tests (slow, disabled on CI by default)"
+        type: boolean
+        default: false
 
 jobs:
   test-python:
@@ -33,7 +41,7 @@ jobs:
       # TODO: we only need contracts/aave-v3-deploy for tests
       # but there does not seem to be an option to choose which submodules to checkout
       # https://github.com/actions/checkout
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           submodules: true
 
@@ -73,9 +81,15 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
           cache: "poetry"
+          # Key the built-in Poetry cache on the lockfile so it invalidates on a
+          # locked-dependency change and hits when only source changes.
           cache-dependency-path: |
+            poetry.lock
             **/pyproject.toml
 
+      # The virtualenv itself is cached by actions/setup-python (cache: "poetry",
+      # keyed on poetry.lock above) — Poetry's non-in-project venvs live under
+      # its cache dir — so no separate venv-cache step is needed.
       - name: Install dependencies
         run: |
           poetry install
@@ -84,14 +98,40 @@ jobs:
       - name: Install Ganache
         run: yarn global add ganache
 
-      - name: Cache Foundry
+      # Split the Foundry cache in two:
+      #  1. The pinned toolchain binaries — immutable key, never needs updating.
+      #  2. The Anvil fork RPC cache (~/.foundry/cache/rpc) — must GROW across
+      #     runs as new (chain, block) fork reads are recorded. GitHub caches are
+      #     immutable and only saved on a key miss, so this needs a rolling key
+      #     (run_id) plus a restore-keys prefix, month-namespaced so it rebuilds
+      #     periodically and stays within quota. Sharing one immutable ~/.foundry
+      #     key (the previous behaviour) froze the RPC cache forever.
+      - name: Cache Foundry toolchain
         uses: actions/cache@v4
         with:
-          path: ~/.foundry
-          key: foundry-v1.2.3-${{ runner.os }}
+          path: ~/.foundry/bin
+          key: foundry-toolchain-v1.2.3-${{ runner.os }}
           restore-keys: |
-            foundry-v1.2.3-
-            foundry-
+            foundry-toolchain-v1.2.3-
+            foundry-toolchain-
+
+      - name: Compute cache month
+        id: cache-month
+        run: echo "month=$(date -u +%Y-%m)" >> "$GITHUB_OUTPUT"
+
+      # Restore the Anvil fork RPC cache (layout rpc/<network-name>/<block>/*.json).
+      # Split from the save step (end of job) so the cache is saved with
+      # `if: always()` even on failure — a plain actions/cache@v4 only saves on
+      # success, which kept the cache cold and re-hammered the archive provider.
+      - name: Restore Foundry fork RPC cache
+        uses: actions/cache/restore@v4
+        with:
+          path: ~/.foundry/cache/rpc
+          key: foundry-rpc-v1.2.3-${{ runner.os }}-${{ steps.cache-month.outputs.month }}-${{ github.run_id }}
+          # Restore only within the same month so the cache rebuilds each month
+          # (bounding growth). No cross-month fallback on purpose.
+          restore-keys: |
+            foundry-rpc-v1.2.3-${{ runner.os }}-${{ steps.cache-month.outputs.month }}-
 
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@v1
@@ -170,8 +210,19 @@ jobs:
           # test names in the Actions log.
           # Slow tests (large block scans, live API pipelines) run separately
           # in test-slow.yml on a free ubuntu-latest runner in parallel.
-          poetry run pytest --timeout-method=thread --tb=native -n auto --dist loadgroup -v -s --capture=no --ignore=tests/gmx -m "not slow"
+          # vault_protocol characterisation tests run in test-vault-protocol.yml
+          # (only when vault/shared code changes), so they are excluded here.
+          #
+          # Output is tee'd to a log so the "Report slowest tests" step can
+          # publish the durations table in the job summary; pipefail keeps the
+          # pytest exit code as the step result.
+          set -o pipefail
+          poetry run pytest --timeout-method=thread --tb=native -n auto --dist loadgroup -v -s --capture=no --ignore=tests/gmx --ignore=tests/erc_4626/vault_protocol -m "not slow" 2>&1 | tee pytest-log.txt
         env:
+          # Hypersync scan tests are disabled on CI by default; enable via
+          # workflow_dispatch input or the RUN_HYPERSYNC_TESTS repo variable.
+          # See docs/README-hypersync-tests.md.
+          RUN_HYPERSYNC_TESTS: ${{ (github.event_name == 'workflow_dispatch' && inputs.run_hypersync_tests) && 'true' || vars.RUN_HYPERSYNC_TESTS || '' }}
           BNB_CHAIN_JSON_RPC: ${{ secrets.BNB_CHAIN_JSON_RPC }}
           JSON_RPC_POLYGON_ARCHIVE: ${{ secrets.JSON_RPC_POLYGON_ARCHIVE }}
           JSON_RPC_POLYGON: ${{ secrets.JSON_RPC_POLYGON }}
@@ -191,6 +242,37 @@ jobs:
           ARBITRUM_SEPOLIA_RPC_URL: ${{ secrets.ARBITRUM_SEPOLIA_RPC_URL }}
           ARBITRUM_GMX_TEST_SEPOLIA_PRIVATE_KEY: ${{ secrets.ARBITRUM_GMX_TEST_SEPOLIA_PRIVATE_KEY }}
           HYPERSYNC_API_KEY: ${{ secrets.HYPERSYNC_API_KEY }}
+
+      # Publish the pytest slowest-durations table in the job summary so slow
+      # tests stay visible on every run without trawling the raw log. This is
+      # the measurement half of docs/README-test-suite-performance.md: any new
+      # test creeping onto the critical path shows up here.
+      - name: Report slowest tests
+        if: always()
+        run: |
+          if [ -f pytest-log.txt ]; then
+            {
+              echo "## Slowest tests"
+              echo '```'
+              # From the "slowest N durations" header to the section end.
+              awk '/slowest [0-9]+ durations/{found=1} found{print} found&&/^=+ /{if (++seen==2) exit}' pytest-log.txt | head -80
+              echo '```'
+              echo
+              tail -n 1 pytest-log.txt
+            } >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "No pytest log captured." >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      # Persist the fork RPC cache even on failure so blocks read this run
+      # replay from disk next run (fewer archive round-trips). run_id key always
+      # writes a fresh entry; the restore step's month prefix picks up the latest.
+      - name: Save Foundry fork RPC cache
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: ~/.foundry/cache/rpc
+          key: foundry-rpc-v1.2.3-${{ runner.os }}-${{ steps.cache-month.outputs.month }}-${{ github.run_id }}
 
       # Ruff format check now runs in .github/workflows/lint.yml on the free
       # ubuntu-latest runner. Keeping it out of the Beefy job saves billable

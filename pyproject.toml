@@ -212,7 +212,11 @@ build-backend = "poetry.core.masonry.api"
 requires = ["poetry-core>=1.0.0"]
 
 [tool.pytest.ini_options]
-addopts = "--capture=no --tb=native --durations=20"
+# --durations reports the slowest test phases at the end of every run so slow
+# tests stay visible; --durations-min hides sub-second noise. CI publishes this
+# table in the job summary (see "Report slowest tests" workflow steps and
+# docs/README-test-suite-performance.md).
+addopts = "--capture=no --tb=native --durations=40 --durations-min=1.0"
 
 # Do not let pytest to crawl into contracts/ subprojects
 # that contain tests and are independent from us
@@ -244,6 +248,7 @@ filterwarnings = [
 markers = [
   "live: marks tests that hit live mainnet (deselect with -m 'not live')",
   "slow: marks tests as slow integration tests — long block scans, multi-process pipelines (deselect with -m 'not slow')",
+  "vault_characterisation: marks single-vault ERC-4626 characterisation tests (select with -m vault_characterisation); gated in CI by test-vault-protocol.yml",
 ]
 
 [tool.ruff]

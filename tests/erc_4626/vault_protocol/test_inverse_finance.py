@@ -14,32 +14,29 @@ import flaky
 from eth_defi.erc_4626.classification import create_vault_instance_autodetect
 from eth_defi.erc_4626.core import ERC4626Feature
 from eth_defi.erc_4626.vault_protocol.inverse_finance.vault import InverseFinanceVault
-from eth_defi.provider.anvil import fork_network_anvil, AnvilLaunch
-from eth_defi.provider.multi_provider import create_multi_provider_web3
 from eth_defi.vault.base import VaultTechnicalRisk
+
+from eth_defi.testing.anvil_fork_pool import AnvilForkPool
+from eth_defi.testing.fork_blocks import ETHEREUM_MIDNIGHT_BLOCK
 
 JSON_RPC_ETHEREUM = os.environ.get("JSON_RPC_ETHEREUM")
 
-pytestmark = pytest.mark.skipif(
-    JSON_RPC_ETHEREUM is None,
-    reason="JSON_RPC_ETHEREUM needed to run these tests",
-)
+pytestmark = [
+    pytest.mark.skipif(JSON_RPC_ETHEREUM is None, reason="JSON_RPC_ETHEREUM needed to run these tests"),
+    # Shared with the other Ethereum midnight-block characterisation tests.
+    pytest.mark.xdist_group("fork:ethereum:midnight"),
+]
 
 
 @pytest.fixture(scope="module")
-def anvil_ethereum_fork(request) -> AnvilLaunch:
-    """Fork Ethereum at a specific block for reproducibility."""
-    launch = fork_network_anvil(JSON_RPC_ETHEREUM, fork_block_number=24_700_000)
-    try:
-        yield launch
-    finally:
-        launch.close()
+def web3(anvil_fork_pool: AnvilForkPool) -> Web3:
+    """Web3 backed by a shared Ethereum fork from the session-scoped pool.
 
-
-@pytest.fixture(scope="module")
-def web3(anvil_ethereum_fork):
-    web3 = create_multi_provider_web3(anvil_ethereum_fork.json_rpc_url, retries=2)
-    return web3
+    Reuses one Anvil process across every module carrying the matching
+    ``xdist_group`` marker. Read-only test, so no snapshot/revert reset is
+    needed between tests.
+    """
+    return anvil_fork_pool.get_web3(JSON_RPC_ETHEREUM, ETHEREUM_MIDNIGHT_BLOCK)
 
 
 @flaky.flaky

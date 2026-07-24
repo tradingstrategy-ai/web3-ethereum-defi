@@ -40,28 +40,14 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
           cache: "poetry"
+          # Key the built-in Poetry cache on the lockfile so it invalidates on a
+          # locked-dependency change and hits when only source changes.
           cache-dependency-path: |
+            poetry.lock
             **/pyproject.toml
 
-      - name: Resolve poetry venv path
-        id: venv-path
-        run: |
-          venv_path=$(poetry env info --path 2>/dev/null || true)
-          if [ -z "$venv_path" ]; then
-            poetry env use ${{ matrix.python-version }}
-            venv_path=$(poetry env info --path)
-          fi
-          echo "path=$venv_path" >> "$GITHUB_OUTPUT"
-
-      - name: Cache poetry venv
-        uses: actions/cache@v4
-        with:
-          path: ${{ steps.venv-path.outputs.path }}
-          key: slow-venv-${{ runner.os }}-py${{ matrix.python-version }}-${{ hashFiles('poetry.lock', 'pyproject.toml') }}
-          restore-keys: |
-            slow-venv-${{ runner.os }}-py${{ matrix.python-version }}-
-            slow-venv-${{ runner.os }}-
-
+      # The virtualenv is cached by actions/setup-python (cache: "poetry", keyed
+      # on poetry.lock above), so no separate venv-cache step is needed.
       - name: Install dependencies
         run: |
           poetry install
@@ -69,14 +55,30 @@ jobs:
 
       # Slow tests may include Anvil mainnet forks. Keep this version in sync
       # with the main test workflow so both suites exercise the same EVM.
-      - name: Cache Foundry
+      # See test.yml for the rationale behind splitting the immutable toolchain
+      # cache from the rolling, month-namespaced fork RPC cache.
+      - name: Cache Foundry toolchain
         uses: actions/cache@v4
         with:
-          path: ~/.foundry
-          key: foundry-v1.2.3-${{ runner.os }}
+          path: ~/.foundry/bin
+          key: foundry-toolchain-v1.2.3-${{ runner.os }}
           restore-keys: |
-            foundry-v1.2.3-
-            foundry-
+            foundry-toolchain-v1.2.3-
+            foundry-toolchain-
+
+      - name: Compute cache month
+        id: cache-month
+        run: echo "month=$(date -u +%Y-%m)" >> "$GITHUB_OUTPUT"
+
+      # Restore the fork RPC cache; saved with `if: always()` at the end of the
+      # job so it persists even on failure. See test.yml for rationale.
+      - name: Restore Foundry fork RPC cache
+        uses: actions/cache/restore@v4
+        with:
+          path: ~/.foundry/cache/rpc
+          key: foundry-rpc-v1.2.3-${{ runner.os }}-${{ steps.cache-month.outputs.month }}-${{ github.run_id }}
+          restore-keys: |
+            foundry-rpc-v1.2.3-${{ runner.os }}-${{ steps.cache-month.outputs.month }}-
 
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@v1
@@ -94,3 +96,12 @@ jobs:
           JSON_RPC_POLYGON: ${{ secrets.JSON_RPC_POLYGON }}
           HYPERSYNC_API_KEY: ${{ secrets.HYPERSYNC_API_KEY }}
           TOKEN_RISK_API_KEY: ${{ secrets.TOKEN_RISK_API_KEY }}
+
+      # Persist the fork RPC cache even on failure so blocks replay from disk
+      # next run. See test.yml for rationale.
+      - name: Save Foundry fork RPC cache
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: ~/.foundry/cache/rpc
+          key: foundry-rpc-v1.2.3-${{ runner.os }}-${{ steps.cache-month.outputs.month }}-${{ github.run_id }}
