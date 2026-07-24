@@ -977,7 +977,11 @@ def remove_inactive_lead_time(
 
     :param prices_df:
         Price data with 'id' and 'total_supply' columns.
-        Assumes data is sorted by timestamp within each vault.
+        Assumes data is sorted chronologically within each vault. Timestamp
+        labels may repeat because modern chains such as Monad can create
+        multiple blocks per second. One-second accuracy is sufficient for
+        price cleaning, so equal timestamp rows are retained and evaluated by
+        their row positions instead of being deduplicated.
 
     :return:
         DataFrame with inactive lead time removed for each vault
@@ -1001,8 +1005,11 @@ def remove_inactive_lead_time(
             # No valid total_supply values - keep all data
             return group
 
-        first_valid_idx = valid_supply_mask.idxmax()
-        first_valid_loc = group.index.get_loc(first_valid_idx)
+        # Derive locations from the boolean mask, instead of resolving a
+        # timestamp label through the index. A vault can have multiple
+        # observations with the same timestamp, in which case get_loc()
+        # returns a slice rather than one integer position.
+        first_valid_loc = int(valid_supply_mask.to_numpy().argmax())
         initial_supply = group.iloc[first_valid_loc]["total_supply"]
 
         # Find the first index where total_supply differs from initial value
@@ -1018,8 +1025,7 @@ def remove_inactive_lead_time(
             return remaining_group
 
         # Get the index of the first change
-        first_change_idx = supply_changed_mask.idxmax()
-        first_change_loc = remaining_group.index.get_loc(first_change_idx)
+        first_change_loc = int(supply_changed_mask.to_numpy().argmax())
 
         # Calculate total rows to remove (invalid initial rows + constant supply rows)
         total_lead_rows = first_valid_loc + first_change_loc

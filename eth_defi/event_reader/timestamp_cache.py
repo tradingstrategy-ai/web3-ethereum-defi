@@ -26,6 +26,14 @@ class BlockTimestampDatabase:
     - Efficient selective loading and upserting
     - One second precision for disk space and speed savings
 
+    Modern high-throughput chains, including Monad, can produce multiple
+    blocks during one Unix-timestamp second. Block timestamps are therefore a
+    one-to-many mapping from timestamp to block number: equal timestamp values
+    are expected and must not be used as unique block or observation IDs. One
+    second precision is sufficient for this project's historical scans, so we
+    deliberately preserve the shared timestamp instead of inventing
+    higher-resolution values.
+
     For usage see `eth_defi.event_reader.multicall_timestamp.fetch_block_timestamps_multiprocess_auto_backend`
     """
 

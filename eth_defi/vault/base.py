@@ -397,7 +397,13 @@ class RawVaultPriceRow(TypedDict, total=False):
     #: For native protocols without blocks this is a synthetic sequence number.
     block_number: int
 
-    #: Naive UTC timestamp of the block.
+    #: Naive UTC timestamp of the block, with one-second source precision.
+    #:
+    #: Modern high-throughput chains, including Monad, can produce multiple
+    #: blocks in the same second. This value may therefore repeat for the
+    #: same vault; raw-row identity is ``(chain, address, block_number)``, not
+    #: ``timestamp``. The Parquet millisecond logical type is used only for
+    #: compatibility, as one-second precision is sufficient for price scans.
     timestamp: "pd.Timestamp"
 
     #: Share price in denomination token units.

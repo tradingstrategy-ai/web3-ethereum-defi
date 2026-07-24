@@ -22,6 +22,7 @@ from eth_defi.research.wrangle_vault_prices import (
     discard_hypercore_pre_recapitalisation_history,
     fix_outlier_share_prices,
     generate_cleaned_vault_datasets,
+    remove_inactive_lead_time,
     replace_cleaned_vault_histories,
 )
 from eth_defi.vault.base import VaultHistoricalRead
@@ -240,8 +241,6 @@ def test_replace_cleaned_vault_histories_rejects_vault_removed_by_cleaning(
 
 def test_remove_inactive_lead_time():
     """Test removal of initial rows where total_supply hasn't changed."""
-    from eth_defi.research.wrangle_vault_prices import remove_inactive_lead_time
-
     # Create test data with inactive lead time
     data = {
         "id": ["vault1"] * 5 + ["vault2"] * 4,
@@ -260,6 +259,43 @@ def test_remove_inactive_lead_time():
 
     assert len(vault1_rows) == 2  # rows at index 3, 4
     assert len(vault2_rows) == 1  # row at index 3 (200)
+
+
+def test_remove_inactive_lead_time_with_duplicate_timestamps():
+    """Keep the correct rows when a vault has repeated observation timestamps.
+
+    Historical readers may emit separate observations from blocks which share
+    the same timestamp. The cleaner operates on chronological row positions,
+    not unique timestamp labels.
+    """
+    data = {
+        "id": ["vault-with-delayed-supply"] * 5 + ["vault-with-duplicate-activation"] * 5,
+        "total_supply": [0, 100, 100, 200, 300, 100, 100, 200, 200, 300],
+        "timestamp": pd.to_datetime(
+            [
+                "2024-01-01 00:00:00",
+                "2024-01-01 00:00:00",
+                "2024-01-01 01:00:00",
+                "2024-01-01 02:00:00",
+                "2024-01-01 03:00:00",
+                "2024-01-02 00:00:00",
+                "2024-01-02 01:00:00",
+                "2024-01-02 02:00:00",
+                "2024-01-02 02:00:00",
+                "2024-01-02 03:00:00",
+            ]
+        ),
+    }
+    df = pd.DataFrame(data).set_index("timestamp")
+
+    result = remove_inactive_lead_time(df, logger=lambda _: None)
+
+    delayed_supply = result[result["id"] == "vault-with-delayed-supply"]
+    duplicate_activation = result[result["id"] == "vault-with-duplicate-activation"]
+
+    assert delayed_supply["total_supply"].tolist() == [200, 300]
+    assert duplicate_activation["total_supply"].tolist() == [200, 200, 300]
+    assert duplicate_activation.index.duplicated().any()
 
 
 def test_approximate_hypercore_share_prices_from_pnl_nav() -> None:
