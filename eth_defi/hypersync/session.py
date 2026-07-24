@@ -47,9 +47,10 @@ logger = logging.getLogger(__name__)
 #: parallel workers and scanner instances that share the same API key.
 HYPERSYNC_RATE_LIMIT_SQLITE_DATABASE = Path("~/.tradingstrategy/hypersync/rate-limit.sqlite").expanduser()
 
-#: Conservative default: 150 RPM leaves 25% headroom below Hypersync's
-#: 200 RPM limit.
-DEFAULT_HYPERSYNC_REQUESTS_PER_MINUTE = 150
+#: Conservative default: 80 RPM leaves headroom below the 100 RPM quota
+#: observed for basic Hypersync API keys. Monad can silently drop ~9,000-block
+#: stream batches, and gap repair may need many requests; see PR #750.
+DEFAULT_HYPERSYNC_REQUESTS_PER_MINUTE = 80
 
 #: Disable internal Rust client retries so that 429 errors surface
 #: immediately to Python-side retry logic with proper backoff and

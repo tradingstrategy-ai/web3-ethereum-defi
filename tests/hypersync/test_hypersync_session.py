@@ -13,6 +13,7 @@ import pytest
 import hypersync
 
 from eth_defi.hypersync.session import (
+    DEFAULT_HYPERSYNC_REQUESTS_PER_MINUTE,
     ThrottledHypersyncClient,
     _get_positive_int_from_env,
     get_hypersync_concurrency_from_env,
@@ -180,10 +181,11 @@ def test_get_hypersync_concurrency_from_env():
 
 
 def test_get_hypersync_rpm_from_env_default():
-    """Verify HYPERSYNC_RPM returns default (150) when unset.
+    """Verify HYPERSYNC_RPM returns default (80) when unset.
 
     1. Unset env var
     2. Verify default returned
     """
     with patch.dict("os.environ", {}, clear=True):
-        assert get_hypersync_rpm_from_env() == 150
+        assert DEFAULT_HYPERSYNC_REQUESTS_PER_MINUTE == 80
+        assert get_hypersync_rpm_from_env() == DEFAULT_HYPERSYNC_REQUESTS_PER_MINUTE

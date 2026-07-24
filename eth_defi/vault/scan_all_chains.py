@@ -6,8 +6,8 @@ post-processing.  Extracted from the
 ``scripts/erc-4626/scan-vaults-all-chains.py`` CLI wrapper.
 
 Hypersync rate limiting is controlled by the ``HYPERSYNC_RPM``
-environment variable (default: 150 requests per minute, 75% of the
-free-tier 200 RPM limit).  All scan phases within a chain share
+environment variable (default: 80 requests per minute, leaving headroom
+below the 100 RPM quota observed for basic API keys). All scan phases within a chain share
 one SQLite-backed rate limiter so that vault lead discovery and
 price scanning coordinate their API quota.
 

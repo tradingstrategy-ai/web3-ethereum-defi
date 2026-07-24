@@ -33,7 +33,7 @@ LOG_LEVEL=info JSON_RPC_URL=$JSON_RPC_TEMPO poetry run python scripts/erc-4626/s
 | `SCAN_BACKEND` | Optional. Event reader backend (`auto`, `hypersync`, `rpc`). |
 | `END_BLOCK` | Optional. Stop scanning at this block. |
 | `HYPERSYNC_API_KEY` | Optional. Required when using `auto` scan backend. |
-| `HYPERSYNC_RPM` | Optional. Hypersync API requests-per-minute limit. Default: 150 (75% of the 200 RPM free-tier limit). Throttling is always on; set this to lower the limit after persistent 429 errors. |
+| `HYPERSYNC_RPM` | Optional. Hypersync API requests-per-minute limit. Default: 80, leaving headroom below the 100 RPM quota observed for basic API keys. Throttling is always on; lower this further after persistent 429 errors. |
 | `HYPERSYNC_CONCURRENCY` | Optional. Number of Hypersync requests in flight per stream — the main throughput knob. Default: server default (10). Increase for dense workloads, decrease for rate-limited plans. See [Envio StreamConfig tuning](https://docs.envio.dev/docs/HyperSync/stream-config-tuning). |
 | `RPC_TRACKING_DATABASE_PATH` | Optional. Shared JSON-RPC accounting DuckDB. Default: `~/.tradingstrategy/rpc-tracking.duckdb`. |
 
@@ -180,7 +180,7 @@ poetry run python scripts/erc-4626/scan-vaults-all-chains.py
 | `CORE3_MAX_WORKERS` | Optional. Core3 API worker threads. Default: 8. |
 | `CORE3_FETCH_SECTIONS` | Optional. Fetch detailed Core3 section endpoints. Default: true. Set to `false` to skip. |
 | `SKIP_SAMPLES` | Optional. Skip Ethereum-only sample file export. Default: false. |
-| `HYPERSYNC_RPM` | Optional. Hypersync API requests-per-minute limit. Default: 150. Lower after persistent 429 errors. |
+| `HYPERSYNC_RPM` | Optional. Hypersync API requests-per-minute limit. Default: 80. Lower after persistent 429 errors. |
 | `HYPERSYNC_CONCURRENCY` | Optional. Hypersync stream concurrency. Default: 1 (sequential) in the all-chains scanner to avoid API pressure when scanning many chains. Set higher for faster throughput. See [Envio StreamConfig tuning](https://docs.envio.dev/docs/HyperSync/stream-config-tuning). |
 | `RPC_TRACKING_DATABASE_PATH` | Optional. Shared JSON-RPC accounting DuckDB used by all EVM vault scanners. Default: `~/.tradingstrategy/rpc-tracking.duckdb`. |
 
@@ -1063,7 +1063,7 @@ docker compose --profile oneshot run --rm \
 |----------|-------------|
 | `CHAIN_FILTER` | Optional. Comma-separated chain names to process. Default: all chains. |
 | `HYPERSYNC_API_KEY` | Required. Envio Hypersync API key. |
-| `HYPERSYNC_RPM` | Optional. Requests-per-minute limit. Default: 150. Lower after persistent 429 errors. |
+| `HYPERSYNC_RPM` | Optional. Requests-per-minute limit. Default: 80. Lower after persistent 429 errors. |
 | `HYPERSYNC_CONCURRENCY` | Optional. Stream concurrency. Default: server default (10). |
 | `JSON_RPC_<CHAIN>` | Required per chain. Same env vars as docker-compose. |
 | `LOG_LEVEL` | Optional. Default: info. |
@@ -1103,7 +1103,7 @@ docker compose --profile oneshot run --rm \
 | `DRY_RUN` | Optional. Report gaps without healing. Default: false. |
 | `TEST_CHAINS` | Optional. Comma-separated chain names to heal. Default: all. |
 | `HYPERSYNC_API_KEY` | Optional but recommended. Envio Hypersync API key. |
-| `HYPERSYNC_RPM` | Optional. Requests-per-minute limit. Default: 150. |
+| `HYPERSYNC_RPM` | Optional. Requests-per-minute limit. Default: 80. |
 | `HYPERSYNC_CONCURRENCY` | Optional. Stream concurrency. Default: server default (10). |
 | `LOG_LEVEL` | Optional. Default: info. |
 

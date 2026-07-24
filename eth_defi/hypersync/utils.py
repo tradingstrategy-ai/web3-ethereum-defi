@@ -30,7 +30,7 @@ def configure_hypersync_from_env(
     - Some chains support HyperSync, others don't - autodetect support
     - The returned client is always a
       :py:class:`~eth_defi.hypersync.session.ThrottledHypersyncClient`
-      that rate-limits every API call.  The rate defaults to 150 RPM
+      that rate-limits every API call.  The rate defaults to 80 RPM
       and can be overridden with the ``HYPERSYNC_RPM`` environment
       variable or by passing an explicit *limiter*.
     - Stream concurrency defaults to the Hypersync server default (10)
