@@ -66,6 +66,43 @@ When running a Python script use `poetry run python` command instead of plain `p
 poetry run python scripts/logos/post-process-logo.py
 ```
 
+## Production
+
+Production vault scanning runs from `~/vault-scanner/web3-ethereum-defi` with
+environment variables loaded from `~/vault-scanner/vault-rpc.env`. The Compose
+configuration is `docker-compose.yml`; inspect it before running production
+maintenance because its service entrypoint and mounted state determine the
+effect of a command.
+
+- `vault-scanner-oneshot` is a profile-only, single-run service. It inherits
+  the image entrypoint from `Dockerfile.vault-scanner`, which runs
+  `scripts/erc-4626/scan-vaults-all-chains.py` once. Use it for an intentional
+  scan or override its entrypoint for production maintenance, e.g.
+  `source ~/vault-scanner/vault-rpc.env && (cd ~/vault-scanner/web3-ethereum-defi && docker compose run --entrypoint /bin/bash vault-scanner-oneshot)`.
+- `vault-scanner-looped` is the persistent scanner started by
+  `docker compose up -d`. It explicitly runs
+  `python scripts/erc-4626/scan-vaults-all-chains.py` and uses
+  `LOOP_INTERVAL_SECONDS`, `SCAN_CYCLES` and `DEFAULT_CYCLE` to schedule work.
+- `post-scanner` is the persistent feed collector. Its entrypoint is
+  `python scripts/erc-4626/scan-vault-posts.py`.
+
+All three services mount `${HOME}/.tradingstrategy` from the production host
+at `/root/.tradingstrategy` in the container. This is persistent production
+state, including the vault metadata pickle, price Parquet files, reader state
+and dense per-chain timestamp caches under
+`/root/.tradingstrategy/block-timestamp/{chain_id}-timestamps.duckdb`.
+One-shot containers therefore share the same state as the looped scanner; do
+not change `HOME`, use an unmounted container, or delete/recreate this directory
+while performing a migration. The Compose services also mount host `.cache`,
+repository `logs`, and the mutable stablecoin/feed data directories where
+applicable.
+
+For metadata-only repairs, explicitly disable historical price scanning (for
+example `UPSHIFT_SCAN_PRICES=false`). Price scans require the dense timestamp
+cache to be available inside the container; restore or prepopulate that cache
+on the host before a historical backfill rather than allowing a one-shot repair
+to bootstrap it with sparse timestamp requests.
+
 ## Running tests
 
 If we have not run tests before make sure the user has created a gitignored file `.local-test.env` in the repository root. This will use `source` shell command to include the actual test secrets which lie outside the repository structure. Note: this file does not contain actual environment variables, just a `source` command to get them from elsewhere. **Never edit this file**.
