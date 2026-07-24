@@ -128,6 +128,15 @@ run them on CI (e.g. when touching Hypersync discovery code), see
 `docs/README-hypersync-tests.md`. Apply the same `skip_hypersync_scan_on_ci`
 marker pattern to any new multi-minute Hypersync scan test.
 
+When writing a new Anvil mainnet-fork test, read `eth_defi/testing/README.md`
+first. Prefer a shared, session-scoped fork from the `anvil_fork_pool` fixture
+pinned to your chain's canonical `*_MIDNIGHT_BLOCK` (`eth_defi/testing/fork_blocks.py`)
+with an `xdist_group("fork:<chain>:midnight")` marker, rather than a per-file
+`fork_network_anvil` launch. Use `evm_snapshot_revert` for per-test isolation
+and deploy expensive Safe/vault fixtures once per session. Reference tests:
+`tests/erc_4626/vault_protocol/test_goat.py` (read-only pooled) and
+`tests/lagoon/conftest.py` (shared fork + once-per-session deployment).
+
 When running pytest or any test commands, always use an extended timeout
 by specifying `timeout: 180000` (3 minutes) in the bash tool parameters.
 
@@ -434,6 +443,7 @@ Consult these for domain-specific context. Logo READMEs under `eth_defi/data/vau
 | `eth_defi/gmx/ccxt/README.md` | GMX CCXT adapter implementation |
 | `eth_defi/gmx/graphql/README.md` | GMX Subsquid GraphQL integration |
 | `eth_defi/lighter/README-lighter-guard.md` | Lighter (zk-rollup perps DEX) L1 deposit/withdraw guard integration — architecture, security model, operator flow |
+| `eth_defi/testing/README.md` | Fast Anvil fork tests — shared session forks, per-chain midnight block cache, snapshot/revert, once-per-session deployments, reference tests |
 | `scripts/base/README.md` | Base chain related manual test scripts |
 | `scripts/debian-bullseye-compatibility/README.md` | Running on Debian Bullseye |
 | `scripts/erc-4626/README-vault-scripts.md` | ERC-4626 vault scripts |

@@ -4,6 +4,12 @@ Plan to make the test suite leaner and faster **without** removing Anvil
 integration coverage and **without** introducing complex mock/replay paths.
 We keep forking real chains; we stop paying for the same fork many times over.
 
+> **Writing a new fork test?** See `eth_defi/testing/README.md` for the how-to:
+> shared session forks (`anvil_fork_pool`), the per-chain midnight block cache
+> (`eth_defi/testing/fork_blocks.py`), snapshot/revert isolation, once-per-session
+> deployments, and reference tests. This document is the background/plan; that
+> one is the usage guide.
+
 > This plan was reviewed by Codex (`gpt-5.6-sol`, grounded read-only) on
 > 2026-07-24. The findings are folded in below — most importantly the existing
 > repository warning that repeated snapshot/revert under xdist has hung CI
