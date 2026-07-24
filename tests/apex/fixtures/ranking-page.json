@@ -1,0 +1,42 @@
+{
+  "data": {
+    "totalSize": 2,
+    "vaultList": [
+      {
+        "vaultId": "1001",
+        "name": "Alpha",
+        "desc": "First strategy",
+        "vaultEthAddress": "0xdb246af9ef918be85ea7cf98925480ff367a7038",
+        "vaultNetValue": "1.123456789012345678",
+        "share": "100.500000000000000000",
+        "tvl": "112.907407296740740689",
+        "status": "VAULT_IN_PROCESS",
+        "collectVaultType": "NOT_COLLECT_VAULT",
+        "createdTime": 1720000000000,
+        "updatedTime": 1720003600000,
+        "finishedTime": 0,
+        "maxAmount": "1000000",
+        "purchaseFeeRate": "0",
+        "shareProfitRatio": ""
+      },
+      {
+        "vaultId": "1002",
+        "name": "Beta",
+        "desc": "",
+        "vaultEthAddress": "0xdb246af9ef918be85ea7cf98925480ff367a7038",
+        "vaultNetValue": "2.0",
+        "share": "50",
+        "tvl": "100",
+        "status": "VAULT_FINISHED",
+        "collectVaultType": "COLLECT_VAULT",
+        "createdTime": 1710000000000,
+        "updatedTime": 1720003600000,
+        "finishedTime": 1720000000000,
+        "maxAmount": "",
+        "purchaseFeeRate": "0",
+        "shareProfitRatio": "0"
+      }
+    ]
+  },
+  "timeCost": 4
+}

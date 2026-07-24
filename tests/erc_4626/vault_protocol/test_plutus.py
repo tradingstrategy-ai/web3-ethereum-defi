@@ -5,38 +5,37 @@ import os
 from decimal import Decimal
 from pathlib import Path
 
-import pytest
-
-from web3 import Web3
 import flaky
+import pytest
+from web3 import Web3
 
-from eth_defi.erc_4626.classification import create_vault_instance_autodetect
-from eth_defi.erc_4626.core import get_vault_protocol_name
-from eth_defi.erc_4626.vault_protocol.plutus.vault import PlutusHistoricalReader, PlutusVault
-from eth_defi.testing.anvil_fork_pool import AnvilForkPool
-from eth_defi.testing.fork_blocks import ARBITRUM_MIDNIGHT_BLOCK
-from eth_defi.erc_4626.vault_protocol.umami.vault import UmamiVault
 from eth_defi.abi import ZERO_ADDRESS_STR
+from eth_defi.erc_4626.classification import create_vault_instance_autodetect
+from eth_defi.erc_4626.vault_protocol.plutus.vault import PlutusDepositManager, PlutusHistoricalReader, PlutusVault
+from eth_defi.provider.anvil import AnvilLaunch, fork_network_anvil
+from eth_defi.provider.multi_provider import create_multi_provider_web3
 from eth_defi.vault.base import REDEMPTION_CLOSED_BY_ADMIN, VaultTechnicalRisk
 
 JSON_RPC_ARBITRUM = os.environ.get("JSON_RPC_ARBITRUM")
 
-pytestmark = [
-    pytest.mark.skipif(JSON_RPC_ARBITRUM is None, reason="JSON_RPC_ARBITRUM needed to run these tests"),
-    # Shared with the other Arbitrum midnight-block characterisation tests.
-    pytest.mark.xdist_group("fork:arbitrum:midnight"),
-]
+pytestmark = pytest.mark.skipif(JSON_RPC_ARBITRUM is None, reason="JSON_RPC_ETHEREUM needed to run these tests")
 
 
 @pytest.fixture(scope="module")
-def web3(anvil_fork_pool: AnvilForkPool) -> Web3:
-    """Web3 backed by a shared Arbitrum fork from the session-scoped pool.
+def anvil_arbitrum_fork(request) -> AnvilLaunch:
+    """Read gmUSDC vault at a specific block"""
+    launch = fork_network_anvil(JSON_RPC_ARBITRUM, fork_block_number=392_313_989)
+    try:
+        yield launch
+    finally:
+        # Wind down Anvil process after the test is complete
+        launch.close()
 
-    Reuses one Anvil process across every module carrying the matching
-    ``xdist_group`` marker. Read-only test, so no snapshot/revert reset is
-    needed between tests.
-    """
-    return anvil_fork_pool.get_web3(JSON_RPC_ARBITRUM, ARBITRUM_MIDNIGHT_BLOCK)
+
+@pytest.fixture(scope="module")
+def web3(anvil_arbitrum_fork):
+    web3 = create_multi_provider_web3(anvil_arbitrum_fork.json_rpc_url)
+    return web3
 
 
 @flaky.flaky
@@ -59,6 +58,15 @@ def test_plutus(
     assert vault.has_custom_fees() is False
     assert vault.get_protocol_name() == "Plutus"
 
+    manager = vault.get_deposit_manager()
+    assert isinstance(manager, PlutusDepositManager)
+    estimated_deposit = manager.estimate_deposit(web3.eth.accounts[0], Decimal("1"))
+    expected_estimate = vault.share_token.convert_to_decimals(vault.vault_contract.functions.convertToShares(vault.denomination_token.convert_to_raw(Decimal("1"))).call())
+    assert estimated_deposit == expected_estimate
+    settlement = manager.force_settle(None)
+    assert settlement.settlement_required is False
+    assert settlement.transaction_hashes == ()
+
     # Verify Plutus-specific historical reader is returned
     reader = vault.get_historical_reader(stateful=False)
     assert isinstance(reader, PlutusHistoricalReader)
@@ -72,17 +80,15 @@ def test_plutus(
     call_results = [c.call_as_result(web3=web3, block_identifier=block_number) for c in calls]
     vault_read = reader.process_result(block_number, timestamp, call_results)
 
-    # Values read at the pinned Arbitrum midnight fork block (see fork_blocks.py);
-    # update them if the canonical block is bumped.
     assert vault_read.block_number == block_number
-    assert vault_read.share_price == Decimal("1.265705")
-    assert vault_read.total_assets == Decimal("241950.925652")
-    assert vault_read.total_supply == Decimal("191158.930808")
-    assert vault_read.max_deposit == Decimal("805419.231092")
+    assert vault_read.share_price == Decimal("1.158908")
+    assert vault_read.total_assets == Decimal("178220.029349")
+    assert vault_read.total_supply == Decimal("153782.593144")
+    assert vault_read.max_deposit == Decimal("847420.85868")
     assert vault_read.max_redeem == Decimal("0")
 
-    # Plutus derives deposit/redemption state from maxDeposit/maxRedeem:
-    # maxDeposit > 0 so deposits open, maxRedeem == 0 so redemptions closed.
+    # Plutus derives deposit/redemption state from maxDeposit/maxRedeem
+    # At block 392_313_989: maxDeposit > 0 so deposits open, maxRedeem == 0 so redemptions closed
     assert vault_read.deposits_open is True
     assert vault_read.redemption_open is False
     # Plutus does not track trading state
@@ -100,7 +106,7 @@ def test_plutus(
     deposit_next = vault.fetch_deposit_next_open()
     redemption_next = vault.fetch_redemption_next_open()
 
-    # At the pinned midnight block: deposits open (maxDeposit > 0), redemptions closed (maxRedeem == 0)
+    # At block 392_313_989: deposits open (maxDeposit > 0), redemptions closed (maxRedeem == 0)
     assert deposit_reason is None  # Deposits open
     assert redemption_reason.startswith(REDEMPTION_CLOSED_BY_ADMIN)  # Includes diagnostic info
 

@@ -20,12 +20,14 @@ See :ref:`tutorials <tutorials>` for guides and examples on how to use the libra
    uniswap_v3/index
    aave_v2/index
    aave_v3/index
+   upshift/index
    cowswap/index
    velora/index
    lifi/index
    derive/index
    gmx/index
    hyperliquid/index
+   apex/index
    grvt/index
    lighter/index
    hibachi/index
@@ -42,6 +44,7 @@ See :ref:`tutorials <tutorials>` for guides and examples on how to use the libra
    enzyme/index
    aera/index
    asseto/index
+   bulla/index
    ondo/index
    nara/index
    franklin/index

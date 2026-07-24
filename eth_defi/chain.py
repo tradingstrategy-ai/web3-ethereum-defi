@@ -137,6 +137,7 @@ SEQUENCERS: dict[int, dict[str, str]] = {
 #: Manually maintained shorthand names for different EVM chains
 CHAIN_NAMES = {
     325: "Grvt",  # GRVT (Gravity Markets) decentralised perp DEX
+    9995: "ApeX",  # Synthetic in-house ID for ApeX Omni native vaults (non-EVM)
     9997: "Hibachi",  # Synthetic in-house ID for Hibachi native vaults (non-EVM, not an EVM JSON-RPC chain ID)
     9998: "Lighter",  # Synthetic in-house ID for Lighter DEX pools (ZK-rollup)
     9999: "Hypercore",  # Synthetic in-house ID for native Hyperliquid vaults (non-EVM)
@@ -183,6 +184,7 @@ CHAIN_NAMES = {
 #: For linking on reports
 CHAIN_HOMEPAGES = {
     325: {"name": "GRVT", "homepage": "https://grvt.io"},
+    9995: {"name": "ApeX", "homepage": "https://www.apex.exchange"},  # Synthetic in-house ID, not EVM RPC
     1: {"name": "Ethereum", "homepage": "https://ethereum.org"},
     56: {"name": "Binance", "homepage": "https://www.bnbchain.org"},
     137: {"name": "Polygon", "homepage": "https://polygon.technology"},

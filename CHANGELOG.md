@@ -1,5 +1,14 @@
 # 1.2
 
+- feat: Add an ApeX Omni all-vault reader with bounded public API access, flexible timestamp observations, historical backfills, DuckDB storage and all-chain vault pipeline integration (2026-07-23)
+- feat: Automatically migrate Core3 risk databases to the latest DuckDB format and native Zstandard-compress historical raw JSON snapshots (2026-07-23)
+- feat: Report vault deposit permission policy, preflight IPOR Fusion and Lagoon access restrictions, and classify tokenised-fund deposits as permissioned (2026-07-23)
+- feat: Add capacity-aware cSigma V2 deposit and redemption simulation support (2026-07-22)
+- feat: Add optional atomic gross-settlement and cooldown safety controls for asset-manager Lagoon v0.5 transactions (2026-07-22)
+- fix: Publish Bulla Network protocol metadata under the canonical `bulla-network` slug (2026-07-22)
+- fix: `is_blacklisted_address()` no longer asserts a `0x` prefix; synthetic non-EVM vault ids (e.g. Lighter `lighter-pool-`) return `False` instead of raising, since the rugpull blacklist only holds EVM addresses (2026-07-22)
+- feat: Add Bulla Network Factoring vault recognition, native fee reads and safe read-only support (2026-07-21)
+- feat: Add multi-deployment Lighter vault scanning for Ethereum and Robinhood Chain with deployment-aware metrics and automatic legacy data migration (2026-07-22)
 - feat: Track per-chain vault scanner JSON-RPC calls and errors in DuckDB (2026-07-20)
 - feat: Add Hypersync-backed Chainlink bundle aggregator history and FILQ NAV support (2026-07-20)
 - feat: Backfill OpenEden TBILL oracle price history while preserving supply-only FDIT and CASHx metadata (2026-07-20)

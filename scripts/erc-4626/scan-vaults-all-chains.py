@@ -25,11 +25,14 @@ Usage:
     # Include GRVT native vaults
     SCAN_GRVT=true python scripts/erc-4626/scan-vaults-all-chains.py
 
-    # Include Lighter native pools
+    # Include both Ethereum and Robinhood Lighter native pools
     SCAN_LIGHTER=true python scripts/erc-4626/scan-vaults-all-chains.py
 
     # Include Hibachi native vaults
     SCAN_HIBACHI=true python scripts/erc-4626/scan-vaults-all-chains.py
+
+    # Include ApeX native vaults
+    SCAN_APEX=true python scripts/erc-4626/scan-vaults-all-chains.py
 
     # Core3 risk intelligence enrichment runs by default when CORE3_API_KEY is set.
     # Disable it explicitly if needed.
@@ -49,9 +52,9 @@ Usage:
 
     # Looped mode: tick every 1h, major EVM chains on 8h, native protocols on 4h, Core3 and rest on 24h
     LOOP_INTERVAL_SECONDS=3600 \\
-    SCAN_CYCLES="Ethereum=8h,Base=8h,Arbitrum=8h,Hypercore=4h,GRVT=4h,Lighter=4h,Hibachi=4h,Core3=24h" \\
+    SCAN_CYCLES="Ethereum=8h,Base=8h,Arbitrum=8h,Hypercore=4h,GRVT=4h,Lighter Ethereum=4h,Lighter Robinhood=4h,Hibachi=4h,ApeX=4h,Core3=24h" \\
     DEFAULT_CYCLE=24h \\
-    SCAN_HYPERCORE=true SCAN_GRVT=true SCAN_LIGHTER=true SCAN_HIBACHI=true \\
+    SCAN_HYPERCORE=true SCAN_GRVT=true SCAN_LIGHTER=true SCAN_HIBACHI=true SCAN_APEX=true \\
     python scripts/erc-4626/scan-vaults-all-chains.py
 
 Manual testing:
@@ -88,7 +91,9 @@ Environment variables:
     - SCAN_PRICES: "true" or "false" (default: "false")
     - SCAN_HYPERCORE: "true" to scan Hyperliquid native (Hypercore) vaults via REST API (default: "false")
     - SCAN_GRVT: "true" to scan GRVT native vaults via public endpoints (default: "false")
-    - SCAN_LIGHTER: "true" to scan Lighter native pools via public endpoints (default: "false")
+    - SCAN_LIGHTER: "true" to scan both Ethereum and Robinhood Lighter native pools via public endpoints (default: "false")
+    - SCAN_HIBACHI: "true" to scan Hibachi native vaults via public endpoints (default: "false")
+    - SCAN_APEX: "true" to scan ApeX native vaults and due history via public endpoints (default: "false")
     - SCAN_VAULT_SETTLEMENTS: "false" to skip per-chain Lagoon and D2 settlement event scanning.
       When enabled, events are stored in vault-settlements.duckdb before price cleaning;
       vault_settlement_at is merged into the cleaned price frame during cleaning (default: "true")
@@ -119,7 +124,8 @@ Environment variables:
     - COINGECKO_DEMO_API_KEY: Optional CoinGecko demo API key for stablecoin rate refreshes
     - JSON_RPC_<CHAIN>: RPC URL for each chain (required per chain)
     - LOOP_INTERVAL_SECONDS: Seconds between ticks in looped mode (default: "0" = single run)
-    - SCAN_CYCLES: Per-chain/protocol cycle overrides, e.g. "Ethereum=8h,Base=8h,Arbitrum=8h,Hypercore=4h,GRVT=4h,Lighter=4h"
+    - SCAN_CYCLES: Per-chain/protocol cycle overrides, e.g. "Ethereum=8h,Base=8h,Arbitrum=8h,Hypercore=4h,GRVT=4h,Lighter Ethereum=4h,Lighter Robinhood=4h,ApeX=4h"
+      The legacy "Lighter=4h" form still applies the interval to both deployments.
     - DEFAULT_CYCLE: Default cycle interval for items not in SCAN_CYCLES (default: "24h")
     - MAX_CYCLES: Exit after N cycles in looped mode, for testing (default: "0" = unlimited)
     - FORCE_RESCAN: "true" to ignore cycle state and rescan all items on the first cycle (default: "false")

@@ -206,7 +206,7 @@ class VaultSpec:
     def __post_init__(self):
         assert isinstance(self.chain_id, int)
         assert isinstance(self.vault_address, str), f"Expected str, got {self.vault_address}"
-        assert is_good_multichain_address(self.vault_address), f"Vault address must start with 0x, VLT:, lighter-pool-, or hibachi-vault- prefix, got: {self.vault_address}"
+        assert is_good_multichain_address(self.vault_address), f"Vault address must start with 0x, VLT:, lighter-pool-, hibachi-vault-, or apex-vault- prefix, got: {self.vault_address}"
         # TODO: Get rid of old codepaths so we can make this dataclass frozen
         self.vault_address = self.vault_address.lower()
 
@@ -351,7 +351,7 @@ class RawVaultPriceRow(TypedDict, total=False):
     (:py:func:`~eth_defi.vault.historical.scan_historical_prices_to_parquet`).
 
     The canonical columns are defined by :py:meth:`VaultHistoricalRead.to_pyarrow_schema`.
-    Native protocol merges (Hyperliquid, GRVT, Lighter, Hibachi) may add extra columns
+    Native protocol merges (Hyperliquid, GRVT, Lighter, Hibachi, ApeX) may add extra columns
     (e.g. ``account_pnl``, ``leader_fraction``) that are preserved across schema migrations
     but are not part of this TypedDict.
 
@@ -370,6 +370,8 @@ class RawVaultPriceRow(TypedDict, total=False):
     #:   see :py:data:`~eth_defi.lighter.constants.LIGHTER_CHAIN_ID`
     #: - ``9997`` — Hibachi native vaults,
     #:   see :py:data:`~eth_defi.hibachi.constants.HIBACHI_CHAIN_ID`
+    #: - ``9995`` — ApeX native vaults,
+    #:   see :py:data:`~eth_defi.apex.constants.APEX_CHAIN_ID`
     #: - ``325`` — GRVT (Gravity Markets),
     #:   see :py:data:`~eth_defi.grvt.constants.GRVT_CHAIN_ID`
     #:
@@ -385,6 +387,7 @@ class RawVaultPriceRow(TypedDict, total=False):
     #: - GRVT: platform-specific id (e.g. ``"vlt:xxx"``)
     #: - Lighter: synthetic id (e.g. ``"lighter-pool-281474976710654"``)
     #: - Hibachi: synthetic id (e.g. ``"hibachi-vault-2"``)
+    #: - ApeX: synthetic id (e.g. ``"apex-vault-2044287989957394432"``)
     #:
     #: See :py:func:`~eth_defi.utils.is_good_multichain_address` for
     #: the validation function that accepts all these formats.
@@ -1134,6 +1137,43 @@ class VaultBase(ABC):
             Adapter-specific capability object, or ``None`` when unsupported.
         """
         return None
+
+    def is_whitelisted_deposit(self) -> bool:
+        """Determine whether this vault applies a deposit whitelist policy.
+
+        Protocol adapters override this predicate only when their deployed
+        contract version exposes a reliable vault-wide policy read.  ``True``
+        means the vault requires account permission; ``False`` means its
+        policy is permissionless.  This is independent of a caller's current
+        balance, allowance, pause state, capacity, and request lifecycle.
+
+        :return:
+            ``True`` for a whitelist-restricted vault and ``False`` for a
+            permissionless vault.
+
+        :raise NotImplementedError:
+            If the adapter cannot safely determine the policy.
+        """
+        raise NotImplementedError()
+
+    def is_account_whitelisted(self, address: HexAddress) -> bool:
+        """Determine whether an account belongs to the vault deposit policy.
+
+        The result concerns policy membership only.  A protocol may still
+        require scheduling, an allowance, available capacity, or an open epoch
+        before a deposit can be submitted.  Callers must use the relevant
+        deposit manager pre-flight before broadcasting a transaction.
+
+        :param address:
+            Account whose deposit-policy membership is queried.
+
+        :return:
+            ``True`` when the account belongs to the applicable policy.
+
+        :raise NotImplementedError:
+            If the adapter cannot safely query account membership.
+        """
+        raise NotImplementedError()
 
     @abstractmethod
     def has_block_range_event_support(self) -> bool:

@@ -17,7 +17,7 @@ from pyrate_limiter import SQLiteBucket
 from requests import Session
 from requests_ratelimiter import LimiterAdapter
 
-from eth_defi.lighter.constants import LIGHTER_API_URL, LIGHTER_DEFAULT_REQUESTS_PER_SECOND
+from eth_defi.lighter.constants import LIGHTER_DEFAULT_REQUESTS_PER_SECOND, LIGHTER_ETHEREUM, LighterAPIConfig
 from eth_defi.logging_retry import LoggingRetry
 
 logger = logging.getLogger(__name__)
@@ -48,21 +48,30 @@ class LighterSession(Session):
     #: Lighter API base URL (e.g. ``https://mainnet.zklighter.elliot.ai``).
     api_url: str
 
-    def __init__(self, api_url: str = LIGHTER_API_URL):
+    #: Deployment whose API and vault namespace this session accesses.
+    deployment: LighterAPIConfig
+
+    def __init__(
+        self,
+        api_url: str | None = None,
+        deployment: LighterAPIConfig = LIGHTER_ETHEREUM,
+    ):
         super().__init__()
-        self.api_url = api_url
+        self.api_url = api_url or deployment.api_url
+        self.deployment = deployment
 
     def __repr__(self) -> str:
-        return f"<LighterSession api_url={self.api_url!r}>"
+        return f"<LighterSession deployment={self.deployment.slug!r} api_url={self.api_url!r}>"
 
 
 def create_lighter_session(
-    api_url: str = LIGHTER_API_URL,
+    api_url: str | None = None,
     retries: int = DEFAULT_RETRIES,
     backoff_factor: float = DEFAULT_BACKOFF_FACTOR,
     requests_per_second: float = LIGHTER_DEFAULT_REQUESTS_PER_SECOND,
     pool_maxsize: int = 32,
     rate_limit_db_path: Path = LIGHTER_RATE_LIMIT_SQLITE_DATABASE,
+    deployment: LighterAPIConfig = LIGHTER_ETHEREUM,
 ) -> LighterSession:
     """Create a :py:class:`LighterSession` configured for Lighter API.
 
@@ -82,8 +91,8 @@ def create_lighter_session(
         session = create_lighter_session()
 
     :param api_url:
-        Lighter API base URL. Defaults to mainnet
-        (:py:data:`~eth_defi.lighter.constants.LIGHTER_API_URL`).
+        Optional Lighter API base URL override. Defaults to the configured
+        deployment URL.
     :param retries:
         Maximum number of retry attempts for failed requests.
     :param backoff_factor:
@@ -96,12 +105,15 @@ def create_lighter_session(
     :param rate_limit_db_path:
         Path to SQLite database for storing rate limit state.
         Using SQLite ensures thread-safe rate limiting across multiple threads.
+    :param deployment:
+        Deployment whose pool namespace this session accesses. Defaults to the
+        backwards-compatible Ethereum deployment.
     :return:
         Configured :py:class:`LighterSession` with rate limiting and retry logic.
     """
     rate_limit_db_path.parent.mkdir(parents=True, exist_ok=True)
 
-    session = LighterSession(api_url=api_url)
+    session = LighterSession(api_url=api_url, deployment=deployment)
 
     retry_policy = LoggingRetry(
         total=retries,

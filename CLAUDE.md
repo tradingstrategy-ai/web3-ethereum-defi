@@ -66,6 +66,43 @@ When running a Python script use `poetry run python` command instead of plain `p
 poetry run python scripts/logos/post-process-logo.py
 ```
 
+## Production
+
+Production vault scanning runs from `~/vault-scanner/web3-ethereum-defi` with
+environment variables loaded from `~/vault-scanner/vault-rpc.env`. The Compose
+configuration is `docker-compose.yml`; inspect it before running production
+maintenance because its service entrypoint and mounted state determine the
+effect of a command.
+
+- `vault-scanner-oneshot` is a profile-only, single-run service. It inherits
+  the image entrypoint from `Dockerfile.vault-scanner`, which runs
+  `scripts/erc-4626/scan-vaults-all-chains.py` once. Use it for an intentional
+  scan or override its entrypoint for production maintenance, e.g.
+  `source ~/vault-scanner/vault-rpc.env && (cd ~/vault-scanner/web3-ethereum-defi && docker compose run --entrypoint /bin/bash vault-scanner-oneshot)`.
+- `vault-scanner-looped` is the persistent scanner started by
+  `docker compose up -d`. It explicitly runs
+  `python scripts/erc-4626/scan-vaults-all-chains.py` and uses
+  `LOOP_INTERVAL_SECONDS`, `SCAN_CYCLES` and `DEFAULT_CYCLE` to schedule work.
+- `post-scanner` is the persistent feed collector. Its entrypoint is
+  `python scripts/erc-4626/scan-vault-posts.py`.
+
+All three services mount `${HOME}/.tradingstrategy` from the production host
+at `/root/.tradingstrategy` in the container. This is persistent production
+state, including the vault metadata pickle, price Parquet files, reader state
+and dense per-chain timestamp caches under
+`/root/.tradingstrategy/block-timestamp/{chain_id}-timestamps.duckdb`.
+One-shot containers therefore share the same state as the looped scanner; do
+not change `HOME`, use an unmounted container, or delete/recreate this directory
+while performing a migration. The Compose services also mount host `.cache`,
+repository `logs`, and the mutable stablecoin/feed data directories where
+applicable.
+
+For metadata-only repairs, explicitly disable historical price scanning (for
+example `UPSHIFT_SCAN_PRICES=false`). Price scans require the dense timestamp
+cache to be available inside the container; restore or prepopulate that cache
+on the host before a historical backfill rather than allowing a one-shot repair
+to bootstrap it with sparse timestamp requests.
+
 ## Running tests
 
 If we have not run tests before make sure the user has created a gitignored file `.local-test.env` in the repository root. This will use `source` shell command to include the actual test secrets which lie outside the repository structure. Note: this file does not contain actual environment variables, just a `source` command to get them from elsewhere. **Never edit this file**.
@@ -140,6 +177,39 @@ No test plan or verification section. Use Markdown formatting, headings.
 - When merging pull request, squash and merge commits and use the PR description as the commit message
 - When watching CI for pull request merge readiness, never wait for documentation-only workflows like `Build documentation`; merge once non-documentation required checks are green, unless the user explicitly asks to wait for docs.
 - If continuous integration (CI) tests fail on your PR, and they are marked flaky, run tests locally to repeat the issue if it is real flakiness or regression
+
+### Healing flaky CI tests
+
+Use this escalation process for tests that fail nondeterministically because of
+RPC providers, Anvil forks, live APIs, indexed data services, timing or shared
+CI resources. A deterministic product or test regression must be fixed and
+must never be hidden behind retries or a CI skip.
+
+1. **Identify and reproduce the issue.** Read the complete failed-job traceback,
+   record the exact failing test and symptom, and check whether the affected
+   code differs from `master`. Run the focused test locally with
+   `.local-test.env`. Attempt a bounded root-cause fix first, such as pinning a
+   fork block, correcting an assertion, reducing cross-test contention or
+   installing a missing workflow dependency.
+2. **Mark a genuinely nondeterministic test flaky.** Add `@flaky.flaky` and a
+   source line comment immediately above it. The comment must state when the
+   problem was first observed, the concrete CI symptom, and the evidence that
+   the test passes locally, on retry or in a later CI run. Keep the test enabled
+   in CI; a flaky marker is a temporary diagnostic and retry mechanism, not a
+   substitute for fixing a reproducible defect. Move resource-heavy live or
+   fork tests to the slow workflow when reduced contention is the appropriate
+   fix, and ensure that workflow installs all required dependencies.
+3. **Disable an endemic test on CI only as a last resort.** If a flaky test
+   continues to fail on at least two distinct CI runs, still passes locally,
+   and the external or runner-specific cause cannot be fixed in this
+   repository, add a dated `@pytest.mark.skipif(CI, reason=...)`. The line
+   comment and skip reason must describe the recurring symptom. Keep the test
+   runnable locally; never add an unconditional skip. Retain or create focused
+   local coverage so the disabled integration does not silently disappear.
+
+Periodically audit CI-disabled tests. Re-enable one when the provider, workflow
+or fixture has been healed, run it locally, and require a green CI run before
+removing its flaky history comment.
 
 ## Pushing to master
 

@@ -22,6 +22,10 @@ from eth_defi.vault.base import VaultSpec
 #: Low-activity vaults are skipped unless protocol-specific exemptions apply.
 MIN_PRICE_SCAN_DEPOSIT_COUNT = 5
 
+#: Minimum configuration events for a T3tris migration-pool vault to bypass
+#: :py:data:`MIN_PRICE_SCAN_DEPOSIT_COUNT`.
+MIN_PRICE_SCAN_CONFIGURATION_EVENT_COUNT = 1
+
 
 class ERC4626Feature(enum.Enum):
     """Additional extensionsERc-4626 vault may have.
@@ -326,6 +330,11 @@ class ERC4626Feature(enum.Enum):
     #: https://plutus.fi/Vaults
     #:
     plutus_like = "plutus_like"
+
+    #: Bulla Network invoice-factoring vaults.
+    #:
+    #: https://www.bulla.network/
+    bulla_like = "bulla_like"
 
     #: D2 Finance
     #:
@@ -750,6 +759,13 @@ class ERC4626Feature(enum.Enum):
     #: https://hibachi.xyz/vaults
     hibachi_native = "hibachi_native"
 
+    #: ApeX native vault
+    #:
+    #: Native ApeX Omni perpetuals trading vault.
+    #: Not an ERC-4626 vault but shares the same metrics interface.
+    #: https://omni.apex.exchange/
+    apex_native = "apex_native"
+
     #: Ember Protocol
     #:
     #: Investment platform for launching and distributing onchain financial products.
@@ -860,7 +876,9 @@ def is_activity_filter_exempt(detection: "ERC4262VaultDetection") -> bool:
     contracts. Upshift multi-asset vaults are another exception: older
     production metadata can be seeded or refreshed by address after the custom
     event support lands, and targeted price rescans should not be blocked by a
-    stale low deposit counter.
+    stale low deposit counter. T3tris migration-pool vaults are handled
+    separately by :py:func:`passes_price_scan_activity_filter`, which requires
+    a recorded configuration event instead of broadly exempting the protocol.
 
     :param detection:
         Shared vault detection envelope.
@@ -876,6 +894,26 @@ def is_activity_filter_exempt(detection: "ERC4262VaultDetection") -> bool:
             ERC4626Feature.upshift_multi_asset_like,
         )
     )
+
+
+def passes_price_scan_activity_filter(detection: "ERC4262VaultDetection", min_deposit_threshold: int) -> bool:
+    """Check whether a vault has enough activity for historical price scanning.
+
+    :param detection:
+        Shared vault detection envelope.
+
+    :param min_deposit_threshold:
+        Minimum number of vault-local deposit events for ordinary vaults.
+
+    :return:
+        ``True`` when the deposit threshold is met, the protocol has a known
+        alternative activity source, or a T3tris vault has at least one
+        configuration event.
+    """
+    if detection.deposit_count >= min_deposit_threshold or is_activity_filter_exempt(detection):
+        return True
+
+    return ERC4626Feature.t3tris_like in detection.features and getattr(detection, "configuration_count", 0) >= MIN_PRICE_SCAN_CONFIGURATION_EVENT_COUNT
 
 
 GENERIC_ERC4626_PROTOCOL_NAME = "ERC-4626"
@@ -1015,6 +1053,8 @@ def get_vault_protocol_name(features: set[ERC4626Feature]) -> str:
         return "Umami"
     elif ERC4626Feature.plutus_like in features:
         return "Plutus"
+    elif ERC4626Feature.bulla_like in features:
+        return "Bulla Network"
     elif ERC4626Feature.d2_like in features:
         return "D2 Finance"
     elif ERC4626Feature.untangled_like in features:
@@ -1213,6 +1253,9 @@ def get_vault_protocol_name(features: set[ERC4626Feature]) -> str:
     elif ERC4626Feature.hibachi_native in features:
         return "Hibachi"
 
+    elif ERC4626Feature.apex_native in features:
+        return "ApeX"
+
     elif ERC4626Feature.ember_like in features:
         return "Ember"
 
@@ -1288,6 +1331,31 @@ class ERC4262VaultDetection:
     #:
     #: Zero for native protocols that do not support on-chain event tracking.
     redeem_count: int
+
+    #: Number of vault configuration events observed.
+    #:
+    #: Used by T3tris migration-pool vaults, which may never emit vault-local
+    #: deposit events. ``getattr`` access in activity filtering keeps old
+    #: persisted detections compatible after this slot was added.
+    configuration_count: int = 0
+
+    def __setstate__(self, state: list[object] | tuple[object, ...]) -> None:
+        """Restore persisted detections created before configuration events were tracked.
+
+        Vault metadata databases store this slotted dataclass in pickle files.  Pickles
+        written before :attr:`configuration_count` was introduced contain one fewer
+        value, so populate the new slot with its backwards-compatible default while
+        restoring the existing fields.
+
+        :param state:
+            Pickled dataclass field values in declaration order.
+        """
+        fields = dataclasses.fields(self)
+        for field, value in zip(fields, state):
+            object.__setattr__(self, field.name, value)
+
+        if len(state) < len(fields):
+            object.__setattr__(self, "configuration_count", 0)
 
     def get_spec(self) -> VaultSpec:
         """Chain id/address tuple identifying this vault."""

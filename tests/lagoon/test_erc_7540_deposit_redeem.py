@@ -1,27 +1,25 @@
 """ERC-7540 deposit/redeem tests."""
 
-import os
 import datetime
+import os
 from decimal import Decimal
 from typing import cast
 
 import flaky
 import pytest
+from eth_typing import HexAddress
 from web3 import Web3
 
 from eth_defi.erc_4626.classification import create_vault_instance_autodetect
 from eth_defi.erc_4626.vault import ERC4626Vault
-from eth_defi.erc_4626.vault_protocol.lagoon.deposit_redeem import ERC7540DepositManager, ERC7540DepositRequest, ERC7540DepositTicket, ERC7540RedemptionTicket
-from eth_defi.erc_4626.vault_protocol.lagoon.testing import force_lagoon_settle
+from eth_defi.erc_4626.vault_protocol.lagoon.deposit_redeem import LagoonDepositManager, LagoonDepositRequest
 from eth_defi.erc_4626.vault_protocol.lagoon.vault import LagoonVault, LagoonVersion
+from eth_defi.erc_7540.deposit_redeem import ERC7540DepositTicket, ERC7540RedemptionTicket
 from eth_defi.provider.anvil import AnvilLaunch, fork_network_anvil
 from eth_defi.provider.multi_provider import create_multi_provider_web3
-from eth_defi.token import fetch_erc20_details, TokenDetails, USDC_WHALE
+from eth_defi.token import USDC_WHALE, TokenDetails, fetch_erc20_details
 from eth_defi.trace import assert_transaction_success_with_explanation
-from eth_typing import HexAddress
-
-from eth_defi.utils import addr
-from eth_defi.vault.deposit_redeem import DepositRedeemEventAnalysis
+from eth_defi.vault.deposit_redeem import AsyncVaultRequestStatus, DepositRedeemEventAnalysis
 
 JSON_RPC_BASE = os.environ.get("JSON_RPC_BASE")
 
@@ -32,14 +30,8 @@ pytestmark = pytest.mark.skipif(not JSON_RPC_BASE, reason="No JSON_RPC_BASE envi
 
 
 @pytest.fixture()
-def vault_manager() -> HexAddress:
-    # https://app.lagoon.finance/vault/8453/0xb09f761cb13baca8ec087ac476647361b6314f98
-    return addr("0x3B95C7cD4075B72ecbC4559AF99211C2B6591b2E")
-
-
-@pytest.fixture()
-def anvil_base_fork(request, vault_manager) -> AnvilLaunch:
-    """Create a testable fork of live BNB chain.
+def anvil_base_fork(request) -> AnvilLaunch:
+    """Create a testable fork of Base.
 
     :return: JSON-RPC URL for Web3
     """
@@ -47,7 +39,7 @@ def anvil_base_fork(request, vault_manager) -> AnvilLaunch:
     launch = fork_network_anvil(
         JSON_RPC_BASE,
         fork_block_number=35_094_246,
-        unlocked_addresses=[USDC_WHALE[8453], vault_manager],
+        unlocked_addresses=[USDC_WHALE[8453]],
     )
     try:
         yield launch
@@ -116,11 +108,13 @@ def test_erc_7540_deposit_722_capital(
     vault: ERC4626Vault,
     test_user: HexAddress,
     usdc: TokenDetails,
-    vault_manager: HexAddress,
 ):
     """Use DepositManager interface to deposit into ERC-7540 vault on Lagoon run by 722 Capital"""
     deposit_manager = vault.get_deposit_manager()
-    assert isinstance(deposit_manager, ERC7540DepositManager)
+    assert isinstance(deposit_manager, LagoonDepositManager)
+    assert vault.is_whitelisted_deposit() is False
+    assert vault.is_account_whitelisted(test_user) is True
+    assert deposit_manager.can_create_deposit_request(test_user) is True
     assert not deposit_manager.has_synchronous_deposit()
     assert not deposit_manager.is_deposit_in_progress(test_user)
 
@@ -141,7 +135,7 @@ def test_erc_7540_deposit_722_capital(
         test_user,
         amount=amount,
     )
-    assert isinstance(request, ERC7540DepositRequest)
+    assert isinstance(request, LagoonDepositRequest)
     deposit_ticket = request.broadcast()
     assert isinstance(deposit_ticket, ERC7540DepositTicket)
     assert deposit_ticket.request_id == 33
@@ -150,10 +144,12 @@ def test_erc_7540_deposit_722_capital(
     assert not deposit_manager.can_finish_deposit(deposit_ticket)
 
     # Settle
-    force_lagoon_settle(
-        vault,
-        vault_manager,
-    )
+    settlement = deposit_manager.force_settle(deposit_ticket)
+    assert settlement.settlement_required is True
+    assert settlement.ticket is deposit_ticket
+    assert settlement.status_before is AsyncVaultRequestStatus.pending
+    assert settlement.status_after is AsyncVaultRequestStatus.claimable
+    assert settlement.transaction_hashes
 
     # Claim
     assert deposit_manager.can_finish_deposit(deposit_ticket)
@@ -177,7 +173,7 @@ def test_erc_7540_deposit_722_capital(
     assert deposit_result.from_ == test_user
     assert deposit_result.to == test_user
     assert deposit_result.tx_hash == tx_hash
-    assert deposit_result.block_number >= 35094253
+    assert deposit_result.block_number == 35094252
     assert isinstance(deposit_result.block_timestamp, datetime.datetime)
     assert deposit_result.share_count == pytest.approx(Decimal("960.645517122092231912"))
     assert deposit_result.denomination_amount == pytest.approx(Decimal("1000"))
@@ -189,11 +185,10 @@ def test_erc_7540_redeem_722_capital(
     vault: ERC4626Vault,
     test_user: HexAddress,
     usdc: TokenDetails,
-    vault_manager: HexAddress,
 ):
     """Use DepositManager interface to redeem into ERC-7540 vault on Lagoon run by 722 Capital"""
     deposit_manager = vault.get_deposit_manager()
-    assert isinstance(deposit_manager, ERC7540DepositManager)
+    assert isinstance(deposit_manager, LagoonDepositManager)
     assert not deposit_manager.has_synchronous_redemption()
     assert not deposit_manager.is_deposit_in_progress(test_user)
     assert not deposit_manager.is_redemption_in_progress(test_user)
@@ -214,10 +209,12 @@ def test_erc_7540_redeem_722_capital(
     deposit_ticket = request.broadcast()
 
     # Settle
-    force_lagoon_settle(
-        vault,
-        vault_manager,
-    )
+    deposit_settlement = deposit_manager.force_settle(deposit_ticket)
+    assert deposit_settlement.settlement_required is True
+    assert deposit_settlement.ticket is deposit_ticket
+    assert deposit_settlement.status_before is AsyncVaultRequestStatus.pending
+    assert deposit_settlement.status_after is AsyncVaultRequestStatus.claimable
+    assert deposit_settlement.transaction_hashes
 
     # Claim
     func = deposit_manager.finish_deposit(deposit_ticket)
@@ -253,10 +250,12 @@ def test_erc_7540_redeem_722_capital(
     assert not deposit_manager.can_finish_redeem(redeem_ticket)
 
     # Settle
-    force_lagoon_settle(
-        vault,
-        vault_manager,
-    )
+    redemption_settlement = deposit_manager.force_settle(redeem_ticket)
+    assert redemption_settlement.settlement_required is True
+    assert redemption_settlement.ticket is redeem_ticket
+    assert redemption_settlement.status_before is AsyncVaultRequestStatus.pending
+    assert redemption_settlement.status_after is AsyncVaultRequestStatus.claimable
+    assert redemption_settlement.transaction_hashes
 
     # Claim
     assert deposit_manager.can_finish_redeem(redeem_ticket)
@@ -277,7 +276,7 @@ def test_erc_7540_redeem_722_capital(
     assert redeem_result.from_ == test_user
     assert redeem_result.to == test_user
     assert redeem_result.tx_hash == tx_hash
-    assert redeem_result.block_number >= 35094253
+    assert redeem_result.block_number == 35094257
     assert isinstance(redeem_result.block_timestamp, datetime.datetime)
     assert redeem_result.share_count == pytest.approx(Decimal("960.645517122092231912"))
     assert redeem_result.denomination_amount == pytest.approx(Decimal("1000"))

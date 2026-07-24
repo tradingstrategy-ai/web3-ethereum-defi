@@ -2,7 +2,8 @@ feeder-id: midas
 name: Midas
 role: curator
 curatorwatch: https://curatorwatch.com/curator/midas
-website: https://midas.app/
+# 2026-07-22 maintain-curators: Midas is the protocol layer; feed sources moved to protocols/midas.yaml.
+canonical-feeder-id: midas
 short_description: Midas is a platform for composable onchain investment products that turns institutional strategies into tokenised assets for DeFi.
 long_description: |
   Midas provides composable onchain investment products whose mTokens track reference
@@ -11,9 +12,6 @@ long_description: |
   principles, with the Midas Attestation Engine publishing holdings, NAV and performance
   data onchain. The official ecosystem materials position Midas between strategy managers,
   DeFi protocols and investors, providing access to onchain investment products.
-twitter: MidasRWA
-linkedin: midasrwa
-
 # Evidence and background references.
 other-links:
   - title: Midas documentation - About Midas and mToken product model
@@ -22,4 +20,11 @@ other-links:
     url: https://docs.midas.app/resources/official-links
   - title: CuratorWatch - Midas curator profile with AUM, vault count and managed vault evidence
     url: https://curatorwatch.com/curator/midas
-linkedin-rss-hub-disabled-at: 2026-06-26
+  - title: Midas mTBILL product page
+    url: https://midas.app/mtbill
+  - title: Midas mTBILL product documentation
+    url: https://docs.midas.app/tokens/mtbill
+  - title: Midas mTBILL independent reporting
+    url: https://docs.midas.app/tokens/mtbill/independent-reporting
+  - title: Midas smart-contract registry and mTBILL/USD oracle
+    url: https://docs.midas.app/protocol-mechanics/smart-contracts

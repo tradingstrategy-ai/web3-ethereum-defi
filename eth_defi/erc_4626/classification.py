@@ -509,7 +509,6 @@ CHAIN_RESTRICTED_PROBES: dict[str, set[int]] = {
     "poolId": {1, 8453, 42161},  # Centrifuge - Ethereum, Base, Arbitrum
     "wards": {1, 8453, 42161},  # Centrifuge - Ethereum, Base, Arbitrum
     "SPOKE_REVISION": {1},  # Aave v4 Tokenization Spoke - Ethereum only
-    "assetsWhitelistAddress": {1},  # Upshift multi-asset vaults - Ethereum only
 }
 
 
@@ -839,6 +838,17 @@ def create_probe_calls(
             extra_data=None,
         )
 
+        # Yearn TokenizedStrategy compounders (Solidity).
+        # Both legacy and modern strategy instances expose this version marker.
+        # https://etherscan.io/address/0xD377919FA87120584B21279a491F82D5265A139c#code
+        yield EncodedCall.from_keccak_signature(
+            address=address,
+            signature=Web3.keccak(text="apiVersion()")[0:4],
+            function="apiVersion",
+            data=b"",
+            extra_data=None,
+        )
+
         # Yearn V3 (Vyper)
         # https://polygonscan.com/address/0xa013fbd4b711f9ded6fb09c1c0d358e2fbc2eaa0#readContract
         yield EncodedCall.from_keccak_signature(
@@ -921,6 +931,19 @@ def create_probe_calls(
                 data=b"",
                 extra_data=None,
             )
+
+        # Bulla Network Factoring V2
+        # https://arbiscan.io/address/0xc099773267308D8e9E805f47EABf9ab13bBc9e37#code
+        #
+        # The Bulla DAO fee-recipient getter is specific to Bulla Factoring
+        # vaults. This is intentionally the only Bulla-specific ABI probe.
+        yield EncodedCall.from_keccak_signature(
+            address=address,
+            signature=Web3.keccak(text="bullaDao()")[0:4],
+            function="bullaDao",
+            data=b"",
+            extra_data=None,
+        )
 
         # D2 Finance
         # https://arbiscan.io/address/0x75288264fdfea8ce68e6d852696ab1ce2f3e5004#code
@@ -1391,7 +1414,7 @@ def identify_vault_features(
     if calls["getGrossTVL"].success:
         features.add(ERC4626Feature.t3tris_like)
 
-    if calls["GOV"].success:
+    if calls["GOV"].success or calls["apiVersion"].success:
         features.add(ERC4626Feature.yearn_compounder_like)
 
     if calls["get_default_queue"].success:
@@ -1419,6 +1442,9 @@ def identify_vault_features(
     # https://arbiscan.io/address/0x0f49730bc6ba3a3024d32131c1da7168d226e737#code
     if calls["SAY_TRADER_ROLE"].success:
         features.add(ERC4626Feature.plutus_like)
+
+    if calls["bullaDao"].success:
+        features.add(ERC4626Feature.bulla_like)
 
     if calls["getCurrentEpochInfo"].success:
         features.add(ERC4626Feature.d2_like)
@@ -2003,6 +2029,11 @@ def create_vault_instance(
 
         return PlutusVault(web3, spec, **kwargs)
 
+    elif ERC4626Feature.bulla_like in features:
+        from eth_defi.erc_4626.vault_protocol.bulla.vault import BullaVault
+
+        return BullaVault(web3, spec, **kwargs)
+
     elif ERC4626Feature.harvest_finance in features:
         from eth_defi.erc_4626.vault_protocol.harvest.vault import HarvestVault
 
@@ -2049,6 +2080,10 @@ def create_vault_instance(
         from eth_defi.erc_4626.vault_protocol.frankencoin.vault import FrankencoinVault
 
         return FrankencoinVault(web3, spec, **kwargs)
+    elif ERC4626Feature.term_finance_like in features:
+        from eth_defi.erc_4626.vault_protocol.term_finance.vault import TermFinanceVault
+
+        return TermFinanceVault(web3, spec, **kwargs)
     elif ERC4626Feature.yearn_morpho_compounder_like in features:
         # Yearn V3 vault with Morpho Compounder strategy
         from eth_defi.erc_4626.vault_protocol.yearn.morpho_compounder import YearnMorphoCompounderStrategy
@@ -2059,6 +2094,10 @@ def create_vault_instance(
         from eth_defi.erc_4626.vault_protocol.yearn.vault import YearnV3Vault
 
         return YearnV3Vault(web3, spec, **kwargs)
+    elif ERC4626Feature.yearn_compounder_like in features:
+        from eth_defi.erc_4626.vault_protocol.yearn.compounder import YearnCompounderVault
+
+        return YearnCompounderVault(web3, spec, **kwargs)
     elif ERC4626Feature.goat_like in features:
         # Both of these have fees internatilised
         from eth_defi.erc_4626.vault_protocol.goat.vault import GoatVault
@@ -2158,11 +2197,6 @@ def create_vault_instance(
         from eth_defi.erc_4626.vault_protocol.usdd.vault import USSDVault
 
         return USSDVault(web3, spec, **kwargs)
-
-    elif ERC4626Feature.term_finance_like in features:
-        from eth_defi.erc_4626.vault_protocol.term_finance.vault import TermFinanceVault
-
-        return TermFinanceVault(web3, spec, **kwargs)
 
     elif ERC4626Feature.zerolend_like in features:
         from eth_defi.erc_4626.vault_protocol.zerolend.vault import ZeroLendVault

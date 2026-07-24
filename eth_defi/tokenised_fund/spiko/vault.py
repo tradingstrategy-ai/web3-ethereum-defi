@@ -25,7 +25,7 @@ from eth_defi.tokenised_fund.spiko.constants import SPIKO_CHAIN_ID, USTBL_FIRST_
 from eth_defi.tokenised_fund.spiko.historical import SpikoHistoricalReader
 from eth_defi.tokenised_fund.vault import TokenisedFundVault
 from eth_defi.types import Percent
-from eth_defi.vault.base import TradingUniverse, VaultDepositManager, VaultFlowManager, VaultHistoricalReader, VaultInfo, VaultPortfolio, VaultSpec
+from eth_defi.vault.base import TradingUniverse, VaultFlowManager, VaultHistoricalReader, VaultInfo, VaultPortfolio, VaultSpec
 from eth_defi.vault.fee import FeeData, VaultFeeMode
 from eth_defi.vault.lower_case_dict import LowercaseDict
 
@@ -33,7 +33,7 @@ from eth_defi.vault.lower_case_dict import LowercaseDict
 SPIKO_PERMISSIONED_FLOW_REASON = "Spiko USTBL subscriptions, transfers and redemptions require eligibility checks and issuer-operated daily servicing"
 
 #: USTBL's published annual management fee. The reported NAV is net of this fee.
-#: https://www.spiko.io/use-cases/web3
+#: https://www.spiko.io/spiko-treasury-bills-dollar
 USTBL_MANAGEMENT_FEE: Percent = 0.0025
 
 _ORACLE_ABI = [
@@ -311,14 +311,6 @@ class SpikoVault(TokenisedFundVault):
         :raise NotImplementedError: Always, as Spiko servicing is bespoke.
         """
         message = "Spiko USTBL subscription and redemption flow accounting is not implemented"
-        raise NotImplementedError(message)
-
-    def get_deposit_manager(self) -> VaultDepositManager:
-        """Reject public generic transaction support.
-
-        :raise NotImplementedError: Always, due to eligibility and daily servicing.
-        """
-        message = "Spiko USTBL permissioned deposits and redemptions are not implemented"
         raise NotImplementedError(message)
 
     def fetch_deposit_closed_reason(self) -> str:

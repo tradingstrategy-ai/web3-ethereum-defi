@@ -1,6 +1,6 @@
 """Post-processing pipeline for vault price data.
 
-Merges native protocol data (Hypercore, GRVT, Lighter) into the
+Merges native protocol data (Hypercore, GRVT, Lighter, Hibachi, ApeX) into the
 uncleaned parquet, runs the cleaning pipeline, and optionally
 uploads results to R2.
 
@@ -19,6 +19,9 @@ import pyarrow as pa
 import pyarrow.compute as pc
 import pyarrow.parquet as pq
 
+from eth_defi.apex.constants import APEX_CHAIN_ID, APEX_METRICS_DATABASE
+from eth_defi.apex.metrics import ApexMetricsDatabase
+from eth_defi.apex.vault_data_export import build_raw_prices_dataframe as build_apex_prices_dataframe
 from eth_defi.cloudflare_r2 import calculate_bytes_digest, copy_r2_object_daily_backup, create_r2_client, upload_bytes_to_r2, upload_file_to_r2
 from eth_defi.grvt.constants import GRVT_CHAIN_ID, GRVT_DAILY_METRICS_DATABASE
 from eth_defi.grvt.daily_metrics import GRVTDailyMetricsDatabase
@@ -30,9 +33,10 @@ from eth_defi.hyperliquid.constants import HYPERCORE_CHAIN_ID, HYPERLIQUID_DAILY
 from eth_defi.hyperliquid.daily_metrics import HyperliquidDailyMetricsDatabase
 from eth_defi.hyperliquid.high_freq_metrics import HyperliquidHighFreqMetricsDatabase
 from eth_defi.hyperliquid.vault_data_export import build_hypercore_prices_dataframe
-from eth_defi.lighter.constants import LIGHTER_CHAIN_ID, LIGHTER_DAILY_METRICS_DATABASE
+from eth_defi.lighter.constants import LIGHTER_DAILY_METRICS_DATABASE, LIGHTER_DEPLOYMENTS, LIGHTER_LEGACY_ROBINHOOD_CHAIN_ID, LIGHTER_ROBINHOOD
 from eth_defi.lighter.daily_metrics import LighterDailyMetricsDatabase
 from eth_defi.lighter.vault_data_export import build_raw_prices_dataframe as build_lighter_prices_dataframe
+from eth_defi.lighter.vault_data_export import get_lighter_price_deployments
 from eth_defi.research.wrangle_vault_prices import generate_cleaned_vault_datasets
 from eth_defi.vault import top_vaults_json
 from eth_defi.vault.base import VaultHistoricalRead
@@ -313,7 +317,12 @@ def _align_native_merge_table(table: pa.Table, schema: pa.Schema) -> pa.Table:
     return pa.Table.from_arrays(arrays, schema=schema)
 
 
-def _write_native_partitions_to_uncleaned_parquet(parquet_path: Path, replacements: dict[int, pd.DataFrame]) -> int:
+def _write_native_partitions_to_uncleaned_parquet(
+    parquet_path: Path,
+    replacements: dict[int, pd.DataFrame],
+    remove_chain_ids: set[int] | None = None,
+    replacement_address_patterns: dict[int, set[str]] | None = None,
+) -> int:
     """Replace native chain partitions using PyArrow without full pandas conversion.
 
     The existing file is read as an Arrow table, only the successful native
@@ -325,10 +334,21 @@ def _write_native_partitions_to_uncleaned_parquet(parquet_path: Path, replacemen
         Raw vault-price parquet to update.
     :param replacements:
         Fresh, non-empty source frames keyed by their synthetic chain IDs.
+    :param remove_chain_ids:
+        Additional obsolete chain partitions to remove without replacing.
+        Currently used to clean the legacy Lighter Robinhood synthetic chain
+        9996 once Robinhood data is available under the shared chain 9998.
+    :param replacement_address_patterns:
+        Optional regular-expression address namespaces for partial replacement
+        within a shared synthetic chain. Currently used by Lighter so an
+        independently successful Ethereum or Robinhood scan replaces only its
+        own addresses within chain 9998.
     :return:
         Total row count in the new raw parquet.
     """
     assert replacements, "At least one native chain replacement is required"
+    replacement_address_patterns = replacement_address_patterns or {}
+    assert set(replacement_address_patterns).issubset(replacements), "Address-scoped replacement requires a fresh frame for the same chain"
 
     existing_table = pq.read_table(parquet_path) if parquet_path.exists() else None
     schema = _create_native_merge_schema(existing_table.schema if existing_table is not None else None, replacements)
@@ -336,7 +356,29 @@ def _write_native_partitions_to_uncleaned_parquet(parquet_path: Path, replacemen
     native_table = pa.concat_tables(replacement_tables)
 
     if existing_table is not None:
-        chain_mask = pc.is_in(existing_table["chain"], value_set=pa.array(list(replacements)))
+        # Most native protocols own a whole synthetic chain partition. Lighter
+        # is different: Ethereum and Robinhood now share chain 9998 and scan
+        # independently, so its replacement mask is narrowed by synthetic
+        # address namespace below.
+        whole_chain_ids = (set(replacements) - set(replacement_address_patterns)) | (remove_chain_ids or set())
+        if whole_chain_ids:
+            chain_mask = pc.is_in(
+                existing_table["chain"],
+                value_set=pa.array(list(whole_chain_ids), type=existing_table["chain"].type),
+            )
+        else:
+            chain_mask = pa.array([False] * len(existing_table))
+
+        for chain_id, address_patterns in replacement_address_patterns.items():
+            address_mask = pa.array([False] * len(existing_table))
+            for pattern in address_patterns:
+                address_mask = pc.or_(address_mask, pc.match_substring_regex(existing_table["address"], pattern=pattern))
+            scoped_chain_mask = pc.and_(
+                pc.equal(existing_table["chain"], pa.scalar(chain_id, type=existing_table["chain"].type)),
+                address_mask,
+            )
+            chain_mask = pc.or_(chain_mask, scoped_chain_mask)
+
         retained_table = _align_native_merge_table(existing_table.filter(pc.invert(chain_mask)), schema)
         combined_table = pa.concat_tables([retained_table, native_table])
     else:
@@ -354,17 +396,58 @@ def _write_native_partitions_to_uncleaned_parquet(parquet_path: Path, replacemen
     return len(combined_table)
 
 
+def _merge_apex_prices_with_existing_parquet(
+    parquet_path: Path,
+    fresh_df: pd.DataFrame,
+) -> pd.DataFrame:
+    """Preserve ApeX history that is absent from the current DuckDB export.
+
+    ApeX retains only a bounded amount of platform history, and its local
+    DuckDB may be rebuilt after state loss. A non-empty current export is
+    therefore not necessarily a complete replacement for the ApeX synthetic
+    chain partition. Existing rows are retained unless a fresh row has the
+    same synthetic vault address and exact timestamp, in which case the fresh
+    observation corrects the earlier value.
+
+    Only the ApeX partition is read into pandas. The full Parquet file remains
+    in Arrow form for the later atomic native-protocol batch write.
+
+    :param parquet_path:
+        Existing raw vault-price Parquet path.
+    :param fresh_df:
+        Non-empty ApeX raw price rows exported from the current DuckDB.
+    :return:
+        Append-and-correct ApeX rows containing both retained and fresh
+        observations.
+    """
+    assert not fresh_df.empty, "A non-empty ApeX frame is required"
+    if not parquet_path.exists():
+        return fresh_df
+
+    existing_table = pq.read_table(
+        parquet_path,
+        filters=[("chain", "=", APEX_CHAIN_ID)],
+    )
+    if len(existing_table) == 0:
+        return fresh_df
+
+    existing_df = existing_table.to_pandas()
+    return pd.concat([existing_df, fresh_df], ignore_index=True).drop_duplicates(subset=["address", "timestamp"], keep="last").reset_index(drop=True)
+
+
 def merge_native_protocols(
     merge_hypercore: bool = False,
     merge_grvt: bool = False,
     merge_lighter: bool = False,
     merge_hibachi: bool = False,
+    merge_apex: bool = False,
     uncleaned_parquet_path: Path | None = None,
     hyperliquid_db_path: Path | None = None,
     hyperliquid_hf_db_path: Path | None = None,
     grvt_db_path: Path | None = None,
     lighter_db_path: Path | None = None,
     hibachi_db_path: Path | None = None,
+    apex_db_path: Path | None = None,
 ) -> dict[str, bool]:
     """Merge native protocol price data into the uncleaned parquet in one pass.
 
@@ -375,8 +458,10 @@ def merge_native_protocols(
     merged together so that switching between modes never loses
     historical data. All enabled native sources are collected before the
     existing parquet is read, then their chain partitions are replaced and
-    the result is written once. This avoids repeatedly rewriting the much
-    larger EVM data set.
+    the result is written once. ApeX is append-and-correct by synthetic vault
+    address and exact timestamp because its source may no longer return older
+    observations. This avoids repeatedly rewriting the much larger EVM data
+    set without risking loss of previously collected ApeX history.
 
     An unavailable, empty, or failed source leaves its existing chain
     partition untouched. This preserves the previous per-source failure
@@ -387,17 +472,21 @@ def merge_native_protocols(
     :param merge_grvt: Merge GRVT native vault data
     :param merge_lighter: Merge Lighter native pool data
     :param merge_hibachi: Merge Hibachi native vault data
+    :param merge_apex: Merge ApeX native vault data
     :param uncleaned_parquet_path: Override for the uncleaned parquet path
     :param hyperliquid_db_path: Override for the daily Hyperliquid DuckDB path
     :param hyperliquid_hf_db_path: Override for the HF Hyperliquid DuckDB path
     :param grvt_db_path: Override for the GRVT DuckDB path
     :param lighter_db_path: Override for the Lighter DuckDB path
     :param hibachi_db_path: Override for the Hibachi DuckDB path
+    :param apex_db_path: Override for the ApeX DuckDB path
     :return: Dictionary mapping step name to success boolean
     """
     parquet_path = uncleaned_parquet_path or DEFAULT_UNCLEANED_PRICE_DATABASE
     steps: dict[str, bool] = {}
     replacements: dict[int, pd.DataFrame] = {}
+    remove_chain_ids: set[int] = set()
+    replacement_address_patterns: dict[int, set[str]] = {}
 
     if merge_hypercore:
         try:
@@ -463,7 +552,19 @@ def merge_native_protocols(
             if lighter_df.empty:
                 logger.warning("No Lighter data to merge")
             else:
-                replacements[LIGHTER_CHAIN_ID] = lighter_df
+                fresh_deployments = get_lighter_price_deployments(lighter_df)
+                for chain_id, deployment_df in lighter_df.groupby("chain"):
+                    replacements[int(chain_id)] = deployment_df
+                    # Both Lighter deployments share chain 9998 but are scanned
+                    # independently. Restrict replacement to deployment address
+                    # namespaces present in this fresh export, preventing a
+                    # partial scan from deleting the other deployment's data.
+                    replacement_address_patterns[int(chain_id)] = {deployment.pool_address_pattern for deployment in fresh_deployments}
+                # The short-lived 9996 partition contains Robinhood only. Do
+                # not remove it until fresh Robinhood data is available; an
+                # Ethereum-only scan is not a valid replacement for it.
+                if LIGHTER_ROBINHOOD in fresh_deployments:
+                    remove_chain_ids.add(LIGHTER_LEGACY_ROBINHOOD_CHAIN_ID)
             logger.info("Lighter price merge: %d fresh Lighter price entries", len(lighter_df))
             steps["lighter-price-merge"] = True
         except Exception:
@@ -489,11 +590,38 @@ def merge_native_protocols(
             logger.exception("Hibachi price merge failed")
             steps["hibachi-price-merge"] = False
 
+    if merge_apex:
+        try:
+            logger.info("Merging ApeX prices into uncleaned parquet")
+            a_db_path = apex_db_path or APEX_METRICS_DATABASE
+            db = ApexMetricsDatabase(a_db_path)
+            try:
+                apex_df = build_apex_prices_dataframe(db)
+            finally:
+                db.close()
+            if apex_df.empty:
+                logger.warning("No ApeX data to merge")
+            else:
+                replacements[APEX_CHAIN_ID] = _merge_apex_prices_with_existing_parquet(
+                    parquet_path,
+                    apex_df,
+                )
+            logger.info("ApeX price merge: %d fresh ApeX price entries", len(apex_df))
+            steps["apex-price-merge"] = True
+        except Exception:
+            logger.exception("ApeX price merge failed")
+            steps["apex-price-merge"] = False
+
     if not replacements:
         return steps
 
     try:
-        total_rows = _write_native_partitions_to_uncleaned_parquet(parquet_path, replacements)
+        total_rows = _write_native_partitions_to_uncleaned_parquet(
+            parquet_path,
+            replacements,
+            remove_chain_ids=remove_chain_ids,
+            replacement_address_patterns=replacement_address_patterns,
+        )
         logger.info(
             "Merged %d native protocol chain partitions (%d fresh rows, %d total rows) into uncleaned %s in one PyArrow parquet write",
             len(replacements),
@@ -506,11 +634,13 @@ def merge_native_protocols(
         for step_name, chain_id in (
             ("hypercore-price-merge", HYPERCORE_CHAIN_ID),
             ("grvt-price-merge", GRVT_CHAIN_ID),
-            ("lighter-price-merge", LIGHTER_CHAIN_ID),
             ("hibachi-price-merge", HIBACHI_CHAIN_ID),
+            ("apex-price-merge", APEX_CHAIN_ID),
         ):
             if chain_id in replacements:
                 steps[step_name] = False
+        if any(deployment.chain_id in replacements for deployment in LIGHTER_DEPLOYMENTS):
+            steps["lighter-price-merge"] = False
 
     return steps
 
@@ -825,6 +955,7 @@ def run_post_processing(
     scan_grvt: bool = False,
     scan_lighter: bool = False,
     scan_hibachi: bool = False,
+    scan_apex: bool = False,
     skip_cleaning: bool = False,
     skip_top_vaults: bool = False,
     skip_sparklines: bool = False,
@@ -837,6 +968,7 @@ def run_post_processing(
     grvt_db_path: Path | None = None,
     lighter_db_path: Path | None = None,
     hibachi_db_path: Path | None = None,
+    apex_db_path: Path | None = None,
     vault_db_path: Path | None = None,
     cleaned_path: Path | None = None,
     settlement_db_path: Path | None = None,
@@ -858,6 +990,7 @@ def run_post_processing(
     :param scan_grvt: Whether to merge GRVT data
     :param scan_lighter: Whether to merge Lighter data
     :param scan_hibachi: Whether to merge Hibachi data
+    :param scan_apex: Whether to merge ApeX data
     :param skip_cleaning: Skip price cleaning step
     :param skip_top_vaults: Skip top-vaults JSON generation and R2 upload
     :param skip_sparklines: Skip sparkline image export to R2
@@ -870,6 +1003,7 @@ def run_post_processing(
     :param grvt_db_path: Override for the GRVT DuckDB path
     :param lighter_db_path: Override for the Lighter DuckDB path
     :param hibachi_db_path: Override for the Hibachi DuckDB path
+    :param apex_db_path: Override for the ApeX DuckDB path
     :param vault_db_path: Override for the vault database pickle path
     :param cleaned_path: Override for the cleaned parquet output path
     :param settlement_db_path: Override for the vault settlement DuckDB path
@@ -885,12 +1019,14 @@ def run_post_processing(
         merge_grvt=scan_grvt,
         merge_lighter=scan_lighter,
         merge_hibachi=scan_hibachi,
+        merge_apex=scan_apex,
         uncleaned_parquet_path=uncleaned_parquet_path,
         hyperliquid_db_path=hyperliquid_db_path,
         hyperliquid_hf_db_path=hyperliquid_hf_db_path,
         grvt_db_path=grvt_db_path,
         lighter_db_path=lighter_db_path,
         hibachi_db_path=hibachi_db_path,
+        apex_db_path=apex_db_path,
     )
     steps.update(merge_results)
 

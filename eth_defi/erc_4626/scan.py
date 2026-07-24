@@ -22,6 +22,7 @@ from eth_defi.event_reader.web3factory import Web3Factory
 from eth_defi.provider.fallback import ExtraValueError
 from eth_defi.token import TokenDiskCache
 from eth_defi.vault.base import VaultBase
+from eth_defi.vault.deposit_redeem import VaultDepositPermission
 from eth_defi.vault.fee import BROKEN_FEE_DATA, FeeData
 
 logger = logging.getLogger(__name__)
@@ -50,6 +51,21 @@ ROW_READ_EXCEPTIONS = (
     *BEST_EFFORT_READ_EXCEPTIONS,
     AssertionError,
     ArithmeticError,
+)
+
+#: Permission reporting is optional, but must not hide adapter programming
+#: errors.  Keep this deliberately narrower than BEST_EFFORT_READ_EXCEPTIONS.
+DEPOSIT_PERMISSION_READ_EXCEPTIONS = (
+    NotImplementedError,
+    ConnectionError,
+    TimeoutError,
+    DecodingError,
+    BadFunctionCallOutput,
+    ContractLogicError,
+    ExtraValueError,
+    MismatchedABI,
+    RequestException,
+    Web3RPCError,
 )
 
 
@@ -104,6 +120,38 @@ def _best_effort_vault_read(reader: Callable[[], OptionalVaultRead]) -> Optional
             exc_info=True,
         )
         return None
+
+
+def fetch_deposit_permission(vault: VaultBase) -> VaultDepositPermission:
+    """Read a vault-wide deposit permission policy for a scan record.
+
+    The report remains usable when a deployed adapter version lacks the
+    protocol-specific view method or its node cannot answer a view call.  It
+    intentionally catches only concrete transport, ABI and contract-call
+    failures: implementation bugs such as ``AttributeError`` and ``TypeError``
+    propagate to the row-level scanner guard instead of becoming ``unknown``.
+
+    :param vault:
+        Protocol adapter whose vault-wide policy is queried.
+
+    :return:
+        JSON-compatible enum representing whitelist policy or an explicitly
+        unknown policy.
+    """
+    try:
+        whitelisted = vault.is_whitelisted_deposit()
+        assert type(whitelisted) is bool, f"Expected bool, got {type(whitelisted)}"
+        if whitelisted:
+            return VaultDepositPermission.whitelisted
+        return VaultDepositPermission.permissionless
+    except DEPOSIT_PERMISSION_READ_EXCEPTIONS as e:
+        logger.debug(
+            "Could not read deposit permission for vault %s: %s",
+            vault.address,
+            e,
+            exc_info=True,
+        )
+        return VaultDepositPermission.unknown
 
 
 def _fetch_total_assets(vault: VaultBase, block_identifier: BlockIdentifier) -> Decimal | None:
@@ -304,6 +352,7 @@ def create_vault_scan_record(
         "_flags": {},
         "_notes": None,
         "_deposit_manager": None,
+        "_deposit_permission": VaultDepositPermission.unknown.value,
     }
 
     vault = create_vault_instance(
@@ -385,6 +434,7 @@ def create_vault_scan_record(
             "_manager_name": vault.manager_name,
             "_morpho_offchain_data": vault.morpho_offchain_data if isinstance(vault, (MorphoV1Vault, MorphoV2Vault)) else None,
             "_deposit_manager": deposit_manager_capability.as_initial_public_schema() if deposit_manager_capability else None,
+            "_deposit_permission": fetch_deposit_permission(vault).value,
         }
         data.update(activity_status)
         data.update(lending_stats)

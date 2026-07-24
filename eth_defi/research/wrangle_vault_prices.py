@@ -106,6 +106,8 @@ class CleanedVaultPriceRow(TypedDict, total=False):
     #:   see :py:data:`~eth_defi.lighter.constants.LIGHTER_CHAIN_ID`
     #: - ``9997`` — Hibachi native vaults,
     #:   see :py:data:`~eth_defi.hibachi.constants.HIBACHI_CHAIN_ID`
+    #: - ``9995`` — ApeX native vaults,
+    #:   see :py:data:`~eth_defi.apex.constants.APEX_CHAIN_ID`
     #: - ``325`` — GRVT (Gravity Markets),
     #:   see :py:data:`~eth_defi.grvt.constants.GRVT_CHAIN_ID`
     #:
@@ -123,6 +125,7 @@ class CleanedVaultPriceRow(TypedDict, total=False):
     #: - GRVT: platform-specific id (e.g. ``"vlt:xxx"``)
     #: - Lighter: synthetic id (e.g. ``"lighter-pool-281474976710654"``)
     #: - Hibachi: synthetic id (e.g. ``"hibachi-vault-2"``)
+    #: - ApeX: synthetic id (e.g. ``"apex-vault-2044287989957394432"``)
     #:
     #: See :py:func:`~eth_defi.utils.is_good_multichain_address` for
     #: the validation function that accepts all these formats.
@@ -1720,6 +1723,13 @@ def process_raw_vault_scan_data(
         logger("After add_denormalised_vault_data():")
         display(vault_prices_df)
 
+    # ``read_parquet(dtype_backend="pyarrow")`` may return a
+    # ``timestamp[ms][pyarrow]`` Series. Pandas then creates a generic Index,
+    # even though the values are datetimes, and the chronological processing
+    # below correctly rejects it. Materialise the canonical DatetimeIndex
+    # representation before indexing. This was surfaced by the initial shared
+    # chain scan for Lighter Ethereum and Lighter Robinhood.
+    prices_df["timestamp"] = pd.to_datetime(prices_df["timestamp"])
     prices_df = prices_df.set_index("timestamp")
 
     prices_df = sort_and_index_vault_prices(prices_df, PRIORITY_SORT_IDS)

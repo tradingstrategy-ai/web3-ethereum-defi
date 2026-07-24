@@ -21,7 +21,7 @@ from eth_defi.tokenised_fund.theo.constants import THEO_ITOKEN_PRODUCTS, TheoITo
 from eth_defi.tokenised_fund.theo.historical import TheoITokenHistoricalReader
 from eth_defi.tokenised_fund.vault import TokenisedFundVault
 from eth_defi.types import Percent
-from eth_defi.vault.base import TradingUniverse, VaultDepositManager, VaultFlowManager, VaultHistoricalReader, VaultInfo, VaultPortfolio, VaultSpec
+from eth_defi.vault.base import TradingUniverse, VaultFlowManager, VaultHistoricalReader, VaultInfo, VaultPortfolio, VaultSpec
 from eth_defi.vault.fee import BROKEN_FEE_DATA, FeeData
 from eth_defi.vault.lower_case_dict import LowercaseDict
 
@@ -264,14 +264,6 @@ class TheoITokenVault(TokenisedFundVault):
 
         message = "Theo thBILL flow accounting is not implemented"
         raise NotImplementedError(message)
-
-    def get_deposit_manager(self) -> VaultDepositManager:
-        """Reject public dealing for this KYC-restricted product.
-
-        :raises NotImplementedError: Always.
-        """
-
-        raise NotImplementedError(THEO_ITOKEN_RESTRICTED_FLOW_REASON)
 
     def fetch_deposit_closed_reason(self) -> str:
         """Explain why public deposits are unavailable.

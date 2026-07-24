@@ -36,6 +36,7 @@ from eth_defi.research.wrangle_vault_prices import forward_fill_vault
 from eth_defi.token import is_stablecoin_like, normalise_token_symbol
 from eth_defi.vault.base import VaultSpec
 from eth_defi.vault.curator import get_curator_name, identify_curator, is_protocol_curator
+from eth_defi.vault.deposit_redeem import VaultDepositPermission
 from eth_defi.vault.fee import FeeData, VaultFeeMode, get_vault_fee_mode
 from eth_defi.vault.flag import (
     ABNORMAL_SHARE_PRICE,
@@ -224,6 +225,21 @@ class VaultMetricsRecord(TypedDict, total=False):
 
     #: Chain display name, e.g. ``"Ethereum"``
     chain: str
+
+    #: Native protocol deployment slug, or ``None`` for ordinary EVM vaults.
+    #:
+    #: For now this is populated for Lighter so consumers can distinguish the
+    #: original ``ethereum`` deployment from Lighter on ``robinhood`` while
+    #: retaining Lighter's synthetic vault-dataset chain ID.
+    deployment: str | None
+
+    #: Real EVM chain ID associated with a native protocol deployment.
+    #:
+    #: For now this is populated for Lighter on Ethereum (1) and Lighter on
+    #: Robinhood Chain (4663). Both deployments keep ``chain_id=9998`` because
+    #: they share the native Lighter dataset namespace; their synthetic address
+    #: prefixes and these deployment fields distinguish individual vaults.
+    deployment_chain_id: int | None
 
     #: Protocol display name, e.g. ``"Morpho"``
     protocol: str
@@ -1606,6 +1622,13 @@ def calculate_vault_record(
     current_nav = prices_df["total_assets"].iloc[-1]
     chain_id = prices_df["chain"].iloc[-1]
 
+    # Native vault integrations may use a synthetic chain ID as their dataset
+    # identity. For now Lighter uses this optional metadata to expose whether a
+    # pool belongs to its Ethereum or Robinhood deployment without teaching
+    # this generic metrics module about Lighter-specific constants.
+    deployment = vault_metadata.get("_deployment")
+    deployment_chain_id = vault_metadata.get("_deployment_chain_id")
+
     fee_data: FeeData | None = vault_metadata.get("_fees")
 
     if fee_data is None:
@@ -1680,6 +1703,20 @@ def calculate_vault_record(
     vault_slug = vault_metadata["vault_slug"]
     protocol_slug = vault_metadata["protocol_slug"]
     risk_numeric = risk.value if isinstance(risk, VaultTechnicalRisk) else None
+
+    stored_deposit_manager = vault_metadata.get("_deposit_manager")
+    if stored_deposit_manager is None:
+        deposit_manager = None
+    else:
+        # Keep the persisted capability mapping immutable: it can be reused by
+        # other report rows during this export.
+        deposit_manager = dict(stored_deposit_manager)
+        deposit_permission = vault_metadata.get("_deposit_permission", VaultDepositPermission.unknown.value)
+        try:
+            deposit_permission = VaultDepositPermission(deposit_permission).value
+        except (TypeError, ValueError):
+            deposit_permission = VaultDepositPermission.unknown.value
+        deposit_manager["deposit_permission"] = deposit_permission
 
     # Compact per-vault Core3 risk summary for the vault's protocol.
     # Core3 data is per-protocol, so all vaults of the same protocol share
@@ -2052,6 +2089,12 @@ def calculate_vault_record(
             "denomination_slug": denomination_slug,
             "share_token": share_token,
             "chain": get_chain_name(chain_id),
+            # These optional fields are currently populated by Lighter. They
+            # were introduced for Lighter on Robinhood so API consumers can see
+            # the associated EVM chain while ``chain_id=9998`` continues to
+            # carry their shared synthetic native-pool dataset identity.
+            "deployment": deployment,
+            "deployment_chain_id": deployment_chain_id,
             "peak_nav": max_nav,
             "current_nav": current_nav,
             "years": age,
@@ -2106,7 +2149,7 @@ def calculate_vault_record(
             # Static adapter support, distinct from the live closed-reason
             # fields immediately above.  Old metadata pickles safely export
             # null until they have been rescanned.
-            "deposit_manager": vault_metadata.get("_deposit_manager"),
+            "deposit_manager": deposit_manager,
             # Lending protocol statistics
             "available_liquidity": available_liquidity,
             "utilisation": utilisation,
@@ -2620,6 +2663,12 @@ def format_lifetime_table(
     _del("peak_nav")
     _del("address")
     _del("chain_id")
+    # Machine-readable deployment identity is exported through the JSON API,
+    # not the human-readable metrics table. For now these fields specifically
+    # support distinguishing Lighter on Robinhood from Lighter on Ethereum;
+    # the table continues to display the synthetic Lighter chain name.
+    _del("deployment")
+    _del("deployment_chain_id")
     _del("end_date")
     _del("risk_numeric")
     _del("stablecoinish")
@@ -2769,7 +2818,7 @@ def display_lifetime_table(df: pd.DataFrame):
     :param df:
         DataFrame returned by :py:func:`format_lifetime_table`.
     """
-    from IPython.display import display, HTML
+    from IPython.display import HTML, display
 
     style = "<style>table.lifetime-table td, table.lifetime-table th { padding: 2px 6px; white-space: nowrap; }</style>"
     table_html = df.to_html(escape=False, classes="lifetime-table")

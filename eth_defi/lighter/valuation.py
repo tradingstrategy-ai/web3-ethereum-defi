@@ -39,22 +39,22 @@ class LighterEquity:
     #: Lighter account index.
     account_index: int
 
-    #: Account collateral in USDC, before unrealised position PnL.
+    #: Account collateral before unrealised position PnL.
     collateral: Decimal
 
-    #: Sum of ``positions[].unrealized_pnl`` in USDC.
+    #: Sum of ``positions[].unrealized_pnl`` in the collateral currency.
     unrealised_pnl: Decimal
 
     #: Canonical account NAV reported by Lighter as ``total_asset_value``.
     total_asset_value: Decimal
 
-    #: Free USDC balance available for new orders or withdrawals.
+    #: Free collateral balance available for new orders or withdrawals.
     available_balance: Decimal
 
-    #: Cross-margin initial margin requirement in USDC.
+    #: Cross-margin initial margin requirement in the collateral currency.
     initial_margin_requirement: Decimal
 
-    #: Cross-margin maintenance margin requirement in USDC.
+    #: Cross-margin maintenance margin requirement in the collateral currency.
     maintenance_margin_requirement: Decimal
 
     #: Number of open position records returned by the Lighter API.
@@ -69,7 +69,7 @@ class LighterEquity:
         check.
 
         :return:
-            Account net asset value in USDC.
+            Account net asset value in the deployment's collateral currency.
         """
         return self.total_asset_value
 
@@ -77,7 +77,7 @@ class LighterEquity:
         """Calculate account NAV from collateral and unrealised PnL.
 
         :return:
-            ``collateral + unrealised_pnl`` in USDC.
+            ``collateral + unrealised_pnl`` in the collateral currency.
         """
         return self.collateral + self.unrealised_pnl
 
@@ -92,7 +92,8 @@ def fetch_lighter_total_equity(
     Uses Lighter's public ``/api/v1/account?by=index&value={account_index}``
     endpoint. No API key is required. The returned
     :py:meth:`LighterEquity.get_total` value is the canonical
-    ``total_asset_value`` reported by Lighter, denominated in USDC.
+    ``total_asset_value`` reported by Lighter, denominated in the deployment's
+    collateral currency.
 
     Authoritative endpoint documentation:
     https://apidocs.lighter.xyz/reference/account
@@ -222,7 +223,7 @@ def _parse_position_unrealised_pnl(position: dict[str, Any]) -> Decimal:
     :param position:
         Raw position dict from ``account["positions"]``.
     :return:
-        Position unrealised PnL in USDC.
+        Position unrealised PnL in the deployment's collateral currency.
     """
     value = position.get("unrealized_pnl", position.get("unrealizedPnl"))
     return _parse_decimal(value, "positions[].unrealized_pnl", default=Decimal(0))

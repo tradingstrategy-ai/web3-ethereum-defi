@@ -23,6 +23,7 @@ from eth_defi.provider.anvil import AnvilLaunch, fork_network_anvil
 from eth_defi.provider.multi_provider import create_multi_provider_web3
 from eth_defi.tokenised_fund.kinexys import backfill
 from eth_defi.tokenised_fund.kinexys.vault import KINEXYS_WHITELISTED_FLOW_REASON, MONY_NAV_SOURCE, OdaFactVault
+from eth_defi.tokenised_fund.vault import TokenisedFundDepositManager
 from eth_defi.vault.base import VaultSpec
 from eth_defi.vault.flag import VaultFlag
 from eth_defi.vault.vaultdb import VaultDatabase
@@ -96,8 +97,8 @@ def test_mony_does_not_invent_a_nav_or_public_flow() -> None:
     assert vault.fetch_redemption_closed_reason() == KINEXYS_WHITELISTED_FLOW_REASON
     assert vault.get_flags() == {VaultFlag.tokenised_fund}
     assert "no on-chain NAV" in vault.get_notes()
-    with pytest.raises(NotImplementedError):
-        vault.get_deposit_manager()
+    assert vault.get_deposit_manager_capability().as_initial_public_schema() == {"can_deposit": False, "can_redeem": False}
+    assert isinstance(vault.get_deposit_manager(), TokenisedFundDepositManager)
     with pytest.raises(NotImplementedError):
         vault.get_flow_manager()
 

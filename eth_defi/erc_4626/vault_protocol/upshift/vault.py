@@ -11,14 +11,25 @@ from web3 import Web3
 from web3.contract import Contract
 
 from eth_defi.abi import get_deployed_contract
-from eth_defi.erc_4626.core import ERC4626Feature, get_deployed_erc_4626_contract
+from eth_defi.erc_4626.core import ERC4626Feature
 from eth_defi.erc_4626.vault import ERC4626Vault, VaultReaderState
+from eth_defi.erc_4626.vault_protocol.upshift.offchain_metadata import UpshiftVaultMetadata, fetch_upshift_vault_metadata
 from eth_defi.event_reader.conversion import convert_int256_bytes_to_int
 from eth_defi.event_reader.multicall_batcher import EncodedCall, EncodedCallResult
-from eth_defi.token import TokenDetails
+from eth_defi.token import TokenDetails, fetch_erc20_details
 from eth_defi.vault.base import VaultHistoricalRead, VaultHistoricalReader
+from eth_defi.vault.deposit_redeem import VaultDepositManagerCapability
+from eth_defi.vault.fee import VaultFeeMode
 
 logger = logging.getLogger(__name__)
+
+#: Upshift management, withdrawal and instant-redemption fees use basis points.
+UPSHIFT_BASIS_POINTS_DENOMINATOR = 10_000
+
+#: Upshift performance fees use parts per million. The verified implementation
+#: calculates ``totalAssetsIncrease * performanceFeeRate / 1e6``.
+#: https://etherscan.io/address/0xEB5f80aCEa6060764E91c185bE93752Ab40F01c2#code
+UPSHIFT_PERFORMANCE_FEE_DENOMINATOR = 1_000_000
 
 
 class UpshiftMultiAssetHistoricalReader(VaultHistoricalReader):
@@ -218,6 +229,87 @@ class UpshiftVault(ERC4626Vault):
     """
 
     @cached_property
+    def upshift_metadata(self) -> UpshiftVaultMetadata | None:
+        """Fetch cached public Upshift vault metadata.
+
+        Upshift supplies descriptions, named strategists and named operator
+        wallets through its `vault API <https://docs.upshift.finance/developer-docs/api-reference/vaults>`__.
+        The API does not expose a curator field, so strategist identities must
+        not be treated as verified curator records without an external mapping.
+
+        :return:
+            Parsed public metadata, or ``None`` when no API record is
+            accessible for this vault.
+        """
+
+        return fetch_upshift_vault_metadata(self.web3, self.vault_address)
+
+    @property
+    def description(self) -> str | None:
+        """Return the full Upshift-supplied vault strategy description.
+
+        :return:
+            Public Upshift description, or ``None`` when it is not available.
+        """
+
+        if self.upshift_metadata is None:
+            return None
+        return self.upshift_metadata["description"]
+
+    @property
+    def short_description(self) -> str | None:
+        """Derive a one-sentence vault summary from Upshift's API description.
+
+        Upshift does not expose a dedicated short-description field, so this
+        follows the IPOR metadata convention and uses the first sentence of
+        its long-form strategy description.
+
+        :return:
+            First sentence of the public Upshift description, or ``None`` when
+            the API does not supply one.
+        """
+        description = self.description
+        if not description:
+            return None
+
+        sentence_end = description.find(". ")
+        if sentence_end >= 0:
+            return description[: sentence_end + 1]
+
+        return description.rstrip(".") + "."
+
+    @property
+    def manager_name(self) -> str | None:
+        """Expose Upshift strategist brands through the generic manager field.
+
+        :return:
+            Comma-separated strategist display names, or ``None`` when the API
+            does not publish any strategist names.
+        """
+
+        return self.fetch_strategist()
+
+    def fetch_strategist(self) -> str | None:
+        """Fetch the Upshift strategist identity from public metadata.
+
+        Upshift calls these records ``hardcoded_strategists``. This is the
+        closest available offchain manager identity, but it is not an explicit
+        curator field. Named EOA operators are intentionally not used because
+        they identify operational wallets rather than the strategy brand.
+
+        :return:
+            Comma-separated strategist display names, or ``None`` when the API
+            does not publish any strategist names.
+        """
+
+        metadata = self.upshift_metadata
+        if metadata is None:
+            return None
+
+        strategist_names = metadata["strategist_names"]
+        return ", ".join(strategist_names) or None
+
+    @cached_property
     def multi_asset_like(self) -> bool:
         """Is this an Upshift multi-asset vault.
 
@@ -246,8 +338,9 @@ class UpshiftVault(ERC4626Vault):
                 self.spec.vault_address,
             )
 
-        return get_deployed_erc_4626_contract(
+        return get_deployed_contract(
             self.web3,
+            "upshift/TokenizedAccount.json",
             self.spec.vault_address,
         )
 
@@ -256,6 +349,86 @@ class UpshiftVault(ERC4626Vault):
         """Alias for the Upshift implementation-specific vault contract."""
 
         return self.vault_contract
+
+    @cached_property
+    def assets_whitelist_contract(self) -> Contract:
+        """Get the multi-asset denomination-token whitelist contract.
+
+        :return:
+            The configured whitelist contract.
+        :raise ValueError:
+            If this is not an Upshift multi-asset vault.
+        """
+        if not self.multi_asset_like:
+            raise ValueError("Only Upshift multi-asset vaults have an assets whitelist")
+        address = self.upshift_contract.functions.assetsWhitelistAddress().call()
+        return get_deployed_contract(
+            self.web3,
+            "upshift/EnableOnlyAssetsWhitelist.json",
+            address,
+        )
+
+    def fetch_all_denomination_tokens(self) -> tuple[TokenDetails, ...]:
+        """Fetch every configured multi-asset denomination token.
+
+        The returned tuple preserves the onchain whitelist ordering. That
+        ordering determines the primary token returned by
+        :meth:`fetch_denomination_token`.
+
+        :return:
+            Whitelisted denomination tokens in protocol order. Standard
+            single-asset Upshift vaults return their normal denomination token.
+        :raise ValueError:
+            If a configured token cannot be read as an ERC-20.
+        """
+        if not self.multi_asset_like:
+            token = super().fetch_denomination_token()
+            return (token,) if token is not None else ()
+
+        addresses = self.assets_whitelist_contract.functions.getWhitelistedAssets().call()
+        if not addresses:
+            # Older multi-asset proxies can expose a whitelist contract before
+            # it has any configured assets. Their ERC-4626 asset remains the
+            # only observable primary denomination token.
+            token = super().fetch_denomination_token()
+            return (token,) if token is not None else ()
+        tokens = []
+        for address in addresses:
+            token = fetch_erc20_details(
+                self.web3,
+                address,
+                chain_id=self.spec.chain_id,
+                raise_on_error=False,
+                cause_diagnostics_message=f"Upshift vault {self.address} denomination token lookup",
+                cache=self.token_cache,
+            )
+            if token is None:
+                raise ValueError(f"Could not fetch Upshift denomination token {address} for vault {self.address}")
+            tokens.append(token)
+        return tuple(tokens)
+
+    def fetch_denomination_token(self) -> TokenDetails | None:
+        """Fetch Upshift's primary denomination token.
+
+        **Supported simulation path**
+
+        Multi-asset vaults use the first token in the onchain whitelist as
+        their primary denomination token. The representative integration path
+        uses a vault whose first token is USDC.
+
+        **Known limitations**
+
+        Only the first token is selected as the primary denomination token.
+        Remaining whitelisted tokens are discovered by
+        :meth:`fetch_all_denomination_tokens` but are not supported by the
+        deposit manager yet.
+
+        :return:
+            First whitelisted token for a multi-asset vault, or the normal
+            ERC-4626 denomination token for a standard Upshift vault.
+        """
+        tokens = self.fetch_all_denomination_tokens()
+        return tokens[0] if tokens else None
 
     def fetch_share_token_address(self, block_identifier: BlockIdentifier = "latest") -> HexAddress:
         """Get the share token address.
@@ -297,33 +470,92 @@ class UpshiftVault(ERC4626Vault):
         """Upshift has withdrawal and instant redemption fees."""
         return True
 
+    def get_fee_mode(self) -> VaultFeeMode | None:
+        """Return the fee-accounting model when the vault exposes it.
+
+        Multi-asset vaults accrue management and performance fees against vault
+        assets, making the share price net of those fees.  TokenizedAccount
+        vaults do not expose those configuration values, so their overall fee
+        mode remains unknown.
+
+        :return:
+            ``internalised_skimming`` for multi-asset vaults, otherwise
+            ``None``.
+        """
+        if self.multi_asset_like:
+            return VaultFeeMode.internalised_skimming
+        return None
+
     def get_management_fee(self, block_identifier: BlockIdentifier) -> float | None:
         """Get management fee.
 
-        The supported Upshift ABIs expose fee charging hooks, but not a single
-        protocol-wide management-fee convention that maps cleanly to the shared
-        historical schema.
+        Multi-asset vaults expose ``managementFeePercent()`` in basis points.
+        TokenizedAccount contracts do not expose an equivalent fee getter, so
+        their management fee remains unknown rather than being treated as zero.
 
         :param block_identifier:
             Block number or ``"latest"``.
 
         :return:
-            ``None`` because fee extraction is not yet implemented.
+            Decimal management-fee fraction, or ``None`` when unavailable.
         """
+        if not self.multi_asset_like:
+            return None
 
-        return None
+        raw_bps = self.upshift_contract.functions.managementFeePercent().call(block_identifier=block_identifier)
+        return raw_bps / UPSHIFT_BASIS_POINTS_DENOMINATOR
 
     def get_performance_fee(self, block_identifier: BlockIdentifier) -> float | None:
         """Get performance fee.
 
+        Multi-asset vaults expose ``performanceFeeRate()`` in parts per
+        million.
+        TokenizedAccount contracts do not expose an equivalent fee getter, so
+        their performance fee remains unknown rather than being treated as zero.
+
         :param block_identifier:
             Block number or ``"latest"``.
 
         :return:
-            ``None`` because fee extraction is not yet implemented.
+            Decimal performance-fee fraction, or ``None`` when unavailable.
         """
+        if not self.multi_asset_like:
+            return None
 
-        return None
+        raw_ppm = self.upshift_contract.functions.performanceFeeRate().call(block_identifier=block_identifier)
+        return raw_ppm / UPSHIFT_PERFORMANCE_FEE_DENOMINATOR
+
+    def get_withdraw_fee(self, block_identifier: BlockIdentifier) -> float:
+        """Read the standard queued-redemption fee.
+
+        ``withdrawalFee()`` excludes the separate fee for the optional instant
+        redemption path.  That additional fee remains represented by
+        :py:meth:`has_custom_fees`.
+
+        :param block_identifier:
+            Block number or ``"latest"`` at which to read the configuration.
+
+        :return:
+            Decimal withdrawal-fee fraction, e.g. ``0.002`` for 20 bps.
+        """
+        raw_bps = self.upshift_contract.functions.withdrawalFee().call(block_identifier=block_identifier)
+        return raw_bps / UPSHIFT_BASIS_POINTS_DENOMINATOR
+
+    def fetch_instant_redemption_fee(self, block_identifier: BlockIdentifier) -> float:
+        """Read the extra instant-redemption fee outside the shared fee schema.
+
+        Upshift supports a queued redemption flow and an optional immediate
+        redemption.  The latter fee cannot be substituted for the standard
+        withdrawal fee because it applies only when a user chooses that path.
+
+        :param block_identifier:
+            Block number or ``"latest"`` at which to read the configuration.
+
+        :return:
+            Decimal instant-redemption fee fraction, e.g. ``0.002`` for 20 bps.
+        """
+        raw_bps = self.upshift_contract.functions.instantRedemptionFee().call(block_identifier=block_identifier)
+        return raw_bps / UPSHIFT_BASIS_POINTS_DENOMINATOR
 
     def fetch_total_assets(self, block_identifier: BlockIdentifier) -> Decimal | None:
         """Fetch vault NAV in denomination token units.
@@ -396,20 +628,32 @@ class UpshiftVault(ERC4626Vault):
 
         return super().get_deposit_manager()
 
-    def get_deposit_manager_capability(self) -> "VaultDepositManagerCapability | None":
+    def get_deposit_manager_capability(self) -> VaultDepositManagerCapability:
         """Declare only Upshift's normal ERC-4626 vault shape.
 
         Multi-asset accounting vaults use a separate application flow and must
-        never be represented as generic deposit-manager support.
+        never be represented as generic deposit-manager support. They expose a
+        deliberate refusing capability so consumers can report this as adapter
+        support rather than a failed transaction.
+
+        .. note::
+
+            Trade-executor must inspect this capability before calling
+            :meth:`get_deposit_manager` and map its stable reason to
+            ``adapter_unsupported`` without broadcasting an approval or
+            request.
 
         :return:
-            Synchronous two-way capability for the normal shape, or ``None``
-            for multi-asset vaults.
+            Synchronous two-way capability for the normal shape, or an explicit
+            refusing capability for multi-asset vaults.
         """
         if self.multi_asset_like:
-            return None
-
-        from eth_defi.vault.deposit_redeem import VaultDepositManagerCapability
+            return VaultDepositManagerCapability(
+                can_deposit=False,
+                can_redeem=False,
+                deposit_unsupported_reason="multi_asset_application_flow_not_implemented",
+                redemption_unsupported_reason="multi_asset_application_flow_not_implemented",
+            )
 
         return VaultDepositManagerCapability(
             can_deposit=True,

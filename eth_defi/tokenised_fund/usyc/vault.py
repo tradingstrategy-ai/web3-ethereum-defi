@@ -24,7 +24,7 @@ from eth_defi.tokenised_fund.usyc.constants import USYC_CHAIN_ID, USYC_DENOMINAT
 from eth_defi.tokenised_fund.usyc.historical import USYCHistoricalReader
 from eth_defi.tokenised_fund.vault import TokenisedFundVault
 from eth_defi.types import Percent
-from eth_defi.vault.base import TradingUniverse, VaultDepositManager, VaultFlowManager, VaultHistoricalReader, VaultInfo, VaultPortfolio, VaultSpec
+from eth_defi.vault.base import TradingUniverse, VaultFlowManager, VaultHistoricalReader, VaultInfo, VaultPortfolio, VaultSpec
 from eth_defi.vault.fee import FeeData, VaultFeeMode
 from eth_defi.vault.lower_case_dict import LowercaseDict
 
@@ -239,11 +239,6 @@ class USYCVault(TokenisedFundVault):
     def get_flow_manager(self) -> VaultFlowManager:
         """Raise because Teller flow accounting is not implemented."""
         message = "USYC Teller flow accounting is not implemented"
-        raise NotImplementedError(message)
-
-    def get_deposit_manager(self) -> VaultDepositManager:
-        """Raise because public USYC transactions are not supported."""
-        message = "USYC permissioned deposits and redemptions are not implemented"
         raise NotImplementedError(message)
 
     def fetch_deposit_closed_reason(self) -> str:

@@ -6,7 +6,6 @@ from decimal import Decimal
 
 import flaky
 import pytest
-
 from web3 import Web3
 
 from eth_defi.erc_4626.classification import create_vault_instance_autodetect, detect_vault_features
@@ -16,7 +15,7 @@ from eth_defi.erc_4626.vault_protocol.gains.testing import force_next_gains_epoc
 from eth_defi.erc_4626.vault_protocol.gains.vault import GainsHistoricalReader, GainsVault
 from eth_defi.event_reader.multicall_batcher import read_multicall_historical_stateful
 from eth_defi.provider.multi_provider import MultiProviderWeb3Factory, create_multi_provider_web3
-from eth_defi.token import TokenDetails, fetch_erc20_details, USDC_NATIVE_TOKEN
+from eth_defi.token import USDC_NATIVE_TOKEN, TokenDetails, fetch_erc20_details
 from eth_defi.trace import assert_transaction_success_with_explanation
 from eth_defi.vault.base import VaultSpec
 from eth_defi.vault.historical import VaultHistoricalReadMulticaller
@@ -40,6 +39,10 @@ def test_gains_features(web3):
     assert ERC4626Feature.gains_like in features, f"Got features: {features}"
 
 
+# CI flaky since 2026-07-21: Anvil stopped answering web3_clientVersion and
+# exhausted six 60-second retries; it passes locally and now runs in slow CI.
+@flaky.flaky
+@pytest.mark.slow
 def test_gains_read_data(web3, vault: GainsVault):
     assert vault.name == "gTrade (Gains Network USDC)"
     # https://arbiscan.io/address/0xBF55C78132ab06a2B217040b7A7F20B5cBD47982#readContract
@@ -190,6 +193,8 @@ def test_gains_deposit_withdraw(
     assert shares == 0
 
 
+# CI flaky since 2026-07-22: the live Arbitrum historical multicall raised
+# MulticallNonRetryable; the same reader passed on later CI and local runs.
 @flaky.flaky
 def test_gains_historical_stateful(tmp_path):
     """Read historical data of gTrade USDC vault using the stateful multicall reader.

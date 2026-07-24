@@ -7,9 +7,12 @@ import pytest
 from web3 import Web3
 
 from eth_defi.erc_4626.core import ERC4626Feature
+from eth_defi.erc_4626.deposit_redeem import ERC4626DepositManager
+from eth_defi.erc_4626.vault_protocol.ipor.deposit_redeem import IPORDepositManager
 from eth_defi.erc_4626.vault_protocol.ipor.vault import IPORVault
 from eth_defi.provider.multi_provider import create_multi_provider_web3
 from eth_defi.vault.base import VaultSpec
+from eth_defi.vault.deposit_redeem import VaultFlowUnavailable
 from eth_defi.vault.fee import FeeData, VaultFeeMode
 
 JSON_RPC_ETHEREUM = os.environ.get("JSON_RPC_ETHEREUM")
@@ -18,6 +21,13 @@ JSON_RPC_ETHEREUM = os.environ.get("JSON_RPC_ETHEREUM")
 #:
 #: https://app.ipor.io/fusion/ethereum/0xf8f226da66244f89e70c5b5d1a5c5b0d505eb1d8
 IPOR_BDUSD_ETHEREUM = "0xf8f226da66244f89e70c5b5d1a5c5b0d505eb1d8"
+
+#: BL USDC WSR Loop, a vault whose deposit selector is restricted by IPOR's
+#: AccessManager for the report's simulated wallet.
+IPOR_RESTRICTED_ETHEREUM = "0x95b2ed8f821570f85fd0e3e6e7088c6296587088"
+
+#: Simulated wallet from trade-executor's unsupported-vault report.
+REPORT_CALLER = "0xa2b04c6a053ab2efbc699f5dd0f0957742a41629"
 
 #: This fee has been set to 0 on-chain as of 2026-05-22.
 IPOR_BDUSD_DEPOSIT_FEE = 0.0
@@ -126,3 +136,46 @@ def test_ipor_preview_deposit_is_net_of_onboarding_fee(vault: IPORVault):
     # 3. Verify implied fee matches the on-chain onboarding fee
     implied_fee = (gross_shares - net_shares) / gross_shares
     assert implied_fee == pytest.approx(IPOR_BDUSD_DEPOSIT_FEE, abs=0.001)
+
+
+def test_ipor_deposit_permission_and_restricted_caller_preflight(web3: Web3):
+    """Map IPOR AccessManager policy and reject its known private caller.
+
+    The test deliberately uses a raw amount of one: admission must fail before
+    the common manager checks the caller's token balance or allowance.
+    """
+    public_vault = IPORVault(web3, VaultSpec(chain_id=1, vault_address=IPOR_BDUSD_ETHEREUM))
+    restricted_vault = IPORVault(web3, VaultSpec(chain_id=1, vault_address=IPOR_RESTRICTED_ETHEREUM))
+
+    assert public_vault.is_whitelisted_deposit() is False
+    assert public_vault.is_account_whitelisted(REPORT_CALLER) is True
+    assert restricted_vault.is_whitelisted_deposit() is True
+    assert restricted_vault.is_account_whitelisted(REPORT_CALLER) is False
+
+    manager = restricted_vault.get_deposit_manager()
+    assert isinstance(manager, IPORDepositManager)
+    assert manager.can_create_deposit_request(REPORT_CALLER) is False
+
+    with pytest.raises(VaultFlowUnavailable, match="does not allow immediate") as exc_info:
+        manager.create_deposit_request(REPORT_CALLER, raw_amount=1)
+
+    assert exc_info.value.function_selector == restricted_vault.get_deposit_function_selector()
+    assert exc_info.value.access_delay == 0
+
+
+def test_ipor_without_access_manager_uses_generic_manager() -> None:
+    """An unreadable AccessManager does not disable standard ERC-4626 flows."""
+    vault = object.__new__(IPORVault)
+    vault.spec = VaultSpec(chain_id=1, vault_address=IPOR_BDUSD_ETHEREUM)
+    vault.__dict__["access_manager"] = None
+
+    manager = vault.get_deposit_manager()
+
+    assert isinstance(manager, ERC4626DepositManager)
+    assert not isinstance(manager, IPORDepositManager)
+    assert vault.get_deposit_manager_capability().as_initial_public_schema() == {
+        "can_deposit": True,
+        "can_redeem": True,
+        "deposit_flow": "synchronous",
+        "redemption_flow": "synchronous",
+    }

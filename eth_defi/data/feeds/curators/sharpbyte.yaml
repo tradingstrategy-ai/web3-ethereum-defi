@@ -1,0 +1,13 @@
+feeder-id: sharpbyte
+name: SharpByte Capital
+role: curator
+upshift-strategist:
+  - SharpByte
+website: https://www.sharpbyte.xyz/
+short_description: SharpByte Capital is a crypto-native fund focused on non-directional DeFi yield strategies and protocol advisory.
+long_description: |
+  SharpByte Capital describes itself as a crypto-native investment fund focused on delta-neutral and asymmetric yield opportunities. Its approach combines DeFi strategy execution, offchain deal access, pre-token-generation-event liquidity and protocol advisory.
+  Upshift lists SharpByte as the strategist for its Nerona Dollar Yield Strategy vault on Fluent.
+other-links:
+  - title: Upshift - Nerona Dollar Yield Strategy vault
+    url: https://app.upshift.finance/pools/25363/0xeaB765200189909c806FD6e20eBb4E57D6703C82

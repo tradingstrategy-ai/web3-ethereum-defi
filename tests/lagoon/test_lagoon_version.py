@@ -12,6 +12,7 @@ import flaky
 import pytest
 from web3 import Web3
 
+from eth_defi.abi import ZERO_ADDRESS_STR
 from eth_defi.erc_4626.vault_protocol.lagoon.vault import LagoonVault, LagoonVersion
 from eth_defi.provider.anvil import AnvilLaunch, fork_network_anvil
 from eth_defi.provider.multi_provider import create_multi_provider_web3
@@ -55,6 +56,7 @@ def test_lagoon_v060_version_detection(web3: Web3):
     2. Verify the version is correctly detected as v_0_6_0
     3. Verify the vault ABI is loaded (uses v0.5.0 ABI as a compatible fallback)
     4. Verify basic vault properties are readable
+    5. Verify the v0.6 ``isAllowed(address)`` access view
     """
     # 1. Create a LagoonVault for the known v0.6.0 contract
     spec = VaultSpec(1, LAGOON_V060_VAULT)
@@ -70,3 +72,8 @@ def test_lagoon_v060_version_detection(web3: Web3):
     assert vault.name == "9Summits Flagship EURC"
     assert vault.symbol == "9SEURC"
     assert vault.denomination_token.symbol == "EURC"
+
+    # 5. The canonical v0.6 contract replaces isWhitelisted(address) with
+    # isAllowed(address). This deployment is in the default-open access mode.
+    assert vault.is_account_whitelisted(ZERO_ADDRESS_STR) is True
+    assert vault.is_whitelisted_deposit() is False

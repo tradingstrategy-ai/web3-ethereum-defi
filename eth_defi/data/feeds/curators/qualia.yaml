@@ -1,6 +1,8 @@
 feeder-id: qualia
 name: Qualia
 role: curator
+upshift-strategist:
+  - Qualia
 curatorwatch: https://curatorwatch.com/curator/qualia
 short_description: Qualia provides strategy research, modelling, and curation for Kintsu's SuperMON automated yield vault on Monad.
 long_description: |

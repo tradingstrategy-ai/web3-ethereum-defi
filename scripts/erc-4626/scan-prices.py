@@ -102,7 +102,7 @@ except ImportError as e:
 
 from eth_defi.chain import get_chain_name
 from eth_defi.erc_4626.classification import HARDCODED_PROTOCOLS, create_vault_instance
-from eth_defi.erc_4626.core import ERC4262VaultDetection, is_activity_filter_exempt
+from eth_defi.erc_4626.core import ERC4262VaultDetection, passes_price_scan_activity_filter
 from eth_defi.provider.multi_provider import MultiProviderWeb3Factory, create_multi_provider_web3
 from eth_defi.provider.rpcdb import RPCRequestStats, RPCUsageDatabase, format_rpc_usage_report, resolve_rpc_tracking_database_path
 from eth_defi.token import TokenDiskCache
@@ -226,7 +226,7 @@ def _run_scan(stats: RPCRequestStats, metrics: dict) -> None:
         # flow events live on DepositQueue/RedeemQueue contracts. The metadata
         # database stores zero counts for compatibility, so use the central
         # feature-based exemption instead of looking at count field names.
-        if detection.deposit_count < min_deposit_threshold and address.lower() not in HARDCODED_PROTOCOLS and not is_activity_filter_exempt(detection):
+        if address.lower() not in HARDCODED_PROTOCOLS and not passes_price_scan_activity_filter(detection, min_deposit_threshold):
             # print(f"Vault does not have enough deposits: {address}, has: {detection.deposit_count}, threshold {min_deposit_threshold}")
             continue
 

@@ -12,6 +12,7 @@ import pytest
 from eth_defi.erc_4626.classification import _get_hardcoded_protocol_features, create_vault_instance
 from eth_defi.erc_4626.core import ERC4626Feature, get_vault_protocol_name
 from eth_defi.event_reader.multicall_batcher import EncodedCall, EncodedCallResult
+from eth_defi.tokenised_fund.vault import TokenisedFundDepositManager
 from eth_defi.tokenised_fund.wisdomtree import backfill
 from eth_defi.tokenised_fund.wisdomtree.constants import ETHEREUM_CHAIN_ID, WTGXX_ETHEREUM
 from eth_defi.tokenised_fund.wisdomtree.historical import WisdomTreeVaultHistoricalReader, WisdomTreeVaultReaderState
@@ -45,8 +46,7 @@ def test_wisdomtree_vault_is_read_only() -> None:
     assert isinstance(vault, WisdomTreeVault)
     assert vault.fetch_deposit_closed_reason() == WISDOMTREE_RESTRICTED_FLOW_REASON
     assert vault.fetch_redemption_closed_reason() == WISDOMTREE_RESTRICTED_FLOW_REASON
-    with pytest.raises(NotImplementedError):
-        vault.get_deposit_manager()
+    assert isinstance(vault.get_deposit_manager(), TokenisedFundDepositManager)
     assert vault.get_fee_data().fee_mode == VaultFeeMode.internalised_skimming
     assert vault.get_management_fee("latest") == pytest.approx(0.0025)
     assert get_vault_protocol_name({ERC4626Feature.wisdomtree_like}) == "WisdomTree"

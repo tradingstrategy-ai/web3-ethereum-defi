@@ -162,13 +162,14 @@ poetry run python scripts/erc-4626/scan-vaults-all-chains.py
 | `LOG_LEVEL` | Optional. Default: WARNING. |
 | `PIPELINE_DATA_DIR` | Optional. Directory for all pipeline files (parquet, pickle, DuckDB, state). Default: `~/.tradingstrategy/vaults`. |
 | `LOOP_INTERVAL_SECONDS` | Optional. When >0, enables looped mode — ticks every N seconds. Default: 0 (single run). |
-| `SCAN_CYCLES` | Optional. Per-item cycle intervals, e.g. `Ethereum=8h,Base=8h,Arbitrum=8h,Lighter=4h,GRVT=4h,Hypercore=4h,Hibachi=4h,Core3=24h`. |
+| `SCAN_CYCLES` | Optional. Per-item cycle intervals, e.g. `Ethereum=8h,Base=8h,Arbitrum=8h,Lighter Ethereum=4h,Lighter Robinhood=4h,GRVT=4h,Hypercore=4h,Hibachi=4h,ApeX=4h,Core3=24h`. Legacy `Lighter=4h` applies to both Lighter deployments. |
 | `DEFAULT_CYCLE` | Optional. Default cycle for items not in `SCAN_CYCLES`. Default: `24h`. |
 | `MAX_CYCLES` | Optional. Exit after N cycles (for testing). Default: 0 (unlimited). |
 | `SCAN_HYPERCORE` | Optional. Enable Hyperliquid native vault scanning. Default: false. |
 | `SCAN_GRVT` | Optional. Enable GRVT native vault scanning. Default: false. |
-| `SCAN_LIGHTER` | Optional. Enable Lighter native pool scanning. Default: false. |
+| `SCAN_LIGHTER` | Optional. Enable native pool scanning for both Lighter Ethereum and Lighter Robinhood. Default: false. |
 | `SCAN_HIBACHI` | Optional. Enable Hibachi native vault scanning. Default: false. |
+| `SCAN_APEX` | Optional. Enable ApeX native vault scanning and due history maintenance. Default: false. |
 | `SCAN_VAULT_SETTLEMENTS` | Optional. Scan Lagoon and D2 settlement events during each successful EVM chain cycle. Default: true. The scan fills `vault-settlements.duckdb` before price cleaning; `vault_settlement_at` is then merged into the cleaned price frame during cleaning. Set to `false` only for debugging runs where new settlement event reads are deliberately skipped. Settlement scan failures are logged and shown in the dashboard without aborting the rest of the scanner cycle. |
 | `VAULT_SETTLEMENT_START_BLOCK` | Optional. Inclusive settlement scan start block for forced backfills. Normally unset so scans continue incrementally from `vault-settlements.duckdb`. |
 | `VAULT_SETTLEMENT_END_BLOCK` | Optional. Inclusive settlement scan end block for forced backfills. Normally unset so scans continue up to the just-completed chain scan end block. |
@@ -182,6 +183,14 @@ poetry run python scripts/erc-4626/scan-vaults-all-chains.py
 | `HYPERSYNC_RPM` | Optional. Hypersync API requests-per-minute limit. Default: 150. Lower after persistent 429 errors. |
 | `HYPERSYNC_CONCURRENCY` | Optional. Hypersync stream concurrency. Default: 1 (sequential) in the all-chains scanner to avoid API pressure when scanning many chains. Set higher for faster throughput. See [Envio StreamConfig tuning](https://docs.envio.dev/docs/HyperSync/stream-config-tuning). |
 | `RPC_TRACKING_DATABASE_PATH` | Optional. Shared JSON-RPC accounting DuckDB used by all EVM vault scanners. Default: `~/.tradingstrategy/rpc-tracking.duckdb`. |
+
+Both Lighter deployments use synthetic native-pool chain ID `9998`; their
+address prefixes distinguish price series. Lifetime-metrics export the
+additional `deployment_chain_id` (`1` for Ethereum or `4663` for Robinhood)
+and `deployment` slug. The Lighter DuckDB schema migration runs automatically
+when an existing database is opened. See the
+[Lighter native-pool pipeline](../lighter/README-lighter-vaults.md) for the
+storage and partial-scan replacement rules.
 
 #### JSON-RPC usage accounting
 
@@ -343,7 +352,9 @@ poetry run python scripts/erc-4626/scan-prices.py
 Targeted repair script for all supported EVM T3tris vaults returned by the
 official T3tris API. The script has a baked API snapshot as a fallback, so
 operators can review the current vault address list in the script even if the
-API is temporarily unavailable.
+API is temporarily unavailable. It also always retains the reviewed migration
+registry, including Strada Yield, because these vaults can be absent from the
+frontend API and do not have vault-local flow events for discovery.
 
 This follows the [required protocol-specific lead migrations](#required-protocol-specific-lead-migrations)
 for adding T3tris vaults to an existing production database after protocol
@@ -364,7 +375,7 @@ source .local-test.env && poetry run python scripts/erc-4626/fix-t3tris-vaults.p
 |----------|-------------|
 | `DRY_RUN` | Optional. Show planned work without writing metadata or prices. Default: false. |
 | `T3TRIS_FETCH_API` | Optional. Fetch the live T3tris API and prefer it over the baked snapshot. Default: true. |
-| `T3TRIS_VERIFIED_ONLY` | Optional. Process only API-verified vaults. Default: false. |
+| `T3TRIS_VERIFIED_ONLY` | Optional. Process only API-verified vaults, while retaining reviewed migration vaults. Default: false. |
 | `T3TRIS_SCAN_PRICES` | Optional. Set to `false` to update only leads and metadata. Default: true. |
 | `T3TRIS_REWRITE_TARGETED` | Optional. Rescan every selected T3tris vault from its first known API block and rewrite only that vault's rows. Default: false. |
 | `T3TRIS_REFRESH_EXISTING_METADATA` | Optional. Refresh existing good metadata rows as well as missing or broken rows. Default: false. |
@@ -978,6 +989,36 @@ source .local-test.env && poetry run python scripts/erc-4626/heal-broken-vaults.
 | `DRY_RUN` | Optional. Report broken vaults without healing. Default: false. |
 | `HEAL_ALL` | Optional. Also attempt empty-name entries (likely false positives). Default: false. |
 | `JSON_RPC_<CHAIN>` | Required per chain with broken vaults. |
+| `LOG_LEVEL` | Optional. Default: info. |
+
+### migrate-vault-token-metadata.py
+
+Refresh persisted vault `Name` and `Symbol` fields when an ERC-20/ERC-4626
+share token changes its `name()` or `symbol()` accessor value. The script reads
+all recognised EVM vault rows through Multicall3, tabulates differences, and
+does not overwrite metadata when either accessor fails or returns an empty
+value. Native vault datasets and known Multicall-unsafe contracts are skipped.
+
+Always inspect the dry run before writing the vault database:
+
+```shell
+# Report changes without writing (default)
+source .local-test.env && \
+  DRY_RUN=true \
+  poetry run python scripts/erc-4626/migrate-vault-token-metadata.py
+
+# Persist complete name/symbol pairs after review
+source .local-test.env && \
+  DRY_RUN=false \
+  poetry run python scripts/erc-4626/migrate-vault-token-metadata.py
+```
+
+| Variable | Description |
+|----------|-------------|
+| `VAULT_DB_PATH` | Optional vault metadata pickle path. Default: `~/.tradingstrategy/vaults/vault-metadata-db.pickle`. |
+| `DRY_RUN` | Optional. Report only when true. Default: true. |
+| `MAX_WORKERS` | Optional Multicall worker threads per chain. Default: 8. |
+| `JSON_RPC_<CHAIN>` | Required for every recognised EVM chain represented in the vault database. |
 | `LOG_LEVEL` | Optional. Default: info. |
 
 ### prepopulate-timestamps.py

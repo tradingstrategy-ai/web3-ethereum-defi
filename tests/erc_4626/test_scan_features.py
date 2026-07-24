@@ -6,6 +6,7 @@ import pytest
 
 import eth_defi.erc_4626.scan as scan_module
 from eth_defi.erc_4626.core import ERC4262VaultDetection, ERC4626Feature
+from eth_defi.vault.deposit_redeem import VaultDepositManagerCapability
 from eth_defi.vault.fee import FeeData, VaultFeeMode
 from eth_defi.vault.vaultdb import VaultDatabase
 
@@ -23,6 +24,7 @@ class _FakeToken:
 class _FakeVault:
     """Minimal vault object for scan-record tests."""
 
+    address = "0x0000000000000000000000000000000000000001"
     symbol = "fvUSDC"
     name = "Feature Vault"
     denomination_token = _FakeToken()
@@ -78,6 +80,25 @@ class _FakeVault:
         """Return no protocol-specific scan fields."""
         return {}
 
+    @staticmethod
+    def is_whitelisted_deposit() -> bool:
+        """Report that this generic fake has no permission-policy accessor."""
+        raise NotImplementedError()
+
+
+class _PermissionedFakeVault(_FakeVault):
+    """Minimal vault with an explicit refusing manager capability."""
+
+    @staticmethod
+    def get_deposit_manager_capability() -> VaultDepositManagerCapability:
+        """Return a manager capability with both public actions disabled."""
+        return VaultDepositManagerCapability(can_deposit=False, can_redeem=False)
+
+    @staticmethod
+    def is_whitelisted_deposit() -> bool:
+        """Report that deposits require account permission."""
+        return True
+
 
 def _create_detection(features: set[ERC4626Feature]) -> ERC4262VaultDetection:
     """Create a detection object."""
@@ -114,6 +135,26 @@ def test_create_vault_scan_record_persists_machine_readable_features(monkeypatch
     assert record["_detection_data"].features == features
     assert "erc_7575_like" in record["Features"]
     assert record["_deposit_manager"] is None
+
+
+def test_create_vault_scan_record_persists_deposit_permission(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Persist permission policy beside an explicitly refusing manager."""
+    detection = _create_detection({ERC4626Feature.usdai_like})
+
+    monkeypatch.setattr(scan_module, "create_vault_instance", lambda *_args, **_kwargs: _PermissionedFakeVault())
+
+    record = scan_module.create_vault_scan_record(
+        web3=None,
+        detection=detection,
+        block_identifier=1,
+        token_cache={},
+    )
+
+    assert record["_deposit_manager"] == {
+        "can_deposit": False,
+        "can_redeem": False,
+    }
+    assert record["_deposit_permission"] == "whitelisted"
 
 
 def test_vault_database_dataframe_falls_back_to_detection_features() -> None:

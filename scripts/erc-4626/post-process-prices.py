@@ -1,6 +1,6 @@
 """Standalone post-processing pipeline for vault price data.
 
-Merges native protocol data (Hypercore, GRVT, Lighter, Hibachi) into the
+Merges native protocol data (Hypercore, GRVT, Lighter, Hibachi, ApeX) into the
 uncleaned parquet, cleans the data, generates the top-vaults JSON,
 and uploads to R2. Each step reports success/failure and the script
 exits with code 1 if any step fails.
@@ -24,9 +24,9 @@ Usage:
     # Skip native protocol merges (just clean + export)
     source .local-test.env && poetry run python scripts/erc-4626/post-process-prices.py
 
-    # Include Hypercore, GRVT, Lighter, Hibachi merges
+    # Include all native protocol merges
     source .local-test.env && \\
-    MERGE_HYPERCORE=true MERGE_GRVT=true MERGE_LIGHTER=true MERGE_HIBACHI=true \\
+    MERGE_HYPERCORE=true MERGE_GRVT=true MERGE_LIGHTER=true MERGE_HIBACHI=true MERGE_APEX=true \\
     poetry run python scripts/erc-4626/post-process-prices.py
 
     # Only merge and clean, skip all R2 uploads
@@ -50,6 +50,7 @@ Pipeline control:
 - ``MERGE_GRVT``: Merge GRVT native vault data (default: ``false``)
 - ``MERGE_LIGHTER``: Merge Lighter native pool data (default: ``false``)
 - ``MERGE_HIBACHI``: Merge Hibachi native vault data (default: ``false``)
+- ``MERGE_APEX``: Merge ApeX native vault data (default: ``false``)
 - ``SKIP_CLEANING``: Skip price cleaning step (default: ``false``)
 - ``SKIP_TOP_VAULTS``: Skip top-vaults JSON generation and R2 upload (default: ``false``)
 - ``SKIP_SPARKLINES``: Skip sparkline image export to R2 (default: ``false``)
@@ -106,8 +107,8 @@ from tabulate import tabulate
 
 from eth_defi.core3.constants import CORE3_DATABASE_PATH
 from eth_defi.utils import setup_console_logging
-from eth_defi.vault.settlement_data import get_default_vault_settlement_database_path
 from eth_defi.vault.post_processing import run_post_processing, validate_top_vaults_config
+from eth_defi.vault.settlement_data import get_default_vault_settlement_database_path
 from eth_defi.vault.vaultdb import get_pipeline_data_dir
 
 logger = logging.getLogger(__name__)
@@ -122,6 +123,7 @@ def main():
     merge_grvt = os.environ.get("MERGE_GRVT", "false").lower() == "true"
     merge_lighter = os.environ.get("MERGE_LIGHTER", "false").lower() == "true"
     merge_hibachi = os.environ.get("MERGE_HIBACHI", "false").lower() == "true"
+    merge_apex = os.environ.get("MERGE_APEX", "false").lower() == "true"
     skip_cleaning = os.environ.get("SKIP_CLEANING", "false").lower() == "true"
     skip_top_vaults = os.environ.get("SKIP_TOP_VAULTS", "false").lower() == "true"
     skip_sparklines = os.environ.get("SKIP_SPARKLINES", "false").lower() == "true"
@@ -147,6 +149,7 @@ def main():
     grvt_db_path = data_dir / "grvt-vaults.duckdb"
     lighter_db_path = data_dir / "lighter-pools.duckdb"
     hibachi_db_path = data_dir / "hibachi-vaults.duckdb"
+    apex_db_path = data_dir / "apex-vaults.duckdb"
     settlement_db_path = get_default_vault_settlement_database_path()
 
     # Core3 risk intelligence database path — resolved from env var or default constant.
@@ -154,8 +157,8 @@ def main():
     core3_db_path = Path(core3_db_path_env).expanduser() if core3_db_path_env else CORE3_DATABASE_PATH
 
     logger.info("Pipeline data directory: %s", data_dir)
-    if not any([merge_hypercore, merge_grvt, merge_lighter, merge_hibachi]):
-        logger.info("No native protocol merges requested (set MERGE_HYPERCORE/MERGE_GRVT/MERGE_LIGHTER/MERGE_HIBACHI=true)")
+    if not any([merge_hypercore, merge_grvt, merge_lighter, merge_hibachi, merge_apex]):
+        logger.info("No native protocol merges requested (set a MERGE_* native source flag to true)")
 
     # run_post_processing() uses scan_hypercore/scan_grvt/scan_lighter for
     # the "merge this native protocol's data" flags. We keep the
@@ -166,6 +169,7 @@ def main():
         scan_grvt=merge_grvt,
         scan_lighter=merge_lighter,
         scan_hibachi=merge_hibachi,
+        scan_apex=merge_apex,
         skip_cleaning=skip_cleaning,
         skip_top_vaults=skip_top_vaults,
         skip_sparklines=skip_sparklines,
@@ -178,6 +182,7 @@ def main():
         grvt_db_path=grvt_db_path,
         lighter_db_path=lighter_db_path,
         hibachi_db_path=hibachi_db_path,
+        apex_db_path=apex_db_path,
         vault_db_path=vault_db_path,
         cleaned_path=cleaned_price_path,
         settlement_db_path=settlement_db_path,
