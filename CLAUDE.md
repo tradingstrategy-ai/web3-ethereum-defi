@@ -103,6 +103,26 @@ cache to be available inside the container; restore or prepopulate that cache
 on the host before a historical backfill rather than allowing a one-shot repair
 to bootstrap it with sparse timestamp requests.
 
+## Chain quirks
+
+### Monad
+
+Monad (chain ID 143) does not provide archive-complete historical state. Its
+full nodes retain all historical blocks, transactions, receipts, events and
+traces, but expose only a provider- and disk-dependent recent window of
+contract state. No provider offers arbitrary-depth historical state; see the
+[Monad historical data documentation](https://docs.monad.xyz/developer-essentials/historical-data).
+
+- Do not describe `JSON_RPC_MONAD` as an archive node, retry failed old
+  `eth_call` requests, or attempt a genesis-to-head state backfill. Once a
+  state trie has been evicted, those operations cannot succeed.
+- Use Hypersync for historical Monad events and timestamps. For historical
+  vault values, `scan_historical_prices_to_parquet()` probes Multicall and
+  begins at the oldest state block the configured provider can execute.
+- Preserve existing Monad price rows before that dynamically detected boundary:
+  the current provider cannot reconstruct them. Monad fork and historical tests
+  must use current-state or state-relative assertions.
+
 ## Running tests
 
 If we have not run tests before make sure the user has created a gitignored file `.local-test.env` in the repository root. This will use `source` shell command to include the actual test secrets which lie outside the repository structure. Note: this file does not contain actual environment variables, just a `source` command to get them from elsewhere. **Never edit this file**.
@@ -135,7 +155,9 @@ In the environment file, the RPC URLs are provided in the project-specific space
 
 - If there is a space in RPC URL given by a environment variable like `JSON_RPC_ETHEREUM`, it can be only used with Python call `create_multi_provider_web3()`
 - If you are going to use this RPC URL with other commands, like `curl`, you need to parse the RPC environment variable by spltting it by spaces and taking the first entry
-- All environment variables point to EVM archive nodes
+- Scanner RPC variables should point to archive-capable EVM nodes, except
+  `JSON_RPC_MONAD`, which can only serve its provider-dependent recent
+  historical-state window.
 
 ## Formatting code
 
@@ -275,7 +297,8 @@ removing its flaky history comment.
 - For DuckDB testing, make sure the database is always closed using finally clause or fixtures
 - Always use fixture and test functions, never use test classes
 - For Anvil mainnet fork based tests, whici use a fixed block number, in asserts check for absolute number values instead of relative values like above zero, because values never change.
-  Expect for Monad, as Monad blockchain does not support archive nodes and historical state.
+  Exception: Monad retains only a moving recent historical-state window, so use
+  latest-head or state-relative assertions instead of fixed historical blocks.
 - For reuseable testing code, use `testing` modules under `eth_defi` - do not nyt try to import "tests" as it does not work with pytest
 
 ### pyproject.toml
@@ -364,7 +387,7 @@ Never directly edit auto-generated sphinx files in `_autosummary*` folders.
 
 ## Parquet schema migrations
 
-The vault price pipeline accumulates months of historical data in `vault-prices-1h.parquet`. Losing this data requires days of re-scanning from archive nodes.
+The vault price pipeline accumulates months of historical data in `vault-prices-1h.parquet`. Losing this data requires days of re-scanning from archive nodes and may make older Monad data unrecoverable, because Monad does not provide archive-complete historical state.
 
 - **Never silently discard existing data.** If a schema migration (`migrate_parquet_schema()`, `cast()`) fails, the pipeline must abort with a hard error — never fall back to `existing_table = None`. Silent data loss is worse than a crash.
 - **Never catch `ArrowInvalid` and reset to empty.** If the existing parquet cannot be read or migrated, raise the exception so the operator can restore from a backup.
@@ -372,6 +395,7 @@ The vault price pipeline accumulates months of historical data in `vault-prices-
 - **Type changes need explicit migration.** If changing a column's type (e.g. `uint32` → `uint64`), verify `cast()` works on production data before merging — test with a copy of the real parquet, not just synthetic test data.
 - **Always test schema changes against the production parquet.** Download the current file and verify the migration path locally before deploying.
 - **Reader state loss causes full data wipe.** The scanner deletes existing chain rows from `start_block` onwards. If `reader-state.pickle` is lost, `start_block` falls back to the earliest vault block, deleting all historical data for that chain. Treat reader state files as critical production state.
+- **Preserve old Monad rows.** A Monad rescan can replace rows only at or after the dynamically probed provider boundary. Never reset its reader state or delete older rows in an attempt to rebuild unavailable state history.
 
 ## ERC-20
 

@@ -7,6 +7,10 @@
     - Fees
 
 See :py:class:`VaultHistoricalReadMulticaller` for usage.
+
+Monad does not provide archive-complete historical state. Its price scans probe
+the configured provider and begin at the oldest block where the scanner's
+Multicall contract can execute.
 """
 
 import datetime
@@ -27,15 +31,17 @@ from eth_typing import HexAddress
 from joblib import Parallel, delayed
 from tqdm_loggable.auto import tqdm
 from web3 import Web3
+from web3.exceptions import BadFunctionCallOutput, ContractLogicError
 
 from eth_defi import hypersync
 from eth_defi.chain import EVM_BLOCK_TIMES, get_chain_name
 from eth_defi.compat import native_datetime_utc_now
 from eth_defi.erc_4626.vault import VaultReaderState
 from eth_defi.erc_4626.warmup import warmup_vault_reader
-from eth_defi.event_reader.multicall_batcher import BatchCallState, EncodedCall, EncodedCallResult, read_multicall_historical, read_multicall_historical_stateful
+from eth_defi.event_reader.multicall_batcher import BatchCallState, EncodedCall, EncodedCallResult, get_multicall_contract, read_multicall_historical, read_multicall_historical_stateful
 from eth_defi.event_reader.timestamp_cache import DEFAULT_TIMESTAMP_CACHE_FOLDER
 from eth_defi.event_reader.web3factory import Web3Factory
+from eth_defi.middleware import ProbablyNodeHasNoBlock
 from eth_defi.provider.broken_provider import get_almost_latest_block_number
 from eth_defi.provider.rpcdb import RPCRequestStats
 from eth_defi.token import TokenDetails, TokenDiskCache, fetch_erc20_details
@@ -45,6 +51,13 @@ from eth_defi.vault.risk import BROKEN_VAULT_CONTRACTS
 from eth_defi.version_info import stamp_parquet_schema_metadata
 
 logger = logging.getLogger(__name__)
+
+
+#: Monad mainnet chain ID.
+MONAD_CHAIN_ID = 143
+
+#: Canonical explanation of Monad's provider-dependent historical state window.
+MONAD_HISTORICAL_DATA_DOCUMENTATION_URL = "https://docs.monad.xyz/developer-essentials/historical-data"
 
 
 #: List of contracts we cannot scan.
@@ -95,8 +108,83 @@ class VaultReadNotSupported(Exception):
     """Vault cannot be read due to misconfiguration somewhere."""
 
 
+def fetch_monad_historical_state_start_block(
+    web3: Web3,
+    start_block: int,
+    end_block: int,
+) -> int:
+    """Find the earliest block whose Monad state the connected provider can read.
+
+    Monad retains all historical transactional data, but its RPC providers retain
+    historical state only while their state tries fit on disk. The window is
+    provider-specific and may move forward over time. Probe the same Multicall3
+    contract used by the historical price reader and binary-search the boundary
+    between unavailable and available state before creating any output file.
+    See `Monad historical data documentation <https://docs.monad.xyz/developer-essentials/historical-data>`_.
+
+    :param web3:
+        Monad JSON-RPC connection to probe.
+
+    :param start_block:
+        Earliest block otherwise requested by the caller.
+
+    :param end_block:
+        Latest block otherwise requested by the caller. It must be readable,
+        because an unavailable end block indicates a provider failure rather
+        than ordinary historical-state eviction.
+
+    :return:
+        The earliest readable block within ``start_block`` and ``end_block``.
+
+    :raises RuntimeError:
+        If the provider cannot read state at ``end_block``.
+    """
+    assert web3.eth.chain_id == MONAD_CHAIN_ID, f"Expected Monad chain {MONAD_CHAIN_ID}, got {web3.eth.chain_id}"
+    assert start_block >= 0, f"Invalid start block: {start_block}"
+    assert end_block >= start_block, f"End block {end_block} is before start block {start_block}"
+
+    multicall = get_multicall_contract(web3)
+
+    def _is_state_available(block_number: int) -> bool:
+        """Probe whether the Multicall deployment executes at a historical block."""
+        try:
+            received_block_number = multicall.functions.getBlockNumber().call(block_identifier=block_number)
+        except (BadFunctionCallOutput, ContractLogicError, ProbablyNodeHasNoBlock):
+            return False
+        return received_block_number == block_number
+
+    if _is_state_available(start_block):
+        return start_block
+
+    if not _is_state_available(end_block):
+        raise RuntimeError(f"Monad provider cannot read state at requested end block {end_block:,}. Check the RPC provider and {MONAD_HISTORICAL_DATA_DOCUMENTATION_URL}.")
+
+    unavailable_block = start_block
+    available_block = end_block
+    while available_block - unavailable_block > 1:
+        candidate_block = (unavailable_block + available_block) // 2
+        if _is_state_available(candidate_block):
+            available_block = candidate_block
+        else:
+            unavailable_block = candidate_block
+
+    logger.warning(
+        "Monad historical state before block %d is unavailable from the configured RPC provider; clipping price scan start from %d. See %s",
+        available_block,
+        start_block,
+        MONAD_HISTORICAL_DATA_DOCUMENTATION_URL,
+    )
+    return available_block
+
+
 class VaultHistoricalReadMulticaller:
-    """Read historical data from multiple vaults using multicall and archive node polling."""
+    """Read historical data from multiple vaults using Multicall and JSON-RPC polling.
+
+    Archive-capable nodes provide the historical state needed on most EVM
+    chains. Monad instead has a provider-specific recent state window; callers
+    must use :func:`fetch_monad_historical_state_start_block` before starting a
+    scan.
+    """
 
     def __init__(
         self,
@@ -602,6 +690,8 @@ def scan_historical_prices_to_parquet(
     - The same Parquet file can contain data from multiple chains
     - Stamp the output schema with the current Docker ``metadata.version``
       provenance, matching vault scanner JSON exports
+    - On Monad, dynamically clip the requested start to the provider's
+      historical-state window before deleting or replacing Parquet rows
 
     :param output_fname:
         Path to a destination Parquet file.
@@ -625,7 +715,9 @@ def scan_historical_prices_to_parquet(
     :param start_block:
         First block to scan.
 
-        Leave empty to autodetect
+        Leave empty to autodetect. On Monad this is only a lower bound: the
+        scan starts at the oldest block whose state the configured provider can
+        read, because Monad has no arbitrary-depth historical state.
 
     :param end_block:
         Last block to scan.
@@ -716,6 +808,13 @@ def scan_historical_prices_to_parquet(
 
     if end_block is None:
         end_block = get_almost_latest_block_number(web3)
+
+    if chain_id == MONAD_CHAIN_ID:
+        start_block = fetch_monad_historical_state_start_block(
+            web3,
+            start_block=start_block,
+            end_block=end_block,
+        )
 
     reader = VaultHistoricalReadMulticaller(
         web3factory,

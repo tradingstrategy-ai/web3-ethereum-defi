@@ -5,6 +5,17 @@ Scripts for discovering, scanning, analysing, and debugging ERC-4626 vault data.
 All scripts use environment variables for configuration.
 Run with `poetry run python scripts/erc-4626/<script>.py`.
 
+### Monad historical state
+
+[Monad full nodes retain all historical transaction data but only a
+provider-dependent window of historical state](https://docs.monad.xyz/developer-essentials/historical-data).
+Before scanning Monad vault prices, the reader probes its Multicall contract and
+starts at the oldest block whose state the configured RPC can read. Existing
+price rows before that boundary are preserved; a provider cannot reconstruct
+them once its state trie has been evicted. Do not retry an old `eth_call`, set
+`START_BLOCK=1`, or delete these rows in an attempt to run a full Monad archive
+backfill: that state history is unavailable by design.
+
 ## Production pipeline
 
 These scripts form the core data pipeline for vault discovery, price scanning, and export.
@@ -1419,7 +1430,8 @@ poetry run python scripts/erc-4626/wrangle-single-vault.py
 
 ### read-historical-apy.py
 
-Example script to estimate the historical APY of an ERC-4626 vault. Requires an archive node.
+Example script to estimate the historical APY of an ERC-4626 vault. Requires an
+archive-state node; Monad cannot provide arbitrary-depth historical state.
 
 ```shell
 JSON_RPC_URL=$JSON_RPC_BASE poetry run python scripts/erc-4626/read-historical-apy.py

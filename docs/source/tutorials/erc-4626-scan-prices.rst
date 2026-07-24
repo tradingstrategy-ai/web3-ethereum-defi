@@ -21,6 +21,16 @@ You need
 - Preferably ``screen`` or ``tmux`` to or similar utility to run long running processes in the background on servers
 - Some hours of patience
 
+.. important::
+
+    Monad does not provide archive-complete historical state. Its full nodes
+    retain historical transaction data, while contract-state availability is a
+    moving provider-dependent window; see the `Monad historical data
+    documentation <https://docs.monad.xyz/developer-essentials/historical-data>`__.
+    The price scanner starts at the oldest state block the configured provider
+    can read. Do not attempt a genesis-to-head Monad state backfill or delete
+    older price rows that the provider cannot reconstruct.
+
 This is a three step scripted process:
 
 - For each chain
@@ -75,6 +85,8 @@ Scanning historical prices
 After discovering the vaults on a chain, we scan their historical performance.
 This is done by ``scan-prices.py`` script. It will read the vaults from the database file created by the previous step.
 then use JSON-RPC archive nodes polling to extract historical prices and parameters like performance fees.
+On Monad, the scanner instead uses the provider's dynamically probed
+historical-state boundary and preserves existing rows before it.
 
 Scan process is stateful
 - It can resume, you can rerun the script and it will rescan from where the scan ended last time
@@ -158,4 +170,3 @@ Further reading
 
 - See :py:ref:`erc-4626` API documentation.
 - `For any questions please join to Discord chat <https://tradingstrategy.ai/community>`__.
-

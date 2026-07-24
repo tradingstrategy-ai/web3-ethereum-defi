@@ -27,20 +27,10 @@ from eth_defi.utils import get_url_domain
 
 logger = logging.getLogger(__name__)
 
-# There are no archive nodes on Monad.
-#
-# This is a network-specific behavior. The Monad archive approach does not support historical state data, only historical transactional data (please see this for more info https://docs.monad.xyz/developer-essentials/historical-data).
-# "Well, I do understand where you're coming from. Having managed dozens of chains myself with the "full/archive" terminology, this sounds odd.
-# However, Monad being a high-throughput chain, it's not feasible to store every state since the genesis. If we do that, you would require a few TBs for every day (check TrieDB).
-# For this reason, we've multi-layered storage system:
-# - TrieDB (Hot) - Has states
-# - ArchiveDB (MongoDB) (Warm) - Doesn't have states
-# - Archive (Object Storage) (Cold) - Doesn't have states
-# So, "archive" in reference to Monad contains blocks, receipts, traces, etc., not states.
-# If you want to store more states locally, you can provision a beefy drive for TrieDB, but still you'd only make a few weeks.
-# Lastly, even without states, ArchiveDB is estimated to store hundreds of GBs of data per day if Monad throughput peaks at 10k TPS."
-
-MONAD_START_BLOCK = 50_000_000
+#: Monad retains historical transaction data but only a provider-dependent
+#: recent window of historical contract state. See
+#: https://docs.monad.xyz/developer-essentials/historical-data.
+MONAD_CHAIN_NAME = "monad"
 
 
 def get_default_block_tip_latency(web3: Web3) -> int:
@@ -270,15 +260,18 @@ def get_safe_cached_latest_block_number(
 
 
 def verify_archive_node(rpc_url: str, chain_name: str) -> tuple[str, int]:
-    """Verify RPC providers and filter out broken ones.
+    """Verify configured RPC providers and filter out broken ones.
 
     Parses the space-separated multi-RPC configuration line and tests each
-    endpoint individually. Checks that each provider can serve both block 1
-    and the latest block. Broken providers are logged at ERROR level and
-    filtered out; the scan continues with working providers only.
+    endpoint individually. On archive-capable chains, checks that each provider
+    can serve state at both block 1 and the latest block. Monad has no
+    archive-complete historical state, so it checks only current-state
+    availability and leaves the retained historical-state boundary to the vault
+    price scanner. Broken providers are logged at ERROR level and filtered out;
+    the scan continues with working providers only.
 
     :param rpc_url: RPC URL configuration line (may contain space-separated fallbacks, ``mev+`` prefixed endpoints are skipped)
-    :param chain_name: Chain name for logging
+    :param chain_name: Chain name for logging and Monad-specific verification
     :return: Tuple of (filtered RPC URL with only working providers, latest block number)
     :raises RuntimeError: If all providers fail verification
     """
@@ -286,6 +279,8 @@ def verify_archive_node(rpc_url: str, chain_name: str) -> tuple[str, int]:
     from eth_defi.provider.multi_provider import create_multi_provider_web3
 
     zero_address = "0x0000000000000000000000000000000000000000"
+    is_monad = chain_name.casefold() == MONAD_CHAIN_NAME
+    verification_label = "current-state RPC" if is_monad else "archive node"
 
     # Preserve mev+ transact-only endpoints as-is
     all_parts = [url.strip() for url in rpc_url.split() if url.strip()]
@@ -312,9 +307,10 @@ def verify_archive_node(rpc_url: str, chain_name: str) -> tuple[str, int]:
             if first_latest_block is None:
                 first_latest_block = latest_block
 
-            # Check block 1 (archive node test)
-            step = f"eth_getBalance({zero_address}, block=1)"
-            web3.eth.get_balance(zero_address, block_identifier=1)
+            if not is_monad:
+                # Check block 1 (archive node test).
+                step = f"eth_getBalance({zero_address}, block=1)"
+                web3.eth.get_balance(zero_address, block_identifier=1)
 
             # Check latest block is queryable
             step = f"eth_getBalance({zero_address}, block={latest_block:,})"
@@ -322,18 +318,20 @@ def verify_archive_node(rpc_url: str, chain_name: str) -> tuple[str, int]:
 
             working.append((endpoint, domain, latest_block))
             logger.info(
-                "%s: Provider %s passed archive node check (latest block %s)",
+                "%s: Provider %s passed %s check (latest block %s)",
                 chain_name,
                 domain,
+                verification_label,
                 f"{latest_block:,}",
             )
         except Exception as e:
             headers = get_last_headers()
             faulty.append((domain, str(e), headers, latest_block))
             logger.error(
-                "%s: Provider %s failed archive node check at step %s (block number %s): %s\nHTTP response headers: %s",
+                "%s: Provider %s failed %s check at step %s (block number %s): %s\nHTTP response headers: %s",
                 chain_name,
                 domain,
+                verification_label,
                 step,
                 f"{latest_block:,}" if latest_block is not None else "unknown",
                 e,
@@ -342,7 +340,7 @@ def verify_archive_node(rpc_url: str, chain_name: str) -> tuple[str, int]:
 
     if not working:
         faulty_str = ", ".join(f"{d} (block {b:,}, {err})" if b is not None else f"{d} ({err})" for d, err, _h, b in faulty)
-        raise RuntimeError(f"{chain_name}: All {len(endpoints)} RPC providers failed archive node verification. Faulty: [{faulty_str}].")
+        raise RuntimeError(f"{chain_name}: All {len(endpoints)} RPC providers failed {verification_label} verification. Faulty: [{faulty_str}].")
 
     if faulty:
         faulty_domains = ", ".join(d for d, _, _, _ in faulty)

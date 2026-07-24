@@ -3,6 +3,11 @@
 - Scan prices for all vaults discovered earlier with ``scan-vaults.py``
 - Write results to the Parquet file that is shared across all chains
 
+Monad does not provide archive-complete historical state. A Monad scan probes
+the configured RPC provider and starts at its oldest readable state block;
+setting ``START_BLOCK=1`` does not trigger an impossible genesis-to-head
+backfill. Existing earlier Parquet rows are preserved.
+
 Usage:
 
 .. code-block:: shell

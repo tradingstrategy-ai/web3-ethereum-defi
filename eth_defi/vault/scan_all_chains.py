@@ -732,10 +732,10 @@ def scan_chain(
     # Verify RPC providers and filter out broken ones
     try:
         rpc_url, latest_block = verify_archive_node(rpc_url, config.name)
-        logger.info("%s: RPC archive node verification passed, latest block %s", config.name, f"{latest_block:,}")
+        logger.info("%s: RPC capability verification passed, latest block %s", config.name, f"{latest_block:,}")
         result.rpc_url = rpc_url
     except RuntimeError as e:
-        logger.error("%s: All archive node providers failed: %s", config.name, e)
+        logger.error("%s: All RPC providers failed capability verification: %s", config.name, e)
         result.status = "failed"
         result.error = str(e)
         result.duration = time.time() - start_time
