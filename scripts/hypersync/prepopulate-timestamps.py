@@ -24,7 +24,7 @@ Environment variables:
 
     - ``JSON_RPC_<CHAIN>``: RPC URL for each chain (same as docker-compose)
     - ``HYPERSYNC_API_KEY``: Envio Hypersync API key (required)
-    - ``HYPERSYNC_RPM``: Requests-per-minute limit (default: 150)
+    - ``HYPERSYNC_RPM``: Requests-per-minute limit (default: 80)
     - ``CHAIN_FILTER``: Comma-separated chain names to process (default: all)
     - ``LOG_LEVEL``: Logging level (default: "info")
 """
