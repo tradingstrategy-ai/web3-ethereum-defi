@@ -89,6 +89,8 @@
 
 # 1.1
 
+- Add Symbiotic Core V2 vault detection, fee reading, metadata and documentation (2026-07-24)
+
 - **Add: GMX Lagoon tutorial with testnet support, dynamic market resolution, and forward_eth keeper fee funding (2026-03-03)**
 - **Add: GMX order cancellation for all order types**
 - **Add: GMX fee and rebate data in CCXT**

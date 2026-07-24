@@ -45,6 +45,9 @@ from eth_defi.wstgbp.constants import WSTGBP
 
 logger = logging.getLogger(__name__)
 
+#: ABI-encoded address return value length in bytes.
+ABI_ENCODED_ADDRESS_LENGTH = 32
+
 #: JPMorgan OnChain Liquidity-Token Money Market Fund (JLTXX) ODA-FACT diamond.
 #:
 #: https://eth.blockscout.com/address/0x09864f52B035AE22eE739dFa5c748fA080D07bD8
@@ -807,6 +810,18 @@ def create_probe_calls(
             extra_data=None,
         )
 
+        # Symbiotic Core V2 vaults use a dedicated WithdrawalQueue. The
+        # predecessor Core V1 vault also exposes delegator(), so this V2-only
+        # accessor is used to identify V2 vaults.
+        # https://github.com/symbioticfi/core/blob/main/src/interfaces/vault/IVaultV2.sol
+        yield EncodedCall.from_keccak_signature(
+            address=address,
+            signature=Web3.keccak(text="withdrawalQueue()")[0:4],
+            function="withdrawalQueue",
+            data=b"",
+            extra_data=None,
+        )
+
         # Lagoon
         # https://basescan.org/address/0x6a5ea384e394083149ce39db29d5787a658aa98a#readContract
         yield EncodedCall.from_keccak_signature(
@@ -1274,6 +1289,17 @@ def create_probe_calls(
             )
 
 
+def _is_nonzero_abi_address(result: EncodedCallResult) -> bool:
+    """Check whether a multicall probe returned an ABI-encoded non-zero address.
+
+    :param result:
+        Result returned by the address accessor probe.
+    :return:
+        ``True`` when the result is a non-zero ABI-encoded address.
+    """
+    return result.success and len(result.result) == ABI_ENCODED_ADDRESS_LENGTH and int.from_bytes(result.result, byteorder="big") != 0
+
+
 def identify_vault_features(
     address: HexAddress,
     calls: dict[str, EncodedCallResult],
@@ -1378,6 +1404,10 @@ def identify_vault_features(
 
     if calls["additionalRewardsStrategy"].success:
         features.add(ERC4626Feature.kiln_metavault_like)
+
+    # The V2-only withdrawal queue gives a compact Symbiotic identification signal.
+    if _is_nonzero_abi_address(calls["withdrawalQueue"]):
+        features.add(ERC4626Feature.symbiotic_like)
 
     if calls["MAX_MANAGEMENT_RATE"].success:
         if ERC4626Feature.erc_7540_like in features:
@@ -1855,6 +1885,10 @@ def create_vault_instance(
         from eth_defi.mellow.vault import MellowVault
 
         return MellowVault(web3, spec, **kwargs)
+    elif ERC4626Feature.symbiotic_like in features:
+        from eth_defi.erc_4626.vault_protocol.symbiotic.vault import SymbioticVault
+
+        return SymbioticVault(web3, spec, **kwargs)
     elif ERC4626Feature.securitize_like in features:
         from eth_defi.tokenised_fund.securitize.vault import SecuritizeVault
 

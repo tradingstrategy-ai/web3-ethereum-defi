@@ -1,6 +1,7 @@
 feeder-id: mev-capital
 name: MEV Capital
 role: curator
+symbiotic-curator: MEV Capital
 ipor-atomist: MEV Capital
 euler-entity: mev-capital
 website: https://www.mevcapital.com

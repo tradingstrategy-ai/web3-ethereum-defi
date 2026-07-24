@@ -151,6 +151,7 @@ Supported protocols
    spectra/index
    summer/index
    superform/index
+   symbiotic/index
    t3tris/index
    theo/index
    teller/index

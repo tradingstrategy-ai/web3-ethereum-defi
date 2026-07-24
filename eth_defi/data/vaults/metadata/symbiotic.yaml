@@ -1,0 +1,33 @@
+name: Symbiotic
+slug: symbiotic
+short_description: |
+  A shared collateral platform where curators manage vaults that supply capital to onchain applications.
+long_description: |
+  Symbiotic lets capital providers deposit a single supported asset into a curator-managed vault. Curators
+  can allocate that collateral across applications and selected earning strategies while keeping the vault's
+  holdings and accounting onchain. The same infrastructure is used for applications such as credit,
+  insurance, liquidity and shared security.
+
+  Vault access may be public or restricted to approved depositors. A curator can set a deposit limit, choose
+  which applications and adapters receive capital, and configure management or performance fees. Withdrawals
+  may require capital to return from an adapter, so redemption speed depends on the vault's allocations and
+  available liquidity.
+fee_description: |
+  Curators can configure management and performance fees for an individual vault, and Symbiotic may apply
+  protocol fees. Fees reduce the economic value represented by each holder's share over time rather than
+  appearing as a separate withdrawal charge. Check the vault page and curator documentation for its current
+  fee settings and allocation policy.
+links:
+  homepage: https://symbiotic.fi/
+  app: https://app.symbiotic.fi/
+  twitter: https://x.com/symbioticfi
+  github: https://github.com/symbioticfi/core
+  documentation: https://docs.symbiotic.fi/get-started/what/components/vaults
+  fact_sheet:
+  defillama: https://defillama.com/protocol/symbiotic
+  audits: https://docs.symbiotic.fi/get-started/resources/audits
+  fees: https://docs.symbiotic.fi/integrate/curators/deploy-vault
+  trading_strategy: https://tradingstrategy.ai/trading-view/vaults/protocols/symbiotic
+  integration_documentation: https://web3-ethereum-defi.readthedocs.io/vaults/symbiotic/index.html
+example_smart_contracts:
+  - https://etherscan.io/address/0x007e0b8e99c6134e81a1eaae754460e3202cb671

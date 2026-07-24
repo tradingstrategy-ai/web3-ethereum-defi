@@ -37,7 +37,7 @@ KNOWN_FEEDER_ROLES = {
 
 _SLUG_RE = re.compile(r"^[a-z0-9][a-z0-9-]*$")
 _VALID_SOURCE_TYPES = {"rss", "twitter", "linkedin"}
-_MANAGER_METADATA_KEYS = ("ipor-atomist", "euler-entity", "morpho-curator", "lagoon-curator", "t3tris-curator", "asseto-role", "accountable-company")
+_MANAGER_METADATA_KEYS = ("ipor-atomist", "euler-entity", "morpho-curator", "lagoon-curator", "t3tris-curator", "asseto-role", "accountable-company", "symbiotic-curator")
 
 _MAPPING_SCHEMA = Map(
     {
@@ -52,6 +52,7 @@ _MAPPING_SCHEMA = Map(
         Optional("t3tris-curator"): Str(),
         Optional("asseto-role"): Str(),
         Optional("accountable-company"): Str(),
+        Optional("symbiotic-curator"): Str(),
         Optional("website"): Str(),
         Optional("curatorwatch"): Str(),
         Optional("short_description"): Str(),

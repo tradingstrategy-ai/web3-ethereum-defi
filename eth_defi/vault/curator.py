@@ -331,6 +331,7 @@ PROTOCOL_MANAGER_YAML_FIELDS: dict[str, str] = {
     "t3tris": "t3tris-curator",
     "asseto": "asseto-role",
     "accountable": "accountable-company",
+    "symbiotic": "symbiotic-curator",
 }
 
 #: Exact vault address to curator overrides from Dune dashboards.

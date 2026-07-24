@@ -657,6 +657,29 @@ def test_identify_accountable_curators_by_public_company_metadata() -> None:
         assert slug == expected_slug, f"{vault_name!r} resolved to {slug!r}"
 
 
+def test_identify_symbiotic_curators_by_official_metadata() -> None:
+    """Resolve reviewed Symbiotic curator names without relying on vault branding."""
+    cases = [
+        ("Gauntlet", "gauntlet"),
+        ("Hyperithm", "hyperithm"),
+        ("Keyrock", "keyrock"),
+        ("MEV Capital", "mev-capital"),
+        ("Re7 Labs", "re7-labs"),
+    ]
+
+    for manager_name, expected_slug in cases:
+        slug = identify_curator(
+            chain_id=1,
+            vault_token_symbol="",
+            vault_name="Unbranded USDC vault",
+            vault_address="0x0000000000000000000000000000000000000000",
+            protocol_slug="symbiotic",
+            manager_name=manager_name,
+        )
+
+        assert slug == expected_slug
+
+
 def test_identify_smokehouse_as_steakhouse_financial() -> None:
     """Smokehouse vault names resolve to Steakhouse Financial."""
 
