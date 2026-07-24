@@ -7,8 +7,17 @@ let many tests share a single fork (via
 :class:`eth_defi.testing.anvil_fork_pool.AnvilForkPool`), we **normalise** them
 onto one canonical block per chain.
 
+**These blocks are not special.** ``2026-07-24 00:00:00 UTC`` was picked
+arbitrarily — it was simply "the most recent midnight" at the time this test
+suite was optimised. There is nothing significant about this date, block height
+or the choice of midnight specifically; any recent, settled, fixed block per
+chain would do equally well. A midnight timestamp was used only because it is
+easy to compute reproducibly (binary-search the archive for the last block at or
+before ``00:00 UTC``). Feel free to bump these to a newer date whenever
+convenient (then re-run the affected tests to refresh block-dependent asserts).
+
 The canonical block is the last block **at or immediately before midnight UTC**
-on a recent date (2026-07-24 00:00:00 UTC). A recent midnight is:
+on that arbitrarily chosen recent date. What actually matters about it is:
 
 - **recent**, so vaults integrated and live today generally have state at this
   block — but this is not a guarantee for a specific vault; validate per vault
@@ -30,6 +39,11 @@ and must not be normalised here.
 Blocks captured by binary-searching the archive node for the last block with
 ``timestamp <= 2026-07-24T00:00:00Z``.
 """
+
+# NOTE: these block heights are arbitrary — the last block before
+# 2026-07-24 00:00 UTC, "the most recent midnight" when the suite was optimised.
+# Nothing is special about this date/height; any recent settled fixed block per
+# chain works. Bump freely (then re-run the affected tests). See module docstring.
 
 #: Ethereum mainnet (chain id 1).
 ETHEREUM_MIDNIGHT_BLOCK = 25_598_869
