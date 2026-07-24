@@ -529,7 +529,7 @@ def probe_candidate(  # noqa: PLR0914
         manager = ERC4626DepositManager(vault)
         manager_source = "generic_erc4626"
     capability_data = capability.as_initial_public_schema() if capability else None
-    if capability_data is None or not capability_data["can_deposit"]:
+    if capability is None or not capability.can_deposit:
         return {"outcome": "adapter_error", "message": "Live adapter does not advertise deposits", "deposit_manager": capability_data, "max_deposit_guidance": max_deposit_guidance}
 
     token = fetch_erc20_details(web3, candidate.denomination_token_address)

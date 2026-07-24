@@ -2,13 +2,16 @@
 
 import datetime
 from dataclasses import dataclass
+from decimal import Decimal
 from functools import cached_property
 import logging
 from typing import Iterable
 
 from web3.contract import Contract
+from web3.exceptions import Web3Exception
 from eth_typing import BlockIdentifier, HexAddress
 
+from eth_defi.erc_4626.deposit_redeem import ERC4626DepositManager
 from eth_defi.erc_4626.core import get_deployed_erc_4626_contract
 from eth_defi.erc_4626.vault import ERC4626HistoricalReader, ERC4626Vault
 from eth_defi.event_reader.conversion import convert_int256_bytes_to_int
@@ -23,8 +26,62 @@ from eth_defi.vault.base import (
     VaultHistoricalReader,
     VaultTechnicalRisk,
 )
+from eth_defi.vault.deposit_redeem import VaultFlowUnavailable
 
 logger = logging.getLogger(__name__)
+
+
+class D2DepositManager(ERC4626DepositManager):
+    """ERC-4626 request manager with D2's epoch availability preflight."""
+
+    def estimate_deposit(
+        self,
+        owner: HexAddress,
+        amount: Decimal,
+        block_identifier: BlockIdentifier = "latest",
+    ) -> Decimal:
+        """Estimate a D2 deposit only while the funding phase is open.
+
+        D2's ``previewDeposit`` returns an unhelpful zero during a trading
+        epoch. Report the protocol's known epoch state instead of presenting a
+        zero-price quote as a usable deposit estimate.
+
+        :param owner:
+            Prospective deposit owner.
+        :param amount:
+            Human-readable denomination-token amount.
+        :param block_identifier:
+            Block at which to estimate the ERC-4626 conversion.
+        :return:
+            Estimated vault shares.
+        :raise VaultFlowUnavailable:
+            If D2 is outside its funding phase or cannot quote a positive
+            deposit estimate.
+        """
+        closed_reason = self.vault.fetch_deposit_closed_reason()
+        if closed_reason:
+            raise VaultFlowUnavailable(
+                closed_reason,
+                protocol=self.vault.get_protocol_name(),
+                vault_address=self.vault.address,
+                caller=owner,
+                direction="deposit",
+                phase="pricing",
+                next_open=self.vault.fetch_deposit_next_open(),
+            )
+
+        estimate = super().estimate_deposit(owner, amount, block_identifier)
+        if estimate <= 0:
+            raise VaultFlowUnavailable(
+                "D2 deposit estimate is zero because pricing is unavailable",
+                protocol=self.vault.get_protocol_name(),
+                vault_address=self.vault.address,
+                caller=owner,
+                direction="deposit",
+                phase="pricing",
+            )
+        return estimate
+
 
 D2_PROTOCOL_NAME = "D2 Finance"
 D2_STRATEGY_URL_TEMPLATE = "https://d2.finance/strategies/{address}"
@@ -342,6 +399,14 @@ class D2Vault(ERC4626Vault):
     def get_historical_reader(self, stateful) -> VaultHistoricalReader:
         return D2HistoricalReader(self, stateful)
 
+    def get_deposit_manager(self) -> D2DepositManager:
+        """Return the D2 manager with epoch-aware deposit preflights.
+
+        :return:
+            D2 deposit manager.
+        """
+        return D2DepositManager(self)
+
     def get_link(self, referral: str | None = None) -> str:  # noqa: ARG002
         """Get the canonical public page for this D2 vault.
 
@@ -426,8 +491,8 @@ class D2Vault(ERC4626Vault):
                         return f"{DEPOSIT_CLOSED_FUNDING_PHASE} (opens in {hours:.0f}h)"
                     return f"{DEPOSIT_CLOSED_FUNDING_PHASE} (opens in {hours / 24:.1f}d)"
                 return DEPOSIT_CLOSED_FUNDING_PHASE
-        except Exception:
-            pass
+        except Web3Exception as error:
+            logger.warning("Could not determine D2 deposit window for %s: %s", self.address, error)
         return None
 
     def fetch_redemption_closed_reason(self) -> str | None:
@@ -443,8 +508,8 @@ class D2Vault(ERC4626Vault):
                         return f"{REDEMPTION_CLOSED_FUNDS_CUSTODIED} (opens in {hours:.0f}h)"
                     return f"{REDEMPTION_CLOSED_FUNDS_CUSTODIED} (opens in {hours / 24:.1f}d)"
                 return REDEMPTION_CLOSED_FUNDS_CUSTODIED
-        except Exception:
-            pass
+        except Web3Exception as error:
+            logger.warning("Could not determine D2 redemption window for %s: %s", self.address, error)
         return None
 
     def fetch_deposit_next_open(self) -> datetime.datetime | None:
@@ -457,7 +522,8 @@ class D2Vault(ERC4626Vault):
                 return None  # Already open
             epoch = self.fetch_current_epoch_info()
             return epoch.epoch_end  # Next funding starts after epoch ends
-        except Exception:
+        except Web3Exception as error:
+            logger.warning("Could not determine next D2 deposit window for %s: %s", self.address, error)
             return None
 
     def fetch_redemption_next_open(self) -> datetime.datetime | None:
@@ -470,5 +536,6 @@ class D2Vault(ERC4626Vault):
                 return None  # Already open
             epoch = self.fetch_current_epoch_info()
             return epoch.epoch_end
-        except Exception:
+        except Web3Exception as error:
+            logger.warning("Could not determine next D2 redemption window for %s: %s", self.address, error)
             return None

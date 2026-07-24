@@ -31,6 +31,7 @@ from eth_defi.vault.deposit_redeem import (
     DepositTicket,
     RedemptionRequest,
     RedemptionTicket,
+    VaultFlowUnavailable,
 )
 from eth_defi.vault.flow_events import (
     PendingVaultFlow,
@@ -228,6 +229,9 @@ class EmberDepositManager(ERC4626DepositManager):
             Validate the owner's current share balance before binding calls.
         :return:
             Two-call Ember request in approval then redemption order.
+        :raise VaultFlowUnavailable:
+            If withdrawals are paused, the requested shares are below the
+            configured minimum, or the owner has insufficient shares.
         """
         del check_max_deposit
         if (shares is None) == (raw_shares is None):
@@ -242,15 +246,41 @@ class EmberDepositManager(ERC4626DepositManager):
         if raw_shares <= 0:
             raise ValueError("Ember redemption shares must be positive")
         if self._withdrawals_paused():
-            raise ValueError("Ember withdrawals are paused")
+            raise VaultFlowUnavailable(
+                "Ember withdrawals are paused",
+                protocol=self.vault.get_protocol_name(),
+                vault_address=self.vault.address,
+                caller=owner,
+                direction="redeem",
+                phase="request",
+                requested_raw_amount=raw_shares,
+            )
 
         minimum = int(self.vault.vault_contract.functions.minWithdrawableShares().call())
         if raw_shares < minimum:
-            raise ValueError(f"Ember redemption shares {raw_shares} are below minimum {minimum}")
+            raise VaultFlowUnavailable(
+                "Ember redemption shares are below the minimum request amount",
+                protocol=self.vault.get_protocol_name(),
+                vault_address=self.vault.address,
+                caller=owner,
+                direction="redeem",
+                phase="request",
+                requested_raw_amount=raw_shares,
+                minimum_raw_amount=minimum,
+            )
         if check_enough_token:
             balance = int(self.vault.share_token.fetch_raw_balance_of(owner))
             if balance < raw_shares:
-                raise ValueError(f"Insufficient Ember shares: has {balance}, needs {raw_shares}")
+                raise VaultFlowUnavailable(
+                    "Insufficient Ember shares for redemption",
+                    protocol=self.vault.get_protocol_name(),
+                    vault_address=self.vault.address,
+                    caller=owner,
+                    direction="redeem",
+                    phase="request",
+                    requested_raw_amount=raw_shares,
+                    available_raw_amount=balance,
+                )
 
         return EmberRedemptionRequest(
             vault=self.vault,

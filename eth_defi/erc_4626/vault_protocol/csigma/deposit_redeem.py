@@ -5,7 +5,7 @@ from decimal import Decimal
 from eth_typing import HexAddress
 
 from eth_defi.erc_4626.deposit_redeem import ERC4626DepositManager, ERC4626DepositRequest, ERC4626RedemptionRequest
-from eth_defi.vault.deposit_redeem import VaultFlowUnavailable
+from eth_defi.vault.deposit_redeem import VaultFlowUnavailable, VaultRedemptionPreflight
 
 
 class CsigmaDepositManager(ERC4626DepositManager):
@@ -14,8 +14,7 @@ class CsigmaDepositManager(ERC4626DepositManager):
     **Supported simulation path**
 
     Standard ``deposit`` and ``redeem`` calls against the cSigma V2 pool. The
-    manager preflights the native share capacity returned by ``maxRedeem`` and
-    :meth:`force_settle` accepts ``None`` for the shared synchronous no-op.
+    manager preflights the native share capacity returned by ``maxRedeem``.
 
     **Known limitations**
 
@@ -44,6 +43,21 @@ class CsigmaDepositManager(ERC4626DepositManager):
             ``owner``.
         """
         return int(self.vault.vault_contract.functions.maxDeposit(owner).call())
+
+    def fetch_redemption_preflight(self, owner: HexAddress, raw_shares: int) -> VaultRedemptionPreflight:
+        """Return cSigma's immediate owner-specific raw-share capacity.
+
+        :param owner:
+            Address whose capacity is queried.
+        :param raw_shares:
+            Requested raw vault shares.
+        :return:
+            Advisory immediate redemption capacity.
+        """
+        available_raw_shares = self.fetch_redeemable_raw_shares(owner)
+        if raw_shares <= available_raw_shares:
+            return VaultRedemptionPreflight(True, raw_shares, available_raw_shares)
+        return VaultRedemptionPreflight(False, raw_shares, available_raw_shares, "redemption_capacity_limited")
 
     def create_deposit_request(  # noqa: PLR0917
         self,
@@ -135,8 +149,8 @@ class CsigmaDepositManager(ERC4626DepositManager):
             raw_shares = self.vault.share_token.convert_to_raw(shares)
 
         if check_max_deposit:
-            available_raw_shares = self.fetch_redeemable_raw_shares(owner)
-            if raw_shares > available_raw_shares:
+            preflight = self.fetch_redemption_preflight(owner, raw_shares)
+            if not preflight.available:
                 reason = "cSigma redemption exceeds immediate share capacity"
                 raise VaultFlowUnavailable(
                     reason,
@@ -146,7 +160,7 @@ class CsigmaDepositManager(ERC4626DepositManager):
                     direction="redeem",
                     phase="request",
                     requested_raw_amount=raw_shares,
-                    available_raw_amount=available_raw_shares,
+                    available_raw_amount=preflight.available_raw_shares,
                 )
 
         return super().create_redemption_request(

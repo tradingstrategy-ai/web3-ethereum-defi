@@ -40,6 +40,7 @@ from web3.contract.contract import ContractFunction
 from web3.exceptions import ContractLogicError, BadFunctionCallOutput
 
 from eth_defi.vault.base import VaultFlowManager, VaultInfo, VaultSpec
+from eth_defi.vault.deposit_redeem import VaultDepositManagerCapability
 from eth_defi.vault.flag import MISSING_IN_PROTOCOL_FRONTEND, VaultFlag
 from eth_defi.erc_7540.vault import ERC7540Vault
 from eth_defi.erc_4626.vault_protocol.lagoon.offchain_metadata import LagoonVaultMetadata, fetch_lagoon_vault_metadata
@@ -887,14 +888,12 @@ class LagoonVault(ERC7540Vault, AutomatedSafe):
 
         return ERC7540DepositManager(self)
 
-    def get_deposit_manager_capability(self) -> "VaultDepositManagerCapability | None":
-        """Declare Lagoon's ERC-7540 request-and-claim lifecycle.
+    def get_deposit_manager_capability(self) -> VaultDepositManagerCapability:
+        """Declare Lagoon's asynchronous request-and-claim lifecycle.
 
         :return:
             Two-way asynchronous capability.
         """
-        from eth_defi.vault.deposit_redeem import VaultDepositManagerCapability
-
         return VaultDepositManagerCapability(
             can_deposit=True,
             can_redeem=True,

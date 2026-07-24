@@ -8,7 +8,9 @@ import logging
 
 from eth_typing import HexAddress
 from web3.contract.contract import ContractFunction
-from ..erc_4626.vault import ERC4626Vault
+
+from eth_defi.erc_4626.vault import ERC4626Vault
+from eth_defi.vault.deposit_redeem import VaultDepositManagerCapability
 
 
 logger = logging.getLogger(__name__)
@@ -110,6 +112,19 @@ class ERC7540Vault(ERC4626Vault):
         from eth_defi.erc_4626.vault_protocol.lagoon.deposit_redeem import ERC7540DepositManager
 
         return ERC7540DepositManager(self)
+
+    def get_deposit_manager_capability(self) -> VaultDepositManagerCapability:
+        """Declare the standard asynchronous request-and-claim lifecycle.
+
+        :return:
+            Two-way asynchronous capability.
+        """
+        return VaultDepositManagerCapability(
+            can_deposit=True,
+            can_redeem=True,
+            deposit_flow="asynchronous",
+            redemption_flow="asynchronous",
+        )
 
     def get_estimated_lock_up(self) -> datetime.timedelta | None:
         """ERC-7540 vaults have always a lock up."""

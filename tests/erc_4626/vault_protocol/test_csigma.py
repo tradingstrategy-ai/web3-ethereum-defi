@@ -105,8 +105,7 @@ def test_csigma_v2_pool_deposit_and_redeem_lifecycle(web3: Web3) -> None:
     """Complete one immediate cSigma deposit and redemption lifecycle.
 
     The selected fork exposes immediate liquidity for this representative V2
-    pool. The same manager uses ``force_settle(None)`` for both synchronous
-    operations.
+    pool.
     """
     vault = create_vault_instance_autodetect(
         web3,
@@ -135,7 +134,6 @@ def test_csigma_v2_pool_deposit_and_redeem_lifecycle(web3: Web3) -> None:
     deposit_analysis = manager.analyse_deposit(deposit_ticket.tx_hash, deposit_ticket)
     assert deposit_analysis.denomination_amount == deposit_amount
     assert deposit_analysis.share_count == pytest.approx(Decimal("94.34814"))
-    assert manager.force_settle(None).settlement_required is False
 
     raw_shares = vault.share_token.fetch_raw_balance_of(owner)
     assert raw_shares == EXPECTED_V2_DEPOSITED_RAW_SHARES
@@ -145,7 +143,6 @@ def test_csigma_v2_pool_deposit_and_redeem_lifecycle(web3: Web3) -> None:
     assert redemption_analysis.share_count == pytest.approx(Decimal("94.34814"))
     assert redemption_analysis.denomination_amount == pytest.approx(Decimal("99.999999"))
     assert vault.share_token.fetch_raw_balance_of(owner) == 0
-    assert manager.force_settle(None).settlement_required is False
 
 
 @flaky.flaky

@@ -42,12 +42,18 @@ class VaultDepositManagerCapability:
         Request lifecycle for deposits when supported.
     :param redemption_flow:
         Request lifecycle for redemptions when supported.
+    :param deposit_unsupported_reason:
+        Stable adapter reason when deposits are deliberately unsupported.
+    :param redemption_unsupported_reason:
+        Stable adapter reason when redemptions are deliberately unsupported.
     """
 
     can_deposit: bool
     can_redeem: bool
     deposit_flow: VaultDepositFlow | None = None
     redemption_flow: VaultDepositFlow | None = None
+    deposit_unsupported_reason: str | None = None
+    redemption_unsupported_reason: str | None = None
 
     def __post_init__(self) -> None:
         """Validate that supported operations have a lifecycle declaration.
@@ -59,6 +65,10 @@ class VaultDepositManagerCapability:
             raise ValueError("deposit_flow must be present exactly when deposits are supported")
         if (self.redemption_flow is not None) != self.can_redeem:
             raise ValueError("redemption_flow must be present exactly when redemptions are supported")
+        if self.can_deposit and self.deposit_unsupported_reason is not None:
+            raise ValueError("deposit_unsupported_reason is valid only when deposits are unsupported")
+        if self.can_redeem and self.redemption_unsupported_reason is not None:
+            raise ValueError("redemption_unsupported_reason is valid only when redemptions are unsupported")
 
     def as_dict(self) -> dict[str, bool | str]:
         """Convert the capability to JSON-compatible primitives.
@@ -74,6 +84,10 @@ class VaultDepositManagerCapability:
             result["deposit_flow"] = self.deposit_flow
         if self.redemption_flow is not None:
             result["redemption_flow"] = self.redemption_flow
+        if self.deposit_unsupported_reason is not None:
+            result["deposit_unsupported_reason"] = self.deposit_unsupported_reason
+        if self.redemption_unsupported_reason is not None:
+            result["redemption_unsupported_reason"] = self.redemption_unsupported_reason
         return result
 
     def as_initial_public_schema(self) -> dict[str, bool | str] | None:
@@ -90,6 +104,39 @@ class VaultDepositManagerCapability:
         if not (self.can_deposit and self.can_redeem):
             return None
         return self.as_dict()
+
+
+@dataclass(frozen=True, slots=True)
+class VaultRedemptionPreflight:
+    """Describe owner-specific immediate redemption capacity.
+
+    The response is advisory because current liquidity can change before the
+    transaction is mined. Request builders repeat this check immediately before
+    they bind their call.
+
+    :param available:
+        Whether the requested raw shares can currently be redeemed.
+    :param requested_raw_shares:
+        Requested vault-share amount in native units.
+    :param available_raw_shares:
+        Current immediate share capacity, when known.
+    :param reason:
+        Stable reason when the request is unavailable.
+    """
+
+    available: bool
+    requested_raw_shares: int
+    available_raw_shares: int | None = None
+    reason: str | None = None
+
+    def __post_init__(self) -> None:
+        """Validate the available-capacity representation."""
+        if self.requested_raw_shares < 0:
+            raise ValueError("requested_raw_shares must not be negative")
+        if self.available and self.reason is not None:
+            raise ValueError("available preflight cannot have an unavailable reason")
+        if not self.available and self.reason is None:
+            raise ValueError("unavailable preflight must have a reason")
 
 
 class AsyncVaultRequestStatus(enum.Enum):
@@ -142,6 +189,10 @@ class VaultFlowError(Exception):
         Requested amount in the contract's native raw unit, when applicable.
     :param available_raw_amount:
         Available amount in the contract's native raw unit, when applicable.
+    :param minimum_raw_amount:
+        Minimum accepted amount in the contract's native raw unit, when applicable.
+    :param next_open:
+        Naive UTC time at which this flow is next expected to open, when known.
     """
 
     def __init__(
@@ -157,6 +208,8 @@ class VaultFlowError(Exception):
         raw_revert_data: HexBytes | None = None,
         requested_raw_amount: int | None = None,
         available_raw_amount: int | None = None,
+        minimum_raw_amount: int | None = None,
+        next_open: datetime.datetime | None = None,
     ) -> None:
         """Store structured context for a vault-flow failure."""
         super().__init__(reason)
@@ -170,6 +223,8 @@ class VaultFlowError(Exception):
         self.raw_revert_data = raw_revert_data
         self.requested_raw_amount = requested_raw_amount
         self.available_raw_amount = available_raw_amount
+        self.minimum_raw_amount = minimum_raw_amount
+        self.next_open = next_open
 
     def __str__(self) -> str:
         """Format the failure reason with available flow context."""
@@ -190,6 +245,10 @@ class VaultFlowError(Exception):
             context.append(f"requested_raw_amount={self.requested_raw_amount}")
         if self.available_raw_amount is not None:
             context.append(f"available_raw_amount={self.available_raw_amount}")
+        if self.minimum_raw_amount is not None:
+            context.append(f"minimum_raw_amount={self.minimum_raw_amount}")
+        if self.next_open is not None:
+            context.append(f"next_open={self.next_open.isoformat()}")
         return f"{self.reason} ({', '.join(context)})" if context else self.reason
 
 
@@ -199,6 +258,10 @@ class VaultTransactionFailed(VaultFlowError):  # noqa: N818
 
 class VaultFlowUnavailable(VaultFlowError):  # noqa: N818
     """A vault flow cannot be safely created before transaction broadcast."""
+
+
+class UnsupportedVaultSimulation(RuntimeError):
+    """A vault settlement simulation cannot safely run on the active provider."""
 
 
 @dataclass(slots=True)

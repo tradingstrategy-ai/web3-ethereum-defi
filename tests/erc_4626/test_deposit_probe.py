@@ -11,12 +11,13 @@ import eth_defi.erc_4626.deposit_redeem as erc_4626_deposit_redeem
 from eth_defi.erc_4626.deposit_probe import DEFAULT_STATUS_PATH, VaultDepositProbeCandidate, VaultDepositProbeOutput, fetch_max_deposit_guidance, log_probe_tables, require_simulation, run_from_environment, select_candidates, update_status
 from eth_defi.erc_4626.deposit_redeem import ERC4626DepositManager
 from eth_defi.erc_4626.vault import CERTIFIED_SYNCHRONOUS_DEPOSIT_MANAGER_CLASSES, ERC4626Vault
+from eth_defi.erc_4626.vault_protocol.csigma.deposit_redeem import CsigmaDepositManager
 from eth_defi.erc_4626.vault_protocol.gains.deposit_redeem import GainsDepositManager, GainsRedemptionTicket
 from eth_defi.erc_4626.vault_protocol.kiln.vault import KilnVault
 from eth_defi.erc_4626.vault_protocol.summer.vault import SummerVault
 from eth_defi.erc_4626.vault_protocol.yearn.vault import YearnV3Vault
 from eth_defi.vault.base import VaultSpec
-from eth_defi.vault.deposit_redeem import VaultDepositManagerCapability
+from eth_defi.vault.deposit_redeem import VaultDepositManagerCapability, VaultRedemptionPreflight
 from eth_defi.vault.vaultdb import VaultDatabase
 
 
@@ -33,6 +34,49 @@ def test_vault_deposit_manager_capability_suppresses_partial_public_support() ->
     assert VaultDepositManagerCapability(False, True, None, "asynchronous").as_initial_public_schema() is None
     with pytest.raises(ValueError, match="deposit_flow"):
         VaultDepositManagerCapability(True, True, None, "asynchronous")
+    with pytest.raises(ValueError, match="deposit_unsupported_reason"):
+        VaultDepositManagerCapability(True, True, "synchronous", "synchronous", deposit_unsupported_reason="unsupported")
+
+
+def test_vault_redemption_preflight_validates_availability_context() -> None:
+    """Shared capacity preflights reject contradictory availability data."""
+    with pytest.raises(ValueError, match="must not be negative"):
+        VaultRedemptionPreflight(True, -1)
+    with pytest.raises(ValueError, match="cannot have an unavailable reason"):
+        VaultRedemptionPreflight(True, 1, reason="unexpected")
+    with pytest.raises(ValueError, match="must have a reason"):
+        VaultRedemptionPreflight(False, 1)
+
+
+def test_csigma_redemption_preflight_preserves_raw_share_capacity() -> None:
+    """cSigma exposes owner-specific immediate capacity in raw shares."""
+    available_raw_shares = 45_388
+
+    class Call:
+        """Minimal contract-call result."""
+
+        @staticmethod
+        def call() -> int:
+            """Return fixed immediate redemption capacity."""
+            return available_raw_shares
+
+    class Functions:
+        """Minimal cSigma contract namespace."""
+
+        @staticmethod
+        def maxRedeem(owner: str) -> Call:  # noqa: N802
+            """Build an owner-specific capacity call."""
+            assert owner == "0x0000000000000000000000000000000000000001"
+            return Call()
+
+    manager = object.__new__(CsigmaDepositManager)
+    manager.vault = type("Vault", (), {"vault_contract": type("Contract", (), {"functions": Functions()})()})()
+
+    unavailable = manager.fetch_redemption_preflight("0x0000000000000000000000000000000000000001", 907_757)
+    assert unavailable.available is False
+    assert unavailable.requested_raw_shares == 907_757
+    assert unavailable.available_raw_shares == available_raw_shares
+    assert unavailable.reason == "redemption_capacity_limited"
 
 
 def test_erc4626_subclass_can_use_probe_generic_fallback_after_interface_check() -> None:

@@ -13,7 +13,7 @@ from decimal import Decimal
 
 from eth_defi.abi import ZERO_ADDRESS_STR
 from eth_defi.erc_4626.classification import create_vault_instance_autodetect
-from eth_defi.erc_4626.vault_protocol.d2.vault import D2HistoricalReader, D2Vault, Epoch
+from eth_defi.erc_4626.vault_protocol.d2.vault import D2DepositManager, D2HistoricalReader, D2Vault, Epoch
 from eth_defi.provider.anvil import fork_network_anvil, AnvilLaunch
 from eth_defi.provider.multi_provider import create_multi_provider_web3
 from eth_defi.vault.base import (
@@ -21,6 +21,7 @@ from eth_defi.vault.base import (
     REDEMPTION_CLOSED_FUNDS_CUSTODIED,
     VaultTechnicalRisk,
 )
+from eth_defi.vault.deposit_redeem import VaultFlowUnavailable
 
 JSON_RPC_ARBITRUM = os.environ.get("JSON_RPC_ARBITRUM")
 
@@ -114,6 +115,12 @@ def test_d2(
     # D2 should have timing info since it has epoch timing
     assert deposit_next is not None or "opens in" in (deposit_reason or "")
     assert redemption_next is not None or "opens in" in (redemption_reason or "")
+
+    manager = vault.get_deposit_manager()
+    assert isinstance(manager, D2DepositManager)
+    with pytest.raises(VaultFlowUnavailable, match=DEPOSIT_CLOSED_FUNDING_PHASE) as exception_info:
+        manager.estimate_deposit(web3.eth.accounts[0], Decimal("1"))
+    assert exception_info.value.next_open == datetime.datetime(2025, 11, 7, 8, 0)
 
     # Check maxDeposit and maxRedeem with address(0)
     # D2 uses these as global availability checks for epoch-based deposits/redemptions

@@ -11,6 +11,7 @@ from web3.contract import Contract
 from eth_defi.abi import get_deployed_contract
 from eth_defi.compat import native_datetime_utc_now
 from eth_defi.erc_4626.vault import ERC4626Vault
+from eth_defi.vault.deposit_redeem import VaultDepositManagerCapability
 
 logger = logging.getLogger(__name__)
 
@@ -113,3 +114,16 @@ class YieldNestVault(ERC4626Vault):
         The contract returns empty data for maxDeposit(address(0)).
         """
         return False
+
+    def get_deposit_manager_capability(self) -> VaultDepositManagerCapability:
+        """Declare the verified synchronous deposit flow.
+
+        :return:
+            Deposit support and the intentional maturity-aware redemption gap.
+        """
+        return VaultDepositManagerCapability(
+            can_deposit=True,
+            can_redeem=False,
+            deposit_flow="synchronous",
+            redemption_unsupported_reason="maturity_aware_redemption_flow_not_implemented",
+        )

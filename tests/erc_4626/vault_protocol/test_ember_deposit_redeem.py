@@ -17,7 +17,7 @@ from eth_defi.provider.anvil import AnvilLaunch, fork_network_anvil
 from eth_defi.provider.multi_provider import create_multi_provider_web3
 from eth_defi.token import USDC_WHALE, TokenDetails, fetch_erc20_details
 from eth_defi.trace import assert_transaction_success_with_explanation
-from eth_defi.vault.deposit_redeem import AsyncVaultRequestStatus
+from eth_defi.vault.deposit_redeem import AsyncVaultRequestStatus, VaultFlowUnavailable
 
 JSON_RPC_ETHEREUM = os.environ.get("JSON_RPC_ETHEREUM")
 EMBER_VAULT = HexAddress(HexStr("0xf3190A3ECC109F88e7947b849b281918c798A0C4"))
@@ -145,12 +145,14 @@ def test_ember_deposit_redeem_lifecycle(web3: Web3, vault: EmberVault, usdc: Tok
 def test_ember_redemption_minimum_is_checked_before_call_binding(web3: Web3, vault: EmberVault) -> None:
     """Reject a request below the exact configured Ember minimum share amount."""
     manager = vault.get_deposit_manager()
-    with pytest.raises(ValueError, match="below minimum"):
+    with pytest.raises(VaultFlowUnavailable, match="below the minimum") as exception_info:
         manager.create_redemption_request(
             owner=web3.eth.accounts[1],
             raw_shares=99_999,
             check_enough_token=False,
         )
+    assert exception_info.value.requested_raw_amount == 99_999
+    assert exception_info.value.minimum_raw_amount == 100_000
 
 
 def test_ember_ticket_identity_validation() -> None:
