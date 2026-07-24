@@ -146,7 +146,6 @@ jobs:
           poetry run pytest tests/erc_4626/vault_protocol/ --timeout-method=thread --tb=native -n "${MAX_WORKERS:-4}" --dist loadgroup -v -s --capture=no -m "not slow"
         env:
           MAX_WORKERS: ${{ vars.VAULT_TEST_MAX_WORKERS || '4' }}
-        env:
           JSON_RPC_ETHEREUM: ${{ secrets.JSON_RPC_ETHEREUM }}
           JSON_RPC_BASE: ${{ secrets.JSON_RPC_BASE }}
           JSON_RPC_ARBITRUM: ${{ secrets.JSON_RPC_ARBITRUM }}
