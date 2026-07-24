@@ -9,7 +9,7 @@ import flaky
 import pytest
 from web3 import Web3
 
-from eth_defi.erc_4626.classification import _ProbeResultsDict, create_vault_instance_autodetect, identify_vault_features  # noqa: PLC2701 - checks missing-probe handling
+from eth_defi.erc_4626.classification import _ProbeResultsDict, _should_yield_probe, create_vault_instance_autodetect, identify_vault_features  # noqa: PLC2701 - checks missing-probe handling
 from eth_defi.erc_4626.core import ERC4626Feature, get_vault_protocol_name
 from eth_defi.erc_4626.vault_protocol.symbiotic.vault import SymbioticVault
 from eth_defi.provider.anvil import AnvilLaunch, fork_network_anvil
@@ -25,7 +25,7 @@ SYMBIOTIC_FORK_BLOCK = 25_587_299
 
 
 def test_symbiotic_probe_requires_v2_withdrawal_queue() -> None:
-    """Classify Core V2 vaults from their V2-only withdrawal queue accessor."""
+    """Classify Core V2 vaults from their Ethereum-only withdrawal queue accessor."""
     erc4626_probe = SimpleNamespace(success=True, result=eth_abi.encode(["uint256"], [1]))
     address_probe = SimpleNamespace(success=True, result=eth_abi.encode(["address"], ["0x0000000000000000000000000000000000000001"]))
     features = identify_vault_features(
@@ -48,6 +48,8 @@ def test_symbiotic_probe_requires_v2_withdrawal_queue() -> None:
         chain_id=1,
     )
     assert ERC4626Feature.symbiotic_like not in missing_queue_features
+    assert _should_yield_probe("withdrawalQueue", 1) is True
+    assert _should_yield_probe("withdrawalQueue", 42161) is False
 
 
 @pytest.fixture(scope="module")

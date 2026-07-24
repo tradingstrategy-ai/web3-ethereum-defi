@@ -513,6 +513,7 @@ CHAIN_RESTRICTED_PROBES: dict[str, set[int]] = {
     "wards": {1, 8453, 42161},  # Centrifuge - Ethereum, Base, Arbitrum
     "SPOKE_REVISION": {1},  # Aave v4 Tokenization Spoke - Ethereum only
     "assetsWhitelistAddress": {1},  # Upshift multi-asset vaults - Ethereum only
+    "withdrawalQueue": {1},  # Symbiotic Core V2 - Ethereum only
 }
 
 
@@ -814,13 +815,14 @@ def create_probe_calls(
         # predecessor Core V1 vault also exposes delegator(), so this V2-only
         # accessor is used to identify V2 vaults.
         # https://github.com/symbioticfi/core/blob/main/src/interfaces/vault/IVaultV2.sol
-        yield EncodedCall.from_keccak_signature(
-            address=address,
-            signature=Web3.keccak(text="withdrawalQueue()")[0:4],
-            function="withdrawalQueue",
-            data=b"",
-            extra_data=None,
-        )
+        if _should_yield_probe("withdrawalQueue", chain_id):
+            yield EncodedCall.from_keccak_signature(
+                address=address,
+                signature=Web3.keccak(text="withdrawalQueue()")[0:4],
+                function="withdrawalQueue",
+                data=b"",
+                extra_data=None,
+            )
 
         # Lagoon
         # https://basescan.org/address/0x6a5ea384e394083149ce39db29d5787a658aa98a#readContract
