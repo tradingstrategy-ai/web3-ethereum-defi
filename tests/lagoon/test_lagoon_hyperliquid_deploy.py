@@ -21,6 +21,7 @@ from eth_defi.provider.anvil import AnvilLaunch, fork_network_anvil
 from eth_defi.provider.multi_provider import create_multi_provider_web3
 from eth_defi.token import USDC_NATIVE_TOKEN
 from eth_defi.trace import assert_transaction_success_with_explanation
+from eth_defi.testing.fork_blocks import HYPERLIQUID_MIDNIGHT_BLOCK
 
 logger = logging.getLogger(__name__)
 
@@ -47,6 +48,7 @@ def deployer() -> LocalAccount:
 def anvil_hyperliquid() -> AnvilLaunch:
     launch = fork_network_anvil(
         JSON_RPC_HYPERLIQUID,
+        fork_block_number=HYPERLIQUID_MIDNIGHT_BLOCK,
         gas_limit=30_000_000,  # HyperEVM small blocks have 2–3M gas limit; override to large block limit (30M) for TradingStrategyModuleV0 (~5.4M gas). See https://hyperliquid.gitbook.io/hyperliquid-docs/for-developers/hyperevm/dual-block-architecture
     )
     try:

@@ -26,6 +26,7 @@ from eth_defi.safe.deployment import (
     deploy_safe_with_deterministic_address,
 )
 from eth_defi.token import USDC_NATIVE_TOKEN
+from eth_defi.testing.fork_blocks import ARBITRUM_MIDNIGHT_BLOCK, BASE_MIDNIGHT_BLOCK
 
 logger = logging.getLogger(__name__)
 
@@ -58,7 +59,7 @@ def owners() -> list[HexAddress]:
 @pytest.fixture()
 def anvil_base(request) -> AnvilLaunch:
     """Base mainnet fork."""
-    launch = fork_network_anvil(JSON_RPC_BASE)
+    launch = fork_network_anvil(JSON_RPC_BASE, fork_block_number=BASE_MIDNIGHT_BLOCK)
     try:
         yield launch
     finally:
@@ -68,7 +69,7 @@ def anvil_base(request) -> AnvilLaunch:
 @pytest.fixture()
 def anvil_arbitrum(request) -> AnvilLaunch:
     """Arbitrum mainnet fork."""
-    launch = fork_network_anvil(JSON_RPC_ARBITRUM)
+    launch = fork_network_anvil(JSON_RPC_ARBITRUM, fork_block_number=ARBITRUM_MIDNIGHT_BLOCK)
     try:
         yield launch
     finally:

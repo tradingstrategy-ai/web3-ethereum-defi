@@ -27,6 +27,7 @@ from eth_defi.provider.multi_provider import create_multi_provider_web3
 from eth_defi.simple_vault.transact import encode_simple_vault_transaction
 from eth_defi.token import USDC_WHALE
 from eth_defi.trace import assert_transaction_success_with_explanation
+from eth_defi.testing.fork_blocks import ARBITRUM_MIDNIGHT_BLOCK
 
 
 JSON_RPC_ARBITRUM = os.environ.get("JSON_RPC_ARBITRUM")
@@ -49,6 +50,7 @@ def anvil_arbitrum_fork(request, large_usdc_holder) -> AnvilLaunch:
     mainnet_rpc = os.environ["JSON_RPC_ARBITRUM"]
     launch = fork_network_anvil(
         mainnet_rpc,
+        fork_block_number=ARBITRUM_MIDNIGHT_BLOCK,
         unlocked_addresses=[large_usdc_holder],
     )
     try:

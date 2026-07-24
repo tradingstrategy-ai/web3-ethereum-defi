@@ -24,6 +24,7 @@ from eth_defi.provider.anvil import AnvilLaunch, fork_network_anvil
 from eth_defi.provider.multi_provider import create_multi_provider_web3
 from eth_defi.token import USDC_NATIVE_TOKEN, USDC_WHALE, fetch_erc20_details
 from eth_defi.trace import assert_transaction_success_with_explanation
+from eth_defi.testing.fork_blocks import ARBITRUM_MIDNIGHT_BLOCK, BASE_MIDNIGHT_BLOCK, ETHEREUM_MIDNIGHT_BLOCK, HYPERLIQUID_MIDNIGHT_BLOCK
 
 logger = logging.getLogger(__name__)
 
@@ -55,6 +56,7 @@ def deployer() -> LocalAccount:
 def anvil_ethereum(request) -> AnvilLaunch:
     launch = fork_network_anvil(
         JSON_RPC_ETHEREUM,
+        fork_block_number=ETHEREUM_MIDNIGHT_BLOCK,
         unlocked_addresses=[USDC_WHALE[1]],
     )
     try:
@@ -67,6 +69,7 @@ def anvil_ethereum(request) -> AnvilLaunch:
 def anvil_arbitrum(request) -> AnvilLaunch:
     launch = fork_network_anvil(
         JSON_RPC_ARBITRUM,
+        fork_block_number=ARBITRUM_MIDNIGHT_BLOCK,
         unlocked_addresses=[USDC_WHALE[42161]],
     )
     try:
@@ -79,6 +82,7 @@ def anvil_arbitrum(request) -> AnvilLaunch:
 def anvil_base(request) -> AnvilLaunch:
     launch = fork_network_anvil(
         JSON_RPC_BASE,
+        fork_block_number=BASE_MIDNIGHT_BLOCK,
         unlocked_addresses=[USDC_WHALE[8453]],
     )
     try:
@@ -91,6 +95,7 @@ def anvil_base(request) -> AnvilLaunch:
 def anvil_hyperliquid(request) -> AnvilLaunch:
     launch = fork_network_anvil(
         JSON_RPC_HYPERLIQUID,
+        fork_block_number=HYPERLIQUID_MIDNIGHT_BLOCK,
         gas_limit=30_000_000,  # HyperEVM small blocks have 2–3M gas limit; override to large block limit (30M) for TradingStrategyModuleV0 (~5.4M gas). See https://hyperliquid.gitbook.io/hyperliquid-docs/for-developers/hyperevm/dual-block-architecture
     )
     try:

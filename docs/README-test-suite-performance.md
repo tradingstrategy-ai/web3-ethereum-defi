@@ -107,6 +107,21 @@ Converted and validated locally (~44 tests across 8 chains):
 Value assertions that moved with the block were refreshed by reading the new
 block (e.g. `test_altura` exit fee 0.0001 → 0.001).
 
+**Chain-tip (`latest`) forks converted to fixed midnight blocks.** Forking
+`latest` is non-reproducible *and* uncacheable. `test_aarna` (Ethereum,
+read-only) was folded into the shared Ethereum midnight fork. Eleven
+deploy/integration tests that forked `latest` were pinned to their chain's
+midnight block via `fork_block_number=<CHAIN>_MIDNIGHT_BLOCK` (kept on their own
+fork — they deploy/mutate — but now reproducible and their cold-fork base reads
+are cacheable): `cctp_lagoon_fork`, `cctp_dual_fork`, `guard_safe_e2e`,
+`uniswap_v3_swap_base`, `deploy_binance`, `lagoon_hyperliquid_deploy`,
+`guard_simple_vault_umami`, `enzyme/test_arbitrum_trade`,
+`lagoon_config_event_scanner`, `safe_deterministic_deploy`,
+`lagoon_multichain_deploy`. All validated locally (11/12 pass;
+`lagoon_multichain_deploy` is `@skipif(CI)` and has a pre-existing, unrelated
+`config=` bug — its fork pinning is correct). GMX was left out (separate
+workflow). Monad tip forks cannot be pinned (no archive).
+
 **Not converted (kept on their own fork / block):** multi-fork files
 (`test_royco`, `test_yieldfi`, `test_mainstreet`), mutating/signer tests
 (`test_csigma`, `test_d2`, `test_plutus`, `test_yieldnest`), non-standard

@@ -44,6 +44,7 @@ from eth_defi.uniswap_v3.deployment import (
 )
 from eth_defi.uniswap_v3.pool import PoolDetails, fetch_pool_details
 from eth_defi.aave_v3.deployment import fetch_deployment as fetch_aave_v3_deployment
+from eth_defi.testing.fork_blocks import ARBITRUM_MIDNIGHT_BLOCK
 
 JSON_RPC_ARBITRUM = os.environ.get("JSON_RPC_ARBITRUM")
 CI = os.environ.get("CI") == "true"
@@ -62,6 +63,7 @@ def anvil(usdt_whale) -> AnvilLaunch:
 
     anvil = launch_anvil(
         fork_url=JSON_RPC_ARBITRUM,
+        fork_block_number=ARBITRUM_MIDNIGHT_BLOCK,
         unlocked_addresses=[usdt_whale],
         code_size_limit=99_999_999,  # Increase the code size limit to allow for larger contracts
     )
