@@ -42,19 +42,19 @@ We keep forking real chains; we stop paying for the same fork many times over.
   (`eth_defi/testing/fork_blocks.py`, `ARBITRUM_MIDNIGHT_BLOCK` = the last block
   at/before 2026-07-24 00:00 UTC — recent enough that the PoC vaults have state,
   fixed and cache-friendly; each vault is validated before normalising its test).
-  `test_goat.py`, `test_harvest.py` and
-  `test_plutus.py` (Arbitrum, **read-only**) now share one fork via an
-  `xdist_group("fork:arbitrum:midnight")` marker.
+  `test_goat.py` and `test_harvest.py` (Arbitrum, **read-only**) now share one
+  fork via an `xdist_group("fork:arbitrum:midnight")` marker.
 
-  **Measured locally** (anvil 1.7.1, real Arbitrum archive): the three modules
-  launch **one** Anvil instead of three; they co-locate on one worker under
-  `-n2 --dist loadgroup` and all pass. Moving off the old block changed
-  block-dependent asserts — `test_goat`'s `fetch_pnl` and `test_plutus`'s
-  share-price/TVL values were refreshed from the new block; `test_harvest`
-  (pure metadata) was unchanged. `test_d2.py` was **reverted** to its own fork —
-  its epoch/phase assertions are too block-state-dependent to normalise safely.
-  The run also hit (and `@flaky`-retried) a transient RPC timeout, confirming
-  these tests genuinely need their retry decorator (Lever 4).
+  **Measured locally** (anvil 1.7.1, real Arbitrum archive): the modules launch
+  **one** Anvil instead of one per file; they co-locate on one worker under
+  `-n2 --dist loadgroup` and pass. Moving off the old block changed
+  block-dependent asserts — `test_goat`'s `fetch_pnl` was refreshed from the new
+  block; `test_harvest` (pure metadata) was unchanged. (A third candidate,
+  `test_plutus`, was validated the same way at the midnight block but master
+  has since actively evolved that test — added deposit-manager assertions — so it
+  is left on its own fork here to avoid churn; it can be normalised later.)
+  The validation run also hit (and `@flaky`-retried) a transient RPC timeout,
+  confirming these tests genuinely need their retry decorator (Lever 4).
 
   Being read-only, this PoC validates fork-sharing + xdist co-location but does
   **not** exercise the snapshot/revert-under-xdist hang risk. Converting any
@@ -79,7 +79,7 @@ The suite is an integration suite behaving like a unit suite:
 - **`--dist loadgroup` was configured but no test used `xdist_group`** — the
   grouping mechanism that lets tests share a fork safely was unused, so
   module-scoped forks could be rebuilt on multiple xdist workers. (The Lever 1
-  PoC below normalises three of these onto a shared midnight block.)
+  PoC below normalises two of these onto a shared midnight block.)
 - **394 `@flaky` decorators across 158 files** (173 files reference `flaky` at
   all). Blanket retries do not multiply runtime for *passing* tests — they only
   add time when an attempt fails — but on non-network tests they still mask real
@@ -453,8 +453,8 @@ a fixed schedule — **Monday, Wednesday and Saturday** — plus on-demand.
    required-check job and the periodic/full fallback are in place, with the broad
    path set.
 5. **Lever 1** (session-scoped shared forks) — landed as a **read-only** bounded
-   PoC (three Arbitrum tests normalised onto the midnight block, sharing one
-   fork — validated locally: one Anvil for three tests, co-located under
+   PoC (two Arbitrum tests normalised onto the midnight block, sharing one
+   fork — validated locally: one Anvil for both, co-located under
    `--dist loadgroup`), which validates fork-sharing and xdist co-location but
    **not** the snapshot/revert hang risk.
    Converting any *mutating* test additionally requires a bounded CI PoC that

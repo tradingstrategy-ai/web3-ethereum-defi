@@ -55,14 +55,28 @@ jobs:
 
       # Slow tests may include Anvil mainnet forks. Keep this version in sync
       # with the main test workflow so both suites exercise the same EVM.
-      - name: Cache Foundry
+      # See test.yml for the rationale behind splitting the immutable toolchain
+      # cache from the rolling, month-namespaced fork RPC cache.
+      - name: Cache Foundry toolchain
         uses: actions/cache@v4
         with:
-          path: ~/.foundry
-          key: foundry-v1.2.3-${{ runner.os }}
+          path: ~/.foundry/bin
+          key: foundry-toolchain-v1.2.3-${{ runner.os }}
           restore-keys: |
-            foundry-v1.2.3-
-            foundry-
+            foundry-toolchain-v1.2.3-
+            foundry-toolchain-
+
+      - name: Compute cache month
+        id: cache-month
+        run: echo "month=$(date -u +%Y-%m)" >> "$GITHUB_OUTPUT"
+
+      - name: Cache Foundry fork RPC cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.foundry/cache/rpc
+          key: foundry-rpc-v1.2.3-${{ runner.os }}-${{ steps.cache-month.outputs.month }}-${{ github.run_id }}
+          restore-keys: |
+            foundry-rpc-v1.2.3-${{ runner.os }}-${{ steps.cache-month.outputs.month }}-
 
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@v1
