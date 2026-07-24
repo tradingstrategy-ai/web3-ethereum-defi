@@ -114,6 +114,10 @@ def test_accountable_deposit_and_redemption_request_lifecycle(web3: Web3) -> Non
     assert manager.has_synchronous_deposit() is True
     assert manager.has_synchronous_redemption() is False
 
+    synchronous_settlement = manager.force_settle(None)
+    assert synchronous_settlement.settlement_required is False
+    assert synchronous_settlement.transaction_hashes == ()
+
     owner = web3.eth.accounts[0]
     usdc: TokenDetails = vault.denomination_token
     funding_hash = usdc.transfer(owner, DEPOSIT_AMOUNT).transact({"from": MONAD_USDC_WHALE})
@@ -121,6 +125,7 @@ def test_accountable_deposit_and_redemption_request_lifecycle(web3: Web3) -> Non
     approval_hash = usdc.approve(vault.address, DEPOSIT_AMOUNT).transact({"from": owner})
     assert_transaction_success_with_explanation(web3, approval_hash)
 
+    assert manager.estimate_deposit(owner, DEPOSIT_AMOUNT) > 0
     deposit_ticket = manager.create_deposit_request(owner=owner, amount=DEPOSIT_AMOUNT).broadcast(from_=owner)
     deposit_analysis = manager.analyse_deposit(deposit_ticket.tx_hash, deposit_ticket)
     assert deposit_analysis.denomination_amount == DEPOSIT_AMOUNT

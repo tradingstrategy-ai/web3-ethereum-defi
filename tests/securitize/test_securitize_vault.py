@@ -67,6 +67,7 @@ def test_securitize_product_registry() -> None:
     products = (BUIDL_ETHEREUM, BUIDL_POLYGON, BUIDL_AVALANCHE, BUIDL_OPTIMISM, BUIDL_ARBITRUM, BUIDL_I_ETHEREUM, ACRED_ETHEREUM, VBILL_ETHEREUM, STAC_ETHEREUM, ARCOIN_ETHEREUM, SPICE_VC_ETHEREUM, HLSCOPE_ETHEREUM, BCAP_ETHEREUM, COSX_ETHEREUM, SCI2_ETHEREUM, PRTS_ETHEREUM, MI4_MANTLE)
     assert {SECURITIZE_PRODUCTS[product.chain_id, product.token] for product in products} == set(products)
     assert all(product.notes.startswith(product.product_name) for product in products)
+    assert MI4_MANTLE.homepage == "https://securitize.io/primary-market/mantle-index-four-fund"
     assert all(identify_curator(product.chain_id, "", product.product_name, product.token) == product.curator_slug for product in products)
 
 

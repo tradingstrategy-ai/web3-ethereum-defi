@@ -20,6 +20,7 @@ from eth_defi.tokenised_fund.asseto import vault as asseto_vault_module
 from eth_defi.tokenised_fund.asseto.constants import ASSETO_AOABT_HASHKEY, ASSETO_HARDCODED_LEADS, HASHKEY_CHAIN_ID
 from eth_defi.tokenised_fund.asseto.historical import AssetoVaultHistoricalReader
 from eth_defi.tokenised_fund.asseto.vault import ASSETO_BLOCKED_FLOW_REASON, AssetoRoleInfo, AssetoVault, convert_asseto_basis_points_to_percent, create_asseto_short_description
+from eth_defi.tokenised_fund.vault import TokenisedFundDepositManager
 from eth_defi.vault.fee import VaultFeeMode
 from eth_defi.vault.flag import VaultFlag
 from eth_defi.vault.risk import VaultTechnicalRisk
@@ -231,11 +232,10 @@ def test_asseto_vault_is_read_only() -> None:
     assert get_vault_protocol_name({ERC4626Feature.asseto_like}) == "Asseto"
     assert vault.fetch_deposit_closed_reason() == ASSETO_BLOCKED_FLOW_REASON
     assert vault.fetch_redemption_closed_reason() == ASSETO_BLOCKED_FLOW_REASON
-    assert vault.get_deposit_manager_capability() is None
+    assert vault.get_deposit_manager_capability().as_initial_public_schema() == {"can_deposit": False, "can_redeem": False}
     assert isinstance(vault.get_historical_reader(stateful=False), AssetoVaultHistoricalReader)
 
-    with pytest.raises(NotImplementedError, match="deposit manager is blocked"):
-        vault.get_deposit_manager()
+    assert isinstance(vault.get_deposit_manager(), TokenisedFundDepositManager)
 
 
 def test_asseto_vault_uses_product_metadata_when_token_metadata_is_unavailable(monkeypatch: pytest.MonkeyPatch) -> None:

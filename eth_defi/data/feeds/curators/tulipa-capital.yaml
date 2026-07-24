@@ -2,6 +2,8 @@ feeder-id: tulipa-capital
 name: Tulipa Capital
 role: curator
 lagoon-curator: Tulipa Capital
+upshift-strategist:
+  - Tulipa Capital
 website: https://tulipa.capital
 short_description: 'Tulipa Capital is a DeFi prop fund and risk curator focused on asset management and capital protection.'
 long_description: |

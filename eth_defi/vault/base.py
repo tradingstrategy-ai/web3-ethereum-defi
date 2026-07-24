@@ -206,7 +206,7 @@ class VaultSpec:
     def __post_init__(self):
         assert isinstance(self.chain_id, int)
         assert isinstance(self.vault_address, str), f"Expected str, got {self.vault_address}"
-        assert is_good_multichain_address(self.vault_address), f"Vault address must start with 0x, VLT:, lighter-pool-, or hibachi-vault- prefix, got: {self.vault_address}"
+        assert is_good_multichain_address(self.vault_address), f"Vault address must start with 0x, VLT:, lighter-pool-, hibachi-vault-, or apex-vault- prefix, got: {self.vault_address}"
         # TODO: Get rid of old codepaths so we can make this dataclass frozen
         self.vault_address = self.vault_address.lower()
 
@@ -351,7 +351,7 @@ class RawVaultPriceRow(TypedDict, total=False):
     (:py:func:`~eth_defi.vault.historical.scan_historical_prices_to_parquet`).
 
     The canonical columns are defined by :py:meth:`VaultHistoricalRead.to_pyarrow_schema`.
-    Native protocol merges (Hyperliquid, GRVT, Lighter, Hibachi) may add extra columns
+    Native protocol merges (Hyperliquid, GRVT, Lighter, Hibachi, ApeX) may add extra columns
     (e.g. ``account_pnl``, ``leader_fraction``) that are preserved across schema migrations
     but are not part of this TypedDict.
 
@@ -370,6 +370,8 @@ class RawVaultPriceRow(TypedDict, total=False):
     #:   see :py:data:`~eth_defi.lighter.constants.LIGHTER_CHAIN_ID`
     #: - ``9997`` — Hibachi native vaults,
     #:   see :py:data:`~eth_defi.hibachi.constants.HIBACHI_CHAIN_ID`
+    #: - ``9995`` — ApeX native vaults,
+    #:   see :py:data:`~eth_defi.apex.constants.APEX_CHAIN_ID`
     #: - ``325`` — GRVT (Gravity Markets),
     #:   see :py:data:`~eth_defi.grvt.constants.GRVT_CHAIN_ID`
     #:
@@ -385,6 +387,7 @@ class RawVaultPriceRow(TypedDict, total=False):
     #: - GRVT: platform-specific id (e.g. ``"vlt:xxx"``)
     #: - Lighter: synthetic id (e.g. ``"lighter-pool-281474976710654"``)
     #: - Hibachi: synthetic id (e.g. ``"hibachi-vault-2"``)
+    #: - ApeX: synthetic id (e.g. ``"apex-vault-2044287989957394432"``)
     #:
     #: See :py:func:`~eth_defi.utils.is_good_multichain_address` for
     #: the validation function that accepts all these formats.
@@ -482,6 +485,29 @@ class RawVaultPriceRow(TypedDict, total=False):
 
     #: When this row was actually written/fetched (naive UTC). ``None`` until stamped at write time.
     written_at: "pd.Timestamp | None"
+
+    #: Current long open-position notional for native perp vault accounts.
+    perp_long_notional: float
+
+    #: Current absolute short open-position notional for native perp vault accounts.
+    perp_short_notional: float
+
+    #: Count of non-zero current perp positions for native vault accounts.
+    perp_open_position_count: int
+
+    #: Largest absolute current perp position notional.
+    perp_largest_position_notional: float
+
+    #: Exact source denomination for the perp notionals.
+    perp_quote_asset: str
+
+    #: Generic current position-data availability state.
+    perp_position_data_status: str
+
+    #: Source position effective time for the materialised metrics.
+    #: Account-level data uses one-second resolution. The timestamp stays
+    #: attached to stale and forward-aligned values so their age is explicit.
+    perp_metrics_observed_at: "pd.Timestamp | None"
 
 
 @dataclass(slots=True, frozen=False)
@@ -661,6 +687,16 @@ class VaultHistoricalRead:
                 ("available_liquidity", pa.float64()),
                 ("utilisation", pa.float32()),
                 ("written_at", pa.timestamp("ms")),  # When this row was actually written/fetched (naive UTC)
+                ("perp_long_notional", pa.float64()),
+                ("perp_short_notional", pa.float64()),
+                ("perp_open_position_count", pa.int64()),
+                ("perp_largest_position_notional", pa.float64()),
+                ("perp_quote_asset", pa.string()),
+                ("perp_position_data_status", pa.string()),
+                # One-second accuracy is sufficient for account-level perp
+                # metrics and remains attached to stale/aligned observations.
+                # Parquet needs the ms logical type for a stable round trip.
+                ("perp_metrics_observed_at", pa.timestamp("ms")),
             ]
         )
         return schema
@@ -692,6 +728,12 @@ class VaultHistoricalRead:
         import pyarrow as pa
 
         target_schema = VaultHistoricalRead.to_pyarrow_schema()
+        # Pandas metadata describes the schema at the time a DataFrame was
+        # written and becomes stale after a migration.  Perp capability
+        # metadata, in contrast, is part of the reproducibility contract for
+        # the raw artefact and must survive an ordinary schema migration.
+        source_metadata = existing_table.schema.metadata or {}
+        preserved_metadata = {key: value for key, value in source_metadata.items() if key.startswith(b"perp_dex.")}
         existing_names = set(existing_table.schema.names)
 
         # Add missing canonical columns as null arrays
@@ -721,8 +763,9 @@ class VaultHistoricalRead:
                     col.cast(target_field.type, safe=False),
                 )
 
-        # Strip pandas metadata to avoid stale schema info
-        existing_table = existing_table.replace_schema_metadata(None)
+        # Strip pandas metadata to avoid stale schema info, while retaining
+        # the immutable perp capability registry for deterministic re-cleaning.
+        existing_table = existing_table.replace_schema_metadata(preserved_metadata or None)
 
         return existing_table
 
@@ -1134,6 +1177,43 @@ class VaultBase(ABC):
             Adapter-specific capability object, or ``None`` when unsupported.
         """
         return None
+
+    def is_whitelisted_deposit(self) -> bool:
+        """Determine whether this vault applies a deposit whitelist policy.
+
+        Protocol adapters override this predicate only when their deployed
+        contract version exposes a reliable vault-wide policy read.  ``True``
+        means the vault requires account permission; ``False`` means its
+        policy is permissionless.  This is independent of a caller's current
+        balance, allowance, pause state, capacity, and request lifecycle.
+
+        :return:
+            ``True`` for a whitelist-restricted vault and ``False`` for a
+            permissionless vault.
+
+        :raise NotImplementedError:
+            If the adapter cannot safely determine the policy.
+        """
+        raise NotImplementedError()
+
+    def is_account_whitelisted(self, address: HexAddress) -> bool:
+        """Determine whether an account belongs to the vault deposit policy.
+
+        The result concerns policy membership only.  A protocol may still
+        require scheduling, an allowance, available capacity, or an open epoch
+        before a deposit can be submitted.  Callers must use the relevant
+        deposit manager pre-flight before broadcasting a transaction.
+
+        :param address:
+            Account whose deposit-policy membership is queried.
+
+        :return:
+            ``True`` when the account belongs to the applicable policy.
+
+        :raise NotImplementedError:
+            If the adapter cannot safely query account membership.
+        """
+        raise NotImplementedError()
 
     @abstractmethod
     def has_block_range_event_support(self) -> bool:

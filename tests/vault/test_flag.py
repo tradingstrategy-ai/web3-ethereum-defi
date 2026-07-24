@@ -94,6 +94,7 @@ def test_old_mainnet_out_of_gas_contract_is_skipped_by_multicall_blacklist() -> 
     ("address", "protocol", "expected_flag", "expected_note"),
     [
         ("0x4f55e28d36b30a638c3aa1d5cbf9c4ccb3831506", "Silo Finance", VaultFlag.illiquid, "likely illiquid"),
+        ("0xae79b0d94e1c53cd2e8160899b8d58ec138d341f", "Silo Finance", VaultFlag.illiquid, "illiquid"),
         ("0xbed7c02887efd6b5eb9a547ac1a4d5e582791647", "<protocol not yet identified>", VaultFlag.abnormal_share_price, "abnormal high returns"),
         ("0x5424293637cc59ad7580ad1cac46e28d4801a587", "<protocol not yet identified>", VaultFlag.abnormal_share_price, "abnormal high returns"),
         ("0x7db7bcd6746f4dcfa2fdcdd80c1c313cc371f166", "<unknown ERC-7540>", VaultFlag.unofficial, "test vault"),

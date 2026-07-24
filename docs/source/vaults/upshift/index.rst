@@ -48,3 +48,4 @@ Links
    :recursive:
 
    eth_defi.erc_4626.vault_protocol.upshift.vault
+   eth_defi.erc_4626.vault_protocol.upshift.offchain_metadata

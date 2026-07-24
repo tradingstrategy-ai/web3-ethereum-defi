@@ -3,6 +3,8 @@ name: Clearstar Labs
 role: curator
 ipor-atomist: Clearstar
 euler-entity: clearstar
+upshift-strategist:
+  - Clearstar Labs
 website: https://www.clearstar.xyz
 short_description: 'Clearstar Labs curates on-chain strategies with qualitative vetting, monitoring, and distribution infrastructure.'
 long_description: |

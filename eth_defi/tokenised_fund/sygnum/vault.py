@@ -25,7 +25,7 @@ from eth_defi.tokenised_fund.sygnum.constants import FILQ_BUNDLE_AGGREGATOR_ADDR
 from eth_defi.tokenised_fund.sygnum.historical import SygnumVaultHistoricalReader
 from eth_defi.tokenised_fund.vault import TokenisedFundVault
 from eth_defi.types import Percent
-from eth_defi.vault.base import TradingUniverse, VaultDepositManager, VaultFlowManager, VaultHistoricalReader, VaultInfo, VaultPortfolio, VaultSpec
+from eth_defi.vault.base import TradingUniverse, VaultFlowManager, VaultHistoricalReader, VaultInfo, VaultPortfolio, VaultSpec
 from eth_defi.vault.fee import BROKEN_FEE_DATA, FeeData
 from eth_defi.vault.lower_case_dict import LowercaseDict
 
@@ -304,13 +304,6 @@ class SygnumVault(TokenisedFundVault):
 
     def get_flow_manager(self) -> VaultFlowManager:
         """Reject unsupported public flow accounting.
-
-        :raise NotImplementedError: Always.
-        """
-        raise NotImplementedError(SYGNUM_RESTRICTED_FLOW_REASON)
-
-    def get_deposit_manager(self) -> VaultDepositManager:
-        """Reject unsupported public subscription/redemption flows.
 
         :raise NotImplementedError: Always.
         """

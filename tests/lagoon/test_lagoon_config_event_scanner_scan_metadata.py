@@ -7,10 +7,90 @@ from eth_defi.erc_4626.vault_protocol.lagoon.config_event_scanner import (
     DecodedGuardEvent,
     GuardEventScanInfo,
     MultichainGuardConfig,
+    build_multichain_guard_config,
     fetch_guard_config_events,
     format_guard_config_markdown,
     format_guard_config_report,
 )
+
+
+def test_build_guard_config_tracks_latest_lagoon_settlement_limit():
+    """Track capped Lagoon configuration and its legacy unlimited reset."""
+    safe_address = Web3.to_checksum_address("0x1000000000000000000000000000000000000001")
+    module_address = Web3.to_checksum_address("0x2000000000000000000000000000000000000002")
+    vault = Web3.to_checksum_address("0x3000000000000000000000000000000000000003")
+    asset = Web3.to_checksum_address("0x4000000000000000000000000000000000000004")
+    pending_silo = Web3.to_checksum_address("0x5000000000000000000000000000000000000005")
+
+    events = [
+        DecodedGuardEvent(
+            event_name="LagoonVaultApproved",
+            args={"vault": vault, "notes": "capped"},
+            block_number=1,
+            transaction_hash="0x01",
+            log_index=0,
+        ),
+        DecodedGuardEvent(
+            event_name="LagoonSettlementLimitSet",
+            args={
+                "vault": vault,
+                "asset": asset,
+                "pendingSilo": pending_silo,
+                "maxSettlementAmount": 8_000_000,
+                "enabled": True,
+                "notes": "capped",
+            },
+            block_number=1,
+            transaction_hash="0x01",
+            log_index=1,
+        ),
+        DecodedGuardEvent(
+            event_name="LagoonSettlementCooldownSet",
+            args={
+                "vault": vault,
+                "settlementCooldown": 43_200,
+                "notes": "capped",
+            },
+            block_number=1,
+            transaction_hash="0x01",
+            log_index=2,
+        ),
+    ]
+    config = build_multichain_guard_config(
+        events={8453: events},
+        safe_address=safe_address,
+        module_addresses={8453: module_address},
+    )
+
+    chain_config = config.chains[8453]
+    assert chain_config.lagoon_vaults == (vault,)
+    assert len(chain_config.lagoon_settlement_limits) == 1
+    limit = chain_config.lagoon_settlement_limits[0]
+    assert limit.vault == vault
+    assert limit.asset == asset
+    assert limit.pending_silo == pending_silo
+    assert limit.max_settlement_amount == 8_000_000
+    assert limit.settlement_cooldown == 43_200
+    assert limit.enabled
+    assert "8000000 raw units" in config.format_human_readable()
+    assert "43200s cooldown" in config.format_human_readable()
+
+    events.append(
+        DecodedGuardEvent(
+            event_name="LagoonVaultApproved",
+            args={"vault": vault, "notes": "reset to unlimited"},
+            block_number=2,
+            transaction_hash="0x02",
+            log_index=0,
+        )
+    )
+    reset_config = build_multichain_guard_config(
+        events={8453: events},
+        safe_address=safe_address,
+        module_addresses={8453: module_address},
+    )
+    assert reset_config.chains[8453].lagoon_settlement_limits == ()
+    assert f"{vault}: unlimited" in reset_config.format_human_readable()
 
 
 def test_fetch_guard_config_events_falls_back_to_rpc_and_records_scan_metadata(monkeypatch):

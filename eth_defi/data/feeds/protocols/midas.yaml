@@ -1,0 +1,21 @@
+feeder-id: midas
+name: Midas
+role: protocol
+website: https://midas.app/
+twitter: MidasRWA
+linkedin: midasrwa
+linkedin-rss-hub-disabled-at: 2026-06-26
+short_description: Midas issues composable onchain investment products with published NAV feeds.
+long_description: |
+  Midas supplies the token, issuance, redemption and oracle infrastructure for mTokens. The reviewed mTBILL tokenised fund publishes an mTBILL/USD oracle and accepts separate settlement assets through its issuance vault.
+other-links:
+  - title: Midas mTBILL product page
+    url: https://midas.app/mtbill
+  - title: Midas mTBILL product documentation
+    url: https://docs.midas.app/tokens/mtbill
+  - title: Midas mTBILL independent reporting
+    url: https://docs.midas.app/tokens/mtbill/independent-reporting
+  - title: Midas smart-contract registry and mTBILL/USD oracle
+    url: https://docs.midas.app/protocol-mechanics/smart-contracts
+  - title: Midas contracts repository
+    url: https://github.com/midas-apps/contracts

@@ -5,11 +5,12 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
+from eth_defi.apex.constants import APEX_CHAIN_ID
 from eth_defi.grvt.constants import GRVT_CHAIN_ID
 from eth_defi.hibachi.constants import HIBACHI_CHAIN_ID
 from eth_defi.hyperliquid import vault_data_export
 from eth_defi.hyperliquid.constants import HYPERCORE_CHAIN_ID
-from eth_defi.lighter.constants import LIGHTER_CHAIN_ID
+from eth_defi.lighter.constants import LIGHTER_CHAIN_ID, LIGHTER_LEGACY_ROBINHOOD_CHAIN_ID
 from eth_defi.vault import base, post_processing
 from eth_defi.vault.base import ParquetVerificationError, VaultHistoricalRead
 
@@ -47,19 +48,26 @@ def test_merge_native_protocols_rewrites_parquet_once_and_preserves_empty_source
     """Batch successful native sources and retain the prior empty-source partition.
 
     1. Create raw prices with EVM and stale native-protocol rows.
-    2. Stub Hypercore, GRVT, and Lighter exports with fresh data and Hibachi
-       with no data.
-    3. Merge all four sources and count Parquet writes.
-    4. Assert one write replaced fresh partitions but retained stale Hibachi data.
+    2. Stub Hypercore, GRVT, Lighter, and ApeX exports with fresh data and
+       Hibachi with no data.
+    3. Merge all five sources and count Parquet writes.
+    4. Assert one write replaced fresh partitions, retained stale Hibachi
+       data, and append-and-corrected ApeX history.
     """
     parquet_path = tmp_path / "vault-prices-1h.parquet"
+    existing_apex_overlap = _prices(APEX_CHAIN_ID, "apex-vault-new", "2025-01-02")
+    existing_apex_overlap["share_price"] = 0.9
     existing_df = pd.concat(
         [
             _prices(1, "0xevm", "2025-01-01"),
             _prices(HYPERCORE_CHAIN_ID, "hypercore-old", "2025-01-01"),
             _prices(GRVT_CHAIN_ID, "grvt-old", "2025-01-01"),
-            _prices(LIGHTER_CHAIN_ID, "lighter-old", "2025-01-01"),
+            _prices(LIGHTER_CHAIN_ID, "lighter-pool-100", "2025-01-01"),
+            _prices(LIGHTER_CHAIN_ID, "lighter-pool-robinhood-100", "2025-01-01"),
+            _prices(LIGHTER_LEGACY_ROBINHOOD_CHAIN_ID, "lighter-robinhood-legacy-old", "2025-01-01"),
             _prices(HIBACHI_CHAIN_ID, "hibachi-old", "2025-01-01"),
+            _prices(APEX_CHAIN_ID, "apex-vault-old", "2025-01-01"),
+            existing_apex_overlap,
         ],
         ignore_index=True,
     )
@@ -75,18 +83,27 @@ def test_merge_native_protocols_rewrites_parquet_once_and_preserves_empty_source
             pass
 
     fresh_grvt = _prices(GRVT_CHAIN_ID, "grvt-new", "2025-01-02")
-    fresh_lighter = _prices(LIGHTER_CHAIN_ID, "lighter-new", "2025-01-02")
+    fresh_lighter = pd.concat(
+        [
+            _prices(LIGHTER_CHAIN_ID, "lighter-pool-200", "2025-01-02"),
+            _prices(LIGHTER_CHAIN_ID, "lighter-pool-robinhood-200", "2025-01-02"),
+        ],
+        ignore_index=True,
+    )
     fresh_hypercore = _prices(HYPERCORE_CHAIN_ID, "hypercore-new", "2025-01-02")
     fresh_hypercore["account_pnl"] = 123.0
+    fresh_apex = _prices(APEX_CHAIN_ID, "apex-vault-new", "2025-01-02")
     monkeypatch.setattr(post_processing, "HyperliquidDailyMetricsDatabase", FakeDatabase)
     monkeypatch.setattr(post_processing, "HyperliquidHighFreqMetricsDatabase", FakeDatabase)
     monkeypatch.setattr(post_processing, "GRVTDailyMetricsDatabase", FakeDatabase)
     monkeypatch.setattr(post_processing, "LighterDailyMetricsDatabase", FakeDatabase)
     monkeypatch.setattr(post_processing, "HibachiDailyMetricsDatabase", FakeDatabase)
+    monkeypatch.setattr(post_processing, "ApexMetricsDatabase", FakeDatabase)
     monkeypatch.setattr(post_processing, "build_grvt_prices_dataframe", lambda _: fresh_grvt)
     monkeypatch.setattr(post_processing, "build_lighter_prices_dataframe", lambda _: fresh_lighter)
     monkeypatch.setattr(post_processing, "build_hibachi_prices_dataframe", lambda _: pd.DataFrame())
     monkeypatch.setattr(post_processing, "build_hypercore_prices_dataframe", lambda **_: fresh_hypercore)
+    monkeypatch.setattr(post_processing, "build_apex_prices_dataframe", lambda _: fresh_apex)
 
     writes = 0
     original_write = VaultHistoricalRead.write_uncleaned_arrow_table
@@ -109,12 +126,14 @@ def test_merge_native_protocols_rewrites_parquet_once_and_preserves_empty_source
         merge_grvt=True,
         merge_lighter=True,
         merge_hibachi=True,
+        merge_apex=True,
         uncleaned_parquet_path=parquet_path,
         hyperliquid_db_path=hyperliquid_db_path,
         hyperliquid_hf_db_path=hyperliquid_hf_db_path,
         grvt_db_path=tmp_path / "grvt.duckdb",
         lighter_db_path=tmp_path / "lighter.duckdb",
         hibachi_db_path=tmp_path / "hibachi.duckdb",
+        apex_db_path=tmp_path / "apex.duckdb",
     )
 
     result_df = pd.read_parquet(parquet_path)
@@ -124,15 +143,73 @@ def test_merge_native_protocols_rewrites_parquet_once_and_preserves_empty_source
         "grvt-price-merge": True,
         "lighter-price-merge": True,
         "hibachi-price-merge": True,
+        "apex-price-merge": True,
     }
     assert set(result_df["address"]) == {
         "0xevm",
         "hypercore-new",
         "grvt-new",
-        "lighter-new",
+        "lighter-pool-200",
+        "lighter-pool-robinhood-200",
         "hibachi-old",
+        "apex-vault-old",
+        "apex-vault-new",
     }
+    assert LIGHTER_LEGACY_ROBINHOOD_CHAIN_ID not in set(result_df["chain"])
+    assert set(result_df.loc[result_df["address"].str.startswith("lighter-"), "chain"]) == {LIGHTER_CHAIN_ID}
     assert result_df.loc[result_df["address"] == "hypercore-new", "account_pnl"].iloc[0] == pytest.approx(123.0)
+    assert result_df.loc[result_df["address"] == "apex-vault-new", "share_price"].iloc[0] == pytest.approx(1.0)
+
+
+def test_partial_lighter_merge_preserves_other_deployment_and_legacy_partition(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Replace only fresh Lighter deployment addresses within shared chain 9998.
+
+    1. Create current Ethereum and Robinhood rows plus legacy Robinhood 9996.
+    2. Export only fresh Ethereum data, modelling a partial or standalone scan.
+    3. Run the native merge.
+    4. Assert Ethereum is replaced while both Robinhood histories survive.
+    """
+    parquet_path = tmp_path / "vault-prices-1h.parquet"
+    existing_df = pd.concat(
+        [
+            _prices(LIGHTER_CHAIN_ID, "lighter-pool-100", "2025-01-01"),
+            _prices(LIGHTER_CHAIN_ID, "lighter-pool-robinhood-100", "2025-01-01"),
+            _prices(LIGHTER_LEGACY_ROBINHOOD_CHAIN_ID, "lighter-pool-robinhood-legacy", "2025-01-01"),
+        ],
+        ignore_index=True,
+    )
+    VaultHistoricalRead.write_uncleaned_parquet(existing_df, parquet_path)
+
+    class FakeDatabase:
+        """Provide the close method required by the post-processing pipeline."""
+
+        def __init__(self, _: Path) -> None:
+            pass
+
+        def close(self) -> None:
+            pass
+
+    fresh_ethereum = _prices(LIGHTER_CHAIN_ID, "lighter-pool-200", "2025-01-02")
+    monkeypatch.setattr(post_processing, "LighterDailyMetricsDatabase", FakeDatabase)
+    monkeypatch.setattr(post_processing, "build_lighter_prices_dataframe", lambda _: fresh_ethereum)
+
+    steps = post_processing.merge_native_protocols(
+        merge_lighter=True,
+        uncleaned_parquet_path=parquet_path,
+        lighter_db_path=tmp_path / "lighter.duckdb",
+    )
+
+    result_df = pd.read_parquet(parquet_path)
+    assert steps == {"lighter-price-merge": True}
+    assert set(result_df["address"]) == {
+        "lighter-pool-200",
+        "lighter-pool-robinhood-100",
+        "lighter-pool-robinhood-legacy",
+    }
+    assert set(result_df.loc[result_df["address"] == "lighter-pool-robinhood-legacy", "chain"]) == {LIGHTER_LEGACY_ROBINHOOD_CHAIN_ID}
 
 
 def test_build_hypercore_prices_dataframe_prefers_high_frequency_duplicate(

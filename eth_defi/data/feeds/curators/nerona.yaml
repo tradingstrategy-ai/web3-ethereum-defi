@@ -1,0 +1,13 @@
+feeder-id: nerona
+name: Nerona
+role: curator
+upshift-strategist:
+  - Nerona
+website: https://www.nerona.xyz/
+short_description: Nerona provides onchain wealth-management products centred on its USDnr stablecoin.
+long_description: |
+  Nerona describes itself as a private wealth-management platform for the onchain era. Its USDnr stablecoin is presented as a native dollar product that aggregates yield opportunities across DeFi while preserving self-custody.
+  Upshift lists Nerona as the strategist for its Staked Nerona Dollar vault on Fluent.
+other-links:
+  - title: Upshift - Staked Nerona Dollar vault
+    url: https://app.upshift.finance/pools/25363/0x50AE83DBDC44208eDa1Ef722F87Bab0FFB195Eea

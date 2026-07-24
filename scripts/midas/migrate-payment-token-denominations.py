@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
-"""Migrate existing Midas metadata rows to on-chain payment-token denominations.
+"""Migrate existing Midas metadata rows to reviewed denominations.
 
-The Midas adapter historically exported synthetic off-chain USD for every
-product. The adapter now reads the first non-zero entry of the issuance vault's
-``getPaymentTokens()`` list as its primary payment token and exposes it through
-the :class:`eth_defi.vault.base.VaultBase` denomination-token API. Existing
-``vault-metadata-db.pickle`` rows must therefore be refreshed once; normal
-scanner runs will use the new denomination for future metadata scans.
+The Midas adapter uses the first non-zero entry of an issuance vault's
+``getPaymentTokens()`` list as a compatibility denomination for ordinary Midas
+strategy products. Regulated tokenised funds are reviewed separately: mTBILL's
+official oracle is mTBILL/USD, so accepted USDC payments must not relabel its
+NAV denomination. Existing ``vault-metadata-db.pickle`` rows can therefore be
+refreshed with this script; normal scanner runs use the same reviewed logic.
 
 This is metadata-only and deliberately does **not** alter raw or cleaned price
 Parquet files, reader state, leads, or a chain's scanner cursor. Price Parquet
@@ -91,10 +91,10 @@ class DenominationMigration:
     #: Existing scanner denomination ERC-20 address, if any.
     old_address: HexAddress | None
 
-    #: Primary Midas payment-token symbol, or off-chain USD.
+    #: Reviewed denomination symbol.
     new_symbol: str
 
-    #: Primary Midas payment-token address, or ``None`` for off-chain USD.
+    #: Reviewed denomination address, or ``None`` for off-chain USD.
     new_address: HexAddress | None
 
     #: Export-ready denomination metadata.
@@ -224,7 +224,7 @@ def resolve_backup_path(vault_db_path: Path) -> Path:
 
 
 def fetch_denomination_migration(web3: Web3, product: MidasProduct, existing_row: VaultRow) -> DenominationMigration:
-    """Read a primary payment token and construct one metadata-only update.
+    """Resolve the reviewed denomination and construct one metadata-only update.
 
     The Midas adapter owns the ``getPaymentTokens()`` ABI call and zero-address
     manual-fulfilment handling. Delegating to it keeps this one-off migration
@@ -324,7 +324,7 @@ def main() -> None:
         message = "No selected Midas products have existing metadata rows to migrate"
         raise RuntimeError(message)
 
-    web3_by_chain = {chain_id: create_multi_provider_web3(read_json_rpc_url(chain_id), retries=2, hint="Midas payment-token denomination migration") for chain_id in {product.chain_id for product in existing_products}}
+    web3_by_chain = {chain_id: create_multi_provider_web3(read_json_rpc_url(chain_id), retries=2, hint="Midas denomination migration") for chain_id in {product.chain_id for product in existing_products}}
     migrations = Parallel(n_jobs=max_workers, backend="threading")(
         delayed(fetch_denomination_migration)(
             web3_by_chain[product.chain_id],
@@ -362,7 +362,7 @@ def main() -> None:
         print("Dry run: no files written. Re-run with DRY_RUN=false to apply these changes.")
         return
     if not changes:
-        print("No migration needed: metadata database already uses current payment-token denominations.")
+        print("No migration needed: metadata database already uses the reviewed denominations.")
         return
 
     backup_path = resolve_backup_path(vault_db_path)

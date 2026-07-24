@@ -17,6 +17,10 @@ Here is a Python example how to estimate the ERC-4626 `APY <https://tradingstrat
 - Uses EVM JSON-RPC and archive node, no external services needed. Public RPC nodes won't work,
   because they are not archive nodes. Get your Base node JSON-RPC access from `dRPC <https://drpc.io/>`__ or `Ethereumnodes.com <https://ethereumnodes.com/>`__.
 
+- Monad cannot provide arbitrary-depth historical APY calculations because it
+  retains only a provider-dependent recent window of contract state; see the
+  `Monad historical data documentation <https://docs.monad.xyz/developer-essentials/historical-data>`__.
+
 - Supported vaults include all ERC-4626, including but not limited to: Morpho, Euler, Lagoon Finance, Superform, IPOR, Yearn, Fluid
 
 Then to run this script:

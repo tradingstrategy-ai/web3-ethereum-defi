@@ -22,6 +22,7 @@ from eth_defi.provider.multi_provider import create_multi_provider_web3
 from eth_defi.tokenised_fund.superstate.constants import SUPERSTATE_ETHEREUM_CHAIN_ID, SUPERSTATE_HARDCODED_LEADS, USTB_ETHEREUM_ADDRESS, USTB_ETHEREUM_CONTINUOUS_PRICE_ORACLE, USTB_ETHEREUM_FIRST_SEEN_AT, USTB_ETHEREUM_FIRST_SEEN_AT_BLOCK
 from eth_defi.tokenised_fund.superstate.historical import SuperstateVaultHistoricalReader, SuperstateVaultReaderState
 from eth_defi.tokenised_fund.superstate.vault import SUPERSTATE_RESTRICTED_FLOW_REASON, SuperstateVault
+from eth_defi.tokenised_fund.vault import TokenisedFundDepositManager
 from eth_defi.vault.flag import VaultFlag
 
 JSON_RPC_ETHEREUM = os.environ.get("JSON_RPC_ETHEREUM")
@@ -127,9 +128,8 @@ def test_superstate_ustb_live_metadata_and_restricted_flows(web3: Web3) -> None:
     assert vault.get_flags() == {VaultFlag.tokenised_fund}
     assert vault.fetch_deposit_closed_reason() == SUPERSTATE_RESTRICTED_FLOW_REASON
     assert vault.fetch_redemption_closed_reason() == SUPERSTATE_RESTRICTED_FLOW_REASON
-    assert vault.get_deposit_manager_capability() is None
-    with pytest.raises(NotImplementedError):
-        vault.get_deposit_manager()
+    assert vault.get_deposit_manager_capability().as_initial_public_schema() == {"can_deposit": False, "can_redeem": False}
+    assert isinstance(vault.get_deposit_manager(), TokenisedFundDepositManager)
     with pytest.raises(NotImplementedError):
         vault.get_flow_manager()
 

@@ -1,13 +1,21 @@
 feeder-id: openeden
 name: OpenEden
 role: curator
-website: https://openeden.com/
-twitter: OpenEden_X
+# 2026-07-22 maintain-curators: OpenEden is the protocol layer; feed sources moved to protocols/openeden.yaml.
+canonical-feeder-id: openeden
 short_description: OpenEden operates a tokenised U.S. Treasury bill fund and its permissioned TBILL Vault.
 long_description: |
   OpenEden provides institutional tokenisation infrastructure for U.S. Treasury bill exposure. Its TBILL Vault issues permissioned TBILL shares, publishes the token price through its documented price oracle and requires investor onboarding for subscriptions and redemptions.
 other-links:
+  - title: OpenEden TBILL product page
+    url: https://openeden.com/tbill
+  - title: OpenEden TBILL transparency page
+    url: https://openeden.com/tbill/transparency
   - title: OpenEden TBILL smart-contract addresses
     url: https://docs.openeden.com/tbill/smart-contract-addresses
   - title: OpenEden TBILL token price documentation
     url: https://docs.openeden.com/tbill/token-price
+  - title: OpenEden TBILL subscription assets
+    url: https://docs.openeden.com/tbill/subscriptions
+  - title: OpenEden TBILL redemption assets
+    url: https://docs.openeden.com/tbill/redemptions

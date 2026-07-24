@@ -21,6 +21,7 @@ from eth_defi.erc_4626.discovery_base import (
     add_mellow_factory_candidate_lead,
     get_vault_discovery_events,
     get_vault_event_topic_map,
+    is_configuration_event,
     is_deposit_event,
 )
 from eth_defi.event_reader.filter import Filter
@@ -74,7 +75,7 @@ class JSONRPCVaultDiscover(VaultDiscoveryBase):
         """Create a read_events_concurrent arguments to discover new vaults.
 
         Includes standard ERC-4626 events and all configured protocol-specific
-        vault flow events.
+        vault flow and configuration events.
 
         See :py:func:`eth_defi.event_reader.reader.read_events_concurrent`
         """
@@ -255,6 +256,8 @@ class JSONRPCVaultDiscover(VaultDiscoveryBase):
             if event_kind is not None and is_deposit_event(event_kind):
                 lead.deposit_count += 1
                 report.deposits += 1
+            elif event_kind is not None and is_configuration_event(event_kind):
+                lead.configuration_count = getattr(lead, "configuration_count", 0) + 1
             else:
                 lead.withdrawal_count += 1
                 report.withdrawals += 1

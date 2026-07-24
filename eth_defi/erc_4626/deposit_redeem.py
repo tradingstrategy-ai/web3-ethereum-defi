@@ -42,7 +42,20 @@ class ERC4626RedemptionRequest(RedemptionRequest):
 
 
 class ERC4626DepositManager(VaultDepositManager):
-    """Abstraction over different deposit/redeem flows of vaults."""
+    """Standard synchronous ERC-4626 deposit and redemption flow.
+
+    **Supported simulation path**
+
+    Standard ERC-4626 ``deposit`` and ``redeem`` calls complete in their
+    originating transaction.  :meth:`force_settle` therefore accepts
+    ``None`` and performs the Anvil-validated shared no-op.
+
+    **Known limitations**
+
+    This manager is suitable only for vaults whose selected asset uses the
+    standard ERC-4626 entry points.  Queued, delegated, multi-asset and
+    protocol-specific settlement flows must provide a specialised manager.
+    """
 
     def __init__(self, vault: "ERC4626Vault"):
         from eth_defi.erc_4626.vault import ERC4626Vault
@@ -215,7 +228,15 @@ class ERC4626DepositManager(VaultDepositManager):
                     denomination_amount=vault.denomination_token.convert_to_decimals(analysis.amount_in),
                 )
             case TradeFail():
-                return DepositRedeemEventFailure(tx_hash=HexBytes(claim_tx_hash), revert_reason=analysis.revert_reason)
+                return DepositRedeemEventFailure(
+                    tx_hash=HexBytes(claim_tx_hash),
+                    revert_reason=analysis.revert_reason,
+                    protocol=vault.get_protocol_name(),
+                    vault_address=vault.address,
+                    direction="deposit",
+                    phase="transaction",
+                    receipt_status=int(receipt["status"]),
+                )
             case _:
                 raise NotImplementedError(f"Unknown {type(analysis)}")
 
@@ -260,6 +281,14 @@ class ERC4626DepositManager(VaultDepositManager):
                     denomination_amount=vault.denomination_token.convert_to_decimals(analysis.amount_out),
                 )
             case TradeFail():
-                return DepositRedeemEventFailure(tx_hash=HexBytes(claim_tx_hash), revert_reason=analysis.revert_reason)
+                return DepositRedeemEventFailure(
+                    tx_hash=HexBytes(claim_tx_hash),
+                    revert_reason=analysis.revert_reason,
+                    protocol=vault.get_protocol_name(),
+                    vault_address=vault.address,
+                    direction="redeem",
+                    phase="transaction",
+                    receipt_status=int(receipt["status"]),
+                )
             case _:
                 raise NotImplementedError(f"Unknown {type(analysis)}")

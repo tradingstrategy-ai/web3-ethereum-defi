@@ -22,11 +22,20 @@ to optimise yield performance.
 import datetime
 import logging
 
-from eth_typing import BlockIdentifier
+from eth_typing import BlockIdentifier, HexAddress
 
 from eth_defi.erc_4626.vault import ERC4626Vault
+from eth_defi.erc_4626.vault_protocol.csigma.deposit_redeem import CsigmaDepositManager
+from eth_defi.vault.deposit_redeem import VaultDepositManager, VaultDepositManagerCapability
 
 logger = logging.getLogger(__name__)
+
+
+#: cSigma V2 pool with verified synchronous ERC-4626 lifecycle support.
+CSIGMA_V2_POOL_ADDRESS: HexAddress = "0x438982ea288763370946625fd76c2508ee1fb229"
+
+#: Ethereum mainnet, where the representative V2 pool was verified.
+CSIGMA_V2_POOL_CHAIN_ID = 1
 
 
 class CsigmaVault(ERC4626Vault):
@@ -88,3 +97,24 @@ class CsigmaVault(ERC4626Vault):
             Link to the csUSD vault page.
         """
         return "https://edge.csigma.finance/"
+
+    def get_deposit_manager(self) -> VaultDepositManager:
+        """Create the manager appropriate for this cSigma deployment.
+
+        :return:
+            Capacity-aware manager for the verified V2 pool; otherwise the
+            unadvertised generic ERC-4626 manager inherited from the base class.
+        """
+        if self.chain_id == CSIGMA_V2_POOL_CHAIN_ID and self.address.lower() == CSIGMA_V2_POOL_ADDRESS:
+            return CsigmaDepositManager(self)
+        return super().get_deposit_manager()
+
+    def get_deposit_manager_capability(self) -> VaultDepositManagerCapability | None:
+        """Declare support only for the verified cSigma V2 pool.
+
+        :return:
+            Static support metadata for the V2 pool, otherwise ``None``.
+        """
+        if self.chain_id == CSIGMA_V2_POOL_CHAIN_ID and self.address.lower() == CSIGMA_V2_POOL_ADDRESS:
+            return self.get_synchronous_deposit_manager_capability()
+        return super().get_deposit_manager_capability()

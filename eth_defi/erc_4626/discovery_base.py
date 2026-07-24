@@ -8,7 +8,7 @@
 - Supports Royco tranche Redeem event
 - Supports Upshift multi-asset Deposit/WithdrawalRequested/WithdrawalProcessed events
 - Supports Atoma WithdrawalClaimed events
-- Supports T3tris DepositRequest/RedeemRequest events
+- Supports T3tris flow and vault-configuration events
 - Supports Securitize DSToken Issue events
 """
 
@@ -29,6 +29,7 @@ from eth_defi.compat import native_datetime_utc_now
 from eth_defi.erc_4626.classification import ODA_FACT_HARDCODED_LEADS, probe_vaults
 from eth_defi.erc_4626.core import ERC4262VaultDetection, ERC4626Feature, get_erc_4626_contract
 from eth_defi.erc_4626.vault_protocol.nara.constants import NARAUSD_PLUS_HARDCODED_LEADS
+from eth_defi.erc_4626.vault_protocol.t3tris.constants import T3TRIS_HARDCODED_LEADS
 from eth_defi.midas.constants import MIDAS_HARDCODED_LEADS
 from eth_defi.tokenised_fund.asseto.constants import ASSETO_HARDCODED_LEADS
 from eth_defi.tokenised_fund.centrifuge.constants import CENTRIFUGE_TRANCHE_HARDCODED_LEADS
@@ -75,6 +76,7 @@ DEFAULT_HARDCODED_VAULT_LEAD_SOURCES: HardcodedVaultLeadSources = (
     ("Sygnum", SYGNUM_HARDCODED_LEADS),
     ("Theo iToken", THEO_ITOKEN_HARDCODED_LEADS),
     ("Nara", NARAUSD_PLUS_HARDCODED_LEADS),
+    ("T3tris", T3TRIS_HARDCODED_LEADS),
 )
 
 if TYPE_CHECKING:
@@ -90,6 +92,9 @@ class VaultEventKind(enum.Enum):
     #: Withdraw-like event (ERC-4626 Withdraw or BrinkVault WithdrawFunds)
     withdraw = "withdraw"
 
+    #: Vault setup or administrative configuration event.
+    configuration = "configuration"
+
 
 @dataclasses.dataclass(slots=True, frozen=False)
 class PotentialVaultMatch:
@@ -101,6 +106,8 @@ class PotentialVaultMatch:
     first_seen_at: datetime.datetime
     deposit_count: int = 0
     withdrawal_count: int = 0
+    #: Protocol-specific vault configuration events.
+    configuration_count: int = 0
     #: Mellow ``Factory.Created`` metadata when this lead came from a Mellow
     #: factory event instead of vault-local deposit/withdraw events.
     #:
@@ -114,14 +121,15 @@ class PotentialVaultMatch:
         if getattr(self, "mellow_factory_candidate", None) is not None:
             return True
 
-        # Deposit-only event streams are valid vault leads.
+        # Deposit-only event streams and protocol-specific configuration events
+        # are valid vault leads.
         # Large curated vaults can have deposits but no withdrawals yet because
         # they are in a pre-deposit phase, have an initial lock-up, or use a
         # delayed withdrawal process. Requiring withdrawal events made us miss
         # RockawayX/Upshift vaults such as Tori Ecosystem Vault and Earn ctUSD.
-        # Extra deposit-only matches are still filtered by the later
+        # Extra event matches are still filtered by the later
         # ``probe_vaults()`` feature-detection stage before export.
-        return self.deposit_count > 0
+        return self.deposit_count > 0 or getattr(self, "configuration_count", 0) > 0
 
 
 def get_brink_vault_contract(web3):
@@ -406,6 +414,23 @@ def get_t3tris_vault_discovery_events(web3) -> list[type[ContractEvent]]:
     ]
 
 
+def get_t3tris_vault_configuration_discovery_events(web3) -> list[type[ContractEvent]]:
+    """Get T3tris vault configuration events that can seed a lead.
+
+    ``T3treasuryUpdated`` is emitted by the reviewed T3tris migration-pool
+    deployment. Its T3tris-specific name makes it a narrower lead signal than
+    generic administration events. The normal feature probes still confirm
+    that the emitting contract is a T3tris vault.
+
+    :return:
+        T3tris vault-local configuration event types usable for discovery.
+    """
+    t3tris_vault_events = get_t3tris_vault_event_contract(web3)
+    return [
+        t3tris_vault_events.events.T3treasuryUpdated,
+    ]
+
+
 def get_securitize_dstoken_discovery_events(web3) -> list[Type[ContractEvent]]:
     """Get Securitize DSToken issuance events used for lead discovery.
 
@@ -448,7 +473,7 @@ def get_vault_discovery_events(web3) -> list[Type[ContractEvent]]:
     - Royco tranche Redeem event
     - Upshift multi-asset Deposit/WithdrawalRequested/WithdrawalProcessed events
     - Atoma WithdrawalClaimed event
-    - T3tris DepositRequest/RedeemRequest events
+    - T3tris DepositRequest/RedeemRequest and configuration events
     - Securitize DSToken Issue event
 
     :return:
@@ -461,9 +486,10 @@ def get_vault_discovery_events(web3) -> list[Type[ContractEvent]]:
          UpshiftMultiAsset.WithdrawalProcessed,
          AtomaVault.WithdrawalClaimed,
          T3trisVault.DepositRequest, T3trisVault.RedeemRequest,
+         T3trisVault.<configuration events>,
          SecuritizeDSToken.Issue]
     """
-    return get_standard_erc_4626_vault_discovery_events(web3) + get_brink_vault_discovery_events(web3) + get_ember_vault_discovery_events(web3) + get_token_gateway_discovery_events(web3) + get_royco_tranche_discovery_events(web3) + get_upshift_multi_asset_discovery_events(web3) + get_atoma_vault_discovery_events(web3) + get_t3tris_vault_discovery_events(web3) + get_securitize_dstoken_discovery_events(web3)
+    return get_standard_erc_4626_vault_discovery_events(web3) + get_brink_vault_discovery_events(web3) + get_ember_vault_discovery_events(web3) + get_token_gateway_discovery_events(web3) + get_royco_tranche_discovery_events(web3) + get_upshift_multi_asset_discovery_events(web3) + get_atoma_vault_discovery_events(web3) + get_t3tris_vault_discovery_events(web3) + get_t3tris_vault_configuration_discovery_events(web3) + get_securitize_dstoken_discovery_events(web3)
 
 
 def get_vault_event_topic_map(web3) -> dict[str, VaultEventKind]:
@@ -476,6 +502,7 @@ def get_vault_event_topic_map(web3) -> dict[str, VaultEventKind]:
     """
     from eth_defi.abi import get_topic_signature_from_event
 
+    t3tris_configuration_events = get_t3tris_vault_configuration_discovery_events(web3)
     event_groups = (
         (get_standard_erc_4626_vault_discovery_events(web3), (VaultEventKind.deposit, VaultEventKind.withdraw)),
         (get_brink_vault_discovery_events(web3), (VaultEventKind.deposit, VaultEventKind.withdraw)),
@@ -485,6 +512,7 @@ def get_vault_event_topic_map(web3) -> dict[str, VaultEventKind]:
         (get_upshift_multi_asset_discovery_events(web3), (VaultEventKind.deposit, VaultEventKind.withdraw, VaultEventKind.withdraw)),
         (get_atoma_vault_discovery_events(web3), (VaultEventKind.withdraw,)),
         (get_t3tris_vault_discovery_events(web3), (VaultEventKind.deposit, VaultEventKind.withdraw)),
+        (t3tris_configuration_events, (VaultEventKind.configuration,) * len(t3tris_configuration_events)),
         (get_securitize_dstoken_discovery_events(web3), (VaultEventKind.deposit,)),
     )
     return {get_topic_signature_from_event(event): event_kind for events, event_kinds in event_groups for event, event_kind in zip(events, event_kinds, strict=True)}
@@ -498,6 +526,11 @@ def is_deposit_event(event_kind: VaultEventKind) -> bool:
 def is_withdraw_event(event_kind: VaultEventKind) -> bool:
     """Check if the event kind represents a withdrawal."""
     return event_kind == VaultEventKind.withdraw
+
+
+def is_configuration_event(event_kind: VaultEventKind) -> bool:
+    """Check if an event kind is vault configuration."""
+    return event_kind == VaultEventKind.configuration
 
 
 @dataclass(slots=True)
@@ -688,6 +721,9 @@ class VaultDiscoveryBase(abc.ABC):
                     first_seen_at=first_seen_at,
                     deposit_count=0,
                     withdrawal_count=0,
+                    # Reviewed migration-pool deployments have a verified
+                    # T3tris configuration event but no vault-local flow log.
+                    configuration_count=1 if protocol_name == "T3tris" else 0,
                 )
                 report.new_leads += 1
                 logger.info("Added hardcoded %s vault lead %s", protocol_name, address)
@@ -771,6 +807,7 @@ class VaultDiscoveryBase(abc.ABC):
                 updated_at=native_datetime_utc_now(),
                 deposit_count=lead.deposit_count,
                 redeem_count=lead.withdrawal_count,
+                configuration_count=getattr(lead, "configuration_count", 0),
             )
             report.detections[feature_probe.address] = detection
 

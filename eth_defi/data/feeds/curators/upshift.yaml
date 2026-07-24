@@ -9,6 +9,8 @@
 feeder-id: upshift
 name: Upshift
 role: curator
+upshift-strategist:
+  - Upshift Test Strategist
 short_description: 'Upshift is a DeFi platform making institutional yield products accessible through non-custodial vault infrastructure.'
 long_description: |
   Upshift describes itself as a platform for democratising institutional yield. Its homepage says it bridges CeFi and DeFi with institutional-grade yield and gives users access to strategies used by institutions for assets such as USDC and HYPE. LinkedIn also describes Upshift as supporting non-custodial vaults, tokenised asset management and yield strategies across on-chain lending, RWAs, market-making and basis trades.

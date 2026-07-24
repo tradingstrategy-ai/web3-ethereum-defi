@@ -76,12 +76,14 @@ def test_deploy_safe_trading_strategy_module_skips_uniswap_library_when_disabled
         deployer=deployer,
         safe=safe,
         enable_on_safe=False,
+        lagoon=False,
     )
 
     assert [call["contract_name"] for call in deploy_calls] == [
         "safe-integration/TradingStrategyModuleV0.json",
     ]
     assert deploy_calls[0]["kwargs"]["libraries"]["UniswapLib"] == ZERO_ADDRESS
+    assert deploy_calls[0]["kwargs"]["libraries"]["LagoonLib"] == ZERO_ADDRESS
 
 
 def test_deploy_safe_trading_strategy_module_deploys_uniswap_library_when_enabled(
@@ -127,6 +129,7 @@ def test_deploy_safe_trading_strategy_module_deploys_uniswap_library_when_enable
         safe=safe,
         enable_on_safe=False,
         uniswap_v3=SimpleNamespace(swap_router=SimpleNamespace(address="0x3000000000000000000000000000000000000003")),
+        lagoon=False,
     )
 
     assert [call["contract_name"] for call in deploy_calls] == [
@@ -134,3 +137,46 @@ def test_deploy_safe_trading_strategy_module_deploys_uniswap_library_when_enable
         "safe-integration/TradingStrategyModuleV0.json",
     ]
     assert deploy_calls[1]["kwargs"]["libraries"]["UniswapLib"] == "0x0000000000000000000000000000000000000001"
+
+
+def test_deploy_safe_trading_strategy_module_deploys_lagoon_library_by_default(
+    monkeypatch: MonkeyPatch,
+):
+    """Deploy and link LagoonLib by default for source-chain Lagoon modules."""
+
+    web3 = _make_fake_web3()
+    safe = _make_fake_safe()
+    deployer: LocalAccount = Account.create()
+    deploy_calls: list[dict] = []
+
+    def fake_deploy_contract(_web3, contract_name: str, _deployer, *constructor_args, **kwargs):
+        deploy_calls.append(
+            {
+                "contract_name": contract_name,
+                "constructor_args": constructor_args,
+                "kwargs": kwargs,
+            }
+        )
+        return SimpleNamespace(address=f"0x{len(deploy_calls):040x}")
+
+    monkeypatch.setattr(
+        "eth_defi.erc_4626.vault_protocol.lagoon.deployment.deploy_contract",
+        fake_deploy_contract,
+    )
+    monkeypatch.setattr(
+        "eth_defi.hyperliquid.block.big_blocks_for_deployment",
+        _no_op_big_blocks,
+    )
+
+    deploy_safe_trading_strategy_module(
+        web3=web3,
+        deployer=deployer,
+        safe=safe,
+        enable_on_safe=False,
+    )
+
+    assert [call["contract_name"] for call in deploy_calls] == [
+        "guard/LagoonLib.json",
+        "safe-integration/TradingStrategyModuleV0.json",
+    ]
+    assert deploy_calls[1]["kwargs"]["libraries"]["LagoonLib"] == "0x0000000000000000000000000000000000000001"

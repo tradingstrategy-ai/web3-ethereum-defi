@@ -1,0 +1,22 @@
+name: Panoptic
+slug: panoptic
+short_description: |
+  Permissionless protocol for perpetual options and options-strategy vaults.
+long_description: |
+  Panoptic enables the minting, trading and market making of perpetual put and call options using onchain liquidity. Its vault products let managers run options strategies for depositors.
+
+  Options and managed strategy vaults involve material market, liquidity and smart-contract risks. Depositors should understand the strategy and its fee terms before participating.
+fee_description: |
+  Vault managers can set fees for their strategies. Trading and liquidity provision can also involve protocol, transaction and market costs that vary by position and network.
+links:
+  homepage: https://panoptic.xyz/
+  app: https://app.panoptic.xyz/
+  twitter: https://x.com/panoptic_xyz
+  github: https://github.com/panoptic-labs
+  documentation: https://panoptic.xyz/docs/intro
+  fact_sheet:
+  defillama: https://defillama.com/protocol/panoptic
+  audits: https://panoptic.xyz/docs/security/security-audits
+  fees:
+  trading_strategy: https://tradingstrategy.ai/trading-view/vaults/protocols/panoptic
+  integration_documentation:

@@ -3,6 +3,7 @@
 import logging
 import os
 
+import flaky
 import hypersync
 import pytest
 from joblib import Parallel, delayed
@@ -31,6 +32,9 @@ def web3() -> Web3:
     return web3
 
 
+# CI flaky since 2026-07-22: a 145-second Hypersync scan omitted the expected
+# Staked EURA row, although the same fixed range succeeds on other runs.
+@flaky.flaky
 def test_4626_scan_hypersync(web3):
     """Read vaults of early Base chain"""
 

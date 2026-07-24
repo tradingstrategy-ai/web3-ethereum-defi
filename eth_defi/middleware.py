@@ -185,6 +185,10 @@ DEFAULT_RETRYABLE_RPC_ERROR_MESSAGES = {
     "Unexpected error (code=40000)",
     # Was -32003 error code until Monad messed this up
     "Internal JSON-RPC error",
+    # Geth archive node or provider routing failure. The same request can
+    # succeed through another provider that retains the requested state.
+    # Observed on Arbitrum dRPC in CI on 2026-07-24.
+    "missing trie node",
 }
 
 #: Ethereum JSON-RPC calls where the value never changes

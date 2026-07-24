@@ -349,6 +349,8 @@ LIQUITY_V2_WETH_STABILITY_POOL_ILLIQUID = "Liquity V2 WETH Stability Pool vault 
 
 ODINS_RESERVE_ILLIQUID = "Odins Reserve vault is illiquid"
 
+BORROWABLE_USDC_SILOID_111_ILLIQUID = "Borrowable USDC Deposit, SiloId: 111 is illiquid"
+
 
 #: Protocol-wide flags and notes.
 #:
@@ -388,6 +390,14 @@ LIGHTER_LLP_STAKING = """LLP (Lighter Liquidity Provider) is the protocol's comm
 Depositing into LLP requires staking LIT tokens at a 1:10 ratio (1 LIT staked per 10 USDC deposited). Staking ≥100 LIT waives withdrawal and transfer fees. If staked LIT does not fully cover the deposit, up to 3% or 100 USDC of the uncovered amount is returned daily to the user's balance.
 
 Withdrawal cooldown is 5 minutes. Operator fee is 0%."""
+
+LIGHTER_ROBINHOOD_LLP_INSURANCE = """Lighter Liquidity Provider (LLP) on Robinhood Chain is the USDG-denominated protocol insurance fund for Robinhood Wallet perpetual futures.
+
+During partial liquidations, the protocol can send a liquidation fee of up to 1% to LLP. During full liquidations, LLP can take over the remaining positions. The pool therefore carries market-making and liquidation risk and is not equivalent to holding USDG directly.
+
+Robinhood's public documentation does not state that the Ethereum LLP's LIT staking access rule applies to this deployment, so the Ethereum USDC/LIT requirements are intentionally not repeated here.
+
+[Robinhood Wallet perpetual futures](https://robinhood.com/us/en/support/articles/robinhood-wallet-perpetual-futures/)."""
 
 GRVT_GLP_DEPOSIT_LIMITS = """GLP deposit limits are tied to your lifetime trading volume on GRVT. Each tier sets a maximum percentage of account equity and an absolute USDT cap:
 
@@ -469,6 +479,8 @@ VAULT_FLAGS_AND_NOTES: dict[str, tuple[VaultFlag | None, str]] = {
     "0x7786dba2a1f7a4b0b7abf0962c449154c4f2b8ac": (VaultFlag.illiquid, XUSD_MESSAGE),
     # Borrowable USDC Deposit, SiloId: 105
     "0x4f55e28d36b30a638c3aa1d5cbf9c4ccb3831506": (VaultFlag.illiquid, ILLIQUID_ABNORMAL_SHARE_PRICE),
+    # Borrowable USDC Deposit, SiloId: 111 (Sonic)
+    "0xae79b0d94e1c53cd2e8160899b8d58ec138d341f": (VaultFlag.illiquid, BORROWABLE_USDC_SILOID_111_ILLIQUID),
     # 40avax-USDC-VAULT on Avalanche
     "0xbed7c02887efd6b5eb9a547ac1a4d5e582791647": (VaultFlag.abnormal_share_price, UNKNOWN_ABNORMAL_SHARE_PRICE),
     # XAU Aplha Vault on Arbitrum
@@ -689,6 +701,10 @@ VAULT_FLAGS_AND_NOTES: dict[str, tuple[VaultFlag | None, str]] = {
     "vlt:34dtzyg6lhkgm49je5aabi9tebw": (None, GRVT_GLP_DEPOSIT_LIMITS),
     # Lighter Liquidity Provider (LLP) — requires LIT token staking for deposits
     "lighter-pool-281474976710654": (None, LIGHTER_LLP_STAKING),
+    # Lighter LLP on Robinhood Chain. For now this has a separate note because
+    # the deployment uses USDG and Robinhood's documentation does not state
+    # that Ethereum LLP's USDC/LIT staking requirements apply here.
+    "lighter-pool-robinhood-281474976710654": (None, LIGHTER_ROBINHOOD_LLP_INSURANCE),
     # Morpho Yearn Morpho Vault 1 Compounder (Base)
     "0xf115c134c23c7a05fbd489a8be3116ebf54b0d9f": (VaultFlag.subvault, SUBVAULT),
     # Morpho Zircuit Finance USDC on Base Compounder

@@ -20,7 +20,7 @@ from eth_defi.tokenised_fund.libeara.constants import LIBEARA_PRODUCTS
 from eth_defi.tokenised_fund.libeara.historical import LibearaVaultHistoricalReader
 from eth_defi.tokenised_fund.vault import TokenisedFundVault
 from eth_defi.types import Percent
-from eth_defi.vault.base import TradingUniverse, VaultDepositManager, VaultFlowManager, VaultHistoricalReader, VaultInfo, VaultPortfolio, VaultSpec
+from eth_defi.vault.base import TradingUniverse, VaultFlowManager, VaultHistoricalReader, VaultInfo, VaultPortfolio, VaultSpec
 from eth_defi.vault.fee import BROKEN_FEE_DATA, FeeData
 from eth_defi.vault.lower_case_dict import LowercaseDict
 
@@ -238,13 +238,6 @@ class LibearaVault(TokenisedFundVault):
         """
         raise NotImplementedError("Libeara fund flow accounting is not implemented")
 
-    def get_deposit_manager(self) -> VaultDepositManager:
-        """Reject public dealing operations.
-
-        :raise NotImplementedError: Always.
-        """
-        raise NotImplementedError("Libeara fund subscriptions and redemptions are not implemented")
-
     def fetch_deposit_closed_reason(self) -> str:
         """Explain unavailable subscriptions.
 
@@ -300,11 +293,9 @@ class LibearaVault(TokenisedFundVault):
         return f"{self.product.product_name} uses a permissioned CMTAT share token. The adapter reads issuer-maintained NAV and does not certify price freshness, investor eligibility or public dealing availability."
 
     def get_link(self, referral: str | None = None) -> str:
-        """Return Libeara's platform URL.
+        """Return the fund's reviewed product-information URL.
 
         :param referral: Ignored.
-        :return: Official platform homepage.
+        :return: Product-specific issuer or public record page.
         """
-        if self.is_ultra:
-            return "https://libeara.com/libeara-partners-with-wellington-and-fundbridge-capital-to-launch-a-u-s-treasuries-fund-tokenised-on-public-blockchain/"
-        return "https://libeara.com/"
+        return self.product.homepage

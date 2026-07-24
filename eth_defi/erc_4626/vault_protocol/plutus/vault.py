@@ -2,11 +2,13 @@
 
 import datetime
 import logging
+from decimal import Decimal
 from typing import Iterable
 
-from eth_typing import BlockIdentifier
+from eth_typing import BlockIdentifier, HexAddress
 
 from eth_defi.abi import ZERO_ADDRESS_STR
+from eth_defi.erc_4626.deposit_redeem import ERC4626DepositManager
 from eth_defi.erc_4626.vault import ERC4626HistoricalReader, ERC4626Vault
 from eth_defi.event_reader.conversion import convert_int256_bytes_to_int
 from eth_defi.event_reader.multicall_batcher import EncodedCall, EncodedCallResult
@@ -18,6 +20,49 @@ from eth_defi.vault.base import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+class PlutusDepositManager(ERC4626DepositManager):
+    """Plutus synchronous ERC-4626 lifecycle without ``previewDeposit``.
+
+    **Supported simulation path**
+
+    The selected Hedge Token deployment uses direct ERC-4626 deposit and
+    redeem calls. :meth:`force_settle` accepts ``None`` and performs the
+    shared Anvil-only no-op.
+
+    **Known limitations**
+
+    The adapter supports only direct calls while the manual deposit and
+    redemption windows are open. Queued generations, delegated operators,
+    cancellation and reclaim remain unsupported.
+    """
+
+    def estimate_deposit(
+        self,
+        owner: HexAddress | None,
+        amount: Decimal,
+        block_identifier: BlockIdentifier = "latest",
+    ) -> Decimal:
+        """Estimate shares through the non-reverting conversion function.
+
+        :param owner:
+            Unused because the conversion is not owner-specific.
+        :param amount:
+            Decimal denomination amount.
+        :param block_identifier:
+            Block number or ``"latest"``.
+        :return:
+            Estimated decimal shares.
+        :raise ValueError:
+            If the selected deposit window produces a zero estimate.
+        """
+        del owner
+        raw_amount = self.vault.denomination_token.convert_to_raw(amount)
+        raw_shares = self.vault.vault_contract.functions.convertToShares(raw_amount).call(block_identifier=block_identifier)
+        if raw_shares <= 0:
+            raise ValueError(f"Plutus deposit estimate is zero for {amount} {self.vault.denomination_token.symbol}")
+        return self.vault.share_token.convert_to_decimals(raw_shares)
 
 
 class PlutusHistoricalReader(ERC4626HistoricalReader):
@@ -96,6 +141,14 @@ class PlutusVault(ERC4626Vault):
 
     def get_historical_reader(self, stateful) -> VaultHistoricalReader:
         return PlutusHistoricalReader(self, stateful)
+
+    def get_deposit_manager(self) -> PlutusDepositManager:
+        """Create the Plutus lifecycle manager.
+
+        :return:
+            Manager that avoids Plutus' reverting ``previewDeposit`` path.
+        """
+        return PlutusDepositManager(self)
 
     def has_custom_fees(self) -> bool:
         """Deposit/withdrawal fees."""

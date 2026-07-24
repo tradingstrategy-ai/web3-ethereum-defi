@@ -1,0 +1,12 @@
+feeder-id: alpine
+name: Alpine
+role: curator
+upshift-strategist:
+  - Alpine
+short_description: Alpine is the Upshift strategist label for Ethereum USDC yield vaults.
+long_description: |
+  Upshift identifies Alpine as the strategist for the Alpine USDC Flagship and Alpine Coinshift USDC vaults on Ethereum.
+  Upshift does not publish a separate curator field, so this record maps its strategist display name to a curator for vault attribution without inferring an external organisation or social profile.
+other-links:
+  - title: Upshift - Alpine USDC Flagship vault
+    url: https://app.upshift.finance/pools/1/0xD066649Bcb7d8D3335fE29CaD0AED6E17D5828B5

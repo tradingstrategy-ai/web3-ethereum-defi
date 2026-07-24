@@ -11,3 +11,5 @@ This module provides ERC-4626 vault integration for IPOR.
    :recursive:
 
    eth_defi.ipor.vault
+   eth_defi.ipor.deposit_redeem
+   eth_defi.erc_4626.vault_protocol.ipor.deposit_redeem

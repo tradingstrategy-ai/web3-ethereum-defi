@@ -33,7 +33,10 @@ def is_blacklisted_address(
     chain_id: int = None,
 ):
     assert isinstance(address, str)
-    assert address.startswith("0x")
+    # The rugpull blacklist only holds EVM 0x addresses; synthetic non-EVM vault
+    # ids (e.g. Lighter ``lighter-pool-``) can never match, so treat them as clean.
+    if not address.startswith("0x"):
+        return False
     return address in _rugpulls_by_address
 
 

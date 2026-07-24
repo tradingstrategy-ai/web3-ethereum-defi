@@ -1,8 +1,8 @@
 feeder-id: kaio
 name: KAIO
 role: curator
-website: https://www.kaio.xyz/
-linkedin: kaio-digital
+# 2026-07-22 maintain-curators: KAIO is the protocol layer; feed sources moved to protocols/kaio.yaml.
+canonical-feeder-id: kaio
 short_description: KAIO provides permissioned tokenisation infrastructure and operational workflows for institutional fund shares.
 long_description: |
   KAIO operates a regulated digital-asset platform for tokenised alternative and money-market fund products. For CASHx, KAIO provides the tokenisation, investor-registry and settlement infrastructure, while BlackRock is the investment manager of the underlying liquidity fund.
@@ -11,3 +11,7 @@ other-links:
     url: https://docs.kaio.xyz/how-kaio-works/smart-contracts
   - title: KAIO architecture overview
     url: https://docs.kaio.xyz/how-kaio-works/architecture
+  - title: CASHx public product record
+    url: https://app.rwa.xyz/assets/CASHx
+  - title: BlackRock ICS US Dollar Liquidity Fund page
+    url: https://www.blackrock.com/cash/en-gb/products/229271/blackrock-ics-us-dollar-liquidity-select-acc-fund

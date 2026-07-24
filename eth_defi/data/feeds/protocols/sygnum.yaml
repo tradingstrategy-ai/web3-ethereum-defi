@@ -5,3 +5,11 @@ website: https://www.sygnum.com/
 twitter: sygnumofficial
 linkedin: sygnum
 # rss: not found - the official Sygnum website does not advertise an RSS or Atom feed
+short_description: Sygnum provides tokenisation, settlement and distribution infrastructure for permissioned investment products.
+long_description: |
+  Sygnum's Desygnate platform provides the tokenisation and servicing infrastructure for the reviewed FILQ accumulating and distributing share classes. Fidelity International manages the underlying USD Digital Liquidity Fund.
+other-links:
+  - title: Sygnum FILQ product page
+    url: https://www.sygnum.com/filq/
+  - title: Sygnum FILQ launch and platform announcement
+    url: https://www.sygnum.com/news/sygnum-powers-fidelity-internationals-first-tokenized-product-launch-with-moodys-aaa-mf-assessment/

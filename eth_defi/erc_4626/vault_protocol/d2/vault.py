@@ -2,6 +2,7 @@
 
 import datetime
 from dataclasses import dataclass
+from decimal import Decimal
 from functools import cached_property
 import logging
 from typing import Iterable
@@ -10,6 +11,7 @@ from web3.contract import Contract
 from eth_typing import BlockIdentifier, HexAddress
 
 from eth_defi.erc_4626.core import get_deployed_erc_4626_contract
+from eth_defi.erc_4626.deposit_redeem import ERC4626DepositManager
 from eth_defi.erc_4626.vault import ERC4626HistoricalReader, ERC4626Vault
 from eth_defi.event_reader.conversion import convert_int256_bytes_to_int
 from eth_defi.event_reader.multicall_batcher import EncodedCall, EncodedCallResult
@@ -25,6 +27,52 @@ from eth_defi.vault.base import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+class D2DepositManager(ERC4626DepositManager):
+    """D2 ERC-4626 lifecycle with explicit zero-price admission failure.
+
+    **Supported simulation path**
+
+    :meth:`force_settle` receives ``None`` and uses the shared Anvil-only
+    no-op implementation for a direct ERC-4626 call. This adapter only
+    improves preflight estimation; it does not certify a successful D2
+    transaction path.
+
+    **Known limitations**
+
+    Successful D2 deposits and redemptions have not yet been fork-proven.
+    Custodied epochs, operator NAV changes, delayed withdrawals and other
+    epoch transitions are deliberately outside this adapter.
+    """
+
+    def estimate_deposit(
+        self,
+        owner: HexAddress | None,
+        amount: Decimal,
+        block_identifier: BlockIdentifier = "latest",
+    ) -> Decimal:
+        """Return an estimate or an actionable zero-price failure.
+
+        :param owner:
+            Deposit owner passed to the standard ERC-4626 estimator.
+        :param amount:
+            Decimal denomination amount.
+        :param block_identifier:
+            Block number or ``"latest"``.
+        :return:
+            Estimated decimal shares.
+        :raise ValueError:
+            If D2 pricing is undefined or the funding phase is closed.
+        """
+        closed_reason = self.vault.fetch_deposit_closed_reason()
+        if closed_reason is not None:
+            raise ValueError(f"D2 deposit is unavailable: {closed_reason}")
+        estimate = super().estimate_deposit(owner, amount, block_identifier)
+        if estimate <= 0:
+            raise ValueError(f"D2 deposit estimate is zero for {amount} {self.vault.denomination_token.symbol}; pricing is unavailable")
+        return estimate
+
 
 D2_PROTOCOL_NAME = "D2 Finance"
 D2_STRATEGY_URL_TEMPLATE = "https://d2.finance/strategies/{address}"
@@ -341,6 +389,14 @@ class D2Vault(ERC4626Vault):
 
     def get_historical_reader(self, stateful) -> VaultHistoricalReader:
         return D2HistoricalReader(self, stateful)
+
+    def get_deposit_manager(self) -> D2DepositManager:
+        """Create the D2 phase-aware lifecycle manager.
+
+        :return:
+            D2 manager that avoids returning a zero share estimate.
+        """
+        return D2DepositManager(self)
 
     def get_link(self, referral: str | None = None) -> str:  # noqa: ARG002
         """Get the canonical public page for this D2 vault.

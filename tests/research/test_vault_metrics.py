@@ -12,6 +12,8 @@ import zstandard as zstd
 from plotly.graph_objects import Figure
 
 from eth_defi.erc_4626.vault_protocol.d2.vault import D2_PROTOCOL_NAME, format_d2_vault_note
+from eth_defi.lighter.constants import LIGHTER_ETHEREUM, LIGHTER_ROBINHOOD, LighterAPIConfig
+from eth_defi.lighter.vault_data_export import create_lighter_pool_row
 from eth_defi.research import vault_metrics
 from eth_defi.research.sparkline import export_sparkline_as_png, export_sparkline_as_svg, extract_vault_price_data, render_sparkline_simple
 from eth_defi.research.vault_benchmark import visualise_vault_return_benchmark
@@ -421,6 +423,119 @@ def test_calculate_lifetime_metrics(
 
     # Verify period_results is not in formatted output
     # assert "period_results" not in formatted.columns
+
+
+def test_calculate_lifetime_metrics_exports_deposit_permission(
+    vault_db: VaultDatabase,
+    price_df: pd.DataFrame,
+) -> None:
+    """Lifetime reports add scan permission without mutating stored capability data."""
+    vault_id = "43111-0x05c2e246156d37b39a825a25dd08d5589e3fd883"
+    vault_spec = VaultSpec.parse_string(vault_id)
+    vault_row = dict(vault_db.rows[vault_spec])
+    stored_manager = {"can_deposit": True, "can_redeem": True, "deposit_flow": "synchronous", "redemption_flow": "synchronous"}
+    vault_row["_deposit_manager"] = stored_manager
+    vault_row["_deposit_permission"] = "whitelisted"
+
+    metrics = calculate_lifetime_metrics(price_df.loc[price_df["id"] == vault_id], {vault_spec: vault_row})
+
+    assert metrics.iloc[0]["deposit_manager"] == stored_manager | {"deposit_permission": "whitelisted"}
+    assert stored_manager == {"can_deposit": True, "can_redeem": True, "deposit_flow": "synchronous", "redemption_flow": "synchronous"}
+
+
+def test_calculate_lifetime_metrics_defaults_legacy_deposit_permission_to_unknown(
+    vault_db: VaultDatabase,
+    price_df: pd.DataFrame,
+) -> None:
+    """Old metadata pickles with a manager receive a safe report default."""
+    vault_id = "43111-0x05c2e246156d37b39a825a25dd08d5589e3fd883"
+    vault_spec = VaultSpec.parse_string(vault_id)
+    vault_row = dict(vault_db.rows[vault_spec])
+    vault_row["_deposit_manager"] = {"can_deposit": True, "can_redeem": True, "deposit_flow": "synchronous", "redemption_flow": "synchronous"}
+    vault_row.pop("_deposit_permission", None)
+
+    metrics = calculate_lifetime_metrics(price_df.loc[price_df["id"] == vault_id], {vault_spec: vault_row})
+
+    assert metrics.iloc[0]["deposit_manager"]["deposit_permission"] == "unknown"
+
+
+def test_calculate_lifetime_metrics_exports_permission_for_refusing_manager(
+    vault_db: VaultDatabase,
+    price_df: pd.DataFrame,
+) -> None:
+    """Permissioned funds retain policy metadata while refusing public flows."""
+    vault_id = "43111-0x05c2e246156d37b39a825a25dd08d5589e3fd883"
+    vault_spec = VaultSpec.parse_string(vault_id)
+    vault_row = dict(vault_db.rows[vault_spec])
+    vault_row["_deposit_manager"] = {"can_deposit": False, "can_redeem": False}
+    vault_row["_deposit_permission"] = "whitelisted"
+
+    metrics = calculate_lifetime_metrics(price_df.loc[price_df["id"] == vault_id], {vault_spec: vault_row})
+
+    assert metrics.iloc[0]["deposit_manager"] == {
+        "can_deposit": False,
+        "can_redeem": False,
+        "deposit_permission": "whitelisted",
+    }
+
+
+def test_calculate_lifetime_metrics_preserves_null_deposit_manager(
+    vault_db: VaultDatabase,
+    price_df: pd.DataFrame,
+) -> None:
+    """Permission reporting does not fabricate an unsupported manager object."""
+    vault_id = "43111-0x05c2e246156d37b39a825a25dd08d5589e3fd883"
+    vault_spec = VaultSpec.parse_string(vault_id)
+    vault_row = dict(vault_db.rows[vault_spec])
+    vault_row["_deposit_manager"] = None
+    vault_row["_deposit_permission"] = "permissionless"
+
+    metrics = calculate_lifetime_metrics(price_df.loc[price_df["id"] == vault_id], {vault_spec: vault_row})
+
+    assert metrics.iloc[0]["deposit_manager"] is None
+
+
+@pytest.mark.parametrize(
+    ("deployment", "expected_slug", "expected_deployment_chain_id"),
+    (
+        (LIGHTER_ETHEREUM, "ethereum", 1),
+        (LIGHTER_ROBINHOOD, "robinhood", 4663),
+    ),
+)
+def test_calculate_lifetime_metrics_exports_lighter_deployment_chain(
+    price_df: pd.DataFrame,
+    deployment: LighterAPIConfig,
+    expected_slug: str,
+    expected_deployment_chain_id: int,
+) -> None:
+    """Keep Lighter dataset identity separate from its associated EVM chain."""
+    source_vault_id = "43111-0x05c2e246156d37b39a825a25dd08d5589e3fd883"
+    spec, vault_row = create_lighter_pool_row(
+        account_index=281474976710654,
+        name="Lighter Liquidity Provider (LLP)",
+        description="Lighter protocol liquidity and insurance pool.",
+        tvl=1_000_000.0,
+        created_at=None,
+        is_llp=True,
+        deployment=deployment,
+    )
+    vault_prices = price_df.loc[price_df["id"] == source_vault_id].copy()
+    vault_prices["id"] = spec.as_string_id()
+    vault_prices["chain"] = deployment.chain_id
+
+    metrics = calculate_lifetime_metrics(vault_prices, {spec: vault_row})
+
+    row = metrics.iloc[0]
+    # The synthetic ID must remain unchanged because it keys the Lighter price
+    # partition; the added fields identify Ethereum versus Robinhood Lighter.
+    assert row["chain_id"] == deployment.chain_id
+    assert row["deployment"] == expected_slug
+    assert row["deployment_chain_id"] == expected_deployment_chain_id
+
+    exported = export_lifetime_row(row)
+    assert exported["chain_id"] == deployment.chain_id
+    assert exported["deployment"] == expected_slug
+    assert exported["deployment_chain_id"] == expected_deployment_chain_id
 
 
 @pytest.mark.parametrize(

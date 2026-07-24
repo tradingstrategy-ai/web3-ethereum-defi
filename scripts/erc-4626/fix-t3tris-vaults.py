@@ -94,6 +94,7 @@ from eth_defi.erc_4626.classification import create_vault_instance, detect_vault
 from eth_defi.erc_4626.core import ERC4262VaultDetection, ERC4626Feature
 from eth_defi.erc_4626.discovery_base import PotentialVaultMatch
 from eth_defi.erc_4626.scan import create_vault_scan_record
+from eth_defi.erc_4626.vault_protocol.t3tris.constants import T3TRIS_HARDCODED_LEADS
 from eth_defi.hypersync.utils import configure_hypersync_from_env
 from eth_defi.provider.env import get_json_rpc_env
 from eth_defi.provider.multi_provider import MultiProviderWeb3Factory, create_multi_provider_web3
@@ -308,19 +309,68 @@ def fetch_t3tris_vaults(timeout: float = 30.0) -> list[T3trisVaultReference]:
     return parse_t3tris_payload(payload)
 
 
+def get_reviewed_t3tris_migration_references() -> list[T3trisVaultReference]:
+    """Get T3tris vaults that must be repaired even if absent from the API.
+
+    These migration-pool vaults do not emit vault-local flow events and can be
+    removed from the frontend API after migration. Keep their reviewed
+    deployment information in the scanner registry and always merge it into
+    the repair set.
+
+    :return:
+        Reviewed T3tris migration references.
+    """
+    return [
+        T3trisVaultReference(
+            chain_id=chain_id,
+            address=address,
+            name="Strada Yield",
+            first_seen_at_block=first_seen_at_block,
+            first_seen_at=first_seen_at,
+            curator_name=None,
+            verified=None,
+        )
+        for chain_id, address, first_seen_at_block, first_seen_at in T3TRIS_HARDCODED_LEADS
+    ]
+
+
+def is_reviewed_t3tris_migration_reference(ref: T3trisVaultReference) -> bool:
+    """Check whether a vault has reviewed migration-pool event evidence."""
+    return ref.get_spec() in {migration_ref.get_spec() for migration_ref in get_reviewed_t3tris_migration_references()}
+
+
+def merge_t3tris_vault_references(*reference_sets: list[T3trisVaultReference]) -> list[T3trisVaultReference]:
+    """Merge T3tris vault lists by canonical address, preferring later data.
+
+    :param reference_sets:
+        Reference lists in increasing priority order. The live API is passed
+        last so it can refresh metadata without dropping reviewed migrations.
+
+    :return:
+        De-duplicated T3tris vault references sorted by chain and address.
+    """
+    references = {}
+    for refs in reference_sets:
+        references.update({ref.get_spec(): ref for ref in refs})
+    return sorted(references.values(), key=lambda ref: (ref.chain_id, ref.address.lower()))
+
+
 def load_t3tris_vault_references() -> list[T3trisVaultReference]:
-    """Load live T3tris API vaults, falling back to the baked snapshot."""
+    """Load live T3tris API vaults with reviewed migration and snapshot fallbacks."""
     snapshot_refs = parse_t3tris_payload(json.loads(T3TRIS_VAULT_SNAPSHOT_JSON))
+    reviewed_refs = get_reviewed_t3tris_migration_references()
 
     if not parse_bool_env("T3TRIS_FETCH_API", default=True):
-        logger.info("Using baked T3tris API snapshot with %d vaults", len(snapshot_refs))
-        return snapshot_refs
+        refs = merge_t3tris_vault_references(snapshot_refs, reviewed_refs)
+        logger.info("Using baked T3tris API snapshot and reviewed registry with %d vaults", len(refs))
+        return refs
 
     try:
         live_refs = fetch_t3tris_vaults()
     except (HTTPError, URLError, TimeoutError, ValueError, json.JSONDecodeError, OSError) as e:
-        logger.warning("Could not fetch T3tris API, using baked snapshot: %s", e)
-        return snapshot_refs
+        refs = merge_t3tris_vault_references(snapshot_refs, reviewed_refs)
+        logger.warning("Could not fetch T3tris API, using baked snapshot and reviewed registry: %s", e)
+        return refs
 
     snapshot_specs = {ref.get_spec() for ref in snapshot_refs}
     live_specs = {ref.get_spec() for ref in live_refs}
@@ -331,15 +381,18 @@ def load_t3tris_vault_references() -> list[T3trisVaultReference]:
     if removed_specs:
         logger.warning("Baked T3tris snapshot has %d vaults no longer returned by the API", len(removed_specs))
 
-    logger.info("Fetched %d T3tris vaults from the live API", len(live_refs))
-    return live_refs
+    refs = merge_t3tris_vault_references(snapshot_refs, reviewed_refs, live_refs)
+    logger.info("Fetched %d T3tris vaults from the live API; repairing %d total reviewed, snapshot and API vaults", len(live_refs), len(refs))
+    return refs
 
 
 def filter_references(refs: list[T3trisVaultReference]) -> list[T3trisVaultReference]:
     """Apply operator filters."""
     if not parse_bool_env("T3TRIS_VERIFIED_ONLY", default=False):
         return refs
-    return [ref for ref in refs if ref.verified is True]
+
+    reviewed_specs = {ref.get_spec() for ref in get_reviewed_t3tris_migration_references()}
+    return [ref for ref in refs if ref.verified is True or ref.get_spec() in reviewed_specs]
 
 
 def get_rpc_env_candidates(chain_id: int) -> list[str]:
@@ -442,16 +495,17 @@ def upsert_lead(vault_db: VaultDatabase, ref: T3trisVaultReference) -> bool:
     """Upsert one API-listed T3tris vault into the lead map."""
     spec = ref.get_spec()
     existing = vault_db.leads.get(spec)
+    is_reviewed_migration = is_reviewed_t3tris_migration_reference(ref)
     lead = PotentialVaultMatch(
         chain=ref.chain_id,
         address=HexAddress(ref.address.lower()),
         first_seen_at_block=max(1, ref.first_seen_at_block),
         first_seen_at=getattr(existing, "first_seen_at", ref.first_seen_at) if existing else ref.first_seen_at,
-        # API-seeded leads did not come from a historical flow-event count.
-        # Keep non-zero deposit count so legacy candidate filters treat the
-        # operator-curated API list as intentional input.
-        deposit_count=max(getattr(existing, "deposit_count", 0) if existing else 0, 1),
+        # Migration-pool vaults have no vault-local deposit events. Their
+        # reviewed configuration event is the alternative lead threshold.
+        deposit_count=0 if is_reviewed_migration else getattr(existing, "deposit_count", 0) if existing else 0,
         withdrawal_count=getattr(existing, "withdrawal_count", 0) if existing else 0,
+        configuration_count=max(getattr(existing, "configuration_count", 0) if existing else 0, 1) if is_reviewed_migration else getattr(existing, "configuration_count", 0) if existing else 0,
     )
     vault_db.leads[spec] = lead
     return existing is None
@@ -466,11 +520,11 @@ def create_detection(ref: T3trisVaultReference, features: set[ERC4626Feature], u
         first_seen_at=ref.first_seen_at,
         features=features,
         updated_at=updated_at,
-        # API-seeded metadata does not have historical event counts. Use the
-        # minimum production threshold so targeted and future price scans do not
-        # discard known API vaults before feature-based protocol routing runs.
-        deposit_count=5,
+        # Migration-pool vaults qualify via one reviewed configuration event,
+        # not an invented deposit count.
+        deposit_count=0 if is_reviewed_t3tris_migration_reference(ref) else 5,
         redeem_count=0,
+        configuration_count=1 if is_reviewed_t3tris_migration_reference(ref) else 0,
     )
 
 

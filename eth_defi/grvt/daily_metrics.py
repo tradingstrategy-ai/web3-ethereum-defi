@@ -25,6 +25,7 @@ Example::
 import datetime
 import json
 import logging
+from decimal import Decimal
 from pathlib import Path
 
 import duckdb
@@ -33,7 +34,7 @@ from requests import Session
 from tqdm_loggable.auto import tqdm
 
 from eth_defi.compat import native_datetime_utc_now
-from eth_defi.grvt.constants import GRVT_DAILY_METRICS_DATABASE, GRVT_EXTENDED_INFO_MAX_AGE
+from eth_defi.grvt.constants import GRVT_CHAIN_ID, GRVT_DAILY_METRICS_DATABASE, GRVT_EXTENDED_INFO_MAX_AGE
 from eth_defi.grvt.vault import (
     GRVTVaultSummary,
     build_vault_description,
@@ -41,6 +42,12 @@ from eth_defi.grvt.vault import (
     fetch_vault_listing_graphql,
     fetch_vault_summary_history,
 )
+from eth_defi.perp_dex.metrics import (
+    PerpVaultIdentity,
+    SourcePositionDataStatus,
+    create_unavailable_perp_vault_observation_bundle,
+)
+from eth_defi.perp_dex.storage import initialise_perp_vault_observation_schema, write_perp_vault_observation_bundle
 
 logger = logging.getLogger(__name__)
 
@@ -88,6 +95,7 @@ class GRVTDailyMetricsDatabase:
 
     def _init_schema(self):
         """Create tables if they don't exist."""
+        initialise_perp_vault_observation_schema(self.con)
         self.con.execute("""
             CREATE TABLE IF NOT EXISTS vault_metadata (
                 vault_id VARCHAR PRIMARY KEY,
@@ -399,6 +407,28 @@ def fetch_and_store_vault(
         )
 
     db.upsert_daily_prices(rows)
+
+    observed_at = native_datetime_utc_now()
+    account_bundle = create_unavailable_perp_vault_observation_bundle(
+        identity=PerpVaultIdentity(
+            protocol_slug="grvt",
+            deployment_slug="mainnet",
+            vault_id=summary.vault_id,
+            dataset_chain_id=GRVT_CHAIN_ID,
+            dataset_address=summary.vault_id.lower(),
+        ),
+        observed_at=observed_at,
+        total_equity=Decimal(str(summary.tvl)) if summary.tvl is not None else None,
+        quote_asset="USDT",
+        status=SourcePositionDataStatus.authentication_required,
+        reason="GRVT only exposes vault positions through authenticated trading-account endpoints",
+        source_endpoint="GraphQL vault listing and vault_summary_history",
+    )
+    write_perp_vault_observation_bundle(
+        db.con,
+        account_bundle,
+        {"vault_id": summary.vault_id, "total_equity": str(summary.tvl)},
+    )
 
     logger.debug("Stored %d daily prices for vault %s (%s)", len(rows), summary.name, summary.vault_id)
     return True

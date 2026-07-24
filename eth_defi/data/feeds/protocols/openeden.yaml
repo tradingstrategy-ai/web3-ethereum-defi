@@ -1,0 +1,21 @@
+feeder-id: openeden
+name: OpenEden
+role: protocol
+website: https://openeden.com/
+twitter: OpenEden_X
+short_description: OpenEden operates a permissioned tokenised U.S. Treasury bill fund and its onchain price oracle.
+long_description: |
+  OpenEden issues and services the reviewed TBILL fund shares. Its documentation defines TBILL price in USDC, with USDC/USD assumed at one, and uses USDC for subscriptions and redemptions.
+other-links:
+  - title: OpenEden TBILL product page
+    url: https://openeden.com/tbill
+  - title: OpenEden TBILL transparency page
+    url: https://openeden.com/tbill/transparency
+  - title: OpenEden TBILL price and USDC quote methodology
+    url: https://docs.openeden.com/tbill/token-price
+  - title: OpenEden TBILL subscription assets
+    url: https://docs.openeden.com/tbill/subscriptions
+  - title: OpenEden TBILL redemption assets
+    url: https://docs.openeden.com/tbill/redemptions
+  - title: OpenEden TBILL smart-contract addresses
+    url: https://docs.openeden.com/tbill/smart-contract-addresses

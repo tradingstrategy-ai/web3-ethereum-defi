@@ -141,6 +141,14 @@ elif ERC4626Feature.{protocol_slug}_like in features:
 
 Edit `eth_defi/erc_4626/classification.py`:
 
+**Probe budget:** Classification runs every probe against every candidate
+vault. Prefer one no-argument, protocol-specific view accessor per protocol.
+Use a second probe only when independently necessary contract variants cannot
+be safely identified by the first one, and document why both are required. Do
+not add fee, version, or other adapter data accessors merely to corroborate a
+classification; read those only after the adapter has been selected. Never add
+more than two protocol probes without explicit maintainer approval.
+
 1. In `create_probe_calls()`, add a probe call that uniquely identifies this protocol:
    - Analyse the ABI and the vault implementation smart contract source code to find a function unique to this protocol
    - Look for functions like `getProtocolSpecificData()`, custom role constants, etc. and compare them to what is already implemented in `create_probe_calls()`

@@ -5,3 +5,31 @@ website: https://securitize.io/
 twitter: Securitize
 linkedin: securitize-inc
 # rss: not found - the public Securitize site does not advertise an RSS or Atom feed
+short_description: Securitize provides regulated issuance, transfer-agent and investor infrastructure for tokenised securities and funds.
+long_description: |
+  Securitize supplies the DSToken and investor-services platform used by the reviewed tokenised funds. Each fund keeps its own asset manager, strategy, NAV method and investor terms.
+other-links:
+  - title: BlackRock BUIDL fund page
+    url: https://www.blackrock.com/us/individual/products/buidl/
+  - title: Apollo ACRED fund page
+    url: https://securitize.io/primary-market/apollo-diversified-credit-securitize-fund
+  - title: VanEck VBILL fund page
+    url: https://securitize.io/primary-market/vaneck-vbill
+  - title: Securitize BNY CLO Fund STAC page
+    url: https://securitize.io/primary-market/Securitize-BNY-CLO-Fund
+  - title: Arca U.S. Treasury Fund page
+    url: https://www.arcalabs.com/fund-overview
+  - title: SPiCE VC NAV reports
+    url: https://spicevc.com/nav-reports.html
+  - title: Hamilton Lane Senior Credit Opportunities Fund page
+    url: https://www.hamiltonlane.com/en-us/strategies/evergreen/global/senior-credit-opportunities-fund
+  - title: Securitize BCAP oracle announcement
+    url: https://investors.securitize.io/news/news-details/2025/RedStone-and-Securitize-Catalyze-20Bn-RWA-Market-with-First-Ever-BCAP-Price-Feed-on-ZKsync-05-06-2025/default.aspx
+  - title: COSIMO X fund page
+    url: https://www.cosimodigital.com/asset-management/cosimo-x
+  - title: Science Blockchain investor dashboard
+    url: https://science.securitize.io/
+  - title: Protos PRTS NAV report
+    url: https://protosmanagement.com/2024/05/09/protos-asset-management-releases-march-31-2024-prts-token-nav/
+  - title: Mantle Index Four fund page
+    url: https://securitize.io/primary-market/mantle-index-four-fund

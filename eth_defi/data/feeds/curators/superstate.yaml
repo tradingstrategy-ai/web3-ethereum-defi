@@ -17,3 +17,6 @@ other-links:
     url: https://docs.superstate.com/welcome-to-superstate/smart-contracts
   - title: Superstate USTB fund documentation - product eligibility and operations
     url: https://docs.superstate.com/superstate-funds/ustb
+  # 2026-07-22 maintain-curators: added the individual live USTB fund page.
+  - title: Superstate USTB fund page
+    url: https://superstate.com/ustb

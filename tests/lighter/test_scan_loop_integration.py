@@ -42,6 +42,8 @@ def test_scan_loop_lighter_single_cycle(tmp_path: Path, monkeypatch: pytest.Monk
     monkeypatch.setenv("SCAN_HYPERCORE", "false")
     monkeypatch.setenv("SCAN_GRVT", "false")
     monkeypatch.setenv("SCAN_LIGHTER", "true")
+    monkeypatch.setenv("SKIP_CORE3", "true")
+    monkeypatch.setenv("SKIP_CURRENCY_RATES", "true")
     monkeypatch.setenv("SKIP_POST_PROCESSING", "true")
     monkeypatch.setenv("MAX_WORKERS", "4")
     monkeypatch.setenv("LOG_LEVEL", "info")
@@ -53,7 +55,8 @@ def test_scan_loop_lighter_single_cycle(tmp_path: Path, monkeypatch: pytest.Monk
     assert state_file.exists(), "Cycle state file not created"
     state = json.loads(state_file.read_text())
     cycle_items = state.get("items", state)
-    assert "Lighter" in cycle_items, f"Lighter not in cycle state: {state}"
+    assert "Lighter Ethereum" in cycle_items, f"Lighter Ethereum not in cycle state: {state}"
+    assert "Lighter Robinhood" in cycle_items, f"Lighter Robinhood not in cycle state: {state}"
 
     # 2. Verify Lighter DuckDB has pools
     duckdb_path = tmp_path / "lighter-pools.duckdb"

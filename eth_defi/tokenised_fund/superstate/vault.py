@@ -31,7 +31,7 @@ from eth_defi.tokenised_fund.superstate.constants import SUPERSTATE_ETHEREUM_CHA
 from eth_defi.tokenised_fund.superstate.historical import SuperstateVaultHistoricalReader
 from eth_defi.tokenised_fund.vault import TokenisedFundVault
 from eth_defi.types import Percent
-from eth_defi.vault.base import TradingUniverse, VaultDepositManager, VaultFlowManager, VaultHistoricalReader, VaultInfo, VaultPortfolio, VaultSpec
+from eth_defi.vault.base import TradingUniverse, VaultFlowManager, VaultHistoricalReader, VaultInfo, VaultPortfolio, VaultSpec
 from eth_defi.vault.fee import BROKEN_FEE_DATA, FeeData
 from eth_defi.vault.lower_case_dict import LowercaseDict
 
@@ -378,17 +378,6 @@ class SuperstateVault(TokenisedFundVault):
         """
 
         message = "Superstate flow accounting is not implemented"
-        raise NotImplementedError(message)
-
-    def get_deposit_manager(self) -> VaultDepositManager:
-        """Reject unsupported public subscription/redemption execution.
-
-        :raises NotImplementedError:
-            Always, until a fully eligibility-aware lifecycle is implemented
-            and tested against the issuer's settlement systems.
-        """
-
-        message = "Superstate public subscription/redemption is not implemented"
         raise NotImplementedError(message)
 
     def fetch_deposit_closed_reason(self) -> str | None:

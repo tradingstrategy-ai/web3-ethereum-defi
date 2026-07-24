@@ -10,3 +10,6 @@ long_description: |
 other-links:
   - title: Blockchain Capital official firm overview and history of BCAP
     url: https://www.blockchaincapital.com/about-us
+  # 2026-07-22 maintain-curators: added Securitize's BCAP-specific oracle and valuation source.
+  - title: Securitize BCAP oracle announcement
+    url: https://investors.securitize.io/news/news-details/2025/RedStone-and-Securitize-Catalyze-20Bn-RWA-Market-with-First-Ever-BCAP-Price-Feed-on-ZKsync-05-06-2025/default.aspx

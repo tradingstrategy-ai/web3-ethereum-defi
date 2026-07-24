@@ -32,6 +32,12 @@ Default location: `~/.tradingstrategy/vaults/core3/`
 | `core3.duckdb.wal` | DuckDB write-ahead log (automatically managed) |
 | `rate-limit.sqlite` | SQLite database for thread-safe rate limiting state across `joblib` workers |
 
+``Core3Database`` automatically migrates legacy database files to the latest
+DuckDB storage format when opening them. The migration rewrites both raw JSON
+payload columns with native Zstandard compression, verifies row counts and
+atomically replaces the original file. Because it selects DuckDB's latest
+format, the migrated file requires the writer's DuckDB version or newer.
+
 ### Database tables
 
 | Table | Description |

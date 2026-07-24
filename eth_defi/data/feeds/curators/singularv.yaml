@@ -1,6 +1,8 @@
 feeder-id: singularv
 name: SingularV
 role: curator
+upshift-strategist:
+  - SingularV
 website: https://www.singularv.xyz
 short_description: 'SingularV is a DeFi asset management firm using AI-driven yield optimisation and risk curation.'
 long_description: |

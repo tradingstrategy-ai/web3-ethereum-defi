@@ -1,0 +1,24 @@
+name: Peapods
+slug: peapods
+short_description: |
+  DeFi protocol offering yield products and managed vaults for tokenised assets.
+long_description: |
+  Peapods Finance provides tokenised portfolio products and interest-bearing vaults designed to make yield strategies available for a range of assets. Vault returns depend on the underlying assets, liquidity and strategy execution.
+
+  Depositors can face smart-contract, market, liquidity and strategy risks. Availability and the terms of individual products vary across networks.
+fee_description: |
+  Fees depend on the specific Peapods product or vault. Review the current product interface and documentation for management, performance, transaction and redemption costs before depositing.
+links:
+  homepage: https://peapods.finance/
+  app: https://app.peapods.finance/
+  twitter: https://x.com/PeapodsFinance
+  github: https://github.com/peapods-finance
+  documentation: https://docs.peapods.finance/
+  fact_sheet:
+  defillama: https://defillama.com/protocol/peapods-finance
+  audits:
+  fees:
+  trading_strategy: https://tradingstrategy.ai/trading-view/vaults/protocols/peapods
+  integration_documentation:
+example_smart_contracts:
+  - https://etherscan.io/address/0x3717e340140d30f3a077dd21fac39a86ace873aa

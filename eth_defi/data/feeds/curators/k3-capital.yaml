@@ -14,6 +14,8 @@ name: K3 Capital
 role: curator
 ipor-atomist: K3 Capital
 euler-entity: k3
+upshift-strategist:
+  - K3 Capital
 short_description: 'K3 Capital is a crypto-native asset and risk manager focused on non-directional DeFi yield strategies.'
 long_description: |
   K3 Capital says it has deployed liquidity onchain since 2021 and manages non-directional DeFi strategies. Its homepage highlights interest-rate arbitrage, liquidity provision, early-stage protocol participation, and risk-managed funds for crypto-native institutions and high-net-worth investors.

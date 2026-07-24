@@ -15,6 +15,7 @@ from eth_defi.tokenised_fund.libeara import backfill_ultra
 from eth_defi.tokenised_fund.libeara.constants import ARBITRUM_CHAIN_ID, LIBEARA_HARDCODED_LEADS, LIBEARA_ULTRA_ARBITRUM
 from eth_defi.tokenised_fund.libeara.historical import LibearaVaultHistoricalReader
 from eth_defi.tokenised_fund.libeara.vault import LIBEARA_NAV_UNAVAILABLE_ERROR_PREFIX, LIBEARA_RESTRICTED_FLOW_REASON, LibearaVault
+from eth_defi.tokenised_fund.vault import TokenisedFundDepositManager
 from eth_defi.vault.base import VaultSpec
 from eth_defi.vault.vaultdb import VaultDatabase
 
@@ -69,13 +70,12 @@ def test_libeara_ultra_adapter_blocks_public_flows_and_unknown_nav() -> None:
     assert isinstance(vault, LibearaVault)
     assert vault.manager_name == "Wellington Management"
     assert vault.curator_slug == "wellington-management"
-    assert vault.get_deposit_manager_capability() is None
+    assert vault.get_deposit_manager_capability().as_initial_public_schema() == {"can_deposit": False, "can_redeem": False}
     assert vault.fetch_deposit_closed_reason() == LIBEARA_RESTRICTED_FLOW_REASON
     assert vault.fetch_redemption_closed_reason() == LIBEARA_RESTRICTED_FLOW_REASON
     with pytest.raises(NotImplementedError, match="No verified"):
         vault.fetch_share_price()
-    with pytest.raises(NotImplementedError, match="subscriptions"):
-        vault.get_deposit_manager()
+    assert isinstance(vault.get_deposit_manager(), TokenisedFundDepositManager)
 
 
 def test_libeara_ultra_historical_reader_keeps_supply_without_nav() -> None:

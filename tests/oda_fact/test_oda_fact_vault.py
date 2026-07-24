@@ -20,6 +20,7 @@ from eth_defi.provider.anvil import AnvilLaunch, fork_network_anvil
 from eth_defi.provider.multi_provider import create_multi_provider_web3
 from eth_defi.tokenised_fund.kinexys.historical import OdaFactVaultHistoricalReader
 from eth_defi.tokenised_fund.kinexys.vault import KINEXYS_WHITELISTED_FLOW_REASON, OdaFactVault
+from eth_defi.tokenised_fund.vault import TokenisedFundDepositManager
 from eth_defi.vault.flag import VaultFlag
 
 JSON_RPC_ETHEREUM = os.environ.get("JSON_RPC_ETHEREUM")
@@ -117,8 +118,8 @@ def test_oda_fact_live_supply_nav_and_unsupported_actions(web3: Web3) -> None:
     assert "Equity curve and profit information for this vault are missing" in vault.get_notes()
     assert "JLTXX fact sheet" in vault.get_notes()
 
-    with pytest.raises(NotImplementedError):
-        vault.get_deposit_manager()
+    assert vault.get_deposit_manager_capability().as_initial_public_schema() == {"can_deposit": False, "can_redeem": False}
+    assert isinstance(vault.get_deposit_manager(), TokenisedFundDepositManager)
 
     with pytest.raises(NotImplementedError):
         vault.get_flow_manager()

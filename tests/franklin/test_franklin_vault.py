@@ -16,6 +16,7 @@ from eth_defi.provider.multi_provider import create_multi_provider_web3
 from eth_defi.tokenised_fund.franklin.constants import BENJI_ETHEREUM, ETHEREUM_CHAIN_ID, FRANKLIN_HARDCODED_LEADS, IBENJI_ETHEREUM
 from eth_defi.tokenised_fund.franklin.historical import FranklinVaultHistoricalReader
 from eth_defi.tokenised_fund.franklin.vault import FRANKLIN_RESTRICTED_FLOW_REASON, FranklinVault
+from eth_defi.tokenised_fund.vault import TokenisedFundDepositManager
 from eth_defi.vault.curator import identify_curator
 
 JSON_RPC_ETHEREUM = os.environ.get("JSON_RPC_ETHEREUM")
@@ -114,12 +115,11 @@ def test_franklin_benji_adapter_reads_issuer_price(web3: Web3, token: str) -> No
     assert vault.fetch_info()["nav_source"] == "last_known_price_usd_1e18"
     assert vault.fetch_deposit_closed_reason() == FRANKLIN_RESTRICTED_FLOW_REASON
     assert vault.fetch_redemption_closed_reason() == FRANKLIN_RESTRICTED_FLOW_REASON
-    assert vault.get_deposit_manager_capability() is None
+    assert vault.get_deposit_manager_capability().as_initial_public_schema() == {"can_deposit": False, "can_redeem": False}
     assert vault.get_fee_mode() is None
     assert vault.get_fee_data().fee_mode is None
 
-    with pytest.raises(NotImplementedError):
-        vault.get_deposit_manager()
+    assert isinstance(vault.get_deposit_manager(), TokenisedFundDepositManager)
     with pytest.raises(NotImplementedError):
         vault.get_flow_manager()
 

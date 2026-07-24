@@ -1,8 +1,12 @@
-"""Daily Lighter pool metrics pipeline.
+"""Legacy Ethereum Lighter daily pool metrics pipeline.
 
-Discovers Lighter pools via the public API, fetches share price history,
-stores metrics in DuckDB, and merges the data into the existing
+Discovers pools from the original Ethereum Lighter public API, fetches share
+price history, stores metrics in DuckDB, and merges the data into the existing
 ERC-4626 vault pipeline files (VaultDatabase pickle and cleaned Parquet).
+
+Use ``scripts/erc-4626/scan-vaults-all-chains.py`` with ``SCAN_LIGHTER=true``
+to scan both the Ethereum and Robinhood deployments. This standalone script
+retains the historical Ethereum defaults for compatibility.
 
 No authentication is required — all data comes from public endpoints.
 
@@ -126,7 +130,7 @@ def main():
         db.close()
 
     # Step 4: Run the cleaning pipeline
-    print(f"\nStep 4: Running cleaning pipeline...")
+    print("\nStep 4: Running cleaning pipeline...")
     generate_cleaned_vault_datasets(
         vault_db_path=vault_db_path,
         price_df_path=uncleaned_path,

@@ -11,3 +11,4 @@ enabling vaults that require processing time for deposits and withdrawals.
    :recursive:
 
    eth_defi.erc_7540.vault
+   eth_defi.erc_7540.deposit_redeem

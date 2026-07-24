@@ -21,6 +21,7 @@ from eth_defi.provider.multi_provider import create_multi_provider_web3
 from eth_defi.tokenised_fund.ondo.constants import ETHEREUM_CHAIN_ID, ONDO_HARDCODED_LEADS, ONDO_OUSG_ETHEREUM, ONDO_PRODUCTS, ONDO_USDY_ETHEREUM
 from eth_defi.tokenised_fund.ondo.historical import OndoVaultHistoricalReader
 from eth_defi.tokenised_fund.ondo.vault import ONDO_RESTRICTED_FLOW_REASON, OndoVault
+from eth_defi.tokenised_fund.vault import TokenisedFundDepositManager
 from eth_defi.vault.curator import identify_curator
 from eth_defi.vault.flag import VaultFlag
 
@@ -79,7 +80,8 @@ def test_ondo_vault_blocks_generic_transactions() -> None:
     assert get_vault_protocol_name({ERC4626Feature.ondo_like}) == "Ondo"
     assert vault.fetch_deposit_closed_reason() == ONDO_RESTRICTED_FLOW_REASON
     assert vault.fetch_redemption_closed_reason() == ONDO_RESTRICTED_FLOW_REASON
-    assert vault.get_deposit_manager_capability() is None
+    assert vault.get_deposit_manager_capability().as_initial_public_schema() == {"can_deposit": False, "can_redeem": False}
+    assert isinstance(vault.get_deposit_manager(), TokenisedFundDepositManager)
     assert isinstance(vault.get_historical_reader(stateful=False), OndoVaultHistoricalReader)
     assert vault.get_flags() == {VaultFlag.tokenised_fund}
     assert vault.short_description == ONDO_USDY_ETHEREUM.short_description

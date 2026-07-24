@@ -1,0 +1,15 @@
+feeder-id: m1-capital
+name: M1 Capital
+role: curator
+upshift-strategist:
+  - M1 Capital
+website: https://m1-capital.com/
+short_description: M1 Capital is an Amsterdam-based digital-asset hedge fund focused on market-neutral strategies and onchain vaults.
+long_description: |
+  M1 Capital describes itself as an Amsterdam-based digital-asset hedge fund pursuing market-neutral strategies. Its product materials include bespoke onchain vaults designed to generate DeFi-native yield and separately managed accounts for institutional clients.
+  Upshift names M1 Capital as the strategist for its Resolv USR Yield Maxi vault on Ethereum. Upshift's own curator documentation also lists M1 Capital among existing vault curators.
+other-links:
+  - title: Upshift - Resolv USR Yield Maxi vault
+    url: https://app.upshift.finance/pools/1/0xdA89af5bF2eb0B225d787aBfA9095610f2E79e7D
+  - title: Upshift FAQ - vault curator model
+    url: https://docs.upshift.finance/faq

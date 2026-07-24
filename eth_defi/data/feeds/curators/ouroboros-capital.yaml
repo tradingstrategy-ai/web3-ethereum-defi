@@ -2,6 +2,8 @@ feeder-id: ouroboros-capital
 name: Ouroboros Capital
 role: curator
 accountable-company: Ouroboros Capital
+upshift-strategist:
+  - Ouroboros
 website: https://ourocap.io/
 short_description: Ouroboros Capital is a digital-asset investment firm offering tailored yield strategies, venture investing and advisory services.
 long_description: |

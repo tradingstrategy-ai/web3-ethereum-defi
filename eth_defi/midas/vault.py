@@ -139,9 +139,9 @@ def convert_midas_fee_to_percent(raw_fee: int) -> Percent:
 def export_midas_usd_denomination(chain_id: int) -> dict[str, object]:
     """Export the off-chain USD fallback denomination metadata.
 
-    This is used only when a Midas issuance vault has no configured ERC-20
-    payment token. It records the product's USD accounting label without
-    inventing an ERC-20 address.
+    This is used for reviewed USD accounting units with no ERC-20 denomination,
+    including mTBILL, and when an issuance vault has no configured ERC-20
+    payment token. It records USD without inventing an ERC-20 address.
 
     :param chain_id:
         Chain id for the scan row.
@@ -191,9 +191,11 @@ class MidasVault(VaultBase):
     it through ``getPaymentTokens()``; Midas administrators can add or remove
     accepted payment tokens. :py:meth:`fetch_payment_tokens` reads this
     authoritative live list. Since the shared vault schema presently has one
-    ERC-20 denomination field, the adapter exports the first returned payment
-    token as a compatibility choice. That order is not an assertion that Midas
-    regards it as a canonical or preferred settlement currency.
+    ERC-20 denomination field, non-fund Midas strategy products export the
+    first returned payment token as a compatibility choice. The regulated
+    mTBILL tokenised fund instead exports its documented USD NAV denomination:
+    USDC is an accepted payment route, not the unit of account of the
+    mTBILL/USD oracle.
 
     If an issuance vault is absent, returns no ERC-20 payment tokens, or only
     returns the zero-address ``MANUAL_FULLFILMENT_TOKEN`` sentinel, the adapter
@@ -463,36 +465,38 @@ class MidasVault(VaultBase):
         return payment_tokens[0] if payment_tokens else None
 
     def fetch_denomination_token_address(self) -> HexAddress | None:
-        """Return the primary Midas payment-token address.
+        """Return the compatible denomination-token address.
 
         Midas issuance vaults may accept several payment tokens. The common
-        :class:`VaultBase` schema has one denomination-token field, so this
-        method returns the address of :py:meth:`fetch_primary_payment_token`.
-        If the contract returns no ERC-20 payment tokens, the scan export uses
-        synthetic off-chain USD.
+        :class:`VaultBase` schema has one denomination-token field. For mTBILL,
+        return ``None`` because the official oracle is mTBILL/USD and USDC is a
+        settlement route. Other Midas strategy products retain the historical
+        first-payment-token compatibility convention.
 
         :return:
-            Primary payment-token address, or ``None`` when no token is
-            configured.
+            Compatible denomination-token address, or ``None`` for synthetic
+            USD.
         """
 
         denomination_token = self.fetch_denomination_token()
         return denomination_token.address if denomination_token else None
 
     def fetch_denomination_token(self) -> TokenDetails | None:
-        """Expose the primary Midas payment token through :class:`VaultBase`.
+        """Expose the reviewed Midas valuation denomination.
 
-        This override fulfils the :class:`VaultBase` denomination-token API for
-        a non-ERC-4626 Midas product. It deliberately returns
-        :py:meth:`fetch_primary_payment_token`, allowing the shared scanner to
-        cache and export the primary accepted payment token in
-        :py:attr:`VaultBase.denomination_token`.
+        mTBILL's official public oracle is denominated in USD. Its issuance
+        vault's payment-token list describes accepted settlement routes and
+        must not relabel NAV as USDC. Other Midas strategy products retain the
+        existing first-payment-token compatibility convention pending a
+        separate product-by-product currency review.
 
         :return:
-            Primary payment token, or ``None`` when the scanner must use the
+            ``None`` for mTBILL, otherwise the primary payment token or the
             off-chain USD fallback.
         """
 
+        if self.product.is_tokenised_fund:
+            return None
         return self.fetch_primary_payment_token()
 
     def fetch_share_price(self, block_identifier: BlockIdentifier = "latest") -> Decimal:
@@ -772,8 +776,12 @@ class MidasVault(VaultBase):
         :param referral:
             Ignored. Midas product URLs do not use referral parameters here.
         :return:
-            Midas product listing URL.
+            Individual Midas product URL when known, otherwise the listing URL.
         """
 
         metadata = get_handwritten_vault_metadata(self.chain_id, self.address)
-        return metadata.link if metadata else MIDAS_HOMEPAGE
+        if metadata:
+            return metadata.link
+        if self.product.is_tokenised_fund:
+            return "https://midas.app/mtbill"
+        return MIDAS_HOMEPAGE

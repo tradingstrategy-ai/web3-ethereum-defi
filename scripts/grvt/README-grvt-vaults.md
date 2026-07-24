@@ -12,6 +12,21 @@ pipeline as EVM vaults.
 
 **No authentication is required** — all data comes from public endpoints.
 
+## Perp account metrics availability
+
+The public GraphQL listing and market-data endpoints provide vault TVL/equity
+and NAV, so the collector records an account observation in the shared perp DEX
+tables. GRVT does **not** expose anonymously readable current vault trading
+positions through the integrated API: those trading-account endpoints require
+authentication. The exported position status is therefore
+`authentication_required`; exposure, open-position count and concentration
+remain null rather than zero. Margin-account fields and trader credentials are
+intentionally out of scope. This was verified against the public and
+authenticated endpoint split on 2026-07-24; see the [GRVT API documentation](https://help.grvt.io/).
+
+See [perp DEX vault account metrics](../../docs/source/vaults/perp-dex-account-metrics.rst)
+for the common DuckDB, Parquet and JSON data flow.
+
 ## Architecture
 
 ```

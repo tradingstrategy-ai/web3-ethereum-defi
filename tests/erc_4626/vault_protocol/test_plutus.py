@@ -5,18 +5,15 @@ import os
 from decimal import Decimal
 from pathlib import Path
 
-import pytest
-
-from web3 import Web3
 import flaky
+import pytest
+from web3 import Web3
 
-from eth_defi.erc_4626.classification import create_vault_instance_autodetect
-from eth_defi.erc_4626.core import get_vault_protocol_name
-from eth_defi.erc_4626.vault_protocol.plutus.vault import PlutusHistoricalReader, PlutusVault
-from eth_defi.provider.anvil import fork_network_anvil, AnvilLaunch
-from eth_defi.provider.multi_provider import create_multi_provider_web3
-from eth_defi.erc_4626.vault_protocol.umami.vault import UmamiVault
 from eth_defi.abi import ZERO_ADDRESS_STR
+from eth_defi.erc_4626.classification import create_vault_instance_autodetect
+from eth_defi.erc_4626.vault_protocol.plutus.vault import PlutusDepositManager, PlutusHistoricalReader, PlutusVault
+from eth_defi.provider.anvil import AnvilLaunch, fork_network_anvil
+from eth_defi.provider.multi_provider import create_multi_provider_web3
 from eth_defi.vault.base import REDEMPTION_CLOSED_BY_ADMIN, VaultTechnicalRisk
 
 JSON_RPC_ARBITRUM = os.environ.get("JSON_RPC_ARBITRUM")
@@ -60,6 +57,15 @@ def test_plutus(
     assert vault.get_performance_fee("latest") == 0.12
     assert vault.has_custom_fees() is False
     assert vault.get_protocol_name() == "Plutus"
+
+    manager = vault.get_deposit_manager()
+    assert isinstance(manager, PlutusDepositManager)
+    estimated_deposit = manager.estimate_deposit(web3.eth.accounts[0], Decimal("1"))
+    expected_estimate = vault.share_token.convert_to_decimals(vault.vault_contract.functions.convertToShares(vault.denomination_token.convert_to_raw(Decimal("1"))).call())
+    assert estimated_deposit == expected_estimate
+    settlement = manager.force_settle(None)
+    assert settlement.settlement_required is False
+    assert settlement.transaction_hashes == ()
 
     # Verify Plutus-specific historical reader is returned
     reader = vault.get_historical_reader(stateful=False)

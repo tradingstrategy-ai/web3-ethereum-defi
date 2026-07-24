@@ -25,7 +25,7 @@ contract_addresses:
   - chain: arbitrum
     address: '0xEC13336bbd50790a00CDc0fEddF11287eaF92529'
 slug: gmusd
-rate_fetch_failed_at: '2026-07-15T00:32:48'
+rate_fetch_failed_at: '2026-07-17T18:45:14'
 rate_fetch_failed_reason: missing_coingecko_id
 checks:
   twitter_last_post_at: ''

@@ -53,6 +53,8 @@ guard:
 		-o \
 		-name "LighterLib.json" \
 		-o \
+		-name "LagoonLib.json" \
+		-o \
 		-name "UniswapLib.json" \
 		-o \
 		-name "VeloraLib.json" \

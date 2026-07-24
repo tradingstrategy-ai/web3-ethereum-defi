@@ -14,8 +14,8 @@ To run:
 import os
 from decimal import Decimal
 
+import flaky
 import pytest
-
 from eth_account import Account
 
 from eth_defi.hotwallet import HotWallet
@@ -29,7 +29,6 @@ from eth_defi.lifi.crosschain import (
 from eth_defi.lifi.quote import fetch_lifi_quote
 from eth_defi.provider.multi_provider import create_multi_provider_web3
 from eth_defi.token import USDC_NATIVE_TOKEN
-
 
 pytestmark = pytest.mark.skipif(
     not os.environ.get("JSON_RPC_ETHEREUM") or not os.environ.get("JSON_RPC_BASE"),
@@ -124,6 +123,9 @@ def test_fetch_crosschain_gas_balances(ethereum_web3, base_web3, wallet):
         assert balances_usd[chain_id] == Decimal("0")
 
 
+# CI flaky since 2026-07-21: the live li.quest request timed out after 30
+# seconds; the integration succeeds when the external API is responsive.
+@flaky.flaky
 def test_prepare_crosschain_swaps_native(ethereum_web3, base_web3, wallet):
     """Dry run: prepare cross-chain swaps using native ETH as source token.
 

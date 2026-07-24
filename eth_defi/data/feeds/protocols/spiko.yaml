@@ -5,3 +5,13 @@ website: https://www.spiko.io/
 twitter: spiko_finance
 linkedin: spiko-finance
 # rss: not found — Spiko's official website and technology blog expose no RSS or Atom feed.
+short_description: Spiko operates tokenised money-market funds and their onchain share infrastructure.
+long_description: |
+  Spiko issues and services tokenised money-market fund shares. The reviewed USTBL product is the USD-denominated Spiko US T-Bills Money Market Fund.
+other-links:
+  - title: Spiko US T-Bills Money Market Fund product page
+    url: https://www.spiko.io/spiko-treasury-bills-dollar
+  - title: Spiko official product factsheets and NAV data
+    url: https://data.spiko.io/
+  - title: Spiko smart-contract and NAV-oracle architecture
+    url: https://tech.spiko.io/posts/spiko-smart-contracts/

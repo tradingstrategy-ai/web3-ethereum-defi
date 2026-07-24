@@ -16,3 +16,8 @@ other-links:
     url: https://www.blackrock.com/corporate/compliance/scams-and-fraud/resources
   - title: BlackRock BUIDL fund page
     url: https://www.blackrock.com/us/individual/products/buidl/
+  # 2026-07-22 maintain-curators: added the individual CASHx underlying-fund sources.
+  - title: BlackRock ICS US Dollar Liquidity Fund page
+    url: https://www.blackrock.com/cash/en-gb/products/229271/blackrock-ics-us-dollar-liquidity-select-acc-fund
+  - title: BlackRock ICS US Dollar Liquidity Fund factsheet
+    url: https://www.blackrock.com/cash/literature/fact-sheet/blackrock-ics-us-dollar-liquidity-fund-agency-acc-t0-usd-factsheet-ie00bj2kfh24-gb-en-institutional.pdf

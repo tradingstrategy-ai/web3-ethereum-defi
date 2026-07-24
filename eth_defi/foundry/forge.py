@@ -226,7 +226,7 @@ def deploy_contract_with_forge(
         logger.info("GuardV0 is %s deployed at %s", guard.address, tx_hash.hex())
 
         # Test the deployed contract
-        assert guard.functions.getInternalVersion().call() == 1
+        assert guard.functions.getInternalVersion().call() == 2
 
     Assumes standard Foundry project layout with foundry.toml, src and out.
 

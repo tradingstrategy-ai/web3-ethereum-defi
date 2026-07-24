@@ -2,6 +2,8 @@
 
 from pathlib import Path
 
+from PIL import Image
+
 from eth_defi.midas.registry import iter_midas_registry_products
 from eth_defi.tokenised_fund.asseto.constants import ASSETO_AOABT_HASHKEY, ASSETO_CURATORS
 from eth_defi.tokenised_fund.fdit.constants import FDIT_ETHEREUM
@@ -9,6 +11,16 @@ from eth_defi.tokenised_fund.kaio.constants import CASHX_ETHEREUM
 from eth_defi.tokenised_fund.libeara.constants import LIBEARA_PRODUCTS
 from eth_defi.tokenised_fund.sygnum.constants import FILQ_CURATOR_SLUG, SYGNUM_PRODUCTS_BY_CHAIN
 from eth_defi.vault.curator import build_curator_metadata_json, get_curator_available_logos, get_curator_name, identify_curator, is_protocol_curator, load_curator_map
+
+DARK_UI_BACKGROUND_LUMINANCE = 0.0098
+BRANDMARK_VISIBLE_ALPHA_THRESHOLD = 15
+SRGB_LINEAR_THRESHOLD = 0.04045
+SRGB_LINEAR_DIVISOR = 12.92
+SRGB_OFFSET = 0.055
+SRGB_SCALE = 1.055
+SRGB_GAMMA = 2.4
+MINIMUM_BRANDMARK_CONTRAST_RATIO = 3
+MINIMUM_BRIGHT_BRANDMARK_PIXEL_FRACTION = 0.1
 
 
 def test_identify_supported_tokenised_fund_curators() -> None:
@@ -121,18 +133,29 @@ def test_live_curators_with_verified_artwork_include_generic_logo() -> None:
 
     slugs = (
         "722-capital",
+        "alpine",
         "bizantine",
         "btcd-labs",
         "candle-effect",
         "cassa",
+        "ergonia",
         "franklin-templeton",
+        "gamma-research",
         "gtsy",
+        "hardcore-labs",
         "libeara",
+        "m1-capital",
+        "monarq",
+        "nemo",
+        "nerona",
         "ondo",
+        "sharpbyte",
         "sentinel",
         "spiko-curator",
         "superstate",
+        "sylva-money",
         "wisdomtree",
+        "y10k-capital",
     )
 
     for slug in slugs:
@@ -144,6 +167,46 @@ def test_live_curators_with_verified_artwork_include_generic_logo() -> None:
         assert metadata["logos"]["generic"] == f"https://example.com/curator-metadata/{slug}/generic.png"
 
     assert get_curator_available_logos("wstgbp")["generic"]
+
+
+def test_upshift_curator_brandmarks_are_visible_on_dark_background() -> None:
+    """Upshift curator brandmarks retain high-contrast pixels on dark surfaces."""
+
+    brandmark_slugs = (
+        "alpine",
+        "ergonia",
+        "gamma-research",
+        "hardcore-labs",
+        "m1-capital",
+        "monarq",
+        "nemo",
+        "nerona",
+        "sharpbyte",
+        "sylva-money",
+        "y10k-capital",
+    )
+
+    for slug in brandmark_slugs:
+        image = Image.open(Path(f"eth_defi/data/vaults/formatted_logos/{slug}/generic.png")).convert("RGBA")
+        assert image.size == (256, 256), slug
+
+        visible_pixels = [pixel for pixel in image.get_flattened_data() if pixel[3] > BRANDMARK_VISIBLE_ALPHA_THRESHOLD]
+        assert visible_pixels, slug
+
+        high_contrast_pixel_count = 0
+        for red, green, blue, alpha in visible_pixels:
+            channel_luminances = []
+            for channel in (red, green, blue):
+                normalised = channel / 255
+                channel_luminances.append(normalised / SRGB_LINEAR_DIVISOR if normalised <= SRGB_LINEAR_THRESHOLD else ((normalised + SRGB_OFFSET) / SRGB_SCALE) ** SRGB_GAMMA)
+
+            mark_luminance = 0.2126 * channel_luminances[0] + 0.7152 * channel_luminances[1] + 0.0722 * channel_luminances[2]
+            alpha_fraction = alpha / 255
+            composited_luminance = mark_luminance * alpha_fraction + DARK_UI_BACKGROUND_LUMINANCE * (1 - alpha_fraction)
+            contrast_ratio = (max(composited_luminance, DARK_UI_BACKGROUND_LUMINANCE) + 0.05) / (min(composited_luminance, DARK_UI_BACKGROUND_LUMINANCE) + 0.05)
+            high_contrast_pixel_count += contrast_ratio >= MINIMUM_BRANDMARK_CONTRAST_RATIO
+
+        assert high_contrast_pixel_count / len(visible_pixels) >= MINIMUM_BRIGHT_BRANDMARK_PIXEL_FRACTION, slug
 
 
 def test_identify_wstgbp_as_protocol_curated() -> None:
@@ -330,6 +393,63 @@ def test_protocol_manager_metadata_precedes_ordinary_vault_name_match() -> None:
     )
 
     assert slug == "mev-capital"
+
+
+def test_identify_upshift_curators_by_strategist_metadata() -> None:
+    """Upshift strategist display names resolve through exact YAML metadata."""
+
+    expected_curators = {
+        "Alpine": "alpine",
+        "August": "august-digital",
+        "Clearstar Labs": "clearstar-labs",
+        "Ergonia": "ergonia",
+        "Gami Labs": "gami",
+        "Gamma Research": "gamma-research",
+        "Hardcore Labs": "hardcore-labs",
+        "K3 Capital": "k3-capital",
+        "M1 Capital": "m1-capital",
+        "MEV Capital": "mev-capital",
+        "MNNC Group": "monarq",
+        "Monarq": "monarq",
+        "NEMO": "nemo",
+        "Nerona": "nerona",
+        "Ouroboros": "ouroboros-capital",
+        "Qualia": "qualia",
+        "RockawayX": "rockawayx",
+        "Sentora": "sentora",
+        "SharpByte": "sharpbyte",
+        "SingularV": "singularv",
+        "Sylva.money": "sylva-money",
+        "Tulipa Capital": "tulipa-capital",
+        "UltraYield": "ultrayield",
+        "Upshift Test Strategist": "upshift",
+        "Y10K Capital": "y10k-capital",
+        "Yuzu Money": "yuzu-money",
+    }
+
+    for strategist_name, expected_slug in expected_curators.items():
+        slug = identify_curator(
+            chain_id=1,
+            vault_token_symbol="",
+            vault_name="",
+            vault_address="0x0000000000000000000000000000000000000001",
+            protocol_slug="upshift",
+            manager_name=strategist_name,
+        )
+
+        assert slug == expected_slug, strategist_name
+
+    assert (
+        identify_curator(
+            chain_id=143,
+            vault_token_symbol="",
+            vault_name="",
+            vault_address="0x792C7c5fB5C996E588b9F4A5FB201C79974e267C",
+            protocol_slug="upshift",
+            manager_name="Qualia, Ergonia",
+        )
+        == "qualia"
+    )
 
 
 def test_identify_curator_tolerates_none_manager_name() -> None:

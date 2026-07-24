@@ -402,6 +402,11 @@ class _FakeIPORVault:
         return set()
 
     @staticmethod
+    def is_whitelisted_deposit() -> bool:
+        """Model the IPOR vault-wide whitelist policy."""
+        return True
+
+    @staticmethod
     def get_link() -> str:
         """Return a deterministic vault link."""
         return "https://app.ipor.io/fusion/ethereum/0xdf8a0d3c90462c4c9b5a8697c119fa67cb84a874"

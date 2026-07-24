@@ -66,6 +66,63 @@ When running a Python script use `poetry run python` command instead of plain `p
 poetry run python scripts/logos/post-process-logo.py
 ```
 
+## Production
+
+Production vault scanning runs from `~/vault-scanner/web3-ethereum-defi` with
+environment variables loaded from `~/vault-scanner/vault-rpc.env`. The Compose
+configuration is `docker-compose.yml`; inspect it before running production
+maintenance because its service entrypoint and mounted state determine the
+effect of a command.
+
+- `vault-scanner-oneshot` is a profile-only, single-run service. It inherits
+  the image entrypoint from `Dockerfile.vault-scanner`, which runs
+  `scripts/erc-4626/scan-vaults-all-chains.py` once. Use it for an intentional
+  scan or override its entrypoint for production maintenance, e.g.
+  `source ~/vault-scanner/vault-rpc.env && (cd ~/vault-scanner/web3-ethereum-defi && docker compose run --entrypoint /bin/bash vault-scanner-oneshot)`.
+- `vault-scanner-looped` is the persistent scanner started by
+  `docker compose up -d`. It explicitly runs
+  `python scripts/erc-4626/scan-vaults-all-chains.py` and uses
+  `LOOP_INTERVAL_SECONDS`, `SCAN_CYCLES` and `DEFAULT_CYCLE` to schedule work.
+- `post-scanner` is the persistent feed collector. Its entrypoint is
+  `python scripts/erc-4626/scan-vault-posts.py`.
+
+All three services mount `${HOME}/.tradingstrategy` from the production host
+at `/root/.tradingstrategy` in the container. This is persistent production
+state, including the vault metadata pickle, price Parquet files, reader state
+and dense per-chain timestamp caches under
+`/root/.tradingstrategy/block-timestamp/{chain_id}-timestamps.duckdb`.
+One-shot containers therefore share the same state as the looped scanner; do
+not change `HOME`, use an unmounted container, or delete/recreate this directory
+while performing a migration. The Compose services also mount host `.cache`,
+repository `logs`, and the mutable stablecoin/feed data directories where
+applicable.
+
+For metadata-only repairs, explicitly disable historical price scanning (for
+example `UPSHIFT_SCAN_PRICES=false`). Price scans require the dense timestamp
+cache to be available inside the container; restore or prepopulate that cache
+on the host before a historical backfill rather than allowing a one-shot repair
+to bootstrap it with sparse timestamp requests.
+
+## Chain quirks
+
+### Monad
+
+Monad (chain ID 143) does not provide archive-complete historical state. Its
+full nodes retain all historical blocks, transactions, receipts, events and
+traces, but expose only a provider- and disk-dependent recent window of
+contract state. No provider offers arbitrary-depth historical state; see the
+[Monad historical data documentation](https://docs.monad.xyz/developer-essentials/historical-data).
+
+- Do not describe `JSON_RPC_MONAD` as an archive node, retry failed old
+  `eth_call` requests, or attempt a genesis-to-head state backfill. Once a
+  state trie has been evicted, those operations cannot succeed.
+- Use Hypersync for historical Monad events and timestamps. For historical
+  vault values, `scan_historical_prices_to_parquet()` probes Multicall and
+  begins at the oldest state block the configured provider can execute.
+- Preserve existing Monad price rows before that dynamically detected boundary:
+  the current provider cannot reconstruct them. Monad fork and historical tests
+  must use current-state or state-relative assertions.
+
 ## Running tests
 
 If we have not run tests before make sure the user has created a gitignored file `.local-test.env` in the repository root. This will use `source` shell command to include the actual test secrets which lie outside the repository structure. Note: this file does not contain actual environment variables, just a `source` command to get them from elsewhere. **Never edit this file**.
@@ -98,7 +155,9 @@ In the environment file, the RPC URLs are provided in the project-specific space
 
 - If there is a space in RPC URL given by a environment variable like `JSON_RPC_ETHEREUM`, it can be only used with Python call `create_multi_provider_web3()`
 - If you are going to use this RPC URL with other commands, like `curl`, you need to parse the RPC environment variable by spltting it by spaces and taking the first entry
-- All environment variables point to EVM archive nodes
+- Scanner RPC variables should point to archive-capable EVM nodes, except
+  `JSON_RPC_MONAD`, which can only serve its provider-dependent recent
+  historical-state window.
 
 ## Formatting code
 
@@ -140,6 +199,39 @@ No test plan or verification section. Use Markdown formatting, headings.
 - When merging pull request, squash and merge commits and use the PR description as the commit message
 - When watching CI for pull request merge readiness, never wait for documentation-only workflows like `Build documentation`; merge once non-documentation required checks are green, unless the user explicitly asks to wait for docs.
 - If continuous integration (CI) tests fail on your PR, and they are marked flaky, run tests locally to repeat the issue if it is real flakiness or regression
+
+### Healing flaky CI tests
+
+Use this escalation process for tests that fail nondeterministically because of
+RPC providers, Anvil forks, live APIs, indexed data services, timing or shared
+CI resources. A deterministic product or test regression must be fixed and
+must never be hidden behind retries or a CI skip.
+
+1. **Identify and reproduce the issue.** Read the complete failed-job traceback,
+   record the exact failing test and symptom, and check whether the affected
+   code differs from `master`. Run the focused test locally with
+   `.local-test.env`. Attempt a bounded root-cause fix first, such as pinning a
+   fork block, correcting an assertion, reducing cross-test contention or
+   installing a missing workflow dependency.
+2. **Mark a genuinely nondeterministic test flaky.** Add `@flaky.flaky` and a
+   source line comment immediately above it. The comment must state when the
+   problem was first observed, the concrete CI symptom, and the evidence that
+   the test passes locally, on retry or in a later CI run. Keep the test enabled
+   in CI; a flaky marker is a temporary diagnostic and retry mechanism, not a
+   substitute for fixing a reproducible defect. Move resource-heavy live or
+   fork tests to the slow workflow when reduced contention is the appropriate
+   fix, and ensure that workflow installs all required dependencies.
+3. **Disable an endemic test on CI only as a last resort.** If a flaky test
+   continues to fail on at least two distinct CI runs, still passes locally,
+   and the external or runner-specific cause cannot be fixed in this
+   repository, add a dated `@pytest.mark.skipif(CI, reason=...)`. The line
+   comment and skip reason must describe the recurring symptom. Keep the test
+   runnable locally; never add an unconditional skip. Retain or create focused
+   local coverage so the disabled integration does not silently disappear.
+
+Periodically audit CI-disabled tests. Re-enable one when the provider, workflow
+or fixture has been healed, run it locally, and require a green CI run before
+removing its flaky history comment.
 
 ## Pushing to master
 
@@ -205,7 +297,8 @@ No test plan or verification section. Use Markdown formatting, headings.
 - For DuckDB testing, make sure the database is always closed using finally clause or fixtures
 - Always use fixture and test functions, never use test classes
 - For Anvil mainnet fork based tests, whici use a fixed block number, in asserts check for absolute number values instead of relative values like above zero, because values never change.
-  Expect for Monad, as Monad blockchain does not support archive nodes and historical state.
+  Exception: Monad retains only a moving recent historical-state window, so use
+  latest-head or state-relative assertions instead of fixed historical blocks.
 - For reuseable testing code, use `testing` modules under `eth_defi` - do not nyt try to import "tests" as it does not work with pytest
 
 ### pyproject.toml
@@ -294,7 +387,7 @@ Never directly edit auto-generated sphinx files in `_autosummary*` folders.
 
 ## Parquet schema migrations
 
-The vault price pipeline accumulates months of historical data in `vault-prices-1h.parquet`. Losing this data requires days of re-scanning from archive nodes.
+The vault price pipeline accumulates months of historical data in `vault-prices-1h.parquet`. Losing this data requires days of re-scanning from archive nodes and may make older Monad data unrecoverable, because Monad does not provide archive-complete historical state.
 
 - **Never silently discard existing data.** If a schema migration (`migrate_parquet_schema()`, `cast()`) fails, the pipeline must abort with a hard error — never fall back to `existing_table = None`. Silent data loss is worse than a crash.
 - **Never catch `ArrowInvalid` and reset to empty.** If the existing parquet cannot be read or migrated, raise the exception so the operator can restore from a backup.
@@ -302,6 +395,7 @@ The vault price pipeline accumulates months of historical data in `vault-prices-
 - **Type changes need explicit migration.** If changing a column's type (e.g. `uint32` → `uint64`), verify `cast()` works on production data before merging — test with a copy of the real parquet, not just synthetic test data.
 - **Always test schema changes against the production parquet.** Download the current file and verify the migration path locally before deploying.
 - **Reader state loss causes full data wipe.** The scanner deletes existing chain rows from `start_block` onwards. If `reader-state.pickle` is lost, `start_block` falls back to the earliest vault block, deleting all historical data for that chain. Treat reader state files as critical production state.
+- **Preserve old Monad rows.** A Monad rescan can replace rows only at or after the dynamically probed provider boundary. Never reset its reader state or delete older rows in an attempt to rebuild unavailable state history.
 
 ## ERC-20
 

@@ -58,7 +58,7 @@ BLOCKCHAIN_CAPITAL_FUND_PAGE_URL = "https://www.blockchaincapital.com/about-us"
 COSIMO_X_FUND_PAGE_URL = "https://www.cosimodigital.com/asset-management/cosimo-x"
 SCIENCE_BLOCKCHAIN_FUND_PAGE_URL = "https://www.science-inc.com/blockchain.html"
 PROTOS_FUND_PAGE_URL = "https://protosmanagement.com/2024/05/09/protos-asset-management-releases-march-31-2024-prts-token-nav/"
-MI4_FUND_PAGE_URL = "https://mantleguard.com/"
+MI4_FUND_PAGE_URL = "https://securitize.io/primary-market/mantle-index-four-fund"
 
 
 def _create_buidl_product(chain_id: int, token: str, chain_name: str) -> SecuritizeProduct:

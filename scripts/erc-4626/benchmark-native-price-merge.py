@@ -57,6 +57,9 @@ import pyarrow.compute as pc
 import pyarrow.parquet as pq
 from tabulate import tabulate
 
+from eth_defi.apex.constants import APEX_CHAIN_ID
+from eth_defi.apex.metrics import ApexMetricsDatabase
+from eth_defi.apex.vault_data_export import build_raw_prices_dataframe as build_apex_prices_dataframe
 from eth_defi.grvt.constants import GRVT_CHAIN_ID
 from eth_defi.grvt.daily_metrics import GRVTDailyMetricsDatabase
 from eth_defi.grvt.vault_data_export import build_raw_prices_dataframe as build_grvt_prices_dataframe
@@ -159,6 +162,7 @@ def build_native_price_frames(data_dir: Path) -> dict[int, pd.DataFrame]:
         (GRVT_CHAIN_ID, _resolve_path("GRVT_DB_PATH", data_dir / "grvt-vaults.duckdb"), GRVTDailyMetricsDatabase, build_grvt_prices_dataframe),
         (LIGHTER_CHAIN_ID, _resolve_path("LIGHTER_DB_PATH", data_dir / "lighter-pools.duckdb"), LighterDailyMetricsDatabase, build_lighter_prices_dataframe),
         (HIBACHI_CHAIN_ID, _resolve_path("HIBACHI_DB_PATH", data_dir / "hibachi-vaults.duckdb"), HibachiDailyMetricsDatabase, build_hibachi_prices_dataframe),
+        (APEX_CHAIN_ID, _resolve_path("APEX_DB_PATH", data_dir / "apex-vaults.duckdb"), ApexMetricsDatabase, build_apex_prices_dataframe),
     )
     for chain_id, db_path, database_class, builder in source_specs:
         db = database_class(db_path)

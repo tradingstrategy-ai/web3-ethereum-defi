@@ -13,6 +13,11 @@ other-links:
     url: https://www.fidelity.com/
   - title: Fidelity Treasury Digital Fund OnChain class prospectus
     url: https://www.actionsxchangerepository.fidelity.com/ShowDocument/documentPDF.htm?applicationId=FIIS&clientId=Fidelity&collectionId=1079405&criticalIndicator=N&docFormat=pdf&docName=4.B-CTDLO-SUM.PDF&docType=SUMS&pdfReaderStatus=Y&securityId=09053&securityIdType=SASFN
+  # 2026-07-22 maintain-curators: added product-level pricing and factsheet sources for FDIT.
+  - title: Fidelity Treasury Digital Fund OnChain class product page
+    url: https://institutional.fidelity.com/app/funds-and-products/9053/fidelity-treasury-digital-fund-onchain-class-fyoxx.html
+  - title: Fidelity Treasury Digital Fund OnChain class factsheet
+    url: https://institutional.fidelity.com/app/fund/popup/item/print/FIIS_FS_70615.pdf
   - title: DTCC Digital Assets tokenisation service
     url: https://www.dtcc.com/digital-assets/tokenization
   - title: Fidelity International official company overview

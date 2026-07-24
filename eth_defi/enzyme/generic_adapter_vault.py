@@ -390,7 +390,7 @@ def deploy_guard(
             forge_libraries=build_guard_forge_libraries({"UniswapLib": uniswap_lib.address}),
         )
         logger.info("GuardV0 is %s deployed at %s", guard.address, tx_hash.hex())
-        assert guard.functions.getInternalVersion().call() == 1
+        assert guard.functions.getInternalVersion().call() == 2
     else:
         # Unit testing path
         guard, tx_hash = deploy_contract_with_forge(

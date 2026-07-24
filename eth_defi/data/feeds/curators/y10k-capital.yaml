@@ -1,0 +1,13 @@
+feeder-id: y10k-capital
+name: Y10K Capital
+role: curator
+upshift-strategist:
+  - Y10K Capital
+website: https://www.y10k.capital/
+short_description: Y10K Capital is Yield Network's onchain asset-management vehicle for private liquidity and curated lending opportunities.
+long_description: |
+  Y10K Capital describes itself as the asset-management arm of Yield Network. It allocates capital across structured pre-deposits, genesis launches and curated lending markets, with curation and risk operations provided by RockawayX.
+  Upshift lists Y10K Capital as the strategist for a Solana vault. The exact strategist mapping covers this public Upshift metadata even though the current vault is not EVM-based.
+other-links:
+  - title: Upshift vault API
+    url: https://api.upshift.finance/v1/tokenized_vaults

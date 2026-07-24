@@ -5,3 +5,13 @@ website: https://ondo.finance/
 twitter: OndoFinance
 linkedin: ondo-finance
 # rss: not found — Ondo's official site and documentation do not advertise an RSS or Atom feed.
+short_description: Ondo issues and services permissioned tokenised cash-management products.
+long_description: |
+  Ondo operates the reviewed USDY note and OUSG fund, including investor onboarding, transfer controls and issuer-published onchain redemption or NAV prices.
+other-links:
+  - title: Ondo USDY product overview
+    url: https://docs.ondo.finance/general-access-products/usdy/basics
+  - title: Ondo OUSG fund overview
+    url: https://docs.ondo.finance/qualified-access-products/ousg/overview
+  - title: Ondo official contract registry
+    url: https://docs.ondo.finance/addresses

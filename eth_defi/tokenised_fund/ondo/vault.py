@@ -21,7 +21,7 @@ from eth_defi.tokenised_fund.ondo.constants import ONDO_PRODUCTS, OndoProduct
 from eth_defi.tokenised_fund.ondo.historical import OndoVaultHistoricalReader
 from eth_defi.tokenised_fund.vault import TokenisedFundVault
 from eth_defi.types import Percent
-from eth_defi.vault.base import TradingUniverse, VaultDepositManager, VaultFlowManager, VaultHistoricalReader, VaultInfo, VaultPortfolio, VaultSpec
+from eth_defi.vault.base import TradingUniverse, VaultFlowManager, VaultHistoricalReader, VaultInfo, VaultPortfolio, VaultSpec
 from eth_defi.vault.fee import FeeData, VaultFeeMode
 from eth_defi.vault.lower_case_dict import LowercaseDict
 
@@ -247,12 +247,6 @@ class OndoVault(TokenisedFundVault):
         """Reject unsupported generic flow accounting."""
 
         message = "Ondo tokenised-fund flow accounting is not implemented"
-        raise NotImplementedError(message)
-
-    def get_deposit_manager(self) -> VaultDepositManager:
-        """Reject public transaction management for permissioned issuer flows."""
-
-        message = "Ondo subscriptions and redemptions are not implemented"
         raise NotImplementedError(message)
 
     def fetch_deposit_closed_reason(self) -> str:

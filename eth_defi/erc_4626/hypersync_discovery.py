@@ -18,7 +18,7 @@ from web3 import Web3
 from eth_defi.abi import get_topic_signature_from_event
 from eth_defi.chain import get_chain_name
 from eth_defi.compat import native_datetime_utc_fromtimestamp
-from eth_defi.erc_4626.discovery_base import HardcodedVaultLeadSources, LeadScanReport, PotentialVaultMatch, VaultDiscoveryBase, add_mellow_factory_candidate_lead, get_vault_discovery_events, get_vault_event_topic_map, is_deposit_event
+from eth_defi.erc_4626.discovery_base import HardcodedVaultLeadSources, LeadScanReport, PotentialVaultMatch, VaultDiscoveryBase, add_mellow_factory_candidate_lead, get_vault_discovery_events, get_vault_event_topic_map, is_configuration_event, is_deposit_event
 from eth_defi.event_reader.web3factory import Web3Factory
 from eth_defi.hypersync.hypersync_timestamp import HypersyncFlaky, get_hypersync_block_height_with_retries, is_hypersync_next_block_range_error, is_hypersync_rate_limit_error, is_hypersync_retryable_runtime_error
 from eth_defi.mellow.discovery import create_mellow_factory_candidate, fetch_mellow_created_event_topic, fetch_mellow_factories_for_chain, is_mellow_factory_log
@@ -269,6 +269,8 @@ class HypersyncVaultDiscover(VaultDiscoveryBase):
         if event_kind is not None and is_deposit_event(event_kind):
             lead.deposit_count += 1
             report.deposits += 1
+        elif event_kind is not None and is_configuration_event(event_kind):
+            lead.configuration_count = getattr(lead, "configuration_count", 0) + 1
         else:
             lead.withdrawal_count += 1
             report.withdrawals += 1

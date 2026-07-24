@@ -1,6 +1,8 @@
 """An example script to estimate the historical APY of an ERC-4626 vault.
 
-- Archive JSON-RPC node needed, public endpoint may not work.
+- Requires an archive-state JSON-RPC node; public endpoints may not work.
+- This example targets Base. Monad has no archive-complete historical state and
+  cannot support arbitrary-depth historical APY backfills.
 
 To run:
 

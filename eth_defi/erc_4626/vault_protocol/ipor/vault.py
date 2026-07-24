@@ -5,21 +5,28 @@ from collections.abc import Iterable
 from decimal import Decimal
 from functools import cached_property
 
+from eth_typing import HexAddress
+from hexbytes import HexBytes
 from web3 import Web3
 from web3.contract import Contract
+from web3.exceptions import BadFunctionCallOutput, ContractLogicError
 from web3.types import BlockIdentifier
 
-from eth_defi.abi import ZERO_ADDRESS_STR, get_deployed_contract
+from eth_defi.abi import ZERO_ADDRESS_STR, get_deployed_contract, get_function_selector
 from eth_defi.chain import get_chain_name
+from eth_defi.erc_4626.deposit_redeem import ERC4626DepositManager
 from eth_defi.erc_4626.vault import ERC4626HistoricalReader, ERC4626Vault
+from eth_defi.erc_4626.vault_protocol.ipor.deposit_redeem import IPORDepositManager
 from eth_defi.erc_4626.vault_protocol.ipor.offchain_metadata import IPORVaultMetadata, fetch_ipor_vault_atomist, fetch_ipor_vault_is_listed, fetch_ipor_vault_metadata
 from eth_defi.event_reader.multicall_batcher import EncodedCall, EncodedCallResult
+from eth_defi.provider.fallback import ExtraValueError
 from eth_defi.types import Percent
 from eth_defi.vault.base import (
     DEPOSIT_CLOSED_UTILISATION,
     VaultHistoricalRead,
     VaultHistoricalReader,
 )
+from eth_defi.vault.deposit_redeem import VaultDepositManagerCapability
 from eth_defi.vault.flag import MISSING_IN_PROTOCOL_FRONTEND, VaultFlag
 from eth_defi.vault.risk import VaultTechnicalRisk
 
@@ -219,7 +226,7 @@ class IPORVaultHistoricalReader(ERC4626HistoricalReader):
         )
 
 
-class IPORVault(ERC4626Vault):
+class IPORVault(ERC4626Vault):  # noqa: PLR0904
     """IPOR vault support.
 
     - Add specialised reader with fees support
@@ -437,7 +444,7 @@ class IPORVault(ERC4626Vault):
 
         try:
             access_manager = plasma_vault.functions.getAccessManagerAddress().call()
-        except ValueError:
+        except (BadFunctionCallOutput, ContractLogicError, ExtraValueError):
             return None
 
         return get_deployed_contract(
@@ -445,6 +452,128 @@ class IPORVault(ERC4626Vault):
             fname="ipor/AccessManager.json",
             address=access_manager,
         )
+
+    def get_deposit_function_selector(self) -> HexBytes:
+        """Return the IPOR ERC-4626 deposit selector used for access checks.
+
+        IPOR's :solidity:`AccessManager` authorises calls by target address and
+        four-byte selector.  Constructing the selector from the deployed vault
+        ABI ensures the pre-flight checks the same overloaded entry point that
+        the transaction manager will submit.
+
+        :return:
+            Four-byte ``deposit(uint256,address)`` selector.
+        """
+        return HexBytes(get_function_selector(self.vault_contract.functions.deposit))
+
+    def get_redeem_function_selector(self) -> HexBytes:
+        """Return the IPOR ERC-4626 redemption selector used for access checks.
+
+        The access policy can differ between deposit and redemption.  The
+        specialised manager therefore resolves the selector independently
+        instead of assuming that deposit admission implies redemption access.
+
+        :return:
+            Four-byte ``redeem(uint256,address,address)`` selector.
+        """
+        return HexBytes(get_function_selector(self.vault_contract.functions.redeem))
+
+    def is_whitelisted_deposit(self) -> bool:
+        """Determine whether IPOR restricts the ERC-4626 deposit selector.
+
+        OpenZeppelin's AccessManager assigns ``PUBLIC_ROLE`` to selectors that
+        any account may call.  Any other target-function role means the vault
+        has a whitelist or role-based deposit policy.
+
+        :return:
+            ``True`` when the deposit selector is restricted.
+
+        :raise NotImplementedError:
+            If this IPOR deployment has no readable access manager.
+        """
+        access_manager = self.access_manager
+        if access_manager is None:
+            raise NotImplementedError(f"IPOR vault {self.address} has no readable access manager")
+        role = access_manager.functions.getTargetFunctionRole(Web3.to_checksum_address(self.address), self.get_deposit_function_selector()).call()
+        public_role = access_manager.functions.PUBLIC_ROLE().call()
+        return role != public_role
+
+    def fetch_selector_access(self, address: HexAddress, selector: HexBytes) -> tuple[bool, int]:
+        """Read an account's IPOR AccessManager result for a vault selector.
+
+        Web3.py requires checksum addresses for ABI encoding, while scanner and
+        report rows commonly preserve lowercase address strings.  Normalising
+        both values here keeps the public account-policy method and transaction
+        pre-flight consistent.
+
+        :param address:
+            Account whose selector permission is queried.
+        :param selector:
+            Four-byte vault function selector.
+
+        :return:
+            Tuple of immediate admission and scheduling delay in seconds.
+
+        :raise NotImplementedError:
+            If this IPOR deployment has no readable access manager.
+        """
+        access_manager = self.access_manager
+        if access_manager is None:
+            raise NotImplementedError(f"IPOR vault {self.address} has no readable access manager")
+        immediate, delay = access_manager.functions.canCall(
+            Web3.to_checksum_address(address),
+            Web3.to_checksum_address(self.address),
+            selector,
+        ).call()
+        return bool(immediate), int(delay)
+
+    def is_account_whitelisted(self, address: HexAddress) -> bool:
+        """Determine whether an account belongs to IPOR's deposit access policy.
+
+        AccessManager returns both immediate permission and a possible
+        scheduling delay.  A non-zero delay proves that the account belongs to
+        the policy but does not mean a synchronous deposit can be submitted
+        immediately; the deposit manager enforces that distinction.
+
+        :param address:
+            Account to query for the deposit selector.
+
+        :return:
+            ``True`` for immediate or scheduled policy membership.
+
+        :raise NotImplementedError:
+            If this IPOR deployment has no readable access manager.
+        """
+        immediate, delay = self.fetch_selector_access(address, self.get_deposit_function_selector())
+        return immediate or delay > 0
+
+    def get_deposit_manager(self) -> IPORDepositManager | ERC4626DepositManager:
+        """Create the IPOR manager with AccessManager admission pre-flights.
+
+        IPOR uses ordinary ERC-4626 transaction shapes after the caller is
+        admitted.  Deployments without a readable AccessManager retain the
+        generic ERC-4626 manager behaviour; their deposit permission is
+        reported as ``unknown`` instead of refusing every account.
+
+        :return:
+            Caller-aware IPOR manager when its AccessManager is available,
+            otherwise the generic synchronous ERC-4626 manager.
+        """
+        if self.access_manager is None:
+            return ERC4626DepositManager(self)
+        return IPORDepositManager(self)
+
+    def get_deposit_manager_capability(self) -> VaultDepositManagerCapability:
+        """Declare the implemented synchronous IPOR transaction lifecycle.
+
+        Access policy is reported separately through
+        :meth:`is_whitelisted_deposit`; static manager capability does not
+        promise that an arbitrary account is currently admitted.
+
+        :return:
+            Two-way synchronous manager capability.
+        """
+        return self.get_synchronous_deposit_manager_capability()
 
     def get_historical_reader(self, stateful) -> VaultHistoricalReader:
         return IPORVaultHistoricalReader(self, stateful)

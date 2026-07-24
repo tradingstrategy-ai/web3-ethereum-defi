@@ -16,5 +16,8 @@ other-links:
     url: https://www.chinaamc.com.hk/
   - title: ChinaAMC USD Digital Money Market Fund - official product page and tokenisation information
     url: https://www.chinaamc.com.hk/product/chinaamc-usd-digital-money-market-fund-listedclass/
+  # 2026-07-22 maintain-curators: added the individual fund factsheet used to verify CUMIU's USD share class.
+  - title: ChinaAMC USD Digital Money Market Fund factsheet
+    url: https://www.chinaamc.com.hk/wp-content/uploads/chinaamc/resources/Factsheet_USDDTMMF_20260430_EN.pdf
   - title: Asseto product application - AMCASH+ public product metadata
     url: https://asseto.finance/product

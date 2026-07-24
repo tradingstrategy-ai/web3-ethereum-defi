@@ -27,7 +27,7 @@ from eth_defi.tokenised_fund.asseto.historical import AssetoVaultHistoricalReade
 from eth_defi.tokenised_fund.asseto.offchain_api import AssetoAPIError, AssetoPricePoint, AssetoRoleInfo, fetch_asseto_price_history, fetch_asseto_product_roles
 from eth_defi.tokenised_fund.vault import TokenisedFundVault
 from eth_defi.types import Percent
-from eth_defi.vault.base import TradingUniverse, VaultDepositManager, VaultFlowManager, VaultHistoricalReader, VaultInfo, VaultPortfolio, VaultSpec
+from eth_defi.vault.base import TradingUniverse, VaultFlowManager, VaultHistoricalReader, VaultInfo, VaultPortfolio, VaultSpec
 from eth_defi.vault.fee import FeeData, VaultFeeMode
 from eth_defi.vault.lower_case_dict import LowercaseDict
 
@@ -686,18 +686,6 @@ class AssetoVault(TokenisedFundVault):
 
         message = "Asseto request/claim flow accounting is not implemented"
         raise NotImplementedError(message)
-
-    def get_deposit_manager(self) -> VaultDepositManager:
-        """Block the public transaction manager.
-
-        Asseto subscriptions and redemptions require KYC eligibility, fund
-        dealing-cycle settlement and privileged NAV/price-ID assignment.
-
-        :raise NotImplementedError:
-            Always, by deliberate product policy.
-        """
-
-        raise NotImplementedError(ASSETO_BLOCKED_FLOW_REASON)
 
     def fetch_deposit_closed_reason(self) -> str:
         """Return why the deposit manager is blocked.
