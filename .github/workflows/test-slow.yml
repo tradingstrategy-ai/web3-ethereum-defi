@@ -70,8 +70,10 @@ jobs:
         id: cache-month
         run: echo "month=$(date -u +%Y-%m)" >> "$GITHUB_OUTPUT"
 
-      - name: Cache Foundry fork RPC cache
-        uses: actions/cache@v4
+      # Restore the fork RPC cache; saved with `if: always()` at the end of the
+      # job so it persists even on failure. See test.yml for rationale.
+      - name: Restore Foundry fork RPC cache
+        uses: actions/cache/restore@v4
         with:
           path: ~/.foundry/cache/rpc
           key: foundry-rpc-v1.2.3-${{ runner.os }}-${{ steps.cache-month.outputs.month }}-${{ github.run_id }}
@@ -94,3 +96,12 @@ jobs:
           JSON_RPC_POLYGON: ${{ secrets.JSON_RPC_POLYGON }}
           HYPERSYNC_API_KEY: ${{ secrets.HYPERSYNC_API_KEY }}
           TOKEN_RISK_API_KEY: ${{ secrets.TOKEN_RISK_API_KEY }}
+
+      # Persist the fork RPC cache even on failure so blocks replay from disk
+      # next run. See test.yml for rationale.
+      - name: Save Foundry fork RPC cache
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: ~/.foundry/cache/rpc
+          key: foundry-rpc-v1.2.3-${{ runner.os }}-${{ steps.cache-month.outputs.month }}-${{ github.run_id }}
