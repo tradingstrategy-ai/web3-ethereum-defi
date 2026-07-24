@@ -349,6 +349,8 @@ LIQUITY_V2_WETH_STABILITY_POOL_ILLIQUID = "Liquity V2 WETH Stability Pool vault 
 
 ODINS_RESERVE_ILLIQUID = "Odins Reserve vault is illiquid"
 
+BORROWABLE_USDC_SILOID_111_ILLIQUID = "Borrowable USDC Deposit, SiloId: 111 is illiquid"
+
 
 #: Protocol-wide flags and notes.
 #:
@@ -477,6 +479,8 @@ VAULT_FLAGS_AND_NOTES: dict[str, tuple[VaultFlag | None, str]] = {
     "0x7786dba2a1f7a4b0b7abf0962c449154c4f2b8ac": (VaultFlag.illiquid, XUSD_MESSAGE),
     # Borrowable USDC Deposit, SiloId: 105
     "0x4f55e28d36b30a638c3aa1d5cbf9c4ccb3831506": (VaultFlag.illiquid, ILLIQUID_ABNORMAL_SHARE_PRICE),
+    # Borrowable USDC Deposit, SiloId: 111 (Sonic)
+    "0xae79b0d94e1c53cd2e8160899b8d58ec138d341f": (VaultFlag.illiquid, BORROWABLE_USDC_SILOID_111_ILLIQUID),
     # 40avax-USDC-VAULT on Avalanche
     "0xbed7c02887efd6b5eb9a547ac1a4d5e582791647": (VaultFlag.abnormal_share_price, UNKNOWN_ABNORMAL_SHARE_PRICE),
     # XAU Aplha Vault on Arbitrum
