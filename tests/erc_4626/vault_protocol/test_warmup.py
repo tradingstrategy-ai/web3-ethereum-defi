@@ -14,13 +14,18 @@ from web3 import Web3
 from eth_defi.erc_4626.classification import create_vault_instance_autodetect
 from eth_defi.erc_4626.vault import VaultReaderState
 from eth_defi.erc_4626.warmup import warmup_vault_reader
-from eth_defi.provider.anvil import AnvilLaunch, fork_network_anvil
-from eth_defi.provider.multi_provider import create_multi_provider_web3
 
+
+from eth_defi.testing.anvil_fork_pool import AnvilForkPool
+from eth_defi.testing.fork_blocks import PLASMA_MIDNIGHT_BLOCK
 
 JSON_RPC_PLASMA = os.environ.get("JSON_RPC_PLASMA")
 
-pytestmark = pytest.mark.skipif(JSON_RPC_PLASMA is None, reason="JSON_RPC_PLASMA needed to run these tests")
+pytestmark = [
+    pytest.mark.skipif(JSON_RPC_PLASMA is None, reason="JSON_RPC_PLASMA needed to run these tests"),
+    # Shared with the other Plasma midnight-block characterisation tests.
+    pytest.mark.xdist_group("fork:plasma:midnight"),
+]
 
 # Known good vault on Plasma: Fluid fToken
 GOOD_VAULT_ADDRESS = "0x1DD4b13fcAE900C60a350589BE8052959D2Ed27B"
@@ -31,24 +36,14 @@ BAD_VAULT_ADDRESS = "0xa9C251F8304b1B3Fc2b9e8fcae78D94Eff82Ac66"
 
 
 @pytest.fixture(scope="module")
-def anvil_plasma_fork(request) -> AnvilLaunch:
-    """Fork Plasma chain at a specific block for reproducibility."""
-    launch = fork_network_anvil(JSON_RPC_PLASMA, fork_block_number=11_664_904)
-    try:
-        yield launch
-    finally:
-        launch.close()
+def web3(anvil_fork_pool: AnvilForkPool) -> Web3:
+    """Web3 backed by a shared Plasma fork from the session-scoped pool.
 
-
-@pytest.fixture(scope="module")
-def web3(anvil_plasma_fork):
-    # Use longer timeout (90s instead of default 30s) because Plasma fork
-    # can be slow, especially when processing expensive calls like maxDeposit
-    web3 = create_multi_provider_web3(
-        anvil_plasma_fork.json_rpc_url,
-        default_http_timeout=(3.0, 90.0),
-    )
-    return web3
+    Reuses one Anvil process across every module carrying the matching
+    ``xdist_group`` marker. Read-only test, so no snapshot/revert reset is
+    needed between tests.
+    """
+    return anvil_fork_pool.get_web3(JSON_RPC_PLASMA, PLASMA_MIDNIGHT_BLOCK)
 
 
 @flaky.flaky

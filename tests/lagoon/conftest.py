@@ -203,43 +203,6 @@ def lagoon_vault(web3, base_test_vault_spec: VaultSpec) -> LagoonVault:
     return LagoonVault(web3, base_test_vault_spec)
 
 
-@pytest.fixture()
-def automated_lagoon_vault(
-    web3,
-    deployer_hot_wallet,
-    asset_manager,
-    multisig_owners,
-    uniswap_v2,
-) -> LagoonAutomatedDeployment:
-    """Deploy a new Lagoon vault with TradingStrategyModuleV0.
-
-    - Whitelist any Uniswap v2 token for trading using TradingStrategyModuleV0 and asset_manager
-    """
-
-    chain_id = web3.eth.chain_id
-    deployer = deployer_local_account
-
-    parameters = LagoonDeploymentParameters(
-        underlying=USDC_NATIVE_TOKEN[chain_id],
-        name="Example",
-        symbol="EXA",
-    )
-
-    deploy_info = deploy_automated_lagoon_vault(
-        web3=web3,
-        deployer=deployer_hot_wallet,
-        asset_manager=asset_manager,
-        parameters=parameters,
-        safe_owners=multisig_owners,
-        safe_threshold=2,
-        uniswap_v2=uniswap_v2,
-        uniswap_v3=None,
-        any_asset=True,
-    )
-
-    return deploy_info
-
-
 @pytest.fixture(scope="session")
 def _lagoon_shared_deployment_cache() -> dict:
     """Session-level cache of shared Lagoon deployments, keyed by fork URL.
@@ -259,9 +222,9 @@ def shared_automated_lagoon_vault(
     """Deploy the standard test vault once per worker session and share it.
 
     Read-mostly tests that only need *a* deployed Lagoon vault with
-    TradingStrategyModuleV0 (identical parameters to
-    :func:`automated_lagoon_vault`) should use this fixture instead of paying a
-    ~30-45s Safe + vault deployment per test.
+    TradingStrategyModuleV0 (standard parameters: USDC underlying, any-asset
+    Uniswap v2 trading) should use this fixture instead of paying a ~30-45s
+    Safe + vault deployment per test.
 
     Safety model: this is module-scoped, so pytest instantiates it before the
     function-scoped autouse ``_evm_snapshot`` takes each test's snapshot. The
@@ -272,8 +235,9 @@ def shared_automated_lagoon_vault(
     instead of redeploying.
 
     Do **not** use this fixture from tests that need custom deployment
-    parameters or that intentionally break the deployment — use
-    :func:`automated_lagoon_vault` (per-test) instead.
+    parameters or that intentionally break the deployment — call
+    :func:`~eth_defi.erc_4626.vault_protocol.lagoon.deployment.deploy_automated_lagoon_vault`
+    directly in the test body instead (as ``test_lagoon_erc_4626`` etc. do).
     """
     key = anvil_base_fork.json_rpc_url
     deploy_info = _lagoon_shared_deployment_cache.get(key)

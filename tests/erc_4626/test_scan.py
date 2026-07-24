@@ -195,6 +195,7 @@ def test_lead_scan_core_hypersync(tmp_path, backend):
     assert updated_report.deposits >= 1633
 
 
+@skip_hypersync_scan_on_ci
 @pytest.mark.slow
 def test_4626_scan_moonwell(web3):
     """Test against good known Moonwell USDC vault on Base.

@@ -11,31 +11,28 @@ from eth_defi.abi import ZERO_ADDRESS_STR
 from eth_defi.erc_4626.classification import create_vault_instance_autodetect
 from eth_defi.erc_4626.core import ERC4626Feature
 from eth_defi.erc_4626.vault_protocol.altura.vault import AlturaVault
-from eth_defi.provider.anvil import AnvilLaunch, fork_network_anvil
-from eth_defi.provider.multi_provider import create_multi_provider_web3
+
+from eth_defi.testing.anvil_fork_pool import AnvilForkPool
+from eth_defi.testing.fork_blocks import HYPERLIQUID_MIDNIGHT_BLOCK
 
 JSON_RPC_HYPERLIQUID = os.environ.get("JSON_RPC_HYPERLIQUID")
 
-pytestmark = pytest.mark.skipif(
-    JSON_RPC_HYPERLIQUID is None,
-    reason="JSON_RPC_HYPERLIQUID needed to run these tests",
-)
+pytestmark = [
+    pytest.mark.skipif(JSON_RPC_HYPERLIQUID is None, reason="JSON_RPC_HYPERLIQUID needed to run these tests"),
+    # Shared with the other Hyperliquid midnight-block characterisation tests.
+    pytest.mark.xdist_group("fork:hyperliquid:midnight"),
+]
 
 
 @pytest.fixture(scope="module")
-def anvil_hyperliquid_fork(request) -> AnvilLaunch:
-    """Fork HyperEVM at a specific block for reproducibility"""
-    launch = fork_network_anvil(JSON_RPC_HYPERLIQUID, fork_block_number=23_755_870)
-    try:
-        yield launch
-    finally:
-        launch.close()
+def web3(anvil_fork_pool: AnvilForkPool) -> Web3:
+    """Web3 backed by a shared Hyperliquid fork from the session-scoped pool.
 
-
-@pytest.fixture(scope="module")
-def web3(anvil_hyperliquid_fork):
-    web3 = create_multi_provider_web3(anvil_hyperliquid_fork.json_rpc_url)
-    return web3
+    Reuses one Anvil process across every module carrying the matching
+    ``xdist_group`` marker. Read-only test, so no snapshot/revert reset is
+    needed between tests.
+    """
+    return anvil_fork_pool.get_web3(JSON_RPC_HYPERLIQUID, HYPERLIQUID_MIDNIGHT_BLOCK)
 
 
 @flaky.flaky
@@ -65,9 +62,9 @@ def test_altura(
     assert vault.get_management_fee("latest") == 0.0
     assert vault.get_performance_fee("latest") is None
 
-    # Check exit fee (should be 1 bps = 0.0001)
+    # Check exit fee (10 bps = 0.001 at the pinned midnight block)
     exit_fee = vault.get_exit_fee("latest")
-    assert exit_fee == pytest.approx(0.0001, rel=0.01)
+    assert exit_fee == pytest.approx(0.001, rel=0.01)
 
     # Check link
     assert vault.get_link() == "https://app.altura.trade"

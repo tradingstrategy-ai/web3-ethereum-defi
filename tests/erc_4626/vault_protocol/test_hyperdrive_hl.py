@@ -11,29 +11,29 @@ from eth_defi.abi import ZERO_ADDRESS_STR
 from eth_defi.erc_4626.classification import create_vault_instance_autodetect
 from eth_defi.erc_4626.core import ERC4626Feature
 from eth_defi.erc_4626.vault_protocol.hyperdrive_hl.vault import HyperdriveVault
-from eth_defi.provider.anvil import AnvilLaunch, fork_network_anvil
-from eth_defi.provider.multi_provider import create_multi_provider_web3
 from eth_defi.vault.base import VaultTechnicalRisk
+
+from eth_defi.testing.anvil_fork_pool import AnvilForkPool
+from eth_defi.testing.fork_blocks import HYPERLIQUID_MIDNIGHT_BLOCK
 
 JSON_RPC_HYPERLIQUID = os.environ.get("JSON_RPC_HYPERLIQUID")
 
-pytestmark = pytest.mark.skipif(JSON_RPC_HYPERLIQUID is None, reason="JSON_RPC_HYPERLIQUID needed to run these tests")
+pytestmark = [
+    pytest.mark.skipif(JSON_RPC_HYPERLIQUID is None, reason="JSON_RPC_HYPERLIQUID needed to run these tests"),
+    # Shared with the other Hyperliquid midnight-block characterisation tests.
+    pytest.mark.xdist_group("fork:hyperliquid:midnight"),
+]
 
 
 @pytest.fixture(scope="module")
-def anvil_hyperliquid_fork(request) -> AnvilLaunch:
-    """Fork at a specific block for reproducibility"""
-    launch = fork_network_anvil(JSON_RPC_HYPERLIQUID, fork_block_number=26_384_447)
-    try:
-        yield launch
-    finally:
-        launch.close()
+def web3(anvil_fork_pool: AnvilForkPool) -> Web3:
+    """Web3 backed by a shared Hyperliquid fork from the session-scoped pool.
 
-
-@pytest.fixture(scope="module")
-def web3(anvil_hyperliquid_fork):
-    web3 = create_multi_provider_web3(anvil_hyperliquid_fork.json_rpc_url, retries=2)
-    return web3
+    Reuses one Anvil process across every module carrying the matching
+    ``xdist_group`` marker. Read-only test, so no snapshot/revert reset is
+    needed between tests.
+    """
+    return anvil_fork_pool.get_web3(JSON_RPC_HYPERLIQUID, HYPERLIQUID_MIDNIGHT_BLOCK)
 
 
 @flaky.flaky

@@ -93,14 +93,28 @@ chain id — the 2026-07-24 00:00 UTC block for each). Every same-chain test the
 replays its archive reads from a **dense** on-disk RPC cache covering that single
 block — so warm runs hit the upstream archive far less.
 
-- **Arbitrum: 11 tests** share block 487,039,644 (earlier batch).
-- **Ethereum: 18 tests** share block 25,598,869 (validated locally: 18/19 pass at
-  the midnight block; `test_csigma` reverted — one of its tests deposits/redeems
-  and needs signer setup the shared read-only fork doesn't provide).
-- Remaining chains have midnight blocks recorded in `fork_blocks.py`
-  (Base, Hyperliquid, Avalanche, Plasma, Sonic, Berachain, BNB, Polygon) ready
-  for the same conversion. **Excluded:** Monad (no archive history) and any
-  mutating / signer-dependent test.
+Converted and validated locally (~44 tests across 8 chains):
+
+- **Arbitrum: 11 tests** (block 487,039,644).
+- **Ethereum: 18 tests** (block 25,598,869; `test_csigma` reverted — a
+  deposit/redeem test needs signer setup a shared read-only fork can't give).
+- **Hyperliquid: 4** (altura, hyperdrive_hl, hypurrfi, sentiment).
+- **Base: 3** (basevol, renalta, teller — previously ~31–42 s each).
+- **Avalanche: 3** (avant, blacklist, euler_earn).
+- **Plasma: 3** (fluid, warmup, yuzu_money).
+- **Sonic: 1** (foxify). **Berachain: 1** (liquid_royalty).
+
+Value assertions that moved with the block were refreshed by reading the new
+block (e.g. `test_altura` exit fee 0.0001 → 0.001).
+
+**Not converted (kept on their own fork / block):** multi-fork files
+(`test_royco`, `test_yieldfi`, `test_mainstreet`), mutating/signer tests
+(`test_csigma`, `test_d2`, `test_plutus`, `test_yieldnest`), non-standard
+fixture shapes (`test_aave`, `test_aera`, …), tests whose value invariant breaks
+at the midnight block (`test_silo` — over-utilised there), already-`skip`ped
+broken tests (`test_hyperlend`, `test_singularity`, …), and chains without a
+usable archive block (Monad; Mantle's header failed to parse). These need
+per-file work, not the mechanical transform.
 
 **Cache persistence (the key "use RPC less" fix).** The fork RPC cache only
 helps if it survives between runs, but `actions/cache@v4` **saves only on job
