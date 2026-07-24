@@ -16,6 +16,12 @@ rate-limited. The helpers here attack both:
 If you are writing a new fork test, read this before copying an old per-file
 `fork_network_anvil` fixture.
 
+> **Canonical reference.** The authoritative, single-source description of this
+> pattern — the required rules, the rationale (warm CI RPC cache) and a
+> copy-paste module skeleton — is the module docstring of
+> [`eth_defi/testing/anvil_fork_pool.py`](anvil_fork_pool.py). This README is a
+> practical companion; when the two disagree, the docstring wins.
+
 ## The pieces
 
 | File | Purpose |

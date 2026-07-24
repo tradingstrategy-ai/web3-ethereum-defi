@@ -1,5 +1,11 @@
 """Session-scoped Anvil fork pool for reusing forks across test modules.
 
+**This module docstring is the canonical, authoritative description of the
+shared Anvil fork + fixed fork-block + warm RPC-cache test pattern.** Other
+places in the repository (``CLAUDE.md``, the ``add-vault-protocol`` skill,
+:mod:`eth_defi.testing.fork_blocks`, :file:`eth_defi/testing/README.md`) only
+point here; do not duplicate the rationale — update this docstring instead.
+
 Reusable testing helper (kept under ``eth_defi`` rather than ``tests`` per the
 repository convention) that lets many tests sharing the same
 ``(chain, fork_block_number, launch config)`` reuse a single Anvil process
@@ -8,6 +14,82 @@ the test-suite performance plan (:file:`docs/README-test-suite-performance.md`).
 
 The pytest fixture wrapper lives in the top-level ``tests/conftest.py``; this
 module holds only the reusable pool class.
+
+Required pattern for new Anvil mainnet-fork tests
+-------------------------------------------------
+
+Any new Anvil mainnet-fork characterisation test **must** use this pattern
+rather than launching its own per-file fork at a chain-tip / ad-hoc block:
+
+1. **Fork at a fixed, shared block, never ``latest``.** Use your chain's
+   canonical ``*_MIDNIGHT_BLOCK`` constant from
+   :mod:`eth_defi.testing.fork_blocks` (via :func:`get_midnight_block` for a
+   programmatic lookup). A mutable chain tip is non-reproducible, cannot be
+   shared, and defeats the RPC cache. A fixed block also lets value assertions
+   use exact numbers (per the repository test rules) rather than fuzzy bounds.
+2. **Obtain Web3 from the shared pool**, not from a private
+   ``fork_network_anvil`` call, so every same-chain, same-block test reuses one
+   Anvil process. Have the module's ``web3`` fixture call
+   :meth:`AnvilForkPool.get_web3` with the session-scoped ``anvil_fork_pool``
+   fixture.
+3. **Carry the matching ``xdist_group`` marker** so ``--dist loadgroup`` (used
+   in CI) co-locates all sharers on one worker — session scope is per worker, so
+   without the marker the "shared" fork silently forks once per worker. Use one
+   stable group name per (chain, block), e.g.
+   ``@pytest.mark.xdist_group("fork:ethereum:midnight")``.
+
+Why this matters — the warm RPC cache
+--------------------------------------
+
+Anvil persists every ``eth_call`` / ``eth_getStorageAt`` archive response it
+replays to ``~/.foundry/cache/rpc/<network>/<block>/``. When many
+characterisation tests fork **the same fixed block**, they read overlapping
+state, so that on-disk cache becomes dense and later runs replay from disk
+instead of re-hammering the upstream archive node. CI restores and re-saves this
+directory across runs (see the "Foundry fork RPC cache" steps in
+``.github/workflows/test-vault-protocol.yml`` and
+``docs/README-test-suite-performance.md``), so a warm cache turns cold-archive
+stalls (the ~476 s startup seen on cold Ethereum archive forks) into ~seconds.
+
+Forking ``latest`` or a per-test arbitrary block breaks all three benefits: the
+cache key never repeats, nothing is shared, and every run pays full
+archive-replay latency. That is why the fixed shared block is mandatory.
+
+Reference tests to copy
+-----------------------
+
+- Read-only pooled fork: ``tests/erc_4626/vault_protocol/test_goat.py`` and
+  ``tests/erc_4626/vault_protocol/test_aarna.py``.
+- Shared fork plus once-per-session expensive deployment (Safe/Lagoon):
+  ``tests/lagoon/conftest.py``.
+
+Copy-paste module skeleton
+--------------------------
+
+.. code-block:: python
+
+    import os
+
+    import pytest
+    from web3 import Web3
+
+    from eth_defi.testing.anvil_fork_pool import AnvilForkPool
+    from eth_defi.testing.fork_blocks import ETHEREUM_MIDNIGHT_BLOCK
+
+    JSON_RPC_ETHEREUM = os.environ.get("JSON_RPC_ETHEREUM")
+
+    pytestmark = [
+        pytest.mark.skipif(JSON_RPC_ETHEREUM is None, reason="JSON_RPC_ETHEREUM needed to run these tests"),
+        # Co-locate every same-block Ethereum sharer on one xdist worker.
+        pytest.mark.xdist_group("fork:ethereum:midnight"),
+    ]
+
+
+    @pytest.fixture(scope="module")
+    def web3(anvil_fork_pool: AnvilForkPool) -> Web3:
+        # Read-only test: shares one Anvil fork from the session pool, so no
+        # snapshot/revert reset is needed between tests.
+        return anvil_fork_pool.get_web3(JSON_RPC_ETHEREUM, ETHEREUM_MIDNIGHT_BLOCK)
 
 Design notes:
 

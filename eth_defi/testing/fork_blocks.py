@@ -1,5 +1,10 @@
 """Canonical per-chain fork blocks for shared-fork characterisation tests.
 
+For the full rationale and how-to of the shared Anvil fork + fixed fork-block +
+warm RPC-cache test pattern these constants exist to serve, see the canonical
+module docstring of :mod:`eth_defi.testing.anvil_fork_pool`. This module only
+holds the block constants.
+
 Tests that only read (characterise) a vault historically pin a fixed
 ``fork_block_number`` for reproducibility. Historically each test picked its own
 arbitrary block, so tests on the same chain could not share one Anvil fork. To
