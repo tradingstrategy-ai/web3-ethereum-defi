@@ -20,7 +20,7 @@ from web3 import Web3
 from eth_defi.erc_4626.vault_protocol.lagoon.deployment import LagoonAutomatedDeployment, LagoonDeploymentParameters, deploy_automated_lagoon_vault
 from eth_defi.erc_4626.vault_protocol.lagoon.vault import LagoonVault
 from eth_defi.hotwallet import HotWallet
-from eth_defi.provider.anvil import AnvilLaunch, fork_network_anvil
+from eth_defi.provider.anvil import AnvilLaunch
 from eth_defi.provider.multi_provider import create_multi_provider_web3
 from eth_defi.testing.evm_snapshot_fixture import evm_snapshot_revert
 from eth_defi.token import USDC_NATIVE_TOKEN, USDC_WHALE, TokenDetails, fetch_erc20_details
@@ -76,6 +76,7 @@ def test_block_number() -> int:
 @pytest.fixture(scope="module")
 def anvil_base_fork(
     request,
+    anvil_fork_pool,
     vault_owner,
     usdc_holder,
     asset_manager,
@@ -83,21 +84,27 @@ def anvil_base_fork(
     valuation_manager,
     test_block_number,
 ) -> AnvilLaunch:
-    """Create a testable fork of live BNB chain.
+    """Get a pooled fork of live Base chain.
 
-    :return: JSON-RPC URL for Web3
+    The fork comes from the session-scoped
+    :class:`eth_defi.testing.anvil_fork_pool.AnvilForkPool`, so every Lagoon test
+    module using the same block reuses one Anvil process per xdist worker
+    instead of paying a cold fork launch per file. The pool owns the process
+    lifecycle — do not close the launch here.
+
+    Cross-file state safety comes from the autouse ``_evm_snapshot`` fixture
+    below: every test's mutations are reverted, and module-scoped deployments
+    execute before per-test snapshots (pytest instantiates higher-scoped
+    fixtures first), so they persist without leaking test state.
+
+    :return: Anvil launch whose JSON-RPC URL Web3 connects to
     """
     assert JSON_RPC_BASE, "JSON_RPC_BASE not set"
-    launch = fork_network_anvil(
+    return anvil_fork_pool.get_launch(
         JSON_RPC_BASE,
-        unlocked_addresses=[vault_owner, usdc_holder, asset_manager, second_asset_manager, valuation_manager],
         fork_block_number=test_block_number,
+        unlocked_addresses=[vault_owner, usdc_holder, asset_manager, second_asset_manager, valuation_manager],
     )
-    try:
-        yield launch
-    finally:
-        # Wind down Anvil process after the test is complete
-        launch.close()
 
 
 @pytest.fixture()
@@ -230,6 +237,81 @@ def automated_lagoon_vault(
         any_asset=True,
     )
 
+    return deploy_info
+
+
+@pytest.fixture(scope="session")
+def _lagoon_shared_deployment_cache() -> dict:
+    """Session-level cache of shared Lagoon deployments, keyed by fork URL.
+
+    One deployment per pooled fork per xdist worker. See
+    :func:`shared_automated_lagoon_vault`.
+    """
+    return {}
+
+
+@pytest.fixture(scope="module")
+def shared_automated_lagoon_vault(
+    _lagoon_shared_deployment_cache: dict,
+    anvil_base_fork: AnvilLaunch,
+    asset_manager: HexAddress,
+) -> LagoonAutomatedDeployment:
+    """Deploy the standard test vault once per worker session and share it.
+
+    Read-mostly tests that only need *a* deployed Lagoon vault with
+    TradingStrategyModuleV0 (identical parameters to
+    :func:`automated_lagoon_vault`) should use this fixture instead of paying a
+    ~30-45s Safe + vault deployment per test.
+
+    Safety model: this is module-scoped, so pytest instantiates it before the
+    function-scoped autouse ``_evm_snapshot`` takes each test's snapshot. The
+    deployment therefore lands outside every snapshot window and survives the
+    per-test reverts, while each test still sees the vault in pristine
+    post-deployment state (its own mutations are rolled back). The session cache
+    makes subsequent modules on the same pooled fork reuse the deployment
+    instead of redeploying.
+
+    Do **not** use this fixture from tests that need custom deployment
+    parameters or that intentionally break the deployment — use
+    :func:`automated_lagoon_vault` (per-test) instead.
+    """
+    key = anvil_base_fork.json_rpc_url
+    deploy_info = _lagoon_shared_deployment_cache.get(key)
+    if deploy_info is not None:
+        return deploy_info
+
+    web3 = create_multi_provider_web3(
+        anvil_base_fork.json_rpc_url,
+        default_http_timeout=(3, 250.0),
+    )
+    deployer_hot_wallet = HotWallet.create_for_testing(web3, eth_amount=1)
+    multisig_owners = [web3.eth.accounts[2], web3.eth.accounts[3], web3.eth.accounts[4]]
+    uniswap_v2 = fetch_deployment(
+        web3,
+        factory_address=UNISWAP_V2_DEPLOYMENTS["base"]["factory"],
+        router_address=UNISWAP_V2_DEPLOYMENTS["base"]["router"],
+        init_code_hash=UNISWAP_V2_DEPLOYMENTS["base"]["init_code_hash"],
+    )
+
+    parameters = LagoonDeploymentParameters(
+        underlying=USDC_NATIVE_TOKEN[web3.eth.chain_id],
+        name="Example",
+        symbol="EXA",
+    )
+
+    deploy_info = deploy_automated_lagoon_vault(
+        web3=web3,
+        deployer=deployer_hot_wallet,
+        asset_manager=asset_manager,
+        parameters=parameters,
+        safe_owners=multisig_owners,
+        safe_threshold=2,
+        uniswap_v2=uniswap_v2,
+        uniswap_v3=None,
+        any_asset=True,
+    )
+
+    _lagoon_shared_deployment_cache[key] = deploy_info
     return deploy_info
 
 

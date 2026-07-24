@@ -18,7 +18,7 @@ from eth_defi.uniswap_v2.swap import swap_with_slippage_protection
 @flaky.flaky
 def test_lagoon_deposit_redeem(
     web3: Web3,
-    automated_lagoon_vault: LagoonAutomatedDeployment,
+    shared_automated_lagoon_vault: LagoonAutomatedDeployment,
     base_usdc: TokenDetails,
     topped_up_asset_manager: HexAddress,
     new_depositor: HexAddress,
@@ -44,7 +44,7 @@ def test_lagoon_deposit_redeem(
         JSON_RPC_TENDERLY="https://virtual.base.rpc.tenderly.co/XXXXXXXXXX" pytest -k test_lagoon_swap
 
     """
-    vault = automated_lagoon_vault.vault
+    vault = shared_automated_lagoon_vault.vault
     asset_manager = topped_up_asset_manager
     depositor = Web3.to_checksum_address(new_depositor)
     another_new_depositor = Web3.to_checksum_address(another_new_depositor)
@@ -186,7 +186,7 @@ def test_lagoon_deposit_redeem(
 @flaky.flaky
 def test_lagoon_redeem_too_much(
     web3: Web3,
-    automated_lagoon_vault: LagoonAutomatedDeployment,
+    shared_automated_lagoon_vault: LagoonAutomatedDeployment,
     base_usdc: TokenDetails,
     base_weth: TokenDetails,
     topped_up_asset_manager: HexAddress,
@@ -195,7 +195,7 @@ def test_lagoon_redeem_too_much(
 ):
     """Attempt to redeem more than the cash we have in the vaults."""
 
-    vault = automated_lagoon_vault.vault
+    vault = shared_automated_lagoon_vault.vault
     asset_manager = topped_up_asset_manager
     depositor = Web3.to_checksum_address(new_depositor)
     usdc = base_usdc

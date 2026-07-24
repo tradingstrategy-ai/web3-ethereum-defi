@@ -5,6 +5,14 @@ on:
     branches: [master]
   pull_request:
     branches: [master]
+  # Manual runs, e.g. to re-enable the Hypersync scan tests that are disabled
+  # on CI by default. See docs/README-hypersync-tests.md.
+  workflow_dispatch:
+    inputs:
+      run_hypersync_tests:
+        description: "Run Hypersync scan tests (slow, disabled on CI by default)"
+        type: boolean
+        default: false
 
 jobs:
   test-python:
@@ -202,8 +210,17 @@ jobs:
           # in test-slow.yml on a free ubuntu-latest runner in parallel.
           # vault_protocol characterisation tests run in test-vault-protocol.yml
           # (only when vault/shared code changes), so they are excluded here.
-          poetry run pytest --timeout-method=thread --tb=native -n auto --dist loadgroup -v -s --capture=no --ignore=tests/gmx --ignore=tests/erc_4626/vault_protocol -m "not slow"
+          #
+          # Output is tee'd to a log so the "Report slowest tests" step can
+          # publish the durations table in the job summary; pipefail keeps the
+          # pytest exit code as the step result.
+          set -o pipefail
+          poetry run pytest --timeout-method=thread --tb=native -n auto --dist loadgroup -v -s --capture=no --ignore=tests/gmx --ignore=tests/erc_4626/vault_protocol -m "not slow" 2>&1 | tee pytest-log.txt
         env:
+          # Hypersync scan tests are disabled on CI by default; enable via
+          # workflow_dispatch input or the RUN_HYPERSYNC_TESTS repo variable.
+          # See docs/README-hypersync-tests.md.
+          RUN_HYPERSYNC_TESTS: ${{ (github.event_name == 'workflow_dispatch' && inputs.run_hypersync_tests) && 'true' || vars.RUN_HYPERSYNC_TESTS || '' }}
           BNB_CHAIN_JSON_RPC: ${{ secrets.BNB_CHAIN_JSON_RPC }}
           JSON_RPC_POLYGON_ARCHIVE: ${{ secrets.JSON_RPC_POLYGON_ARCHIVE }}
           JSON_RPC_POLYGON: ${{ secrets.JSON_RPC_POLYGON }}
@@ -223,6 +240,27 @@ jobs:
           ARBITRUM_SEPOLIA_RPC_URL: ${{ secrets.ARBITRUM_SEPOLIA_RPC_URL }}
           ARBITRUM_GMX_TEST_SEPOLIA_PRIVATE_KEY: ${{ secrets.ARBITRUM_GMX_TEST_SEPOLIA_PRIVATE_KEY }}
           HYPERSYNC_API_KEY: ${{ secrets.HYPERSYNC_API_KEY }}
+
+      # Publish the pytest slowest-durations table in the job summary so slow
+      # tests stay visible on every run without trawling the raw log. This is
+      # the measurement half of docs/README-test-suite-performance.md: any new
+      # test creeping onto the critical path shows up here.
+      - name: Report slowest tests
+        if: always()
+        run: |
+          if [ -f pytest-log.txt ]; then
+            {
+              echo "## Slowest tests"
+              echo '```'
+              # From the "slowest N durations" header to the section end.
+              awk '/slowest [0-9]+ durations/{found=1} found{print} found&&/^=+ /{if (++seen==2) exit}' pytest-log.txt | head -80
+              echo '```'
+              echo
+              tail -n 1 pytest-log.txt
+            } >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "No pytest log captured." >> "$GITHUB_STEP_SUMMARY"
+          fi
 
       # Ruff format check now runs in .github/workflows/lint.yml on the free
       # ubuntu-latest runner. Keeping it out of the Beefy job saves billable

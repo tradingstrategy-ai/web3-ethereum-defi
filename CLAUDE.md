@@ -122,6 +122,12 @@ otherwise the test cannot find environment variables.
 
 Avoid running the whole test suite as it takes several minutes. Only run specific test cases.
 
+Hypersync block scan tests (`tests/erc_4626/test_scan.py`) are disabled on CI by
+default because they dominated the CI critical path; they still run locally. To
+run them on CI (e.g. when touching Hypersync discovery code), see
+`docs/README-hypersync-tests.md`. Apply the same `skip_hypersync_scan_on_ci`
+marker pattern to any new multi-minute Hypersync scan test.
+
 When running pytest or any test commands, always use an extended timeout
 by specifying `timeout: 180000` (3 minutes) in the bash tool parameters.
 
@@ -406,6 +412,8 @@ Consult these for domain-specific context. Logo READMEs under `eth_defi/data/vau
 | `contracts/safe-integration/README.md` | Trading Strategy Zodiac-module for Safe multisig wallets |
 | `docs/README-Hypercore-guard.md` | Hypercore native vault guard integration |
 | `docs/README-hyperevm-goldsky-failure.md` | HyperEVM goldsky eRPC "not enough agreement" consensus failure and Alchemy failover |
+| `docs/README-hypersync-tests.md` | Hypersync scan tests — disabled on CI by default, how to run them on CI when needed |
+| `docs/README-test-suite-performance.md` | Test suite performance plan — CI caching, shared Anvil forks, vault-protocol gating |
 | `docs/README-contract-size.md` | Contract sizes and compiler optimisation |
 | `docs/derive-onboarding/README-derive-trader.md` | Derive session key for vault traders |
 | `docs/protocol-research/README.md` | AI-assisted vault protocol discovery notes |

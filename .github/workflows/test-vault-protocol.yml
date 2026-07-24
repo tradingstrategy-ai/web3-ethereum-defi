@@ -144,7 +144,8 @@ jobs:
         # @flaky; the shared-fork pool cuts the total fork count. MAX_WORKERS
         # stays overridable for tuning if provider limits change.
         run: |
-          poetry run pytest tests/erc_4626/vault_protocol/ --timeout-method=thread --tb=native -n "${MAX_WORKERS:-auto}" --dist loadgroup -v -s --capture=no -m "not slow"
+          set -o pipefail
+          poetry run pytest tests/erc_4626/vault_protocol/ --timeout-method=thread --tb=native -n "${MAX_WORKERS:-auto}" --dist loadgroup -v -s --capture=no -m "not slow" 2>&1 | tee pytest-log.txt
         env:
           MAX_WORKERS: ${{ vars.VAULT_TEST_MAX_WORKERS || 'auto' }}
           JSON_RPC_ETHEREUM: ${{ secrets.JSON_RPC_ETHEREUM }}
@@ -156,6 +157,24 @@ jobs:
           JSON_RPC_HYPERLIQUID: ${{ secrets.JSON_RPC_HYPERLIQUID }}
           HYPERSYNC_API_KEY: ${{ secrets.HYPERSYNC_API_KEY }}
           TOKEN_RISK_API_KEY: ${{ secrets.TOKEN_RISK_API_KEY }}
+
+      # Publish the pytest slowest-durations table in the job summary so slow
+      # tests stay visible on every run. See docs/README-test-suite-performance.md.
+      - name: Report slowest tests
+        if: always()
+        run: |
+          if [ -f pytest-log.txt ]; then
+            {
+              echo "## Slowest tests"
+              echo '```'
+              awk '/slowest [0-9]+ durations/{found=1} found{print} found&&/^=+ /{if (++seen==2) exit}' pytest-log.txt | head -80
+              echo '```'
+              echo
+              tail -n 1 pytest-log.txt
+            } >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "No pytest log captured." >> "$GITHUB_STEP_SUMMARY"
+          fi
 
   # Always-run gate: this is the job to mark as the required status check.
   # It fails if change detection itself failed (so a broken filter cannot let

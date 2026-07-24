@@ -77,6 +77,36 @@ We keep forking real chains; we stop paying for the same fork many times over.
   snapshot/revert (via
   `eth_defi.testing.evm_snapshot_fixture.evm_snapshot_revert`) before rollout.
 
+## Critical-path fixes (2026-07-24, after first CI results)
+
+The first CI runs showed the levers above missed the actual critical path: the
+main suite got *slower* (331s → 369s) after removing ~200 vault tests, because
+the wall-clock is set by a handful of 45–85s tests (Hypersync scans, Lagoon/Safe
+deployments), not by test count. Three corrective changes:
+
+- **Hypersync scans off the CI critical path.** `test_4626_scan_hypersync` (82s)
+  and `test_lead_scan_core_hypersync` (73s ×2) are disabled on CI by default via
+  the `skip_hypersync_scan_on_ci` marker; they still run locally and on demand
+  (`workflow_dispatch` input / `RUN_HYPERSYNC_TESTS` variable). See
+  `docs/README-hypersync-tests.md`.
+- **Lagoon fork pooling + shared deployment.** `tests/lagoon/conftest.py` now
+  takes its Base fork from the session `anvil_fork_pool` (one fork per worker
+  across all default-block Lagoon files instead of one per file), relying on the
+  existing autouse per-test `evm_snapshot_revert` for cross-file state safety.
+  A new module-scoped, session-cached `shared_automated_lagoon_vault` deploys
+  the standard Safe + vault **once per worker** (module scope guarantees the
+  deployment lands outside per-test snapshot windows, so reverts cannot destroy
+  it); `test_lagoon_flow_analysis` uses it. Validated locally: 1 fork,
+  1 deployment, 2 tests passed in 17.9s (the same file's tests previously paid a
+  ~46s per-test setup on CI). Files that deploy with custom parameters in the
+  test body (`test_deploy_base`, `test_lagoon_max_settlement`) intentionally
+  keep per-test deployments — deployment *is* their test subject.
+- **Continuous slow-test measurement.** `--durations=40 --durations-min=1.0` in
+  `pyproject.toml`, and the main + vault workflows tee the pytest output and
+  publish the "slowest durations" table in the GitHub job summary
+  (`Report slowest tests` step), so critical-path regressions are visible on
+  every run.
+
 ## Why
 
 The suite is an integration suite behaving like a unit suite:
