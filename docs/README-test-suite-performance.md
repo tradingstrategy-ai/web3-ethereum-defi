@@ -42,19 +42,31 @@ We keep forking real chains; we stop paying for the same fork many times over.
   (`eth_defi/testing/fork_blocks.py`, `ARBITRUM_MIDNIGHT_BLOCK` = the last block
   at/before 2026-07-24 00:00 UTC — recent enough that the PoC vaults have state,
   fixed and cache-friendly; each vault is validated before normalising its test).
-  `test_goat.py` and `test_harvest.py` (Arbitrum, **read-only**) now share one
-  fork via an `xdist_group("fork:arbitrum:midnight")` marker.
+  **11 read-only Arbitrum characterisation tests** now share one fork via an
+  `xdist_group("fork:arbitrum:midnight")` marker: `test_goat`, `test_harvest`,
+  `test_autopool`, `test_dolomite`, `test_llama_lend`, `test_nashpoint`,
+  `test_superform`, `test_truefi`, `test_untangle`, `test_usdai`,
+  `test_yearn_yvault`. They previously forked **five different blocks**
+  (392M/409M/422M/430M/478M) — normalising them onto one midnight block collapses
+  five-plus cold forks into one.
 
-  **Measured locally** (anvil 1.7.1, real Arbitrum archive): the modules launch
-  **one** Anvil instead of one per file; they co-locate on one worker under
-  `-n2 --dist loadgroup` and pass. Moving off the old block changed
-  block-dependent asserts — `test_goat`'s `fetch_pnl` was refreshed from the new
-  block; `test_harvest` (pure metadata) was unchanged. (A third candidate,
-  `test_plutus`, was validated the same way at the midnight block but master
-  has since actively evolved that test — added deposit-manager assertions — so it
-  is left on its own fork here to avoid churn; it can be normalised later.)
-  The validation run also hit (and `@flaky`-retried) a transient RPC timeout,
-  confirming these tests genuinely need their retry decorator (Lever 4).
+  **Measured locally** (anvil 1.7.1, real Arbitrum archive): a serial run launches
+  **one** Anvil for the group (vs one per file); tests co-locate on one worker
+  under `-n2 --dist loadgroup`. Of the migrated set, 9 passed at the midnight
+  block **with no assert changes** (metadata/tolerant asserts); `test_goat`'s
+  exact `fetch_pnl` was refreshed from the new block. The runs also hit (and
+  `@flaky`-retried) transient RPC timeouts, confirming these tests genuinely need
+  their retry decorator (Lever 4).
+
+  **Not normalised** (kept on their own forks): `test_silo` (its
+  `utilisation <= 1.0` invariant no longer holds at the later block — the vault is
+  over-utilised there), `test_plutus` (master actively evolved it with
+  deposit-manager assertions), and `test_d2` (epoch/phase-dependent). This is the
+  expected per-vault-validation caveat: not every test can be normalised.
+
+  To stop the isolated vault workflow rate-limiting the archive provider,
+  `test-vault-protocol.yml` caps pytest workers (`-n ${MAX_WORKERS:-4}`) instead
+  of `-n auto`; the shared-fork pool further cuts the total fork count.
 
   Being read-only, this PoC validates fork-sharing + xdist co-location but does
   **not** exercise the snapshot/revert-under-xdist hang risk. Converting any

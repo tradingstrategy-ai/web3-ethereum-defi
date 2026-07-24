@@ -137,8 +137,15 @@ jobs:
           version: "v1.2.3"
 
       - name: Run vault protocol tests
+        # Cap parallelism: running the whole group with -n auto spins up ~90
+        # Anvil forks at once and rate-limits the upstream archive provider
+        # (observed ReadTimeouts / "out of API credits"). A modest worker count
+        # bounds concurrent forks; the shared-fork pool (xdist_group tests) also
+        # reduces the total fork count. Override with MAX_WORKERS to tune.
         run: |
-          poetry run pytest tests/erc_4626/vault_protocol/ --timeout-method=thread --tb=native -n auto --dist loadgroup -v -s --capture=no -m "not slow"
+          poetry run pytest tests/erc_4626/vault_protocol/ --timeout-method=thread --tb=native -n "${MAX_WORKERS:-4}" --dist loadgroup -v -s --capture=no -m "not slow"
+        env:
+          MAX_WORKERS: ${{ vars.VAULT_TEST_MAX_WORKERS || '4' }}
         env:
           JSON_RPC_ETHEREUM: ${{ secrets.JSON_RPC_ETHEREUM }}
           JSON_RPC_BASE: ${{ secrets.JSON_RPC_BASE }}
