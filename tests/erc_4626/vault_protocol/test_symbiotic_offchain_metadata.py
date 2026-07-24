@@ -3,12 +3,13 @@
 import base64
 import datetime
 import json
+from decimal import Decimal
 from pathlib import Path
 
 import pytest
 
 import eth_defi.erc_4626.vault_protocol.symbiotic.offchain_metadata as symbiotic_metadata
-from eth_defi.erc_4626.vault_protocol.symbiotic.offchain_metadata import fetch_symbiotic_vault_metadata
+from eth_defi.erc_4626.vault_protocol.symbiotic.offchain_metadata import fetch_symbiotic_offchain_vaults, fetch_symbiotic_vault_metadata
 
 SYMBIOTIC_VAULT_ADDRESS = "0x007e0b8e99c6134e81a1eaae754460e3202cb671"
 HTTP_CLIENT_ERROR_STATUS = 400
@@ -19,7 +20,7 @@ TEST_NOW = datetime.datetime(2026, 7, 24, tzinfo=datetime.UTC).replace(tzinfo=No
 class _FakeResponse:
     """Minimal successful GitHub contents API response."""
 
-    def __init__(self, payload: dict | None = None, status_code: int = 200) -> None:
+    def __init__(self, payload: object | None = None, status_code: int = 200) -> None:
         """Create an API response carrying JSON payload data.
 
         :param payload:
@@ -35,7 +36,7 @@ class _FakeResponse:
         if self.status_code >= HTTP_CLIENT_ERROR_STATUS:
             raise RuntimeError(f"HTTP {self.status_code}")
 
-    def json(self) -> dict:
+    def json(self) -> object:
         """Return the supplied JSON payload."""
         return self.payload
 
@@ -121,3 +122,46 @@ def test_fetch_symbiotic_vault_metadata_caches_missing_record(monkeypatch: pytes
     assert fetch_symbiotic_vault_metadata(SYMBIOTIC_VAULT_ADDRESS, cache_path=tmp_path, api_base_url="https://api.example/contents", now_=TEST_NOW) is None
     assert fetch_symbiotic_vault_metadata(SYMBIOTIC_VAULT_ADDRESS, cache_path=tmp_path, api_base_url="https://api.example/contents", now_=TEST_NOW) is None
     assert calls == 1
+
+
+def test_fetch_symbiotic_offchain_vaults_joins_curator_names_and_filters_v2(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Join the public application API's vault TVL and curator display name."""
+
+    def fake_get(url: str, **_kwargs) -> _FakeResponse:
+        """Return a minimal application API vault and curator payload."""
+        if url.endswith("/vaults"):
+            return _FakeResponse(
+                [
+                    {
+                        "address": SYMBIOTIC_VAULT_ADDRESS,
+                        "type": "v2",
+                        "meta": {"name": "Keyrock Flagship USDC"},
+                        "curator": "keyrock",
+                        "tvl": 1540283.104830029,
+                    },
+                    {
+                        "address": "0x0000000000000000000000000000000000000001",
+                        "type": "v1",
+                        "meta": {"name": "Legacy vault"},
+                        "curator": "unknown-curator",
+                        "tvl": "12.5",
+                    },
+                ]
+            )
+        if url.endswith("/curators"):
+            return _FakeResponse([{"id": "keyrock", "meta": {"name": "Keyrock"}}])
+        raise AssertionError(f"Unexpected URL: {url}")
+
+    monkeypatch.setattr(symbiotic_metadata.requests, "get", fake_get)
+    vaults = list(fetch_symbiotic_offchain_vaults(api_base_url="https://api.example/v3"))
+
+    assert vaults == [
+        {
+            "address": SYMBIOTIC_VAULT_ADDRESS,
+            "name": "Keyrock Flagship USDC",
+            "chain_name": "Ethereum",
+            "curator_name": "Keyrock",
+            "tvl": Decimal("1540283.104830029"),
+            "vault_type": "v2",
+        }
+    ]

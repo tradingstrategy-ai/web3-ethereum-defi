@@ -14,11 +14,14 @@ import binascii
 import datetime
 import json
 import logging
+from collections.abc import Iterator
+from decimal import Decimal, InvalidOperation
 from json import JSONDecodeError
 from pathlib import Path
-from typing import TypedDict
+from typing import TypedDict, cast
 
 import requests
+from eth_typing import HexAddress
 from web3 import Web3
 
 from eth_defi.compat import native_datetime_utc_fromtimestamp, native_datetime_utc_now
@@ -32,6 +35,12 @@ DEFAULT_CACHE_PATH = DEFAULT_CACHE_ROOT / "symbiotic"
 
 #: Official GitHub contents API for the metadata repository used by Symbiotic's app.
 DEFAULT_API_BASE_URL = "https://api.github.com/repos/symbioticfi/metadata-mainnet/contents"
+
+#: Symbiotic application's public mainnet data API.
+DEFAULT_APP_API_BASE_URL = "https://app.symbiotic.fi/api/v3"
+
+#: Chain represented by the public application API.
+DEFAULT_APP_CHAIN_NAME = "Ethereum"
 
 #: How long to reuse an official metadata response before refresh.
 DEFAULT_CACHE_DURATION = datetime.timedelta(days=2)
@@ -79,6 +88,28 @@ class SymbioticVaultMetadata(TypedDict):
 
     #: Curator user-facing links, when its metadata record exists.
     curator_links: list[SymbioticMetadataLink]
+
+
+class SymbioticOffchainVault(TypedDict):
+    """A vault record from Symbiotic's public application data API."""
+
+    #: ERC-4626 vault address.
+    address: HexAddress
+
+    #: User-facing vault name, if the curator has submitted it.
+    name: str | None
+
+    #: Human-readable chain name for the application API deployment.
+    chain_name: str
+
+    #: Curator display name, or its identifier if no display name is available.
+    curator_name: str | None
+
+    #: Current USD total value locked as calculated by Symbiotic's API.
+    tvl: Decimal | None
+
+    #: Symbiotic vault implementation category, such as ``v2``.
+    vault_type: str
 
 
 def _fetch_metadata_file(path: str, api_base_url: str) -> dict | None:
@@ -230,3 +261,100 @@ def fetch_symbiotic_vault_metadata(
         with cache_file.open("wt", encoding="utf-8") as output_file:
             json.dump({"metadata": metadata}, output_file, indent=2)
         return metadata
+
+
+def _fetch_application_data(path: str, api_base_url: str) -> object:
+    """Fetch one unmodified payload from Symbiotic's public application API.
+
+    :param path:
+        Endpoint path below the versioned API base URL.
+    :param api_base_url:
+        Symbiotic application API base URL, overridable for tests.
+    :return:
+        Decoded JSON payload.
+    """
+    response = requests.get(f"{api_base_url}/{path}", timeout=30)
+    response.raise_for_status()
+    return response.json()
+
+
+def _parse_curator_names(raw_curators: object) -> dict[str, str]:
+    """Extract curator display names from an application API response.
+
+    :param raw_curators:
+        Decoded ``curators`` response from the public API.
+    :return:
+        Mapping from curator identifiers to display names.
+    """
+    if not isinstance(raw_curators, list):
+        raise ValueError(f"Expected a list of Symbiotic curators, got {type(raw_curators).__name__}")
+
+    curator_names: dict[str, str] = {}
+    for raw_curator in raw_curators:
+        if not isinstance(raw_curator, dict):
+            continue
+        curator_id = raw_curator.get("id")
+        raw_meta = raw_curator.get("meta")
+        name = raw_meta.get("name") if isinstance(raw_meta, dict) else None
+        if isinstance(curator_id, str) and isinstance(name, str):
+            curator_names[curator_id] = name
+    return curator_names
+
+
+def fetch_symbiotic_offchain_vaults(
+    *,
+    api_base_url: str = DEFAULT_APP_API_BASE_URL,
+    chain_name: str = DEFAULT_APP_CHAIN_NAME,
+    vault_type: str | None = "v2",
+) -> Iterator[SymbioticOffchainVault]:
+    """Yield vault rows from Symbiotic's public application data API.
+
+    The application API currently serves Ethereum mainnet. It publishes its
+    USD TVL calculation and joins curator display names in a separate
+    ``curators`` response, so this function retrieves both small payloads and
+    yields a normalised reporting record for each vault.
+
+    :param api_base_url:
+        Symbiotic application API base URL, overridable for testing.
+    :param chain_name:
+        Human-readable name for the chain served by ``api_base_url``.
+    :param vault_type:
+        Optional implementation category filter. The default ``"v2"`` limits
+        results to vaults that this integration can index; use ``None`` to
+        yield every API vault type.
+    :return:
+        Iterator yielding normalised offchain vault records.
+    """
+    raw_vaults = _fetch_application_data("vaults", api_base_url)
+    curator_names = _parse_curator_names(_fetch_application_data("curators", api_base_url))
+    if not isinstance(raw_vaults, list):
+        raise ValueError(f"Expected a list of Symbiotic vaults, got {type(raw_vaults).__name__}")
+
+    for raw_vault in raw_vaults:
+        if not isinstance(raw_vault, dict):
+            continue
+        raw_type = raw_vault.get("type")
+        address = raw_vault.get("address")
+        if not isinstance(raw_type, str) or not isinstance(address, str):
+            continue
+        if vault_type is not None and raw_type != vault_type:
+            continue
+
+        raw_meta = raw_vault.get("meta")
+        name = raw_meta.get("name") if isinstance(raw_meta, dict) else None
+        curator_id = raw_vault.get("curator")
+        raw_tvl = raw_vault.get("tvl")
+        try:
+            tvl = Decimal(str(raw_tvl)) if raw_tvl is not None else None
+        except InvalidOperation:
+            logger.warning("Ignoring invalid Symbiotic TVL %r for vault %s", raw_tvl, address)
+            tvl = None
+
+        yield SymbioticOffchainVault(
+            address=cast(HexAddress, address),
+            name=name if isinstance(name, str) else None,
+            chain_name=chain_name,
+            curator_name=curator_names.get(curator_id, curator_id) if isinstance(curator_id, str) else None,
+            tvl=tvl,
+            vault_type=raw_type,
+        )
