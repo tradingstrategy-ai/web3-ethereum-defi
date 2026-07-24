@@ -263,6 +263,9 @@ VAULT_PROTOCOL_FEE_MATRIX = {
     # separate 0.5% withdrawal fee is still exposed through FeeData.withdraw and
     # preserved by FeeData.get_net_fees().
     "Atoma": VaultFeeMode.internalised_minting,
+    # Symbiotic V2 management and performance fees are collected by minting
+    # shares to their configured receivers.
+    "Symbiotic": VaultFeeMode.internalised_minting,
 }
 
 
