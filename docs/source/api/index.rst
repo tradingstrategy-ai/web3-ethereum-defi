@@ -20,6 +20,7 @@ See :ref:`tutorials <tutorials>` for guides and examples on how to use the libra
    uniswap_v3/index
    aave_v2/index
    aave_v3/index
+   upshift/index
    cowswap/index
    velora/index
    lifi/index

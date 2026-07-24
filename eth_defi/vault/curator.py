@@ -328,6 +328,7 @@ PROTOCOL_MANAGER_YAML_FIELDS: dict[str, str] = {
     "euler": "euler-entity",
     "morpho": "morpho-curator",
     "lagoon-finance": "lagoon-curator",
+    "upshift": "upshift-strategist",
     "t3tris": "t3tris-curator",
     "asseto": "asseto-role",
     "accountable": "accountable-company",
@@ -471,8 +472,8 @@ class CuratorInfo(TypedDict):
     #: Exact protocol manager names keyed by protocol slug.
     #:
     #: These values are sourced from protocol-specific YAML fields such as
-    #: ``euler-entity`` and ``lagoon-curator``.
-    protocol_manager_names: dict[str, str]
+    #: ``euler-entity``, ``lagoon-curator`` and ``upshift-strategist``.
+    protocol_manager_names: dict[str, str | tuple[str, ...]]
 
 
 class CuratorLogos(TypedDict):
@@ -562,7 +563,16 @@ def _load_curator_yaml(yaml_path: Path) -> CuratorInfo:
         Path to a curator YAML file.
     """
     parsed = load_feeder_metadata(yaml_path)
-    protocol_manager_names = {protocol_slug: parsed[yaml_key] for protocol_slug, yaml_key in PROTOCOL_MANAGER_YAML_FIELDS.items() if parsed.get(yaml_key)}
+    protocol_manager_names: dict[str, str | tuple[str, ...]] = {}
+    for protocol_slug, yaml_key in PROTOCOL_MANAGER_YAML_FIELDS.items():
+        raw_names = parsed.get(yaml_key)
+        if not raw_names:
+            continue
+
+        if isinstance(raw_names, str):
+            protocol_manager_names[protocol_slug] = raw_names
+        else:
+            protocol_manager_names[protocol_slug] = tuple(raw_names)
 
     return CuratorInfo(
         slug=parsed["feeder-id"],
@@ -599,11 +609,13 @@ def load_curator_map() -> dict[str, CuratorInfo]:
     protocol_manager_values: dict[tuple[str, str], str] = {}
     for yaml_path in sorted(CURATORS_DATA_DIR.glob("*.yaml")):
         info = _load_curator_yaml(yaml_path)
-        for protocol_slug, manager_name in info["protocol_manager_names"].items():
-            key = (protocol_slug, manager_name.strip().casefold())
-            if existing_slug := protocol_manager_values.get(key):
-                raise ValueError(f"Duplicate {protocol_slug} manager metadata {manager_name!r} in curator YAML files: {existing_slug} and {info['slug']}")
-            protocol_manager_values[key] = info["slug"]
+        for protocol_slug, raw_manager_names in info["protocol_manager_names"].items():
+            manager_names = (raw_manager_names,) if isinstance(raw_manager_names, str) else raw_manager_names
+            for manager_name in manager_names:
+                key = (protocol_slug, manager_name.strip().casefold())
+                if existing_slug := protocol_manager_values.get(key):
+                    raise ValueError(f"Duplicate {protocol_slug} manager metadata {manager_name!r} in curator YAML files: {existing_slug} and {info['slug']}")
+                protocol_manager_values[key] = info["slug"]
         result[info["slug"]] = info
 
     _cached_curator_map = result
@@ -669,11 +681,17 @@ def _identify_curator_by_protocol_manager_name(protocol_slug: str, manager_name:
     if not manager_name:
         return None
 
-    manager_name_lower = manager_name.casefold()
-    for slug, info in load_curator_map().items():
-        value = info["protocol_manager_names"].get(protocol_slug)
-        if value is not None and value.strip().casefold() == manager_name_lower:
-            return slug
+    manager_names = (manager_name,)
+    if protocol_slug == "upshift":
+        manager_names = tuple(name.strip() for name in manager_name.split(",") if name.strip())
+
+    for manager_name in manager_names:
+        manager_name_lower = manager_name.casefold()
+        for slug, info in load_curator_map().items():
+            raw_values = info["protocol_manager_names"].get(protocol_slug, ())
+            values = (raw_values,) if isinstance(raw_values, str) else raw_values
+            if any(value.casefold() == manager_name_lower for value in values):
+                return slug
     return None
 
 

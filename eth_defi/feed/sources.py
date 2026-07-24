@@ -37,7 +37,7 @@ KNOWN_FEEDER_ROLES = {
 
 _SLUG_RE = re.compile(r"^[a-z0-9][a-z0-9-]*$")
 _VALID_SOURCE_TYPES = {"rss", "twitter", "linkedin"}
-_MANAGER_METADATA_KEYS = ("ipor-atomist", "euler-entity", "morpho-curator", "lagoon-curator", "t3tris-curator", "asseto-role", "accountable-company")
+_MANAGER_METADATA_KEYS = ("ipor-atomist", "euler-entity", "morpho-curator", "lagoon-curator", "t3tris-curator", "asseto-role", "accountable-company", "upshift-strategist")
 
 _MAPPING_SCHEMA = Map(
     {
@@ -52,6 +52,7 @@ _MAPPING_SCHEMA = Map(
         Optional("t3tris-curator"): Str(),
         Optional("asseto-role"): Str(),
         Optional("accountable-company"): Str(),
+        Optional("upshift-strategist"): Seq(Str()),
         Optional("website"): Str(),
         Optional("curatorwatch"): Str(),
         Optional("short_description"): Str(),
@@ -267,6 +268,19 @@ def _normalise_mapping_metadata(parsed: dict, mapping_file: Path) -> None:
     for key in _MANAGER_METADATA_KEYS:
         value = parsed.get(key)
         if value is not None:
+            if key == "upshift-strategist":
+                if not isinstance(value, list) or not value:
+                    raise ValueError(f"{key} must be a non-empty list of strings in {mapping_file}")
+
+                normalised_values: list[str] = []
+                for strategist_name in value:
+                    if not isinstance(strategist_name, str) or not strategist_name.strip():
+                        raise ValueError(f"{key} must contain non-empty strings in {mapping_file}")
+                    normalised_values.append(strategist_name.strip())
+
+                parsed[key] = normalised_values
+                continue
+
             value = value.strip()
             if not value:
                 raise ValueError(f"{key} must be a non-empty string in {mapping_file}")

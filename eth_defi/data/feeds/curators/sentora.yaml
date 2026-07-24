@@ -1,6 +1,8 @@
 feeder-id: sentora
 name: Sentora
 role: curator
+upshift-strategist:
+  - Sentora
 website: https://sentora.com
 short_description: 'Sentora is an institutional DeFi platform for capital deployment, risk management, strategy design, and cover.'
 long_description: |

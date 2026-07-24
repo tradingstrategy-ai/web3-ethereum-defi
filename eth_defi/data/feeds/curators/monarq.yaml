@@ -1,0 +1,18 @@
+feeder-id: monarq
+name: Monarq Asset Management
+role: curator
+upshift-strategist:
+  - Monarq
+  - MNNC Group
+website: https://www.monarq-am.com/
+twitter: Monarq_mgmt
+linkedin: monarq-asset-mgmt
+short_description: Monarq Asset Management is a quantitative multi-strategy digital-asset investment firm.
+long_description: |
+  Monarq Asset Management is a quantitative, multi-strategy digital-asset investment firm that uses systematic research, data and trading infrastructure to seek risk-adjusted returns. The firm was formerly known as MNNC Group, which is retained as an Upshift strategist alias for historical vault metadata.
+  Upshift lists Monarq as the strategist for the Monarq XRP Yield Vault on Flare, and its official launch materials identify Monarq Asset Management as the curator of that vault.
+other-links:
+  - title: Upshift - Monarq XRP Yield Vault
+    url: https://app.upshift.finance/pools/14/0x2439D4bb753A0f3777d4C9011AFacc475ba6B951
+  - title: Flare - Monarq, Flare and Upshift XRP vault launch
+    url: https://flare.network/de/news/monarq-flare-and-upshift-launch-mxrpy-a-multi-strategy-xrp-yield-vault-on-flare

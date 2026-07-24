@@ -1,0 +1,15 @@
+feeder-id: gamma-research
+name: Gamma Research
+role: curator
+upshift-strategist:
+  - Gamma Research
+website: https://gammaresearch.xyz
+twitter: Gamma_Research_
+linkedin: gamma-res
+short_description: Gamma Research provides risk management and strategy curation for DeFi and CeFi vaults.
+long_description: |
+  Gamma Research describes its work as risk management and strategy curation for DeFi and CeFi vaults, with quantitative strategies across several blockchain ecosystems.
+  Upshift names Gamma Research as the strategist for its Gamma vaults, including its Ethereum USDC vault, which uses market-neutral and cross-chain strategies intended to prioritise capital protection and risk-adjusted yield.
+other-links:
+  - title: Upshift - Gamma USDC Vault
+    url: https://app.upshift.finance/pools/1/0x998D7b14c123c1982404562b68edDB057b0477cB

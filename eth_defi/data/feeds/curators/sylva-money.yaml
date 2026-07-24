@@ -1,0 +1,15 @@
+feeder-id: sylva-money
+name: Sylva.money
+role: curator
+upshift-strategist:
+  - Sylva.money
+website: https://sylva.money/
+short_description: Sylva.money is the strategist label for Upshift's Ethereum concentrated-liquidity USDC vault.
+long_description: |
+  Upshift lists Sylva.money as the strategist for its Sylva Concentrated Liquidity vault on Ethereum. Upshift describes the strategy as concentrated liquidity hedged with options.
+  The public strategist label is mapped directly to this curator record because the Upshift API does not provide a separate curator identity.
+other-links:
+  - title: Upshift - Sylva Concentrated Liquidity vault
+    url: https://app.upshift.finance/pools/1/0xc428439fB7B1EFE56360Eb837Ca98F551fdD9B26
+  - title: Upshift - Sylva strategy description
+    url: https://www.linkedin.com/posts/upshiftfinance_institutions-will-pay-to-borrow-your-stablecoins-activity-7358783942340059137-_WFO

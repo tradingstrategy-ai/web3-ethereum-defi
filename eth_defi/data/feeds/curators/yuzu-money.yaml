@@ -14,6 +14,8 @@ name: Yuzu Money
 role: curator
 canonical-feeder-id: yuzu-money
 accountable-company: Yuzu Money
+upshift-strategist:
+  - Yuzu Money
 short_description: Yuzu Money offers managed investment products for people who hold digital assets.
 long_description: |
   Yuzu Money offers managed vaults and structured investment products for people who hold digital assets.

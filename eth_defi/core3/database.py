@@ -40,14 +40,51 @@ Example::
 import datetime
 import json
 import logging
+import os
+import tempfile
 import threading
 from pathlib import Path
 
+import duckdb
 import pandas as pd
 
 from eth_defi.compat import native_datetime_utc_now
 
 logger = logging.getLogger(__name__)
+
+
+#: DuckDB storage version for new Core3 databases.
+#:
+#: ``latest`` enables native Zstandard compression for ``VARCHAR`` columns.
+#: The resulting file requires its writer's DuckDB version or a newer version.
+CORE3_DUCKDB_STORAGE_COMPATIBILITY_VERSION = "latest"
+
+#: Core3 tables owned by :class:`Core3Database` and copied during migration.
+CORE3_DATABASE_TABLES = (
+    "project_snapshots",
+    "section_snapshots",
+    "pol_daily",
+    "pol_category_daily",
+    "sync_state",
+)
+
+#: Per-table storage inspection queries for compressed Core3 JSON payloads.
+CORE3_PAYLOAD_COMPRESSION_QUERIES = {
+    "project_snapshots": """
+        SELECT DISTINCT compression
+        FROM pragma_storage_info('project_snapshots')
+        WHERE column_name = 'payload'
+            AND segment_type = 'VARCHAR'
+            AND persistent
+    """,
+    "section_snapshots": """
+        SELECT DISTINCT compression
+        FROM pragma_storage_info('section_snapshots')
+        WHERE column_name = 'payload'
+            AND segment_type = 'VARCHAR'
+            AND persistent
+    """,
+}
 
 
 def _unix_ts_to_naive_utc(ts: int | float) -> datetime.datetime:
@@ -97,10 +134,14 @@ class Core3Database:
 
         path.parent.mkdir(parents=True, exist_ok=True)
 
-        import duckdb
-
         self.path = path
-        self.con = duckdb.connect(str(path))
+        if path.exists() and path.stat().st_size > 0:
+            self._migrate_to_latest_storage_format(path)
+
+        self.con = duckdb.connect(
+            str(path),
+            config={"storage_compatibility_version": CORE3_DUCKDB_STORAGE_COMPATIBILITY_VERSION},
+        )
         self._db_lock = threading.Lock()
 
         # Disable automatic WAL checkpoint (default 16 MiB).
@@ -111,15 +152,16 @@ class Core3Database:
         # See: https://github.com/duckdb/duckdb/issues/17006
         self.con.execute("SET wal_autocheckpoint = '1TB'")
 
-        self._init_schema()
+        self._init_schema(self.con)
 
     def __del__(self):
         if hasattr(self, "con") and self.con is not None:
             self.con.close()
             self.con = None
 
-    def _init_schema(self):
-        """Create all tables if they don't exist.
+    @staticmethod
+    def _init_schema(connection: duckdb.DuckDBPyConnection) -> None:
+        """Create the Core3 schema with compressed raw JSON payloads.
 
         No PRIMARY KEY or UNIQUE constraints are used because DuckDB 1.5.0's
         ART index (used for unique constraint enforcement) causes SIGSEGV
@@ -130,9 +172,12 @@ class Core3Database:
         instead of ``ON CONFLICT``.
 
         See `duckdb#17006 <https://github.com/duckdb/duckdb/issues/17006>`__.
+
+        :param connection:
+            DuckDB connection for either the live database or a migration target.
         """
 
-        self.con.execute("""
+        connection.execute("""
             CREATE TABLE IF NOT EXISTS project_snapshots (
                 slug VARCHAR NOT NULL,
                 fetched_at TIMESTAMP NOT NULL,
@@ -141,21 +186,21 @@ class Core3Database:
                 pol_score DOUBLE,
                 pol_rating VARCHAR,
                 market_cap_usd VARCHAR,
-                payload VARCHAR NOT NULL
+                payload VARCHAR USING COMPRESSION 'zstd' NOT NULL
             )
         """)
 
-        self.con.execute("""
+        connection.execute("""
             CREATE TABLE IF NOT EXISTS section_snapshots (
                 slug VARCHAR NOT NULL,
                 section VARCHAR NOT NULL,
                 fetched_at TIMESTAMP NOT NULL,
                 section_pol_score DOUBLE,
-                payload VARCHAR NOT NULL
+                payload VARCHAR USING COMPRESSION 'zstd' NOT NULL
             )
         """)
 
-        self.con.execute("""
+        connection.execute("""
             CREATE TABLE IF NOT EXISTS pol_daily (
                 slug VARCHAR NOT NULL,
                 ts TIMESTAMP NOT NULL,
@@ -164,7 +209,7 @@ class Core3Database:
             )
         """)
 
-        self.con.execute("""
+        connection.execute("""
             CREATE TABLE IF NOT EXISTS pol_category_daily (
                 slug VARCHAR NOT NULL,
                 ts TIMESTAMP NOT NULL,
@@ -177,7 +222,7 @@ class Core3Database:
             )
         """)
 
-        self.con.execute("""
+        connection.execute("""
             CREATE TABLE IF NOT EXISTS sync_state (
                 slug VARCHAR NOT NULL,
                 data_type VARCHAR NOT NULL,
@@ -186,6 +231,189 @@ class Core3Database:
                 last_synced TIMESTAMP NOT NULL
             )
         """)
+
+    @staticmethod
+    def _fetch_storage_version(path: Path) -> str:
+        """Read the DuckDB storage format used by a database file.
+
+        DuckDB exposes the format through the ``storage_version`` database tag.
+        The tag is more reliable than the running DuckDB version because old
+        database files remain readable after the Python package is upgraded.
+
+        :param path:
+            Existing DuckDB database file to inspect.
+        :return:
+            Storage format tag, such as ``v1.0.0+``.
+        """
+        connection = duckdb.connect(str(path), read_only=True)
+        try:
+            tags = connection.execute("SELECT tags FROM duckdb_databases() WHERE database_name = current_database()").fetchone()[0]
+        finally:
+            connection.close()
+
+        return tags["storage_version"]
+
+    @staticmethod
+    def _uses_latest_storage_format(storage_version: str) -> bool:
+        """Check whether a database uses this DuckDB version's latest format.
+
+        DuckDB releases intentionally retain an old default format for forward
+        compatibility. Comparing the recorded storage tag makes a newer
+        package upgrade trigger exactly one Core3 migration.
+
+        :param storage_version:
+            Database ``storage_version`` tag returned by DuckDB.
+        :return:
+            ``True`` when the file already uses the installed format.
+        """
+        major, minor, _patch = duckdb.__version__.split(".", maxsplit=2)
+        return storage_version == f"v{major}.{minor}.0+"
+
+    @classmethod
+    def _migrate_to_latest_storage_format(cls, path: Path) -> None:
+        """Rebuild a legacy Core3 database in the latest DuckDB format.
+
+        The migration writes a sibling database with Zstandard-compressed JSON
+        columns, checks every Core3 table row count and then atomically replaces
+        the original file. The original remains untouched until the target has
+        been checkpointed and verified.
+
+        :param path:
+            Existing Core3 DuckDB database file to migrate.
+        :return:
+            ``None``. The migrated database replaces ``path`` on success.
+        """
+        storage_version = cls._fetch_storage_version(path)
+        if cls._uses_latest_storage_format(storage_version):
+            return
+
+        # Replay any recovery WAL before attaching the source read-only. This
+        # guarantees that the replacement cannot leave an old sidecar WAL next
+        # to the newly migrated main database file.
+        source_connection = duckdb.connect(str(path))
+        try:
+            source_connection.execute("CHECKPOINT")
+        finally:
+            source_connection.close()
+
+        logger.info(
+            "Migrating Core3 database at %s from DuckDB storage format %s to %s",
+            path,
+            storage_version,
+            CORE3_DUCKDB_STORAGE_COMPATIBILITY_VERSION,
+        )
+
+        file_descriptor, migration_path_str = tempfile.mkstemp(
+            dir=path.parent,
+            prefix=f".{path.name}.migration-",
+            suffix=".duckdb",
+        )
+        os.close(file_descriptor)
+        migration_path = Path(migration_path_str)
+        migration_path.unlink()
+        replaced = False
+
+        try:
+            migration = duckdb.connect(
+                str(migration_path),
+                config={"storage_compatibility_version": CORE3_DUCKDB_STORAGE_COMPATIBILITY_VERSION},
+            )
+            try:
+                quoted_path = str(path).replace("'", "''")
+                migration.execute(f"ATTACH '{quoted_path}' AS source (READ_ONLY)")
+                cls._init_schema(migration)
+
+                source_tables = {
+                    row[0]
+                    for row in migration.execute(
+                        """
+                        SELECT table_name
+                        FROM information_schema.tables
+                        WHERE table_catalog = 'source'
+                            AND table_schema = 'main'
+                        """
+                    ).fetchall()
+                }
+                for table_name in CORE3_DATABASE_TABLES:
+                    if table_name in source_tables:
+                        # Table names are fixed module constants, not user input.
+                        migration.execute(f"INSERT INTO {table_name} SELECT * FROM source.{table_name}")  # noqa: S608
+
+                cls._validate_migration(migration, source_tables)
+                migration.execute("CHECKPOINT")
+            finally:
+                migration.close()
+
+            cls._validate_migrated_file(migration_path, source_tables)
+            os.replace(migration_path, path)
+            replaced = True
+        finally:
+            if not replaced and migration_path.exists():
+                migration_path.unlink()
+
+        logger.info("Completed Core3 database migration at %s", path)
+
+    @staticmethod
+    def _validate_migration(connection: duckdb.DuckDBPyConnection, source_tables: set[str]) -> None:
+        """Check that an attached source database was copied without data loss.
+
+        Validating before replacing the source protects the on-disk historical
+        risk database from a schema or copy regression. Only known Core3 tables
+        are compared because this handler owns their schema.
+
+        :param connection:
+            Migration connection with the original database attached as ``source``.
+        :param source_tables:
+            Tables present in the source database's main schema.
+        :return:
+            ``None``. Raises :class:`RuntimeError` if validation fails.
+        """
+        for table_name in CORE3_DATABASE_TABLES:
+            if table_name not in source_tables:
+                continue
+
+            # Table names are fixed module constants, not user input.
+            source_count = connection.execute(f"SELECT COUNT(*) FROM source.{table_name}").fetchone()[0]  # noqa: S608
+            migrated_count = connection.execute(f"SELECT COUNT(*) FROM {table_name}").fetchone()[0]  # noqa: S608
+            if source_count != migrated_count:
+                raise RuntimeError(f"Core3 database migration copied {migrated_count} rows for {table_name}, expected {source_count}")
+
+    @classmethod
+    def _validate_migrated_file(cls, path: Path, source_tables: set[str]) -> None:
+        """Verify the checkpointed migration target and its Zstd payload columns.
+
+        DuckDB must be able to reopen the replacement file before the atomic
+        swap. Non-empty payload tables must additionally report ``ZSTD`` in
+        ``pragma_storage_info`` so a future schema change cannot silently lose
+        the intended disk saving.
+
+        :param path:
+            Checkpointed migration target to reopen read-only.
+        :param source_tables:
+            Tables present in the original Core3 database.
+        :return:
+            ``None``. Raises :class:`RuntimeError` if compression is absent.
+        """
+        connection = duckdb.connect(str(path), read_only=True)
+        try:
+            storage_version = connection.execute("SELECT tags['storage_version'] FROM duckdb_databases() WHERE database_name = current_database()").fetchone()[0]
+            if not cls._uses_latest_storage_format(storage_version):
+                raise RuntimeError(f"Core3 database migration wrote unexpected storage format {storage_version}")
+
+            for table_name in ("project_snapshots", "section_snapshots"):
+                if table_name not in source_tables:
+                    continue
+
+                # Table names are fixed module constants, not user input.
+                row_count = connection.execute(f"SELECT COUNT(*) FROM {table_name}").fetchone()[0]  # noqa: S608
+                if row_count == 0:
+                    continue
+
+                compressions = {row[0] for row in connection.execute(CORE3_PAYLOAD_COMPRESSION_QUERIES[table_name]).fetchall()}
+                if compressions != {"ZSTD"}:
+                    raise RuntimeError(f"Core3 database migration did not Zstd-compress {table_name}.payload: {compressions}")
+        finally:
+            connection.close()
 
     def close(self):
         """Close the database connection.
