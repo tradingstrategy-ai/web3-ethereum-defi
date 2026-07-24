@@ -53,6 +53,24 @@ def test_pokt_network_broken():
     assert is_retryable_http_exception(exc)
 
 
+def test_missing_trie_node_is_retryable():
+    """Treat missing archive state as a provider failover condition.
+
+    Geth returns the generic ``-32000`` code for both genuine execution errors
+    and missing archive state, so the message must drive this classification.
+
+    :return:
+        None.
+    """
+    exc = ValueError(
+        {
+            "message": "missing trie node a3913821 (path) state is not available",
+            "code": -32000,
+        }
+    )
+    assert is_retryable_http_exception(exc)
+
+
 def test_web3_rpc_error_retryable():
     """Check Web3RPCError uses JSON-RPC codes for retry decisions."""
     exc = Web3RPCError(
