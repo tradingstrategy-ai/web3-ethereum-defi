@@ -116,13 +116,13 @@ class ApexReaderConfig:
     #: Socket inactivity timeout in seconds.
     read_timeout: float
 
-    #: Per-request total deadline in seconds.
+    #: Per-request monotonic operation budget in seconds.
     request_deadline: float
 
-    #: Whole-ranking operation deadline in seconds.
+    #: Whole-ranking monotonic operation budget in seconds.
     ranking_deadline: float
 
-    #: Per-vault history operation deadline in seconds.
+    #: Per-vault history monotonic operation budget in seconds.
     history_deadline: float
 
     #: Maximum retry sleep in seconds.

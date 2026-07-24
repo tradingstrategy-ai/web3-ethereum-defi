@@ -219,14 +219,22 @@ Every worker owns a private `requests.Session`; sessions share one process-wide
 rate limiter. Network reads have:
 
 - finite connect and inactivity timeouts;
-- per-request and enclosing operation deadlines;
+- monotonic request and enclosing operation budgets checked between phases and
+  streamed chunks;
 - explicit bounded retries with capped `Retry-After`;
 - a maximum streamed JSON response size; and
 - response closure on success and failure.
 
+The synchronous `requests` read timeout is an inactivity timeout, not a hard
+wall-clock deadline. A server that continuously drips bytes without completing
+a streamed chunk can delay budget detection until the socket read yields; the
+finite inactivity timeout remains the outer bound for a stalled read.
+
 History worker sessions are closed after every scan cycle. The calling thread's
 ranking session is retained until command shutdown so loop mode does not
-accumulate connection pools from completed joblib workers.
+accumulate connection pools from completed joblib workers. A session pool
+allows only one active scan, and exceptional joblib completion waits for
+sibling history workers to leave their scopes before their sessions are closed.
 
 Ranking failures abort before any database mutation. Per-vault history failures
 are recorded independently and remain retryable without erasing other vaults.

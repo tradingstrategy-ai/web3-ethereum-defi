@@ -274,3 +274,15 @@ def test_worker_sessions_are_closed_after_repeated_cycles() -> None:
     finally:
         pool.close()
     assert main_session.closed
+
+
+def test_scan_scope_rejects_concurrent_scan_and_close() -> None:
+    """Prevent another scan or shutdown from racing active session cleanup."""
+    pool = _pool(_Session([]))
+    with pool.scan_scope():
+        with pytest.raises(RuntimeError, match="active scan"):
+            with pool.scan_scope():
+                pass
+        with pytest.raises(RuntimeError, match="during an active scan"):
+            pool.close()
+    pool.close()

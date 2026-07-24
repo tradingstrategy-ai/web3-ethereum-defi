@@ -30,13 +30,13 @@ APEX_DEFAULT_CONNECT_TIMEOUT: float = 10.0
 #: Default socket inactivity timeout.
 APEX_DEFAULT_READ_TIMEOUT: float = 30.0
 
-#: Maximum duration of one HTTP request attempt.
+#: Monotonic request-attempt budget used to clamp blocking phases.
 APEX_DEFAULT_REQUEST_DEADLINE: float = 60.0
 
-#: Maximum duration of the complete two-pass ranking read.
+#: Monotonic budget shared by the complete two-pass ranking read.
 APEX_DEFAULT_RANKING_DEADLINE: float = 300.0
 
-#: Maximum duration of one vault's complete history operation.
+#: Monotonic budget shared by one vault's history operation.
 APEX_DEFAULT_HISTORY_DEADLINE: float = 120.0
 
 #: Maximum retry sleep.

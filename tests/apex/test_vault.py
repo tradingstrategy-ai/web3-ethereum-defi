@@ -73,6 +73,22 @@ def test_parse_ranking_page_accepts_integer_vault_id() -> None:
     assert parse_ranking_page(payload).vaults[0].vault_id == "1001"
 
 
+@pytest.mark.parametrize(
+    ("field", "value", "message"),
+    (
+        ("vaultNetValue", True, "not numeric"),
+        ("createdTime", True, "integer millisecond"),
+        ("createdTime", 1753228800000.5, "integer millisecond"),
+    ),
+)
+def test_parse_ranking_page_rejects_malformed_scalar_values(field: str, value: object, message: str) -> None:
+    """Reject booleans and fractional timestamps instead of coercing them."""
+    payload = _fixture("ranking-page.json")
+    payload["data"]["vaultList"][0][field] = value
+    with pytest.raises(ApexAPIError, match=message):
+        parse_ranking_page(payload)
+
+
 def test_parse_history_orders_and_derives_supply() -> None:
     """Order exact source timestamps and derive valid share supply."""
     points = parse_history(_fixture("history.json"))

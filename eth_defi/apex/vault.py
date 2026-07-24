@@ -39,6 +39,8 @@ def _parse_float(value: object, field_name: str, *, required: bool = False) -> f
         if required:
             raise ApexAPIError(f"ApeX field {field_name} is required")
         return None
+    if isinstance(value, bool):
+        raise ApexAPIError(f"ApeX field {field_name} is not numeric: {value!r}")
     try:
         parsed = float(value)
     except (TypeError, ValueError) as exc:
@@ -52,6 +54,8 @@ def _parse_millisecond_timestamp(value: object, field_name: str, *, zero_is_none
     """Convert one millisecond unix timestamp to naive UTC."""
     if value is None or value == "":
         return None
+    if isinstance(value, bool) or (isinstance(value, float) and not value.is_integer()):
+        raise ApexAPIError(f"ApeX field {field_name} is not an integer millisecond timestamp: {value!r}")
     try:
         milliseconds = int(value)
     except (TypeError, ValueError) as exc:
@@ -147,7 +151,11 @@ class ApexHistoryPoint:
 
     @property
     def total_supply(self) -> float | None:
-        """Derive total share supply when division is valid."""
+        """Derive total share supply when division is valid.
+
+        :return:
+            Total value divided by positive NAV, otherwise ``None``.
+        """
         return self.total_value / self.net_value if self.net_value > 0 else None
 
 
@@ -275,7 +283,7 @@ def fetch_ranking_page(
     :param limit:
         Positive page size.
     :param operation_deadline:
-        Absolute monotonic deadline shared by the full ranking operation.
+        Monotonic budget boundary shared by the full ranking operation.
     :return:
         Validated typed ranking page.
     """
@@ -325,6 +333,17 @@ def fetch_stabilised_vaults(
 
     The second pass supplies the stored metric values after both passes report
     identical vault membership.
+
+    :param session_pool:
+        Configured bounded ApeX session pool.
+    :param limit:
+        Positive ranking page size.
+    :param operation_timeout:
+        Monotonic whole-read budget used across both passes and retries.
+    :param attempts:
+        Positive number of complete two-pass attempts.
+    :return:
+        Stabilised second-pass vault records.
     """
     if operation_timeout <= 0 or attempts <= 0:
         raise ValueError("ApeX ranking timeout and attempts must be positive")
@@ -357,6 +376,15 @@ def fetch_vault_history(
     The public endpoint exposes no pagination or completeness metadata. The
     returned timestamps are therefore the recoverable source range, not a claim
     of lifetime completeness.
+
+    :param session_pool:
+        Configured bounded ApeX session pool.
+    :param vault_id:
+        Non-empty ApeX platform vault ID.
+    :param operation_timeout:
+        Monotonic operation budget shared by all HTTP attempts.
+    :return:
+        Parsed history ordered by exact naive UTC source timestamp.
     """
     if not vault_id:
         raise ValueError("ApeX vault ID is required")

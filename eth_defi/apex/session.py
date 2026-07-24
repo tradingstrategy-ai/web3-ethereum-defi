@@ -1,7 +1,8 @@
 """Bounded HTTP session pool for the ApeX public API.
 
 Every worker receives a private :py:class:`requests.Session`, while all workers
-share one deadline-aware process limiter.
+share one budget-aware process limiter. Monotonic budgets clamp queueing,
+timeouts and retries, but the requests socket timeout remains inactivity-based.
 """
 
 # ruff: noqa: EM101
@@ -11,6 +12,8 @@ import logging
 import math
 import threading
 import time
+from collections.abc import Iterator
+from contextlib import contextmanager
 from dataclasses import dataclass
 from email.utils import parsedate_to_datetime
 from types import TracebackType
@@ -42,7 +45,7 @@ class ApexAPIError(RuntimeError):
 
 
 class ApexDeadlineExceededError(ApexAPIError):
-    """Raised when an HTTP operation exhausts its absolute deadline."""
+    """Raised when an HTTP operation detects exhausted monotonic budget."""
 
 
 class ApexResponseTooLargeError(ApexAPIError):
@@ -67,7 +70,7 @@ class ApexTimeoutPolicy:
     #: Socket inactivity timeout in seconds.
     read_timeout: float = APEX_DEFAULT_READ_TIMEOUT
 
-    #: Total deadline for one request attempt in seconds.
+    #: Monotonic budget for one request attempt in seconds.
     request_deadline: float = APEX_DEFAULT_REQUEST_DEADLINE
 
     #: Longest retry delay in seconds.
@@ -91,7 +94,7 @@ class ApexTimeoutPolicy:
 
 
 class _DeadlineRateLimiter:
-    """Simple thread-safe limiter whose queueing honours absolute deadlines."""
+    """Simple thread-safe limiter whose queueing honours operation budgets."""
 
     def __init__(
         self,
@@ -100,7 +103,7 @@ class _DeadlineRateLimiter:
         clock: Callable[[], float] = time.monotonic,
         sleeper: Callable[[float], None] = time.sleep,
     ) -> None:
-        """Initialise a deadline-aware shared request limiter.
+        """Initialise a budget-aware shared request limiter.
 
         The limiter spaces reservations across all worker-local sessions while
         clock and sleeper injection keep its behaviour deterministic in tests.
@@ -121,7 +124,16 @@ class _DeadlineRateLimiter:
         self._next_slot = 0.0
 
     def acquire(self, deadline: float) -> None:
-        """Reserve one request slot before an absolute deadline."""
+        """Reserve one rate-limited request slot.
+
+        Queueing consumes the supplied monotonic operation budget and fails
+        before sleeping when no request slot remains available.
+
+        :param deadline:
+            Monotonic operation-budget boundary.
+        :return:
+            None.
+        """
         with self._lock:
             now = self._clock()
             slot = max(now, self._next_slot)
@@ -187,6 +199,9 @@ class ApexSessionPool:
         self._local = threading.local()
         self._sessions: list[tuple[int, requests.Session]] = []
         self._sessions_lock = threading.Lock()
+        self._scan_lock = threading.Lock()
+        self._worker_condition = threading.Condition()
+        self._active_history_workers = 0
         self._closed = False
 
     def _create_session(self) -> requests.Session:
@@ -198,7 +213,14 @@ class ApexSessionPool:
         return session
 
     def get_session(self) -> requests.Session:
-        """Return the calling worker's private HTTP session."""
+        """Return the calling worker's private HTTP session.
+
+        Sessions are created once per live thread and registered for bounded
+        cleanup by the owning scan or command.
+
+        :return:
+            Worker-local configured requests session.
+        """
         with self._sessions_lock:
             if self._closed:
                 raise RuntimeError("ApeX session pool is closed")
@@ -216,7 +238,12 @@ class ApexSessionPool:
         worker-local sessions after the fetch phase prevents dead worker
         threads and their connection pools from accumulating during loop mode.
         The calling thread's ranking session remains available for reuse.
+
+        :return:
+            None.
         """
+        with self._worker_condition:
+            self._worker_condition.wait_for(lambda: self._active_history_workers == 0)
         current_thread_id = threading.get_ident()
         with self._sessions_lock:
             worker_sessions = tuple(session for thread_id, session in self._sessions if thread_id != current_thread_id)
@@ -224,8 +251,48 @@ class ApexSessionPool:
         for session in worker_sessions:
             session.close()
 
+    @contextmanager
+    def history_worker_scope(self) -> Iterator[None]:
+        """Track one active history worker through cleanup.
+
+        Joblib may surface one worker exception before sibling threads have
+        returned. The owning scan waits for all scopes to exit before closing
+        any worker-local session.
+
+        :return:
+            Context manager yielding while one history worker is active.
+        """
+        with self._worker_condition:
+            self._active_history_workers += 1
+        try:
+            yield
+        finally:
+            with self._worker_condition:
+                self._active_history_workers -= 1
+                self._worker_condition.notify_all()
+
+    @contextmanager
+    def scan_scope(self) -> Iterator[None]:
+        """Reserve this pool for one complete scan.
+
+        A pool may serve many sequential loop cycles, but concurrent scans
+        would make one caller unable to distinguish another caller's sessions
+        during worker cleanup. Fail fast instead of closing active sessions
+        owned by a different scan.
+
+        :return:
+            Context manager yielding while this pool has exclusive scan
+            ownership.
+        """
+        if not self._scan_lock.acquire(blocking=False):
+            raise RuntimeError("ApeX session pool already has an active scan")
+        try:
+            yield
+        finally:
+            self._scan_lock.release()
+
     def _retry_delay(self, attempt: int, retry_after: str | None, deadline: float) -> float:
-        """Calculate one capped deadline-aware retry delay.
+        """Calculate one capped budget-aware retry delay.
 
         Invalid HTTP-date or numeric ``Retry-After`` values are ignored in
         favour of exponential backoff.
@@ -261,10 +328,15 @@ class ApexSessionPool:
     def _read_json_response(self, response: requests.Response, request_deadline: float) -> object:
         """Read one streamed response within its size and time limits.
 
+        The monotonic budget is checked whenever ``iter_content`` yields.
+        Because requests exposes an inactivity timeout rather than a hard
+        wall-clock timeout, a slow-drip read can be detected later than the
+        nominal budget.
+
         :param response:
             Successful HTTP response.
         :param request_deadline:
-            Absolute request-attempt deadline.
+            Monotonic request-attempt budget boundary.
         :return:
             Decoded JSON value.
         """
@@ -307,7 +379,7 @@ class ApexSessionPool:
         :param params:
             Query parameters.
         :param request_deadline:
-            Absolute attempt deadline including limiter queueing.
+            Monotonic attempt-budget boundary including limiter queueing.
         :param validator:
             Endpoint-specific typed parser.
         :return:
@@ -340,16 +412,16 @@ class ApexSessionPool:
     ) -> ParsedResponse:
         """Fetch and validate one bounded JSON response.
 
-        All retry sleeps, limiter queueing and network reads consume the supplied
-        operation deadline. Endpoint-specific validation happens inside the
-        retry loop so malformed HTTP-200 envelopes are retried consistently.
+        Retry sleeps, limiter queueing and timeout arguments consume the
+        supplied operation budget. Endpoint-specific validation happens inside
+        the retry loop so malformed HTTP-200 envelopes are retried consistently.
 
         :param path:
             API path relative to :py:attr:`api_url`.
         :param params:
             Query parameters.
         :param operation_deadline:
-            Absolute :func:`time.monotonic` deadline shared by the enclosing
+            :func:`time.monotonic` budget boundary shared by the enclosing
             ranking or vault-history operation.
         :param validator:
             Endpoint parser returning the typed response.
@@ -385,13 +457,25 @@ class ApexSessionPool:
         raise ApexAPIError(f"ApeX request failed: {last_error}") from last_error
 
     def close(self) -> None:
-        """Close every worker-local session created by this pool."""
-        with self._sessions_lock:
-            sessions = tuple(session for _, session in self._sessions)
-            self._sessions.clear()
-            self._closed = True
-        for session in sessions:
-            session.close()
+        """Close every worker-local session created by this pool.
+
+        Closing an active scan would race with in-flight network work, so the
+        operation fails fast until the scan scope has ended.
+
+        :return:
+            None.
+        """
+        if not self._scan_lock.acquire(blocking=False):
+            raise RuntimeError("Cannot close ApeX session pool during an active scan")
+        try:
+            with self._sessions_lock:
+                sessions = tuple(session for _, session in self._sessions)
+                self._sessions.clear()
+                self._closed = True
+            for session in sessions:
+                session.close()
+        finally:
+            self._scan_lock.release()
 
     def __enter__(self) -> "ApexSessionPool":
         """Return this open pool for context-manager use."""

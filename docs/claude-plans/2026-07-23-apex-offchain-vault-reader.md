@@ -125,18 +125,20 @@ Create ``eth_defi/apex/`` with these public modules:
 - ``session.py``: ``create_apex_session_pool(requests_per_second,
   pool_maxsize, timeout_policy)`` as the sole owner of retry, connection-pool,
   timeout and process-wide rate-limit configuration. Its JSON wrapper streams
-  bounded chunks, checks a monotonic total deadline, rejects responses over the
+  bounded chunks, checks a monotonic operation budget, rejects responses over the
   configured byte limit and always passes the finite connect/read timeout to
   ``requests``. Disable adapter-managed retries and perform explicit
-  deadline-aware retry handling in the wrapper. Limiter acquisition consumes
+  budget-aware retry handling in the wrapper. Limiter acquisition consumes
   the same operation budget, and every connect/read timeout, backoff and
   ``Retry-After`` delay is clamped to both the configured maximum and the
-  remaining absolute deadline. Close the response on deadline, size, parse or
+  remaining budget. Close the response on budget exhaustion, size, parse or
   envelope failure. Give each worker its own configured ``requests.Session``
   while every session shares the same limiter; never mutate a session after
   construction or share it between worker threads. Close all history-worker
   sessions after each completed joblib fetch phase, retaining only the calling
-  thread's ranking session between loop cycles.
+  thread's ranking session between loop cycles. Enforce one active scan per
+  session pool and wait for every sibling worker scope to exit before cleanup
+  when joblib surfaces an exceptional result early.
 - ``vault.py``: slots dataclasses and typed fetch/parse functions for ranking
   pages and net-value history. Retain all returned vaults with no TVL or status
   filter.
@@ -159,12 +161,13 @@ codes and retryable application-envelope errors must be bounded. A failed
 history request records the vault ID and leaves it retryable without erasing
 successfully stored histories for other vaults.
 
-Pass one monotonic whole-operation deadline through both stabilised ranking
-passes and one per-vault deadline through every history-response attempt, so
-limiter queueing, network operations and retries have a bounded total
-wall-clock duration. Each individual request also has the configured request
-deadline, and its effective absolute deadline is the earlier of that deadline
-and the enclosing ranking or per-vault history deadline.
+Pass one monotonic whole-operation budget through both stabilised ranking
+passes and one per-vault budget through every history-response attempt. Limiter
+queueing, connect/read timeout arguments, retries and delays consume the same
+budget. The synchronous ``requests`` read timeout is inactivity-based, so a
+server that continuously drips bytes without yielding a streamed chunk may
+delay budget detection until that read yields; do not describe these budgets as
+hard wall-clock guarantees.
 
 ### Ranking pagination
 
@@ -407,6 +410,14 @@ entry.
 
 Add stable fixture-based tests under ``tests/apex/``. Do not make CI depend on
 the live Apex service.
+
+Implementation status for PR #1358: the 60-case fixture suite covers the core
+parser, ranking stability, identity, session lifecycle, history gate and
+file-backed DuckDB paths. The numbered list below is the broader design
+checklist, not a claim that every case ships in this PR. Remaining follow-up
+coverage includes slow-drip transport behaviour, concurrent rate-limit timing,
+terminal-page and total-churn failures, log-level assertions, additional
+ranking transaction failure injection and unequal command-loop intervals.
 
 1. Parse ranking and history envelopes, convert millisecond timestamps to naive
    UTC, retain every status/type value, preserve raw fee strings and 18-decimal

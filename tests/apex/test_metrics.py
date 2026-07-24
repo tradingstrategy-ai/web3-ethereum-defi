@@ -4,7 +4,9 @@
 
 import datetime
 import threading
+import time
 from collections.abc import Iterator
+from contextlib import nullcontext
 from pathlib import Path
 from unittest.mock import Mock
 
@@ -13,8 +15,16 @@ import pytest
 from pytest import MonkeyPatch
 
 from eth_defi.apex.metrics import ApexMetricsDatabase, run_scan
-from eth_defi.apex.session import ApexAPIError
+from eth_defi.apex.session import ApexAPIError, create_apex_session_pool
 from eth_defi.apex.vault import ApexHistoryPoint, ApexVaultSummary
+
+
+def _session_pool_mock() -> Mock:
+    """Create a pool double with an open exclusive scan scope."""
+    session_pool = Mock()
+    session_pool.scan_scope.return_value = nullcontext()
+    session_pool.history_worker_scope.return_value = nullcontext()
+    return session_pool
 
 
 def _vault(
@@ -271,7 +281,7 @@ def test_run_scan_validates_target_before_mutation(database: ApexMetricsDatabase
     """Reject missing target IDs before any database mutation."""
     monkeypatch.setattr("eth_defi.apex.metrics.fetch_stabilised_vaults", lambda *args, **kwargs: (_vault("1"),))
     with pytest.raises(ValueError, match="absent"):
-        run_scan(object(), database, vault_ids=("missing",), history_mode="none")
+        run_scan(_session_pool_mock(), database, vault_ids=("missing",), history_mode="none")
     assert database.get_vault_metadata().empty
 
 
@@ -281,7 +291,7 @@ def test_run_scan_rejects_empty_all_vault_snapshot(database: ApexMetricsDatabase
     database.apply_ranking((_vault("1"),), observed_at, manage_disappearance=True)
     monkeypatch.setattr("eth_defi.apex.metrics.fetch_stabilised_vaults", lambda *args, **kwargs: ())
     with pytest.raises(ApexAPIError, match="empty all-vault ranking"):
-        run_scan(object(), database, history_mode="none")
+        run_scan(_session_pool_mock(), database, history_mode="none")
     metadata = database.get_vault_metadata().iloc[0]
     assert pd.isna(metadata["missing_since"])
     assert len(database.get_vault_prices("1")) == 1
@@ -296,7 +306,7 @@ def test_run_scan_ranking_failure_leaves_database_untouched(database: ApexMetric
 
     monkeypatch.setattr("eth_defi.apex.metrics.fetch_stabilised_vaults", fail)
     with pytest.raises(ApexAPIError, match="ranking unavailable"):
-        run_scan(object(), database, history_mode="none")
+        run_scan(_session_pool_mock(), database, history_mode="none")
     assert database.get_vault_metadata().empty
     assert database.get_vault_prices().empty
 
@@ -306,16 +316,43 @@ def test_run_scan_records_each_nonterminal_invocation(database: ApexMetricsDatab
     monkeypatch.setattr("eth_defi.apex.metrics.fetch_stabilised_vaults", lambda *args, **kwargs: (_vault("1"),))
     times = iter((datetime.datetime(2026, 7, 23, 12), datetime.datetime(2026, 7, 23, 12, 30)))
     monkeypatch.setattr("eth_defi.apex.metrics.native_datetime_utc_now", lambda: next(times))
-    run_scan(object(), database, history_mode="none")
-    run_scan(object(), database, history_mode="none")
+    run_scan(_session_pool_mock(), database, history_mode="none")
+    run_scan(_session_pool_mock(), database, history_mode="none")
     assert len(database.get_vault_prices("1")) == 2
 
 
 def test_run_scan_closes_history_worker_sessions_each_cycle(database: ApexMetricsDatabase, monkeypatch: MonkeyPatch) -> None:
     """Release completed joblib worker sessions after every scan cycle."""
-    session_pool = Mock()
+    session_pool = _session_pool_mock()
     monkeypatch.setattr("eth_defi.apex.metrics.fetch_stabilised_vaults", lambda *args, **kwargs: (_vault("1"),))
     monkeypatch.setattr("eth_defi.apex.metrics.fetch_vault_history", lambda *args, **kwargs: ())
     run_scan(session_pool, database, history_mode="refresh", max_workers=2)
     run_scan(session_pool, database, history_mode="refresh", max_workers=2)
     assert session_pool.close_worker_sessions.call_count == 2
+
+
+def test_run_scan_waits_for_workers_before_exception_cleanup(database: ApexMetricsDatabase, monkeypatch: MonkeyPatch) -> None:
+    """Do not close sibling sessions while an exceptional worker is unwinding."""
+    sibling_started = threading.Event()
+    sibling_finished = threading.Event()
+
+    def fetch_history(_pool: object, vault_id: str, *, operation_timeout: float) -> tuple[ApexHistoryPoint, ...]:
+        del operation_timeout
+        if vault_id == "1":
+            assert sibling_started.wait(timeout=1)
+            message = "injected worker failure"
+            raise RuntimeError(message)
+        sibling_started.set()
+        time.sleep(0.1)
+        sibling_finished.set()
+        return ()
+
+    session_pool = create_apex_session_pool(requests_per_second=1000, pool_maxsize=2, retries=0)
+    monkeypatch.setattr("eth_defi.apex.metrics.fetch_stabilised_vaults", lambda *args, **kwargs: (_vault("1"), _vault("2")))
+    monkeypatch.setattr("eth_defi.apex.metrics.fetch_vault_history", fetch_history)
+    try:
+        with pytest.raises(RuntimeError, match="injected worker failure"):
+            run_scan(session_pool, database, history_mode="refresh", max_workers=2)
+        assert sibling_finished.is_set()
+    finally:
+        session_pool.close()

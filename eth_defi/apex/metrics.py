@@ -355,6 +355,8 @@ class ApexMetricsDatabase:
             Common naive UTC ranking observation timestamp.
         :param manage_disappearance:
             Whether absent known vaults should be marked missing.
+        :return:
+            None.
         """
         con = self._assert_owner()
         identifiers = [vault.vault_id for vault in vaults]
@@ -481,7 +483,25 @@ class ApexMetricsDatabase:
         refresh_interval: datetime.timedelta,
         include_missing: bool,
     ) -> tuple[str, ...]:
-        """Select histories due under the independent maintenance gate."""
+        """Select histories due under the independent maintenance gate.
+
+        Present, terminal and disappeared vault generations use separate
+        persisted success markers so an empty response remains retryable where
+        finalisation requires data.
+
+        :param present_vault_ids:
+            IDs present in the selected stabilised ranking.
+        :param now:
+            Naive UTC eligibility timestamp.
+        :param mode:
+            Incremental, forced refresh or disabled history mode.
+        :param refresh_interval:
+            Positive non-terminal history refresh interval.
+        :param include_missing:
+            Whether disappeared vault generations may be selected.
+        :return:
+            Sorted due vault IDs.
+        """
         self._assert_owner()
         if mode == "none":
             return ()
@@ -514,7 +534,21 @@ class ApexMetricsDatabase:
         points: tuple[ApexHistoryPoint, ...],
         attempted_at: datetime.datetime,
     ) -> None:
-        """Atomically append/correct one history and update its sync state."""
+        """Atomically append/correct one history and update its sync state.
+
+        Only timestamps returned by the source are replaced. Omitted existing
+        timestamps remain intact, and the canonical retained range is updated
+        in the same transaction as attempt and lifecycle state.
+
+        :param vault_id:
+            Existing ApeX platform vault ID.
+        :param points:
+            Fully parsed source history, possibly empty.
+        :param attempted_at:
+            Naive UTC completion timestamp.
+        :return:
+            None.
+        """
         con = self._assert_owner()
         timestamps = [point.timestamp for point in points]
         if len(timestamps) != len(set(timestamps)):
@@ -605,7 +639,20 @@ class ApexMetricsDatabase:
             self._replace_sync([state])
 
     def record_history_error(self, vault_id: str, error: str, attempted_at: datetime.datetime) -> None:
-        """Record one retryable history API failure without touching prices."""
+        """Record one retryable history API failure without touching prices.
+
+        The isolated state transaction preserves every retained price row and
+        non-empty response diagnostic.
+
+        :param vault_id:
+            Existing ApeX platform vault ID.
+        :param error:
+            Human-readable bounded API failure.
+        :param attempted_at:
+            Naive UTC failure timestamp.
+        :return:
+            None.
+        """
         state = dict(self._sync_by_id().get(vault_id, self._new_sync(vault_id)))
         state["latest_attempt_at"] = attempted_at
         state["latest_attempt_success"] = False
@@ -618,11 +665,25 @@ class ApexMetricsDatabase:
             self._replace_sync([state])
 
     def checkpoint(self) -> None:
-        """Run one explicit file-backed database checkpoint."""
+        """Run one explicit file-backed database checkpoint.
+
+        Automatic WAL checkpoints are disabled for this database, so callers
+        invoke this once after a complete successful scan.
+
+        :return:
+            None.
+        """
         self._assert_owner().execute("CHECKPOINT")
 
     def close(self) -> None:
-        """Close the owner-thread database connection."""
+        """Close the owner-thread database connection.
+
+        The same thread that created the database must close it after all
+        writes and the final checkpoint have completed.
+
+        :return:
+            None.
+        """
         self._assert_owner()
         logger.info("Closing ApeX metrics database at %s", self.path)
         assert self.con is not None
@@ -654,7 +715,11 @@ class ApexMetricsDatabase:
         ).df()
 
     def get_history_sync(self) -> pd.DataFrame:
-        """Return history maintenance state ordered by vault ID."""
+        """Return history maintenance state ordered by vault ID.
+
+        :return:
+            Dataframe containing all ``history_sync`` columns.
+        """
         return self._assert_owner().execute("SELECT * FROM history_sync ORDER BY vault_id").df()
 
 
@@ -664,11 +729,12 @@ def _fetch_history_worker(
     operation_timeout: float,
 ) -> ApexHistoryFetchResult:
     """Fetch and parse one history without accessing DuckDB."""
-    try:
-        points = fetch_vault_history(session_pool, vault_id, operation_timeout=operation_timeout)
-        return ApexHistoryFetchResult(vault_id=vault_id, points=points, error=None)
-    except ApexAPIError as exc:
-        return ApexHistoryFetchResult(vault_id=vault_id, points=None, error=str(exc))
+    with session_pool.history_worker_scope():
+        try:
+            points = fetch_vault_history(session_pool, vault_id, operation_timeout=operation_timeout)
+            return ApexHistoryFetchResult(vault_id=vault_id, points=points, error=None)
+        except ApexAPIError as exc:
+            return ApexHistoryFetchResult(vault_id=vault_id, points=None, error=str(exc))
 
 
 def run_scan(
@@ -708,6 +774,54 @@ def run_scan(
     :return:
         Typed completed-scan summary.
     """
+    with session_pool.scan_scope():
+        return _run_scan(
+            session_pool,
+            database,
+            vault_ids=vault_ids,
+            max_workers=max_workers,
+            history_mode=history_mode,
+            history_refresh_interval=history_refresh_interval,
+            ranking_timeout=ranking_timeout,
+            history_timeout=history_timeout,
+        )
+
+
+def _run_scan(
+    session_pool: ApexSessionPool,
+    database: ApexMetricsDatabase,
+    *,
+    vault_ids: tuple[str, ...] | None,
+    max_workers: int,
+    history_mode: HistoryMode,
+    history_refresh_interval: datetime.timedelta,
+    ranking_timeout: float,
+    history_timeout: float,
+) -> ApexScanResult:
+    """Execute a scan while the caller holds exclusive session-pool ownership.
+
+    The public wrapper prevents another scan from creating or closing sessions
+    in the same pool until this complete database and network cycle returns.
+
+    :param session_pool:
+        Exclusively owned worker-local HTTP session pool.
+    :param database:
+        Already-open owner-thread database.
+    :param vault_ids:
+        Optional exact targeted IDs.
+    :param max_workers:
+        Threaded history reader count.
+    :param history_mode:
+        ``incremental``, ``refresh`` or ``none``.
+    :param history_refresh_interval:
+        Positive independent historical refresh cadence.
+    :param ranking_timeout:
+        Whole two-pass ranking budget in seconds.
+    :param history_timeout:
+        Per-vault history budget in seconds.
+    :return:
+        Typed completed-scan summary.
+    """
     if max_workers <= 0:
         raise ValueError("max_workers must be positive")
     if history_mode not in {"incremental", "refresh", "none"}:
@@ -742,8 +856,9 @@ def run_scan(
     results: tuple[ApexHistoryFetchResult, ...] = ()
     if candidates:
         try:
-            result_iterator = Parallel(n_jobs=max_workers, backend="threading", return_as="generator_unordered")(delayed(_fetch_history_worker)(session_pool, vault_id, history_timeout) for vault_id in candidates)
-            results = tuple(tqdm(result_iterator, total=len(candidates), desc="Fetching ApeX vault histories"))
+            with Parallel(n_jobs=max_workers, backend="threading", return_as="generator_unordered") as parallel:
+                result_iterator = parallel(delayed(_fetch_history_worker)(session_pool, vault_id, history_timeout) for vault_id in candidates)
+                results = tuple(tqdm(result_iterator, total=len(candidates), desc="Fetching ApeX vault histories"))
         finally:
             session_pool.close_worker_sessions()
     successful = 0

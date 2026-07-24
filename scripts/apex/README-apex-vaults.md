@@ -107,9 +107,10 @@ The full ranking is still validated before the target filter is applied.
 - `REQUESTS_PER_SECOND`: shared API rate. Defaults to `5`.
 - `CONNECT_TIMEOUT`: connection timeout in seconds. Defaults to `10`.
 - `READ_TIMEOUT`: socket inactivity timeout in seconds. Defaults to `30`.
-- `REQUEST_DEADLINE`: complete request-attempt deadline. Defaults to `60`.
-- `RANKING_DEADLINE`: deadline shared by both ranking passes. Defaults to `300`.
-- `HISTORY_DEADLINE`: deadline shared by all attempts for one vault. Defaults
+- `REQUEST_DEADLINE`: monotonic request-attempt budget. Defaults to `60`.
+- `RANKING_DEADLINE`: operation budget shared by both ranking passes. Defaults
+  to `300`.
+- `HISTORY_DEADLINE`: operation budget shared by all attempts for one vault. Defaults
   to `120`.
 - `MAX_RETRY_DELAY`: longest retry or `Retry-After` wait. Defaults to `10`.
 - `MAX_RESPONSE_BYTES`: largest accepted JSON response. Defaults to `16777216`.
