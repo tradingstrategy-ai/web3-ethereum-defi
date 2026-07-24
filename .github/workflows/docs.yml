@@ -1,8 +1,16 @@
 name: Build documentation
 
+# Docs are rebuilt on a fixed schedule (Mon/Wed/Sat) rather than on every merge
+# to master. "Build documentation" is non-blocking for merges, and docs rarely
+# need rebuilding per commit. Use workflow_dispatch (from master) to publish a
+# doc fix immediately without waiting for the next slot.
 on:
-  push:
-    branches: [master]
+  schedule:
+    # 06:17 UTC on Mon (1), Wed (3), Sat (6). Non-zero minute on purpose:
+    # top-of-hour cron is a GitHub high-load window where runs may be delayed
+    # or dropped.
+    - cron: "17 6 * * 1,3,6"
+  workflow_dispatch: {}
 
 jobs:
   build-docs:
@@ -35,29 +43,14 @@ jobs:
         with:
           python-version: "3.14"
           cache: "poetry"
+          # Key the built-in Poetry cache on the lockfile so it invalidates on a
+          # locked-dependency change and hits when only source changes.
           cache-dependency-path: |
+            poetry.lock
             **/pyproject.toml
 
-      - name: Resolve poetry venv path
-        id: venv-path
-        run: |
-          venv_path=$(poetry env info --path 2>/dev/null || true)
-          if [ -z "$venv_path" ]; then
-            poetry env use 3.14
-            venv_path=$(poetry env info --path)
-          fi
-          echo "path=$venv_path" >> "$GITHUB_OUTPUT"
-
-      # Cache the resolved venv so we skip dependency reinstall on cache hit.
-      # Keyed by lockfile to invalidate on any dep change.
-      - name: Cache poetry venv
-        uses: actions/cache@v4
-        with:
-          path: ${{ steps.venv-path.outputs.path }}
-          key: docs-venv-${{ runner.os }}-py3.14-${{ hashFiles('poetry.lock', 'pyproject.toml') }}
-          restore-keys: |
-            docs-venv-${{ runner.os }}-py3.14-
-            docs-venv-${{ runner.os }}-
+      # The virtualenv is cached by actions/setup-python (cache: "poetry", keyed
+      # on poetry.lock above), so no separate venv-cache step is needed.
 
       # Required by nbsphinx for notebook conversion
       - name: Install Pandoc
@@ -82,7 +75,13 @@ jobs:
       # Publish the zip as a rolling "docs-latest" release asset so RTD can
       # download it over a stable public URL. --clobber overwrites the asset
       # on every master build.
+      # Publishing steps have production side effects (they clobber the shared
+      # docs-latest release asset, deploy Cloudflare Pages and trigger RTD), so
+      # they are guarded to master. A manual workflow_dispatch on a feature
+      # branch therefore builds and validates docs without replacing the live
+      # site. Preview-branch publication is intentionally disabled.
       - name: Upload docs zip to GitHub Release
+        if: github.ref == 'refs/heads/master'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -91,9 +90,11 @@ jobs:
           gh release upload docs-latest docs-html.zip --clobber
 
       - name: Install wrangler
+        if: github.ref == 'refs/heads/master'
         run: npm install -g wrangler
 
       - name: Deploy to Cloudflare Pages
+        if: github.ref == 'refs/heads/master'
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
@@ -103,6 +104,7 @@ jobs:
       # uploaded. RTD's build.commands just download that zip — no Sphinx run.
       # https://docs.readthedocs.io/en/stable/api/v3.html#build-triggering
       - name: Trigger Read the Docs build
+        if: github.ref == 'refs/heads/master'
         env:
           RTD_TOKEN: ${{ secrets.RTD_TOKEN }}
         run: |

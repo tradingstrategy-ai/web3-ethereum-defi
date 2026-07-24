@@ -14,8 +14,7 @@ from decimal import Decimal
 from eth_defi.abi import ZERO_ADDRESS_STR
 from eth_defi.erc_4626.classification import create_vault_instance_autodetect
 from eth_defi.erc_4626.vault_protocol.d2.vault import D2HistoricalReader, D2Vault, Epoch
-from eth_defi.provider.anvil import fork_network_anvil, AnvilLaunch
-from eth_defi.provider.multi_provider import create_multi_provider_web3
+from eth_defi.testing.anvil_fork_pool import AnvilForkPool
 from eth_defi.vault.base import (
     DEPOSIT_CLOSED_FUNDING_PHASE,
     REDEMPTION_CLOSED_FUNDS_CUSTODIED,
@@ -24,24 +23,28 @@ from eth_defi.vault.base import (
 
 JSON_RPC_ARBITRUM = os.environ.get("JSON_RPC_ARBITRUM")
 
-pytestmark = pytest.mark.skipif(JSON_RPC_ARBITRUM is None, reason="JSON_RPC_ARBITRUM needed to run these tests")
+#: Fixed Arbitrum block shared with other characterisation tests forking the
+#: same point (Lever 1 shared-fork proof-of-concept).
+FORK_BLOCK = 392_313_989
+
+pytestmark = [
+    pytest.mark.skipif(JSON_RPC_ARBITRUM is None, reason="JSON_RPC_ARBITRUM needed to run these tests"),
+    # Pin every test sharing this (chain, block) to one xdist worker so the
+    # session-scoped anvil_fork_pool launches a single Anvil for all of them
+    # under --dist loadgroup. Keep the string identical across sharing modules.
+    pytest.mark.xdist_group("fork:arbitrum:392313989"),
+]
 
 
 @pytest.fixture(scope="module")
-def anvil_arbitrum_fork(request) -> AnvilLaunch:
-    """Read gmUSDC vault at a specific block"""
-    launch = fork_network_anvil(JSON_RPC_ARBITRUM, fork_block_number=392_313_989)
-    try:
-        yield launch
-    finally:
-        # Wind down Anvil process after the test is complete
-        launch.close()
+def web3(anvil_fork_pool: AnvilForkPool) -> Web3:
+    """Web3 backed by a shared Arbitrum fork from the session-scoped pool.
 
-
-@pytest.fixture(scope="module")
-def web3(anvil_arbitrum_fork):
-    web3 = create_multi_provider_web3(anvil_arbitrum_fork.json_rpc_url)
-    return web3
+    Reuses one Anvil process across every module carrying the matching
+    ``xdist_group`` marker instead of launching a per-module fork. Read-only
+    test, so no snapshot/revert reset is needed between tests.
+    """
+    return anvil_fork_pool.get_web3(JSON_RPC_ARBITRUM, FORK_BLOCK)
 
 
 @flaky.flaky

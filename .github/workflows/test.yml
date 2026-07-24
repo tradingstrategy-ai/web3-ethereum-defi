@@ -33,7 +33,7 @@ jobs:
       # TODO: we only need contracts/aave-v3-deploy for tests
       # but there does not seem to be an option to choose which submodules to checkout
       # https://github.com/actions/checkout
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           submodules: true
 
@@ -73,9 +73,15 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
           cache: "poetry"
+          # Key the built-in Poetry cache on the lockfile so it invalidates on a
+          # locked-dependency change and hits when only source changes.
           cache-dependency-path: |
+            poetry.lock
             **/pyproject.toml
 
+      # The virtualenv itself is cached by actions/setup-python (cache: "poetry",
+      # keyed on poetry.lock above) — Poetry's non-in-project venvs live under
+      # its cache dir — so no separate venv-cache step is needed.
       - name: Install dependencies
         run: |
           poetry install
@@ -84,14 +90,38 @@ jobs:
       - name: Install Ganache
         run: yarn global add ganache
 
-      - name: Cache Foundry
+      # Split the Foundry cache in two:
+      #  1. The pinned toolchain binaries — immutable key, never needs updating.
+      #  2. The Anvil fork RPC cache (~/.foundry/cache/rpc) — must GROW across
+      #     runs as new (chain, block) fork reads are recorded. GitHub caches are
+      #     immutable and only saved on a key miss, so this needs a rolling key
+      #     (run_id) plus a restore-keys prefix, month-namespaced so it rebuilds
+      #     periodically and stays within quota. Sharing one immutable ~/.foundry
+      #     key (the previous behaviour) froze the RPC cache forever.
+      - name: Cache Foundry toolchain
         uses: actions/cache@v4
         with:
-          path: ~/.foundry
-          key: foundry-v1.2.3-${{ runner.os }}
+          path: ~/.foundry/bin
+          key: foundry-toolchain-v1.2.3-${{ runner.os }}
           restore-keys: |
-            foundry-v1.2.3-
-            foundry-
+            foundry-toolchain-v1.2.3-
+            foundry-toolchain-
+
+      - name: Compute cache month
+        id: cache-month
+        run: echo "month=$(date -u +%Y-%m)" >> "$GITHUB_OUTPUT"
+
+      - name: Cache Foundry fork RPC cache
+        uses: actions/cache@v4
+        with:
+          # Layout is rpc/<network-name>/<block>/*.json; cache the whole tree.
+          path: ~/.foundry/cache/rpc
+          key: foundry-rpc-v1.2.3-${{ runner.os }}-${{ steps.cache-month.outputs.month }}-${{ github.run_id }}
+          # Restore only within the same month so the cache genuinely rebuilds
+          # each month (bounding growth). No cross-month fallback on purpose —
+          # the first run of a new month is cold.
+          restore-keys: |
+            foundry-rpc-v1.2.3-${{ runner.os }}-${{ steps.cache-month.outputs.month }}-
 
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@v1
@@ -170,7 +200,9 @@ jobs:
           # test names in the Actions log.
           # Slow tests (large block scans, live API pipelines) run separately
           # in test-slow.yml on a free ubuntu-latest runner in parallel.
-          poetry run pytest --timeout-method=thread --tb=native -n auto --dist loadgroup -v -s --capture=no --ignore=tests/gmx -m "not slow"
+          # vault_protocol characterisation tests run in test-vault-protocol.yml
+          # (only when vault/shared code changes), so they are excluded here.
+          poetry run pytest --timeout-method=thread --tb=native -n auto --dist loadgroup -v -s --capture=no --ignore=tests/gmx --ignore=tests/erc_4626/vault_protocol -m "not slow"
         env:
           BNB_CHAIN_JSON_RPC: ${{ secrets.BNB_CHAIN_JSON_RPC }}
           JSON_RPC_POLYGON_ARCHIVE: ${{ secrets.JSON_RPC_POLYGON_ARCHIVE }}

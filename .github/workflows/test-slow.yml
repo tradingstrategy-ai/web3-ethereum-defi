@@ -40,28 +40,14 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
           cache: "poetry"
+          # Key the built-in Poetry cache on the lockfile so it invalidates on a
+          # locked-dependency change and hits when only source changes.
           cache-dependency-path: |
+            poetry.lock
             **/pyproject.toml
 
-      - name: Resolve poetry venv path
-        id: venv-path
-        run: |
-          venv_path=$(poetry env info --path 2>/dev/null || true)
-          if [ -z "$venv_path" ]; then
-            poetry env use ${{ matrix.python-version }}
-            venv_path=$(poetry env info --path)
-          fi
-          echo "path=$venv_path" >> "$GITHUB_OUTPUT"
-
-      - name: Cache poetry venv
-        uses: actions/cache@v4
-        with:
-          path: ${{ steps.venv-path.outputs.path }}
-          key: slow-venv-${{ runner.os }}-py${{ matrix.python-version }}-${{ hashFiles('poetry.lock', 'pyproject.toml') }}
-          restore-keys: |
-            slow-venv-${{ runner.os }}-py${{ matrix.python-version }}-
-            slow-venv-${{ runner.os }}-
-
+      # The virtualenv is cached by actions/setup-python (cache: "poetry", keyed
+      # on poetry.lock above), so no separate venv-cache step is needed.
       - name: Install dependencies
         run: |
           poetry install

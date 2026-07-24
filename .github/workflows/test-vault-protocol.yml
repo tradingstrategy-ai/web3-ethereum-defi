@@ -1,0 +1,175 @@
+name: Vault protocol tests
+
+# The tests/erc_4626/vault_protocol/ group (~98 single-vault characterisation
+# tests, each forking a chain) is the largest slice of the suite. It only needs
+# to run when vault protocol code — or the shared provider/ABI/token/fixture
+# code it depends on — changes. It is therefore excluded from the main test.yml
+# run (via --ignore) and gated here.
+#
+# Required-check safety: this workflow is ALWAYS triggered (never a top-level
+# `paths:` filter, which would leave a required check pending forever). The
+# heavy job is skipped at the JOB level when nothing relevant changed; the final
+# `gate` job always runs and reports success on pass OR skip. Mark `gate` — not
+# the heavy job — as the required status check in branch protection. If the repo
+# uses a merge queue, add `merge_group:` to the triggers below.
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+    types: [opened, synchronize, reopened, ready_for_review]
+  # Fallback so the group is never permanently un-gated even if the path filter
+  # misses a shared-code change: a weekly full run plus manual dispatch.
+  schedule:
+    - cron: "23 4 * * 0"
+  workflow_dispatch: {}
+
+jobs:
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      vault: ${{ steps.filter.outputs.vault }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          # Broad on purpose: these tests exercise far more than the vault
+          # protocol packages, so shared provider/ABI/token/Web3/fixture and
+          # dependency paths must all trigger them.
+          filters: |
+            vault:
+              - 'eth_defi/erc_4626/**'
+              - 'eth_defi/data/vaults/**'
+              - 'eth_defi/vault/**'
+              - 'eth_defi/tokenised_fund/**'
+              - 'eth_defi/provider/**'
+              - 'eth_defi/event_reader/**'
+              - 'eth_defi/hypersync/**'
+              - 'eth_defi/abi/**'
+              - 'eth_defi/token.py'
+              - 'eth_defi/chain.py'
+              - 'eth_defi/testing/**'
+              - 'tests/erc_4626/vault_protocol/**'
+              - 'tests/conftest.py'
+              - 'pyproject.toml'
+              - 'poetry.lock'
+              - '.github/workflows/test-vault-protocol.yml'
+
+  test-vault-protocol:
+    needs: changes
+    # Run when relevant paths changed, or on the scheduled/manual full run.
+    if: >-
+      needs.changes.outputs.vault == 'true' ||
+      github.event_name == 'schedule' ||
+      github.event_name == 'workflow_dispatch'
+    runs-on:
+      group: Beefy runners
+    timeout-minutes: 20
+
+    concurrency:
+      group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
+      cancel-in-progress: true
+
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.14"]
+
+    name: Vault protocol tests - Python ${{ matrix.python-version }}
+
+    steps:
+      # No submodules: characterisation tests fork chains and read committed
+      # ABIs; they do not build the contracts/ submodules.
+      - uses: actions/checkout@v4
+        with:
+          submodules: false
+
+      - name: Install poetry (using matrix Python)
+        run: pipx install "poetry>=2.3" --python "${{ env.PYTHON_PATH }}"
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: "poetry"
+          cache-dependency-path: |
+            poetry.lock
+            **/pyproject.toml
+
+      # The virtualenv is cached by actions/setup-python (cache: "poetry", keyed
+      # on poetry.lock above), so no separate venv-cache step is needed.
+      - name: Install dependencies
+        run: |
+          poetry install
+          poetry install -E docs -E data -E test -E hypersync -E ccxt -E duckdb -E posts
+
+      - name: Cache Foundry toolchain
+        uses: actions/cache@v4
+        with:
+          path: ~/.foundry/bin
+          key: foundry-toolchain-v1.2.3-${{ runner.os }}
+          restore-keys: |
+            foundry-toolchain-v1.2.3-
+            foundry-toolchain-
+
+      - name: Compute cache month
+        id: cache-month
+        run: echo "month=$(date -u +%Y-%m)" >> "$GITHUB_OUTPUT"
+
+      - name: Cache Foundry fork RPC cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.foundry/cache/rpc
+          key: foundry-rpc-v1.2.3-${{ runner.os }}-${{ steps.cache-month.outputs.month }}-${{ github.run_id }}
+          # Restore only within the same month so the cache genuinely rebuilds
+          # each month (bounding growth). First run of a new month is cold.
+          restore-keys: |
+            foundry-rpc-v1.2.3-${{ runner.os }}-${{ steps.cache-month.outputs.month }}-
+
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+        with:
+          version: "v1.2.3"
+
+      - name: Run vault protocol tests
+        run: |
+          poetry run pytest tests/erc_4626/vault_protocol/ --timeout-method=thread --tb=native -n auto --dist loadgroup -v -s --capture=no -m "not slow"
+        env:
+          JSON_RPC_ETHEREUM: ${{ secrets.JSON_RPC_ETHEREUM }}
+          JSON_RPC_BASE: ${{ secrets.JSON_RPC_BASE }}
+          JSON_RPC_ARBITRUM: ${{ secrets.JSON_RPC_ARBITRUM }}
+          JSON_RPC_BINANCE: ${{ secrets.JSON_RPC_BINANCE }}
+          JSON_RPC_POLYGON: ${{ secrets.JSON_RPC_POLYGON }}
+          JSON_RPC_PLASMA: ${{ secrets.JSON_RPC_PLASMA }}
+          JSON_RPC_HYPERLIQUID: ${{ secrets.JSON_RPC_HYPERLIQUID }}
+          HYPERSYNC_API_KEY: ${{ secrets.HYPERSYNC_API_KEY }}
+          TOKEN_RISK_API_KEY: ${{ secrets.TOKEN_RISK_API_KEY }}
+
+  # Always-run gate: this is the job to mark as the required status check.
+  # It fails if change detection itself failed (so a broken filter cannot let
+  # the tests be silently skipped), passes when the heavy job succeeded or was
+  # legitimately skipped (no relevant changes), and fails when it actually
+  # failed or was cancelled.
+  gate:
+    needs: [changes, test-vault-protocol]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check vault protocol test result
+        run: |
+          changes_result="${{ needs.changes.result }}"
+          test_result="${{ needs.test-vault-protocol.result }}"
+          echo "changes result: $changes_result"
+          echo "test-vault-protocol result: $test_result"
+          if [ "$changes_result" != "success" ]; then
+            echo "Gate failed: change detection did not succeed ($changes_result)."
+            exit 1
+          fi
+          if [ "$test_result" = "success" ] || [ "$test_result" = "skipped" ]; then
+            echo "Gate passed."
+          else
+            echo "Gate failed: vault protocol tests did not pass ($test_result)."
+            exit 1
+          fi
