@@ -224,6 +224,9 @@ VAULT_PROTOCOL_FEE_MATRIX = {
     # Hibachi - all vault-level fees are zero (management, performance, deposit, withdrawal)
     # Platform charges trading taker fees and deposit/withdrawal fees at exchange level
     "Hibachi": VaultFeeMode.feeless,
+    # ApeX exposes raw fee-like fields, but their units and application are
+    # not documented authoritatively by the public vault API.
+    "ApeX": None,
     # Liquid Royalty has no management/performance fees, but 20% early withdrawal penalty within 7-day cooldown
     "Liquid Royalty": VaultFeeMode.feeless,
     # Inverse Finance sDOLA - no explicit fees, yield via DBR auction mechanism

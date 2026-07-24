@@ -1,5 +1,5 @@
 """ApeX Omni public vault data reader.
 
-The package contains a standalone public API reader and DuckDB persistence
-pipeline for ApeX native vaults.
+The package contains a public API reader, DuckDB persistence, and shared vault
+pipeline export support for ApeX native vaults.
 """

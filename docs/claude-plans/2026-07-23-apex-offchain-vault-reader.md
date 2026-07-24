@@ -2,13 +2,13 @@
 
 ## Goal
 
-Build a standalone ``eth_defi.apex`` reader that backfills every vault exposed
+Build an ``eth_defi.apex`` reader that backfills every vault exposed
 by ApeX Omni's public vault ranking API, then records current NAV and TVL
 snapshots at a configurable timestamp cadence whose initial default is four
-hours. The implementation is limited to the public API client, its DuckDB
-database, synthetic chain registry entries, its standalone command and API
-documentation. It must not merge data into the unified vault parquet or pickle,
-register the global scanner, or add protocol metadata, curator configuration or
+hours. The initial implementation covers the public API client, DuckDB,
+synthetic chain registry, standalone command and API documentation. The
+follow-up integrates the same reader into the global all-chain scheduler and
+shared metadata/price exports without adding trading, curator configuration or
 logos.
 
 Use one reader, one database and one scan command. ApeX does not need separate
@@ -99,10 +99,12 @@ string ``vault_id`` and the stable reader address is
 metadata. Never deduplicate, aggregate or overwrite price history by the
 reported Ethereum address.
 
-The standalone scope deliberately does not make ``apex-vault-*`` a
-``VaultSpec``-validated address and does not alter native-price exports. A later
-unified-dataset integration can add that compatibility surface without changing
-the persisted Apex identity.
+The initial standalone scope did not make ``apex-vault-*`` a
+``VaultSpec``-validated address or alter native-price exports. The follow-up
+all-chain integration adds that compatibility surface without changing the
+persisted ApeX identity: synthetic addresses remain
+``apex-vault-{vault_id}``, chain ``9995`` owns the shared Parquet partition,
+and exact source timestamps are exported without resampling.
 
 ## Package design
 
@@ -387,6 +389,13 @@ configuration change from ``4h`` to another positive interval must only require
 restarting the command with the new environment value; it must continue writing
 to the existing database.
 
+The follow-up all-chain integration registers ``SCAN_APEX`` in
+``scan-vaults-all-chains.py`` and Docker Compose. It backs up the ApeX DuckDB,
+merges metadata into ``VaultDatabase``, and replaces only synthetic chain
+``9995`` during the batched native-price merge. The looped container enables
+the source by default with ``ApeX=4h``; the one-shot container keeps it opt-in,
+matching the other native sources.
+
 Add ``scripts/apex/README-apex-vaults.md`` with endpoint links, the observed
 30-second ranking tick, age-adaptive historical resolution, the distinction
 between polling time and source time, configurable independent intervals,
@@ -398,26 +407,26 @@ an initial backfill cannot exceed the history ApeX still exposes, and API NAV an
 TVL values are assumed to use the platform's USDT terms.
 
 Add ``docs/source/api/apex/index.rst``, list ``config``, ``constants``,
-``session``, ``vault`` and ``metrics`` in its autosummary, and add
+``session``, ``vault``, ``metrics`` and ``vault_data_export`` in its
+autosummary, and add
 ``apex/index`` to the main ``docs/source/api/index.rst`` toctree.
 
-If the implementation is later opened as a feature pull request, use a
-``feat:`` title and add the dated feature entry to ``CHANGELOG.md`` as required
-by the repository. The plan-only change does not itself require a changelog
-entry.
+The implementation is delivered in feature PR #1358 with a ``feat:`` title and
+a dated ``CHANGELOG.md`` entry as required by the repository.
 
 ## Tests
 
 Add stable fixture-based tests under ``tests/apex/``. Do not make CI depend on
 the live Apex service.
 
-Implementation status for PR #1358: the 60-case fixture suite covers the core
-parser, ranking stability, identity, session lifecycle, history gate and
-file-backed DuckDB paths. The numbered list below is the broader design
-checklist, not a claim that every case ships in this PR. Remaining follow-up
-coverage includes slow-drip transport behaviour, concurrent rate-limit timing,
-terminal-page and total-churn failures, log-level assertions, additional
-ranking transaction failure injection and unequal command-loop intervals.
+Implementation status for PR #1358: the fixture suite covers the core parser,
+ranking stability, identity, session lifecycle, history gate, file-backed
+DuckDB, shared export and all-chain scheduling paths. The numbered list below
+is the broader design checklist, not a claim that every case ships in this PR.
+Remaining follow-up coverage includes slow-drip transport behaviour, concurrent
+rate-limit timing, terminal-page and total-churn failures, log-level assertions,
+additional ranking transaction failure injection and unequal command-loop
+intervals.
 
 1. Parse ranking and history envelopes, convert millisecond timestamps to naive
    UTC, retain every status/type value, preserve raw fee strings and 18-decimal

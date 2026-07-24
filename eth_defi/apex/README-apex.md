@@ -4,14 +4,16 @@
 
 This package reads every native [ApeX Omni](https://www.apex.exchange/) vault
 from the exchange's public web API and stores metadata, current observations
-and recoverable history in a standalone DuckDB database.
+and recoverable history in DuckDB. The all-chain scanner can also publish the
+same identities and exact-timestamp observations through the shared vault
+metadata and Parquet pipeline.
 
 The integration is reader-only:
 
 - no authentication or private account data;
 - no deposits, withdrawals or trading;
-- no merge into the unified ERC-4626 parquet or metadata pickle;
-- no global vault-scanner registration; and
+- optional read-only export into the unified vault Parquet and metadata pickle;
+- optional all-chain scanner scheduling through `SCAN_APEX`; and
 - no assumption that the Ethereum address reported by ApeX uniquely identifies
   a vault.
 
@@ -70,6 +72,11 @@ ApeX public web API
 One command owns both paths. The command schedule controls current ranking
 observations, while a persisted independent gate controls history maintenance.
 There is no separate high-frequency database or process.
+
+The Docker loop schedules `ApeX=4h` by default. Each scheduled invocation
+records a ranking observation, while the DuckDB history gate independently
+refreshes non-terminal histories every 24 hours by default. Both durations are
+configuration choices and do not constrain stored timestamps.
 
 ## Synthetic chain and vault identity
 
@@ -163,7 +170,8 @@ without deleting their stored history.
 The default ranking cadence is four hours. The ranking endpoint itself was
 observed to refresh approximately every 30 seconds, so a separate high-frequency
 reader is unnecessary for the requested dataset. `run_scan()` records a current
-observation whenever called; the standalone command owns the interval.
+observation whenever called; its standalone or all-chain caller owns the
+interval.
 
 History refresh defaults to 24 hours and supports three modes:
 

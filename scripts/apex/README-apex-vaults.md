@@ -1,8 +1,9 @@
 # ApeX native vault metrics
 
-This standalone reader stores every native ApeX Omni vault exposed by the
-public API in DuckDB. It is intentionally separate from the unified ERC-4626
-vault parquet and pickle pipeline.
+This reader stores every native ApeX Omni vault exposed by the public API in
+DuckDB. It can run as a standalone command or through the all-chain scanner,
+which also exports ApeX metadata and prices into the unified vault Parquet and
+pickle pipeline.
 
 See the package-level
 [`README-apex.md`](../../eth_defi/apex/README-apex.md) for the architecture,
@@ -96,6 +97,21 @@ VAULT_IDS=2044287989957394432,1914612863780126720 \
 ```
 
 The full ranking is still validated before the target filter is applied.
+
+## All-chain scanner
+
+Run ApeX as one native source in the single all-chain scan with:
+
+```shell
+SCAN_APEX=true \
+  poetry run python scripts/erc-4626/scan-vaults-all-chains.py
+```
+
+The looped Docker scanner enables ApeX by default and schedules `ApeX=4h`.
+Override that cadence through `SCAN_CYCLES`; for example,
+`SCAN_CYCLES="ApeX=2h"`. The all-chain scheduler controls ranking
+observations, while `run_scan()` retains the independent 24-hour historical
+eligibility gate.
 
 ## Environment configuration
 

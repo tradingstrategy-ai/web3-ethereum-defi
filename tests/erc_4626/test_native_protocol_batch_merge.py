@@ -5,6 +5,7 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
+from eth_defi.apex.constants import APEX_CHAIN_ID
 from eth_defi.grvt.constants import GRVT_CHAIN_ID
 from eth_defi.hibachi.constants import HIBACHI_CHAIN_ID
 from eth_defi.hyperliquid import vault_data_export
@@ -47,9 +48,9 @@ def test_merge_native_protocols_rewrites_parquet_once_and_preserves_empty_source
     """Batch successful native sources and retain the prior empty-source partition.
 
     1. Create raw prices with EVM and stale native-protocol rows.
-    2. Stub Hypercore, GRVT, and Lighter exports with fresh data and Hibachi
-       with no data.
-    3. Merge all four sources and count Parquet writes.
+    2. Stub Hypercore, GRVT, Lighter, and ApeX exports with fresh data and
+       Hibachi with no data.
+    3. Merge all five sources and count Parquet writes.
     4. Assert one write replaced fresh partitions but retained stale Hibachi data.
     """
     parquet_path = tmp_path / "vault-prices-1h.parquet"
@@ -62,6 +63,7 @@ def test_merge_native_protocols_rewrites_parquet_once_and_preserves_empty_source
             _prices(LIGHTER_CHAIN_ID, "lighter-pool-robinhood-100", "2025-01-01"),
             _prices(LIGHTER_LEGACY_ROBINHOOD_CHAIN_ID, "lighter-robinhood-legacy-old", "2025-01-01"),
             _prices(HIBACHI_CHAIN_ID, "hibachi-old", "2025-01-01"),
+            _prices(APEX_CHAIN_ID, "apex-vault-old", "2025-01-01"),
         ],
         ignore_index=True,
     )
@@ -86,15 +88,18 @@ def test_merge_native_protocols_rewrites_parquet_once_and_preserves_empty_source
     )
     fresh_hypercore = _prices(HYPERCORE_CHAIN_ID, "hypercore-new", "2025-01-02")
     fresh_hypercore["account_pnl"] = 123.0
+    fresh_apex = _prices(APEX_CHAIN_ID, "apex-vault-new", "2025-01-02")
     monkeypatch.setattr(post_processing, "HyperliquidDailyMetricsDatabase", FakeDatabase)
     monkeypatch.setattr(post_processing, "HyperliquidHighFreqMetricsDatabase", FakeDatabase)
     monkeypatch.setattr(post_processing, "GRVTDailyMetricsDatabase", FakeDatabase)
     monkeypatch.setattr(post_processing, "LighterDailyMetricsDatabase", FakeDatabase)
     monkeypatch.setattr(post_processing, "HibachiDailyMetricsDatabase", FakeDatabase)
+    monkeypatch.setattr(post_processing, "ApexMetricsDatabase", FakeDatabase)
     monkeypatch.setattr(post_processing, "build_grvt_prices_dataframe", lambda _: fresh_grvt)
     monkeypatch.setattr(post_processing, "build_lighter_prices_dataframe", lambda _: fresh_lighter)
     monkeypatch.setattr(post_processing, "build_hibachi_prices_dataframe", lambda _: pd.DataFrame())
     monkeypatch.setattr(post_processing, "build_hypercore_prices_dataframe", lambda **_: fresh_hypercore)
+    monkeypatch.setattr(post_processing, "build_apex_prices_dataframe", lambda _: fresh_apex)
 
     writes = 0
     original_write = VaultHistoricalRead.write_uncleaned_arrow_table
@@ -117,12 +122,14 @@ def test_merge_native_protocols_rewrites_parquet_once_and_preserves_empty_source
         merge_grvt=True,
         merge_lighter=True,
         merge_hibachi=True,
+        merge_apex=True,
         uncleaned_parquet_path=parquet_path,
         hyperliquid_db_path=hyperliquid_db_path,
         hyperliquid_hf_db_path=hyperliquid_hf_db_path,
         grvt_db_path=tmp_path / "grvt.duckdb",
         lighter_db_path=tmp_path / "lighter.duckdb",
         hibachi_db_path=tmp_path / "hibachi.duckdb",
+        apex_db_path=tmp_path / "apex.duckdb",
     )
 
     result_df = pd.read_parquet(parquet_path)
@@ -132,6 +139,7 @@ def test_merge_native_protocols_rewrites_parquet_once_and_preserves_empty_source
         "grvt-price-merge": True,
         "lighter-price-merge": True,
         "hibachi-price-merge": True,
+        "apex-price-merge": True,
     }
     assert set(result_df["address"]) == {
         "0xevm",
@@ -140,6 +148,7 @@ def test_merge_native_protocols_rewrites_parquet_once_and_preserves_empty_source
         "lighter-pool-200",
         "lighter-pool-robinhood-200",
         "hibachi-old",
+        "apex-vault-new",
     }
     assert LIGHTER_LEGACY_ROBINHOOD_CHAIN_ID not in set(result_df["chain"])
     assert set(result_df.loc[result_df["address"].str.startswith("lighter-"), "chain"]) == {LIGHTER_CHAIN_ID}

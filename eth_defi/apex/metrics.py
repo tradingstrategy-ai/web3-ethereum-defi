@@ -698,6 +698,17 @@ class ApexMetricsDatabase:
         """
         return self._assert_owner().execute("SELECT * FROM vault_metadata ORDER BY vault_id").df()
 
+    def get_price_count(self) -> int:
+        """Return the number of retained ApeX price observations.
+
+        This scalar query avoids materialising the complete price history when
+        an orchestration caller only needs a progress metric.
+
+        :return:
+            Number of rows in ``vault_prices``.
+        """
+        return int(self._assert_owner().execute("SELECT COUNT(*) FROM vault_prices").fetchone()[0])
+
     def get_vault_prices(self, vault_id: str | None = None) -> pd.DataFrame:
         """Return actual-timestamp price rows.
 

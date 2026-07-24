@@ -106,6 +106,8 @@ class CleanedVaultPriceRow(TypedDict, total=False):
     #:   see :py:data:`~eth_defi.lighter.constants.LIGHTER_CHAIN_ID`
     #: - ``9997`` — Hibachi native vaults,
     #:   see :py:data:`~eth_defi.hibachi.constants.HIBACHI_CHAIN_ID`
+    #: - ``9995`` — ApeX native vaults,
+    #:   see :py:data:`~eth_defi.apex.constants.APEX_CHAIN_ID`
     #: - ``325`` — GRVT (Gravity Markets),
     #:   see :py:data:`~eth_defi.grvt.constants.GRVT_CHAIN_ID`
     #:
@@ -123,6 +125,7 @@ class CleanedVaultPriceRow(TypedDict, total=False):
     #: - GRVT: platform-specific id (e.g. ``"vlt:xxx"``)
     #: - Lighter: synthetic id (e.g. ``"lighter-pool-281474976710654"``)
     #: - Hibachi: synthetic id (e.g. ``"hibachi-vault-2"``)
+    #: - ApeX: synthetic id (e.g. ``"apex-vault-2044287989957394432"``)
     #:
     #: See :py:func:`~eth_defi.utils.is_good_multichain_address` for
     #: the validation function that accepts all these formats.

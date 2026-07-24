@@ -759,6 +759,13 @@ class ERC4626Feature(enum.Enum):
     #: https://hibachi.xyz/vaults
     hibachi_native = "hibachi_native"
 
+    #: ApeX native vault
+    #:
+    #: Native ApeX Omni perpetuals trading vault.
+    #: Not an ERC-4626 vault but shares the same metrics interface.
+    #: https://omni.apex.exchange/
+    apex_native = "apex_native"
+
     #: Ember Protocol
     #:
     #: Investment platform for launching and distributing onchain financial products.
@@ -1245,6 +1252,9 @@ def get_vault_protocol_name(features: set[ERC4626Feature]) -> str:
 
     elif ERC4626Feature.hibachi_native in features:
         return "Hibachi"
+
+    elif ERC4626Feature.apex_native in features:
+        return "ApeX"
 
     elif ERC4626Feature.ember_like in features:
         return "Ember"

@@ -7,7 +7,8 @@ ApeX
 ====
 
 The ApeX integration reads public native-vault metadata and actual-timestamp
-NAV and TVL history into a standalone DuckDB database.
+NAV and TVL history into DuckDB. The all-chain scanner can also export the
+data into the shared vault metadata and price pipeline.
 
 See the `ApeX public API documentation
 <https://api-docs.pro.apex.exchange/>`__ for the platform API.
@@ -23,3 +24,4 @@ The package architecture and operating model are described in
    eth_defi.apex.session
    eth_defi.apex.vault
    eth_defi.apex.metrics
+   eth_defi.apex.vault_data_export
