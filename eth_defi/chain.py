@@ -183,6 +183,53 @@ CHAIN_NAMES = {
     4326: "Megaeth",
 }
 
+#: Foundry / Anvil fork-cache network-directory names, keyed by chain id.
+#:
+#: Anvil stores its fork RPC cache at
+#: ``~/.foundry/cache/rpc/<network>/<block>/storage.json`` where ``<network>`` is
+#: Foundry's own chain name (from ``alloy-chains``), which is **not** our
+#: :data:`CHAIN_NAMES` display name — e.g. Ethereum is ``mainnet`` and BNB Smart
+#: Chain (Binance) is ``bsc``. The committed fork-cache seed
+#: (``eth_defi/testing/rpc_cache_seed/<network>/<block>/``) and any code that
+#: locates a chain's fork cache must use these names so the paths match what
+#: Foundry writes. Values are verified against the directories Anvil 1.7.1
+#: actually created; chains not listed here fall back to Foundry's default (the
+#: numeric chain id as the directory) and should be added once verified.
+FOUNDRY_NETWORK_NAMES: dict[int, str] = {
+    1: "mainnet",  # Ethereum
+    56: "bsc",  # BNB Smart Chain (a.k.a. Binance / BNB chain)
+    137: "polygon",
+    143: "monad",
+    146: "sonic",
+    999: "hyperliquid",  # HyperEVM
+    8453: "base",
+    9745: "plasma",
+    42161: "arbitrum",
+    43114: "avalanche",
+    80094: "berachain",
+}
+
+
+def get_foundry_network_name(chain_id: int) -> str | None:
+    """Return Foundry's fork-cache network directory name for a chain id.
+
+    Anvil stores its fork RPC cache under
+    ``~/.foundry/cache/rpc/<network>/<block>/`` keyed by Foundry's own chain name
+    (e.g. ``mainnet`` for Ethereum, ``bsc`` for BNB Smart Chain), not our
+    :data:`CHAIN_NAMES` display name. Use this to locate or seed a chain's fork
+    cache directory (see :mod:`eth_defi.testing.rpc_cache`).
+
+    :param chain_id:
+        EVM chain id.
+
+    :return:
+        The Foundry network directory name, or ``None`` when not recorded in
+        :data:`FOUNDRY_NETWORK_NAMES` (Foundry then falls back to the numeric
+        chain id as the directory name).
+    """
+    return FOUNDRY_NETWORK_NAMES.get(chain_id)
+
+
 #: For linking on reports
 CHAIN_HOMEPAGES = {
     325: {"name": "GRVT", "homepage": "https://grvt.io"},
