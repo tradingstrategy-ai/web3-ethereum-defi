@@ -1810,7 +1810,7 @@ def probe_vaults(
 
 def detect_vault_features(
     web3: Web3 | None = None,
-    address: HexAddress | str = None,
+    address: HexAddress | str | None = None,
     verbose=True,
     web3factory: Web3Factory | None = None,
     chunk_size: int = DETECT_VAULT_FEATURES_CHUNK_SIZE,
