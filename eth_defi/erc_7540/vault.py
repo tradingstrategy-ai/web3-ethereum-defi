@@ -183,6 +183,7 @@ class ERC7540Vault(ERC4626Vault):
             deposit_flow="asynchronous",
             redemption_flow="asynchronous",
             supports_anvil_settlement=False,
+            anvil_settlement_unsupported_reason="generic_erc_7540_settlement_driver_not_implemented",
         )
 
     def get_estimated_lock_up(self) -> datetime.timedelta | None:

@@ -134,6 +134,8 @@ def test_gains_deposit_withdraw(
     with pytest.raises(VaultFlowUnavailable) as exc_info:
         deposit_manager.create_redemption_request(owner=test_user, shares=shares)
     assert exc_info.value.decoded_error == "EndOfEpoch"
+    assert exc_info.value.preflight_result == "redemption_window_closed"
+    assert exc_info.value.next_open is not None
     assert exc_info.value.error_selector == END_OF_EPOCH_SELECTOR
 
     # 0. Clear epoch

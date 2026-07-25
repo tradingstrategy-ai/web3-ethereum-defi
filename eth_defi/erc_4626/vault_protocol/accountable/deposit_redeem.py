@@ -28,9 +28,12 @@ from eth_defi.timestamp import get_block_timestamp
 from eth_defi.vault.deposit_redeem import (
     AsyncVaultRequestStatus,
     CannotParseRedemptionTransaction,
+    DepositTicket,
     RedemptionRequest,
     RedemptionTicket,
+    UnsupportedVaultSimulation,
     VaultFlowUnavailable,
+    VaultForcedSettlementResult,
 )
 from eth_defi.vault.flow_events import (
     PendingVaultFlow,
@@ -308,6 +311,7 @@ class AccountableDepositManager(ERC4626DepositManager):
                 direction="deposit",
                 phase="preflight",
                 decoded_error="InsufficientAmount",
+                preflight_result="below_minimum",
                 requested_raw_amount=raw_amount,
                 minimum_raw_amount=minimum,
                 error_selector=ACCOUNTABLE_INSUFFICIENT_AMOUNT_SELECTOR,
@@ -323,6 +327,7 @@ class AccountableDepositManager(ERC4626DepositManager):
                     caller=owner,
                     direction="deposit",
                     phase="preflight",
+                    preflight_result="deposit_closed",
                     requested_raw_amount=raw_amount,
                     available_raw_amount=max_deposit,
                 )
@@ -394,16 +399,37 @@ class AccountableDepositManager(ERC4626DepositManager):
                 direction="redeem",
                 phase="preflight",
                 decoded_error="InsufficientAmount",
+                preflight_result="below_minimum",
                 requested_raw_amount=raw_shares,
                 minimum_raw_amount=minimum,
                 error_selector=ACCOUNTABLE_INSUFFICIENT_AMOUNT_SELECTOR,
             )
         if self.is_redemption_in_progress(owner):
-            raise ValueError("Accountable has a pending or claimable redemption for this controller")
+            raise VaultFlowUnavailable(
+                "Accountable has a pending or claimable redemption for this controller",
+                protocol="Accountable",
+                vault_address=self.vault.address,
+                caller=owner,
+                direction="redeem",
+                phase="preflight",
+                decoded_error="RedemptionPending",
+                preflight_result="redemption_unavailable",
+            )
         if check_enough_token:
             balance = int(self.vault.share_token.fetch_raw_balance_of(owner))
             if balance < raw_shares:
-                raise ValueError(f"Insufficient Accountable shares: has {balance}, needs {raw_shares}")
+                raise VaultFlowUnavailable(
+                    f"Insufficient Accountable shares: has {balance}, needs {raw_shares}",
+                    protocol="Accountable",
+                    vault_address=self.vault.address,
+                    caller=owner,
+                    direction="redeem",
+                    phase="preflight",
+                    decoded_error="InsufficientShares",
+                    preflight_result="redemption_unavailable",
+                    requested_raw_amount=raw_shares,
+                    available_raw_amount=balance,
+                )
         return AccountableRedemptionRequest(
             vault=self.vault,
             owner=owner,
@@ -411,6 +437,34 @@ class AccountableDepositManager(ERC4626DepositManager):
             shares=self.vault.share_token.convert_to_decimals(raw_shares),
             raw_shares=raw_shares,
             funcs=[self.vault.vault_contract.functions.requestRedeem(raw_shares, owner, owner)],
+        )
+
+    def force_settle(self, ticket: DepositTicket | RedemptionTicket | None) -> VaultForcedSettlementResult:
+        """Refuse Accountable asynchronous settlement before any fork broadcast.
+
+        The selected deposit direction is synchronous and retains the base
+        no-op result. Accountable redemption settlement is controlled by a
+        strategy operator and does not expose a safe Anvil driver.
+
+        :param ticket:
+            ``None`` for a synchronous deposit, or an Accountable redemption
+            ticket to refuse.
+        :return:
+            Shared synchronous no-op outcome for ``None``.
+        :raise UnsupportedVaultSimulation:
+            For an asynchronous redemption ticket with the stable capability
+            reason.
+        """
+        if ticket is None:
+            return VaultForcedSettlementResult(
+                ticket=None,
+                settlement_required=False,
+                status_before=None,
+                status_after=None,
+            )
+        raise UnsupportedVaultSimulation(
+            f"Accountable redemption settlement is strategy-operator controlled for vault {self.vault.address} on chain {self.vault.chain_id}",
+            unsupported_reason="accountable_redemption_settlement_is_strategy_operator_controlled",
         )
 
     def has_synchronous_deposit(self) -> bool:

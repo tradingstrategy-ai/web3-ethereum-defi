@@ -20,16 +20,6 @@ from eth_defi.erc_4626.deposit_redeem import ERC4626DepositManager
 from eth_defi.provider.anvil import is_anvil
 from eth_defi.timestamp import get_block_timestamp
 from eth_defi.utils import from_unix_timestamp
-from eth_defi.vault.flow_events import (
-    PendingVaultFlow,
-    VaultFlowDirection,
-    create_pending_vault_flow,
-    decode_indexed_event_address,
-    decode_indexed_event_uint,
-    decode_single_uint256_event_data,
-    fetch_vault_flow_logs_hypersync,
-    normalise_event_topic,
-)
 from eth_defi.vault.deposit_redeem import (
     AsyncVaultRequestStatus,
     CannotParseRedemptionTransaction,
@@ -42,6 +32,16 @@ from eth_defi.vault.deposit_redeem import (
     UnsupportedVaultSimulation,
     VaultFlowUnavailable,
     VaultForcedSettlementResult,
+)
+from eth_defi.vault.flow_events import (
+    PendingVaultFlow,
+    VaultFlowDirection,
+    create_pending_vault_flow,
+    decode_indexed_event_address,
+    decode_indexed_event_uint,
+    decode_single_uint256_event_data,
+    fetch_vault_flow_logs_hypersync,
+    normalise_event_topic,
 )
 
 logger = logging.getLogger(__name__)
@@ -215,6 +215,8 @@ class GainsDepositManager(ERC4626DepositManager):
                 direction="redeem",
                 phase="preflight",
                 decoded_error="EndOfEpoch",
+                preflight_result="redemption_window_closed",
+                next_open=vault.fetch_redemption_next_open(),
                 error_selector=END_OF_EPOCH_SELECTOR,
             )
 
@@ -223,13 +225,34 @@ class GainsDepositManager(ERC4626DepositManager):
         else:
             raw_amount = raw_shares
 
-        assert type(raw_amount) == int, f"Got {raw_amount} {type(raw_amount)}"
+        if not isinstance(raw_amount, int):
+            raise VaultFlowUnavailable(
+                f"Gains redemption share amount must be an integer, got {type(raw_amount)}",
+                protocol=vault.get_protocol_name(),
+                vault_address=vault.address,
+                caller=owner,
+                direction="redeem",
+                phase="preflight",
+                preflight_result="redemption_unavailable",
+            )
         shares = vault.share_token
         block_number = self.web3.eth.block_number
 
         # Check we have shares
         owned_raw_amount = shares.fetch_raw_balance_of(owner, block_number)
-        assert owned_raw_amount >= raw_amount, f"Cannot redeem, has only {owned_raw_amount} shares when {raw_amount} needed"
+        if owned_raw_amount < raw_amount:
+            raise VaultFlowUnavailable(
+                f"Cannot redeem, has only {owned_raw_amount} shares when {raw_amount} needed",
+                protocol=vault.get_protocol_name(),
+                vault_address=vault.address,
+                caller=owner,
+                direction="redeem",
+                phase="preflight",
+                decoded_error="InsufficientShares",
+                preflight_result="redemption_unavailable",
+                requested_raw_amount=raw_amount,
+                available_raw_amount=owned_raw_amount,
+            )
 
         human_amount = shares.convert_to_decimals(raw_amount)
         total_shares = vault.fetch_total_supply(block_number)

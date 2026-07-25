@@ -12,7 +12,7 @@ This manager models that flow: synchronous deposits (inherited) plus an
 asynchronous redemption request/ticket/status/claim lifecycle with typed
 preflight errors. On-fork operator settlement (``fulfillRedeem``) is role-gated
 by OpenZeppelin AccessControl and is not reproduced here, so
-``supports_anvil_settlement`` is left unset with a precise reason.
+``supports_anvil_settlement`` is explicitly ``False`` with a stable reason.
 """
 
 import datetime
@@ -31,8 +31,8 @@ from eth_defi.vault.deposit_redeem import (
     RedemptionRequest,
     RedemptionTicket,
     UnsupportedVaultSimulation,
-    VaultForcedSettlementResult,
     VaultFlowUnavailable,
+    VaultForcedSettlementResult,
 )
 
 #: ``UseRequestRedeem()`` — standard ERC-4626 ``redeem`` is disabled; use the
@@ -243,6 +243,7 @@ class PlutusAsyncDepositManager(ERC4626DepositManager):
                 direction="redeem",
                 phase="preflight",
                 decoded_error="WithdrawalsArePaused",
+                preflight_result="redemption_paused",
                 error_selector=WITHDRAWALS_ARE_PAUSED_SELECTOR,
             )
 
@@ -256,6 +257,7 @@ class PlutusAsyncDepositManager(ERC4626DepositManager):
                     caller=owner,
                     direction="redeem",
                     phase="preflight",
+                    preflight_result="redemption_unavailable",
                     requested_raw_amount=raw_shares,
                     available_raw_amount=balance,
                 )
@@ -396,4 +398,7 @@ class PlutusAsyncDepositManager(ERC4626DepositManager):
                 status_before=None,
                 status_after=None,
             )
-        raise UnsupportedVaultSimulation(f"Plutus Hedge fulfilment is role-gated (AccessControl) and not reproducible on a fork for vault {self.vault.address}")
+        raise UnsupportedVaultSimulation(
+            f"Plutus Hedge fulfilment is role-gated (AccessControl) and not reproducible on a fork for vault {self.vault.address}",
+            unsupported_reason="plutus_redeem_fulfilment_is_access_control_role_gated",
+        )

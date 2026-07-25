@@ -56,6 +56,10 @@ def test_vault_deposit_manager_capability_exposes_directional_public_support() -
         VaultDepositManagerCapability(True, True, "synchronous", "synchronous", deposit_unsupported_reason="unsupported")
     with pytest.raises(ValueError, match="supports_anvil_settlement"):
         VaultDepositManagerCapability(True, True, "synchronous", "synchronous", supports_anvil_settlement=True)
+    with pytest.raises(ValueError, match="anvil_settlement_unsupported_reason"):
+        VaultDepositManagerCapability(True, True, "synchronous", "asynchronous", supports_anvil_settlement=False)
+    with pytest.raises(ValueError, match="anvil_settlement_unsupported_reason"):
+        VaultDepositManagerCapability(True, True, "synchronous", "asynchronous", anvil_settlement_unsupported_reason="reason")
     with pytest.raises(ValueError, match="deposit_assets"):
         VaultDepositManagerCapability(False, False, deposit_assets=("0x0000000000000000000000000000000000000001",))
 

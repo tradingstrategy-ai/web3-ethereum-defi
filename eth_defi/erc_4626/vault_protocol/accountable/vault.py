@@ -261,6 +261,8 @@ class AccountableVault(ERC4626Vault):
             can_redeem=True,
             deposit_flow="synchronous",
             redemption_flow="asynchronous",
+            supports_anvil_settlement=False,
+            anvil_settlement_unsupported_reason="accountable_redemption_settlement_is_strategy_operator_controlled",
         )
 
     @cached_property

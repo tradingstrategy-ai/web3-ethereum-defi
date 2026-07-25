@@ -161,7 +161,12 @@ class EmberVault(ERC4626Vault):
             can_redeem=True,
             deposit_flow="synchronous",
             redemption_flow="asynchronous",
-            supports_anvil_settlement=True,
+            # Ember's operator processing leaves this non-claim ERC-7540-style
+            # ticket terminal rather than claimable.  Do not publish a true
+            # capability until the executor can prove the required claimable
+            # status for the exact deployment.
+            supports_anvil_settlement=False,
+            anvil_settlement_unsupported_reason="ember_operator_settlement_has_no_claimable_ticket_status",
         )
 
     def get_notes(self) -> str | None:

@@ -28,8 +28,10 @@ from eth_defi.vault.deposit_redeem import (
     DepositTicket,
     RedemptionRequest,
     RedemptionTicket,
+    UnsupportedVaultSimulation,
     VaultDepositManager,
     VaultFlowUnavailable,
+    VaultForcedSettlementResult,
 )
 from eth_defi.vault.flow_events import (
     PendingVaultFlow,
@@ -709,6 +711,29 @@ class ERC7540DepositManager(VaultDepositManager):
             return convert_int256_bytes_to_int(result) != 0
         except (ValueError, BadFunctionCallOutput, BadAddressError, ProbablyNodeHasNoBlock):
             return False
+
+    def force_settle(self, ticket: DepositTicket | RedemptionTicket | None) -> VaultForcedSettlementResult:
+        """Refuse generic ERC-7540 operator settlement before a fork broadcast.
+
+        ERC-7540 standardises request and claim interfaces but not the operator
+        action which makes a particular ticket claimable. Protocol-specific
+        managers must implement and prove that action before advertising an
+        Anvil settlement capability.
+
+        :param ticket:
+            Asynchronous deposit or redemption ticket whose settlement is not
+            implemented by this protocol-neutral manager.
+        :return:
+            This method never returns because both generic ERC-7540 directions
+            are asynchronous.
+        :raise UnsupportedVaultSimulation:
+            Always, with the generic capability's stable reason.
+        """
+        del ticket
+        raise UnsupportedVaultSimulation(
+            f"Generic ERC-7540 settlement driver is not implemented for vault {self.vault.address} on chain {self.vault.chain_id}",
+            unsupported_reason="generic_erc_7540_settlement_driver_not_implemented",
+        )
 
     def has_synchronous_deposit(self) -> bool:
         """Report that deposits use the asynchronous request lifecycle.

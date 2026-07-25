@@ -202,7 +202,8 @@ class CsigmaDepositManager(ERC4626DepositManager):
                     vault_address=self.vault.address,
                     caller=owner,
                     direction="deposit",
-                    phase="request",
+                    phase="preflight",
+                    preflight_result="deposit_closed",
                     requested_raw_amount=raw_amount,
                     available_raw_amount=available_raw_assets,
                 )
@@ -262,10 +263,11 @@ class CsigmaDepositManager(ERC4626DepositManager):
                     vault_address=self.vault.address,
                     caller=owner,
                     direction="redeem",
-                    phase="request",
+                    phase="preflight",
                     requested_raw_amount=raw_shares,
                     available_raw_amount=preflight.available_raw_shares,
                     decoded_error="WithdrawalPending",
+                    preflight_result="redemption_capacity_limited",
                     error_selector=CSIGMA_WITHDRAWAL_PENDING_SELECTOR,
                 )
 

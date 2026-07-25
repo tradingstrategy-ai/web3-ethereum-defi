@@ -17,7 +17,7 @@ from eth_defi.provider.anvil import AnvilLaunch, fork_network_anvil
 from eth_defi.provider.multi_provider import create_multi_provider_web3
 from eth_defi.token import USDC_WHALE, TokenDetails, fetch_erc20_details
 from eth_defi.trace import assert_transaction_success_with_explanation
-from eth_defi.vault.deposit_redeem import AsyncVaultRequestStatus
+from eth_defi.vault.deposit_redeem import AsyncVaultRequestStatus, UnsupportedVaultSimulation, VaultFlowUnavailable
 
 JSON_RPC_ETHEREUM = os.environ.get("JSON_RPC_ETHEREUM")
 EMBER_VAULT = HexAddress(HexStr("0xf3190A3ECC109F88e7947b849b281918c798A0C4"))
@@ -91,10 +91,11 @@ def test_ember_deposit_redeem_lifecycle(web3: Web3, vault: EmberVault, usdc: Tok
         "can_redeem": True,
         "deposit_flow": "synchronous",
         "redemption_flow": "asynchronous",
-        "supports_anvil_settlement": True,
+        "supports_anvil_settlement": False,
+        "anvil_settlement_unsupported_reason": "ember_operator_settlement_has_no_claimable_ticket_status",
     }
-    # The force_settle driver reads the operator from roles() rather than
-    # hardcoding it; assert the onchain layout matches the known operator.
+    # Keep the exact deployment's operator layout in coverage even though its
+    # direct-pay queue cannot satisfy generic claimable-ticket settlement.
     assert Web3.to_checksum_address(vault.vault_contract.functions.roles().call()[1]) == Web3.to_checksum_address(EMBER_OPERATOR)
 
     owner = web3.eth.accounts[0]
@@ -132,32 +133,28 @@ def test_ember_deposit_redeem_lifecycle(web3: Web3, vault: EmberVault, usdc: Tok
     assert manager.can_finish_redeem(ticket) is False
     assert manager.finish_redemption(ticket) is None
 
-    # 4. Force settlement through the operator-impersonating Anvil driver.
-    settlement = manager.force_settle(ticket)
-    assert settlement.settlement_required is True
-    assert settlement.status_before == AsyncVaultRequestStatus.pending
-    assert settlement.status_after == AsyncVaultRequestStatus.none
-    assert len(settlement.transaction_hashes) >= 1
-    completion_hash = manager.fetch_completed_redemption_tx_hash(ticket)
-    assert completion_hash == settlement.transaction_hashes[-1]
-    redemption_analysis = manager.analyse_redemption(completion_hash, ticket)
-    assert redemption_analysis.share_count == Decimal("97.218907")
-    assert redemption_analysis.denomination_amount == Decimal("99.999999")
-    assert manager.get_redemption_request_status(ticket) == AsyncVaultRequestStatus.none
-    assert vault.vault_contract.functions.getAccountState(owner).call() == [0, [], []]
-    assert vault.share_token.fetch_raw_balance_of(owner) == 0
-    assert usdc.fetch_raw_balance_of(owner) == 99_999_999
+    # 4. Ember has no claimable ticket state, so force-settlement must refuse
+    # before impersonating the operator or broadcasting its queue processor.
+    with pytest.raises(UnsupportedVaultSimulation, match="cannot prove a claimable") as exc_info:
+        manager.force_settle(ticket)
+    assert exc_info.value.unsupported_reason == "ember_operator_settlement_has_no_claimable_ticket_status"
+    assert manager.get_redemption_request_status(ticket) == AsyncVaultRequestStatus.pending
+    assert vault.vault_contract.functions.getAccountState(owner).call() == [raw_shares, [145], []]
 
 
 def test_ember_redemption_minimum_is_checked_before_call_binding(web3: Web3, vault: EmberVault) -> None:
     """Reject a request below the exact configured Ember minimum share amount."""
     manager = vault.get_deposit_manager()
-    with pytest.raises(ValueError, match="below minimum"):
+    with pytest.raises(VaultFlowUnavailable, match="below minimum") as exc_info:
         manager.create_redemption_request(
             owner=web3.eth.accounts[1],
             raw_shares=99_999,
             check_enough_token=False,
         )
+    assert exc_info.value.decoded_error == "InsufficientAmount"
+    assert exc_info.value.preflight_result == "below_minimum"
+    assert exc_info.value.direction == "redeem"
+    assert exc_info.value.minimum_raw_amount == 100_000
 
 
 def test_ember_ticket_identity_validation() -> None:
