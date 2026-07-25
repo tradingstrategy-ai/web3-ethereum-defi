@@ -200,6 +200,7 @@ FOUNDRY_NETWORK_NAMES: dict[int, str] = {
     56: "bsc",  # BNB Smart Chain (a.k.a. Binance / BNB chain)
     137: "polygon",
     143: "monad",
+    5000: "mantle",
     146: "sonic",
     999: "hyperliquid",  # HyperEVM
     8453: "base",

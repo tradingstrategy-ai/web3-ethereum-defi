@@ -8,8 +8,11 @@ fresh developer checkout — every fixed-block fork re-hammers the upstream arch
 which is the dominant cause of the flaky-fork failures documented in
 :file:`docs/README-test-suite-performance.md`.
 
-This module lets the **repository ship default cache files** for the canonical
-midnight blocks so a cold cache starts warm. Committed seed files live under
+This module lets the **repository ship default cache files** so a cold cache
+starts warm. The committed seed covers every *fixed* fork block the test suite
+uses — the canonical midnight blocks plus the per-test pinned blocks — because
+only a reproducible block is worth caching. Chains that must fork the chain tip
+(see :data:`NON_CACHEABLE_CHAIN_NETWORKS`) are deliberately excluded. Committed seed files live under
 :data:`DEFAULT_SEED_DIR` (mirroring Foundry's ``<network>/<block>/…`` layout);
 an additional external seed directory can be supplied via the
 ``ETH_DEFI_RPC_CACHE_SEED_DIR`` environment variable (e.g. a large cache
@@ -30,19 +33,16 @@ logger = logging.getLogger(__name__)
 
 #: Repository-shipped default cache tree. Mirrors Foundry's on-disk layout:
 #: ``<network-name>/<block>/storage.json`` (network *name*, not chain id). Ship
-#: dense caches for the canonical ``*_MIDNIGHT_BLOCK`` blocks here. See the
-#: ``README.md`` in this directory for how to capture them.
+#: dense caches for every fixed fork block the suite uses. See the ``README.md``
+#: in this directory for how to capture them.
 DEFAULT_SEED_DIR: Path = Path(__file__).parent / "rpc_cache_seed"
 
-#: Additional committed seed fork blocks that are **not** a chain's canonical
-#: ``*_MIDNIGHT_BLOCK``. Some tests pin their own historical block (e.g. Upshift's
-#: multi-asset metadata tests fork Ethereum at a fixed non-midnight block), and
-#: those benefit from a warm cache too. Keyed by chain id → set of extra blocks,
-#: so the seed drift-guard (``tests/test_rpc_cache.py``) accepts them alongside
-#: the midnight blocks. Add an entry here when committing a non-midnight block.
-ADDITIONAL_SEED_BLOCKS: dict[int, set[int]] = {
-    1: {25_405_251},  # Upshift multi-asset metadata fork block (test_upshift.py)
-}
+#: Chains whose fork tests cannot use a fixed historical block, so their fork
+#: cache must **not** be committed. Monad provides no archive-complete historical
+#: state, so its tests fork the chain tip: the block number differs on every run,
+#: a committed cache entry would never be hit again, and it would grow the
+#: repository for nothing. See the Monad chain-quirk notes in ``CLAUDE.md``.
+NON_CACHEABLE_CHAIN_NETWORKS: frozenset[str] = frozenset({"monad"})
 
 #: Environment variable naming an *additional* seed directory (same layout),
 #: applied after the repo default. Use for a large cache kept outside git.

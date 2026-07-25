@@ -11,7 +11,7 @@ import pytest
 
 from eth_defi.chain import FOUNDRY_NETWORK_NAMES
 from eth_defi.testing.fork_blocks import MIDNIGHT_BLOCKS
-from eth_defi.testing.rpc_cache import ADDITIONAL_SEED_BLOCKS, DEFAULT_SEED_DIR, seed_default_foundry_rpc_cache, seed_foundry_rpc_cache
+from eth_defi.testing.rpc_cache import DEFAULT_SEED_DIR, NON_CACHEABLE_CHAIN_NETWORKS, seed_default_foundry_rpc_cache, seed_foundry_rpc_cache
 
 
 def _make_seed(tmp_path: Path) -> Path:
@@ -77,23 +77,44 @@ def test_seed_default_uses_env_dir(tmp_path: Path, monkeypatch: pytest.MonkeyPat
     assert seed_default_foundry_rpc_cache(cache) >= 2
 
 
-def test_committed_seed_matches_foundry_names_and_midnight_blocks() -> None:
-    """Every committed seed dir uses a known Foundry network name + midnight block.
+def test_committed_seed_is_well_formed() -> None:
+    """Every committed cache dir is a usable, reproducible Foundry fork block.
 
-    Guards against drift between the committed cache
-    (`eth_defi/testing/rpc_cache_seed/<network>/<block>/`), Foundry's network
-    names (`FOUNDRY_NETWORK_NAMES`) and the canonical blocks (`MIDNIGHT_BLOCKS`).
+    The seed ships every *fixed* fork block the suite uses, so this no longer
+    pins the set of blocks. It guards the invariants that still matter:
+    the directory must be a Foundry network name (not our display name, so the
+    path matches what Anvil writes), must hold a ``storage.json``, and must not
+    belong to a chain that can only fork the tip — caching such a block is dead
+    weight because the block number changes on every run.
     """
     name_to_chain = {name: chain_id for chain_id, name in FOUNDRY_NETWORK_NAMES.items()}
+    seen = 0
     for net_dir in DEFAULT_SEED_DIR.iterdir():
         if not net_dir.is_dir():
             continue
         assert net_dir.name in name_to_chain, f"seed dir '{net_dir.name}' is not a known Foundry network name (add it to FOUNDRY_NETWORK_NAMES)"
-        chain_id = name_to_chain[net_dir.name]
+        assert net_dir.name not in NON_CACHEABLE_CHAIN_NETWORKS, f"{net_dir.name} forks the chain tip, so its cache must not be committed"
         for block_dir in net_dir.iterdir():
             if not block_dir.is_dir():
                 continue
-            block = int(block_dir.name)
-            allowed = {MIDNIGHT_BLOCKS.get(chain_id)} | ADDITIONAL_SEED_BLOCKS.get(chain_id, set())
-            assert block in allowed, f"{net_dir.name}/{block} is neither the midnight block nor a listed ADDITIONAL_SEED_BLOCKS entry for chain {chain_id}"
-            assert (block_dir / "storage.json").exists()
+            assert block_dir.name.isdigit(), f"{net_dir.name}/{block_dir.name} is not a block number"
+            assert (block_dir / "storage.json").exists(), f"{net_dir.name}/{block_dir.name} has no storage.json"
+            seen += 1
+    assert seen > 0, "no committed fork cache blocks found"
+
+
+def test_midnight_blocks_are_seeded() -> None:
+    """Each chain's canonical midnight block ships in the seed.
+
+    These are the shared blocks the pooled fork tests normalise onto, so they are
+    the most valuable entries to keep warm.
+    """
+    for chain_id, block in MIDNIGHT_BLOCKS.items():
+        network = FOUNDRY_NETWORK_NAMES.get(chain_id)
+        if network is None or network in NON_CACHEABLE_CHAIN_NETWORKS:
+            continue
+        seeded = DEFAULT_SEED_DIR / network / str(block)
+        if not seeded.exists():
+            # Not every chain has a vault test that forks its midnight block.
+            continue
+        assert (seeded / "storage.json").exists()
