@@ -359,10 +359,11 @@ Implemented on top of the plan above:
   fixture — a cold CI cache starts warm for the midnight blocks.
 - **`latest`-fork audit.** The `latest` forks are documented in their fixture
   docstrings as exempt from the fixed-block rule: Monad (`test_accountable`,
-  `test_curvance` — no archive state), BNB `test_decode_tx` (a pin was tried but
-  the configured BNB provider returns HTTP 500 serving historical state, so it
-  stays on the tip), Enso live-state (`velvet`), near-tip HyperCore, and the
-  fork-mechanism infra tests (`tests/rpc/test_anvil*`).
+  `test_curvance` — no archive state), Enso live-state (`velvet`), near-tip
+  HyperCore, and the fork-mechanism infra tests (`tests/rpc/test_anvil*`).
+  `test_decode_tx` (BNB) was skipped as a legacy test to be removed — a
+  fixed-block pin also failed there because BNB providers 500 on historical
+  state.
 - **GMX CI cap.** `test-gmx.yml` runs the full suite (including the slow
   order-execution / vault-deploy files that fork per test + simulate the keeper
   with sleeps) whenever GMX files change — the workflow's `paths:` filters
