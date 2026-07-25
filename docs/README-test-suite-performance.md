@@ -591,6 +591,15 @@ immutable so it never accumulates new fork state.
      the binary itself — the explicit toolchain cache is a belt-and-braces.)
    - The fork RPC cache is **one stable, self-warming cache** — the simplest
      design that persists and grows without any resets or a separate warmer job.
+
+     > **Superseded (2026-07-25).** The `actions/cache` design described in this
+     > bullet was **removed**. Anvil only flushes its fork cache on a *graceful*
+     > shutdown, and teardown `SIGKILL`'d it, so `actions/cache` never had
+     > anything to save. The warm cache is now **committed to the repo**
+     > (`eth_defi/testing/rpc_cache_seed/`) and applied by a session fixture — see
+     > the dated "graceful shutdown" note above and `eth_defi/testing/README.md`
+     > §5. The rest of this bullet is retained as historical design context.
+
      Because GitHub caches are immutable (saved only on a key miss), a *fixed* key
      would freeze after the first save; so we use a unique-per-run key
      `foundry-rpc-v1.2.3-${{ runner.os }}-${{ github.run_id }}` with a **stable
