@@ -99,22 +99,47 @@ and the diagnosis.
 Wedged-fork recycling — one bad fork must not fail its whole group
 ------------------------------------------------------------------
 
-A long-lived shared fork can stop answering under sustained load (the
-responsiveness degradation documented in the ``AnvilSnapshotState`` docstring in
-:mod:`eth_defi.provider.anvil`). Because a pooled fork is shared by every test
-carrying its ``xdist_group``, one wedged process used to fail *all* of them at
-setup, each paying the full 60 s Web3 read timeout — a single dead Anvil
-accounted for 19 errored tests in a measured local run.
+**Background.** A long-lived shared fork can stop answering under sustained load.
+This is the Anvil responsiveness degradation already documented in the
+``AnvilSnapshotState`` docstring in :mod:`eth_defi.provider.anvil`, and it is the
+known trade-off of the shared-fork pool introduced in `PR #1360
+<https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/1360>`__ (which
+replaced per-test forks with long-lived pooled ones).
 
-:meth:`AnvilForkPool.get_launch` therefore probes a **reused** fork with
-:func:`is_fork_alive` before handing it out: a raw ``eth_chainId`` with a short
-:data:`POOL_LIVENESS_TIMEOUT`, sent outside the Web3 stack so it cannot inherit
-the 60 s timeout it exists to avoid. ``eth_chainId`` is served from memory, so a
-slow reply means the process itself is wedged, not that the upstream is slow. An
-unresponsive fork is disposed and relaunched, and the recycling is surfaced as a
-:class:`WedgedForkRecycledWarning` so a fork that wedges repeatedly is still
-investigated rather than silently papered over. Newly launched forks are not
-probed — ``fork_network_anvil`` already smoke-tests them.
+**Why it was so damaging.** A pooled fork is shared by every test carrying its
+``xdist_group`` marker, so one wedged process failed *all* of them at setup — and
+each victim paid the full 60 s Web3 read timeout against ``localhost`` before
+erroring. Measured on a full local vault-protocol run (100 % warm RPC cache,
+single unthrottled providers, so neither cold-fetch nor provider throttling was
+involved): **8 wedged Anvil processes produced 44 failures/errors**, 19 of them
+from a single ``fork:ethereum:midnight`` fork. Note the timeout host is
+``localhost`` — that is the tell that distinguishes this from the upstream
+throttling described in the previous section, which was the original subject of
+`PR #1372 <https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/1372>`__
+and the CI triage in `PR #1370
+<https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/1370#issuecomment-5077873163>`__.
+
+**The fix.** :meth:`AnvilForkPool.get_launch` probes a **reused** fork with
+:func:`is_fork_alive` before handing it out — a raw ``eth_chainId`` bounded by
+:data:`POOL_LIVENESS_TIMEOUT` and sent outside the Web3 stack so it cannot
+inherit the 60 s timeout it exists to avoid. An unresponsive fork is disposed and
+relaunched, turning "the rest of this group is doomed" into "one fork restarts".
+
+**Deliberate scope limits** (read before extending this):
+
+- **Newly launched forks are not probed.**
+  :func:`~eth_defi.provider.anvil.fork_network_anvil` already smoke-tests a fresh
+  process, so probing again would only add a round-trip to every cold start.
+- **This makes a wedged fork recoverable, not impossible.** It does not address
+  *why* Anvil degrades under sustained pooled load. A burst of
+  :class:`WedgedForkRecycledWarning` is therefore a signal to investigate (cap
+  tests-per-fork, recycle proactively), which is exactly why the recycling warns
+  loudly instead of silently papering over the problem.
+- **Recycling resets EVM state.** A relaunched fork is a *fresh* fork: any
+  post-launch deployment or mutation a test group relied on is gone. That is safe
+  for the read-only characterisation tests this pool currently serves (see the
+  warning at the end of this docstring), but a mutating shared-fork user must
+  re-establish its baseline rather than assume continuity.
 
 Bounded provider retries — fail fast, never re-hammer a dead provider
 ---------------------------------------------------------------------
@@ -271,9 +296,14 @@ POOL_WEB3_HTTP_TIMEOUT: tuple[float, float] = (3.0, 60.0)
 #: Seconds allowed for the liveness probe on a **reused** pooled fork.
 #:
 #: A healthy Anvil answers ``eth_chainId`` from memory in milliseconds, so this
-#: only has to cover process scheduling — it must stay far below the 60 s Web3
-#: read timeout, because the whole point is to detect a wedged fork quickly
-#: instead of paying that timeout once per test in the group.
+#: budget only has to cover process scheduling and a loaded CI runner — not any
+#: real work. It must stay **far below** :data:`POOL_WEB3_HTTP_TIMEOUT` (60 s),
+#: because the entire point of the probe is to detect a wedged fork in seconds
+#: instead of paying that 60 s timeout once per test in the group (see the
+#: "Wedged-fork recycling" section of the module docstring — 8 wedged forks cost
+#: 44 test failures before this existed). Raising it towards 60 s would defeat
+#: the mechanism; lowering it risks recycling a merely busy fork, which is
+#: cheap but wasteful.
 POOL_LIVENESS_TIMEOUT: float = 5.0
 
 
@@ -281,40 +311,76 @@ class WedgedForkRecycledWarning(UserWarning):
     """Warn that an unresponsive pooled Anvil fork was disposed and relaunched.
 
     A long-lived shared fork can stop answering under sustained load (see the
-    ``AnvilSnapshotState`` docstring in :mod:`eth_defi.provider.anvil`). Without
+    ``AnvilSnapshotState`` docstring in :mod:`eth_defi.provider.anvil`, and the
+    "Wedged-fork recycling" section of this module's docstring). Without
     recycling, every remaining test sharing that fork fails at setup with a 60 s
-    ``read_timeout`` against ``localhost``. This warning makes the recycling
-    visible so a fork that wedges repeatedly is still investigated rather than
-    silently papered over.
+    ``read_timeout`` against ``localhost``.
+
+    This is a :class:`UserWarning` **on purpose**: recycling repairs the symptom
+    so the suite can continue, but it does not fix the underlying degradation.
+    Surfacing it in the pytest warnings summary keeps a fork that wedges
+    repeatedly visible — treat a burst of these as a signal to cap
+    tests-per-fork or recycle proactively, not as normal background noise.
+
+    Introduced in `PR #1372
+    <https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/1372>`__.
     """
 
 
 def is_fork_alive(launch: AnvilLaunch, timeout: float = POOL_LIVENESS_TIMEOUT) -> bool:
     """Check that a pooled Anvil fork still answers JSON-RPC promptly.
 
-    Sends a raw ``eth_chainId`` straight to the local Anvil endpoint with a short
-    timeout, deliberately bypassing the Web3 stack so the probe cannot inherit
-    the 60 s read timeout it exists to avoid. ``eth_chainId`` is answered from
-    memory without touching the upstream archive, so a slow reply means the Anvil
-    process itself is unresponsive rather than the provider being slow.
+    Used by :meth:`AnvilForkPool.get_launch` to decide whether a **reused** fork
+    is still healthy or must be recycled. See the "Wedged-fork recycling" section
+    of this module's docstring for the full rationale and the measurements that
+    motivated it.
+
+    Three deliberate design choices, each of which matters:
+
+    1. **``eth_chainId`` as the probe call.** Anvil answers it from memory
+       without touching the upstream archive, so a slow reply isolates *Anvil
+       process* unresponsiveness from *upstream provider* slowness. Probing with
+       a state-reading call (``eth_getBalance``, ``eth_call``) would conflate the
+       two and could wrongly recycle a healthy fork that is merely waiting on a
+       cold archive read.
+    2. **Raw ``requests`` instead of Web3.** Going through
+       :func:`~eth_defi.provider.multi_provider.create_multi_provider_web3` would
+       inherit :data:`POOL_WEB3_HTTP_TIMEOUT` (60 s read) — the very timeout this
+       probe exists to avoid paying once per test in the group. A raw POST lets
+       us bound the check at :data:`POOL_LIVENESS_TIMEOUT`.
+    3. **Fail closed.** Any failure — timeout, refused connection, HTTP error, or
+       an unparseable body — is treated as "not usable". Relaunching a fork that
+       was actually fine costs one extra fork (seconds, and the RPC cache is
+       warm); *not* relaunching a wedged one costs every remaining test in the
+       group a 60 s timeout.
 
     :param launch:
-        Pooled Anvil launch to probe.
+        Pooled Anvil launch to probe. Only its ``json_rpc_url`` is used, so this
+        is cheap to call and safe on a process that may already be dead.
 
     :param timeout:
-        Seconds to wait for the reply before declaring the fork wedged.
+        Seconds to wait for the reply before declaring the fork wedged. Defaults
+        to :data:`POOL_LIVENESS_TIMEOUT`.
 
     :return:
-        ``True`` when Anvil replied within the timeout, ``False`` otherwise.
+        ``True`` when Anvil replied with a well-formed JSON-RPC result within the
+        timeout, ``False`` otherwise (caller should dispose and relaunch).
     """
+    # Hand-rolled JSON-RPC envelope: see design note 2 above — we must not build
+    # a Web3 client here or we inherit its 60-second read timeout.
     payload = {"jsonrpc": "2.0", "id": 1, "method": "eth_chainId", "params": []}
     try:
         resp = requests.post(launch.json_rpc_url, json=payload, timeout=timeout)
         resp.raise_for_status()
+        # A wedged Anvil can accept the connection and return a body that is not
+        # a valid JSON-RPC reply, so require the "result" key rather than
+        # trusting the HTTP status alone.
         return "result" in resp.json()
     except (requests.exceptions.RequestException, ValueError):
-        # Timeout, connection error, HTTP error or unparseable body all mean the
-        # process is not usable; the caller disposes and relaunches it.
+        # RequestException covers timeout / connection refused / HTTP error;
+        # ValueError covers a non-JSON body from resp.json(). Deliberately narrow
+        # (no bare `except Exception`) per the repository exception rules, while
+        # still failing closed for every way a dead process can misbehave.
         return False
 
 
@@ -398,15 +464,27 @@ class AnvilForkPool:
         launch = self.launches.get(key)
 
         if launch is not None:
-            # Reused fork: make sure it still answers before handing it out. A
-            # wedged Anvil would otherwise fail this test *and* every remaining
-            # test in its xdist group, each paying the 60 s Web3 read timeout.
+            # REUSE PATH. Only a fork we are handing out a second (or hundredth)
+            # time can have wedged — a brand new one was already smoke-tested by
+            # fork_network_anvil, so the probe is deliberately skipped below.
+            #
+            # Without this check a wedged Anvil fails not just this test but
+            # every remaining test carrying the same xdist_group marker, each
+            # burning the full 60s Web3 read timeout against localhost. Measured:
+            # 8 wedged forks -> 44 failures. See the "Wedged-fork recycling"
+            # section of the module docstring and PR #1372.
             if is_fork_alive(launch):
                 return launch
+
+            # Wedged. Warn loudly (see WedgedForkRecycledWarning: recycling
+            # treats the symptom, not the cause) and fall through to relaunch.
             message = f"Pooled Anvil fork for block {fork_block_number} at {launch.json_rpc_url} stopped responding within {POOL_LIVENESS_TIMEOUT}s — disposing and relaunching it."
             warnings.warn(message, WedgedForkRecycledWarning, stacklevel=2)
             logger.warning("%s", message)
             self._dispose(key, launch)
+            # NOTE: the replacement is a *fresh* fork with clean EVM state. Safe
+            # for the read-only tests this pool serves; a mutating sharer would
+            # have to re-establish its baseline.
 
         launch = self._launch(rpc_url, fork_block_number, **launch_kwargs)
         self.launches[key] = launch
@@ -454,10 +532,18 @@ class AnvilForkPool:
         :param launch:
             The launch to tear down.
         """
+        # Evict FIRST, close second. If close() raises on an already-dead or
+        # unkillable process, the entry must still be gone — otherwise the next
+        # caller is handed the same dead launch and the group fails anyway,
+        # which is the exact failure this method exists to prevent.
         self.launches.pop(key, None)
         try:
             launch.close(log_level=logging.ERROR)
         except Exception as e:  # noqa: BLE001 - a wedged process can fail to close in many ways
+            # Swallow-and-log is correct here: we are already on the recovery
+            # path, the entry is evicted, and the OS reaps the process on exit.
+            # Re-raising would turn a recoverable wedge back into a group
+            # failure. Not a silent swallow — it is logged at WARNING.
             logger.warning("Could not cleanly close wedged Anvil fork %s: %s", launch.json_rpc_url, e)
 
     def get_web3(
