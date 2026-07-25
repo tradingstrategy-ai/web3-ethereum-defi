@@ -220,6 +220,15 @@ def get_url_domain(url: str) -> str:
     """Redact URL so that only domain is displayed.
 
     Some services e.g. infura use path as an API key.
+
+    .. note::
+
+        Unlike other secrets, JSON-RPC API keys are **not** security critical:
+        they only meter/authorise read access to public blockchain data, so an
+        accidental exposure (e.g. a key leaking into a CI log via a raw
+        exception message) does no real harm. It should still be avoided —
+        prefer this redaction when logging provider URLs — but it is not an
+        incident on the level of a leaked private key or database credential.
     """
     parsed = urlparse(url)
     if parsed.port in (80, 443, None):
