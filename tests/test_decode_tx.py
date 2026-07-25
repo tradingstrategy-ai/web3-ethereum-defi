@@ -23,7 +23,6 @@ from web3 import Web3
 from eth_defi.provider.anvil import fork_network_anvil
 from eth_defi.hotwallet import HotWallet
 from eth_defi.provider.multi_provider import create_multi_provider_web3
-from eth_defi.testing.fork_blocks import BINANCE_MIDNIGHT_BLOCK
 from eth_defi.token import fetch_erc20_details
 from eth_defi.tx import decode_signed_transaction, get_tx_broadcast_data
 
@@ -54,18 +53,20 @@ def user_1() -> LocalAccount:
 
 @pytest.fixture()
 def anvil_bnb_chain_fork(request, large_busd_holder) -> str:
-    """Create a testable fork of BNB chain at a fixed block.
+    """Create a testable fork of live BNB chain at the chain tip.
 
-    Forks the canonical ``BINANCE_MIDNIGHT_BLOCK`` rather than ``latest``: the
-    test only signs, broadcasts and decodes its own transaction (the assertions
-    are block-independent), so a fixed block keeps the fork reproducible and its
-    archive reads cacheable, per the fixed-block rule in
-    :mod:`eth_defi.testing.anvil_fork_pool`.
+    Exempt from the fixed-block rule (see :mod:`eth_defi.testing.anvil_fork_pool`):
+    pinning a fixed historical block made the configured BNB provider return
+    ``HTTP 500 "Temporary internal error"`` when reading token state at that
+    block (observed on CI 2026-07-25), because BNB public RPCs do not reliably
+    serve historical archive state. The test only signs, broadcasts and decodes
+    its own transaction, so the assertions are block-independent and the current
+    tip is fine.
 
     :return: JSON-RPC URL for Web3
     """
     mainnet_rpc = os.environ["JSON_RPC_BINANCE"]
-    launch = fork_network_anvil(mainnet_rpc, fork_block_number=BINANCE_MIDNIGHT_BLOCK, unlocked_addresses=[large_busd_holder])
+    launch = fork_network_anvil(mainnet_rpc, unlocked_addresses=[large_busd_holder])
     try:
         yield launch.json_rpc_url
     finally:

@@ -303,11 +303,11 @@ instead of the current generic `eth_chainId` `RuntimeError`.
     keeps the whole pass under `ANVIL_PROXY_TOTAL_TIMEOUT = 55s`, i.e. below the
     60s Web3 read timeout, so an all-down failure returns a classified proxy
     error instead of a bare `ReadTimeout`. It is the `launch_anvil` default
-    (`proxy_multiple_upstream=True`). `AnvilForkPool.get_launch` now **pins that
-    default explicitly** (`launch_kwargs.setdefault("proxy_multiple_upstream",
-    True)`) so a shared fork can never silently inherit a slower policy;
-    overridable per call with an explicit `RPCProxyConfig` / `RPCProxy` /
-    `False`. A single-provider fork starts no proxy (nothing to fail over to), so
+    (`proxy_multiple_upstream=True`), which `AnvilForkPool.get_launch` inherits
+    by forwarding `**launch_kwargs` (its test suite codifies that the default is
+    relied on, not re-injected); overridable per call with an explicit
+    `RPCProxyConfig` / `RPCProxy` / `False`. A single-provider fork starts no
+    proxy (nothing to fail over to), so
     this only takes effect once the Lever B multi-provider secrets exist. The
     per-attempt `timeout` is intentionally kept **≥ a legitimate cold-archive
     read** — the win is fewer attempts, not shorter ones; slashing it (e.g. to
@@ -357,12 +357,12 @@ Implemented on top of the plan above:
   (`eth_defi/testing/rpc_cache_seed/<network>/<block>/…`) and
   `$ETH_DEFI_RPC_CACHE_SEED_DIR`, non-destructively, via a session autouse
   fixture — a cold CI cache starts warm for the midnight blocks.
-- **`latest`-fork audit + conversion.** `tests/test_decode_tx.py` (the one live
-  convertible `latest` fork) pinned to `BINANCE_MIDNIGHT_BLOCK`. The remaining
-  `latest` forks are documented in their fixture docstrings as exempt: Monad
-  (`test_accountable`, `test_curvance` — no archive state), Enso live-state
-  (`velvet`), near-tip HyperCore, and the fork-mechanism infra tests
-  (`tests/rpc/test_anvil*`).
+- **`latest`-fork audit.** The `latest` forks are documented in their fixture
+  docstrings as exempt from the fixed-block rule: Monad (`test_accountable`,
+  `test_curvance` — no archive state), BNB `test_decode_tx` (a pin was tried but
+  the configured BNB provider returns HTTP 500 serving historical state, so it
+  stays on the tip), Enso live-state (`velvet`), near-tip HyperCore, and the
+  fork-mechanism infra tests (`tests/rpc/test_anvil*`).
 - **GMX CI cap.** `test-gmx.yml` runs the full suite (including the slow
   order-execution / vault-deploy files that fork per test + simulate the keeper
   with sleeps) whenever GMX files change — the workflow's `paths:` filters

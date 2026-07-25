@@ -64,9 +64,10 @@ stalling until the job timeout. The pool pins this explicitly rather than
 relying on an upstream default that could regress:
 
 - **Upstream (Anvil → archive) — one attempt per provider, no re-hammer.**
-  :meth:`AnvilForkPool.get_launch` requests the *bounded automatic failover
-  proxy* (``proxy_multiple_upstream=True``, forwarded to
-  :func:`eth_defi.provider.anvil.fork_network_anvil`). When a ``JSON_RPC_*``
+  :meth:`AnvilForkPool.get_launch` forwards to
+  :func:`eth_defi.provider.anvil.fork_network_anvil` and relies on
+  ``launch_anvil``'s default ``proxy_multiple_upstream=True`` (the *bounded
+  automatic failover proxy*). When a ``JSON_RPC_*``
   value carries multiple space-separated providers, ``launch_anvil`` builds
   :func:`eth_defi.provider.anvil._create_default_anvil_proxy_config`, which sets
   ``retries = provider_count`` and ``backoff = 0.0`` — the proxy tries each
@@ -252,20 +253,16 @@ class AnvilForkPool:
         :param launch_kwargs:
             Any other state-affecting ``fork_network_anvil`` arguments; they are
             part of the cache key so incompatible configs never share a process.
-            ``proxy_multiple_upstream`` defaults to ``True`` here (the bounded,
-            fail-fast automatic failover proxy — see the module docstring); pass
-            an explicit :class:`~eth_defi.provider.rpc_proxy.RPCProxyConfig`,
+            When ``proxy_multiple_upstream`` is omitted, ``launch_anvil``'s
+            default applies (``True`` — the bounded, fail-fast automatic failover
+            proxy; see the module docstring); pass an explicit
+            :class:`~eth_defi.provider.rpc_proxy.RPCProxyConfig`,
             :class:`~eth_defi.provider.rpc_proxy.RPCProxy`, or ``False`` to
             override.
 
         :return:
             The shared :class:`~eth_defi.provider.anvil.AnvilLaunch`.
         """
-        # Pin the fail-fast automatic proxy explicitly so a shared fork never
-        # silently inherits a slower upstream default: with multiple providers
-        # it makes one bounded pass (retries = provider count, no dead-provider
-        # re-hammer) that stays under the Web3 read timeout. Overridable per call.
-        launch_kwargs.setdefault("proxy_multiple_upstream", True)
         key = (rpc_url, fork_block_number, _freeze(launch_kwargs))
         launch = self.launches.get(key)
         if launch is None:
