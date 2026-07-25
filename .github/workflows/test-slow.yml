@@ -14,6 +14,9 @@ on:
 jobs:
   test-slow:
     runs-on: ubuntu-latest
+    # Hard 15-minute cap — do NOT raise it. If the slow suite exceeds 15 min,
+    # fix the test runs (trim or parallelise the slow tests), not the timeout.
+    # Growing a CI timeout hides the real slowdown instead of surfacing it.
     timeout-minutes: 15
 
     if: github.event.pull_request.draft == false || github.event_name == 'push'
@@ -54,9 +57,9 @@ jobs:
           poetry install -E data -E test -E hypersync -E ccxt -E duckdb -E posts
 
       # Slow tests may include Anvil mainnet forks. Keep this version in sync
-      # with the main test workflow so both suites exercise the same EVM.
-      # See test.yml for the rationale behind splitting the immutable toolchain
-      # cache from the stable, accumulating fork RPC cache.
+      # with the main test workflow so both suites exercise the same EVM. Cache
+      # only the immutable toolchain binaries; the fork RPC cache ships in the
+      # repo (see below).
       - name: Cache Foundry toolchain
         uses: actions/cache@v4
         with:
@@ -66,15 +69,8 @@ jobs:
             foundry-toolchain-v1.2.3-
             foundry-toolchain-
 
-      # Restore the fork RPC cache; saved with `if: always()` at the end of the
-      # job so it persists even on failure. See test.yml for rationale.
-      - name: Restore Foundry fork RPC cache
-        uses: actions/cache/restore@v4
-        with:
-          path: ~/.foundry/cache/rpc
-          key: foundry-rpc-v1.2.3-${{ runner.os }}-${{ github.run_id }}
-          restore-keys: |
-            foundry-rpc-v1.2.3-${{ runner.os }}-
+      # No fork RPC cache step: the warm fork cache ships in the repo
+      # (eth_defi/testing/rpc_cache_seed/). See eth_defi/testing/README.md.
 
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@v1
@@ -92,12 +88,3 @@ jobs:
           JSON_RPC_POLYGON: ${{ secrets.JSON_RPC_POLYGON }}
           HYPERSYNC_API_KEY: ${{ secrets.HYPERSYNC_API_KEY }}
           TOKEN_RISK_API_KEY: ${{ secrets.TOKEN_RISK_API_KEY }}
-
-      # Persist the fork RPC cache even on failure so blocks replay from disk
-      # next run. See test.yml for rationale.
-      - name: Save Foundry fork RPC cache
-        if: always()
-        uses: actions/cache/save@v4
-        with:
-          path: ~/.foundry/cache/rpc
-          key: foundry-rpc-v1.2.3-${{ runner.os }}-${{ github.run_id }}

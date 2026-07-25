@@ -20,17 +20,24 @@ on:
       - 'eth_defi/gmx/**'
       - 'tests/gmx/**'
       - '.github/workflows/test-gmx.yml'
+  # The push/PR `paths:` filters above already ensure this workflow only runs
+  # when GMX code or tests change, so the full (slow, order-execution) suite runs
+  # exactly on GMX-touching changes — no time-based schedule is needed. Manual
+  # dispatch is kept for on-demand full runs.
+  workflow_dispatch: {}
 
 jobs:
   test-gmx-serial:
     # Reserved multicore instance for running tests
     runs-on:
       group: Beefy runners
-    # Hard cap — GMX tests typically run 6-8 min wall-clock; 12 min gives
-    # headroom for cold-cache or slow-RPC runs without burning Beefy minutes.
-    timeout-minutes: 12
+    # Hard 15-minute cap — do NOT raise it. GMX tests only run when GMX files
+    # change (paths filter above); if the full suite exceeds 15 min, fix the test
+    # runs (the slow order-execution files, warm cache), not the timeout. Growing
+    # a CI timeout hides the real slowdown instead of surfacing it.
+    timeout-minutes: 15
 
-    if: github.event.pull_request.draft == false || github.event_name == 'push'
+    if: github.event_name == 'workflow_dispatch' || github.event.pull_request.draft == false || github.event_name == 'push'
 
     # Only run the action for the latest push
     # See https://docs.github.com/en/actions/using-jobs/using-concurrency#example-only-cancel-in-progress-jobs-or-runs-for-the-current-workflow
@@ -75,9 +82,8 @@ jobs:
             poetry install
             poetry install -E docs -E data -E test -E hypersync -E ccxt -E duckdb -E posts
 
-      # See test.yml for the rationale: the immutable toolchain cache is split
-      # from the rolling Anvil fork RPC cache so new fork reads are actually
-      # persisted across runs.
+      # Cache the immutable Foundry toolchain binaries. The fork RPC cache is not
+      # an Actions cache — it ships in the repo (see below).
       - name: Cache Foundry toolchain
         uses: actions/cache@v4
         with:
@@ -87,18 +93,9 @@ jobs:
             foundry-toolchain-v1.2.3-
             foundry-toolchain-
 
-      # Restore the fork RPC cache; saved with `if: always()` at the end of the
-      # job (GMX frequently hits its timeout, and a plain actions/cache@v4 only
-      # saves on success, so the cache stayed cold). See test.yml for rationale.
-      - name: Restore Foundry fork RPC cache
-        uses: actions/cache/restore@v4
-        with:
-          path: ~/.foundry/cache/rpc
-          key: foundry-rpc-v1.2.3-${{ runner.os }}-${{ github.run_id }}
-          # Stable prefix: restore the newest accumulated cache from any prior run.
-          restore-keys: |
-            foundry-rpc-v1.2.3-${{ runner.os }}-
-
+      # No fork RPC cache step: the warm fork cache ships in the repo
+      # (eth_defi/testing/rpc_cache_seed/, auto-applied by the
+      # _seed_foundry_rpc_cache session fixture). See eth_defi/testing/README.md.
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@v1
         with:
@@ -227,9 +224,18 @@ jobs:
       # ============================================================================
       - name: Run GMX tests (PARALLEL)
         run: |
+          set -o pipefail
           # WARNING: Running GMX tests in parallel may cause issues documented above.
           # If you see intermittent failures related to fork state, price validation,
           # or order execution timing, consider running serially by removing -n auto.
+          #
+          # The full GMX suite — including the slow order-execution / vault-deploy
+          # files that each fork per test and simulate the off-chain keeper (with
+          # sleeps) — runs here. The workflow `paths:` filters ensure this only
+          # happens when GMX code or tests change, so these expensive tests run
+          # exactly when they are relevant, with no time-based schedule. If the
+          # suite exceeds the 15-min job cap, fix the order-execution tests (they
+          # currently revert / are slow), do not raise the cap.
           #
           # Always use verbose pytest output so stalled CI runs show the latest
           # test names in the Actions log.
@@ -244,17 +250,6 @@ jobs:
           # Private key for GMX test transactions on Arbitrum Sepolia testnet
           # Required for testnet tests that need to submit transactions
           ARBITRUM_GMX_TEST_SEPOLIA_PRIVATE_KEY: ${{ secrets.ARBITRUM_GMX_TEST_SEPOLIA_PRIVATE_KEY }}
-
-      # Persist the fork RPC cache even on timeout/failure so the Arbitrum fork
-      # blocks replay from disk next run. GMX regularly hits its 12-min timeout,
-      # and a plain actions/cache@v4 only saves on success — a warm cache is one
-      # of the few things that could get GMX under its cap.
-      - name: Save Foundry fork RPC cache
-        if: always()
-        uses: actions/cache/save@v4
-        with:
-          path: ~/.foundry/cache/rpc
-          key: foundry-rpc-v1.2.3-${{ runner.os }}-${{ github.run_id }}
 
       # NOTE: We don't run linting here as it's already done in the main workflow
       # Ruff lint check is only needed once per PR, not per test suite

@@ -11,7 +11,7 @@ import eth_defi.erc_4626.deposit_redeem as erc_4626_deposit_redeem
 from eth_defi.erc_4626.deposit_probe import DEFAULT_STATUS_PATH, VaultDepositProbeCandidate, VaultDepositProbeOutput, fetch_max_deposit_guidance, log_probe_tables, merge_redemption_flow_failure, prepare_probe_deposit_request, require_simulation, run_from_environment, select_candidates, update_status
 from eth_defi.erc_4626.deposit_redeem import ERC4626DepositManager
 from eth_defi.erc_4626.vault import CERTIFIED_SYNCHRONOUS_DEPOSIT_MANAGER_CLASSES, ERC4626Vault
-from eth_defi.erc_4626.vault_protocol.csigma.deposit_redeem import CsigmaDepositManager
+from eth_defi.erc_4626.vault_protocol.csigma.deposit_redeem import CSUPERIOR_V2_POOL_ADDRESS, CsigmaDepositManager
 from eth_defi.erc_4626.vault_protocol.gains.deposit_redeem import GainsDepositManager, GainsRedemptionTicket
 from eth_defi.erc_4626.vault_protocol.kiln.vault import KilnVault
 from eth_defi.erc_4626.vault_protocol.lagoon.vault import LagoonVault
@@ -75,6 +75,11 @@ def test_lagoon_capability_advertises_verified_anvil_settlement() -> None:
     }
 
 
+#: Any cSigma deployment that is not the verified cSuperior V2 pool, so the
+#: adapter takes its generic ``maxRedeem()`` capacity path.
+NON_CSUPERIOR_VAULT_ADDRESS = "0x0000000000000000000000000000000000000002"
+
+
 def test_csigma_redemption_preflight_preserves_raw_share_capacity() -> None:
     """cSigma exposes maxRedeem() as an amount-aware preflight result."""
 
@@ -99,7 +104,20 @@ def test_csigma_redemption_preflight_preserves_raw_share_capacity() -> None:
             return Call()
 
     manager = object.__new__(CsigmaDepositManager)
-    manager.vault = type("Vault", (), {"vault_contract": type("Contract", (), {"functions": Functions()})()})()
+    # The adapter selects its capacity strategy by vault address: only the
+    # verified cSuperior V2 pool uses the withdrawal-manager path, while every
+    # other cSigma deployment keeps the generic maxRedeem() behaviour. Stub a
+    # non-cSuperior address so this test exercises that maxRedeem() branch, which
+    # is what Functions above models.
+    assert NON_CSUPERIOR_VAULT_ADDRESS != CSUPERIOR_V2_POOL_ADDRESS
+    manager.vault = type(
+        "Vault",
+        (),
+        {
+            "address": NON_CSUPERIOR_VAULT_ADDRESS,
+            "vault_contract": type("Contract", (), {"functions": Functions()})(),
+        },
+    )()
 
     available = manager.fetch_redemption_preflight("0x0000000000000000000000000000000000000001", available_raw_shares)
     assert available.available is True

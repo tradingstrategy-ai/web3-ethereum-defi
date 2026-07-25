@@ -473,6 +473,7 @@ class UpshiftMultiAssetDepositManager(ERC4626DepositManager):
             self.vault.web3,
             args["assetIn"],
             chain_id=self.vault.chain_id,
+            cache=self.vault.token_cache,
         )
         return DepositRedeemEventAnalysis(
             from_=Web3.to_checksum_address(args["senderAddr"]),
