@@ -16,7 +16,7 @@ from eth_defi.erc_4626.core import ERC4626Feature
 from eth_defi.erc_4626.vault_protocol.upshift.deposit_redeem import UpshiftMultiAssetDepositManager
 from eth_defi.erc_4626.vault_protocol.upshift.vault import UpshiftMultiAssetHistoricalReader, UpshiftVault
 from eth_defi.event_reader.multicall_batcher import read_multicall_historical
-from eth_defi.provider.anvil import AnvilLaunch, fork_network_anvil, fund_erc20_on_anvil
+from eth_defi.provider.anvil import AnvilLaunch, fund_erc20_on_anvil
 from eth_defi.provider.multi_provider import MultiProviderWeb3Factory, create_multi_provider_web3
 from eth_defi.testing.anvil_fork_pool import AnvilForkPool
 from eth_defi.testing.evm_snapshot_fixture import evm_snapshot_revert
@@ -47,19 +47,15 @@ UPSHIFT_TORI_HISTORY_END_BLOCK = UPSHIFT_TORI_HISTORY_START_BLOCK + UPSHIFT_TORI
 
 
 @pytest.fixture(scope="module")
-def anvil_ethereum_fork() -> AnvilLaunch:
-    """Fork at a specific block for reproducibility"""
-    launch = fork_network_anvil(JSON_RPC_ETHEREUM, fork_block_number=UPSHIFT_MULTI_ASSET_FORK_BLOCK)
-    try:
-        yield launch
-    finally:
-        launch.close()
+def anvil_ethereum_fork(anvil_fork_pool: AnvilForkPool) -> AnvilLaunch:
+    """Share the established fixed Ethereum fork for Upshift metadata tests."""
+    return anvil_fork_pool.get_launch(JSON_RPC_ETHEREUM, UPSHIFT_MULTI_ASSET_FORK_BLOCK)
 
 
 @pytest.fixture(scope="module")
-def web3(anvil_ethereum_fork):
-    web3 = create_multi_provider_web3(anvil_ethereum_fork.json_rpc_url)
-    return web3
+def web3(anvil_ethereum_fork: AnvilLaunch) -> Web3:
+    """Connect to the shared deterministic Upshift fork."""
+    return create_multi_provider_web3(anvil_ethereum_fork.json_rpc_url)
 
 
 @pytest.fixture(scope="module")
@@ -80,7 +76,7 @@ def sentora_snapshot(anvil_sentora_deposit_fork: AnvilLaunch) -> Iterator[None]:
     yield from evm_snapshot_revert(anvil_sentora_deposit_fork)
 
 
-@flaky.flaky
+@pytest.mark.xdist_group("fork:ethereum:upshift-metadata")
 def test_upshift(
     web3: Web3,
 ):
@@ -130,7 +126,10 @@ def test_upshift(
     assert vault.can_check_redeem() is False
 
 
+# CI flaky since 2026-07-24: archive-backed Anvil reads timed out under xdist;
+# case 1 passed on retry in the same CI run and both cases pass locally.
 @flaky.flaky
+@pytest.mark.xdist_group("fork:ethereum:upshift-metadata")
 @pytest.mark.parametrize(
     "case",
     [
@@ -264,7 +263,7 @@ def test_upshift_sentora_multi_asset_deposit_lifecycle(sentora_web3: Web3, sento
     assert manager.force_settle(None).settlement_required is False
 
 
-@flaky.flaky
+@pytest.mark.xdist_group("fork:ethereum:upshift-metadata")
 def test_upshift_multi_asset_fee_data(web3: Web3) -> None:
     """Read the complete shared fee model from Sentora USD Earn.
 
@@ -290,7 +289,10 @@ def test_upshift_multi_asset_fee_data(web3: Web3) -> None:
     assert fee_data.withdraw == 0.0
 
 
+# CI flaky since 2026-07-24: the archive-backed fee read timed out on attempt 2;
+# the identical test passed on attempt 1 without a code change.
 @flaky.flaky
+@pytest.mark.xdist_group("fork:ethereum:upshift-metadata")
 def test_upshift_multi_asset_fee_units(web3: Web3) -> None:
     """Read non-zero Upshift multi-asset fees with their protocol-specific units.
 
