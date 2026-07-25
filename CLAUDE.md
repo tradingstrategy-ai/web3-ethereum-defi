@@ -5,25 +5,19 @@
 Repo-local reference docs that Claude should consult when the task
 touches the relevant area:
 
-- `.claude/docs/agent-tricks-and-troubleshooting.md` — Codex CLI and
-  Claude CLI usage patterns, cross-agent review commands, streaming
-  output, timeouts, and common failure modes. See **Agents** below for
-  when this file is mandatory.
+- `.claude/docs/agent-tricks-and-troubleshooting.md` — Claude, Codex, and
+  Grok CLI usage patterns, cross-agent review commands, streaming output,
+  timeouts, and common failure modes. See **Agents** below for when this
+  file is mandatory.
 
 ## Agents
 
 Before invoking any external agent CLI (`claude`, `claude -p`,
-`claude ultrareview`, `codex`, `codex exec`, or equivalent), **read
+`claude ultrareview`, `codex`, `codex exec`, `grok`, or equivalent), **read
 `.claude/docs/agent-tricks-and-troubleshooting.md` in the current session**
-and follow its instructions. Do not run either CLI until you have checked
-that guidance.
-
-- For plan reviews with Claude CLI, default to the no-tools inline review pattern from that file after the primary agent has inspected the relevant code. Only use a grounded tool-using review when fresh repository inspection is actually required.
-- For code and PR reviews with Claude CLI, scope the request to correctness bugs, behavioural regressions, missing tests, security or money-movement risks, and repository instruction compliance. Ask for findings first with file:line references and residual risks.
-- For long Claude CLI reviews, use streaming output (`--output-format stream-json --verbose`) and a wall-clock timeout. If a grounded review produces no output after roughly one minute, stop it and switch to a smaller no-tools or file-group review unless repository inspection is strictly required.
-- Do not paste huge diffs into Claude prompts. Make Claude inspect `git status --short`, `git diff --name-only`, and targeted hunks, or provide only the plan text for no-tools plan reviews.
-- For non-interactive Codex reviews, use `codex exec --json` in read-only mode as described in that file. Plain text mode can buffer output and look hung.
-- Before trusting any external-agent "no findings" result, verify it reviewed the correct worktree and non-empty diff.
+and follow its instructions. Do not run any of those CLIs until you have
+checked that guidance. Detailed review patterns and failure modes live only
+in that file — do not restate them here.
 
 ## Skills
 

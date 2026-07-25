@@ -1,10 +1,36 @@
 # Agent tricks and troubleshooting
 
-Read this document before invoking Claude CLI or Codex CLI from another agent.
+Read this document before invoking an external agent CLI from another agent.
 It contains local invocation details that are easy to get wrong, especially for
-non-interactive Claude review runs.
+non-interactive review runs.
 
-This note covers practical ways to use Codex CLI and Claude CLI as local engineering agents, especially when one agent is used to review or debug the other agent's work.
+This note covers practical ways to use **Claude CLI**, **Codex CLI**, and
+**Grok CLI** (`grok`) as local engineering agents, especially when one agent is
+used to review or debug another agent's work.
+
+## Covered CLIs
+
+These commands are in scope for this document and for the **Agents** gate in
+`CLAUDE.md` / `AGENTS.md`:
+
+| CLI | Typical non-interactive entrypoints |
+|-----|-------------------------------------|
+| Claude CLI | `claude`, `claude -p`, `claude ultrareview` |
+| Codex CLI | `codex`, `codex exec` |
+| Grok CLI | `grok` (Grok Build TUI; also headless / print-style prompts) |
+
+Equivalent wrappers or aliases for the same tools are covered as well.
+
+## Review rules (when one agent drives another)
+
+Apply these whenever this file is required before an agent CLI run:
+
+- For plan reviews with Claude CLI, default to the no-tools inline review pattern after the primary agent has inspected the relevant code. Only use a grounded tool-using review when fresh repository inspection is actually required.
+- For code and PR reviews with Claude CLI, scope the request to correctness bugs, behavioural regressions, missing tests, security or money-movement risks, and repository instruction compliance. Ask for findings first with file:line references and residual risks.
+- For long Claude CLI reviews, use streaming output (`--output-format stream-json --verbose`) and a wall-clock timeout. If a grounded review produces no output after roughly one minute, stop it and switch to a smaller no-tools or file-group review unless repository inspection is strictly required.
+- Do not paste huge diffs into Claude, Codex, or Grok prompts. Make the agent inspect `git status --short`, `git diff --name-only`, and targeted hunks, or provide only the plan text for no-tools plan reviews.
+- For non-interactive Codex reviews, use `codex exec --json` in read-only mode. Plain text mode can buffer output and look hung.
+- Before trusting any external-agent "no findings" result, verify it reviewed the correct worktree and non-empty diff.
 
 ## Codex CLI
 
