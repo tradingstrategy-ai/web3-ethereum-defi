@@ -31,6 +31,15 @@ For more information see `Anvil reference <https://book.getfoundry.sh/reference/
 
 See also :py:mod:`eth_defi.trace` for Solidity tracebacks using Anvil.
 
+To measure how long a cold vs warm mainnet-fork setup takes for a given chain and
+archive provider — e.g. to diagnose ``read_timeout`` fork-setup failures on CI
+(the misleading "out of API credits" hint) — run
+``scripts/measure-cold-fork-time.py``. See
+:py:mod:`eth_defi.testing.anvil_fork_pool` (the shared-fork pattern and its
+"Cold-fork read-timeout failures" section) for how to interpret the numbers: a
+healthy cold fork completes in ~seconds, so a 60 s timeout means a slow or
+rate-limited upstream, not an undersized timeout.
+
 The code was originally lifted from Brownie project.
 """
 
