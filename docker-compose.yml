@@ -119,6 +119,14 @@ services:
       CORE3_MAX_WORKERS: ${CORE3_MAX_WORKERS:-8}
       CORE3_FETCH_SECTIONS: ${CORE3_FETCH_SECTIONS:-true}
 
+      # Xerberus vault risk scores
+      XERBERUS_API_KEY: ${XERBERUS_API_KEY:-}
+      XERBERUS_API_EMAIL: ${XERBERUS_API_EMAIL:-}
+      XERBERUS_DATABASE_PATH: ${XERBERUS_DATABASE_PATH:-}
+      SKIP_XERBERUS: ${SKIP_XERBERUS:-false}
+      XERBERUS_FETCH_VAULT_LIST: ${XERBERUS_FETCH_VAULT_LIST:-true}
+      XERBERUS_FETCH_REPORTS: ${XERBERUS_FETCH_REPORTS:-true}
+
       # General workers per script
       MAX_WORKERS: ${MAX_WORKERS:-50}
 
@@ -286,6 +294,14 @@ services:
       CURRENCY_API_DATABASE_PATH: ${CURRENCY_API_DATABASE_PATH:-}
       CORE3_MAX_WORKERS: ${CORE3_MAX_WORKERS:-8}
       CORE3_FETCH_SECTIONS: ${CORE3_FETCH_SECTIONS:-true}
+
+      # Xerberus vault risk scores
+      XERBERUS_API_KEY: ${XERBERUS_API_KEY:-}
+      XERBERUS_API_EMAIL: ${XERBERUS_API_EMAIL:-}
+      XERBERUS_DATABASE_PATH: ${XERBERUS_DATABASE_PATH:-}
+      SKIP_XERBERUS: ${SKIP_XERBERUS:-false}
+      XERBERUS_FETCH_VAULT_LIST: ${XERBERUS_FETCH_VAULT_LIST:-true}
+      XERBERUS_FETCH_REPORTS: ${XERBERUS_FETCH_REPORTS:-true}
 
       # Hyperliquid manual vault review Google Sheet sync — same
       # contract as the one-shot vault-scanner service above.

@@ -13,6 +13,7 @@ from dataclasses import dataclass
 from decimal import Decimal
 
 from eth_typing import HexAddress
+from hexbytes import HexBytes
 from web3 import Web3
 
 from eth_defi.erc_4626.vault_protocol.gains.vault import GainsVault
@@ -28,11 +29,14 @@ def force_next_gains_epoch(
     any_account: HexAddress,
     padding_seconds: int = 1,
     gas_limit=3_000_000,
-):
+) -> HexBytes:
     """Advance Gains vault to a next epoch by using Anvil hacks.
 
     :param any_account:
         Burn gas
+
+    :return:
+        Transaction hash of the ``forceNewEpoch()`` call.
     """
 
     assert isinstance(vault, GainsVault), f"Expected GainsVault, got {type(vault)}"
@@ -72,6 +76,7 @@ def force_next_gains_epoch(
 
     tx_hash = vault.open_pnl_contract.functions.forceNewEpoch().transact({"from": any_account, "gas": gas_limit})
     assert_transaction_success_with_explanation(web3, tx_hash)
+    return HexBytes(tx_hash)
 
 
 def force_ostium_v15_settlement(

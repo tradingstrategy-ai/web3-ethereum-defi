@@ -9,7 +9,7 @@ from eth_defi.erc_4626.vault_protocol.usdai.vault import StakedUSDaiVault
 from eth_defi.erc_7540.deposit_redeem import ERC7540DepositManager, ERC7540DepositRequest, ERC7540RedemptionRequest
 from eth_defi.erc_7540.vault import ERC7540Vault
 from eth_defi.vault.base import VaultSpec
-from eth_defi.vault.deposit_redeem import DepositRedeemEventFailure
+from eth_defi.vault.deposit_redeem import DepositRedeemEventFailure, UnsupportedVaultSimulation
 
 VAULT_ADDRESS = "0x0000000000000000000000000000000000000001"
 OWNER_ADDRESS = "0x0000000000000000000000000000000000000002"
@@ -81,6 +81,7 @@ def test_non_lagoon_protocols_use_generic_erc7540_manager(vault_class: type[ERC7
         "deposit_flow": "asynchronous",
         "redemption_flow": "asynchronous",
         "supports_anvil_settlement": False,
+        "anvil_settlement_unsupported_reason": "generic_erc_7540_settlement_driver_not_implemented",
     }
 
 
@@ -101,6 +102,17 @@ def test_generic_erc7540_redemption_accepts_raw_shares() -> None:
     assert type(request) is ERC7540RedemptionRequest
     assert request.raw_shares == 123
     assert request.funcs == [redeem_function]
+
+
+def test_generic_erc7540_settlement_is_typed_unsupported() -> None:
+    """Generic ERC-7540 must not pretend it can settle an operator queue."""
+    vault = object.__new__(StakedUSDaiVault)
+    vault.spec = VaultSpec(chain_id=1, vault_address=VAULT_ADDRESS)
+    manager = vault.get_deposit_manager()
+
+    with pytest.raises(UnsupportedVaultSimulation, match="not implemented") as exc_info:
+        manager.force_settle(object())
+    assert exc_info.value.unsupported_reason == "generic_erc_7540_settlement_driver_not_implemented"
 
 
 @pytest.mark.parametrize(

@@ -27,7 +27,7 @@ from eth_defi.provider.anvil import AnvilLaunch, fork_network_anvil
 from eth_defi.provider.multi_provider import create_multi_provider_web3
 from eth_defi.token import TokenDetails
 from eth_defi.trace import assert_transaction_success_with_explanation
-from eth_defi.vault.deposit_redeem import AsyncVaultRequestStatus, VaultFlowUnavailable
+from eth_defi.vault.deposit_redeem import AsyncVaultRequestStatus, UnsupportedVaultSimulation, VaultFlowUnavailable
 
 JSON_RPC_MONAD = os.environ.get("JSON_RPC_MONAD")
 MONAD_USDC_WHALE = HexAddress(HexStr("0xf89d7b9c864f589bbF53a82105107622B35EaA40"))
@@ -91,6 +91,8 @@ def test_accountable_susn_vault(
         "can_redeem": True,
         "deposit_flow": "synchronous",
         "redemption_flow": "asynchronous",
+        "supports_anvil_settlement": False,
+        "anvil_settlement_unsupported_reason": "accountable_redemption_settlement_is_strategy_operator_controlled",
     }
 
     # Management fee not available, performance fee from offchain metadata
@@ -122,10 +124,17 @@ def test_accountable_deposit_and_redemption_request_lifecycle(web3: Web3) -> Non
     assert manager.has_synchronous_deposit() is True
     assert manager.has_synchronous_redemption() is False
 
-    minimum = int(vault.vault_contract.functions.MIN_AMOUNT_WEI().call())
+    # The binding deposit minimum is the greater of the vault-level
+    # MIN_AMOUNT_WEI and the strategy's per-loan minDeposit; a deposit clearing
+    # only the vault minimum reverts InsufficientAmount() inside the strategy.
+    vault_minimum = int(vault.vault_contract.functions.MIN_AMOUNT_WEI().call())
+    strategy_minimum = manager._fetch_strategy_loan_min_deposit()
+    minimum = max(vault_minimum, strategy_minimum or 0)
+    assert minimum > vault_minimum, "This vault's strategy should raise the binding minimum above MIN_AMOUNT_WEI"
     with pytest.raises(VaultFlowUnavailable, match="below minimum") as exc_info:
         manager.create_deposit_request(owner=web3.eth.accounts[1], raw_amount=minimum - 1)
     assert exc_info.value.decoded_error == "InsufficientAmount"
+    assert exc_info.value.preflight_result == "below_minimum"
     assert exc_info.value.error_selector == ACCOUNTABLE_INSUFFICIENT_AMOUNT_SELECTOR
     assert exc_info.value.minimum_raw_amount == minimum
     assert exc_info.value.available_raw_amount is None
@@ -172,6 +181,13 @@ def test_accountable_deposit_and_redemption_request_lifecycle(web3: Web3) -> Non
         AsyncVaultRequestStatus.pending,
         AsyncVaultRequestStatus.claimable,
     }
+    with pytest.raises(UnsupportedVaultSimulation, match="strategy-operator controlled") as exc_info:
+        manager.force_settle(ticket)
+    assert exc_info.value.unsupported_reason == "accountable_redemption_settlement_is_strategy_operator_controlled"
+    assert exc_info.value.protocol == vault.get_protocol_name()
+    assert exc_info.value.vault_address == vault.address
+    assert exc_info.value.direction == "redeem"
+    assert exc_info.value.phase == "settlement"
 
 
 @pytest.mark.timeout(180)
@@ -187,12 +203,58 @@ def test_accountable_redemption_request_rejects_contract_dust(web3: Web3) -> Non
     manager = vault.get_deposit_manager()
     minimum = int(vault.vault_contract.functions.MIN_AMOUNT_WEI().call())
 
-    with pytest.raises(ValueError, match="below minimum"):
+    with pytest.raises(VaultFlowUnavailable, match="below minimum") as exc_info:
         manager.create_redemption_request(
             owner=web3.eth.accounts[1],
             raw_shares=minimum - 1,
             check_enough_token=False,
         )
+    assert exc_info.value.decoded_error == "InsufficientAmount"
+    assert exc_info.value.preflight_result == "below_minimum"
+    assert exc_info.value.direction == "redeem"
+
+
+@pytest.mark.timeout(180)
+@flaky.flaky
+def test_accountable_hyperithm_strategy_min_deposit(web3: Web3) -> None:
+    """Refuse a below-strategy-minimum deposit on the live Hyperithm Monad vault.
+
+    The Hyperithm Delta Neutral vault delegates to an open-term strategy whose
+    ``loan().minDeposit`` (1,000 USDC) far exceeds the vault ``MIN_AMOUNT_WEI``.
+    A deposit that clears the vault minimum but not the strategy minimum reverts
+    ``InsufficientAmount()`` (`0x5945ea56`) inside ``strategy.onDeposit``; the
+    manager must surface this as a typed preflight refusal instead.
+
+    Monad retains only a moving recent historical-state window, so this uses
+    current-head, state-relative assertions rather than a fixed block.
+
+    :param web3:
+        Monad Anvil fork connection.
+    """
+    vault = create_vault_instance_autodetect(web3, vault_address="0x7cd231120a60f500887444a9baf5e1bd753a5e59")
+    assert isinstance(vault, AccountableVault)
+    manager = vault.get_deposit_manager()
+    assert isinstance(manager, AccountableDepositManager)
+
+    vault_minimum = int(vault.vault_contract.functions.MIN_AMOUNT_WEI().call())
+    strategy_minimum = manager._fetch_strategy_loan_min_deposit()
+    assert strategy_minimum is not None and strategy_minimum > vault_minimum
+
+    # Clears MIN_AMOUNT_WEI but is below the strategy loan minimum.
+    below_strategy = strategy_minimum - 1
+    assert below_strategy > vault_minimum
+    with pytest.raises(VaultFlowUnavailable, match="below minimum") as exc_info:
+        manager.create_deposit_request(
+            owner=web3.eth.accounts[1],
+            raw_amount=below_strategy,
+            check_max_deposit=False,
+            check_enough_token=False,
+        )
+    assert exc_info.value.decoded_error == "InsufficientAmount"
+    assert exc_info.value.preflight_result == "below_minimum"
+    assert exc_info.value.error_selector == ACCOUNTABLE_INSUFFICIENT_AMOUNT_SELECTOR
+    assert exc_info.value.minimum_raw_amount == strategy_minimum
+    assert exc_info.value.direction == "deposit"
 
 
 @pytest.mark.timeout(180)
