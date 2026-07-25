@@ -477,7 +477,8 @@ Consult these for domain-specific context. Logo READMEs under `eth_defi/data/vau
 | `eth_defi/gmx/ccxt/README.md` | GMX CCXT adapter implementation |
 | `eth_defi/gmx/graphql/README.md` | GMX Subsquid GraphQL integration |
 | `eth_defi/lighter/README-lighter-guard.md` | Lighter (zk-rollup perps DEX) L1 deposit/withdraw guard integration — architecture, security model, operator flow |
-| `eth_defi/testing/README.md` | Fast Anvil fork tests — shared session forks, per-chain midnight block cache, snapshot/revert, once-per-session deployments, reference tests |
+| `eth_defi/testing/README.md` | Fast Anvil fork tests — shared session forks, per-chain midnight block cache, snapshot/revert, once-per-session deployments, the committed fork RPC cache and token cache (create/rebuild/purge), reference tests |
+| `eth_defi/testing/rpc_cache_seed/README.md` | Committed Anvil fork RPC cache seed — layout, how to capture and refresh it |
 | `scripts/base/README.md` | Base chain related manual test scripts |
 | `scripts/debian-bullseye-compatibility/README.md` | Running on Debian Bullseye |
 | `scripts/erc-4626/README-vault-scripts.md` | ERC-4626 vault scripts |
