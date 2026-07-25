@@ -282,20 +282,24 @@ class FallbackProvider(BaseNamedProvider):
                 chain_id = self._fetch_chain_id_from_provider(provider)
             except Exception as e:
                 unavailable[name] = e
+                # Log the redacted provider name + classified failure mode only.
+                # The raw exception can embed the full upstream RPC URL (API key in
+                # path/query), so it is not logged; get_provider_name(name) and the
+                # failure mode carry the actionable signal without the leak.
                 logger.warning(
-                    "Provider %s did not respond to eth_chainId during startup verification, keeping it in fallback rotation: failure_mode=%s (%s)",
+                    "Provider %s did not respond to eth_chainId during startup verification, keeping it in fallback rotation: failure_mode=%s",
                     name,
                     classify_rpc_failure(e).value,
-                    e,
                 )
                 continue
             results[name] = chain_id
 
         if not results:
-            # Name each provider's failure mode so an all-providers-down startup
-            # (e.g. every archive endpoint out of credits) is obvious in the
-            # error rather than buried in raw exception text.
-            detail = ", ".join(f"{name}: failure_mode={classify_rpc_failure(exc).value} ({exc})" for name, exc in unavailable.items())
+            # Name each provider's redacted name + failure mode so an
+            # all-providers-down startup (e.g. every archive endpoint rate
+            # limited) is obvious, without leaking the raw URL/key from the
+            # exception text.
+            detail = ", ".join(f"{name}: failure_mode={classify_rpc_failure(exc).value}" for name, exc in unavailable.items())
             raise ChainIdMismatch(f"No RPC providers responded to eth_chainId during startup verification: {detail}")
 
         chain_ids = set(results.values())

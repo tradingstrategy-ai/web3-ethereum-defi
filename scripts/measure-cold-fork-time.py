@@ -43,6 +43,7 @@ from tabulate import tabulate
 
 from eth_defi.provider.anvil import fork_network_anvil
 from eth_defi.provider.multi_provider import create_multi_provider_web3
+from eth_defi.provider.rpc_failure import classify_rpc_failure
 from eth_defi.testing.fork_blocks import MIDNIGHT_BLOCKS
 from eth_defi.utils import get_url_domain
 
@@ -134,8 +135,11 @@ def measure_chain(chain_id: int, rpc_url: str) -> ForkTiming:
     try:
         cold = time_fork(rpc_url, block)
     except Exception as e:  # noqa: BLE001 - diagnostic script records any failure
-        logger.warning("Cold fork failed for chain %d: %s", chain_id, e)
-        return ForkTiming(chain_id, block, providers, None, None, str(e)[:200])
+        # Record the classified failure mode + exception type, never the raw
+        # message (it can embed the upstream RPC URL / API key).
+        mode = classify_rpc_failure(e).value
+        logger.warning("Cold fork failed for chain %d: failure_mode=%s (%s)", chain_id, mode, type(e).__name__)
+        return ForkTiming(chain_id, block, providers, None, None, f"{mode}: {type(e).__name__}")
 
     warm = time_fork(rpc_url, block)
     return ForkTiming(chain_id, block, providers, cold, warm, None)
