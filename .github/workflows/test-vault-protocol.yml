@@ -159,6 +159,23 @@ jobs:
           HYPERSYNC_API_KEY: ${{ secrets.HYPERSYNC_API_KEY }}
           TOKEN_RISK_API_KEY: ${{ secrets.TOKEN_RISK_API_KEY }}
 
+      # Prove the committed caches were actually applied: the seeding fixtures
+      # copy them into ~/.foundry/cache/rpc and a per-worker SQLite. Logged at
+      # INFO by the fixtures, which pytest does not surface here, so report the
+      # resulting on-disk state instead. See eth_defi/testing/README.md.
+      - name: Report seeded caches
+        if: always()
+        run: |
+          {
+            echo "## Seeded caches"
+            echo '```'
+            echo "committed fork blocks: $(find eth_defi/testing/rpc_cache_seed -name storage.json | wc -l)"
+            echo "applied fork blocks:   $(find ~/.foundry/cache/rpc -name storage.json 2>/dev/null | wc -l)"
+            du -sh ~/.foundry/cache/rpc 2>/dev/null || echo "no live fork cache"
+            echo "committed token cache: $(ls -l eth_defi/testing/token_cache_seed/tokens.sqlite 2>/dev/null | awk '{print $5}') bytes"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
       # Publish the pytest slowest-durations table in the job summary so slow
       # tests stay visible on every run. See docs/README-test-suite-performance.md.
       - name: Report slowest tests
