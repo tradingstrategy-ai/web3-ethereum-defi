@@ -89,7 +89,7 @@ def is_token_cache_rebuild_requested() -> bool:
     return _env_flag(REBUILD_ENV_VAR)
 
 
-def install_token_cache(worker_id: str = "master") -> TokenDiskCache | None:
+def install_token_cache(worker_id: str = "master") -> TokenDiskCache:
     """Install the shipped token cache as the default for vaults in this session.
 
     Copies :data:`TOKEN_CACHE_SEED_PATH` to a private per-worker working file
@@ -104,8 +104,8 @@ def install_token_cache(worker_id: str = "master") -> TokenDiskCache | None:
         ``pytest-xdist`` worker id, used to keep working files separate.
 
     :return:
-        The installed cache, or ``None`` when the seed is missing (the repository
-        still works before the cache has been generated).
+        The installed cache. When no seed is committed yet this is an empty
+        cache, so a rebuild run can still fill it.
     """
     # Imported here so the module can be used without importing the vault stack.
     from eth_defi.vault import base as vault_base
@@ -117,9 +117,6 @@ def install_token_cache(worker_id: str = "master") -> TokenDiskCache | None:
     if TOKEN_CACHE_SEED_PATH.exists():
         # Fresh copy per session so a previous run cannot leave stale entries.
         shutil.copy2(TOKEN_CACHE_SEED_PATH, working_path)
-    elif not working_path.exists():
-        # No seed committed yet: start an empty cache so a rebuild run can fill it.
-        working_path.parent.mkdir(parents=True, exist_ok=True)
 
     cache = TokenDiskCache(working_path)
     vault_base.DEFAULT_TOKEN_CACHE = cache

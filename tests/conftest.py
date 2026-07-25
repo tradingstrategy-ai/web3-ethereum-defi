@@ -51,7 +51,7 @@ def _seed_token_cache(worker_id: str) -> Iterator[None]:
     try:
         yield
     finally:
-        if cache is not None and is_token_cache_rebuild_requested():
+        if is_token_cache_rebuild_requested():
             merge_into_token_cache_seed(cache)
 
 
