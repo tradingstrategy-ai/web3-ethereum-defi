@@ -98,11 +98,7 @@ class XerberusSession(Session):
         if api_email is None:
             api_email = resolve_xerberus_api_email()
         assert api_key, "XERBERUS_API_KEY environment variable or api_key= parameter is required"
-        assert api_email, (
-            "XERBERUS_API_EMAIL environment variable or api_email= parameter is "
-            "required. Pass the email registered with the API key explicitly — "
-            "do not guess candidate addresses."
-        )
+        assert api_email, "XERBERUS_API_EMAIL environment variable or api_email= parameter is required. Pass the email registered with the API key explicitly — do not guess candidate addresses."
         self.api_key = api_key
         self.api_email = api_email
         self.min_request_interval = min_request_interval
