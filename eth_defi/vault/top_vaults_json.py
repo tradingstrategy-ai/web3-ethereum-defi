@@ -79,7 +79,7 @@ TOP_PER_CHAIN = int(os.getenv("TOP_PER_CHAIN", "99999"))  # Top N vaults per cha
 #:
 #: ApeX Omni native vaults are small retail copy-trading leader accounts and, at
 #: launch, none have yet gathered meaningful TVL (the largest currently holds
-#: roughly USDT 14k, and only a couple of dozen have ever peaked above USDT 5k).
+#: roughly USDT 14k, and only about two dozen clear the default USDT 5k export bar).
 #: With the default USDT 5k bar the ApeX protocol page is almost empty, so during
 #: the rollout period we deliberately lower the ApeX threshold to USDT 499 to give
 #: the page a usable set of vaults. Revisit and raise this back towards the
@@ -770,7 +770,8 @@ def apply_sticky_export_state(
     :param now:
         Current naive UTC datetime.
     :param threshold_tvl:
-        Active peak TVL export threshold.
+        Active default peak TVL export threshold. Per-protocol overrides may
+        apply per row via :py:func:`resolve_export_threshold_tvl`.
     :param stale_warning_age_days:
         Warning age in days.
     :return:
