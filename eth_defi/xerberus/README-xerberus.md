@@ -26,7 +26,7 @@ arithmetic.
 | `eth_defi.xerberus.database` | `XerberusDatabase` DuckDB persistence |
 | `eth_defi.xerberus.scanner` | `scan_xerberus()` orchestrator |
 | `eth_defi.xerberus.cli` | Shared scan/backfill CLI entry helper |
-| `eth_defi.xerberus.mappings` | Our protocol slug ↔ Xerberus protocol id |
+| `eth_defi.xerberus.mappings` | Our protocol slug ↔ Xerberus protocol id (agent-curated) |
 | `eth_defi.xerberus.vault_export` | Per-vault sections + top-level `xerberus_protocols` |
 | `eth_defi.xerberus.errors` | `XerberusAPIError` |
 
@@ -40,7 +40,7 @@ Default location: `~/.tradingstrategy/vaults/xerberus/`
 | `rate-limit.sqlite` | Thread-safe rate limit state |
 
 There is **no public history API**. If the DuckDB is deleted, history cannot be
-reconstructed; re-run `backfill-xerberus.py` for current scores only.
+reconstructed; re-run `scan-xerberus.py` for current scores only.
 
 Do not run a standalone scan concurrent with top-vaults JSON export / R2 upload
 (DuckDB single-writer). Export opens the database read-only.
@@ -102,7 +102,7 @@ Example (env after secrets are configured):
 # .local-test.env (or production vault-rpc.env) must define both:
 #   export XERBERUS_API_KEY=...
 #   export XERBERUS_API_EMAIL=...   # exact email registered with Xerberus — do not guess
-source .local-test.env && poetry run python scripts/xerberus/backfill-xerberus.py
+source .local-test.env && poetry run python scripts/xerberus/scan-xerberus.py
 ```
 
 Example (explicit Python arguments — preferred when wiring callers):
@@ -132,15 +132,52 @@ session = create_xerberus_session(
 
 ## Scripts
 
+One scan entrypoint covers full refresh, vault lists and report URL backfill.
+Toggle phases with env vars (see table above).
+
 ```shell
 # Both XERBERUS_API_KEY and XERBERUS_API_EMAIL must be set (do not invent email)
 source .local-test.env && poetry run python scripts/xerberus/scan-xerberus.py
-source .local-test.env && poetry run python scripts/xerberus/backfill-xerberus.py
-source .local-test.env && DRY_RUN=true poetry run python scripts/xerberus/backfill-xerberus.py
+
+# Dry-run plan only
+source .local-test.env && DRY_RUN=true poetry run python scripts/xerberus/scan-xerberus.py
+
+# Scores only (skip paced vault lists and report downloads)
+source .local-test.env && XERBERUS_FETCH_VAULT_LIST=false XERBERUS_FETCH_REPORTS=false \
+  poetry run python scripts/xerberus/scan-xerberus.py
+
+# Registry + report URLs only (skip vault lists; raise limit for a full report pass)
+source .local-test.env && XERBERUS_FETCH_VAULT_LIST=false XERBERUS_REPORT_LIMIT=500 \
+  poetry run python scripts/xerberus/scan-xerberus.py
+
 poetry run python scripts/xerberus/xerberus-overview.py   # local DuckDB only; no API
-source .local-test.env && XERBERUS_REPORT_LIMIT=50 poetry run python scripts/xerberus/backfill-xerberus-reports.py
-poetry run python scripts/xerberus/update-xerberus-mappings.py
 ```
+
+## Protocol mappings
+
+Pools resolve by `(chain_id, address)` and need **no** slug mapping.
+
+Protocol-level fallback scores and the top-level `xerberus_protocols` JSON key
+use `XERBERUS_PROTOCOL_MAPPINGS` in `eth_defi/xerberus/mappings.py` (our vault
+protocol slug → Xerberus registry protocol `entity_id`).
+
+**Mappings must be set by an agent (or human), not by regex or fuzzy scripts.**
+
+- Do **not** invent mappings from normalised string equality, substring match,
+  or automated “candidate” tools.
+- Xerberus ids are curated (`morpho-v1` vs `morpho-v2`, `spark-v1` vs
+  `spark-savings-v2`, `usd-ai`, …). A name that looks similar is not enough.
+- After a registry scan, list protocols from DuckDB or
+  `GET /registry/scores?type=protocol`, then for each of our metadata slugs
+  decide match / no-match with a dated comment in `mappings.py`.
+- `None` means “inspected, no equivalent”. Missing map keys are also treated
+  as unmapped by export code (`.get(slug)`).
+- Xerberus entity ids we deliberately leave unmapped (with reasons) live in
+  `XERBERUS_UNMAPPED_PROTOCOL_REASONS` in the same module.
+- Re-review when Xerberus adds protocols or we add vault protocol metadata.
+
+There is no `update-xerberus-mappings` script: automated name matching was
+removed because it produced false confidence.
 
 ## Export contract
 

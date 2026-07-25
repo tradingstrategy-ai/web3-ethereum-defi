@@ -1116,7 +1116,7 @@ def main(
         "curators": curators_export,
         "vaults": vaults,
     }
-    # Optional coverage stats (NotRequired on TypedDict; safe extra for consumers)
+    # Optional coverage stats: not on VaultMetricsExport TypedDict (extra key for consumers).
     output_data["xerberus_stats"] = xerberus_stats  # type: ignore[typeddict-unknown-key]
     print(f"Xerberus coverage: {xerberus_stats['pool_matches']} pool / {xerberus_stats['protocol_fallbacks']} protocol / {xerberus_stats['unmatched']} unmatched ({xerberus_stats['coverage_pct']}% of {xerberus_stats['total_vaults']})")
 

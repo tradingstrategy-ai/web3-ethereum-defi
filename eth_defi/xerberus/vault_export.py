@@ -156,6 +156,8 @@ def build_xerberus_pool_lookup(
             continue
         key = (int(chain_id), str(address).lower())
         entity_id = str(row["entity_id"])
+        # Per-row lookup is fine: Xerberus DuckDB is local, small, and typically
+        # memory-backed for this export path (not a remote round-trip).
         report_url = db.get_report_url(int(chain_id), str(address))
         if report_url is None and entity_id.startswith("pool_"):
             report_url = f"https://app.xerberus.io/pool/dendrogram/{entity_id}"
@@ -180,6 +182,7 @@ def build_xerberus_pool_lookup(
         existing = lookup.get(key)
         score = float(row["score"]) if row.get("score") is not None else None
         if existing is None or (existing.get("score") is None and score is not None):
+            # Same local DuckDB note as above: per-row get_report_url is cheap here.
             lookup[key] = {
                 "chain_id": int(chain_id),
                 "address": str(address).lower(),

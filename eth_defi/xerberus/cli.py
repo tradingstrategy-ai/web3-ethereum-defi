@@ -6,7 +6,11 @@ from pathlib import Path
 from tabulate import tabulate
 
 from eth_defi.utils import setup_console_logging
-from eth_defi.xerberus.constants import resolve_xerberus_api_email, resolve_xerberus_database_path
+from eth_defi.xerberus.constants import (
+    XERBERUS_DEFAULT_REPORT_LIMIT,
+    resolve_xerberus_api_email,
+    resolve_xerberus_database_path,
+)
 from eth_defi.xerberus.scanner import scan_xerberus
 from eth_defi.xerberus.session import create_xerberus_session
 
@@ -22,6 +26,10 @@ def run_xerberus_scan_cli(
 
     Credentials come from ``XERBERUS_API_KEY`` and ``XERBERUS_API_EMAIL``
     (operator-supplied only). See ``README-xerberus.md``.
+
+    Phases are toggled with ``XERBERUS_FETCH_VAULT_LIST``,
+    ``XERBERUS_FETCH_REPORTS`` and ``XERBERUS_REPORT_LIMIT`` so one script
+    covers full scan and report-only / vault-list-only modes.
 
     :param title:
         Human-readable banner for stdout.
@@ -42,6 +50,7 @@ def run_xerberus_scan_cli(
     db_path = resolve_xerberus_database_path()
     fetch_vault_lists = os.environ.get("XERBERUS_FETCH_VAULT_LIST", "true").lower() == "true"
     fetch_reports = os.environ.get("XERBERUS_FETCH_REPORTS", "true").lower() == "true"
+    report_limit = int(os.environ.get("XERBERUS_REPORT_LIMIT", str(XERBERUS_DEFAULT_REPORT_LIMIT)))
     api_key = os.environ.get("XERBERUS_API_KEY")
     api_email = resolve_xerberus_api_email()
 
@@ -50,6 +59,7 @@ def run_xerberus_scan_cli(
     print(f"DRY_RUN: {dry_run}")
     print(f"Fetch vault list: {fetch_vault_lists}")
     print(f"Fetch reports: {fetch_reports}")
+    print(f"Report limit: {report_limit}")
     print(f"XERBERUS_API_EMAIL set: {bool(api_email)}")
     if not dry_run and (fetch_vault_lists or fetch_reports):
         print("Long phases use tqdm progress bars (vault lists / report URLs).")
@@ -60,6 +70,7 @@ def run_xerberus_scan_cli(
         db_path=db_path,
         fetch_vault_lists=fetch_vault_lists,
         fetch_reports=fetch_reports,
+        report_limit=report_limit,
         dry_run=dry_run,
     )
     if dry_run:

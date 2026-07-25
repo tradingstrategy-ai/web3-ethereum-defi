@@ -41,3 +41,4 @@ Features:
    eth_defi.xerberus.constants
    eth_defi.xerberus.mappings
    eth_defi.xerberus.vault_export
+   eth_defi.xerberus.errors
