@@ -2,9 +2,12 @@
 
 import os
 from decimal import Decimal
+from types import SimpleNamespace
+from unittest.mock import MagicMock
 
 import flaky
 import pytest
+from eth_typing import HexAddress
 from web3 import Web3
 
 from eth_defi.erc_4626.classification import create_vault_instance_autodetect
@@ -24,6 +27,7 @@ CSIGMA_USD_VAULT = "0xd5d097f278a735d0a3c609deee71234cac14b47e"
 JSON_RPC_ETHEREUM = os.environ.get("JSON_RPC_ETHEREUM")
 EXPECTED_V2_DEPOSITED_RAW_SHARES = 94_348_140
 EXPECTED_SUPQPV_DEPOSITED_RAW_SHARES = 94_445_037
+EXPECTED_CSUPERIOR_QUEUE_DUE_RAW_SHARES = 41_603_916_251
 
 pytestmark = pytest.mark.skipif(JSON_RPC_ETHEREUM is None, reason="JSON_RPC_ETHEREUM needed to run these tests")
 
@@ -111,15 +115,17 @@ def test_csigma_v2_pool(
     # The V2 pool's owner-specific capacity views cannot be validated through a
     # zero-address probe, so generic ERC-4626 capability checks remain disabled.
     assert vault.can_check_redeem() is False
+    assert "WithdrawalPending" in {item["name"] for item in vault.vault_contract.abi if item["type"] == "error"}
 
 
 @flaky.flaky
-def test_csigma_v2_pool_deposit_and_redeem_lifecycle(web3: Web3) -> None:
-    """Complete one immediate cSigma deposit and redemption lifecycle.
+def test_csigma_v2_pool_deposit_then_refuses_redemption_when_queue_state_is_unavailable(web3: Web3) -> None:
+    """Fail closed when the historical fork cannot read cSuperior's queue state.
 
-    The selected fork exposes immediate liquidity for this representative V2
-    pool. The same manager uses ``force_settle(None)`` for both synchronous
-    operations.
+    The fork predates the current withdrawal-manager deployment, so its
+    authoritative queue state cannot be read. A deposit remains synchronous,
+    but the manager must not guess that a full or partial redemption is safe:
+    it returns the typed zero-capacity refusal before building ``redeem()``.
     """
     vault = create_vault_instance_autodetect(
         web3,
@@ -152,12 +158,17 @@ def test_csigma_v2_pool_deposit_and_redeem_lifecycle(web3: Web3) -> None:
 
     raw_shares = vault.share_token.fetch_raw_balance_of(owner)
     assert raw_shares == EXPECTED_V2_DEPOSITED_RAW_SHARES
-    assert manager.can_create_redemption_request(owner) is True
-    redemption_ticket = manager.create_redemption_request(owner=owner, raw_shares=raw_shares).broadcast(from_=owner)
-    redemption_analysis = manager.analyse_redemption(redemption_ticket.tx_hash, redemption_ticket)
-    assert redemption_analysis.share_count == pytest.approx(Decimal("94.34814"))
-    assert redemption_analysis.denomination_amount == pytest.approx(Decimal("99.999999"))
-    assert vault.share_token.fetch_raw_balance_of(owner) == 0
+    assert manager.can_create_redemption_request(owner) is False
+    block_before_refusal = web3.eth.block_number
+    with pytest.raises(VaultFlowUnavailable) as exc_info:
+        manager.create_redemption_request(owner=owner, raw_shares=raw_shares)
+    error = exc_info.value
+    assert error.available_raw_amount == 0
+    assert error.decoded_error == "WithdrawalPending"
+    assert error.error_selector == CSIGMA_WITHDRAWAL_PENDING_SELECTOR
+    assert error.preflight_result == "redemption_capacity_limited"
+    assert web3.eth.block_number == block_before_refusal
+    assert vault.share_token.fetch_raw_balance_of(owner) == raw_shares
     assert manager.force_settle(None).settlement_required is False
 
 
@@ -283,8 +294,71 @@ def test_csigma_supqpv(
 
 @pytest.fixture(scope="module")
 def midnight_web3(anvil_fork_pool: AnvilForkPool) -> Web3:
-    """Shared fixed Ethereum midnight-block fork for the current-state cSigma USD checks."""
-    return create_multi_provider_web3(anvil_fork_pool.get_launch(JSON_RPC_ETHEREUM, ETHEREUM_MIDNIGHT_BLOCK).json_rpc_url)
+    """Connect to the shared deterministic cSigma midnight fork."""
+    return anvil_fork_pool.get_web3(JSON_RPC_ETHEREUM, ETHEREUM_MIDNIGHT_BLOCK)
+
+
+def test_csuperior_full_fill_capacity_boundary(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Allow a whole redemption only when the queue gate and reserve allow it.
+
+    The live cSuperior fork has queue debt, so it correctly offers zero
+    capacity. This isolated boundary check covers the complementary state: a
+    zero queue debt and 75 raw shares of reserve-backed capacity accepts 75,
+    but refuses 76 rather than silently offering a partial onchain fill.
+    """
+    owner: HexAddress = "0x1111111111111111111111111111111111111111"
+    immediate_capacity = 75
+    vault_contract = MagicMock()
+    vault_contract.functions.maxWithdraw(owner).call.return_value = 80
+    vault_contract.functions.convertToShares(80).call.return_value = immediate_capacity
+    manager = CsigmaDepositManager.__new__(CsigmaDepositManager)
+    manager.vault = SimpleNamespace(
+        address=CSIGMA_V2_POOL_ADDRESS,
+        share_token=SimpleNamespace(fetch_raw_balance_of=lambda _owner: 100),
+        vault_contract=vault_contract,
+    )
+    monkeypatch.setattr(manager, "fetch_withdrawal_manager_due_raw_shares", lambda: 0)
+
+    assert manager.fetch_redeemable_raw_shares(owner) == immediate_capacity
+    assert manager.fetch_redemption_preflight(owner, immediate_capacity).available is True
+    refused = manager.fetch_redemption_preflight(owner, immediate_capacity + 1)
+    assert refused.available is False
+    assert refused.available_raw_shares == immediate_capacity
+    assert refused.reason == "redemption_capacity_limited"
+
+
+@flaky.flaky
+@pytest.mark.xdist_group("fork:ethereum:midnight")
+def test_csuperior_queue_blocks_partial_user_redemption(midnight_web3: Web3) -> None:
+    """Refuse cSuperior's offchain partial-fill path before a redeem broadcast.
+
+    At the pinned block the withdrawal manager has outstanding queue debt, so
+    its verified ``_withdraw`` guard rejects every user redemption even though
+    the pool advertises gross idle reserve through ``maxRedeem``. Any positive
+    share request must therefore be preflight-refused in full rather than
+    partially filled and queued by an offchain actor.
+    """
+    vault = create_vault_instance_autodetect(midnight_web3, vault_address=CSIGMA_V2_POOL_ADDRESS)
+    assert isinstance(vault, CsigmaVault)
+    manager = vault.get_deposit_manager()
+    assert isinstance(manager, CsigmaDepositManager)
+    assert manager.fetch_withdrawal_manager_due_raw_shares() == EXPECTED_CSUPERIOR_QUEUE_DUE_RAW_SHARES
+
+    owner = midnight_web3.eth.accounts[4]
+    requested_raw_shares = 1
+    block_before_refusal = midnight_web3.eth.block_number
+    with pytest.raises(VaultFlowUnavailable) as exc_info:
+        manager.create_redemption_request(owner=owner, raw_shares=requested_raw_shares)
+
+    error = exc_info.value
+    assert error.decoded_error == "WithdrawalPending"
+    assert error.error_selector == CSIGMA_WITHDRAWAL_PENDING_SELECTOR
+    assert error.preflight_result == "redemption_capacity_limited"
+    assert error.direction == "redeem"
+    assert error.phase == "preflight"
+    assert error.requested_raw_amount == requested_raw_shares
+    assert error.available_raw_amount == 0
+    assert midnight_web3.eth.block_number == block_before_refusal
 
 
 @flaky.flaky

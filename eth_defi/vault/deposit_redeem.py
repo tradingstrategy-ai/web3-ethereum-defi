@@ -166,8 +166,8 @@ class VaultRedemptionPreflight:
     The result is advisory because capacity can change before a transaction is
     mined. The manager's request constructor must repeat an available-capacity
     check before broadcasting. It is currently returned only by adapters that
-    have an owner-specific immediate-capacity query, such as cSigma's
-    `ERC-4626 maxRedeem <https://eips.ethereum.org/EIPS/eip-4626#maxredeem>`__.
+    can determine an immediate full-fill capacity from their authoritative
+    protocol state, such as cSigma's queue-adjusted reserve check.
 
     .. note::
 

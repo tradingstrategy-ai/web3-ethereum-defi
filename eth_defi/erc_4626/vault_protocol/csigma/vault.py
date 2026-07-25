@@ -21,18 +21,21 @@ to optimise yield performance.
 
 import datetime
 import logging
+from functools import cached_property
 
 from eth_typing import BlockIdentifier, HexAddress
+from web3.contract import Contract
 
+from eth_defi.abi import get_deployed_contract
 from eth_defi.erc_4626.vault import ERC4626Vault
-from eth_defi.erc_4626.vault_protocol.csigma.deposit_redeem import CsigmaDepositManager
+from eth_defi.erc_4626.vault_protocol.csigma.deposit_redeem import CSUPERIOR_V2_POOL_ADDRESS, CsigmaDepositManager
 from eth_defi.vault.deposit_redeem import VaultDepositManager, VaultDepositManagerCapability
 
 logger = logging.getLogger(__name__)
 
 
 #: cSigma V2 pool with verified synchronous ERC-4626 lifecycle support.
-CSIGMA_V2_POOL_ADDRESS: HexAddress = "0x438982ea288763370946625fd76c2508ee1fb229"
+CSIGMA_V2_POOL_ADDRESS: HexAddress = CSUPERIOR_V2_POOL_ADDRESS
 
 #: Ethereum mainnet, where the representative V2 pool was verified.
 CSIGMA_V2_POOL_CHAIN_ID = 1
@@ -73,6 +76,23 @@ class CsigmaVault(ERC4626Vault):
     - Twitter: https://x.com/csigmafinance
     - Contract: https://etherscan.io/address/0xd5d097f278a735d0a3c609deee71234cac14b47e
     """
+
+    @cached_property
+    def vault_contract(self) -> Contract:
+        """Bind cSuperior's verified implementation ABI to its proxy address.
+
+        The generic ERC-4626 interface omits cSigma custom errors and the
+        queue-state methods required by the capacity preflight. The exact V2
+        deployment therefore uses its verified implementation ABI while other
+        cSigma deployments retain the generic binding.
+
+        :return:
+            Verified cSigma V2 contract for cSuperior, otherwise the generic
+            ERC-4626 binding.
+        """
+        if self.chain_id == CSIGMA_V2_POOL_CHAIN_ID and self.address.lower() == CSIGMA_V2_POOL_ADDRESS:
+            return get_deployed_contract(self.web3, "csigma/CsigmaV2Pool.json", self.address)
+        return super().vault_contract
 
     def has_custom_fees(self) -> bool:
         """Whether this vault has deposit/withdrawal fees.
