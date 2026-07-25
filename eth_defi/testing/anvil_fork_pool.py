@@ -164,8 +164,28 @@ from web3 import Web3
 from eth_defi.provider.anvil import AnvilLaunch, fork_network_anvil
 from eth_defi.provider.multi_provider import create_multi_provider_web3
 from eth_defi.provider.rpc_proxy import RPCProxy, RPCProxyConfig
+from eth_defi.utils import get_url_domain
 
 logger = logging.getLogger(__name__)
+
+
+def _redacted_upstream(rpc_url: str) -> str:
+    """Return the key-redacted upstream provider domain(s) for error messages.
+
+    Splits a space-separated multi-provider fork URL and redacts each entry to
+    its domain via :func:`eth_defi.utils.get_url_domain`, so a fork-setup error
+    or warning can name the vendor — e.g. to identify which provider is failing
+    and needs topping up — without leaking the API key embedded in the URL
+    path/query. JSON-RPC API keys are not security critical (see
+    ``get_url_domain``), but are still not printed in full.
+
+    :param rpc_url:
+        One or more space-separated upstream JSON-RPC URLs.
+
+    :return:
+        Comma-separated redacted domains, e.g. ``arb-mainnet.example.com``.
+    """
+    return ", ".join(get_url_domain(u) for u in rpc_url.split() if u)
 
 
 class SingleRpcProviderWarning(UserWarning):
@@ -271,7 +291,7 @@ class AnvilForkPool:
             # rate limited, which is the dominant cause of flaky fork tests.
             provider_count = len([u for u in rpc_url.split() if u])
             if provider_count < 2:
-                message = f"Fork RPC session for block {fork_block_number} uses only {provider_count} upstream provider — no failover if it is exhausted or rate limited. Configure two space-separated providers per chain."
+                message = f"Fork RPC session for block {fork_block_number} on upstream provider(s) {_redacted_upstream(rpc_url)} uses only {provider_count} — no failover if it is exhausted or rate limited. Configure two space-separated providers per chain."
                 warnings.warn(message, SingleRpcProviderWarning, stacklevel=2)
                 logger.warning("%s", message)
             launch = fork_network_anvil(
@@ -318,10 +338,16 @@ class AnvilForkPool:
             A :class:`web3.Web3` connected to the shared Anvil RPC endpoint.
         """
         launch = self.get_launch(rpc_url, fork_block_number, **launch_kwargs)
+        # Pass the redacted upstream vendor domain(s) as the error hint. The
+        # returned Web3 points at local Anvil, so a fork-setup failure (e.g. the
+        # 60s eth_chainId read timeout) otherwise names only "localhost:<port>";
+        # the hint surfaces which upstream provider to investigate / top up in
+        # the raised RuntimeError ("... Hint is forking upstream provider(s): X").
         return create_multi_provider_web3(
             launch.json_rpc_url,
             default_http_timeout=web3_http_timeout,
             retries=web3_retries,
+            hint=f"forking upstream provider(s): {_redacted_upstream(rpc_url)}",
         )
 
     def close_all(self) -> None:

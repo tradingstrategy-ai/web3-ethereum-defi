@@ -1,6 +1,6 @@
 """Unit tests for the shared Anvil fork pool."""
 
-from unittest.mock import Mock
+from unittest.mock import ANY, Mock
 
 import pytest
 
@@ -55,7 +55,12 @@ def test_anvil_fork_pool_bounds_nested_rpc_retries(monkeypatch: pytest.MonkeyPat
         launch.json_rpc_url,
         default_http_timeout=POOL_WEB3_HTTP_TIMEOUT,
         retries=POOL_WEB3_RETRIES,
+        hint=ANY,
     )
+    # The hint carries the redacted upstream vendor domain(s) so a fork-setup
+    # failure names which provider to investigate / top up.
+    hint = create_web3.call_args.kwargs["hint"]
+    assert "primary.example" in hint and "fallback.example" in hint
 
 
 @pytest.mark.parametrize("provider_count", [2, 3, 4, 10])
@@ -194,6 +199,7 @@ def test_anvil_fork_pool_allows_web3_policy_override(
         launch.json_rpc_url,
         default_http_timeout=(5.0, 120.0),
         retries=4,
+        hint=ANY,
     )
 
 
