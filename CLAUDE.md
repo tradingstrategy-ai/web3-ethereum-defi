@@ -258,7 +258,7 @@ removing its flaky history comment.
 - Use `any()` and `all()` with generators and list comprehension when checking if a collection member has one or more matches, instead of using slow for loops
 - All functions that do network reads to get data should be prefixed with `fetch_` instead of `get_`
 - Always try to return `Iterator` instead of `list` from a function call to make functions faster
-- For long runnign for loops, use `tqdm` and `tqdm_loggable.auto` module for progress bar. As an example, see `lead_scan_core.py`.
+- Observability required: All long-running actions must be observable in the run, through logging or terminal output. For long-running loops, scanners, scripts, use the `tqdm` and `tqdm_loggable.auto` module for a progress bar. Make sure no script runs without producing output for more than 1 minute. As an example, see `lead_scan_core.py`. If agent runs long-running scripts or processes, it must be done in a way the agent can tell whether the process is making work or hung.
 - For visualusations, use Plotly. For chart titles, use heading case as explained above.
 - Use module level imports, not function level lazy imports, whenever possible
 - Never write generic `Exception e:` catch but always catch a specific exception if we can
@@ -451,6 +451,7 @@ Consult these for domain-specific context. Logo READMEs under `eth_defi/data/vau
 | `eth_defi/abi/uniswap-swap-contracts/README.md` | SwapRouter02 deployment on Base |
 | `eth_defi/cctp/README-cctp.md` | Circle CCTP V2 integration |
 | `eth_defi/core3/README-core3.md` | Core3 risk intelligence integration — modules, database schema, scripts, API reference |
+| `eth_defi/xerberus/README-xerberus.md` | Xerberus vault risk scores — per-vault pool ratings, DuckDB, export, scripts |
 | `eth_defi/currency_api/README-currency-api.md` | Historical exchange rate ingestion (fawazahmed0 Exchange API) into DuckDB |
 | `eth_defi/data/vaults/README.md` | Vault protocol metadata and logo system |
 | `eth_defi/erc_4626/vault_protocol/README-reader-states.md` | Vault reader states and warmup system |

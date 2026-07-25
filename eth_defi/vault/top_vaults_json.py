@@ -45,6 +45,13 @@ from eth_defi.core3.constants import CORE3_DATABASE_PATH
 from eth_defi.core3.database import Core3Database
 from eth_defi.core3.vault_protocol import build_core3_protocols_for_export
 from eth_defi.feed.database import DEFAULT_VAULT_POST_DATABASE, VaultPostDatabase
+from eth_defi.xerberus.constants import resolve_xerberus_database_path
+from eth_defi.xerberus.database import XerberusDatabase
+from eth_defi.xerberus.vault_export import (
+    build_xerberus_pool_lookup,
+    build_xerberus_protocols_for_export,
+    compute_xerberus_export_stats,
+)
 from eth_defi.token import is_stablecoin_like
 from eth_defi.vault.curator_export import build_curators_for_export
 from eth_defi.vault.risk import VaultTechnicalRisk
@@ -919,6 +926,7 @@ def main(
     parquet_path: Path | None = None,
     output_path: Path | None = None,
     core3_db_path: Path | None = None,
+    xerberus_db_path: Path | None = None,
     feed_db_path: Path | None = None,
 ) -> VaultMetricsExport:
     """Main execution function for vault analysis and JSON export.
@@ -957,6 +965,11 @@ def main(
         When ``None``, resolved from ``CORE3_DATABASE_PATH`` env var,
         then the default constant. The database is only opened if the
         resolved file exists on disk.
+
+    :param xerberus_db_path:
+        Path to the Xerberus risk DuckDB database.
+        When ``None``, resolved from ``XERBERUS_DATABASE_PATH`` env var,
+        then the default constant. Opened read-only when the file exists.
 
     :param feed_db_path:
         Path to the vault post feed DuckDB database.
@@ -1028,18 +1041,43 @@ def main(
             core3_db_path = Path(db_path_env).expanduser()
         else:
             core3_db_path = CORE3_DATABASE_PATH
+    all_protocol_slugs = {slugify_protocol(v["Protocol"]) for v in vault_db.values()}
+
     if core3_db_path.exists():
         core3_db = Core3Database(core3_db_path)
         try:
             print(f"Opened Core3 risk database at {core3_db_path} with {core3_db.get_project_count()} projects")
             # Derive protocol slugs directly from vault metadata (slugify_vaults
             # has not run yet at this point, so compute the slug from "Protocol").
-            all_protocol_slugs = {slugify_protocol(v["Protocol"]) for v in vault_db.values()}
             core3_protocols = build_core3_protocols_for_export(core3_db, all_protocol_slugs)
         finally:
             core3_db.close()
 
-    lifetime_data_df = calculate_lifetime_metrics(returns_df, vault_db, core3_protocols=core3_protocols)
+    # Xerberus: per-vault pool scores + top-level protocol metadata.
+    # Open read-only so export never contends with a concurrent writer.
+    xerberus_pools = {}
+    xerberus_protocols = {}
+    if xerberus_db_path is None:
+        xerberus_db_path = resolve_xerberus_database_path()
+    else:
+        xerberus_db_path = Path(xerberus_db_path)
+    if xerberus_db_path.exists():
+        xerberus_db = XerberusDatabase(xerberus_db_path, read_only=True)
+        try:
+            counts = xerberus_db.get_entity_counts()
+            print(f"Opened Xerberus risk database at {xerberus_db_path} with {counts['distinct_pools']} pools and {counts['distinct_protocols']} protocols")
+            xerberus_pools = build_xerberus_pool_lookup(xerberus_db)
+            xerberus_protocols = build_xerberus_protocols_for_export(xerberus_db, all_protocol_slugs)
+        finally:
+            xerberus_db.close()
+
+    lifetime_data_df = calculate_lifetime_metrics(
+        returns_df,
+        vault_db,
+        core3_protocols=core3_protocols,
+        xerberus_pools=xerberus_pools,
+        xerberus_protocols=xerberus_protocols,
+    )
 
     print(f"Calculated lifetime metrics for {len(lifetime_data_df):,} vaults with {len(lifetime_data_df.columns):,} columns")
 
@@ -1059,6 +1097,8 @@ def main(
     exported_slugs = {v.get("protocol_slug") for v in vaults if v.get("protocol_slug")}
     exported_slugs.discard(None)
     core3_protocols = {slug: record for slug, record in core3_protocols.items() if slug in exported_slugs}
+    xerberus_protocols = {slug: record for slug, record in xerberus_protocols.items() if slug in exported_slugs}
+    xerberus_stats = compute_xerberus_export_stats(vaults)
 
     # 6b. Build curator metadata and recent feed entries for the export.
     # Curator data is per-curator (not per-vault), keyed by curator slug.
@@ -1107,9 +1147,13 @@ def main(
         "generated_at": format_state_timestamp(now),
         "metadata": export_metadata,
         "core3_protocols": core3_protocols,
+        "xerberus_protocols": xerberus_protocols,
         "curators": curators_export,
         "vaults": vaults,
     }
+    # Optional coverage stats: not on VaultMetricsExport TypedDict (extra key for consumers).
+    output_data["xerberus_stats"] = xerberus_stats  # type: ignore[typeddict-unknown-key]
+    print(f"Xerberus coverage: {xerberus_stats['pool_matches']} pool / {xerberus_stats['protocol_fallbacks']} protocol / {xerberus_stats['unmatched']} unmatched ({xerberus_stats['coverage_pct']}% of {xerberus_stats['total_vaults']})")
 
     # The state file is published with the other scanner data files. Keep its
     # timestamp and build provenance available for incident investigation.
