@@ -35,6 +35,9 @@ def test_anvil_fork_pool_bounds_nested_rpc_retries(monkeypatch: pytest.MonkeyPat
     create_web3 = Mock(side_effect=[first_client, second_client])
     monkeypatch.setattr(pool_module, "fork_network_anvil", fork_network_anvil)
     monkeypatch.setattr(pool_module, "create_multi_provider_web3", create_web3)
+    # This test covers retry/reuse semantics, not liveness: keep the pooled fork
+    # "healthy" so the reuse path does not probe the mock endpoint.
+    monkeypatch.setattr(pool_module, "is_fork_alive", lambda _launch: True)
 
     pool = AnvilForkPool()
     rpc_url = "https://primary.example https://fallback.example"
@@ -212,3 +215,83 @@ def test_anvil_fork_pool_keys_running_proxy_by_identity() -> None:
     running_proxy = object.__new__(RPCProxy)
 
     assert pool_module._freeze(running_proxy) == (RPCProxy, id(running_proxy))
+
+
+def test_pool_reuses_live_fork(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A responsive pooled fork is reused without relaunching.
+
+    :param monkeypatch:
+        Pytest monkeypatch fixture.
+
+    :return:
+        None.
+    """
+    launch = Mock(json_rpc_url="http://localhost:23470")
+    fork_network_anvil = Mock(return_value=launch)
+    monkeypatch.setattr(pool_module, "fork_network_anvil", fork_network_anvil)
+    monkeypatch.setattr(pool_module, "is_fork_alive", lambda _launch: True)
+
+    pool = AnvilForkPool()
+    first = pool.get_launch("https://a.example https://b.example", 100)
+    second = pool.get_launch("https://a.example https://b.example", 100)
+
+    assert first is second
+    assert fork_network_anvil.call_count == 1
+    launch.close.assert_not_called()
+
+
+def test_pool_recycles_wedged_fork(monkeypatch: pytest.MonkeyPatch) -> None:
+    """An unresponsive pooled fork is disposed and relaunched.
+
+    Without this, every remaining test sharing the fork fails at setup with a
+    60 s read timeout against localhost.
+
+    :param monkeypatch:
+        Pytest monkeypatch fixture.
+
+    :return:
+        None.
+    """
+    wedged = Mock(json_rpc_url="http://localhost:23471")
+    fresh = Mock(json_rpc_url="http://localhost:23472")
+    fork_network_anvil = Mock(side_effect=[wedged, fresh])
+    monkeypatch.setattr(pool_module, "fork_network_anvil", fork_network_anvil)
+
+    pool = AnvilForkPool()
+    monkeypatch.setattr(pool_module, "is_fork_alive", lambda _launch: True)
+    assert pool.get_launch("https://a.example https://b.example", 200) is wedged
+
+    # The fork stops answering before the next test in the group asks for it.
+    monkeypatch.setattr(pool_module, "is_fork_alive", lambda _launch: False)
+    with pytest.warns(pool_module.WedgedForkRecycledWarning):
+        replacement = pool.get_launch("https://a.example https://b.example", 200)
+
+    assert replacement is fresh
+    assert fork_network_anvil.call_count == 2
+    wedged.close.assert_called_once()
+    # The dead launch must not stay cached.
+    monkeypatch.setattr(pool_module, "is_fork_alive", lambda _launch: True)
+    assert pool.get_launch("https://a.example https://b.example", 200) is fresh
+
+
+def test_dispose_survives_close_failure(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A wedged process that cannot be closed is still dropped from the pool.
+
+    :param monkeypatch:
+        Pytest monkeypatch fixture.
+
+    :return:
+        None.
+    """
+    wedged = Mock(json_rpc_url="http://localhost:23473")
+    wedged.close.side_effect = OSError("process already gone")
+    fresh = Mock(json_rpc_url="http://localhost:23474")
+    monkeypatch.setattr(pool_module, "fork_network_anvil", Mock(side_effect=[wedged, fresh]))
+
+    pool = AnvilForkPool()
+    monkeypatch.setattr(pool_module, "is_fork_alive", lambda _launch: True)
+    pool.get_launch("https://a.example https://b.example", 300)
+
+    monkeypatch.setattr(pool_module, "is_fork_alive", lambda _launch: False)
+    with pytest.warns(pool_module.WedgedForkRecycledWarning):
+        assert pool.get_launch("https://a.example https://b.example", 300) is fresh

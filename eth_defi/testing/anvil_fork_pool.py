@@ -96,6 +96,26 @@ HTTP error). With a **single** provider there is no proxy and no failover: a
 ``eth_chainId`` read timeout — configure a second provider to get both failover
 and the diagnosis.
 
+Wedged-fork recycling — one bad fork must not fail its whole group
+------------------------------------------------------------------
+
+A long-lived shared fork can stop answering under sustained load (the
+responsiveness degradation documented in the ``AnvilSnapshotState`` docstring in
+:mod:`eth_defi.provider.anvil`). Because a pooled fork is shared by every test
+carrying its ``xdist_group``, one wedged process used to fail *all* of them at
+setup, each paying the full 60 s Web3 read timeout — a single dead Anvil
+accounted for 19 errored tests in a measured local run.
+
+:meth:`AnvilForkPool.get_launch` therefore probes a **reused** fork with
+:func:`is_fork_alive` before handing it out: a raw ``eth_chainId`` with a short
+:data:`POOL_LIVENESS_TIMEOUT`, sent outside the Web3 stack so it cannot inherit
+the 60 s timeout it exists to avoid. ``eth_chainId`` is served from memory, so a
+slow reply means the process itself is wedged, not that the upstream is slow. An
+unresponsive fork is disposed and relaunched, and the recycling is surfaced as a
+:class:`WedgedForkRecycledWarning` so a fork that wedges repeatedly is still
+investigated rather than silently papered over. Newly launched forks are not
+probed — ``fork_network_anvil`` already smoke-tests them.
+
 Bounded provider retries — fail fast, never re-hammer a dead provider
 ---------------------------------------------------------------------
 
@@ -200,6 +220,7 @@ import logging
 import warnings
 from typing import Any
 
+import requests
 from web3 import Web3
 
 from eth_defi.provider.anvil import AnvilLaunch, fork_network_anvil
@@ -246,6 +267,55 @@ POOL_WEB3_RETRIES: int = 0
 
 #: Preserve the established connect/read timeout for legitimate cold-cache calls.
 POOL_WEB3_HTTP_TIMEOUT: tuple[float, float] = (3.0, 60.0)
+
+#: Seconds allowed for the liveness probe on a **reused** pooled fork.
+#:
+#: A healthy Anvil answers ``eth_chainId`` from memory in milliseconds, so this
+#: only has to cover process scheduling — it must stay far below the 60 s Web3
+#: read timeout, because the whole point is to detect a wedged fork quickly
+#: instead of paying that timeout once per test in the group.
+POOL_LIVENESS_TIMEOUT: float = 5.0
+
+
+class WedgedForkRecycledWarning(UserWarning):
+    """Warn that an unresponsive pooled Anvil fork was disposed and relaunched.
+
+    A long-lived shared fork can stop answering under sustained load (see the
+    ``AnvilSnapshotState`` docstring in :mod:`eth_defi.provider.anvil`). Without
+    recycling, every remaining test sharing that fork fails at setup with a 60 s
+    ``read_timeout`` against ``localhost``. This warning makes the recycling
+    visible so a fork that wedges repeatedly is still investigated rather than
+    silently papered over.
+    """
+
+
+def is_fork_alive(launch: AnvilLaunch, timeout: float = POOL_LIVENESS_TIMEOUT) -> bool:
+    """Check that a pooled Anvil fork still answers JSON-RPC promptly.
+
+    Sends a raw ``eth_chainId`` straight to the local Anvil endpoint with a short
+    timeout, deliberately bypassing the Web3 stack so the probe cannot inherit
+    the 60 s read timeout it exists to avoid. ``eth_chainId`` is answered from
+    memory without touching the upstream archive, so a slow reply means the Anvil
+    process itself is unresponsive rather than the provider being slow.
+
+    :param launch:
+        Pooled Anvil launch to probe.
+
+    :param timeout:
+        Seconds to wait for the reply before declaring the fork wedged.
+
+    :return:
+        ``True`` when Anvil replied within the timeout, ``False`` otherwise.
+    """
+    payload = {"jsonrpc": "2.0", "id": 1, "method": "eth_chainId", "params": []}
+    try:
+        resp = requests.post(launch.json_rpc_url, json=payload, timeout=timeout)
+        resp.raise_for_status()
+        return "result" in resp.json()
+    except (requests.exceptions.RequestException, ValueError):
+        # Timeout, connection error, HTTP error or unparseable body all mean the
+        # process is not usable; the caller disposes and relaunches it.
+        return False
 
 
 def _freeze(value: Any) -> Any:
@@ -326,22 +396,69 @@ class AnvilForkPool:
         """
         key = (rpc_url, fork_block_number, _freeze(launch_kwargs))
         launch = self.launches.get(key)
-        if launch is None:
-            # Warn once per unique fork if there is no upstream failover: a
-            # single provider cannot fail over when it runs out of credits or is
-            # rate limited, which is the dominant cause of flaky fork tests.
-            provider_count = len([u for u in rpc_url.split() if u])
-            if provider_count < 2:
-                message = f"Fork RPC session for block {fork_block_number} on upstream provider(s) {_redacted_upstream(rpc_url)} uses only {provider_count} — no failover if it is exhausted or rate limited. Configure two space-separated providers per chain."
-                warnings.warn(message, SingleRpcProviderWarning, stacklevel=2)
-                logger.warning("%s", message)
-            launch = fork_network_anvil(
-                rpc_url,
-                fork_block_number=fork_block_number,
-                **launch_kwargs,
-            )
-            self.launches[key] = launch
+
+        if launch is not None:
+            # Reused fork: make sure it still answers before handing it out. A
+            # wedged Anvil would otherwise fail this test *and* every remaining
+            # test in its xdist group, each paying the 60 s Web3 read timeout.
+            if is_fork_alive(launch):
+                return launch
+            message = f"Pooled Anvil fork for block {fork_block_number} at {launch.json_rpc_url} stopped responding within {POOL_LIVENESS_TIMEOUT}s — disposing and relaunching it."
+            warnings.warn(message, WedgedForkRecycledWarning, stacklevel=2)
+            logger.warning("%s", message)
+            self._dispose(key, launch)
+
+        launch = self._launch(rpc_url, fork_block_number, **launch_kwargs)
+        self.launches[key] = launch
         return launch
+
+    def _launch(self, rpc_url: str, fork_block_number: int, **launch_kwargs: Any) -> AnvilLaunch:
+        """Start a new Anvil fork, warning when it has no upstream failover.
+
+        :param rpc_url:
+            Upstream archive JSON-RPC URL(s) to fork from.
+
+        :param fork_block_number:
+            Fixed block to fork at.
+
+        :param launch_kwargs:
+            Additional ``fork_network_anvil`` arguments.
+
+        :return:
+            The new :class:`~eth_defi.provider.anvil.AnvilLaunch`.
+        """
+        # Warn once per unique fork if there is no upstream failover: a single
+        # provider cannot fail over when it runs out of credits or is rate
+        # limited, which is the dominant cause of flaky fork tests.
+        provider_count = len([u for u in rpc_url.split() if u])
+        if provider_count < 2:
+            message = f"Fork RPC session for block {fork_block_number} on upstream provider(s) {_redacted_upstream(rpc_url)} uses only {provider_count} — no failover if it is exhausted or rate limited. Configure two space-separated providers per chain."
+            warnings.warn(message, SingleRpcProviderWarning, stacklevel=2)
+            logger.warning("%s", message)
+        return fork_network_anvil(
+            rpc_url,
+            fork_block_number=fork_block_number,
+            **launch_kwargs,
+        )
+
+    def _dispose(self, key: tuple, launch: AnvilLaunch) -> None:
+        """Drop a fork from the registry and tear its process down.
+
+        The registry entry is removed first so a failure to close a wedged
+        process cannot leave the dead launch cached and handed to the next
+        caller.
+
+        :param key:
+            Registry key of the launch being disposed.
+
+        :param launch:
+            The launch to tear down.
+        """
+        self.launches.pop(key, None)
+        try:
+            launch.close(log_level=logging.ERROR)
+        except Exception as e:  # noqa: BLE001 - a wedged process can fail to close in many ways
+            logger.warning("Could not cleanly close wedged Anvil fork %s: %s", launch.json_rpc_url, e)
 
     def get_web3(
         self,

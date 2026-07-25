@@ -50,7 +50,7 @@ def test_forty_acres_blackhole(
 
     1. Auto-detect the vault protocol from the hardcoded address
     2. Verify the vault instance type and protocol name
-    3. Check fee methods return None (fees are protocol-embedded)
+    3. Check the lender-facing fees are explicitly zero
     """
 
     # 1. Auto-detect the vault protocol
@@ -64,6 +64,9 @@ def test_forty_acres_blackhole(
     assert vault.get_protocol_name() == "40acres"
     assert ERC4626Feature.forty_acres_like in vault.features
 
-    # 3. Check fee methods
-    assert vault.get_management_fee("latest") is None
-    assert vault.get_performance_fee("latest") is None
+    # 3. Check fee methods. 40acres charges lenders no explicit management or
+    # performance fee — the protocol's 5% treasury cut is taken from borrower
+    # rewards, not from depositor principal or yield. So these read 0.0 ("no
+    # fee"), not None, which the vault API reserves for "fee not exposed".
+    assert vault.get_management_fee("latest") == 0.0
+    assert vault.get_performance_fee("latest") == 0.0
