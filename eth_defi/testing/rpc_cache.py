@@ -34,6 +34,16 @@ logger = logging.getLogger(__name__)
 #: ``README.md`` in this directory for how to capture them.
 DEFAULT_SEED_DIR: Path = Path(__file__).parent / "rpc_cache_seed"
 
+#: Additional committed seed fork blocks that are **not** a chain's canonical
+#: ``*_MIDNIGHT_BLOCK``. Some tests pin their own historical block (e.g. Upshift's
+#: multi-asset metadata tests fork Ethereum at a fixed non-midnight block), and
+#: those benefit from a warm cache too. Keyed by chain id → set of extra blocks,
+#: so the seed drift-guard (``tests/test_rpc_cache.py``) accepts them alongside
+#: the midnight blocks. Add an entry here when committing a non-midnight block.
+ADDITIONAL_SEED_BLOCKS: dict[int, set[int]] = {
+    1: {25_405_251},  # Upshift multi-asset metadata fork block (test_upshift.py)
+}
+
 #: Environment variable naming an *additional* seed directory (same layout),
 #: applied after the repo default. Use for a large cache kept outside git.
 SEED_DIR_ENV_VAR: str = "ETH_DEFI_RPC_CACHE_SEED_DIR"

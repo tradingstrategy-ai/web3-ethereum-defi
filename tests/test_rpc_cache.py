@@ -11,7 +11,7 @@ import pytest
 
 from eth_defi.chain import FOUNDRY_NETWORK_NAMES
 from eth_defi.testing.fork_blocks import MIDNIGHT_BLOCKS
-from eth_defi.testing.rpc_cache import DEFAULT_SEED_DIR, seed_default_foundry_rpc_cache, seed_foundry_rpc_cache
+from eth_defi.testing.rpc_cache import ADDITIONAL_SEED_BLOCKS, DEFAULT_SEED_DIR, seed_default_foundry_rpc_cache, seed_foundry_rpc_cache
 
 
 def _make_seed(tmp_path: Path) -> Path:
@@ -94,5 +94,6 @@ def test_committed_seed_matches_foundry_names_and_midnight_blocks() -> None:
             if not block_dir.is_dir():
                 continue
             block = int(block_dir.name)
-            assert MIDNIGHT_BLOCKS.get(chain_id) == block, f"{net_dir.name}/{block} is not the midnight block for chain {chain_id}"
+            allowed = {MIDNIGHT_BLOCKS.get(chain_id)} | ADDITIONAL_SEED_BLOCKS.get(chain_id, set())
+            assert block in allowed, f"{net_dir.name}/{block} is neither the midnight block nor a listed ADDITIONAL_SEED_BLOCKS entry for chain {chain_id}"
             assert (block_dir / "storage.json").exists()
