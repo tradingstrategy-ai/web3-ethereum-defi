@@ -298,6 +298,27 @@ def test_remove_inactive_lead_time_with_duplicate_timestamps():
     assert duplicate_activation.index.duplicated().any()
 
 
+def test_remove_inactive_lead_time_with_nullable_pyarrow_supply():
+    """Ignore missing supply readings when locating the first supply change.
+
+    ``generate_cleaned_vault_datasets()`` loads raw Parquet with
+    ``dtype_backend="pyarrow"``. A missing supply therefore becomes
+    ``pd.NA`` rather than ``numpy.nan``. The mask must remain usable even
+    when the missing reading follows the first detected supply change.
+    """
+    df = pd.DataFrame(
+        {
+            "id": ["nullable-supply-vault"] * 5,
+            "total_supply": pd.array([100, 0, None, 0, 200], dtype="float64[pyarrow]"),
+            "timestamp": pd.date_range("2026-07-01", periods=5, freq="h"),
+        }
+    ).set_index("timestamp")
+
+    result = remove_inactive_lead_time(df, logger=lambda _: None)
+
+    assert result["total_supply"].tolist() == [0.0, pd.NA, 0.0, 200.0]
+
+
 def test_approximate_hypercore_share_prices_from_pnl_nav() -> None:
     """PnL changes drive the clean index while capital flows leave it flat."""
     prices_df = pd.DataFrame(
