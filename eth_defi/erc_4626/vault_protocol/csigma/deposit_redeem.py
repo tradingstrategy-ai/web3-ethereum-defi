@@ -3,11 +3,11 @@
 cSigma redemption model (important — do not mistake it for ERC-7540 async):
 
 - The cSigma pool (``CsigmaV2Pool``) is a **reserve-limited synchronous**
-  ERC-4626 vault. A ``redeem`` succeeds immediately for up to the reserve-backed
-  capacity reported by ``maxRedeem(owner)``. Beyond that capacity — or when a
-  withdrawal is already queued for the owner — ``redeem`` reverts the pool's
-  custom ``WithdrawalPending()`` error (`0xb34f5c6c`), and the excess is queued
-  off-chain for the ``withdrawalManager`` to service later.
+  ERC-4626 vault. Its ``maxRedeem(owner)`` view is pool-wide and ignores
+  ``owner``, so it is not an immediate-redemption authority. A user ``redeem``
+  is blocked while the external ``withdrawalManager`` has queue debt; otherwise
+  it needs both the owner's shares and enough idle reserve for the entire fill.
+  The offchain manager may partially service queued lenders later.
 - The pool exposes **no onchain request/ticket/claim surface** for that queue
   (no ``requestRedeem`` / ``pendingRedeemRequest`` / ``claimableRedeemRequest``
   / request id). The queue is entirely off-chain, so the queued portion cannot
@@ -18,18 +18,42 @@ cSigma redemption model (important — do not mistake it for ERC-7540 async):
   rather than letting the raw revert escape.
 """
 
+import logging
 from decimal import Decimal
 
 from eth_typing import HexAddress
 from hexbytes import HexBytes
+from web3 import Web3
+from web3.exceptions import BadFunctionCallOutput, ContractLogicError
 
+from eth_defi.abi import ZERO_ADDRESS_STR
 from eth_defi.erc_4626.deposit_redeem import ERC4626DepositManager, ERC4626DepositRequest, ERC4626RedemptionRequest
 from eth_defi.vault.deposit_redeem import VaultFlowUnavailable, VaultRedemptionPreflight
+
+logger = logging.getLogger(__name__)
 
 #: ``WithdrawalPending()`` custom-error selector reverted by the cSigma pool
 #: when a redemption exceeds the immediate reserve-backed capacity or a
 #: withdrawal is already queued for the owner. ``keccak("WithdrawalPending()")[:4]``.
 CSIGMA_WITHDRAWAL_PENDING_SELECTOR = HexBytes("0xb34f5c6c")
+
+#: Exact cSuperior V2 deployment whose verified withdrawal-manager gate is
+#: required for full-fill simulation preflight.
+CSUPERIOR_V2_POOL_ADDRESS: HexAddress = "0x438982ea288763370946625fd76c2508ee1fb229"
+
+#: Verified ``CsigmaV2Pool.WithdrawManager`` interface has one capacity method.
+#: The pool source for the exact cSuperior proxy calls it before every user
+#: withdrawal. A one-function inline ABI is sufficient and avoids inventing a
+#: broader interface for the external manager contract.
+CSIGMA_WITHDRAWAL_MANAGER_TOTAL_DUE_ABI = [
+    {
+        "inputs": [],
+        "name": "totalDueLPToken",
+        "outputs": [{"internalType": "uint256", "name": "", "type": "uint256"}],
+        "stateMutability": "view",
+        "type": "function",
+    },
+]
 
 
 class CsigmaDepositManager(ERC4626DepositManager):
@@ -56,8 +80,9 @@ class CsigmaDepositManager(ERC4626DepositManager):
     **Redemption process**
 
     Reserve-limited *synchronous* ``redeem`` — this is **not** an ERC-7540 async
-    flow. Only up to ``maxRedeem(owner)`` (:meth:`fetch_redeemable_raw_shares`)
-    is immediately redeemable against the pool reserve.
+    flow. :meth:`fetch_redeemable_raw_shares` uses the verified queue gate,
+    owner balance and idle reserve; it deliberately does not trust the
+    pool-wide ``maxRedeem(owner)`` view.
     :meth:`create_redemption_request` runs :meth:`fetch_redemption_preflight`
     (a raw-share comparison, no rounding-sensitive conversion); a request above
     the immediate capacity raises :class:`VaultFlowUnavailable` tagged with the
@@ -98,15 +123,68 @@ class CsigmaDepositManager(ERC4626DepositManager):
         transaction inclusion.
     """
 
+    def fetch_withdrawal_manager_due_raw_shares(self) -> int | None:
+        """Fetch queue debt that blocks all user-initiated cSigma redemptions.
+
+        The verified ``CsigmaV2Pool._withdraw()`` rejects a user redemption
+        while the external ``withdrawalManager.totalDueLPToken()`` is non-zero.
+        A read failure is deliberately fail-closed: callers receive ``None``
+        and must treat the immediate capacity as zero instead of broadcasting a
+        redemption known to be unsafe to simulate.
+
+        :return:
+            Raw queued share debt, or ``None`` when its authoritative state
+            cannot be read.
+        """
+        try:
+            withdrawal_manager = self.vault.vault_contract.functions.withdrawalManager().call()
+            if withdrawal_manager == ZERO_ADDRESS_STR:
+                return 0
+
+            manager_contract = self.web3.eth.contract(
+                address=Web3.to_checksum_address(withdrawal_manager),
+                abi=CSIGMA_WITHDRAWAL_MANAGER_TOTAL_DUE_ABI,
+            )
+            return int(manager_contract.functions.totalDueLPToken().call())
+        except (BadFunctionCallOutput, ContractLogicError, ValueError) as error:
+            logger.warning(
+                "Cannot read cSigma withdrawal-manager queue debt for vault %s on chain %d: %s",
+                self.vault.address,
+                self.vault.chain_id,
+                error,
+            )
+            return None
+
     def fetch_redeemable_raw_shares(self, owner: HexAddress) -> int:
-        """Fetch the cSigma redemption capacity expressed in raw shares.
+        """Fetch the queue-adjusted, owner-bounded immediate redemption capacity.
+
+        ``maxRedeem(owner)`` is deliberately not used: the verified V2 pool
+        ignores ``owner`` and returns pool-wide idle cash even for an account
+        with no shares. The actual ``redeem()`` path first rejects every user
+        redemption while the withdrawal manager has due shares, then requires
+        both an owner balance and enough idle reserve. This method mirrors those
+        conditions without trying to model the offchain partial-fill queue.
 
         :param owner:
-            Address whose immediate capacity is queried.
+            Address whose immediately redeemable shares are queried.
         :return:
-            Maximum raw vault shares redeemable immediately by ``owner``.
+            Maximum raw vault shares that can be redeemed in full immediately.
         """
-        return int(self.vault.vault_contract.functions.maxRedeem(owner).call())
+        if self.vault.address.lower() != CSUPERIOR_V2_POOL_ADDRESS:
+            # Other registered cSigma deployments do not expose the verified V2
+            # withdrawal-manager surface. Preserve their existing adapter
+            # behaviour; this exact-address repair must not guess their queue
+            # semantics from cSuperior's implementation.
+            return int(self.vault.vault_contract.functions.maxRedeem(owner).call())
+
+        due_raw_shares = self.fetch_withdrawal_manager_due_raw_shares()
+        if due_raw_shares is None or due_raw_shares > 0:
+            return 0
+
+        owner_raw_shares = int(self.vault.share_token.fetch_raw_balance_of(owner))
+        gross_immediate_raw_assets = int(self.vault.vault_contract.functions.maxWithdraw(owner).call())
+        gross_immediate_raw_shares = int(self.vault.vault_contract.functions.convertToShares(gross_immediate_raw_assets).call())
+        return min(owner_raw_shares, gross_immediate_raw_shares)
 
     def fetch_depositable_raw_assets(self, owner: HexAddress) -> int:
         """Fetch the cSigma deposit capacity expressed in raw assets.
@@ -126,9 +204,9 @@ class CsigmaDepositManager(ERC4626DepositManager):
     ) -> VaultRedemptionPreflight:
         """Check cSigma's owner-specific immediate redemption capacity.
 
-        ``maxRedeem(owner)`` is denominated in raw vault shares, so this
-        compares the requested and available values without a
-        rounding-sensitive share-to-asset conversion.
+        The queue-adjusted capacity is already denominated in raw vault shares,
+        so this compares the requested and available values without a
+        rounding-sensitive conversion.
 
         .. note::
 
