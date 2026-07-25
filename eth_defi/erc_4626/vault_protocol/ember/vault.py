@@ -161,6 +161,7 @@ class EmberVault(ERC4626Vault):
             can_redeem=True,
             deposit_flow="synchronous",
             redemption_flow="asynchronous",
+            supports_anvil_settlement=True,
         )
 
     def get_notes(self) -> str | None:

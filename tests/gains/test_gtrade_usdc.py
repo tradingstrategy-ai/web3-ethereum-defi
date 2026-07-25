@@ -10,7 +10,7 @@ from web3 import Web3
 
 from eth_defi.erc_4626.classification import create_vault_instance_autodetect, detect_vault_features
 from eth_defi.erc_4626.core import ERC4626Feature
-from eth_defi.erc_4626.vault_protocol.gains.deposit_redeem import GainsDepositManager, GainsRedemptionRequest
+from eth_defi.erc_4626.vault_protocol.gains.deposit_redeem import END_OF_EPOCH_SELECTOR, GainsDepositManager, GainsRedemptionRequest
 from eth_defi.erc_4626.vault_protocol.gains.testing import force_next_gains_epoch
 from eth_defi.erc_4626.vault_protocol.gains.vault import GainsHistoricalReader, GainsVault
 from eth_defi.event_reader.multicall_batcher import read_multicall_historical_stateful
@@ -18,6 +18,7 @@ from eth_defi.provider.multi_provider import MultiProviderWeb3Factory, create_mu
 from eth_defi.token import USDC_NATIVE_TOKEN, TokenDetails, fetch_erc20_details
 from eth_defi.trace import assert_transaction_success_with_explanation
 from eth_defi.vault.base import VaultSpec
+from eth_defi.vault.deposit_redeem import AsyncVaultRequestStatus, VaultFlowUnavailable
 from eth_defi.vault.historical import VaultHistoricalReadMulticaller
 
 JSON_RPC_ARBITRUM = os.environ.get("JSON_RPC_ARBITRUM")
@@ -128,6 +129,13 @@ def test_gains_deposit_withdraw(
     assert deposit_manager.can_create_redemption_request(test_user) is False
     assert not deposit_manager.has_synchronous_redemption()
 
+    # Requesting a redemption outside the window raises a typed EndOfEpoch
+    # refusal instead of leaking the raw 0xa73449b9 revert selector.
+    with pytest.raises(VaultFlowUnavailable) as exc_info:
+        deposit_manager.create_redemption_request(owner=test_user, shares=shares)
+    assert exc_info.value.decoded_error == "EndOfEpoch"
+    assert exc_info.value.error_selector == END_OF_EPOCH_SELECTOR
+
     # 0. Clear epoch
     force_next_gains_epoch(
         vault,
@@ -172,16 +180,16 @@ def test_gains_deposit_withdraw(
     # Cannot redeem yet, need to wait for the next epoch
     assert deposit_manager.can_finish_redeem(redemption_ticket) is False
 
-    # 3. Move forward few epochs where our request unlocks
-    for i in range(0, 3):
-        force_next_gains_epoch(
-            vault,
-            test_user,
-        )
+    # 3. Force settlement through the epoch-advancing Anvil driver until unlock.
+    settlement = deposit_manager.force_settle(redemption_ticket)
+    assert settlement.settlement_required is True
+    assert settlement.status_before == AsyncVaultRequestStatus.pending
+    assert settlement.status_after == AsyncVaultRequestStatus.claimable
+    assert len(settlement.transaction_hashes) >= 1
 
     assert vault.fetch_current_epoch() >= 200
 
-    # Cannot redeem yet, need to wait for the next epoch
+    # Redemption is now unlocked.
     assert deposit_manager.can_finish_redeem(redemption_ticket) is True
 
     # 4. Settle our redemption

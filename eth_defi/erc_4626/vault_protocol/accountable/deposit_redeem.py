@@ -19,8 +19,9 @@ from hexbytes import HexBytes
 from web3 import Web3
 from web3._utils.events import EventLogErrorFlags
 from web3.contract.contract import ContractFunction
+from web3.exceptions import ABIFunctionNotFound, BadFunctionCallOutput, ContractLogicError, MismatchedABI
 
-from eth_defi.abi import ZERO_ADDRESS_STR, get_topic_signature_from_event
+from eth_defi.abi import ZERO_ADDRESS_STR, get_deployed_contract, get_topic_signature_from_event
 from eth_defi.erc_4626.deposit_redeem import ERC4626DepositManager, ERC4626DepositRequest
 from eth_defi.erc_4626.flow import deposit_4626
 from eth_defi.timestamp import get_block_timestamp
@@ -170,6 +171,40 @@ class AccountableDepositManager(ERC4626DepositManager):
             raise ValueError(f"Accountable deposit estimate is zero for {amount} {self.vault.denomination_token.symbol}")
         return self.vault.share_token.convert_to_decimals(raw_shares)
 
+    def _fetch_strategy_loan_min_deposit(self) -> int | None:
+        """Read the Accountable strategy's per-loan minimum deposit, if any.
+
+        Accountable vaults delegate deposits to a strategy contract
+        (``strategy()``). Open-term strategies enforce a per-loan
+        ``loan().minDeposit`` (in denomination-asset raw units, the same unit as
+        a deposit ``raw_amount``) that is typically far above the vault-level
+        ``MIN_AMOUNT_WEI``; a deposit below it reverts ``InsufficientAmount()``
+        (`0x5945ea56`) inside ``strategy.onDeposit`` rather than at the vault.
+
+        Strategy variants without per-loan terms (the base
+        ``AccountableStrategy``) do not expose ``loan()``; those and any read
+        failure yield ``None`` so the caller falls back to the vault-level
+        minimum instead of blocking.
+
+        :return:
+            Raw minimum deposit in denomination-asset units, or ``None`` when
+            the strategy exposes no per-loan minimum.
+        """
+        try:
+            strategy_address = self.vault.vault_contract.functions.strategy().call()
+        except (ABIFunctionNotFound, MismatchedABI, ContractLogicError, BadFunctionCallOutput, ValueError):
+            return None
+        if not strategy_address or int(strategy_address, 16) == 0:
+            return None
+        strategy = get_deployed_contract(self.web3, "accountable/OpenTermCompoundV1.json", strategy_address)
+        try:
+            loan = strategy.functions.loan().call()
+        except (ABIFunctionNotFound, MismatchedABI, ContractLogicError, BadFunctionCallOutput, ValueError):
+            # Strategy variant without per-loan terms.
+            return None
+        # loan() tuple: (minDeposit, minRedeem, maxCapacity, ...).
+        return int(loan[0])
+
     def create_deposit_request(
         self,
         owner: HexAddress,
@@ -199,7 +234,14 @@ class AccountableDepositManager(ERC4626DepositManager):
             raw_amount = self.vault.denomination_token.convert_to_raw(amount)
         if raw_amount <= 0:
             raise ValueError("Accountable deposit amount must be positive")
+        # The binding minimum is the greater of the vault-level MIN_AMOUNT_WEI
+        # and the strategy's per-loan minDeposit; the latter reverts
+        # InsufficientAmount() inside strategy.onDeposit for a deposit that
+        # clears only the vault minimum.
         minimum = int(self.vault.vault_contract.functions.MIN_AMOUNT_WEI().call())
+        strategy_min_deposit = self._fetch_strategy_loan_min_deposit()
+        if strategy_min_deposit is not None:
+            minimum = max(minimum, strategy_min_deposit)
         if raw_amount < minimum:
             raise VaultFlowUnavailable(
                 f"Accountable deposit amount {raw_amount} is below minimum {minimum}",
@@ -283,7 +325,22 @@ class AccountableDepositManager(ERC4626DepositManager):
             raise ValueError("Accountable redemption shares must be positive")
         minimum = int(self.vault.vault_contract.functions.MIN_AMOUNT_WEI().call())
         if raw_shares < minimum:
-            raise ValueError(f"Accountable redemption shares {raw_shares} are below minimum {minimum}")
+            # Strategy-level minRedeem is intentionally not applied here: its
+            # unit (shares vs assets) is not confirmed for this deployment, and
+            # a mis-scaled comparison would false-block. The vault-level
+            # minimum is unit-correct (shares) and is surfaced as a typed error.
+            raise VaultFlowUnavailable(
+                f"Accountable redemption shares {raw_shares} are below minimum {minimum}",
+                protocol="Accountable",
+                vault_address=self.vault.address,
+                caller=owner,
+                direction="redeem",
+                phase="preflight",
+                decoded_error="InsufficientAmount",
+                requested_raw_amount=raw_shares,
+                minimum_raw_amount=minimum,
+                error_selector=ACCOUNTABLE_INSUFFICIENT_AMOUNT_SELECTOR,
+            )
         if self.is_redemption_in_progress(owner):
             raise ValueError("Accountable has a pending or claimable redemption for this controller")
         if check_enough_token:

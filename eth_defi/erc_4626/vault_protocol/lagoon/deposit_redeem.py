@@ -1,5 +1,8 @@
 """Lagoon-specific extensions to the generic ERC-7540 flow."""
 
+import logging
+from decimal import Decimal
+
 from eth_typing import HexAddress, HexStr
 from hexbytes import HexBytes
 
@@ -15,7 +18,8 @@ from eth_defi.erc_7540.deposit_redeem import (
     ERC7540RedemptionRequest,
     ERC7540RedemptionTicket,
 )
-from eth_defi.provider.anvil import is_anvil, make_anvil_custom_rpc_request
+from eth_defi.provider.anvil import fund_erc20_on_anvil, is_anvil, make_anvil_custom_rpc_request
+from eth_defi.trace import assert_transaction_success_with_explanation
 from eth_defi.vault.deposit_redeem import (
     AsyncVaultRequestStatus,
     DepositTicket,
@@ -23,7 +27,10 @@ from eth_defi.vault.deposit_redeem import (
     UnsupportedVaultSimulation,
     VaultFlowUnavailable,
     VaultForcedSettlementResult,
+    WhitelistingRequired,
 )
+
+logger = logging.getLogger(__name__)
 
 #: ``NotWhitelisted()`` custom-error selector in Lagoon v0.5 and earlier.
 NOT_WHITELISTED_SELECTOR = HexBytes("0x584a7938")
@@ -99,11 +106,26 @@ class LagoonDepositManager(GenericERC7540DepositManager):
         make_anvil_custom_rpc_request(self.web3, "anvil_setBalance", [valuation_manager, hex(10**18)])
         make_anvil_custom_rpc_request(self.web3, "anvil_impersonateAccount", [safe_address])
         make_anvil_custom_rpc_request(self.web3, "anvil_setBalance", [safe_address, hex(10**18)])
-        tx_hashes = force_lagoon_settle(
+
+        # WS1: provision the Safe BEFORE settlement. Lagoon's settleDeposit()
+        # always runs _settleRedeem() afterwards, which pays queued redemptions
+        # by pulling the denomination token FROM the Safe. On third-party
+        # deployments that leg fails two ways our own deploy script prevents in
+        # production (missing standing approval; Safe short of liquidity). This
+        # issues the missing approval and tops up the Safe, returning any
+        # synthetic amount injected so the result can flag it honestly. The
+        # provisioning must run for BOTH deposit and redemption tickets because
+        # _settleRedeem always executes after settleDeposit. See the helper for
+        # the full rationale.
+        liquidity_tx_hashes, synthetic_injected_raw = self._provision_safe_for_settlement(safe_address)
+
+        settle_tx_hashes = force_lagoon_settle(
             self.vault,
             valuation_manager,
             settlement_manager=safe_address,
         )
+        # Approval/top-up transactions precede the valuation + settlement ones.
+        tx_hashes = (*liquidity_tx_hashes, *settle_tx_hashes)
 
         if isinstance(ticket, ERC7540DepositTicket):
             status_after = self.get_deposit_request_status(ticket)
@@ -111,6 +133,8 @@ class LagoonDepositManager(GenericERC7540DepositManager):
             status_after = self.get_redemption_request_status(ticket)
 
         if status_after is not AsyncVaultRequestStatus.claimable:
+            # Fail loudly with the concrete before/after status rather than
+            # returning a misleading "pending -> pending" success.
             raise UnsupportedVaultSimulation(f"Lagoon settlement did not make {type(ticket).__name__} claimable: {status_before.value} -> {status_after.value}")
 
         return VaultForcedSettlementResult(
@@ -118,8 +142,113 @@ class LagoonDepositManager(GenericERC7540DepositManager):
             settlement_required=True,
             status_before=status_before,
             status_after=status_after,
-            transaction_hashes=tx_hashes,
+            transaction_hashes=tuple(HexBytes(h) for h in tx_hashes),
+            # Honest signalling: non-zero means the fork Safe was topped up with
+            # synthetic liquidity, so `claimable` here does NOT prove the live
+            # vault is solvent (see VaultForcedSettlementResult docstring).
+            synthetic_assets_injected_raw=synthetic_injected_raw,
         )
+
+    def _provision_safe_for_settlement(self, safe_address: HexAddress) -> tuple[list[HexBytes], int]:
+        """Give the impersonated Safe what a Lagoon redemption round needs on a fork.
+
+        **Why this exists.** Lagoon's ``settleDeposit(_newTotalAssets)`` always
+        calls ``_settleRedeem(msg.sender)`` afterwards, and ``_settleRedeem``
+        pays queued redemptions with
+        ``asset.safeTransferFrom(safe, vault, convertToAssets(pendingShares))``.
+        That single ``transferFrom`` from the Safe is where third-party Lagoon
+        deployments fail in two distinct ways that eth_defi's own deployment
+        script (``lagoon/deployment.py``, which grants a standing approval and
+        keeps the Safe funded) prevents in production:
+
+        - **(b) allowance revert.** A third-party Safe never issued the standing
+          ``approve(vault, max)``, so ``transferFrom`` reverts
+          ``"ERC20: transfer amount exceeds allowance"``. Reproduced when there
+          are any pending redemption shares at settlement.
+        - **(a) silent stall.** ``_settleRedeem`` returns early with no state
+          change when
+          ``convertToAssets(pendingShares) > denominationToken.balanceOf(safe)``
+          (the Safe's liquidity is deployed into strategy positions).
+          ``settleDeposit`` still succeeds, the redemption epoch never settles,
+          and the ticket is left ``pending -> pending``. Approval alone cannot
+          fix this; the Safe balance must be raised.
+
+        **What this does.** On the fork it (b) issues the missing
+        ``approve(vault, max)`` from the impersonated Safe, and (a) tops the Safe
+        up with synthetic denomination tokens when it is short of the liquidity
+        needed to pay every queued redemption. The injected amount is returned
+        so :attr:`VaultForcedSettlementResult.synthetic_assets_injected_raw`
+        can disclose it — a non-zero injection means a ``claimable`` result
+        proves the settlement *mechanism*, NOT that the live vault is solvent.
+
+        **Correctness of the shortfall estimate.**
+        :meth:`LagoonFlowManager.calculate_underlying_needed_for_redemptions`
+        returns ``siloShareBalance * currentSharePrice`` — i.e. every pending
+        redemption (not just this ticket). ``force_lagoon_settle`` calls
+        ``updateNewTotalAssets(current NAV)`` immediately before
+        ``settleDeposit``, so the settled share price equals the current share
+        price and this estimate matches ``convertToAssets()`` at settlement. A
+        one-token buffer absorbs share-price rounding between the two.
+
+        This is deliberately a testing/simulation driver (Anvil storage write);
+        it must never run against a live provider — the caller guards with
+        :func:`is_anvil`.
+
+        :param safe_address:
+            The vault Safe address, already impersonated by the caller.
+        :return:
+            A ``(transaction_hashes, synthetic_assets_injected_raw)`` pair. The
+            hashes are the approval (and any not-yet-mined provisioning) txs;
+            the injected amount is ``0`` when the Safe already held enough
+            denomination token to pay all queued redemptions.
+        """
+        web3 = self.web3
+        denomination_token = self.vault.denomination_token
+        tx_hashes: list[HexBytes] = []
+
+        # Redemption liquidity needed to pay every queued redemption; +1 token
+        # buffer absorbs share-price rounding vs convertToAssets() at settlement.
+        flow_manager = self.vault.get_flow_manager()
+        needed_human = flow_manager.calculate_underlying_needed_for_redemptions("latest")
+        needed_raw = denomination_token.convert_to_raw(needed_human) + denomination_token.convert_to_raw(Decimal(1))
+
+        # (b) Issue the standing approval the production deploy script grants, so
+        # _settleRedeem's transferFrom(safe -> vault) does not revert on
+        # allowance. Only broadcast when the existing allowance is actually
+        # short of what the pending redemptions need: skipping the redundant tx
+        # keeps this idempotent and, crucially, does NOT advance the chain for
+        # already-provisioned vaults (our self-deployed test vaults carry a
+        # max approval), so block-number-exact assertions elsewhere still hold.
+        # Uses the raw contract to approve the full uint256 range
+        # (TokenDetails.approve() would convert a decimal human amount).
+        current_allowance = int(denomination_token.contract.functions.allowance(safe_address, self.vault.address).call())
+        if current_allowance < needed_raw:
+            approve_hash = denomination_token.contract.functions.approve(self.vault.address, 2**256 - 1).transact({"from": safe_address})
+            assert_transaction_success_with_explanation(web3, approve_hash)
+            tx_hashes.append(HexBytes(approve_hash))
+
+        # (a) Ensure the Safe holds enough denomination token to cover every
+        # queued redemption. The top-up is a storage write (fund_erc20_on_anvil),
+        # not a transaction, so it does not mine a block.
+        current_raw = denomination_token.fetch_raw_balance_of(safe_address)
+
+        synthetic_injected_raw = 0
+        if needed_raw > current_raw:
+            synthetic_injected_raw = needed_raw - current_raw
+            # fund_erc20_on_anvil sets the ABSOLUTE balance via a storage write,
+            # so we target `needed_raw`; the increase over the current balance
+            # is the synthetic amount we disclose.
+            fund_erc20_on_anvil(web3, denomination_token.address, safe_address, needed_raw)
+            logger.info(
+                "Lagoon fork settlement topped up Safe %s with %d raw %s to cover redemption shortfall (needed %d, had %d)",
+                safe_address,
+                synthetic_injected_raw,
+                denomination_token.symbol,
+                needed_raw,
+                current_raw,
+            )
+
+        return tx_hashes, synthetic_injected_raw
 
     def can_create_deposit_request(self, owner: HexAddress) -> bool:
         """Return whether Lagoon's current access policy admits an owner.
@@ -193,8 +322,10 @@ class LagoonDepositManager(GenericERC7540DepositManager):
             return
 
         is_v06 = self.vault.version == LagoonVersion.v_0_6_0
-        raise VaultFlowUnavailable(
-            "Lagoon deposit account is not allowed",
+        # Self-describing message for diagnostics: chain id, vault and depositor
+        # embedded in the text (see WhitelistingRequired docstring).
+        raise WhitelistingRequired(
+            f"Lagoon deposit account {owner} is not allowed for vault {self.vault.address} on chain {self.vault.chain_id}",
             protocol="Lagoon",
             vault_address=self.vault.address,
             caller=owner,

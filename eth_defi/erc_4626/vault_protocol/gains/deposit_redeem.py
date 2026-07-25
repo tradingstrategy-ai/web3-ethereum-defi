@@ -17,6 +17,7 @@ from web3.contract.contract import ContractFunction
 
 from eth_defi.abi import get_topic_signature_from_event
 from eth_defi.erc_4626.deposit_redeem import ERC4626DepositManager
+from eth_defi.provider.anvil import is_anvil
 from eth_defi.timestamp import get_block_timestamp
 from eth_defi.utils import from_unix_timestamp
 from eth_defi.vault.flow_events import (
@@ -38,9 +39,21 @@ from eth_defi.vault.deposit_redeem import (
     DepositTicket,
     RedemptionRequest,
     RedemptionTicket,
+    UnsupportedVaultSimulation,
+    VaultFlowUnavailable,
+    VaultForcedSettlementResult,
 )
 
 logger = logging.getLogger(__name__)
+
+#: ``EndOfEpoch()`` custom-error selector, reverted by Gains GToken
+#: ``makeWithdrawRequest`` / ``redeem`` when called outside the per-epoch
+#: withdrawal-request window. ``keccak("EndOfEpoch()")[:4]``.
+END_OF_EPOCH_SELECTOR = HexBytes("0xa73449b9")
+
+#: Safety cap on epoch advances when forcing a Gains redemption to unlock on an
+#: Anvil fork, so a stalled epoch fails loudly instead of looping forever.
+GAINS_MAX_SETTLEMENT_EPOCHS = 10
 
 
 @dataclass(slots=True)
@@ -137,6 +150,22 @@ class GainsDepositManager(ERC4626DepositManager):
 
         assert raw_shares or shares
         vault = self.vault
+
+        # Gains only accepts withdrawal requests in the first part of each
+        # epoch. Outside that window makeWithdrawRequest reverts EndOfEpoch
+        # (0xa73449b9); surface it as a typed preflight refusal instead of a
+        # raw revert selector.
+        if not self.can_create_redemption_request(owner):
+            raise VaultFlowUnavailable(
+                "Gains withdrawal request window is closed (EndOfEpoch); requests are only accepted in the first part of each epoch",
+                protocol=vault.get_protocol_name(),
+                vault_address=vault.address,
+                caller=owner,
+                direction="redeem",
+                phase="preflight",
+                decoded_error="EndOfEpoch",
+                error_selector=END_OF_EPOCH_SELECTOR,
+            )
 
         if not raw_shares:
             raw_amount = vault.share_token.convert_to_raw(shares)
@@ -256,6 +285,78 @@ class GainsDepositManager(ERC4626DepositManager):
     def is_redemption_in_progress(self, owner: HexAddress) -> bool:
         contract = self.vault.vault_contract
         return contract.functions.totalSharesBeingWithdrawn(owner).call() > 0
+
+    def force_settle(self, ticket: DepositTicket | RedemptionTicket | None) -> VaultForcedSettlementResult:
+        """Advance the Gains epoch on Anvil until a redemption ticket unlocks.
+
+        Gains redemptions unlock after a fixed number of epochs. Epoch
+        rollover is driven by the permissionless ``forceNewEpoch()`` on the
+        open-PnL feed, so no privileged impersonation is required — the driver
+        warps Anvil time and calls it from a funded account via
+        :func:`~eth_defi.erc_4626.vault_protocol.gains.testing.force_next_gains_epoch`.
+
+        Each iteration asserts the epoch strictly increases; if
+        ``forceNewEpoch`` mines time but the epoch does not advance (for
+        example an oracle/keeper dependency on some deployments) the driver
+        raises :class:`UnsupportedVaultSimulation` rather than looping or
+        returning a false "settled".
+
+        :param ticket:
+            Pending :class:`GainsRedemptionTicket`, or ``None`` for the
+            synchronous-deposit no-op.
+        :return:
+            Settlement outcome with before/after status and the epoch-forcing
+            transaction hashes.
+        :raise UnsupportedVaultSimulation:
+            If the provider is not Anvil, the epoch fails to advance, or the
+            ticket does not become redeemable within the safety cap.
+        """
+        from eth_defi.erc_4626.vault_protocol.gains.testing import force_next_gains_epoch
+
+        if not is_anvil(self.web3):
+            raise UnsupportedVaultSimulation("GainsDepositManager.force_settle() requires an Anvil provider")
+
+        if ticket is None:
+            return VaultForcedSettlementResult(
+                ticket=None,
+                settlement_required=False,
+                status_before=None,
+                status_after=None,
+            )
+
+        assert isinstance(ticket, GainsRedemptionTicket), f"Gains force_settle requires GainsRedemptionTicket, got {type(ticket)}"
+
+        if self.can_finish_redeem(ticket):
+            return VaultForcedSettlementResult(
+                ticket=ticket,
+                settlement_required=False,
+                status_before=AsyncVaultRequestStatus.claimable,
+                status_after=AsyncVaultRequestStatus.claimable,
+            )
+
+        any_account = self.web3.eth.accounts[0]
+        transaction_hashes: list[HexBytes] = []
+        for _ in range(GAINS_MAX_SETTLEMENT_EPOCHS):
+            old_epoch = self.vault.fetch_current_epoch()
+            tx_hash = force_next_gains_epoch(self.vault, any_account)
+            if tx_hash is not None:
+                transaction_hashes.append(HexBytes(tx_hash))
+            new_epoch = self.vault.fetch_current_epoch()
+            if new_epoch <= old_epoch:
+                raise UnsupportedVaultSimulation(f"Gains epoch did not advance while settling redemption for vault {self.vault.address} on chain {self.vault.chain_id}: epoch stayed at {old_epoch}")
+            if self.can_finish_redeem(ticket):
+                break
+
+        if not self.can_finish_redeem(ticket):
+            raise UnsupportedVaultSimulation(f"Gains settlement did not unlock redemption for vault {self.vault.address} on chain {self.vault.chain_id}: current epoch {self.vault.fetch_current_epoch()} < unlock epoch {ticket.unlock_epoch}")
+
+        return VaultForcedSettlementResult(
+            ticket=ticket,
+            settlement_required=True,
+            status_before=AsyncVaultRequestStatus.pending,
+            status_after=AsyncVaultRequestStatus.claimable,
+            transaction_hashes=tuple(transaction_hashes),
+        )
 
 
 # ---------------------------------------------------------------------------

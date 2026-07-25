@@ -91,7 +91,11 @@ def test_ember_deposit_redeem_lifecycle(web3: Web3, vault: EmberVault, usdc: Tok
         "can_redeem": True,
         "deposit_flow": "synchronous",
         "redemption_flow": "asynchronous",
+        "supports_anvil_settlement": True,
     }
+    # The force_settle driver reads the operator from roles() rather than
+    # hardcoding it; assert the onchain layout matches the known operator.
+    assert Web3.to_checksum_address(vault.vault_contract.functions.roles().call()[1]) == Web3.to_checksum_address(EMBER_OPERATOR)
 
     owner = web3.eth.accounts[0]
     amount = Decimal("100")
@@ -128,11 +132,14 @@ def test_ember_deposit_redeem_lifecycle(web3: Web3, vault: EmberVault, usdc: Tok
     assert manager.can_finish_redeem(ticket) is False
     assert manager.finish_redemption(ticket) is None
 
-    # 4. Let only the external operator process and pay the request.
-    process_hash = vault.vault_contract.functions.processWithdrawalRequests(1).transact({"from": EMBER_OPERATOR})
-    assert_transaction_success_with_explanation(web3, process_hash)
+    # 4. Force settlement through the operator-impersonating Anvil driver.
+    settlement = manager.force_settle(ticket)
+    assert settlement.settlement_required is True
+    assert settlement.status_before == AsyncVaultRequestStatus.pending
+    assert settlement.status_after == AsyncVaultRequestStatus.none
+    assert len(settlement.transaction_hashes) >= 1
     completion_hash = manager.fetch_completed_redemption_tx_hash(ticket)
-    assert completion_hash == process_hash
+    assert completion_hash == settlement.transaction_hashes[-1]
     redemption_analysis = manager.analyse_redemption(completion_hash, ticket)
     assert redemption_analysis.share_count == Decimal("97.218907")
     assert redemption_analysis.denomination_amount == Decimal("99.999999")

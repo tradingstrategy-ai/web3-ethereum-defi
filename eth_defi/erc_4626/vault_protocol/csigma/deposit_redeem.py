@@ -1,27 +1,56 @@
-"""cSigma ERC-4626 deposit and redemption requests."""
+"""cSigma ERC-4626 deposit and redemption requests.
+
+cSigma redemption model (important — do not mistake it for ERC-7540 async):
+
+- The cSigma pool (``CsigmaV2Pool``) is a **reserve-limited synchronous**
+  ERC-4626 vault. A ``redeem`` succeeds immediately for up to the reserve-backed
+  capacity reported by ``maxRedeem(owner)``. Beyond that capacity — or when a
+  withdrawal is already queued for the owner — ``redeem`` reverts the pool's
+  custom ``WithdrawalPending()`` error (`0xb34f5c6c`), and the excess is queued
+  off-chain for the ``withdrawalManager`` to service later.
+- The pool exposes **no onchain request/ticket/claim surface** for that queue
+  (no ``requestRedeem`` / ``pendingRedeemRequest`` / ``claimableRedeemRequest``
+  / request id). The queue is entirely off-chain, so the queued portion cannot
+  be modelled as a claimable async ticket the way Lagoon/Ember/Plutus can.
+  Therefore this manager stays *synchronous* and instead **preflights the
+  immediate capacity** and surfaces the queued/over-capacity case as a typed
+  :class:`VaultFlowUnavailable` (decoded ``WithdrawalPending``) before broadcast
+  rather than letting the raw revert escape.
+"""
 
 from decimal import Decimal
 
 from eth_typing import HexAddress
+from hexbytes import HexBytes
 
 from eth_defi.erc_4626.deposit_redeem import ERC4626DepositManager, ERC4626DepositRequest, ERC4626RedemptionRequest
 from eth_defi.vault.deposit_redeem import VaultFlowUnavailable, VaultRedemptionPreflight
 
+#: ``WithdrawalPending()`` custom-error selector reverted by the cSigma pool
+#: when a redemption exceeds the immediate reserve-backed capacity or a
+#: withdrawal is already queued for the owner. ``keccak("WithdrawalPending()")[:4]``.
+CSIGMA_WITHDRAWAL_PENDING_SELECTOR = HexBytes("0xb34f5c6c")
+
 
 class CsigmaDepositManager(ERC4626DepositManager):
-    """Synchronous cSigma ERC-4626 deposit and redemption flow.
+    """Synchronous cSigma ERC-4626 deposit and reserve-limited redemption flow.
 
     **Supported simulation path**
 
-    Standard ``deposit`` and ``redeem`` calls against the cSigma V2 pool. The
+    Standard ``deposit`` and ``redeem`` calls against the cSigma pool. The
     manager preflights the native share capacity returned by ``maxRedeem`` and
     :meth:`force_settle` accepts ``None`` for the shared synchronous no-op.
 
     **Known limitations**
 
-    This manager does not process cSigma FIFO queues, reserve replenishment,
-    partial redemptions or repeated redemption claims. A capacity result is a
-    point-in-time advisory and can change before transaction inclusion.
+    cSigma redemptions are reserve-limited: only up to ``maxRedeem(owner)`` is
+    immediately redeemable, and the excess is queued off-chain by the
+    ``withdrawalManager`` (the onchain ``redeem`` reverts ``WithdrawalPending``
+    for it). This manager does **not** model that off-chain queue as a claimable
+    ticket — the pool exposes no request/claim getters — so it preflights the
+    immediate capacity and raises a typed ``VaultFlowUnavailable`` (decoded
+    ``WithdrawalPending``) for the queued/over-capacity case. A capacity result
+    is a point-in-time advisory and can change before transaction inclusion.
     """
 
     def fetch_redeemable_raw_shares(self, owner: HexAddress) -> int:
@@ -177,6 +206,10 @@ class CsigmaDepositManager(ERC4626DepositManager):
         if check_max_deposit:
             preflight = self.fetch_redemption_preflight(owner, raw_shares)
             if not preflight.available:
+                # Exceeding the immediate reserve-backed capacity is exactly what
+                # makes the onchain redeem revert WithdrawalPending() and queue
+                # the excess off-chain, so we tag the typed refusal with that
+                # decoded error/selector to keep the mapping unambiguous.
                 reason = "cSigma redemption exceeds immediate share capacity"
                 raise VaultFlowUnavailable(
                     reason,
@@ -187,6 +220,8 @@ class CsigmaDepositManager(ERC4626DepositManager):
                     phase="request",
                     requested_raw_amount=raw_shares,
                     available_raw_amount=preflight.available_raw_shares,
+                    decoded_error="WithdrawalPending",
+                    error_selector=CSIGMA_WITHDRAWAL_PENDING_SELECTOR,
                 )
 
         return super().create_redemption_request(

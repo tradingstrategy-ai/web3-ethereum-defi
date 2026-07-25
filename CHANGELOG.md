@@ -1,5 +1,6 @@
 # 1.2
 
+- fix: Close remaining cross-chain vault deposit/redemption simulation gaps — typed `VaultFlowUnavailable` preflights across the generic ERC-4626 flow, Anvil `force_settle` drivers for Ember and Gains, Lagoon settlement Safe approval/liquidity provisioning with honest synthetic-injection signalling, Accountable strategy minimum-deposit preflight, YieldNest and cSigma capacity preflights with decoded custom errors, a Plutus async-redemption manager, an Upshift deposit-limit hook, and a distinct `WhitelistingRequired` exception (2026-07-25)
 - feat: Add shared perp DEX vault exposure metrics for Hyperliquid and Lighter, explicit unavailable-position states for GRVT, Hibachi and ApeX, and cleaned-Parquet/JSON export support (2026-07-24)
 - feat: Add an ApeX Omni all-vault reader with bounded public API access, flexible timestamp observations, historical backfills, DuckDB storage and all-chain vault pipeline integration (2026-07-23)
 - feat: Automatically migrate Core3 risk databases to the latest DuckDB format and native Zstandard-compress historical raw JSON snapshots (2026-07-23)

@@ -7,13 +7,14 @@ from typing import TYPE_CHECKING
 from eth_typing import BlockIdentifier, HexAddress
 from hexbytes import HexBytes
 from web3.contract.contract import ContractFunction
+from web3.exceptions import ABIFunctionNotFound, BadFunctionCallOutput, ContractLogicError
 
 from eth_defi.erc_4626.analysis import analyse_4626_flow_transaction
 from eth_defi.erc_4626.estimate import estimate_4626_deposit, estimate_4626_redeem
 from eth_defi.erc_4626.flow import deposit_4626, redeem_4626
 from eth_defi.timestamp import get_block_timestamp
 from eth_defi.trade import TradeFail, TradeSuccess
-from eth_defi.vault.deposit_redeem import DepositRedeemEventAnalysis, DepositRedeemEventFailure, DepositRequest, DepositTicket, RedemptionRequest, RedemptionTicket, VaultDepositManager
+from eth_defi.vault.deposit_redeem import DepositRedeemEventAnalysis, DepositRedeemEventFailure, DepositRequest, DepositTicket, RedemptionRequest, RedemptionTicket, VaultDepositManager, VaultFlowUnavailable
 
 if TYPE_CHECKING:
     from eth_defi.erc_4626.vault import ERC4626Vault
@@ -63,6 +64,41 @@ class ERC4626DepositManager(VaultDepositManager):
         assert isinstance(vault, ERC4626Vault), f"Got {type(vault)}"
         self.vault = vault
 
+    def fetch_depositable_raw_assets(self, owner: HexAddress) -> int | None:
+        """Read the vault's current raw deposit limit for an owner.
+
+        Overridable deposit-limit hook. The base implementation reads the
+        standard ERC-4626 ``maxDeposit()``. Multi-asset or non-standard vaults
+        that do not implement ``maxDeposit`` (for example Upshift's multi-asset
+        vault) override this to answer from their own limit reader, so the
+        deposit preflight does not depend on the ERC-4626 method being present.
+
+        :param owner:
+            Account the deposit limit is queried for.
+        :return:
+            Raw deposit limit, or ``None`` when the vault exposes no limit. A
+            zero ``maxDeposit`` is treated as "no limit exposed" (EIP-4626 is
+            not universally honoured), consistent with
+            :func:`eth_defi.erc_4626.flow.deposit_4626`.
+        :raise VaultFlowUnavailable:
+            When the vault does not expose a readable ERC-4626 ``maxDeposit``
+            and no protocol-specific override is provided, instead of leaking a
+            raw web3 ABI/read error.
+        """
+        try:
+            max_deposit = self.vault.vault_contract.functions.maxDeposit(owner).call()
+        except (ABIFunctionNotFound, BadFunctionCallOutput, ContractLogicError, ValueError) as e:
+            raise VaultFlowUnavailable(
+                f"Vault {self.vault.address} on chain {self.vault.chain_id} does not expose a readable ERC-4626 maxDeposit(); a protocol-specific deposit manager is required",
+                protocol=self.vault.get_protocol_name(),
+                vault_address=self.vault.address,
+                caller=owner,
+                direction="deposit",
+                phase="preflight",
+            ) from e
+
+        return None if max_deposit == 0 else max_deposit
+
     def create_deposit_request(
         self,
         owner: HexAddress,
@@ -72,15 +108,41 @@ class ERC4626DepositManager(VaultDepositManager):
         check_max_deposit=True,
         check_enough_token=True,
     ) -> ERC4626DepositRequest:
+        # Reject a whitelisted vault before broadcast when the owner is not
+        # permitted; a no-op for permissionless vaults and adapters whose
+        # whitelist policy cannot be determined.
+        self.check_deposit_whitelist(owner)
+
         if not raw_amount:
             assert self.vault.denomination_token is not None, "Vault denomination token data missing: likely flaky RPC"
             raw_amount = self.vault.denomination_token.convert_to_raw(amount)
+
+        if check_max_deposit:
+            # Preflight deposit capacity through the overridable hook so
+            # non-standard vaults can answer without ERC-4626 maxDeposit.
+            # deposit_4626() is then called with check_max_deposit=False to
+            # avoid re-reading the limit.
+            limit = self.fetch_depositable_raw_assets(owner)
+            if limit is not None and raw_amount > limit:
+                # "deposit limit" (not "maxDeposit") because an overridden hook
+                # may source the limit from a protocol reader rather than the
+                # ERC-4626 maxDeposit method.
+                raise VaultFlowUnavailable(
+                    f"Deposit capacity exceeded for vault {self.vault.address} on chain {self.vault.chain_id}: requested {raw_amount}, deposit limit {limit}",
+                    protocol=self.vault.get_protocol_name(),
+                    vault_address=self.vault.address,
+                    caller=owner,
+                    direction="deposit",
+                    phase="preflight",
+                    requested_raw_amount=raw_amount,
+                    available_raw_amount=limit,
+                )
 
         func = deposit_4626(
             self.vault,
             owner,
             raw_amount=raw_amount,
-            check_max_deposit=check_max_deposit,
+            check_max_deposit=False,
             check_enough_token=check_enough_token,
         )
         return ERC4626DepositRequest(
@@ -100,6 +162,7 @@ class ERC4626DepositManager(VaultDepositManager):
         raw_shares: int = None,
         check_max_deposit=True,
         check_enough_token=True,
+        check_max_redeem=True,
     ) -> ERC4626RedemptionRequest:
         assert raw_shares or shares, "Either raw_shares or shares must be supplied"
         assert not to, f"Unsupported to={to}"
@@ -111,8 +174,8 @@ class ERC4626DepositManager(VaultDepositManager):
             self.vault,
             owner,
             raw_amount=raw_shares,
-            check_enough_token=True,
-            check_max_redeem=True,
+            check_enough_token=check_enough_token,
+            check_max_redeem=check_max_redeem,
         )
         return ERC4626RedemptionRequest(
             vault=self.vault,

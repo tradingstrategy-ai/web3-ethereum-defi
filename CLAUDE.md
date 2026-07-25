@@ -347,6 +347,18 @@ removing its flaky history comment.
 - To get the latest block number, use given JSON-RPC URL and Python's Web3.py `web3.eth.block_number` call
 - Never try to figure out RPC URL yourself - always use environment variables from the local environment given by the user. See `eth_defi.chain.CHAIN_NAMES` for aliases like chain id 999 -> JSON_RPC_HYPERLIQUD. Stop and ask user if you cannot figure out.
 
+### Contract ABIs
+
+- All contract ABI JSON files live under `eth_defi/abi/` (shared contracts at
+  the top level, protocol-specific interfaces under `eth_defi/abi/<protocol>/`)
+  and are loaded through the shared helpers in `eth_defi.abi`.
+- **Before fetching a new ABI, or loading/using any ABI file, read
+  `eth_defi/abi/README.md` first.** It explains what EVM ABIs are, how to fetch
+  verified ABIs from Sourcify, Etherscan and GitHub (including proxy →
+  implementation resolution), where to store them, and the API references for
+  loading and using ABI files in their different roles (contract binding,
+  deployment, ABI-less encoded calls, event decoding).
+
 ### Event logs
 
 - **Never use JSON-RPC `eth_getLogs` for event discovery, bulk event reads or historical event reads.** Always use Hypersync, which avoids provider range limits and provides indexed event streaming.
@@ -381,6 +393,8 @@ You can use `Makefile` commands `make guard safe-integration` to rebuild smart c
 
 ### ABIs
 
+- **Read `eth_defi/abi/README.md` first** — it is the canonical reference for
+  fetching, storing, loading and using ABI files.
 - Store contract ABIs in ``eth_defi/abi/<protocol>/`` as JSON files and load them through the shared ABI helpers.
 - Do not define inline ABIs in Python unless the fragment contains at most one or two functions.
 - Regenerate ABI JSON for this repository's integrated smart contracts with the compiler. For external deployments, commit the verified or application-exported interface JSON and record its canonical source alongside it.
@@ -455,6 +469,7 @@ Consult these for domain-specific context. Logo READMEs under `eth_defi/data/vau
 | `docs/protocol-research/README.md` | AI-assisted vault protocol discovery notes |
 | `docs/source/api/derive/README.md` | Derive.xyz integration — implementation summary |
 | `eth_defi/aave_v3/README.md` | About Aave v3 integration |
+| `eth_defi/abi/README.md` | Contract ABIs — what EVM ABIs are, how to fetch them from Sourcify/Etherscan/GitHub, storage layout, and the loader/usage API reference. Read before fetching or using any ABI file |
 | `eth_defi/abi/ipor/README.md` | IPOR ABI source links |
 | `eth_defi/abi/lagoon/README.md` | Lagoon ABI source links |
 | `eth_defi/abi/uniswap-swap-contracts/README.md` | SwapRouter02 deployment on Base |

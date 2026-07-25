@@ -603,6 +603,8 @@ class ERC7540DepositManager(VaultDepositManager):
 
         :param owner:
             Request owner and controller used by ``requestDeposit``.
+        :raise WhitelistingRequired:
+            If the vault whitelist is applicable and excludes ``owner``.
         :raise VaultFlowUnavailable:
             If the vault is paused.
         """
@@ -615,6 +617,10 @@ class ERC7540DepositManager(VaultDepositManager):
                 direction="deposit",
                 phase="preflight",
             )
+
+        # Reject a whitelisted vault before broadcast when the owner is not
+        # permitted; a no-op when the policy cannot be determined.
+        self.check_deposit_whitelist(owner)
 
     def _is_vault_paused(self) -> bool:
         """Read an ERC-7540 vault's optional ``paused()`` flag defensively.

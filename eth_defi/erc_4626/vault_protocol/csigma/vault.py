@@ -37,11 +37,25 @@ CSIGMA_V2_POOL_ADDRESS: HexAddress = "0x438982ea288763370946625fd76c2508ee1fb229
 #: Ethereum mainnet, where the representative V2 pool was verified.
 CSIGMA_V2_POOL_CHAIN_ID = 1
 
-#: cSigma deployments whose synchronous ERC-4626 lifecycle is fork-proven.
+#: cSigma deployments that use the reserve-limited synchronous ERC-4626
+#: lifecycle (deposit + ``redeem`` up to ``maxRedeem`` capacity; the excess is
+#: queued off-chain and reverts ``WithdrawalPending`` onchain — see
+#: :class:`~eth_defi.erc_4626.vault_protocol.csigma.deposit_redeem.CsigmaDepositManager`).
+#:
+#: The full deposit + redeem lifecycle is fork-proven for the first two pools at
+#: block 21,900,000 (``tests/erc_4626/vault_protocol/test_csigma.py``). cSigma
+#: USD (``0xd5d097f2…``) uses the same ``CsigmaV2Pool`` contract model and is
+#: included so it gets the capacity-aware manager (its reported raw ``Max
+#: redeem`` assertion becomes a typed ``VaultFlowUnavailable``). Its lifecycle
+#: cannot be fork-proven at a fixed block the way the others are — it was not
+#: yet deployed at 21,900,000 and its deposits are currently ``Pausable``-paused
+#: — so it is covered by the capacity-preflight test instead of a full
+#: deposit/redeem round.
 CSIGMA_SYNCHRONOUS_POOL_ADDRESSES = frozenset(
     {
         CSIGMA_V2_POOL_ADDRESS,
         "0x50d59b785df23728d9948804f8ca3543237a1495",
+        "0xd5d097f278a735d0a3c609deee71234cac14b47e",  # cSigma USD (csUSD)
     }
 )
 

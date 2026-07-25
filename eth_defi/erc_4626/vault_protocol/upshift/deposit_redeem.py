@@ -147,6 +147,31 @@ class UpshiftMultiAssetDepositManager(ERC4626DepositManager):
         raw_reference_capacity = min(raw_per_deposit_limit, raw_remaining_capacity)
         return raw_reference_capacity * raw_asset_unit // raw_reference_unit
 
+    def fetch_depositable_raw_assets(self, owner: HexAddress) -> int | None:
+        """Answer the generic deposit-limit hook without ERC-4626 ``maxDeposit``.
+
+        The multi-asset Upshift vault does not implement the standard ERC-4626
+        ``maxDeposit`` (its limit surface is ``maxDepositAmount`` / ``depositCap``
+        / asset-aware ``previewDeposit``). Overriding the generic hook means a
+        generic-path deposit preflight receives a real limit — for the vault's
+        first whitelisted asset, in that asset's raw units — instead of the raw
+        ``ABIFunctionNotFound`` the base implementation would raise. The
+        protocol-specific :meth:`create_deposit_request` still uses the
+        per-selected-asset :meth:`fetch_max_deposit_for_asset` for an actual
+        deposit.
+
+        :param owner:
+            Unused; the multi-asset limit is not owner-specific.
+        :return:
+            Deposit limit for the vault's first accepted asset in raw units, or
+            ``None`` when the vault currently accepts no asset.
+        """
+        del owner
+        accepted = self.fetch_accepted_assets()
+        if not accepted:
+            return None
+        return self.fetch_max_deposit_for_asset(accepted[0].address)
+
     def estimate_deposit(
         self,
         owner: HexAddress | None,

@@ -3,12 +3,16 @@
 import datetime
 import logging
 from decimal import Decimal
+from functools import cached_property
 from typing import Iterable
 
 from eth_typing import BlockIdentifier, HexAddress
+from web3.contract import Contract
 
-from eth_defi.abi import ZERO_ADDRESS_STR
+from eth_defi.abi import ZERO_ADDRESS_STR, get_deployed_contract
+from eth_defi.erc_4626.core import get_deployed_erc_4626_contract
 from eth_defi.erc_4626.deposit_redeem import ERC4626DepositManager
+from eth_defi.erc_4626.vault_protocol.plutus.deposit_redeem import PlutusAsyncDepositManager
 from eth_defi.erc_4626.vault import ERC4626HistoricalReader, ERC4626Vault
 from eth_defi.event_reader.conversion import convert_int256_bytes_to_int
 from eth_defi.event_reader.multicall_batcher import EncodedCall, EncodedCallResult
@@ -18,8 +22,19 @@ from eth_defi.vault.base import (
     VaultHistoricalRead,
     VaultHistoricalReader,
 )
+from eth_defi.vault.deposit_redeem import VaultDepositManager, VaultDepositManagerCapability
 
 logger = logging.getLogger(__name__)
+
+#: Plutus deployments upgraded to the ERC-7540-style asynchronous redemption
+#: contract (``HedgeVaultV2``): synchronous deposits, but ``redeem`` is disabled
+#: (reverts ``UseRequestRedeem``) and redemptions go through
+#: ``requestRedeem`` / ``fulfillRedeem`` / ``redeem(requestId, receiver)``.
+PLUTUS_ASYNC_VAULT_ADDRESSES = frozenset(
+    {
+        "0x58bfc95a864e18e8f3041d2fcd3418f48393fe6a",  # Plutus Hedge Token (plvHedge), Arbitrum
+    }
+)
 
 
 class PlutusDepositManager(ERC4626DepositManager):
@@ -139,16 +154,60 @@ class PlutusVault(ERC4626Vault):
     - About plHEDGE vault: https://medium.com/@plutus.fi/introducing-plvhedge-an-automated-funding-arbitrage-vault-f2f222fa8c56
     """
 
+    def is_async_redemption_deployment(self) -> bool:
+        """Return whether this deployment uses the ERC-7540-style async redemption.
+
+        :return:
+            ``True`` for the upgraded Hedge (``HedgeVaultV2``) deployment.
+        """
+        return self.address.lower() in PLUTUS_ASYNC_VAULT_ADDRESSES
+
+    @cached_property
+    def vault_contract(self) -> Contract:
+        """Bind the deployment-appropriate ABI.
+
+        The async Hedge deployment needs the ``HedgeVaultV2`` interface for its
+        ``requestRedeem`` / ``fulfillRedeem`` / ``pendingRedeemRequest`` surface;
+        other Plutus vaults use the standard ERC-4626 interface.
+
+        :return:
+            Web3 contract bound to the vault address.
+        """
+        if self.is_async_redemption_deployment():
+            return get_deployed_contract(self.web3, "plutus/HedgeVaultV2.json", self.vault_address)
+        return get_deployed_erc_4626_contract(self.web3, self.vault_address)
+
     def get_historical_reader(self, stateful) -> VaultHistoricalReader:
         return PlutusHistoricalReader(self, stateful)
 
-    def get_deposit_manager(self) -> PlutusDepositManager:
-        """Create the Plutus lifecycle manager.
+    def get_deposit_manager(self) -> VaultDepositManager:
+        """Create the Plutus lifecycle manager for this deployment.
 
         :return:
-            Manager that avoids Plutus' reverting ``previewDeposit`` path.
+            Asynchronous-redemption manager for the upgraded Hedge deployment,
+            otherwise the synchronous manager that avoids Plutus' reverting
+            ``previewDeposit`` path.
         """
+        if self.is_async_redemption_deployment():
+            return PlutusAsyncDepositManager(self)
         return PlutusDepositManager(self)
+
+    def get_deposit_manager_capability(self) -> VaultDepositManagerCapability:
+        """Declare the deployment-specific deposit/redemption capability.
+
+        :return:
+            Synchronous-deposit / asynchronous-redemption capability for the
+            upgraded Hedge deployment, otherwise the fully synchronous
+            capability.
+        """
+        if self.is_async_redemption_deployment():
+            return VaultDepositManagerCapability(
+                can_deposit=True,
+                can_redeem=True,
+                deposit_flow="synchronous",
+                redemption_flow="asynchronous",
+            )
+        return self.get_synchronous_deposit_manager_capability()
 
     def has_custom_fees(self) -> bool:
         """Deposit/withdrawal fees."""

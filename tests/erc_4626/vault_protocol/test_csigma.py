@@ -9,13 +9,17 @@ from web3 import Web3
 
 from eth_defi.erc_4626.classification import create_vault_instance_autodetect
 from eth_defi.erc_4626.core import ERC4626Feature
-from eth_defi.erc_4626.vault_protocol.csigma.deposit_redeem import CsigmaDepositManager
+from eth_defi.erc_4626.vault_protocol.csigma.deposit_redeem import CSIGMA_WITHDRAWAL_PENDING_SELECTOR, CsigmaDepositManager
 from eth_defi.erc_4626.vault_protocol.csigma.vault import CSIGMA_V2_POOL_ADDRESS, CsigmaVault
 from eth_defi.provider.anvil import AnvilLaunch, fork_network_anvil, fund_erc20_on_anvil
 from eth_defi.provider.multi_provider import create_multi_provider_web3
+from eth_defi.testing.anvil_fork_pool import AnvilForkPool
+from eth_defi.testing.fork_blocks import ETHEREUM_MIDNIGHT_BLOCK
 from eth_defi.token import USDC_WHALE
 from eth_defi.trace import assert_transaction_success_with_explanation
 from eth_defi.vault.deposit_redeem import VaultFlowUnavailable
+
+CSIGMA_USD_VAULT = "0xd5d097f278a735d0a3c609deee71234cac14b47e"
 
 JSON_RPC_ETHEREUM = os.environ.get("JSON_RPC_ETHEREUM")
 EXPECTED_V2_DEPOSITED_RAW_SHARES = 94_348_140
@@ -63,7 +67,15 @@ def test_csigma(
     assert vault.get_management_fee("latest") == 0
     assert vault.get_performance_fee("latest") == 0
     assert vault.has_custom_fees() is False
-    assert vault.get_deposit_manager_capability() is None
+    # cSigma USD is a reserve-limited synchronous pool: it is in the synchronous
+    # address set, so it advertises the capacity-aware manager and capability.
+    assert isinstance(vault.get_deposit_manager(), CsigmaDepositManager)
+    assert vault.get_deposit_manager_capability().as_dict() == {
+        "can_deposit": True,
+        "can_redeem": True,
+        "deposit_flow": "synchronous",
+        "redemption_flow": "synchronous",
+    }
 
     # Check vault link
     assert vault.get_link() == "https://edge.csigma.finance/"
@@ -191,6 +203,10 @@ def test_csigma_v2_pool_rejects_redemption_above_immediate_capacity(web3: Web3) 
     assert error.reason == "cSigma redemption exceeds immediate share capacity"
     assert error.requested_raw_amount == available_raw_shares + 1
     assert error.available_raw_amount == available_raw_shares
+    # The over-capacity case is exactly what reverts WithdrawalPending onchain
+    # and queues the excess off-chain; the typed refusal carries that decode.
+    assert error.decoded_error == "WithdrawalPending"
+    assert error.error_selector == CSIGMA_WITHDRAWAL_PENDING_SELECTOR
 
 
 @flaky.flaky
@@ -262,3 +278,48 @@ def test_csigma_supqpv(
 
     # cSigma doesn't implement standard maxDeposit/maxRedeem (returns empty data)
     assert vault.can_check_redeem() is False
+
+
+@pytest.fixture(scope="module")
+def midnight_web3(anvil_fork_pool: AnvilForkPool) -> Web3:
+    """Shared fixed Ethereum midnight-block fork for the current-state cSigma USD checks."""
+    return create_multi_provider_web3(anvil_fork_pool.get_launch(JSON_RPC_ETHEREUM, ETHEREUM_MIDNIGHT_BLOCK).json_rpc_url)
+
+
+@flaky.flaky
+@pytest.mark.xdist_group("fork:ethereum:midnight")
+def test_csigma_usd_redemption_capacity_preflight(midnight_web3: Web3) -> None:
+    """cSigma USD refuses an over-capacity redemption with a typed WithdrawalPending error.
+
+    cSigma USD (csUSD) is a reserve-limited synchronous pool. A redemption
+    beyond the immediate ``maxRedeem`` capacity is queued off-chain and reverts
+    ``WithdrawalPending`` onchain; the manager must refuse it before broadcast
+    with a typed :class:`VaultFlowUnavailable` carrying the decoded error. This
+    is verified at the current-state midnight block (the pool was not deployed
+    at the 21.9M lifecycle block, and its deposits are ``Pausable``-paused now,
+    so only the read-only capacity preflight is exercised here).
+    """
+    vault = create_vault_instance_autodetect(midnight_web3, vault_address=CSIGMA_USD_VAULT)
+    assert isinstance(vault, CsigmaVault)
+    manager = vault.get_deposit_manager()
+    assert isinstance(manager, CsigmaDepositManager)
+    assert vault.get_deposit_manager_capability().as_dict() == {
+        "can_deposit": True,
+        "can_redeem": True,
+        "deposit_flow": "synchronous",
+        "redemption_flow": "synchronous",
+    }
+
+    # A fresh account holds no shares, so maxRedeem is zero and any positive
+    # redemption exceeds the immediate capacity.
+    owner = midnight_web3.eth.accounts[3]
+    available_raw_shares = manager.fetch_redeemable_raw_shares(owner)
+    assert available_raw_shares == 0
+    with pytest.raises(VaultFlowUnavailable) as exc_info:
+        manager.create_redemption_request(owner=owner, raw_shares=1)
+    error = exc_info.value
+    assert error.reason == "cSigma redemption exceeds immediate share capacity"
+    assert error.requested_raw_amount == 1
+    assert error.available_raw_amount == 0
+    assert error.decoded_error == "WithdrawalPending"
+    assert error.error_selector == CSIGMA_WITHDRAWAL_PENDING_SELECTOR
