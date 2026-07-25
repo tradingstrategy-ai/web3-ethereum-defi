@@ -27,6 +27,8 @@ from eth_typing import BlockIdentifier
 
 from eth_defi.chain import get_chain_name
 from eth_defi.erc_4626.vault import ERC4626Vault
+from eth_defi.erc_4626.vault_protocol.forty_acres.deposit_redeem import FortyAcresDepositManager
+from eth_defi.vault.deposit_redeem import VaultDepositManager
 
 logger = logging.getLogger(__name__)
 
@@ -145,3 +147,12 @@ class FortyAcresVault(ERC4626Vault):
     def get_link(self, referral: str | None = None) -> str:
         """Link to the 40acres app."""
         return "https://app.40acres.finance/"
+
+    def get_deposit_manager(self) -> VaultDepositManager:
+        """Create the 40acres manager with redemption-liquidity preflight.
+
+        :return:
+            Specialised synchronous manager that refuses a redemption the vault
+            cannot pay from its direct underlying balance.
+        """
+        return FortyAcresDepositManager(self)
