@@ -234,8 +234,10 @@ instead of the current generic `eth_chainId` `RuntimeError`.
 
 1. **Classify upstream errors into an enum.** Add a small classifier
    (`eth_defi.provider` area) mapping a raw provider error to a
-   `snake_case` string enum, e.g. `out_of_credits`, `rate_limited`,
-   `read_timeout`, `connection_refused`, `upstream_server_error`, `unknown`.
+   `snake_case` string enum. Implemented as `RpcFailureMode` in
+   `eth_defi/provider/rpc_failure.py`: `out_of_credits`, `rate_limited`,
+   `read_timeout`, `connection_error`, `server_error`, `bad_response`,
+   `unknown`.
    Key it on HTTP status where available (402 / 429 / 5xx) and on message
    substrings otherwise (`out of credits`, `quota`, `rate limit`,
    `Read timed out`). Follow the repo rule — catch specific exceptions

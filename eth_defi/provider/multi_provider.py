@@ -412,7 +412,11 @@ def create_multi_provider_web3(
                 # failed (out of credits / rate limited / timeout) instead of a
                 # generic eth_chainId error. See eth_defi.provider.rpc_failure.
                 failure_mode = classify_rpc_failure(e)
-                logger.warning("eth_chainId probe failed for transact provider %s: failure_mode=%s (%s)", transact_domain, failure_mode.value, e)
+                # Log only the redacted domain + failure mode. The raw exception
+                # can embed the full RPC URL (API key in path/query), so it is not
+                # logged here; the raised ChainIdMismatch keeps the pre-existing
+                # hint for local debugging.
+                logger.warning("eth_chainId probe failed for transact provider %s: failure_mode=%s", transact_domain, failure_mode.value)
                 raise ChainIdMismatch(f"Could not call eth_chainId on {transact_name} provider (failure_mode={failure_mode.value}). Is it a valid JSON-RPC provider? As this is often the first call, you might be also out of API credits. Hint is {e}") from e
 
         provider = MEVBlockerProvider(

@@ -19,13 +19,10 @@ specific mode, so the label never misleads.
 """
 
 import enum
-import logging
 
 import requests
 
 from eth_defi.provider.rpcdb import normalise_rpc_error
-
-logger = logging.getLogger(__name__)
 
 
 class RpcFailureMode(enum.Enum):
@@ -95,11 +92,15 @@ def classify_rpc_failure(error: BaseException | dict | str) -> RpcFailureMode:
     :return:
         The best-effort failure mode.
     """
-    # Most reliable: concrete requests exception types.
-    if isinstance(error, (requests.exceptions.ReadTimeout, requests.exceptions.Timeout)):
+    # Most reliable: concrete requests exception types. Check ConnectionError
+    # before plain Timeout because requests.ConnectTimeout subclasses *both* — a
+    # connect timeout is a connection failure, not a slow read.
+    if isinstance(error, requests.exceptions.ReadTimeout):
         return RpcFailureMode.read_timeout
     if isinstance(error, requests.exceptions.ConnectionError):
         return RpcFailureMode.connection_error
+    if isinstance(error, requests.exceptions.Timeout):
+        return RpcFailureMode.read_timeout
 
     # Normalised code: ``http_<status>`` or a JSON-RPC / class-name code.
     code, message = normalise_rpc_error(error) if not isinstance(error, str) else ("unknown", error)
