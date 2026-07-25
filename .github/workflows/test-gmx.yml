@@ -82,9 +82,8 @@ jobs:
             poetry install
             poetry install -E docs -E data -E test -E hypersync -E ccxt -E duckdb -E posts
 
-      # See test.yml for the rationale: the immutable toolchain cache is split
-      # from the rolling Anvil fork RPC cache so new fork reads are actually
-      # persisted across runs.
+      # Cache the immutable Foundry toolchain binaries. The fork RPC cache is not
+      # an Actions cache — it ships in the repo (see below).
       - name: Cache Foundry toolchain
         uses: actions/cache@v4
         with:
@@ -94,18 +93,9 @@ jobs:
             foundry-toolchain-v1.2.3-
             foundry-toolchain-
 
-      # Restore the fork RPC cache; saved with `if: always()` at the end of the
-      # job (GMX frequently hits its timeout, and a plain actions/cache@v4 only
-      # saves on success, so the cache stayed cold). See test.yml for rationale.
-      - name: Restore Foundry fork RPC cache
-        uses: actions/cache/restore@v4
-        with:
-          path: ~/.foundry/cache/rpc
-          key: foundry-rpc-v1.2.3-${{ runner.os }}-${{ github.run_id }}
-          # Stable prefix: restore the newest accumulated cache from any prior run.
-          restore-keys: |
-            foundry-rpc-v1.2.3-${{ runner.os }}-
-
+      # No fork RPC cache step: the warm fork cache ships in the repo
+      # (eth_defi/testing/rpc_cache_seed/, auto-applied by the
+      # _seed_foundry_rpc_cache session fixture). See eth_defi/testing/README.md.
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@v1
         with:
@@ -260,17 +250,6 @@ jobs:
           # Private key for GMX test transactions on Arbitrum Sepolia testnet
           # Required for testnet tests that need to submit transactions
           ARBITRUM_GMX_TEST_SEPOLIA_PRIVATE_KEY: ${{ secrets.ARBITRUM_GMX_TEST_SEPOLIA_PRIVATE_KEY }}
-
-      # Persist the fork RPC cache even on timeout/failure so the Arbitrum fork
-      # blocks replay from disk next run. GMX can still hit its job timeout on a
-      # cold cache, and a plain actions/cache@v4 only saves on success — a warm
-      # cache is one of the few things that keeps GMX under its cap.
-      - name: Save Foundry fork RPC cache
-        if: always()
-        uses: actions/cache/save@v4
-        with:
-          path: ~/.foundry/cache/rpc
-          key: foundry-rpc-v1.2.3-${{ runner.os }}-${{ github.run_id }}
 
       # NOTE: We don't run linting here as it's already done in the main workflow
       # Ruff lint check is only needed once per PR, not per test suite

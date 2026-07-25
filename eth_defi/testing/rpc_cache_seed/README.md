@@ -1,11 +1,19 @@
 # Repository-supplied Anvil fork RPC cache seed
 
-Optional default Foundry (Anvil) fork RPC cache files, committed so a **cold**
-CI cache or a fresh checkout starts warm for the canonical `*_MIDNIGHT_BLOCK`
-fork blocks instead of re-hammering the upstream archive node.
+Committed Foundry (Anvil) fork RPC cache files, so **every** runner — GitHub
+Actions, other CI, and local first runs — starts warm for the canonical
+`*_MIDNIGHT_BLOCK` fork blocks instead of cold-fetching from (and being throttled
+by) the upstream archive node. This is the **primary** warm-cache mechanism; the
+workflows carry no `actions/cache` step for the fork RPC cache.
 
-See `eth_defi/testing/rpc_cache.py` (the seeding mechanism) and
-`docs/README-test-suite-performance.md` (why the warm cache matters).
+The `_seed_foundry_rpc_cache` session fixture (`tests/conftest.py`) copies this
+tree into `~/.foundry/cache/rpc` before any fork launches. See
+`eth_defi/testing/rpc_cache.py` (the mechanism), `eth_defi/testing/README.md`
+section 5 (how to regenerate/update/purge), and
+`docs/README-test-suite-performance.md` (why it matters).
+
+Anvil only writes these files on a graceful shutdown, so regenerating the seed
+depends on the graceful-shutdown behaviour in `AnvilLaunch.close()`.
 
 ## Layout
 

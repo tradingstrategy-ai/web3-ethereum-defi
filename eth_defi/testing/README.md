@@ -158,49 +158,52 @@ which is why CI kept cold-fetching every run and getting rate-limited (the
 then `SIGKILL`s as a fallback (bounded, so teardown cannot hang). With this,
 every fork test persists its cache.
 
-### How to create / warm it
+### The cache ships in the repo (the primary mechanism)
 
-Just **run the fork tests** — each one now flushes its block's cache on teardown:
+The warm cache is **committed** under `eth_defi/testing/rpc_cache_seed/<network>/
+<block>/storage.json` (one per canonical midnight block). The session-autouse
+`_seed_foundry_rpc_cache` fixture (`tests/conftest.py`,
+`eth_defi/testing/rpc_cache.py`) copies it into `~/.foundry/cache/rpc` before any
+fork launches, non-destructively (a warmer live file is never overwritten). So
+**every runner starts warm — GitHub Actions, other CI, and local first runs
+alike — with no GitHub-Actions-cache dependency.** The workflows carry **no**
+`actions/cache` step for the fork RPC cache (only the immutable Foundry toolchain
+is Actions-cached).
+
+Locally the live cache in `~/.foundry/cache/rpc` also persists between runs and is
+enriched automatically as you run tests (graceful shutdown, above).
+
+### How to (re)create / update the committed seed
+
+Regenerate after bumping a `*_MIDNIGHT_BLOCK`, adding a chain, or to enrich
+coverage (the committed seed is fork-init level for most chains; running the full
+suite adds the contract state the tests read):
 
 ```shell
+# 1. Warm the live cache by running the fork tests (each flushes on teardown).
 source .local-test.env && poetry run pytest tests/erc_4626/vault_protocol/ -m "not slow"
+
+# 2. Copy the midnight-block dirs into the committed seed (mirror <network>/<block>/).
+#    Only the canonical MIDNIGHT_BLOCKS; each storage.json is small (KBs).
+#    e.g. for each chain:
+cp -r ~/.foundry/cache/rpc/mainnet/25598869 eth_defi/testing/rpc_cache_seed/mainnet/
+
+# 3. Commit.
+git add eth_defi/testing/rpc_cache_seed/ && git commit -m "test: refresh fork RPC cache seed"
 ```
 
-Locally the cache then persists in `~/.foundry/cache/rpc` and later runs are warm
-automatically. On CI it is persisted across runs by the `actions/cache/restore` +
-`actions/cache/save` (`if: always()`) steps — see `Restore/Save Foundry fork RPC
-cache` in `.github/workflows/test.yml`, `test-gmx.yml`, `test-slow.yml`,
-`test-vault-protocol.yml`. Because the cache is now actually written, those steps
-finally accumulate a warm cache across runs.
-
-### How to update it
-
-Bump the `*_MIDNIGHT_BLOCK` constants (`eth_defi/testing/fork_blocks.py`), then
-re-run the affected tests — the new block's cache is written on teardown. Old
-block dirs under `~/.foundry/cache/rpc` become dead and can be purged.
+Network directory names are Foundry's own (`mainnet`, `arbitrum`, `base`, `bsc`,
+`avalanche`, `plasma`, `hyperliquid`, `sonic`, `berachain`, `polygon`, …) — copy
+whatever `~/.foundry/cache/rpc` created so the paths match on every runner.
 
 ### How to purge it
 
-- **Local:** `rm -rf ~/.foundry/cache/rpc` (or a single `.../<network>/<block>/`).
-- **CI:** delete the `foundry-rpc-*` entries via the Actions cache UI / `gh cache
-  delete`; the next run rebuilds them.
-
-### Optional: a committed seed cache for a cold first run
-
-`eth_defi/testing/rpc_cache.py` can seed `~/.foundry/cache/rpc` from repo-supplied
-files (`eth_defi/testing/rpc_cache_seed/<network>/<block>/…`, auto-applied by the
-`_seed_foundry_rpc_cache` session fixture in `tests/conftest.py`). This is only
-needed if you want warmth on a *cold* CI cache (first run / evicted Actions
-cache) without waiting for it to re-accumulate:
-
-- **create:** run the tests once to warm `~/.foundry/cache/rpc`, then copy the
-  `<network>/<block>/` dirs you want into `eth_defi/testing/rpc_cache_seed/`.
-- **commit:** `git add eth_defi/testing/rpc_cache_seed/<network>/<block>/`. Keep
-  it to the canonical midnight blocks (each is small); note it adds binaries to
-  git, so prefer relying on the Actions cache unless a cold-start guarantee is
-  needed.
-- **update:** re-copy after bumping a midnight block; delete the stale block dir.
-- **purge:** `git rm -r eth_defi/testing/rpc_cache_seed/<network>/<block>/`.
+- **Committed seed:** `git rm -r eth_defi/testing/rpc_cache_seed/<network>/<block>/`
+  (drop a stale block after bumping a midnight constant).
+- **Local live cache:** `rm -rf ~/.foundry/cache/rpc` (or one
+  `.../<network>/<block>/`); it re-warms from the committed seed + test runs.
+- There is no Actions cache to purge — it was removed in favour of the committed
+  seed.
 
 ## Cold-fork read timeouts (the "out of credits" red herring)
 

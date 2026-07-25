@@ -386,7 +386,9 @@ Remaining backlog (audited, not yet done — needs a validating CI/test run):
 - **`test_base_order.py`** (~27 build-only tests, one fork each) should share a
   module/session-scoped snapshot-reverted fork rather than being gated.
 - Populate the `JSON_RPC_*` CI secrets with 2+ providers (activates failover +
-  silences the single-provider warning), and commit real seed cache files.
+  silences the single-provider warning). Seed cache files are now committed
+  (`eth_defi/testing/rpc_cache_seed/`); enrich them by running the full suite
+  locally and re-copying (mostly fork-init level today).
 
 ### Cold-fork timing measurement (2026-07-25)
 
@@ -419,9 +421,12 @@ persisted for `actions/cache` to save. Verified directly: `SIGINT`/`SIGTERM`
 writes the cache, `SIGKILL` writes nothing. **Fix:** `AnvilLaunch.close()` now
 sends `SIGTERM` and waits up to `ANVIL_GRACEFUL_SHUTDOWN_TIMEOUT` (5 s) for the
 flush before a `SIGKILL` fallback (bounded, so teardown cannot hang). With the
-cache actually written, the existing `actions/cache` restore/save steps finally
-warm it across runs — the primary remedy, ahead of provider failover or a
-non-throttling provider. See `eth_defi/testing/README.md` §5.
+cache actually written, the warm cache for the canonical midnight blocks is
+**committed to the repo** (`eth_defi/testing/rpc_cache_seed/`, ~200 KB, auto-applied
+by the `_seed_foundry_rpc_cache` session fixture) — so every runner starts warm,
+not just GitHub Actions. The per-run `actions/cache` fork-RPC steps were removed
+in favour of this committed seed. This is the primary remedy, ahead of provider
+failover or a non-throttling provider. See `eth_defi/testing/README.md` §5.
 
 ## Why
 

@@ -121,22 +121,11 @@ jobs:
             foundry-toolchain-v1.2.3-
             foundry-toolchain-
 
-      # Restore the Anvil fork RPC cache. Split from the save step (below) so we
-      # can save it with `if: always()`: this suite's jobs sometimes fail on
-      # transient archive-provider timeouts, and a plain actions/cache@v4 only
-      # saves on success — meaning the cache stayed permanently cold and every
-      # run re-hammered the archive (the 476s stalls). Persisting on failure too
-      # lets blocks read on one run replay from disk on the next, so fixed-block
-      # fork tests hit the upstream archive far less.
-      - name: Restore Foundry fork RPC cache
-        uses: actions/cache/restore@v4
-        with:
-          path: ~/.foundry/cache/rpc
-          key: foundry-rpc-v1.2.3-${{ runner.os }}-${{ github.run_id }}
-          # Stable prefix: restore the newest accumulated cache from any prior run.
-          restore-keys: |
-            foundry-rpc-v1.2.3-${{ runner.os }}-
-
+      # No Anvil fork RPC cache step: the warm fork cache ships in the repo
+      # (eth_defi/testing/rpc_cache_seed/, auto-applied by the
+      # _seed_foundry_rpc_cache session fixture), so it works for every runner,
+      # not just GitHub Actions, with no cross-run cache dependency. See
+      # eth_defi/testing/README.md section 5.
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@v1
         with:
@@ -187,17 +176,6 @@ jobs:
           else
             echo "No pytest log captured." >> "$GITHUB_STEP_SUMMARY"
           fi
-
-      # Persist the fork RPC cache even when the tests fail/time out, so the
-      # blocks read this run replay from disk next run. Keyed on run_id so it
-      # always writes a fresh entry (no same-key skip); the restore step's
-      # stable prefix picks up the latest.
-      - name: Save Foundry fork RPC cache
-        if: always()
-        uses: actions/cache/save@v4
-        with:
-          path: ~/.foundry/cache/rpc
-          key: foundry-rpc-v1.2.3-${{ runner.os }}-${{ github.run_id }}
 
   # Always-run gate: this is the job to mark as the required status check.
   # It fails if change detection itself failed (so a broken filter cannot let
