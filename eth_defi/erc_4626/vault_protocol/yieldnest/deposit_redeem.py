@@ -26,10 +26,57 @@ EXCEEDED_MAX_REDEEM_SELECTOR = HexBytes("0xb8b8b59c")
 class YieldNestDepositManager(ERC4626DepositManager):
     """YieldNest adapter: synchronous deposits, buffer-limited redemptions.
 
-    Deposits use the inherited synchronous ERC-4626 flow. Redemptions add a
-    capacity preflight so an over-buffer redemption is refused as a typed
-    ``VaultFlowUnavailable`` (decoded ``ExceededMaxRedeem``) rather than a raw
-    onchain revert.
+    YieldNest vaults are liquid-restaking ERC-4626 vaults. Deposits are ordinary
+    synchronous ERC-4626 deposits; redemptions are served synchronously from the
+    vault's liquid buffer up to ``maxRedeem(owner)`` and revert otherwise. This
+    manager adds a redemption capacity preflight on top of the inherited flow.
+
+    **Deposit process**
+
+    Fully synchronous ERC-4626, inherited unchanged from
+    :class:`~eth_defi.erc_4626.deposit_redeem.ERC4626DepositManager` (shared
+    ``approve`` + ``deposit``). The vault does not expose a usable
+    ``maxDeposit(address(0))`` probe (:meth:`YieldNestVault.can_check_deposit`
+    returns ``False``), so there is no owner-independent capacity advisory; the
+    concrete deposit still runs the inherited balance/allowance checks. No
+    minimum deposit or per-account gate.
+
+    **Redemption process**
+
+    Buffer-limited *synchronous* ``redeem``. :meth:`create_redemption_request`
+    reads ``maxRedeem(owner)`` and refuses an over-buffer request as
+    :class:`VaultFlowUnavailable` carrying the decoded
+    ``ExceededMaxRedeem(address,uint256,uint256)`` error and its selector
+    ``0xb8b8b59c``, then delegates to the base manager with the duplicate
+    ``maxRedeem`` read disabled. Withdrawal fees are dynamic
+    (``baseWithdrawalFee()``). Note that
+    :meth:`YieldNestVault.get_deposit_manager_capability` still advertises
+    ``can_redeem=False`` (``maturity_aware_redemption_flow_not_implemented``) to
+    trade-executor: the buffer redemption implemented here is not treated as a
+    fully fork-proven redemption lifecycle for the maturity-bearing vaults.
+
+    **Queues and settlement**
+
+    None modelled. The manager only exposes the immediate buffer redemption; any
+    queue-based withdrawal beyond the buffer is out of scope and is surfaced as
+    the typed capacity refusal above rather than as an onchain ticket.
+
+    **Lockups and cooldowns**
+
+    No generic cooldown. The one exception is the ``ynRWAx`` vault, which has a
+    fixed maturity date of 15 October 2026:
+    :meth:`YieldNestVault.get_estimated_lock_up` returns the remaining time until
+    that date before maturity and ``None`` afterwards (and ``None`` for all other
+    YieldNest vaults).
+
+    **Whitelisting / access control**
+
+    Permissionless. No per-account whitelist or access manager.
+
+    **Anvil settlement (force_settle)**
+
+    No-op. Both directions are synchronous, so :meth:`force_settle` accepts
+    ``None`` for the shared synchronous no-op; there is no ticket to settle.
     """
 
     def create_redemption_request(

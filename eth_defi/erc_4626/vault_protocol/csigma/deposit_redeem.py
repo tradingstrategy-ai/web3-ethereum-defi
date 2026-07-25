@@ -35,22 +35,67 @@ CSIGMA_WITHDRAWAL_PENDING_SELECTOR = HexBytes("0xb34f5c6c")
 class CsigmaDepositManager(ERC4626DepositManager):
     """Synchronous cSigma ERC-4626 deposit and reserve-limited redemption flow.
 
-    **Supported simulation path**
+    cSigma Finance is an RWA private-credit protocol. Its ``CsigmaV2Pool`` is a
+    plain synchronous ERC-4626 share token on the deposit side, but redemptions
+    are limited to the pool's onchain reserve and the excess is drained off-chain
+    by a ``withdrawalManager``. This manager keeps the whole lifecycle
+    synchronous and preflights both directions so the caller learns of a capacity
+    shortfall before broadcasting instead of decoding a raw revert.
 
-    Standard ``deposit`` and ``redeem`` calls against the cSigma pool. The
-    manager preflights the native share capacity returned by ``maxRedeem`` and
-    :meth:`force_settle` accepts ``None`` for the shared synchronous no-op.
+    **Deposit process**
 
-    **Known limitations**
+    Fully synchronous ERC-4626. :meth:`create_deposit_request` builds the shared
+    ``approve`` + ``deposit`` calls after converting the human amount to raw
+    denomination units. The only capacity preflight is ``maxDeposit(owner)``
+    (:meth:`fetch_depositable_raw_assets`); a request above it raises
+    :class:`VaultFlowUnavailable` (``direction="deposit"``). There is no minimum
+    deposit, cooldown or per-account gate. Some deployments (for example cSigma
+    USD) can be ``Pausable``-paused, in which case the onchain ``deposit``
+    reverts.
 
-    cSigma redemptions are reserve-limited: only up to ``maxRedeem(owner)`` is
-    immediately redeemable, and the excess is queued off-chain by the
-    ``withdrawalManager`` (the onchain ``redeem`` reverts ``WithdrawalPending``
-    for it). This manager does **not** model that off-chain queue as a claimable
-    ticket — the pool exposes no request/claim getters — so it preflights the
-    immediate capacity and raises a typed ``VaultFlowUnavailable`` (decoded
-    ``WithdrawalPending``) for the queued/over-capacity case. A capacity result
-    is a point-in-time advisory and can change before transaction inclusion.
+    **Redemption process**
+
+    Reserve-limited *synchronous* ``redeem`` — this is **not** an ERC-7540 async
+    flow. Only up to ``maxRedeem(owner)`` (:meth:`fetch_redeemable_raw_shares`)
+    is immediately redeemable against the pool reserve.
+    :meth:`create_redemption_request` runs :meth:`fetch_redemption_preflight`
+    (a raw-share comparison, no rounding-sensitive conversion); a request above
+    the immediate capacity raises :class:`VaultFlowUnavailable` tagged with the
+    decoded ``WithdrawalPending`` error and its selector ``0xb34f5c6c``. Onchain,
+    that same over-capacity case (or an owner who already has a queued
+    withdrawal) reverts ``WithdrawalPending()`` and the excess is enqueued
+    off-chain.
+
+    **Queues and settlement**
+
+    The excess beyond the immediate reserve is queued **off-chain** and serviced
+    later by the pool's ``withdrawalManager`` on a first-in-first-out basis. The
+    pool exposes **no onchain request/ticket/claim surface** for that queue (no
+    ``requestRedeem`` / ``pendingRedeemRequest`` / ``claimableRedeemRequest`` /
+    request id), so the queued portion cannot be modelled as a claimable async
+    ticket and is surfaced only as the typed refusal above.
+
+    **Lockups and cooldowns**
+
+    No fixed lock-up or cooldown window. :meth:`CsigmaVault.get_estimated_lock_up`
+    returns ``None``; when reserves are depleted the effective wait is the
+    off-chain FIFO queue position, whose duration depends on RWA credit-market
+    liquidity and is not deterministic.
+
+    **Whitelisting / access control**
+
+    Permissionless. There is no per-account whitelist or access manager; the only
+    access gate is the optional protocol-wide ``Pausable`` pause on deposits.
+
+    **Anvil settlement (force_settle)**
+
+    No-op. Both directions are synchronous, so :meth:`force_settle` accepts
+    ``None`` for the shared synchronous no-op; there is no ticket to settle.
+
+    .. note::
+
+        A capacity result is a point-in-time advisory and can change before
+        transaction inclusion.
     """
 
     def fetch_redeemable_raw_shares(self, owner: HexAddress) -> int:

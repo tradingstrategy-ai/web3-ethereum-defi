@@ -743,17 +743,85 @@ class DepositRequest:
 
 
 class VaultDepositManager(ABC):
-    """Abstraction over different deposit/redeem flows of vaults.
+    """Abstract base for every vault deposit and redemption flow.
 
-    Supported simulation path: every manager exposes force_settle() for
-    Anvil-based integration tests. Synchronous managers use its no-op
-    implementation; asynchronous managers override it when their selected
-    test lifecycle needs settlement.
+    A deposit manager wraps one :class:`~eth_defi.vault.base.VaultBase` and
+    hides the differences between synchronous ERC-4626 vaults, asynchronous
+    ERC-7540 vaults, and protocol-specific variants (Lagoon, Gains, IPOR,
+    Ember, cSigma, and others) behind one request/settle/claim interface. This
+    base class is policy-agnostic: it defines the contract and provides only
+    the shared whitelist preflight and the Anvil no-op settlement; concrete
+    subclasses supply the actual onchain behaviour.
 
-    Known limitations: the common interface cannot infer protocol-specific
-    settlement roles, valuations or queues. Each protocol manager documents
-    the concrete asynchronous path it supports and raises
-    UnsupportedVaultSimulation when it has no safe Anvil driver.
+    **Deposit process**
+
+    A deposit is built with :meth:`create_deposit_request`, which returns a
+    :class:`DepositRequest` wrapper of one or more transactions to sign and
+    broadcast. The flow may be synchronous or asynchronous depending on the
+    subclass — :meth:`has_synchronous_deposit` reports which. The owner must
+    first ``approve()`` the ERC-20 denomination token to the spender returned by
+    :meth:`get_deposit_approval_target` (the vault address by default). For a
+    synchronous vault the request transaction mints shares immediately to the
+    receiver. For an asynchronous vault the request transaction only registers a
+    request; the shares are later claimed once settled via
+    :meth:`can_finish_deposit` and :meth:`finish_deposit`. The receiver defaults
+    to ``owner``; a separate ``to`` receiver is only honoured where the protocol
+    supports it. Progress is tracked with a :class:`DepositTicket`.
+
+    **Redemption process**
+
+    A redemption is built with :meth:`create_redemption_request`, returning a
+    :class:`RedemptionRequest` wrapper. :meth:`has_synchronous_redemption`
+    reports whether the flow is synchronous (shares burned and assets returned
+    in the request transaction) or asynchronous (request now, settle, then
+    claim). The asynchronous lifecycle is: create the request, broadcast, parse
+    the resulting :class:`RedemptionTicket`, wait for the redemption delay or
+    operator settlement, then claim with :meth:`finish_redemption`. Some
+    operator-finalised protocols pay the receiver directly and return ``None``
+    from :meth:`finish_redemption`; :meth:`fetch_completed_redemption_tx_hash`
+    locates that terminal transaction instead. A request is identified by its
+    :class:`RedemptionTicket` (owner, receiver, raw shares, request transaction
+    hash, and a protocol request id via ``RedemptionTicket.get_request_id()``).
+
+    **Queues and settlement**
+
+    Asynchronous protocols queue pending requests and settle them off the
+    common interface (epoch rollovers, an operator/curator transaction, a
+    settlement silo, etc.); :meth:`get_deposit_request_status` and
+    :meth:`get_redemption_request_status` map protocol state onto
+    :class:`AsyncVaultRequestStatus` (``none``/``pending``/``claimable``/
+    ``reclaimable``), and :meth:`fetch_vault_flow_events` streams pending
+    requests from an indexed backend. Synchronous subclasses have no queue: the
+    request transaction is the settlement.
+
+    **Lockups and cooldowns**
+
+    Any lockup, cooldown, redemption delay or epoch window is protocol-specific.
+    :meth:`estimate_redemption_delay` returns the vault-wide delay (not
+    account-specific), and :meth:`get_redemption_delay_over` returns the naive
+    UTC time an account may claim, or ``None`` when there is no deterministic
+    onchain deadline. :meth:`can_create_redemption_request` reflects windows
+    such as an epoch that only accepts requests on some days. Synchronous
+    subclasses report a zero delay.
+
+    **Whitelisting / access control**
+
+    Deposit admission is enforced by :meth:`check_deposit_whitelist`, the shared
+    preflight that every subclass must call before returning a request. It
+    raises :class:`WhitelistingRequired` only when the vault's whitelist policy
+    is applicable and queryable and the owner is provably not admitted; when the
+    policy cannot be determined it stays silent and lets a genuine denial
+    surface as an onchain revert. Subclasses needing a stricter fail-closed
+    policy may additionally raise :class:`VaultFlowUnavailable`.
+
+    **Anvil settlement (force_settle)**
+
+    :meth:`force_settle` advances a pending ticket on an Anvil fork for
+    integration tests. It requires an Anvil provider. For synchronous managers
+    it is a no-op (called with ``None``, returns a not-settlement-required
+    result) because the request transaction already completed the lifecycle.
+    Asynchronous managers must override it with a protocol-specific driver; the
+    base raises :class:`UnsupportedVaultSimulation` when no safe driver exists.
     """
 
     def __init__(

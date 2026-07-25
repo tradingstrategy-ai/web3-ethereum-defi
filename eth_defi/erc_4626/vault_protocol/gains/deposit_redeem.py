@@ -107,7 +107,58 @@ class GainsRedemptionRequest(RedemptionRequest):
 
 
 class GainsDepositManager(ERC4626DepositManager):
-    """Add Gains-specific redemption logic."""
+    """Gains gToken adapter: synchronous deposits, epoch-gated redemptions.
+
+    Gains Network gToken vaults keep standard ERC-4626 deposits but replace
+    redemption with a two-phase, epoch-locked withdrawal request. See the
+    `gToken vault notes
+    <https://medium.com/gains-network/introducing-gtoken-vaults-ea98f10a49d5>`__.
+
+    **Deposit process.** Synchronous. Deposits use the inherited ERC-4626
+    ``deposit`` path (standard ERC-20 ``approve`` of the denomination token then
+    ``deposit``); shares are minted in the same transaction.
+    :meth:`can_create_deposit_request` always returns ``True`` — the vault is
+    permanently open for deposits (caps are enforced by the contract itself).
+
+    **Redemption process.** Asynchronous, two phase. :meth:`create_redemption_request`
+    builds ``makeWithdrawRequest(shares, owner)``, which locks the shares and
+    emits ``WithdrawRequested(shares, currEpoch, unlockEpoch)``. The epoch pair is
+    read from that event by :meth:`GainsRedemptionRequest.parse_redeem_transaction`
+    and stored in a :class:`GainsRedemptionTicket`. Once the current epoch reaches
+    ``unlockEpoch`` (:meth:`can_finish_redeem`), the owner claims by calling
+    ERC-4626 ``redeem(shares, owner, to)`` returned by :meth:`finish_redemption`.
+    There is no per-request settlement id; the ticket is tracked purely by its
+    epoch numbers.
+
+    **Queues and settlement.** Settlement is epoch rollover rather than an
+    operator queue. New withdrawal requests are only accepted while the open-PnL
+    feed reports ``nextEpochValuesRequestCount() == 0`` (:meth:`can_create_redemption_request`);
+    outside that window ``makeWithdrawRequest`` reverts ``EndOfEpoch``
+    (:data:`END_OF_EPOCH_SELECTOR`), surfaced here as a typed
+    :class:`~eth_defi.vault.deposit_redeem.VaultFlowUnavailable` preflight
+    refusal. Epochs advance through the permissionless ``forceNewEpoch()`` on the
+    open-PnL feed contract.
+
+    **Lockups and cooldowns.** Withdrawal requests may only be created in the
+    first part of each (roughly three-day) epoch, and the locked shares unlock
+    only once the current epoch reaches the ticket's ``unlockEpoch``.
+    :meth:`estimate_redemption_delay` estimates the wait as
+    ``requestsStart + requestsEvery * requestsCount`` seconds from the open-PnL
+    feed configuration.
+
+    **Whitelisting / access control.** Permissionless — Gains gToken vaults
+    apply no deposit whitelist or per-account access check.
+
+    **Anvil settlement (force_settle).** :meth:`force_settle` requires an Anvil
+    provider. No impersonation is needed: it warps Anvil time and calls the
+    permissionless ``forceNewEpoch()`` from a funded account via
+    :func:`~eth_defi.erc_4626.vault_protocol.gains.testing.force_next_gains_epoch`,
+    repeating up to :data:`GAINS_MAX_SETTLEMENT_EPOCHS` times until the ticket
+    unlocks (``current_epoch >= unlock_epoch``), i.e. status moves ``pending`` ->
+    ``claimable``. Each iteration asserts the epoch strictly increased; if the
+    epoch stalls or never unlocks it raises :class:`UnsupportedVaultSimulation`
+    rather than reporting a false success.
+    """
 
     def __init__(self, vault: "eth_defi.gains.vault.GainsVault"):
         from eth_defi.erc_4626.vault_protocol.gains.vault import GainsVault
@@ -488,21 +539,63 @@ class OstiumRedemptionRequest(RedemptionRequest):
 
 
 class OstiumV15DepositManager(ERC4626DepositManager):
-    """Async deposit/redemption manager for Ostium V1.5 settlement-based flow.
+    """Ostium V1.5 adapter: settlement-based asynchronous deposits and redemptions.
 
-    V1.5 disables ERC-4626 ``deposit()``, ``mint()``, ``withdraw()``, ``redeem()``
-    and replaces them with:
+    Ostium V1.5 disables the synchronous ERC-4626 ``deposit()``, ``mint()``,
+    ``withdraw()`` and ``redeem()`` entry points and replaces both directions
+    with an asynchronous request → settlement → claim flow keyed by an onchain
+    ``settlementId``.
 
-    - Deposits: ``requestDeposit(assets)`` -> settlement -> ``claimDeposit(settlementId)``
-    - Withdrawals: ``requestWithdraw(shares)`` -> settlement -> ``claimWithdraw(settlementId)``
+    **Deposit process.** Asynchronous. :meth:`create_deposit_request` builds
+    ``requestDeposit(assets)`` (preceded by the usual ERC-20 ``approve`` of USDC).
+    The call acts on ``msg.sender`` only, so ``to`` must equal ``owner``; the
+    USDC is transferred to the vault immediately. The concrete ``settlementId`` is
+    read from the ``DepositRequestedV2(owner, settlementId, assets)`` event into an
+    :class:`OstiumDepositTicket`. After settlement the shares are claimed with
+    ``claimDeposit(settlementId)`` (:meth:`finish_deposit`), analysed via the
+    ``DepositClaimedV2`` event.
 
-    Settlement happens via ``tryNewSettlement()`` (public, permissionless)
-    once ``maxSettlementInterval`` has elapsed after the previous settlement.
+    **Redemption process.** Asynchronous, symmetric to deposits.
+    :meth:`create_redemption_request` builds ``requestWithdraw(shares)`` (also
+    ``msg.sender`` only, ``to`` must equal ``owner``), which escrows the OLP
+    shares immediately. The ``settlementId`` is read from
+    ``WithdrawRequestedV2(owner, settlementId, shares)`` into an
+    :class:`OstiumRedemptionTicket`. After settlement the USDC is claimed with
+    ``claimWithdraw(settlementId)`` (:meth:`finish_redemption`), analysed via the
+    ``WithdrawClaimedV2`` event.
 
-    The ``is_deposit_in_progress()`` / ``is_redemption_in_progress()`` methods only
-    check the current ``targetSettlementId``. For checking specific tickets regardless
-    of the current settlement, use ``get_deposit_ticket_status()`` /
-    ``get_redemption_ticket_status()``.
+    **Queues and settlement.** Settlement is driven by ``tryNewSettlement()``,
+    which is public and permissionless and becomes eligible once
+    ``maxSettlementInterval`` has elapsed after the previous settlement. Per-ticket
+    outcome is read from ``getDepositStatus`` / ``getWithdrawStatus`` and mapped to
+    :class:`~eth_defi.vault.deposit_redeem.AsyncVaultRequestStatus` values NONE,
+    PENDING, CLAIMABLE and RECLAIMABLE. A RECLAIMABLE settlement means the request
+    could not be filled and the funds must be recovered with
+    ``reclaimDeposit`` / ``reclaimWithdraw`` (raised as :class:`OstiumSettlementFailed`);
+    a pending request can be cancelled with ``cancelRequestDeposit`` /
+    ``cancelRequestWithdraw``. :meth:`is_deposit_in_progress` /
+    :meth:`is_redemption_in_progress` only inspect the current
+    ``targetSettlementId``; use :meth:`get_deposit_ticket_status` /
+    :meth:`get_redemption_ticket_status` for a specific ticket.
+
+    **Lockups and cooldowns.** There is no epoch window — requests may be
+    submitted at any time (:meth:`can_create_redemption_request` returns
+    ``True``). The wait until a request settles is governed by the settlement
+    clock: :meth:`estimate_redemption_delay` uses
+    ``(targetSettlementId - lastSettlementId) * maxSettlementInterval`` and the
+    per-ticket helpers project ``lastSettlementTs + n * maxSettlementInterval``
+    from the ticket's own ``settlementId``.
+
+    **Whitelisting / access control.** Permissionless — Ostium V1.5 applies no
+    deposit whitelist; caps are enforced at settlement rather than at request
+    time.
+
+    **Anvil settlement (force_settle).** This manager does not implement a fork
+    settlement driver and its capability does not advertise
+    ``supports_anvil_settlement``. Although ``tryNewSettlement()`` is itself
+    permissionless, the inherited base :meth:`force_settle` has no Ostium driver,
+    so calling it with a pending ticket raises
+    :class:`~eth_defi.vault.deposit_redeem.UnsupportedVaultSimulation`.
     """
 
     def __init__(self, vault: "eth_defi.erc_4626.vault_protocol.gains.vault.OstiumVault"):

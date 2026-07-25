@@ -43,19 +43,62 @@ class ERC4626RedemptionRequest(RedemptionRequest):
 
 
 class ERC4626DepositManager(VaultDepositManager):
-    """Standard synchronous ERC-4626 deposit and redemption flow.
+    """Standard synchronous `ERC-4626 <https://eips.ethereum.org/EIPS/eip-4626>`__ deposit and redemption flow.
 
-    **Supported simulation path**
+    Generic manager for plain ERC-4626 vaults where both deposit and redemption
+    complete atomically in a single transaction. It is the default manager for
+    vaults exposing the standard entry points; queued, delegated, multi-asset
+    or otherwise protocol-specific vaults require a specialised subclass.
 
-    Standard ERC-4626 ``deposit`` and ``redeem`` calls complete in their
-    originating transaction.  :meth:`force_settle` therefore accepts
-    ``None`` and performs the Anvil-validated shared no-op.
+    **Deposit process**
 
-    **Known limitations**
+    Synchronous. The owner first ``approve()``s the ERC-20 denomination token to
+    the vault (the default :meth:`get_deposit_approval_target`), then
+    :meth:`create_deposit_request` builds a single ERC-4626 ``deposit`` call via
+    :func:`eth_defi.erc_4626.flow.deposit_4626`. That one transaction pulls the
+    assets and mints shares to the receiver in the same call, so there is no
+    request/settle/claim split — :meth:`can_finish_deposit` is always ``True``
+    and :meth:`finish_deposit` raises (nothing to settle). The receiver is
+    always ``owner`` (a separate ``to`` is not supported here). Capacity is
+    preflighted through :meth:`fetch_depositable_raw_assets`, which reads the
+    standard ``maxDeposit()`` (a zero result is treated as "no limit exposed").
 
-    This manager is suitable only for vaults whose selected asset uses the
-    standard ERC-4626 entry points.  Queued, delegated, multi-asset and
-    protocol-specific settlement flows must provide a specialised manager.
+    **Redemption process**
+
+    Synchronous. :meth:`create_redemption_request` builds a single ERC-4626
+    ``redeem`` call via :func:`eth_defi.erc_4626.flow.redeem_4626`, burning the
+    shares and returning denomination tokens to ``owner`` in the same
+    transaction. There is no ticket to track and no separate claim step:
+    :meth:`can_finish_redeem` is always ``True`` and :meth:`finish_redemption`
+    raises. A separate ``to`` receiver is not supported.
+
+    **Queues and settlement**
+
+    None (synchronous). There is no pending-request queue; each request
+    transaction is its own settlement. :meth:`is_deposit_in_progress` and
+    :meth:`is_redemption_in_progress` always return ``False``.
+
+    **Lockups and cooldowns**
+
+    None. :meth:`estimate_redemption_delay` returns zero and
+    :meth:`get_redemption_delay_over` returns the Unix epoch sentinel;
+    :meth:`can_create_deposit_request` and :meth:`can_create_redemption_request`
+    always return ``True``.
+
+    **Whitelisting / access control**
+
+    :meth:`create_deposit_request` calls the shared
+    :meth:`~eth_defi.vault.deposit_redeem.VaultDepositManager.check_deposit_whitelist`
+    preflight, so a vault that exposes a queryable whitelist policy raises
+    :class:`~eth_defi.vault.deposit_redeem.WhitelistingRequired` for an
+    unpermitted owner. Vaults without a determinable policy are treated as
+    permissionless and any real denial surfaces as an onchain revert.
+
+    **Anvil settlement (force_settle)**
+
+    The standard ``deposit`` and ``redeem`` calls complete in their originating
+    transaction, so the inherited :meth:`force_settle` accepts ``None`` and
+    performs the Anvil-validated shared no-op.
     """
 
     def __init__(self, vault: "ERC4626Vault"):

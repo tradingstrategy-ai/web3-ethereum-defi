@@ -140,7 +140,65 @@ class EmberRedemptionRequest(RedemptionRequest):
 
 
 class EmberDepositManager(ERC4626DepositManager):
-    """Ember adapter with synchronous deposits and asynchronous redemptions."""
+    """Ember adapter with synchronous deposits and operator-finalised redemptions.
+
+    Ember pairs an ordinary ERC-4626 deposit path with a custom, operator-driven
+    withdrawal queue. Deposits mint shares immediately, whereas withdrawals only
+    escrow shares onchain and are paid out later by the vault operator, so the
+    depositor never owns a claim step of their own. See the `Ember vault
+    contracts <https://github.com/ember-protocol/Ember-Vaults-EVM>`__.
+
+    **Deposit process.** Synchronous. :meth:`create_deposit_request` builds a
+    single standard ERC-4626 ``deposit(assets, receiver)`` call (via
+    :func:`~eth_defi.erc_4626.flow.deposit_4626`), preceded by the usual ERC-20
+    ``approve`` of the denomination token onto the vault. The receiver is
+    explicit and defaults to ``owner``; the zero address is rejected. Shares are
+    minted in the same transaction, which emits Ember's ``VaultDeposit`` event
+    (not the ERC-4626 ``Deposit`` event) parsed by :meth:`analyse_deposit`.
+
+    **Redemption process.** Asynchronous. Ember does not use ERC-4626
+    ``redeem``. :meth:`create_redemption_request` builds two calls: a self
+    ``approve(vault, shares)`` followed by the custom
+    ``redeemShares(shares, receiver)``, which escrows the shares and enqueues the
+    request. The request id is Ember's globally monotonic ``sequenceNumber``,
+    read from the ``RequestRedeemed`` event by
+    :meth:`EmberRedemptionRequest.parse_redeem_transaction` and persisted in an
+    :class:`EmberRedemptionTicket` together with the request block. There is no
+    depositor claim call — the operator pays the receiver directly, so
+    :meth:`can_finish_redeem` and :meth:`finish_redemption` always report that no
+    depositor-owned finish call exists.
+
+    **Queues and settlement.** Withdrawal requests accumulate in a single
+    vault-global queue (not per owner). The vault operator — read at runtime from
+    the ``roles()`` tuple ``(admin, operator, rateManager)`` — drains it by
+    calling ``processWithdrawalRequests(n)``, which emits a terminal
+    ``RequestProcessed`` event per request (carrying ``skipped``/``cancelled``
+    flags). ``minWithdrawableShares`` enforces a per-request minimum and
+    ``pauseStatus`` gates both deposits and withdrawal requests.
+
+    **Lockups and cooldowns.** No deterministic onchain deadline exists: pay-out
+    timing is entirely operator-driven. :meth:`get_redemption_delay_over`
+    therefore returns ``None``, and :meth:`estimate_redemption_delay` is only a
+    service-level estimate from :meth:`EmberVault.get_estimated_lock_up`, which
+    reads Ember's offchain ``withdrawal_period_days`` metadata and falls back to
+    four days.
+
+    **Whitelisting / access control.** Permissionless — Ember has no deposit
+    whitelist. :meth:`can_create_deposit_request` only checks that deposits are
+    unpaused and ``maxDeposit(owner) > 0``, and :meth:`can_create_redemption_request`
+    only checks that withdrawals are unpaused and the owner holds at least
+    ``minWithdrawableShares``.
+
+    **Anvil settlement (force_settle).** :meth:`force_settle` requires an Anvil
+    provider. It impersonates the ``roles()`` operator, funds it, then drains the
+    global queue with repeated ``processWithdrawalRequests`` calls (capped at
+    :data:`EMBER_MAX_SETTLEMENT_BATCHES`) until the ticket's sequence leaves the
+    owner's pending list. Because there is no claim step, a settled request ends
+    in :attr:`AsyncVaultRequestStatus.none` rather than ``claimable``; success is
+    defined as a matching, non-skipped, non-cancelled ``RequestProcessed`` event.
+    A still-pending, skipped or cancelled outcome raises
+    :class:`UnsupportedVaultSimulation`.
+    """
 
     def __init__(self, vault: "EmberVault"):
         """Create an Ember manager for a protocol-specific Ember vault.

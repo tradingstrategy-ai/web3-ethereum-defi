@@ -49,12 +49,77 @@ LEGACY_WITHDRAW_TOPIC = "0xfbde797d201c681b91056529119e0b02407c7bb96a4a2c75c01fc
 
 
 class LagoonDepositManager(GenericERC7540DepositManager):
-    """Lagoon ERC-7540 flow with access-policy and settlement support.
+    """Lagoon ERC-7540 flow with versioned access policy and Safe settlement.
 
-    The generic ERC-7540 manager supplies standard request, claim, ticket and
-    event handling. Lagoon adds versioned access checks, legacy claim-event
+    Lagoon vaults are fully asynchronous `ERC-7540
+    <https://eips.ethereum.org/EIPS/eip-7540>`__ vaults: both deposits and
+    redemptions are request → settle → claim. The generic ERC-7540 manager
+    supplies the standard request, claim, ticket and event handling; this
+    subclass adds Lagoon's versioned deposit access policy, legacy claim-event
     topics and an Anvil settlement driver that impersonates the deployed
     valuation manager and Safe.
+
+    **Deposit process.** Asynchronous. Deposits go through the inherited
+    ``requestDeposit(assets, controller, owner)`` entry point (selector
+    :data:`REQUEST_DEPOSIT_SELECTOR`), preceded by the ERC-20 ``approve`` of the
+    denomination token; the assets move into the vault's pending silo at request
+    time. The request id is read from the ERC-7540 ``DepositRequest`` event into
+    an :class:`ERC7540DepositTicket`. After settlement the shares are claimed with
+    ``deposit(assets, receiver, controller)`` (the three-argument ERC-7540 claim
+    form). :meth:`get_deposit_event_signatures` additionally accepts the legacy
+    Lagoon ``Deposit`` topic (:data:`LEGACY_DEPOSIT_TOPIC`) during claim analysis.
+
+    **Redemption process.** Asynchronous, symmetric. Redemptions use
+    ``requestRedeem(shares, controller, owner)``, emitting the ERC-7540
+    ``RedeemRequest`` event whose request id is stored in an
+    :class:`ERC7540RedemptionTicket`. After settlement the assets are claimed with
+    ``redeem(shares, receiver, controller)``; :meth:`get_redemption_event_signatures`
+    also accepts the legacy ``Withdraw`` topic (:data:`LEGACY_WITHDRAW_TOPIC`).
+
+    **Queues and settlement.** Requests are batched per settlement round. The
+    vault's valuation manager first reports NAV via ``updateNewTotalAssets`` /
+    ``updateTotalAssets``, then the Safe settles: ``settleDeposit(newTotalAssets)``
+    mints for pending deposits and always calls ``_settleRedeem(msg.sender)``
+    afterwards, which pays queued redemptions by pulling the denomination token
+    from the Safe (``safeTransferFrom(safe, vault, convertToAssets(pendingShares))``).
+    Claimability is read from ``claimableDepositRequest`` /
+    ``claimableRedeemRequest``.
+
+    **Lockups and cooldowns.** There is no fixed cooldown; the wait is one
+    settlement round, whose cadence is off-vault operational rather than an
+    onchain deadline. :meth:`LagoonFlowManager.get_estimated_lock_up` returns
+    Lagoon's offchain ``average_settlement`` metadata when available, otherwise
+    ``None``.
+
+    **Whitelisting / access control.** Deposit admission is version specific and
+    checked before broadcast by :meth:`_assert_deposit_request_available` /
+    :meth:`can_create_deposit_request`. Lagoon v0.5 and earlier derive whitelist
+    mode from ``isWhitelisted(0x0)`` and admit an account with
+    ``isWhitelisted(account)``; Lagoon v0.6 uses the access layer's
+    ``isAllowed(0x0)`` / ``isAllowed(account)`` (supporting whitelist mode,
+    blacklist mode and an external sanctions oracle). Both flow through
+    :meth:`LagoonVault.is_whitelisted_deposit` and
+    :meth:`LagoonVault.is_account_whitelisted`. A denial raises
+    :class:`~eth_defi.vault.deposit_redeem.WhitelistingRequired` (decoded error
+    ``NotWhitelisted`` / :data:`NOT_WHITELISTED_SELECTOR` for v0.5, or
+    ``AddressNotAllowed`` / :data:`ADDRESS_NOT_ALLOWED_SELECTOR` for v0.6); an
+    undeterminable policy or a paused vault raises
+    :class:`~eth_defi.vault.deposit_redeem.VaultFlowUnavailable` (fails closed).
+
+    **Anvil settlement (force_settle).** :meth:`force_settle` requires an Anvil
+    provider and a concrete deposit or redemption ticket. It impersonates and
+    funds both the valuation manager and the Safe, then runs one settlement round
+    via :func:`~eth_defi.erc_4626.vault_protocol.lagoon.testing.force_lagoon_settle`.
+    Because ``settleDeposit`` always triggers ``_settleRedeem``,
+    :meth:`_provision_safe_for_settlement` first grants the Safe's missing standing
+    ``approve(vault, max)`` and tops it up with synthetic denomination tokens when
+    it is short of the liquidity needed to pay every queued redemption; any
+    injected amount is disclosed through
+    :attr:`~eth_defi.vault.deposit_redeem.VaultForcedSettlementResult.synthetic_assets_injected_raw`
+    (a non-zero value means ``claimable`` proves the settlement mechanism, not
+    live solvency). Success requires the ticket to reach
+    :attr:`AsyncVaultRequestStatus.claimable`; otherwise it raises
+    :class:`UnsupportedVaultSimulation` with the concrete before/after status.
     """
 
     def __init__(self, vault: LagoonVault):

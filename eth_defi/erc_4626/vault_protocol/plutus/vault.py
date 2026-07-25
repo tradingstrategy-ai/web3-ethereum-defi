@@ -38,19 +38,58 @@ PLUTUS_ASYNC_VAULT_ADDRESSES = frozenset(
 
 
 class PlutusDepositManager(ERC4626DepositManager):
-    """Plutus synchronous ERC-4626 lifecycle without ``previewDeposit``.
+    """Plutus synchronous ERC-4626 lifecycle that estimates via ``convertToShares``.
 
-    **Supported simulation path**
+    This manager serves the standard (non-async) Plutus Hedge Token
+    deployments, where both deposit and redemption are direct synchronous
+    ERC-4626 calls. The upgraded ``HedgeVaultV2`` deployment, whose ``redeem``
+    is disabled in favour of ``requestRedeem`` / ``fulfillRedeem``, uses the
+    separate :class:`PlutusAsyncDepositManager` instead (selected by
+    :meth:`PlutusVault.get_deposit_manager`). Plutus vaults are manually
+    opened and closed by an admin, so a window may simply be shut.
 
-    The selected Hedge Token deployment uses direct ERC-4626 deposit and
-    redeem calls. :meth:`force_settle` accepts ``None`` and performs the
-    shared Anvil-only no-op.
+    **Deposit process**
 
-    **Known limitations**
+    Synchronous. After ``approve()``, :meth:`create_deposit_request` builds the
+    inherited single ERC-4626 ``deposit`` call. :meth:`estimate_deposit` is
+    overridden: instead of ``previewDeposit`` (unreliable/reverting on these
+    deployments) it prices shares through the non-reverting
+    ``convertToShares(raw_amount)`` and raises :class:`ValueError` when the
+    result is zero, which indicates the deposit window is closed or pricing is
+    unavailable rather than a free deposit.
 
-    The adapter supports only direct calls while the manual deposit and
-    redemption windows are open. Queued generations, delegated operators,
-    cancellation and reclaim remain unsupported.
+    **Redemption process**
+
+    Synchronous, fully inherited. :meth:`create_redemption_request` builds a
+    single ERC-4626 ``redeem`` call returning denomination tokens to the owner
+    in the same transaction.
+
+    **Queues and settlement**
+
+    No per-owner request queue: each ``deposit`` / ``redeem`` settles in its own
+    transaction. The only gating is the admin-controlled open/closed state,
+    read at the vault level from ``maxDeposit(address(0))`` and
+    ``maxRedeem(address(0))`` (zero means closed). Queued generations, delegated
+    operators, cancellation and reclaim are not modelled.
+
+    **Lockups and cooldowns**
+
+    This manager enforces no onchain cooldown. For modelling purposes
+    :meth:`PlutusVault.get_estimated_lock_up` returns a fixed 30-day estimate
+    (from Plutus Discord guidance, since windows are manually scheduled rather
+    than time-locked in the contract).
+
+    **Whitelisting / access control**
+
+    Permissionless. No Plutus-specific whitelist is applied beyond the inherited
+    :meth:`check_deposit_whitelist` preflight; access is gated only by whether
+    the admin currently has the deposit/redemption window open.
+
+    **Anvil settlement (force_settle)**
+
+    The direct ``deposit`` and ``redeem`` calls complete in their originating
+    transaction, so the inherited :meth:`force_settle` accepts ``None`` and
+    performs the Anvil-validated shared no-op.
     """
 
     def estimate_deposit(

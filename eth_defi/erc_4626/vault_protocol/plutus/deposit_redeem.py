@@ -101,7 +101,58 @@ class PlutusRedemptionRequest(RedemptionRequest):
 
 
 class PlutusAsyncDepositManager(ERC4626DepositManager):
-    """Plutus Hedge adapter: synchronous deposits, asynchronous redemptions."""
+    """Plutus Hedge adapter: synchronous deposits, operator-fulfilled redemptions.
+
+    The Plutus Hedge vault (``HedgeVaultV2``) keeps synchronous ERC-4626
+    deposits but replaces synchronous redemption with an ERC-7540-style
+    request/fulfil/claim flow: the standard ``redeem(shares, receiver, owner)`` is
+    disabled and reverts ``UseRequestRedeem()``
+    (:data:`USE_REQUEST_REDEEM_SELECTOR`).
+
+    **Deposit process.** Synchronous. Deposits use the inherited ERC-4626
+    ``deposit`` path (standard ERC-20 ``approve`` of the denomination token then
+    ``deposit``); shares are minted in the same transaction. :meth:`estimate_deposit`
+    prices shares through ``convertToShares`` to avoid a reverting preview, and
+    :meth:`is_deposit_in_progress` always returns ``False``.
+
+    **Redemption process.** Asynchronous, three phase. :meth:`create_redemption_request`
+    builds a single ``requestRedeem(shares, owner, owner)`` call (the receiver must
+    equal ``owner``), which escrows the shares and emits ``RedeemRequested``. The
+    ERC-7540-style ``requestId`` is read from that event by
+    :meth:`PlutusRedemptionRequest.parse_redeem_transaction` into a
+    :class:`PlutusRedemptionTicket`. An operator then ``fulfillRedeem``s the
+    request; once fulfilled the owner claims with ``redeem(requestId, receiver)``
+    returned by :meth:`finish_redemption`. A still-pending request can be
+    cancelled with ``cancelRedeemRequest`` (:meth:`reclaim_withdrawal`).
+
+    **Queues and settlement.** Settlement is operator fulfilment, not a queue or
+    epoch. Per-request state is read by ``requestId`` from
+    ``pendingRedeemRequest`` / ``claimableRedeemRequest`` and mapped by
+    :meth:`get_redemption_request_status` to ``pending`` (awaiting fulfilment),
+    ``claimable`` (fulfilled) or ``none``. Because state is keyed by request id
+    rather than owner, :meth:`is_redemption_in_progress` always returns ``False``
+    and callers must track the ticket.
+
+    **Lockups and cooldowns.** No deterministic onchain deadline — pay-out timing
+    depends on when the operator fulfils the request. There is no
+    :meth:`estimate_redemption_delay` override on the manager; the vault's
+    :meth:`PlutusVault.get_estimated_lock_up` supplies only a modelling estimate
+    of roughly one month, because Plutus vaults are opened and closed manually.
+
+    **Whitelisting / access control.** Permissionless for depositors — Plutus
+    applies no deposit whitelist. Redemption requests are refused with a typed
+    :class:`~eth_defi.vault.deposit_redeem.VaultFlowUnavailable` only when
+    withdrawals are paused (``withdrawalsPaused`` /
+    :data:`WITHDRAWALS_ARE_PAUSED_SELECTOR`) or the owner holds too few shares.
+
+    **Anvil settlement (force_settle).** Deferred. A ``None`` (synchronous
+    deposit) ticket returns the shared no-op, but a redemption ticket cannot be
+    settled on a fork: ``fulfillRedeem`` is gated by OpenZeppelin AccessControl
+    and its role holder is deployment-specific and not discoverable from the vault
+    interface, so :meth:`force_settle` raises
+    :class:`~eth_defi.vault.deposit_redeem.UnsupportedVaultSimulation` rather than
+    forging a fulfilment.
+    """
 
     def estimate_deposit(
         self,

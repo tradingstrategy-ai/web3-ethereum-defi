@@ -76,7 +76,59 @@ class UmamiVault(ERC4626Vault):
 
 
 class UmamiDepositManager(ERC4626DepositManager):
-    """Umami deposit manager with custom logic."""
+    """Umami gmUSDC deposit manager with a non-standard, gas-and-ETH-funded deposit call.
+
+    Umami vaults wrap GMX ``gm`` positions through an aggregate vault that
+    executes deposits via an offchain rebalance keeper. The ERC-4626 surface is
+    otherwise standard, but the deposit entry point is not: it takes a
+    slippage-bounded minimum-shares argument, is gas hungry and must carry
+    native ETH to fund keeper execution. This manager therefore overrides only
+    deposit construction; everything else stays plain synchronous ERC-4626.
+
+    **Deposit process**
+
+    Synchronous from the caller's perspective, but with a bespoke entry point.
+    After ``approve()``, :meth:`create_deposit_request` reads ``previewDeposit``
+    to size a minimum-shares floor (default 1% ``max_slippage``), then builds a
+    single ``deposit(assets, minOutAfterFees, receiver)`` call. The transaction
+    is sent with a high gas limit (default 30,000,000) and ``value`` of 0.1 ETH,
+    because the aggregate vault's ``handleDeposit`` requires attached native
+    asset to pay the rebalance keeper. Umami also charges a ~0.15% deposit fee
+    deducted from minted shares. :meth:`estimate_deposit` is inherited unchanged
+    and uses the standard ``previewDeposit`` path, which does not revert on
+    these vaults.
+
+    **Redemption process**
+
+    Synchronous. Redemption is not overridden: :meth:`create_redemption_request`
+    builds the inherited single ERC-4626 ``redeem`` call returning denomination
+    tokens to the owner in the same transaction.
+
+    **Queues and settlement**
+
+    No adapter-level ticket queue. Onchain, ``handleDeposit`` stores a request
+    and routes execution through the aggregate vault's rebalance keeper (hence
+    the attached ETH), so onchain execution is keeper-mediated; this adapter
+    does not model a separate settle or claim step and treats the deposit as a
+    single synchronous transaction.
+
+    **Lockups and cooldowns**
+
+    No per-owner cooldown in this manager. :meth:`UmamiVault.get_estimated_lock_up`
+    reports a modelling estimate of three days for the keeper/rebalance cycle.
+
+    **Whitelisting / access control**
+
+    Permissionless. No Umami-specific whitelist is applied; the inherited
+    :meth:`check_deposit_whitelist` preflight runs, and any real denial (for
+    example the vault-cap check) surfaces as an onchain revert.
+
+    **Anvil settlement (force_settle)**
+
+    The ``deposit`` and ``redeem`` calls complete in their originating
+    transaction, so the inherited :meth:`force_settle` accepts ``None`` and
+    performs the Anvil-validated shared no-op.
+    """
 
     def create_deposit_request(
         self,

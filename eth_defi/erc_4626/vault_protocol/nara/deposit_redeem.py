@@ -68,7 +68,69 @@ class NaraRedemptionRequest(RedemptionRequest):
 
 
 class NaraDepositManager(ERC4626DepositManager):
-    """NaraUSD+ manager with direct deposits and claimed cooldown redemptions."""
+    """NaraUSD+ manager with synchronous deposits and asynchronous cooldown redemptions.
+
+    NaraUSD+ is Nara's appreciating staking token for NaraUSD. Deposits mint
+    shares immediately through the standard ERC-4626 path, but redemptions are
+    asynchronous: the holder starts an owner-specific cooldown, waits for it to
+    mature, then claims the underlying NaraUSD. This manager keeps the inherited
+    synchronous deposit flow and replaces the redemption flow with a
+    two-step cooldown/claim lifecycle tracked by :class:`NaraRedemptionTicket`.
+
+    **Deposit process**
+
+    Synchronous, fully inherited. After ``approve()``,
+    :meth:`create_deposit_request` builds a single ERC-4626 ``deposit`` call and
+    :meth:`estimate_deposit` uses the standard ``previewDeposit`` path.
+    :meth:`can_create_deposit_request` gates on ``maxDeposit(owner) > 0``.
+
+    **Redemption process**
+
+    Asynchronous, two-step. :meth:`create_redemption_request` does *not* build a
+    ``redeem`` / ``withdraw`` call — it builds a single ``cooldownShares(raw_shares)``
+    call that escrows the shares and starts the owner's cooldown, returning a
+    :class:`NaraRedemptionRequest`. After the request confirms,
+    :meth:`NaraRedemptionRequest.parse_redeem_transaction` reads the vault's
+    ``cooldowns(owner)`` state to build a persistable ticket. Once the cooldown
+    matures, :meth:`finish_redemption` builds the ``unstake(to)`` claim that
+    sends NaraUSD to the receiver. :meth:`has_synchronous_redemption` returns
+    ``False``. The receiver may differ from the owner but cannot be the zero
+    address.
+
+    **Queues and settlement**
+
+    Per-owner cooldown state rather than a numbered queue: the vault keeps at
+    most one active cooldown per owner and assigns no request id, so the ticket
+    is identified by the request transaction hash together with the observed
+    ``cooldown_end`` and escrowed ``raw_assets``. Attempting a second cooldown
+    while one is active raises. :meth:`get_redemption_request_status` maps live
+    ``cooldowns()`` state plus the latest block timestamp to ``pending``,
+    ``claimable`` or ``none`` (the last also covering a claimed, removed or
+    superseded cooldown).
+
+    **Lockups and cooldowns**
+
+    Deposits have no lockup. Redemptions carry the live cooldown read from
+    ``cooldownDuration()``: :meth:`estimate_redemption_delay` returns it, and
+    :meth:`NaraVault.get_estimated_lock_up` reports the same value (currently
+    seven days on Ethereum). :meth:`get_redemption_delay_over` returns the
+    per-owner cooldown expiry when one exists.
+
+    **Whitelisting / access control**
+
+    Permissionless. No NaraUSD+-specific whitelist is applied beyond the
+    inherited :meth:`check_deposit_whitelist` preflight;
+    :meth:`can_create_redemption_request` simply requires a positive share
+    balance and no cooldown already in progress.
+
+    **Anvil settlement (force_settle)**
+
+    Deposits settle in their originating transaction. Redemption settlement is
+    time-based, not keeper-based: advance the chain past ``cooldown_end`` and
+    submit :meth:`finish_redemption` (``unstake``). The inherited
+    :meth:`force_settle` performs the Anvil-validated shared no-op and does not
+    itself skip the cooldown.
+    """
 
     def create_redemption_request(
         self,

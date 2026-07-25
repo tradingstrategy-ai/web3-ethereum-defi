@@ -129,15 +129,72 @@ class AccountableRedemptionRequest(RedemptionRequest):
 class AccountableDepositManager(ERC4626DepositManager):
     """Accountable adapter with synchronous deposits and claimed redemptions.
 
-    Supported simulation path: standard ERC-4626 deposits complete
-    immediately and use the shared ``force_settle(None)`` Anvil no-op.
+    Accountable Capital vaults are ERC-4626 vaults whose capital is deployed into
+    an external strategy. Deposits settle immediately, but redemptions follow the
+    ERC-7540 async pattern: a ``requestRedeem`` escrows the shares into a queue,
+    the strategy operator settles it, and the owner later claims the settled
+    assets through the standard ``redeem`` entry point. The contract exposes only
+    controller-level aggregate pending/claimable balances, not per-request
+    balances, which shapes several limitations below.
 
-    Known limitations: redemptions depend on the live strategy's valuation and
-    liquidity checks. This manager has no safe generic Anvil settlement driver
-    for an Accountable redemption ticket, so ``force_settle(ticket)`` raises
-    :class:`UnsupportedVaultSimulation`. Multiple concurrent controller
-    requests, partial claims, repeated settlement rounds and delegated
-    controllers are likewise unsupported.
+    **Deposit process**
+
+    Fully synchronous ERC-4626. :meth:`create_deposit_request` builds a single
+    ``deposit(assets, receiver)`` call (via
+    :func:`~eth_defi.erc_4626.flow.deposit_4626`) after enforcing a minimum and a
+    capacity check. The binding minimum is the greater of the vault-level
+    ``MIN_AMOUNT_WEI`` and the strategy's per-loan ``loan().minDeposit``
+    (:meth:`_fetch_strategy_loan_min_deposit`; open-term strategies revert
+    ``InsufficientAmount()`` (``0x5945ea56``) inside ``strategy.onDeposit`` for a
+    deposit that clears only the vault minimum). A sub-minimum or over-``maxDeposit``
+    request raises :class:`VaultFlowUnavailable`. Estimation uses
+    ``convertToShares`` because this deployment makes ``previewDeposit`` revert.
+
+    **Redemption process**
+
+    Asynchronous. :meth:`create_redemption_request` builds a single
+    ``requestRedeem(shares, owner, owner)`` call; the owner acts as its own
+    ERC-7540 controller and no share-token allowance is needed because
+    ``requestRedeem`` itself escrows the shares. The receiver must equal the
+    owner. The vault-level ``MIN_AMOUNT_WEI`` (in shares) is enforced; the
+    strategy ``minRedeem`` is deliberately **not** applied because its unit is
+    unconfirmed for this deployment. Because claimability is a controller
+    aggregate, an existing pending or claimable request blocks a further request
+    for the same owner (:meth:`is_redemption_in_progress`). Settled shares are
+    claimed with :meth:`finish_redemption`, which calls ``redeem`` for the
+    current claimable amount.
+
+    **Queues and settlement**
+
+    ERC-7540-style queue. Pending and claimable state is read as **controller
+    aggregates** through ``pendingRedeemRequest(0, controller)`` and
+    ``claimableRedeemRequest(0, controller)`` (:meth:`_pending_redeem_shares` /
+    :meth:`_claimable_redeem_shares`), not per request id. Settlement is
+    performed off-band by the strategy operator; timing is not deterministic. The
+    manager only auto-claims self-controlled tickets back to their share owner —
+    it never directs an aggregate claim to a custom receiver or auto-claims a
+    delegated-controller ticket. Multiple concurrent controller requests, partial
+    claims and repeated settlement rounds are not modelled beyond claiming the
+    current aggregate.
+
+    **Lockups and cooldowns**
+
+    No deterministic window. :meth:`estimate_redemption_delay` returns zero and
+    :meth:`get_redemption_delay_over` returns ``None`` because settlement timing
+    is strategy-controlled; :meth:`AccountableVault.get_estimated_lock_up` is
+    likewise ``None``.
+
+    **Whitelisting / access control**
+
+    Permissionless. There is no per-account whitelist or access manager; deposit
+    availability is advised only by ``maxDeposit(owner) > 0``.
+
+    **Anvil settlement (force_settle)**
+
+    Deposits use the shared ``force_settle(None)`` no-op. Redemptions have no safe
+    generic Anvil settlement driver, so ``force_settle(ticket)`` raises
+    :class:`~eth_defi.vault.deposit_redeem.UnsupportedVaultSimulation`;
+    settlement must be driven by the real strategy operator.
     """
 
     def estimate_deposit(
