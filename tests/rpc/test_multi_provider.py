@@ -10,7 +10,7 @@ from eth_defi.chain import has_graphql_support
 from eth_defi.hotwallet import HotWallet
 from eth_defi.provider import multi_provider as multi_provider_module
 from eth_defi.provider.anvil import AnvilForkMetadata, AnvilLaunch, launch_anvil
-from eth_defi.provider.multi_provider import MultiProviderConfigurationError, create_multi_provider_web3
+from eth_defi.provider.multi_provider import DEFAULT_ANVIL_RETRIES, DEFAULT_RETRIES, MultiProviderConfigurationError, MultiProviderWeb3Factory, create_multi_provider_web3
 from eth_defi.provider.named import get_provider_name
 from eth_defi.trace import assert_transaction_success_with_explanation
 from eth_defi.tx import get_tx_broadcast_data
@@ -158,10 +158,48 @@ def test_multi_provider_anvil_launch_metadata(anvil: AnvilLaunch, monkeypatch: p
     )
 
     web3 = create_multi_provider_web3(anvil.json_rpc_url)
+    factory = MultiProviderWeb3Factory(anvil.json_rpc_url)
     provider = web3.get_active_call_provider()
-    context = web3.get_fallback_provider().get_provider_context_for_log(provider)
+    fallback_provider = web3.get_fallback_provider()
+    context = fallback_provider.get_provider_context_for_log(provider)
 
+    assert fallback_provider.retries == DEFAULT_ANVIL_RETRIES
+    assert factory.retries == DEFAULT_ANVIL_RETRIES
     assert context["chain_id"] == anvil.chain_id
     assert context["anvil_upstream_rpc_providers"] == ["rpc.example.test"]
     assert context["anvil_fork_block_number"] == 12_345
     assert context["anvil_effective_fork_provider"] == "127.0.0.1:12345"
+
+    explicit_retries = 4
+    explicitly_retried_web3 = create_multi_provider_web3(
+        anvil.json_rpc_url,
+        retries=explicit_retries,
+    )
+    assert explicitly_retried_web3.get_fallback_provider().retries == explicit_retries
+
+
+def test_multi_provider_keeps_remote_default_retries(
+    anvil: AnvilLaunch,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Use the established retry default without registered Anvil metadata.
+
+    :param anvil:
+        Running local test node used as a responsive ordinary endpoint.
+
+    :param monkeypatch:
+        Pytest monkeypatch fixture.
+
+    :return:
+        None.
+    """
+
+    monkeypatch.setattr(
+        multi_provider_module,
+        "_get_anvil_launch_metadata",
+        lambda _json_rpc_url: None,
+    )
+
+    web3 = create_multi_provider_web3(anvil.json_rpc_url)
+
+    assert web3.get_fallback_provider().retries == DEFAULT_RETRIES

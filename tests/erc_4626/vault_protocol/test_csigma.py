@@ -11,7 +11,7 @@ from eth_defi.erc_4626.classification import create_vault_instance_autodetect
 from eth_defi.erc_4626.core import ERC4626Feature
 from eth_defi.erc_4626.vault_protocol.csigma.deposit_redeem import CsigmaDepositManager
 from eth_defi.erc_4626.vault_protocol.csigma.vault import CSIGMA_V2_POOL_ADDRESS, CsigmaVault
-from eth_defi.provider.anvil import AnvilLaunch, fork_network_anvil
+from eth_defi.provider.anvil import AnvilLaunch, fork_network_anvil, fund_erc20_on_anvil
 from eth_defi.provider.multi_provider import create_multi_provider_web3
 from eth_defi.token import USDC_WHALE
 from eth_defi.trace import assert_transaction_success_with_explanation
@@ -19,6 +19,7 @@ from eth_defi.vault.deposit_redeem import VaultFlowUnavailable
 
 JSON_RPC_ETHEREUM = os.environ.get("JSON_RPC_ETHEREUM")
 EXPECTED_V2_DEPOSITED_RAW_SHARES = 94_348_140
+EXPECTED_SUPQPV_DEPOSITED_RAW_SHARES = 94_445_037
 
 pytestmark = pytest.mark.skipif(JSON_RPC_ETHEREUM is None, reason="JSON_RPC_ETHEREUM needed to run these tests")
 
@@ -196,7 +197,14 @@ def test_csigma_v2_pool_rejects_redemption_above_immediate_capacity(web3: Web3) 
 def test_csigma_supqpv(
     web3: Web3,
 ):
-    """Read cSigma Finance cSuperior Quality Private Credit vault metadata."""
+    """Verify the cSuperior Quality Private Credit synchronous lifecycle.
+
+    The fixed fork proves both request-capacity failures and a complete deposit
+    and redemption against the second cSigma pool advertised by the adapter.
+
+    :param web3:
+        Web3 client connected to the deterministic Ethereum fork.
+    """
 
     vault = create_vault_instance_autodetect(
         web3,
@@ -211,7 +219,43 @@ def test_csigma_supqpv(
     assert vault.get_management_fee("latest") == 0
     assert vault.get_performance_fee("latest") == 0
     assert vault.has_custom_fees() is False
-    assert vault.get_deposit_manager_capability() is None
+    assert isinstance(vault.get_deposit_manager(), CsigmaDepositManager)
+    assert vault.get_deposit_manager_capability().as_dict() == {
+        "can_deposit": True,
+        "can_redeem": True,
+        "deposit_flow": "synchronous",
+        "redemption_flow": "synchronous",
+    }
+    manager = vault.get_deposit_manager()
+    owner = web3.eth.accounts[2]
+    available_raw_assets = manager.fetch_depositable_raw_assets(owner)
+    with pytest.raises(VaultFlowUnavailable, match="deposit exceeds immediate asset capacity"):
+        manager.create_deposit_request(owner=owner, raw_amount=available_raw_assets + 1)
+    available_raw_shares = manager.fetch_redeemable_raw_shares(owner)
+    preflight = manager.fetch_redemption_preflight(owner, available_raw_shares + 1)
+    assert preflight.available is False
+    assert preflight.available_raw_shares == available_raw_shares
+    assert preflight.reason == "redemption_capacity_limited"
+
+    deposit_amount = Decimal(100)
+    denomination_token = vault.denomination_token
+    raw_deposit_amount = denomination_token.convert_to_raw(deposit_amount)
+    fund_erc20_on_anvil(web3, denomination_token.address, owner, raw_deposit_amount)
+    approval_hash = denomination_token.approve(vault.address, deposit_amount).transact({"from": owner})
+    assert_transaction_success_with_explanation(web3, approval_hash)
+
+    deposit_ticket = manager.create_deposit_request(owner=owner, raw_amount=raw_deposit_amount).broadcast(from_=owner)
+    deposit_analysis = manager.analyse_deposit(deposit_ticket.tx_hash, deposit_ticket)
+    assert deposit_analysis.denomination_amount == deposit_amount
+    assert deposit_analysis.share_count == vault.share_token.convert_to_decimals(EXPECTED_SUPQPV_DEPOSITED_RAW_SHARES)
+
+    raw_shares = vault.share_token.fetch_raw_balance_of(owner)
+    assert raw_shares == EXPECTED_SUPQPV_DEPOSITED_RAW_SHARES
+    redemption_ticket = manager.create_redemption_request(owner=owner, raw_shares=raw_shares).broadcast(from_=owner)
+    redemption_analysis = manager.analyse_redemption(redemption_ticket.tx_hash, redemption_ticket)
+    assert redemption_analysis.share_count == vault.share_token.convert_to_decimals(EXPECTED_SUPQPV_DEPOSITED_RAW_SHARES)
+    assert redemption_analysis.denomination_amount == Decimal("99.999999")
+    assert vault.share_token.fetch_raw_balance_of(owner) == 0
 
     # Check vault link
     assert vault.get_link() == "https://edge.csigma.finance/"

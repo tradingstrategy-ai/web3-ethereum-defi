@@ -69,7 +69,10 @@ jobs:
       github.event_name == 'workflow_dispatch'
     runs-on:
       group: Beefy runners
-    timeout-minutes: 30
+    # Archive-provider stalls can make several independent xdist groups each
+    # consume an eight-minute flaky retry. Two PR runs were still progressing
+    # when the previous 30-minute cap cancelled the whole suite.
+    timeout-minutes: 45
 
     concurrency:
       group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}

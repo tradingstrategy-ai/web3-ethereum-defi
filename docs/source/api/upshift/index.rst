@@ -13,4 +13,5 @@ vault API. Upshift does not publish an explicit curator field.
    :recursive:
 
    eth_defi.erc_4626.vault_protocol.upshift.vault
+   eth_defi.erc_4626.vault_protocol.upshift.deposit_redeem
    eth_defi.erc_4626.vault_protocol.upshift.offchain_metadata

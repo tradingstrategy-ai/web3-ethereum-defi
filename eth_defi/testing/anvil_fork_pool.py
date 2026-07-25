@@ -55,6 +55,17 @@ Forking ``latest`` or a per-test arbitrary block breaks all three benefits: the
 cache key never repeats, nothing is shared, and every run pays full
 archive-replay latency. That is why the fixed shared block is mandatory.
 
+Bounded provider retries
+------------------------
+
+Forks must also fail within a bounded period when an upstream archive provider
+is unavailable. For multi-provider configurations,
+:func:`eth_defi.provider.anvil.launch_anvil` gives the automatic RPC proxy one
+attempt per configured provider. The pool's Web3 client does not retry the
+local Anvil because the proxy has already performed upstream failover. Callers
+with legitimately slow fork operations can override the Web3 retry count and
+HTTP timeout in :meth:`AnvilForkPool.get_web3`.
+
 Reference tests to copy
 -----------------------
 
@@ -127,6 +138,13 @@ from web3 import Web3
 
 from eth_defi.provider.anvil import AnvilLaunch, fork_network_anvil
 from eth_defi.provider.multi_provider import create_multi_provider_web3
+from eth_defi.provider.rpc_proxy import RPCProxy, RPCProxyConfig
+
+#: Do not retry a wedged local Anvil after its proxy has tried every upstream.
+POOL_WEB3_RETRIES: int = 0
+
+#: Preserve the established connect/read timeout for legitimate cold-cache calls.
+POOL_WEB3_HTTP_TIMEOUT: tuple[float, float] = (3.0, 60.0)
 
 
 def _freeze(value: Any) -> Any:
@@ -145,6 +163,13 @@ def _freeze(value: Any) -> Any:
     """
     if isinstance(value, dict):
         return tuple(sorted((k, _freeze(v)) for k, v in value.items()))
+    if isinstance(value, RPCProxyConfig):
+        return (
+            RPCProxyConfig,
+            tuple((field.name, _freeze(getattr(value, field.name))) for field in dataclasses.fields(value)),
+        )
+    if isinstance(value, RPCProxy):
+        return (RPCProxy, id(value))
     if isinstance(value, (list, tuple)):
         return tuple(_freeze(v) for v in value)
     if isinstance(value, (set, frozenset)):
@@ -207,6 +232,9 @@ class AnvilForkPool:
         self,
         rpc_url: str,
         fork_block_number: int,
+        *,
+        web3_retries: int = POOL_WEB3_RETRIES,
+        web3_http_timeout: tuple[float, float] = POOL_WEB3_HTTP_TIMEOUT,
         **launch_kwargs: Any,
     ) -> Web3:
         """Return a fresh Web3 pointed at a shared Anvil fork.
@@ -221,6 +249,14 @@ class AnvilForkPool:
         :param fork_block_number:
             Fixed block to fork at.
 
+        :param web3_retries:
+            Number of outer retries against the local Anvil endpoint. Keep this
+            low because the inner RPC proxy already performs provider failover.
+
+        :param web3_http_timeout:
+            Connect and read timeout for local Anvil requests. Override this for
+            a known slow cold-cache operation.
+
         :param launch_kwargs:
             Additional ``fork_network_anvil`` arguments (part of the cache key).
 
@@ -228,7 +264,11 @@ class AnvilForkPool:
             A :class:`web3.Web3` connected to the shared Anvil RPC endpoint.
         """
         launch = self.get_launch(rpc_url, fork_block_number, **launch_kwargs)
-        return create_multi_provider_web3(launch.json_rpc_url)
+        return create_multi_provider_web3(
+            launch.json_rpc_url,
+            default_http_timeout=web3_http_timeout,
+            retries=web3_retries,
+        )
 
     def close_all(self) -> None:
         """Tear down every launched Anvil process.

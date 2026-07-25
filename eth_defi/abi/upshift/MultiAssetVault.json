@@ -1,5 +1,16 @@
 [
   {
+    "inputs": [
+      {"internalType": "address", "name": "assetIn", "type": "address"},
+      {"internalType": "uint256", "name": "amountIn", "type": "uint256"},
+      {"internalType": "address", "name": "receiverAddr", "type": "address"}
+    ],
+    "name": "deposit",
+    "outputs": [{"internalType": "uint256", "name": "shares", "type": "uint256"}],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
     "inputs": [],
     "name": "asset",
     "outputs": [
@@ -40,6 +51,19 @@
   },
   {
     "inputs": [],
+    "name": "depositCap",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
     "name": "getSharePrice",
     "outputs": [
       {
@@ -47,6 +71,19 @@
         "name": "",
         "type": "uint256"
       }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {"internalType": "address", "name": "assetIn", "type": "address"},
+      {"internalType": "uint256", "name": "amountIn", "type": "uint256"}
+    ],
+    "name": "previewDeposit",
+    "outputs": [
+      {"internalType": "uint256", "name": "", "type": "uint256"},
+      {"internalType": "uint256", "name": "", "type": "uint256"}
     ],
     "stateMutability": "view",
     "type": "function"

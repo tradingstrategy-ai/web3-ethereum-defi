@@ -37,6 +37,14 @@ CSIGMA_V2_POOL_ADDRESS: HexAddress = "0x438982ea288763370946625fd76c2508ee1fb229
 #: Ethereum mainnet, where the representative V2 pool was verified.
 CSIGMA_V2_POOL_CHAIN_ID = 1
 
+#: cSigma deployments whose synchronous ERC-4626 lifecycle is fork-proven.
+CSIGMA_SYNCHRONOUS_POOL_ADDRESSES = frozenset(
+    {
+        CSIGMA_V2_POOL_ADDRESS,
+        "0x50d59b785df23728d9948804f8ca3543237a1495",
+    }
+)
+
 
 class CsigmaVault(ERC4626Vault):
     """cSigma Finance vault support.
@@ -60,23 +68,27 @@ class CsigmaVault(ERC4626Vault):
         return False
 
     def get_management_fee(self, block_identifier: BlockIdentifier) -> float | None:
-        """Get the current management fee as a percent.
+        """Return the management fee represented by this adapter.
 
-        Generated: Human can add details later based on protocol documentation.
+        cSigma does not expose a separate management fee through the integrated
+        vault interface.
 
         :return:
-            0.1 = 10%
+            Zero.
         """
+        del block_identifier
         return 0
 
     def get_performance_fee(self, block_identifier: BlockIdentifier) -> float | None:
-        """Get the current performance fee as a percent.
+        """Return the performance fee represented by this adapter.
 
-        Generated: Human can add details later based on protocol documentation.
+        cSigma does not expose a separate performance fee through the
+        integrated vault interface.
 
         :return:
-            0.1 = 10%
+            Zero.
         """
+        del block_identifier
         return 0
 
     def get_estimated_lock_up(self) -> datetime.timedelta | None:
@@ -96,25 +108,27 @@ class CsigmaVault(ERC4626Vault):
         :return:
             Link to the csUSD vault page.
         """
+        del referral
         return "https://edge.csigma.finance/"
 
     def get_deposit_manager(self) -> VaultDepositManager:
         """Create the manager appropriate for this cSigma deployment.
 
         :return:
-            Capacity-aware manager for the verified V2 pool; otherwise the
-            unadvertised generic ERC-4626 manager inherited from the base class.
+            Capacity-aware manager for a verified synchronous pool; otherwise
+            the unadvertised generic ERC-4626 manager inherited from the base
+            class.
         """
-        if self.chain_id == CSIGMA_V2_POOL_CHAIN_ID and self.address.lower() == CSIGMA_V2_POOL_ADDRESS:
+        if self.chain_id == CSIGMA_V2_POOL_CHAIN_ID and self.address.lower() in CSIGMA_SYNCHRONOUS_POOL_ADDRESSES:
             return CsigmaDepositManager(self)
         return super().get_deposit_manager()
 
     def get_deposit_manager_capability(self) -> VaultDepositManagerCapability | None:
-        """Declare support only for the verified cSigma V2 pool.
+        """Declare support only for verified synchronous cSigma pools.
 
         :return:
-            Static support metadata for the V2 pool, otherwise ``None``.
+            Static support metadata for a verified pool, otherwise ``None``.
         """
-        if self.chain_id == CSIGMA_V2_POOL_CHAIN_ID and self.address.lower() == CSIGMA_V2_POOL_ADDRESS:
+        if self.chain_id == CSIGMA_V2_POOL_CHAIN_ID and self.address.lower() in CSIGMA_SYNCHRONOUS_POOL_ADDRESSES:
             return self.get_synchronous_deposit_manager_capability()
         return super().get_deposit_manager_capability()

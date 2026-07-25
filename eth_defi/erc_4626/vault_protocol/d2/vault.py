@@ -5,13 +5,13 @@ from dataclasses import dataclass
 from decimal import Decimal
 from functools import cached_property
 import logging
-from typing import Iterable
+from typing import Iterable, Literal
 
 from web3.contract import Contract
 from eth_typing import BlockIdentifier, HexAddress
 
 from eth_defi.erc_4626.core import get_deployed_erc_4626_contract
-from eth_defi.erc_4626.deposit_redeem import ERC4626DepositManager
+from eth_defi.erc_4626.deposit_redeem import ERC4626DepositManager, ERC4626DepositRequest, ERC4626RedemptionRequest
 from eth_defi.erc_4626.vault import ERC4626HistoricalReader, ERC4626Vault
 from eth_defi.event_reader.conversion import convert_int256_bytes_to_int
 from eth_defi.event_reader.multicall_batcher import EncodedCall, EncodedCallResult
@@ -25,6 +25,7 @@ from eth_defi.vault.base import (
     VaultHistoricalReader,
     VaultTechnicalRisk,
 )
+from eth_defi.vault.deposit_redeem import VaultFlowUnavailable
 
 logger = logging.getLogger(__name__)
 
@@ -67,11 +68,83 @@ class D2DepositManager(ERC4626DepositManager):
         """
         closed_reason = self.vault.fetch_deposit_closed_reason()
         if closed_reason is not None:
-            raise ValueError(f"D2 deposit is unavailable: {closed_reason}")
+            raise VaultFlowUnavailable(
+                closed_reason,
+                protocol=D2_PROTOCOL_NAME,
+                vault_address=self.vault.address,
+                caller=owner,
+                direction="deposit",
+                phase="preflight",
+                next_open=self.vault.fetch_deposit_next_open(),
+            )
         estimate = super().estimate_deposit(owner, amount, block_identifier)
         if estimate <= 0:
-            raise ValueError(f"D2 deposit estimate is zero for {amount} {self.vault.denomination_token.symbol}; pricing is unavailable")
+            reason = f"D2 deposit estimate is zero for {amount} {self.vault.denomination_token.symbol}; pricing is unavailable"
+            raise ValueError(reason)
         return estimate
+
+    def _assert_flow_open(self, owner: HexAddress, direction: Literal["deposit", "redeem"]) -> None:
+        """Reject a known closed D2 epoch before constructing a transaction."""
+        if direction == "deposit":
+            reason = self.vault.fetch_deposit_closed_reason()
+            next_open = self.vault.fetch_deposit_next_open()
+        else:
+            reason = self.vault.fetch_redemption_closed_reason()
+            next_open = self.vault.fetch_redemption_next_open()
+        if reason is not None:
+            raise VaultFlowUnavailable(
+                reason,
+                protocol=D2_PROTOCOL_NAME,
+                vault_address=self.vault.address,
+                caller=owner,
+                direction=direction,
+                phase="preflight",
+                next_open=next_open,
+            )
+
+    def create_deposit_request(  # noqa: PLR0917
+        self,
+        owner: HexAddress,
+        to: HexAddress | None = None,
+        amount: Decimal | None = None,
+        raw_amount: int | None = None,
+        check_max_deposit: bool = True,  # noqa: FBT001, FBT002
+        check_enough_token: bool = True,  # noqa: FBT001, FBT002
+    ) -> ERC4626DepositRequest:
+        """Build a deposit only during D2's funding phase.
+
+        Arguments match the inherited ERC-4626 request interface so existing
+        positional callers remain compatible.
+
+        :return:
+            Standard synchronous deposit request.
+        :raise VaultFlowUnavailable:
+            If the current D2 epoch is not accepting deposits.
+        """
+        self._assert_flow_open(owner, "deposit")
+        return super().create_deposit_request(owner, to, amount, raw_amount, check_max_deposit, check_enough_token)
+
+    def create_redemption_request(  # noqa: PLR0917
+        self,
+        owner: HexAddress,
+        to: HexAddress | None = None,
+        shares: Decimal | None = None,
+        raw_shares: int | None = None,
+        check_max_deposit: bool = True,  # noqa: FBT001, FBT002
+        check_enough_token: bool = True,  # noqa: FBT001, FBT002
+    ) -> ERC4626RedemptionRequest:
+        """Build a redemption only during D2's withdrawal window.
+
+        Arguments match the inherited ERC-4626 request interface so existing
+        positional callers remain compatible.
+
+        :return:
+            Standard synchronous redemption request.
+        :raise VaultFlowUnavailable:
+            If the current D2 epoch is not accepting redemptions.
+        """
+        self._assert_flow_open(owner, "redeem")
+        return super().create_redemption_request(owner, to, shares, raw_shares, check_max_deposit, check_enough_token)
 
 
 D2_PROTOCOL_NAME = "D2 Finance"
@@ -452,17 +525,19 @@ class D2Vault(ERC4626Vault):
         return False
 
     def get_management_fee(self, block_identifier: BlockIdentifier) -> float:
-        """Non on-chain fee information available.
+        """Return the separately reported management fee.
 
         - D2 share price is fees-inclusive per them: https://x.com/D2_Finance/status/1988624499588116979
         """
+        del block_identifier
         return 0.0
 
     def get_performance_fee(self, block_identifier: BlockIdentifier) -> float | None:
-        """Fees are internalized in the share price.
+        """Return the performance fee internalised in the share price.
 
         - D2 share price is fees-inclusive per them: https://x.com/D2_Finance/status/1988624499588116979
         """
+        del block_identifier
         return 0.20
 
     def get_estimated_lock_up(self) -> datetime.timedelta:
