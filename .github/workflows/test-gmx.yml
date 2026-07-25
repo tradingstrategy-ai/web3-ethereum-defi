@@ -31,9 +31,11 @@ jobs:
     # Reserved multicore instance for running tests
     runs-on:
       group: Beefy runners
-    # Hard cap. GMX tests only run when GMX files change (paths filter above), and
-    # the full suite includes the slow order-execution files, so the cap is 30 min.
-    timeout-minutes: 30
+    # Hard 15-minute cap — do NOT raise it. GMX tests only run when GMX files
+    # change (paths filter above); if the full suite exceeds 15 min, fix the test
+    # runs (the slow order-execution files, warm cache), not the timeout. Growing
+    # a CI timeout hides the real slowdown instead of surfacing it.
+    timeout-minutes: 15
 
     if: github.event_name == 'workflow_dispatch' || github.event.pull_request.draft == false || github.event_name == 'push'
 
@@ -241,8 +243,9 @@ jobs:
           # files that each fork per test and simulate the off-chain keeper (with
           # sleeps) — runs here. The workflow `paths:` filters ensure this only
           # happens when GMX code or tests change, so these expensive tests run
-          # exactly when they are relevant, with no time-based schedule. The 30-min
-          # job cap gives the order-execution suite headroom.
+          # exactly when they are relevant, with no time-based schedule. If the
+          # suite exceeds the 15-min job cap, fix the order-execution tests (they
+          # currently revert / are slow), do not raise the cap.
           #
           # Always use verbose pytest output so stalled CI runs show the latest
           # test names in the Actions log.

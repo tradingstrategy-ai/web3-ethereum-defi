@@ -19,10 +19,11 @@ jobs:
     # Reserved multicore instance for running tests
     runs-on:
       group: Beefy runners
-    # Hard cap — test job typically runs ~7-9 min on Beefy on warm cache;
-    # cold-cache or slow external RPC runs can exceed 15 min. 20 min keeps
-    # enough headroom for bounded provider failover while still killing stalls.
-    timeout-minutes: 20
+    # Hard 15-minute cap — do NOT raise it. If a run exceeds 15 min, fix the
+    # test runs (warm the fork RPC cache, isolate/repair flaky tests, speed up
+    # fixtures), not the timeout. Growing a CI timeout hides the real slowdown
+    # instead of surfacing it.
+    timeout-minutes: 15
 
     # Only run the action for the latest push
     # See https://docs.github.com/en/actions/using-jobs/using-concurrency#example-only-cancel-in-progress-jobs-or-runs-for-the-current-workflow

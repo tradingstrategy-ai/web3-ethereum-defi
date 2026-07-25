@@ -14,6 +14,9 @@ on:
 jobs:
   test-slow:
     runs-on: ubuntu-latest
+    # Hard 15-minute cap — do NOT raise it. If the slow suite exceeds 15 min,
+    # fix the test runs (trim or parallelise the slow tests), not the timeout.
+    # Growing a CI timeout hides the real slowdown instead of surfacing it.
     timeout-minutes: 15
 
     if: github.event.pull_request.draft == false || github.event_name == 'push'

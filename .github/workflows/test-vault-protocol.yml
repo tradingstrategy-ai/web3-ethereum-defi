@@ -69,10 +69,11 @@ jobs:
       github.event_name == 'workflow_dispatch'
     runs-on:
       group: Beefy runners
-    # Archive-provider stalls can make several independent xdist groups each
-    # consume an eight-minute flaky retry. Two PR runs were still progressing
-    # when the previous 30-minute cap cancelled the whole suite.
-    timeout-minutes: 45
+    # Hard 15-minute cap — do NOT raise it. Archive-provider stalls / 60s
+    # cold-fork read timeouts must be fixed at the source (warm the fork RPC
+    # cache, add provider failover, isolate flaky tests), not by growing the
+    # timeout. Growing a CI timeout hides the real slowdown instead of surfacing it.
+    timeout-minutes: 15
 
     concurrency:
       group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
@@ -145,18 +146,18 @@ jobs:
         # Cap workers at 4 by default. The pool is session-scoped = per xdist
         # worker, so each worker forks each chain independently; unbounded
         # `-n auto` on a Beefy runner multiplies cold-start upstream archive
-        # connections and exhausts / rate-limits the provider (the "out of API
-        # credits" eth_chainId setup errors). Four bounds that concurrent
-        # upstream load while the 45-minute job timeout gives headroom. The
+        # connections, so cold forks stall and hit the 60s read timeout at
+        # eth_chainId setup. Four bounds that concurrent upstream load; the
         # shared-fork pool + warm RPC cache keep the reduced worker count from
         # serialising against the archive. Overridable via the
         # VAULT_TEST_MAX_WORKERS repo variable if provider limits change.
-        # --timeout=900 is a 15-minute per-test hard timeout (thread method):
-        # a wedged fork/upstream stall is killed at the test level rather than
-        # hanging until the 45-minute job cap.
+        # --timeout=300 is a 5-minute per-test hard timeout (thread method) — well
+        # under the 15-minute job cap, so a single wedged fork is killed at the
+        # test level instead of eating the whole job budget. Do NOT raise the job
+        # cap to accommodate slow runs; fix the fork RPC cache / provider speed.
         run: |
           set -o pipefail
-          poetry run pytest tests/erc_4626/vault_protocol/ --timeout=900 --timeout-method=thread --tb=native -n "${MAX_WORKERS:-4}" --dist loadgroup -v -s --capture=no -m "not slow" 2>&1 | tee pytest-log.txt
+          poetry run pytest tests/erc_4626/vault_protocol/ --timeout=300 --timeout-method=thread --tb=native -n "${MAX_WORKERS:-4}" --dist loadgroup -v -s --capture=no -m "not slow" 2>&1 | tee pytest-log.txt
         env:
           MAX_WORKERS: ${{ vars.VAULT_TEST_MAX_WORKERS || '4' }}
           JSON_RPC_ETHEREUM: ${{ secrets.JSON_RPC_ETHEREUM }}

@@ -74,8 +74,9 @@ We keep forking real chains; we stop paying for the same fork many times over.
   `test-vault-protocol.yml` keeps `-n auto` (a low worker cap was tried but
   serialises against the archive provider and blows the job timeout — the archive
   node, not CPU, is the bottleneck). Transient RPC timeouts are handled by
-  `@flaky`; the shared-fork pool cuts the total fork count. Timeout raised to 30
-  min for headroom; `MAX_WORKERS` stays tunable.
+  `@flaky`; the shared-fork pool cuts the total fork count. The job is capped at
+  15 min (a hard limit — fix slow runs rather than raising it); `MAX_WORKERS`
+  stays tunable.
 
   Being read-only, this PoC validates fork-sharing + xdist co-location but does
   **not** exercise the snapshot/revert-under-xdist hang risk. Converting any
@@ -280,8 +281,9 @@ instead of the current generic `eth_chainId` `RuntimeError`.
   worker), multiplying cold-start upstream connections and exhausting the
   provider. The `test-vault-protocol.yml` default is now **`-n 4`**
   (`MAX_WORKERS:-4`, still overridable via the `VAULT_TEST_MAX_WORKERS` repo
-  variable), bounding concurrent upstream archive connections; the 45-minute job
-  timeout gives headroom, and the shared-fork pool + warm cache keep the lower
+  variable), bounding concurrent upstream archive connections; the 15-minute job
+  cap is a hard limit (fix slow runs, do not raise it), and the shared-fork pool
+  + warm cache keep the lower
   worker count from serialising against the archive. Also confirm **all
   same-chain tests carry one `xdist_group`** (e.g. every Ethereum test on
   `fork:ethereum:midnight`; `test_frax` / `test_maple` / `test_sky` from the
@@ -368,7 +370,8 @@ Implemented on top of the plan above:
   order-execution / vault-deploy files that fork per test + simulate the keeper
   with sleeps) whenever GMX files change — the workflow's `paths:` filters
   already gate it to `eth_defi/gmx/**` / `tests/gmx/**`, so no time-based
-  schedule is needed; job cap raised 12→30 min for the order-execution suite.
+  schedule is needed. The job cap is 15 min — if the order-execution suite
+  exceeds it, fix those tests, do not raise the cap.
 
 Remaining backlog (audited, not yet done — needs a validating CI/test run):
 
