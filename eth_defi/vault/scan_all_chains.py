@@ -1499,7 +1499,7 @@ def scan_core3_fn(
 def scan_xerberus_fn(
     xerberus_db_path: Path,
     fetch_vault_lists: bool = True,
-    fetch_reports: bool = False,
+    fetch_reports: bool = True,
     api_key: str | None = None,
     api_email: str | None = None,
 ) -> ChainResult:
@@ -1973,7 +1973,7 @@ def run_scan_tick(
     rpc_tracking_database_path: Path | None = None,
     xerberus_db_path: Path | None = None,
     xerberus_fetch_vault_list: bool = True,
-    xerberus_fetch_reports: bool = False,
+    xerberus_fetch_reports: bool = True,
     scan_xerberus: bool = False,
 ) -> dict[str, ChainResult]:
     """Execute one scan tick: EVM chains + native protocols + post-processing.
@@ -2520,7 +2520,7 @@ def main():
     core3_max_workers = int(os.environ.get("CORE3_MAX_WORKERS", "8"))
     core3_fetch_sections = os.environ.get("CORE3_FETCH_SECTIONS", "true").lower() == "true"
     xerberus_fetch_vault_list = os.environ.get("XERBERUS_FETCH_VAULT_LIST", "true").lower() == "true"
-    xerberus_fetch_reports = os.environ.get("XERBERUS_FETCH_REPORTS", "false").lower() == "true"
+    xerberus_fetch_reports = os.environ.get("XERBERUS_FETCH_REPORTS", "true").lower() == "true"
     currency_api_max_workers = int(os.environ.get("CURRENCY_API_MAX_WORKERS", "8"))
     frequency = os.environ.get("FREQUENCY", "1h")
     skip_post_processing = os.environ.get("SKIP_POST_PROCESSING", "false").lower() == "true"

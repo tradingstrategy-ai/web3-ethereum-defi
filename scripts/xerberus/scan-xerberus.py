@@ -19,7 +19,7 @@ Environment variables:
   address.
 - ``XERBERUS_DATABASE_PATH``: DuckDB path (default under ~/.tradingstrategy/vaults/xerberus/)
 - ``XERBERUS_FETCH_VAULT_LIST``: ``true``/``false`` (default true)
-- ``XERBERUS_FETCH_REPORTS``: ``true``/``false`` (default false)
+- ``XERBERUS_FETCH_REPORTS``: ``true``/``false`` (default true)
 - ``LOG_LEVEL``: default warning
 """
 

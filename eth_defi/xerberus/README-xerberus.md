@@ -127,7 +127,7 @@ session = create_xerberus_session(
 | `XERBERUS_DATABASE_PATH` | no | Default under `~/.tradingstrategy/vaults/xerberus/` |
 | `SKIP_XERBERUS` | no | `true` disables all-chains enrichment |
 | `XERBERUS_FETCH_VAULT_LIST` | no | Default `true` |
-| `XERBERUS_FETCH_REPORTS` | no | Default `false` |
+| `XERBERUS_FETCH_REPORTS` | no | Default `true` (set `false` to skip dendrogram URL backfill) |
 | `XERBERUS_REPORT_LIMIT` | no | Default `50` |
 
 ## Scripts

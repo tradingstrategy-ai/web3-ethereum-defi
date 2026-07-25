@@ -119,7 +119,7 @@ Environment variables:
     - XERBERUS_DATABASE_PATH: Path to Xerberus DuckDB
       (default: ~/.tradingstrategy/vaults/xerberus/xerberus.duckdb)
     - XERBERUS_FETCH_VAULT_LIST: "false" to skip platform vault list endpoints (default: "true")
-    - XERBERUS_FETCH_REPORTS: "true" to backfill dendrogram report URLs (default: "false")
+    - XERBERUS_FETCH_REPORTS: "false" to skip dendrogram report URL backfill (default: "true")
     - RETRY_COUNT: Number of retry attempts (default: "1")
     - MAX_WORKERS: Number of parallel workers (default: "50")
     - FREQUENCY: "1h" or "1d" (default: "1h")

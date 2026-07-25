@@ -608,7 +608,7 @@ Paths:
 | `XERBERUS_DATABASE_PATH` | no | Default path above |
 | `SKIP_XERBERUS` | no | `false`; default-on when both credentials set |
 | `XERBERUS_FETCH_VAULT_LIST` | no | `true` |
-| `XERBERUS_FETCH_REPORTS` | no | `false` |
+| `XERBERUS_FETCH_REPORTS` | no | `true` |
 | `XERBERUS_REPORT_LIMIT` | no | `50` |
 | `XERBERUS_REQUESTS_PER_MINUTE` | no | `8` |
 | `XERBERUS_MIN_REQUEST_INTERVAL_SECONDS` | no | `7.5` |

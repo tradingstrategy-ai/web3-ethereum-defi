@@ -40,7 +40,7 @@ def run_xerberus_scan_cli(
 
     db_path = resolve_xerberus_database_path()
     fetch_vault_lists = os.environ.get("XERBERUS_FETCH_VAULT_LIST", "true").lower() == "true"
-    fetch_reports = os.environ.get("XERBERUS_FETCH_REPORTS", "false").lower() == "true"
+    fetch_reports = os.environ.get("XERBERUS_FETCH_REPORTS", "true").lower() == "true"
     api_key = os.environ.get("XERBERUS_API_KEY")
     api_email = resolve_xerberus_api_email()
 

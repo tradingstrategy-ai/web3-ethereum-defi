@@ -56,7 +56,7 @@ def scan_xerberus(
     session: XerberusSession,
     db_path: Path = XERBERUS_DATABASE_PATH,
     fetch_vault_lists: bool = True,
-    fetch_reports: bool = False,
+    fetch_reports: bool = True,
     report_limit: int = XERBERUS_DEFAULT_REPORT_LIMIT,
     registry_types: tuple[str, ...] = ("pool", "protocol"),
     timeout: float = XERBERUS_DEFAULT_TIMEOUT,

@@ -226,7 +226,7 @@ poetry run python scripts/erc-4626/scan-vaults-all-chains.py
 | `XERBERUS_API_EMAIL` | Optional for pipeline, **required with the key** for live API calls. Email registered with the key when it was issued (sent as `x-user-email`). **Agents must not guess this value** — only use operator-supplied env/secrets. |
 | `XERBERUS_DATABASE_PATH` | Optional. Xerberus DuckDB path. Default: `~/.tradingstrategy/vaults/xerberus/xerberus.duckdb`. |
 | `XERBERUS_FETCH_VAULT_LIST` | Optional. Poll platform vault lists. Default: true. |
-| `XERBERUS_FETCH_REPORTS` | Optional. Backfill dendrogram report URLs. Default: false. |
+| `XERBERUS_FETCH_REPORTS` | Optional. Backfill dendrogram report URLs. Default: true. |
 
 ### Xerberus risk enrichment
 
