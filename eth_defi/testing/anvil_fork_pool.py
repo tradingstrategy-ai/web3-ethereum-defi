@@ -42,7 +42,11 @@ Why this matters — the warm RPC cache
 --------------------------------------
 
 Anvil persists every ``eth_call`` / ``eth_getStorageAt`` archive response it
-replays to ``~/.foundry/cache/rpc/<network>/<block>/``. When many
+replays to ``~/.foundry/cache/rpc/<network>/<block>/`` — but **only on a graceful
+shutdown** (its ``Drop`` flushes the file; a ``SIGKILL`` discards it). So
+:meth:`~eth_defi.provider.anvil.AnvilLaunch.close` ``SIGTERM``s Anvil and waits
+for the flush before falling back to ``SIGKILL``; without that the cache is never
+written and every run cold-fetches. When many
 characterisation tests fork **the same fixed block**, they read overlapping
 state, so that on-disk cache becomes dense and later runs replay from disk
 instead of re-hammering the upstream archive node. CI restores and re-saves this

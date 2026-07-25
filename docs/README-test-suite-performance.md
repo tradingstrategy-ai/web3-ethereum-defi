@@ -409,10 +409,19 @@ Measured locally (anvil 1.7.1) against the same CI providers
 **Conclusion:** a healthy cold fork is ~3 s, so the 60 s read timeout
 (`POOL_WEB3_HTTP_TIMEOUT`) is already ~20× sufficient and is deliberately left
 unchanged — a CI timeout is **upstream throttling of the runner IP**, not an
-undersized cap. Raising it would only delay the failure. The fixes are a warm
-fork RPC cache, provider failover, and/or a provider that does not rate-limit the
-CI IP — not a bigger timeout. Run the script from a host using the CI RPC secrets
-to compare its cold-fork times against this ~3 s baseline.
+undersized cap. Raising it would only delay the failure.
+
+**Root cause of the throttling (2026-07-25).** CI was throttled because it
+cold-fetched *every* run — and it did so because **the fork RPC cache was never
+written**. Anvil only flushes `storage.json` on a *graceful* shutdown; our
+teardown `SIGKILL`'d it (`shutdown_hard` → `process.kill()`), so nothing was ever
+persisted for `actions/cache` to save. Verified directly: `SIGINT`/`SIGTERM`
+writes the cache, `SIGKILL` writes nothing. **Fix:** `AnvilLaunch.close()` now
+sends `SIGTERM` and waits up to `ANVIL_GRACEFUL_SHUTDOWN_TIMEOUT` (5 s) for the
+flush before a `SIGKILL` fallback (bounded, so teardown cannot hang). With the
+cache actually written, the existing `actions/cache` restore/save steps finally
+warm it across runs — the primary remedy, ahead of provider failover or a
+non-throttling provider. See `eth_defi/testing/README.md` §5.
 
 ## Why
 

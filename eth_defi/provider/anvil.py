@@ -89,6 +89,15 @@ ANVIL_PROXY_MAX_ATTEMPT_TIMEOUT: float = 15.0
 #: preserved unchanged.
 ANVIL_PROXY_TOTAL_TIMEOUT: float = 55.0
 
+#: Seconds to wait for Anvil to exit cleanly (``SIGTERM``) before ``SIGKILL`` on
+#: :meth:`AnvilLaunch.close`. Anvil flushes its fork RPC cache
+#: (``~/.foundry/cache/rpc/<network>/<block>/storage.json``) only on a graceful
+#: shutdown; a straight ``SIGKILL`` discards it, so without this the on-disk fork
+#: cache never accumulates and CI keeps cold-fetching (and getting throttled).
+#: The flush of a single block is fast; the bounded wait plus SIGKILL fallback
+#: keeps teardown from hanging.
+ANVIL_GRACEFUL_SHUTDOWN_TIMEOUT: float = 5.0
+
 #: Per-thread state tracking the last used RPC index for multi-RPC fork URLs.
 #: This is a workaround for test flakiness on CI: when multiple RPC endpoints
 #: are available (space-separated in fork_url), each call to launch_anvil()
@@ -678,6 +687,9 @@ class AnvilLaunch:
                 block=block,
                 block_timeout=block_timeout,
                 check_port=self.port,
+                # Let Anvil flush its fork RPC cache to disk before dying, so a
+                # warm cache accumulates across runs (see the constant docstring).
+                graceful_timeout=ANVIL_GRACEFUL_SHUTDOWN_TIMEOUT,
             )
             logger.info("Anvil shutdown %s", self.json_rpc_url)
             return stdout, stderr

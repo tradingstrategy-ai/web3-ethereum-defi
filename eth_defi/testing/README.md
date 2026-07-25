@@ -140,18 +140,67 @@ while each test still sees it pristine.
 Use the per-test deploy fixture (e.g. `automated_lagoon_vault`) only when the
 deployment *is* the test subject (custom parameters, deliberate misconfiguration).
 
-## 5. The Foundry fork RPC cache (CI)
+## 5. The warm Foundry fork RPC cache
 
-Anvil caches archive reads at a fixed block under `~/.foundry/cache/rpc`. Because
-all same-chain tests share one canonical block, that cache is small and dense —
-warm runs replay from disk and barely touch the upstream archive.
+Anvil caches archive reads at a fixed block under
+`~/.foundry/cache/rpc/<network>/<block>/storage.json`. Because all same-chain
+tests share one canonical block, that cache is small and dense — warm runs replay
+from disk and barely touch (and so are not throttled by) the upstream archive.
 
-Locally this is automatic (`~/.foundry` persists). On CI the cache must be
-persisted deliberately: `actions/cache@v4` only saves on job *success*, so the
-fork workflows split it into `actions/cache/restore` + `actions/cache/save` with
-`if: always()` — blocks read on one run (even a failing one) replay next run.
-See the `Restore/Save Foundry fork RPC cache` steps in `.github/workflows/test.yml`,
-`test-gmx.yml`, `test-slow.yml`, and `test-vault-protocol.yml`.
+### How persistence actually works (the graceful-shutdown requirement)
+
+**Anvil only writes that cache on a graceful shutdown** (its Rust `Drop` flushes
+`storage.json`). A `SIGKILL` discards it. For a long time our teardown
+`SIGKILL`'d Anvil (`shutdown_hard`), so **the fork cache was never written** —
+which is why CI kept cold-fetching every run and getting rate-limited (the
+`read_timeout` fork-setup failures). Fixed: `AnvilLaunch.close()` now sends
+`SIGTERM` and waits up to `ANVIL_GRACEFUL_SHUTDOWN_TIMEOUT` (5 s) for the flush,
+then `SIGKILL`s as a fallback (bounded, so teardown cannot hang). With this,
+every fork test persists its cache.
+
+### How to create / warm it
+
+Just **run the fork tests** — each one now flushes its block's cache on teardown:
+
+```shell
+source .local-test.env && poetry run pytest tests/erc_4626/vault_protocol/ -m "not slow"
+```
+
+Locally the cache then persists in `~/.foundry/cache/rpc` and later runs are warm
+automatically. On CI it is persisted across runs by the `actions/cache/restore` +
+`actions/cache/save` (`if: always()`) steps — see `Restore/Save Foundry fork RPC
+cache` in `.github/workflows/test.yml`, `test-gmx.yml`, `test-slow.yml`,
+`test-vault-protocol.yml`. Because the cache is now actually written, those steps
+finally accumulate a warm cache across runs.
+
+### How to update it
+
+Bump the `*_MIDNIGHT_BLOCK` constants (`eth_defi/testing/fork_blocks.py`), then
+re-run the affected tests — the new block's cache is written on teardown. Old
+block dirs under `~/.foundry/cache/rpc` become dead and can be purged.
+
+### How to purge it
+
+- **Local:** `rm -rf ~/.foundry/cache/rpc` (or a single `.../<network>/<block>/`).
+- **CI:** delete the `foundry-rpc-*` entries via the Actions cache UI / `gh cache
+  delete`; the next run rebuilds them.
+
+### Optional: a committed seed cache for a cold first run
+
+`eth_defi/testing/rpc_cache.py` can seed `~/.foundry/cache/rpc` from repo-supplied
+files (`eth_defi/testing/rpc_cache_seed/<network>/<block>/…`, auto-applied by the
+`_seed_foundry_rpc_cache` session fixture in `tests/conftest.py`). This is only
+needed if you want warmth on a *cold* CI cache (first run / evicted Actions
+cache) without waiting for it to re-accumulate:
+
+- **create:** run the tests once to warm `~/.foundry/cache/rpc`, then copy the
+  `<network>/<block>/` dirs you want into `eth_defi/testing/rpc_cache_seed/`.
+- **commit:** `git add eth_defi/testing/rpc_cache_seed/<network>/<block>/`. Keep
+  it to the canonical midnight blocks (each is small); note it adds binaries to
+  git, so prefer relying on the Actions cache unless a cold-start guarantee is
+  needed.
+- **update:** re-copy after bumping a midnight block; delete the stale block dir.
+- **purge:** `git rm -r eth_defi/testing/rpc_cache_seed/<network>/<block>/`.
 
 ## Cold-fork read timeouts (the "out of credits" red herring)
 
@@ -168,12 +217,14 @@ already ~20× a healthy cold fork — it is **sufficient**, and raising it only
 delays the failure. Do not raise it to mask a slow provider.
 
 A 60 s timeout in CI therefore means the **upstream provider is slow or
-rate-limiting the runner IP**, not that credits are exhausted. Fix the upstream,
-not the timeout: warm the fork RPC cache (section 5 + the repo-seed mechanism in
-`eth_defi/testing/rpc_cache.py`), configure two space-separated `JSON_RPC_*`
-providers per chain for failover, or use a provider that does not throttle the
-CI IP. Run the script from a machine with the CI RPC secrets to compare against
-the ~3 s baseline.
+rate-limiting the runner IP**, not that credits are exhausted — and CI was
+throttled because it cold-fetched *every* run. The **root cause was that the fork
+cache was never written** (Anvil `SIGKILL`'d before it could flush); the
+graceful-shutdown fix in section 5 lets the cache warm across runs, which is the
+primary remedy. Also useful: two space-separated `JSON_RPC_*` providers per chain
+for failover, or a provider that does not throttle the CI IP. Run the measurement
+script from a machine with the CI RPC secrets to compare against the ~3 s
+baseline.
 
 ## When NOT to normalise / share
 
