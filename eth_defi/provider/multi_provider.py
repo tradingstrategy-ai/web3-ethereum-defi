@@ -419,7 +419,7 @@ def create_multi_provider_web3(
                 # still avoided here; the raised ChainIdMismatch keeps the
                 # pre-existing hint for local debugging.
                 logger.warning("eth_chainId probe failed for transact provider %s: failure_mode=%s", transact_domain, failure_mode.value)
-                raise ChainIdMismatch(f"Could not call eth_chainId on {transact_name} provider (failure_mode={failure_mode.value}). Is it a valid JSON-RPC provider? As this is often the first call, you might be also out of API credits. Hint is {e}") from e
+                raise ChainIdMismatch(f"Could not call eth_chainId on {transact_name} provider (failure_mode={failure_mode.value}). Is it a valid JSON-RPC provider? A healthy first call answers within seconds, so a timeout here means a slow or rate-limited upstream (see failure_mode), not necessarily out of API credits.") from e
 
         provider = MEVBlockerProvider(
             call_provider=fallback_provider,

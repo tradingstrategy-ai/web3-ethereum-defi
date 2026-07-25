@@ -388,6 +388,32 @@ Remaining backlog (audited, not yet done — needs a validating CI/test run):
 - Populate the `JSON_RPC_*` CI secrets with 2+ providers (activates failover +
   silences the single-provider warning), and commit real seed cache files.
 
+### Cold-fork timing measurement (2026-07-25)
+
+The vault-protocol failures classify as `failure_mode=read_timeout` at the 60 s
+`eth_chainId` fork-setup call — **not** `out_of_credits` (that text was a
+misleading canned hint, now corrected in the error message). To size the timeout
+correctly, `scripts/measure-cold-fork-time.py` measures real cold/warm fork
+setup per chain (clears the Foundry cache for the block, forks, times launch +
+first block read).
+
+Measured locally (anvil 1.7.1) against the same CI providers
+(`edge.goldsky.com`, `lb.drpc.org`, `arb-mainnet.g.alchemy.com`):
+
+| scenario | Ethereum block 25,598,869 | Arbitrum block 487,039,644 |
+|---|---|---|
+| single cold fork | ~3.1 s | ~3.1 s |
+| warm fork | ~2.5 s | ~3.2 s |
+| 6 concurrent cold forks | ~2.4–3.0 s each (3.5 s wall) | — |
+
+**Conclusion:** a healthy cold fork is ~3 s, so the 60 s read timeout
+(`POOL_WEB3_HTTP_TIMEOUT`) is already ~20× sufficient and is deliberately left
+unchanged — a CI timeout is **upstream throttling of the runner IP**, not an
+undersized cap. Raising it would only delay the failure. The fixes are a warm
+fork RPC cache, provider failover, and/or a provider that does not rate-limit the
+CI IP — not a bigger timeout. Run the script from a host using the CI RPC secrets
+to compare its cold-fork times against this ~3 s baseline.
+
 ## Why
 
 The suite is an integration suite behaving like a unit suite:

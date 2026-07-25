@@ -153,6 +153,28 @@ fork workflows split it into `actions/cache/restore` + `actions/cache/save` with
 See the `Restore/Save Foundry fork RPC cache` steps in `.github/workflows/test.yml`,
 `test-gmx.yml`, `test-slow.yml`, and `test-vault-protocol.yml`.
 
+## Cold-fork read timeouts (the "out of credits" red herring)
+
+The vault-protocol / GMX jobs sometimes fail at fork setup with a 60-second
+`eth_chainId` read timeout. The error historically hinted "you might be out of
+API credits" — this is **misleading**. The classified `failure_mode` is
+`read_timeout`: Anvil is blocked initialising its fork against the upstream
+archive and does not answer the first call in time.
+
+`scripts/measure-cold-fork-time.py` measures the real cost. Locally (anvil
+1.7.1, 2026-07-25) a single cold fork of a midnight block completes in **~3 s**,
+and **six concurrent** cold forks stay ~2.5 s each. So the 60 s read timeout is
+already ~20× a healthy cold fork — it is **sufficient**, and raising it only
+delays the failure. Do not raise it to mask a slow provider.
+
+A 60 s timeout in CI therefore means the **upstream provider is slow or
+rate-limiting the runner IP**, not that credits are exhausted. Fix the upstream,
+not the timeout: warm the fork RPC cache (section 5 + the repo-seed mechanism in
+`eth_defi/testing/rpc_cache.py`), configure two space-separated `JSON_RPC_*`
+providers per chain for failover, or use a provider that does not throttle the
+CI IP. Run the script from a machine with the CI RPC secrets to compare against
+the ~3 s baseline.
+
 ## When NOT to normalise / share
 
 - The test **deposits/redeems and needs impersonated signers** the shared

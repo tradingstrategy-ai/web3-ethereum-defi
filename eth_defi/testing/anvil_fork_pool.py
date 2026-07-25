@@ -55,6 +55,32 @@ Forking ``latest`` or a per-test arbitrary block breaks all three benefits: the
 cache key never repeats, nothing is shared, and every run pays full
 archive-replay latency. That is why the fixed shared block is mandatory.
 
+Cold-fork read-timeout failures — the CI symptom and what it means
+------------------------------------------------------------------
+
+Fork setup can fail with a 60-second ``eth_chainId`` read timeout, historically
+hinted (misleadingly) as "out of API credits". The classified ``failure_mode``
+is ``read_timeout``: Anvil is blocked initialising its fork against the upstream
+archive and does not answer the first call in time.
+
+**Measured expected delay** (``scripts/measure-cold-fork-time.py``, anvil 1.7.1,
+2026-07-25): a single cold fork of a midnight block completes in **~3 seconds**,
+and even **six concurrent** cold forks of the same block stay at ~2.5 s each. So
+the 60 s Web3 read timeout (:data:`POOL_WEB3_HTTP_TIMEOUT`) is already ~20× a
+healthy cold fork and is **sufficient** — a timeout is not the cap being too
+small, and raising it only delays the failure (do not raise it to mask a slow
+provider).
+
+A 60 s timeout in CI therefore means the **upstream provider is slow or is
+rate-limiting the runner IP**, not that the fork is legitimately slow and not
+that credits are exhausted (a healthy fork answers in seconds). The fix is
+upstream reliability, not a bigger timeout: (1) a warm fork RPC cache so CI never
+cold-fetches (see above and the repo-seed mechanism in
+:mod:`eth_defi.testing.rpc_cache`), (2) provider failover across space-separated
+``JSON_RPC_*`` endpoints, (3) a provider that does not throttle the CI IP. Run
+the measurement script from a machine using the CI RPC secrets to compare its
+cold-fork times against this ~3 s local baseline.
+
 Bounded provider retries — fail fast, never re-hammer a dead provider
 ---------------------------------------------------------------------
 

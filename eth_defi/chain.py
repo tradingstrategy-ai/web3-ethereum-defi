@@ -412,13 +412,16 @@ def install_chain_middleware(web3: Web3, poa_middleware=None, hint: str = ""):
         try:
             poa_middleware = web3.eth.chain_id in POA_MIDDLEWARE_NEEDED_CHAIN_IDS
         except Exception as e:
-            # Github WTF. This is the dominant fork-setup failure path when the
-            # upstream archive provider is exhausted; name the classified failure
-            # mode (out_of_credits / rate_limited / read_timeout / …) so CI output
-            # shows *why* the first call failed. See eth_defi.provider.rpc_failure.
+            # Github WTF. Dominant fork-setup failure path. Name the classified
+            # failure mode (read_timeout / rate_limited / out_of_credits / …) so
+            # CI output shows *why* the first call failed instead of guessing
+            # "out of API credits" — measured healthy cold forks answer in a few
+            # seconds, so a timeout here is a slow/rate-limited upstream, not
+            # necessarily an exhausted quota. See eth_defi.provider.rpc_failure
+            # and scripts/measure-cold-fork-time.py.
             name = get_provider_name(web3.provider)
             failure_mode = classify_rpc_failure(e)
-            raise RuntimeError(f"Could not call eth_chainId on {name} provider (failure_mode={failure_mode.value}). Is it a valid JSON-RPC provider? As this is often the first call, you might be also out of API credits. Hint is {hint}") from e
+            raise RuntimeError(f"Could not call eth_chainId on {name} provider (failure_mode={failure_mode.value}). Is it a valid JSON-RPC provider? A healthy cold fork answers within seconds, so a timeout here means a slow or rate-limited upstream (see failure_mode), not necessarily out of API credits. Hint is {hint}") from e
 
     if poa_middleware:
         from web3.middleware import ExtraDataToPOAMiddleware
