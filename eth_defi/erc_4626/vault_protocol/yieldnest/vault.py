@@ -108,6 +108,21 @@ class YieldNestVault(ERC4626Vault):
         """
         return "https://app.yieldnest.finance/"
 
+    def get_deposit_manager(self) -> "YieldNestDepositManager":
+        """Return the YieldNest manager with a buffer-limited redemption preflight.
+
+        Deposits are synchronous ERC-4626; the redemption path adds a
+        ``maxRedeem(owner)`` capacity preflight so an over-buffer redemption is
+        refused as a typed ``VaultFlowUnavailable`` (decoded
+        ``ExceededMaxRedeem``) rather than a raw ``0xb8b8b59c`` revert.
+
+        :return:
+            YieldNest deposit/redemption manager.
+        """
+        from eth_defi.erc_4626.vault_protocol.yieldnest.deposit_redeem import YieldNestDepositManager
+
+        return YieldNestDepositManager(self)
+
     def can_check_deposit(self) -> bool:
         """YieldNest doesn't support address(0) checks for maxDeposit.
 

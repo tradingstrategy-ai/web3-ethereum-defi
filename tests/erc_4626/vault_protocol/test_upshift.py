@@ -239,6 +239,15 @@ def test_upshift_sentora_multi_asset_deposit_lifecycle(sentora_web3: Web3, sento
     assert manager.estimate_deposit_for_asset(owner, Decimal(1), eighteen_decimal_asset.address) == Decimal("0.969683")
     eighteen_decimal_max_deposit = manager.fetch_max_deposit_for_asset(eighteen_decimal_asset.address)
     assert eighteen_decimal_asset.convert_to_decimals(eighteen_decimal_max_deposit) == asset.convert_to_decimals(max_deposit)
+
+    # The generic deposit-limit hook answers from the multi-asset reader (first
+    # accepted asset) instead of raising ABIFunctionNotFound on the missing
+    # ERC-4626 maxDeposit.
+    first_asset = manager.fetch_accepted_assets()[0]
+    hook_limit = manager.fetch_depositable_raw_assets(owner)
+    assert hook_limit == manager.fetch_max_deposit_for_asset(first_asset.address)
+    assert hook_limit > 0
+
     with pytest.raises(VaultFlowUnavailable, match="protocol limits") as exc_info:
         manager.create_deposit_request(
             owner=owner,

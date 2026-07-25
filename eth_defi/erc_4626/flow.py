@@ -7,6 +7,7 @@ from eth_typing import HexAddress
 from web3.contract.contract import ContractFunction
 
 from eth_defi.erc_4626.vault import ERC4626Vault
+from eth_defi.vault.deposit_redeem import VaultFlowUnavailable
 
 logger = logging.getLogger(__name__)
 
@@ -100,12 +101,36 @@ def deposit_4626(
 
     if check_enough_token:
         actual_balance_raw = vault.denomination_token.fetch_raw_balance_of(from_)
-        assert actual_balance_raw >= raw_amount, f"Not enough token in {from_} to deposit {amount} to {vault.address}, has {actual_balance_raw}, tries to deposit {raw_amount}"
+        if actual_balance_raw < raw_amount:
+            raise VaultFlowUnavailable(
+                f"Not enough token in {from_} to deposit to vault {vault.address} on chain {vault.chain_id}: has {actual_balance_raw}, tries to deposit {raw_amount}",
+                protocol=vault.get_protocol_name(),
+                vault_address=vault.address,
+                caller=from_,
+                direction="deposit",
+                phase="preflight",
+                requested_raw_amount=raw_amount,
+                available_raw_amount=actual_balance_raw,
+            )
 
     if check_max_deposit:
         max_deposit = contract.functions.maxDeposit(receiver).call()
-        if max_deposit != 0:
-            assert raw_amount <= max_deposit, f"Max deposit {max_deposit} is less than {raw_amount}"
+        # EIP-4626 says an unbounded vault returns type(uint256).max; empirically
+        # some deployments return 0 for "no limit exposed" rather than "deposits
+        # disabled". We keep treating 0 as "no limit" here (deliberate asymmetry
+        # with the maxRedeem==0 handling below, which callers can opt into
+        # treating as a closed/request-based redemption).
+        if max_deposit != 0 and raw_amount > max_deposit:
+            raise VaultFlowUnavailable(
+                f"Deposit capacity exceeded for vault {vault.address} on chain {vault.chain_id}: requested {raw_amount}, maxDeposit {max_deposit}",
+                protocol=vault.get_protocol_name(),
+                vault_address=vault.address,
+                caller=receiver,
+                direction="deposit",
+                phase="preflight",
+                requested_raw_amount=raw_amount,
+                available_raw_amount=max_deposit,
+            )
 
     call = contract.functions.deposit(raw_amount, receiver)
     return call
@@ -235,20 +260,45 @@ def redeem_4626(
             raw_amount = raw_available
 
     if check_enough_token:
-        assert raw_available >= raw_amount, f"ERC-4626 redemption: {owner} does not have enough tokens to complete redeem from {vault.address}, has {raw_available}, wanted to redeem {raw_amount}"
+        if raw_available < raw_amount:
+            raise VaultFlowUnavailable(
+                f"ERC-4626 redemption: {owner} does not have enough shares to redeem from vault {vault.address} on chain {vault.chain_id}: has {raw_available}, wanted to redeem {raw_amount}",
+                protocol=vault.get_protocol_name(),
+                vault_address=vault.address,
+                caller=owner,
+                direction="redeem",
+                phase="preflight",
+                requested_raw_amount=raw_amount,
+                available_raw_amount=raw_available,
+            )
 
     if check_max_redeem:
         max_redeem = contract.functions.maxRedeem(receiver).call()
 
-        # Some vaults always return max redeem as zero?
+        # Some vaults always return maxRedeem as zero while still permitting
+        # redemption, so a zero is treated as "no limit exposed" and the
+        # capacity guard is skipped (mirrors the maxDeposit==0 handling in
+        # deposit_4626). A protocol that knows a zero means "closed /
+        # request-based" gates it in its own manager preflight before this
+        # generic path (e.g. YieldNest, Plutus raise a typed VaultFlowUnavailable).
         if max_redeem != 0:
             diff = abs(max_redeem - raw_amount) / raw_amount
 
-            if diff != 0 and diff < epsilon:
+            if epsilon and diff != 0 and diff < epsilon:
                 logger.info("Applying maxRedeem epsilon correction %s -> %s", raw_amount, max_redeem)
                 raw_amount = max_redeem
 
-            assert raw_amount <= max_redeem, f"Max redeem {max_redeem} (raw) is less than what we try to redeem {raw_amount} (raw), diff {diff:.6%} ({diff / 10**18}) "
+            if raw_amount > max_redeem:
+                raise VaultFlowUnavailable(
+                    f"Redemption capacity exceeded for vault {vault.address} on chain {vault.chain_id}: requested {raw_amount}, maxRedeem {max_redeem}, diff {diff:.6%}",
+                    protocol=vault.get_protocol_name(),
+                    vault_address=vault.address,
+                    caller=receiver,
+                    direction="redeem",
+                    phase="preflight",
+                    requested_raw_amount=raw_amount,
+                    available_raw_amount=max_redeem,
+                )
 
     call = contract.functions.redeem(raw_amount, owner, receiver)
     return call

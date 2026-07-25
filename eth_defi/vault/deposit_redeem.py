@@ -334,6 +334,52 @@ class VaultFlowUnavailable(VaultFlowError):  # noqa: N818
     """A vault flow cannot be safely created before transaction broadcast."""
 
 
+class WhitelistingRequired(VaultFlowUnavailable):  # noqa: N818
+    """A deposit was attempted for a vault whose whitelist excludes the owner.
+
+    Raised during deposit preflight when a vault applies a deposit whitelist
+    (permissioned) policy, that policy is applicable and queryable, and the
+    depositing account is not a member of it. The account must be whitelisted
+    by the vault curator before a deposit can succeed.
+
+    This is a subclass of :class:`VaultFlowUnavailable` so existing callers
+    that catch the base preflight failure keep working, while callers that
+    want to react specifically to a missing whitelist entry — for example to
+    surface a "whitelisting required" state instead of a generic failure —
+    can catch this narrower type.
+
+    Message contract for diagnostics: whenever this exception is raised, its
+    ``reason`` message (the first positional argument, i.e. the text returned
+    by ``str(exc)`` before the structured context) **must** identify the
+    failing deposit unambiguously by including all three of:
+
+    - the **chain id** the vault is deployed on
+      (:meth:`~eth_defi.vault.base.VaultBase.chain_id`),
+    - the **vault contract address**
+      (:meth:`~eth_defi.vault.base.VaultBase.address`), and
+    - the **depositor address** that was denied (the request owner/caller).
+
+    These three values must be embedded in the message string itself — not
+    only passed through the ``vault_address`` and ``caller`` structured
+    fields — so a single logged message line is self-describing for
+    diagnostics without the reader having to reconstruct the failing vault or
+    account from surrounding context. Include the structured ``vault_address``
+    and ``caller`` fields as well.
+    :meth:`VaultDepositManager.check_deposit_whitelist` produces a compliant
+    message; adapters that raise this directly must do the same.
+
+    Contract for adapter authors: every deposit manager must raise this from
+    its deposit preflight when the vault's whitelist policy can be determined,
+    is applicable, and the owner is not permitted. Use
+    :meth:`VaultDepositManager.check_deposit_whitelist` to satisfy the
+    contract. When the policy cannot be determined (the adapter's whitelist
+    reads raise :class:`NotImplementedError`) this exception must not be
+    raised; the deposit either proceeds and surfaces any genuine denial as an
+    onchain revert, or a protocol adapter may fail closed with a plain
+    :class:`VaultFlowUnavailable` if unknown admission is unsafe.
+    """
+
+
 class UnsupportedVaultSimulation(RuntimeError):
     """A vault settlement simulation cannot safely run on this provider."""
 
@@ -471,6 +517,20 @@ class VaultForcedSettlementResult:
 
     #: Transactions broadcast by the forced settlement helper.
     transaction_hashes: tuple[HexBytes, ...] = ()
+
+    #: Denomination tokens synthetically injected on an Anvil fork to let the
+    #: settlement round complete, in the denomination token's raw units.
+    #:
+    #: Zero (the default) means the settlement used only real on-fork state.
+    #: A **non-zero** value means the driver wrote synthetic token balance into
+    #: the vault (e.g. topped up a Lagoon Safe that was short of redemption
+    #: liquidity) to make the ticket claimable. In that case a ``claimable``
+    #: result proves only that the settlement *mechanism* works on a fork — it
+    #: does NOT prove the vault can currently pay this redemption onchain.
+    #: ``supports_anvil_settlement=True`` similarly means "the driver can
+    #: advance tickets on a fork", not "the vault is solvent". Callers that need
+    #: a real-liquidity guarantee must assert this is zero.
+    synthetic_assets_injected_raw: int = 0
 
 
 class CannotParseRedemptionTransaction(Exception):
@@ -683,17 +743,85 @@ class DepositRequest:
 
 
 class VaultDepositManager(ABC):
-    """Abstraction over different deposit/redeem flows of vaults.
+    """Abstract base for every vault deposit and redemption flow.
 
-    Supported simulation path: every manager exposes force_settle() for
-    Anvil-based integration tests. Synchronous managers use its no-op
-    implementation; asynchronous managers override it when their selected
-    test lifecycle needs settlement.
+    A deposit manager wraps one :class:`~eth_defi.vault.base.VaultBase` and
+    hides the differences between synchronous ERC-4626 vaults, asynchronous
+    ERC-7540 vaults, and protocol-specific variants (Lagoon, Gains, IPOR,
+    Ember, cSigma, and others) behind one request/settle/claim interface. This
+    base class is policy-agnostic: it defines the contract and provides only
+    the shared whitelist preflight and the Anvil no-op settlement; concrete
+    subclasses supply the actual onchain behaviour.
 
-    Known limitations: the common interface cannot infer protocol-specific
-    settlement roles, valuations or queues. Each protocol manager documents
-    the concrete asynchronous path it supports and raises
-    UnsupportedVaultSimulation when it has no safe Anvil driver.
+    **Deposit process**
+
+    A deposit is built with :meth:`create_deposit_request`, which returns a
+    :class:`DepositRequest` wrapper of one or more transactions to sign and
+    broadcast. The flow may be synchronous or asynchronous depending on the
+    subclass — :meth:`has_synchronous_deposit` reports which. The owner must
+    first ``approve()`` the ERC-20 denomination token to the spender returned by
+    :meth:`get_deposit_approval_target` (the vault address by default). For a
+    synchronous vault the request transaction mints shares immediately to the
+    receiver. For an asynchronous vault the request transaction only registers a
+    request; the shares are later claimed once settled via
+    :meth:`can_finish_deposit` and :meth:`finish_deposit`. The receiver defaults
+    to ``owner``; a separate ``to`` receiver is only honoured where the protocol
+    supports it. Progress is tracked with a :class:`DepositTicket`.
+
+    **Redemption process**
+
+    A redemption is built with :meth:`create_redemption_request`, returning a
+    :class:`RedemptionRequest` wrapper. :meth:`has_synchronous_redemption`
+    reports whether the flow is synchronous (shares burned and assets returned
+    in the request transaction) or asynchronous (request now, settle, then
+    claim). The asynchronous lifecycle is: create the request, broadcast, parse
+    the resulting :class:`RedemptionTicket`, wait for the redemption delay or
+    operator settlement, then claim with :meth:`finish_redemption`. Some
+    operator-finalised protocols pay the receiver directly and return ``None``
+    from :meth:`finish_redemption`; :meth:`fetch_completed_redemption_tx_hash`
+    locates that terminal transaction instead. A request is identified by its
+    :class:`RedemptionTicket` (owner, receiver, raw shares, request transaction
+    hash, and a protocol request id via ``RedemptionTicket.get_request_id()``).
+
+    **Queues and settlement**
+
+    Asynchronous protocols queue pending requests and settle them off the
+    common interface (epoch rollovers, an operator/curator transaction, a
+    settlement silo, etc.); :meth:`get_deposit_request_status` and
+    :meth:`get_redemption_request_status` map protocol state onto
+    :class:`AsyncVaultRequestStatus` (``none``/``pending``/``claimable``/
+    ``reclaimable``), and :meth:`fetch_vault_flow_events` streams pending
+    requests from an indexed backend. Synchronous subclasses have no queue: the
+    request transaction is the settlement.
+
+    **Lockups and cooldowns**
+
+    Any lockup, cooldown, redemption delay or epoch window is protocol-specific.
+    :meth:`estimate_redemption_delay` returns the vault-wide delay (not
+    account-specific), and :meth:`get_redemption_delay_over` returns the naive
+    UTC time an account may claim, or ``None`` when there is no deterministic
+    onchain deadline. :meth:`can_create_redemption_request` reflects windows
+    such as an epoch that only accepts requests on some days. Synchronous
+    subclasses report a zero delay.
+
+    **Whitelisting / access control**
+
+    Deposit admission is enforced by :meth:`check_deposit_whitelist`, the shared
+    preflight that every subclass must call before returning a request. It
+    raises :class:`WhitelistingRequired` only when the vault's whitelist policy
+    is applicable and queryable and the owner is provably not admitted; when the
+    policy cannot be determined it stays silent and lets a genuine denial
+    surface as an onchain revert. Subclasses needing a stricter fail-closed
+    policy may additionally raise :class:`VaultFlowUnavailable`.
+
+    **Anvil settlement (force_settle)**
+
+    :meth:`force_settle` advances a pending ticket on an Anvil fork for
+    integration tests. It requires an Anvil provider. For synchronous managers
+    it is a no-op (called with ``None``, returns a not-settlement-required
+    result) because the request transaction already completed the lifecycle.
+    Asynchronous managers must override it with a protocol-specific driver; the
+    base raises :class:`UnsupportedVaultSimulation` when no safe driver exists.
     """
 
     def __init__(
@@ -705,6 +833,73 @@ class VaultDepositManager(ABC):
     @property
     def web3(self) -> Web3:
         return self.vault.web3
+
+    def check_deposit_whitelist(self, owner: HexAddress) -> None:
+        """Reject a deposit when the vault's whitelist excludes the owner.
+
+        Shared deposit-preflight helper implementing the whitelisting contract
+        every manager must honour: when a vault applies a deposit whitelist
+        policy that is applicable and queryable, and ``owner`` is not a member
+        of it, raise :class:`WhitelistingRequired` before any transaction is
+        broadcast so the caller can surface a "whitelisting required" state
+        instead of paying gas for a guaranteed revert.
+
+        The check is intentionally conservative — it only raises when the
+        whitelist information *can* be obtained and *is* applicable:
+
+        - if :meth:`~eth_defi.vault.base.VaultBase.is_whitelisted_deposit`
+          raises :class:`NotImplementedError`, the vault-wide policy cannot be
+          determined for this adapter/version, so no exception is raised;
+        - if the vault is permissionless, no exception is raised;
+        - if :meth:`~eth_defi.vault.base.VaultBase.is_account_whitelisted`
+          raises :class:`NotImplementedError`, per-account membership cannot be
+          queried, so no exception is raised;
+        - only when the policy is applicable and the owner is provably not
+          admitted is :class:`WhitelistingRequired` raised.
+
+        Adapters that need a stricter fail-closed policy for an unknown
+        admission state should override their own preflight and raise
+        :class:`VaultFlowUnavailable` in addition to calling this helper (see
+        the Lagoon manager for an example).
+
+        :param owner:
+            Deposit owner and controller whose whitelist membership is checked.
+        :raise WhitelistingRequired:
+            When the vault applies an applicable, queryable whitelist policy
+            and ``owner`` is not permitted to deposit.
+        """
+        try:
+            whitelist_applies = self.vault.is_whitelisted_deposit()
+        except NotImplementedError:
+            # Whitelist policy cannot be determined for this adapter/version;
+            # a genuine denial will surface as an onchain revert instead.
+            return
+
+        if not whitelist_applies:
+            # Permissionless vault.
+            return
+
+        try:
+            account_allowed = self.vault.is_account_whitelisted(owner)
+        except NotImplementedError:
+            # Vault-wide policy is known but per-account membership is not
+            # queryable, so the individual owner cannot be preflighted.
+            return
+
+        if account_allowed:
+            return
+
+        # The message must be self-describing for diagnostics: embed the chain
+        # id, vault address and depositor address directly in the text, not
+        # only in the structured fields (see WhitelistingRequired docstring).
+        raise WhitelistingRequired(
+            f"Depositor {owner} is not whitelisted for vault {self.vault.address} on chain {self.vault.chain_id}",
+            protocol=self.vault.get_protocol_name(),
+            vault_address=self.vault.address,
+            caller=owner,
+            direction="deposit",
+            phase="preflight",
+        )
 
     def force_settle(
         self,
@@ -768,7 +963,43 @@ class VaultDepositManager(ABC):
         check_max_deposit=True,
         check_enough_token=True,
     ) -> DepositRequest:
-        pass
+        """Build the deposit request transaction(s) for an owner.
+
+        Abstracts the ERC-4626, ERC-7540, Lagoon and other protocol deposit
+        flows behind a common request wrapper.
+
+        Whitelisting contract: implementations **must** raise
+        :class:`WhitelistingRequired` before returning a request when the
+        vault applies a deposit whitelist policy, that policy is applicable
+        and queryable, and ``owner`` is not permitted to deposit. Call
+        :meth:`check_deposit_whitelist` at the start of the preflight to
+        satisfy this contract. When the whitelist information cannot be
+        obtained (the adapter's whitelist reads raise
+        :class:`NotImplementedError`) the manager must not raise
+        :class:`WhitelistingRequired`; it either proceeds — letting any real
+        denial surface as an onchain revert — or fails closed with a plain
+        :class:`VaultFlowUnavailable` when unknown admission is unsafe.
+
+        :param owner:
+            Deposit owner and controller.
+        :param to:
+            Optional separate receiver, where the protocol supports it.
+        :param amount:
+            Human-readable denomination-token amount, converted using the
+            denomination token decimals when ``raw_amount`` is not given.
+        :param raw_amount:
+            Raw denomination-token amount, overriding ``amount``.
+        :param check_max_deposit:
+            Preflight the deposit against the vault's deposit capacity.
+        :param check_enough_token:
+            Preflight that ``owner`` holds enough denomination token.
+        :return:
+            Deposit request wrapper ready for signing and parsing.
+        :raise WhitelistingRequired:
+            If the vault whitelist is applicable and excludes ``owner``.
+        :raise VaultFlowUnavailable:
+            If the deposit cannot be safely prepared before broadcast.
+        """
 
     @abstractmethod
     def create_redemption_request(
@@ -984,7 +1215,7 @@ class VaultDepositManager(ABC):
             UTC timestamp when the account can redeem.
 
             Naive datetime, or ``None`` when the protocol has no deterministic
-            on-chain deadline.
+            onchain deadline.
 
         :raises NotImplementedError:
             If not implemented for this vault protocoll.
@@ -1017,7 +1248,7 @@ class VaultDepositManager(ABC):
         - Used to show an estimated settlement time for unsettled deposits
           (e.g. in the trade-executor ``trade-ui`` table).
 
-        - Default returns ``None``: the protocol has no deterministic on-chain
+        - Default returns ``None``: the protocol has no deterministic onchain
           settlement schedule (e.g. operator-driven ERC-7540 vaults like Lagoon).
           Subclasses with a predictable settlement cadence (e.g. Ostium V1.5)
           override this to return an estimated UTC timestamp.
@@ -1027,7 +1258,7 @@ class VaultDepositManager(ABC):
 
         :return:
             Naive UTC timestamp when the deposit is expected to settle, or
-            ``None`` when no on-chain estimate is available.
+            ``None`` when no onchain estimate is available.
         """
         return None
 

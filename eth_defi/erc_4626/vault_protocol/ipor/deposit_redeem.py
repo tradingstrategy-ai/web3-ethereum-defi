@@ -18,11 +18,71 @@ if TYPE_CHECKING:
 class IPORDepositManager(ERC4626DepositManager):
     """IPOR Fusion manager with OpenZeppelin AccessManager pre-flights.
 
-    IPOR uses standard ERC-4626 transaction functions after admission.  Its
-    ``AccessManager`` can nevertheless reject a transaction based on its
-    caller, target and selector, or require a scheduling delay.  This manager
-    converts those predictable failures to :class:`VaultFlowUnavailable`
-    before an approval or deposit transaction is broadcast.
+    IPOR Fusion vaults are standard synchronous ERC-4626 vaults guarded by an
+    OpenZeppelin :solidity:`AccessManager`. Once a caller is admitted, both
+    deposit and redemption are ordinary ERC-4626 transactions; the only
+    protocol-specific behaviour this manager adds is an admission preflight that
+    converts a predictable access rejection or scheduling requirement into a
+    typed :class:`VaultFlowUnavailable` before any approval or transaction is
+    broadcast. Deployments without a readable AccessManager fall back to the
+    generic ERC-4626 manager (see :meth:`IPORVault.get_deposit_manager`) and do
+    not use this class.
+
+    **Deposit process**
+
+    Synchronous ERC-4626 after access admission. :meth:`create_deposit_request`
+    first calls :meth:`_assert_immediate_access` for the deposit selector
+    (``deposit(uint256,address)``), then delegates to the base manager for the
+    shared ``approve`` + ``deposit`` calls, ``maxDeposit`` capacity check and
+    balance check. IPOR is utilisation-based, so deposits close when
+    ``maxDeposit`` reads zero; an optional atomist-configured deposit fee is
+    already reflected in ``previewDeposit``.
+
+    **Redemption process**
+
+    Synchronous ERC-4626 after access admission. :meth:`create_redemption_request`
+    calls :meth:`_assert_immediate_access` for the redemption selector
+    (``redeem(uint256,address,address)``) — resolved independently, because the
+    access policy can differ from the deposit selector — then delegates to the
+    base manager. There is no reserve/buffer capacity model here beyond the
+    inherited ERC-4626 checks (``maxRedeem`` is unreliable on IPOR and is
+    skipped).
+
+    **Queues and settlement**
+
+    None (synchronous). There is no request queue, ticket or operator
+    settlement; an admitted ``redeem`` completes in one transaction.
+
+    **Lockups and cooldowns**
+
+    Access-manager driven. IPOR's AccessManager exposes
+    ``REDEMPTION_DELAY_IN_SECONDS`` (surfaced by
+    :meth:`IPORVault.get_redemption_delay` and
+    :meth:`IPORVault.get_estimated_lock_up`) and a per-account
+    ``getAccountLockTime`` (:meth:`IPORVault.get_redemption_delay_over`). On many
+    IPOR vaults this delay is zero, but when configured it manifests as a
+    non-zero ``access_delay`` in the redemption preflight below.
+
+    **Whitelisting / access control**
+
+    OpenZeppelin AccessManager, checked per caller and selector.
+    :meth:`_assert_immediate_access` reads ``canCall(caller, vault, selector)``
+    returning ``(immediate, delay)``: ``immediate`` admits the transaction; a
+    ``delay > 0`` means the call must be scheduled and is refused as
+    :class:`VaultFlowUnavailable` (``"IPOR access requires delayed execution"``,
+    carrying ``access_delay``); a ``(False, 0)`` result — an unauthorised caller,
+    a closed target or an IPOR-specific temporary redemption lock — is refused as
+    ``"IPOR AccessManager does not allow immediate vault flow"``. Both refusals
+    carry the guarded ``function_selector``. A deployment without a readable
+    AccessManager raises :class:`NotImplementedError` from the preflight (and, at
+    vault construction, is routed to the generic manager instead).
+    :meth:`IPORVault.is_whitelisted_deposit` reports whether the deposit selector
+    is restricted away from ``PUBLIC_ROLE``.
+
+    **Anvil settlement (force_settle)**
+
+    No-op. Both directions are synchronous, so :meth:`force_settle` accepts
+    ``None`` for the shared synchronous no-op; there is no ticket to settle.
     """
 
     def __init__(self, vault: "IPORVault") -> None:

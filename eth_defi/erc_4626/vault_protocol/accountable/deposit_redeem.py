@@ -19,8 +19,9 @@ from hexbytes import HexBytes
 from web3 import Web3
 from web3._utils.events import EventLogErrorFlags
 from web3.contract.contract import ContractFunction
+from web3.exceptions import ABIFunctionNotFound, BadFunctionCallOutput, ContractLogicError, MismatchedABI
 
-from eth_defi.abi import ZERO_ADDRESS_STR, get_topic_signature_from_event
+from eth_defi.abi import ZERO_ADDRESS_STR, get_deployed_contract, get_topic_signature_from_event
 from eth_defi.erc_4626.deposit_redeem import ERC4626DepositManager, ERC4626DepositRequest
 from eth_defi.erc_4626.flow import deposit_4626
 from eth_defi.timestamp import get_block_timestamp
@@ -128,15 +129,72 @@ class AccountableRedemptionRequest(RedemptionRequest):
 class AccountableDepositManager(ERC4626DepositManager):
     """Accountable adapter with synchronous deposits and claimed redemptions.
 
-    Supported simulation path: standard ERC-4626 deposits complete
-    immediately and use the shared ``force_settle(None)`` Anvil no-op.
+    Accountable Capital vaults are ERC-4626 vaults whose capital is deployed into
+    an external strategy. Deposits settle immediately, but redemptions follow the
+    ERC-7540 async pattern: a ``requestRedeem`` escrows the shares into a queue,
+    the strategy operator settles it, and the owner later claims the settled
+    assets through the standard ``redeem`` entry point. The contract exposes only
+    controller-level aggregate pending/claimable balances, not per-request
+    balances, which shapes several limitations below.
 
-    Known limitations: redemptions depend on the live strategy's valuation and
-    liquidity checks. This manager has no safe generic Anvil settlement driver
-    for an Accountable redemption ticket, so ``force_settle(ticket)`` raises
-    :class:`UnsupportedVaultSimulation`. Multiple concurrent controller
-    requests, partial claims, repeated settlement rounds and delegated
-    controllers are likewise unsupported.
+    **Deposit process**
+
+    Fully synchronous ERC-4626. :meth:`create_deposit_request` builds a single
+    ``deposit(assets, receiver)`` call (via
+    :func:`~eth_defi.erc_4626.flow.deposit_4626`) after enforcing a minimum and a
+    capacity check. The binding minimum is the greater of the vault-level
+    ``MIN_AMOUNT_WEI`` and the strategy's per-loan ``loan().minDeposit``
+    (:meth:`_fetch_strategy_loan_min_deposit`; open-term strategies revert
+    ``InsufficientAmount()`` (``0x5945ea56``) inside ``strategy.onDeposit`` for a
+    deposit that clears only the vault minimum). A sub-minimum or over-``maxDeposit``
+    request raises :class:`VaultFlowUnavailable`. Estimation uses
+    ``convertToShares`` because this deployment makes ``previewDeposit`` revert.
+
+    **Redemption process**
+
+    Asynchronous. :meth:`create_redemption_request` builds a single
+    ``requestRedeem(shares, owner, owner)`` call; the owner acts as its own
+    ERC-7540 controller and no share-token allowance is needed because
+    ``requestRedeem`` itself escrows the shares. The receiver must equal the
+    owner. The vault-level ``MIN_AMOUNT_WEI`` (in shares) is enforced; the
+    strategy ``minRedeem`` is deliberately **not** applied because its unit is
+    unconfirmed for this deployment. Because claimability is a controller
+    aggregate, an existing pending or claimable request blocks a further request
+    for the same owner (:meth:`is_redemption_in_progress`). Settled shares are
+    claimed with :meth:`finish_redemption`, which calls ``redeem`` for the
+    current claimable amount.
+
+    **Queues and settlement**
+
+    ERC-7540-style queue. Pending and claimable state is read as **controller
+    aggregates** through ``pendingRedeemRequest(0, controller)`` and
+    ``claimableRedeemRequest(0, controller)`` (:meth:`_pending_redeem_shares` /
+    :meth:`_claimable_redeem_shares`), not per request id. Settlement is
+    performed off-band by the strategy operator; timing is not deterministic. The
+    manager only auto-claims self-controlled tickets back to their share owner —
+    it never directs an aggregate claim to a custom receiver or auto-claims a
+    delegated-controller ticket. Multiple concurrent controller requests, partial
+    claims and repeated settlement rounds are not modelled beyond claiming the
+    current aggregate.
+
+    **Lockups and cooldowns**
+
+    No deterministic window. :meth:`estimate_redemption_delay` returns zero and
+    :meth:`get_redemption_delay_over` returns ``None`` because settlement timing
+    is strategy-controlled; :meth:`AccountableVault.get_estimated_lock_up` is
+    likewise ``None``.
+
+    **Whitelisting / access control**
+
+    Permissionless. There is no per-account whitelist or access manager; deposit
+    availability is advised only by ``maxDeposit(owner) > 0``.
+
+    **Anvil settlement (force_settle)**
+
+    Deposits use the shared ``force_settle(None)`` no-op. Redemptions have no safe
+    generic Anvil settlement driver, so ``force_settle(ticket)`` raises
+    :class:`~eth_defi.vault.deposit_redeem.UnsupportedVaultSimulation`;
+    settlement must be driven by the real strategy operator.
     """
 
     def estimate_deposit(
@@ -170,6 +228,40 @@ class AccountableDepositManager(ERC4626DepositManager):
             raise ValueError(f"Accountable deposit estimate is zero for {amount} {self.vault.denomination_token.symbol}")
         return self.vault.share_token.convert_to_decimals(raw_shares)
 
+    def _fetch_strategy_loan_min_deposit(self) -> int | None:
+        """Read the Accountable strategy's per-loan minimum deposit, if any.
+
+        Accountable vaults delegate deposits to a strategy contract
+        (``strategy()``). Open-term strategies enforce a per-loan
+        ``loan().minDeposit`` (in denomination-asset raw units, the same unit as
+        a deposit ``raw_amount``) that is typically far above the vault-level
+        ``MIN_AMOUNT_WEI``; a deposit below it reverts ``InsufficientAmount()``
+        (`0x5945ea56`) inside ``strategy.onDeposit`` rather than at the vault.
+
+        Strategy variants without per-loan terms (the base
+        ``AccountableStrategy``) do not expose ``loan()``; those and any read
+        failure yield ``None`` so the caller falls back to the vault-level
+        minimum instead of blocking.
+
+        :return:
+            Raw minimum deposit in denomination-asset units, or ``None`` when
+            the strategy exposes no per-loan minimum.
+        """
+        try:
+            strategy_address = self.vault.vault_contract.functions.strategy().call()
+        except (ABIFunctionNotFound, MismatchedABI, ContractLogicError, BadFunctionCallOutput, ValueError):
+            return None
+        if not strategy_address or int(strategy_address, 16) == 0:
+            return None
+        strategy = get_deployed_contract(self.web3, "accountable/OpenTermCompoundV1.json", strategy_address)
+        try:
+            loan = strategy.functions.loan().call()
+        except (ABIFunctionNotFound, MismatchedABI, ContractLogicError, BadFunctionCallOutput, ValueError):
+            # Strategy variant without per-loan terms.
+            return None
+        # loan() tuple: (minDeposit, minRedeem, maxCapacity, ...).
+        return int(loan[0])
+
     def create_deposit_request(
         self,
         owner: HexAddress,
@@ -199,7 +291,14 @@ class AccountableDepositManager(ERC4626DepositManager):
             raw_amount = self.vault.denomination_token.convert_to_raw(amount)
         if raw_amount <= 0:
             raise ValueError("Accountable deposit amount must be positive")
+        # The binding minimum is the greater of the vault-level MIN_AMOUNT_WEI
+        # and the strategy's per-loan minDeposit; the latter reverts
+        # InsufficientAmount() inside strategy.onDeposit for a deposit that
+        # clears only the vault minimum.
         minimum = int(self.vault.vault_contract.functions.MIN_AMOUNT_WEI().call())
+        strategy_min_deposit = self._fetch_strategy_loan_min_deposit()
+        if strategy_min_deposit is not None:
+            minimum = max(minimum, strategy_min_deposit)
         if raw_amount < minimum:
             raise VaultFlowUnavailable(
                 f"Accountable deposit amount {raw_amount} is below minimum {minimum}",
@@ -283,7 +382,22 @@ class AccountableDepositManager(ERC4626DepositManager):
             raise ValueError("Accountable redemption shares must be positive")
         minimum = int(self.vault.vault_contract.functions.MIN_AMOUNT_WEI().call())
         if raw_shares < minimum:
-            raise ValueError(f"Accountable redemption shares {raw_shares} are below minimum {minimum}")
+            # Strategy-level minRedeem is intentionally not applied here: its
+            # unit (shares vs assets) is not confirmed for this deployment, and
+            # a mis-scaled comparison would false-block. The vault-level
+            # minimum is unit-correct (shares) and is surfaced as a typed error.
+            raise VaultFlowUnavailable(
+                f"Accountable redemption shares {raw_shares} are below minimum {minimum}",
+                protocol="Accountable",
+                vault_address=self.vault.address,
+                caller=owner,
+                direction="redeem",
+                phase="preflight",
+                decoded_error="InsufficientAmount",
+                requested_raw_amount=raw_shares,
+                minimum_raw_amount=minimum,
+                error_selector=ACCOUNTABLE_INSUFFICIENT_AMOUNT_SELECTOR,
+            )
         if self.is_redemption_in_progress(owner):
             raise ValueError("Accountable has a pending or claimable redemption for this controller")
         if check_enough_token:
