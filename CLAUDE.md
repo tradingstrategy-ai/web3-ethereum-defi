@@ -5,29 +5,19 @@
 Repo-local reference docs that Claude should consult when the task
 touches the relevant area:
 
-- `.claude/docs/gspread.md` — Google Sheets integration test setup. **Read
-  this before attempting any Google Sheets automation via the
-  Claude-in-Chrome plugin**: in the `tradingstrategy.ai` Workspace
-  environment we've tested, sharing a sheet with a service account
-  cannot be completed by Claude-in-Chrome and must be performed
-  manually by the operator. Other Workspace orgs may behave differently.
-- `.claude/docs/agent-tricks-and-troubleshooting.md` — Codex CLI and
-  Claude CLI usage patterns, including cross-agent review commands,
-  streaming Claude review output, and common failure modes.
-  **Read this before invoking Claude CLI or Codex CLI for any review,
-  sanity check, plan review, PR review, or one-off agent run.**
-  Follow its invocation patterns for streaming output, tool restrictions,
-  timeouts, no-tools plan reviews, and silent or hanging agent runs.
+- `.claude/docs/agent-tricks-and-troubleshooting.md` — Claude, Codex, and
+  Grok CLI usage patterns, cross-agent review commands, streaming output,
+  timeouts, and common failure modes. See **Agents** below for when this
+  file is mandatory.
 
-## Agent review workflows
+## Agents
 
-- **Blocking requirement: before running any `claude`, `claude -p`, `claude ultrareview`, `codex`, or `codex exec` command, read `.claude/docs/agent-tricks-and-troubleshooting.md` in the current session.** Do not invoke either CLI until you have checked the repo-local guidance.
-- For plan reviews with Claude CLI, default to the no-tools inline review pattern from `.claude/docs/agent-tricks-and-troubleshooting.md` after the primary agent has inspected the relevant code. Only use a grounded tool-using review when fresh repository inspection is actually required.
-- For code and PR reviews with Claude CLI, scope the request to correctness bugs, behavioural regressions, missing tests, security or money-movement risks, and repository instruction compliance. Ask for findings first with file:line references and residual risks.
-- For long Claude CLI reviews, use streaming output (`--output-format stream-json --verbose`) and a wall-clock timeout. If a grounded review produces no output after roughly one minute, stop it and switch to a smaller no-tools or file-group review unless repository inspection is strictly required.
-- Do not paste huge diffs into Claude prompts. Make Claude inspect `git status --short`, `git diff --name-only`, and targeted hunks, or provide only the plan text for no-tools plan reviews.
-- For non-interactive Codex reviews, use `codex exec --json` in read-only mode as described in `.claude/docs/agent-tricks-and-troubleshooting.md`. Plain text mode can buffer output and look hung.
-- Before trusting any external-agent "no findings" result, verify it reviewed the correct worktree and non-empty diff.
+Before invoking any external agent CLI (`claude`, `claude -p`,
+`claude ultrareview`, `codex`, `codex exec`, `grok`, or equivalent), **read
+`.claude/docs/agent-tricks-and-troubleshooting.md` in the current session**
+and follow its instructions. Do not run any of those CLIs until you have
+checked that guidance. Detailed review patterns and failure modes live only
+in that file — do not restate them here.
 
 ## Skills
 
@@ -191,6 +181,7 @@ poetry run ruff format
 - If unsure where the main checkout is, use `git worktree list` and copy from the non-`.omnara/worktrees` checkout that already has `.local-test.env`.
 - Example: `cp /path/to/main/repo/.local-test.env .local-test.env`
 - For worktrees, unless you are changing package dependencies, use `poetry run` from the parent repo virtualenv
+- When starting work in a new worktree, check that `.venv` and `.claude` folders are symlinked into the worktree so that skills and `.claude/docs` can be found, and the poetry command runs with already installed packages from the parent.
 
 ## Commentary format
 
