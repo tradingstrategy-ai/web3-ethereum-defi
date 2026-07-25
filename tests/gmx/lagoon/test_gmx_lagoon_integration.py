@@ -8,15 +8,12 @@ import logging
 import os
 from dataclasses import dataclass
 from decimal import Decimal
-from typing import Any, Generator
 
 import pytest
 from eth_account import Account
-from eth_typing import HexAddress
 from eth_utils import to_checksum_address
 from flaky import flaky
 from web3 import Web3
-from web3.contract import Contract
 
 from eth_defi.erc_4626.vault_protocol.lagoon.deployment import LagoonAutomatedDeployment, LagoonDeploymentParameters, deploy_automated_lagoon_vault
 from eth_defi.erc_4626.vault_protocol.lagoon.vault import LagoonVault
@@ -29,7 +26,7 @@ from eth_defi.gmx.order.pending_orders import fetch_pending_orders
 from eth_defi.gmx.trading import GMXTrading
 from eth_defi.gmx.whitelist import GMXDeployment
 from eth_defi.hotwallet import HotWallet
-from eth_defi.provider.anvil import fork_network_anvil
+from eth_defi.provider.anvil import AnvilLaunch
 from eth_defi.provider.multi_provider import create_multi_provider_web3
 from eth_defi.token import fetch_erc20_details
 from eth_defi.trace import assert_transaction_success_with_explanation
@@ -59,7 +56,7 @@ USDC_WHALE = to_checksum_address("0xEe7aE85f2Fe2239E27D9c1E23fFFe168D63b4055")
 WETH_WHALE = to_checksum_address("0x70d95587d40A2caf56bd97485aB3Eec10Bee6336")
 
 
-@dataclass
+@dataclass(slots=True)
 class LagoonGMXForkEnv:
     """All components needed for LagoonGMXTradingWallet + GMX fork testing."""
 
@@ -70,15 +67,15 @@ class LagoonGMXForkEnv:
     gmx_config: GMXConfig
     trading: GMXTrading
     positions: GetOpenPositions
-    anvil_launch: Any
+    anvil_launch: AnvilLaunch
     deploy_info: LagoonAutomatedDeployment
 
 
-def _create_lagoon_gmx_fork_env(rpc_url: str) -> LagoonGMXForkEnv:
-    """Create a complete isolated fork environment for LagoonGMXTradingWallet + GMX testing.
+def _create_lagoon_gmx_fork_env(anvil_launch: AnvilLaunch) -> LagoonGMXForkEnv:
+    """Initialise a Lagoon GMX test environment on a restored shared fork.
 
     Order of operations (CRITICAL):
-    1. Spawn fresh Anvil fork
+    1. Reuse restored fixed-block Anvil fork
     2. Setup mock oracle FIRST
     3. Deploy Lagoon vault with TradingStrategyModuleV0
     4. Fund vault's Safe with USDC/WETH
@@ -86,14 +83,9 @@ def _create_lagoon_gmx_fork_env(rpc_url: str) -> LagoonGMXForkEnv:
     6. Create GMXConfig pointing to Safe address
     7. Approve tokens for GMX
     """
-    # === Step 1: Spawn fresh Anvil fork ===
-    launch = fork_network_anvil(
-        rpc_url,
-        unlocked_addresses=[USDC_WHALE, WETH_WHALE],
-    )
-
+    # === Step 1: Reuse the fixed, warmed Anvil fork ===
     web3 = create_multi_provider_web3(
-        launch.json_rpc_url,
+        anvil_launch.json_rpc_url,
         default_http_timeout=(3.0, 180.0),
     )
 
@@ -233,16 +225,19 @@ def _create_lagoon_gmx_fork_env(rpc_url: str) -> LagoonGMXForkEnv:
         gmx_config=gmx_config,
         trading=trading,
         positions=positions,
-        anvil_launch=launch,
+        anvil_launch=anvil_launch,
         deploy_info=deploy_info,
     )
 
 
 @pytest.fixture()
-def lagoon_gmx_fork_env() -> Generator[LagoonGMXForkEnv, None, None]:
-    """Completely isolated fork environment for LagoonGMXTradingWallet + GMX testing.
+def lagoon_gmx_fork_env(
+    anvil_chain_fork: AnvilLaunch,
+    _reset_gmx_arbitrum_fork: None,
+) -> LagoonGMXForkEnv:
+    """Initialise Lagoon GMX state on a restored shared fork.
 
-    Each test gets its own fresh Anvil instance with:
+    Each test gets a restored EVM state with:
     - Mock oracle set up FIRST
     - Deployed Lagoon vault with TradingStrategyModuleV0
     - Safe funded with USDC/WETH
@@ -250,16 +245,7 @@ def lagoon_gmx_fork_env() -> Generator[LagoonGMXForkEnv, None, None]:
     - GMXConfig pointing to Safe address
     - Token approvals for GMX
     """
-    rpc_url = os.environ.get("JSON_RPC_ARBITRUM")
-    if not rpc_url:
-        pytest.skip("JSON_RPC_ARBITRUM environment variable not set")
-
-    env = _create_lagoon_gmx_fork_env(rpc_url)
-
-    try:
-        yield env
-    finally:
-        env.anvil_launch.close(log_level=logging.ERROR)
+    return _create_lagoon_gmx_fork_env(anvil_chain_fork)
 
 
 @flaky(max_runs=3, min_passes=1)
@@ -481,20 +467,15 @@ def test_lagoon_wallet_cancel_limit_order(lagoon_gmx_fork_env: LagoonGMXForkEnv)
     logger.info("Limit order %s cancelled through the guard", order_key.hex())
 
 
-def _create_lagoon_gmx_fork_env_forward_eth(rpc_url: str) -> LagoonGMXForkEnv:
-    """Create a fork environment where the asset manager forwards ETH for keeper fees.
+def _create_lagoon_gmx_fork_env_forward_eth(anvil_launch: AnvilLaunch) -> LagoonGMXForkEnv:
+    """Initialise forward-ETH Lagoon state on a restored shared fork.
 
     Similar to _create_lagoon_gmx_fork_env but:
     - Safe gets NO native ETH (only tokens)
     - LagoonGMXTradingWallet uses forward_eth=True
     """
-    launch = fork_network_anvil(
-        rpc_url,
-        unlocked_addresses=[USDC_WHALE, WETH_WHALE],
-    )
-
     web3 = create_multi_provider_web3(
-        launch.json_rpc_url,
+        anvil_launch.json_rpc_url,
         default_http_timeout=(3.0, 180.0),
     )
 
@@ -601,28 +582,22 @@ def _create_lagoon_gmx_fork_env_forward_eth(rpc_url: str) -> LagoonGMXForkEnv:
         gmx_config=gmx_config,
         trading=trading,
         positions=positions,
-        anvil_launch=launch,
+        anvil_launch=anvil_launch,
         deploy_info=deploy_info,
     )
 
 
 @pytest.fixture()
-def lagoon_gmx_forward_eth_env() -> Generator[LagoonGMXForkEnv, None, None]:
-    """Fork environment where the asset manager forwards ETH for keeper fees.
+def lagoon_gmx_forward_eth_env(
+    anvil_chain_fork: AnvilLaunch,
+    _reset_gmx_arbitrum_fork: None,
+) -> LagoonGMXForkEnv:
+    """Initialise forward-ETH Lagoon state on a restored shared fork.
 
     The Safe starts with 0 ETH — the asset manager's hot wallet funds
     execution fees via forward_eth=True on LagoonGMXTradingWallet.
     """
-    rpc_url = os.environ.get("JSON_RPC_ARBITRUM")
-    if not rpc_url:
-        pytest.skip("JSON_RPC_ARBITRUM environment variable not set")
-
-    env = _create_lagoon_gmx_fork_env_forward_eth(rpc_url)
-
-    try:
-        yield env
-    finally:
-        env.anvil_launch.close(log_level=logging.ERROR)
+    return _create_lagoon_gmx_fork_env_forward_eth(anvil_chain_fork)
 
 
 @flaky(max_runs=3, min_passes=1)

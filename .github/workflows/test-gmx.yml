@@ -127,119 +127,21 @@ jobs:
               print(f'{d.metadata[\"Name\"]}: {d.metadata[\"Version\"]}')
           "
 
-      # ============================================================================
-      # GMX TEST EXECUTION - PARALLEL MODE (WITH WARNINGS)
-      # ============================================================================
-      # 
-      # NOTE: Currently running in parallel mode, but be aware of potential issues:
-      # GMX tests MAY have issues when running in parallel (with -n auto) because:
-      # 
-      # 1. MAINNET FORK RACE CONDITIONS:
-      #    - GMX tests use mainnet forks via Anvil which share state
-      #    - Parallel execution causes race conditions when multiple tests try to:
-      #      * Deploy mock oracle contracts simultaneously
-      #      * Execute orders on the same fork instance
-      #      * Modify shared fork state (prices, timestamps, etc.)
-      #    - This results in intermittent failures like:
-      #      * "Transaction reverted" errors
-      #      * Price validation failures (100 price validation checks)
-      #      * Block timestamp conflicts
-      # 
-      # 2. OFF-CHAIN KEEPER DEPENDENCIES:
-      #    - GMX uses off-chain keepers to execute orders
-      #    - Order flow: User submits -> Protocol validates -> Keepers execute
-      #    - In fork environments, we simulate keeper execution manually
-      #    - Parallel tests can interfere with order execution timing
-      #    - Tests may see orders in wrong states (pending vs executed)
-      # 
-      # 3. PRICE ORACLE MOCKING ISSUES:
-      #    - Tests deploy MockOracleProvider to bypass price validations
-      #    - Multiple tests deploying mocks simultaneously can cause:
-      #      * Address conflicts
-      #      * Price feed overwrites
-      #      * Timestamp adjustment failures
-      #    - The shouldAdjustTimestamp and isChainlinkOnChainProvider checks fail
-      #      when multiple tests run concurrently
-      # 
-      # 4. BLOCK MINING CONFLICTS:
-      #    - forge test doesn't mine blocks (for ease of testing)
-      #    - anvil is different and mines blocks as tests run
-      #    - Parallel tests cause:
-      #      * Block number conflicts
-      #      * Timestamp desynchronization
-      #      * Price updates at wrong times
-      #    - As new blocks are mined, prices differ and trigger validation failures
-      # 
-      # 5. EXECUTION BUFFER TIMING:
-      #    - Tests use execution_buffer to wait for order execution
-      #    - Parallel execution makes timing unpredictable
-      #    - Orders may execute before/after expected times
-      #    - Position verification fails due to timing issues
-      # 
-      # 6. SHARED FIXTURE STATE:
-      #    - conftest.py creates shared fixtures (web3_arbitrum_fork, etc.)
-      #    - These fixtures maintain state across tests
-      #    - Parallel execution corrupts this shared state
-      #    - Tests see data from other tests running simultaneously
-      # 
-      # 7. RPC ENDPOINT LIMITATIONS:
-      #    - Fork tests require stable RPC endpoints
-      #    - Parallel tests can overwhelm RPC rate limits
-      #    - This causes connection timeouts and test failures
-      #    - Serial execution reduces RPC load
-      # 
-      # 8. WHAT DOESN'T WORK IN PARALLEL:
-      #    - test_trading.py: All position opening/closing tests fail due to fork state conflicts
-      #    - test_ccxt_trading.py: CCXT integration tests fail with order execution timing issues
-      #    - test_swap_order.py: Swap order tests fail due to price oracle conflicts
-      #    - test_order.py: Base order tests fail with state corruption
-      #    - test_open_positions.py: Position queries return wrong data from parallel tests
-      #    - test_funding_fee.py: Funding fee calculations use wrong block numbers
-      #    - test_gmx_oracle.py: Oracle price feeds get overwritten by parallel tests
-      #    - test_pool_tvl.py: TVL calculations see inconsistent state
-      #    - test_available_liquidity.py: Liquidity queries fail due to concurrent modifications
-      #    - test_borrow_apr.py: APR calculations use stale data
-      #    - test_claimable_fees.py: Fee claims see wrong positions
-      #    - All CCXT tests in tests/gmx/ccxt/: Fail due to shared exchange instance state
-      # 
-      # 9. KNOWN WORKAROUNDS THAT DON'T WORK:
-      #    - Using pytest-xdist with --dist=loadscope: Still causes fork state conflicts
-      #    - Using separate fork instances per test: Too slow and resource intensive
-      #    - Using locks/mutexes: Doesn't help with RPC-level race conditions
-      #    - Using test isolation fixtures: Can't isolate fork state properly
-      #    - Using separate RPC endpoints: Doesn't solve block/timestamp conflicts
-      # 
-      # 10. FUTURE FIXES NEEDED:
-      #     - Implement proper fork isolation per test (if possible)
-      #     - Create separate Anvil instances for each test (resource intensive)
-      #     - Mock keeper execution more reliably
-      #     - Fix price oracle mocking to be thread-safe
-      #     - Implement proper test ordering/dependencies
-      #     - Add retry logic for flaky tests
-      #     - Consider using Tenderly forks instead of Anvil (more stable but slower)
-      # 
-      # ============================================================================
-      # NOTE: Running in parallel mode, but be aware of the issues documented above.
-      # If tests fail intermittently, consider switching back to serial execution.
-      # ============================================================================
       - name: Run GMX tests (PARALLEL)
         run: |
           set -o pipefail
-          # WARNING: Running GMX tests in parallel may cause issues documented above.
-          # If you see intermittent failures related to fork state, price validation,
-          # or order execution timing, consider running serially by removing -n auto.
+          # Mutable fork tests carry the stable xdist group
+          # "fork:arbitrum:midnight".  loadgroup puts them on one worker, where
+          # they share the warmed session Anvil fork and reset state with
+          # evm_snapshot/evm_revert.  Independent unit/API tests still use the
+          # remaining workers.
           #
-          # The full GMX suite — including the slow order-execution / vault-deploy
-          # files that each fork per test and simulate the off-chain keeper (with
-          # sleeps) — runs here. The workflow `paths:` filters ensure this only
-          # happens when GMX code or tests change, so these expensive tests run
-          # exactly when they are relevant, with no time-based schedule. If the
-          # suite exceeds the 15-min job cap, fix the order-execution tests (they
-          # currently revert / are slow), do not raise the cap.
+          # The full GMX suite runs only when GMX code or tests change. If it
+          # exceeds the job cap, profile the fork tests instead of extending it.
           #
           # Always use verbose pytest output so stalled CI runs show the latest
           # test names in the Actions log.
-          poetry run pytest tests/gmx/ --timeout-method=thread --tb=native -n auto -v -s --capture=no
+          poetry run pytest tests/gmx/ --timeout-method=thread --tb=native -n 4 --dist loadgroup -v -s --capture=no
         env:
           # Arbitrum mainnet RPC is required for GMX tests (GMX is on Arbitrum)
           # Used for mainnet fork testing in conftest.py

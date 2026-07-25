@@ -188,7 +188,7 @@ def _parse_raw_order(raw_order: tuple) -> PendingOrder:
         callbackContract, uiFeeReceiver, market, initialCollateralToken, swapPath
       - ``[1]`` ``Order.Numbers``: orderType, decreasePositionSwapType,
         sizeDeltaUsd, initialCollateralDeltaAmount, triggerPrice, acceptablePrice,
-        executionFee, callbackGasLimit, minOutputAmount, updatedAtTime,
+        executionFee, callbackGasLimit, minOutputAmount, uiFeeFactor, updatedAtTime,
         validFromTime, srcChainId
       - ``[2]`` ``Order.Flags``: isLong, shouldUnwrapNativeToken, isFrozen, autoCancel
       - ``[3]`` ``_dataList`` (bytes32[])
@@ -218,7 +218,7 @@ def _parse_raw_order(raw_order: tuple) -> PendingOrder:
     trigger_price: int = int(numbers[4])
     acceptable_price: int = int(numbers[5])
     execution_fee: int = int(numbers[6])
-    updated_at_time: int = int(numbers[9])
+    updated_at_time: int = int(numbers[10])
 
     # Order.Flags
     flags: tuple = props[2]
