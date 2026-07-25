@@ -203,14 +203,27 @@ class LagoonDepositManager(GenericERC7540DepositManager):
             denomination token to pay all queued redemptions.
         """
         web3 = self.web3
+        # Defence in depth: this mints synthetic balance and grants a max
+        # approval from an impersonated Safe, so it must never touch a live
+        # provider even if a future caller forgets the is_anvil() guard that
+        # force_settle() already applies.
+        if not is_anvil(web3):
+            raise UnsupportedVaultSimulation("Lagoon Safe settlement provisioning is Anvil-only")
+
         denomination_token = self.vault.denomination_token
         tx_hashes: list[HexBytes] = []
 
-        # Redemption liquidity needed to pay every queued redemption; +1 token
-        # buffer absorbs share-price rounding vs convertToAssets() at settlement.
+        # Redemption liquidity needed to pay every queued redemption. When there
+        # are no pending redemptions (needed_human == 0, e.g. a deposit-only
+        # settlement round), skip provisioning entirely — no approval or top-up
+        # is required and adding the +1 token buffer would otherwise trigger a
+        # spurious approve/injection. The +1 token buffer (only when something
+        # is owed) absorbs share-price rounding vs convertToAssets() at settlement.
         flow_manager = self.vault.get_flow_manager()
         needed_human = flow_manager.calculate_underlying_needed_for_redemptions("latest")
-        needed_raw = denomination_token.convert_to_raw(needed_human) + denomination_token.convert_to_raw(Decimal(1))
+        needed_raw = denomination_token.convert_to_raw(needed_human)
+        if needed_raw > 0:
+            needed_raw += denomination_token.convert_to_raw(Decimal(1))
 
         # (b) Issue the standing approval the production deploy script grants, so
         # _settleRedeem's transferFrom(safe -> vault) does not revert on
