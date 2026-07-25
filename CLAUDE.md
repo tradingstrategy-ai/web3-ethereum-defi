@@ -258,7 +258,7 @@ removing its flaky history comment.
 - Use `any()` and `all()` with generators and list comprehension when checking if a collection member has one or more matches, instead of using slow for loops
 - All functions that do network reads to get data should be prefixed with `fetch_` instead of `get_`
 - Always try to return `Iterator` instead of `list` from a function call to make functions faster
-- For long runnign for loops, use `tqdm` and `tqdm_loggable.auto` module for progress bar. As an example, see `lead_scan_core.py`.
+- Observability required: All long-running actions must be observable in the run, through logging or terminal output. For long-running loops, scanners, scripts, use the `tqdm` and `tqdm_loggable.auto` module for a progress bar. Make sure no script runs without producing output for more than 1 minute. As an example, see `lead_scan_core.py`. If agent runs long-running scripts or processes, it must be done in a way the agent can tell whether the process is making work or hung.
 - For visualusations, use Plotly. For chart titles, use heading case as explained above.
 - Use module level imports, not function level lazy imports, whenever possible
 - Never write generic `Exception e:` catch but always catch a specific exception if we can

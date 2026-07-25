@@ -31,6 +31,8 @@ import logging
 from pathlib import Path
 
 import requests
+from tqdm_loggable.auto import tqdm
+from tqdm_loggable.tqdm_logging import tqdm_logging
 
 from eth_defi.compat import native_datetime_utc_now
 from eth_defi.xerberus.api import (
@@ -146,14 +148,28 @@ def scan_xerberus(
         db.update_sync_state("registry", meta={"entities": len(entities), "inserted": inserted, "score_daily": daily_count})
 
         if fetch_vault_lists:
-            for platform in XERBERUS_VAULT_PLATFORMS:
-                try:
-                    vaults = fetch_vault_list(session, platform=platform, timeout=timeout)
-                    n = db.insert_vault_list_snapshot_batch(platform, vaults, fetched_at)
-                    logger.info("Platform %s: inserted %d vault list rows", platform, n)
-                    db.update_sync_state(f"vault_list:{platform}", meta={"count": n})
-                except (requests.RequestException, XerberusAPIError) as e:
-                    logger.warning("Vault list for platform %s failed (continuing): %s", platform, e)
+            logger.info(
+                "Fetching vault lists for %d platforms (paced HTTP; expect ~%.0fs+)",
+                len(XERBERUS_VAULT_PLATFORMS),
+                len(XERBERUS_VAULT_PLATFORMS) * 7.5,
+            )
+            previous_tqdm_log_level = tqdm_logging.log_level
+            tqdm_logging.set_level(logging.INFO)
+            try:
+                for platform in tqdm(
+                    XERBERUS_VAULT_PLATFORMS,
+                    desc="Xerberus vault lists",
+                    unit="platform",
+                ):
+                    try:
+                        vaults = fetch_vault_list(session, platform=platform, timeout=timeout)
+                        n = db.insert_vault_list_snapshot_batch(platform, vaults, fetched_at)
+                        logger.info("Platform %s: inserted %d vault list rows", platform, n)
+                        db.update_sync_state(f"vault_list:{platform}", meta={"count": n})
+                    except (requests.RequestException, XerberusAPIError) as e:
+                        logger.warning("Vault list for platform %s failed (continuing): %s", platform, e)
+            finally:
+                tqdm_logging.set_level(previous_tqdm_log_level)
 
         if fetch_reports and report_limit > 0:
             _backfill_reports(session, db, fetched_at=fetched_at, limit=report_limit, timeout=timeout)
@@ -175,51 +191,105 @@ def _backfill_reports(
     limit: int,
     timeout: float,
 ) -> None:
-    """Fetch a capped number of dendrogram report URLs for registry pools."""
+    """Fetch a capped number of dendrogram report URLs for registry pools.
+
+    Progress is reported with :mod:`tqdm_loggable` so long paced HTTP runs
+    stay observable (no silent multi-minute stretches).
+    """
     pools = db.get_latest_registry_entities(entity_type="pool")
     if len(pools) == 0:
+        logger.info("Report backfill: no registry pools")
         return
 
-    fetched = 0
+    candidates: list[tuple[int, str, str | None]] = []
     for _, row in pools.iterrows():
-        if fetched >= limit:
+        if len(candidates) >= limit:
             break
         chain_id = row.get("chain_id")
         address = row.get("address")
         entity_id = row.get("entity_id")
         if chain_id is None or not address:
             continue
-        existing = db.get_report_url(int(chain_id), str(address))
-        if existing:
+        if db.get_report_url(int(chain_id), str(address)):
             continue
-        # Prefer constructible app URL when we have entity_id
-        if entity_id and str(entity_id).startswith("pool_"):
-            url = f"https://app.xerberus.io/pool/dendrogram/{entity_id}"
-            db.upsert_report_url(int(chain_id), str(address), url, fetched_at, entity_id=str(entity_id))
-            fetched += 1
-            continue
-        try:
-            url = fetch_vault_report_url(session, str(address), timeout=timeout)
-            db.upsert_report_url(
-                int(chain_id),
-                str(address),
-                url,
-                fetched_at,
-                entity_id=str(entity_id) if entity_id else None,
-                error=None if url else "not_found",
-            )
-            fetched += 1
-        except (requests.RequestException, XerberusAPIError) as e:
-            db.upsert_report_url(
-                int(chain_id),
-                str(address),
-                None,
-                fetched_at,
-                entity_id=str(entity_id) if entity_id else None,
-                error=str(e),
-            )
-            fetched += 1
-            logger.warning("Report fetch failed for %s: %s", address, e)
+        candidates.append((int(chain_id), str(address), str(entity_id) if entity_id else None))
 
-    db.update_sync_state("reports", meta={"fetched": fetched})
-    logger.info("Report backfill: %d URLs processed", fetched)
+    # Paced HTTP: ~7.5s between authenticated report downloads.
+    estimated_http = sum(1 for _, _, entity_id in candidates if not (entity_id and entity_id.startswith("pool_")))
+    logger.info(
+        "Report backfill: %d candidates (limit %d, %d registry pools, ~%d HTTP calls, est. %.0fs+)",
+        len(candidates),
+        limit,
+        len(pools),
+        estimated_http,
+        estimated_http * 7.5,
+    )
+    if not candidates:
+        db.update_sync_state("reports", meta={"fetched": 0})
+        return
+
+    fetched = 0
+    constructed = 0
+    http_ok = 0
+    errors = 0
+    previous_tqdm_log_level = tqdm_logging.log_level
+    tqdm_logging.set_level(logging.INFO)
+    try:
+        progress = tqdm(candidates, desc="Xerberus report URLs", unit="report")
+        for chain_id, address, entity_id in progress:
+            progress.set_postfix(
+                constructed=constructed,
+                http_ok=http_ok,
+                errors=errors,
+                refresh=False,
+            )
+            # Prefer constructible app URL when we have entity_id
+            if entity_id and entity_id.startswith("pool_"):
+                url = f"https://app.xerberus.io/pool/dendrogram/{entity_id}"
+                db.upsert_report_url(chain_id, address, url, fetched_at, entity_id=entity_id)
+                constructed += 1
+                fetched += 1
+                continue
+            try:
+                url = fetch_vault_report_url(session, address, timeout=timeout)
+                db.upsert_report_url(
+                    chain_id,
+                    address,
+                    url,
+                    fetched_at,
+                    entity_id=entity_id,
+                    error=None if url else "not_found",
+                )
+                http_ok += 1
+                fetched += 1
+            except (requests.RequestException, XerberusAPIError) as e:
+                db.upsert_report_url(
+                    chain_id,
+                    address,
+                    None,
+                    fetched_at,
+                    entity_id=entity_id,
+                    error=str(e),
+                )
+                errors += 1
+                fetched += 1
+                logger.warning("Report fetch failed for %s: %s", address, e)
+    finally:
+        tqdm_logging.set_level(previous_tqdm_log_level)
+
+    db.update_sync_state(
+        "reports",
+        meta={
+            "fetched": fetched,
+            "constructed": constructed,
+            "http_ok": http_ok,
+            "errors": errors,
+        },
+    )
+    logger.info(
+        "Report backfill: %d URLs processed (constructed=%d http_ok=%d errors=%d)",
+        fetched,
+        constructed,
+        http_ok,
+        errors,
+    )

@@ -20,14 +20,23 @@ Usage:
       poetry run python scripts/xerberus/backfill-xerberus.py
 """
 
+import os
 from pathlib import Path
 
 from eth_defi.xerberus.cli import run_xerberus_scan_cli
 
 
 def main() -> None:
-    """Run Xerberus backfill (full current snapshot) or dry-run plan."""
+    """Run Xerberus backfill (full current snapshot) or dry-run plan.
+
+    Long paced phases (vault lists, report URL backfill) use tqdm progress
+    bars via :func:`~eth_defi.xerberus.scanner.scan_xerberus`. Default log
+    level is ``info`` so phase boundaries stay visible without silent multi-minute runs.
+    """
+    # Prefer visible phase logs for operator/agent runs (override with LOG_LEVEL).
+    os.environ.setdefault("LOG_LEVEL", "info")
     print("Note: public API has no history; this refreshes current scores only.")
+    print("Progress: registry → vault lists (tqdm) → report URLs (tqdm, paced ~7.5s/HTTP).")
     run_xerberus_scan_cli(
         title="Xerberus backfill",
         log_file=Path("logs/xerberus-backfill.log"),

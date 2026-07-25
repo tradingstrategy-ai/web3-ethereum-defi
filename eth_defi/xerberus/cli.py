@@ -32,7 +32,8 @@ def run_xerberus_scan_cli(
     :param show_top_pools:
         When ``True``, print the top 10 scored registry pools after success.
     """
-    default_log_level = os.environ.get("LOG_LEVEL", "warning")
+    # Default info so phase logs and tqdm_loggable progress stay visible on long runs.
+    default_log_level = os.environ.get("LOG_LEVEL", "info")
     setup_console_logging(default_log_level=default_log_level, log_file=log_file)
 
     if dry_run is None:
@@ -50,6 +51,8 @@ def run_xerberus_scan_cli(
     print(f"Fetch vault list: {fetch_vault_lists}")
     print(f"Fetch reports: {fetch_reports}")
     print(f"XERBERUS_API_EMAIL set: {bool(api_email)}")
+    if not dry_run and (fetch_vault_lists or fetch_reports):
+        print("Long phases use tqdm progress bars (vault lists / report URLs).")
 
     session = create_xerberus_session(api_key=api_key, api_email=api_email)
     db = scan_xerberus(

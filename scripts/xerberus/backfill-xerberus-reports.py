@@ -28,8 +28,12 @@ logger = logging.getLogger(__name__)
 
 
 def main() -> None:
-    """Backfill report URLs only (registry refresh + capped reports)."""
-    default_log_level = os.environ.get("LOG_LEVEL", "warning")
+    """Backfill report URLs only (registry refresh + capped reports).
+
+    Uses tqdm on the paced report download loop so long runs stay observable.
+    """
+    # Prefer visible phase logs for operator/agent runs (override with LOG_LEVEL).
+    default_log_level = os.environ.get("LOG_LEVEL", "info")
     setup_console_logging(
         default_log_level=default_log_level,
         log_file=Path("logs/xerberus-reports.log"),
@@ -43,6 +47,7 @@ def main() -> None:
     print(f"Report backfill limit: {report_limit}")
     print(f"Database: {db_path}")
     print(f"XERBERUS_API_EMAIL set: {bool(api_email)}")
+    print("Progress: registry refresh, then report URLs via tqdm (paced ~7.5s per HTTP call).")
 
     session = create_xerberus_session(api_key=api_key, api_email=api_email)
     db = scan_xerberus(
