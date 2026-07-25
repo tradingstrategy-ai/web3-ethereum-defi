@@ -56,6 +56,10 @@ def test_vault_deposit_manager_capability_exposes_directional_public_support() -
         VaultDepositManagerCapability(True, True, "synchronous", "synchronous", deposit_unsupported_reason="unsupported")
     with pytest.raises(ValueError, match="supports_anvil_settlement"):
         VaultDepositManagerCapability(True, True, "synchronous", "synchronous", supports_anvil_settlement=True)
+    with pytest.raises(ValueError, match="anvil_settlement_unsupported_reason"):
+        VaultDepositManagerCapability(True, True, "synchronous", "asynchronous", supports_anvil_settlement=False)
+    with pytest.raises(ValueError, match="anvil_settlement_unsupported_reason"):
+        VaultDepositManagerCapability(True, True, "synchronous", "asynchronous", anvil_settlement_unsupported_reason="reason")
     with pytest.raises(ValueError, match="deposit_assets"):
         VaultDepositManagerCapability(False, False, deposit_assets=("0x0000000000000000000000000000000000000001",))
 
@@ -205,6 +209,7 @@ def test_probe_records_preflight_refusal_without_aborting() -> None:
                 direction="deposit",
                 phase="preflight",
                 decoded_error="NotWhitelisted",
+                preflight_result="whitelisting-needed",
                 function_selector=HexBytes("0x85b77f45"),
                 error_selector=HexBytes("0x584a7938"),
             )
@@ -232,6 +237,7 @@ def test_probe_records_preflight_refusal_without_aborting() -> None:
         "direction": "deposit",
         "phase": "preflight",
         "decoded_error": "NotWhitelisted",
+        "preflight_result": "whitelisting-needed",
         "function_selector": "85b77f45",
         "error_selector": "584a7938",
         "access_delay": None,
@@ -270,6 +276,7 @@ def test_probe_preserves_successful_deposit_when_redemption_is_unavailable() -> 
         "direction": "redeem",
         "phase": "preflight",
         "decoded_error": None,
+        "preflight_result": None,
         "function_selector": None,
         "error_selector": None,
         "access_delay": 3600,

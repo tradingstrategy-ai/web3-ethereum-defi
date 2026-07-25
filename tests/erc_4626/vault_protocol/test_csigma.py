@@ -206,6 +206,7 @@ def test_csigma_v2_pool_rejects_redemption_above_immediate_capacity(web3: Web3) 
     # The over-capacity case is exactly what reverts WithdrawalPending onchain
     # and queues the excess off-chain; the typed refusal carries that decode.
     assert error.decoded_error == "WithdrawalPending"
+    assert error.preflight_result == "redemption_capacity_limited"
     assert error.error_selector == CSIGMA_WITHDRAWAL_PENDING_SELECTOR
 
 
@@ -322,4 +323,5 @@ def test_csigma_usd_redemption_capacity_preflight(midnight_web3: Web3) -> None:
     assert error.requested_raw_amount == 1
     assert error.available_raw_amount == 0
     assert error.decoded_error == "WithdrawalPending"
+    assert error.preflight_result == "redemption_capacity_limited"
     assert error.error_selector == CSIGMA_WITHDRAWAL_PENDING_SELECTOR

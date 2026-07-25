@@ -22,9 +22,7 @@ from web3.contract.contract import ContractFunction
 from eth_defi.abi import ZERO_ADDRESS_STR, get_topic_signature_from_event
 from eth_defi.erc_4626.deposit_redeem import ERC4626DepositManager, ERC4626DepositRequest
 from eth_defi.erc_4626.flow import deposit_4626
-from eth_defi.provider.anvil import is_anvil, make_anvil_custom_rpc_request
 from eth_defi.timestamp import get_block_timestamp
-from eth_defi.trace import assert_transaction_success_with_explanation
 from eth_defi.vault.deposit_redeem import (
     AsyncVaultRequestStatus,
     CannotParseRedemptionTransaction,
@@ -34,7 +32,9 @@ from eth_defi.vault.deposit_redeem import (
     RedemptionRequest,
     RedemptionTicket,
     UnsupportedVaultSimulation,
+    VaultFlowUnavailable,
     VaultForcedSettlementResult,
+    create_synchronous_settlement_result,
 )
 from eth_defi.vault.flow_events import (
     PendingVaultFlow,
@@ -48,9 +48,9 @@ from eth_defi.vault.flow_events import (
 if TYPE_CHECKING:
     from eth_defi.erc_4626.vault_protocol.ember.vault import EmberVault
 
-#: Safety cap on operator settlement batches when draining Ember's global
-#: withdrawal queue on an Anvil fork, so a stuck queue fails loudly.
-EMBER_MAX_SETTLEMENT_BATCHES = 50
+
+#: Ember operator processing pays directly and never creates a claimable ticket.
+EMBER_ANVIL_SETTLEMENT_UNSUPPORTED_REASON = "ember_operator_settlement_has_no_claimable_ticket_status"
 
 
 @dataclass(slots=True)
@@ -189,15 +189,12 @@ class EmberDepositManager(ERC4626DepositManager):
     only checks that withdrawals are unpaused and the owner holds at least
     ``minWithdrawableShares``.
 
-    **Anvil settlement (force_settle).** :meth:`force_settle` requires an Anvil
-    provider. It impersonates the ``roles()`` operator, funds it, then drains the
-    global queue with repeated ``processWithdrawalRequests`` calls (capped at
-    :data:`EMBER_MAX_SETTLEMENT_BATCHES`) until the ticket's sequence leaves the
-    owner's pending list. Because there is no claim step, a settled request ends
-    in :attr:`AsyncVaultRequestStatus.none` rather than ``claimable``; success is
-    defined as a matching, non-skipped, non-cancelled ``RequestProcessed`` event.
-    A still-pending, skipped or cancelled outcome raises
-    :class:`UnsupportedVaultSimulation`.
+    **Anvil settlement (force_settle).** Ember has no claimable ticket state:
+    an operator may process a request and pay the receiver directly, leaving the
+    ticket in :attr:`AsyncVaultRequestStatus.none`. This cannot satisfy the
+    public forced-settlement proof contract, so asynchronous settlement is
+    explicitly unsupported. :meth:`force_settle` refuses a redemption ticket
+    before impersonating an operator or broadcasting a transaction.
     """
 
     def __init__(self, vault: "EmberVault"):
@@ -308,15 +305,46 @@ class EmberDepositManager(ERC4626DepositManager):
         if raw_shares <= 0:
             raise ValueError("Ember redemption shares must be positive")
         if self._withdrawals_paused():
-            raise ValueError("Ember withdrawals are paused")
+            raise VaultFlowUnavailable(
+                "Ember withdrawals are paused",
+                protocol=self.vault.get_protocol_name(),
+                vault_address=self.vault.address,
+                caller=owner,
+                direction="redeem",
+                phase="preflight",
+                decoded_error="WithdrawalsPaused",
+                preflight_result="redemption_paused",
+            )
 
         minimum = int(self.vault.vault_contract.functions.minWithdrawableShares().call())
         if raw_shares < minimum:
-            raise ValueError(f"Ember redemption shares {raw_shares} are below minimum {minimum}")
+            raise VaultFlowUnavailable(
+                f"Ember redemption shares {raw_shares} are below minimum {minimum}",
+                protocol=self.vault.get_protocol_name(),
+                vault_address=self.vault.address,
+                caller=owner,
+                direction="redeem",
+                phase="preflight",
+                decoded_error="InsufficientAmount",
+                preflight_result="below_minimum",
+                requested_raw_amount=raw_shares,
+                minimum_raw_amount=minimum,
+            )
         if check_enough_token:
             balance = int(self.vault.share_token.fetch_raw_balance_of(owner))
             if balance < raw_shares:
-                raise ValueError(f"Insufficient Ember shares: has {balance}, needs {raw_shares}")
+                raise VaultFlowUnavailable(
+                    f"Insufficient Ember shares: has {balance}, needs {raw_shares}",
+                    protocol=self.vault.get_protocol_name(),
+                    vault_address=self.vault.address,
+                    caller=owner,
+                    direction="redeem",
+                    phase="preflight",
+                    decoded_error="InsufficientShares",
+                    preflight_result="redemption_unavailable",
+                    requested_raw_amount=raw_shares,
+                    available_raw_amount=balance,
+                )
 
         return EmberRedemptionRequest(
             vault=self.vault,
@@ -450,96 +478,30 @@ class EmberDepositManager(ERC4626DepositManager):
         return None
 
     def force_settle(self, ticket: DepositTicket | RedemptionTicket | None) -> VaultForcedSettlementResult:
-        """Drive an Ember redemption request to its terminal state on Anvil.
+        """Refuse Ember redemption settlement before broadcasting on a fork.
 
-        Ember withdrawals are paid by the vault operator's
-        ``processWithdrawalRequests`` call, not by the depositor, so a fork
-        simulation must impersonate that operator. The operator address is read
-        from the vault's onchain ``roles()`` tuple (``(admin, operator,
-        rateManager)``) rather than hardcoded, then the withdrawal queue is
-        drained until the ticket's request sequence is processed.
-
-        **Terminal-state semantics.** Ember has no depositor claim step. A
-        processed request leaves the owner's pending list, so
-        :meth:`get_redemption_request_status` returns
-        :attr:`AsyncVaultRequestStatus.none` — *not* ``claimable``. Success is
-        therefore defined as "a non-skipped, non-cancelled ``RequestProcessed``
-        event exists for this exact ticket", verified through
-        :meth:`analyse_redemption`.
+        Ember's operator-finalised request does not become a claimable ticket,
+        so processing it would falsely advertise a successful generic async
+        simulation. A synchronous deposit remains a no-op settlement.
 
         :param ticket:
             Pending :class:`EmberRedemptionTicket`, or ``None`` for the
             synchronous-deposit no-op.
         :return:
-            Settlement outcome with before/after status and operator
-            transaction hashes.
+            Synchronous no-op result when ``ticket`` is ``None``.
         :raise UnsupportedVaultSimulation:
-            If the provider is not Anvil, or the request cannot be moved to a
-            successful terminal state (still pending, skipped or cancelled).
+            For every Ember redemption ticket, with the stable capability
+            reason and without an operator transaction.
         """
-        if not is_anvil(self.web3):
-            raise UnsupportedVaultSimulation("EmberDepositManager.force_settle() requires an Anvil provider")
-
         if ticket is None:
-            # Ember deposits are synchronous; nothing to settle.
-            return VaultForcedSettlementResult(
-                ticket=None,
-                settlement_required=False,
-                status_before=None,
-                status_after=None,
-            )
+            return create_synchronous_settlement_result()
 
-        assert isinstance(ticket, EmberRedemptionTicket), f"Ember force_settle requires EmberRedemptionTicket, got {type(ticket)}"
-
-        status_before = self.get_redemption_request_status(ticket)
-        if status_before != AsyncVaultRequestStatus.pending:
-            # Already processed or cancelled; no operator action can progress it.
-            return VaultForcedSettlementResult(
-                ticket=ticket,
-                settlement_required=False,
-                status_before=status_before,
-                status_after=status_before,
-            )
-
-        operator = Web3.to_checksum_address(self.vault.vault_contract.functions.roles().call()[1])
-
-        make_anvil_custom_rpc_request(self.web3, "anvil_impersonateAccount", [operator])
-        make_anvil_custom_rpc_request(self.web3, "anvil_setBalance", [operator, hex(10**18)])
-
-        transaction_hashes: list[HexBytes] = []
-        try:
-            # The withdrawal queue is global (not per-owner). Drain it in
-            # batches until this ticket's sequence leaves the owner's pending
-            # list, with a cap so a stuck queue fails loudly instead of looping.
-            for _ in range(EMBER_MAX_SETTLEMENT_BATCHES):
-                pending_length = int(self.vault.vault_contract.functions.getPendingWithdrawalsLength().call())
-                if pending_length == 0:
-                    break
-                process_hash = self.vault.vault_contract.functions.processWithdrawalRequests(pending_length).transact({"from": operator})
-                assert_transaction_success_with_explanation(self.web3, process_hash)
-                transaction_hashes.append(HexBytes(process_hash))
-                if self.get_redemption_request_status(ticket) != AsyncVaultRequestStatus.pending:
-                    break
-        finally:
-            make_anvil_custom_rpc_request(self.web3, "anvil_stopImpersonatingAccount", [operator])
-
-        status_after = self.get_redemption_request_status(ticket)
-        completion_hash = self.fetch_completed_redemption_tx_hash(ticket)
-        if status_after == AsyncVaultRequestStatus.pending or completion_hash is None:
-            raise UnsupportedVaultSimulation(f"Ember settlement did not process request sequence {ticket.request_sequence_number} for vault {self.vault.address} on chain {self.vault.chain_id}: {status_before} -> {status_after}")
-
-        # Reject a skipped/cancelled terminal event: the operator handled the
-        # request but did not pay it, so the redemption did not settle.
-        analysis = self.analyse_redemption(completion_hash, ticket)
-        if isinstance(analysis, DepositRedeemEventFailure):
-            raise UnsupportedVaultSimulation(f"Ember settlement processed request sequence {ticket.request_sequence_number} for vault {self.vault.address} without payment: {analysis.revert_reason}")
-
-        return VaultForcedSettlementResult(
-            ticket=ticket,
-            settlement_required=True,
-            status_before=status_before,
-            status_after=status_after,
-            transaction_hashes=tuple(transaction_hashes),
+        raise UnsupportedVaultSimulation(
+            f"Ember settlement cannot prove a claimable ticket for vault {self.vault.address} on chain {self.vault.chain_id}",
+            unsupported_reason=EMBER_ANVIL_SETTLEMENT_UNSUPPORTED_REASON,
+            protocol=self.vault.get_protocol_name(),
+            vault_address=self.vault.address,
+            direction="redeem",
         )
 
     def get_redemption_request_status(self, ticket: EmberRedemptionTicket) -> AsyncVaultRequestStatus:

@@ -71,7 +71,13 @@ class VaultDepositManagerCapability:
     :param supports_anvil_settlement:
         Whether the advertised asynchronous lifecycle can be advanced with its
         protocol-specific ticket on an Anvil fork. ``None`` means no
-        asynchronous lifecycle is advertised.
+        settlement assertion is needed for the selected synchronous direction.
+        ``False`` publishes an advertised asynchronous lifecycle which cannot
+        be safely advanced on Anvil.
+    :param anvil_settlement_unsupported_reason:
+        Stable concrete reason why an advertised asynchronous lifecycle cannot
+        be advanced on Anvil. Required when
+        ``supports_anvil_settlement=False`` and forbidden otherwise.
     """
 
     can_deposit: bool
@@ -81,6 +87,7 @@ class VaultDepositManagerCapability:
     deposit_unsupported_reason: str | None = None
     redemption_unsupported_reason: str | None = None
     supports_anvil_settlement: bool | None = None
+    anvil_settlement_unsupported_reason: str | None = None
 
     #: Accepted token addresses for an explicit multi-asset deposit flow.
     deposit_assets: tuple[HexAddress, ...] = ()
@@ -104,6 +111,10 @@ class VaultDepositManagerCapability:
             raise ValueError("redemption_unsupported_reason is valid only when redemptions are unsupported")
         if self.supports_anvil_settlement is not None and "asynchronous" not in (self.deposit_flow, self.redemption_flow):
             raise ValueError("supports_anvil_settlement requires an asynchronous lifecycle")
+        if self.supports_anvil_settlement is False and not self.anvil_settlement_unsupported_reason:
+            raise ValueError("supports_anvil_settlement=False requires anvil_settlement_unsupported_reason")
+        if self.supports_anvil_settlement is not False and self.anvil_settlement_unsupported_reason is not None:
+            raise ValueError("anvil_settlement_unsupported_reason is valid only when supports_anvil_settlement=False")
         if self.deposit_assets and not self.can_deposit:
             raise ValueError("deposit_assets requires deposit support")
 
@@ -127,6 +138,8 @@ class VaultDepositManagerCapability:
             result["redemption_unsupported_reason"] = self.redemption_unsupported_reason
         if self.supports_anvil_settlement is not None:
             result["supports_anvil_settlement"] = self.supports_anvil_settlement
+        if self.anvil_settlement_unsupported_reason is not None:
+            result["anvil_settlement_unsupported_reason"] = self.anvil_settlement_unsupported_reason
         if self.deposit_assets:
             result["deposit_assets"] = list(self.deposit_assets)
         return result
@@ -234,6 +247,10 @@ class VaultFlowError(Exception):
         Lifecycle phase such as ``request`` or ``transaction``.
     :param decoded_error:
         Protocol-specific decoded error name, when available.
+    :param preflight_result:
+        Stable consumer-facing result for a predictable refusal.  This is an
+        optional migration field: callers must fall back to ``decoded_error``
+        while supporting older eth-defi releases that do not populate it.
     :param raw_revert_data:
         Raw revert payload, when available.
     :param requested_raw_amount:
@@ -264,6 +281,7 @@ class VaultFlowError(Exception):
         direction: Literal["deposit", "redeem"] | None = None,
         phase: str | None = None,
         decoded_error: str | None = None,
+        preflight_result: str | None = None,
         raw_revert_data: HexBytes | None = None,
         requested_raw_amount: int | None = None,
         available_raw_amount: int | None = None,
@@ -283,6 +301,7 @@ class VaultFlowError(Exception):
         self.direction = direction
         self.phase = phase
         self.decoded_error = decoded_error
+        self.preflight_result = preflight_result
         self.raw_revert_data = raw_revert_data
         self.requested_raw_amount = requested_raw_amount
         self.available_raw_amount = available_raw_amount
@@ -309,6 +328,8 @@ class VaultFlowError(Exception):
             context.append(f"phase={self.phase}")
         if self.decoded_error:
             context.append(f"decoded_error={self.decoded_error}")
+        if self.preflight_result:
+            context.append(f"preflight_result={self.preflight_result}")
         if self.function_selector:
             context.append(f"function_selector={self.function_selector.hex()}")
         if self.error_selector:
@@ -381,7 +402,55 @@ class WhitelistingRequired(VaultFlowUnavailable):  # noqa: N818
 
 
 class UnsupportedVaultSimulation(RuntimeError):
-    """A vault settlement simulation cannot safely run on this provider."""
+    """A vault settlement simulation cannot safely run on this provider.
+
+    :param reason:
+        Human-readable explanation of why the simulation cannot run.
+    :param unsupported_reason:
+        Stable, machine-readable adapter reason.  This is retained separately
+        from ``reason`` so consumers never need to parse exception prose.
+    :param protocol:
+        Protocol adapter that rejected settlement, when known.
+    :param vault_address:
+        Vault whose settlement was rejected, when known.
+    :param direction:
+        ``deposit`` or ``redeem`` for the rejected asynchronous ticket.
+    :param phase:
+        Lifecycle phase that was rejected. Defaults to ``settlement``.
+    """
+
+    def __init__(
+        self,
+        reason: str,
+        *,
+        unsupported_reason: str | None = None,
+        protocol: str | None = None,
+        vault_address: HexAddress | None = None,
+        direction: Literal["deposit", "redeem"] | None = None,
+        phase: str = "settlement",
+    ) -> None:
+        """Store a machine-readable settlement refusal and its vault context.
+
+        :param reason:
+            Human-readable explanation of the refusal.
+        :param unsupported_reason:
+            Stable adapter reason for consumer result mapping.
+        :param protocol:
+            Protocol adapter that rejected settlement, when known.
+        :param vault_address:
+            Vault whose settlement was rejected, when known.
+        :param direction:
+            Rejected asynchronous ticket direction, when known.
+        :param phase:
+            Rejected lifecycle phase.
+        """
+        super().__init__(reason)
+        self.reason = reason
+        self.unsupported_reason = unsupported_reason
+        self.protocol = protocol
+        self.vault_address = vault_address
+        self.direction = direction
+        self.phase = phase
 
 
 @dataclass(slots=True)
@@ -531,6 +600,24 @@ class VaultForcedSettlementResult:
     #: advance tickets on a fork", not "the vault is solvent". Callers that need
     #: a real-liquidity guarantee must assert this is zero.
     synthetic_assets_injected_raw: int = 0
+
+
+def create_synchronous_settlement_result() -> VaultForcedSettlementResult:
+    """Create the standard no-op outcome for a synchronous vault flow.
+
+    Synchronous requests complete in their own transaction and therefore have
+    no ticket or settlement status to advance. Managers exposing mixed flows
+    reuse this value for their synchronous direction.
+
+    :return:
+        A zero-transaction result indicating no settlement is required.
+    """
+    return VaultForcedSettlementResult(
+        ticket=None,
+        settlement_required=False,
+        status_before=None,
+        status_after=None,
+    )
 
 
 class CannotParseRedemptionTransaction(Exception):
@@ -919,17 +1006,23 @@ class VaultDepositManager(ABC):
             If the provider is not Anvil or an async manager lacks a driver.
         """
         if not is_anvil(self.web3):
-            raise UnsupportedVaultSimulation(f"{self.__class__.__name__}.force_settle() requires an Anvil provider")
-
-        if ticket is None and (self.has_synchronous_deposit() or self.has_synchronous_redemption()):
-            return VaultForcedSettlementResult(
-                ticket=None,
-                settlement_required=False,
-                status_before=None,
-                status_after=None,
+            raise UnsupportedVaultSimulation(
+                f"{self.__class__.__name__}.force_settle() requires an Anvil provider",
+                unsupported_reason="anvil_provider_required",
+                protocol=self.vault.get_protocol_name(),
+                vault_address=self.vault.address,
             )
 
-        raise UnsupportedVaultSimulation(f"{self.__class__.__name__} has no Anvil settlement driver for {type(ticket).__name__}")
+        if ticket is None and (self.has_synchronous_deposit() or self.has_synchronous_redemption()):
+            return create_synchronous_settlement_result()
+
+        raise UnsupportedVaultSimulation(
+            f"{self.__class__.__name__} has no Anvil settlement driver for {type(ticket).__name__}",
+            unsupported_reason="anvil_settlement_driver_not_implemented",
+            protocol=self.vault.get_protocol_name(),
+            vault_address=self.vault.address,
+            direction="deposit" if isinstance(ticket, DepositTicket) else "redeem" if isinstance(ticket, RedemptionTicket) else None,
+        )
 
     @abstractmethod
     def has_synchronous_deposit(self) -> bool:

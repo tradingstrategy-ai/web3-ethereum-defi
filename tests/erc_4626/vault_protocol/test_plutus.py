@@ -2,14 +2,13 @@
 
 import datetime
 import os
+from collections.abc import Iterator
 from decimal import Decimal
 from pathlib import Path
 
 import flaky
 import pytest
 from web3 import Web3
-
-from collections.abc import Iterator
 
 from eth_defi.abi import ZERO_ADDRESS_STR
 from eth_defi.erc_4626.classification import create_vault_instance_autodetect
@@ -76,6 +75,8 @@ def test_plutus(
         "can_redeem": True,
         "deposit_flow": "synchronous",
         "redemption_flow": "asynchronous",
+        "supports_anvil_settlement": False,
+        "anvil_settlement_unsupported_reason": "plutus_redeem_fulfilment_is_access_control_role_gated",
     }
     manager = vault.get_deposit_manager()
     assert isinstance(manager, PlutusAsyncDepositManager)
@@ -209,5 +210,10 @@ def test_plutus_async_redemption_lifecycle(midnight_web3: Web3, plutus_snapshot:
 
     # Operator fulfilment is role-gated; forced settlement is refused precisely.
     assert manager.force_settle(None).settlement_required is False
-    with pytest.raises(UnsupportedVaultSimulation, match="role-gated"):
+    with pytest.raises(UnsupportedVaultSimulation, match="role-gated") as exc_info:
         manager.force_settle(ticket)
+    assert exc_info.value.unsupported_reason == "plutus_redeem_fulfilment_is_access_control_role_gated"
+    assert exc_info.value.protocol == vault.get_protocol_name()
+    assert exc_info.value.vault_address == vault.address
+    assert exc_info.value.direction == "redeem"
+    assert exc_info.value.phase == "settlement"

@@ -27,7 +27,7 @@ from eth_defi.provider.anvil import AnvilLaunch, fork_network_anvil
 from eth_defi.provider.multi_provider import create_multi_provider_web3
 from eth_defi.token import TokenDetails
 from eth_defi.trace import assert_transaction_success_with_explanation
-from eth_defi.vault.deposit_redeem import AsyncVaultRequestStatus, VaultFlowUnavailable
+from eth_defi.vault.deposit_redeem import AsyncVaultRequestStatus, UnsupportedVaultSimulation, VaultFlowUnavailable
 
 JSON_RPC_MONAD = os.environ.get("JSON_RPC_MONAD")
 MONAD_USDC_WHALE = HexAddress(HexStr("0xf89d7b9c864f589bbF53a82105107622B35EaA40"))
@@ -83,6 +83,8 @@ def test_accountable_susn_vault(
         "can_redeem": True,
         "deposit_flow": "synchronous",
         "redemption_flow": "asynchronous",
+        "supports_anvil_settlement": False,
+        "anvil_settlement_unsupported_reason": "accountable_redemption_settlement_is_strategy_operator_controlled",
     }
 
     # Management fee not available, performance fee from offchain metadata
@@ -124,6 +126,7 @@ def test_accountable_deposit_and_redemption_request_lifecycle(web3: Web3) -> Non
     with pytest.raises(VaultFlowUnavailable, match="below minimum") as exc_info:
         manager.create_deposit_request(owner=web3.eth.accounts[1], raw_amount=minimum - 1)
     assert exc_info.value.decoded_error == "InsufficientAmount"
+    assert exc_info.value.preflight_result == "below_minimum"
     assert exc_info.value.error_selector == ACCOUNTABLE_INSUFFICIENT_AMOUNT_SELECTOR
     assert exc_info.value.minimum_raw_amount == minimum
     assert exc_info.value.available_raw_amount is None
@@ -170,6 +173,13 @@ def test_accountable_deposit_and_redemption_request_lifecycle(web3: Web3) -> Non
         AsyncVaultRequestStatus.pending,
         AsyncVaultRequestStatus.claimable,
     }
+    with pytest.raises(UnsupportedVaultSimulation, match="strategy-operator controlled") as exc_info:
+        manager.force_settle(ticket)
+    assert exc_info.value.unsupported_reason == "accountable_redemption_settlement_is_strategy_operator_controlled"
+    assert exc_info.value.protocol == vault.get_protocol_name()
+    assert exc_info.value.vault_address == vault.address
+    assert exc_info.value.direction == "redeem"
+    assert exc_info.value.phase == "settlement"
 
 
 @pytest.mark.timeout(180)
@@ -192,6 +202,7 @@ def test_accountable_redemption_request_rejects_contract_dust(web3: Web3) -> Non
             check_enough_token=False,
         )
     assert exc_info.value.decoded_error == "InsufficientAmount"
+    assert exc_info.value.preflight_result == "below_minimum"
     assert exc_info.value.direction == "redeem"
 
 
@@ -232,6 +243,7 @@ def test_accountable_hyperithm_strategy_min_deposit(web3: Web3) -> None:
             check_enough_token=False,
         )
     assert exc_info.value.decoded_error == "InsufficientAmount"
+    assert exc_info.value.preflight_result == "below_minimum"
     assert exc_info.value.error_selector == ACCOUNTABLE_INSUFFICIENT_AMOUNT_SELECTOR
     assert exc_info.value.minimum_raw_amount == strategy_minimum
     assert exc_info.value.direction == "deposit"

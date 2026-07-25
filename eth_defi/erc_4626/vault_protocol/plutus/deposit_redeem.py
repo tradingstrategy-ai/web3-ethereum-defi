@@ -12,7 +12,7 @@ This manager models that flow: synchronous deposits (inherited) plus an
 asynchronous redemption request/ticket/status/claim lifecycle with typed
 preflight errors. On-fork operator settlement (``fulfillRedeem``) is role-gated
 by OpenZeppelin AccessControl and is not reproduced here, so
-``supports_anvil_settlement`` is left unset with a precise reason.
+``supports_anvil_settlement`` is explicitly ``False`` with a stable reason.
 """
 
 import datetime
@@ -28,11 +28,13 @@ from eth_defi.erc_4626.deposit_redeem import ERC4626DepositManager
 from eth_defi.vault.deposit_redeem import (
     AsyncVaultRequestStatus,
     CannotParseRedemptionTransaction,
+    DepositTicket,
     RedemptionRequest,
     RedemptionTicket,
     UnsupportedVaultSimulation,
-    VaultForcedSettlementResult,
     VaultFlowUnavailable,
+    VaultForcedSettlementResult,
+    create_synchronous_settlement_result,
 )
 
 #: ``UseRequestRedeem()`` — standard ERC-4626 ``redeem`` is disabled; use the
@@ -41,6 +43,9 @@ USE_REQUEST_REDEEM_SELECTOR = HexBytes("0x797f246a")
 
 #: ``WithdrawalsArePaused()`` custom-error selector.
 WITHDRAWALS_ARE_PAUSED_SELECTOR = HexBytes("0xe14e66da")
+
+#: Plutus fulfilment is role-gated and cannot be reproduced from the vault ABI.
+PLUTUS_ANVIL_SETTLEMENT_UNSUPPORTED_REASON = "plutus_redeem_fulfilment_is_access_control_role_gated"
 
 
 @dataclass(slots=True)
@@ -243,6 +248,7 @@ class PlutusAsyncDepositManager(ERC4626DepositManager):
                 direction="redeem",
                 phase="preflight",
                 decoded_error="WithdrawalsArePaused",
+                preflight_result="redemption_paused",
                 error_selector=WITHDRAWALS_ARE_PAUSED_SELECTOR,
             )
 
@@ -256,6 +262,7 @@ class PlutusAsyncDepositManager(ERC4626DepositManager):
                     caller=owner,
                     direction="redeem",
                     phase="preflight",
+                    preflight_result="redemption_unavailable",
                     requested_raw_amount=raw_shares,
                     available_raw_amount=balance,
                 )
@@ -372,7 +379,7 @@ class PlutusAsyncDepositManager(ERC4626DepositManager):
         assert isinstance(redemption_ticket, PlutusRedemptionTicket)
         return self.vault.vault_contract.functions.cancelRedeemRequest(redemption_ticket.request_id)
 
-    def force_settle(self, ticket) -> VaultForcedSettlementResult:
+    def force_settle(self, ticket: DepositTicket | RedemptionTicket | None) -> VaultForcedSettlementResult:
         """Report that Plutus operator fulfilment is not reproducible on a fork.
 
         Plutus ``fulfillRedeem`` is gated by OpenZeppelin AccessControl; the
@@ -390,10 +397,11 @@ class PlutusAsyncDepositManager(ERC4626DepositManager):
             reproduced without role discovery.
         """
         if ticket is None:
-            return VaultForcedSettlementResult(
-                ticket=None,
-                settlement_required=False,
-                status_before=None,
-                status_after=None,
-            )
-        raise UnsupportedVaultSimulation(f"Plutus Hedge fulfilment is role-gated (AccessControl) and not reproducible on a fork for vault {self.vault.address}")
+            return create_synchronous_settlement_result()
+        raise UnsupportedVaultSimulation(
+            f"Plutus Hedge fulfilment is role-gated (AccessControl) and not reproducible on a fork for vault {self.vault.address}",
+            unsupported_reason=PLUTUS_ANVIL_SETTLEMENT_UNSUPPORTED_REASON,
+            protocol=self.vault.get_protocol_name(),
+            vault_address=self.vault.address,
+            direction="redeem",
+        )
