@@ -329,6 +329,16 @@ def _create_default_anvil_proxy_config(provider_count: int) -> RPCProxyConfig:
     between distinct providers. Its full request budget stays below Web3's
     default 60-second localhost read timeout.
 
+    ``switchover_log_level`` is raised to ``WARNING`` (the dataclass default is
+    ``INFO``) so that every failover — the reason each upstream stalled or errored
+    during a fork's cold init — is visible in CI. A fork test job runs pytest
+    without ``--log-cli-level``, and pytest captures ``WARNING`` and above (from
+    all threads, including this proxy's background server thread) into the failed
+    test's "Captured log" section. At ``INFO`` the failover reasons are silently
+    dropped, which is why a stalled cold fork previously surfaced only the local
+    ``eth_chainId`` read timeout with no upstream diagnosis. See
+    :mod:`eth_defi.provider.rpc_proxy` and ``scripts/measure-cold-fork-time.py``.
+
     :param provider_count:
         Number of usable upstream JSON-RPC providers.
 
@@ -347,6 +357,8 @@ def _create_default_anvil_proxy_config(provider_count: int) -> RPCProxyConfig:
         timeout=min(ANVIL_PROXY_MAX_ATTEMPT_TIMEOUT, attempt_timeout),
         retries=provider_count,
         backoff=0.0,
+        # Surface per-upstream failover reasons in CI (pytest captures WARNING+).
+        switchover_log_level=logging.WARNING,
     )
 
 

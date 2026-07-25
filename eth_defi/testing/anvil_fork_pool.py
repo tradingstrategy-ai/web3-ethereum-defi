@@ -81,6 +81,17 @@ cold-fetches (see above and the repo-seed mechanism in
 the measurement script from a machine using the CI RPC secrets to compare its
 cold-fork times against this ~3 s local baseline.
 
+**Where the upstream-stall reason shows up.** With **multiple** providers the
+fork routes through the automatic failover proxy
+(:func:`eth_defi.provider.anvil._create_default_anvil_proxy_config`), which tries
+each upstream once and logs every stall/error at ``WARNING`` — pytest captures
+``WARNING`` and above into the failed test's "Captured log" section, so that is
+where you see *which* provider stalled and *why* (connection timeout, retryable
+HTTP error). With a **single** provider there is no proxy and no failover: a
+:class:`SingleRpcProviderWarning` is emitted and the only signal is the local
+``eth_chainId`` read timeout — configure a second provider to get both failover
+and the diagnosis.
+
 Bounded provider retries — fail fast, never re-hammer a dead provider
 ---------------------------------------------------------------------
 
