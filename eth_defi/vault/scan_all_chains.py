@@ -44,6 +44,9 @@ from eth_defi.compat import native_datetime_utc_now
 from eth_defi.core3.constants import resolve_core3_database_path
 from eth_defi.core3.scanner import scan_projects as core3_scan_projects
 from eth_defi.core3.session import create_core3_session
+from eth_defi.xerberus.constants import resolve_xerberus_api_email, resolve_xerberus_database_path
+from eth_defi.xerberus.scanner import scan_xerberus as xerberus_scan
+from eth_defi.xerberus.session import create_xerberus_session
 from eth_defi.currency_api.constants import (
     CURRENCY_API_DATABASE,
     DEFAULT_BASE_CURRENCY,
@@ -89,6 +92,7 @@ from eth_defi.version_info import VersionInfo
 BACKUP_RETENTION_DAYS = int(os.environ.get("BACKUP_RETENTION_DAYS", "7"))
 
 CORE3_PROTOCOL_NAME = "Core3"
+XERBERUS_PROTOCOL_NAME = "Xerberus"
 CURRENCY_RATES_PROTOCOL_NAME = "CurrencyRates"
 CURRENCY_RATES_DEFAULT_CYCLE = datetime.timedelta(hours=24)
 
@@ -204,6 +208,42 @@ def should_scan_core3(skip_core3: bool, core3_api_key: str | None) -> bool:
     return True
 
 
+def should_scan_xerberus(
+    skip_xerberus: bool,
+    xerberus_api_key: str | None,
+    xerberus_api_email: str | None,
+) -> bool:
+    """Determine whether Xerberus enrichment scanning should run.
+
+    Xerberus is default-on enrichment when **both** the API key and the
+    registered email are configured. The email is part of the public REST
+    auth contract (``x-user-email``) and must be the address issued with the
+    key. Missing credentials degrade to a warning and disable Xerberus for
+    the current run. Agents must not invent or probe email values — only use
+    operator-supplied ``XERBERUS_API_EMAIL`` / explicit arguments.
+
+    :param skip_xerberus:
+        Whether the operator explicitly disabled Xerberus for this run.
+    :param xerberus_api_key:
+        API key from ``XERBERUS_API_KEY`` (or an explicit caller value).
+    :param xerberus_api_email:
+        Registered email from ``XERBERUS_API_EMAIL`` (or an explicit caller
+        value). Do not guess this string.
+    :return:
+        ``True`` if Xerberus should be scheduled.
+    """
+    if skip_xerberus:
+        logger.info("SKIP_XERBERUS=true - Xerberus enrichment scan disabled")
+        return False
+    if not xerberus_api_key:
+        logger.warning("XERBERUS_API_KEY is not set - Xerberus enrichment scan disabled for this run")
+        return False
+    if not xerberus_api_email:
+        logger.warning("XERBERUS_API_EMAIL is not set - Xerberus enrichment scan disabled for this run (set the email registered with the API key; do not invent candidates)")
+        return False
+    return True
+
+
 def should_scan_currency_rates(skip_currency_rates: bool) -> bool:
     """Determine whether currency rate scanning should run.
 
@@ -230,12 +270,13 @@ def build_active_protocols(
     scan_apex: bool,
     scan_core3: bool,
     scan_currency_rates: bool,
+    scan_xerberus: bool = False,
 ) -> list[str]:
     """Build scheduled non-EVM scan item names.
 
-    The existing cycle scheduler calls these items protocols. Core3 reuses
-    that path to avoid a new item type: it is a cross-chain enrichment
-    scan, not a vault source, and therefore has no price merge step.
+    The existing cycle scheduler calls these items protocols. Core3 and
+    Xerberus reuse that path as cross-chain enrichment scans, not vault
+    sources, and therefore have no price merge step.
 
     :param scan_hypercore:
         Include Hypercore native vaults.
@@ -251,6 +292,8 @@ def build_active_protocols(
         Include Core3 enrichment data.
     :param scan_currency_rates:
         Include daily currency exchange rates.
+    :param scan_xerberus:
+        Include Xerberus enrichment data.
     :return:
         Scheduled non-EVM scan item names.
     """
@@ -267,6 +310,8 @@ def build_active_protocols(
         all_protocols.append("ApeX")
     if scan_core3:
         all_protocols.append(CORE3_PROTOCOL_NAME)
+    if scan_xerberus:
+        all_protocols.append(XERBERUS_PROTOCOL_NAME)
     if scan_currency_rates:
         all_protocols.append(CURRENCY_RATES_PROTOCOL_NAME)
     return all_protocols
@@ -1451,6 +1496,68 @@ def scan_core3_fn(
     return result
 
 
+def scan_xerberus_fn(
+    xerberus_db_path: Path,
+    fetch_vault_lists: bool = True,
+    fetch_reports: bool = True,
+    api_key: str | None = None,
+    api_email: str | None = None,
+) -> ChainResult:
+    """Scan Xerberus risk intelligence enrichment data.
+
+    Xerberus is not a vault source. It refreshes the DuckDB database
+    consumed by the top-vaults JSON export during post-processing.
+    The database handle is always closed before return.
+
+    Credentials may be passed explicitly via ``api_key`` / ``api_email``,
+    or read from ``XERBERUS_API_KEY`` and ``XERBERUS_API_EMAIL``. Do not
+    invent the email; only use operator-supplied values.
+
+    :param xerberus_db_path:
+        Path to the Xerberus DuckDB file.
+    :param fetch_vault_lists:
+        Whether to poll platform vault list endpoints.
+    :param fetch_reports:
+        Whether to backfill dendrogram report URLs.
+    :param api_key:
+        Optional explicit API key (else env ``XERBERUS_API_KEY``).
+    :param api_email:
+        Optional explicit registered email (else env ``XERBERUS_API_EMAIL``).
+        Required for authenticated API calls; do not guess.
+    :return:
+        Scan result with entity count and duration.
+    """
+    result = ChainResult(name=XERBERUS_PROTOCOL_NAME, status="running")
+    start_time = time.time()
+    db = None
+
+    try:
+        session = create_xerberus_session(api_key=api_key, api_email=api_email)
+        db = xerberus_scan(
+            session=session,
+            db_path=xerberus_db_path,
+            fetch_vault_lists=fetch_vault_lists,
+            fetch_reports=fetch_reports,
+        )
+        assert db is not None
+        counts = db.get_entity_counts()
+        result.vault_count = counts.get("distinct_pools", 0) + counts.get("distinct_protocols", 0)
+        result.vault_scan_ok = True
+        result.price_scan_ok = None
+        result.status = "success"
+    except Exception as e:
+        logger.exception("Xerberus scan failed")
+        result.status = "failed"
+        result.error = str(e)
+        result.traceback_str = traceback.format_exc()
+    finally:
+        if db is not None:
+            db.close()
+
+    result.duration = time.time() - start_time
+    return result
+
+
 def _parse_optional_date_env(name: str) -> datetime.date | None:
     """Parse an optional ``YYYY-MM-DD`` environment variable.
 
@@ -1864,6 +1971,10 @@ def run_scan_tick(
     settlement_start_block: int | None = None,
     settlement_end_block: int | None = None,
     rpc_tracking_database_path: Path | None = None,
+    xerberus_db_path: Path | None = None,
+    xerberus_fetch_vault_list: bool = True,
+    xerberus_fetch_reports: bool = True,
+    scan_xerberus: bool = False,
 ) -> dict[str, ChainResult]:
     """Execute one scan tick: EVM chains + native protocols + post-processing.
 
@@ -2187,6 +2298,22 @@ def run_scan_tick(
             logger.error("Core3: FAILED - %s", r.error)
         print_dashboard(results, display_order, uncleaned_price_path=uncleaned_price_path)
 
+    if scan_xerberus and XERBERUS_PROTOCOL_NAME in active_protocols:
+        logger.info("Scanning Xerberus (risk intelligence enrichment)")
+        results[XERBERUS_PROTOCOL_NAME] = scan_xerberus_fn(
+            xerberus_db_path=xerberus_db_path or resolve_xerberus_database_path(),
+            fetch_vault_lists=xerberus_fetch_vault_list,
+            fetch_reports=xerberus_fetch_reports,
+        )
+        r = results[XERBERUS_PROTOCOL_NAME]
+        if r.status == "success":
+            logger.info("Xerberus: SUCCESS - %d entities", r.vault_count or 0)
+            if on_item_success:
+                on_item_success(XERBERUS_PROTOCOL_NAME)
+        elif r.status == "failed":
+            logger.error("Xerberus: FAILED - %s", r.error)
+        print_dashboard(results, display_order, uncleaned_price_path=uncleaned_price_path)
+
     if scan_currency_rates and CURRENCY_RATES_PROTOCOL_NAME in active_protocols:
         logger.info("Scanning CurrencyRates (daily exchange rates)")
         try:
@@ -2375,6 +2502,12 @@ def main():
     scan_apex = os.environ.get("SCAN_APEX", "false").lower() == "true"
     skip_core3 = os.environ.get("SKIP_CORE3", "false").lower() == "true"
     scan_core3 = should_scan_core3(skip_core3=skip_core3, core3_api_key=os.environ.get("CORE3_API_KEY"))
+    skip_xerberus = os.environ.get("SKIP_XERBERUS", "false").lower() == "true"
+    scan_xerberus = should_scan_xerberus(
+        skip_xerberus=skip_xerberus,
+        xerberus_api_key=os.environ.get("XERBERUS_API_KEY"),
+        xerberus_api_email=resolve_xerberus_api_email(),
+    )
     skip_currency_rates = os.environ.get("SKIP_CURRENCY_RATES", "false").lower() == "true"
     scan_currency_rates = should_scan_currency_rates(skip_currency_rates=skip_currency_rates)
     force_rescan = os.environ.get("FORCE_RESCAN", "false").lower() == "true"
@@ -2386,6 +2519,8 @@ def main():
     hypersync_concurrency = int(os.environ.get("HYPERSYNC_CONCURRENCY", "1"))
     core3_max_workers = int(os.environ.get("CORE3_MAX_WORKERS", "8"))
     core3_fetch_sections = os.environ.get("CORE3_FETCH_SECTIONS", "true").lower() == "true"
+    xerberus_fetch_vault_list = os.environ.get("XERBERUS_FETCH_VAULT_LIST", "true").lower() == "true"
+    xerberus_fetch_reports = os.environ.get("XERBERUS_FETCH_REPORTS", "true").lower() == "true"
     currency_api_max_workers = int(os.environ.get("CURRENCY_API_MAX_WORKERS", "8"))
     frequency = os.environ.get("FREQUENCY", "1h")
     skip_post_processing = os.environ.get("SKIP_POST_PROCESSING", "false").lower() == "true"
@@ -2441,6 +2576,8 @@ def main():
 
     # Core3 risk intelligence database path — resolved from env var or default constant.
     core3_db_path = resolve_core3_database_path()
+    # Xerberus risk intelligence database path.
+    xerberus_db_path = resolve_xerberus_database_path()
 
     # Vault post feed database path — resolved the same way as the post scanner
     # (FEED_DB_PATH/DB_PATH env var or default constant) so the top-vaults JSON
@@ -2459,6 +2596,7 @@ def main():
         apex_db_path,
         settlement_db_path,
         core3_db_path,
+        xerberus_db_path,
         currency_api_db_path,
     ]
 
@@ -2476,7 +2614,7 @@ def main():
     version_info = VersionInfo.read_docker_version()
     logger.info("Docker image version: tag=%s, commit=%s", version_info.tag, version_info.commit_hash)
     logger.info(
-        "SCAN_PRICES: %s, SCAN_HYPERCORE: %s, SCAN_GRVT: %s, SCAN_LIGHTER: %s, SCAN_HIBACHI: %s, SCAN_APEX: %s, SKIP_CORE3: %s, CORE3: %s, SKIP_CURRENCY_RATES: %s, CURRENCY_RATES: %s, RETRY_COUNT: %d, MAX_WORKERS: %d, CORE3_MAX_WORKERS: %d, CURRENCY_API_MAX_WORKERS: %d, FREQUENCY: %s",
+        "SCAN_PRICES: %s, SCAN_HYPERCORE: %s, SCAN_GRVT: %s, SCAN_LIGHTER: %s, SCAN_HIBACHI: %s, SCAN_APEX: %s, SKIP_CORE3: %s, CORE3: %s, SKIP_XERBERUS: %s, XERBERUS: %s, SKIP_CURRENCY_RATES: %s, CURRENCY_RATES: %s, RETRY_COUNT: %d, MAX_WORKERS: %d, CORE3_MAX_WORKERS: %d, CURRENCY_API_MAX_WORKERS: %d, FREQUENCY: %s",
         scan_prices,
         scan_hypercore,
         scan_grvt,
@@ -2485,6 +2623,8 @@ def main():
         scan_apex,
         skip_core3,
         scan_core3,
+        skip_xerberus,
+        scan_xerberus,
         skip_currency_rates,
         scan_currency_rates,
         retry_count,
@@ -2573,6 +2713,7 @@ def main():
         scan_apex=scan_apex,
         scan_core3=scan_core3,
         scan_currency_rates=scan_currency_rates,
+        scan_xerberus=scan_xerberus,
     )
 
     # Pre-compute human-readable cycle intervals for all items
@@ -2598,6 +2739,7 @@ def main():
         scan_apex=scan_apex,
         scan_core3=scan_core3,
         scan_currency_rates=scan_currency_rates,
+        scan_xerberus=scan_xerberus,
         max_workers=max_workers,
         hypersync_concurrency=hypersync_concurrency,
         core3_max_workers=core3_max_workers,
@@ -2627,6 +2769,9 @@ def main():
         hypercore_mode=hypercore_mode,
         core3_db_path=core3_db_path,
         core3_fetch_sections=core3_fetch_sections,
+        xerberus_db_path=xerberus_db_path,
+        xerberus_fetch_vault_list=xerberus_fetch_vault_list,
+        xerberus_fetch_reports=xerberus_fetch_reports,
         feed_db_path=feed_db_path,
         currency_api_db_path=currency_api_db_path,
         settlement_db_path=settlement_db_path,
