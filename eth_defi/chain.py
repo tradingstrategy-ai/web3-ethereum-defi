@@ -21,6 +21,7 @@ from eth_defi.compat import native_datetime_utc_fromtimestamp
 from eth_defi.event_reader.conversion import convert_jsonrpc_value_to_int
 from eth_defi.middleware import http_retry_request_with_sleep_middleware
 from eth_defi.provider.named import get_provider_name
+from eth_defi.provider.rpc_failure import classify_rpc_failure
 
 #: List of chain ids that need to have proof-of-authority middleweare installed
 POA_MIDDLEWARE_NEEDED_CHAIN_IDS = {
@@ -411,9 +412,13 @@ def install_chain_middleware(web3: Web3, poa_middleware=None, hint: str = ""):
         try:
             poa_middleware = web3.eth.chain_id in POA_MIDDLEWARE_NEEDED_CHAIN_IDS
         except Exception as e:
-            # Github WTF
+            # Github WTF. This is the dominant fork-setup failure path when the
+            # upstream archive provider is exhausted; name the classified failure
+            # mode (out_of_credits / rate_limited / read_timeout / …) so CI output
+            # shows *why* the first call failed. See eth_defi.provider.rpc_failure.
             name = get_provider_name(web3.provider)
-            raise RuntimeError(f"Could not call eth_chainId on {name} provider. Is it a valid JSON-RPC provider? As this is often the first call, you might be also out of API credits. Hint is {hint}") from e
+            failure_mode = classify_rpc_failure(e)
+            raise RuntimeError(f"Could not call eth_chainId on {name} provider (failure_mode={failure_mode.value}). Is it a valid JSON-RPC provider? As this is often the first call, you might be also out of API credits. Hint is {hint}") from e
 
     if poa_middleware:
         from web3.middleware import ExtraDataToPOAMiddleware
