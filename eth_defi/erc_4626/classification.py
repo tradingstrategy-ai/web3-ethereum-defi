@@ -21,7 +21,7 @@ from eth_defi.erc_4626.vault_protocol.frankencoin.vault import FRANKENCOIN_SAVIN
 from eth_defi.erc_4626.vault_protocol.frax.constants import FRAX_STAKING_VAULT_ADDRESSES, FRAX_STAKING_VAULTS_BY_CHAIN, FRAXLEND_DEPLOYERS_BY_CHAIN
 from eth_defi.erc_4626.vault_protocol.kiloex.constants import KILOEX_VAULT_ADDRESSES, KILOEX_VAULTS_BY_CHAIN
 from eth_defi.erc_4626.vault_protocol.nara.constants import NARAUSD_PLUS_VAULT
-from eth_defi.event_reader.multicall_batcher import EncodedCall, EncodedCallResult, read_multicall_chunked
+from eth_defi.event_reader.multicall_batcher import EncodedCall, EncodedCallResult, MultiprocessMulticallReader, read_multicall_chunked
 from eth_defi.event_reader.web3factory import SimpleWeb3Factory, Web3Factory
 from eth_defi.midas.constants import MIDAS_PRODUCTS, MIDAS_PRODUCTS_BY_TOKEN
 from eth_defi.tokenised_fund.asseto.constants import ASSETO_PRODUCTS, ASSETO_PRODUCTS_BY_TOKEN
@@ -1859,12 +1859,13 @@ def detect_vault_features(
     :param web3factory:
         Factory that creates a Web3 connection. Preferred over ``web3``.
 
-        Required by the underlying
-        :py:func:`~eth_defi.event_reader.multicall_batcher.read_multicall_chunked`;
-        when omitted it is derived from ``web3``. Batching here runs
-        single-threaded on the ``threading`` backend, because a derived factory
-        hands out one shared live connection that cannot cross a process
-        boundary — the speedup comes from batching, not parallelism.
+        Passed to a private
+        :py:class:`~eth_defi.event_reader.multicall_batcher.MultiprocessMulticallReader`;
+        when omitted, ``web3`` is used directly. The reader is constructed per
+        call on purpose — ``read_multicall_chunked()`` memoises one reader per
+        chain id in a thread-local, which would reuse an earlier connection (for
+        example an Anvil fork from a previous test) for a later call on the same
+        chain. Detection always talks to the connection you pass in.
 
     :param chunk_size:
         How many probe calls to pack into a single Multicall3 request.
@@ -1885,8 +1886,6 @@ def detect_vault_features(
     assert web3 is not None or web3factory is not None, "Give either web3 or web3factory"
     if web3 is None:
         web3 = web3factory()
-    if web3factory is None:
-        web3factory = SimpleWeb3Factory(web3)
 
     chain_id = web3.eth.chain_id
 
@@ -1902,24 +1901,20 @@ def detect_vault_features(
     block_number = web3.eth.block_number
 
     # Batch the probes through Multicall3 instead of issuing one eth_call each.
-    # Threading backend with a single worker on purpose: SimpleWeb3Factory hands
-    # out one shared Web3 (a live TCP connection), which cannot cross a process
-    # boundary, so the default "loky" process backend would break the legacy
-    # web3= path. Batching, not parallelism, is what makes this fast here.
+    #
+    # Deliberately construct a private reader bound to *this* connection rather
+    # than calling read_multicall_chunked(): that helper memoises a reader per
+    # chain id in a thread-local (`_reader_instance`), so a reader created
+    # earlier on the same thread — e.g. by a test using an Anvil fork — would be
+    # silently reused for a later live-RPC call on the same chain and query the
+    # wrong node ("BlockOutOfRangeError: block height is X but requested Y").
+    # Detection must always talk to the connection the caller handed us.
+    reader = MultiprocessMulticallReader(web3factory or web3, batch_size=chunk_size)
+
     results = {}
-    for call_result in read_multicall_chunked(
-        chain_id,
-        web3factory,
-        probe_calls,
+    for call_result in reader.process_calls(
         block_identifier=block_number,
-        chunk_size=chunk_size,
-        max_workers=1,
-        backend="threading",
-        progress_bar_desc=None,
-        # Feature detection only needs the call results. Resolving block
-        # timestamps would add an eth_getBlockByNumber per batch, which an Anvil
-        # fork does not necessarily serve for its own fork block.
-        timestamped_results=False,
+        calls=probe_calls,
     ):
         if verbose:
             logger.info("Result for %s: %s, error: %s", call_result.call.func_name, call_result.success, str(call_result.revert_exception))
