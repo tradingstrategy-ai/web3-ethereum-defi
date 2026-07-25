@@ -55,16 +55,38 @@ Forking ``latest`` or a per-test arbitrary block breaks all three benefits: the
 cache key never repeats, nothing is shared, and every run pays full
 archive-replay latency. That is why the fixed shared block is mandatory.
 
-Bounded provider retries
-------------------------
+Bounded provider retries — fail fast, never re-hammer a dead provider
+---------------------------------------------------------------------
 
-Forks must also fail within a bounded period when an upstream archive provider
-is unavailable. For multi-provider configurations,
-:func:`eth_defi.provider.anvil.launch_anvil` gives the automatic RPC proxy one
-attempt per configured provider. The pool's Web3 client does not retry the
-local Anvil because the proxy has already performed upstream failover. Callers
-with legitimately slow fork operations can override the Web3 retry count and
-HTTP timeout in :meth:`AnvilForkPool.get_web3`.
+Forks must fail within a bounded period when an upstream archive provider is
+exhausted or unavailable, so a genuine outage surfaces quickly instead of
+stalling until the job timeout. The pool pins this explicitly rather than
+relying on an upstream default that could regress:
+
+- **Upstream (Anvil → archive) — one attempt per provider, no re-hammer.**
+  :meth:`AnvilForkPool.get_launch` requests the *bounded automatic failover
+  proxy* (``proxy_multiple_upstream=True``, forwarded to
+  :func:`eth_defi.provider.anvil.fork_network_anvil`). When a ``JSON_RPC_*``
+  value carries multiple space-separated providers, ``launch_anvil`` builds
+  :func:`eth_defi.provider.anvil._create_default_anvil_proxy_config`, which sets
+  ``retries = provider_count`` and ``backoff = 0.0`` — the proxy tries each
+  upstream exactly once, fails over instead of retrying a dead endpoint, and
+  keeps its whole pass under ``ANVIL_PROXY_TOTAL_TIMEOUT`` (55 s), i.e. below the
+  60 s Web3 localhost read timeout, so an all-providers-down failure returns a
+  classified proxy error rather than a client ``ReadTimeout``. A single-provider
+  value starts no proxy (nothing to fail over to — that is why the CI secrets
+  should carry two providers per chain).
+- **Local (Web3 → Anvil) — zero retries.** ``POOL_WEB3_RETRIES = 0``: the client
+  makes one attempt against local Anvil because the proxy has already performed
+  upstream failover; retrying here would only multiply the wait.
+
+Callers with a legitimately slow fork operation can override the Web3 retry
+count and HTTP timeout in :meth:`AnvilForkPool.get_web3`, or pass an explicit
+``proxy_multiple_upstream=RPCProxyConfig(...)`` / ``RPCProxy`` /
+``proxy_multiple_upstream=False`` through the launch kwargs. Do **not** shorten
+the per-attempt proxy timeout below a legitimate cold-archive read — the
+fail-fast win is fewer attempts, not shorter ones; shorter ones re-introduce
+flakiness on cold reads.
 
 Reference tests to copy
 -----------------------
@@ -213,10 +235,20 @@ class AnvilForkPool:
         :param launch_kwargs:
             Any other state-affecting ``fork_network_anvil`` arguments; they are
             part of the cache key so incompatible configs never share a process.
+            ``proxy_multiple_upstream`` defaults to ``True`` here (the bounded,
+            fail-fast automatic failover proxy — see the module docstring); pass
+            an explicit :class:`~eth_defi.provider.rpc_proxy.RPCProxyConfig`,
+            :class:`~eth_defi.provider.rpc_proxy.RPCProxy`, or ``False`` to
+            override.
 
         :return:
             The shared :class:`~eth_defi.provider.anvil.AnvilLaunch`.
         """
+        # Pin the fail-fast automatic proxy explicitly so a shared fork never
+        # silently inherits a slower upstream default: with multiple providers
+        # it makes one bounded pass (retries = provider count, no dead-provider
+        # re-hammer) that stays under the Web3 read timeout. Overridable per call.
+        launch_kwargs.setdefault("proxy_multiple_upstream", True)
         key = (rpc_url, fork_block_number, _freeze(launch_kwargs))
         launch = self.launches.get(key)
         if launch is None:

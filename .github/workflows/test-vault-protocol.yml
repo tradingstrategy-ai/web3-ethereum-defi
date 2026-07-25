@@ -142,17 +142,23 @@ jobs:
           version: "v1.2.3"
 
       - name: Run vault protocol tests
-        # Use -n auto by default: empirically it COMPLETES (~10 min) whereas a
-        # low worker cap serialises against the archive provider and blows the
-        # job timeout. The archive node — not CPU — is the bottleneck, so fewer
-        # workers is slower, not faster. Transient RPC timeouts are handled by
-        # @flaky; the shared-fork pool cuts the total fork count. MAX_WORKERS
-        # stays overridable for tuning if provider limits change.
+        # Cap workers at 4 by default. The pool is session-scoped = per xdist
+        # worker, so each worker forks each chain independently; unbounded
+        # `-n auto` on a Beefy runner multiplies cold-start upstream archive
+        # connections and exhausts / rate-limits the provider (the "out of API
+        # credits" eth_chainId setup errors). Four bounds that concurrent
+        # upstream load while the 45-minute job timeout gives headroom. The
+        # shared-fork pool + warm RPC cache keep the reduced worker count from
+        # serialising against the archive. Overridable via the
+        # VAULT_TEST_MAX_WORKERS repo variable if provider limits change.
+        # --timeout=900 is a 15-minute per-test hard timeout (thread method):
+        # a wedged fork/upstream stall is killed at the test level rather than
+        # hanging until the 45-minute job cap.
         run: |
           set -o pipefail
-          poetry run pytest tests/erc_4626/vault_protocol/ --timeout-method=thread --tb=native -n "${MAX_WORKERS:-auto}" --dist loadgroup -v -s --capture=no -m "not slow" 2>&1 | tee pytest-log.txt
+          poetry run pytest tests/erc_4626/vault_protocol/ --timeout=900 --timeout-method=thread --tb=native -n "${MAX_WORKERS:-4}" --dist loadgroup -v -s --capture=no -m "not slow" 2>&1 | tee pytest-log.txt
         env:
-          MAX_WORKERS: ${{ vars.VAULT_TEST_MAX_WORKERS || 'auto' }}
+          MAX_WORKERS: ${{ vars.VAULT_TEST_MAX_WORKERS || '4' }}
           JSON_RPC_ETHEREUM: ${{ secrets.JSON_RPC_ETHEREUM }}
           JSON_RPC_BASE: ${{ secrets.JSON_RPC_BASE }}
           JSON_RPC_ARBITRUM: ${{ secrets.JSON_RPC_ARBITRUM }}

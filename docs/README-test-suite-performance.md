@@ -171,6 +171,173 @@ deployments), not by test count. Three corrective changes:
   (`Report slowest tests` step), so critical-path regressions are visible on
   every run.
 
+## RPC flakiness elimination — provider redundancy and diagnostics (2026-07-25)
+
+### Problem
+
+Even after the shared-fork + warm-cache work above, the `Vault protocol tests`
+job still fails environmentally under archive-RPC pressure. Concrete instance:
+PR #1370 (run 30151133934) failed with **8 failed + 26 errors** in a 25-minute
+run, none caused by the PR diff. Two literal failure modes, both rooted in the
+upstream archive provider — not Anvil, not CPU:
+
+1. **Upstream credit exhaustion / rate limiting (26 setup errors).** The fork's
+   first call dies with
+   `RuntimeError: Could not call eth_chainId on fallbacks localhost:<port> …
+   you might be also out of API credits`. The local Anvil is up; its upstream
+   archive node (`JSON_RPC_ETHEREUM/ARBITRUM/PLASMA`) is exhausted or throttled
+   under concurrent `pytest-xdist` fork load.
+2. **60s web3 `ReadTimeout` (8 failures).** Anvil is reachable but a cold
+   fork-backed `eth_call`/multicall stalls behind an upstream archive fetch and
+   hits the 60.0s read cap.
+
+**Root cause.** A *single* upstream archive provider per chain is a single
+point of failure. The load-reduction levers above (dense warm cache, one fork
+per `(chain, block)`) shrink the traffic but do not remove that single point:
+under `-n auto` on a cold cache the provider still gets exhausted, there is
+nothing to fail over to, and the raw error names neither *which* provider failed
+nor *why*. This section removes the single point of failure and makes the
+remaining failures legible.
+
+### Lever B (primary) — multi-provider failover in the CI RPC secrets
+
+The Anvil launch proxy already supports failover: per the
+`eth_defi/testing/anvil_fork_pool.py` docstring,
+`eth_defi.provider.anvil.launch_anvil` gives the automatic RPC proxy **one
+attempt per configured provider**. The multi-provider fallback URL format
+(space-separated URLs, see `mev-blocker.rst`, consumed by
+`create_multi_provider_web3()`) is the mechanism. So the fix is configuration,
+not code:
+
+1. **Populate each `JSON_RPC_*` CI secret with 2+ space-separated endpoints**
+   from **distinct vendors / distinct credit pools** (not two keys on one
+   plan — a shared quota defeats the purpose). Then a single provider's
+   "out of credits" fails over to the next instead of erroring the whole job.
+   Priority chains, from the failure report: `JSON_RPC_ETHEREUM`,
+   `JSON_RPC_ARBITRUM`, `JSON_RPC_PLASMA`, plus `JSON_RPC_BASE`,
+   `JSON_RPC_HYPERLIQUID` for coverage.
+2. **Verify the full multi-provider string reaches the fork proxy.** Confirm
+   `launch_anvil` / `fork_network_anvil` forwards *all* URLs to the proxy
+   `--fork-url`, and that the pool's `get_web3` `eth_chainId` probe exercises the
+   proxy (so failover is actually attempted at setup), rather than only the
+   first URL being used.
+3. **Exception: Monad.** `JSON_RPC_MONAD` cannot be made archive-redundant (no
+   provider offers arbitrary-depth historical state); keep its tests on
+   latest-head / state-relative assertions as the chain-quirk rules require.
+
+### Diagnostic reporting — name the provider and classify the failure mode
+
+Requirement: when a fork setup or fork-backed call fails on the upstream, the
+test output and the CI job summary must state **which provider** failed and
+**what failure mode** it was (out of credits, rate limited, read timeout, …),
+instead of the current generic `eth_chainId` `RuntimeError`.
+
+1. **Classify upstream errors into an enum.** Add a small classifier
+   (`eth_defi.provider` area) mapping a raw provider error to a
+   `snake_case` string enum, e.g. `out_of_credits`, `rate_limited`,
+   `read_timeout`, `connection_refused`, `upstream_server_error`, `unknown`.
+   Key it on HTTP status where available (402 / 429 / 5xx) and on message
+   substrings otherwise (`out of credits`, `quota`, `rate limit`,
+   `Read timed out`). Follow the repo rule — catch specific exceptions
+   (`requests.exceptions.ReadTimeout`, provider HTTP errors), never a bare
+   `except Exception`.
+2. **Redaction is mandatory.** `JSON_RPC_*` URLs frequently embed API keys in
+   the host, path or query string. The report must show only a **stable provider
+   label** — vendor host without the key (e.g. `eth-mainnet.g.alchemy.com`),
+   never the full URL. Add a `redact_rpc_url()` helper if one does not already
+   exist and route every log/summary line through it.
+3. **Surface it in two places:**
+   - **In the raised exception** at fork setup, so the pytest error reads e.g.
+     `Arbitrum fork setup failed: provider=arb-mainnet.<vendor> mode=out_of_credits
+     (tried 2 providers)` instead of a bare `eth_chainId` failure. This makes
+     every individual test error self-explanatory.
+   - **In the GitHub job summary.** Extend the existing `Report slowest tests`
+     step in `test-vault-protocol.yml` (and the mirrored step in `test.yml`) to
+     grep `pytest-log.txt` for these classified provider-failure lines and emit
+     a small table: `{ chain, provider label, failure mode, count }`. So a run
+     shows at a glance "arbitrum / arb-mainnet.<vendor> / out_of_credits ×8"
+     rather than requiring a scroll through 26 tracebacks.
+4. **Do not hide deterministic failures.** The classifier only *labels and
+   reports*; ret/failover behaviour (below) applies only to transient upstream
+   modes. A genuine product or assertion error must still fail loudly per the
+   CLAUDE.md flaky-healing rules.
+
+### Supporting levers (harden, once B + diagnostics land)
+
+- **Lever A — durable, pre-warmed fork RPC cache.** The current cache is
+  best-effort GH Actions cache (immutable, 7-day / 10 GB LRU, saved via
+  `if: always()` under a `run_id` key). The #1370 run even logged the race —
+  *"Failed to save … another job may be creating this cache"*. On any cold-cache
+  run the archive stampede returns. Make the cache authoritative: a **scheduled
+  cache-warmer job** that forks every `*_MIDNIGHT_BLOCK` for every chain and
+  populates `~/.foundry/cache/rpc`, with PR runs restoring **read-only** (no
+  per-run save race). Optionally back it with durable storage (Cloudflare R2 —
+  the repo already ships the `cloudflare_r2` extra) so it is not LRU-evicted.
+- **Lever C — bound concurrent upstream load (done).** `-n auto` on a Beefy
+  runner forks each chain once *per worker* (the pool is session-scoped = per
+  worker), multiplying cold-start upstream connections and exhausting the
+  provider. The `test-vault-protocol.yml` default is now **`-n 4`**
+  (`MAX_WORKERS:-4`, still overridable via the `VAULT_TEST_MAX_WORKERS` repo
+  variable), bounding concurrent upstream archive connections; the 45-minute job
+  timeout gives headroom, and the shared-fork pool + warm cache keep the lower
+  worker count from serialising against the archive. Also confirm **all
+  same-chain tests carry one `xdist_group`** (e.g. every Ethereum test on
+  `fork:ethereum:midnight`; `test_frax` / `test_maple` / `test_sky` from the
+  failure list must be checked) so a chain is forked once, not once per file.
+- **Lever D — fail fast, do not retry a dead provider (audit 2026-07-25).** The
+  Python-side retries are already fail-fast — `POOL_WEB3_RETRIES = 0`
+  (`anvil_fork_pool.py`) and `DEFAULT_ANVIL_RETRIES = 0` (`multi_provider.py`),
+  so a call to the local Anvil is attempted once. `@flaky` is uniformly one
+  retry (`max_runs=2`; the lone `max_runs=3` in `test_warmup.py` was normalised
+  to the default). The remaining excessive retry is **inside the Anvil RPC
+  proxy**: `RPCProxyConfig` defaults to `retries=3` at `timeout=30s`, so a stalled
+  upstream is retried for **~90s per call** — *longer* than the 60s web3 read
+  timeout, which is exactly why the client raised `ReadTimeout` in the #1370 run
+  while the proxy was still retrying, and `@flaky` then doubled it.
+  - **Fix (implemented).** The bounded fail-fast proxy policy already exists in
+    `eth_defi.provider.anvil._create_default_anvil_proxy_config`: for a
+    multi-provider fork it sets `retries = provider_count` and `backoff = 0.0`
+    (try each upstream once, fail over, stop — no dead-provider re-hammer) and
+    keeps the whole pass under `ANVIL_PROXY_TOTAL_TIMEOUT = 55s`, i.e. below the
+    60s Web3 read timeout, so an all-down failure returns a classified proxy
+    error instead of a bare `ReadTimeout`. It is the `launch_anvil` default
+    (`proxy_multiple_upstream=True`). `AnvilForkPool.get_launch` now **pins that
+    default explicitly** (`launch_kwargs.setdefault("proxy_multiple_upstream",
+    True)`) so a shared fork can never silently inherit a slower policy;
+    overridable per call with an explicit `RPCProxyConfig` / `RPCProxy` /
+    `False`. A single-provider fork starts no proxy (nothing to fail over to), so
+    this only takes effect once the Lever B multi-provider secrets exist. The
+    per-attempt `timeout` is intentionally kept **≥ a legitimate cold-archive
+    read** — the win is fewer attempts, not shorter ones; slashing it (e.g. to
+    15s) would *increase* flakiness on cold reads. The production
+    `RPCProxyConfig` dataclass defaults (`retries=3, timeout=30s`) are left
+    unchanged — that 90s budget is for resilient production scanning.
+  - Do **not** change the production `RPCProxyConfig` defaults — their 90s budget
+    is deliberately matched to Anvil's read timeout for resilient production
+    scanning. This is a test-fork-only override.
+  - Keep the short bounded backoff retry on the `eth_chainId` setup probe (only
+    after failover across all providers is exhausted) so a transient blip retries
+    in seconds, and raise the *classified* provider error (see diagnostics) rather
+    than a generic `eth_chainId` `RuntimeError`.
+
+### CI re-run procedure (avoid the gate cancellation)
+
+When retrying a failed run, re-run the **whole** run (`gh run rerun <run-id>`),
+never `gh run rerun --failed`: a partial re-run lets the downstream `gate` job
+short-circuit and cancel the still-passing (or still-running) vault-protocol job.
+
+### Acceptance
+
+- A single provider running out of credits no longer fails the job — the proxy
+  fails over to the next configured provider.
+- When *all* providers for a chain fail, both the pytest error and the CI job
+  summary name the provider label and the failure mode (e.g. `out_of_credits`)
+  and the chain — with API keys redacted.
+- Warm-cache runs hit the upstream archive rarely; the `eth_chainId`-at-setup and
+  60s `ReadTimeout` failure classes disappear from green runs.
+- No deterministic regression is masked: only transient upstream modes are
+  retried/failed-over; product errors still fail loudly.
+
 ## Why
 
 The suite is an integration suite behaving like a unit suite:

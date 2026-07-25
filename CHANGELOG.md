@@ -1,5 +1,6 @@
 # 1.2
 
+- fix: Reduce vault-protocol CI RPC flakiness — cap test workers at 4, add a 15-minute per-test hard timeout, pin the shared Anvil fork pool to the bounded fail-fast upstream failover proxy (one attempt per provider, no dead-provider re-hammer), normalise flaky retries to one, and document a provider-redundancy + failure-diagnostics plan (2026-07-25)
 - feat: Add shared perp DEX vault exposure metrics for Hyperliquid and Lighter, explicit unavailable-position states for GRVT, Hibachi and ApeX, and cleaned-Parquet/JSON export support (2026-07-24)
 - feat: Add an ApeX Omni all-vault reader with bounded public API access, flexible timestamp observations, historical backfills, DuckDB storage and all-chain vault pipeline integration (2026-07-23)
 - feat: Automatically migrate Core3 risk databases to the latest DuckDB format and native Zstandard-compress historical raw JSON snapshots (2026-07-23)
