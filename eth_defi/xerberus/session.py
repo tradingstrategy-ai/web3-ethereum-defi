@@ -6,7 +6,7 @@ public 10 requests / 60 s quota, and dual auth headers (``x-api-key`` +
 
 Authentication requires both an API key and the email registered with that
 key. Pass them explicitly via ``api_key`` / ``api_email``, or set
-``XERBERUS_API_KEY`` and ``XERBERUS_API_EMAIL`` (alias ``XERBERUS_USER_EMAIL``).
+``XERBERUS_API_KEY`` and ``XERBERUS_API_EMAIL``.
 Do not invent or probe candidate emails; only use operator-supplied values.
 
 For API fetch helpers, see :py:mod:`eth_defi.xerberus.api`.
@@ -53,9 +53,8 @@ class XerberusSession(Session):
         create_xerberus_session(api_key=key, api_email=email)
 
     When omitted, values are read from ``XERBERUS_API_KEY`` and
-    ``XERBERUS_API_EMAIL`` (or ``XERBERUS_USER_EMAIL``). Agents must not
-    invent email addresses; only use operator-supplied env vars or
-    explicit arguments.
+    ``XERBERUS_API_EMAIL``. Agents must not invent email addresses; only use
+    operator-supplied env vars or explicit arguments.
 
     Use :py:func:`create_xerberus_session` to create instances.
     """
@@ -87,8 +86,8 @@ class XerberusSession(Session):
             API key. If ``None``, reads ``XERBERUS_API_KEY``.
         :param api_email:
             Email registered with the key. If ``None``, reads
-            ``XERBERUS_API_EMAIL`` / ``XERBERUS_USER_EMAIL``. Pass this
-            explicitly when available; never invent a value.
+            ``XERBERUS_API_EMAIL``. Pass this explicitly when available;
+            never invent a value.
         :param min_request_interval:
             Minimum seconds between authenticated requests.
         """
@@ -99,7 +98,11 @@ class XerberusSession(Session):
         if api_email is None:
             api_email = resolve_xerberus_api_email()
         assert api_key, "XERBERUS_API_KEY environment variable or api_key= parameter is required"
-        assert api_email, "XERBERUS_API_EMAIL (or XERBERUS_USER_EMAIL) environment variable or api_email= parameter is required. Pass the email registered with the API key explicitly — do not guess candidate addresses."
+        assert api_email, (
+            "XERBERUS_API_EMAIL environment variable or api_email= parameter is "
+            "required. Pass the email registered with the API key explicitly — "
+            "do not guess candidate addresses."
+        )
         self.api_key = api_key
         self.api_email = api_email
         self.min_request_interval = min_request_interval
@@ -185,8 +188,8 @@ def create_xerberus_session(
         Pass explicitly when known.
     :param api_email:
         Email registered with the API key (``x-user-email``). If ``None``,
-        reads from ``XERBERUS_API_EMAIL`` or alias ``XERBERUS_USER_EMAIL``.
-        Pass explicitly when known. **Do not guess** this value.
+        reads from ``XERBERUS_API_EMAIL``. Pass explicitly when known.
+        **Do not guess** this value.
     :param retries:
         Maximum retry attempts for failed requests.
     :param backoff_factor:

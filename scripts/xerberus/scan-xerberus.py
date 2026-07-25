@@ -14,9 +14,9 @@ Usage:
 Environment variables:
 
 - ``XERBERUS_API_KEY``: API key (required)
-- ``XERBERUS_API_EMAIL``: Email registered with the key (required). Alias
-  ``XERBERUS_USER_EMAIL``. **Do not invent this value** — only use the
-  operator-supplied registered address.
+- ``XERBERUS_API_EMAIL``: Email registered with the key (required).
+  **Do not invent this value** — only use the operator-supplied registered
+  address.
 - ``XERBERUS_DATABASE_PATH``: DuckDB path (default under ~/.tradingstrategy/vaults/xerberus/)
 - ``XERBERUS_FETCH_VAULT_LIST``: ``true``/``false`` (default true)
 - ``XERBERUS_FETCH_REPORTS``: ``true``/``false`` (default false)

@@ -66,7 +66,7 @@ request must send:
 | HTTP header | Source |
 |-------------|--------|
 | `x-api-key` | `XERBERUS_API_KEY` or `create_xerberus_session(api_key=...)` |
-| `x-user-email` | `XERBERUS_API_EMAIL` (alias `XERBERUS_USER_EMAIL`) or `create_xerberus_session(api_email=...)` |
+| `x-user-email` | `XERBERUS_API_EMAIL` or `create_xerberus_session(api_email=...)` |
 
 The email is the address registered with Xerberus when the key was issued. The
 server matches key + email; a wrong or missing email returns HTTP 400/401 even
@@ -76,18 +76,17 @@ if the key string looks correct.
 
 | Property | Detail |
 |----------|--------|
-| Env var | **`XERBERUS_API_EMAIL`** (preferred) |
-| Alias | `XERBERUS_USER_EMAIL` (legacy / docs alias; same meaning) |
+| Env var | **`XERBERUS_API_EMAIL`** |
 | Python | `create_xerberus_session(api_email="…")` or `XerberusSession(api_email="…")` |
-| Resolver | `resolve_xerberus_api_email()` reads env only; does not invent a value |
+| Resolver | `resolve_xerberus_api_email()` reads ``XERBERUS_API_EMAIL`` only; does not invent a value |
 | Healthcheck | Not required (`GET /registry/healthcheck` is unauthenticated) |
 
 **Agents and automation must not guess the email.** Do not invent
 `dev@…`, personal git emails, or probe candidate addresses. Use only:
 
 1. An explicit `api_email=` argument passed by the operator/caller, or
-2. `XERBERUS_API_EMAIL` / `XERBERUS_USER_EMAIL` already set in the environment /
-   secrets file (e.g. gitignored `.local-test.env`) by a human operator.
+2. `XERBERUS_API_EMAIL` already set in the environment / secrets file
+   (e.g. gitignored `.local-test.env`) by a human operator.
 
 If the email is missing, fail clearly and ask the operator to set it. Never
 brute-force or trial-and-error auth against the live API.
@@ -124,7 +123,7 @@ session = create_xerberus_session(
 | Variable | Required | Notes |
 |----------|----------|-------|
 | `XERBERUS_API_KEY` | for scan | API key from secrets / operator env |
-| `XERBERUS_API_EMAIL` | for scan | **Registered email for the key.** Alias: `XERBERUS_USER_EMAIL`. **Do not guess.** |
+| `XERBERUS_API_EMAIL` | for scan | **Registered email for the key.** **Do not guess.** |
 | `XERBERUS_DATABASE_PATH` | no | Default under `~/.tradingstrategy/vaults/xerberus/` |
 | `SKIP_XERBERUS` | no | `true` disables all-chains enrichment |
 | `XERBERUS_FETCH_VAULT_LIST` | no | Default `true` |

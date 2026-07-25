@@ -20,8 +20,8 @@ Live API calls require **both**:
   the email registered with the key, sent as the ``x-user-email`` header
 
 Prefer passing credentials explicitly in code. Agents must **not** invent or
-probe candidate emails; only use operator-supplied environment variables or
-explicit arguments. Alias env var: ``XERBERUS_USER_EMAIL``.
+probe candidate emails; only use operator-supplied ``XERBERUS_API_EMAIL`` or
+an explicit ``api_email`` argument.
 
 Features:
 

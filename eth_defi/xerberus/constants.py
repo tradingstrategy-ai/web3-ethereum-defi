@@ -65,10 +65,8 @@ def resolve_xerberus_api_email() -> str | None:
     """Resolve the registered email for Xerberus API auth from the environment.
 
     Xerberus requires the email registered with the API key on every
-    authenticated request (``x-user-email`` header). This helper only reads:
-
-    1. ``XERBERUS_API_EMAIL`` (preferred), then
-    2. ``XERBERUS_USER_EMAIL`` (alias).
+    authenticated request (``x-user-email`` header). This helper only reads
+    ``XERBERUS_API_EMAIL``.
 
     It does **not** invent, default, or derive an email from git config,
     hostname, or other heuristics. Callers and agents must not guess the
@@ -79,10 +77,9 @@ def resolve_xerberus_api_email() -> str | None:
     See ``README-xerberus.md`` (Authentication section).
 
     :return:
-        Email string from the environment, or ``None`` if neither variable
-        is set.
+        Email string from ``XERBERUS_API_EMAIL``, or ``None`` if unset.
     """
-    email = os.environ.get("XERBERUS_API_EMAIL") or os.environ.get("XERBERUS_USER_EMAIL")
+    email = os.environ.get("XERBERUS_API_EMAIL")
     if email is not None:
         email = email.strip() or None
     return email

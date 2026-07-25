@@ -49,7 +49,7 @@ structural risk. Combining both gives operators two independent views:
 | 8 | Address case test | Required offline test |
 | 9 | TypedDicts | Full export types |
 | 10 | ZSTD syntax | `VARCHAR USING COMPRESSION 'zstd'` |
-| 11 | Email env name | `XERBERUS_API_EMAIL` (+ `XERBERUS_USER_EMAIL` alias) |
+| 11 | Email env name | `XERBERUS_API_EMAIL` only |
 | 12 | Healthcheck | Pre-flight raw-text; not rate-limited path |
 | 13 | `score_scale` | Constant + unit test |
 | 14 | Credential warning test | Required |
@@ -98,7 +98,7 @@ Base URL: `https://api.xerberus.io/public/v1`
 Auth (every authenticated call):
 
 - `x-api-key` ← `XERBERUS_API_KEY` (**available**)
-- `x-user-email` ← `XERBERUS_API_EMAIL` (alias `XERBERUS_USER_EMAIL`)
+- `x-user-email` ← `XERBERUS_API_EMAIL`
 
 | Method | Path | Data |
 |--------|------|------|
@@ -604,7 +604,7 @@ Paths:
 | Variable | Required | Notes |
 |----------|----------|-------|
 | `XERBERUS_API_KEY` | for scan | **Available** in operator env |
-| `XERBERUS_API_EMAIL` | for scan | Alias `XERBERUS_USER_EMAIL` |
+| `XERBERUS_API_EMAIL` | for scan | Registered email for the key |
 | `XERBERUS_DATABASE_PATH` | no | Default path above |
 | `SKIP_XERBERUS` | no | `false`; default-on when both credentials set |
 | `XERBERUS_FETCH_VAULT_LIST` | no | `true` |

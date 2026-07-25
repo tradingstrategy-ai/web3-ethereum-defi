@@ -114,7 +114,7 @@ Environment variables:
       Default-on when both credentials below are set.
     - XERBERUS_API_KEY: Xerberus API key. If missing, Xerberus is disabled with a warning.
     - XERBERUS_API_EMAIL: Email registered with the Xerberus key (HTTP x-user-email).
-      Required with the key for live API calls. Alias: XERBERUS_USER_EMAIL.
+      Required with the key for live API calls.
       Operators set this in secrets / .local-test.env. Agents must not invent it.
     - XERBERUS_DATABASE_PATH: Path to Xerberus DuckDB
       (default: ~/.tradingstrategy/vaults/xerberus/xerberus.duckdb)

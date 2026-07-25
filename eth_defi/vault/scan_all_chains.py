@@ -227,8 +227,8 @@ def should_scan_xerberus(
     :param xerberus_api_key:
         API key from ``XERBERUS_API_KEY`` (or an explicit caller value).
     :param xerberus_api_email:
-        Registered email from ``XERBERUS_API_EMAIL`` / ``XERBERUS_USER_EMAIL``
-        (or an explicit caller value). Do not guess this string.
+        Registered email from ``XERBERUS_API_EMAIL`` (or an explicit caller
+        value). Do not guess this string.
     :return:
         ``True`` if Xerberus should be scheduled.
     """
