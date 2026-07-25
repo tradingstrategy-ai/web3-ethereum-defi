@@ -27,7 +27,7 @@ from eth_typing import BlockIdentifier
 
 from eth_defi.chain import get_chain_name
 from eth_defi.erc_4626.vault import ERC4626Vault
-from eth_defi.erc_4626.vault_protocol.forty_acres.deposit_redeem import FortyAcresDepositManager
+from eth_defi.erc_4626.vault_protocol.forty_acres.deposit_redeem import PHARAOH_USDC_AVALANCHE_ADDRESS, PHARAOH_USDC_AVALANCHE_CHAIN_ID, FortyAcresDepositManager
 from eth_defi.vault.deposit_redeem import VaultDepositManager
 
 logger = logging.getLogger(__name__)
@@ -149,10 +149,12 @@ class FortyAcresVault(ERC4626Vault):
         return "https://app.40acres.finance/"
 
     def get_deposit_manager(self) -> VaultDepositManager:
-        """Create the 40acres manager with redemption-liquidity preflight.
+        """Create the deployment-specific 40acres redemption manager.
 
         :return:
-            Specialised synchronous manager that refuses a redemption the vault
-            cannot pay from its direct underlying balance.
+            The specialised Pharaoh manager when its exact deployment is bound;
+            otherwise the generic ERC-4626 manager.
         """
-        return FortyAcresDepositManager(self)
+        if self.chain_id == PHARAOH_USDC_AVALANCHE_CHAIN_ID and self.address.lower() == PHARAOH_USDC_AVALANCHE_ADDRESS:
+            return FortyAcresDepositManager(self)
+        return super().get_deposit_manager()

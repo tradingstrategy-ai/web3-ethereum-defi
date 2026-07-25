@@ -22,16 +22,26 @@ logger = logging.getLogger(__name__)
 #: OpenZeppelin 5's ``ERC20InsufficientBalance`` custom error.
 FORTY_ACRES_INSUFFICIENT_LIQUIDITY_ERROR = "ERC20: transfer amount exceeds balance"
 
+#: Exact Pharaoh deployment whose verified ``redeem()`` path transfers USDC
+#: directly from the vault and cannot source loan-deployed capital.
+PHARAOH_USDC_AVALANCHE_ADDRESS: HexAddress = "0x124d00b1ce4453ffc5a5f65ce83af13a7709bac7"
+PHARAOH_USDC_AVALANCHE_CHAIN_ID = 43114
+
 
 class FortyAcresDepositManager(ERC4626DepositManager):
-    """40acres ERC-4626 manager with a direct-underlying redemption preflight.
+    """Pharaoh ERC-4626 manager with a direct-underlying redemption preflight.
 
-    40acres includes deployed loans in ``totalAssets()``, but its verified
-    ERC-4626 ``redeem()`` implementation pays lenders by directly transferring
-    the underlying from the vault. It cannot pull liquidity from its loan
-    contract during a redemption. This manager therefore limits an immediate
-    redemption to the current underlying balance held by the vault and refuses
-    a larger request before constructing ``redeem()``.
+    The exact Pharaoh deployment includes loan-deployed assets in
+    ``totalAssets()``, but its verified ``redeem()`` implementation pays lenders
+    by directly transferring the underlying from the vault. It cannot pull
+    liquidity from its loan contract during a redemption. This manager therefore
+    limits an immediate redemption to the current underlying balance held by the
+    vault and refuses a larger request before constructing ``redeem()``.
+
+    Other 40acres deployments use the generic ERC-4626 manager. The direct
+    balance rule is not generalised from this one verified deployment because
+    Aerodrome, for example, has independently demonstrated a successful
+    redemption with no meaningful idle balance.
 
     Deposits remain the inherited synchronous ERC-4626 flow. Redemptions remain
     synchronous too; the manager does not model a loan repayment queue because
@@ -42,8 +52,8 @@ class FortyAcresDepositManager(ERC4626DepositManager):
         """Bind the manager to a 40acres vault.
 
         :param vault:
-            40acres ERC-4626 vault whose direct underlying balance authorises
-            immediate redemptions.
+            Exact Pharaoh ERC-4626 vault whose direct underlying balance
+            authorises immediate redemptions.
         """
         super().__init__(vault)
 
