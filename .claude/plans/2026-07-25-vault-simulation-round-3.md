@@ -40,8 +40,13 @@ The contract between the repositories is:
   path and must not call `force_settle()`. For a mixed manager, inspect the
   selected direction's flow first: the flag is relevant only when that flow is
   asynchronous. `False` therefore must not block an independent synchronous
-  direction of the same manager.
-- Forced-fork asset top-ups must be exposed in the report as
+  direction of the same manager. This directional inspection is already
+  implemented in trade-executor's `has_async_vault_lifecycle`; preserve it
+  while adding the preflight-result consumer.
+- `VaultForcedSettlementResult.synthetic_assets_injected_raw` already exists
+  in eth-defi revision `38fa4f945`. Managers must keep populating it and
+  trade-executor must copy it unchanged to the same report field. Forced-fork
+  asset top-ups must therefore be exposed in the report as
   `synthetic_assets_injected_raw > 0`. This is test-only liquidity, not a
   statement about live redemption capacity.
 
@@ -49,10 +54,12 @@ The contract between the repositories is:
 
 Do not infer results from exception prose. Add the optional
 `preflight_result: str | None` field to `VaultFlowError` and serialise it with
-the existing structured fields. The eth-defi adapter sets one of the exact
-strings below for a predictable refusal; trade-executor copies it verbatim only
-after verifying the accompanying exception and fields. This is the
-authoritative mapping:
+the existing structured fields. During the cross-repository migration every
+adapter must set both its protocol-level `decoded_error` and the exact
+result-string `preflight_result` below. Trade-executor must prefer a present
+`preflight_result`, then use its existing `decoded_error` mapping as a
+backwards-compatible fallback. The fallback remains until the minimum eth-defi
+dependency includes this new field. This is the authoritative mapping:
 
 | Eth-defi signal | Required structured evidence | Result string |
 |---|---|---|
@@ -71,7 +78,7 @@ result and its claim receipt analyser succeeds. Any signal outside this table
 is a defect to fix in eth-defi or explicitly map in a future version; it may
 not fall through to a forbidden generic failure result.
 
-`VaultForcedSettlementResult` gains
+`VaultForcedSettlementResult` already provides
 `synthetic_assets_injected_raw: int = 0`. The manager returns the exact raw
 amount injected by its own Anvil setup, and trade-executor writes the same
 numeric field and name in each `report.json` row. A successful forced
@@ -136,13 +143,14 @@ Regression controls: Syntropia
 ### 2. Make the generic contract enforceable
 
 1. In `eth_defi/vault/deposit_redeem.py`, add `preflight_result` to the
-   structured error schema and `synthetic_assets_injected_raw` to
-   `VaultForcedSettlementResult`; add schema tests for the mapping above.
-   Document and validate capability publication so `True` is only published by
-   implementations that own a matching ticket-level `force_settle()` proof.
-   Keep `None` for a selected synchronous flow; use `False` plus a stable
-   `unsupported_reason` for an advertised asynchronous flow that has no safe
-   driver.
+   structured error schema and add schema tests for the dual-field migration
+   mapping above. `synthetic_assets_injected_raw` is already present in
+   `VaultForcedSettlementResult` from `38fa4f945`; retain and populate it, do
+   not add a duplicate field. Document and validate capability publication so
+   `True` is only published by implementations that own a matching ticket-level
+   `force_settle()` proof. Keep `None` for a selected synchronous flow; use
+   `False` plus a stable `unsupported_reason` for an advertised asynchronous
+   flow that has no safe driver.
 2. Add a reusable helper or focused contract tests for the forced-settlement
    result: it must carry the original ticket, `settlement_required=True`,
    transaction hashes when a settlement transaction was attempted, and
@@ -196,7 +204,12 @@ Regression controls: Syntropia
    preflight_result="redemption_capacity_limited")` before construction of
    `redeem()`, with requested and available raw shares. If the authoritative
    state is a pause instead, use `preflight_result="redemption_paused"`.
-   Retain the current cSigma USD behaviour as a regression case.
+   The fixed acceptance matrix deliberately maps the FIFO queue state to
+   `redemption_capacity_limited`; preserve `decoded_error="WithdrawalPending"`
+   so consumers do not mistake queueing for economic capacity exhaustion. A
+   future `redemption_queued` result needs a deliberate cross-repository matrix
+   change, not an ad-hoc new result here. Retain the current cSigma USD
+   behaviour as a regression case.
 2. In `gains/deposit_redeem.py` and its vault helpers, turn `EndOfEpoch` and
    `ExceededMaxRedeem` into typed request refusals. Set
    `preflight_result="redemption_window_closed"` for `EndOfEpoch` and expose
@@ -240,10 +253,13 @@ Regression controls: Syntropia
    machine-readable fixture/report containing capability, exception fields,
    selectors, ticket statuses and synthetic liquidity values.
 2. In trade-executor, consume the typed exceptions before generic error
-   handling and map `preflight_result` only through the authoritative table
-   above. Honour false capability before calling a settlement driver; for a
-   selected synchronous direction (`None`), use normal receipt analysis and
-   skip `force_settle()`. Retain every raw structured field, the capability
+   handling. Prefer `preflight_result` and map it only through the
+   authoritative table above; retain the existing `decoded_error` mapping as a
+   fallback until all supported eth-defi revisions expose `preflight_result`.
+   Do not change the existing direction-aware `has_async_vault_lifecycle`
+   handling: honour false capability before calling a settlement driver, while
+   a selected synchronous direction (`None`) uses normal receipt analysis and
+   skips `force_settle()`. Retain every raw structured field, the capability
    fields, `unsupported_reason` and `synthetic_assets_injected_raw` verbatim in
    `report.json`.
 3. Run the mandatory command from the work order against all fifteen IDs in
