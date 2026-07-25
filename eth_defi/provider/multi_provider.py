@@ -26,6 +26,13 @@ from eth_defi.utils import get_url_domain
 
 logger = logging.getLogger(__name__)
 
+#: Retry count used for ordinary remote JSON-RPC providers.
+DEFAULT_RETRIES: int = 6
+
+#: A registered local Anvil already performs upstream failover. Retrying the
+#: localhost request can only multiply a wedged fork's timeout.
+DEFAULT_ANVIL_RETRIES: int = 0
+
 
 class MultiProviderConfigurationError(Exception):
     """Could not parse URL soup for configuring web3"""
@@ -132,6 +139,19 @@ def _apply_anvil_launch_metadata(provider: HTTPProvider) -> None:
     provider.anvil_effective_fork_url = metadata.effective_fork_url  # type: ignore[attr-defined]
 
 
+def _resolve_default_retries(call_endpoints: list[str]) -> int:
+    """Resolve the retry policy before Web3 or a subprocess factory is built.
+
+    :param call_endpoints:
+        Parsed standard JSON-RPC endpoints, excluding any ``mev+`` endpoint.
+
+    :return:
+        Concrete retry count safe to serialise to worker processes.
+    """
+    has_registered_anvil = len(call_endpoints) == 1 and _get_anvil_launch_metadata(call_endpoints[0]) is not None
+    return DEFAULT_ANVIL_RETRIES if has_registered_anvil else DEFAULT_RETRIES
+
+
 def create_multi_provider_web3(
     configuration_line: str,
     fallback_sleep=5.0,
@@ -140,7 +160,7 @@ def create_multi_provider_web3(
     session: Optional[Any] = None,
     switchover_noisiness=logging.WARNING,
     default_http_timeout=(3.0, 60.0),
-    retries: int = 6,
+    retries: int | None = None,
     hint: Optional[str] = "",
     unit_test=False,
     add_signing_middleware: LocalAccount | None = None,
@@ -213,6 +233,11 @@ def create_multi_provider_web3(
 
     :param retries:
         How many retry count we do calling JSON-RPC API if the API response fails.
+
+        When omitted, ordinary remote providers use six retries and a local
+        Anvil URL registered by :func:`eth_defi.provider.anvil.launch_anvil`
+        uses none. Anvil's upstream proxy already performs provider failover,
+        so retrying a wedged localhost request only multiplies the timeout.
 
     :param hint:
         A hint for error logs if something goes wrong.
@@ -291,6 +316,9 @@ def create_multi_provider_web3(
 
     if len(call_endpoints) == 0:
         raise MultiProviderConfigurationError(f"At least one call endpoint must be specified, configuration was {configuration_line}")
+
+    if retries is None:
+        retries = _resolve_default_retries(call_endpoints)
 
     if session is None:
         # https://stackoverflow.com/a/47475019/315168
@@ -434,9 +462,10 @@ class MultiProviderWeb3Factory:
     - Allows creating web3 connections from a config line in multiprocessing worker pools
     """
 
-    def __init__(self, rpc_url: str, retries=6, hint: str | None = "", skip_verification: bool = False, expected_chain_id: int | None = None, rpc_request_stats: RPCRequestStats | None = None):
+    def __init__(self, rpc_url: str, retries: int | None = None, hint: str | None = "", skip_verification: bool = False, expected_chain_id: int | None = None, rpc_request_stats: RPCRequestStats | None = None):
         self.rpc_url = rpc_url
-        self.retries = retries
+        call_endpoints = [endpoint for endpoint in rpc_url.split() if not endpoint.startswith("mev+")]
+        self.retries = retries if retries is not None else _resolve_default_retries(call_endpoints)
         self.hint = hint
         #: Skip the per-worker ``eth_chainId`` provider cross-check.
         #:

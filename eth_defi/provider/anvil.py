@@ -50,7 +50,7 @@ from decimal import Decimal
 from functools import wraps
 from pathlib import Path
 from subprocess import DEVNULL, PIPE
-from typing import TYPE_CHECKING, Any, Callable, Concatenate, Optional, ParamSpec, TextIO, Union
+from typing import Any, Callable, Concatenate, Optional, ParamSpec, TextIO, Union
 
 import psutil
 import requests
@@ -58,10 +58,8 @@ from eth_typing import HexAddress
 from requests.exceptions import ConnectionError as RequestsConnectionError
 from web3 import HTTPProvider, Web3
 
+from eth_defi.provider.rpc_proxy import RPCProxy, RPCProxyConfig, start_rpc_proxy
 from eth_defi.utils import is_localhost_port_listening, shutdown_hard
-
-if TYPE_CHECKING:
-    from eth_defi.provider.rpc_proxy import RPCProxy, RPCProxyConfig
 
 logger = logging.getLogger(__name__)
 
@@ -73,6 +71,14 @@ logger = logging.getLogger(__name__)
 #: unlinking a live lock file could let another worker create a new inode for
 #: the same port and acquire an independent lock.
 ANVIL_PORT_LOCK_FILE_PREFIX = "web3-ethereum-defi-anvil-port"
+
+#: Maximum duration of one automatic Anvil proxy request to an upstream.
+ANVIL_PROXY_MAX_ATTEMPT_TIMEOUT: float = 15.0
+
+#: Keep the automatic proxy's full provider pass below Web3's 60-second
+#: localhost read timeout. Explicit :class:`RPCProxyConfig` values are
+#: preserved unchanged.
+ANVIL_PROXY_TOTAL_TIMEOUT: float = 55.0
 
 #: Per-thread state tracking the last used RPC index for multi-RPC fork URLs.
 #: This is a workaround for test flakiness on CI: when multiple RPC endpoints
@@ -305,6 +311,34 @@ def _get_anvil_launch_metadata(json_rpc_url: str) -> AnvilForkMetadata | None:
 
     with _anvil_launch_metadata_lock:
         return _anvil_launch_metadata.get(json_rpc_url)
+
+
+def _create_default_anvil_proxy_config(provider_count: int) -> RPCProxyConfig:
+    """Create the bounded policy for automatic Anvil upstream failover.
+
+    Automatic proxying tries every configured provider once without sleeping
+    between distinct providers. Its full request budget stays below Web3's
+    default 60-second localhost read timeout.
+
+    :param provider_count:
+        Number of usable upstream JSON-RPC providers.
+
+    :return:
+        Bounded automatic proxy configuration.
+    """
+    assert provider_count > 1, f"Anvil proxy needs multiple providers, got {provider_count}"
+    per_provider_budget = ANVIL_PROXY_TOTAL_TIMEOUT / provider_count
+    if per_provider_budget <= 10:
+        # Requests applies the same value separately to connect and read when
+        # both fit below its five-second connect cap.
+        attempt_timeout = per_provider_budget / 2
+    else:
+        attempt_timeout = per_provider_budget - 5
+    return RPCProxyConfig(
+        timeout=min(ANVIL_PROXY_MAX_ATTEMPT_TIMEOUT, attempt_timeout),
+        retries=provider_count,
+        backoff=0.0,
+    )
 
 
 def _register_anvil_launch_metadata(
@@ -1304,11 +1338,7 @@ def launch_anvil(
         upstream_rpc_urls = tuple(available_rpcs)
 
         if len(available_rpcs) > 1 and proxy_multiple_upstream is not False:
-            from eth_defi.provider.rpc_proxy import RPCProxy as RPCProxyClass
-            from eth_defi.provider.rpc_proxy import RPCProxyConfig as RPCProxyConfigClass
-            from eth_defi.provider.rpc_proxy import start_rpc_proxy
-
-            if isinstance(proxy_multiple_upstream, RPCProxyClass):
+            if isinstance(proxy_multiple_upstream, RPCProxy):
                 # Caller provided a pre-built proxy — use it, but don't
                 # manage its lifecycle (caller is responsible for close()).
                 proxy = proxy_multiple_upstream
@@ -1321,7 +1351,13 @@ def launch_anvil(
             else:
                 # Start a failover proxy that sits between Anvil and multiple
                 # upstream RPCs, providing retry/timeout/switchover handling.
-                config = proxy_multiple_upstream if isinstance(proxy_multiple_upstream, RPCProxyConfigClass) else None
+                if isinstance(proxy_multiple_upstream, RPCProxyConfig):
+                    config = proxy_multiple_upstream
+                else:
+                    # Automatic Anvil proxying makes one bounded pass across
+                    # the configured providers. Retrying the same provider
+                    # again is left to an explicit caller configuration.
+                    config = _create_default_anvil_proxy_config(len(available_rpcs))
                 proxy = start_rpc_proxy(available_rpcs, config=config, suppress_client_disconnect_errors=True)
                 cleaned_fork_url = proxy.url
                 logger.info(

@@ -4,10 +4,10 @@ from unittest.mock import Mock
 
 import pytest
 
+from eth_defi.provider import anvil as anvil_module
 from eth_defi.provider.rpc_proxy import RPCProxy, RPCProxyConfig
 from eth_defi.testing import anvil_fork_pool as pool_module
 from eth_defi.testing.anvil_fork_pool import (
-    POOL_PROXY_TIMEOUT,
     POOL_WEB3_HTTP_TIMEOUT,
     POOL_WEB3_RETRIES,
     AnvilForkPool,
@@ -47,15 +47,94 @@ def test_anvil_fork_pool_bounds_nested_rpc_retries(monkeypatch: pytest.MonkeyPat
     assert fork_network_anvil.call_count == 1
     assert create_web3.call_count == len((first_client, second_client))
 
-    proxy_config = fork_network_anvil.call_args.kwargs["proxy_multiple_upstream"]
-    assert isinstance(proxy_config, RPCProxyConfig)
-    assert proxy_config.timeout == POOL_PROXY_TIMEOUT
-    assert proxy_config.retries == len(rpc_url.split())
+    fork_network_anvil.assert_called_once_with(
+        rpc_url,
+        fork_block_number=123,
+    )
     create_web3.assert_called_with(
         launch.json_rpc_url,
         default_http_timeout=POOL_WEB3_HTTP_TIMEOUT,
         retries=POOL_WEB3_RETRIES,
     )
+
+
+@pytest.mark.parametrize("provider_count", [2, 3, 4, 10])
+def test_default_anvil_proxy_policy_is_bounded(provider_count: int) -> None:
+    """Try each automatic upstream once within the local read timeout.
+
+    :param provider_count:
+        Number of configured standard upstream providers.
+
+    :return:
+        None.
+    """
+
+    config = anvil_module._create_default_anvil_proxy_config(provider_count)
+
+    assert config.retries == provider_count
+    assert config.backoff == 0
+    combined_requests_timeout = min(config.timeout, 5.0) + config.timeout
+    assert combined_requests_timeout * provider_count <= anvil_module.ANVIL_PROXY_TOTAL_TIMEOUT
+
+
+def test_launch_anvil_preserves_proxy_modes(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Wire the bounded automatic policy without changing explicit modes.
+
+    The deliberately dead upstreams stop each launch at its smoke test, after
+    the proxy-selection branch has run but before an Anvil process is spawned.
+
+    :param monkeypatch:
+        Pytest monkeypatch fixture.
+
+    :return:
+        None.
+    """
+    rpc_url = "http://127.0.0.1:1 http://127.0.0.1:2"
+    managed_proxy = Mock(spec=RPCProxy)
+    managed_proxy.url = "http://127.0.0.1:23456"
+    start_rpc_proxy = Mock(return_value=managed_proxy)
+    monkeypatch.setattr(anvil_module, "start_rpc_proxy", start_rpc_proxy)
+
+    with pytest.raises(ValueError, match="RPC smoke test failed"):
+        anvil_module.launch_anvil(
+            rpc_url,
+            proxy_multiple_upstream=True,
+            test_request_timeout=0.01,
+        )
+
+    automatic_config = start_rpc_proxy.call_args.kwargs["config"]
+    expected_config = anvil_module._create_default_anvil_proxy_config(2)
+    assert automatic_config == expected_config
+    assert start_rpc_proxy.call_args.kwargs["suppress_client_disconnect_errors"] is True
+
+    explicit_config = RPCProxyConfig(timeout=7.0, retries=3)
+    start_rpc_proxy.reset_mock()
+    with pytest.raises(ValueError, match="RPC smoke test failed"):
+        anvil_module.launch_anvil(
+            rpc_url,
+            proxy_multiple_upstream=explicit_config,
+            test_request_timeout=0.01,
+        )
+    assert start_rpc_proxy.call_args.kwargs["config"] is explicit_config
+
+    start_rpc_proxy.reset_mock()
+    with pytest.raises(ValueError, match="RPC smoke test failed"):
+        anvil_module.launch_anvil(
+            rpc_url,
+            proxy_multiple_upstream=False,
+            test_request_timeout=0.01,
+        )
+    start_rpc_proxy.assert_not_called()
+
+    caller_proxy = object.__new__(RPCProxy)
+    caller_proxy.url = "http://127.0.0.1:23457"
+    with pytest.raises(ValueError, match="RPC smoke test failed"):
+        anvil_module.launch_anvil(
+            rpc_url,
+            proxy_multiple_upstream=caller_proxy,
+            test_request_timeout=0.01,
+        )
+    start_rpc_proxy.assert_not_called()
 
 
 def test_anvil_fork_pool_preserves_explicit_proxy_config(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -81,36 +160,6 @@ def test_anvil_fork_pool_preserves_explicit_proxy_config(monkeypatch: pytest.Mon
 
     assert returned_launch is launch
     assert fork_network_anvil.call_args.kwargs["proxy_multiple_upstream"] is explicit_config
-
-
-def test_anvil_fork_pool_tries_every_standard_upstream(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """Size the bounded proxy attempt count to the usable provider set.
-
-    :param monkeypatch:
-        Pytest monkeypatch fixture.
-
-    :return:
-        None.
-    """
-    launch = Mock(json_rpc_url="http://localhost:23458")
-    fork_network_anvil = Mock(return_value=launch)
-    monkeypatch.setattr(pool_module, "fork_network_anvil", fork_network_anvil)
-
-    pool = AnvilForkPool()
-    standard_rpc_urls = (
-        "https://primary.example",
-        "https://fallback.example",
-        "https://last-resort.example",
-    )
-    pool.get_launch(
-        " ".join(("mev+https://transactions.example", *standard_rpc_urls)),
-        789,
-    )
-
-    proxy_config = fork_network_anvil.call_args.kwargs["proxy_multiple_upstream"]
-    assert proxy_config.retries == len(standard_rpc_urls)
 
 
 def test_anvil_fork_pool_allows_web3_policy_override(

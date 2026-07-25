@@ -58,12 +58,13 @@ archive-replay latency. That is why the fixed shared block is mandatory.
 Bounded provider retries
 ------------------------
 
-Pooled forks must also fail within a bounded period when an upstream archive
-provider is unavailable. For multi-provider configurations, the pool gives the
-Anvil RPC proxy one attempt per configured provider. The Web3 client then
-retries the local Anvil only once by default because the proxy has already
-performed upstream failover. Callers with legitimately slow fork operations can
-override the Web3 retry count and HTTP timeout in :meth:`AnvilForkPool.get_web3`.
+Forks must also fail within a bounded period when an upstream archive provider
+is unavailable. For multi-provider configurations,
+:func:`eth_defi.provider.anvil.launch_anvil` gives the automatic RPC proxy one
+attempt per configured provider. The pool's Web3 client does not retry the
+local Anvil because the proxy has already performed upstream failover. Callers
+with legitimately slow fork operations can override the Web3 retry count and
+HTTP timeout in :meth:`AnvilForkPool.get_web3`.
 
 Reference tests to copy
 -----------------------
@@ -139,11 +140,8 @@ from eth_defi.provider.anvil import AnvilLaunch, fork_network_anvil
 from eth_defi.provider.multi_provider import create_multi_provider_web3
 from eth_defi.provider.rpc_proxy import RPCProxy, RPCProxyConfig
 
-#: Maximum duration of one request to an upstream archive provider.
-POOL_PROXY_TIMEOUT: float = 15.0
-
-#: Do not multiply an already bounded Anvil/proxy failure through six Web3 retries.
-POOL_WEB3_RETRIES: int = 1
+#: Do not retry a wedged local Anvil after its proxy has tried every upstream.
+POOL_WEB3_RETRIES: int = 0
 
 #: Preserve the established connect/read timeout for legitimate cold-cache calls.
 POOL_WEB3_HTTP_TIMEOUT: tuple[float, float] = (3.0, 60.0)
@@ -219,20 +217,6 @@ class AnvilForkPool:
         :return:
             The shared :class:`~eth_defi.provider.anvil.AnvilLaunch`.
         """
-        configured_rpc_urls = rpc_url.split()
-        standard_rpc_urls = [url for url in configured_rpc_urls if not url.startswith("mev+")]
-        available_rpc_count = len(standard_rpc_urls or configured_rpc_urls)
-        if available_rpc_count > 1 and "proxy_multiple_upstream" not in launch_kwargs:
-            # Bound the inner retry layer. The default proxy budget can take
-            # around 90 seconds; combining that with Web3's default six
-            # localhost retries made one unavailable archive request stall a
-            # pooled xdist group for about eight minutes. Try each configured
-            # upstream once before returning the error to Anvil.
-            launch_kwargs["proxy_multiple_upstream"] = RPCProxyConfig(
-                timeout=POOL_PROXY_TIMEOUT,
-                retries=available_rpc_count,
-            )
-
         key = (rpc_url, fork_block_number, _freeze(launch_kwargs))
         launch = self.launches.get(key)
         if launch is None:
