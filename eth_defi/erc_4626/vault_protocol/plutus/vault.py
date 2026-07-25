@@ -13,7 +13,7 @@ from eth_defi.abi import ZERO_ADDRESS_STR, get_deployed_contract
 from eth_defi.erc_4626.core import get_deployed_erc_4626_contract
 from eth_defi.erc_4626.deposit_redeem import ERC4626DepositManager
 from eth_defi.erc_4626.vault import ERC4626HistoricalReader, ERC4626Vault
-from eth_defi.erc_4626.vault_protocol.plutus.deposit_redeem import PlutusAsyncDepositManager
+from eth_defi.erc_4626.vault_protocol.plutus.deposit_redeem import PLUTUS_ANVIL_SETTLEMENT_UNSUPPORTED_REASON, PlutusAsyncDepositManager
 from eth_defi.event_reader.conversion import convert_int256_bytes_to_int
 from eth_defi.event_reader.multicall_batcher import EncodedCall, EncodedCallResult
 from eth_defi.vault.base import (
@@ -246,7 +246,7 @@ class PlutusVault(ERC4626Vault):
                 deposit_flow="synchronous",
                 redemption_flow="asynchronous",
                 supports_anvil_settlement=False,
-                anvil_settlement_unsupported_reason="plutus_redeem_fulfilment_is_access_control_role_gated",
+                anvil_settlement_unsupported_reason=PLUTUS_ANVIL_SETTLEMENT_UNSUPPORTED_REASON,
             )
         return self.get_synchronous_deposit_manager_capability()
 

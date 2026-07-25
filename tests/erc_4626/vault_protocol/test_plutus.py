@@ -213,3 +213,7 @@ def test_plutus_async_redemption_lifecycle(midnight_web3: Web3, plutus_snapshot:
     with pytest.raises(UnsupportedVaultSimulation, match="role-gated") as exc_info:
         manager.force_settle(ticket)
     assert exc_info.value.unsupported_reason == "plutus_redeem_fulfilment_is_access_control_role_gated"
+    assert exc_info.value.protocol == vault.get_protocol_name()
+    assert exc_info.value.vault_address == vault.address
+    assert exc_info.value.direction == "redeem"
+    assert exc_info.value.phase == "settlement"

@@ -1,5 +1,15 @@
 # Vault simulation round 3 hand-off plan
 
+## Delivery status
+
+This document remains the cross-repository completion plan; it is not a claim
+that every matrix row is implemented by this PR. The current eth-defi changes
+deliver the shared `preflight_result`/unsupported-settlement contract and
+focused paths for Ember Third Eye, Accountable Hyperithm, cSuperior, Gains
+Arbitrum, Plutus Hedge, and generic ERC-7540. Exact-address coverage for the
+remaining Ember, Gains Base, and Lagoon matrix rows remains pending, as does
+the trade-executor matrix consumer and final report.
+
 ## Purpose and boundary
 
 This is the binding eth-defi hand-off for the trade-executor acceptance matrix

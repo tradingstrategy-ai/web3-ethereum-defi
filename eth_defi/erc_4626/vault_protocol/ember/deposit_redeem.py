@@ -34,6 +34,7 @@ from eth_defi.vault.deposit_redeem import (
     UnsupportedVaultSimulation,
     VaultFlowUnavailable,
     VaultForcedSettlementResult,
+    create_synchronous_settlement_result,
 )
 from eth_defi.vault.flow_events import (
     PendingVaultFlow,
@@ -46,6 +47,10 @@ from eth_defi.vault.flow_events import (
 
 if TYPE_CHECKING:
     from eth_defi.erc_4626.vault_protocol.ember.vault import EmberVault
+
+
+#: Ember operator processing pays directly and never creates a claimable ticket.
+EMBER_ANVIL_SETTLEMENT_UNSUPPORTED_REASON = "ember_operator_settlement_has_no_claimable_ticket_status"
 
 
 @dataclass(slots=True)
@@ -489,16 +494,14 @@ class EmberDepositManager(ERC4626DepositManager):
             reason and without an operator transaction.
         """
         if ticket is None:
-            return VaultForcedSettlementResult(
-                ticket=None,
-                settlement_required=False,
-                status_before=None,
-                status_after=None,
-            )
+            return create_synchronous_settlement_result()
 
         raise UnsupportedVaultSimulation(
             f"Ember settlement cannot prove a claimable ticket for vault {self.vault.address} on chain {self.vault.chain_id}",
-            unsupported_reason="ember_operator_settlement_has_no_claimable_ticket_status",
+            unsupported_reason=EMBER_ANVIL_SETTLEMENT_UNSUPPORTED_REASON,
+            protocol=self.vault.get_protocol_name(),
+            vault_address=self.vault.address,
+            direction="redeem",
         )
 
     def get_redemption_request_status(self, ticket: EmberRedemptionTicket) -> AsyncVaultRequestStatus:

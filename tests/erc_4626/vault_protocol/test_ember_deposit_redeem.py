@@ -138,6 +138,10 @@ def test_ember_deposit_redeem_lifecycle(web3: Web3, vault: EmberVault, usdc: Tok
     with pytest.raises(UnsupportedVaultSimulation, match="cannot prove a claimable") as exc_info:
         manager.force_settle(ticket)
     assert exc_info.value.unsupported_reason == "ember_operator_settlement_has_no_claimable_ticket_status"
+    assert exc_info.value.protocol == vault.get_protocol_name()
+    assert exc_info.value.vault_address == vault.address
+    assert exc_info.value.direction == "redeem"
+    assert exc_info.value.phase == "settlement"
     assert manager.get_redemption_request_status(ticket) == AsyncVaultRequestStatus.pending
     assert vault.vault_contract.functions.getAccountState(owner).call() == [raw_shares, [145], []]
 

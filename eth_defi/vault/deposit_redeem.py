@@ -409,13 +409,48 @@ class UnsupportedVaultSimulation(RuntimeError):
     :param unsupported_reason:
         Stable, machine-readable adapter reason.  This is retained separately
         from ``reason`` so consumers never need to parse exception prose.
+    :param protocol:
+        Protocol adapter that rejected settlement, when known.
+    :param vault_address:
+        Vault whose settlement was rejected, when known.
+    :param direction:
+        ``deposit`` or ``redeem`` for the rejected asynchronous ticket.
+    :param phase:
+        Lifecycle phase that was rejected. Defaults to ``settlement``.
     """
 
-    def __init__(self, reason: str, *, unsupported_reason: str | None = None) -> None:
-        """Store the human and stable simulation-refusal reasons."""
+    def __init__(
+        self,
+        reason: str,
+        *,
+        unsupported_reason: str | None = None,
+        protocol: str | None = None,
+        vault_address: HexAddress | None = None,
+        direction: Literal["deposit", "redeem"] | None = None,
+        phase: str = "settlement",
+    ) -> None:
+        """Store a machine-readable settlement refusal and its vault context.
+
+        :param reason:
+            Human-readable explanation of the refusal.
+        :param unsupported_reason:
+            Stable adapter reason for consumer result mapping.
+        :param protocol:
+            Protocol adapter that rejected settlement, when known.
+        :param vault_address:
+            Vault whose settlement was rejected, when known.
+        :param direction:
+            Rejected asynchronous ticket direction, when known.
+        :param phase:
+            Rejected lifecycle phase.
+        """
         super().__init__(reason)
         self.reason = reason
         self.unsupported_reason = unsupported_reason
+        self.protocol = protocol
+        self.vault_address = vault_address
+        self.direction = direction
+        self.phase = phase
 
 
 @dataclass(slots=True)
@@ -565,6 +600,24 @@ class VaultForcedSettlementResult:
     #: advance tickets on a fork", not "the vault is solvent". Callers that need
     #: a real-liquidity guarantee must assert this is zero.
     synthetic_assets_injected_raw: int = 0
+
+
+def create_synchronous_settlement_result() -> VaultForcedSettlementResult:
+    """Create the standard no-op outcome for a synchronous vault flow.
+
+    Synchronous requests complete in their own transaction and therefore have
+    no ticket or settlement status to advance. Managers exposing mixed flows
+    reuse this value for their synchronous direction.
+
+    :return:
+        A zero-transaction result indicating no settlement is required.
+    """
+    return VaultForcedSettlementResult(
+        ticket=None,
+        settlement_required=False,
+        status_before=None,
+        status_after=None,
+    )
 
 
 class CannotParseRedemptionTransaction(Exception):
@@ -956,19 +1009,19 @@ class VaultDepositManager(ABC):
             raise UnsupportedVaultSimulation(
                 f"{self.__class__.__name__}.force_settle() requires an Anvil provider",
                 unsupported_reason="anvil_provider_required",
+                protocol=self.vault.get_protocol_name(),
+                vault_address=self.vault.address,
             )
 
         if ticket is None and (self.has_synchronous_deposit() or self.has_synchronous_redemption()):
-            return VaultForcedSettlementResult(
-                ticket=None,
-                settlement_required=False,
-                status_before=None,
-                status_after=None,
-            )
+            return create_synchronous_settlement_result()
 
         raise UnsupportedVaultSimulation(
             f"{self.__class__.__name__} has no Anvil settlement driver for {type(ticket).__name__}",
             unsupported_reason="anvil_settlement_driver_not_implemented",
+            protocol=self.vault.get_protocol_name(),
+            vault_address=self.vault.address,
+            direction="deposit" if isinstance(ticket, DepositTicket) else "redeem" if isinstance(ticket, RedemptionTicket) else None,
         )
 
     @abstractmethod

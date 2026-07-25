@@ -154,6 +154,7 @@ class EmberVault(ERC4626Vault):
         :return:
             Ember's public deposit-manager capability metadata.
         """
+        from eth_defi.erc_4626.vault_protocol.ember.deposit_redeem import EMBER_ANVIL_SETTLEMENT_UNSUPPORTED_REASON
         from eth_defi.vault.deposit_redeem import VaultDepositManagerCapability
 
         return VaultDepositManagerCapability(
@@ -166,7 +167,7 @@ class EmberVault(ERC4626Vault):
             # capability until the executor can prove the required claimable
             # status for the exact deployment.
             supports_anvil_settlement=False,
-            anvil_settlement_unsupported_reason="ember_operator_settlement_has_no_claimable_ticket_status",
+            anvil_settlement_unsupported_reason=EMBER_ANVIL_SETTLEMENT_UNSUPPORTED_REASON,
         )
 
     def get_notes(self) -> str | None:

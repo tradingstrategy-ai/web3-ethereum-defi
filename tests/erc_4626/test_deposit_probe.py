@@ -209,6 +209,7 @@ def test_probe_records_preflight_refusal_without_aborting() -> None:
                 direction="deposit",
                 phase="preflight",
                 decoded_error="NotWhitelisted",
+                preflight_result="whitelisting-needed",
                 function_selector=HexBytes("0x85b77f45"),
                 error_selector=HexBytes("0x584a7938"),
             )
@@ -236,6 +237,7 @@ def test_probe_records_preflight_refusal_without_aborting() -> None:
         "direction": "deposit",
         "phase": "preflight",
         "decoded_error": "NotWhitelisted",
+        "preflight_result": "whitelisting-needed",
         "function_selector": "85b77f45",
         "error_selector": "584a7938",
         "access_delay": None,
@@ -274,6 +276,7 @@ def test_probe_preserves_successful_deposit_when_redemption_is_unavailable() -> 
         "direction": "redeem",
         "phase": "preflight",
         "decoded_error": None,
+        "preflight_result": None,
         "function_selector": None,
         "error_selector": None,
         "access_delay": 3600,

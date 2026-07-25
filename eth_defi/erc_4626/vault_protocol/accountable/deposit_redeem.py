@@ -34,6 +34,7 @@ from eth_defi.vault.deposit_redeem import (
     UnsupportedVaultSimulation,
     VaultFlowUnavailable,
     VaultForcedSettlementResult,
+    create_synchronous_settlement_result,
 )
 from eth_defi.vault.flow_events import (
     PendingVaultFlow,
@@ -51,6 +52,9 @@ if TYPE_CHECKING:
 
 #: ``InsufficientAmount()`` from the verified AccountableAsyncRedeemVault ABI.
 ACCOUNTABLE_INSUFFICIENT_AMOUNT_SELECTOR = HexBytes("0x5945ea56")
+
+#: Accountable redemption settlement requires a strategy-operator action.
+ACCOUNTABLE_ANVIL_SETTLEMENT_UNSUPPORTED_REASON = "accountable_redemption_settlement_is_strategy_operator_controlled"
 
 
 @dataclass(slots=True)
@@ -456,15 +460,13 @@ class AccountableDepositManager(ERC4626DepositManager):
             reason.
         """
         if ticket is None:
-            return VaultForcedSettlementResult(
-                ticket=None,
-                settlement_required=False,
-                status_before=None,
-                status_after=None,
-            )
+            return create_synchronous_settlement_result()
         raise UnsupportedVaultSimulation(
             f"Accountable redemption settlement is strategy-operator controlled for vault {self.vault.address} on chain {self.vault.chain_id}",
-            unsupported_reason="accountable_redemption_settlement_is_strategy_operator_controlled",
+            unsupported_reason=ACCOUNTABLE_ANVIL_SETTLEMENT_UNSUPPORTED_REASON,
+            protocol=self.vault.get_protocol_name(),
+            vault_address=self.vault.address,
+            direction="redeem",
         )
 
     def has_synchronous_deposit(self) -> bool:

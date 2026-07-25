@@ -176,6 +176,10 @@ def test_accountable_deposit_and_redemption_request_lifecycle(web3: Web3) -> Non
     with pytest.raises(UnsupportedVaultSimulation, match="strategy-operator controlled") as exc_info:
         manager.force_settle(ticket)
     assert exc_info.value.unsupported_reason == "accountable_redemption_settlement_is_strategy_operator_controlled"
+    assert exc_info.value.protocol == vault.get_protocol_name()
+    assert exc_info.value.vault_address == vault.address
+    assert exc_info.value.direction == "redeem"
+    assert exc_info.value.phase == "settlement"
 
 
 @pytest.mark.timeout(180)

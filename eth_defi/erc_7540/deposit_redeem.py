@@ -33,6 +33,9 @@ from eth_defi.vault.deposit_redeem import (
     VaultFlowUnavailable,
     VaultForcedSettlementResult,
 )
+
+#: Generic ERC-7540 cannot know a protocol's operator settlement action.
+ERC7540_ANVIL_SETTLEMENT_UNSUPPORTED_REASON = "generic_erc_7540_settlement_driver_not_implemented"
 from eth_defi.vault.flow_events import (
     PendingVaultFlow,
     VaultFlowDirection,
@@ -729,10 +732,12 @@ class ERC7540DepositManager(VaultDepositManager):
         :raise UnsupportedVaultSimulation:
             Always, with the generic capability's stable reason.
         """
-        del ticket
         raise UnsupportedVaultSimulation(
             f"Generic ERC-7540 settlement driver is not implemented for vault {self.vault.address} on chain {self.vault.chain_id}",
-            unsupported_reason="generic_erc_7540_settlement_driver_not_implemented",
+            unsupported_reason=ERC7540_ANVIL_SETTLEMENT_UNSUPPORTED_REASON,
+            protocol=self.vault.get_protocol_name(),
+            vault_address=self.vault.address,
+            direction="deposit" if isinstance(ticket, DepositTicket) else "redeem" if isinstance(ticket, RedemptionTicket) else None,
         )
 
     def has_synchronous_deposit(self) -> bool:
