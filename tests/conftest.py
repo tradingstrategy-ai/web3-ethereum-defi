@@ -16,6 +16,20 @@ from typing import Iterator
 import pytest
 
 from eth_defi.testing.anvil_fork_pool import AnvilForkPool
+from eth_defi.testing.rpc_cache import seed_default_foundry_rpc_cache
+
+
+@pytest.fixture(scope="session", autouse=True)
+def _seed_foundry_rpc_cache() -> None:
+    """Warm the Foundry fork RPC cache from repo-supplied defaults, once per worker.
+
+    Copies any committed / env-supplied default cache files into
+    ``~/.foundry/cache/rpc`` before forks launch, so a cold CI cache still starts
+    warm for the canonical midnight blocks. Non-destructive (never overwrites a
+    warmer live file) and a no-op when no seed files exist. See
+    :mod:`eth_defi.testing.rpc_cache`.
+    """
+    seed_default_foundry_rpc_cache()
 
 
 @pytest.fixture(scope="session")

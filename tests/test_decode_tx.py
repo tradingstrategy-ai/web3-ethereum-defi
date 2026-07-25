@@ -23,6 +23,7 @@ from web3 import Web3
 from eth_defi.provider.anvil import fork_network_anvil
 from eth_defi.hotwallet import HotWallet
 from eth_defi.provider.multi_provider import create_multi_provider_web3
+from eth_defi.testing.fork_blocks import BINANCE_MIDNIGHT_BLOCK
 from eth_defi.token import fetch_erc20_details
 from eth_defi.tx import decode_signed_transaction, get_tx_broadcast_data
 
@@ -53,12 +54,18 @@ def user_1() -> LocalAccount:
 
 @pytest.fixture()
 def anvil_bnb_chain_fork(request, large_busd_holder) -> str:
-    """Create a testable fork of live BNB chain.
+    """Create a testable fork of BNB chain at a fixed block.
+
+    Forks the canonical ``BINANCE_MIDNIGHT_BLOCK`` rather than ``latest``: the
+    test only signs, broadcasts and decodes its own transaction (the assertions
+    are block-independent), so a fixed block keeps the fork reproducible and its
+    archive reads cacheable, per the fixed-block rule in
+    :mod:`eth_defi.testing.anvil_fork_pool`.
 
     :return: JSON-RPC URL for Web3
     """
     mainnet_rpc = os.environ["JSON_RPC_BINANCE"]
-    launch = fork_network_anvil(mainnet_rpc, unlocked_addresses=[large_busd_holder])
+    launch = fork_network_anvil(mainnet_rpc, fork_block_number=BINANCE_MIDNIGHT_BLOCK, unlocked_addresses=[large_busd_holder])
     try:
         yield launch.json_rpc_url
     finally:

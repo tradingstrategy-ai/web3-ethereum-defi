@@ -20,17 +20,22 @@ on:
       - 'eth_defi/gmx/**'
       - 'tests/gmx/**'
       - '.github/workflows/test-gmx.yml'
+  # The push/PR `paths:` filters above already ensure this workflow only runs
+  # when GMX code or tests change, so the full (slow, order-execution) suite runs
+  # exactly on GMX-touching changes — no time-based schedule is needed. Manual
+  # dispatch is kept for on-demand full runs.
+  workflow_dispatch: {}
 
 jobs:
   test-gmx-serial:
     # Reserved multicore instance for running tests
     runs-on:
       group: Beefy runners
-    # Hard cap — GMX tests typically run 6-8 min wall-clock; 12 min gives
-    # headroom for cold-cache or slow-RPC runs without burning Beefy minutes.
-    timeout-minutes: 12
+    # Hard cap. GMX tests only run when GMX files change (paths filter above), and
+    # the full suite includes the slow order-execution files, so the cap is 30 min.
+    timeout-minutes: 30
 
-    if: github.event.pull_request.draft == false || github.event_name == 'push'
+    if: github.event_name == 'workflow_dispatch' || github.event.pull_request.draft == false || github.event_name == 'push'
 
     # Only run the action for the latest push
     # See https://docs.github.com/en/actions/using-jobs/using-concurrency#example-only-cancel-in-progress-jobs-or-runs-for-the-current-workflow
@@ -227,9 +232,17 @@ jobs:
       # ============================================================================
       - name: Run GMX tests (PARALLEL)
         run: |
+          set -o pipefail
           # WARNING: Running GMX tests in parallel may cause issues documented above.
           # If you see intermittent failures related to fork state, price validation,
           # or order execution timing, consider running serially by removing -n auto.
+          #
+          # The full GMX suite — including the slow order-execution / vault-deploy
+          # files that each fork per test and simulate the off-chain keeper (with
+          # sleeps) — runs here. The workflow `paths:` filters ensure this only
+          # happens when GMX code or tests change, so these expensive tests run
+          # exactly when they are relevant, with no time-based schedule. The 30-min
+          # job cap gives the order-execution suite headroom.
           #
           # Always use verbose pytest output so stalled CI runs show the latest
           # test names in the Actions log.

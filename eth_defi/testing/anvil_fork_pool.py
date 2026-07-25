@@ -154,6 +154,8 @@ Design notes:
 """
 
 import dataclasses
+import logging
+import warnings
 from typing import Any
 
 from web3 import Web3
@@ -161,6 +163,21 @@ from web3 import Web3
 from eth_defi.provider.anvil import AnvilLaunch, fork_network_anvil
 from eth_defi.provider.multi_provider import create_multi_provider_web3
 from eth_defi.provider.rpc_proxy import RPCProxy, RPCProxyConfig
+
+logger = logging.getLogger(__name__)
+
+
+class SingleRpcProviderWarning(UserWarning):
+    """Warn that a fork RPC session has only one upstream provider.
+
+    With a single upstream there is no failover: an exhausted or rate-limited
+    archive provider fails the fork instead of switching to a second endpoint.
+    Emitted (and shown in the pytest warnings summary + CI logs) so a
+    single-provider ``JSON_RPC_*`` configuration is visible as the root cause of
+    flaky fork tests. Configure two space-separated providers per chain to
+    silence it — see :file:`docs/README-test-suite-performance.md`.
+    """
+
 
 #: Do not retry a wedged local Anvil after its proxy has tried every upstream.
 POOL_WEB3_RETRIES: int = 0
@@ -252,6 +269,14 @@ class AnvilForkPool:
         key = (rpc_url, fork_block_number, _freeze(launch_kwargs))
         launch = self.launches.get(key)
         if launch is None:
+            # Warn once per unique fork if there is no upstream failover: a
+            # single provider cannot fail over when it runs out of credits or is
+            # rate limited, which is the dominant cause of flaky fork tests.
+            provider_count = len([u for u in rpc_url.split() if u])
+            if provider_count < 2:
+                message = f"Fork RPC session for block {fork_block_number} uses only {provider_count} upstream provider — no failover if it is exhausted or rate limited. Configure two space-separated providers per chain."
+                warnings.warn(message, SingleRpcProviderWarning, stacklevel=2)
+                logger.warning("%s", message)
             launch = fork_network_anvil(
                 rpc_url,
                 fork_block_number=fork_block_number,

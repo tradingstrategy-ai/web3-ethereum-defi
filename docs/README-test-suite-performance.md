@@ -338,6 +338,50 @@ short-circuit and cancel the still-passing (or still-running) vault-protocol job
 - No deterministic regression is masked: only transient upstream modes are
   retried/failed-over; product errors still fail loudly.
 
+## Landed follow-ups and remaining backlog (2026-07-25)
+
+Implemented on top of the plan above:
+
+- **Failure diagnostics.** `eth_defi/provider/rpc_failure.py` classifies an
+  upstream error into `RpcFailureMode` (`out_of_credits` / `rate_limited` /
+  `read_timeout` / `connection_error` / `server_error` / `bad_response` /
+  `unknown`); wired into the `eth_chainId` failure sites in `multi_provider.py`
+  and `fallback.py` so CI output names the provider (key-redacted) and the mode.
+- **Single-provider warning.** `AnvilForkPool` emits `SingleRpcProviderWarning`
+  (pytest warnings summary + log) when a fork RPC session has one upstream — the
+  visible signal that a `JSON_RPC_*` secret still lacks failover.
+- **Seedable fork cache.** `eth_defi/testing/rpc_cache.py` seeds
+  `~/.foundry/cache/rpc` from repo-supplied defaults
+  (`eth_defi/testing/rpc_cache_seed/<network>/<block>/…`) and
+  `$ETH_DEFI_RPC_CACHE_SEED_DIR`, non-destructively, via a session autouse
+  fixture — a cold CI cache starts warm for the midnight blocks.
+- **`latest`-fork audit + conversion.** `tests/test_decode_tx.py` (the one live
+  convertible `latest` fork) pinned to `BINANCE_MIDNIGHT_BLOCK`. The remaining
+  `latest` forks are documented in their fixture docstrings as exempt: Monad
+  (`test_accountable`, `test_curvance` — no archive state), Enso live-state
+  (`velvet`), near-tip HyperCore, and the fork-mechanism infra tests
+  (`tests/rpc/test_anvil*`).
+- **GMX CI cap.** `test-gmx.yml` runs the full suite (including the slow
+  order-execution / vault-deploy files that fork per test + simulate the keeper
+  with sleeps) whenever GMX files change — the workflow's `paths:` filters
+  already gate it to `eth_defi/gmx/**` / `tests/gmx/**`, so no time-based
+  schedule is needed; job cap raised 12→30 min for the order-execution suite.
+
+Remaining backlog (audited, not yet done — needs a validating CI/test run):
+
+- **~39 fixed-but-ad-hoc-block fork tests** are `CONVERTIBLE-WITH-REFRESH` onto a
+  `*_MIDNIGHT_BLOCK` (value asserts must be re-read at the new block); a cluster
+  of ETH native-vault tests already share `anvil_ethereum_fork` and could
+  co-locate on `fork:ethereum:midnight`. **9 multi-fork files** and the
+  epoch/mutating-signer tests need per-file work.
+- **GMX `@flaky(max_runs=3)` → 2** across the live-API tests, and a
+  module/session-scoped `load_markets` catalogue, to cut retry churn under
+  `-n auto`.
+- **`test_base_order.py`** (~27 build-only tests, one fork each) should share a
+  module/session-scoped snapshot-reverted fork rather than being gated.
+- Populate the `JSON_RPC_*` CI secrets with 2+ providers (activates failover +
+  silences the single-provider warning), and commit real seed cache files.
+
 ## Why
 
 The suite is an integration suite behaving like a unit suite:

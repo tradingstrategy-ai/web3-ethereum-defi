@@ -18,6 +18,7 @@ from web3.types import RPCEndpoint, RPCResponse
 from eth_defi.event_reader.fast_json_rpc import get_last_headers
 from eth_defi.middleware import DEFAULT_RETRYABLE_EXCEPTIONS, DEFAULT_RETRYABLE_HTTP_STATUS_CODES, DEFAULT_RETRYABLE_RPC_ERROR_CODES, ProbablyNodeHasNoBlock, SomeCrappyRPCProviderException, is_retryable_http_exception
 from eth_defi.provider.named import BaseNamedProvider, NamedProvider, get_provider_name
+from eth_defi.provider.rpc_failure import classify_rpc_failure
 from eth_defi.provider.rpcdb import RPCRequestStats, normalise_rpc_error
 from eth_defi.utils import get_url_domain
 
@@ -282,15 +283,19 @@ class FallbackProvider(BaseNamedProvider):
             except Exception as e:
                 unavailable[name] = e
                 logger.warning(
-                    "Provider %s did not respond to eth_chainId during startup verification, keeping it in fallback rotation: %s",
+                    "Provider %s did not respond to eth_chainId during startup verification, keeping it in fallback rotation: failure_mode=%s (%s)",
                     name,
+                    classify_rpc_failure(e).value,
                     e,
                 )
                 continue
             results[name] = chain_id
 
         if not results:
-            detail = ", ".join(f"{name}: {exc}" for name, exc in unavailable.items())
+            # Name each provider's failure mode so an all-providers-down startup
+            # (e.g. every archive endpoint out of credits) is obvious in the
+            # error rather than buried in raw exception text.
+            detail = ", ".join(f"{name}: failure_mode={classify_rpc_failure(exc).value} ({exc})" for name, exc in unavailable.items())
             raise ChainIdMismatch(f"No RPC providers responded to eth_chainId during startup verification: {detail}")
 
         chain_ids = set(results.values())
