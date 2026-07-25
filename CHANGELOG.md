@@ -1,5 +1,6 @@
 # 1.2
 
+- feat: Surface ApeX Omni on the vaults site with protocol metadata and logo, a rollout-period TVL export threshold for ApeX copy-trading vaults, and curated descriptions plus captured onchain addresses for the ApeX official Protocol Vaults (2026-07-25)
 - feat: Add shared perp DEX vault exposure metrics for Hyperliquid and Lighter, explicit unavailable-position states for GRVT, Hibachi and ApeX, and cleaned-Parquet/JSON export support (2026-07-24)
 - feat: Add an ApeX Omni all-vault reader with bounded public API access, flexible timestamp observations, historical backfills, DuckDB storage and all-chain vault pipeline integration (2026-07-23)
 - feat: Automatically migrate Core3 risk databases to the latest DuckDB format and native Zstandard-compress historical raw JSON snapshots (2026-07-23)

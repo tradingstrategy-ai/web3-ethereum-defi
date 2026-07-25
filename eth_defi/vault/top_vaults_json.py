@@ -71,6 +71,40 @@ MAX_ANNUALISED_RETURN = float(os.getenv("MAX_ANNUALISED_RETURN", "4.0"))  # Cap 
 THRESHOLD_TVL = float(os.getenv("MIN_TVL", "5000"))  # Minimum TVL filter
 TOP_PER_CHAIN = int(os.getenv("TOP_PER_CHAIN", "99999"))  # Top N vaults per chain
 
+#: Per-protocol peak-NAV export threshold overrides, keyed by protocol slug.
+#:
+#: A vault normally has to reach :py:data:`THRESHOLD_TVL` peak NAV to enter the
+#: exported dataset. Some protocols warrant a different bar. The value here
+#: replaces :py:data:`THRESHOLD_TVL` for matching rows.
+#:
+#: ApeX Omni native vaults are small retail copy-trading leader accounts and, at
+#: launch, none have yet gathered meaningful TVL (the largest currently holds
+#: roughly USDT 14k, and only a couple of dozen have ever peaked above USDT 5k).
+#: With the default USDT 5k bar the ApeX protocol page is almost empty, so during
+#: the rollout period we deliberately lower the ApeX threshold to USDT 499 to give
+#: the page a usable set of vaults. Revisit and raise this back towards the
+#: default once ApeX vaults gain real traction.
+PROTOCOL_MIN_TVL_OVERRIDES: dict[str, float] = {
+    "apex": float(os.getenv("APEX_MIN_TVL", "499")),
+}
+
+
+def resolve_export_threshold_tvl(record: dict, default_threshold: float) -> float:
+    """Resolve the peak-NAV export threshold for one vault row.
+
+    Most vaults use the global :py:data:`THRESHOLD_TVL`, but protocols listed
+    in :py:data:`PROTOCOL_MIN_TVL_OVERRIDES` use their own bar. The lookup is by
+    exported ``protocol_slug`` so it does not depend on any protocol package.
+
+    :param record:
+        Exported vault row, expected to carry ``protocol_slug``.
+    :param default_threshold:
+        Fallback threshold applied when no protocol override matches.
+    :return:
+        Peak-NAV threshold in denomination units for this row.
+    """
+    return PROTOCOL_MIN_TVL_OVERRIDES.get(record.get("protocol_slug"), default_threshold)
+
 
 #: Default output filename when no ``OUTPUT_JSON`` override is supplied
 #: and no ``output_path`` is passed to :py:func:`main`.
@@ -759,7 +793,7 @@ def apply_sticky_export_state(
             continue
         current_rows[current_row.key] = current_row
 
-    current_filter_rows = [current_row for current_row in current_rows.values() if current_row.record.get("peak_nav") is not None and current_row.record["peak_nav"] >= threshold_tvl]
+    current_filter_rows = [current_row for current_row in current_rows.values() if current_row.record.get("peak_nav") is not None and current_row.record["peak_nav"] >= resolve_export_threshold_tvl(current_row.record, threshold_tvl)]
     stats.current_filter_passed = len(current_filter_rows)
 
     vaults_by_key: dict[str, tuple[int, dict]] = {}
@@ -776,7 +810,7 @@ def apply_sticky_export_state(
             continue
         else:
             is_new_entry = existing_entry is None
-            entry = make_state_entry_from_current_row(current_row, now_text, threshold_tvl, existing_entry)
+            entry = make_state_entry_from_current_row(current_row, now_text, resolve_export_threshold_tvl(current_row.record, threshold_tvl), existing_entry)
             entry["last_qualified_at"] = now_text
             state_vaults[key] = entry
             annotated = annotate_current_record(current_row.record, entry, current_row.fresh)
@@ -791,7 +825,7 @@ def apply_sticky_export_state(
             if entry.get("suppression_reason") in LEGACY_BLACKLIST_SUPPRESSION_REASONS:
                 current_row = current_rows.get(key)
                 if current_row and current_row.export_safe and is_blacklisted_record(current_row.record):
-                    entry = make_state_entry_from_current_row(current_row, now_text, threshold_tvl, entry)
+                    entry = make_state_entry_from_current_row(current_row, now_text, resolve_export_threshold_tvl(current_row.record, threshold_tvl), entry)
                     state_vaults[key] = entry
                     annotated = annotate_sticky_record(current_row.record, entry, current_row.fresh)
                     if not current_row.fresh:
@@ -822,7 +856,7 @@ def apply_sticky_export_state(
         current_row = current_rows.get(key)
         fallback_reason = None
         if current_row and current_row.export_safe:
-            entry = make_state_entry_from_current_row(current_row, now_text, threshold_tvl, entry)
+            entry = make_state_entry_from_current_row(current_row, now_text, resolve_export_threshold_tvl(current_row.record, threshold_tvl), entry)
             state_vaults[key] = entry
             annotated = annotate_sticky_record(current_row.record, entry, current_row.fresh)
             if not current_row.fresh:
