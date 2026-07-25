@@ -1,0 +1,51 @@
+name: ApeX
+slug: apex
+short_description: |
+  Native copy-trading perpetual vaults on the ApeX Omni decentralised exchange.
+long_description: |
+  ApeX (ApeX Omni, formerly ApeX Pro) is a self-custodial decentralised
+  derivatives exchange for perpetual futures. It runs on a StarkEx-based
+  layer two for offchain matching with onchain settlement, offering high
+  leverage, deep aggregated multichain liquidity and zero gas trading with
+  no KYC.
+
+  ApeX offers native vaults so anyone can run or follow a trading strategy.
+  A vault creator deploys their own perpetual strategy, and depositors put
+  USDT into the vault to automatically copy the creator's performance. There
+  is also an official ApeX Protocol Vault that earns yield from perpetual
+  liquidation fees, which is lower risk than the user-run strategy vaults.
+
+  This integration tracks the native user-created strategy vaults through
+  ApeX's public web API. It is reader-only: it records vault metadata and
+  actual-timestamp net asset value and TVL history, and performs no deposits,
+  withdrawals or trading.
+
+  Key features:
+
+  - Vault creators deploy copy-trading perpetual strategies on ApeX Omni
+  - Anyone can create a vault with as little as 100 USDT of seed capital
+  - Depositors copy the creator's positions automatically, pro rata
+  - All vaults are denominated in USDT
+  - Most vaults are small retail leader accounts, so TVL and lifetimes vary widely
+fee_description: |
+  ApeX vault creators earn a commission of roughly 10% of the profits
+  generated on investor capital, which behaves like a performance fee taken
+  from depositor gains. There are no documented vault-level management,
+  deposit or withdrawal fees.
+
+  Platform perpetual trading fees (maker and taker fees on the exchange)
+  apply to the trades the vault makes and are therefore already reflected in
+  the vault net value and share price. ApeX does not authoritatively document
+  the per-vault fee units through the public API, so this integration does
+  not interpret them into separate fee metrics.
+links:
+  homepage: https://www.apex.exchange/
+  app: https://omni.apex.exchange/
+  twitter: https://x.com/OfficialApeXdex
+  github: https://github.com/ApeX-Protocol
+  documentation: https://api-docs.pro.apex.exchange/
+  defillama: https://defillama.com/protocol/apex-omni
+  audits:
+  fees: https://www.apex.exchange/blog/detail/ApeX-Omni-Litepaper
+  trading_strategy: https://tradingstrategy.ai/trading-view/vaults/protocols/apex
+  integration_documentation: https://web3-ethereum-defi.readthedocs.io/api/apex/index.html
