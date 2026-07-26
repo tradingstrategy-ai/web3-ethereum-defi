@@ -76,6 +76,7 @@ from eth_defi.lighter.vault_data_export import merge_into_vault_database as ligh
 from eth_defi.provider.broken_provider import verify_archive_node
 from eth_defi.provider.multi_provider import MultiProviderWeb3Factory, create_multi_provider_web3
 from eth_defi.provider.rpcdb import RPCRequestStats, RPCUsageDatabase, format_rpc_usage_report, resolve_rpc_tracking_database_path
+from eth_defi.rate_limit import clear_sqlite_rate_limit_databases
 from eth_defi.token import TokenDiskCache
 from eth_defi.utils import setup_console_logging, wait_other_writers
 from eth_defi.vault.historical import scan_historical_prices_to_parquet
@@ -2795,6 +2796,7 @@ def main():
     schedule_tolerance = datetime.timedelta(seconds=loop_interval) / 2 if looped_mode else datetime.timedelta(0)
 
     cycle = 0
+    rate_limit_databases_cleared = False
     while True:
         cycle += 1
 
@@ -2802,6 +2804,11 @@ def main():
 
         try:
             with wait_other_writers(pipeline_lock_path, timeout=60):
+                if not rate_limit_databases_cleared:
+                    cleared_databases = clear_sqlite_rate_limit_databases()
+                    logger.info("Cleared %d SQLite rate-limit databases before scanning", len(cleared_databases))
+                    rate_limit_databases_cleared = True
+
                 if looped_mode:
                     state = load_cycle_state(cycle_state_path)
                     # Always resume from persisted cycle state, including cycle 1.
