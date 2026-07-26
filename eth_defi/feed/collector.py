@@ -8,7 +8,7 @@ import logging
 import re
 import time
 from contextlib import contextmanager
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any, Iterator, Sequence
 
 import feedparser
@@ -31,6 +31,9 @@ _RETRYABLE_STATUS_CODES = {403, 429, 502, 503, 504}
 #: Status codes that indicate the URL itself is broken, not the proxy.
 #: These should fail immediately without proxy rotation or retry.
 _PERMANENT_FAILURE_STATUS_CODES = {404, 410}
+
+#: Smallest title/description preview that can accommodate an ellipsis.
+_MIN_POST_PREVIEW_LENGTH = 4
 
 
 class AllBridgesFailedError(RuntimeError):
@@ -145,6 +148,12 @@ class CollectedSourceResult:
     posts_fetched: int = 0
     #: Number of inserted posts after deduplication.
     posts_inserted: int = 0
+    #: Titles or short descriptions of posts newly inserted in this scan.
+    #:
+    #: Each preview is normalised and capped at 80 characters for the
+    #: operator dashboard.  The database remains the authoritative store for
+    #: complete post text.
+    inserted_post_previews: list[str] = field(default_factory=list)
     #: Last published timestamp seen in this source, if any.
     last_post_published_at: datetime.datetime | None = None
     #: Error message when the source failed or was skipped.
@@ -240,6 +249,30 @@ def _extract_short_description(entry, full_text: str, max_length: int = 200) -> 
     if title:
         return title[:max_length]
     return full_text[:max_length]
+
+
+def _format_inserted_post_preview(post: CollectedPost, max_length: int = 80) -> str:
+    """Create a bounded dashboard preview for a newly persisted post.
+
+    Titles are preferred because they make the dashboard easy to scan.  Some
+    social posts have no title, so their already-normalised short description
+    becomes the fallback.  The bound keeps a large initial feed backfill from
+    making daemon logs unmanageably wide.
+
+    :param post:
+        Newly inserted normalised post.
+    :param max_length:
+        Maximum preview length, including the ellipsis when truncation occurs.
+    :return:
+        Whitespace-normalised title or short description, capped at
+        ``max_length`` characters.
+    """
+
+    assert max_length >= _MIN_POST_PREVIEW_LENGTH, f"Expected max_length of at least {_MIN_POST_PREVIEW_LENGTH}, got {max_length}"
+    text = _normalise_whitespace(post.title or post.short_description)
+    if len(text) <= max_length:
+        return text
+    return f"{text[: max_length - 3].rstrip()}..."
 
 
 def _extract_published_at(entry) -> datetime.datetime | None:
@@ -689,7 +722,8 @@ def collect_posts(
             summary.source_results.append(source_result)
             continue
 
-        inserted = db.insert_posts(source_id, posts)
+        inserted_posts = db.insert_posts_with_details(source_id, posts)
+        inserted = len(inserted_posts)
         db.mark_source_success(
             source_id,
             checked_at=checked_at,
@@ -699,6 +733,7 @@ def collect_posts(
         summary.posts_fetched += len(posts)
         summary.posts_inserted += inserted
         source_result.posts_inserted = inserted
+        source_result.inserted_post_previews = [_format_inserted_post_preview(post) for post in inserted_posts]
         summary.source_results.append(source_result)
 
     return summary
@@ -801,7 +836,8 @@ def collect_twitter_list_posts(
                 )
 
         latest_post_at = max((post.published_at for post in posts if post.published_at is not None), default=None)
-        inserted = db.insert_posts(source_id, posts)
+        inserted_posts = db.insert_posts_with_details(source_id, posts)
+        inserted = len(inserted_posts)
         db.mark_source_success(
             source_id,
             checked_at=checked_at,
@@ -816,6 +852,7 @@ def collect_twitter_list_posts(
             status="success",
             posts_fetched=len(posts),
             posts_inserted=inserted,
+            inserted_post_previews=[_format_inserted_post_preview(post) for post in inserted_posts],
             last_post_published_at=latest_post_at,
         )
         summary.sources_succeeded += 1
