@@ -861,10 +861,10 @@ abstract contract GuardV0Base is IGuard, Multicall {
         } else if (selector == SEL_REDEEM_SHARES) {
             _validate_EmberRedeemShares(callData);
         } else if (selector == SEL_REQUEST_REDEEM) {
-            // ERC-7540: same parameters as ERC-4626
+            // ERC-7540: requestRedeem(uint256 shares, address controller, address owner)
             _validate_ERC4626WithdrawOrRedeem(callData);
         } else if (selector == SEL_REQUEST_WITHDRAW) {
-            // ERC-7540: same parameters as ERC-4626
+            // ERC-7540: requestWithdraw(uint256 assets, address controller, address owner)
             _validate_ERC4626WithdrawOrRedeem(callData);
         } else if (selector == SEL_REQUEST_DEPOSIT) {
             _validate_ERC7540Deposit(callData);
@@ -946,15 +946,22 @@ abstract contract GuardV0Base is IGuard, Multicall {
         require(isAllowedReceiver(receiver), "Receiver not whitelisted");
     }
 
-    // ERC-4626/ERC-7540: validate withdraw or redeem receiver
+    // ERC-4626/ERC-7540: validate the receiver/controller and share owner.
+    //
+    // In ERC-4626 the second argument is the receiver; in ERC-7540 requests
+    // it is the controller. The owner determines the share balance from which
+    // the vault may pull under an existing allowance. Restricting only the
+    // second argument would permit an asset manager to target an unrelated
+    // approved share owner.
     function _validate_ERC4626WithdrawOrRedeem(
         bytes memory callData
     ) internal view {
-        (, address receiver, ) = abi.decode(
+        (, address receiver, address owner) = abi.decode(
             callData,
             (uint256, address, address)
         );
         require(isAllowedReceiver(receiver), "Receiver not whitelisted");
+        require(isAllowedReceiver(owner), "Owner not whitelisted");
     }
 
     // ERC-4626: validate deposit(uint256 assets, address receiver)
