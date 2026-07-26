@@ -5,7 +5,6 @@ import os
 from decimal import Decimal
 
 import pytest
-
 from web3 import Web3
 
 from eth_defi.erc_4626.classification import create_vault_instance_autodetect, detect_vault_features
@@ -13,31 +12,23 @@ from eth_defi.erc_4626.core import ERC4626Feature
 from eth_defi.erc_4626.vault_protocol.gains.deposit_redeem import GainsDepositManager, GainsRedemptionRequest
 from eth_defi.erc_4626.vault_protocol.gains.testing import force_next_gains_epoch
 from eth_defi.erc_4626.vault_protocol.gains.vault import GainsHistoricalReader, GainsVault, OstiumVault
-from eth_defi.provider.anvil import fork_network_anvil, AnvilLaunch
-from eth_defi.provider.multi_provider import create_multi_provider_web3
+from eth_defi.testing.anvil_fork_pool import AnvilForkPool
 from eth_defi.token import TokenDetails
 from eth_defi.trace import assert_transaction_success_with_explanation
 from eth_defi.vault.base import DEPOSIT_CLOSED_CAP_REACHED
 
 JSON_RPC_ARBITRUM = os.environ.get("JSON_RPC_ARBITRUM")
 CI = os.environ.get("CI") == "true"
-pytestmark = pytest.mark.skipif(not JSON_RPC_ARBITRUM, reason="Set JSON_RPC_ARBITRUM to run this test")
+pytestmark = [
+    pytest.mark.skipif(not JSON_RPC_ARBITRUM, reason="Set JSON_RPC_ARBITRUM to run this test"),
+    pytest.mark.xdist_group("fork:arbitrum:gains-375216652"),
+]
 
 
 @pytest.fixture(scope="module")
-def anvil_arbitrum_fork(request) -> AnvilLaunch:
-    launch = fork_network_anvil(JSON_RPC_ARBITRUM, fork_block_number=375_216_652)
-    try:
-        yield launch
-    finally:
-        # Wind down Anvil process after the test is complete
-        launch.close()
-
-
-@pytest.fixture(scope="module")
-def web3(anvil_arbitrum_fork):
-    web3 = create_multi_provider_web3(anvil_arbitrum_fork.json_rpc_url)
-    return web3
+def web3(anvil_fork_pool: AnvilForkPool) -> Web3:
+    """Share the read-only Gains/Ostium fork and its warmed RPC cache."""
+    return anvil_fork_pool.get_web3(JSON_RPC_ARBITRUM, 375_216_652)
 
 
 @pytest.fixture(scope="module")
@@ -58,7 +49,7 @@ def test_ostium_features(web3):
 
 @pytest.mark.skipif(CI, reason="This just does not work on Github due to some RPC errors even after changing provider")
 def test_ostium_read_data(web3, vault: GainsVault):
-    assert vault.name == f"Ostium Liquidity Pool Vault"
+    assert vault.name == "Ostium Liquidity Pool Vault"
     # https://arbiscan.io/address/0x20d419a8e12c45f88fda7c5760bb6923cee27f98#readContract
     assert vault.gains_open_trades_pnl_feed is None
     assert vault.open_pnl_contract.address == "0xE607aC9FF58697c5978AfA1Fc1C5C437a6D1858c"
