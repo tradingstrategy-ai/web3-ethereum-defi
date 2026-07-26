@@ -50,6 +50,7 @@ def test_ostium_features(web3):
 @pytest.mark.skipif(CI, reason="This just does not work on Github due to some RPC errors even after changing provider")
 def test_ostium_read_data(web3, vault: GainsVault):
     assert vault.name == "Ostium Liquidity Pool Vault"
+    assert vault.is_whitelisted_deposit() is False
     # https://arbiscan.io/address/0x20d419a8e12c45f88fda7c5760bb6923cee27f98#readContract
     assert vault.gains_open_trades_pnl_feed is None
     assert vault.open_pnl_contract.address == "0xE607aC9FF58697c5978AfA1Fc1C5C437a6D1858c"

@@ -121,16 +121,63 @@ class PermissionVault:
         return self.result
 
 
+class PolicyAndAvailabilityVault:
+    """Fake adapter proving KYC status ignores availability and asset eligibility."""
+
+    address = "0x0000000000000000000000000000000000000002"
+
+    def __init__(
+        self,
+        *,
+        kyc_required: bool,
+        deposits_paused: bool,
+        max_deposit: int,
+        epoch_open: bool,
+        required_asset_balance: int,
+        manager_capability: bool,
+    ) -> None:
+        """Initialise independent KYC, eligibility and temporary-state values."""
+        self.kyc_required = kyc_required
+        self.deposits_paused = deposits_paused
+        self.max_deposit = max_deposit
+        self.epoch_open = epoch_open
+        self.required_asset_balance = required_asset_balance
+        self.manager_capability = manager_capability
+
+    def is_whitelisted_deposit(self) -> bool:
+        """Return the configured KYC policy only."""
+        return self.kyc_required
+
+
 @pytest.mark.parametrize(
-    ("whitelisted", "expected"),
+    ("kyc_required", "expected"),
     [
         (True, VaultDepositPermission.whitelisted),
         (False, VaultDepositPermission.permissionless),
     ],
 )
-def test_fetch_deposit_permission_maps_boolean_policy(whitelisted: bool, expected: VaultDepositPermission) -> None:  # noqa: FBT001
+def test_fetch_deposit_permission_maps_boolean_policy(kyc_required: bool, expected: VaultDepositPermission) -> None:  # noqa: FBT001
     """Scanner exports the enum value for supported boolean probes."""
-    assert fetch_deposit_permission(PermissionVault(whitelisted)) is expected
+    assert fetch_deposit_permission(PermissionVault(kyc_required)) is expected
+
+
+@pytest.mark.parametrize(
+    ("availability", "expected"),
+    [
+        ({"kyc_required": False, "deposits_paused": True, "max_deposit": 0, "epoch_open": False, "required_asset_balance": 1_000_000, "manager_capability": False}, VaultDepositPermission.permissionless),
+        ({"kyc_required": False, "deposits_paused": False, "max_deposit": 0, "epoch_open": True, "required_asset_balance": 0, "manager_capability": True}, VaultDepositPermission.permissionless),
+        ({"kyc_required": True, "deposits_paused": True, "max_deposit": 0, "epoch_open": False, "required_asset_balance": 1_000_000, "manager_capability": False}, VaultDepositPermission.whitelisted),
+        ({"kyc_required": True, "deposits_paused": False, "max_deposit": 10**18, "epoch_open": True, "required_asset_balance": 0, "manager_capability": True}, VaultDepositPermission.whitelisted),
+    ],
+)
+def test_fetch_deposit_permission_is_independent_from_availability(
+    availability: dict[str, bool | int],
+    expected: VaultDepositPermission,
+) -> None:
+    """A pause, cap, epoch, asset condition and manager do not define KYC status."""
+    vault = PolicyAndAvailabilityVault(**availability)
+
+    assert fetch_deposit_permission(vault) is expected
 
 
 @pytest.mark.parametrize(

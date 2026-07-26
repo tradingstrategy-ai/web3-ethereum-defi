@@ -17,3 +17,8 @@ is a superset (also verified on
 A fixed-block Ethereum fork regression proves the interface, events and errors
 decode for the tested historical route; it does not assert that a later proxy
 upgrade is identical.
+
+The verified implementation has a public ``BaseVault.deposit`` route gated
+only by the global pause state. The adapter consequently reports a
+permissionless depositor policy; pausing and max-deposit capacity remain
+separate availability signals.

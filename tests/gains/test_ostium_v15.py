@@ -134,6 +134,7 @@ def test_ostium_v15_read_data(web3, vault: OstiumVault):
     """
     assert vault.name == "Ostium Liquidity Pool Vault"
     assert vault.version == OstiumVersion.v1_5
+    assert vault.is_whitelisted_deposit() is False
 
     # V1.5 historical reader
     reader = vault.get_historical_reader(stateful=False)

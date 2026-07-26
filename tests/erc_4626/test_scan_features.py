@@ -99,6 +99,11 @@ class _PermissionedFakeVault(_FakeVault):
         """Report that deposits require account permission."""
         return True
 
+    @staticmethod
+    def get_whitelist_notes() -> str:
+        """Return a classification caveat."""
+        return "No permissioned hook checks were performed"
+
 
 def _create_detection(features: set[ERC4626Feature]) -> ERC4262VaultDetection:
     """Create a detection object."""
@@ -155,6 +160,7 @@ def test_create_vault_scan_record_persists_deposit_permission(monkeypatch: pytes
         "can_redeem": False,
     }
     assert record["_deposit_permission"] == "whitelisted"
+    assert record["_whitelist_notes"] == "No permissioned hook checks were performed"
 
 
 def test_vault_database_dataframe_falls_back_to_detection_features() -> None:
