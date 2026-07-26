@@ -995,6 +995,10 @@ class VaultFlowManager(ABC):
 class VaultBase(ABC):
     """Base class for vault protocol adapters.
 
+    For the deposit and redemption support contract for subclasses and their
+    managers, see
+    :file:`eth_defi/erc_4626/README-vault-protocol-support.md`.
+
     - Allows automated interaction with different `vault protocols <https://tradingstrategy.ai/glossary/vault>`__.
 
     - Contains various abstract methods that the implementation class must override

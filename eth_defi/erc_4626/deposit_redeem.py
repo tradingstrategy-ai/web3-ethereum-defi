@@ -45,6 +45,10 @@ class ERC4626RedemptionRequest(RedemptionRequest):
 class ERC4626DepositManager(VaultDepositManager):
     """Standard synchronous `ERC-4626 <https://eips.ethereum.org/EIPS/eip-4626>`__ deposit and redemption flow.
 
+    Subclasses that change the emitted call surface must follow
+    :file:`eth_defi/erc_4626/README-vault-protocol-support.md`, including
+    GuardV0 support and guarded Anvil-fork coverage for every lifecycle call.
+
     Generic manager for plain ERC-4626 vaults where both deposit and redemption
     complete atomically in a single transaction. It is the default manager for
     vaults exposing the standard entry points; queued, delegated, multi-asset

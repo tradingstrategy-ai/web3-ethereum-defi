@@ -832,6 +832,12 @@ class DepositRequest:
 class VaultDepositManager(ABC):
     """Abstract base for every vault deposit and redemption flow.
 
+    New public manager integrations must follow
+    :file:`eth_defi/erc_4626/README-vault-protocol-support.md`: a manager is
+    supported only after its complete lifecycle executes through ``GuardV0`` on
+    an Anvil fork, with a protocol-shaped mock where fork state cannot cover a
+    required path.
+
     A deposit manager wraps one :class:`~eth_defi.vault.base.VaultBase` and
     hides the differences between synchronous ERC-4626 vaults, asynchronous
     ERC-7540 vaults, and protocol-specific variants (Lagoon, Gains, IPOR,
