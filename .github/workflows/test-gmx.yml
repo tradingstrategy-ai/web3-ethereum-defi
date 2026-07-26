@@ -13,17 +13,32 @@ on:
     paths:
       - 'eth_defi/gmx/**'
       - 'tests/gmx/**'
+      # GMX fixed-block forks depend on these shared helpers and their
+      # committed Arbitrum Foundry RPC-cache seed.
+      - 'eth_defi/provider/anvil.py'
+      - 'eth_defi/testing/anvil_fork_pool.py'
+      - 'eth_defi/testing/fork_blocks.py'
+      - 'eth_defi/testing/rpc_cache.py'
+      - 'eth_defi/testing/rpc_cache_seed/arbitrum/**'
+      - 'tests/conftest.py'
       - '.github/workflows/test-gmx.yml'
   pull_request:
     branches: [ master ]
     paths:
       - 'eth_defi/gmx/**'
       - 'tests/gmx/**'
+      # Keep the dedicated suite coupled to its shared fixed-fork machinery.
+      - 'eth_defi/provider/anvil.py'
+      - 'eth_defi/testing/anvil_fork_pool.py'
+      - 'eth_defi/testing/fork_blocks.py'
+      - 'eth_defi/testing/rpc_cache.py'
+      - 'eth_defi/testing/rpc_cache_seed/arbitrum/**'
+      - 'tests/conftest.py'
       - '.github/workflows/test-gmx.yml'
   # The push/PR `paths:` filters above already ensure this workflow only runs
-  # when GMX code or tests change, so the full (slow, order-execution) suite runs
-  # exactly on GMX-touching changes — no time-based schedule is needed. Manual
-  # dispatch is kept for on-demand full runs.
+  # when GMX code, tests or their fixed-fork support changes, so the full
+  # (slow, order-execution) suite runs only for relevant changes. No
+  # time-based schedule is needed; manual dispatch is kept for on-demand runs.
   workflow_dispatch: {}
 
 jobs:
@@ -130,14 +145,15 @@ jobs:
       - name: Run GMX tests (PARALLEL)
         run: |
           set -o pipefail
-          # Mutable fork tests carry the stable xdist group
-          # "fork:arbitrum:midnight".  loadgroup puts them on one worker, where
-          # they share the warmed session Anvil fork and reset state with
-          # evm_snapshot/evm_revert.  Independent unit/API tests still use the
-          # remaining workers.
+          # Read-only open-position tests carry the stable
+          # "fork:arbitrum:midnight:readonly" xdist group and share a warmed
+          # session Anvil fork. Mutable fork tests instead start fresh
+          # fixed-block forks, avoiding shared-state contamination while still
+          # using the committed Foundry RPC cache.
           #
-          # The full GMX suite runs only when GMX code or tests change. If it
-          # exceeds the job cap, profile the fork tests instead of extending it.
+          # The full suite runs only for GMX or fixed-fork support changes. If
+          # it exceeds the job cap, profile the fork tests instead of extending
+          # it.
           #
           # Always use verbose pytest output so stalled CI runs show the latest
           # test names in the Actions log.
