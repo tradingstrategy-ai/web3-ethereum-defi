@@ -243,6 +243,7 @@ def wait_for_transaction_receipt_robust(
     confirmation_block_count: int | None = None,
     confirmation_block_time: float | None = None,
     extra_sleep: float = 0.0,
+    allow_partial_visibility_after_timeout: bool = True,
 ) -> TxReceipt:
     """Wait until a transaction receipt is visible through all read RPC providers.
 
@@ -305,6 +306,22 @@ def wait_for_transaction_receipt_robust(
     :param extra_sleep:
         Extra seconds to sleep once after all read providers have seen the
         matching receipt and enough confirmations.
+    :param allow_partial_visibility_after_timeout:
+        Keep waiting for every configured read provider until ``timeout`` as
+        normal. If the timeout expires, return when at least one read provider
+        has returned a matching receipt with enough confirmations. All receipts
+        returned in the final poll must agree, and the final typed receipt fetch
+        through ``web3`` must still succeed.
+
+        This prevents a permanently unhealthy secondary RPC from turning a
+        completed transaction into an application failure, while retaining the
+        normal all-provider propagation window. This happened on Hyperliquid on
+        2026-07-23: a Lagoon settlement succeeded on-chain, but one dRPC reader
+        returned HTTP 400 for the entire visibility timeout, terminating the
+        trade executor before it could record the completed settlement.
+
+        Defaults to ``True``. Pass ``False`` when an operation must fail unless
+        every configured reader confirms the receipt.
     :return:
         Typed receipt from the original Web3 instance, preserving middleware behaviour.
     """
@@ -384,6 +401,7 @@ def wait_for_transaction_receipt_robust(
     last_missing: list[str] = []
     last_errors: dict[str, str] = {}
     last_insufficient_confirmations: list[str] = []
+    last_receipts: dict[str, dict] = {}
     last_mismatch: ReceiptVisibilityMismatch | None = None
     extra_sleep_done = False
     provider_labels = [_get_provider_label(index, provider) for index, provider in provider_entries]
@@ -512,6 +530,7 @@ def wait_for_transaction_receipt_robust(
 
         last_missing = missing
         last_errors = errors
+        last_receipts = receipts
 
         sleep_for = min(current_delay, max(0, deadline - time.monotonic()))
         if sleep_for > 0:
@@ -525,6 +544,68 @@ def wait_for_transaction_receipt_robust(
             )
             time.sleep(sleep_for)
         current_delay = min(max_poll_delay, current_delay * 1.5)
+
+    if allow_partial_visibility_after_timeout and last_receipts:
+        if last_mismatch is not None:
+            logger.error(
+                "Timed out after read providers returned conflicting receipts, tx_hash=%s, timeout=%s",
+                tx_hash_hex,
+                timeout,
+            )
+            raise last_mismatch
+        try:
+            _assert_receipts_match(last_receipts, tx_hash_hex)
+        except ReceiptVisibilityMismatch:
+            logger.error(
+                "Timed out with conflicting receipts among responding read providers, tx_hash=%s, responding_providers=%s",
+                tx_hash_hex,
+                list(last_receipts),
+            )
+            raise
+
+        responding_entries = [(index, provider) for index, provider in provider_entries if _get_provider_label(index, provider) in last_receipts]
+        partial_insufficient_confirmations = _get_insufficient_confirmations(
+            responding_entries,
+            last_receipts,
+            confirmation_block_count,
+        )
+        if not partial_insufficient_confirmations:
+            logger.warning(
+                "Proceeding after receipt visibility timeout because matching receipt is visible with enough confirmations on %d/%d read providers, tx_hash=%s, responding_providers=%s, missing_providers=%s, provider_errors=%s",
+                len(responding_entries),
+                len(provider_entries),
+                tx_hash_hex,
+                list(last_receipts),
+                last_missing,
+                last_errors,
+            )
+            if extra_sleep > 0:
+                time.sleep(extra_sleep)
+            try:
+                typed_receipt = web3.eth.get_transaction_receipt(tx_hash_bytes)
+            except PROVIDER_READ_EXCEPTIONS:
+                logger.warning(
+                    "Could not fetch typed receipt after partial receipt visibility timeout, tx_hash=%s",
+                    tx_hash_hex,
+                    exc_info=True,
+                )
+            else:
+                _log_typed_receipt_status(tx_hash_hex, typed_receipt)
+                return typed_receipt
+
+            for _, provider in responding_entries:
+                try:
+                    typed_receipt = Web3(provider).eth.get_transaction_receipt(tx_hash_bytes)
+                except PROVIDER_READ_EXCEPTIONS:
+                    logger.warning(
+                        "Could not fetch typed receipt directly from responding read provider after partial receipt visibility timeout, tx_hash=%s, provider=%s",
+                        tx_hash_hex,
+                        get_provider_name(provider),
+                        exc_info=True,
+                    )
+                    continue
+                _log_typed_receipt_status(tx_hash_hex, typed_receipt)
+                return typed_receipt
 
     detail = ", ".join(last_missing) if last_missing else "none"
     error_detail = "; ".join(f"{label}: {error}" for label, error in last_errors.items())
