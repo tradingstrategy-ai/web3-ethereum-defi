@@ -729,6 +729,25 @@ def determine_swap_route(markets: dict, in_token: str, out_token: str, chain: st
     if not usdc_address:
         raise ValueError(f"USDC address not configured for chain: {chain}")
 
+    input_token_lower = in_token.lower()
+    output_token_lower = out_token.lower()
+    for market in markets.values():
+        pool_tokens = {
+            market["long_token_address"].lower(),
+            market["short_token_address"].lower(),
+        }
+        # Several perpetual markets can use the same collateral pool.  A
+        # MORPHO/USD market, for example, may have WETH and USDC as its pool
+        # tokens.  It is not an ETH/USD swap market and requires a MORPHO
+        # oracle price during execution.  Prefer the market whose index is
+        # one of the assets being swapped, so ETH -> USDC selects ETH/USD.
+        index_token = market["index_token_address"].lower()
+        if {input_token_lower, output_token_lower}.issubset(pool_tokens) and index_token in {
+            input_token_lower,
+            output_token_lower,
+        }:
+            return [market["gmx_market_address"]], False
+
     if in_token == usdc_address:
         gmx_market_data = find_dictionary_by_key_value(markets, "index_token_address", out_token)
         if gmx_market_data:

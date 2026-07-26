@@ -184,8 +184,10 @@ def test_scan_core3_fn_closes_database(tmp_path: Path, monkeypatch: pytest.Monke
             self.closed = True
 
     fake_db = FakeDb()
+    captured_kwargs: dict[str, object] = {}
 
-    def fake_scan_projects(**_: object) -> FakeDb:
+    def fake_scan_projects(**kwargs: object) -> FakeDb:
+        captured_kwargs.update(kwargs)
         return fake_db
 
     monkeypatch.setattr(scan_all_chains, "create_core3_session", lambda **_: object())
@@ -201,6 +203,35 @@ def test_scan_core3_fn_closes_database(tmp_path: Path, monkeypatch: pytest.Monke
     assert result.vault_count == EXPECTED_TEST_ROW_COUNT
     assert result.price_scan_ok is None
     assert fake_db.closed is True
+    assert captured_kwargs["project_slugs"] == {slug for slug in scan_all_chains.CORE3_MAPPINGS.values() if slug is not None}
+
+
+def test_scan_core3_fn_all_scope_requests_full_catalogue(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+    """The explicit ``all`` scope does not filter Core3 project API reads."""
+
+    class FakeDb:
+        def get_project_count(self) -> int:
+            return EXPECTED_TEST_ROW_COUNT
+
+        def close(self) -> None:
+            pass
+
+    captured_kwargs: dict[str, object] = {}
+
+    def fake_scan_projects(**kwargs: object) -> FakeDb:
+        captured_kwargs.update(kwargs)
+        return FakeDb()
+
+    monkeypatch.setattr(scan_all_chains, "create_core3_session", lambda **_: object())
+    monkeypatch.setattr(scan_all_chains, "core3_scan_projects", fake_scan_projects)
+
+    result = scan_all_chains.scan_core3_fn(
+        core3_db_path=tmp_path / "core3.duckdb",
+        scan_scope="all",
+    )
+
+    assert result.status == "success"
+    assert captured_kwargs["project_slugs"] is None
 
 
 def test_run_scan_tick_updates_core3_cycle_state(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
@@ -268,14 +299,14 @@ def test_run_scan_tick_updates_core3_cycle_state(tmp_path: Path, monkeypatch: py
     assert saved_items == ["Core3"]
 
 
-def test_run_scan_tick_fetches_core3_sections_by_default(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
-    """Core3 detailed section fetching is enabled by default.
+def test_run_scan_tick_uses_mapped_core3_scope_without_sections_by_default(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+    """Core3 defaults to mapped projects without section detail fetches.
 
     Steps:
 
     1. Mock the Core3 wrapper and capture its keyword arguments.
     2. Run a scan tick with only Core3 active.
-    3. Assert ``fetch_sections`` defaults to ``True``.
+    3. Assert section fetching is disabled and the mapped scope is used.
     """
     captured_kwargs: dict[str, object] = {}
 
@@ -329,7 +360,22 @@ def test_run_scan_tick_fetches_core3_sections_by_default(tmp_path: Path, monkeyp
         core3_db_path=tmp_path / "core3.duckdb",
     )
 
-    assert captured_kwargs["fetch_sections"] is True
+    assert captured_kwargs["fetch_sections"] is False
+    assert captured_kwargs["scan_scope"] == "mapped"
+
+
+def test_resolve_core3_scan_scope_uses_exported_project_slugs():
+    """The mapped Core3 scope contains exactly the exported project slugs."""
+    mapped_slugs = scan_all_chains.resolve_core3_scan_scope("mapped")
+
+    assert mapped_slugs == {slug for slug in scan_all_chains.CORE3_MAPPINGS.values() if slug is not None}
+    assert scan_all_chains.resolve_core3_scan_scope("all") is None
+
+
+def test_resolve_core3_scan_scope_rejects_unknown_value():
+    """Invalid Core3 scopes fail before the long-running pipeline starts."""
+    with pytest.raises(ValueError, match="CORE3_SCAN_SCOPE"):
+        scan_all_chains.resolve_core3_scan_scope("recent")
 
 
 def test_scan_currency_rates_fn_success_path(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):

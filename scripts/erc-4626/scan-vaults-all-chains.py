@@ -38,6 +38,10 @@ Usage:
     # Disable it explicitly if needed.
     SKIP_CORE3=true python scripts/erc-4626/scan-vaults-all-chains.py
 
+    # Xerberus enrichment runs by default when both XERBERUS_API_KEY and
+    # XERBERUS_API_EMAIL are set (email registered with the key; do not invent it).
+    SKIP_XERBERUS=true python scripts/erc-4626/scan-vaults-all-chains.py
+
     # Custom retry count
     RETRY_COUNT=2 python scripts/erc-4626/scan-vaults-all-chains.py
 
@@ -52,7 +56,7 @@ Usage:
 
     # Looped mode: tick every 1h, major EVM chains on 8h, native protocols on 4h, Core3 and rest on 24h
     LOOP_INTERVAL_SECONDS=3600 \\
-    SCAN_CYCLES="Ethereum=8h,Base=8h,Arbitrum=8h,Hypercore=4h,GRVT=4h,Lighter Ethereum=4h,Lighter Robinhood=4h,Hibachi=4h,ApeX=4h,Core3=24h" \\
+    SCAN_CYCLES="Ethereum=8h,Base=8h,Arbitrum=8h,Hypercore=4h,GRVT=4h,Lighter Ethereum=4h,Lighter Robinhood=4h,Hibachi=4h,ApeX=4h,Core3=24h,Xerberus=24h" \\
     DEFAULT_CYCLE=24h \\
     SCAN_HYPERCORE=true SCAN_GRVT=true SCAN_LIGHTER=true SCAN_HIBACHI=true SCAN_APEX=true \\
     python scripts/erc-4626/scan-vaults-all-chains.py
@@ -106,6 +110,16 @@ Environment variables:
     - CORE3_DATABASE_PATH: Path to Core3 DuckDB (default: ~/.tradingstrategy/vaults/core3/core3.duckdb)
     - CORE3_MAX_WORKERS: Number of Core3 API worker threads (default: "8")
     - CORE3_FETCH_SECTIONS: "false" to skip detailed Core3 section endpoints (default: "true")
+    - SKIP_XERBERUS: "true" to skip Xerberus risk enrichment (default: "false").
+      Default-on when both credentials below are set.
+    - XERBERUS_API_KEY: Xerberus API key. If missing, Xerberus is disabled with a warning.
+    - XERBERUS_API_EMAIL: Email registered with the Xerberus key (HTTP x-user-email).
+      Required with the key for live API calls.
+      Operators set this in secrets / .local-test.env. Agents must not invent it.
+    - XERBERUS_DATABASE_PATH: Path to Xerberus DuckDB
+      (default: ~/.tradingstrategy/vaults/xerberus/xerberus.duckdb)
+    - XERBERUS_FETCH_VAULT_LIST: "false" to skip platform vault list endpoints (default: "true")
+    - XERBERUS_FETCH_REPORTS: "false" to skip dendrogram report URL backfill (default: "true")
     - RETRY_COUNT: Number of retry attempts (default: "1")
     - MAX_WORKERS: Number of parallel workers (default: "50")
     - FREQUENCY: "1h" or "1d" (default: "1h")
@@ -129,6 +143,9 @@ Environment variables:
     - DEFAULT_CYCLE: Default cycle interval for items not in SCAN_CYCLES (default: "24h")
     - MAX_CYCLES: Exit after N cycles in looped mode, for testing (default: "0" = unlimited)
     - FORCE_RESCAN: "true" to ignore cycle state and rescan all items on the first cycle (default: "false")
+    - LEAD_DISCOVERY_STATE_TIMEOUT: Lead-discovery cache lifetime (default: "7d").
+      A cache miss performs a complete HyperSync lead discovery for that chain.
+    - FORCE_LEAD_DISCOVERY: "true" to bypass the lead-discovery cache once (default: "false")
     - PIPELINE_DATA_DIR: Override base directory for all pipeline files (default: ~/.tradingstrategy/vaults)
     - HYPERSYNC_CONCURRENCY: Number of concurrent Hypersync stream requests (default: "1").
       Set higher for faster throughput at the cost of more API pressure.

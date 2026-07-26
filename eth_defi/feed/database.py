@@ -622,11 +622,48 @@ class VaultPostDatabase:
     def insert_posts(self, source_id: int, posts: Iterable[CollectedPost]) -> int:
         """Insert posts for a source and return the number of new rows."""
 
+        return len(self.insert_posts_with_details(source_id, posts))
+
+    def insert_posts_with_details(self, source_id: int, posts: Iterable[CollectedPost]) -> list[CollectedPost]:
+        """Insert posts and return precisely the rows newly persisted.
+
+        Post collection needs the actual inserted entries for operator-facing
+        diagnostics.  Looking only at the number of rows after an
+        ``ON CONFLICT DO NOTHING`` insert cannot say which feed entries were
+        new, while the source-local primary key makes the external post ID a
+        stable and inexpensive lookup key.
+
+        :param source_id:
+            Numeric tracked-source identifier owning the posts.
+        :param posts:
+            Normalised feed entries to persist.
+        :return:
+            Entries that were absent from the database and inserted during this
+            call, in feed order.
+        """
+
         rows = list(posts)
         if not rows:
-            return 0
+            return []
 
-        before_count = int(self.con.execute("SELECT COUNT(*) FROM posts WHERE source_id = ?", [source_id]).fetchone()[0])
+        post_ids = {post.external_post_id for post in rows}
+        placeholders = ", ".join("?" * len(post_ids))
+        existing_rows = self.con.execute(
+            f"SELECT external_post_id FROM posts WHERE source_id = ? AND external_post_id IN ({placeholders})",  # noqa: S608
+            [source_id, *post_ids],
+        ).fetchall()
+        existing_ids = {row[0] for row in existing_rows}
+
+        inserted_posts: list[CollectedPost] = []
+        seen_ids: set[str] = set()
+        for post in rows:
+            if post.external_post_id not in existing_ids and post.external_post_id not in seen_ids:
+                inserted_posts.append(post)
+                seen_ids.add(post.external_post_id)
+
+        if not inserted_posts:
+            return []
+
         self.con.executemany(
             """
             INSERT INTO posts (
@@ -656,11 +693,10 @@ class VaultPostDatabase:
                     post.ai_summary,
                     post.raw_payload,
                 )
-                for post in rows
+                for post in inserted_posts
             ],
         )
-        after_count = int(self.con.execute("SELECT COUNT(*) FROM posts WHERE source_id = ?", [source_id]).fetchone()[0])
-        return after_count - before_count
+        return inserted_posts
 
     def prune_posts(self, max_post_age_days: int) -> int:
         """Delete posts older than the configured retention period."""

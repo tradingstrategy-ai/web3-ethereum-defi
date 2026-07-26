@@ -177,12 +177,15 @@ class ERC7540Vault(ERC4626Vault):
         :return:
             Two-way asynchronous capability.
         """
+        from eth_defi.erc_7540.deposit_redeem import ERC7540_ANVIL_SETTLEMENT_UNSUPPORTED_REASON
+
         return VaultDepositManagerCapability(
             can_deposit=True,
             can_redeem=True,
             deposit_flow="asynchronous",
             redemption_flow="asynchronous",
             supports_anvil_settlement=False,
+            anvil_settlement_unsupported_reason=ERC7540_ANVIL_SETTLEMENT_UNSUPPORTED_REASON,
         )
 
     def get_estimated_lock_up(self) -> datetime.timedelta | None:

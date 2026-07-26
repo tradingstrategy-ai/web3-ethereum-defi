@@ -60,7 +60,9 @@ CERTIFIED_SYNCHRONOUS_DEPOSIT_MANAGER_CLASSES = frozenset(
         "eth_defi.erc_4626.vault_protocol.kiln.vault.KilnVault",
         "eth_defi.erc_4626.vault_protocol.morpho.vault_v1.MorphoV1Vault",
         "eth_defi.erc_4626.vault_protocol.morpho.vault_v2.MorphoV2Vault",
-        "eth_defi.erc_4626.vault_protocol.plutus.vault.PlutusVault",
+        # PlutusVault declares its capability explicitly (async redemption for
+        # the ERC-7540-upgraded Hedge deployment, synchronous otherwise), so it
+        # is intentionally not certified here.
         "eth_defi.erc_4626.vault_protocol.royco.vault.RoycoVault",
         "eth_defi.erc_4626.vault_protocol.silo.vault.SiloVault",
         "eth_defi.erc_4626.vault_protocol.summer.vault.SummerVault",

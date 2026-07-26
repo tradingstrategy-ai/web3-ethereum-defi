@@ -34,6 +34,7 @@ Usage::
 import asyncio
 import logging
 import os
+import time
 from pathlib import Path
 
 import hypersync
@@ -305,12 +306,19 @@ def _create_limiter(
     requests_per_minute: int = DEFAULT_HYPERSYNC_REQUESTS_PER_MINUTE,
     db_path: Path = HYPERSYNC_RATE_LIMIT_SQLITE_DATABASE,
 ) -> Limiter:
-    """Create a ``pyrate_limiter.Limiter`` with an SQLite-backed bucket."""
+    """Create a ``pyrate_limiter.Limiter`` with an SQLite-backed bucket.
+
+    SQLite stores the timestamps passed by the limiter.  Use Unix wall-clock
+    time instead of the default process-local monotonic clock, whose origin
+    changes after a host or container restart and would make old rows appear
+    to be years in the future.
+    """
     db_path.parent.mkdir(parents=True, exist_ok=True)
     return Limiter(
         RequestRate(requests_per_minute, Duration.MINUTE),
         bucket_class=SQLiteBucket,
         bucket_kwargs={"path": str(db_path)},
+        time_function=time.time,
     )
 
 

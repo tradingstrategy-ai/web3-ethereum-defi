@@ -24,7 +24,15 @@ pytestmark = pytest.mark.skipif(
 
 @pytest.fixture(scope="module")
 def anvil_monad_fork(request) -> AnvilLaunch:
-    """Fork at the latest block — Monad RPCs do not support archive state."""
+    """Fork at the latest block.
+
+    Exempt from the fixed-block rule (see :mod:`eth_defi.testing.anvil_fork_pool`):
+    Monad provides no archive-complete historical state, so a pinned historical
+    ``fork_block_number`` cannot be executed once its state trie is evicted. This
+    fork must use the current head, and its assertions must be current-state /
+    state-relative rather than fixed-block. See the Monad chain-quirk notes in
+    ``CLAUDE.md``.
+    """
     launch = fork_network_anvil(JSON_RPC_MONAD)
     try:
         yield launch

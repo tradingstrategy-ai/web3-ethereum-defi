@@ -9,32 +9,24 @@ from web3 import Web3
 from eth_defi.erc_4626.classification import create_vault_instance_autodetect, detect_vault_features
 from eth_defi.erc_4626.core import ERC4626Feature
 from eth_defi.erc_4626.vault_protocol.gains.vault import DominationFinanceVault, GainsVault
-from eth_defi.provider.anvil import AnvilLaunch, fork_network_anvil
-from eth_defi.provider.multi_provider import create_multi_provider_web3
+from eth_defi.testing.anvil_fork_pool import AnvilForkPool
 from eth_defi.vault.fee import VaultFeeMode
 from eth_defi.vault.risk import VaultTechnicalRisk
 
 JSON_RPC_BASE = os.environ.get("JSON_RPC_BASE")
 
-pytestmark = pytest.mark.skipif(not JSON_RPC_BASE, reason="Set JSON_RPC_BASE to run this test")
+pytestmark = [
+    pytest.mark.skipif(not JSON_RPC_BASE, reason="Set JSON_RPC_BASE to run this test"),
+    pytest.mark.xdist_group("fork:base:domination-46854858"),
+]
 
 DOMINATION_DFUSDC_ADDRESS = "0xA194082Aabb75Dd1Ca9Dc1BA573A5528BeB8c2Fb"
 
 
 @pytest.fixture(scope="module")
-def anvil_base_fork() -> AnvilLaunch:
-    """Fork Base at a specific block for reproducibility."""
-    launch = fork_network_anvil(JSON_RPC_BASE, fork_block_number=46_854_858)
-    try:
-        yield launch
-    finally:
-        launch.close()
-
-
-@pytest.fixture(scope="module")
-def web3(anvil_base_fork: AnvilLaunch) -> Web3:
-    """Create Web3 connection to the Anvil fork."""
-    return create_multi_provider_web3(anvil_base_fork.json_rpc_url, retries=2)
+def web3(anvil_fork_pool: AnvilForkPool) -> Web3:
+    """Share the read-only Domination fork and its warmed RPC cache."""
+    return anvil_fork_pool.get_web3(JSON_RPC_BASE, 46_854_858)
 
 
 def test_domination_features(web3: Web3):

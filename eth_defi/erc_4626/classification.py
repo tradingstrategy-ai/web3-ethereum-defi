@@ -21,8 +21,8 @@ from eth_defi.erc_4626.vault_protocol.frankencoin.vault import FRANKENCOIN_SAVIN
 from eth_defi.erc_4626.vault_protocol.frax.constants import FRAX_STAKING_VAULT_ADDRESSES, FRAX_STAKING_VAULTS_BY_CHAIN, FRAXLEND_DEPLOYERS_BY_CHAIN
 from eth_defi.erc_4626.vault_protocol.kiloex.constants import KILOEX_VAULT_ADDRESSES, KILOEX_VAULTS_BY_CHAIN
 from eth_defi.erc_4626.vault_protocol.nara.constants import NARAUSD_PLUS_VAULT
-from eth_defi.event_reader.multicall_batcher import EncodedCall, EncodedCallResult, read_multicall_chunked
-from eth_defi.event_reader.web3factory import Web3Factory
+from eth_defi.event_reader.multicall_batcher import EncodedCall, EncodedCallResult, MultiprocessMulticallReader, read_multicall_chunked
+from eth_defi.event_reader.web3factory import SimpleWeb3Factory, Web3Factory
 from eth_defi.midas.constants import MIDAS_PRODUCTS, MIDAS_PRODUCTS_BY_TOKEN
 from eth_defi.tokenised_fund.asseto.constants import ASSETO_PRODUCTS, ASSETO_PRODUCTS_BY_TOKEN
 from eth_defi.tokenised_fund.centrifuge.constants import CENTRIFUGE_TRANCHE_PRODUCTS, CENTRIFUGE_TRANCHE_PRODUCTS_BY_TOKEN
@@ -586,6 +586,21 @@ class VaultFeatureProbe:
 
     address: HexAddress
     features: set[ERC4626Feature]
+
+
+#: How many probe calls :py:func:`detect_vault_features` packs into one Multicall3
+#: request.
+#:
+#: Autodetect issues ~50 probe signatures per vault. Sent one JSON-RPC call at a
+#: time (the behaviour before batching) that is ~50 sequential round-trips, and on
+#: an Anvil mainnet fork whose state is not yet cached each of those also triggers
+#: lazy upstream archive fetches — slow enough that the whole detection could
+#: exceed the caller's read timeout and never finish.
+#:
+#: Ten keeps each batch small enough to stay well inside node gas/response limits
+#: (a batch is one ``eth_call`` executing every packed probe) while cutting the
+#: round-trips by an order of magnitude.
+DETECT_VAULT_FEATURES_CHUNK_SIZE = 10
 
 
 def create_probe_calls(
@@ -1794,35 +1809,83 @@ def probe_vaults(
 
 
 def detect_vault_features(
-    web3: Web3,
-    address: HexAddress | str,
+    web3: Web3 | None = None,
+    address: HexAddress | str | None = None,
     verbose=True,
+    web3factory: Web3Factory | None = None,
+    chunk_size: int = DETECT_VAULT_FEATURES_CHUNK_SIZE,
 ) -> set[ERC4626Feature]:
     """Detect the ERC-4626 features of a vault smart contract.
 
     - Protocols: Harvest, Lagoon, etc.
     - Does support ERC-7540
-    - Very slow, only use in scripts and tutorials.
     - Use to pass to :py:func:`create_vault_instance` to get a correct Python proxy class for the vault institated.
 
-    Example:
+    Probes ~50 protocol-specific function signatures against the contract and
+    infers the protocol from which ones answer. The probes are packed into
+    Multicall3 batches of :py:data:`DETECT_VAULT_FEATURES_CHUNK_SIZE`, so one
+    detection costs a handful of JSON-RPC round-trips instead of one per probe.
+
+    That matters most on an Anvil mainnet fork: an uncached vault resolves its
+    state lazily from the upstream archive, so every extra round-trip added
+    another upstream fetch, and a cold vault could exhaust the caller's read
+    timeout before detection ever finished.
 
     .. code-block:: python
 
         features = detect_vault_features(web3, spec.vault_address, verbose=False)
         logger.info("Detected vault features: %s", features)
-
         vault = create_vault_instance(
             web3,
             spec.vault_address,
             features=features,
         )
 
+    :param web3:
+        Web3 connection to use.
+
+        Legacy parameter, kept first for backwards compatibility. It is wrapped
+        in :py:class:`~eth_defi.event_reader.web3factory.SimpleWeb3Factory` on
+        demand, so existing ``detect_vault_features(web3, address)`` callers get
+        batching without any change. Prefer ``web3factory`` in new code. May be
+        omitted when ``web3factory`` is given.
+
+    :param address:
+        Vault smart contract address to probe.
+
     :param verbose:
         Disable for command line scripts
+
+    :param web3factory:
+        Factory that creates a Web3 connection. Preferred over ``web3``.
+
+        Passed to a private
+        :py:class:`~eth_defi.event_reader.multicall_batcher.MultiprocessMulticallReader`;
+        when omitted, ``web3`` is used directly. The reader is constructed per
+        call on purpose — ``read_multicall_chunked()`` memoises one reader per
+        chain id in a thread-local, which would reuse an earlier connection (for
+        example an Anvil fork from a previous test) for a later call on the same
+        chain. Detection always talks to the connection you pass in.
+
+    :param chunk_size:
+        How many probe calls to pack into a single Multicall3 request.
+
+        Defaults to :py:data:`DETECT_VAULT_FEATURES_CHUNK_SIZE`. Lower it if a
+        node rejects a batch on gas or response-size limits; raising it trades
+        that risk for fewer round-trips.
+
+    :return:
+        Detected vault features, to pass to :py:func:`create_vault_instance`.
     """
 
     assert address.lower() not in BROKEN_VAULT_CONTRACTS, f"Vault {address} is known broken vault contract like, avoid"
+
+    # Accept either calling convention. A bare Web3 is wrapped in
+    # SimpleWeb3Factory on demand, so legacy callers get multicall batching
+    # without changing anything.
+    assert web3 is not None or web3factory is not None, "Give either web3 or web3factory"
+    if web3 is None:
+        web3 = web3factory()
 
     chain_id = web3.eth.chain_id
 
@@ -1837,16 +1900,25 @@ def detect_vault_features(
     probe_calls = list(create_probe_calls([address], chain_id=chain_id))
     block_number = web3.eth.block_number
 
+    # Batch the probes through Multicall3 instead of issuing one eth_call each.
+    #
+    # Deliberately construct a private reader bound to *this* connection rather
+    # than calling read_multicall_chunked(): that helper memoises a reader per
+    # chain id in a thread-local (`_reader_instance`), so a reader created
+    # earlier on the same thread — e.g. by a test using an Anvil fork — would be
+    # silently reused for a later live-RPC call on the same chain and query the
+    # wrong node ("BlockOutOfRangeError: block height is X but requested Y").
+    # Detection must always talk to the connection the caller handed us.
+    reader = MultiprocessMulticallReader(web3factory or web3, batch_size=chunk_size)
+
     results = {}
-    for call in probe_calls:
-        result = call.call_as_result(
-            web3,
-            block_identifier=block_number,
-            ignore_error=True,
-        )
+    for call_result in reader.process_calls(
+        block_identifier=block_number,
+        calls=probe_calls,
+    ):
         if verbose:
-            logger.info("Result for %s: %s, error: %s", call.func_name, result.success, str(result.revert_exception))
-        results[call.func_name] = result
+            logger.info("Result for %s: %s, error: %s", call_result.call.func_name, call_result.success, str(call_result.revert_exception))
+        results[call_result.call.func_name] = call_result
 
     # Wrap with _ProbeResultsDict to handle missing probes from chain filtering
     wrapped_results = _ProbeResultsDict(results)

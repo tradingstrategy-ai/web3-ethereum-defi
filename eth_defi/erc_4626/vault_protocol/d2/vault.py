@@ -31,20 +31,72 @@ logger = logging.getLogger(__name__)
 
 
 class D2DepositManager(ERC4626DepositManager):
-    """D2 ERC-4626 lifecycle with explicit zero-price admission failure.
+    """D2 Finance epoch-gated ERC-4626 lifecycle with zero-price admission failure.
 
-    **Supported simulation path**
+    D2 vaults are managed derivative-strategy vaults that cycle through
+    offchain-scheduled *funding*, *trading* (epoch) and *withdrawal* phases.
+    Onchain deposits and redemptions use the standard synchronous ERC-4626
+    entry points, but they only succeed inside the correct phase. This manager
+    keeps the plain ERC-4626 transaction construction of its parent while adding
+    preflight phase gating and an explicit failure when D2 pricing is
+    unavailable, so a caller sees an actionable :class:`VaultFlowUnavailable`
+    instead of paying gas for a guaranteed revert or trusting a zero estimate.
 
-    :meth:`force_settle` receives ``None`` and uses the shared Anvil-only
-    no-op implementation for a direct ERC-4626 call. This adapter only
-    improves preflight estimation; it does not certify a successful D2
-    transaction path.
+    **Deposit process**
 
-    **Known limitations**
+    Synchronous. The owner ``approve()``s the denomination token and
+    :meth:`create_deposit_request` builds a single ERC-4626 ``deposit`` call
+    (inherited construction), but only after :meth:`_assert_flow_open` confirms
+    the vault is in its funding phase (``isFunding()``); otherwise it raises
+    :class:`VaultFlowUnavailable` carrying the next funding open time.
+    :meth:`estimate_deposit` overrides the parent: it first rejects a closed
+    funding phase, then calls the standard ``previewDeposit``-based estimator,
+    and finally raises :class:`ValueError` when the estimate is zero, because a
+    zero share price means D2 pricing is undefined rather than that the deposit
+    is free.
 
-    Successful D2 deposits and redemptions have not yet been fork-proven.
-    Custodied epochs, operator NAV changes, delayed withdrawals and other
-    epoch transitions are deliberately outside this adapter.
+    **Redemption process**
+
+    Synchronous. :meth:`create_redemption_request` builds a single ERC-4626
+    ``redeem`` call (inherited construction) after :meth:`_assert_flow_open`
+    confirms redemptions are open — D2 permits withdrawal only when funds are
+    not custodied and no epoch is running (``notCustodiedAndNotDuringEpoch()``).
+    A closed window raises :class:`VaultFlowUnavailable` with the next
+    redemption open time.
+
+    **Queues and settlement**
+
+    No per-owner request queue: each ``deposit`` / ``redeem`` settles in its own
+    transaction. The only gating is the vault-wide epoch phase, evaluated live
+    from ``isFunding()`` and ``notCustodiedAndNotDuringEpoch()``. Custodied
+    epochs, operator NAV changes and delayed withdrawals are outside this
+    adapter and are not modelled as tickets.
+
+    **Lockups and cooldowns**
+
+    No per-owner cooldown, but capital is effectively locked for the trading
+    epoch: :meth:`D2Vault.get_estimated_lock_up` reports the current epoch
+    duration (``epoch_end - epoch_start``), which D2 documents as roughly
+    30-60 days. Deposits made during funding are custodied through the following
+    trading epoch and can only be redeemed once the vault returns to a
+    not-custodied, not-in-epoch state.
+
+    **Whitelisting / access control**
+
+    Permissioned onchain. The ``VaultV1Whitelisted`` ``onlyWhitelisted``
+    modifier admits an account only if it is on the vault's ``whitelisted``
+    mapping or holds more than ``whitelistBalance`` of ``whitelistAsset``
+    (typically USDC). This manager adds no extra whitelist logic and relies on
+    the inherited :meth:`check_deposit_whitelist` preflight; where the policy is
+    not queryable, a real denial surfaces as an onchain revert.
+
+    **Anvil settlement (force_settle)**
+
+    The standard ``deposit`` and ``redeem`` calls complete in their originating
+    transaction, so the inherited :meth:`force_settle` accepts ``None`` and
+    performs the Anvil-validated shared no-op. This adapter improves preflight
+    estimation and phase gating only; a successful D2 transaction path has not
+    been fork-proven.
     """
 
     def estimate_deposit(

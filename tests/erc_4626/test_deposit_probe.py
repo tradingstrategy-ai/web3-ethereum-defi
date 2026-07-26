@@ -11,7 +11,7 @@ import eth_defi.erc_4626.deposit_redeem as erc_4626_deposit_redeem
 from eth_defi.erc_4626.deposit_probe import DEFAULT_STATUS_PATH, VaultDepositProbeCandidate, VaultDepositProbeOutput, fetch_max_deposit_guidance, log_probe_tables, merge_redemption_flow_failure, prepare_probe_deposit_request, require_simulation, run_from_environment, select_candidates, update_status
 from eth_defi.erc_4626.deposit_redeem import ERC4626DepositManager
 from eth_defi.erc_4626.vault import CERTIFIED_SYNCHRONOUS_DEPOSIT_MANAGER_CLASSES, ERC4626Vault
-from eth_defi.erc_4626.vault_protocol.csigma.deposit_redeem import CsigmaDepositManager
+from eth_defi.erc_4626.vault_protocol.csigma.deposit_redeem import CSUPERIOR_V2_POOL_ADDRESS, CsigmaDepositManager
 from eth_defi.erc_4626.vault_protocol.gains.deposit_redeem import GainsDepositManager, GainsRedemptionTicket
 from eth_defi.erc_4626.vault_protocol.kiln.vault import KilnVault
 from eth_defi.erc_4626.vault_protocol.lagoon.vault import LagoonVault
@@ -56,6 +56,10 @@ def test_vault_deposit_manager_capability_exposes_directional_public_support() -
         VaultDepositManagerCapability(True, True, "synchronous", "synchronous", deposit_unsupported_reason="unsupported")
     with pytest.raises(ValueError, match="supports_anvil_settlement"):
         VaultDepositManagerCapability(True, True, "synchronous", "synchronous", supports_anvil_settlement=True)
+    with pytest.raises(ValueError, match="anvil_settlement_unsupported_reason"):
+        VaultDepositManagerCapability(True, True, "synchronous", "asynchronous", supports_anvil_settlement=False)
+    with pytest.raises(ValueError, match="anvil_settlement_unsupported_reason"):
+        VaultDepositManagerCapability(True, True, "synchronous", "asynchronous", anvil_settlement_unsupported_reason="reason")
     with pytest.raises(ValueError, match="deposit_assets"):
         VaultDepositManagerCapability(False, False, deposit_assets=("0x0000000000000000000000000000000000000001",))
 
@@ -69,6 +73,11 @@ def test_lagoon_capability_advertises_verified_anvil_settlement() -> None:
         "redemption_flow": "asynchronous",
         "supports_anvil_settlement": True,
     }
+
+
+#: Any cSigma deployment that is not the verified cSuperior V2 pool, so the
+#: adapter takes its generic ``maxRedeem()`` capacity path.
+NON_CSUPERIOR_VAULT_ADDRESS = "0x0000000000000000000000000000000000000002"
 
 
 def test_csigma_redemption_preflight_preserves_raw_share_capacity() -> None:
@@ -95,7 +104,20 @@ def test_csigma_redemption_preflight_preserves_raw_share_capacity() -> None:
             return Call()
 
     manager = object.__new__(CsigmaDepositManager)
-    manager.vault = type("Vault", (), {"vault_contract": type("Contract", (), {"functions": Functions()})()})()
+    # The adapter selects its capacity strategy by vault address: only the
+    # verified cSuperior V2 pool uses the withdrawal-manager path, while every
+    # other cSigma deployment keeps the generic maxRedeem() behaviour. Stub a
+    # non-cSuperior address so this test exercises that maxRedeem() branch, which
+    # is what Functions above models.
+    assert NON_CSUPERIOR_VAULT_ADDRESS != CSUPERIOR_V2_POOL_ADDRESS
+    manager.vault = type(
+        "Vault",
+        (),
+        {
+            "address": NON_CSUPERIOR_VAULT_ADDRESS,
+            "vault_contract": type("Contract", (), {"functions": Functions()})(),
+        },
+    )()
 
     available = manager.fetch_redemption_preflight("0x0000000000000000000000000000000000000001", available_raw_shares)
     assert available.available is True
@@ -205,6 +227,7 @@ def test_probe_records_preflight_refusal_without_aborting() -> None:
                 direction="deposit",
                 phase="preflight",
                 decoded_error="NotWhitelisted",
+                preflight_result="whitelisting-needed",
                 function_selector=HexBytes("0x85b77f45"),
                 error_selector=HexBytes("0x584a7938"),
             )
@@ -232,6 +255,7 @@ def test_probe_records_preflight_refusal_without_aborting() -> None:
         "direction": "deposit",
         "phase": "preflight",
         "decoded_error": "NotWhitelisted",
+        "preflight_result": "whitelisting-needed",
         "function_selector": "85b77f45",
         "error_selector": "584a7938",
         "access_delay": None,
@@ -270,6 +294,7 @@ def test_probe_preserves_successful_deposit_when_redemption_is_unavailable() -> 
         "direction": "redeem",
         "phase": "preflight",
         "decoded_error": None,
+        "preflight_result": None,
         "function_selector": None,
         "error_selector": None,
         "access_delay": 3600,

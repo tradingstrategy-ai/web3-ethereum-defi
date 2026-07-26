@@ -31,30 +31,25 @@ from eth_defi.erc_4626.vault_protocol.gains.vault import (
 )
 from eth_defi.provider.anvil import AnvilLaunch, fork_network_anvil
 from eth_defi.provider.multi_provider import create_multi_provider_web3
+from eth_defi.testing.anvil_fork_pool import AnvilForkPool
 from eth_defi.token import USDC_NATIVE_TOKEN, USDC_WHALE, TokenDetails, fetch_erc20_details
 from eth_defi.trace import assert_transaction_success_with_explanation
 
 JSON_RPC_ARBITRUM = os.environ.get("JSON_RPC_ARBITRUM")
 CI = os.environ.get("CI") == "true"
-pytestmark = pytest.mark.skipif(not JSON_RPC_ARBITRUM, reason="Set JSON_RPC_ARBITRUM to run this test")
+pytestmark = [
+    pytest.mark.skipif(not JSON_RPC_ARBITRUM, reason="Set JSON_RPC_ARBITRUM to run this test"),
+    pytest.mark.xdist_group("fork:arbitrum:ostium-v15-470000000"),
+]
 
 #: Post-upgrade fork block (V1.5 was deployed at block 457,238,658)
 FORK_BLOCK = 470_000_000
 
 
 @pytest.fixture(scope="module")
-def anvil_arbitrum_fork(request) -> AnvilLaunch:
-    launch = fork_network_anvil(JSON_RPC_ARBITRUM, fork_block_number=FORK_BLOCK)
-    try:
-        yield launch
-    finally:
-        launch.close()
-
-
-@pytest.fixture(scope="module")
-def web3(anvil_arbitrum_fork):
-    web3 = create_multi_provider_web3(anvil_arbitrum_fork.json_rpc_url)
-    return web3
+def web3(anvil_fork_pool: AnvilForkPool) -> Web3:
+    """Share the post-upgrade read-only fork and its warmed RPC cache."""
+    return anvil_fork_pool.get_web3(JSON_RPC_ARBITRUM, FORK_BLOCK)
 
 
 @pytest.fixture()

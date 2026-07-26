@@ -72,6 +72,12 @@ source .local-test.env && poetry run python scripts/core3/scan-core3.py
 | `MAX_WORKERS` | `8` | Maximum number of parallel workers for API fetching |
 | `FETCH_SECTIONS` | `true` | Set to `false` to skip section detail endpoints (5 extra API calls per project) |
 
+The all-chains vault scanner uses a separate production configuration. It defaults
+to `CORE3_FETCH_SECTIONS=false` and `CORE3_SCAN_SCOPE=mapped`. It fetches the
+catalogue list, then requests project detail and history only for projects
+referenced by `CORE3_MAPPINGS`. Set `CORE3_SCAN_SCOPE=all` for an intentional
+complete-catalogue refresh.
+
 ### core3-overview.py — database inspector
 
 Displays a tabulated overview of the database contents: one row per project with
