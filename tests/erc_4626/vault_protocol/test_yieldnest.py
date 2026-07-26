@@ -64,6 +64,7 @@ def test_yieldnest_ynrwax(
     assert isinstance(vault, YieldNestVault)
     assert vault.get_protocol_name() == "YieldNest"
     assert vault.features == {ERC4626Feature.yieldnest_like}
+    assert vault.is_whitelisted_deposit() is False
     assert vault.get_deposit_manager_capability().as_dict() == {
         "can_deposit": True,
         "can_redeem": False,

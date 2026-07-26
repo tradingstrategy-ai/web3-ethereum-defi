@@ -25,25 +25,33 @@ logger = logging.getLogger(__name__)
 
 VaultDepositFlow = Literal["synchronous", "asynchronous"]
 
+#: Export caveat for classifications made without inspecting optional
+#: protocol-specific permission hooks.
+PERMISSIONED_HOOK_CHECKS_NOT_PERFORMED_NOTE = "No permissioned hook checks were performed"
+
 
 class VaultDepositPermission(str, enum.Enum):
-    """Vault-wide policy for accepting deposits.
+    """Whether deposits require KYC or comparable identity approval.
 
-    This class deliberately represents only whether the vault applies a
-    whitelist policy.  It does not describe a particular account's balance,
-    allowance, pause state, capacity, or whether an asynchronous request is
+    This class deliberately represents only a depositor's KYC or manual
+    identity-approval requirement. It does not describe a particular account's
+    balance, allowance, token-holding eligibility, pause state, capacity,
+    lock-up, open date, epoch window, or whether an asynchronous request is
     currently claimable.
 
     The string values are persisted in vault metadata and public reports.
     """
 
-    #: Deposits require protocol-specific account permission.
+    #: Deposits require prior KYC or comparable manual identity approval.
     whitelisted = "whitelisted"
 
-    #: Any account may pass the protocol's permission policy.
+    #: Deposits need no prior KYC or manual identity approval.
+    #:
+    #: An open date, lock-up, epoch, cap, pause or token-holding condition does
+    #: not change this status.
     permissionless = "permissionless"
 
-    #: The adapter cannot safely determine the vault-wide policy.
+    #: The adapter cannot safely determine whether KYC is required.
     unknown = "unknown"
 
 

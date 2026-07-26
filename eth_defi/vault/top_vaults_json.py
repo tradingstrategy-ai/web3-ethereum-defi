@@ -30,14 +30,14 @@ To test out Pandas warning issues in calculate_lifetime_metrics(), enable strict
     PYTHONWARNINGS="error::RuntimeWarning" python -m eth_defi.vault.top_vaults_json
 """
 
-import os
+import datetime
 import json
 import math
-import pandas as pd
-import datetime
+import os
 from dataclasses import dataclass
 from pathlib import Path
 
+import pandas as pd
 from atomicwrites import atomic_write
 
 from eth_defi.compat import native_datetime_utc_now
@@ -45,22 +45,22 @@ from eth_defi.core3.constants import CORE3_DATABASE_PATH
 from eth_defi.core3.database import Core3Database
 from eth_defi.core3.vault_protocol import build_core3_protocols_for_export
 from eth_defi.feed.database import DEFAULT_VAULT_POST_DATABASE, VaultPostDatabase
+from eth_defi.research.vault_metrics import (
+    VaultMetricsExport,
+    calculate_hourly_returns_for_all_vaults,
+    calculate_lifetime_metrics,
+    cross_check_data,
+    export_lifetime_row,
+    slugify_protocol,
+)
 from eth_defi.token import is_stablecoin_like
-from eth_defi.vault.curator_export import build_curators_for_export
-from eth_defi.vault.risk import VaultTechnicalRisk
-from eth_defi.version_info import VersionInfo
 
 # Import core TradingStrategy / eth_defi modules
 from eth_defi.vault.base import VaultSpec  # noqa: F401
+from eth_defi.vault.curator_export import build_curators_for_export
+from eth_defi.vault.risk import VaultTechnicalRisk
 from eth_defi.vault.vaultdb import VaultDatabase, get_pipeline_data_dir
-from eth_defi.research.vault_metrics import (
-    VaultMetricsExport,
-    calculate_lifetime_metrics,
-    export_lifetime_row,
-    cross_check_data,
-    calculate_hourly_returns_for_all_vaults,
-    slugify_protocol,
-)
+from eth_defi.version_info import VersionInfo
 
 # --------------------------------------------------------------------
 # Configuration via environment variables (scalar tunables)
@@ -600,6 +600,11 @@ def annotate_fallback_record(record: dict, state_entry: dict, fallback_reason: s
     # A sticky row is not current adapter certification.  Never replay a
     # previous positive manager capability when the live scan is unavailable.
     annotated["deposit_manager"] = None
+    # Policy information has the same freshness requirement as capability
+    # information. The fallback record may be several scanner deployments old,
+    # so do not present a positive caller-admission claim as current.
+    annotated["deposit_permission"] = "unknown"
+    annotated["whitelist"] = {"status": "unknown", "notes": None}
     annotated["sticky_export"] = True
     annotated["sticky_reason"] = "previously_passed_filter"
     annotated["stale_export"] = True

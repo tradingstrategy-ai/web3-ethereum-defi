@@ -1,29 +1,29 @@
 """D2 Finance vault support."""
 
 import datetime
+import logging
+from collections.abc import Iterable
 from dataclasses import dataclass
 from decimal import Decimal
 from functools import cached_property
-import logging
-from typing import Iterable, Literal
+from typing import Literal
 
-from web3.contract import Contract
 from eth_typing import BlockIdentifier, HexAddress
+from web3.contract import Contract
 
+from eth_defi.abi import ZERO_ADDRESS_STR
+from eth_defi.compat import native_datetime_utc_now
 from eth_defi.erc_4626.core import get_deployed_erc_4626_contract
 from eth_defi.erc_4626.deposit_redeem import ERC4626DepositManager, ERC4626DepositRequest, ERC4626RedemptionRequest
 from eth_defi.erc_4626.vault import ERC4626HistoricalReader, ERC4626Vault
 from eth_defi.event_reader.conversion import convert_int256_bytes_to_int
 from eth_defi.event_reader.multicall_batcher import EncodedCall, EncodedCallResult
-from eth_defi.compat import native_datetime_utc_now
-from eth_defi.token import TokenDetails, fetch_erc20_details
 from eth_defi.utils import from_unix_timestamp
 from eth_defi.vault.base import (
     DEPOSIT_CLOSED_FUNDING_PHASE,
     REDEMPTION_CLOSED_FUNDS_CUSTODIED,
     VaultHistoricalRead,
     VaultHistoricalReader,
-    VaultTechnicalRisk,
 )
 from eth_defi.vault.deposit_redeem import VaultFlowUnavailable
 
@@ -419,8 +419,8 @@ class D2Vault(ERC4626Vault):
     """D2 Finance vaults.
 
     - Most vault logic is offchain, proprietary
-    - VaultV1Whitelisted is a wrapper around Hyperliquid trading account
-    - You need to hold a minimum amount of USDC (whitelistedAsset) to be able to deposit
+    - VaultV1Whitelisted is a wrapper around a Hyperliquid trading account
+    - Deposits have asset-holding eligibility conditions but no KYC requirement
     - The vault smart contract does not have visibility to the fees
     - Redemption must happen not during epoch
     - Fees are set and calculated offchain
@@ -433,19 +433,9 @@ class D2Vault(ERC4626Vault):
     - `Docs <https://gitbook.d2.finance/>`__
     - `HYPE++ strategy blog post <https://medium.com/@D2.Finance/hype-capitalizing-on-hyperliquids-launch-396f8665a2c0>`__
 
-    Whitelist function logic:
-
-    .. code-block:: solidity
-
-            modifier onlyWhitelisted() {
-                bool holder = false;
-                if (whitelistAsset != address(0)) {
-                    holder = IERC20(whitelistAsset).balanceOf(msg.sender) > whitelistBalance;
-                }
-                require(whitelisted[msg.sender] || holder, "!whitelisted");
-                _;
-            }
-
+    Despite the contract's historical ``whitelisted`` naming, its balance and
+    schedule conditions do not represent a KYC or manual identity gate. They
+    must not change the public ``deposit_permission`` status.
     """
 
     @cached_property
@@ -470,6 +460,19 @@ class D2Vault(ERC4626Vault):
             D2 manager that avoids returning a zero share estimate.
         """
         return D2DepositManager(self)
+
+    def is_whitelisted_deposit(self) -> bool:
+        """Report that D2 deposits do not require KYC or identity approval.
+
+        D2's contract uses ``whitelisted`` terminology for a token-holding
+        eligibility condition. Under the public schema, that is not a KYC or
+        manual identity-approval requirement. Epoch availability, open dates,
+        lock-ups and deposit caps are likewise separate conditions.
+
+        :return:
+            Always ``False`` for the ``VaultV1Whitelisted`` implementation.
+        """
+        return False
 
     def get_link(self, referral: str | None = None) -> str:  # noqa: ARG002
         """Get the canonical public page for this D2 vault.

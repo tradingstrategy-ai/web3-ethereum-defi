@@ -209,6 +209,16 @@ LOOKBACK_AND_TOLERANCES: dict[Period, tuple[pd.DateOffset, pd.Timedelta]] = {
 }
 
 
+class VaultWhitelist(TypedDict):
+    """Vault-wide KYC status and its qualification notes."""
+
+    #: Normalised :class:`VaultDepositPermission` value.
+    status: str
+
+    #: Optional qualification or known limitation for this status.
+    notes: str | None
+
+
 class VaultMetricsRecord(TypedDict, total=False):
     """Per-vault record in the JSON export.
 
@@ -309,6 +319,22 @@ class VaultMetricsRecord(TypedDict, total=False):
     #: This does not mean the vault is currently open or that an account has
     #: permission, funds, acceptable slippage, spare cap, or liquidity.
     deposit_manager: dict | None
+
+    #: Vault-wide KYC or manual identity-approval policy.
+    #:
+    #: ``whitelisted`` normally means deposits require prior KYC or manual
+    #: identity approval, ``permissionless`` means no such approval applies and
+    #: ``unknown`` means the scanner has no source-proven KYC result for this
+    #: contract version. Open dates, lock-ups, epoch windows, pauses, caps and
+    #: token-holding requirements do not change this status. Consult
+    #: ``whitelist.notes`` for explicitly documented operating assumptions.
+    deposit_permission: str
+
+    #: Structured vault-wide account-admission status.
+    #:
+    #: ``status`` mirrors ``deposit_permission``. ``notes`` contains a
+    #: protocol-specific qualification where the scanner must expose one.
+    whitelist: VaultWhitelist
 
     #: Share token ERC-20 decimals (the vault's own ERC-4626 token).
     share_token_decimals: int | None
@@ -1706,17 +1732,25 @@ def calculate_vault_record(
     risk_numeric = risk.value if isinstance(risk, VaultTechnicalRisk) else None
 
     stored_deposit_manager = vault_metadata.get("_deposit_manager")
+    deposit_permission = vault_metadata.get("_deposit_permission", VaultDepositPermission.unknown.value)
+    try:
+        deposit_permission = VaultDepositPermission(deposit_permission).value
+    except (TypeError, ValueError):
+        deposit_permission = VaultDepositPermission.unknown.value
+    whitelist_notes = vault_metadata.get("_whitelist_notes")
+    if not isinstance(whitelist_notes, str):
+        whitelist_notes = None
+    whitelist: VaultWhitelist = {
+        "status": deposit_permission,
+        "notes": whitelist_notes,
+    }
+
     if stored_deposit_manager is None:
         deposit_manager = None
     else:
         # Keep the persisted capability mapping immutable: it can be reused by
         # other report rows during this export.
         deposit_manager = dict(stored_deposit_manager)
-        deposit_permission = vault_metadata.get("_deposit_permission", VaultDepositPermission.unknown.value)
-        try:
-            deposit_permission = VaultDepositPermission(deposit_permission).value
-        except (TypeError, ValueError):
-            deposit_permission = VaultDepositPermission.unknown.value
         deposit_manager["deposit_permission"] = deposit_permission
 
     # Compact per-vault Core3 risk summary for the vault's protocol.
@@ -2154,6 +2188,10 @@ def calculate_vault_record(
             # fields immediately above.  Old metadata pickles safely export
             # null until they have been rescanned.
             "deposit_manager": deposit_manager,
+            # Vault-wide KYC policy, independently of whether eth-defi
+            # implements a public transaction manager.
+            "deposit_permission": deposit_permission,
+            "whitelist": whitelist,
             # Lending protocol statistics
             "available_liquidity": available_liquidity,
             "utilisation": utilisation,
@@ -2653,6 +2691,8 @@ def format_lifetime_table(
     _del("perf_fee")
     _del("deposit_fee")
     _del("withdraw_fee")
+    _del("deposit_permission")
+    _del("whitelist")
 
     # Combined
     _del("cagr_net")

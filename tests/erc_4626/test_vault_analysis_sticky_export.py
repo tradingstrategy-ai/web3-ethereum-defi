@@ -155,6 +155,8 @@ def test_sticky_export_missing_current_metrics_use_fallback():
     assert len(result.vaults) == 1
     assert result.vaults[0]["stale_export"] is True
     assert result.vaults[0]["risk_possibly_stale"] is True
+    assert result.vaults[0]["deposit_permission"] == "unknown"
+    assert result.vaults[0]["whitelist"] == {"status": "unknown", "notes": None}
 
     # 4. Assert stale state timestamps do not move backwards
     entry = result.state["vaults"][key]

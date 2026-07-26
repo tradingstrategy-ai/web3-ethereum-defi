@@ -11,3 +11,8 @@ The fixed-block fork regression proves that the events decode for the tested
 historical route; it does not assert that a later proxy upgrade is identical.
 The proxy address is
 [0x01ba69727e2860b37bc1a2bd56999c1afb4c15d8](https://eth.blockscout.com/address/0x01ba69727e2860b37bc1a2bd56999c1afb4c15d8?tab=contract).
+
+The verified [ynRWAx implementation](https://etherscan.io/address/0xc1C5B18774d0282949331b719b5EA4A21CbC62C8#code)
+has a public ``BaseVault.deposit`` route gated only by the global pause state.
+The adapter consequently reports a permissionless depositor policy; pausing
+and max-deposit capacity remain separate availability signals.

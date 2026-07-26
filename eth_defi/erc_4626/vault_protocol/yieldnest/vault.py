@@ -115,6 +115,19 @@ class YieldNestVault(ERC4626Vault):
         """
         return False
 
+    def is_whitelisted_deposit(self) -> bool:
+        """Report the public policy of the supported YieldNest implementation.
+
+        The verified ynRWAx ``BaseVault.deposit`` route checks only the global
+        pause state before performing the ERC-4626 deposit. Administrative
+        roles govern configuration and pausing, but no depositor role or
+        account-admission predicate is present in this implementation.
+
+        :return:
+            ``False`` because ynRWAx deposits are permissionless when open.
+        """
+        return False
+
     def get_deposit_manager_capability(self) -> VaultDepositManagerCapability:
         """Declare YieldNest's verified synchronous deposit lifecycle.
 
