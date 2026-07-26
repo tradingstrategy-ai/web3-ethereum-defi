@@ -2,7 +2,7 @@
 Tests for GMXTrading on Arbitrum mainnet fork.
 
 These tests verify GMX trading functionality on Arbitrum mainnet fork with mock oracle.
-Each test receives an isolated EVM snapshot on a shared fixed-block Anvil fork.
+Each test receives an isolated fixed-block Anvil fork.
 
 Tests follow the complete order lifecycle:
 1. Create order (sign and submit transaction)
@@ -13,7 +13,7 @@ Required Environment Variables:
 - JSON_RPC_ARBITRUM: Arbitrum mainnet RPC endpoint for forking
 
 Uses isolated_fork_env fixture which provides:
-- Restored shared Anvil fork at a fixed block
+- Isolated Anvil fork at a fixed block
 - Mock oracle set up FIRST (matching debug.py flow)
 - Funded wallet with ETH/WETH/USDC
 - GMX config with approved tokens

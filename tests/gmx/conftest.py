@@ -27,10 +27,9 @@ from eth_defi.gmx.retry import GMXRetryConfig
 from eth_defi.gmx.synthetic_tokens import get_gmx_synthetic_token_by_symbol
 from eth_defi.gmx.trading import GMXTrading
 from eth_defi.hotwallet import HotWallet
-from eth_defi.provider.anvil import AnvilLaunch
+from eth_defi.provider.anvil import AnvilLaunch, fork_network_anvil
 from eth_defi.provider.multi_provider import create_multi_provider_web3
 from eth_defi.testing.anvil_fork_pool import AnvilForkPool
-from eth_defi.testing.evm_snapshot_fixture import evm_snapshot_revert
 from eth_defi.testing.fork_blocks import ARBITRUM_MIDNIGHT_BLOCK
 from eth_defi.token import TokenDetails, fetch_erc20_details
 from eth_defi.utils import addr
@@ -39,14 +38,12 @@ from tests.gmx.fork_helpers import execute_order_as_keeper, extract_order_key_fr
 #: Fast-fail retry config for tests — avoids burning minutes on API timeouts.
 GMX_TEST_RETRY_CONFIG = GMXRetryConfig.create_test_config()
 
-#: Every GMX fork test uses one recent, fixed Arbitrum state.  The committed
-#: Foundry cache is keyed by this canonical block, and the session pool reuses
-#: its Anvil process.  See :mod:`eth_defi.testing.anvil_fork_pool`.
+#: Every GMX fork test uses one recent, fixed Arbitrum state. The committed
+#: Foundry cache is keyed by this canonical block. See
+#: :mod:`eth_defi.testing.anvil_fork_pool`.
 GMX_ARBITRUM_FORK_BLOCK = ARBITRUM_MIDNIGHT_BLOCK
 
-#: Union of all Arbitrum accounts used by the GMX fork tests.  Keeping launch
-#: arguments identical lets the session pool share one Anvil process across the
-#: base, CCXT and Lagoon test fixtures.
+#: Union of all Arbitrum accounts used by the GMX fork tests.
 GMX_ARBITRUM_UNLOCKED_ADDRESSES = (
     addr("0xF977814e90dA44bFA03b6295A0616a897441aceC"),
     addr("0xdcF711cB8A1e0856fF1cB1CfD52C5084f5B28030"),
@@ -58,21 +55,10 @@ GMX_ARBITRUM_UNLOCKED_ADDRESSES = (
     addr("0x0628D46b5D145f183AdB6Ef1f2c97eD1C4701C55"),
 )
 
-#: Test fixtures which use the mutable, shared Arbitrum fork.  The collection
-#: hook pins them to one xdist worker: a session pool exists per worker, and
-#: concurrent snapshot/revert operations on one Anvil process are not safe.
-GMX_POOLED_FORK_FIXTURES = frozenset(
-    {
-        "anvil_chain_fork",
-        "anvil_chain_fork_ccxt_long",
-        "anvil_chain_fork_ccxt_short",
-        "gmx_open_positions",
-        "isolated_fork_env",
-        "isolated_fork_env_short",
-        "lagoon_gmx_fork_env",
-        "lagoon_gmx_forward_eth_env",
-    }
-)
+#: Read-only fixtures which can safely reuse a pooled Arbitrum fork. Mutating
+#: tests launch one fixed-block fork per test, because repeated snapshot/revert
+#: cycles can make a long-lived Anvil process unresponsive under pytest-xdist.
+GMX_READ_ONLY_POOLED_FORK_FIXTURES = frozenset({"gmx_open_positions"})
 
 # Set up logging for debugging
 logger = logging.getLogger(__name__)
@@ -80,18 +66,18 @@ logger = logging.getLogger(__name__)
 
 @pytest.hookimpl(tryfirst=True)
 def pytest_collection_modifyitems(items: list[pytest.Item]) -> None:
-    """Co-locate mutable pooled-fork tests on a single xdist worker.
+    """Co-locate read-only pooled-fork tests on a single xdist worker.
 
     ``AnvilForkPool`` is session-scoped, and pytest sessions are worker-local.
-    All GMX tests using the shared fork must therefore carry one stable group
-    name so they reuse both the Anvil process and its warm RPC cache safely.
+    A stable group lets read-only tests share one process and its warm RPC
+    cache. Mutating GMX tests deliberately use fresh fixed-block forks instead.
 
     :param items:
         Collected pytest test items to annotate.
     """
     for item in items:
-        if GMX_POOLED_FORK_FIXTURES.intersection(item.fixturenames):
-            item.add_marker(pytest.mark.xdist_group("fork:arbitrum:midnight"))
+        if GMX_READ_ONLY_POOLED_FORK_FIXTURES.intersection(item.fixturenames):
+            item.add_marker(pytest.mark.xdist_group("fork:arbitrum:midnight:readonly"))
 
 
 def get_gmx_address(chain_id: int, symbol: str) -> str:
@@ -395,58 +381,33 @@ def chain_rpc_url(chain_name):
     return rpc_url
 
 
-def get_gmx_arbitrum_fork_launch(
-    anvil_fork_pool: AnvilForkPool,
-    rpc_url: str,
-) -> AnvilLaunch:
-    """Return the shared, warmed Arbitrum Anvil fork used by GMX tests.
-
-    The tests mutate contracts, account balances and oracle bytecode.  Each
-    caller must therefore pair this shared launch with
-    :func:`evm_snapshot_revert` before yielding test state.
-
-    :param anvil_fork_pool:
-        Session-scoped pool that owns and closes the shared Anvil process.
-
-    :param rpc_url:
-        Arbitrum archive provider URL, including any configured fallbacks.
-
-    :return:
-        The pooled Anvil launch at :data:`GMX_ARBITRUM_FORK_BLOCK`.
-    """
-    return anvil_fork_pool.get_launch(
-        rpc_url,
-        GMX_ARBITRUM_FORK_BLOCK,
-        unlocked_addresses=GMX_ARBITRUM_UNLOCKED_ADDRESSES,
-        test_request_timeout=100,
-        launch_wait_seconds=60,
-    )
-
-
 @pytest.fixture()
 def anvil_chain_fork(
     chain_name: str,
     chain_rpc_url: str,
-    anvil_fork_pool: AnvilForkPool,
-) -> AnvilLaunch:
-    """Return the shared, fixed-block GMX Anvil fork.
+) -> Generator[AnvilLaunch, None, None]:
+    """Create an isolated, fixed-block GMX Anvil fork.
 
-    GMX's fork test parametrisation currently supports Arbitrum only.  Using a
-    canonical block makes the committed RPC cache effective and lets all tests
-    share one session-owned Anvil process.
+    GMX tests mutate balances, contracts and oracle bytecode. Each test gets a
+    fresh process, while the fixed block keeps the committed Foundry RPC cache
+    warm across processes and CI runs.
     """
-    assert chain_name == "arbitrum", f"GMX fork pool does not support {chain_name}"
-    return get_gmx_arbitrum_fork_launch(anvil_fork_pool, chain_rpc_url)
+    assert chain_name == "arbitrum", f"GMX fixed fork does not support {chain_name}"
+    launch = fork_network_anvil(
+        chain_rpc_url,
+        fork_block_number=GMX_ARBITRUM_FORK_BLOCK,
+        unlocked_addresses=GMX_ARBITRUM_UNLOCKED_ADDRESSES,
+        test_request_timeout=100,
+        launch_wait_seconds=60,
+    )
+    try:
+        yield launch
+    finally:
+        launch.close(log_level=logging.ERROR)
 
 
 @pytest.fixture()
-def _reset_gmx_arbitrum_fork(anvil_chain_fork: AnvilLaunch) -> Generator[None, None, None]:
-    """Restore the shared GMX fork after each test that mutates its EVM state."""
-    yield from evm_snapshot_revert(anvil_chain_fork)
-
-
-@pytest.fixture()
-def web3_arbitrum_fork(anvil_chain_fork: AnvilLaunch, _reset_gmx_arbitrum_fork: None) -> Web3:
+def web3_arbitrum_fork(anvil_chain_fork: AnvilLaunch) -> Web3:
     """Set up a local unit testing blockchain with the forked chain."""
     web3 = Web3(
         HTTPProvider(
@@ -1132,8 +1093,14 @@ def get_open_positions(gmx_config):
 
 @pytest.fixture
 def gmx_open_positions(chain_rpc_url, anvil_fork_pool: AnvilForkPool) -> GetOpenPositions:
-    """Return a read-only ``GetOpenPositions`` backed by the shared Anvil fork."""
-    launch = get_gmx_arbitrum_fork_launch(anvil_fork_pool, chain_rpc_url)
+    """Return read-only positions backed by the session-pooled Anvil fork."""
+    launch = anvil_fork_pool.get_launch(
+        chain_rpc_url,
+        GMX_ARBITRUM_FORK_BLOCK,
+        unlocked_addresses=GMX_ARBITRUM_UNLOCKED_ADDRESSES,
+        test_request_timeout=100,
+        launch_wait_seconds=60,
+    )
     web3 = Web3(
         HTTPProvider(
             launch.json_rpc_url,
@@ -1579,8 +1546,8 @@ def position_verifier_tenderly(arbitrum_tenderly_config) -> GetOpenPositions:
 
 
 # ============================================================================
-# ISOLATED FORK FIXTURES - Shared Anvil with per-test snapshot/revert
-# setup order: restore → oracle → wallet → config
+# ISOLATED FORK FIXTURES - Fresh fixed-block Anvil process per test
+# setup order: fork → oracle → wallet → config
 # ============================================================================
 
 
@@ -1600,17 +1567,17 @@ def _create_isolated_fork_env(
     anvil_launch: AnvilLaunch,
     private_key: str,
 ) -> IsolatedForkEnv:
-    """Create a restored shared-fork environment matching debug.py's flow.
+    """Create a fresh fixed-block fork environment matching debug.py's flow.
 
     Order of operations (matches debug.py exactly):
-    1. Reuse a restored Anvil fork
+    1. Connect to a fresh fixed-block Anvil fork
     2. Setup mock oracle FIRST
     3. Fund wallet with ETH/WETH/USDC
     4. Create GMX config
     5. Approve tokens
 
     Args:
-        anvil_launch: Shared Anvil launch to initialise for this test.
+        anvil_launch: Isolated Anvil launch to initialise for this test.
         private_key: Private key for test wallet
     Returns:
         IsolatedForkEnv with all components
@@ -1619,7 +1586,7 @@ def _create_isolated_fork_env(
     large_usdc_holder = to_checksum_address("0xEe7aE85f2Fe2239E27D9c1E23fFFe168D63b4055")
     large_weth_holder = to_checksum_address("0x70d95587d40A2caf56bd97485aB3Eec10Bee6336")
 
-    # === Step 1: Reuse fixed, warmed Anvil fork ===
+    # === Step 1: Connect to fixed-block Anvil fork ===
     web3 = create_multi_provider_web3(
         anvil_launch.json_rpc_url,
         default_http_timeout=(3.0, 180.0),
@@ -1688,11 +1655,10 @@ def _create_isolated_fork_env(
 @pytest.fixture()
 def isolated_fork_env(
     anvil_chain_fork: AnvilLaunch,
-    _reset_gmx_arbitrum_fork: None,
 ) -> IsolatedForkEnv:
-    """Initialise an isolated test environment on the shared Anvil fork.
+    """Initialise an isolated test environment on a fresh Anvil fork.
 
-    Each test gets a restored EVM state with:
+    Each test gets an isolated EVM state with:
     - Mock oracle set up FIRST (matching debug.py)
     - Funded wallet with ETH/WETH/USDC
     - GMX config with approved tokens
@@ -1712,9 +1678,8 @@ def isolated_fork_env(
 @pytest.fixture()
 def isolated_fork_env_short(
     anvil_chain_fork: AnvilLaunch,
-    _reset_gmx_arbitrum_fork: None,
 ) -> IsolatedForkEnv:
-    """Initialise a restored shared fork for a short-position test."""
+    """Initialise a fresh fork for a short-position test."""
     private_key = "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
     return _create_isolated_fork_env(anvil_chain_fork, private_key)
 

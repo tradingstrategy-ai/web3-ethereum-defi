@@ -72,10 +72,10 @@ class LagoonGMXForkEnv:
 
 
 def _create_lagoon_gmx_fork_env(anvil_launch: AnvilLaunch) -> LagoonGMXForkEnv:
-    """Initialise a Lagoon GMX test environment on a restored shared fork.
+    """Initialise a Lagoon GMX test environment on a fixed-block fork.
 
     Order of operations (CRITICAL):
-    1. Reuse restored fixed-block Anvil fork
+    1. Connect to a fresh fixed-block Anvil fork
     2. Setup mock oracle FIRST
     3. Deploy Lagoon vault with TradingStrategyModuleV0
     4. Fund vault's Safe with USDC/WETH
@@ -83,7 +83,7 @@ def _create_lagoon_gmx_fork_env(anvil_launch: AnvilLaunch) -> LagoonGMXForkEnv:
     6. Create GMXConfig pointing to Safe address
     7. Approve tokens for GMX
     """
-    # === Step 1: Reuse the fixed, warmed Anvil fork ===
+    # === Step 1: Connect to the fixed-block Anvil fork ===
     web3 = create_multi_provider_web3(
         anvil_launch.json_rpc_url,
         default_http_timeout=(3.0, 180.0),
@@ -233,11 +233,10 @@ def _create_lagoon_gmx_fork_env(anvil_launch: AnvilLaunch) -> LagoonGMXForkEnv:
 @pytest.fixture()
 def lagoon_gmx_fork_env(
     anvil_chain_fork: AnvilLaunch,
-    _reset_gmx_arbitrum_fork: None,
 ) -> LagoonGMXForkEnv:
-    """Initialise Lagoon GMX state on a restored shared fork.
+    """Initialise Lagoon GMX state on an isolated fixed-block fork.
 
-    Each test gets a restored EVM state with:
+    Each test gets an isolated EVM state with:
     - Mock oracle set up FIRST
     - Deployed Lagoon vault with TradingStrategyModuleV0
     - Safe funded with USDC/WETH
@@ -468,7 +467,7 @@ def test_lagoon_wallet_cancel_limit_order(lagoon_gmx_fork_env: LagoonGMXForkEnv)
 
 
 def _create_lagoon_gmx_fork_env_forward_eth(anvil_launch: AnvilLaunch) -> LagoonGMXForkEnv:
-    """Initialise forward-ETH Lagoon state on a restored shared fork.
+    """Initialise forward-ETH Lagoon state on a fixed-block fork.
 
     Similar to _create_lagoon_gmx_fork_env but:
     - Safe gets NO native ETH (only tokens)
@@ -590,9 +589,8 @@ def _create_lagoon_gmx_fork_env_forward_eth(anvil_launch: AnvilLaunch) -> Lagoon
 @pytest.fixture()
 def lagoon_gmx_forward_eth_env(
     anvil_chain_fork: AnvilLaunch,
-    _reset_gmx_arbitrum_fork: None,
 ) -> LagoonGMXForkEnv:
-    """Initialise forward-ETH Lagoon state on a restored shared fork.
+    """Initialise forward-ETH Lagoon state on an isolated fixed-block fork.
 
     The Safe starts with 0 ETH — the asset manager's hot wallet funds
     execution fees via forward_eth=True on LagoonGMXTradingWallet.

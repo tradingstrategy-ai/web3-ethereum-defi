@@ -31,9 +31,8 @@ def _fund_wallet_on_fork(
 ):
     """Fund wallet with ETH, WETH, and USDC on the given fork.
 
-    The ``test_wallet`` fixture does not fund the shared fork. Each test
-    starts from a restored snapshot, so this fixture must establish its own
-    balances.
+    The ``test_wallet`` fixture does not fund this fork, so this fixture
+    establishes its own balances.
 
     :param web3: Web3 instance connected to the fork
     :param wallet_address: Address to fund
@@ -70,18 +69,16 @@ def _fund_wallet_on_fork(
 @pytest.fixture()
 def anvil_chain_fork_ccxt_long(
     anvil_chain_fork: AnvilLaunch,
-    _reset_gmx_arbitrum_fork: None,
 ) -> str:
-    """Return the restored shared fork URL for a CCXT long-position test."""
+    """Return the isolated fixed-block fork URL for a CCXT long-position test."""
     return anvil_chain_fork.json_rpc_url
 
 
 @pytest.fixture()
 def anvil_chain_fork_ccxt_short(
     anvil_chain_fork: AnvilLaunch,
-    _reset_gmx_arbitrum_fork: None,
 ) -> str:
-    """Return the restored shared fork URL for a CCXT short-position test."""
+    """Return the isolated fixed-block fork URL for a CCXT short-position test."""
     return anvil_chain_fork.json_rpc_url
 
 
@@ -118,12 +115,12 @@ def ccxt_gmx_fork_open_close(
 ) -> GMX:
     """CCXT GMX exchange with wallet for open/close long position testing.
 
-    Uses a restored shared Anvil fork to avoid state pollution with other tests.
+    Uses an isolated Anvil fork to avoid state pollution with other tests.
     Uses RPC loading (default) for complete market data.
     """
     setup_mock_oracle(web3_arbitrum_fork_ccxt_long)
 
-    # Fund wallet on the restored shared fork.
+    # Fund wallet on the isolated fork.
     _fund_wallet_on_fork(
         web3_arbitrum_fork_ccxt_long,
         test_wallet.address,
@@ -166,13 +163,13 @@ def ccxt_gmx_fork_short(
 ) -> GMX:
     """CCXT GMX exchange with wallet for short position testing.
 
-    Uses a restored shared Anvil fork to avoid state pollution with other tests.
+    Uses an isolated Anvil fork to avoid state pollution with other tests.
     Uses RPC loading (default) for complete market data.
     Short positions require USDC collateral, which is funded by _fund_wallet_on_fork.
     """
     setup_mock_oracle(web3_arbitrum_fork_ccxt_short)
 
-    # Fund wallet on the restored shared fork.
+    # Fund wallet on the isolated fork.
     # This is critical for short positions which require USDC collateral
     _fund_wallet_on_fork(
         web3_arbitrum_fork_ccxt_short,
@@ -249,13 +246,13 @@ def ccxt_gmx_fork_graphql(
 ) -> GMX:
     """CCXT GMX exchange with wallet for testing GraphQL market loading.
 
-    Uses a restored shared Anvil fork to avoid state pollution with other tests.
+    Uses an isolated Anvil fork to avoid state pollution with other tests.
     Uses GraphQL loading for fast market data retrieval.
     Markets are pre-loaded so they're immediately available.
     """
     setup_mock_oracle(web3_arbitrum_fork_ccxt_long)
 
-    # Fund wallet on the restored shared fork.
+    # Fund wallet on the isolated fork.
     _fund_wallet_on_fork(
         web3_arbitrum_fork_ccxt_long,
         test_wallet.address,
