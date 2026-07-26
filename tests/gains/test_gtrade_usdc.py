@@ -205,7 +205,11 @@ def test_gains_deposit_withdraw(
 
 # CI flaky since 2026-07-22: the live Arbitrum historical multicall raised
 # MulticallNonRetryable; the same reader passed on later CI and local runs.
+# CI failed again on 2026-07-26 in two main-suite runs because both configured
+# archive providers lacked state trie nodes. Keep this live historical scan in
+# the slower, lower-contention workflow while retaining local coverage.
 @flaky.flaky
+@pytest.mark.slow
 def test_gains_historical_stateful(tmp_path):
     """Read historical data of gTrade USDC vault using the stateful multicall reader.
 
