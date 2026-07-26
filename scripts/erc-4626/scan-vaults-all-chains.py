@@ -129,6 +129,9 @@ Environment variables:
     - DEFAULT_CYCLE: Default cycle interval for items not in SCAN_CYCLES (default: "24h")
     - MAX_CYCLES: Exit after N cycles in looped mode, for testing (default: "0" = unlimited)
     - FORCE_RESCAN: "true" to ignore cycle state and rescan all items on the first cycle (default: "false")
+    - LEAD_DISCOVERY_STATE_TIMEOUT: Lead-discovery cache lifetime (default: "7d").
+      A cache miss performs a complete HyperSync lead discovery for that chain.
+    - FORCE_LEAD_DISCOVERY: "true" to bypass the lead-discovery cache once (default: "false")
     - PIPELINE_DATA_DIR: Override base directory for all pipeline files (default: ~/.tradingstrategy/vaults)
     - HYPERSYNC_CONCURRENCY: Number of concurrent Hypersync stream requests (default: "1").
       Set higher for faster throughput at the cost of more API pressure.

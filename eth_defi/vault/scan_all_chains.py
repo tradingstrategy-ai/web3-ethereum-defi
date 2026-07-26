@@ -53,6 +53,15 @@ from eth_defi.currency_api.constants import (
 from eth_defi.currency_api.scanner import run_incremental_scan as currency_run_incremental_scan
 from eth_defi.erc_4626.classification import HARDCODED_PROTOCOLS, create_vault_instance
 from eth_defi.erc_4626.core import MIN_PRICE_SCAN_DEPOSIT_COUNT, passes_price_scan_activity_filter
+from eth_defi.erc_4626.lead_discovery_state import (
+    DEFAULT_LEAD_DISCOVERY_STATE_TIMEOUT,
+    LeadDiscoveryState,
+    create_lead_discovery_signature,
+    get_lead_discovery_state_path,
+    load_lead_discovery_state,
+    save_lead_discovery_state,
+    validate_lead_discovery_state,
+)
 from eth_defi.erc_4626.lead_scan_core import scan_leads
 from eth_defi.erc_4626.settlement_scan import (
     fetch_and_store_vault_settlements_for_chain,
@@ -456,6 +465,9 @@ class ChainResult:
     #: Hours remaining until this item is next due (for "not due" items)
     next_due_in_hours: float | None = None
 
+    #: Whether the lead-discovery cache skipped a full discovery refresh.
+    lead_discovery_cache_hit: bool | None = None
+
 
 def build_chain_configs() -> list[ChainConfig]:
     """Build list of chain configurations.
@@ -497,6 +509,9 @@ def scan_vaults_for_chain(
     vault_db_path: Path = DEFAULT_VAULT_DATABASE,
     hypersync_concurrency: int | None = None,
     rpc_request_stats: RPCRequestStats | None = None,
+    *,
+    lead_discovery_state_timeout: datetime.timedelta = DEFAULT_LEAD_DISCOVERY_STATE_TIMEOUT,
+    force_lead_discovery: bool = False,
 ) -> tuple[bool, dict]:
     """Scan vaults for a single chain by calling scan_leads() directly.
 
@@ -504,14 +519,72 @@ def scan_vaults_for_chain(
     :param max_workers: Number of parallel workers
     :param vault_db_path: Path to the vault database pickle
     :param hypersync_concurrency: Hypersync stream concurrency limit
+    :param lead_discovery_state_timeout: Maximum cache age before a full lead refresh.
+    :param force_lead_discovery: Bypass a valid cache for this invocation.
     :return: Tuple of (success, metrics_dict)
     """
     stats = rpc_request_stats or RPCRequestStats()
+    if lead_discovery_state_timeout <= datetime.timedelta(0):
+        raise ValueError(f"lead_discovery_state_timeout must be positive, got {lead_discovery_state_timeout}")
     chain_id = None
     items_scanned = 0
     try:
         web3 = create_multi_provider_web3(rpc_url, rpc_request_stats=stats)
         chain_id = web3.eth.chain_id
+        enabled_chains = [(config.name, config.env_var) for config in build_chain_configs() if config.scan_vaults]
+        signature, signature_configuration = create_lead_discovery_signature(enabled_chains)
+        state_path = get_lead_discovery_state_path(vault_db_path.parent, chain_id)
+
+        existing_db = VaultDatabase.read(vault_db_path) if vault_db_path.exists() else None
+        existing_lead_addresses = set(existing_db.get_existing_leads_by_chain(chain_id)) if existing_db is not None else set()
+        state: LeadDiscoveryState | None = None
+        cache_miss_reason = None
+        cache_now = native_datetime_utc_now()
+        if force_lead_discovery:
+            cache_miss_reason = "FORCE_LEAD_DISCOVERY=true"
+        else:
+            state, cache_miss_reason = load_lead_discovery_state(state_path)
+            if state is not None:
+                has_metadata_cursor = existing_db is not None and chain_id in existing_db.last_scanned_block
+                cache_miss_reason = validate_lead_discovery_state(
+                    state,
+                    chain_id=chain_id,
+                    signature=signature,
+                    now=cache_now,
+                    timeout=lead_discovery_state_timeout,
+                    has_metadata_cursor=has_metadata_cursor,
+                )
+
+        if cache_miss_reason is None:
+            assert existing_db is not None
+            assert state is not None
+            chain_rows = [row for row in existing_db.rows.values() if row["_detection_data"].chain == chain_id]
+            last_block = existing_db.last_scanned_block[chain_id]
+            logger.info(
+                "Lead discovery cache hit for chain %d: state=%s, age=%s, last full scan block=%d, timeout=%s, signature=%s",
+                chain_id,
+                state_path,
+                cache_now - state.completed_at,
+                last_block,
+                lead_discovery_state_timeout,
+                signature,
+            )
+            return True, {
+                "chain_id": chain_id,
+                "start_block": last_block,
+                "end_block": last_block,
+                "vault_count": len(chain_rows),
+                "new_vaults": 0,
+                "items_scanned": 0,
+                "lead_discovery_cache_hit": True,
+            }
+
+        logger.info(
+            "Lead discovery cache miss for chain %d: %s; starting full discovery with signature %s",
+            chain_id,
+            cache_miss_reason,
+            signature,
+        )
         report = scan_leads(
             json_rpc_urls=rpc_url,
             vault_db_file=vault_db_path,
@@ -523,16 +596,29 @@ def scan_vaults_for_chain(
             max_display_entries=100,
             rpc_request_stats=stats,
             web3=web3,
+            force_full_discovery=True,
         )
         items_scanned = report.items_scanned
+
+        save_lead_discovery_state(
+            LeadDiscoveryState(
+                chain_id=chain_id,
+                signature=signature,
+                signature_configuration=signature_configuration,
+                completed_at=native_datetime_utc_now(),
+                completed_block=report.end_block,
+            ),
+            state_path,
+        )
 
         return True, {
             "chain_id": chain_id,
             "start_block": report.start_block,
             "end_block": report.end_block,
             "vault_count": len(report.rows),
-            "new_vaults": report.new_leads,
+            "new_vaults": len(set(report.leads) - existing_lead_addresses),
             "items_scanned": items_scanned,
+            "lead_discovery_cache_hit": False,
         }
 
     except Exception as e:
@@ -677,6 +763,9 @@ def scan_chain(
     rpc_usage_database: RPCUsageDatabase | None = None,
     rpc_cycle_started: datetime.date | None = None,
     rpc_cycle_number: int | None = None,
+    *,
+    lead_discovery_state_timeout: datetime.timedelta = DEFAULT_LEAD_DISCOVERY_STATE_TIMEOUT,
+    force_lead_discovery: bool = False,
 ) -> ChainResult:
     """Scan a single chain (vaults and optionally prices).
 
@@ -689,6 +778,8 @@ def scan_chain(
     :param uncleaned_price_path: Path to the uncleaned price parquet
     :param reader_state_path: Path to the reader state pickle
     :param hypersync_concurrency: Hypersync stream concurrency limit
+    :param lead_discovery_state_timeout: Maximum age of a successful full lead discovery.
+    :param force_lead_discovery: Bypass a valid discovery cache on this scan.
     :return: Scan result
     """
     result = ChainResult(name=config.name, status="running", retry_attempt=retry_attempt)
@@ -744,7 +835,15 @@ def scan_chain(
     # Scan vaults
     if config.scan_vaults:
         vault_stats = RPCRequestStats()
-        vault_success, vault_metrics = scan_vaults_for_chain(rpc_url, max_workers, vault_db_path=vault_db_path, hypersync_concurrency=hypersync_concurrency, rpc_request_stats=vault_stats)
+        vault_success, vault_metrics = scan_vaults_for_chain(
+            rpc_url,
+            max_workers,
+            vault_db_path=vault_db_path,
+            hypersync_concurrency=hypersync_concurrency,
+            rpc_request_stats=vault_stats,
+            lead_discovery_state_timeout=lead_discovery_state_timeout,
+            force_lead_discovery=force_lead_discovery,
+        )
         record_rpc_usage("lead_discovery", vault_stats, vault_metrics)
         result.vault_scan_ok = vault_success
         result.chain_id = vault_metrics.get("chain_id")
@@ -754,6 +853,7 @@ def scan_chain(
             result.end_block = vault_metrics.get("end_block")
             result.vault_count = vault_metrics.get("vault_count")
             result.new_vaults = vault_metrics.get("new_vaults")
+            result.lead_discovery_cache_hit = vault_metrics.get("lead_discovery_cache_hit")
         else:
             result.error = vault_metrics.get("error", "Unknown error")
             result.traceback_str = vault_metrics.get("traceback")
@@ -1705,6 +1805,8 @@ def print_dashboard(results: dict[str, ChainResult], display_order: list[str] | 
         line = f"{result.name:<15} {status:<10} {cycle:<8} {vaults:<8} {new:<6} {blocks:<22} {duration:<10} {retry:<5} {last_data:<18}"
         if result.status == "not due" and result.next_due_in_hours is not None:
             line += f"  due in {result.next_due_in_hours:.1f}h"
+        if result.lead_discovery_cache_hit:
+            line += "  lead cache hit"
         if result.error:
             # Truncate long error messages to fit the dashboard
             error_msg = result.error[:40]
@@ -1864,6 +1966,9 @@ def run_scan_tick(
     settlement_start_block: int | None = None,
     settlement_end_block: int | None = None,
     rpc_tracking_database_path: Path | None = None,
+    *,
+    lead_discovery_state_timeout: datetime.timedelta = DEFAULT_LEAD_DISCOVERY_STATE_TIMEOUT,
+    force_lead_discovery: bool = False,
 ) -> dict[str, ChainResult]:
     """Execute one scan tick: EVM chains + native protocols + post-processing.
 
@@ -1909,6 +2014,12 @@ def run_scan_tick(
     :param rpc_tracking_database_path:
         Shared JSON-RPC accounting DuckDB path. Defaults to
         :func:`eth_defi.provider.rpcdb.resolve_rpc_tracking_database_path`.
+
+    :param lead_discovery_state_timeout:
+        Maximum age of a successful full lead discovery before cache expiry.
+
+    :param force_lead_discovery:
+        Bypass a valid lead-discovery cache in this tick.
     """
     # Back up critical pipeline files before any scanning
     rpc_tracking_database_path = rpc_tracking_database_path or resolve_rpc_tracking_database_path()
@@ -2023,6 +2134,8 @@ def run_scan_tick(
                 rpc_usage_database=rpc_usage_database,
                 rpc_cycle_started=rpc_cycle_started,
                 rpc_cycle_number=rpc_cycle_number,
+                lead_discovery_state_timeout=lead_discovery_state_timeout,
+                force_lead_discovery=force_lead_discovery,
             )
         except Exception as e:
             logger.exception("Chain %s crashed with unhandled exception", chain.name)
@@ -2239,6 +2352,8 @@ def run_scan_tick(
                     rpc_usage_database=rpc_usage_database,
                     rpc_cycle_started=rpc_cycle_started,
                     rpc_cycle_number=rpc_cycle_number,
+                    lead_discovery_state_timeout=lead_discovery_state_timeout,
+                    force_lead_discovery=force_lead_discovery,
                 )
             except Exception as e:
                 logger.exception("Chain %s crashed with unhandled exception (retry %d)", chain.name, attempt)
@@ -2378,6 +2493,8 @@ def main():
     skip_currency_rates = os.environ.get("SKIP_CURRENCY_RATES", "false").lower() == "true"
     scan_currency_rates = should_scan_currency_rates(skip_currency_rates=skip_currency_rates)
     force_rescan = os.environ.get("FORCE_RESCAN", "false").lower() == "true"
+    force_lead_discovery = os.environ.get("FORCE_LEAD_DISCOVERY", "false").lower() == "true"
+    lead_discovery_state_timeout = parse_duration(os.environ.get("LEAD_DISCOVERY_STATE_TIMEOUT", "7d"))
     max_workers = int(os.environ.get("MAX_WORKERS", "50"))
     # Pipeline default is 1 (sequential) to avoid API pressure when scanning
     # many chains.  This is intentionally stricter than the library-level
@@ -2511,6 +2628,9 @@ def main():
         logger.info("DISABLE_CHAINS: %s", disable_chains_str)
     if force_rescan:
         logger.info("FORCE_RESCAN: true")
+    if force_lead_discovery:
+        logger.info("FORCE_LEAD_DISCOVERY: true")
+    logger.info("LEAD_DISCOVERY_STATE_TIMEOUT: %s", lead_discovery_state_timeout)
     if core3_fetch_sections:
         logger.info("CORE3_FETCH_SECTIONS: true")
     logger.debug("=" * 80)
@@ -2633,6 +2753,8 @@ def main():
         scan_vault_settlements=scan_vault_settlements,
         settlement_start_block=settlement_start_block,
         settlement_end_block=settlement_end_block,
+        lead_discovery_state_timeout=lead_discovery_state_timeout,
+        force_lead_discovery=force_lead_discovery,
     )
 
     # Clear cycle state on disc so the first tick rescans everything.
