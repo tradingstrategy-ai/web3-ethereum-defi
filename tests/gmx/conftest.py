@@ -74,6 +74,8 @@ def pytest_collection_modifyitems(items: list[pytest.Item]) -> None:
 
     :param items:
         Collected pytest test items to annotate.
+    :return:
+        ``None``. The hook adds xdist markers in place.
     """
     for item in items:
         if GMX_READ_ONLY_POOLED_FORK_FIXTURES.intersection(item.fixturenames):
@@ -390,7 +392,15 @@ def anvil_chain_fork(
 
     GMX tests mutate balances, contracts and oracle bytecode. Each test gets a
     fresh process, while the fixed block keeps the committed Foundry RPC cache
-    warm across processes and CI runs.
+    warm across processes and CI runs. See `Foundry Anvil documentation
+    <https://book.getfoundry.sh/anvil/>`__ for the fork implementation.
+
+    :param chain_name:
+        The requested network name; GMX fixed forks support Arbitrum only.
+    :param chain_rpc_url:
+        Arbitrum archive RPC endpoint in the repository fallback-URL format.
+    :yield:
+        A fresh Anvil process, closed after the test.
     """
     assert chain_name == "arbitrum", f"GMX fixed fork does not support {chain_name}"
     launch = fork_network_anvil(
@@ -1093,7 +1103,18 @@ def get_open_positions(gmx_config):
 
 @pytest.fixture
 def gmx_open_positions(chain_rpc_url, anvil_fork_pool: AnvilForkPool) -> GetOpenPositions:
-    """Return read-only positions backed by the session-pooled Anvil fork."""
+    """Create a read-only positions client backed by the pooled Anvil fork.
+
+    The fixture does not mutate fork state, so it can reuse the session process
+    and the warmed fixed-block RPC cache.
+
+    :param chain_rpc_url:
+        Arbitrum archive RPC endpoint in the repository fallback-URL format.
+    :param anvil_fork_pool:
+        Session-scoped provider of read-only Anvil forks.
+    :return:
+        Positions client connected to the pooled fixed-block fork.
+    """
     launch = anvil_fork_pool.get_launch(
         chain_rpc_url,
         GMX_ARBITRUM_FORK_BLOCK,
