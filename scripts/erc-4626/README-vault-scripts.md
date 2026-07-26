@@ -207,6 +207,8 @@ poetry run python scripts/erc-4626/scan-vaults-all-chains.py
 | `SCAN_CYCLES` | Optional. Per-item cycle intervals, e.g. `Ethereum=8h,Base=8h,Arbitrum=8h,Lighter Ethereum=4h,Lighter Robinhood=4h,GRVT=4h,Hypercore=4h,Hibachi=4h,ApeX=4h,Core3=24h`. Legacy `Lighter=4h` applies to both Lighter deployments. |
 | `DEFAULT_CYCLE` | Optional. Default cycle for items not in `SCAN_CYCLES`. Default: `24h`. |
 | `MAX_CYCLES` | Optional. Exit after N cycles (for testing). Default: 0 (unlimited). |
+| `LEAD_DISCOVERY_STATE_TIMEOUT` | Optional. Lead-discovery cache lifetime. A matching per-chain JSON state skips lead discovery until it expires; expiry performs a full HyperSync discovery. Default: `7d`. |
+| `FORCE_LEAD_DISCOVERY` | Optional. Bypass a valid lead-discovery cache for this invocation. The replacement state is written only after full discovery and metadata persistence succeed. Default: false. |
 | `SCAN_HYPERCORE` | Optional. Enable Hyperliquid native vault scanning. Default: false. |
 | `SCAN_GRVT` | Optional. Enable GRVT native vault scanning. Default: false. |
 | `SCAN_LIGHTER` | Optional. Enable native pool scanning for both Lighter Ethereum and Lighter Robinhood. Default: false. |
@@ -247,6 +249,18 @@ and `deployment` slug. The Lighter DuckDB schema migration runs automatically
 when an existing database is opened. See the
 [Lighter native-pool pipeline](../lighter/README-lighter-vaults.md) for the
 storage and partial-scan replacement rules.
+
+#### Lead discovery cache
+
+Each EVM chain stores its successful full-discovery status in
+`$PIPELINE_DATA_DIR/lead-discovery-state-{chain_id}.json`. While its signature
+(lead detection code plus enabled EVM chains) and timestamp are valid, the
+scanner skips lead discovery and reuses `vault-metadata-db.pickle`; price scans
+continue normally. It still verifies the chain ID before selecting the cached
+metadata. A missing, malformed, expired or changed state triggers a
+full HyperSync event discovery from block 1. The cache can therefore delay a
+new lead by up to the configured timeout, but it never resets price Parquet or
+reader-state data.
 
 #### JSON-RPC usage accounting
 
