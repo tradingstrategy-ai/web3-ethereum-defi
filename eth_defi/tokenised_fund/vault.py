@@ -29,13 +29,62 @@ TOKENISED_FUND_FLOW_UNAVAILABLE = "Tokenised fund subscriptions and redemptions 
 
 
 class TokenisedFundDepositManager(VaultDepositManager):
-    """Non-operational manager for permissioned tokenised funds.
+    """Fail-closed, non-operational manager for permissioned tokenised funds.
 
-    The manager exposes the common vault-flow interface so scanner metadata can
-    distinguish a deliberately unsupported permissioned product from an
-    adapter whose capability is unknown. It never constructs, settles, or
-    analyses a transaction because tokenised-fund dealing requires
-    issuer-specific eligibility and servicing.
+    Tokenised funds are issuer-operated products whose subscriptions and
+    redemptions require investor eligibility (KYC, allow-list, transfer agent)
+    and offchain servicing, so there is no publicly executable onchain flow.
+    This manager still implements the full :class:`VaultDepositManager`
+    interface — but every operational method is fail-closed — so scanner
+    metadata can distinguish a deliberately unsupported permissioned product
+    from an adapter whose capability is merely unknown. It never constructs,
+    settles or analyses a transaction. All refusals route through
+    :meth:`_reject`, which raises
+    :class:`~eth_defi.vault.deposit_redeem.VaultFlowUnavailable` with a fixed
+    reason (:data:`TOKENISED_FUND_FLOW_UNAVAILABLE`) and the requested
+    direction/phase.
+
+    **Deposit process**
+
+    Unsupported / fail-closed. :meth:`has_synchronous_deposit` returns
+    ``False``; :meth:`estimate_deposit`, :meth:`create_deposit_request`,
+    :meth:`finish_deposit` and :meth:`analyse_deposit` all raise
+    :class:`VaultFlowUnavailable`. :meth:`can_create_deposit_request` returns
+    ``False`` and :meth:`get_max_deposit` returns zero.
+
+    **Redemption process**
+
+    Unsupported / fail-closed. :meth:`has_synchronous_redemption` returns
+    ``False``; :meth:`estimate_redeem`, :meth:`create_redemption_request`,
+    :meth:`finish_redemption` and :meth:`analyse_redemption` all raise
+    :class:`VaultFlowUnavailable`. :meth:`can_create_redemption_request` and
+    :meth:`can_finish_redeem` return ``False``.
+
+    **Queues and settlement**
+
+    None. No ticket can be created, so :meth:`is_deposit_in_progress` and
+    :meth:`is_redemption_in_progress` return ``False``, and
+    :meth:`reclaim_deposit` / :meth:`reclaim_withdrawal` raise.
+
+    **Lockups and cooldowns**
+
+    Not applicable / not queryable. :meth:`estimate_redemption_delay` raises
+    :class:`VaultFlowUnavailable`, and :meth:`get_redemption_delay_over` returns
+    ``None`` because no redemption can ever be created.
+
+    **Whitelisting / access control**
+
+    Permissioned. At the vault level :meth:`TokenisedFundVault.is_whitelisted_deposit`
+    always returns ``True``, marking these subscriptions as gated, but concrete
+    membership is not queryable here — eligibility is enforced offchain by the
+    issuer, so ``is_account_whitelisted`` stays protocol-specific and this base
+    manager does not attempt to evaluate it.
+
+    **Anvil settlement (force_settle)**
+
+    Unlike the synchronous ERC-4626 managers, :meth:`force_settle` does **not**
+    perform a no-op: it raises :class:`VaultFlowUnavailable`
+    (``phase="settlement"``), because there is no fund transaction to settle.
     """
 
     def _reject(self, direction: str | None = None, phase: str = "preflight") -> NoReturn:

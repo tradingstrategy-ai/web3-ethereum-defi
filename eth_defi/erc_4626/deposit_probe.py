@@ -86,6 +86,7 @@ def _format_vault_flow_error_context(error: VaultFlowError) -> dict[str, object]
         "direction": error.direction,
         "phase": error.phase,
         "decoded_error": error.decoded_error,
+        "preflight_result": error.preflight_result,
         "function_selector": error.function_selector.hex() if error.function_selector else None,
         "error_selector": error.error_selector.hex() if error.error_selector else None,
         "access_delay": error.access_delay,

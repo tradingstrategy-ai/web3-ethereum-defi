@@ -140,18 +140,139 @@ while each test still sees it pristine.
 Use the per-test deploy fixture (e.g. `automated_lagoon_vault`) only when the
 deployment *is* the test subject (custom parameters, deliberate misconfiguration).
 
-## 5. The Foundry fork RPC cache (CI)
+## 5. The warm Foundry fork RPC cache
 
-Anvil caches archive reads at a fixed block under `~/.foundry/cache/rpc`. Because
-all same-chain tests share one canonical block, that cache is small and dense —
-warm runs replay from disk and barely touch the upstream archive.
+Anvil caches archive reads at a fixed block under
+`~/.foundry/cache/rpc/<network>/<block>/storage.json`. Because all same-chain
+tests share one canonical block, that cache is small and dense — warm runs replay
+from disk and barely touch (and so are not throttled by) the upstream archive.
 
-Locally this is automatic (`~/.foundry` persists). On CI the cache must be
-persisted deliberately: `actions/cache@v4` only saves on job *success*, so the
-fork workflows split it into `actions/cache/restore` + `actions/cache/save` with
-`if: always()` — blocks read on one run (even a failing one) replay next run.
-See the `Restore/Save Foundry fork RPC cache` steps in `.github/workflows/test.yml`,
-`test-gmx.yml`, `test-slow.yml`, and `test-vault-protocol.yml`.
+### How persistence actually works (the graceful-shutdown requirement)
+
+**Anvil only writes that cache on a graceful shutdown** (its Rust `Drop` flushes
+`storage.json`). A `SIGKILL` discards it. For a long time our teardown
+`SIGKILL`'d Anvil (`shutdown_hard`), so **the fork cache was never written** —
+which is why CI kept cold-fetching every run and getting rate-limited (the
+`read_timeout` fork-setup failures). Fixed: `AnvilLaunch.close()` now sends
+`SIGTERM` and waits up to `ANVIL_GRACEFUL_SHUTDOWN_TIMEOUT` (5 s) for the flush,
+then `SIGKILL`s as a fallback (bounded, so teardown cannot hang). With this,
+every fork test persists its cache.
+
+### The cache ships in the repo (the primary mechanism)
+
+The warm cache is **committed** under `eth_defi/testing/rpc_cache_seed/<network>/
+<block>/storage.json` (one per canonical midnight block). The session-autouse
+`_seed_foundry_rpc_cache` fixture (`tests/conftest.py`,
+`eth_defi/testing/rpc_cache.py`) copies it into `~/.foundry/cache/rpc` before any
+fork launches, non-destructively (a warmer live file is never overwritten). So
+**every runner starts warm — GitHub Actions, other CI, and local first runs
+alike — with no GitHub-Actions-cache dependency.** The workflows carry **no**
+`actions/cache` step for the fork RPC cache (only the immutable Foundry toolchain
+is Actions-cached).
+
+Locally the live cache in `~/.foundry/cache/rpc` also persists between runs and is
+enriched automatically as you run tests (graceful shutdown, above).
+
+### How to (re)create / update the committed seed
+
+Regenerate after bumping a `*_MIDNIGHT_BLOCK`, adding a chain, or to enrich
+coverage (the committed seed is fork-init level for most chains; running the full
+suite adds the contract state the tests read):
+
+```shell
+# 1. Warm the live cache by running the fork tests (each flushes on teardown).
+source .local-test.env && poetry run pytest tests/erc_4626/vault_protocol/ -m "not slow"
+
+# 2. Copy the midnight-block dirs into the committed seed (mirror <network>/<block>/).
+#    Only the canonical MIDNIGHT_BLOCKS; each storage.json is small (KBs).
+#    e.g. for each chain:
+cp -r ~/.foundry/cache/rpc/mainnet/25598869 eth_defi/testing/rpc_cache_seed/mainnet/
+
+# 3. Commit.
+git add eth_defi/testing/rpc_cache_seed/ && git commit -m "test: refresh fork RPC cache seed"
+```
+
+Network directory names are Foundry's own (`mainnet`, `arbitrum`, `base`, `bsc`,
+`avalanche`, `plasma`, `hyperliquid`, `sonic`, `berachain`, `polygon`, …) — copy
+whatever `~/.foundry/cache/rpc` created so the paths match on every runner.
+
+### How to purge it
+
+- **Committed seed:** `git rm -r eth_defi/testing/rpc_cache_seed/<network>/<block>/`
+  (drop a stale block after bumping a midnight constant).
+- **Local live cache:** `rm -rf ~/.foundry/cache/rpc` (or one
+  `.../<network>/<block>/`); it re-warms from the committed seed + test runs.
+- There is no Actions cache to purge — it was removed in favour of the committed
+  seed.
+
+## Cold-fork read timeouts (the "out of credits" red herring)
+
+The vault-protocol / GMX jobs sometimes fail at fork setup with a 60-second
+`eth_chainId` read timeout. The error historically hinted "you might be out of
+API credits" — this is **misleading**. The classified `failure_mode` is
+`read_timeout`: Anvil is blocked initialising its fork against the upstream
+archive and does not answer the first call in time.
+
+`scripts/measure-cold-fork-time.py` measures the real cost. Locally (anvil
+1.7.1, 2026-07-25) a single cold fork of a midnight block completes in **~3 s**,
+and **six concurrent** cold forks stay ~2.5 s each. So the 60 s read timeout is
+already ~20× a healthy cold fork — it is **sufficient**, and raising it only
+delays the failure. Do not raise it to mask a slow provider.
+
+A 60 s timeout in CI therefore means the **upstream provider is slow or
+rate-limiting the runner IP**, not that credits are exhausted — and CI was
+throttled because it cold-fetched *every* run. The **root cause was that the fork
+cache was never written** (Anvil `SIGKILL`'d before it could flush); the
+graceful-shutdown fix in section 5 lets the cache warm across runs, which is the
+primary remedy. Also useful: two space-separated `JSON_RPC_*` providers per chain
+for failover, or a provider that does not throttle the CI IP. Run the measurement
+script from a machine with the CI RPC secrets to compare against the ~3 s
+baseline.
+
+## 6. The committed token cache (ERC-20 + vault token addresses)
+
+Separate from the fork state cache above, vault **token** lookups are cached at
+two levels — and both only engage when the vault's `token_cache` is a
+`TokenDiskCache`:
+
+- vault → denomination / share **token address** resolution
+  (`eth_defi/erc_4626/vault_token.py`), gated on
+  `isinstance(self.token_cache, TokenDiskCache)` in `eth_defi/erc_4626/vault.py`;
+- ERC-20 **metadata** (`name` / `symbol` / `decimals` / `supply`) via
+  `fetch_erc20_details()`.
+
+The library default (`DEFAULT_TOKEN_CACHE`) is an in-memory `cachetools.LRUCache`,
+which **silently disables the address-resolution cache** and starts empty in
+every process — including each xdist worker. Vaults therefore re-read token
+addresses and metadata over RPC on every cold fork.
+
+So the test session installs a committed `TokenDiskCache`
+(`eth_defi/testing/token_cache_seed/tokens.sqlite`) as the vault default, via the
+`_seed_token_cache` session fixture (`eth_defi/testing/token_cache.py`). Each
+xdist worker gets its own copy in a temp dir, so workers never contend on one
+SQLite file and the committed seed is never mutated in place.
+
+### Rebuild / update
+
+The seed is regenerated from a real run, not hand-maintained:
+
+```shell
+source .local-test.env && \
+    ETH_DEFI_TOKEN_CACHE_REBUILD=1 \
+    poetry run pytest tests/erc_4626/vault_protocol/ -m "not slow"
+git add eth_defi/testing/token_cache_seed/
+```
+
+Everything resolved during the session is merged into the seed at teardown
+(existing entries preserved, only new keys added). Run it against a responsive
+provider — a throttled one resolves fewer tokens and yields a thinner seed.
+
+### Purge / disable
+
+- **Purge:** `git rm eth_defi/testing/token_cache_seed/tokens.sqlite` — it is
+  regenerated by the rebuild command; a missing seed is a safe no-op.
+- **Disable** (e.g. to measure cold behaviour):
+  `ETH_DEFI_TOKEN_CACHE_DISABLE=1 poetry run pytest ...`
 
 ## When NOT to normalise / share
 

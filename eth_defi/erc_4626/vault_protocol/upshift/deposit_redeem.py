@@ -18,9 +18,64 @@ from eth_defi.vault.deposit_redeem import DepositRedeemEventAnalysis, DepositRed
 class UpshiftMultiAssetDepositManager(ERC4626DepositManager):
     """Build and decode Upshift's direct multi-asset ``deposit`` flow.
 
-    The caller must select a token from the vault's onchain whitelist.  The
-    protocol currently has no fork-proven redemption lifecycle, so this
-    manager deliberately exposes no redemption request.
+    Upshift ``multiAssetVault`` proxies are accounting contracts, not plain
+    ERC-4626 share tokens: they accept a whitelist of deposit tokens through a
+    protocol-specific ``deposit(asset, amount, receiver)`` entry point and expose
+    share metadata on a separate LP token. This manager builds and decodes that
+    synchronous deposit flow; it deliberately exposes no redemption, because the
+    protocol's request/claim redemption lifecycle is not yet fork-proven.
+
+    **Deposit process**
+
+    Synchronous and asset-aware. The caller must select a token from the vault's
+    onchain whitelist (:meth:`fetch_accepted_assets`, resolved by
+    :meth:`_fetch_accepted_asset`); an unselected or non-whitelisted asset raises
+    :class:`VaultFlowUnavailable`. :meth:`create_deposit_request` returns two
+    calls — ``approve`` on the selected token followed by the vault's
+    ``deposit(asset, amount, receiver)`` — and rejects a zero-address receiver.
+    Capacity is preflighted through :meth:`fetch_max_deposit_for_asset`, which
+    combines the per-deposit ``maxDepositAmount()`` cap and the vault-wide
+    ``depositCap()`` minus ``getTotalAssets()``, converted into the selected
+    token's units with the protocol's asset-aware ``previewDeposit``. Deposits
+    are also gated vault-wide by :meth:`UpshiftVault.fetch_deposit_closed_reason`
+    (``depositsPaused()``, zero ``maxDepositAmount()`` or a reached
+    ``depositCap()``). There is no per-account minimum or whitelist; the amount
+    must be strictly positive.
+
+    **Redemption process**
+
+    Not implemented. :meth:`create_redemption_request` and :meth:`estimate_redeem`
+    always raise :class:`VaultFlowUnavailable`,
+    :meth:`can_create_redemption_request` and :meth:`has_synchronous_redemption`
+    always return ``False``, and
+    :meth:`UpshiftVault.get_deposit_manager_capability` advertises
+    ``can_redeem=False`` (``multi_asset_application_flow_not_implemented``). No
+    redemption capacity model is exposed by this manager.
+
+    **Queues and settlement**
+
+    None exposed. The underlying Upshift protocol services withdrawals through a
+    daily request-claim system (with an optional instant-redemption path), but
+    this manager models neither, so there is no queue or settlement surface here.
+
+    **Lockups and cooldowns**
+
+    Not applicable to deposits (synchronous). At the vault level,
+    :meth:`UpshiftVault.get_estimated_lock_up` reports a nominal one-day
+    redemption claim cycle, but this manager implements no redemption path to
+    which that would apply.
+
+    **Whitelisting / access control**
+
+    Deposits are permissionless per account, but the deposit *token* must be on
+    the vault's onchain asset whitelist. Availability is otherwise controlled
+    vault-wide by the pause flags and caps above, not by a per-account whitelist.
+
+    **Anvil settlement (force_settle)**
+
+    No-op for the supported deposit path: deposits are synchronous, so
+    :meth:`force_settle` takes ``None`` and there is no ticket to settle. There is
+    no redemption ticket to settle because redemption is unimplemented.
     """
 
     def _create_unavailable(
@@ -146,6 +201,31 @@ class UpshiftMultiAssetDepositManager(ERC4626DepositManager):
         raw_remaining_capacity = max(raw_total_limit - raw_total_assets, 0)
         raw_reference_capacity = min(raw_per_deposit_limit, raw_remaining_capacity)
         return raw_reference_capacity * raw_asset_unit // raw_reference_unit
+
+    def fetch_depositable_raw_assets(self, owner: HexAddress) -> int | None:
+        """Answer the generic deposit-limit hook without ERC-4626 ``maxDeposit``.
+
+        The multi-asset Upshift vault does not implement the standard ERC-4626
+        ``maxDeposit`` (its limit surface is ``maxDepositAmount`` / ``depositCap``
+        / asset-aware ``previewDeposit``). Overriding the generic hook means a
+        generic-path deposit preflight receives a real limit — for the vault's
+        first whitelisted asset, in that asset's raw units — instead of the raw
+        ``ABIFunctionNotFound`` the base implementation would raise. The
+        protocol-specific :meth:`create_deposit_request` still uses the
+        per-selected-asset :meth:`fetch_max_deposit_for_asset` for an actual
+        deposit.
+
+        :param owner:
+            Unused; the multi-asset limit is not owner-specific.
+        :return:
+            Deposit limit for the vault's first accepted asset in raw units, or
+            ``None`` when the vault currently accepts no asset.
+        """
+        del owner
+        accepted = self.fetch_accepted_assets()
+        if not accepted:
+            return None
+        return self.fetch_max_deposit_for_asset(accepted[0].address)
 
     def estimate_deposit(
         self,
@@ -393,6 +473,7 @@ class UpshiftMultiAssetDepositManager(ERC4626DepositManager):
             self.vault.web3,
             args["assetIn"],
             chain_id=self.vault.chain_id,
+            cache=self.vault.token_cache,
         )
         return DepositRedeemEventAnalysis(
             from_=Web3.to_checksum_address(args["senderAddr"]),

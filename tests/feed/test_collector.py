@@ -8,7 +8,7 @@ import pytest
 import requests
 
 from eth_defi.compat import native_datetime_utc_now
-from eth_defi.feed.collector import AllBridgesFailedError, collect_posts, collect_posts_for_source, collect_twitter_list_posts
+from eth_defi.feed.collector import AllBridgesFailedError, _format_inserted_post_preview, collect_posts, collect_posts_for_source, collect_twitter_list_posts
 from eth_defi.feed.database import CollectedPost, VaultPostDatabase
 from eth_defi.feed.sources import (
     FEEDS_DATA_DIR,
@@ -82,6 +82,25 @@ class DummyResponse:
             raise requests.HTTPError(f"HTTP {self.status_code}", response=self)
 
 
+def test_format_inserted_post_preview_caps_title_at_80_characters() -> None:
+    """Render a bounded title preview for the post-scanner dashboard."""
+
+    post = CollectedPost(
+        external_post_id="post-1",
+        title="A" * 100,
+        post_url="https://example.com/post-1",
+        published_at=native_datetime_utc_now(),
+        fetched_at=native_datetime_utc_now(),
+        short_description="Unused because the title is present",
+        full_text="Unused because the title is present",
+    )
+
+    preview = _format_inserted_post_preview(post)
+
+    assert len(preview) == 80
+    assert preview == f"{'A' * 77}..."
+
+
 def test_end_to_end_collection_with_dedup(tmp_path: Path, monkeypatch) -> None:
     """Collect mixed source types and keep inserts idempotent across repeated runs.
 
@@ -140,6 +159,8 @@ def test_end_to_end_collection_with_dedup(tmp_path: Path, monkeypatch) -> None:
         assert summary_first.sources_succeeded == 2
         assert summary_first.posts_inserted == 2
         assert summary_second.posts_inserted == 0
+        assert sorted(preview for result in summary_first.source_results for preview in result.inserted_post_previews) == ["Atom entry", "Protocol launch"]
+        assert all(not result.inserted_post_previews for result in summary_second.source_results)
         assert len(tracked_df) == 2
         assert len(posts_df) == 2
         assert set(tracked_df["feeder_id"]) == {"morpho", "gauntlet"}

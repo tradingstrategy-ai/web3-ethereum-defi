@@ -544,6 +544,7 @@ class GainsVault(ERC4626Vault):
             can_redeem=True,
             deposit_flow="synchronous",
             redemption_flow="asynchronous",
+            supports_anvil_settlement=True,
         )
 
     def fetch_deposit_closed_reason(self) -> str | None:
