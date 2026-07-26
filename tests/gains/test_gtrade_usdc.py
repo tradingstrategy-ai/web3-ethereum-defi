@@ -22,7 +22,10 @@ from eth_defi.vault.deposit_redeem import AsyncVaultRequestStatus, VaultFlowUnav
 from eth_defi.vault.historical import VaultHistoricalReadMulticaller
 
 JSON_RPC_ARBITRUM = os.environ.get("JSON_RPC_ARBITRUM")
-pytestmark = pytest.mark.skipif(not JSON_RPC_ARBITRUM, reason="Set JSON_RPC_ARBITRUM to run this test")
+pytestmark = [
+    pytest.mark.skipif(not JSON_RPC_ARBITRUM, reason="Set JSON_RPC_ARBITRUM to run this test"),
+    pytest.mark.xdist_group("fork:arbitrum:gains-375216652"),
+]
 
 
 @pytest.fixture(scope="module")

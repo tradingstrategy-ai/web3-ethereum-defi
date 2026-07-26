@@ -11,8 +11,7 @@ from web3 import Web3
 from eth_defi.erc_4626.classification import HARDCODED_PROTOCOLS, _get_hardcoded_protocol_features, create_vault_instance_autodetect  # noqa: PLC2701
 from eth_defi.erc_4626.core import ERC4262VaultDetection, ERC4626Feature, get_vault_protocol_name
 from eth_defi.erc_4626.scan import create_vault_scan_record
-from eth_defi.provider.anvil import AnvilLaunch, fork_network_anvil
-from eth_defi.provider.multi_provider import create_multi_provider_web3
+from eth_defi.testing.anvil_fork_pool import AnvilForkPool
 from eth_defi.tokenised_fund.usyc.constants import USYC_FIRST_SEEN_AT, USYC_FIRST_SEEN_AT_BLOCK, USYC_TOKEN_ADDRESS
 from eth_defi.tokenised_fund.usyc.historical import USYCHistoricalReader
 from eth_defi.tokenised_fund.usyc.vault import USYC_DEPOSIT_FEE, USYC_PERFORMANCE_FEE, USYC_PERMISSIONED_FLOW_REASON, USYC_WITHDRAW_FEE, USYCVault
@@ -20,7 +19,10 @@ from eth_defi.tokenised_fund.vault import TokenisedFundDepositManager
 from eth_defi.vault.fee import VaultFeeMode
 
 JSON_RPC_ETHEREUM = os.environ.get("JSON_RPC_ETHEREUM")
-pytestmark = pytest.mark.skipif(JSON_RPC_ETHEREUM is None, reason="JSON_RPC_ETHEREUM needed to run these tests")
+pytestmark = [
+    pytest.mark.skipif(JSON_RPC_ETHEREUM is None, reason="JSON_RPC_ETHEREUM needed to run these tests"),
+    pytest.mark.xdist_group("fork:ethereum:25550000"),
+]
 
 USYC_TEST_BLOCK = 25_550_000
 USYC_EXPECTED_TOTAL_SUPPLY = Decimal("81015541.068726")
@@ -29,19 +31,9 @@ USYC_EXPECTED_TOTAL_ASSETS = USYC_EXPECTED_TOTAL_SUPPLY * USYC_EXPECTED_SHARE_PR
 
 
 @pytest.fixture(scope="module")
-def anvil_ethereum_fork() -> AnvilLaunch:
-    """Fork Ethereum at a fixed USYC oracle observation."""
-    launch = fork_network_anvil(JSON_RPC_ETHEREUM, fork_block_number=USYC_TEST_BLOCK)
-    try:
-        yield launch
-    finally:
-        launch.close()
-
-
-@pytest.fixture(scope="module")
-def web3(anvil_ethereum_fork: AnvilLaunch) -> Web3:
-    """Create Web3 connected to the deterministic fork."""
-    return create_multi_provider_web3(anvil_ethereum_fork.json_rpc_url, retries=2)
+def web3(anvil_fork_pool: AnvilForkPool) -> Web3:
+    """Share the read-only Spiko/USYC fork and its warmed RPC cache."""
+    return anvil_fork_pool.get_web3(JSON_RPC_ETHEREUM, USYC_TEST_BLOCK, web3_retries=2)
 
 
 def test_usyc_hardcoded_protocol() -> None:

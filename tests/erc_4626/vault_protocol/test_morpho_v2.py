@@ -15,8 +15,7 @@ from eth_defi.abi import ZERO_ADDRESS_STR
 from eth_defi.erc_4626.classification import create_vault_instance_autodetect
 from eth_defi.erc_4626.core import ERC4626Feature, is_lending_protocol
 from eth_defi.erc_4626.vault_protocol.morpho.vault_v2 import MorphoV2Vault, MorphoV2VaultHistoricalReader
-from eth_defi.provider.anvil import AnvilLaunch, fork_network_anvil
-from eth_defi.provider.multi_provider import create_multi_provider_web3
+from eth_defi.testing.anvil_fork_pool import AnvilForkPool
 from eth_defi.vault.base import (
     DEPOSIT_CLOSED_CAP_REACHED,
     REDEMPTION_CLOSED_INSUFFICIENT_LIQUIDITY,
@@ -25,26 +24,16 @@ from eth_defi.vault.base import (
 JSON_RPC_ARBITRUM = os.environ.get("JSON_RPC_ARBITRUM")
 CI = os.environ.get("CI") == "true"
 
-pytestmark = pytest.mark.skipif(JSON_RPC_ARBITRUM is None, reason="JSON_RPC_ARBITRUM needed to run these tests")
+pytestmark = [
+    pytest.mark.skipif(JSON_RPC_ARBITRUM is None, reason="JSON_RPC_ARBITRUM needed to run these tests"),
+    pytest.mark.xdist_group("fork:arbitrum:420581609"),
+]
 
 
 @pytest.fixture(scope="module")
-def anvil_arbitrum_fork(request) -> AnvilLaunch:
-    """Fork at a specific block for reproducibility."""
-    launch = fork_network_anvil(JSON_RPC_ARBITRUM, fork_block_number=420_581_609)
-    try:
-        yield launch
-    finally:
-        launch.close()
-
-
-@pytest.fixture(scope="module")
-def web3(anvil_arbitrum_fork):
-    web3 = create_multi_provider_web3(
-        anvil_arbitrum_fork.json_rpc_url,
-        default_http_timeout=(18.0, 180.0),
-    )
-    return web3
+def web3(anvil_fork_pool: AnvilForkPool) -> Web3:
+    """Share the read-only Morpho V2 fork and its warmed RPC cache."""
+    return anvil_fork_pool.get_web3(JSON_RPC_ARBITRUM, 420_581_609, web3_http_timeout=(18.0, 180.0))
 
 
 @flaky.flaky
