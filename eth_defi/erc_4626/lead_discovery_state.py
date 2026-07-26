@@ -99,22 +99,23 @@ def create_lead_discovery_signature(enabled_chains: Iterable[tuple[str, str]]) -
 class LeadDiscoveryState:
     """Successful full-discovery cache state for one EVM chain.
 
-    :param chain_id:
-        Verified EVM chain identifier.
-    :param signature:
-        Current discovery configuration signature.
-    :param signature_configuration:
-        Canonical signature inputs retained for operator diagnostics.
-    :param completed_at:
-        Naive UTC timestamp when full discovery and metadata persistence ended.
-    :param completed_block:
-        Last block covered by the completed discovery.
+    The state records cache provenance only. The vault metadata database remains
+    the authoritative store for discovered leads and extracted metadata.
     """
 
+    #: Verified EVM chain identifier.
     chain_id: int
+
+    #: Current discovery configuration signature.
     signature: str
+
+    #: Canonical signature inputs retained for operator diagnostics.
     signature_configuration: dict[str, Any]
+
+    #: Naive UTC timestamp when full discovery and metadata persistence ended.
     completed_at: datetime.datetime
+
+    #: Last block covered by the completed discovery.
     completed_block: int
 
     def as_dict(self) -> dict[str, Any]:
