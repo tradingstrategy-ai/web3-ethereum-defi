@@ -10,6 +10,7 @@ from eth_defi.abi import get_contract
 from eth_defi.chain import get_chain_name
 from eth_defi.gmx.testing.constants import ARBITRUM_DEFAULTS, resolve_contract_address, resolve_token_address
 from eth_defi.gmx.testing.fork_provider import detect_provider_type, impersonate_account, set_balance, stop_impersonating_account
+from eth_defi.trace import assert_transaction_success_with_explanation
 
 logger = logging.getLogger(__name__)
 
@@ -107,7 +108,11 @@ def execute_order_as_keeper(web3: Web3, order_key: bytes):
             }
         )
 
-        receipt = web3.eth.wait_for_transaction_receipt(tx_hash)
+        receipt = assert_transaction_success_with_explanation(
+            web3,
+            tx_hash,
+            func=order_handler.functions.executeOrder(order_key, oracle_params),
+        )
         logger.info("Order executed successfully")
 
         return receipt, keeper
