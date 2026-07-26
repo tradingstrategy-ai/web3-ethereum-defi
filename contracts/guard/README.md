@@ -50,8 +50,13 @@ The guard dispatcher validates calls to the following protocols:
 | **Uniswap V2** | [UniswapLib](./src/lib/UniswapLib.sol) | Swap path token validation, receiver checks |
 | **Uniswap V3** | [UniswapLib](./src/lib/UniswapLib.sol) | `exactInput`, `exactOutput`, SwapRouter02 recipient validation |
 | **Aave V3** | Built-in | `supply`, `withdraw` with asset and receiver checks |
-| **ERC-4626** | Built-in | `deposit`, `withdraw`, `redeem` with receiver validation |
-| **ERC-7540** | Built-in | `deposit`, `requestDeposit`, `requestRedeem` with receiver validation |
+| **ERC-4626** | Built-in | `deposit`, `withdraw`, `redeem` with receiver and share-owner validation |
+| **ERC-7540** | Built-in | Request and claim calls with controller/receiver and owner validation |
+| **Ember** | Built-in | `redeemShares` payout-receiver validation |
+| **Gains V1** | Built-in | `makeWithdrawRequest` receiver validation |
+| **Ostium V1.5** | Built-in | Request, claim, cancellation and reclaim call-site validation |
+| **NaraUSD+** | Built-in | `cooldownShares` and `unstake(receiver)` validation |
+| **Upshift** | Built-in | Deposit-only `deposit(asset,amount,receiver)` asset and receiver validation |
 | **CowSwap** | [CowSwapLib](./src/lib/CowSwapLib.sol) | Presigned order creation with sender/token/receiver validation |
 | **Velora (ParaSwap)** | [VeloraLib](./src/lib/VeloraLib.sol) | Atomic swaps with balance-envelope verification for opaque Augustus calldata |
 | **GMX V2** | [GmxLib](./src/lib/GmxLib.sol) | Perpetuals multicall validation with market/router whitelisting |
@@ -71,6 +76,11 @@ Every trade or action must pass through these checks:
 3. **Asset whitelisting** — tokens involved in trades must be on the allowed list (unless `anyAsset` mode)
 4. **Receiver validation** — swap output, deposit shares, and withdrawal proceeds can only go to whitelisted addresses
 5. **Protocol-specific validation** — each supported protocol has tailored checks (swap paths, order parameters, balance envelopes, etc.)
+
+Use ``whitelistERC4626()`` for an ERC-4626-compatible vault and its established
+extension surface. Upshift is deliberately separate because it is multi-asset
+and does not use the ERC-4626 deposit ABI: configure every accepted asset with
+``whitelistUpshift(vault, asset, notes)``. Unknown selectors remain rejected.
 
 ### Lagoon v0.5 asset-manager settlement safety
 

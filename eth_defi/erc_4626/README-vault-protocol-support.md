@@ -250,3 +250,11 @@ Gains V1 adds the standard approval and deposit rows, plus
 ``makeWithdrawRequest(uint256,address)`` and the eventual standard ``redeem``
 claim. Its guarded Arbitrum test settles the concrete ticket over three epochs
 and rejects a request whose receiver is not whitelisted.
+
+Nara adds the standard approval and deposit rows, followed by
+``cooldownShares(uint256)`` and ``unstake(address)``. Its guarded Ethereum test
+advances the seven-day Anvil cooldown to a fixed timestamp, completes the
+claim and rejects an unwhitelisted ``unstake`` receiver. Plutus Hedge supplies
+the live ERC-7540 negative cases for ``requestRedeem`` controller and owner;
+the generic mock suite also covers ``requestWithdraw`` and deposit-claim
+controller/owner validation.

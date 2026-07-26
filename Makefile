@@ -62,6 +62,24 @@ guard:
 		-name "MockCoreWriter.json" \
 		-o \
 		-name "MockCoreDepositWallet.json" \
+		-o \
+		-name "GuardMockERC20.json" \
+		-o \
+		-name "MockERC4626Vault.json" \
+		-o \
+		-name "MockCsigmaV2Pool.json" \
+		-o \
+		-name "MockERC7540Vault.json" \
+		-o \
+		-name "MockEmberVault.json" \
+		-o \
+		-name "MockGainsV1Vault.json" \
+		-o \
+		-name "MockOstiumV15Vault.json" \
+		-o \
+		-name "MockNaraVault.json" \
+		-o \
+		-name "MockUpshiftVault.json" \
 		\) \
 		-exec cp {} eth_defi/abi/guard \;
 

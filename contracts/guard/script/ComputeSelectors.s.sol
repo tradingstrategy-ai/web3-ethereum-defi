@@ -77,6 +77,17 @@ contract ComputeSelectors is Script {
         logSelector("makeWithdrawRequest(uint256,address)");
         console.log("");
 
+        // NaraUSD+
+        console.log("// NaraUSD+");
+        logSelector("cooldownShares(uint256)");
+        logSelector("unstake(address)");
+        console.log("");
+
+        // Upshift
+        console.log("// Upshift");
+        logSelector("deposit(address,uint256,address)");
+        console.log("");
+
         // Gains/Ostium V1.5
         console.log("// Gains/Ostium V1.5");
         logSelector("requestDeposit(uint256)");
