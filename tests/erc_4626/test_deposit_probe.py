@@ -274,8 +274,8 @@ def test_generic_redemption_manager_accepts_raw_shares(monkeypatch: pytest.Monke
     assert request.funcs == [function]
 
 
-def test_guard_validation_request_is_protocol_opt_in(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Generic ERC-4626 capacity cannot authorise a closed-deposit bypass."""
+def test_guard_validation_request_requires_global_erc4626_closure(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Generic ERC-4626 validation accepts only an authoritative zero-cap closure."""
     vault = object.__new__(ERC4626Vault)
     vault.web3 = object()
     vault.spec = VaultSpec(chain_id=1, vault_address="0x0000000000000000000000000000000000000001")
@@ -283,11 +283,40 @@ def test_guard_validation_request_is_protocol_opt_in(monkeypatch: pytest.MonkeyP
     manager = ERC4626DepositManager(vault)
     owner = "0x0000000000000000000000000000000000000001"
     monkeypatch.setattr(manager, "_assert_anvil_guard_validation", lambda: None)
+    monkeypatch.setattr(manager, "check_deposit_whitelist", lambda _owner: None)
 
+    monkeypatch.setattr(vault, "fetch_deposit_closed_reason", lambda: None)
     with pytest.raises(UnsupportedVaultSimulation) as exc_info:
         manager.create_deposit_request_for_guard_validation(owner, raw_amount=123)
 
-    assert exc_info.value.unsupported_reason == "closed_deposit_guard_validation_not_implemented"
+    assert exc_info.value.unsupported_reason == "closed_deposit_guard_validation_not_closed"
+
+    monkeypatch.setattr(vault, "fetch_deposit_closed_reason", lambda: "Max deposit cap reached (maxDeposit=0)")
+    with pytest.raises(VaultFlowUnavailable) as closed_exc_info:
+        manager.create_deposit_request(owner=owner, raw_amount=123)
+
+    assert closed_exc_info.value.preflight_result == "deposit_closed"
+    assert closed_exc_info.value.available_raw_amount == 0
+
+    observed: dict[str, object] = {}
+    expected_request = object()
+
+    def create_deposit_request(**kwargs: object) -> object:
+        observed.update(kwargs)
+        return expected_request
+
+    monkeypatch.setattr(manager, "create_deposit_request", create_deposit_request)
+
+    request = manager.create_deposit_request_for_guard_validation(owner, raw_amount=123)
+
+    assert request is expected_request
+    assert observed == {
+        "owner": owner,
+        "to": owner,
+        "raw_amount": 123,
+        "check_max_deposit": False,
+        "check_enough_token": False,
+    }
 
 
 def test_d2_guard_validation_request_bypasses_only_the_closed_epoch(monkeypatch: pytest.MonkeyPatch) -> None:

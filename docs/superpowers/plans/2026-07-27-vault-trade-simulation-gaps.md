@@ -225,17 +225,18 @@ test module and fixture docstrings, and to comments in any protocol-shaped mock
 smart contracts used by those tests. The tests validate only the adapter's
 deposit calls; they do not construct, validate or order ERC-20 approvals.
 
-Implement this narrowly for D2 phase gates, then add another protocol only
-after its manager can guarantee equivalent calldata and distinguish a temporary
-closure from an amount/capacity restriction. Do **not** use the path for cSigma
-or 40acres capacity states merely because their current preflight label says
-``deposit_closed``; their capacity evidence is not a temporary closure. Do
-**not** treat a standard
-ERC-4626/Yearn `maxDeposit=0` result as a closure: it is ambiguous capacity
-guidance. Add a Yearn path only after a verified shutdown/pause signal gives a
-typed closure result at a fixed production address. A missing Guard whitelist,
-wrong asset, wrong receiver or rejected deposit target/selector must fail
-validation and cannot produce the new outcome.
+Implement this for every selected closed-deposit vault in the trade-executor
+matrix. The standard ERC-4626 route supports a globally zero
+`maxDeposit(address(0))`, which is the existing reader's authoritative
+closed-to-new-capital signal and covers the listed generic ERC-4626 and 40acres
+vaults. Yearn uses its own global shutdown/deposit-limit state because Yearn
+does not give `maxDeposit(address(0))` that meaning. D2 uses its funding phase,
+Plutus its administrator-controlled deposit state, and cSigma its `Pausable`
+state. A non-zero per-account or amount-specific
+capacity shortfall remains a capacity result, not a closure fallback: it must
+not be bypassed. A missing Guard whitelist, wrong asset, wrong receiver or
+rejected deposit target/selector must fail validation and cannot produce the
+new outcome.
 
 Trade-executor detects and records the live closure, then invokes this path
 only during explicit Anvil simulation. It emits

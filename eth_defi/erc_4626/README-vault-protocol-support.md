@@ -69,12 +69,13 @@ allowed on this deployment.
 When a manager raises a typed ``deposit_closed`` or ``deposit_paused``
 preflight result, a simulation consumer may use
 ``create_deposit_request_for_guard_validation(owner, raw_amount)`` on an Anvil
-fork **only where the selected protocol manager explicitly implements it**.
-The base manager raises a typed unsupported result because a generic
-``deposit_closed`` label can represent a capacity restriction rather than a
-temporary closure. A supported manager returns normal deposit calldata with
-temporary availability checks omitted while preserving protocol account
-admission.
+fork. The standard ERC-4626 manager supports this only after its authoritative
+global closure reader returns ``maxDeposit(address(0)) == 0``; it does not
+accept a non-zero per-account capacity shortfall. Protocol managers may support
+additional closure signals, such as Yearn's global shutdown/deposit-limit
+state, D2's funding phase and cSigma's ``Pausable`` state. Every supported
+manager returns normal deposit calldata with temporary availability checks
+omitted while preserving protocol account admission.
 The method rejects every non-Anvil provider with
 ``UnsupportedVaultSimulation(unsupported_reason="anvil_provider_required")``.
 Pass the request and the original ``VaultFlowUnavailable`` to
@@ -84,10 +85,12 @@ validated target, calldata and selector evidence. The closure must identify the
 same vault and owner as the validation request. Never broadcast this request to
 the closed vault.
 
-This path requires an authoritative, typed manager closure result; a generic
-ERC-4626 ``maxDeposit() == 0`` response is capacity guidance, not proof that a
-vault is closed. Add a protocol-specific closure reader and fixed-block test
-before exposing this validation mode for another vault family.
+This path requires an authoritative, typed manager closure result. For the
+standard ERC-4626 manager that evidence is its existing meaningful global
+``maxDeposit(address(0)) == 0`` reader; adapters whose zero result is merely
+owner-specific capacity must override that reader. Add a protocol-specific
+closure reader and fixed-block test before exposing this validation mode for
+another vault family.
 
 This is deliberately not an approval test. Do not construct an ERC-20 approval
 or try to establish approval-before-deposit ordering in this validation mode:

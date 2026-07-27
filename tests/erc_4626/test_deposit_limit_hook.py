@@ -2,7 +2,8 @@
 
 Exercises :meth:`ERC4626DepositManager.fetch_depositable_raw_assets` without a
 fork: the hook must translate a missing/broken ``maxDeposit`` into a typed
-:class:`VaultFlowUnavailable` and normalise a zero limit to "no limit".
+:class:`VaultFlowUnavailable` and omit a zero owner-specific capacity result.
+Global closure is evaluated separately before this hook is used.
 """
 
 from types import SimpleNamespace
@@ -48,8 +49,8 @@ def test_fetch_depositable_raw_assets_returns_limit() -> None:
     assert ERC4626DepositManager.fetch_depositable_raw_assets(manager, OWNER) == 1_000
 
 
-def test_fetch_depositable_raw_assets_zero_is_no_limit() -> None:
-    """A zero maxDeposit is normalised to None (no limit exposed)."""
+def test_fetch_depositable_raw_assets_zero_is_omitted_from_capacity_hook() -> None:
+    """A zero owner limit is omitted after global closure was checked separately."""
     manager = _manager_with_max_deposit(0)
     assert ERC4626DepositManager.fetch_depositable_raw_assets(manager, OWNER) is None
 
