@@ -68,6 +68,8 @@ bytes4 constant SEL_DEPOSIT = 0x6e553f65; // deposit(uint256,address)
 bytes4 constant SEL_WITHDRAW = 0xb460af94; // withdraw(uint256,address,address)
 bytes4 constant SEL_REDEEM = 0xba087652; // redeem(uint256,address,address)
 bytes4 constant SEL_REDEEM_SHARES = 0x983c676d; // redeemShares(uint256,address)
+bytes4 constant SEL_PLUTUS_REDEEM = 0x7bde82f2; // redeem(uint256,address)
+bytes4 constant SEL_PLUTUS_CANCEL_REDEEM = 0xc3f0d30e; // cancelRedeemRequest(uint256)
 
 // ===== ERC-4626 Umami (non-standard) =====
 bytes4 constant SEL_DEPOSIT_UMAMI = 0x8dbdbe6d; // deposit(uint256,uint256,address)
@@ -82,15 +84,25 @@ bytes4 constant SEL_REQUEST_DEPOSIT = 0x85b77f45; // requestDeposit(uint256,addr
 // ===== Gains/Ostium V1.0 =====
 bytes4 constant SEL_MAKE_WITHDRAW_REQUEST = 0xa8abe905; // makeWithdrawRequest(uint256,address)
 
+// ===== NaraUSD+ =====
+bytes4 constant SEL_COOLDOWN_SHARES = 0x9343d9e1; // cooldownShares(uint256)
+bytes4 constant SEL_UNSTAKE = 0xf2888dbb; // unstake(address)
+
+// ===== Upshift =====
+bytes4 constant SEL_UPSHIFT_DEPOSIT = 0xf45346dc; // deposit(address,uint256,address)
+bytes4 constant SEL_UPSHIFT_INSTANT_REDEEM = 0x22928208; // instantRedeem(uint256,address)
+bytes4 constant SEL_UPSHIFT_REQUEST_REDEEM = 0x107703ab; // requestRedeem(uint256,address)
+bytes4 constant SEL_UPSHIFT_CLAIM = 0xb3c9e83d; // claim(uint256,uint256,uint256,address)
+
 // ===== Gains/Ostium V1.5 =====
-bytes4 constant SEL_OSTIUM_REQUEST_DEPOSIT = 0x0d1e6667;       // requestDeposit(uint256)
-bytes4 constant SEL_OSTIUM_CLAIM_DEPOSIT = 0xdaf6b5c0;         // claimDeposit(uint32)
-bytes4 constant SEL_OSTIUM_CANCEL_DEPOSIT = 0x6f0dfc86;        // cancelRequestDeposit(uint32,uint256)
-bytes4 constant SEL_OSTIUM_RECLAIM_DEPOSIT = 0xd46a0a4f;       // reclaimDeposit(uint32)
-bytes4 constant SEL_OSTIUM_REQUEST_WITHDRAW = 0x745400c9;      // requestWithdraw(uint256)
-bytes4 constant SEL_OSTIUM_CLAIM_WITHDRAW = 0xdd9cc053;        // claimWithdraw(uint32)
-bytes4 constant SEL_OSTIUM_CANCEL_WITHDRAW = 0x0665ddc2;       // cancelRequestWithdraw(uint32,uint256)
-bytes4 constant SEL_OSTIUM_RECLAIM_WITHDRAW = 0x984cf962;      // reclaimWithdraw(uint32)
+bytes4 constant SEL_OSTIUM_REQUEST_DEPOSIT = 0x0d1e6667; // requestDeposit(uint256)
+bytes4 constant SEL_OSTIUM_CLAIM_DEPOSIT = 0xdaf6b5c0; // claimDeposit(uint32)
+bytes4 constant SEL_OSTIUM_CANCEL_DEPOSIT = 0x6f0dfc86; // cancelRequestDeposit(uint32,uint256)
+bytes4 constant SEL_OSTIUM_RECLAIM_DEPOSIT = 0xd46a0a4f; // reclaimDeposit(uint32)
+bytes4 constant SEL_OSTIUM_REQUEST_WITHDRAW = 0x745400c9; // requestWithdraw(uint256)
+bytes4 constant SEL_OSTIUM_CLAIM_WITHDRAW = 0xdd9cc053; // claimWithdraw(uint32)
+bytes4 constant SEL_OSTIUM_CANCEL_WITHDRAW = 0x0665ddc2; // cancelRequestWithdraw(uint32,uint256)
+bytes4 constant SEL_OSTIUM_RECLAIM_WITHDRAW = 0x984cf962; // reclaimWithdraw(uint32)
 
 // ===== CCTP V2 =====
 bytes4 constant SEL_CCTP_DEPOSIT_FOR_BURN = 0x8e0250ee; // depositForBurn(uint256,uint32,bytes32,address,bytes32,uint256,uint32)
@@ -106,7 +118,6 @@ bytes4 constant SEL_CCTP_DEPOSIT_FOR_BURN = 0x8e0250ee; // depositForBurn(uint25
  *
  */
 abstract contract GuardV0Base is IGuard, Multicall {
-
     // ========================================================================
     //                       POST-CALL VALIDATION CONTEXT
     // ========================================================================
@@ -150,8 +161,7 @@ abstract contract GuardV0Base is IGuard, Multicall {
     // ----- Core access control -----
 
     // Allowed external smart contract calls (address, function selector) tuples
-    mapping(address target => mapping(bytes4 selector => bool allowed))
-        public allowedCallSites;
+    mapping(address target => mapping(bytes4 selector => bool allowed)) public allowedCallSites;
 
     // Because of EVM limitations, maintain a separate list of allowed target smart contracts,
     // so we can produce better error messages.
@@ -164,7 +174,7 @@ abstract contract GuardV0Base is IGuard, Multicall {
     //
     // Used for diagnostics/debugging.
     //
-    uint public callSiteCount;
+    uint256 public callSiteCount;
 
     // Allowed ERC-20 tokens we may receive or send in a trade
     mapping(address token => bool allowed) public allowedAssets;
@@ -191,16 +201,13 @@ abstract contract GuardV0Base is IGuard, Multicall {
     // ----- Transfer destinations -----
 
     // Allowed owners
-    mapping(address destination => bool allowed)
-        public allowedWithdrawDestinations;
+    mapping(address destination => bool allowed) public allowedWithdrawDestinations;
 
     // Allowed routers
-    mapping(address destination => bool allowed)
-        public allowedApprovalDestinations;
+    mapping(address destination => bool allowed) public allowedApprovalDestinations;
 
     // Allowed delegation approval destinations
-    mapping(address destination => bool allowed)
-        public allowedDelegationApprovalDestinations;
+    mapping(address destination => bool allowed) public allowedDelegationApprovalDestinations;
 
     // ----- Protocol: Lagoon -----
     // Storage is in LagoonLib diamond storage (keccak256("eth_defi.lagoon.v1"))
@@ -284,14 +291,8 @@ abstract contract GuardV0Base is IGuard, Multicall {
     event ApprovalDestinationApproved(address destination, string notes);
     event ApprovalDestinationRemoved(address destination, string notes);
 
-    event DelegationApprovalDestinationApproved(
-        address destination,
-        string notes
-    );
-    event DelegationApprovalDestinationRemoved(
-        address destination,
-        string notes
-    );
+    event DelegationApprovalDestinationApproved(address destination, string notes);
+    event DelegationApprovalDestinationRemoved(address destination, string notes);
 
     event AssetApproved(address asset, string notes);
     event AssetRemoved(address asset, string notes);
@@ -327,38 +328,24 @@ abstract contract GuardV0Base is IGuard, Multicall {
         return 3;
     }
 
-    function allowCallSite(
-        address target,
-        bytes4 selector,
-        string calldata notes
-    ) public onlyGuardOwner {
+    function allowCallSite(address target, bytes4 selector, string calldata notes) public onlyGuardOwner {
         allowedCallSites[target][selector] = true;
         allowedTargets[target] = true;
         callSiteCount++;
         emit CallSiteApproved(target, selector, notes);
     }
 
-    function removeCallSite(
-        address target,
-        bytes4 selector,
-        string calldata notes
-    ) public onlyGuardOwner {
+    function removeCallSite(address target, bytes4 selector, string calldata notes) public onlyGuardOwner {
         delete allowedCallSites[target][selector];
         emit CallSiteRemoved(target, selector, notes);
     }
 
-    function allowSender(
-        address sender,
-        string calldata notes
-    ) public onlyGuardOwner {
+    function allowSender(address sender, string calldata notes) public onlyGuardOwner {
         allowedSenders[sender] = true;
         emit SenderApproved(sender, notes);
     }
 
-    function removeSender(
-        address sender,
-        string calldata notes
-    ) public onlyGuardOwner {
+    function removeSender(address sender, string calldata notes) public onlyGuardOwner {
         delete allowedSenders[sender];
         emit SenderRemoved(sender, notes);
     }
@@ -371,90 +358,57 @@ abstract contract GuardV0Base is IGuard, Multicall {
     //
     // Example: guard.allowReceiver(safeAddress, "Safe vault address");
     //
-    function allowReceiver(
-        address receiver,
-        string calldata notes
-    ) public onlyGuardOwner {
+    function allowReceiver(address receiver, string calldata notes) public onlyGuardOwner {
         allowedReceivers[receiver] = true;
         emit ReceiverApproved(receiver, notes);
     }
 
-    function removeReceiver(
-        address receiver,
-        string calldata notes
-    ) public onlyGuardOwner {
+    function removeReceiver(address receiver, string calldata notes) public onlyGuardOwner {
         delete allowedReceivers[receiver];
         emit ReceiverRemoved(receiver, notes);
     }
 
-    function allowWithdrawDestination(
-        address destination,
-        string calldata notes
-    ) public onlyGuardOwner {
+    function allowWithdrawDestination(address destination, string calldata notes) public onlyGuardOwner {
         allowedWithdrawDestinations[destination] = true;
         emit WithdrawDestinationApproved(destination, notes);
     }
 
-    function removeWithdrawDestination(
-        address destination,
-        string calldata notes
-    ) public onlyGuardOwner {
+    function removeWithdrawDestination(address destination, string calldata notes) public onlyGuardOwner {
         delete allowedWithdrawDestinations[destination];
         emit WithdrawDestinationRemoved(destination, notes);
     }
 
-    function allowApprovalDestination(
-        address destination,
-        string calldata notes
-    ) public onlyGuardOwner {
+    function allowApprovalDestination(address destination, string calldata notes) public onlyGuardOwner {
         allowedApprovalDestinations[destination] = true;
         emit ApprovalDestinationApproved(destination, notes);
     }
 
-    function removeApprovalDestination(
-        address destination,
-        string calldata notes
-    ) public onlyGuardOwner {
+    function removeApprovalDestination(address destination, string calldata notes) public onlyGuardOwner {
         delete allowedApprovalDestinations[destination];
         emit ApprovalDestinationRemoved(destination, notes);
     }
 
-    function allowDelegationApprovalDestination(
-        address destination,
-        string calldata notes
-    ) public onlyGuardOwner {
+    function allowDelegationApprovalDestination(address destination, string calldata notes) public onlyGuardOwner {
         allowedDelegationApprovalDestinations[destination] = true;
         emit DelegationApprovalDestinationApproved(destination, notes);
     }
 
-    function removeDelegationApprovalDestination(
-        address destination,
-        string calldata notes
-    ) public onlyGuardOwner {
+    function removeDelegationApprovalDestination(address destination, string calldata notes) public onlyGuardOwner {
         delete allowedDelegationApprovalDestinations[destination];
         emit DelegationApprovalDestinationRemoved(destination, notes);
     }
 
-    function allowAsset(
-        address asset,
-        string calldata notes
-    ) public onlyGuardOwner {
+    function allowAsset(address asset, string calldata notes) public onlyGuardOwner {
         allowedAssets[asset] = true;
         emit AssetApproved(asset, notes);
     }
 
-    function removeAsset(
-        address asset,
-        string calldata notes
-    ) public onlyGuardOwner {
+    function removeAsset(address asset, string calldata notes) public onlyGuardOwner {
         delete allowedAssets[asset];
         emit AssetRemoved(asset, notes);
     }
 
-    function whitelistLagoon(
-        address vault,
-        string calldata notes
-    ) public onlyGuardOwner {
+    function whitelistLagoon(address vault, string calldata notes) public onlyGuardOwner {
         require(LagoonLib.isDeployed());
         LagoonLib.whitelistVault(vault, notes);
         _allowLagoonSettlementCallSites(vault, notes);
@@ -468,13 +422,7 @@ abstract contract GuardV0Base is IGuard, Multicall {
         string calldata notes
     ) public onlyGuardOwner {
         require(LagoonLib.isDeployed());
-        LagoonLib.whitelistVaultWithSettlementLimit(
-            vault,
-            asset,
-            pendingSilo,
-            maxSettlementAmount,
-            notes
-        );
+        LagoonLib.whitelistVaultWithSettlementLimit(vault, asset, pendingSilo, maxSettlementAmount, notes);
         _allowLagoonSettlementCallSites(vault, notes);
     }
 
@@ -501,20 +449,12 @@ abstract contract GuardV0Base is IGuard, Multicall {
     ) public onlyGuardOwner {
         require(LagoonLib.isDeployed());
         LagoonLib.whitelistVaultWithSettlementLimitAndCooldown(
-            vault,
-            asset,
-            pendingSilo,
-            maxSettlementAmount,
-            settlementCooldown,
-            notes
+            vault, asset, pendingSilo, maxSettlementAmount, settlementCooldown, notes
         );
         _allowLagoonSettlementCallSites(vault, notes);
     }
 
-    function _allowLagoonSettlementCallSites(
-        address vault,
-        string calldata notes
-    ) internal {
+    function _allowLagoonSettlementCallSites(address vault, string calldata notes) internal {
         allowCallSite(vault, SEL_SETTLE_DEPOSIT, notes);
         allowCallSite(vault, SEL_SETTLE_REDEEM, notes);
         // Lagoon v0.5.0+
@@ -522,26 +462,17 @@ abstract contract GuardV0Base is IGuard, Multicall {
         allowCallSite(vault, SEL_SETTLE_REDEEM_UINT, notes);
     }
 
-    function isAnyTokenApproveSelector(
-        bytes4 selector
-    ) internal pure returns (bool) {
+    function isAnyTokenApproveSelector(bytes4 selector) internal pure returns (bool) {
         return selector == SEL_APPROVE;
     }
 
-    function _isLagoonSettlementSelector(
-        bytes4 selector
-    ) internal pure returns (bool) {
-        return selector == SEL_SETTLE_DEPOSIT ||
-            selector == SEL_SETTLE_REDEEM ||
-            selector == SEL_SETTLE_DEPOSIT_UINT ||
-            selector == SEL_SETTLE_REDEEM_UINT;
+    function _isLagoonSettlementSelector(bytes4 selector) internal pure returns (bool) {
+        return selector == SEL_SETTLE_DEPOSIT || selector == SEL_SETTLE_REDEEM || selector == SEL_SETTLE_DEPOSIT_UINT
+            || selector == SEL_SETTLE_REDEEM_UINT;
     }
 
     // Basic check if any target contract is whitelisted
-    function isAllowedCallSite(
-        address target,
-        bytes4 selector
-    ) public view returns (bool) {
+    function isAllowedCallSite(address target, bytes4 selector) public view returns (bool) {
         return allowedCallSites[target][selector];
     }
 
@@ -562,21 +493,15 @@ abstract contract GuardV0Base is IGuard, Multicall {
         return allowedReceivers[receiver];
     }
 
-    function isAllowedWithdrawDestination(
-        address receiver
-    ) public view returns (bool) {
+    function isAllowedWithdrawDestination(address receiver) public view returns (bool) {
         return allowedWithdrawDestinations[receiver];
     }
 
-    function isAllowedApprovalDestination(
-        address receiver
-    ) public view returns (bool) {
+    function isAllowedApprovalDestination(address receiver) public view returns (bool) {
         return allowedApprovalDestinations[receiver];
     }
 
-    function isAllowedDelegationApprovalDestination(
-        address receiver
-    ) public view returns (bool) {
+    function isAllowedDelegationApprovalDestination(address receiver) public view returns (bool) {
         return allowedDelegationApprovalDestinations[receiver];
     }
 
@@ -596,15 +521,11 @@ abstract contract GuardV0Base is IGuard, Multicall {
         return allowedLagoonVaults(vault);
     }
 
-    function getLagoonSettlementConfig(
-        address vault
-    ) public view returns (
-        bool allowed,
-        bool limitEnabled,
-        address asset,
-        address pendingSilo,
-        uint256 maxSettlementAmount
-    ) {
+    function getLagoonSettlementConfig(address vault)
+        public
+        view
+        returns (bool allowed, bool limitEnabled, address asset, address pendingSilo, uint256 maxSettlementAmount)
+    {
         require(LagoonLib.isDeployed());
         return LagoonLib.getVaultConfig(vault);
     }
@@ -613,13 +534,11 @@ abstract contract GuardV0Base is IGuard, Multicall {
     ///
     /// Kept separate from getLagoonSettlementConfig() so integrations which
     /// only need cooldown state can read a smaller focused tuple.
-    function getLagoonSettlementCooldownConfig(
-        address vault
-    ) public view returns (
-        uint256 settlementCooldown,
-        uint256 lastSettlementTimestamp,
-        uint256 nextSettlementTimestamp
-    ) {
+    function getLagoonSettlementCooldownConfig(address vault)
+        public
+        view
+        returns (uint256 settlementCooldown, uint256 lastSettlementTimestamp, uint256 nextSettlementTimestamp)
+    {
         require(LagoonLib.isDeployed());
         return LagoonLib.getSettlementCooldownConfig(vault);
     }
@@ -641,18 +560,20 @@ abstract contract GuardV0Base is IGuard, Multicall {
     /// @return settlementCooldown Delay between non-zero settlements in seconds.
     /// @return lastSettlementTimestamp Latest non-zero settlement Unix timestamp.
     /// @return nextSettlementTimestamp Earliest next non-zero settlement Unix timestamp.
-    function getLagoonSettlementSafetyConfig(
-        address vault
-    ) public view returns (
-        bool allowed,
-        bool limitEnabled,
-        address asset,
-        address pendingSilo,
-        uint256 maxSettlementAmount,
-        uint256 settlementCooldown,
-        uint256 lastSettlementTimestamp,
-        uint256 nextSettlementTimestamp
-    ) {
+    function getLagoonSettlementSafetyConfig(address vault)
+        public
+        view
+        returns (
+            bool allowed,
+            bool limitEnabled,
+            address asset,
+            address pendingSilo,
+            uint256 maxSettlementAmount,
+            uint256 settlementCooldown,
+            uint256 lastSettlementTimestamp,
+            uint256 nextSettlementTimestamp
+        )
+    {
         require(LagoonLib.isDeployed());
         return LagoonLib.getSettlementSafetyConfig(vault);
     }
@@ -661,31 +582,23 @@ abstract contract GuardV0Base is IGuard, Multicall {
         return CowSwapLib.isAllowedCowSwap(settlement);
     }
 
-    function isAllowedVeloraSwapper(
-        address swapper
-    ) public view returns (bool) {
+    function isAllowedVeloraSwapper(address swapper) public view returns (bool) {
         return VeloraLib.isAllowedVeloraSwapper(swapper);
     }
 
     function validate_transfer(bytes memory callData) internal view {
-        (address to, ) = abi.decode(callData, (address, uint));
+        (address to,) = abi.decode(callData, (address, uint256));
         require(isAllowedWithdrawDestination(to), "Receiver not whitelisted");
     }
 
     function validate_approve(bytes memory callData) internal view {
-        (address to, ) = abi.decode(callData, (address, uint));
-        require(
-            isAllowedApprovalDestination(to),
-            "Approve address not allowed"
-        );
+        (address to,) = abi.decode(callData, (address, uint256));
+        require(isAllowedApprovalDestination(to), "Approve address not allowed");
     }
 
     function validate_approveDelegation(bytes memory callData) internal view {
-        (address to, ) = abi.decode(callData, (address, uint));
-        require(
-            isAllowedDelegationApprovalDestination(to),
-            "Delegation address not allowed"
-        );
+        (address to,) = abi.decode(callData, (address, uint256));
+        require(isAllowedDelegationApprovalDestination(to), "Delegation address not allowed");
     }
 
     // Make this callable both internally and externally
@@ -700,49 +613,33 @@ abstract contract GuardV0Base is IGuard, Multicall {
         _whitelistToken(token, notes);
     }
 
-    function whitelistTokenForDelegation(
-        address token,
-        string calldata notes
-    ) external onlyGuardOwner {
+    function whitelistTokenForDelegation(address token, string calldata notes) external onlyGuardOwner {
         allowCallSite(token, SEL_APPROVE_DELEGATION, notes);
         allowAsset(token, notes);
     }
 
     // Whitelist SwapRouter or SwapRouter02
-    function whitelistUniswapV3Router(
-        address router,
-        string calldata notes
-    ) external onlyGuardOwner {
+    function whitelistUniswapV3Router(address router, string calldata notes) external onlyGuardOwner {
         allowCallSite(router, SEL_EXACT_INPUT, notes);
         allowCallSite(router, SEL_EXACT_OUTPUT, notes);
         allowCallSite(router, SEL_EXACT_INPUT_ROUTER02, notes);
         allowApprovalDestination(router, notes);
     }
 
-    function whitelistUniswapV2Router(
-        address router,
-        string calldata notes
-    ) external onlyGuardOwner {
+    function whitelistUniswapV2Router(address router, string calldata notes) external onlyGuardOwner {
         allowCallSite(router, SEL_SWAP_EXACT_TOKENS, notes);
         allowCallSite(router, SEL_SWAP_EXACT_TOKENS_FEE, notes);
         allowApprovalDestination(router, notes);
     }
 
     // Enable unlimited trading space
-    function setAnyAssetAllowed(
-        bool value,
-        string calldata notes
-    ) external onlyGuardOwner {
+    function setAnyAssetAllowed(bool value, string calldata notes) external onlyGuardOwner {
         anyAsset = value;
         emit AnyAssetSet(value, notes);
     }
 
     // Satisfy IGuard
-    function validateCall(
-        address sender,
-        address target,
-        bytes calldata callDataWithSelector
-    ) external view {
+    function validateCall(address sender, address target, bytes calldata callDataWithSelector) external view {
         _validateCallInternal(sender, target, callDataWithSelector);
     }
 
@@ -759,11 +656,11 @@ abstract contract GuardV0Base is IGuard, Multicall {
     /// @param target Contract the Safe will call.
     /// @param callDataWithSelector Complete target calldata.
     /// @return context Validator kind and protocol-owned pre-call state.
-    function _validateCallInternal(
-        address sender,
-        address target,
-        bytes calldata callDataWithSelector
-    ) internal view returns (PostCallValidationContext memory context) {
+    function _validateCallInternal(address sender, address target, bytes calldata callDataWithSelector)
+        internal
+        view
+        returns (PostCallValidationContext memory context)
+    {
         // SECURITY NOTE: Intentional full bypass for governance.
         //
         // The governance address (Safe multisig / DAO) can always perform
@@ -789,19 +686,15 @@ abstract contract GuardV0Base is IGuard, Multicall {
         // Hypercore selectors are validated by dedicated branches below and bypass
         // the general allowCallSite registry (saves bytecode by avoiding extra call site
         // registrations in whitelistCoreWriter).
-        bool hypercoreCheck = (selector == SEL_SEND_RAW_ACTION ||
-            selector == SEL_CORE_DEPOSIT ||
-            selector == SEL_CORE_DEPOSIT_FOR);
+        bool hypercoreCheck =
+            (selector == SEL_SEND_RAW_ACTION || selector == SEL_CORE_DEPOSIT || selector == SEL_CORE_DEPOSIT_FOR);
 
         // With anyToken, we cannot check approve() call site because we do not whitelist
         // individual token addresses
         if (!anyTokenCheck && !hypercoreCheck) {
             if (!isAllowedCallSite(target, selector)) {
                 require(isAllowedTarget(target), "Target not allowed");
-                require(
-                    isAllowedCallSite(target, selector),
-                    "Selector not allowed"
-                );
+                require(isAllowedCallSite(target, selector), "Selector not allowed");
             }
         }
 
@@ -809,8 +702,7 @@ abstract contract GuardV0Base is IGuard, Multicall {
         // Depends on the called protocol.
 
         // --- DEX swaps (Uniswap V2/V3) ---
-        if (selector == SEL_SWAP_EXACT_TOKENS ||
-            selector == SEL_SWAP_EXACT_TOKENS_FEE) {
+        if (selector == SEL_SWAP_EXACT_TOKENS || selector == SEL_SWAP_EXACT_TOKENS_FEE) {
             UniswapLib.validateSwapV2(callData);
         } else if (selector == SEL_EXACT_INPUT) {
             UniswapLib.validateExactInput(callData);
@@ -860,26 +752,44 @@ abstract contract GuardV0Base is IGuard, Multicall {
             _validate_ERC4626WithdrawOrRedeem(callData);
         } else if (selector == SEL_REDEEM_SHARES) {
             _validate_EmberRedeemShares(callData);
+        } else if (selector == SEL_PLUTUS_REDEEM) {
+            // Plutus Hedge: redeem(uint256 requestId, address receiver)
+            _validate_PlutusRedeem(callData);
+        } else if (selector == SEL_PLUTUS_CANCEL_REDEEM) {
+            // Plutus Hedge: cancelRedeemRequest(uint256 requestId).
+            // The request is bound to msg.sender and has no receiver argument.
         } else if (selector == SEL_REQUEST_REDEEM) {
-            // ERC-7540: same parameters as ERC-4626
+            // ERC-7540: requestRedeem(uint256 shares, address controller, address owner)
             _validate_ERC4626WithdrawOrRedeem(callData);
         } else if (selector == SEL_REQUEST_WITHDRAW) {
-            // ERC-7540: same parameters as ERC-4626
+            // ERC-7540: requestWithdraw(uint256 assets, address controller, address owner)
             _validate_ERC4626WithdrawOrRedeem(callData);
         } else if (selector == SEL_REQUEST_DEPOSIT) {
             _validate_ERC7540Deposit(callData);
         } else if (selector == SEL_MAKE_WITHDRAW_REQUEST) {
-            // Gains/Ostium V1.0: makeWithdrawRequest(uint256,address)
+            // Gains/Ostium V1.0: makeWithdrawRequest(uint256,address owner)
             validate_makeWithdrawRequest(callData);
+        } else if (selector == SEL_COOLDOWN_SHARES) {
+            // NaraUSD+: cooldownShares(uint256). The request always acts on msg.sender.
+        } else if (selector == SEL_UNSTAKE) {
+            // NaraUSD+: unstake(address receiver)
+            _validate_NaraUnstake(callData);
+        } else if (selector == SEL_UPSHIFT_DEPOSIT) {
+            // Upshift: deposit(address asset,uint256 amount,address receiver)
+            _validate_UpshiftDeposit(callData);
+        } else if (selector == SEL_UPSHIFT_INSTANT_REDEEM || selector == SEL_UPSHIFT_REQUEST_REDEEM) {
+            // Upshift: instantRedeem(uint256 shares,address receiver) and
+            // requestRedeem(uint256 shares,address receiver). Shares always
+            // belong to msg.sender (the guarded SimpleVault).
+            _validate_UpshiftRedeemReceiver(callData);
+        } else if (selector == SEL_UPSHIFT_CLAIM) {
+            // Upshift: claim(uint256 year,uint256 month,uint256 day,address receiver).
+            _validate_UpshiftClaimReceiver(callData);
         } else if (
-            selector == SEL_OSTIUM_REQUEST_DEPOSIT ||
-            selector == SEL_OSTIUM_CLAIM_DEPOSIT ||
-            selector == SEL_OSTIUM_CANCEL_DEPOSIT ||
-            selector == SEL_OSTIUM_RECLAIM_DEPOSIT ||
-            selector == SEL_OSTIUM_REQUEST_WITHDRAW ||
-            selector == SEL_OSTIUM_CLAIM_WITHDRAW ||
-            selector == SEL_OSTIUM_CANCEL_WITHDRAW ||
-            selector == SEL_OSTIUM_RECLAIM_WITHDRAW
+            selector == SEL_OSTIUM_REQUEST_DEPOSIT || selector == SEL_OSTIUM_CLAIM_DEPOSIT
+                || selector == SEL_OSTIUM_CANCEL_DEPOSIT || selector == SEL_OSTIUM_RECLAIM_DEPOSIT
+                || selector == SEL_OSTIUM_REQUEST_WITHDRAW || selector == SEL_OSTIUM_CLAIM_WITHDRAW
+                || selector == SEL_OSTIUM_CANCEL_WITHDRAW || selector == SEL_OSTIUM_RECLAIM_WITHDRAW
         ) {
             // Ostium V1.5 async settlement functions.
             // No receiver parameter — all functions act on msg.sender.
@@ -895,16 +805,16 @@ abstract contract GuardV0Base is IGuard, Multicall {
             validate_cctpDepositForBurn(target, callData);
 
             // --- Hypercore (CoreWriter + CoreDepositWallet) ---
-        } else if (selector == SEL_SEND_RAW_ACTION ||
-                   selector == SEL_CORE_DEPOSIT ||
-                   selector == SEL_CORE_DEPOSIT_FOR) {
+        } else if (selector == SEL_SEND_RAW_ACTION || selector == SEL_CORE_DEPOSIT || selector == SEL_CORE_DEPOSIT_FOR)
+        {
             require(HypercoreVaultLib.isDeployed(), "HypercoreVaultLib not linked");
             HypercoreVaultLib.validateCall(selector, target, callData, anyAsset);
 
             // --- Lighter (zk-rollup perps DEX, Ethereum L1) ---
-        } else if (selector == SEL_LIGHTER_DEPOSIT ||
-                   selector == SEL_LIGHTER_WITHDRAW ||
-                   selector == SEL_LIGHTER_WITHDRAW_PENDING) {
+        } else if (
+            selector == SEL_LIGHTER_DEPOSIT || selector == SEL_LIGHTER_WITHDRAW
+                || selector == SEL_LIGHTER_WITHDRAW_PENDING
+        ) {
             require(LighterLib.isDeployed(), "LighterLib not linked");
             LighterLib.validateCall(selector, target, callData, anyAsset);
         } else {
@@ -924,9 +834,7 @@ abstract contract GuardV0Base is IGuard, Multicall {
     /// arbitrary runtime address from governance or the asset manager.
     ///
     /// @param context Context returned by _validateCallInternal().
-    function _validateCallAfter(
-        PostCallValidationContext memory context
-    ) internal {
+    function _validateCallAfter(PostCallValidationContext memory context) internal {
         if (context.kind == PostCallValidationKind.None) return;
 
         if (context.kind == PostCallValidationKind.LagoonSettlement) {
@@ -940,21 +848,33 @@ abstract contract GuardV0Base is IGuard, Multicall {
         revert UnknownPostCallValidationKind(uint8(context.kind));
     }
 
-    // Gains/Ostium: validate makeWithdrawRequest(uint256,address) receiver
+    // Gains/Ostium: validate makeWithdrawRequest(uint256,address owner).
     function validate_makeWithdrawRequest(bytes memory callData) internal view {
-        (, address receiver) = abi.decode(callData, (uint256, address));
+        (, address owner) = abi.decode(callData, (uint256, address));
+        _requireAllowedOwner(owner);
+    }
+
+    /// Require an allowed destination for funds, minted shares or a request.
+    function _requireAllowedReceiver(address receiver) internal view {
         require(isAllowedReceiver(receiver), "Receiver not whitelisted");
     }
 
-    // ERC-4626/ERC-7540: validate withdraw or redeem receiver
-    function _validate_ERC4626WithdrawOrRedeem(
-        bytes memory callData
-    ) internal view {
-        (, address receiver, ) = abi.decode(
-            callData,
-            (uint256, address, address)
-        );
-        require(isAllowedReceiver(receiver), "Receiver not whitelisted");
+    /// Require an allowed owner whose assets or shares a vault can consume.
+    function _requireAllowedOwner(address owner) internal view {
+        require(isAllowedReceiver(owner), "Owner not whitelisted");
+    }
+
+    // ERC-4626/ERC-7540: validate the receiver/controller and share owner.
+    //
+    // In ERC-4626 the second argument is the receiver; in ERC-7540 requests
+    // it is the controller. The owner determines the share balance from which
+    // the vault may pull under an existing allowance. Restricting only the
+    // second argument would permit an asset manager to target an unrelated
+    // approved share owner.
+    function _validate_ERC4626WithdrawOrRedeem(bytes memory callData) internal view {
+        (, address receiver, address owner) = abi.decode(callData, (uint256, address, address));
+        _requireAllowedReceiver(receiver);
+        _requireAllowedOwner(owner);
     }
 
     // ERC-4626: validate deposit(uint256 assets, address receiver)
@@ -965,7 +885,7 @@ abstract contract GuardV0Base is IGuard, Multicall {
     // the Safe's tokens — it does NOT restrict who receives the minted shares.
     function _validate_ERC4626Deposit(bytes memory callData) internal view {
         (, address receiver) = abi.decode(callData, (uint256, address));
-        require(isAllowedReceiver(receiver), "Receiver not whitelisted");
+        _requireAllowedReceiver(receiver);
     }
 
     // Ember: redeemShares(uint256 shares, address receiver).
@@ -975,7 +895,13 @@ abstract contract GuardV0Base is IGuard, Multicall {
     // prevents an asset manager from redirecting that later payout.
     function _validate_EmberRedeemShares(bytes memory callData) internal view {
         (, address receiver) = abi.decode(callData, (uint256, address));
-        require(isAllowedReceiver(receiver), "Receiver not whitelisted");
+        _requireAllowedReceiver(receiver);
+    }
+
+    // Plutus Hedge: validate redeem(uint256 requestId, address receiver).
+    function _validate_PlutusRedeem(bytes memory callData) internal view {
+        (, address receiver) = abi.decode(callData, (uint256, address));
+        _requireAllowedReceiver(receiver);
     }
 
     // ERC-7540: validate deposit(uint256 assets, address receiver, address controller)
@@ -983,72 +909,93 @@ abstract contract GuardV0Base is IGuard, Multicall {
     //
     // Same threat as _validate_ERC4626Deposit — the second address parameter
     // (receiver or controller) determines who controls the minted shares or
-    // deposit claim; it must be a whitelisted receiver.
+    // deposit claim; it must be a whitelisted receiver. The final argument
+    // is respectively the controller or the asset owner and must also be
+    // restricted: either address can otherwise bind the vault to an unrelated
+    // account's request or claim.
     function _validate_ERC7540Deposit(bytes memory callData) internal view {
-        (, address receiver, ) = abi.decode(
-            callData,
-            (uint256, address, address)
-        );
-        require(isAllowedReceiver(receiver), "Receiver not whitelisted");
+        (, address receiver, address controllerOrOwner) = abi.decode(callData, (uint256, address, address));
+        _requireAllowedReceiver(receiver);
+        _requireAllowedOwner(controllerOrOwner);
+    }
+
+    // NaraUSD+: validate unstake(address receiver).
+    function _validate_NaraUnstake(bytes memory callData) internal view {
+        address receiver = abi.decode(callData, (address));
+        _requireAllowedReceiver(receiver);
+    }
+
+    // Upshift: validate deposit(address asset,uint256 amount,address receiver).
+    function _validate_UpshiftDeposit(bytes memory callData) internal view {
+        (address asset,, address receiver) = abi.decode(callData, (address, uint256, address));
+        require(isAllowedAsset(asset), "Token not allowed");
+        _requireAllowedReceiver(receiver);
+    }
+
+    // Upshift: instantRedeem(uint256 shares,address receiver) and
+    // requestRedeem(uint256 shares,address receiver).
+    function _validate_UpshiftRedeemReceiver(bytes memory callData) internal view {
+        (, address receiver) = abi.decode(callData, (uint256, address));
+        _requireAllowedReceiver(receiver);
+    }
+
+    // Upshift: claim(uint256 year,uint256 month,uint256 day,address receiver).
+    function _validate_UpshiftClaimReceiver(bytes memory callData) internal view {
+        (,,, address receiver) = abi.decode(callData, (uint256, uint256, uint256, address));
+        _requireAllowedReceiver(receiver);
     }
 
     // Umami non-standard ERC-4626 deposit
     function validate_UmamiDeposit(bytes memory callData) internal view {
-        (, , address receiver) = abi.decode(
-            callData,
-            (uint256, uint256, address)
-        );
+        (,, address receiver) = abi.decode(callData, (uint256, uint256, address));
         require(isAllowedReceiver(receiver), "Receiver not whitelisted");
     }
 
-    // Umami non-standard ERC-4626 redeem
+    // Umami non-standard ERC-4626 redeem. The final owner argument controls
+    // which account's shares the vault may transfer under an allowance.
     function validate_UmamiRedeem(bytes memory callData) internal view {
-        (, , address receiver, ) = abi.decode(
-            callData,
-            (uint256, uint256, address, address)
-        );
-        require(isAllowedReceiver(receiver), "Receiver not whitelisted");
+        (,, address receiver, address owner) = abi.decode(callData, (uint256, uint256, address, address));
+        _requireAllowedReceiver(receiver);
+        _requireAllowedOwner(owner);
+    }
+
+    /// Whitelist Upshift's manager-controlled multi-asset surface.
+    ///
+    /// ``processAllClaimsByDate`` is intentionally absent: it is an operator
+    /// settlement action, not a call a guarded SimpleVault may initiate.
+    function whitelistUpshift(address vault, address asset, string calldata notes) external onlyGuardOwner {
+        allowCallSite(vault, SEL_UPSHIFT_DEPOSIT, notes);
+        allowCallSite(vault, SEL_UPSHIFT_INSTANT_REDEEM, notes);
+        allowCallSite(vault, SEL_UPSHIFT_REQUEST_REDEEM, notes);
+        allowCallSite(vault, SEL_UPSHIFT_CLAIM, notes);
+        allowApprovalDestination(vault, notes);
+        _whitelistToken(asset, notes);
     }
 
     /**
-     * Whitelist an ERC-4626/ERC-7540 vault.
+     * Whitelist an ERC-4626/ERC-7540 vault and its legacy extension surface.
      *
-     * - Callsites for deposits and redemptions
-     * - Vault share and denomination tokens
-     * - Any ERC-4626 extensions are not supported by this function, like special share tokens
-     * - ERC-4626 withdrawal address must be always the Safe
-     * - Because of non-standardisation the whitelisted function list is long
-     *
-     * TODO: Break this function into per-protocol helpers (e.g. _whitelistERC4626Core,
-     * _whitelistERC7540, _whitelistOstiumV15, _whitelistUmami) and compose them based
-     * on the actual vault type. Currently every vault gets every selector registered,
-     * which inflates callSiteCount and widens the call-site surface unnecessarily.
+     * This compatibility function predates the specialised Upshift whitelist
+     * above. Its broad selector set is retained for existing deployments.
      */
     function whitelistERC4626(address vault, string calldata notes) external onlyGuardOwner {
         IERC4626 vault_ = IERC4626(vault);
         address denominationToken = vault_.asset();
         address shareToken = vault;
 
-        // ERC-4626
         allowCallSite(vault, SEL_DEPOSIT, notes);
         allowCallSite(vault, SEL_WITHDRAW, notes);
         allowCallSite(vault, SEL_REDEEM, notes);
         allowCallSite(vault, SEL_REDEEM_SHARES, notes);
-
-        // Umami non-standard ERC-4626
+        allowCallSite(vault, SEL_PLUTUS_REDEEM, notes);
+        allowCallSite(vault, SEL_PLUTUS_CANCEL_REDEEM, notes);
         allowCallSite(vault, SEL_DEPOSIT_UMAMI, notes);
         allowCallSite(vault, SEL_REDEEM_UMAMI, notes);
-
-        // ERC-7540
         allowCallSite(vault, SEL_DEPOSIT_7540, notes);
         allowCallSite(vault, SEL_REQUEST_REDEEM, notes);
         allowCallSite(vault, SEL_REQUEST_WITHDRAW, notes);
         allowCallSite(vault, SEL_REQUEST_DEPOSIT, notes);
-
-        // Ostium/Gains V1.0
         allowCallSite(vault, SEL_MAKE_WITHDRAW_REQUEST, notes);
-
-        // Ostium/Gains V1.5 async settlement
         allowCallSite(vault, SEL_OSTIUM_REQUEST_DEPOSIT, notes);
         allowCallSite(vault, SEL_OSTIUM_CLAIM_DEPOSIT, notes);
         allowCallSite(vault, SEL_OSTIUM_CANCEL_DEPOSIT, notes);
@@ -1057,6 +1004,8 @@ abstract contract GuardV0Base is IGuard, Multicall {
         allowCallSite(vault, SEL_OSTIUM_CLAIM_WITHDRAW, notes);
         allowCallSite(vault, SEL_OSTIUM_CANCEL_WITHDRAW, notes);
         allowCallSite(vault, SEL_OSTIUM_RECLAIM_WITHDRAW, notes);
+        allowCallSite(vault, SEL_COOLDOWN_SHARES, notes);
+        allowCallSite(vault, SEL_UNSTAKE, notes);
 
         allowApprovalDestination(vault, notes);
         _whitelistToken(shareToken, notes);
@@ -1068,38 +1017,28 @@ abstract contract GuardV0Base is IGuard, Multicall {
     // Aave V3 implementation
     // supply(address asset, uint256 amount, address onBehalfOf, uint16 referralCode)
     function validate_aaveSupply(bytes memory callData) internal view {
-        (address token, , address onBehalfOf, ) = abi.decode(
-            callData,
-            (address, uint, address, uint)
-        );
+        (address token,, address onBehalfOf,) = abi.decode(callData, (address, uint256, address, uint256));
         require(isAllowedAsset(token), "Token not allowed");
-        require(isAllowedReceiver(onBehalfOf), "Receiver not whitelisted");
+        _requireAllowedReceiver(onBehalfOf);
     }
 
     function validate_aaveWithdraw(bytes memory callData) internal view {
-        (address token, , address to) = abi.decode(
-            callData,
-            (address, uint, address)
-        );
+        (address token,, address to) = abi.decode(callData, (address, uint256, address));
         require(isAllowedAsset(token), "Token not allowed");
-        require(isAllowedReceiver(to), "Receiver not whitelisted");
+        _requireAllowedReceiver(to);
     }
 
-    function whitelistAaveV3(
-        address lendingPool,
-        string calldata notes
-    ) external onlyGuardOwner {
+    function whitelistAaveV3(address lendingPool, string calldata notes) external onlyGuardOwner {
         allowCallSite(lendingPool, SEL_AAVE_SUPPLY, notes);
         allowCallSite(lendingPool, SEL_AAVE_WITHDRAW, notes);
         allowApprovalDestination(lendingPool, notes);
     }
 
     // https://github.com/cowprotocol/contracts/tree/main/deployments
-    function whitelistCowSwap(
-        address settlementContract,
-        address relayerContract,
-        string calldata notes
-    ) external onlyGuardOwner {
+    function whitelistCowSwap(address settlementContract, address relayerContract, string calldata notes)
+        external
+        onlyGuardOwner
+    {
         // Interaction by special _swapAndValidateCowSwap() internal function
         allowApprovalDestination(settlementContract, notes);
         allowApprovalDestination(relayerContract, notes);
@@ -1111,11 +1050,10 @@ abstract contract GuardV0Base is IGuard, Multicall {
     // TokenTransferProxy must be approved for token spending (not Augustus).
     // See: https://developers.velora.xyz
     //
-    function whitelistVelora(
-        address augustusSwapper,
-        address tokenTransferProxy,
-        string calldata notes
-    ) external onlyGuardOwner {
+    function whitelistVelora(address augustusSwapper, address tokenTransferProxy, string calldata notes)
+        external
+        onlyGuardOwner
+    {
         allowApprovalDestination(tokenTransferProxy, notes);
         VeloraLib.whitelistVelora(augustusSwapper, notes);
     }
@@ -1142,12 +1080,7 @@ abstract contract GuardV0Base is IGuard, Multicall {
     ) external onlyGuardOwner {
         allowCallSite(exchangeRouter, SEL_GMX_MULTICALL, notes);
         allowApprovalDestination(syntheticsRouter, notes);
-        GmxLib.whitelistRouter(
-            exchangeRouter,
-            syntheticsRouter,
-            orderVault,
-            notes
-        );
+        GmxLib.whitelistRouter(exchangeRouter, syntheticsRouter, orderVault, notes);
         for (uint256 i = 0; i < collateralTokens.length; i++) {
             _whitelistToken(collateralTokens[i], notes);
         }
@@ -1157,17 +1090,11 @@ abstract contract GuardV0Base is IGuard, Multicall {
         return GmxLib.isAllowedRouter(router);
     }
 
-    function whitelistGMXMarket(
-        address market,
-        string calldata notes
-    ) external onlyGuardOwner {
+    function whitelistGMXMarket(address market, string calldata notes) external onlyGuardOwner {
         GmxLib.whitelistMarket(market, notes);
     }
 
-    function removeGMXMarket(
-        address market,
-        string calldata notes
-    ) external onlyGuardOwner {
+    function removeGMXMarket(address market, string calldata notes) external onlyGuardOwner {
         GmxLib.removeMarket(market, notes);
     }
 
@@ -1198,12 +1125,10 @@ abstract contract GuardV0Base is IGuard, Multicall {
     //
     // See: https://docs.lighter.xyz
     //
-    function whitelistLighter(
-        address zkLighter,
-        address usdc,
-        uint16 assetIndex,
-        string calldata notes
-    ) external onlyGuardOwner {
+    function whitelistLighter(address zkLighter, address usdc, uint16 assetIndex, string calldata notes)
+        external
+        onlyGuardOwner
+    {
         allowCallSite(zkLighter, SEL_LIGHTER_DEPOSIT, notes);
         allowCallSite(zkLighter, SEL_LIGHTER_WITHDRAW, notes);
         allowCallSite(zkLighter, SEL_LIGHTER_WITHDRAW_PENDING, notes);
@@ -1221,9 +1146,7 @@ abstract contract GuardV0Base is IGuard, Multicall {
         return LighterLib.isAllowedAssetIndex(assetIndex, anyAsset);
     }
 
-    function gmxOrderVaults(
-        address exchangeRouter
-    ) public view returns (address) {
+    function gmxOrderVaults(address exchangeRouter) public view returns (address) {
         return GmxLib.getOrderVault(exchangeRouter);
     }
 
@@ -1239,10 +1162,7 @@ abstract contract GuardV0Base is IGuard, Multicall {
     //
     // See: https://developers.circle.com/cctp
     //
-    function whitelistCCTP(
-        address tokenMessenger,
-        string calldata notes
-    ) external onlyGuardOwner {
+    function whitelistCCTP(address tokenMessenger, string calldata notes) external onlyGuardOwner {
         allowCallSite(tokenMessenger, SEL_CCTP_DEPOSIT_FOR_BURN, notes);
         allowApprovalDestination(tokenMessenger, notes);
         allowedCCTPMessengers[tokenMessenger] = true;
@@ -1254,31 +1174,21 @@ abstract contract GuardV0Base is IGuard, Multicall {
     // CCTP uses its own domain IDs (not EVM chain IDs):
     // Ethereum=0, Arbitrum=3, Base=6, Polygon=7
     //
-    function whitelistCCTPDestination(
-        uint32 domain,
-        string calldata notes
-    ) external onlyGuardOwner {
+    function whitelistCCTPDestination(uint32 domain, string calldata notes) external onlyGuardOwner {
         allowedCCTPDestinations[domain] = true;
         emit CCTPDestinationApproved(domain, notes);
     }
 
-    function removeCCTPDestination(
-        uint32 domain,
-        string calldata notes
-    ) external onlyGuardOwner {
+    function removeCCTPDestination(uint32 domain, string calldata notes) external onlyGuardOwner {
         allowedCCTPDestinations[domain] = false;
         emit CCTPDestinationRemoved(domain, notes);
     }
 
-    function isAllowedCCTPMessenger(
-        address messenger
-    ) public view returns (bool) {
+    function isAllowedCCTPMessenger(address messenger) public view returns (bool) {
         return allowedCCTPMessengers[messenger];
     }
 
-    function isAllowedCCTPDestination(
-        uint32 domain
-    ) public view returns (bool) {
+    function isAllowedCCTPDestination(uint32 domain) public view returns (bool) {
         return allowedCCTPDestinations[domain];
     }
 
@@ -1287,33 +1197,22 @@ abstract contract GuardV0Base is IGuard, Multicall {
     // CoreWriter/CoreDepositWallet call sites are handled by dedicated validation
     // branches (bypassing the general allowCallSite check) to save bytecode.
     // See README-Hypercore-guard.md for full documentation.
-    function whitelistCoreWriter(
-        address coreWriter,
-        address coreDepositWallet,
-        string calldata notes
-    ) external onlyGuardOwner {
-        HypercoreVaultLib.whitelistCoreWriter(
-            coreWriter,
-            coreDepositWallet,
-            notes
-        );
+    function whitelistCoreWriter(address coreWriter, address coreDepositWallet, string calldata notes)
+        external
+        onlyGuardOwner
+    {
+        HypercoreVaultLib.whitelistCoreWriter(coreWriter, coreDepositWallet, notes);
         // Allow USDC approve to CoreDepositWallet for bridging
         allowApprovalDestination(coreDepositWallet, notes);
     }
 
     // Whitelist a Hypercore native vault address for deposits/withdrawals.
-    function whitelistHypercoreVault(
-        address vault,
-        string calldata notes
-    ) external onlyGuardOwner {
+    function whitelistHypercoreVault(address vault, string calldata notes) external onlyGuardOwner {
         HypercoreVaultLib.whitelistHypercoreVault(vault, notes);
     }
 
     // Remove a previously whitelisted Hypercore vault.
-    function removeHypercoreVault(
-        address vault,
-        string calldata notes
-    ) external onlyGuardOwner {
+    function removeHypercoreVault(address vault, string calldata notes) external onlyGuardOwner {
         HypercoreVaultLib.removeHypercoreVault(vault, notes);
     }
 
@@ -1325,37 +1224,24 @@ abstract contract GuardV0Base is IGuard, Multicall {
     // - Burn token (USDC) is an allowed asset
     // - Mint recipient (converted from bytes32 to address) is an allowed receiver
     //
-    function validate_cctpDepositForBurn(
-        address target,
-        bytes calldata callData
-    ) internal view {
+    function validate_cctpDepositForBurn(address target, bytes calldata callData) internal view {
         require(isAllowedCCTPMessenger(target), "CCTP messenger not allowed");
 
-        (
-            , // uint256 amount
+        (, // uint256 amount
             uint32 destinationDomain,
             bytes32 mintRecipient,
-            address burnToken,
-            , // bytes32 destinationCaller
+            address burnToken,, // bytes32 destinationCaller
             , // uint256 maxFee
-
         ) = abi.decode( // uint32 minFinalityThreshold
-                callData,
-                (uint256, uint32, bytes32, address, bytes32, uint256, uint32)
-            );
-
-        require(
-            isAllowedCCTPDestination(destinationDomain),
-            "CCTP destination not allowed"
+            callData,
+            (uint256, uint32, bytes32, address, bytes32, uint256, uint32)
         );
+
+        require(isAllowedCCTPDestination(destinationDomain), "CCTP destination not allowed");
         require(isAllowedAsset(burnToken), "CCTP burn token not allowed");
 
         // Convert bytes32 mintRecipient to address (last 20 bytes)
         address recipient = address(uint160(uint256(mintRecipient)));
-        require(
-            isAllowedReceiver(recipient),
-            "CCTP mint recipient not allowed"
-        );
+        require(isAllowedReceiver(recipient), "CCTP mint recipient not allowed");
     }
-
 }

@@ -715,7 +715,13 @@ class ERC7540DepositManager(VaultDepositManager):
         except (ValueError, BadFunctionCallOutput, BadAddressError, ProbablyNodeHasNoBlock):
             return False
 
-    def force_settle(self, ticket: DepositTicket | RedemptionTicket | None) -> VaultForcedSettlementResult:
+    def force_settle(
+        self,
+        ticket: DepositTicket | RedemptionTicket | None,
+        *,
+        mock: object | None = None,
+        ignore_liquidity: bool = False,
+    ) -> VaultForcedSettlementResult:
         """Refuse generic ERC-7540 operator settlement before a fork broadcast.
 
         ERC-7540 standardises request and claim interfaces but not the operator
@@ -726,12 +732,29 @@ class ERC7540DepositManager(VaultDepositManager):
         :param ticket:
             Asynchronous deposit or redemption ticket whose settlement is not
             implemented by this protocol-neutral manager.
+        :param mock:
+            Optional local protocol mock. Generic ERC-7540 does not define an
+            operator settlement action, so no mock driver is available.
+        :param ignore_liquidity:
+            Unsupported for the protocol-neutral ERC-7540 manager. Concrete
+            protocol managers must opt in explicitly.
         :return:
             This method never returns because both generic ERC-7540 directions
             are asynchronous.
         :raise UnsupportedVaultSimulation:
             Always, with the generic capability's stable reason.
         """
+        if ignore_liquidity:
+            return super().force_settle(ticket, mock=mock, ignore_liquidity=True)
+
+        if mock is not None:
+            raise UnsupportedVaultSimulation(
+                f"{self.__class__.__name__} has no local mock settlement driver",
+                unsupported_reason="mock_settlement_driver_not_implemented",
+                protocol=self.vault.get_protocol_name(),
+                vault_address=self.vault.address,
+            )
+
         raise UnsupportedVaultSimulation(
             f"Generic ERC-7540 settlement driver is not implemented for vault {self.vault.address} on chain {self.vault.chain_id}",
             unsupported_reason=ERC7540_ANVIL_SETTLEMENT_UNSUPPORTED_REASON,

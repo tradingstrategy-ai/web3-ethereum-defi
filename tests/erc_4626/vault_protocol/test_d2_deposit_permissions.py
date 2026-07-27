@@ -1,10 +1,10 @@
-"""Unit tests for D2 vault KYC classification."""
+"""Unit tests for D2 vault token-gated deposit admission."""
 
 from eth_defi.erc_4626.vault_protocol.d2.vault import D2Vault
 
 
-def test_d2_token_eligibility_is_not_a_kyc_whitelist() -> None:
-    """D2 open dates, lock-ups and asset conditions do not require KYC status."""
+def test_d2_token_eligibility_requires_deposit_admission_check() -> None:
+    """D2's mapping-or-token-balance gate must run before a deposit request."""
     vault = object.__new__(D2Vault)
 
-    assert vault.is_whitelisted_deposit() is False
+    assert vault.is_whitelisted_deposit() is True

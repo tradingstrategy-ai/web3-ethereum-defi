@@ -44,14 +44,22 @@ DEPOSIT_AMOUNT=10 \
 poetry run python scripts/erc-4626/probe-vault-deposits.py
 ```
 
-Review the resulting JSON and its Git diff before committing. `success` means
-the configured `SimpleVaultV0` completed a guarded deposit on the ephemeral
-fork. For a synchronous manager, it also completed a guarded redemption and
-received denomination tokens back. Asynchronous redemption is recorded as not
-exercised because it needs a later protocol settlement. A success is not a
-live-chain transaction. `funding_error` and `rpc_error` are infrastructure
-findings, not protocol incompatibility. `reverted` means a guarded deposit or
-synchronous redemption transaction was attempted and did not succeed.
+Review the resulting JSON and its Git diff before committing. A current
+`success` means a `SimpleVaultV0` completed a deposit on the ephemeral fork
+with a distinct delegated asset-manager wallet and governance owner, so the
+call traversed GuardV0's normal sender and selector validation. For a
+synchronous manager, it also completed a guarded redemption and received
+denomination tokens back. Asynchronous redemption is recorded as not exercised
+because it needs a later protocol settlement. A success is not a live-chain
+transaction. `funding_error` and `rpc_error` are infrastructure findings, not
+protocol incompatibility. `reverted` means a guarded deposit or synchronous
+redemption transaction was attempted and did not succeed.
+
+Rows written before the distinct-governance/asset-manager probe change are
+**manager-compatibility evidence only**. The old probe used the same address
+for governance and delegated execution, which triggered GuardV0's intentional
+governance bypass; those rows are not GuardV0 validation certification. Refresh
+them with the current probe before using them as guard evidence.
 
 Before committing a refreshed artefact, verify that no successful current row
 has a missing or non-integer `fork_block_number`. The writer rejects such new

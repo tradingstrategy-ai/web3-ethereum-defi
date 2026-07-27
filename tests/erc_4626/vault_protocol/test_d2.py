@@ -50,7 +50,7 @@ def test_d2(
     assert vault.get_management_fee("latest") == 0.00
     assert vault.get_performance_fee("latest") == 0.20
     assert vault.has_custom_fees() is False
-    assert vault.is_whitelisted_deposit() is False
+    assert vault.is_whitelisted_deposit() is True
 
     manager = vault.get_deposit_manager()
     assert isinstance(manager, D2DepositManager)

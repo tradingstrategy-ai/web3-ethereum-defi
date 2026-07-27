@@ -115,6 +115,17 @@ def test_generic_erc7540_settlement_is_typed_unsupported() -> None:
     assert exc_info.value.unsupported_reason == "generic_erc_7540_settlement_driver_not_implemented"
 
 
+def test_generic_erc7540_mock_settlement_is_typed_unsupported() -> None:
+    """Generic ERC-7540 accepts the shared mock keyword and refuses it explicitly."""
+    vault = object.__new__(StakedUSDaiVault)
+    vault.spec = VaultSpec(chain_id=1, vault_address=VAULT_ADDRESS)
+    manager = vault.get_deposit_manager()
+
+    with pytest.raises(UnsupportedVaultSimulation, match="no local mock settlement driver") as exc_info:
+        manager.force_settle(object(), mock=object())
+    assert exc_info.value.unsupported_reason == "mock_settlement_driver_not_implemented"
+
+
 @pytest.mark.parametrize(
     ("method_name", "direction"),
     [

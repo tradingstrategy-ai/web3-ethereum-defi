@@ -6,7 +6,6 @@ pragma solidity ^0.8.0;
 /// @title Multicall
 /// @notice Enables calling multiple methods in a single call to the contract
 abstract contract Multicall {
-
     // msg.value should not be trusted from any call coming from this function.
     // WARNING: msg.value is constant across all delegatecall iterations. Batching two or more
     // performCall(target, data, value > 0) calls in one multicall() will revert on the second

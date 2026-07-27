@@ -329,7 +329,7 @@ def test_erc_7540_settle_recovers_missing_approval_and_liquidity(
     assert usdc.fetch_raw_balance_of(safe_address) == 1
 
     # The driver must re-approve, top up the shortfall, and settle to claimable.
-    redemption_settlement = deposit_manager.force_settle(redeem_ticket)
+    redemption_settlement = deposit_manager.force_settle(redeem_ticket, ignore_liquidity=True)
     assert redemption_settlement.status_before is AsyncVaultRequestStatus.pending
     assert redemption_settlement.status_after is AsyncVaultRequestStatus.claimable
     # Non-zero: liquidity was synthetically injected, so a claimable result here

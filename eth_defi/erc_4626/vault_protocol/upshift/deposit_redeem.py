@@ -1,7 +1,9 @@
+# ruff: noqa: EM101
 """Upshift multi-asset deposit flow."""
 
+from dataclasses import dataclass
 from decimal import Decimal
-from typing import Literal, NoReturn
+from typing import Literal
 
 from eth_typing import BlockIdentifier, HexAddress
 from hexbytes import HexBytes
@@ -9,10 +11,84 @@ from web3 import Web3
 from web3._utils.events import EventLogErrorFlags  # noqa: PLC2701
 
 from eth_defi.abi import ZERO_ADDRESS_STR, get_deployed_contract
-from eth_defi.erc_4626.deposit_redeem import ERC4626DepositManager, ERC4626DepositRequest
+from eth_defi.erc_4626.deposit_redeem import ERC4626DepositManager, ERC4626DepositRequest, ERC4626RedemptionRequest
+from eth_defi.provider.anvil import is_anvil
 from eth_defi.timestamp import get_block_timestamp
 from eth_defi.token import TokenDetails, fetch_erc20_details
-from eth_defi.vault.deposit_redeem import DepositRedeemEventAnalysis, DepositRedeemEventFailure, DepositTicket, VaultFlowUnavailable
+from eth_defi.vault.deposit_redeem import (
+    AsyncVaultRequestStatus,
+    CannotParseRedemptionTransaction,
+    DepositRedeemEventAnalysis,
+    DepositRedeemEventFailure,
+    DepositTicket,
+    RedemptionRequest,
+    RedemptionTicket,
+    UnsupportedVaultSimulation,
+    VaultFlowUnavailable,
+    VaultForcedSettlementResult,
+    create_synchronous_settlement_result,
+)
+
+
+@dataclass(slots=True)
+class UpshiftQueuedRedemptionTicket(RedemptionTicket):
+    """Persist an Upshift request/claim withdrawal date and epoch identity."""
+
+    #: Epoch emitted by the verified ``requestRedeem`` return value.
+    claimable_epoch: int
+    #: Calendar date selecting the batched operator settlement and owner claim.
+    year: int
+    month: int
+    day: int
+
+    def get_request_id(self) -> int:
+        """Return the protocol claimable epoch as the request identity.
+
+        :return:
+            Upshift claimable epoch.
+        """
+        return self.claimable_epoch
+
+
+class UpshiftQueuedRedemptionRequest(RedemptionRequest):
+    """Parse an Upshift ``requestRedeem`` into a dated redemption ticket."""
+
+    def parse_redeem_transaction(self, tx_hashes: list[HexBytes]) -> UpshiftQueuedRedemptionTicket:
+        """Validate the native request event and read its scheduled date.
+
+        The verified request event does not include the date returned by
+        ``requestRedeem``. The immediately-read ``getWithdrawalEpoch`` state is
+        therefore persisted after the successful transaction, alongside the
+        event's holder, receiver and share count checks.
+
+        :param tx_hashes:
+            Broadcast request hashes; the final hash is ``requestRedeem``.
+        :return:
+            Persistable queued-redemption ticket.
+        :raise CannotParseRedemptionTransaction:
+            If the receipt has no matching Upshift request event.
+        """
+        tx_hash = tx_hashes[-1]
+        receipt = self.web3.eth.get_transaction_receipt(tx_hash)
+        events = get_deployed_contract(self.web3, "upshift/IMultiAssetVaultEvents.json", self.vault.address).events
+        logs = events.WithdrawalRequested().process_receipt(receipt, errors=EventLogErrorFlags.Discard)
+        if len(logs) != 1:
+            raise CannotParseRedemptionTransaction(f"Expected exactly one Upshift WithdrawalRequested event, got {logs!r} at {tx_hash.hex()}")
+        args = logs[0]["args"]
+        if int(args["shares"]) != self.raw_shares or Web3.to_checksum_address(args["holderAddr"]) != Web3.to_checksum_address(self.owner) or Web3.to_checksum_address(args["receiverAddr"]) != Web3.to_checksum_address(self.to):
+            raise CannotParseRedemptionTransaction(f"Upshift WithdrawalRequested event does not match request at {tx_hash.hex()}")
+        claimable_epoch, year, month, day = self.vault.upshift_contract.functions.getWithdrawalEpoch().call()
+        return UpshiftQueuedRedemptionTicket(
+            vault_address=Web3.to_checksum_address(self.vault.address),
+            owner=Web3.to_checksum_address(self.owner),
+            to=Web3.to_checksum_address(self.to),
+            raw_shares=self.raw_shares,
+            tx_hash=HexBytes(tx_hash),
+            claimable_epoch=int(claimable_epoch),
+            year=int(year),
+            month=int(month),
+            day=int(day),
+        )
 
 
 class UpshiftMultiAssetDepositManager(ERC4626DepositManager):
@@ -44,19 +120,21 @@ class UpshiftMultiAssetDepositManager(ERC4626DepositManager):
 
     **Redemption process**
 
-    Not implemented. :meth:`create_redemption_request` and :meth:`estimate_redeem`
-    always raise :class:`VaultFlowUnavailable`,
-    :meth:`can_create_redemption_request` and :meth:`has_synchronous_redemption`
-    always return ``False``, and
-    :meth:`UpshiftVault.get_deposit_manager_capability` advertises
-    ``can_redeem=False`` (``multi_asset_application_flow_not_implemented``). No
-    redemption capacity model is exposed by this manager.
+    Two verified paths are exposed. The default is asynchronous:
+    :meth:`create_redemption_request` calls ``requestRedeem(shares, receiver)``
+    and persists its date/epoch in :class:`UpshiftQueuedRedemptionTicket`.
+    The vault operator later calls ``processAllClaimsByDate`` and the manager
+    finishes with ``claim(year, month, day, receiver)``. Passing
+    ``instant=True`` instead builds the atomic
+    ``instantRedeem(shares, receiver)`` path. Both paths validate the live
+    withdrawal pause/cap and the share balance before broadcast.
 
     **Queues and settlement**
 
-    None exposed. The underlying Upshift protocol services withdrawals through a
-    daily request-claim system (with an optional instant-redemption path), but
-    this manager models neither, so there is no queue or settlement surface here.
+    Queued redemptions are operator settled by date. ``processAllClaimsByDate``
+    is intentionally not a manager/GuardV0 call: it is an external operator
+    action. :meth:`force_settle` can invoke it only on a supplied local mock
+    deployed at this manager's vault address, never against a production fork.
 
     **Lockups and cooldowns**
 
@@ -73,9 +151,10 @@ class UpshiftMultiAssetDepositManager(ERC4626DepositManager):
 
     **Anvil settlement (force_settle)**
 
-    No-op for the supported deposit path: deposits are synchronous, so
-    :meth:`force_settle` takes ``None`` and there is no ticket to settle. There is
-    no redemption ticket to settle because redemption is unimplemented.
+    Deposits and instant redemptions are synchronous and use the shared
+    ``force_settle(None)`` no-op. A queued ticket requires an explicit matching
+    mock implementing ``processAllClaimsByDate``; production operator authority
+    is not impersonated.
     """
 
     def _create_unavailable(
@@ -281,21 +360,22 @@ class UpshiftMultiAssetDepositManager(ERC4626DepositManager):
         owner: HexAddress | None,
         shares: Decimal,
         block_identifier: BlockIdentifier = "latest",
-    ) -> NoReturn:
-        """Refuse estimates for the unimplemented redemption flow.
+    ) -> Decimal:
+        """Estimate queued redemption assets through the verified vault preview.
 
         :param owner:
             Share owner used for structured error context.
         :param shares:
-            Unused requested share amount.
+            Requested LP shares.
         :param block_identifier:
-            Unused because the adapter has no redemption flow.
-        :raise VaultFlowUnavailable:
-            Always, because multi-asset redemption is not implemented.
+            Block at which to read the preview.
+        :return:
+            Estimated denomination assets after the queued redemption fee.
         """
-        del shares, block_identifier
-        reason = "Upshift multi-asset redemption flow is not implemented"
-        raise self._create_unavailable(reason, owner, "redeem", "estimate")
+        del owner
+        raw_shares = self.vault.share_token.convert_to_raw(shares)
+        _, raw_assets_after_fee = self.vault.upshift_contract.functions.previewRedemption(raw_shares, False).call(block_identifier=block_identifier)
+        return self.vault.denomination_token.convert_to_decimals(int(raw_assets_after_fee))
 
     def can_create_deposit_request(self, owner: HexAddress) -> bool:
         """Return whether the protocol-wide deposit gate is currently open.
@@ -309,22 +389,21 @@ class UpshiftMultiAssetDepositManager(ERC4626DepositManager):
         del owner
         return self.vault.fetch_deposit_closed_reason() is None
 
-    def can_create_redemption_request(self, owner: HexAddress) -> bool:  # noqa: PLR6301
-        """Return false because no multi-asset redemption path is implemented.
+    def can_create_redemption_request(self, owner: HexAddress) -> bool:
+        """Return whether the live vault gate and owner share balance permit redemption.
 
         :param owner:
-            Unused share owner.
+            Share owner.
         :return:
-            Always ``False``.
+            ``True`` when withdrawals are open and the owner has LP shares.
         """
-        del owner
-        return False
+        return self.vault.fetch_redemption_closed_reason() is None and int(self.vault.share_token.fetch_raw_balance_of(owner)) > 0
 
     def has_synchronous_redemption(self) -> bool:  # noqa: PLR6301
-        """Return false because redemption is unsupported, not synchronous.
+        """Return false because the default redemption path is queued.
 
         :return:
-            Always ``False``.
+            ``False``; callers select the exceptional instant path explicitly.
         """
         return False
 
@@ -425,27 +504,172 @@ class UpshiftMultiAssetDepositManager(ERC4626DepositManager):
         raw_shares: int | None = None,
         check_max_deposit: bool = True,  # noqa: FBT001, FBT002
         check_enough_token: bool = True,  # noqa: FBT001, FBT002
-    ) -> NoReturn:
-        """Refuse unverified Upshift multi-asset redemption handling.
+        *,
+        instant: bool = False,
+    ) -> RedemptionRequest:
+        """Build a verified Upshift instant or request/claim redemption.
 
         :param owner:
             Share owner used for structured error context.
         :param to:
-            Unused receiver.
+            Asset receiver, defaulting to the share owner.
         :param shares:
-            Unused decimal share amount.
+            Decimal LP shares, exclusive with ``raw_shares``.
         :param raw_shares:
-            Unused native share amount.
+            Native LP shares, exclusive with ``shares``.
         :param check_max_deposit:
-            Unused base-interface compatibility flag.
+            Retained base-interface compatibility flag.
         :param check_enough_token:
-            Unused base-interface compatibility flag.
-        :raise VaultFlowUnavailable:
-            Always, because multi-asset redemption is not implemented.
+            Check the owner's LP share balance.
+        :param instant:
+            Build ``instantRedeem`` when ``True``; otherwise build the queued
+            ``requestRedeem`` lifecycle.
+        :return:
+            Synchronous standard request for instant redemption, or a queued
+            request that parses a dated redemption ticket.
         """
-        del to, shares, raw_shares, check_max_deposit, check_enough_token
-        reason = "Upshift multi-asset redemption flow is not implemented"
-        raise self._create_unavailable(reason, owner, "redeem", "preflight")
+        del check_max_deposit
+        if (shares is None) == (raw_shares is None):
+            raise ValueError("Give exactly one of shares or raw_shares")
+        receiver = owner if to is None else to
+        if Web3.to_checksum_address(receiver) == Web3.to_checksum_address(ZERO_ADDRESS_STR):
+            raise ValueError("Upshift redemption receiver cannot be the zero address")
+        if raw_shares is None:
+            raw_shares = self.vault.share_token.convert_to_raw(shares)
+        if raw_shares <= 0:
+            raise ValueError("Upshift redemption shares must be positive")
+        closed_reason = self.vault.fetch_redemption_closed_reason()
+        if closed_reason is not None:
+            raise self._create_unavailable(closed_reason, owner, "redeem", "preflight")
+        if check_enough_token:
+            balance = int(self.vault.share_token.fetch_raw_balance_of(owner))
+            if balance < raw_shares:
+                raise self._create_unavailable("Insufficient Upshift LP share balance", owner, "redeem", "preflight", requested_raw_amount=raw_shares, available_raw_amount=balance)
+        request_class = ERC4626RedemptionRequest if instant else UpshiftQueuedRedemptionRequest
+        function = self.vault.upshift_contract.functions.instantRedeem(raw_shares, receiver) if instant else self.vault.upshift_contract.functions.requestRedeem(raw_shares, receiver)
+        return request_class(
+            vault=self.vault,
+            owner=owner,
+            to=receiver,
+            shares=self.vault.share_token.convert_to_decimals(raw_shares),
+            raw_shares=raw_shares,
+            funcs=[function],
+        )
+
+    def force_settle(
+        self,
+        ticket: DepositTicket | RedemptionTicket | None,
+        *,
+        mock: object | None = None,
+        ignore_liquidity: bool = False,
+    ) -> VaultForcedSettlementResult:
+        """Settle a queued Upshift ticket through a matching local mock only.
+
+        :param ticket:
+            ``None`` for a synchronous flow, or the queued ticket to settle.
+        :param mock:
+            Deployed mock at this manager vault address, exposing
+            ``processAllClaimsByDate``.
+        :param ignore_liquidity:
+            Unsupported because the mock settlement models an operator batch,
+            not an immediate-liquidity admission check.
+        :return:
+            No-op result or pending-to-claimable mock settlement result.
+        :raise UnsupportedVaultSimulation:
+            If a production settlement or invalid mock is requested.
+        """
+        if ignore_liquidity:
+            return super().force_settle(ticket, mock=mock, ignore_liquidity=True)
+
+        if ticket is None:
+            return create_synchronous_settlement_result()
+        if not isinstance(ticket, UpshiftQueuedRedemptionTicket):
+            raise UnsupportedVaultSimulation("Upshift settlement requires a queued redemption ticket", unsupported_reason="upshift_queued_redemption_ticket_required")
+        if mock is None:
+            raise UnsupportedVaultSimulation("Upshift operator settlement requires a supplied local mock", unsupported_reason="upshift_operator_settlement_requires_mock")
+        if not is_anvil(self.web3):
+            raise UnsupportedVaultSimulation("Upshift mock settlement requires an Anvil provider", unsupported_reason="anvil_provider_required")
+        if Web3.to_checksum_address(mock.address) != Web3.to_checksum_address(self.vault.address):
+            raise UnsupportedVaultSimulation("Upshift mock settlement vault must match the manager vault", unsupported_reason="mock_settlement_vault_mismatch")
+        status_before = self.get_redemption_request_status(ticket)
+        tx_hash = mock.functions.processAllClaimsByDate(ticket.year, ticket.month, ticket.day, 1).transact({"from": self.web3.eth.accounts[0]})
+        status_after = self.get_redemption_request_status(ticket)
+        if status_after is not AsyncVaultRequestStatus.claimable:
+            raise UnsupportedVaultSimulation(
+                "Upshift mock settlement did not make the queued ticket claimable",
+                unsupported_reason="upshift_mock_settlement_not_claimable",
+            )
+        return VaultForcedSettlementResult(ticket=ticket, settlement_required=True, status_before=status_before, status_after=status_after, transaction_hashes=(HexBytes(tx_hash),))
+
+    def get_redemption_request_status(self, ticket: UpshiftQueuedRedemptionTicket) -> AsyncVaultRequestStatus:
+        """Map the receiver's dated burnable amount to a generic request status.
+
+        :param ticket:
+            Upshift queued redemption ticket.
+        :return:
+            ``claimable`` after operator processing, otherwise ``pending``.
+        """
+        claimable = int(self.vault.upshift_contract.functions.getBurnableAmountByReceiver(ticket.year, ticket.month, ticket.day, ticket.to).call())
+        return AsyncVaultRequestStatus.claimable if claimable > 0 else AsyncVaultRequestStatus.pending
+
+    def can_finish_redeem(self, redemption_ticket: UpshiftQueuedRedemptionTicket) -> bool:
+        """Return whether a queued ticket has an onchain claimable amount.
+
+        :param redemption_ticket:
+            Upshift queued redemption ticket.
+        :return:
+            Whether the operator has processed the request.
+        """
+        return self.get_redemption_request_status(redemption_ticket) is AsyncVaultRequestStatus.claimable
+
+    def serialize_redemption_ticket(self, ticket: UpshiftQueuedRedemptionTicket) -> dict:
+        """Serialise the scheduled Upshift receiver/date aggregate identity.
+
+        :param ticket:
+            Queued Upshift redemption ticket.
+        :return:
+            JSON-compatible base and calendar/epoch fields.
+        """
+        data = super().serialize_redemption_ticket(ticket)
+        data.update(
+            upshift_claimable_epoch=ticket.claimable_epoch,
+            upshift_year=ticket.year,
+            upshift_month=ticket.month,
+            upshift_day=ticket.day,
+        )
+        return data
+
+    def reconstruct_redemption_ticket(self, data: dict) -> UpshiftQueuedRedemptionTicket:  # noqa: PLR6301
+        """Restore a persisted Upshift receiver/date aggregate ticket.
+
+        :param data:
+            Data produced by :meth:`serialize_redemption_ticket`.
+        :return:
+            Queued Upshift redemption ticket.
+        """
+        return UpshiftQueuedRedemptionTicket(
+            vault_address=data["vault_address"],
+            owner=data["vault_owner"],
+            to=data.get("vault_to", data["vault_owner"]),
+            raw_shares=int(data["vault_raw_amount"]),
+            tx_hash=HexBytes(data["vault_request_tx_hash"]),
+            claimable_epoch=int(data["upshift_claimable_epoch"]),
+            year=int(data["upshift_year"]),
+            month=int(data["upshift_month"]),
+            day=int(data["upshift_day"]),
+        )
+
+    def finish_redemption(self, redemption_ticket: UpshiftQueuedRedemptionTicket):
+        """Build the verified dated Upshift claim call.
+
+        :param redemption_ticket:
+            Claimable Upshift ticket.
+        :return:
+            ``claim(year, month, day, receiver)`` call.
+        """
+        if not self.can_finish_redeem(redemption_ticket):
+            raise ValueError("Upshift redemption is not claimable")
+        return self.vault.upshift_contract.functions.claim(redemption_ticket.year, redemption_ticket.month, redemption_ticket.day, redemption_ticket.to)
 
     def analyse_deposit(self, claim_tx_hash: HexBytes | str, deposit_ticket: DepositTicket | None) -> DepositRedeemEventAnalysis | DepositRedeemEventFailure:
         """Decode Upshift's verified protocol deposit event.

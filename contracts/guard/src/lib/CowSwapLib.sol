@@ -19,7 +19,6 @@ struct PresignCallData {
 }
 
 library CowSwapLib {
-
     // How long are our CowSwap orders valid for
     uint256 internal constant _SIGN_COOLDOWN = 20 minutes;
 
@@ -32,7 +31,12 @@ library CowSwapLib {
 
     // Let offchain logic get our order details
     event OrderSigned(
-        uint256 indexed timestamp, bytes orderUid, GPv2Order.Data order, uint32 validTo, uint256 buyAmount, uint256 sellAmount
+        uint256 indexed timestamp,
+        bytes orderUid,
+        GPv2Order.Data order,
+        uint32 validTo,
+        uint256 buyAmount,
+        uint256 sellAmount
     );
 
     event CowSwapApproved(address settlementContract, string notes);
@@ -97,11 +101,7 @@ library CowSwapLib {
         return PresignCallData({
             orderUid: orderUid,
             targetAddress: settlementContract,
-            data: abi.encodeWithSelector(
-                ICowSettlement.setPreSignature.selector,
-                orderUid,
-                true
-            )
+            data: abi.encodeWithSelector(ICowSettlement.setPreSignature.selector, orderUid, true)
         });
     }
 
@@ -160,11 +160,7 @@ library CowSwapLib {
         return PresignCallData({
             orderUid: orderUid,
             targetAddress: settlementContract,
-            data: abi.encodeWithSelector(
-                ICowSettlement.setPreSignature.selector,
-                orderUid,
-                true
-            )
+            data: abi.encodeWithSelector(ICowSettlement.setPreSignature.selector, orderUid, true)
         });
     }
 }

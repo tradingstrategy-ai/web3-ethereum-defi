@@ -12,7 +12,16 @@ from web3.contract.contract import ContractFunction
 
 from eth_defi.abi import ZERO_ADDRESS_STR
 from eth_defi.erc_4626.deposit_redeem import ERC4626DepositManager
-from eth_defi.vault.deposit_redeem import AsyncVaultRequestStatus, RedemptionRequest, RedemptionTicket
+from eth_defi.provider.anvil import is_anvil, mine
+from eth_defi.vault.deposit_redeem import (
+    AsyncVaultRequestStatus,
+    DepositTicket,
+    RedemptionRequest,
+    RedemptionTicket,
+    UnsupportedVaultSimulation,
+    VaultForcedSettlementResult,
+    create_synchronous_settlement_result,
+)
 
 
 @dataclass(slots=True)
@@ -126,10 +135,12 @@ class NaraDepositManager(ERC4626DepositManager):
     **Anvil settlement (force_settle)**
 
     Deposits settle in their originating transaction. Redemption settlement is
-    time-based, not keeper-based: advance the chain past ``cooldown_end`` and
-    submit :meth:`finish_redemption` (``unstake``). The inherited
-    :meth:`force_settle` performs the Anvil-validated shared no-op and does not
-    itself skip the cooldown.
+    time-based, not keeper-based: :meth:`force_settle` advances an Anvil chain
+    to the ticket's ``cooldown_end`` and returns a hashless pending-to-claimable
+    result. It never broadcasts ``unstake``; callers must submit the guarded
+    :meth:`finish_redemption` claim themselves. A supplied local mock is
+    accepted only when it is the same deployed contract as this manager's
+    vault, preventing it from advancing an unrelated production ticket.
     """
 
     def create_redemption_request(
@@ -203,6 +214,108 @@ class NaraDepositManager(ERC4626DepositManager):
             ``True`` when the vault records a non-zero cooldown deadline.
         """
         return self.get_redemption_delay_over(owner) is not None
+
+    def force_settle(
+        self,
+        ticket: DepositTicket | RedemptionTicket | None,
+        *,
+        mock: object | None = None,
+        ignore_liquidity: bool = False,
+    ) -> VaultForcedSettlementResult:
+        """Advance an Anvil Nara cooldown to the ticket's claimable deadline.
+
+        Nara has no keeper or operator settlement transaction. Advancing the
+        local Anvil clock is the complete settlement boundary, so the result
+        intentionally contains no transaction hashes. The later ``unstake``
+        call remains a manager-owned guarded claim.
+
+        :param ticket:
+            A pending :class:`NaraRedemptionTicket`, or ``None`` for the
+            synchronous deposit no-op.
+        :param mock:
+            Optional local ``MockNaraVault`` bound to this exact manager vault.
+            It is an identity guard only: Nara settlement is time-based and
+            never calls an operator method on the supplied object.
+        :param ignore_liquidity:
+            Unsupported because a Nara cooldown is a time gate, not a
+            redemption-liquidity gate.
+        :return:
+            A synchronous no-op or a pending-to-claimable, hashless cooldown
+            settlement result.
+        :raise UnsupportedVaultSimulation:
+            If this is not Anvil, the mock is unrelated, the ticket is not a
+            live Nara cooldown, or advancing time does not make it claimable.
+        """
+        if ignore_liquidity:
+            return super().force_settle(ticket, mock=mock, ignore_liquidity=True)
+
+        if not is_anvil(self.web3):
+            raise UnsupportedVaultSimulation(
+                "NaraDepositManager.force_settle() requires an Anvil provider",
+                unsupported_reason="anvil_provider_required",
+                protocol=self.vault.get_protocol_name(),
+                vault_address=self.vault.address,
+                direction="redeem" if ticket is not None else None,
+            )
+
+        if mock is not None:
+            mock_address = getattr(mock, "address", None)
+            if mock_address is None or Web3.to_checksum_address(mock_address) != Web3.to_checksum_address(self.vault.address):
+                raise UnsupportedVaultSimulation(
+                    "Nara mock settlement must use the manager's exact vault contract",
+                    unsupported_reason="mock_settlement_vault_mismatch",
+                    protocol=self.vault.get_protocol_name(),
+                    vault_address=self.vault.address,
+                    direction="redeem" if ticket is not None else None,
+                )
+
+        if ticket is None:
+            return create_synchronous_settlement_result()
+
+        if not isinstance(ticket, NaraRedemptionTicket):
+            raise UnsupportedVaultSimulation(
+                f"Nara force_settle requires NaraRedemptionTicket, got {type(ticket)}",
+                unsupported_reason="nara_redemption_ticket_required",
+                protocol=self.vault.get_protocol_name(),
+                vault_address=self.vault.address,
+                direction="redeem",
+            )
+
+        status_before = self.get_redemption_request_status(ticket)
+        if status_before == AsyncVaultRequestStatus.none:
+            raise UnsupportedVaultSimulation(
+                f"Nara cooldown ticket {ticket.get_request_id()} is no longer active",
+                unsupported_reason="nara_cooldown_ticket_not_active",
+                protocol=self.vault.get_protocol_name(),
+                vault_address=self.vault.address,
+                direction="redeem",
+            )
+        if status_before == AsyncVaultRequestStatus.claimable:
+            return VaultForcedSettlementResult(
+                ticket=ticket,
+                settlement_required=False,
+                status_before=status_before,
+                status_after=status_before,
+            )
+
+        cooldown_timestamp = int(ticket.cooldown_end.replace(tzinfo=datetime.UTC).timestamp())
+        mine(self.web3, timestamp=cooldown_timestamp)
+        status_after = self.get_redemption_request_status(ticket)
+        if status_after != AsyncVaultRequestStatus.claimable:
+            raise UnsupportedVaultSimulation(
+                f"Nara cooldown ticket {ticket.get_request_id()} did not become claimable after advancing to {cooldown_timestamp}",
+                unsupported_reason="nara_cooldown_not_claimable_after_time_advance",
+                protocol=self.vault.get_protocol_name(),
+                vault_address=self.vault.address,
+                direction="redeem",
+            )
+
+        return VaultForcedSettlementResult(
+            ticket=ticket,
+            settlement_required=True,
+            status_before=status_before,
+            status_after=status_after,
+        )
 
     def can_create_deposit_request(self, owner: HexAddress) -> bool:
         """Check NaraUSD+'s current ERC-4626 deposit maximum.

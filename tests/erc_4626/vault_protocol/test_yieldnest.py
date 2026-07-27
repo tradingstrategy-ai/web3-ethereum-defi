@@ -15,6 +15,7 @@ import flaky
 import pytest
 from web3 import Web3
 
+from eth_defi.abi import ZERO_ADDRESS_STR
 from eth_defi.erc_4626.classification import create_vault_instance_autodetect
 from eth_defi.erc_4626.core import ERC4626Feature
 from eth_defi.erc_4626.vault_protocol.yieldnest.deposit_redeem import EXCEEDED_MAX_REDEEM_SELECTOR, YieldNestDepositManager
@@ -25,7 +26,7 @@ from eth_defi.testing.anvil_fork_pool import AnvilForkPool
 from eth_defi.testing.evm_snapshot_fixture import evm_snapshot_revert
 from eth_defi.testing.fork_blocks import ETHEREUM_MIDNIGHT_BLOCK
 from eth_defi.token import USDC_WHALE
-from eth_defi.trace import assert_transaction_success_with_explanation
+from eth_defi.trace import TransactionAssertionError, assert_transaction_success_with_explanation
 from eth_defi.vault.base import VaultTechnicalRisk
 from eth_defi.vault.deposit_redeem import VaultFlowUnavailable
 
@@ -119,12 +120,21 @@ def test_yieldnest_ynrwax_deposit_and_redemption_preflight(web3: Web3, yieldnest
     raw_shares = vault.share_token.fetch_raw_balance_of(owner)
     assert raw_shares == YNRWAX_MIDNIGHT_DEPOSIT_RAW_SHARES
 
-    # Redeeming the freshly deposited position exceeds the vault's redemption
-    # buffer, so the manager refuses it before broadcast with a typed error
+    # The canonical fork has no configured immediate redemption buffer, despite
+    # a substantial USDC balance. A direct redeem also reverts for a single raw
+    # share, proving that the manager's typed preflight reflects the actual
+    # onchain restriction rather than an adapter-only policy.
+    assert vault.vault_contract.functions.buffer().call() == ZERO_ADDRESS_STR
+    max_redeem = vault.vault_contract.functions.maxRedeem(owner).call()
+    assert max_redeem == 0
+    assert manager.can_create_redemption_request(owner) is False
+    direct_redeem_hash = vault.vault_contract.functions.redeem(1, owner, owner).transact({"from": owner, "gas": 1_000_000})
+    with pytest.raises(TransactionAssertionError, match="custom error 0xb8b8b59c"):
+        assert_transaction_success_with_explanation(web3, direct_redeem_hash)
+
+    # The manager refuses the full position before broadcast with a typed error
     # carrying the decoded ExceededMaxRedeem selector, instead of leaking the
     # raw 0xb8b8b59c revert.
-    max_redeem = vault.vault_contract.functions.maxRedeem(owner).call()
-    assert raw_shares > max_redeem
     with pytest.raises(VaultFlowUnavailable) as exc_info:
         manager.create_redemption_request(owner=owner, raw_shares=raw_shares)
     error = exc_info.value
