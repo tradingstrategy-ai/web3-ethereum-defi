@@ -22,7 +22,10 @@ from eth_defi.vault.deposit_redeem import AsyncVaultRequestStatus, VaultFlowUnav
 from eth_defi.vault.historical import VaultHistoricalReadMulticaller
 
 JSON_RPC_ARBITRUM = os.environ.get("JSON_RPC_ARBITRUM")
-pytestmark = pytest.mark.skipif(not JSON_RPC_ARBITRUM, reason="Set JSON_RPC_ARBITRUM to run this test")
+pytestmark = [
+    pytest.mark.skipif(not JSON_RPC_ARBITRUM, reason="Set JSON_RPC_ARBITRUM to run this test"),
+    pytest.mark.xdist_group("fork:arbitrum:gains-375216652"),
+]
 
 
 @pytest.fixture(scope="module")
@@ -46,6 +49,7 @@ def test_gains_features(web3):
 @pytest.mark.slow
 def test_gains_read_data(web3, vault: GainsVault):
     assert vault.name == "gTrade (Gains Network USDC)"
+    assert vault.is_whitelisted_deposit() is False
     # https://arbiscan.io/address/0xBF55C78132ab06a2B217040b7A7F20B5cBD47982#readContract
     assert vault.gains_open_trades_pnl_feed.address == "0xBF55C78132ab06a2B217040b7A7F20B5cBD47982"
     assert vault.fetch_epoch_duration() == datetime.timedelta(seconds=21600)

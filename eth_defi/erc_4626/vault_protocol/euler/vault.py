@@ -10,14 +10,13 @@
 """
 
 import datetime
+import logging
 from decimal import Decimal
 from functools import cached_property
-import logging
 from typing import Iterable
 
-from web3 import Web3
-
 from eth_typing import BlockIdentifier
+from web3 import Web3
 
 from eth_defi.chain import get_chain_name
 from eth_defi.erc_4626.vault import ERC4626HistoricalReader, ERC4626Vault
@@ -25,6 +24,7 @@ from eth_defi.erc_4626.vault_protocol.euler.offchain_metadata import EulerVaultM
 from eth_defi.event_reader.multicall_batcher import EncodedCall, EncodedCallResult
 from eth_defi.types import Percent
 from eth_defi.vault.base import VaultHistoricalRead, VaultHistoricalReader, VaultTechnicalRisk
+from eth_defi.vault.deposit_redeem import PERMISSIONED_HOOK_CHECKS_NOT_PERFORMED_NOTE
 from eth_defi.vault.flag import BAD_FLAGS, get_vault_special_flags
 
 logger = logging.getLogger(__name__)
@@ -257,6 +257,19 @@ class EulerVault(ERC4626Vault):
     TODO: Fees
     """
 
+    whitelist_notes = PERMISSIONED_HOOK_CHECKS_NOT_PERFORMED_NOTE
+
+    def is_whitelisted_deposit(self) -> bool:
+        """Apply the requested whitelist assumption to every Euler EVK vault.
+
+        This deliberately does not inspect optional account-specific hooks.
+        The public export carries that limitation in ``whitelist.notes``.
+
+        :return:
+            Always ``True`` under the current operating assumption.
+        """
+        return True
+
     def get_risk(self) -> VaultTechnicalRisk | None:
         # Check for vault-specific flags (e.g., xUSD exposure) first
         flags = get_vault_special_flags(self.address)
@@ -462,6 +475,19 @@ class EulerEarnVault(ERC4626Vault):
     - Integrator guide: https://docs.euler.finance/developers/euler-earn/integrator-guide/
     - Example vault: https://snowtrace.io/address/0xE1A62FDcC6666847d5EA752634E45e134B2F824B
     """
+
+    whitelist_notes = PERMISSIONED_HOOK_CHECKS_NOT_PERFORMED_NOTE
+
+    def is_whitelisted_deposit(self) -> bool:
+        """Apply the requested whitelist assumption to every EulerEarn vault.
+
+        This deliberately does not inspect optional account-specific hooks.
+        The public export carries that limitation in ``whitelist.notes``.
+
+        :return:
+            Always ``True`` under the current operating assumption.
+        """
+        return True
 
     def get_risk(self) -> VaultTechnicalRisk | None:
         """EulerEarn vaults have negligible risk due to battle-tested infrastructure.

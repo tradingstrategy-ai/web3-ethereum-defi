@@ -23,3 +23,8 @@ that block, ynRWAx minted 9,209,998,609,480,980,927 raw shares, while
 ``ExceededMaxRedeem(owner, 1, 0)``. Consequently the adapter does not advertise
 a redeem capability or invent a queued settlement path until a deterministic
 non-zero-capacity redemption route and receipt are available.
+
+The verified implementation has a public ``BaseVault.deposit`` route gated
+only by the global pause state. The adapter consequently reports a
+permissionless depositor policy; pausing and max-deposit capacity remain
+separate availability signals.

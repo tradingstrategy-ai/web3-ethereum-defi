@@ -478,8 +478,8 @@ class D2Vault(ERC4626Vault):
     """D2 Finance vaults.
 
     - Most vault logic is offchain, proprietary
-    - VaultV1Whitelisted is a wrapper around Hyperliquid trading account
-    - You need to hold a minimum amount of USDC (whitelistedAsset) to be able to deposit
+    - VaultV1Whitelisted is a wrapper around a Hyperliquid trading account
+    - Deposits have asset-holding eligibility conditions but no KYC requirement
     - The vault smart contract does not have visibility to the fees
     - Redemption must happen not during epoch
     - Fees are set and calculated offchain
@@ -492,19 +492,9 @@ class D2Vault(ERC4626Vault):
     - `Docs <https://gitbook.d2.finance/>`__
     - `HYPE++ strategy blog post <https://medium.com/@D2.Finance/hype-capitalizing-on-hyperliquids-launch-396f8665a2c0>`__
 
-    Whitelist function logic:
-
-    .. code-block:: solidity
-
-            modifier onlyWhitelisted() {
-                bool holder = false;
-                if (whitelistAsset != address(0)) {
-                    holder = IERC20(whitelistAsset).balanceOf(msg.sender) > whitelistBalance;
-                }
-                require(whitelisted[msg.sender] || holder, "!whitelisted");
-                _;
-            }
-
+    Despite the contract's historical ``whitelisted`` naming, its balance and
+    schedule conditions do not represent a KYC or manual identity gate. They
+    must not change the public ``deposit_permission`` status.
     """
 
     @cached_property

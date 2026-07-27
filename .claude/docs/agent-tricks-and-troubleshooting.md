@@ -633,6 +633,58 @@ Avoid asking for broad "thoughts" on a large diff. Ask for a scoped review:
 - security or money-movement risks
 - repository instruction compliance
 
+## Grok CLI
+
+Grok CLI is available locally as `grok`. Use its headless single-turn mode for
+an independent review. As with Claude and Codex, do not let a review agent edit
+the worktree.
+
+Verify the installed command and its current flags before changing an existing
+recipe, because Grok CLI releases can change options:
+
+```shell
+grok --help
+grok --version
+```
+
+For a bounded, read-only review, disable memory, web search and subagents. Use
+`streaming-json` so progress is visible, and save the raw stream rather than
+piping it through `tail` or `head`:
+
+```shell
+timeout 900 grok -p "Review the current uncommitted diff for correctness bugs only.
+Do not edit files or run the full test suite. First inspect git status --short,
+git diff --name-only, and targeted diffs. Return findings first with file:line
+references. If there are no high-confidence bugs, say so clearly." \
+  --tools "" \
+  --permission-mode dontAsk \
+  --sandbox read-only \
+  --disable-web-search \
+  --no-memory \
+  --no-subagents \
+  --max-turns 12 \
+  --output-format streaming-json \
+  < /dev/null > /tmp/grok-review.jsonl
+```
+
+Do not use `--always-approve`, `--permission-mode bypassPermissions`, or
+`--fs-write` for a review. Grok 0.2.93 has an internal error when headless mode
+builds the terminal tool (``auto_background_on_timeout`` is incompatible with
+its disabled background setting). Use the toolless mode above and include a
+focused review bundle through `-p`; the `--prompt-file` form was cancelled after
+its planning turn in 0.2.93. For a prepared bundle at
+`/tmp/grok-review-input.txt`, invoke it as
+`grok -p "$(sed -n '1,$p' /tmp/grok-review-input.txt)" ...` without
+`--no-wait-for-background`, because that option cancels multi-turn reasoning
+before findings are returned. Do not request repository inspection until the
+installed version changes. Keep the 15-minute outer deadline and terminate a
+no-output review after checking the raw stream and process state.
+
+If the installed Grok cannot enforce ``--sandbox read-only`` because Bubblewrap
+is unavailable, use a sandbox-free run only for a genuinely toolless review
+(``--tools ""``) with the complete review text embedded in the prompt. Do not
+apply this fallback to a repository-inspecting review.
+
 ## Common failure modes
 
 ### The command looks hung

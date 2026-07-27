@@ -1648,10 +1648,13 @@ def fix_outlier_share_prices(
         abnormal_mask = (group["pct_change_prev"] > max_diff) | (group["pct_change_next"] > max_diff)
 
         group["fixed_share_price"] = np.nan
+        fixed_share_price_col = group.columns.get_loc("fixed_share_price")
 
-        # Print pass, figure out damanged entries
-        for idx in group[abnormal_mask].index:
-            idx_loc = group.index.get_loc(idx)
+        # Work with row positions because timestamp labels are not unique on
+        # high-throughput chains. ``get_loc()`` and ``loc[]`` would otherwise
+        # select every row with the same timestamp.
+        abnormal_positions = np.flatnonzero(abnormal_mask.to_numpy(dtype=bool, na_value=False))
+        for idx_loc in abnormal_positions:
             current_price = group.iloc[idx_loc]["share_price"]
             next_price = group.iloc[idx_loc]["next_price_candidate"]
             prev_price = group.iloc[idx_loc]["prev_price_candidate"]
@@ -1668,11 +1671,12 @@ def fix_outlier_share_prices(
                 # Maybe a genuine crash
                 fixed_price = current_price
 
-            # logger(f"Abnormal share price detected for {vault_id} at index {idx} ({idx_loc}): fixing: {current_price} -> {fixed_price}, prev: {prev_price}, next: {next_price}")
-            group.loc[idx, "fixed_share_price"] = fixed_price
+            group.iat[idx_loc, fixed_share_price_col] = fixed_price
 
         # Apply the fixes
-        group.loc[pd.notna(group["fixed_share_price"]), "share_price"] = group["fixed_share_price"]
+        share_price_col = group.columns.get_loc("share_price")
+        fixed_positions = np.flatnonzero(group["fixed_share_price"].notna().to_numpy(dtype=bool, na_value=False))
+        group.iloc[fixed_positions, share_price_col] = group.iloc[fixed_positions, fixed_share_price_col].to_numpy()
         # group["id"] = vault_id
 
         # Don't export extra columns, only needed for calculations and debugging
