@@ -76,8 +76,9 @@ The method rejects every non-Anvil provider with
 Pass the request and the original ``VaultFlowUnavailable`` to
 ``validate_closed_deposit_request_with_guard()``. It submits each returned call
 to ``GuardV0.validateCall()`` and returns closure context plus the independently
-validated target, calldata and selector evidence. Never broadcast this request
-to the closed vault.
+validated target, calldata and selector evidence. The closure must identify the
+same vault and owner as the validation request. Never broadcast this request to
+the closed vault.
 
 This path requires an authoritative, typed manager closure result; a generic
 ERC-4626 ``maxDeposit() == 0`` response is capacity guidance, not proof that a

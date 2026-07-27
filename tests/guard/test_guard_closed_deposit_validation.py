@@ -20,6 +20,7 @@ from eth_defi.deploy import GUARD_LIBRARIES, deploy_contract
 from eth_defi.erc_4626.classification import create_vault_instance_autodetect
 from eth_defi.erc_4626.vault_protocol.d2.vault import D2DepositManager, D2Vault
 from eth_defi.provider.anvil import AnvilLaunch, fund_erc20_on_anvil
+from eth_defi.provider.fallback import ExtraValueError
 from eth_defi.testing.anvil_fork_pool import AnvilForkPool
 from eth_defi.testing.evm_snapshot_fixture import evm_snapshot_revert
 from eth_defi.trace import assert_transaction_success_with_explanation
@@ -89,7 +90,7 @@ def test_closed_d2_deposit_calldata_passes_guard_validation_without_broadcast(we
     shares_before = vault.share_token.fetch_raw_balance_of(simple_vault.address)
     validation_request = manager.create_deposit_request_for_guard_validation(simple_vault.address, raw_amount)
     assert len(validation_request.funcs) == 1
-    with pytest.raises(Exception, match="Target not allowed"):
+    with pytest.raises(ExtraValueError, match="Target not allowed"):
         validate_closed_deposit_request_with_guard(validation_request, closure, guard, asset_manager)
 
     whitelist_hash = guard.functions.whitelistERC4626(vault.address, "Allow D2 HYPE++ ERC-4626 deposit").transact({"from": deployer})

@@ -899,7 +899,7 @@ class ClosedDepositGuardValidation:
     #: Safe/SimpleVault used as deposit owner and receiver.
     owner: HexAddress
 
-    #: Raw denomination amount represented by each validated deposit call.
+    #: Raw denomination amount requested for the validated deposit flow.
     raw_amount: int
 
     #: Human-readable closure reason from the manager preflight.
@@ -940,10 +940,13 @@ def validate_closed_deposit_request_with_guard(
         Closure context plus every independently GuardV0-accepted target and
         selector, suitable for a consumer's persisted outcome evidence.
     :raise ValueError:
-        If ``closure`` is not a typed closed or paused deposit result.
+        If ``closure`` is not a matching typed closed or paused deposit result.
     """
     if closure.direction != "deposit" or closure.preflight_result not in {"deposit_closed", "deposit_paused"}:
         message = "Closed-deposit Guard validation requires a typed deposit_closed or deposit_paused preflight"
+        raise ValueError(message)
+    if closure.vault_address != request.vault.address or closure.caller != request.owner:
+        message = "Closed-deposit Guard validation request must match the preflight vault and owner"
         raise ValueError(message)
 
     encoded_calls: list[GuardV0ValidationCall] = []
