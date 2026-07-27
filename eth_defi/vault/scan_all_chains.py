@@ -42,6 +42,7 @@ from eth_defi.apex.vault_data_export import merge_into_vault_database as apex_me
 from eth_defi.chain import get_chain_name
 from eth_defi.compat import native_datetime_utc_now
 from eth_defi.core3.constants import resolve_core3_database_path
+from eth_defi.core3.mappings import CORE3_MAPPINGS
 from eth_defi.core3.scanner import scan_projects as core3_scan_projects
 from eth_defi.core3.session import create_core3_session
 from eth_defi.xerberus.constants import resolve_xerberus_api_email, resolve_xerberus_database_path
@@ -107,6 +108,29 @@ CURRENCY_RATES_PROTOCOL_NAME = "CurrencyRates"
 CURRENCY_RATES_DEFAULT_CYCLE = datetime.timedelta(hours=24)
 
 logger = logging.getLogger(__name__)
+
+
+def resolve_core3_scan_scope(scan_scope: str) -> set[str] | None:
+    """Resolve a Core3 project scan scope to an optional slug filter.
+
+    The production export only consumes projects referenced by
+    :data:`eth_defi.core3.mappings.CORE3_MAPPINGS`. ``mapped`` therefore
+    avoids detail and history calls for the rest of the Core3 catalogue,
+    while ``all`` remains available for deliberate catalogue refreshes.
+
+    :param scan_scope:
+        Either ``"mapped"`` or ``"all"``. Whitespace and case are ignored.
+    :return:
+        Mapped Core3 slugs for ``"mapped"``, or ``None`` for ``"all"``.
+    :raises ValueError:
+        If the scope is not supported.
+    """
+    scope = scan_scope.strip().lower()
+    if scope == "all":
+        return None
+    if scope != "mapped":
+        raise ValueError(f"Unsupported CORE3_SCAN_SCOPE {scan_scope!r}; expected 'all' or 'mapped'")
+    return {slug for slug in CORE3_MAPPINGS.values() if slug is not None}
 
 
 def parse_duration(s: str) -> datetime.timedelta:
@@ -1553,7 +1577,8 @@ def scan_apex_fn(
 def scan_core3_fn(
     core3_db_path: Path,
     max_workers: int = 8,
-    fetch_sections: bool = True,
+    fetch_sections: bool = False,
+    scan_scope: str = "mapped",
 ) -> ChainResult:
     """Scan Core3 risk intelligence enrichment data.
 
@@ -1567,6 +1592,9 @@ def scan_core3_fn(
         Number of parallel workers for Core3 project API reads.
     :param fetch_sections:
         Whether to fetch detailed Core3 section endpoints.
+    :param scan_scope:
+        ``"mapped"`` scans only Core3 projects used by the vault export.
+        ``"all"`` scans the complete Core3 catalogue.
     :return:
         Scan result with project count and duration.
     """
@@ -1576,11 +1604,13 @@ def scan_core3_fn(
 
     try:
         session = create_core3_session(pool_maxsize=max(32, max_workers))
+        project_slugs = resolve_core3_scan_scope(scan_scope)
         db = core3_scan_projects(
             session=session,
             db_path=core3_db_path,
             max_workers=max_workers,
             fetch_sections=fetch_sections,
+            project_slugs=project_slugs,
         )
         result.vault_count = db.get_project_count()
         result.vault_scan_ok = True
@@ -2067,7 +2097,8 @@ def run_scan_tick(
     cycle_intervals: dict[str, str] | None = None,
     on_item_success: Callable[[str], None] | None = None,
     core3_db_path: Path | None = None,
-    core3_fetch_sections: bool = True,
+    core3_fetch_sections: bool = False,
+    core3_scan_scope: str = "mapped",
     hypersync_concurrency: int | None = None,
     feed_db_path: Path | None = None,
     currency_api_db_path: Path | None = None,
@@ -2102,6 +2133,10 @@ def run_scan_tick(
 
     :param core3_fetch_sections:
         Whether Core3 should fetch section detail endpoints.
+
+    :param core3_scan_scope:
+        ``"mapped"`` limits Core3 API detail and history calls to projects
+        used by the vault export. ``"all"`` refreshes the complete catalogue.
 
     :param feed_db_path:
         Path to the vault post feed DuckDB used to enrich the top-vaults
@@ -2405,10 +2440,11 @@ def run_scan_tick(
             core3_db_path=core3_db_path or resolve_core3_database_path(),
             max_workers=core3_max_workers,
             fetch_sections=core3_fetch_sections,
+            scan_scope=core3_scan_scope,
         )
         r = results[CORE3_PROTOCOL_NAME]
         if r.status == "success":
-            logger.info("Core3: SUCCESS - %d projects", r.vault_count or 0)
+            logger.info("Core3: SUCCESS - %d stored projects", r.vault_count or 0)
             if on_item_success:
                 on_item_success(CORE3_PROTOCOL_NAME)
         elif r.status == "failed":
@@ -2639,7 +2675,9 @@ def main():
     # of 10 when no value is provided.
     hypersync_concurrency = int(os.environ.get("HYPERSYNC_CONCURRENCY", "1"))
     core3_max_workers = int(os.environ.get("CORE3_MAX_WORKERS", "8"))
-    core3_fetch_sections = os.environ.get("CORE3_FETCH_SECTIONS", "true").lower() == "true"
+    core3_fetch_sections = os.environ.get("CORE3_FETCH_SECTIONS", "false").lower() == "true"
+    core3_scan_scope = os.environ.get("CORE3_SCAN_SCOPE", "mapped").strip().lower()
+    resolve_core3_scan_scope(core3_scan_scope)
     xerberus_fetch_vault_list = os.environ.get("XERBERUS_FETCH_VAULT_LIST", "true").lower() == "true"
     xerberus_fetch_reports = os.environ.get("XERBERUS_FETCH_REPORTS", "true").lower() == "true"
     currency_api_max_workers = int(os.environ.get("CURRENCY_API_MAX_WORKERS", "8"))
@@ -2777,6 +2815,8 @@ def main():
     logger.info("LEAD_DISCOVERY_STATE_TIMEOUT: %s", lead_discovery_state_timeout)
     if core3_fetch_sections:
         logger.info("CORE3_FETCH_SECTIONS: true")
+    if core3_scan_scope != "mapped":
+        logger.info("CORE3_SCAN_SCOPE: %s", core3_scan_scope)
     logger.debug("=" * 80)
 
     # Build chain configurations
@@ -2893,6 +2933,7 @@ def main():
         hypercore_mode=hypercore_mode,
         core3_db_path=core3_db_path,
         core3_fetch_sections=core3_fetch_sections,
+        core3_scan_scope=core3_scan_scope,
         xerberus_db_path=xerberus_db_path,
         xerberus_fetch_vault_list=xerberus_fetch_vault_list,
         xerberus_fetch_reports=xerberus_fetch_reports,
