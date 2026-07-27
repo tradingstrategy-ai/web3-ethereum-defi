@@ -64,6 +64,23 @@ pool with ``GuardV0.whitelistERC4626()``. It then confirms that the manager's
 approval destination is allowed, not just that the pool address happened to be
 allowed on this deployment.
 
+### Closed-deposit Guard validation
+
+When a manager raises a typed ``deposit_closed`` or ``deposit_paused``
+preflight result, a simulation consumer may use
+``create_deposit_request_for_guard_validation(owner, raw_amount)`` on an Anvil
+fork. It returns the manager's normal deposit calldata with temporary
+capacity/balance checks omitted, while preserving protocol account admission.
+Submit each returned call to ``GuardV0.validateCall()`` and retain the original
+closure evidence with the validation result. Never broadcast this request to
+the closed vault.
+
+This is deliberately not an approval test. Do not construct an ERC-20 approval
+or try to establish approval-before-deposit ordering in this validation mode:
+``validateCall()`` assesses every policy-relevant call independently, and the
+normal live simulation remains responsible for approvals, call ordering,
+receipts and balance deltas.
+
 ## GuardV0 updates
 
 Every function emitted by a supported manager must have an explicit GuardV0

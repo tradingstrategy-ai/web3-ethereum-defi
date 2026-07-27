@@ -59,6 +59,10 @@ contract GuardMockERC20 {
 }
 
 contract MockERC4626Vault {
+    /// Closed-vault GuardV0 tests pass manager-generated deposit calldata to
+    /// validateCall() only. They intentionally do not model ERC-20 approval
+    /// checks or approval-before-deposit ordering: GuardV0 validates each call
+    /// independently, while a closed vault must never receive a broadcast.
     GuardMockERC20 public immutable assetToken;
 
     mapping(address => uint256) public balanceOf;

@@ -1156,6 +1156,43 @@ class VaultDepositManager(ABC):
             If the deposit cannot be safely prepared before broadcast.
         """
 
+    def create_deposit_request_for_guard_validation(
+        self,
+        owner: HexAddress,
+        raw_amount: int,
+    ) -> DepositRequest:
+        """Build deposit calldata for a closed-vault GuardV0 policy check.
+
+        This Anvil-only diagnostic path is for a consumer that has already
+        received a typed ``deposit_closed`` or ``deposit_paused`` preflight
+        result. It skips temporary capacity and token-balance checks, but does
+        not bypass the manager's protocol account-admission check. The returned
+        calls must be supplied individually to ``GuardV0.validateCall()``;
+        callers must never broadcast them to the closed protocol vault.
+
+        Approval validation and approval-before-deposit ordering are
+        intentionally outside this helper. GuardV0 validates each
+        policy-relevant call independently, while normal live simulation still
+        performs approval and receipt checks before a deposit is broadcast.
+
+        :param owner:
+            SimpleVaultV0/Safe address that would own the shares.
+        :param raw_amount:
+            Denomination-token amount in the selected asset's raw unit.
+        :return:
+            Manager-generated deposit request suitable only for isolated
+            GuardV0 validation.
+        :raise WhitelistingRequired:
+            If the protocol's account-admission policy excludes ``owner``.
+        """
+        return self.create_deposit_request(
+            owner=owner,
+            to=owner,
+            raw_amount=raw_amount,
+            check_max_deposit=False,
+            check_enough_token=False,
+        )
+
     @abstractmethod
     def create_redemption_request(
         self,

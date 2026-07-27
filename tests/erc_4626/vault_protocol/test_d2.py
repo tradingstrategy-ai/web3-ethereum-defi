@@ -58,6 +58,7 @@ def test_d2(
         manager.estimate_deposit(web3.eth.accounts[0], Decimal("1"))
     assert exc_info.value.direction == "deposit"
     assert exc_info.value.phase == "preflight"
+    assert exc_info.value.preflight_result == "deposit_closed"
     assert exc_info.value.next_open == datetime.datetime(2025, 11, 7, 8, 0)
     with pytest.raises(VaultFlowUnavailable, match=DEPOSIT_CLOSED_FUNDING_PHASE):
         manager.create_deposit_request(web3.eth.accounts[0], None, None, 1, True, True)

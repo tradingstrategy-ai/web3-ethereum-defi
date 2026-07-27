@@ -15,6 +15,7 @@ from eth_defi.erc_4626.deposit_probe import DEFAULT_STATUS_PATH, VaultDepositPro
 from eth_defi.erc_4626.deposit_redeem import ERC4626DepositManager
 from eth_defi.erc_4626.vault import CERTIFIED_SYNCHRONOUS_DEPOSIT_MANAGER_CLASSES, ERC4626Vault
 from eth_defi.erc_4626.vault_protocol.csigma.deposit_redeem import CSUPERIOR_V2_POOL_ADDRESS, CsigmaDepositManager
+from eth_defi.erc_4626.vault_protocol.d2.vault import D2DepositManager
 from eth_defi.erc_4626.vault_protocol.gains.deposit_redeem import GainsDepositManager, GainsRedemptionTicket
 from eth_defi.erc_4626.vault_protocol.kiln.vault import KilnVault
 from eth_defi.erc_4626.vault_protocol.lagoon.vault import LagoonVault
@@ -270,6 +271,72 @@ def test_generic_redemption_manager_accepts_raw_shares(monkeypatch: pytest.Monke
     )
     assert request.raw_shares == 123
     assert request.funcs == [function]
+
+
+def test_guard_validation_request_preserves_admission_but_skips_temporary_checks(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Closed-vault validation omits approval/order checks but not account admission.
+
+    ``GuardV0.validateCall()`` checks each exact manager-generated deposit call
+    independently. It cannot prove an ERC-20 approval was executed first, and
+    doing that work for a known-closed vault would not improve the simulation.
+    The normal broadcast path remains responsible for approval and balance
+    evidence; this path must still retain the protocol whitelist check.
+    """
+    vault = object.__new__(ERC4626Vault)
+    manager = ERC4626DepositManager(vault)
+    owner = "0x0000000000000000000000000000000000000001"
+    function = object()
+    observed: dict[str, object] = {}
+
+    def check_deposit_whitelist(received_owner: str) -> None:
+        observed["owner"] = received_owner
+
+    def deposit_request(*_args: object, **kwargs: object) -> object:
+        observed.update(kwargs)
+        return function
+
+    monkeypatch.setattr(manager, "check_deposit_whitelist", check_deposit_whitelist)
+    monkeypatch.setattr(erc_4626_deposit_redeem, "deposit_4626", deposit_request)
+
+    request = manager.create_deposit_request_for_guard_validation(owner, raw_amount=123)
+
+    assert observed["owner"] == owner
+    assert observed["check_max_deposit"] is False
+    assert observed["check_enough_token"] is False
+    assert request.funcs == [function]
+    assert request.raw_amount == 123
+
+
+def test_d2_guard_validation_request_bypasses_only_the_closed_epoch(monkeypatch: pytest.MonkeyPatch) -> None:
+    """D2 generates GuardV0 calldata without opening its funding epoch.
+
+    This verifies the dedicated method rather than a general bypass flag. The
+    inherited request builder continues to enforce D2 account admission; only
+    the temporary D2 epoch/capacity/balance gates are omitted for a
+    non-broadcast GuardV0 policy check.
+    """
+    manager = object.__new__(D2DepositManager)
+    owner = "0x0000000000000000000000000000000000000001"
+    observed: dict[str, object] = {}
+    expected_request = object()
+
+    def parent_create_deposit_request(self: ERC4626DepositManager, **kwargs: object) -> object:
+        assert self is manager
+        observed.update(kwargs)
+        return expected_request
+
+    monkeypatch.setattr(ERC4626DepositManager, "create_deposit_request", parent_create_deposit_request)
+
+    request = manager.create_deposit_request_for_guard_validation(owner, raw_amount=123)
+
+    assert request is expected_request
+    assert observed == {
+        "owner": owner,
+        "to": owner,
+        "raw_amount": 123,
+        "check_max_deposit": False,
+        "check_enough_token": False,
+    }
 
 
 def test_probe_records_preflight_refusal_without_aborting() -> None:
