@@ -71,9 +71,18 @@ preflight result, a simulation consumer may use
 ``create_deposit_request_for_guard_validation(owner, raw_amount)`` on an Anvil
 fork. It returns the manager's normal deposit calldata with temporary
 capacity/balance checks omitted, while preserving protocol account admission.
-Submit each returned call to ``GuardV0.validateCall()`` and retain the original
-closure evidence with the validation result. Never broadcast this request to
-the closed vault.
+The method rejects every non-Anvil provider with
+``UnsupportedVaultSimulation(unsupported_reason="anvil_provider_required")``.
+Pass the request and the original ``VaultFlowUnavailable`` to
+``validate_closed_deposit_request_with_guard()``. It submits each returned call
+to ``GuardV0.validateCall()`` and returns closure context plus the independently
+validated target, calldata and selector evidence. Never broadcast this request
+to the closed vault.
+
+This path requires an authoritative, typed manager closure result; a generic
+ERC-4626 ``maxDeposit() == 0`` response is capacity guidance, not proof that a
+vault is closed. Add a protocol-specific closure reader and fixed-block test
+before exposing this validation mode for another vault family.
 
 This is deliberately not an approval test. Do not construct an ERC-20 approval
 or try to establish approval-before-deposit ordering in this validation mode:

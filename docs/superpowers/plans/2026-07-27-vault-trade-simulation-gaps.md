@@ -204,16 +204,18 @@ adapter's permanent unsupported-flow boundary. Do not add a general production
 deposit calldata raises
 `UnsupportedVaultSimulation` with a stable reason.
 
-Extract or expose the existing guarded probe mechanics as a reusable eth-defi
-test helper. It deploys/uses the real `SimpleVaultV0` and `GuardV0`, applies the
-same protocol configuration helper used by production setup, encodes every
-manager deposit-request function, and calls `GuardV0.validateCall()` on each as
-the delegated asset manager—not governance. Return structured validation
-evidence containing the mode, bypassed closure reason and every independently
-validated target/selector. This is simulated Guard contract compatibility under
-the production configuration procedure; it is not evidence about the current
-configuration of an already deployed production Guard. Do not broadcast a
-protocol deposit to a known closed vault.
+Expose the guarded probe mechanics as a reusable eth-defi helper. It accepts a
+manager-generated validation request, its original typed closure and the
+consumer-selected GuardV0-compatible contract, encodes every request function,
+and calls `GuardV0.validateCall()` on each as the delegated asset manager—not
+governance. It returns structured validation evidence containing the closure
+reason and every independently validated target, calldata and selector. The
+consumer remains responsible for selecting its actual primary or satellite
+`TradingStrategyModuleV0` and corresponding Guard configuration; eth-defi must
+not guess that deployment topology. This is simulated Guard contract
+compatibility under the selected configuration procedure, not evidence about a
+previously deployed production Guard. Do not broadcast a protocol deposit to a
+known closed vault.
 
 Approval validation and approval-before-deposit ordering are deliberately out
 of scope. They add complexity without improving this adapter/Guard call-compatibility
@@ -223,11 +225,14 @@ test module and fixture docstrings, and to comments in any protocol-shaped mock
 smart contracts used by those tests. The tests validate only the adapter's
 deposit calls; they do not construct, validate or order ERC-20 approvals.
 
-Implement this narrowly for standard ERC-4626/Yearn `maxDeposit=0`, D2 phase
-gates, Plutus admin closures, cSigma pauses and 40acres capacity/pause states,
-then add another protocol only after its manager can guarantee equivalent
-calldata. A missing Guard whitelist, wrong asset, wrong receiver or rejected
-deposit target/selector must fail validation and cannot produce the new outcome.
+Implement this narrowly for D2 phase gates, Plutus admin closures, cSigma pauses
+and 40acres capacity/pause states, then add another protocol only after its
+manager can guarantee equivalent calldata. Do **not** treat a standard
+ERC-4626/Yearn `maxDeposit=0` result as a closure: it is ambiguous capacity
+guidance. Add a Yearn path only after a verified shutdown/pause signal gives a
+typed closure result at a fixed production address. A missing Guard whitelist,
+wrong asset, wrong receiver or rejected deposit target/selector must fail
+validation and cannot produce the new outcome.
 
 Trade-executor detects and records the live closure, then invokes this path
 only during explicit Anvil simulation. It emits
@@ -398,10 +403,12 @@ exception mapping in the same pull request.
   production-equivalent deposit calldata.
 - Every true Anvil settlement capability has a target-specific state-transition
   proof; every unsupported async route is false-capability with a stable reason.
-- A closed standard ERC-4626/Yearn vault plus at least one D2, Plutus or cSigma
-  closure has a fixed-fork GuardV0 test proving production-equivalent calldata
-  is accepted from the asset-manager address; a negative whitelist/receiver or
-  asset case proves the new outcome cannot bypass GuardV0.
+- At least one D2, Plutus or cSigma closure has a fixed-fork GuardV0 test
+  proving production-equivalent calldata is accepted from the asset-manager
+  address; a negative protocol-admission or Guard-whitelist case proves the new
+  outcome cannot bypass either control. Add a closed Yearn/ERC-4626 case only
+  when a verified shutdown/pause signal, rather than ambiguous `maxDeposit=0`,
+  supplies the typed closure evidence.
 - The closed-deposit GuardV0 tests and protocol-shaped mock contracts explicitly
   document that ERC-20 approval validation and approval/deposit ordering are
   outside the test contract and are not asserted.

@@ -1,6 +1,6 @@
 # 1.2
 
-- feat: Add closed-vault GuardV0 deposit-calldata validation, preserving account admission while keeping approvals and call ordering out of non-broadcast simulation, and record explicit share/cash balance deltas for successful guarded vault probes (2026-07-27)
+- feat: Add Anvil-only closed-vault GuardV0 deposit-calldata validation with structured closure/call evidence, preserve account admission while keeping approvals and call ordering out of non-broadcast simulation, and record explicit share/cash balance deltas for successful guarded vault probes (2026-07-27)
 - feat: Add hardcoded ShiftVault support for Base and Arbitrum, including TVL-feed valuation, historical reads and safe request-and-batch flow handling (2026-07-27)
 
 - fix: Build a private multicall reader in `detect_vault_features()` instead of `read_multicall_chunked()`, which memoises one reader per chain id in a thread-local — an Anvil-fork reader created by an earlier test was silently reused for a later live-RPC call on the same chain, causing `BlockOutOfRangeError` (2026-07-25)

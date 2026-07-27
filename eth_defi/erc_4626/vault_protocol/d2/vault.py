@@ -206,6 +206,7 @@ class D2DepositManager(ERC4626DepositManager):
         :raise WhitelistingRequired:
             If D2 account admission excludes ``owner``.
         """
+        self._assert_anvil_guard_validation()
         return ERC4626DepositManager.create_deposit_request(
             self,
             owner=owner,
