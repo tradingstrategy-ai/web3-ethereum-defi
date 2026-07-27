@@ -157,7 +157,7 @@ def scan_leads(
         existing_db = VaultDatabase.read(vault_db_file)
         assert type(existing_db) == VaultDatabase, f"Got: {type(existing_db)}: {existing_db}"
 
-    previous_end_block = existing_db.last_scanned_block.get(chain_id)
+    last_scanned_block = existing_db.last_scanned_block.get(chain_id)
 
     if start_block is None:
         start_block = existing_db.get_chain_start_block(web3.eth.chain_id)
@@ -202,11 +202,9 @@ def scan_leads(
     # so we get information which address contains which kind of a vault
     report = vault_discover.scan_vaults(start_block, end_block)
     end_block = report.end_block
-    if end_block <= start_block:
-        message = f"Vault lead discovery did not receive a scannable block range for chain {chain_id}: start={start_block}, received={end_block}"
-        raise RuntimeError(message)
-    if previous_end_block is not None and end_block <= previous_end_block:
-        message = f"Vault lead discovery cursor regressed or did not advance for chain {chain_id}: persisted={previous_end_block}, received={end_block}"
+    minimum_end_block = max(start_block, last_scanned_block or 0)
+    if end_block <= minimum_end_block:
+        message = f"Vault lead discovery did not advance past its scan range for chain {chain_id}: minimum={minimum_end_block}, received={end_block}"
         raise RuntimeError(message)
     vault_detections = list(report.detections.values())
 
