@@ -151,6 +151,9 @@ VAULT_PROTOCOL_RISK_MATRIX = {
     "Teller": VaultTechnicalRisk.severe,
     "Deltr": VaultTechnicalRisk.dangerous,
     "Upshift": VaultTechnicalRisk.severe,
+    # Shift uses a privileged executor and a TVL-feed price source; public
+    # deposit/redemption lifecycle support remains intentionally unavailable.
+    "Shift": VaultTechnicalRisk.severe,
     "Sky": VaultTechnicalRisk.negligible,
     "Maple": VaultTechnicalRisk.negligible,
     "Centrifuge": VaultTechnicalRisk.negligible,
