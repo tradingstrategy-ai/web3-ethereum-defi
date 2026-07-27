@@ -69,8 +69,12 @@ allowed on this deployment.
 When a manager raises a typed ``deposit_closed`` or ``deposit_paused``
 preflight result, a simulation consumer may use
 ``create_deposit_request_for_guard_validation(owner, raw_amount)`` on an Anvil
-fork. It returns the manager's normal deposit calldata with temporary
-capacity/balance checks omitted, while preserving protocol account admission.
+fork **only where the selected protocol manager explicitly implements it**.
+The base manager raises a typed unsupported result because a generic
+``deposit_closed`` label can represent a capacity restriction rather than a
+temporary closure. A supported manager returns normal deposit calldata with
+temporary availability checks omitted while preserving protocol account
+admission.
 The method rejects every non-Anvil provider with
 ``UnsupportedVaultSimulation(unsupported_reason="anvil_provider_required")``.
 Pass the request and the original ``VaultFlowUnavailable`` to

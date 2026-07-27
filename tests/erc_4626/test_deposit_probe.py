@@ -274,40 +274,20 @@ def test_generic_redemption_manager_accepts_raw_shares(monkeypatch: pytest.Monke
     assert request.funcs == [function]
 
 
-def test_guard_validation_request_preserves_admission_but_skips_temporary_checks(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Closed-vault validation omits approval/order checks but not account admission.
-
-    ``GuardV0.validateCall()`` checks each exact manager-generated deposit call
-    independently. It cannot prove an ERC-20 approval was executed first, and
-    doing that work for a known-closed vault would not improve the simulation.
-    The normal broadcast path remains responsible for approval and balance
-    evidence; this path must still retain the protocol whitelist check.
-    """
+def test_guard_validation_request_is_protocol_opt_in(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Generic ERC-4626 capacity cannot authorise a closed-deposit bypass."""
     vault = object.__new__(ERC4626Vault)
     vault.web3 = object()
+    vault.spec = VaultSpec(chain_id=1, vault_address="0x0000000000000000000000000000000000000001")
+    monkeypatch.setattr(vault, "get_protocol_name", lambda: "Example")
     manager = ERC4626DepositManager(vault)
     owner = "0x0000000000000000000000000000000000000001"
-    function = object()
-    observed: dict[str, object] = {}
-
-    def check_deposit_whitelist(received_owner: str) -> None:
-        observed["owner"] = received_owner
-
-    def deposit_request(*_args: object, **kwargs: object) -> object:
-        observed.update(kwargs)
-        return function
-
-    monkeypatch.setattr(manager, "check_deposit_whitelist", check_deposit_whitelist)
     monkeypatch.setattr(manager, "_assert_anvil_guard_validation", lambda: None)
-    monkeypatch.setattr(erc_4626_deposit_redeem, "deposit_4626", deposit_request)
 
-    request = manager.create_deposit_request_for_guard_validation(owner, raw_amount=123)
+    with pytest.raises(UnsupportedVaultSimulation) as exc_info:
+        manager.create_deposit_request_for_guard_validation(owner, raw_amount=123)
 
-    assert observed["owner"] == owner
-    assert observed["check_max_deposit"] is False
-    assert observed["check_enough_token"] is False
-    assert request.funcs == [function]
-    assert request.raw_amount == 123
+    assert exc_info.value.unsupported_reason == "closed_deposit_guard_validation_not_implemented"
 
 
 def test_d2_guard_validation_request_bypasses_only_the_closed_epoch(monkeypatch: pytest.MonkeyPatch) -> None:

@@ -106,6 +106,30 @@ def test_closed_d2_deposit_calldata_passes_guard_validation_without_broadcast(we
     assert evidence.calls[0].target == vault.address
     assert evidence.calls[0].selector == bytes.fromhex("6e553f65")
 
+    mismatched_closure = VaultFlowUnavailable(
+        closure.reason,
+        protocol=closure.protocol,
+        vault_address=vault.address,
+        caller=deployer,
+        direction="deposit",
+        phase="preflight",
+        preflight_result="deposit_closed",
+    )
+    with pytest.raises(ValueError, match="must match the preflight vault and owner"):
+        validate_closed_deposit_request_with_guard(validation_request, mismatched_closure, guard, asset_manager)
+
+    non_deposit_closure = VaultFlowUnavailable(
+        closure.reason,
+        protocol=closure.protocol,
+        vault_address=vault.address,
+        caller=simple_vault.address,
+        direction="redeem",
+        phase="preflight",
+        preflight_result="deposit_closed",
+    )
+    with pytest.raises(ValueError, match="requires a typed deposit_closed or deposit_paused"):
+        validate_closed_deposit_request_with_guard(validation_request, non_deposit_closure, guard, asset_manager)
+
     assert vault.denomination_token.fetch_raw_balance_of(simple_vault.address) == cash_before
     assert vault.share_token.fetch_raw_balance_of(simple_vault.address) == shares_before
 

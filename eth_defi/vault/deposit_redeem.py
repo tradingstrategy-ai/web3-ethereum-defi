@@ -1289,15 +1289,11 @@ class VaultDepositManager(ABC):
 
         This Anvil-only diagnostic path is for a consumer that has already
         received a typed ``deposit_closed`` or ``deposit_paused`` preflight
-        result. It skips temporary capacity and token-balance checks, but does
-        not bypass the manager's protocol account-admission check. The returned
-        calls must be supplied individually to ``GuardV0.validateCall()``;
-        callers must never broadcast them to the closed protocol vault.
-
-        Approval validation and approval-before-deposit ordering are
-        intentionally outside this helper. GuardV0 validates each
-        policy-relevant call independently, while normal live simulation still
-        performs approval and receipt checks before a deposit is broadcast.
+        result. Adapters must override it only after proving that their typed
+        result represents a temporary vault closure rather than a capacity or
+        amount restriction. The returned calls must be supplied individually to
+        ``GuardV0.validateCall()``; callers must never broadcast them to the
+        closed protocol vault.
 
         :param owner:
             SimpleVaultV0/Safe address that would own the shares.
@@ -1306,16 +1302,19 @@ class VaultDepositManager(ABC):
         :return:
             Manager-generated deposit request suitable only for isolated
             GuardV0 validation.
-        :raise WhitelistingRequired:
-            If the protocol's account-admission policy excludes ``owner``.
+        :raise UnsupportedVaultSimulation:
+            Unless the protocol-specific manager implements this diagnostic
+            path.
         """
         self._assert_anvil_guard_validation()
-        return self.create_deposit_request(
-            owner=owner,
-            to=owner,
-            raw_amount=raw_amount,
-            check_max_deposit=False,
-            check_enough_token=False,
+        reason = f"{self.__class__.__name__} has no proven closed-deposit Guard validation path for owner {owner} and raw amount {raw_amount}"
+        raise UnsupportedVaultSimulation(
+            reason,
+            unsupported_reason="closed_deposit_guard_validation_not_implemented",
+            protocol=self.vault.get_protocol_name(),
+            vault_address=self.vault.address,
+            direction="deposit",
+            phase="guard_validation",
         )
 
     def _assert_anvil_guard_validation(self) -> None:

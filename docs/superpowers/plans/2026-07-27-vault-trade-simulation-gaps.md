@@ -225,9 +225,12 @@ test module and fixture docstrings, and to comments in any protocol-shaped mock
 smart contracts used by those tests. The tests validate only the adapter's
 deposit calls; they do not construct, validate or order ERC-20 approvals.
 
-Implement this narrowly for D2 phase gates, Plutus admin closures, cSigma pauses
-and 40acres capacity/pause states, then add another protocol only after its
-manager can guarantee equivalent calldata. Do **not** treat a standard
+Implement this narrowly for D2 phase gates, then add another protocol only
+after its manager can guarantee equivalent calldata and distinguish a temporary
+closure from an amount/capacity restriction. Do **not** use the path for cSigma
+or 40acres capacity states merely because their current preflight label says
+``deposit_closed``; their capacity evidence is not a temporary closure. Do
+**not** treat a standard
 ERC-4626/Yearn `maxDeposit=0` result as a closure: it is ambiguous capacity
 guidance. Add a Yearn path only after a verified shutdown/pause signal gives a
 typed closure result at a fixed production address. A missing Guard whitelist,
