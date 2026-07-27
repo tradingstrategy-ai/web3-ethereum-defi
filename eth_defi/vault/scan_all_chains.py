@@ -465,7 +465,7 @@ class ChainResult:
     #: Hours remaining until this item is next due (for "not due" items)
     next_due_in_hours: float | None = None
 
-    #: Whether the lead-discovery cache skipped a full discovery refresh.
+    #: Whether the lead-discovery cache skipped an incremental discovery and metadata refresh.
     lead_discovery_cache_hit: bool | None = None
 
 
@@ -519,7 +519,7 @@ def scan_vaults_for_chain(
     :param max_workers: Number of parallel workers
     :param vault_db_path: Path to the vault database pickle
     :param hypersync_concurrency: Hypersync stream concurrency limit
-    :param lead_discovery_state_timeout: Maximum cache age before a full lead refresh.
+    :param lead_discovery_state_timeout: Maximum cache age before an incremental lead and metadata refresh.
     :param force_lead_discovery: Bypass a valid cache for this invocation.
     :return: Tuple of (success, metrics_dict)
     """
@@ -561,7 +561,7 @@ def scan_vaults_for_chain(
             chain_rows = [row for row in existing_db.rows.values() if row["_detection_data"].chain == chain_id]
             last_block = existing_db.last_scanned_block[chain_id]
             logger.info(
-                "Lead discovery cache hit for chain %d: state=%s, age=%s, last full scan block=%d, timeout=%s, signature=%s",
+                "Lead discovery cache hit for chain %d: state=%s, age=%s, last refresh block=%d, timeout=%s, signature=%s",
                 chain_id,
                 state_path,
                 cache_now - state.completed_at,
@@ -580,7 +580,7 @@ def scan_vaults_for_chain(
             }
 
         logger.info(
-            "Lead discovery cache miss for chain %d: %s; starting full discovery with signature %s",
+            "Lead discovery cache miss for chain %d: %s; refreshing persisted vault classifications and metadata from the discovery cursor with signature %s",
             chain_id,
             cache_miss_reason,
             signature,
@@ -596,9 +596,11 @@ def scan_vaults_for_chain(
             max_display_entries=100,
             rpc_request_stats=stats,
             web3=web3,
-            force_full_discovery=True,
         )
         items_scanned = report.items_scanned
+
+        refreshed_db = VaultDatabase.read(vault_db_path)
+        refreshed_chain_rows = [row for row in refreshed_db.rows.values() if row["_detection_data"].chain == chain_id]
 
         save_lead_discovery_state(
             LeadDiscoveryState(
@@ -615,7 +617,7 @@ def scan_vaults_for_chain(
             "chain_id": chain_id,
             "start_block": report.start_block,
             "end_block": report.end_block,
-            "vault_count": len(report.rows),
+            "vault_count": len(refreshed_chain_rows),
             "new_vaults": len(set(report.leads) - existing_lead_addresses),
             "items_scanned": items_scanned,
             "lead_discovery_cache_hit": False,
@@ -778,7 +780,7 @@ def scan_chain(
     :param uncleaned_price_path: Path to the uncleaned price parquet
     :param reader_state_path: Path to the reader state pickle
     :param hypersync_concurrency: Hypersync stream concurrency limit
-    :param lead_discovery_state_timeout: Maximum age of a successful full lead discovery.
+    :param lead_discovery_state_timeout: Maximum age of a successful incremental lead and metadata refresh.
     :param force_lead_discovery: Bypass a valid discovery cache on this scan.
     :return: Scan result
     """
@@ -2016,7 +2018,8 @@ def run_scan_tick(
         :func:`eth_defi.provider.rpcdb.resolve_rpc_tracking_database_path`.
 
     :param lead_discovery_state_timeout:
-        Maximum age of a successful full lead discovery before cache expiry.
+        Maximum age of a successful incremental lead and metadata refresh
+        before cache expiry.
 
     :param force_lead_discovery:
         Bypass a valid lead-discovery cache in this tick.
@@ -2799,6 +2802,9 @@ def main():
                         state,
                         tolerance=schedule_tolerance,
                     )
+                    if tick_kwargs["force_lead_discovery"]:
+                        logger.info("FORCE_LEAD_DISCOVERY is making all configured EVM chains due in this cycle")
+                        due_chains = chains
 
                     if due_chains or due_protocols:
                         # Compute items not due in this cycle with hours remaining
@@ -2837,6 +2843,9 @@ def main():
                             on_item_success=_save_item,
                             **tick_kwargs,
                         )
+                        if tick_kwargs["force_lead_discovery"]:
+                            logger.info("FORCE_LEAD_DISCOVERY was applied; restoring normal cache behaviour for later loop cycles")
+                            tick_kwargs["force_lead_discovery"] = False
                     else:
                         logger.info("Cycle %d: nothing due, sleeping", cycle)
                 else:

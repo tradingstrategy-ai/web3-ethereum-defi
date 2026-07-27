@@ -5,9 +5,10 @@ from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
+from eth_typing import HexAddress
 
 from eth_defi.compat import native_datetime_utc_now
-from eth_defi.erc_4626.discovery_base import LeadScanReport
+from eth_defi.erc_4626.discovery_base import LeadScanReport, PotentialVaultMatch
 from eth_defi.erc_4626.lead_discovery_state import (
     LeadDiscoveryState,
     create_lead_discovery_signature,
@@ -17,7 +18,9 @@ from eth_defi.erc_4626.lead_discovery_state import (
     save_lead_discovery_state,
     validate_lead_discovery_state,
 )
+from eth_defi.erc_4626.lead_scan_core import scan_leads
 from eth_defi.vault import scan_all_chains
+from eth_defi.vault.base import VaultSpec
 from eth_defi.vault.scan_all_chains import ChainConfig
 from eth_defi.vault.vaultdb import VaultDatabase
 
@@ -132,11 +135,11 @@ def test_fresh_state_skips_lead_discovery(
     assert metrics["end_block"] == LAST_CACHED_BLOCK
 
 
-def test_signature_change_forces_full_discovery_and_saves_state(
+def test_signature_change_forces_metadata_refresh_and_saves_state(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """A changed configuration invokes full discovery and persists its state."""
+    """A changed configuration invokes metadata refresh and persists its state."""
 
     vault_db_path = tmp_path / "vault-metadata-db.pickle"
     received_kwargs = {}
@@ -176,6 +179,198 @@ def test_signature_change_forces_full_discovery_and_saves_state(
     state, reason = load_lead_discovery_state(get_lead_discovery_state_path(tmp_path, 1))
     assert success is True
     assert metrics["lead_discovery_cache_hit"] is False
-    assert received_kwargs["force_full_discovery"] is True
+    assert "force_metadata_refresh" not in received_kwargs
     assert reason is None
     assert state.completed_block == FULL_SCAN_BLOCK
+
+
+def test_incremental_discovery_keeps_cursor_and_seeds_persisted_leads(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Incremental discovery classifies saved leads without replaying historical events."""
+
+    vault_db_path = tmp_path / "vault-metadata-db.pickle"
+    vault_address = HexAddress("0x0000000000000000000000000000000000000001")
+    persisted_lead = PotentialVaultMatch(
+        chain=1,
+        address=vault_address,
+        first_seen_at_block=123,
+        first_seen_at=native_datetime_utc_now(),
+        deposit_count=1,
+    )
+    VaultDatabase(
+        leads={VaultSpec(1, vault_address): persisted_lead},
+        last_scanned_block={1: LAST_CACHED_BLOCK},
+    ).write(vault_db_path)
+
+    captured: dict[str, object] = {}
+
+    class FakeHypersyncVaultDiscover:
+        """Capture scanner inputs without contacting HyperSync or an RPC endpoint."""
+
+        def __init__(self, *_args: object, **_kwargs: object) -> None:
+            pass
+
+        @staticmethod
+        def seed_existing_leads(leads: dict[HexAddress, PotentialVaultMatch]) -> None:
+            captured["seeded_leads"] = leads
+
+        @staticmethod
+        def scan_vaults(start_block: int, end_block: int) -> LeadScanReport:
+            captured["start_block"] = start_block
+            captured["end_block"] = end_block
+            return LeadScanReport(
+                leads=captured["seeded_leads"],  # type: ignore[arg-type]
+                start_block=start_block,
+                end_block=end_block,
+            )
+
+    fake_web3 = SimpleNamespace(
+        eth=SimpleNamespace(chain_id=1, block_number=FULL_SCAN_BLOCK),
+        provider=object(),
+    )
+    monkeypatch.setattr("eth_defi.erc_4626.lead_scan_core.get_chain_name", lambda _chain_id: "Test")
+    monkeypatch.setattr("eth_defi.erc_4626.lead_scan_core.get_provider_name", lambda _provider: "Test RPC")
+    monkeypatch.setattr("eth_defi.erc_4626.lead_scan_core.MultiProviderWeb3Factory", lambda *_args, **_kwargs: object())
+    monkeypatch.setattr(
+        "eth_defi.erc_4626.lead_scan_core.configure_hypersync_from_env",
+        lambda *_args, **_kwargs: SimpleNamespace(hypersync_client=object(), hypersync_url="https://hypersync.example"),
+    )
+    monkeypatch.setattr("eth_defi.erc_4626.hypersync_discovery.HypersyncVaultDiscover", FakeHypersyncVaultDiscover)
+
+    report = scan_leads(
+        "https://rpc.example",
+        vault_db_path,
+        max_workers=1,
+        end_block=FULL_SCAN_BLOCK,
+        web3=fake_web3,
+        printer=lambda _message: None,
+    )
+
+    assert captured["start_block"] == LAST_CACHED_BLOCK + 1
+    assert captured["end_block"] == FULL_SCAN_BLOCK
+    assert captured["seeded_leads"] == {vault_address: persisted_lead}
+    assert report.start_block == LAST_CACHED_BLOCK + 1
+    assert VaultDatabase.read(vault_db_path).last_scanned_block == {1: FULL_SCAN_BLOCK}
+
+
+def test_initial_discovery_refuses_json_rpc_event_scan(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Initial discovery refuses the unsupported genesis-to-head RPC fallback."""
+
+    fake_web3 = SimpleNamespace(
+        eth=SimpleNamespace(chain_id=1, block_number=FULL_SCAN_BLOCK),
+        provider=object(),
+    )
+    monkeypatch.setattr("eth_defi.erc_4626.lead_scan_core.get_chain_name", lambda _chain_id: "Test")
+    monkeypatch.setattr("eth_defi.erc_4626.lead_scan_core.get_provider_name", lambda _provider: "Test RPC")
+    monkeypatch.setattr("eth_defi.erc_4626.lead_scan_core.MultiProviderWeb3Factory", lambda *_args, **_kwargs: object())
+    monkeypatch.setattr(
+        "eth_defi.erc_4626.lead_scan_core.configure_hypersync_from_env",
+        lambda *_args, **_kwargs: SimpleNamespace(hypersync_client=None, hypersync_url=None),
+    )
+
+    with pytest.raises(RuntimeError, match="requires HyperSync"):
+        scan_leads(
+            "https://rpc.example",
+            tmp_path / "vault-metadata-db.pickle",
+            max_workers=1,
+            end_block=FULL_SCAN_BLOCK,
+            web3=fake_web3,
+            printer=lambda _message: None,
+        )
+
+
+def test_failed_metadata_refresh_keeps_previous_cache_state(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A failed refresh does not hide a retry behind a fresh cache timestamp."""
+
+    vault_db_path = tmp_path / "vault-metadata-db.pickle"
+    VaultDatabase(last_scanned_block={1: LAST_CACHED_BLOCK}).write(vault_db_path)
+    state_path = get_lead_discovery_state_path(tmp_path, 1)
+    previous_state = LeadDiscoveryState(
+        chain_id=1,
+        signature="obsolete-signature",
+        signature_configuration={},
+        completed_at=native_datetime_utc_now(),
+        completed_block=LAST_CACHED_BLOCK,
+    )
+    save_lead_discovery_state(previous_state, state_path)
+
+    def fake_web3(*_args, **_kwargs):
+        """Return a minimal verified Web3 substitute."""
+        return SimpleNamespace(eth=SimpleNamespace(chain_id=1))
+
+    def failing_scan_leads(**_kwargs) -> LeadScanReport:
+        """Simulate a lagging or unavailable event backend."""
+        message = "Hypersync has not advanced"
+        raise RuntimeError(message)
+
+    monkeypatch.setattr(scan_all_chains, "create_multi_provider_web3", fake_web3)
+    monkeypatch.setattr(
+        scan_all_chains,
+        "build_chain_configs",
+        lambda: [ChainConfig(name="Test", env_var="JSON_RPC_TEST", scan_vaults=True)],
+    )
+    monkeypatch.setattr(scan_all_chains, "scan_leads", failing_scan_leads)
+
+    success, _metrics = scan_all_chains.scan_vaults_for_chain("https://rpc.example", 1, vault_db_path=vault_db_path)
+
+    state, reason = load_lead_discovery_state(state_path)
+    assert success is False
+    assert reason is None
+    assert state == previous_state
+
+
+def test_incremental_discovery_rejects_nonadvancing_cursor(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A lagging HyperSync head cannot rewind the persisted discovery cursor."""
+
+    vault_db_path = tmp_path / "vault-metadata-db.pickle"
+    VaultDatabase(last_scanned_block={1: LAST_CACHED_BLOCK}).write(vault_db_path)
+
+    class FakeHypersyncVaultDiscover:
+        """Return a stale clipped head without issuing network requests."""
+
+        def __init__(self, *_args: object, **_kwargs: object) -> None:
+            pass
+
+        @staticmethod
+        def seed_existing_leads(_leads: dict[HexAddress, PotentialVaultMatch]) -> None:
+            pass
+
+        @staticmethod
+        def scan_vaults(start_block: int, _end_block: int) -> LeadScanReport:
+            return LeadScanReport(start_block=start_block, end_block=start_block)
+
+    fake_web3 = SimpleNamespace(
+        eth=SimpleNamespace(chain_id=1, block_number=FULL_SCAN_BLOCK),
+        provider=object(),
+    )
+    monkeypatch.setattr("eth_defi.erc_4626.lead_scan_core.get_chain_name", lambda _chain_id: "Test")
+    monkeypatch.setattr("eth_defi.erc_4626.lead_scan_core.get_provider_name", lambda _provider: "Test RPC")
+    monkeypatch.setattr("eth_defi.erc_4626.lead_scan_core.MultiProviderWeb3Factory", lambda *_args, **_kwargs: object())
+    monkeypatch.setattr(
+        "eth_defi.erc_4626.lead_scan_core.configure_hypersync_from_env",
+        lambda *_args, **_kwargs: SimpleNamespace(hypersync_client=object(), hypersync_url="https://hypersync.example"),
+    )
+    monkeypatch.setattr("eth_defi.erc_4626.hypersync_discovery.HypersyncVaultDiscover", FakeHypersyncVaultDiscover)
+
+    with pytest.raises(RuntimeError, match="did not receive a scannable block range"):
+        scan_leads(
+            "https://rpc.example",
+            vault_db_path,
+            max_workers=1,
+            end_block=FULL_SCAN_BLOCK,
+            web3=fake_web3,
+            printer=lambda _message: None,
+        )
+
+    assert VaultDatabase.read(vault_db_path).last_scanned_block == {1: LAST_CACHED_BLOCK}
