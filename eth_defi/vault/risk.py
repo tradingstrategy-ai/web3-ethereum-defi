@@ -151,6 +151,9 @@ VAULT_PROTOCOL_RISK_MATRIX = {
     "Teller": VaultTechnicalRisk.severe,
     "Deltr": VaultTechnicalRisk.dangerous,
     "Upshift": VaultTechnicalRisk.severe,
+    # Shift has public source code and an SB Security audit; executor and TVL
+    # feed operational risks remain separate from this technical classification.
+    "Shift": VaultTechnicalRisk.low,
     "Sky": VaultTechnicalRisk.negligible,
     "Maple": VaultTechnicalRisk.negligible,
     "Centrifuge": VaultTechnicalRisk.negligible,

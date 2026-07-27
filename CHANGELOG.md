@@ -1,5 +1,7 @@
 # 1.2
 
+- feat: Add hardcoded ShiftVault support for Base and Arbitrum, including TVL-feed valuation, historical reads and safe request-and-batch flow handling (2026-07-27)
+
 - fix: Build a private multicall reader in `detect_vault_features()` instead of `read_multicall_chunked()`, which memoises one reader per chain id in a thread-local — an Anvil-fork reader created by an earlier test was silently reused for a later live-RPC call on the same chain, causing `BlockOutOfRangeError` (2026-07-25)
 - fix: Batch `detect_vault_features()` probes through Multicall3 (`chunk_size=10`) instead of issuing ~50 sequential `eth_call`s, and accept a `web3factory` (the existing `web3` becomes a legacy parameter, wrapped on demand) — on an uncached Anvil fork each probe previously triggered its own lazy upstream archive fetch, so a cold vault could exhaust the caller's read timeout and never finish detection; the Upshift vault tests went from 4 failed in 7m17s to 6 passed in ~4s (2026-07-25)
 - fix: Recycle a wedged pooled Anvil fork instead of failing every test that shares it — `AnvilForkPool` now probes a reused fork with a short `eth_chainId` liveness check and relaunches an unresponsive one, so a single degraded Anvil no longer errors its whole `xdist_group` at a 60-second read timeout each (measured: 8 wedged forks caused 44 vault-protocol failures) (2026-07-25)

@@ -62,6 +62,7 @@ See :ref:`tutorials <tutorials>` for guides and examples on how to use the libra
    midas/index
    kinexys/index
    securitize/index
+   shift/index
    wisdomtree/index
    superstate/index
    symbiotic/index
