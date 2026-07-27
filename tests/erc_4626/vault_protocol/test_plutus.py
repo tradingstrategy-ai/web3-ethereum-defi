@@ -32,23 +32,13 @@ PLUTUS_HEDGE_VAULT = "0x58BfC95a864e18E8F3041D2FCD3418f48393fE6A"
 
 
 @pytest.fixture(scope="module")
-def anvil_arbitrum_fork(request) -> AnvilLaunch:
-    """Read gmUSDC vault at a specific block"""
-    launch = fork_network_anvil(JSON_RPC_ARBITRUM, fork_block_number=392_313_989)
-    try:
-        yield launch
-    finally:
-        # Wind down Anvil process after the test is complete
-        launch.close()
-
-
-@pytest.fixture(scope="module")
-def web3(anvil_arbitrum_fork):
-    web3 = create_multi_provider_web3(anvil_arbitrum_fork.json_rpc_url)
-    return web3
+def web3(anvil_fork_pool: AnvilForkPool) -> Web3:
+    """Share the read-only Plutus fork and its warmed RPC cache."""
+    return anvil_fork_pool.get_web3(JSON_RPC_ARBITRUM, 392_313_989)
 
 
 @flaky.flaky
+@pytest.mark.xdist_group("fork:arbitrum:392313989")
 def test_plutus(
     web3: Web3,
     tmp_path: Path,

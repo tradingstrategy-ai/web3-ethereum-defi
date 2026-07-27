@@ -1128,3 +1128,36 @@ def test_fix_outlier_ipor_tau_yield_bond_spike():
     normal_rows = result[(result["block_number"] != 24700201)]
     changed = normal_rows[normal_rows["share_price"] != normal_rows["raw_share_price"]]
     assert len(changed) == 0, f"Expected no changes to normal rows, but {len(changed)} rows were modified"
+
+
+def test_fix_outlier_share_prices_with_duplicate_timestamps():
+    """Clean an outlier without treating a repeated timestamp as multiple rows.
+
+    Modern chains can emit several block observations in one second. The
+    cleaner must select the abnormal observation by its row position, because
+    label-based ``loc[]`` access returns every row sharing that timestamp.
+    """
+    df = pd.DataFrame(
+        {
+            "id": ["duplicate-timestamp-vault"] * 5,
+            "block_number": [1, 2, 3, 4, 5],
+            "share_price": [1.0, 1.0, 10.0, 1.0, 1.0],
+        },
+        index=pd.to_datetime(
+            [
+                "2026-07-01 00:00:00",
+                "2026-07-01 01:00:00",
+                "2026-07-01 01:00:00",
+                "2026-07-01 02:00:00",
+                "2026-07-01 03:00:00",
+            ]
+        ),
+    )
+
+    result = fix_outlier_share_prices(df, logger=lambda _: None, look_back_hours=1, look_ahead_hours=1)
+
+    spike = result[result["block_number"] == 3].iloc[0]
+    assert spike["raw_share_price"] == 10.0
+    assert spike["share_price"] == 1.0
+    assert len(result) == len(df)
+    assert result.index.duplicated().any()

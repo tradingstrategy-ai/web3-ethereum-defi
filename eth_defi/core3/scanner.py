@@ -225,6 +225,7 @@ def scan_projects(
     fetch_category_history: bool = True,
     fetch_index_pol: bool = True,
     limit: int | None = None,
+    project_slugs: set[str] | None = None,
     max_workers: int = 8,
     timeout: float = CORE3_DEFAULT_TIMEOUT,
 ) -> Core3Database:
@@ -258,6 +259,9 @@ def scan_projects(
         If ``True``, fetch the aggregate index-level PoL history.
     :param limit:
         Limit the number of projects to scan. For testing only.
+    :param project_slugs:
+        Optional Core3 project slugs to scan. When omitted, scan every project
+        returned by the Core3 project list.
     :param max_workers:
         Maximum number of parallel workers for fetching project data.
     :param timeout:
@@ -274,6 +278,13 @@ def scan_projects(
     project_list = fetch_project_list(session, timeout=timeout)
     slugs = [p["slug"] for p in project_list]
     logger.info("Fetched %d projects from Core3 API", len(slugs))
+
+    if project_slugs is not None:
+        missing_slugs = project_slugs.difference(slugs)
+        slugs = [slug for slug in slugs if slug in project_slugs]
+        logger.info("Scoped Core3 scan to %d of %d requested projects", len(slugs), len(project_slugs))
+        if missing_slugs:
+            logger.warning("Core3 project slugs missing from API catalogue: %s", ", ".join(sorted(missing_slugs)))
 
     if limit is not None:
         slugs = slugs[:limit]
@@ -319,7 +330,8 @@ def scan_projects(
 
     db.save()
     logger.info(
-        "Scan complete: %d projects, %d snapshots, %d PoL daily rows",
+        "Scan complete: %d scanned projects, %d stored projects, %d snapshots, %d PoL daily rows",
+        len(slugs),
         db.get_project_count(),
         db.get_snapshot_count(),
         db.get_pol_daily_count(),

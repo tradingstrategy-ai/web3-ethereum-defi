@@ -10,8 +10,7 @@ from web3 import Web3
 from eth_defi.erc_4626.classification import create_vault_instance_autodetect
 from eth_defi.erc_4626.core import ERC4626Feature
 from eth_defi.erc_4626.vault_protocol.yieldfi.vault import YieldFiVault
-from eth_defi.provider.anvil import AnvilLaunch, fork_network_anvil
-from eth_defi.provider.multi_provider import create_multi_provider_web3
+from eth_defi.testing.anvil_fork_pool import AnvilForkPool
 
 JSON_RPC_ETHEREUM = os.environ.get("JSON_RPC_ETHEREUM")
 JSON_RPC_ARBITRUM = os.environ.get("JSON_RPC_ARBITRUM")
@@ -21,22 +20,13 @@ pytestmark = pytest.mark.skipif(JSON_RPC_ETHEREUM is None, reason="JSON_RPC_ETHE
 
 
 @pytest.fixture(scope="module")
-def anvil_ethereum_fork(request) -> AnvilLaunch:
-    """Fork at a specific block for reproducibility"""
-    launch = fork_network_anvil(JSON_RPC_ETHEREUM, fork_block_number=24181767)
-    try:
-        yield launch
-    finally:
-        launch.close()
-
-
-@pytest.fixture(scope="module")
-def web3(anvil_ethereum_fork):
-    web3 = create_multi_provider_web3(anvil_ethereum_fork.json_rpc_url)
-    return web3
+def web3(anvil_fork_pool: AnvilForkPool) -> Web3:
+    """Share the read-only Ethereum YieldFi fork and its warmed RPC cache."""
+    return anvil_fork_pool.get_web3(JSON_RPC_ETHEREUM, 24_181_767)
 
 
 @flaky.flaky
+@pytest.mark.xdist_group("fork:ethereum:24181767")
 def test_yieldfi(
     web3: Web3,
     tmp_path: Path,
@@ -66,6 +56,7 @@ def test_yieldfi(
 
 
 @flaky.flaky
+@pytest.mark.xdist_group("fork:ethereum:24181767")
 def test_yieldfi_yusd_ethereum(
     web3: Web3,
 ):
@@ -94,6 +85,7 @@ def test_yieldfi_yusd_ethereum(
 
 
 @flaky.flaky
+@pytest.mark.xdist_group("fork:ethereum:24181767")
 def test_yieldfi_yusd_ethereum_2(
     web3: Web3,
 ):
@@ -122,24 +114,15 @@ def test_yieldfi_yusd_ethereum_2(
 
 
 @pytest.fixture(scope="module")
-def anvil_arbitrum_fork(request) -> AnvilLaunch:
-    """Fork Arbitrum at a specific block for reproducibility"""
+def web3_arbitrum(anvil_fork_pool: AnvilForkPool) -> Web3:
+    """Share the read-only Arbitrum YieldFi fork and its warmed RPC cache."""
     if JSON_RPC_ARBITRUM is None:
         pytest.skip("JSON_RPC_ARBITRUM needed to run this test")
-    launch = fork_network_anvil(JSON_RPC_ARBITRUM, fork_block_number=299000000)
-    try:
-        yield launch
-    finally:
-        launch.close()
-
-
-@pytest.fixture(scope="module")
-def web3_arbitrum(anvil_arbitrum_fork):
-    web3 = create_multi_provider_web3(anvil_arbitrum_fork.json_rpc_url)
-    return web3
+    return anvil_fork_pool.get_web3(JSON_RPC_ARBITRUM, 299_000_000)
 
 
 @flaky.flaky
+@pytest.mark.xdist_group("fork:arbitrum:299000000")
 def test_yieldfi_arbitrum(
     web3_arbitrum: Web3,
 ):
@@ -168,24 +151,15 @@ def test_yieldfi_arbitrum(
 
 
 @pytest.fixture(scope="module")
-def anvil_base_fork(request) -> AnvilLaunch:
-    """Fork Base at a specific block for reproducibility"""
+def web3_base(anvil_fork_pool: AnvilForkPool) -> Web3:
+    """Share the read-only Base YieldFi fork and its warmed RPC cache."""
     if JSON_RPC_BASE is None:
         pytest.skip("JSON_RPC_BASE needed to run this test")
-    launch = fork_network_anvil(JSON_RPC_BASE, fork_block_number=41186545)
-    try:
-        yield launch
-    finally:
-        launch.close()
-
-
-@pytest.fixture(scope="module")
-def web3_base(anvil_base_fork):
-    web3 = create_multi_provider_web3(anvil_base_fork.json_rpc_url)
-    return web3
+    return anvil_fork_pool.get_web3(JSON_RPC_BASE, 41_186_545)
 
 
 @flaky.flaky
+@pytest.mark.xdist_group("fork:base:41186545")
 def test_yieldfi_base(
     web3_base: Web3,
 ):
