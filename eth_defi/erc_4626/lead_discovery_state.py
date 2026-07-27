@@ -97,7 +97,7 @@ def create_lead_discovery_signature(enabled_chains: Iterable[tuple[str, str]]) -
 
 @dataclass(frozen=True, slots=True)
 class LeadDiscoveryState:
-    """Successful full-discovery cache state for one EVM chain.
+    """Successful incremental lead and metadata refresh cache state for one EVM chain.
 
     The state records cache provenance only. The vault metadata database remains
     the authoritative store for discovered leads and extracted metadata.
@@ -112,7 +112,7 @@ class LeadDiscoveryState:
     #: Canonical signature inputs retained for operator diagnostics.
     signature_configuration: dict[str, Any]
 
-    #: Naive UTC timestamp when full discovery and metadata persistence ended.
+    #: Naive UTC timestamp when lead and metadata refresh persistence ended.
     completed_at: datetime.datetime
 
     #: Last block covered by the completed discovery.
@@ -222,7 +222,7 @@ def validate_lead_discovery_state(
 
 
 def save_lead_discovery_state(state: LeadDiscoveryState, path: Path) -> None:
-    """Atomically persist successful full-discovery state.
+    """Atomically persist successful lead and metadata refresh state.
 
     :param state:
         Fully completed cache state to write.

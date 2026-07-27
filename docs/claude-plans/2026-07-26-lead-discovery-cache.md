@@ -23,12 +23,13 @@ ${PIPELINE_DATA_DIR}/lead-discovery-state-{chain_id}.json
 ```
 
 Use an envelope with a schema version, chain ID, lead-discovery signature,
-full-scan completion timestamp and the completed block number. The document is
+refresh completion timestamp and the completed block number. The document is
 cache-control state only: candidate leads and metadata remain authoritative in
-``vault-metadata-db.pickle``. Write it atomically only after the full discovery
-and metadata database write succeed. A missing, malformed, wrong-chain or
-unknown-schema document is a cache miss; log the concrete reason and perform a
-full discovery rather than trusting partial state.
+``vault-metadata-db.pickle``. Write it atomically only after the incremental
+lead read and metadata database write succeed. A missing, malformed,
+wrong-chain or unknown-schema document is a cache miss; log the concrete reason
+and refresh from the persisted discovery cursor rather than trusting partial
+state.
 
 Add ``LEAD_DISCOVERY_STATE_TIMEOUT``. Parse it with the scanner's existing
 duration parser and default it to ``7d``. A cache hit requires all of:
@@ -49,8 +50,9 @@ measured from the last actual discovery, not from the latest loop tick.
 
 Add ``FORCE_LEAD_DISCOVERY`` as a one-shot operational escape hatch. When true,
 it bypasses an otherwise valid state document for the current invocation and
-writes a replacement only after the full scan succeeds. It does not alter the
-signature, delete state files, or affect price scanning. Log its use clearly.
+writes a replacement only after the incremental lead read and metadata refresh
+succeed. It does not alter the signature, delete state files, or affect price
+scanning. Log its use clearly.
 
 ## Signature
 
@@ -75,7 +77,8 @@ Keep the input mapping in the JSON document for diagnostics, alongside the
 digest. Use sorted keys and lists so process order and dataclass representation
 cannot affect the signature. A change to either source function or the enabled
 chain set invalidates every per-chain state document, causing the next scan of
-each enabled chain to run full discovery. Changes to price settings, RPC URLs,
+each enabled chain to run an incremental discovery and metadata refresh.
+Changes to price settings, RPC URLs,
 worker count, scheduler cadence or disabled price scans must not change this
 signature.
 
@@ -90,32 +93,30 @@ signature.
    cache hit, bypass ``scan_leads()``, preserve existing vault-count reporting
    from the metadata database, record a zero-call ``lead_discovery`` phase and
    continue to price scanning.
-3. On a cache miss, call ``scan_leads(force_full_discovery=True)``. This mode
-   scans from block 1 through the current safe discovery head, does not seed
-   historical leads (which would double the event counters), and re-probes and
-   refreshes all leads/metadata found by the current configuration. The normal
-   incremental path remains available for direct library callers but the
-   scheduled cache miss must use this complete mode.
+3. On a cache miss, call ``scan_leads()``. It preserves the saved discovery
+   cursor and lead map, reads only the range from that cursor to the current
+   discovery head, then re-probes every persisted and newly found lead to
+   refresh classifications and metadata. It must never reset discovery to block
+   1.
 4. Persist the metadata database before atomically saving the successful state
    JSON. If discovery, probing, metadata extraction or either write fails, do
    not create or refresh the state file; the next scheduled scan retries the
-   full discovery. Never delete the old state file before a replacement has
+   incremental discovery and metadata refresh. Never delete the old state file before a replacement has
    succeeded. Keep this work inside the scanner's existing pipeline lock and
    sequential EVM-chain loop, so the shared metadata pickle cannot receive
    competing writes from two cache-miss refreshes.
-5. Continue to use HyperSync for the historical event portion of a full scan.
-   If it is unavailable, fail the cache-miss discovery clearly instead of
-   attempting historical JSON-RPC ``eth_getLogs``. Full refreshes must not
-   reset reader state, remove parquet rows, or trigger price-history backfills.
+5. Use the configured event backend for the incremental event portion of a
+   refresh. A metadata refresh must not reset reader state, remove parquet
+   rows, or trigger price-history backfills.
 
 Update ``eth_defi.erc_4626.lead_scan_core`` and
-``eth_defi.erc_4626.discovery_base`` to make full versus incremental discovery
-explicit. Remove the current early return when no metadata rows were produced:
+``eth_defi.erc_4626.discovery_base`` to preserve the incremental discovery
+cursor during a forced metadata refresh. Remove the current early return when no metadata rows were produced:
 the metadata database must still receive the final discovery cursor and lead
-map. Ensure a full run retains the existing broken-row protection while
+map. Ensure a metadata refresh retains the existing broken-row protection while
 refreshing current results. Update ``README-vault-leads.md`` and the scanner
 script environment-variable documentation to describe the seven-day delay,
-cache file, expiry and automatic full refresh behaviour.
+cache file, expiry and automatic metadata refresh behaviour.
 
 ## Tests
 
@@ -129,15 +130,15 @@ Add focused unit tests, without live RPC access, for:
   fresh timestamp and metadata database presence;
 - a seven-day-old state is expired, while a younger matching state skips
   ``scan_leads()`` and still executes the price phase;
-- a cache miss passes ``force_full_discovery=True`` and writes state only after
-  a successful discovery/database write; failures retain the previous state;
+- a cache miss resumes the saved cursor and writes state only after a successful
+  incremental discovery/database write; failures retain the previous state;
 - ``FORCE_LEAD_DISCOVERY=true`` bypasses a fresh matching state without
   changing the signature, and a cache hit accepts a zero-lead chain when its
   saved cursor is present;
 - a cache-hit discovery phase is recorded with zero calls/items and existing
   RPC-accounting tests retain separate price-phase accounting; and
-- full discovery starts at block 1 without re-seeding old leads, while an
-  incremental no-new-row run still persists its end-block cursor.
+- forced metadata refreshes preserve the cursor and re-seed persisted leads,
+  while an incremental no-new-row run still persists its end-block cursor.
 
 Run the new focused test modules with ``source .local-test.env && poetry run
 pytest`` and the required extended timeout. Format changed Python code with
