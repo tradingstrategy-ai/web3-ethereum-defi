@@ -120,6 +120,12 @@ def create_lighter_pool_row(
     address = deployment.format_pool_address(account_index)
     chain_id = deployment.chain_id
 
+    # LLP is the canonical protocol pool on every Lighter deployment. The API
+    # returns the same name for Ethereum and Robinhood, but vault slugs derive
+    # from the display name. Prefix it with the deployment name so the two
+    # pools have descriptive, stable names and distinct URL slugs.
+    display_name = f"{deployment.name} Liquidity Provider (LLP)" if is_llp else name
+
     # Convert operator_fee from percentage to decimal fraction
     perf_fee = operator_fee / 100.0 if operator_fee else 0.0
 
@@ -145,11 +151,11 @@ def create_lighter_pool_row(
     )
 
     row: VaultRow = {
-        "Symbol": (name or "")[:10],
-        "Name": name or "",
+        "Symbol": (display_name or "")[:10],
+        "Name": display_name or "",
         "Address": address,
         "Denomination": deployment.denomination,
-        "Share token": (name or "")[:10],
+        "Share token": (display_name or "")[:10],
         "NAV": Decimal(str(tvl)),
         "Shares": Decimal("0"),
         "Protocol": "Lighter",
