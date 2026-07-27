@@ -41,7 +41,7 @@ def test_shift_protocol_risk_and_fee_mode() -> None:
     """Expose the documented minted-fee model and executor risk assessment."""
 
     assert get_vault_fee_mode("Shift", "0xaf69bf9ea9e0166498c0502af5b5945980ed1e0e") == VaultFeeMode.internalised_minting
-    assert get_vault_risk("Shift") == VaultTechnicalRisk.severe
+    assert get_vault_risk("Shift") == VaultTechnicalRisk.low
 
 
 def test_shift_hardcoded_leads_are_registered_for_discovery() -> None:
