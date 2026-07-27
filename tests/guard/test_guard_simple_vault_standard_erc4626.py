@@ -41,7 +41,7 @@ from eth_defi.erc_4626.vault_protocol.superform.vault import SuperformVault
 from eth_defi.erc_4626.vault_protocol.yearn.vault import YearnV3Vault
 from eth_defi.erc_4626.vault_protocol.yo.vault import YoVault
 from eth_defi.hotwallet import HotWallet
-from eth_defi.provider.anvil import AnvilLaunch, fund_erc20_on_anvil, set_balance
+from eth_defi.provider.anvil import AnvilLaunch, fund_erc20_on_anvil, mine, set_balance
 from eth_defi.simple_vault.transact import encode_simple_vault_transaction
 from eth_defi.testing.anvil_fork_pool import AnvilForkPool
 from eth_defi.testing.evm_snapshot_fixture import evm_snapshot_revert
@@ -254,6 +254,13 @@ def test_guarded_standard_erc4626_deposit_and_redeem(  # noqa: PLR0914
     raw_shares = protocol_vault.share_token.fetch_raw_balance_of(simple_vault.address)
     assert raw_shares > 0
     assert manager.force_settle(None).settlement_required is False
+
+    if isinstance(protocol_vault, IPORVault):
+        # IPOR's account lock starts with this deposit. Mine the exact
+        # protocol-configured delay before its otherwise synchronous redeem.
+        redemption_delay = protocol_vault.get_redemption_delay()
+        assert redemption_delay is not None
+        mine(web3, increase_timestamp=redemption_delay.total_seconds())
 
     redemption_request = manager.create_redemption_request(owner=simple_vault.address, raw_shares=raw_shares)
     assert len(redemption_request.funcs) == 1
