@@ -109,8 +109,6 @@ def scan_leads(
     max_display_entries: int | None = None,
     rpc_request_stats: RPCRequestStats | None = None,
     web3: Web3 | None = None,
-    *,
-    force_full_discovery: bool = False,
 ) -> LeadScanReport:
     """Core loop to discover new vaults on a chain.
 
@@ -129,10 +127,6 @@ def scan_leads(
     :param web3:
         Optional phase-owned Web3 connection. Supplying it lets an outer
         scanner establish the chain id before entering exception-handled work.
-    :param force_full_discovery:
-        Rebuild lead discovery from block 1. This requires HyperSync for the
-        historical event read and intentionally does not seed persisted leads,
-        so flow counters are not counted twice.
     """
 
     from eth_defi.erc_4626.hypersync_discovery import HypersyncVaultDiscover
@@ -163,9 +157,9 @@ def scan_leads(
         existing_db = VaultDatabase.read(vault_db_file)
         assert type(existing_db) == VaultDatabase, f"Got: {type(existing_db)}: {existing_db}"
 
-    if force_full_discovery:
-        start_block = 1
-    elif start_block is None:
+    previous_end_block = existing_db.last_scanned_block.get(chain_id)
+
+    if start_block is None:
         start_block = existing_db.get_chain_start_block(web3.eth.chain_id)
 
     if end_block is None:
@@ -186,8 +180,8 @@ def scan_leads(
             end_block = get_hypersync_block_height(hypersync_config.hypersync_client)
 
     else:
-        if force_full_discovery:
-            message = "Full vault lead discovery requires HyperSync; refusing historical JSON-RPC event scanning"
+        if start_block <= 1:
+            message = "Initial vault lead discovery requires HyperSync; refusing genesis-to-head JSON-RPC event scanning"
             raise RuntimeError(message)
         # Create a scanner that uses web3 and subprocesses
         vault_discover = JSONRPCVaultDiscover(
@@ -199,8 +193,8 @@ def scan_leads(
         if not end_block:
             end_block = web3.eth.block_number
 
-    if not force_full_discovery:
-        vault_discover.seed_existing_leads(existing_db.get_existing_leads_by_chain(chain_id))
+    existing_leads = existing_db.get_existing_leads_by_chain(chain_id)
+    vault_discover.seed_existing_leads(existing_leads)
 
     printer(f"Chain: {name}: scan range {start_block:,} - {end_block:,}")
 
@@ -208,6 +202,12 @@ def scan_leads(
     # so we get information which address contains which kind of a vault
     report = vault_discover.scan_vaults(start_block, end_block)
     end_block = report.end_block
+    if end_block <= start_block:
+        message = f"Vault lead discovery did not receive a scannable block range for chain {chain_id}: start={start_block}, received={end_block}"
+        raise RuntimeError(message)
+    if previous_end_block is not None and end_block <= previous_end_block:
+        message = f"Vault lead discovery cursor regressed or did not advance for chain {chain_id}: persisted={previous_end_block}, received={end_block}"
+        raise RuntimeError(message)
     vault_detections = list(report.detections.values())
 
     # Prepare data export by reading further per-vault data using multiprocessing
