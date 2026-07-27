@@ -164,6 +164,87 @@ calls are byte-for-byte identical. Cover both the accepted lifecycle and all
 security-relevant address mutations, including approval spender, receiver,
 controller and owner substitutions.
 
+#### Immediate-liquidity mock overrides
+
+Some synchronous vaults expose a standard guarded ``redeem`` selector but a
+live fork cannot provide the required immediate buffer. In that case, model the
+admission gate — never a production shortcut — in a dedicated mock. The test
+must first prove the normal manager preflight refuses the unavailable capacity,
+then explicitly call ``force_settle(None, mock=mock,
+ignore_liquidity=True)`` and parse the mock configuration event before building
+the guarded redemption. Finally parse the protocol/ERC-4626 withdrawal event
+and assert the received raw asset amount.
+
+``MockYieldNestVault`` is the reference: it starts with
+``maxRedeem(owner) == 0`` and emits ``LiquidityOverrideSet(true)`` only when
+the test asks for the override. It retains the deposited assets; the flag
+changes the mock's immediate-redemption admission gate, not token accounting.
+This is deliberately distinct from an asynchronous settlement mock: there is
+no ticket or keeper call to simulate.
+
+#### Async settlement and events
+
+An asynchronous mock must model the request, the non-asset-manager settlement
+boundary and the later claim separately. A test must never execute an
+operator/keeper settlement through ``SimpleVaultV0.performCall()`` merely to
+make the lifecycle complete: GuardV0 is deliberately configured only for
+manager-emitted calls. Instead, call the mock settlement function directly as
+the corresponding protocol actor, record its events, then submit the
+manager-owned claim through the guard.
+
+The current guard mocks use the deployed protocol's event shape wherever its
+ABI exposes one:
+
+| Protocol flow | Mock settlement action | Required settlement or terminal event |
+| --- | --- | --- |
+| Accountable/ERC-7540 | ``fulfillRedeemRequest(requestId)`` | ``RedeemClaimable`` |
+| Plutus Hedge | ``fulfillRedeem(requestId)`` | ``RedeemFulfilled`` followed by guarded ERC-4626 ``Withdraw`` on claim |
+| Ember | ``processWithdrawalRequests(numRequests)`` | ``RequestProcessed``; it pays the receiver directly and has no user claim |
+| Gains V1 | ``forceNewEpoch()`` | The published V1 ABI has no dedicated settlement event; assert the epoch transition and terminal guarded ``Withdraw`` |
+| Ostium V1.5 | ``tryNewSettlement()`` | ``AsyncDepositWithdrawExecuted`` followed by ``WithdrawClaimedV2`` |
+| NaraUSD+ | Advance the mock chain clock through the cooldown | Nara's published ABI has no cooldown-settlement event; assert the terminal ERC-20 ``Transfer`` emitted by ``unstake`` |
+
+Every settlement test must parse the settlement/terminal event and assert the
+raw asset or share amount it reports, then independently assert the receiving
+token balance. This prevents a state-only mock from falsely proving a payout.
+
+``force_settle(ticket, mock=mock_contract)`` is available only for focused
+local Anvil mock tests of Accountable/ERC-7540, Plutus, Ember, Gains and
+Ostium V1.5. The
+``mock`` parameter is never a production override: it executes the mock's
+operator/keeper method and reports the resulting transaction hash. Production
+fork simulation continues to use the protocol-specific driver, or raises its
+published typed unsupported reason. Ember returns terminal status ``none``
+after mock processing because it pays the receiver rather than making a ticket
+claimable.
+
+#### Liquidity-bypass simulations
+
+``force_settle(..., ignore_liquidity=False)`` defaults to a real-liquidity
+simulation. A driver must refuse to report success when its settlement payer
+or immediate-redemption buffer is short. ``ignore_liquidity=True`` is an
+explicit Anvil-only test fixture, not a production capability and not a
+request-construction override. It is allowed only for a manager with a tested
+driver and must set
+``VaultForcedSettlementResult.liquidity_constraints_ignored``. A non-zero
+``synthetic_assets_injected_raw`` additionally records the exact raw assets
+written into a fork.
+
+The current opt-in drivers are deliberately narrow:
+
+| Protocol | What the option changes | Evidence it does not provide |
+| --- | --- | --- |
+| Lagoon | Tops up a short Safe on an Anvil fork before a settlement round. Without the option, the driver fails before settlement. | That the live Safe can pay queued redemptions. |
+| YieldNest | Switches a dedicated ``MockYieldNestVault`` immediate ``maxRedeem`` gate on before the guarded standard ERC-4626 redeem call. | That a live YieldNest buffer exists, or that the maturity-aware queue is implemented. |
+
+cSigma, Morpho, IPOR and Forty Acres also have liquidity or capacity
+preflights, but none has a safe settlement action that this option could
+represent. Their drivers continue to refuse unavailable capacity rather than
+silently suppressing the preflight. The asynchronous operator mocks (Gains,
+Ostium, Plutus, Ember, Accountable and Upshift) already contain the assets for
+their requested payout; their settlement boundaries are not a liquidity-bypass
+problem and therefore do not opt in.
+
 ### force_settle support
 
 ``force_settle(ticket)`` is part of the integration promise for an advertised
@@ -218,13 +299,44 @@ particular fork. Use these terms consistently:
 | Fully lifecycle-certified | The guarded fork test completed every supported phase, including synchronous redemption or asynchronous request, settlement and claim. |
 | Settlement limitation | The asynchronous manager is implemented, but its ticket cannot be safely advanced on Anvil; publish ``supports_anvil_settlement=False`` and its reason. |
 
-Record release evidence in the version-controlled
-``eth_defi/data/deposit-status/vault-deposit-status.json`` artefact. Follow
-``eth_defi/data/deposit-status/README-deposit-status.md`` when refreshing it.
-Each current successful row must include its Anvil fork block. The artefact is
-historical compatibility evidence, not a promise that a live vault remains
-open, liquid, unpaused or permissionless; production callers still need a
-current-state preflight and must handle a live revert.
+The version-controlled
+``eth_defi/data/deposit-status/vault-deposit-status.json`` artefact records
+the generated deposit-probe result, not a substitute for a focused guarded
+lifecycle certificate. Follow
+``eth_defi/data/deposit-status/README-deposit-status.md`` when deliberately
+refreshing that probe; do not hand-edit a row from a fork test. In particular,
+the probe cannot certify Gains' later epoch settlement and claim, and a vault
+that is absent from probe selection, such as the cSigma reference pool, is
+certified by its version-controlled guarded test instead.
+
+Historical rows created before the distinct governance/asset-manager probe fix
+prove that a manager call completed through ``SimpleVaultV0``; they do *not*
+prove GuardV0 validation, because the governance sender intentionally bypasses
+the guard. Only a guarded test or a refreshed probe which uses a distinct asset
+manager is GuardV0 evidence. Each successful probe row must include its Anvil
+fork block. The artefact is historical compatibility evidence, not a promise
+that a live vault remains open, liquid, unpaused or permissionless; production
+callers still need a current-state preflight and must handle a live revert.
+
+Morpho V1 and V2 intentionally have no synchronous public capability metadata
+until a guarded full lifecycle is fork-proven. At Arbitrum block ``483532847``,
+Gauntlet USDC Core (``0x7e97fa6893871a2751b5fe961978dccb2c201e65``) minted
+``9625543470030157637`` shares for the guarded 10-USDC deposit, but its
+owner-specific ``maxRedeem`` permitted only ``9625542507475810634`` shares.
+The standard ``Withdraw`` event and analyser both reported that lower amount;
+the ``962554347003`` remaining shares were real residual capacity, not an
+event-decoding error. Steakhouse Prime USDC
+(``0x250cf7c82bac7cb6cf899b6052979d4b5ba1f9ca`` at block ``483531638``)
+exhibited the same ``maxRedeem`` epsilon clamp. Its direct full redemption can
+succeed at that state, but another V1 vault reverts a full request, so a generic
+manager must remain conservative rather than bypassing ``maxRedeem``. Morpho
+V2 Steakhouse High Yield Turbo
+(``0xbeefff13dd098de415e07f033dae65205b31a894`` at block ``420581609``)
+accepted a deposit but returned ``maxRedeem == 0`` and reverted a full
+redemption with custom selector ``0xe65b7a77`` without emitting ``Withdraw``.
+The generic manager remains available for explicit caller-controlled use; its
+absence from the certified capability list prevents public metadata from
+claiming immediate, complete redemption.
 
 ## Coverage matrix
 
@@ -246,10 +358,19 @@ deposit receiver, redemption receiver and redemption share owner. ERC-7540,
 Nara, Upshift and other non-standard surfaces need their own rows; they cannot
 inherit cSigma certification merely because they share an ERC-4626 base class.
 
+40acres Aerodrome USDC has the same standard ERC-4626 call shapes, but has its
+own guarded Base-fork evidence in
+``tests/guard/test_guard_simple_vault_forty_acres.py``. The test uses a
+non-governance asset manager to execute the manager-selected approval,
+``deposit(uint256,address)`` and ``redeem(uint256,address,address)`` calls,
+then rejects substituted deposit receiver, redemption receiver and redemption
+share owner. This certification applies only to Aerodrome's generic manager;
+Pharaoh's address-scoped direct-underlying capacity preflight remains separate.
+
 Gains V1 adds the standard approval and deposit rows, plus
-``makeWithdrawRequest(uint256,address)`` and the eventual standard ``redeem``
-claim. Its guarded Arbitrum test settles the concrete ticket over three epochs
-and rejects a request whose receiver is not whitelisted.
+``makeWithdrawRequest(uint256,address owner)`` and the eventual standard
+``redeem`` claim. Its guarded Arbitrum test settles the concrete ticket over
+three epochs and rejects a request against an unwhitelisted share owner.
 
 Nara adds the standard approval and deposit rows, followed by
 ``cooldownShares(uint256)`` and ``unstake(address)``. Its guarded Ethereum test
@@ -257,4 +378,42 @@ advances the seven-day Anvil cooldown to a fixed timestamp, completes the
 claim and rejects an unwhitelisted ``unstake`` receiver. Plutus Hedge supplies
 the live ERC-7540 negative cases for ``requestRedeem`` controller and owner;
 the generic mock suite also covers ``requestWithdraw`` and deposit-claim
-controller/owner validation.
+controller/owner validation. Its protocol mock additionally executes the
+operator fulfilment boundary followed by guarded ``redeem(requestId, receiver)``,
+parses the emitted ``Withdraw`` event and checks the received denomination
+amount. The GuardV0 selector must therefore be configured for both the
+three-argument ERC-4626 ``redeem`` and Plutus' two-argument asynchronous claim.
+
+Accountable's mock lifecycle exercises its production ABI's
+``requestRedeem`` event parser, external settlement, and guarded claim; its
+``RedeemClaimable`` mock event must retain Accountable's indexed
+``controller, requestId`` order. Ember, Gains V1 and Ostium V1.5 likewise have
+manager-level mock tests which call ``force_settle(ticket, mock=...)`` and
+decode their protocol-shaped settlement event before checking the terminal
+payout. Upshift adds two guarded redemption surfaces:
+``instantRedeem(uint256,address)`` and the queued
+``requestRedeem(uint256,address)`` / ``claim(uint256,uint256,uint256,address)``
+pair. Its date-batch ``processAllClaimsByDate`` function is an operator action,
+not a GuardV0 asset-manager permission; test it only through an explicitly
+supplied mock settlement driver.
+
+### PR 1582 protocol audit
+
+The vault-result comment on `trade-executor PR 1582 <https://github.com/tradingstrategy-ai/trade-executor/pull/1582#issuecomment-5087987663>`__ is a useful
+operational-state snapshot, not a statement that an adapter or GuardV0 lacks a
+flow. A vault may be paused, closed, full, unwhitelisted or lack liquid assets
+at the scan block. The following matrix records the separate protocol-level
+GuardV0 simulation evidence for every protocol named in that comment.
+
+| Protocol family | Deposit and redemption simulation evidence | Important limitation |
+| --- | --- | --- |
+| cSigma, D2, Forty Acres, Gains, IPOR Fusion, Euler, Yearn, standard ERC-4626 families | Non-governance guarded fork lifecycle with approval, deposit and redemption | Individual live vaults can still be paused, capped or unwhitelisted. |
+| Lagoon Finance | Non-governance guarded Base-fork request, real settlement and claim in both directions | A selected vault may require whitelisting. |
+| Accountable, Ember, Plutus Hedge, Ostium V1.5, Upshift | Guarded request/claim simulation with stateful protocol mocks; settlement event and raw payout are parsed | Operator settlement is intentionally not granted to the asset manager. Some production forks cannot be advanced safely. |
+| Morpho V1/V2 | Guarded standard deposit and bounded ``maxRedeem`` path remain callable | The tested V1 states intentionally retain the protocol's max-redeem epsilon; the V2 state had zero redeem capacity. Do not advertise a complete immediate redemption. |
+| YieldNest | Guarded standard deposit and redemption-refusal preflight, plus a dedicated mock-only ``ignore_liquidity`` guarded redemption | Tested ``ynRWAx`` states have zero ``maxRedeem`` and no buffer, including after maturity; it remains deposit-only until a real redemption lifecycle is evidenced. |
+
+Accordingly, an outcome such as ``simulation unsupported async`` in the
+operational report is a useful request to run the appropriate mock or
+protocol-specific driver. It must not be re-labelled as a completed live-fork
+redemption when settlement authority or liquidity is absent.

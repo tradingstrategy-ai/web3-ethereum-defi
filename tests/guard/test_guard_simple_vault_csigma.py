@@ -35,6 +35,10 @@ CSIGMA_SUPQPV_POOL_ADDRESS: HexAddress = "0x50d59b785df23728d9948804f8ca3543237a
 #: Exact raw shares minted by a 100 USDT deposit at ``CSIGMA_GUARD_FORK_BLOCK``.
 EXPECTED_DEPOSITED_RAW_SHARES = 94_445_037
 
+#: Submit guarded calls with a fixed limit so expected Guard reverts are mined
+#: instead of being raised by ``eth_estimateGas``.
+GUARDED_CALL_GAS_LIMIT = 2_000_000
+
 pytestmark = [
     pytest.mark.skipif(JSON_RPC_ETHEREUM is None, reason="JSON_RPC_ETHEREUM needed to run these tests"),
     pytest.mark.xdist_group("fork:ethereum:csigma-21900000"),
@@ -90,7 +94,7 @@ def _perform_guarded_call(
 ) -> HexBytes:
     """Execute one manager-generated call through SimpleVaultV0 and GuardV0."""
     target, call_data = encode_simple_vault_transaction(func)
-    tx_hash = simple_vault.functions.performCall(target, call_data).transact({"from": asset_manager})
+    tx_hash = simple_vault.functions.performCall(target, call_data).transact({"from": asset_manager, "gas": GUARDED_CALL_GAS_LIMIT})
     assert_transaction_success_with_explanation(web3, tx_hash)
     return tx_hash
 
@@ -104,7 +108,7 @@ def _assert_guarded_call_rejected(
 ) -> None:
     """Assert that GuardV0 rejects a manager call before target execution."""
     target, call_data = encode_simple_vault_transaction(func)
-    tx_hash = simple_vault.functions.performCall(target, call_data).transact({"from": asset_manager})
+    tx_hash = simple_vault.functions.performCall(target, call_data).transact({"from": asset_manager, "gas": GUARDED_CALL_GAS_LIMIT})
     with pytest.raises(TransactionAssertionError, match=expected_error):
         assert_transaction_success_with_explanation(web3, tx_hash)
 

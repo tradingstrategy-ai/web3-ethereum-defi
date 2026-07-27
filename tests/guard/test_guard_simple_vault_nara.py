@@ -1,6 +1,5 @@
 """Exercise NaraUSD+'s cooldown redemption lifecycle through GuardV0."""
 
-import datetime
 import os
 from collections.abc import Iterator
 from decimal import Decimal
@@ -23,7 +22,7 @@ from eth_defi.simple_vault.transact import encode_simple_vault_transaction
 from eth_defi.testing.anvil_fork_pool import AnvilForkPool
 from eth_defi.testing.evm_snapshot_fixture import evm_snapshot_revert
 from eth_defi.trace import TransactionAssertionError, assert_transaction_success_with_explanation
-from eth_defi.vault.deposit_redeem import AsyncVaultRequestStatus
+from eth_defi.vault.deposit_redeem import AsyncVaultRequestStatus, UnsupportedVaultSimulation, VaultForcedSettlementResult
 
 JSON_RPC_ETHEREUM = os.environ.get("JSON_RPC_ETHEREUM")
 
@@ -105,6 +104,14 @@ def _perform_guarded_call(
     return tx_hash
 
 
+def _assert_cooldown_settlement(settlement: VaultForcedSettlementResult) -> None:
+    """Assert the hashless Nara time-advance settlement result."""
+    assert settlement.settlement_required is True
+    assert settlement.status_before == AsyncVaultRequestStatus.pending
+    assert settlement.status_after == AsyncVaultRequestStatus.claimable
+    assert settlement.transaction_hashes == ()
+
+
 def test_guarded_nara_deposit_cooldown_and_unstake(
     web3: Web3,
     nara_vault: NaraVault,
@@ -136,7 +143,10 @@ def test_guarded_nara_deposit_cooldown_and_unstake(
     assert isinstance(ticket, NaraRedemptionTicket)
     assert manager.get_redemption_request_status(ticket) == AsyncVaultRequestStatus.pending
 
-    mine(web3, increase_timestamp=datetime.timedelta(days=7, seconds=1).total_seconds())
+    with pytest.raises(UnsupportedVaultSimulation, match="must use the manager's exact vault contract"):
+        manager.force_settle(ticket, mock=guard)
+
+    _assert_cooldown_settlement(manager.force_settle(ticket, mock=nara_vault.narausd_plus_contract))
     assert manager.get_redemption_request_status(ticket) == AsyncVaultRequestStatus.claimable
     unstake_hash = _perform_guarded_call(web3, simple_vault, asset_manager, manager.finish_redemption(ticket))
     redemption_analysis = manager.analyse_redemption(unstake_hash, ticket)

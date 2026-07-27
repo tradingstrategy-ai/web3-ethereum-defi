@@ -56,6 +56,7 @@ contract ComputeSelectors is Script {
         logSelector("deposit(uint256,address)");
         logSelector("withdraw(uint256,address,address)");
         logSelector("redeem(uint256,address,address)");
+        logSelector("redeem(uint256,address)");
         console.log("");
 
         // ERC-4626 Umami non-standard
@@ -70,6 +71,7 @@ contract ComputeSelectors is Script {
         logSelector("requestRedeem(uint256,address,address)");
         logSelector("requestWithdraw(uint256,address,address)");
         logSelector("requestDeposit(uint256,address,address)");
+        logSelector("cancelRedeemRequest(uint256)");
         console.log("");
 
         // Gains/Ostium V1.0
@@ -86,6 +88,9 @@ contract ComputeSelectors is Script {
         // Upshift
         console.log("// Upshift");
         logSelector("deposit(address,uint256,address)");
+        logSelector("instantRedeem(uint256,address)");
+        logSelector("requestRedeem(uint256,address)");
+        logSelector("claim(uint256,uint256,uint256,address)");
         console.log("");
 
         // Gains/Ostium V1.5

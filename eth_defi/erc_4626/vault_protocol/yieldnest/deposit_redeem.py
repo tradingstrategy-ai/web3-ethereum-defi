@@ -13,9 +13,12 @@ from decimal import Decimal
 
 from eth_typing import HexAddress
 from hexbytes import HexBytes
+from web3 import Web3
+from web3.exceptions import ABIFunctionNotFound
 
 from eth_defi.erc_4626.deposit_redeem import ERC4626DepositManager, ERC4626RedemptionRequest
-from eth_defi.vault.deposit_redeem import VaultFlowUnavailable
+from eth_defi.provider.anvil import is_anvil
+from eth_defi.vault.deposit_redeem import DepositTicket, RedemptionTicket, UnsupportedVaultSimulation, VaultFlowUnavailable, VaultForcedSettlementResult
 
 #: ``ExceededMaxRedeem(address owner, uint256 shares, uint256 maxShares)``
 #: custom-error selector reverted by the YieldNest vault when a redemption
@@ -52,14 +55,16 @@ class YieldNestDepositManager(ERC4626DepositManager):
     (``baseWithdrawalFee()``). Note that
     :meth:`YieldNestVault.get_deposit_manager_capability` still advertises
     ``can_redeem=False`` (``maturity_aware_redemption_flow_not_implemented``) to
-    trade-executor: the buffer redemption implemented here is not treated as a
-    fully fork-proven redemption lifecycle for the maturity-bearing vaults.
+    trade-executor: no non-zero immediate capacity and successful redemption
+    receipt have been fork-proven for the maturity-bearing vaults. This helper
+    is therefore a fail-closed capacity reader, not a supported public
+    redemption lifecycle.
 
     **Queues and settlement**
 
-    None modelled. The manager only exposes the immediate buffer redemption; any
-    queue-based withdrawal beyond the buffer is out of scope and is surfaced as
-    the typed capacity refusal above rather than as an onchain ticket.
+    None modelled. The manager only reads the immediate buffer capacity; any
+    queue-based withdrawal beyond it is out of scope and is surfaced as the
+    typed capacity refusal above rather than as an onchain ticket.
 
     **Lockups and cooldowns**
 
@@ -75,9 +80,107 @@ class YieldNestDepositManager(ERC4626DepositManager):
 
     **Anvil settlement (force_settle)**
 
-    No-op. Both directions are synchronous, so :meth:`force_settle` accepts
-    ``None`` for the shared synchronous no-op; there is no ticket to settle.
+    No real settlement is modelled and the public capability remains
+    deposit-only. A synchronous deposit uses the inherited no-op
+    :meth:`force_settle` behaviour. Focused local tests may explicitly call
+    ``force_settle(None, mock=..., ignore_liquidity=True)`` on a
+    ``MockYieldNestVault``. It switches only that mock's ``maxRedeem`` gate on,
+    allowing the standard guarded redemption call to be tested. It never makes
+    a real YieldNest fork redeemable.
     """
+
+    def can_create_redemption_request(self, owner: HexAddress) -> bool:
+        """Report whether the owner has non-zero immediate redemption capacity.
+
+        This is deliberately narrower than the inherited unconditional ERC-4626
+        answer. It reflects only ``maxRedeem(owner)`` and does not infer a
+        queue-based or maturity settlement route.
+
+        :param owner:
+            Share owner whose current immediate buffer capacity is queried.
+        :return:
+            ``True`` only when ``maxRedeem(owner)`` is non-zero.
+        """
+        return self.vault.vault_contract.functions.maxRedeem(owner).call() > 0
+
+    def force_settle(
+        self,
+        ticket: DepositTicket | RedemptionTicket | None,
+        *,
+        mock: object | None = None,
+        ignore_liquidity: bool = False,
+    ) -> VaultForcedSettlementResult:
+        """Enable the local YieldNest liquidity override for a focused mock test.
+
+        YieldNest's immediate redemption is synchronous, so a real deployment
+        has no settlement transaction to force. The deliberately explicit
+        local-mock path is a test fixture: it changes only
+        ``MockYieldNestVault``'s ``maxRedeem`` admission gate before a guarded
+        ``redeem`` is built. It cannot add live liquidity or bypass the
+        production vault's ``ExceededMaxRedeem`` check.
+
+        :param ticket:
+            Must be ``None`` because YieldNest has no asynchronous ticket.
+        :param mock:
+            The deployed ``MockYieldNestVault`` at this manager's vault
+            address.
+        :param ignore_liquidity:
+            Enable the mock-only liquidity override. Defaults to ``False`` and
+            retains the normal no-op/rejection behaviour.
+        :return:
+            A result recording the direct mock configuration transaction.
+        :raise UnsupportedVaultSimulation:
+            If this is not Anvil, the mock is absent or unrelated, a ticket was
+            supplied, or the mock does not expose the dedicated test hook.
+        """
+        if not ignore_liquidity:
+            return super().force_settle(ticket, mock=mock, ignore_liquidity=False)
+
+        if not is_anvil(self.web3):
+            raise UnsupportedVaultSimulation(
+                "YieldNest liquidity override requires an Anvil provider",
+                unsupported_reason="anvil_provider_required",
+                protocol=self.vault.get_protocol_name(),
+                vault_address=self.vault.address,
+                direction="redeem",
+            )
+        if ticket is not None:
+            raise UnsupportedVaultSimulation(
+                "YieldNest liquidity override requires no asynchronous ticket",
+                unsupported_reason="yieldnest_synchronous_ticket_must_be_none",
+                protocol=self.vault.get_protocol_name(),
+                vault_address=self.vault.address,
+                direction="redeem",
+            )
+        mock_address = getattr(mock, "address", None)
+        if mock_address is None or Web3.to_checksum_address(mock_address) != Web3.to_checksum_address(self.vault.address):
+            raise UnsupportedVaultSimulation(
+                "YieldNest liquidity override requires the manager's exact MockYieldNestVault",
+                unsupported_reason="mock_settlement_vault_mismatch",
+                protocol=self.vault.get_protocol_name(),
+                vault_address=self.vault.address,
+                direction="redeem",
+            )
+
+        try:
+            tx_hash = mock.functions.setIgnoreLiquidity(True).transact({"from": self.web3.eth.accounts[0]})
+        except (ABIFunctionNotFound, AttributeError) as e:
+            raise UnsupportedVaultSimulation(
+                "YieldNest liquidity override mock does not expose setIgnoreLiquidity(bool)",
+                unsupported_reason="yieldnest_liquidity_override_mock_required",
+                protocol=self.vault.get_protocol_name(),
+                vault_address=self.vault.address,
+                direction="redeem",
+            ) from e
+
+        return VaultForcedSettlementResult(
+            ticket=None,
+            settlement_required=True,
+            status_before=None,
+            status_after=None,
+            transaction_hashes=(HexBytes(tx_hash),),
+            liquidity_constraints_ignored=True,
+        )
 
     def create_redemption_request(
         self,

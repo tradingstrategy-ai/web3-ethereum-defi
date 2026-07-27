@@ -1,29 +1,30 @@
 """D2 Finance vault support."""
 
 import datetime
+import logging
+from collections.abc import Iterable
 from dataclasses import dataclass
 from decimal import Decimal
 from functools import cached_property
-import logging
-from typing import Iterable, Literal
+from typing import Literal
 
-from web3.contract import Contract
 from eth_typing import BlockIdentifier, HexAddress
+from web3.contract import Contract
 
+from eth_defi.abi import ZERO_ADDRESS_STR
+from eth_defi.compat import native_datetime_utc_now
 from eth_defi.erc_4626.core import get_deployed_erc_4626_contract
 from eth_defi.erc_4626.deposit_redeem import ERC4626DepositManager, ERC4626DepositRequest, ERC4626RedemptionRequest
 from eth_defi.erc_4626.vault import ERC4626HistoricalReader, ERC4626Vault
 from eth_defi.event_reader.conversion import convert_int256_bytes_to_int
 from eth_defi.event_reader.multicall_batcher import EncodedCall, EncodedCallResult
-from eth_defi.compat import native_datetime_utc_now
-from eth_defi.token import TokenDetails, fetch_erc20_details
+from eth_defi.token import fetch_erc20_details
 from eth_defi.utils import from_unix_timestamp
 from eth_defi.vault.base import (
     DEPOSIT_CLOSED_FUNDING_PHASE,
     REDEMPTION_CLOSED_FUNDS_CUSTODIED,
     VaultHistoricalRead,
     VaultHistoricalReader,
-    VaultTechnicalRisk,
 )
 from eth_defi.vault.deposit_redeem import VaultFlowUnavailable
 
@@ -86,9 +87,10 @@ class D2DepositManager(ERC4626DepositManager):
     Permissioned onchain. The ``VaultV1Whitelisted`` ``onlyWhitelisted``
     modifier admits an account only if it is on the vault's ``whitelisted``
     mapping or holds more than ``whitelistBalance`` of ``whitelistAsset``
-    (typically USDC). This manager adds no extra whitelist logic and relies on
-    the inherited :meth:`check_deposit_whitelist` preflight; where the policy is
-    not queryable, a real denial surfaces as an onchain revert.
+    (typically USDC). The inherited :meth:`check_deposit_whitelist` preflight
+    queries this policy for deposits. This manager repeats that preflight for
+    redemption because the same modifier protects ``redeem()`` and a balance-
+    based admission can cease to hold after depositing the underlying asset.
 
     **Anvil settlement (force_settle)**
 
@@ -196,6 +198,11 @@ class D2DepositManager(ERC4626DepositManager):
             If the current D2 epoch is not accepting redemptions.
         """
         self._assert_flow_open(owner, "redeem")
+        # D2 applies ``onlyWhitelisted`` to redemption as well as deposit.
+        # A holder admitted through its USDC balance can lose admission after
+        # depositing that USDC, so re-check the live policy before creating a
+        # transaction which would otherwise deterministically revert.
+        self.check_deposit_whitelist(owner)
         return super().create_redemption_request(owner, to, shares, raw_shares, check_max_deposit, check_enough_token)
 
 
@@ -522,6 +529,50 @@ class D2Vault(ERC4626Vault):
             D2 manager that avoids returning a zero share estimate.
         """
         return D2DepositManager(self)
+
+    def is_whitelisted_deposit(self) -> bool:  # noqa: PLR6301
+        """Report D2's unconditional ``onlyWhitelisted`` admission policy.
+
+        The policy can be met by either the explicit mapping or a qualifying
+        balance of the configured whitelist asset. A zero whitelist-asset
+        address disables only the balance alternative, not the mapping-based
+        modifier.
+
+        :return:
+            Always ``True`` because every D2 deposit evaluates the modifier.
+        """
+        return True
+
+    def is_account_whitelisted(self, address: HexAddress) -> bool:
+        """Evaluate D2's mapping-or-asset-balance admission rule for an account.
+
+        Both ``deposit()`` and ``redeem()`` execute ``onlyWhitelisted``. The
+        balance branch is deliberately read at request construction time,
+        rather than cached, because a deposit can consume the balance that
+        granted admission.
+
+        :param address:
+            Account whose D2 admission policy is queried.
+        :return:
+            ``True`` when the explicit mapping or configured asset balance
+            currently admits the account.
+        """
+        vault_contract = self.vault_contract
+        if vault_contract.functions.whitelisted(address).call():
+            return True
+
+        whitelist_asset = vault_contract.functions.whitelistAsset().call()
+        if whitelist_asset.lower() == ZERO_ADDRESS_STR:
+            return False
+
+        whitelist_balance = vault_contract.functions.whitelistBalance().call()
+        whitelist_token = fetch_erc20_details(
+            self.web3,
+            whitelist_asset,
+            chain_id=self.chain_id,
+            cause_diagnostics_message=f"D2 vault {self.address} whitelist admission check",
+        )
+        return whitelist_token.fetch_raw_balance_of(address) > whitelist_balance
 
     def get_link(self, referral: str | None = None) -> str:  # noqa: ARG002
         """Get the canonical public page for this D2 vault.

@@ -53,10 +53,10 @@ The guard dispatcher validates calls to the following protocols:
 | **ERC-4626** | Built-in | `deposit`, `withdraw`, `redeem` with receiver and share-owner validation |
 | **ERC-7540** | Built-in | Request and claim calls with controller/receiver and owner validation |
 | **Ember** | Built-in | `redeemShares` payout-receiver validation |
-| **Gains V1** | Built-in | `makeWithdrawRequest` receiver validation |
+| **Gains V1** | Built-in | `makeWithdrawRequest` share-owner and standard `redeem` receiver/owner validation |
 | **Ostium V1.5** | Built-in | Request, claim, cancellation and reclaim call-site validation |
 | **NaraUSD+** | Built-in | `cooldownShares` and `unstake(receiver)` validation |
-| **Upshift** | Built-in | Deposit-only `deposit(asset,amount,receiver)` asset and receiver validation |
+| **Upshift** | Built-in | `deposit`, instant/queued redemption and claim receiver validation |
 | **CowSwap** | [CowSwapLib](./src/lib/CowSwapLib.sol) | Presigned order creation with sender/token/receiver validation |
 | **Velora (ParaSwap)** | [VeloraLib](./src/lib/VeloraLib.sol) | Atomic swaps with balance-envelope verification for opaque Augustus calldata |
 | **GMX V2** | [GmxLib](./src/lib/GmxLib.sol) | Perpetuals multicall validation with market/router whitelisting |
@@ -78,7 +78,8 @@ Every trade or action must pass through these checks:
 5. **Protocol-specific validation** — each supported protocol has tailored checks (swap paths, order parameters, balance envelopes, etc.)
 
 Use ``whitelistERC4626()`` for an ERC-4626-compatible vault and its established
-extension surface. Upshift is deliberately separate because it is multi-asset
+extension surface, including Plutus Hedge's ``redeem(requestId, receiver)``
+claim and request cancellation. Upshift is deliberately separate because it is multi-asset
 and does not use the ERC-4626 deposit ABI: configure every accepted asset with
 ``whitelistUpshift(vault, asset, notes)``. Unknown selectors remain rejected.
 
@@ -190,6 +191,10 @@ source .local-test.env && poetry run pytest tests/guard/<module> -v
 | [test_guard_simple_vault_uniswap_v3.py](../../tests/guard/test_guard_simple_vault_uniswap_v3.py) | Uniswap V3 exactInput/exactOutput, malicious recipient detection |
 | [test_guard_simple_vault_aave_v3.py](../../tests/guard/test_guard_simple_vault_aave_v3.py) | Aave V3 supply/withdraw guard validation |
 | [test_guard_simple_vault_erc_4626.py](../../tests/guard/test_guard_simple_vault_erc_4626.py) | ERC-4626 deposit/withdraw, malicious receiver detection |
+| [test_guard_simple_vault_csigma.py](../../tests/guard/test_guard_simple_vault_csigma.py) | cSigma mainnet-fork approval/deposit/redeem lifecycle, including receiver and owner validation |
+| [test_guard_simple_vault_forty_acres.py](../../tests/guard/test_guard_simple_vault_forty_acres.py) | 40acres Aerodrome USDC approval/deposit/redeem lifecycle with non-governance asset manager and receiver/owner rejection |
+| [test_guard_simple_vault_lagoon.py](../../tests/guard/test_guard_simple_vault_lagoon.py) | Lagoon ERC-7540 request, real-liquidity settlement and claim on a Base fork |
+| [test_guard_async_mock_settlement.py](../../tests/guard/test_guard_async_mock_settlement.py) | Protocol-shaped settlement mocks, event/payout parsing, and YieldNest's explicit mock-only liquidity override before guarded redemption |
 | [test_guard_simple_vault_one_delta.py](../../tests/guard/test_guard_simple_vault_one_delta.py) | 1delta leveraged trading guard validation |
 | [test_guard_gmx_validation.py](../../tests/guard/test_guard_gmx_validation.py) | GMX V2 multicall validation, market/router whitelisting |
 | [test_guard_simple_vault_hypercore.py](../../tests/guard/test_guard_simple_vault_hypercore.py) | Hypercore vault guard validation |

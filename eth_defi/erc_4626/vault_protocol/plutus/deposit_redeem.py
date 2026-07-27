@@ -25,6 +25,7 @@ from web3 import Web3
 from web3._utils.events import EventLogErrorFlags
 
 from eth_defi.erc_4626.deposit_redeem import ERC4626DepositManager
+from eth_defi.provider.anvil import is_anvil
 from eth_defi.vault.deposit_redeem import (
     AsyncVaultRequestStatus,
     CannotParseRedemptionTransaction,
@@ -379,7 +380,13 @@ class PlutusAsyncDepositManager(ERC4626DepositManager):
         assert isinstance(redemption_ticket, PlutusRedemptionTicket)
         return self.vault.vault_contract.functions.cancelRedeemRequest(redemption_ticket.request_id)
 
-    def force_settle(self, ticket: DepositTicket | RedemptionTicket | None) -> VaultForcedSettlementResult:
+    def force_settle(
+        self,
+        ticket: DepositTicket | RedemptionTicket | None,
+        *,
+        mock: object | None = None,
+        ignore_liquidity: bool = False,
+    ) -> VaultForcedSettlementResult:
         """Report that Plutus operator fulfilment is not reproducible on a fork.
 
         Plutus ``fulfillRedeem`` is gated by OpenZeppelin AccessControl; the
@@ -390,14 +397,36 @@ class PlutusAsyncDepositManager(ERC4626DepositManager):
 
         :param ticket:
             Pending redemption ticket, or ``None``.
+        :param mock:
+            A deployed ``MockPlutusVault`` only for local mock tests. Its
+            ``fulfillRedeem`` call replaces the role-gated production operator
+            action; no production fork settlement is attempted.
+        :param ignore_liquidity:
+            Unsupported because Plutus fulfilment is an operator boundary, not
+            a local immediate-liquidity gate.
         :return:
             No-op result for ``None``.
         :raise UnsupportedVaultSimulation:
             For a redemption ticket, because operator fulfilment cannot be
             reproduced without role discovery.
         """
+        if ignore_liquidity:
+            return super().force_settle(ticket, mock=mock, ignore_liquidity=True)
+
         if ticket is None:
             return create_synchronous_settlement_result()
+        if mock is not None:
+            assert isinstance(ticket, PlutusRedemptionTicket), f"Plutus mock settlement requires PlutusRedemptionTicket, got {type(ticket)}"
+            if not is_anvil(self.web3):
+                raise UnsupportedVaultSimulation("Plutus mock settlement requires an Anvil provider", unsupported_reason="anvil_provider_required")
+            tx_hash = mock.functions.fulfillRedeem(ticket.request_id).transact({"from": self.web3.eth.accounts[0]})
+            return VaultForcedSettlementResult(
+                ticket=ticket,
+                settlement_required=True,
+                status_before=AsyncVaultRequestStatus.pending,
+                status_after=AsyncVaultRequestStatus.claimable,
+                transaction_hashes=(HexBytes(tx_hash),),
+            )
         raise UnsupportedVaultSimulation(
             f"Plutus Hedge fulfilment is role-gated (AccessControl) and not reproducible on a fork for vault {self.vault.address}",
             unsupported_reason=PLUTUS_ANVIL_SETTLEMENT_UNSUPPORTED_REASON,

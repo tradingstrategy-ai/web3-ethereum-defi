@@ -175,9 +175,11 @@ def test_upshift_multi_asset_vault_metadata(
     assert vault.fetch_share_price(UPSHIFT_MULTI_ASSET_FORK_BLOCK) > 0
     assert vault.get_deposit_manager_capability().as_dict() == {
         "can_deposit": True,
-        "can_redeem": False,
+        "can_redeem": True,
         "deposit_flow": "synchronous",
-        "redemption_unsupported_reason": "multi_asset_application_flow_not_implemented",
+        "redemption_flow": "asynchronous",
+        "supports_anvil_settlement": False,
+        "anvil_settlement_unsupported_reason": "upshift_operator_settlement_requires_mock",
         "deposit_assets": [token.address for token in denomination_tokens],
     }
     assert vault.fetch_total_assets(UPSHIFT_MULTI_ASSET_FORK_BLOCK) > 0
@@ -215,9 +217,11 @@ def test_upshift_sentora_multi_asset_deposit_lifecycle(sentora_web3: Web3, sento
     capability = vault.get_deposit_manager_capability()
     assert capability.as_initial_public_schema() == {
         "can_deposit": True,
-        "can_redeem": False,
+        "can_redeem": True,
         "deposit_flow": "synchronous",
-        "redemption_unsupported_reason": "multi_asset_application_flow_not_implemented",
+        "redemption_flow": "asynchronous",
+        "supports_anvil_settlement": False,
+        "anvil_settlement_unsupported_reason": "upshift_operator_settlement_requires_mock",
         "deposit_assets": [token.address for token in manager.fetch_accepted_assets()],
     }
     assert manager.has_synchronous_deposit() is True
@@ -229,8 +233,7 @@ def test_upshift_sentora_multi_asset_deposit_lifecycle(sentora_web3: Web3, sento
         manager.create_deposit_request(owner=owner, raw_amount=raw_amount)
     with pytest.raises(VaultFlowUnavailable, match="explicitly selected"):
         manager.estimate_deposit(owner, Decimal(1))
-    with pytest.raises(VaultFlowUnavailable, match="not implemented"):
-        manager.estimate_redeem(owner, Decimal(1))
+    assert manager.estimate_redeem(owner, Decimal(1)) > 0
 
     assert manager.estimate_deposit_for_asset(owner, Decimal(1), asset.address) == Decimal("0.969683")
     max_deposit = manager.fetch_max_deposit_for_asset(asset.address)

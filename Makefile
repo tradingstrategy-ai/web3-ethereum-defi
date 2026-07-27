@@ -69,7 +69,11 @@ guard:
 		-o \
 		-name "MockCsigmaV2Pool.json" \
 		-o \
+		-name "MockYieldNestVault.json" \
+		-o \
 		-name "MockERC7540Vault.json" \
+		-o \
+		-name "MockPlutusVault.json" \
 		-o \
 		-name "MockEmberVault.json" \
 		-o \

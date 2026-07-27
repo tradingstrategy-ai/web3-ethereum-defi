@@ -43,6 +43,10 @@ EXPECTED_SETTLEMENT_EPOCHS = 3
 #: Exact raw USDC returned by redemption after Gains' two-unit rounding fee.
 EXPECTED_REDEEMED_RAW_AMOUNT = 99_999_998
 
+#: Submit expected Guard reverts without ``eth_estimateGas`` masking the
+#: revert before a receipt can be inspected.
+GUARDED_REJECTION_GAS_LIMIT = 1_000_000
+
 pytestmark = [
     pytest.mark.skipif(JSON_RPC_ARBITRUM is None, reason="JSON_RPC_ARBITRUM needed to run these tests"),
     pytest.mark.xdist_group("fork:arbitrum:gains-375216652"),
@@ -80,6 +84,7 @@ def guarded_simple_vault(web3: Web3, gains_vault: GainsVault) -> tuple[Contract,
     """Deploy and configure a SimpleVaultV0 for the Gains call surface."""
     deployer = HexAddress(web3.eth.accounts[0])
     asset_manager = HexAddress(web3.eth.accounts[1])
+    set_balance(web3, deployer, Web3.to_wei(10, "ether"))
     set_balance(web3, asset_manager, Web3.to_wei(10, "ether"))
     simple_vault = deploy_contract(web3, "guard/SimpleVaultV0.json", deployer, asset_manager, libraries=GUARD_LIBRARIES)
     initialise_hash = simple_vault.functions.initialiseOwnership(deployer).transact({"from": deployer})
@@ -102,6 +107,20 @@ def _perform_guarded_call(
     tx_hash = simple_vault.functions.performCall(target, call_data).transact({"from": asset_manager})
     assert_transaction_success_with_explanation(web3, tx_hash)
     return tx_hash
+
+
+def _assert_guarded_call_rejected(
+    web3: Web3,
+    simple_vault: Contract,
+    asset_manager: HexAddress,
+    func: ContractFunction,
+    expected_error: str,
+) -> None:
+    """Assert that GuardV0 rejects a call before the Gains vault executes it."""
+    target, call_data = encode_simple_vault_transaction(func)
+    tx_hash = simple_vault.functions.performCall(target, call_data).transact({"from": asset_manager, "gas": GUARDED_REJECTION_GAS_LIMIT})
+    with pytest.raises(TransactionAssertionError, match=expected_error):
+        assert_transaction_success_with_explanation(web3, tx_hash)
 
 
 def test_guarded_gains_deposit_request_settlement_and_redemption(  # noqa: PLR0914
@@ -163,18 +182,47 @@ def test_guarded_gains_deposit_request_settlement_and_redemption(  # noqa: PLR09
     assert guard.functions.isAllowedApprovalDestination(approval_target).call() is True
 
 
-def test_guarded_gains_rejects_unwhitelisted_withdrawal_receiver(
+def test_guarded_gains_rejects_unwhitelisted_withdrawal_owner(
     web3: Web3,
     gains_vault: GainsVault,
     guarded_simple_vault: tuple[Contract, Contract, HexAddress],
 ) -> None:
-    """GuardV0 rejects a Gains withdrawal request with an outsider receiver."""
+    """GuardV0 rejects a Gains withdrawal request against an outsider's shares."""
     simple_vault, _guard, asset_manager = guarded_simple_vault
     outsider = HexAddress(web3.eth.accounts[3])
     malicious_request = gains_vault.vault_contract.functions.makeWithdrawRequest(1, outsider)
-    target, call_data = encode_simple_vault_transaction(malicious_request)
-    # A reverting Arbitrum transaction cannot be gas-estimated reliably; submit
-    # it with a bounded gas limit so the Guard revert can be asserted below.
-    tx_hash = simple_vault.functions.performCall(target, call_data).transact({"from": asset_manager, "gas": 1_000_000})
-    with pytest.raises(TransactionAssertionError, match="Receiver not whitelisted"):
-        assert_transaction_success_with_explanation(web3, tx_hash)
+    _assert_guarded_call_rejected(
+        web3,
+        simple_vault,
+        asset_manager,
+        malicious_request,
+        "Owner not whitelisted",
+    )
+
+
+def test_guarded_gains_rejects_unwhitelisted_redeem_addresses(
+    web3: Web3,
+    gains_vault: GainsVault,
+    guarded_simple_vault: tuple[Contract, Contract, HexAddress],
+) -> None:
+    """GuardV0 rejects Gains redemption claims with substituted addresses."""
+    simple_vault, _guard, asset_manager = guarded_simple_vault
+    outsider = HexAddress(web3.eth.accounts[3])
+
+    malicious_receiver_redeem = gains_vault.vault_contract.functions.redeem(1, outsider, simple_vault.address)
+    _assert_guarded_call_rejected(
+        web3,
+        simple_vault,
+        asset_manager,
+        malicious_receiver_redeem,
+        "Receiver not whitelisted",
+    )
+
+    malicious_owner_redeem = gains_vault.vault_contract.functions.redeem(1, simple_vault.address, outsider)
+    _assert_guarded_call_rejected(
+        web3,
+        simple_vault,
+        asset_manager,
+        malicious_owner_redeem,
+        "Owner not whitelisted",
+    )

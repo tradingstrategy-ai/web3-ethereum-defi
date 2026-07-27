@@ -104,8 +104,15 @@ class TokenisedFundDepositManager(VaultDepositManager):
             phase=phase,
         )
 
-    def force_settle(self, ticket: DepositTicket | RedemptionTicket | None) -> VaultForcedSettlementResult:
+    def force_settle(
+        self,
+        ticket: DepositTicket | RedemptionTicket | None,
+        *,
+        mock: object | None = None,
+        ignore_liquidity: bool = False,
+    ) -> VaultForcedSettlementResult:
         """Reject settlement of an unsupported tokenised-fund flow."""
+        del ticket, mock, ignore_liquidity
         self._reject(phase="settlement")
 
     def reclaim_deposit(self, ticket: DepositTicket) -> ContractFunction | None:

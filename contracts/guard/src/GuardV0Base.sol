@@ -68,6 +68,8 @@ bytes4 constant SEL_DEPOSIT = 0x6e553f65; // deposit(uint256,address)
 bytes4 constant SEL_WITHDRAW = 0xb460af94; // withdraw(uint256,address,address)
 bytes4 constant SEL_REDEEM = 0xba087652; // redeem(uint256,address,address)
 bytes4 constant SEL_REDEEM_SHARES = 0x983c676d; // redeemShares(uint256,address)
+bytes4 constant SEL_PLUTUS_REDEEM = 0x7bde82f2; // redeem(uint256,address)
+bytes4 constant SEL_PLUTUS_CANCEL_REDEEM = 0xc3f0d30e; // cancelRedeemRequest(uint256)
 
 // ===== ERC-4626 Umami (non-standard) =====
 bytes4 constant SEL_DEPOSIT_UMAMI = 0x8dbdbe6d; // deposit(uint256,uint256,address)
@@ -88,6 +90,9 @@ bytes4 constant SEL_UNSTAKE = 0xf2888dbb; // unstake(address)
 
 // ===== Upshift =====
 bytes4 constant SEL_UPSHIFT_DEPOSIT = 0xf45346dc; // deposit(address,uint256,address)
+bytes4 constant SEL_UPSHIFT_INSTANT_REDEEM = 0x22928208; // instantRedeem(uint256,address)
+bytes4 constant SEL_UPSHIFT_REQUEST_REDEEM = 0x107703ab; // requestRedeem(uint256,address)
+bytes4 constant SEL_UPSHIFT_CLAIM = 0xb3c9e83d; // claim(uint256,uint256,uint256,address)
 
 // ===== Gains/Ostium V1.5 =====
 bytes4 constant SEL_OSTIUM_REQUEST_DEPOSIT = 0x0d1e6667; // requestDeposit(uint256)
@@ -747,6 +752,12 @@ abstract contract GuardV0Base is IGuard, Multicall {
             _validate_ERC4626WithdrawOrRedeem(callData);
         } else if (selector == SEL_REDEEM_SHARES) {
             _validate_EmberRedeemShares(callData);
+        } else if (selector == SEL_PLUTUS_REDEEM) {
+            // Plutus Hedge: redeem(uint256 requestId, address receiver)
+            _validate_PlutusRedeem(callData);
+        } else if (selector == SEL_PLUTUS_CANCEL_REDEEM) {
+            // Plutus Hedge: cancelRedeemRequest(uint256 requestId).
+            // The request is bound to msg.sender and has no receiver argument.
         } else if (selector == SEL_REQUEST_REDEEM) {
             // ERC-7540: requestRedeem(uint256 shares, address controller, address owner)
             _validate_ERC4626WithdrawOrRedeem(callData);
@@ -756,7 +767,7 @@ abstract contract GuardV0Base is IGuard, Multicall {
         } else if (selector == SEL_REQUEST_DEPOSIT) {
             _validate_ERC7540Deposit(callData);
         } else if (selector == SEL_MAKE_WITHDRAW_REQUEST) {
-            // Gains/Ostium V1.0: makeWithdrawRequest(uint256,address)
+            // Gains/Ostium V1.0: makeWithdrawRequest(uint256,address owner)
             validate_makeWithdrawRequest(callData);
         } else if (selector == SEL_COOLDOWN_SHARES) {
             // NaraUSD+: cooldownShares(uint256). The request always acts on msg.sender.
@@ -766,6 +777,14 @@ abstract contract GuardV0Base is IGuard, Multicall {
         } else if (selector == SEL_UPSHIFT_DEPOSIT) {
             // Upshift: deposit(address asset,uint256 amount,address receiver)
             _validate_UpshiftDeposit(callData);
+        } else if (selector == SEL_UPSHIFT_INSTANT_REDEEM || selector == SEL_UPSHIFT_REQUEST_REDEEM) {
+            // Upshift: instantRedeem(uint256 shares,address receiver) and
+            // requestRedeem(uint256 shares,address receiver). Shares always
+            // belong to msg.sender (the guarded SimpleVault).
+            _validate_UpshiftRedeemReceiver(callData);
+        } else if (selector == SEL_UPSHIFT_CLAIM) {
+            // Upshift: claim(uint256 year,uint256 month,uint256 day,address receiver).
+            _validate_UpshiftClaimReceiver(callData);
         } else if (
             selector == SEL_OSTIUM_REQUEST_DEPOSIT || selector == SEL_OSTIUM_CLAIM_DEPOSIT
                 || selector == SEL_OSTIUM_CANCEL_DEPOSIT || selector == SEL_OSTIUM_RECLAIM_DEPOSIT
@@ -829,10 +848,20 @@ abstract contract GuardV0Base is IGuard, Multicall {
         revert UnknownPostCallValidationKind(uint8(context.kind));
     }
 
-    // Gains/Ostium: validate makeWithdrawRequest(uint256,address) receiver
+    // Gains/Ostium: validate makeWithdrawRequest(uint256,address owner).
     function validate_makeWithdrawRequest(bytes memory callData) internal view {
-        (, address receiver) = abi.decode(callData, (uint256, address));
+        (, address owner) = abi.decode(callData, (uint256, address));
+        _requireAllowedOwner(owner);
+    }
+
+    /// Require an allowed destination for funds, minted shares or a request.
+    function _requireAllowedReceiver(address receiver) internal view {
         require(isAllowedReceiver(receiver), "Receiver not whitelisted");
+    }
+
+    /// Require an allowed owner whose assets or shares a vault can consume.
+    function _requireAllowedOwner(address owner) internal view {
+        require(isAllowedReceiver(owner), "Owner not whitelisted");
     }
 
     // ERC-4626/ERC-7540: validate the receiver/controller and share owner.
@@ -844,8 +873,8 @@ abstract contract GuardV0Base is IGuard, Multicall {
     // approved share owner.
     function _validate_ERC4626WithdrawOrRedeem(bytes memory callData) internal view {
         (, address receiver, address owner) = abi.decode(callData, (uint256, address, address));
-        require(isAllowedReceiver(receiver), "Receiver not whitelisted");
-        require(isAllowedReceiver(owner), "Owner not whitelisted");
+        _requireAllowedReceiver(receiver);
+        _requireAllowedOwner(owner);
     }
 
     // ERC-4626: validate deposit(uint256 assets, address receiver)
@@ -856,7 +885,7 @@ abstract contract GuardV0Base is IGuard, Multicall {
     // the Safe's tokens — it does NOT restrict who receives the minted shares.
     function _validate_ERC4626Deposit(bytes memory callData) internal view {
         (, address receiver) = abi.decode(callData, (uint256, address));
-        require(isAllowedReceiver(receiver), "Receiver not whitelisted");
+        _requireAllowedReceiver(receiver);
     }
 
     // Ember: redeemShares(uint256 shares, address receiver).
@@ -866,7 +895,13 @@ abstract contract GuardV0Base is IGuard, Multicall {
     // prevents an asset manager from redirecting that later payout.
     function _validate_EmberRedeemShares(bytes memory callData) internal view {
         (, address receiver) = abi.decode(callData, (uint256, address));
-        require(isAllowedReceiver(receiver), "Receiver not whitelisted");
+        _requireAllowedReceiver(receiver);
+    }
+
+    // Plutus Hedge: validate redeem(uint256 requestId, address receiver).
+    function _validate_PlutusRedeem(bytes memory callData) internal view {
+        (, address receiver) = abi.decode(callData, (uint256, address));
+        _requireAllowedReceiver(receiver);
     }
 
     // ERC-7540: validate deposit(uint256 assets, address receiver, address controller)
@@ -880,21 +915,34 @@ abstract contract GuardV0Base is IGuard, Multicall {
     // account's request or claim.
     function _validate_ERC7540Deposit(bytes memory callData) internal view {
         (, address receiver, address controllerOrOwner) = abi.decode(callData, (uint256, address, address));
-        require(isAllowedReceiver(receiver), "Receiver not whitelisted");
-        require(isAllowedReceiver(controllerOrOwner), "Owner not whitelisted");
+        _requireAllowedReceiver(receiver);
+        _requireAllowedOwner(controllerOrOwner);
     }
 
     // NaraUSD+: validate unstake(address receiver).
     function _validate_NaraUnstake(bytes memory callData) internal view {
         address receiver = abi.decode(callData, (address));
-        require(isAllowedReceiver(receiver), "Receiver not whitelisted");
+        _requireAllowedReceiver(receiver);
     }
 
     // Upshift: validate deposit(address asset,uint256 amount,address receiver).
     function _validate_UpshiftDeposit(bytes memory callData) internal view {
         (address asset,, address receiver) = abi.decode(callData, (address, uint256, address));
         require(isAllowedAsset(asset), "Token not allowed");
-        require(isAllowedReceiver(receiver), "Receiver not whitelisted");
+        _requireAllowedReceiver(receiver);
+    }
+
+    // Upshift: instantRedeem(uint256 shares,address receiver) and
+    // requestRedeem(uint256 shares,address receiver).
+    function _validate_UpshiftRedeemReceiver(bytes memory callData) internal view {
+        (, address receiver) = abi.decode(callData, (uint256, address));
+        _requireAllowedReceiver(receiver);
+    }
+
+    // Upshift: claim(uint256 year,uint256 month,uint256 day,address receiver).
+    function _validate_UpshiftClaimReceiver(bytes memory callData) internal view {
+        (,,, address receiver) = abi.decode(callData, (uint256, uint256, uint256, address));
+        _requireAllowedReceiver(receiver);
     }
 
     // Umami non-standard ERC-4626 deposit
@@ -903,15 +951,23 @@ abstract contract GuardV0Base is IGuard, Multicall {
         require(isAllowedReceiver(receiver), "Receiver not whitelisted");
     }
 
-    // Umami non-standard ERC-4626 redeem
+    // Umami non-standard ERC-4626 redeem. The final owner argument controls
+    // which account's shares the vault may transfer under an allowance.
     function validate_UmamiRedeem(bytes memory callData) internal view {
-        (,, address receiver,) = abi.decode(callData, (uint256, uint256, address, address));
-        require(isAllowedReceiver(receiver), "Receiver not whitelisted");
+        (,, address receiver, address owner) = abi.decode(callData, (uint256, uint256, address, address));
+        _requireAllowedReceiver(receiver);
+        _requireAllowedOwner(owner);
     }
 
-    /// Whitelist Upshift's deposit-only multi-asset surface.
+    /// Whitelist Upshift's manager-controlled multi-asset surface.
+    ///
+    /// ``processAllClaimsByDate`` is intentionally absent: it is an operator
+    /// settlement action, not a call a guarded SimpleVault may initiate.
     function whitelistUpshift(address vault, address asset, string calldata notes) external onlyGuardOwner {
         allowCallSite(vault, SEL_UPSHIFT_DEPOSIT, notes);
+        allowCallSite(vault, SEL_UPSHIFT_INSTANT_REDEEM, notes);
+        allowCallSite(vault, SEL_UPSHIFT_REQUEST_REDEEM, notes);
+        allowCallSite(vault, SEL_UPSHIFT_CLAIM, notes);
         allowApprovalDestination(vault, notes);
         _whitelistToken(asset, notes);
     }
@@ -931,6 +987,8 @@ abstract contract GuardV0Base is IGuard, Multicall {
         allowCallSite(vault, SEL_WITHDRAW, notes);
         allowCallSite(vault, SEL_REDEEM, notes);
         allowCallSite(vault, SEL_REDEEM_SHARES, notes);
+        allowCallSite(vault, SEL_PLUTUS_REDEEM, notes);
+        allowCallSite(vault, SEL_PLUTUS_CANCEL_REDEEM, notes);
         allowCallSite(vault, SEL_DEPOSIT_UMAMI, notes);
         allowCallSite(vault, SEL_REDEEM_UMAMI, notes);
         allowCallSite(vault, SEL_DEPOSIT_7540, notes);
@@ -961,13 +1019,13 @@ abstract contract GuardV0Base is IGuard, Multicall {
     function validate_aaveSupply(bytes memory callData) internal view {
         (address token,, address onBehalfOf,) = abi.decode(callData, (address, uint256, address, uint256));
         require(isAllowedAsset(token), "Token not allowed");
-        require(isAllowedReceiver(onBehalfOf), "Receiver not whitelisted");
+        _requireAllowedReceiver(onBehalfOf);
     }
 
     function validate_aaveWithdraw(bytes memory callData) internal view {
         (address token,, address to) = abi.decode(callData, (address, uint256, address));
         require(isAllowedAsset(token), "Token not allowed");
-        require(isAllowedReceiver(to), "Receiver not whitelisted");
+        _requireAllowedReceiver(to);
     }
 
     function whitelistAaveV3(address lendingPool, string calldata notes) external onlyGuardOwner {

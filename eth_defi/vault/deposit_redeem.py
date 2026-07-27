@@ -601,6 +601,16 @@ class VaultForcedSettlementResult:
     #: a real-liquidity guarantee must assert this is zero.
     synthetic_assets_injected_raw: int = 0
 
+    #: ``True`` when the Anvil-only simulation explicitly bypassed a protocol
+    #: liquidity admission check. This is separate from
+    #: :attr:`synthetic_assets_injected_raw`: a protocol mock can relax a
+    #: ``maxRedeem``-style gate without minting any denomination tokens.
+    #:
+    #: A result with this flag set proves the guarded call and settlement
+    #: mechanics only. It is never evidence that the live deployment has
+    #: enough immediately available redemption liquidity.
+    liquidity_constraints_ignored: bool = False
+
 
 def create_synchronous_settlement_result() -> VaultForcedSettlementResult:
     """Create the standard no-op outcome for a synchronous vault flow.
@@ -915,6 +925,11 @@ class VaultDepositManager(ABC):
     result) because the request transaction already completed the lifecycle.
     Asynchronous managers must override it with a protocol-specific driver; the
     base raises :class:`UnsupportedVaultSimulation` when no safe driver exists.
+    ``ignore_liquidity=False`` preserves a real-liquidity simulation. The
+    opt-in ``ignore_liquidity=True`` is valid only for an explicitly documented
+    mock/fork driver and its result must mark
+    :attr:`VaultForcedSettlementResult.liquidity_constraints_ignored`; it is
+    never live redemption evidence or a way to bypass production preflights.
     """
 
     def __init__(
@@ -997,6 +1012,9 @@ class VaultDepositManager(ABC):
     def force_settle(
         self,
         ticket: DepositTicket | RedemptionTicket | None,
+        *,
+        mock: object | None = None,
+        ignore_liquidity: bool = False,
     ) -> VaultForcedSettlementResult:
         """Force the selected ticket forward on an Anvil simulation.
 
@@ -1006,6 +1024,18 @@ class VaultDepositManager(ABC):
 
         :param ticket:
             Pending async request ticket, or None for a synchronous flow.
+        :param mock:
+            Optional deployed protocol mock used only by focused local tests.
+            Concrete asynchronous managers may use it to execute their
+            operator/keeper settlement path without broadening production
+            Anvil-fork authority. Passing a mock to a manager that does not
+            implement mock settlement remains a typed unsupported simulation.
+        :param ignore_liquidity:
+            Permit a protocol-specific, Anvil-only mock or fork driver to
+            bypass an otherwise unavailable redemption-liquidity gate. Defaults
+            to ``False``. Managers must reject this request unless they have a
+            tested, explicit implementation; it must never weaken a production
+            preflight or live settlement path.
         :return:
             Settlement outcome with before/after status and transaction hashes.
         :raise UnsupportedVaultSimulation:
@@ -1015,6 +1045,24 @@ class VaultDepositManager(ABC):
             raise UnsupportedVaultSimulation(
                 f"{self.__class__.__name__}.force_settle() requires an Anvil provider",
                 unsupported_reason="anvil_provider_required",
+                protocol=self.vault.get_protocol_name(),
+                vault_address=self.vault.address,
+            )
+
+        if ignore_liquidity:
+            raise UnsupportedVaultSimulation(
+                f"{self.__class__.__name__} has no Anvil liquidity-bypass simulation driver",
+                unsupported_reason="liquidity_bypass_simulation_not_implemented",
+                protocol=self.vault.get_protocol_name(),
+                vault_address=self.vault.address,
+                direction="deposit" if isinstance(ticket, DepositTicket) else "redeem" if isinstance(ticket, RedemptionTicket) else None,
+            )
+
+        if mock is not None:
+            message = f"{self.__class__.__name__} has no local mock settlement driver"
+            raise UnsupportedVaultSimulation(
+                message,
+                unsupported_reason="mock_settlement_driver_not_implemented",
                 protocol=self.vault.get_protocol_name(),
                 vault_address=self.vault.address,
             )

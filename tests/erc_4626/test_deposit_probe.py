@@ -3,11 +3,14 @@
 import json
 import logging
 from decimal import Decimal
+from types import SimpleNamespace
+from unittest.mock import Mock
 
 import pytest
 from hexbytes import HexBytes
 
 import eth_defi.erc_4626.deposit_redeem as erc_4626_deposit_redeem
+from eth_defi.erc_4626 import deposit_probe
 from eth_defi.erc_4626.deposit_probe import DEFAULT_STATUS_PATH, VaultDepositProbeCandidate, VaultDepositProbeOutput, fetch_max_deposit_guidance, log_probe_tables, merge_redemption_flow_failure, prepare_probe_deposit_request, require_simulation, run_from_environment, select_candidates, update_status
 from eth_defi.erc_4626.deposit_redeem import ERC4626DepositManager
 from eth_defi.erc_4626.vault import CERTIFIED_SYNCHRONOUS_DEPOSIT_MANAGER_CLASSES, ERC4626Vault
@@ -15,11 +18,58 @@ from eth_defi.erc_4626.vault_protocol.csigma.deposit_redeem import CSUPERIOR_V2_
 from eth_defi.erc_4626.vault_protocol.gains.deposit_redeem import GainsDepositManager, GainsRedemptionTicket
 from eth_defi.erc_4626.vault_protocol.kiln.vault import KilnVault
 from eth_defi.erc_4626.vault_protocol.lagoon.vault import LagoonVault
+from eth_defi.erc_4626.vault_protocol.morpho.vault_v1 import MorphoV1Vault
+from eth_defi.erc_4626.vault_protocol.morpho.vault_v2 import MorphoV2Vault
 from eth_defi.erc_4626.vault_protocol.summer.vault import SummerVault
 from eth_defi.erc_4626.vault_protocol.yearn.vault import YearnV3Vault
 from eth_defi.vault.base import VaultSpec
 from eth_defi.vault.deposit_redeem import VaultDepositManagerCapability, VaultFlowUnavailable
 from eth_defi.vault.vaultdb import VaultDatabase
+
+
+def test_probe_actor_wallets_keep_governance_separate_from_guarded_executor(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The probe must not accidentally exercise GuardV0's governance bypass."""
+    created_addresses = iter(
+        (
+            "0x0000000000000000000000000000000000000001",
+            "0x0000000000000000000000000000000000000002",
+        )
+    )
+    funded_addresses: list[str] = []
+    synced_addresses: list[str] = []
+
+    class FakeAccount:
+        """Create opaque signing-account sentinels."""
+
+        @staticmethod
+        def create() -> object:
+            """Return one opaque account handle."""
+            return object()
+
+    class FakeWallet:
+        """Capture Anvil wallet setup without creating private keys."""
+
+        def __init__(self, _account: object) -> None:
+            """Assign the next deterministic address."""
+            self.address = next(created_addresses)
+
+        def sync_nonce(self, _web3: object) -> None:
+            """Record nonce synchronisation."""
+            synced_addresses.append(self.address)
+
+    def fake_set_balance(_web3: object, address: str, _amount: int) -> None:
+        """Record the actor whose Anvil native balance was funded."""
+        funded_addresses.append(address)
+
+    monkeypatch.setattr(deposit_probe, "Account", FakeAccount)
+    monkeypatch.setattr(deposit_probe, "HotWallet", FakeWallet)
+    monkeypatch.setattr(deposit_probe, "set_balance", fake_set_balance)
+
+    governance, asset_manager = deposit_probe._create_probe_actor_wallets(object())
+
+    assert governance.address != asset_manager.address
+    assert funded_addresses == [governance.address, asset_manager.address]
+    assert synced_addresses == [governance.address, asset_manager.address]
 
 
 def test_vault_deposit_manager_capability_exposes_directional_public_support() -> None:
@@ -171,6 +221,16 @@ def test_successful_readers_are_synchronous_manager_certified() -> None:
     assert object.__new__(KilnVault).get_deposit_manager_capability().as_initial_public_schema() is not None
     assert object.__new__(SummerVault).get_deposit_manager_capability().as_initial_public_schema() is not None
     assert object.__new__(YearnV3Vault).get_deposit_manager_capability().as_initial_public_schema() is not None
+
+
+def test_morpho_readers_keep_callable_manager_without_lifecycle_certification() -> None:
+    """Morpho managers remain callable but do not advertise full immediate redemption."""
+    for vault_type in (MorphoV1Vault, MorphoV2Vault):
+        class_name = f"{vault_type.__module__}.{vault_type.__qualname__}"
+        vault = object.__new__(vault_type)
+        assert class_name not in CERTIFIED_SYNCHRONOUS_DEPOSIT_MANAGER_CLASSES
+        assert vault.get_deposit_manager_capability() is None
+        assert isinstance(vault.get_deposit_manager(), ERC4626DepositManager)
 
 
 def test_max_deposit_guidance_is_reported_without_deciding_generic_support() -> None:
@@ -522,3 +582,23 @@ def test_gains_redemption_ticket_survives_json_round_trip() -> None:
     )
     restored = manager.reconstruct_redemption_ticket(json.loads(json.dumps(manager.serialize_redemption_ticket(ticket))))
     assert restored == ticket
+
+
+def test_gains_finish_redemption_uses_erc4626_receiver_then_owner() -> None:
+    """Gains claims must preserve the ERC-4626 redeem argument order."""
+    redeem = Mock(return_value=object())
+    manager = GainsDepositManager.__new__(GainsDepositManager)
+    manager.vault = SimpleNamespace(vault_contract=SimpleNamespace(functions=SimpleNamespace(redeem=redeem)))
+    ticket = GainsRedemptionTicket(
+        vault_address="0x0000000000000000000000000000000000000001",
+        owner="0x0000000000000000000000000000000000000002",
+        to="0x0000000000000000000000000000000000000003",
+        raw_shares=10,
+        tx_hash=HexBytes("0x" + "11" * 32),
+        current_epoch=123,
+        unlock_epoch=124,
+    )
+
+    manager.finish_redemption(ticket)
+
+    redeem.assert_called_once_with(ticket.raw_shares, ticket.to, ticket.owner)

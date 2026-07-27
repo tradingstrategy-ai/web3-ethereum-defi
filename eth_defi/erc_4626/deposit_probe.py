@@ -548,10 +548,10 @@ def log_probe_tables(rows: list[VaultDepositProbeOutput]) -> None:
 
 
 def _broadcast(wallet: HotWallet, function: ContractFunction, web3: Web3, gas: int = 750_000) -> TxReceipt:
-    """Sign, submit and wait for one control-wallet transaction.
+    """Sign, submit and wait for one local probe-wallet transaction.
 
     :param wallet:
-        Fresh gas-only Anvil control wallet.
+        Fresh gas-funded Anvil governance or asset-manager wallet.
     :param function:
         Bound SimpleVault or Guard contract call.
     :param web3:
@@ -608,6 +608,32 @@ def _assert_anvil_target(web3: Web3, launch_url: str, expected_chain_id: int) ->
         raise RuntimeError("Refusing to mutate a provider that is not the expected Anvil fork")  # noqa: EM101
 
 
+def _create_probe_actor_wallets(web3: Web3) -> tuple[HotWallet, HotWallet]:
+    """Create distinct governance and delegated execution wallets on Anvil.
+
+    GuardV0 intentionally gives governance unrestricted emergency authority.
+    The probe must therefore exercise ``performCall()`` from a different asset
+    manager address, or its result would not establish that normal GuardV0
+    validation accepted the manager-generated calldata.
+
+    :param web3:
+        Verified local Anvil provider whose synthetic native balances are set.
+    :return:
+        Fresh ``(governance, asset_manager)`` wallets with synchronised nonces.
+    :raise RuntimeError:
+        If independently created actor wallets unexpectedly share an address.
+    """
+    governance = HotWallet(Account.create())
+    asset_manager = HotWallet(Account.create())
+    if governance.address == asset_manager.address:
+        message = "Probe governance and asset-manager wallets must be distinct"
+        raise RuntimeError(message)
+    for wallet in (governance, asset_manager):
+        set_balance(web3, wallet.address, Web3.to_wei(10, "ether"))
+        wallet.sync_nonce(web3)
+    return governance, asset_manager
+
+
 def probe_candidate(  # noqa: PLR0914
     web3: Web3,
     candidate: VaultDepositProbeCandidate,
@@ -648,14 +674,16 @@ def probe_candidate(  # noqa: PLR0914
     token = fetch_erc20_details(web3, candidate.denomination_token_address)
     raw_amount = token.convert_to_raw(amount)
 
-    control = HotWallet(Account.create())
-    set_balance(web3, control.address, Web3.to_wei(10, "ether"))
-    control.sync_nonce(web3)
-    simple_vault = deploy_contract(web3, "guard/SimpleVaultV0.json", control, control.address, libraries=GUARD_LIBRARIES)
-    _broadcast(control, simple_vault.functions.initialiseOwnership(control.address), web3)
+    # Governance is intentionally distinct from the delegated asset manager.
+    # GuardV0 deliberately bypasses all restrictions for governance, so using
+    # one address for both roles would make this probe incapable of proving its
+    # manager calls traverse the guard's normal sender and selector checks.
+    governance, asset_manager = _create_probe_actor_wallets(web3)
+    simple_vault = deploy_contract(web3, "guard/SimpleVaultV0.json", governance, asset_manager.address, libraries=GUARD_LIBRARIES)
+    _broadcast(governance, simple_vault.functions.initialiseOwnership(governance.address), web3)
     guard = get_deployed_contract(web3, "guard/GuardV0.json", simple_vault.functions.guard().call())
     try:
-        _broadcast(control, guard.functions.whitelistERC4626(vault.address, "Vault deposit probe"), web3)
+        _broadcast(governance, guard.functions.whitelistERC4626(vault.address, "Vault deposit probe"), web3)
     except (*PROBE_EXECUTION_EXCEPTIONS, AnvilProbeTransactionError) as e:
         return {"outcome": "guard_configuration_error", "message": str(e), "deposit_manager": capability_data, "max_deposit_guidance": max_deposit_guidance}
 
@@ -683,21 +711,21 @@ def probe_candidate(  # noqa: PLR0914
     try:
         approval_target = manager.get_deposit_approval_target()
         approve_target, approve_data = encode_simple_vault_transaction(token.approve(approval_target, amount))
-        guard.functions.validateCall(control.address, approve_target, approve_data).call()
+        guard.functions.validateCall(asset_manager.address, approve_target, approve_data).call()
         encoded_requests = [encode_simple_vault_transaction(function) for function in request.funcs]
         for target, calldata in encoded_requests:
-            guard.functions.validateCall(control.address, target, calldata).call()
+            guard.functions.validateCall(asset_manager.address, target, calldata).call()
     except PROBE_EXECUTION_EXCEPTIONS as e:
         return {"outcome": "guard_validation_error", "message": str(e), "deposit_manager": capability_data, "max_deposit_guidance": max_deposit_guidance}
 
     try:
-        _broadcast(control, simple_vault.functions.performCall(approve_target, approve_data), web3)
+        _broadcast(asset_manager, simple_vault.functions.performCall(approve_target, approve_data), web3)
         allowance = token.contract.functions.allowance(simple_vault.address, approval_target).call()
         if allowance < raw_amount:
             return {"outcome": "adapter_error", "message": "Guarded approval did not set the requested allowance", "deposit_manager": capability_data, "max_deposit_guidance": max_deposit_guidance}
         request_hashes = []
         for target, calldata in encoded_requests:
-            receipt = _broadcast(control, simple_vault.functions.performCall(target, calldata), web3)
+            receipt = _broadcast(asset_manager, simple_vault.functions.performCall(target, calldata), web3)
             request_hashes.append(receipt["transactionHash"])
     except (*PROBE_EXECUTION_EXCEPTIONS, AnvilProbeTransactionError) as e:
         return {"outcome": "reverted", "message": str(e), "revert_reason": str(e), "deposit_manager": capability_data, "max_deposit_guidance": max_deposit_guidance}
@@ -729,14 +757,14 @@ def probe_candidate(  # noqa: PLR0914
                 )
             encoded_redemptions = [encode_simple_vault_transaction(function) for function in redemption.funcs]
             for target, calldata in encoded_redemptions:
-                guard.functions.validateCall(control.address, target, calldata).call()
+                guard.functions.validateCall(asset_manager.address, target, calldata).call()
         except VaultFlowError as e:
             return merge_redemption_flow_failure(result, e)
         except (*PROBE_EXECUTION_EXCEPTIONS, AssertionError) as e:
             return {**result, "outcome": "guard_validation_error", "message": f"Synchronous redemption validation failed: {e}"}
         try:
             for target, calldata in encoded_redemptions:
-                _broadcast(control, simple_vault.functions.performCall(target, calldata), web3)
+                _broadcast(asset_manager, simple_vault.functions.performCall(target, calldata), web3)
         except (*PROBE_EXECUTION_EXCEPTIONS, AnvilProbeTransactionError) as e:
             return {**result, "outcome": "reverted", "message": f"Synchronous redemption failed: {e}", "revert_reason": str(e)}
         remaining_shares = vault.vault_contract.functions.balanceOf(simple_vault.address).call()
@@ -766,8 +794,9 @@ def probe_candidate(  # noqa: PLR0914
         result["status_detail"] = "deposit_request_submitted"
         result["redemption_status_detail"] = "not_exercised_asynchronous"
 
-    if token.fetch_raw_balance_of(control.address) != 0 or vault.vault_contract.functions.balanceOf(control.address).call() != 0:
-        return {**result, "outcome": "adapter_error", "message": "Control wallet received vault assets or shares"}
+    for wallet in (governance, asset_manager):
+        if token.fetch_raw_balance_of(wallet.address) != 0 or vault.vault_contract.functions.balanceOf(wallet.address).call() != 0:
+            return {**result, "outcome": "adapter_error", "message": "Probe governance or asset manager received vault assets or shares"}
     return result
 
 

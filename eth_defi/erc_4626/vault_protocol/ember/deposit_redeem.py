@@ -22,6 +22,7 @@ from web3.contract.contract import ContractFunction
 from eth_defi.abi import ZERO_ADDRESS_STR, get_topic_signature_from_event
 from eth_defi.erc_4626.deposit_redeem import ERC4626DepositManager, ERC4626DepositRequest
 from eth_defi.erc_4626.flow import deposit_4626
+from eth_defi.provider.anvil import is_anvil
 from eth_defi.timestamp import get_block_timestamp
 from eth_defi.vault.deposit_redeem import (
     AsyncVaultRequestStatus,
@@ -477,7 +478,13 @@ class EmberDepositManager(ERC4626DepositManager):
         assert isinstance(redemption_ticket, EmberRedemptionTicket)
         return None
 
-    def force_settle(self, ticket: DepositTicket | RedemptionTicket | None) -> VaultForcedSettlementResult:
+    def force_settle(
+        self,
+        ticket: DepositTicket | RedemptionTicket | None,
+        *,
+        mock: object | None = None,
+        ignore_liquidity: bool = False,
+    ) -> VaultForcedSettlementResult:
         """Refuse Ember redemption settlement before broadcasting on a fork.
 
         Ember's operator-finalised request does not become a claimable ticket,
@@ -487,14 +494,37 @@ class EmberDepositManager(ERC4626DepositManager):
         :param ticket:
             Pending :class:`EmberRedemptionTicket`, or ``None`` for the
             synchronous-deposit no-op.
+        :param mock:
+            A deployed ``MockEmberVault`` only for local mock tests. The mock
+            runs its operator processing call; the terminal status is ``none``
+            because Ember pays directly instead of creating a user claim.
+        :param ignore_liquidity:
+            Unsupported because Ember's mock models operator processing rather
+            than a redeemable-liquidity preflight.
         :return:
             Synchronous no-op result when ``ticket`` is ``None``.
         :raise UnsupportedVaultSimulation:
             For every Ember redemption ticket, with the stable capability
             reason and without an operator transaction.
         """
+        if ignore_liquidity:
+            return super().force_settle(ticket, mock=mock, ignore_liquidity=True)
+
         if ticket is None:
             return create_synchronous_settlement_result()
+
+        if mock is not None:
+            assert isinstance(ticket, EmberRedemptionTicket), f"Ember mock settlement requires EmberRedemptionTicket, got {type(ticket)}"
+            if not is_anvil(self.web3):
+                raise UnsupportedVaultSimulation("Ember mock settlement requires an Anvil provider", unsupported_reason="anvil_provider_required")
+            tx_hash = mock.functions.processWithdrawalRequests(1).transact({"from": self.web3.eth.accounts[0]})
+            return VaultForcedSettlementResult(
+                ticket=ticket,
+                settlement_required=True,
+                status_before=AsyncVaultRequestStatus.pending,
+                status_after=AsyncVaultRequestStatus.none,
+                transaction_hashes=(HexBytes(tx_hash),),
+            )
 
         raise UnsupportedVaultSimulation(
             f"Ember settlement cannot prove a claimable ticket for vault {self.vault.address} on chain {self.vault.chain_id}",

@@ -126,7 +126,7 @@ class GainsDepositManager(ERC4626DepositManager):
     read from that event by :meth:`GainsRedemptionRequest.parse_redeem_transaction`
     and stored in a :class:`GainsRedemptionTicket`. Once the current epoch reaches
     ``unlockEpoch`` (:meth:`can_finish_redeem`), the owner claims by calling
-    ERC-4626 ``redeem(shares, owner, to)`` returned by :meth:`finish_redemption`.
+    ERC-4626 ``redeem(shares, to, owner)`` returned by :meth:`finish_redemption`.
     There is no per-request settlement id; the ticket is tracked purely by its
     epoch numbers.
 
@@ -200,6 +200,7 @@ class GainsDepositManager(ERC4626DepositManager):
         """
 
         assert raw_shares or shares
+        assert not to, f"Unsupported to={to}"
         vault = self.vault
 
         # Gains only accepts withdrawal requests in the first part of each
@@ -307,8 +308,8 @@ class GainsDepositManager(ERC4626DepositManager):
         assert redemption_ticket.to is not None
         return self.vault.vault_contract.functions.redeem(
             redemption_ticket.raw_shares,
-            redemption_ticket.owner,
             redemption_ticket.to,
+            redemption_ticket.owner,
         )
 
     def serialize_redemption_ticket(self, ticket: GainsRedemptionTicket) -> dict:
@@ -360,7 +361,13 @@ class GainsDepositManager(ERC4626DepositManager):
         contract = self.vault.vault_contract
         return contract.functions.totalSharesBeingWithdrawn(owner).call() > 0
 
-    def force_settle(self, ticket: DepositTicket | RedemptionTicket | None) -> VaultForcedSettlementResult:
+    def force_settle(
+        self,
+        ticket: DepositTicket | RedemptionTicket | None,
+        *,
+        mock: object | None = None,
+        ignore_liquidity: bool = False,
+    ) -> VaultForcedSettlementResult:
         """Advance the Gains epoch on Anvil until a redemption ticket unlocks.
 
         Gains redemptions unlock after a fixed number of epochs. Epoch
@@ -378,6 +385,13 @@ class GainsDepositManager(ERC4626DepositManager):
         :param ticket:
             Pending :class:`GainsRedemptionTicket`, or ``None`` for the
             synchronous-deposit no-op.
+        :param mock:
+            A deployed ``MockGainsV1Vault`` only for local mock tests. Its
+            ``forceNewEpoch`` function supplies the protocol's epoch boundary
+            without calling the production open-PnL feed.
+        :param ignore_liquidity:
+            Unsupported because Gains settlement advances epochs rather than
+            bypassing an immediate-liquidity gate.
         :return:
             Settlement outcome with before/after status and the epoch-forcing
             transaction hashes.
@@ -385,6 +399,9 @@ class GainsDepositManager(ERC4626DepositManager):
             If the provider is not Anvil, the epoch fails to advance, or the
             ticket does not become redeemable within the safety cap.
         """
+        if ignore_liquidity:
+            return super().force_settle(ticket, mock=mock, ignore_liquidity=True)
+
         from eth_defi.erc_4626.vault_protocol.gains.testing import force_next_gains_epoch
 
         if not is_anvil(self.web3):
@@ -399,6 +416,21 @@ class GainsDepositManager(ERC4626DepositManager):
             )
 
         assert isinstance(ticket, GainsRedemptionTicket), f"Gains force_settle requires GainsRedemptionTicket, got {type(ticket)}"
+
+        if mock is not None:
+            transaction_hashes: list[HexBytes] = []
+            while int(mock.functions.currentEpoch().call()) < ticket.unlock_epoch:
+                tx_hash = mock.functions.forceNewEpoch().transact({"from": self.web3.eth.accounts[0]})
+                transaction_hashes.append(HexBytes(tx_hash))
+                if len(transaction_hashes) >= GAINS_MAX_SETTLEMENT_EPOCHS:
+                    raise UnsupportedVaultSimulation(f"Gains mock settlement did not unlock ticket {ticket.get_request_id()} within {GAINS_MAX_SETTLEMENT_EPOCHS} epochs")
+            return VaultForcedSettlementResult(
+                ticket=ticket,
+                settlement_required=bool(transaction_hashes),
+                status_before=AsyncVaultRequestStatus.pending,
+                status_after=AsyncVaultRequestStatus.claimable,
+                transaction_hashes=tuple(transaction_hashes),
+            )
 
         if self.can_finish_redeem(ticket):
             return VaultForcedSettlementResult(
@@ -613,12 +645,13 @@ class OstiumV15DepositManager(ERC4626DepositManager):
     deposit whitelist; caps are enforced at settlement rather than at request
     time.
 
-    **Anvil settlement (force_settle).** This manager does not implement a fork
-    settlement driver and its capability does not advertise
+    **Anvil settlement (force_settle).** This manager does not implement a real
+    fork settlement driver and its capability does not advertise
     ``supports_anvil_settlement``. Although ``tryNewSettlement()`` is itself
-    permissionless, the inherited base :meth:`force_settle` has no Ostium driver,
-    so calling it with a pending ticket raises
-    :class:`~eth_defi.vault.deposit_redeem.UnsupportedVaultSimulation`.
+    permissionless, a production fork has oracle and open-PnL preconditions
+    which this adapter does not bypass. A focused local test may pass a deployed
+    ``MockOstiumV15Vault`` through ``force_settle(ticket, mock=...)``; only that
+    mock path executes its deterministic settlement round.
     """
 
     def __init__(self, vault: "eth_defi.erc_4626.vault_protocol.gains.vault.OstiumVault"):
@@ -627,6 +660,46 @@ class OstiumV15DepositManager(ERC4626DepositManager):
         assert isinstance(vault, OstiumVault), f"Got {type(vault)}"
         assert vault.version == OstiumVersion.v1_5, f"OstiumV15DepositManager requires V1.5 vault, got {vault.version}"
         self.vault = vault
+
+    def force_settle(
+        self,
+        ticket: DepositTicket | RedemptionTicket | None,
+        *,
+        mock: object | None = None,
+        ignore_liquidity: bool = False,
+    ) -> VaultForcedSettlementResult:
+        """Execute one deterministic MockOstiumV15Vault settlement round.
+
+        :param ticket:
+            Pending Ostium deposit or redemption ticket.
+        :param mock:
+            A deployed ``MockOstiumV15Vault`` for a focused local test. Omit it
+            for production, where the base class preserves the typed unsupported
+            settlement result.
+        :param ignore_liquidity:
+            Unsupported because the mock models a settlement round, not a
+            liquidity override.
+        :return:
+            Pending-to-claimable mock settlement result and its transaction hash.
+        :raise UnsupportedVaultSimulation:
+            If no mock is supplied or the provider is not Anvil.
+        """
+        if ignore_liquidity:
+            return super().force_settle(ticket, mock=mock, ignore_liquidity=True)
+        if mock is None:
+            return super().force_settle(ticket)
+        if not is_anvil(self.web3):
+            raise UnsupportedVaultSimulation("Ostium mock settlement requires an Anvil provider", unsupported_reason="anvil_provider_required")
+        if not isinstance(ticket, (OstiumDepositTicket, OstiumRedemptionTicket)):
+            raise UnsupportedVaultSimulation(f"Ostium mock settlement requires an Ostium ticket, got {type(ticket)}")
+        tx_hash = mock.functions.tryNewSettlement().transact({"from": self.web3.eth.accounts[0]})
+        return VaultForcedSettlementResult(
+            ticket=ticket,
+            settlement_required=True,
+            status_before=AsyncVaultRequestStatus.pending,
+            status_after=AsyncVaultRequestStatus.claimable,
+            transaction_hashes=(HexBytes(tx_hash),),
+        )
 
     def fetch_vault_flow_events(
         self,

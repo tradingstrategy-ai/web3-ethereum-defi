@@ -314,6 +314,30 @@ class ERC4626DepositManager(VaultDepositManager):
         :return:
             Decoded executed deposit quantities or a revert description.
         """
+        return self._analyse_deposit(claim_tx_hash, deposit_ticket)
+
+    def _analyse_deposit(
+        self,
+        claim_tx_hash: HexBytes | str,
+        deposit_ticket: DepositTicket | None,
+        *,
+        deposit_event_signature: str | None = None,
+    ) -> DepositRedeemEventAnalysis | DepositRedeemEventFailure:
+        """Analyse an ERC-4626 deposit with an optional explicit event signature.
+
+        Vaults with an overloaded Solidity event name can use this hook to
+        select the canonical ERC-4626 ``Deposit`` event without changing the
+        default behaviour for ordinary ERC-4626 deployments.
+
+        :param claim_tx_hash:
+            Mined deposit transaction hash.
+        :param deposit_ticket:
+            Optional ticket whose owner identifies a guarded wrapper.
+        :param deposit_event_signature:
+            Solidity event signature when the vault overloads ``Deposit``.
+        :return:
+            Decoded executed deposit quantities or a revert description.
+        """
         vault = self.vault
         tx = vault.web3.eth.get_transaction(claim_tx_hash)
         receipt = vault.web3.eth.get_transaction_receipt(claim_tx_hash)
@@ -324,6 +348,7 @@ class ERC4626DepositManager(VaultDepositManager):
             tx_receipt=receipt,
             direction="deposit",
             hot_wallet=not guarded_call,
+            deposit_event_signature=deposit_event_signature,
         )
 
         match analysis:
@@ -367,6 +392,30 @@ class ERC4626DepositManager(VaultDepositManager):
         :return:
             Decoded executed redemption quantities or a revert description.
         """
+        return self._analyse_redemption(claim_tx_hash, redemption_ticket)
+
+    def _analyse_redemption(
+        self,
+        claim_tx_hash: HexBytes | str,
+        redemption_ticket: RedemptionTicket | None,
+        *,
+        redemption_event_signature: str | None = None,
+    ) -> DepositRedeemEventAnalysis | DepositRedeemEventFailure:
+        """Analyse an ERC-4626 redemption with an optional event signature.
+
+        Vaults with an overloaded Solidity event name can use this hook to
+        select the canonical ERC-4626 ``Withdraw`` event without changing the
+        default behaviour for ordinary ERC-4626 deployments.
+
+        :param claim_tx_hash:
+            Mined redemption transaction hash.
+        :param redemption_ticket:
+            Optional ticket whose owner identifies a guarded wrapper.
+        :param redemption_event_signature:
+            Solidity event signature when the vault overloads ``Withdraw``.
+        :return:
+            Decoded executed redemption quantities or a revert description.
+        """
         vault = self.vault
         tx = vault.web3.eth.get_transaction(claim_tx_hash)
         receipt = vault.web3.eth.get_transaction_receipt(claim_tx_hash)
@@ -377,6 +426,7 @@ class ERC4626DepositManager(VaultDepositManager):
             tx_receipt=receipt,
             direction="redeem",
             hot_wallet=not guarded_call,
+            redemption_event_signature=redemption_event_signature,
         )
 
         match analysis:
