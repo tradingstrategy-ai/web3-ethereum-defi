@@ -304,11 +304,17 @@ def _get_remote_contract_addresses(chain: str) -> ContractAddresses:
 
     try:
         addresses = _fetch_contract_addresses_from_url(chain)
-    except Exception as exc:
+    except (requests.RequestException, json.JSONDecodeError) as exc:
         # _fetch_contract_addresses_from_url() re-raises rather than returning
         # None when the final URL exhausts its retries, which is what a plain
         # connection failure looks like — the most likely outage of all. Treat it
         # exactly like a None so the stale-serving path below still applies.
+        #
+        # Deliberately narrow: these are the two families that function re-raises
+        # for a transport or payload failure. A TypeError from, say, constructing
+        # ContractAddresses with a renamed field is a bug in this library, not an
+        # outage, and must surface as itself rather than as a misleading
+        # "failed to fetch" warning that quietly serves stale addresses.
         logger.warning("Error fetching GMX contract addresses for %s: %s", chain, exc)
         addresses = None
 

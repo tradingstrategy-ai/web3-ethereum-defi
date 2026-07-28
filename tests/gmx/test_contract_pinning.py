@@ -15,6 +15,7 @@ import logging
 from pathlib import Path
 
 import pytest
+import requests
 
 from eth_defi.gmx import contracts as contracts_module
 from eth_defi.gmx.contracts import (
@@ -208,7 +209,7 @@ def test_remote_release_serves_stale_when_the_fetch_raises(monkeypatch):
         calls.append(chain)
         if len(calls) == 1:
             return sentinel
-        raise ConnectionError("GitHub unreachable")
+        raise requests.exceptions.ConnectionError("GitHub unreachable")
 
     monkeypatch.setattr(contracts_module, "_fetch_contract_addresses_from_url", _fetch_then_die)
     monkeypatch.setattr(contracts_module, "GMX_REMOTE_CACHE_TTL_SECONDS", -1.0)
@@ -222,11 +223,58 @@ def test_remote_release_raises_when_the_fetch_raises_with_nothing_cached(monkeyp
     """With no cache to fall back on, the failure is still reported as ValueError."""
 
     def _die(chain):
-        raise ConnectionError("GitHub unreachable")
+        raise requests.exceptions.ConnectionError("GitHub unreachable")
 
     monkeypatch.setattr(contracts_module, "_fetch_contract_addresses_from_url", _die)
     with pytest.raises(ValueError, match="Failed to fetch contract addresses"):
         get_contract_addresses("arbitrum", release=GMX_CONTRACT_RELEASE_REMOTE)
+
+
+def test_remote_release_does_not_mask_programming_errors(monkeypatch):
+    """A bug in this library must not be reported as a network failure.
+
+    The stale-serving path exists for transport failures. Swallowing everything
+    would turn, say, a ``TypeError`` from constructing ``ContractAddresses`` with a
+    renamed field into a "failed to fetch" warning that quietly serves stale
+    addresses — hiding a code defect behind a connectivity story.
+    """
+    sentinel = PINNED_CONTRACTS["v2.2c"]["arbitrum"]
+    calls = []
+
+    def _fetch_then_bug(chain):
+        calls.append(chain)
+        if len(calls) == 1:
+            return sentinel
+        raise TypeError("ContractAddresses() got an unexpected keyword argument")
+
+    monkeypatch.setattr(contracts_module, "_fetch_contract_addresses_from_url", _fetch_then_bug)
+    monkeypatch.setattr(contracts_module, "GMX_REMOTE_CACHE_TTL_SECONDS", -1.0)
+
+    # Warm the cache, so a stale entry exists and could have masked the bug.
+    get_contract_addresses("arbitrum", release=GMX_CONTRACT_RELEASE_REMOTE)
+
+    with pytest.raises(TypeError, match="unexpected keyword argument"):
+        get_contract_addresses("arbitrum", release=GMX_CONTRACT_RELEASE_REMOTE)
+
+
+def test_remote_release_warns_on_an_unrecognised_router(monkeypatch, caplog):
+    """A router matching no pinned release is called out as unverified.
+
+    This is what a genuinely new GMX release looks like. It is not necessarily
+    wrong, but nothing has confirmed the new router is whitelisted on a vault
+    guard yet, which is the check that matters before pinning to it.
+    """
+    unknown = dataclasses.replace(
+        PINNED_CONTRACTS["v2.2c"]["arbitrum"],
+        exchangerouter="0x" + "ab" * 20,
+    )
+    monkeypatch.setattr(contracts_module, "_fetch_contract_addresses_from_url", lambda chain: unknown)
+
+    with caplog.at_level(logging.WARNING, logger=contracts_module.__name__):
+        get_contract_addresses("arbitrum", release=GMX_CONTRACT_RELEASE_REMOTE)
+
+    assert "unrecognised ExchangeRouter" in caplog.text
+    assert "whitelisted" in caplog.text
 
 
 def test_remote_release_warns_when_it_resolves_a_superseded_router(monkeypatch, caplog):
