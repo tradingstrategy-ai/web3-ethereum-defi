@@ -170,11 +170,22 @@ GMX_REMOTE_CACHE_TTL_SECONDS = 3600.0
 #: Sourced from ``gmx-io/gmx-synthetics``: ``v2.2c`` from the ``updates`` branch
 #: and ``v2.2b`` from ``main``, both read from ``docs/contracts.json``.
 #:
-#: Between v2.2b and v2.2c on Arbitrum, only ``ExchangeRouter``, ``Reader`` and
-#: ``GlvReader`` rotated. ``Router`` (SyntheticsRouter), ``OrderVault``,
-#: ``DataStore``, ``EventEmitter``, ``DepositVault`` and ``WithdrawalVault`` are
-#: unchanged, so existing ERC-20 approvals and guard order-vault mappings stay
-#: valid across the upgrade.
+#: Seven addresses rotated between v2.2b and v2.2c, identically on both chains:
+#: ``ExchangeRouter``, ``Reader``, ``GlvReader``, ``ChainlinkPriceFeedProvider``,
+#: ``ChainlinkDataStreamProvider``, ``OrderHandler`` and ``Oracle``. Of these only
+#: the first three matter to this integration — ``ExchangeRouter`` is the trading
+#: target a vault guard allowlists, and the two readers are decoded with vendored
+#: ABIs. Nothing here reads the other four.
+#:
+#: The rest are unchanged: ``Router`` (SyntheticsRouter), ``OrderVault``,
+#: ``DataStore``, ``EventEmitter``, ``DepositVault``, ``WithdrawalVault`` and
+#: ``GmOracleProvider``. That is the load-bearing property — an existing ERC-20
+#: approval targets the SyntheticsRouter and a guard maps each ExchangeRouter to
+#: an OrderVault, so both survive the upgrade and the migration is a single
+#: whitelist entry rather than a re-approval plus a guard remap.
+#:
+#: ``test_release_rotation_set_is_documented`` pins this list, so a future release
+#: that rotates something else fails rather than silently invalidating the claim.
 PINNED_CONTRACTS: dict[str, dict[str, ContractAddresses]] = {
     "v2.2c": {
         "arbitrum": ContractAddresses(
@@ -291,7 +302,15 @@ def _get_remote_contract_addresses(chain: str) -> ContractAddresses:
         if cached is not None and (now - cached[0]) < GMX_REMOTE_CACHE_TTL_SECONDS:
             return cached[1]
 
-    addresses = _fetch_contract_addresses_from_url(chain)
+    try:
+        addresses = _fetch_contract_addresses_from_url(chain)
+    except Exception as exc:
+        # _fetch_contract_addresses_from_url() re-raises rather than returning
+        # None when the final URL exhausts its retries, which is what a plain
+        # connection failure looks like — the most likely outage of all. Treat it
+        # exactly like a None so the stale-serving path below still applies.
+        logger.warning("Error fetching GMX contract addresses for %s: %s", chain, exc)
+        addresses = None
 
     if addresses is None:
         # Serve a stale entry rather than failing an order: a known-slightly-old
@@ -309,10 +328,56 @@ def _get_remote_contract_addresses(chain: str) -> ContractAddresses:
             f"Failed to fetch contract addresses for {chain} from GMX ({GMX_CONTRACTS_JSON_URL}). Set {GMX_CONTRACT_RELEASE_ENV_VAR} to a pinned release ({', '.join(sorted(PINNED_CONTRACTS))}) to avoid the network dependency.",
         )
 
+    _warn_if_superseded_release(chain, addresses)
+
     with _remote_address_cache_lock:
         _remote_address_cache[chain] = (now, addresses)
 
     return addresses
+
+
+def _warn_if_superseded_release(chain: str, addresses: ContractAddresses) -> None:
+    """Log loudly when live resolution returned a release older than the default.
+
+    :func:`_fetch_contract_addresses_from_url` tries the ``updates`` branch and
+    falls back to ``main``. That fallback does not fail — it *succeeds*, returning
+    a valid but older address set. So a transient GitHub 429 can still swap the
+    resolved ExchangeRouter out from under a running bot, which is the failure
+    this module exists to prevent; caching then holds the wrong set for up to
+    :data:`GMX_REMOTE_CACHE_TTL_SECONDS`.
+
+    Remote resolution is opt-in, so this is reported rather than rejected. The
+    fix for anyone seeing it is to pin — that is what the default does.
+
+    :param chain: Chain the addresses were resolved for.
+    :param addresses: The freshly resolved address set.
+    """
+    default_chains = PINNED_CONTRACTS.get(GMX_DEFAULT_CONTRACT_RELEASE, {})
+    expected = default_chains.get(chain)
+    if expected is None or addresses.exchangerouter == expected.exchangerouter:
+        return
+
+    for release, chains in PINNED_CONTRACTS.items():
+        known = chains.get(chain)
+        if known is not None and known.exchangerouter == addresses.exchangerouter:
+            logger.warning(
+                "GMX live resolution for %s returned the %s ExchangeRouter (%s), not the current %s (%s). The updates branch was probably unavailable and the fetch fell back to main. Set %s to pin a release instead of resolving live.",
+                chain,
+                release,
+                addresses.exchangerouter,
+                GMX_DEFAULT_CONTRACT_RELEASE,
+                expected.exchangerouter,
+                GMX_CONTRACT_RELEASE_ENV_VAR,
+            )
+            return
+
+    logger.warning(
+        "GMX live resolution for %s returned an unrecognised ExchangeRouter %s (expected the %s address %s). If GMX has published a new release, verify it is whitelisted on any vault guard before pinning to it.",
+        chain,
+        addresses.exchangerouter,
+        GMX_DEFAULT_CONTRACT_RELEASE,
+        expected.exchangerouter,
+    )
 
 
 def _fetch_contract_addresses_from_url(

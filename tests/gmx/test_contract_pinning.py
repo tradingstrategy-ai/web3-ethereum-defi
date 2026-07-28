@@ -9,7 +9,9 @@ allowlist that turned every order — including exits — into a reverted transa
 These tests lock in that address resolution is pinned, cached, and overridable.
 """
 
+import dataclasses
 import json
+import logging
 from pathlib import Path
 
 import pytest
@@ -189,6 +191,100 @@ def test_remote_release_raises_when_nothing_cached(monkeypatch):
     monkeypatch.setattr(contracts_module, "_fetch_contract_addresses_from_url", lambda chain: None)
     with pytest.raises(ValueError, match="Failed to fetch contract addresses"):
         get_contract_addresses("arbitrum", release=GMX_CONTRACT_RELEASE_REMOTE)
+
+
+def test_remote_release_serves_stale_when_the_fetch_raises(monkeypatch):
+    """A connection failure must reach the stale-serving path, not propagate.
+
+    ``_fetch_contract_addresses_from_url`` re-raises instead of returning ``None``
+    when the last URL exhausts its retries — which is what a plain network outage
+    looks like, the most likely failure of all. Letting that escape would defeat
+    the resilience path for the very case it exists to cover.
+    """
+    sentinel = PINNED_CONTRACTS["v2.2c"]["arbitrum"]
+    calls = []
+
+    def _fetch_then_die(chain):
+        calls.append(chain)
+        if len(calls) == 1:
+            return sentinel
+        raise ConnectionError("GitHub unreachable")
+
+    monkeypatch.setattr(contracts_module, "_fetch_contract_addresses_from_url", _fetch_then_die)
+    monkeypatch.setattr(contracts_module, "GMX_REMOTE_CACHE_TTL_SECONDS", -1.0)
+
+    assert get_contract_addresses("arbitrum", release=GMX_CONTRACT_RELEASE_REMOTE) is sentinel
+    assert get_contract_addresses("arbitrum", release=GMX_CONTRACT_RELEASE_REMOTE) is sentinel
+    assert len(calls) == 2, "the second call should have attempted a refresh"
+
+
+def test_remote_release_raises_when_the_fetch_raises_with_nothing_cached(monkeypatch):
+    """With no cache to fall back on, the failure is still reported as ValueError."""
+
+    def _die(chain):
+        raise ConnectionError("GitHub unreachable")
+
+    monkeypatch.setattr(contracts_module, "_fetch_contract_addresses_from_url", _die)
+    with pytest.raises(ValueError, match="Failed to fetch contract addresses"):
+        get_contract_addresses("arbitrum", release=GMX_CONTRACT_RELEASE_REMOTE)
+
+
+def test_remote_release_warns_when_it_resolves_a_superseded_router(monkeypatch, caplog):
+    """A silent fall-back to the previous release must not pass unnoticed.
+
+    The ``updates``-then-``main`` fetch does not fail when ``updates`` is rate
+    limited — it succeeds against ``main`` and returns the older release. That is
+    how a 429 alone could swap a running bot's ExchangeRouter.
+    """
+    older = PINNED_CONTRACTS["v2.2b"]["arbitrum"]
+    monkeypatch.setattr(contracts_module, "_fetch_contract_addresses_from_url", lambda chain: older)
+
+    with caplog.at_level(logging.WARNING, logger=contracts_module.__name__):
+        resolved = get_contract_addresses("arbitrum", release=GMX_CONTRACT_RELEASE_REMOTE)
+
+    assert resolved is older
+    assert "v2.2b" in caplog.text
+    assert V22B_EXCHANGE_ROUTER in caplog.text
+
+
+def test_remote_release_does_not_warn_on_the_current_router(monkeypatch, caplog):
+    current = PINNED_CONTRACTS["v2.2c"]["arbitrum"]
+    monkeypatch.setattr(contracts_module, "_fetch_contract_addresses_from_url", lambda chain: current)
+
+    with caplog.at_level(logging.WARNING, logger=contracts_module.__name__):
+        get_contract_addresses("arbitrum", release=GMX_CONTRACT_RELEASE_REMOTE)
+
+    assert "ExchangeRouter" not in caplog.text
+
+
+@pytest.mark.parametrize("chain", ["arbitrum", "avalanche"])
+def test_release_rotation_set_is_documented(chain, no_network):
+    """Pin exactly which addresses moved between v2.2b and v2.2c.
+
+    The ``PINNED_CONTRACTS`` docstring makes a claim about what is stable across
+    the upgrade, and the whole migration rests on it: the SyntheticsRouter keeps
+    an existing ERC-20 approval valid and the OrderVault keeps a guard's
+    router-to-vault mapping valid. Assert it rather than trusting the prose.
+    """
+    old = get_contract_addresses(chain, release="v2.2b")
+    new = get_contract_addresses(chain, release="v2.2c")
+
+    rotated = {f.name for f in dataclasses.fields(old) if getattr(old, f.name) != getattr(new, f.name)}
+
+    assert rotated == {
+        "exchangerouter",
+        "syntheticsreader",
+        "glvreader",
+        "chainlinkpricefeedprovider",
+        "chainlinkdatastreamprovider",
+        "orderhandler",
+        "oracle",
+    }
+
+    # The load-bearing half: these must not move, or the migration would need a
+    # re-approval and a guard remap rather than a single whitelist entry.
+    for field_name in ("syntheticsrouter", "ordervault", "datastore", "eventemitter", "depositvault", "withdrawalvault"):
+        assert getattr(old, field_name) == getattr(new, field_name), f"{field_name} rotated"
 
 
 def test_whitelist_constants_track_the_pinned_release(no_network):
