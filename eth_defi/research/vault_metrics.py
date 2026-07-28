@@ -1615,6 +1615,7 @@ def calculate_vault_record(
 
     name = _unnullify(vault_metadata.get("Name"), "<unnamed>")
     denomination = _unnullify(vault_metadata.get("Denomination"), "<broken>")
+    source_denomination = _unnullify(vault_metadata.get("_source_denomination"), denomination)
     share_token = _unnullify(vault_metadata.get("Share token"), "<broken>")
     normalised_denomination = normalise_token_symbol(denomination)
     denomination_slug = normalised_denomination.lower()
@@ -2089,6 +2090,11 @@ def calculate_vault_record(
             "one_month_cagr": one_month_cagr,
             "one_month_cagr_net": one_month_cagr_net,
             "denomination": denomination,
+            # ``denomination`` is the USD-normalised valuation currency used
+            # by the common price pipeline. Preserve the issuer's native
+            # currency separately so international-fund consumers can select
+            # EUTBL as EUR-denominated without losing comparable USD TVL.
+            "source_denomination": source_denomination,
             "normalised_denomination": normalised_denomination,
             "denomination_slug": denomination_slug,
             "share_token": share_token,
