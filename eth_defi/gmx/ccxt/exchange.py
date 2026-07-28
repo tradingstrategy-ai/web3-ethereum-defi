@@ -549,6 +549,14 @@ def _resolve_close_order_filled_amount(
     if not size_delta_usd or not execution_price:
         return requested_amount
 
+    # The caller supplied no token amount at all — it sized the close in USD via
+    # ``size_usd`` instead. Returning ``requested_amount`` here would report
+    # ``filled=0``/``amount=0`` for a position that was in fact fully closed on
+    # chain. Zero is never a legitimate full-close report, so derive the amount
+    # from the executed size instead.
+    if not requested_amount:
+        return size_delta_usd / execution_price
+
     # Fallback: no comparable on-chain position.
     if gmx_position is None:
         return requested_amount
@@ -6142,6 +6150,20 @@ class GMX(ExchangeCompatible):
                 # a ``size_delta_usd`` of 0, failing the close outright. Only
                 # applies when no token amount was supplied, so the token-based
                 # dust-prevention path above is untouched.
+                #
+                # BASIS CONTRACT: ``size_usd`` must be **entry-priced**, i.e. in
+                # the same space as GMX's ``sizeInUsd`` — for a full close, the
+                # position's original notional. It is used verbatim, with none of
+                # the entry-price repricing
+                # :func:`_resolve_reduce_only_requested_size_usd` applies to
+                # token amounts, because there is no token quantity to reprice.
+                # Passing a *current*-priced figure for an intended full close
+                # would compute below ``position_size * full_close_tolerance``,
+                # so :func:`_resolve_reduce_only_size_delta_usd` would classify it
+                # as PARTIAL and clamp it — quietly under-closing and leaving
+                # roughly price-move% token dust, the exact failure that repricing
+                # exists to prevent. Callers that only know a token quantity
+                # should pass it as ``amount`` and let the repricing path run.
                 requested_size_usd = float(explicit_size_usd)
                 logger.info(
                     "CLOSE: sizing reduce-only order from size_usd=%.2f (no token amount supplied)",
