@@ -1,5 +1,7 @@
 # 1.2
 
+- feat: Read complete Accountable fee-manager terms and effective vault deposit minimums onchain across legacy and current contract versions (2026-07-28)
+
 - feat: Add Anvil-only closed-vault GuardV0 deposit-calldata validation for globally closed ERC-4626 and Yearn vaults, D2 funding windows and paused cSigma pools, with structured closure/call evidence; preserve account admission while keeping approvals and call ordering out of non-broadcast simulation, and record explicit share/cash balance deltas for successful guarded vault probes (2026-07-27)
 - feat: Add hardcoded ShiftVault support for Base and Arbitrum, including TVL-feed valuation, historical reads and safe request-and-batch flow handling (2026-07-27)
 

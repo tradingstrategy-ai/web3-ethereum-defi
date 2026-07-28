@@ -3,12 +3,16 @@
 import datetime
 import logging
 from collections.abc import Iterable
+from dataclasses import dataclass
 from decimal import Decimal
 from functools import cached_property
 
-from eth_typing import BlockIdentifier
+from eth_typing import BlockIdentifier, HexAddress
+from web3 import Web3
 from web3.contract import Contract
+from web3.exceptions import BadFunctionCallOutput, ContractLogicError
 
+from eth_defi.abi import get_deployed_contract
 from eth_defi.erc_4626.core import get_deployed_erc_4626_contract
 from eth_defi.erc_4626.vault import ERC4626HistoricalReader, ERC4626Vault
 from eth_defi.erc_4626.vault_protocol.accountable.deposit_redeem import (
@@ -20,12 +24,180 @@ from eth_defi.erc_4626.vault_protocol.accountable.offchain_metadata import (
     fetch_accountable_vault_metadata,
 )
 from eth_defi.event_reader.multicall_batcher import EncodedCall, EncodedCallResult
+from eth_defi.provider.fallback import ExtraValueError
 from eth_defi.types import Percent
 from eth_defi.vault.base import VaultHistoricalRead, VaultHistoricalReader
 from eth_defi.vault.deposit_redeem import VaultDepositManagerCapability
+from eth_defi.vault.fee import FeeData, VaultFeeMode
 from eth_defi.vault.handwritten_metadata import get_handwritten_vault_metadata
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass(slots=True, frozen=True)
+class AccountableFeeData:
+    """Snapshot all Accountable fee-manager terms for one vault.
+
+    Accountable has two deployed fee-manager interfaces. The legacy interface
+    supports establishment and performance fees; the current interface also
+    supports an annualised management fee and separate manager/protocol splits
+    for management and performance charges. All percentages use the manager's
+    runtime ``BASIS_POINTS()`` denominator, which is currently one million.
+
+    Establishment and prepayment fees are loan terms paid by the borrower.
+    They are included here for a complete native view, but are not ERC-4626 LP
+    deposit or withdrawal fees. ``minimum_deposit`` is decimalised using the
+    vault denomination token while ``minimum_deposit_raw`` preserves the
+    effective maximum of the vault and strategy contract thresholds.
+
+    - Legacy fee manager: https://monadscan.com/address/0x4DE9B4d7b70d1680cD8E3A2C60717cBbe6014991#code
+    - Current fee-manager implementation: https://monadscan.com/address/0x13f12a4F960FaEC311dB695C6Bb891ce28d668aE#code
+    """
+
+    #: Block tag or number shared by every read in this snapshot.
+    block_identifier: BlockIdentifier
+
+    #: ERC-4626 vault whose fee terms were read.
+    vault_address: HexAddress
+
+    #: Accountable loan/strategy configured by the vault.
+    strategy_address: HexAddress
+
+    #: Fee-manager contract configured by the strategy.
+    fee_manager_address: HexAddress
+
+    #: Address receiving the protocol share of collected fees.
+    treasury_address: HexAddress
+
+    #: Address receiving the manager share of collected fees.
+    manager_fee_recipient_address: HexAddress
+
+    #: Runtime percentage denominator returned by ``BASIS_POINTS()``.
+    basis_points: int
+
+    #: Whether the deployed fee manager supports annual management fees.
+    supports_management_fee: bool
+
+    #: Borrower establishment fee in Accountable percentage units.
+    establishment_fee_raw: int
+
+    #: Annualised management fee in Accountable percentage units.
+    #:
+    #: Legacy fee managers structurally have no management fee, represented as
+    #: zero together with ``supports_management_fee=False``.
+    management_fee_raw: int
+
+    #: Performance fee in Accountable percentage units.
+    performance_fee_raw: int
+
+    #: Manager share of the performance fee in Accountable percentage units.
+    manager_performance_fee_split_raw: int
+
+    #: Protocol share of the performance fee in Accountable percentage units.
+    protocol_performance_fee_split_raw: int
+
+    #: Manager share of the management fee, or ``None`` on the legacy ABI.
+    manager_management_fee_split_raw: int | None
+
+    #: Protocol share of the management fee, or ``None`` on the legacy ABI.
+    protocol_management_fee_split_raw: int | None
+
+    #: Borrower prepayment fee in Accountable percentage units.
+    prepayment_fee_raw: int
+
+    #: Vault-level dust threshold returned by ``MIN_AMOUNT_WEI()``, if exposed.
+    vault_minimum_deposit_raw: int | None
+
+    #: Strategy-level configured ``loan.minDeposit``, if exposed.
+    strategy_minimum_deposit_raw: int | None
+
+    #: Effective ERC-20 base-unit minimum accepted by ``deposit()``.
+    #:
+    #: This is the maximum of the vault and strategy thresholds when present.
+    minimum_deposit_raw: int | None
+
+    #: Human-readable minimum deposit in denomination-token units, if exposed.
+    minimum_deposit: Decimal | None
+
+    def _normalise(self, raw_value: int) -> Percent:
+        """Convert an Accountable percentage integer to a fractional value.
+
+        :param raw_value:
+            Percentage encoded using :attr:`basis_points`.
+
+        :return:
+            Fractional percentage, such as ``0.20`` for a 20% fee.
+
+        :raise ValueError:
+            If the fee manager reports a non-positive denominator.
+        """
+        if self.basis_points <= 0:
+            raise ValueError(f"Accountable fee denominator must be positive, got {self.basis_points}")
+        return raw_value / self.basis_points
+
+    @property
+    def establishment_fee(self) -> Percent:
+        """Return the borrower establishment fee as a fraction."""
+        return self._normalise(self.establishment_fee_raw)
+
+    @property
+    def management_fee(self) -> Percent:
+        """Return the annualised management fee as a fraction."""
+        return self._normalise(self.management_fee_raw)
+
+    @property
+    def performance_fee(self) -> Percent:
+        """Return the performance fee as a fraction."""
+        return self._normalise(self.performance_fee_raw)
+
+    @property
+    def manager_performance_fee_split(self) -> Percent:
+        """Return the manager's share of performance fees as a fraction."""
+        return self._normalise(self.manager_performance_fee_split_raw)
+
+    @property
+    def protocol_performance_fee_split(self) -> Percent:
+        """Return the protocol's share of performance fees as a fraction."""
+        return self._normalise(self.protocol_performance_fee_split_raw)
+
+    @property
+    def manager_management_fee_split(self) -> Percent | None:
+        """Return the manager's share of management fees when supported."""
+        if self.manager_management_fee_split_raw is None:
+            return None
+        return self._normalise(self.manager_management_fee_split_raw)
+
+    @property
+    def protocol_management_fee_split(self) -> Percent | None:
+        """Return the protocol's share of management fees when supported."""
+        if self.protocol_management_fee_split_raw is None:
+            return None
+        return self._normalise(self.protocol_management_fee_split_raw)
+
+    @property
+    def prepayment_fee(self) -> Percent:
+        """Return the borrower prepayment fee as a fraction."""
+        return self._normalise(self.prepayment_fee_raw)
+
+    def as_generic_fee_data(self) -> FeeData:
+        """Map investor-facing Accountable fees to the shared fee schema.
+
+        Accountable deducts management and performance charges before updating
+        the value backing vault shares, so both are internalised skimming fees.
+        Establishment and prepayment charges apply to the underlying borrower,
+        not an LP entering or leaving the ERC-4626 vault. Generic deposit and
+        withdrawal fees are therefore known to be zero.
+
+        :return:
+            Shared fee data suitable for vault metadata and comparisons.
+        """
+        return FeeData(
+            fee_mode=VaultFeeMode.internalised_skimming,
+            management=self.management_fee,
+            performance=self.performance_fee,
+            deposit=0.0,
+            withdraw=0.0,
+        )
 
 
 class AccountableHistoricalReader(ERC4626HistoricalReader):
@@ -98,7 +270,7 @@ class AccountableHistoricalReader(ERC4626HistoricalReader):
         )
 
 
-class AccountableVault(ERC4626Vault):
+class AccountableVault(ERC4626Vault):  # noqa: PLR0904
     """Accountable Capital vault support.
 
     Accountable Capital develops blockchain-based financial verification technology
@@ -253,7 +425,7 @@ class AccountableVault(ERC4626Vault):
         """
         return AccountableDepositManager(self)
 
-    def get_deposit_manager_capability(self) -> VaultDepositManagerCapability:
+    def get_deposit_manager_capability(self) -> VaultDepositManagerCapability:  # noqa: PLR6301
         """Declare Accountable's public request lifecycle.
 
         :return:
@@ -318,23 +490,272 @@ class AccountableVault(ERC4626Vault):
             return metadata.get("company_name")
         return None
 
-    def get_management_fee(self, block_identifier: BlockIdentifier) -> float | None:
-        """Management fee is not publicly available.
+    def _fetch_vault_minimum_raw_deposit(self, block_identifier: BlockIdentifier) -> int | None:
+        """Fetch the optional vault-level minimum deposit.
 
-        Accountable vaults do not expose fee information on-chain.
+        :param block_identifier:
+            Block tag or number at which to read the minimum.
+
+        :return:
+            Exact denomination-token base units, or ``None`` when unsupported.
         """
-        return None
+        try:
+            return int(self.vault_contract.functions.MIN_AMOUNT_WEI().call(block_identifier=block_identifier))
+        except (BadFunctionCallOutput, ContractLogicError, ExtraValueError):
+            return None
 
-    def get_performance_fee(self, block_identifier: BlockIdentifier) -> float | None:
-        """Performance fee from Accountable's offchain metadata.
+    def _fetch_strategy_contract(self, block_identifier: BlockIdentifier) -> tuple[HexAddress, Contract]:
+        """Fetch the configured strategy address and bind its read ABI.
 
-        Falls back to None if metadata is unavailable.
+        :param block_identifier:
+            Block tag or number at which to resolve the strategy.
+
+        :return:
+            Checksum strategy address and its Accountable contract proxy.
         """
-        if self.accountable_metadata:
-            return self.accountable_metadata.get("performance_fee")
-        return None
+        strategy_address = Web3.to_checksum_address(self.vault_contract.functions.strategy().call(block_identifier=block_identifier))
+        strategy_contract = get_deployed_contract(
+            self.web3,
+            "accountable/AccountableStrategy.json",
+            strategy_address,
+            register_for_tracing=False,
+        )
+        return strategy_address, strategy_contract
 
-    def get_estimated_lock_up(self) -> datetime.timedelta | None:
+    @staticmethod
+    def _fetch_strategy_minimum_raw_deposit(strategy_contract: Contract, block_identifier: BlockIdentifier) -> int | None:
+        """Fetch ``loan.minDeposit`` from an Accountable strategy.
+
+        :param strategy_contract:
+            Accountable strategy bound to the read ABI.
+        :param block_identifier:
+            Block tag or number at which to read the minimum.
+
+        :return:
+            Strategy-configured base units, or ``None`` when unsupported.
+        """
+        try:
+            loan = strategy_contract.functions.loan().call(block_identifier=block_identifier)
+            return int(loan[0])
+        except (BadFunctionCallOutput, ContractLogicError, ExtraValueError):
+            return None
+
+    @staticmethod
+    def _effective_minimum_raw_deposit(vault_minimum: int | None, strategy_minimum: int | None) -> int | None:
+        """Combine vault and strategy deposit thresholds.
+
+        Both checks can reject the same ERC-4626 deposit, so the effective
+        minimum is the greatest available value.
+
+        :param vault_minimum:
+            Vault-level dust threshold.
+        :param strategy_minimum:
+            Strategy loan-term threshold.
+
+        :return:
+            Greatest configured threshold, or ``None`` when neither exists.
+        """
+        available_minimums = tuple(value for value in (vault_minimum, strategy_minimum) if value is not None)
+        return max(available_minimums) if available_minimums else None
+
+    def fetch_minimum_raw_deposit(self, block_identifier: BlockIdentifier = "latest") -> int | None:
+        """Fetch the effective minimum deposit in ERC-20 base units.
+
+        Accountable checks both the vault's ``MIN_AMOUNT_WEI()`` threshold and
+        the strategy's configured ``loan.minDeposit``. The larger value is the
+        amount an LP must satisfy.
+
+        :param block_identifier:
+            Block tag or number shared by both reads.
+
+        :return:
+            Effective denomination-token base-unit minimum, or ``None`` when
+            neither getter is supported.
+        """
+        _, strategy_contract = self._fetch_strategy_contract(block_identifier)
+        vault_minimum = self._fetch_vault_minimum_raw_deposit(block_identifier)
+        strategy_minimum = self._fetch_strategy_minimum_raw_deposit(strategy_contract, block_identifier)
+        return self._effective_minimum_raw_deposit(vault_minimum, strategy_minimum)
+
+    def fetch_minimum_deposit(self, block_identifier: BlockIdentifier = "latest") -> Decimal | None:
+        """Fetch the contract-enforced minimum deposit in token units.
+
+        The effective maximum of ``MIN_AMOUNT_WEI()`` and
+        ``loan.minDeposit`` is decimalised with the vault's denomination
+        token. Use :meth:`fetch_minimum_raw_deposit` when an exact input for a
+        transaction is required.
+
+        :param block_identifier:
+            Block tag or number at which to read the minimum.
+
+        :return:
+            Human-readable denomination-token amount, or ``None`` when the
+            getter or denomination token is unavailable.
+        """
+        minimum_raw = self.fetch_minimum_raw_deposit(block_identifier)
+        if minimum_raw is None or self.underlying_token is None:
+            return None
+        return self.underlying_token.convert_to_decimals(minimum_raw)
+
+    def fetch_accountable_fees(self, block_identifier: BlockIdentifier = "latest") -> AccountableFeeData:  # noqa: PLR0914
+        """Fetch every Accountable fee-manager term and the minimum deposit.
+
+        The vault points to its strategy, and the strategy points to the fee
+        manager. The reader first tries the current ABI's ``managementFee()``
+        getter. A missing selector identifies the legacy ABI, where management
+        fees are structurally unsupported and therefore known to be zero.
+
+        :param block_identifier:
+            Block tag or number shared by all onchain reads.
+
+        :return:
+            Complete Accountable-native fee snapshot.
+        """
+        strategy_address, strategy_contract = self._fetch_strategy_contract(block_identifier)
+        fee_manager_address = Web3.to_checksum_address(strategy_contract.functions.feeManager().call(block_identifier=block_identifier))
+        current_fee_manager = get_deployed_contract(
+            self.web3,
+            "accountable/AccountableFeeManagerV2.json",
+            fee_manager_address,
+            register_for_tracing=False,
+        )
+
+        try:
+            management_fee_raw = int(current_fee_manager.functions.managementFee(strategy_address).call(block_identifier=block_identifier))
+        except (BadFunctionCallOutput, ContractLogicError, ExtraValueError):
+            supports_management_fee = False
+            management_fee_raw = 0
+            manager_fee_recipient_address = Web3.to_checksum_address(strategy_contract.functions.investmentManager().call(block_identifier=block_identifier))
+            fee_manager = get_deployed_contract(
+                self.web3,
+                "accountable/AccountableFeeManagerV1.json",
+                fee_manager_address,
+                register_for_tracing=False,
+            )
+            manager_performance_fee_split_raw = int(fee_manager.functions.managerSplit(strategy_address).call(block_identifier=block_identifier))
+            protocol_performance_fee_split_raw = int(fee_manager.functions.protocolSplit(strategy_address).call(block_identifier=block_identifier))
+            manager_management_fee_split_raw = None
+            protocol_management_fee_split_raw = None
+        else:
+            supports_management_fee = True
+            manager_fee_recipient_address = Web3.to_checksum_address(strategy_contract.functions.managerFeeRecipient().call(block_identifier=block_identifier))
+            fee_manager = current_fee_manager
+            manager_performance_fee_split_raw = int(fee_manager.functions.managerSplit(strategy_address, True).call(block_identifier=block_identifier))
+            protocol_performance_fee_split_raw = int(fee_manager.functions.protocolSplit(strategy_address, True).call(block_identifier=block_identifier))
+            manager_management_fee_split_raw = int(fee_manager.functions.managerSplit(strategy_address, False).call(block_identifier=block_identifier))
+            protocol_management_fee_split_raw = int(fee_manager.functions.protocolSplit(strategy_address, False).call(block_identifier=block_identifier))
+
+        vault_minimum_deposit_raw = self._fetch_vault_minimum_raw_deposit(block_identifier)
+        strategy_minimum_deposit_raw = self._fetch_strategy_minimum_raw_deposit(strategy_contract, block_identifier)
+        minimum_deposit_raw = self._effective_minimum_raw_deposit(vault_minimum_deposit_raw, strategy_minimum_deposit_raw)
+        minimum_deposit = None
+        if minimum_deposit_raw is not None and self.underlying_token is not None:
+            minimum_deposit = self.underlying_token.convert_to_decimals(minimum_deposit_raw)
+
+        return AccountableFeeData(
+            block_identifier=block_identifier,
+            vault_address=Web3.to_checksum_address(self.vault_address),
+            strategy_address=strategy_address,
+            fee_manager_address=fee_manager_address,
+            treasury_address=Web3.to_checksum_address(fee_manager.functions.treasury().call(block_identifier=block_identifier)),
+            manager_fee_recipient_address=manager_fee_recipient_address,
+            basis_points=int(fee_manager.functions.BASIS_POINTS().call(block_identifier=block_identifier)),
+            supports_management_fee=supports_management_fee,
+            establishment_fee_raw=int(fee_manager.functions.establishmentFee(strategy_address).call(block_identifier=block_identifier)),
+            management_fee_raw=management_fee_raw,
+            performance_fee_raw=int(fee_manager.functions.performanceFee(strategy_address).call(block_identifier=block_identifier)),
+            manager_performance_fee_split_raw=manager_performance_fee_split_raw,
+            protocol_performance_fee_split_raw=protocol_performance_fee_split_raw,
+            manager_management_fee_split_raw=manager_management_fee_split_raw,
+            protocol_management_fee_split_raw=protocol_management_fee_split_raw,
+            prepayment_fee_raw=int(fee_manager.functions.prepaymentFee(strategy_address).call(block_identifier=block_identifier)),
+            vault_minimum_deposit_raw=vault_minimum_deposit_raw,
+            strategy_minimum_deposit_raw=strategy_minimum_deposit_raw,
+            minimum_deposit_raw=minimum_deposit_raw,
+            minimum_deposit=minimum_deposit,
+        )
+
+    def get_fee_data(self) -> FeeData:
+        """Fetch Accountable fees using the shared fee-data representation.
+
+        :return:
+            Investor-facing management and performance fees with zero LP
+            deposit and withdrawal charges.
+        """
+        return self.fetch_accountable_fees().as_generic_fee_data()
+
+    def get_management_fee(self, block_identifier: BlockIdentifier) -> float:
+        """Fetch the annualised onchain management fee.
+
+        Legacy fee managers cannot charge a management fee, so they return a
+        known zero instead of the previous unknown ``None``.
+
+        :param block_identifier:
+            Block tag or number at which to read the fee.
+
+        :return:
+            Fractional management fee, such as ``0.01`` for 1%.
+        """
+        return self.fetch_accountable_fees(block_identifier).management_fee
+
+    def get_performance_fee(self, block_identifier: BlockIdentifier) -> float:
+        """Fetch the onchain performance fee.
+
+        This replaces the previous offchain API value with the fee manager as
+        the authoritative source.
+
+        :param block_identifier:
+            Block tag or number at which to read the fee.
+
+        :return:
+            Fractional performance fee, such as ``0.20`` for 20%.
+        """
+        return self.fetch_accountable_fees(block_identifier).performance_fee
+
+    def get_deposit_fee(self, block_identifier: BlockIdentifier) -> float:  # noqa: PLR6301
+        """Return zero because Accountable has no ERC-4626 LP deposit fee.
+
+        ``establishmentFee`` is collected from the underlying borrower during
+        loan repayment and must not be presented as an investor entry fee.
+
+        :param block_identifier:
+            Unused because the LP deposit fee is structurally zero.
+
+        :return:
+            Always ``0.0``.
+        """
+        del block_identifier
+        return 0.0
+
+    def get_withdraw_fee(self, block_identifier: BlockIdentifier) -> float:  # noqa: PLR6301
+        """Return zero because Accountable has no ERC-4626 LP withdrawal fee.
+
+        ``prepaymentFee`` applies when an underlying borrower repays early and
+        must not be presented as an investor redemption fee.
+
+        :param block_identifier:
+            Unused because the LP withdrawal fee is structurally zero.
+
+        :return:
+            Always ``0.0``.
+        """
+        del block_identifier
+        return 0.0
+
+    def has_custom_fees(self) -> bool:  # noqa: PLR6301
+        """Report native borrower fee terms outside the shared fee schema.
+
+        Accountable establishment, prepayment and recipient-split fields are
+        preserved in :class:`AccountableFeeData`, but the shared fee schema
+        cannot represent them without mislabelling borrower charges as LP
+        entry or exit charges.
+
+        :return:
+            Always ``True`` for Accountable vaults.
+        """
+        return True
+
+    def get_estimated_lock_up(self) -> datetime.timedelta | None:  # noqa: PLR6301
         """Accountable vaults use async redemption queue.
 
         Lock-up period depends on the vault strategy and available liquidity.
@@ -348,6 +769,7 @@ class AccountableVault(ERC4626Vault):
         not the ERC-4626 vault (share token) address.
         Falls back to the vault address if metadata is unavailable.
         """
+        del referral
         metadata = get_handwritten_vault_metadata(self.chain_id, self.address)
         if metadata:
             return metadata.link

@@ -299,14 +299,9 @@ class AccountableDepositManager(ERC4626DepositManager):
             raw_amount = self.vault.denomination_token.convert_to_raw(amount)
         if raw_amount <= 0:
             raise ValueError("Accountable deposit amount must be positive")
-        # The binding minimum is the greater of the vault-level MIN_AMOUNT_WEI
-        # and the strategy's per-loan minDeposit; the latter reverts
-        # InsufficientAmount() inside strategy.onDeposit for a deposit that
-        # clears only the vault minimum.
-        minimum = int(self.vault.vault_contract.functions.MIN_AMOUNT_WEI().call())
-        strategy_min_deposit = self._fetch_strategy_loan_min_deposit()
-        if strategy_min_deposit is not None:
-            minimum = max(minimum, strategy_min_deposit)
+        minimum = self.vault.fetch_minimum_raw_deposit()
+        if minimum is None:
+            minimum = 0
         if raw_amount < minimum:
             raise VaultFlowUnavailable(
                 f"Accountable deposit amount {raw_amount} is below minimum {minimum}",
