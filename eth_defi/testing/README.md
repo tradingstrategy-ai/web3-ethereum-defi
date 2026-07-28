@@ -205,6 +205,15 @@ whatever `~/.foundry/cache/rpc` created so the paths match on every runner.
 - There is no Actions cache to purge — it was removed in favour of the committed
   seed.
 
+### Keep generic policy tests out of protocol-specific historical forks
+
+The canonical module documentation explains why a Guard, Safe, permission or
+calldata-validation assertion must not inherit a protocol lifecycle fixture's
+exceptional historical block, and how to split it onto the shared canonical
+fork: see **“Generic policy assertions must not inherit lifecycle fork
+exceptions”** in [`anvil_fork_pool.py`](anvil_fork_pool.py). The standard
+ERC-4626 Guard policy test named there is the reference implementation.
+
 ## Cold-fork read timeouts (the "out of credits" red herring)
 
 The vault-protocol / GMX jobs sometimes fail at fork setup with a 60-second

@@ -59,6 +59,50 @@ Forking ``latest`` or a per-test arbitrary block breaks all three benefits: the
 cache key never repeats, nothing is shared, and every run pays full
 archive-replay latency. That is why the fixed shared block is mandatory.
 
+Generic policy assertions must not inherit lifecycle fork exceptions
+--------------------------------------------------------------------
+
+Keep the test's fork state proportional to the behaviour it actually proves.
+A deposit/redeem characterisation may require a protocol-specific historical
+block because liquidity, an epoch or a manager implementation only permits the
+lifecycle there. A generic Guard, Safe, permission or calldata-validation test
+does not automatically share that dependency merely because it obtains its
+contract binding from the lifecycle fixture.
+
+This distinction is critical for cache health. Each exceptional block creates a
+separate Foundry cache namespace and a separate pool key. Coupling a generic
+policy assertion to every protocol profile therefore creates cold archive reads
+and Anvil processes, even where the Guard rejects the malicious calldata before
+the vault is ever called. In CI this showed up as an upstream
+``eth_getStorageAt`` stall followed by an unresponsive local Anvil teardown.
+
+Split these tests at their real boundary:
+
+1. Keep the protocol lifecycle test at its exceptional fixed block only where
+   that state is genuinely required.
+2. Put the generic policy assertion in its own module on the canonical
+   ``*_MIDNIGHT_BLOCK`` and use the matching
+   ``xdist_group("fork:<chain>:midnight")`` marker.
+3. Bind only the ABI needed to encode the guarded calldata. Do not autodetect a
+   protocol adapter or read manager/token metadata unless the assertion needs
+   it. Retain any source-chain read that the production configuration genuinely
+   makes: for example, ``GuardV0.whitelistERC4626()`` reads ``asset()`` while it
+   configures its allowlist.
+
+``tests/guard/test_guard_standard_erc4626_rejection.py`` is the reference:
+receiver and owner substitutions are rejected by GuardV0 before the target
+vault executes, so the test uses a real ERC-4626 address only for production
+whitelisting and ABI encoding. Its protocol-specific full lifecycle coverage
+remains separately in
+``tests/guard/test_guard_simple_vault_standard_erc4626.py``.
+
+If an exceptional block is unavoidable, isolate it in a small module, use one
+fixed block and matching xdist group, then warm and inspect that exact
+``~/.foundry/cache/rpc/<network>/<block>/storage.json`` before committing a
+seed. Do not treat an empty or fork-initialisation-only cache as coverage for
+contract-state reads. Prefer splitting the policy assertion over adding a
+one-off cache block.
+
 Cold-fork read-timeout failures — the CI symptom and what it means
 ------------------------------------------------------------------
 

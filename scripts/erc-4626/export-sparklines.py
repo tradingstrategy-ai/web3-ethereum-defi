@@ -26,8 +26,35 @@ from eth_defi.vault.vaultdb import VaultDatabase, get_pipeline_data_dir
 
 #: What's the threshold to render the spark line for the vault
 #:
-#: Must match the valut in vault-analysis-json.py
+#: Must match the value in vault-analysis-json.py
 MIN_PEAK_TVL = 5000
+
+#: Temporary rollout threshold for ApeX native vaults.
+#:
+#: ApeX is a new protocol with very little TVL, so its otherwise useful vault
+#: history would not receive sparklines under the general USDT 5,000 threshold.
+#: Keep this exemption scoped to ApeX until the protocol has established TVL.
+APEX_MIN_PEAK_TVL = 500
+
+#: Display name emitted by the ApeX native vault export.
+APEX_PROTOCOL_NAME = "ApeX"
+
+
+def resolve_sparkline_peak_tvl_threshold(vault_row: dict) -> int:
+    """Resolve the peak-TVL requirement for one vault's sparkline.
+
+    Most vaults use the shared USDT 5,000 threshold. ApeX receives a temporary
+    USDT 500 exemption because it is a new protocol whose small native vaults
+    would otherwise have no sparklines despite having useful history.
+
+    :param vault_row:
+        Vault metadata row from :class:`eth_defi.vault.vaultdb.VaultDatabase`.
+    :return:
+        Minimum historical total assets in USDT needed to render a sparkline.
+    """
+    if vault_row.get("Protocol") == APEX_PROTOCOL_NAME:
+        return APEX_MIN_PEAK_TVL
+    return MIN_PEAK_TVL
 
 
 @dataclass
@@ -49,7 +76,6 @@ def get_included_vault_ids(
     """
     # Compute peak TVL per vault in one pass
     peak_tvl = prices_df.groupby("id")["total_assets"].max()
-    eligible_ids = set(peak_tvl[peak_tvl >= MIN_PEAK_TVL].index)
 
     included = set()
     for row in vault_db.rows.values():
@@ -57,7 +83,8 @@ def get_included_vault_ids(
         denomination = row.get("Denomination") or ""
         if not is_stablecoin_like(denomination):
             continue
-        if vault_id in eligible_ids:
+        threshold = resolve_sparkline_peak_tvl_threshold(row)
+        if peak_tvl.get(vault_id, 0) >= threshold:
             included.add(vault_id)
     return included
 
