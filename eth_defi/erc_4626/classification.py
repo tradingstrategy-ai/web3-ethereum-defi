@@ -22,7 +22,7 @@ from eth_defi.erc_4626.vault_protocol.frax.constants import FRAX_STAKING_VAULT_A
 from eth_defi.erc_4626.vault_protocol.kiloex.constants import KILOEX_VAULT_ADDRESSES, KILOEX_VAULTS_BY_CHAIN
 from eth_defi.erc_4626.vault_protocol.nara.constants import NARAUSD_PLUS_VAULT
 from eth_defi.event_reader.multicall_batcher import EncodedCall, EncodedCallResult, MultiprocessMulticallReader, read_multicall_chunked
-from eth_defi.event_reader.web3factory import SimpleWeb3Factory, Web3Factory
+from eth_defi.event_reader.web3factory import Web3Factory
 from eth_defi.midas.constants import MIDAS_PRODUCTS, MIDAS_PRODUCTS_BY_TOKEN
 from eth_defi.tokenised_fund.asseto.constants import ASSETO_PRODUCTS, ASSETO_PRODUCTS_BY_TOKEN
 from eth_defi.tokenised_fund.centrifuge.constants import CENTRIFUGE_TRANCHE_PRODUCTS, CENTRIFUGE_TRANCHE_PRODUCTS_BY_TOKEN
@@ -850,7 +850,7 @@ def create_probe_calls(
                 extra_data=None,
             )
 
-        # Lagoon
+        # Older Lagoon releases.
         # https://basescan.org/address/0x6a5ea384e394083149ce39db29d5787a658aa98a#readContract
         yield EncodedCall.from_keccak_signature(
             address=address,
@@ -860,6 +860,15 @@ def create_probe_calls(
             extra_data=None,
         )
 
+        # Recent Lagoon deployments expose this protocol-specific accessor.
+        # https://github.com/hopperlabsxyz/lagoon-v0/blob/v0.5.0/src/v0.5.0/Vault.sol
+        yield EncodedCall.from_keccak_signature(
+            address=address,
+            signature=Web3.keccak(text="isTotalAssetsValid()")[0:4],
+            function="isTotalAssetsValid",
+            data=b"",
+            extra_data=None,
+        )
         # T3tris - ERC-4626-derived asynchronous vaults on Arbitrum.
         # Live app ABI exposes this protocol-specific accounting getter.
         # https://app.t3tris.finance/vaults
@@ -1353,6 +1362,19 @@ def _is_nonzero_abi_address(result: EncodedCallResult) -> bool:
     return result.success and len(result.result) == ABI_ENCODED_ADDRESS_LENGTH and int.from_bytes(result.result, byteorder="big") != 0
 
 
+def _is_abi_encoded_boolean(result: EncodedCallResult) -> bool:
+    """Check whether a probe returned an ABI-encoded boolean.
+
+    :param result:
+        Result returned by the boolean accessor probe.
+
+    :return:
+        ``True`` when the result is a valid ABI boolean, whether its value is
+        true or false.
+    """
+    return result.success and len(result.result) == ABI_ENCODED_ADDRESS_LENGTH and int.from_bytes(result.result, byteorder="big") in {0, 1}
+
+
 def identify_vault_features(
     address: HexAddress,
     calls: dict[str, EncodedCallResult],
@@ -1462,14 +1484,17 @@ def identify_vault_features(
     if _is_nonzero_abi_address(calls["withdrawalQueue"]):
         features.add(ERC4626Feature.symbiotic_like)
 
-    if calls["MAX_MANAGEMENT_RATE"].success:
+    # Legacy releases expose MAX_MANAGEMENT_RATE(). Recent releases expose the
+    # Lagoon-specific total-assets-validity accessor instead.
+    lagoon_recent_interface = _is_abi_encoded_boolean(calls["isTotalAssetsValid"])
+    if calls["MAX_MANAGEMENT_RATE"].success or lagoon_recent_interface:
         if ERC4626Feature.erc_7540_like in features:
             features.add(ERC4626Feature.lagoon_like)
         else:
-            # False positive: contract has MAX_MANAGEMENT_RATE() but lacks ERC-7540 isOperator(),
-            # so it is not a real Lagoon vault.
+            # False positive: contract has a Lagoon-specific accessor but lacks
+            # ERC-7540 isOperator(), so it is not a real Lagoon vault.
             # E.g. 0x7be599a641c6b99a5d7c8beb062fc3915ff9dd4f on Base.
-            logger.warning("Vault has MAX_MANAGEMENT_RATE but lacks ERC-7540 isOperator, skipping Lagoon classification: %s", debug_text)
+            logger.warning("Vault has Lagoon-specific accessors but lacks ERC-7540 isOperator, skipping Lagoon classification: %s", debug_text)
 
     if calls["getGrossTVL"].success:
         features.add(ERC4626Feature.t3tris_like)
