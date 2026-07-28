@@ -22,6 +22,7 @@ from eth_defi.vault.deposit_redeem import AsyncVaultRequestStatus, VaultFlowUnav
 from eth_defi.vault.historical import VaultHistoricalReadMulticaller
 
 JSON_RPC_ARBITRUM = os.environ.get("JSON_RPC_ARBITRUM")
+CI = os.environ.get("CI") == "true"
 pytestmark = [
     pytest.mark.skipif(not JSON_RPC_ARBITRUM, reason="Set JSON_RPC_ARBITRUM to run this test"),
     pytest.mark.xdist_group("fork:arbitrum:gains-375216652"),
@@ -207,9 +208,10 @@ def test_gains_deposit_withdraw(
     assert shares == 0
 
 
-# CI flaky since 2026-07-22: the live Arbitrum historical multicall raised
-# MulticallNonRetryable; the same reader passed on later CI and local runs.
+# CI disabled since 2026-07-28: three CI runs failed when both configured
+# Arbitrum providers lacked historical trie state; the reader passes locally.
 @flaky.flaky
+@pytest.mark.skipif(CI, reason="Arbitrum RPC providers lack the required historical trie state on CI")
 def test_gains_historical_stateful(tmp_path):
     """Read historical data of gTrade USDC vault using the stateful multicall reader.
 
