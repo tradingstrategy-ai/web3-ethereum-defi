@@ -33,7 +33,7 @@ from eth_defi.tokenised_fund.libeara.constants import LIBEARA_PRODUCTS, LIBEARA_
 from eth_defi.tokenised_fund.ondo.constants import ONDO_PRODUCTS, ONDO_PRODUCTS_BY_TOKEN
 from eth_defi.tokenised_fund.openeden.constants import OPENEDEN_CHAIN_ID, OPENEDEN_TBILL_ADDRESS
 from eth_defi.tokenised_fund.shift.constants import SHIFT_VAULT_ADDRESSES, SHIFT_VAULTS_BY_CHAIN
-from eth_defi.tokenised_fund.spiko.constants import USTBL_TOKEN_ADDRESS
+from eth_defi.tokenised_fund.spiko.constants import SPIKO_PRODUCTS
 from eth_defi.tokenised_fund.superstate.constants import SUPERSTATE_PRODUCTS_BY_CHAIN
 from eth_defi.tokenised_fund.sygnum.constants import SYGNUM_PRODUCTS_BY_CHAIN
 from eth_defi.tokenised_fund.theo.constants import THEO_ITOKEN_PRODUCTS, THEO_ITOKEN_PRODUCTS_BY_TOKEN
@@ -131,8 +131,8 @@ SUPERSTATE_HARDCODED_PROTOCOLS = {token: {ERC4626Feature.superstate_like} for to
 #: products are classified through this chain-aware allow-list.
 LIBEARA_HARDCODED_PROTOCOLS = {token: {ERC4626Feature.libeara_like} for token in LIBEARA_PRODUCTS_BY_TOKEN}
 
-#: Spiko USTBL is a single reviewed permissioned fund token on Ethereum.
-SPIKO_HARDCODED_PROTOCOLS = {USTBL_TOKEN_ADDRESS: {ERC4626Feature.spiko_like}}
+#: Spiko's reviewed permissioned fund tokens require chain-aware routing.
+SPIKO_HARDCODED_PROTOCOLS = {token: {ERC4626Feature.spiko_like} for _chain_id, token in SPIKO_PRODUCTS}
 
 #: Sygnum FILQ share tokens are reviewed permissioned SygToken proxies.
 SYGNUM_HARDCODED_PROTOCOLS = {token: {ERC4626Feature.sygnum_like} for products in SYGNUM_PRODUCTS_BY_CHAIN.values() for token in products}
@@ -414,9 +414,9 @@ def _get_hardcoded_protocol_features(address: HexAddress | str, chain_id: int | 
             return LIBEARA_HARDCODED_PROTOCOLS[normalised_address]
         if normalised_address in LIBEARA_HARDCODED_PROTOCOLS:
             return None
+        if (chain_id, normalised_address) in SPIKO_PRODUCTS:
+            return SPIKO_HARDCODED_PROTOCOLS[normalised_address]
         if normalised_address in SPIKO_HARDCODED_PROTOCOLS:
-            if chain_id == 1:
-                return SPIKO_HARDCODED_PROTOCOLS[normalised_address]
             return None
         sygnum_products = SYGNUM_PRODUCTS_BY_CHAIN.get(chain_id, frozenset())
         if normalised_address in sygnum_products:
