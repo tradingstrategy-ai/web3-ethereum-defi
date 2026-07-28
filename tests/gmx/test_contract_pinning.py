@@ -41,6 +41,15 @@ SYNTHETICS_ROUTER = "0x7452c558d45f8afC8c83dAe62C3f8A5BE19c71f6"
 #: OrderVault on Arbitrum, unchanged across v2.2b and v2.2c.
 ORDER_VAULT = "0x31eF83a530Fde1B38EE9A18093A333D8Bbbc40D5"
 
+#: Current Arbitrum Sepolia ExchangeRouter, from
+#: ``gmx-io/gmx-synthetics@updates:deployments/arbitrumSepolia/``.
+SEPOLIA_EXCHANGE_ROUTER = "0x6B489dD5bB1AAE8df246359d59aA7316760a75d2"
+
+#: Current Arbitrum Sepolia Reader. The previous entry pointed at a superseded
+#: deployment whose ``getAccountOrders`` returns an older struct, so decoding it
+#: against the vendored ABI failed once an order was actually pending.
+SEPOLIA_READER = "0x92659fEf40582ceCC3CBa4D096d28291C238D358"
+
 
 @pytest.fixture(autouse=True)
 def _clean_resolution_state(monkeypatch):
@@ -122,7 +131,7 @@ def test_unsupported_chain_raises(no_network):
 
 def test_testnet_ignores_release_pinning(no_network):
     """Testnets have a single static deployment and are unaffected by the pin."""
-    assert get_contract_addresses("arbitrum_sepolia", release="v2.2b").exchangerouter == "0x657F9215FA1e839FbA15cF44B1C00D95cF71ed10"
+    assert get_contract_addresses("arbitrum_sepolia", release="v2.2b").exchangerouter == SEPOLIA_EXCHANGE_ROUTER
 
 
 @pytest.mark.parametrize("chain", ["arbitrum", "avalanche"])
@@ -333,6 +342,23 @@ def test_release_rotation_set_is_documented(chain, no_network):
     # re-approval and a guard remap rather than a single whitelist entry.
     for field_name in ("syntheticsrouter", "ordervault", "datastore", "eventemitter", "depositvault", "withdrawalvault"):
         assert getattr(old, field_name) == getattr(new, field_name), f"{field_name} rotated"
+
+
+def test_sepolia_addresses_match_the_current_deployment(no_network):
+    """Arbitrum Sepolia must point at GMX's current testnet deployment.
+
+    GMX shipped the same upgrade to Sepolia that produced mainnet v2.2c, but this
+    table was not updated with it. The stale Reader was the visible symptom:
+    ``getAccountOrders`` on the superseded deployment returns an older struct, so
+    decoding it against the vendored ABI failed whenever an order was pending —
+    an empty result decodes fine either way, which is why it looked healthy until
+    a live order existed.
+    """
+    sepolia = get_contract_addresses("arbitrum_sepolia")
+    assert sepolia.exchangerouter == SEPOLIA_EXCHANGE_ROUTER
+    assert sepolia.syntheticsreader == SEPOLIA_READER
+    assert sepolia.glvreader == "0x45356cEE7f8668b7030577c13b4638802D3397Df"
+    assert sepolia.orderhandler == "0xC881c2391611829d7bc81c12a285cB0201F08f8c"
 
 
 def test_whitelist_constants_track_the_pinned_release(no_network):

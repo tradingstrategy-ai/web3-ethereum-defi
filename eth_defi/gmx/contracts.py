@@ -115,22 +115,36 @@ class ContractAddresses:
     oracle: Optional[HexAddress] = None
 
 
-# Keep only networks that won't be fetched dynamically
+# Keep only networks that won't be fetched dynamically.
+#
+# Arbitrum Sepolia has no entry in GMX's ``docs/contracts.json``, so it cannot be
+# release-pinned like the mainnets and is recorded here instead. Sourced from
+# ``gmx-io/gmx-synthetics@updates:deployments/arbitrumSepolia/``.
+#
+# GMX shipped the same upgrade to Sepolia that produced mainnet v2.2c, rotating
+# ``ExchangeRouter``, ``Reader``, ``GlvReader`` and ``OrderHandler``. This table
+# was not updated at the time, so it kept pointing at the superseded deployment.
+# The stale Reader was the visible symptom: its ``getAccountOrders`` returns an
+# older struct, so decoding it against the vendored ABI failed with
+# "Could not decode contract function call" whenever an order was actually
+# pending — an empty result decodes fine either way, which is why it looked
+# healthy until a live order existed. The current Sepolia Reader ABI is identical
+# to mainnet v2.2c, so the vendored ABIs serve both.
 NETWORK_CONTRACTS = {
     "arbitrum_sepolia": ContractAddresses(
         datastore=to_checksum_address("0xCF4c2C4c53157BcC01A596e3788fFF69cBBCD201"),
         eventemitter=to_checksum_address("0xa973c2692C1556E1a3d478e745e9a75624AEDc73"),
-        exchangerouter=to_checksum_address("0x657F9215FA1e839FbA15cF44B1C00D95cF71ed10"),
+        exchangerouter=to_checksum_address("0x6B489dD5bB1AAE8df246359d59aA7316760a75d2"),
         depositvault=to_checksum_address("0x809Ea82C394beB993c2b6B0d73b8FD07ab92DE5A"),
         withdrawalvault=to_checksum_address("0x7601c9dBbDCf1f5ED1E7Adba4EFd9f2cADa037A5"),
         ordervault=to_checksum_address("0x1b8AC606de71686fd2a1AEDEcb6E0EFba28909a2"),
-        syntheticsreader=to_checksum_address("0x37a0A165389B2f959a04685aC8fc126739e86926"),
+        syntheticsreader=to_checksum_address("0x92659fEf40582ceCC3CBa4D096d28291C238D358"),
         syntheticsrouter=to_checksum_address("0x72F13a44C8ba16a678CAD549F17bc9e06d2B8bD2"),
-        glvreader=to_checksum_address("0x4843D570c726cFb44574c1769f721a49c7e9c350"),
+        glvreader=to_checksum_address("0x45356cEE7f8668b7030577c13b4638802D3397Df"),
         chainlinkpricefeedprovider=to_checksum_address("0xa76BF7f977E80ac0bff49BDC98a27b7b070a937d"),
         chainlinkdatastreamprovider=to_checksum_address("0x13d6133F9ceE27B6C9A4559849553F10A45Bd9a4"),
         gmoracleprovider=to_checksum_address("0xFcE6f3D7a312C16ddA64dB049610f3fa4a477627"),
-        orderhandler=to_checksum_address("0x96332063e9dAACF93A7379CCa13BC2C8Ff5809cb"),
+        orderhandler=to_checksum_address("0xC881c2391611829d7bc81c12a285cB0201F08f8c"),
         oracle=to_checksum_address("0x0dC4e24C63C24fE898Dda574C962Ba7Fbb146964"),
     ),
 }
