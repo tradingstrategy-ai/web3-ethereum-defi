@@ -7,6 +7,8 @@ with GMX protocol contracts across supported networks.
 
 import json
 import logging
+import os
+import threading
 import time
 from dataclasses import dataclass
 from pathlib import Path
@@ -132,6 +134,185 @@ NETWORK_CONTRACTS = {
         oracle=to_checksum_address("0x0dC4e24C63C24fE898Dda574C962Ba7Fbb146964"),
     ),
 }
+
+
+#: Default GMX contract release used to resolve addresses.
+#:
+#: Address resolution is **pinned** rather than fetched live. GMX publishes new
+#: deployments to the ``updates`` branch of ``gmx-io/gmx-synthetics``; resolving
+#: against that branch on every call means the ExchangeRouter a bot trades through
+#: can change because of an upstream ``git push``, or flip back to the previous
+#: deployment when GitHub returns HTTP 429. Both happened in production and caused
+#: every order to revert with ``Target not allowed`` against a Lagoon vault guard
+#: whose allowlist still held the older router.
+GMX_DEFAULT_CONTRACT_RELEASE = "v2.2c"
+
+#: Environment variable overriding :data:`GMX_DEFAULT_CONTRACT_RELEASE`.
+#:
+#: This is the documented escape hatch. Set it to another key of
+#: :data:`PINNED_CONTRACTS` (e.g. ``v2.2b``) to roll back without a code change, or
+#: to :data:`GMX_CONTRACT_RELEASE_REMOTE` to restore the legacy dynamic-fetch
+#: behaviour.
+GMX_CONTRACT_RELEASE_ENV_VAR = "GMX_CONTRACT_RELEASE"
+
+#: Sentinel release restoring live resolution from ``gmx-io/gmx-synthetics``.
+#:
+#: Opt-in only. Results are still cached for
+#: :data:`GMX_REMOTE_CACHE_TTL_SECONDS` so the order hot path does not perform an
+#: HTTP round trip per order.
+GMX_CONTRACT_RELEASE_REMOTE = "remote"
+
+#: How long a dynamically fetched address set stays cached, in seconds.
+GMX_REMOTE_CACHE_TTL_SECONDS = 3600.0
+
+#: Pinned GMX contract addresses, keyed by release then by chain.
+#:
+#: Sourced from ``gmx-io/gmx-synthetics``: ``v2.2c`` from the ``updates`` branch
+#: and ``v2.2b`` from ``main``, both read from ``docs/contracts.json``.
+#:
+#: Between v2.2b and v2.2c on Arbitrum, only ``ExchangeRouter``, ``Reader`` and
+#: ``GlvReader`` rotated. ``Router`` (SyntheticsRouter), ``OrderVault``,
+#: ``DataStore``, ``EventEmitter``, ``DepositVault`` and ``WithdrawalVault`` are
+#: unchanged, so existing ERC-20 approvals and guard order-vault mappings stay
+#: valid across the upgrade.
+PINNED_CONTRACTS: dict[str, dict[str, ContractAddresses]] = {
+    "v2.2c": {
+        "arbitrum": ContractAddresses(
+            datastore=to_checksum_address("0xFD70de6b91282D8017aA4E741e9Ae325CAb992d8"),
+            eventemitter=to_checksum_address("0xC8ee91A54287DB53897056e12D9819156D3822Fb"),
+            exchangerouter=to_checksum_address("0x7dE39FF2e232A2203196788d37e234cF8F1b83f1"),
+            depositvault=to_checksum_address("0xF89e77e8Dc11691C9e8757e84aaFbCD8A67d7A55"),
+            withdrawalvault=to_checksum_address("0x0628D46b5D145f183AdB6Ef1f2c97eD1C4701C55"),
+            ordervault=to_checksum_address("0x31eF83a530Fde1B38EE9A18093A333D8Bbbc40D5"),
+            syntheticsreader=to_checksum_address("0xfA26cBb46e2614609406de08CA1Dc7f70a684184"),
+            syntheticsrouter=to_checksum_address("0x7452c558d45f8afC8c83dAe62C3f8A5BE19c71f6"),
+            glvreader=to_checksum_address("0x85fcBD684D08053f1efAB302dCb04F22E20E65B1"),
+            chainlinkpricefeedprovider=to_checksum_address("0x90218fbb064b1475E4382b041Cc7ccF08AF718B0"),
+            chainlinkdatastreamprovider=to_checksum_address("0x7BA7Ae61887F1aca28E0FE5aB1434ce85b6606aa"),
+            gmoracleprovider=to_checksum_address("0x5d6B84086DA6d4B0b6C0dF7E02f8a6A039226530"),
+            orderhandler=to_checksum_address("0xa5D2d45228ee2E3A18AB122B2cE84997d008f4Eb"),
+            oracle=to_checksum_address("0x26C02F221e8dB5A821e12347C7eA8a6b6E10842f"),
+        ),
+        "avalanche": ContractAddresses(
+            datastore=to_checksum_address("0x2F0b22339414ADeD7D5F06f9D604c7fF5b2fe3f6"),
+            eventemitter=to_checksum_address("0xDb17B211c34240B014ab6d61d4A31FA0C0e20c26"),
+            exchangerouter=to_checksum_address("0xc002Db96E682FFF6675966F959677285a0C45Efa"),
+            depositvault=to_checksum_address("0x90c670825d0C62ede1c5ee9571d6d9a17A722DFF"),
+            withdrawalvault=to_checksum_address("0xf5F30B10141E1F63FC11eD772931A8294a591996"),
+            ordervault=to_checksum_address("0xD3D60D22d415aD43b7e64b510D86A30f19B1B12C"),
+            syntheticsreader=to_checksum_address("0xa34320a507493C71Fe35E982e496F7C5d1a7fa02"),
+            syntheticsrouter=to_checksum_address("0x820F5FfC5b525cD4d88Cd91aCf2c28F16530Cc68"),
+            glvreader=to_checksum_address("0x321EB66dD95ad33715ee615AAb8dAC6394E7b3F9"),
+            chainlinkpricefeedprovider=to_checksum_address("0x86E284921273E1442f32ebd1b567Ce988Cf50dfE"),
+            chainlinkdatastreamprovider=to_checksum_address("0xc581aF9d20b1d95e456e4Bb9E3039aa0d48F9891"),
+            gmoracleprovider=to_checksum_address("0x9Dc4f12Eb2d8405b499FB5B8AF79a5f64aB8a457"),
+            orderhandler=to_checksum_address("0xC993eF170859DAE0241a3c12B8186e456Fa1c1B0"),
+            oracle=to_checksum_address("0x29220fA3b24279279C211701DE4a7b035122B911"),
+        ),
+    },
+    "v2.2b": {
+        "arbitrum": ContractAddresses(
+            datastore=to_checksum_address("0xFD70de6b91282D8017aA4E741e9Ae325CAb992d8"),
+            eventemitter=to_checksum_address("0xC8ee91A54287DB53897056e12D9819156D3822Fb"),
+            exchangerouter=to_checksum_address("0x1C3fa76e6E1088bCE750f23a5BFcffa1efEF6A41"),
+            depositvault=to_checksum_address("0xF89e77e8Dc11691C9e8757e84aaFbCD8A67d7A55"),
+            withdrawalvault=to_checksum_address("0x0628D46b5D145f183AdB6Ef1f2c97eD1C4701C55"),
+            ordervault=to_checksum_address("0x31eF83a530Fde1B38EE9A18093A333D8Bbbc40D5"),
+            syntheticsreader=to_checksum_address("0x470fbC46bcC0f16532691Df360A07d8Bf5ee0789"),
+            syntheticsrouter=to_checksum_address("0x7452c558d45f8afC8c83dAe62C3f8A5BE19c71f6"),
+            glvreader=to_checksum_address("0x2C670A23f1E798184647288072e84054938B5497"),
+            chainlinkpricefeedprovider=to_checksum_address("0x38B8dB61b724b51e42A88Cb8eC564CD685a0f53B"),
+            chainlinkdatastreamprovider=to_checksum_address("0xE1d5a068c5b75E0c7Ea1A9Fe8EA056f9356C6fFD"),
+            gmoracleprovider=to_checksum_address("0x5d6B84086DA6d4B0b6C0dF7E02f8a6A039226530"),
+            orderhandler=to_checksum_address("0x63492B775e30a9E6b4b4761c12605EB9d071d5e9"),
+            oracle=to_checksum_address("0x7F01614cA5198Ec979B1aAd1DAF0DE7e0a215BDF"),
+        ),
+        "avalanche": ContractAddresses(
+            datastore=to_checksum_address("0x2F0b22339414ADeD7D5F06f9D604c7fF5b2fe3f6"),
+            eventemitter=to_checksum_address("0xDb17B211c34240B014ab6d61d4A31FA0C0e20c26"),
+            exchangerouter=to_checksum_address("0x8f550E53DFe96C055D5Bdb267c21F268fCAF63B2"),
+            depositvault=to_checksum_address("0x90c670825d0C62ede1c5ee9571d6d9a17A722DFF"),
+            withdrawalvault=to_checksum_address("0xf5F30B10141E1F63FC11eD772931A8294a591996"),
+            ordervault=to_checksum_address("0xD3D60D22d415aD43b7e64b510D86A30f19B1B12C"),
+            syntheticsreader=to_checksum_address("0x62Cb8740E6986B29dC671B2EB596676f60590A5B"),
+            syntheticsrouter=to_checksum_address("0x820F5FfC5b525cD4d88Cd91aCf2c28F16530Cc68"),
+            glvreader=to_checksum_address("0x5C6905A3002f989E1625910ba1793d40a031f947"),
+            chainlinkpricefeedprovider=to_checksum_address("0x05d97cee050bfb81FB3EaD4A9368584F8e72C88e"),
+            chainlinkdatastreamprovider=to_checksum_address("0xC181eB022F33b8ba808AD96348B03e8A753A859b"),
+            gmoracleprovider=to_checksum_address("0x9Dc4f12Eb2d8405b499FB5B8AF79a5f64aB8a457"),
+            orderhandler=to_checksum_address("0x823b558B4bC0a2C4974a0d8D7885AA1102D15dEC"),
+            oracle=to_checksum_address("0xE1d5a068c5b75E0c7Ea1A9Fe8EA056f9356C6fFD"),
+        ),
+    },
+}
+
+
+#: Cached dynamically fetched address sets: chain -> (fetched_at, addresses).
+_remote_address_cache: dict[str, tuple[float, ContractAddresses]] = {}
+
+#: Guards :data:`_remote_address_cache` against concurrent refresh.
+_remote_address_cache_lock = threading.Lock()
+
+
+def get_pinned_contract_release() -> str:
+    """Resolve which GMX contract release address lookups should use.
+
+    Reads :data:`GMX_CONTRACT_RELEASE_ENV_VAR` at call time so tests and operators
+    can override the pin without reimporting the module.
+
+    :return: Release key into :data:`PINNED_CONTRACTS`, or
+        :data:`GMX_CONTRACT_RELEASE_REMOTE` for live resolution.
+    """
+    return os.environ.get(GMX_CONTRACT_RELEASE_ENV_VAR, GMX_DEFAULT_CONTRACT_RELEASE).strip()
+
+
+def clear_contract_address_cache() -> None:
+    """Drop cached dynamically fetched addresses.
+
+    Only affects the :data:`GMX_CONTRACT_RELEASE_REMOTE` code path; pinned lookups
+    are not cached because they perform no I/O.
+    """
+    with _remote_address_cache_lock:
+        _remote_address_cache.clear()
+
+
+def _get_remote_contract_addresses(chain: str) -> ContractAddresses:
+    """Fetch and cache contract addresses from ``gmx-io/gmx-synthetics``.
+
+    :param chain: Chain name, ``arbitrum`` or ``avalanche``.
+    :return: Freshly fetched addresses, or a cached set younger than
+        :data:`GMX_REMOTE_CACHE_TTL_SECONDS`.
+    :raises ValueError: If the addresses could not be fetched and nothing is cached.
+    """
+    now = time.time()
+
+    with _remote_address_cache_lock:
+        cached = _remote_address_cache.get(chain)
+        if cached is not None and (now - cached[0]) < GMX_REMOTE_CACHE_TTL_SECONDS:
+            return cached[1]
+
+    addresses = _fetch_contract_addresses_from_url(chain)
+
+    if addresses is None:
+        # Serve a stale entry rather than failing an order: a known-slightly-old
+        # address set beats no address set when GitHub rate limits us.
+        with _remote_address_cache_lock:
+            stale = _remote_address_cache.get(chain)
+        if stale is not None:
+            logger.warning(
+                "Failed to refresh GMX contract addresses for %s, serving cached set fetched %.0fs ago",
+                chain,
+                now - stale[0],
+            )
+            return stale[1]
+        raise ValueError(
+            f"Failed to fetch contract addresses for {chain} from GMX ({GMX_CONTRACTS_JSON_URL}). Set {GMX_CONTRACT_RELEASE_ENV_VAR} to a pinned release ({', '.join(sorted(PINNED_CONTRACTS))}) to avoid the network dependency.",
+        )
+
+    with _remote_address_cache_lock:
+        _remote_address_cache[chain] = (now, addresses)
+
+    return addresses
 
 
 def _fetch_contract_addresses_from_url(
@@ -406,13 +587,34 @@ TESTNET_TO_MAINNET_ORACLE_TOKENS = {
 }
 
 
-def get_contract_addresses(chain: str) -> ContractAddresses:
+def get_contract_addresses(chain: str, release: Optional[str] = None) -> ContractAddresses:
     """
     Get GMX contract addresses for a specific network.
 
+    Addresses are resolved from :data:`PINNED_CONTRACTS` by default. Pinning is
+    deliberate: a trading target must not change because GMX pushed to the
+    ``updates`` branch of ``gmx-io/gmx-synthetics``, and must not flip back to the
+    previous deployment because GitHub returned HTTP 429. Both occur in practice,
+    and against an on-chain allowlist (such as a Lagoon vault guard) a silently
+    rotated ExchangeRouter turns every order into a reverted transaction.
+
+    To follow GMX's published addresses live instead, pass
+    ``release=GMX_CONTRACT_RELEASE_REMOTE`` or set the
+    :data:`GMX_CONTRACT_RELEASE_ENV_VAR` environment variable. Remote results are
+    cached for :data:`GMX_REMOTE_CACHE_TTL_SECONDS`, so this no longer costs an
+    HTTP round trip per order.
+
+    Example — pin to the previous release without a code change:
+
+    .. code-block:: shell
+
+        export GMX_CONTRACT_RELEASE=v2.2b
+
     :param chain: Network name ("arbitrum", "avalanche", or "arbitrum_sepolia")
+    :param release: Override the release for this call. Defaults to
+        :func:`get_pinned_contract_release`.
     :return: Contract addresses for the network
-    :raises ValueError: If chain is not supported
+    :raises ValueError: If chain or release is not supported
     """
     # Handle the docstring keys in NETWORK_CONTRACTS
     clean_contracts = {}
@@ -427,30 +629,34 @@ def get_contract_addresses(chain: str) -> ContractAddresses:
                 # Regular key (like arbitrum_sepolia)
                 clean_contracts[key] = value
 
-    # For arbitrum and avalanche, always fetch from GMX API (no fallback)
-    if chain == "arbitrum":
-        # Fetch from GMX contracts.json URL
-        dynamic_addresses = _fetch_contract_addresses_from_url("arbitrum")
-        if dynamic_addresses is not None:
-            return dynamic_addresses
-        else:
-            # No fallback - raise error
-            raise ValueError(f"Failed to fetch contract addresses for {chain} from GMX API ({GMX_CONTRACTS_JSON_URL}). Please check your internet connection and try again. The API may be temporarily unavailable.")
-    elif chain == "avalanche":
-        # Fetch from GMX contracts.json URL
-        dynamic_addresses = _fetch_contract_addresses_from_url("avalanche")
-        if dynamic_addresses is not None:
-            return dynamic_addresses
-        else:
-            # No fallback - raise error
-            raise ValueError(f"Failed to fetch contract addresses for {chain} from GMX API ({GMX_CONTRACTS_JSON_URL}). Please check your internet connection and try again. The API may be temporarily unavailable.")
-    elif chain in clean_contracts:
-        # This will now properly handle arbitrum_sepolia and other non-dynamic networks
+    if release is None:
+        release = get_pinned_contract_release()
+
+    # Networks with a static deployment (testnets) never take part in release
+    # pinning — they have a single known address set.
+    if chain in clean_contracts:
         return clean_contracts[chain]
-    else:
+
+    if release == GMX_CONTRACT_RELEASE_REMOTE:
+        if chain not in ("arbitrum", "avalanche"):
+            raise ValueError(
+                f"Unsupported chain: {chain}. Supported: {list(clean_contracts.keys()) + ['arbitrum', 'avalanche']}",
+            )
+        return _get_remote_contract_addresses(chain)
+
+    pinned_chains = PINNED_CONTRACTS.get(release)
+    if pinned_chains is None:
         raise ValueError(
-            f"Unsupported chain: {chain}. Supported: {list(clean_contracts.keys()) + ['arbitrum', 'avalanche']}",
+            f"Unknown GMX contract release: {release!r}. Supported: {sorted(PINNED_CONTRACTS)} or {GMX_CONTRACT_RELEASE_REMOTE!r}. Set via the {GMX_CONTRACT_RELEASE_ENV_VAR} environment variable.",
         )
+
+    addresses = pinned_chains.get(chain)
+    if addresses is None:
+        raise ValueError(
+            f"Unsupported chain: {chain}. Supported: {list(clean_contracts.keys()) + sorted(pinned_chains)}",
+        )
+
+    return addresses
 
 
 def get_reader_contract(web3: Web3, chain: str) -> Contract:

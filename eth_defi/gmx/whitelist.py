@@ -106,34 +106,43 @@ logger = logging.getLogger(__name__)
 
 #: GMX contract addresses on Arbitrum mainnet.
 #:
-#: .. warning::
-#:
-#:     These addresses may become stale when GMX upgrades contracts.
-#:     Prefer using :func:`get_gmx_arbitrum_addresses` or
-#:     :meth:`GMXDeployment.create_arbitrum` which fetch addresses
-#:     dynamically from the GMX contracts registry.
-#:
 #: These are the official GMX V2 contract addresses required for
 #: whitelisting GMX trading in a Guard contract.
+#:
+#: .. warning::
+#:
+#:     Duplicated as literals, so this can drift when GMX rotates contracts —
+#:     it previously held an ExchangeRouter older than any supported release.
+#:     Prefer :func:`get_gmx_arbitrum_addresses` or
+#:     :meth:`GMXDeployment.create_arbitrum`, which read
+#:     :data:`eth_defi.gmx.contracts.PINNED_CONTRACTS` directly and therefore
+#:     cannot drift.
+#:
+#: Kept in sync with the ``v2.2c`` entry of
+#: :data:`eth_defi.gmx.contracts.PINNED_CONTRACTS`; the literals exist only to
+#: avoid a circular import between this module and :mod:`eth_defi.gmx.contracts`.
+#: ``test_whitelist_constants_track_the_pinned_release`` enforces the match.
 GMX_ARBITRUM_ADDRESSES: dict[str, HexAddress] = {
-    "exchange_router": "0x7C68C7866A64FA2160F78EEaE12217FFbf871fa8",
+    "exchange_router": "0x7dE39FF2e232A2203196788d37e234cF8F1b83f1",
     "synthetics_router": "0x7452c558d45f8afC8c83dAe62C3f8A5BE19c71f6",
     "order_vault": "0x31eF83a530Fde1B38EE9A18093A333D8Bbbc40D5",
 }
 
 
 def get_gmx_arbitrum_addresses() -> dict[str, HexAddress]:
-    """Fetch current GMX contract addresses for Arbitrum mainnet.
+    """Resolve the GMX contract addresses for Arbitrum mainnet.
 
-    Unlike :data:`GMX_ARBITRUM_ADDRESSES` which may become stale,
-    this function dynamically fetches the latest addresses from
-    the GMX contracts registry on GitHub.
+    Unlike :data:`GMX_ARBITRUM_ADDRESSES`, which duplicates the addresses as
+    literals and can drift, this reads
+    :data:`eth_defi.gmx.contracts.PINNED_CONTRACTS` through
+    :func:`eth_defi.gmx.contracts.get_contract_addresses`, honouring the
+    ``GMX_CONTRACT_RELEASE`` pin.
 
     :return:
         Dictionary with keys ``exchange_router``, ``synthetics_router``, ``order_vault``.
 
     :raises ValueError:
-        If addresses cannot be fetched from the GMX API.
+        If the configured release or chain is not supported.
     """
     from eth_defi.gmx.contracts import get_contract_addresses
 
@@ -519,3 +528,77 @@ def setup_gmx_whitelisting(
         result["markets"].extend(market_tx_hashes)
 
     return result
+
+
+class GMXRouterNotWhitelisted(Exception):
+    """The GMX ExchangeRouter we would trade through is not allowed by the Guard.
+
+    Raised by :func:`assert_gmx_router_whitelisted`. Every order created through
+    this router would revert on-chain with ``Target not allowed``, so this is a
+    fatal startup condition rather than a per-order error.
+    """
+
+
+def assert_gmx_router_whitelisted(
+    guard: Contract,
+    exchange_router: HexAddress | str,
+    *,
+    order_vault: HexAddress | str | None = None,
+) -> None:
+    """Check a Guard allows the GMX ExchangeRouter before any order is sent.
+
+    GMX rotates its ``ExchangeRouter`` between releases, while a Lagoon vault Guard
+    enforces a fixed address allowlist. When the two disagree, every order-creating
+    transaction reverts with ``Target not allowed`` — including exits, so the bot
+    cannot flatten risk. The failure is otherwise only discovered by spending gas
+    on a reverting transaction, once per order.
+
+    Call this at startup so the mismatch surfaces as one clear error instead.
+
+    Example::
+
+        from eth_defi.gmx.contracts import get_contract_addresses
+        from eth_defi.gmx.whitelist import assert_gmx_router_whitelisted
+
+        addresses = get_contract_addresses("arbitrum")
+        assert_gmx_router_whitelisted(
+            guard,
+            addresses.exchangerouter,
+            order_vault=addresses.ordervault,
+        )
+
+    :param guard:
+        Guard contract instance (GuardV0), usually the Safe's
+        ``TradingStrategyModuleV0``.
+
+    :param exchange_router:
+        GMX ExchangeRouter address that orders would be routed through.
+
+    :param order_vault:
+        If given, also assert the Guard maps this router to this OrderVault.
+        ``sendWnt``/``sendTokens`` receiver validation uses that mapping, so a
+        stale value fails at order time even when the router itself is allowed.
+
+    :raises GMXRouterNotWhitelisted:
+        If the router is not whitelisted, or is mapped to a different OrderVault.
+    """
+    exchange_router = Web3.to_checksum_address(exchange_router)
+
+    if not guard.functions.isAllowedGMXRouter(exchange_router).call():
+        raise GMXRouterNotWhitelisted(
+            f"GMX ExchangeRouter {exchange_router} is not whitelisted on guard {guard.address}. Every order through this router will revert with 'Target not allowed'. Fix: the guard owner must call whitelistGMX(exchangeRouter, syntheticsRouter, orderVault, collateralTokens, notes) for this router, or pin GMX contract resolution to a release whose router is already allowed (see eth_defi.gmx.contracts.GMX_CONTRACT_RELEASE_ENV_VAR).",
+        )
+
+    if order_vault is not None:
+        order_vault = Web3.to_checksum_address(order_vault)
+        mapped = Web3.to_checksum_address(guard.functions.gmxOrderVaults(exchange_router).call())
+        if mapped != order_vault:
+            raise GMXRouterNotWhitelisted(
+                f"GMX ExchangeRouter {exchange_router} is whitelisted on guard {guard.address}, but maps to OrderVault {mapped} instead of the expected {order_vault}. sendWnt()/sendTokens() receiver validation will reject orders. Fix: re-run whitelistGMX() with the correct OrderVault.",
+            )
+
+    logger.info(
+        "GMX ExchangeRouter %s is whitelisted on guard %s",
+        exchange_router,
+        guard.address,
+    )
