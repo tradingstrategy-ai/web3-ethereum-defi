@@ -2863,6 +2863,7 @@ def format_lifetime_table(
             "current_nav": "TVL USD (current / peak)",
             "years": "Age (years)",
             "denomination": "Denomination",
+            "source_denomination": "Source denomination",
             "chain": "Chain",
             "protocol": "Protocol",
             "risk": "Risk",
