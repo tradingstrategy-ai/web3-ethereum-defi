@@ -13,7 +13,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from eth_defi.apex.constants import APEX_CHAIN_ID
+from eth_defi.apex.constants import APEX_CHAIN_ID, APEX_OFFICIAL_VAULTS
 from eth_defi.apex.metrics import ApexMetricsDatabase
 from eth_defi.compat import native_datetime_utc_now
 from eth_defi.erc_4626.core import ERC4262VaultDetection, ERC4626Feature
@@ -25,11 +25,15 @@ from eth_defi.vault.vaultdb import VaultDatabase, VaultRow
 logger = logging.getLogger(__name__)
 
 
+OFFICIAL_VAULTS_BY_ID = {vault.vault_id: vault for vault in APEX_OFFICIAL_VAULTS}
+
+
 def create_apex_vault_row(
     vault_id: str,
     *,
     name: str,
     description: str | None,
+    short_description: str | None = None,
     tvl: float | None,
     share_count: float | None,
     created_at: datetime.datetime | None,
@@ -48,6 +52,8 @@ def create_apex_vault_row(
         Vault display name.
     :param description:
         Vault strategy description.
+    :param short_description:
+        Optional concise curated strategy description.
     :param tvl:
         Current total value in ApeX USDT terms.
     :param share_count:
@@ -106,7 +112,7 @@ def create_apex_vault_row(
         "_flags": {VaultFlag.perp_dex_trading_vault},
         "_lockup": None,
         "_description": description,
-        "_short_description": None,
+        "_short_description": short_description,
         "_manager_name": None,
         "_available_liquidity": None,
         "_utilisation": None,
@@ -186,10 +192,12 @@ def merge_into_vault_database(
         share_count = record["current_share_count"]
         created_at = record["created_at"]
         description = record["description"]
+        official_vault = OFFICIAL_VAULTS_BY_ID.get(str(record["vault_id"]))
         spec, vault_row = create_apex_vault_row(
             vault_id=str(record["vault_id"]),
-            name=str(record["name"] or ""),
-            description=None if pd.isna(description) else str(description),
+            name=official_vault.name if official_vault is not None else str(record["name"] or ""),
+            description=(official_vault.long_description if official_vault is not None else None if pd.isna(description) else str(description)),
+            short_description=official_vault.short_description if official_vault is not None else None,
             tvl=None if pd.isna(tvl) else float(tvl),
             share_count=None if pd.isna(share_count) else float(share_count),
             created_at=None if pd.isna(created_at) else created_at,

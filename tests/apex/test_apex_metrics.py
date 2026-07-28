@@ -66,6 +66,12 @@ def database(tmp_path: Path) -> Iterator[ApexMetricsDatabase]:
             db.close()
 
 
+@pytest.fixture(autouse=True)
+def _disable_official_endpoint_by_default(monkeypatch: MonkeyPatch) -> None:
+    """Keep legacy lifecycle tests limited to their ranked-vault fixtures."""
+    monkeypatch.setattr("eth_defi.apex.metrics.fetch_official_vaults", lambda *args, **kwargs: ())
+
+
 def test_schema_has_no_art_constraints(database: ApexMetricsDatabase) -> None:
     """Keep the file-backed schema free of ART-backed logical constraints."""
     constraints = database.con.execute(
@@ -290,11 +296,38 @@ def test_run_scan_rejects_empty_all_vault_snapshot(database: ApexMetricsDatabase
     observed_at = datetime.datetime(2026, 7, 23, 12)
     database.apply_ranking((_vault("1"),), observed_at, manage_disappearance=True)
     monkeypatch.setattr("eth_defi.apex.metrics.fetch_stabilised_vaults", lambda *args, **kwargs: ())
-    with pytest.raises(ApexAPIError, match="empty all-vault ranking"):
+    with pytest.raises(ApexAPIError, match="empty all-vault snapshot"):
         run_scan(_session_pool_mock(), database, history_mode="none")
     metadata = database.get_vault_metadata().iloc[0]
     assert pd.isna(metadata["missing_since"])
     assert len(database.get_vault_prices("1")) == 1
+
+
+def test_run_scan_includes_official_liquidity_provider_vaults(database: ApexMetricsDatabase, monkeypatch: MonkeyPatch) -> None:
+    """Persist official vaults and use their batch-only history endpoint."""
+    official = _vault("10000", nav=1.042)
+    monkeypatch.setattr("eth_defi.apex.metrics.fetch_stabilised_vaults", lambda *args, **kwargs: (_vault("1"),))
+    monkeypatch.setattr("eth_defi.apex.metrics.fetch_official_vaults", lambda *args, **kwargs: (official,))
+    batch_calls: list[tuple[str, ...]] = []
+
+    def fetch_batch(_pool: object, vault_ids: tuple[str, ...], *, operation_timeout: float) -> dict[str, tuple[ApexHistoryPoint, ...]]:
+        del operation_timeout
+        batch_calls.append(vault_ids)
+        return {"10000": (ApexHistoryPoint(datetime.datetime(2026, 7, 23, 11), 1.04, 104.0),)}
+
+    monkeypatch.setattr("eth_defi.apex.metrics.fetch_official_vault_histories", fetch_batch)
+    monkeypatch.setattr("eth_defi.apex.metrics.fetch_vault_history", lambda *args, **kwargs: ())
+    result = run_scan(_session_pool_mock(), database, history_mode="refresh", max_workers=1)
+
+    assert result.discovered_vaults == 2
+    assert result.selected_vaults == 2
+    assert result.successful_histories == 2
+    assert batch_calls == [("10000",)]
+    assert set(database.get_vault_metadata()["vault_id"]) == {"1", "10000"}
+    official_prices = database.get_vault_prices("10000")
+    assert official_prices.iloc[0]["source"] == "fund_net_values"
+    source_endpoint = database.con.execute("SELECT source_endpoint FROM perp_vault_account_observations WHERE vault_id = '10000'").fetchone()[0]
+    assert source_endpoint == "GET /api/v3/vault/official-vaults"
 
 
 def test_run_scan_ranking_failure_leaves_database_untouched(database: ApexMetricsDatabase, monkeypatch: MonkeyPatch) -> None:
