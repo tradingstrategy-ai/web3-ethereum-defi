@@ -178,7 +178,7 @@ from eth_defi.erc_4626.vault_protocol.lagoon.testing import fund_lagoon_vault, r
 from eth_defi.erc_4626.vault_protocol.lagoon.vault import LagoonVault
 from eth_defi.gas import apply_gas, estimate_gas_price
 from eth_defi.gmx.ccxt import GMX
-from eth_defi.gmx.contracts import NETWORK_TOKENS, get_contract_addresses
+from eth_defi.gmx.contracts import NETWORK_TOKENS, get_contract_addresses, get_reader_contract
 from eth_defi.gmx.lagoon.approvals import UNLIMITED, approve_gmx_collateral_via_vault
 from eth_defi.gmx.lagoon.wallet import LagoonGMXTradingWallet
 from eth_defi.gmx.whitelist import GMX_POPULAR_MARKETS, GMXDeployment, resolve_gmx_market_labels
@@ -759,6 +759,58 @@ def setup_gmx_trading(
 
     print("GMX trading ready!")
     return gmx
+
+
+#: How long to wait for a GMX keeper to fill or settle an order, in seconds.
+KEEPER_TIMEOUT = 180
+
+
+def wait_for_position(
+    web3: Web3,
+    safe_address: HexAddress,
+    *,
+    expect_open: bool,
+    timeout: int = KEEPER_TIMEOUT,
+) -> bool:
+    """Wait until the Safe's GMX position reaches the expected state.
+
+    GMX orders are two-phase: the transaction only *creates* an order, and a
+    keeper fills it seconds later. Sleeping a fixed interval races that keeper.
+
+    Reads the on-chain ``SyntheticsReader`` directly rather than going through the
+    CCXT adapter, so the answer is authoritative on every chain — GMX serves no
+    REST or GraphQL position data for Arbitrum Sepolia.
+
+    :param web3: Web3 connection to the chain the vault trades on.
+    :param safe_address: Safe that owns the position.
+    :param expect_open: ``True`` to wait for a position to appear, ``False`` to
+        wait for the account to go flat.
+    :param timeout: Seconds to wait before giving up.
+    :return: ``True`` if the expected state was reached in time.
+    """
+    chain_name = "arbitrum_sepolia" if web3.eth.chain_id == 421614 else "arbitrum"
+    addresses = get_contract_addresses(chain_name)
+    reader = get_reader_contract(web3, chain_name)
+    datastore = Web3.to_checksum_address(addresses.datastore)
+    safe_address = Web3.to_checksum_address(safe_address)
+
+    wanted = "open" if expect_open else "closed"
+    print(f"\nWaiting for GMX keeper execution (position -> {wanted})...")
+
+    deadline = time.time() + timeout
+    while True:
+        positions = reader.functions.getAccountPositions(datastore, safe_address, 0, 10).call()
+        if bool(positions) == expect_open:
+            if positions:
+                size_usd = positions[0][1][0] / 10**30
+                print(f"  keeper filled: position open, sizeUsd=${size_usd:,.2f}")
+            else:
+                print("  keeper settled: account flat")
+            return True
+        if time.time() >= deadline:
+            print(f"  timed out after {timeout}s waiting for the position to be {wanted}")
+            return False
+        time.sleep(5)
 
 
 # ============================================================================
@@ -1361,9 +1413,16 @@ def main():
                     is_long=True,
                 )
 
-                # Wait for keeper execution
-                print("\nWaiting for GMX keeper execution...")
-                time.sleep(30)
+                # Wait for the keeper to actually fill the open before closing.
+                # A fixed sleep races the keeper: if the position is not on chain
+                # yet, the close below finds nothing, reports "already closed" and
+                # silently does nothing — then the keeper fills the open moments
+                # later, stranding the position and its collateral. The limit
+                # order in step 5b then fails with "ERC20: transfer amount exceeds
+                # balance", because the collateral it needs is locked in the
+                # position that was never closed.
+                if not wait_for_position(web3, vault.safe_address, expect_open=True):
+                    raise RuntimeError("GMX keeper did not fill the open position within the timeout")
 
                 # =========================================================================
                 # Step 5: Close position
@@ -1379,9 +1438,10 @@ def main():
                     is_long=True,
                 )
 
-                # Wait for keeper
-                print("\nWaiting for GMX keeper execution...")
-                time.sleep(30)
+                # Confirm the close actually settled, so the collateral is back in
+                # the Safe before step 5b tries to spend it.
+                if not wait_for_position(web3, vault.safe_address, expect_open=False):
+                    raise RuntimeError("GMX keeper did not settle the close within the timeout")
 
             # =========================================================================
             # Step 5b: Open a limit order and cancel it through the guard
