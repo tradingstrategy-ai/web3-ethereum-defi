@@ -1049,8 +1049,20 @@ class LagoonFlowManager(VaultFlowManager):
     def calculate_underlying_needed_for_redemptions(self, block_identifier: BlockIdentifier) -> Decimal:
         """How much underlying token (USDC) we are going to need on the next redemption cycle.
 
+        Computed as ``pendingRedemptionShares * sharePrice``.
+
+        .. warning::
+
+            This returns a **human-readable** :class:`decimal.Decimal`
+            denomination amount, *not* a raw integer token amount. Callers must
+            convert with ``denomination_token.convert_to_raw()`` before comparing
+            against raw balances (e.g. the Anvil settlement top-up in
+            :meth:`LagoonDepositManager._provision_safe_for_settlement` depends
+            on this). Do not "fix" this to return raw units without updating
+            those callers.
+
         :return:
-            Raw token amount
+            Human-readable decimal amount of the denomination token needed.
         """
         # How many shares we have pending for the redemption
         shares_pending = self.fetch_pending_redemption(block_identifier)

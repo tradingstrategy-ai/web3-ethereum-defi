@@ -21,7 +21,10 @@ permissions:
 jobs:
   ruff-format:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    # Hard 15-minute cap — do NOT raise it. Lint finishes in well under a minute;
+    # if it ever approaches 15, fix the cause, not the timeout. Same principle as
+    # the test runs: never paper over a slowdown by growing the timeout.
+    timeout-minutes: 15
 
     if: github.event.pull_request.draft == false || github.event_name == 'push'
 

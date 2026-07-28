@@ -473,6 +473,14 @@ class ERC4626Feature(enum.Enum):
     #: https://etherscan.io/address/0xEB5f80aCEa6060764E91c185bE93752Ab40F01c2#code
     upshift_multi_asset_like = "upshift_multi_asset_like"
 
+    #: Shift Protocol custom ERC-20 share vaults.
+    #:
+    #: ShiftVault does not implement ERC-4626 accounting. Reviewed deployments
+    #: are selected through Shift's public address registry and read through a
+    #: tokenised-fund-style adapter.
+    #: https://shiftprotocol.gitbook.io/shift/resources/addresses
+    shift_like = "shift_like"
+
     #: Sky (formerly MakerDAO)
     #:
     #: stUSDS vault for USDS staking.
@@ -1130,6 +1138,8 @@ def get_vault_protocol_name(features: set[ERC4626Feature]) -> str:
 
     elif ERC4626Feature.upshift_like in features:
         return "Upshift"
+    elif ERC4626Feature.shift_like in features:
+        return "Shift"
     elif ERC4626Feature.sky_like in features:
         return "Sky"
 

@@ -45,7 +45,6 @@ import {IERC20} from "./IERC20.sol";
 import {IGuardChecks} from "./IGuardChecks.sol";
 
 library VeloraLib {
-
     // ----- Diamond storage -----
 
     bytes32 constant STORAGE_SLOT = keccak256("eth_defi.velora.v1");
@@ -91,10 +90,7 @@ library VeloraLib {
 
     // ----- Whitelisting functions -----
 
-    function whitelistVelora(
-        address augustusSwapper,
-        string calldata notes
-    ) external {
+    function whitelistVelora(address augustusSwapper, string calldata notes) external {
         _storage().allowedVeloraSwappers[augustusSwapper] = true;
         emit VeloraSwapperApproved(augustusSwapper, notes);
     }
@@ -165,26 +161,20 @@ library VeloraLib {
         require(minAmountOut > 0, "minAmountOut must be positive");
 
         uint256 postBalanceOut = IERC20(tokenOut).balanceOf(safeAddress);
-        require(
-            postBalanceOut >= preBalanceOut + minAmountOut,
-            "Insufficient output amount"
-        );
+        require(postBalanceOut >= preBalanceOut + minAmountOut, "Insufficient output amount");
 
         uint256 postBalanceIn = IERC20(tokenIn).balanceOf(safeAddress);
-        require(
-            preBalanceIn - postBalanceIn <= amountIn,
-            "Token in overspent"
-        );
+        require(preBalanceIn - postBalanceIn <= amountIn, "Token in overspent");
 
         emit VeloraSwapExecuted(
             block.timestamp,
             augustusSwapper,
             tokenIn,
             tokenOut,
-            amountIn,                       // declared by caller
-            preBalanceIn - postBalanceIn,    // actual spent
-            postBalanceOut - preBalanceOut,  // actual received
-            minAmountOut                    // declared minimum
+            amountIn, // declared by caller
+            preBalanceIn - postBalanceIn, // actual spent
+            postBalanceOut - preBalanceOut, // actual received
+            minAmountOut // declared minimum
         );
     }
 }

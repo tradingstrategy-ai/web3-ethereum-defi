@@ -604,7 +604,7 @@ The first table shows totals for the whole run:
 - **Posts inserted** — genuinely new posts written to the database this run
   (idempotent: re-running inserts 0 if nothing changed)
 - **Posts pruned** — old posts removed by the retention window
-  (`MAX_POST_AGE_DAYS`, default 365)
+  (`MAX_POST_AGE_DAYS`, default 36,135 days / 99 years)
 
 ### Per-source breakdown
 
@@ -639,6 +639,10 @@ Columns:
   nothing new since the last run
 - **Last post** — publish timestamp of the most recent post in the database for
   this source; `-` if no posts have ever been collected
+
+When a scan inserts posts, a third dashboard table lists each new post's title
+or short description, capped at 80 characters. This makes an unexpected
+backfill visible without writing complete post bodies to daemon logs.
 
 ### Failed sources table
 
@@ -686,7 +690,7 @@ Environment variables accepted by the main scanner:
 - `WEBSHARE_API_KEY`: optional Webshare API token for proxy-backed feed fetches
 - `WEBSHARE_PROXY_MODE`: optional Webshare proxy pool mode
 - `MAX_POST_AGE_DAYS`: retention window in days for pruning old posts, default
-  `365`
+  `36135` (99 years)
 - `X_LIST_ID`: optional X list ID override for list sync
 - `X_LIST_NAME`: optional X list name to resolve when `X_LIST_ID` is unset,
   default `Best builders in DeFi`

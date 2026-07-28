@@ -1,13 +1,14 @@
 """Yearn vault support."""
 
 import datetime
-from functools import cached_property
 import logging
+from functools import cached_property
 
-from web3.contract import Contract
 from eth_typing import BlockIdentifier, HexAddress
+from web3.contract import Contract
 
 from eth_defi.erc_4626.core import get_deployed_erc_4626_contract
+from eth_defi.erc_4626.vault_protocol.yearn.deposit_redeem import YearnV3DepositManager
 from eth_defi.erc_4626.vault import ERC4626Vault
 
 logger = logging.getLogger(__name__)
@@ -118,6 +119,24 @@ class YearnV3Vault(ERC4626Vault):
 
     def get_default_queue(self) -> list[HexAddress]:
         return self.vault_contract.functions.get_default_queue().call()
+
+    def get_deposit_manager(self) -> YearnV3DepositManager:
+        """Create the Yearn-aware ERC-4626 deposit manager.
+
+        :return:
+            Manager that distinguishes a global Yearn deposit cap from an
+            account-specific deposit-limit module.
+        """
+        return YearnV3DepositManager(self)
+
+    def can_check_deposit(self) -> bool:
+        """Disable generic zero-address closure detection for Yearn V3.
+
+        :return:
+            ``False`` because Yearn returns zero for ``maxDeposit(address(0))``
+            even while deposits are open.
+        """
+        return False
 
     def fetch_strategies(self) -> list[Contract]:
         return self.vault_contract.functions.getStrategies().call()

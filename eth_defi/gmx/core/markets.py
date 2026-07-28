@@ -439,7 +439,10 @@ class Markets:
            ``/markets`` endpoint (via :meth:`_fetch_markets_from_rest`) and
            synthesise metadata.  ``isListed:false`` and zero-index-token
            entries are pre-filtered by the REST helper.
-        3. **Partial-build detection** — compare the processed count to the
+        3. **Onchain enabled-market filter** — remove markets which the
+           DataStore marks disabled. REST keeps historical listed entries, but
+           GMX rejects them as swap routes.
+        4. **Partial-build detection** — compare the processed count to the
            raw REST market count.  If the new build is partial *and* a prior
            complete entry exists, return the prior entry (logged as a warning)
            so a transient gap cannot permanently shrink the cached set.
@@ -480,6 +483,10 @@ class Markets:
                 rest_exc,
             )
             rest_markets = self._fetch_markets_from_onchain()
+        else:
+            disabled_markets = self._check_markets_disabled_onchain([market["market_address"] for market in rest_markets])
+            rest_markets = [market for market in rest_markets if not disabled_markets.get(market["market_address"], False)]
+
         rest_markets_count = len(rest_markets)
         logger.debug("Retrieved %d markets (REST primary with on-chain fallback)", rest_markets_count)
 

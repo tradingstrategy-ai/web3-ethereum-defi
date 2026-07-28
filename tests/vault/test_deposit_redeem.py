@@ -3,7 +3,7 @@
 from eth_typing import HexAddress
 from hexbytes import HexBytes
 
-from eth_defi.vault.deposit_redeem import VaultFlowUnavailable
+from eth_defi.vault.deposit_redeem import UnsupportedVaultSimulation, VaultFlowUnavailable
 
 REQUESTED_RAW_AMOUNT = 101
 AVAILABLE_RAW_AMOUNT = 100
@@ -20,15 +20,34 @@ def test_vault_flow_unavailable_preserves_context() -> None:
         direction="redeem",
         phase="request",
         decoded_error="CapacityExceeded",
+        preflight_result="redemption_capacity_limited",
         requested_raw_amount=REQUESTED_RAW_AMOUNT,
         available_raw_amount=AVAILABLE_RAW_AMOUNT,
     )
 
     assert error.reason == "Immediate redemption unavailable"
     assert error.decoded_error == "CapacityExceeded"
+    assert error.preflight_result == "redemption_capacity_limited"
     assert error.requested_raw_amount == REQUESTED_RAW_AMOUNT
     assert error.available_raw_amount == AVAILABLE_RAW_AMOUNT
-    assert str(error) == ("Immediate redemption unavailable (protocol=Example protocol, vault=0x0000000000000000000000000000000000000001, caller=0x0000000000000000000000000000000000000002, direction=redeem, phase=request, decoded_error=CapacityExceeded, requested_raw_amount=101, available_raw_amount=100)")
+    assert str(error) == ("Immediate redemption unavailable (protocol=Example protocol, vault=0x0000000000000000000000000000000000000001, caller=0x0000000000000000000000000000000000000002, direction=redeem, phase=request, decoded_error=CapacityExceeded, preflight_result=redemption_capacity_limited, requested_raw_amount=101, available_raw_amount=100)")
+
+
+def test_unsupported_vault_simulation_preserves_structured_context() -> None:
+    """A settlement refusal exposes stable mapping data without prose parsing."""
+    error = UnsupportedVaultSimulation(
+        "Operator settlement cannot be reproduced",
+        unsupported_reason="operator_role_not_available",
+        protocol="Example protocol",
+        vault_address="0x0000000000000000000000000000000000000001",
+        direction="redeem",
+    )
+
+    assert error.unsupported_reason == "operator_role_not_available"
+    assert error.protocol == "Example protocol"
+    assert error.vault_address == "0x0000000000000000000000000000000000000001"
+    assert error.direction == "redeem"
+    assert error.phase == "settlement"
 
 
 def test_vault_flow_unavailable_preserves_access_context() -> None:

@@ -123,7 +123,7 @@ def _best_effort_vault_read(reader: Callable[[], OptionalVaultRead]) -> Optional
 
 
 def fetch_deposit_permission(vault: VaultBase) -> VaultDepositPermission:
-    """Read a vault-wide deposit permission policy for a scan record.
+    """Read a vault-wide KYC requirement for a scan record.
 
     The report remains usable when a deployed adapter version lacks the
     protocol-specific view method or its node cannot answer a view call.  It
@@ -132,11 +132,11 @@ def fetch_deposit_permission(vault: VaultBase) -> VaultDepositPermission:
     propagate to the row-level scanner guard instead of becoming ``unknown``.
 
     :param vault:
-        Protocol adapter whose vault-wide policy is queried.
+        Protocol adapter whose vault-wide KYC requirement is queried.
 
     :return:
-        JSON-compatible enum representing whitelist policy or an explicitly
-        unknown policy.
+        JSON-compatible enum representing a KYC requirement or an explicitly
+        unknown status.
     """
     try:
         whitelisted = vault.is_whitelisted_deposit()
@@ -353,6 +353,7 @@ def create_vault_scan_record(
         "_notes": None,
         "_deposit_manager": None,
         "_deposit_permission": VaultDepositPermission.unknown.value,
+        "_whitelist_notes": None,
     }
 
     vault = create_vault_instance(
@@ -404,6 +405,8 @@ def create_vault_scan_record(
         notes = _normalise_scan_note(vault.get_notes(), description, short_description)
         capability_resolver = getattr(vault, "get_deposit_manager_capability", None)
         deposit_manager_capability = capability_resolver() if capability_resolver is not None else None
+        whitelist_notes_resolver = getattr(vault, "get_whitelist_notes", None)
+        whitelist_notes = whitelist_notes_resolver() if whitelist_notes_resolver is not None else None
 
         data = {
             "Symbol": vault.symbol,
@@ -435,6 +438,7 @@ def create_vault_scan_record(
             "_morpho_offchain_data": vault.morpho_offchain_data if isinstance(vault, (MorphoV1Vault, MorphoV2Vault)) else None,
             "_deposit_manager": deposit_manager_capability.as_initial_public_schema() if deposit_manager_capability else None,
             "_deposit_permission": fetch_deposit_permission(vault).value,
+            "_whitelist_notes": whitelist_notes,
         }
         data.update(activity_status)
         data.update(lending_stats)

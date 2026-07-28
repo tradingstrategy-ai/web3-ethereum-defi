@@ -22,6 +22,7 @@ from web3.contract.contract import ContractFunction
 from eth_defi.abi import ZERO_ADDRESS_STR, get_topic_signature_from_event
 from eth_defi.erc_4626.deposit_redeem import ERC4626DepositManager, ERC4626DepositRequest
 from eth_defi.erc_4626.flow import deposit_4626
+from eth_defi.provider.anvil import is_anvil
 from eth_defi.timestamp import get_block_timestamp
 from eth_defi.vault.deposit_redeem import (
     AsyncVaultRequestStatus,
@@ -31,6 +32,10 @@ from eth_defi.vault.deposit_redeem import (
     DepositTicket,
     RedemptionRequest,
     RedemptionTicket,
+    UnsupportedVaultSimulation,
+    VaultFlowUnavailable,
+    VaultForcedSettlementResult,
+    create_synchronous_settlement_result,
 )
 from eth_defi.vault.flow_events import (
     PendingVaultFlow,
@@ -43,6 +48,10 @@ from eth_defi.vault.flow_events import (
 
 if TYPE_CHECKING:
     from eth_defi.erc_4626.vault_protocol.ember.vault import EmberVault
+
+
+#: Ember operator processing pays directly and never creates a claimable ticket.
+EMBER_ANVIL_SETTLEMENT_UNSUPPORTED_REASON = "ember_operator_settlement_has_no_claimable_ticket_status"
 
 
 @dataclass(slots=True)
@@ -132,7 +141,62 @@ class EmberRedemptionRequest(RedemptionRequest):
 
 
 class EmberDepositManager(ERC4626DepositManager):
-    """Ember adapter with synchronous deposits and asynchronous redemptions."""
+    """Ember adapter with synchronous deposits and operator-finalised redemptions.
+
+    Ember pairs an ordinary ERC-4626 deposit path with a custom, operator-driven
+    withdrawal queue. Deposits mint shares immediately, whereas withdrawals only
+    escrow shares onchain and are paid out later by the vault operator, so the
+    depositor never owns a claim step of their own. See the `Ember vault
+    contracts <https://github.com/ember-protocol/Ember-Vaults-EVM>`__.
+
+    **Deposit process.** Synchronous. :meth:`create_deposit_request` builds a
+    single standard ERC-4626 ``deposit(assets, receiver)`` call (via
+    :func:`~eth_defi.erc_4626.flow.deposit_4626`), preceded by the usual ERC-20
+    ``approve`` of the denomination token onto the vault. The receiver is
+    explicit and defaults to ``owner``; the zero address is rejected. Shares are
+    minted in the same transaction, which emits Ember's ``VaultDeposit`` event
+    (not the ERC-4626 ``Deposit`` event) parsed by :meth:`analyse_deposit`.
+
+    **Redemption process.** Asynchronous. Ember does not use ERC-4626
+    ``redeem``. :meth:`create_redemption_request` builds two calls: a self
+    ``approve(vault, shares)`` followed by the custom
+    ``redeemShares(shares, receiver)``, which escrows the shares and enqueues the
+    request. The request id is Ember's globally monotonic ``sequenceNumber``,
+    read from the ``RequestRedeemed`` event by
+    :meth:`EmberRedemptionRequest.parse_redeem_transaction` and persisted in an
+    :class:`EmberRedemptionTicket` together with the request block. There is no
+    depositor claim call — the operator pays the receiver directly, so
+    :meth:`can_finish_redeem` and :meth:`finish_redemption` always report that no
+    depositor-owned finish call exists.
+
+    **Queues and settlement.** Withdrawal requests accumulate in a single
+    vault-global queue (not per owner). The vault operator — read at runtime from
+    the ``roles()`` tuple ``(admin, operator, rateManager)`` — drains it by
+    calling ``processWithdrawalRequests(n)``, which emits a terminal
+    ``RequestProcessed`` event per request (carrying ``skipped``/``cancelled``
+    flags). ``minWithdrawableShares`` enforces a per-request minimum and
+    ``pauseStatus`` gates both deposits and withdrawal requests.
+
+    **Lockups and cooldowns.** No deterministic onchain deadline exists: pay-out
+    timing is entirely operator-driven. :meth:`get_redemption_delay_over`
+    therefore returns ``None``, and :meth:`estimate_redemption_delay` is only a
+    service-level estimate from :meth:`EmberVault.get_estimated_lock_up`, which
+    reads Ember's offchain ``withdrawal_period_days`` metadata and falls back to
+    four days.
+
+    **Whitelisting / access control.** Permissionless — Ember has no deposit
+    whitelist. :meth:`can_create_deposit_request` only checks that deposits are
+    unpaused and ``maxDeposit(owner) > 0``, and :meth:`can_create_redemption_request`
+    only checks that withdrawals are unpaused and the owner holds at least
+    ``minWithdrawableShares``.
+
+    **Anvil settlement (force_settle).** Ember has no claimable ticket state:
+    an operator may process a request and pay the receiver directly, leaving the
+    ticket in :attr:`AsyncVaultRequestStatus.none`. This cannot satisfy the
+    public forced-settlement proof contract, so asynchronous settlement is
+    explicitly unsupported. :meth:`force_settle` refuses a redemption ticket
+    before impersonating an operator or broadcasting a transaction.
+    """
 
     def __init__(self, vault: "EmberVault"):
         """Create an Ember manager for a protocol-specific Ember vault.
@@ -242,15 +306,46 @@ class EmberDepositManager(ERC4626DepositManager):
         if raw_shares <= 0:
             raise ValueError("Ember redemption shares must be positive")
         if self._withdrawals_paused():
-            raise ValueError("Ember withdrawals are paused")
+            raise VaultFlowUnavailable(
+                "Ember withdrawals are paused",
+                protocol=self.vault.get_protocol_name(),
+                vault_address=self.vault.address,
+                caller=owner,
+                direction="redeem",
+                phase="preflight",
+                decoded_error="WithdrawalsPaused",
+                preflight_result="redemption_paused",
+            )
 
         minimum = int(self.vault.vault_contract.functions.minWithdrawableShares().call())
         if raw_shares < minimum:
-            raise ValueError(f"Ember redemption shares {raw_shares} are below minimum {minimum}")
+            raise VaultFlowUnavailable(
+                f"Ember redemption shares {raw_shares} are below minimum {minimum}",
+                protocol=self.vault.get_protocol_name(),
+                vault_address=self.vault.address,
+                caller=owner,
+                direction="redeem",
+                phase="preflight",
+                decoded_error="InsufficientAmount",
+                preflight_result="below_minimum",
+                requested_raw_amount=raw_shares,
+                minimum_raw_amount=minimum,
+            )
         if check_enough_token:
             balance = int(self.vault.share_token.fetch_raw_balance_of(owner))
             if balance < raw_shares:
-                raise ValueError(f"Insufficient Ember shares: has {balance}, needs {raw_shares}")
+                raise VaultFlowUnavailable(
+                    f"Insufficient Ember shares: has {balance}, needs {raw_shares}",
+                    protocol=self.vault.get_protocol_name(),
+                    vault_address=self.vault.address,
+                    caller=owner,
+                    direction="redeem",
+                    phase="preflight",
+                    decoded_error="InsufficientShares",
+                    preflight_result="redemption_unavailable",
+                    requested_raw_amount=raw_shares,
+                    available_raw_amount=balance,
+                )
 
         return EmberRedemptionRequest(
             vault=self.vault,
@@ -382,6 +477,62 @@ class EmberDepositManager(ERC4626DepositManager):
         """
         assert isinstance(redemption_ticket, EmberRedemptionTicket)
         return None
+
+    def force_settle(
+        self,
+        ticket: DepositTicket | RedemptionTicket | None,
+        *,
+        mock: object | None = None,
+        ignore_liquidity: bool = False,
+    ) -> VaultForcedSettlementResult:
+        """Refuse Ember redemption settlement before broadcasting on a fork.
+
+        Ember's operator-finalised request does not become a claimable ticket,
+        so processing it would falsely advertise a successful generic async
+        simulation. A synchronous deposit remains a no-op settlement.
+
+        :param ticket:
+            Pending :class:`EmberRedemptionTicket`, or ``None`` for the
+            synchronous-deposit no-op.
+        :param mock:
+            A deployed ``MockEmberVault`` only for local mock tests. The mock
+            runs its operator processing call; the terminal status is ``none``
+            because Ember pays directly instead of creating a user claim.
+        :param ignore_liquidity:
+            Unsupported because Ember's mock models operator processing rather
+            than a redeemable-liquidity preflight.
+        :return:
+            Synchronous no-op result when ``ticket`` is ``None``.
+        :raise UnsupportedVaultSimulation:
+            For every Ember redemption ticket, with the stable capability
+            reason and without an operator transaction.
+        """
+        if ignore_liquidity:
+            return super().force_settle(ticket, mock=mock, ignore_liquidity=True)
+
+        if ticket is None:
+            return create_synchronous_settlement_result()
+
+        if mock is not None:
+            assert isinstance(ticket, EmberRedemptionTicket), f"Ember mock settlement requires EmberRedemptionTicket, got {type(ticket)}"
+            if not is_anvil(self.web3):
+                raise UnsupportedVaultSimulation("Ember mock settlement requires an Anvil provider", unsupported_reason="anvil_provider_required")
+            tx_hash = mock.functions.processWithdrawalRequests(1).transact({"from": self.web3.eth.accounts[0]})
+            return VaultForcedSettlementResult(
+                ticket=ticket,
+                settlement_required=True,
+                status_before=AsyncVaultRequestStatus.pending,
+                status_after=AsyncVaultRequestStatus.none,
+                transaction_hashes=(HexBytes(tx_hash),),
+            )
+
+        raise UnsupportedVaultSimulation(
+            f"Ember settlement cannot prove a claimable ticket for vault {self.vault.address} on chain {self.vault.chain_id}",
+            unsupported_reason=EMBER_ANVIL_SETTLEMENT_UNSUPPORTED_REASON,
+            protocol=self.vault.get_protocol_name(),
+            vault_address=self.vault.address,
+            direction="redeem",
+        )
 
     def get_redemption_request_status(self, ticket: EmberRedemptionTicket) -> AsyncVaultRequestStatus:
         """Map the exact Ember request sequence to pending or consumed state.

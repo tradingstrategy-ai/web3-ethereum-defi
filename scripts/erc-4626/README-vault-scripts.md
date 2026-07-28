@@ -207,6 +207,8 @@ poetry run python scripts/erc-4626/scan-vaults-all-chains.py
 | `SCAN_CYCLES` | Optional. Per-item cycle intervals, e.g. `Ethereum=8h,Base=8h,Arbitrum=8h,Lighter Ethereum=4h,Lighter Robinhood=4h,GRVT=4h,Hypercore=4h,Hibachi=4h,ApeX=4h,Core3=24h`. Legacy `Lighter=4h` applies to both Lighter deployments. |
 | `DEFAULT_CYCLE` | Optional. Default cycle for items not in `SCAN_CYCLES`. Default: `24h`. |
 | `MAX_CYCLES` | Optional. Exit after N cycles (for testing). Default: 0 (unlimited). |
+| `LEAD_DISCOVERY_STATE_TIMEOUT` | Optional. Lead-discovery cache lifetime. A matching per-chain JSON state skips the incremental lead scan and metadata refresh until it expires. An expiry resumes from the saved cursor and refreshes all vault metadata. Default: `7d`. |
+| `FORCE_LEAD_DISCOVERY` | Optional. Bypass a valid lead-discovery cache for this invocation. In looped mode, it makes all configured EVM chains due in the next tick, then resets. It resumes from saved cursors while refreshing all vault classifications and metadata; replacement state is written only after persistence succeeds. Default: false. |
 | `SCAN_HYPERCORE` | Optional. Enable Hyperliquid native vault scanning. Default: false. |
 | `SCAN_GRVT` | Optional. Enable GRVT native vault scanning. Default: false. |
 | `SCAN_LIGHTER` | Optional. Enable native pool scanning for both Lighter Ethereum and Lighter Robinhood. Default: false. |
@@ -221,6 +223,20 @@ poetry run python scripts/erc-4626/scan-vaults-all-chains.py
 | `CURRENCY_API_DB_PATH` / `CURRENCY_API_DATABASE_PATH` | Optional. Exchange-rate DuckDB bundle path. Default: `$PIPELINE_DATA_DIR/exchange-rates.duckdb`. |
 | `CORE3_MAX_WORKERS` | Optional. Core3 API worker threads. Default: 8. |
 | `CORE3_FETCH_SECTIONS` | Optional. Fetch detailed Core3 section endpoints. Default: true. Set to `false` to skip. |
+| `SKIP_XERBERUS` | Optional. Skip Xerberus risk enrichment. Default: false. |
+| `XERBERUS_API_KEY` | Optional for pipeline. Xerberus API key. If missing, Xerberus is disabled with a warning. |
+| `XERBERUS_API_EMAIL` | Optional for pipeline, **required with the key** for live API calls. Email registered with the key when it was issued (sent as `x-user-email`). **Agents must not guess this value** — only use operator-supplied env/secrets. |
+| `XERBERUS_DATABASE_PATH` | Optional. Xerberus DuckDB path. Default: `~/.tradingstrategy/vaults/xerberus/xerberus.duckdb`. |
+| `XERBERUS_FETCH_VAULT_LIST` | Optional. Poll platform vault lists. Default: true. |
+| `XERBERUS_FETCH_REPORTS` | Optional. Backfill dendrogram report URLs. Default: true. |
+
+### Xerberus risk enrichment
+
+Xerberus composite vault/protocol scores are stored in
+`~/.tradingstrategy/vaults/xerberus/xerberus.duckdb`. Manual scan and backfill
+scripts live under `scripts/xerberus/`. See
+[`README-xerberus.md`](../../eth_defi/xerberus/README-xerberus.md) for dual-auth
+details (`XERBERUS_API_KEY` + `XERBERUS_API_EMAIL`).
 | `SKIP_SAMPLES` | Optional. Skip Ethereum-only sample file export. Default: false. |
 | `HYPERSYNC_RPM` | Optional. Hypersync API requests-per-minute limit. Default: 80. Lower after persistent 429 errors. |
 | `HYPERSYNC_CONCURRENCY` | Optional. Hypersync stream concurrency. Default: 1 (sequential) in the all-chains scanner to avoid API pressure when scanning many chains. Set higher for faster throughput. See [Envio StreamConfig tuning](https://docs.envio.dev/docs/HyperSync/stream-config-tuning). |
@@ -233,6 +249,23 @@ and `deployment` slug. The Lighter DuckDB schema migration runs automatically
 when an existing database is opened. See the
 [Lighter native-pool pipeline](../lighter/README-lighter-vaults.md) for the
 storage and partial-scan replacement rules.
+
+#### Lead discovery cache
+
+Each EVM chain stores its successful lead and metadata refresh status in
+`$PIPELINE_DATA_DIR/lead-discovery-state-{chain_id}.json`. While its signature
+(lead detection code plus enabled EVM chains) and timestamp are valid, the
+scanner skips lead discovery and reuses `vault-metadata-db.pickle`; price scans
+continue normally. It still verifies the chain ID before selecting the cached
+metadata. A missing, malformed, expired or changed state triggers a
+an incremental event read from the saved cursor, followed by a refresh of every
+persisted vault classification and metadata row. The cache can therefore delay
+a new lead by up to the configured timeout, but it never resets price Parquet
+or reader-state data.
+
+The initial discovery for a chain requires HyperSync. The scanner refuses a
+genesis-to-head JSON-RPC event read rather than putting uncontrolled load on an
+RPC provider.
 
 #### JSON-RPC usage accounting
 

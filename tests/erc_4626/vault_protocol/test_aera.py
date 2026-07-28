@@ -10,17 +10,16 @@ from web3 import Web3
 from eth_defi.erc_4626.classification import HARDCODED_PROTOCOLS, create_vault_instance_autodetect, detect_vault_features
 from eth_defi.erc_4626.core import ERC4626Feature
 from eth_defi.erc_4626.vault_protocol.aera.vault import AeraVault, convert_aera_tvl_fee_to_annual_management_fee
-from eth_defi.provider.anvil import AnvilLaunch, fork_network_anvil
-from eth_defi.provider.multi_provider import create_multi_provider_web3
+from eth_defi.testing.anvil_fork_pool import AnvilForkPool
 from eth_defi.vault.base import VaultTechnicalRisk
 from eth_defi.vault.fee import VaultFeeMode
 
 JSON_RPC_ETHEREUM = os.environ.get("JSON_RPC_ETHEREUM")
 
-pytestmark = pytest.mark.skipif(
-    JSON_RPC_ETHEREUM is None,
-    reason="JSON_RPC_ETHEREUM needed to run these tests",
-)
+pytestmark = [
+    pytest.mark.skipif(JSON_RPC_ETHEREUM is None, reason="JSON_RPC_ETHEREUM needed to run these tests"),
+    pytest.mark.xdist_group("fork:ethereum:25301420"),
+]
 
 #: USDC AeraVault Strategy on Ethereum.
 AERA_USDC_STRATEGY: HexAddress = "0x6593bb7272237f36444dee44df46ab3b0233a9a0"
@@ -51,20 +50,9 @@ AERA_VAULT_ADDRESSES: set[HexAddress] = {
 
 
 @pytest.fixture(scope="module")
-def anvil_ethereum_fork() -> AnvilLaunch:
-    """Fork Ethereum at a specific block for reproducibility."""
-    launch = fork_network_anvil(JSON_RPC_ETHEREUM, fork_block_number=25_301_420)
-    try:
-        yield launch
-    finally:
-        launch.close()
-
-
-@pytest.fixture(scope="module")
-def web3(anvil_ethereum_fork: AnvilLaunch) -> Web3:
-    """Create Web3 connection to the Anvil fork."""
-    web3 = create_multi_provider_web3(anvil_ethereum_fork.json_rpc_url, retries=2)
-    return web3
+def web3(anvil_fork_pool: AnvilForkPool) -> Web3:
+    """Share the read-only Aera fork and its warmed RPC cache."""
+    return anvil_fork_pool.get_web3(JSON_RPC_ETHEREUM, 25_301_420, web3_retries=2)
 
 
 def test_aera_hardcoded_addresses() -> None:

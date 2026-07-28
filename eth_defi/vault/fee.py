@@ -118,6 +118,9 @@ VAULT_PROTOCOL_FEE_MATRIX = {
     "Ostium": VaultFeeMode.feeless,
     "Gains": VaultFeeMode.feeless,
     "KiloEx": None,
+    # Shift's performance and maintenance fees are realised by minting shares
+    # to its fee collector; per-vault rates are read by ShiftVault.
+    "Shift": VaultFeeMode.internalised_minting,
     # Kiln combines a fixed asset-denominated deposit fee with a reward fee
     # collected by minting shares. This mixed model has no single enum value.
     # Per-vault values are read by KilnVault.

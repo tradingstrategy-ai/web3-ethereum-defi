@@ -27,6 +27,12 @@ from tqdm_loggable.auto import tqdm
 from eth_defi.chain import get_chain_name
 from eth_defi.compat import native_datetime_utc_now
 from eth_defi.core3.vault_protocol import Core3ExportRecord, Core3VaultSection, build_core3_vault_section
+from eth_defi.xerberus.vault_export import (
+    XerberusPoolLookupRow,
+    XerberusProtocolExportRecord,
+    XerberusVaultSection,
+    resolve_xerberus_vault_section,
+)
 from eth_defi.erc_4626.classification import HARDCODED_PROTOCOLS
 from eth_defi.erc_4626.core import ERC4262VaultDetection
 from eth_defi.erc_4626.vault_protocol.morpho.flag_analytics import MorphoFlagAnalytics, analyze_morpho_flags
@@ -209,6 +215,16 @@ LOOKBACK_AND_TOLERANCES: dict[Period, tuple[pd.DateOffset, pd.Timedelta]] = {
 }
 
 
+class VaultWhitelist(TypedDict):
+    """Vault-wide KYC status and its qualification notes."""
+
+    #: Normalised :class:`VaultDepositPermission` value.
+    status: str
+
+    #: Optional qualification or known limitation for this status.
+    notes: str | None
+
+
 class VaultMetricsRecord(TypedDict, total=False):
     """Per-vault record in the JSON export.
 
@@ -310,6 +326,22 @@ class VaultMetricsRecord(TypedDict, total=False):
     #: permission, funds, acceptable slippage, spare cap, or liquidity.
     deposit_manager: dict | None
 
+    #: Vault-wide KYC or manual identity-approval policy.
+    #:
+    #: ``whitelisted`` normally means deposits require prior KYC or manual
+    #: identity approval, ``permissionless`` means no such approval applies and
+    #: ``unknown`` means the scanner has no source-proven KYC result for this
+    #: contract version. Open dates, lock-ups, epoch windows, pauses, caps and
+    #: token-holding requirements do not change this status. Consult
+    #: ``whitelist.notes`` for explicitly documented operating assumptions.
+    deposit_permission: str
+
+    #: Structured vault-wide account-admission status.
+    #:
+    #: ``status`` mirrors ``deposit_permission``. ``notes`` contains a
+    #: protocol-specific qualification where the scanner must expose one.
+    whitelist: VaultWhitelist
+
     #: Share token ERC-20 decimals (the vault's own ERC-4626 token).
     share_token_decimals: int | None
 
@@ -320,6 +352,12 @@ class VaultMetricsRecord(TypedDict, total=False):
     #: when no Core3 data is available. See
     #: :py:class:`~eth_defi.core3.vault_protocol.Core3VaultSection`.
     core3: "Core3VaultSection | None"
+
+    #: Compact Xerberus risk summary for this vault (pool score preferred),
+    #: or ``None`` when no Xerberus data is available. Unlike ``core3``, this
+    #: is primarily a per-vault rating when the pool is scored.
+    #: See :py:class:`~eth_defi.xerberus.vault_export.XerberusVaultSection`.
+    xerberus: "XerberusVaultSection | None"
 
     #: Stablecoin rate data for the vault denomination token.
     denomination_token_rate: DenominationTokenRate
@@ -378,6 +416,11 @@ class VaultMetricsExport(TypedDict):
     #: Core3 risk intelligence keyed by protocol slug.
     #: Only protocols present in the exported vaults are included.
     core3_protocols: dict[str, Core3ExportRecord]
+
+    #: Xerberus protocol-level metadata keyed by our protocol slug.
+    #: Only protocols present in the exported vaults are included.
+    #: Per-vault scores live on each vault row under ``xerberus``.
+    xerberus_protocols: dict[str, XerberusProtocolExportRecord]
 
     #: Curator metadata and recent feed entries keyed by curator slug.
     #: Only curators present in the exported vaults are included.
@@ -1563,6 +1606,8 @@ def calculate_vault_record(
     three_months_ago: pd.Timestamp,
     vault_id: str | None = None,
     core3_protocols: dict[str, Core3ExportRecord] | None = None,
+    xerberus_pools: dict[tuple[int, str], XerberusPoolLookupRow] | None = None,
+    xerberus_protocols: dict[str, XerberusProtocolExportRecord] | None = None,
     stablecoin_rate_feeder: StablecoinRateFeeder | None = None,
 ) -> pd.Series:
     """Process a single vault metadata + prices to calculate its full data.
@@ -1593,6 +1638,17 @@ def calculate_vault_record(
         (:py:class:`~eth_defi.core3.vault_protocol.Core3VaultSection`) is
         attached to the record for the vault's protocol, or ``None`` if
         the protocol has no Core3 data.
+
+    :param xerberus_pools:
+        Optional preloaded Xerberus pool lookup keyed by
+        ``(chain_id, address_lower)``, from
+        :py:func:`eth_defi.xerberus.vault_export.build_xerberus_pool_lookup`.
+        Enables per-vault scores (unlike Core3, which is protocol-level only).
+
+    :param xerberus_protocols:
+        Optional Xerberus protocol export map for protocol-score fallback,
+        from
+        :py:func:`eth_defi.xerberus.vault_export.build_xerberus_protocols_for_export`.
 
     :param stablecoin_rate_feeder:
         Stablecoin rate/depeg lookup helper. If omitted, a default feeder using
@@ -1707,17 +1763,25 @@ def calculate_vault_record(
     risk_numeric = risk.value if isinstance(risk, VaultTechnicalRisk) else None
 
     stored_deposit_manager = vault_metadata.get("_deposit_manager")
+    deposit_permission = vault_metadata.get("_deposit_permission", VaultDepositPermission.unknown.value)
+    try:
+        deposit_permission = VaultDepositPermission(deposit_permission).value
+    except (TypeError, ValueError):
+        deposit_permission = VaultDepositPermission.unknown.value
+    whitelist_notes = vault_metadata.get("_whitelist_notes")
+    if not isinstance(whitelist_notes, str):
+        whitelist_notes = None
+    whitelist: VaultWhitelist = {
+        "status": deposit_permission,
+        "notes": whitelist_notes,
+    }
+
     if stored_deposit_manager is None:
         deposit_manager = None
     else:
         # Keep the persisted capability mapping immutable: it can be reused by
         # other report rows during this export.
         deposit_manager = dict(stored_deposit_manager)
-        deposit_permission = vault_metadata.get("_deposit_permission", VaultDepositPermission.unknown.value)
-        try:
-            deposit_permission = VaultDepositPermission(deposit_permission).value
-        except (TypeError, ValueError):
-            deposit_permission = VaultDepositPermission.unknown.value
         deposit_manager["deposit_permission"] = deposit_permission
 
     # Compact per-vault Core3 risk summary for the vault's protocol.
@@ -1725,6 +1789,16 @@ def calculate_vault_record(
     # the same summary. None when no Core3 records were supplied or the
     # protocol has no Core3 data.
     core3_section = build_core3_vault_section((core3_protocols or {}).get(protocol_slug))
+
+    # Xerberus is primarily per-vault (pool) by (chain_id, address); protocol
+    # score is only a fallback when the pool is unscored.
+    xerberus_section = resolve_xerberus_vault_section(
+        chain_id=chain_id,
+        address=vault_address,
+        protocol_slug=protocol_slug,
+        pools=xerberus_pools or {},
+        protocols=xerberus_protocols or {},
+    )
 
     curator_slug = identify_curator(
         chain_id=chain_id,
@@ -2160,6 +2234,10 @@ def calculate_vault_record(
             # fields immediately above.  Old metadata pickles safely export
             # null until they have been rescanned.
             "deposit_manager": deposit_manager,
+            # Vault-wide KYC policy, independently of whether eth-defi
+            # implements a public transaction manager.
+            "deposit_permission": deposit_permission,
+            "whitelist": whitelist,
             # Lending protocol statistics
             "available_liquidity": available_liquidity,
             "utilisation": utilisation,
@@ -2179,6 +2257,8 @@ def calculate_vault_record(
             # Compact per-vault Core3 risk summary (risk_score, market_cap, rating, etc.).
             # None when no Core3 data is available for the vault's protocol.
             "core3": core3_section,
+            # Compact Xerberus risk summary (pool-first, protocol fallback).
+            "xerberus": xerberus_section,
             "denomination_token_rate": denomination_token_rate,
             # Protocol-specific extension data; see other_data definition above for structure
             "other_data": other_data,
@@ -2191,6 +2271,8 @@ def calculate_lifetime_metrics(
     vault_db: VaultDatabase | dict[VaultSpec, VaultRow],
     returns_column: str = "returns_1h",
     core3_protocols: dict[str, Core3ExportRecord] | None = None,
+    xerberus_pools: dict[tuple[int, str], XerberusPoolLookupRow] | None = None,
+    xerberus_protocols: dict[str, XerberusProtocolExportRecord] | None = None,
     stablecoin_rate_feeder: StablecoinRateFeeder | None = None,
 ) -> pd.DataFrame:
     """Calculate lifetime metrics for each vault in the provided DataFrame.
@@ -2222,6 +2304,14 @@ def calculate_lifetime_metrics(
         :py:func:`eth_defi.core3.vault_protocol.build_core3_protocols_for_export`.
         Threaded through to :py:func:`calculate_vault_record` to attach a
         per-vault ``core3`` summary. ``None`` to skip Core3 enrichment.
+
+    :param xerberus_pools:
+        Optional preloaded Xerberus pool lookup for per-vault scores.
+        ``None`` to skip pool-level Xerberus enrichment.
+
+    :param xerberus_protocols:
+        Optional Xerberus protocol map for fallback scores and context.
+        ``None`` to skip protocol-level Xerberus enrichment.
 
     :param stablecoin_rate_feeder:
         Stablecoin rate/depeg lookup helper shared across all vault rows in
@@ -2261,6 +2351,8 @@ def calculate_lifetime_metrics(
                 three_months_ago,
                 vault_id=vault_id,
                 core3_protocols=core3_protocols,
+                xerberus_pools=xerberus_pools,
+                xerberus_protocols=xerberus_protocols,
                 stablecoin_rate_feeder=stablecoin_rate_feeder,
             )
         except (ArithmeticError, AssertionError, KeyError, TypeError, ValueError):
@@ -2659,6 +2751,8 @@ def format_lifetime_table(
     _del("perf_fee")
     _del("deposit_fee")
     _del("withdraw_fee")
+    _del("deposit_permission")
+    _del("whitelist")
 
     # Combined
     _del("cagr_net")
@@ -2744,6 +2838,7 @@ def format_lifetime_table(
     _del("deposit_manager")
     _del("other_data")
     _del("core3")
+    _del("xerberus")
     _del("denomination_token_rate")
 
     # Metadata timestamp, not relevant for human-readable table

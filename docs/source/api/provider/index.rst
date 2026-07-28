@@ -12,6 +12,9 @@ This submodule offers functionality to connect and enhance robustness of various
 
 - Using multiple JSON-PRC providers and fallback providers in :py:mod:`eth_defi.provider.fallback`
 
+- Classifying why an upstream call failed (out of credits, rate limited, timeout)
+  in :py:mod:`eth_defi.provider.rpc_failure`
+
 .. autosummary::
    :toctree: _autosummary_provider
    :recursive:
@@ -31,5 +34,6 @@ This submodule offers functionality to connect and enhance robustness of various
    eth_defi.provider.quicknode
    eth_defi.provider.rpc_proxy
    eth_defi.provider.rpc_monitoring_adapter
+   eth_defi.provider.rpc_failure
    eth_defi.provider.rpcdb
    eth_defi.provider.tenderly

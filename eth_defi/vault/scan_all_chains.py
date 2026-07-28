@@ -42,8 +42,12 @@ from eth_defi.apex.vault_data_export import merge_into_vault_database as apex_me
 from eth_defi.chain import get_chain_name
 from eth_defi.compat import native_datetime_utc_now
 from eth_defi.core3.constants import resolve_core3_database_path
+from eth_defi.core3.mappings import CORE3_MAPPINGS
 from eth_defi.core3.scanner import scan_projects as core3_scan_projects
 from eth_defi.core3.session import create_core3_session
+from eth_defi.xerberus.constants import resolve_xerberus_api_email, resolve_xerberus_database_path
+from eth_defi.xerberus.scanner import scan_xerberus as xerberus_scan
+from eth_defi.xerberus.session import create_xerberus_session
 from eth_defi.currency_api.constants import (
     CURRENCY_API_DATABASE,
     DEFAULT_BASE_CURRENCY,
@@ -53,6 +57,15 @@ from eth_defi.currency_api.constants import (
 from eth_defi.currency_api.scanner import run_incremental_scan as currency_run_incremental_scan
 from eth_defi.erc_4626.classification import HARDCODED_PROTOCOLS, create_vault_instance
 from eth_defi.erc_4626.core import MIN_PRICE_SCAN_DEPOSIT_COUNT, passes_price_scan_activity_filter
+from eth_defi.erc_4626.lead_discovery_state import (
+    DEFAULT_LEAD_DISCOVERY_STATE_TIMEOUT,
+    LeadDiscoveryState,
+    create_lead_discovery_signature,
+    get_lead_discovery_state_path,
+    load_lead_discovery_state,
+    save_lead_discovery_state,
+    validate_lead_discovery_state,
+)
 from eth_defi.erc_4626.lead_scan_core import scan_leads
 from eth_defi.erc_4626.settlement_scan import (
     fetch_and_store_vault_settlements_for_chain,
@@ -73,6 +86,7 @@ from eth_defi.lighter.vault_data_export import merge_into_vault_database as ligh
 from eth_defi.provider.broken_provider import verify_archive_node
 from eth_defi.provider.multi_provider import MultiProviderWeb3Factory, create_multi_provider_web3
 from eth_defi.provider.rpcdb import RPCRequestStats, RPCUsageDatabase, format_rpc_usage_report, resolve_rpc_tracking_database_path
+from eth_defi.rate_limit import clear_sqlite_rate_limit_databases
 from eth_defi.token import TokenDiskCache
 from eth_defi.utils import setup_console_logging, wait_other_writers
 from eth_defi.vault.historical import scan_historical_prices_to_parquet
@@ -89,10 +103,34 @@ from eth_defi.version_info import VersionInfo
 BACKUP_RETENTION_DAYS = int(os.environ.get("BACKUP_RETENTION_DAYS", "7"))
 
 CORE3_PROTOCOL_NAME = "Core3"
+XERBERUS_PROTOCOL_NAME = "Xerberus"
 CURRENCY_RATES_PROTOCOL_NAME = "CurrencyRates"
 CURRENCY_RATES_DEFAULT_CYCLE = datetime.timedelta(hours=24)
 
 logger = logging.getLogger(__name__)
+
+
+def resolve_core3_scan_scope(scan_scope: str) -> set[str] | None:
+    """Resolve a Core3 project scan scope to an optional slug filter.
+
+    The production export only consumes projects referenced by
+    :data:`eth_defi.core3.mappings.CORE3_MAPPINGS`. ``mapped`` therefore
+    avoids detail and history calls for the rest of the Core3 catalogue,
+    while ``all`` remains available for deliberate catalogue refreshes.
+
+    :param scan_scope:
+        Either ``"mapped"`` or ``"all"``. Whitespace and case are ignored.
+    :return:
+        Mapped Core3 slugs for ``"mapped"``, or ``None`` for ``"all"``.
+    :raises ValueError:
+        If the scope is not supported.
+    """
+    scope = scan_scope.strip().lower()
+    if scope == "all":
+        return None
+    if scope != "mapped":
+        raise ValueError(f"Unsupported CORE3_SCAN_SCOPE {scan_scope!r}; expected 'all' or 'mapped'")
+    return {slug for slug in CORE3_MAPPINGS.values() if slug is not None}
 
 
 def parse_duration(s: str) -> datetime.timedelta:
@@ -204,6 +242,42 @@ def should_scan_core3(skip_core3: bool, core3_api_key: str | None) -> bool:
     return True
 
 
+def should_scan_xerberus(
+    skip_xerberus: bool,
+    xerberus_api_key: str | None,
+    xerberus_api_email: str | None,
+) -> bool:
+    """Determine whether Xerberus enrichment scanning should run.
+
+    Xerberus is default-on enrichment when **both** the API key and the
+    registered email are configured. The email is part of the public REST
+    auth contract (``x-user-email``) and must be the address issued with the
+    key. Missing credentials degrade to a warning and disable Xerberus for
+    the current run. Agents must not invent or probe email values — only use
+    operator-supplied ``XERBERUS_API_EMAIL`` / explicit arguments.
+
+    :param skip_xerberus:
+        Whether the operator explicitly disabled Xerberus for this run.
+    :param xerberus_api_key:
+        API key from ``XERBERUS_API_KEY`` (or an explicit caller value).
+    :param xerberus_api_email:
+        Registered email from ``XERBERUS_API_EMAIL`` (or an explicit caller
+        value). Do not guess this string.
+    :return:
+        ``True`` if Xerberus should be scheduled.
+    """
+    if skip_xerberus:
+        logger.info("SKIP_XERBERUS=true - Xerberus enrichment scan disabled")
+        return False
+    if not xerberus_api_key:
+        logger.warning("XERBERUS_API_KEY is not set - Xerberus enrichment scan disabled for this run")
+        return False
+    if not xerberus_api_email:
+        logger.warning("XERBERUS_API_EMAIL is not set - Xerberus enrichment scan disabled for this run (set the email registered with the API key; do not invent candidates)")
+        return False
+    return True
+
+
 def should_scan_currency_rates(skip_currency_rates: bool) -> bool:
     """Determine whether currency rate scanning should run.
 
@@ -230,12 +304,13 @@ def build_active_protocols(
     scan_apex: bool,
     scan_core3: bool,
     scan_currency_rates: bool,
+    scan_xerberus: bool = False,
 ) -> list[str]:
     """Build scheduled non-EVM scan item names.
 
-    The existing cycle scheduler calls these items protocols. Core3 reuses
-    that path to avoid a new item type: it is a cross-chain enrichment
-    scan, not a vault source, and therefore has no price merge step.
+    The existing cycle scheduler calls these items protocols. Core3 and
+    Xerberus reuse that path as cross-chain enrichment scans, not vault
+    sources, and therefore have no price merge step.
 
     :param scan_hypercore:
         Include Hypercore native vaults.
@@ -251,6 +326,8 @@ def build_active_protocols(
         Include Core3 enrichment data.
     :param scan_currency_rates:
         Include daily currency exchange rates.
+    :param scan_xerberus:
+        Include Xerberus enrichment data.
     :return:
         Scheduled non-EVM scan item names.
     """
@@ -267,6 +344,8 @@ def build_active_protocols(
         all_protocols.append("ApeX")
     if scan_core3:
         all_protocols.append(CORE3_PROTOCOL_NAME)
+    if scan_xerberus:
+        all_protocols.append(XERBERUS_PROTOCOL_NAME)
     if scan_currency_rates:
         all_protocols.append(CURRENCY_RATES_PROTOCOL_NAME)
     return all_protocols
@@ -456,6 +535,9 @@ class ChainResult:
     #: Hours remaining until this item is next due (for "not due" items)
     next_due_in_hours: float | None = None
 
+    #: Whether the lead-discovery cache skipped an incremental discovery and metadata refresh.
+    lead_discovery_cache_hit: bool | None = None
+
 
 def build_chain_configs() -> list[ChainConfig]:
     """Build list of chain configurations.
@@ -497,6 +579,9 @@ def scan_vaults_for_chain(
     vault_db_path: Path = DEFAULT_VAULT_DATABASE,
     hypersync_concurrency: int | None = None,
     rpc_request_stats: RPCRequestStats | None = None,
+    *,
+    lead_discovery_state_timeout: datetime.timedelta = DEFAULT_LEAD_DISCOVERY_STATE_TIMEOUT,
+    force_lead_discovery: bool = False,
 ) -> tuple[bool, dict]:
     """Scan vaults for a single chain by calling scan_leads() directly.
 
@@ -504,14 +589,72 @@ def scan_vaults_for_chain(
     :param max_workers: Number of parallel workers
     :param vault_db_path: Path to the vault database pickle
     :param hypersync_concurrency: Hypersync stream concurrency limit
+    :param lead_discovery_state_timeout: Maximum cache age before an incremental lead and metadata refresh.
+    :param force_lead_discovery: Bypass a valid cache for this invocation.
     :return: Tuple of (success, metrics_dict)
     """
     stats = rpc_request_stats or RPCRequestStats()
+    if lead_discovery_state_timeout <= datetime.timedelta(0):
+        raise ValueError(f"lead_discovery_state_timeout must be positive, got {lead_discovery_state_timeout}")
     chain_id = None
     items_scanned = 0
     try:
         web3 = create_multi_provider_web3(rpc_url, rpc_request_stats=stats)
         chain_id = web3.eth.chain_id
+        enabled_chains = [(config.name, config.env_var) for config in build_chain_configs() if config.scan_vaults]
+        signature, signature_configuration = create_lead_discovery_signature(enabled_chains)
+        state_path = get_lead_discovery_state_path(vault_db_path.parent, chain_id)
+
+        existing_db = VaultDatabase.read(vault_db_path) if vault_db_path.exists() else None
+        existing_lead_addresses = set(existing_db.get_existing_leads_by_chain(chain_id)) if existing_db is not None else set()
+        state: LeadDiscoveryState | None = None
+        cache_miss_reason = None
+        cache_now = native_datetime_utc_now()
+        if force_lead_discovery:
+            cache_miss_reason = "FORCE_LEAD_DISCOVERY=true"
+        else:
+            state, cache_miss_reason = load_lead_discovery_state(state_path)
+            if state is not None:
+                has_metadata_cursor = existing_db is not None and chain_id in existing_db.last_scanned_block
+                cache_miss_reason = validate_lead_discovery_state(
+                    state,
+                    chain_id=chain_id,
+                    signature=signature,
+                    now=cache_now,
+                    timeout=lead_discovery_state_timeout,
+                    has_metadata_cursor=has_metadata_cursor,
+                )
+
+        if cache_miss_reason is None:
+            assert existing_db is not None
+            assert state is not None
+            chain_rows = [row for row in existing_db.rows.values() if row["_detection_data"].chain == chain_id]
+            last_block = existing_db.last_scanned_block[chain_id]
+            logger.info(
+                "Lead discovery cache hit for chain %d: state=%s, age=%s, last refresh block=%d, timeout=%s, signature=%s",
+                chain_id,
+                state_path,
+                cache_now - state.completed_at,
+                last_block,
+                lead_discovery_state_timeout,
+                signature,
+            )
+            return True, {
+                "chain_id": chain_id,
+                "start_block": last_block,
+                "end_block": last_block,
+                "vault_count": len(chain_rows),
+                "new_vaults": 0,
+                "items_scanned": 0,
+                "lead_discovery_cache_hit": True,
+            }
+
+        logger.info(
+            "Lead discovery cache miss for chain %d: %s; refreshing persisted vault classifications and metadata from the discovery cursor with signature %s",
+            chain_id,
+            cache_miss_reason,
+            signature,
+        )
         report = scan_leads(
             json_rpc_urls=rpc_url,
             vault_db_file=vault_db_path,
@@ -526,13 +669,28 @@ def scan_vaults_for_chain(
         )
         items_scanned = report.items_scanned
 
+        refreshed_db = VaultDatabase.read(vault_db_path)
+        refreshed_chain_rows = [row for row in refreshed_db.rows.values() if row["_detection_data"].chain == chain_id]
+
+        save_lead_discovery_state(
+            LeadDiscoveryState(
+                chain_id=chain_id,
+                signature=signature,
+                signature_configuration=signature_configuration,
+                completed_at=native_datetime_utc_now(),
+                completed_block=report.end_block,
+            ),
+            state_path,
+        )
+
         return True, {
             "chain_id": chain_id,
             "start_block": report.start_block,
             "end_block": report.end_block,
-            "vault_count": len(report.rows),
-            "new_vaults": report.new_leads,
+            "vault_count": len(refreshed_chain_rows),
+            "new_vaults": len(set(report.leads) - existing_lead_addresses),
             "items_scanned": items_scanned,
+            "lead_discovery_cache_hit": False,
         }
 
     except Exception as e:
@@ -677,6 +835,9 @@ def scan_chain(
     rpc_usage_database: RPCUsageDatabase | None = None,
     rpc_cycle_started: datetime.date | None = None,
     rpc_cycle_number: int | None = None,
+    *,
+    lead_discovery_state_timeout: datetime.timedelta = DEFAULT_LEAD_DISCOVERY_STATE_TIMEOUT,
+    force_lead_discovery: bool = False,
 ) -> ChainResult:
     """Scan a single chain (vaults and optionally prices).
 
@@ -689,6 +850,8 @@ def scan_chain(
     :param uncleaned_price_path: Path to the uncleaned price parquet
     :param reader_state_path: Path to the reader state pickle
     :param hypersync_concurrency: Hypersync stream concurrency limit
+    :param lead_discovery_state_timeout: Maximum age of a successful incremental lead and metadata refresh.
+    :param force_lead_discovery: Bypass a valid discovery cache on this scan.
     :return: Scan result
     """
     result = ChainResult(name=config.name, status="running", retry_attempt=retry_attempt)
@@ -744,7 +907,15 @@ def scan_chain(
     # Scan vaults
     if config.scan_vaults:
         vault_stats = RPCRequestStats()
-        vault_success, vault_metrics = scan_vaults_for_chain(rpc_url, max_workers, vault_db_path=vault_db_path, hypersync_concurrency=hypersync_concurrency, rpc_request_stats=vault_stats)
+        vault_success, vault_metrics = scan_vaults_for_chain(
+            rpc_url,
+            max_workers,
+            vault_db_path=vault_db_path,
+            hypersync_concurrency=hypersync_concurrency,
+            rpc_request_stats=vault_stats,
+            lead_discovery_state_timeout=lead_discovery_state_timeout,
+            force_lead_discovery=force_lead_discovery,
+        )
         record_rpc_usage("lead_discovery", vault_stats, vault_metrics)
         result.vault_scan_ok = vault_success
         result.chain_id = vault_metrics.get("chain_id")
@@ -754,6 +925,7 @@ def scan_chain(
             result.end_block = vault_metrics.get("end_block")
             result.vault_count = vault_metrics.get("vault_count")
             result.new_vaults = vault_metrics.get("new_vaults")
+            result.lead_discovery_cache_hit = vault_metrics.get("lead_discovery_cache_hit")
         else:
             result.error = vault_metrics.get("error", "Unknown error")
             result.traceback_str = vault_metrics.get("traceback")
@@ -1405,7 +1577,8 @@ def scan_apex_fn(
 def scan_core3_fn(
     core3_db_path: Path,
     max_workers: int = 8,
-    fetch_sections: bool = True,
+    fetch_sections: bool = False,
+    scan_scope: str = "mapped",
 ) -> ChainResult:
     """Scan Core3 risk intelligence enrichment data.
 
@@ -1419,6 +1592,9 @@ def scan_core3_fn(
         Number of parallel workers for Core3 project API reads.
     :param fetch_sections:
         Whether to fetch detailed Core3 section endpoints.
+    :param scan_scope:
+        ``"mapped"`` scans only Core3 projects used by the vault export.
+        ``"all"`` scans the complete Core3 catalogue.
     :return:
         Scan result with project count and duration.
     """
@@ -1428,11 +1604,13 @@ def scan_core3_fn(
 
     try:
         session = create_core3_session(pool_maxsize=max(32, max_workers))
+        project_slugs = resolve_core3_scan_scope(scan_scope)
         db = core3_scan_projects(
             session=session,
             db_path=core3_db_path,
             max_workers=max_workers,
             fetch_sections=fetch_sections,
+            project_slugs=project_slugs,
         )
         result.vault_count = db.get_project_count()
         result.vault_scan_ok = True
@@ -1440,6 +1618,68 @@ def scan_core3_fn(
         result.status = "success"
     except Exception as e:
         logger.exception("Core3 scan failed")
+        result.status = "failed"
+        result.error = str(e)
+        result.traceback_str = traceback.format_exc()
+    finally:
+        if db is not None:
+            db.close()
+
+    result.duration = time.time() - start_time
+    return result
+
+
+def scan_xerberus_fn(
+    xerberus_db_path: Path,
+    fetch_vault_lists: bool = True,
+    fetch_reports: bool = True,
+    api_key: str | None = None,
+    api_email: str | None = None,
+) -> ChainResult:
+    """Scan Xerberus risk intelligence enrichment data.
+
+    Xerberus is not a vault source. It refreshes the DuckDB database
+    consumed by the top-vaults JSON export during post-processing.
+    The database handle is always closed before return.
+
+    Credentials may be passed explicitly via ``api_key`` / ``api_email``,
+    or read from ``XERBERUS_API_KEY`` and ``XERBERUS_API_EMAIL``. Do not
+    invent the email; only use operator-supplied values.
+
+    :param xerberus_db_path:
+        Path to the Xerberus DuckDB file.
+    :param fetch_vault_lists:
+        Whether to poll platform vault list endpoints.
+    :param fetch_reports:
+        Whether to backfill dendrogram report URLs.
+    :param api_key:
+        Optional explicit API key (else env ``XERBERUS_API_KEY``).
+    :param api_email:
+        Optional explicit registered email (else env ``XERBERUS_API_EMAIL``).
+        Required for authenticated API calls; do not guess.
+    :return:
+        Scan result with entity count and duration.
+    """
+    result = ChainResult(name=XERBERUS_PROTOCOL_NAME, status="running")
+    start_time = time.time()
+    db = None
+
+    try:
+        session = create_xerberus_session(api_key=api_key, api_email=api_email)
+        db = xerberus_scan(
+            session=session,
+            db_path=xerberus_db_path,
+            fetch_vault_lists=fetch_vault_lists,
+            fetch_reports=fetch_reports,
+        )
+        assert db is not None
+        counts = db.get_entity_counts()
+        result.vault_count = counts.get("distinct_pools", 0) + counts.get("distinct_protocols", 0)
+        result.vault_scan_ok = True
+        result.price_scan_ok = None
+        result.status = "success"
+    except Exception as e:
+        logger.exception("Xerberus scan failed")
         result.status = "failed"
         result.error = str(e)
         result.traceback_str = traceback.format_exc()
@@ -1705,6 +1945,8 @@ def print_dashboard(results: dict[str, ChainResult], display_order: list[str] | 
         line = f"{result.name:<15} {status:<10} {cycle:<8} {vaults:<8} {new:<6} {blocks:<22} {duration:<10} {retry:<5} {last_data:<18}"
         if result.status == "not due" and result.next_due_in_hours is not None:
             line += f"  due in {result.next_due_in_hours:.1f}h"
+        if result.lead_discovery_cache_hit:
+            line += "  lead cache hit"
         if result.error:
             # Truncate long error messages to fit the dashboard
             error_msg = result.error[:40]
@@ -1855,7 +2097,8 @@ def run_scan_tick(
     cycle_intervals: dict[str, str] | None = None,
     on_item_success: Callable[[str], None] | None = None,
     core3_db_path: Path | None = None,
-    core3_fetch_sections: bool = True,
+    core3_fetch_sections: bool = False,
+    core3_scan_scope: str = "mapped",
     hypersync_concurrency: int | None = None,
     feed_db_path: Path | None = None,
     currency_api_db_path: Path | None = None,
@@ -1864,6 +2107,13 @@ def run_scan_tick(
     settlement_start_block: int | None = None,
     settlement_end_block: int | None = None,
     rpc_tracking_database_path: Path | None = None,
+    *,
+    lead_discovery_state_timeout: datetime.timedelta = DEFAULT_LEAD_DISCOVERY_STATE_TIMEOUT,
+    force_lead_discovery: bool = False,
+    xerberus_db_path: Path | None = None,
+    xerberus_fetch_vault_list: bool = True,
+    xerberus_fetch_reports: bool = True,
+    scan_xerberus: bool = False,
 ) -> dict[str, ChainResult]:
     """Execute one scan tick: EVM chains + native protocols + post-processing.
 
@@ -1883,6 +2133,10 @@ def run_scan_tick(
 
     :param core3_fetch_sections:
         Whether Core3 should fetch section detail endpoints.
+
+    :param core3_scan_scope:
+        ``"mapped"`` limits Core3 API detail and history calls to projects
+        used by the vault export. ``"all"`` refreshes the complete catalogue.
 
     :param feed_db_path:
         Path to the vault post feed DuckDB used to enrich the top-vaults
@@ -1909,6 +2163,13 @@ def run_scan_tick(
     :param rpc_tracking_database_path:
         Shared JSON-RPC accounting DuckDB path. Defaults to
         :func:`eth_defi.provider.rpcdb.resolve_rpc_tracking_database_path`.
+
+    :param lead_discovery_state_timeout:
+        Maximum age of a successful incremental lead and metadata refresh
+        before cache expiry.
+
+    :param force_lead_discovery:
+        Bypass a valid lead-discovery cache in this tick.
     """
     # Back up critical pipeline files before any scanning
     rpc_tracking_database_path = rpc_tracking_database_path or resolve_rpc_tracking_database_path()
@@ -2023,6 +2284,8 @@ def run_scan_tick(
                 rpc_usage_database=rpc_usage_database,
                 rpc_cycle_started=rpc_cycle_started,
                 rpc_cycle_number=rpc_cycle_number,
+                lead_discovery_state_timeout=lead_discovery_state_timeout,
+                force_lead_discovery=force_lead_discovery,
             )
         except Exception as e:
             logger.exception("Chain %s crashed with unhandled exception", chain.name)
@@ -2177,14 +2440,31 @@ def run_scan_tick(
             core3_db_path=core3_db_path or resolve_core3_database_path(),
             max_workers=core3_max_workers,
             fetch_sections=core3_fetch_sections,
+            scan_scope=core3_scan_scope,
         )
         r = results[CORE3_PROTOCOL_NAME]
         if r.status == "success":
-            logger.info("Core3: SUCCESS - %d projects", r.vault_count or 0)
+            logger.info("Core3: SUCCESS - %d stored projects", r.vault_count or 0)
             if on_item_success:
                 on_item_success(CORE3_PROTOCOL_NAME)
         elif r.status == "failed":
             logger.error("Core3: FAILED - %s", r.error)
+        print_dashboard(results, display_order, uncleaned_price_path=uncleaned_price_path)
+
+    if scan_xerberus and XERBERUS_PROTOCOL_NAME in active_protocols:
+        logger.info("Scanning Xerberus (risk intelligence enrichment)")
+        results[XERBERUS_PROTOCOL_NAME] = scan_xerberus_fn(
+            xerberus_db_path=xerberus_db_path or resolve_xerberus_database_path(),
+            fetch_vault_lists=xerberus_fetch_vault_list,
+            fetch_reports=xerberus_fetch_reports,
+        )
+        r = results[XERBERUS_PROTOCOL_NAME]
+        if r.status == "success":
+            logger.info("Xerberus: SUCCESS - %d entities", r.vault_count or 0)
+            if on_item_success:
+                on_item_success(XERBERUS_PROTOCOL_NAME)
+        elif r.status == "failed":
+            logger.error("Xerberus: FAILED - %s", r.error)
         print_dashboard(results, display_order, uncleaned_price_path=uncleaned_price_path)
 
     if scan_currency_rates and CURRENCY_RATES_PROTOCOL_NAME in active_protocols:
@@ -2239,6 +2519,8 @@ def run_scan_tick(
                     rpc_usage_database=rpc_usage_database,
                     rpc_cycle_started=rpc_cycle_started,
                     rpc_cycle_number=rpc_cycle_number,
+                    lead_discovery_state_timeout=lead_discovery_state_timeout,
+                    force_lead_discovery=force_lead_discovery,
                 )
             except Exception as e:
                 logger.exception("Chain %s crashed with unhandled exception (retry %d)", chain.name, attempt)
@@ -2375,9 +2657,17 @@ def main():
     scan_apex = os.environ.get("SCAN_APEX", "false").lower() == "true"
     skip_core3 = os.environ.get("SKIP_CORE3", "false").lower() == "true"
     scan_core3 = should_scan_core3(skip_core3=skip_core3, core3_api_key=os.environ.get("CORE3_API_KEY"))
+    skip_xerberus = os.environ.get("SKIP_XERBERUS", "false").lower() == "true"
+    scan_xerberus = should_scan_xerberus(
+        skip_xerberus=skip_xerberus,
+        xerberus_api_key=os.environ.get("XERBERUS_API_KEY"),
+        xerberus_api_email=resolve_xerberus_api_email(),
+    )
     skip_currency_rates = os.environ.get("SKIP_CURRENCY_RATES", "false").lower() == "true"
     scan_currency_rates = should_scan_currency_rates(skip_currency_rates=skip_currency_rates)
     force_rescan = os.environ.get("FORCE_RESCAN", "false").lower() == "true"
+    force_lead_discovery = os.environ.get("FORCE_LEAD_DISCOVERY", "false").lower() == "true"
+    lead_discovery_state_timeout = parse_duration(os.environ.get("LEAD_DISCOVERY_STATE_TIMEOUT", "7d"))
     max_workers = int(os.environ.get("MAX_WORKERS", "50"))
     # Pipeline default is 1 (sequential) to avoid API pressure when scanning
     # many chains.  This is intentionally stricter than the library-level
@@ -2385,7 +2675,11 @@ def main():
     # of 10 when no value is provided.
     hypersync_concurrency = int(os.environ.get("HYPERSYNC_CONCURRENCY", "1"))
     core3_max_workers = int(os.environ.get("CORE3_MAX_WORKERS", "8"))
-    core3_fetch_sections = os.environ.get("CORE3_FETCH_SECTIONS", "true").lower() == "true"
+    core3_fetch_sections = os.environ.get("CORE3_FETCH_SECTIONS", "false").lower() == "true"
+    core3_scan_scope = os.environ.get("CORE3_SCAN_SCOPE", "mapped").strip().lower()
+    resolve_core3_scan_scope(core3_scan_scope)
+    xerberus_fetch_vault_list = os.environ.get("XERBERUS_FETCH_VAULT_LIST", "true").lower() == "true"
+    xerberus_fetch_reports = os.environ.get("XERBERUS_FETCH_REPORTS", "true").lower() == "true"
     currency_api_max_workers = int(os.environ.get("CURRENCY_API_MAX_WORKERS", "8"))
     frequency = os.environ.get("FREQUENCY", "1h")
     skip_post_processing = os.environ.get("SKIP_POST_PROCESSING", "false").lower() == "true"
@@ -2441,6 +2735,8 @@ def main():
 
     # Core3 risk intelligence database path — resolved from env var or default constant.
     core3_db_path = resolve_core3_database_path()
+    # Xerberus risk intelligence database path.
+    xerberus_db_path = resolve_xerberus_database_path()
 
     # Vault post feed database path — resolved the same way as the post scanner
     # (FEED_DB_PATH/DB_PATH env var or default constant) so the top-vaults JSON
@@ -2459,6 +2755,7 @@ def main():
         apex_db_path,
         settlement_db_path,
         core3_db_path,
+        xerberus_db_path,
         currency_api_db_path,
     ]
 
@@ -2476,7 +2773,7 @@ def main():
     version_info = VersionInfo.read_docker_version()
     logger.info("Docker image version: tag=%s, commit=%s", version_info.tag, version_info.commit_hash)
     logger.info(
-        "SCAN_PRICES: %s, SCAN_HYPERCORE: %s, SCAN_GRVT: %s, SCAN_LIGHTER: %s, SCAN_HIBACHI: %s, SCAN_APEX: %s, SKIP_CORE3: %s, CORE3: %s, SKIP_CURRENCY_RATES: %s, CURRENCY_RATES: %s, RETRY_COUNT: %d, MAX_WORKERS: %d, CORE3_MAX_WORKERS: %d, CURRENCY_API_MAX_WORKERS: %d, FREQUENCY: %s",
+        "SCAN_PRICES: %s, SCAN_HYPERCORE: %s, SCAN_GRVT: %s, SCAN_LIGHTER: %s, SCAN_HIBACHI: %s, SCAN_APEX: %s, SKIP_CORE3: %s, CORE3: %s, SKIP_XERBERUS: %s, XERBERUS: %s, SKIP_CURRENCY_RATES: %s, CURRENCY_RATES: %s, RETRY_COUNT: %d, MAX_WORKERS: %d, CORE3_MAX_WORKERS: %d, CURRENCY_API_MAX_WORKERS: %d, FREQUENCY: %s",
         scan_prices,
         scan_hypercore,
         scan_grvt,
@@ -2485,6 +2782,8 @@ def main():
         scan_apex,
         skip_core3,
         scan_core3,
+        skip_xerberus,
+        scan_xerberus,
         skip_currency_rates,
         scan_currency_rates,
         retry_count,
@@ -2511,8 +2810,13 @@ def main():
         logger.info("DISABLE_CHAINS: %s", disable_chains_str)
     if force_rescan:
         logger.info("FORCE_RESCAN: true")
+    if force_lead_discovery:
+        logger.info("FORCE_LEAD_DISCOVERY: true")
+    logger.info("LEAD_DISCOVERY_STATE_TIMEOUT: %s", lead_discovery_state_timeout)
     if core3_fetch_sections:
         logger.info("CORE3_FETCH_SECTIONS: true")
+    if core3_scan_scope != "mapped":
+        logger.info("CORE3_SCAN_SCOPE: %s", core3_scan_scope)
     logger.debug("=" * 80)
 
     # Build chain configurations
@@ -2573,6 +2877,7 @@ def main():
         scan_apex=scan_apex,
         scan_core3=scan_core3,
         scan_currency_rates=scan_currency_rates,
+        scan_xerberus=scan_xerberus,
     )
 
     # Pre-compute human-readable cycle intervals for all items
@@ -2598,6 +2903,7 @@ def main():
         scan_apex=scan_apex,
         scan_core3=scan_core3,
         scan_currency_rates=scan_currency_rates,
+        scan_xerberus=scan_xerberus,
         max_workers=max_workers,
         hypersync_concurrency=hypersync_concurrency,
         core3_max_workers=core3_max_workers,
@@ -2627,12 +2933,18 @@ def main():
         hypercore_mode=hypercore_mode,
         core3_db_path=core3_db_path,
         core3_fetch_sections=core3_fetch_sections,
+        core3_scan_scope=core3_scan_scope,
+        xerberus_db_path=xerberus_db_path,
+        xerberus_fetch_vault_list=xerberus_fetch_vault_list,
+        xerberus_fetch_reports=xerberus_fetch_reports,
         feed_db_path=feed_db_path,
         currency_api_db_path=currency_api_db_path,
         settlement_db_path=settlement_db_path,
         scan_vault_settlements=scan_vault_settlements,
         settlement_start_block=settlement_start_block,
         settlement_end_block=settlement_end_block,
+        lead_discovery_state_timeout=lead_discovery_state_timeout,
+        force_lead_discovery=force_lead_discovery,
     )
 
     # Clear cycle state on disc so the first tick rescans everything.
@@ -2650,6 +2962,7 @@ def main():
     schedule_tolerance = datetime.timedelta(seconds=loop_interval) / 2 if looped_mode else datetime.timedelta(0)
 
     cycle = 0
+    rate_limit_databases_cleared = False
     while True:
         cycle += 1
 
@@ -2657,6 +2970,11 @@ def main():
 
         try:
             with wait_other_writers(pipeline_lock_path, timeout=60):
+                if not rate_limit_databases_cleared:
+                    cleared_databases = clear_sqlite_rate_limit_databases()
+                    logger.info("Cleared %d SQLite rate-limit databases before scanning", len(cleared_databases))
+                    rate_limit_databases_cleared = True
+
                 if looped_mode:
                     state = load_cycle_state(cycle_state_path)
                     # Always resume from persisted cycle state, including cycle 1.
@@ -2677,6 +2995,9 @@ def main():
                         state,
                         tolerance=schedule_tolerance,
                     )
+                    if tick_kwargs["force_lead_discovery"]:
+                        logger.info("FORCE_LEAD_DISCOVERY is making all configured EVM chains due in this cycle")
+                        due_chains = chains
 
                     if due_chains or due_protocols:
                         # Compute items not due in this cycle with hours remaining
@@ -2715,6 +3036,9 @@ def main():
                             on_item_success=_save_item,
                             **tick_kwargs,
                         )
+                        if tick_kwargs["force_lead_discovery"]:
+                            logger.info("FORCE_LEAD_DISCOVERY was applied; restoring normal cache behaviour for later loop cycles")
+                            tick_kwargs["force_lead_discovery"] = False
                     else:
                         logger.info("Cycle %d: nothing due, sleeping", cycle)
                 else:
