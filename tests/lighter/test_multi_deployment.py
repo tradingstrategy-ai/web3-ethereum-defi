@@ -154,9 +154,9 @@ def test_legacy_database_migrates_to_composite_deployment_keys(tmp_path: Path) -
         assert migrated_prices["deployment"].tolist() == [LIGHTER_ETHEREUM.slug]
 
         db.upsert_pool_metadata(
-            deployment=LIGHTER_ROBINHOOD.slug,
-            account_index=ACCOUNT_INDEX,
-            name="Robinhood LLP",
+            LIGHTER_ROBINHOOD.slug,
+            ACCOUNT_INDEX,
+            "Robinhood LLP",
             description="Robinhood deployment row",
             is_llp=True,
             total_asset_value=2_000.0,

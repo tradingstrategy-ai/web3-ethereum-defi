@@ -1,5 +1,7 @@
 # 1.2
 
+- feat: Export vault share-price provenance and add Lighter ownership, account snapshots and conservative net-flow metrics (2026-07-28)
+
 - feat: Read complete Accountable fee-manager terms and effective vault deposit minimums onchain across legacy and current contract versions (2026-07-28)
 
 - feat: Add Spiko EUTBL on Arbitrum with EUR source-denomination export and USD-normalised NAV history (2026-07-28)
