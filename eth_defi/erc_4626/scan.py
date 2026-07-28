@@ -354,6 +354,7 @@ def create_vault_scan_record(
         "_deposit_manager": None,
         "_deposit_permission": VaultDepositPermission.unknown.value,
         "_whitelist_notes": None,
+        "_share_price_source": None,
     }
 
     vault = create_vault_instance(
@@ -407,6 +408,8 @@ def create_vault_scan_record(
         deposit_manager_capability = capability_resolver() if capability_resolver is not None else None
         whitelist_notes_resolver = getattr(vault, "get_whitelist_notes", None)
         whitelist_notes = whitelist_notes_resolver() if whitelist_notes_resolver is not None else None
+        share_price_source_resolver = getattr(vault, "get_share_price_source", None)
+        share_price_source = share_price_source_resolver() if share_price_source_resolver is not None else None
 
         data = {
             "Symbol": vault.symbol,
@@ -435,6 +438,7 @@ def create_vault_scan_record(
             "_short_description": short_description,
             "_notes": notes,
             "_manager_name": vault.manager_name,
+            "_share_price_source": share_price_source,
             "_morpho_offchain_data": vault.morpho_offchain_data if isinstance(vault, (MorphoV1Vault, MorphoV2Vault)) else None,
             "_deposit_manager": deposit_manager_capability.as_initial_public_schema() if deposit_manager_capability else None,
             "_deposit_permission": fetch_deposit_permission(vault).value,

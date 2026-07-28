@@ -54,6 +54,7 @@ from eth_defi.vault.flag import (
     VaultFlag,
     get_notes,
 )
+from eth_defi.vault.price_source import PriceSource
 from eth_defi.vault.risk import VaultTechnicalRisk, get_vault_risk
 from eth_defi.vault.vaultdb import VaultDatabase, VaultRow
 
@@ -180,28 +181,30 @@ class NetflowMetrics:
     Aggregates daily deposit/withdrawal event counts and USD values
     over a given period (e.g. ``"1d"``, ``"7d"``, ``"30d"``).
 
-    Only available for chains that support vault flow tracking
-    (currently Hyperliquid). For other chains this will be ``None``
-    in the vault record.
+    Only available for chains that support vault flow tracking. Sources that
+    expose monetary counters but not individual events retain null counts.
     """
 
     #: Period label (e.g. ``"1d"``, ``"7d"``, ``"30d"``)
     period: str
 
     #: Number of deposit events in the period
-    deposit_count: int = 0
+    deposit_count: int | None = None
 
     #: Number of withdrawal events in the period
-    withdrawal_count: int = 0
+    withdrawal_count: int | None = None
 
     #: Total USD deposited in the period
-    deposit_usd: float = 0.0
+    deposit_usd: float | None = None
 
     #: Total USD withdrawn in the period (positive value)
-    withdrawal_usd: float = 0.0
+    withdrawal_usd: float | None = None
 
     #: Net flow (deposit_usd - withdrawal_usd)
-    net_flow_usd: float = 0.0
+    net_flow_usd: float | None = None
+
+    #: Whether every daily monetary observation in the full period is known.
+    data_complete: bool = False
 
 
 #: Period -> Perioud duration, max sparse sample mismatch
@@ -302,6 +305,9 @@ class VaultMetricsRecord(TypedDict, total=False):
 
     #: Latest adaptive vault scan cycle, e.g. ``"large_tvl"`` or ``"peaked"``.
     vault_poll_frequency: str | None
+
+    #: Source used to produce the share-price series.
+    share_price_source: str | None
 
     #: Current net asset value in USD
     current_nav: float | None
@@ -1023,59 +1029,83 @@ def _unnullify(x: str | None, default: str = "<unknown>") -> str:
 def _calculate_netflow_metrics(
     prices_df: pd.DataFrame,
     now_: pd.Timestamp | None = None,
+    exclude_current_utc_day: bool = False,
 ) -> list[NetflowMetrics] | None:
     """Aggregate daily deposit/withdrawal flow data into period summaries.
 
     Computes :py:class:`NetflowMetrics` for 1d, 7d, and 30d periods by
     summing the daily flow columns in ``prices_df``.
 
-    Only complete days are considered. If the required flow columns are
-    missing or contain no non-null data, returns ``None``.
+    If monetary flow columns are missing or contain no non-null data, returns
+    ``None``. Count columns are optional because some native APIs expose only
+    cumulative monetary counters. A period is complete only when every UTC
+    day in its full calendar window has known monetary observations. Periods
+    with missing, source-null, or partial flow observations return null totals
+    rather than silently reporting a partial sum. Event counts follow the same
+    completeness rule when the source exposes them.
 
     :param prices_df:
         Cleaned price DataFrame with a DatetimeIndex and optional columns
-        ``daily_deposit_count``, ``daily_withdrawal_count``,
-        ``daily_deposit_usd``, ``daily_withdrawal_usd``.
+        ``daily_deposit_usd`` and ``daily_withdrawal_usd`` plus optional event
+        count columns.
     :param now_:
         Reference timestamp for period lookback. Defaults to the last
         timestamp in the DataFrame.
+    :param exclude_current_utc_day:
+        Exclude the current UTC day from the lookback when its source values
+        are intentionally provisional.
     :return:
         List of :py:class:`NetflowMetrics` for periods 1d, 7d, 30d,
         or ``None`` if flow data is unavailable.
     """
-    flow_cols = ["daily_deposit_count", "daily_withdrawal_count", "daily_deposit_usd", "daily_withdrawal_usd"]
-
-    if not all(col in prices_df.columns for col in flow_cols):
+    amount_cols = ["daily_deposit_usd", "daily_withdrawal_usd"]
+    count_cols = ["daily_deposit_count", "daily_withdrawal_count"]
+    if not all(col in prices_df.columns for col in amount_cols):
         return None
 
-    # Check if there is any non-null flow data at all
-    has_data = any(prices_df[col].notna().any() for col in flow_cols)
+    # Check if there is any non-null monetary flow data at all.
+    has_data = any(prices_df[col].notna().any() for col in amount_cols)
     if not has_data:
         return None
 
     if now_ is None:
         now_ = prices_df.index.max()
 
+    if exclude_current_utc_day and now_.date() == native_datetime_utc_now().date():
+        now_ -= pd.Timedelta(days=1)
+
     results = []
     for period_label, days in [("1d", 1), ("7d", 7), ("30d", 30)]:
         cutoff = now_ - pd.Timedelta(days=days)
-        mask = prices_df.index > cutoff
+        mask = (prices_df.index > cutoff) & (prices_df.index <= now_)
 
-        subset = prices_df.loc[mask, flow_cols].dropna(how="all")
+        subset = prices_df.loc[mask]
+        amounts = subset[amount_cols]
+        expected_dates = pd.date_range(end=now_.normalize(), periods=days, freq="D")
+        observed_dates = pd.DatetimeIndex(subset.index.normalize().unique())
+        data_complete = observed_dates.equals(expected_dates) and len(subset) == days and amounts.notna().all(axis=None)
 
-        dep_count = int(subset["daily_deposit_count"].sum()) if not subset.empty else 0
-        wd_count = int(subset["daily_withdrawal_count"].sum()) if not subset.empty else 0
-        dep_usd = float(subset["daily_deposit_usd"].sum()) if not subset.empty else 0.0
-        wd_usd = float(subset["daily_withdrawal_usd"].sum()) if not subset.empty else 0.0
+        if data_complete:
+            dep_usd = float(amounts["daily_deposit_usd"].sum())
+            wd_usd = float(amounts["daily_withdrawal_usd"].sum())
+            net_flow_usd = dep_usd - wd_usd
+        else:
+            dep_usd = None
+            wd_usd = None
+            net_flow_usd = None
+
+        deposit_count = int(subset["daily_deposit_count"].sum()) if data_complete and "daily_deposit_count" in subset and subset["daily_deposit_count"].notna().all() else None
+        withdrawal_count = int(subset["daily_withdrawal_count"].sum()) if data_complete and "daily_withdrawal_count" in subset and subset["daily_withdrawal_count"].notna().all() else None
 
         results.append(
             NetflowMetrics(
                 period=period_label,
-                deposit_count=dep_count,
-                withdrawal_count=wd_count,
+                deposit_count=deposit_count,
+                withdrawal_count=withdrawal_count,
                 deposit_usd=dep_usd,
                 withdrawal_usd=wd_usd,
-                net_flow_usd=dep_usd - wd_usd,
+                net_flow_usd=net_flow_usd,
+                data_complete=bool(data_complete),
             )
         )
 
@@ -1736,6 +1766,13 @@ def calculate_vault_record(
     risk = vault_metadata.get("_risk") or get_vault_risk(protocol, vault_address)
     notes = vault_metadata.get("_notes") or get_notes(vault_address, chain_id=chain_id)
     vault_poll_frequency = get_latest_vault_poll_frequency(prices_df)
+    raw_share_price_source = vault_metadata.get("_share_price_source")
+    if raw_share_price_source is None:
+        share_price_source = None
+    elif isinstance(raw_share_price_source, PriceSource):
+        share_price_source = raw_share_price_source.value
+    else:
+        share_price_source = PriceSource(raw_share_price_source).value
 
     flags = set(vault_metadata.get("_flags") or set())
     risk, notes, flags = apply_bad_flag_check(
@@ -1883,8 +1920,12 @@ def calculate_vault_record(
     now_ = prices_df.index.max()
 
     # Deposit/withdrawal flow metrics aggregated over 1d, 7d, 30d periods.
-    # Only available for chains with daily flow data (currently Hyperliquid).
-    netflow = _calculate_netflow_metrics(prices_df, now_=now_)
+    # Only available for native protocols with daily flow data.
+    netflow = _calculate_netflow_metrics(
+        prices_df,
+        now_=now_,
+        exclude_current_utc_day=vault_metadata.get("_daily_flow_current_day_is_provisional", False),
+    )
 
     # Vault descriptions from offchain metadata (Euler, Lagoon, etc.)
     description = vault_metadata.get("_description")
@@ -1952,6 +1993,17 @@ def calculate_vault_record(
     perp_dex_data = build_perp_dex_other_data(prices_df.iloc[-1])
     if perp_dex_data is not None:
         other_data["perp_dex"] = perp_dex_data
+
+    if protocol == "Lighter":
+        # Ownership is an API snapshot captured alongside pool metadata. It is
+        # deliberately not carried through historical price rows: doing so
+        # would make a current operator stake look like historical ownership.
+        other_data["lighter"] = {
+            "operator_shares": vault_metadata.get("_lighter_operator_shares"),
+            "total_shares": vault_metadata.get("_lighter_total_shares"),
+            "operator_share_fraction": vault_metadata.get("_lighter_operator_share_fraction"),
+            "ownership_updated_at": vault_metadata.get("_lighter_ownership_updated_at"),
+        }
 
     # Manual review decision from the Hyperliquid review Google Sheet.
     # Captured into the pickle by
@@ -2197,6 +2249,7 @@ def calculate_vault_record(
             "risk": risk,
             "risk_numeric": risk_numeric,
             "vault_poll_frequency": vault_poll_frequency,
+            "share_price_source": share_price_source,
             "id": id_val,
             "start_date": lifetime_start_date,
             "end_date": lifetime_end_date,
@@ -2284,7 +2337,11 @@ def calculate_lifetime_metrics(
 
     Lookback based on the last entry.
 
-    Each output row contains a ``denomination_token_rate`` value produced by
+    Each output row contains a ``share_price_source`` string describing how
+    the adapter obtained its share-price observations, or ``None`` for legacy
+    metadata and adapters without a price source.
+
+    Each output row also contains a ``denomination_token_rate`` value produced by
     :py:meth:`eth_defi.feed.stablecoin_rate.StablecoinRateFeeder.get_denomination_token_rate_section`.
     The value is a :py:class:`eth_defi.feed.stablecoin_rate.DenominationTokenRate`
     carrying both USD rate fields and, for non-USD stablecoins, native source
@@ -2868,6 +2925,7 @@ def format_lifetime_table(
             "protocol": "Protocol",
             "risk": "Risk",
             "vault_poll_frequency": "Scan cycle",
+            "share_price_source": "Share price source",
             # "end_date": "Latest deposit",
             "name": "Name",
             "lockup": "Lock up est. days",
@@ -3536,6 +3594,9 @@ def export_lifetime_row(row: pd.Series) -> dict:
     - Normalises pandas, numpy, datetime, and custom types.
     - Converts finite :class:`~decimal.Decimal` values to JSON number floats.
     - Preserves legacy fee field names.
+
+    The ``share_price_source`` column is retained as a stable
+    :py:class:`eth_defi.vault.price_source.PriceSource` string value.
 
     The ``denomination_token_rate`` dataclass from
     :py:class:`eth_defi.feed.stablecoin_rate.DenominationTokenRate` is converted

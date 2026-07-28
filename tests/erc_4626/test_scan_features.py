@@ -8,6 +8,7 @@ import eth_defi.erc_4626.scan as scan_module
 from eth_defi.erc_4626.core import ERC4262VaultDetection, ERC4626Feature
 from eth_defi.vault.deposit_redeem import VaultDepositManagerCapability
 from eth_defi.vault.fee import FeeData, VaultFeeMode
+from eth_defi.vault.price_source import PriceSource
 from eth_defi.vault.vaultdb import VaultDatabase
 
 
@@ -76,6 +77,11 @@ class _FakeVault:
         return None
 
     @staticmethod
+    def get_share_price_source() -> PriceSource:
+        """Return the standard contract-state source."""
+        return PriceSource.smart_contract_state
+
+    @staticmethod
     def fetch_scan_record_extra_data() -> dict:
         """Return no protocol-specific scan fields."""
         return {}
@@ -140,6 +146,7 @@ def test_create_vault_scan_record_persists_machine_readable_features(monkeypatch
     assert record["_detection_data"].features == features
     assert "erc_7575_like" in record["Features"]
     assert record["_deposit_manager"] is None
+    assert record["_share_price_source"] is PriceSource.smart_contract_state
 
 
 def test_create_vault_scan_record_persists_deposit_permission(monkeypatch: pytest.MonkeyPatch) -> None:

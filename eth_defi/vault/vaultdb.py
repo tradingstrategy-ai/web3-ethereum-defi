@@ -19,6 +19,7 @@ from eth_defi.erc_4626.core import ERC4262VaultDetection, ERC4626Feature, get_va
 from eth_defi.erc_4626.discovery_base import PotentialVaultMatch
 from eth_defi.vault.base import VaultSpec
 from eth_defi.vault.flag import VaultFlag
+from eth_defi.vault.price_source import PriceSource
 from eth_defi.vault.risk import VaultTechnicalRisk
 
 logger = logging.getLogger(__name__)
@@ -160,6 +161,14 @@ class VaultRow(TypedDict):
     #: ``_detection_data`` because that ID is the Lighter price-partition and
     #: :class:`~eth_defi.vault.base.VaultSpec` identity.
     _deployment_chain_id: NotRequired[int | None]
+
+    #: Source used to produce the vault share-price series.
+    #:
+    #: Missing in legacy pickles and adapters without a known price source.
+    _share_price_source: NotRequired[PriceSource | None]
+
+    #: Whether the current UTC daily-flow observation is provisional.
+    _daily_flow_current_day_is_provisional: NotRequired[bool]
 
     __annotations__ = {
         "First seen at": datetime.datetime,
