@@ -319,10 +319,16 @@ def _create_testnet_config() -> NetworkConfig:
         gmx_collateral_symbol="USDC.SG",
         gmx_market_symbol="ETH/USDC:USDC",
         # Sepolia computes the execution fee at a stale ~0.02 gwei while GMX's
-        # on-chain InsufficientExecutionFee check uses the real ~0.4 gwei gas
-        # price (~20x higher), so over-provision heavily.  Excess is refunded
-        # (fully refunded when the order is cancelled).
-        gmx_execution_buffer=30.0,
+        # on-chain InsufficientExecutionFee check uses the real gas price, so
+        # over-provision heavily.  Excess is refunded (fully refunded when the
+        # order is cancelled).
+        #
+        # Measured 2026-07-28: a buffer of 30 supplied 0.000182 ETH against a
+        # required 0.000413 ETH, so orders reverted with InsufficientExecutionFee
+        # (selector 0x5dac504d).  The shortfall is ~2.3x, and the gap moves with
+        # testnet gas, so this is set well above the observed requirement rather
+        # than just past it.
+        gmx_execution_buffer=100.0,
         weth_address=gmx_tokens["WETH"],
         gmx_exchange_router=addresses.exchangerouter,
         gmx_synthetics_router=addresses.syntheticsrouter,

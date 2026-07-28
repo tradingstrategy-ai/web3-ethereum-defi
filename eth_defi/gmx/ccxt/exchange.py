@@ -6134,11 +6134,25 @@ class GMX(ExchangeCompatible):
             # partial whenever price has moved since entry (short in
             # profit / long in loss), leaving ~price-move% token dust. See
             # :func:`_resolve_reduce_only_requested_size_usd`.
-            requested_size_usd = _resolve_reduce_only_requested_size_usd(
-                close_amount=close_amount,
-                gmx_position=gmx_position,
-                current_price=current_price,
-            )
+            explicit_size_usd = params.get("size_usd")
+            if not close_amount and explicit_size_usd:
+                # The caller sized the close in USD rather than in tokens, which
+                # is what ``size_usd`` already means for opens. Without this the
+                # USD figure was ignored and ``close_amount`` of 0 priced out to
+                # a ``size_delta_usd`` of 0, failing the close outright. Only
+                # applies when no token amount was supplied, so the token-based
+                # dust-prevention path above is untouched.
+                requested_size_usd = float(explicit_size_usd)
+                logger.info(
+                    "CLOSE: sizing reduce-only order from size_usd=%.2f (no token amount supplied)",
+                    requested_size_usd,
+                )
+            else:
+                requested_size_usd = _resolve_reduce_only_requested_size_usd(
+                    close_amount=close_amount,
+                    gmx_position=gmx_position,
+                    current_price=current_price,
+                )
 
             size_delta_usd = _resolve_reduce_only_size_delta_usd(
                 requested_size_usd=requested_size_usd,
@@ -7640,6 +7654,15 @@ class GMX(ExchangeCompatible):
             gmx_params.pop("_gmx_position", None)
             gmx_params.pop("_resolved_market_info", None)
             gmx_params.pop("_collateral_explicitly_set", None)
+
+            # Apply the adapter's configured execution-fee buffer. Without this the
+            # ``executionBuffer`` constructor parameter was silently dropped when
+            # opening a position: ``_convert_ccxt_to_gmx_params()`` does not emit
+            # ``execution_buffer``, so GMXTrading fell back to its own default and
+            # the order could revert with ``InsufficientExecutionFee``. Closing
+            # positions already does this (see ``close_kwargs`` below).
+            gmx_params.setdefault("execution_buffer", self.execution_buffer)
+
             if type == "limit":
                 # Limit order - triggers at specified price
                 if price is None:
