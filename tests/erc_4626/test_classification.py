@@ -49,6 +49,58 @@ def test_frax_staking_vaults_are_hardcoded_on_ethereum() -> None:
         assert _get_hardcoded_protocol_features(address, chain_id=ARBITRUM) is None
 
 
+def test_lagoon_legacy_and_recent_interfaces_are_detected() -> None:
+    """Identify Lagoon through its legacy and recent contract interfaces."""
+
+    probe_names = {call.func_name for call in create_probe_calls(["0x03d1ec0d01b659b89a87eabb56e4af5cb6e14bfc"], chain_id=ETHEREUM_MAINNET)}
+    assert "isTotalAssetsValid" in probe_names
+
+    erc4626_probe = SimpleNamespace(success=True, result=eth_abi.encode(["uint256"], [1]))
+    bool_probe = SimpleNamespace(success=True, result=eth_abi.encode(["bool"], [False]))
+    legacy_probe = SimpleNamespace(success=True, result=eth_abi.encode(["uint256"], [1]))
+
+    legacy_features = identify_vault_features(
+        "0x03d1ec0d01b659b89a87eabb56e4af5cb6e14bfc",
+        _ProbeResultsDict(
+            {
+                "convertToShares": erc4626_probe,
+                "isOperator": bool_probe,
+                "MAX_MANAGEMENT_RATE": legacy_probe,
+            }
+        ),
+        debug_text=None,
+        chain_id=ETHEREUM_MAINNET,
+    )
+    assert legacy_features == {ERC4626Feature.erc_7540_like, ERC4626Feature.lagoon_like}
+
+    recent_features = identify_vault_features(
+        "0x03d1ec0d01b659b89a87eabb56e4af5cb6e14bfc",
+        _ProbeResultsDict(
+            {
+                "convertToShares": erc4626_probe,
+                "isOperator": bool_probe,
+                "isTotalAssetsValid": bool_probe,
+            }
+        ),
+        debug_text=None,
+        chain_id=ETHEREUM_MAINNET,
+    )
+    assert recent_features == {ERC4626Feature.erc_7540_like, ERC4626Feature.lagoon_like}
+
+    non_erc7540_features = identify_vault_features(
+        "0x03d1ec0d01b659b89a87eabb56e4af5cb6e14bfc",
+        _ProbeResultsDict(
+            {
+                "convertToShares": erc4626_probe,
+                "isTotalAssetsValid": bool_probe,
+            }
+        ),
+        debug_text=None,
+        chain_id=ETHEREUM_MAINNET,
+    )
+    assert ERC4626Feature.lagoon_like not in non_erc7540_features
+
+
 def test_fraxlend_probe_requires_event_derived_deployer() -> None:
     """Accept the single Fraxlend probe only for a reviewed Frax deployer."""
 
