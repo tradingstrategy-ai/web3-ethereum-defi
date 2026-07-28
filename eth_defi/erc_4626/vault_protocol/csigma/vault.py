@@ -25,6 +25,7 @@ from functools import cached_property
 
 from eth_typing import BlockIdentifier, HexAddress
 from web3.contract import Contract
+from web3.exceptions import BadFunctionCallOutput, ContractLogicError
 
 from eth_defi.abi import get_deployed_contract
 from eth_defi.erc_4626.vault import ERC4626Vault
@@ -32,6 +33,19 @@ from eth_defi.erc_4626.vault_protocol.csigma.deposit_redeem import CSUPERIOR_V2_
 from eth_defi.vault.deposit_redeem import VaultDepositManager, VaultDepositManagerCapability
 
 logger = logging.getLogger(__name__)
+
+
+#: Minimal verified ``Pausable`` read for cSigma pools whose generic ERC-4626
+#: ABI does not include the inherited OpenZeppelin view.
+CSIGMA_PAUSED_ABI = [
+    {
+        "inputs": [],
+        "name": "paused",
+        "outputs": [{"internalType": "bool", "name": "", "type": "bool"}],
+        "stateMutability": "view",
+        "type": "function",
+    },
+]
 
 
 #: cSigma V2 pool with verified synchronous ERC-4626 lifecycle support.
@@ -166,3 +180,36 @@ class CsigmaVault(ERC4626Vault):
         if self.chain_id == CSIGMA_V2_POOL_CHAIN_ID and self.address.lower() in CSIGMA_SYNCHRONOUS_POOL_ADDRESSES:
             return self.get_synchronous_deposit_manager_capability()
         return super().get_deposit_manager_capability()
+
+    def can_check_deposit(self) -> bool:
+        """Disable generic ``maxDeposit(address(0))`` closure detection.
+
+        cSigma uses ``maxDeposit`` for current capacity, so a zero value can be
+        an amount/liquidity restriction rather than a paused vault. The explicit
+        :meth:`fetch_deposit_closed_reason` implementation below reads the
+        protocol's pause state instead.
+
+        :return:
+            Always ``False`` to select cSigma's pause reader.
+        """
+        return False
+
+    def fetch_deposit_closed_reason(self) -> str | None:
+        """Return a closure reason only when the cSigma pool is paused.
+
+        cSigma's verified pools inherit OpenZeppelin ``Pausable``. A pause is a
+        vault-wide temporary closure suitable for non-broadcast Guard
+        validation; an ordinary ``maxDeposit`` shortfall remains capacity and
+        never enters that path.
+
+        :return:
+            Pause reason, or ``None`` when the pool is not paused or the view
+            cannot be read.
+        """
+        paused_contract = self.web3.eth.contract(address=self.address, abi=CSIGMA_PAUSED_ABI)
+        try:
+            if paused_contract.functions.paused().call():
+                return "cSigma deposits paused"
+        except (BadFunctionCallOutput, ContractLogicError, ValueError):
+            logger.debug("Could not read cSigma paused() state for %s", self.address)
+        return None

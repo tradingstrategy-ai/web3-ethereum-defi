@@ -695,6 +695,7 @@ def probe_candidate(  # noqa: PLR0914
         return {"outcome": "funding_error", "message": str(e), "deposit_manager": capability_data, "max_deposit_guidance": max_deposit_guidance}
     if manager is None:
         manager = vault.get_deposit_manager()
+    share_balance_before_deposit = int(vault.vault_contract.functions.balanceOf(simple_vault.address).call())
     request, request_failure = prepare_probe_deposit_request(
         manager,
         simple_vault.address,
@@ -742,10 +743,13 @@ def probe_candidate(  # noqa: PLR0914
         "max_deposit_guidance": max_deposit_guidance,
     }
     if capability_data["deposit_flow"] == "synchronous":
-        shares = vault.vault_contract.functions.balanceOf(simple_vault.address).call()
-        if shares <= 0:
-            return {**result, "outcome": "adapter_error", "message": "No shares minted to SimpleVaultV0"}
-        result["minted_share_amount_raw"] = str(shares)
+        shares = int(vault.vault_contract.functions.balanceOf(simple_vault.address).call())
+        minted_raw_shares = shares - share_balance_before_deposit
+        if minted_raw_shares <= 0:
+            return {**result, "outcome": "adapter_error", "message": "Synchronous deposit did not increase the SimpleVaultV0 share balance"}
+        result["minted_share_amount_raw"] = str(minted_raw_shares)
+        result["share_balance_before_deposit_raw"] = str(share_balance_before_deposit)
+        result["share_balance_after_deposit_raw"] = str(shares)
         denomination_before_redemption = token.fetch_raw_balance_of(simple_vault.address)
         try:
             if isinstance(manager, ERC4626DepositManager):

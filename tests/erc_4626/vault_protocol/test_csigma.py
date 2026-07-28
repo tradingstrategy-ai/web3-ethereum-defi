@@ -3,7 +3,7 @@
 import os
 from decimal import Decimal
 from types import SimpleNamespace
-from unittest.mock import MagicMock
+from unittest.mock import ANY, MagicMock
 
 import flaky
 import pytest
@@ -20,6 +20,7 @@ from eth_defi.testing.anvil_fork_pool import AnvilForkPool
 from eth_defi.testing.fork_blocks import ETHEREUM_MIDNIGHT_BLOCK
 from eth_defi.token import USDC_WHALE
 from eth_defi.trace import assert_transaction_success_with_explanation
+from eth_defi.vault.base import VaultSpec
 from eth_defi.vault.deposit_redeem import VaultFlowUnavailable
 
 CSIGMA_USD_VAULT = "0xd5d097f278a735d0a3c609deee71234cac14b47e"
@@ -86,7 +87,22 @@ def test_csigma(
 
     # cSigma doesn't implement standard maxDeposit/maxRedeem (returns empty data)
     # so we cannot use address(0) checks for this vault
+    assert vault.can_check_deposit() is False
     assert vault.can_check_redeem() is False
+
+
+def test_csigma_paused_deposit_is_a_guard_validation_closure() -> None:
+    """Treat only cSigma's Pausable state as a closed-deposit fallback trigger."""
+    paused_contract = MagicMock()
+    paused_contract.functions.paused().call.return_value = True
+    web3 = SimpleNamespace(eth=SimpleNamespace(contract=MagicMock(return_value=paused_contract)))
+    vault = object.__new__(CsigmaVault)
+    vault.web3 = web3
+    vault.spec = VaultSpec(chain_id=1, vault_address=CSIGMA_USD_VAULT)
+
+    assert vault.can_check_deposit() is False
+    assert vault.fetch_deposit_closed_reason() == "cSigma deposits paused"
+    web3.eth.contract.assert_called_once_with(address=vault.address, abi=ANY)
 
 
 @flaky.flaky

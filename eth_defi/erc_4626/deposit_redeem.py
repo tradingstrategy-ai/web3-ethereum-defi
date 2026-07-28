@@ -14,7 +14,7 @@ from eth_defi.erc_4626.estimate import estimate_4626_deposit, estimate_4626_rede
 from eth_defi.erc_4626.flow import deposit_4626, redeem_4626
 from eth_defi.timestamp import get_block_timestamp
 from eth_defi.trade import TradeFail, TradeSuccess
-from eth_defi.vault.deposit_redeem import DepositRedeemEventAnalysis, DepositRedeemEventFailure, DepositRequest, DepositTicket, RedemptionRequest, RedemptionTicket, VaultDepositManager, VaultFlowUnavailable
+from eth_defi.vault.deposit_redeem import DepositRedeemEventAnalysis, DepositRedeemEventFailure, DepositRequest, DepositTicket, RedemptionRequest, RedemptionTicket, UnsupportedVaultSimulation, VaultDepositManager, VaultFlowUnavailable
 
 if TYPE_CHECKING:
     from eth_defi.erc_4626.vault import ERC4626Vault
@@ -65,7 +65,9 @@ class ERC4626DepositManager(VaultDepositManager):
     and :meth:`finish_deposit` raises (nothing to settle). The receiver is
     always ``owner`` (a separate ``to`` is not supported here). Capacity is
     preflighted through :meth:`fetch_depositable_raw_assets`, which reads the
-    standard ``maxDeposit()`` (a zero result is treated as "no limit exposed").
+    standard ``maxDeposit()``. A zero owner-specific value is omitted from the
+    capacity hook; the separate global-closure reader handles a meaningful
+    ``maxDeposit(address(0)) == 0`` before this hook runs.
 
     **Redemption process**
 
@@ -124,9 +126,11 @@ class ERC4626DepositManager(VaultDepositManager):
             Account the deposit limit is queried for.
         :return:
             Raw deposit limit, or ``None`` when the vault exposes no limit. A
-            zero ``maxDeposit`` is treated as "no limit exposed" (EIP-4626 is
-            not universally honoured), consistent with
-            :func:`eth_defi.erc_4626.flow.deposit_4626`.
+            zero ``maxDeposit`` is omitted from this owner-specific capacity
+            hook (EIP-4626 is not universally honoured), consistent with
+            :func:`eth_defi.erc_4626.flow.deposit_4626`. The normal deposit
+            preflight separately recognises a meaningful global zero through
+            :meth:`ERC4626Vault.fetch_deposit_closed_reason`.
         :raise VaultFlowUnavailable:
             When the vault does not expose a readable ERC-4626 ``maxDeposit``
             and no protocol-specific override is provided, instead of leaking a
@@ -165,6 +169,20 @@ class ERC4626DepositManager(VaultDepositManager):
             raw_amount = self.vault.denomination_token.convert_to_raw(amount)
 
         if check_max_deposit:
+            closed_reason = self.vault.fetch_deposit_closed_reason()
+            if closed_reason is not None:
+                raise VaultFlowUnavailable(
+                    closed_reason,
+                    protocol=self.vault.get_protocol_name(),
+                    vault_address=self.vault.address,
+                    caller=owner,
+                    direction="deposit",
+                    phase="preflight",
+                    preflight_result="deposit_closed",
+                    requested_raw_amount=raw_amount,
+                    available_raw_amount=0,
+                )
+
             # Preflight deposit capacity through the overridable hook so
             # non-standard vaults can answer without ERC-4626 maxDeposit.
             # deposit_4626() is then called with check_max_deposit=False to
@@ -199,6 +217,50 @@ class ERC4626DepositManager(VaultDepositManager):
             funcs=[func],
             amount=amount,
             raw_amount=raw_amount,
+        )
+
+    def create_deposit_request_for_guard_validation(
+        self,
+        owner: HexAddress,
+        raw_amount: int,
+    ) -> ERC4626DepositRequest:
+        """Build ERC-4626 deposit calldata after a proven global closure.
+
+        This Anvil-only diagnostic path is available only when the selected
+        vault's authoritative global closure reader reports that deposits are
+        unavailable to every account. It preserves the normal protocol
+        admission preflight and all permanent amount constraints, while omitting
+        the temporary closed-deposit capacity and token-balance checks needed to
+        encode the production-equivalent deposit call.
+
+        :param owner:
+            Safe/SimpleVault address that would own the minted shares.
+        :param raw_amount:
+            Raw denomination-token amount from the rejected real-deposit
+            attempt.
+        :return:
+            Single ERC-4626 deposit request for isolated GuardV0 validation.
+        :raise UnsupportedVaultSimulation:
+            If the provider is not Anvil or the vault is not globally closed.
+        :raise WhitelistingRequired:
+            If the protocol admission policy excludes ``owner``.
+        """
+        self._assert_anvil_guard_validation()
+        if self.vault.fetch_deposit_closed_reason() is None:
+            raise UnsupportedVaultSimulation(
+                f"{self.__class__.__name__} cannot validate an ERC-4626 deposit without a proven global closure",
+                unsupported_reason="closed_deposit_guard_validation_not_closed",
+                protocol=self.vault.get_protocol_name(),
+                vault_address=self.vault.address,
+                direction="deposit",
+                phase="guard_validation",
+            )
+        return self.create_deposit_request(
+            owner=owner,
+            to=owner,
+            raw_amount=raw_amount,
+            check_max_deposit=False,
+            check_enough_token=False,
         )
 
     def create_redemption_request(

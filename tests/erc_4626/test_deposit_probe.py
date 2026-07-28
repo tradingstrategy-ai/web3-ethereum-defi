@@ -10,11 +10,13 @@ import pytest
 from hexbytes import HexBytes
 
 import eth_defi.erc_4626.deposit_redeem as erc_4626_deposit_redeem
+import eth_defi.vault.deposit_redeem as vault_deposit_redeem
 from eth_defi.erc_4626 import deposit_probe
 from eth_defi.erc_4626.deposit_probe import DEFAULT_STATUS_PATH, VaultDepositProbeCandidate, VaultDepositProbeOutput, fetch_max_deposit_guidance, log_probe_tables, merge_redemption_flow_failure, prepare_probe_deposit_request, require_simulation, run_from_environment, select_candidates, update_status
 from eth_defi.erc_4626.deposit_redeem import ERC4626DepositManager
 from eth_defi.erc_4626.vault import CERTIFIED_SYNCHRONOUS_DEPOSIT_MANAGER_CLASSES, ERC4626Vault
 from eth_defi.erc_4626.vault_protocol.csigma.deposit_redeem import CSUPERIOR_V2_POOL_ADDRESS, CsigmaDepositManager
+from eth_defi.erc_4626.vault_protocol.d2.vault import D2DepositManager
 from eth_defi.erc_4626.vault_protocol.gains.deposit_redeem import GainsDepositManager, GainsRedemptionTicket
 from eth_defi.erc_4626.vault_protocol.kiln.vault import KilnVault
 from eth_defi.erc_4626.vault_protocol.lagoon.vault import LagoonVault
@@ -23,7 +25,7 @@ from eth_defi.erc_4626.vault_protocol.morpho.vault_v2 import MorphoV2Vault
 from eth_defi.erc_4626.vault_protocol.summer.vault import SummerVault
 from eth_defi.erc_4626.vault_protocol.yearn.vault import YearnV3Vault
 from eth_defi.vault.base import VaultSpec
-from eth_defi.vault.deposit_redeem import VaultDepositManagerCapability, VaultFlowUnavailable
+from eth_defi.vault.deposit_redeem import UnsupportedVaultSimulation, VaultDepositManagerCapability, VaultFlowUnavailable
 from eth_defi.vault.vaultdb import VaultDatabase
 
 
@@ -270,6 +272,104 @@ def test_generic_redemption_manager_accepts_raw_shares(monkeypatch: pytest.Monke
     )
     assert request.raw_shares == 123
     assert request.funcs == [function]
+
+
+def test_guard_validation_request_requires_global_erc4626_closure(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Generic ERC-4626 validation accepts only an authoritative zero-cap closure."""
+    vault = object.__new__(ERC4626Vault)
+    vault.web3 = object()
+    vault.spec = VaultSpec(chain_id=1, vault_address="0x0000000000000000000000000000000000000001")
+    monkeypatch.setattr(vault, "get_protocol_name", lambda: "Example")
+    manager = ERC4626DepositManager(vault)
+    owner = "0x0000000000000000000000000000000000000001"
+    monkeypatch.setattr(manager, "_assert_anvil_guard_validation", lambda: None)
+    monkeypatch.setattr(manager, "check_deposit_whitelist", lambda _owner: None)
+
+    monkeypatch.setattr(vault, "fetch_deposit_closed_reason", lambda: None)
+    with pytest.raises(UnsupportedVaultSimulation) as exc_info:
+        manager.create_deposit_request_for_guard_validation(owner, raw_amount=123)
+
+    assert exc_info.value.unsupported_reason == "closed_deposit_guard_validation_not_closed"
+
+    monkeypatch.setattr(vault, "fetch_deposit_closed_reason", lambda: "Max deposit cap reached (maxDeposit=0)")
+    with pytest.raises(VaultFlowUnavailable) as closed_exc_info:
+        manager.create_deposit_request(owner=owner, raw_amount=123)
+
+    assert closed_exc_info.value.preflight_result == "deposit_closed"
+    assert closed_exc_info.value.available_raw_amount == 0
+
+    observed: dict[str, object] = {}
+    expected_request = object()
+
+    def create_deposit_request(**kwargs: object) -> object:
+        observed.update(kwargs)
+        return expected_request
+
+    monkeypatch.setattr(manager, "create_deposit_request", create_deposit_request)
+
+    request = manager.create_deposit_request_for_guard_validation(owner, raw_amount=123)
+
+    assert request is expected_request
+    assert observed == {
+        "owner": owner,
+        "to": owner,
+        "raw_amount": 123,
+        "check_max_deposit": False,
+        "check_enough_token": False,
+    }
+
+
+def test_d2_guard_validation_request_bypasses_only_the_closed_epoch(monkeypatch: pytest.MonkeyPatch) -> None:
+    """D2 generates GuardV0 calldata without opening its funding epoch.
+
+    This verifies the dedicated method rather than a general bypass flag. The
+    inherited request builder continues to enforce D2 account admission; only
+    the temporary D2 epoch/capacity/balance gates are omitted for a
+    non-broadcast GuardV0 policy check.
+    """
+    manager = object.__new__(D2DepositManager)
+    owner = "0x0000000000000000000000000000000000000001"
+    observed: dict[str, object] = {}
+    expected_request = object()
+
+    def parent_create_deposit_request(self: ERC4626DepositManager, **kwargs: object) -> object:
+        assert self is manager
+        observed.update(kwargs)
+        return expected_request
+
+    monkeypatch.setattr(ERC4626DepositManager, "create_deposit_request", parent_create_deposit_request)
+    monkeypatch.setattr(manager, "_assert_anvil_guard_validation", lambda: None)
+
+    request = manager.create_deposit_request_for_guard_validation(owner, raw_amount=123)
+
+    assert request is expected_request
+    assert observed == {
+        "owner": owner,
+        "to": owner,
+        "raw_amount": 123,
+        "check_max_deposit": False,
+        "check_enough_token": False,
+    }
+
+
+def test_guard_validation_request_rejects_non_anvil_provider(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The temporary-check bypass is inaccessible outside an Anvil fork."""
+    vault = object.__new__(ERC4626Vault)
+    vault.web3 = object()
+    vault.spec = VaultSpec(chain_id=1, vault_address="0x0000000000000000000000000000000000000001")
+    monkeypatch.setattr(vault, "get_protocol_name", lambda: "Example")
+    manager = ERC4626DepositManager(vault)
+    monkeypatch.setattr(vault_deposit_redeem, "is_anvil", lambda _web3: False)
+
+    with pytest.raises(UnsupportedVaultSimulation) as exc_info:
+        manager.create_deposit_request_for_guard_validation(
+            "0x0000000000000000000000000000000000000002",
+            raw_amount=123,
+        )
+
+    assert exc_info.value.unsupported_reason == "anvil_provider_required"
+    assert exc_info.value.direction == "deposit"
+    assert exc_info.value.phase == "guard_validation"
 
 
 def test_probe_records_preflight_refusal_without_aborting() -> None:

@@ -64,6 +64,40 @@ pool with ``GuardV0.whitelistERC4626()``. It then confirms that the manager's
 approval destination is allowed, not just that the pool address happened to be
 allowed on this deployment.
 
+### Closed-deposit Guard validation
+
+When a manager raises a typed ``deposit_closed`` or ``deposit_paused``
+preflight result, a simulation consumer may use
+``create_deposit_request_for_guard_validation(owner, raw_amount)`` on an Anvil
+fork. The standard ERC-4626 manager supports this only after its authoritative
+global closure reader returns ``maxDeposit(address(0)) == 0``; it does not
+accept a non-zero per-account capacity shortfall. Protocol managers may support
+additional closure signals, such as Yearn's global shutdown/deposit-limit
+state, D2's funding phase and cSigma's ``Pausable`` state. Every supported
+manager returns normal deposit calldata with temporary availability checks
+omitted while preserving protocol account admission.
+The method rejects every non-Anvil provider with
+``UnsupportedVaultSimulation(unsupported_reason="anvil_provider_required")``.
+Pass the request and the original ``VaultFlowUnavailable`` to
+``validate_closed_deposit_request_with_guard()``. It submits each returned call
+to ``GuardV0.validateCall()`` and returns closure context plus the independently
+validated target, calldata and selector evidence. The closure must identify the
+same vault and owner as the validation request. Never broadcast this request to
+the closed vault.
+
+This path requires an authoritative, typed manager closure result. For the
+standard ERC-4626 manager that evidence is its existing meaningful global
+``maxDeposit(address(0)) == 0`` reader; adapters whose zero result is merely
+owner-specific capacity must override that reader. Add a protocol-specific
+closure reader and fixed-block test before exposing this validation mode for
+another vault family.
+
+This is deliberately not an approval test. Do not construct an ERC-20 approval
+or try to establish approval-before-deposit ordering in this validation mode:
+``validateCall()`` assesses every policy-relevant call independently, and the
+normal live simulation remains responsible for approvals, call ordering,
+receipts and balance deltas.
+
 ## GuardV0 updates
 
 Every function emitted by a supported manager must have an explicit GuardV0

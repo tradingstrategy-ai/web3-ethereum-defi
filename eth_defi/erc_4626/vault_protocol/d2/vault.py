@@ -129,6 +129,7 @@ class D2DepositManager(ERC4626DepositManager):
                 caller=owner,
                 direction="deposit",
                 phase="preflight",
+                preflight_result="deposit_closed",
                 next_open=self.vault.fetch_deposit_next_open(),
             )
         estimate = super().estimate_deposit(owner, amount, block_identifier)
@@ -146,6 +147,7 @@ class D2DepositManager(ERC4626DepositManager):
             reason = self.vault.fetch_redemption_closed_reason()
             next_open = self.vault.fetch_redemption_next_open()
         if reason is not None:
+            preflight_result = "deposit_closed" if direction == "deposit" else "redemption_window_closed"
             raise VaultFlowUnavailable(
                 reason,
                 protocol=D2_PROTOCOL_NAME,
@@ -153,6 +155,7 @@ class D2DepositManager(ERC4626DepositManager):
                 caller=owner,
                 direction=direction,
                 phase="preflight",
+                preflight_result=preflight_result,
                 next_open=next_open,
             )
 
@@ -177,6 +180,41 @@ class D2DepositManager(ERC4626DepositManager):
         """
         self._assert_flow_open(owner, "deposit")
         return super().create_deposit_request(owner, to, amount, raw_amount, check_max_deposit, check_enough_token)
+
+    def create_deposit_request_for_guard_validation(
+        self,
+        owner: HexAddress,
+        raw_amount: int,
+    ) -> ERC4626DepositRequest:
+        """Build D2 deposit calldata while its funding epoch is closed.
+
+        This narrow diagnostic exception bypasses D2's temporary funding window
+        and ordinary amount/balance checks so a caller can validate the exact
+        manager-generated deposit call through GuardV0. The parent constructor
+        still enforces ``check_deposit_whitelist(owner)``. It intentionally does
+        not construct or validate an ERC-20 approval, nor prove an
+        approval-before-deposit sequence: those checks add no evidence to a
+        standalone ``validateCall()`` policy check and remain normal live
+        simulation responsibilities.
+
+        :param owner:
+            SimpleVaultV0/Safe address that would submit the D2 deposit.
+        :param raw_amount:
+            Raw D2 denomination-token amount from the rejected preflight.
+        :return:
+            One standard ERC-4626 deposit call for isolated GuardV0 validation.
+        :raise WhitelistingRequired:
+            If D2 account admission excludes ``owner``.
+        """
+        self._assert_anvil_guard_validation()
+        return ERC4626DepositManager.create_deposit_request(
+            self,
+            owner=owner,
+            to=owner,
+            raw_amount=raw_amount,
+            check_max_deposit=False,
+            check_enough_token=False,
+        )
 
     def create_redemption_request(  # noqa: PLR0917
         self,
