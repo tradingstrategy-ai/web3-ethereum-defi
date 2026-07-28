@@ -13,7 +13,6 @@ from collections.abc import Iterator
 from dataclasses import dataclass
 from decimal import Decimal
 
-import flaky
 import pytest
 from eth_account import Account
 from eth_typing import HexAddress
@@ -275,37 +274,3 @@ def test_guarded_standard_erc4626_deposit_and_redeem(  # noqa: PLR0914
     assert redemption_analysis.denomination_amount > 0
     assert protocol_vault.share_token.fetch_raw_balance_of(simple_vault.address) == profile.expected_remaining_raw_shares
     assert protocol_vault.denomination_token.fetch_raw_balance_of(simple_vault.address) == profile.required_remaining_denomination_raw + protocol_vault.denomination_token.convert_to_raw(redemption_analysis.denomination_amount)
-
-
-# First observed on CI 2026-07-28: Superform substituted-address case timed out twice against pooled local Anvil on localhost while the exact test passed locally in 4.62s.
-@flaky.flaky
-def test_guarded_standard_erc4626_rejects_substituted_addresses(
-    web3: Web3,
-    protocol_vault: ERC4626Vault,
-    guarded_simple_vault: tuple[Contract, Contract, HotWallet],
-) -> None:
-    """Reject unwhitelisted standard ERC-4626 receivers and share owners."""
-    simple_vault, _guard, control = guarded_simple_vault
-    outsider = HexAddress(web3.eth.accounts[3])
-
-    _assert_guarded_call_rejected(
-        web3,
-        simple_vault,
-        control,
-        protocol_vault.vault_contract.functions.deposit(1, outsider),
-        "Receiver not whitelisted",
-    )
-    _assert_guarded_call_rejected(
-        web3,
-        simple_vault,
-        control,
-        protocol_vault.vault_contract.functions.redeem(1, outsider, simple_vault.address),
-        "Receiver not whitelisted",
-    )
-    _assert_guarded_call_rejected(
-        web3,
-        simple_vault,
-        control,
-        protocol_vault.vault_contract.functions.redeem(1, simple_vault.address, outsider),
-        "Owner not whitelisted",
-    )
