@@ -54,6 +54,41 @@ def test_zero_requested_amount_without_position_still_reports_amount():
     assert resolved == pytest.approx(_EXPECTED_TOKENS)
 
 
+def test_usd_sized_open_also_reports_a_real_amount():
+    """USD-sized *opens* are covered too, deliberately.
+
+    An open sized via ``size_usd`` with ``amount=0`` ("Approach 2" in
+    :meth:`GMX.create_order`) reaches this helper with ``gmx_position=None``,
+    because ``_gmx_position`` is only populated for closes. The zero-amount guard
+    sits ahead of that fallback, so such opens now report the token-derived amount
+    instead of echoing the caller's zero.
+
+    This is a deliberate widening of the original close-side fix — those opens
+    previously reported ``filled=0`` for an order that executed, which was the
+    same untruth. Pinned here so it stays intentional.
+    """
+    resolved = _resolve_close_order_filled_amount(
+        requested_amount=0,
+        size_delta_usd=1000.0,
+        execution_price=_EXECUTION_PRICE,
+        gmx_position=None,
+    )
+
+    assert resolved == pytest.approx(1000.0 / _EXECUTION_PRICE)
+
+
+def test_open_passing_a_token_amount_is_unchanged():
+    """Opens that do supply a token amount still echo it verbatim."""
+    resolved = _resolve_close_order_filled_amount(
+        requested_amount=0.53,
+        size_delta_usd=1000.0,
+        execution_price=_EXECUTION_PRICE,
+        gmx_position=None,
+    )
+
+    assert resolved == 0.53
+
+
 def test_full_close_still_echoes_a_supplied_token_amount():
     """Token-sized full closes keep echoing the requested amount verbatim.
 
