@@ -10,9 +10,12 @@ from types import SimpleNamespace
 
 import pytest
 
+from eth_defi import cloudflare_r2
 from eth_defi.cloudflare_r2 import (
-    R2AccessDeniedError,
     R2_DEFAULT_CACHE_CONTROL,
+    R2AccessDeniedError,
+    R2ConflictError,
+    R2HeadObjectRetry,
     calculate_bytes_digest,
     calculate_file_digest,
     copy_r2_object_daily_backup,
@@ -41,6 +44,8 @@ class FakeS3Client:
     ) -> None:
         self.head_responses: dict[tuple[str, str], dict] = {}
         self.head_exceptions: dict[tuple[str, str], Exception] = {}
+        self.head_sequences: dict[tuple[str, str], list[dict | Exception]] = {}
+        self.head_call_counts: dict[tuple[str, str], int] = {}
         self.put_calls: list[dict] = []
         self.upload_calls: list[dict] = []
         self.copy_calls: list[dict] = []
@@ -51,6 +56,18 @@ class FakeS3Client:
         """Return a stored head response or raise a not-found error."""
         bucket = kwargs["Bucket"]
         key = kwargs["Key"]
+        self.head_call_counts[bucket, key] = self.head_call_counts.get((bucket, key), 0) + 1
+
+        # Some tests need to model a transient R2 conflict: first calls
+        # fail with ``409 Conflict``, then the same key becomes readable
+        # without any local state change.
+        queued_responses = self.head_sequences.get((bucket, key))
+        if queued_responses:
+            queued_response = queued_responses.pop(0)
+            if isinstance(queued_response, Exception):
+                raise queued_response
+            return queued_response
+
         forced_exception = self.head_exceptions.get((bucket, key))
         if forced_exception is not None:
             raise forced_exception
@@ -294,6 +311,144 @@ def test_fetch_r2_object_head_raises_enriched_access_denied_error() -> None:
     assert isinstance(exc_info.value.__cause__, ClientError)
 
 
+def test_fetch_r2_object_head_retries_transient_conflict() -> None:
+    """Transient R2 ``409 Conflict`` responses should be retried.
+
+    The production metadata exporter uses ``HeadObject`` as a cheap
+    skip-if-current pre-flight check before uploading JSON and logo
+    payloads. A short-lived ``409`` should not abort the export when a
+    later ``HEAD`` can read the object metadata successfully.
+    """
+    s3_client = FakeS3Client()
+    expected_attempts = 4
+    head_response = {
+        "ContentLength": 10,
+        "Metadata": {},
+    }
+    s3_client.head_sequences["bucket", "metadata.json"] = [
+        ClientError(
+            {
+                "Error": {"Code": "409", "Message": "Conflict"},
+                "ResponseMetadata": {},
+            },
+            "HeadObject",
+        ),
+        ClientError(
+            {
+                "Error": {"Code": "Conflict", "Message": "Conflict"},
+                "ResponseMetadata": {},
+            },
+            "HeadObject",
+        ),
+        ClientError(
+            {
+                "Error": {"Code": "InternalError", "Message": "Conflict"},
+                "ResponseMetadata": {"HTTPStatusCode": 409},
+            },
+            "HeadObject",
+        ),
+        head_response,
+    ]
+
+    response = fetch_r2_object_head(
+        s3_client,
+        "bucket",
+        "metadata.json",
+        retry=R2HeadObjectRetry(max_attempts=expected_attempts, initial_delay_seconds=0),
+    )
+
+    assert response == head_response
+    assert s3_client.head_call_counts["bucket", "metadata.json"] == expected_attempts
+
+
+def test_fetch_r2_object_head_raises_after_conflict_retries_are_exhausted() -> None:
+    """Persistent R2 ``409 Conflict`` responses should still fail loudly.
+
+    Retrying protects the scanner from transient R2 metadata-read
+    conflicts, but a persistent conflict is still operationally
+    meaningful. The caller needs the enriched diagnostics so the bucket,
+    key, endpoint and masked access key are visible in logs.
+    """
+    s3_client = FakeS3Client()
+    expected_attempts = 2
+    s3_client.head_exceptions["bucket", "metadata.json"] = ClientError(
+        {
+            "Error": {"Code": "409", "Message": "Conflict"},
+            "ResponseMetadata": {"HTTPStatusCode": 409},
+        },
+        "HeadObject",
+    )
+
+    with pytest.raises(R2ConflictError) as exc_info:
+        fetch_r2_object_head(
+            s3_client,
+            "bucket",
+            "metadata.json",
+            retry=R2HeadObjectRetry(max_attempts=expected_attempts, initial_delay_seconds=0),
+        )
+
+    message = str(exc_info.value)
+    assert "HeadObject" in message
+    assert "http_status=409" in message
+    assert "Original R2 error message: Conflict" in message
+    assert s3_client.head_call_counts["bucket", "metadata.json"] == expected_attempts
+
+
+def test_upload_bytes_to_r2_continues_after_head_conflict(
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Upload should continue when retrying the skip-if-current HEAD check still conflicts."""
+    s3_client = FakeS3Client()
+    payload = b"vault metadata"
+    object_name = "metadata.json"
+    s3_client.head_exceptions["bucket", object_name] = ClientError(
+        {
+            "Error": {"Code": "409", "Message": "Conflict"},
+            "ResponseMetadata": {"HTTPStatusCode": 409},
+        },
+        "HeadObject",
+    )
+    monkeypatch.setattr(cloudflare_r2.time, "sleep", lambda _seconds: None)
+
+    with caplog.at_level(logging.WARNING):
+        uploaded = upload_bytes_to_r2(
+            s3_client=s3_client,
+            payload=payload,
+            bucket_name="bucket",
+            object_name=object_name,
+            skip_if_current=True,
+        )
+
+    assert uploaded is True
+    assert len(s3_client.put_calls) == 1
+    assert s3_client.head_call_counts["bucket", object_name] == cloudflare_r2.R2_HEAD_OBJECT_RETRY.max_attempts
+    assert "Proceeding with upload attempt anyway" in caplog.text
+
+
+@pytest.mark.parametrize(
+    "retry",
+    [
+        R2HeadObjectRetry(max_attempts=0),
+        R2HeadObjectRetry(initial_delay_seconds=-1),
+        R2HeadObjectRetry(backoff=0),
+    ],
+)
+def test_fetch_r2_object_head_rejects_invalid_retry_policy(retry: R2HeadObjectRetry) -> None:
+    """Invalid retry policies should fail before any R2 call is made."""
+    s3_client = FakeS3Client()
+
+    with pytest.raises(ValueError):
+        fetch_r2_object_head(
+            s3_client,
+            "bucket",
+            "metadata.json",
+            retry=retry,
+        )
+
+    assert s3_client.head_call_counts == {}
+
+
 def test_upload_file_to_r2_continues_after_head_access_denied(tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
     """Upload should continue when the skip-if-current HEAD check is forbidden."""
     s3_client = FakeS3Client()
@@ -402,7 +557,7 @@ def test_copy_r2_object_daily_backup_returns_false_on_error(caplog: pytest.LogCa
     backup_key = f"daily/{today}/data.parquet"
 
     # Force copy_object to raise.
-    s3_client.head_exceptions[("copy", "bucket", backup_key)] = ClientError(
+    s3_client.head_exceptions["copy", "bucket", backup_key] = ClientError(
         {
             "Error": {"Code": "AccessDenied", "Message": "Access Denied"},
             "ResponseMetadata": {"HTTPStatusCode": 403},
