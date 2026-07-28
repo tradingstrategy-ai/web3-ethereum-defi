@@ -1,43 +1,45 @@
 name: ApeX
 slug: apex
 short_description: |
-  Native copy-trading perpetual vaults on the ApeX Omni decentralised exchange.
+  Native perpetual-futures strategy vaults on ApeX Omni.
 long_description: |
-  ApeX (ApeX Omni, formerly ApeX Pro) is a self-custodial decentralised
-  derivatives exchange for perpetual futures. It runs on a StarkEx-based
-  layer two for offchain matching with onchain settlement, offering high
-  leverage, deep aggregated multichain liquidity and zero gas trading with
-  no KYC.
+  [ApeX Omni](https://www.apex.exchange/) is the current trading platform from
+  [ApeX Protocol](https://www.apex.exchange/blog/detail/the-apex-protocol-project),
+  a decentralised derivatives exchange focused on perpetual futures. ApeX
+  launched in 2022 as the first project incubated by
+  [Davion Labs](https://davionlabs.com/), a crypto and blockchain incubator
+  focused on Web3 projects.
 
-  ApeX offers native vaults so anyone can run or follow a trading strategy.
-  A vault creator deploys their own perpetual strategy, and depositors put
-  USDT into the vault to automatically copy the creator's performance. There
-  is also an official ApeX Protocol Vault that earns yield from perpetual
-  liquidation fees, which is lower risk than the user-run strategy vaults.
+  ApeX is backed by crypto and trading investors including Dragonfly Capital
+  Partners, Jump Trading, Tiger Global, Mirana Ventures, CyberX, Kronos and
+  M77 Ventures, according to its
+  [seed round announcement](https://www.newsfilecorp.com/release/115630/ApeX-Protocol-Closes-Seed-Round-Led-by-Top-Strategic-and-Anchor-Investors).
+  HG Ventures later joined as a partner investor, announced in
+  [ApeX Pro Secures Investments from New Partner HG Ventures](https://www.apex.exchange/blog/detail/apex-pro-partners-venture-capital-hg-ventures).
 
-  This integration tracks the native user-created strategy vaults through
-  ApeX's public web API. It is reader-only: it records vault metadata and
-  actual-timestamp net asset value and TVL history, and performs no deposits,
-  withdrawals or trading.
+  The platform aims to bring a centralised-exchange-style experience to DeFi,
+  with order-book perpetual trading, aggregated multichain liquidity, fast
+  execution and high leverage. ApeX Omni's multichain design was introduced
+  with zkLink as an aggregated liquidity framework for trading across multiple
+  networks, described in
+  [zkLink's ApeX Omni launch article](https://blog.zk.link/apex-protocol-zklink-launch-multi-chain-orderbook-perp-dex-apex-omni-e86a968b25af).
 
-  Key features:
-
-  - Vault creators deploy copy-trading perpetual strategies on ApeX Omni
-  - Anyone can create a vault with as little as 100 USDT of seed capital
-  - Depositors copy the creator's positions automatically, pro rata
-  - All vaults are denominated in USDT
-  - Most vaults are small retail leader accounts, so TVL and lifetimes vary widely
+  ApeX offers native vaults. Traders can create vaults to run
+  perpetual-futures strategies, while depositors can allocate USDT to follow
+  those strategies automatically. ApeX has continued to expand the product line
+  with new markets and infrastructure partnerships, including its
+  [Chainlink Data Streams announcement](https://www.apex.exchange/blog/detail/apex-omni-chainlink-data-streams-integration)
+  for RWA perpetual markets.
 fee_description: |
-  ApeX vault creators earn a commission of roughly 10% of the profits
-  generated on investor capital, which behaves like a performance fee taken
-  from depositor gains. There are no documented vault-level management,
-  deposit or withdrawal fees.
+  ApeX vault creators earn a commission of roughly 10% of the profits generated
+  on investor capital, which behaves like a performance fee taken from
+  depositor gains. There are no documented vault-level management, deposit or
+  withdrawal fees.
 
-  Platform perpetual trading fees (maker and taker fees on the exchange)
-  apply to the trades the vault makes and are therefore already reflected in
-  the vault net value and share price. ApeX does not authoritatively document
-  the per-vault fee units through the public API, so this integration does
-  not interpret them into separate fee metrics.
+  Platform perpetual trading fees apply to the trades a vault makes and are
+  reflected in the vault net value and share price. Depositors should review
+  the selected vault's displayed fees, redemption terms and risk profile before
+  allocating capital.
 links:
   homepage: https://www.apex.exchange/
   app: https://omni.apex.exchange/
