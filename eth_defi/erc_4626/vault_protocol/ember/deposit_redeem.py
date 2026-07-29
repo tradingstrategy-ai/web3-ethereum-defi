@@ -22,8 +22,9 @@ from web3.contract.contract import ContractFunction
 from eth_defi.abi import ZERO_ADDRESS_STR, get_topic_signature_from_event
 from eth_defi.erc_4626.deposit_redeem import ERC4626DepositManager, ERC4626DepositRequest
 from eth_defi.erc_4626.flow import deposit_4626
-from eth_defi.provider.anvil import is_anvil
+from eth_defi.provider.anvil import is_anvil, make_anvil_custom_rpc_request
 from eth_defi.timestamp import get_block_timestamp
+from eth_defi.trace import assert_transaction_success_with_explanation
 from eth_defi.vault.deposit_redeem import (
     AsyncVaultRequestStatus,
     CannotParseRedemptionTransaction,
@@ -33,6 +34,7 @@ from eth_defi.vault.deposit_redeem import (
     RedemptionRequest,
     RedemptionTicket,
     UnsupportedVaultSimulation,
+    VaultDirectPayoutEvidence,
     VaultFlowUnavailable,
     VaultForcedSettlementResult,
     create_synchronous_settlement_result,
@@ -48,10 +50,6 @@ from eth_defi.vault.flow_events import (
 
 if TYPE_CHECKING:
     from eth_defi.erc_4626.vault_protocol.ember.vault import EmberVault
-
-
-#: Ember operator processing pays directly and never creates a claimable ticket.
-EMBER_ANVIL_SETTLEMENT_UNSUPPORTED_REASON = "ember_operator_settlement_has_no_claimable_ticket_status"
 
 
 @dataclass(slots=True)
@@ -191,11 +189,11 @@ class EmberDepositManager(ERC4626DepositManager):
     ``minWithdrawableShares``.
 
     **Anvil settlement (force_settle).** Ember has no claimable ticket state:
-    an operator may process a request and pay the receiver directly, leaving the
-    ticket in :attr:`AsyncVaultRequestStatus.none`. This cannot satisfy the
-    public forced-settlement proof contract, so asynchronous settlement is
-    explicitly unsupported. :meth:`force_settle` refuses a redemption ticket
-    before impersonating an operator or broadcasting a transaction.
+    its configured operator processes a request and pays the receiver directly,
+    leaving the ticket in :attr:`AsyncVaultRequestStatus.none`. The Anvil driver
+    therefore accepts only the configured ``roles()[1]`` operator, validates the
+    matching ``RequestProcessed`` event and returns direct-payout evidence only
+    when the receiver's denomination-token balance increased.
     """
 
     def __init__(self, vault: "EmberVault"):
@@ -485,27 +483,30 @@ class EmberDepositManager(ERC4626DepositManager):
         mock: object | None = None,
         ignore_liquidity: bool = False,
     ) -> VaultForcedSettlementResult:
-        """Refuse Ember redemption settlement before broadcasting on a fork.
+        """Process an Ember redemption through its configured Anvil operator.
 
-        Ember's operator-finalised request does not become a claimable ticket,
-        so processing it would falsely advertise a successful generic async
-        simulation. A synchronous deposit remains a no-op settlement.
+        Ember uses a direct payout rather than a user claim. The driver accepts
+        it as terminal only after the exact request's ``RequestProcessed``
+        event and a positive denomination-token balance delta prove the payout.
+        A synchronous deposit remains a no-op settlement.
 
         :param ticket:
             Pending :class:`EmberRedemptionTicket`, or ``None`` for the
             synchronous-deposit no-op.
         :param mock:
-            A deployed ``MockEmberVault`` only for local mock tests. The mock
-            runs its operator processing call; the terminal status is ``none``
-            because Ember pays directly instead of creating a user claim.
+            A local ``MockEmberVault`` that exposes its deterministic queue for
+            GuardV0 lifecycle tests. Its payout still needs the same terminal
+            event and balance-delta evidence as a fork settlement.
         :param ignore_liquidity:
             Unsupported because Ember's mock models operator processing rather
             than a redeemable-liquidity preflight.
         :return:
-            Synchronous no-op result when ``ticket`` is ``None``.
+            Synchronous no-op or direct-payout terminal settlement result.
         :raise UnsupportedVaultSimulation:
-            For every Ember redemption ticket, with the stable capability
-            reason and without an operator transaction.
+            When the provider is not Anvil, the configured operator cannot be
+            identified, the ticket is no longer in the global queue, or the
+            operator transaction does not prove this ticket received a direct
+            payout.
         """
         if ignore_liquidity:
             return super().force_settle(ticket, mock=mock, ignore_liquidity=True)
@@ -513,22 +514,194 @@ class EmberDepositManager(ERC4626DepositManager):
         if ticket is None:
             return create_synchronous_settlement_result()
 
-        if mock is not None:
-            assert isinstance(ticket, EmberRedemptionTicket), f"Ember mock settlement requires EmberRedemptionTicket, got {type(ticket)}"
-            if not is_anvil(self.web3):
-                raise UnsupportedVaultSimulation("Ember mock settlement requires an Anvil provider", unsupported_reason="anvil_provider_required")
-            tx_hash = mock.functions.processWithdrawalRequests(1).transact({"from": self.web3.eth.accounts[0]})
-            return VaultForcedSettlementResult(
-                ticket=ticket,
-                settlement_required=True,
-                status_before=AsyncVaultRequestStatus.pending,
-                status_after=AsyncVaultRequestStatus.none,
-                transaction_hashes=(HexBytes(tx_hash),),
+        if not isinstance(ticket, EmberRedemptionTicket):
+            raise UnsupportedVaultSimulation(
+                f"Ember force_settle requires EmberRedemptionTicket, got {type(ticket)}",
+                unsupported_reason="anvil_settlement_ticket_unsupported",
+                protocol=self.vault.get_protocol_name(),
+                vault_address=self.vault.address,
+                direction="redeem",
             )
 
+        if not is_anvil(self.web3):
+            raise UnsupportedVaultSimulation(
+                "Ember operator settlement requires an Anvil provider",
+                unsupported_reason="anvil_provider_required",
+                protocol=self.vault.get_protocol_name(),
+                vault_address=self.vault.address,
+                direction="redeem",
+            )
+
+        if mock is not None:
+            return self._force_settle_mock(ticket, mock)
+
+        status_before = self.get_redemption_request_status(ticket)
+        if status_before is not AsyncVaultRequestStatus.pending:
+            raise UnsupportedVaultSimulation(
+                f"Ember request {ticket.get_request_id()} is {status_before.value}, not pending",
+                unsupported_reason="ember_direct_payout_not_proven",
+                protocol=self.vault.get_protocol_name(),
+                vault_address=self.vault.address,
+                direction="redeem",
+            )
+
+        _admin, operator, _rate_manager = self.vault.vault_contract.functions.roles().call()
+        operator = Web3.to_checksum_address(operator)
+        if operator == ZERO_ADDRESS_STR:
+            raise UnsupportedVaultSimulation(
+                f"Ember vault {self.vault.address} has no configured withdrawal operator",
+                unsupported_reason="ember_operator_not_discoverable",
+                protocol=self.vault.get_protocol_name(),
+                vault_address=self.vault.address,
+                direction="redeem",
+            )
+
+        pending_index = self.fetch_pending_withdrawal_index(ticket)
+        denomination_token = self.vault.denomination_token
+        balance_before = denomination_token.fetch_raw_balance_of(ticket.to)
+        make_anvil_custom_rpc_request(self.web3, "anvil_impersonateAccount", [operator])
+        try:
+            make_anvil_custom_rpc_request(self.web3, "anvil_setBalance", [operator, hex(10**18)])
+            tx_hash = HexBytes(self.vault.vault_contract.functions.processWithdrawalRequests(pending_index + 1).transact({"from": operator, "gas": 1_000_000}))
+            assert_transaction_success_with_explanation(self.web3, tx_hash)
+        finally:
+            make_anvil_custom_rpc_request(self.web3, "anvil_stopImpersonatingAccount", [operator])
+
+        return self._create_direct_payout_result(ticket, status_before, tx_hash, balance_before=balance_before)
+
+    def _force_settle_mock(self, ticket: EmberRedemptionTicket, mock: object) -> VaultForcedSettlementResult:
+        """Settle a local Ember mock while retaining production terminal checks.
+
+        The mock retains a public ``nextRequestToProcess`` cursor.  It is used
+        only to determine how many FIFO items the mock needs to process; the
+        production adapter always resolves its queue index from the vault.
+
+        :param ticket:
+            Ember request selected by the mock's monotonic sequence number.
+        :param mock:
+            Deployed local ``MockEmberVault`` contract binding.
+        :return:
+            Evidence-backed terminal direct-payout settlement result.
+        :raise UnsupportedVaultSimulation:
+            If the ticket precedes the mock queue cursor or processing does not
+            prove its direct payout.
+        """
+        next_request = int(mock.functions.nextRequestToProcess().call())
+        request_count = ticket.request_sequence_number - next_request + 1
+        if request_count <= 0:
+            raise UnsupportedVaultSimulation(
+                f"Ember mock request {ticket.get_request_id()} is before queue cursor {next_request}",
+                unsupported_reason="ember_operator_processing_not_reproducible",
+                protocol=self.vault.get_protocol_name(),
+                vault_address=self.vault.address,
+                direction="redeem",
+            )
+
+        balance_before = self.vault.denomination_token.fetch_raw_balance_of(ticket.to)
+        tx_hash = HexBytes(mock.functions.processWithdrawalRequests(request_count).transact({"from": self.web3.eth.accounts[0]}))
+        assert_transaction_success_with_explanation(self.web3, tx_hash)
+        return self._create_direct_payout_result(ticket, AsyncVaultRequestStatus.pending, tx_hash, balance_before=balance_before)
+
+    def _create_direct_payout_result(
+        self,
+        ticket: EmberRedemptionTicket,
+        status_before: AsyncVaultRequestStatus,
+        tx_hash: HexBytes,
+        *,
+        balance_before: int,
+    ) -> VaultForcedSettlementResult:
+        """Validate receipt and balance evidence for one direct Ember payout.
+
+        :param ticket:
+            Ember request expected in ``tx_hash``.
+        :param status_before:
+            Request state immediately before settlement.
+        :param tx_hash:
+            Operator or local mock transaction that processed the queue.
+        :param balance_before:
+            Receiver balance observed before the transaction.
+        :return:
+            Terminal direct-payout result with request-specific evidence.
+        :raise UnsupportedVaultSimulation:
+            If receipt, event identity, or balance delta cannot prove payout.
+        """
+        denomination_token = self.vault.denomination_token
+        receipt = self.web3.eth.get_transaction_receipt(tx_hash)
+        decoded_logs = self.vault.vault_contract.events.RequestProcessed().process_receipt(receipt, errors=EventLogErrorFlags.Discard)
+        matches = [log for log in decoded_logs if int(log["args"]["requestSequenceNumber"]) == ticket.request_sequence_number]
+        if len(matches) != 1:
+            raise UnsupportedVaultSimulation(
+                f"Ember operator processing did not emit one RequestProcessed event for request {ticket.get_request_id()}",
+                unsupported_reason="ember_operator_processing_not_reproducible",
+                protocol=self.vault.get_protocol_name(),
+                vault_address=self.vault.address,
+                direction="redeem",
+            )
+
+        args = matches[0]["args"]
+        try:
+            self._validate_processed_event(ticket, args)
+        except ValueError as error:
+            raise UnsupportedVaultSimulation(
+                f"Ember operator processing emitted an invalid event for request {ticket.get_request_id()}: {error}",
+                unsupported_reason="ember_operator_processing_not_reproducible",
+                protocol=self.vault.get_protocol_name(),
+                vault_address=self.vault.address,
+                direction="redeem",
+            ) from error
+        balance_after = denomination_token.fetch_raw_balance_of(ticket.to)
+        evidence = VaultDirectPayoutEvidence(
+            request_id=ticket.get_request_id(),
+            receiver=Web3.to_checksum_address(ticket.to),
+            denomination_token=Web3.to_checksum_address(denomination_token.address),
+            raw_balance_before=balance_before,
+            raw_balance_after=balance_after,
+            event_name="RequestProcessed",
+            transaction_hash=tx_hash,
+        )
+        result = VaultForcedSettlementResult(
+            ticket=ticket,
+            settlement_required=True,
+            status_before=status_before,
+            status_after=AsyncVaultRequestStatus.none,
+            transaction_hashes=(tx_hash,),
+            direct_payout_evidence=evidence,
+        )
+        if args["skipped"] or args["cancelled"] or not result.is_terminal_success():
+            raise UnsupportedVaultSimulation(
+                f"Ember operator processing did not prove a direct payout for request {ticket.get_request_id()}",
+                unsupported_reason="ember_direct_payout_not_proven",
+                protocol=self.vault.get_protocol_name(),
+                vault_address=self.vault.address,
+                direction="redeem",
+            )
+        return result
+
+    def fetch_pending_withdrawal_index(self, ticket: EmberRedemptionTicket) -> int:
+        """Locate an Ember ticket in the vault-global pending queue.
+
+        ``processWithdrawalRequests(n)`` consumes the first ``n`` queue items,
+        rather than selecting an owner or request id.  Resolving the exact
+        index before broadcasting ensures the operator transaction reaches the
+        requested ticket even when older requests are pending.
+
+        :param ticket:
+            Persisted Ember redemption request to locate.
+        :return:
+            Zero-based queue index of ``ticket``.
+        :raise UnsupportedVaultSimulation:
+            If the exact request sequence is no longer pending in the global
+            queue.
+        """
+        pending_count = int(self.vault.vault_contract.functions.getPendingWithdrawalsLength().call())
+        for index in range(pending_count):
+            request = self.vault.vault_contract.functions.getPendingWithdrawal(index).call()
+            if int(request[5]) == ticket.request_sequence_number:
+                return index
+
         raise UnsupportedVaultSimulation(
-            f"Ember settlement cannot prove a claimable ticket for vault {self.vault.address} on chain {self.vault.chain_id}",
-            unsupported_reason=EMBER_ANVIL_SETTLEMENT_UNSUPPORTED_REASON,
+            f"Ember request {ticket.get_request_id()} is absent from the global pending queue",
+            unsupported_reason="ember_operator_processing_not_reproducible",
             protocol=self.vault.get_protocol_name(),
             vault_address=self.vault.address,
             direction="redeem",

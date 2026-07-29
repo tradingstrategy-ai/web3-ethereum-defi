@@ -405,7 +405,22 @@ class GainsDepositManager(ERC4626DepositManager):
         from eth_defi.erc_4626.vault_protocol.gains.testing import force_next_gains_epoch
 
         if not is_anvil(self.web3):
-            raise UnsupportedVaultSimulation("GainsDepositManager.force_settle() requires an Anvil provider")
+            raise UnsupportedVaultSimulation(
+                "GainsDepositManager.force_settle() requires an Anvil provider",
+                unsupported_reason="anvil_provider_required",
+                protocol=self.vault.get_protocol_name(),
+                vault_address=self.vault.address,
+                direction="redeem" if ticket is not None else None,
+            )
+
+        if self.web3.eth.chain_id != self.vault.chain_id:
+            raise UnsupportedVaultSimulation(
+                f"Gains settlement Web3 chain {self.web3.eth.chain_id} does not match vault chain {self.vault.chain_id}",
+                unsupported_reason="gains_settlement_web3_chain_mismatch",
+                protocol=self.vault.get_protocol_name(),
+                vault_address=self.vault.address,
+                direction="redeem" if ticket is not None else None,
+            )
 
         if ticket is None:
             return VaultForcedSettlementResult(
@@ -415,7 +430,14 @@ class GainsDepositManager(ERC4626DepositManager):
                 status_after=None,
             )
 
-        assert isinstance(ticket, GainsRedemptionTicket), f"Gains force_settle requires GainsRedemptionTicket, got {type(ticket)}"
+        if not isinstance(ticket, GainsRedemptionTicket):
+            raise UnsupportedVaultSimulation(
+                f"Gains force_settle requires GainsRedemptionTicket, got {type(ticket)}",
+                unsupported_reason="anvil_settlement_ticket_unsupported",
+                protocol=self.vault.get_protocol_name(),
+                vault_address=self.vault.address,
+                direction="redeem",
+            )
 
         if mock is not None:
             transaction_hashes: list[HexBytes] = []
@@ -423,7 +445,13 @@ class GainsDepositManager(ERC4626DepositManager):
                 tx_hash = mock.functions.forceNewEpoch().transact({"from": self.web3.eth.accounts[0]})
                 transaction_hashes.append(HexBytes(tx_hash))
                 if len(transaction_hashes) >= GAINS_MAX_SETTLEMENT_EPOCHS:
-                    raise UnsupportedVaultSimulation(f"Gains mock settlement did not unlock ticket {ticket.get_request_id()} within {GAINS_MAX_SETTLEMENT_EPOCHS} epochs")
+                    raise UnsupportedVaultSimulation(
+                        f"Gains mock settlement did not unlock ticket {ticket.get_request_id()} within {GAINS_MAX_SETTLEMENT_EPOCHS} epochs",
+                        unsupported_reason="gains_redemption_not_claimable_after_epoch_advance",
+                        protocol=self.vault.get_protocol_name(),
+                        vault_address=self.vault.address,
+                        direction="redeem",
+                    )
             return VaultForcedSettlementResult(
                 ticket=ticket,
                 settlement_required=bool(transaction_hashes),
@@ -449,12 +477,24 @@ class GainsDepositManager(ERC4626DepositManager):
                 transaction_hashes.append(HexBytes(tx_hash))
             new_epoch = self.vault.fetch_current_epoch()
             if new_epoch <= old_epoch:
-                raise UnsupportedVaultSimulation(f"Gains epoch did not advance while settling redemption for vault {self.vault.address} on chain {self.vault.chain_id}: epoch stayed at {old_epoch}")
+                raise UnsupportedVaultSimulation(
+                    f"Gains epoch did not advance while settling redemption for vault {self.vault.address} on chain {self.vault.chain_id}: epoch stayed at {old_epoch}",
+                    unsupported_reason="gains_epoch_did_not_advance",
+                    protocol=self.vault.get_protocol_name(),
+                    vault_address=self.vault.address,
+                    direction="redeem",
+                )
             if self.can_finish_redeem(ticket):
                 break
 
         if not self.can_finish_redeem(ticket):
-            raise UnsupportedVaultSimulation(f"Gains settlement did not unlock redemption for vault {self.vault.address} on chain {self.vault.chain_id}: current epoch {self.vault.fetch_current_epoch()} < unlock epoch {ticket.unlock_epoch}")
+            raise UnsupportedVaultSimulation(
+                f"Gains settlement did not unlock redemption for vault {self.vault.address} on chain {self.vault.chain_id}: current epoch {self.vault.fetch_current_epoch()} < unlock epoch {ticket.unlock_epoch}",
+                unsupported_reason="gains_redemption_not_claimable_after_epoch_advance",
+                protocol=self.vault.get_protocol_name(),
+                vault_address=self.vault.address,
+                direction="redeem",
+            )
 
         return VaultForcedSettlementResult(
             ticket=ticket,

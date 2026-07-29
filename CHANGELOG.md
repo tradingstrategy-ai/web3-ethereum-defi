@@ -1,5 +1,7 @@
 # 1.2
 
+- feat: Complete Anvil settlement for Ember direct payouts and Plutus role-gated redemptions, with terminal evidence, typed settlement failures and shared warm-fork coverage (2026-07-29)
+
 - feat: Export vault share-price provenance and add Lighter ownership, account snapshots and conservative net-flow metrics (2026-07-28)
 
 - feat: Read complete Accountable fee-manager terms and effective vault deposit minimums onchain across legacy and current contract versions (2026-07-28)
