@@ -10,12 +10,12 @@ later ``fulfillRedeem``s the request, and the owner claims with
 
 This manager models that flow: synchronous deposits (inherited) plus an
 asynchronous redemption request/ticket/status/claim lifecycle with typed
-preflight errors. On-fork operator settlement (``fulfillRedeem``) is role-gated
-by OpenZeppelin AccessControl and is not reproduced here, so
-``supports_anvil_settlement`` is explicitly ``False`` with a stable reason.
+preflight errors. On an Anvil fork it discovers ``OPERATOR_ROLE`` candidates
+from indexed ``RoleGranted`` history, verifies the candidate with ``hasRole``
+at the fork head, and then impersonates only that verified holder.
 """
 
-import datetime
+import os
 from dataclasses import dataclass
 from decimal import Decimal
 
@@ -24,8 +24,11 @@ from hexbytes import HexBytes
 from web3 import Web3
 from web3._utils.events import EventLogErrorFlags
 
+from eth_defi.abi import get_topic_signature_from_event
 from eth_defi.erc_4626.deposit_redeem import ERC4626DepositManager
-from eth_defi.provider.anvil import is_anvil
+from eth_defi.hypersync.utils import configure_hypersync_from_env
+from eth_defi.provider.anvil import is_anvil, make_anvil_custom_rpc_request
+from eth_defi.trace import assert_transaction_success_with_explanation
 from eth_defi.vault.deposit_redeem import (
     AsyncVaultRequestStatus,
     CannotParseRedemptionTransaction,
@@ -37,6 +40,7 @@ from eth_defi.vault.deposit_redeem import (
     VaultForcedSettlementResult,
     create_synchronous_settlement_result,
 )
+from eth_defi.vault.flow_events import fetch_vault_flow_logs_hypersync
 
 #: ``UseRequestRedeem()`` — standard ERC-4626 ``redeem`` is disabled; use the
 #: asynchronous request flow. ``keccak("UseRequestRedeem()")[:4]``.
@@ -45,7 +49,8 @@ USE_REQUEST_REDEEM_SELECTOR = HexBytes("0x797f246a")
 #: ``WithdrawalsArePaused()`` custom-error selector.
 WITHDRAWALS_ARE_PAUSED_SELECTOR = HexBytes("0xe14e66da")
 
-#: Plutus fulfilment is role-gated and cannot be reproduced from the vault ABI.
+#: Historical false-capability reason retained as a consumer compatibility
+#: contract for deployments that do not expose a verifiable fulfiller.
 PLUTUS_ANVIL_SETTLEMENT_UNSUPPORTED_REASON = "plutus_redeem_fulfilment_is_access_control_role_gated"
 
 
@@ -151,13 +156,14 @@ class PlutusAsyncDepositManager(ERC4626DepositManager):
     withdrawals are paused (``withdrawalsPaused`` /
     :data:`WITHDRAWALS_ARE_PAUSED_SELECTOR`) or the owner holds too few shares.
 
-    **Anvil settlement (force_settle).** Deferred. A ``None`` (synchronous
-    deposit) ticket returns the shared no-op, but a redemption ticket cannot be
-    settled on a fork: ``fulfillRedeem`` is gated by OpenZeppelin AccessControl
-    and its role holder is deployment-specific and not discoverable from the vault
-    interface, so :meth:`force_settle` raises
-    :class:`~eth_defi.vault.deposit_redeem.UnsupportedVaultSimulation` rather than
-    forging a fulfilment.
+    **Anvil settlement (force_settle).** A ``None`` (synchronous deposit)
+    ticket returns the shared no-op. For a redemption ticket,
+    :meth:`force_settle` uses Hypersync ``RoleGranted`` history bounded at the
+    fork head to find candidates, validates ``OPERATOR_ROLE`` with the live
+    fork state, and impersonates only the verified holder for
+    ``fulfillRedeem``. If this cannot be proven, it raises a typed
+    :class:`~eth_defi.vault.deposit_redeem.UnsupportedVaultSimulation` rather
+    than forging a role.
     """
 
     def estimate_deposit(
@@ -387,13 +393,14 @@ class PlutusAsyncDepositManager(ERC4626DepositManager):
         mock: object | None = None,
         ignore_liquidity: bool = False,
     ) -> VaultForcedSettlementResult:
-        """Report that Plutus operator fulfilment is not reproducible on a fork.
+        """Fulfil a Plutus redemption from a verified Anvil operator.
 
-        Plutus ``fulfillRedeem`` is gated by OpenZeppelin AccessControl; the
-        fulfilment role and its holder are deployment-specific and not
-        discoverable from the vault interface alone, so the request cannot be
-        safely progressed to claimable on a fork. Synchronous ``None`` calls
-        return the shared no-op.
+        Plutus protects ``fulfillRedeem`` with OpenZeppelin ``OPERATOR_ROLE``.
+        The implementation does not enumerate role members, so this method
+        obtains role-grant candidates from the indexed ``RoleGranted`` history
+        bounded at the current Anvil fork head, then validates each candidate
+        with the contract's current ``hasRole`` state before impersonation.
+        Synchronous ``None`` calls return the shared no-op.
 
         :param ticket:
             Pending redemption ticket, or ``None``.
@@ -405,20 +412,34 @@ class PlutusAsyncDepositManager(ERC4626DepositManager):
             Unsupported because Plutus fulfilment is an operator boundary, not
             a local immediate-liquidity gate.
         :return:
-            No-op result for ``None``.
+            No-op result for ``None`` or a pending-to-claimable fulfilment.
         :raise UnsupportedVaultSimulation:
-            For a redemption ticket, because operator fulfilment cannot be
-            reproduced without role discovery.
+            If no currently authorised fulfiller can be discovered or the
+            fulfilment transaction does not make the exact ticket claimable.
         """
         if ignore_liquidity:
             return super().force_settle(ticket, mock=mock, ignore_liquidity=True)
 
         if ticket is None:
             return create_synchronous_settlement_result()
+
+        if not isinstance(ticket, PlutusRedemptionTicket):
+            raise UnsupportedVaultSimulation(
+                f"Plutus force_settle requires PlutusRedemptionTicket, got {type(ticket)}",
+                unsupported_reason="anvil_settlement_ticket_unsupported",
+                protocol=self.vault.get_protocol_name(),
+                vault_address=self.vault.address,
+                direction="redeem",
+            )
         if mock is not None:
-            assert isinstance(ticket, PlutusRedemptionTicket), f"Plutus mock settlement requires PlutusRedemptionTicket, got {type(ticket)}"
             if not is_anvil(self.web3):
-                raise UnsupportedVaultSimulation("Plutus mock settlement requires an Anvil provider", unsupported_reason="anvil_provider_required")
+                raise UnsupportedVaultSimulation(
+                    "Plutus mock settlement requires an Anvil provider",
+                    unsupported_reason="anvil_provider_required",
+                    protocol=self.vault.get_protocol_name(),
+                    vault_address=self.vault.address,
+                    direction="redeem",
+                )
             tx_hash = mock.functions.fulfillRedeem(ticket.request_id).transact({"from": self.web3.eth.accounts[0]})
             return VaultForcedSettlementResult(
                 ticket=ticket,
@@ -427,9 +448,119 @@ class PlutusAsyncDepositManager(ERC4626DepositManager):
                 status_after=AsyncVaultRequestStatus.claimable,
                 transaction_hashes=(HexBytes(tx_hash),),
             )
+
+        if not is_anvil(self.web3):
+            raise UnsupportedVaultSimulation(
+                "Plutus operator fulfilment requires an Anvil provider",
+                unsupported_reason="anvil_provider_required",
+                protocol=self.vault.get_protocol_name(),
+                vault_address=self.vault.address,
+                direction="redeem",
+            )
+
+        status_before = self.get_redemption_request_status(ticket)
+        if status_before is AsyncVaultRequestStatus.claimable:
+            return VaultForcedSettlementResult(
+                ticket=ticket,
+                settlement_required=False,
+                status_before=status_before,
+                status_after=status_before,
+            )
+        if status_before is not AsyncVaultRequestStatus.pending:
+            raise UnsupportedVaultSimulation(
+                f"Plutus request {ticket.request_id} is {status_before.value}, not pending",
+                unsupported_reason="plutus_fulfilment_not_claimable",
+                protocol=self.vault.get_protocol_name(),
+                vault_address=self.vault.address,
+                direction="redeem",
+            )
+
+        fulfiller = self._fetch_fulfiller()
+        make_anvil_custom_rpc_request(self.web3, "anvil_impersonateAccount", [fulfiller])
+        try:
+            make_anvil_custom_rpc_request(self.web3, "anvil_setBalance", [fulfiller, hex(10**18)])
+            tx_hash = HexBytes(self.vault.vault_contract.functions.fulfillRedeem(ticket.request_id).transact({"from": fulfiller, "gas": 1_000_000}))
+            assert_transaction_success_with_explanation(self.web3, tx_hash)
+        finally:
+            make_anvil_custom_rpc_request(self.web3, "anvil_stopImpersonatingAccount", [fulfiller])
+
+        status_after = self.get_redemption_request_status(ticket)
+        if status_after is not AsyncVaultRequestStatus.claimable:
+            raise UnsupportedVaultSimulation(
+                f"Plutus fulfiller did not make request {ticket.request_id} claimable: {status_before.value} -> {status_after.value}",
+                unsupported_reason="plutus_fulfilment_not_claimable",
+                protocol=self.vault.get_protocol_name(),
+                vault_address=self.vault.address,
+                direction="redeem",
+            )
+        return VaultForcedSettlementResult(
+            ticket=ticket,
+            settlement_required=True,
+            status_before=status_before,
+            status_after=status_after,
+            transaction_hashes=(tx_hash,),
+        )
+
+    def _fetch_fulfiller(self) -> HexAddress:
+        """Resolve a currently authorised ``OPERATOR_ROLE`` holder at fork head.
+
+        The ABI exposes ``hasRole`` but not AccessControlEnumerable. Hypersync
+        therefore provides historical candidates while the fork's contract
+        state is the authority for whether a candidate remains authorised.
+
+        :return:
+            A checksum address that currently has ``OPERATOR_ROLE``.
+        :raise UnsupportedVaultSimulation:
+            If the indexed role history has no currently authorised candidate.
+        """
+        if not is_anvil(self.web3):
+            raise UnsupportedVaultSimulation(
+                "Plutus fulfiller discovery requires an Anvil provider",
+                unsupported_reason="anvil_provider_required",
+                protocol=self.vault.get_protocol_name(),
+                vault_address=self.vault.address,
+                direction="redeem",
+            )
+
+        if not os.environ.get("HYPERSYNC_API_KEY"):
+            raise UnsupportedVaultSimulation(
+                "Plutus fulfiller history requires HYPERSYNC_API_KEY",
+                unsupported_reason="plutus_fulfilment_role_not_discoverable",
+                protocol=self.vault.get_protocol_name(),
+                vault_address=self.vault.address,
+                direction="redeem",
+            )
+
+        hypersync_config = configure_hypersync_from_env(self.web3)
+        hypersync_client = hypersync_config.hypersync_client
+        if hypersync_client is None:
+            raise UnsupportedVaultSimulation(
+                f"Plutus fulfiller history is unavailable for vault {self.vault.address}",
+                unsupported_reason="plutus_fulfilment_role_not_discoverable",
+                protocol=self.vault.get_protocol_name(),
+                vault_address=self.vault.address,
+                direction="redeem",
+            )
+
+        contract = self.vault.vault_contract
+        operator_role = contract.functions.OPERATOR_ROLE().call()
+        role_granted_topic = get_topic_signature_from_event(contract.events.RoleGranted).lower()
+        head = int(self.web3.eth.block_number)
+        logs = fetch_vault_flow_logs_hypersync(
+            hypersync_client=hypersync_client,
+            vault_address=self.vault.address,
+            topic0_list=[role_granted_topic],
+            start_block=0,
+            end_block=head,
+        )
+        candidates = [Web3.to_checksum_address("0x" + log.topics[2][-40:]) for log in logs if log.topics[1] is not None and bytes.fromhex(log.topics[1][2:]) == operator_role]
+        for candidate in reversed(candidates):
+            if contract.functions.hasRole(operator_role, candidate).call():
+                return candidate
+
         raise UnsupportedVaultSimulation(
-            f"Plutus Hedge fulfilment is role-gated (AccessControl) and not reproducible on a fork for vault {self.vault.address}",
-            unsupported_reason=PLUTUS_ANVIL_SETTLEMENT_UNSUPPORTED_REASON,
+            f"No current Plutus OPERATOR_ROLE holder could be verified for vault {self.vault.address} at fork head {head}",
+            unsupported_reason="plutus_fulfilment_role_not_discoverable",
             protocol=self.vault.get_protocol_name(),
             vault_address=self.vault.address,
             direction="redeem",

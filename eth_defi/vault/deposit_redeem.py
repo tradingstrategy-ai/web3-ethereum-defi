@@ -573,6 +573,49 @@ class RedemptionTicket:
 
 
 @dataclass(frozen=True, slots=True)
+class VaultDirectPayoutEvidence:
+    """Evidence for an asynchronous request settled by direct token payment.
+
+    Some protocols consume a request and pay the receiver without exposing an
+    intermediate claimable state.  Such a transition is terminal only when
+    the request-specific event and the receiver's denomination-token balance
+    agree.  This intentionally contains no protocol-specific event payload so
+    consumers can apply the same terminal-result rule to every adapter.
+
+    :param request_id:
+        Identifier of the request consumed by the settlement transaction.
+    :param receiver:
+        Receiver whose denomination-token balance was observed.
+    :param denomination_token:
+        Token paid by the direct settlement.
+    :param raw_balance_before:
+        Receiver balance immediately before the settlement transaction.
+    :param raw_balance_after:
+        Receiver balance immediately after the settlement transaction.
+    :param event_name:
+        Name of the decoded request-specific settlement event.
+    :param transaction_hash:
+        Transaction that emitted ``event_name`` and paid the receiver.
+    """
+
+    request_id: int
+    receiver: HexAddress
+    denomination_token: HexAddress
+    raw_balance_before: int
+    raw_balance_after: int
+    event_name: str
+    transaction_hash: HexBytes
+
+    def has_positive_balance_delta(self) -> bool:
+        """Return whether the observed direct payment increased the balance.
+
+        :return:
+            ``True`` only when the receiver received a positive raw amount.
+        """
+        return self.raw_balance_after > self.raw_balance_before
+
+
+@dataclass(frozen=True, slots=True)
 class VaultForcedSettlementResult:
     """Outcome of an Anvil-only forced settlement attempt.
 
@@ -620,6 +663,41 @@ class VaultForcedSettlementResult:
     #: mechanics only. It is never evidence that the live deployment has
     #: enough immediately available redemption liquidity.
     liquidity_constraints_ignored: bool = False
+
+    #: Evidence for terminal direct-payout protocols such as Ember.  It is
+    #: required whenever ``status_after`` is ``none`` for an asynchronous
+    #: settlement result.
+    direct_payout_evidence: VaultDirectPayoutEvidence | None = None
+
+    def is_terminal_success(self) -> bool:
+        """Return whether this result proves its protocol settlement finished.
+
+        Claimable tickets are terminal settlement success: the caller can now
+        execute the ordinary protocol claim.  A protocol that pays directly
+        may instead return ``none`` only with request-specific event evidence
+        and a positive receiver balance delta.  A pending, missing, or
+        evidence-free consumed status is never a successful forced settlement.
+
+        :return:
+            ``True`` for a synchronous no-op, a claimable async ticket, or a
+            validated direct-payout terminal transition.
+        """
+        if not self.settlement_required:
+            if self.ticket is None:
+                return self.status_before is None and self.status_after is None and not self.transaction_hashes
+            return self.status_after is AsyncVaultRequestStatus.claimable and not self.transaction_hashes and self.direct_payout_evidence is None
+
+        if self.ticket is None or not self.transaction_hashes:
+            return False
+
+        if self.status_after is AsyncVaultRequestStatus.claimable:
+            return self.direct_payout_evidence is None
+
+        evidence = self.direct_payout_evidence
+        if self.status_after is not AsyncVaultRequestStatus.none or evidence is None or not isinstance(self.ticket, RedemptionTicket):
+            return False
+
+        return evidence.request_id == self.ticket.get_request_id() and Web3.to_checksum_address(evidence.receiver) == Web3.to_checksum_address(self.ticket.to) and bool(evidence.event_name) and evidence.transaction_hash in self.transaction_hashes and evidence.has_positive_balance_delta()
 
 
 def create_synchronous_settlement_result() -> VaultForcedSettlementResult:

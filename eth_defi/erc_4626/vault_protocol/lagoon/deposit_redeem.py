@@ -170,72 +170,99 @@ class LagoonDepositManager(GenericERC7540DepositManager):
             )
 
         if not is_anvil(self.web3):
-            raise UnsupportedVaultSimulation("Lagoon force_settle() requires an Anvil provider")
+            raise UnsupportedVaultSimulation(
+                "Lagoon force_settle() requires an Anvil provider",
+                unsupported_reason="anvil_provider_required",
+                protocol=self.vault.get_protocol_name(),
+                vault_address=self.vault.address,
+            )
         if ticket is None:
-            raise UnsupportedVaultSimulation("Lagoon force_settle() requires an async request ticket")
+            raise UnsupportedVaultSimulation(
+                "Lagoon force_settle() requires an async request ticket",
+                unsupported_reason="anvil_settlement_ticket_required",
+                protocol=self.vault.get_protocol_name(),
+                vault_address=self.vault.address,
+            )
 
         if isinstance(ticket, ERC7540DepositTicket):
             status_before = self.get_deposit_request_status(ticket)
         elif isinstance(ticket, ERC7540RedemptionTicket):
             status_before = self.get_redemption_request_status(ticket)
         else:
-            raise UnsupportedVaultSimulation(f"Unsupported Lagoon ticket type: {type(ticket)}")
+            raise UnsupportedVaultSimulation(
+                f"Unsupported Lagoon ticket type: {type(ticket)}",
+                unsupported_reason="anvil_settlement_ticket_unsupported",
+                protocol=self.vault.get_protocol_name(),
+                vault_address=self.vault.address,
+            )
 
         from eth_defi.erc_4626.vault_protocol.lagoon.testing import force_lagoon_settle
 
         valuation_manager = self.vault.valuation_manager
         safe_address = self.vault.safe_address
-        make_anvil_custom_rpc_request(self.web3, "anvil_impersonateAccount", [valuation_manager])
-        make_anvil_custom_rpc_request(self.web3, "anvil_setBalance", [valuation_manager, hex(10**18)])
-        make_anvil_custom_rpc_request(self.web3, "anvil_impersonateAccount", [safe_address])
-        make_anvil_custom_rpc_request(self.web3, "anvil_setBalance", [safe_address, hex(10**18)])
+        try:
+            make_anvil_custom_rpc_request(self.web3, "anvil_impersonateAccount", [valuation_manager])
+            make_anvil_custom_rpc_request(self.web3, "anvil_setBalance", [valuation_manager, hex(10**18)])
+            make_anvil_custom_rpc_request(self.web3, "anvil_impersonateAccount", [safe_address])
+            make_anvil_custom_rpc_request(self.web3, "anvil_setBalance", [safe_address, hex(10**18)])
 
-        # WS1: provision the Safe BEFORE settlement. Lagoon's settleDeposit()
-        # always runs _settleRedeem() afterwards, which pays queued redemptions
-        # by pulling the denomination token FROM the Safe. On third-party
-        # deployments that leg fails two ways our own deploy script prevents in
-        # production (missing standing approval; Safe short of liquidity). This
-        # issues the missing approval and, only when explicitly requested,
-        # tops up the Safe, returning any synthetic amount injected so the
-        # result can flag it honestly. The
-        # provisioning must run for BOTH deposit and redemption tickets because
-        # _settleRedeem always executes after settleDeposit. See the helper for
-        # the full rationale.
-        liquidity_tx_hashes, synthetic_injected_raw = self._provision_safe_for_settlement(
-            safe_address,
-            ignore_liquidity=ignore_liquidity,
-        )
+            # WS1: provision the Safe BEFORE settlement. Lagoon's settleDeposit()
+            # always runs _settleRedeem() afterwards, which pays queued redemptions
+            # by pulling the denomination token FROM the Safe. On third-party
+            # deployments that leg fails two ways our own deploy script prevents in
+            # production (missing standing approval; Safe short of liquidity). This
+            # issues the missing approval and, only when explicitly requested,
+            # tops up the Safe, returning any synthetic amount injected so the
+            # result can flag it honestly. The
+            # provisioning must run for BOTH deposit and redemption tickets because
+            # _settleRedeem always executes after settleDeposit. See the helper for
+            # the full rationale.
+            liquidity_tx_hashes, synthetic_injected_raw = self._provision_safe_for_settlement(
+                safe_address,
+                ignore_liquidity=ignore_liquidity,
+            )
 
-        settle_tx_hashes = force_lagoon_settle(
-            self.vault,
-            valuation_manager,
-            settlement_manager=safe_address,
-        )
-        # Approval/top-up transactions precede the valuation + settlement ones.
-        tx_hashes = (*liquidity_tx_hashes, *settle_tx_hashes)
+            settle_tx_hashes = force_lagoon_settle(
+                self.vault,
+                valuation_manager,
+                settlement_manager=safe_address,
+            )
+            # Approval/top-up transactions precede the valuation + settlement ones.
+            tx_hashes = (*liquidity_tx_hashes, *settle_tx_hashes)
 
-        if isinstance(ticket, ERC7540DepositTicket):
-            status_after = self.get_deposit_request_status(ticket)
-        else:
-            status_after = self.get_redemption_request_status(ticket)
+            if isinstance(ticket, ERC7540DepositTicket):
+                status_after = self.get_deposit_request_status(ticket)
+            else:
+                status_after = self.get_redemption_request_status(ticket)
 
-        if status_after is not AsyncVaultRequestStatus.claimable:
-            # Fail loudly with the concrete before/after status rather than
-            # returning a misleading "pending -> pending" success.
-            raise UnsupportedVaultSimulation(f"Lagoon settlement did not make {type(ticket).__name__} claimable: {status_before.value} -> {status_after.value}")
+            if status_after is not AsyncVaultRequestStatus.claimable:
+                # Fail loudly with the concrete before/after status rather than
+                # returning a misleading "pending -> pending" success.
+                raise UnsupportedVaultSimulation(
+                    f"Lagoon settlement did not make {type(ticket).__name__} claimable: {status_before.value} -> {status_after.value}",
+                    unsupported_reason="lagoon_settlement_not_claimable",
+                    protocol=self.vault.get_protocol_name(),
+                    vault_address=self.vault.address,
+                    direction="deposit" if isinstance(ticket, ERC7540DepositTicket) else "redeem",
+                )
 
-        return VaultForcedSettlementResult(
-            ticket=ticket,
-            settlement_required=True,
-            status_before=status_before,
-            status_after=status_after,
-            transaction_hashes=tuple(HexBytes(h) for h in tx_hashes),
-            # Honest signalling: non-zero means the fork Safe was topped up with
-            # synthetic liquidity, so `claimable` here does NOT prove the live
-            # vault is solvent (see VaultForcedSettlementResult docstring).
-            synthetic_assets_injected_raw=synthetic_injected_raw,
-            liquidity_constraints_ignored=synthetic_injected_raw > 0,
-        )
+            return VaultForcedSettlementResult(
+                ticket=ticket,
+                settlement_required=True,
+                status_before=status_before,
+                status_after=status_after,
+                transaction_hashes=tuple(HexBytes(h) for h in tx_hashes),
+                # Honest signalling: non-zero means the fork Safe was topped up with
+                # synthetic liquidity, so `claimable` here does NOT prove the live
+                # vault is solvent (see VaultForcedSettlementResult docstring).
+                synthetic_assets_injected_raw=synthetic_injected_raw,
+                liquidity_constraints_ignored=synthetic_injected_raw > 0,
+            )
+        finally:
+            # Snapshot reversion restores contract state but not this Anvil node
+            # setting. Always release both accounts, including failure paths.
+            make_anvil_custom_rpc_request(self.web3, "anvil_stopImpersonatingAccount", [safe_address])
+            make_anvil_custom_rpc_request(self.web3, "anvil_stopImpersonatingAccount", [valuation_manager])
 
     def _provision_safe_for_settlement(
         self,
@@ -305,7 +332,13 @@ class LagoonDepositManager(GenericERC7540DepositManager):
         # provider even if a future caller forgets the is_anvil() guard that
         # force_settle() already applies.
         if not is_anvil(web3):
-            raise UnsupportedVaultSimulation("Lagoon Safe settlement provisioning is Anvil-only")
+            raise UnsupportedVaultSimulation(
+                "Lagoon Safe settlement provisioning is Anvil-only",
+                unsupported_reason="anvil_provider_required",
+                protocol=self.vault.get_protocol_name(),
+                vault_address=self.vault.address,
+                direction="redeem",
+            )
 
         denomination_token = self.vault.denomination_token
         tx_hashes: list[HexBytes] = []

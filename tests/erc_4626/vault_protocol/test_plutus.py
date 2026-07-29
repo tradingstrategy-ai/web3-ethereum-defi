@@ -14,7 +14,7 @@ from eth_defi.abi import ZERO_ADDRESS_STR
 from eth_defi.erc_4626.classification import create_vault_instance_autodetect
 from eth_defi.erc_4626.vault_protocol.plutus.deposit_redeem import PlutusAsyncDepositManager, PlutusRedemptionTicket
 from eth_defi.erc_4626.vault_protocol.plutus.vault import PlutusHistoricalReader, PlutusVault
-from eth_defi.provider.anvil import AnvilLaunch, fork_network_anvil
+from eth_defi.provider.anvil import AnvilLaunch
 from eth_defi.provider.multi_provider import create_multi_provider_web3
 from eth_defi.testing.anvil_fork_pool import AnvilForkPool
 from eth_defi.testing.evm_snapshot_fixture import evm_snapshot_revert
@@ -65,8 +65,7 @@ def test_plutus(
         "can_redeem": True,
         "deposit_flow": "synchronous",
         "redemption_flow": "asynchronous",
-        "supports_anvil_settlement": False,
-        "anvil_settlement_unsupported_reason": "plutus_redeem_fulfilment_is_access_control_role_gated",
+        "supports_anvil_settlement": True,
     }
     manager = vault.get_deposit_manager()
     assert isinstance(manager, PlutusAsyncDepositManager)
@@ -161,8 +160,8 @@ def test_plutus_async_redemption_lifecycle(midnight_web3: Web3, plutus_snapshot:
     """Deposit synchronously, then request an asynchronous redemption on the Hedge vault.
 
     Validates the ERC-7540-style flow: ``requestRedeem`` produces a pending
-    ticket, the request is not yet claimable, and forced settlement is refused
-    with a precise reason because operator fulfilment is role-gated.
+    ticket, discovers and verifies the role-gated operator, fulfils the request,
+    then claims the released assets.
     """
     vault = create_vault_instance_autodetect(midnight_web3, vault_address=PLUTUS_HEDGE_VAULT)
     assert isinstance(vault, PlutusVault)
@@ -198,12 +197,27 @@ def test_plutus_async_redemption_lifecycle(midnight_web3: Web3, plutus_snapshot:
     assert manager.can_finish_redeem(ticket) is False
     assert manager.reconstruct_redemption_ticket(manager.serialize_redemption_ticket(ticket)) == ticket
 
-    # Operator fulfilment is role-gated; forced settlement is refused precisely.
+    # Hypersync discovers role-grant candidates, then the fork verifies the
+    # active OPERATOR_ROLE holder before fulfilment and the ordinary claim.
     assert manager.force_settle(None).settlement_required is False
-    with pytest.raises(UnsupportedVaultSimulation, match="role-gated") as exc_info:
-        manager.force_settle(ticket)
-    assert exc_info.value.unsupported_reason == "plutus_redeem_fulfilment_is_access_control_role_gated"
-    assert exc_info.value.protocol == vault.get_protocol_name()
-    assert exc_info.value.vault_address == vault.address
-    assert exc_info.value.direction == "redeem"
-    assert exc_info.value.phase == "settlement"
+    settlement = manager.force_settle(ticket)
+    assert settlement.status_before is AsyncVaultRequestStatus.pending
+    assert settlement.status_after is AsyncVaultRequestStatus.claimable
+    assert settlement.transaction_hashes
+    assert settlement.is_terminal_success() is True
+    usdc_before = usdc.fetch_raw_balance_of(owner)
+    assert_transaction_success_with_explanation(midnight_web3, manager.finish_redemption(ticket).transact({"from": owner}))
+    assert usdc.fetch_raw_balance_of(owner) > usdc_before
+
+
+@pytest.mark.xdist_group("fork:arbitrum:midnight")
+def test_plutus_fulfiller_discovery_requires_hypersync_key(midnight_web3: Web3, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Return a typed refusal when role history cannot be read."""
+    vault = create_vault_instance_autodetect(midnight_web3, vault_address=PLUTUS_HEDGE_VAULT)
+    assert isinstance(vault, PlutusVault)
+    manager = vault.get_deposit_manager()
+    assert isinstance(manager, PlutusAsyncDepositManager)
+    monkeypatch.delenv("HYPERSYNC_API_KEY", raising=False)
+    with pytest.raises(UnsupportedVaultSimulation) as exc_info:
+        manager._fetch_fulfiller()
+    assert exc_info.value.unsupported_reason == "plutus_fulfilment_role_not_discoverable"
