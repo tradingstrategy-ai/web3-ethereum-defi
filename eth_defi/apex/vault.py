@@ -287,8 +287,10 @@ def parse_official_vaults(payload: object) -> tuple[ApexVaultSummary, ...]:
     duplicates = sorted(vault_id for vault_id, count in Counter(identifiers).items() if count > 1)
     if duplicates:
         raise ApexAPIError(f"ApeX official vaults contain duplicate vault IDs: {duplicates}")
-    if len(page.vaults) != page.total_size:
-        raise ApexAPIError(f"ApeX official vaults returned {len(page.vaults)} rows but reported {page.total_size}")
+    # ``official-vaults`` is not paginated. ApeX currently returns
+    # ``totalSize=0`` even when ``vaultList`` contains the complete listing,
+    # so unlike the paginated ranking endpoint this field is not a membership
+    # completeness invariant.
     return page.vaults
 
 
