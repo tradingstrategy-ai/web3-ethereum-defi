@@ -11,6 +11,7 @@ import datetime
 import logging
 from collections.abc import Iterable
 from typing import Literal, TypedDict
+from urllib.parse import quote
 
 from eth_defi.xerberus.constants import (
     XERBERUS_DEFAULT_MAX_SCORE_AGE_DAYS,
@@ -46,7 +47,7 @@ class XerberusPoolLookupRow(TypedDict):
     #: Which table supplied this row.
     source: Literal["registry", "vault_list"]
 
-    #: Optional dendrogram deep link when known.
+    #: Xerberus Dendrogram backlink when the entity id is available.
     report_url: str | None
 
 
@@ -71,7 +72,7 @@ class XerberusVaultSection(TypedDict):
     #: Our protocol slug when ``entity_type`` is ``protocol``.
     protocol_slug: str | None
 
-    #: Dendrogram report URL when known.
+    #: Xerberus Dendrogram backlink when the entity id is available.
     report_url: str | None
 
     #: ISO 8601 snapshot timestamp.
@@ -95,6 +96,9 @@ class XerberusProtocolExportRecord(TypedDict):
 
     #: Always :py:data:`~eth_defi.xerberus.constants.XERBERUS_SCORE_SCALE`.
     score_scale: str
+
+    #: Xerberus Dendrogram backlink for this protocol rating.
+    report_url: str | None
 
     #: ISO 8601 snapshot timestamp.
     fetched_at: str
@@ -128,6 +132,29 @@ def _format_fetched_at(value: object) -> str:
     return str(value)
 
 
+def build_xerberus_dendrogram_url(
+    entity_type: Literal["pool", "protocol"],
+    entity_id: str,
+) -> str | None:
+    """Build the public Xerberus Dendrogram URL for a rated entity.
+
+    Registry scores include the stable Xerberus entity id used by the public
+    app. Constructing the backlink from that id means exports retain a useful
+    risk-report link even when the optional report-URL backfill has not run.
+
+    :param entity_type:
+        Xerberus Dendrogram entity category supported by the public app.
+    :param entity_id:
+        Stable Xerberus registry entity id.
+    :return:
+        Public Dendrogram URL, or ``None`` when the id is blank.
+    """
+    entity_id = entity_id.strip()
+    if not entity_id:
+        return None
+    return f"https://app.xerberus.io/{entity_type}/dendrogram/{quote(entity_id, safe='')}"
+
+
 def build_xerberus_pool_lookup(
     db: XerberusDatabase,
     max_age_days: int | None = XERBERUS_DEFAULT_MAX_SCORE_AGE_DAYS,
@@ -158,9 +185,7 @@ def build_xerberus_pool_lookup(
         entity_id = str(row["entity_id"])
         # Per-row lookup is fine: Xerberus DuckDB is local, small, and typically
         # memory-backed for this export path (not a remote round-trip).
-        report_url = db.get_report_url(int(chain_id), str(address))
-        if report_url is None and entity_id.startswith("pool_"):
-            report_url = f"https://app.xerberus.io/pool/dendrogram/{entity_id}"
+        report_url = db.get_report_url(int(chain_id), str(address)) or build_xerberus_dendrogram_url("pool", entity_id)
         lookup[key] = {
             "chain_id": int(chain_id),
             "address": str(address).lower(),
@@ -183,15 +208,22 @@ def build_xerberus_pool_lookup(
         score = float(row["score"]) if row.get("score") is not None else None
         if existing is None or (existing.get("score") is None and score is not None):
             # Same local DuckDB note as above: per-row get_report_url is cheap here.
+            entity_id = existing["entity_id"] if existing else str(row["vault_id"])
+            report_url = existing.get("report_url") if existing else db.get_report_url(int(chain_id), str(address))
+            if report_url is None and existing is not None:
+                # Vault-list ids identify a platform's vault record and are not
+                # guaranteed to be Dendrogram pool ids. Use a generated app URL
+                # only when a matching registry entity supplies the canonical id.
+                report_url = build_xerberus_dendrogram_url("pool", entity_id)
             lookup[key] = {
                 "chain_id": int(chain_id),
                 "address": str(address).lower(),
                 "score": score,
-                "entity_id": str(row["vault_id"]),
+                "entity_id": entity_id,
                 "name": row.get("name"),
                 "fetched_at": _format_fetched_at(row["fetched_at"]),
                 "source": "vault_list",
-                "report_url": existing.get("report_url") if existing else db.get_report_url(int(chain_id), str(address)),
+                "report_url": report_url,
             }
 
     logger.info("Built Xerberus pool lookup with %d keys", len(lookup))
@@ -231,6 +263,7 @@ def build_xerberus_protocols_for_export(
             "name": row.get("name"),
             "score": float(row["score"]) if row.get("score") is not None else None,
             "score_scale": XERBERUS_SCORE_SCALE,
+            "report_url": build_xerberus_dendrogram_url("protocol", str(row["entity_id"])),
             "fetched_at": _format_fetched_at(row["fetched_at"]),
         }
 
@@ -288,7 +321,7 @@ def resolve_xerberus_vault_section(
                 "entity_id": proto["entity_id"],
                 "name": proto.get("name"),
                 "protocol_slug": protocol_slug,
-                "report_url": None,
+                "report_url": proto.get("report_url"),
                 "fetched_at": proto["fetched_at"],
             }
 
