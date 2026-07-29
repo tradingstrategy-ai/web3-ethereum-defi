@@ -11,11 +11,25 @@ from eth_defi.vault.deposit_redeem import (
     VaultFlowUnavailable,
     VaultForcedSettlementResult,
     create_synchronous_settlement_result,
+    extract_revert_data,
 )
 
 REQUESTED_RAW_AMOUNT = 101
 AVAILABLE_RAW_AMOUNT = 100
 ACCESS_DELAY = 3600
+
+
+def test_extract_revert_data_from_web3_exception_shapes() -> None:
+    """Normalise provider-specific EVM revert payload locations.
+
+    1. Extract a revert payload exposed through an exception ``data`` mapping.
+    2. Return no payload for an ordinary exception without EVM data.
+    """
+    # 1. Extract a revert payload exposed through an exception data mapping.
+    assert extract_revert_data(ValueError({"data": "0xace2a47e"})) == HexBytes("0xace2a47e")
+
+    # 2. Return no payload for an ordinary exception without EVM data.
+    assert extract_revert_data(ValueError("ordinary error")) is None
 
 
 def test_vault_flow_unavailable_preserves_context() -> None:

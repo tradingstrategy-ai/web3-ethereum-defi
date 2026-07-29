@@ -1,9 +1,10 @@
 """Test cSigma Finance vault metadata."""
 
 import os
+from collections.abc import Iterator
 from decimal import Decimal
 from types import SimpleNamespace
-from unittest.mock import ANY, MagicMock
+from unittest.mock import MagicMock
 
 import flaky
 import pytest
@@ -13,10 +14,11 @@ from web3 import Web3
 from eth_defi.erc_4626.classification import create_vault_instance_autodetect
 from eth_defi.erc_4626.core import ERC4626Feature
 from eth_defi.erc_4626.vault_protocol.csigma.deposit_redeem import CSIGMA_WITHDRAWAL_PENDING_SELECTOR, CsigmaDepositManager
-from eth_defi.erc_4626.vault_protocol.csigma.vault import CSIGMA_V2_POOL_ADDRESS, CsigmaVault
-from eth_defi.provider.anvil import AnvilLaunch, fork_network_anvil, fund_erc20_on_anvil
+from eth_defi.erc_4626.vault_protocol.csigma.vault import CSIGMA_V2_POOL_ADDRESS, SECONDS_PER_DAY, CsigmaVault
+from eth_defi.provider.anvil import AnvilLaunch, fork_network_anvil, fund_erc20_on_anvil, make_anvil_custom_rpc_request
 from eth_defi.provider.multi_provider import create_multi_provider_web3
 from eth_defi.testing.anvil_fork_pool import AnvilForkPool
+from eth_defi.testing.evm_snapshot_fixture import evm_snapshot_revert
 from eth_defi.testing.fork_blocks import ETHEREUM_MIDNIGHT_BLOCK
 from eth_defi.token import USDC_WHALE
 from eth_defi.trace import assert_transaction_success_with_explanation
@@ -29,6 +31,9 @@ JSON_RPC_ETHEREUM = os.environ.get("JSON_RPC_ETHEREUM")
 EXPECTED_V2_DEPOSITED_RAW_SHARES = 94_348_140
 EXPECTED_SUPQPV_DEPOSITED_RAW_SHARES = 94_445_037
 EXPECTED_CSUPERIOR_QUEUE_DUE_RAW_SHARES = 41_603_916_251
+CSIGMA_PAUSE_FORK_BLOCK = 25_598_869
+EXPECTED_CSIGMA_PAUSE_START = 0
+EXPECTED_CSIGMA_PAUSE_DURATION = 1_800
 
 pytestmark = pytest.mark.skipif(JSON_RPC_ETHEREUM is None, reason="JSON_RPC_ETHEREUM needed to run these tests")
 
@@ -91,18 +96,94 @@ def test_csigma(
     assert vault.can_check_redeem() is False
 
 
-def test_csigma_paused_deposit_is_a_guard_validation_closure() -> None:
-    """Treat only cSigma's Pausable state as a closed-deposit fallback trigger."""
+def test_csigma_paused_deposit_is_a_guard_validation_closure(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Treat cSigma's global Pausable state as a closed-deposit trigger.
+
+    The ABI loader is mocked because this unit test isolates closure semantics;
+    the production ABI binding is covered by the fixed-fork pause-window test.
+
+    1. Return a cSigma binding whose global ``paused()`` state is true.
+    2. Fetch the protocol-specific deposit closure reason.
+    3. Assert the vault reports a closed deposit without reading the daily window.
+    """
+    # 1. Return a cSigma binding whose global paused() state is true.
     paused_contract = MagicMock()
     paused_contract.functions.paused().call.return_value = True
-    web3 = SimpleNamespace(eth=SimpleNamespace(contract=MagicMock(return_value=paused_contract)))
+    web3 = SimpleNamespace()
+    monkeypatch.setattr("eth_defi.erc_4626.vault_protocol.csigma.vault.get_deployed_contract", lambda *_args: paused_contract)
     vault = object.__new__(CsigmaVault)
     vault.web3 = web3
     vault.spec = VaultSpec(chain_id=1, vault_address=CSIGMA_USD_VAULT)
 
+    # 2. Fetch the protocol-specific deposit closure reason.
     assert vault.can_check_deposit() is False
-    assert vault.fetch_deposit_closed_reason() == "cSigma deposits paused"
-    web3.eth.contract.assert_called_once_with(address=vault.address, abi=ANY)
+
+    # 3. Assert the vault reports a closed deposit without reading the daily window.
+    assert vault.fetch_deposit_closed_reason() == "cSigma deposits paused by governance"
+
+
+@pytest.fixture(scope="module")
+def csigma_midnight_fork(anvil_fork_pool: AnvilForkPool) -> AnvilLaunch:
+    """Share the production-rerun fork at cSigma's pause boundary."""
+    return anvil_fork_pool.get_launch(JSON_RPC_ETHEREUM, CSIGMA_PAUSE_FORK_BLOCK)
+
+
+@pytest.fixture(scope="module")
+def csigma_midnight_web3(anvil_fork_pool: AnvilForkPool) -> Web3:
+    """Connect to the cSigma production-rerun fork."""
+    return anvil_fork_pool.get_web3(JSON_RPC_ETHEREUM, CSIGMA_PAUSE_FORK_BLOCK)
+
+
+@pytest.fixture
+def csigma_midnight_snapshot(csigma_midnight_fork: AnvilLaunch) -> Iterator[None]:
+    """Restore the pause-boundary fork after the closure test."""
+    yield from evm_snapshot_revert(csigma_midnight_fork)
+
+
+@pytest.mark.xdist_group("fork:ethereum:midnight")
+def test_csigma_daily_pause_window_is_detected_before_deposit(
+    csigma_midnight_web3: Web3,
+    csigma_midnight_snapshot: None,
+) -> None:
+    """Detect cSigma's daily pause window independently of paused().
+
+    1. Advance the fixed fork across the protocol's pause boundary.
+    2. Pin the deployed pause configuration and current second.
+    3. Read closure through the protocol-specific pause-window state.
+    4. Assert request construction returns a typed closed-deposit refusal.
+    """
+    del csigma_midnight_snapshot
+
+    # 1. Advance the fixed fork across the protocol's pause boundary.
+    make_anvil_custom_rpc_request(csigma_midnight_web3, "evm_increaseTime", [1])
+    make_anvil_custom_rpc_request(csigma_midnight_web3, "evm_mine", [])
+    for vault_address in [
+        CSIGMA_USD_VAULT,
+        "0x438982ea288763370946625fd76c2508ee1fb229",
+    ]:
+        vault = create_vault_instance_autodetect(csigma_midnight_web3, vault_address)
+        assert isinstance(vault, CsigmaVault)
+
+        # 2. Pin the deployed pause configuration and current second.
+        assert vault.vault_contract.functions.paused().call() is False
+        assert vault.vault_contract.functions.pauseStartTime().call() == EXPECTED_CSIGMA_PAUSE_START
+        assert vault.vault_contract.functions.pauseDuration().call() == EXPECTED_CSIGMA_PAUSE_DURATION
+        current_second = int(csigma_midnight_web3.eth.get_block("latest")["timestamp"]) % SECONDS_PER_DAY
+        assert EXPECTED_CSIGMA_PAUSE_START <= current_second <= EXPECTED_CSIGMA_PAUSE_START + EXPECTED_CSIGMA_PAUSE_DURATION
+
+        # 3. Read closure through the protocol-specific pause-window state.
+        assert vault.fetch_deposit_closed_reason() == "cSigma deposits paused during daily window"
+
+        # 4. Refuse request construction before any approval or deposit transaction.
+        manager = vault.get_deposit_manager()
+        with pytest.raises(VaultFlowUnavailable) as exc_info:
+            manager.create_deposit_request(
+                owner=csigma_midnight_web3.eth.accounts[0],
+                raw_amount=1_000_000,
+                check_enough_token=False,
+            )
+        assert exc_info.value.preflight_result == "deposit_closed"
+        assert exc_info.value.available_raw_amount == 0
 
 
 @flaky.flaky
@@ -387,8 +468,8 @@ def test_csigma_usd_redemption_capacity_preflight(midnight_web3: Web3) -> None:
     ``WithdrawalPending`` onchain; the manager must refuse it before broadcast
     with a typed :class:`VaultFlowUnavailable` carrying the decoded error. This
     is verified at the current-state midnight block (the pool was not deployed
-    at the 21.9M lifecycle block, and its deposits are ``Pausable``-paused now,
-    so only the read-only capacity preflight is exercised here).
+    at the 21.9M lifecycle block, and the fixed timestamp is inside its daily
+    pause window, so only the read-only capacity preflight is exercised here).
     """
     vault = create_vault_instance_autodetect(midnight_web3, vault_address=CSIGMA_USD_VAULT)
     assert isinstance(vault, CsigmaVault)

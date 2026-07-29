@@ -18,6 +18,7 @@ from hexbytes import HexBytes
 from web3 import Web3
 from web3._utils.events import EventLogErrorFlags
 from web3.contract.contract import ContractFunction
+from web3.exceptions import ContractLogicError
 
 from eth_defi.abi import ZERO_ADDRESS_STR, get_topic_signature_from_event
 from eth_defi.erc_4626.deposit_redeem import ERC4626DepositManager, ERC4626DepositRequest
@@ -38,6 +39,7 @@ from eth_defi.vault.deposit_redeem import (
     VaultFlowUnavailable,
     VaultForcedSettlementResult,
     create_synchronous_settlement_result,
+    extract_revert_data,
 )
 from eth_defi.vault.flow_events import (
     PendingVaultFlow,
@@ -50,6 +52,10 @@ from eth_defi.vault.flow_events import (
 
 if TYPE_CHECKING:
     from eth_defi.erc_4626.vault_protocol.ember.vault import EmberVault
+
+
+#: ``InsufficientBalance()`` from Ember's operator withdrawal processor.
+EMBER_INSUFFICIENT_BALANCE_SELECTOR = HexBytes("0xf4d678b8")
 
 
 @dataclass(slots=True)
@@ -558,11 +564,32 @@ class EmberDepositManager(ERC4626DepositManager):
 
         pending_index = self.fetch_pending_withdrawal_index(ticket)
         denomination_token = self.vault.denomination_token
+        process_withdrawals = self.vault.vault_contract.functions.processWithdrawalRequests(pending_index + 1)
+        try:
+            process_withdrawals.call({"from": operator})
+        except (ContractLogicError, ValueError) as error:
+            revert_data = extract_revert_data(error)
+            if revert_data is None or revert_data[:4] != EMBER_INSUFFICIENT_BALANCE_SELECTOR:
+                raise UnsupportedVaultSimulation(
+                    f"Ember operator preflight reverted for request {ticket.get_request_id()}: {error}",
+                    unsupported_reason="ember_operator_processing_not_reproducible",
+                    protocol=self.vault.get_protocol_name(),
+                    vault_address=self.vault.address,
+                    direction="redeem",
+                ) from error
+            raise UnsupportedVaultSimulation(
+                f"Ember operator lacks denomination-token liquidity to process queue through request {ticket.get_request_id()}",
+                unsupported_reason="ember_operator_insufficient_liquidity",
+                protocol=self.vault.get_protocol_name(),
+                vault_address=self.vault.address,
+                direction="redeem",
+            ) from error
+
         balance_before = denomination_token.fetch_raw_balance_of(ticket.to)
         make_anvil_custom_rpc_request(self.web3, "anvil_impersonateAccount", [operator])
         try:
             make_anvil_custom_rpc_request(self.web3, "anvil_setBalance", [operator, hex(10**18)])
-            tx_hash = HexBytes(self.vault.vault_contract.functions.processWithdrawalRequests(pending_index + 1).transact({"from": operator, "gas": 1_000_000}))
+            tx_hash = HexBytes(process_withdrawals.transact({"from": operator, "gas": 1_000_000}))
             assert_transaction_success_with_explanation(self.web3, tx_hash)
         finally:
             make_anvil_custom_rpc_request(self.web3, "anvil_stopImpersonatingAccount", [operator])
