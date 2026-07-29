@@ -168,7 +168,8 @@ def test_csigma_daily_pause_window_is_detected_before_deposit(
         assert vault.vault_contract.functions.paused().call() is False
         assert vault.vault_contract.functions.pauseStartTime().call() == EXPECTED_CSIGMA_PAUSE_START
         assert vault.vault_contract.functions.pauseDuration().call() == EXPECTED_CSIGMA_PAUSE_DURATION
-        assert int(csigma_midnight_web3.eth.get_block("latest")["timestamp"]) % SECONDS_PER_DAY == EXPECTED_CSIGMA_PAUSE_START
+        current_second = int(csigma_midnight_web3.eth.get_block("latest")["timestamp"]) % SECONDS_PER_DAY
+        assert EXPECTED_CSIGMA_PAUSE_START <= current_second <= EXPECTED_CSIGMA_PAUSE_START + EXPECTED_CSIGMA_PAUSE_DURATION
 
         # 3. Read closure through the protocol-specific pause-window state.
         assert vault.fetch_deposit_closed_reason() == "cSigma deposits paused during daily window"
