@@ -9,7 +9,7 @@ from typing import Callable
 
 import pytest
 
-from eth_defi.apex.session import ApexAPIError
+from eth_defi.apex.session import ApexAPIError, create_apex_session_pool
 from eth_defi.apex.vault import (
     ApexRankingPage,
     fetch_official_vault_histories,
@@ -230,3 +230,18 @@ def test_fetch_official_vault_endpoints_use_distinct_listing_and_batch_paths() -
         ("vault/official-vaults", {}),
         ("vault/fund-net-value-batch", {"vaultIds": "10000,10001"}),
     ]
+
+
+@pytest.mark.live
+@pytest.mark.timeout(30)
+def test_live_official_vault_listing_accepts_non_paginated_total_size() -> None:
+    """Accept the live official listing despite its non-paginated ``totalSize`` value.
+
+    ApeX currently reports ``totalSize=0`` while returning its official vaults
+    in ``vaultList``. This focused integration check exercises the real HTTP
+    response and parser without writing scanner state or reading history.
+    """
+    with create_apex_session_pool(pool_maxsize=1, retries=0) as session_pool:
+        vaults = fetch_official_vaults(session_pool, operation_timeout=30)
+
+    assert {vault.vault_id for vault in vaults} >= {"10000", "10001"}
