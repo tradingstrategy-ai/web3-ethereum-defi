@@ -27,6 +27,7 @@ from web3 import Web3
 
 from eth_defi.chain import get_chain_name
 from eth_defi.erc_4626.vault import ERC4626HistoricalReader, ERC4626Vault
+from eth_defi.erc_4626.vault_protocol.morpho.deposit_redeem import MorphoV2DepositManager
 from eth_defi.erc_4626.vault_protocol.morpho.flag_analytics import analyze_morpho_flags
 from eth_defi.erc_4626.vault_protocol.morpho.offchain_metadata import (
     MorphoVaultAPIResult,
@@ -219,6 +220,18 @@ class MorphoV2Vault(ERC4626Vault):
             Always ``True`` under the current operating assumption.
         """
         return True
+
+    def get_deposit_manager(self) -> MorphoV2DepositManager:
+        """Create a manager that simulates exact Morpho V2 redemptions.
+
+        Morpho V2 returns zero from its ERC-4626 maximum functions, so the
+        manager performs an exact ``eth_call`` before returning a redemption
+        request.
+
+        :return:
+            Morpho V2-specific synchronous deposit and redemption manager.
+        """
+        return MorphoV2DepositManager(self)
 
     @cached_property
     def morpho_api_result(self) -> MorphoVaultAPIResult:

@@ -18,6 +18,7 @@ from web3.contract.contract import ContractFunction
 from eth_defi.abi import get_topic_signature_from_event
 from eth_defi.erc_4626.deposit_redeem import ERC4626DepositManager
 from eth_defi.provider.anvil import is_anvil
+from eth_defi.revert_reason import fetch_transaction_revert_reason
 from eth_defi.timestamp import get_block_timestamp
 from eth_defi.utils import from_unix_timestamp
 from eth_defi.vault.deposit_redeem import (
@@ -310,6 +311,78 @@ class GainsDepositManager(ERC4626DepositManager):
             redemption_ticket.raw_shares,
             redemption_ticket.to,
             redemption_ticket.owner,
+        )
+
+    def analyse_redemption(
+        self,
+        claim_tx_hash: HexBytes | str,
+        redemption_ticket: RedemptionTicket | None,
+    ) -> DepositRedeemEventAnalysis | DepositRedeemEventFailure:
+        """Analyse a Gains claim independently of its outer transaction wrapper.
+
+        Lagoon and other guarded vaults submit the claim through a module, so
+        the outer transaction target is neither the Gains vault nor the share
+        owner. The protocol's canonical ``Withdraw`` event is the authoritative
+        evidence: it must originate from this Gains vault and match the persisted
+        ticket owner, receiver and share amount.
+
+        :param claim_tx_hash:
+            Mined direct, GuardV0 or Lagoon-module claim transaction.
+        :param redemption_ticket:
+            Persisted Gains request identity.
+        :return:
+            Executed redemption amounts or a structured transaction failure.
+        """
+        assert isinstance(redemption_ticket, GainsRedemptionTicket), "Gains redemption analysis requires GainsRedemptionTicket"
+        tx_hash = HexBytes(claim_tx_hash)
+        receipt = self.web3.eth.get_transaction_receipt(tx_hash)
+        if receipt["status"] != 1:
+            return DepositRedeemEventFailure(
+                tx_hash=tx_hash,
+                revert_reason=fetch_transaction_revert_reason(self.web3, tx_hash),
+                protocol=self.vault.get_protocol_name(),
+                vault_address=self.vault.address,
+                direction="redeem",
+                phase="claim",
+                receipt_status=int(receipt["status"]),
+            )
+
+        logs = self.vault.vault_contract.events.Withdraw().process_receipt(receipt, errors=EventLogErrorFlags.Discard)
+        logs = [log for log in logs if log["address"].lower() == self.vault.address.lower()]
+        if len(logs) != 1:
+            return self._create_redemption_analysis_failure(tx_hash, f"Expected exactly one Gains Withdraw event from {self.vault.address}, got {logs!r}")
+
+        args = logs[0]["args"]
+        owner = Web3.to_checksum_address(args["owner"])
+        receiver = Web3.to_checksum_address(args["receiver"])
+        if owner != Web3.to_checksum_address(redemption_ticket.owner):
+            return self._create_redemption_analysis_failure(tx_hash, f"Gains Withdraw owner mismatch: {owner} != {redemption_ticket.owner}")
+        if receiver != Web3.to_checksum_address(redemption_ticket.to):
+            return self._create_redemption_analysis_failure(tx_hash, f"Gains Withdraw receiver mismatch: {receiver} != {redemption_ticket.to}")
+        if int(args["shares"]) != redemption_ticket.raw_shares:
+            return self._create_redemption_analysis_failure(tx_hash, f"Gains Withdraw shares mismatch: {args['shares']} != {redemption_ticket.raw_shares}")
+
+        block_number = int(receipt["blockNumber"])
+        return DepositRedeemEventAnalysis(
+            from_=owner,
+            to=receiver,
+            denomination_amount=self.vault.denomination_token.convert_to_decimals(int(args["assets"])),
+            share_count=self.vault.share_token.convert_to_decimals(int(args["shares"])),
+            tx_hash=tx_hash,
+            block_number=block_number,
+            block_timestamp=get_block_timestamp(self.web3, block_number),
+        )
+
+    def _create_redemption_analysis_failure(self, tx_hash: HexBytes, reason: str) -> DepositRedeemEventFailure:
+        """Create a structured failure for unexpected Gains claim evidence."""
+        return DepositRedeemEventFailure(
+            tx_hash=tx_hash,
+            revert_reason=reason,
+            protocol=self.vault.get_protocol_name(),
+            vault_address=self.vault.address,
+            direction="redeem",
+            phase="claim",
+            receipt_status=1,
         )
 
     def serialize_redemption_ticket(self, ticket: GainsRedemptionTicket) -> dict:

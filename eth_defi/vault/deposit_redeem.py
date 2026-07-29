@@ -357,6 +357,29 @@ class VaultFlowError(Exception):
         return f"{self.reason} ({', '.join(context)})" if context else self.reason
 
 
+def extract_revert_data(error: BaseException) -> HexBytes | None:
+    """Extract raw EVM revert data from common Web3 exception shapes.
+
+    :param error:
+        Web3 exception raised by ``eth_call``.
+    :return:
+        Raw revert payload when exposed by the provider.
+    """
+    candidates = [getattr(error, "data", None)]
+    if error.args:
+        candidates.append(error.args[0])
+
+    for candidate in candidates:
+        if isinstance(candidate, dict):
+            candidate = candidate.get("data")
+        if isinstance(candidate, (bytes, str)):
+            try:
+                return HexBytes(candidate)
+            except ValueError:
+                continue
+    return None
+
+
 class VaultTransactionFailed(VaultFlowError):  # noqa: N818
     """One of vault deposit/redeem transactions reverted."""
 

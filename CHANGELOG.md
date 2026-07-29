@@ -1,5 +1,7 @@
 # 1.2
 
+- fix: Harden vault settlement diagnostics with canonical wrapped Gains redemption evidence, exact Ember operator preflights, cSigma daily pause detection and typed Morpho V2 redemption reverts (2026-07-29)
+
 - feat: Complete Anvil settlement for Ember direct payouts and Plutus role-gated redemptions, with terminal evidence, typed settlement failures and shared warm-fork coverage (2026-07-29)
 
 - feat: Export vault share-price provenance and add Lighter ownership, account snapshots and conservative net-flow metrics (2026-07-28)

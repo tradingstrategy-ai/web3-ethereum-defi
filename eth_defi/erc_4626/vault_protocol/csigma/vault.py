@@ -34,18 +34,8 @@ from eth_defi.vault.deposit_redeem import VaultDepositManager, VaultDepositManag
 
 logger = logging.getLogger(__name__)
 
-
-#: Minimal verified ``Pausable`` read for cSigma pools whose generic ERC-4626
-#: ABI does not include the inherited OpenZeppelin view.
-CSIGMA_PAUSED_ABI = [
-    {
-        "inputs": [],
-        "name": "paused",
-        "outputs": [{"internalType": "bool", "name": "", "type": "bool"}],
-        "stateMutability": "view",
-        "type": "function",
-    },
-]
+#: Seconds in cSigma's UTC day calculation.
+SECONDS_PER_DAY = 86_400
 
 
 #: cSigma V2 pool with verified synchronous ERC-4626 lifecycle support.
@@ -93,18 +83,18 @@ class CsigmaVault(ERC4626Vault):
 
     @cached_property
     def vault_contract(self) -> Contract:
-        """Bind cSuperior's verified implementation ABI to its proxy address.
+        """Bind the verified implementation ABI to known V2 pool proxies.
 
         The generic ERC-4626 interface omits cSigma custom errors and the
-        queue-state methods required by the capacity preflight. The exact V2
-        deployment therefore uses its verified implementation ABI while other
+        queue and pause-state methods required by protocol preflights. Known V2
+        deployments therefore use the verified implementation ABI while other
         cSigma deployments retain the generic binding.
 
         :return:
-            Verified cSigma V2 contract for cSuperior, otherwise the generic
-            ERC-4626 binding.
+            Verified cSigma V2 contract for known synchronous pools, otherwise
+            the generic ERC-4626 binding.
         """
-        if self.chain_id == CSIGMA_V2_POOL_CHAIN_ID and self.address.lower() == CSIGMA_V2_POOL_ADDRESS:
+        if self.chain_id == CSIGMA_V2_POOL_CHAIN_ID and self.address.lower() in CSIGMA_SYNCHRONOUS_POOL_ADDRESSES:
             return get_deployed_contract(self.web3, "csigma/CsigmaV2Pool.json", self.address)
         return super().vault_contract
 
@@ -197,19 +187,34 @@ class CsigmaVault(ERC4626Vault):
     def fetch_deposit_closed_reason(self) -> str | None:
         """Return a closure reason only when the cSigma pool is paused.
 
-        cSigma's verified pools inherit OpenZeppelin ``Pausable``. A pause is a
-        vault-wide temporary closure suitable for non-broadcast Guard
-        validation; an ordinary ``maxDeposit`` shortfall remains capacity and
-        never enters that path.
+        cSigma's verified V2 implementation inherits OpenZeppelin ``Pausable``
+        and enforces a separate configurable daily pause window. This mirrors
+        ``_requireNotInDefaultPauseWindow()`` from the `verified implementation
+        <https://etherscan.io/address/0xa5b7555775a33ca79818702f63b34b14dc9aec4d#code>`__,
+        including its inclusive, non-wrapping seconds-of-day comparison. Either
+        pause is suitable for non-broadcast Guard validation; an ordinary
+        ``maxDeposit`` shortfall remains capacity and never enters that path.
 
         :return:
             Pause reason, or ``None`` when the pool is not paused or the view
             cannot be read.
         """
-        paused_contract = self.web3.eth.contract(address=self.address, abi=CSIGMA_PAUSED_ABI)
+        if self.chain_id != CSIGMA_V2_POOL_CHAIN_ID or self.address.lower() not in CSIGMA_SYNCHRONOUS_POOL_ADDRESSES:
+            return None
+
+        pause_state_contract = self.vault_contract
         try:
-            if paused_contract.functions.paused().call():
-                return "cSigma deposits paused"
+            if pause_state_contract.functions.paused().call():
+                return "cSigma deposits paused by governance"
         except (BadFunctionCallOutput, ContractLogicError, ValueError):
             logger.debug("Could not read cSigma paused() state for %s", self.address)
+
+        try:
+            pause_start_time = int(pause_state_contract.functions.pauseStartTime().call())
+            pause_duration = int(pause_state_contract.functions.pauseDuration().call())
+            current_second = int(self.web3.eth.get_block("latest")["timestamp"]) % SECONDS_PER_DAY
+            if pause_start_time <= current_second <= pause_start_time + pause_duration:
+                return "cSigma deposits paused during daily window"
+        except (BadFunctionCallOutput, ContractLogicError, ValueError):
+            logger.debug("Could not read cSigma daily pause window for %s", self.address)
         return None
