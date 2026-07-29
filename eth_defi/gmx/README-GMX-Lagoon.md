@@ -399,7 +399,35 @@ Using the wrong USDC variant causes `"Not a valid collateral for selected market
 
 ### GMX contract addresses
 
-Testnet contract addresses are fetched via `get_contract_addresses("arbitrum_sepolia")` from the hardcoded registry in `eth_defi/gmx/contracts.py` (not fetched from the GMX API like mainnet).
+All contract addresses resolve through `get_contract_addresses(chain)` in `eth_defi/gmx/contracts.py`, and all of them are **pinned** — nothing is fetched from GitHub on the order path.
+
+- **Mainnet** (`arbitrum`, `avalanche`) resolves from `PINNED_CONTRACTS`, keyed by GMX release. The default is `GMX_DEFAULT_CONTRACT_RELEASE` (`v2.2c`).
+- **Testnet** (`arbitrum_sepolia`) resolves from the static `NETWORK_CONTRACTS` registry and is not release-pinned — it has a single known deployment.
+
+Pinning exists because the guard enforces a fixed address allowlist while GMX rotates its `ExchangeRouter` between releases. Addresses used to be fetched per order from the `updates` branch of `gmx-io/gmx-synthetics`, falling back to `main`. That meant the router a live bot traded through could change because of an upstream push — or flip back to the previous release when GitHub returned HTTP 429. When GMX shipped v2.2c, the resolved router moved to an address the guard did not allow and **every order, including exits, reverted with `Target not allowed`**.
+
+To roll back to a previous release without a code change, or to follow GMX's published addresses live:
+
+```shell
+export GMX_CONTRACT_RELEASE=v2.2b      # any key of PINNED_CONTRACTS
+export GMX_CONTRACT_RELEASE=remote     # live resolution, cached for 1h
+```
+
+Whenever GMX rotates the router, whitelist the new address on the guard **before** moving the pin:
+
+```python
+from eth_defi.gmx.contracts import get_contract_addresses
+from eth_defi.gmx.whitelist import assert_gmx_router_whitelisted
+
+addresses = get_contract_addresses("arbitrum")
+assert_gmx_router_whitelisted(
+    guard,
+    addresses.exchangerouter,
+    order_vault=addresses.ordervault,
+)
+```
+
+Call `assert_gmx_router_whitelisted()` at startup so a mismatch fails immediately with one clear error, instead of being discovered by broadcasting a reverting transaction once per order.
 
 ## Test coverage
 
