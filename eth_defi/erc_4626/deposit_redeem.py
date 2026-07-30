@@ -366,13 +366,14 @@ class ERC4626DepositManager(VaultDepositManager):
     ) -> DepositRedeemEventAnalysis | DepositRedeemEventFailure:
         """Analyse a mined ERC-4626 deposit or guarded SimpleVault wrapper.
 
-        A ticket identifies an expected SimpleVault wrapper by address. The
-        event analyser still filters events by the underlying vault address.
+        A ticket permits a settlement call through a non-vault wrapper, such
+        as a SimpleVault Safe or its module. The event analyser still filters
+        events by the underlying vault address.
 
         :param claim_tx_hash:
             Mined deposit transaction hash.
         :param deposit_ticket:
-            Optional ticket whose owner identifies a guarded wrapper.
+            Optional ticket for a guarded non-vault call.
         :return:
             Decoded executed deposit quantities or a revert description.
         """
@@ -394,7 +395,7 @@ class ERC4626DepositManager(VaultDepositManager):
         :param claim_tx_hash:
             Mined deposit transaction hash.
         :param deposit_ticket:
-            Optional ticket whose owner identifies a guarded wrapper.
+            Optional ticket for a guarded non-vault call.
         :param deposit_event_signature:
             Solidity event signature when the vault overloads ``Deposit``.
         :return:
@@ -403,7 +404,7 @@ class ERC4626DepositManager(VaultDepositManager):
         vault = self.vault
         tx = vault.web3.eth.get_transaction(claim_tx_hash)
         receipt = vault.web3.eth.get_transaction_receipt(claim_tx_hash)
-        guarded_call = deposit_ticket is not None and tx["to"].lower() == deposit_ticket.owner.lower()
+        guarded_call = deposit_ticket is not None and tx["to"].lower() != vault.address.lower()
         analysis = analyse_4626_flow_transaction(
             vault=vault,
             tx_hash=claim_tx_hash,
@@ -444,13 +445,14 @@ class ERC4626DepositManager(VaultDepositManager):
     ) -> DepositRedeemEventAnalysis | DepositRedeemEventFailure:
         """Analyse a mined ERC-4626 redemption or guarded SimpleVault wrapper.
 
-        A ticket identifies the wrapper only for the transaction-target check;
-        the decoded ``Withdraw`` event must still originate from this vault.
+        A ticket permits a non-vault transaction target for a guarded
+        settlement; the decoded ``Withdraw`` event must still originate from
+        this vault.
 
         :param claim_tx_hash:
             Mined redemption transaction hash.
         :param redemption_ticket:
-            Optional ticket whose owner identifies a guarded wrapper.
+            Optional ticket for a guarded non-vault call.
         :return:
             Decoded executed redemption quantities or a revert description.
         """
@@ -481,7 +483,7 @@ class ERC4626DepositManager(VaultDepositManager):
         vault = self.vault
         tx = vault.web3.eth.get_transaction(claim_tx_hash)
         receipt = vault.web3.eth.get_transaction_receipt(claim_tx_hash)
-        guarded_call = redemption_ticket is not None and tx["to"].lower() == redemption_ticket.owner.lower()
+        guarded_call = redemption_ticket is not None and tx["to"].lower() != vault.address.lower()
         analysis = analyse_4626_flow_transaction(
             vault=vault,
             tx_hash=claim_tx_hash,

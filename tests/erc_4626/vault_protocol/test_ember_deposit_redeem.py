@@ -14,13 +14,13 @@ from eth_defi.abi import get_topic_signature_from_event
 from eth_defi.erc_4626.classification import create_vault_instance_autodetect
 from eth_defi.erc_4626.vault_protocol.ember.deposit_redeem import EmberDepositManager, EmberRedemptionTicket
 from eth_defi.erc_4626.vault_protocol.ember.vault import EmberVault
-from eth_defi.provider.anvil import AnvilLaunch
+from eth_defi.provider.anvil import AnvilLaunch, fund_erc20_on_anvil
 from eth_defi.provider.multi_provider import create_multi_provider_web3
 from eth_defi.testing.anvil_fork_pool import AnvilForkPool
 from eth_defi.testing.evm_snapshot_fixture import evm_snapshot_revert
 from eth_defi.token import USDC_WHALE, TokenDetails, fetch_erc20_details
 from eth_defi.trace import assert_transaction_success_with_explanation
-from eth_defi.vault.deposit_redeem import AsyncVaultRequestStatus, VaultFlowUnavailable
+from eth_defi.vault.deposit_redeem import AsyncVaultRequestStatus, UnsupportedVaultSimulation, VaultFlowUnavailable
 
 JSON_RPC_ETHEREUM = os.environ.get("JSON_RPC_ETHEREUM")
 EMBER_VAULT = HexAddress(HexStr("0xf3190A3ECC109F88e7947b849b281918c798A0C4"))
@@ -157,6 +157,14 @@ def test_ember_deposit_redeem_lifecycle(web3: Web3, vault: EmberVault, usdc: Tok
     # 4. Ember's configured operator pays directly rather than marking the
     # request claimable. The result must carry the matching event and a
     # positive USDC balance delta before it is terminal success.
+    # Set up a deterministic queue-liquidity shortfall: strict fork simulation
+    # must refuse it, while the default Anvil-only driver transparently tops up
+    # both verified settlement sources to prove the operator-processing mechanism.
+    fund_erc20_on_anvil(web3, usdc.address, vault.address, 0)
+    with pytest.raises(UnsupportedVaultSimulation) as exc_info:
+        manager.force_settle(ticket, ignore_liquidity=False)
+    assert exc_info.value.unsupported_reason == "ember_settlement_insufficient_liquidity"
+
     usdc_before = usdc.fetch_raw_balance_of(owner)
     settlement = manager.force_settle(ticket)
     assert settlement.status_before is AsyncVaultRequestStatus.pending
@@ -166,6 +174,8 @@ def test_ember_deposit_redeem_lifecycle(web3: Web3, vault: EmberVault, usdc: Tok
     assert settlement.direct_payout_evidence.receiver == owner
     assert settlement.direct_payout_evidence.event_name == "RequestProcessed"
     assert settlement.direct_payout_evidence.raw_balance_after > settlement.direct_payout_evidence.raw_balance_before
+    assert settlement.synthetic_assets_injected_raw > 0
+    assert settlement.liquidity_constraints_ignored is True
     assert settlement.is_terminal_success() is True
     assert usdc.fetch_raw_balance_of(owner) > usdc_before
     assert manager.get_redemption_request_status(ticket) is AsyncVaultRequestStatus.none

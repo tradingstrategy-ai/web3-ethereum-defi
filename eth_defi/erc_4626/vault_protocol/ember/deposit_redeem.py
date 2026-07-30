@@ -7,6 +7,7 @@ contracts <https://github.com/ember-protocol/Ember-Vaults-EVM>`__.
 """
 
 import datetime
+import logging
 from collections.abc import Iterator
 from dataclasses import dataclass
 from decimal import Decimal
@@ -23,7 +24,7 @@ from web3.exceptions import ContractLogicError
 from eth_defi.abi import ZERO_ADDRESS_STR, get_topic_signature_from_event
 from eth_defi.erc_4626.deposit_redeem import ERC4626DepositManager, ERC4626DepositRequest
 from eth_defi.erc_4626.flow import deposit_4626
-from eth_defi.provider.anvil import is_anvil, make_anvil_custom_rpc_request
+from eth_defi.provider.anvil import fund_erc20_on_anvil, is_anvil, make_anvil_custom_rpc_request
 from eth_defi.timestamp import get_block_timestamp
 from eth_defi.trace import assert_transaction_success_with_explanation
 from eth_defi.vault.deposit_redeem import (
@@ -56,6 +57,14 @@ if TYPE_CHECKING:
 
 #: ``InsufficientBalance()`` from Ember's operator withdrawal processor.
 EMBER_INSUFFICIENT_BALANCE_SELECTOR = HexBytes("0xf4d678b8")
+
+
+#: Bound Anvil-only top-ups when a deployed processor needs more than the
+#: quoted FIFO withdrawal prefix.
+EMBER_LIQUIDITY_TOP_UP_MAX_ATTEMPTS = 8
+
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass(slots=True)
@@ -487,7 +496,7 @@ class EmberDepositManager(ERC4626DepositManager):
         ticket: DepositTicket | RedemptionTicket | None,
         *,
         mock: object | None = None,
-        ignore_liquidity: bool = False,
+        ignore_liquidity: bool = True,
     ) -> VaultForcedSettlementResult:
         """Process an Ember redemption through its configured Anvil operator.
 
@@ -504,8 +513,10 @@ class EmberDepositManager(ERC4626DepositManager):
             GuardV0 lifecycle tests. Its payout still needs the same terminal
             event and balance-delta evidence as a fork settlement.
         :param ignore_liquidity:
-            Unsupported because Ember's mock models operator processing rather
-            than a redeemable-liquidity preflight.
+            On an Anvil fork, permit a synthetic denomination-token top-up for
+            the settlement sources when the FIFO queue prefix cannot otherwise
+            be paid. Defaults to ``True`` for simulation. Pass ``False`` to
+            require the real balances.
         :return:
             Synchronous no-op or direct-payout terminal settlement result.
         :raise UnsupportedVaultSimulation:
@@ -514,9 +525,6 @@ class EmberDepositManager(ERC4626DepositManager):
             operator transaction does not prove this ticket received a direct
             payout.
         """
-        if ignore_liquidity:
-            return super().force_settle(ticket, mock=mock, ignore_liquidity=True)
-
         if ticket is None:
             return create_synchronous_settlement_result()
 
@@ -564,26 +572,36 @@ class EmberDepositManager(ERC4626DepositManager):
 
         pending_index = self.fetch_pending_withdrawal_index(ticket)
         denomination_token = self.vault.denomination_token
+        synthetic_injected_raw = self._provision_settlement_liquidity(
+            operator,
+            pending_index,
+            ignore_liquidity=ignore_liquidity,
+        )
         process_withdrawals = self.vault.vault_contract.functions.processWithdrawalRequests(pending_index + 1)
-        try:
-            process_withdrawals.call({"from": operator})
-        except (ContractLogicError, ValueError) as error:
-            revert_data = extract_revert_data(error)
-            if revert_data is None or revert_data[:4] != EMBER_INSUFFICIENT_BALANCE_SELECTOR:
-                raise UnsupportedVaultSimulation(
-                    f"Ember operator preflight reverted for request {ticket.get_request_id()}: {error}",
-                    unsupported_reason="ember_operator_processing_not_reproducible",
-                    protocol=self.vault.get_protocol_name(),
-                    vault_address=self.vault.address,
-                    direction="redeem",
-                ) from error
-            raise UnsupportedVaultSimulation(
-                f"Ember operator lacks denomination-token liquidity to process queue through request {ticket.get_request_id()}",
-                unsupported_reason="ember_operator_insufficient_liquidity",
-                protocol=self.vault.get_protocol_name(),
-                vault_address=self.vault.address,
-                direction="redeem",
-            ) from error
+        for attempt in range(EMBER_LIQUIDITY_TOP_UP_MAX_ATTEMPTS + 1):
+            try:
+                process_withdrawals.call({"from": operator})
+                break
+            except (ContractLogicError, ValueError) as error:
+                revert_data = extract_revert_data(error)
+                if revert_data is None or revert_data[:4] != EMBER_INSUFFICIENT_BALANCE_SELECTOR:
+                    raise UnsupportedVaultSimulation(
+                        f"Ember operator preflight reverted for request {ticket.get_request_id()}: {error}",
+                        unsupported_reason="ember_operator_processing_not_reproducible",
+                        protocol=self.vault.get_protocol_name(),
+                        vault_address=self.vault.address,
+                        direction="redeem",
+                    ) from error
+                if not ignore_liquidity or attempt == EMBER_LIQUIDITY_TOP_UP_MAX_ATTEMPTS:
+                    raise UnsupportedVaultSimulation(
+                        f"Ember settlement still lacks denomination-token liquidity to process queue through request {ticket.get_request_id()}",
+                        unsupported_reason="ember_settlement_insufficient_liquidity",
+                        protocol=self.vault.get_protocol_name(),
+                        vault_address=self.vault.address,
+                        direction="redeem",
+                    ) from error
+
+                synthetic_injected_raw += self._top_up_settlement_sources(operator)
 
         balance_before = denomination_token.fetch_raw_balance_of(ticket.to)
         make_anvil_custom_rpc_request(self.web3, "anvil_impersonateAccount", [operator])
@@ -594,7 +612,99 @@ class EmberDepositManager(ERC4626DepositManager):
         finally:
             make_anvil_custom_rpc_request(self.web3, "anvil_stopImpersonatingAccount", [operator])
 
-        return self._create_direct_payout_result(ticket, status_before, tx_hash, balance_before=balance_before)
+        result = self._create_direct_payout_result(ticket, status_before, tx_hash, balance_before=balance_before)
+        return VaultForcedSettlementResult(
+            ticket=result.ticket,
+            settlement_required=result.settlement_required,
+            status_before=result.status_before,
+            status_after=result.status_after,
+            transaction_hashes=result.transaction_hashes,
+            synthetic_assets_injected_raw=synthetic_injected_raw,
+            liquidity_constraints_ignored=synthetic_injected_raw > 0,
+            direct_payout_evidence=result.direct_payout_evidence,
+        )
+
+    def _provision_settlement_liquidity(
+        self,
+        operator: HexAddress,
+        pending_index: int,
+        *,
+        ignore_liquidity: bool,
+    ) -> int:
+        """Provision the Ember queue's possible token sources on Anvil.
+
+        ``processWithdrawalRequests(n)`` processes every request from the queue
+        head through ``n - 1``. The public queue data does not identify the
+        balance debited by every deployed processor, so simulation provisions
+        the vault and its verified operator without claiming live solvency.
+        :param pending_index:
+            Zero-based index of the selected request in the global queue.
+        :param ignore_liquidity:
+            Whether an Anvil-only synthetic top-up may cover the shortfall.
+        :return:
+            Raw denomination-token amount injected into the vault and operator.
+        :raise UnsupportedVaultSimulation:
+            If strict mode observes an insufficient source balance.
+        """
+        assert is_anvil(self.web3), "Settlement provisioning is Anvil-only"
+        pending_requests = self.vault.vault_contract.functions
+        needed_raw = sum(int(pending_requests.getPendingWithdrawal(index).call()[3]) for index in range(pending_index + 1))
+        denomination_token = self.vault.denomination_token
+        addresses = (self.vault.address, operator)
+        balances = {address: denomination_token.fetch_raw_balance_of(address) for address in addresses}
+        insufficient = {address: balance for address, balance in balances.items() if balance < needed_raw}
+        if not insufficient:
+            return 0
+        if not ignore_liquidity:
+            raise UnsupportedVaultSimulation(
+                f"Ember settlement lacks strict fork liquidity: needs {needed_raw} raw {denomination_token.symbol}, balances={insufficient}",
+                unsupported_reason="ember_settlement_insufficient_liquidity",
+                protocol=self.vault.get_protocol_name(),
+                vault_address=self.vault.address,
+                direction="redeem",
+            )
+
+        injected_raw = self._top_up_settlement_sources(operator, target_raw=needed_raw)
+        logger.info(
+            "Ember fork settlement topped up vault %s and operator %s with %d raw %s for %d queued withdrawals",
+            self.vault.address,
+            operator,
+            injected_raw,
+            denomination_token.symbol,
+            pending_index + 1,
+        )
+        return injected_raw
+
+    def _top_up_settlement_sources(
+        self,
+        operator: HexAddress,
+        *,
+        target_raw: int | None = None,
+    ) -> int:
+        """Top up possible Ember settlement sources on an Anvil fork.
+
+        Without ``target_raw``, double each source's observed token balance.
+        """
+        denomination_token = self.vault.denomination_token
+        injected_raw = 0
+        for address in (self.vault.address, operator):
+            current_raw = denomination_token.fetch_raw_balance_of(address)
+            address_target_raw = target_raw if target_raw is not None else max(current_raw * 2, 1)
+            if current_raw < address_target_raw:
+                fund_erc20_on_anvil(self.web3, denomination_token.address, address, address_target_raw)
+                injected_raw += address_target_raw - current_raw
+
+        if target_raw is not None:
+            return injected_raw
+
+        logger.info(
+            "Ember fork settlement doubled vault %s and operator %s liquidity by %d raw %s",
+            self.vault.address,
+            operator,
+            injected_raw,
+            denomination_token.symbol,
+        )
+        return injected_raw
 
     def _force_settle_mock(self, ticket: EmberRedemptionTicket, mock: object) -> VaultForcedSettlementResult:
         """Settle a local Ember mock while retaining production terminal checks.

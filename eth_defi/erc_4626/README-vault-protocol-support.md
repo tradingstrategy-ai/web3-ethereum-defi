@@ -233,7 +233,7 @@ ABI exposes one:
 | --- | --- | --- |
 | Accountable/ERC-7540 | ``fulfillRedeemRequest(requestId)`` | ``RedeemClaimable`` |
 | Plutus Hedge | ``fulfillRedeem(requestId)`` | ``RedeemFulfilled`` followed by guarded ERC-4626 ``Withdraw`` on claim |
-| Ember | ``processWithdrawalRequests(numRequests)`` | ``RequestProcessed``; it pays the receiver directly and has no user claim |
+| Ember | ``processWithdrawalRequests(numRequests)`` | ``RequestProcessed`` plus the receiver's denomination-token balance delta; it pays directly and has no user claim |
 | Gains V1 | ``forceNewEpoch()`` | The published V1 ABI has no dedicated settlement event; assert the epoch transition and terminal guarded ``Withdraw`` |
 | Ostium V1.5 | ``tryNewSettlement()`` | ``AsyncDepositWithdrawExecuted`` followed by ``WithdrawClaimedV2`` |
 | NaraUSD+ | Advance the mock chain clock through the cooldown | Nara's published ABI has no cooldown-settlement event; assert the terminal ERC-20 ``Transfer`` emitted by ``unstake`` |
@@ -249,7 +249,7 @@ Ostium V1.5. The
 operator/keeper method and reports the resulting transaction hash. Production
 fork simulation continues to use the protocol-specific driver, or raises its
 published typed unsupported reason. Ember returns terminal status ``none``
-after mock processing because it pays the receiver rather than making a ticket
+after processing because it pays the receiver rather than making a ticket
 claimable.
 
 #### Liquidity-bypass simulations
@@ -273,6 +273,7 @@ The current opt-in drivers are deliberately narrow:
 | Protocol | What the option changes | Evidence it does not provide |
 | --- | --- | --- |
 | Lagoon | By default, tops up a short Safe on an Anvil fork before a settlement round. ``ignore_liquidity=False`` fails before settlement. | That the live Safe can pay queued redemptions. |
+| Ember | By default, tops up the vault and configured operator on an Anvil fork before queue processing. It may increase those balances again when the processor reveals a larger requirement. ``ignore_liquidity=False`` rejects the observed shortfall. | That the live vault or operator can pay the FIFO queue. |
 | YieldNest | Switches a dedicated ``MockYieldNestVault`` immediate ``maxRedeem`` gate on before the guarded standard ERC-4626 redeem call. | That a live YieldNest buffer exists, or that the maturity-aware queue is implemented. |
 
 cSigma, Morpho, IPOR and Forty Acres also have liquidity or capacity
@@ -280,8 +281,9 @@ preflights, but none has a safe settlement action that this option could
 represent. Their drivers continue to refuse unavailable capacity rather than
 silently suppressing the preflight. The asynchronous operator mocks (Gains,
 Ostium, Plutus, Ember, Accountable and Upshift) already contain the assets for
-their requested payout; their settlement boundaries are not a liquidity-bypass
-problem and therefore do not opt in.
+their requested payout. Their local settlement boundaries are not a
+liquidity-bypass problem. The Ember fork driver is separate because deployed
+queue processing can require unobservable funding outside the selected request.
 
 ### force_settle support
 
