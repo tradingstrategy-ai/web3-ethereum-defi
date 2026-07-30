@@ -170,7 +170,8 @@ VAULT_PROTOCOL_RISK_MATRIX = {
     "Altura": VaultTechnicalRisk.severe,
     "Spectra": VaultTechnicalRisk.low,
     "Gearbox": VaultTechnicalRisk.low,
-    "Mainstreet Finance": None,
+    # Mainstreet Finance vaults are blacklisted due to a reported scam.
+    "Mainstreet Finance": VaultTechnicalRisk.blacklisted,
     "YieldFi": None,
     "Resolv": None,
     "Curvance": None,

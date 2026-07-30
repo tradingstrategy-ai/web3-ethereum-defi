@@ -801,6 +801,10 @@ VAULT_FLAGS_AND_NOTES: dict[str, tuple[VaultFlag | None, str]] = {
     "0xe3ba8f17fe581dd473e6699cfad04502998a57c7": (VaultFlag.malicious, MALICIOUS_VAULT),
     # Mainstreet USDC (msUSDC, Morpho on Ethereum)
     "0xad755c6c31515aef8d2f830767d846774f7e9ea9": (VaultFlag.malicious, MALICIOUS_VAULT),
+    # Staked msUSD, Ethereum
+    "0x890a5122aa1da30fec4286de7904ff808f0bd74a": (None, MAINST_VAULT),
+    # Staked msUSD, Sonic
+    "0xc7990369da608c2f4903715e3bd22f2970536c29": (None, MAINST_VAULT),
     # Altura Vault Tokens (AVLT) on Hyperliquid
     "0xd0ee0cf300dfb598270cd7f4d0c6e0d8f6e13f29": (VaultFlag.controversial, CONTROVERSIAL_VAULT),
 }

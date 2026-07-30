@@ -95,6 +95,21 @@ def test_multicall_out_of_gas_vault_is_blacklisted(address: str) -> None:
     assert address in BROKEN_VAULT_CONTRACTS
 
 
+@pytest.mark.parametrize(
+    "address",
+    [
+        "0x890a5122aa1da30fec4286de7904ff808f0bd74a",
+        "0xc7990369da608c2f4903715e3bd22f2970536c29",
+    ],
+)
+def test_mainstreet_finance_vaults_are_blacklisted(address: str) -> None:
+    """Mainstreet Finance vaults are blacklisted due to a reported scam."""
+    assert get_vault_risk("Mainstreet Finance") == VaultTechnicalRisk.blacklisted
+    assert get_vault_risk("Mainstreet Finance", address) == VaultTechnicalRisk.blacklisted
+    assert get_vault_special_flags(address) == set()
+    assert get_notes(address) == "Main Street Market related products were wiped out in Oct 10th event https://x.com/Main_St_Finance/status/1976972055951147194"
+
+
 def test_old_mainnet_out_of_gas_contract_is_skipped_by_multicall_blacklist() -> None:
     """Old mainnet contracts that poison Multicall3 batches are skipped."""
     address = "0xffaa9f9aa5e4361f552bada90dcacdd08e5b41eb"
