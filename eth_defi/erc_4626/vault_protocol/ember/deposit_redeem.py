@@ -909,6 +909,14 @@ class EmberDepositManager(ERC4626DepositManager):
 
         args = matches[0]["args"]
         self._validate_processed_event(ticket, args)
+        if args["skipped"] or args["cancelled"]:
+            raise UnsupportedVaultSimulation(
+                f"Ember request {ticket.get_request_id()} was processed without a direct payout",
+                unsupported_reason="ember_direct_payout_not_proven",
+                protocol=self.vault.get_protocol_name(),
+                vault_address=self.vault.address,
+                direction="redeem",
+            )
         return HexBytes(matches[0]["transactionHash"])
 
     def analyse_deposit(
