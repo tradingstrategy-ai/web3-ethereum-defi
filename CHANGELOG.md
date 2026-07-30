@@ -1,5 +1,7 @@
 # 1.2
 
+- feat: Add `extract_revert_data()` for provider-independent recovery of ABI-encoded custom errors from reverted `eth_call` simulations (2026-07-30)
+
 - feat: Read complete Accountable fee-manager terms and effective vault deposit minimums onchain across legacy and current contract versions (2026-07-28)
 
 - feat: Add Anvil-only closed-vault GuardV0 deposit-calldata validation for globally closed ERC-4626 and Yearn vaults, D2 funding windows and paused cSigma pools, with structured closure/call evidence; preserve account admission while keeping approvals and call ordering out of non-broadcast simulation, and record explicit share/cash balance deltas for successful guarded vault probes (2026-07-27)
