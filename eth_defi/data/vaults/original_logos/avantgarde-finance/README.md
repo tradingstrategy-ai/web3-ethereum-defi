@@ -1,8 +1,17 @@
 # Avantgarde Finance logo sources
 
-Official Avantgarde Finance logo assets were extracted from the Avantgarde Finance homepage.
+Avantgarde Finance's previous curator artwork was a wordmark.  The curator
+listing now uses the square, icon-only Avantgarde mark from the organisation's
+official website.
 
-- Homepage: https://avantgarde.finance
-- Dark logo: https://cdn.prod.website-files.com/646ccfaa5d34680ce01d83cf/685d1be1a27015217cb52158_Brand-Dark.svg
-- Light (white) logo: https://cdn.prod.website-files.com/646ccfaa5d34680ce01d83cf/64894ea7c0a2086ed3d3695e_Brand%20white.svg
-- Generic (black) logo: https://cdn.prod.website-files.com/646ccfaa5d34680ce01d83cf/648169031ed92e6c47f3cc2b_Brand%20black.svg
+- Homepage: <https://avantgarde.finance/>
+- Official icon source: [Logo2.svg](https://cdn.prod.website-files.com/646ccfaa5d34680ce01d83cf/6493d07d9df077932ec6b14d_Logo2.svg)
+- Source retrieved: 2026-07-30
+- `avantgarde-finance.generic.svg` preserves the official teal mark (`#007A87`).
+- `avantgarde-finance.dark.svg` and `avantgarde-finance.light.svg` are the same
+  official vector mark recoloured black and white for the repository's theme
+  conventions; no text/wordmark is included.
+
+The three 256×256 transparent PNG variants in
+`eth_defi/data/vaults/formatted_logos/avantgarde-finance/` were generated with
+`scripts/logos/post-process-logo.py`.

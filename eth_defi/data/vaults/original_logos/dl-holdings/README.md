@@ -1,8 +1,16 @@
-# DL Holdings logo source
+# DL Holdings logo sources
 
-- `dl-holdings.generic.svg` is the DL Holdings partner logo displayed by the
-  official Asseto product API.
+- **Project:** DL Holdings Group
+- **Official website:** <https://www.dl-holdings.com/en/>
+- **Compact brandmark source:** <https://www.dl-holdings.com/images/general/favicon.ico>
+- **Downloaded:** 2026-07-30
 
-Source: <https://static.asseto.finance/asseto/2026-03-19/dh6vej2bje9qdnvcrx.svg>
+The official site favicon is a 48×48 ICO containing only DL Holdings' gold
+square emblem with the white interlocking mark. It is the site's compact
+brandmark and is appropriate for the small curator-logo slot. The existing
+`dl-holdings.generic.svg` Asseto partner asset is a wordmark lock-up and is
+retained for provenance, but is no longer used for the formatted outputs.
 
-Downloaded on 2026-07-16.
+The favicon was processed with `scripts/logos/post-process-logo.py` to create
+transparent 256×256 `generic.png`, `light.png`, and `dark.png` files under
+`eth_defi/data/vaults/formatted_logos/dl-holdings/`.
