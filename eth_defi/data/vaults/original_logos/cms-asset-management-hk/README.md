@@ -1,8 +1,8 @@
-# CMS Asset Management (HK) logo source
+# CMS Asset Management logo source
 
-- `cms-asset-management-hk.generic.svg` is the CMS Asset Management (HK)
-  partner logo displayed by the official Asseto product API.
+- `cms-asset-management-hk.generic.svg` is the CMS Asset Management wordmark
+  displayed as the underlying manager for Asseto's CASH+ and CASHa+ products.
 
-Source: <https://static.asseto.finance/asseto/2026-02-01/dg392jckx5iud6zpxg.svg>
+Source: <https://static.asseto.finance/asseto/2026-03-18/dh5skcgh7ac8qslxpr.svg>
 
-Downloaded on 2026-07-16.
+Downloaded on 2026-07-30.
