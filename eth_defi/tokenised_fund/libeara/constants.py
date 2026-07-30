@@ -45,7 +45,7 @@ CUMIU_ETHEREUM = LibearaProduct(
     "CUMIU",
     "ChinaAMC USD Digital Money Market Fund Class I USD",
     "US-dollar digital money-market strategy.",
-    "China Asset Management (Hong Kong)",
+    "China Asset Management",
     "chinaamc-hong-kong",
     "https://www.chinaamc.com.hk/product/chinaamc-usd-digital-money-market-fund-listedclass/",
     23_038_326,

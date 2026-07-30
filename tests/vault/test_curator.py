@@ -74,7 +74,9 @@ def test_tokenised_fund_curator_metadata_has_logos() -> None:
 
     slugs = (
         "bosera-asset-management-international",
+        "changfeng-asset-management",
         "chinaamc-hong-kong",
+        "cms-asset-management-hk",
         "cncb-capital",
         "epoch-rwa",
         "fidelity",
@@ -588,6 +590,10 @@ def test_identify_asseto_curator_by_priority_partner_role() -> None:
     """Asseto investment manager/advisor names resolve through curator YAML."""
 
     assert identify_curator(1, "", "", "0x0", "asseto", "CMS Asset Management (HK)") == "cms-asset-management-hk"
+    assert get_curator_name("cms-asset-management-hk") == "CMS Asset Management"
+    assert get_curator_name("chinaamc-hong-kong") == "China Asset Management"
+    assert identify_curator(1, "", "", "0x0", "asseto", "Changfeng Asset Management Limited") == "changfeng-asset-management"
+    assert get_curator_name("changfeng-asset-management") == "Changfeng Asset Management"
     assert identify_curator(1, "", "", "0x0", "asseto", "DL Holdings") == "dl-holdings"
     assert identify_curator(1, "", "", "0x0", "asseto", "Four Seasons") == "four-seasons"
     assert identify_curator(1, "", "", "0x0", "asseto", "DFZQ / Orient Securities International") == "dfzq"
