@@ -273,7 +273,7 @@ The current opt-in drivers are deliberately narrow:
 | Protocol | What the option changes | Evidence it does not provide |
 | --- | --- | --- |
 | Lagoon | By default, tops up a short Safe on an Anvil fork before a settlement round. ``ignore_liquidity=False`` fails before settlement. | That the live Safe can pay queued redemptions. |
-| Ember | By default, tops up the vault and configured operator on an Anvil fork before queue processing. It may increase those balances again when the processor reveals a larger requirement. ``ignore_liquidity=False`` rejects the observed shortfall. | That the live vault or operator can pay the FIFO queue. |
+| Ember | By default, tops up the vault and configured operator on an Anvil fork before queue processing. On a later insufficient-balance revert, it may increase those balances again. ``ignore_liquidity=False`` rejects an observed fork shortfall. | That the live vault or operator can pay the FIFO queue. |
 | YieldNest | Switches a dedicated ``MockYieldNestVault`` immediate ``maxRedeem`` gate on before the guarded standard ERC-4626 redeem call. | That a live YieldNest buffer exists, or that the maturity-aware queue is implemented. |
 
 cSigma, Morpho, IPOR and Forty Acres also have liquidity or capacity

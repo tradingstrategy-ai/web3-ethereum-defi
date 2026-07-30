@@ -161,6 +161,9 @@ def test_ember_deposit_redeem_lifecycle(web3: Web3, vault: EmberVault, usdc: Tok
     # must refuse it, while the default Anvil-only driver transparently tops up
     # both verified settlement sources to prove the operator-processing mechanism.
     fund_erc20_on_anvil(web3, usdc.address, vault.address, 0)
+    operator = vault.vault_contract.functions.roles().call()[1]
+    pending_raw_amount = sum(int(vault.vault_contract.functions.getPendingWithdrawal(index).call()[3]) for index in range(manager.fetch_pending_withdrawal_index(ticket) + 1))
+    expected_synthetic_raw = sum(max(pending_raw_amount - usdc.fetch_raw_balance_of(address), 0) for address in (vault.address, operator))
     with pytest.raises(UnsupportedVaultSimulation) as exc_info:
         manager.force_settle(ticket, ignore_liquidity=False)
     assert exc_info.value.unsupported_reason == "ember_settlement_insufficient_liquidity"
@@ -174,7 +177,7 @@ def test_ember_deposit_redeem_lifecycle(web3: Web3, vault: EmberVault, usdc: Tok
     assert settlement.direct_payout_evidence.receiver == owner
     assert settlement.direct_payout_evidence.event_name == "RequestProcessed"
     assert settlement.direct_payout_evidence.raw_balance_after > settlement.direct_payout_evidence.raw_balance_before
-    assert settlement.synthetic_assets_injected_raw > 0
+    assert settlement.synthetic_assets_injected_raw == expected_synthetic_raw
     assert settlement.liquidity_constraints_ignored is True
     assert settlement.is_terminal_success() is True
     assert usdc.fetch_raw_balance_of(owner) > usdc_before

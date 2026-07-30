@@ -9,7 +9,7 @@ contracts <https://github.com/ember-protocol/Ember-Vaults-EVM>`__.
 import datetime
 import logging
 from collections.abc import Iterator
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from decimal import Decimal
 from typing import TYPE_CHECKING
 
@@ -606,22 +606,20 @@ class EmberDepositManager(ERC4626DepositManager):
         balance_before = denomination_token.fetch_raw_balance_of(ticket.to)
         make_anvil_custom_rpc_request(self.web3, "anvil_impersonateAccount", [operator])
         try:
-            make_anvil_custom_rpc_request(self.web3, "anvil_setBalance", [operator, hex(10**18)])
-            tx_hash = HexBytes(process_withdrawals.transact({"from": operator, "gas": 1_000_000}))
+            operator_balance = self.web3.eth.get_balance(operator)
+            if operator_balance < 10**18:
+                make_anvil_custom_rpc_request(self.web3, "anvil_setBalance", [operator, hex(10**18)])
+            gas_limit = process_withdrawals.estimate_gas({"from": operator}) * 12 // 10
+            tx_hash = HexBytes(process_withdrawals.transact({"from": operator, "gas": gas_limit}))
             assert_transaction_success_with_explanation(self.web3, tx_hash)
         finally:
             make_anvil_custom_rpc_request(self.web3, "anvil_stopImpersonatingAccount", [operator])
 
         result = self._create_direct_payout_result(ticket, status_before, tx_hash, balance_before=balance_before)
-        return VaultForcedSettlementResult(
-            ticket=result.ticket,
-            settlement_required=result.settlement_required,
-            status_before=result.status_before,
-            status_after=result.status_after,
-            transaction_hashes=result.transaction_hashes,
+        return replace(
+            result,
             synthetic_assets_injected_raw=synthetic_injected_raw,
             liquidity_constraints_ignored=synthetic_injected_raw > 0,
-            direct_payout_evidence=result.direct_payout_evidence,
         )
 
     def _provision_settlement_liquidity(
@@ -637,6 +635,9 @@ class EmberDepositManager(ERC4626DepositManager):
         head through ``n - 1``. The public queue data does not identify the
         balance debited by every deployed processor, so simulation provisions
         the vault and its verified operator without claiming live solvency.
+
+        :param operator:
+            Configured Ember withdrawal operator.
         :param pending_index:
             Zero-based index of the selected request in the global queue.
         :param ignore_liquidity:
@@ -647,8 +648,9 @@ class EmberDepositManager(ERC4626DepositManager):
             If strict mode observes an insufficient source balance.
         """
         assert is_anvil(self.web3), "Settlement provisioning is Anvil-only"
-        pending_requests = self.vault.vault_contract.functions
-        needed_raw = sum(int(pending_requests.getPendingWithdrawal(index).call()[3]) for index in range(pending_index + 1))
+        functions = self.vault.vault_contract.functions
+        # getPendingWithdrawal()[3] is the raw denomination amount.
+        needed_raw = sum(int(functions.getPendingWithdrawal(index).call()[3]) for index in range(pending_index + 1))
         denomination_token = self.vault.denomination_token
         addresses = (self.vault.address, operator)
         balances = {address: denomination_token.fetch_raw_balance_of(address) for address in addresses}
@@ -656,6 +658,8 @@ class EmberDepositManager(ERC4626DepositManager):
         if not insufficient:
             return 0
         if not ignore_liquidity:
+            if max(balances.values()) >= needed_raw:
+                return 0
             raise UnsupportedVaultSimulation(
                 f"Ember settlement lacks strict fork liquidity: needs {needed_raw} raw {denomination_token.symbol}, balances={insufficient}",
                 unsupported_reason="ember_settlement_insufficient_liquidity",
@@ -684,6 +688,14 @@ class EmberDepositManager(ERC4626DepositManager):
         """Top up possible Ember settlement sources on an Anvil fork.
 
         Without ``target_raw``, double each source's observed token balance.
+
+        :param operator:
+            Configured Ember withdrawal operator.
+        :param target_raw:
+            Raw denomination-token balance required for each short source. When
+            omitted, double the current balance of each source.
+        :return:
+            Raw denomination-token amount written to the fork.
         """
         denomination_token = self.vault.denomination_token
         injected_raw = 0
