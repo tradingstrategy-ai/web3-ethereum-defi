@@ -134,6 +134,7 @@ def test_live_curators_with_verified_artwork_include_generic_logo() -> None:
     slugs = (
         "722-capital",
         "alpine",
+        "axis",
         "bizantine",
         "btcd-labs",
         "candle-effect",
