@@ -16,6 +16,7 @@ from eth_defi.cloudflare_r2 import (
     R2AccessDeniedError,
     R2ConflictError,
     R2HeadObjectRetry,
+    R2RetryableOperationError,
     calculate_bytes_digest,
     calculate_file_digest,
     copy_r2_object_daily_backup,
@@ -447,6 +448,21 @@ def test_fetch_r2_object_head_rejects_invalid_retry_policy(retry: R2HeadObjectRe
         )
 
     assert s3_client.head_call_counts == {}
+
+
+def test_r2_server_error_is_classified_as_retryable() -> None:
+    """R2 service failures should be distinguishable from permanent export errors."""
+    s3_client = FakeS3Client()
+    s3_client.head_exceptions["bucket", "core3.duckdb"] = ClientError(
+        {
+            "Error": {"Code": "InternalError", "Message": "Please try again"},
+            "ResponseMetadata": {"HTTPStatusCode": 500},
+        },
+        "HeadObject",
+    )
+
+    with pytest.raises(R2RetryableOperationError):
+        fetch_r2_object_head(s3_client, "bucket", "core3.duckdb")
 
 
 def test_upload_file_to_r2_continues_after_head_access_denied(tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
