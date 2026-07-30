@@ -169,14 +169,15 @@ def test_live_curators_with_verified_artwork_include_generic_logo() -> None:
     assert get_curator_available_logos("wstgbp")["generic"]
 
 
-def test_upshift_curator_brandmarks_are_visible_on_dark_background() -> None:
-    """Upshift curator brandmarks retain high-contrast pixels on dark surfaces."""
+def test_curator_brandmarks_are_visible_on_dark_background() -> None:
+    """Curator brandmarks retain high-contrast pixels on dark surfaces."""
 
     brandmark_slugs = (
         "alpine",
         "ergonia",
         "gamma-research",
         "hardcore-labs",
+        "hyperithm",
         "m1-capital",
         "monarq",
         "nemo",
