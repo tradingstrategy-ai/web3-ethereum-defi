@@ -202,6 +202,8 @@ VAULT_PROTOCOL_RISK_MATRIX = {
     "Yo": VaultTechnicalRisk.severe,
     # Frax - extensively audited, open source, well-established protocol
     "Frax": VaultTechnicalRisk.low,
+    # Axis's fully custodial offchain assets and trading positions are not transparently disclosed.
+    "Axis": VaultTechnicalRisk.severe,
     # Hyperdrive - unverified smart contracts, suffered $782k exploit in 2025
     "Hyperdrive": VaultTechnicalRisk.dangerous,
     # BaseVol - options protocol on Base, audited by FailSafe, Diamond proxy architecture
