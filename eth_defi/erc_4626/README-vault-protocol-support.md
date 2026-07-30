@@ -255,9 +255,13 @@ claimable.
 #### Liquidity-bypass simulations
 
 ``force_settle(..., ignore_liquidity=False)`` defaults to a real-liquidity
-simulation. A driver must refuse to report success when its settlement payer
-or immediate-redemption buffer is short. ``ignore_liquidity=True`` is an
-explicit Anvil-only test fixture, not a production capability and not a
+simulation for generic and non-Lagoon drivers. Lagoon defaults to synthetic
+Safe provisioning because ``settleDeposit`` always processes the whole shared
+redemption queue, including the simulated redemption and unrelated requests. A
+claimable synthetic result therefore proves settlement mechanics only. A caller
+requiring real Lagoon Safe liquidity must pass
+``ignore_liquidity=False`` explicitly. ``ignore_liquidity=True`` is an
+Anvil-only test fixture, not a production capability and not a
 request-construction override. It is allowed only for a manager with a tested
 driver and must set
 ``VaultForcedSettlementResult.liquidity_constraints_ignored``. A non-zero
@@ -268,7 +272,7 @@ The current opt-in drivers are deliberately narrow:
 
 | Protocol | What the option changes | Evidence it does not provide |
 | --- | --- | --- |
-| Lagoon | Tops up a short Safe on an Anvil fork before a settlement round. Without the option, the driver fails before settlement. | That the live Safe can pay queued redemptions. |
+| Lagoon | By default, tops up a short Safe on an Anvil fork before a settlement round. ``ignore_liquidity=False`` fails before settlement. | That the live Safe can pay queued redemptions. |
 | YieldNest | Switches a dedicated ``MockYieldNestVault`` immediate ``maxRedeem`` gate on before the guarded standard ERC-4626 redeem call. | That a live YieldNest buffer exists, or that the maturity-aware queue is implemented. |
 
 cSigma, Morpho, IPOR and Forty Acres also have liquidity or capacity

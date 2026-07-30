@@ -112,10 +112,11 @@ class LagoonDepositManager(GenericERC7540DepositManager):
     via :func:`~eth_defi.erc_4626.vault_protocol.lagoon.testing.force_lagoon_settle`.
     Because ``settleDeposit`` always triggers ``_settleRedeem``,
     :meth:`_provision_safe_for_settlement` first grants the Safe's missing standing
-    ``approve(vault, max)``. By default it rejects a Safe that is short of the
-    liquidity needed to pay every queued redemption before running settlement.
-    Only ``force_settle(..., ignore_liquidity=True)`` on Anvil tops the Safe up
-    with synthetic denomination tokens; the injected amount and the
+    ``approve(vault, max)``. It defaults to synthetic Safe provisioning because
+    every settlement processes the whole shared redemption queue, including the
+    simulated redemption when applicable. Call
+    ``force_settle(..., ignore_liquidity=False)`` to require real Safe liquidity.
+    The injected amount and the
     ``liquidity_constraints_ignored`` result flag disclose that a ``claimable``
     result proves settlement mechanics, not live solvency. Success requires
     the ticket to reach :attr:`AsyncVaultRequestStatus.claimable`; otherwise it raises
@@ -139,7 +140,7 @@ class LagoonDepositManager(GenericERC7540DepositManager):
         ticket: DepositTicket | RedemptionTicket | None,
         *,
         mock: object | None = None,
-        ignore_liquidity: bool = False,
+        ignore_liquidity: bool = True,
     ) -> VaultForcedSettlementResult:
         """Force one Lagoon settlement round on an Anvil fork.
 
@@ -153,8 +154,9 @@ class LagoonDepositManager(GenericERC7540DepositManager):
             use the existing real Anvil-fork driver without this argument.
         :param ignore_liquidity:
             On an Anvil fork only, permit the driver to top up a Safe that is
-            short of redemption assets. Defaults to ``False`` so a successful
-            settlement normally proves the fork had enough liquid assets.
+            short of redemption assets. Defaults to ``True`` because settlement
+            processes the shared redemption queue. Pass ``False`` to require
+            real Safe liquidity.
         :return:
             Before/after status and settlement transaction hashes.
         :raise UnsupportedVaultSimulation:
@@ -206,17 +208,8 @@ class LagoonDepositManager(GenericERC7540DepositManager):
             make_anvil_custom_rpc_request(self.web3, "anvil_impersonateAccount", [safe_address])
             make_anvil_custom_rpc_request(self.web3, "anvil_setBalance", [safe_address, hex(10**18)])
 
-            # WS1: provision the Safe BEFORE settlement. Lagoon's settleDeposit()
-            # always runs _settleRedeem() afterwards, which pays queued redemptions
-            # by pulling the denomination token FROM the Safe. On third-party
-            # deployments that leg fails two ways our own deploy script prevents in
-            # production (missing standing approval; Safe short of liquidity). This
-            # issues the missing approval and, only when explicitly requested,
-            # tops up the Safe, returning any synthetic amount injected so the
-            # result can flag it honestly. The
-            # provisioning must run for BOTH deposit and redemption tickets because
-            # _settleRedeem always executes after settleDeposit. See the helper for
-            # the full rationale.
+            # settleDeposit() always settles the shared redemption queue. Prepare
+            # its Safe allowance and, by default, its Anvil-only synthetic balance.
             liquidity_tx_hashes, synthetic_injected_raw = self._provision_safe_for_settlement(
                 safe_address,
                 ignore_liquidity=ignore_liquidity,
@@ -302,10 +295,11 @@ class LagoonDepositManager(GenericERC7540DepositManager):
         disclose it — a non-zero injection means a ``claimable`` result proves
         the settlement *mechanism*, NOT that the live vault is solvent.
 
-        **Correctness of the shortfall estimate.**
+        **Scope of the shortfall estimate.**
         :meth:`LagoonFlowManager.calculate_underlying_needed_for_redemptions`
         returns ``siloShareBalance * currentSharePrice`` — i.e. every pending
-        redemption (not just this ticket). ``force_lagoon_settle`` calls
+        redemption, including the selected redemption ticket when applicable.
+        ``force_lagoon_settle`` calls
         ``updateNewTotalAssets(current NAV)`` immediately before
         ``settleDeposit``, so the settled share price equals the current share
         price and this estimate matches ``convertToAssets()`` at settlement. A
@@ -318,8 +312,9 @@ class LagoonDepositManager(GenericERC7540DepositManager):
         :param safe_address:
             The vault Safe address, already impersonated by the caller.
         :param ignore_liquidity:
-            Whether an Anvil-only synthetic Safe top-up may cover an observed
-            redemption shortfall. ``False`` raises before settlement instead.
+            Whether an Anvil-only synthetic Safe top-up may cover the whole
+            redemption queue's observed shortfall. ``False`` raises before
+            settlement instead.
         :return:
             A ``(transaction_hashes, synthetic_assets_injected_raw)`` pair. The
             hashes are the approval (and any not-yet-mined provisioning) txs;
@@ -355,13 +350,12 @@ class LagoonDepositManager(GenericERC7540DepositManager):
         if needed_raw > 0:
             needed_raw += denomination_token.convert_to_raw(Decimal(1))
 
-        # Check liquidity before mutating approval state. With the default
-        # setting this fails before a partially successful settlement round can
-        # settle deposits while silently leaving a redemption pending.
+        # Strict mode fails before mutating approval state or running a partial
+        # settlement round that can settle deposits while leaving redemption pending.
         current_raw = denomination_token.fetch_raw_balance_of(safe_address)
         if needed_raw > current_raw and not ignore_liquidity:
             raise UnsupportedVaultSimulation(
-                f"Lagoon Safe {safe_address} lacks redemption liquidity for fork settlement: needs {needed_raw} raw {denomination_token.symbol}, has {current_raw}. Pass ignore_liquidity=True only for an explicitly synthetic Anvil simulation.",
+                f"Lagoon Safe {safe_address} lacks redemption liquidity for strict fork settlement: needs {needed_raw} raw {denomination_token.symbol}, has {current_raw}.",
                 unsupported_reason="lagoon_settlement_insufficient_liquidity",
                 protocol=self.vault.get_protocol_name(),
                 vault_address=self.vault.address,
