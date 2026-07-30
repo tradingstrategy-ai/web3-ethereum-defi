@@ -337,6 +337,7 @@ STABLECOIN_LIKE = set(
         "USD₮",
         "USDV",
         "USDX",
+        "USDx",
         "USDXL",
         "USDU",
         "USDai",

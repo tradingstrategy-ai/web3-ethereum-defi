@@ -1217,6 +1217,7 @@ def test_identify_vault_name_sweep_curators() -> None:
         ("euler", "HypurrFi Earn USDC"): "hypurrfi",
         ("lagoon-finance", "DAMM Stablecoin Fund"): "damm-capital",
         ("morpho", "August USDC"): "august-digital",
+        ("upshift", "Axis Origin USDx"): "axis",
     }
     for (protocol_slug, name), expected in cases.items():
         slug = identify_curator(
@@ -1233,3 +1234,19 @@ def test_identify_vault_name_sweep_curators() -> None:
 
     # 3. The calendar month must not be mistaken for August Digital
     assert identify_curator(1, "", "Prize imToken August Campaign", "0x0", "morpho") is None
+
+
+def test_identify_axis_from_upshift_strategist() -> None:
+    """Identify Axis from Upshift's strategist metadata for the Origin vault."""
+
+    assert (
+        identify_curator(
+            chain_id=1,
+            vault_token_symbol="ogUSDx",
+            vault_name="Axis Origin USDx",
+            vault_address="0xAD958C4c0c90bf0216e0f5472F074a9AB30f595F",
+            protocol_slug="upshift",
+            manager_name="Axis",
+        )
+        == "axis"
+    )
