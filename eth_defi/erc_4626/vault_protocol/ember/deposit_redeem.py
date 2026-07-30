@@ -658,8 +658,6 @@ class EmberDepositManager(ERC4626DepositManager):
         if not insufficient:
             return 0
         if not ignore_liquidity:
-            if max(balances.values()) >= needed_raw:
-                return 0
             raise UnsupportedVaultSimulation(
                 f"Ember settlement lacks strict fork liquidity: needs {needed_raw} raw {denomination_token.symbol}, balances={insufficient}",
                 unsupported_reason="ember_settlement_insufficient_liquidity",
