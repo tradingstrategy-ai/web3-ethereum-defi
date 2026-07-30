@@ -298,6 +298,17 @@ VAULT_SPECIFIC_RISK = {
     "0xdafeeae1fceec53d30a3534041121a7c1d3b7f9a": VaultTechnicalRisk.blacklisted,
     "0xf51ddfc0ecdf061f57ce4e2dd4aff2899ae0957c": VaultTechnicalRisk.blacklisted,
     "0x982cac08b77511b67c296a758668f4a4fe012746": VaultTechnicalRisk.blacklisted,
+    # Additional Rocket Markets Survivor Vaults discovered in a failing Monad
+    # historical scanner batch on 2026-07-28. At block 91,095,183 and again
+    # at the current head, totalAssets() and convertToAssets(uint256) revert
+    # with empty data, while asset(), totalSupply() and maxDeposit() succeed.
+    # Each vault's core four-call Multicall3 probe consumes about 8.15M gas;
+    # adding normal adjacent calls exhausts the provider limit and aborts the
+    # whole historical price batch with -32003 "out of gas". They are not
+    # usable generic ERC-4626 valuation sources.
+    "0x1462519131836e6eff76ccf7720c323604f380c7": VaultTechnicalRisk.blacklisted,
+    "0x2b1264bde2dccfa82a42e4c141094f9dede63537": VaultTechnicalRisk.blacklisted,
+    "0x1681f371c88b0655d32e61e83d398c75dcdfcd13": VaultTechnicalRisk.blacklisted,
 }
 
 
@@ -473,6 +484,13 @@ _BROKEN_VAULT_CONTRACTS = {
     # reduced failing batch of four addresses and was manually replayed with
     # JSON_RPC_MONAD at block 87,952,850.
     "0x982cAC08B77511b67C296a758668f4A4fE012746",
+    # Additional RKTSV/Monad contracts. Their totalAssets() and
+    # convertToAssets() calls revert at block 91,095,183 and current head;
+    # their four-call valuation probe needs about 8.15M gas in Multicall3 and
+    # poisons adjacent scanner calls with -32003 "out of gas".
+    "0x1462519131836e6eff76ccf7720c323604f380c7",
+    "0x2b1264bde2dccfa82a42e4c141094f9dede63537",
+    "0x1681f371c88b0655d32e61e83d398c75dcdfcd13",
     "0x5a8aFb250525aB8Fa85EF9a5f260Eb11B77a409a",  # Age old mainnet contract from 2017 (block 4,655,173) - burns all forwarded gas before reverting, poisoning the multicall probe batch with out-of-gas (-32003)
     "0x162428775A4C6c513FF8722B91D1aF45a9Caff41",  # Unverified old mainnet EtherDelta-style DEX from 2018 (block 4,934,650) - deposit/trade/withdraw methods, not a vault
     "0xd3F41DAC84594332E4fF3C7fd2242DeAF7857e79",  # HYPE Funding Yield (HFY) HyperEVM USDt0 vault - totalAssets() and convertToAssets() hit HyperCore SpotBalance precompile revert at block 39,542,844, poisoning Multicall3 scanner batches with out-of-gas (-32003)
