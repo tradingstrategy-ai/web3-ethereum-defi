@@ -37,6 +37,13 @@ R2_HTTP_STATUS_CONFLICT = 409
 #: Short access key IDs are left unmasked because masking would hide everything.
 R2_UNMASKED_ACCESS_KEY_ID_MAX_LENGTH = 8
 
+#: HTTP status codes for transient request failures outside the 5xx range.
+R2_RETRYABLE_HTTP_STATUS_CODES = frozenset((408, 429))
+
+#: Inclusive bounds for HTTP server-error status codes.
+R2_SERVER_ERROR_HTTP_STATUS_MIN = 500
+R2_SERVER_ERROR_HTTP_STATUS_MAX = 599
+
 
 @dataclass(slots=True)
 class R2SourceDigest:
@@ -127,6 +134,10 @@ R2_HEAD_OBJECT_RETRY = R2HeadObjectRetry()
 
 class R2OperationError(RuntimeError):
     """Raised when an R2 operation fails with enriched diagnostics."""
+
+
+class R2RetryableOperationError(R2OperationError):
+    """Raised when R2 has a transient failure that a later retry may resolve."""
 
 
 class R2AccessDeniedError(R2OperationError):
@@ -237,6 +248,8 @@ def _create_r2_operation_error(
         return R2ConflictError(" ".join(detail_lines))
 
     detail_lines.append(f"Original R2 error message: {error_message}")
+    if http_status in R2_RETRYABLE_HTTP_STATUS_CODES or (isinstance(http_status, int) and R2_SERVER_ERROR_HTTP_STATUS_MIN <= http_status <= R2_SERVER_ERROR_HTTP_STATUS_MAX):
+        return R2RetryableOperationError(" ".join(detail_lines))
     return R2OperationError(" ".join(detail_lines))
 
 

@@ -175,6 +175,13 @@ Run ruff to format code using Poetry:
 poetry run ruff format
 ```
 
+## Logging retries
+
+For a failure that is expected to be retried, log a concise `WARNING` without
+a traceback. Include enough context to identify the deferred operation. Log an
+`ERROR` with its traceback only after the final retry has failed and no further
+retry will be attempted.
+
 ## Git worktrees
 
 - For git worktrees, copy `.local-test.env` from the main repository checkout root into the current worktree root.
