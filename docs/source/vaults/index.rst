@@ -102,6 +102,7 @@ Supported protocols
 
    aave/index
    asseto/index
+   axis/index
    ondo/index
    wisdomtree/index
    libeara/index

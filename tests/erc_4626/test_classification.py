@@ -17,6 +17,7 @@ from eth_defi.erc_4626.classification import (
     identify_vault_features,
 )
 from eth_defi.erc_4626.core import ERC4626Feature
+from eth_defi.erc_4626.vault_protocol.axis.constants import AXIS_STAKED_USDX_VAULT
 from eth_defi.erc_4626.vault_protocol.frax.constants import FRAX_STAKING_VAULTS_BY_CHAIN
 from eth_defi.vault_street.constants import PRIME_USD_ADDRESS
 
@@ -47,6 +48,13 @@ def test_frax_staking_vaults_are_hardcoded_on_ethereum() -> None:
     for address in FRAX_STAKING_VAULTS_BY_CHAIN[ETHEREUM_MAINNET]:
         assert _get_hardcoded_protocol_features(address, chain_id=ETHEREUM_MAINNET) == {ERC4626Feature.frax_staking_like}
         assert _get_hardcoded_protocol_features(address, chain_id=ARBITRUM) is None
+
+
+def test_axis_staked_usdx_is_hardcoded_on_plasma() -> None:
+    """Route the single reviewed Axis StakedUSDx vault only on Plasma."""
+
+    assert _get_hardcoded_protocol_features(AXIS_STAKED_USDX_VAULT, chain_id=PLASMA) == {ERC4626Feature.axis_like, ERC4626Feature.erc_7540_like}
+    assert _get_hardcoded_protocol_features(AXIS_STAKED_USDX_VAULT, chain_id=ETHEREUM_MAINNET) is None
 
 
 def test_lagoon_legacy_and_recent_interfaces_are_detected() -> None:

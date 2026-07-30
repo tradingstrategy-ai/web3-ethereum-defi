@@ -721,6 +721,13 @@ class ERC4626Feature(enum.Enum):
     #: https://frax.com/earn
     frax_staking_like = "frax_staking_like"
 
+    #: Axis StakedUSDx rewards vault.
+    #:
+    #: Address-routed because the reviewed single-vault deployment uses a
+    #: generic ERC-4626/ERC-7540 interface.
+    #: https://docs.axis.to/susdx-the-rewards-vault/susdx
+    axis_like = "axis_like"
+
     #: Hyperdrive (HyperEVM)
     #:
     #: Stablecoin money market and yield hub on Hyperliquid (HyperEVM).
@@ -1250,6 +1257,9 @@ def get_vault_protocol_name(features: set[ERC4626Feature]) -> str:
 
     elif ERC4626Feature.frax_like in features or ERC4626Feature.frax_staking_like in features:
         return "Frax"
+
+    elif ERC4626Feature.axis_like in features:
+        return "Axis"
 
     elif ERC4626Feature.hyperdrive_hl_like in features:
         return "Hyperdrive"
