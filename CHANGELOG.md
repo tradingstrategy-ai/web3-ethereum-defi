@@ -1,5 +1,7 @@
 # 1.2
 
+- feat: Add hardcoded classification and discovery for Axis's StakedUSDx Plasma rewards vault (2026-07-30)
+
 - feat: Add `extract_revert_data()` for provider-independent recovery of ABI-encoded custom errors from reverted `eth_call` simulations (2026-07-30)
 
 - fix: Harden vault settlement diagnostics with canonical wrapped Gains redemption evidence, exact Ember operator preflights, cSigma daily pause detection and typed Morpho V2 redemption reverts (2026-07-29)
