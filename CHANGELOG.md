@@ -1,5 +1,7 @@
 # 1.2
 
+- feat: Add `extract_revert_data()` for provider-independent recovery of ABI-encoded custom errors from reverted `eth_call` simulations (2026-07-30)
+
 - fix: Harden vault settlement diagnostics with canonical wrapped Gains redemption evidence, exact Ember operator preflights, cSigma daily pause detection and typed Morpho V2 redemption reverts (2026-07-29)
 
 - feat: Complete Anvil settlement for Ember direct payouts and Plutus role-gated redemptions, with terminal evidence, typed settlement failures and shared warm-fork coverage (2026-07-29)
