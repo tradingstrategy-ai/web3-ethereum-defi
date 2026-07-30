@@ -274,6 +274,13 @@ VAULT_SPECIFIC_RISK = {
     # safely as generic ERC-4626 vaults.
     "0xcdb9671e671562b60481e4929ef80a5360af718b": VaultTechnicalRisk.blacklisted,
     "0xf8f7c57fb94cc1f7f2c77dc29b5216c4d3c3125d": VaultTechnicalRisk.blacklisted,
+    # Hyperdrive HLP and Gamma Symphony Vault on HyperEVM. At historical block
+    # 41,858,003 their totalAssets(), convertToAssets() and maxDeposit() calls
+    # revert with the 0x18c34104 custom error, leaving only totalSupply()
+    # usable. This poisons their historical Multicall3 price-reader batch;
+    # current-state probes working again does not restore the missing history.
+    "0x6ed613e86e8d0b6617e445f17323ac0162ff6ce6": VaultTechnicalRisk.blacklisted,
+    "0x2b37f3566933e4dbe59c6b86bedbc91c1e04d774": VaultTechnicalRisk.blacklisted,
     # Rocket Markets Survivor Vaults on Monad.
     #
     # Scanner failure context:
@@ -473,6 +480,12 @@ _BROKEN_VAULT_CONTRACTS = {
     "0x2eEe42A0704DD4C0fF8141f85E24De9085A76093",  # LONGV4 HyperEVM vault - totalAssets() and convertToAssets() hit BasicOutOfGas(2000000), poisoning historical scanner Multicall3 batches
     "0xcDB9671E671562B60481e4929eF80A5360af718b",  # Altcopy Flagship HyperEVM vault - its core ERC-4626 probes hit BasicOutOfGas(2000000) at block 41,487,203
     "0xF8F7c57FB94CC1F7f2C77Dc29b5216C4D3C3125d",  # Altcopy Index HyperEVM vault - totalAssets() hits BasicOutOfGas(2000000) at block 41,487,203
+    # Hyperdrive HLP and Gamma Symphony Vault on HyperEVM. At block
+    # 41,858,003, totalAssets(), convertToAssets() and maxDeposit() revert
+    # with 0x18c34104, so they cannot provide historical valuations and poison
+    # the failing Multicall3 batch. See VAULT_SPECIFIC_RISK above.
+    "0x6ED613E86e8D0b6617e445f17323AC0162FF6ce6",
+    "0x2b37f3566933E4DBe59c6b86BedbC91c1E04D774",
     # Rocket Markets Survivor Vault (RKTSV) on Monad. See the detailed
     # VAULT_SPECIFIC_RISK comment above. totalAssets() and convertToAssets()
     # revert at block 87,952,850 and at current head, and the Monad RPC reports
