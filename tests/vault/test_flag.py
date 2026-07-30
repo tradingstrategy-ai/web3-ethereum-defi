@@ -110,6 +110,11 @@ def test_mainstreet_finance_vaults_are_blacklisted(address: str) -> None:
     assert get_notes(address) == "Main Street Market related products were wiped out in Oct 10th event https://x.com/Main_St_Finance/status/1976972055951147194"
 
 
+def test_altura_vaults_are_blacklisted() -> None:
+    """All Altura vaults are hard-blacklisted."""
+    assert get_vault_risk("Altura") == VaultTechnicalRisk.blacklisted
+
+
 def test_old_mainnet_out_of_gas_contract_is_skipped_by_multicall_blacklist() -> None:
     """Old mainnet contracts that poison Multicall3 batches are skipped."""
     address = "0xffaa9f9aa5e4361f552bada90dcacdd08e5b41eb"
