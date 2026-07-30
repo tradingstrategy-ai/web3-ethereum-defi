@@ -700,6 +700,9 @@ class VaultForcedSettlementResult:
         may instead return ``none`` only with request-specific event evidence
         and a positive receiver balance delta.  A pending, missing, or
         evidence-free consumed status is never a successful forced settlement.
+        This evaluates settlement state only: callers requiring live-liquidity
+        evidence must also assert ``synthetic_assets_injected_raw == 0`` and
+        ``not liquidity_constraints_ignored``.
 
         :return:
             ``True`` for a synchronous no-op, a claimable async ticket, or a
@@ -1158,9 +1161,9 @@ class VaultDepositManager(ABC):
     result) because the request transaction already completed the lifecycle.
     Asynchronous managers must override it with a protocol-specific driver; the
     base raises :class:`UnsupportedVaultSimulation` when no safe driver exists.
-    ``ignore_liquidity=False`` preserves a real-liquidity simulation. The
-    opt-in ``ignore_liquidity=True`` is valid only for an explicitly documented
-    mock/fork driver and its result must mark
+    ``ignore_liquidity=False`` preserves a real-liquidity simulation. An
+    explicitly documented protocol driver may override the default to enable an
+    Anvil-only liquidity-bypass simulation; its result must mark
     :attr:`VaultForcedSettlementResult.liquidity_constraints_ignored`; it is
     never live redemption evidence or a way to bypass production preflights.
     """
@@ -1265,10 +1268,11 @@ class VaultDepositManager(ABC):
             implement mock settlement remains a typed unsupported simulation.
         :param ignore_liquidity:
             Permit a protocol-specific, Anvil-only mock or fork driver to
-            bypass an otherwise unavailable redemption-liquidity gate. Defaults
-            to ``False``. Managers must reject this request unless they have a
-            tested, explicit implementation; it must never weaken a production
-            preflight or live settlement path.
+            bypass an otherwise unavailable redemption-liquidity gate. This base
+            implementation defaults to ``False``; a documented protocol override
+            may choose a different Anvil-only default. Managers must reject this
+            request unless they have a tested, explicit implementation; it must
+            never weaken a production preflight or live settlement path.
         :return:
             Settlement outcome with before/after status and transaction hashes.
         :raise UnsupportedVaultSimulation:
