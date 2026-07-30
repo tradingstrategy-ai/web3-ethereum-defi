@@ -85,7 +85,7 @@ def test_ember_operator_liquidity_refusal_is_typed(
     # 3. Refuse before broadcasting the operator transaction.
     block_before = web3.eth.block_number
     with pytest.raises(UnsupportedVaultSimulation) as exc_info:
-        manager.force_settle(ticket)
-    assert exc_info.value.unsupported_reason == "ember_operator_insufficient_liquidity"
+        manager.force_settle(ticket, ignore_liquidity=False)
+    assert exc_info.value.unsupported_reason == "ember_settlement_insufficient_liquidity"
     assert exc_info.value.direction == "redeem"
     assert web3.eth.block_number == block_before

@@ -47,9 +47,9 @@ def morpho_v2_snapshot(morpho_v2_fork: AnvilLaunch) -> Iterator[None]:
 def test_morpho_v2_transfer_revert_is_a_typed_transfer_refusal(web3: Web3, morpho_v2_snapshot: None) -> None:
     """Map Apyx's final asset-transfer failure before broadcasting redemption.
 
-    1. Deposit into Apyx immediately before the observed failure boundary.
+    1. Deposit into Apyx and remove the locally injected idle USDC.
     2. Advance the fork into the failing redemption state.
-    3. Assert exact-call redemption simulation returns typed liquidity evidence
+    3. Assert exact-call redemption simulation returns typed transfer evidence
        without mining a reverted redemption transaction.
     """
     del morpho_v2_snapshot
@@ -67,6 +67,9 @@ def test_morpho_v2_transfer_revert_is_a_typed_transfer_refusal(web3: Web3, morph
     assert_transaction_success_with_explanation(web3, approval_hash)
     manager.create_deposit_request(owner=owner, raw_amount=raw_amount).broadcast(from_=owner)
     raw_shares = vault.share_token.fetch_raw_balance_of(owner)
+
+    # Remove the test deposit's idle balance so the exact payout must fail.
+    fund_erc20_on_anvil(web3, vault.denomination_token.address, vault.address, 0)
 
     # 2. Advance the fork into the failing redemption state.
     make_anvil_custom_rpc_request(web3, "evm_increaseTime", [1])
