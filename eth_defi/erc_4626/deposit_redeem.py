@@ -474,7 +474,7 @@ class ERC4626DepositManager(VaultDepositManager):
         :param claim_tx_hash:
             Mined redemption transaction hash.
         :param redemption_ticket:
-            Optional ticket whose owner identifies a guarded wrapper.
+            Optional ticket for a guarded non-vault call.
         :param redemption_event_signature:
             Solidity event signature when the vault overloads ``Withdraw``.
         :return:
