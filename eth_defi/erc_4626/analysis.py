@@ -109,7 +109,23 @@ def analyse_4626_flow_transaction(
     # ERC-4626 events use unsigned integers, but some compatible vault
     # implementations and legacy decoders expose a signed transfer direction.
     # Direction is already known from the event type, so accept either sign and
-    # normalise below. Only a zero output is an invalid successful flow.
+    # normalise below. Some Yearn-compatible vaults emit a zero ``assets`` value
+    # in ``Withdraw`` even though the successful transaction transfers the
+    # denomination token to the event receiver. Recover that observable output
+    # from the token's Transfer event before rejecting the receipt.
+    if amount_out == 0:
+        receiver = first_event["args"].get("receiver")
+        transfer_event = out_token_details.contract.events.Transfer()
+        transfer_events = transfer_event.process_receipt(tx_receipt, errors=DISCARD)
+        matching_transfers = [
+            event
+            for event in transfer_events
+            if event["address"].lower() == out_token_details.address_lower
+            and receiver is not None
+            and event["args"]["to"].lower() == receiver.lower()
+            and event["args"]["value"] > 0
+        ]
+        amount_out = sum(event["args"]["value"] for event in matching_transfers)
     assert amount_out != 0, "amount out must be non-zero for ERC-4626 flow event"
 
     amount_out_cleaned = Decimal(abs(amount_out)) / Decimal(10**out_token_details.decimals)
