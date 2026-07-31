@@ -149,6 +149,18 @@ class CsigmaVault(ERC4626Vault):
         del referral
         return "https://edge.csigma.finance/"
 
+    def is_whitelisted_deposit(self) -> bool:  # noqa: PLR6301
+        """Report the cSigma adapter family's default permission policy.
+
+        Supported cSigma pools are treated as permissionless by default.
+        Global pause, daily-window and capacity checks are reported separately
+        by the deposit manager and do not change this identity-policy default.
+
+        :return:
+            Always ``False``.
+        """
+        return False
+
     def get_deposit_manager(self) -> VaultDepositManager:
         """Create the manager appropriate for this cSigma deployment.
 

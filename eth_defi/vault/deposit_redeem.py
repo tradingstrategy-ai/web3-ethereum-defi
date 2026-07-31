@@ -27,10 +27,6 @@ logger = logging.getLogger(__name__)
 
 VaultDepositFlow = Literal["synchronous", "asynchronous"]
 
-#: Export caveat for classifications made without inspecting optional
-#: protocol-specific permission hooks.
-PERMISSIONED_HOOK_CHECKS_NOT_PERFORMED_NOTE = "No permissioned hook checks were performed"
-
 
 class VaultDepositPermission(str, enum.Enum):
     """Whether deposits require KYC or comparable identity approval.
@@ -726,6 +722,55 @@ class VaultForcedSettlementResult:
         return evidence.request_id == self.ticket.get_request_id() and Web3.to_checksum_address(evidence.receiver) == Web3.to_checksum_address(self.ticket.to) and bool(evidence.event_name) and evidence.transaction_hash in self.transaction_hashes and evidence.has_positive_balance_delta()
 
 
+@dataclass(frozen=True, slots=True)
+class VaultRedemptionSimulationIntervention:
+    """Disclosed Anvil-only intervention used before a real redemption call.
+
+    The intervention changes fork state only.  A caller must still build,
+    broadcast and analyse the protocol's real redemption transaction after
+    this result is returned.  It must never be interpreted as evidence that
+    the live vault had enough redemption liquidity.
+    """
+
+    #: Intervention type for machine-readable reports.
+    kind: Literal["liquidity_injected"]
+
+    #: Denomination token whose forked balance was changed.
+    token: HexAddress
+
+    #: Vault or protocol liquidity adapter that received the token.
+    target: HexAddress
+
+    #: Raw token quantity added on the fork.
+    raw_amount: int
+
+    #: Original typed preflight explanation.
+    original_reason: str
+
+    #: Original machine-readable preflight result when available.
+    original_preflight_result: str | None = None
+
+    def as_dict(self) -> dict[str, str]:
+        """Return JSON-safe intervention evidence.
+
+        Integer quantities are serialised as decimal strings so large token
+        values remain exact across JSON consumers.
+
+        :return:
+            Machine-readable intervention fields.
+        """
+        result = {
+            "kind": self.kind,
+            "token": self.token,
+            "target": self.target,
+            "raw_amount": str(self.raw_amount),
+            "original_reason": self.original_reason,
+        }
+        if self.original_preflight_result is not None:
+            result["original_preflight_result"] = self.original_preflight_result
+        return result
+
+
 def create_synchronous_settlement_result() -> VaultForcedSettlementResult:
     """Create the standard no-op outcome for a synchronous vault flow.
 
@@ -1243,6 +1288,38 @@ class VaultDepositManager(ABC):
             caller=owner,
             direction="deposit",
             phase="preflight",
+        )
+
+    def force_redemption_liquidity(
+        self,
+        owner: HexAddress,
+        raw_shares: int,
+        failure: VaultFlowUnavailable,
+    ) -> VaultRedemptionSimulationIntervention:
+        """Provision an unavailable synchronous redemption on an Anvil fork.
+
+        Concrete managers may implement this only for a source-proven
+        liquidity failure.  The default is deliberately unsupported: this
+        hook must never bypass admission, minimums, maturity or time locks.
+
+        :param owner:
+            Redemption owner.
+        :param raw_shares:
+            Exact raw share quantity requested.
+        :param failure:
+            Typed preflight failure that prompted the intervention request.
+        :return:
+            Structured intervention evidence from a concrete manager.
+        :raise UnsupportedVaultSimulation:
+            Always for managers without a protocol-specific implementation.
+        """
+        del owner, raw_shares, failure
+        raise UnsupportedVaultSimulation(
+            f"{self.__class__.__name__} has no Anvil redemption-liquidity driver",
+            unsupported_reason="redemption_liquidity_simulation_not_implemented",
+            protocol=self.vault.get_protocol_name(),
+            vault_address=self.vault.address,
+            direction="redeem",
         )
 
     def force_settle(

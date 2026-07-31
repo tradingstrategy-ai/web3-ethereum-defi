@@ -116,6 +116,7 @@ def test_forty_acres_blackhole(
     assert isinstance(vault, FortyAcresVault)
     assert vault.get_protocol_name() == "40acres"
     assert ERC4626Feature.forty_acres_like in vault.features
+    assert vault.is_whitelisted_deposit() is False
 
     # 3. Check fee methods. 40acres charges lenders no explicit management or
     # performance fee — the protocol's 5% treasury cut is taken from borrower

@@ -106,10 +106,19 @@ def analyse_4626_flow_transaction(
     else:
         raise AssertionError(f"Can handle only single event per tx, got {len(swap_events)}. Receipt: {tx_receipt}")
 
-    assert amount_out > 0, "amount out should be negative for ERC-4626 flow event"
+    # ERC-4626 Deposit and Withdraw event amounts are uint256 values. Keep the
+    # decoded event values as-is so malformed negative values cannot produce a
+    # plausible-looking trade result.
+    # A successful redemption may also burn shares for zero assets. The mined
+    # economic outcome must be reported as zero instead of turning an
+    # irreversible successful transaction into a receipt-analysis failure.
 
-    amount_out_cleaned = Decimal(abs(amount_out)) / Decimal(10**out_token_details.decimals)
-    amount_in_cleaned = Decimal(abs(amount_in)) / Decimal(10**in_token_details.decimals)
+    assert amount_in > 0, f"{direction} event input amount must be positive"
+    assert amount_out >= 0, f"{direction} event output amount must not be negative"
+    assert direction == "redeem" or amount_out > 0, "Deposit event output shares must be positive"
+
+    amount_out_cleaned = Decimal(amount_out) / Decimal(10**out_token_details.decimals)
+    amount_in_cleaned = Decimal(amount_in) / Decimal(10**in_token_details.decimals)
 
     price = amount_out_cleaned / amount_in_cleaned
 
@@ -122,7 +131,7 @@ def analyse_4626_flow_transaction(
         path,
         amount_in,
         amount_out_min,
-        abs(amount_out),
+        amount_out,
         price,
         in_token_details.decimals,
         out_token_details.decimals,

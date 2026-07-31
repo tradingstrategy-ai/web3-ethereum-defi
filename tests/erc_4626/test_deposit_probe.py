@@ -339,10 +339,17 @@ def test_d2_guard_validation_request_bypasses_only_the_closed_epoch(monkeypatch:
 
     monkeypatch.setattr(ERC4626DepositManager, "create_deposit_request", parent_create_deposit_request)
     monkeypatch.setattr(manager, "_assert_anvil_guard_validation", lambda: None)
+    eligibility_checks: list[tuple[str, str]] = []
+    monkeypatch.setattr(
+        manager,
+        "_assert_account_eligible",
+        lambda checked_owner, direction: eligibility_checks.append((checked_owner, direction)),
+    )
 
     request = manager.create_deposit_request_for_guard_validation(owner, raw_amount=123)
 
     assert request is expected_request
+    assert eligibility_checks == [(owner, "deposit")]
     assert observed == {
         "owner": owner,
         "to": owner,

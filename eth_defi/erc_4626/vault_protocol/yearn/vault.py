@@ -6,7 +6,9 @@ from functools import cached_property
 
 from eth_typing import BlockIdentifier, HexAddress
 from web3.contract import Contract
+from web3.exceptions import ABIFunctionNotFound, BadFunctionCallOutput, ContractLogicError
 
+from eth_defi.abi import ZERO_ADDRESS_STR
 from eth_defi.erc_4626.core import get_deployed_erc_4626_contract
 from eth_defi.erc_4626.vault_protocol.yearn.deposit_redeem import YearnV3DepositManager
 from eth_defi.erc_4626.vault import ERC4626Vault
@@ -105,6 +107,8 @@ class YearnV3Vault(ERC4626Vault):
             ```
     """
 
+    whitelist_notes = "Legacy Yearn deployments without deposit_limit_module() use the adapter's permissionless compatibility default; an explicit custom module remains unknown."
+
     @cached_property
     def vault_contract(self) -> Contract:
         """Get vault deployment."""
@@ -137,6 +141,40 @@ class YearnV3Vault(ERC4626Vault):
             even while deposits are open.
         """
         return False
+
+    def is_whitelisted_deposit(self) -> bool:
+        """Classify the configured Yearn V3 deposit-limit mechanism.
+
+        A canonical Yearn V3 vault with no deposit-limit module uses only its
+        vault-wide limit and shutdown state, so deposits are permissionless.
+        Older Yearn deployments that predate the module getter use the
+        adapter's permissionless compatibility default because no module can
+        be inspected through this interface.
+        A custom module can inspect the receiver and its semantics cannot be
+        inferred from the Yearn vault itself; keep that case explicitly
+        unknown instead of assuming either public or allow-listed access.
+
+        :return:
+            ``False`` when no custom deposit-limit module is configured.
+        :raise NotImplementedError:
+            If a readable custom module controls owner-specific capacity.
+        """
+        try:
+            deposit_limit_module = self.vault_contract.functions.deposit_limit_module().call(
+                block_identifier=self._get_block_identifier(),
+            )
+        except (ABIFunctionNotFound, BadFunctionCallOutput, ContractLogicError):
+            return False
+        except ValueError as error:
+            # Some providers return an old deployment's unknown-selector
+            # revert as ValueError instead of ContractLogicError. Do not turn
+            # unrelated RPC and transport failures into permissionless status.
+            if "revert" not in str(error).lower():
+                raise
+            return False
+        if deposit_limit_module.lower() == ZERO_ADDRESS_STR.lower():
+            return False
+        raise NotImplementedError(f"Yearn V3 deposit-limit module {deposit_limit_module} requires module-specific permission inspection")
 
     def fetch_strategies(self) -> list[Contract]:
         return self.vault_contract.functions.getStrategies().call()

@@ -17,7 +17,9 @@ from web3 import Web3
 from web3.exceptions import ABIFunctionNotFound
 
 from eth_defi.erc_4626.deposit_redeem import ERC4626DepositManager, ERC4626RedemptionRequest
+from eth_defi.erc_4626.vault_protocol.yieldnest.vault import YNRWAX_MATURITY_DATE, YNRWAX_VAULT_ADDRESS
 from eth_defi.provider.anvil import is_anvil
+from eth_defi.timestamp import get_block_timestamp
 from eth_defi.vault.deposit_redeem import DepositTicket, RedemptionTicket, UnsupportedVaultSimulation, VaultFlowUnavailable, VaultForcedSettlementResult
 
 #: ``ExceededMaxRedeem(address owner, uint256 shares, uint256 maxShares)``
@@ -52,13 +54,11 @@ class YieldNestDepositManager(ERC4626DepositManager):
     ``ExceededMaxRedeem(address,uint256,uint256)`` error and its selector
     ``0xb8b8b59c``, then delegates to the base manager with the duplicate
     ``maxRedeem`` read disabled. Withdrawal fees are dynamic
-    (``baseWithdrawalFee()``). Note that
-    :meth:`YieldNestVault.get_deposit_manager_capability` still advertises
-    ``can_redeem=False`` (``maturity_aware_redemption_flow_not_implemented``) to
-    trade-executor: no non-zero immediate capacity and successful redemption
-    receipt have been fork-proven for the maturity-bearing vaults. This helper
-    is therefore a fail-closed capacity reader, not a supported public
-    redemption lifecycle.
+    (``baseWithdrawalFee()``). The manager advertises the implemented
+    synchronous lifecycle independently from live availability. ynRWAx
+    requests before 15 October 2026 return the typed
+    ``redemption_not_yet_matured`` result; after maturity the immediate buffer
+    preflight applies normally.
 
     **Queues and settlement**
 
@@ -80,9 +80,10 @@ class YieldNestDepositManager(ERC4626DepositManager):
 
     **Anvil settlement (force_settle)**
 
-    No real settlement is modelled and the public capability remains
-    deposit-only. A synchronous deposit uses the inherited no-op
-    :meth:`force_settle` behaviour. Focused local tests may explicitly call
+    No real settlement is modelled. The adapter implements the immediate
+    synchronous redemption call, while current live capacity remains a
+    separate ``maxRedeem(owner)`` observation. A synchronous deposit uses the
+    inherited no-op :meth:`force_settle` behaviour. Focused local tests may explicitly call
     ``force_settle(None, mock=..., ignore_liquidity=True)`` on a
     ``MockYieldNestVault``. It switches only that mock's ``maxRedeem`` gate on,
     allowing the standard guarded redemption call to be tested. It never makes
@@ -217,6 +218,22 @@ class YieldNestDepositManager(ERC4626DepositManager):
         """
         if raw_shares is None and shares is not None:
             raw_shares = self.vault.share_token.convert_to_raw(shares)
+
+        if self.vault.address.lower() == YNRWAX_VAULT_ADDRESS:
+            block_timestamp = get_block_timestamp(self.web3, self.web3.eth.block_number)
+            if block_timestamp < YNRWAX_MATURITY_DATE:
+                raise VaultFlowUnavailable(
+                    f"YieldNest ynRWAx does not mature until {YNRWAX_MATURITY_DATE.isoformat()}",
+                    protocol=self.vault.get_protocol_name(),
+                    vault_address=self.vault.address,
+                    caller=owner,
+                    direction="redeem",
+                    phase="preflight",
+                    decoded_error="RedemptionBeforeMaturity",
+                    preflight_result="redemption_not_yet_matured",
+                    requested_raw_amount=raw_shares,
+                    next_open=YNRWAX_MATURITY_DATE,
+                )
 
         if check_max_redeem and raw_shares is not None:
             # maxRedeem(owner) is queryable per-owner (only the address(0)

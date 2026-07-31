@@ -24,7 +24,7 @@ from eth_defi.provider.fallback import ExtraValueError
 from eth_defi.testing.anvil_fork_pool import AnvilForkPool
 from eth_defi.testing.evm_snapshot_fixture import evm_snapshot_revert
 from eth_defi.trace import assert_transaction_success_with_explanation
-from eth_defi.vault.deposit_redeem import VaultFlowUnavailable, WhitelistingRequired, validate_closed_deposit_request_with_guard
+from eth_defi.vault.deposit_redeem import VaultFlowUnavailable, validate_closed_deposit_request_with_guard
 
 JSON_RPC_ARBITRUM = os.environ.get("JSON_RPC_ARBITRUM")
 
@@ -79,7 +79,7 @@ def test_closed_d2_deposit_calldata_passes_guard_validation_without_broadcast(we
     raw_amount = vault.denomination_token.convert_to_raw(10)
     admission_balance = int(vault.vault_contract.functions.whitelistBalance().call()) + raw_amount + 1
     fund_erc20_on_anvil(web3, vault.denomination_token.address, simple_vault.address, admission_balance)
-    assert vault.is_account_whitelisted(simple_vault.address) is True
+    assert vault.is_account_eligible(simple_vault.address) is True
 
     with pytest.raises(VaultFlowUnavailable) as exc_info:
         manager.create_deposit_request(owner=simple_vault.address, raw_amount=raw_amount)
@@ -148,6 +148,8 @@ def test_closed_d2_guard_validation_retains_protocol_account_admission(web3: Web
     unadmitted_owner = HexAddress(web3.eth.accounts[2])
     raw_amount = vault.denomination_token.convert_to_raw(10)
 
-    assert vault.is_account_whitelisted(unadmitted_owner) is False
-    with pytest.raises(WhitelistingRequired, match="not whitelisted"):
+    assert vault.is_account_eligible(unadmitted_owner) is False
+    with pytest.raises(VaultFlowUnavailable, match="public USDC balance eligibility minimum") as exc_info:
         manager.create_deposit_request_for_guard_validation(unadmitted_owner, raw_amount)
+    assert exc_info.value.preflight_result == "below_minimum"
+    assert exc_info.value.decoded_error == "InsufficientEligibilityBalance"

@@ -231,6 +231,18 @@ class PlutusVault(ERC4626Vault):
             return PlutusAsyncDepositManager(self)
         return PlutusDepositManager(self)
 
+    def is_whitelisted_deposit(self) -> bool:  # noqa: PLR6301
+        """Report the Plutus adapter family's default permission policy.
+
+        Supported Plutus deployments are treated as permissionless by default.
+        Deposit and withdrawal windows remain independent global lifecycle
+        controls.
+
+        :return:
+            Always ``False``.
+        """
+        return False
+
     def get_deposit_manager_capability(self) -> VaultDepositManagerCapability:
         """Declare the deployment-specific deposit/redemption capability.
 

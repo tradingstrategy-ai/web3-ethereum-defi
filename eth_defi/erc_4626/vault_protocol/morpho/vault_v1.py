@@ -30,7 +30,6 @@ from eth_defi.erc_4626.vault_protocol.morpho.offchain_metadata import (
 from eth_defi.event_reader.multicall_batcher import EncodedCall, EncodedCallResult
 from eth_defi.types import Percent
 from eth_defi.vault.base import VaultHistoricalRead, VaultHistoricalReader
-from eth_defi.vault.deposit_redeem import PERMISSIONED_HOOK_CHECKS_NOT_PERFORMED_NOTE
 from eth_defi.vault.flag import NOT_IN_MORPHO_API, VaultFlag
 
 logger = logging.getLogger(__name__)
@@ -163,18 +162,13 @@ class MorphoV1Vault(ERC4626Vault):
     for the newer adapter-based architecture.
     """
 
-    whitelist_notes = PERMISSIONED_HOOK_CHECKS_NOT_PERFORMED_NOTE
-
     def is_whitelisted_deposit(self) -> bool:
-        """Apply the requested whitelist assumption to every Morpho V1 vault.
-
-        This deliberately does not inspect optional account-specific hooks.
-        The public export carries that limitation in ``whitelist.notes``.
+        """Report canonical MetaMorpho deposits as permissionless.
 
         :return:
-            Always ``True`` under the current operating assumption.
+            Always ``False`` because MetaMorpho has no depositor identity gate.
         """
-        return True
+        return False
 
     @cached_property
     def morpho_api_result(self) -> MorphoVaultAPIResult:

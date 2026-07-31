@@ -1,6 +1,7 @@
 """Accountable Capital vault support."""
 
 import datetime
+import enum
 import logging
 from collections.abc import Iterable
 from dataclasses import dataclass
@@ -32,6 +33,19 @@ from eth_defi.vault.fee import FeeData, VaultFeeMode
 from eth_defi.vault.handwritten_metadata import get_handwritten_vault_metadata
 
 logger = logging.getLogger(__name__)
+
+
+class AccountablePermissionLevel(enum.IntEnum):
+    """Accountable vault access modes from ``IAccess.PermissionLevel``."""
+
+    #: No account admission check.
+    none = 0
+
+    #: Accountable-signed authorisation appended to each call.
+    kyc = 1
+
+    #: Persistent membership exposed through ``allowed(address)``.
+    whitelist = 2
 
 
 @dataclass(slots=True, frozen=True)
@@ -424,6 +438,73 @@ class AccountableVault(ERC4626Vault):  # noqa: PLR0904
             Protocol-specific request and claim manager.
         """
         return AccountableDepositManager(self)
+
+    def fetch_permission_level(self, block_identifier: BlockIdentifier | None = None) -> AccountablePermissionLevel:
+        """Read Accountable's explicit vault-wide admission mode.
+
+        Verified Accountable source defines ``None = 0``, ``KYC = 1`` and
+        ``Whitelist = 2``. The vault's ``onlyAuth`` modifier permits every
+        account in mode zero, requires a signed per-call authorisation in KYC
+        mode, and reads ``allowed(account)`` in whitelist mode.
+
+        :param block_identifier:
+            Block at which to inspect the configured permission mode.
+        :return:
+            Typed Accountable permission level.
+        :raise NotImplementedError:
+            If a future deployment returns an unknown enum value.
+        """
+        if block_identifier is None:
+            block_identifier = self._get_block_identifier()
+        raw_level = int(self.vault_contract.functions.permissionLevel().call(block_identifier=block_identifier))
+        try:
+            return AccountablePermissionLevel(raw_level)
+        except ValueError as error:
+            raise NotImplementedError(f"Unknown Accountable permission level {raw_level}") from error
+
+    def is_whitelisted_deposit(self) -> bool:
+        """Report whether Accountable requires identity-based admission.
+
+        Minimum deposits, strategy capacity, loan state, and redemption queues
+        are independent lifecycle conditions and do not affect this result.
+
+        :return:
+            ``False`` for Accountable's ``None`` mode and ``True`` for KYC or
+            explicit whitelist modes.
+        """
+        return self.fetch_permission_level() is not AccountablePermissionLevel.none
+
+    def is_account_whitelisted(
+        self,
+        address: HexAddress,
+        permission_level: AccountablePermissionLevel | None = None,
+    ) -> bool:
+        """Check whether a bare account can use the configured admission mode.
+
+        Whitelist mode has persistent membership through ``allowed(address)``.
+        KYC mode instead requires Accountable-signed authorisation appended to
+        each call; the standard ERC-4626 transaction builder supplies no such
+        payload, so an address-only request is not admitted.
+
+        :param address:
+            Deposit controller or receiver to inspect.
+        :param permission_level:
+            Previously read permission mode. Supplying it avoids a duplicate
+            onchain read when several accounts are checked for one call.
+        :return:
+            Whether the standard adapter call is admitted for this account.
+        """
+        if permission_level is None:
+            permission_level = self.fetch_permission_level()
+        if permission_level is AccountablePermissionLevel.none:
+            return True
+        if permission_level is AccountablePermissionLevel.whitelist:
+            return bool(
+                self.vault_contract.functions.allowed(address).call(
+                    block_identifier=self._get_block_identifier(),
+                )
+            )
+        return False
 
     def get_deposit_manager_capability(self) -> VaultDepositManagerCapability:  # noqa: PLR6301
         """Declare Accountable's public request lifecycle.

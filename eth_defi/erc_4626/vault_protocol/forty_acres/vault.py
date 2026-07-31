@@ -144,6 +144,18 @@ class FortyAcresVault(ERC4626Vault):
         """
         return None
 
+    def is_whitelisted_deposit(self) -> bool:  # noqa: PLR6301
+        """Report the 40acres adapter family's default permission policy.
+
+        Supported 40acres supply vaults are treated as permissionless by
+        default. Utilisation and available liquidity remain independent
+        economic conditions.
+
+        :return:
+            Always ``False``.
+        """
+        return False
+
     def get_link(self, referral: str | None = None) -> str:
         """Link to the 40acres app."""
         return "https://app.40acres.finance/"
