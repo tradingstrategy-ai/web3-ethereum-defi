@@ -16,7 +16,11 @@ jobs:
   build-docs:
     runs-on:
       group: Beefy runners
-    timeout-minutes: 30
+    # Hard 15-minute cap — do NOT raise it. If the docs build exceeds 15 min,
+    # fix the build (cached/incremental Sphinx, trim slow autosummary), not the
+    # timeout — same principle as the test runs: never paper over a slowdown by
+    # growing the timeout.
+    timeout-minutes: 15
 
     # Only run the action for the latest push
     concurrency:

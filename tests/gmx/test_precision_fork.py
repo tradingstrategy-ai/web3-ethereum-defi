@@ -10,7 +10,7 @@ Required environment variables:
 - JSON_RPC_ARBITRUM: Arbitrum mainnet RPC endpoint for forking
 
 Uses isolated_fork_env fixture which provides:
-- Fresh Anvil fork per test
+- Isolated Anvil fork at a fixed block
 - Mock oracle set up FIRST (matching debug.py flow)
 - Funded wallet with ETH/WETH/USDC
 - GMX config with approved tokens

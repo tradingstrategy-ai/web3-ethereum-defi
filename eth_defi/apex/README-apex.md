@@ -49,11 +49,15 @@ response shapes were verified directly against the live application API on
 ApeX public web API
 ===================
 
-/api/v3/vault/ranking
-  zero-based paginated listing
-  metadata + current NAV/TVL/share count
+/api/v3/vault/ranking                 /api/v3/vault/official-vaults
+  user copy-trading vaults               protocol liquidity-provider vaults
+  metadata + current NAV/TVL/share count metadata + current NAV/TVL/share count
              |
              | two complete membership-stable passes
+             |                    |
+             +----------+---------+
+                        v
+               complete ApeX vault snapshot
              v
       ApexVaultSummary records
              |
@@ -64,13 +68,21 @@ ApeX public web API
                                       rows
 
 /api/v3/vault/fund-net-values?vaultId=...
-  one bounded history response per vault
+  one bounded history response per ranked vault
   exact timestamp + NAV + total value
              |
              | threaded HTTP reads,
              | serial DuckDB writes
              v
       fund_net_values rows
+
+/api/v3/vault/fund-net-value-batch?vaultIds=10000,10001
+  one batched history response for official vaults
+  exact timestamp + NAV + total value
+             |
+             +--------------------------+
+                                        v
+                              fund_net_values rows
              |
              v
   ~/.tradingstrategy/vaults/apex-vaults.duckdb
@@ -161,6 +173,22 @@ endpoint does not report a separate update time.
 Observed spacing is age-adaptive rather than fixed. Recent vault history may be
 hourly, while older history may become daily or weekly. The reader never
 interpolates, forward-fills, rounds or resamples these source timestamps.
+
+### Official liquidity-provider vaults
+
+```text
+GET https://omni.apex.exchange/api/v3/vault/official-vaults
+GET https://omni.apex.exchange/api/v3/vault/fund-net-value-batch?vaultIds={vaultIds}
+```
+
+Official ApeX protocol-operated liquidity-provider vaults are intentionally
+not returned by the ranking endpoint. The reader combines this complete
+listing with the stabilised ranked-vault listing before lifecycle reconciliation,
+so an unfiltered scan neither omits these vaults nor incorrectly marks them as
+missing. Their history is fetched using the batch endpoint, which must return
+every requested vault ID exactly once. The known Protocol Vault and New Vault
+also receive curated descriptions in the shared metadata export because the
+endpoint supplies placeholder source text.
 
 ## Status handling
 

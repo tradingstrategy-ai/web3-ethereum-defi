@@ -8,32 +8,21 @@ import pytest
 from web3 import Web3
 
 from eth_defi.erc_4626.classification import create_vault_instance_autodetect
-from eth_defi.erc_4626.core import get_vault_protocol_name
 from eth_defi.erc_4626.vault_protocol.umami.vault import UmamiVault
-from eth_defi.provider.anvil import AnvilLaunch, fork_network_anvil
-from eth_defi.provider.multi_provider import create_multi_provider_web3
-from eth_defi.vault.base import VaultTechnicalRisk
+from eth_defi.testing.anvil_fork_pool import AnvilForkPool
 
 JSON_RPC_ARBITRUM = os.environ.get("JSON_RPC_ARBITRUM")
 
-pytestmark = pytest.mark.skipif(JSON_RPC_ARBITRUM is None, reason="JSON_RPC_ARBITRUM needed to run these tests")
+pytestmark = [
+    pytest.mark.skipif(JSON_RPC_ARBITRUM is None, reason="JSON_RPC_ARBITRUM needed to run these tests"),
+    pytest.mark.xdist_group("fork:arbitrum:392313989"),
+]
 
 
 @pytest.fixture(scope="module")
-def anvil_arbitrum_fork(request) -> AnvilLaunch:
-    """Read gmUSDC vault at a specific block"""
-    launch = fork_network_anvil(JSON_RPC_ARBITRUM, fork_block_number=392_313_989)
-    try:
-        yield launch
-    finally:
-        # Wind down Anvil process after the test is complete
-        launch.close()
-
-
-@pytest.fixture(scope="module")
-def web3(anvil_arbitrum_fork):
-    web3 = create_multi_provider_web3(anvil_arbitrum_fork.json_rpc_url, default_http_timeout=(3.0, 90.0))
-    return web3
+def web3(anvil_fork_pool: AnvilForkPool) -> Web3:
+    """Share the read-only Umami fork and its warmed RPC cache."""
+    return anvil_fork_pool.get_web3(JSON_RPC_ARBITRUM, 392_313_989, web3_http_timeout=(3.0, 90.0))
 
 
 @flaky.flaky

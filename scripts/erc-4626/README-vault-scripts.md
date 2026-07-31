@@ -223,6 +223,20 @@ poetry run python scripts/erc-4626/scan-vaults-all-chains.py
 | `CURRENCY_API_DB_PATH` / `CURRENCY_API_DATABASE_PATH` | Optional. Exchange-rate DuckDB bundle path. Default: `$PIPELINE_DATA_DIR/exchange-rates.duckdb`. |
 | `CORE3_MAX_WORKERS` | Optional. Core3 API worker threads. Default: 8. |
 | `CORE3_FETCH_SECTIONS` | Optional. Fetch detailed Core3 section endpoints. Default: true. Set to `false` to skip. |
+| `SKIP_XERBERUS` | Optional. Skip Xerberus risk enrichment. Default: false. |
+| `XERBERUS_API_KEY` | Optional for pipeline. Xerberus API key. If missing, Xerberus is disabled with a warning. |
+| `XERBERUS_API_EMAIL` | Optional for pipeline, **required with the key** for live API calls. Email registered with the key when it was issued (sent as `x-user-email`). **Agents must not guess this value** — only use operator-supplied env/secrets. |
+| `XERBERUS_DATABASE_PATH` | Optional. Xerberus DuckDB path. Default: `~/.tradingstrategy/vaults/xerberus/xerberus.duckdb`. |
+| `XERBERUS_FETCH_VAULT_LIST` | Optional. Poll platform vault lists. Default: true. |
+| `XERBERUS_FETCH_REPORTS` | Optional. Backfill dendrogram report URLs. Default: true. |
+
+### Xerberus risk enrichment
+
+Xerberus composite vault/protocol scores are stored in
+`~/.tradingstrategy/vaults/xerberus/xerberus.duckdb`. Manual scan and backfill
+scripts live under `scripts/xerberus/`. See
+[`README-xerberus.md`](../../eth_defi/xerberus/README-xerberus.md) for dual-auth
+details (`XERBERUS_API_KEY` + `XERBERUS_API_EMAIL`).
 | `SKIP_SAMPLES` | Optional. Skip Ethereum-only sample file export. Default: false. |
 | `HYPERSYNC_RPM` | Optional. Hypersync API requests-per-minute limit. Default: 80. Lower after persistent 429 errors. |
 | `HYPERSYNC_CONCURRENCY` | Optional. Hypersync stream concurrency. Default: 1 (sequential) in the all-chains scanner to avoid API pressure when scanning many chains. Set higher for faster throughput. See [Envio StreamConfig tuning](https://docs.envio.dev/docs/HyperSync/stream-config-tuning). |

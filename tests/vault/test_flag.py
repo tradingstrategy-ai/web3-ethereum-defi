@@ -75,9 +75,21 @@ def test_summer_fi_protocol_vaults_are_blacklisted() -> None:
     assert get_vault_risk(protocol, address) == VaultTechnicalRisk.blacklisted
 
 
-def test_hyperevm_out_of_gas_vault_is_blacklisted() -> None:
-    """HyperEVM vaults that poison Multicall3 batches are blacklisted."""
-    address = "0x2eee42a0704dd4c0ff8141f85e24de9085a76093"
+@pytest.mark.parametrize(
+    "address",
+    [
+        "0x2eee42a0704dd4c0ff8141f85e24de9085a76093",
+        "0xcdb9671e671562b60481e4929ef80a5360af718b",
+        "0xf8f7c57fb94cc1f7f2c77dc29b5216c4d3c3125d",
+        "0x6ed613e86e8d0b6617e445f17323ac0162ff6ce6",
+        "0x2b37f3566933e4dbe59c6b86bedbc91c1e04d774",
+        "0x1462519131836e6eff76ccf7720c323604f380c7",
+        "0x2b1264bde2dccfa82a42e4c141094f9dede63537",
+        "0x1681f371c88b0655d32e61e83d398c75dcdfcd13",
+    ],
+)
+def test_multicall_out_of_gas_vault_is_blacklisted(address: str) -> None:
+    """Vaults that poison Multicall3 batches are blacklisted."""
 
     assert get_vault_risk("ERC-4626", address) == VaultTechnicalRisk.blacklisted
     assert address in BROKEN_VAULT_CONTRACTS

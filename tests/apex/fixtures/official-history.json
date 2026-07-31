@@ -1,0 +1,19 @@
+{
+  "data": {
+    "timeValueBatch": [
+      {
+        "vaultId": "10000",
+        "timeValue": [
+          {"timestamp": 1720003600000, "netValue": "1.042", "totalValue": "1042000"},
+          {"timestamp": 1720000000000, "netValue": "1.04", "totalValue": "1040000"}
+        ]
+      },
+      {
+        "vaultId": "10001",
+        "timeValue": [
+          {"timestamp": 1720000000000, "netValue": "1.001", "totalValue": "20020"}
+        ]
+      }
+    ]
+  }
+}

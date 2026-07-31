@@ -42,6 +42,29 @@ transaction revert, then handle the declared flow type. The field does not
 assert that an account is permissioned, funded, within a vault cap, or able to
 obtain redemption liquidity.
 
+Deposit permission metadata
+---------------------------
+
+Each vault metrics JSON record also contains the authoritative top-level
+``deposit_permission`` field. Its value is normally ``whitelisted`` when the
+deployed adapter has source-proven KYC or manual identity-approval policy,
+``permissionless`` when no such approval is required, and ``unknown`` when the
+contract generation cannot be classified safely. It never describes an open
+date, lock-up, pause, capacity, epoch, allowance, token-holding requirement or
+liquidity state. Consumers must inspect ``whitelist.notes`` before treating a
+classification as source-proven.
+
+The ``whitelist`` object is the structured form of the same status. Its
+``status`` field mirrors ``deposit_permission`` and its optional ``notes``
+field records a protocol-specific qualification. For the current Morpho and
+Euler operating assumption, it states ``No permissioned hook checks were
+performed``.
+
+The legacy ``deposit_manager.deposit_permission`` copy remains available only
+for compatibility when ``deposit_manager`` is non-null. New consumers must use
+the top-level field. Sticky fallback records are always exported as
+``unknown`` because their permission observation is not current.
+
 Vault settlement event scanning
 -------------------------------
 
@@ -79,6 +102,7 @@ Supported protocols
 
    aave/index
    asseto/index
+   axis/index
    ondo/index
    wisdomtree/index
    libeara/index
@@ -148,6 +172,7 @@ Supported protocols
    sbold/index
    secured_finance/index
    securitize/index
+   shift/index
    superstate/index
    sentiment/index
    silo/index

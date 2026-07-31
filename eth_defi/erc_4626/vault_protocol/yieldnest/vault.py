@@ -108,10 +108,41 @@ class YieldNestVault(ERC4626Vault):
         """
         return "https://app.yieldnest.finance/"
 
+    def get_deposit_manager(self) -> "YieldNestDepositManager":
+        """Return the YieldNest manager with a buffer-limited redemption preflight.
+
+        Deposits are synchronous ERC-4626; the redemption path adds a
+        ``maxRedeem(owner)`` capacity preflight so an over-buffer redemption is
+        refused as a typed ``VaultFlowUnavailable`` (decoded
+        ``ExceededMaxRedeem``) rather than a raw ``0xb8b8b59c`` revert.
+        The explicit ``ignore_liquidity`` test option is available only through
+        the manager's local ``MockYieldNestVault`` settlement driver; it does
+        not alter this live vault adapter's advertised capability.
+
+        :return:
+            YieldNest deposit/redemption manager.
+        """
+        from eth_defi.erc_4626.vault_protocol.yieldnest.deposit_redeem import YieldNestDepositManager
+
+        return YieldNestDepositManager(self)
+
     def can_check_deposit(self) -> bool:
         """YieldNest doesn't support address(0) checks for maxDeposit.
 
         The contract returns empty data for maxDeposit(address(0)).
+        """
+        return False
+
+    def is_whitelisted_deposit(self) -> bool:
+        """Report the public policy of the supported YieldNest implementation.
+
+        The verified ynRWAx ``BaseVault.deposit`` route checks only the global
+        pause state before performing the ERC-4626 deposit. Administrative
+        roles govern configuration and pausing, but no depositor role or
+        account-admission predicate is present in this implementation.
+
+        :return:
+            ``False`` because ynRWAx deposits are permissionless when open.
         """
         return False
 
@@ -120,16 +151,21 @@ class YieldNestVault(ERC4626Vault):
 
         The bundled ABI contains the standard ERC-4626 ``Deposit`` event, so
         the inherited manager can decode the tested deposit receipt without a
-        YieldNest-only parser. The generic redemption manager cannot query
-        ynRWAx's pre-maturity ``maxRedeem``, so its maturity-aware redemption
-        lifecycle remains unsupported.
+        YieldNest-only parser. The specialised manager can read an owner's
+        immediate ``maxRedeem`` capacity, but no non-zero capacity and matching
+        redemption receipt are fork-proven for ynRWAx. Its maturity-aware and
+        any buffer-fallback redemption lifecycle therefore remain unsupported.
+        The manager's ``ignore_liquidity`` simulation option operates only on
+        ``MockYieldNestVault`` in a local Anvil test. It proves GuardV0's
+        standard ERC-4626 redemption validation, not a live YieldNest buffer
+        or a public redemption capability.
 
         .. note::
 
             Trade-executor must use the selected manager's
             ``analyse_deposit()`` hook rather than a generic analyser. It must
             treat the redemption reason as ``adapter_unsupported`` and not
-            construct a generic redemption request.
+            construct a redemption request from this partial helper.
 
         :return:
             Partial capability with a synchronous deposit flow only.

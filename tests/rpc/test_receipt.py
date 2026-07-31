@@ -58,6 +58,8 @@ class FakeProvider:
                 result = self.receipts.pop(0)
             else:
                 result = self.receipts[0]
+            if isinstance(result, BaseException):
+                raise result
             return {"jsonrpc": "2.0", "id": 1, "result": result}
         if method == "eth_blockNumber":
             if len(self.block_numbers) > 1:
@@ -295,10 +297,55 @@ def test_wait_for_transaction_receipt_robust_timeout(monkeypatch: pytest.MonkeyP
 
     # 2. Wait for robust receipt visibility with a short timeout.
     with pytest.raises(ReceiptVisibilityTimedOut) as exc_info:
-        wait_for_transaction_receipt_robust(web3, TX_HASH, timeout=0.01, poll_delay=0.001, max_poll_delay=0.002)
+        wait_for_transaction_receipt_robust(
+            web3,
+            TX_HASH,
+            timeout=0.01,
+            poll_delay=0.001,
+            max_poll_delay=0.002,
+            allow_partial_visibility_after_timeout=False,
+        )
 
     # 3. Check the timeout names the missing provider.
     assert "read-2.example" in str(exc_info.value)
+
+
+def test_wait_for_transaction_receipt_robust_allows_partial_visibility_after_timeout(monkeypatch: pytest.MonkeyPatch):
+    """Return a confirmed receipt when a secondary read provider stays unavailable.
+
+    1. Create one provider that sees a confirmed receipt and another that always fails.
+    2. Wait with the default partial visibility behaviour after the all-provider timeout.
+    3. Verify the typed receipt is returned after the timeout instead of raising.
+    """
+
+    # 1. Create one provider that sees a confirmed receipt and another that always fails.
+    provider_1 = FakeProvider("read-1")
+    provider_2 = FakeProvider("read-2", receipts=[ProviderConnectionError("permanent RPC failure")])
+    web3 = FakeWeb3(
+        FallbackProvider([provider_1, provider_2]),
+        FakeEth(ProviderConnectionError("fallback selected the broken provider")),
+    )
+    monkeypatch.setattr(receipt_module, "_is_anvil", lambda web3: False)
+
+    def create_direct_web3(provider):
+        assert provider is provider_1
+        return FakeWeb3(provider, FakeEth({"status": 1, "source": "responding-provider"}))
+
+    monkeypatch.setattr(receipt_module, "Web3", create_direct_web3)
+
+    # 2. Wait with the default partial visibility behaviour after the all-provider timeout.
+    receipt = wait_for_transaction_receipt_robust(
+        web3,
+        TX_HASH,
+        timeout=0.01,
+        poll_delay=0.001,
+        max_poll_delay=0.002,
+        confirmation_block_count=0,
+    )
+
+    # 3. Verify the typed receipt is returned after the timeout instead of raising.
+    assert receipt == {"status": 1, "source": "responding-provider"}
+    assert provider_2.calls.count("eth_getTransactionReceipt") > 1
 
 
 def test_wait_for_transaction_receipt_robust_mismatch(monkeypatch: pytest.MonkeyPatch):
@@ -317,7 +364,14 @@ def test_wait_for_transaction_receipt_robust_mismatch(monkeypatch: pytest.Monkey
 
     # 2. Wait for robust receipt visibility until the timeout.
     with pytest.raises(ReceiptVisibilityMismatch):
-        wait_for_transaction_receipt_robust(web3, TX_HASH, timeout=0.01, poll_delay=0.001, max_poll_delay=0.002)
+        wait_for_transaction_receipt_robust(
+            web3,
+            TX_HASH,
+            timeout=0.01,
+            poll_delay=0.001,
+            max_poll_delay=0.002,
+            allow_partial_visibility_after_timeout=True,
+        )
 
     # 3. Check a persistent receipt mismatch is raised.
     assert provider_1.calls.count("eth_getTransactionReceipt") > 1

@@ -8,6 +8,7 @@ Further reading
 
 import logging
 import pprint
+import re
 from typing import Union
 
 try:
@@ -36,6 +37,87 @@ class TransactionReverted(Exception):
 
     def get_solidity_reason_message(self) -> str:
         return self.args[0]
+
+
+def extract_revert_data(error: Exception) -> bytes | None:
+    """Extract ABI-encoded custom-error data from a failed ``eth_call``.
+
+    Use this after catching a simulation exception when the caller needs to
+    distinguish an *expected, typed* contract decision from an unexpected
+    execution failure. Solidity custom errors encode a four-byte selector
+    followed by ABI-encoded arguments. Web3 and JSON-RPC providers do not use
+    one common exception shape: the same bytes may appear in ``error.data``, a
+    nested ``data``/``result`` mapping, or an exception argument string.
+
+    This is useful for preflight simulations such as GuardV0 settlement. A
+    gross-flow cap breach and an active cooldown are valid contract outcomes
+    that a caller may turn into a deferred action; insufficient liquidity,
+    access-control failures and unknown selectors must remain failures.
+    Recovering raw data lets protocol code decode only its explicitly supported
+    selectors instead of matching provider-specific error text.
+
+    Do not use this helper to suppress arbitrary exceptions. If it returns
+    ``None``, or if the selector is not one the caller explicitly supports,
+    re-raise the original exception. This helper only extracts transport data;
+    the calling protocol owns selector matching and ABI argument decoding.
+
+    Example custom-error handling:
+
+    .. code-block:: python
+
+        try:
+            web3.eth.call(transaction)
+        except Exception as exc:
+            revert_data = extract_revert_data(exc)
+            if revert_data is None:
+                raise
+
+            selector = revert_data[:4]
+            if selector == expected_error_selector:
+                value = abi_decode(["uint256"], revert_data[4:])[0]
+                handle_expected_contract_decision(value)
+            else:
+                raise
+
+    :param error:
+        Exception raised by a reverted ``eth_call`` or contract ``call()``.
+    :return:
+        Raw Solidity revert bytes, including the four-byte selector, or
+        ``None`` when no usable ABI payload is present.
+    """
+
+    def visit(value) -> str | bytes | None:
+        if isinstance(value, bytes):
+            return value
+        if isinstance(value, str):
+            match = re.search(r"0x[0-9a-fA-F]{10,}", value)
+            if match:
+                return match.group(0)
+        if isinstance(value, dict):
+            for key in ("data", "return", "result"):
+                result = visit(value.get(key))
+                if result is not None:
+                    return result
+            for nested_value in value.values():
+                result = visit(nested_value)
+                if result is not None:
+                    return result
+        if isinstance(value, (list, tuple)):
+            for nested_value in value:
+                result = visit(nested_value)
+                if result is not None:
+                    return result
+        return None
+
+    data = visit(getattr(error, "data", None)) or visit(error.args)
+    if data is None:
+        return None
+    if isinstance(data, bytes):
+        return data
+    try:
+        return Web3.to_bytes(hexstr=data)
+    except ValueError:
+        return None
 
 
 def fetch_transaction_revert_reason(

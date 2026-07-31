@@ -42,8 +42,12 @@ from eth_defi.apex.vault_data_export import merge_into_vault_database as apex_me
 from eth_defi.chain import get_chain_name
 from eth_defi.compat import native_datetime_utc_now
 from eth_defi.core3.constants import resolve_core3_database_path
+from eth_defi.core3.mappings import CORE3_MAPPINGS
 from eth_defi.core3.scanner import scan_projects as core3_scan_projects
 from eth_defi.core3.session import create_core3_session
+from eth_defi.xerberus.constants import resolve_xerberus_api_email, resolve_xerberus_database_path
+from eth_defi.xerberus.scanner import scan_xerberus as xerberus_scan
+from eth_defi.xerberus.session import create_xerberus_session
 from eth_defi.currency_api.constants import (
     CURRENCY_API_DATABASE,
     DEFAULT_BASE_CURRENCY,
@@ -82,6 +86,7 @@ from eth_defi.lighter.vault_data_export import merge_into_vault_database as ligh
 from eth_defi.provider.broken_provider import verify_archive_node
 from eth_defi.provider.multi_provider import MultiProviderWeb3Factory, create_multi_provider_web3
 from eth_defi.provider.rpcdb import RPCRequestStats, RPCUsageDatabase, format_rpc_usage_report, resolve_rpc_tracking_database_path
+from eth_defi.rate_limit import clear_sqlite_rate_limit_databases
 from eth_defi.token import TokenDiskCache
 from eth_defi.utils import setup_console_logging, wait_other_writers
 from eth_defi.vault.historical import scan_historical_prices_to_parquet
@@ -98,10 +103,34 @@ from eth_defi.version_info import VersionInfo
 BACKUP_RETENTION_DAYS = int(os.environ.get("BACKUP_RETENTION_DAYS", "7"))
 
 CORE3_PROTOCOL_NAME = "Core3"
+XERBERUS_PROTOCOL_NAME = "Xerberus"
 CURRENCY_RATES_PROTOCOL_NAME = "CurrencyRates"
 CURRENCY_RATES_DEFAULT_CYCLE = datetime.timedelta(hours=24)
 
 logger = logging.getLogger(__name__)
+
+
+def resolve_core3_scan_scope(scan_scope: str) -> set[str] | None:
+    """Resolve a Core3 project scan scope to an optional slug filter.
+
+    The production export only consumes projects referenced by
+    :data:`eth_defi.core3.mappings.CORE3_MAPPINGS`. ``mapped`` therefore
+    avoids detail and history calls for the rest of the Core3 catalogue,
+    while ``all`` remains available for deliberate catalogue refreshes.
+
+    :param scan_scope:
+        Either ``"mapped"`` or ``"all"``. Whitespace and case are ignored.
+    :return:
+        Mapped Core3 slugs for ``"mapped"``, or ``None`` for ``"all"``.
+    :raises ValueError:
+        If the scope is not supported.
+    """
+    scope = scan_scope.strip().lower()
+    if scope == "all":
+        return None
+    if scope != "mapped":
+        raise ValueError(f"Unsupported CORE3_SCAN_SCOPE {scan_scope!r}; expected 'all' or 'mapped'")
+    return {slug for slug in CORE3_MAPPINGS.values() if slug is not None}
 
 
 def parse_duration(s: str) -> datetime.timedelta:
@@ -213,6 +242,42 @@ def should_scan_core3(skip_core3: bool, core3_api_key: str | None) -> bool:
     return True
 
 
+def should_scan_xerberus(
+    skip_xerberus: bool,
+    xerberus_api_key: str | None,
+    xerberus_api_email: str | None,
+) -> bool:
+    """Determine whether Xerberus enrichment scanning should run.
+
+    Xerberus is default-on enrichment when **both** the API key and the
+    registered email are configured. The email is part of the public REST
+    auth contract (``x-user-email``) and must be the address issued with the
+    key. Missing credentials degrade to a warning and disable Xerberus for
+    the current run. Agents must not invent or probe email values — only use
+    operator-supplied ``XERBERUS_API_EMAIL`` / explicit arguments.
+
+    :param skip_xerberus:
+        Whether the operator explicitly disabled Xerberus for this run.
+    :param xerberus_api_key:
+        API key from ``XERBERUS_API_KEY`` (or an explicit caller value).
+    :param xerberus_api_email:
+        Registered email from ``XERBERUS_API_EMAIL`` (or an explicit caller
+        value). Do not guess this string.
+    :return:
+        ``True`` if Xerberus should be scheduled.
+    """
+    if skip_xerberus:
+        logger.info("SKIP_XERBERUS=true - Xerberus enrichment scan disabled")
+        return False
+    if not xerberus_api_key:
+        logger.warning("XERBERUS_API_KEY is not set - Xerberus enrichment scan disabled for this run")
+        return False
+    if not xerberus_api_email:
+        logger.warning("XERBERUS_API_EMAIL is not set - Xerberus enrichment scan disabled for this run (set the email registered with the API key; do not invent candidates)")
+        return False
+    return True
+
+
 def should_scan_currency_rates(skip_currency_rates: bool) -> bool:
     """Determine whether currency rate scanning should run.
 
@@ -239,12 +304,13 @@ def build_active_protocols(
     scan_apex: bool,
     scan_core3: bool,
     scan_currency_rates: bool,
+    scan_xerberus: bool = False,
 ) -> list[str]:
     """Build scheduled non-EVM scan item names.
 
-    The existing cycle scheduler calls these items protocols. Core3 reuses
-    that path to avoid a new item type: it is a cross-chain enrichment
-    scan, not a vault source, and therefore has no price merge step.
+    The existing cycle scheduler calls these items protocols. Core3 and
+    Xerberus reuse that path as cross-chain enrichment scans, not vault
+    sources, and therefore have no price merge step.
 
     :param scan_hypercore:
         Include Hypercore native vaults.
@@ -260,6 +326,8 @@ def build_active_protocols(
         Include Core3 enrichment data.
     :param scan_currency_rates:
         Include daily currency exchange rates.
+    :param scan_xerberus:
+        Include Xerberus enrichment data.
     :return:
         Scheduled non-EVM scan item names.
     """
@@ -276,6 +344,8 @@ def build_active_protocols(
         all_protocols.append("ApeX")
     if scan_core3:
         all_protocols.append(CORE3_PROTOCOL_NAME)
+    if scan_xerberus:
+        all_protocols.append(XERBERUS_PROTOCOL_NAME)
     if scan_currency_rates:
         all_protocols.append(CURRENCY_RATES_PROTOCOL_NAME)
     return all_protocols
@@ -1507,7 +1577,8 @@ def scan_apex_fn(
 def scan_core3_fn(
     core3_db_path: Path,
     max_workers: int = 8,
-    fetch_sections: bool = True,
+    fetch_sections: bool = False,
+    scan_scope: str = "mapped",
 ) -> ChainResult:
     """Scan Core3 risk intelligence enrichment data.
 
@@ -1521,6 +1592,9 @@ def scan_core3_fn(
         Number of parallel workers for Core3 project API reads.
     :param fetch_sections:
         Whether to fetch detailed Core3 section endpoints.
+    :param scan_scope:
+        ``"mapped"`` scans only Core3 projects used by the vault export.
+        ``"all"`` scans the complete Core3 catalogue.
     :return:
         Scan result with project count and duration.
     """
@@ -1530,11 +1604,13 @@ def scan_core3_fn(
 
     try:
         session = create_core3_session(pool_maxsize=max(32, max_workers))
+        project_slugs = resolve_core3_scan_scope(scan_scope)
         db = core3_scan_projects(
             session=session,
             db_path=core3_db_path,
             max_workers=max_workers,
             fetch_sections=fetch_sections,
+            project_slugs=project_slugs,
         )
         result.vault_count = db.get_project_count()
         result.vault_scan_ok = True
@@ -1542,6 +1618,68 @@ def scan_core3_fn(
         result.status = "success"
     except Exception as e:
         logger.exception("Core3 scan failed")
+        result.status = "failed"
+        result.error = str(e)
+        result.traceback_str = traceback.format_exc()
+    finally:
+        if db is not None:
+            db.close()
+
+    result.duration = time.time() - start_time
+    return result
+
+
+def scan_xerberus_fn(
+    xerberus_db_path: Path,
+    fetch_vault_lists: bool = True,
+    fetch_reports: bool = True,
+    api_key: str | None = None,
+    api_email: str | None = None,
+) -> ChainResult:
+    """Scan Xerberus risk intelligence enrichment data.
+
+    Xerberus is not a vault source. It refreshes the DuckDB database
+    consumed by the top-vaults JSON export during post-processing.
+    The database handle is always closed before return.
+
+    Credentials may be passed explicitly via ``api_key`` / ``api_email``,
+    or read from ``XERBERUS_API_KEY`` and ``XERBERUS_API_EMAIL``. Do not
+    invent the email; only use operator-supplied values.
+
+    :param xerberus_db_path:
+        Path to the Xerberus DuckDB file.
+    :param fetch_vault_lists:
+        Whether to poll platform vault list endpoints.
+    :param fetch_reports:
+        Whether to backfill dendrogram report URLs.
+    :param api_key:
+        Optional explicit API key (else env ``XERBERUS_API_KEY``).
+    :param api_email:
+        Optional explicit registered email (else env ``XERBERUS_API_EMAIL``).
+        Required for authenticated API calls; do not guess.
+    :return:
+        Scan result with entity count and duration.
+    """
+    result = ChainResult(name=XERBERUS_PROTOCOL_NAME, status="running")
+    start_time = time.time()
+    db = None
+
+    try:
+        session = create_xerberus_session(api_key=api_key, api_email=api_email)
+        db = xerberus_scan(
+            session=session,
+            db_path=xerberus_db_path,
+            fetch_vault_lists=fetch_vault_lists,
+            fetch_reports=fetch_reports,
+        )
+        assert db is not None
+        counts = db.get_entity_counts()
+        result.vault_count = counts.get("distinct_pools", 0) + counts.get("distinct_protocols", 0)
+        result.vault_scan_ok = True
+        result.price_scan_ok = None
+        result.status = "success"
+    except Exception as e:
+        logger.exception("Xerberus scan failed")
         result.status = "failed"
         result.error = str(e)
         result.traceback_str = traceback.format_exc()
@@ -1957,7 +2095,8 @@ def run_scan_tick(
     cycle_intervals: dict[str, str] | None = None,
     on_item_success: Callable[[str], None] | None = None,
     core3_db_path: Path | None = None,
-    core3_fetch_sections: bool = True,
+    core3_fetch_sections: bool = False,
+    core3_scan_scope: str = "mapped",
     hypersync_concurrency: int | None = None,
     feed_db_path: Path | None = None,
     currency_api_db_path: Path | None = None,
@@ -1969,6 +2108,10 @@ def run_scan_tick(
     *,
     lead_discovery_state_timeout: datetime.timedelta = DEFAULT_LEAD_DISCOVERY_STATE_TIMEOUT,
     force_lead_discovery: bool = False,
+    xerberus_db_path: Path | None = None,
+    xerberus_fetch_vault_list: bool = True,
+    xerberus_fetch_reports: bool = True,
+    scan_xerberus: bool = False,
 ) -> dict[str, ChainResult]:
     """Execute one scan tick: EVM chains + native protocols + post-processing.
 
@@ -1988,6 +2131,10 @@ def run_scan_tick(
 
     :param core3_fetch_sections:
         Whether Core3 should fetch section detail endpoints.
+
+    :param core3_scan_scope:
+        ``"mapped"`` limits Core3 API detail and history calls to projects
+        used by the vault export. ``"all"`` refreshes the complete catalogue.
 
     :param feed_db_path:
         Path to the vault post feed DuckDB used to enrich the top-vaults
@@ -2291,14 +2438,31 @@ def run_scan_tick(
             core3_db_path=core3_db_path or resolve_core3_database_path(),
             max_workers=core3_max_workers,
             fetch_sections=core3_fetch_sections,
+            scan_scope=core3_scan_scope,
         )
         r = results[CORE3_PROTOCOL_NAME]
         if r.status == "success":
-            logger.info("Core3: SUCCESS - %d projects", r.vault_count or 0)
+            logger.info("Core3: SUCCESS - %d stored projects", r.vault_count or 0)
             if on_item_success:
                 on_item_success(CORE3_PROTOCOL_NAME)
         elif r.status == "failed":
             logger.error("Core3: FAILED - %s", r.error)
+        print_dashboard(results, display_order, uncleaned_price_path=uncleaned_price_path)
+
+    if scan_xerberus and XERBERUS_PROTOCOL_NAME in active_protocols:
+        logger.info("Scanning Xerberus (risk intelligence enrichment)")
+        results[XERBERUS_PROTOCOL_NAME] = scan_xerberus_fn(
+            xerberus_db_path=xerberus_db_path or resolve_xerberus_database_path(),
+            fetch_vault_lists=xerberus_fetch_vault_list,
+            fetch_reports=xerberus_fetch_reports,
+        )
+        r = results[XERBERUS_PROTOCOL_NAME]
+        if r.status == "success":
+            logger.info("Xerberus: SUCCESS - %d entities", r.vault_count or 0)
+            if on_item_success:
+                on_item_success(XERBERUS_PROTOCOL_NAME)
+        elif r.status == "failed":
+            logger.error("Xerberus: FAILED - %s", r.error)
         print_dashboard(results, display_order, uncleaned_price_path=uncleaned_price_path)
 
     if scan_currency_rates and CURRENCY_RATES_PROTOCOL_NAME in active_protocols:
@@ -2491,6 +2655,12 @@ def main():
     scan_apex = os.environ.get("SCAN_APEX", "false").lower() == "true"
     skip_core3 = os.environ.get("SKIP_CORE3", "false").lower() == "true"
     scan_core3 = should_scan_core3(skip_core3=skip_core3, core3_api_key=os.environ.get("CORE3_API_KEY"))
+    skip_xerberus = os.environ.get("SKIP_XERBERUS", "false").lower() == "true"
+    scan_xerberus = should_scan_xerberus(
+        skip_xerberus=skip_xerberus,
+        xerberus_api_key=os.environ.get("XERBERUS_API_KEY"),
+        xerberus_api_email=resolve_xerberus_api_email(),
+    )
     skip_currency_rates = os.environ.get("SKIP_CURRENCY_RATES", "false").lower() == "true"
     scan_currency_rates = should_scan_currency_rates(skip_currency_rates=skip_currency_rates)
     force_rescan = os.environ.get("FORCE_RESCAN", "false").lower() == "true"
@@ -2503,7 +2673,11 @@ def main():
     # of 10 when no value is provided.
     hypersync_concurrency = int(os.environ.get("HYPERSYNC_CONCURRENCY", "1"))
     core3_max_workers = int(os.environ.get("CORE3_MAX_WORKERS", "8"))
-    core3_fetch_sections = os.environ.get("CORE3_FETCH_SECTIONS", "true").lower() == "true"
+    core3_fetch_sections = os.environ.get("CORE3_FETCH_SECTIONS", "false").lower() == "true"
+    core3_scan_scope = os.environ.get("CORE3_SCAN_SCOPE", "mapped").strip().lower()
+    resolve_core3_scan_scope(core3_scan_scope)
+    xerberus_fetch_vault_list = os.environ.get("XERBERUS_FETCH_VAULT_LIST", "true").lower() == "true"
+    xerberus_fetch_reports = os.environ.get("XERBERUS_FETCH_REPORTS", "true").lower() == "true"
     currency_api_max_workers = int(os.environ.get("CURRENCY_API_MAX_WORKERS", "8"))
     frequency = os.environ.get("FREQUENCY", "1h")
     skip_post_processing = os.environ.get("SKIP_POST_PROCESSING", "false").lower() == "true"
@@ -2559,6 +2733,8 @@ def main():
 
     # Core3 risk intelligence database path — resolved from env var or default constant.
     core3_db_path = resolve_core3_database_path()
+    # Xerberus risk intelligence database path.
+    xerberus_db_path = resolve_xerberus_database_path()
 
     # Vault post feed database path — resolved the same way as the post scanner
     # (FEED_DB_PATH/DB_PATH env var or default constant) so the top-vaults JSON
@@ -2577,6 +2753,7 @@ def main():
         apex_db_path,
         settlement_db_path,
         core3_db_path,
+        xerberus_db_path,
         currency_api_db_path,
     ]
 
@@ -2594,7 +2771,7 @@ def main():
     version_info = VersionInfo.read_docker_version()
     logger.info("Docker image version: tag=%s, commit=%s", version_info.tag, version_info.commit_hash)
     logger.info(
-        "SCAN_PRICES: %s, SCAN_HYPERCORE: %s, SCAN_GRVT: %s, SCAN_LIGHTER: %s, SCAN_HIBACHI: %s, SCAN_APEX: %s, SKIP_CORE3: %s, CORE3: %s, SKIP_CURRENCY_RATES: %s, CURRENCY_RATES: %s, RETRY_COUNT: %d, MAX_WORKERS: %d, CORE3_MAX_WORKERS: %d, CURRENCY_API_MAX_WORKERS: %d, FREQUENCY: %s",
+        "SCAN_PRICES: %s, SCAN_HYPERCORE: %s, SCAN_GRVT: %s, SCAN_LIGHTER: %s, SCAN_HIBACHI: %s, SCAN_APEX: %s, SKIP_CORE3: %s, CORE3: %s, SKIP_XERBERUS: %s, XERBERUS: %s, SKIP_CURRENCY_RATES: %s, CURRENCY_RATES: %s, RETRY_COUNT: %d, MAX_WORKERS: %d, CORE3_MAX_WORKERS: %d, CURRENCY_API_MAX_WORKERS: %d, FREQUENCY: %s",
         scan_prices,
         scan_hypercore,
         scan_grvt,
@@ -2603,6 +2780,8 @@ def main():
         scan_apex,
         skip_core3,
         scan_core3,
+        skip_xerberus,
+        scan_xerberus,
         skip_currency_rates,
         scan_currency_rates,
         retry_count,
@@ -2634,6 +2813,8 @@ def main():
     logger.info("LEAD_DISCOVERY_STATE_TIMEOUT: %s", lead_discovery_state_timeout)
     if core3_fetch_sections:
         logger.info("CORE3_FETCH_SECTIONS: true")
+    if core3_scan_scope != "mapped":
+        logger.info("CORE3_SCAN_SCOPE: %s", core3_scan_scope)
     logger.debug("=" * 80)
 
     # Build chain configurations
@@ -2694,6 +2875,7 @@ def main():
         scan_apex=scan_apex,
         scan_core3=scan_core3,
         scan_currency_rates=scan_currency_rates,
+        scan_xerberus=scan_xerberus,
     )
 
     # Pre-compute human-readable cycle intervals for all items
@@ -2719,6 +2901,7 @@ def main():
         scan_apex=scan_apex,
         scan_core3=scan_core3,
         scan_currency_rates=scan_currency_rates,
+        scan_xerberus=scan_xerberus,
         max_workers=max_workers,
         hypersync_concurrency=hypersync_concurrency,
         core3_max_workers=core3_max_workers,
@@ -2748,6 +2931,10 @@ def main():
         hypercore_mode=hypercore_mode,
         core3_db_path=core3_db_path,
         core3_fetch_sections=core3_fetch_sections,
+        core3_scan_scope=core3_scan_scope,
+        xerberus_db_path=xerberus_db_path,
+        xerberus_fetch_vault_list=xerberus_fetch_vault_list,
+        xerberus_fetch_reports=xerberus_fetch_reports,
         feed_db_path=feed_db_path,
         currency_api_db_path=currency_api_db_path,
         settlement_db_path=settlement_db_path,
@@ -2773,6 +2960,7 @@ def main():
     schedule_tolerance = datetime.timedelta(seconds=loop_interval) / 2 if looped_mode else datetime.timedelta(0)
 
     cycle = 0
+    rate_limit_databases_cleared = False
     while True:
         cycle += 1
 
@@ -2780,6 +2968,11 @@ def main():
 
         try:
             with wait_other_writers(pipeline_lock_path, timeout=60):
+                if not rate_limit_databases_cleared:
+                    cleared_databases = clear_sqlite_rate_limit_databases()
+                    logger.info("Cleared %d SQLite rate-limit databases before scanning", len(cleared_databases))
+                    rate_limit_databases_cleared = True
+
                 if looped_mode:
                     state = load_cycle_state(cycle_state_path)
                     # Always resume from persisted cycle state, including cycle 1.

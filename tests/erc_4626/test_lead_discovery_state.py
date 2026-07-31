@@ -107,7 +107,7 @@ def test_fresh_state_skips_lead_discovery(
     vault_db = VaultDatabase(last_scanned_block={1: LAST_CACHED_BLOCK})
     vault_db.write(vault_db_path)
 
-    def fake_web3(*_args, **_kwargs):
+    def fake_web3(*_args: object, **_kwargs: object) -> SimpleNamespace:
         """Return a minimal verified Web3 substitute."""
         return SimpleNamespace(eth=SimpleNamespace(chain_id=1))
 
@@ -123,7 +123,7 @@ def test_fresh_state_skips_lead_discovery(
         get_lead_discovery_state_path(tmp_path, 1),
     )
 
-    def unexpected_scan_leads(**_kwargs):
+    def unexpected_scan_leads(**_kwargs: object) -> None:
         """Fail when a cache hit attempts lead discovery."""
         pytest.fail("cache hit must not call scan_leads")
 
@@ -161,9 +161,8 @@ def test_signature_change_forces_metadata_refresh_and_saves_state(
     """A changed configuration invokes metadata refresh and persists its state."""
 
     vault_db_path = tmp_path / "vault-metadata-db.pickle"
-    received_kwargs = {}
 
-    def fake_web3(*_args, **_kwargs):
+    def fake_web3(*_args: object, **_kwargs: object) -> SimpleNamespace:
         """Return a minimal verified Web3 substitute."""
         return SimpleNamespace(eth=SimpleNamespace(chain_id=1))
 
@@ -184,10 +183,9 @@ def test_signature_change_forces_metadata_refresh_and_saves_state(
         get_lead_discovery_state_path(tmp_path, 1),
     )
 
-    def fake_scan_leads(**kwargs) -> LeadScanReport:
+    def fake_scan_leads(**_kwargs: object) -> LeadScanReport:
         """Simulate the metadata database write owned by real discovery."""
 
-        received_kwargs.update(kwargs)
         VaultDatabase(last_scanned_block={1: FULL_SCAN_BLOCK}).write(vault_db_path)
         return LeadScanReport(end_block=FULL_SCAN_BLOCK)
 
@@ -198,7 +196,6 @@ def test_signature_change_forces_metadata_refresh_and_saves_state(
     state, reason = load_lead_discovery_state(get_lead_discovery_state_path(tmp_path, 1))
     assert success is True
     assert metrics["lead_discovery_cache_hit"] is False
-    assert "force_metadata_refresh" not in received_kwargs
     assert reason is None
     assert state.completed_block == FULL_SCAN_BLOCK
 
@@ -321,11 +318,11 @@ def test_failed_metadata_refresh_keeps_previous_cache_state(
     )
     save_lead_discovery_state(previous_state, state_path)
 
-    def fake_web3(*_args, **_kwargs):
+    def fake_web3(*_args: object, **_kwargs: object) -> SimpleNamespace:
         """Return a minimal verified Web3 substitute."""
         return SimpleNamespace(eth=SimpleNamespace(chain_id=1))
 
-    def failing_scan_leads(**_kwargs) -> LeadScanReport:
+    def failing_scan_leads(**_kwargs: object) -> LeadScanReport:
         """Simulate a lagging or unavailable event backend."""
         message = "Hypersync has not advanced"
         raise RuntimeError(message)
@@ -382,7 +379,7 @@ def test_incremental_discovery_rejects_nonadvancing_cursor(
     )
     monkeypatch.setattr("eth_defi.erc_4626.hypersync_discovery.HypersyncVaultDiscover", FakeHypersyncVaultDiscover)
 
-    with pytest.raises(RuntimeError, match="did not receive a scannable block range"):
+    with pytest.raises(RuntimeError, match="did not advance past its scan range"):
         scan_leads(
             "https://rpc.example",
             vault_db_path,

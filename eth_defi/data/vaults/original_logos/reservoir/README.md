@@ -2,19 +2,25 @@
 
 ## Source
 
-- **Wordmark SVG (white)**: Downloaded from the official Reservoir website
-  - URL: `https://cdn.prod.website-files.com/64127710d8bb7f3867dd0a72/65f2ce4453f7c30d8d7cc8a7_logo-white.svg`
+- **Brandmark PNG**: Official Reservoir Webflow webclip/icon asset, downloaded
+  2026-07-30 from the Reservoir website
+  - URL: `https://cdn.prod.website-files.com/64127710d8bb7f3867dd0a72/65f325e53d4665b4cad32836_Webclip.png`
   - Website: `https://reservoir.xyz`
+  - Saved as `reservoir.brandmark.png` (256×256 RGBA, transparent background)
 
-## Variants
+The asset is the square geometric Reservoir mark without the Reservoir wordmark,
+so it remains legible in the small vault-card layout.
 
-Two variants derived from the official white wordmark:
+## Processing
 
-- `reservoir.light.svg` — wordmark in white fill (for dark backgrounds), 262×32 viewBox
-- `reservoir.dark.svg` — wordmark in black fill (for light backgrounds), 262×32 viewBox
+`reservoir.brandmark.png` was passed through
+`scripts/logos/post-process-logo.py` to produce transparent 256×256 PNGs at
+`eth_defi/data/vaults/formatted_logos/reservoir/`:
 
-## Notes
+- `generic.png`
+- `dark.png`
+- `light.png`
 
-- The official logo is a text-only wordmark (no separate icon/brandmark was found)
-- No brand kit or press page was available at the time of extraction
-- Post-processed to `formatted_logos/reservoir/` (256×256 PNG, transparent background)
+The existing `reservoir.dark.svg` and `reservoir.light.svg` files are retained
+as the original wordmark references, but are no longer used for the formatted
+vault logo.

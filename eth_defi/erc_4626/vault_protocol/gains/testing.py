@@ -13,12 +13,14 @@ from dataclasses import dataclass
 from decimal import Decimal
 
 from eth_typing import HexAddress
+from hexbytes import HexBytes
 from web3 import Web3
 
 from eth_defi.erc_4626.vault_protocol.gains.vault import GainsVault
-from eth_defi.provider.anvil import mine
+from eth_defi.provider.anvil import is_anvil, mine
 from eth_defi.trace import assert_transaction_success_with_explanation
 from eth_defi.utils import to_unix_timestamp, from_unix_timestamp
+from eth_defi.vault.deposit_redeem import UnsupportedVaultSimulation
 
 logger = logging.getLogger(__name__)
 
@@ -27,17 +29,37 @@ def force_next_gains_epoch(
     vault: GainsVault,
     any_account: HexAddress,
     padding_seconds: int = 1,
-    gas_limit=3_000_000,
-):
+    gas_limit: int = 3_000_000,
+) -> HexBytes:
     """Advance Gains vault to a next epoch by using Anvil hacks.
 
     :param any_account:
-        Burn gas
+        Account that submits the epoch-advance transaction.
+
+    :param padding_seconds:
+        Seconds added after the scheduled epoch boundary before mining.
+
+    :param gas_limit:
+        Gas limit for ``forceNewEpoch()``.
+
+    :return:
+        Transaction hash of the ``forceNewEpoch()`` call.
+
+    :raise UnsupportedVaultSimulation:
+        If ``vault`` is not connected to an Anvil provider.
     """
 
     assert isinstance(vault, GainsVault), f"Expected GainsVault, got {type(vault)}"
 
     web3 = vault.web3
+    if not is_anvil(web3):
+        raise UnsupportedVaultSimulation(
+            "Gains epoch forcing requires an Anvil provider",
+            unsupported_reason="anvil_provider_required",
+            protocol=vault.get_protocol_name(),
+            vault_address=vault.address,
+            direction="redeem",
+        )
 
     current_epoch = vault.fetch_current_epoch()
 
@@ -72,6 +94,7 @@ def force_next_gains_epoch(
 
     tx_hash = vault.open_pnl_contract.functions.forceNewEpoch().transact({"from": any_account, "gas": gas_limit})
     assert_transaction_success_with_explanation(web3, tx_hash)
+    return HexBytes(tx_hash)
 
 
 def force_ostium_v15_settlement(

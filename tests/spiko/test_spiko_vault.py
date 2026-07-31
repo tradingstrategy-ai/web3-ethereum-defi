@@ -11,8 +11,7 @@ from web3 import Web3
 from eth_defi.erc_4626.classification import HARDCODED_PROTOCOLS, _get_hardcoded_protocol_features, create_vault_instance_autodetect  # noqa: PLC2701
 from eth_defi.erc_4626.core import ERC4262VaultDetection, ERC4626Feature, get_vault_protocol_name
 from eth_defi.erc_4626.scan import create_vault_scan_record
-from eth_defi.provider.anvil import AnvilLaunch, fork_network_anvil
-from eth_defi.provider.multi_provider import create_multi_provider_web3
+from eth_defi.testing.anvil_fork_pool import AnvilForkPool
 from eth_defi.tokenised_fund.spiko.constants import USTBL_FIRST_SEEN_AT, USTBL_FIRST_SEEN_AT_BLOCK, USTBL_TOKEN_ADDRESS
 from eth_defi.tokenised_fund.spiko.historical import SpikoHistoricalReader, SpikoVaultReaderState
 from eth_defi.tokenised_fund.spiko.vault import SPIKO_PERMISSIONED_FLOW_REASON, USTBL_MANAGEMENT_FEE, SpikoVault
@@ -22,6 +21,8 @@ from eth_defi.vault.fee import VaultFeeMode
 
 JSON_RPC_ETHEREUM = os.environ.get("JSON_RPC_ETHEREUM")
 
+pytestmark = pytest.mark.xdist_group("fork:ethereum:25550000")
+
 SPIKO_TEST_BLOCK = 25_550_000
 EXPECTED_TOTAL_SUPPLY = Decimal("53782226.27927")
 EXPECTED_SHARE_PRICE = Decimal("1.029972")
@@ -29,28 +30,11 @@ EXPECTED_TOTAL_ASSETS = Decimal("55394187.16531228044")
 
 
 @pytest.fixture(scope="module")
-def anvil_ethereum_fork() -> AnvilLaunch:
-    """Fork Ethereum at a reproducible USTBL oracle observation.
-
-    :return: Running Anvil fork.
-    """
+def web3(anvil_fork_pool: AnvilForkPool) -> Web3:
+    """Share the read-only Spiko/USYC fork and its warmed RPC cache."""
     if JSON_RPC_ETHEREUM is None:
         pytest.skip("JSON_RPC_ETHEREUM needed to run Spiko integration tests")
-    launch = fork_network_anvil(JSON_RPC_ETHEREUM, fork_block_number=SPIKO_TEST_BLOCK)
-    try:
-        yield launch
-    finally:
-        launch.close()
-
-
-@pytest.fixture(scope="module")
-def web3(anvil_ethereum_fork: AnvilLaunch) -> Web3:
-    """Create Web3 connected to the fixed fork.
-
-    :param anvil_ethereum_fork: Running Anvil fork.
-    :return: Multi-provider Web3 instance.
-    """
-    return create_multi_provider_web3(anvil_ethereum_fork.json_rpc_url, retries=2)
+    return anvil_fork_pool.get_web3(JSON_RPC_ETHEREUM, SPIKO_TEST_BLOCK, web3_retries=2)
 
 
 def test_spiko_hardcoded_protocol() -> None:

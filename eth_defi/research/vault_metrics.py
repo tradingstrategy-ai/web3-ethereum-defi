@@ -27,6 +27,12 @@ from tqdm_loggable.auto import tqdm
 from eth_defi.chain import get_chain_name
 from eth_defi.compat import native_datetime_utc_now
 from eth_defi.core3.vault_protocol import Core3ExportRecord, Core3VaultSection, build_core3_vault_section
+from eth_defi.xerberus.vault_export import (
+    XerberusPoolLookupRow,
+    XerberusProtocolExportRecord,
+    XerberusVaultSection,
+    resolve_xerberus_vault_section,
+)
 from eth_defi.erc_4626.classification import HARDCODED_PROTOCOLS
 from eth_defi.erc_4626.core import ERC4262VaultDetection
 from eth_defi.erc_4626.vault_protocol.morpho.flag_analytics import MorphoFlagAnalytics, analyze_morpho_flags
@@ -48,6 +54,7 @@ from eth_defi.vault.flag import (
     VaultFlag,
     get_notes,
 )
+from eth_defi.vault.price_source import PriceSource
 from eth_defi.vault.risk import VaultTechnicalRisk, get_vault_risk
 from eth_defi.vault.vaultdb import VaultDatabase, VaultRow
 
@@ -174,28 +181,30 @@ class NetflowMetrics:
     Aggregates daily deposit/withdrawal event counts and USD values
     over a given period (e.g. ``"1d"``, ``"7d"``, ``"30d"``).
 
-    Only available for chains that support vault flow tracking
-    (currently Hyperliquid). For other chains this will be ``None``
-    in the vault record.
+    Only available for chains that support vault flow tracking. Sources that
+    expose monetary counters but not individual events retain null counts.
     """
 
     #: Period label (e.g. ``"1d"``, ``"7d"``, ``"30d"``)
     period: str
 
     #: Number of deposit events in the period
-    deposit_count: int = 0
+    deposit_count: int | None = None
 
     #: Number of withdrawal events in the period
-    withdrawal_count: int = 0
+    withdrawal_count: int | None = None
 
     #: Total USD deposited in the period
-    deposit_usd: float = 0.0
+    deposit_usd: float | None = None
 
     #: Total USD withdrawn in the period (positive value)
-    withdrawal_usd: float = 0.0
+    withdrawal_usd: float | None = None
 
     #: Net flow (deposit_usd - withdrawal_usd)
-    net_flow_usd: float = 0.0
+    net_flow_usd: float | None = None
+
+    #: Whether every daily monetary observation in the full period is known.
+    data_complete: bool = False
 
 
 #: Period -> Perioud duration, max sparse sample mismatch
@@ -207,6 +216,16 @@ LOOKBACK_AND_TOLERANCES: dict[Period, tuple[pd.DateOffset, pd.Timedelta]] = {
     "1Y": (pd.DateOffset(days=365), pd.Timedelta(days=365 + 45)),
     "lifetime": (pd.DateOffset(years=100), pd.Timedelta(days=100 * 365)),
 }
+
+
+class VaultWhitelist(TypedDict):
+    """Vault-wide KYC status and its qualification notes."""
+
+    #: Normalised :class:`VaultDepositPermission` value.
+    status: str
+
+    #: Optional qualification or known limitation for this status.
+    notes: str | None
 
 
 class VaultMetricsRecord(TypedDict, total=False):
@@ -287,6 +306,9 @@ class VaultMetricsRecord(TypedDict, total=False):
     #: Latest adaptive vault scan cycle, e.g. ``"large_tvl"`` or ``"peaked"``.
     vault_poll_frequency: str | None
 
+    #: Source used to produce the share-price series.
+    share_price_source: str | None
+
     #: Current net asset value in USD
     current_nav: float | None
 
@@ -310,6 +332,22 @@ class VaultMetricsRecord(TypedDict, total=False):
     #: permission, funds, acceptable slippage, spare cap, or liquidity.
     deposit_manager: dict | None
 
+    #: Vault-wide KYC or manual identity-approval policy.
+    #:
+    #: ``whitelisted`` normally means deposits require prior KYC or manual
+    #: identity approval, ``permissionless`` means no such approval applies and
+    #: ``unknown`` means the scanner has no source-proven KYC result for this
+    #: contract version. Open dates, lock-ups, epoch windows, pauses, caps and
+    #: token-holding requirements do not change this status. Consult
+    #: ``whitelist.notes`` for explicitly documented operating assumptions.
+    deposit_permission: str
+
+    #: Structured vault-wide account-admission status.
+    #:
+    #: ``status`` mirrors ``deposit_permission``. ``notes`` contains a
+    #: protocol-specific qualification where the scanner must expose one.
+    whitelist: VaultWhitelist
+
     #: Share token ERC-20 decimals (the vault's own ERC-4626 token).
     share_token_decimals: int | None
 
@@ -320,6 +358,12 @@ class VaultMetricsRecord(TypedDict, total=False):
     #: when no Core3 data is available. See
     #: :py:class:`~eth_defi.core3.vault_protocol.Core3VaultSection`.
     core3: "Core3VaultSection | None"
+
+    #: Compact Xerberus risk summary for this vault (pool score preferred),
+    #: or ``None`` when no Xerberus data is available. Unlike ``core3``, this
+    #: is primarily a per-vault rating when the pool is scored.
+    #: See :py:class:`~eth_defi.xerberus.vault_export.XerberusVaultSection`.
+    xerberus: "XerberusVaultSection | None"
 
     #: Stablecoin rate data for the vault denomination token.
     denomination_token_rate: DenominationTokenRate
@@ -378,6 +422,11 @@ class VaultMetricsExport(TypedDict):
     #: Core3 risk intelligence keyed by protocol slug.
     #: Only protocols present in the exported vaults are included.
     core3_protocols: dict[str, Core3ExportRecord]
+
+    #: Xerberus protocol-level metadata keyed by our protocol slug.
+    #: Only protocols present in the exported vaults are included.
+    #: Per-vault scores live on each vault row under ``xerberus``.
+    xerberus_protocols: dict[str, XerberusProtocolExportRecord]
 
     #: Curator metadata and recent feed entries keyed by curator slug.
     #: Only curators present in the exported vaults are included.
@@ -980,59 +1029,83 @@ def _unnullify(x: str | None, default: str = "<unknown>") -> str:
 def _calculate_netflow_metrics(
     prices_df: pd.DataFrame,
     now_: pd.Timestamp | None = None,
+    exclude_current_utc_day: bool = False,
 ) -> list[NetflowMetrics] | None:
     """Aggregate daily deposit/withdrawal flow data into period summaries.
 
     Computes :py:class:`NetflowMetrics` for 1d, 7d, and 30d periods by
     summing the daily flow columns in ``prices_df``.
 
-    Only complete days are considered. If the required flow columns are
-    missing or contain no non-null data, returns ``None``.
+    If monetary flow columns are missing or contain no non-null data, returns
+    ``None``. Count columns are optional because some native APIs expose only
+    cumulative monetary counters. A period is complete only when every UTC
+    day in its full calendar window has known monetary observations. Periods
+    with missing, source-null, or partial flow observations return null totals
+    rather than silently reporting a partial sum. Event counts follow the same
+    completeness rule when the source exposes them.
 
     :param prices_df:
         Cleaned price DataFrame with a DatetimeIndex and optional columns
-        ``daily_deposit_count``, ``daily_withdrawal_count``,
-        ``daily_deposit_usd``, ``daily_withdrawal_usd``.
+        ``daily_deposit_usd`` and ``daily_withdrawal_usd`` plus optional event
+        count columns.
     :param now_:
         Reference timestamp for period lookback. Defaults to the last
         timestamp in the DataFrame.
+    :param exclude_current_utc_day:
+        Exclude the current UTC day from the lookback when its source values
+        are intentionally provisional.
     :return:
         List of :py:class:`NetflowMetrics` for periods 1d, 7d, 30d,
         or ``None`` if flow data is unavailable.
     """
-    flow_cols = ["daily_deposit_count", "daily_withdrawal_count", "daily_deposit_usd", "daily_withdrawal_usd"]
-
-    if not all(col in prices_df.columns for col in flow_cols):
+    amount_cols = ["daily_deposit_usd", "daily_withdrawal_usd"]
+    count_cols = ["daily_deposit_count", "daily_withdrawal_count"]
+    if not all(col in prices_df.columns for col in amount_cols):
         return None
 
-    # Check if there is any non-null flow data at all
-    has_data = any(prices_df[col].notna().any() for col in flow_cols)
+    # Check if there is any non-null monetary flow data at all.
+    has_data = any(prices_df[col].notna().any() for col in amount_cols)
     if not has_data:
         return None
 
     if now_ is None:
         now_ = prices_df.index.max()
 
+    if exclude_current_utc_day and now_.date() == native_datetime_utc_now().date():
+        now_ -= pd.Timedelta(days=1)
+
     results = []
     for period_label, days in [("1d", 1), ("7d", 7), ("30d", 30)]:
         cutoff = now_ - pd.Timedelta(days=days)
-        mask = prices_df.index > cutoff
+        mask = (prices_df.index > cutoff) & (prices_df.index <= now_)
 
-        subset = prices_df.loc[mask, flow_cols].dropna(how="all")
+        subset = prices_df.loc[mask]
+        amounts = subset[amount_cols]
+        expected_dates = pd.date_range(end=now_.normalize(), periods=days, freq="D")
+        observed_dates = pd.DatetimeIndex(subset.index.normalize().unique())
+        data_complete = observed_dates.equals(expected_dates) and len(subset) == days and amounts.notna().all(axis=None)
 
-        dep_count = int(subset["daily_deposit_count"].sum()) if not subset.empty else 0
-        wd_count = int(subset["daily_withdrawal_count"].sum()) if not subset.empty else 0
-        dep_usd = float(subset["daily_deposit_usd"].sum()) if not subset.empty else 0.0
-        wd_usd = float(subset["daily_withdrawal_usd"].sum()) if not subset.empty else 0.0
+        if data_complete:
+            dep_usd = float(amounts["daily_deposit_usd"].sum())
+            wd_usd = float(amounts["daily_withdrawal_usd"].sum())
+            net_flow_usd = dep_usd - wd_usd
+        else:
+            dep_usd = None
+            wd_usd = None
+            net_flow_usd = None
+
+        deposit_count = int(subset["daily_deposit_count"].sum()) if data_complete and "daily_deposit_count" in subset and subset["daily_deposit_count"].notna().all() else None
+        withdrawal_count = int(subset["daily_withdrawal_count"].sum()) if data_complete and "daily_withdrawal_count" in subset and subset["daily_withdrawal_count"].notna().all() else None
 
         results.append(
             NetflowMetrics(
                 period=period_label,
-                deposit_count=dep_count,
-                withdrawal_count=wd_count,
+                deposit_count=deposit_count,
+                withdrawal_count=withdrawal_count,
                 deposit_usd=dep_usd,
                 withdrawal_usd=wd_usd,
-                net_flow_usd=dep_usd - wd_usd,
+                net_flow_usd=net_flow_usd,
+                data_complete=bool(data_complete),
             )
         )
 
@@ -1563,6 +1636,8 @@ def calculate_vault_record(
     three_months_ago: pd.Timestamp,
     vault_id: str | None = None,
     core3_protocols: dict[str, Core3ExportRecord] | None = None,
+    xerberus_pools: dict[tuple[int, str], XerberusPoolLookupRow] | None = None,
+    xerberus_protocols: dict[str, XerberusProtocolExportRecord] | None = None,
     stablecoin_rate_feeder: StablecoinRateFeeder | None = None,
 ) -> pd.Series:
     """Process a single vault metadata + prices to calculate its full data.
@@ -1594,6 +1669,17 @@ def calculate_vault_record(
         attached to the record for the vault's protocol, or ``None`` if
         the protocol has no Core3 data.
 
+    :param xerberus_pools:
+        Optional preloaded Xerberus pool lookup keyed by
+        ``(chain_id, address_lower)``, from
+        :py:func:`eth_defi.xerberus.vault_export.build_xerberus_pool_lookup`.
+        Enables per-vault scores (unlike Core3, which is protocol-level only).
+
+    :param xerberus_protocols:
+        Optional Xerberus protocol export map for protocol-score fallback,
+        from
+        :py:func:`eth_defi.xerberus.vault_export.build_xerberus_protocols_for_export`.
+
     :param stablecoin_rate_feeder:
         Stablecoin rate/depeg lookup helper. If omitted, a default feeder using
         package stablecoin metadata is constructed for this vault. Batch callers
@@ -1615,6 +1701,7 @@ def calculate_vault_record(
 
     name = _unnullify(vault_metadata.get("Name"), "<unnamed>")
     denomination = _unnullify(vault_metadata.get("Denomination"), "<broken>")
+    source_denomination = _unnullify(vault_metadata.get("_source_denomination"), denomination)
     share_token = _unnullify(vault_metadata.get("Share token"), "<broken>")
     normalised_denomination = normalise_token_symbol(denomination)
     denomination_slug = normalised_denomination.lower()
@@ -1679,6 +1766,13 @@ def calculate_vault_record(
     risk = vault_metadata.get("_risk") or get_vault_risk(protocol, vault_address)
     notes = vault_metadata.get("_notes") or get_notes(vault_address, chain_id=chain_id)
     vault_poll_frequency = get_latest_vault_poll_frequency(prices_df)
+    raw_share_price_source = vault_metadata.get("_share_price_source")
+    if raw_share_price_source is None:
+        share_price_source = None
+    elif isinstance(raw_share_price_source, PriceSource):
+        share_price_source = raw_share_price_source.value
+    else:
+        share_price_source = PriceSource(raw_share_price_source).value
 
     flags = set(vault_metadata.get("_flags") or set())
     risk, notes, flags = apply_bad_flag_check(
@@ -1706,17 +1800,25 @@ def calculate_vault_record(
     risk_numeric = risk.value if isinstance(risk, VaultTechnicalRisk) else None
 
     stored_deposit_manager = vault_metadata.get("_deposit_manager")
+    deposit_permission = vault_metadata.get("_deposit_permission", VaultDepositPermission.unknown.value)
+    try:
+        deposit_permission = VaultDepositPermission(deposit_permission).value
+    except (TypeError, ValueError):
+        deposit_permission = VaultDepositPermission.unknown.value
+    whitelist_notes = vault_metadata.get("_whitelist_notes")
+    if not isinstance(whitelist_notes, str):
+        whitelist_notes = None
+    whitelist: VaultWhitelist = {
+        "status": deposit_permission,
+        "notes": whitelist_notes,
+    }
+
     if stored_deposit_manager is None:
         deposit_manager = None
     else:
         # Keep the persisted capability mapping immutable: it can be reused by
         # other report rows during this export.
         deposit_manager = dict(stored_deposit_manager)
-        deposit_permission = vault_metadata.get("_deposit_permission", VaultDepositPermission.unknown.value)
-        try:
-            deposit_permission = VaultDepositPermission(deposit_permission).value
-        except (TypeError, ValueError):
-            deposit_permission = VaultDepositPermission.unknown.value
         deposit_manager["deposit_permission"] = deposit_permission
 
     # Compact per-vault Core3 risk summary for the vault's protocol.
@@ -1724,6 +1826,16 @@ def calculate_vault_record(
     # the same summary. None when no Core3 records were supplied or the
     # protocol has no Core3 data.
     core3_section = build_core3_vault_section((core3_protocols or {}).get(protocol_slug))
+
+    # Xerberus is primarily per-vault (pool) by (chain_id, address); protocol
+    # score is only a fallback when the pool is unscored.
+    xerberus_section = resolve_xerberus_vault_section(
+        chain_id=chain_id,
+        address=vault_address,
+        protocol_slug=protocol_slug,
+        pools=xerberus_pools or {},
+        protocols=xerberus_protocols or {},
+    )
 
     curator_slug = identify_curator(
         chain_id=chain_id,
@@ -1808,8 +1920,12 @@ def calculate_vault_record(
     now_ = prices_df.index.max()
 
     # Deposit/withdrawal flow metrics aggregated over 1d, 7d, 30d periods.
-    # Only available for chains with daily flow data (currently Hyperliquid).
-    netflow = _calculate_netflow_metrics(prices_df, now_=now_)
+    # Only available for native protocols with daily flow data.
+    netflow = _calculate_netflow_metrics(
+        prices_df,
+        now_=now_,
+        exclude_current_utc_day=vault_metadata.get("_daily_flow_current_day_is_provisional", False),
+    )
 
     # Vault descriptions from offchain metadata (Euler, Lagoon, etc.)
     description = vault_metadata.get("_description")
@@ -1877,6 +1993,17 @@ def calculate_vault_record(
     perp_dex_data = build_perp_dex_other_data(prices_df.iloc[-1])
     if perp_dex_data is not None:
         other_data["perp_dex"] = perp_dex_data
+
+    if protocol == "Lighter":
+        # Ownership is an API snapshot captured alongside pool metadata. It is
+        # deliberately not carried through historical price rows: doing so
+        # would make a current operator stake look like historical ownership.
+        other_data["lighter"] = {
+            "operator_shares": vault_metadata.get("_lighter_operator_shares"),
+            "total_shares": vault_metadata.get("_lighter_total_shares"),
+            "operator_share_fraction": vault_metadata.get("_lighter_operator_share_fraction"),
+            "ownership_updated_at": vault_metadata.get("_lighter_ownership_updated_at"),
+        }
 
     # Manual review decision from the Hyperliquid review Google Sheet.
     # Captured into the pickle by
@@ -2089,6 +2216,11 @@ def calculate_vault_record(
             "one_month_cagr": one_month_cagr,
             "one_month_cagr_net": one_month_cagr_net,
             "denomination": denomination,
+            # ``denomination`` is the USD-normalised valuation currency used
+            # by the common price pipeline. Preserve the issuer's native
+            # currency separately so international-fund consumers can select
+            # EUTBL as EUR-denominated without losing comparable USD TVL.
+            "source_denomination": source_denomination,
             "normalised_denomination": normalised_denomination,
             "denomination_slug": denomination_slug,
             "share_token": share_token,
@@ -2117,6 +2249,7 @@ def calculate_vault_record(
             "risk": risk,
             "risk_numeric": risk_numeric,
             "vault_poll_frequency": vault_poll_frequency,
+            "share_price_source": share_price_source,
             "id": id_val,
             "start_date": lifetime_start_date,
             "end_date": lifetime_end_date,
@@ -2154,6 +2287,10 @@ def calculate_vault_record(
             # fields immediately above.  Old metadata pickles safely export
             # null until they have been rescanned.
             "deposit_manager": deposit_manager,
+            # Vault-wide KYC policy, independently of whether eth-defi
+            # implements a public transaction manager.
+            "deposit_permission": deposit_permission,
+            "whitelist": whitelist,
             # Lending protocol statistics
             "available_liquidity": available_liquidity,
             "utilisation": utilisation,
@@ -2173,6 +2310,8 @@ def calculate_vault_record(
             # Compact per-vault Core3 risk summary (risk_score, market_cap, rating, etc.).
             # None when no Core3 data is available for the vault's protocol.
             "core3": core3_section,
+            # Compact Xerberus risk summary (pool-first, protocol fallback).
+            "xerberus": xerberus_section,
             "denomination_token_rate": denomination_token_rate,
             # Protocol-specific extension data; see other_data definition above for structure
             "other_data": other_data,
@@ -2185,6 +2324,8 @@ def calculate_lifetime_metrics(
     vault_db: VaultDatabase | dict[VaultSpec, VaultRow],
     returns_column: str = "returns_1h",
     core3_protocols: dict[str, Core3ExportRecord] | None = None,
+    xerberus_pools: dict[tuple[int, str], XerberusPoolLookupRow] | None = None,
+    xerberus_protocols: dict[str, XerberusProtocolExportRecord] | None = None,
     stablecoin_rate_feeder: StablecoinRateFeeder | None = None,
 ) -> pd.DataFrame:
     """Calculate lifetime metrics for each vault in the provided DataFrame.
@@ -2196,7 +2337,11 @@ def calculate_lifetime_metrics(
 
     Lookback based on the last entry.
 
-    Each output row contains a ``denomination_token_rate`` value produced by
+    Each output row contains a ``share_price_source`` string describing how
+    the adapter obtained its share-price observations, or ``None`` for legacy
+    metadata and adapters without a price source.
+
+    Each output row also contains a ``denomination_token_rate`` value produced by
     :py:meth:`eth_defi.feed.stablecoin_rate.StablecoinRateFeeder.get_denomination_token_rate_section`.
     The value is a :py:class:`eth_defi.feed.stablecoin_rate.DenominationTokenRate`
     carrying both USD rate fields and, for non-USD stablecoins, native source
@@ -2216,6 +2361,14 @@ def calculate_lifetime_metrics(
         :py:func:`eth_defi.core3.vault_protocol.build_core3_protocols_for_export`.
         Threaded through to :py:func:`calculate_vault_record` to attach a
         per-vault ``core3`` summary. ``None`` to skip Core3 enrichment.
+
+    :param xerberus_pools:
+        Optional preloaded Xerberus pool lookup for per-vault scores.
+        ``None`` to skip pool-level Xerberus enrichment.
+
+    :param xerberus_protocols:
+        Optional Xerberus protocol map for fallback scores and context.
+        ``None`` to skip protocol-level Xerberus enrichment.
 
     :param stablecoin_rate_feeder:
         Stablecoin rate/depeg lookup helper shared across all vault rows in
@@ -2255,6 +2408,8 @@ def calculate_lifetime_metrics(
                 three_months_ago,
                 vault_id=vault_id,
                 core3_protocols=core3_protocols,
+                xerberus_pools=xerberus_pools,
+                xerberus_protocols=xerberus_protocols,
                 stablecoin_rate_feeder=stablecoin_rate_feeder,
             )
         except (ArithmeticError, AssertionError, KeyError, TypeError, ValueError):
@@ -2653,6 +2808,8 @@ def format_lifetime_table(
     _del("perf_fee")
     _del("deposit_fee")
     _del("withdraw_fee")
+    _del("deposit_permission")
+    _del("whitelist")
 
     # Combined
     _del("cagr_net")
@@ -2738,6 +2895,7 @@ def format_lifetime_table(
     _del("deposit_manager")
     _del("other_data")
     _del("core3")
+    _del("xerberus")
     _del("denomination_token_rate")
 
     # Metadata timestamp, not relevant for human-readable table
@@ -2762,10 +2920,12 @@ def format_lifetime_table(
             "current_nav": "TVL USD (current / peak)",
             "years": "Age (years)",
             "denomination": "Denomination",
+            "source_denomination": "Source denomination",
             "chain": "Chain",
             "protocol": "Protocol",
             "risk": "Risk",
             "vault_poll_frequency": "Scan cycle",
+            "share_price_source": "Share price source",
             # "end_date": "Latest deposit",
             "name": "Name",
             "lockup": "Lock up est. days",
@@ -3434,6 +3594,9 @@ def export_lifetime_row(row: pd.Series) -> dict:
     - Normalises pandas, numpy, datetime, and custom types.
     - Converts finite :class:`~decimal.Decimal` values to JSON number floats.
     - Preserves legacy fee field names.
+
+    The ``share_price_source`` column is retained as a stable
+    :py:class:`eth_defi.vault.price_source.PriceSource` string value.
 
     The ``denomination_token_rate`` dataclass from
     :py:class:`eth_defi.feed.stablecoin_rate.DenominationTokenRate` is converted

@@ -1,34 +1,42 @@
-# sBOLD / K3 Capital Logo Assets
+# sBOLD / K3 Capital logo assets
 
 ## Source
 
-Logos extracted from the K3 Capital website (https://www.k3.capital/) on 2026-02-08.
+sBOLD is developed by K3 Capital. The sBOLD repository does not publish a
+separate product icon, so the curator artwork uses K3 Capital's official
+icon-only favicon. This is the compact K3 brandmark and contains no wordmark,
+which keeps it readable in the curator list at small sizes.
+
+- **Official homepage:** <https://www.k3.capital/>
+- **Official favicon / brandmark:** <https://cdn.prod.website-files.com/675844d9a635db4e94a73237/67584945e3b5b3fcb424e763_k3-256.png>
+- **Downloaded:** 2026-07-30
 
 ## Files
 
-| File | Description | Dimensions | Source |
-|------|-------------|------------|--------|
-| `k3-logo-light.svg` | K3 Capital wordmark - light (white) text on transparent background | 1282x362 | Website header |
-| `k3-logo.svg` | K3 Capital wordmark - generic version | 1282x362 | Website footer |
-| `sbold.twitter.jpg` | K3 Capital Twitter avatar | 224x224 | Twitter @k3_capital |
-| `k3-capital.brandmark.light.png` | Cropped K3 icon from the official light wordmark | 362x362 | Website header |
-| `k3-capital.brandmark.dark.png` | Cropped K3 icon from the official dark wordmark | 362x362 | Website footer |
+| File | Description |
+|------|-------------|
+| `sbold.brandmark.png` | Official K3 icon-only favicon source (opaque PNG) |
+| `sbold.brandmark-transparent.png` | Transparent K3 brandmark used for processing |
+| `k3-capital.brandmark.dark.png` | Existing extracted black K3 brandmark |
+| `k3-capital.brandmark.light.png` | Existing extracted light K3 brandmark |
+| `k3-logo.svg`, `k3-logo-light.svg` | Official K3 Capital wordmark sources retained for provenance |
+| `sbold.twitter.jpg` | K3 Capital social avatar retained for provenance |
 
-## Notes
+## Processing
 
-- sBOLD is developed by K3 Capital, so the K3 Capital logo/brand is used
-- The SVG logos include the full K3 wordmark with "Capital" text
-- The brand mark (icon only) appears to be the "K3" stylised square in the left portion of the logo
-- Light version has white fill, suitable for dark backgrounds
-- No official brand kit or press page was found on the website
+The transparent brandmark was passed through
+`scripts/logos/post-process-logo.py` for the generic and light variants. The
+dark variant is the processed generic mark with its RGB channels inverted;
+alpha transparency is preserved. All outputs are 256×256 RGBA PNGs:
 
-The formatted `k3-capital` logos use the cropped K3 icon, not the full
-wordmark, so curator list tiles remain legible at small sizes.
+- `formatted_logos/sbold/generic.png` — white K3 mark
+- `formatted_logos/sbold/light.png` — white K3 mark for dark surfaces
+- `formatted_logos/sbold/dark.png` — black K3 mark for light surfaces
 
-## Source URLs
+The former formatted outputs contained the full “K3 Capital” wordmark. They
+have been replaced with this icon-only brandmark.
 
-- Website: https://www.k3.capital/
-- Logo (light): https://cdn.prod.website-files.com/675844d9a635db4e94a73237/675b0982b93454c2a105e92b_k3-logo-light.svg
-- Logo (generic): https://cdn.prod.website-files.com/675844d9a635db4e94a73237/675b09416a6a67f81740edec_k3-logo.svg
-- Twitter: https://x.com/k3_capital
-- GitHub: https://github.com/K3Capital/sBOLD
+## Additional sources
+
+- sBOLD code repository: <https://github.com/K3Capital/sBOLD>
+- K3 Capital website logo assets: <https://www.k3.capital/>

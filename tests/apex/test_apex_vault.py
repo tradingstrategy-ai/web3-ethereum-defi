@@ -9,11 +9,15 @@ from typing import Callable
 
 import pytest
 
-from eth_defi.apex.session import ApexAPIError
+from eth_defi.apex.session import ApexAPIError, create_apex_session_pool
 from eth_defi.apex.vault import (
     ApexRankingPage,
+    fetch_official_vault_histories,
+    fetch_official_vaults,
     fetch_stabilised_vaults,
     parse_history,
+    parse_official_vault_histories,
+    parse_official_vaults,
     parse_ranking_page,
 )
 
@@ -111,6 +115,24 @@ def test_parse_history_duplicate_equivalence_and_conflict() -> None:
         parse_history(payload)
 
 
+def test_parse_official_vaults_and_batch_histories() -> None:
+    """Parse official type fields and preserve their independent histories."""
+    vaults = parse_official_vaults(_fixture("official-vaults.json"))
+    histories = parse_official_vault_histories(_fixture("official-history.json"), ("10000", "10001"))
+    assert [vault.vault_id for vault in vaults] == ["10000", "10001"]
+    assert vaults[0].vault_type == "NORMAL_OFFICIAL_VAULT_TYPE"
+    assert histories["10000"][0].timestamp < histories["10000"][1].timestamp
+    assert histories["10001"][0].total_value == pytest.approx(20020)
+
+
+def test_parse_official_vault_history_rejects_partial_batch() -> None:
+    """Do not accept a partial official history batch as an empty response."""
+    payload = _fixture("official-history.json")
+    payload["data"]["timeValueBatch"].pop()
+    with pytest.raises(ApexAPIError, match="omitted"):
+        parse_official_vault_histories(payload, ("10000", "10001"))
+
+
 class _QueuedPool:
     def __init__(self, payloads: list[dict]) -> None:
         self.payloads = payloads
@@ -126,6 +148,26 @@ class _QueuedPool:
     ) -> ApexRankingPage:
         assert path == "vault/ranking"
         self.deadlines.append(operation_deadline)
+        return validator(self.payloads.pop(0))
+
+
+class _OfficialQueuedPool:
+    """Small public-endpoint double recording paths and parameters."""
+
+    def __init__(self, payloads: list[dict]) -> None:
+        self.payloads = payloads
+        self.calls: list[tuple[str, dict[str, str | int]]] = []
+
+    def fetch_json(
+        self,
+        path: str,
+        *,
+        params: dict[str, str | int],
+        operation_deadline: float,
+        validator: Callable[[object], object],
+    ) -> object:
+        del operation_deadline
+        self.calls.append((path, params))
         return validator(self.payloads.pop(0))
 
 
@@ -175,3 +217,31 @@ def test_fetch_stabilised_vaults_rejects_row_count_mismatch() -> None:
     pool = _QueuedPool([_ranking_payload(3, rows), _ranking_payload(3, [])])
     with pytest.raises(ApexAPIError, match="reported 3"):
         fetch_stabilised_vaults(pool, operation_timeout=10, attempts=1)
+
+
+def test_fetch_official_vault_endpoints_use_distinct_listing_and_batch_paths() -> None:
+    """Use the API paths absent from the user-vault ranking reader."""
+    pool = _OfficialQueuedPool([_fixture("official-vaults.json"), _fixture("official-history.json")])
+    vaults = fetch_official_vaults(pool, operation_timeout=10)
+    histories = fetch_official_vault_histories(pool, ("10000", "10001"), operation_timeout=10)
+    assert len(vaults) == 2
+    assert set(histories) == {"10000", "10001"}
+    assert pool.calls == [
+        ("vault/official-vaults", {}),
+        ("vault/fund-net-value-batch", {"vaultIds": "10000,10001"}),
+    ]
+
+
+@pytest.mark.live
+@pytest.mark.timeout(30)
+def test_live_official_vault_listing_accepts_non_paginated_total_size() -> None:
+    """Accept the live official listing despite its non-paginated ``totalSize`` value.
+
+    ApeX currently reports ``totalSize=0`` while returning its official vaults
+    in ``vaultList``. This focused integration check exercises the real HTTP
+    response and parser without writing scanner state or reading history.
+    """
+    with create_apex_session_pool(pool_maxsize=1, retries=0) as session_pool:
+        vaults = fetch_official_vaults(session_pool, operation_timeout=30)
+
+    assert {vault.vault_id for vault in vaults} >= {"10000", "10001"}

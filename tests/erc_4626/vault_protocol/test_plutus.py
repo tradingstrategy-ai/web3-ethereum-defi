@@ -2,6 +2,7 @@
 
 import datetime
 import os
+from collections.abc import Iterator
 from decimal import Decimal
 from pathlib import Path
 
@@ -11,34 +12,33 @@ from web3 import Web3
 
 from eth_defi.abi import ZERO_ADDRESS_STR
 from eth_defi.erc_4626.classification import create_vault_instance_autodetect
-from eth_defi.erc_4626.vault_protocol.plutus.vault import PlutusDepositManager, PlutusHistoricalReader, PlutusVault
-from eth_defi.provider.anvil import AnvilLaunch, fork_network_anvil
+from eth_defi.erc_4626.vault_protocol.plutus.deposit_redeem import PlutusAsyncDepositManager, PlutusRedemptionTicket
+from eth_defi.erc_4626.vault_protocol.plutus.vault import PlutusHistoricalReader, PlutusVault
+from eth_defi.provider.anvil import AnvilLaunch
 from eth_defi.provider.multi_provider import create_multi_provider_web3
+from eth_defi.testing.anvil_fork_pool import AnvilForkPool
+from eth_defi.testing.evm_snapshot_fixture import evm_snapshot_revert
+from eth_defi.testing.fork_blocks import ARBITRUM_MIDNIGHT_BLOCK
+from eth_defi.token import USDC_NATIVE_TOKEN, USDC_WHALE, fetch_erc20_details
+from eth_defi.trace import assert_transaction_success_with_explanation
 from eth_defi.vault.base import REDEMPTION_CLOSED_BY_ADMIN, VaultTechnicalRisk
+from eth_defi.vault.deposit_redeem import AsyncVaultRequestStatus, UnsupportedVaultSimulation
 
 JSON_RPC_ARBITRUM = os.environ.get("JSON_RPC_ARBITRUM")
 
 pytestmark = pytest.mark.skipif(JSON_RPC_ARBITRUM is None, reason="JSON_RPC_ETHEREUM needed to run these tests")
 
-
-@pytest.fixture(scope="module")
-def anvil_arbitrum_fork(request) -> AnvilLaunch:
-    """Read gmUSDC vault at a specific block"""
-    launch = fork_network_anvil(JSON_RPC_ARBITRUM, fork_block_number=392_313_989)
-    try:
-        yield launch
-    finally:
-        # Wind down Anvil process after the test is complete
-        launch.close()
+PLUTUS_HEDGE_VAULT = "0x58BfC95a864e18E8F3041D2FCD3418f48393fE6A"
 
 
 @pytest.fixture(scope="module")
-def web3(anvil_arbitrum_fork):
-    web3 = create_multi_provider_web3(anvil_arbitrum_fork.json_rpc_url)
-    return web3
+def web3(anvil_fork_pool: AnvilForkPool) -> Web3:
+    """Share the read-only Plutus fork and its warmed RPC cache."""
+    return anvil_fork_pool.get_web3(JSON_RPC_ARBITRUM, 392_313_989)
 
 
 @flaky.flaky
+@pytest.mark.xdist_group("fork:arbitrum:392313989")
 def test_plutus(
     web3: Web3,
     tmp_path: Path,
@@ -58,8 +58,17 @@ def test_plutus(
     assert vault.has_custom_fees() is False
     assert vault.get_protocol_name() == "Plutus"
 
+    # The Hedge deployment has been upgraded to the async-redemption contract.
+    assert vault.is_async_redemption_deployment() is True
+    assert vault.get_deposit_manager_capability().as_dict() == {
+        "can_deposit": True,
+        "can_redeem": True,
+        "deposit_flow": "synchronous",
+        "redemption_flow": "asynchronous",
+        "supports_anvil_settlement": True,
+    }
     manager = vault.get_deposit_manager()
-    assert isinstance(manager, PlutusDepositManager)
+    assert isinstance(manager, PlutusAsyncDepositManager)
     estimated_deposit = manager.estimate_deposit(web3.eth.accounts[0], Decimal("1"))
     expected_estimate = vault.share_token.convert_to_decimals(vault.vault_contract.functions.convertToShares(vault.denomination_token.convert_to_raw(Decimal("1"))).call())
     assert estimated_deposit == expected_estimate
@@ -121,3 +130,94 @@ def test_plutus(
     assert max_deposit > 0  # Deposits are open
     assert max_redeem == 0  # Redemptions are closed
     assert vault.can_check_redeem() is True
+
+
+@pytest.fixture(scope="module")
+def plutus_midnight_fork(anvil_fork_pool: AnvilForkPool) -> AnvilLaunch:
+    """Share the canonical fixed Arbitrum midnight-block fork, USDC whale unlocked."""
+    return anvil_fork_pool.get_launch(
+        JSON_RPC_ARBITRUM,
+        ARBITRUM_MIDNIGHT_BLOCK,
+        unlocked_addresses=[USDC_WHALE[42161]],
+    )
+
+
+@pytest.fixture(scope="module")
+def midnight_web3(plutus_midnight_fork: AnvilLaunch) -> Web3:
+    """Connect to the shared deterministic Plutus midnight-block fork."""
+    return create_multi_provider_web3(plutus_midnight_fork.json_rpc_url)
+
+
+@pytest.fixture
+def plutus_snapshot(plutus_midnight_fork: AnvilLaunch) -> Iterator[None]:
+    """Restore the shared fork after a mutating deposit/redeem test."""
+    yield from evm_snapshot_revert(plutus_midnight_fork)
+
+
+@flaky.flaky
+@pytest.mark.xdist_group("fork:arbitrum:midnight")
+def test_plutus_async_redemption_lifecycle(midnight_web3: Web3, plutus_snapshot: None) -> None:
+    """Deposit synchronously, then request an asynchronous redemption on the Hedge vault.
+
+    Validates the ERC-7540-style flow: ``requestRedeem`` produces a pending
+    ticket, discovers and verifies the role-gated operator, fulfils the request,
+    then claims the released assets.
+    """
+    vault = create_vault_instance_autodetect(midnight_web3, vault_address=PLUTUS_HEDGE_VAULT)
+    assert isinstance(vault, PlutusVault)
+    assert vault.is_async_redemption_deployment() is True
+
+    manager = vault.get_deposit_manager()
+    assert isinstance(manager, PlutusAsyncDepositManager)
+
+    owner = midnight_web3.eth.accounts[0]
+    usdc = fetch_erc20_details(midnight_web3, USDC_NATIVE_TOKEN[42161])
+    amount = Decimal(100)
+
+    funding_hash = usdc.contract.functions.transfer(owner, usdc.convert_to_raw(amount)).transact({"from": USDC_WHALE[42161]})
+    assert_transaction_success_with_explanation(midnight_web3, funding_hash)
+    approve_hash = usdc.approve(vault.address, amount).transact({"from": owner})
+    assert_transaction_success_with_explanation(midnight_web3, approve_hash)
+
+    # Synchronous deposit.
+    manager.create_deposit_request(owner=owner, amount=amount).broadcast(from_=owner)
+    raw_shares = vault.share_token.fetch_raw_balance_of(owner)
+    assert raw_shares > 0
+
+    # Asynchronous redemption request.
+    request = manager.create_redemption_request(owner=owner, raw_shares=raw_shares)
+    assert len(request.funcs) == 1
+    ticket = request.broadcast(from_=owner)
+    assert isinstance(ticket, PlutusRedemptionTicket)
+    assert ticket.raw_shares == raw_shares
+    assert ticket.request_id >= 0
+
+    # Request is pending, not yet claimable, and restart-safe.
+    assert manager.get_redemption_request_status(ticket) == AsyncVaultRequestStatus.pending
+    assert manager.can_finish_redeem(ticket) is False
+    assert manager.reconstruct_redemption_ticket(manager.serialize_redemption_ticket(ticket)) == ticket
+
+    # Hypersync discovers role-grant candidates, then the fork verifies the
+    # active OPERATOR_ROLE holder before fulfilment and the ordinary claim.
+    assert manager.force_settle(None).settlement_required is False
+    settlement = manager.force_settle(ticket)
+    assert settlement.status_before is AsyncVaultRequestStatus.pending
+    assert settlement.status_after is AsyncVaultRequestStatus.claimable
+    assert settlement.transaction_hashes
+    assert settlement.is_terminal_success() is True
+    usdc_before = usdc.fetch_raw_balance_of(owner)
+    assert_transaction_success_with_explanation(midnight_web3, manager.finish_redemption(ticket).transact({"from": owner}))
+    assert usdc.fetch_raw_balance_of(owner) > usdc_before
+
+
+@pytest.mark.xdist_group("fork:arbitrum:midnight")
+def test_plutus_fulfiller_discovery_requires_hypersync_key(midnight_web3: Web3, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Return a typed refusal when role history cannot be read."""
+    vault = create_vault_instance_autodetect(midnight_web3, vault_address=PLUTUS_HEDGE_VAULT)
+    assert isinstance(vault, PlutusVault)
+    manager = vault.get_deposit_manager()
+    assert isinstance(manager, PlutusAsyncDepositManager)
+    monkeypatch.delenv("HYPERSYNC_API_KEY", raising=False)
+    with pytest.raises(UnsupportedVaultSimulation) as exc_info:
+        manager._fetch_fulfiller()
+    assert exc_info.value.unsupported_reason == "plutus_fulfilment_role_not_discoverable"

@@ -27,6 +27,7 @@ from web3 import Web3
 
 from eth_defi.chain import get_chain_name
 from eth_defi.erc_4626.vault import ERC4626HistoricalReader, ERC4626Vault
+from eth_defi.erc_4626.vault_protocol.morpho.deposit_redeem import MorphoV2DepositManager
 from eth_defi.erc_4626.vault_protocol.morpho.flag_analytics import analyze_morpho_flags
 from eth_defi.erc_4626.vault_protocol.morpho.offchain_metadata import (
     MorphoVaultAPIResult,
@@ -38,6 +39,7 @@ from eth_defi.erc_4626.vault_protocol.morpho.offchain_metadata import (
 from eth_defi.event_reader.multicall_batcher import EncodedCall, EncodedCallResult
 from eth_defi.types import Percent
 from eth_defi.vault.base import VaultHistoricalRead, VaultHistoricalReader
+from eth_defi.vault.deposit_redeem import PERMISSIONED_HOOK_CHECKS_NOT_PERFORMED_NOTE
 from eth_defi.vault.flag import NOT_IN_MORPHO_API, VaultFlag
 
 logger = logging.getLogger(__name__)
@@ -205,6 +207,31 @@ class MorphoV2Vault(ERC4626Vault):
     See also :py:class:`eth_defi.erc_4626.vault_protocol.morpho.vault_v1.MorphoV1Vault`
     for the original MetaMorpho architecture.
     """
+
+    whitelist_notes = PERMISSIONED_HOOK_CHECKS_NOT_PERFORMED_NOTE
+
+    def is_whitelisted_deposit(self) -> bool:
+        """Apply the requested whitelist assumption to every Morpho V2 vault.
+
+        This deliberately does not inspect optional account-specific hooks.
+        The public export carries that limitation in ``whitelist.notes``.
+
+        :return:
+            Always ``True`` under the current operating assumption.
+        """
+        return True
+
+    def get_deposit_manager(self) -> MorphoV2DepositManager:
+        """Create a manager that simulates exact Morpho V2 redemptions.
+
+        Morpho V2 returns zero from its ERC-4626 maximum functions, so the
+        manager performs an exact ``eth_call`` before returning a redemption
+        request.
+
+        :return:
+            Morpho V2-specific synchronous deposit and redemption manager.
+        """
+        return MorphoV2DepositManager(self)
 
     @cached_property
     def morpho_api_result(self) -> MorphoVaultAPIResult:

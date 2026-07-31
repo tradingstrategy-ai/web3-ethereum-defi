@@ -29,6 +29,7 @@ from eth_defi.vault.fee import FeeData, VaultFeeMode
 from eth_defi.vault.flag import VaultFlag
 from eth_defi.vault.handwritten_metadata import get_handwritten_vault_metadata
 from eth_defi.vault.lower_case_dict import LowercaseDict
+from eth_defi.vault.price_source import PriceSource
 
 MIDAS_HOMEPAGE = "https://midas.app/products"
 MIDAS_CONTRACTS_GITHUB = "https://github.com/midas-apps/contracts"
@@ -498,6 +499,18 @@ class MidasVault(VaultBase):
         if self.product.is_tokenised_fund:
             return None
         return self.fetch_primary_payment_token()
+
+    def get_share_price_source(self) -> PriceSource:
+        """Return the Midas NAV source classification.
+
+        Midas share prices are read from its deployed data-feed contracts at
+        the requested archive block.
+
+        :return:
+            Smart-contract state source.
+        """
+
+        return PriceSource.smart_contract_state
 
     def fetch_share_price(self, block_identifier: BlockIdentifier = "latest") -> Decimal:
         """Fetch Midas NAV per mToken.

@@ -161,6 +161,9 @@ class EmberVault(ERC4626Vault):
             can_redeem=True,
             deposit_flow="synchronous",
             redemption_flow="asynchronous",
+            # Ember redemption is terminal only after force_settle validates a
+            # request-specific operator event and positive direct payout.
+            supports_anvil_settlement=True,
         )
 
     def get_notes(self) -> str | None:

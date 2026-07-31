@@ -13,24 +13,46 @@ on:
     paths:
       - 'eth_defi/gmx/**'
       - 'tests/gmx/**'
+      # GMX fixed-block forks depend on these shared helpers and their
+      # committed Arbitrum Foundry RPC-cache seed.
+      - 'eth_defi/provider/anvil.py'
+      - 'eth_defi/testing/anvil_fork_pool.py'
+      - 'eth_defi/testing/fork_blocks.py'
+      - 'eth_defi/testing/rpc_cache.py'
+      - 'eth_defi/testing/rpc_cache_seed/arbitrum/**'
+      - 'tests/conftest.py'
       - '.github/workflows/test-gmx.yml'
   pull_request:
     branches: [ master ]
     paths:
       - 'eth_defi/gmx/**'
       - 'tests/gmx/**'
+      # Keep the dedicated suite coupled to its shared fixed-fork machinery.
+      - 'eth_defi/provider/anvil.py'
+      - 'eth_defi/testing/anvil_fork_pool.py'
+      - 'eth_defi/testing/fork_blocks.py'
+      - 'eth_defi/testing/rpc_cache.py'
+      - 'eth_defi/testing/rpc_cache_seed/arbitrum/**'
+      - 'tests/conftest.py'
       - '.github/workflows/test-gmx.yml'
+  # The push/PR `paths:` filters above already ensure this workflow only runs
+  # when GMX code, tests or their fixed-fork support changes, so the full
+  # (slow, order-execution) suite runs only for relevant changes. No
+  # time-based schedule is needed; manual dispatch is kept for on-demand runs.
+  workflow_dispatch: {}
 
 jobs:
   test-gmx-serial:
     # Reserved multicore instance for running tests
     runs-on:
       group: Beefy runners
-    # Hard cap — GMX tests typically run 6-8 min wall-clock; 12 min gives
-    # headroom for cold-cache or slow-RPC runs without burning Beefy minutes.
-    timeout-minutes: 12
+    # Hard 15-minute cap — do NOT raise it. GMX tests only run when GMX files
+    # change (paths filter above); if the full suite exceeds 15 min, fix the test
+    # runs (the slow order-execution files, warm cache), not the timeout. Growing
+    # a CI timeout hides the real slowdown instead of surfacing it.
+    timeout-minutes: 15
 
-    if: github.event.pull_request.draft == false || github.event_name == 'push'
+    if: github.event_name == 'workflow_dispatch' || github.event.pull_request.draft == false || github.event_name == 'push'
 
     # Only run the action for the latest push
     # See https://docs.github.com/en/actions/using-jobs/using-concurrency#example-only-cancel-in-progress-jobs-or-runs-for-the-current-workflow
@@ -75,9 +97,8 @@ jobs:
             poetry install
             poetry install -E docs -E data -E test -E hypersync -E ccxt -E duckdb -E posts
 
-      # See test.yml for the rationale: the immutable toolchain cache is split
-      # from the rolling Anvil fork RPC cache so new fork reads are actually
-      # persisted across runs.
+      # Cache the immutable Foundry toolchain binaries. The fork RPC cache is not
+      # an Actions cache — it ships in the repo (see below).
       - name: Cache Foundry toolchain
         uses: actions/cache@v4
         with:
@@ -87,18 +108,9 @@ jobs:
             foundry-toolchain-v1.2.3-
             foundry-toolchain-
 
-      # Restore the fork RPC cache; saved with `if: always()` at the end of the
-      # job (GMX frequently hits its timeout, and a plain actions/cache@v4 only
-      # saves on success, so the cache stayed cold). See test.yml for rationale.
-      - name: Restore Foundry fork RPC cache
-        uses: actions/cache/restore@v4
-        with:
-          path: ~/.foundry/cache/rpc
-          key: foundry-rpc-v1.2.3-${{ runner.os }}-${{ github.run_id }}
-          # Stable prefix: restore the newest accumulated cache from any prior run.
-          restore-keys: |
-            foundry-rpc-v1.2.3-${{ runner.os }}-
-
+      # No fork RPC cache step: the warm fork cache ships in the repo
+      # (eth_defi/testing/rpc_cache_seed/, auto-applied by the
+      # _seed_foundry_rpc_cache session fixture). See eth_defi/testing/README.md.
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@v1
         with:
@@ -130,110 +142,22 @@ jobs:
               print(f'{d.metadata[\"Name\"]}: {d.metadata[\"Version\"]}')
           "
 
-      # ============================================================================
-      # GMX TEST EXECUTION - PARALLEL MODE (WITH WARNINGS)
-      # ============================================================================
-      # 
-      # NOTE: Currently running in parallel mode, but be aware of potential issues:
-      # GMX tests MAY have issues when running in parallel (with -n auto) because:
-      # 
-      # 1. MAINNET FORK RACE CONDITIONS:
-      #    - GMX tests use mainnet forks via Anvil which share state
-      #    - Parallel execution causes race conditions when multiple tests try to:
-      #      * Deploy mock oracle contracts simultaneously
-      #      * Execute orders on the same fork instance
-      #      * Modify shared fork state (prices, timestamps, etc.)
-      #    - This results in intermittent failures like:
-      #      * "Transaction reverted" errors
-      #      * Price validation failures (100 price validation checks)
-      #      * Block timestamp conflicts
-      # 
-      # 2. OFF-CHAIN KEEPER DEPENDENCIES:
-      #    - GMX uses off-chain keepers to execute orders
-      #    - Order flow: User submits -> Protocol validates -> Keepers execute
-      #    - In fork environments, we simulate keeper execution manually
-      #    - Parallel tests can interfere with order execution timing
-      #    - Tests may see orders in wrong states (pending vs executed)
-      # 
-      # 3. PRICE ORACLE MOCKING ISSUES:
-      #    - Tests deploy MockOracleProvider to bypass price validations
-      #    - Multiple tests deploying mocks simultaneously can cause:
-      #      * Address conflicts
-      #      * Price feed overwrites
-      #      * Timestamp adjustment failures
-      #    - The shouldAdjustTimestamp and isChainlinkOnChainProvider checks fail
-      #      when multiple tests run concurrently
-      # 
-      # 4. BLOCK MINING CONFLICTS:
-      #    - forge test doesn't mine blocks (for ease of testing)
-      #    - anvil is different and mines blocks as tests run
-      #    - Parallel tests cause:
-      #      * Block number conflicts
-      #      * Timestamp desynchronization
-      #      * Price updates at wrong times
-      #    - As new blocks are mined, prices differ and trigger validation failures
-      # 
-      # 5. EXECUTION BUFFER TIMING:
-      #    - Tests use execution_buffer to wait for order execution
-      #    - Parallel execution makes timing unpredictable
-      #    - Orders may execute before/after expected times
-      #    - Position verification fails due to timing issues
-      # 
-      # 6. SHARED FIXTURE STATE:
-      #    - conftest.py creates shared fixtures (web3_arbitrum_fork, etc.)
-      #    - These fixtures maintain state across tests
-      #    - Parallel execution corrupts this shared state
-      #    - Tests see data from other tests running simultaneously
-      # 
-      # 7. RPC ENDPOINT LIMITATIONS:
-      #    - Fork tests require stable RPC endpoints
-      #    - Parallel tests can overwhelm RPC rate limits
-      #    - This causes connection timeouts and test failures
-      #    - Serial execution reduces RPC load
-      # 
-      # 8. WHAT DOESN'T WORK IN PARALLEL:
-      #    - test_trading.py: All position opening/closing tests fail due to fork state conflicts
-      #    - test_ccxt_trading.py: CCXT integration tests fail with order execution timing issues
-      #    - test_swap_order.py: Swap order tests fail due to price oracle conflicts
-      #    - test_order.py: Base order tests fail with state corruption
-      #    - test_open_positions.py: Position queries return wrong data from parallel tests
-      #    - test_funding_fee.py: Funding fee calculations use wrong block numbers
-      #    - test_gmx_oracle.py: Oracle price feeds get overwritten by parallel tests
-      #    - test_pool_tvl.py: TVL calculations see inconsistent state
-      #    - test_available_liquidity.py: Liquidity queries fail due to concurrent modifications
-      #    - test_borrow_apr.py: APR calculations use stale data
-      #    - test_claimable_fees.py: Fee claims see wrong positions
-      #    - All CCXT tests in tests/gmx/ccxt/: Fail due to shared exchange instance state
-      # 
-      # 9. KNOWN WORKAROUNDS THAT DON'T WORK:
-      #    - Using pytest-xdist with --dist=loadscope: Still causes fork state conflicts
-      #    - Using separate fork instances per test: Too slow and resource intensive
-      #    - Using locks/mutexes: Doesn't help with RPC-level race conditions
-      #    - Using test isolation fixtures: Can't isolate fork state properly
-      #    - Using separate RPC endpoints: Doesn't solve block/timestamp conflicts
-      # 
-      # 10. FUTURE FIXES NEEDED:
-      #     - Implement proper fork isolation per test (if possible)
-      #     - Create separate Anvil instances for each test (resource intensive)
-      #     - Mock keeper execution more reliably
-      #     - Fix price oracle mocking to be thread-safe
-      #     - Implement proper test ordering/dependencies
-      #     - Add retry logic for flaky tests
-      #     - Consider using Tenderly forks instead of Anvil (more stable but slower)
-      # 
-      # ============================================================================
-      # NOTE: Running in parallel mode, but be aware of the issues documented above.
-      # If tests fail intermittently, consider switching back to serial execution.
-      # ============================================================================
       - name: Run GMX tests (PARALLEL)
         run: |
-          # WARNING: Running GMX tests in parallel may cause issues documented above.
-          # If you see intermittent failures related to fork state, price validation,
-          # or order execution timing, consider running serially by removing -n auto.
+          set -o pipefail
+          # Read-only open-position tests carry the stable
+          # "fork:arbitrum:midnight:readonly" xdist group and share a warmed
+          # session Anvil fork. Mutable fork tests instead start fresh
+          # fixed-block forks, avoiding shared-state contamination while still
+          # using the committed Foundry RPC cache.
+          #
+          # The full suite runs only for GMX or fixed-fork support changes. If
+          # it exceeds the job cap, profile the fork tests instead of extending
+          # it.
           #
           # Always use verbose pytest output so stalled CI runs show the latest
           # test names in the Actions log.
-          poetry run pytest tests/gmx/ --timeout-method=thread --tb=native -n auto -v -s --capture=no
+          poetry run pytest tests/gmx/ --timeout-method=thread --tb=native -n 4 --dist loadgroup -v -s --capture=no
         env:
           # Arbitrum mainnet RPC is required for GMX tests (GMX is on Arbitrum)
           # Used for mainnet fork testing in conftest.py
@@ -244,17 +168,6 @@ jobs:
           # Private key for GMX test transactions on Arbitrum Sepolia testnet
           # Required for testnet tests that need to submit transactions
           ARBITRUM_GMX_TEST_SEPOLIA_PRIVATE_KEY: ${{ secrets.ARBITRUM_GMX_TEST_SEPOLIA_PRIVATE_KEY }}
-
-      # Persist the fork RPC cache even on timeout/failure so the Arbitrum fork
-      # blocks replay from disk next run. GMX regularly hits its 12-min timeout,
-      # and a plain actions/cache@v4 only saves on success — a warm cache is one
-      # of the few things that could get GMX under its cap.
-      - name: Save Foundry fork RPC cache
-        if: always()
-        uses: actions/cache/save@v4
-        with:
-          path: ~/.foundry/cache/rpc
-          key: foundry-rpc-v1.2.3-${{ runner.os }}-${{ github.run_id }}
 
       # NOTE: We don't run linting here as it's already done in the main workflow
       # Ruff lint check is only needed once per PR, not per test suite
