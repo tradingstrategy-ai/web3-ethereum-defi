@@ -63,17 +63,16 @@ def test_redemption_analysis_accepts_signed_compatible_event_amount() -> None:
     assert result.amount_out == 10**6
 
 
-def test_redemption_analysis_recovers_zero_event_assets_from_transfer() -> None:
-    """A zero-valued compatible Withdraw event uses the actual token transfer.
+def test_redemption_analysis_preserves_zero_output() -> None:
+    """A successful zero-output Withdraw event remains analysable.
 
     1. Build a successful redemption whose Withdraw event reports zero assets.
-    2. Include the non-zero denomination-token transfer to the receiver.
-    3. Confirm receipt analysis uses the transferred output amount.
+    2. Analyse the receipt without inventing an output amount.
+    3. Confirm the mined zero-value economic outcome is preserved.
     """
     # 1. Build a successful redemption whose Withdraw event reports zero assets.
     vault_address = "0x1111111111111111111111111111111111111111"
     receiver = "0x2222222222222222222222222222222222222222"
-    asset_address = "0x3333333333333333333333333333333333333333"
     withdraw_event = MagicMock()
     withdraw_event.process_receipt.return_value = [
         {
@@ -85,21 +84,8 @@ def test_redemption_analysis_recovers_zero_event_assets_from_transfer() -> None:
             },
         }
     ]
-    transfer_event = MagicMock()
-    transfer_event.process_receipt.return_value = [
-        {
-            "address": asset_address,
-            "args": {
-                "from": vault_address,
-                "to": receiver,
-                "value": 10**6,
-            },
-        }
-    ]
     contract = MagicMock()
     contract.events.Withdraw.return_value = withdraw_event
-    asset_contract = MagicMock()
-    asset_contract.events.Transfer.return_value = transfer_event
     vault = SimpleNamespace(
         web3=MagicMock(),
         address=vault_address,
@@ -110,9 +96,8 @@ def test_redemption_analysis_recovers_zero_event_assets_from_transfer() -> None:
             decimals=18,
         ),
         denomination_token=SimpleNamespace(
-            address_lower=asset_address,
+            address_lower="0x3333333333333333333333333333333333333333",
             decimals=6,
-            contract=asset_contract,
         ),
     )
     receipt = {
@@ -122,7 +107,7 @@ def test_redemption_analysis_recovers_zero_event_assets_from_transfer() -> None:
         "effectiveGasPrice": 1,
     }
 
-    # 2. Include the non-zero denomination-token transfer to the receiver.
+    # 2. Analyse the receipt without inventing an output amount.
     result = analyse_4626_flow_transaction(
         vault=vault,
         tx_hash="0x" + "00" * 32,
@@ -130,7 +115,8 @@ def test_redemption_analysis_recovers_zero_event_assets_from_transfer() -> None:
         direction="redeem",
     )
 
-    # 3. Confirm receipt analysis uses the transferred output amount.
+    # 3. Confirm the mined zero-value economic outcome is preserved.
     assert isinstance(result, TradeSuccess)
     assert result.amount_in == 10**18
-    assert result.amount_out == 10**6
+    assert result.amount_out == 0
+    assert result.price == 0
