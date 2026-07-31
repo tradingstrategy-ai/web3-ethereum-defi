@@ -144,6 +144,18 @@ class FortyAcresVault(ERC4626Vault):
         """
         return None
 
+    def is_whitelisted_deposit(self) -> bool:  # noqa: PLR6301
+        """Report 40acres lender deposits as permissionless.
+
+        The verified supply-vault implementation has no account admission
+        module. Utilisation and available liquidity can limit a deposit, but
+        these are public economic conditions rather than identity checks.
+
+        :return:
+            Always ``False``.
+        """
+        return False
+
     def get_link(self, referral: str | None = None) -> str:
         """Link to the 40acres app."""
         return "https://app.40acres.finance/"

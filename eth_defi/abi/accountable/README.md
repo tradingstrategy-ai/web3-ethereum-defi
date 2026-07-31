@@ -3,6 +3,27 @@
 `AccountableAsyncRedeemVault.json` is the Accountable vault interface used by
 the adapter (synchronous deposits, operator-finalised async redemptions).
 
+## Deposit permissions
+
+The verified vault source exposes an explicit ``PermissionLevel`` enum:
+
+- ``None = 0``: permissionless; ``onlyAuth`` accepts every account
+- ``KYC = 1``: Accountable-signed authorisation is appended to each call
+- ``Whitelist = 2``: persistent account admission is read with
+  ``allowed(address)`` and managed through ``setAllowed(address[], bool[])``
+
+The strategy's ``setLenders`` function is only a relay to the vault's
+``setAllowed`` method and the latter reverts unless the vault is in whitelist
+mode. It is not a second strategy-level permission policy. The Hyperithm Delta
+Neutral deployment was constructed with ``permissionLevel_ = 0`` and is thus
+permissionless; its ``loan().minDeposit``, loan state, and capacity checks are
+economic/lifecycle conditions rather than KYC.
+
+Verified sources:
+
+- https://monadscan.com/address/0x7Cd231120a60F500887444a9bAF5e1BD753A5e59#code
+- https://monadscan.com/address/0x647c9584072a4f1c96d5f82a7133af5642f39402#code
+
 `OpenTermCompoundV1.json` is the verified implementation ABI of the Accountable
 strategy contract that the vault delegates deposits to via `strategy()`. It
 exposes the per-loan terms (`loan()` with `minDeposit` / `minRedeem`) and the

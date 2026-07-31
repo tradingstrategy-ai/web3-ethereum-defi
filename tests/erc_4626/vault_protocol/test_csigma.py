@@ -72,6 +72,7 @@ def test_csigma(
     assert isinstance(vault, CsigmaVault)
     assert vault.get_protocol_name() == "cSigma Finance"
     assert vault.features == {ERC4626Feature.csigma_like}
+    assert vault.is_whitelisted_deposit() is False
 
     # Fees are not yet known for cSigma
     assert vault.get_management_fee("latest") == 0
@@ -200,6 +201,7 @@ def test_csigma_v2_pool(
     assert isinstance(vault, CsigmaVault)
     assert vault.get_protocol_name() == "cSigma Finance"
     assert vault.features == {ERC4626Feature.csigma_like}
+    assert vault.is_whitelisted_deposit() is False
 
     # Fees are not yet known for cSigma
     assert vault.get_management_fee("latest") == 0

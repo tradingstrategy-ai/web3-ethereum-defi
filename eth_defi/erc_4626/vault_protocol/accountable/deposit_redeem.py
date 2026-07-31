@@ -194,8 +194,11 @@ class AccountableDepositManager(ERC4626DepositManager):
 
     **Whitelisting / access control**
 
-    Permissionless. There is no per-account whitelist or access manager; deposit
-    availability is advised only by ``maxDeposit(owner) > 0``.
+    Accountable exposes an immutable vault-wide ``permissionLevel``. Mode
+    ``None`` is permissionless, ``KYC`` requires signed per-call authorisation,
+    and ``Whitelist`` checks persistent ``allowed(address)`` membership. The
+    manager performs this admission check independently from minimum amount,
+    loan state, and ``maxDeposit(owner)`` capacity. Hyperithm uses ``None``.
 
     **Anvil settlement (force_settle)**
 
@@ -295,6 +298,9 @@ class AccountableDepositManager(ERC4626DepositManager):
             to = owner
         if Web3.to_checksum_address(to) == Web3.to_checksum_address(ZERO_ADDRESS_STR):
             raise ValueError("Accountable deposit receiver cannot be the zero address")
+        self.check_deposit_whitelist(owner)
+        if Web3.to_checksum_address(to) != Web3.to_checksum_address(owner):
+            self.check_deposit_whitelist(to)
         if raw_amount is None:
             raw_amount = self.vault.denomination_token.convert_to_raw(amount)
         if raw_amount <= 0:

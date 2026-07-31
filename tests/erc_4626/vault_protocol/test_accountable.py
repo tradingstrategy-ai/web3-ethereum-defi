@@ -22,7 +22,7 @@ from eth_defi.erc_4626.vault_protocol.accountable.deposit_redeem import ACCOUNTA
 from eth_defi.erc_4626.vault_protocol.accountable.offchain_metadata import (
     fetch_accountable_vaults,
 )
-from eth_defi.erc_4626.vault_protocol.accountable.vault import AccountableHistoricalReader, AccountableVault
+from eth_defi.erc_4626.vault_protocol.accountable.vault import AccountableHistoricalReader, AccountablePermissionLevel, AccountableVault
 from eth_defi.provider.anvil import AnvilLaunch, fork_network_anvil
 from eth_defi.provider.multi_provider import create_multi_provider_web3
 from eth_defi.token import TokenDetails
@@ -309,6 +309,8 @@ def test_accountable_hyperithm_strategy_min_deposit(web3: Web3) -> None:
     """
     vault = create_vault_instance_autodetect(web3, vault_address="0x7cd231120a60f500887444a9baf5e1bd753a5e59")
     assert isinstance(vault, AccountableVault)
+    assert vault.fetch_permission_level() is AccountablePermissionLevel.none
+    assert vault.is_whitelisted_deposit() is False
     manager = vault.get_deposit_manager()
     assert isinstance(manager, AccountableDepositManager)
 

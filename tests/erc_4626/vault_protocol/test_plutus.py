@@ -51,6 +51,7 @@ def test_plutus(
     )
 
     assert isinstance(vault, PlutusVault)
+    assert vault.is_whitelisted_deposit() is False
 
     assert vault.get_risk() == VaultTechnicalRisk.severe
     assert vault.get_management_fee("latest") == 0.00

@@ -56,12 +56,12 @@ def test_yearn_custom_deposit_limit_module_remains_unknown() -> None:
     )
 
 
-def test_yearn_unreadable_deposit_limit_module_remains_unknown() -> None:
-    """A Yearn-like deployment without the V3 module getter must fail closed.
+def test_legacy_yearn_without_deposit_limit_module_defaults_permissionless() -> None:
+    """A legacy Yearn deployment without the V3 module getter defaults public.
 
     1. Prepare a Yearn deployment whose deposit-limit module call reverts.
     2. Read the vault-wide deposit permission classification.
-    3. Confirm the adapter reports an unknown policy instead of leaking the RPC error.
+    3. Confirm the adapter reports permissionless with an explicit caveat.
     """
     # 1. Prepare a Yearn deployment whose deposit-limit module call reverts.
     vault = object.__new__(YearnV3Vault)
@@ -70,10 +70,11 @@ def test_yearn_unreadable_deposit_limit_module_remains_unknown() -> None:
     vault._get_block_identifier = MagicMock(return_value=123)
 
     # 2. Read the vault-wide deposit permission classification.
-    with pytest.raises(NotImplementedError, match="does not expose a readable deposit-limit module"):
-        vault.is_whitelisted_deposit()
+    permissioned = vault.is_whitelisted_deposit()
 
-    # 3. Confirm the adapter reports an unknown policy instead of leaking the RPC error.
+    # 3. Confirm the adapter reports permissionless with an explicit caveat.
+    assert permissioned is False
+    assert "treated as permissionless by default" in vault.get_whitelist_notes()
     vault.vault_contract.functions.deposit_limit_module.return_value.call.assert_called_once_with(
         block_identifier=123,
     )

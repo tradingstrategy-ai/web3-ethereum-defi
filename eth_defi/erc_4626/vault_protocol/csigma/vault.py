@@ -149,6 +149,17 @@ class CsigmaVault(ERC4626Vault):
         del referral
         return "https://edge.csigma.finance/"
 
+    def is_whitelisted_deposit(self) -> bool:  # noqa: PLR6301
+        """Report cSigma pools as permissionless.
+
+        Verified pool implementations expose only global pause, daily window,
+        and capacity controls; none are per-account identity admission.
+
+        :return:
+            Always ``False``.
+        """
+        return False
+
     def get_deposit_manager(self) -> VaultDepositManager:
         """Create the manager appropriate for this cSigma deployment.
 

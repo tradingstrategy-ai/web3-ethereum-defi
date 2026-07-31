@@ -101,6 +101,17 @@ class EmberVault(ERC4626Vault):
             return self.ember_metadata.get("management_fee")
         return None
 
+    def is_whitelisted_deposit(self) -> bool:  # noqa: PLR6301
+        """Report Ember depositor access as permissionless.
+
+        Ember's vault contract only applies global pause and capacity checks;
+        it has no per-account KYC or allowlist policy.
+
+        :return:
+            Always ``False``.
+        """
+        return False
+
     def get_performance_fee(self, block_identifier: BlockIdentifier) -> float | None:
         """Weekly performance fee from Ember's offchain API.
 
