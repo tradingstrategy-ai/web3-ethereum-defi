@@ -300,7 +300,11 @@ class AccountableDepositManager(ERC4626DepositManager):
         if Web3.to_checksum_address(to) == Web3.to_checksum_address(ZERO_ADDRESS_STR):
             raise ValueError("Accountable deposit receiver cannot be the zero address")
         permission_level = self.vault.fetch_permission_level()
-        accounts = {Web3.to_checksum_address(owner), Web3.to_checksum_address(to)}
+        owner = Web3.to_checksum_address(owner)
+        to = Web3.to_checksum_address(to)
+        accounts = [owner]
+        if to != owner:
+            accounts.append(to)
         for account in accounts:
             if not self.vault.is_account_whitelisted(account, permission_level):
                 raise WhitelistingRequired(
