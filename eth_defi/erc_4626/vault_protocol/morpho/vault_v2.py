@@ -214,9 +214,9 @@ class MorphoV2Vault(ERC4626Vault):
         """Determine whether Morpho V2 has depositor gates configured.
 
         Canonical Morpho V2 vaults are permissionless when both optional gate
-        addresses are zero. A configured gate is an arbitrary ``Irm``-style
-        predicate and cannot safely be called KYC without recognising its
-        implementation.
+        addresses are zero. Configured gates implement Morpho's
+        ``IReceiveSharesGate`` and ``ISendAssetsGate`` predicates and cannot
+        safely be called KYC without recognising their implementation.
 
         :return:
             ``False`` when both canonical gate slots are disabled.
@@ -229,8 +229,21 @@ class MorphoV2Vault(ERC4626Vault):
         raise NotImplementedError(f"Morpho V2 vault {self.address} has custom gates: receiveSharesGate={receive_shares_gate}, sendAssetsGate={send_assets_gate}")
 
     def fetch_deposit_gates(self, block_identifier: BlockIdentifier | None = None) -> tuple[HexAddress, HexAddress]:
-        """Read Morpho V2's canonical receiver and sender gate slots."""
-        block_identifier = block_identifier or self._get_block_identifier()
+        """Read Morpho V2's canonical receiver and sender gate slots.
+
+        Deposits can be restricted independently by the account receiving
+        shares and the account sending assets. The zero address disables each
+        corresponding gate.
+
+        See `Morpho Vault V2 gate interfaces <https://github.com/morpho-org/vault-v2/blob/main/src/interfaces/IGate.sol>`__.
+
+        :param block_identifier:
+            Block at which both gate slots are inspected.
+        :return:
+            ``(receiveSharesGate, sendAssetsGate)`` addresses.
+        """
+        if block_identifier is None:
+            block_identifier = self._get_block_identifier()
         receive_shares_gate = self._fetch_gate_address(
             RECEIVE_SHARES_GATE_SIGNATURE,
             "receiveSharesGate",
@@ -249,7 +262,17 @@ class MorphoV2Vault(ERC4626Vault):
         function_name: str,
         block_identifier: BlockIdentifier,
     ) -> HexAddress:
-        """Read one Morpho V2 gate address without widening the ERC-4626 ABI."""
+        """Read one Morpho V2 gate address without widening the ERC-4626 ABI.
+
+        :param signature:
+            Four-byte getter selector.
+        :param function_name:
+            Human-readable getter name used in diagnostics.
+        :param block_identifier:
+            Block at which the gate is read.
+        :return:
+            Checksummed gate address.
+        """
         call = EncodedCall.from_keccak_signature(
             address=self.address,
             signature=signature,

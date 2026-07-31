@@ -232,10 +232,11 @@ class PlutusVault(ERC4626Vault):
         return PlutusDepositManager(self)
 
     def is_whitelisted_deposit(self) -> bool:  # noqa: PLR6301
-        """Report Plutus deposits as permissionless.
+        """Report the Plutus adapter family's default permission policy.
 
-        The protocol controls deposit and withdrawal windows globally and does
-        not maintain a depositor KYC or allowlist policy.
+        Supported Plutus deployments are treated as permissionless by default.
+        Deposit and withdrawal windows remain independent global lifecycle
+        controls.
 
         :return:
             Always ``False``.

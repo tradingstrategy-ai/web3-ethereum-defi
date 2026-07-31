@@ -194,7 +194,7 @@ class AccountableDepositManager(ERC4626DepositManager):
 
     **Whitelisting / access control**
 
-    Accountable exposes an immutable vault-wide ``permissionLevel``. Mode
+    Accountable exposes a constructor-selected vault-wide ``permissionLevel``. Mode
     ``None`` is permissionless, ``KYC`` requires signed per-call authorisation,
     and ``Whitelist`` checks persistent ``allowed(address)`` membership. The
     manager performs this admission check independently from minimum amount,

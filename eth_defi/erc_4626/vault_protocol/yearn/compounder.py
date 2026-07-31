@@ -39,10 +39,11 @@ class YearnCompounderVault(ERC4626Vault):
     """
 
     def is_whitelisted_deposit(self) -> bool:  # noqa: PLR6301
-        """Report Yearn TokenizedStrategy compounders as permissionless.
+        """Report the TokenizedStrategy adapter family's default permission policy.
 
-        The canonical TokenizedStrategy deposit path has global shutdown and
-        deposit-limit controls, but no receiver-specific KYC or allowlist.
+        Supported Yearn TokenizedStrategy compounders are treated as
+        permissionless by default. Shutdown and deposit-limit controls remain
+        independent global lifecycle conditions.
 
         :return:
             Always ``False``.

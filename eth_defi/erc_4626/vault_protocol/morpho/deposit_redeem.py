@@ -31,6 +31,33 @@ class MorphoV2DepositManager(ERC4626DepositManager):
     of the exact redemption from its eventual caller.
     """
 
+    def fetch_redemption_liquidity(self) -> tuple[HexAddress, int, int]:
+        """Read balances that can satisfy a Morpho V2 redemption payout.
+
+        Vault V2 may hold idle assets directly or pull them through its
+        configured liquidity adapter. This helper reports both the funding
+        target and the combined immediately visible token balance.
+
+        See `Morpho Vault V2 liquidity documentation <https://github.com/morpho-org/vault-v2#liquidity>`__.
+
+        :return:
+            ``(target, target_balance, available_balance)`` in raw denomination
+            token units. ``target`` is the liquidity adapter when configured,
+            otherwise the vault itself.
+        """
+        morpho_v2_contract = get_deployed_contract(
+            self.web3,
+            "morpho/IVaultV2.json",
+            self.vault.address,
+        )
+        liquidity_adapter = morpho_v2_contract.functions.liquidityAdapter().call()
+        target = liquidity_adapter if int(liquidity_adapter, 16) != 0 else self.vault.address
+        token = self.vault.denomination_token
+        vault_balance_raw = token.fetch_raw_balance_of(self.vault.address)
+        target_balance_raw = vault_balance_raw if target == self.vault.address else token.fetch_raw_balance_of(target)
+        available_raw = vault_balance_raw if target == self.vault.address else vault_balance_raw + target_balance_raw
+        return target, target_balance_raw, available_raw
+
     def force_redemption_liquidity(
         self,
         owner: HexAddress,
@@ -48,7 +75,20 @@ class MorphoV2DepositManager(ERC4626DepositManager):
         balance instead. Vault V2 accounts through its stored ``_totalAssets``;
         the helper adds one native unit for retry-time fee rounding. No gate,
         minimum or time condition is bypassed.
+
+        :param owner:
+            Redemption owner. Retained for the common intervention interface.
+        :param raw_shares:
+            Exact raw share quantity that the unchanged retry will redeem.
+        :param failure:
+            Source preflight failure proving the transfer path reverted.
+        :return:
+            Structured evidence describing the Anvil-only token injection.
+        :raise UnsupportedVaultSimulation:
+            If the provider is not Anvil, the failure is not the recognised
+            transfer error, or balance provisioning does not reproduce safely.
         """
+        del owner
         if not is_anvil(self.web3):
             raise UnsupportedVaultSimulation(
                 "Morpho Vault V2 redemption liquidity injection requires Anvil",
@@ -67,19 +107,10 @@ class MorphoV2DepositManager(ERC4626DepositManager):
             )
 
         token = self.vault.denomination_token
-        morpho_v2_contract = get_deployed_contract(
-            self.web3,
-            "morpho/IVaultV2.json",
-            self.vault.address,
-        )
-        liquidity_adapter = morpho_v2_contract.functions.liquidityAdapter().call()
-        target = liquidity_adapter if int(liquidity_adapter, 16) != 0 else self.vault.address
         injected_raw = 0
         for _attempt in range(4):
             required_raw = int(self.vault.vault_contract.functions.previewRedeem(raw_shares).call())
-            vault_balance_raw = token.fetch_raw_balance_of(self.vault.address)
-            target_balance_raw = token.fetch_raw_balance_of(target)
-            available_raw = vault_balance_raw if target == self.vault.address else vault_balance_raw + target_balance_raw
+            target, target_balance_raw, available_raw = self.fetch_redemption_liquidity()
             if available_raw >= required_raw:
                 break
             # Include one native unit because Vault V2's fee/accrual rounding
@@ -176,9 +207,18 @@ class MorphoV2DepositManager(ERC4626DepositManager):
             selector_length = len(MORPHO_V2_TRANSFER_REVERTED_SELECTOR)
             error_selector = revert_data[:selector_length] if revert_data and len(revert_data) >= selector_length else None
             transfer_failed = error_selector == MORPHO_V2_TRANSFER_REVERTED_SELECTOR
-            required_raw = int(self.vault.vault_contract.functions.previewRedeem(request.raw_shares).call())
-            available_raw = self.vault.denomination_token.fetch_raw_balance_of(self.vault.address)
-            liquidity_shortfall = transfer_failed and available_raw < required_raw
+            available_raw = None
+            liquidity_shortfall = False
+            if transfer_failed:
+                required_raw = int(self.vault.vault_contract.functions.previewRedeem(request.raw_shares).call())
+                _target, _target_balance_raw, available_raw = self.fetch_redemption_liquidity()
+                liquidity_shortfall = available_raw < required_raw
+            if liquidity_shortfall:
+                preflight_result = "redemption_liquidity_unavailable"
+            elif transfer_failed:
+                preflight_result = "redemption_asset_transfer_failed"
+            else:
+                preflight_result = "redemption_call_reverted"
             raise VaultFlowUnavailable(
                 (f"Morpho Vault V2 redemption asset transfer failed for vault {self.vault.address} on chain {self.vault.chain_id}" if transfer_failed else f"Morpho Vault V2 redemption call reverted for vault {self.vault.address} on chain {self.vault.chain_id}"),
                 protocol=self.vault.get_protocol_name(),
@@ -187,7 +227,7 @@ class MorphoV2DepositManager(ERC4626DepositManager):
                 direction="redeem",
                 phase="preflight",
                 decoded_error="TransferReverted" if transfer_failed else None,
-                preflight_result="redemption_liquidity_unavailable" if liquidity_shortfall else "redemption_asset_transfer_failed" if transfer_failed else "redemption_call_reverted",
+                preflight_result=preflight_result,
                 raw_revert_data=revert_data,
                 requested_raw_amount=request.raw_shares,
                 available_raw_amount=available_raw if transfer_failed else None,

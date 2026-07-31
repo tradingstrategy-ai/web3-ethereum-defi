@@ -736,15 +736,33 @@ class VaultRedemptionSimulationIntervention:
     the live vault had enough redemption liquidity.
     """
 
+    #: Intervention type for machine-readable reports.
     kind: Literal["liquidity_injected"]
+
+    #: Denomination token whose forked balance was changed.
     token: HexAddress
+
+    #: Vault or protocol liquidity adapter that received the token.
     target: HexAddress
+
+    #: Raw token quantity added on the fork.
     raw_amount: int
+
+    #: Original typed preflight explanation.
     original_reason: str
+
+    #: Original machine-readable preflight result when available.
     original_preflight_result: str | None = None
 
     def as_dict(self) -> dict[str, str]:
-        """Return JSON-safe intervention evidence."""
+        """Return JSON-safe intervention evidence.
+
+        Integer quantities are serialised as decimal strings so large token
+        values remain exact across JSON consumers.
+
+        :return:
+            Machine-readable intervention fields.
+        """
         result = {
             "kind": self.kind,
             "token": self.token,
@@ -1287,6 +1305,17 @@ class VaultDepositManager(ABC):
         Concrete managers may implement this only for a source-proven
         liquidity failure.  The default is deliberately unsupported: this
         hook must never bypass admission, minimums, maturity or time locks.
+
+        :param owner:
+            Redemption owner.
+        :param raw_shares:
+            Exact raw share quantity requested.
+        :param failure:
+            Typed preflight failure that prompted the intervention request.
+        :return:
+            Structured intervention evidence from a concrete manager.
+        :raise UnsupportedVaultSimulation:
+            Always for managers without a protocol-specific implementation.
         """
         del owner, raw_shares, failure
         raise UnsupportedVaultSimulation(

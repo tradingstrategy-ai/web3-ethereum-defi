@@ -109,10 +109,12 @@ def analyse_4626_flow_transaction(
     # ERC-4626 events use unsigned integers, but some compatible vault
     # implementations and legacy decoders expose a signed transfer direction.
     # Direction is already known from the event type, so normalise either sign.
-    # A successful redemption may also burn shares for zero assets, as Arche
-    # USD does when its Yearn withdrawal queue cannot return liquidity. The
-    # mined economic outcome must be reported as zero instead of turning an
+    # A successful redemption may also burn shares for zero assets. The mined
+    # economic outcome must be reported as zero instead of turning an
     # irreversible successful transaction into a receipt-analysis failure.
+
+    assert amount_in != 0, f"{direction} event input amount must not be zero"
+    assert direction == "redeem" or amount_out != 0, "Deposit event output shares must not be zero"
 
     amount_out_cleaned = Decimal(abs(amount_out)) / Decimal(10**out_token_details.decimals)
     amount_in_cleaned = Decimal(abs(amount_in)) / Decimal(10**in_token_details.decimals)

@@ -38,8 +38,13 @@ logger = logging.getLogger(__name__)
 class AccountablePermissionLevel(enum.IntEnum):
     """Accountable vault access modes from ``IAccess.PermissionLevel``."""
 
+    #: No account admission check.
     none = 0
+
+    #: Accountable-signed authorisation appended to each call.
     kyc = 1
+
+    #: Persistent membership exposed through ``allowed(address)``.
     whitelist = 2
 
 
@@ -443,7 +448,7 @@ class AccountableVault(ERC4626Vault):  # noqa: PLR0904
         mode, and reads ``allowed(account)`` in whitelist mode.
 
         :param block_identifier:
-            Block at which to inspect the immutable permission mode.
+            Block at which to inspect the configured permission mode.
         :return:
             Typed Accountable permission level.
         :raise NotImplementedError:

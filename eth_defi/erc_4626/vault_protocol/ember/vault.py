@@ -102,10 +102,11 @@ class EmberVault(ERC4626Vault):
         return None
 
     def is_whitelisted_deposit(self) -> bool:  # noqa: PLR6301
-        """Report Ember depositor access as permissionless.
+        """Report the Ember adapter family's default permission policy.
 
-        Ember's vault contract only applies global pause and capacity checks;
-        it has no per-account KYC or allowlist policy.
+        Supported Ember deployments are treated as permissionless by default.
+        Global pause, capacity and minimum checks are independent lifecycle
+        conditions handled by the deposit manager.
 
         :return:
             Always ``False``.

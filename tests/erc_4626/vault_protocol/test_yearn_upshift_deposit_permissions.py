@@ -74,7 +74,7 @@ def test_legacy_yearn_without_deposit_limit_module_defaults_permissionless() -> 
 
     # 3. Confirm the adapter reports permissionless with an explicit caveat.
     assert permissioned is False
-    assert "treated as permissionless by default" in vault.get_whitelist_notes()
+    assert "permissionless compatibility default" in vault.get_whitelist_notes()
     vault.vault_contract.functions.deposit_limit_module.return_value.call.assert_called_once_with(
         block_identifier=123,
     )

@@ -150,10 +150,11 @@ class CsigmaVault(ERC4626Vault):
         return "https://edge.csigma.finance/"
 
     def is_whitelisted_deposit(self) -> bool:  # noqa: PLR6301
-        """Report cSigma pools as permissionless.
+        """Report the cSigma adapter family's default permission policy.
 
-        Verified pool implementations expose only global pause, daily window,
-        and capacity controls; none are per-account identity admission.
+        Supported cSigma pools are treated as permissionless by default.
+        Global pause, daily-window and capacity checks are reported separately
+        by the deposit manager and do not change this identity-policy default.
 
         :return:
             Always ``False``.

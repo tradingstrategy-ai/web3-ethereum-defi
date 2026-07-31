@@ -5,18 +5,18 @@ the adapter (synchronous deposits, operator-finalised async redemptions).
 
 ## Deposit permissions
 
-The verified vault source exposes an explicit ``PermissionLevel`` enum:
+The verified vault source exposes an explicit `PermissionLevel` enum:
 
-- ``None = 0``: permissionless; ``onlyAuth`` accepts every account
-- ``KYC = 1``: Accountable-signed authorisation is appended to each call
-- ``Whitelist = 2``: persistent account admission is read with
-  ``allowed(address)`` and managed through ``setAllowed(address[], bool[])``
+- `None = 0`: permissionless; `onlyAuth` accepts every account
+- `KYC = 1`: Accountable-signed authorisation is appended to each call
+- `Whitelist = 2`: persistent account admission is read with
+  `allowed(address)` and managed through `setAllowed(address[], bool[])`
 
-The strategy's ``setLenders`` function is only a relay to the vault's
-``setAllowed`` method and the latter reverts unless the vault is in whitelist
+The strategy's `setLenders` function is only a relay to the vault's
+`setAllowed` method and the latter reverts unless the vault is in whitelist
 mode. It is not a second strategy-level permission policy. The Hyperithm Delta
-Neutral deployment was constructed with ``permissionLevel_ = 0`` and is thus
-permissionless; its ``loan().minDeposit``, loan state, and capacity checks are
+Neutral deployment was constructed with `permissionLevel_ = 0` and is thus
+permissionless; its `loan().minDeposit`, loan state, and capacity checks are
 economic/lifecycle conditions rather than KYC.
 
 Verified sources:

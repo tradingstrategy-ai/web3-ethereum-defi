@@ -284,7 +284,19 @@ class EulerVault(ERC4626Vault):
         raise NotImplementedError(f"Euler EVK vault {self.address} uses custom deposit hooks {hook_target} with operation bitmap {hooked_ops:#x}")
 
     def fetch_hook_config(self, block_identifier: BlockIdentifier | None = None) -> tuple[HexAddress, int]:
-        """Read the canonical EVK hook target and operation bitmap."""
+        """Read the canonical EVK hook target and operation bitmap.
+
+        EVK's `hookConfig()` packs the hook contract and operation bitmap into
+        its standard return tuple. Deposit permission classification only uses
+        the deposit and mint bits.
+
+        See `Euler Vault Kit hooks <https://github.com/euler-xyz/euler-vault-kit/blob/master/docs/whitepaper.md#hooks>`__.
+
+        :param block_identifier:
+            Block at which the EVK configuration is inspected.
+        :return:
+            Hook contract address and complete hooked-operation bitmap.
+        """
         call = EncodedCall.from_keccak_signature(
             address=self.address,
             signature=HOOK_CONFIG_SIGNATURE,
@@ -292,7 +304,9 @@ class EulerVault(ERC4626Vault):
             data=b"",
             extra_data=None,
         )
-        data = call.call(self.web3, block_identifier or self._get_block_identifier())
+        if block_identifier is None:
+            block_identifier = self._get_block_identifier()
+        data = call.call(self.web3, block_identifier)
         hook_target = Web3.to_checksum_address(data[12:32])
         hooked_ops = int.from_bytes(data[32:64], byteorder="big")
         return hook_target, hooked_ops

@@ -145,11 +145,11 @@ class FortyAcresVault(ERC4626Vault):
         return None
 
     def is_whitelisted_deposit(self) -> bool:  # noqa: PLR6301
-        """Report 40acres lender deposits as permissionless.
+        """Report the 40acres adapter family's default permission policy.
 
-        The verified supply-vault implementation has no account admission
-        module. Utilisation and available liquidity can limit a deposit, but
-        these are public economic conditions rather than identity checks.
+        Supported 40acres supply vaults are treated as permissionless by
+        default. Utilisation and available liquidity remain independent
+        economic conditions.
 
         :return:
             Always ``False``.

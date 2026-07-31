@@ -19,6 +19,17 @@ across multiple yield sources through smart contract adapters. V2 vaults use
 - Timelocked governance with curator/allocator roles
 - Non-custodial exits via ``forceDeallocate``
 
+Deposit permissions
+~~~~~~~~~~~~~~~~~~~
+
+MetaMorpho V1 deposits are permissionless. Morpho V2 is also permissionless
+when ``receiveSharesGate`` and ``sendAssetsGate`` are both zero. A V2
+deployment may configure custom implementations of the `Morpho gate interfaces
+<https://github.com/morpho-org/vault-v2/blob/main/src/interfaces/IGate.sol>`__
+for the share receiver and asset sender independently. The adapter therefore
+reports a zero-gate deployment as permissionless and leaves an unrecognised
+custom gate unknown instead of assuming either KYC or public access.
+
 Robinhood Chain temporary API workaround
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 

@@ -259,7 +259,7 @@ class UpshiftVault(ERC4626Vault):
 
         Both supported Upshift families accept deposits from any account.
         Multi-asset vaults separately restrict which input tokens may be used;
-        that token whitelist is validated by
+        that accepted-asset set is validated by
         :class:`UpshiftMultiAssetDepositManager` and is not KYC.
 
         :return:

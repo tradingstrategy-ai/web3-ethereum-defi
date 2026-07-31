@@ -107,7 +107,7 @@ class YearnV3Vault(ERC4626Vault):
             ```
     """
 
-    whitelist_notes = "Legacy Yearn deployments without deposit_limit_module() are treated as permissionless by default; an explicit custom module remains unknown."
+    whitelist_notes = "Legacy Yearn deployments without deposit_limit_module() use the adapter's permissionless compatibility default; an explicit custom module remains unknown."
 
     @cached_property
     def vault_contract(self) -> Contract:
@@ -147,9 +147,9 @@ class YearnV3Vault(ERC4626Vault):
 
         A canonical Yearn V3 vault with no deposit-limit module uses only its
         vault-wide limit and shutdown state, so deposits are permissionless.
-        Older Yearn deployments that predate the module getter are also
-        permissionless by default because their standard deposit path has no
-        receiver-specific admission module.
+        Older Yearn deployments that predate the module getter use the
+        adapter's permissionless compatibility default because no module can
+        be inspected through this interface.
         A custom module can inspect the receiver and its semantics cannot be
         inferred from the Yearn vault itself; keep that case explicitly
         unknown instead of assuming either public or allow-listed access.
