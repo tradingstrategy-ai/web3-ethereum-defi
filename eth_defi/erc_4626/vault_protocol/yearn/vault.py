@@ -158,9 +158,7 @@ class YearnV3Vault(ERC4626Vault):
         )
         if deposit_limit_module.lower() == ZERO_ADDRESS_STR.lower():
             return False
-        raise NotImplementedError(
-            f"Yearn V3 deposit-limit module {deposit_limit_module} requires module-specific permission inspection"
-        )
+        raise NotImplementedError(f"Yearn V3 deposit-limit module {deposit_limit_module} requires module-specific permission inspection")
 
     def fetch_strategies(self) -> list[Contract]:
         return self.vault_contract.functions.getStrategies().call()
