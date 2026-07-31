@@ -80,9 +80,10 @@ class YieldNestDepositManager(ERC4626DepositManager):
 
     **Anvil settlement (force_settle)**
 
-    No real settlement is modelled and the public capability remains
-    deposit-only. A synchronous deposit uses the inherited no-op
-    :meth:`force_settle` behaviour. Focused local tests may explicitly call
+    No real settlement is modelled. The adapter implements the immediate
+    synchronous redemption call, while current live capacity remains a
+    separate ``maxRedeem(owner)`` observation. A synchronous deposit uses the
+    inherited no-op :meth:`force_settle` behaviour. Focused local tests may explicitly call
     ``force_settle(None, mock=..., ignore_liquidity=True)`` on a
     ``MockYieldNestVault``. It switches only that mock's ``maxRedeem`` gate on,
     allowing the standard guarded redemption call to be tested. It never makes

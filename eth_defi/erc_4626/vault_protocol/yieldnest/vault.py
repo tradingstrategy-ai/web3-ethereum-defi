@@ -150,13 +150,14 @@ class YieldNestVault(ERC4626Vault):
         return False
 
     def get_deposit_manager_capability(self) -> VaultDepositManagerCapability:
-        """Declare YieldNest's verified synchronous deposit lifecycle.
+        """Declare YieldNest's implemented synchronous lifecycle.
 
         The bundled ABI contains the standard ERC-4626 ``Deposit`` event, so
         the inherited manager can decode the tested deposit receipt without a
         YieldNest-only parser. The specialised manager implements the standard
         synchronous redemption and reads an owner's immediate ``maxRedeem``
-        capacity. For ynRWAx it first enforces the product's 15 October 2026
+        capacity. Capability describes the adapter implementation, not current
+        live redemption capacity. For ynRWAx the manager first enforces the product's 15 October 2026
         maturity as a typed ``redemption_not_yet_matured`` preflight instead of
         misreporting the implemented direction as adapter-unsupported.
         The manager's ``ignore_liquidity`` simulation option operates only on

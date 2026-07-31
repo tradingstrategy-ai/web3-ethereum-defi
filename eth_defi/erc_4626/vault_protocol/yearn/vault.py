@@ -163,7 +163,14 @@ class YearnV3Vault(ERC4626Vault):
             deposit_limit_module = self.vault_contract.functions.deposit_limit_module().call(
                 block_identifier=self._get_block_identifier(),
             )
-        except (ABIFunctionNotFound, BadFunctionCallOutput, ContractLogicError, ValueError):
+        except (ABIFunctionNotFound, BadFunctionCallOutput, ContractLogicError):
+            return False
+        except ValueError as error:
+            # Some providers return an old deployment's unknown-selector
+            # revert as ValueError instead of ContractLogicError. Do not turn
+            # unrelated RPC and transport failures into permissionless status.
+            if "revert" not in str(error).lower():
+                raise
             return False
         if deposit_limit_module.lower() == ZERO_ADDRESS_STR.lower():
             return False

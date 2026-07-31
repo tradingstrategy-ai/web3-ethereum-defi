@@ -80,6 +80,26 @@ def test_legacy_yearn_without_deposit_limit_module_defaults_permissionless() -> 
     )
 
 
+def test_yearn_permission_read_does_not_hide_rpc_failures() -> None:
+    """Do not misclassify a Yearn vault when its permission read fails in transit.
+
+    1. Prepare a Yearn deposit-limit read that fails without an EVM revert.
+    2. Ask the adapter to classify deposit permission.
+    3. Confirm the RPC failure propagates to the scanner's unknown-status guard.
+    """
+    # 1. Prepare a Yearn deposit-limit read that fails without an EVM revert.
+    vault = object.__new__(YearnV3Vault)
+    vault.__dict__["vault_contract"] = MagicMock()
+    vault._get_block_identifier = MagicMock(return_value=123)
+    vault.vault_contract.functions.deposit_limit_module.return_value.call.side_effect = ValueError("RPC request timed out")
+
+    # 2. Ask the adapter to classify deposit permission.
+    with pytest.raises(ValueError, match="RPC request timed out"):
+        vault.is_whitelisted_deposit()
+
+    # 3. The transport failure propagated instead of becoming permissionless.
+
+
 def test_upshift_account_deposits_are_permissionless() -> None:
     """Upshift's accepted-asset list is not an account whitelist.
 

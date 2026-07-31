@@ -474,7 +474,11 @@ class AccountableVault(ERC4626Vault):  # noqa: PLR0904
         """
         return self.fetch_permission_level() is not AccountablePermissionLevel.none
 
-    def is_account_whitelisted(self, address: HexAddress) -> bool:
+    def is_account_whitelisted(
+        self,
+        address: HexAddress,
+        permission_level: AccountablePermissionLevel | None = None,
+    ) -> bool:
         """Check whether a bare account can use the configured admission mode.
 
         Whitelist mode has persistent membership through ``allowed(address)``.
@@ -484,10 +488,14 @@ class AccountableVault(ERC4626Vault):  # noqa: PLR0904
 
         :param address:
             Deposit controller or receiver to inspect.
+        :param permission_level:
+            Previously read permission mode. Supplying it avoids a duplicate
+            onchain read when several accounts are checked for one call.
         :return:
             Whether the standard adapter call is admitted for this account.
         """
-        permission_level = self.fetch_permission_level()
+        if permission_level is None:
+            permission_level = self.fetch_permission_level()
         if permission_level is AccountablePermissionLevel.none:
             return True
         if permission_level is AccountablePermissionLevel.whitelist:

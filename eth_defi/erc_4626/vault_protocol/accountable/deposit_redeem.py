@@ -35,6 +35,7 @@ from eth_defi.vault.deposit_redeem import (
     UnsupportedVaultSimulation,
     VaultFlowUnavailable,
     VaultForcedSettlementResult,
+    WhitelistingRequired,
     create_synchronous_settlement_result,
 )
 from eth_defi.vault.flow_events import (
@@ -298,9 +299,18 @@ class AccountableDepositManager(ERC4626DepositManager):
             to = owner
         if Web3.to_checksum_address(to) == Web3.to_checksum_address(ZERO_ADDRESS_STR):
             raise ValueError("Accountable deposit receiver cannot be the zero address")
-        self.check_deposit_whitelist(owner)
-        if Web3.to_checksum_address(to) != Web3.to_checksum_address(owner):
-            self.check_deposit_whitelist(to)
+        permission_level = self.vault.fetch_permission_level()
+        accounts = {Web3.to_checksum_address(owner), Web3.to_checksum_address(to)}
+        for account in accounts:
+            if not self.vault.is_account_whitelisted(account, permission_level):
+                raise WhitelistingRequired(
+                    f"Depositor {account} is not admitted for Accountable vault {self.vault.address} on chain {self.vault.chain_id}",
+                    protocol="Accountable",
+                    vault_address=self.vault.address,
+                    caller=account,
+                    direction="deposit",
+                    phase="preflight",
+                )
         if raw_amount is None:
             raw_amount = self.vault.denomination_token.convert_to_raw(amount)
         if raw_amount <= 0:

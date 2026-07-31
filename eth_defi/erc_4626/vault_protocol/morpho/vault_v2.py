@@ -235,7 +235,8 @@ class MorphoV2Vault(ERC4626Vault):
         shares and the account sending assets. The zero address disables each
         corresponding gate.
 
-        See `Morpho Vault V2 gate interfaces <https://github.com/morpho-org/vault-v2/blob/main/src/interfaces/IGate.sol>`__.
+        See `Morpho Vault V2 gate documentation <https://github.com/morpho-org/vault-v2#Gates>`__
+        and `gate interfaces <https://github.com/morpho-org/vault-v2/blob/main/src/interfaces/IGate.sol>`__.
 
         :param block_identifier:
             Block at which both gate slots are inspected.

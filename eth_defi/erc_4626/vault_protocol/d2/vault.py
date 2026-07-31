@@ -26,7 +26,7 @@ from eth_defi.vault.base import (
     VaultHistoricalRead,
     VaultHistoricalReader,
 )
-from eth_defi.vault.deposit_redeem import VaultFlowUnavailable
+from eth_defi.vault.deposit_redeem import VaultFlowUnavailable, WhitelistingRequired
 
 logger = logging.getLogger(__name__)
 
@@ -174,16 +174,22 @@ class D2DepositManager(ERC4626DepositManager):
         :raise WhitelistingRequired:
             If a mapping-only deployment does not admit the account.
         """
-        if self.vault.is_whitelisted_deposit():
-            # A mapping-only D2 deployment is a genuine account allow-list.
-            self.check_deposit_whitelist(owner)
+        vault_contract = self.vault.vault_contract
+        if vault_contract.functions.whitelisted(owner).call():
             return
 
-        if self.vault.is_account_eligible(owner):
-            return
+        whitelist_asset = vault_contract.functions.whitelistAsset().call()
+        if whitelist_asset.lower() == ZERO_ADDRESS_STR:
+            raise WhitelistingRequired(
+                f"Depositor {owner} is not whitelisted for D2 vault {self.vault.address} on chain {self.vault.chain_id}",
+                protocol=D2_PROTOCOL_NAME,
+                vault_address=self.vault.address,
+                caller=owner,
+                direction=direction,
+                phase="preflight",
+            )
 
-        whitelist_asset = self.vault.vault_contract.functions.whitelistAsset().call()
-        whitelist_balance = self.vault.vault_contract.functions.whitelistBalance().call()
+        whitelist_balance = vault_contract.functions.whitelistBalance().call()
         eligibility_token = fetch_erc20_details(
             self.web3,
             whitelist_asset,
@@ -191,6 +197,9 @@ class D2DepositManager(ERC4626DepositManager):
             cause_diagnostics_message=f"D2 vault {self.vault.address} eligibility check",
         )
         available_balance = eligibility_token.fetch_raw_balance_of(owner)
+        if available_balance > whitelist_balance:
+            return
+
         minimum_balance = whitelist_balance + 1
         raise VaultFlowUnavailable(
             f"D2 account {owner} does not meet the public {eligibility_token.symbol} balance eligibility minimum",
@@ -237,8 +246,9 @@ class D2DepositManager(ERC4626DepositManager):
         """Build D2 deposit calldata while its funding epoch is closed.
 
         This narrow diagnostic exception bypasses D2's temporary funding window
-        and ordinary amount/balance checks so a caller can validate the exact
-        manager-generated deposit call through GuardV0. It intentionally does
+        and denomination-token amount/balance checks so a caller can validate
+        the exact manager-generated deposit call through GuardV0. D2's separate
+        mapping-or-eligibility-asset admission check still applies. It intentionally does
         not construct or validate an ERC-20 approval, nor prove an
         approval-before-deposit sequence: those checks add no evidence to a
         standalone ``validateCall()`` policy check and remain normal live
@@ -250,6 +260,10 @@ class D2DepositManager(ERC4626DepositManager):
             Raw D2 denomination-token amount from the rejected preflight.
         :return:
             One standard ERC-4626 deposit call for isolated GuardV0 validation.
+        :raise VaultFlowUnavailable:
+            If the owner does not meet a public eligibility-asset minimum.
+        :raise WhitelistingRequired:
+            If a mapping-only deployment does not admit the owner.
         """
         self._assert_anvil_guard_validation()
         self._assert_account_eligible(owner, "deposit")

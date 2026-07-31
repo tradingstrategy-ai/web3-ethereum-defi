@@ -9,6 +9,7 @@ from eth_defi.erc_4626.classification import create_vault_instance_autodetect
 from eth_defi.erc_4626.vault_protocol.euler.vault import EulerEarnVault, EulerVault
 from eth_defi.erc_4626.vault_protocol.ipor.vault import IPORVault
 from eth_defi.erc_4626.vault_protocol.morpho.vault_v1 import MorphoV1Vault
+from eth_defi.erc_4626.vault_protocol.morpho.vault_v2 import MorphoV2Vault
 from eth_defi.testing.anvil_fork_pool import AnvilForkPool
 from eth_defi.vault.base import VaultSpec
 
@@ -27,6 +28,7 @@ EXECUTOR_SAFE = "0xa2b04c6a053AB2EFBC699f5DD0F0957742A41629"
 TESS_USDT_SUSDS = "0x9fec8a63a6c6ef9eadddfbd79daba5918965794e"
 IPOR_BITCOIN_DOLLAR_USDC = "0xf8f226da66244f89e70c5b5d1a5c5b0d505eb1d8"
 MORPHO_9S_USR = "0x00b6f2c15e4439749f192d10c70f65354848cf4b"
+MORPHO_V2_APYX_USDC = "0x069662d2588fcac24b5c209456db965d151556f0"
 EULER_VAULTS = (
     "0x3cd3718f8f047aa32f775e2cb4245a164e1c99fb",
     "0x8aff4fe319c30475d27ec623d7d44bd5ecfe9616",
@@ -91,6 +93,26 @@ def test_morpho_9s_is_permissionless(web3: Web3) -> None:
     assert isinstance(vault, MorphoV1Vault)
 
     # 3. Confirm deposits do not require identity approval.
+    assert vault.is_whitelisted_deposit() is False
+
+
+def test_morpho_v2_gate_getters_are_permissionless(web3: Web3) -> None:
+    """Test Morpho V2's deployed gate getters and public default.
+
+    1. Autodetect the production Apyx vault at the fixed block.
+    2. Read the source-defined share-receiver and asset-sender gate slots.
+    3. Confirm both gates are disabled and deposits are permissionless.
+    """
+    # 1. Autodetect the production Apyx vault at the fixed block.
+    vault = create_vault_instance_autodetect(web3, MORPHO_V2_APYX_USDC)
+    assert isinstance(vault, MorphoV2Vault)
+
+    # 2. Read the source-defined share-receiver and asset-sender gate slots.
+    receive_shares_gate, send_assets_gate = vault.fetch_deposit_gates()
+
+    # 3. Confirm both gates are disabled and deposits are permissionless.
+    assert int(receive_shares_gate, 16) == 0
+    assert int(send_assets_gate, 16) == 0
     assert vault.is_whitelisted_deposit() is False
 
 

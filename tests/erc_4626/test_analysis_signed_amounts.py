@@ -1,18 +1,21 @@
-"""Regression tests for ERC-4626 event amount normalisation."""
+"""Regression tests for ERC-4626 zero-output receipt analysis."""
 
+from decimal import Decimal
 from types import SimpleNamespace
 from unittest.mock import MagicMock
+
+import pytest
 
 from eth_defi.erc_4626.analysis import analyse_4626_flow_transaction
 from eth_defi.trade import TradeSuccess
 
 
-def test_redemption_analysis_accepts_signed_compatible_event_amount() -> None:
-    """Test a compatible vault's signed redemption output is normalised.
+def test_redemption_analysis_rejects_negative_event_amount() -> None:
+    """Reject a malformed negative value for an unsigned ERC-4626 event field.
 
     1. Build a successful redemption receipt with a negative decoded asset amount.
     2. Analyse it through the shared ERC-4626 receipt path.
-    3. Confirm the successful result carries the absolute output amount.
+    3. Confirm receipt analysis rejects the ABI-incompatible value.
     """
     # 1. Build a successful redemption receipt with a negative decoded asset amount.
     vault_address = "0x1111111111111111111111111111111111111111"
@@ -50,17 +53,15 @@ def test_redemption_analysis_accepts_signed_compatible_event_amount() -> None:
     }
 
     # 2. Analyse it through the shared ERC-4626 receipt path.
-    result = analyse_4626_flow_transaction(
-        vault=vault,
-        tx_hash="0x" + "00" * 32,
-        tx_receipt=receipt,
-        direction="redeem",
-    )
+    with pytest.raises(AssertionError, match="output amount must not be negative"):
+        analyse_4626_flow_transaction(
+            vault=vault,
+            tx_hash="0x" + "00" * 32,
+            tx_receipt=receipt,
+            direction="redeem",
+        )
 
-    # 3. Confirm the successful result carries the absolute output amount.
-    assert isinstance(result, TradeSuccess)
-    assert result.amount_in == 10**18
-    assert result.amount_out == 10**6
+    # 3. The ABI-incompatible value was not converted to a plausible trade.
 
 
 def test_redemption_analysis_preserves_zero_output() -> None:
@@ -120,3 +121,4 @@ def test_redemption_analysis_preserves_zero_output() -> None:
     assert result.amount_in == 10**18
     assert result.amount_out == 0
     assert result.price == 0
+    assert result.get_human_price(reverse_token_order=True) == Decimal("Infinity")

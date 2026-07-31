@@ -27,10 +27,6 @@ logger = logging.getLogger(__name__)
 
 VaultDepositFlow = Literal["synchronous", "asynchronous"]
 
-#: Export caveat for classifications made without inspecting optional
-#: protocol-specific permission hooks.
-PERMISSIONED_HOOK_CHECKS_NOT_PERFORMED_NOTE = "No permissioned hook checks were performed"
-
 
 class VaultDepositPermission(str, enum.Enum):
     """Whether deposits require KYC or comparable identity approval.
