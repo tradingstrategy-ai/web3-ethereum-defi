@@ -726,6 +726,37 @@ class VaultForcedSettlementResult:
         return evidence.request_id == self.ticket.get_request_id() and Web3.to_checksum_address(evidence.receiver) == Web3.to_checksum_address(self.ticket.to) and bool(evidence.event_name) and evidence.transaction_hash in self.transaction_hashes and evidence.has_positive_balance_delta()
 
 
+@dataclass(frozen=True, slots=True)
+class VaultRedemptionSimulationIntervention:
+    """Disclosed Anvil-only intervention used before a real redemption call.
+
+    The intervention changes fork state only.  A caller must still build,
+    broadcast and analyse the protocol's real redemption transaction after
+    this result is returned.  It must never be interpreted as evidence that
+    the live vault had enough redemption liquidity.
+    """
+
+    kind: Literal["liquidity_injected"]
+    token: HexAddress
+    target: HexAddress
+    raw_amount: int
+    original_reason: str
+    original_preflight_result: str | None = None
+
+    def as_dict(self) -> dict[str, str]:
+        """Return JSON-safe intervention evidence."""
+        result = {
+            "kind": self.kind,
+            "token": self.token,
+            "target": self.target,
+            "raw_amount": str(self.raw_amount),
+            "original_reason": self.original_reason,
+        }
+        if self.original_preflight_result is not None:
+            result["original_preflight_result"] = self.original_preflight_result
+        return result
+
+
 def create_synchronous_settlement_result() -> VaultForcedSettlementResult:
     """Create the standard no-op outcome for a synchronous vault flow.
 
@@ -1243,6 +1274,27 @@ class VaultDepositManager(ABC):
             caller=owner,
             direction="deposit",
             phase="preflight",
+        )
+
+    def force_redemption_liquidity(
+        self,
+        owner: HexAddress,
+        raw_shares: int,
+        failure: VaultFlowUnavailable,
+    ) -> VaultRedemptionSimulationIntervention:
+        """Provision an unavailable synchronous redemption on an Anvil fork.
+
+        Concrete managers may implement this only for a source-proven
+        liquidity failure.  The default is deliberately unsupported: this
+        hook must never bypass admission, minimums, maturity or time locks.
+        """
+        del owner, raw_shares, failure
+        raise UnsupportedVaultSimulation(
+            f"{self.__class__.__name__} has no Anvil redemption-liquidity driver",
+            unsupported_reason="redemption_liquidity_simulation_not_implemented",
+            protocol=self.vault.get_protocol_name(),
+            vault_address=self.vault.address,
+            direction="redeem",
         )
 
     def force_settle(

@@ -8,6 +8,7 @@ import flaky
 import pytest
 from web3 import Web3
 
+from eth_defi.abi import get_deployed_contract
 from eth_defi.erc_4626.classification import create_vault_instance_autodetect
 from eth_defi.erc_4626.vault_protocol.morpho.deposit_redeem import MORPHO_V2_TRANSFER_REVERTED_SELECTOR, MorphoV2DepositManager
 from eth_defi.erc_4626.vault_protocol.morpho.vault_v2 import MorphoV2Vault
@@ -49,12 +50,13 @@ def morpho_v2_snapshot(morpho_v2_fork: AnvilLaunch) -> Iterator[None]:
 # while the fixed-fork test passed locally; the live fork's transfer preflight is nondeterministic.
 @flaky.flaky
 def test_morpho_v2_transfer_revert_is_a_typed_transfer_refusal(web3: Web3, morpho_v2_snapshot: None) -> None:
-    """Map Apyx's final asset-transfer failure before broadcasting redemption.
+    """Map Apyx's transfer failure, inject liquidity and redeem normally.
 
     1. Deposit into Apyx and remove the locally injected idle USDC.
     2. Advance the fork into the failing redemption state.
     3. Assert exact-call redemption simulation returns typed transfer evidence
        without mining a reverted redemption transaction.
+    4. Inject only the missing payout asset and analyse the real redemption.
     """
     del morpho_v2_snapshot
 
@@ -85,8 +87,27 @@ def test_morpho_v2_transfer_revert_is_a_typed_transfer_refusal(web3: Web3, morph
         manager.create_redemption_request(owner=owner, raw_shares=raw_shares)
     error = exc_info.value
     assert error.decoded_error == "TransferReverted"
-    assert error.preflight_result == "redemption_asset_transfer_failed"
+    assert error.preflight_result == "redemption_liquidity_unavailable"
     assert error.error_selector == MORPHO_V2_TRANSFER_REVERTED_SELECTOR
     assert error.raw_revert_data[:4] == MORPHO_V2_TRANSFER_REVERTED_SELECTOR
     assert error.requested_raw_amount == raw_shares
     assert web3.eth.block_number == block_before
+
+    # 4. The manager-owned Anvil intervention discloses the exact synthetic
+    # liquidity, after which the unchanged redemption succeeds and its real
+    # receipt is analysed.
+    intervention = manager.force_redemption_liquidity(owner, raw_shares, error)
+    assert intervention.kind == "liquidity_injected"
+    assert intervention.token == vault.denomination_token.address
+    morpho_v2_contract = get_deployed_contract(web3, "morpho/IVaultV2.json", vault.address)
+    liquidity_adapter = morpho_v2_contract.functions.liquidityAdapter().call()
+    assert intervention.target == (vault.address if int(liquidity_adapter, 16) == 0 else liquidity_adapter)
+    assert intervention.raw_amount > 0
+    retry_required = vault.vault_contract.functions.previewRedeem(raw_shares).call()
+    retry_available = vault.denomination_token.fetch_raw_balance_of(vault.address)
+    assert retry_available >= retry_required, (retry_available, retry_required)
+    request = manager.create_redemption_request(owner=owner, raw_shares=raw_shares)
+    ticket = request.broadcast(from_=owner)
+    analysis = manager.analyse_redemption(ticket.tx_hash, ticket)
+    assert analysis.share_count > 0
+    assert analysis.denomination_amount > 0

@@ -18,7 +18,7 @@ from web3 import Web3
 from eth_defi.abi import ZERO_ADDRESS_STR
 from eth_defi.erc_4626.classification import create_vault_instance_autodetect
 from eth_defi.erc_4626.core import ERC4626Feature
-from eth_defi.erc_4626.vault_protocol.yieldnest.deposit_redeem import EXCEEDED_MAX_REDEEM_SELECTOR, YieldNestDepositManager
+from eth_defi.erc_4626.vault_protocol.yieldnest.deposit_redeem import YieldNestDepositManager
 from eth_defi.erc_4626.vault_protocol.yieldnest.vault import YNRWAX_VAULT_ADDRESS, YieldNestVault
 from eth_defi.provider.anvil import AnvilLaunch
 from eth_defi.provider.multi_provider import create_multi_provider_web3
@@ -75,9 +75,9 @@ def test_yieldnest_ynrwax_metadata(web3: Web3) -> None:
     assert vault.is_whitelisted_deposit() is False
     assert vault.get_deposit_manager_capability().as_dict() == {
         "can_deposit": True,
-        "can_redeem": False,
+        "can_redeem": True,
         "deposit_flow": "synchronous",
-        "redemption_unsupported_reason": "maturity_aware_redemption_flow_not_implemented",
+        "redemption_flow": "synchronous",
     }
     assert isinstance(vault.get_deposit_manager(), YieldNestDepositManager)
     assert vault.vault_contract.events.Deposit is not None
@@ -132,13 +132,12 @@ def test_yieldnest_ynrwax_deposit_and_redemption_preflight(web3: Web3, yieldnest
     with pytest.raises(TransactionAssertionError, match="custom error 0xb8b8b59c"):
         assert_transaction_success_with_explanation(web3, direct_redeem_hash)
 
-    # The manager refuses the full position before broadcast with a typed error
-    # carrying the decoded ExceededMaxRedeem selector, instead of leaking the
-    # raw 0xb8b8b59c revert.
+    # The manager refuses the full position before broadcast with the product's
+    # explicit maturity date. Live buffer capacity remains a separate state.
     with pytest.raises(VaultFlowUnavailable) as exc_info:
         manager.create_redemption_request(owner=owner, raw_shares=raw_shares)
     error = exc_info.value
-    assert error.decoded_error == "ExceededMaxRedeem"
-    assert error.error_selector == EXCEEDED_MAX_REDEEM_SELECTOR
+    assert error.decoded_error == "RedemptionBeforeMaturity"
+    assert error.preflight_result == "redemption_not_yet_matured"
+    assert error.next_open == datetime.datetime(2026, 10, 15)
     assert error.requested_raw_amount == raw_shares
-    assert error.available_raw_amount == max_redeem

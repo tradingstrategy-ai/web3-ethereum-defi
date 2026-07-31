@@ -46,7 +46,7 @@ from eth_defi.simple_vault.transact import encode_simple_vault_transaction
 from eth_defi.testing.anvil_fork_pool import AnvilForkPool
 from eth_defi.testing.evm_snapshot_fixture import evm_snapshot_revert
 from eth_defi.trace import TransactionAssertionError, assert_transaction_success_with_explanation
-from eth_defi.vault.deposit_redeem import WhitelistingRequired
+from eth_defi.vault.deposit_redeem import VaultFlowUnavailable
 
 JSON_RPC_ARBITRUM = os.environ.get("JSON_RPC_ARBITRUM")
 
@@ -218,9 +218,10 @@ def test_guarded_standard_erc4626_deposit_and_redeem(  # noqa: PLR0914
             _perform_guarded_call(web3, simple_vault, control, deposit_request.funcs[0])
             raw_shares = protocol_vault.share_token.fetch_raw_balance_of(simple_vault.address)
             assert raw_shares > 0
-            assert protocol_vault.is_account_whitelisted(simple_vault.address) is False
-            with pytest.raises(WhitelistingRequired, match="not whitelisted"):
+            assert protocol_vault.is_account_eligible(simple_vault.address) is False
+            with pytest.raises(VaultFlowUnavailable, match="public USDC balance eligibility minimum") as exc_info:
                 manager.create_redemption_request(owner=simple_vault.address, raw_shares=raw_shares)
+            assert exc_info.value.preflight_result == "below_minimum"
         finally:
             assert web3.provider.make_request("evm_revert", [snapshot_id])["result"] is True
             # Anvil restores the account nonce but a HotWallet intentionally

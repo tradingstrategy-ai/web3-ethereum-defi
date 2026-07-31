@@ -156,6 +156,40 @@ class D2DepositManager(ERC4626DepositManager):
                 next_open=next_open,
             )
 
+    def _assert_account_eligible(self, owner: HexAddress, direction: Literal["deposit", "redeem"]) -> None:
+        """Enforce D2's public asset-balance eligibility without calling it KYC."""
+        if self.vault.is_whitelisted_deposit():
+            # A mapping-only D2 deployment is a genuine account allow-list.
+            self.check_deposit_whitelist(owner)
+            return
+
+        if self.vault.is_account_eligible(owner):
+            return
+
+        whitelist_asset = self.vault.vault_contract.functions.whitelistAsset().call()
+        whitelist_balance = self.vault.vault_contract.functions.whitelistBalance().call()
+        eligibility_token = fetch_erc20_details(
+            self.web3,
+            whitelist_asset,
+            chain_id=self.vault.chain_id,
+            cause_diagnostics_message=f"D2 vault {self.vault.address} eligibility check",
+        )
+        available_balance = eligibility_token.fetch_raw_balance_of(owner)
+        minimum_balance = whitelist_balance + 1
+        raise VaultFlowUnavailable(
+            f"D2 account {owner} does not meet the public {eligibility_token.symbol} balance eligibility minimum",
+            protocol=D2_PROTOCOL_NAME,
+            vault_address=self.vault.address,
+            caller=owner,
+            asset_address=eligibility_token.address,
+            direction=direction,
+            phase="preflight",
+            decoded_error="InsufficientEligibilityBalance",
+            preflight_result="below_minimum",
+            available_raw_amount=available_balance,
+            minimum_raw_amount=minimum_balance,
+        )
+
     def create_deposit_request(  # noqa: PLR0917
         self,
         owner: HexAddress,
@@ -176,6 +210,7 @@ class D2DepositManager(ERC4626DepositManager):
             If the current D2 epoch is not accepting deposits.
         """
         self._assert_flow_open(owner, "deposit")
+        self._assert_account_eligible(owner, "deposit")
         return super().create_deposit_request(owner, to, amount, raw_amount, check_max_deposit, check_enough_token)
 
     def create_deposit_request_for_guard_validation(
@@ -201,6 +236,7 @@ class D2DepositManager(ERC4626DepositManager):
             One standard ERC-4626 deposit call for isolated GuardV0 validation.
         """
         self._assert_anvil_guard_validation()
+        self._assert_account_eligible(owner, "deposit")
         return ERC4626DepositManager.create_deposit_request(
             self,
             owner=owner,
@@ -230,6 +266,7 @@ class D2DepositManager(ERC4626DepositManager):
             If the current D2 epoch is not accepting redemptions.
         """
         self._assert_flow_open(owner, "redeem")
+        self._assert_account_eligible(owner, "redeem")
         return super().create_redemption_request(owner, to, shares, raw_shares, check_max_deposit, check_enough_token)
 
 
@@ -548,19 +585,23 @@ class D2Vault(ERC4626Vault):
         return D2DepositManager(self)
 
     def is_whitelisted_deposit(self) -> bool:  # noqa: PLR6301
-        """Report D2 deposits as permissionless.
+        """Report whether D2 uses a mapping-only identity gate.
 
         The historical ``onlyWhitelisted`` name is misleading for public
         status purposes: any account can satisfy the rule by holding the
         configured public asset minimum. It is an economic eligibility
-        condition, not KYC or manual identity approval.
+        condition, not KYC or manual identity approval. A zero whitelist-asset
+        address removes that public route and leaves only the explicit mapping,
+        which is a genuine account allow-list.
 
         :return:
-            Always ``False``.
+            ``False`` when public asset-balance admission is configured;
+            otherwise ``True`` for a mapping-only deployment.
         """
-        return False
+        whitelist_asset = self.vault_contract.functions.whitelistAsset().call()
+        return whitelist_asset.lower() == ZERO_ADDRESS_STR
 
-    def is_account_whitelisted(self, address: HexAddress) -> bool:
+    def is_account_eligible(self, address: HexAddress) -> bool:
         """Evaluate D2's legacy mapping-or-asset-balance eligibility rule.
 
         Both ``deposit()`` and ``redeem()`` execute ``onlyWhitelisted``. The
@@ -590,6 +631,12 @@ class D2Vault(ERC4626Vault):
             cause_diagnostics_message=f"D2 vault {self.address} whitelist admission check",
         )
         return whitelist_token.fetch_raw_balance_of(address) > whitelist_balance
+
+    def is_account_whitelisted(self, address: HexAddress) -> bool:
+        """Read mapping membership for a mapping-only D2 deployment."""
+        if not self.is_whitelisted_deposit():
+            raise NotImplementedError("Public D2 asset-balance eligibility is not KYC membership")
+        return bool(self.vault_contract.functions.whitelisted(address).call())
 
     def get_link(self, referral: str | None = None) -> str:  # noqa: ARG002
         """Get the canonical public page for this D2 vault.

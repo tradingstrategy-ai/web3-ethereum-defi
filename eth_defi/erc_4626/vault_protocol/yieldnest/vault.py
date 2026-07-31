@@ -3,15 +3,18 @@
 import datetime
 import logging
 from functools import cached_property
+from typing import TYPE_CHECKING
 
 from eth_typing import BlockIdentifier, HexAddress
-from web3 import Web3
 from web3.contract import Contract
 
 from eth_defi.abi import get_deployed_contract
 from eth_defi.compat import native_datetime_utc_now
 from eth_defi.erc_4626.vault import ERC4626Vault
 from eth_defi.vault.deposit_redeem import VaultDepositManagerCapability
+
+if TYPE_CHECKING:
+    from eth_defi.erc_4626.vault_protocol.yieldnest.deposit_redeem import YieldNestDepositManager
 
 logger = logging.getLogger(__name__)
 
@@ -151,10 +154,11 @@ class YieldNestVault(ERC4626Vault):
 
         The bundled ABI contains the standard ERC-4626 ``Deposit`` event, so
         the inherited manager can decode the tested deposit receipt without a
-        YieldNest-only parser. The specialised manager can read an owner's
-        immediate ``maxRedeem`` capacity, but no non-zero capacity and matching
-        redemption receipt are fork-proven for ynRWAx. Its maturity-aware and
-        any buffer-fallback redemption lifecycle therefore remain unsupported.
+        YieldNest-only parser. The specialised manager implements the standard
+        synchronous redemption and reads an owner's immediate ``maxRedeem``
+        capacity. For ynRWAx it first enforces the product's 15 October 2026
+        maturity as a typed ``redemption_not_yet_matured`` preflight instead of
+        misreporting the implemented direction as adapter-unsupported.
         The manager's ``ignore_liquidity`` simulation option operates only on
         ``MockYieldNestVault`` in a local Anvil test. It proves GuardV0's
         standard ERC-4626 redemption validation, not a live YieldNest buffer
@@ -162,17 +166,16 @@ class YieldNestVault(ERC4626Vault):
 
         .. note::
 
-            Trade-executor must use the selected manager's
-            ``analyse_deposit()`` hook rather than a generic analyser. It must
-            treat the redemption reason as ``adapter_unsupported`` and not
-            construct a redemption request from this partial helper.
+            Trade-executor must use the selected manager's receipt-analysis
+            hooks rather than a generic analyser and preserve typed live-state
+            redemption refusals.
 
         :return:
-            Partial capability with a synchronous deposit flow only.
+            Synchronous deposit and redemption capability.
         """
         return VaultDepositManagerCapability(
             can_deposit=True,
-            can_redeem=False,
+            can_redeem=True,
             deposit_flow="synchronous",
-            redemption_unsupported_reason="maturity_aware_redemption_flow_not_implemented",
+            redemption_flow="synchronous",
         )
