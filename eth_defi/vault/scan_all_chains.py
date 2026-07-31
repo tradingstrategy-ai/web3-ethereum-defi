@@ -560,7 +560,7 @@ def scan_vaults_for_chain(
             assert state is not None
             chain_rows = [row for row in existing_db.rows.values() if row["_detection_data"].chain == chain_id]
             last_block = existing_db.last_scanned_block[chain_id]
-            logger.info(
+            logger.debug(
                 "Lead discovery cache hit for chain %d: state=%s, age=%s, last refresh block=%d, timeout=%s, signature=%s",
                 chain_id,
                 state_path,
@@ -1807,8 +1807,6 @@ def print_dashboard(results: dict[str, ChainResult], display_order: list[str] | 
         line = f"{result.name:<15} {status:<10} {cycle:<8} {vaults:<8} {new:<6} {blocks:<22} {duration:<10} {retry:<5} {last_data:<18}"
         if result.status == "not due" and result.next_due_in_hours is not None:
             line += f"  due in {result.next_due_in_hours:.1f}h"
-        if result.lead_discovery_cache_hit:
-            line += "  lead cache hit"
         if result.error:
             # Truncate long error messages to fit the dashboard
             error_msg = result.error[:40]
