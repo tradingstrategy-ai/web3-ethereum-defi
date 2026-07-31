@@ -7,6 +7,7 @@ from functools import cached_property
 from eth_typing import BlockIdentifier, HexAddress
 from web3.contract import Contract
 
+from eth_defi.abi import ZERO_ADDRESS_STR
 from eth_defi.erc_4626.core import get_deployed_erc_4626_contract
 from eth_defi.erc_4626.vault_protocol.yearn.deposit_redeem import YearnV3DepositManager
 from eth_defi.erc_4626.vault import ERC4626Vault
@@ -137,6 +138,29 @@ class YearnV3Vault(ERC4626Vault):
             even while deposits are open.
         """
         return False
+
+    def is_whitelisted_deposit(self) -> bool:
+        """Classify the configured Yearn V3 deposit-limit mechanism.
+
+        A canonical Yearn V3 vault with no deposit-limit module uses only its
+        vault-wide limit and shutdown state, so deposits are permissionless.
+        A custom module can inspect the receiver and its semantics cannot be
+        inferred from the Yearn vault itself; keep that case explicitly
+        unknown instead of assuming either public or allow-listed access.
+
+        :return:
+            ``False`` when no custom deposit-limit module is configured.
+        :raise NotImplementedError:
+            If a custom module controls owner-specific deposit capacity.
+        """
+        deposit_limit_module = self.vault_contract.functions.deposit_limit_module().call(
+            block_identifier=self._get_block_identifier(),
+        )
+        if deposit_limit_module.lower() == ZERO_ADDRESS_STR.lower():
+            return False
+        raise NotImplementedError(
+            f"Yearn V3 deposit-limit module {deposit_limit_module} requires module-specific permission inspection"
+        )
 
     def fetch_strategies(self) -> list[Contract]:
         return self.vault_contract.functions.getStrategies().call()

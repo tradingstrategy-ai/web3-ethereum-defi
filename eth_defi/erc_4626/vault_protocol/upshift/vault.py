@@ -254,6 +254,19 @@ class UpshiftVault(ERC4626Vault):
 
         return fetch_upshift_vault_metadata(self.web3, self.vault_address)
 
+    def is_whitelisted_deposit(self) -> bool:  # noqa: PLR6301
+        """Report Upshift account admission independently of its asset list.
+
+        Both supported Upshift families accept deposits from any account.
+        Multi-asset vaults separately restrict which input tokens may be used;
+        that token whitelist is validated by
+        :class:`UpshiftMultiAssetDepositManager` and is not KYC.
+
+        :return:
+            Always ``False`` because deposits have no per-account gate.
+        """
+        return False
+
     @property
     def description(self) -> str | None:
         """Return the full Upshift-supplied vault strategy description.
