@@ -1,6 +1,7 @@
 """Test bounded per-chain vault lead-discovery state."""
 
 import datetime
+import logging
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -98,6 +99,7 @@ def test_state_round_trip_and_timeout_validation(tmp_path: Path) -> None:
 def test_fresh_state_skips_lead_discovery(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
 ) -> None:
     """A matching fresh state returns without calling the costly scanner."""
 
@@ -127,12 +129,29 @@ def test_fresh_state_skips_lead_discovery(
 
     monkeypatch.setattr(scan_all_chains, "scan_leads", unexpected_scan_leads)
 
-    success, metrics = scan_all_chains.scan_vaults_for_chain("https://rpc.example", 1, vault_db_path=vault_db_path)
+    with caplog.at_level(logging.DEBUG, logger="eth_defi.vault.scan_all_chains"):
+        success, metrics = scan_all_chains.scan_vaults_for_chain("https://rpc.example", 1, vault_db_path=vault_db_path)
 
     assert success is True
     assert metrics["lead_discovery_cache_hit"] is True
     assert metrics["items_scanned"] == 0
     assert metrics["end_block"] == LAST_CACHED_BLOCK
+    assert any(record.levelno == logging.DEBUG and "Lead discovery cache hit" in record.message for record in caplog.records)
+    assert not any(record.levelno == logging.INFO and "Lead discovery cache hit" in record.message for record in caplog.records)
+
+
+def test_dashboard_hides_lead_discovery_cache_hits(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    """Keep cache diagnostics out of the operator progress dashboard."""
+
+    result = scan_all_chains.ChainResult(
+        name="Test",
+        status="success",
+        lead_discovery_cache_hit=True,
+    )
+
+    scan_all_chains.print_dashboard({result.name: result}, uncleaned_price_path=tmp_path / "missing.parquet")
+
+    assert "lead cache hit" not in capsys.readouterr().out
 
 
 def test_signature_change_forces_metadata_refresh_and_saves_state(
