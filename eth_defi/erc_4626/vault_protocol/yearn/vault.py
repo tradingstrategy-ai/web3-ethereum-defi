@@ -6,6 +6,7 @@ from functools import cached_property
 
 from eth_typing import BlockIdentifier, HexAddress
 from web3.contract import Contract
+from web3.exceptions import ABIFunctionNotFound, BadFunctionCallOutput, ContractLogicError
 
 from eth_defi.abi import ZERO_ADDRESS_STR
 from eth_defi.erc_4626.core import get_deployed_erc_4626_contract
@@ -153,9 +154,12 @@ class YearnV3Vault(ERC4626Vault):
         :raise NotImplementedError:
             If a custom module controls owner-specific deposit capacity.
         """
-        deposit_limit_module = self.vault_contract.functions.deposit_limit_module().call(
-            block_identifier=self._get_block_identifier(),
-        )
+        try:
+            deposit_limit_module = self.vault_contract.functions.deposit_limit_module().call(
+                block_identifier=self._get_block_identifier(),
+            )
+        except (ABIFunctionNotFound, BadFunctionCallOutput, ContractLogicError, ValueError) as error:
+            raise NotImplementedError("Yearn deployment does not expose a readable deposit-limit module") from error
         if deposit_limit_module.lower() == ZERO_ADDRESS_STR.lower():
             return False
         raise NotImplementedError(f"Yearn V3 deposit-limit module {deposit_limit_module} requires module-specific permission inspection")
