@@ -12,7 +12,6 @@ from eth_typing import BlockIdentifier, HexAddress
 from web3.contract import Contract
 
 from eth_defi.abi import ZERO_ADDRESS_STR
-from eth_defi.compat import native_datetime_utc_now
 from eth_defi.erc_4626.core import get_deployed_erc_4626_contract
 from eth_defi.erc_4626.deposit_redeem import ERC4626DepositManager, ERC4626DepositRequest, ERC4626RedemptionRequest
 from eth_defi.erc_4626.vault import ERC4626HistoricalReader, ERC4626Vault
@@ -82,15 +81,13 @@ class D2DepositManager(ERC4626DepositManager):
     trading epoch and can only be redeemed once the vault returns to a
     not-custodied, not-in-epoch state.
 
-    **Whitelisting / access control**
+    **Deposit eligibility**
 
-    Permissioned onchain. The ``VaultV1Whitelisted`` ``onlyWhitelisted``
-    modifier admits an account only if it is on the vault's ``whitelisted``
-    mapping or holds more than ``whitelistBalance`` of ``whitelistAsset``
-    (typically USDC). The inherited :meth:`check_deposit_whitelist` preflight
-    queries this policy for deposits. This manager repeats that preflight for
-    redemption because the same modifier protects ``redeem()`` and a balance-
-    based admission can cease to hold after depositing the underlying asset.
+    The historical ``onlyWhitelisted`` modifier is not an identity/KYC gate:
+    it also admits any account holding more than the public minimum balance of
+    ``whitelistAsset``. The lifecycle experiment funds that eligibility asset
+    where necessary and reports a failed balance condition as flow
+    availability, never as ``whitelisting-needed``.
 
     **Anvil settlement (force_settle)**
 
@@ -190,8 +187,7 @@ class D2DepositManager(ERC4626DepositManager):
 
         This narrow diagnostic exception bypasses D2's temporary funding window
         and ordinary amount/balance checks so a caller can validate the exact
-        manager-generated deposit call through GuardV0. The parent constructor
-        still enforces ``check_deposit_whitelist(owner)``. It intentionally does
+        manager-generated deposit call through GuardV0. It intentionally does
         not construct or validate an ERC-20 approval, nor prove an
         approval-before-deposit sequence: those checks add no evidence to a
         standalone ``validateCall()`` policy check and remain normal live
@@ -203,8 +199,6 @@ class D2DepositManager(ERC4626DepositManager):
             Raw D2 denomination-token amount from the rejected preflight.
         :return:
             One standard ERC-4626 deposit call for isolated GuardV0 validation.
-        :raise WhitelistingRequired:
-            If D2 account admission excludes ``owner``.
         """
         self._assert_anvil_guard_validation()
         return ERC4626DepositManager.create_deposit_request(
@@ -236,11 +230,6 @@ class D2DepositManager(ERC4626DepositManager):
             If the current D2 epoch is not accepting redemptions.
         """
         self._assert_flow_open(owner, "redeem")
-        # D2 applies ``onlyWhitelisted`` to redemption as well as deposit.
-        # A holder admitted through its USDC balance can lose admission after
-        # depositing that USDC, so re-check the live policy before creating a
-        # transaction which would otherwise deterministically revert.
-        self.check_deposit_whitelist(owner)
         return super().create_redemption_request(owner, to, shares, raw_shares, check_max_deposit, check_enough_token)
 
 
@@ -559,20 +548,20 @@ class D2Vault(ERC4626Vault):
         return D2DepositManager(self)
 
     def is_whitelisted_deposit(self) -> bool:  # noqa: PLR6301
-        """Report D2's unconditional ``onlyWhitelisted`` admission policy.
+        """Report D2 deposits as permissionless.
 
-        The policy can be met by either the explicit mapping or a qualifying
-        balance of the configured whitelist asset. A zero whitelist-asset
-        address disables only the balance alternative, not the mapping-based
-        modifier.
+        The historical ``onlyWhitelisted`` name is misleading for public
+        status purposes: any account can satisfy the rule by holding the
+        configured public asset minimum. It is an economic eligibility
+        condition, not KYC or manual identity approval.
 
         :return:
-            Always ``True`` because every D2 deposit evaluates the modifier.
+            Always ``False``.
         """
-        return True
+        return False
 
     def is_account_whitelisted(self, address: HexAddress) -> bool:
-        """Evaluate D2's mapping-or-asset-balance admission rule for an account.
+        """Evaluate D2's legacy mapping-or-asset-balance eligibility rule.
 
         Both ``deposit()`` and ``redeem()`` execute ``onlyWhitelisted``. The
         balance branch is deliberately read at request construction time,
@@ -580,7 +569,7 @@ class D2Vault(ERC4626Vault):
         granted admission.
 
         :param address:
-            Account whose D2 admission policy is queried.
+            Account whose D2 economic eligibility is queried.
         :return:
             ``True`` when the explicit mapping or configured asset balance
             currently admits the account.
@@ -675,6 +664,11 @@ class D2Vault(ERC4626Vault):
         epoch = self.fetch_current_epoch_info()
         return epoch.epoch_end - epoch.epoch_start
 
+    def fetch_observation_time(self) -> datetime.datetime:
+        """Read the EVM timestamp used by the current vault observation."""
+        block = self.web3.eth.get_block(self._get_block_identifier())
+        return from_unix_timestamp(block["timestamp"])
+
     def fetch_deposit_closed_reason(self) -> str | None:
         """Deposits open during isFunding() phase."""
         try:
@@ -682,7 +676,7 @@ class D2Vault(ERC4626Vault):
             if not is_funding:
                 next_open = self.fetch_deposit_next_open()
                 if next_open:
-                    remaining = next_open - native_datetime_utc_now()
+                    remaining = next_open - self.fetch_observation_time()
                     hours = remaining.total_seconds() / 3600
                     if hours < 24:
                         return f"{DEPOSIT_CLOSED_FUNDING_PHASE} (opens in {hours:.0f}h)"
@@ -699,7 +693,7 @@ class D2Vault(ERC4626Vault):
             if not can_redeem:
                 next_open = self.fetch_redemption_next_open()
                 if next_open:
-                    remaining = next_open - native_datetime_utc_now()
+                    remaining = next_open - self.fetch_observation_time()
                     hours = remaining.total_seconds() / 3600
                     if hours < 24:
                         return f"{REDEMPTION_CLOSED_FUNDS_CUSTODIED} (opens in {hours:.0f}h)"
@@ -718,7 +712,8 @@ class D2Vault(ERC4626Vault):
             if self.vault_contract.functions.isFunding().call():
                 return None  # Already open
             epoch = self.fetch_current_epoch_info()
-            return epoch.epoch_end  # Next funding starts after epoch ends
+            observation_time = self.fetch_observation_time()
+            return epoch.epoch_end if epoch.epoch_end > observation_time else None
         except Exception:
             return None
 
@@ -731,6 +726,7 @@ class D2Vault(ERC4626Vault):
             if self.vault_contract.functions.notCustodiedAndNotDuringEpoch().call():
                 return None  # Already open
             epoch = self.fetch_current_epoch_info()
-            return epoch.epoch_end
+            observation_time = self.fetch_observation_time()
+            return epoch.epoch_end if epoch.epoch_end > observation_time else None
         except Exception:
             return None

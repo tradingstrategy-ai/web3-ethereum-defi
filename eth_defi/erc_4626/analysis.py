@@ -106,7 +106,11 @@ def analyse_4626_flow_transaction(
     else:
         raise AssertionError(f"Can handle only single event per tx, got {len(swap_events)}. Receipt: {tx_receipt}")
 
-    assert amount_out > 0, "amount out should be negative for ERC-4626 flow event"
+    # ERC-4626 events use unsigned integers, but some compatible vault
+    # implementations and legacy decoders expose a signed transfer direction.
+    # Direction is already known from the event type, so accept either sign and
+    # normalise below. Only a zero output is an invalid successful flow.
+    assert amount_out != 0, "amount out must be non-zero for ERC-4626 flow event"
 
     amount_out_cleaned = Decimal(abs(amount_out)) / Decimal(10**out_token_details.decimals)
     amount_in_cleaned = Decimal(abs(amount_in)) / Decimal(10**in_token_details.decimals)
