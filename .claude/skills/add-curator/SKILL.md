@@ -22,6 +22,26 @@ Gather or infer these before editing:
 If the candidate was produced by `find-new-curators`, open its result
 file first and keep the evidence trail in mind.
 
+## Naming policy
+
+Use one clean, organisation-level public name for a curator. Prefer the main
+brand name without legal, jurisdictional, regional or affiliate suffixes, for
+example `China Asset Management`, not `China Asset Management (Hong Kong)`.
+
+- Do not create separate curator records merely because an organisation has
+  international entities, regional subsidiaries or locally incorporated legal
+  vehicles.
+- Keep the public `name`, short description and curator-facing long description
+  on the main brand; use the same canonical curator slug for its international
+  entities.
+- Preserve an upstream's exact legal or regional spelling in the applicable
+  protocol-specific mapping field (such as `asseto-role`) or a detection
+  pattern, so attribution remains accurate without exposing a cluttered name.
+- Mention a specific legal entity in the long description only when it adds
+  material factual context; do not use it as the public curator identity.
+- Create separate curator records only for genuinely separate, independently
+  branded organisations, not geographic variants of one brand.
+
 ## Step 1: Check existing coverage
 
 Run the existing curator inventory and search for nearby entries:
@@ -40,6 +60,9 @@ rg --files eth_defi/data/feeds -g "*.yaml"
 
 Prefer an alias YAML with `canonical-feeder-id` when the organisation
 already has feed sources under `protocols/` or `stablecoins/`.
+When an apparent candidate is a regional or international entity, search for
+the main brand first and extend its protocol-specific aliases rather than
+adding another curator record.
 
 ## Step 2: Verify identity and sources
 

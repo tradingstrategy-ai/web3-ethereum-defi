@@ -31,6 +31,7 @@ from eth_defi.research.vault_metrics import (
 from eth_defi.vault.base import VaultSpec
 from eth_defi.vault.fee import FeeData, VaultFeeMode
 from eth_defi.vault.flag import NOT_IN_MORPHO_API, VaultFlag
+from eth_defi.vault.price_source import PriceSource
 from eth_defi.vault.risk import VaultTechnicalRisk
 from eth_defi.vault.vaultdb import VaultDatabase
 
@@ -420,6 +421,8 @@ def test_calculate_lifetime_metrics(
     # Lending statistics should be present in formatted table with proper column names
     assert "Available liquidity" in formatted.columns
     assert "Utilisation" in formatted.columns
+    assert "deposit_permission" not in formatted.columns
+    assert "whitelist" not in formatted.columns
 
     # Verify period_results is not in formatted output
     # assert "period_results" not in formatted.columns
@@ -436,10 +439,16 @@ def test_calculate_lifetime_metrics_exports_deposit_permission(
     stored_manager = {"can_deposit": True, "can_redeem": True, "deposit_flow": "synchronous", "redemption_flow": "synchronous"}
     vault_row["_deposit_manager"] = stored_manager
     vault_row["_deposit_permission"] = "whitelisted"
+    vault_row["_whitelist_notes"] = "No permissioned hook checks were performed"
 
     metrics = calculate_lifetime_metrics(price_df.loc[price_df["id"] == vault_id], {vault_spec: vault_row})
 
     assert metrics.iloc[0]["deposit_manager"] == stored_manager | {"deposit_permission": "whitelisted"}
+    assert metrics.iloc[0]["deposit_permission"] == "whitelisted"
+    assert metrics.iloc[0]["whitelist"] == {
+        "status": "whitelisted",
+        "notes": "No permissioned hook checks were performed",
+    }
     assert stored_manager == {"can_deposit": True, "can_redeem": True, "deposit_flow": "synchronous", "redemption_flow": "synchronous"}
 
 
@@ -457,6 +466,8 @@ def test_calculate_lifetime_metrics_defaults_legacy_deposit_permission_to_unknow
     metrics = calculate_lifetime_metrics(price_df.loc[price_df["id"] == vault_id], {vault_spec: vault_row})
 
     assert metrics.iloc[0]["deposit_manager"]["deposit_permission"] == "unknown"
+    assert metrics.iloc[0]["deposit_permission"] == "unknown"
+    assert metrics.iloc[0]["whitelist"] == {"status": "unknown", "notes": None}
 
 
 def test_calculate_lifetime_metrics_exports_permission_for_refusing_manager(
@@ -477,6 +488,8 @@ def test_calculate_lifetime_metrics_exports_permission_for_refusing_manager(
         "can_redeem": False,
         "deposit_permission": "whitelisted",
     }
+    assert metrics.iloc[0]["deposit_permission"] == "whitelisted"
+    assert metrics.iloc[0]["whitelist"] == {"status": "whitelisted", "notes": None}
 
 
 def test_calculate_lifetime_metrics_preserves_null_deposit_manager(
@@ -493,6 +506,8 @@ def test_calculate_lifetime_metrics_preserves_null_deposit_manager(
     metrics = calculate_lifetime_metrics(price_df.loc[price_df["id"] == vault_id], {vault_spec: vault_row})
 
     assert metrics.iloc[0]["deposit_manager"] is None
+    assert metrics.iloc[0]["deposit_permission"] == "permissionless"
+    assert metrics.iloc[0]["whitelist"] == {"status": "permissionless", "notes": None}
 
 
 @pytest.mark.parametrize(
@@ -982,6 +997,26 @@ def test_export_lifetime_metrics(
     # Verify they serialize to JSON properly (None becomes null)
     assert r["available_liquidity"] is None or isinstance(r["available_liquidity"], (int, float))
     assert r["utilisation"] is None or isinstance(r["utilisation"], (int, float))
+
+
+def test_calculate_lifetime_metrics_exports_share_price_source(
+    vault_db: VaultDatabase,
+    price_df: pd.DataFrame,
+) -> None:
+    """Adapter price-source metadata reaches the DataFrame and JSON export."""
+
+    vault_id = "43111-0x05c2e246156d37b39a825a25dd08d5589e3fd883"
+    spec = VaultSpec.parse_string(vault_id)
+    vault_row = dict(vault_db.rows[spec])
+    vault_row["_share_price_source"] = PriceSource.smart_contract_state
+
+    metrics = calculate_lifetime_metrics(
+        price_df.loc[price_df["id"] == vault_id],
+        {spec: vault_row},
+    )
+
+    assert metrics.iloc[0]["share_price_source"] == "smart-contract-state"
+    assert export_lifetime_row(metrics.iloc[0])["share_price_source"] == "smart-contract-state"
 
 
 def test_export_lifetime_row_nat_serialization():

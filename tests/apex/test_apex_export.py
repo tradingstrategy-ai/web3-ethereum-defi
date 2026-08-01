@@ -3,6 +3,7 @@
 # ruff: noqa: DTZ001
 
 import datetime
+from dataclasses import replace
 from pathlib import Path
 
 import pytest
@@ -121,3 +122,23 @@ def test_apex_duckdb_exports_metadata_and_exact_timestamp_prices(tmp_path: Path)
     assert merged.rows[apex_spec]["NAV"] == EXPECTED_TVL
     assert merged.rows[apex_spec]["_lockup"] == datetime.timedelta(days=1)
     assert set(merged_again.rows) == {existing_spec, apex_spec}
+
+
+def test_apex_official_vault_export_uses_curated_descriptions(tmp_path: Path) -> None:
+    """Replace the official API placeholder text with reviewed protocol copy."""
+    database = ApexMetricsDatabase(tmp_path / "apex-vaults.duckdb")
+    vault_db_path = tmp_path / "vault-metadata-db.pickle"
+    observed_at = datetime.datetime(2026, 7, 23, 12)
+    official = _vault("10000")
+    official = replace(official, name="Source API name", description="Source API placeholder")
+    try:
+        database.apply_ranking((official,), observed_at, manage_disappearance=True)
+        merged = merge_into_vault_database(database, vault_db_path)
+    finally:
+        database.close()
+
+    row = merged.rows[VaultSpec(chain_id=APEX_CHAIN_ID, vault_address="apex-vault-10000")]
+    assert row["Name"] == "Protocol Vault"
+    assert "flagship official vault" in row["_description"]
+    assert row["_short_description"].startswith("ApeX Omni's flagship")
+    assert row["_lockup"] is None

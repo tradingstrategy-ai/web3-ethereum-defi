@@ -30,6 +30,7 @@ from eth_defi.types import Percent
 from eth_defi.vault.base import TradingUniverse, VaultFlowManager, VaultHistoricalReader, VaultInfo, VaultPortfolio, VaultSpec
 from eth_defi.vault.fee import FeeData, VaultFeeMode
 from eth_defi.vault.lower_case_dict import LowercaseDict
+from eth_defi.vault.price_source import PriceSource
 
 logger = logging.getLogger(__name__)
 
@@ -499,6 +500,18 @@ class AssetoVault(TokenisedFundVault):
         if rate <= 0:
             raise RuntimeError(f"Invalid {symbol}/USD rate {rate} for Asseto product {self.product.symbol}")
         return value / rate
+
+    def get_share_price_source(self) -> PriceSource:
+        """Return the configured Asseto product price source.
+
+        Products with a published ``Pricer`` are read at an archive block.
+        Other reviewed products use Asseto's public daily NAV API.
+
+        :return:
+            Smart-contract state or API source for this product.
+        """
+
+        return PriceSource.smart_contract_state if self.uses_onchain_pricer() else PriceSource.api
 
     def fetch_offchain_price_history(self) -> tuple[AssetoPricePoint, ...]:
         """Fetch and cache Asseto's public daily NAV/share history.

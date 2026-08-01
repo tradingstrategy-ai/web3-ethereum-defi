@@ -12,8 +12,7 @@ from web3 import Web3
 from eth_defi.abi import ZERO_ADDRESS_STR
 from eth_defi.erc_4626.classification import create_vault_instance_autodetect
 from eth_defi.erc_4626.vault_protocol.d2.vault import D2DepositManager, D2HistoricalReader, D2Vault, Epoch
-from eth_defi.provider.anvil import AnvilLaunch, fork_network_anvil
-from eth_defi.provider.multi_provider import create_multi_provider_web3
+from eth_defi.testing.anvil_fork_pool import AnvilForkPool
 from eth_defi.vault.base import (
     DEPOSIT_CLOSED_FUNDING_PHASE,
     REDEMPTION_CLOSED_FUNDS_CUSTODIED,
@@ -22,24 +21,16 @@ from eth_defi.vault.deposit_redeem import VaultFlowUnavailable
 
 JSON_RPC_ARBITRUM = os.environ.get("JSON_RPC_ARBITRUM")
 
-pytestmark = pytest.mark.skipif(JSON_RPC_ARBITRUM is None, reason="JSON_RPC_ARBITRUM needed to run these tests")
+pytestmark = [
+    pytest.mark.skipif(JSON_RPC_ARBITRUM is None, reason="JSON_RPC_ARBITRUM needed to run these tests"),
+    pytest.mark.xdist_group("fork:arbitrum:392313989"),
+]
 
 
 @pytest.fixture(scope="module")
-def anvil_arbitrum_fork(request) -> AnvilLaunch:
-    """Read gmUSDC vault at a specific block"""
-    launch = fork_network_anvil(JSON_RPC_ARBITRUM, fork_block_number=392_313_989)
-    try:
-        yield launch
-    finally:
-        # Wind down Anvil process after the test is complete
-        launch.close()
-
-
-@pytest.fixture(scope="module")
-def web3(anvil_arbitrum_fork):
-    web3 = create_multi_provider_web3(anvil_arbitrum_fork.json_rpc_url)
-    return web3
+def web3(anvil_fork_pool: AnvilForkPool) -> Web3:
+    """Share the read-only D2 fork and its warmed RPC cache."""
+    return anvil_fork_pool.get_web3(JSON_RPC_ARBITRUM, 392_313_989)
 
 
 @flaky.flaky
@@ -59,6 +50,7 @@ def test_d2(
     assert vault.get_management_fee("latest") == 0.00
     assert vault.get_performance_fee("latest") == 0.20
     assert vault.has_custom_fees() is False
+    assert vault.is_whitelisted_deposit() is False
 
     manager = vault.get_deposit_manager()
     assert isinstance(manager, D2DepositManager)
@@ -66,6 +58,7 @@ def test_d2(
         manager.estimate_deposit(web3.eth.accounts[0], Decimal("1"))
     assert exc_info.value.direction == "deposit"
     assert exc_info.value.phase == "preflight"
+    assert exc_info.value.preflight_result == "deposit_closed"
     assert exc_info.value.next_open == datetime.datetime(2025, 11, 7, 8, 0)
     with pytest.raises(VaultFlowUnavailable, match=DEPOSIT_CLOSED_FUNDING_PHASE):
         manager.create_deposit_request(web3.eth.accounts[0], None, None, 1, True, True)

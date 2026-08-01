@@ -14,7 +14,6 @@ import {IERC20} from "./IERC20.sol";
 import {ICowSettlement} from "./ICowSettlement.sol";
 import {GPv2Order} from "./GPv2Order.sol";
 
-
 // Perform a whitelisted swap via CowSwap
 //
 // Construct order structure and does it "pre-sign" on CowSwap settlement contract
@@ -22,7 +21,6 @@ import {GPv2Order} from "./GPv2Order.sol";
 // Currently does the minimal sell order support only.
 //
 contract SwapCowSwap {
-
     // How long are our CowSwap orders valid for
     //
     // Could be a parametr but now we do not care
@@ -30,7 +28,12 @@ contract SwapCowSwap {
 
     // Let offchain logic get our order details
     event OrderSigned(
-        uint256 indexed timestamp, bytes orderUid, GPv2Order.Data order, uint32 validTo, uint256 buyAmount, uint256 sellAmount
+        uint256 indexed timestamp,
+        bytes orderUid,
+        GPv2Order.Data order,
+        uint32 validTo,
+        uint256 buyAmount,
+        uint256 sellAmount
     );
 
     // Gnosis Safe delegatecall information to presign CowSwap order
@@ -42,11 +45,14 @@ contract SwapCowSwap {
 
     // Perform sell (exact in) order creation with a max slippage limit
     // Copied from https://github.com/InfiniFi-Labs/infinifi-protocol/blob/888c147c4d0f1848577463bc74680c86b7a5c0ff/src/integrations/farms/CoWSwapFarmBase.sol#L71
-    function _createCowSwapOrder(bytes32 appdata, address receiver, address _tokenIn, address _tokenOut, uint256 _amountIn, uint256 _minAmountOut)
-        internal
-        view
-        returns (GPv2Order.Data memory)
-    {
+    function _createCowSwapOrder(
+        bytes32 appdata,
+        address receiver,
+        address _tokenIn,
+        address _tokenOut,
+        uint256 _amountIn,
+        uint256 _minAmountOut
+    ) internal view returns (GPv2Order.Data memory) {
         return GPv2Order.Data({
             sellToken: IERC20(_tokenIn),
             buyToken: IERC20(_tokenOut),
@@ -66,7 +72,10 @@ contract SwapCowSwap {
     // Copied from https://github.com/InfiniFi-Labs/infinifi-protocol/blob/888c147c4d0f1848577463bc74680c86b7a5c0ff/src/integrations/farms/CoWSwapFarmBase.sol#L93C1-L102C6
     // Takes the order structure and prepares order UID.
     // This order UID must be passed to Gnosis Safe delegatecall to be called at ICowSettlement.setPreSignature(orderUid, true)
-    function _signCowSwapOrder(address settlementContract, address owner, GPv2Order.Data memory order) internal returns (PresignDeletaCallData memory) {
+    function _signCowSwapOrder(address settlementContract, address owner, GPv2Order.Data memory order)
+        internal
+        returns (PresignDeletaCallData memory)
+    {
         ICowSettlement settlement = ICowSettlement(payable(settlementContract));
         bytes32 orderDigest = GPv2Order.hash(order, settlement.domainSeparator());
 
@@ -80,13 +89,7 @@ contract SwapCowSwap {
         return PresignDeletaCallData({
             orderUid: orderUid,
             targetAddress: settlementContract,
-            data: abi.encodeWithSelector(
-                ICowSettlement.setPreSignature.selector,
-                orderUid,
-                true
-            )
+            data: abi.encodeWithSelector(ICowSettlement.setPreSignature.selector, orderUid, true)
         });
-
     }
-
 }

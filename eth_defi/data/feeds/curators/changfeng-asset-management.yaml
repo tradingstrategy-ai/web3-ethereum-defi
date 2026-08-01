@@ -1,0 +1,15 @@
+feeder-id: changfeng-asset-management
+name: Changfeng Asset Management
+role: curator
+asseto-role: Changfeng Asset Management Limited
+short_description: Changfeng Asset Management is a Hong Kong licensed asset manager providing investment-advisory and asset-management services.
+long_description: |
+  Changfeng Asset Management is a Hong Kong licensed corporation authorised for Type 4 (advising on securities) and Type 9 (asset management) regulated activities.
+  Asseto's public registry identifies Changfeng Asset Management Limited as investment advisor for CFSRS and investment manager for CFSAI tokenised fund products.
+
+# Evidence and background references.
+other-links:
+  - title: Asseto product registry - CFSRS and CFSAI investment-manager and advisor disclosures
+    url: https://asseto.finance/product
+  - title: Hong Kong Stock Exchange announcement - Changfeng Asset Management Type 4 and Type 9 licence disclosure
+    url: https://www1.hkexnews.hk/listedco/listconews/sehk/2026/0528/2026052802137.pdf

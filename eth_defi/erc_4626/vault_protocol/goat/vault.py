@@ -1,16 +1,16 @@
 """Goat vault support."""
 
 import datetime
+import logging
 from decimal import Decimal
 from functools import cached_property
-import logging
 
-from web3.contract import Contract
 from eth_typing import BlockIdentifier
+from web3.contract import Contract
 
 from eth_defi.erc_4626.core import get_deployed_erc_4626_contract
 from eth_defi.erc_4626.vault import ERC4626Vault
-
+from eth_defi.erc_4626.vault_protocol.goat.deposit_redeem import GoatDepositManager
 
 logger = logging.getLogger(__name__)
 
@@ -192,6 +192,15 @@ class GoatVault(ERC4626Vault):
     def has_custom_fees(self) -> bool:
         """Deposit/withdrawal fees."""
         return False
+
+    def get_deposit_manager(self) -> GoatDepositManager:
+        """Create the Goat manager with explicit overloaded-event support.
+
+        :return:
+            Manager for Goat's synchronous ERC-4626 deposit and redemption
+            calls.
+        """
+        return GoatDepositManager(self)
 
     def get_management_fee(self, block_identifier: BlockIdentifier) -> float:
         """Internalised to the share price"""

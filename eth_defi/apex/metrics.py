@@ -10,6 +10,7 @@ omitted by a later bounded response are never pruned.
 import datetime
 import logging
 import threading
+from collections import Counter
 from collections.abc import Iterable, Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass
@@ -32,7 +33,16 @@ from eth_defi.apex.constants import (
     APEX_TERMINAL_STATUS,
 )
 from eth_defi.apex.session import ApexAPIError, ApexSessionPool
-from eth_defi.apex.vault import ApexHistoryPoint, ApexVaultConfiguration, ApexVaultSummary, fetch_stabilised_vaults, fetch_vault_configuration, fetch_vault_history
+from eth_defi.apex.vault import (
+    ApexHistoryPoint,
+    ApexVaultConfiguration,
+    ApexVaultSummary,
+    fetch_official_vault_histories,
+    fetch_official_vaults,
+    fetch_stabilised_vaults,
+    fetch_vault_configuration,
+    fetch_vault_history,
+)
 from eth_defi.compat import native_datetime_utc_now
 from eth_defi.perp_dex.metrics import (
     PerpVaultIdentity,
@@ -663,20 +673,30 @@ class ApexMetricsDatabase:
                 candidates.append(vault_id)
         return tuple(sorted(candidates))
 
-    def select_configuration_candidates(self, vaults: tuple[ApexVaultSummary, ...]) -> tuple[str, ...]:
+    def select_configuration_candidates(
+        self,
+        vaults: tuple[ApexVaultSummary, ...],
+        official_vault_ids: set[str],
+    ) -> tuple[str, ...]:
         """Select vaults whose public redemption delay still needs refreshing.
 
-        A terminal vault's configuration cannot affect future subscriptions,
-        so its verified value is retained without another request. Active
-        vaults remain eligible because ApeX may change their per-vault delay.
+        Official liquidity-provider vaults have no lock-up according to ApeX's
+        `Protocol Vault announcement
+        <https://www.apex.exchange/blog/detail/Introducing-Protocol-Vaults-on-ApeX-Omni-Stable-Returns-Backed-by-Real-Fees>`__,
+        so they are excluded. A terminal vault's configuration cannot affect
+        future subscriptions, so its verified value is retained without
+        another request. Active ranked vaults remain eligible because ApeX may
+        change their per-vault delay.
 
         :param vaults:
             Current selected ranking records.
+        :param official_vault_ids:
+            IDs sourced from ApeX's official liquidity-provider endpoint.
         :return:
             Platform vault IDs requiring a configuration request.
         """
         existing_metadata = self._metadata_by_id()
-        return tuple(vault.vault_id for vault in vaults if vault.status != APEX_TERMINAL_STATUS or existing_metadata.get(vault.vault_id, {}).get("redemption_delay") is None)
+        return tuple(vault.vault_id for vault in vaults if vault.vault_id not in official_vault_ids and (vault.status != APEX_TERMINAL_STATUS or existing_metadata.get(vault.vault_id, {}).get("redemption_delay") is None))
 
     def apply_history_success(
         self,
@@ -981,30 +1001,31 @@ def _fetch_redemption_delays(
     return {result.vault_id: result.configuration.redemption_delay for result in results if result.configuration is not None}
 
 
-def _select_vaults(
-    all_vaults: tuple[ApexVaultSummary, ...],
-    vault_ids: tuple[str, ...] | None,
-) -> tuple[ApexVaultSummary, ...]:
-    """Return the requested ranking records after validating target IDs.
+def _fetch_official_history_batch(
+    session_pool: ApexSessionPool,
+    vault_ids: tuple[str, ...],
+    operation_timeout: float,
+) -> tuple[ApexHistoryFetchResult, ...]:
+    """Fetch one official-vault history batch as isolated per-vault results.
 
-    A targeted scan still reads the complete ranking first, so an unknown ID
-    indicates either a caller mistake or a stale target list rather than a
-    partial source response.
+    The source exposes official liquidity-provider histories only through a
+    batch endpoint. A failed batch is reported against every requested ID so
+    the normal per-vault retry gate remains accurate on the following scan.
 
-    :param all_vaults:
-        Complete stabilised ranking response.
+    :param session_pool:
+        Shared bounded ApeX session pool.
     :param vault_ids:
-        Optional exact platform IDs to retain.
+        Due official vault IDs.
+    :param operation_timeout:
+        Batch monotonic operation budget in seconds.
     :return:
-        All ranking records or the validated target subset.
+        One success or error result for every requested vault ID.
     """
-    if vault_ids is None:
-        return all_vaults
-    by_id = {vault.vault_id: vault for vault in all_vaults}
-    missing = set(vault_ids) - set(by_id)
-    if missing:
-        raise ValueError(f"Requested ApeX vault IDs are absent from the complete ranking: {sorted(missing)}")
-    return tuple(by_id[vault_id] for vault_id in vault_ids)
+    try:
+        histories = fetch_official_vault_histories(session_pool, vault_ids, operation_timeout=operation_timeout)
+    except ApexAPIError as exc:
+        return tuple(ApexHistoryFetchResult(vault_id=vault_id, points=None, error=str(exc)) for vault_id in vault_ids)
+    return tuple(ApexHistoryFetchResult(vault_id=vault_id, points=histories[vault_id], error=None) for vault_id in vault_ids)
 
 
 def run_scan(
@@ -1057,7 +1078,7 @@ def run_scan(
         )
 
 
-def _run_scan(
+def _run_scan(  # noqa: PLR0914
     session_pool: ApexSessionPool,
     database: ApexMetricsDatabase,
     *,
@@ -1099,13 +1120,28 @@ def _run_scan(
     if history_refresh_interval.total_seconds() <= 0:
         raise ValueError("history_refresh_interval must be positive")
 
-    all_vaults = fetch_stabilised_vaults(session_pool, operation_timeout=ranking_timeout)
+    ranked_vaults = fetch_stabilised_vaults(session_pool, operation_timeout=ranking_timeout)
+    official_vaults = fetch_official_vaults(session_pool, operation_timeout=ranking_timeout)
+    all_vaults = ranked_vaults + official_vaults
     if not all_vaults and not database.get_vault_metadata().empty:
-        raise ApexAPIError("ApeX returned an empty all-vault ranking for a non-empty database; refusing to mark every vault missing")
-    selected = _select_vaults(all_vaults, vault_ids)
+        raise ApexAPIError("ApeX returned an empty all-vault snapshot for a non-empty database; refusing to mark every vault missing")
+    vault_ids_in_snapshot = tuple(vault.vault_id for vault in all_vaults)
+    duplicate_ids = sorted(vault_id for vault_id, count in Counter(vault_ids_in_snapshot).items() if count > 1)
+    if duplicate_ids:
+        raise ApexAPIError(f"ApeX vault sources contain duplicate vault IDs: {duplicate_ids}")
+    by_id = {vault.vault_id: vault for vault in all_vaults}
+    official_vault_ids = {vault.vault_id for vault in official_vaults}
+    if vault_ids is None:
+        selected = all_vaults
+    else:
+        requested = set(vault_ids)
+        missing = requested - set(by_id)
+        if missing:
+            raise ValueError(f"Requested ApeX vault IDs are absent from the complete ranking: {sorted(missing)}")
+        selected = tuple(by_id[vault_id] for vault_id in vault_ids)
 
     observed_at = native_datetime_utc_now()
-    configuration_candidates = database.select_configuration_candidates(selected)
+    configuration_candidates = database.select_configuration_candidates(selected, official_vault_ids)
     redemption_delays = _fetch_redemption_delays(
         session_pool,
         configuration_candidates,
@@ -1133,7 +1169,7 @@ def _run_scan(
             quote_asset="USDT",
             status=SourcePositionDataStatus.authentication_required,
             reason="ApeX only exposes positions through authenticated account endpoints",
-            source_endpoint="GET /api/v3/vault/ranking",
+            source_endpoint=("GET /api/v3/vault/official-vaults" if vault.vault_id in official_vault_ids else "GET /api/v3/vault/ranking"),
         )
         write_perp_vault_observation_bundle(
             database.con,
@@ -1148,18 +1184,21 @@ def _run_scan(
         refresh_interval=history_refresh_interval,
         include_missing=vault_ids is None,
     )
-    history_results: tuple[ApexHistoryFetchResult, ...] = ()
-    try:
-        if candidates:
+    official_candidates = tuple(vault_id for vault_id in candidates if vault_id in official_vault_ids)
+    ranked_candidates = tuple(vault_id for vault_id in candidates if vault_id not in official_vault_ids)
+    results: tuple[ApexHistoryFetchResult, ...] = ()
+    if ranked_candidates:
+        try:
             with Parallel(n_jobs=max_workers, backend="threading", return_as="generator_unordered") as parallel:
-                result_iterator = parallel(delayed(_fetch_history_worker)(session_pool, vault_id, history_timeout) for vault_id in candidates)
-                history_results = tuple(tqdm(result_iterator, total=len(candidates), desc="Fetching ApeX vault histories"))
-    finally:
-        if candidates:
+                result_iterator = parallel(delayed(_fetch_history_worker)(session_pool, vault_id, history_timeout) for vault_id in ranked_candidates)
+                results = tuple(tqdm(result_iterator, total=len(ranked_candidates), desc="Fetching ApeX ranked vault histories"))
+        finally:
             session_pool.close_worker_sessions()
+    if official_candidates:
+        results += _fetch_official_history_batch(session_pool, official_candidates, history_timeout)
     successful = 0
     failed = 0
-    for result in history_results:
+    for result in results:
         attempted_at = native_datetime_utc_now()
         if result.points is not None:
             database.apply_history_success(result.vault_id, result.points, attempted_at)

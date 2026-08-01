@@ -17,8 +17,23 @@ from web3.contract.contract import ContractFunction
 
 from eth_defi.abi import get_topic_signature_from_event
 from eth_defi.erc_4626.deposit_redeem import ERC4626DepositManager
+from eth_defi.provider.anvil import is_anvil
+from eth_defi.revert_reason import fetch_transaction_revert_reason
 from eth_defi.timestamp import get_block_timestamp
 from eth_defi.utils import from_unix_timestamp
+from eth_defi.vault.deposit_redeem import (
+    AsyncVaultRequestStatus,
+    CannotParseRedemptionTransaction,
+    DepositRedeemEventAnalysis,
+    DepositRedeemEventFailure,
+    DepositRequest,
+    DepositTicket,
+    RedemptionRequest,
+    RedemptionTicket,
+    UnsupportedVaultSimulation,
+    VaultFlowUnavailable,
+    VaultForcedSettlementResult,
+)
 from eth_defi.vault.flow_events import (
     PendingVaultFlow,
     VaultFlowDirection,
@@ -29,18 +44,17 @@ from eth_defi.vault.flow_events import (
     fetch_vault_flow_logs_hypersync,
     normalise_event_topic,
 )
-from eth_defi.vault.deposit_redeem import (
-    AsyncVaultRequestStatus,
-    CannotParseRedemptionTransaction,
-    DepositRedeemEventAnalysis,
-    DepositRedeemEventFailure,
-    DepositRequest,
-    DepositTicket,
-    RedemptionRequest,
-    RedemptionTicket,
-)
 
 logger = logging.getLogger(__name__)
+
+#: ``EndOfEpoch()`` custom-error selector, reverted by Gains GToken
+#: ``makeWithdrawRequest`` / ``redeem`` when called outside the per-epoch
+#: withdrawal-request window. ``keccak("EndOfEpoch()")[:4]``.
+END_OF_EPOCH_SELECTOR = HexBytes("0xa73449b9")
+
+#: Safety cap on epoch advances when forcing a Gains redemption to unlock on an
+#: Anvil fork, so a stalled epoch fails loudly instead of looping forever.
+GAINS_MAX_SETTLEMENT_EPOCHS = 10
 
 
 @dataclass(slots=True)
@@ -94,7 +108,58 @@ class GainsRedemptionRequest(RedemptionRequest):
 
 
 class GainsDepositManager(ERC4626DepositManager):
-    """Add Gains-specific redemption logic."""
+    """Gains gToken adapter: synchronous deposits, epoch-gated redemptions.
+
+    Gains Network gToken vaults keep standard ERC-4626 deposits but replace
+    redemption with a two-phase, epoch-locked withdrawal request. See the
+    `gToken vault notes
+    <https://medium.com/gains-network/introducing-gtoken-vaults-ea98f10a49d5>`__.
+
+    **Deposit process.** Synchronous. Deposits use the inherited ERC-4626
+    ``deposit`` path (standard ERC-20 ``approve`` of the denomination token then
+    ``deposit``); shares are minted in the same transaction.
+    :meth:`can_create_deposit_request` always returns ``True`` — the vault is
+    permanently open for deposits (caps are enforced by the contract itself).
+
+    **Redemption process.** Asynchronous, two phase. :meth:`create_redemption_request`
+    builds ``makeWithdrawRequest(shares, owner)``, which locks the shares and
+    emits ``WithdrawRequested(shares, currEpoch, unlockEpoch)``. The epoch pair is
+    read from that event by :meth:`GainsRedemptionRequest.parse_redeem_transaction`
+    and stored in a :class:`GainsRedemptionTicket`. Once the current epoch reaches
+    ``unlockEpoch`` (:meth:`can_finish_redeem`), the owner claims by calling
+    ERC-4626 ``redeem(shares, to, owner)`` returned by :meth:`finish_redemption`.
+    There is no per-request settlement id; the ticket is tracked purely by its
+    epoch numbers.
+
+    **Queues and settlement.** Settlement is epoch rollover rather than an
+    operator queue. New withdrawal requests are only accepted while the open-PnL
+    feed reports ``nextEpochValuesRequestCount() == 0`` (:meth:`can_create_redemption_request`);
+    outside that window ``makeWithdrawRequest`` reverts ``EndOfEpoch``
+    (:data:`END_OF_EPOCH_SELECTOR`), surfaced here as a typed
+    :class:`~eth_defi.vault.deposit_redeem.VaultFlowUnavailable` preflight
+    refusal. Epochs advance through the permissionless ``forceNewEpoch()`` on the
+    open-PnL feed contract.
+
+    **Lockups and cooldowns.** Withdrawal requests may only be created in the
+    first part of each (roughly three-day) epoch, and the locked shares unlock
+    only once the current epoch reaches the ticket's ``unlockEpoch``.
+    :meth:`estimate_redemption_delay` estimates the wait as
+    ``requestsStart + requestsEvery * requestsCount`` seconds from the open-PnL
+    feed configuration.
+
+    **Whitelisting / access control.** Permissionless — Gains gToken vaults
+    apply no deposit whitelist or per-account access check.
+
+    **Anvil settlement (force_settle).** :meth:`force_settle` requires an Anvil
+    provider. No impersonation is needed: it warps Anvil time and calls the
+    permissionless ``forceNewEpoch()`` from a funded account via
+    :func:`~eth_defi.erc_4626.vault_protocol.gains.testing.force_next_gains_epoch`,
+    repeating up to :data:`GAINS_MAX_SETTLEMENT_EPOCHS` times until the ticket
+    unlocks (``current_epoch >= unlock_epoch``), i.e. status moves ``pending`` ->
+    ``claimable``. Each iteration asserts the epoch strictly increased; if the
+    epoch stalls or never unlocks it raises :class:`UnsupportedVaultSimulation`
+    rather than reporting a false success.
+    """
 
     def __init__(self, vault: "eth_defi.gains.vault.GainsVault"):
         from eth_defi.erc_4626.vault_protocol.gains.vault import GainsVault
@@ -136,20 +201,60 @@ class GainsDepositManager(ERC4626DepositManager):
         """
 
         assert raw_shares or shares
+        assert not to, f"Unsupported to={to}"
         vault = self.vault
+
+        # Gains only accepts withdrawal requests in the first part of each
+        # epoch. Outside that window makeWithdrawRequest reverts EndOfEpoch
+        # (0xa73449b9); surface it as a typed preflight refusal instead of a
+        # raw revert selector.
+        if not self.can_create_redemption_request(owner):
+            raise VaultFlowUnavailable(
+                "Gains withdrawal request window is closed (EndOfEpoch); requests are only accepted in the first part of each epoch",
+                protocol=vault.get_protocol_name(),
+                vault_address=vault.address,
+                caller=owner,
+                direction="redeem",
+                phase="preflight",
+                decoded_error="EndOfEpoch",
+                preflight_result="redemption_window_closed",
+                next_open=vault.fetch_redemption_next_open(),
+                error_selector=END_OF_EPOCH_SELECTOR,
+            )
 
         if not raw_shares:
             raw_amount = vault.share_token.convert_to_raw(shares)
         else:
             raw_amount = raw_shares
 
-        assert type(raw_amount) == int, f"Got {raw_amount} {type(raw_amount)}"
+        if not isinstance(raw_amount, int):
+            raise VaultFlowUnavailable(
+                f"Gains redemption share amount must be an integer, got {type(raw_amount)}",
+                protocol=vault.get_protocol_name(),
+                vault_address=vault.address,
+                caller=owner,
+                direction="redeem",
+                phase="preflight",
+                preflight_result="redemption_unavailable",
+            )
         shares = vault.share_token
         block_number = self.web3.eth.block_number
 
         # Check we have shares
         owned_raw_amount = shares.fetch_raw_balance_of(owner, block_number)
-        assert owned_raw_amount >= raw_amount, f"Cannot redeem, has only {owned_raw_amount} shares when {raw_amount} needed"
+        if owned_raw_amount < raw_amount:
+            raise VaultFlowUnavailable(
+                f"Cannot redeem, has only {owned_raw_amount} shares when {raw_amount} needed",
+                protocol=vault.get_protocol_name(),
+                vault_address=vault.address,
+                caller=owner,
+                direction="redeem",
+                phase="preflight",
+                decoded_error="InsufficientShares",
+                preflight_result="redemption_unavailable",
+                requested_raw_amount=raw_amount,
+                available_raw_amount=owned_raw_amount,
+            )
 
         human_amount = shares.convert_to_decimals(raw_amount)
         total_shares = vault.fetch_total_supply(block_number)
@@ -204,8 +309,80 @@ class GainsDepositManager(ERC4626DepositManager):
         assert redemption_ticket.to is not None
         return self.vault.vault_contract.functions.redeem(
             redemption_ticket.raw_shares,
-            redemption_ticket.owner,
             redemption_ticket.to,
+            redemption_ticket.owner,
+        )
+
+    def analyse_redemption(
+        self,
+        claim_tx_hash: HexBytes | str,
+        redemption_ticket: RedemptionTicket | None,
+    ) -> DepositRedeemEventAnalysis | DepositRedeemEventFailure:
+        """Analyse a Gains claim independently of its outer transaction wrapper.
+
+        Lagoon and other guarded vaults submit the claim through a module, so
+        the outer transaction target is neither the Gains vault nor the share
+        owner. The protocol's canonical ``Withdraw`` event is the authoritative
+        evidence: it must originate from this Gains vault and match the persisted
+        ticket owner, receiver and share amount.
+
+        :param claim_tx_hash:
+            Mined direct, GuardV0 or Lagoon-module claim transaction.
+        :param redemption_ticket:
+            Persisted Gains request identity.
+        :return:
+            Executed redemption amounts or a structured transaction failure.
+        """
+        assert isinstance(redemption_ticket, GainsRedemptionTicket), "Gains redemption analysis requires GainsRedemptionTicket"
+        tx_hash = HexBytes(claim_tx_hash)
+        receipt = self.web3.eth.get_transaction_receipt(tx_hash)
+        if receipt["status"] != 1:
+            return DepositRedeemEventFailure(
+                tx_hash=tx_hash,
+                revert_reason=fetch_transaction_revert_reason(self.web3, tx_hash),
+                protocol=self.vault.get_protocol_name(),
+                vault_address=self.vault.address,
+                direction="redeem",
+                phase="claim",
+                receipt_status=int(receipt["status"]),
+            )
+
+        logs = self.vault.vault_contract.events.Withdraw().process_receipt(receipt, errors=EventLogErrorFlags.Discard)
+        logs = [log for log in logs if log["address"].lower() == self.vault.address.lower()]
+        if len(logs) != 1:
+            return self._create_redemption_analysis_failure(tx_hash, f"Expected exactly one Gains Withdraw event from {self.vault.address}, got {logs!r}")
+
+        args = logs[0]["args"]
+        owner = Web3.to_checksum_address(args["owner"])
+        receiver = Web3.to_checksum_address(args["receiver"])
+        if owner != Web3.to_checksum_address(redemption_ticket.owner):
+            return self._create_redemption_analysis_failure(tx_hash, f"Gains Withdraw owner mismatch: {owner} != {redemption_ticket.owner}")
+        if receiver != Web3.to_checksum_address(redemption_ticket.to):
+            return self._create_redemption_analysis_failure(tx_hash, f"Gains Withdraw receiver mismatch: {receiver} != {redemption_ticket.to}")
+        if int(args["shares"]) != redemption_ticket.raw_shares:
+            return self._create_redemption_analysis_failure(tx_hash, f"Gains Withdraw shares mismatch: {args['shares']} != {redemption_ticket.raw_shares}")
+
+        block_number = int(receipt["blockNumber"])
+        return DepositRedeemEventAnalysis(
+            from_=owner,
+            to=receiver,
+            denomination_amount=self.vault.denomination_token.convert_to_decimals(int(args["assets"])),
+            share_count=self.vault.share_token.convert_to_decimals(int(args["shares"])),
+            tx_hash=tx_hash,
+            block_number=block_number,
+            block_timestamp=get_block_timestamp(self.web3, block_number),
+        )
+
+    def _create_redemption_analysis_failure(self, tx_hash: HexBytes, reason: str) -> DepositRedeemEventFailure:
+        """Create a structured failure for unexpected Gains claim evidence."""
+        return DepositRedeemEventFailure(
+            tx_hash=tx_hash,
+            revert_reason=reason,
+            protocol=self.vault.get_protocol_name(),
+            vault_address=self.vault.address,
+            direction="redeem",
+            phase="claim",
+            receipt_status=1,
         )
 
     def serialize_redemption_ticket(self, ticket: GainsRedemptionTicket) -> dict:
@@ -256,6 +433,149 @@ class GainsDepositManager(ERC4626DepositManager):
     def is_redemption_in_progress(self, owner: HexAddress) -> bool:
         contract = self.vault.vault_contract
         return contract.functions.totalSharesBeingWithdrawn(owner).call() > 0
+
+    def force_settle(
+        self,
+        ticket: DepositTicket | RedemptionTicket | None,
+        *,
+        mock: object | None = None,
+        ignore_liquidity: bool = False,
+    ) -> VaultForcedSettlementResult:
+        """Advance the Gains epoch on Anvil until a redemption ticket unlocks.
+
+        Gains redemptions unlock after a fixed number of epochs. Epoch
+        rollover is driven by the permissionless ``forceNewEpoch()`` on the
+        open-PnL feed, so no privileged impersonation is required — the driver
+        warps Anvil time and calls it from a funded account via
+        :func:`~eth_defi.erc_4626.vault_protocol.gains.testing.force_next_gains_epoch`.
+
+        Each iteration asserts the epoch strictly increases; if
+        ``forceNewEpoch`` mines time but the epoch does not advance (for
+        example an oracle/keeper dependency on some deployments) the driver
+        raises :class:`UnsupportedVaultSimulation` rather than looping or
+        returning a false "settled".
+
+        :param ticket:
+            Pending :class:`GainsRedemptionTicket`, or ``None`` for the
+            synchronous-deposit no-op.
+        :param mock:
+            A deployed ``MockGainsV1Vault`` only for local mock tests. Its
+            ``forceNewEpoch`` function supplies the protocol's epoch boundary
+            without calling the production open-PnL feed.
+        :param ignore_liquidity:
+            Unsupported because Gains settlement advances epochs rather than
+            bypassing an immediate-liquidity gate.
+        :return:
+            Settlement outcome with before/after status and the epoch-forcing
+            transaction hashes.
+        :raise UnsupportedVaultSimulation:
+            If the provider is not Anvil, the epoch fails to advance, or the
+            ticket does not become redeemable within the safety cap.
+        """
+        if ignore_liquidity:
+            return super().force_settle(ticket, mock=mock, ignore_liquidity=True)
+
+        from eth_defi.erc_4626.vault_protocol.gains.testing import force_next_gains_epoch
+
+        if not is_anvil(self.web3):
+            raise UnsupportedVaultSimulation(
+                "GainsDepositManager.force_settle() requires an Anvil provider",
+                unsupported_reason="anvil_provider_required",
+                protocol=self.vault.get_protocol_name(),
+                vault_address=self.vault.address,
+                direction="redeem" if ticket is not None else None,
+            )
+
+        if self.web3.eth.chain_id != self.vault.chain_id:
+            raise UnsupportedVaultSimulation(
+                f"Gains settlement Web3 chain {self.web3.eth.chain_id} does not match vault chain {self.vault.chain_id}",
+                unsupported_reason="gains_settlement_web3_chain_mismatch",
+                protocol=self.vault.get_protocol_name(),
+                vault_address=self.vault.address,
+                direction="redeem" if ticket is not None else None,
+            )
+
+        if ticket is None:
+            return VaultForcedSettlementResult(
+                ticket=None,
+                settlement_required=False,
+                status_before=None,
+                status_after=None,
+            )
+
+        if not isinstance(ticket, GainsRedemptionTicket):
+            raise UnsupportedVaultSimulation(
+                f"Gains force_settle requires GainsRedemptionTicket, got {type(ticket)}",
+                unsupported_reason="anvil_settlement_ticket_unsupported",
+                protocol=self.vault.get_protocol_name(),
+                vault_address=self.vault.address,
+                direction="redeem",
+            )
+
+        if mock is not None:
+            transaction_hashes: list[HexBytes] = []
+            while int(mock.functions.currentEpoch().call()) < ticket.unlock_epoch:
+                tx_hash = mock.functions.forceNewEpoch().transact({"from": self.web3.eth.accounts[0]})
+                transaction_hashes.append(HexBytes(tx_hash))
+                if len(transaction_hashes) >= GAINS_MAX_SETTLEMENT_EPOCHS:
+                    raise UnsupportedVaultSimulation(
+                        f"Gains mock settlement did not unlock ticket {ticket.get_request_id()} within {GAINS_MAX_SETTLEMENT_EPOCHS} epochs",
+                        unsupported_reason="gains_redemption_not_claimable_after_epoch_advance",
+                        protocol=self.vault.get_protocol_name(),
+                        vault_address=self.vault.address,
+                        direction="redeem",
+                    )
+            return VaultForcedSettlementResult(
+                ticket=ticket,
+                settlement_required=bool(transaction_hashes),
+                status_before=AsyncVaultRequestStatus.pending,
+                status_after=AsyncVaultRequestStatus.claimable,
+                transaction_hashes=tuple(transaction_hashes),
+            )
+
+        if self.can_finish_redeem(ticket):
+            return VaultForcedSettlementResult(
+                ticket=ticket,
+                settlement_required=False,
+                status_before=AsyncVaultRequestStatus.claimable,
+                status_after=AsyncVaultRequestStatus.claimable,
+            )
+
+        any_account = self.web3.eth.accounts[0]
+        transaction_hashes: list[HexBytes] = []
+        for _ in range(GAINS_MAX_SETTLEMENT_EPOCHS):
+            old_epoch = self.vault.fetch_current_epoch()
+            tx_hash = force_next_gains_epoch(self.vault, any_account)
+            if tx_hash is not None:
+                transaction_hashes.append(HexBytes(tx_hash))
+            new_epoch = self.vault.fetch_current_epoch()
+            if new_epoch <= old_epoch:
+                raise UnsupportedVaultSimulation(
+                    f"Gains epoch did not advance while settling redemption for vault {self.vault.address} on chain {self.vault.chain_id}: epoch stayed at {old_epoch}",
+                    unsupported_reason="gains_epoch_did_not_advance",
+                    protocol=self.vault.get_protocol_name(),
+                    vault_address=self.vault.address,
+                    direction="redeem",
+                )
+            if self.can_finish_redeem(ticket):
+                break
+
+        if not self.can_finish_redeem(ticket):
+            raise UnsupportedVaultSimulation(
+                f"Gains settlement did not unlock redemption for vault {self.vault.address} on chain {self.vault.chain_id}: current epoch {self.vault.fetch_current_epoch()} < unlock epoch {ticket.unlock_epoch}",
+                unsupported_reason="gains_redemption_not_claimable_after_epoch_advance",
+                protocol=self.vault.get_protocol_name(),
+                vault_address=self.vault.address,
+                direction="redeem",
+            )
+
+        return VaultForcedSettlementResult(
+            ticket=ticket,
+            settlement_required=True,
+            status_before=AsyncVaultRequestStatus.pending,
+            status_after=AsyncVaultRequestStatus.claimable,
+            transaction_hashes=tuple(transaction_hashes),
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -387,21 +707,64 @@ class OstiumRedemptionRequest(RedemptionRequest):
 
 
 class OstiumV15DepositManager(ERC4626DepositManager):
-    """Async deposit/redemption manager for Ostium V1.5 settlement-based flow.
+    """Ostium V1.5 adapter: settlement-based asynchronous deposits and redemptions.
 
-    V1.5 disables ERC-4626 ``deposit()``, ``mint()``, ``withdraw()``, ``redeem()``
-    and replaces them with:
+    Ostium V1.5 disables the synchronous ERC-4626 ``deposit()``, ``mint()``,
+    ``withdraw()`` and ``redeem()`` entry points and replaces both directions
+    with an asynchronous request → settlement → claim flow keyed by an onchain
+    ``settlementId``.
 
-    - Deposits: ``requestDeposit(assets)`` -> settlement -> ``claimDeposit(settlementId)``
-    - Withdrawals: ``requestWithdraw(shares)`` -> settlement -> ``claimWithdraw(settlementId)``
+    **Deposit process.** Asynchronous. :meth:`create_deposit_request` builds
+    ``requestDeposit(assets)`` (preceded by the usual ERC-20 ``approve`` of USDC).
+    The call acts on ``msg.sender`` only, so ``to`` must equal ``owner``; the
+    USDC is transferred to the vault immediately. The concrete ``settlementId`` is
+    read from the ``DepositRequestedV2(owner, settlementId, assets)`` event into an
+    :class:`OstiumDepositTicket`. After settlement the shares are claimed with
+    ``claimDeposit(settlementId)`` (:meth:`finish_deposit`), analysed via the
+    ``DepositClaimedV2`` event.
 
-    Settlement happens via ``tryNewSettlement()`` (public, permissionless)
-    once ``maxSettlementInterval`` has elapsed after the previous settlement.
+    **Redemption process.** Asynchronous, symmetric to deposits.
+    :meth:`create_redemption_request` builds ``requestWithdraw(shares)`` (also
+    ``msg.sender`` only, ``to`` must equal ``owner``), which escrows the OLP
+    shares immediately. The ``settlementId`` is read from
+    ``WithdrawRequestedV2(owner, settlementId, shares)`` into an
+    :class:`OstiumRedemptionTicket`. After settlement the USDC is claimed with
+    ``claimWithdraw(settlementId)`` (:meth:`finish_redemption`), analysed via the
+    ``WithdrawClaimedV2`` event.
 
-    The ``is_deposit_in_progress()`` / ``is_redemption_in_progress()`` methods only
-    check the current ``targetSettlementId``. For checking specific tickets regardless
-    of the current settlement, use ``get_deposit_ticket_status()`` /
-    ``get_redemption_ticket_status()``.
+    **Queues and settlement.** Settlement is driven by ``tryNewSettlement()``,
+    which is public and permissionless and becomes eligible once
+    ``maxSettlementInterval`` has elapsed after the previous settlement. Per-ticket
+    outcome is read from ``getDepositStatus`` / ``getWithdrawStatus`` and mapped to
+    :class:`~eth_defi.vault.deposit_redeem.AsyncVaultRequestStatus` values NONE,
+    PENDING, CLAIMABLE and RECLAIMABLE. A RECLAIMABLE settlement means the request
+    could not be filled and the funds must be recovered with
+    ``reclaimDeposit`` / ``reclaimWithdraw`` (raised as :class:`OstiumSettlementFailed`);
+    a pending request can be cancelled with ``cancelRequestDeposit`` /
+    ``cancelRequestWithdraw``. :meth:`is_deposit_in_progress` /
+    :meth:`is_redemption_in_progress` only inspect the current
+    ``targetSettlementId``; use :meth:`get_deposit_ticket_status` /
+    :meth:`get_redemption_ticket_status` for a specific ticket.
+
+    **Lockups and cooldowns.** There is no epoch window — requests may be
+    submitted at any time (:meth:`can_create_redemption_request` returns
+    ``True``). The wait until a request settles is governed by the settlement
+    clock: :meth:`estimate_redemption_delay` uses
+    ``(targetSettlementId - lastSettlementId) * maxSettlementInterval`` and the
+    per-ticket helpers project ``lastSettlementTs + n * maxSettlementInterval``
+    from the ticket's own ``settlementId``.
+
+    **Whitelisting / access control.** Permissionless — Ostium V1.5 applies no
+    deposit whitelist; caps are enforced at settlement rather than at request
+    time.
+
+    **Anvil settlement (force_settle).** This manager does not implement a real
+    fork settlement driver and its capability does not advertise
+    ``supports_anvil_settlement``. Although ``tryNewSettlement()`` is itself
+    permissionless, a production fork has oracle and open-PnL preconditions
+    which this adapter does not bypass. A focused local test may pass a deployed
+    ``MockOstiumV15Vault`` through ``force_settle(ticket, mock=...)``; only that
+    mock path executes its deterministic settlement round.
     """
 
     def __init__(self, vault: "eth_defi.erc_4626.vault_protocol.gains.vault.OstiumVault"):
@@ -410,6 +773,46 @@ class OstiumV15DepositManager(ERC4626DepositManager):
         assert isinstance(vault, OstiumVault), f"Got {type(vault)}"
         assert vault.version == OstiumVersion.v1_5, f"OstiumV15DepositManager requires V1.5 vault, got {vault.version}"
         self.vault = vault
+
+    def force_settle(
+        self,
+        ticket: DepositTicket | RedemptionTicket | None,
+        *,
+        mock: object | None = None,
+        ignore_liquidity: bool = False,
+    ) -> VaultForcedSettlementResult:
+        """Execute one deterministic MockOstiumV15Vault settlement round.
+
+        :param ticket:
+            Pending Ostium deposit or redemption ticket.
+        :param mock:
+            A deployed ``MockOstiumV15Vault`` for a focused local test. Omit it
+            for production, where the base class preserves the typed unsupported
+            settlement result.
+        :param ignore_liquidity:
+            Unsupported because the mock models a settlement round, not a
+            liquidity override.
+        :return:
+            Pending-to-claimable mock settlement result and its transaction hash.
+        :raise UnsupportedVaultSimulation:
+            If no mock is supplied or the provider is not Anvil.
+        """
+        if ignore_liquidity:
+            return super().force_settle(ticket, mock=mock, ignore_liquidity=True)
+        if mock is None:
+            return super().force_settle(ticket)
+        if not is_anvil(self.web3):
+            raise UnsupportedVaultSimulation("Ostium mock settlement requires an Anvil provider", unsupported_reason="anvil_provider_required")
+        if not isinstance(ticket, (OstiumDepositTicket, OstiumRedemptionTicket)):
+            raise UnsupportedVaultSimulation(f"Ostium mock settlement requires an Ostium ticket, got {type(ticket)}")
+        tx_hash = mock.functions.tryNewSettlement().transact({"from": self.web3.eth.accounts[0]})
+        return VaultForcedSettlementResult(
+            ticket=ticket,
+            settlement_required=True,
+            status_before=AsyncVaultRequestStatus.pending,
+            status_after=AsyncVaultRequestStatus.claimable,
+            transaction_hashes=(HexBytes(tx_hash),),
+        )
 
     def fetch_vault_flow_events(
         self,

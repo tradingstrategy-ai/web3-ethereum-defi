@@ -101,6 +101,18 @@ class EmberVault(ERC4626Vault):
             return self.ember_metadata.get("management_fee")
         return None
 
+    def is_whitelisted_deposit(self) -> bool:  # noqa: PLR6301
+        """Report the Ember adapter family's default permission policy.
+
+        Supported Ember deployments are treated as permissionless by default.
+        Global pause, capacity and minimum checks are independent lifecycle
+        conditions handled by the deposit manager.
+
+        :return:
+            Always ``False``.
+        """
+        return False
+
     def get_performance_fee(self, block_identifier: BlockIdentifier) -> float | None:
         """Weekly performance fee from Ember's offchain API.
 
@@ -161,6 +173,9 @@ class EmberVault(ERC4626Vault):
             can_redeem=True,
             deposit_flow="synchronous",
             redemption_flow="asynchronous",
+            # Ember redemption is terminal only after force_settle validates a
+            # request-specific operator event and positive direct payout.
+            supports_anvil_settlement=True,
         )
 
     def get_notes(self) -> str | None:

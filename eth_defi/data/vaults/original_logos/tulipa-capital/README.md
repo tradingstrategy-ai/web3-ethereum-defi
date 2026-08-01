@@ -2,18 +2,21 @@
 
 ## Source
 
-- **Combination mark SVG**: Downloaded from the official Tulipa Capital homepage
+- **Icon-only favicon/brandmark**: Downloaded from the official Tulipa Capital homepage on 2026-07-30.
   - Homepage: https://tulipa.capital
+  - Favicon URL: `https://cdn.prod.website-files.com/66ab1bc68fe996854379ab91/66ac6785bfca3d9d1da61af5_favicon.png`
+  - High-resolution icon URL: `https://cdn.prod.website-files.com/66ab1bc68fe996854379ab91/66ac67b876773dea668dad97_big-favicon.png`
+- **Combination mark (reference)**: Downloaded from the same official homepage.
   - Direct URL: `https://cdn.prod.website-files.com/66ab1bc68fe996854379ab91/66b1fc5fa5bb3d8ed0e5b13e_Tulipa_Capital_Logo%20export_Bi-Color%20Black.svg`
 
-## Variants
+## Selection and processing
 
-One variant was found on the official website:
+The icon-only favicon was selected instead of the wide combination mark because the vault metadata needs a compact, favicon-like brandmark that remains readable in a small screen estate. The high-resolution icon was passed through `scripts/logos/post-process-logo.py` using the Poetry environment. The pipeline removed the white background, trimmed transparent margins, and scaled the mark to 256×256 pixels.
 
-- `tulipa-capital.generic.svg` — full combination mark (tulip icon + wordmark), orange brand colour (`#f36f21`) for the icon and black for the text, wide format (428.99×122.47 viewBox)
+Processed outputs are in `eth_defi/data/vaults/formatted_logos/tulipa-capital/`:
 
-## Notes
+- `generic.png`
+- `light.png`
+- `dark.png`
 
-- The logo is a bi-colour combination mark: orange tulip icon on the left, black "TULIPA" + "CAPITAL" wordmark on the right
-- No separate light/dark or icon-only variants were found on the website
-- Post-processed to `formatted_logos/tulipa-capital/generic.png` (256×256 PNG, transparent background)
+All three files are 256×256 RGBA PNGs with transparent backgrounds. The orange Tulipa mark is sufficiently bright for both light and dark backgrounds, so the same official brandmark is used for each standardised variant.

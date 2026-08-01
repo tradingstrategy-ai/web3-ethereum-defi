@@ -69,10 +69,11 @@ jobs:
       github.event_name == 'workflow_dispatch'
     runs-on:
       group: Beefy runners
-    # Archive-provider stalls can make several independent xdist groups each
-    # consume an eight-minute flaky retry. Two PR runs were still progressing
-    # when the previous 30-minute cap cancelled the whole suite.
-    timeout-minutes: 45
+    # Hard 15-minute cap — do NOT raise it. Archive-provider stalls / 60s
+    # cold-fork read timeouts must be fixed at the source (warm the fork RPC
+    # cache, add provider failover, isolate flaky tests), not by growing the
+    # timeout. Growing a CI timeout hides the real slowdown instead of surfacing it.
+    timeout-minutes: 15
 
     concurrency:
       group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
@@ -120,39 +121,34 @@ jobs:
             foundry-toolchain-v1.2.3-
             foundry-toolchain-
 
-      # Restore the Anvil fork RPC cache. Split from the save step (below) so we
-      # can save it with `if: always()`: this suite's jobs sometimes fail on
-      # transient archive-provider timeouts, and a plain actions/cache@v4 only
-      # saves on success — meaning the cache stayed permanently cold and every
-      # run re-hammered the archive (the 476s stalls). Persisting on failure too
-      # lets blocks read on one run replay from disk on the next, so fixed-block
-      # fork tests hit the upstream archive far less.
-      - name: Restore Foundry fork RPC cache
-        uses: actions/cache/restore@v4
-        with:
-          path: ~/.foundry/cache/rpc
-          key: foundry-rpc-v1.2.3-${{ runner.os }}-${{ github.run_id }}
-          # Stable prefix: restore the newest accumulated cache from any prior run.
-          restore-keys: |
-            foundry-rpc-v1.2.3-${{ runner.os }}-
-
+      # No Anvil fork RPC cache step: the warm fork cache ships in the repo
+      # (eth_defi/testing/rpc_cache_seed/, auto-applied by the
+      # _seed_foundry_rpc_cache session fixture), so it works for every runner,
+      # not just GitHub Actions, with no cross-run cache dependency. See
+      # eth_defi/testing/README.md section 5.
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@v1
         with:
           version: "v1.2.3"
 
       - name: Run vault protocol tests
-        # Use -n auto by default: empirically it COMPLETES (~10 min) whereas a
-        # low worker cap serialises against the archive provider and blows the
-        # job timeout. The archive node — not CPU — is the bottleneck, so fewer
-        # workers is slower, not faster. Transient RPC timeouts are handled by
-        # @flaky; the shared-fork pool cuts the total fork count. MAX_WORKERS
-        # stays overridable for tuning if provider limits change.
+        # Cap workers at 4 by default. The pool is session-scoped = per xdist
+        # worker, so each worker forks each chain independently; unbounded
+        # `-n auto` on a Beefy runner multiplies cold-start upstream archive
+        # connections, so cold forks stall and hit the 60s read timeout at
+        # eth_chainId setup. Four bounds that concurrent upstream load; the
+        # shared-fork pool + warm RPC cache keep the reduced worker count from
+        # serialising against the archive. Overridable via the
+        # VAULT_TEST_MAX_WORKERS repo variable if provider limits change.
+        # --timeout=300 is a 5-minute per-test hard timeout (thread method) — well
+        # under the 15-minute job cap, so a single wedged fork is killed at the
+        # test level instead of eating the whole job budget. Do NOT raise the job
+        # cap to accommodate slow runs; fix the fork RPC cache / provider speed.
         run: |
           set -o pipefail
-          poetry run pytest tests/erc_4626/vault_protocol/ --timeout-method=thread --tb=native -n "${MAX_WORKERS:-auto}" --dist loadgroup -v -s --capture=no -m "not slow" 2>&1 | tee pytest-log.txt
+          poetry run pytest tests/erc_4626/vault_protocol/ --timeout=300 --timeout-method=thread --tb=native -n "${MAX_WORKERS:-4}" --dist loadgroup -v -s --capture=no -m "not slow" 2>&1 | tee pytest-log.txt
         env:
-          MAX_WORKERS: ${{ vars.VAULT_TEST_MAX_WORKERS || 'auto' }}
+          MAX_WORKERS: ${{ vars.VAULT_TEST_MAX_WORKERS || '4' }}
           JSON_RPC_ETHEREUM: ${{ secrets.JSON_RPC_ETHEREUM }}
           JSON_RPC_BASE: ${{ secrets.JSON_RPC_BASE }}
           JSON_RPC_ARBITRUM: ${{ secrets.JSON_RPC_ARBITRUM }}
@@ -162,6 +158,23 @@ jobs:
           JSON_RPC_HYPERLIQUID: ${{ secrets.JSON_RPC_HYPERLIQUID }}
           HYPERSYNC_API_KEY: ${{ secrets.HYPERSYNC_API_KEY }}
           TOKEN_RISK_API_KEY: ${{ secrets.TOKEN_RISK_API_KEY }}
+
+      # Prove the committed caches were actually applied: the seeding fixtures
+      # copy them into ~/.foundry/cache/rpc and a per-worker SQLite. Logged at
+      # INFO by the fixtures, which pytest does not surface here, so report the
+      # resulting on-disk state instead. See eth_defi/testing/README.md.
+      - name: Report seeded caches
+        if: always()
+        run: |
+          {
+            echo "## Seeded caches"
+            echo '```'
+            echo "committed fork blocks: $(find eth_defi/testing/rpc_cache_seed -name storage.json | wc -l)"
+            echo "applied fork blocks:   $(find ~/.foundry/cache/rpc -name storage.json 2>/dev/null | wc -l)"
+            du -sh ~/.foundry/cache/rpc 2>/dev/null || echo "no live fork cache"
+            echo "committed token cache: $(ls -l eth_defi/testing/token_cache_seed/tokens.sqlite 2>/dev/null | awk '{print $5}') bytes"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
 
       # Publish the pytest slowest-durations table in the job summary so slow
       # tests stay visible on every run. See docs/README-test-suite-performance.md.
@@ -180,17 +193,6 @@ jobs:
           else
             echo "No pytest log captured." >> "$GITHUB_STEP_SUMMARY"
           fi
-
-      # Persist the fork RPC cache even when the tests fail/time out, so the
-      # blocks read this run replay from disk next run. Keyed on run_id so it
-      # always writes a fresh entry (no same-key skip); the restore step's
-      # stable prefix picks up the latest.
-      - name: Save Foundry fork RPC cache
-        if: always()
-        uses: actions/cache/save@v4
-        with:
-          path: ~/.foundry/cache/rpc
-          key: foundry-rpc-v1.2.3-${{ runner.os }}-${{ github.run_id }}
 
   # Always-run gate: this is the job to mark as the required status check.
   # It fails if change detection itself failed (so a broken filter cannot let

@@ -23,7 +23,7 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from decimal import Decimal
 from functools import cached_property
-from typing import TYPE_CHECKING, Iterable, Tuple, TypedDict
+from typing import TYPE_CHECKING, ClassVar, Iterable, Tuple, TypedDict
 
 from eth_typing import BlockIdentifier, BlockNumber, HexAddress
 from web3 import Web3
@@ -34,6 +34,7 @@ from eth_defi.types import Percent
 from eth_defi.utils import is_good_multichain_address
 from eth_defi.vault.deposit_redeem import VaultDepositManager, VaultDepositManagerCapability
 from eth_defi.vault.lower_case_dict import LowercaseDict
+from eth_defi.vault.price_source import PriceSource
 from eth_defi.version_info import stamp_parquet_schema_metadata
 
 from .fee import FeeData, VaultFeeMode, get_vault_fee_mode
@@ -995,6 +996,10 @@ class VaultFlowManager(ABC):
 class VaultBase(ABC):
     """Base class for vault protocol adapters.
 
+    For the deposit and redemption support contract for subclasses and their
+    managers, see
+    :file:`eth_defi/erc_4626/README-vault-protocol-support.md`.
+
     - Allows automated interaction with different `vault protocols <https://tradingstrategy.ai/glossary/vault>`__.
 
     - Contains various abstract methods that the implementation class must override
@@ -1054,6 +1059,9 @@ class VaultBase(ABC):
     #: Allows us to avoid unnecessary work when scanning historical price data.
     #:
     first_seen_at_block: int | None
+
+    #: Optional qualification for the exported whitelist status.
+    whitelist_notes: ClassVar[str | None] = None
 
     def __init__(
         self,
@@ -1145,6 +1153,20 @@ class VaultBase(ABC):
         """
         return None
 
+    def get_share_price_source(self) -> PriceSource | None:  # noqa: PLR6301
+        """Return the source used for share-price observations.
+
+        Vault integrations override this method when they expose a share
+        price. Returning ``None`` distinguishes unsupported or unknown pricing
+        from a known source classification.
+
+        :return:
+            Share-price source, or ``None`` when the adapter does not provide
+            one.
+        """
+
+        return None
+
     def fetch_scan_record_extra_data(self) -> dict[str, object]:  # noqa: PLR6301
         """Fetch protocol-specific private scan row columns.
 
@@ -1185,36 +1207,61 @@ class VaultBase(ABC):
         return None
 
     def is_whitelisted_deposit(self) -> bool:
-        """Determine whether this vault applies a deposit whitelist policy.
+        """Determine whether deposits require KYC or identity approval.
 
-        Protocol adapters override this predicate only when their deployed
-        contract version exposes a reliable vault-wide policy read.  ``True``
-        means the vault requires account permission; ``False`` means its
-        policy is permissionless.  This is independent of a caller's current
-        balance, allowance, pause state, capacity, and request lifecycle.
+        Protocol adapters override this predicate only when the deployed
+        contract version has verified implementation source or a canonical
+        application ABI that proves a reliable vault-wide policy read. An
+        explicitly documented operating assumption may also override it, but
+        must set :attr:`whitelist_notes` so consumers can distinguish it from
+        a source-proven result. ``True`` means the vault requires KYC or
+        comparable manual identity approval; ``False`` means its policy is
+        permissionless. An open date, lock-up, epoch, pause, cap, token
+        balance, or other non-identity eligibility condition must not affect
+        the result.
+        A source-proven override requires a fixed-block adapter test for every
+        supported implementation generation. An operating assumption requires
+        a unit test that asserts both its classification and its caveat. This
+        is independent of a caller's current balance, allowance, pause state,
+        capacity, and request lifecycle.
 
         :return:
-            ``True`` for a whitelist-restricted vault and ``False`` for a
-            permissionless vault.
+            ``True`` when deposits require KYC/identity approval and ``False``
+            when they do not.
 
         :raise NotImplementedError:
             If the adapter cannot safely determine the policy.
         """
         raise NotImplementedError()
 
-    def is_account_whitelisted(self, address: HexAddress) -> bool:
-        """Determine whether an account belongs to the vault deposit policy.
+    def get_whitelist_notes(self) -> str | None:
+        """Return an export caveat for the vault-wide whitelist status.
 
-        The result concerns policy membership only.  A protocol may still
-        require scheduling, an allowance, available capacity, or an open epoch
-        before a deposit can be submitted.  Callers must use the relevant
-        deposit manager pre-flight before broadcasting a transaction.
+        Adapters may attach a concise, stable explanation when a classification
+        is an explicitly requested operating assumption or excludes an
+        integration-specific permission mechanism. The note describes the
+        policy classification only; it must not be used to report temporary
+        deposit availability.
+
+        :return:
+            Export note, or ``None`` when the classification needs no caveat.
+        """
+        return self.whitelist_notes
+
+    def is_account_whitelisted(self, address: HexAddress) -> bool:
+        """Determine whether an account has completed the vault's KYC policy.
+
+        The result concerns KYC or manual identity-approval membership only.
+        A protocol may still require scheduling, a token balance, an allowance,
+        available capacity, or an open epoch before a deposit can be submitted.
+        Callers must use the relevant deposit manager pre-flight before
+        broadcasting a transaction.
 
         :param address:
             Account whose deposit-policy membership is queried.
 
         :return:
-            ``True`` when the account belongs to the applicable policy.
+            ``True`` when the account has the required KYC/identity approval.
 
         :raise NotImplementedError:
             If the adapter cannot safely query account membership.

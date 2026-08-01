@@ -6,12 +6,14 @@ parameters, and env var helpers. No network access or API key needed.
 
 import asyncio
 import logging
+import time
 from unittest.mock import AsyncMock, MagicMock, patch
 
-import pytest
-
 import hypersync
+import pytest
+from pyrate_limiter import Duration, Limiter, RequestRate, SQLiteBucket
 
+import eth_defi.hypersync.session as hypersync_session
 from eth_defi.hypersync.session import (
     DEFAULT_HYPERSYNC_REQUESTS_PER_MINUTE,
     ThrottledHypersyncClient,
@@ -189,3 +191,25 @@ def test_get_hypersync_rpm_from_env_default():
     with patch.dict("os.environ", {}, clear=True):
         assert DEFAULT_HYPERSYNC_REQUESTS_PER_MINUTE == 80
         assert get_hypersync_rpm_from_env() == DEFAULT_HYPERSYNC_REQUESTS_PER_MINUTE
+
+
+def test_sqlite_limiter_uses_unix_time_across_restart(tmp_path):
+    """Discard an old monotonic timestamp when recreating a persistent limiter.
+
+    The old limiter simulates a prior host whose monotonic clock had advanced
+    well beyond the replacement host's clock.  The new limiter uses Unix time,
+    so it treats the incompatible persisted row as expired instead of waiting
+    for the old clock value to elapse.
+    """
+    database_path = tmp_path / "rate-limit.sqlite"
+    old_limiter = Limiter(
+        RequestRate(1, Duration.MINUTE),
+        bucket_class=SQLiteBucket,
+        bucket_kwargs={"path": str(database_path)},
+        time_function=lambda: 77_678_186.0,
+    )
+    old_limiter.try_acquire("hypersync")
+
+    limiter = hypersync_session._create_limiter(requests_per_minute=1, db_path=database_path)
+    assert limiter.time_function is time.time
+    limiter.try_acquire("hypersync")

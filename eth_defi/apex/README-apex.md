@@ -49,11 +49,15 @@ response shapes were verified directly against the live application API on
 ApeX public web API
 ===================
 
-/api/v3/vault/ranking
-  zero-based paginated listing
-  metadata + current NAV/TVL/share count
+/api/v3/vault/ranking                 /api/v3/vault/official-vaults
+  user copy-trading vaults               protocol liquidity-provider vaults
+  metadata + current NAV/TVL/share count metadata + current NAV/TVL/share count
              |
              | two complete membership-stable passes
+             |                    |
+             +----------+---------+
+                        v
+               complete ApeX vault snapshot
              v
       ApexVaultSummary records
              |
@@ -64,13 +68,21 @@ ApeX public web API
                                       rows
 
 /api/v3/vault/fund-net-values?vaultId=...
-  one bounded history response per vault
+  one bounded history response per ranked vault
   exact timestamp + NAV + total value
              |
              | threaded HTTP reads,
              | serial DuckDB writes
              v
       fund_net_values rows
+
+/api/v3/vault/fund-net-value-batch?vaultIds=10000,10001
+  one batched history response for official vaults
+  exact timestamp + NAV + total value
+             |
+             +--------------------------+
+                                        v
+                              fund_net_values rows
              |
              v
   ~/.tradingstrategy/vaults/apex-vaults.duckdb
@@ -180,17 +192,34 @@ millisecond period for which a newly subscribed share is frozen. ApeX's
 application describes this as the period before a subscription becomes
 redeemable. The reader stores it as `redemption_delay` and exports it to the
 shared vault `_lockup` field. It is requested for each listed non-terminal
-vault, so the ingestion tracks a future per-vault configuration change instead
-of assuming the currently observed one-day delay. A terminal vault with a
-verified stored delay is not requested again; it cannot accept a future
+ranked vault, so the ingestion tracks a future per-vault configuration change
+instead of assuming the currently observed one-day delay. A terminal vault with
+a verified stored delay is not requested again; it cannot accept a future
 subscription, and a reactivated vault is requested again.
 
-This must not be treated as a special liquidity-provider-vault lockup. ApeX's
-official [Protocol Vault announcement](https://www.apex.exchange/blog/detail/Introducing-Protocol-Vaults-on-ApeX-Omni-Stable-Returns-Backed-by-Real-Fees)
-states that Protocol Vaults have no lock-up. Its [Omni Litepaper](https://www.apex.exchange/blog/detail/ApeX-Omni-Litepaper)
-mentions Community Vaults as liquidity pools but does not define a separate
-lockup. The public configuration response above is therefore the canonical
-source for an individual vault's delay; vault type is not a substitute.
+The official liquidity-provider vaults below are intentionally excluded from
+this endpoint: ApeX's [Protocol Vault announcement](https://www.apex.exchange/blog/detail/Introducing-Protocol-Vaults-on-ApeX-Omni-Stable-Returns-Backed-by-Real-Fees)
+states that Protocol Vaults have no lock-up, and ApeX's [New User Vault
+announcement](https://www.apex.exchange/blog/detail/weekly-update-11may2026)
+describes the second official vault as the same product family. The per-vault
+configuration response is therefore the canonical delay source for ranked
+vaults; it must not be inferred from `vault_type`.
+
+### Official liquidity-provider vaults
+
+```text
+GET https://omni.apex.exchange/api/v3/vault/official-vaults
+GET https://omni.apex.exchange/api/v3/vault/fund-net-value-batch?vaultIds={vaultIds}
+```
+
+Official ApeX protocol-operated liquidity-provider vaults are intentionally
+not returned by the ranking endpoint. The reader combines this complete
+listing with the stabilised ranked-vault listing before lifecycle reconciliation,
+so an unfiltered scan neither omits these vaults nor incorrectly marks them as
+missing. Their history is fetched using the batch endpoint, which must return
+every requested vault ID exactly once. The known Protocol Vault and New Vault
+also receive curated descriptions in the shared metadata export because the
+endpoint supplies placeholder source text.
 
 ## Status handling
 
