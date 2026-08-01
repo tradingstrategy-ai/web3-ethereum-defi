@@ -71,10 +71,38 @@ def test_apex_synthetic_identity_is_a_shared_vault_spec() -> None:
     assert is_good_multichain_address(vault.synthetic_address)
     assert spec == VaultSpec(chain_id=APEX_CHAIN_ID, vault_address=vault.synthetic_address)
     assert row["Protocol"] == "ApeX"
+    assert row["Link"] == "https://omni.apex.exchange/vaultInfo/2044287989957394432/1"
     assert row["_fees"].fee_mode is None
     assert row["Perf fee"] is None
     assert row["_lockup"] == datetime.timedelta(days=1)
     assert get_vault_protocol_name({ERC4626Feature.apex_native}) == "ApeX"
+
+
+def test_apex_export_normalises_and_validates_vault_id() -> None:
+    """Use a canonical non-empty platform identity for the direct link."""
+    _, row = create_apex_vault_row(
+        vault_id=" 10001 ",
+        name="ApeX vault",
+        description=None,
+        tvl=None,
+        share_count=None,
+        created_at=None,
+        first_seen=datetime.datetime(2026, 7, 23, 12),
+        status="VAULT_IN_PROCESS",
+    )
+
+    assert row["Link"] == "https://omni.apex.exchange/vaultInfo/10001/1"
+    with pytest.raises(ValueError, match="vault ID is required"):
+        create_apex_vault_row(
+            vault_id=" ",
+            name="ApeX vault",
+            description=None,
+            tvl=None,
+            share_count=None,
+            created_at=None,
+            first_seen=datetime.datetime(2026, 7, 23, 12),
+            status="VAULT_IN_PROCESS",
+        )
 
 
 def test_apex_duckdb_exports_metadata_and_exact_timestamp_prices(tmp_path: Path) -> None:

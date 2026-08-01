@@ -178,3 +178,5 @@ Duration examples include `30s`, `30m`, `1.5h` and `2d`.
 The stable reader address is `apex-vault-{vault_id}`. The
 `vaultEthAddress` returned by ApeX is retained only as metadata because one
 reported Ethereum address may be shared by multiple platform vault IDs.
+The shared metadata `Link` field uses the direct vault page described in the
+package-level [`README-apex.md`](../../eth_defi/apex/README-apex.md).
