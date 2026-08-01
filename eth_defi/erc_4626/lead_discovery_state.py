@@ -23,6 +23,11 @@ from eth_defi.erc_4626.discovery_base import get_vault_discovery_events
 LEAD_DISCOVERY_STATE_SCHEMA_VERSION = 1
 DEFAULT_LEAD_DISCOVERY_STATE_TIMEOUT = datetime.timedelta(days=7)
 
+# Bump this whenever a change alters values persisted by create_vault_scan_record()
+# or its protocol adapters.  The discovery cursor alone cannot detect those
+# changes, but existing rows must be regenerated before they are exported.
+VAULT_METADATA_REFRESH_VERSION = 2
+
 
 def _remove_docstring(node: ast.AST) -> None:
     """Remove a function or class docstring before source hashing.
@@ -74,11 +79,11 @@ def hash_function_source(function: Callable[..., Any]) -> str:
 
 
 def create_lead_discovery_signature(enabled_chains: Iterable[tuple[str, str]]) -> tuple[str, dict[str, Any]]:
-    """Create the cache signature from detection code and enabled chains.
+    """Create the cache signature from detection code, metadata version, and enabled chains.
 
-    Only the lead-detection function and the enabled EVM chain configuration
-    participate. Scheduler and price-scan settings must not invalidate a lead
-    cache.
+    Scheduler and price-scan settings do not invalidate a lead cache. Metadata
+    changes use an explicit version because adapter behaviour is not a direct
+    dependency of the event-discovery function hash.
 
     :param enabled_chains:
         Iterable of ``(chain name, RPC environment variable)`` pairs for
@@ -89,6 +94,7 @@ def create_lead_discovery_signature(enabled_chains: Iterable[tuple[str, str]]) -
 
     configuration = {
         "lead_detection_function_hash": hash_function_source(get_vault_discovery_events),
+        "vault_metadata_refresh_version": VAULT_METADATA_REFRESH_VERSION,
         "enabled_chains": [{"name": name, "rpc_environment_variable": env_var} for name, env_var in sorted(enabled_chains)],
     }
     encoded = json.dumps(configuration, sort_keys=True, separators=(",", ":")).encode("utf-8")
