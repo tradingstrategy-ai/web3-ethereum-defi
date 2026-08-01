@@ -89,6 +89,12 @@ ApeX public web API
       vault_metadata
       vault_prices
       history_sync
+
+/api/v3/vault/vault-config?vaultId=...
+  per-vault subscription freeze configuration
+             |
+             v
+      vault_metadata.redemption_delay
 ```
 
 One command owns both paths. The command schedule controls current ranking
@@ -173,6 +179,31 @@ endpoint does not report a separate update time.
 Observed spacing is age-adaptive rather than fixed. Recent vault history may be
 hourly, while older history may become daily or weekly. The reader never
 interpolates, forward-fills, rounds or resamples these source timestamps.
+
+### Redemption delay
+
+```text
+GET https://omni.apex.exchange/api/v3/vault/vault-config?vaultId={vaultId}
+```
+
+The configuration endpoint is public but not described in ApeX's OpenAPI
+documentation. Its `vaultConfig.freezePurchaseShareDuration` field is the exact
+millisecond period for which a newly subscribed share is frozen. ApeX's
+application describes this as the period before a subscription becomes
+redeemable. The reader stores it as `redemption_delay` and exports it to the
+shared vault `_lockup` field. It is requested for each listed non-terminal
+ranked vault, so the ingestion tracks a future per-vault configuration change
+instead of assuming the currently observed one-day delay. A terminal vault with
+a verified stored delay is not requested again; it cannot accept a future
+subscription, and a reactivated vault is requested again.
+
+The official liquidity-provider vaults below are intentionally excluded from
+this endpoint: ApeX's [Protocol Vault announcement](https://www.apex.exchange/blog/detail/Introducing-Protocol-Vaults-on-ApeX-Omni-Stable-Returns-Backed-by-Real-Fees)
+states that Protocol Vaults have no lock-up, and ApeX's [New User Vault
+announcement](https://www.apex.exchange/blog/detail/weekly-update-11may2026)
+describes the second official vault as the same product family. The per-vault
+configuration response is therefore the canonical delay source for ranked
+vaults; it must not be inferred from `vault_type`.
 
 ### Official liquidity-provider vaults
 

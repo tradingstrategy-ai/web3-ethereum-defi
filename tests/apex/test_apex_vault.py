@@ -3,6 +3,7 @@
 # ruff: noqa: ARG002, PLR2004
 
 import copy
+import datetime
 import json
 from pathlib import Path
 from typing import Callable
@@ -19,6 +20,7 @@ from eth_defi.apex.vault import (
     parse_official_vault_histories,
     parse_official_vaults,
     parse_ranking_page,
+    parse_vault_configuration,
 )
 
 FIXTURES = Path(__file__).parent / "fixtures"
@@ -43,6 +45,30 @@ def test_parse_ranking_page_retains_all_vaults() -> None:
     assert first.purchase_fee_rate_raw == "0"
     assert first.reported_ethereum_address == second.reported_ethereum_address
     assert second.status == "VAULT_FINISHED"
+
+
+def test_parse_vault_configuration_reads_exact_redemption_delay() -> None:
+    """Map ApeX's subscription-freeze milliseconds to a redemption delay."""
+    config = parse_vault_configuration(_fixture("vault-config.json"))
+    assert config.redemption_delay == datetime.timedelta(days=1)
+
+
+@pytest.mark.parametrize("duration", (None, True, "86400000.5", -1))
+def test_parse_vault_configuration_rejects_invalid_redemption_delay(duration: object) -> None:
+    """Reject absent, fractional and negative lockup durations."""
+    payload = _fixture("vault-config.json")
+    payload["data"]["vaultConfig"]["freezePurchaseShareDuration"] = duration
+    with pytest.raises(ApexAPIError, match=r"millisecond duration|negative"):
+        parse_vault_configuration(payload)
+
+
+@pytest.mark.parametrize("vault_config", (None, []))
+def test_parse_vault_configuration_rejects_missing_config(vault_config: object) -> None:
+    """Reject a response without an object-valued configuration."""
+    payload = _fixture("vault-config.json")
+    payload["data"]["vaultConfig"] = vault_config
+    with pytest.raises(ApexAPIError, match="vaultConfig must be an object"):
+        parse_vault_configuration(payload)
 
 
 @pytest.mark.parametrize(

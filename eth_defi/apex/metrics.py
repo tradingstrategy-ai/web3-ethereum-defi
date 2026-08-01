@@ -35,10 +35,12 @@ from eth_defi.apex.constants import (
 from eth_defi.apex.session import ApexAPIError, ApexSessionPool
 from eth_defi.apex.vault import (
     ApexHistoryPoint,
+    ApexVaultConfiguration,
     ApexVaultSummary,
     fetch_official_vault_histories,
     fetch_official_vaults,
     fetch_stabilised_vaults,
+    fetch_vault_configuration,
     fetch_vault_history,
 )
 from eth_defi.compat import native_datetime_utc_now
@@ -61,6 +63,20 @@ class ApexHistoryFetchResult:
 
     #: Parsed history, or ``None`` on failure.
     points: tuple[ApexHistoryPoint, ...] | None
+
+    #: Error text on failure.
+    error: str | None
+
+
+@dataclass(slots=True, frozen=True)
+class ApexConfigurationFetchResult:
+    """Immutable worker result for one public vault configuration request."""
+
+    #: Platform vault identifier.
+    vault_id: str
+
+    #: Parsed vault configuration, or ``None`` on failure.
+    configuration: ApexVaultConfiguration | None
 
     #: Error text on failure.
     error: str | None
@@ -166,6 +182,7 @@ class ApexMetricsDatabase:
                 max_amount DOUBLE,
                 purchase_fee_rate_raw VARCHAR,
                 share_profit_ratio_raw VARCHAR,
+                redemption_delay INTERVAL,
                 current_nav DOUBLE,
                 current_tvl DOUBLE,
                 current_share_count DOUBLE,
@@ -174,6 +191,7 @@ class ApexMetricsDatabase:
                 missing_since TIMESTAMP
             )
         """)
+        con.execute("ALTER TABLE vault_metadata ADD COLUMN IF NOT EXISTS redemption_delay INTERVAL")
         con.execute("""
             CREATE TABLE IF NOT EXISTS vault_prices (
                 vault_id VARCHAR NOT NULL,
@@ -336,6 +354,7 @@ class ApexMetricsDatabase:
             "max_amount",
             "purchase_fee_rate_raw",
             "share_profit_ratio_raw",
+            "redemption_delay",
             "current_nav",
             "current_tvl",
             "current_share_count",
@@ -402,8 +421,29 @@ class ApexMetricsDatabase:
         con.executemany("DELETE FROM vault_metadata WHERE vault_id = ?", [(vault_id,) for vault_id in identifiers])
         con.executemany(
             """
-            INSERT INTO vault_metadata VALUES (
-                ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+            INSERT INTO vault_metadata (
+                vault_id,
+                synthetic_address,
+                reported_ethereum_address,
+                name,
+                description,
+                status,
+                vault_type,
+                created_at,
+                source_updated_at,
+                finished_at,
+                max_amount,
+                purchase_fee_rate_raw,
+                share_profit_ratio_raw,
+                redemption_delay,
+                current_nav,
+                current_tvl,
+                current_share_count,
+                first_seen,
+                last_seen,
+                missing_since
+            ) VALUES (
+                ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
             )
             """,
             [self._metadata_values(row) for row in materialised],
@@ -439,6 +479,7 @@ class ApexMetricsDatabase:
         observed_at: datetime.datetime,
         *,
         manage_disappearance: bool,
+        redemption_delays: dict[str, datetime.timedelta] | None = None,
     ) -> None:
         """Atomically store ranking metadata, observations and lifecycle state.
 
@@ -453,6 +494,10 @@ class ApexMetricsDatabase:
             Common naive UTC ranking observation timestamp.
         :param manage_disappearance:
             Whether absent known vaults should be marked missing.
+        :param redemption_delays:
+            Fresh public redemption delays keyed by platform vault ID. When a
+            configuration read fails, an existing value is retained instead
+            of replacing verified metadata with an absent value.
         :return:
             None.
         """
@@ -461,6 +506,7 @@ class ApexMetricsDatabase:
         if len(identifiers) != len(set(identifiers)):
             raise ValueError("Duplicate logical vault IDs in ranking batch")
         existing_metadata = self._metadata_by_id()
+        redemption_delays = redemption_delays or {}
         existing_sync = self._sync_by_id()
         current_ids = set(identifiers)
         affected_missing_ids = set(existing_metadata) - current_ids if manage_disappearance else set()
@@ -505,6 +551,7 @@ class ApexMetricsDatabase:
                     "max_amount": vault.max_amount,
                     "purchase_fee_rate_raw": vault.purchase_fee_rate_raw,
                     "share_profit_ratio_raw": vault.share_profit_ratio_raw,
+                    "redemption_delay": redemption_delays.get(vault.vault_id, old["redemption_delay"] if old is not None else None),
                     "current_nav": vault.share_price,
                     "current_tvl": vault.tvl,
                     "current_share_count": vault.share_count,
@@ -625,6 +672,31 @@ class ApexMetricsDatabase:
             if due:
                 candidates.append(vault_id)
         return tuple(sorted(candidates))
+
+    def select_configuration_candidates(
+        self,
+        vaults: tuple[ApexVaultSummary, ...],
+        official_vault_ids: set[str],
+    ) -> tuple[str, ...]:
+        """Select vaults whose public redemption delay still needs refreshing.
+
+        Official liquidity-provider vaults have no lock-up according to ApeX's
+        `Protocol Vault announcement
+        <https://www.apex.exchange/blog/detail/Introducing-Protocol-Vaults-on-ApeX-Omni-Stable-Returns-Backed-by-Real-Fees>`__,
+        so they are excluded. A terminal vault's configuration cannot affect
+        future subscriptions, so its verified value is retained without
+        another request. Active ranked vaults remain eligible because ApeX may
+        change their per-vault delay.
+
+        :param vaults:
+            Current selected ranking records.
+        :param official_vault_ids:
+            IDs sourced from ApeX's official liquidity-provider endpoint.
+        :return:
+            Platform vault IDs requiring a configuration request.
+        """
+        existing_metadata = self._metadata_by_id()
+        return tuple(vault.vault_id for vault in vaults if vault.vault_id not in official_vault_ids and (vault.status != APEX_TERMINAL_STATUS or existing_metadata.get(vault.vault_id, {}).get("redemption_delay") is None))
 
     def apply_history_success(
         self,
@@ -851,12 +923,82 @@ def _fetch_history_worker(
     :return:
         Successful points or an isolated API error result.
     """
-    with session_pool.history_worker_scope():
+    with session_pool.worker_scope():
         try:
             points = fetch_vault_history(session_pool, vault_id, operation_timeout=operation_timeout)
             return ApexHistoryFetchResult(vault_id=vault_id, points=points, error=None)
         except ApexAPIError as exc:
             return ApexHistoryFetchResult(vault_id=vault_id, points=None, error=str(exc))
+
+
+def _fetch_configuration_worker(
+    session_pool: ApexSessionPool,
+    vault_id: str,
+    operation_timeout: float,
+) -> ApexConfigurationFetchResult:
+    """Fetch one public configuration without accessing DuckDB.
+
+    Configuration failures are isolated so current market observations and a
+    previously verified redemption delay can still be retained.
+
+    :param session_pool:
+        Shared bounded ApeX session pool.
+    :param vault_id:
+        Platform vault ID to fetch.
+    :param operation_timeout:
+        Per-vault monotonic operation budget in seconds.
+    :return:
+        Parsed configuration or an isolated API error result.
+    """
+    with session_pool.worker_scope():
+        try:
+            configuration = fetch_vault_configuration(session_pool, vault_id, operation_timeout=operation_timeout)
+            return ApexConfigurationFetchResult(vault_id=vault_id, configuration=configuration, error=None)
+        except ApexAPIError as exc:
+            return ApexConfigurationFetchResult(vault_id=vault_id, configuration=None, error=str(exc))
+
+
+def _fetch_redemption_delays(
+    session_pool: ApexSessionPool,
+    vault_ids: tuple[str, ...],
+    *,
+    max_workers: int,
+    operation_timeout: float,
+) -> dict[str, datetime.timedelta]:
+    """Fetch public redemption delays and retain successful values only.
+
+    Each failed request is logged and omitted, allowing the database layer to
+    preserve the previously verified value. Worker sessions are closed before
+    the following history phase creates a new joblib worker pool.
+
+    :param session_pool:
+        Exclusively owned bounded ApeX session pool.
+    :param vault_ids:
+        Platform vault IDs requiring configuration requests.
+    :param max_workers:
+        Threaded configuration reader count.
+    :param operation_timeout:
+        Per-vault monotonic operation budget in seconds.
+    :return:
+        Successful redemption delays keyed by platform vault ID.
+    """
+    if not vault_ids:
+        return {}
+    try:
+        with Parallel(n_jobs=max_workers, backend="threading", return_as="generator_unordered") as parallel:
+            results = tuple(
+                tqdm(
+                    parallel(delayed(_fetch_configuration_worker)(session_pool, vault_id, operation_timeout) for vault_id in vault_ids),
+                    total=len(vault_ids),
+                    desc="Fetching ApeX vault configurations",
+                )
+            )
+    finally:
+        session_pool.close_worker_sessions()
+    for result in results:
+        if result.configuration is None:
+            logger.warning("Could not fetch ApeX redemption delay for %s: %s", result.vault_id, result.error)
+    return {result.vault_id: result.configuration.redemption_delay for result in results if result.configuration is not None}
 
 
 def _fetch_official_history_batch(
@@ -919,7 +1061,7 @@ def run_scan(
     :param ranking_timeout:
         Whole two-pass ranking deadline in seconds.
     :param history_timeout:
-        Per-vault history deadline in seconds.
+        Per-vault history and configuration deadline in seconds.
     :return:
         Typed completed-scan summary.
     """
@@ -967,7 +1109,7 @@ def _run_scan(  # noqa: PLR0914
     :param ranking_timeout:
         Whole two-pass ranking budget in seconds.
     :param history_timeout:
-        Per-vault history budget in seconds.
+        Per-vault history and configuration budget in seconds.
     :return:
         Typed completed-scan summary.
     """
@@ -999,7 +1141,20 @@ def _run_scan(  # noqa: PLR0914
         selected = tuple(by_id[vault_id] for vault_id in vault_ids)
 
     observed_at = native_datetime_utc_now()
-    database.apply_ranking(selected, observed_at, manage_disappearance=vault_ids is None)
+    configuration_candidates = database.select_configuration_candidates(selected, official_vault_ids)
+    redemption_delays = _fetch_redemption_delays(
+        session_pool,
+        configuration_candidates,
+        max_workers=max_workers,
+        operation_timeout=history_timeout,
+    )
+
+    database.apply_ranking(
+        selected,
+        observed_at,
+        manage_disappearance=vault_ids is None,
+        redemption_delays=redemption_delays,
+    )
     for vault in selected:
         account_bundle = create_unavailable_perp_vault_observation_bundle(
             identity=PerpVaultIdentity(
@@ -1029,7 +1184,6 @@ def _run_scan(  # noqa: PLR0914
         refresh_interval=history_refresh_interval,
         include_missing=vault_ids is None,
     )
-
     official_candidates = tuple(vault_id for vault_id in candidates if vault_id in official_vault_ids)
     ranked_candidates = tuple(vault_id for vault_id in candidates if vault_id not in official_vault_ids)
     results: tuple[ApexHistoryFetchResult, ...] = ()
