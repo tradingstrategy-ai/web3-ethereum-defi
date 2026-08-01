@@ -69,6 +69,8 @@ class AssetoProduct:
     offchain_product_name: str | None = None
     #: Informational public product description.
     description: str | None = None
+    #: Reviewed product-specific homepage, when Asseto does not publish one.
+    homepage: str | None = None
 
 
 @dataclass(slots=True, frozen=True)
@@ -105,6 +107,7 @@ ASSETO_AOABT_HASHKEY = AssetoProduct(
     has_custom_fees=True,
     denomination_symbol="USDT",
     description="AoABT tokenises the Asseto Orient Arbitrage Strategy and offers daily U.S. dollar yields backed one-to-one by the underlying strategy.",
+    homepage="https://asseto.gitbook.io/asseto/products/aoabt/introduction",
 )
 
 #: Product lookup used by the adapter and chain-aware classification.
@@ -114,6 +117,25 @@ ASSETO_PRODUCTS: dict[tuple[int, HexAddress], AssetoProduct] = {
 
 #: Address-only lookup used for hardcoded protocol routing.
 ASSETO_PRODUCTS_BY_TOKEN: dict[HexAddress, AssetoProduct] = {product.token: product for product in ASSETO_PRODUCTS.values()}
+
+
+def install_asseto_runtime_products(products: list[AssetoProduct]) -> None:
+    """Install API-derived products for the lifetime of this scanner process.
+
+    The classification module imports these mutable mappings during process
+    startup, so retain their identity while replacing only the entries owned by
+    the fresh or validated stale Asseto registry.  The scheduled scanner calls
+    this before constructing any :class:`AssetoVault` adapters.
+
+    :param products:
+        Fully prepared product records keyed by chain and token.
+    :return:
+        None.
+    """
+
+    ASSETO_PRODUCTS.update({(product.chain_id, product.token): product for product in products})
+    ASSETO_PRODUCTS_BY_TOKEN.update({product.token: product for product in products})
+
 
 #: Reviewed manager attribution for Asseto products on supported EVM chains.
 #:

@@ -245,6 +245,7 @@ poetry run python scripts/erc-4626/scan-vaults-all-chains.py
 | `TOKENISED_FUND_MAX_WORKERS` | Optional. Historical reader workers for tokenised-fund feeds. Default: 8. |
 | `WISDOMTREE_DATASPAN_API_KEY` | Optional. Enables the WisdomTree DataSpan NAV feed; without it WisdomTree remains visibly disabled. |
 | `RETRY_COUNT` | Optional. Number of retries on failure. |
+
 | `TEST_CHAINS` | Optional. Comma-separated chain names to scan (for testing). Use `none` to skip all EVM chains. |
 | `DISABLE_CHAINS` | Optional. Comma-separated chain names to exclude. |
 | `SKIP_POST_PROCESSING` | Optional. Skip post-processing steps. |
@@ -310,6 +311,16 @@ chain scanner. The dashboard's
 original publication time of an oracle or issuer observation. Securitize is
 therefore the recurring owner of BCAP and fills its missing sampled history as
 far back as its reviewed source permits.
+
+### Asseto registry refresh
+
+The daily `Asseto` tokenised-fund row refreshes Asseto's public product registry
+before it creates any Asseto adapter. The validated registry cache survives a
+scanner restart at `~/.tradingstrategy/cache/asseto/registry-cache.json`; a
+temporary upstream failure may rebuild known adapters from that cache but cannot
+write stale metadata or introduce a new product. See
+[`README-Asseto.md`](../../eth_defi/tokenised_fund/asseto/README-Asseto.md) for
+source precedence, daily history, stale-cache and repair behaviour.
 
 Dedicated tokenised-fund feeds retain one daily sample per selected block even
 when the NAV is unchanged. This is intentional: a stable share price is still

@@ -75,9 +75,9 @@ ASSETO_MANAGER_FEE_ABI = [
 #: Generic manager reason used to keep Asseto outside public transaction flows.
 ASSETO_BLOCKED_FLOW_REASON = "Asseto deposit manager is blocked: KYC-gated request/claim subscriptions and redemptions are not supported"
 
-#: Official Asseto documentation for the Orient Arbitrage Token. This is the
-#: public product landing page, rather than the token's block-explorer record.
-ASSETO_AOABT_HOMEPAGE = "https://asseto.gitbook.io/asseto/products/aoabt/introduction"
+#: Fallback Asseto product index for API-discovered products without a reviewed
+#: product-specific homepage.
+ASSETO_PRODUCT_INDEX_URL = "https://asseto.finance/product"
 
 
 def create_asseto_short_description(description: str | None) -> str | None:
@@ -294,16 +294,17 @@ class AssetoVault(TokenisedFundVault):
         return create_asseto_short_description(self.product.description)
 
     def get_link(self, referral: str | None = None) -> str:
-        """Return the official Asseto Orient Arbitrage product page.
+        """Return the official product page or the Asseto product index.
 
         :param referral:
             Ignored because Asseto does not expose referral URLs.
         :return:
-            Asseto's public product documentation.
+            Product-specific reviewed documentation when available, otherwise
+            Asseto's public product index.
         """
 
         _ = referral
-        return ASSETO_AOABT_HOMEPAGE
+        return self.product.homepage or ASSETO_PRODUCT_INDEX_URL
 
     @property
     def manager_name(self) -> str | None:

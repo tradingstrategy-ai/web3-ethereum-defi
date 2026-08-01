@@ -90,8 +90,9 @@ from eth_defi.provider.multi_provider import MultiProviderWeb3Factory, create_mu
 from eth_defi.provider.named import get_provider_name
 from eth_defi.research.wrangle_vault_prices import replace_cleaned_vault_histories
 from eth_defi.token import TokenDiskCache, is_stablecoin_like
-from eth_defi.tokenised_fund.asseto.constants import ASSETO_PRODUCTS, ASSETO_USD_DENOMINATIONS, AssetoProduct
-from eth_defi.tokenised_fund.asseto.offchain_api import AssetoOffchainProduct, fetch_asseto_products
+from eth_defi.tokenised_fund.asseto.constants import ASSETO_USD_DENOMINATIONS, AssetoProduct, install_asseto_runtime_products
+from eth_defi.tokenised_fund.asseto.offchain_api import AssetoOffchainProduct
+from eth_defi.tokenised_fund.asseto.offchain_metadata import fetch_asseto_registry
 from eth_defi.utils import setup_console_logging
 from eth_defi.vault.base import VaultBase, VaultSpec
 from eth_defi.vault.data_file_export import resolve_exchange_rate_database_path
@@ -237,7 +238,12 @@ def iter_selected_products() -> Iterable[AssetoOffchainProduct]:
     networks = parse_csv_env("NETWORKS")
     products = parse_csv_env("PRODUCTS")
     seen: set[tuple[int, HexAddress]] = set()
-    for product in fetch_asseto_products():
+    registry = fetch_asseto_registry()
+    if not registry.is_usable:
+        raise RuntimeError(f"Asseto registry is unavailable: {registry.diagnostics}")
+    if registry.status == "stale":
+        logger.warning("Asseto backfill is using stale registry metadata from %s: %s", registry.source_timestamp, registry.diagnostics)
+    for product in registry.products:
         key = (product.chain_id, product.contract_address)
         if key in seen:
             continue
@@ -714,8 +720,9 @@ def backfill_chain(  # noqa: PLR0914 - explicit production pipeline state keeps 
         denomination_symbol = resolve_asseto_denomination_symbol(product)
         exchange_rates = usd_exchange_rates_by_symbol.get(denomination_symbol or "", ())
         runtime_product = create_runtime_product(product, deployment_block, first_seen_at, exchange_rates)
-        ASSETO_PRODUCTS[runtime_product.chain_id, runtime_product.token] = runtime_product
         runtime_products.append(runtime_product)
+
+    install_asseto_runtime_products(runtime_products)
 
     leads = {product.token: create_asseto_lead(product) for product in runtime_products}
     rows = {
