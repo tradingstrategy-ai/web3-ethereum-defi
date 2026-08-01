@@ -381,6 +381,7 @@ def run_tokenised_fund_price_scan(  # noqa: PLR0914 - explicit production resour
     """
 
     registry_diagnostics: list[str] = []
+    available_asseto_specs: frozenset[VaultSpec] | None = None
     if spec.selector == "asseto":
         registry_result = fetch_asseto_registry_preparation(
             vault_db_path=context.vault_db_path,
@@ -388,12 +389,17 @@ def run_tokenised_fund_price_scan(  # noqa: PLR0914 - explicit production resour
             cache_path=context.asseto_registry_cache_path or DEFAULT_ASSETO_REGISTRY_CACHE_PATH,
         )
         registry_diagnostics.extend(registry_result.diagnostics)
+        available_asseto_specs = registry_result.available_specs
         registry_diagnostics.append(f"registry={registry_result.status}, runtime_products={registry_result.runtime_product_count}, registered_products={registry_result.registered_product_count}")
 
     if not context.vault_db_path.exists():
         raise RuntimeError(f"Tokenised-fund metadata database does not exist: {context.vault_db_path}")
     vault_db = VaultDatabase.read(context.vault_db_path)
     target_rows = list(_iter_target_rows(vault_db, spec))
+    if available_asseto_specs is not None:
+        unavailable_targets = [target for target, _ in target_rows if target not in available_asseto_specs]
+        registry_diagnostics.extend(f"no usable Asseto runtime registry product for {target.as_string_id()}" for target in unavailable_targets)
+        target_rows = [(target, row) for target, row in target_rows if target in available_asseto_specs]
     if context.vault_addresses is not None:
         target_rows = [(target, row) for target, row in target_rows if target.vault_address in context.vault_addresses]
     if not target_rows:

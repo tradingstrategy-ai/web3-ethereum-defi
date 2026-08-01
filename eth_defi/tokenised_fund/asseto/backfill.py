@@ -76,12 +76,8 @@ from tabulate import tabulate
 from web3 import Web3
 
 from eth_defi.chain import CHAIN_NAMES, get_chain_name
-from eth_defi.compat import native_datetime_utc_now
-from eth_defi.currency_api.constants import SOURCE_NAME
-from eth_defi.currency_api.database import CurrencyRateDatabase
 from eth_defi.erc_4626.classification import create_vault_instance
-from eth_defi.erc_4626.core import ERC4262VaultDetection, ERC4626Feature
-from eth_defi.erc_4626.discovery_base import PotentialVaultMatch
+from eth_defi.erc_4626.core import ERC4626Feature
 from eth_defi.erc_4626.scan import create_vault_scan_record
 from eth_defi.hypersync.server import is_hypersync_supported_chain
 from eth_defi.hypersync.utils import configure_hypersync_from_env
@@ -90,9 +86,12 @@ from eth_defi.provider.multi_provider import MultiProviderWeb3Factory, create_mu
 from eth_defi.provider.named import get_provider_name
 from eth_defi.research.wrangle_vault_prices import replace_cleaned_vault_histories
 from eth_defi.token import TokenDiskCache, is_stablecoin_like
-from eth_defi.tokenised_fund.asseto.constants import ASSETO_USD_DENOMINATIONS, AssetoProduct, install_asseto_runtime_products
+from eth_defi.tokenised_fund.asseto.constants import AssetoProduct, install_asseto_runtime_products
 from eth_defi.tokenised_fund.asseto.offchain_api import AssetoOffchainProduct
 from eth_defi.tokenised_fund.asseto.offchain_metadata import fetch_asseto_registry
+from eth_defi.tokenised_fund.asseto.registry import create_asseto_detection, create_asseto_lead, load_usd_exchange_rates, resolve_asseto_denomination_symbol
+from eth_defi.tokenised_fund.asseto.registry import create_asseto_runtime_product as create_runtime_product
+from eth_defi.tokenised_fund.asseto.registry import fetch_asseto_deployment_block as fetch_contract_deployment_block
 from eth_defi.utils import setup_console_logging
 from eth_defi.vault.base import VaultBase, VaultSpec
 from eth_defi.vault.data_file_export import resolve_exchange_rate_database_path
@@ -306,46 +305,6 @@ def resolve_price_scan_start_block(
     return deployment_start_block
 
 
-def create_asseto_detection(product: AssetoProduct) -> ERC4262VaultDetection:
-    """Create a synthetic shared scanner detection for an Asseto product.
-
-    :param product:
-        Asseto product metadata.
-    :return:
-        Detection compatible with metadata scan record generation.
-    """
-
-    return ERC4262VaultDetection(
-        chain=product.chain_id,
-        address=product.token,
-        first_seen_at_block=product.first_seen_at_block,
-        first_seen_at=product.first_seen_at,
-        features={ERC4626Feature.asseto_like},
-        updated_at=native_datetime_utc_now(),
-        deposit_count=0,
-        redeem_count=0,
-    )
-
-
-def create_asseto_lead(product: AssetoProduct) -> PotentialVaultMatch:
-    """Create a synthetic discovery lead for an Asseto product.
-
-    :param product:
-        Asseto product metadata.
-    :return:
-        Lead compatible with the vault metadata database.
-    """
-
-    return PotentialVaultMatch(
-        chain=product.chain_id,
-        address=product.token,
-        first_seen_at_block=product.first_seen_at_block,
-        first_seen_at=product.first_seen_at,
-        deposit_count=0,
-        withdrawal_count=0,
-    )
-
-
 def read_vault_database(path: Path) -> VaultDatabase:
     """Read or initialise the vault metadata database.
 
@@ -507,150 +466,6 @@ def validate_active_asseto_coverage(
     invalid_active_rows = [VaultSpec(product.chain_id, product.token).as_string_id() for product in runtime_products if product.token.lower() in active_product_ids and (rows[VaultSpec(product.chain_id, product.token)].get("NAV") is None or rows[VaultSpec(product.chain_id, product.token)].get("NAV") <= 0 or not is_stablecoin_like(rows[VaultSpec(product.chain_id, product.token)].get("Denomination")))]
     if invalid_active_rows:
         raise RuntimeError(f"Active Asseto products do not have positive USD-compatible live metadata: {', '.join(sorted(invalid_active_rows))}")
-
-
-def resolve_asseto_denomination_symbol(product: AssetoOffchainProduct) -> str | None:
-    """Resolve the currency in which Asseto publishes a product's NAV.
-
-    Asseto omits ``tokenSymbol`` for its ``stoken`` products even though their
-    product pages and NAV series use United States dollars. Treat this registry
-    category as synthetic USD accounting, while retaining explicit symbols for
-    UDA products such as USDC, USDT and HKD.
-
-    :param product:
-        Public Asseto registry entry.
-    :return:
-        Upper-case accounting denomination, or ``None`` if Asseto publishes
-        neither a symbol nor a recognised product category.
-    """
-
-    if product.denomination_symbol:
-        return product.denomination_symbol.upper()
-    if product.product_type and product.product_type.casefold() == "stoken":
-        return "USD"
-    return None
-
-
-def load_usd_exchange_rates(
-    database_path: Path,
-    denomination_symbols: Iterable[str | None],
-) -> dict[str, tuple[tuple[int, Decimal], ...]]:
-    """Load historical fiat conversion rates needed by selected products.
-
-    Stored rates are units of quote currency per one USD. Asseto NAV values in
-    a non-USD currency are consequently divided by the matching rate before
-    they enter the shared USD-denominated cleaned history.
-
-    :param database_path:
-        Currency API DuckDB produced by ``scan-currencies``.
-    :param denomination_symbols:
-        Asseto accounting currencies selected for this run.
-    :return:
-        Rates keyed by upper-case quote currency, each ordered by UTC day.
-    :raise RuntimeError:
-        If a required database or currency history is missing.
-    """
-
-    required = {symbol.upper() for symbol in denomination_symbols if symbol and symbol.upper() not in ASSETO_USD_DENOMINATIONS}
-    if not required:
-        return {}
-    if not database_path.exists():
-        currencies = ", ".join(sorted(required))
-        raise RuntimeError(f"Asseto products require {currencies}/USD history, but the currency database does not exist at {database_path}; run scan-currencies first")
-
-    database = CurrencyRateDatabase(database_path)
-    try:
-        rates_df = database.get_rates_dataframe(base_currency="usd", source=SOURCE_NAME)
-    finally:
-        database.close()
-
-    result: dict[str, tuple[tuple[int, Decimal], ...]] = {}
-    for symbol in sorted(required):
-        selected = rates_df.loc[rates_df["quote_currency"].str.casefold() == symbol.casefold()].sort_values("date")
-        if selected.empty:
-            raise RuntimeError(f"Asseto product history requires {symbol}/USD rates in {database_path}; run scan-currencies with QUOTE_CURRENCIES including {symbol.lower()}")
-        result[symbol] = tuple(
-            (
-                int(datetime.datetime.combine(row.date, datetime.time.min, tzinfo=datetime.UTC).timestamp()),
-                Decimal(str(row.rate)),
-            )
-            for row in selected.itertuples(index=False)
-        )
-    return result
-
-
-def fetch_contract_deployment_block(web3: Web3, address: HexAddress, end_block: int) -> int:
-    """Find the first block containing runtime code for an Asseto token.
-
-    :param web3:
-        Archive-capable connection for the product chain.
-    :param address:
-        Asseto ERC-20 token address.
-    :param end_block:
-        Highest block that may be checked.
-    :return:
-        First block containing contract code.
-    :raise ValueError:
-        If the public registry address has no contract code on this chain.
-    """
-
-    address = Web3.to_checksum_address(address)
-    if not web3.eth.get_code(address, block_identifier=end_block):
-        raise ValueError(f"No contract code for Asseto product {address} at block {end_block}")
-
-    low = 0
-    high = end_block
-    while low < high:
-        middle = (low + high) // 2
-        if web3.eth.get_code(address, block_identifier=middle):
-            high = middle
-        else:
-            low = middle + 1
-    return low
-
-
-def create_runtime_product(
-    product: AssetoOffchainProduct,
-    deployment_block: int,
-    first_seen_at: datetime.datetime,
-    usd_exchange_rates: tuple[tuple[int, Decimal], ...] = (),
-) -> AssetoProduct:
-    """Convert one public registry entry to a temporary scanner product.
-
-    Public registry products do not all expose Asseto's request/claim manager
-    and ``Pricer`` contracts. The generic adapter therefore uses their
-    published daily NAV history, while preserving the exact token identity and
-    deployment information read from the configured archive RPC.
-
-    :param product:
-        Asseto public EVM product entry.
-    :param deployment_block:
-        First token-code block found on-chain.
-    :param first_seen_at:
-        Naive UTC deployment timestamp.
-    :param usd_exchange_rates:
-        Historical units of the product denomination per USD. Empty for
-        products already denominated in USD or a USD stablecoin.
-    :return:
-        Runtime Asseto adapter product metadata.
-    """
-
-    return AssetoProduct(
-        chain_id=product.chain_id,
-        token=product.contract_address,
-        symbol=product.symbol or product.product_name,
-        product_name=product.full_name or product.product_name,
-        manager=None,
-        pricer=None,
-        collateral=product.denomination_address,
-        first_seen_at_block=deployment_block,
-        first_seen_at=first_seen_at,
-        denomination_symbol=resolve_asseto_denomination_symbol(product),
-        usd_exchange_rates=usd_exchange_rates,
-        offchain_product_id=product.product_id,
-        offchain_product_name=product.product_name,
-        description=product.introduction,
-    )
 
 
 def backfill_chain(  # noqa: PLR0914 - explicit production pipeline state keeps the write path auditable.
