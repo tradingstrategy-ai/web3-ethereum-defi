@@ -12,6 +12,10 @@ APEX_CHAIN_ID: int = 9995
 #: ApeX Omni public REST API base URL.
 APEX_API_BASE_URL: str = "https://omni.apex.exchange/api/v3"
 
+#: Public destination URL template for one ApeX Omni vault.
+#: See https://www.apex.exchange/blog/detail/weekly-update-11may2026.
+APEX_VAULT_URL_TEMPLATE: str = "https://omni.apex.exchange/vaultInfo/{vault_id}/1"
+
 #: Default local metrics database.
 APEX_METRICS_DATABASE: Path = Path("~/.tradingstrategy/vaults/apex-vaults.duckdb").expanduser()
 

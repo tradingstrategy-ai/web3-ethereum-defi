@@ -10,10 +10,11 @@ import datetime
 import logging
 from decimal import Decimal
 from pathlib import Path
+from urllib.parse import quote
 
 import pandas as pd
 
-from eth_defi.apex.constants import APEX_CHAIN_ID, APEX_OFFICIAL_VAULTS
+from eth_defi.apex.constants import APEX_CHAIN_ID, APEX_OFFICIAL_VAULTS, APEX_VAULT_URL_TEMPLATE
 from eth_defi.apex.metrics import ApexMetricsDatabase
 from eth_defi.compat import native_datetime_utc_now
 from eth_defi.erc_4626.core import ERC4262VaultDetection, ERC4626Feature
@@ -69,7 +70,13 @@ def create_apex_vault_row(
         Time after a subscription before its shares are redeemable.
     :return:
         Synthetic vault specification and metadata row.
+    :raises ValueError:
+        If the platform vault ID is blank.
     """
+    vault_id = vault_id.strip()
+    if not vault_id:
+        message = "ApeX vault ID is required"
+        raise ValueError(message)
     address = f"apex-vault-{vault_id}"
     detection = ERC4262VaultDetection(
         chain=APEX_CHAIN_ID,
@@ -97,7 +104,7 @@ def create_apex_vault_row(
         "NAV": Decimal(str(tvl or 0.0)),
         "Shares": Decimal(str(share_count or 0.0)),
         "Protocol": "ApeX",
-        "Link": "https://omni.apex.exchange/",
+        "Link": APEX_VAULT_URL_TEMPLATE.format(vault_id=quote(vault_id, safe="")),
         "First seen": created_at or first_seen,
         "Mgmt fee": None,
         "Perf fee": None,
