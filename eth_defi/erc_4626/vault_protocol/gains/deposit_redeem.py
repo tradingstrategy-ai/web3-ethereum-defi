@@ -18,6 +18,7 @@ from web3.contract.contract import ContractFunction
 from eth_defi.abi import get_topic_signature_from_event
 from eth_defi.erc_4626.deposit_redeem import ERC4626DepositManager
 from eth_defi.provider.anvil import is_anvil
+from eth_defi.erc_4626.vault_protocol.gains.testing import force_next_gains_epoch
 from eth_defi.revert_reason import fetch_transaction_revert_reason
 from eth_defi.timestamp import get_block_timestamp
 from eth_defi.utils import from_unix_timestamp
@@ -33,6 +34,7 @@ from eth_defi.vault.deposit_redeem import (
     UnsupportedVaultSimulation,
     VaultFlowUnavailable,
     VaultForcedSettlementResult,
+    VaultRedemptionSimulationIntervention,
 )
 from eth_defi.vault.flow_events import (
     PendingVaultFlow,
@@ -170,6 +172,71 @@ class GainsDepositManager(ERC4626DepositManager):
     def can_create_deposit_request(self, owner: HexAddress) -> bool:
         """Vault is always open for deposits."""
         return True
+
+    def prepare_redemption_simulation(
+        self,
+        owner: HexAddress,
+        raw_shares: int,
+        failure: VaultFlowUnavailable,
+    ) -> VaultRedemptionSimulationIntervention:
+        """Advance a closed Gains withdrawal window on an Anvil fork.
+
+        Gains opens withdrawal requests only after its permissionless
+        ``forceNewEpoch()`` transition. This uses the existing source-proven
+        driver, which warps time to the next epoch boundary and sends that real
+        transition. The request is retried unchanged by the caller; no
+        admission or payout condition is relaxed.
+
+        :param owner:
+            Account that will submit the unchanged withdrawal request.
+        :param raw_shares:
+            Exact raw share quantity requested on the retry.
+        :param failure:
+            Typed closed-window preflight failure.
+        :return:
+            Disclosure of the Anvil time and permissionless epoch transition.
+        :raise UnsupportedVaultSimulation:
+            If the fork is not Anvil, the failure is not ``EndOfEpoch``, or the
+            epoch transition does not reopen the request window.
+        """
+        del raw_shares
+        if not is_anvil(self.web3):
+            raise UnsupportedVaultSimulation(
+                "Gains withdrawal-window simulation requires Anvil",
+                unsupported_reason="anvil_provider_required",
+                protocol=self.vault.get_protocol_name(),
+                vault_address=self.vault.address,
+                direction="redeem",
+            )
+        if failure.preflight_result != "redemption_window_closed" or failure.decoded_error != "EndOfEpoch":
+            raise UnsupportedVaultSimulation(
+                "Gains window simulation requires an EndOfEpoch preflight",
+                unsupported_reason="redemption_failure_not_closed_epoch_window",
+                protocol=self.vault.get_protocol_name(),
+                vault_address=self.vault.address,
+                direction="redeem",
+            )
+
+        timestamp_before = get_block_timestamp(self.web3, self.web3.eth.block_number)
+        tx_hash = force_next_gains_epoch(self.vault, owner)
+        timestamp_after = get_block_timestamp(self.web3, self.web3.eth.block_number)
+        if not self.can_create_redemption_request(owner):
+            raise UnsupportedVaultSimulation(
+                "Gains epoch transition did not reopen the withdrawal request window",
+                unsupported_reason="gains_redemption_window_not_open_after_epoch_advance",
+                protocol=self.vault.get_protocol_name(),
+                vault_address=self.vault.address,
+                direction="redeem",
+            )
+        return VaultRedemptionSimulationIntervention(
+            kind="time_advanced",
+            target=self.vault.open_pnl_contract.address,
+            original_reason=failure.reason,
+            original_preflight_result=failure.preflight_result,
+            timestamp_before=timestamp_before,
+            timestamp_after=timestamp_after,
+            transaction_hash=tx_hash,
+        )
 
     def create_redemption_request(
         self,
@@ -474,8 +541,6 @@ class GainsDepositManager(ERC4626DepositManager):
         """
         if ignore_liquidity:
             return super().force_settle(ticket, mock=mock, ignore_liquidity=True)
-
-        from eth_defi.erc_4626.vault_protocol.gains.testing import force_next_gains_epoch
 
         if not is_anvil(self.web3):
             raise UnsupportedVaultSimulation(

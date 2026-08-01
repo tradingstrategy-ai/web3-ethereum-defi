@@ -733,22 +733,31 @@ class VaultRedemptionSimulationIntervention:
     """
 
     #: Intervention type for machine-readable reports.
-    kind: Literal["liquidity_injected"]
+    kind: Literal["liquidity_injected", "time_advanced"]
 
     #: Denomination token whose forked balance was changed.
-    token: HexAddress
+    token: HexAddress | None = None
 
     #: Vault or protocol liquidity adapter that received the token.
-    target: HexAddress
+    target: HexAddress | None = None
 
     #: Raw token quantity added on the fork.
-    raw_amount: int
+    raw_amount: int | None = None
 
     #: Original typed preflight explanation.
-    original_reason: str
+    original_reason: str = ""
 
     #: Original machine-readable preflight result when available.
     original_preflight_result: str | None = None
+
+    #: Fork timestamp immediately before a time-based intervention.
+    timestamp_before: datetime.datetime | None = None
+
+    #: Fork timestamp after a time-based intervention.
+    timestamp_after: datetime.datetime | None = None
+
+    #: Permissionless protocol action used to activate the time transition.
+    transaction_hash: HexBytes | None = None
 
     def as_dict(self) -> dict[str, str]:
         """Return JSON-safe intervention evidence.
@@ -761,13 +770,22 @@ class VaultRedemptionSimulationIntervention:
         """
         result = {
             "kind": self.kind,
-            "token": self.token,
-            "target": self.target,
-            "raw_amount": str(self.raw_amount),
             "original_reason": self.original_reason,
         }
+        if self.token is not None:
+            result["token"] = self.token
+        if self.target is not None:
+            result["target"] = self.target
+        if self.raw_amount is not None:
+            result["raw_amount"] = str(self.raw_amount)
         if self.original_preflight_result is not None:
             result["original_preflight_result"] = self.original_preflight_result
+        if self.timestamp_before is not None:
+            result["timestamp_before"] = self.timestamp_before.isoformat()
+        if self.timestamp_after is not None:
+            result["timestamp_after"] = self.timestamp_after.isoformat()
+        if self.transaction_hash is not None:
+            result["transaction_hash"] = self.transaction_hash.hex()
         return result
 
 
