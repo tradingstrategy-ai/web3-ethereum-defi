@@ -96,7 +96,7 @@ def test_morpho_v2_transfer_revert_is_a_typed_transfer_refusal(web3: Web3, morph
     # 4. The manager-owned Anvil intervention discloses the exact synthetic
     # liquidity, after which the unchanged redemption succeeds and its real
     # receipt is analysed.
-    intervention = manager.force_redemption_liquidity(owner, raw_shares, error)
+    intervention = manager.prepare_redemption_simulation(owner, raw_shares, error)
     assert intervention.kind == "liquidity_injected"
     assert intervention.token == vault.denomination_token.address
     morpho_v2_contract = get_deployed_contract(web3, "morpho/IVaultV2.json", vault.address)

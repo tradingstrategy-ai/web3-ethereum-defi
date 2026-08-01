@@ -1290,17 +1290,20 @@ class VaultDepositManager(ABC):
             phase="preflight",
         )
 
-    def force_redemption_liquidity(
+    def prepare_redemption_simulation(
         self,
         owner: HexAddress,
         raw_shares: int,
         failure: VaultFlowUnavailable,
     ) -> VaultRedemptionSimulationIntervention:
-        """Provision an unavailable synchronous redemption on an Anvil fork.
+        """Prepare an unavailable redemption for an Anvil-only retry.
 
-        Concrete managers may implement this only for a source-proven
-        liquidity failure.  The default is deliberately unsupported: this
-        hook must never bypass admission, minimums, maturity or time locks.
+        A concrete manager may make a source-proven, protocol-specific fork
+        intervention, such as adding the exact missing payout liquidity or
+        advancing a documented redemption window. The caller must then retry
+        the unchanged request and analyse its real receipt. The base is
+        deliberately unsupported: it must never bypass admission, minimums,
+        maturity or time locks.
 
         :param owner:
             Redemption owner.
@@ -1315,7 +1318,7 @@ class VaultDepositManager(ABC):
         """
         del owner, raw_shares, failure
         raise UnsupportedVaultSimulation(
-            f"{self.__class__.__name__} has no Anvil redemption-liquidity driver",
+            f"{self.__class__.__name__} has no Anvil redemption simulation driver",
             unsupported_reason="redemption_liquidity_simulation_not_implemented",
             protocol=self.vault.get_protocol_name(),
             vault_address=self.vault.address,

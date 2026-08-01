@@ -58,7 +58,7 @@ class MorphoV2DepositManager(ERC4626DepositManager):
         available_raw = vault_balance_raw if target == self.vault.address else vault_balance_raw + target_balance_raw
         return target, target_balance_raw, available_raw
 
-    def force_redemption_liquidity(
+    def prepare_redemption_simulation(
         self,
         owner: HexAddress,
         raw_shares: int,
