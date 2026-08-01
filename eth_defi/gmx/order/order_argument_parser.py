@@ -14,7 +14,7 @@ from eth_defi.gmx.core.markets import Markets
 from eth_defi.gmx.core.oracle import OraclePrices
 from eth_defi.gmx.precision import is_raw_usd_amount
 from eth_defi.gmx.utils import determine_swap_route
-from eth_defi.gmx.contracts import get_tokens_metadata_dict
+from eth_defi.gmx.contracts import TESTNET_TO_MAINNET_ORACLE_TOKENS, get_tokens_metadata_dict
 
 logger = logging.getLogger(__name__)
 
@@ -796,19 +796,27 @@ class OrderArgumentParser:
             raise Exception(msg)
 
     def _get_oracle_address_for_token(self, token_address: str, chain: str) -> str:
-        """Map testnet token addresses to mainnet equivalents for oracle lookups."""
-        # Testnet to mainnet token address mapping
-        testnet_to_mainnet_tokens = {
-            # Arbitrum Sepolia → Arbitrum mainnet
-            "0x980B62Da83eFf3D4576C647993b0c1D7faf17c73": "0x82aF49447D8a07e3bd95BD0d56f35241523fBab1",  # WETH
-            "0xF79cE1Cf38A09D572b021B4C5548b75A14082F12": "0x2f2a2543B76A4166549F7aaB2e75Bef0aefC5B0f",  # BTC
-            "0x3253a335E7bFfB4790Aa4C25C4250d206E9b9773": "0xaf88d065e77c8cC2239327C5EDb3A432268e5831",  # USDC
-            "0xD5DdAED48B09fa1D7944bd662CB05265FCD7077C": "0x2bcC6D6CdBbDC0a4071e48bb3B969b06B3330c07",  # SOL
-        }
+        """Map testnet token addresses to mainnet equivalents for oracle lookups.
 
+        Testnets have no oracle of their own, so
+        :class:`~eth_defi.gmx.core.oracle.OraclePrices` returns prices keyed by
+        *mainnet* token addresses even on a testnet chain. A testnet token must
+        therefore be translated before the price lookup, or it raises ``KeyError``.
+
+        Uses the canonical
+        :data:`eth_defi.gmx.contracts.TESTNET_TO_MAINNET_ORACLE_TOKENS`. This
+        previously kept a private copy of the table, which had drifted: it was
+        missing Arbitrum Sepolia's regular USDC (so any order collateralised in it
+        failed), and mapped Sepolia CRV to SOL's mainnet feed, silently pricing
+        the collateral off the wrong asset.
+
+        :param token_address: Token address on the target chain.
+        :param chain: Chain name, e.g. ``arbitrum_sepolia``.
+        :return: Address to look up in the oracle price feed.
+        """
         # For testnet chains, map to mainnet addresses
         if chain in ["arbitrum_sepolia", "avalanche_fuji"]:
-            return testnet_to_mainnet_tokens.get(token_address, token_address)
+            return TESTNET_TO_MAINNET_ORACLE_TOKENS.get(token_address, token_address)
         return token_address
 
     def _calculate_initial_collateral_usd(self):

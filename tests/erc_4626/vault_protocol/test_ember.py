@@ -54,6 +54,7 @@ def test_ember(
     assert isinstance(vault, EmberVault)
     assert vault.get_protocol_name() == "Ember"
     assert vault.features == {ERC4626Feature.ember_like}
+    assert vault.is_whitelisted_deposit() is False
 
     # Check risk level (open-source contracts on GitHub)
     assert vault.get_risk() == VaultTechnicalRisk.low

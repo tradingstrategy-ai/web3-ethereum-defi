@@ -1,0 +1,27 @@
+symbol: USDx
+name: Axis USDx
+slug: usdx-axis
+category: stablecoin
+short_description: USDx is Axis's synthetic dollar, minted through a collateralised primary market against approved assets. Axis states that USDx targets a dollar value but does not guarantee a $1 market price, immediate redemption, or secondary-market liquidity.
+long_description: |
+  [USDx](https://axis.to/) is the synthetic dollar issued by [Axis](https://axis.to/).
+  Eligible participants mint it through Axis's primary market by providing approved
+  collateral, while authorised operators settle signed mint and redemption orders.
+
+  Axis deploys the collateral into market-neutral trading strategies and directs any
+  staking rewards to its separate sUSDx vault. USDx itself does not accrue staking
+  rewards, and Axis cautions that the token does not guarantee a fixed dollar market
+  price or immediate redemption.
+links:
+  homepage: https://axis.to/
+  coingecko: ''
+  defillama: ''
+  twitter: https://x.com/AxisFDN
+contract_addresses:
+  - chain: ethereum
+    address: '0xa1fA7777974312f7d801A8880714a218F76233f8'
+checks:
+  twitter_last_post_at: ''
+  domain_up_at: ''
+  marked_dead_at: ''
+  information_found_missing_at: ''

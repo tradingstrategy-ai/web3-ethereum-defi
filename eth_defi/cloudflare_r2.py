@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import hashlib
 import logging
+import time
 from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
@@ -26,6 +27,22 @@ R2_SOURCE_SIZE_METADATA_KEY = "source_size"
 
 #: Default browser/CDN cache time for public R2 uploads.
 R2_DEFAULT_CACHE_CONTROL = "public, max-age=3600"
+
+#: HTTP status code returned by S3-compatible APIs when access is forbidden.
+R2_HTTP_STATUS_FORBIDDEN = 403
+
+#: HTTP status code returned by S3-compatible APIs for conflict responses.
+R2_HTTP_STATUS_CONFLICT = 409
+
+#: Short access key IDs are left unmasked because masking would hide everything.
+R2_UNMASKED_ACCESS_KEY_ID_MAX_LENGTH = 8
+
+#: HTTP status codes for transient request failures outside the 5xx range.
+R2_RETRYABLE_HTTP_STATUS_CODES = frozenset((408, 429))
+
+#: Inclusive bounds for HTTP server-error status codes.
+R2_SERVER_ERROR_HTTP_STATUS_MIN = 500
+R2_SERVER_ERROR_HTTP_STATUS_MAX = 599
 
 
 @dataclass(slots=True)
@@ -64,12 +81,71 @@ class R2SourceDigest:
         }
 
 
+@dataclass(slots=True, frozen=True)
+class R2HeadObjectRetry:
+    """Retry policy for R2 ``HeadObject`` metadata reads.
+
+    ``fetch_r2_object_head()`` applies this policy to retry transient
+    ``409 Conflict`` responses. Persistent conflicts still surface as
+    enriched ``R2ConflictError`` exceptions, which subclass
+    ``R2OperationError`` for existing broad handlers.
+
+    The default policy waits before falling back to the caller's error
+    handling. Upload helpers therefore pay the full retry budget before
+    deciding that the skip-if-current pre-flight check failed and that
+    the actual upload should be attempted anyway.
+    """
+
+    #: Maximum number of ``HeadObject`` attempts.
+    max_attempts: int = 3
+
+    #: Delay before the first retry, in seconds.
+    initial_delay_seconds: float = 1.0
+
+    #: Exponential backoff multiplier between retries.
+    backoff: float = 2.0
+
+    def validate(self) -> None:
+        """Validate retry policy values.
+
+        The retry loop calls this before touching R2 so invalid caller
+        configuration fails with a direct local error instead of a later
+        ``time.sleep()`` failure or a confusing retry schedule.
+
+        :return:
+            None.
+        """
+        if self.max_attempts < 1:
+            message = "retry.max_attempts must be at least one"
+            raise ValueError(message)
+
+        if self.initial_delay_seconds < 0:
+            message = "retry.initial_delay_seconds must be non-negative"
+            raise ValueError(message)
+
+        if self.backoff <= 0:
+            message = "retry.backoff must be positive"
+            raise ValueError(message)
+
+
+#: Default retry policy for R2 ``HeadObject`` metadata reads.
+R2_HEAD_OBJECT_RETRY = R2HeadObjectRetry()
+
+
 class R2OperationError(RuntimeError):
     """Raised when an R2 operation fails with enriched diagnostics."""
 
 
+class R2RetryableOperationError(R2OperationError):
+    """Raised when R2 has a transient failure that a later retry may resolve."""
+
+
 class R2AccessDeniedError(R2OperationError):
     """Raised when R2 rejects an operation because access is denied."""
+
+
+class R2ConflictError(R2OperationError):
+    """Raised when R2 reports a conflict for an object operation."""
 
 
 def _mask_access_key_id(access_key_id: str | None) -> str:
@@ -83,7 +159,7 @@ def _mask_access_key_id(access_key_id: str | None) -> str:
     """
     if not access_key_id:
         return "<unknown>"
-    if len(access_key_id) <= 8:
+    if len(access_key_id) <= R2_UNMASKED_ACCESS_KEY_ID_MAX_LENGTH:
         return access_key_id
     return f"{access_key_id[:4]}...{access_key_id[-4:]}"
 
@@ -161,12 +237,19 @@ def _create_r2_operation_error(
         detail_lines.append("Likely cause: the R2 secret access key does not match the access key ID, or the endpoint account ID is wrong.")
         return R2AccessDeniedError(" ".join(detail_lines))
 
-    if error_code in {"403", "AccessDenied", "Forbidden"} or http_status == 403:
+    if error_code in {"403", "AccessDenied", "Forbidden"} or http_status == R2_HTTP_STATUS_FORBIDDEN:
         detail_lines.append("Likely causes: wrong R2 access key ID; wrong R2 secret access key; wrong Cloudflare account ID in the endpoint URL; wrong bucket name; or missing read/write permission for this bucket.")
         detail_lines.append(f"Original R2 error message: {error_message}")
         return R2AccessDeniedError(" ".join(detail_lines))
 
+    if error_code in {"409", "Conflict"} or http_status == R2_HTTP_STATUS_CONFLICT:
+        detail_lines.append("Likely cause: R2 reported an object conflict. For HeadObject pre-flight checks, retry or attempt the upload operation itself.")
+        detail_lines.append(f"Original R2 error message: {error_message}")
+        return R2ConflictError(" ".join(detail_lines))
+
     detail_lines.append(f"Original R2 error message: {error_message}")
+    if http_status in R2_RETRYABLE_HTTP_STATUS_CODES or (isinstance(http_status, int) and R2_SERVER_ERROR_HTTP_STATUS_MIN <= http_status <= R2_SERVER_ERROR_HTTP_STATUS_MAX):
+        return R2RetryableOperationError(" ".join(detail_lines))
     return R2OperationError(" ".join(detail_lines))
 
 
@@ -354,6 +437,8 @@ def fetch_r2_object_head(
     s3_client: Any,
     bucket_name: str,
     object_name: str,
+    *,
+    retry: R2HeadObjectRetry = R2_HEAD_OBJECT_RETRY,
 ) -> dict[str, Any] | None:
     """Fetch object metadata using ``head_object()``.
 
@@ -361,6 +446,30 @@ def fetch_r2_object_head(
     an enriched runtime exception with Cloudflare-specific diagnostics,
     while preserving the original botocore exception as the nested
     cause.
+
+    Cloudflare R2 has returned HTTP ``409 Conflict`` for a
+    ``HeadObject`` request in production. The exact R2-side cause is
+    unknown. This helper treats that response as retryable because
+    ``HeadObject`` is commonly used here as a read-side optimisation
+    before an upload. If the retry budget is exhausted, this function
+    raises ``R2ConflictError``. Upload helpers that use ``HeadObject``
+    only for ``skip_if_current`` catch that conflict and proceed to the
+    write operation, letting ``PutObject`` or ``upload_fileobj()`` provide
+    the final result.
+
+    This retry exists because the production vault scanner observed
+    ``HeadObject`` returning ``409 Conflict`` for
+    ``vault-protocol-metadata/frax-finance/metadata.json`` on
+    2026-07-28, aborting the protocol metadata export before any upload
+    attempt was made. Cloudflare documents ``HeadObject`` as implemented
+    in its S3-compatible API:
+    https://developers.cloudflare.com/r2/api/s3/api/#object-level-operations.
+    Cloudflare's R2 error reference documents S3-compatible error
+    responses:
+    https://developers.cloudflare.com/r2/api/error-codes/.
+    Amazon S3's canonical ``HeadObject`` documentation notes that
+    ``HEAD`` failures can be generic because the response has no body:
+    https://docs.aws.amazon.com/AmazonS3/latest/API/API_HeadObject.html.
 
     :param s3_client:
         Authenticated boto3 S3 client.
@@ -371,19 +480,52 @@ def fetch_r2_object_head(
     :param object_name:
         Object key inside the bucket.
 
+    :param retry:
+        Retry policy for transient ``409 Conflict`` responses.
+
     :return:
         ``head_object()`` response, or ``None`` if the object does not
         exist.
     """
     from botocore.exceptions import ClientError  # noqa: PLC0415
 
-    try:
-        return s3_client.head_object(Bucket=bucket_name, Key=object_name)
-    except ClientError as exc:
-        error_code = str(exc.response.get("Error", {}).get("Code", ""))
-        if error_code in {"404", "NoSuchKey", "NotFound"}:
-            return None
-        raise _create_r2_operation_error(exc, s3_client, bucket_name, object_name) from exc
+    retry.validate()
+
+    attempt = 1
+    retry_delay_seconds = retry.initial_delay_seconds
+
+    while True:
+        try:
+            return s3_client.head_object(Bucket=bucket_name, Key=object_name)
+        except ClientError as exc:
+            error_code = str(exc.response.get("Error", {}).get("Code", ""))
+            http_status = exc.response.get("ResponseMetadata", {}).get("HTTPStatusCode")
+
+            if error_code in {"404", "NoSuchKey", "NotFound"}:
+                return None
+
+            # R2 sometimes returns either a numeric S3 code ("409") or a
+            # named S3 code ("Conflict") for this transient condition.
+            # Treat both representations, plus the raw HTTP status, as
+            # the same retryable metadata-read conflict.
+            is_retryable_conflict = error_code in {"409", "Conflict"} or http_status == R2_HTTP_STATUS_CONFLICT
+            has_retry_budget = attempt < retry.max_attempts
+
+            if is_retryable_conflict and has_retry_budget:
+                logger.warning(
+                    "R2 HeadObject returned a retryable conflict for s3://%s/%s on attempt %d/%d. Retrying in %.2f seconds.",
+                    bucket_name,
+                    object_name,
+                    attempt,
+                    retry.max_attempts,
+                    retry_delay_seconds,
+                )
+                time.sleep(retry_delay_seconds)
+                retry_delay_seconds *= retry.backoff
+                attempt += 1
+                continue
+
+            raise _create_r2_operation_error(exc, s3_client, bucket_name, object_name) from exc
 
 
 def _calculate_md5_hex(payload: bytes) -> str:
@@ -467,6 +609,38 @@ def _is_remote_object_current(  # noqa: PLR0917
     return False
 
 
+def _log_r2_head_preflight_failure(
+    bucket_name: str,
+    object_name: str,
+    exc: R2OperationError,
+) -> None:
+    """Log a failed R2 ``HeadObject`` upload pre-flight check.
+
+    Upload helpers use ``HeadObject`` only as an optimisation to skip
+    unchanged payloads. When the pre-flight check fails with a known
+    recoverable class, the caller should still attempt the upload and let
+    the write operation provide the final answer.
+
+    :param bucket_name:
+        Target R2 bucket name.
+
+    :param object_name:
+        Destination object key.
+
+    :param exc:
+        Enriched R2 exception raised by the pre-flight ``HeadObject``.
+
+    :return:
+        None.
+    """
+    logger.warning(
+        "R2 HeadObject pre-flight failed for s3://%s/%s while checking whether upload can be skipped. Proceeding with upload attempt anyway. %s",
+        bucket_name,
+        object_name,
+        exc,
+    )
+
+
 def upload_bytes_to_r2(
     s3_client: Any,
     payload: bytes,
@@ -525,13 +699,11 @@ def upload_bytes_to_r2(
     if skip_if_current:
         try:
             remote_head = fetch_r2_object_head(s3_client, bucket_name, object_name)
-        except R2AccessDeniedError as exc:
-            logger.warning(
-                "R2 HeadObject pre-flight failed for s3://%s/%s while checking whether upload can be skipped. Proceeding with upload attempt anyway. %s",
-                bucket_name,
-                object_name,
-                exc,
-            )
+        except (R2AccessDeniedError, R2ConflictError) as exc:
+            # The pre-flight ``HEAD`` only avoids unnecessary uploads.
+            # If that optimisation is blocked by a known recoverable
+            # read-side failure, attempt the write and let R2 decide it.
+            _log_r2_head_preflight_failure(bucket_name, object_name, exc)
         else:
             if remote_head and _is_remote_object_current(
                 remote_head=remote_head,
@@ -617,13 +789,11 @@ def upload_file_to_r2(
     if skip_if_current:
         try:
             remote_head = fetch_r2_object_head(s3_client, bucket_name, object_name)
-        except R2AccessDeniedError as exc:
-            logger.warning(
-                "R2 HeadObject pre-flight failed for s3://%s/%s while checking whether upload can be skipped. Proceeding with upload attempt anyway. %s",
-                bucket_name,
-                object_name,
-                exc,
-            )
+        except (R2AccessDeniedError, R2ConflictError) as exc:
+            # The pre-flight ``HEAD`` only avoids unnecessary uploads.
+            # If that optimisation is blocked by a known recoverable
+            # read-side failure, attempt the write and let R2 decide it.
+            _log_r2_head_preflight_failure(bucket_name, object_name, exc)
         else:
             if remote_head and _is_remote_object_current(
                 remote_head=remote_head,

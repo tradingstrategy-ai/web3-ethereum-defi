@@ -1,0 +1,42 @@
+name: Shift
+slug: shift
+short_description: |
+  Automated USDC yield vaults using market-neutral perpetual-DEX strategies.
+long_description: |
+  [Shift](https://shiftprotocol.xyz/) is an automated DeFi vault protocol for
+  strategies including funding-rate arbitrage, basis trading and yield-bearing
+  stablecoins. Users hold ERC-20 vault shares that represent their allocation
+  to the selected strategy.
+
+  The reviewed `ltPARA`, `extUSD` and `ltLLP` products are custom ShiftVault
+  contracts on Base and Arbitrum, not ERC-4626 vaults. Deposits use an
+  executor-approved request flow. Withdrawals require executor batch
+  resolution and a timelock measured from the withdrawal request, so this
+  integration deliberately does not offer public transaction builders.
+
+  The share price is sourced from Shift's onchain TVL feed rather than the
+  vault contract's token balance. A stale TVL feed returns a zero share price;
+  callers should treat that as unavailable valuation rather than a loss of all
+  assets. Strategy, oracle, executor, cross-chain settlement and withdrawal
+  delay risks remain material.
+fee_description: |
+  Shift documents a typical annual management fee of 0–2% and a performance
+  fee of 0–20%, varying by strategy. Both are accrued by minting vault shares
+  to the treasury, diluting existing holders rather than being deducted as a
+  separate redemption charge. The documented general policy has no deposit or
+  withdrawal fee; always check the selected product's current terms.
+links:
+  homepage: https://shiftprotocol.xyz/
+  app: https://app.shiftprotocol.xyz/
+  twitter: https://x.com/shiftprotocol_
+  github: https://github.com/SHIFT-NebulaLabs/shift-core-v1
+  documentation: https://shiftprotocol.gitbook.io/shift
+  defillama: https://defillama.com/protocol/tvl/shift-protocol
+  audits: https://shiftprotocol.gitbook.io/shift/resources/audits
+  fees: https://shiftprotocol.gitbook.io/shift/resources/faq
+  trading_strategy: https://tradingstrategy.ai/trading-view/vaults/protocols/shift
+  integration_documentation: https://web3-ethereum-defi.readthedocs.io/vaults/shift/index.html
+example_smart_contracts:
+  - https://basescan.org/address/0xaf69bf9ea9e0166498c0502af5b5945980ed1e0e
+  - https://basescan.org/address/0x4ce3ec1b7b4ffb33a0b70c64a0560a3f341aa2e1
+  - https://arbiscan.io/address/0x956bdd9c18b786b082fd50c52722d254f0cb6964

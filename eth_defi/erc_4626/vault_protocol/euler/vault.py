@@ -10,15 +10,15 @@
 """
 
 import datetime
+import logging
 from decimal import Decimal
 from functools import cached_property
-import logging
 from typing import Iterable
 
+from eth_typing import BlockIdentifier, HexAddress
 from web3 import Web3
 
-from eth_typing import BlockIdentifier
-
+from eth_defi.abi import ZERO_ADDRESS_STR
 from eth_defi.chain import get_chain_name
 from eth_defi.erc_4626.vault import ERC4626HistoricalReader, ERC4626Vault
 from eth_defi.erc_4626.vault_protocol.euler.offchain_metadata import EulerVaultMetadata, fetch_euler_vault_metadata
@@ -33,6 +33,11 @@ logger = logging.getLogger(__name__)
 CASH_SIGNATURE = Web3.keccak(text="cash()")[0:4]
 TOTAL_BORROWS_SIGNATURE = Web3.keccak(text="totalBorrows()")[0:4]
 INTEREST_FEE_SIGNATURE = Web3.keccak(text="interestFee()")[0:4]
+HOOK_CONFIG_SIGNATURE = Web3.keccak(text="hookConfig()")[0:4]
+
+#: EVK operation bitmap values from ``Constants.sol``.
+EULER_OP_DEPOSIT = 1 << 0
+EULER_OP_MINT = 1 << 1
 
 #: Monad mainnet chain id.
 MONAD_CHAIN_ID = 143
@@ -257,6 +262,55 @@ class EulerVault(ERC4626Vault):
     TODO: Fees
     """
 
+    def is_whitelisted_deposit(self) -> bool:
+        """Determine whether EVK deposit hooks impose an identity gate.
+
+        Euler Vault Kit exposes the hook target and operation bitmap through
+        ``hookConfig()``. Deposits are permissionless when neither ``deposit``
+        nor ``mint`` is hooked. A zero hook target with either bit set disables
+        that operation for everyone, which is availability rather than KYC.
+        A non-zero custom hook is not assumed to be an allow-list because EVK
+        hooks are arbitrary protocol extensions.
+
+        :return:
+            ``False`` for the canonical unhooked or globally disabled cases.
+        :raise NotImplementedError:
+            If a custom deposit or mint hook needs protocol-specific analysis.
+        """
+        hook_target, hooked_ops = self.fetch_hook_config()
+        deposit_hooks = hooked_ops & (EULER_OP_DEPOSIT | EULER_OP_MINT)
+        if deposit_hooks == 0 or hook_target.lower() == ZERO_ADDRESS_STR:
+            return False
+        raise NotImplementedError(f"Euler EVK vault {self.address} uses custom deposit hooks {hook_target} with operation bitmap {hooked_ops:#x}")
+
+    def fetch_hook_config(self, block_identifier: BlockIdentifier | None = None) -> tuple[HexAddress, int]:
+        """Read the canonical EVK hook target and operation bitmap.
+
+        EVK's `hookConfig()` packs the hook contract and operation bitmap into
+        its standard return tuple. Deposit permission classification only uses
+        the deposit and mint bits.
+
+        See `Euler Vault Kit hooks <https://github.com/euler-xyz/euler-vault-kit/blob/master/docs/whitepaper.md#hooks>`__.
+
+        :param block_identifier:
+            Block at which the EVK configuration is inspected.
+        :return:
+            Hook contract address and complete hooked-operation bitmap.
+        """
+        call = EncodedCall.from_keccak_signature(
+            address=self.address,
+            signature=HOOK_CONFIG_SIGNATURE,
+            function="hookConfig",
+            data=b"",
+            extra_data=None,
+        )
+        if block_identifier is None:
+            block_identifier = self._get_block_identifier()
+        data = call.call(self.web3, block_identifier)
+        hook_target = Web3.to_checksum_address(data[12:32])
+        hooked_ops = int.from_bytes(data[32:64], byteorder="big")
+        return hook_target, hooked_ops
+
     def get_risk(self) -> VaultTechnicalRisk | None:
         # Check for vault-specific flags (e.g., xUSD exposure) first
         flags = get_vault_special_flags(self.address)
@@ -462,6 +516,14 @@ class EulerEarnVault(ERC4626Vault):
     - Integrator guide: https://docs.euler.finance/developers/euler-earn/integrator-guide/
     - Example vault: https://snowtrace.io/address/0xE1A62FDcC6666847d5EA752634E45e134B2F824B
     """
+
+    def is_whitelisted_deposit(self) -> bool:
+        """Report canonical EulerEarn vault deposits as permissionless.
+
+        :return:
+            Always ``False`` because EulerEarn has no depositor identity gate.
+        """
+        return False
 
     def get_risk(self) -> VaultTechnicalRisk | None:
         """EulerEarn vaults have negligible risk due to battle-tested infrastructure.

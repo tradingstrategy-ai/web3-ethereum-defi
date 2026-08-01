@@ -43,6 +43,7 @@ from eth_defi.hyperliquid.vault_review_sync import ReviewStatus
 from eth_defi.vault.base import VaultHistoricalRead, VaultSpec
 from eth_defi.vault.fee import FeeData
 from eth_defi.vault.flag import VaultFlag
+from eth_defi.vault.price_source import PriceSource
 from eth_defi.vault.risk import VaultTechnicalRisk
 from eth_defi.vault.vaultdb import VaultDatabase, VaultRow
 
@@ -257,6 +258,7 @@ def create_hyperliquid_vault_row(
         "_redemption_next_open": None,
         "_risk": risk,
         "_manual_review_status": manual_review_status,
+        "_share_price_source": PriceSource.approximation,
     }
 
     spec = VaultSpec(chain_id=chain_id, vault_address=address)

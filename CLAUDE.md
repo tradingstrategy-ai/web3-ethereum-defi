@@ -175,6 +175,13 @@ Run ruff to format code using Poetry:
 poetry run ruff format
 ```
 
+## Logging retries
+
+For a failure that is expected to be retried, log a concise `WARNING` without
+a traceback. Include enough context to identify the deferred operation. Log an
+`ERROR` with its traceback only after the final retry has failed and no further
+retry will be attempted.
+
 ## Git worktrees
 
 - For git worktrees, copy `.local-test.env` from the main repository checkout root into the current worktree root.
@@ -258,7 +265,7 @@ removing its flaky history comment.
 - Use `any()` and `all()` with generators and list comprehension when checking if a collection member has one or more matches, instead of using slow for loops
 - All functions that do network reads to get data should be prefixed with `fetch_` instead of `get_`
 - Always try to return `Iterator` instead of `list` from a function call to make functions faster
-- For long runnign for loops, use `tqdm` and `tqdm_loggable.auto` module for progress bar. As an example, see `lead_scan_core.py`.
+- Observability required: All long-running actions must be observable in the run, through logging or terminal output. For long-running loops, scanners, scripts, use the `tqdm` and `tqdm_loggable.auto` module for a progress bar. Make sure no script runs without producing output for more than 1 minute. As an example, see `lead_scan_core.py`. If agent runs long-running scripts or processes, it must be done in a way the agent can tell whether the process is making work or hung.
 - For visualusations, use Plotly. For chart titles, use heading case as explained above.
 - Use module level imports, not function level lazy imports, whenever possible
 - Never write generic `Exception e:` catch but always catch a specific exception if we can
@@ -338,6 +345,18 @@ removing its flaky history comment.
 - To get the latest block number, use given JSON-RPC URL and Python's Web3.py `web3.eth.block_number` call
 - Never try to figure out RPC URL yourself - always use environment variables from the local environment given by the user. See `eth_defi.chain.CHAIN_NAMES` for aliases like chain id 999 -> JSON_RPC_HYPERLIQUD. Stop and ask user if you cannot figure out.
 
+### Contract ABIs
+
+- All contract ABI JSON files live under `eth_defi/abi/` (shared contracts at
+  the top level, protocol-specific interfaces under `eth_defi/abi/<protocol>/`)
+  and are loaded through the shared helpers in `eth_defi.abi`.
+- **Before fetching a new ABI, or loading/using any ABI file, read
+  `eth_defi/abi/README.md` first.** It explains what EVM ABIs are, how to fetch
+  verified ABIs from Sourcify, Etherscan and GitHub (including proxy →
+  implementation resolution), where to store them, and the API references for
+  loading and using ABI files in their different roles (contract binding,
+  deployment, ABI-less encoded calls, event decoding).
+
 ### Event logs
 
 - **Never use JSON-RPC `eth_getLogs` for event discovery, bulk event reads or historical event reads.** Always use Hypersync, which avoids provider range limits and provides indexed event streaming.
@@ -372,6 +391,8 @@ You can use `Makefile` commands `make guard safe-integration` to rebuild smart c
 
 ### ABIs
 
+- **Read `eth_defi/abi/README.md` first** — it is the canonical reference for
+  fetching, storing, loading and using ABI files.
 - Store contract ABIs in ``eth_defi/abi/<protocol>/`` as JSON files and load them through the shared ABI helpers.
 - Do not define inline ABIs in Python unless the fragment contains at most one or two functions.
 - Regenerate ABI JSON for this repository's integrated smart contracts with the compiler. For external deployments, commit the verified or application-exported interface JSON and record its canonical source alongside it.
@@ -438,11 +459,13 @@ Consult these for domain-specific context. Logo READMEs under `eth_defi/data/vau
 | `docs/protocol-research/README.md` | AI-assisted vault protocol discovery notes |
 | `docs/source/api/derive/README.md` | Derive.xyz integration — implementation summary |
 | `eth_defi/aave_v3/README.md` | About Aave v3 integration |
+| `eth_defi/abi/README.md` | Contract ABIs — what EVM ABIs are, how to fetch them from Sourcify/Etherscan/GitHub, storage layout, and the loader/usage API reference. Read before fetching or using any ABI file |
 | `eth_defi/abi/ipor/README.md` | IPOR ABI source links |
 | `eth_defi/abi/lagoon/README.md` | Lagoon ABI source links |
 | `eth_defi/abi/uniswap-swap-contracts/README.md` | SwapRouter02 deployment on Base |
 | `eth_defi/cctp/README-cctp.md` | Circle CCTP V2 integration |
 | `eth_defi/core3/README-core3.md` | Core3 risk intelligence integration — modules, database schema, scripts, API reference |
+| `eth_defi/xerberus/README-xerberus.md` | Xerberus vault risk scores — per-vault pool ratings, DuckDB, export, scripts |
 | `eth_defi/currency_api/README-currency-api.md` | Historical exchange rate ingestion (fawazahmed0 Exchange API) into DuckDB |
 | `eth_defi/data/vaults/README.md` | Vault protocol metadata and logo system |
 | `eth_defi/erc_4626/vault_protocol/README-reader-states.md` | Vault reader states and warmup system |
@@ -453,7 +476,8 @@ Consult these for domain-specific context. Logo READMEs under `eth_defi/data/vau
 | `eth_defi/gmx/ccxt/README.md` | GMX CCXT adapter implementation |
 | `eth_defi/gmx/graphql/README.md` | GMX Subsquid GraphQL integration |
 | `eth_defi/lighter/README-lighter-guard.md` | Lighter (zk-rollup perps DEX) L1 deposit/withdraw guard integration — architecture, security model, operator flow |
-| `eth_defi/testing/README.md` | Fast Anvil fork tests — shared session forks, per-chain midnight block cache, snapshot/revert, once-per-session deployments, reference tests |
+| `eth_defi/testing/README.md` | Fast Anvil fork tests — shared session forks, per-chain midnight block cache, snapshot/revert, once-per-session deployments, the committed fork RPC cache and token cache (create/rebuild/purge), reference tests |
+| `eth_defi/testing/rpc_cache_seed/README.md` | Committed Anvil fork RPC cache seed — layout, how to capture and refresh it |
 | `scripts/base/README.md` | Base chain related manual test scripts |
 | `scripts/debian-bullseye-compatibility/README.md` | Running on Debian Bullseye |
 | `scripts/erc-4626/README-vault-scripts.md` | ERC-4626 vault scripts |

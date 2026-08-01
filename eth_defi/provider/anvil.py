@@ -31,6 +31,15 @@ For more information see `Anvil reference <https://book.getfoundry.sh/reference/
 
 See also :py:mod:`eth_defi.trace` for Solidity tracebacks using Anvil.
 
+To measure how long a cold vs warm mainnet-fork setup takes for a given chain and
+archive provider — e.g. to diagnose ``read_timeout`` fork-setup failures on CI
+(the misleading "out of API credits" hint) — run
+``scripts/measure-cold-fork-time.py``. See
+:py:mod:`eth_defi.testing.anvil_fork_pool` (the shared-fork pattern and its
+"Cold-fork read-timeout failures" section) for how to interpret the numbers: a
+healthy cold fork completes in ~seconds, so a 60 s timeout means a slow or
+rate-limited upstream, not an undersized timeout.
+
 The code was originally lifted from Brownie project.
 """
 
@@ -79,6 +88,15 @@ ANVIL_PROXY_MAX_ATTEMPT_TIMEOUT: float = 15.0
 #: localhost read timeout. Explicit :class:`RPCProxyConfig` values are
 #: preserved unchanged.
 ANVIL_PROXY_TOTAL_TIMEOUT: float = 55.0
+
+#: Seconds to wait for Anvil to exit cleanly (``SIGTERM``) before ``SIGKILL`` on
+#: :meth:`AnvilLaunch.close`. Anvil flushes its fork RPC cache
+#: (``~/.foundry/cache/rpc/<network>/<block>/storage.json``) only on a graceful
+#: shutdown; a straight ``SIGKILL`` discards it, so without this the on-disk fork
+#: cache never accumulates and CI keeps cold-fetching (and getting throttled).
+#: The flush of a single block is fast; the bounded wait plus SIGKILL fallback
+#: keeps teardown from hanging.
+ANVIL_GRACEFUL_SHUTDOWN_TIMEOUT: float = 5.0
 
 #: Per-thread state tracking the last used RPC index for multi-RPC fork URLs.
 #: This is a workaround for test flakiness on CI: when multiple RPC endpoints
@@ -320,6 +338,16 @@ def _create_default_anvil_proxy_config(provider_count: int) -> RPCProxyConfig:
     between distinct providers. Its full request budget stays below Web3's
     default 60-second localhost read timeout.
 
+    ``switchover_log_level`` is raised to ``WARNING`` (the dataclass default is
+    ``INFO``) so that every failover — the reason each upstream stalled or errored
+    during a fork's cold init — is visible in CI. A fork test job runs pytest
+    without ``--log-cli-level``, and pytest captures ``WARNING`` and above (from
+    all threads, including this proxy's background server thread) into the failed
+    test's "Captured log" section. At ``INFO`` the failover reasons are silently
+    dropped, which is why a stalled cold fork previously surfaced only the local
+    ``eth_chainId`` read timeout with no upstream diagnosis. See
+    :mod:`eth_defi.provider.rpc_proxy` and ``scripts/measure-cold-fork-time.py``.
+
     :param provider_count:
         Number of usable upstream JSON-RPC providers.
 
@@ -338,6 +366,8 @@ def _create_default_anvil_proxy_config(provider_count: int) -> RPCProxyConfig:
         timeout=min(ANVIL_PROXY_MAX_ATTEMPT_TIMEOUT, attempt_timeout),
         retries=provider_count,
         backoff=0.0,
+        # Surface per-upstream failover reasons in CI (pytest captures WARNING+).
+        switchover_log_level=logging.WARNING,
     )
 
 
@@ -657,6 +687,9 @@ class AnvilLaunch:
                 block=block,
                 block_timeout=block_timeout,
                 check_port=self.port,
+                # Let Anvil flush its fork RPC cache to disk before dying, so a
+                # warm cache accumulates across runs (see the constant docstring).
+                graceful_timeout=ANVIL_GRACEFUL_SHUTDOWN_TIMEOUT,
             )
             logger.info("Anvil shutdown %s", self.json_rpc_url)
             return stdout, stderr

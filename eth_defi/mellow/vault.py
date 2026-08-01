@@ -136,6 +136,7 @@ from eth_defi.token import TokenDetails, fetch_erc20_details
 from eth_defi.vault.base import TradingUniverse, VaultBase, VaultDepositManager, VaultFlowManager, VaultHistoricalReader, VaultInfo, VaultPortfolio, VaultSpec
 from eth_defi.vault.fee import BROKEN_FEE_DATA, FeeData
 from eth_defi.vault.lower_case_dict import LowercaseDict
+from eth_defi.vault.price_source import PriceSource
 
 logger = logging.getLogger(__name__)
 
@@ -603,6 +604,18 @@ class MellowVault(VaultBase):
             timestamp=int(timestamp),
             is_suspicious=bool(is_suspicious),
         )
+
+    def get_share_price_source(self) -> PriceSource:
+        """Return the Mellow oracle price-source classification.
+
+        Mellow Core vault reports are read from the vault-coupled oracle
+        contract at the requested block.
+
+        :return:
+            Smart-contract state source.
+        """
+
+        return PriceSource.smart_contract_state
 
     def fetch_share_price(self, block_identifier: BlockIdentifier = "latest") -> Decimal | None:
         """Fetch Mellow share price from the oracle report.

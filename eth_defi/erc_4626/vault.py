@@ -32,6 +32,7 @@ from eth_defi.token import TokenDetails, TokenDiskCache, fetch_erc20_details, is
 from eth_defi.vault.base import DEPOSIT_CLOSED_CAP_REACHED, REDEMPTION_CLOSED_INSUFFICIENT_LIQUIDITY, TradingUniverse, VaultBase, VaultFlowManager, VaultHistoricalRead, VaultHistoricalReader, VaultInfo, VaultPortfolio, VaultSpec
 from eth_defi.vault.deposit_redeem import VaultDepositManagerCapability
 from eth_defi.vault.flag import VaultFlag
+from eth_defi.vault.price_source import PriceSource
 
 logger = logging.getLogger(__name__)
 
@@ -58,9 +59,13 @@ CERTIFIED_SYNCHRONOUS_DEPOSIT_MANAGER_CLASSES = frozenset(
         "eth_defi.erc_4626.vault_protocol.goat.vault.GoatVault",
         "eth_defi.erc_4626.vault_protocol.ipor.vault.IPORVault",
         "eth_defi.erc_4626.vault_protocol.kiln.vault.KilnVault",
-        "eth_defi.erc_4626.vault_protocol.morpho.vault_v1.MorphoV1Vault",
-        "eth_defi.erc_4626.vault_protocol.morpho.vault_v2.MorphoV2Vault",
-        "eth_defi.erc_4626.vault_protocol.plutus.vault.PlutusVault",
+        # Morpho V1/V2 retain the callable generic manager, but are not
+        # lifecycle-certified: V1 maxRedeem() can leave material share dust and
+        # V2 has no fork-proven immediate redemption. See the vault-protocol
+        # support README before restoring public capability metadata.
+        # PlutusVault declares its capability explicitly (async redemption for
+        # the ERC-7540-upgraded Hedge deployment, synchronous otherwise), so it
+        # is intentionally not certified here.
         "eth_defi.erc_4626.vault_protocol.royco.vault.RoycoVault",
         "eth_defi.erc_4626.vault_protocol.silo.vault.SiloVault",
         "eth_defi.erc_4626.vault_protocol.summer.vault.SummerVault",
@@ -901,6 +906,19 @@ class ERC4626Vault(VaultBase):
 
     def __repr__(self):
         return f"<{self.__class__.__name__}: {self.spec}>"
+
+    def get_share_price_source(self) -> PriceSource:  # noqa: PLR6301
+        """Return the standard ERC-4626 share-price source.
+
+        ERC-4626 prices are calculated from vault accounting values read at a
+        specific block, including protocol-specific overrides that expose the
+        same state through another contract view.
+
+        :return:
+            Smart-contract state source.
+        """
+
+        return PriceSource.smart_contract_state
 
     def _get_block_identifier(self) -> BlockIdentifier:
         """Resolve which block identifier to use for metadata reads.

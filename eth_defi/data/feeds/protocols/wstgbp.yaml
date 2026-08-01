@@ -2,4 +2,12 @@ feeder-id: wstgbp
 name: wstGBP
 role: protocol
 website: https://wstgbp.com
-# rss: not found - the official site does not expose a blog or feed link
+short_description: wstGBP is Wren Spire's reward-bearing, non-rebasing wrapper for tGBP on Ethereum.
+long_description: |
+  wstGBP lets holders of tGBP mint and redeem a non-rebasing ERC-20 wrapper on Ethereum.
+  The wstGBP balance remains fixed while its redemption value in tGBP is represented by the
+  onchain exchange rate. Wren Spire (BVI) Ltd operates the wstGBP interface and protocol;
+  tGBP is issued by the separate, unaffiliated BCP Technologies Ltd.
+# 2026-08-01: The official wstGBP site links to @wstgbp. No RSS or LinkedIn
+# source is published there.
+twitter: wstgbp

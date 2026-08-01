@@ -1009,13 +1009,16 @@ def remove_inactive_lead_time(
         # timestamp label through the index. A vault can have multiple
         # observations with the same timestamp, in which case get_loc()
         # returns a slice rather than one integer position.
-        first_valid_loc = int(valid_supply_mask.to_numpy().argmax())
+        first_valid_loc = int(valid_supply_mask.to_numpy(dtype=bool, na_value=False).argmax())
         initial_supply = group.iloc[first_valid_loc]["total_supply"]
 
         # Find the first index where total_supply differs from initial value
         # Only consider rows from first_valid_loc onwards
         remaining_group = group.iloc[first_valid_loc:]
-        supply_changed_mask = remaining_group["total_supply"] != initial_supply
+        # The raw Parquet is read using the PyArrow nullable dtype backend.
+        # A missing supply reading is not an activation change, and must not
+        # leave ``pd.NA`` values in the NumPy array used to locate a change.
+        supply_changed_mask = (remaining_group["total_supply"] != initial_supply).fillna(False)
 
         if not supply_changed_mask.any():
             # Total supply never changed after initial valid value - keep from first valid
@@ -1025,7 +1028,7 @@ def remove_inactive_lead_time(
             return remaining_group
 
         # Get the index of the first change
-        first_change_loc = int(supply_changed_mask.to_numpy().argmax())
+        first_change_loc = int(supply_changed_mask.to_numpy(dtype=bool, na_value=False).argmax())
 
         # Calculate total rows to remove (invalid initial rows + constant supply rows)
         total_lead_rows = first_valid_loc + first_change_loc
@@ -1605,7 +1608,22 @@ def fix_outlier_share_prices(
         if len(prices_df) == 0:
             return prices_df
 
+        # Flow rows are interval observations, not state snapshots. Preserve
+        # their unknown markers while filling sparse vault state used by the
+        # share-price cleaner.
+        flow_columns = [
+            column
+            for column in (
+                "daily_deposit_count",
+                "daily_withdrawal_count",
+                "daily_deposit_usd",
+                "daily_withdrawal_usd",
+            )
+            if column in group.columns
+        ]
+        source_flows = group[flow_columns].copy()
         group = group.ffill()
+        group[flow_columns] = source_flows
 
         # Compute row-based shift from actual time spacing so that vaults
         # with non-hourly polling (daily, weekly) get a sensible window.
@@ -1645,10 +1663,13 @@ def fix_outlier_share_prices(
         abnormal_mask = (group["pct_change_prev"] > max_diff) | (group["pct_change_next"] > max_diff)
 
         group["fixed_share_price"] = np.nan
+        fixed_share_price_col = group.columns.get_loc("fixed_share_price")
 
-        # Print pass, figure out damanged entries
-        for idx in group[abnormal_mask].index:
-            idx_loc = group.index.get_loc(idx)
+        # Work with row positions because timestamp labels are not unique on
+        # high-throughput chains. ``get_loc()`` and ``loc[]`` would otherwise
+        # select every row with the same timestamp.
+        abnormal_positions = np.flatnonzero(abnormal_mask.to_numpy(dtype=bool, na_value=False))
+        for idx_loc in abnormal_positions:
             current_price = group.iloc[idx_loc]["share_price"]
             next_price = group.iloc[idx_loc]["next_price_candidate"]
             prev_price = group.iloc[idx_loc]["prev_price_candidate"]
@@ -1665,11 +1686,12 @@ def fix_outlier_share_prices(
                 # Maybe a genuine crash
                 fixed_price = current_price
 
-            # logger(f"Abnormal share price detected for {vault_id} at index {idx} ({idx_loc}): fixing: {current_price} -> {fixed_price}, prev: {prev_price}, next: {next_price}")
-            group.loc[idx, "fixed_share_price"] = fixed_price
+            group.iat[idx_loc, fixed_share_price_col] = fixed_price
 
         # Apply the fixes
-        group.loc[pd.notna(group["fixed_share_price"]), "share_price"] = group["fixed_share_price"]
+        share_price_col = group.columns.get_loc("share_price")
+        fixed_positions = np.flatnonzero(group["fixed_share_price"].notna().to_numpy(dtype=bool, na_value=False))
+        group.iloc[fixed_positions, share_price_col] = group.iloc[fixed_positions, fixed_share_price_col].to_numpy()
         # group["id"] = vault_id
 
         # Don't export extra columns, only needed for calculations and debugging

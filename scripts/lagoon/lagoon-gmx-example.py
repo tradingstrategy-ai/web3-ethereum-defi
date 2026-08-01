@@ -178,7 +178,7 @@ from eth_defi.erc_4626.vault_protocol.lagoon.testing import fund_lagoon_vault, r
 from eth_defi.erc_4626.vault_protocol.lagoon.vault import LagoonVault
 from eth_defi.gas import apply_gas, estimate_gas_price
 from eth_defi.gmx.ccxt import GMX
-from eth_defi.gmx.contracts import NETWORK_TOKENS, get_contract_addresses
+from eth_defi.gmx.contracts import NETWORK_TOKENS, get_contract_addresses, get_reader_contract
 from eth_defi.gmx.lagoon.approvals import UNLIMITED, approve_gmx_collateral_via_vault
 from eth_defi.gmx.lagoon.wallet import LagoonGMXTradingWallet
 from eth_defi.gmx.whitelist import GMX_POPULAR_MARKETS, GMXDeployment, resolve_gmx_market_labels
@@ -319,10 +319,16 @@ def _create_testnet_config() -> NetworkConfig:
         gmx_collateral_symbol="USDC.SG",
         gmx_market_symbol="ETH/USDC:USDC",
         # Sepolia computes the execution fee at a stale ~0.02 gwei while GMX's
-        # on-chain InsufficientExecutionFee check uses the real ~0.4 gwei gas
-        # price (~20x higher), so over-provision heavily.  Excess is refunded
-        # (fully refunded when the order is cancelled).
-        gmx_execution_buffer=30.0,
+        # on-chain InsufficientExecutionFee check uses the real gas price, so
+        # over-provision heavily.  Excess is refunded (fully refunded when the
+        # order is cancelled).
+        #
+        # Measured 2026-07-28: a buffer of 30 supplied 0.000182 ETH against a
+        # required 0.000413 ETH, so orders reverted with InsufficientExecutionFee
+        # (selector 0x5dac504d).  The shortfall is ~2.3x, and the gap moves with
+        # testnet gas, so this is set well above the observed requirement rather
+        # than just past it.
+        gmx_execution_buffer=100.0,
         weth_address=gmx_tokens["WETH"],
         gmx_exchange_router=addresses.exchangerouter,
         gmx_synthetics_router=addresses.syntheticsrouter,
@@ -395,10 +401,34 @@ class TradingSummary:
     position_size_usd: Decimal = Decimal("0")
     entry_price: Decimal = Decimal("0")
     exit_price: Decimal = Decimal("0")
-    realised_pnl: Decimal = Decimal("0")
     total_gas_eth: Decimal = Decimal("0")
     total_gas_usd: Decimal = Decimal("0")
-    gmx_execution_fees_eth: Decimal = Decimal("0")
+
+    #: Execution fee **provisioned** with GMX orders, summed. GMX refunds
+    #: whatever the keeper does not spend, so this is an upper bound on what
+    #: was actually paid, not the cost. The measured cost is the ETH delta below.
+    gmx_execution_fees_provisioned_eth: Decimal = Decimal("0")
+
+    #: Collateral-token balance of the operator wallet, before the deposit and
+    #: after the withdrawal. Their difference is the only honest round-trip
+    #: result: it nets the position PnL against GMX trading fees, price impact
+    #: and anything else denominated in the collateral token.
+    initial_collateral: Decimal | None = None
+    final_collateral: Decimal | None = None
+
+    #: Native-token balance of the operator wallet, same two points. With
+    #: ``forward_eth=True`` the operator funds every execution fee up front, and
+    #: GMX refunds the unused part to the **Safe**, not back here — so this is
+    #: gas plus the *provisioned* fee, with no credit for refunds.
+    initial_native: Decimal | None = None
+    final_native: Decimal | None = None
+
+    #: Native-token balance of the Safe at the same two points. This is where
+    #: GMX's execution-fee refunds accumulate. Without it the run looks far more
+    #: expensive than it was, because the refund is invisible from the operator
+    #: wallet alone.
+    initial_safe_native: Decimal | None = None
+    final_safe_native: Decimal | None = None
 
     def add_transaction(self, record: TransactionRecord):
         """Add a transaction record and update totals."""
@@ -426,19 +456,49 @@ class TradingSummary:
 
         print("-" * 80)
         print("Position details:")
-        print(f"  Size:        ${self.position_size_usd:.2f}")
-        print(f"  Entry price: ${self.entry_price:.2f}")
-        print(f"  Exit price:  ${self.exit_price:.2f}")
-        print(f"  Realised PnL: ${self.realised_pnl:.2f}")
+        print(f"  Size:          ${self.position_size_usd:.2f}")
+        print(f"  Entry price:   ${self.entry_price:.2f}")
+        print(f"  Exit price:    ${self.exit_price:.2f}")
+        if self.entry_price and self.exit_price:
+            move = (self.exit_price - self.entry_price) / self.entry_price
+            gross = self.position_size_usd * move
+            print(f"  Price move:    {move * 100:+.4f}%")
+            print(f"  Gross PnL:     ${gross:+.4f}   (size x price move, before any fees)")
 
-        print("\nCosts:")
-        print(f"  Total gas:           {self.total_gas_eth:.6f} ETH (${self.total_gas_usd:.2f})")
-        print(f"  GMX execution fees:  {self.gmx_execution_fees_eth:.6f} ETH")
-        print(f"  Total costs:         {self.total_gas_eth + self.gmx_execution_fees_eth:.6f} ETH")
+        print("\nMeasured result — operator wallet balance, before deposit vs after withdrawal:")
+        if self.initial_collateral is not None and self.final_collateral is not None:
+            delta = self.final_collateral - self.initial_collateral
+            print(f"  Collateral:    {self.initial_collateral:.6f} -> {self.final_collateral:.6f}  ({delta:+.6f})")
+            print("                 This is the true round-trip result. It already nets the")
+            print("                 position PnL against GMX trading fees and price impact.")
+        else:
+            print("  Collateral:    not captured")
 
-        print("\nNet result:")
-        net_pnl = self.realised_pnl - self.total_gas_usd
-        print(f"  PnL after costs: ${net_pnl:.2f}")
+        if self.initial_native is not None and self.final_native is not None:
+            spent = self.initial_native - self.final_native
+            print(f"  Native token:  {self.initial_native:.6f} -> {self.final_native:.6f}  ({-spent:+.6f})")
+            print("                 Operator wallet. With forward_eth=True it funds every")
+            print("                 execution fee up front, so this is gas plus the fee as")
+            print("                 PROVISIONED — refunds do not come back here.")
+
+            if self.initial_safe_native is not None and self.final_safe_native is not None:
+                refunded = self.final_safe_native - self.initial_safe_native
+                print(f"  Safe refunds:  {self.initial_safe_native:.6f} -> {self.final_safe_native:.6f}  ({refunded:+.6f})")
+                print("                 GMX refunds unused execution fee to the Safe, not to the")
+                print("                 operator. This ETH is recoverable but is left in the Safe.")
+                print(f"  Net native:    {-(spent - refunded):+.6f}  (gas + execution fee actually consumed)")
+        else:
+            print("  Native token:  not captured")
+
+        print("\nCosts (accounting detail):")
+        print(f"  Gas paid:                {self.total_gas_eth:.6f} ETH (${self.total_gas_usd:.2f})")
+        print(f"  Execution fee sent:      {self.gmx_execution_fees_provisioned_eth:.6f} ETH")
+        print("                           Provisioned with the orders, NOT the amount paid —")
+        print("                           GMX refunds whatever the keeper does not spend, and")
+        print("                           cancelled orders are refunded in full.")
+
+        print("\nNote: collateral and native-token results are deliberately not combined.")
+        print("They are different assets, and on testnet there is no price feed to convert them.")
         print("=" * 80)
 
 
@@ -755,6 +815,58 @@ def setup_gmx_trading(
     return gmx
 
 
+#: How long to wait for a GMX keeper to fill or settle an order, in seconds.
+KEEPER_TIMEOUT = 180
+
+
+def wait_for_position(
+    web3: Web3,
+    safe_address: HexAddress,
+    *,
+    expect_open: bool,
+    timeout: int = KEEPER_TIMEOUT,
+) -> bool:
+    """Wait until the Safe's GMX position reaches the expected state.
+
+    GMX orders are two-phase: the transaction only *creates* an order, and a
+    keeper fills it seconds later. Sleeping a fixed interval races that keeper.
+
+    Reads the on-chain ``SyntheticsReader`` directly rather than going through the
+    CCXT adapter, so the answer is authoritative on every chain — GMX serves no
+    REST or GraphQL position data for Arbitrum Sepolia.
+
+    :param web3: Web3 connection to the chain the vault trades on.
+    :param safe_address: Safe that owns the position.
+    :param expect_open: ``True`` to wait for a position to appear, ``False`` to
+        wait for the account to go flat.
+    :param timeout: Seconds to wait before giving up.
+    :return: ``True`` if the expected state was reached in time.
+    """
+    chain_name = "arbitrum_sepolia" if web3.eth.chain_id == 421614 else "arbitrum"
+    addresses = get_contract_addresses(chain_name)
+    reader = get_reader_contract(web3, chain_name)
+    datastore = Web3.to_checksum_address(addresses.datastore)
+    safe_address = Web3.to_checksum_address(safe_address)
+
+    wanted = "open" if expect_open else "closed"
+    print(f"\nWaiting for GMX keeper execution (position -> {wanted})...")
+
+    deadline = time.time() + timeout
+    while True:
+        positions = reader.functions.getAccountPositions(datastore, safe_address, 0, 10).call()
+        if bool(positions) == expect_open:
+            if positions:
+                size_usd = positions[0][1][0] / 10**30
+                print(f"  keeper filled: position open, sizeUsd=${size_usd:,.2f}")
+            else:
+                print("  keeper settled: account flat")
+            return True
+        if time.time() >= deadline:
+            print(f"  timed out after {timeout}s waiting for the position to be {wanted}")
+            return False
+        time.sleep(5)
+
+
 # ============================================================================
 # Step 4: Open a GMX position
 # ============================================================================
@@ -804,7 +916,7 @@ def open_gmx_position(
     # Record execution fee
     execution_fee = order.get("info", {}).get("execution_fee", 0)
     if execution_fee:
-        _summary.gmx_execution_fees_eth += Decimal(execution_fee) / Decimal(10**18)
+        _summary.gmx_execution_fees_provisioned_eth += Decimal(execution_fee) / Decimal(10**18)
 
     # Update summary with position details
     _summary.position_size_usd = size_usd
@@ -859,7 +971,7 @@ def close_gmx_position(
     # Record execution fee
     execution_fee = order.get("info", {}).get("execution_fee", 0)
     if execution_fee:
-        _summary.gmx_execution_fees_eth += Decimal(execution_fee) / Decimal(10**18)
+        _summary.gmx_execution_fees_provisioned_eth += Decimal(execution_fee) / Decimal(10**18)
 
     # Update summary with exit price
     if order.get("price"):
@@ -941,7 +1053,7 @@ def open_gmx_limit_order(
     # Record execution fee paid to keepers for this order
     execution_fee = order.get("info", {}).get("execution_fee", 0)
     if execution_fee:
-        _summary.gmx_execution_fees_eth += Decimal(execution_fee) / Decimal(10**18)
+        _summary.gmx_execution_fees_provisioned_eth += Decimal(execution_fee) / Decimal(10**18)
 
     return order
 
@@ -1043,7 +1155,12 @@ def withdraw_from_vault(
     :param hot_wallet: Wallet to receive the USDC
     :param vault: LagoonVault to withdraw from
     :param config: Network configuration
-    :return: Amount of USDC withdrawn
+    :return:
+        The wallet's **total** USDC balance afterwards — not the amount
+        withdrawn, despite what this used to claim. Do not treat it as
+        proceeds: subtracting the deposit from it reports the operator's
+        entire bankroll as trade PnL. To measure a round trip, difference it
+        against the balance recorded before the deposit.
     """
     usdc = fetch_erc20_details(web3, config.usdc_address)
 
@@ -1299,6 +1416,14 @@ def main():
         print("STEP 2: Deposit USDC collateral to vault")
         print("=" * 80)
 
+        # Record the operator's balances before any money moves. Differencing
+        # these against the post-withdrawal balances is the only honest way to
+        # state the result: it needs no assumption about which fees were charged
+        # where, and it cannot drift from what actually happened on chain.
+        _summary.initial_collateral = usdc.fetch_balance_of(hot_wallet.address)
+        _summary.initial_native = Decimal(web3.eth.get_balance(hot_wallet.address)) / Decimal(10**18)
+        _summary.initial_safe_native = Decimal(web3.eth.get_balance(vault.safe_address)) / Decimal(10**18)
+
         deposit_to_vault(web3, hot_wallet, vault, deposit_amount)
 
         if simulate:
@@ -1355,9 +1480,16 @@ def main():
                     is_long=True,
                 )
 
-                # Wait for keeper execution
-                print("\nWaiting for GMX keeper execution...")
-                time.sleep(30)
+                # Wait for the keeper to actually fill the open before closing.
+                # A fixed sleep races the keeper: if the position is not on chain
+                # yet, the close below finds nothing, reports "already closed" and
+                # silently does nothing — then the keeper fills the open moments
+                # later, stranding the position and its collateral. The limit
+                # order in step 5b then fails with "ERC20: transfer amount exceeds
+                # balance", because the collateral it needs is locked in the
+                # position that was never closed.
+                if not wait_for_position(web3, vault.safe_address, expect_open=True):
+                    raise RuntimeError("GMX keeper did not fill the open position within the timeout")
 
                 # =========================================================================
                 # Step 5: Close position
@@ -1373,9 +1505,10 @@ def main():
                     is_long=True,
                 )
 
-                # Wait for keeper
-                print("\nWaiting for GMX keeper execution...")
-                time.sleep(30)
+                # Confirm the close actually settled, so the collateral is back in
+                # the Safe before step 5b tries to spend it.
+                if not wait_for_position(web3, vault.safe_address, expect_open=False):
+                    raise RuntimeError("GMX keeper did not settle the close within the timeout")
 
             # =========================================================================
             # Step 5b: Open a limit order and cancel it through the guard
@@ -1395,10 +1528,16 @@ def main():
         print("=" * 80)
 
         hot_wallet.sync_nonce(web3)
-        final_usdc = withdraw_from_vault(web3, hot_wallet, vault, config)
+        withdraw_from_vault(web3, hot_wallet, vault, config)
 
-        # Calculate realised PnL
-        _summary.realised_pnl = final_usdc - deposit_amount
+        # Close the measurement opened before the deposit. Note this is the
+        # wallet's whole balance, not the withdrawal proceeds — which is exactly
+        # why it must be differenced against the pre-deposit balance rather than
+        # against the deposit amount. Subtracting the deposit from the whole
+        # balance reported the operator's entire bankroll as trade PnL.
+        _summary.final_collateral = usdc.fetch_balance_of(hot_wallet.address)
+        _summary.final_native = Decimal(web3.eth.get_balance(hot_wallet.address)) / Decimal(10**18)
+        _summary.final_safe_native = Decimal(web3.eth.get_balance(vault.safe_address)) / Decimal(10**18)
 
         # =========================================================================
         # Step 7: Print summary

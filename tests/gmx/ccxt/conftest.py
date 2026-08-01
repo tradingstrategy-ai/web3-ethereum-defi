@@ -5,9 +5,9 @@
 
 import logging
 import os
-from typing import Any, Generator
 
 import pytest
+from eth_account import Account
 from eth_utils import to_checksum_address
 from web3 import Web3
 
@@ -15,54 +15,12 @@ from eth_defi.chain import install_chain_middleware
 from eth_defi.gas import node_default_gas_price_strategy
 from eth_defi.gmx.ccxt.exchange import GMX
 from eth_defi.gmx.config import GMXConfig
-from eth_defi.provider.anvil import fork_network_anvil
+from eth_defi.hotwallet import HotWallet
+from eth_defi.provider.anvil import AnvilLaunch
 from eth_defi.provider.multi_provider import create_multi_provider_web3
 from eth_defi.token import fetch_erc20_details
 from tests.gmx.conftest import _approve_tokens_for_config, _get_chain_config_with_tokens
-from tests.gmx.fork_helpers import setup_mock_oracle
-
-
-def _create_anvil_fork(
-    chain_name,
-    chain_rpc_url,
-    large_eth_holder,
-    large_wbtc_holder,
-    large_wavax_holder,
-    large_usdc_holder_arbitrum,
-    large_usdc_holder_avalanche,
-    large_wbtc_holder_avalanche,
-    large_link_holder_avalanche,
-    gmx_controller_arbitrum,
-    large_weth_holder_arbitrum,
-    gmx_keeper_arbitrum,
-    large_gm_eth_usdc_holder_arbitrum,
-) -> Generator[str, Any, None]:
-    """Helper to create a testable fork of the live chain using Anvil."""
-    unlocked_addresses = [large_eth_holder, large_wbtc_holder]
-
-    if chain_name == "arbitrum":
-        unlocked_addresses.append(large_usdc_holder_arbitrum)
-        unlocked_addresses.append(gmx_controller_arbitrum)
-        unlocked_addresses.append(large_weth_holder_arbitrum)
-        unlocked_addresses.append(gmx_keeper_arbitrum)
-        unlocked_addresses.append(large_gm_eth_usdc_holder_arbitrum)
-    elif chain_name == "avalanche":
-        unlocked_addresses.append(large_wavax_holder)
-        unlocked_addresses.append(large_usdc_holder_avalanche)
-        unlocked_addresses.append(large_wbtc_holder_avalanche)
-        unlocked_addresses.append(large_link_holder_avalanche)
-
-    launch = fork_network_anvil(
-        chain_rpc_url,
-        unlocked_addresses=unlocked_addresses,
-        test_request_timeout=100,
-        launch_wait_seconds=60,
-    )
-
-    try:
-        yield launch.json_rpc_url
-    finally:
-        launch.close(log_level=logging.ERROR)
+from tests.gmx.fork_helpers import set_balance, setup_mock_oracle
 
 
 def _fund_wallet_on_fork(
@@ -73,9 +31,8 @@ def _fund_wallet_on_fork(
 ):
     """Fund wallet with ETH, WETH, and USDC on the given fork.
 
-    This is necessary because the test_wallet fixture funds the wallet on a
-    different fork instance. Each anvil fork is independent, so we need to
-    fund the wallet on each fork that uses it.
+    The ``test_wallet`` fixture does not fund this fork, so this fixture
+    establishes its own balances.
 
     :param web3: Web3 instance connected to the fork
     :param wallet_address: Address to fund
@@ -111,70 +68,18 @@ def _fund_wallet_on_fork(
 
 @pytest.fixture()
 def anvil_chain_fork_ccxt_long(
-    chain_name,
-    chain_rpc_url,
-    large_eth_holder,
-    large_wbtc_holder,
-    large_wavax_holder,
-    large_usdc_holder_arbitrum,
-    large_usdc_holder_avalanche,
-    large_wbtc_holder_avalanche,
-    large_link_holder_avalanche,
-    gmx_controller_arbitrum,
-    large_weth_holder_arbitrum,
-    gmx_keeper_arbitrum,
-    large_gm_eth_usdc_holder_arbitrum,
-) -> Generator[str, Any, None]:
-    """Create a testable fork for long position tests."""
-    yield from _create_anvil_fork(
-        chain_name,
-        chain_rpc_url,
-        large_eth_holder,
-        large_wbtc_holder,
-        large_wavax_holder,
-        large_usdc_holder_arbitrum,
-        large_usdc_holder_avalanche,
-        large_wbtc_holder_avalanche,
-        large_link_holder_avalanche,
-        gmx_controller_arbitrum,
-        large_weth_holder_arbitrum,
-        gmx_keeper_arbitrum,
-        large_gm_eth_usdc_holder_arbitrum,
-    )
+    anvil_chain_fork: AnvilLaunch,
+) -> str:
+    """Return the isolated fixed-block fork URL for a CCXT long-position test."""
+    return anvil_chain_fork.json_rpc_url
 
 
 @pytest.fixture()
 def anvil_chain_fork_ccxt_short(
-    chain_name,
-    chain_rpc_url,
-    large_eth_holder,
-    large_wbtc_holder,
-    large_wavax_holder,
-    large_usdc_holder_arbitrum,
-    large_usdc_holder_avalanche,
-    large_wbtc_holder_avalanche,
-    large_link_holder_avalanche,
-    gmx_controller_arbitrum,
-    large_weth_holder_arbitrum,
-    gmx_keeper_arbitrum,
-    large_gm_eth_usdc_holder_arbitrum,
-) -> Generator[str, Any, None]:
-    """Create a testable fork for short position tests."""
-    yield from _create_anvil_fork(
-        chain_name,
-        chain_rpc_url,
-        large_eth_holder,
-        large_wbtc_holder,
-        large_wavax_holder,
-        large_usdc_holder_arbitrum,
-        large_usdc_holder_avalanche,
-        large_wbtc_holder_avalanche,
-        large_link_holder_avalanche,
-        gmx_controller_arbitrum,
-        large_weth_holder_arbitrum,
-        gmx_keeper_arbitrum,
-        large_gm_eth_usdc_holder_arbitrum,
-    )
+    anvil_chain_fork: AnvilLaunch,
+) -> str:
+    """Return the isolated fixed-block fork URL for a CCXT short-position test."""
+    return anvil_chain_fork.json_rpc_url
 
 
 @pytest.fixture()
@@ -210,12 +115,12 @@ def ccxt_gmx_fork_open_close(
 ) -> GMX:
     """CCXT GMX exchange with wallet for open/close long position testing.
 
-    Uses separate anvil fork to avoid state pollution with other tests.
+    Uses an isolated Anvil fork to avoid state pollution with other tests.
     Uses RPC loading (default) for complete market data.
     """
     setup_mock_oracle(web3_arbitrum_fork_ccxt_long)
 
-    # Fund wallet on this fork (test_wallet is funded on a different fork)
+    # Fund wallet on the isolated fork.
     _fund_wallet_on_fork(
         web3_arbitrum_fork_ccxt_long,
         test_wallet.address,
@@ -258,13 +163,13 @@ def ccxt_gmx_fork_short(
 ) -> GMX:
     """CCXT GMX exchange with wallet for short position testing.
 
-    Uses separate anvil fork to avoid state pollution with other tests.
+    Uses an isolated Anvil fork to avoid state pollution with other tests.
     Uses RPC loading (default) for complete market data.
     Short positions require USDC collateral, which is funded by _fund_wallet_on_fork.
     """
     setup_mock_oracle(web3_arbitrum_fork_ccxt_short)
 
-    # Fund wallet on this fork (test_wallet is funded on a different fork)
+    # Fund wallet on the isolated fork.
     # This is critical for short positions which require USDC collateral
     _fund_wallet_on_fork(
         web3_arbitrum_fork_ccxt_short,
@@ -341,13 +246,13 @@ def ccxt_gmx_fork_graphql(
 ) -> GMX:
     """CCXT GMX exchange with wallet for testing GraphQL market loading.
 
-    Uses separate anvil fork to avoid state pollution with other tests.
+    Uses an isolated Anvil fork to avoid state pollution with other tests.
     Uses GraphQL loading for fast market data retrieval.
     Markets are pre-loaded so they're immediately available.
     """
     setup_mock_oracle(web3_arbitrum_fork_ccxt_long)
 
-    # Fund wallet on this fork (test_wallet is funded on a different fork)
+    # Fund wallet on the isolated fork.
     _fund_wallet_on_fork(
         web3_arbitrum_fork_ccxt_long,
         test_wallet.address,
@@ -392,8 +297,6 @@ def tenderly_rpc_url() -> str | None:
 @pytest.fixture()
 def web3_tenderly(tenderly_rpc_url: str) -> Web3:
     """Web3 instance connected directly to Tenderly virtual testnet."""
-    from eth_defi.provider.multi_provider import create_multi_provider_web3
-
     web3 = create_multi_provider_web3(
         tenderly_rpc_url,
         default_http_timeout=(3.0, 180.0),
@@ -408,17 +311,11 @@ def web3_tenderly(tenderly_rpc_url: str) -> Web3:
 
 
 @pytest.fixture()
-def test_wallet_tenderly(web3_tenderly: Web3) -> "HotWallet":
+def test_wallet_tenderly(web3_tenderly: Web3) -> HotWallet:
     """Create a HotWallet for testing on Tenderly.
 
     Funds the wallet with ETH, WETH, and USDC using Tenderly's setBalance.
     """
-    from eth_account import Account
-    from eth_defi.hotwallet import HotWallet
-    from eth_defi.token import fetch_erc20_details
-    from eth_utils import to_checksum_address
-    from tests.gmx.fork_helpers import set_balance
-
     # Use default anvil private key
     private_key = "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
     account = Account.from_key(private_key)
