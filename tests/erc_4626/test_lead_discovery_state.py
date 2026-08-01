@@ -9,8 +9,10 @@ import pytest
 from eth_typing import HexAddress
 
 from eth_defi.compat import native_datetime_utc_now
+from eth_defi.erc_4626 import lead_discovery_state
 from eth_defi.erc_4626.discovery_base import LeadScanReport, PotentialVaultMatch
 from eth_defi.erc_4626.lead_discovery_state import (
+    VAULT_METADATA_REFRESH_VERSION,
     LeadDiscoveryState,
     create_lead_discovery_signature,
     get_lead_discovery_state_path,
@@ -48,18 +50,35 @@ def test_function_source_hash_ignores_name_and_docstring() -> None:
     assert hash_function_source(first) != hash_function_source(changed)
 
 
-def test_signature_changes_only_for_enabled_chain_configuration(
+def test_signature_includes_metadata_refresh_version_and_enabled_chain_configuration(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """The signature includes enabled chains but excludes disabled chains."""
+    """The signature records metadata semantics alongside enabled chain scope.
 
+    1. Create signatures with distinct enabled-chain configurations.
+    2. Confirm the persisted diagnostics include the metadata refresh version.
+    3. Confirm a metadata-version bump changes the signature.
+    4. Confirm disabled chains do not affect the signature input.
+    """
+
+    # 1. Create signatures with distinct enabled-chain configurations.
     original_signature, original_configuration = create_lead_discovery_signature([("Ethereum", "JSON_RPC_ETHEREUM")])
     changed_signature, changed_configuration = create_lead_discovery_signature([("Ethereum", "JSON_RPC_ETHEREUM"), ("Base", "JSON_RPC_BASE")])
 
+    # 2. Confirm the persisted diagnostics include the metadata refresh version.
     assert original_signature != changed_signature
+    assert original_configuration["vault_metadata_refresh_version"] == VAULT_METADATA_REFRESH_VERSION
     assert original_configuration["enabled_chains"] == [{"name": "Ethereum", "rpc_environment_variable": "JSON_RPC_ETHEREUM"}]
     assert changed_configuration["enabled_chains"][0]["name"] == "Base"
 
+    # 3. Confirm a metadata-version bump changes the signature.
+    with monkeypatch.context() as metadata_version_patch:
+        metadata_version_patch.setattr(lead_discovery_state, "VAULT_METADATA_REFRESH_VERSION", VAULT_METADATA_REFRESH_VERSION + 1)
+        refreshed_signature, refreshed_configuration = create_lead_discovery_signature([("Ethereum", "JSON_RPC_ETHEREUM")])
+    assert refreshed_signature != original_signature
+    assert refreshed_configuration["vault_metadata_refresh_version"] == VAULT_METADATA_REFRESH_VERSION + 1
+
+    # 4. Confirm disabled chains do not affect the signature input.
     monkeypatch.setattr(
         scan_all_chains,
         "build_chain_configs",

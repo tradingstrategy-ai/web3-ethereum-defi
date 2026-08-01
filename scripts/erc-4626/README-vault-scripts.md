@@ -1159,6 +1159,42 @@ source .local-test.env && poetry run python scripts/erc-4626/heal-broken-vaults.
 | `JSON_RPC_<CHAIN>` | Required per chain with broken vaults. |
 | `LOG_LEVEL` | Optional. Default: info. |
 
+### migrate-vault-deposit-permissions.py
+
+Refresh cached `_deposit_permission` values through each vault's current
+protocol adapter. Use this targeted metadata-only repair after a reviewed
+permission-classification fix when waiting for the normal metadata scan is not
+appropriate. It does not change vault discovery, prices, reader state, or any
+other cached metadata field.
+
+First inspect live differences without modifying the pickle:
+
+```shell
+source .local-test.env && \
+  DRY_RUN=true \
+  poetry run python scripts/erc-4626/migrate-vault-deposit-permissions.py
+```
+
+Then persist the reviewed differences:
+
+```shell
+source .local-test.env && \
+  DRY_RUN=false \
+  poetry run python scripts/erc-4626/migrate-vault-deposit-permissions.py
+```
+
+The migration creates a non-overwriting `*.bak-deposit-permission` backup
+before writing. It preserves an existing `whitelisted` or `permissionless`
+value when the live adapter read is inconclusive (`unknown`). Run
+`export-data-files.py` afterwards to publish the corrected JSON.
+
+| Variable | Description |
+|----------|-------------|
+| `VAULT_DB_PATH` | Optional vault metadata pickle path. Defaults to `~/.tradingstrategy/vaults/vault-metadata-db.pickle`. |
+| `DRY_RUN` | Report only when true. Default: true. |
+| `JSON_RPC_<CHAIN>` | Required for every EVM chain represented in the cache. |
+| `LOG_LEVEL` | Optional console log level. Default: info. |
+
 ### migrate-vault-token-metadata.py
 
 Refresh persisted vault `Name` and `Symbol` fields when an ERC-20/ERC-4626
