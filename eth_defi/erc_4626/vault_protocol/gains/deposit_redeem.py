@@ -188,9 +188,9 @@ class GainsDepositManager(ERC4626DepositManager):
         admission or payout condition is relaxed.
 
         :param owner:
-            Account that will submit the unchanged withdrawal request.
+            Account that pays gas for the permissionless epoch transition.
         :param raw_shares:
-            Exact raw share quantity requested on the retry.
+            Retained for the shared manager interface; the retry uses it later.
         :param failure:
             Typed closed-window preflight failure.
         :return:
@@ -212,6 +212,17 @@ class GainsDepositManager(ERC4626DepositManager):
             raise UnsupportedVaultSimulation(
                 "Gains window simulation requires an EndOfEpoch preflight",
                 unsupported_reason="redemption_failure_not_closed_epoch_window",
+                protocol=self.vault.get_protocol_name(),
+                vault_address=self.vault.address,
+                direction="redeem",
+            )
+        if (
+            failure.vault_address is not None
+            and Web3.to_checksum_address(failure.vault_address) != Web3.to_checksum_address(self.vault.address)
+        ):
+            raise UnsupportedVaultSimulation(
+                "Gains redemption failure belongs to another vault",
+                unsupported_reason="redemption_failure_wrong_vault",
                 protocol=self.vault.get_protocol_name(),
                 vault_address=self.vault.address,
                 direction="redeem",

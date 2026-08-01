@@ -7,6 +7,7 @@ from decimal import Decimal
 from typing import TYPE_CHECKING
 
 from eth_typing import HexAddress
+from web3 import Web3
 from web3.exceptions import BadFunctionCallOutput, ContractLogicError, Web3RPCError
 
 from eth_defi.erc_4626.deposit_redeem import ERC4626DepositManager, ERC4626RedemptionRequest
@@ -111,14 +112,16 @@ class FortyAcresDepositManager(ERC4626DepositManager):
         raw_shares: int,
         failure: VaultFlowUnavailable,
     ) -> VaultRedemptionSimulationIntervention:
-        """Provision Pharaoh's exact missing direct-USDC payout on Anvil.
+        """Provision the minimum direct-USDC balance for an Anvil retry.
 
         Pharaoh's verified redemption transfers USDC from the vault itself.
         When its address-scoped preflight proves that the direct balance is the
-        only blocker, this helper writes only the missing payout amount to the
-        forked USDC balance.  It does not modify the loan contract, share
-        accounting, admission conditions, or the redemption amount; the caller
-        must retry the unchanged real ``redeem()`` transaction afterwards.
+        only blocker, this helper writes fork-only USDC to the vault. Because
+        that balance contributes to ERC-4626 ``totalAssets()``, its receipt is
+        counterfactual and proves redemption mechanics only, not an economic
+        payout. It does not modify the loan contract, admission conditions, or
+        the redemption amount; the caller must retry the unchanged real
+        ``redeem()`` transaction afterwards.
 
         :param owner:
             Redemption owner retained for the common manager interface.
@@ -140,10 +143,32 @@ class FortyAcresDepositManager(ERC4626DepositManager):
                 vault_address=self.vault.address,
                 direction="redeem",
             )
-        if failure.preflight_result != "redemption_capacity_limited" or failure.decoded_error != FORTY_ACRES_INSUFFICIENT_LIQUIDITY_ERROR:
+        if (
+            failure.preflight_result != "redemption_capacity_limited"
+            or failure.decoded_error != FORTY_ACRES_INSUFFICIENT_LIQUIDITY_ERROR
+        ):
             raise UnsupportedVaultSimulation(
                 "Pharaoh liquidity injection requires its direct-USDC capacity preflight",
                 unsupported_reason="redemption_failure_not_direct_liquidity",
+                protocol=self.vault.get_protocol_name(),
+                vault_address=self.vault.address,
+                direction="redeem",
+            )
+        if (
+            failure.vault_address is not None
+            and Web3.to_checksum_address(failure.vault_address) != Web3.to_checksum_address(self.vault.address)
+        ):
+            raise UnsupportedVaultSimulation(
+                "Pharaoh redemption failure belongs to another vault",
+                unsupported_reason="redemption_failure_wrong_vault",
+                protocol=self.vault.get_protocol_name(),
+                vault_address=self.vault.address,
+                direction="redeem",
+            )
+        if raw_shares > self.vault.share_token.fetch_raw_balance_of(owner):
+            raise UnsupportedVaultSimulation(
+                "Pharaoh redemption request exceeds the owner's shares",
+                unsupported_reason="redemption_failure_insufficient_owner_shares",
                 protocol=self.vault.get_protocol_name(),
                 vault_address=self.vault.address,
                 direction="redeem",

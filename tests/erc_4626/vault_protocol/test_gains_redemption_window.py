@@ -20,12 +20,14 @@ from eth_defi.vault.deposit_redeem import VaultFlowUnavailable
 
 JSON_RPC_BASE = os.environ.get("JSON_RPC_BASE")
 GTRADE_BASE_USDC_VAULT = "0xad20523a7dc37babc1cc74897e4977232b3d02e5"
+# This lifecycle needs a naturally closed window, which the canonical Base
+# midnight block does not provide. Keep the exceptional block warm-cached.
 GTRADE_BASE_CLOSED_WINDOW_BLOCK = 49_395_951
 
 
 @pytest.fixture(scope="module")
 def gains_base_fork(anvil_fork_pool: AnvilForkPool) -> AnvilLaunch:
-    """Share the production-rerun Base fork with a USDC whale unlocked."""
+    """Share the exceptional production-rerun fork where the request window is closed."""
     return anvil_fork_pool.get_launch(
         JSON_RPC_BASE,
         GTRADE_BASE_CLOSED_WINDOW_BLOCK,
@@ -95,5 +97,5 @@ def test_gains_closed_window_advances_then_completes_redemption(
     assert settlement.is_terminal_success()
     claim_hash = manager.finish_redemption(ticket).transact({"from": owner})
     analysis = manager.analyse_redemption(claim_hash, ticket)
-    assert analysis.share_count > 0
+    assert analysis.share_count == vault.share_token.convert_to_decimals(raw_shares)
     assert analysis.denomination_amount > 0

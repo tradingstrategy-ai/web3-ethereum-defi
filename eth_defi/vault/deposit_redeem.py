@@ -729,23 +729,23 @@ class VaultRedemptionSimulationIntervention:
     The intervention changes fork state only.  A caller must still build,
     broadcast and analyse the protocol's real redemption transaction after
     this result is returned.  It must never be interpreted as evidence that
-    the live vault had enough redemption liquidity.
+    the live vault was redeemable at the sampled production state.
     """
 
     #: Intervention type for machine-readable reports.
     kind: Literal["liquidity_injected", "time_advanced"]
 
-    #: Denomination token whose forked balance was changed.
+    #: Original typed preflight explanation.
+    original_reason: str
+
+    #: Denomination token whose forked balance was changed, when applicable.
     token: HexAddress | None = None
 
-    #: Vault or protocol liquidity adapter that received the token.
+    #: Vault or protocol contract affected by the intervention, when applicable.
     target: HexAddress | None = None
 
-    #: Raw token quantity added on the fork.
+    #: Raw token quantity added on the fork, when applicable.
     raw_amount: int | None = None
-
-    #: Original typed preflight explanation.
-    original_reason: str = ""
 
     #: Original machine-readable preflight result when available.
     original_preflight_result: str | None = None
@@ -756,8 +756,23 @@ class VaultRedemptionSimulationIntervention:
     #: Fork timestamp after a time-based intervention.
     timestamp_after: datetime.datetime | None = None
 
-    #: Permissionless protocol action used to activate the time transition.
+    #: Permissionless protocol action used to activate a time transition.
     transaction_hash: HexBytes | None = None
+
+    def __post_init__(self) -> None:
+        """Reject incomplete machine-readable intervention evidence."""
+        if self.kind == "liquidity_injected":
+            if self.token is None or self.target is None or self.raw_amount is None or self.raw_amount <= 0:
+                raise ValueError("Liquidity injection needs token, target, and a positive raw amount")
+        elif (
+            self.target is None
+            or self.timestamp_before is None
+            or self.timestamp_after is None
+            or self.transaction_hash is None
+        ):
+            raise ValueError("Time advance needs target, timestamps, and transaction hash")
+        elif self.timestamp_after <= self.timestamp_before:
+            raise ValueError("Time advance timestamp must increase")
 
     def as_dict(self) -> dict[str, str]:
         """Return JSON-safe intervention evidence.
@@ -1317,7 +1332,7 @@ class VaultDepositManager(ABC):
         """Prepare an unavailable redemption for an Anvil-only retry.
 
         A concrete manager may make a source-proven, protocol-specific fork
-        intervention, such as adding the exact missing payout liquidity or
+        intervention, such as adding a source-proven payout liquidity shortfall or
         advancing a documented redemption window. The caller must then retry
         the unchanged request and analyse its real receipt. The base is
         deliberately unsupported: it must never bypass admission, minimums,
@@ -1337,7 +1352,7 @@ class VaultDepositManager(ABC):
         del owner, raw_shares, failure
         raise UnsupportedVaultSimulation(
             f"{self.__class__.__name__} has no Anvil redemption simulation driver",
-            unsupported_reason="redemption_liquidity_simulation_not_implemented",
+            unsupported_reason="redemption_simulation_not_implemented",
             protocol=self.vault.get_protocol_name(),
             vault_address=self.vault.address,
             direction="redeem",

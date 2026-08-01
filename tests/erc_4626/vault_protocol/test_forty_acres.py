@@ -24,7 +24,7 @@ from eth_defi.testing.evm_snapshot_fixture import evm_snapshot_revert
 from eth_defi.testing.fork_blocks import AVALANCHE_MIDNIGHT_BLOCK, BASE_MIDNIGHT_BLOCK
 from eth_defi.token import USDC_WHALE
 from eth_defi.trace import assert_transaction_success_with_explanation
-from eth_defi.vault.deposit_redeem import VaultFlowUnavailable
+from eth_defi.vault.deposit_redeem import UnsupportedVaultSimulation, VaultFlowUnavailable
 
 JSON_RPC_AVALANCHE = os.environ.get("JSON_RPC_AVALANCHE")
 JSON_RPC_BASE = os.environ.get("JSON_RPC_BASE")
@@ -138,7 +138,8 @@ def test_pharaoh_refuses_redemption_without_direct_underlying_liquidity(
     2. Drain direct underlying on Anvil to model loan-deployed capital.
     3. Prove the measured partial capacity is accepted and one raw share above is refused.
     4. Verify the 40acres preflight refuses before any redeem transaction exists.
-    5. Add only the missing Anvil USDC and complete the unchanged redemption.
+    5. Reject an owner-share failure without mutating the fork.
+    6. Add fork-only USDC and complete the unchanged redemption mechanics.
     """
     # 1. Fund and deposit USDC into the exact Pharaoh vault at the pinned block.
     assert pharaoh_avalanche_snapshot is None
@@ -186,7 +187,19 @@ def test_pharaoh_refuses_redemption_without_direct_underlying_liquidity(
     assert error.available_raw_amount == available_raw_shares
     assert pharaoh_avalanche_web3.eth.block_number == block_before_refusal
 
-    # 5. Add only the missing Anvil USDC and complete the unchanged redemption.
+    # 5. Reject an owner-share failure without changing the fork balance.
+    balance_before_owner_rejection = vault.denomination_token.fetch_raw_balance_of(vault.address)
+    owner_share_failure = VaultFlowUnavailable(
+        "Owner lacks shares",
+        vault_address=vault.address,
+        decoded_error=FORTY_ACRES_INSUFFICIENT_LIQUIDITY_ERROR,
+        preflight_result="redemption_capacity_limited",
+    )
+    with pytest.raises(UnsupportedVaultSimulation, match="exceeds the owner's shares"):
+        manager.prepare_redemption_simulation(owner, raw_shares + 1, owner_share_failure)
+    assert vault.denomination_token.fetch_raw_balance_of(vault.address) == balance_before_owner_rejection
+
+    # 6. Add fork-only USDC and complete the unchanged redemption mechanics.
     with pytest.raises(VaultFlowUnavailable) as full_redemption_exc_info:
         manager.create_redemption_request(owner=owner, raw_shares=raw_shares)
     full_redemption_error = full_redemption_exc_info.value
@@ -198,7 +211,7 @@ def test_pharaoh_refuses_redemption_without_direct_underlying_liquidity(
     retry = manager.create_redemption_request(owner=owner, raw_shares=raw_shares)
     ticket = retry.broadcast(from_=owner)
     analysis = manager.analyse_redemption(ticket.tx_hash, ticket)
-    assert analysis.share_count > 0
+    assert analysis.share_count == vault.share_token.convert_to_decimals(raw_shares)
     assert analysis.denomination_amount > 0
 
 
