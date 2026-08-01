@@ -31,15 +31,18 @@ from dataclasses import dataclass
 from pathlib import Path
 
 import duckdb
+import pyarrow as pa
+import pyarrow.parquet as pq
 from atomicwrites import atomic_write
 from filelock import Timeout as FileLockTimeout
+from web3.exceptions import Web3Exception
 
 from eth_defi.apex.constants import APEX_METRICS_DATABASE
 from eth_defi.apex.metrics import ApexMetricsDatabase
 from eth_defi.apex.metrics import run_scan as apex_run_scan
 from eth_defi.apex.session import create_apex_session_pool
 from eth_defi.apex.vault_data_export import merge_into_vault_database as apex_merge_vault_db
-from eth_defi.chain import get_chain_name
+from eth_defi.chain import get_chain_id_by_name, get_chain_name
 from eth_defi.compat import native_datetime_utc_now
 from eth_defi.core3.constants import resolve_core3_database_path
 from eth_defi.core3.mappings import CORE3_MAPPINGS
@@ -88,7 +91,18 @@ from eth_defi.provider.multi_provider import MultiProviderWeb3Factory, create_mu
 from eth_defi.provider.rpcdb import RPCRequestStats, RPCUsageDatabase, format_rpc_usage_report, resolve_rpc_tracking_database_path
 from eth_defi.rate_limit import clear_sqlite_rate_limit_databases
 from eth_defi.token import TokenDiskCache
+from eth_defi.tokenised_fund.scan import (
+    TOKENISED_FUND_PRICE_DEFAULT_CYCLE,
+    TOKENISED_FUND_PRICE_SCANNERS,
+    TokenisedFundPriceScanContext,
+    TokenisedFundPriceScanSpec,
+    load_tokenised_fund_last_timestamps,
+    load_tokenised_fund_target_specs,
+    run_tokenised_fund_price_scan,
+    select_tokenised_fund_price_scanners,
+)
 from eth_defi.utils import setup_console_logging, wait_other_writers
+from eth_defi.vault.base import VaultSpec
 from eth_defi.vault.historical import scan_historical_prices_to_parquet
 from eth_defi.vault.post_processing import run_post_processing, validate_top_vaults_config
 from eth_defi.vault.settlement_data import (
@@ -198,6 +212,8 @@ def ensure_default_scan_cycles(cycle_overrides: dict[str, datetime.timedelta]) -
         for deployment in LIGHTER_DEPLOYMENTS:
             result.setdefault(deployment.name, legacy_lighter_cycle)
     result.setdefault(CURRENCY_RATES_PROTOCOL_NAME, CURRENCY_RATES_DEFAULT_CYCLE)
+    for scanner in TOKENISED_FUND_PRICE_SCANNERS:
+        result.setdefault(scanner.dashboard_name, TOKENISED_FUND_PRICE_DEFAULT_CYCLE)
     return result
 
 
@@ -304,6 +320,7 @@ def build_active_protocols(
     scan_apex: bool,
     scan_core3: bool,
     scan_currency_rates: bool,
+    tokenised_fund_scanners: tuple[TokenisedFundPriceScanSpec, ...] = (),
     scan_xerberus: bool = False,
 ) -> list[str]:
     """Build scheduled non-EVM scan item names.
@@ -326,6 +343,8 @@ def build_active_protocols(
         Include Core3 enrichment data.
     :param scan_currency_rates:
         Include daily currency exchange rates.
+    :param tokenised_fund_scanners:
+        Include ready recurring tokenised-fund price feeds.
     :param scan_xerberus:
         Include Xerberus enrichment data.
     :return:
@@ -348,6 +367,7 @@ def build_active_protocols(
         all_protocols.append(XERBERUS_PROTOCOL_NAME)
     if scan_currency_rates:
         all_protocols.append(CURRENCY_RATES_PROTOCOL_NAME)
+    all_protocols.extend(scanner.dashboard_name for scanner in tokenised_fund_scanners)
     return all_protocols
 
 
@@ -516,6 +536,9 @@ class ChainResult:
 
     #: Number of price rows written
     price_rows: int | None = None
+
+    #: Latest non-null data sample timestamp for protocol dashboard rows
+    latest_data_timestamp: str | None = None
 
     #: Error message if failed
     error: str | None = None
@@ -712,6 +735,7 @@ def scan_prices_for_chain(
     reader_state_path: Path = DEFAULT_READER_STATE_DATABASE,
     hypersync_concurrency: int | None = None,
     rpc_request_stats: RPCRequestStats | None = None,
+    excluded_specs: frozenset[VaultSpec] = frozenset(),
 ) -> tuple[bool, dict]:
     """Scan historical prices for a single chain.
 
@@ -722,6 +746,9 @@ def scan_prices_for_chain(
     :param uncleaned_price_path: Path to the uncleaned price parquet
     :param reader_state_path: Path to the reader state pickle
     :param hypersync_concurrency: Hypersync stream concurrency limit
+    :param excluded_specs:
+        Exact products owned by ready dedicated tokenised-fund feeds. Disabled,
+        unselected and product-filtered vaults remain under generic ownership.
     :return: Tuple of (success, metrics_dict)
     """
     stats = rpc_request_stats or RPCRequestStats()
@@ -767,6 +794,9 @@ def scan_prices_for_chain(
         for row in chain_vaults:
             detection = row["_detection_data"]
 
+            if VaultSpec(chain_id, detection.address.lower()) in excluded_specs:
+                continue
+
             # Skip vaults with low activity while retaining hardcoded protocol
             # vaults and protocol-specific alternative evidence. Mellow stores
             # zero counts because its canonical Vault does not emit user flows;
@@ -785,6 +815,12 @@ def scan_prices_for_chain(
 
         metrics["items_scanned"] = len(vaults)
 
+        # Dedicated or activity-filtered vault states must not move this
+        # batch's continuation point. Merge the updated subset back into the
+        # complete shared mapping after the scan.
+        scanned_specs = {vault.get_spec() for vault in vaults}
+        scanned_reader_states = {vault_spec: state for vault_spec, state in reader_states.items() if vault_spec in scanned_specs}
+
         # Configure HyperSync (shares throttle with vault lead discovery)
         hypersync_config = configure_hypersync_from_env(web3, concurrency=hypersync_concurrency)
 
@@ -800,15 +836,17 @@ def scan_prices_for_chain(
             chunk_size=32,
             token_cache=token_cache,
             frequency=frequency,
-            reader_states=reader_states,
+            reader_states=scanned_reader_states,
             hypersync_client=hypersync_config.hypersync_client,
             rpc_request_stats=stats,
+            vault_addresses={vault.address.lower() for vault in vaults},
         )
 
         # Save reader states atomically to avoid corruption on interruption
         if result["reader_states"]:
+            reader_states.update(result["reader_states"])
             with atomic_write(str(reader_state_path), mode="wb", overwrite=True) as f:
-                pickle.dump(result["reader_states"], f)
+                pickle.dump(reader_states, f)
 
         return True, {
             **metrics,
@@ -835,6 +873,7 @@ def scan_chain(
     rpc_usage_database: RPCUsageDatabase | None = None,
     rpc_cycle_started: datetime.date | None = None,
     rpc_cycle_number: int | None = None,
+    excluded_price_specs: frozenset[VaultSpec] = frozenset(),
     *,
     lead_discovery_state_timeout: datetime.timedelta = DEFAULT_LEAD_DISCOVERY_STATE_TIMEOUT,
     force_lead_discovery: bool = False,
@@ -850,6 +889,7 @@ def scan_chain(
     :param uncleaned_price_path: Path to the uncleaned price parquet
     :param reader_state_path: Path to the reader state pickle
     :param hypersync_concurrency: Hypersync stream concurrency limit
+    :param excluded_price_specs: Vaults owned by a dedicated price scanner.
     :param lead_discovery_state_timeout: Maximum age of a successful incremental lead and metadata refresh.
     :param force_lead_discovery: Bypass a valid discovery cache on this scan.
     :return: Scan result
@@ -942,6 +982,7 @@ def scan_chain(
             reader_state_path=reader_state_path,
             hypersync_concurrency=hypersync_concurrency,
             rpc_request_stats=price_stats,
+            excluded_specs=excluded_price_specs,
         )
         record_rpc_usage("price_scan", price_stats, price_metrics)
         result.price_scan_ok = price_success
@@ -1837,7 +1878,9 @@ def scan_currency_rates_fn(
     return result
 
 
-def _load_last_timestamps(uncleaned_price_path: Path | None = None) -> dict[str, str]:
+def _load_last_timestamps(
+    uncleaned_price_path: Path | None = None,
+) -> dict[str, str]:
     """Load the last data timestamp per chain from the uncleaned parquet.
 
     Reads only the ``chain`` and ``timestamp`` columns for efficiency.
@@ -1852,24 +1895,23 @@ def _load_last_timestamps(uncleaned_price_path: Path | None = None) -> dict[str,
         return {}
 
     try:
-        import pyarrow.parquet as pq
-
         table = pq.read_table(path, columns=["chain", "timestamp"])
         if table.num_rows == 0:
             return {}
 
-        df = table.to_pandas()
-        last_ts = df.groupby("chain")["timestamp"].max()
+        grouped = table.select(["chain", "timestamp"]).group_by("chain").aggregate([("timestamp", "max")])
         result = {}
-        for chain_id, ts in last_ts.items():
+        for row in grouped.to_pylist():
+            chain_id = row["chain"]
+            timestamp = row["timestamp_max"]
             try:
                 name = get_chain_name(int(chain_id))
-            except Exception:
+            except (KeyError, ValueError):
                 name = str(chain_id)
             # Use lowercase keys so dashboard lookup is case-insensitive
-            result[name.lower()] = ts.strftime("%Y-%m-%d %H:%M")
+            result[name.lower()] = timestamp.strftime("%Y-%m-%d %H:%M")
         return result
-    except Exception as e:
+    except (OSError, ValueError, pa.ArrowException) as e:
         logger.warning("Could not read last timestamps from parquet: %s", e)
         return {}
 
@@ -1900,14 +1942,20 @@ def _append_result_error(result: ChainResult, error: str, traceback_str: str | N
             result.traceback_str = traceback_str
 
 
-def print_dashboard(results: dict[str, ChainResult], display_order: list[str] | None = None, uncleaned_price_path: Path | None = None) -> None:
+def print_dashboard(
+    results: dict[str, ChainResult],
+    display_order: list[str] | None = None,
+    uncleaned_price_path: Path | None = None,
+) -> None:
     """Print console dashboard showing scan progress.
 
     :param results: Dictionary mapping chain name to result
     :param display_order: Optional list of chain names specifying display order
     :param uncleaned_price_path: Path to the uncleaned parquet for timestamps
     """
-    # Load last data timestamps per chain from the uncleaned parquet
+    # Chain timestamps need only two Arrow columns. Protocol freshness is
+    # resolved once per tick and stored on ``ChainResult`` to avoid repeatedly
+    # materialising the much larger address column on every dashboard redraw.
     last_timestamps = _load_last_timestamps(uncleaned_price_path)
 
     # Clear screen (simple approach)
@@ -1940,7 +1988,7 @@ def print_dashboard(results: dict[str, ChainResult], display_order: list[str] | 
 
         duration = f"{result.duration:.1f}s" if result.duration is not None else "-"
         retry = str(result.retry_attempt)
-        last_data = last_timestamps.get(result.name.lower(), "-")
+        last_data = result.latest_data_timestamp[:16].replace("T", " ") if result.latest_data_timestamp else last_timestamps.get(result.name.lower(), "-")
 
         line = f"{result.name:<15} {status:<10} {cycle:<8} {vaults:<8} {new:<6} {blocks:<22} {duration:<10} {retry:<5} {last_data:<18}"
         if result.status == "not due" and result.next_due_in_hours is not None:
@@ -2105,6 +2153,11 @@ def run_scan_tick(
     settlement_start_block: int | None = None,
     settlement_end_block: int | None = None,
     rpc_tracking_database_path: Path | None = None,
+    tokenised_fund_scanners: tuple[TokenisedFundPriceScanSpec, ...] = (),
+    tokenised_fund_max_workers: int = 8,
+    tokenised_fund_scheduling_enabled: bool = False,
+    tokenised_fund_enabled_chain_ids: frozenset[int] = frozenset(),
+    disabled_items: dict[str, str] | None = None,
     *,
     lead_discovery_state_timeout: datetime.timedelta = DEFAULT_LEAD_DISCOVERY_STATE_TIMEOUT,
     force_lead_discovery: bool = False,
@@ -2199,6 +2252,7 @@ def run_scan_tick(
 
     results: dict[str, ChainResult] = {}
     _ci = cycle_intervals or {}
+    excluded_price_specs = frozenset(load_tokenised_fund_target_specs(vault_db_path, tokenised_fund_scanners)) if tokenised_fund_scheduling_enabled else frozenset()
     settlement_vault_db: VaultDatabase | None = None
 
     def update_chain_settlement_result(
@@ -2260,8 +2314,20 @@ def run_scan_tick(
     # Show excluded chains as "disabled" on the dashboard
     for name in excluded_chains or []:
         results[name] = ChainResult(name=name, status="disabled", cycle_interval=_ci.get(name))
+    for name, reason in (disabled_items or {}).items():
+        results[name] = ChainResult(name=name, status="disabled", cycle_interval=_ci.get(name), error=reason)
 
-    display_order = [c.name for c in chains] + active_protocols + list((not_due_items or {}).keys()) + (excluded_chains or [])
+    if tokenised_fund_scheduling_enabled:
+        try:
+            protocol_timestamps = load_tokenised_fund_last_timestamps(uncleaned_price_path, vault_db_path)
+        except (OSError, ValueError, EOFError, pickle.UnpicklingError, pa.ArrowException) as exc:
+            logger.warning("Could not read initial tokenised-fund dashboard timestamps: %s", exc)
+        else:
+            for name, timestamp in protocol_timestamps.items():
+                if name in results:
+                    results[name].latest_data_timestamp = timestamp
+
+    display_order = [c.name for c in chains] + active_protocols + list((not_due_items or {}).keys()) + (excluded_chains or []) + list((disabled_items or {}).keys())
     print_dashboard(results, display_order, uncleaned_price_path=uncleaned_price_path)
 
     # First pass - scan EVM chains
@@ -2282,6 +2348,7 @@ def run_scan_tick(
                 rpc_usage_database=rpc_usage_database,
                 rpc_cycle_started=rpc_cycle_started,
                 rpc_cycle_number=rpc_cycle_number,
+                excluded_price_specs=excluded_price_specs,
                 lead_discovery_state_timeout=lead_discovery_state_timeout,
                 force_lead_discovery=force_lead_discovery,
             )
@@ -2492,6 +2559,56 @@ def run_scan_tick(
             on_item_success(CURRENCY_RATES_PROTOCOL_NAME)
         print_dashboard(results, display_order, uncleaned_price_path=uncleaned_price_path)
 
+    for scanner in tokenised_fund_scanners:
+        if scanner.dashboard_name not in active_protocols:
+            continue
+        logger.info("Scanning %s tokenised-fund prices", scanner.dashboard_name)
+        started_at = time.monotonic()
+        try:
+            scan_result = run_tokenised_fund_price_scan(
+                scanner,
+                TokenisedFundPriceScanContext(
+                    vault_db_path=vault_db_path,
+                    raw_price_path=uncleaned_price_path,
+                    max_workers=tokenised_fund_max_workers,
+                    enabled_chain_ids=tokenised_fund_enabled_chain_ids,
+                    hypersync_concurrency=hypersync_concurrency,
+                ),
+            )
+            scan_status = "success" if scan_result.vault_count else "disabled"
+            results[scanner.dashboard_name] = ChainResult(
+                name=scanner.dashboard_name,
+                status=scan_status,
+                vault_scan_ok=True,
+                price_scan_ok=True if scan_result.vault_count else None,
+                vault_count=scan_result.vault_count,
+                price_rows=scan_result.price_rows,
+                latest_data_timestamp=scan_result.latest_data_timestamp,
+                start_block=scan_result.start_block,
+                end_block=scan_result.end_block,
+                error=scan_result.diagnostics,
+                duration=time.monotonic() - started_at,
+            )
+        except (RuntimeError, ValueError, OSError, pa.ArrowException, Web3Exception) as exc:
+            logger.exception("%s tokenised-fund price scan failed", scanner.dashboard_name)
+            results[scanner.dashboard_name] = ChainResult(
+                name=scanner.dashboard_name,
+                status="failed",
+                vault_scan_ok=True,
+                price_scan_ok=False,
+                error=str(exc),
+                traceback_str=traceback.format_exc(),
+                duration=time.monotonic() - started_at,
+            )
+        result = results[scanner.dashboard_name]
+        if result.status in {"success", "disabled"}:
+            logger.info("%s: %s - %d vaults, %d rows", scanner.dashboard_name, result.status.upper(), result.vault_count or 0, result.price_rows or 0)
+            if on_item_success:
+                on_item_success(scanner.dashboard_name)
+        else:
+            logger.error("%s: FAILED - %s", scanner.dashboard_name, result.error)
+        print_dashboard(results, display_order, uncleaned_price_path=uncleaned_price_path)
+
     # Retry passes - retry failed EVM chains (native protocols are not retried)
     evm_chain_names = {c.name for c in chains}
     for attempt in range(1, retry_count + 1):
@@ -2517,6 +2634,7 @@ def run_scan_tick(
                     rpc_usage_database=rpc_usage_database,
                     rpc_cycle_started=rpc_cycle_started,
                     rpc_cycle_number=rpc_cycle_number,
+                    excluded_price_specs=excluded_price_specs,
                     lead_discovery_state_timeout=lead_discovery_state_timeout,
                     force_lead_discovery=force_lead_discovery,
                 )
@@ -2663,6 +2781,20 @@ def main():
     )
     skip_currency_rates = os.environ.get("SKIP_CURRENCY_RATES", "false").lower() == "true"
     scan_currency_rates = should_scan_currency_rates(skip_currency_rates=skip_currency_rates)
+    skip_tokenised_funds = os.environ.get("SKIP_TOKENISED_FUNDS", "false").lower() == "true"
+    tokenised_fund_scheduling_enabled = scan_prices and not skip_tokenised_funds
+    selected_tokenised_fund_scanners = select_tokenised_fund_price_scanners(os.environ.get("TOKENISED_FUND_PROTOCOLS")) if tokenised_fund_scheduling_enabled else ()
+    tokenised_fund_disabled_items: dict[str, str] = {}
+    if tokenised_fund_scheduling_enabled:
+        selected_selectors = {scanner.selector for scanner in selected_tokenised_fund_scanners}
+        for scanner in TOKENISED_FUND_PRICE_SCANNERS:
+            if scanner.selector not in selected_selectors:
+                tokenised_fund_disabled_items[scanner.dashboard_name] = "disabled (not selected)"
+        for scanner in selected_tokenised_fund_scanners:
+            if prerequisite_error := scanner.prerequisite_error():
+                tokenised_fund_disabled_items[scanner.dashboard_name] = prerequisite_error
+    ready_tokenised_fund_scanners = tuple(scanner for scanner in selected_tokenised_fund_scanners if scanner.dashboard_name not in tokenised_fund_disabled_items)
+    tokenised_fund_max_workers = int(os.environ.get("TOKENISED_FUND_MAX_WORKERS", "8"))
     force_rescan = os.environ.get("FORCE_RESCAN", "false").lower() == "true"
     force_lead_discovery = os.environ.get("FORCE_LEAD_DISCOVERY", "false").lower() == "true"
     lead_discovery_state_timeout = parse_duration(os.environ.get("LEAD_DISCOVERY_STATE_TIMEOUT", "7d"))
@@ -2875,6 +3007,7 @@ def main():
         scan_apex=scan_apex,
         scan_core3=scan_core3,
         scan_currency_rates=scan_currency_rates,
+        tokenised_fund_scanners=ready_tokenised_fund_scanners,
         scan_xerberus=scan_xerberus,
     )
 
@@ -2901,6 +3034,11 @@ def main():
         scan_apex=scan_apex,
         scan_core3=scan_core3,
         scan_currency_rates=scan_currency_rates,
+        tokenised_fund_scanners=ready_tokenised_fund_scanners,
+        tokenised_fund_max_workers=tokenised_fund_max_workers,
+        tokenised_fund_scheduling_enabled=tokenised_fund_scheduling_enabled,
+        tokenised_fund_enabled_chain_ids=frozenset(chain_id for chain in chains if (chain_id := get_chain_id_by_name(chain.name)) is not None),
+        disabled_items=tokenised_fund_disabled_items,
         scan_xerberus=scan_xerberus,
         max_workers=max_workers,
         hypersync_concurrency=hypersync_concurrency,

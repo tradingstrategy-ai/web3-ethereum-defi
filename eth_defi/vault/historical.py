@@ -193,6 +193,7 @@ class VaultHistoricalReadMulticaller:
         max_workers=8,
         token_cache=None,
         require_multicall_result=False,
+        write_all_samples: bool = False,
         hypersync_client: "hypersync.HypersyncClient | None" = None,
         timestamp_cache_file: Path = DEFAULT_TIMESTAMP_CACHE_FOLDER,
         rpc_request_stats: RPCRequestStats | None = None,
@@ -218,6 +219,7 @@ class VaultHistoricalReadMulticaller:
 
         self.token_cache = token_cache
         self.require_multicall_result = require_multicall_result
+        self.write_all_samples = write_all_samples
 
         self.readers: dict[HexAddress, VaultHistoricalReader] = {}
 
@@ -627,7 +629,7 @@ class VaultHistoricalReadMulticaller:
                         state.rpc_error_count += 1
                         state.last_rpc_error = str(current_result.errors)
 
-                if current_result.is_almost_equal(last_result):
+                if current_result.is_almost_equal(last_result) and not self.write_all_samples:
                     # Only yield a new row if the vault state has changed,
                     # to not to unnecessary bloat the dataset
                     skipped_results += 1
@@ -676,6 +678,7 @@ def scan_historical_prices_to_parquet(
     compression="zstd",
     max_workers=8,
     require_multicall_result=False,
+    write_all_samples: bool = False,
     frequency: Literal["1d", "1h"] = "1d",
     reader_states: dict[VaultSpec, dict] | None = None,
     hypersync_client=None,
@@ -755,6 +758,11 @@ def scan_historical_prices_to_parquet(
         Addresses must be lowercase. When ``None``, all rows for the chain
         are deleted and rewritten (default behaviour).
 
+    :param write_all_samples:
+        Write every sampled block even when a vault's values are unchanged.
+        Dedicated issuer-NAV feeds use this to retain their daily freshness
+        timestamp rather than collapsing an unchanged price history.
+
     :param rpc_request_stats:
         Optional phase accumulator for physical JSON-RPC request accounting.
 
@@ -805,9 +813,11 @@ def scan_historical_prices_to_parquet(
     logger.info(f"First vault lead detection at block {first_detect_block:,} on chain {chain_id} ({get_chain_name(chain_id)})")
     if start_block is None:
         if stateful:
-            # If we have reader states, use the earliest block from there
+            # A vault requiring an older bootstrap must use its own
+            # address-scoped scan. Restored states cannot safely replay time
+            # before their individual ``last_call_at`` values.
             start_block = max(((state["last_block"] or 0) for spec, state in reader_states.items() if spec.chain_id == chain_id), default=first_detect_block)
-            logger.info(f"Chain {chain_id}: determined start block to be {start_block:,} from {len(reader_states)} vault read states")
+            logger.info("Chain %s: determined start block %s from %s vault read states", chain_id, f"{start_block:,}", len(reader_states))
         else:
             # Clean start, find the first block of any vault on this chain.
             # Detected during probing.
@@ -830,6 +840,7 @@ def scan_historical_prices_to_parquet(
         max_workers=max_workers,
         token_cache=token_cache,
         require_multicall_result=require_multicall_result,
+        write_all_samples=write_all_samples,
         hypersync_client=hypersync_client,
         timestamp_cache_file=timestamp_cache_file,
         rpc_request_stats=rpc_request_stats,

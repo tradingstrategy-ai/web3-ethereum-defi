@@ -69,6 +69,12 @@ services:
       JSON_RPC_MONAD: ${JSON_RPC_MONAD:-}
       JSON_RPC_MEGAETH: ${JSON_RPC_MEGAETH:-}
       SCAN_PRICES: ${SCAN_PRICES:-true}
+      # Recurring reviewed tokenised-fund NAV feeds. These remain separate
+      # from generic chain price scans to preserve address-scoped history.
+      SKIP_TOKENISED_FUNDS: ${SKIP_TOKENISED_FUNDS:-false}
+      TOKENISED_FUND_PROTOCOLS: ${TOKENISED_FUND_PROTOCOLS:-}
+      TOKENISED_FUND_MAX_WORKERS: ${TOKENISED_FUND_MAX_WORKERS:-8}
+      WISDOMTREE_DATASPAN_API_KEY: ${WISDOMTREE_DATASPAN_API_KEY:-}
       SCAN_HYPERCORE: ${SCAN_HYPERCORE:-false}
       SCAN_GRVT: ${SCAN_GRVT:-false}
       SCAN_LIGHTER: ${SCAN_LIGHTER:-false}
@@ -245,6 +251,12 @@ services:
       JSON_RPC_MONAD: ${JSON_RPC_MONAD:-}
       JSON_RPC_MEGAETH: ${JSON_RPC_MEGAETH:-}
       SCAN_PRICES: ${SCAN_PRICES:-true}
+      # Recurring reviewed tokenised-fund NAV feeds. These remain separate
+      # from generic chain price scans to preserve address-scoped history.
+      SKIP_TOKENISED_FUNDS: ${SKIP_TOKENISED_FUNDS:-false}
+      TOKENISED_FUND_PROTOCOLS: ${TOKENISED_FUND_PROTOCOLS:-}
+      TOKENISED_FUND_MAX_WORKERS: ${TOKENISED_FUND_MAX_WORKERS:-8}
+      WISDOMTREE_DATASPAN_API_KEY: ${WISDOMTREE_DATASPAN_API_KEY:-}
       SCAN_HYPERCORE: ${SCAN_HYPERCORE:-true}
       HYPERCORE_MODE: ${HYPERCORE_MODE:-high_freq}
       SCAN_GRVT: ${SCAN_GRVT:-true}
