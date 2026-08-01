@@ -138,6 +138,7 @@ def test_pharaoh_refuses_redemption_without_direct_underlying_liquidity(
     2. Drain direct underlying on Anvil to model loan-deployed capital.
     3. Prove the measured partial capacity is accepted and one raw share above is refused.
     4. Verify the 40acres preflight refuses before any redeem transaction exists.
+    5. Add only the missing Anvil USDC and complete the unchanged redemption.
     """
     # 1. Fund and deposit USDC into the exact Pharaoh vault at the pinned block.
     assert pharaoh_avalanche_snapshot is None
@@ -184,6 +185,21 @@ def test_pharaoh_refuses_redemption_without_direct_underlying_liquidity(
     assert error.requested_raw_amount == available_raw_shares + 1
     assert error.available_raw_amount == available_raw_shares
     assert pharaoh_avalanche_web3.eth.block_number == block_before_refusal
+
+    # 5. Add only the missing Anvil USDC and complete the unchanged redemption.
+    with pytest.raises(VaultFlowUnavailable) as full_redemption_exc_info:
+        manager.create_redemption_request(owner=owner, raw_shares=raw_shares)
+    full_redemption_error = full_redemption_exc_info.value
+    intervention = manager.prepare_redemption_simulation(owner, raw_shares, full_redemption_error)
+    assert intervention.kind == "liquidity_injected"
+    assert intervention.token == vault.denomination_token.address
+    assert intervention.target == vault.address
+    assert intervention.raw_amount > 0
+    retry = manager.create_redemption_request(owner=owner, raw_shares=raw_shares)
+    ticket = retry.broadcast(from_=owner)
+    analysis = manager.analyse_redemption(ticket.tx_hash, ticket)
+    assert analysis.share_count > 0
+    assert analysis.denomination_amount > 0
 
 
 @pytest.mark.skipif(JSON_RPC_BASE is None, reason="JSON_RPC_BASE needed to run this test")

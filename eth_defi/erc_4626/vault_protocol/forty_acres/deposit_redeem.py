@@ -10,7 +10,8 @@ from eth_typing import HexAddress
 from web3.exceptions import BadFunctionCallOutput, ContractLogicError, Web3RPCError
 
 from eth_defi.erc_4626.deposit_redeem import ERC4626DepositManager, ERC4626RedemptionRequest
-from eth_defi.vault.deposit_redeem import VaultFlowUnavailable
+from eth_defi.provider.anvil import fund_erc20_on_anvil, is_anvil
+from eth_defi.vault.deposit_redeem import UnsupportedVaultSimulation, VaultFlowUnavailable, VaultRedemptionSimulationIntervention
 
 if TYPE_CHECKING:
     from eth_defi.erc_4626.vault_protocol.forty_acres.vault import FortyAcresVault
@@ -103,6 +104,88 @@ class FortyAcresDepositManager(ERC4626DepositManager):
             return 0
 
         return min(owner_raw_shares, idle_raw_shares)
+
+    def prepare_redemption_simulation(
+        self,
+        owner: HexAddress,
+        raw_shares: int,
+        failure: VaultFlowUnavailable,
+    ) -> VaultRedemptionSimulationIntervention:
+        """Provision Pharaoh's exact missing direct-USDC payout on Anvil.
+
+        Pharaoh's verified redemption transfers USDC from the vault itself.
+        When its address-scoped preflight proves that the direct balance is the
+        only blocker, this helper writes only the missing payout amount to the
+        forked USDC balance.  It does not modify the loan contract, share
+        accounting, admission conditions, or the redemption amount; the caller
+        must retry the unchanged real ``redeem()`` transaction afterwards.
+
+        :param owner:
+            Redemption owner retained for the common manager interface.
+        :param raw_shares:
+            Exact raw share quantity that the retry will redeem.
+        :param failure:
+            Typed direct-liquidity preflight failure.
+        :return:
+            Structured evidence describing the fork-only USDC injection.
+        :raise UnsupportedVaultSimulation:
+            If this is not an Anvil fork or the failure is not Pharaoh's proven
+            direct-liquidity condition.
+        """
+        if not is_anvil(self.web3):
+            raise UnsupportedVaultSimulation(
+                "Pharaoh redemption liquidity injection requires Anvil",
+                unsupported_reason="anvil_provider_required",
+                protocol=self.vault.get_protocol_name(),
+                vault_address=self.vault.address,
+                direction="redeem",
+            )
+        if failure.preflight_result != "redemption_capacity_limited" or failure.decoded_error != FORTY_ACRES_INSUFFICIENT_LIQUIDITY_ERROR:
+            raise UnsupportedVaultSimulation(
+                "Pharaoh liquidity injection requires its direct-USDC capacity preflight",
+                unsupported_reason="redemption_failure_not_direct_liquidity",
+                protocol=self.vault.get_protocol_name(),
+                vault_address=self.vault.address,
+                direction="redeem",
+            )
+
+        token = self.vault.denomination_token
+        injected_raw = 0
+        for _attempt in range(4):
+            required_raw = int(self.vault.vault_contract.functions.previewRedeem(raw_shares).call())
+            available_raw = token.fetch_raw_balance_of(self.vault.address)
+            if self.fetch_redeemable_raw_shares(owner) >= raw_shares:
+                break
+            # ERC-4626's asset/share conversions can leave one or more native
+            # units below the requested share amount even when previewRedeem()
+            # matches the direct balance. Add the smallest unit and re-read.
+            top_up_raw = max(required_raw - available_raw, 1)
+            fund_erc20_on_anvil(self.web3, token.address, self.vault.address, available_raw + top_up_raw)
+            injected_raw += top_up_raw
+        else:
+            raise UnsupportedVaultSimulation(
+                "Pharaoh redemption liquidity did not converge after provisioning",
+                unsupported_reason="pharaoh_redemption_liquidity_not_reproducible",
+                protocol=self.vault.get_protocol_name(),
+                vault_address=self.vault.address,
+                direction="redeem",
+            )
+        if injected_raw == 0:
+            raise UnsupportedVaultSimulation(
+                "Pharaoh redemption preflight failed despite sufficient direct USDC",
+                unsupported_reason="redemption_failure_not_balance_shortfall",
+                protocol=self.vault.get_protocol_name(),
+                vault_address=self.vault.address,
+                direction="redeem",
+            )
+        return VaultRedemptionSimulationIntervention(
+            kind="liquidity_injected",
+            token=token.address,
+            target=self.vault.address,
+            raw_amount=injected_raw,
+            original_reason=failure.reason,
+            original_preflight_result=failure.preflight_result,
+        )
 
     def create_redemption_request(
         self,
