@@ -214,7 +214,7 @@ def test_curator_brandmarks_are_visible_on_dark_background() -> None:
 
 
 def test_identify_wstgbp_as_protocol_curated() -> None:
-    """wstGBP has no third-party curator."""
+    """wstGBP is curated by its protocol operator, Wren Spire."""
 
     slug = identify_curator(
         chain_id=1,
@@ -227,6 +227,22 @@ def test_identify_wstgbp_as_protocol_curated() -> None:
     assert slug == "wstgbp"
     assert is_protocol_curator(slug)
     assert get_curator_name(slug) == "wstGBP"
+
+
+def test_wstgbp_protocol_curator_metadata_uses_official_feed() -> None:
+    """Keep Wren's curator details separate from the tGBP issuer's feeds."""
+
+    metadata = build_curator_metadata_json(
+        Path("eth_defi/data/feeds/curators/wstgbp.yaml"),
+        public_url="https://example.com",
+    )
+
+    assert metadata["protocol_curator"] is True
+    assert metadata["canonical_feeder_id"] == "wstgbp"
+    assert metadata["website"] == "https://wstgbp.com"
+    assert metadata["twitter"] == "https://x.com/wstgbp"
+    assert "BCP Technologies" in metadata["long_description"]
+    assert metadata["logos"]["generic"] == "https://example.com/curator-metadata/wstgbp/generic.png"
 
 
 def test_identify_felix_vault() -> None:
