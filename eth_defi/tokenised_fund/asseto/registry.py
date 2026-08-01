@@ -13,6 +13,7 @@ from pathlib import Path
 
 from eth_typing import HexAddress
 from web3 import Web3
+from web3.exceptions import Web3Exception
 
 from eth_defi.compat import native_datetime_utc_now
 from eth_defi.erc_4626.core import ERC4262VaultDetection, ERC4626Feature
@@ -31,11 +32,25 @@ logger = logging.getLogger(__name__)
 
 @dataclass(frozen=True, slots=True)
 class AssetoRegistryRefreshResult:
-    """Summary of runtime registry preparation for one scanner invocation."""
+    """Summary of runtime registry preparation for one scanner invocation.
 
+    :ivar status:
+        Registry source status, either ``fresh`` or ``stale``.
+    :ivar runtime_product_count:
+        Number of products installed for adapter construction.
+    :ivar registered_product_count:
+        Number of newly persisted vault metadata records.
+    :ivar diagnostics:
+        Non-fatal skipped-product and stale-source diagnostics.
+    """
+
+    #: Registry source status, either ``fresh`` or ``stale``.
     status: str
+    #: Number of products installed for adapter construction.
     runtime_product_count: int
+    #: Number of newly persisted vault metadata records.
     registered_product_count: int
+    #: Non-fatal skipped-product and stale-source diagnostics.
     diagnostics: tuple[str, ...]
 
 
@@ -103,7 +118,7 @@ def _create_detection(product: AssetoProduct) -> ERC4262VaultDetection:
     )
 
 
-def prepare_asseto_registry(  # noqa: PLR0914 - explicit product registration state keeps database writes auditable.
+def fetch_asseto_registry_preparation(  # noqa: PLR0914 - explicit product registration state keeps database writes auditable.
     *,
     vault_db_path: Path,
     enabled_chain_ids: frozenset[int],
@@ -129,7 +144,7 @@ def prepare_asseto_registry(  # noqa: PLR0914 - explicit product registration st
         Preparation outcome and non-fatal product diagnostics.
     """
 
-    registry = fetch_asseto_registry(cache_path=cache_path, force_refresh=True)
+    registry = fetch_asseto_registry(cache_path=cache_path)
     if not registry.is_usable:
         raise RuntimeError(f"Asseto registry is unavailable: {registry.diagnostics}")
     vault_db = VaultDatabase.read(vault_db_path) if vault_db_path.exists() else VaultDatabase()
@@ -171,7 +186,7 @@ def prepare_asseto_registry(  # noqa: PLR0914 - explicit product registration st
                 # so register this one product before its first metadata read.
                 install_asseto_runtime_products([runtime_product])
                 row = create_vault_scan_record(web3, detection=_create_detection(runtime_product), block_identifier=end_block, token_cache=token_cache)
-            except (OSError, ValueError, RuntimeError) as exc:
+            except (OSError, ValueError, RuntimeError, Web3Exception) as exc:
                 diagnostics.append(f"could not register {offchain_product.contract_address}: {exc}")
                 logger.warning("Could not register Asseto product %s: %s", offchain_product.contract_address, exc)
                 continue

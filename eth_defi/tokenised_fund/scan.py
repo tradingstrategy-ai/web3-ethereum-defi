@@ -27,7 +27,7 @@ from eth_defi.provider.multi_provider import MultiProviderWeb3Factory, create_mu
 from eth_defi.provider.rpcdb import RPCRequestStats
 from eth_defi.token import TokenDiskCache
 from eth_defi.tokenised_fund.asseto.offchain_metadata import DEFAULT_ASSETO_REGISTRY_CACHE_PATH
-from eth_defi.tokenised_fund.asseto.registry import prepare_asseto_registry
+from eth_defi.tokenised_fund.asseto.registry import fetch_asseto_registry_preparation
 from eth_defi.tokenised_fund.libeara.constants import LIBEARA_PRODUCTS
 from eth_defi.tokenised_fund.securitize.backfill import has_historical_price
 from eth_defi.tokenised_fund.securitize.description import SECURITIZE_PRODUCTS
@@ -382,7 +382,7 @@ def run_tokenised_fund_price_scan(  # noqa: PLR0914 - explicit production resour
 
     registry_diagnostics: list[str] = []
     if spec.selector == "asseto":
-        registry_result = prepare_asseto_registry(
+        registry_result = fetch_asseto_registry_preparation(
             vault_db_path=context.vault_db_path,
             enabled_chain_ids=context.enabled_chain_ids,
             cache_path=context.asseto_registry_cache_path or DEFAULT_ASSETO_REGISTRY_CACHE_PATH,

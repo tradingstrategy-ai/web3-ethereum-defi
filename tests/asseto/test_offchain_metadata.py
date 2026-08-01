@@ -97,7 +97,7 @@ def test_asseto_runtime_registry_rebuilds_existing_adapter_without_metadata_writ
     previous = ASSETO_PRODUCTS.get(key)
     previous_by_token = ASSETO_PRODUCTS_BY_TOKEN.get(product.contract_address)
     try:
-        result = registry.prepare_asseto_registry(vault_db_path=vault_db_path, enabled_chain_ids=frozenset({1}), cache_path=tmp_path / "registry.json")
+        result = registry.fetch_asseto_registry_preparation(vault_db_path=vault_db_path, enabled_chain_ids=frozenset({1}), cache_path=tmp_path / "registry.json")
 
         assert result.status == "stale"
         assert result.runtime_product_count == 1
@@ -132,7 +132,7 @@ def test_fresh_asseto_registry_updates_existing_description(tmp_path: Path, monk
     previous = ASSETO_PRODUCTS.get(key)
     previous_by_token = ASSETO_PRODUCTS_BY_TOKEN.get(product.contract_address)
     try:
-        registry.prepare_asseto_registry(vault_db_path=vault_db_path, enabled_chain_ids=frozenset({1}), cache_path=tmp_path / "registry.json")
+        registry.fetch_asseto_registry_preparation(vault_db_path=vault_db_path, enabled_chain_ids=frozenset({1}), cache_path=tmp_path / "registry.json")
 
         assert VaultDatabase.read(vault_db_path).rows[spec]["Description"] == "Asseto supplied description"
     finally:

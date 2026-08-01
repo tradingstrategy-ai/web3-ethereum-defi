@@ -289,7 +289,7 @@ def test_asseto_scheduled_scan_prepares_registry_before_reading_metadata(tmp_pat
     VaultDatabase().write(vault_db_path)
     calls = []
     monkeypatch.setattr(
-        "eth_defi.tokenised_fund.scan.prepare_asseto_registry",
+        "eth_defi.tokenised_fund.scan.fetch_asseto_registry_preparation",
         lambda **kwargs: calls.append(kwargs) or AssetoRegistryRefreshResult("stale", 1, 0, ("offline",)),
     )
 

@@ -36,7 +36,7 @@ ASSETO_REGISTRY_CACHE_VERSION = 1
 #: Longest safe age for a cached registry used to construct existing adapters.
 DEFAULT_MAX_STALE_AGE = datetime.timedelta(days=7)
 
-AssetoRegistryStatus = Literal["fresh", "stale", "not_found", "transient_error"]
+AssetoRegistryStatus = Literal["fresh", "stale", "transient_error"]
 
 
 @dataclass(frozen=True, slots=True)
@@ -145,21 +145,18 @@ def _write_cache(cache_path: Path, products: tuple[AssetoOffchainProduct, ...], 
 def fetch_asseto_registry(
     *,
     cache_path: Path = DEFAULT_ASSETO_REGISTRY_CACHE_PATH,
-    force_refresh: bool = True,
     now_: datetime.datetime | None = None,
     max_stale_age: datetime.timedelta = DEFAULT_MAX_STALE_AGE,
 ) -> AssetoOffchainRegistryResult:
     """Fetch Asseto's registry with a safe persisted stale fallback.
 
-    A due scanner cycle passes ``force_refresh=True`` so the daily scheduler
-    always attempts one request.  A malformed, empty or duplicate snapshot
-    cannot replace an existing cache.  On failure, the cache can only rebuild
-    existing adapters and callers must not use it for metadata writes.
+    The daily scheduler always calls this helper once per due Asseto item. A
+    malformed, empty or duplicate snapshot cannot replace an existing cache.
+    On failure, the cache can only rebuild existing adapters and callers must
+    not use it for metadata writes.
 
     :param cache_path:
         JSON cache path. Override in tests or isolated operator runs.
-    :param force_refresh:
-        Whether to make one immediate registry request.
     :param now_:
         Naive UTC timestamp override for deterministic tests.
     :param max_stale_age:
@@ -182,9 +179,6 @@ def fetch_asseto_registry(
             except (OSError, ValueError, json.JSONDecodeError) as exc:
                 cache_error = exc
                 logger.error("Asseto registry cache %s is corrupt: %s", cache_path, exc, exc_info=True)
-
-        if not force_refresh and cached_products is not None:
-            return AssetoOffchainRegistryResult("stale", cached_products, cached_at, "cache reuse requested")
 
         try:
             products = tuple(fetch_asseto_products())
