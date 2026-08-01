@@ -3,6 +3,7 @@
 # ruff: noqa: ARG005, DTZ001, PLR2004
 
 import datetime
+import logging
 import threading
 import time
 from collections.abc import Iterator
@@ -10,20 +11,22 @@ from contextlib import nullcontext
 from pathlib import Path
 from unittest.mock import Mock
 
+import duckdb
 import pandas as pd
 import pytest
 from pytest import MonkeyPatch
 
 from eth_defi.apex.metrics import ApexMetricsDatabase, run_scan
 from eth_defi.apex.session import ApexAPIError, create_apex_session_pool
-from eth_defi.apex.vault import ApexHistoryPoint, ApexVaultSummary
+from eth_defi.apex.vault import ApexHistoryPoint, ApexVaultConfiguration, ApexVaultSummary
 
 
 def _session_pool_mock() -> Mock:
     """Create a pool double with an open exclusive scan scope."""
     session_pool = Mock()
     session_pool.scan_scope.return_value = nullcontext()
-    session_pool.history_worker_scope.return_value = nullcontext()
+    session_pool.worker_scope.return_value = nullcontext()
+    session_pool.fetch_json.side_effect = lambda _path, *, validator, **_kwargs: validator({"data": {"vaultConfig": {"freezePurchaseShareDuration": "86400000"}}})
     return session_pool
 
 
@@ -80,6 +83,52 @@ def test_schema_has_no_art_constraints(database: ApexMetricsDatabase) -> None:
     assert value in {"1.0 TiB", "931.3 GiB"}
 
 
+def test_existing_metadata_schema_migrates_redemption_delay(tmp_path: Path) -> None:
+    """Append the new metadata field without relying on physical column order."""
+    path = tmp_path / "pre-redemption-delay.duckdb"
+    con = duckdb.connect(str(path))
+    try:
+        con.execute("""
+            CREATE TABLE vault_metadata (
+                vault_id VARCHAR NOT NULL,
+                synthetic_address VARCHAR NOT NULL,
+                reported_ethereum_address VARCHAR,
+                name VARCHAR NOT NULL,
+                description VARCHAR,
+                status VARCHAR NOT NULL,
+                vault_type VARCHAR,
+                created_at TIMESTAMP,
+                source_updated_at TIMESTAMP,
+                finished_at TIMESTAMP,
+                max_amount DOUBLE,
+                purchase_fee_rate_raw VARCHAR,
+                share_profit_ratio_raw VARCHAR,
+                current_nav DOUBLE,
+                current_tvl DOUBLE,
+                current_share_count DOUBLE,
+                first_seen TIMESTAMP NOT NULL,
+                last_seen TIMESTAMP NOT NULL,
+                missing_since TIMESTAMP
+            )
+        """)
+    finally:
+        con.close()
+
+    database = ApexMetricsDatabase(path)
+    try:
+        database.apply_ranking(
+            (_vault("1"),),
+            datetime.datetime(2026, 7, 23, 12),
+            manage_disappearance=True,
+            redemption_delays={"1": datetime.timedelta(days=1)},
+        )
+        metadata = database.get_vault_metadata().set_index("vault_id")
+        assert metadata.loc["1", "current_nav"] == pytest.approx(1)
+        assert metadata.loc["1", "redemption_delay"] == datetime.timedelta(days=1)
+    finally:
+        database.close()
+
+
 def test_shared_ethereum_address_does_not_merge_vaults(database: ApexMetricsDatabase) -> None:
     """Key vaults by platform ID instead of their shared Ethereum metadata."""
     observed_at = datetime.datetime(2026, 7, 23, 12)
@@ -89,6 +138,24 @@ def test_shared_ethereum_address_does_not_merge_vaults(database: ApexMetricsData
     assert metadata["reported_ethereum_address"].nunique() == 1
     assert metadata["synthetic_address"].nunique() == 2
     assert len(database.get_vault_prices()) == 2
+
+
+def test_redemption_delay_is_persisted_and_retained_after_configuration_error(database: ApexMetricsDatabase) -> None:
+    """Keep the last verified public delay if a later config request fails."""
+    observed_at = datetime.datetime(2026, 7, 23, 12)
+    database.apply_ranking(
+        (_vault("1"),),
+        observed_at,
+        manage_disappearance=True,
+        redemption_delays={"1": datetime.timedelta(days=1)},
+    )
+    database.apply_ranking(
+        (_vault("1"),),
+        observed_at + datetime.timedelta(hours=4),
+        manage_disappearance=True,
+    )
+    metadata = database.get_vault_metadata().set_index("vault_id")
+    assert metadata.loc["1", "redemption_delay"] == datetime.timedelta(days=1)
 
 
 def test_history_is_append_and_correct_and_precedes_ranking(database: ApexMetricsDatabase) -> None:
@@ -277,6 +344,20 @@ def test_unchanged_terminal_ranking_is_suppressed(database: ApexMetricsDatabase)
     assert len(database.get_vault_prices("1")) == 1
 
 
+def test_terminal_vault_with_verified_delay_skips_configuration_refresh(database: ApexMetricsDatabase) -> None:
+    """Keep a terminal vault's verified delay without another API request."""
+    observed_at = datetime.datetime(2026, 7, 23, 12)
+    terminal_vault = _vault("1", status="VAULT_FINISHED")
+    database.apply_ranking(
+        (terminal_vault,),
+        observed_at,
+        manage_disappearance=True,
+        redemption_delays={"1": datetime.timedelta(days=1)},
+    )
+    assert database.select_configuration_candidates((terminal_vault,)) == ()
+    assert database.select_configuration_candidates((_vault("2"),)) == ("2",)
+
+
 def test_run_scan_validates_target_before_mutation(database: ApexMetricsDatabase, monkeypatch: MonkeyPatch) -> None:
     """Reject missing target IDs before any database mutation."""
     monkeypatch.setattr("eth_defi.apex.metrics.fetch_stabilised_vaults", lambda *args, **kwargs: (_vault("1"),))
@@ -321,14 +402,48 @@ def test_run_scan_records_each_nonterminal_invocation(database: ApexMetricsDatab
     assert len(database.get_vault_prices("1")) == 2
 
 
-def test_run_scan_closes_history_worker_sessions_each_cycle(database: ApexMetricsDatabase, monkeypatch: MonkeyPatch) -> None:
-    """Release completed joblib worker sessions after every scan cycle."""
+def test_run_scan_ingests_public_redemption_delay(database: ApexMetricsDatabase, monkeypatch: MonkeyPatch) -> None:
+    """Store the exact configuration delay alongside a ranking observation."""
+    monkeypatch.setattr("eth_defi.apex.metrics.fetch_stabilised_vaults", lambda *args, **kwargs: (_vault("1"),))
+    monkeypatch.setattr(
+        "eth_defi.apex.metrics.fetch_vault_configuration",
+        lambda *_args, **_kwargs: ApexVaultConfiguration(datetime.timedelta(days=1)),
+    )
+    run_scan(_session_pool_mock(), database, history_mode="none")
+    metadata = database.get_vault_metadata().set_index("vault_id")
+    assert metadata.loc["1", "redemption_delay"] == datetime.timedelta(days=1)
+
+
+def test_run_scan_retains_delay_after_configuration_error(database: ApexMetricsDatabase, monkeypatch: MonkeyPatch, caplog: pytest.LogCaptureFixture) -> None:
+    """Retain verified data when the next public configuration read fails."""
+    monkeypatch.setattr("eth_defi.apex.metrics.fetch_stabilised_vaults", lambda *args, **kwargs: (_vault("1"),))
+    configuration_calls = 0
+
+    def fetch_configuration(*_args: object, **_kwargs: object) -> ApexVaultConfiguration:
+        nonlocal configuration_calls
+        configuration_calls += 1
+        if configuration_calls == 2:
+            message = "configuration unavailable"
+            raise ApexAPIError(message)
+        return ApexVaultConfiguration(datetime.timedelta(days=1))
+
+    monkeypatch.setattr("eth_defi.apex.metrics.fetch_vault_configuration", fetch_configuration)
+    run_scan(_session_pool_mock(), database, history_mode="none")
+    with caplog.at_level(logging.WARNING, logger="eth_defi.apex.metrics"):
+        run_scan(_session_pool_mock(), database, history_mode="none")
+    metadata = database.get_vault_metadata().set_index("vault_id")
+    assert metadata.loc["1", "redemption_delay"] == datetime.timedelta(days=1)
+    assert "Could not fetch ApeX redemption delay for 1: configuration unavailable" in caplog.messages
+
+
+def test_run_scan_closes_worker_sessions_after_each_fetch_phase(database: ApexMetricsDatabase, monkeypatch: MonkeyPatch) -> None:
+    """Release completed joblib worker sessions after every fetch phase."""
     session_pool = _session_pool_mock()
     monkeypatch.setattr("eth_defi.apex.metrics.fetch_stabilised_vaults", lambda *args, **kwargs: (_vault("1"),))
     monkeypatch.setattr("eth_defi.apex.metrics.fetch_vault_history", lambda *args, **kwargs: ())
     run_scan(session_pool, database, history_mode="refresh", max_workers=2)
     run_scan(session_pool, database, history_mode="refresh", max_workers=2)
-    assert session_pool.close_worker_sessions.call_count == 2
+    assert session_pool.close_worker_sessions.call_count == 4
 
 
 def test_run_scan_waits_for_workers_before_exception_cleanup(database: ApexMetricsDatabase, monkeypatch: MonkeyPatch) -> None:
@@ -349,6 +464,10 @@ def test_run_scan_waits_for_workers_before_exception_cleanup(database: ApexMetri
 
     session_pool = create_apex_session_pool(requests_per_second=1000, pool_maxsize=2, retries=0)
     monkeypatch.setattr("eth_defi.apex.metrics.fetch_stabilised_vaults", lambda *args, **kwargs: (_vault("1"), _vault("2")))
+    monkeypatch.setattr(
+        "eth_defi.apex.metrics.fetch_vault_configuration",
+        lambda *_args, **_kwargs: ApexVaultConfiguration(datetime.timedelta(days=1)),
+    )
     monkeypatch.setattr("eth_defi.apex.metrics.fetch_vault_history", fetch_history)
     try:
         with pytest.raises(RuntimeError, match="injected worker failure"):

@@ -5,6 +5,8 @@ The public endpoints are:
 - `Vault ranking <https://omni.apex.exchange/api/v3/vault/ranking>`__
 - `Vault fund net values
   <https://omni.apex.exchange/api/v3/vault/fund-net-values>`__
+- `Vault configuration
+  <https://omni.apex.exchange/api/v3/vault/vault-config>`__
 
 The history endpoint was verified on 2026-07-23 to return one unpaginated
 ``data.timeValue`` array with no completeness token or range parameters.
@@ -172,6 +174,36 @@ class ApexVaultSummary:
 
 
 @dataclass(slots=True, frozen=True)
+class ApexVaultConfiguration:
+    """Redemption configuration returned for one ApeX vault.
+
+    ApeX calls the period during which a freshly subscribed share cannot be
+    redeemed ``freezePurchaseShareDuration``. It is a per-vault configuration
+    value, distinct from a user's pending redemption order. It is not a
+    generic liquidity-provider-vault lockup: ApeX's `Protocol Vault
+    announcement <https://www.apex.exchange/blog/detail/Introducing-Protocol-Vaults-on-ApeX-Omni-Stable-Returns-Backed-by-Real-Fees>`__
+    states that Protocol Vaults have no lock-up, while its `Omni Litepaper
+    <https://www.apex.exchange/blog/detail/ApeX-Omni-Litepaper>`__ names
+    Community Vaults as liquidity pools without defining a separate lockup.
+    Therefore the public configuration endpoint is the canonical source for
+    each individual vault's delay.
+    """
+
+    #: Time between subscription and the earliest permitted redemption.
+    #:
+    #: Source: `ApeX vault configuration endpoint
+    #: <https://omni.apex.exchange/api/v3/vault/vault-config>`__ response
+    #: field ``data.vaultConfig.freezePurchaseShareDuration``, in
+    #: milliseconds. Verified against the live ApeX application API on
+    #: 2026-08-01.
+    #:
+    #: The official Protocol Vault announcement says that product has no
+    #: lock-up. Do not infer an LP-vault-specific delay from ``vault_type``;
+    #: use this per-vault source field when it is present.
+    redemption_delay: datetime.timedelta
+
+
+@dataclass(slots=True, frozen=True)
 class ApexHistoryPoint:
     """One native ApeX historical vault value."""
 
@@ -262,6 +294,60 @@ def parse_ranking_page(payload: object) -> ApexRankingPage:
     if not isinstance(total_size, int) or isinstance(total_size, bool) or total_size < 0:
         raise ApexAPIError("ApeX ranking data.totalSize must be a non-negative integer")
     return ApexRankingPage(total_size=total_size, vaults=tuple(parse_vault_summary(item) for item in vault_list))
+
+
+def _parse_millisecond_duration(value: object, field_name: str) -> datetime.timedelta:
+    """Parse an ApeX non-negative integer millisecond duration.
+
+    ApeX serialises ``freezePurchaseShareDuration`` as a JSON string. A zero
+    duration is valid and means that subscriptions have no redemption delay.
+
+    :param value:
+        Untrusted source duration.
+    :param field_name:
+        Source field name for diagnostics.
+    :return:
+        Exact duration represented by the source milliseconds.
+    """
+    if isinstance(value, bool):
+        raise ApexAPIError(f"ApeX field {field_name} is not an integer millisecond duration: {value!r}")
+    if isinstance(value, float) and not value.is_integer():
+        raise ApexAPIError(f"ApeX field {field_name} is not an integer millisecond duration: {value!r}")
+    try:
+        milliseconds = int(value)
+    except (TypeError, ValueError, OverflowError) as exc:
+        raise ApexAPIError(f"ApeX field {field_name} is not an integer millisecond duration: {value!r}") from exc
+    if milliseconds < 0:
+        raise ApexAPIError(f"ApeX field {field_name} is negative: {value!r}")
+    try:
+        return datetime.timedelta(milliseconds=milliseconds)
+    except OverflowError as exc:
+        raise ApexAPIError(f"ApeX field {field_name} is outside the supported duration range: {value!r}") from exc
+
+
+def parse_vault_configuration(payload: object) -> ApexVaultConfiguration:
+    """Parse the public configuration for one vault's redemption delay.
+
+    The public ``vault/vault-config`` endpoint gives the exact lock period in
+    milliseconds. ApeX's application describes shares as non-redeemable until
+    this period after subscription has elapsed. This is not a generic
+    liquidity-provider-vault rule: ApeX's `Protocol Vault announcement
+    <https://www.apex.exchange/blog/detail/Introducing-Protocol-Vaults-on-ApeX-Omni-Stable-Returns-Backed-by-Real-Fees>`__
+    says its Protocol Vaults have no lock-up.
+
+    :param payload:
+        Decoded vault-configuration response.
+    :return:
+        Typed redemption-delay configuration.
+    """
+    data = _parse_envelope(payload)
+    config = data.get("vaultConfig")
+    if not isinstance(config, dict):
+        raise ApexAPIError("ApeX vault configuration data.vaultConfig must be an object")
+    # Read the canonical per-vault API field; never infer a delay from vault type.
+    return ApexVaultConfiguration(
+        redemption_delay=_parse_millisecond_duration(config.get("freezePurchaseShareDuration"), "freezePurchaseShareDuration"),
+    )
 
 
 def parse_history(payload: object) -> tuple[ApexHistoryPoint, ...]:
@@ -443,4 +529,37 @@ def fetch_vault_history(
         params={"vaultId": vault_id},
         operation_deadline=time.monotonic() + operation_timeout,
         validator=parse_history,
+    )
+
+
+def fetch_vault_configuration(
+    session_pool: ApexSessionPool,
+    vault_id: str,
+    *,
+    operation_timeout: float = APEX_DEFAULT_HISTORY_DEADLINE,
+) -> ApexVaultConfiguration:
+    """Fetch one vault's public subscription redemption delay.
+
+    The configuration endpoint is public but undocumented in ApeX's OpenAPI
+    specification. It contains the precise per-vault subscription freeze
+    duration in milliseconds.
+
+    :param session_pool:
+        Configured bounded ApeX session pool.
+    :param vault_id:
+        Non-empty ApeX platform vault ID.
+    :param operation_timeout:
+        Monotonic operation budget shared by all HTTP attempts.
+    :return:
+        Parsed public vault configuration.
+    """
+    if not vault_id:
+        raise ValueError("ApeX vault ID is required")
+    if operation_timeout <= 0:
+        raise ValueError("ApeX vault configuration timeout must be positive")
+    return session_pool.fetch_json(
+        "vault/vault-config",
+        params={"vaultId": vault_id},
+        operation_deadline=time.monotonic() + operation_timeout,
+        validator=parse_vault_configuration,
     )

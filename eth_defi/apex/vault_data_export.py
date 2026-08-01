@@ -35,6 +35,7 @@ def create_apex_vault_row(
     created_at: datetime.datetime | None,
     first_seen: datetime.datetime,
     status: str,
+    redemption_delay: datetime.timedelta | None = None,
 ) -> tuple[VaultSpec, VaultRow]:
     """Create one synthetic shared-pipeline row for an ApeX native vault.
 
@@ -58,6 +59,8 @@ def create_apex_vault_row(
         Reader first-observation timestamp as naive UTC.
     :param status:
         Raw ApeX lifecycle status.
+    :param redemption_delay:
+        Time after a subscription before its shares are redeemable.
     :return:
         Synthetic vault specification and metadata row.
     """
@@ -104,7 +107,7 @@ def create_apex_vault_row(
         "_share_token": None,
         "_fees": fees,
         "_flags": {VaultFlag.perp_dex_trading_vault},
-        "_lockup": None,
+        "_lockup": redemption_delay,
         "_description": description,
         "_short_description": None,
         "_manager_name": None,
@@ -186,6 +189,8 @@ def merge_into_vault_database(
         share_count = record["current_share_count"]
         created_at = record["created_at"]
         description = record["description"]
+        raw_redemption_delay = record["redemption_delay"]
+        redemption_delay = None if pd.isna(raw_redemption_delay) else pd.Timedelta(raw_redemption_delay).to_pytimedelta()
         spec, vault_row = create_apex_vault_row(
             vault_id=str(record["vault_id"]),
             name=str(record["name"] or ""),
@@ -195,6 +200,7 @@ def merge_into_vault_database(
             created_at=None if pd.isna(created_at) else created_at,
             first_seen=record["first_seen"],
             status=str(record["status"]),
+            redemption_delay=redemption_delay,
         )
         if spec in vault_db.rows:
             updated += 1

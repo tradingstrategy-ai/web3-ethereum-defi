@@ -64,6 +64,7 @@ def test_apex_synthetic_identity_is_a_shared_vault_spec() -> None:
         created_at=vault.created_at,
         first_seen=datetime.datetime(2026, 7, 23, 12),
         status=vault.status,
+        redemption_delay=datetime.timedelta(days=1),
     )
 
     assert is_good_multichain_address(vault.synthetic_address)
@@ -71,6 +72,7 @@ def test_apex_synthetic_identity_is_a_shared_vault_spec() -> None:
     assert row["Protocol"] == "ApeX"
     assert row["_fees"].fee_mode is None
     assert row["Perf fee"] is None
+    assert row["_lockup"] == datetime.timedelta(days=1)
     assert get_vault_protocol_name({ERC4626Feature.apex_native}) == "ApeX"
 
 
@@ -91,7 +93,12 @@ def test_apex_duckdb_exports_metadata_and_exact_timestamp_prices(tmp_path: Path)
 
     try:
         vault = _vault()
-        database.apply_ranking((vault,), observed_at, manage_disappearance=True)
+        database.apply_ranking(
+            (vault,),
+            observed_at,
+            manage_disappearance=True,
+            redemption_delays={vault.vault_id: datetime.timedelta(days=1)},
+        )
         database.apply_history_success(
             vault.vault_id,
             (ApexHistoryPoint(timestamp=history_at, net_value=1.2, total_value=120.0),),
@@ -112,4 +119,5 @@ def test_apex_duckdb_exports_metadata_and_exact_timestamp_prices(tmp_path: Path)
     assert existing_spec in merged.rows
     assert apex_spec in merged.rows
     assert merged.rows[apex_spec]["NAV"] == EXPECTED_TVL
+    assert merged.rows[apex_spec]["_lockup"] == datetime.timedelta(days=1)
     assert set(merged_again.rows) == {existing_spec, apex_spec}

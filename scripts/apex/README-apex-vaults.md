@@ -10,12 +10,15 @@ See the package-level
 identity model, endpoint fields, lifecycle policy and DuckDB schema. This
 document focuses on operating the standalone command.
 
-The command uses two public endpoints:
+The command uses three public endpoints:
 
 - [Vault ranking](https://omni.apex.exchange/api/v3/vault/ranking) supplies the
   complete paginated vault list and current NAV, TVL and share count.
 - [Fund net values](https://omni.apex.exchange/api/v3/vault/fund-net-values)
   supplies the historical NAV and total-value points retained by ApeX.
+- [Vault configuration](https://omni.apex.exchange/api/v3/vault/vault-config)
+  supplies each vault's exact subscription freeze duration, exported as the
+  redemption delay in shared vault metadata.
 
 No API key is required.
 
@@ -152,8 +155,8 @@ fresh rows still correct existing values at the same logical key.
 - `REQUEST_DEADLINE`: monotonic request-attempt budget. Defaults to `60`.
 - `RANKING_DEADLINE`: operation budget shared by both ranking passes. Defaults
   to `300`.
-- `HISTORY_DEADLINE`: operation budget shared by all attempts for one vault. Defaults
-  to `120`.
+- `HISTORY_DEADLINE`: operation budget shared by all history or configuration
+  attempts for one vault. Defaults to `120`.
 - `MAX_RETRY_DELAY`: longest retry or `Retry-After` wait. Defaults to `10`.
 - `MAX_RESPONSE_BYTES`: largest accepted JSON response. Defaults to `16777216`.
 - `HISTORY_MODE`: `incremental`, `refresh` or `none`. Defaults to
@@ -166,7 +169,8 @@ Duration examples include `30s`, `30m`, `1.5h` and `2d`.
 
 ## Database tables
 
-- `vault_metadata` stores one logical row per ApeX platform vault ID.
+- `vault_metadata` stores one logical row per ApeX platform vault ID, including
+  its public subscription redemption delay.
 - `vault_prices` stores actual historical and ranking timestamps.
 - `history_sync` stores attempts, recoverable response bounds, retained
   canonical bounds and terminal/disappearance lifecycle state.
