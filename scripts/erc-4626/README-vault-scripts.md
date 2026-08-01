@@ -262,6 +262,7 @@ poetry run python scripts/erc-4626/scan-vaults-all-chains.py
 | `SCAN_LIGHTER` | Optional. Enable native pool scanning for both Lighter Ethereum and Lighter Robinhood. Default: false. |
 | `SCAN_HIBACHI` | Optional. Enable Hibachi native vault scanning. Default: false. |
 | `SCAN_APEX` | Optional. Enable ApeX native vault scanning and due history maintenance. Default: false. |
+
 | `SCAN_VAULT_SETTLEMENTS` | Optional. Scan Lagoon and D2 settlement events during each successful EVM chain cycle. Default: true. The scan fills `vault-settlements.duckdb` before price cleaning; `vault_settlement_at` is then merged into the cleaned price frame during cleaning. Set to `false` only for debugging runs where new settlement event reads are deliberately skipped. Settlement scan failures are logged and shown in the dashboard without aborting the rest of the scanner cycle. |
 | `VAULT_SETTLEMENT_START_BLOCK` | Optional. Inclusive settlement scan start block for forced backfills. Normally unset so scans continue incrementally from `vault-settlements.duckdb`. |
 | `VAULT_SETTLEMENT_END_BLOCK` | Optional. Inclusive settlement scan end block for forced backfills. Normally unset so scans continue up to the just-completed chain scan end block. |
@@ -311,9 +312,28 @@ original publication time of an oracle or issuer observation. Securitize is
 therefore the recurring owner of BCAP and fills its missing sampled history as
 far back as its reviewed source permits.
 
+### Asseto registry refresh
+
+The daily `Asseto` tokenised-fund row refreshes Asseto's public product registry
+before it creates any Asseto adapter. The validated registry cache survives a
+scanner restart at `~/.tradingstrategy/cache/asseto/registry-cache.json`; a
+temporary upstream failure may rebuild known adapters from that cache but cannot
+write stale metadata or introduce a new product. See
+[`README-Asseto.md`](../../eth_defi/tokenised_fund/asseto/README-Asseto.md) for
+source precedence, daily history, stale-cache and repair behaviour.
+
 Dedicated tokenised-fund feeds retain one daily sample per selected block even
 when the NAV is unchanged. This is intentional: a stable share price is still
 a fresh observation and must advance the dashboard's `Last data` timestamp.
+
+#### check-asseto-registry.py
+
+Inspect the live Asseto registry and report products that the scheduled scanner
+can or cannot use. The command is read-only.
+
+```shell
+poetry run python scripts/erc-4626/check-asseto-registry.py
+```
 
 Both Lighter deployments use synthetic native-pool chain ID `9998`; their
 address prefixes distinguish price series. Lifetime-metrics export the

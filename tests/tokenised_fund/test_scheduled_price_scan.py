@@ -8,7 +8,9 @@ import pyarrow as pa
 import pyarrow.parquet as pq
 import pytest
 
+from eth_defi.erc_4626.core import ERC4626Feature
 from eth_defi.tokenised_fund import price_backfill
+from eth_defi.tokenised_fund.asseto.registry import AssetoRegistryRefreshResult
 from eth_defi.tokenised_fund.backfill import PROTOCOL_BACKFILLS
 from eth_defi.tokenised_fund.price_backfill import TokenisedFundPriceBackfillConfig, build_price_backfill_plan, parse_vault_addresses, run_price_backfill
 from eth_defi.tokenised_fund.scan import (
@@ -278,6 +280,66 @@ def test_missing_registered_targets_are_a_scheduled_noop(tmp_path: Path) -> None
     assert result.vault_count == 0
     assert result.price_rows == 0
     assert result.diagnostics == "no registered price-capable products"
+
+
+def test_asseto_scheduled_scan_prepares_registry_before_reading_metadata(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Rebuild the Asseto runtime registry before any adapter can be created."""
+
+    scanner = select_tokenised_fund_price_scanners("asseto")[0]
+    vault_db_path = tmp_path / "vaults.pickle"
+    VaultDatabase().write(vault_db_path)
+    calls = []
+    monkeypatch.setattr(
+        "eth_defi.tokenised_fund.scan.fetch_asseto_registry_preparation",
+        lambda **kwargs: calls.append(kwargs) or AssetoRegistryRefreshResult("stale", 1, 0, ("offline",)),
+    )
+
+    result = run_tokenised_fund_price_scan(
+        scanner,
+        TokenisedFundPriceScanContext(
+            vault_db_path=vault_db_path,
+            raw_price_path=tmp_path / "prices.parquet",
+            max_workers=1,
+            enabled_chain_ids=frozenset({1}),
+            asseto_registry_cache_path=tmp_path / "registry.json",
+        ),
+    )
+
+    assert calls == [{"vault_db_path": vault_db_path, "enabled_chain_ids": frozenset({1}), "cache_path": tmp_path / "registry.json"}]
+    assert "registry=stale" in (result.diagnostics or "")
+
+
+def test_asseto_scheduled_scan_skips_persisted_product_missing_from_runtime_registry(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """One delisted Asseto product does not abort the healthy protocol cycle."""
+
+    scanner = select_tokenised_fund_price_scanners("asseto")[0]
+    vault_db_path = tmp_path / "vaults.pickle"
+    spec = VaultSpec(1, "0x78e80da0616887b46a31f39310c2a8b0fbd6a42d")
+    detection = SimpleNamespace(
+        chain=1,
+        address=spec.vault_address,
+        first_seen_at_block=NEW_VAULT_FIRST_BLOCK,
+        first_seen_at=datetime.datetime(2026, 1, 1, tzinfo=datetime.UTC).replace(tzinfo=None),
+        features={ERC4626Feature.asseto_like},
+    )
+    VaultDatabase(rows={spec: {"_detection_data": detection}}).write(vault_db_path)
+    monkeypatch.setattr(
+        "eth_defi.tokenised_fund.scan.fetch_asseto_registry_preparation",
+        lambda **_kwargs: AssetoRegistryRefreshResult("fresh", 0, 0, ("Asseto no longer publishes the product",), frozenset()),
+    )
+
+    result = run_tokenised_fund_price_scan(
+        scanner,
+        TokenisedFundPriceScanContext(
+            vault_db_path=vault_db_path,
+            raw_price_path=tmp_path / "prices.parquet",
+            max_workers=1,
+            enabled_chain_ids=frozenset({1}),
+        ),
+    )
+
+    assert result.vault_count == 0
+    assert "no usable Asseto runtime registry product" in (result.diagnostics or "")
 
 
 def test_build_active_protocols_includes_selected_tokenised_fund_feeds() -> None:

@@ -107,9 +107,6 @@ ODA_FACT_HARDCODED_PROTOCOLS = {
 #: Midas hardcoded classification flags.
 MIDAS_HARDCODED_PROTOCOLS = {token: {ERC4626Feature.midas_like} for token in MIDAS_PRODUCTS_BY_TOKEN}
 
-#: Asseto tokenised fund products require chain-aware address matching.
-ASSETO_HARDCODED_PROTOCOLS = {token: {ERC4626Feature.asseto_like} for token in ASSETO_PRODUCTS_BY_TOKEN}
-
 #: Ondo issuer share tokens are chain-aware, non-ERC-4626 products whose NAV
 #: is published by separate issuer oracles.
 ONDO_HARDCODED_PROTOCOLS = {token: {ERC4626Feature.ondo_like} for token in ONDO_PRODUCTS_BY_TOKEN}
@@ -387,8 +384,8 @@ def _get_hardcoded_protocol_features(address: HexAddress | str, chain_id: int | 
                 return OPENEDEN_HARDCODED_PROTOCOLS[normalised_address]
             return None
         if (chain_id, normalised_address) in ASSETO_PRODUCTS:
-            return ASSETO_HARDCODED_PROTOCOLS[normalised_address]
-        if normalised_address in ASSETO_HARDCODED_PROTOCOLS:
+            return {ERC4626Feature.asseto_like}
+        if normalised_address in ASSETO_PRODUCTS_BY_TOKEN:
             return None
         if (chain_id, normalised_address) in ONDO_PRODUCTS:
             return ONDO_HARDCODED_PROTOCOLS[normalised_address]
@@ -2593,7 +2590,6 @@ def create_vault_instance_autodetect(
 HARDCODED_PROTOCOLS = {
     **ODA_FACT_HARDCODED_PROTOCOLS,
     **MIDAS_HARDCODED_PROTOCOLS,
-    **ASSETO_HARDCODED_PROTOCOLS,
     **ONDO_HARDCODED_PROTOCOLS,
     **USYC_HARDCODED_PROTOCOLS,
     **FRANKLIN_HARDCODED_PROTOCOLS,

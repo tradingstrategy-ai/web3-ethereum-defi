@@ -26,6 +26,8 @@ from eth_defi.provider.env import read_json_rpc_url
 from eth_defi.provider.multi_provider import MultiProviderWeb3Factory, create_multi_provider_web3
 from eth_defi.provider.rpcdb import RPCRequestStats
 from eth_defi.token import TokenDiskCache
+from eth_defi.tokenised_fund.asseto.offchain_metadata import DEFAULT_ASSETO_REGISTRY_CACHE_PATH
+from eth_defi.tokenised_fund.asseto.registry import fetch_asseto_registry_preparation
 from eth_defi.tokenised_fund.libeara.constants import LIBEARA_PRODUCTS
 from eth_defi.tokenised_fund.securitize.backfill import has_historical_price
 from eth_defi.tokenised_fund.securitize.description import SECURITIZE_PRODUCTS
@@ -102,6 +104,9 @@ class TokenisedFundPriceScanContext:
 
     #: Optional shared physical JSON-RPC request counter.
     rpc_request_stats: RPCRequestStats | None = None
+
+    #: Optional persistent Asseto registry cache override for isolated runs.
+    asseto_registry_cache_path: Path | None = None
 
 
 @dataclass(slots=True)
@@ -375,18 +380,38 @@ def run_tokenised_fund_price_scan(  # noqa: PLR0914 - explicit production resour
         If the metadata database or a selected product adapter is invalid.
     """
 
+    registry_diagnostics: list[str] = []
+    available_asseto_specs: frozenset[VaultSpec] | None = None
+    if spec.selector == "asseto":
+        registry_result = fetch_asseto_registry_preparation(
+            vault_db_path=context.vault_db_path,
+            enabled_chain_ids=context.enabled_chain_ids,
+            cache_path=context.asseto_registry_cache_path or DEFAULT_ASSETO_REGISTRY_CACHE_PATH,
+        )
+        registry_diagnostics.extend(registry_result.diagnostics)
+        available_asseto_specs = registry_result.available_specs
+        registry_diagnostics.append(f"registry={registry_result.status}, runtime_products={registry_result.runtime_product_count}, registered_products={registry_result.registered_product_count}")
+
     if not context.vault_db_path.exists():
         raise RuntimeError(f"Tokenised-fund metadata database does not exist: {context.vault_db_path}")
     vault_db = VaultDatabase.read(context.vault_db_path)
     target_rows = list(_iter_target_rows(vault_db, spec))
+    if available_asseto_specs is not None:
+        unavailable_targets = [target for target, _ in target_rows if target not in available_asseto_specs]
+        registry_diagnostics.extend(f"no usable Asseto runtime registry product for {target.as_string_id()}" for target in unavailable_targets)
+        target_rows = [(target, row) for target, row in target_rows if target in available_asseto_specs]
     if context.vault_addresses is not None:
         target_rows = [(target, row) for target, row in target_rows if target.vault_address in context.vault_addresses]
     if not target_rows:
-        return TokenisedFundPriceScanResult(0, 0, None, None, None, "no registered price-capable products")
+        diagnostics = [*registry_diagnostics, "no registered price-capable products"]
+        return TokenisedFundPriceScanResult(0, 0, None, None, None, "; ".join(diagnostics))
 
     enabled_rows = [(target, row) for target, row in target_rows if target.chain_id in context.enabled_chain_ids]
     target_specs = {target for target, _ in enabled_rows}
-    diagnostics = [f"chain {target.chain_id} disabled by operator" for target, _ in target_rows if target.chain_id not in context.enabled_chain_ids]
+    diagnostics = [
+        *registry_diagnostics,
+        *(f"chain {target.chain_id} disabled by operator" for target, _ in target_rows if target.chain_id not in context.enabled_chain_ids),
+    ]
     if not enabled_rows:
         return TokenisedFundPriceScanResult(0, 0, None, None, None, "; ".join(sorted(set(diagnostics))))
 

@@ -1,5 +1,6 @@
 # 1.2
 
+- feat: Refresh and persist the dynamic Asseto product registry before each daily Asseto price cycle, allowing known products to recover after scanner restarts and new supported products to enter the address-scoped daily scan safely (2026-08-01)
 - feat: Schedule reviewed tokenised-fund price feeds independently, retain daily samples for unchanged NAVs, and provide a recurring-path targeted price backfill command (2026-08-01)
 - feat: Refresh Lagoon offchain vault metadata daily in persistent scanner processes while retaining stale descriptions during transient API failures (2026-08-01)
 - feat: Add hardcoded classification and discovery for Axis's StakedUSDx Plasma rewards vault (2026-07-30)
