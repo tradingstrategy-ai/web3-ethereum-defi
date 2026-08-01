@@ -805,9 +805,11 @@ def scan_historical_prices_to_parquet(
     logger.info(f"First vault lead detection at block {first_detect_block:,} on chain {chain_id} ({get_chain_name(chain_id)})")
     if start_block is None:
         if stateful:
-            # If we have reader states, use the earliest block from there
+            # A vault requiring an older bootstrap must use its own
+            # address-scoped scan. Restored states cannot safely replay time
+            # before their individual ``last_call_at`` values.
             start_block = max(((state["last_block"] or 0) for spec, state in reader_states.items() if spec.chain_id == chain_id), default=first_detect_block)
-            logger.info(f"Chain {chain_id}: determined start block to be {start_block:,} from {len(reader_states)} vault read states")
+            logger.info("Chain %s: determined start block %s from %s vault read states", chain_id, f"{start_block:,}", len(reader_states))
         else:
             # Clean start, find the first block of any vault on this chain.
             # Detected during probing.

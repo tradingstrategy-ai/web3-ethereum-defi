@@ -195,7 +195,11 @@ poetry run python scripts/erc-4626/scan-vaults-all-chains.py
 
 | Variable | Description |
 |----------|-------------|
-| `SCAN_PRICES` | Optional. Also scan prices after vault discovery. Default: false. |
+| `SCAN_PRICES` | Optional. Scan prices after vault discovery, including dedicated tokenised-fund feeds. Default: false in the command; production Compose defaults to true. |
+| `SKIP_TOKENISED_FUNDS` | Optional. When `SCAN_PRICES=true`, disable dedicated tokenised-fund price feeds and return their registered products to the generic chain price scan. Default: false. |
+| `TOKENISED_FUND_PROTOCOLS` | Optional. Comma-separated focused feed selection, e.g. `securitize,asseto`. Unselected feeds remain visible as disabled; their products stay in the generic chain scan. |
+| `TOKENISED_FUND_MAX_WORKERS` | Optional. Historical reader workers for tokenised-fund feeds. Default: 8. |
+| `WISDOMTREE_DATASPAN_API_KEY` | Optional. Enables the WisdomTree DataSpan NAV feed; without it WisdomTree remains visibly disabled. |
 | `RETRY_COUNT` | Optional. Number of retries on failure. |
 | `TEST_CHAINS` | Optional. Comma-separated chain names to scan (for testing). Use `none` to skip all EVM chains. |
 | `DISABLE_CHAINS` | Optional. Comma-separated chain names to exclude. |
@@ -224,7 +228,28 @@ poetry run python scripts/erc-4626/scan-vaults-all-chains.py
 | `SKIP_SAMPLES` | Optional. Skip Ethereum-only sample file export. Default: false. |
 | `HYPERSYNC_RPM` | Optional. Hypersync API requests-per-minute limit. Default: 80. Lower after persistent 429 errors. |
 | `HYPERSYNC_CONCURRENCY` | Optional. Hypersync stream concurrency. Default: 1 (sequential) in the all-chains scanner to avoid API pressure when scanning many chains. Set higher for faster throughput. See [Envio StreamConfig tuning](https://docs.envio.dev/docs/HyperSync/stream-config-tuning). |
-| `RPC_TRACKING_DATABASE_PATH` | Optional. Shared JSON-RPC accounting DuckDB used by all EVM vault scanners. Default: `~/.tradingstrategy/rpc-tracking.duckdb`. |
+| `RPC_TRACKING_DATABASE_PATH` | Optional. Shared JSON-RPC accounting DuckDB used by the generic EVM lead and price scanners. Default: `~/.tradingstrategy/rpc-tracking.duckdb`. |
+
+The recurring tokenised-fund rows are `Asseto`, `Franklin`, `Libeara`, `Midas`,
+`Ondo`, `OpenEden`, `Securitize`, `Spiko`, `Superstate`, `Sygnum`, `USYC` and
+`WisdomTree`. They default to a 24-hour cycle and have their own dashboard and
+cycle-state entries. Each product is continued from its latest valid raw price
+in a separate stateless, address-scoped daily scan; newer missing-price rows
+(stored as either null or `NaN`) do not conceal a price gap. These products
+receive daily rather than hourly samples even though they share the historical
+`vault-prices-1h.parquet`
+file with generic vault price rows. If a product has no raw price row, its
+first recurring cycle starts from the reviewed token deployment block. Keeping
+one rewrite window per product prevents a new backfill from deleting a
+neighbouring product's newer history. This favours broad history coverage over
+an exact initial oracle boundary. Price rows begin only where the product
+adapter's oracle or issuer source is available; pre-source sample points may be
+empty. Disabled, unselected and product-filtered vaults remain under the generic
+chain scanner. The dashboard's
+`Last data` value is the newest valid daily sample timestamp, not the
+original publication time of an oracle or issuer observation. Securitize is
+therefore the recurring owner of BCAP and fills its missing sampled history as
+far back as its reviewed source permits.
 
 Both Lighter deployments use synthetic native-pool chain ID `9998`; their
 address prefixes distinguish price series. Lifetime-metrics export the
@@ -246,7 +271,7 @@ after 60 seconds; stop the daemon or retry when its tick has finished.
 
 Calls are separated into `lead_discovery` and `price_scan` phases. For lead
 discovery, `items_scanned` is the number of unique candidate addresses sent to
-on-chain feature probing. For price scans it is the number of filtered,
+onchain feature probing. For price scans it is the number of filtered,
 supported vault readers sent to the historical scan. A retry appends its calls
 to the same cycle; daily aggregation sums calls but takes the maximum item count
 for the cycle so the retried population is not multiplied.
@@ -905,7 +930,7 @@ PARQUET_URL=https://vault-protocol-metadata.tradingstrategy.ai/cleaned-vault-pri
 
 ### check-vault-onchain.py
 
-Check a vault's current on-chain data: name, TVL, share price, descriptions, flags, deposit/redemption status.
+Check a vault's current onchain data: name, TVL, share price, descriptions, flags, deposit/redemption status.
 Edit the vault spec inside the script to change the target vault.
 
 ```shell

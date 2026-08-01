@@ -380,17 +380,9 @@ You can use `Makefile` commands `make guard safe-integration` to rebuild smart c
 
 Documentation uses Sphinx v4.5 for API and narrative documentation and lives in `docs` folder.
 
-You can build the documentation with the command:
-
-```shell
-source .local-test.env && make build-docs
-```
-
-If you need to clean Sphinx's autosummaries you can run:
-
-```shell
-source .local-test.env && make build-docs
-```
+Ignore Sphinx documentation builds during development. Agents must not attempt
+to build the Sphinx documentation locally; documentation builds and their
+failures are outside the development verification workflow.
 
 Never directly edit auto-generated sphinx files in `_autosummary*` folders.
 
