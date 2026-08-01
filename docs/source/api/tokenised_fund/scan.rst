@@ -8,6 +8,9 @@ keeps each protocol's scheduler result separate. Every product has an
 independent continuation and rewrite boundary so a missing-history bootstrap
 cannot remove another product's rows.
 
+Stable issuer NAVs still emit one approximate daily sample. This keeps the
+dashboard freshness timestamp current even when the value does not change.
+
 Operator settings and bootstrap behaviour are documented in
 ``scripts/erc-4626/README-vault-scripts.md``.
 

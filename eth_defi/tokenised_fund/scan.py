@@ -94,6 +94,9 @@ class TokenisedFundPriceScanContext:
     #: Chains allowed by the operator's chain configuration.
     enabled_chain_ids: frozenset[int]
 
+    #: Optional lowercase product-address filter for a targeted backfill.
+    vault_addresses: frozenset[str] | None = None
+
     #: Shared Hypersync stream concurrency limit.
     hypersync_concurrency: int | None = None
 
@@ -376,6 +379,8 @@ def run_tokenised_fund_price_scan(  # noqa: PLR0914 - explicit production resour
         raise RuntimeError(f"Tokenised-fund metadata database does not exist: {context.vault_db_path}")
     vault_db = VaultDatabase.read(context.vault_db_path)
     target_rows = list(_iter_target_rows(vault_db, spec))
+    if context.vault_addresses is not None:
+        target_rows = [(target, row) for target, row in target_rows if target.vault_address in context.vault_addresses]
     if not target_rows:
         return TokenisedFundPriceScanResult(0, 0, None, None, None, "no registered price-capable products")
 
@@ -439,6 +444,7 @@ def run_tokenised_fund_price_scan(  # noqa: PLR0914 - explicit production resour
                     max_workers=context.max_workers,
                     chunk_size=32,
                     token_cache=token_cache,
+                    write_all_samples=True,
                     frequency="1d",
                     reader_states=None,
                     hypersync_client=hypersync_client,

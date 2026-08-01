@@ -8,7 +8,9 @@ import pyarrow as pa
 import pyarrow.parquet as pq
 import pytest
 
+from eth_defi.tokenised_fund import price_backfill
 from eth_defi.tokenised_fund.backfill import PROTOCOL_BACKFILLS
+from eth_defi.tokenised_fund.price_backfill import TokenisedFundPriceBackfillConfig, build_price_backfill_plan, parse_vault_addresses, run_price_backfill
 from eth_defi.tokenised_fund.scan import (
     TOKENISED_FUND_PRICE_CAPABILITIES,
     TOKENISED_FUND_PRICE_SCANNERS,
@@ -81,7 +83,7 @@ def test_tokenised_fund_price_feeds_have_daily_default_cycles() -> None:
 def test_missing_tokenised_fund_history_bootstraps_from_reviewed_deployment(tmp_path: Path) -> None:
     """A feed without raw price rows starts at its earliest vault block."""
 
-    scanner = select_tokenised_fund_price_scanners("securitize")[0]
+    scanner = select_tokenised_fund_price_scanners("asseto")[0]
     target = VaultSpec(1, "0x1111111111111111111111111111111111111111")
 
     assert resolve_target_start_blocks(
@@ -151,6 +153,91 @@ def test_tokenised_fund_targets_keep_independent_start_blocks(tmp_path: Path) ->
     )
 
     assert starts == {existing_target: EXISTING_PRICE_BLOCK, new_target: NEW_VAULT_FIRST_BLOCK}
+
+
+def test_recurring_price_backfill_plan_uses_address_scoped_continuation(tmp_path: Path) -> None:
+    """The manual entrypoint reports the recurring scanner's exact start block."""
+
+    scanner = select_tokenised_fund_price_scanners("asseto")[0]
+    target = VaultSpec(1, "0x1111111111111111111111111111111111111111")
+    vault_db_path = tmp_path / "vaults.pickle"
+    raw_price_path = tmp_path / "prices.parquet"
+    VaultDatabase(
+        rows={
+            target: {"_detection_data": SimpleNamespace(features={scanner.feature}, first_seen_at_block=BCAP_REDSTONE_FIRST_BLOCK)},
+        }
+    ).write(vault_db_path)
+    pq.write_table(
+        pa.Table.from_pylist(
+            [
+                {
+                    "chain": target.chain_id,
+                    "address": target.vault_address,
+                    "block_number": EXISTING_PRICE_BLOCK,
+                    "timestamp": datetime.datetime.fromisoformat("2026-07-31T00:00:00"),
+                    "share_price": 1.0,
+                }
+            ]
+        ),
+        raw_price_path,
+    )
+
+    plan = build_price_backfill_plan(
+        TokenisedFundPriceBackfillConfig(
+            vault_db_path=vault_db_path,
+            raw_price_path=raw_price_path,
+            scanners=(scanner,),
+            vault_addresses=frozenset({target.vault_address}),
+            max_workers=1,
+            hypersync_concurrency=1,
+            dry_run=True,
+        )
+    )
+
+    assert plan == [{"protocol": "Asseto", "target": target.as_string_id(), "start_block": EXISTING_PRICE_BLOCK}]
+
+
+def test_recurring_price_backfill_passes_the_exact_address_filter(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """The manual price backfill delegates the selected target to the shared scanner."""
+
+    scanner = select_tokenised_fund_price_scanners("asseto")[0]
+    target = VaultSpec(1, "0x1111111111111111111111111111111111111111")
+    vault_db_path = tmp_path / "vaults.pickle"
+    VaultDatabase(
+        rows={
+            target: {"_detection_data": SimpleNamespace(features={scanner.feature}, first_seen_at_block=BCAP_REDSTONE_FIRST_BLOCK)},
+        }
+    ).write(vault_db_path)
+    captured_contexts = []
+    monkeypatch.setattr(price_backfill, "read_json_rpc_url", lambda _chain_id: "https://example.invalid")
+    monkeypatch.setattr(
+        price_backfill,
+        "run_tokenised_fund_price_scan",
+        lambda _scanner, context: captured_contexts.append(context) or TokenisedFundPriceScanResult(1, 1, None, BCAP_REDSTONE_FIRST_BLOCK, EXISTING_PRICE_BLOCK),
+    )
+
+    results = run_price_backfill(
+        TokenisedFundPriceBackfillConfig(
+            vault_db_path=vault_db_path,
+            raw_price_path=tmp_path / "prices.parquet",
+            scanners=(scanner,),
+            vault_addresses=frozenset({target.vault_address}),
+            max_workers=1,
+            hypersync_concurrency=1,
+            dry_run=False,
+        )
+    )
+
+    assert results["Asseto"].price_rows == 1
+    assert captured_contexts[0].vault_addresses == frozenset({target.vault_address})
+
+
+def test_recurring_price_backfill_validates_product_addresses() -> None:
+    """Malformed targeted-backfill address filters fail before any scan work."""
+
+    assert parse_vault_addresses("0x1111111111111111111111111111111111111111") == frozenset({"0x1111111111111111111111111111111111111111"})
+    with pytest.raises(ValueError, match="invalid EVM addresses"):
+        parse_vault_addresses("not-an-address")
 
 
 def test_only_ready_exact_products_leave_generic_scanner_ownership(tmp_path: Path) -> None:

@@ -9,6 +9,7 @@ variable; an empty selection runs every registered tokenised-fund protocol.
    :maxdepth: 1
 
    scan
+   price_backfill
 
 .. autosummary::
    :toctree: _autosummary_tokenised_fund

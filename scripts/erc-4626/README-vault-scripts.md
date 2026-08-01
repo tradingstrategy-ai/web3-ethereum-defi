@@ -185,6 +185,50 @@ share-price rows in the requested block range.
 | `CLEANED_PRICE_DATABASE` | Optional. Cleaned price parquet path. Default: production path. |
 | `READER_STATE_DATABASE` | Optional. Reader-state pickle path. Default: production path. |
 
+### backfill-tokenised-fund-prices.py
+
+Run a price-only repair through the same recurring address-scoped scan path as
+`scan-vaults-all-chains.py`. Unlike `backfill-tokenised-funds.py`, this command
+does not discover leads, modify metadata or update reader state. It operates
+only on products already registered in `VAULT_DB_PATH` and rewrites only the
+selected products' raw-price rows from their continuation blocks onward.
+If existing rows inside that window were sampled at a higher frequency, the
+repair deliberately replaces them with the dedicated daily samples.
+
+The command defaults to `DRY_RUN=true` and prints the exact target and start
+block for each selected product. Use `TOKENISED_FUND_PRODUCTS` to scope an
+execution to exact token addresses; this is the recommended production repair
+workflow. The dedicated reader writes every approximate daily sample even when
+the NAV has not changed, so dashboard freshness advances for stable funds.
+
+```shell
+source .local-test.env && \
+  DRY_RUN=true \
+  TOKENISED_FUND_PROTOCOLS=securitize \
+  TOKENISED_FUND_PRODUCTS=0x1f41e42d0a9e3c0dd3ba15b527342783b43200a9 \
+  poetry run python scripts/erc-4626/backfill-tokenised-fund-prices.py
+```
+
+After reviewing the plan, execute the same targeted repair:
+
+```shell
+source .local-test.env && \
+  DRY_RUN=false \
+  TOKENISED_FUND_PROTOCOLS=securitize \
+  TOKENISED_FUND_PRODUCTS=0x1f41e42d0a9e3c0dd3ba15b527342783b43200a9 \
+  poetry run python scripts/erc-4626/backfill-tokenised-fund-prices.py
+```
+
+| Variable | Description |
+|----------|-------------|
+| `DRY_RUN` | Optional. Print the exact recurring-path plan without writing. Default: true. |
+| `TOKENISED_FUND_PROTOCOLS` | Optional. Comma-separated recurring feed selectors; unset selects every price-capable feed. |
+| `TOKENISED_FUND_PRODUCTS` | Optional. Comma-separated token addresses, normalised to lowercase. Restricts both the plan and write window to these exact products. |
+| `TOKENISED_FUND_MAX_WORKERS` | Optional. Historical reader worker count. Default: 8. |
+| `HYPERSYNC_CONCURRENCY` | Optional. Shared Hypersync stream concurrency. Default: 1. |
+| `VAULT_DB_PATH` | Optional. Existing vault metadata database path. Default: production path. |
+| `UNCLEANED_PRICE_DATABASE` | Optional. Shared raw price Parquet path. Default: production path. |
+
 ### scan-vaults-all-chains.py
 
 Scan ERC-4626 vaults across all supported chains with a live console dashboard.
@@ -250,6 +294,10 @@ chain scanner. The dashboard's
 original publication time of an oracle or issuer observation. Securitize is
 therefore the recurring owner of BCAP and fills its missing sampled history as
 far back as its reviewed source permits.
+
+Dedicated tokenised-fund feeds retain one daily sample per selected block even
+when the NAV is unchanged. This is intentional: a stable share price is still
+a fresh observation and must advance the dashboard's `Last data` timestamp.
 
 Both Lighter deployments use synthetic native-pool chain ID `9998`; their
 address prefixes distinguish price series. Lifetime-metrics export the
