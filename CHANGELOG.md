@@ -1,5 +1,7 @@
 # 1.2
 
+- feat: Add Anvil-only alternative redemption simulations with disclosed intervention evidence (2026-08-01)
+
 - feat: Add hardcoded classification and discovery for Axis's StakedUSDx Plasma rewards vault (2026-07-30)
 
 - feat: Add `extract_revert_data()` for provider-independent recovery of ABI-encoded custom errors from reverted `eth_call` simulations (2026-07-30)
