@@ -1078,6 +1078,22 @@ def test_identify_atoma_protocol_curator() -> None:
     assert get_curator_name("atoma") == "Atoma"
 
 
+def test_atoma_curator_metadata_highlights_transparency_dashboard() -> None:
+    """Atoma curator metadata describes the public onchain position dashboard."""
+    metadata = build_curator_metadata_json(
+        Path("eth_defi/data/feeds/curators/atoma.yaml"),
+        public_url="",
+    )
+
+    assert metadata["short_description"] is not None
+    assert "public dashboard" in metadata["short_description"]
+    assert metadata["long_description"] is not None
+    long_description = metadata["long_description"].replace("\n", " ")
+    assert "public transparency dashboard" in long_description
+    assert "all vault positions" in long_description
+    assert "independently verifiable onchain" in long_description
+
+
 def test_identify_frankencoin_protocol_curator() -> None:
     """Frankencoin svZCHF vaults resolve to the protocol-managed slug."""
 
