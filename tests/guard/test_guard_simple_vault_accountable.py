@@ -37,7 +37,7 @@ class StaticCall:
         """
         self.value = value
 
-    def call(self) -> int:
+    def call(self, **_kwargs) -> int:
         """Return the configured raw value.
 
         :return:

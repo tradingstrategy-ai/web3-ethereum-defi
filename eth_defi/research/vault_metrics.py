@@ -2974,6 +2974,8 @@ def format_lifetime_table(
             "leader_commission": "Leader commission",
             "netflow": "Netflow",
             "manual_review_status": "Manual review",
+            "minimum_deposit": "Minimum deposit",
+            "minimum_redemption": "Minimum redemption",
         }
     )
 
