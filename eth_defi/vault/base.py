@@ -1206,6 +1206,38 @@ class VaultBase(ABC):
         """
         return None
 
+    def fetch_minimum_deposit(self, block_identifier: BlockIdentifier = "latest") -> Decimal | None:
+        """Fetch a source-proven minimum deposit in decimal token units.
+
+        A ``None`` result means this adapter does not expose a known minimum;
+        it does not prove the protocol accepts arbitrarily small deposits.
+        A zero result means the adapter positively established that the vault
+        has no minimum deposit.
+
+        :param block_identifier:
+            Block at which to read the protocol configuration.
+        :return:
+            Decimal denomination-token minimum, or ``None`` when unknown.
+        """
+        del block_identifier
+        return None
+
+    def fetch_minimum_redemption(self, block_identifier: BlockIdentifier = "latest") -> Decimal | None:
+        """Fetch a source-proven redemption minimum in decimal share units.
+
+        A ``None`` result means this adapter does not expose a known minimum;
+        it does not prove the protocol accepts arbitrarily small redemptions.
+        A zero result means the adapter positively established that the vault
+        has no minimum redemption.
+
+        :param block_identifier:
+            Block at which to read the protocol configuration.
+        :return:
+            Decimal vault-share minimum, or ``None`` when unknown.
+        """
+        del block_identifier
+        return None
+
     def is_whitelisted_deposit(self) -> bool:
         """Determine whether deposits require KYC or identity approval.
 

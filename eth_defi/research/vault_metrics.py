@@ -326,6 +326,20 @@ class VaultMetricsRecord(TypedDict, total=False):
     #: value must NOT be defaulted to 18 (see ``denomination_token_address``).
     denomination_decimals: int | None
 
+    #: Minimum deposit in decimal denomination-token units.
+    #:
+    #: ``0`` means the scanner verified that this vault has no minimum.
+    #: ``None`` means the value is unavailable; it must not be interpreted as
+    #: a zero minimum.
+    minimum_deposit: float | None
+
+    #: Minimum redemption in decimal vault-share units.
+    #:
+    #: ``0`` means the scanner verified that this vault has no minimum.
+    #: ``None`` means the value is unavailable; it must not be interpreted as
+    #: a zero minimum.
+    minimum_redemption: float | None
+
     #: Static support for this library's deposit/redemption manager, or ``None``.
     #:
     #: This does not mean the vault is currently open or that an account has
@@ -1857,6 +1871,12 @@ def calculate_vault_record(
         # Clean up some legacy data
         lockup = None
 
+    # These values are captured by the vault scanner through VaultBase's
+    # source-proven decimal accessors. Keep an absent legacy field as None:
+    # unknown minimums must never be presented as a zero limit.
+    minimum_deposit = vault_metadata.get("_minimum_deposit")
+    minimum_redemption = vault_metadata.get("_minimum_redemption")
+
     # Deposit/redemption status from vault scan.
     # Note: deposit_closed_reason uses empty string "" instead of None
     # because PyArrow does not accept None for string columns in the
@@ -2200,6 +2220,8 @@ def calculate_vault_record(
             "share_token_decimals": share_token_decimals,
             "denomination_token_address": denomination_token_address,
             "denomination_decimals": denomination_token_decimals,
+            "minimum_deposit": minimum_deposit,
+            "minimum_redemption": minimum_redemption,
             "lifetime_return": lifetime_return,
             "lifetime_return_net": lifetime_return_net,
             "cagr": cagr,
@@ -2346,6 +2368,11 @@ def calculate_lifetime_metrics(
     The value is a :py:class:`eth_defi.feed.stablecoin_rate.DenominationTokenRate`
     carrying both USD rate fields and, for non-USD stablecoins, native source
     currency rate fields.
+
+    Each output row exports ``minimum_deposit`` in denomination-token units and
+    ``minimum_redemption`` in vault-share units. ``None`` means the scanner did
+    not establish the relevant protocol limit, while ``0`` means it established
+    that the vault has no minimum for that action.
 
     :param df:
         Cleaned price DataFrame conforming to
@@ -2947,6 +2974,8 @@ def format_lifetime_table(
             "leader_commission": "Leader commission",
             "netflow": "Netflow",
             "manual_review_status": "Manual review",
+            "minimum_deposit": "Minimum deposit",
+            "minimum_redemption": "Minimum redemption",
         }
     )
 

@@ -354,6 +354,8 @@ def create_vault_scan_record(
         "_deposit_manager": None,
         "_deposit_permission": VaultDepositPermission.unknown.value,
         "_whitelist_notes": None,
+        "_minimum_deposit": None,
+        "_minimum_redemption": None,
         "_share_price_source": None,
     }
 
@@ -410,6 +412,8 @@ def create_vault_scan_record(
         whitelist_notes = whitelist_notes_resolver() if whitelist_notes_resolver is not None else None
         share_price_source_resolver = getattr(vault, "get_share_price_source", None)
         share_price_source = share_price_source_resolver() if share_price_source_resolver is not None else None
+        minimum_deposit = _best_effort_vault_read(lambda: vault.fetch_minimum_deposit(block_identifier))
+        minimum_redemption = _best_effort_vault_read(lambda: vault.fetch_minimum_redemption(block_identifier))
 
         data = {
             "Symbol": vault.symbol,
@@ -443,6 +447,8 @@ def create_vault_scan_record(
             "_deposit_manager": deposit_manager_capability.as_initial_public_schema() if deposit_manager_capability else None,
             "_deposit_permission": fetch_deposit_permission(vault).value,
             "_whitelist_notes": whitelist_notes,
+            "_minimum_deposit": minimum_deposit,
+            "_minimum_redemption": minimum_redemption,
         }
         data.update(activity_status)
         data.update(lending_stats)

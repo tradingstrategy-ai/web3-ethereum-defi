@@ -44,6 +44,25 @@ the reserve cannot fill the request, the manager raises
 ``VaultFlowUnavailable`` instead of broadcasting a transaction that reverts
 ``WithdrawalPending()``.
 
+### Minimum amounts
+
+``VaultBase`` exposes optional, block-aware minimum accessors so a caller can
+size a deposit and a later redemption from one adapter contract. Deposit
+minimums are denomination-token amounts and redemption minimums are vault-share
+amounts. The API exposes one decimal accessor for each direction:
+``fetch_minimum_deposit()`` and ``fetch_minimum_redemption()``. A manager
+converts a known value with the denomination or share token only when it needs
+an exact raw-unit comparison or transaction input.
+
+``None`` means only that the adapter has no source-proven minimum getter. It
+does not prove that the deployed protocol accepts every positive amount. An
+adapter must not infer a minimum by broadcasting a deliberately failing
+transaction, cache a latest-block value, or use a capacity getter as a
+minimum. Accountable exposes its verified vault scalar in both relevant unit
+contexts, while Ember exposes its ``minWithdrawableShares()`` redemption
+threshold. Managers consume these accessors for their existing typed
+``below_minimum`` preflights.
+
 ## Whitelisting
 
 Whitelisting has two separate responsibilities:
@@ -406,6 +425,15 @@ non-governance asset manager to execute the manager-selected approval,
 then rejects substituted deposit receiver, redemption receiver and redemption
 share owner. This certification applies only to Aerodrome's generic manager;
 Pharaoh's address-scoped direct-underlying capacity preflight remains separate.
+When an Anvil-only vault test encounters Pharaoh's
+``redemption_capacity_limited`` result, its manager may temporarily increase
+the vault's denomination-token balance, re-check the unchanged real
+``redeem`` call, and report the smallest successful injection as
+``redemption_capacity_increased``. This is diagnostic state only: production
+execution continues to refuse unavailable capacity. A terminal simulated
+success must retain the before/after capacity, requested assets and shares,
+and injected raw denomination amount; a balance mutation without the real
+redemption succeeding is not evidence of success.
 
 Gains V1 adds the standard approval and deposit rows, plus
 ``makeWithdrawRequest(uint256,address owner)`` and the eventual standard

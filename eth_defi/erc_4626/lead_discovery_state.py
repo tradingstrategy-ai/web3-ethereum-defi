@@ -26,7 +26,7 @@ DEFAULT_LEAD_DISCOVERY_STATE_TIMEOUT = datetime.timedelta(days=7)
 # Bump this whenever a change alters values persisted by create_vault_scan_record()
 # or its protocol adapters.  The discovery cursor alone cannot detect those
 # changes, but existing rows must be regenerated before they are exported.
-VAULT_METADATA_REFRESH_VERSION = 2
+VAULT_METADATA_REFRESH_VERSION = 3
 
 
 def _remove_docstring(node: ast.AST) -> None:

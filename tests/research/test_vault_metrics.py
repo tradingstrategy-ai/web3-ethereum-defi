@@ -1019,6 +1019,41 @@ def test_calculate_lifetime_metrics_exports_share_price_source(
     assert export_lifetime_row(metrics.iloc[0])["share_price_source"] == "smart-contract-state"
 
 
+def test_calculate_lifetime_metrics_exports_vault_minimums(
+    vault_db: VaultDatabase,
+    price_df: pd.DataFrame,
+) -> None:
+    """Export known, absent, and zero vault minimums without conflating them.
+
+    1. Add a known deposit minimum and a confirmed zero redemption minimum to scanned metadata.
+    2. Calculate and JSON-export the vault metrics.
+    3. Remove the metadata fields and verify legacy unavailable values remain null.
+    """
+    vault_id = "43111-0x05c2e246156d37b39a825a25dd08d5589e3fd883"
+    spec = VaultSpec.parse_string(vault_id)
+    vault_row = dict(vault_db.rows[spec])
+    vault_row["_minimum_deposit"] = Decimal("12.5")
+    vault_row["_minimum_redemption"] = Decimal(0)
+    vault_prices = price_df.loc[price_df["id"] == vault_id]
+
+    # 1. Calculate metadata with source-proven values.
+    metrics = calculate_lifetime_metrics(vault_prices, {spec: vault_row})
+
+    # 2. Preserve decimal units in metrics and strict JSON values in the export.
+    assert metrics.iloc[0]["minimum_deposit"] == Decimal("12.5")
+    assert metrics.iloc[0]["minimum_redemption"] == Decimal(0)
+    exported = export_lifetime_row(metrics.iloc[0])
+    assert exported["minimum_deposit"] == 12.5
+    assert exported["minimum_redemption"] == 0.0
+
+    # 3. Preserve unavailable legacy metadata as null, not as no minimum.
+    vault_row.pop("_minimum_deposit")
+    vault_row.pop("_minimum_redemption")
+    legacy_metrics = calculate_lifetime_metrics(vault_prices, {spec: vault_row})
+    assert legacy_metrics.iloc[0]["minimum_deposit"] is None
+    assert legacy_metrics.iloc[0]["minimum_redemption"] is None
+
+
 def test_export_lifetime_row_nat_serialization():
     """Test that NaT values are properly serialized as None/null, not the string "NaT".
 

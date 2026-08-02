@@ -571,14 +571,20 @@ class AccountableVault(ERC4626Vault):  # noqa: PLR0904
             return metadata.get("company_name")
         return None
 
-    def _fetch_vault_minimum_raw_deposit(self, block_identifier: BlockIdentifier) -> int | None:
-        """Fetch the optional vault-level minimum deposit.
+    def _fetch_vault_minimum_raw(self, block_identifier: BlockIdentifier) -> int | None:
+        """Fetch Accountable's context-sensitive vault-level dust threshold.
+
+        The verified vault compares ``MIN_AMOUNT_WEI()`` directly with raw
+        denomination assets in its deposit path and directly with raw shares in
+        its ``requestRedeem`` path. The same raw scalar is therefore exposed
+        through the shared API in the context of the respective caller; it is
+        never converted between assets and shares.
 
         :param block_identifier:
             Block tag or number at which to read the minimum.
 
         :return:
-            Exact denomination-token base units, or ``None`` when unsupported.
+            Raw threshold, or ``None`` when the getter is unsupported.
         """
         try:
             return int(self.vault_contract.functions.MIN_AMOUNT_WEI().call(block_identifier=block_identifier))
@@ -639,8 +645,8 @@ class AccountableVault(ERC4626Vault):  # noqa: PLR0904
         available_minimums = tuple(value for value in (vault_minimum, strategy_minimum) if value is not None)
         return max(available_minimums) if available_minimums else None
 
-    def fetch_minimum_raw_deposit(self, block_identifier: BlockIdentifier = "latest") -> int | None:
-        """Fetch the effective minimum deposit in ERC-20 base units.
+    def fetch_minimum_deposit(self, block_identifier: BlockIdentifier = "latest") -> Decimal | None:
+        """Fetch Accountable's effective minimum deposit in token units.
 
         Accountable checks both the vault's ``MIN_AMOUNT_WEI()`` threshold and
         the strategy's configured ``loan.minDeposit``. The larger value is the
@@ -650,33 +656,32 @@ class AccountableVault(ERC4626Vault):  # noqa: PLR0904
             Block tag or number shared by both reads.
 
         :return:
-            Effective denomination-token base-unit minimum, or ``None`` when
-            neither getter is supported.
-        """
-        _, strategy_contract = self._fetch_strategy_contract(block_identifier)
-        vault_minimum = self._fetch_vault_minimum_raw_deposit(block_identifier)
-        strategy_minimum = self._fetch_strategy_minimum_raw_deposit(strategy_contract, block_identifier)
-        return self._effective_minimum_raw_deposit(vault_minimum, strategy_minimum)
-
-    def fetch_minimum_deposit(self, block_identifier: BlockIdentifier = "latest") -> Decimal | None:
-        """Fetch the contract-enforced minimum deposit in token units.
-
-        The effective maximum of ``MIN_AMOUNT_WEI()`` and
-        ``loan.minDeposit`` is decimalised with the vault's denomination
-        token. Use :meth:`fetch_minimum_raw_deposit` when an exact input for a
-        transaction is required.
-
-        :param block_identifier:
-            Block tag or number at which to read the minimum.
-
-        :return:
             Human-readable denomination-token amount, or ``None`` when the
             getter or denomination token is unavailable.
         """
-        minimum_raw = self.fetch_minimum_raw_deposit(block_identifier)
-        if minimum_raw is None or self.underlying_token is None:
+        _, strategy_contract = self._fetch_strategy_contract(block_identifier)
+        vault_minimum = self._fetch_vault_minimum_raw(block_identifier)
+        strategy_minimum = self._fetch_strategy_minimum_raw_deposit(strategy_contract, block_identifier)
+        minimum_raw = self._effective_minimum_raw_deposit(vault_minimum, strategy_minimum)
+        if minimum_raw is None or self.denomination_token is None:
             return None
-        return self.underlying_token.convert_to_decimals(minimum_raw)
+        return self.denomination_token.convert_to_decimals(minimum_raw)
+
+    def fetch_minimum_redemption(self, block_identifier: BlockIdentifier = "latest") -> Decimal | None:
+        """Fetch Accountable's request-redemption dust threshold in shares.
+
+        ``loan().minRedeem`` intentionally remains excluded until its unit is
+        source-proven for the selected strategy deployment.
+
+        :param block_identifier:
+            Block at which to read the threshold.
+        :return:
+            Decimal share minimum, or ``None`` when unavailable.
+        """
+        minimum_raw = self._fetch_vault_minimum_raw(block_identifier)
+        if minimum_raw is None or self.share_token is None:
+            return None
+        return self.share_token.convert_to_decimals(minimum_raw)
 
     def fetch_accountable_fees(self, block_identifier: BlockIdentifier = "latest") -> AccountableFeeData:  # noqa: PLR0914
         """Fetch every Accountable fee-manager term and the minimum deposit.
@@ -726,7 +731,7 @@ class AccountableVault(ERC4626Vault):  # noqa: PLR0904
             manager_management_fee_split_raw = int(fee_manager.functions.managerSplit(strategy_address, False).call(block_identifier=block_identifier))
             protocol_management_fee_split_raw = int(fee_manager.functions.protocolSplit(strategy_address, False).call(block_identifier=block_identifier))
 
-        vault_minimum_deposit_raw = self._fetch_vault_minimum_raw_deposit(block_identifier)
+        vault_minimum_deposit_raw = self._fetch_vault_minimum_raw(block_identifier)
         strategy_minimum_deposit_raw = self._fetch_strategy_minimum_raw_deposit(strategy_contract, block_identifier)
         minimum_deposit_raw = self._effective_minimum_raw_deposit(vault_minimum_deposit_raw, strategy_minimum_deposit_raw)
         minimum_deposit = None
