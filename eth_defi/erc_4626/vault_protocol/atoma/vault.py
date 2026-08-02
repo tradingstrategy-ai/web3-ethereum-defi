@@ -1,8 +1,8 @@
 """Atoma protocol vault support.
 
-Atoma runs an Arbitrum USDC vault that seeks delta-neutral yield from perpetual
-DEX funding-rate spreads. Users deposit USDC into an ERC-4626 vault share token
-and withdraw through an epoch-based request/claim flow.
+Atoma runs Arbitrum USDC vaults that seek delta-neutral yield from perpetual DEX
+funding-rate spreads. Users deposit USDC into an ERC-4626 vault share token and
+withdraw through an epoch-based request/claim flow.
 
 The verified AtomaVault implementation exposes fixed fee constants:
 
@@ -15,14 +15,16 @@ high-water mark. The withdrawal fee is externalised and deducted from the USDC
 payout in ``claimWithdrawal()``.
 
 - App: https://app.atoma.fi/
-- Proxy vault: https://arbiscan.io/address/0xCC56410e1a136aF0eCEb7241c6aE394F4d8b581c
-- Verified implementation: https://arbitrum.blockscout.com/address/0xd4242FD8DE6E3128f0435b52DCe29155098CbBFF
+- AVS proxy: https://arbiscan.io/address/0xCC56410e1a136aF0eCEb7241c6aE394F4d8b581c
+- AVS implementation: https://arbitrum.blockscout.com/address/0xd4242FD8DE6E3128f0435b52DCe29155098CbBFF
+- AVS2 proxy: https://arbiscan.io/address/0x1C788E14d8e5B446e3F71B5142e2edaBcAB36da1
+- AVS2 implementation: https://arbitrum.blockscout.com/address/0x9521B08303AE010e85e24fC15D5334A0E506641E
 """
 
 import datetime
 import logging
 
-from eth_typing import BlockIdentifier
+from eth_typing import BlockIdentifier, HexAddress
 from web3.exceptions import BadFunctionCallOutput, ContractLogicError, Web3Exception
 
 from eth_defi.erc_4626.vault import ERC4626Vault
@@ -32,7 +34,15 @@ logger = logging.getLogger(__name__)
 #: Atoma Vault Share (AVS) vault address on Arbitrum.
 #:
 #: https://arbiscan.io/address/0xCC56410e1a136aF0eCEb7241c6aE394F4d8b581c
-ATOMA_VAULT_ADDRESS = "0xcc56410e1a136af0eceb7241c6ae394f4d8b581c"
+ATOMA_VAULT_ADDRESS = HexAddress("0xcc56410e1a136af0eceb7241c6ae394f4d8b581c")
+
+#: Atoma Vault Share 2 (AVS2) vault address on Arbitrum.
+#:
+#: https://arbiscan.io/address/0x1C788E14d8e5B446e3F71B5142e2edaBcAB36da1
+ATOMA_VAULT_2_ADDRESS = HexAddress("0x1c788e14d8e5b446e3f71b5142e2edabcab36da1")
+
+#: All supported Atoma vault addresses on Arbitrum.
+ATOMA_VAULT_ADDRESSES: frozenset[HexAddress] = frozenset((ATOMA_VAULT_ADDRESS, ATOMA_VAULT_2_ADDRESS))
 
 #: Atoma performance fee in basis points.
 PERFORMANCE_FEE_BPS = 2_000
