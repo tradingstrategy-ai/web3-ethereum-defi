@@ -23,6 +23,8 @@ payout in ``claimWithdrawal()``.
 
 import datetime
 import logging
+from dataclasses import dataclass
+from typing import Final
 
 from eth_typing import BlockIdentifier, HexAddress
 from web3.exceptions import BadFunctionCallOutput, ContractLogicError, Web3Exception
@@ -30,6 +32,27 @@ from web3.exceptions import BadFunctionCallOutput, ContractLogicError, Web3Excep
 from eth_defi.erc_4626.vault import ERC4626Vault
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass(slots=True, frozen=True)
+class AtomaVaultDescription:
+    """Address-scoped display metadata for an Atoma vault.
+
+    Atoma does not expose the strategy descriptions onchain. Keep the overlay
+    keyed by vault address so each vault can retain its specific strategy copy.
+
+    :param short_description:
+        Listing-friendly strategy summary.
+    :param description:
+        Longer strategy description, including its authoritative source.
+    """
+
+    #: Listing-friendly strategy summary.
+    short_description: str
+
+    #: Longer source-linked strategy description.
+    description: str
+
 
 #: Atoma Vault Share (AVS) vault address on Arbitrum.
 #:
@@ -43,6 +66,27 @@ ATOMA_VAULT_2_ADDRESS = HexAddress("0x1c788e14d8e5b446e3f71b5142e2edabcab36da1")
 
 #: All supported Atoma vault addresses on Arbitrum.
 ATOMA_VAULT_ADDRESSES: frozenset[HexAddress] = frozenset((ATOMA_VAULT_ADDRESS, ATOMA_VAULT_2_ADDRESS))
+
+#: Official Atoma announcement for the AVS2 RWA vault.
+ATOMA_RWA_VAULT_LAUNCH_POST_URL: Final[str] = "https://x.com/atoma_fi/status/2079672209400832319?s=46"
+
+#: Human-readable strategy copy for Atoma vaults without an offchain metadata API.
+#:
+#: AVS2 is the RWA vault announced by Atoma for Lighter and Trade.xyz perpetual
+#: markets. Keep this address-scoped, because AVS uses a different strategy.
+ATOMA_VAULT_DESCRIPTION_OVERLAY: Final[dict[HexAddress, AtomaVaultDescription]] = {
+    ATOMA_VAULT_2_ADDRESS: AtomaVaultDescription(
+        short_description="Market-neutral RWA perpetuals strategy across Lighter and Trade.xyz.",
+        description=" ".join(
+            (
+                "Atoma RWA Vault is a delta-neutral USDC strategy that captures funding and price spreads in gold, oil and equity-index perpetuals.",
+                "It takes offsetting long and short positions across Lighter and Trade.xyz, seeking to avoid price-direction exposure.",
+                "Atoma says future venue airdrops are mostly shared with depositors.",
+                f"See the [Atoma RWA vault launch post]({ATOMA_RWA_VAULT_LAUNCH_POST_URL}).",
+            )
+        ),
+    ),
+}
 
 #: Atoma performance fee in basis points.
 PERFORMANCE_FEE_BPS = 2_000
@@ -76,6 +120,33 @@ class AtomaVault(ERC4626Vault):
     later ``claimWithdrawal(epochId)`` after the settlement epoch has been
     processed.
     """
+
+    @property
+    def description(self) -> str | None:
+        """Return a source-linked description for a known Atoma strategy.
+
+        The common Atoma contract interface does not distinguish strategy
+        details. The address-scoped overlay supplies reviewed offchain copy
+        only where Atoma has published a dedicated strategy announcement.
+
+        :return:
+            Full strategy description, or ``None`` when no overlay exists.
+        """
+
+        metadata = ATOMA_VAULT_DESCRIPTION_OVERLAY.get(HexAddress(str(self.vault_address).lower()))
+        return metadata.description if metadata else None
+
+    @property
+    def short_description(self) -> str | None:
+        """Return a concise description for a known Atoma strategy.
+
+        :return:
+            Listing-friendly strategy summary, or ``None`` when no overlay
+            exists.
+        """
+
+        metadata = ATOMA_VAULT_DESCRIPTION_OVERLAY.get(HexAddress(str(self.vault_address).lower()))
+        return metadata.short_description if metadata else None
 
     def has_custom_fees(self) -> bool:
         """Atoma has a mixed internalised performance fee and external withdrawal fee."""

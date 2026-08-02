@@ -8,7 +8,7 @@ from web3 import Web3
 
 from eth_defi.erc_4626.classification import HARDCODED_PROTOCOLS, create_vault_instance
 from eth_defi.erc_4626.core import ERC4626Feature, get_vault_protocol_name
-from eth_defi.erc_4626.vault_protocol.atoma.vault import ATOMA_VAULT_ADDRESS, ATOMA_VAULT_ADDRESSES, AtomaVault
+from eth_defi.erc_4626.vault_protocol.atoma.vault import ATOMA_RWA_VAULT_LAUNCH_POST_URL, ATOMA_VAULT_2_ADDRESS, ATOMA_VAULT_ADDRESS, ATOMA_VAULT_ADDRESSES, AtomaVault
 from eth_defi.vault.base import VaultSpec
 from eth_defi.vault.fee import VaultFeeMode
 from eth_defi.vault.risk import VaultTechnicalRisk
@@ -55,3 +55,16 @@ def test_atoma_static_fee_metadata() -> None:
     assert net_fee_data.withdraw == pytest.approx(0.005)
     assert vault.get_estimated_lock_up() == datetime.timedelta(days=7)
     assert vault.get_link() == "https://app.atoma.fi/"
+    assert vault.description is None
+    assert vault.short_description is None
+
+
+def test_atoma_rwa_vault_description_overlay() -> None:
+    """AVS2 has source-linked strategy copy specific to the RWA vault."""
+    vault = AtomaVault(Web3(), VaultSpec(42161, ATOMA_VAULT_2_ADDRESS), features={ERC4626Feature.atoma_like})
+
+    assert vault.short_description == "Market-neutral RWA perpetuals strategy across Lighter and Trade.xyz."
+    assert vault.description is not None
+    assert "gold, oil and equity-index perpetuals" in vault.description
+    assert "[Atoma RWA vault launch post](https://x.com/atoma_fi/status/2079672209400832319?s=46)" in vault.description
+    assert ATOMA_RWA_VAULT_LAUNCH_POST_URL in vault.description
