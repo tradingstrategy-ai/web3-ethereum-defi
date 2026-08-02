@@ -1211,6 +1211,8 @@ class VaultBase(ABC):
 
         A ``None`` result means this adapter does not expose a known minimum;
         it does not prove the protocol accepts arbitrarily small deposits.
+        A zero result means the adapter positively established that the vault
+        has no minimum deposit.
 
         :param block_identifier:
             Block at which to read the protocol configuration.
@@ -1225,6 +1227,8 @@ class VaultBase(ABC):
 
         A ``None`` result means this adapter does not expose a known minimum;
         it does not prove the protocol accepts arbitrarily small redemptions.
+        A zero result means the adapter positively established that the vault
+        has no minimum redemption.
 
         :param block_identifier:
             Block at which to read the protocol configuration.

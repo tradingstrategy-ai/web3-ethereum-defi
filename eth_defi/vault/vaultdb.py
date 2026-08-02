@@ -138,6 +138,20 @@ class VaultRow(TypedDict):
     #: Optional caveat for the exported vault-wide whitelist classification.
     _whitelist_notes: NotRequired[str | None]
 
+    #: Source-proven minimum deposit in decimal denomination-token units.
+    #:
+    #: ``0`` means the scanner verified that this vault has no minimum.
+    #: ``None`` means the adapter could not establish the value. Missing in a
+    #: legacy pickle also means ``None``.
+    _minimum_deposit: NotRequired[Decimal | None]
+
+    #: Source-proven minimum redemption in decimal vault-share units.
+    #:
+    #: ``0`` means the scanner verified that this vault has no minimum.
+    #: ``None`` means the adapter could not establish the value. Missing in a
+    #: legacy pickle also means ``None``.
+    _minimum_redemption: NotRequired[Decimal | None]
+
     #: Protocol-supplied vault manager or curator display name.
     #:
     #: Used by :py:func:`eth_defi.vault.curator.identify_curator` when the

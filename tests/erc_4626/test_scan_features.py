@@ -1,6 +1,7 @@
 """Tests for ERC-4626 scan-record feature persistence."""
 
 import datetime
+from decimal import Decimal
 
 import pytest
 
@@ -82,6 +83,16 @@ class _FakeVault:
         return PriceSource.smart_contract_state
 
     @staticmethod
+    def fetch_minimum_deposit(_block_identifier: int) -> Decimal:
+        """Return a source-proven denomination-token minimum."""
+        return Decimal("12.5")
+
+    @staticmethod
+    def fetch_minimum_redemption(_block_identifier: int) -> Decimal:
+        """Return a source-proven absence of a redemption minimum."""
+        return Decimal(0)
+
+    @staticmethod
     def fetch_scan_record_extra_data() -> dict:
         """Return no protocol-specific scan fields."""
         return {}
@@ -147,6 +158,8 @@ def test_create_vault_scan_record_persists_machine_readable_features(monkeypatch
     assert "erc_7575_like" in record["Features"]
     assert record["_deposit_manager"] is None
     assert record["_share_price_source"] is PriceSource.smart_contract_state
+    assert record["_minimum_deposit"] == Decimal("12.5")
+    assert record["_minimum_redemption"] == Decimal(0)
 
 
 def test_create_vault_scan_record_persists_deposit_permission(monkeypatch: pytest.MonkeyPatch) -> None:
