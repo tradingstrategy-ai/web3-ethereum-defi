@@ -4,7 +4,10 @@ import datetime
 import importlib.util
 from pathlib import Path
 
+import pytest
+
 from eth_defi.erc_4626.core import ERC4262VaultDetection, ERC4626Feature
+from eth_defi.erc_4626.vault_protocol.morpho.vault_v2 import MorphoGateAddressMissing
 from eth_defi.vault.base import VaultSpec
 from eth_defi.vault.vaultdb import VaultDatabase
 
@@ -82,6 +85,23 @@ class FakeVault:
         return self.whitelisted
 
 
+class MissingMorphoGateVault:
+    """Fixture adapter that reproduces a malformed Morpho V2 gate response."""
+
+    def __init__(self, address: str) -> None:
+        self.address = address
+
+    def is_whitelisted_deposit(self) -> bool:
+        """Raise the typed ABI-read failure produced by an empty gate response."""
+
+        raise MorphoGateAddressMissing(
+            self.address,
+            "receiveSharesGate",
+            "latest",
+            b"",
+        )
+
+
 def test_migrate_vault_deposit_permissions_updates_only_permission_field(tmp_path: Path) -> None:
     """Live permission reads correct stale cached classifications safely.
 
@@ -157,3 +177,59 @@ def test_migrate_vault_deposit_permissions_preserves_explicit_value_when_read_is
     assert result.unresolved_rows == 1
     assert vault_db_path.read_bytes() == original_contents
     assert not (tmp_path / "vault-metadata-db.pickle.bak-deposit-permission").exists()
+
+
+def test_migration_continues_after_missing_morpho_gate_address(tmp_path: Path) -> None:
+    """A malformed Morpho V2 gate response does not abort a metadata migration.
+
+    1. Create a cached explicit permission classification.
+    2. Reproduce the typed empty-gate failure through a fixture adapter.
+    3. Confirm the migration preserves the row as unresolved without writing.
+    """
+    # 1. Create a cached explicit permission classification.
+    migration = load_migration_module()
+    spec = VaultSpec(1, "0x0000000000000000000000000000000000000001")
+    vault_db_path = tmp_path / "vault-metadata-db.pickle"
+    VaultDatabase(rows={spec: create_row(spec, "whitelisted")}).write(vault_db_path)
+    original_contents = vault_db_path.read_bytes()
+
+    # 2. Reproduce the typed empty-gate failure through a fixture adapter.
+    def vault_factory(_web3: object, detection: ERC4262VaultDetection) -> MissingMorphoGateVault:
+        return MissingMorphoGateVault(detection.address)
+
+    result = migration.migrate_vault_deposit_permissions(
+        vault_db_path,
+        dry_run=False,
+        web3_by_chain={1: object()},
+        vault_factory=vault_factory,
+    )
+
+    # 3. Confirm the migration preserves the row as unresolved without writing.
+    assert not result.updated_rows
+    assert result.unresolved_rows == 1
+    assert vault_db_path.read_bytes() == original_contents
+    assert not (tmp_path / "vault-metadata-db.pickle.bak-deposit-permission").exists()
+
+
+def test_permission_adapter_factory_skips_unsupported_cached_asseto_product(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A stale Asseto classification does not abort a metadata migration.
+
+    1. Create a cached feature envelope accepted by the migration.
+    2. Reproduce Asseto's explicit unsupported-product construction error.
+    3. Confirm the adapter factory marks only this error unsupported.
+    """
+    # 1. Create a cached feature envelope accepted by the migration.
+    migration = load_migration_module()
+    spec = VaultSpec(1, "0x0000000000000000000000000000000000000001")
+    detection = create_detection(spec)
+
+    # 2. Reproduce Asseto's explicit unsupported-product construction error.
+    unsupported_product_error = "Unsupported Asseto product: chain=1, token=0x0000000000000000000000000000000000000001"
+
+    def create_unsupported_product_vault(_web3: object, _address: str, _features: set, **_kwargs: object) -> None:
+        raise RuntimeError(unsupported_product_error)
+
+    monkeypatch.setattr(migration, "create_vault_instance", create_unsupported_product_vault)
+
+    # 3. Confirm the adapter factory marks only this error unsupported.
+    assert migration.create_vault_for_permission_read(object(), detection) is None

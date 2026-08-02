@@ -24,6 +24,7 @@ from typing import Iterable
 
 from eth_typing import BlockIdentifier, HexAddress
 from web3 import Web3
+from web3.exceptions import BadFunctionCallOutput
 
 from eth_defi.abi import ZERO_ADDRESS_STR
 from eth_defi.chain import get_chain_name
@@ -58,6 +59,32 @@ PERFORMANCE_FEE_SIGNATURE = Web3.keccak(text="performanceFee()")[0:4]
 MANAGEMENT_FEE_SIGNATURE = Web3.keccak(text="managementFee()")[0:4]
 RECEIVE_SHARES_GATE_SIGNATURE = Web3.keccak(text="receiveSharesGate()")[0:4]
 SEND_ASSETS_GATE_SIGNATURE = Web3.keccak(text="sendAssetsGate()")[0:4]
+
+#: ABI return-word width for address getters
+ABI_ADDRESS_WORD_SIZE = 32
+
+
+class MorphoGateAddressMissing(BadFunctionCallOutput):
+    """A Morpho V2 gate getter did not return an ABI-encoded address.
+
+    The gate slots are optional, but a supported Morpho V2 vault must return
+    one 32-byte ABI word even when the configured gate is the zero address.
+    An empty or malformed response therefore means that the cached adapter
+    classification cannot be safely used for a permission read.
+    """
+
+    def __init__(
+        self,
+        vault_address: HexAddress,
+        function_name: str,
+        block_identifier: BlockIdentifier,
+        response: bytes,
+    ) -> None:
+        self.vault_address = vault_address
+        self.function_name = function_name
+        self.block_identifier = block_identifier
+        self.response = response
+        super().__init__(f"Morpho V2 gate getter {function_name}() returned {len(response)} bytes for vault {vault_address} at block {block_identifier}; expected one 32-byte ABI-encoded address, response=0x{response.hex()}")
 
 
 class MorphoV2VaultHistoricalReader(ERC4626HistoricalReader):
@@ -273,6 +300,11 @@ class MorphoV2Vault(ERC4626Vault):
             Block at which the gate is read.
         :return:
             Checksummed gate address.
+        :raise MorphoGateAddressMissing:
+            If the getter returns anything other than the 32-byte ABI word
+            required for an address. The exception includes the vault, getter,
+            block, and raw response for diagnosing stale classifications or
+            inconsistent RPC responses.
         """
         call = EncodedCall.from_keccak_signature(
             address=self.address,
@@ -282,6 +314,13 @@ class MorphoV2Vault(ERC4626Vault):
             extra_data=None,
         )
         data = call.call(self.web3, block_identifier)
+        if len(data) != ABI_ADDRESS_WORD_SIZE:
+            raise MorphoGateAddressMissing(
+                self.address,
+                function_name,
+                block_identifier,
+                data,
+            )
         return Web3.to_checksum_address(data[12:32])
 
     def get_deposit_manager(self) -> MorphoV2DepositManager:

@@ -1,17 +1,22 @@
 """Fixed-block regressions for vault deposit-permission classifications."""
 
 import os
+from unittest.mock import patch
 
 import pytest
+from hexbytes import HexBytes
 from web3 import Web3
 
 from eth_defi.erc_4626.classification import create_vault_instance_autodetect
+from eth_defi.erc_4626.scan import fetch_deposit_permission
 from eth_defi.erc_4626.vault_protocol.euler.vault import EulerEarnVault, EulerVault
 from eth_defi.erc_4626.vault_protocol.ipor.vault import IPORVault
 from eth_defi.erc_4626.vault_protocol.morpho.vault_v1 import MorphoV1Vault
-from eth_defi.erc_4626.vault_protocol.morpho.vault_v2 import MorphoV2Vault
+from eth_defi.erc_4626.vault_protocol.morpho.vault_v2 import MorphoGateAddressMissing, MorphoV2Vault
+from eth_defi.event_reader.multicall_batcher import EncodedCall
 from eth_defi.testing.anvil_fork_pool import AnvilForkPool
 from eth_defi.vault.base import VaultSpec
+from eth_defi.vault.deposit_redeem import VaultDepositPermission
 
 JSON_RPC_ETHEREUM = os.environ.get("JSON_RPC_ETHEREUM")
 
@@ -114,6 +119,33 @@ def test_morpho_v2_gate_getters_are_permissionless(web3: Web3) -> None:
     assert int(receive_shares_gate, 16) == 0
     assert int(send_assets_gate, 16) == 0
     assert vault.is_whitelisted_deposit() is False
+
+
+def test_morpho_v2_empty_gate_response_is_safe_for_permission_scans(web3: Web3) -> None:
+    """Test a malformed gate response from the deployed Morpho V2 Apyx vault.
+
+    1. Autodetect the production Morpho V2 vault at the fixed block.
+    2. Simulate the empty gate response that interrupted the permission migration.
+    3. Check typed diagnostics and that the scanner reports an unknown policy.
+    """
+    # 1. Autodetect the production Morpho V2 vault at the fixed block.
+    vault = create_vault_instance_autodetect(web3, MORPHO_V2_APYX_USDC)
+    assert isinstance(vault, MorphoV2Vault)
+
+    # 2. Simulate the empty gate response that interrupted the permission migration.
+    with patch.object(EncodedCall, "call", return_value=HexBytes("0x")):
+        with pytest.raises(MorphoGateAddressMissing) as exception_info:
+            vault.fetch_deposit_gates()
+
+        error = exception_info.value
+        assert error.vault_address == vault.address
+        assert error.function_name == "receiveSharesGate"
+        assert error.response == HexBytes("0x")
+        assert vault.address in str(error)
+        assert "expected one 32-byte ABI-encoded address" in str(error)
+
+        # 3. Check typed diagnostics and that the scanner reports an unknown policy.
+        assert fetch_deposit_permission(vault) == VaultDepositPermission.unknown
 
 
 @pytest.mark.parametrize("vault_address", EULER_VAULTS)

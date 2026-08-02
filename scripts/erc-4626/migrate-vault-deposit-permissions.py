@@ -145,6 +145,11 @@ def create_backup_path(vault_db_path: Path) -> Path:
 def create_vault_for_permission_read(web3: Web3, detection: ERC4262VaultDetection) -> VaultBase | None:
     """Recreate the current adapter needed for a permission read.
 
+    A cached feature envelope can outlive an adapter's static product registry.
+    In particular, Asseto rejects a token that is not a supported product. Such
+    a row cannot provide a deposit-permission answer and is skipped like other
+    unsupported adapters; unrelated construction errors still propagate.
+
     :param web3:
         Verified chain connection for the detection.
     :param detection:
@@ -153,12 +158,18 @@ def create_vault_for_permission_read(web3: Web3, detection: ERC4262VaultDetectio
         Current adapter, or ``None`` when the envelope is unsupported.
     """
 
-    return create_vault_instance(
-        web3,
-        detection.address,
-        detection.features,
-        default_block_identifier="latest",
-    )
+    try:
+        return create_vault_instance(
+            web3,
+            detection.address,
+            detection.features,
+            default_block_identifier="latest",
+        )
+    except RuntimeError as error:
+        if not str(error).startswith("Unsupported Asseto product:"):
+            raise
+        logger.warning("Skipping unsupported cached Asseto product %s: %s", detection.address, error)
+        return None
 
 
 def create_web3_by_chain(candidate_specs: Iterable[VaultSpec]) -> dict[int, Web3]:
