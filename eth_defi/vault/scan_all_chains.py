@@ -2576,6 +2576,8 @@ def run_scan_tick(
                 ),
             )
             scan_status = "success" if scan_result.vault_count else "disabled"
+            if scan_result.diagnostics:
+                logger.info("%s scan diagnostics: %s", scanner.dashboard_name, scan_result.diagnostics)
             results[scanner.dashboard_name] = ChainResult(
                 name=scanner.dashboard_name,
                 status=scan_status,
@@ -2586,7 +2588,6 @@ def run_scan_tick(
                 latest_data_timestamp=scan_result.latest_data_timestamp,
                 start_block=scan_result.start_block,
                 end_block=scan_result.end_block,
-                error=scan_result.diagnostics,
                 duration=time.monotonic() - started_at,
             )
         except (RuntimeError, ValueError, OSError, pa.ArrowException, Web3Exception) as exc:

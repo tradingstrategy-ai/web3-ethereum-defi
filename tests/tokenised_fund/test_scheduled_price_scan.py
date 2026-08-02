@@ -1,6 +1,7 @@
 """Tests for recurring tokenised-fund price-feed scheduling."""
 
 import datetime
+import logging
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -358,6 +359,70 @@ def test_build_active_protocols_includes_selected_tokenised_fund_feeds() -> None
     )
 
     assert protocols == ["Asseto", "Securitize"]
+
+
+def test_tokenised_fund_tick_keeps_non_fatal_diagnostics_out_of_dashboard(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture) -> None:
+    """Keep skipped unsupported Asseto products in logs, not the success row."""
+
+    caplog.set_level(logging.INFO)
+    scanner = select_tokenised_fund_price_scanners("asseto")[0]
+    diagnostic = "chain 1672 is disabled for 0x85f51213a6c0000000000000000000000000000"
+    monkeypatch.setattr(
+        scan_all_chains,
+        "run_tokenised_fund_price_scan",
+        lambda *_args, **_kwargs: TokenisedFundPriceScanResult(
+            vault_count=17,
+            price_rows=0,
+            latest_data_timestamp=None,
+            start_block=None,
+            end_block=None,
+            diagnostics=diagnostic,
+        ),
+    )
+    monkeypatch.setattr(scan_all_chains, "print_dashboard", lambda *_args, **_kwargs: None)
+
+    results = scan_all_chains.run_scan_tick(
+        chains=[],
+        active_protocols=["Asseto"],
+        scan_prices=False,
+        scan_hypercore=False,
+        scan_grvt=False,
+        scan_lighter=False,
+        scan_hibachi=False,
+        scan_apex=False,
+        scan_core3=False,
+        scan_currency_rates=False,
+        max_workers=1,
+        core3_max_workers=1,
+        currency_api_max_workers=1,
+        frequency="1h",
+        retry_count=0,
+        skip_post_processing=True,
+        skip_cleaning=True,
+        skip_top_vaults=True,
+        skip_sparklines=True,
+        skip_metadata=True,
+        skip_data=True,
+        skip_samples=True,
+        vault_db_path=tmp_path / "vault-metadata-db.pickle",
+        uncleaned_price_path=tmp_path / "vault-prices-1h.parquet",
+        reader_state_path=tmp_path / "vault-reader-state-1h.pickle",
+        hyperliquid_db_path=tmp_path / "hyperliquid-vaults-hf.duckdb",
+        hyperliquid_hf_db_path=tmp_path / "hyperliquid-vaults-hf.duckdb",
+        grvt_db_path=tmp_path / "grvt-vaults.duckdb",
+        lighter_db_path=tmp_path / "lighter-pools.duckdb",
+        hibachi_db_path=tmp_path / "hibachi-vaults.duckdb",
+        apex_db_path=tmp_path / "apex-vaults.duckdb",
+        bkp_files=[],
+        bkp_dir=tmp_path / "backups",
+        tokenised_fund_scanners=(scanner,),
+        tokenised_fund_scheduling_enabled=True,
+    )
+
+    result = results["Asseto"]
+    assert result.status == "success"
+    assert result.error is None
+    assert diagnostic in caplog.text
 
 
 def test_tokenised_fund_tick_updates_only_successful_protocol_cycle_state(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
