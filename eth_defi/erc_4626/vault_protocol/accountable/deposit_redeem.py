@@ -319,12 +319,11 @@ class AccountableDepositManager(ERC4626DepositManager):
             raw_amount = self.vault.denomination_token.convert_to_raw(amount)
         if raw_amount <= 0:
             raise ValueError("Accountable deposit amount must be positive")
-        minimum = self.vault.fetch_minimum_raw_deposit()
-        if minimum is None:
-            minimum = 0
-        if raw_amount < minimum:
+        minimum = self.vault.fetch_minimum_deposit()
+        minimum_raw = self.vault.denomination_token.convert_to_raw(minimum) if minimum is not None else 0
+        if raw_amount < minimum_raw:
             raise VaultFlowUnavailable(
-                f"Accountable deposit amount {raw_amount} is below minimum {minimum}",
+                f"Accountable deposit amount {raw_amount} is below minimum {minimum_raw}",
                 protocol="Accountable",
                 vault_address=self.vault.address,
                 caller=owner,
@@ -333,7 +332,7 @@ class AccountableDepositManager(ERC4626DepositManager):
                 decoded_error="InsufficientAmount",
                 preflight_result="below_minimum",
                 requested_raw_amount=raw_amount,
-                minimum_raw_amount=minimum,
+                minimum_raw_amount=minimum_raw,
                 error_selector=ACCOUNTABLE_INSUFFICIENT_AMOUNT_SELECTOR,
             )
         if check_max_deposit:

@@ -645,8 +645,8 @@ class AccountableVault(ERC4626Vault):  # noqa: PLR0904
         available_minimums = tuple(value for value in (vault_minimum, strategy_minimum) if value is not None)
         return max(available_minimums) if available_minimums else None
 
-    def fetch_minimum_raw_deposit(self, block_identifier: BlockIdentifier = "latest") -> int | None:
-        """Fetch the effective minimum deposit in ERC-20 base units.
+    def fetch_minimum_deposit(self, block_identifier: BlockIdentifier = "latest") -> Decimal | None:
+        """Fetch Accountable's effective minimum deposit in token units.
 
         Accountable checks both the vault's ``MIN_AMOUNT_WEI()`` threshold and
         the strategy's configured ``loan.minDeposit``. The larger value is the
@@ -656,30 +656,13 @@ class AccountableVault(ERC4626Vault):  # noqa: PLR0904
             Block tag or number shared by both reads.
 
         :return:
-            Effective denomination-token base-unit minimum, or ``None`` when
-            neither getter is supported.
+            Human-readable denomination-token amount, or ``None`` when the
+            getter or denomination token is unavailable.
         """
         _, strategy_contract = self._fetch_strategy_contract(block_identifier)
         vault_minimum = self._fetch_vault_minimum_raw(block_identifier)
         strategy_minimum = self._fetch_strategy_minimum_raw_deposit(strategy_contract, block_identifier)
-        return self._effective_minimum_raw_deposit(vault_minimum, strategy_minimum)
-
-    def fetch_minimum_deposit(self, block_identifier: BlockIdentifier = "latest") -> Decimal | None:
-        """Fetch the contract-enforced minimum deposit in token units.
-
-        The effective maximum of ``MIN_AMOUNT_WEI()`` and
-        ``loan.minDeposit`` is decimalised with the vault's denomination
-        token. Use :meth:`fetch_minimum_raw_deposit` when an exact input for a
-        transaction is required.
-
-        :param block_identifier:
-            Block tag or number at which to read the minimum.
-
-        :return:
-            Human-readable denomination-token amount, or ``None`` when the
-            getter or denomination token is unavailable.
-        """
-        minimum_raw = self.fetch_minimum_raw_deposit(block_identifier)
+        minimum_raw = self._effective_minimum_raw_deposit(vault_minimum, strategy_minimum)
         if minimum_raw is None or self.denomination_token is None:
             return None
         return self.denomination_token.convert_to_decimals(minimum_raw)

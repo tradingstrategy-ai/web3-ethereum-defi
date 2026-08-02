@@ -204,25 +204,26 @@ def test_accountable_deposit_and_redemption_request_lifecycle(web3: Web3) -> Non
     # MIN_AMOUNT_WEI and the strategy's per-loan minDeposit; a deposit clearing
     # only the vault minimum reverts InsufficientAmount() inside the strategy.
     vault_minimum = int(vault.vault_contract.functions.MIN_AMOUNT_WEI().call())
-    minimum = vault.fetch_minimum_raw_deposit()
+    minimum = vault.fetch_minimum_deposit()
     redemption_minimum = vault.fetch_minimum_redemption()
     assert minimum is not None
     assert redemption_minimum == vault.share_token.convert_to_decimals(vault_minimum)
-    assert minimum > vault_minimum, "This vault's strategy should raise the binding minimum above MIN_AMOUNT_WEI"
+    minimum_raw = vault.denomination_token.convert_to_raw(minimum)
+    assert minimum_raw > vault_minimum, "This vault's strategy should raise the binding minimum above MIN_AMOUNT_WEI"
     with pytest.raises(VaultFlowUnavailable, match="below minimum") as exc_info:
-        manager.create_deposit_request(owner=web3.eth.accounts[1], raw_amount=minimum - 1)
+        manager.create_deposit_request(owner=web3.eth.accounts[1], raw_amount=minimum_raw - 1)
     assert exc_info.value.decoded_error == "InsufficientAmount"
     assert exc_info.value.preflight_result == "below_minimum"
     assert exc_info.value.error_selector == ACCOUNTABLE_INSUFFICIENT_AMOUNT_SELECTOR
-    assert exc_info.value.minimum_raw_amount == minimum
+    assert exc_info.value.minimum_raw_amount == minimum_raw
     assert exc_info.value.available_raw_amount is None
     unchecked_request = manager.create_deposit_request(
         owner=web3.eth.accounts[1],
-        raw_amount=minimum,
+        raw_amount=minimum_raw,
         check_max_deposit=False,
         check_enough_token=False,
     )
-    assert unchecked_request.raw_amount == minimum
+    assert unchecked_request.raw_amount == minimum_raw
 
     synchronous_settlement = manager.force_settle(None)
     assert synchronous_settlement.settlement_required is False
