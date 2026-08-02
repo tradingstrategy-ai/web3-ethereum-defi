@@ -680,9 +680,9 @@ class AccountableVault(ERC4626Vault):  # noqa: PLR0904
             getter or denomination token is unavailable.
         """
         minimum_raw = self.fetch_minimum_raw_deposit(block_identifier)
-        if minimum_raw is None or self.underlying_token is None:
+        if minimum_raw is None or self.denomination_token is None:
             return None
-        return self.underlying_token.convert_to_decimals(minimum_raw)
+        return self.denomination_token.convert_to_decimals(minimum_raw)
 
     def fetch_minimum_raw_redemption(self, block_identifier: BlockIdentifier = "latest") -> int | None:
         """Fetch Accountable's request-redemption dust threshold in raw shares.
@@ -706,7 +706,7 @@ class AccountableVault(ERC4626Vault):  # noqa: PLR0904
             Decimal share minimum, or ``None`` when unavailable.
         """
         minimum_raw = self.fetch_minimum_raw_redemption(block_identifier)
-        if minimum_raw is None:
+        if minimum_raw is None or self.share_token is None:
             return None
         return self.share_token.convert_to_decimals(minimum_raw)
 

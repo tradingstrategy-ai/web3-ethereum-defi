@@ -94,9 +94,7 @@ class FortyAcresDepositManager(ERC4626DepositManager):
             Maximum raw shares that can be redeemed in full immediately.
         """
         try:
-            owner_raw_shares = int(self.vault.vault_contract.functions.balanceOf(owner).call())
-            idle_raw_assets = int(self.vault.denomination_token.fetch_raw_balance_of(self.vault.address))
-            idle_raw_shares = int(self.vault.vault_contract.functions.convertToShares(idle_raw_assets).call())
+            return self._fetch_redeemable_raw_shares_strict(owner)
         except (BadFunctionCallOutput, ContractLogicError, Web3RPCError, ValueError) as error:
             logger.warning(
                 "Cannot read 40acres immediate redemption capacity for vault %s on chain %d: %s",
@@ -106,6 +104,11 @@ class FortyAcresDepositManager(ERC4626DepositManager):
             )
             return 0
 
+    def _fetch_redeemable_raw_shares_strict(self, owner: HexAddress) -> int:
+        """Read direct redemption capacity without masking provider failures."""
+        owner_raw_shares = int(self.vault.vault_contract.functions.balanceOf(owner).call())
+        idle_raw_assets = int(self.vault.denomination_token.fetch_raw_balance_of(self.vault.address))
+        idle_raw_shares = int(self.vault.vault_contract.functions.convertToShares(idle_raw_assets).call())
         return min(owner_raw_shares, idle_raw_shares)
 
     def _read_redemption_capacity(self, owner: HexAddress, raw_shares: int) -> dict[str, int]:
@@ -118,14 +121,14 @@ class FortyAcresDepositManager(ERC4626DepositManager):
             "max_redeem_raw_shares": int(vault_contract.functions.maxRedeem(owner).call()),
             "requested_raw_assets": int(vault_contract.functions.previewRedeem(raw_shares).call()),
             "available_raw_assets": int(token.fetch_raw_balance_of(self.vault.address)),
-            "available_raw_shares": self.fetch_redeemable_raw_shares(owner),
+            "available_raw_shares": self._fetch_redeemable_raw_shares_strict(owner),
             "total_assets": int(vault_contract.functions.totalAssets().call()),
             "total_supply": int(vault_contract.functions.totalSupply().call()),
         }
 
     def _can_redeem_after_liquidity_injection(self, owner: HexAddress, raw_shares: int) -> bool:
         """Test the unchanged real redemption against the current fork state."""
-        if self.fetch_redeemable_raw_shares(owner) < raw_shares:
+        if self._fetch_redeemable_raw_shares_strict(owner) < raw_shares:
             return False
         try:
             request = super().create_redemption_request(
@@ -163,6 +166,14 @@ class FortyAcresDepositManager(ERC4626DepositManager):
             raise UnsupportedVaultSimulation(
                 "40acres liquidity injection requires a redemption-capacity preflight",
                 unsupported_reason="redemption_failure_not_capacity_limited",
+                protocol=self.vault.get_protocol_name(),
+                vault_address=self.vault.address,
+                direction="redeem",
+            )
+        if raw_shares <= 0:
+            raise UnsupportedVaultSimulation(
+                "40acres redemption liquidity injection requires positive shares",
+                unsupported_reason="redemption_shares_not_positive",
                 protocol=self.vault.get_protocol_name(),
                 vault_address=self.vault.address,
                 direction="redeem",
