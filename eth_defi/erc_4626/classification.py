@@ -2618,6 +2618,9 @@ HARDCODED_PROTOCOLS = {
     # https://app.atoma.fi/
     # https://arbiscan.io/address/0xCC56410e1a136aF0eCEb7241c6aE394F4d8b581c
     "0xcc56410e1a136af0eceb7241c6ae394f4d8b581c": {ERC4626Feature.atoma_like},
+    # Atoma - Atoma Vault Share 2 (AVS2) USDC vault on Arbitrum
+    # https://arbiscan.io/address/0x1C788E14d8e5B446e3F71B5142e2edaBcAB36da1
+    "0x1c788e14d8e5b446e3f71b5142e2edabcab36da1": {ERC4626Feature.atoma_like},
     # CAP - Covered Agent Protocol
     "0x3ed6aa32c930253fc990de58ff882b9186cd0072": {ERC4626Feature.cap_like},
     # CAP - Covered Agent Protocol - AaveV3Lender USDC vault on Ethereum
