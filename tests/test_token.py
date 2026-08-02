@@ -146,6 +146,27 @@ def test_cache_erc_20_details(web3: Web3, deployer: str):
     assert cache_key in DEFAULT_TOKEN_CACHE
 
 
+def test_token_decimal_conversion_preserves_uint256_raw_amount(web3: Web3, deployer: str) -> None:
+    """Keep a large raw ERC-20 value exact across decimal conversion.
+
+    1. Create an 18-decimal token presentation.
+    2. Convert the largest uint256 value to decimal units.
+    3. Convert it back and verify the original raw value is retained.
+    """
+    token_contract = create_token(web3, deployer, "Precision token", "PRECISE", 0, 18)
+    token = TokenDetails(token_contract, decimals=18)
+    raw_amount = 2**256 - 1
+
+    # 1. Convert the raw amount to the public decimal representation.
+    decimal_amount = token.convert_to_decimals(raw_amount)
+
+    # 2. Convert the decimal value back to a request-ready raw integer.
+    restored_raw_amount = token.convert_to_raw(decimal_amount)
+
+    # 3. Verify no Decimal-context rounding altered the uint256 value.
+    assert restored_raw_amount == raw_amount
+
+
 def test_cache_reset_erc_20_details(web3: Web3, deployer: str):
     """Token cache can be reset."""
 

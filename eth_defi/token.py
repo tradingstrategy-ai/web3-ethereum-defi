@@ -12,7 +12,7 @@ import os
 import warnings
 from collections import OrderedDict, defaultdict
 from dataclasses import asdict, dataclass, field
-from decimal import Decimal
+from decimal import Decimal, localcontext
 from functools import cached_property
 from pathlib import Path
 from typing import Any, Iterable, Optional, TypeAlias, TypedDict, Union
@@ -336,7 +336,9 @@ class TokenDetails:
 
         """
         assert type(raw_amount) == int, f"Got {type(raw_amount)}, expected int: {raw_amount}"
-        return Decimal(raw_amount) / Decimal(10**self.decimals)
+        with localcontext() as context:
+            context.prec = max(context.prec, len(str(abs(raw_amount))))
+            return Decimal(raw_amount) / Decimal(10**self.decimals)
 
     def convert_to_raw(self, decimal_amount: Decimal) -> int:
         """Convert decimalised token amount to raw uint256.
@@ -350,7 +352,9 @@ class TokenDetails:
             assert details.convert_to_raw(1) == 1_000_000
 
         """
-        return int(decimal_amount * 10**self.decimals)
+        with localcontext() as context:
+            context.prec = max(context.prec, len(decimal_amount.as_tuple().digits) + self.decimals)
+            return int(decimal_amount * 10**self.decimals)
 
     def fetch_balance_of(self, address: HexAddress | str, block_identifier="latest") -> Decimal:
         """Get an address token balance.
