@@ -405,14 +405,15 @@ class AccountableDepositManager(ERC4626DepositManager):
             raw_shares = self.vault.share_token.convert_to_raw(shares)
         if raw_shares <= 0:
             raise ValueError("Accountable redemption shares must be positive")
-        minimum = self.vault.fetch_minimum_raw_redemption()
-        if minimum is not None and raw_shares < minimum:
+        minimum = self.vault.fetch_minimum_redemption()
+        minimum_raw = self.vault.share_token.convert_to_raw(minimum) if minimum is not None else None
+        if minimum_raw is not None and raw_shares < minimum_raw:
             # Strategy-level minRedeem is intentionally not applied here: its
             # unit (shares vs assets) is not confirmed for this deployment, and
             # a mis-scaled comparison would false-block. The shared vault
             # accessor exposes only the source-proven requestRedeem threshold.
             raise VaultFlowUnavailable(
-                f"Accountable redemption shares {raw_shares} are below minimum {minimum}",
+                f"Accountable redemption shares {raw_shares} are below minimum {minimum_raw}",
                 protocol="Accountable",
                 vault_address=self.vault.address,
                 caller=owner,
@@ -421,7 +422,7 @@ class AccountableDepositManager(ERC4626DepositManager):
                 decoded_error="InsufficientAmount",
                 preflight_result="below_minimum",
                 requested_raw_amount=raw_shares,
-                minimum_raw_amount=minimum,
+                minimum_raw_amount=minimum_raw,
                 error_selector=ACCOUNTABLE_INSUFFICIENT_AMOUNT_SELECTOR,
             )
         if self.is_redemption_in_progress(owner):
@@ -559,8 +560,9 @@ class AccountableDepositManager(ERC4626DepositManager):
         """
         if self.is_redemption_in_progress(owner):
             return False
-        minimum = self.vault.fetch_minimum_raw_redemption()
-        return minimum is None or int(self.vault.share_token.fetch_raw_balance_of(owner)) >= minimum
+        minimum = self.vault.fetch_minimum_redemption()
+        minimum_raw = self.vault.share_token.convert_to_raw(minimum) if minimum is not None else None
+        return minimum_raw is None or int(self.vault.share_token.fetch_raw_balance_of(owner)) >= minimum_raw
 
     def estimate_redemption_delay(self) -> datetime.timedelta:
         """Return no deterministic Accountable queue deadline.

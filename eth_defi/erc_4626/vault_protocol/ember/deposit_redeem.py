@@ -330,10 +330,11 @@ class EmberDepositManager(ERC4626DepositManager):
                 preflight_result="redemption_paused",
             )
 
-        minimum = self.vault.fetch_minimum_raw_redemption()
-        if minimum is not None and raw_shares < minimum:
+        minimum = self.vault.fetch_minimum_redemption()
+        minimum_raw = self.vault.share_token.convert_to_raw(minimum) if minimum is not None else None
+        if minimum_raw is not None and raw_shares < minimum_raw:
             raise VaultFlowUnavailable(
-                f"Ember redemption shares {raw_shares} are below minimum {minimum}",
+                f"Ember redemption shares {raw_shares} are below minimum {minimum_raw}",
                 protocol=self.vault.get_protocol_name(),
                 vault_address=self.vault.address,
                 caller=owner,
@@ -342,7 +343,7 @@ class EmberDepositManager(ERC4626DepositManager):
                 decoded_error="InsufficientAmount",
                 preflight_result="below_minimum",
                 requested_raw_amount=raw_shares,
-                minimum_raw_amount=minimum,
+                minimum_raw_amount=minimum_raw,
             )
         if check_enough_token:
             balance = int(self.vault.share_token.fetch_raw_balance_of(owner))
@@ -440,9 +441,10 @@ class EmberDepositManager(ERC4626DepositManager):
         """
         if self._withdrawals_paused():
             return False
-        minimum = self.vault.fetch_minimum_raw_redemption()
+        minimum = self.vault.fetch_minimum_redemption()
+        minimum_raw = self.vault.share_token.convert_to_raw(minimum) if minimum is not None else None
         balance = int(self.vault.share_token.fetch_raw_balance_of(owner))
-        return minimum is None or balance >= minimum
+        return minimum_raw is None or balance >= minimum_raw
 
     def estimate_redemption_delay(self) -> datetime.timedelta:
         """Return Ember's off-chain operator service estimate.

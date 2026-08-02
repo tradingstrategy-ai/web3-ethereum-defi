@@ -49,10 +49,10 @@ the reserve cannot fill the request, the manager raises
 ``VaultBase`` exposes optional, block-aware minimum accessors so a caller can
 size a deposit and a later redemption from one adapter contract. Deposit
 minimums are denomination-token amounts and redemption minimums are vault-share
-amounts. ``fetch_minimum_raw_deposit()`` and
-``fetch_minimum_raw_redemption()`` return their respective ERC-20 base units;
-the matching decimal methods use the denomination and share tokens to convert
-for display.
+amounts. Deposits expose both raw and decimal accessors; redemption minimums
+use the single decimal ``fetch_minimum_redemption()`` accessor. A manager
+converts that value with the vault share token only when it needs an exact
+raw-unit comparison or transaction input.
 
 ``None`` means only that the adapter has no source-proven minimum getter. It
 does not prove that the deployed protocol accepts every positive amount. An

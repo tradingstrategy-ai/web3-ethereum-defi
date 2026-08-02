@@ -194,7 +194,6 @@ def test_ember_redemption_minimum_is_checked_before_call_binding(web3: Web3, vau
     """
     # 1. Read the raw and decimal values through the shared vault API.
     manager = vault.get_deposit_manager()
-    assert vault.fetch_minimum_raw_redemption() == 100_000
     assert vault.fetch_minimum_redemption() == Decimal("0.1")
 
     # 2. Submit a request one raw unit below the source-proven minimum.

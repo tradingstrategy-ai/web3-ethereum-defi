@@ -684,8 +684,8 @@ class AccountableVault(ERC4626Vault):  # noqa: PLR0904
             return None
         return self.denomination_token.convert_to_decimals(minimum_raw)
 
-    def fetch_minimum_raw_redemption(self, block_identifier: BlockIdentifier = "latest") -> int | None:
-        """Fetch Accountable's request-redemption dust threshold in raw shares.
+    def fetch_minimum_redemption(self, block_identifier: BlockIdentifier = "latest") -> Decimal | None:
+        """Fetch Accountable's request-redemption dust threshold in shares.
 
         ``loan().minRedeem`` intentionally remains excluded until its unit is
         source-proven for the selected strategy deployment.
@@ -693,19 +693,9 @@ class AccountableVault(ERC4626Vault):  # noqa: PLR0904
         :param block_identifier:
             Block at which to read the threshold.
         :return:
-            Raw share minimum, or ``None`` when unavailable.
-        """
-        return self._fetch_vault_minimum_raw(block_identifier)
-
-    def fetch_minimum_redemption(self, block_identifier: BlockIdentifier = "latest") -> Decimal | None:
-        """Fetch Accountable's request-redemption dust threshold in shares.
-
-        :param block_identifier:
-            Block at which to read the threshold.
-        :return:
             Decimal share minimum, or ``None`` when unavailable.
         """
-        minimum_raw = self.fetch_minimum_raw_redemption(block_identifier)
+        minimum_raw = self._fetch_vault_minimum_raw(block_identifier)
         if minimum_raw is None or self.share_token is None:
             return None
         return self.share_token.convert_to_decimals(minimum_raw)
