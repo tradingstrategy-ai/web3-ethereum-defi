@@ -198,7 +198,7 @@ async def get_block_timestamps_using_hypersync_async(
     if validate_chain_id:
         await _validate_hypersync_chain_id_async(client, chain_id, reason=reason)
 
-    logger.info(
+    logger.debug(
         "Hypersync stream open: chain %d, blocks %d-%d (%d blocks)%s",
         chain_id,
         start_block,
