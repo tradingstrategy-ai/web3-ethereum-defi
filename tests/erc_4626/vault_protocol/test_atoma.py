@@ -22,7 +22,7 @@ def test_atoma_hardcoded_protocol() -> None:
     assert all(get_vault_protocol_name(features) == "Atoma" for features in features_by_address.values())
 
 
-@pytest.mark.parametrize("vault_address", ATOMA_VAULT_ADDRESSES)
+@pytest.mark.parametrize("vault_address", sorted(ATOMA_VAULT_ADDRESSES))
 def test_atoma_create_vault_instance(vault_address: HexAddress) -> None:
     """Atoma features create an AtomaVault adapter."""
     web3 = Web3()
