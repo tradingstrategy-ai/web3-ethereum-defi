@@ -19,6 +19,7 @@ and distributing traditional and onchain financial products through crypto capit
 
 import datetime
 import logging
+from decimal import Decimal
 from functools import cached_property
 from typing import TYPE_CHECKING
 
@@ -141,6 +142,36 @@ class EmberVault(ERC4626Vault):
             if days is not None:
                 return datetime.timedelta(days=days)
         return datetime.timedelta(days=4)
+
+    def fetch_minimum_raw_redemption(self, block_identifier: BlockIdentifier = "latest") -> int | None:
+        """Fetch Ember's minimum queued redemption in raw share units.
+
+        Ember's ``minWithdrawableShares()`` is checked by its
+        ``redeemShares`` request path, so it is a redemption minimum rather
+        than a withdrawal-capacity value.
+
+        :param block_identifier:
+            Block at which to read the configured minimum.
+        :return:
+            Raw share minimum, or ``None`` when the deployment does not expose
+            the getter.
+        """
+        return int(
+            self.vault_contract.functions.minWithdrawableShares().call(
+                block_identifier=block_identifier,
+            )
+        )
+
+    def fetch_minimum_redemption(self, block_identifier: BlockIdentifier = "latest") -> Decimal | None:
+        """Fetch Ember's minimum queued redemption in decimal share units.
+
+        :param block_identifier:
+            Block at which to read the configured minimum.
+        :return:
+            Decimal share minimum.
+        """
+        minimum_raw = self.fetch_minimum_raw_redemption(block_identifier)
+        return self.share_token.convert_to_decimals(minimum_raw) if minimum_raw is not None else None
 
     def get_deposit_manager(self) -> "EmberDepositManager":
         """Create Ember's synchronous-deposit, asynchronous-redemption manager.

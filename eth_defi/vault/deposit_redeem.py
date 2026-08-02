@@ -5,7 +5,7 @@ import enum
 import logging
 from abc import ABC, abstractmethod
 from collections.abc import Iterator
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from decimal import Decimal
 from pprint import pformat
 from typing import Literal
@@ -733,7 +733,7 @@ class VaultRedemptionSimulationIntervention:
     """
 
     #: Intervention type for machine-readable reports.
-    kind: Literal["liquidity_injected"]
+    kind: Literal["liquidity_injected", "redemption_capacity_increased"]
 
     #: Denomination token whose forked balance was changed.
     token: HexAddress
@@ -749,6 +749,11 @@ class VaultRedemptionSimulationIntervention:
 
     #: Original machine-readable preflight result when available.
     original_preflight_result: str | None = None
+
+    #: Protocol-specific, JSON-safe evidence fields.
+    #:
+    #: Raw integer values are serialised as strings by :meth:`as_dict`.
+    evidence: dict[str, str | int] = field(default_factory=dict)
 
     def as_dict(self) -> dict[str, str]:
         """Return JSON-safe intervention evidence.
@@ -768,6 +773,10 @@ class VaultRedemptionSimulationIntervention:
         }
         if self.original_preflight_result is not None:
             result["original_preflight_result"] = self.original_preflight_result
+        for key, value in self.evidence.items():
+            if key in result:
+                raise ValueError(f"Intervention evidence cannot overwrite {key}")
+            result[key] = str(value) if isinstance(value, int) else value
         return result
 
 

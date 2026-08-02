@@ -205,7 +205,10 @@ def test_accountable_deposit_and_redemption_request_lifecycle(web3: Web3) -> Non
     # only the vault minimum reverts InsufficientAmount() inside the strategy.
     vault_minimum = int(vault.vault_contract.functions.MIN_AMOUNT_WEI().call())
     minimum = vault.fetch_minimum_raw_deposit()
+    redemption_minimum = vault.fetch_minimum_raw_redemption()
     assert minimum is not None
+    assert redemption_minimum == vault_minimum
+    assert vault.fetch_minimum_redemption() == vault.share_token.convert_to_decimals(redemption_minimum)
     assert minimum > vault_minimum, "This vault's strategy should raise the binding minimum above MIN_AMOUNT_WEI"
     with pytest.raises(VaultFlowUnavailable, match="below minimum") as exc_info:
         manager.create_deposit_request(owner=web3.eth.accounts[1], raw_amount=minimum - 1)

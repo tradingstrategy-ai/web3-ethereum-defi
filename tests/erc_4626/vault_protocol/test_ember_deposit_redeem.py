@@ -186,14 +186,26 @@ def test_ember_deposit_redeem_lifecycle(web3: Web3, vault: EmberVault, usdc: Tok
 
 
 def test_ember_redemption_minimum_is_checked_before_call_binding(web3: Web3, vault: EmberVault, ember_snapshot: None) -> None:
-    """Reject a request below the exact configured Ember minimum share amount."""
+    """Expose and enforce Ember's configured minimum redemption shares.
+
+    1. Read the raw and decimal values through the shared vault API.
+    2. Submit a request one raw unit below the source-proven minimum.
+    3. Verify the manager reports the same exact minimum before binding calls.
+    """
+    # 1. Read the raw and decimal values through the shared vault API.
     manager = vault.get_deposit_manager()
+    assert vault.fetch_minimum_raw_redemption() == 100_000
+    assert vault.fetch_minimum_redemption() == Decimal("0.1")
+
+    # 2. Submit a request one raw unit below the source-proven minimum.
     with pytest.raises(VaultFlowUnavailable, match="below minimum") as exc_info:
         manager.create_redemption_request(
             owner=web3.eth.accounts[1],
             raw_shares=99_999,
             check_enough_token=False,
         )
+
+    # 3. Verify the manager reports the same exact minimum before binding calls.
     assert exc_info.value.decoded_error == "InsufficientAmount"
     assert exc_info.value.preflight_result == "below_minimum"
     assert exc_info.value.direction == "redeem"

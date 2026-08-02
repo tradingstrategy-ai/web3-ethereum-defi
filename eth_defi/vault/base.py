@@ -1206,6 +1206,60 @@ class VaultBase(ABC):
         """
         return None
 
+    def fetch_minimum_raw_deposit(self, block_identifier: BlockIdentifier = "latest") -> int | None:
+        """Fetch a source-proven minimum deposit in denomination-token base units.
+
+        A ``None`` result means this adapter does not expose a known minimum;
+        it does not prove the protocol accepts arbitrarily small deposits.
+
+        :param block_identifier:
+            Block at which to read the protocol configuration.
+        :return:
+            Raw denomination-token minimum, or ``None`` when unknown.
+        """
+        del block_identifier
+        return None
+
+    def fetch_minimum_deposit(self, block_identifier: BlockIdentifier = "latest") -> Decimal | None:
+        """Fetch a source-proven minimum deposit in decimal token units.
+
+        :param block_identifier:
+            Block at which to read the protocol configuration.
+        :return:
+            Decimal denomination-token minimum, or ``None`` when unknown.
+        """
+        raw_minimum = self.fetch_minimum_raw_deposit(block_identifier)
+        if raw_minimum is None or self.denomination_token is None:
+            return None
+        return self.denomination_token.convert_to_decimals(raw_minimum)
+
+    def fetch_minimum_raw_redemption(self, block_identifier: BlockIdentifier = "latest") -> int | None:
+        """Fetch a source-proven redemption minimum in vault-share base units.
+
+        A ``None`` result means this adapter does not expose a known minimum;
+        it does not prove the protocol accepts arbitrarily small redemptions.
+
+        :param block_identifier:
+            Block at which to read the protocol configuration.
+        :return:
+            Raw vault-share minimum, or ``None`` when unknown.
+        """
+        del block_identifier
+        return None
+
+    def fetch_minimum_redemption(self, block_identifier: BlockIdentifier = "latest") -> Decimal | None:
+        """Fetch a source-proven redemption minimum in decimal share units.
+
+        :param block_identifier:
+            Block at which to read the protocol configuration.
+        :return:
+            Decimal vault-share minimum, or ``None`` when unknown.
+        """
+        raw_minimum = self.fetch_minimum_raw_redemption(block_identifier)
+        if raw_minimum is None or self.share_token is None:
+            return None
+        return self.share_token.convert_to_decimals(raw_minimum)
+
     def is_whitelisted_deposit(self) -> bool:
         """Determine whether deposits require KYC or identity approval.
 

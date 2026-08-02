@@ -405,12 +405,12 @@ class AccountableDepositManager(ERC4626DepositManager):
             raw_shares = self.vault.share_token.convert_to_raw(shares)
         if raw_shares <= 0:
             raise ValueError("Accountable redemption shares must be positive")
-        minimum = int(self.vault.vault_contract.functions.MIN_AMOUNT_WEI().call())
-        if raw_shares < minimum:
+        minimum = self.vault.fetch_minimum_raw_redemption()
+        if minimum is not None and raw_shares < minimum:
             # Strategy-level minRedeem is intentionally not applied here: its
             # unit (shares vs assets) is not confirmed for this deployment, and
-            # a mis-scaled comparison would false-block. The vault-level
-            # minimum is unit-correct (shares) and is surfaced as a typed error.
+            # a mis-scaled comparison would false-block. The shared vault
+            # accessor exposes only the source-proven requestRedeem threshold.
             raise VaultFlowUnavailable(
                 f"Accountable redemption shares {raw_shares} are below minimum {minimum}",
                 protocol="Accountable",
@@ -559,8 +559,8 @@ class AccountableDepositManager(ERC4626DepositManager):
         """
         if self.is_redemption_in_progress(owner):
             return False
-        minimum = int(self.vault.vault_contract.functions.MIN_AMOUNT_WEI().call())
-        return int(self.vault.share_token.fetch_raw_balance_of(owner)) >= minimum
+        minimum = self.vault.fetch_minimum_raw_redemption()
+        return minimum is None or int(self.vault.share_token.fetch_raw_balance_of(owner)) >= minimum
 
     def estimate_redemption_delay(self) -> datetime.timedelta:
         """Return no deterministic Accountable queue deadline.
