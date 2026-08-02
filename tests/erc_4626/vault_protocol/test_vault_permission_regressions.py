@@ -1,17 +1,26 @@
 """Fixed-block regressions for vault deposit-permission classifications."""
 
+import datetime
 import os
+from unittest.mock import patch
 
 import pytest
+from hexbytes import HexBytes
 from web3 import Web3
 
+from eth_defi.erc_4626 import scan as scan_module
 from eth_defi.erc_4626.classification import create_vault_instance_autodetect
+from eth_defi.erc_4626.core import ERC4262VaultDetection, ERC4626Feature
+from eth_defi.erc_4626.scan import fetch_deposit_permission
 from eth_defi.erc_4626.vault_protocol.euler.vault import EulerEarnVault, EulerVault
 from eth_defi.erc_4626.vault_protocol.ipor.vault import IPORVault
 from eth_defi.erc_4626.vault_protocol.morpho.vault_v1 import MorphoV1Vault
-from eth_defi.erc_4626.vault_protocol.morpho.vault_v2 import MorphoV2Vault
+from eth_defi.erc_4626.vault_protocol.morpho.vault_v2 import MorphoGateAddressMissing, MorphoV2Vault
+from eth_defi.event_reader.multicall_batcher import EncodedCall
 from eth_defi.testing.anvil_fork_pool import AnvilForkPool
+from eth_defi.token import TokenDiskCache
 from eth_defi.vault.base import VaultSpec
+from eth_defi.vault.deposit_redeem import VaultDepositPermission
 
 JSON_RPC_ETHEREUM = os.environ.get("JSON_RPC_ETHEREUM")
 
@@ -114,6 +123,80 @@ def test_morpho_v2_gate_getters_are_permissionless(web3: Web3) -> None:
     assert int(receive_shares_gate, 16) == 0
     assert int(send_assets_gate, 16) == 0
     assert vault.is_whitelisted_deposit() is False
+
+
+def test_morpho_v2_empty_gate_response_is_safe_for_permission_scans(web3: Web3) -> None:
+    """Test a malformed gate response from the deployed Morpho V2 Apyx vault.
+
+    1. Autodetect the production Morpho V2 vault at the fixed block.
+    2. Simulate the empty gate response that interrupted the permission migration.
+    3. Check typed diagnostics and that the scanner reports an unknown policy.
+    """
+    # 1. Autodetect the production Morpho V2 vault at the fixed block.
+    vault = create_vault_instance_autodetect(web3, MORPHO_V2_APYX_USDC)
+    assert isinstance(vault, MorphoV2Vault)
+
+    # 2. Simulate the empty gate response that interrupted the permission migration.
+    with patch.object(EncodedCall, "call", return_value=HexBytes("0x")):
+        with pytest.raises(MorphoGateAddressMissing) as exception_info:
+            vault.fetch_deposit_gates()
+
+        error = exception_info.value
+        assert error.vault_address == vault.address
+        assert error.function_name == "receiveSharesGate"
+        assert error.response == HexBytes("0x")
+        assert vault.address in str(error)
+        assert "expected one 32-byte ABI-encoded address" in str(error)
+
+        # 3. Check typed diagnostics and that the scanner reports an unknown policy.
+        assert fetch_deposit_permission(vault) == VaultDepositPermission.unknown
+
+
+def test_morpho_v2_empty_gate_response_keeps_scan_record(web3: Web3) -> None:
+    """Test a missing Morpho V2 gate address retains the vault JSON row.
+
+    1. Autodetect the production Morpho V2 vault and its persisted detection envelope.
+    2. Simulate an empty response from only the receive-shares gate getter.
+    3. Create a complete scan record and confirm the permission is unknown.
+    """
+    # 1. Autodetect the production Morpho V2 vault and its persisted detection envelope.
+    vault = create_vault_instance_autodetect(web3, MORPHO_V2_APYX_USDC)
+    assert isinstance(vault, MorphoV2Vault)
+    scan_timestamp = datetime.datetime(2026, 8, 2, 9, 0)  # noqa: DTZ001 - Repository convention is naive UTC.
+    detection = ERC4262VaultDetection(
+        chain=1,
+        address=vault.address,
+        first_seen_at_block=PERMISSION_REGRESSION_BLOCK,
+        first_seen_at=scan_timestamp,
+        features={ERC4626Feature.morpho_v2_like},
+        updated_at=scan_timestamp,
+        deposit_count=1,
+        redeem_count=1,
+    )
+    original_call = EncodedCall.call
+
+    def return_empty_receive_shares_gate(call, *args, **kwargs):
+        if call.func_name == "receiveSharesGate":
+            return HexBytes("0x")
+        return original_call(call, *args, **kwargs)
+
+    # 2. Simulate an empty response from only the receive-shares gate getter.
+    with (
+        patch.object(EncodedCall, "call", new=return_empty_receive_shares_gate),
+        patch.object(scan_module, "create_vault_instance", return_value=vault),
+    ):
+        # 3. Create a complete scan record and confirm the permission is unknown.
+        record = scan_module.create_vault_scan_record(
+            web3,
+            detection,
+            PERMISSION_REGRESSION_BLOCK,
+            token_cache=TokenDiskCache(),
+        )
+
+    assert record["Name"] == vault.name
+    assert record["Protocol"] == "Morpho"
+    assert record["_detection_data"] is detection
+    assert record["_deposit_permission"] == VaultDepositPermission.unknown.value
 
 
 @pytest.mark.parametrize("vault_address", EULER_VAULTS)
