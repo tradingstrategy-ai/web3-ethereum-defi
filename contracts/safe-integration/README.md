@@ -35,6 +35,18 @@ Included as Github submodules
 - Safe> v1.3.0-1: https://github.com/safe-global/safe-smart-account/
 - OpenZeppelin: release-v3.4: https://github.com/OpenZeppelin/openzeppelin-contracts
 
+## Compiler pipeline
+
+Build TradingStrategyModuleV0 with the legacy Solidity compiler pipeline
+(`via_ir = false`). The module inherits the large GuardV0 dispatcher, and with
+the default `optimizer_runs = 1` configuration the Yul IR pipeline
+produces larger deployed top-level contracts and reduces their EIP-170 margin.
+Do not select IR based on the size of an individual linked library. Keep the
+Guard and Safe integration configurations aligned, rebuild both with
+`make guard safe-integration`, and check their deployed sizes after changing
+compiler settings or guard rules. See the detailed
+[contract-size notes](../../docs/README-contract-size.md).
+
 ## Security boundaries
 
 The [GuardV0 security model](../guard/README.md#security-model) defines the allowed

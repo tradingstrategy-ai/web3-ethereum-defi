@@ -41,6 +41,19 @@ for their whitelist state.
 
 All libraries implement the [IGuardLib](./src/lib/IGuardLib.sol) deployment check interface.
 
+### Compiler pipeline
+
+Build GuardV0 and its libraries with the legacy Solidity compiler pipeline
+(`via_ir = false`). With the default `optimizer_runs = 1` configuration,
+the Yul IR pipeline produces larger deployed GuardV0 and
+TradingStrategyModuleV0 dispatcher bytecode and reduces their EIP-170 margin.
+An individual external library may be smaller under IR, but the deployable
+top-level contracts determine the pipeline choice. Keep the Guard and Safe
+integration configurations aligned, rebuild both with
+`make guard safe-integration`, and check their deployed sizes after changing
+compiler settings or guard rules. See the detailed
+[contract-size notes](../../docs/README-contract-size.md).
+
 ## Supported protocols
 
 The guard dispatcher validates calls to the following protocols:

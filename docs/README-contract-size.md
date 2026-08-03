@@ -44,8 +44,8 @@ via_ir = false
 
 | Option | Effect | Savings |
 |--------|--------|---------|
-| `optimizer_runs = 1` | Optimise for minimal deployment size over execution gas cost. Value of 1 (vs default 200) tells the compiler to prefer smaller bytecode even if function calls cost slightly more gas at runtime. | Major |
-| `via_ir = false` | Use the legacy compiler pipeline. With `optimizer_runs=1`, it keeps both large dispatch contracts deployable with material EIP-170 margin. | Major |
+| `optimizer_runs = 1` | Optimise for minimal deployment size over execution gas cost. Value 1 tells the compiler to favour smaller bytecode even if repeated calls cost slightly more gas. | Major |
+| `via_ir = false` | Use the legacy compiler pipeline. With `optimizer_runs=1`, it keeps both large dispatch contracts smaller than the Yul IR pipeline and preserves EIP-170 margin. | Major |
 | `bytecode_hash = "none"` | Removes the CBOR-encoded metadata hash appended to contract bytecode. This hash (typically ~50 bytes) encodes the compiler version and source code hash for verification. Safe to remove because metadata is available from the ABI JSON files. | ~50 bytes |
 | `evm_version = "cancun"` | Enables `PUSH0` opcode (EIP-3855) which replaces `PUSH1 0x00` sequences, saving 1 byte per zero-value push. HyperEVM supports Cancun opcodes. | ~10-30 bytes |
 | `solc_version = "0.8.26"` | Newer compiler versions sometimes generate tighter code through improved optimisation passes. | Incremental |
@@ -53,10 +53,27 @@ via_ir = false
 ### Pipeline choice
 
 The Yul IR pipeline can make individual protocol libraries smaller, but at
-`optimizer_runs=1` it makes the two large guard dispatch contracts too large.
+`optimizer_runs=1` it makes the two large guard dispatch contracts larger.
 The legacy pipeline provides the current deployable margins above. Re-run both
 size builds after changing a guard rule or compiler setting; do not optimise a
 library in isolation.
+
+The measured one-run comparison demonstrates why IR is disabled:
+
+| Contract | Legacy size | Yul IR size | IR size increase | Yul IR EIP-170 margin |
+|----------|------------:|------------:|-----------------:|----------------------:|
+| GuardV0 | 21,691 | 24,737 | 3,046 | -161 |
+| TradingStrategyModuleV0 | 23,816 | 26,907 | 3,091 | -2,331 |
+
+Both Yul IR builds exceed EIP-170, even though several individual protocol
+libraries are smaller. The deployable entry-point size therefore controls the
+pipeline decision.
+
+Therefore, `via_ir` must remain `false` in both
+`contracts/guard/foundry.toml` and
+`contracts/safe-integration/foundry.toml`. Do not enable IR based on an
+individual library result: `GuardV0` and `TradingStrategyModuleV0` are the
+deployment-size constraints and must be measured together.
 
 ### Further size reduction opportunities
 

@@ -258,6 +258,7 @@ removing its flaky history comment.
 ### Python rules
 
 - We use Python 3.14
+- Using `assert` for invariant and configuration checks is acceptable. We never run CPython with optimisation enabled (`python -O` or `PYTHONOPTIMIZE`), so assertions are not stripped at runtime.
 - For data structures, prefer `dataclass(slots=True)`
 - Use threaded instead of async Python code
 - Always type hint function arguments and return values
