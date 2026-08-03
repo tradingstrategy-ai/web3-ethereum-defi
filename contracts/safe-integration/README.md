@@ -43,6 +43,11 @@ asset list and keep `anyAsset` disabled. `anyAsset` remains available for develo
 mainnet rehearsals, but its `approve()` bypass cannot validate the dynamic token target and
 is unsafe as a product policy.
 
+HyperEVM strategies that need access to an open-ended native vault universe can
+instead enable `anyHypercoreVault`. This permits only unlisted Hypercore
+`vaultTransfer()` destinations and leaves the ERC-20, approval and call-site
+policies intact. It does not make a separately enabled `anyAsset` policy safe.
+
 Lagoon Safes must have a zero Safe fallback handler. The deployment helpers encode and
 verify that state, including when attaching to an existing Safe. Do not enable a fallback
 handler later: Lagoon has no need for an additional authentication path alongside Zodiac

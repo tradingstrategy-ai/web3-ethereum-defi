@@ -101,16 +101,14 @@ library HypercoreVaultLib {
     /// Uses IGuardChecks(address(this)) callbacks for cross-cutting receiver
     /// checks, consolidating all Hypercore dispatcher logic into the library
     /// to reduce the calling contract's bytecode (EIP-170).
-    function validateCall(bytes4 selector, address target, bytes calldata callData, bool anyAsset) external view {
+    function validateCall(bytes4 selector, address target, bytes calldata callData, bool anyHypercoreVault) external view {
         if (selector == SEL_SEND_RAW_ACTION) {
             (uint24 actionId, address dest) = _validateAction(target, callData);
             if (actionId == VAULT_TRANSFER_ACTION) {
-                // anyAsset: skip per-vault whitelisting — this is intentional behaviour.
-                // The flag is set by governance (onlyGuardOwner) and allows deposit/withdraw
-                // to any Hypercore vault address. No timelock is required because all guard
-                // configuration changes are already gated behind the governance multisig;
-                // the governance process itself is the safeguard.
-                if (!anyAsset) {
+                // The dedicated anyHypercoreVault flag may skip per-vault
+                // whitelisting, without enabling GuardV0Base.anyAsset and its
+                // unsafe dynamic ERC-20 approval behaviour.
+                if (!anyHypercoreVault) {
                     require(_storage().allowedHypercoreVaults[dest], "Hypercore vault not allowed");
                 }
             }
@@ -217,8 +215,8 @@ library HypercoreVaultLib {
         return _storage().allowedCoreDepositWallet;
     }
 
-    function isAllowedHypercoreVault(address vault, bool anyAsset) external view returns (bool) {
-        return anyAsset || _storage().allowedHypercoreVaults[vault];
+    function isAllowedHypercoreVault(address vault, bool anyHypercoreVault) external view returns (bool) {
+        return anyHypercoreVault || _storage().allowedHypercoreVaults[vault];
     }
 
     function isAllowedCoreWriterAction(uint24 actionId) external view returns (bool) {

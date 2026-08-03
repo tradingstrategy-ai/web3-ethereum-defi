@@ -22,6 +22,21 @@ Additionally, the CoreDepositWallet is whitelisted for:
 
 All other CoreWriter action IDs (limit orders, staking, cancel, etc.) are rejected by the guard.
 
+### Dynamic native-vault policy
+
+Product deployments should normally whitelist each native vault. A strategy
+that deliberately needs the open-ended Hypercore vault universe may set
+`anyHypercoreVault` through guard governance instead. This bypasses only the
+action-2 `vaultTransfer` destination allowlist. CoreWriter and
+CoreDepositWallet targets, permitted action IDs, `depositFor()` receivers,
+linked-USDC bridge parameters, ERC-20 token validation and ERC-20 approval
+destinations remain enforced.
+
+`anyHypercoreVault` does not enable the unsafe generic `anyAsset` policy. For
+Lagoon deployment, use `LagoonConfig.any_hypercore_vault=True`; it is supported
+only on HyperEVM and must not be combined with `hypercore_vaults`, because a
+dynamic policy intentionally makes any explicit vault list irrelevant.
+
 ## System addresses
 
 | Contract | Address | Notes |
@@ -53,7 +68,8 @@ All other CoreWriter action IDs (limit orders, staking, cancel, etc.) are reject
        │
        ├─ 4. Deploy TradingStrategyModuleV0 (guard)
        │      └─ Always requires big blocks (~5.4M gas)
-       │      └─ Whitelists: CoreWriter, CoreDepositWallet, vault address
+       │      └─ Whitelists: CoreWriter, CoreDepositWallet, and either an
+       │         explicit vault address or the dynamic native-vault policy
        │
        └─ 5. Disable big blocks (return to fast ~1s confirmations)
 ```
@@ -136,7 +152,8 @@ This is the default on live networks (`DEPOSIT_MODE=two_phase`).
 4. **Deposit to vault**
    - Target: CoreWriter
    - Function: `sendRawAction(vaultTransfer(vault, true, amount))`
-   - Guard: validates CoreWriter target, action ID 2 allowed, vault address whitelisted
+   - Guard: validates CoreWriter target and action ID 2; the vault address is
+     allowlisted unless `anyHypercoreVault` is explicitly enabled
 
 ### Minimum deposit amount
 
@@ -168,7 +185,8 @@ Three `performCall` transactions batched in a single multicall:
 1. **Withdraw from vault**
    - Target: CoreWriter
    - Function: `sendRawAction(vaultTransfer(vault, false, amount))`
-   - Guard: validates vault address whitelisted
+   - Guard: validates the vault address allowlist unless `anyHypercoreVault`
+     is explicitly enabled
 
 2. **Move USDC perp -> spot**
    - Target: CoreWriter
@@ -195,7 +213,9 @@ block level.
 
 The guard prevents:
 
-- **Unauthorised vaults**: only explicitly whitelisted vault addresses can receive deposits
+- **Unauthorised vaults**: only explicitly whitelisted vault addresses can
+  receive deposits unless governance has deliberately enabled
+  `anyHypercoreVault`
 - **Forbidden action IDs**: limit orders (1), staking (3-5), cancel (10-11), and all other actions are blocked
 - **Wrong linked-token routing**: `sendAsset` must target the USDC system address with zero sub-account and `SPOT_DEX` on both sides
 - **Wrong CoreWriter**: only the whitelisted CoreWriter address is accepted

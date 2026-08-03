@@ -11,4 +11,6 @@ bytecode_hash = "none"
 # See more config options https://github.com/foundry-rs/foundry/blob/master/crates/config/README.md#all-options
 optimizer = true
 optimizer_runs = 1
-via_ir = true
+# The legacy pipeline is substantially smaller for the large GuardV0 dispatcher
+# at optimiser_runs=1, leaving deployment margin for its explicit security rules.
+via_ir = false

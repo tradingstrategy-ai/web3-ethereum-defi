@@ -94,6 +94,13 @@ With `anyAsset` enabled, an asset manager can call `approve()` on a dynamic toke
 The guard cannot validate that target or its call site, so it can only validate the spender.
 That makes approvals unsuitable for a product asset manager.
 
+`anyHypercoreVault` is a separate, narrower policy for HyperEVM strategies with
+an open-ended Hypercore vault universe. It bypasses only the vault-address
+allowlist for CoreWriter `vaultTransfer()` actions; CoreWriter action IDs,
+CoreDepositWallet targets, receivers and ERC-20 approval checks remain enforced.
+It does not enable `anyAsset`, whose separate risks still apply if governance
+chooses to turn it on.
+
 Uniswap V2/V3, CowSwap and Velora are present for development but are not enabled for
 active product use. Their manager-selected minimum-output checks do not provide an
 oracle-backed cumulative slippage limit. Before any product adoption, fortify each adapter

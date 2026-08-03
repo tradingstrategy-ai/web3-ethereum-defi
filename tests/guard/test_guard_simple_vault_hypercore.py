@@ -434,7 +434,7 @@ def test_guard_hypercore_deposit_for_activation(
 def test_guard_hypercore_deposit_for_wrong_recipient(
     web3: Web3,
     asset_manager: str,
-    vault_with_balance: Contract,
+    vault_any_hypercore_vault_with_balance: Contract,
     mock_core_deposit_wallet: Contract,
     third_party: str,
 ):
@@ -443,7 +443,7 @@ def test_guard_hypercore_deposit_for_wrong_recipient(
     The guard checks that the depositFor recipient is an allowed receiver.
     A third-party address that hasn't been whitelisted will be rejected.
     """
-    vault = vault_with_balance
+    vault = vault_any_hypercore_vault_with_balance
     activation_amount = 5 * 10**6
 
     # Try depositFor to a third party (not the vault/Safe itself)
@@ -482,11 +482,11 @@ def test_guard_hypercore_disallowed_vault(
 def test_guard_hypercore_disallowed_action(
     web3: Web3,
     asset_manager: str,
-    vault_with_balance: Contract,
+    vault_any_hypercore_vault_with_balance: Contract,
     mock_core_writer: Contract,
 ):
     """Send a disallowed CoreWriter action ID (e.g. limitOrder = 1) should revert."""
-    vault = vault_with_balance
+    vault = vault_any_hypercore_vault_with_balance
 
     # Build a raw action with action ID 1 (limitOrder, not whitelisted)
     # Format: version(1 byte) + actionId(3 bytes big-endian) + params
@@ -556,7 +556,7 @@ def test_guard_hypercore_disallowed_vault_withdraw(
 
 
 @pytest.fixture()
-def vault_any_asset(
+def vault_any_hypercore_vault(
     web3: Web3,
     usdc: TokenDetails,
     deployer: str,
@@ -567,11 +567,11 @@ def vault_any_asset(
     hypercore_vault_lib: Contract,
     cowswap_lib: Contract,
 ) -> Contract:
-    """Create SimpleVaultV0 with anyAsset enabled and zero Hypercore vaults whitelisted.
+    """Create SimpleVaultV0 with anyHypercoreVault enabled and no vault whitelist.
 
     - Whitelists CoreWriter + CoreDepositWallet
     - Whitelists USDC token for approve calls
-    - Enables anyAsset (governed but dangerous — bypasses vault whitelisting)
+    - Enables anyHypercoreVault without enabling anyAsset
     - Does NOT whitelist any Hypercore vault addresses
     """
     vault = deploy_contract(
@@ -610,12 +610,15 @@ def vault_any_asset(
     ).transact({"from": owner})
     assert_transaction_success_with_explanation(web3, tx_hash)
 
-    # Enable anyAsset — governed but dangerous, bypasses vault whitelisting
-    tx_hash = guard.functions.setAnyAssetAllowed(
+    # Enable only the Hypercore vault escape hatch. ERC-20 approvals remain
+    # constrained to the explicitly whitelisted USDC token and CoreDepositWallet.
+    tx_hash = guard.functions.setAnyHypercoreVaultAllowed(
         True,
         "Allow any Hypercore vault",
     ).transact({"from": owner})
     assert_transaction_success_with_explanation(web3, tx_hash)
+    assert not guard.functions.anyAsset().call()
+    assert guard.functions.anyHypercoreVault().call()
 
     # Deliberately do NOT whitelist any Hypercore vault addresses
 
@@ -623,31 +626,32 @@ def vault_any_asset(
 
 
 @pytest.fixture()
-def vault_any_asset_with_balance(web3, vault_any_asset, usdc: TokenDetails, large_usdc_holder) -> Contract:
-    """SimpleVaultV0 with anyAsset enabled and some USDC balance."""
+def vault_any_hypercore_vault_with_balance(web3, vault_any_hypercore_vault, usdc: TokenDetails, large_usdc_holder) -> Contract:
+    """SimpleVaultV0 with anyHypercoreVault enabled and some USDC balance."""
     tx_hash = usdc.contract.functions.transfer(
-        vault_any_asset.address,
+        vault_any_hypercore_vault.address,
         500_000 * 10**6,
     ).transact({"from": large_usdc_holder})
     assert_transaction_success_with_explanation(web3, tx_hash)
-    return vault_any_asset
+    return vault_any_hypercore_vault
 
 
 @pytest.mark.skipif(CI, reason="Flaky on CI due to Anvil fork block range errors")
-def test_guard_hypercore_any_asset_deposit(
+def test_guard_hypercore_any_hypercore_vault_deposit(
     web3: Web3,
     asset_manager: str,
-    vault_any_asset_with_balance: Contract,
+    vault_any_hypercore_vault_with_balance: Contract,
     mock_core_writer: Contract,
     mock_core_deposit_wallet: Contract,
     usdc: TokenDetails,
 ):
-    """With anyAsset enabled and zero vaults whitelisted, deposit to any vault succeeds.
+    """With anyHypercoreVault enabled and zero vaults whitelisted, deposit succeeds.
 
-    anyAsset is a governed but dangerous flag that bypasses per-vault whitelisting.
-    CoreWriter, CoreDepositWallet, and receiver checks are still enforced.
+    The dedicated flag bypasses only the Hypercore per-vault allowlist.
+    CoreWriter, CoreDepositWallet, receiver and ERC-20 approval checks remain
+    enforced.
     """
-    vault = vault_any_asset_with_balance
+    vault = vault_any_hypercore_vault_with_balance
     usdc_amount = 10_000 * 10**6
 
     # Step 1: Approve USDC to CoreDepositWallet
@@ -674,7 +678,8 @@ def test_guard_hypercore_any_asset_deposit(
     assert_transaction_success_with_explanation(web3, tx_hash)
 
     # Step 4: CoreWriter.sendRawAction(vaultTransfer(vault, true, amount))
-    # Use TEST_HYPERCORE_VAULT which is NOT whitelisted — should succeed with anyAsset
+    # Use TEST_HYPERCORE_VAULT which is NOT whitelisted — the dedicated
+    # anyHypercoreVault flag allows it without enabling anyAsset.
     raw_action = encode_vault_deposit(TEST_HYPERCORE_VAULT, hypercore_amount)
     fn_call = mock_core_writer.functions.sendRawAction(raw_action)
     target, call_data = encode_simple_vault_transaction(fn_call)
@@ -692,3 +697,31 @@ def test_guard_hypercore_any_asset_deposit(
     assert sender == vault.address
     assert version == 1
     assert action_id == 2  # vaultTransfer
+
+
+@pytest.mark.skipif(CI, reason="Flaky on CI due to Anvil fork block range errors")
+def test_guard_any_asset_does_not_allow_non_whitelisted_hypercore_vault(
+    web3: Web3,
+    asset_manager: str,
+    vault_with_balance: Contract,
+    guard: Contract,
+    owner: str,
+    mock_core_writer: Contract,
+):
+    """Keep the generic anyAsset escape hatch out of Hypercore vault policy.
+
+    This is a security regression test against the old coupling: enabling
+    anyAsset must not make a CoreWriter action-2 transfer to an unwhitelisted
+    Hypercore vault valid. Only anyHypercoreVault may do that.
+    """
+    assert not guard.functions.anyHypercoreVault().call()
+    tx_hash = guard.functions.setAnyAssetAllowed(True, "Exercise generic asset escape hatch").transact({"from": owner})
+    assert_transaction_success_with_explanation(web3, tx_hash)
+    assert guard.functions.anyAsset().call()
+
+    raw_action = encode_vault_deposit(MALICIOUS_VAULT, 1_000 * 10**6)
+    fn_call = mock_core_writer.functions.sendRawAction(raw_action)
+    target, call_data = encode_simple_vault_transaction(fn_call)
+    tx_hash = vault_with_balance.functions.performCall(target, call_data).transact({"from": asset_manager})
+    with pytest.raises(TransactionAssertionError):
+        assert_transaction_success_with_explanation(web3, tx_hash)

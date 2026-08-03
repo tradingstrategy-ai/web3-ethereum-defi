@@ -265,6 +265,13 @@ abstract contract GuardV0Base is IGuard, Multicall {
     //
     bool public anyAsset;
 
+    // Hypercore-only vault address escape hatch. This bypasses only the
+    // per-vault allowlist for CoreWriter action 2 (vaultTransfer), while
+    // CoreWriter, CoreDepositWallet, action-ID, linked-token bridge and
+    // receiver checks remain enforced. Unlike anyAsset, it does not relax
+    // ERC-20 token, approval target, or call-site validation.
+    bool public anyHypercoreVault;
+
     // ========================================================================
     //                                 EVENTS
     // ========================================================================
@@ -301,7 +308,7 @@ abstract contract GuardV0Base is IGuard, Multicall {
     event AssetRemoved(address asset, string notes);
 
     event AnyAssetSet(bool value, string notes);
-    event AnyVaultSet(bool value, string notes);
+    event AnyHypercoreVaultSet(bool value, string notes);
 
     // LagoonLib emits this event through DELEGATECALL. Declaring the matching
     // signature here keeps it in GuardV0Base-derived ABIs for backwards
@@ -642,6 +649,18 @@ abstract contract GuardV0Base is IGuard, Multicall {
         emit AnyAssetSet(value, notes);
     }
 
+    /// Permit CoreWriter ``vaultTransfer`` calls to any Hypercore native vault.
+    ///
+    /// This narrowly bypasses the per-vault allowlist and leaves the generic
+    /// ERC-20, approval-target, action-ID and recipient rules unchanged.
+    ///
+    /// :param value: Whether all Hypercore native vault addresses are allowed.
+    /// :param notes: Human-readable governance audit note.
+    function setAnyHypercoreVaultAllowed(bool value, string calldata notes) external onlyGuardOwner {
+        anyHypercoreVault = value;
+        emit AnyHypercoreVaultSet(value, notes);
+    }
+
     // Satisfy IGuard
     function validateCall(address sender, address target, bytes calldata callDataWithSelector) external view {
         _validateCallInternal(sender, target, callDataWithSelector);
@@ -812,7 +831,7 @@ abstract contract GuardV0Base is IGuard, Multicall {
         } else if (selector == SEL_SEND_RAW_ACTION || selector == SEL_CORE_DEPOSIT || selector == SEL_CORE_DEPOSIT_FOR)
         {
             require(HypercoreVaultLib.isDeployed(), "HypercoreVaultLib not linked");
-            HypercoreVaultLib.validateCall(selector, target, callData, anyAsset);
+            HypercoreVaultLib.validateCall(selector, target, callData, anyHypercoreVault);
 
             // --- Lighter (zk-rollup perps DEX, Ethereum L1) ---
         } else if (
