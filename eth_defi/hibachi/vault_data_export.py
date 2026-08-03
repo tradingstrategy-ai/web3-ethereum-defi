@@ -35,6 +35,7 @@ from eth_defi.compat import native_datetime_utc_now
 from eth_defi.erc_4626.core import ERC4262VaultDetection, ERC4626Feature
 from eth_defi.hibachi.constants import HIBACHI_CHAIN_ID, HIBACHI_VAULT_FEE_MODE, HIBACHI_VAULT_LOCKUP
 from eth_defi.hibachi.daily_metrics import HibachiDailyMetricsDatabase
+from eth_defi.perp_dex.vault import classify_perp_vault_deposit_access
 from eth_defi.vault.base import VaultHistoricalRead, VaultSpec
 from eth_defi.vault.fee import FeeData
 from eth_defi.vault.flag import VaultFlag
@@ -90,6 +91,9 @@ def create_hibachi_vault_row(
     All Hibachi vault-level fees are zero.
     ``vault_pub_key`` and ``vault_asset_id`` are stored only in the DuckDB
     metadata table for traceability; they are not surfaced in ``VaultRow``.
+    The public API exposes no vault deposit-access field, so the shared deposit
+    permission remains ``unknown`` rather than assuming public metadata means
+    permissionless deposits.
 
     :param vault_id:
         Vault ID on the Hibachi platform (e.g. 2, 3).
@@ -127,6 +131,8 @@ def create_hibachi_vault_row(
         deposit=0.0,
         withdraw=0.0,
     )
+    # ``/vault/info`` exposes vault metadata but no public-deposit access flag.
+    deposit_access = classify_perp_vault_deposit_access(public_deposits_open=None)
 
     row: VaultRow = {
         "Symbol": symbol[:10] if symbol else "",
@@ -158,6 +164,8 @@ def create_hibachi_vault_row(
         "_deposit_next_open": None,
         "_redemption_closed_reason": None,
         "_redemption_next_open": None,
+        "_deposit_permission": deposit_access.permission.value,
+        "_whitelist_notes": deposit_access.whitelist_notes,
         "_share_price_source": PriceSource.api,
     }
 

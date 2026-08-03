@@ -224,6 +224,11 @@ Response fields per pool in `public_pools[]`:
 | `master_account_index` | int | Operator's main account |
 | `created_at` | int | Unix timestamp |
 
+The shared vault export treats public pool ``status == 0`` as
+``permissionless``. Other status values export the native-perp compatibility
+value ``whitelisted`` because public deposits are unavailable; the associated
+``whitelist.notes`` value explicitly does not claim an approved-account route.
+
 #### Pool detail (`/api/v1/account`)
 
 Per-pool detailed data including share price history.

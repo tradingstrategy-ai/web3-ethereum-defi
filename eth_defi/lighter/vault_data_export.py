@@ -45,6 +45,7 @@ from eth_defi.lighter.constants import (
     identify_lighter_pool_deployment,
 )
 from eth_defi.lighter.daily_metrics import LighterDailyMetricsDatabase
+from eth_defi.perp_dex.vault import classify_perp_vault_deposit_access
 from eth_defi.types import Percent
 from eth_defi.vault.base import VaultHistoricalRead, VaultSpec
 from eth_defi.vault.fee import FeeData
@@ -100,6 +101,10 @@ def create_lighter_pool_row(
     Lighter pool operator fees are already reflected in the share price
     (internalised skimming model), so the pipeline treats the share price
     as net of fees.
+
+    Pool status ``0`` is publicly active and exports ``permissionless``. Other
+    statuses export the qualified native-perp ``whitelisted`` compatibility
+    value because public deposits are unavailable.
 
     :param account_index:
         Pool account index on the Lighter platform.
@@ -163,6 +168,9 @@ def create_lighter_pool_row(
         withdraw=0.0,
     )
 
+    deposit_closed_reason = f"Pool not active (status {status})" if status != 0 else None
+    deposit_access = classify_perp_vault_deposit_access(public_deposits_open=status == 0, closed_reason=deposit_closed_reason)
+
     row: VaultRow = {
         "Symbol": (display_name or "")[:10],
         "Name": display_name or "",
@@ -189,7 +197,7 @@ def create_lighter_pool_row(
         "_short_description": description.split(".")[0].strip() + "." if description else None,
         "_available_liquidity": None,
         "_utilisation": None,
-        "_deposit_closed_reason": f"Pool not active (status {status})" if status != 0 else None,
+        "_deposit_closed_reason": deposit_closed_reason,
         "_deposit_next_open": None,
         "_redemption_closed_reason": None,
         "_redemption_next_open": None,
@@ -203,6 +211,8 @@ def create_lighter_pool_row(
         "_lighter_total_shares": total_shares,
         "_lighter_operator_share_fraction": operator_share_fraction,
         "_lighter_ownership_updated_at": ownership_updated_at,
+        "_deposit_permission": deposit_access.permission.value,
+        "_whitelist_notes": deposit_access.whitelist_notes,
         # The PnL endpoint reports the current UTC day's counters before that
         # day is complete. Let generic flow metrics exclude this observation.
         "_daily_flow_current_day_is_provisional": True,

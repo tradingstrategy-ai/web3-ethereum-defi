@@ -108,6 +108,8 @@ def test_extended_vault_info_refresh_gate(tmp_path: Path) -> None:
             name="Gate Vault",
             description="desc",
             vault_type="launchpad",
+            discoverable=True,
+            status="active",
             manager_name="mgr",
             tvl=100.0,
             share_price=1.0,
@@ -122,6 +124,8 @@ def test_extended_vault_info_refresh_gate(tmp_path: Path) -> None:
         info, ts = stored()
         assert info == "V1"
         assert ts is not None
+        access_status = db.con.execute("SELECT discoverable, status FROM vault_metadata WHERE vault_id = 'VLT:gate'").fetchone()
+        assert access_status == (True, "active")
 
         # 2. Default 7-day window: a just-written row is not refreshed
         db.upsert_vault_metadata(**common, extended_vault_info="V2")
@@ -183,11 +187,13 @@ def test_extended_vault_info_migration_is_safe(tmp_path: Path) -> None:
     db = GRVTDailyMetricsDatabase(db_path)
     try:
         # 3. Existing row preserved, new columns present and NULL
-        row = db.con.execute("SELECT name, tvl, extended_vault_info, extended_vault_info_metadata_last_updated_at FROM vault_metadata WHERE vault_id = 'VLT:old'").fetchone()
+        row = db.con.execute("SELECT name, tvl, extended_vault_info, extended_vault_info_metadata_last_updated_at, discoverable, status FROM vault_metadata WHERE vault_id = 'VLT:old'").fetchone()
         assert row[0] == "Old Vault"
         assert row[1] == pytest.approx(9.0)
         assert row[2] is None
         assert row[3] is None
+        assert row[4] is None
+        assert row[5] is None
 
         # The migrated database accepts extended info on the next upsert
         db.upsert_vault_metadata(
@@ -206,3 +212,44 @@ def test_extended_vault_info_migration_is_safe(tmp_path: Path) -> None:
         assert json.loads(info) == {"id": "VLT:old"}
     finally:
         db.close()
+
+
+def test_access_status_migration_recovers_only_valid_extended_metadata(tmp_path: Path) -> None:
+    """GRVT access fields are backfilled without rejecting malformed legacy text."""
+    db_path = tmp_path / "access-backfill.duckdb"
+    db = GRVTDailyMetricsDatabase(db_path)
+    db.upsert_vault_metadata(
+        vault_id="VLT:valid",
+        chain_vault_id=1,
+        name="Valid metadata",
+        description=None,
+        vault_type=None,
+        manager_name=None,
+        tvl=None,
+        share_price=None,
+        investor_count=None,
+        extended_vault_info=json.dumps({"discoverable": False, "status": "closed"}),
+    )
+    db.upsert_vault_metadata(
+        vault_id="VLT:invalid",
+        chain_vault_id=2,
+        name="Invalid metadata",
+        description=None,
+        vault_type=None,
+        manager_name=None,
+        tvl=None,
+        share_price=None,
+        investor_count=None,
+        extended_vault_info="not-json",
+    )
+    db.close()
+
+    migrated_db = GRVTDailyMetricsDatabase(db_path)
+    try:
+        rows = migrated_db.con.execute("SELECT vault_id, discoverable, status FROM vault_metadata ORDER BY vault_id").fetchall()
+        assert rows == [
+            ("VLT:invalid", None, None),
+            ("VLT:valid", False, "closed"),
+        ]
+    finally:
+        migrated_db.close()

@@ -12,6 +12,8 @@ import zstandard as zstd
 from plotly.graph_objects import Figure
 
 from eth_defi.erc_4626.vault_protocol.d2.vault import D2_PROTOCOL_NAME, format_d2_vault_note
+from eth_defi.hyperliquid.constants import HYPERCORE_CHAIN_ID
+from eth_defi.hyperliquid.vault_data_export import create_hyperliquid_vault_row
 from eth_defi.lighter.constants import LIGHTER_ETHEREUM, LIGHTER_ROBINHOOD, LighterAPIConfig
 from eth_defi.lighter.vault_data_export import create_lighter_pool_row
 from eth_defi.research import vault_metrics
@@ -551,6 +553,33 @@ def test_calculate_lifetime_metrics_exports_lighter_deployment_chain(
     assert exported["chain_id"] == deployment.chain_id
     assert exported["deployment"] == expected_slug
     assert exported["deployment_chain_id"] == expected_deployment_chain_id
+    assert exported["deposit_permission"] == "permissionless"
+    assert exported["whitelist"] == {"status": "permissionless", "notes": None}
+
+
+def test_calculate_lifetime_metrics_exports_closed_hyperliquid_vault_as_whitelisted(price_df: pd.DataFrame) -> None:
+    """Carry Hyperliquid's closed public-deposit status through the JSON export."""
+    source_vault_id = "43111-0x05c2e246156d37b39a825a25dd08d5589e3fd883"
+    spec, vault_row = create_hyperliquid_vault_row(
+        vault_address="0x1111111111111111111111111111111111111111",
+        name="Closed Hyperliquid vault",
+        description=None,
+        tvl=1_000_000.0,
+        create_time=None,
+        is_closed=True,
+    )
+    vault_prices = price_df.loc[price_df["id"] == source_vault_id].copy()
+    vault_prices["id"] = spec.as_string_id()
+    vault_prices["chain"] = HYPERCORE_CHAIN_ID
+
+    metrics = calculate_lifetime_metrics(vault_prices, {spec: vault_row})
+    exported = export_lifetime_row(metrics.iloc[0])
+
+    assert exported["deposit_permission"] == "whitelisted"
+    assert exported["whitelist"] == {
+        "status": "whitelisted",
+        "notes": "Vault is permanently closed. Native perp DEX compatibility status: public deposits are unavailable; this does not imply an approved-account deposit route.",
+    }
 
 
 @pytest.mark.parametrize(
