@@ -47,6 +47,7 @@ from eth_defi.foundry.forge import deploy_contract_with_forge
 from eth_defi.gas import apply_gas, estimate_gas_price
 from eth_defi.gmx.whitelist import GMXDeployment, resolve_gmx_market_labels
 from eth_defi.hotwallet import HotWallet
+from eth_defi.hyperliquid.block import HYPEREVM_FAST_BLOCK_GAS_LIMIT
 from eth_defi.hyperliquid.core_writer import CORE_DEPOSIT_WALLET, CORE_WRITER_ADDRESS
 from eth_defi.hyperliquid.guard_whitelist import get_core_deposit_wallet
 from eth_defi.lighter.deployment import LighterDeployment, setup_lighter_whitelisting
@@ -99,6 +100,13 @@ LAGOON_SETTLEMENT_LIMIT_INTERNAL_VERSION = 3
 #: only charged for gas actually used, so over-provisioning the limit is free.
 DEFAULT_DEPLOYMENT_GAS_MULTIPLIER = 2.0
 
+#: Maximum explicit Hypercore native vaults whitelisted in one GuardV0
+#: multicall. HyperEVM fast blocks have a 2M gas limit, so do not use the
+#: caller-configurable generic multicall chunk size here.
+#: The 40-vault batch, including CoreWriter and USDC setup, is regression-tested
+#: to consume less than 2M gas on the fixed HyperEVM fork.
+HYPERCORE_MULTICALL_CHUNK_SIZE = 40
+
 
 CONTRACTS_ROOT = Path(os.path.dirname(__file__)) / ".." / ".." / ".." / ".." / "contracts"
 
@@ -138,6 +146,7 @@ def _validate_lagoon_settlement_limit_config(
         return
 
     assert isinstance(max_settlement_amount, Decimal), "max_settlement_amount must be Decimal"
+    assert max_settlement_amount.is_finite(), "max_settlement_amount must be finite"
     assert max_settlement_amount >= 0, "max_settlement_amount cannot be negative"
     assert type(settlement_cooldown) is int, "settlement_cooldown must be an int number of seconds"
     assert settlement_cooldown > 0, "settlement_cooldown must be positive when max_settlement_amount is configured"
@@ -1961,7 +1970,8 @@ def setup_guard(
         logger.info("Not whitelisted: CCTP")
 
     # Whitelist Hypercore native vault support (HyperEVM only).
-    # Batch CoreWriter + all vault whitelisting into a single multicall transaction.
+    # The first batch configures CoreWriter and the required underlying token;
+    # explicit vaults are split so they fit in HyperEVM fast blocks.
     if should_enable_hypercore_guard(
         chain_id=web3.eth.chain_id,
         any_hypercore_vault=any_hypercore_vault,
@@ -1975,7 +1985,7 @@ def setup_guard(
             cdw_address,
         )
 
-        multicalls = []
+        initial_multicalls = []
 
         # The bridge flow starts with approve(USDC, CoreDepositWallet).
         # In explicit-asset mode we must whitelist the underlying token.
@@ -1990,14 +2000,14 @@ def setup_guard(
             else:
                 raise ValueError("Hypercore guard setup without any_asset requires either vault or underlying_token_address")
 
-            multicalls.append(
+            initial_multicalls.append(
                 module.functions.whitelistToken(
                     underlying_address,
                     "Underlying token for Hypercore deposit approve",
                 )
             )
 
-        multicalls.append(
+        initial_multicalls.append(
             module.functions.whitelistCoreWriter(
                 Web3.to_checksum_address(CORE_WRITER_ADDRESS),
                 Web3.to_checksum_address(cdw_address),
@@ -2006,18 +2016,36 @@ def setup_guard(
         )
 
         explicit_hypercore_vaults = hypercore_vaults or []
-        for idx, hv_address in enumerate(explicit_hypercore_vaults, start=1):
-            logger.info("Whitelisting Hypercore vault #%d: %s", idx, hv_address)
-            multicalls.append(
-                module.functions.whitelistHypercoreVault(
-                    Web3.to_checksum_address(hv_address),
-                    f"Hypercore vault: {hv_address}",
-                )
+        if explicit_hypercore_vaults:
+            hypercore_vault_chunks = chunked(
+                explicit_hypercore_vaults,
+                HYPERCORE_MULTICALL_CHUNK_SIZE,
             )
+        else:
+            # Dynamic Hypercore policy has no explicit vaults, but still needs
+            # the underlying-token and CoreWriter configuration above.
+            hypercore_vault_chunks = [[]]
 
-        call = module.functions.multicall(encode_multicalls(multicalls))
-        tx_hash = _broadcast(call)
-        assert_transaction_success_with_explanation(web3, tx_hash, timeout=DEFAULT_TX_CONFIRMATION_TIMEOUT)
+        for chunk_id, chunk in enumerate(hypercore_vault_chunks, start=1):
+            multicalls = list(initial_multicalls) if chunk_id == 1 else []
+            logger.info(
+                "Processing Hypercore vault batch #%d, size %d",
+                chunk_id,
+                len(chunk),
+            )
+            start_index = (chunk_id - 1) * HYPERCORE_MULTICALL_CHUNK_SIZE + 1
+            for idx, hv_address in enumerate(chunk, start=start_index):
+                logger.info("Whitelisting Hypercore vault #%d: %s", idx, hv_address)
+                multicalls.append(
+                    module.functions.whitelistHypercoreVault(
+                        Web3.to_checksum_address(hv_address),
+                        f"Hypercore vault: {hv_address}",
+                    )
+                )
+
+            call = module.functions.multicall(encode_multicalls(multicalls))
+            tx_hash = _broadcast(call)
+            assert_transaction_success_with_explanation(web3, tx_hash, timeout=DEFAULT_TX_CONFIRMATION_TIMEOUT)
 
         entries.append(WhitelistEntry("Hypercore", "CoreWriter", CORE_WRITER_ADDRESS))
         entries.append(WhitelistEntry("Hypercore", "CoreDepositWallet", cdw_address))
@@ -2363,6 +2391,11 @@ def deploy_automated_lagoon_vault(
             try:
                 estimated_gas = bound_func.estimate_gas({"from": deployer.address})
                 gas_limit = int(estimated_gas * DEFAULT_DEPLOYMENT_GAS_MULTIPLIER)
+                if web3.eth.chain_id in (998, 999) and bound_func.fn_name == "multicall":
+                    # Guard configuration runs in a fast block. Do not let the
+                    # generic multiplier create a transaction the node rejects
+                    # before it can use the measured safe batch size.
+                    gas_limit = min(gas_limit, HYPEREVM_FAST_BLOCK_GAS_LIMIT)
             except (ValueError, ContractLogicError) as e:
                 logger.warning("Gas estimation failed for %s, using node auto-estimate: %s", bound_func.fn_name, e)
             tx_hash = deployer.transact_and_broadcast_with_contract(bound_func, gas_limit=gas_limit)

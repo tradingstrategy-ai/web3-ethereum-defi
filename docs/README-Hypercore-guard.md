@@ -68,8 +68,8 @@ dynamic policy intentionally makes any explicit vault list irrelevant.
        │
        ├─ 4. Deploy TradingStrategyModuleV0 (guard)
        │      └─ Always requires big blocks (~5.4M gas)
-       │      └─ Whitelists: CoreWriter, CoreDepositWallet, and either an
-       │         explicit vault address or the dynamic native-vault policy
+       │      └─ Whitelists: CoreWriter, CoreDepositWallet, and either
+       │         explicit vault addresses or the dynamic native-vault policy
        │
        └─ 5. Disable big blocks (return to fast ~1s confirmations)
 ```
@@ -209,6 +209,18 @@ When the EVM block finishes execution, all queued CoreWriter actions are process
 sequentially on HyperCore (~47k gas per action). This is implicit batching at the
 block level.
 
+### Guard deployment batches
+
+Guard configuration is separate from the trading multicalls above. When a Lagoon
+deployment supplies an explicit Hypercore vault allowlist, setup sends at most
+40 `whitelistHypercoreVault()` calls in each guard multicall. The first batch
+also configures USDC, CoreWriter and CoreDepositWallet. This size is
+regression-tested on the fixed HyperEVM fork to remain below the 2M fast-block
+gas limit; it must not be replaced with the generic caller-configurable
+multicall chunk size. Each batch is a separate transaction, so a failed later
+batch leaves earlier vault permissions in place; rerun the deployment after
+resolving the failure to finish the explicit allowlist.
+
 ## Guard security model
 
 The guard prevents:
@@ -291,7 +303,7 @@ This has major implications for deploying Lagoon vaults and guard contracts.
 
 | Property | Small blocks | Large blocks |
 |----------|-------------|-------------|
-| Gas limit | ~2–3M | 30M |
+| Gas limit | 2M | 30M |
 | Cadence | Every ~1 second | Every ~1 minute |
 | Transactions per block | Multiple | 1 |
 | Use case | Normal transactions | Contract deployments, heavy computation |
