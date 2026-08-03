@@ -253,3 +253,27 @@ def test_access_status_migration_recovers_only_valid_extended_metadata(tmp_path:
         ]
     finally:
         migrated_db.close()
+
+
+def test_access_status_upsert_preserves_known_values_when_omitted(tmp_path: Path) -> None:
+    """A partial metadata refresh does not erase known GRVT access state."""
+    db = GRVTDailyMetricsDatabase(tmp_path / "access-upsert.duckdb")
+    try:
+        common = {
+            "vault_id": "VLT:partial",
+            "chain_vault_id": 1,
+            "name": "Partial metadata",
+            "description": None,
+            "vault_type": None,
+            "manager_name": None,
+            "tvl": None,
+            "share_price": None,
+            "investor_count": None,
+        }
+        db.upsert_vault_metadata(**common, discoverable=False, status="closed")
+        db.upsert_vault_metadata(**common)
+
+        access_status = db.con.execute("SELECT discoverable, status FROM vault_metadata WHERE vault_id = 'VLT:partial'").fetchone()
+        assert access_status == (False, "closed")
+    finally:
+        db.close()

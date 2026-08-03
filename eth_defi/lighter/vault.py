@@ -69,8 +69,8 @@ class LighterPoolSummary:
     #: Total shares outstanding
     total_shares: int
 
-    #: Pool status code (0 = active)
-    status: int
+    #: Pool status code (0 = active), or unknown when omitted by the API
+    status: int | None
 
     #: Account type code (2 = pool)
     account_type: int
@@ -532,7 +532,7 @@ def fetch_all_pools(
                     operator_fee=float(p.get("operator_fee", "0")),
                     total_asset_value=float(p.get("total_asset_value", "0")),
                     total_shares=int(p.get("total_shares", 0)),
-                    status=int(p.get("status", 0)),
+                    status=int(p["status"]) if p.get("status") is not None else None,
                     account_type=account_type,
                     master_account_index=int(p.get("master_account_index", 0)),
                     created_at=created_at,
@@ -568,7 +568,7 @@ def fetch_all_pools(
                     operator_fee=llp_detail.operator_fee,
                     total_asset_value=llp_detail.total_asset_value,
                     total_shares=llp_detail.total_shares,
-                    status=0,
+                    status=llp_detail.snapshot.pool_status,
                     account_type=2,
                     master_account_index=0,
                     created_at=None,

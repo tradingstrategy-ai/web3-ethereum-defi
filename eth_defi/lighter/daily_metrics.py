@@ -263,7 +263,7 @@ class LighterDailyMetricsDatabase:
         self._ensure_columns(
             "pool_metadata",
             {
-                "status": "INTEGER DEFAULT 0",
+                "status": "INTEGER",
                 "total_shares": "BIGINT",
                 "operator_shares": "BIGINT",
             },
@@ -406,7 +406,7 @@ class LighterDailyMetricsDatabase:
                 description VARCHAR,
                 l1_address VARCHAR,
                 is_llp BOOLEAN DEFAULT FALSE,
-                status INTEGER DEFAULT 0,
+                status INTEGER,
                 operator_fee DOUBLE,
                 total_asset_value DOUBLE,
                 annual_percentage_yield DOUBLE,
@@ -513,7 +513,7 @@ class LighterDailyMetricsDatabase:
         description: str | None = None,
         l1_address: str | None = None,
         is_llp: bool = False,
-        status: int = 0,
+        status: int | None = None,
         operator_fee: float | None = None,
         total_asset_value: float | None = None,
         annual_percentage_yield: float | None = None,
@@ -538,7 +538,8 @@ class LighterDailyMetricsDatabase:
         :param is_llp:
             Whether this is the LLP protocol pool.
         :param status:
-            Pool status code from the API (0 = active).
+            Pool status code from the API (0 = active), or ``None`` when the
+            source omitted it.
         :param operator_fee:
             Operator fee percentage.
         :param total_asset_value:

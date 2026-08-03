@@ -143,7 +143,7 @@ def create_grvt_vault_row(
         deposit_closed_reason = None
     else:
         public_deposits_open = None
-        deposit_closed_reason = "GRVT public deposit status is unavailable"
+        deposit_closed_reason = None
     deposit_access = classify_perp_vault_deposit_access(public_deposits_open=public_deposits_open, closed_reason=deposit_closed_reason)
 
     row: VaultRow = {

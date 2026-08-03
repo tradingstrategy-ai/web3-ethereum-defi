@@ -225,9 +225,10 @@ Response fields per pool in `public_pools[]`:
 | `created_at` | int | Unix timestamp |
 
 The shared vault export treats public pool ``status == 0`` as
-``permissionless``. Other status values export the native-perp compatibility
-value ``whitelisted`` because public deposits are unavailable; the associated
-``whitelist.notes`` value explicitly does not claim an approved-account route.
+``permissionless``. Other known status values export the native-perp
+compatibility value ``whitelisted`` because public deposits are unavailable;
+the associated ``whitelist.notes`` value explicitly does not claim an
+approved-account route. A missing status exports ``unknown``.
 
 #### Pool detail (`/api/v1/account`)
 

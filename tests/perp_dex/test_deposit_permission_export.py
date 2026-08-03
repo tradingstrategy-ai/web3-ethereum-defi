@@ -2,13 +2,16 @@
 
 import datetime
 from collections.abc import Callable
+from pathlib import Path
+from types import SimpleNamespace
 
+import pandas as pd
 import pytest
 
 from eth_defi.apex.vault_data_export import create_apex_vault_row
 from eth_defi.grvt.vault_data_export import create_grvt_vault_row
 from eth_defi.hibachi.vault_data_export import create_hibachi_vault_row
-from eth_defi.hyperliquid.vault_data_export import create_hyperliquid_vault_row, normalise_hyperliquid_deposit_permissions
+from eth_defi.hyperliquid.vault_data_export import create_hyperliquid_vault_row, merge_into_vault_database as merge_hyperliquid_vault_database, normalise_hyperliquid_deposit_permissions
 from eth_defi.lighter.vault_data_export import create_lighter_pool_row
 from eth_defi.perp_dex.vault import PERP_VAULT_PUBLIC_DEPOSITS_CLOSED_NOTE, classify_perp_vault_deposit_access
 from eth_defi.vault.base import VaultSpec
@@ -45,6 +48,7 @@ LEGACY_HYPERLIQUID_VAULT_COUNT = 2
             description="Public Lighter pool.",
             tvl=1_000_000.0,
             created_at=FIRST_SEEN,
+            status=0,
         ),
         lambda: create_grvt_vault_row(
             vault_id="VLT:test",
@@ -128,7 +132,7 @@ def test_closed_native_perp_dex_rows_export_whitelisted_deposit_policy(create_ro
     _spec, row = create_row()
 
     assert row["_deposit_permission"] == VaultDepositPermission.whitelisted.value
-    assert row["_whitelist_notes"]
+    assert PERP_VAULT_PUBLIC_DEPOSITS_CLOSED_NOTE in row["_whitelist_notes"]
 
 
 def test_grvt_missing_public_status_exports_unknown() -> None:
@@ -142,6 +146,22 @@ def test_grvt_missing_public_status_exports_unknown() -> None:
     )
 
     assert row["_deposit_permission"] == VaultDepositPermission.unknown.value
+    assert row["_deposit_closed_reason"] is None
+    assert row["_whitelist_notes"] is None
+
+
+def test_lighter_missing_public_status_exports_unknown() -> None:
+    """Missing Lighter status does not inherit the historical active default."""
+    _spec, row = create_lighter_pool_row(
+        account_index=3,
+        name="Legacy Lighter pool",
+        description=None,
+        tvl=1_000_000.0,
+        created_at=FIRST_SEEN,
+    )
+
+    assert row["_deposit_permission"] == VaultDepositPermission.unknown.value
+    assert row["_deposit_closed_reason"] is None
 
 
 def test_hibachi_without_public_deposit_status_exports_unknown() -> None:
@@ -156,6 +176,51 @@ def test_hibachi_without_public_deposit_status_exports_unknown() -> None:
 
     assert row["_deposit_permission"] == VaultDepositPermission.unknown.value
     assert row["_whitelist_notes"] is None
+
+
+def test_hyperliquid_missing_public_status_exports_unknown() -> None:
+    """Missing Hyperliquid source flags do not become truthy through NaN coercion."""
+    _spec, row = create_hyperliquid_vault_row(
+        vault_address="0x6666666666666666666666666666666666666666",
+        name="Legacy Hyperliquid vault",
+        description=None,
+        tvl=1_000_000.0,
+        create_time=FIRST_SEEN,
+        is_closed=None,
+        allow_deposits=None,
+    )
+
+    assert row["_deposit_permission"] == VaultDepositPermission.unknown.value
+    assert row["_deposit_closed_reason"] == "Hyperliquid public deposit status is unavailable"
+    assert row["_whitelist_notes"] is None
+
+
+def test_hyperliquid_merge_keeps_nan_public_status_unknown(tmp_path: Path) -> None:
+    """Nullable Pandas source flags remain unknown at the metadata merge boundary."""
+    metrics_db = SimpleNamespace(
+        get_all_vault_metadata=lambda: pd.DataFrame(
+            [
+                {
+                    "vault_address": "0x7777777777777777777777777777777777777777",
+                    "name": "Incomplete Hyperliquid vault",
+                    "description": None,
+                    "tvl": 1_000_000.0,
+                    "create_time": FIRST_SEEN,
+                    "follower_count": None,
+                    "is_closed": float("nan"),
+                    "allow_deposits": float("nan"),
+                    "relationship_type": "normal",
+                }
+            ]
+        ),
+        get_latest_leader_fractions=lambda: {},
+    )
+
+    vault_db = merge_hyperliquid_vault_database(metrics_db, tmp_path / "vaults.pickle")
+    row = next(iter(vault_db.rows.values()))
+
+    assert row["_deposit_permission"] == VaultDepositPermission.unknown.value
+    assert row["_deposit_closed_reason"] == "Hyperliquid public deposit status is unavailable"
 
 
 def test_unknown_apex_status_exports_unknown() -> None:
@@ -214,6 +279,7 @@ def test_legacy_hyperliquid_rows_migrate_from_last_observed_deposit_state() -> N
     assert changed == LEGACY_HYPERLIQUID_VAULT_COUNT
     assert open_row["_deposit_permission"] == VaultDepositPermission.permissionless.value
     assert closed_row["_deposit_permission"] == VaultDepositPermission.whitelisted.value
+    assert PERP_VAULT_PUBLIC_DEPOSITS_CLOSED_NOTE in closed_row["_whitelist_notes"]
     assert normalise_hyperliquid_deposit_permissions(vault_db) == 0
 
 

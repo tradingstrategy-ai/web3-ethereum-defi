@@ -84,15 +84,15 @@ source explicitly reports public deposits unavailable. Every such row carries
 a ``whitelist.notes`` qualification stating that no approved-account deposit
 route is implied.
 
-=================  ==============================================  =============================
+=================  ==============================================  ===========================================
 Protocol           Source fields                                   Classification
-=================  ==============================================  =============================
+=================  ==============================================  ===========================================
 Hyperliquid        ``isClosed``, ``allowDeposits``, relationship    Open or closed
-Lighter            Public pool ``status``                           ``0`` open; other closed
+Lighter            Public pool ``status``                           ``0`` open; other closed; missing unknown
 GRVT               ``discoverable`` and vault ``status``            Public active or closed
 Hibachi            No vault deposit-access field                    ``unknown``
 ApeX               Explicit recognised lifecycle statuses           Open, closed or ``unknown``
-=================  ==============================================  =============================
+=================  ==============================================  ===========================================
 
 Temporary capacity, lock-up and the Hyperliquid leader-share warning do not
 change this classification. Unknown or future ApeX statuses remain ``unknown``

@@ -534,6 +534,7 @@ def test_calculate_lifetime_metrics_exports_lighter_deployment_chain(
         tvl=1_000_000.0,
         created_at=None,
         is_llp=True,
+        status=0,
         deployment=deployment,
     )
     vault_prices = price_df.loc[price_df["id"] == source_vault_id].copy()

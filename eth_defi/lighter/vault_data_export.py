@@ -89,7 +89,7 @@ def create_lighter_pool_row(
     operator_shares: int | None = None,
     ownership_updated_at: datetime.datetime | None = None,
     is_llp: bool = False,
-    status: int = 0,
+    status: int | None = None,
     deployment: LighterAPIConfig = LIGHTER_ETHEREUM,
 ) -> tuple[VaultSpec, VaultRow]:
     """Create a synthetic VaultRow for a Lighter pool.
@@ -103,8 +103,9 @@ def create_lighter_pool_row(
     as net of fees.
 
     Pool status ``0`` is publicly active and exports ``permissionless``. Other
-    statuses export the qualified native-perp ``whitelisted`` compatibility
-    value because public deposits are unavailable.
+    known statuses export the qualified native-perp ``whitelisted``
+    compatibility value because public deposits are unavailable. A missing
+    status exports ``unknown``.
 
     :param account_index:
         Pool account index on the Lighter platform.
@@ -168,8 +169,9 @@ def create_lighter_pool_row(
         withdraw=0.0,
     )
 
-    deposit_closed_reason = f"Pool not active (status {status})" if status != 0 else None
-    deposit_access = classify_perp_vault_deposit_access(public_deposits_open=status == 0, closed_reason=deposit_closed_reason)
+    deposit_closed_reason = f"Pool not active (status {status})" if status is not None and status != 0 else None
+    public_deposits_open = status == 0 if status is not None else None
+    deposit_access = classify_perp_vault_deposit_access(public_deposits_open=public_deposits_open, closed_reason=deposit_closed_reason)
 
     row: VaultRow = {
         "Symbol": (display_name or "")[:10],
@@ -420,7 +422,7 @@ def merge_into_vault_database(
         operator_fee = row.get("operator_fee")
         operator_fee = 0.0 if pd.isna(operator_fee) else float(operator_fee)
         status = row.get("status")
-        status = 0 if pd.isna(status) else int(status)
+        status = None if pd.isna(status) else int(status)
         total_shares = row.get("total_shares")
         total_shares = None if pd.isna(total_shares) else int(total_shares)
         operator_shares = row.get("operator_shares")
