@@ -45,6 +45,7 @@ from eth_defi.lighter.constants import (
     identify_lighter_pool_deployment,
 )
 from eth_defi.lighter.daily_metrics import LighterDailyMetricsDatabase
+from eth_defi.perp_dex.vault import classify_perp_vault_deposit_access
 from eth_defi.types import Percent
 from eth_defi.vault.base import VaultHistoricalRead, VaultSpec
 from eth_defi.vault.fee import FeeData
@@ -54,6 +55,9 @@ from eth_defi.vault.risk import get_vault_risk
 from eth_defi.vault.vaultdb import VaultDatabase, VaultRow
 
 logger = logging.getLogger(__name__)
+
+#: Source status currently observed for pools closed to public participation.
+_CLOSED_PUBLIC_DEPOSIT_STATUSES = {1}
 
 
 def get_lighter_price_deployments(prices_df: pd.DataFrame) -> set[LighterAPIConfig]:
@@ -88,7 +92,7 @@ def create_lighter_pool_row(
     operator_shares: int | None = None,
     ownership_updated_at: datetime.datetime | None = None,
     is_llp: bool = False,
-    status: int = 0,
+    status: int | None = None,
     deployment: LighterAPIConfig = LIGHTER_ETHEREUM,
 ) -> tuple[VaultSpec, VaultRow]:
     """Create a synthetic VaultRow for a Lighter pool.
@@ -100,6 +104,13 @@ def create_lighter_pool_row(
     Lighter pool operator fees are already reflected in the share price
     (internalised skimming model), so the pipeline treats the share price
     as net of fees.
+
+    The `Lighter public-pool metadata endpoint
+    <https://apidocs.lighter.xyz/reference/publicpoolsmetadata>`__ supplies the
+    pool status. Status ``0`` is active and exports ``permissionless``. Known
+    inactive status ``1`` exports the qualified native-perp ``whitelisted``
+    compatibility value because public deposits are unavailable. Missing or
+    unrecognised statuses export ``unknown``.
 
     :param account_index:
         Pool account index on the Lighter platform.
@@ -163,6 +174,17 @@ def create_lighter_pool_row(
         withdraw=0.0,
     )
 
+    if status == 0:
+        public_deposits_open = True
+        deposit_closed_reason = None
+    elif status in _CLOSED_PUBLIC_DEPOSIT_STATUSES:
+        public_deposits_open = False
+        deposit_closed_reason = f"Pool not active (status {status})"
+    else:
+        public_deposits_open = None
+        deposit_closed_reason = None
+    deposit_access = classify_perp_vault_deposit_access(public_deposits_open=public_deposits_open, closed_reason=deposit_closed_reason)
+
     row: VaultRow = {
         "Symbol": (display_name or "")[:10],
         "Name": display_name or "",
@@ -189,7 +211,7 @@ def create_lighter_pool_row(
         "_short_description": description.split(".")[0].strip() + "." if description else None,
         "_available_liquidity": None,
         "_utilisation": None,
-        "_deposit_closed_reason": f"Pool not active (status {status})" if status != 0 else None,
+        "_deposit_closed_reason": deposit_closed_reason,
         "_deposit_next_open": None,
         "_redemption_closed_reason": None,
         "_redemption_next_open": None,
@@ -203,6 +225,8 @@ def create_lighter_pool_row(
         "_lighter_total_shares": total_shares,
         "_lighter_operator_share_fraction": operator_share_fraction,
         "_lighter_ownership_updated_at": ownership_updated_at,
+        "_deposit_permission": deposit_access.permission.value,
+        "_whitelist_notes": deposit_access.whitelist_notes,
         # The PnL endpoint reports the current UTC day's counters before that
         # day is complete. Let generic flow metrics exclude this observation.
         "_daily_flow_current_day_is_provisional": True,
@@ -410,7 +434,7 @@ def merge_into_vault_database(
         operator_fee = row.get("operator_fee")
         operator_fee = 0.0 if pd.isna(operator_fee) else float(operator_fee)
         status = row.get("status")
-        status = 0 if pd.isna(status) else int(status)
+        status = None if pd.isna(status) else int(status)
         total_shares = row.get("total_shares")
         total_shares = None if pd.isna(total_shares) else int(total_shares)
         operator_shares = row.get("operator_shares")

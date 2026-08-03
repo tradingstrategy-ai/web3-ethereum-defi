@@ -233,6 +233,14 @@ including `VAULT_IN_PROCESS`, `VAULT_INITIAL_FAILED`,
 This fail-open classification is limited to data collection: it ensures an
 unrecognised status continues to receive observations and history maintenance.
 
+Deposit access is classified separately from history collection.
+``VAULT_IN_PROCESS`` is publicly open; ``VAULT_FINISHED``,
+``VAULT_INITIAL_FAILED`` and ``VAULT_PAUSE_PURCHASE`` are not open for public
+deposits and export the native-perp compatibility value ``whitelisted``.
+Unrecognised statuses export ``unknown`` rather than guessing their access
+meaning. ``whitelist.notes`` clarifies that ``whitelisted`` does not imply an
+approved-account deposit route.
+
 A terminal vault receives one final non-empty history sync. If it later becomes
 non-terminal, its terminal generation is cleared; a later finish starts a new
 generation. Unfiltered scans similarly track disappeared and reappeared vaults

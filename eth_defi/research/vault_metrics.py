@@ -354,6 +354,9 @@ class VaultMetricsRecord(TypedDict, total=False):
     #: contract version. Open dates, lock-ups, epoch windows, pauses, caps and
     #: token-holding requirements do not change this status. Consult
     #: ``whitelist.notes`` for explicitly documented operating assumptions.
+    #: Native perp DEX vaults use a documented compatibility exception where
+    #: closed public participation maps to ``whitelisted`` with a mandatory
+    #: qualification note.
     deposit_permission: str
 
     #: Structured vault-wide account-admission status.

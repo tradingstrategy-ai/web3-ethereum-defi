@@ -37,10 +37,17 @@ class VaultDepositPermission(str, enum.Enum):
     lock-up, open date, epoch window, or whether an asynchronous request is
     currently claimable.
 
+    Native perp DEX vaults have one documented compatibility exception because
+    their APIs expose public deposit availability rather than identity policy.
+    A native vault closed to public participation uses ``whitelisted`` with a
+    mandatory qualification in ``whitelist.notes``; this does not assert that
+    any approved-account route exists.
+
     The string values are persisted in vault metadata and public reports.
     """
 
-    #: Deposits require prior KYC or comparable manual identity approval.
+    #: Deposits require prior identity approval, or a documented native-perp
+    #: compatibility mapping applies.
     whitelisted = "whitelisted"
 
     #: Deposits need no prior KYC or manual identity approval.
@@ -49,7 +56,8 @@ class VaultDepositPermission(str, enum.Enum):
     #: not change this status.
     permissionless = "permissionless"
 
-    #: The adapter cannot safely determine whether KYC is required.
+    #: The adapter cannot safely determine the applicable identity policy or
+    #: native-perp public-participation status.
     unknown = "unknown"
 
 

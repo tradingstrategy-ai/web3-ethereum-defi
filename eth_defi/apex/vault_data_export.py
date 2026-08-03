@@ -18,6 +18,7 @@ from eth_defi.apex.constants import APEX_CHAIN_ID, APEX_OFFICIAL_VAULTS, APEX_VA
 from eth_defi.apex.metrics import ApexMetricsDatabase
 from eth_defi.compat import native_datetime_utc_now
 from eth_defi.erc_4626.core import ERC4262VaultDetection, ERC4626Feature
+from eth_defi.perp_dex.vault import classify_perp_vault_deposit_access
 from eth_defi.vault.base import VaultSpec
 from eth_defi.vault.fee import FeeData
 from eth_defi.vault.flag import VaultFlag
@@ -27,6 +28,16 @@ logger = logging.getLogger(__name__)
 
 
 OFFICIAL_VAULTS_BY_ID = {vault.vault_id: vault for vault in APEX_OFFICIAL_VAULTS}
+
+#: ApeX statuses with source-proven public deposit availability.
+_PUBLIC_DEPOSIT_STATUSES = {"VAULT_IN_PROCESS"}
+
+#: ApeX statuses with source-proven unavailable public deposits.
+_CLOSED_PUBLIC_DEPOSIT_STATUSES = {
+    "VAULT_FINISHED",
+    "VAULT_INITIAL_FAILED",
+    "VAULT_PAUSE_PURCHASE",
+}
 
 
 def create_apex_vault_row(
@@ -47,6 +58,10 @@ def create_apex_vault_row(
     The ApeX platform vault ID remains the identity through the
     ``apex-vault-{vault_id}`` address. Fee source values are deliberately not
     interpreted because ApeX does not authoritatively document their units.
+    Recognised lifecycle statuses from the public `ApeX vault ranking endpoint
+    <https://omni.apex.exchange/api/v3/vault/ranking>`__ determine public
+    deposit access. Unknown statuses remain ``unknown``; they are not treated
+    as closed merely because history collection handles them as non-terminal.
 
     :param vault_id:
         Stable ApeX platform vault ID.
@@ -95,6 +110,17 @@ def create_apex_vault_row(
         deposit=None,
         withdraw=None,
     )
+    if status in _PUBLIC_DEPOSIT_STATUSES:
+        public_deposits_open = True
+        deposit_closed_reason = None
+    elif status in _CLOSED_PUBLIC_DEPOSIT_STATUSES:
+        public_deposits_open = False
+        deposit_closed_reason = f"Vault not open for public deposits ({status})"
+    else:
+        public_deposits_open = None
+        deposit_closed_reason = None
+    deposit_access = classify_perp_vault_deposit_access(public_deposits_open=public_deposits_open, closed_reason=deposit_closed_reason)
+
     row: VaultRow = {
         "Symbol": name[:10],
         "Name": name,
@@ -126,10 +152,12 @@ def create_apex_vault_row(
         "_manager_name": None,
         "_available_liquidity": None,
         "_utilisation": None,
-        "_deposit_closed_reason": "Vault is permanently closed" if status == "VAULT_FINISHED" else None,
+        "_deposit_closed_reason": deposit_closed_reason,
         "_deposit_next_open": None,
         "_redemption_closed_reason": None,
         "_redemption_next_open": None,
+        "_deposit_permission": deposit_access.permission.value,
+        "_whitelist_notes": deposit_access.whitelist_notes,
     }
     return VaultSpec(chain_id=APEX_CHAIN_ID, vault_address=address), row
 
