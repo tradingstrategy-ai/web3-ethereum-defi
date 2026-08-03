@@ -92,10 +92,7 @@ leave `anyAsset` disabled.
 
 With `anyAsset` enabled, an asset manager can call `approve()` on a dynamic token target.
 The guard cannot validate that target or its call site, so it can only validate the spender.
-That makes approvals unsuitable for a product asset manager. The Safe module additionally
-rejects a non-zero native-value `approve()` call, preventing this bypass from transferring
-the Safe's native balance to an EOA or malicious fallback; it does not make `anyAsset` a
-safe product policy.
+That makes approvals unsuitable for a product asset manager.
 
 Uniswap V2/V3, CowSwap and Velora are present for development but are not enabled for
 active product use. Their manager-selected minimum-output checks do not provide an

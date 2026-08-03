@@ -6,11 +6,9 @@
 """
 
 import pytest
-from eth_abi import encode
 from web3 import HTTPProvider, Web3
 from web3._utils.events import EventLogErrorFlags
 from web3.contract import Contract
-from web3.exceptions import ContractLogicError
 
 from eth_defi.abi import get_deployed_contract, get_function_selector
 from eth_defi.deploy import deploy_contract
@@ -233,39 +231,6 @@ def test_safe_module_initialised(
     assert guard.functions.isAllowedCallSite(usdc.address, get_function_selector(usdc.functions.transfer)).call()
     assert guard.functions.isAllowedAsset(usdc.address).call()
     assert guard.functions.isAllowedAsset(weth.address).call()
-
-
-def test_any_asset_approve_rejects_native_value(
-    web3: Web3,
-    owner: str,
-    asset_manager: str,
-    third_party: str,
-    guard: Contract,
-) -> None:
-    """Reject native Safe-value transfers hidden behind an anyAsset approval.
-
-    In ``anyAsset`` mode the guard cannot validate the dynamic token target of
-    ``approve(address,uint256)``. A target EOA therefore makes a useful
-    regression case: it would accept native value without executing token code.
-    The zero-value approval remains valid once the spender is explicitly
-    allowlisted.
-    """
-    assert_transaction_success_with_explanation(
-        web3,
-        guard.functions.setAnyAssetAllowed(True, "Development test only").transact({"from": owner}),
-    )
-    assert_transaction_success_with_explanation(
-        web3,
-        guard.functions.allowApprovalDestination(third_party, "Regression-test spender").transact({"from": owner}),
-    )
-
-    approve_data = Web3.keccak(text="approve(address,uint256)")[:4] + encode(["address", "uint256"], [third_party, 1])
-
-    zero_value_tx_hash = guard.functions.performCall(third_party, approve_data, 0).transact({"from": asset_manager})
-    assert_transaction_success_with_explanation(web3, zero_value_tx_hash)
-
-    with pytest.raises(ContractLogicError, match="Approve call cannot transfer ETH"):
-        guard.functions.performCall(third_party, approve_data, 1).transact({"from": asset_manager})
 
 
 @pytest.mark.skip(reason="MockSafe does not model the full Safe integration; exercise this flow on a real Gnosis Safe")
