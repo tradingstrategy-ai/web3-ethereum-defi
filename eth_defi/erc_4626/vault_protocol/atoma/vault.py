@@ -70,11 +70,26 @@ ATOMA_VAULT_ADDRESSES: frozenset[HexAddress] = frozenset((ATOMA_VAULT_ADDRESS, A
 #: Official Atoma announcement for the AVS2 RWA vault.
 ATOMA_RWA_VAULT_LAUNCH_POST_URL: Final[str] = "https://x.com/atoma_fi/status/2079672209400832319?s=46"
 
+#: Official overview for Atoma Vault Share's perpetual DEX strategy.
+ATOMA_VAULT_OVERVIEW_URL: Final[str] = "https://atoma.fi/"
+
 #: Human-readable strategy copy for Atoma vaults without an offchain metadata API.
 #:
-#: AVS2 is the RWA vault announced by Atoma for Lighter and Trade.xyz perpetual
-#: markets. Keep this address-scoped, because AVS uses a different strategy.
+#: AVS uses Nado and Extended perpetual markets, while AVS2 is the RWA vault
+#: announced by Atoma for Lighter and Trade.xyz. Keep this address-scoped,
+#: because the vaults use different strategies.
 ATOMA_VAULT_DESCRIPTION_OVERLAY: Final[dict[HexAddress, AtomaVaultDescription]] = {
+    ATOMA_VAULT_ADDRESS: AtomaVaultDescription(
+        short_description="Market-neutral perpetuals strategy across Nado and Extended.",
+        description=" ".join(
+            (
+                "Atoma Vault is a delta-neutral USDC strategy that captures funding-rate spreads across Nado and Extended perpetual DEXs.",
+                "It holds offsetting long and short positions across the venues, seeking to avoid price-direction exposure.",
+                "Funding yield is paid into NAV in USDC, while Nado and Extended points accrue to depositors in weekly epochs.",
+                f"See [Atoma's vault overview]({ATOMA_VAULT_OVERVIEW_URL}).",
+            )
+        ),
+    ),
     ATOMA_VAULT_2_ADDRESS: AtomaVaultDescription(
         short_description="Market-neutral RWA perpetuals strategy across Lighter and Trade.xyz.",
         description=" ".join(
@@ -86,6 +101,12 @@ ATOMA_VAULT_DESCRIPTION_OVERLAY: Final[dict[HexAddress, AtomaVaultDescription]] 
             )
         ),
     ),
+}
+
+#: Curated display names for Atoma vaults whose onchain share-token names are generic.
+ATOMA_VAULT_NAME_OVERLAY: Final[dict[HexAddress, str]] = {
+    ATOMA_VAULT_ADDRESS: "Extended and Nano arbitrage",
+    ATOMA_VAULT_2_ADDRESS: "Lighter and Trade.xyz arbitrage",
 }
 
 #: Atoma performance fee in basis points.
@@ -120,6 +141,21 @@ class AtomaVault(ERC4626Vault):
     later ``claimWithdrawal(epochId)`` after the settlement epoch has been
     processed.
     """
+
+    @property
+    def name(self) -> str:
+        """Return a curated name for a known Atoma strategy.
+
+        AVS2's onchain share-token name is generic, so its address-scoped
+        overlay provides a descriptive name. Other Atoma vaults retain their
+        onchain token names.
+
+        :return:
+            Curated name when available, otherwise the onchain token name.
+        """
+
+        name = ATOMA_VAULT_NAME_OVERLAY.get(HexAddress(str(self.vault_address).lower()))
+        return name if name else super().name
 
     @property
     def description(self) -> str | None:
