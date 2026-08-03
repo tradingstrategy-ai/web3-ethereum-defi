@@ -24,6 +24,7 @@ from web3.contract import Contract
 
 from eth_defi.abi import encode_function_call
 from eth_defi.erc_4626.vault_protocol.lagoon.deployment import (
+    HYPERCORE_MULTICALL_CHUNK_SIZE,
     LagoonAutomatedDeployment,
     LagoonConfig,
     LagoonDeploymentParameters,
@@ -52,6 +53,7 @@ from eth_defi.hyperliquid.testing import (
     deploy_mock_core_deposit_wallet,
     deploy_mock_core_writer,
 )
+from eth_defi.hyperliquid.block import HYPEREVM_FAST_BLOCK_GAS_LIMIT
 from eth_defi.provider.anvil import (
     ANVIL_OWNER_1,
     ANVIL_OWNER_2,
@@ -85,9 +87,14 @@ DEPLOYER_PRIVATE_KEY = "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d
 #: Test vault address (arbitrary, just needs to be whitelisted)
 TEST_HYPERCORE_VAULT = HexAddress(HexStr("0x1111111111111111111111111111111111111111"))
 
+#: More than one Hypercore guard batch, including the vault used for deposits.
+HYPERCORE_VAULTS_FOR_BATCH_TEST = [
+    TEST_HYPERCORE_VAULT,
+    *[HexAddress(HexStr(f"0x{vault_id:040x}")) for vault_id in range(1, HYPERCORE_MULTICALL_CHUNK_SIZE + 1)],
+]
+
 #: HyperEVM USDC address
 USDC_ADDRESS = USDC_NATIVE_TOKEN[999]
-
 
 def _perform_call(module: Contract, fn_call, asset_manager: str):
     """Encode and submit a performCall transaction on TradingStrategyModuleV0."""
@@ -228,7 +235,7 @@ def lagoon_deployment(
         asset_managers=[deployer.address],
         safe_owners=[ANVIL_OWNER_1, ANVIL_OWNER_2],
         safe_threshold=2,
-        hypercore_vaults=[TEST_HYPERCORE_VAULT],
+        hypercore_vaults=HYPERCORE_VAULTS_FOR_BATCH_TEST,
         safe_salt_nonce=42,
     )
 
@@ -263,6 +270,48 @@ def _restore_hypercore_lagoon_state(
 
     assert lagoon_deployment.trading_strategy_module is not None
     yield from evm_snapshot_revert(anvil_hyperliquid)
+
+
+@pytest.mark.timeout(600)
+def test_lagoon_hypercore_vault_whitelisting_is_batched(
+    web3: Web3,
+    lagoon_deployment: LagoonAutomatedDeployment,
+) -> None:
+    """Deploy more vaults than one Hypercore multicall can contain.
+
+    1. Deploy the Lagoon fixture with one more explicit vault than the batch cap.
+    2. Read the guard's Hypercore-vault approval events.
+    3. Verify every vault is approved across two transactions below the
+       HyperEVM fast-block gas limit.
+    """
+    # 1. The shared fixture includes one more vault than one batch can hold.
+    assert len(HYPERCORE_VAULTS_FOR_BATCH_TEST) == HYPERCORE_MULTICALL_CHUNK_SIZE + 1
+    module = lagoon_deployment.trading_strategy_module
+
+    # 2. Read all explicit Hypercore-vault approvals from the deployed module.
+    approval_logs = web3.eth.get_logs(
+        {
+            "fromBlock": 0,
+            "toBlock": "latest",
+            "address": module.address,
+            "topics": [Web3.keccak(text="HypercoreVaultApproved(address,string)").hex()],
+        }
+    )
+
+    # 3. Every intended vault is approved in fast-block-safe transactions.
+    assert len(approval_logs) == len(HYPERCORE_VAULTS_FOR_BATCH_TEST)
+    approved_vaults = {
+        Web3.to_checksum_address(decode(["address", "string"], log["data"])[0])
+        for log in approval_logs
+    }
+    assert approved_vaults == {
+        Web3.to_checksum_address(vault)
+        for vault in HYPERCORE_VAULTS_FOR_BATCH_TEST
+    }
+    transaction_hashes = {log["transactionHash"] for log in approval_logs}
+    assert len(transaction_hashes) == 2
+    assert all(web3.eth.get_transaction_receipt(tx_hash)["gasUsed"] < HYPEREVM_FAST_BLOCK_GAS_LIMIT for tx_hash in transaction_hashes)
+    assert all(web3.eth.get_transaction(tx_hash)["gas"] <= HYPEREVM_FAST_BLOCK_GAS_LIMIT for tx_hash in transaction_hashes)
 
 
 @pytest.mark.timeout(600)
