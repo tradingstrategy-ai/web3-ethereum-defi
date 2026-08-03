@@ -96,6 +96,7 @@ HYPERCORE_VAULTS_FOR_BATCH_TEST = [
 #: HyperEVM USDC address
 USDC_ADDRESS = USDC_NATIVE_TOKEN[999]
 
+
 def _perform_call(module: Contract, fn_call, asset_manager: str):
     """Encode and submit a performCall transaction on TradingStrategyModuleV0."""
     target = fn_call.address
@@ -300,14 +301,8 @@ def test_lagoon_hypercore_vault_whitelisting_is_batched(
 
     # 3. Every intended vault is approved in fast-block-safe transactions.
     assert len(approval_logs) == len(HYPERCORE_VAULTS_FOR_BATCH_TEST)
-    approved_vaults = {
-        Web3.to_checksum_address(decode(["address", "string"], log["data"])[0])
-        for log in approval_logs
-    }
-    assert approved_vaults == {
-        Web3.to_checksum_address(vault)
-        for vault in HYPERCORE_VAULTS_FOR_BATCH_TEST
-    }
+    approved_vaults = {Web3.to_checksum_address(decode(["address", "string"], log["data"])[0]) for log in approval_logs}
+    assert approved_vaults == {Web3.to_checksum_address(vault) for vault in HYPERCORE_VAULTS_FOR_BATCH_TEST}
     transaction_hashes = {log["transactionHash"] for log in approval_logs}
     assert len(transaction_hashes) == 2
     assert all(web3.eth.get_transaction_receipt(tx_hash)["gasUsed"] < HYPEREVM_FAST_BLOCK_GAS_LIMIT for tx_hash in transaction_hashes)
