@@ -697,11 +697,9 @@ abstract contract GuardV0Base is IGuard, Multicall {
 
         // With anyToken, we cannot check approve() call site because we do not whitelist
         // individual token addresses
-        if (!anyTokenCheck && !hypercoreCheck) {
-            if (!isAllowedCallSite(target, selector)) {
-                require(isAllowedTarget(target), "Target not allowed");
-                require(isAllowedCallSite(target, selector), "Selector not allowed");
-            }
+        if (!anyTokenCheck && !hypercoreCheck && !isAllowedCallSite(target, selector)) {
+            require(isAllowedTarget(target), "Target not allowed");
+            revert("Selector not allowed");
         }
 
         // Validate the function payload.
