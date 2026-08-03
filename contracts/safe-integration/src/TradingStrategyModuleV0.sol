@@ -110,10 +110,11 @@ contract TradingStrategyModuleV0 is Module, GuardV0Base {
      * - Execute transaction on behalf of Safe
      *
      */
-    // NOTE: The `value` parameter (ETH sent with the call) is not validated
-    // by the guard. This is accepted behaviour — Safes typically hold minimal
-    // ETH (gas money), all targets are governance-approved contracts, and any
-    // ETH sent goes to those trusted targets (not to the asset manager).
+    // `value` is needed for vetted payable integrations. However, an ERC-20
+    // approve() call never needs native value. In anyAsset mode the guard cannot
+    // whitelist the dynamic token target, so approving with value could call an
+    // EOA or malicious fallback and transfer the Safe's native balance. Reject
+    // that combination below; product deployments must still use asset lists.
     //
     // If msg.value > 0, the caller's ETH is forwarded to the Safe (avatar)
     // before execution — this allows the asset manager to fund execution fees
@@ -131,6 +132,10 @@ contract TradingStrategyModuleV0 is Module, GuardV0Base {
             target,
             callData
         );
+
+        if (callData.length >= 4 && isAnyTokenApproveSelector(bytes4(callData[:4]))) {
+            require(value == 0, "Approve call cannot transfer ETH");
+        }
 
         // Forward any ETH sent by the caller to the Safe.
         // The Safe's receive() function accepts plain ETH transfers.
