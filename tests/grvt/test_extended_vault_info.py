@@ -23,11 +23,17 @@ import duckdb
 import pytest
 
 from eth_defi.grvt.daily_metrics import GRVTDailyMetricsDatabase
-from eth_defi.grvt.vault import GRVTVaultSummary, build_vault_description
+from eth_defi.grvt.vault import GRVTVaultSummary, build_vault_description, parse_grvt_vault_summary
 
 
-def _make_summary(**overrides) -> GRVTVaultSummary:
-    """Build a minimal GRVTVaultSummary for description tests."""
+def _make_summary(**overrides: object) -> GRVTVaultSummary:
+    """Build a minimal GRVTVaultSummary for description tests.
+
+    :param overrides:
+        Field values replacing the fixture defaults.
+    :return:
+        Complete synthetic GRVT vault summary.
+    """
     base = dict(
         vault_id="VLT:test",
         chain_vault_id=123,
@@ -47,6 +53,18 @@ def _make_summary(**overrides) -> GRVTVaultSummary:
     )
     base.update(overrides)
     return GRVTVaultSummary(**base)
+
+
+def test_graphql_parser_preserves_missing_access_status() -> None:
+    """Missing GRVT access fields remain unknown after source parsing.
+
+    Older or partial GraphQL responses must not turn an omitted
+    ``discoverable`` field into evidence that public access is closed.
+    """
+    summary = parse_grvt_vault_summary({"id": "VLT:partial", "chainVaultID": 1})
+
+    assert summary.discoverable is None
+    assert summary.status is None
 
 
 def test_build_vault_description_includes_extended_fields() -> None:

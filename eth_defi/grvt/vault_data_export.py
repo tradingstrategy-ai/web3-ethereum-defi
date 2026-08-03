@@ -75,10 +75,11 @@ def create_grvt_vault_row(
     the downstream pipeline can calculate net returns by deducting the
     externalised performance fee.
 
-    A discoverable ``active`` vault exports ``permissionless``. A source-proven
-    non-discoverable or non-active vault exports the qualified native-perp
-    ``whitelisted`` compatibility value. Missing source fields export
-    ``unknown``.
+    The public `GRVT strategies GraphQL API <https://edge.grvt.io/query>`__
+    supplies ``discoverable`` and ``status``. A discoverable ``active`` vault
+    exports ``permissionless``. A source-proven non-discoverable vault exports
+    the qualified native-perp ``whitelisted`` compatibility value. Missing or
+    unrecognised field combinations export ``unknown``.
 
     :param vault_id:
         Vault string ID on the GRVT platform (e.g. ``VLT:xxx``).
@@ -135,9 +136,9 @@ def create_grvt_vault_row(
     )
 
     normalised_status = status.strip().casefold() if status else None
-    if discoverable is False or (normalised_status is not None and normalised_status != "active"):
+    if discoverable is False:
         public_deposits_open = False
-        deposit_closed_reason = f"GRVT vault is not open for public deposits (discoverable={discoverable}, status={status or 'unknown'})"
+        deposit_closed_reason = f"GRVT vault is not publicly discoverable (status={status or 'unknown'})"
     elif discoverable is True and normalised_status == "active":
         public_deposits_open = True
         deposit_closed_reason = None

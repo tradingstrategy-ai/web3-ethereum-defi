@@ -91,9 +91,10 @@ def create_hibachi_vault_row(
     All Hibachi vault-level fees are zero.
     ``vault_pub_key`` and ``vault_asset_id`` are stored only in the DuckDB
     metadata table for traceability; they are not surfaced in ``VaultRow``.
-    The public API exposes no vault deposit-access field, so the shared deposit
-    permission remains ``unknown`` rather than assuming public metadata means
-    permissionless deposits.
+    The public `Hibachi vault information endpoint
+    <https://data-api.hibachi.xyz/vault/info>`__ exposes no vault
+    deposit-access field, so the shared deposit permission remains ``unknown``
+    rather than assuming public metadata means permissionless deposits.
 
     :param vault_id:
         Vault ID on the Hibachi platform (e.g. 2, 3).

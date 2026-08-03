@@ -129,7 +129,8 @@ class VaultRow(TypedDict):
     _deposit_manager: dict | None
 
     #: Vault-wide deposit policy as ``whitelisted``, ``permissionless``, or
-    #: ``unknown``.
+    #: ``unknown``. Native perp DEX compatibility mappings are qualified by
+    #: ``_whitelist_notes``.
     #:
     #: Stored independently from ``_deposit_manager`` in scanner metadata and
     #: exported at top level. Missing values in legacy pickles mean ``unknown``.

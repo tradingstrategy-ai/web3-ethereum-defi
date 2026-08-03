@@ -56,10 +56,11 @@ token-holding requirement or liquidity state. Consumers must inspect
 
 Native perp DEX vaults have a documented compatibility exception because their
 source APIs expose public deposit availability rather than KYC mechanisms. For
-these synthetic vaults, ``whitelisted`` means the protocol reports public
-deposits closed or unavailable. It does not prove that approved accounts can
-deposit. The mandatory ``whitelist.notes`` qualification identifies this
-mapping, while ``deposit_closed_reason`` remains the live availability detail.
+these synthetic vaults, ``whitelisted`` means the adapter has source-status
+evidence that public participation is unavailable under its documented
+protocol mapping. It does not prove that approved accounts can deposit. The
+mandatory ``whitelist.notes`` qualification identifies this mapping, while
+``deposit_closed_reason`` remains the availability detail.
 
 The ``whitelist`` object is the structured form of the same status. Its
 ``status`` field mirrors ``deposit_permission`` and its optional ``notes``

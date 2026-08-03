@@ -40,7 +40,7 @@ from eth_defi.hyperliquid.constants import HYPERCORE_CHAIN_ID, HYPERLIQUID_DAILY
 from eth_defi.hyperliquid.daily_metrics import HyperliquidDailyMetricsDatabase
 from eth_defi.hyperliquid.high_freq_metrics import HyperliquidHighFreqMetricsDatabase
 from eth_defi.hyperliquid.vault_review_sync import ReviewStatus
-from eth_defi.perp_dex.vault import classify_perp_vault_deposit_access
+from eth_defi.perp_dex.vault import PerpVaultDepositAccess, classify_perp_vault_deposit_access
 from eth_defi.vault.base import VaultHistoricalRead, VaultSpec
 from eth_defi.vault.fee import FeeData
 from eth_defi.vault.flag import VaultFlag
@@ -69,7 +69,7 @@ LEADER_FRACTION_DEPOSIT_WARNING = "Leader share of the vault capital near allowe
 PUBLIC_DEPOSIT_STATUS_UNAVAILABLE = "Hyperliquid public deposit status is unavailable"
 
 #: Last-known deposit reasons that mean public deposits were explicitly closed.
-_WHITELISTED_DEPOSIT_REASONS = {
+_PUBLIC_DEPOSIT_CLOSED_REASONS = {
     "Vault is permanently closed",
     "Vault deposits disabled by leader",
 }
@@ -101,6 +101,9 @@ def _get_deposit_closed_reason(
         Vault relationship type: ``"normal"``, ``"parent"`` (HLP), or ``"child"``.
         For an HLP parent, the integration preserves its existing behaviour and
         treats ``allow_deposits`` as non-authoritative.
+    :return:
+        Closure reason, non-blocking warning, unavailable marker, or ``None``
+        when public deposits are open.
     """
     if is_closed is True:
         return "Vault is permanently closed"
@@ -128,11 +131,30 @@ def _classify_public_deposits_from_reason(deposit_closed_reason: str | None) -> 
         ``True`` for open, ``False`` for explicitly closed, or ``None`` for an
         unrecognised or incomplete source state.
     """
-    if deposit_closed_reason in _WHITELISTED_DEPOSIT_REASONS:
+    if deposit_closed_reason in _PUBLIC_DEPOSIT_CLOSED_REASONS:
         return False
     if deposit_closed_reason in {None, LEADER_FRACTION_DEPOSIT_WARNING}:
         return True
     return None
+
+
+def classify_hyperliquid_vault_deposit_access(deposit_closed_reason: str | None) -> PerpVaultDepositAccess:
+    """Classify one Hyperliquid vault from its persisted availability reason.
+
+    The `Hyperliquid vault-details response
+    <https://hyperliquid.gitbook.io/hyperliquid-docs/for-developers/api/info-endpoint>`__
+    provides the source flags used to generate this reason. Keeping the final
+    mapping as a pure function lets current and retained metadata rows use the
+    same compatibility classification.
+
+    :param deposit_closed_reason:
+        Source-backed closure reason, non-blocking warning, or unavailable
+        status marker.
+    :return:
+        Shared native-perp deposit-access classification.
+    """
+    public_deposits_open = _classify_public_deposits_from_reason(deposit_closed_reason)
+    return classify_perp_vault_deposit_access(public_deposits_open=public_deposits_open, closed_reason=deposit_closed_reason)
 
 
 def _normalise_optional_bool(value: object) -> bool | None:
@@ -207,7 +229,9 @@ def create_hyperliquid_vault_row(
     Protocol vaults (HLP and its children with ``relationship_type="parent"``
     or ``"child"``) have zero fees.
 
-    Public deposit access comes from ``is_closed`` and ``allow_deposits``.
+    Public deposit access comes from the `Hyperliquid vault-details response
+    <https://hyperliquid.gitbook.io/hyperliquid-docs/for-developers/api/info-endpoint>`__
+    fields ``isClosed`` and ``allowDeposits``.
     Closed access uses the native-perp ``whitelisted`` compatibility value and
     a qualification note; it does not assert that selected accounts can still
     deposit. For HLP parent vaults, the integration treats ``allow_deposits`` as
@@ -285,8 +309,7 @@ def create_hyperliquid_vault_row(
     )
 
     deposit_closed_reason = _get_deposit_closed_reason(is_closed, allow_deposits, leader_fraction, relationship_type)
-    public_deposits_open = _classify_public_deposits_from_reason(deposit_closed_reason)
-    deposit_access = classify_perp_vault_deposit_access(public_deposits_open=public_deposits_open, closed_reason=deposit_closed_reason)
+    deposit_access = classify_hyperliquid_vault_deposit_access(deposit_closed_reason)
 
     row: VaultRow = {
         "Symbol": (name or "")[:10],
@@ -350,8 +373,7 @@ def normalise_hyperliquid_deposit_permissions(vault_db: VaultDatabase) -> int:
         if row.get("Protocol") != "Hyperliquid":
             continue
         deposit_closed_reason = row.get("_deposit_closed_reason")
-        public_deposits_open = _classify_public_deposits_from_reason(deposit_closed_reason)
-        deposit_access = classify_perp_vault_deposit_access(public_deposits_open=public_deposits_open, closed_reason=deposit_closed_reason)
+        deposit_access = classify_hyperliquid_vault_deposit_access(deposit_closed_reason)
         if row.get("_deposit_permission") != deposit_access.permission.value or row.get("_whitelist_notes") != deposit_access.whitelist_notes:
             row["_deposit_permission"] = deposit_access.permission.value
             row["_whitelist_notes"] = deposit_access.whitelist_notes

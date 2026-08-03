@@ -89,7 +89,7 @@ Protocol           Source fields                                   Classificatio
 =================  ==============================================  ===========================================
 Hyperliquid        ``isClosed``, ``allowDeposits``, relationship    Open or closed
 Lighter            Public pool ``status``                           ``0`` open; other closed; missing unknown
-GRVT               ``discoverable`` and vault ``status``            Public active or closed
+GRVT               ``discoverable`` and vault ``status``            Public active, non-discoverable or unknown
 Hibachi            No vault deposit-access field                    ``unknown``
 ApeX               Explicit recognised lifecycle statuses           Open, closed or ``unknown``
 =================  ==============================================  ===========================================

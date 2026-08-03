@@ -58,9 +58,10 @@ def create_apex_vault_row(
     The ApeX platform vault ID remains the identity through the
     ``apex-vault-{vault_id}`` address. Fee source values are deliberately not
     interpreted because ApeX does not authoritatively document their units.
-    Recognised lifecycle statuses determine public deposit access. Unknown
-    statuses remain ``unknown``; they are not treated as closed merely because
-    history collection handles them as non-terminal.
+    Recognised lifecycle statuses from the public `ApeX vault ranking endpoint
+    <https://omni.apex.exchange/api/v3/vault/ranking>`__ determine public
+    deposit access. Unknown statuses remain ``unknown``; they are not treated
+    as closed merely because history collection handles them as non-terminal.
 
     :param vault_id:
         Stable ApeX platform vault ID.

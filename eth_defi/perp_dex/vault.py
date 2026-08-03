@@ -13,10 +13,10 @@ PERP_VAULT_PUBLIC_DEPOSITS_CLOSED_NOTE = "Native perp DEX compatibility status: 
 class PerpVaultDepositAccess:
     """Normalised public-deposit metadata for a native perp DEX vault.
 
-    Native perp DEX APIs generally expose whether a vault is publicly open,
-    rather than a KYC or account allow-list mechanism. The shared vault export
-    nevertheless expects :class:`~eth_defi.vault.deposit_redeem.VaultDepositPermission`.
-    Closed public access therefore uses the compatibility value
+    Native perp DEX APIs expose public availability or lifecycle status rather
+    than a KYC or account allow-list mechanism. The shared vault export still
+    expects :class:`~eth_defi.vault.deposit_redeem.VaultDepositPermission`.
+    Closed public participation therefore uses the compatibility value
     :attr:`~eth_defi.vault.deposit_redeem.VaultDepositPermission.whitelisted`
     with a mandatory qualification note.
     """
@@ -35,15 +35,16 @@ def classify_perp_vault_deposit_access(
 ) -> PerpVaultDepositAccess:
     """Map native perp DEX public availability to the shared export contract.
 
-    ``whitelisted`` is a compatibility value here: it means the source reports
-    that public deposits are unavailable. It does not assert that selected
-    accounts can deposit. ``closed_reason`` is required for that classification
-    so the exported qualification cannot be silently omitted.
+    ``whitelisted`` is a compatibility value here: it means the adapter's
+    documented source-status mapping determines that public participation is
+    unavailable. It does not assert that selected accounts can deposit.
+    ``closed_reason`` is required for that classification so the exported
+    qualification cannot be silently omitted.
 
     :param public_deposits_open:
-        ``True`` when source state proves public deposits are open, ``False``
-        when source state proves they are unavailable, or ``None`` when the
-        scanner cannot classify the state.
+        ``True`` when source state proves public participation is open,
+        ``False`` when a documented source-status mapping proves it is
+        unavailable, or ``None`` when the scanner cannot classify the state.
     :param closed_reason:
         Source-specific explanation used when public deposits are unavailable.
     :return:

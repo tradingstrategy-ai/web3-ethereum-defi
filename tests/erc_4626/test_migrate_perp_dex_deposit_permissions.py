@@ -4,6 +4,7 @@ import datetime
 import importlib.util
 from contextlib import closing
 from pathlib import Path
+from types import ModuleType
 
 import duckdb
 import pytest
@@ -17,7 +18,7 @@ from eth_defi.vault.base import VaultSpec
 from eth_defi.vault.vaultdb import VaultDatabase, VaultRow
 
 
-def load_migration_module():
+def load_migration_module() -> ModuleType:
     """Load the perp DEX migration script as a test module.
 
     :return:
@@ -153,6 +154,11 @@ def test_migrate_perp_dex_permissions_dry_run_apply_and_idempotency(tmp_path: Pa
     1. Create stale shared metadata and legacy-shaped read-only sources.
     2. Confirm dry run reports every correction without writing any file.
     3. Apply only access fields with a backup, then confirm idempotency.
+
+    :param tmp_path:
+        Temporary directory supplied by pytest.
+    :param monkeypatch:
+        Environment isolation supplied by pytest.
     """
     migration = load_migration_module()
     monkeypatch.delenv("BACKUP_PATH", raising=False)
@@ -189,3 +195,30 @@ def test_migrate_perp_dex_permissions_dry_run_apply_and_idempotency(tmp_path: Pa
     idempotent_result = migration.migrate_perp_dex_deposit_permissions(vault_db_path, source_paths, dry_run=True)
     assert not idempotent_result.updates
     assert idempotent_result.unresolved_rows == 0
+
+
+def test_migrate_perp_dex_permissions_refuses_partial_apply(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """An apply run cannot silently leave unmatched source rows stale.
+
+    :param tmp_path:
+        Temporary directory supplied by pytest.
+    :param monkeypatch:
+        Environment isolation supplied by pytest.
+    """
+    migration = load_migration_module()
+    monkeypatch.delenv("BACKUP_PATH", raising=False)
+    vault_db_path = tmp_path / "vault-metadata-db.pickle"
+    create_stale_vault_database(vault_db_path)
+    source_path_map = create_source_databases(tmp_path)
+    with closing(duckdb.connect(str(source_path_map["lighter"]))) as connection:
+        connection.execute("DELETE FROM pool_metadata")
+    source_paths = migration.PerpDexSourcePaths(**source_path_map)
+    original_vault_bytes = vault_db_path.read_bytes()
+
+    dry_run_result = migration.migrate_perp_dex_deposit_permissions(vault_db_path, source_paths, dry_run=True)
+
+    assert dry_run_result.unresolved_rows == 1
+    with pytest.raises(RuntimeError, match="Refusing partial migration with 1 unresolved"):
+        migration.migrate_perp_dex_deposit_permissions(vault_db_path, source_paths, dry_run=False)
+    assert vault_db_path.read_bytes() == original_vault_bytes
+    assert not tuple(tmp_path.glob("*.before-perp-dex-deposit-permission-migration*"))

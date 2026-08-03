@@ -102,7 +102,9 @@ def create_lighter_pool_row(
     (internalised skimming model), so the pipeline treats the share price
     as net of fees.
 
-    Pool status ``0`` is publicly active and exports ``permissionless``. Other
+    The `Lighter public-pool metadata endpoint
+    <https://apidocs.lighter.xyz/reference/publicpoolsmetadata>`__ supplies the
+    pool status. Status ``0`` is active and exports ``permissionless``. Other
     known statuses export the qualified native-perp ``whitelisted``
     compatibility value because public deposits are unavailable. A missing
     status exports ``unknown``.

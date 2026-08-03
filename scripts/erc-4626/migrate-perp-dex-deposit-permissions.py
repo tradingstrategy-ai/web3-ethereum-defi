@@ -57,9 +57,10 @@ from eth_defi.apex.vault_data_export import create_apex_vault_row
 from eth_defi.grvt.constants import GRVT_DAILY_METRICS_DATABASE
 from eth_defi.grvt.vault_data_export import create_grvt_vault_row
 from eth_defi.hyperliquid.constants import HYPERLIQUID_DAILY_METRICS_DATABASE, HYPERLIQUID_HIGH_FREQ_METRICS_DATABASE
-from eth_defi.hyperliquid.vault_data_export import create_hyperliquid_vault_row, normalise_hyperliquid_deposit_permissions
+from eth_defi.hyperliquid.vault_data_export import classify_hyperliquid_vault_deposit_access, create_hyperliquid_vault_row
 from eth_defi.lighter.constants import LIGHTER_DAILY_METRICS_DATABASE, LIGHTER_DEPLOYMENTS_BY_SLUG
 from eth_defi.lighter.vault_data_export import create_lighter_pool_row
+from eth_defi.perp_dex.vault import PerpVaultDepositAccess, classify_perp_vault_deposit_access
 from eth_defi.utils import setup_console_logging
 from eth_defi.vault.base import VaultSpec
 from eth_defi.vault.deposit_redeem import VaultDepositPermission
@@ -68,17 +69,6 @@ from eth_defi.vault.vaultdb import DEFAULT_VAULT_DATABASE, VaultDatabase, VaultR
 logger = logging.getLogger(__name__)
 
 PERP_DEX_PROTOCOLS = ("Hyperliquid", "Lighter", "GRVT", "Hibachi", "ApeX")
-
-
-@dataclass(slots=True, frozen=True)
-class DepositAccess:
-    """Deposit-permission fields persisted in shared vault metadata."""
-
-    #: Top-level deposit permission export value.
-    permission: str
-
-    #: Qualification exported through ``whitelist.notes``.
-    whitelist_notes: str | None
 
 
 @dataclass(slots=True, frozen=True)
@@ -92,10 +82,10 @@ class PerpDexPermissionUpdate:
     protocol: str
 
     #: Permission before migration.
-    old_access: DepositAccess
+    old_access: PerpVaultDepositAccess
 
     #: Source-derived permission after migration.
-    new_access: DepositAccess
+    new_access: PerpVaultDepositAccess
 
 
 @dataclass(slots=True, frozen=True)
@@ -202,7 +192,7 @@ def create_backup_path(vault_db_path: Path) -> Path:
     return backup_path
 
 
-def _row_access(row: VaultRow) -> DepositAccess:
+def _row_access(row: VaultRow) -> PerpVaultDepositAccess:
     """Read normalised access fields from one shared metadata row.
 
     :param row:
@@ -210,12 +200,13 @@ def _row_access(row: VaultRow) -> DepositAccess:
     :return:
         Persisted permission and qualification.
     """
-    permission = row.get("_deposit_permission", VaultDepositPermission.unknown.value)
+    raw_permission = row.get("_deposit_permission", VaultDepositPermission.unknown.value)
     try:
-        permission = VaultDepositPermission(permission).value
+        permission = VaultDepositPermission(raw_permission)
     except (TypeError, ValueError):
-        permission = VaultDepositPermission.unknown.value
-    return DepositAccess(permission=permission, whitelist_notes=row.get("_whitelist_notes"))
+        permission = VaultDepositPermission.unknown
+    whitelist_notes = row.get("_whitelist_notes")
+    return PerpVaultDepositAccess(permission=permission, whitelist_notes=whitelist_notes if isinstance(whitelist_notes, str) else None)
 
 
 def _fetch_rows(connection: duckdb.DuckDBPyConnection, query: str) -> Iterator[dict[str, object]]:
@@ -252,21 +243,7 @@ def _parse_optional_bool(value: object) -> bool | None:
     return None
 
 
-def _extract_access(row: VaultRow) -> DepositAccess:
-    """Extract source-derived access fields from a freshly built row.
-
-    :param row:
-        Protocol row built by the current exporter.
-    :return:
-        Permission and qualification selected by current source mapping.
-    """
-    return DepositAccess(
-        permission=str(row["_deposit_permission"]),
-        whitelist_notes=row.get("_whitelist_notes"),
-    )
-
-
-def fetch_hyperliquid_access(path: Path) -> dict[VaultSpec, DepositAccess]:
+def fetch_hyperliquid_access(path: Path) -> dict[VaultSpec, PerpVaultDepositAccess]:
     """Read Hyperliquid public deposit state from its metadata table.
 
     :param path:
@@ -277,7 +254,7 @@ def fetch_hyperliquid_access(path: Path) -> dict[VaultSpec, DepositAccess]:
     with closing(duckdb.connect(str(path), read_only=True)) as connection:
         records = _fetch_rows(connection, "SELECT * FROM vault_metadata")
 
-    access_by_spec: dict[VaultSpec, DepositAccess] = {}
+    access_by_spec: dict[VaultSpec, PerpVaultDepositAccess] = {}
     for record in records:
         spec, row = create_hyperliquid_vault_row(
             vault_address=str(record["vault_address"]),
@@ -289,11 +266,11 @@ def fetch_hyperliquid_access(path: Path) -> dict[VaultSpec, DepositAccess]:
             allow_deposits=_parse_optional_bool(record.get("allow_deposits")),
             relationship_type=str(record.get("relationship_type") or "normal"),
         )
-        access_by_spec[spec] = _extract_access(row)
+        access_by_spec[spec] = _row_access(row)
     return access_by_spec
 
 
-def fetch_lighter_access(path: Path) -> dict[VaultSpec, DepositAccess]:
+def fetch_lighter_access(path: Path) -> dict[VaultSpec, PerpVaultDepositAccess]:
     """Read Lighter public pool status from its metadata table.
 
     :param path:
@@ -304,7 +281,7 @@ def fetch_lighter_access(path: Path) -> dict[VaultSpec, DepositAccess]:
     with closing(duckdb.connect(str(path), read_only=True)) as connection:
         records = _fetch_rows(connection, "SELECT * FROM pool_metadata")
 
-    access_by_spec: dict[VaultSpec, DepositAccess] = {}
+    access_by_spec: dict[VaultSpec, PerpVaultDepositAccess] = {}
     for record in records:
         deployment_slug = str(record.get("deployment") or "ethereum")
         try:
@@ -321,11 +298,11 @@ def fetch_lighter_access(path: Path) -> dict[VaultSpec, DepositAccess]:
             status=None if status is None else int(status),
             deployment=deployment_config,
         )
-        access_by_spec[spec] = _extract_access(row)
+        access_by_spec[spec] = _row_access(row)
     return access_by_spec
 
 
-def fetch_grvt_access(path: Path) -> dict[VaultSpec, DepositAccess]:
+def fetch_grvt_access(path: Path) -> dict[VaultSpec, PerpVaultDepositAccess]:
     """Read GRVT discoverability and lifecycle status read-only.
 
     Older databases may carry these values only inside
@@ -341,7 +318,7 @@ def fetch_grvt_access(path: Path) -> dict[VaultSpec, DepositAccess]:
     with closing(duckdb.connect(str(path), read_only=True)) as connection:
         records = _fetch_rows(connection, "SELECT * FROM vault_metadata")
 
-    access_by_spec: dict[VaultSpec, DepositAccess] = {}
+    access_by_spec: dict[VaultSpec, PerpVaultDepositAccess] = {}
     for record in records:
         extended_vault_info: dict[str, object] = {}
         raw_extended_vault_info = record.get("extended_vault_info")
@@ -367,11 +344,11 @@ def fetch_grvt_access(path: Path) -> dict[VaultSpec, DepositAccess]:
             discoverable=discoverable,
             status=None if status is None else str(status),
         )
-        access_by_spec[spec] = _extract_access(row)
+        access_by_spec[spec] = _row_access(row)
     return access_by_spec
 
 
-def fetch_apex_access(path: Path) -> dict[VaultSpec, DepositAccess]:
+def fetch_apex_access(path: Path) -> dict[VaultSpec, PerpVaultDepositAccess]:
     """Read ApeX lifecycle statuses from its metadata database.
 
     :param path:
@@ -382,7 +359,7 @@ def fetch_apex_access(path: Path) -> dict[VaultSpec, DepositAccess]:
     with closing(duckdb.connect(str(path), read_only=True)) as connection:
         records = _fetch_rows(connection, "SELECT * FROM vault_metadata")
 
-    access_by_spec: dict[VaultSpec, DepositAccess] = {}
+    access_by_spec: dict[VaultSpec, PerpVaultDepositAccess] = {}
     for record in records:
         spec, row = create_apex_vault_row(
             vault_id=str(record["vault_id"]),
@@ -394,7 +371,7 @@ def fetch_apex_access(path: Path) -> dict[VaultSpec, DepositAccess]:
             first_seen=record.get("first_seen"),
             status=str(record["status"]),
         )
-        access_by_spec[spec] = _extract_access(row)
+        access_by_spec[spec] = _row_access(row)
     return access_by_spec
 
 
@@ -428,7 +405,7 @@ def build_permission_updates(
         if protocol_rows[protocol] and not path.exists():
             raise FileNotFoundError(f"{protocol} source database does not exist: {path}")
 
-    source_access: dict[VaultSpec, DepositAccess] = {}
+    source_access: dict[VaultSpec, PerpVaultDepositAccess] = {}
     if protocol_rows["Hyperliquid"]:
         source_access.update(fetch_hyperliquid_access(source_paths.hyperliquid))
     if protocol_rows["Lighter"]:
@@ -438,10 +415,6 @@ def build_permission_updates(
     if protocol_rows["ApeX"]:
         source_access.update(fetch_apex_access(source_paths.apex))
 
-    retained_hyperliquid = VaultDatabase()
-    retained_hyperliquid.rows = {spec: row.copy() for spec, row in vault_db.rows.items() if row.get("Protocol") == "Hyperliquid"}
-    normalise_hyperliquid_deposit_permissions(retained_hyperliquid)
-
     updates: list[PerpDexPermissionUpdate] = []
     unresolved_rows = 0
     for spec, row in vault_db.rows.items():
@@ -450,11 +423,11 @@ def build_permission_updates(
             continue
 
         if protocol == "Hibachi":
-            new_access = DepositAccess(VaultDepositPermission.unknown.value, None)
+            new_access = classify_perp_vault_deposit_access(public_deposits_open=None)
         elif spec in source_access:
             new_access = source_access[spec]
         elif protocol == "Hyperliquid":
-            new_access = _row_access(retained_hyperliquid.rows[spec])
+            new_access = classify_hyperliquid_vault_deposit_access(row.get("_deposit_closed_reason"))
         else:
             unresolved_rows += 1
             continue
@@ -486,7 +459,7 @@ def apply_permission_updates(vault_db: VaultDatabase, updates: tuple[PerpDexPerm
     """
     for update in updates:
         row = vault_db.rows[update.spec].copy()
-        row["_deposit_permission"] = update.new_access.permission
+        row["_deposit_permission"] = update.new_access.permission.value
         row["_whitelist_notes"] = update.new_access.whitelist_notes
         vault_db.rows[update.spec] = row
 
@@ -507,6 +480,9 @@ def migrate_perp_dex_deposit_permissions(
         Report without backup or write when ``True``.
     :return:
         Migration counts and optional backup path.
+    :raises RuntimeError:
+        If an apply run cannot resolve every native perp DEX row from its
+        required source database.
     """
     if not vault_db_path.exists():
         raise FileNotFoundError(f"Vault metadata database does not exist: {vault_db_path}")
@@ -515,7 +491,11 @@ def migrate_perp_dex_deposit_permissions(
     updates, unresolved_rows = build_permission_updates(vault_db, source_paths)
     updates_tuple = tuple(updates)
     inspected_rows = sum(1 for row in vault_db.rows.values() if row.get("Protocol") in PERP_DEX_PROTOCOLS)
-    if dry_run or not updates_tuple:
+    if dry_run:
+        return PerpDexPermissionMigrationResult(inspected_rows, updates_tuple, unresolved_rows, None)
+    if unresolved_rows:
+        raise RuntimeError(f"Refusing partial migration with {unresolved_rows:,} unresolved native perp DEX rows")
+    if not updates_tuple:
         return PerpDexPermissionMigrationResult(inspected_rows, updates_tuple, unresolved_rows, None)
 
     backup_path = create_backup_path(vault_db_path)
@@ -543,7 +523,7 @@ def print_migration_summary(vault_db_path: Path, result: PerpDexPermissionMigrat
     summary = []
     for protocol in PERP_DEX_PROTOCOLS:
         rows = [(spec, row) for spec, row in vault_db.rows.items() if row.get("Protocol") == protocol]
-        counts = Counter(projected_access.get(spec, _row_access(row)).permission for spec, row in rows)
+        counts = Counter(projected_access.get(spec, _row_access(row)).permission.value for spec, row in rows)
         protocol_updates = sum(1 for update in result.updates if update.protocol == protocol)
         summary.append(
             [

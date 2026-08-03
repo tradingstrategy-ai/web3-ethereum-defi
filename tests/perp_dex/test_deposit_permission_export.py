@@ -11,7 +11,8 @@ import pytest
 from eth_defi.apex.vault_data_export import create_apex_vault_row
 from eth_defi.grvt.vault_data_export import create_grvt_vault_row
 from eth_defi.hibachi.vault_data_export import create_hibachi_vault_row
-from eth_defi.hyperliquid.vault_data_export import create_hyperliquid_vault_row, merge_into_vault_database as merge_hyperliquid_vault_database, normalise_hyperliquid_deposit_permissions
+from eth_defi.hyperliquid.vault_data_export import create_hyperliquid_vault_row, normalise_hyperliquid_deposit_permissions
+from eth_defi.hyperliquid.vault_data_export import merge_into_vault_database as merge_hyperliquid_vault_database
 from eth_defi.lighter.vault_data_export import create_lighter_pool_row
 from eth_defi.perp_dex.vault import PERP_VAULT_PUBLIC_DEPOSITS_CLOSED_NOTE, classify_perp_vault_deposit_access
 from eth_defi.vault.base import VaultSpec
@@ -72,7 +73,11 @@ LEGACY_HYPERLIQUID_VAULT_COUNT = 2
     ),
 )
 def test_native_perp_dex_rows_export_permissionless_deposit_policy(create_row: PerpVaultRowFactory) -> None:
-    """Publicly open native perp DEX rows export as permissionless."""
+    """Publicly open native perp DEX rows export as permissionless.
+
+    :param create_row:
+        Protocol-specific public vault row factory supplied by pytest.
+    """
     _spec, row = create_row()
 
     assert row["_deposit_permission"] == VaultDepositPermission.permissionless.value
@@ -128,7 +133,11 @@ def test_native_perp_dex_rows_export_permissionless_deposit_policy(create_row: P
     ),
 )
 def test_closed_native_perp_dex_rows_export_whitelisted_deposit_policy(create_row: PerpVaultRowFactory) -> None:
-    """Vaults not open to public deposits export as whitelisted."""
+    """Vaults not open to public deposits export as whitelisted.
+
+    :param create_row:
+        Protocol-specific closed vault row factory supplied by pytest.
+    """
     _spec, row = create_row()
 
     assert row["_deposit_permission"] == VaultDepositPermission.whitelisted.value
@@ -136,7 +145,11 @@ def test_closed_native_perp_dex_rows_export_whitelisted_deposit_policy(create_ro
 
 
 def test_grvt_missing_public_status_exports_unknown() -> None:
-    """Legacy GRVT rows without access metadata do not claim public access."""
+    """Legacy GRVT rows without access metadata do not claim public access.
+
+    Both source fields are omitted to verify that the exporter preserves an
+    inconclusive access state.
+    """
     _spec, row = create_grvt_vault_row(
         vault_id="VLT:legacy",
         chain_vault_id=3,
@@ -150,8 +163,32 @@ def test_grvt_missing_public_status_exports_unknown() -> None:
     assert row["_whitelist_notes"] is None
 
 
+def test_grvt_unrecognised_status_exports_unknown() -> None:
+    """A future GRVT lifecycle state does not imply closed public access.
+
+    The GraphQL status field has no repository-maintained exhaustive enum, so
+    only the explicitly mapped active state may establish open access.
+    """
+    _spec, row = create_grvt_vault_row(
+        vault_id="VLT:future",
+        chain_vault_id=4,
+        name="Future GRVT vault",
+        description=None,
+        tvl=1_000_000.0,
+        discoverable=True,
+        status="future_status",
+    )
+
+    assert row["_deposit_permission"] == VaultDepositPermission.unknown.value
+    assert row["_deposit_closed_reason"] is None
+    assert row["_whitelist_notes"] is None
+
+
 def test_lighter_missing_public_status_exports_unknown() -> None:
-    """Missing Lighter status does not inherit the historical active default."""
+    """Missing Lighter status does not inherit the historical active default.
+
+    A partial source row cannot establish whether the public pool is active.
+    """
     _spec, row = create_lighter_pool_row(
         account_index=3,
         name="Legacy Lighter pool",
@@ -165,7 +202,11 @@ def test_lighter_missing_public_status_exports_unknown() -> None:
 
 
 def test_hibachi_without_public_deposit_status_exports_unknown() -> None:
-    """Hibachi does not expose a source field proving public deposit access."""
+    """Hibachi does not expose a source field proving public deposit access.
+
+    Public metadata discovery alone is insufficient evidence for either
+    permissionless or qualified closed-public access.
+    """
     _spec, row = create_hibachi_vault_row(
         vault_id=1,
         symbol="HBT",
@@ -179,7 +220,11 @@ def test_hibachi_without_public_deposit_status_exports_unknown() -> None:
 
 
 def test_hyperliquid_missing_public_status_exports_unknown() -> None:
-    """Missing Hyperliquid source flags do not become truthy through NaN coercion."""
+    """Missing Hyperliquid source flags do not imply public availability.
+
+    Both canonical API flags are absent, so the row must retain an unavailable
+    marker and export ``unknown``.
+    """
     _spec, row = create_hyperliquid_vault_row(
         vault_address="0x6666666666666666666666666666666666666666",
         name="Legacy Hyperliquid vault",
@@ -196,7 +241,11 @@ def test_hyperliquid_missing_public_status_exports_unknown() -> None:
 
 
 def test_hyperliquid_merge_keeps_nan_public_status_unknown(tmp_path: Path) -> None:
-    """Nullable Pandas source flags remain unknown at the metadata merge boundary."""
+    """Nullable Pandas source flags remain unknown at the metadata merge boundary.
+
+    :param tmp_path:
+        Temporary location for the merged metadata pickle.
+    """
     metrics_db = SimpleNamespace(
         get_all_vault_metadata=lambda: pd.DataFrame(
             [
@@ -224,7 +273,11 @@ def test_hyperliquid_merge_keeps_nan_public_status_unknown(tmp_path: Path) -> No
 
 
 def test_unknown_apex_status_exports_unknown() -> None:
-    """Unrecognised ApeX lifecycle states do not invent deposit availability."""
+    """Unrecognised ApeX lifecycle states do not invent deposit availability.
+
+    Future source values require an explicit mapping before they affect the
+    shared permission export.
+    """
     _spec, row = create_apex_vault_row(
         vault_id="3",
         name="Unknown ApeX vault",
@@ -241,7 +294,11 @@ def test_unknown_apex_status_exports_unknown() -> None:
 
 
 def test_closed_perp_vault_access_requires_qualification() -> None:
-    """The compatibility whitelist value cannot omit its semantic caveat."""
+    """The compatibility whitelist value cannot omit its semantic caveat.
+
+    Every closed-public mapping must explain both its source reason and why the
+    shared ``whitelisted`` value does not prove an account allow-list.
+    """
     with pytest.raises(ValueError, match="closed_reason is required"):
         classify_perp_vault_deposit_access(public_deposits_open=False)
 
@@ -252,7 +309,11 @@ def test_closed_perp_vault_access_requires_qualification() -> None:
 
 
 def test_legacy_hyperliquid_rows_migrate_from_last_observed_deposit_state() -> None:
-    """Retained Hyperliquid rows use their last source-backed closure reason."""
+    """Retained Hyperliquid rows use their last source-backed closure reason.
+
+    The normaliser repairs rows omitted from a later source scan and remains
+    idempotent after the first correction.
+    """
     open_spec, open_row = create_hyperliquid_vault_row(
         vault_address="0x3333333333333333333333333333333333333333",
         name="Legacy open vault",
@@ -284,7 +345,11 @@ def test_legacy_hyperliquid_rows_migrate_from_last_observed_deposit_state() -> N
 
 
 def test_legacy_hyperliquid_unknown_reason_does_not_claim_public_access() -> None:
-    """Future retained closure reasons remain unknown until classified."""
+    """Future retained closure reasons remain unknown until classified.
+
+    An unrecognised persisted reason cannot be treated as either open or a
+    source-proven closed-public state.
+    """
     spec, row = create_hyperliquid_vault_row(
         vault_address="0x5555555555555555555555555555555555555555",
         name="Future state vault",
