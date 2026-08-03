@@ -35,6 +35,18 @@ Included as Github submodules
 - Safe> v1.3.0-1: https://github.com/safe-global/safe-smart-account/
 - OpenZeppelin: release-v3.4: https://github.com/OpenZeppelin/openzeppelin-contracts
 
+## Compiler pipeline
+
+Build TradingStrategyModuleV0 with the legacy Solidity compiler pipeline
+(`via_ir = false`). The module inherits the large GuardV0 dispatcher, and with
+the default `optimizer_runs = 1` configuration the Yul IR pipeline
+produces larger deployed top-level contracts and reduces their EIP-170 margin.
+Do not select IR based on the size of an individual linked library. Keep the
+Guard and Safe integration configurations aligned, rebuild both with
+`make guard safe-integration`, and check their deployed sizes after changing
+compiler settings or guard rules. See the detailed
+[contract-size notes](../../docs/README-contract-size.md).
+
 ## Security boundaries
 
 The [GuardV0 security model](../guard/README.md#security-model) defines the allowed
@@ -42,6 +54,11 @@ senders, call sites, assets and receivers. Product deployments must provide an e
 asset list and keep `anyAsset` disabled. `anyAsset` remains available for development and
 mainnet rehearsals, but its `approve()` bypass cannot validate the dynamic token target and
 is unsafe as a product policy.
+
+HyperEVM strategies that need access to an open-ended native vault universe can
+instead enable `anyHypercoreVault`. This permits only unlisted Hypercore
+`vaultTransfer()` destinations and leaves the ERC-20, approval and call-site
+policies intact. It does not make a separately enabled `anyAsset` policy safe.
 
 Lagoon Safes must have a zero Safe fallback handler. The deployment helpers encode and
 verify that state, including when attaching to an existing Safe. Do not enable a fallback

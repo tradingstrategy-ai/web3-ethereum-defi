@@ -41,6 +41,19 @@ for their whitelist state.
 
 All libraries implement the [IGuardLib](./src/lib/IGuardLib.sol) deployment check interface.
 
+### Compiler pipeline
+
+Build GuardV0 and its libraries with the legacy Solidity compiler pipeline
+(`via_ir = false`). With the default `optimizer_runs = 1` configuration,
+the Yul IR pipeline produces larger deployed GuardV0 and
+TradingStrategyModuleV0 dispatcher bytecode and reduces their EIP-170 margin.
+An individual external library may be smaller under IR, but the deployable
+top-level contracts determine the pipeline choice. Keep the Guard and Safe
+integration configurations aligned, rebuild both with
+`make guard safe-integration`, and check their deployed sizes after changing
+compiler settings or guard rules. See the detailed
+[contract-size notes](../../docs/README-contract-size.md).
+
 ## Supported protocols
 
 The guard dispatcher validates calls to the following protocols:
@@ -93,6 +106,13 @@ leave `anyAsset` disabled.
 With `anyAsset` enabled, an asset manager can call `approve()` on a dynamic token target.
 The guard cannot validate that target or its call site, so it can only validate the spender.
 That makes approvals unsuitable for a product asset manager.
+
+`anyHypercoreVault` is a separate, narrower policy for HyperEVM strategies with
+an open-ended Hypercore vault universe. It bypasses only the vault-address
+allowlist for CoreWriter `vaultTransfer()` actions; CoreWriter action IDs,
+CoreDepositWallet targets, receivers and ERC-20 approval checks remain enforced.
+It does not enable `anyAsset`, whose separate risks still apply if governance
+chooses to turn it on.
 
 Uniswap V2/V3, CowSwap and Velora are present for development but are not enabled for
 active product use. Their manager-selected minimum-output checks do not provide an
