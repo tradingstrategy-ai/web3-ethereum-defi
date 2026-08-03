@@ -27,6 +27,9 @@ class PerpVaultDepositAccess:
     #: Qualification exported as ``whitelist.notes``.
     whitelist_notes: str | None
 
+    #: Source-backed public-deposit availability detail.
+    deposit_closed_reason: str | None
+
 
 def classify_perp_vault_deposit_access(
     *,
@@ -53,13 +56,13 @@ def classify_perp_vault_deposit_access(
         If closed public deposits have no explanation.
     """
     if public_deposits_open is True:
-        return PerpVaultDepositAccess(VaultDepositPermission.permissionless, None)
+        return PerpVaultDepositAccess(VaultDepositPermission.permissionless, None, closed_reason)
     if public_deposits_open is None:
-        return PerpVaultDepositAccess(VaultDepositPermission.unknown, None)
+        return PerpVaultDepositAccess(VaultDepositPermission.unknown, None, closed_reason)
     if not closed_reason:
         message = "closed_reason is required when public deposits are unavailable"
         raise ValueError(message)
 
     reason = closed_reason.rstrip(".")
     notes = f"{reason}. {PERP_VAULT_PUBLIC_DEPOSITS_CLOSED_NOTE}."
-    return PerpVaultDepositAccess(VaultDepositPermission.whitelisted, notes)
+    return PerpVaultDepositAccess(VaultDepositPermission.whitelisted, notes, closed_reason)

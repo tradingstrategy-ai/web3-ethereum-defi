@@ -12,7 +12,7 @@ import pytest
 from eth_defi.apex.vault_data_export import create_apex_vault_row
 from eth_defi.grvt.vault_data_export import create_grvt_vault_row
 from eth_defi.hibachi.vault_data_export import create_hibachi_vault_row
-from eth_defi.hyperliquid.vault_data_export import create_hyperliquid_vault_row
+from eth_defi.hyperliquid.vault_data_export import LEADER_FRACTION_DEPOSIT_WARNING, create_hyperliquid_vault_row
 from eth_defi.lighter.vault_data_export import create_lighter_pool_row
 from eth_defi.vault.base import VaultSpec
 from eth_defi.vault.vaultdb import VaultDatabase, VaultRow
@@ -45,6 +45,7 @@ def make_stale(row: VaultRow) -> VaultRow:
     stale_row = row.copy()
     stale_row["_deposit_permission"] = "permissionless"
     stale_row["_whitelist_notes"] = None
+    stale_row["_deposit_closed_reason"] = None
     return stale_row
 
 
@@ -190,7 +191,10 @@ def test_migrate_perp_dex_permissions_dry_run_apply_and_idempotency(tmp_path: Pa
         expected_permission = "unknown" if original_row["Protocol"] == "Hibachi" else "whitelisted"
         assert migrated_row["_deposit_permission"] == expected_permission
         assert (migrated_row["_whitelist_notes"] is None) == (expected_permission == "unknown")
-        assert {key: value for key, value in migrated_row.items() if key not in {"_deposit_permission", "_whitelist_notes"}} == {key: value for key, value in original_row.items() if key not in {"_deposit_permission", "_whitelist_notes"}}
+        assert (migrated_row["_deposit_closed_reason"] is None) == (expected_permission == "unknown")
+        migrated_unchanged = {key: value for key, value in migrated_row.items() if key not in {"_deposit_permission", "_whitelist_notes", "_deposit_closed_reason"}}
+        original_unchanged = {key: value for key, value in original_row.items() if key not in {"_deposit_permission", "_whitelist_notes", "_deposit_closed_reason"}}
+        assert migrated_unchanged == original_unchanged
 
     idempotent_result = migration.migrate_perp_dex_deposit_permissions(vault_db_path, source_paths, dry_run=True)
     assert not idempotent_result.updates
@@ -222,3 +226,33 @@ def test_migrate_perp_dex_permissions_refuses_partial_apply(tmp_path: Path, monk
         migration.migrate_perp_dex_deposit_permissions(vault_db_path, source_paths, dry_run=False)
     assert vault_db_path.read_bytes() == original_vault_bytes
     assert not tuple(tmp_path.glob("*.before-perp-dex-deposit-permission-migration*"))
+
+
+def test_migrate_perp_dex_permissions_preserves_hyperliquid_leader_warning(tmp_path: Path) -> None:
+    """Metadata-only repair retains a warning absent from the source table.
+
+    :param tmp_path:
+        Temporary directory supplied by pytest.
+    """
+    migration = load_migration_module()
+    vault_db_path = tmp_path / "vault-metadata-db.pickle"
+    source_path_map = create_source_databases(tmp_path)
+    with closing(duckdb.connect(str(source_path_map["hyperliquid"]))) as connection:
+        connection.execute("INSERT INTO vault_metadata VALUES (?, ?, ?)", ["0x0000000000000000000000000000000000000002", False, True])
+
+    spec, row = create_hyperliquid_vault_row(
+        vault_address="0x0000000000000000000000000000000000000002",
+        name="Leader warning",
+        description=None,
+        tvl=1.0,
+        create_time=datetime.datetime(2026, 8, 1, 12, 0),  # noqa: DTZ001 - Repository convention is naive UTC.
+        leader_fraction=0.05,
+    )
+    assert row["_deposit_closed_reason"] == LEADER_FRACTION_DEPOSIT_WARNING
+    VaultDatabase(rows={spec: row}).write(vault_db_path)
+    source_paths = migration.PerpDexSourcePaths(**source_path_map)
+
+    result = migration.migrate_perp_dex_deposit_permissions(vault_db_path, source_paths, dry_run=True)
+
+    assert not result.updates
+    assert result.unresolved_rows == 0

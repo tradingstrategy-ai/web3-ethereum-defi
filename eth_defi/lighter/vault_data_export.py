@@ -56,6 +56,9 @@ from eth_defi.vault.vaultdb import VaultDatabase, VaultRow
 
 logger = logging.getLogger(__name__)
 
+#: Source status currently observed for pools closed to public participation.
+_CLOSED_PUBLIC_DEPOSIT_STATUSES = {1}
+
 
 def get_lighter_price_deployments(prices_df: pd.DataFrame) -> set[LighterAPIConfig]:
     """Resolve deployments represented by a Lighter raw-price frame.
@@ -104,10 +107,10 @@ def create_lighter_pool_row(
 
     The `Lighter public-pool metadata endpoint
     <https://apidocs.lighter.xyz/reference/publicpoolsmetadata>`__ supplies the
-    pool status. Status ``0`` is active and exports ``permissionless``. Other
-    known statuses export the qualified native-perp ``whitelisted``
-    compatibility value because public deposits are unavailable. A missing
-    status exports ``unknown``.
+    pool status. Status ``0`` is active and exports ``permissionless``. Known
+    inactive status ``1`` exports the qualified native-perp ``whitelisted``
+    compatibility value because public deposits are unavailable. Missing or
+    unrecognised statuses export ``unknown``.
 
     :param account_index:
         Pool account index on the Lighter platform.
@@ -171,8 +174,15 @@ def create_lighter_pool_row(
         withdraw=0.0,
     )
 
-    deposit_closed_reason = f"Pool not active (status {status})" if status is not None and status != 0 else None
-    public_deposits_open = status == 0 if status is not None else None
+    if status == 0:
+        public_deposits_open = True
+        deposit_closed_reason = None
+    elif status in _CLOSED_PUBLIC_DEPOSIT_STATUSES:
+        public_deposits_open = False
+        deposit_closed_reason = f"Pool not active (status {status})"
+    else:
+        public_deposits_open = None
+        deposit_closed_reason = None
     deposit_access = classify_perp_vault_deposit_access(public_deposits_open=public_deposits_open, closed_reason=deposit_closed_reason)
 
     row: VaultRow = {

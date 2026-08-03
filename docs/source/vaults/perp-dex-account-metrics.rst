@@ -88,7 +88,7 @@ route is implied.
 Protocol           Source fields                                   Classification
 =================  ==============================================  ===========================================
 Hyperliquid        ``isClosed``, ``allowDeposits``, relationship    Open or closed
-Lighter            Public pool ``status``                           ``0`` open; other closed; missing unknown
+Lighter            Public pool ``status``                           ``0`` open; ``1`` closed; other/missing unknown
 GRVT               ``discoverable`` and vault ``status``            Public active, non-discoverable or unknown
 Hibachi            No vault deposit-access field                    ``unknown``
 ApeX               Explicit recognised lifecycle statuses           Open, closed or ``unknown``

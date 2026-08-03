@@ -201,6 +201,26 @@ def test_lighter_missing_public_status_exports_unknown() -> None:
     assert row["_deposit_closed_reason"] is None
 
 
+def test_lighter_unrecognised_public_status_exports_unknown() -> None:
+    """A future Lighter status does not imply closed public access.
+
+    The public schema does not define an exhaustive status enum, so an
+    unfamiliar integer must be mapped explicitly before affecting exports.
+    """
+    _spec, row = create_lighter_pool_row(
+        account_index=4,
+        name="Future Lighter pool",
+        description=None,
+        tvl=1_000_000.0,
+        created_at=FIRST_SEEN,
+        status=99,
+    )
+
+    assert row["_deposit_permission"] == VaultDepositPermission.unknown.value
+    assert row["_deposit_closed_reason"] is None
+    assert row["_whitelist_notes"] is None
+
+
 def test_hibachi_without_public_deposit_status_exports_unknown() -> None:
     """Hibachi does not expose a source field proving public deposit access.
 

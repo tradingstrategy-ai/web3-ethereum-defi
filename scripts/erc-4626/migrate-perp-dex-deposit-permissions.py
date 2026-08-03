@@ -3,9 +3,9 @@
 
 Native perp DEX source databases retain the public deposit state used by their
 scanners. Vault metadata written before the current export mapping may therefore
-have a missing or stale ``_deposit_permission`` and ``_whitelist_notes`` value.
-This metadata-only migration reads those DuckDB sources in read-only mode and
-updates only the two cached export fields.
+have missing or stale ``_deposit_permission``, ``_whitelist_notes``, or
+``_deposit_closed_reason`` values. This metadata-only migration reads those
+DuckDB sources in read-only mode and updates only these cached export fields.
 
 The command starts in dry-run mode. Inspect the summary, then apply it:
 
@@ -57,7 +57,7 @@ from eth_defi.apex.vault_data_export import create_apex_vault_row
 from eth_defi.grvt.constants import GRVT_DAILY_METRICS_DATABASE
 from eth_defi.grvt.vault_data_export import create_grvt_vault_row
 from eth_defi.hyperliquid.constants import HYPERLIQUID_DAILY_METRICS_DATABASE, HYPERLIQUID_HIGH_FREQ_METRICS_DATABASE
-from eth_defi.hyperliquid.vault_data_export import classify_hyperliquid_vault_deposit_access, create_hyperliquid_vault_row
+from eth_defi.hyperliquid.vault_data_export import LEADER_FRACTION_DEPOSIT_WARNING, classify_hyperliquid_vault_deposit_access, create_hyperliquid_vault_row
 from eth_defi.lighter.constants import LIGHTER_DAILY_METRICS_DATABASE, LIGHTER_DEPLOYMENTS_BY_SLUG
 from eth_defi.lighter.vault_data_export import create_lighter_pool_row
 from eth_defi.perp_dex.vault import PerpVaultDepositAccess, classify_perp_vault_deposit_access
@@ -206,7 +206,12 @@ def _row_access(row: VaultRow) -> PerpVaultDepositAccess:
     except (TypeError, ValueError):
         permission = VaultDepositPermission.unknown
     whitelist_notes = row.get("_whitelist_notes")
-    return PerpVaultDepositAccess(permission=permission, whitelist_notes=whitelist_notes if isinstance(whitelist_notes, str) else None)
+    deposit_closed_reason = row.get("_deposit_closed_reason")
+    return PerpVaultDepositAccess(
+        permission=permission,
+        whitelist_notes=whitelist_notes if isinstance(whitelist_notes, str) else None,
+        deposit_closed_reason=deposit_closed_reason if isinstance(deposit_closed_reason, str) else None,
+    )
 
 
 def _fetch_rows(connection: duckdb.DuckDBPyConnection, query: str) -> Iterator[dict[str, object]]:
@@ -422,17 +427,19 @@ def build_permission_updates(
         if protocol not in PERP_DEX_PROTOCOLS:
             continue
 
+        old_access = _row_access(row)
         if protocol == "Hibachi":
             new_access = classify_perp_vault_deposit_access(public_deposits_open=None)
         elif spec in source_access:
             new_access = source_access[spec]
+            if protocol == "Hyperliquid" and old_access.deposit_closed_reason == LEADER_FRACTION_DEPOSIT_WARNING and new_access.permission is VaultDepositPermission.permissionless:
+                new_access = classify_hyperliquid_vault_deposit_access(LEADER_FRACTION_DEPOSIT_WARNING)
         elif protocol == "Hyperliquid":
             new_access = classify_hyperliquid_vault_deposit_access(row.get("_deposit_closed_reason"))
         else:
             unresolved_rows += 1
             continue
 
-        old_access = _row_access(row)
         if old_access == new_access:
             continue
         updates.append(
@@ -448,7 +455,7 @@ def build_permission_updates(
 
 
 def apply_permission_updates(vault_db: VaultDatabase, updates: tuple[PerpDexPermissionUpdate, ...]) -> None:
-    """Apply only permission and qualification fields in memory.
+    """Apply permission and availability fields in memory.
 
     :param vault_db:
         Shared metadata database to mutate.
@@ -461,6 +468,7 @@ def apply_permission_updates(vault_db: VaultDatabase, updates: tuple[PerpDexPerm
         row = vault_db.rows[update.spec].copy()
         row["_deposit_permission"] = update.new_access.permission.value
         row["_whitelist_notes"] = update.new_access.whitelist_notes
+        row["_deposit_closed_reason"] = update.new_access.deposit_closed_reason
         vault_db.rows[update.spec] = row
 
 
