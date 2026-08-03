@@ -22,6 +22,11 @@ library UniswapLib {
     using Path for bytes;
     using BytesLib for bytes;
 
+    // SECURITY: This adapter is not enabled for active product use. Its
+    // manager-supplied minimum output is not an oracle-backed cumulative
+    // slippage limit, so repeated trades can cause material loss. Before product
+    // adoption, add a cumulative maximum-slippage policy like Enzyme used.
+
     // ----- Deployment check -----
 
     /// @dev See IGuardLib.isDeployed()

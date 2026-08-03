@@ -25,7 +25,10 @@ def _make_fake_web3() -> SimpleNamespace:
 
 def _make_fake_safe() -> SimpleNamespace:
     """Create a tiny Safe stub for module deployment tests."""
-    return SimpleNamespace(address="0x1000000000000000000000000000000000000001")
+    return SimpleNamespace(
+        address="0x1000000000000000000000000000000000000001",
+        retrieve_fallback_handler=lambda: ZERO_ADDRESS,
+    )
 
 
 @contextmanager

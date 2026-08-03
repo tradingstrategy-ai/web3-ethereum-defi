@@ -213,6 +213,48 @@ contract GuardVaultProtocolTest is Test {
         _call(address(vault), abi.encodeCall(MockERC7540Vault.redeem, (AMOUNT, address(simpleVault), OUTSIDER)));
     }
 
+    function testCCTPRejectsExclusiveDestinationCaller() public {
+        address tokenMessenger = address(0xCC71);
+        uint32 destinationDomain = 6;
+
+        guard.whitelistCCTP(tokenMessenger, "CCTP test messenger");
+        guard.whitelistCCTPDestination(destinationDomain, "CCTP test destination");
+        guard.whitelistToken(address(asset), "CCTP test asset");
+        guard.allowReceiver(address(simpleVault), "CCTP test mint recipient");
+
+        // The permissionless delivery form remains valid: the allowlisted Safe
+        // is still the destination mint recipient.
+        _call(
+            tokenMessenger,
+            abi.encodeWithSelector(
+                bytes4(0x8e0250ee),
+                AMOUNT,
+                destinationDomain,
+                bytes32(uint256(uint160(address(simpleVault)))),
+                address(asset),
+                bytes32(0),
+                0,
+                uint32(2000)
+            )
+        );
+
+        // A non-zero destinationCaller would give OUTSIDER exclusive permission
+        // to finalise receiveMessage() after the Safe has burned its USDC.
+        bytes memory exclusiveCallerCallData = abi.encodeWithSelector(
+            bytes4(0x8e0250ee),
+            AMOUNT,
+            destinationDomain,
+            bytes32(uint256(uint160(address(simpleVault)))),
+            address(asset),
+            bytes32(uint256(uint160(OUTSIDER))),
+            0,
+            uint32(2000)
+        );
+
+        vm.expectRevert(bytes("CCTP destination caller must be zero"));
+        _call(tokenMessenger, exclusiveCallerCallData);
+    }
+
     function testCsigmaMockPreservesTheGuardedStandardERC4626Flow() public {
         MockCsigmaV2Pool vault = new MockCsigmaV2Pool(asset);
         guard.whitelistERC4626(address(vault), "cSigma test vault");
