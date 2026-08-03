@@ -246,19 +246,22 @@ abstract contract GuardV0Base is IGuard, Multicall {
 
     // ----- Dangerous flags -----
 
-    // SECURITY NOTE: Intentional dangerous flag — accepted risk for flexibility.
+    // SECURITY: Development and live-network rehearsal escape hatch. Product
+    // deployments MUST use explicit asset lists and leave this false. We do not
+    // enforce a chain-ID rule because a contract cannot distinguish a rehearsal
+    // from a product deployment on the same mainnet.
     //
     // When enabled, the asset manager can trade ANY ERC-20 token without
-    // per-token whitelisting. This weakens security because:
-    // - approve() calls bypass the per-token call site check
-    // - SwapRouter02 swaps skip per-token swap path validation (the swap
-    //   recipient is still always validated against allowedReceivers)
-    // - A compromised asset manager could create/use worthless tokens to
-    //   extract value through flash-loan or sandwich attacks
+    // per-token whitelisting. Most importantly, approve() skips BOTH the token
+    // target and call-site checks because the token address is unknown. Only
+    // the approved spender is checked, so anyAsset makes approvals unsafe for
+    // a product asset manager. SwapRouter02 also skips per-token path
+    // validation (although its receiver is still checked).
     //
-    // This flag is required for vault strategies that trade a dynamic,
-    // large set of tokens where per-token whitelisting is impractical.
-    // The tradeoff is accepted by governance when enabling this flag.
+    // A compromised asset manager could use unreviewed or worthless tokens to
+    // extract value through malicious approval, flash-loan, or sandwich paths.
+    // Governance must never use this as a substitute for maintaining the
+    // product asset list.
     //
     bool public anyAsset;
 
@@ -632,7 +635,8 @@ abstract contract GuardV0Base is IGuard, Multicall {
         allowApprovalDestination(router, notes);
     }
 
-    // Enable unlimited trading space
+    // Development escape hatch; see the anyAsset storage comment above.
+    // Product governance must whitelist every ERC-20 instead of enabling this.
     function setAnyAssetAllowed(bool value, string calldata notes) external onlyGuardOwner {
         anyAsset = value;
         emit AnyAssetSet(value, notes);
@@ -679,8 +683,10 @@ abstract contract GuardV0Base is IGuard, Multicall {
         bytes4 selector = bytes4(callDataWithSelector[:4]);
         bytes calldata callData = callDataWithSelector[4:];
 
-        // If we have dynamic whitelist/any token, we cannot check approve() call sites of
-        // individual tokens
+        // SECURITY: anyAsset makes ERC-20 approvals unsafe. We cannot identify
+        // the dynamic token, so this bypasses BOTH the token target and call-site
+        // checks below. Product deployments must keep anyAsset disabled and
+        // use an explicit asset list.
         bool anyTokenCheck = anyAsset && isAnyTokenApproveSelector(selector);
 
         // Hypercore selectors are validated by dedicated branches below and bypass
@@ -691,11 +697,9 @@ abstract contract GuardV0Base is IGuard, Multicall {
 
         // With anyToken, we cannot check approve() call site because we do not whitelist
         // individual token addresses
-        if (!anyTokenCheck && !hypercoreCheck) {
-            if (!isAllowedCallSite(target, selector)) {
-                require(isAllowedTarget(target), "Target not allowed");
-                require(isAllowedCallSite(target, selector), "Selector not allowed");
-            }
+        if (!anyTokenCheck && !hypercoreCheck && !isAllowedCallSite(target, selector)) {
+            require(isAllowedTarget(target), "Target not allowed");
+            revert("Selector not allowed");
         }
 
         // Validate the function payload.
@@ -1223,6 +1227,8 @@ abstract contract GuardV0Base is IGuard, Multicall {
     // - Destination domain is whitelisted
     // - Burn token (USDC) is an allowed asset
     // - Mint recipient (converted from bytes32 to address) is an allowed receiver
+    // - destinationCaller is bytes32(0), allowing any relayer to complete the
+    //   destination receiveMessage() call
     //
     function validate_cctpDepositForBurn(address target, bytes calldata callData) internal view {
         require(isAllowedCCTPMessenger(target), "CCTP messenger not allowed");
@@ -1230,8 +1236,8 @@ abstract contract GuardV0Base is IGuard, Multicall {
         (, // uint256 amount
             uint32 destinationDomain,
             bytes32 mintRecipient,
-            address burnToken,, // bytes32 destinationCaller
-            , // uint256 maxFee
+            address burnToken,
+            bytes32 destinationCaller,, // uint256 maxFee
         ) = abi.decode( // uint32 minFinalityThreshold
             callData,
             (uint256, uint32, bytes32, address, bytes32, uint256, uint32)
@@ -1239,6 +1245,15 @@ abstract contract GuardV0Base is IGuard, Multicall {
 
         require(isAllowedCCTPDestination(destinationDomain), "CCTP destination not allowed");
         require(isAllowedAsset(burnToken), "CCTP burn token not allowed");
+
+        // SECURITY: Circle documents that a non-zero destinationCaller has the
+        // exclusive right to call receiveMessage() on the destination. The
+        // asset manager controls this calldata, so it could strand burned USDC
+        // behind an attacker-controlled caller. Reject it rather than maintain a
+        // cross-chain caller allowlist. bytes32(0) permits any relayer, while
+        // mintRecipient still constrains where Circle mints the USDC.
+        // https://developers.circle.com/cctp/references/contract-interfaces
+        require(destinationCaller == bytes32(0), "CCTP destination caller must be zero");
 
         // Convert bytes32 mintRecipient to address (last 20 bytes)
         address recipient = address(uint160(uint256(mintRecipient)));

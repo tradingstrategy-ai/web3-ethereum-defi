@@ -49,7 +49,14 @@ from eth_defi.gmx.whitelist import GMXDeployment, resolve_gmx_market_labels
 from eth_defi.hotwallet import HotWallet
 from eth_defi.lighter.deployment import LighterDeployment, setup_lighter_whitelisting
 from eth_defi.provider.anvil import is_anvil
-from eth_defi.safe.deployment import DEFAULT_TX_CONFIRMATION_TIMEOUT, add_new_safe_owners, deploy_safe, deploy_safe_with_deterministic_address, fetch_safe_deployment
+from eth_defi.safe.deployment import (
+    DEFAULT_TX_CONFIRMATION_TIMEOUT,
+    add_new_safe_owners,
+    assert_safe_fallback_handler_disabled,
+    deploy_safe,
+    deploy_safe_with_deterministic_address,
+    fetch_safe_deployment,
+)
 from eth_defi.safe.execute import execute_safe_tx
 from eth_defi.token import WRAPPED_NATIVE_TOKEN, fetch_erc20_details, get_wrapped_native_token_address
 from eth_defi.trace import assert_transaction_success_with_explanation
@@ -202,7 +209,7 @@ class LagoonDeploymentParameters:
             self.underlying = Web3.to_checksum_address(self.underlying)
 
         if self.managementRate:
-            assert type(self.managementRate) == int
+            assert isinstance(self.managementRate, int)
 
     def as_solidity_struct(self) -> dict:
         # Return Vault.InitStruct to be passed to the constructor
@@ -357,7 +364,13 @@ class LagoonConfig:
     #: CCTP V2 deployment for cross-chain USDC transfers
     cctp_deployment: CCTPDeployment | None = None
 
-    #: Allow any ERC-20 asset instead of explicit whitelist
+    #: Development and live-network rehearsal escape hatch for any ERC-20.
+    #:
+    #: Product deployments must provide ``assets`` and leave this disabled. It
+    #: remains permitted on mainnet for testing because the helper cannot
+    #: distinguish a rehearsal from a product deployment on the same network.
+    #: With anyAsset enabled, GuardV0Base skips ERC-20 approval token/call-site
+    #: checks and approvals are therefore unsafe for product asset managers.
     any_asset: bool = False
 
     #: Etherscan API key for contract verification
@@ -1298,6 +1311,10 @@ def deploy_safe_trading_strategy_module(
     :func:`deploy_automated_lagoon_vault` for the public human-readable API, or
     call :func:`setup_guard` with raw token units in lower-level integrations.
 
+    Lagoon Safes must have no fallback handler. This prevents a lower-level
+    caller from attaching the execution module to a Safe with an unnecessary
+    second authentication surface.
+
     :param deployer:
         Deployer account. When a :class:`~eth_defi.hotwallet.HotWallet` is
         passed, nonces are managed internally (avoids stale RPC nonce reads
@@ -1317,6 +1334,12 @@ def deploy_safe_trading_strategy_module(
     :return:
         TradingStrategyModuleV0 instance
     """
+    if lagoon:
+        # SECURITY: Keep the Safe fallback handler disabled. Gnosis Pay reports
+        # the June 2026 ERC-1271 bug in Zodiac Delay/Roles, not the handler, but
+        # Lagoon has no reason to add a second authentication path. See:
+        # https://www.gnosis.io/blog/post-mortem-gnosis-pay-vulnerability-exploit
+        assert_safe_fallback_handler_disabled(safe)
 
     logger.info("Deploying TradingStrategyModuleV0")
 
@@ -1644,6 +1667,9 @@ def setup_guard(
     anvil = is_anvil(web3)
 
     if any_asset:
+        # SECURITY: Keep this mainnet-test escape hatch out of product
+        # deployments. anyAsset bypasses ERC-20 approval target and call-site
+        # checks because there is no fixed token list.
         assert not assets, f"Cannot use any_asset with specific assets whitelist, got: {assets}"
 
     # Whitelist Uniswap v2
@@ -2373,6 +2399,12 @@ def deploy_automated_lagoon_vault(
                 raise RuntimeError(f"Does not look like Lagoon vault: {existing_vault_address}") from e
 
         existing_guard_module = _resolve_existing_guard_module(safe, vault_contract)
+
+    # SECURITY: Lagoon intentionally has no Safe fallback handler. Do not add
+    # one: Gnosis Pay traced its ERC-1271 bug to Zodiac Delay/Roles, while a
+    # handler would still add an unnecessary authentication path. See:
+    # https://www.gnosis.io/blog/post-mortem-gnosis-pay-vulnerability-exploit
+    assert_safe_fallback_handler_disabled(safe)
 
     if not is_anvil(web3):
         logger.info("Between contracts deployment delay: Sleeping %s for new nonce to propagade", between_contracts_delay_seconds)
