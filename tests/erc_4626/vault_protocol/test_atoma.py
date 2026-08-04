@@ -55,7 +55,7 @@ def test_atoma_static_fee_metadata() -> None:
     assert net_fee_data.withdraw == pytest.approx(0.005)
     assert vault.get_estimated_lock_up() == datetime.timedelta(days=7)
     assert vault.get_link() == "https://app.atoma.fi/"
-    assert vault.name == "Extended and Nano arbitrage"
+    assert vault.name == "Extended and Nado arbitrage"
     assert vault.short_description == "Market-neutral perpetuals strategy across Nado and Extended."
     assert vault.description is not None
     assert "funding-rate spreads across Nado and Extended perpetual DEXs" in vault.description

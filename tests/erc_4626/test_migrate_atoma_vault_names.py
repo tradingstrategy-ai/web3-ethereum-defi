@@ -52,6 +52,17 @@ def create_vault_database(migration) -> VaultDatabase:
     return VaultDatabase(rows=rows)
 
 
+def test_atoma_vault_name_updates_use_the_reviewed_strategy_names() -> None:
+    """The migration maps both supported Atoma addresses to curated names."""
+
+    migration = load_migration_module()
+
+    assert migration.ATOMA_VAULT_NAME_UPDATES == {
+        VaultSpec(42_161, "0xcc56410e1a136af0eceb7241c6ae394f4d8b581c"): "Extended and Nado arbitrage",
+        VaultSpec(42_161, "0x1c788e14d8e5b446e3f71b5142e2edabcab36da1"): "Lighter and Trade.xyz arbitrage",
+    }
+
+
 def test_migrate_atoma_vault_names_updates_only_the_two_target_rows(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
     """The write migration persists both curated names and preserves other rows."""
 
