@@ -12,7 +12,19 @@ from eth_defi.vault.handwritten_metadata import PIKU_VAULT_METADATA, format_hand
 
 
 class VaultFlag(str, enum.Enum):
-    """Flags indicating the status of a vault."""
+    """Flags indicating the status of a vault.
+
+    Manual vault flags are resolved through :py:meth:`eth_defi.vault.base.VaultBase.get_flags`
+    during vault metadata scanning and stored in the vault metadata database as
+    ``_flags``. Published vault JSON then serialises those stored values through
+    ``scripts/erc-4626/vault-analysis-json.py`` /
+    :py:mod:`eth_defi.vault.top_vaults_json`.
+
+    After changing :class:`VaultFlag`, :py:data:`VAULT_DESCRIPTIVE_FLAGS`, or
+    :py:data:`VAULT_FLAGS_AND_NOTES`, rerun the vault metadata scan and its
+    top-vault JSON post-processing. Running only the JSON export against an old
+    ``vault-metadata-db.pickle`` will keep the previously stored flags.
+    """
 
     #: We can deposit now
     deposit = "deposit"
@@ -82,6 +94,9 @@ class VaultFlag(str, enum.Enum):
 
     #: The vault does not do daily NAV. It's share price has confusing equity curve, making users misjudge the vault.
     irregular_reporting = "irregular_reporting"
+
+    #: This is for vaults with especially long redemption periods.
+    long_duration = "long_duration"
 
     #: Morpho Blue API reports one or more RED-level warnings on this vault or its underlying markets.
     #:
@@ -390,6 +405,12 @@ Although the vault has long lock up matching the duration of the underlying real
 
 ETH_STRATEGY_ESPN = """ESPN (ETH Strategy Perpetual Note) lends USDS to ETH Strategy, but instead of receiving interest, ESPN receives a long-dated ETH call option. To extract yield from this long-dated call option, ESPN systematically sells shorter-dated call options on [Derive](https://www.derive.xyz/). The symmetry between the long-dated convertibles acquired and short-dated calls sold keeps the strategy balanced in USD terms.
 
+Third-party comment:
+
+> They do not have a redemption queue in place (yet), that's one of the things on the roadmap they're promising since months and nothing is happening.
+>
+> I have read the docs and I know that they're using options on Derive, but in the last few months at least a part of those must have been expired, and they propably rolled them over to new ones without satisfying redemptions. If that isn't scammy behaviour, then I don't know...
+
 [Discussion about the ESPN vault](https://x.com/TradingProtocol/status/2011043276283900198).
 """
 
@@ -692,7 +713,7 @@ VAULT_FLAGS_AND_NOTES: dict[str, tuple[VaultFlag | None, str]] = {
     # USDC Fluid Lender
     "0x00c8a649c9837523ebb406ceb17a6378ab5c74cf": (VaultFlag.subvault, SUBVAULT),
     # ETH Strategy Perpetual Note (Ethereum)
-    "0xb250c9e0f7be4cff13f94374c993ac445a1385fe": (None, ETH_STRATEGY_ESPN),
+    "0xb250c9e0f7be4cff13f94374c993ac445a1385fe": (VaultFlag.long_duration, ETH_STRATEGY_ESPN),
     # Apostro aprUSDC (Sonic)
     "0xcca902f2d3d265151f123d8ce8fdac38ba9745ed": (VaultFlag.unofficial, MISSING_IN_PROTOCOL_FRONTEND),
     # Apostro USDC Frontier (Euler on Ethereum)

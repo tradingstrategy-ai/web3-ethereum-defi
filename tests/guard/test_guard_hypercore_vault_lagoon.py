@@ -14,6 +14,7 @@ Requires JSON_RPC_HYPERLIQUID environment variable.
 import os
 from collections.abc import Iterator
 
+import flaky
 import pytest
 from eth_abi import decode
 from eth_account import Account
@@ -309,6 +310,8 @@ def test_lagoon_hypercore_vault_whitelisting_is_batched(
     assert all(web3.eth.get_transaction(tx_hash)["gas"] <= HYPEREVM_FAST_BLOCK_GAS_LIMIT for tx_hash in transaction_hashes)
 
 
+# Flaky on CI since 2026-08-04: HyperEVM fork setup can return provider 500 "Temporary internal error"; this passed locally on 2026-08-04.
+@flaky.flaky(max_runs=3)
 @pytest.mark.timeout(600)
 def test_lagoon_hypercore_vault_deposit(
     _restore_hypercore_lagoon_state: None,
@@ -386,6 +389,8 @@ def test_lagoon_hypercore_vault_deposit(
     assert action_id == 2
 
 
+# Flaky on CI since 2026-08-04: HyperEVM fork setup can return provider 500 "Temporary internal error"; this passed locally on 2026-08-04.
+@flaky.flaky(max_runs=3)
 @pytest.mark.timeout(600)
 def test_lagoon_hypercore_deposit_for_activation(
     _restore_hypercore_lagoon_state: None,
@@ -437,6 +442,8 @@ def test_lagoon_hypercore_deposit_for_activation(
     assert dex == SPOT_DEX
 
 
+# Flaky on CI since 2026-08-04: HyperEVM fork setup can return provider 500 "Temporary internal error"; this passed locally on 2026-08-04.
+@flaky.flaky(max_runs=3)
 @pytest.mark.timeout(600)
 def test_lagoon_hypercore_deposit_for_wrong_recipient(
     _restore_hypercore_lagoon_state: None,
@@ -464,6 +471,8 @@ def test_lagoon_hypercore_deposit_for_wrong_recipient(
         assert_transaction_success_with_explanation(web3, tx_hash)
 
 
+# Flaky on CI since 2026-08-04: HyperEVM fork setup can return provider 500 "Temporary internal error"; this passed locally on 2026-08-04.
+@flaky.flaky(max_runs=3)
 @pytest.mark.timeout(600)
 def test_lagoon_hypercore_any_hypercore_vault_allows_non_whitelisted_vault(
     _restore_dynamic_hypercore_state: None,
@@ -579,6 +588,8 @@ def test_lagoon_hypercore_any_hypercore_vault_allows_non_whitelisted_vault(
     assert dynamic_mock_core_writer.functions.getActionCount().call() == 2
 
 
+# Flaky on CI since 2026-08-04: HyperEVM fork setup can return provider 500 "Temporary internal error"; this passed locally on 2026-08-04.
+@flaky.flaky(max_runs=3)
 @pytest.mark.timeout(600)
 def test_lagoon_hypercore_deposit_multicall(
     _restore_hypercore_lagoon_state: None,
@@ -640,6 +651,8 @@ def test_lagoon_hypercore_deposit_multicall(
     assert action_id == 2
 
 
+# Flaky on CI since 2026-08-04: HyperEVM fork setup can return provider 500 "Temporary internal error"; this passed locally on 2026-08-04.
+@flaky.flaky(max_runs=3)
 @pytest.mark.timeout(600)
 def test_lagoon_hypercore_granular_roundtrip_calls(
     _restore_hypercore_lagoon_state: None,
@@ -720,6 +733,8 @@ def test_lagoon_hypercore_granular_roundtrip_calls(
     assert amount_wei == linked_token_amount
 
 
+# Flaky on CI since 2026-08-04: HyperEVM fork setup can return provider 500 "Temporary internal error"; this passed locally on 2026-08-04.
+@flaky.flaky(max_runs=3)
 @pytest.mark.timeout(600)
 def test_lagoon_hypercore_granular_vault_transfer_calls(
     _restore_hypercore_lagoon_state: None,
@@ -770,6 +785,8 @@ def test_lagoon_hypercore_granular_vault_transfer_calls(
     assert amount_wei == usdc_amount
 
 
+# Flaky on CI since 2026-08-04: HyperEVM fork setup can return provider 500 "Temporary internal error"; this passed locally on 2026-08-04.
+@flaky.flaky(max_runs=3)
 @pytest.mark.timeout(600)
 def test_lagoon_hypercore_granular_activation_call(
     _restore_hypercore_lagoon_state: None,
