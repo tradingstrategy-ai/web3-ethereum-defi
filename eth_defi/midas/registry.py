@@ -2030,6 +2030,54 @@ MIDAS_PRODUCT_SCAN_EXCLUSIONS: Final[dict[tuple[str, str], str]] = {
 
 
 @dataclass(slots=True, frozen=True)
+class MidasProductMetadata:
+    """Curated display and classification metadata for one Midas mToken product.
+
+    The upstream Midas contract registry provides deployed contract addresses,
+    but it does not state whether a product should appear in Trading Strategy's
+    tokenised-fund listing. Keep that reviewed decision beside the registry
+    integration, keyed by the issuer's product symbol, so every deployment of
+    the same mToken has identical classification and product copy.
+
+    :param is_tokenised_fund:
+        Whether the product represents a reviewed tokenised fund.
+    :param short_description:
+        Listing-friendly strategy summary.
+    :param description:
+        Longer product description for the vault detail page.
+    :param product_link:
+        Official issuer product page.
+    """
+
+    is_tokenised_fund: bool
+    short_description: str
+    description: str
+    product_link: str
+
+
+#: Reviewed Midas product classification and display metadata.
+#:
+#: mTBILL is a tokenised U.S. Treasury-bill investment product. Midas' product
+#: registry deploys it on several chains, sometimes at the same token address;
+#: keeping the decision keyed by product symbol makes all supported deployments
+#: inherit the same fund classification without treating the whole Midas
+#: protocol, or crypto-strategy products such as mBASIS, as tokenised funds.
+#:
+#: Sources:
+#: - https://midas.app/mtbill
+#: - https://docs.midas.app/tokens/mtbill
+#: - https://docs.midas.app/tokens/mtbill/bankruptcy-remoteness
+MIDAS_PRODUCT_METADATA: Final[dict[str, MidasProductMetadata]] = {
+    "mTBILL": MidasProductMetadata(
+        is_tokenised_fund=True,
+        short_description="Tokenised U.S. Treasury-bill investment product with USD NAV.",
+        description=("mTBILL is a tokenised investment product backed by short-duration U.S. Treasury Bills and Treasury-bill funds. Midas publishes its USD net asset value through an onchain data feed; issuance and redemption use separate Midas contracts and are subject to eligibility checks."),
+        product_link="https://midas.app/mtbill",
+    ),
+}
+
+
+@dataclass(slots=True, frozen=True)
 class MidasRegistryProduct:
     """Scanner-friendly Midas product entry."""
 
@@ -2065,6 +2113,9 @@ class MidasRegistryProduct:
 
     #: Raw product dictionary from :data:`MIDAS_ADDRESSES_PER_NETWORK`.
     raw: dict[str, Any]
+
+    #: Reviewed product metadata, when the product has been classified.
+    metadata: MidasProductMetadata | None
 
     @property
     def rpc_env_var(self) -> str | None:
@@ -2153,6 +2204,7 @@ def iter_midas_registry_products(
                 first_seen_at_block=deployment[0] if deployment else None,
                 first_seen_at=deployment[1] if deployment else None,
                 raw=raw,
+                metadata=MIDAS_PRODUCT_METADATA.get(symbol),
             )
 
             if require_historical_contracts and not product.has_required_historical_contracts:
