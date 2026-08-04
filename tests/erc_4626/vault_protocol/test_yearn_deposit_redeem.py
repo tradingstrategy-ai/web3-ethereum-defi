@@ -3,6 +3,9 @@
 from types import SimpleNamespace
 from unittest.mock import MagicMock
 
+import pytest
+from web3.exceptions import ContractLogicError
+
 from eth_defi.erc_4626.vault_protocol.yearn.deposit_redeem import YearnV3DepositManager
 from eth_defi.vault.deposit_redeem import VaultFlowUnavailable
 
@@ -73,3 +76,57 @@ def test_yearn_deposit_preflight_reports_rejected_approved_call() -> None:
     assert rejection.error_selector == b"\x12\x34\x56\x78"
     deposit_call.assert_called_once_with(RAW_AMOUNT, OWNER)
     reverted_call.call.assert_called_once_with({"from": OWNER})
+
+
+def test_yearn_deposit_preflight_reports_rejected_call_without_revert_data() -> None:
+    """Keep a confirmed Yearn revert typed when the node omits its payload.
+
+    1. Prepare an approved deposit call that raises a revert exception without data.
+    2. Run the exact Yearn deposit preflight.
+    3. Verify the refusal does not claim a decoded custom error.
+    """
+    # 1. Prepare an approved deposit call that raises a revert exception without data.
+    reverted_call = MagicMock()
+    reverted_call.call.side_effect = ContractLogicError("execution reverted")
+    deposit_call = MagicMock(return_value=reverted_call)
+    manager = _create_manager(allowance=RAW_AMOUNT, deposit_call=deposit_call)
+
+    # 2. Run the exact Yearn deposit preflight.
+    rejection = manager.fetch_deposit_rejection(OWNER, raw_amount=RAW_AMOUNT)
+
+    # 3. Verify the refusal does not claim a decoded custom error.
+    assert isinstance(rejection, VaultFlowUnavailable)
+    assert rejection.preflight_result == "deposit_admission_rejected"
+    assert rejection.decoded_error is None
+    assert rejection.error_selector is None
+    assert rejection.raw_revert_data is None
+
+
+def test_yearn_deposit_request_raises_admission_rejection_before_common_flow(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Stop a Yearn request before the inherited flow when its exact call is rejected.
+
+    1. Prepare a manager with no global closure and a typed admission rejection.
+    2. Build a deposit request with the normal capacity preflight enabled.
+    3. Verify the typed rejection is raised before the common request builder.
+    """
+    # 1. Prepare a manager with no global closure and a typed admission rejection.
+    manager = _create_manager(allowance=RAW_AMOUNT, deposit_call=MagicMock())
+    rejection = VaultFlowUnavailable(
+        "Yearn vault rejected the approved deposit call",
+        protocol="Yearn",
+        vault_address=VAULT_ADDRESS,
+        caller=OWNER,
+        direction="deposit",
+        phase="preflight",
+        preflight_result="deposit_admission_rejected",
+    )
+    monkeypatch.setattr(manager, "check_deposit_whitelist", lambda _owner: None)
+    monkeypatch.setattr(manager, "fetch_global_deposit_closure_reason", lambda _owner: None)
+    monkeypatch.setattr(manager, "fetch_deposit_rejection", lambda _owner, _raw_amount: rejection)
+
+    # 2. Build a deposit request with the normal capacity preflight enabled.
+    with pytest.raises(VaultFlowUnavailable) as exc_info:
+        manager.create_deposit_request(OWNER, raw_amount=RAW_AMOUNT)
+
+    # 3. Verify the typed rejection is raised before the common request builder.
+    assert exc_info.value is rejection

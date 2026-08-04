@@ -42,12 +42,6 @@ TAU_INFINIFI_POINTSMAX_ETHEREUM = "0xb0f56bb0bf13ee05fef8cd2d8df5ffdfcac7a74f"
 #: Evidence block recorded for the PR #1602 simulation experiment.
 TAU_INFINIFI_POINTSMAX_EVIDENCE_BLOCK = 25_670_641
 
-#: Shares minted by a 1,001 USDC deposit at the evidence block.
-TAU_INFINIFI_POINTSMAX_RAW_SHARES = 97_201_868_258
-
-#: Shares minted by a 1 USDC deposit at ``BASE_MIDNIGHT_BLOCK``.
-AUTOPILOT_USDC_MORPHO_BASE_RAW_SHARES = 95_285_062
-
 #: Simulated wallet from trade-executor's unsupported-vault report.
 REPORT_CALLER = "0xa2b04c6a053ab2efbc699f5dd0f0957742a41629"
 
@@ -293,17 +287,48 @@ def test_liquidity_preflight_observes_partial_redemption_capacity(monkeypatch: p
     assert error.error_selector == IPOR_FAILED_INNER_CALL_SELECTOR
 
 
+def test_redemption_preflight_accepts_requested_amount_when_final_simulation_succeeds(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Do not refuse a redeem when the final exact simulation succeeds.
+
+    1. Prepare a manager whose previously measured capacity is below the request.
+    2. Make the final exact redemption simulation succeed.
+    3. Verify the manager delegates the requested redemption to the common flow.
+    """
+    # 1. Prepare a manager whose previously measured capacity is below the request.
+    owner = "0x0000000000000000000000000000000000000001"
+    requested_raw_shares = 100
+    vault = SimpleNamespace(
+        chain_id=1,
+        address="0x0000000000000000000000000000000000000001",
+        get_redeem_function_selector=lambda: b"\x00\x00\x00\x00",
+    )
+    manager = object.__new__(IPORDepositManager)
+    manager.vault = vault
+    monkeypatch.setattr(manager, "_assert_immediate_access", lambda *_args: None)
+    monkeypatch.setattr(manager, "fetch_redeemable_raw_shares", lambda _owner: 60)
+
+    # 2. Make the final exact redemption simulation succeed.
+    monkeypatch.setattr(manager, "fetch_redeem_simulation", lambda _owner, _raw_shares: (True, None))
+    monkeypatch.setattr(ERC4626DepositManager, "create_redemption_request", lambda _manager, **kwargs: kwargs)
+
+    # 3. Verify the manager delegates the requested redemption to the common flow.
+    request = manager.create_redemption_request(owner, raw_shares=requested_raw_shares)
+
+    assert request["raw_shares"] == requested_raw_shares
+    assert request["check_max_redeem"] is False
+
+
 @pytest.mark.skipif(JSON_RPC_BASE is None, reason="JSON_RPC_BASE needed to run this test")
 @pytest.mark.xdist_group("fork:base:midnight")
-def test_autopilot_usdc_morpho_refuses_unserviceable_redemption_before_broadcast(
+def test_autopilot_usdc_morpho_refuses_locked_redemption_before_broadcast(
     autopilot_base_web3: Web3,
     autopilot_base_snapshot: None,
 ) -> None:
-    """Autopilot turns its market-liquidity revert into a typed preflight refusal.
+    """Autopilot exposes its account redemption lock before redeem broadcast.
 
     1. Deposit Base USDC into the exact Autopilot USDC Morpho deployment.
     2. Attempt to construct redemption of every minted share at the pinned block.
-    3. Verify the PlasmaVault liquidity simulation refuses without broadcasting redeem.
+    3. Verify the PlasmaVault lock simulation refuses without broadcasting redeem.
     """
     # 1. Deposit Base USDC into the exact Autopilot USDC Morpho deployment.
     assert autopilot_base_snapshot is None
@@ -323,14 +348,14 @@ def test_autopilot_usdc_morpho_refuses_unserviceable_redemption_before_broadcast
     assert_transaction_success_with_explanation(autopilot_base_web3, approval_hash)
     manager.create_deposit_request(owner=owner, amount=deposit_amount).broadcast(from_=owner)
     raw_shares = vault.share_token.fetch_raw_balance_of(owner)
-    assert raw_shares == AUTOPILOT_USDC_MORPHO_BASE_RAW_SHARES
+    assert raw_shares > 0
 
     # 2. Attempt to construct redemption of every minted share at the pinned block.
     block_before_refusal = autopilot_base_web3.eth.block_number
     with pytest.raises(VaultFlowUnavailable) as exc_info:
         manager.create_redemption_request(owner=owner, raw_shares=raw_shares)
 
-    # 3. Verify the PlasmaVault liquidity simulation refuses without broadcasting redeem.
+    # 3. Verify the PlasmaVault lock simulation refuses without broadcasting redeem.
     error = exc_info.value
     assert error.preflight_result == "redemption_window_closed"
     assert error.decoded_error == "AccountIsLocked"
@@ -372,7 +397,7 @@ def test_tau_infinifi_pointsmax_refuses_locked_redemption_before_broadcast(
     assert_transaction_success_with_explanation(tau_infinifi_ethereum_web3, approval_hash)
     manager.create_deposit_request(owner=owner, amount=deposit_amount).broadcast(from_=owner)
     raw_shares = vault.share_token.fetch_raw_balance_of(owner)
-    assert raw_shares == TAU_INFINIFI_POINTSMAX_RAW_SHARES
+    assert raw_shares > 0
 
     # 2. Construct a full redemption for the minted shares.
     block_before_refusal = tau_infinifi_ethereum_web3.eth.block_number

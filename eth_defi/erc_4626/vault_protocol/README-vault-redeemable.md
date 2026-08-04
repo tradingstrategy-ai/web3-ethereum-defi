@@ -229,11 +229,12 @@ IPOR does not expose per-fuse withdrawal capacity.  The options are:
 2. **Simulate withdrawal via `eth_call`.** The IPOR deposit manager calls
    `redeem(shares, caller, caller)` for the actual share owner before creating
    a redemption request. If a full redemption reverts, it binary-searches the
-   immediately executable share amount. A decoded account lock is reported as
-   a closed redemption window; decoded fuse or withdrawal-manager limits are
-   reported as capacity limits. This check is appropriate for transaction
-   construction but remains too expensive and caller-specific for production
-   scanning.
+   immediately executable share amount, then repeats the requested exact call
+   before refusing it because the RPC calls are not an atomic state snapshot.
+   A decoded account lock is reported as a closed redemption window; decoded
+   fuse or withdrawal-manager limits are reported as capacity limits. This
+   check is appropriate for transaction construction but remains too expensive
+   and caller-specific for production scanning.
 3. **Query underlying protocols directly.** If we know a fuse wraps Aave V3,
    read Aave's available liquidity for that asset.  Requires maintaining
    a fuse → underlying protocol mapping.

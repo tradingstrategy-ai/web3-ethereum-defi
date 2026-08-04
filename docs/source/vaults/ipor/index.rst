@@ -21,11 +21,13 @@ This fetch happens lazily through the IPOR vault offchain metadata accessor, so 
 scan fills ``manager_name`` when it first reads the vault's atomist metadata.
 
 The deposit manager checks the selected caller's exact redemption before it
-creates a transaction. It reports an active account lock as a temporary closed
-redemption window, and reports a withdrawal-manager or fuse refusal as a
-redemption capacity limit. This execution-time check does not change the
-scanner's reported idle liquidity, which remains a lower bound for Plasma Vault
-redeemability.
+creates a transaction. When a full redemption fails, it searches for the
+immediately executable capacity and repeats the requested exact call before
+refusing it, because RPC calls do not provide an atomic state snapshot. It
+reports an active account lock as a temporary closed redemption window, and
+reports a withdrawal-manager or fuse refusal as a redemption capacity limit.
+This execution-time check does not change the scanner's reported idle
+liquidity, which remains a lower bound for Plasma Vault redeemability.
 
 Key features:
 

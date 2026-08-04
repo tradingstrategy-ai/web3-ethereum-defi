@@ -88,7 +88,7 @@ class YearnV3DepositManager(ERC4626DepositManager):
             self.vault.vault_contract.functions.deposit(raw_amount, owner).call({"from": owner})
         except (ContractLogicError, ValueError) as error:
             revert_data = extract_revert_data(error)
-            if revert_data is None:
+            if isinstance(error, ValueError) and revert_data is None:
                 raise
             error_selector = revert_data[:ERROR_SELECTOR_LENGTH] if revert_data and len(revert_data) >= ERROR_SELECTOR_LENGTH else None
             reason = "Yearn vault rejected the approved deposit call"
@@ -99,7 +99,9 @@ class YearnV3DepositManager(ERC4626DepositManager):
                 caller=owner,
                 direction="deposit",
                 phase="preflight",
-                decoded_error=str(error),
+                # The exception message is transport-dependent and does not
+                # identify a decoded Solidity custom error.
+                decoded_error=None,
                 preflight_result="deposit_admission_rejected",
                 raw_revert_data=revert_data,
                 requested_raw_amount=raw_amount,

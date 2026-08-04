@@ -207,9 +207,12 @@ class IPORDepositManager(ERC4626DepositManager):
         The verified PlasmaVault implementation repeatedly invokes
         ``_withdrawFromMarkets()`` before its ERC-4626 transfer. A redemption
         is monotonic in requested shares for this deployment, so binary search
-        over the owner balance yields the actual immediately executable cap
-        without mutating onchain state. RPC and ABI failures propagate so the
-        caller can classify infrastructure failures correctly.
+        over the owner balance yields an immediate-execution cap without
+        mutating onchain state. :meth:`create_redemption_request` repeats an
+        exact simulation before refusing a requested amount, because these
+        independent RPC calls do not form an atomic state snapshot. RPC and ABI
+        failures propagate so the caller can classify infrastructure failures
+        correctly.
 
         :param owner:
             Address whose PlasmaVault shares are being preflighted.
@@ -304,6 +307,7 @@ class IPORDepositManager(ERC4626DepositManager):
         :return:
             Preflighted redemption request.
         """
+        assert not to, f"Unsupported to={to}"
         self._assert_immediate_access(owner, self.vault.get_redeem_function_selector(), "redeem")
         if raw_shares is None:
             assert shares is not None, "Either raw_shares or shares must be supplied"
@@ -312,32 +316,33 @@ class IPORDepositManager(ERC4626DepositManager):
         if check_max_redeem:
             available_raw_shares = self.fetch_redeemable_raw_shares(owner)
             if raw_shares > available_raw_shares:
-                _succeeds, revert_data = self.fetch_redeem_simulation(owner, raw_shares)
-                error_selector = revert_data[:ERROR_SELECTOR_LENGTH] if revert_data and len(revert_data) >= ERROR_SELECTOR_LENGTH else None
-                decoded_error = IPOR_REDEMPTION_ERROR_NAMES.get(error_selector)
-                if decoded_error == "AccountIsLocked":
-                    reason = "IPOR PlasmaVault redemption is temporarily locked for this account"
-                    preflight_result = "redemption_window_closed"
-                elif decoded_error in {"FailedInnerCall", "WithdrawManagerInvalidSharesToRelease"}:
-                    reason = "IPOR PlasmaVault cannot source immediate redemption liquidity from configured markets"
-                    preflight_result = "redemption_capacity_limited"
-                else:
-                    reason = "IPOR PlasmaVault redemption is not immediately available"
-                    preflight_result = "redemption_unavailable"
-                raise VaultFlowUnavailable(
-                    reason,
-                    protocol="IPOR Fusion",
-                    vault_address=self.vault.address,
-                    caller=owner,
-                    direction="redeem",
-                    phase="preflight",
-                    decoded_error=decoded_error,
-                    preflight_result=preflight_result,
-                    raw_revert_data=revert_data,
-                    error_selector=error_selector,
-                    requested_raw_amount=raw_shares,
-                    available_raw_amount=available_raw_shares,
-                )
+                succeeds, revert_data = self.fetch_redeem_simulation(owner, raw_shares)
+                if not succeeds:
+                    error_selector = revert_data[:ERROR_SELECTOR_LENGTH] if revert_data and len(revert_data) >= ERROR_SELECTOR_LENGTH else None
+                    decoded_error = IPOR_REDEMPTION_ERROR_NAMES.get(error_selector)
+                    if decoded_error == "AccountIsLocked":
+                        reason = "IPOR PlasmaVault redemption is temporarily locked for this account"
+                        preflight_result = "redemption_window_closed"
+                    elif decoded_error in {"FailedInnerCall", "WithdrawManagerInvalidSharesToRelease"}:
+                        reason = "IPOR PlasmaVault cannot source immediate redemption liquidity from configured markets"
+                        preflight_result = "redemption_capacity_limited"
+                    else:
+                        reason = "IPOR PlasmaVault redemption is not immediately available"
+                        preflight_result = "redemption_unavailable"
+                    raise VaultFlowUnavailable(
+                        reason,
+                        protocol="IPOR Fusion",
+                        vault_address=self.vault.address,
+                        caller=owner,
+                        direction="redeem",
+                        phase="preflight",
+                        decoded_error=decoded_error,
+                        preflight_result=preflight_result,
+                        raw_revert_data=revert_data,
+                        error_selector=error_selector,
+                        requested_raw_amount=raw_shares,
+                        available_raw_amount=available_raw_shares,
+                    )
 
         return super().create_redemption_request(
             owner=owner,

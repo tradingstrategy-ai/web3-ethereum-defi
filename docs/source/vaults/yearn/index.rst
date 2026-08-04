@@ -16,8 +16,10 @@ and a wider range of risk appetites.
 The deposit manager detects a global shutdown or full vault-wide deposit limit
 before creating a transaction. When the selected account has already approved
 the requested assets, it also simulates that exact deposit and returns a typed
-admission rejection for a confirmed EVM revert. It does not treat a missing
-approval or an RPC failure as a vault closure.
+admission rejection for a confirmed EVM revert. The result includes raw revert
+data and its selector when the RPC provider supplies them, but does not label an
+opaque provider message as a decoded Solidity error. It does not treat a
+missing approval or an RPC failure as a vault closure.
 
 Links
 ~~~~~
