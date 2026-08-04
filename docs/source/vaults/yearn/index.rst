@@ -13,6 +13,12 @@ With yVaults v3, vaults can be made from a single strategy or a collection of mu
 which balance funds between them. Users have more control over where they want their funds to go
 and a wider range of risk appetites.
 
+The deposit manager detects a global shutdown or full vault-wide deposit limit
+before creating a transaction. When the selected account has already approved
+the requested assets, it also simulates that exact deposit and returns a typed
+admission rejection for a confirmed EVM revert. It does not treat a missing
+approval or an RPC failure as a vault closure.
+
 Links
 ~~~~~
 
@@ -28,6 +34,7 @@ Links
    :toctree: _autosummary_yearn
    :recursive:
 
+   eth_defi.erc_4626.vault_protocol.yearn.deposit_redeem
    eth_defi.erc_4626.vault_protocol.yearn.vault
    eth_defi.erc_4626.vault_protocol.yearn.compounder
    eth_defi.erc_4626.vault_protocol.yearn.morpho_compounder

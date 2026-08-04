@@ -220,14 +220,20 @@ To compute redeemable liquidity you would iterate adapters, then for
 each adapter query the underlying Morpho Blue markets the same way as
 V1.  This is more involved but follows the same pattern.
 
-### IPOR: no on-chain read path
+### IPOR: no general onchain capacity read path
 
 IPOR does not expose per-fuse withdrawal capacity.  The options are:
 
-1. **Accept idle as a lower bound.** This is what we do today.
-2. **Simulate withdrawal via `eth_call`.** Call `redeem(totalSupply, ...)` as
-   a static call and observe the revert or returned amount.  Fragile and
-   expensive for production scanning.
+1. **Accept idle as a lower bound.** This is what the historical scanner does
+   today.
+2. **Simulate withdrawal via `eth_call`.** The IPOR deposit manager calls
+   `redeem(shares, caller, caller)` for the actual share owner before creating
+   a redemption request. If a full redemption reverts, it binary-searches the
+   immediately executable share amount. A decoded account lock is reported as
+   a closed redemption window; decoded fuse or withdrawal-manager limits are
+   reported as capacity limits. This check is appropriate for transaction
+   construction but remains too expensive and caller-specific for production
+   scanning.
 3. **Query underlying protocols directly.** If we know a fuse wraps Aave V3,
    read Aave's available liquidity for that asset.  Requires maintaining
    a fuse → underlying protocol mapping.
@@ -235,8 +241,9 @@ IPOR does not expose per-fuse withdrawal capacity.  The options are:
    is theoretically redeemable, but subject to underlying protocol liquidity
    and redemption delays.
 
-None of these are clean.  For IPOR, idle remains the pragmatic choice
-until IPOR adds a view function to their fuse interface.
+None of these provide a vault-wide scanner value. For IPOR, idle remains the
+pragmatic historical-reader value until IPOR adds a view function to its fuse
+interface.
 
 ## Recommended approach for the pipeline
 
