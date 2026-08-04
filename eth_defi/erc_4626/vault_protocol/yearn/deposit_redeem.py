@@ -7,17 +7,21 @@ from web3.exceptions import ABIFunctionNotFound, BadFunctionCallOutput, Contract
 
 from eth_defi.abi import ZERO_ADDRESS_STR
 from eth_defi.erc_4626.deposit_redeem import ERC4626DepositManager, ERC4626DepositRequest
-from eth_defi.vault.deposit_redeem import UnsupportedVaultSimulation, VaultFlowUnavailable
+from eth_defi.vault.deposit_redeem import UnsupportedVaultSimulation, VaultFlowUnavailable, extract_revert_data
+
+ERROR_SELECTOR_LENGTH = 4
 
 
 class YearnV3DepositManager(ERC4626DepositManager):
-    """Recognise Yearn V3's global shutdown and deposit-cap closures.
+    """Recognise Yearn V3 closures and rejected approved deposits.
 
     Yearn deliberately returns zero for ``maxDeposit(address(0))``, so the
     generic ERC-4626 global-closure reader cannot be used. A vault without a
     deposit-limit module has a vault-wide ``deposit_limit``; an owner-specific
     zero ``maxDeposit`` then means shutdown or a full global limit. A module
-    can impose account-specific policy and is deliberately not simulated.
+    can impose account-specific policy. Once an owner has already approved the
+    requested amount, the manager simulates its exact ``deposit()`` call to
+    expose a vault-specific admission rejection before broadcast.
     """
 
     def fetch_global_deposit_closure_reason(self, owner: HexAddress) -> str | None:
@@ -55,6 +59,56 @@ class YearnV3DepositManager(ERC4626DepositManager):
         """
         return int(self.vault.vault_contract.functions.maxDeposit(owner).call())
 
+    def fetch_deposit_rejection(self, owner: HexAddress, raw_amount: int) -> VaultFlowUnavailable | None:
+        """Simulate an approved Yearn deposit using the actual sender and amount.
+
+        A new request normally includes an ERC-20 approval, so simulating before
+        that approval would only produce a false allowance failure. When the
+        owner already has sufficient allowance, ``eth_call`` is the strongest
+        admission check available for vault-specific Yearn limits. Transport
+        failures are propagated instead of being reported as an admission
+        rejection.
+
+        :param owner:
+            Account that has approved the vault and would submit the deposit.
+        :param raw_amount:
+            Native denomination-token amount to deposit.
+        :return:
+            A structured preflight rejection, or ``None`` if the caller has no
+            sufficient allowance yet or the exact call succeeds.
+        :raise ValueError:
+            If the provider fails without EVM revert data.
+        """
+        token = self.vault.denomination_token
+        assert token is not None, "Vault denomination token data missing"
+        allowance = token.contract.functions.allowance(owner, self.vault.address).call()
+        if allowance < raw_amount:
+            return None
+        try:
+            self.vault.vault_contract.functions.deposit(raw_amount, owner).call({"from": owner})
+        except (ContractLogicError, ValueError) as error:
+            revert_data = extract_revert_data(error)
+            if isinstance(error, ValueError) and revert_data is None:
+                raise
+            error_selector = revert_data[:ERROR_SELECTOR_LENGTH] if revert_data and len(revert_data) >= ERROR_SELECTOR_LENGTH else None
+            reason = "Yearn vault rejected the approved deposit call"
+            return VaultFlowUnavailable(
+                reason,
+                protocol=self.vault.get_protocol_name(),
+                vault_address=self.vault.address,
+                caller=owner,
+                direction="deposit",
+                phase="preflight",
+                # The exception message is transport-dependent and does not
+                # identify a decoded Solidity custom error.
+                decoded_error=None,
+                preflight_result="deposit_admission_rejected",
+                raw_revert_data=revert_data,
+                requested_raw_amount=raw_amount,
+                error_selector=error_selector,
+            )
+        return None
+
     def create_deposit_request(  # noqa: PLR0917
         self,
         owner: HexAddress,
@@ -64,7 +118,7 @@ class YearnV3DepositManager(ERC4626DepositManager):
         check_max_deposit: bool = True,  # noqa: FBT001, FBT002
         check_enough_token: bool = True,  # noqa: FBT001, FBT002
     ) -> ERC4626DepositRequest:
-        """Build a Yearn deposit or expose a global closure before broadcast.
+        """Build a Yearn deposit or expose a predictable refusal before broadcast.
 
         :param owner:
             Account funding the assets and receiving shares.
@@ -81,7 +135,8 @@ class YearnV3DepositManager(ERC4626DepositManager):
         :return:
             Production Yearn ERC-4626 deposit request.
         :raise VaultFlowUnavailable:
-            When Yearn is shut down or its global deposit cap is full.
+            When Yearn is shut down, its global deposit cap is full, or an
+            already-approved exact deposit call is rejected.
         """
         if check_max_deposit:
             # Preserve admission priority: an account-policy denial must never
@@ -104,6 +159,9 @@ class YearnV3DepositManager(ERC4626DepositManager):
                     requested_raw_amount=requested_raw_amount,
                     available_raw_amount=0,
                 )
+            rejection = self.fetch_deposit_rejection(owner, requested_raw_amount)
+            if rejection is not None:
+                raise rejection
         return super().create_deposit_request(owner, to, amount, raw_amount, check_max_deposit, check_enough_token)
 
     def create_deposit_request_for_guard_validation(
