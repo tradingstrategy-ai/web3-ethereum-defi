@@ -21,6 +21,17 @@ def test_paused_is_bad_flag():
     assert VaultFlag.paused in BAD_FLAGS
 
 
+def test_eth_strategy_long_duration_flag_is_not_bad_flag() -> None:
+    """ETH Strategy has a long-duration warning without being blacklisted."""
+    address = "0xb250c9e0f7be4cff13f94374c993ac445a1385fe"
+
+    assert VaultFlag.long_duration not in BAD_FLAGS
+    assert get_vault_special_flags(address) == {VaultFlag.long_duration}
+    assert "long-dated ETH call option" in get_notes(address)
+    assert "They do not have a redemption queue in place" in get_notes(address)
+    assert get_vault_risk("ETH Strategy", address) == VaultTechnicalRisk.low
+
+
 def test_oda_fact_risk_is_low() -> None:
     """ODA-FACT protocol risk is classified as low."""
     assert get_vault_risk("Kinexys") == VaultTechnicalRisk.low

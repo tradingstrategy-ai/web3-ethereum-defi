@@ -82,6 +82,9 @@ class VaultFlag(str, enum.Enum):
     #: The vault does not do daily NAV. It's share price has confusing equity curve, making users misjudge the vault.
     irregular_reporting = "irregular_reporting"
 
+    #: This is for vaults with especially long redemption periods.
+    long_duration = "long_duration"
+
     #: Morpho Blue API reports one or more RED-level warnings on this vault or its underlying markets.
     #:
     #: RED warnings include unrealised bad debt (``bad_debt_unrealized``), oracle price deviation,
@@ -377,6 +380,12 @@ Although the vault has long lock up matching the duration of the underlying real
 """
 
 ETH_STRATEGY_ESPN = """ESPN (ETH Strategy Perpetual Note) lends USDS to ETH Strategy, but instead of receiving interest, ESPN receives a long-dated ETH call option. To extract yield from this long-dated call option, ESPN systematically sells shorter-dated call options on [Derive](https://www.derive.xyz/). The symmetry between the long-dated convertibles acquired and short-dated calls sold keeps the strategy balanced in USD terms.
+
+Third-party comment:
+
+> They do not have a redemption queue in place (yet), that's one of the things on the roadmap they're promising since months and nothing is happening.
+>
+> I have read the docs and I know that they're using options on Derive, but in the last few months at least a part of those must have been expired, and they propably rolled them over to new ones without satisfying redemptions. If that isn't scammy behaviour, then I don't know...
 
 [Discussion about the ESPN vault](https://x.com/TradingProtocol/status/2011043276283900198).
 """
@@ -680,7 +689,7 @@ VAULT_FLAGS_AND_NOTES: dict[str, tuple[VaultFlag | None, str]] = {
     # USDC Fluid Lender
     "0x00c8a649c9837523ebb406ceb17a6378ab5c74cf": (VaultFlag.subvault, SUBVAULT),
     # ETH Strategy Perpetual Note (Ethereum)
-    "0xb250c9e0f7be4cff13f94374c993ac445a1385fe": (None, ETH_STRATEGY_ESPN),
+    "0xb250c9e0f7be4cff13f94374c993ac445a1385fe": (VaultFlag.long_duration, ETH_STRATEGY_ESPN),
     # Apostro aprUSDC (Sonic)
     "0xcca902f2d3d265151f123d8ce8fdac38ba9745ed": (VaultFlag.unofficial, MISSING_IN_PROTOCOL_FRONTEND),
     # Apostro USDC Frontier (Euler on Ethereum)
