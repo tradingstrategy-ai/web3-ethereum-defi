@@ -1,17 +1,19 @@
 name: Arcadia Finance
 slug: arcadia-finance
 short_description: |
-  Non-custodial margin protocol for leveraged onchain liquidity strategies.
+  Decentralised platform on the Base network that helps people earn yield from their crypto liquidity positions using automated, one-click strategies.
 long_description: |
-  Arcadia Finance is an application built on the Arcadia Protocol, which lets users manage collateral and debt through smart-contract accounts. It is designed for strategies involving automated market maker liquidity positions, including concentrated liquidity.
+  Arcadia Finance is a decentralised finance protocol that helps people put their crypto assets to work more efficiently. It was first introduced in 2022 by a small team with backgrounds in early Bitcoin mining and crypto trading, and its initial funding round was led by Global Founders Capital, with later backing from investors including Coinbase Ventures.
 
-  Depositors and traders remain responsible for the risks of leverage, changing asset prices and liquidation. Products and supported networks can change as the protocol evolves.
+  The project began on Ethereum and Optimism before finding its main home on Base, the network incubated by Coinbase. There it grew into one of the busier liquidity-management services, becoming known for letting users manage liquidity positions and margin accounts through automated tools rather than manual, step-by-step transactions. In 2025 the team launched its own governance token, AAA, giving the community a say in how the protocol develops.
+
+  Today Arcadia operates across Base, Optimism and Unichain, and its smart contracts have been reviewed by a range of independent security auditors.
 fee_description: |
   Fees may include a share of interest paid by borrowers, liquidation charges, and yield success fees on selected strategies. The applicable fee depends on the account and strategy, and is reflected in the protocol's user interface.
 links:
   homepage: https://arcadia.finance/
   app: https://app.arcadia.finance/
-  twitter: https://x.com/arcadiafinance
+  twitter: https://x.com/ArcadiaFi
   github: https://github.com/arcadia-finance
   documentation: https://docs.arcadia.finance/
   fact_sheet:
