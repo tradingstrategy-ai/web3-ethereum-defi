@@ -1225,6 +1225,33 @@ source .local-test.env && \
 | `JSON_RPC_<CHAIN>` | Required for every recognised EVM chain represented in the vault database. |
 | `LOG_LEVEL` | Optional. Default: info. |
 
+### migrate-atoma-vault-names.py
+
+Persist the curated strategy names for the two supported Atoma vaults on
+Arbitrum. This migration targets only those two cached rows, makes no RPC
+calls, and creates a sibling metadata-pickle backup before writing. Do not use
+`migrate-vault-token-metadata.py` for this repair: that generic command reads
+the contracts' generic onchain token names and would overwrite the curated
+strategy labels.
+
+```shell
+# Report the two name updates without writing (default)
+source .local-test.env && \
+  DRY_RUN=true \
+  poetry run python scripts/erc-4626/migrate-atoma-vault-names.py
+
+# Back up and persist the curated display names
+source .local-test.env && \
+  DRY_RUN=false \
+  poetry run python scripts/erc-4626/migrate-atoma-vault-names.py
+```
+
+| Variable | Description |
+|----------|-------------|
+| `VAULT_DB_PATH` | Optional vault metadata pickle path. Default: `~/.tradingstrategy/vaults/vault-metadata-db.pickle`. |
+| `DRY_RUN` | Optional. Report only when true. Default: true. |
+| `LOG_LEVEL` | Optional. Default: info. |
+
 ### prepopulate-timestamps.py
 
 Prepopulate the Hypersync block timestamp DuckDB cache for all scanner chains.
