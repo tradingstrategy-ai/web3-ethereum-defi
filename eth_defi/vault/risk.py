@@ -167,10 +167,11 @@ VAULT_PROTOCOL_RISK_MATRIX = {
     "Royco": None,
     "ETH Strategy": VaultTechnicalRisk.low,
     "Yuzu Money": VaultTechnicalRisk.low,
-    "Altura": VaultTechnicalRisk.severe,
+    "Altura": VaultTechnicalRisk.blacklisted,
     "Spectra": VaultTechnicalRisk.low,
     "Gearbox": VaultTechnicalRisk.low,
-    "Mainstreet Finance": None,
+    # Mainstreet Finance vaults are blacklisted due to a reported scam.
+    "Mainstreet Finance": VaultTechnicalRisk.blacklisted,
     "YieldFi": None,
     "Resolv": None,
     "Curvance": None,
