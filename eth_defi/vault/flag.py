@@ -11,7 +11,19 @@ from eth_defi.vault.handwritten_metadata import PIKU_VAULT_METADATA, format_hand
 
 
 class VaultFlag(str, enum.Enum):
-    """Flags indicating the status of a vault."""
+    """Flags indicating the status of a vault.
+
+    Manual vault flags are resolved through :py:meth:`eth_defi.vault.base.VaultBase.get_flags`
+    during vault metadata scanning and stored in the vault metadata database as
+    ``_flags``. Published vault JSON then serialises those stored values through
+    ``scripts/erc-4626/vault-analysis-json.py`` /
+    :py:mod:`eth_defi.vault.top_vaults_json`.
+
+    After changing :class:`VaultFlag`, :py:data:`VAULT_DESCRIPTIVE_FLAGS`, or
+    :py:data:`VAULT_FLAGS_AND_NOTES`, rerun the vault metadata scan and its
+    top-vault JSON post-processing. Running only the JSON export against an old
+    ``vault-metadata-db.pickle`` will keep the previously stored flags.
+    """
 
     #: We can deposit now
     deposit = "deposit"

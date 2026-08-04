@@ -1586,6 +1586,15 @@ class VaultBase(ABC):
         - Override to add status flags
         - Also add flags from our manual flag list in :py:mod:`eth_defi.vault.flag`
 
+        The vault metadata scan stores this result as ``_flags`` in
+        ``vault-metadata-db.pickle``. ``top_vaults_by_chain.json`` is generated
+        from those stored values through ``scripts/erc-4626/vault-analysis-json.py``
+        / :py:mod:`eth_defi.vault.top_vaults_json`.
+
+        After editing manual flags in :py:mod:`eth_defi.vault.flag`, rerun the
+        vault metadata scan and top-vault JSON post-processing. Regenerating the
+        JSON from an old metadata database will not pick up new manual flags.
+
         :return:
             Flag set.
 
