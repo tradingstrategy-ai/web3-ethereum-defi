@@ -105,7 +105,7 @@ ATOMA_VAULT_DESCRIPTION_OVERLAY: Final[dict[HexAddress, AtomaVaultDescription]] 
 
 #: Curated display names for Atoma vaults whose onchain share-token names are generic.
 ATOMA_VAULT_NAME_OVERLAY: Final[dict[HexAddress, str]] = {
-    ATOMA_VAULT_ADDRESS: "Extended and Nano arbitrage",
+    ATOMA_VAULT_ADDRESS: "Extended and Nado arbitrage",
     ATOMA_VAULT_2_ADDRESS: "Lighter and Trade.xyz arbitrage",
 }
 

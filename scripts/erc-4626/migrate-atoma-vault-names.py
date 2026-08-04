@@ -7,6 +7,9 @@ This targeted migration persists the two curated names without making RPC
 calls, rescanning vaults, or modifying any price, reader-state, or other
 metadata fields.
 
+The target names are ``Extended and Nado arbitrage`` and ``Lighter and
+Trade.xyz arbitrage``.
+
 The generic ``migrate-vault-token-metadata.py`` command must not be used for
 this repair: it deliberately reads the onchain token names and would overwrite
 these curated names.
