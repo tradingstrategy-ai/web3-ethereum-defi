@@ -28,6 +28,7 @@ BASE = 8453
 POLYGON = 137
 BSC = 56
 MONAD = 143
+ROBINHOOD = 4663
 MANTLE = 5000
 AVALANCHE = 43114
 HYPEREVM = 999
@@ -194,12 +195,14 @@ def test_chain_probe_filtering():
     assert _should_yield_probe("getPerformanceFeeData", ARBITRUM) is True
     assert _should_yield_probe("getPerformanceFeeData", POLYGON) is False
 
-    # Accountable restricted to Ethereum and Monad
+    # Accountable probes are enabled on every scanner chain.
     assert _should_yield_probe("strategy", ETHEREUM_MAINNET) is True
     assert _should_yield_probe("queue", ETHEREUM_MAINNET) is True
     assert _should_yield_probe("strategy", MONAD) is True
     assert _should_yield_probe("queue", MONAD) is True
-    assert _should_yield_probe("strategy", BASE) is False
+    assert _should_yield_probe("strategy", ROBINHOOD) is True
+    assert _should_yield_probe("queue", ROBINHOOD) is True
+    assert _should_yield_probe("strategy", BASE) is True
 
     # Brink restricted to Mantle
     assert _should_yield_probe("strategist", MANTLE) is True
@@ -215,6 +218,12 @@ def test_chain_probe_filtering():
     func_names_monad = [p.func_name for p in probes_monad]
     assert "strategy" in func_names_monad
     assert "queue" in func_names_monad
+
+    # Accountable probes on Robinhood for Meridian Liquidity Provider.
+    probes_robinhood = list(create_probe_calls([test_address], chain_id=ROBINHOOD))
+    func_names_robinhood = [p.func_name for p in probes_robinhood]
+    assert "strategy" in func_names_robinhood
+    assert "queue" in func_names_robinhood
 
     # Accountable probes included on Ethereum for OnRe Core Vault.
     probes_eth = list(create_probe_calls([test_address], chain_id=ETHEREUM_MAINNET))
