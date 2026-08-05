@@ -67,10 +67,9 @@ MIN_HYPERCORE_RECAPITALISATION_ASSETS = 1_000.0
 
 #: A new Hypercore vault needs this NAV before its performance history is published.
 #:
-#: This is intentionally higher than the recapitalisation threshold. A newly
-#: reconstructed PnL/NAV index needs a material capital base, while a known
-#: post-wipe-out epoch only needs enough capital to resume its existing history.
-MIN_HYPERCORE_INITIAL_TRACKING_ASSETS = 20_000.0
+#: Use the same threshold as a post-wipe-out epoch, so a vault starts its
+#: initial and recovery curves from the first $1,000 NAV observation.
+MIN_HYPERCORE_INITIAL_TRACKING_ASSETS = MIN_HYPERCORE_RECAPITALISATION_ASSETS
 
 #: Ignore isolated zero-NAV observations that recover before this delay.
 MIN_HYPERCORE_RECAPITALISATION_RECOVERY_DELAY = pd.Timedelta(days=7)

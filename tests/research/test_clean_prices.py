@@ -839,7 +839,7 @@ def test_approximate_hypercore_rejects_invalid_configuration() -> None:
 
 
 def test_discard_hypercore_initial_low_tvl_history() -> None:
-    """Only meaningful initial capital starts a Hypercore performance curve."""
+    """A Hypercore performance curve starts at its first $1,000 NAV observation."""
     funded_id = "9999-0xfunded"
     unfunded_id = "9999-0xunfunded"
     evm_id = "1-0xevm"
@@ -864,7 +864,7 @@ def test_discard_hypercore_initial_low_tvl_history() -> None:
     )
 
     messages: list[str] = []
-    result = discard_hypercore_initial_low_tvl_history(prices_df, logger=messages.append, min_tracking_assets=1_000.0)
+    result = discard_hypercore_initial_low_tvl_history(prices_df, logger=messages.append)
 
     funded = result[result["id"] == funded_id]
     assert funded.index.tolist() == [pd.Timestamp("2026-01-03"), pd.Timestamp("2026-01-04")]

@@ -1,5 +1,7 @@
 # 1.2
 
+- fix: Start initial and post-wipe-out Hypercore performance curves at their first $1,000 NAV observation (2026-08-08)
+
 - feat: Add Yearn Curation curator metadata and automatically attribute all Yearn protocol vaults to Yearn (2026-08-07)
 - feat: Add curator risk-review status and documented incident metadata to the YAML and JSON export schemas (2026-08-07)
 
