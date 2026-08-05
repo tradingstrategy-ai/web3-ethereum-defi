@@ -467,6 +467,8 @@ MELLOW_CORE_CHAIN_IDS = {
     143,  # Monad
 }
 
+ACCOUNTABLE_PROBE_FUNCTIONS = {"strategy", "queue"}
+
 #: Chain restrictions for protocols deployed on a known limited chain set.
 #:
 #: Maps probe function names to the set of chain IDs where that protocol is deployed.
@@ -493,8 +495,6 @@ CHAIN_RESTRICTED_PROBES: dict[str, set[int]] = {
     "routerRegistry": {8453},  # Singularity Finance - Base only
     "strategist": {5000},  # Brink - Mantle only
     "vaultManager": {5000},  # Brink - Mantle only
-    "strategy": {1, 143},  # Accountable - Ethereum, Monad
-    "queue": {1, 143},  # Accountable - Ethereum, Monad
     "POOL": {999},  # Sentiment - HyperEVM only
     "DEPLOYER_ADDRESS": {1, 42161},  # Fraxlend - Ethereum, Arbitrum
     "shareManager": MELLOW_CORE_CHAIN_IDS,  # Mellow Core - Ethereum, Plasma, Arbitrum, Monad
@@ -530,6 +530,9 @@ def _should_yield_probe(func_name: str, chain_id: int | None) -> bool:
     """
     if chain_id is None:
         return True  # No filtering when chain_id not provided
+
+    if func_name in ACCOUNTABLE_PROBE_FUNCTIONS:
+        return True
 
     if func_name in CHAIN_RESTRICTED_PROBES:
         return chain_id in CHAIN_RESTRICTED_PROBES[func_name]
@@ -1252,10 +1255,11 @@ def create_probe_calls(
                 extra_data=None,
             )
 
-        # Accountable Capital - Ethereum, Monad
+        # Accountable Capital
         # AccountableAsyncRedeemVault with ERC-7540 async redemption queue
         # https://monadscan.com/address/0x58ba69b289De313E66A13B7D1F822Fc98b970554
         # https://etherscan.io/address/0xb9c317cAE7dd05eCb0c0925020e529934c96f84D
+        # https://robinhoodchain.blockscout.com/address/0x24b84023c8e4da635be228c380c09bfe5271bf9d
         if _should_yield_probe("strategy", chain_id):
             yield EncodedCall.from_keccak_signature(
                 address=address,
