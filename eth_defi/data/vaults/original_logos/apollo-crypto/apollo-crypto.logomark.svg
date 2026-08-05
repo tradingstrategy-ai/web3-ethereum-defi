@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Apollo Crypto emblem extracted from the official logo lockup. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 67 87" role="img" aria-labelledby="title desc">
+  <title id="title">Apollo Crypto emblem</title>
+  <desc id="desc">The Apollo Crypto triangular A emblem with a blue gradient chevron.</desc>
+  <defs>
+    <linearGradient id="blue-gradient" x1="32.85" y1="29.22" x2="32.85" y2="5.34" gradientTransform="matrix(1 0 0 -1 0 88)" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#2A4094"/>
+      <stop offset="1" stop-color="#299AD4"/>
+    </linearGradient>
+  </defs>
+  <path fill="#231F20" d="M10.1 58.1H0l30-57h6.7l29.3 57h-9.9l-23-42.9L10.1 58.1z"/>
+  <polygon fill="url(#blue-gradient)" points="19.2 58.2 46.5 58.1 32.9 82.9"/>
+  <circle fill="#231F20" cx="33" cy="31.7" r="4.7"/>
+</svg>

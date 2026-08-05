@@ -534,6 +534,10 @@ def _resolve_close_order_filled_amount(
         reported by the keeper trade-action event (post price-impact).
         May be ``0.0`` / ``None`` when the order was already closed via
         the Subsquid fallback paths (synthetic responses).
+        Must already be normalised to a float — **not** a raw 1e30-scaled
+        integer. The caller passes the value decoded from the confirmed
+        trade-action event, not the possibly-raw figure used to build the
+        on-chain order.
     :param execution_price: The on-chain executed price in USD per base
         currency. May be ``None`` when no execution event was found.
     :param gmx_position: The ``GetOpenPositions`` dict for the position
@@ -548,6 +552,19 @@ def _resolve_close_order_filled_amount(
     # Fallback: no token-derived value possible.
     if not size_delta_usd or not execution_price:
         return requested_amount
+
+    # The caller supplied no token amount at all — it sized the order in USD via
+    # ``size_usd`` instead. Returning ``requested_amount`` here would report
+    # ``filled=0``/``amount=0`` for an order that did execute. Zero is never a
+    # truthful fill report, so derive the amount from the executed size.
+    #
+    # This sits ahead of the ``gmx_position is None`` fallback, so it also covers
+    # USD-sized OPENS (``amount=0`` plus ``size_usd`` — "Approach 2" in
+    # :meth:`GMX.create_order`), where ``_gmx_position`` has been popped. That is
+    # intentional: those opens previously reported zero too. Opens that pass a
+    # token ``amount`` still fall through and echo it unchanged.
+    if not requested_amount:
+        return size_delta_usd / execution_price
 
     # Fallback: no comparable on-chain position.
     if gmx_position is None:
@@ -6134,11 +6151,39 @@ class GMX(ExchangeCompatible):
             # partial whenever price has moved since entry (short in
             # profit / long in loss), leaving ~price-move% token dust. See
             # :func:`_resolve_reduce_only_requested_size_usd`.
-            requested_size_usd = _resolve_reduce_only_requested_size_usd(
-                close_amount=close_amount,
-                gmx_position=gmx_position,
-                current_price=current_price,
-            )
+            explicit_size_usd = params.get("size_usd")
+            if not close_amount and explicit_size_usd:
+                # The caller sized the close in USD rather than in tokens, which
+                # is what ``size_usd`` already means for opens. Without this the
+                # USD figure was ignored and ``close_amount`` of 0 priced out to
+                # a ``size_delta_usd`` of 0, failing the close outright. Only
+                # applies when no token amount was supplied, so the token-based
+                # dust-prevention path above is untouched.
+                #
+                # BASIS CONTRACT: ``size_usd`` must be **entry-priced**, i.e. in
+                # the same space as GMX's ``sizeInUsd`` — for a full close, the
+                # position's original notional. It is used verbatim, with none of
+                # the entry-price repricing
+                # :func:`_resolve_reduce_only_requested_size_usd` applies to
+                # token amounts, because there is no token quantity to reprice.
+                # Passing a *current*-priced figure for an intended full close
+                # would compute below ``position_size * full_close_tolerance``,
+                # so :func:`_resolve_reduce_only_size_delta_usd` would classify it
+                # as PARTIAL and clamp it — quietly under-closing and leaving
+                # roughly price-move% token dust, the exact failure that repricing
+                # exists to prevent. Callers that only know a token quantity
+                # should pass it as ``amount`` and let the repricing path run.
+                requested_size_usd = float(explicit_size_usd)
+                logger.info(
+                    "CLOSE: sizing reduce-only order from size_usd=%.2f (no token amount supplied)",
+                    requested_size_usd,
+                )
+            else:
+                requested_size_usd = _resolve_reduce_only_requested_size_usd(
+                    close_amount=close_amount,
+                    gmx_position=gmx_position,
+                    current_price=current_price,
+                )
 
             size_delta_usd = _resolve_reduce_only_size_delta_usd(
                 requested_size_usd=requested_size_usd,
@@ -7640,6 +7685,15 @@ class GMX(ExchangeCompatible):
             gmx_params.pop("_gmx_position", None)
             gmx_params.pop("_resolved_market_info", None)
             gmx_params.pop("_collateral_explicitly_set", None)
+
+            # Apply the adapter's configured execution-fee buffer. Without this the
+            # ``executionBuffer`` constructor parameter was silently dropped when
+            # opening a position: ``_convert_ccxt_to_gmx_params()`` does not emit
+            # ``execution_buffer``, so GMXTrading fell back to its own default and
+            # the order could revert with ``InsufficientExecutionFee``. Closing
+            # positions already does this (see ``close_kwargs`` below).
+            gmx_params.setdefault("execution_buffer", self.execution_buffer)
+
             if type == "limit":
                 # Limit order - triggers at specified price
                 if price is None:
@@ -8509,9 +8563,14 @@ class GMX(ExchangeCompatible):
             # gap between token-derived and requested amounts blowing Freqtrade's
             # isclose(filled, amount, abs_tol=1e-14) check → dust-residual retry).
             # See :func:`_resolve_close_order_filled_amount` for the full rationale.
-            # For opens, `_gmx_position` is popped from gmx_params at line ~7333
+            # For opens, `_gmx_position` is popped from gmx_params at line ~7333,
             # so the helper hits its `gmx_position is None` fallback and returns
-            # `amount` unchanged — preserving open-order behaviour exactly.
+            # `amount` unchanged — with one deliberate exception. An open sized in
+            # USD ("Approach 2": `amount=0` plus `size_usd`) supplies no token
+            # amount, so the helper's zero-amount guard reports the token-derived
+            # value rather than echoing the caller's 0. That is the same reasoning
+            # as on the close side: zero is not a truthful fill report for an order
+            # that executed. Opens passing a token `amount` are unaffected.
             _reportable_amount = _resolve_close_order_filled_amount(
                 requested_amount=(params.get("sub_trade_amt") if params else None) or amount,
                 size_delta_usd=size_delta_usd,

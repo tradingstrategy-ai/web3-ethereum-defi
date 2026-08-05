@@ -22,7 +22,7 @@ import pyarrow.parquet as pq
 from eth_defi.apex.constants import APEX_CHAIN_ID, APEX_METRICS_DATABASE
 from eth_defi.apex.metrics import ApexMetricsDatabase
 from eth_defi.apex.vault_data_export import build_raw_prices_dataframe as build_apex_prices_dataframe
-from eth_defi.cloudflare_r2 import calculate_bytes_digest, copy_r2_object_daily_backup, create_r2_client, upload_bytes_to_r2, upload_file_to_r2
+from eth_defi.cloudflare_r2 import R2RetryableOperationError, calculate_bytes_digest, copy_r2_object_daily_backup, create_r2_client, upload_bytes_to_r2, upload_file_to_r2
 from eth_defi.grvt.constants import GRVT_CHAIN_ID, GRVT_DAILY_METRICS_DATABASE
 from eth_defi.grvt.daily_metrics import GRVTDailyMetricsDatabase
 from eth_defi.grvt.vault_data_export import build_raw_prices_dataframe as build_grvt_prices_dataframe
@@ -798,6 +798,9 @@ def export_data_files() -> bool:
         module.main()
         logger.info("Data file export complete")
         return True
+    except R2RetryableOperationError as exc:
+        logger.warning("Data file export deferred after retryable R2 failure: %s", exc)
+        return False
     except Exception:
         logger.exception("Export data files failed")
         return False

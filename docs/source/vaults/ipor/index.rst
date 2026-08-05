@@ -20,6 +20,15 @@ IPOR Fusion frontend atomist config used as a fallback while the API field has p
 This fetch happens lazily through the IPOR vault offchain metadata accessor, so a normal vault
 scan fills ``manager_name`` when it first reads the vault's atomist metadata.
 
+The deposit manager checks the selected caller's exact redemption before it
+creates a transaction. When a full redemption fails, it searches for the
+immediately executable capacity and repeats the requested exact call before
+refusing it, because RPC calls do not provide an atomic state snapshot. It
+reports an active account lock as a temporary closed redemption window, and
+reports a withdrawal-manager or fuse refusal as a redemption capacity limit.
+This execution-time check does not change the scanner's reported idle
+liquidity, which remains a lower bound for Plasma Vault redeemability.
+
 Key features:
 
 - Intelligence-driven execution for DeFi operations including looping, carry trades and arbitrage
@@ -43,5 +52,6 @@ Links
    :toctree: _autosummary_ipor
    :recursive:
 
+   eth_defi.erc_4626.vault_protocol.ipor.deposit_redeem
    eth_defi.erc_4626.vault_protocol.ipor.vault
    eth_defi.erc_4626.vault_protocol.ipor.offchain_metadata

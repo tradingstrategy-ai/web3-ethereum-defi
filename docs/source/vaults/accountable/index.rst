@@ -23,6 +23,18 @@ The public manager only auto-claims self-controlled redemptions to their share
 owner. This avoids routing a controller-level aggregate to a custom receiver;
 delegated-controller historical requests are discovered but not auto-claimed.
 
+Deposit permissions
+~~~~~~~~~~~~~~~~~~~
+
+The `verified Accountable vault source <https://monadscan.com/address/0x7Cd231120a60F500887444a9bAF5e1BD753A5e59#code>`__
+defines three constructor-selected permission levels. ``None`` is
+permissionless, ``KYC`` verifies an Accountable-signed payload appended to each
+call, and ``Whitelist`` checks persistent ``allowed(address)`` membership.
+When the share receiver and controller differ, the vault checks both accounts.
+The Hyperithm Delta Neutral deployment uses ``None``. Its strategy capacity,
+loan state and minimum amount are separate lifecycle constraints and must not
+be reported as KYC.
+
 Links
 ~~~~~
 
@@ -34,9 +46,9 @@ Links
 Notes
 ~~~~~
 
-- No public GitHub repository available for smart contracts
-- Smart contracts are verified via Sourcify on Monad block explorers
-- Fee information is not publicly exposed on-chain
+- No canonical public source repository is linked from the verified deployment
+- Smart contract source is verified on MonadScan
+- Fee terms are read from the deployment's Accountable fee-manager contract
 
 .. autosummary::
    :toctree: _autosummary_accountable

@@ -162,6 +162,14 @@ class MorphoV1Vault(ERC4626Vault):
     for the newer adapter-based architecture.
     """
 
+    def is_whitelisted_deposit(self) -> bool:
+        """Report canonical MetaMorpho deposits as permissionless.
+
+        :return:
+            Always ``False`` because MetaMorpho has no depositor identity gate.
+        """
+        return False
+
     @cached_property
     def morpho_api_result(self) -> MorphoVaultAPIResult:
         """Vault lookup result from the Morpho GraphQL API.

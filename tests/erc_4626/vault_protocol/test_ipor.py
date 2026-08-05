@@ -1,21 +1,31 @@
 """IPOR Fusion vault tests."""
 
 import os
+from collections.abc import Iterator
 from decimal import Decimal
+from types import SimpleNamespace
+from unittest.mock import MagicMock
 
 import pytest
 from web3 import Web3
 
 from eth_defi.erc_4626.core import ERC4626Feature
 from eth_defi.erc_4626.deposit_redeem import ERC4626DepositManager
-from eth_defi.erc_4626.vault_protocol.ipor.deposit_redeem import IPORDepositManager
+from eth_defi.erc_4626.vault_protocol.ipor.deposit_redeem import IPOR_ACCOUNT_IS_LOCKED_SELECTOR, IPOR_FAILED_INNER_CALL_SELECTOR, IPOR_WITHDRAW_MANAGER_INVALID_SHARES_TO_RELEASE_SELECTOR, IPORDepositManager
 from eth_defi.erc_4626.vault_protocol.ipor.vault import IPORVault
+from eth_defi.provider.anvil import AnvilLaunch
 from eth_defi.provider.multi_provider import create_multi_provider_web3
+from eth_defi.testing.anvil_fork_pool import AnvilForkPool
+from eth_defi.testing.evm_snapshot_fixture import evm_snapshot_revert
+from eth_defi.testing.fork_blocks import BASE_MIDNIGHT_BLOCK
+from eth_defi.token import USDC_WHALE
+from eth_defi.trace import assert_transaction_success_with_explanation
 from eth_defi.vault.base import VaultSpec
 from eth_defi.vault.deposit_redeem import VaultFlowUnavailable
 from eth_defi.vault.fee import FeeData, VaultFeeMode
 
 JSON_RPC_ETHEREUM = os.environ.get("JSON_RPC_ETHEREUM")
+JSON_RPC_BASE = os.environ.get("JSON_RPC_BASE")
 
 #: Bitcoin Dollar USDC vault on Ethereum.
 #:
@@ -26,11 +36,61 @@ IPOR_BDUSD_ETHEREUM = "0xf8f226da66244f89e70c5b5d1a5c5b0d505eb1d8"
 #: AccessManager for the report's simulated wallet.
 IPOR_RESTRICTED_ETHEREUM = "0x95b2ed8f821570f85fd0e3e6e7088c6296587088"
 
+#: Exact IPOR PlasmaVault from trade-executor PR #1602's status-0 redemption.
+TAU_INFINIFI_POINTSMAX_ETHEREUM = "0xb0f56bb0bf13ee05fef8cd2d8df5ffdfcac7a74f"
+
+#: Evidence block recorded for the PR #1602 simulation experiment.
+TAU_INFINIFI_POINTSMAX_EVIDENCE_BLOCK = 25_670_641
+
 #: Simulated wallet from trade-executor's unsupported-vault report.
 REPORT_CALLER = "0xa2b04c6a053ab2efbc699f5dd0f0957742a41629"
 
 #: This fee has been set to 0 on-chain as of 2026-05-22.
 IPOR_BDUSD_DEPOSIT_FEE = 0.0
+
+
+@pytest.fixture(scope="module")
+def autopilot_base_fork(anvil_fork_pool: AnvilForkPool) -> AnvilLaunch:
+    """Share the fixed Base fork with the USDC whale unlocked for Autopilot."""
+    return anvil_fork_pool.get_launch(
+        JSON_RPC_BASE,
+        BASE_MIDNIGHT_BLOCK,
+        unlocked_addresses=[USDC_WHALE[8453]],
+    )
+
+
+@pytest.fixture(scope="module")
+def autopilot_base_web3(autopilot_base_fork: AnvilLaunch) -> Web3:
+    """Connect to the shared Base Autopilot fork."""
+    return create_multi_provider_web3(autopilot_base_fork.json_rpc_url)
+
+
+@pytest.fixture
+def autopilot_base_snapshot(autopilot_base_fork: AnvilLaunch) -> Iterator[None]:
+    """Restore the mutating Autopilot fork after every liquidity test."""
+    yield from evm_snapshot_revert(autopilot_base_fork)
+
+
+@pytest.fixture(scope="module")
+def tau_infinifi_ethereum_fork(anvil_fork_pool: AnvilForkPool) -> AnvilLaunch:
+    """Share the historical TAU InfiniFi fork with the Ethereum USDC whale unlocked."""
+    return anvil_fork_pool.get_launch(
+        JSON_RPC_ETHEREUM,
+        TAU_INFINIFI_POINTSMAX_EVIDENCE_BLOCK,
+        unlocked_addresses=[USDC_WHALE[1]],
+    )
+
+
+@pytest.fixture(scope="module")
+def tau_infinifi_ethereum_web3(tau_infinifi_ethereum_fork: AnvilLaunch) -> Web3:
+    """Connect to the shared historical TAU InfiniFi fork."""
+    return create_multi_provider_web3(tau_infinifi_ethereum_fork.json_rpc_url)
+
+
+@pytest.fixture
+def tau_infinifi_ethereum_snapshot(tau_infinifi_ethereum_fork: AnvilLaunch) -> Iterator[None]:
+    """Restore the mutating TAU InfiniFi fork after every redemption test."""
+    yield from evm_snapshot_revert(tau_infinifi_ethereum_fork)
 
 
 def test_internalised_fee_mode_preserves_explicit_deposit_fee():
@@ -179,3 +239,213 @@ def test_ipor_without_access_manager_uses_generic_manager() -> None:
         "deposit_flow": "synchronous",
         "redemption_flow": "synchronous",
     }
+
+
+def test_liquidity_preflight_observes_partial_redemption_capacity(monkeypatch: pytest.MonkeyPatch) -> None:
+    """IPOR accepts the simulated capacity and refuses exactly one share above it.
+
+    The pinned Base state has zero immediate capacity after a fresh deposit, so
+    this state-level boundary test models a market fuse that serves 61 of 100
+    shares. It proves the binary-search figure is not a constant while the
+    fork test below covers the reported live failure.
+    """
+    owner = "0x0000000000000000000000000000000000000001"
+    expected_capacity = 61
+    balance_of = MagicMock()
+    balance_of.call.return_value = 100
+    vault = SimpleNamespace(
+        chain_id=1,
+        address="0x0000000000000000000000000000000000000001",
+        vault_contract=SimpleNamespace(functions=SimpleNamespace(balanceOf=lambda _owner: balance_of)),
+        get_redeem_function_selector=lambda: b"\x00\x00\x00\x00",
+    )
+    manager = object.__new__(IPORDepositManager)
+    manager.vault = vault
+    monkeypatch.setattr(manager, "_assert_immediate_access", lambda *_args: None)
+    monkeypatch.setattr(
+        manager,
+        "fetch_redeem_simulation",
+        lambda _owner, raw_shares: (raw_shares <= expected_capacity, None if raw_shares <= expected_capacity else IPOR_FAILED_INNER_CALL_SELECTOR),
+    )
+    monkeypatch.setattr(
+        ERC4626DepositManager,
+        "create_redemption_request",
+        lambda _manager, **kwargs: kwargs,
+    )
+
+    available_raw_shares = manager.fetch_redeemable_raw_shares(owner)
+
+    assert available_raw_shares == expected_capacity
+    assert manager.create_redemption_request(owner, raw_shares=available_raw_shares)["raw_shares"] == available_raw_shares
+    with pytest.raises(VaultFlowUnavailable) as exc_info:
+        manager.create_redemption_request(owner, raw_shares=available_raw_shares + 1)
+
+    error = exc_info.value
+    assert error.preflight_result == "redemption_capacity_limited"
+    assert error.requested_raw_amount == expected_capacity + 1
+    assert error.available_raw_amount == expected_capacity
+    assert error.error_selector == IPOR_FAILED_INNER_CALL_SELECTOR
+
+
+def test_redemption_preflight_accepts_requested_amount_when_final_simulation_succeeds(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Do not refuse a redeem when the final exact simulation succeeds.
+
+    1. Prepare a manager whose previously measured capacity is below the request.
+    2. Make the final exact redemption simulation succeed.
+    3. Verify the manager delegates the requested redemption to the common flow.
+    """
+    # 1. Prepare a manager whose previously measured capacity is below the request.
+    owner = "0x0000000000000000000000000000000000000001"
+    requested_raw_shares = 100
+    vault = SimpleNamespace(
+        chain_id=1,
+        address="0x0000000000000000000000000000000000000001",
+        get_redeem_function_selector=lambda: b"\x00\x00\x00\x00",
+    )
+    manager = object.__new__(IPORDepositManager)
+    manager.vault = vault
+    monkeypatch.setattr(manager, "_assert_immediate_access", lambda *_args: None)
+    monkeypatch.setattr(manager, "fetch_redeemable_raw_shares", lambda _owner: 60)
+
+    # 2. Make the final exact redemption simulation succeed.
+    monkeypatch.setattr(manager, "fetch_redeem_simulation", lambda _owner, _raw_shares: (True, None))
+    monkeypatch.setattr(ERC4626DepositManager, "create_redemption_request", lambda _manager, **kwargs: kwargs)
+
+    # 3. Verify the manager delegates the requested redemption to the common flow.
+    request = manager.create_redemption_request(owner, raw_shares=requested_raw_shares)
+
+    assert request["raw_shares"] == requested_raw_shares
+    assert request["check_max_redeem"] is False
+
+
+@pytest.mark.skipif(JSON_RPC_BASE is None, reason="JSON_RPC_BASE needed to run this test")
+@pytest.mark.xdist_group("fork:base:midnight")
+def test_autopilot_usdc_morpho_refuses_locked_redemption_before_broadcast(
+    autopilot_base_web3: Web3,
+    autopilot_base_snapshot: None,
+) -> None:
+    """Autopilot exposes its account redemption lock before redeem broadcast.
+
+    1. Deposit Base USDC into the exact Autopilot USDC Morpho deployment.
+    2. Attempt to construct redemption of every minted share at the pinned block.
+    3. Verify the PlasmaVault lock simulation refuses without broadcasting redeem.
+    """
+    # 1. Deposit Base USDC into the exact Autopilot USDC Morpho deployment.
+    assert autopilot_base_snapshot is None
+    vault = IPORVault(
+        autopilot_base_web3,
+        VaultSpec(chain_id=8453, vault_address="0xd6701905c59ee618dc36dc747506bce0a4ac760a"),
+        features={ERC4626Feature.ipor_like},
+    )
+    manager = vault.get_deposit_manager()
+    assert isinstance(manager, IPORDepositManager)
+    owner = autopilot_base_web3.eth.accounts[0]
+    deposit_amount = Decimal(1)
+    usdc = vault.denomination_token
+    funding_hash = usdc.transfer(owner, deposit_amount).transact({"from": USDC_WHALE[8453]})
+    assert_transaction_success_with_explanation(autopilot_base_web3, funding_hash)
+    approval_hash = usdc.approve(vault.address, deposit_amount).transact({"from": owner})
+    assert_transaction_success_with_explanation(autopilot_base_web3, approval_hash)
+    manager.create_deposit_request(owner=owner, amount=deposit_amount).broadcast(from_=owner)
+    raw_shares = vault.share_token.fetch_raw_balance_of(owner)
+    assert raw_shares > 0
+
+    # 2. Attempt to construct redemption of every minted share at the pinned block.
+    block_before_refusal = autopilot_base_web3.eth.block_number
+    with pytest.raises(VaultFlowUnavailable) as exc_info:
+        manager.create_redemption_request(owner=owner, raw_shares=raw_shares)
+
+    # 3. Verify the PlasmaVault lock simulation refuses without broadcasting redeem.
+    error = exc_info.value
+    assert error.preflight_result == "redemption_window_closed"
+    assert error.decoded_error == "AccountIsLocked"
+    assert error.error_selector == IPOR_ACCOUNT_IS_LOCKED_SELECTOR
+    assert error.direction == "redeem"
+    assert error.phase == "preflight"
+    assert error.requested_raw_amount == raw_shares
+    assert error.available_raw_amount == 0
+    assert autopilot_base_web3.eth.block_number == block_before_refusal
+
+
+@pytest.mark.skipif(JSON_RPC_ETHEREUM is None, reason="JSON_RPC_ETHEREUM needed to run this test")
+@pytest.mark.xdist_group("fork:ethereum:tau-infinifi-pointsmax")
+def test_tau_infinifi_pointsmax_refuses_locked_redemption_before_broadcast(
+    tau_infinifi_ethereum_web3: Web3,
+    tau_infinifi_ethereum_snapshot: None,
+) -> None:
+    """TAU InfiniFi exposes its account redemption lock before redeem broadcast.
+
+    1. Deposit Ethereum USDC into the reported TAU InfiniFi Pointsmax vault at its evidence block.
+    2. Construct a full redemption for the minted shares.
+    3. Verify the account lock becomes a typed window preflight without broadcasting redeem.
+    """
+    # 1. Deposit Ethereum USDC into the reported TAU InfiniFi Pointsmax vault at its evidence block.
+    assert tau_infinifi_ethereum_snapshot is None
+    vault = IPORVault(
+        tau_infinifi_ethereum_web3,
+        VaultSpec(chain_id=1, vault_address=TAU_INFINIFI_POINTSMAX_ETHEREUM),
+        features={ERC4626Feature.ipor_like},
+    )
+    manager = vault.get_deposit_manager()
+    assert isinstance(manager, IPORDepositManager)
+    owner = tau_infinifi_ethereum_web3.eth.accounts[0]
+    deposit_amount = Decimal(1_001)
+    usdc = vault.denomination_token
+    funding_hash = usdc.transfer(owner, deposit_amount).transact({"from": USDC_WHALE[1]})
+    assert_transaction_success_with_explanation(tau_infinifi_ethereum_web3, funding_hash)
+    approval_hash = usdc.approve(vault.address, deposit_amount).transact({"from": owner})
+    assert_transaction_success_with_explanation(tau_infinifi_ethereum_web3, approval_hash)
+    manager.create_deposit_request(owner=owner, amount=deposit_amount).broadcast(from_=owner)
+    raw_shares = vault.share_token.fetch_raw_balance_of(owner)
+    assert raw_shares > 0
+
+    # 2. Construct a full redemption for the minted shares.
+    block_before_refusal = tau_infinifi_ethereum_web3.eth.block_number
+    with pytest.raises(VaultFlowUnavailable) as exc_info:
+        manager.create_redemption_request(owner=owner, raw_shares=raw_shares)
+
+    # 3. Verify the account lock becomes a typed window preflight without broadcasting redeem.
+    error = exc_info.value
+    assert error.preflight_result == "redemption_window_closed"
+    assert error.decoded_error == "AccountIsLocked"
+    assert error.error_selector == IPOR_ACCOUNT_IS_LOCKED_SELECTOR
+    assert error.requested_raw_amount == raw_shares
+    assert error.available_raw_amount == 0
+    assert tau_infinifi_ethereum_web3.eth.block_number == block_before_refusal
+
+
+def test_redemption_capacity_preflight_decodes_withdrawal_manager_limit(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Expose the PlasmaVault withdrawal-manager error when the RPC provides it.
+
+    1. Prepare an IPOR manager whose full redemption can only release a subset.
+    2. Return the reported withdrawal-manager error from the exact redemption simulation.
+    3. Verify the typed capacity result keeps the decoded custom-error selector.
+    """
+    # 1. Prepare an IPOR manager whose full redemption can only release a subset.
+    owner = "0x0000000000000000000000000000000000000001"
+    vault = SimpleNamespace(
+        chain_id=1,
+        address="0x0000000000000000000000000000000000000001",
+        vault_contract=SimpleNamespace(functions=SimpleNamespace(balanceOf=lambda _owner: SimpleNamespace(call=lambda: 100))),
+        get_redeem_function_selector=lambda: b"\x00\x00\x00\x00",
+    )
+    manager = object.__new__(IPORDepositManager)
+    manager.vault = vault
+    monkeypatch.setattr(manager, "_assert_immediate_access", lambda *_args: None)
+    monkeypatch.setattr(manager, "fetch_redeemable_raw_shares", lambda _owner: 60)
+
+    # 2. Return the reported withdrawal-manager error from the exact redemption simulation.
+    monkeypatch.setattr(
+        manager,
+        "fetch_redeem_simulation",
+        lambda _owner, _raw_shares: (False, IPOR_WITHDRAW_MANAGER_INVALID_SHARES_TO_RELEASE_SELECTOR + b"\x00" * 96),
+    )
+
+    # 3. Verify the typed capacity result keeps the decoded custom-error selector.
+    with pytest.raises(VaultFlowUnavailable) as exc_info:
+        manager.create_redemption_request(owner, raw_shares=100)
+
+    error = exc_info.value
+    assert error.preflight_result == "redemption_capacity_limited"
+    assert error.decoded_error == "WithdrawManagerInvalidSharesToRelease"
+    assert error.error_selector == IPOR_WITHDRAW_MANAGER_INVALID_SHARES_TO_RELEASE_SELECTOR

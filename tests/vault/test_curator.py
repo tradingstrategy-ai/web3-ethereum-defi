@@ -74,7 +74,9 @@ def test_tokenised_fund_curator_metadata_has_logos() -> None:
 
     slugs = (
         "bosera-asset-management-international",
+        "changfeng-asset-management",
         "chinaamc-hong-kong",
+        "cms-asset-management-hk",
         "cncb-capital",
         "epoch-rwa",
         "fidelity",
@@ -134,6 +136,7 @@ def test_live_curators_with_verified_artwork_include_generic_logo() -> None:
     slugs = (
         "722-capital",
         "alpine",
+        "axis",
         "bizantine",
         "btcd-labs",
         "candle-effect",
@@ -169,14 +172,15 @@ def test_live_curators_with_verified_artwork_include_generic_logo() -> None:
     assert get_curator_available_logos("wstgbp")["generic"]
 
 
-def test_upshift_curator_brandmarks_are_visible_on_dark_background() -> None:
-    """Upshift curator brandmarks retain high-contrast pixels on dark surfaces."""
+def test_curator_brandmarks_are_visible_on_dark_background() -> None:
+    """Curator brandmarks retain high-contrast pixels on dark surfaces."""
 
     brandmark_slugs = (
         "alpine",
         "ergonia",
         "gamma-research",
         "hardcore-labs",
+        "hyperithm",
         "m1-capital",
         "monarq",
         "nemo",
@@ -210,7 +214,7 @@ def test_upshift_curator_brandmarks_are_visible_on_dark_background() -> None:
 
 
 def test_identify_wstgbp_as_protocol_curated() -> None:
-    """wstGBP has no third-party curator."""
+    """wstGBP is curated by its protocol operator, Wren Spire."""
 
     slug = identify_curator(
         chain_id=1,
@@ -223,6 +227,22 @@ def test_identify_wstgbp_as_protocol_curated() -> None:
     assert slug == "wstgbp"
     assert is_protocol_curator(slug)
     assert get_curator_name(slug) == "wstGBP"
+
+
+def test_wstgbp_protocol_curator_metadata_uses_official_feed() -> None:
+    """Keep Wren's curator details separate from the tGBP issuer's feeds."""
+
+    metadata = build_curator_metadata_json(
+        Path("eth_defi/data/feeds/curators/wstgbp.yaml"),
+        public_url="https://example.com",
+    )
+
+    assert metadata["protocol_curator"] is True
+    assert metadata["canonical_feeder_id"] == "wstgbp"
+    assert metadata["website"] == "https://wstgbp.com"
+    assert metadata["twitter"] == "https://x.com/wstgbp"
+    assert "BCP Technologies" in metadata["long_description"]
+    assert metadata["logos"]["generic"] == "https://example.com/curator-metadata/wstgbp/generic.png"
 
 
 def test_identify_felix_vault() -> None:
@@ -586,6 +606,10 @@ def test_identify_asseto_curator_by_priority_partner_role() -> None:
     """Asseto investment manager/advisor names resolve through curator YAML."""
 
     assert identify_curator(1, "", "", "0x0", "asseto", "CMS Asset Management (HK)") == "cms-asset-management-hk"
+    assert get_curator_name("cms-asset-management-hk") == "CMS Asset Management"
+    assert get_curator_name("chinaamc-hong-kong") == "China Asset Management"
+    assert identify_curator(1, "", "", "0x0", "asseto", "Changfeng Asset Management Limited") == "changfeng-asset-management"
+    assert get_curator_name("changfeng-asset-management") == "Changfeng Asset Management"
     assert identify_curator(1, "", "", "0x0", "asseto", "DL Holdings") == "dl-holdings"
     assert identify_curator(1, "", "", "0x0", "asseto", "Four Seasons") == "four-seasons"
     assert identify_curator(1, "", "", "0x0", "asseto", "DFZQ / Orient Securities International") == "dfzq"
@@ -1054,6 +1078,22 @@ def test_identify_atoma_protocol_curator() -> None:
     assert get_curator_name("atoma") == "Atoma"
 
 
+def test_atoma_curator_metadata_highlights_transparency_dashboard() -> None:
+    """Atoma curator metadata describes the public onchain position dashboard."""
+    metadata = build_curator_metadata_json(
+        Path("eth_defi/data/feeds/curators/atoma.yaml"),
+        public_url="",
+    )
+
+    assert metadata["short_description"] is not None
+    assert "public dashboard" in metadata["short_description"]
+    assert metadata["long_description"] is not None
+    long_description = metadata["long_description"].replace("\n", " ")
+    assert "public transparency dashboard" in long_description
+    assert "all vault positions" in long_description
+    assert "independently verifiable onchain" in long_description
+
+
 def test_identify_frankencoin_protocol_curator() -> None:
     """Frankencoin svZCHF vaults resolve to the protocol-managed slug."""
 
@@ -1216,6 +1256,7 @@ def test_identify_vault_name_sweep_curators() -> None:
         ("euler", "HypurrFi Earn USDC"): "hypurrfi",
         ("lagoon-finance", "DAMM Stablecoin Fund"): "damm-capital",
         ("morpho", "August USDC"): "august-digital",
+        ("upshift", "Axis Origin USDx"): "axis",
     }
     for (protocol_slug, name), expected in cases.items():
         slug = identify_curator(
@@ -1232,3 +1273,19 @@ def test_identify_vault_name_sweep_curators() -> None:
 
     # 3. The calendar month must not be mistaken for August Digital
     assert identify_curator(1, "", "Prize imToken August Campaign", "0x0", "morpho") is None
+
+
+def test_identify_axis_from_upshift_strategist() -> None:
+    """Identify Axis from Upshift's strategist metadata for the Origin vault."""
+
+    assert (
+        identify_curator(
+            chain_id=1,
+            vault_token_symbol="ogUSDx",
+            vault_name="Axis Origin USDx",
+            vault_address="0xAD958C4c0c90bf0216e0f5472F074a9AB30f595F",
+            protocol_slug="upshift",
+            manager_name="Axis",
+        )
+        == "axis"
+    )

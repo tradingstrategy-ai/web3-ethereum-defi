@@ -16,11 +16,13 @@ from eth_defi.currency_api.database import CurrencyRateDatabase
 from eth_defi.tokenised_fund.asseto import backfill
 from eth_defi.tokenised_fund.asseto.constants import ASSETO_AOABT_HASHKEY
 from eth_defi.tokenised_fund.asseto.offchain_api import AssetoOffchainProduct
+from eth_defi.tokenised_fund.asseto.offchain_metadata import AssetoOffchainRegistryResult
 from eth_defi.tokenised_fund.asseto.vault import AssetoVault
 from eth_defi.vault.base import VaultSpec
 from eth_defi.vault.historical import VaultHistoricalReadMulticaller
 
 EXPLICIT_START_BLOCK = 123_456
+REGISTRY_TIMESTAMP = datetime.datetime(2026, 8, 1, tzinfo=datetime.UTC).replace(tzinfo=None)
 
 
 def make_registry_product(chain_id: int, *, symbol: str = "AoABT") -> AssetoOffchainProduct:
@@ -64,7 +66,7 @@ def test_unsupported_asseto_chain_is_excluded_from_backfill(monkeypatch: pytest.
 
     assert ASSETO_AOABT_HASHKEY.chain_id not in CHAIN_NAMES
     assert not backfill_history_module.is_supported_asseto_chain(ASSETO_AOABT_HASHKEY.chain_id)
-    monkeypatch.setattr(backfill_history_module, "fetch_asseto_products", lambda: iter([make_registry_product(177)]))
+    monkeypatch.setattr(backfill_history_module, "fetch_asseto_registry", lambda: AssetoOffchainRegistryResult("fresh", (make_registry_product(177),), REGISTRY_TIMESTAMP))
     assert list(backfill_history_module.iter_selected_products()) == []
 
 
@@ -72,7 +74,7 @@ def test_supported_asseto_chain_uses_standard_rpc_configuration(monkeypatch: pyt
     """Select a registered HyperSync chain with its normal RPC environment variable."""
 
     ethereum_product = make_registry_product(1)
-    monkeypatch.setattr(backfill_history_module, "fetch_asseto_products", lambda: iter([ethereum_product]))
+    monkeypatch.setattr(backfill_history_module, "fetch_asseto_registry", lambda: AssetoOffchainRegistryResult("fresh", (ethereum_product,), REGISTRY_TIMESTAMP))
     monkeypatch.setenv("JSON_RPC_ETHEREUM", "https://ethereum-rpc.example")
 
     assert backfill_history_module.get_asseto_rpc_env(ethereum_product.chain_id) == "JSON_RPC_ETHEREUM"
@@ -83,7 +85,7 @@ def test_missing_rpc_excludes_supported_asseto_chain(monkeypatch: pytest.MonkeyP
     """Avoid partial backfills when the normal RPC variable is unset."""
 
     ethereum_product = make_registry_product(1)
-    monkeypatch.setattr(backfill_history_module, "fetch_asseto_products", lambda: iter([ethereum_product]))
+    monkeypatch.setattr(backfill_history_module, "fetch_asseto_registry", lambda: AssetoOffchainRegistryResult("fresh", (ethereum_product,), REGISTRY_TIMESTAMP))
     monkeypatch.delenv("JSON_RPC_ETHEREUM", raising=False)
 
     assert list(backfill_history_module.iter_selected_products()) == []
@@ -242,7 +244,7 @@ def test_iter_selected_products_honours_symbol_filter(monkeypatch: pytest.Monkey
     """Select a requested product when its chain meets all backfill requirements."""
 
     ethereum_product = make_registry_product(1)
-    monkeypatch.setattr(backfill_history_module, "fetch_asseto_products", lambda: iter([ethereum_product]))
+    monkeypatch.setattr(backfill_history_module, "fetch_asseto_registry", lambda: AssetoOffchainRegistryResult("fresh", (ethereum_product,), REGISTRY_TIMESTAMP))
     monkeypatch.setenv("PRODUCTS", "aoabt")
     monkeypatch.setenv("NETWORKS", "ethereum")
     monkeypatch.setenv("JSON_RPC_ETHEREUM", "https://ethereum-rpc.example")

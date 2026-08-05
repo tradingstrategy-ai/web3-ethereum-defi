@@ -61,11 +61,7 @@ library LighterLib {
 
     // ----- Whitelisting functions (called via delegatecall from guard) -----
 
-    function whitelistLighter(
-        address zkLighter,
-        uint16 assetIndex,
-        string calldata notes
-    ) external {
+    function whitelistLighter(address zkLighter, uint16 assetIndex, string calldata notes) external {
         LighterStorage storage s = _storage();
         s.allowedContracts[zkLighter] = true;
         s.allowedAssetIndices[assetIndex] = true;
@@ -98,26 +94,21 @@ library LighterLib {
     /// @param target The ZkLighter contract address
     /// @param callData The call payload without the selector
     /// @param anyAsset Whether all assets are allowed (skip asset-index check)
-    function validateCall(
-        bytes4 selector,
-        address target,
-        bytes calldata callData,
-        bool anyAsset
-    ) external view {
+    function validateCall(bytes4 selector, address target, bytes calldata callData, bool anyAsset) external view {
         LighterStorage storage s = _storage();
         require(s.allowedContracts[target], "Lighter contract not allowed");
         IGuardChecks guard = IGuardChecks(address(this));
 
         if (selector == SEL_LIGHTER_DEPOSIT) {
             // deposit(address _to, uint16 _assetIndex, uint8, uint256)
-            (address to, uint16 assetIndex, , ) = abi.decode(callData, (address, uint16, uint8, uint256));
+            (address to, uint16 assetIndex,,) = abi.decode(callData, (address, uint16, uint8, uint256));
             require(guard.isAllowedReceiver(to), "Lighter deposit: receiver not whitelisted");
             if (!anyAsset) {
                 require(s.allowedAssetIndices[assetIndex], "Lighter deposit: asset not allowed");
             }
         } else if (selector == SEL_LIGHTER_WITHDRAW_PENDING) {
             // withdrawPendingBalance(address _owner, uint16 _assetIndex, uint128)
-            (address owner, uint16 assetIndex, ) = abi.decode(callData, (address, uint16, uint128));
+            (address owner, uint16 assetIndex,) = abi.decode(callData, (address, uint16, uint128));
             require(guard.isAllowedReceiver(owner), "Lighter withdraw: owner not whitelisted");
             if (!anyAsset) {
                 require(s.allowedAssetIndices[assetIndex], "Lighter withdraw: asset not allowed");
@@ -140,7 +131,7 @@ library LighterLib {
             // ::test_guard_lighter_withdraw_account_index_bound_by_protocol,
             // which asserts the guard permits the call but the protocol reverts
             // with that exact error.
-            (, uint16 assetIndex, , ) = abi.decode(callData, (uint48, uint16, uint8, uint64));
+            (, uint16 assetIndex,,) = abi.decode(callData, (uint48, uint16, uint8, uint64));
             if (!anyAsset) {
                 require(s.allowedAssetIndices[assetIndex], "Lighter withdraw: asset not allowed");
             }

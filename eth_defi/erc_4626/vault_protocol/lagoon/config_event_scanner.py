@@ -113,7 +113,7 @@ GUARD_CONFIG_EVENT_NAMES: frozenset[str] = frozenset(
         "AssetApproved",
         "AssetRemoved",
         "AnyAssetSet",
-        "AnyVaultSet",
+        "AnyHypercoreVaultSet",
         "LagoonVaultApproved",
         "LagoonSettlementLimitSet",
         "LagoonSettlementCooldownSet",
@@ -325,6 +325,10 @@ class ChainGuardConfig:
     #: Per-vault Lagoon settlement safety configuration
     lagoon_settlement_limits: tuple[LagoonSettlementLimitConfig, ...] = ()
 
+    #: When True, any Hypercore native vault is allowed for CoreWriter
+    #: vaultTransfer() calls. This does not permit arbitrary ERC-20 assets.
+    any_hypercore_vault: bool = False
+
 
 @dataclass(slots=True, frozen=True)
 class MultichainGuardConfig:
@@ -357,6 +361,8 @@ class MultichainGuardConfig:
 
             if cfg.any_asset:
                 lines.append("  Any asset: enabled")
+            if cfg.any_hypercore_vault:
+                lines.append("  Any Hypercore vault: enabled")
             _section(lines, "Assets", cfg.assets)
 
             _section(lines, "Approval destinations", cfg.approval_destinations)
@@ -705,6 +711,9 @@ def format_chain_config_detailed(
 
     if cfg.any_asset:
         sections.append(("Any asset", ["ENABLED"]))
+
+    if cfg.any_hypercore_vault:
+        sections.append(("Any Hypercore vault", ["ENABLED"]))
 
     if cfg.assets:
         if web3 is not None:
@@ -1109,6 +1118,9 @@ def _format_chain_config_markdown(
 
     if cfg.any_asset:
         sections.append(("Any asset", ["ENABLED"]))
+
+    if cfg.any_hypercore_vault:
+        sections.append(("Any Hypercore vault", ["ENABLED"]))
 
     if cfg.assets:
         sections.append(("Whitelisted assets", [_token(a) for a in cfg.assets]))
@@ -2165,6 +2177,7 @@ def _build_chain_config(
     receivers: set[HexAddress] = set()
     assets: set[HexAddress] = set()
     any_asset = False
+    any_hypercore_vault = False
     approval_destinations: set[HexAddress] = set()
     withdraw_destinations: set[HexAddress] = set()
     delegation_approval_destinations: set[HexAddress] = set()
@@ -2204,6 +2217,8 @@ def _build_chain_config(
             assets.discard(args["asset"])
         elif name == "AnyAssetSet":
             any_asset = args.get("value", False)
+        elif name == "AnyHypercoreVaultSet":
+            any_hypercore_vault = args.get("value", False)
 
         # Transfer destinations
         elif name == "ApprovalDestinationApproved":
@@ -2305,6 +2320,7 @@ def _build_chain_config(
         lighter_contracts=tuple(sorted(lighter_contracts)),
         call_sites=tuple(sorted(call_sites)),
         lagoon_settlement_limits=tuple(lagoon_settlement_limits[vault] for vault in sorted(lagoon_settlement_limits)),
+        any_hypercore_vault=any_hypercore_vault,
     )
 
 

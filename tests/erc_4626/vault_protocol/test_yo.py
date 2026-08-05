@@ -9,8 +9,7 @@ from web3 import Web3
 from eth_defi.erc_4626.classification import create_vault_instance_autodetect
 from eth_defi.erc_4626.core import ERC4626Feature
 from eth_defi.erc_4626.vault_protocol.yo.vault import YoVault
-from eth_defi.provider.anvil import AnvilLaunch, fork_network_anvil
-from eth_defi.provider.multi_provider import create_multi_provider_web3
+from eth_defi.testing.anvil_fork_pool import AnvilForkPool
 from eth_defi.vault.base import VaultTechnicalRisk
 
 JSON_RPC_ETHEREUM = os.environ.get("JSON_RPC_ETHEREUM")
@@ -18,35 +17,15 @@ JSON_RPC_BASE = os.environ.get("JSON_RPC_BASE")
 
 
 @pytest.fixture(scope="module")
-def anvil_ethereum_fork(request) -> AnvilLaunch:
-    """Fork at a specific block for reproducibility."""
-    launch = fork_network_anvil(JSON_RPC_ETHEREUM, fork_block_number=24303785)
-    try:
-        yield launch
-    finally:
-        launch.close()
+def web3_ethereum(anvil_fork_pool: AnvilForkPool) -> Web3:
+    """Share the read-only Ethereum Yo fork and its warmed RPC cache."""
+    return anvil_fork_pool.get_web3(JSON_RPC_ETHEREUM, 24_303_785, web3_retries=2)
 
 
 @pytest.fixture(scope="module")
-def web3_ethereum(anvil_ethereum_fork):
-    web3 = create_multi_provider_web3(anvil_ethereum_fork.json_rpc_url, retries=2)
-    return web3
-
-
-@pytest.fixture(scope="module")
-def anvil_base_fork(request) -> AnvilLaunch:
-    """Fork at a specific block for reproducibility."""
-    launch = fork_network_anvil(JSON_RPC_BASE, fork_block_number=26953285)
-    try:
-        yield launch
-    finally:
-        launch.close()
-
-
-@pytest.fixture(scope="module")
-def web3_base(anvil_base_fork):
-    web3 = create_multi_provider_web3(anvil_base_fork.json_rpc_url, retries=2)
-    return web3
+def web3_base(anvil_fork_pool: AnvilForkPool) -> Web3:
+    """Share the read-only Base Yo fork and its warmed RPC cache."""
+    return anvil_fork_pool.get_web3(JSON_RPC_BASE, 26_953_285, web3_retries=2)
 
 
 @flaky.flaky
@@ -54,6 +33,7 @@ def web3_base(anvil_base_fork):
     JSON_RPC_ETHEREUM is None,
     reason="JSON_RPC_ETHEREUM needed to run this test",
 )
+@pytest.mark.xdist_group("fork:ethereum:24303785")
 def test_yo_vault_ethereum(web3_ethereum: Web3):
     """Read Yo vault metadata on Ethereum."""
 
@@ -90,6 +70,7 @@ def test_yo_vault_ethereum(web3_ethereum: Web3):
     JSON_RPC_BASE is None,
     reason="JSON_RPC_BASE needed to run this test",
 )
+@pytest.mark.xdist_group("fork:base:26953285")
 def test_yo_vault_base(web3_base: Web3):
     """Read Yo vault metadata on Base.
 

@@ -35,9 +35,11 @@ from eth_defi.compat import native_datetime_utc_now
 from eth_defi.erc_4626.core import ERC4262VaultDetection, ERC4626Feature
 from eth_defi.grvt.constants import GRVT_CHAIN_ID, GRVT_VAULT_FEE_MODE, GRVT_VAULT_LOCKUP
 from eth_defi.grvt.daily_metrics import GRVTDailyMetricsDatabase
+from eth_defi.perp_dex.vault import classify_perp_vault_deposit_access
 from eth_defi.vault.base import VaultHistoricalRead, VaultSpec
 from eth_defi.vault.fee import FeeData
 from eth_defi.vault.flag import VaultFlag
+from eth_defi.vault.price_source import PriceSource
 from eth_defi.vault.vaultdb import VaultDatabase, VaultRow
 
 logger = logging.getLogger(__name__)
@@ -49,9 +51,12 @@ def create_grvt_vault_row(
     name: str,
     description: str | None,
     tvl: float,
+    *,
     management_fee: float | None = None,
     performance_fee: float | None = None,
     manager_name: str | None = None,
+    discoverable: bool | None = None,
+    status: str | None = None,
 ) -> tuple[VaultSpec, VaultRow]:
     """Create a synthetic VaultRow for a GRVT native vault.
 
@@ -69,6 +74,12 @@ def create_grvt_vault_row(
     (``managementFee`` and ``performanceFee`` fields). When fees are known,
     the downstream pipeline can calculate net returns by deducting the
     externalised performance fee.
+
+    The public `GRVT strategies GraphQL API <https://edge.grvt.io/query>`__
+    supplies ``discoverable`` and ``status``. A discoverable ``active`` vault
+    exports ``permissionless``. A source-proven non-discoverable vault exports
+    the qualified native-perp ``whitelisted`` compatibility value. Missing or
+    unrecognised field combinations export ``unknown``.
 
     :param vault_id:
         Vault string ID on the GRVT platform (e.g. ``VLT:xxx``).
@@ -93,6 +104,10 @@ def create_grvt_vault_row(
         display name, so it is stored as ``_manager_name`` and used by
         :py:func:`eth_defi.vault.curator.identify_curator` for curator
         detection.  ``None`` if not available.
+    :param discoverable:
+        Whether GRVT lists the vault publicly on its strategies page.
+    :param status:
+        Current GRVT vault lifecycle status, such as ``active``.
     :return:
         Tuple of (VaultSpec, VaultRow).
     """
@@ -119,6 +134,18 @@ def create_grvt_vault_row(
         deposit=0.0,
         withdraw=0.0,
     )
+
+    normalised_status = status.strip().casefold() if status else None
+    if discoverable is False:
+        public_deposits_open = False
+        deposit_closed_reason = f"GRVT vault is not publicly discoverable (status={status or 'unknown'})"
+    elif discoverable is True and normalised_status == "active":
+        public_deposits_open = True
+        deposit_closed_reason = None
+    else:
+        public_deposits_open = None
+        deposit_closed_reason = None
+    deposit_access = classify_perp_vault_deposit_access(public_deposits_open=public_deposits_open, closed_reason=deposit_closed_reason)
 
     row: VaultRow = {
         "Symbol": (name or "")[:10],
@@ -147,10 +174,13 @@ def create_grvt_vault_row(
         "_manager_name": manager_name,
         "_available_liquidity": None,
         "_utilisation": None,
-        "_deposit_closed_reason": None,
+        "_deposit_closed_reason": deposit_closed_reason,
         "_deposit_next_open": None,
         "_redemption_closed_reason": None,
         "_redemption_next_open": None,
+        "_deposit_permission": deposit_access.permission.value,
+        "_whitelist_notes": deposit_access.whitelist_notes,
+        "_share_price_source": PriceSource.api,
     }
 
     spec = VaultSpec(chain_id=chain_id, vault_address=address)
@@ -246,6 +276,10 @@ def merge_into_vault_database(
             mgmt_fee = None
         if pd.isna(perf_fee):
             perf_fee = None
+        discoverable = row.get("discoverable")
+        discoverable = None if pd.isna(discoverable) else bool(discoverable)
+        status = row.get("status")
+        status = None if pd.isna(status) else str(status)
 
         spec, vault_row = create_grvt_vault_row(
             vault_id=row["vault_id"],
@@ -256,6 +290,8 @@ def merge_into_vault_database(
             management_fee=mgmt_fee,
             performance_fee=perf_fee,
             manager_name=row.get("manager_name"),
+            discoverable=discoverable,
+            status=status,
         )
 
         if spec in vault_db.rows:

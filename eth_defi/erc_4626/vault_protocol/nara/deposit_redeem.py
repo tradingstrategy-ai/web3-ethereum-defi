@@ -12,7 +12,16 @@ from web3.contract.contract import ContractFunction
 
 from eth_defi.abi import ZERO_ADDRESS_STR
 from eth_defi.erc_4626.deposit_redeem import ERC4626DepositManager
-from eth_defi.vault.deposit_redeem import AsyncVaultRequestStatus, RedemptionRequest, RedemptionTicket
+from eth_defi.provider.anvil import is_anvil, mine
+from eth_defi.vault.deposit_redeem import (
+    AsyncVaultRequestStatus,
+    DepositTicket,
+    RedemptionRequest,
+    RedemptionTicket,
+    UnsupportedVaultSimulation,
+    VaultForcedSettlementResult,
+    create_synchronous_settlement_result,
+)
 
 
 @dataclass(slots=True)
@@ -68,7 +77,71 @@ class NaraRedemptionRequest(RedemptionRequest):
 
 
 class NaraDepositManager(ERC4626DepositManager):
-    """NaraUSD+ manager with direct deposits and claimed cooldown redemptions."""
+    """NaraUSD+ manager with synchronous deposits and asynchronous cooldown redemptions.
+
+    NaraUSD+ is Nara's appreciating staking token for NaraUSD. Deposits mint
+    shares immediately through the standard ERC-4626 path, but redemptions are
+    asynchronous: the holder starts an owner-specific cooldown, waits for it to
+    mature, then claims the underlying NaraUSD. This manager keeps the inherited
+    synchronous deposit flow and replaces the redemption flow with a
+    two-step cooldown/claim lifecycle tracked by :class:`NaraRedemptionTicket`.
+
+    **Deposit process**
+
+    Synchronous, fully inherited. After ``approve()``,
+    :meth:`create_deposit_request` builds a single ERC-4626 ``deposit`` call and
+    :meth:`estimate_deposit` uses the standard ``previewDeposit`` path.
+    :meth:`can_create_deposit_request` gates on ``maxDeposit(owner) > 0``.
+
+    **Redemption process**
+
+    Asynchronous, two-step. :meth:`create_redemption_request` does *not* build a
+    ``redeem`` / ``withdraw`` call — it builds a single ``cooldownShares(raw_shares)``
+    call that escrows the shares and starts the owner's cooldown, returning a
+    :class:`NaraRedemptionRequest`. After the request confirms,
+    :meth:`NaraRedemptionRequest.parse_redeem_transaction` reads the vault's
+    ``cooldowns(owner)`` state to build a persistable ticket. Once the cooldown
+    matures, :meth:`finish_redemption` builds the ``unstake(to)`` claim that
+    sends NaraUSD to the receiver. :meth:`has_synchronous_redemption` returns
+    ``False``. The receiver may differ from the owner but cannot be the zero
+    address.
+
+    **Queues and settlement**
+
+    Per-owner cooldown state rather than a numbered queue: the vault keeps at
+    most one active cooldown per owner and assigns no request id, so the ticket
+    is identified by the request transaction hash together with the observed
+    ``cooldown_end`` and escrowed ``raw_assets``. Attempting a second cooldown
+    while one is active raises. :meth:`get_redemption_request_status` maps live
+    ``cooldowns()`` state plus the latest block timestamp to ``pending``,
+    ``claimable`` or ``none`` (the last also covering a claimed, removed or
+    superseded cooldown).
+
+    **Lockups and cooldowns**
+
+    Deposits have no lockup. Redemptions carry the live cooldown read from
+    ``cooldownDuration()``: :meth:`estimate_redemption_delay` returns it, and
+    :meth:`NaraVault.get_estimated_lock_up` reports the same value (currently
+    seven days on Ethereum). :meth:`get_redemption_delay_over` returns the
+    per-owner cooldown expiry when one exists.
+
+    **Whitelisting / access control**
+
+    Permissionless. No NaraUSD+-specific whitelist is applied beyond the
+    inherited :meth:`check_deposit_whitelist` preflight;
+    :meth:`can_create_redemption_request` simply requires a positive share
+    balance and no cooldown already in progress.
+
+    **Anvil settlement (force_settle)**
+
+    Deposits settle in their originating transaction. Redemption settlement is
+    time-based, not keeper-based: :meth:`force_settle` advances an Anvil chain
+    to the ticket's ``cooldown_end`` and returns a hashless pending-to-claimable
+    result. It never broadcasts ``unstake``; callers must submit the guarded
+    :meth:`finish_redemption` claim themselves. A supplied local mock is
+    accepted only when it is the same deployed contract as this manager's
+    vault, preventing it from advancing an unrelated production ticket.
+    """
 
     def create_redemption_request(
         self,
@@ -141,6 +214,108 @@ class NaraDepositManager(ERC4626DepositManager):
             ``True`` when the vault records a non-zero cooldown deadline.
         """
         return self.get_redemption_delay_over(owner) is not None
+
+    def force_settle(
+        self,
+        ticket: DepositTicket | RedemptionTicket | None,
+        *,
+        mock: object | None = None,
+        ignore_liquidity: bool = False,
+    ) -> VaultForcedSettlementResult:
+        """Advance an Anvil Nara cooldown to the ticket's claimable deadline.
+
+        Nara has no keeper or operator settlement transaction. Advancing the
+        local Anvil clock is the complete settlement boundary, so the result
+        intentionally contains no transaction hashes. The later ``unstake``
+        call remains a manager-owned guarded claim.
+
+        :param ticket:
+            A pending :class:`NaraRedemptionTicket`, or ``None`` for the
+            synchronous deposit no-op.
+        :param mock:
+            Optional local ``MockNaraVault`` bound to this exact manager vault.
+            It is an identity guard only: Nara settlement is time-based and
+            never calls an operator method on the supplied object.
+        :param ignore_liquidity:
+            Unsupported because a Nara cooldown is a time gate, not a
+            redemption-liquidity gate.
+        :return:
+            A synchronous no-op or a pending-to-claimable, hashless cooldown
+            settlement result.
+        :raise UnsupportedVaultSimulation:
+            If this is not Anvil, the mock is unrelated, the ticket is not a
+            live Nara cooldown, or advancing time does not make it claimable.
+        """
+        if ignore_liquidity:
+            return super().force_settle(ticket, mock=mock, ignore_liquidity=True)
+
+        if not is_anvil(self.web3):
+            raise UnsupportedVaultSimulation(
+                "NaraDepositManager.force_settle() requires an Anvil provider",
+                unsupported_reason="anvil_provider_required",
+                protocol=self.vault.get_protocol_name(),
+                vault_address=self.vault.address,
+                direction="redeem" if ticket is not None else None,
+            )
+
+        if mock is not None:
+            mock_address = getattr(mock, "address", None)
+            if mock_address is None or Web3.to_checksum_address(mock_address) != Web3.to_checksum_address(self.vault.address):
+                raise UnsupportedVaultSimulation(
+                    "Nara mock settlement must use the manager's exact vault contract",
+                    unsupported_reason="mock_settlement_vault_mismatch",
+                    protocol=self.vault.get_protocol_name(),
+                    vault_address=self.vault.address,
+                    direction="redeem" if ticket is not None else None,
+                )
+
+        if ticket is None:
+            return create_synchronous_settlement_result()
+
+        if not isinstance(ticket, NaraRedemptionTicket):
+            raise UnsupportedVaultSimulation(
+                f"Nara force_settle requires NaraRedemptionTicket, got {type(ticket)}",
+                unsupported_reason="nara_redemption_ticket_required",
+                protocol=self.vault.get_protocol_name(),
+                vault_address=self.vault.address,
+                direction="redeem",
+            )
+
+        status_before = self.get_redemption_request_status(ticket)
+        if status_before == AsyncVaultRequestStatus.none:
+            raise UnsupportedVaultSimulation(
+                f"Nara cooldown ticket {ticket.get_request_id()} is no longer active",
+                unsupported_reason="nara_cooldown_ticket_not_active",
+                protocol=self.vault.get_protocol_name(),
+                vault_address=self.vault.address,
+                direction="redeem",
+            )
+        if status_before == AsyncVaultRequestStatus.claimable:
+            return VaultForcedSettlementResult(
+                ticket=ticket,
+                settlement_required=False,
+                status_before=status_before,
+                status_after=status_before,
+            )
+
+        cooldown_timestamp = int(ticket.cooldown_end.replace(tzinfo=datetime.UTC).timestamp())
+        mine(self.web3, timestamp=cooldown_timestamp)
+        status_after = self.get_redemption_request_status(ticket)
+        if status_after != AsyncVaultRequestStatus.claimable:
+            raise UnsupportedVaultSimulation(
+                f"Nara cooldown ticket {ticket.get_request_id()} did not become claimable after advancing to {cooldown_timestamp}",
+                unsupported_reason="nara_cooldown_not_claimable_after_time_advance",
+                protocol=self.vault.get_protocol_name(),
+                vault_address=self.vault.address,
+                direction="redeem",
+            )
+
+        return VaultForcedSettlementResult(
+            ticket=ticket,
+            settlement_required=True,
+            status_before=status_before,
+            status_after=status_after,
+        )
 
     def can_create_deposit_request(self, owner: HexAddress) -> bool:
         """Check NaraUSD+'s current ERC-4626 deposit maximum.

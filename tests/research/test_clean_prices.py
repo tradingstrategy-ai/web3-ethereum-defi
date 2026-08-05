@@ -299,6 +299,27 @@ def test_remove_inactive_lead_time_with_duplicate_timestamps():
     assert duplicate_activation.index.duplicated().any()
 
 
+def test_remove_inactive_lead_time_with_nullable_pyarrow_supply():
+    """Ignore missing supply readings when locating the first supply change.
+
+    ``generate_cleaned_vault_datasets()`` loads raw Parquet with
+    ``dtype_backend="pyarrow"``. A missing supply therefore becomes
+    ``pd.NA`` rather than ``numpy.nan``. The mask must remain usable even
+    when the missing reading follows the first detected supply change.
+    """
+    df = pd.DataFrame(
+        {
+            "id": ["nullable-supply-vault"] * 5,
+            "total_supply": pd.array([100, 0, None, 0, 200], dtype="float64[pyarrow]"),
+            "timestamp": pd.date_range("2026-07-01", periods=5, freq="h"),
+        }
+    ).set_index("timestamp")
+
+    result = remove_inactive_lead_time(df, logger=lambda _: None)
+
+    assert result["total_supply"].tolist() == [0.0, pd.NA, 0.0, 200.0]
+
+
 def test_approximate_hypercore_share_prices_from_pnl_nav() -> None:
     """PnL changes drive the clean index while capital flows leave it flat."""
     prices_df = pd.DataFrame(
@@ -1144,3 +1165,36 @@ def test_fix_outlier_ipor_tau_yield_bond_spike():
     normal_rows = result[(result["block_number"] != 24700201)]
     changed = normal_rows[normal_rows["share_price"] != normal_rows["raw_share_price"]]
     assert len(changed) == 0, f"Expected no changes to normal rows, but {len(changed)} rows were modified"
+
+
+def test_fix_outlier_share_prices_with_duplicate_timestamps():
+    """Clean an outlier without treating a repeated timestamp as multiple rows.
+
+    Modern chains can emit several block observations in one second. The
+    cleaner must select the abnormal observation by its row position, because
+    label-based ``loc[]`` access returns every row sharing that timestamp.
+    """
+    df = pd.DataFrame(
+        {
+            "id": ["duplicate-timestamp-vault"] * 5,
+            "block_number": [1, 2, 3, 4, 5],
+            "share_price": [1.0, 1.0, 10.0, 1.0, 1.0],
+        },
+        index=pd.to_datetime(
+            [
+                "2026-07-01 00:00:00",
+                "2026-07-01 01:00:00",
+                "2026-07-01 01:00:00",
+                "2026-07-01 02:00:00",
+                "2026-07-01 03:00:00",
+            ]
+        ),
+    )
+
+    result = fix_outlier_share_prices(df, logger=lambda _: None, look_back_hours=1, look_ahead_hours=1)
+
+    spike = result[result["block_number"] == 3].iloc[0]
+    assert spike["raw_share_price"] == 10.0
+    assert spike["share_price"] == 1.0
+    assert len(result) == len(df)
+    assert result.index.duplicated().any()

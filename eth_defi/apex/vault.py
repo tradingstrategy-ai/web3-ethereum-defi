@@ -5,6 +5,12 @@ The public endpoints are:
 - `Vault ranking <https://omni.apex.exchange/api/v3/vault/ranking>`__
 - `Vault fund net values
   <https://omni.apex.exchange/api/v3/vault/fund-net-values>`__
+- `Vault configuration
+  <https://omni.apex.exchange/api/v3/vault/vault-config>`__
+- `Official vaults
+  <https://omni.apex.exchange/api/v3/vault/official-vaults>`__
+- `Official vault batch fund net values
+  <https://omni.apex.exchange/api/v3/vault/fund-net-value-batch>`__
 
 The history endpoint was verified on 2026-07-23 to return one unpaginated
 ``data.timeValue`` array with no completeness token or range parameters.
@@ -26,6 +32,8 @@ from eth_defi.apex.constants import (
     APEX_DEFAULT_HISTORY_DEADLINE,
     APEX_DEFAULT_RANKING_ATTEMPTS,
     APEX_DEFAULT_RANKING_DEADLINE,
+    APEX_FUND_NET_VALUE_BATCH_PATH,
+    APEX_OFFICIAL_VAULTS_PATH,
     APEX_RANKING_PAGE_SIZE,
 )
 from eth_defi.apex.session import ApexAPIError, ApexSessionPool
@@ -172,6 +180,34 @@ class ApexVaultSummary:
 
 
 @dataclass(slots=True, frozen=True)
+class ApexVaultConfiguration:
+    """Redemption configuration returned for one ApeX vault.
+
+    ApeX calls the period during which a freshly subscribed share cannot be
+    redeemed ``freezePurchaseShareDuration``. It is a per-vault configuration
+    value, distinct from a user's pending redemption order. ApeX's official
+    liquidity-provider vaults are a separate source path and have no lock-up:
+    its `Protocol Vault
+    announcement <https://www.apex.exchange/blog/detail/Introducing-Protocol-Vaults-on-ApeX-Omni-Stable-Returns-Backed-by-Real-Fees>`__
+    states this explicitly. Therefore the public configuration endpoint is the
+    canonical source for each ranked vault's delay.
+    """
+
+    #: Time between subscription and the earliest permitted redemption.
+    #:
+    #: Source: `ApeX vault configuration endpoint
+    #: <https://omni.apex.exchange/api/v3/vault/vault-config>`__ response
+    #: field ``data.vaultConfig.freezePurchaseShareDuration``, in
+    #: milliseconds. Verified against the live ApeX application API on
+    #: 2026-08-01.
+    #:
+    #: Official liquidity-provider vaults have no lock-up according to ApeX's
+    #: Protocol Vault announcement. Do not infer a ranked-vault delay from
+    #: ``vault_type``; use this per-vault source field when it is present.
+    redemption_delay: datetime.timedelta
+
+
+@dataclass(slots=True, frozen=True)
 class ApexHistoryPoint:
     """One native ApeX historical vault value."""
 
@@ -230,7 +266,7 @@ def parse_vault_summary(raw: object) -> ApexVaultSummary:
         name=str(raw.get("name") or ""),
         description=str(raw.get("desc") or ""),
         status=str(raw.get("status") or ""),
-        vault_type=str(raw.get("collectVaultType") or ""),
+        vault_type=str(raw.get("collectVaultType") or raw.get("type") or ""),
         share_price=_parse_float(raw.get("vaultNetValue"), "vaultNetValue"),
         tvl=_parse_float(raw.get("tvl"), "tvl"),
         share_count=_parse_float(raw.get("share"), "share"),
@@ -264,20 +300,95 @@ def parse_ranking_page(payload: object) -> ApexRankingPage:
     return ApexRankingPage(total_size=total_size, vaults=tuple(parse_vault_summary(item) for item in vault_list))
 
 
-def parse_history(payload: object) -> tuple[ApexHistoryPoint, ...]:
-    """Parse, canonicalise and order one unpaginated history response.
+def _parse_millisecond_duration(value: object, field_name: str) -> datetime.timedelta:
+    """Parse an ApeX non-negative integer millisecond duration.
 
-    Equivalent duplicate timestamps collapse to one point. Conflicting values
-    at one timestamp reject the complete response so no ambiguous history is
-    staged.
+    ApeX serialises ``freezePurchaseShareDuration`` as a JSON string. A zero
+    duration is valid and means that subscriptions have no redemption delay.
+
+    :param value:
+        Untrusted source duration.
+    :param field_name:
+        Source field name for diagnostics.
+    :return:
+        Exact duration represented by the source milliseconds.
+    """
+    if isinstance(value, bool):
+        raise ApexAPIError(f"ApeX field {field_name} is not an integer millisecond duration: {value!r}")
+    if isinstance(value, float) and not value.is_integer():
+        raise ApexAPIError(f"ApeX field {field_name} is not an integer millisecond duration: {value!r}")
+    try:
+        milliseconds = int(value)
+    except (TypeError, ValueError, OverflowError) as exc:
+        raise ApexAPIError(f"ApeX field {field_name} is not an integer millisecond duration: {value!r}") from exc
+    if milliseconds < 0:
+        raise ApexAPIError(f"ApeX field {field_name} is negative: {value!r}")
+    try:
+        return datetime.timedelta(milliseconds=milliseconds)
+    except OverflowError as exc:
+        raise ApexAPIError(f"ApeX field {field_name} is outside the supported duration range: {value!r}") from exc
+
+
+def parse_vault_configuration(payload: object) -> ApexVaultConfiguration:
+    """Parse the public configuration for one vault's redemption delay.
+
+    The public ``vault/vault-config`` endpoint gives the exact lock period in
+    milliseconds. ApeX's application describes shares as non-redeemable until
+    this period after subscription has elapsed. ApeX's official
+    liquidity-provider vaults are excluded: its `Protocol Vault announcement
+    <https://www.apex.exchange/blog/detail/Introducing-Protocol-Vaults-on-ApeX-Omni-Stable-Returns-Backed-by-Real-Fees>`__
+    says its Protocol Vaults have no lock-up.
 
     :param payload:
-        Decoded JSON response.
+        Decoded vault-configuration response.
+    :return:
+        Typed redemption-delay configuration.
+    """
+    data = _parse_envelope(payload)
+    config = data.get("vaultConfig")
+    if not isinstance(config, dict):
+        raise ApexAPIError("ApeX vault configuration data.vaultConfig must be an object")
+    # Read the canonical ranked-vault API field; never infer a delay from vault type.
+    return ApexVaultConfiguration(
+        redemption_delay=_parse_millisecond_duration(config.get("freezePurchaseShareDuration"), "freezePurchaseShareDuration"),
+    )
+
+
+def parse_official_vaults(payload: object) -> tuple[ApexVaultSummary, ...]:
+    """Parse the complete official ApeX liquidity-provider vault listing.
+
+    This separate endpoint is not part of the user-vault ranking. Its entries
+    share the same fields, except that their raw collection type is named
+    ``type`` rather than ``collectVaultType``.
+
+    :param payload:
+        Decoded JSON response from ``/vault/official-vaults``.
+    :return:
+        Complete official-vault records in source order.
+    """
+    page = parse_ranking_page(payload)
+    identifiers = [vault.vault_id for vault in page.vaults]
+    duplicates = sorted(vault_id for vault_id, count in Counter(identifiers).items() if count > 1)
+    if duplicates:
+        raise ApexAPIError(f"ApeX official vaults contain duplicate vault IDs: {duplicates}")
+    # ``official-vaults`` is not paginated. ApeX currently returns
+    # ``totalSize=0`` even when ``vaultList`` contains the complete listing,
+    # so unlike the paginated ranking endpoint this field is not a membership
+    # completeness invariant.
+    return page.vaults
+
+
+def _parse_history_points(time_values: object) -> tuple[ApexHistoryPoint, ...]:
+    """Parse and canonicalise one raw ApeX ``timeValue`` array.
+
+    The standard and official batch history endpoints use the same point
+    format, so validation lives here to prevent the two read paths drifting.
+
+    :param time_values:
+        Untrusted source history array.
     :return:
         Timestamp-ordered immutable history points.
     """
-    data = _parse_envelope(payload)
-    time_values = data.get("timeValue")
     if not isinstance(time_values, list):
         raise ApexAPIError("ApeX history data.timeValue must be an array")
     points: dict[datetime.datetime, ApexHistoryPoint] = {}
@@ -297,6 +408,62 @@ def parse_history(payload: object) -> tuple[ApexHistoryPoint, ...]:
             raise ApexAPIError(f"ApeX history contains conflicting values at {timestamp.isoformat()}")
         points[timestamp] = point
     return tuple(points[timestamp] for timestamp in sorted(points))
+
+
+def parse_history(payload: object) -> tuple[ApexHistoryPoint, ...]:
+    """Parse, canonicalise and order one unpaginated history response.
+
+    Equivalent duplicate timestamps collapse to one point. Conflicting values
+    at one timestamp reject the complete response so no ambiguous history is
+    staged.
+
+    :param payload:
+        Decoded JSON response.
+    :return:
+        Timestamp-ordered immutable history points.
+    """
+    data = _parse_envelope(payload)
+    return _parse_history_points(data.get("timeValue"))
+
+
+def parse_official_vault_histories(payload: object, vault_ids: tuple[str, ...]) -> dict[str, tuple[ApexHistoryPoint, ...]]:
+    """Parse a complete official-vault batch-history response.
+
+    Every requested ID must appear exactly once. Treating an omitted official
+    vault as an empty history would incorrectly mark a partial API response as
+    a successful maintenance run.
+
+    :param payload:
+        Decoded JSON response from ``/vault/fund-net-value-batch``.
+    :param vault_ids:
+        Non-empty, unique official vault IDs requested from the endpoint.
+    :return:
+        Parsed histories keyed by requested vault ID.
+    """
+    if not vault_ids or len(set(vault_ids)) != len(vault_ids):
+        raise ValueError("ApeX official history vault IDs must be non-empty and unique")
+    data = _parse_envelope(payload)
+    batch = data.get("timeValueBatch")
+    if not isinstance(batch, list):
+        raise ApexAPIError("ApeX official history data.timeValueBatch must be an array")
+    expected = set(vault_ids)
+    parsed: dict[str, tuple[ApexHistoryPoint, ...]] = {}
+    for raw in batch:
+        if not isinstance(raw, dict):
+            raise ApexAPIError("ApeX official history batch entry must be an object")
+        raw_vault_id = raw.get("vaultId")
+        if isinstance(raw_vault_id, bool) or not isinstance(raw_vault_id, (str, int)):
+            raise ApexAPIError("ApeX official history vaultId must be a string or integer")
+        vault_id = str(raw_vault_id).strip()
+        if vault_id not in expected:
+            raise ApexAPIError(f"ApeX official history returned an unrequested vault ID: {vault_id}")
+        if vault_id in parsed:
+            raise ApexAPIError(f"ApeX official history returned duplicate vault ID: {vault_id}")
+        parsed[vault_id] = _parse_history_points(raw.get("timeValue"))
+    missing = sorted(expected - set(parsed))
+    if missing:
+        raise ApexAPIError(f"ApeX official history omitted requested vault IDs: {missing}")
+    return parsed
 
 
 def fetch_ranking_page(
@@ -443,4 +610,90 @@ def fetch_vault_history(
         params={"vaultId": vault_id},
         operation_deadline=time.monotonic() + operation_timeout,
         validator=parse_history,
+    )
+
+
+def fetch_vault_configuration(
+    session_pool: ApexSessionPool,
+    vault_id: str,
+    *,
+    operation_timeout: float = APEX_DEFAULT_HISTORY_DEADLINE,
+) -> ApexVaultConfiguration:
+    """Fetch one vault's public subscription redemption delay.
+
+    The configuration endpoint is public but undocumented in ApeX's OpenAPI
+    specification. It contains the precise per-vault subscription freeze
+    duration in milliseconds.
+
+    :param session_pool:
+        Configured bounded ApeX session pool.
+    :param vault_id:
+        Non-empty ApeX platform vault ID.
+    :param operation_timeout:
+        Monotonic operation budget shared by all HTTP attempts.
+    :return:
+        Parsed public vault configuration.
+    """
+    if not vault_id:
+        raise ValueError("ApeX vault ID is required")
+    if operation_timeout <= 0:
+        raise ValueError("ApeX vault configuration timeout must be positive")
+    return session_pool.fetch_json(
+        "vault/vault-config",
+        params={"vaultId": vault_id},
+        operation_deadline=time.monotonic() + operation_timeout,
+        validator=parse_vault_configuration,
+    )
+
+
+def fetch_official_vaults(
+    session_pool: ApexSessionPool,
+    *,
+    operation_timeout: float = APEX_DEFAULT_RANKING_DEADLINE,
+) -> tuple[ApexVaultSummary, ...]:
+    """Fetch the complete ApeX official liquidity-provider vault listing.
+
+    :param session_pool:
+        Configured bounded ApeX session pool.
+    :param operation_timeout:
+        Monotonic operation budget shared by HTTP attempts.
+    :return:
+        Complete official vault records.
+    """
+    if operation_timeout <= 0:
+        raise ValueError("ApeX official vault timeout must be positive")
+    return session_pool.fetch_json(
+        APEX_OFFICIAL_VAULTS_PATH,
+        params={},
+        operation_deadline=time.monotonic() + operation_timeout,
+        validator=parse_official_vaults,
+    )
+
+
+def fetch_official_vault_histories(
+    session_pool: ApexSessionPool,
+    vault_ids: tuple[str, ...],
+    *,
+    operation_timeout: float = APEX_DEFAULT_HISTORY_DEADLINE,
+) -> dict[str, tuple[ApexHistoryPoint, ...]]:
+    """Fetch recoverable history for official ApeX vaults in one batch.
+
+    :param session_pool:
+        Configured bounded ApeX session pool.
+    :param vault_ids:
+        Non-empty, unique official vault IDs.
+    :param operation_timeout:
+        Monotonic operation budget shared by HTTP attempts.
+    :return:
+        Parsed histories keyed by official vault ID.
+    """
+    if not vault_ids or len(set(vault_ids)) != len(vault_ids):
+        raise ValueError("ApeX official history vault IDs must be non-empty and unique")
+    if operation_timeout <= 0:
+        raise ValueError("ApeX official history timeout must be positive")
+    return session_pool.fetch_json(
+        APEX_FUND_NET_VALUE_BATCH_PATH,
+        params={"vaultIds": ",".join(vault_ids)},
+        operation_deadline=time.monotonic() + operation_timeout,
+        validator=lambda payload: parse_official_vault_histories(payload, vault_ids),
     )

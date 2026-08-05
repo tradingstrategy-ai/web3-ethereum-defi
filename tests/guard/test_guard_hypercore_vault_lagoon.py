@@ -1,6 +1,7 @@
-"""Lagoon vault + Hypercore CoreWriter integration test on HyperEVM fork.
+"""Lagoon vault + Hypercore CoreWriter integration test on a fixed HyperEVM fork.
 
-- Deploys a full Lagoon vault with TradingStrategyModuleV0 on a HyperEVM Anvil fork
+- Reuses the shared ``HYPERLIQUID_MIDNIGHT_BLOCK`` Anvil fork and committed RPC trace cache
+- Deploys a full Lagoon vault with TradingStrategyModuleV0 on the fork
 - Sets up Hypercore CoreWriter whitelisting on the guard
 - Uses MockCoreWriter and MockCoreDepositWallet via anvil_setCode
   (real CoreWriter precompiles do not work in Anvil forks)
@@ -10,9 +11,10 @@
 Requires JSON_RPC_HYPERLIQUID environment variable.
 """
 
-import logging
 import os
+from collections.abc import Iterator
 
+import flaky
 import pytest
 from eth_abi import decode
 from eth_account import Account
@@ -23,6 +25,7 @@ from web3.contract import Contract
 
 from eth_defi.abi import encode_function_call
 from eth_defi.erc_4626.vault_protocol.lagoon.deployment import (
+    HYPERCORE_MULTICALL_CHUNK_SIZE,
     LagoonAutomatedDeployment,
     LagoonConfig,
     LagoonDeploymentParameters,
@@ -33,13 +36,13 @@ from eth_defi.hyperliquid.core_writer import (
     CORE_DEPOSIT_WALLET,
     CORE_WRITER_ADDRESS,
     SPOT_DEX,
-    USDC_TOKEN_INDEX,
     USDC_SYSTEM_ADDRESS,
+    USDC_TOKEN_INDEX,
     build_hypercore_approve_deposit_wallet_call,
-    build_hypercore_deposit_to_vault_call,
     build_hypercore_deposit_for_spot_call,
     build_hypercore_deposit_multicall,
     build_hypercore_deposit_to_spot_call,
+    build_hypercore_deposit_to_vault_call,
     build_hypercore_send_asset_to_evm_call,
     build_hypercore_transfer_usd_class_call,
     build_hypercore_withdraw_from_vault_call,
@@ -51,38 +54,45 @@ from eth_defi.hyperliquid.testing import (
     deploy_mock_core_deposit_wallet,
     deploy_mock_core_writer,
 )
+from eth_defi.hyperliquid.block import HYPEREVM_FAST_BLOCK_GAS_LIMIT
 from eth_defi.provider.anvil import (
     ANVIL_OWNER_1,
     ANVIL_OWNER_2,
     AnvilLaunch,
-    AnvilSnapshotState,
-    create_anvil_snapshot_state,
-    fork_network_anvil,
     fund_erc20_on_anvil,
-    reset_anvil_snapshot,
 )
-from eth_defi.provider.broken_provider import get_almost_latest_block_number
 from eth_defi.provider.multi_provider import create_multi_provider_web3
-from eth_defi.token import USDC_NATIVE_TOKEN, fetch_erc20_details, TokenDetails
+from eth_defi.testing.anvil_fork_pool import AnvilForkPool
+from eth_defi.testing.evm_snapshot_fixture import evm_snapshot_revert
+from eth_defi.testing.fork_blocks import HYPERLIQUID_MIDNIGHT_BLOCK
+from eth_defi.token import USDC_NATIVE_TOKEN, TokenDetails, fetch_erc20_details
 from eth_defi.trace import (
-    assert_transaction_success_with_explanation,
     TransactionAssertionError,
+    assert_transaction_success_with_explanation,
 )
-
-logger = logging.getLogger(__name__)
 
 JSON_RPC_HYPERLIQUID = os.environ.get("JSON_RPC_HYPERLIQUID")
 
-pytestmark = pytest.mark.skipif(
-    not JSON_RPC_HYPERLIQUID,
-    reason="JSON_RPC_HYPERLIQUID environment variable required",
-)
+pytestmark = [
+    pytest.mark.skipif(
+        not JSON_RPC_HYPERLIQUID,
+        reason="JSON_RPC_HYPERLIQUID environment variable required",
+    ),
+    # Co-locate all canonical Hyperliquid fork users on one xdist worker.
+    pytest.mark.xdist_group("fork:hyperliquid:midnight"),
+]
 
 #: Anvil default account #0 private key
 DEPLOYER_PRIVATE_KEY = "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
 
 #: Test vault address (arbitrary, just needs to be whitelisted)
 TEST_HYPERCORE_VAULT = HexAddress(HexStr("0x1111111111111111111111111111111111111111"))
+
+#: More than one Hypercore guard batch, including the vault used for deposits.
+HYPERCORE_VAULTS_FOR_BATCH_TEST = [
+    TEST_HYPERCORE_VAULT,
+    *[HexAddress(HexStr(f"0x{vault_id:040x}")) for vault_id in range(1, HYPERCORE_MULTICALL_CHUNK_SIZE + 1)],
+]
 
 #: HyperEVM USDC address
 USDC_ADDRESS = USDC_NATIVE_TOKEN[999]
@@ -104,29 +114,18 @@ def deployer() -> LocalAccount:
 
 
 @pytest.fixture(scope="module")
-def anvil_hyperliquid() -> AnvilLaunch:
-    """Fork HyperEVM mainnet with large block gas limit.
+def anvil_hyperliquid(anvil_fork_pool: AnvilForkPool) -> AnvilLaunch:
+    """Get the shared fixed-block HyperEVM fork with a large block gas limit.
 
-    Uses an explicit fork block a few blocks behind the tip to avoid
-    transient "Unknown block" errors from the HyperEVM RPC.
+    The session pool owns the Anvil process lifecycle and closes it gracefully,
+    allowing Foundry to flush the canonical midnight-block RPC trace cache.
     """
-    # HyperEVM RPC sporadically returns "Unknown block" for the chain tip.
-    # Pin the fork to a slightly older block to work around this.
-    rpc_url = JSON_RPC_HYPERLIQUID.split()[0] if " " in JSON_RPC_HYPERLIQUID else JSON_RPC_HYPERLIQUID
-    w3 = Web3(Web3.HTTPProvider(rpc_url))
-    w3.block_tip_latency = 4
-    fork_block = get_almost_latest_block_number(w3)
-
-    launch = fork_network_anvil(
+    assert JSON_RPC_HYPERLIQUID, "JSON_RPC_HYPERLIQUID not set"
+    return anvil_fork_pool.get_launch(
         JSON_RPC_HYPERLIQUID,
+        fork_block_number=HYPERLIQUID_MIDNIGHT_BLOCK,
         gas_limit=30_000_000,
-        fork_block_number=fork_block,
-        archive=False,
     )
-    try:
-        yield launch
-    finally:
-        launch.close(log_level=logging.ERROR)
 
 
 @pytest.fixture(scope="module")
@@ -137,6 +136,65 @@ def web3(anvil_hyperliquid):
     )
     assert web3.eth.chain_id == 999
     return web3
+
+
+@pytest.fixture(scope="module")
+def dynamic_anvil_hyperliquid(anvil_fork_pool: AnvilForkPool) -> AnvilLaunch:
+    """Get an isolated pooled fork for the second full Lagoon deployment.
+
+    Enabling step tracing gives this deployment stress test its own pool key
+    and fresh Anvil process. This avoids running another large deployment after
+    the baseline process has completed several snapshot/revert cycles, while
+    retaining the fixed block, xdist group and graceful cache flush.
+    """
+    assert JSON_RPC_HYPERLIQUID, "JSON_RPC_HYPERLIQUID not set"
+    return anvil_fork_pool.get_launch(
+        JSON_RPC_HYPERLIQUID,
+        fork_block_number=HYPERLIQUID_MIDNIGHT_BLOCK,
+        gas_limit=30_000_000,
+        steps_tracing=True,
+    )
+
+
+@pytest.fixture(scope="module")
+def dynamic_web3(dynamic_anvil_hyperliquid: AnvilLaunch) -> Web3:
+    """Create a Web3 connection to the isolated deployment stress-test fork."""
+    web3 = create_multi_provider_web3(
+        dynamic_anvil_hyperliquid.json_rpc_url,
+        default_http_timeout=(3, 500.0),
+    )
+    assert web3.eth.chain_id == 999
+    return web3
+
+
+@pytest.fixture(scope="module")
+def dynamic_usdc(dynamic_web3: Web3) -> TokenDetails:
+    """Get HyperEVM USDC details on the isolated deployment fork."""
+    return fetch_erc20_details(dynamic_web3, USDC_ADDRESS)
+
+
+@pytest.fixture(scope="module")
+def dynamic_mock_core_writer(dynamic_web3: Web3) -> Contract:
+    """Deploy MockCoreWriter on the isolated deployment fork."""
+    return deploy_mock_core_writer(dynamic_web3)
+
+
+@pytest.fixture(scope="module")
+def dynamic_mock_core_deposit_wallet(dynamic_web3: Web3) -> Contract:
+    """Deploy MockCoreDepositWallet on the isolated deployment fork."""
+    return deploy_mock_core_deposit_wallet(dynamic_web3)
+
+
+@pytest.fixture()
+def _restore_dynamic_hypercore_state(
+    dynamic_anvil_hyperliquid: AnvilLaunch,
+    dynamic_mock_core_writer: Contract,
+    dynamic_mock_core_deposit_wallet: Contract,
+) -> Iterator[None]:
+    """Revert the isolated deployment stress-test fork on teardown."""
+    assert dynamic_mock_core_writer.address == Web3.to_checksum_address(CORE_WRITER_ADDRESS)
+    assert dynamic_mock_core_deposit_wallet.address == Web3.to_checksum_address(CORE_DEPOSIT_WALLET[999])
+    yield from evm_snapshot_revert(dynamic_anvil_hyperliquid)
 
 
 @pytest.fixture(scope="module")
@@ -179,7 +237,7 @@ def lagoon_deployment(
         asset_managers=[deployer.address],
         safe_owners=[ANVIL_OWNER_1, ANVIL_OWNER_2],
         safe_threshold=2,
-        any_asset=True,
+        hypercore_vaults=HYPERCORE_VAULTS_FOR_BATCH_TEST,
         safe_salt_nonce=42,
     )
 
@@ -193,62 +251,70 @@ def lagoon_deployment(
     assert deploy_info.safe is not None
     assert deploy_info.trading_strategy_module is not None
 
-    # Set up Hypercore whitelisting on the guard.
-    # After deploy_automated_lagoon_vault(), ownership has been transferred
-    # to the Safe, so we impersonate the Safe to call onlyGuardOwner functions.
+    # setup_guard() must install the entire explicit Hypercore policy as part
+    # of the full Lagoon/Safe/module deployment rather than relying on manual
+    # post-deployment configuration.
     module = deploy_info.trading_strategy_module
-    safe_address = deploy_info.safe.address
-
-    web3.provider.make_request("anvil_impersonateAccount", [safe_address])
-    web3.provider.make_request("anvil_setBalance", [safe_address, hex(10 * 10**18)])
-
-    tx_hash = module.functions.whitelistCoreWriter(
-        Web3.to_checksum_address(CORE_WRITER_ADDRESS),
-        Web3.to_checksum_address(CORE_DEPOSIT_WALLET[999]),
-        "Hypercore vault trading",
-    ).transact({"from": safe_address})
-    assert_transaction_success_with_explanation(web3, tx_hash)
-
-    tx_hash = module.functions.whitelistHypercoreVault(
-        Web3.to_checksum_address(TEST_HYPERCORE_VAULT),
-        "Test Hypercore vault",
-    ).transact({"from": safe_address})
-    assert_transaction_success_with_explanation(web3, tx_hash)
-
-    # Whitelist USDC token for approve calls
-    tx_hash = module.functions.whitelistToken(
-        Web3.to_checksum_address(USDC_ADDRESS),
-        "USDC for Hypercore bridging",
-    ).transact({"from": safe_address})
-    assert_transaction_success_with_explanation(web3, tx_hash)
-
-    web3.provider.make_request("anvil_stopImpersonatingAccount", [safe_address])
+    assert not module.functions.anyAsset().call()
+    assert not module.functions.anyHypercoreVault().call()
+    assert module.functions.isAllowedAsset(USDC_ADDRESS).call()
+    assert module.functions.isAllowedApprovalDestination(CORE_DEPOSIT_WALLET[999]).call()
 
     return deploy_info
 
 
-@pytest.fixture(scope="module")
-def hypercore_lagoon_state(
-    web3: Web3,
+@pytest.fixture()
+def _restore_hypercore_lagoon_state(
+    anvil_hyperliquid: AnvilLaunch,
     lagoon_deployment: LagoonAutomatedDeployment,
-) -> AnvilSnapshotState:
-    """Save a post-deployment checkpoint so later tests can reuse the Hypercore Lagoon setup."""
+) -> Iterator[None]:
+    """Revert each test to the deployed Hypercore Lagoon baseline on teardown."""
 
-    return create_anvil_snapshot_state(web3)
-
-
-@pytest.fixture(autouse=True)
-def restore_hypercore_lagoon_state(
-    web3: Web3,
-    hypercore_lagoon_state: AnvilSnapshotState,
-) -> None:
-    """Restore the shared HyperEVM fork back to the deployed Hypercore Lagoon baseline before each test."""
-
-    reset_anvil_snapshot(web3, hypercore_lagoon_state)
+    assert lagoon_deployment.trading_strategy_module is not None
+    yield from evm_snapshot_revert(anvil_hyperliquid)
 
 
 @pytest.mark.timeout(600)
+def test_lagoon_hypercore_vault_whitelisting_is_batched(
+    web3: Web3,
+    lagoon_deployment: LagoonAutomatedDeployment,
+) -> None:
+    """Deploy more vaults than one Hypercore multicall can contain.
+
+    1. Deploy the Lagoon fixture with one more explicit vault than the batch cap.
+    2. Read the guard's Hypercore-vault approval events.
+    3. Verify every vault is approved across two transactions below the
+       HyperEVM fast-block gas limit.
+    """
+    # 1. The shared fixture includes one more vault than one batch can hold.
+    assert len(HYPERCORE_VAULTS_FOR_BATCH_TEST) == HYPERCORE_MULTICALL_CHUNK_SIZE + 1
+    module = lagoon_deployment.trading_strategy_module
+
+    # 2. Read all explicit Hypercore-vault approvals from the deployed module.
+    approval_logs = web3.eth.get_logs(
+        {
+            "fromBlock": 0,
+            "toBlock": "latest",
+            "address": module.address,
+            "topics": [Web3.keccak(text="HypercoreVaultApproved(address,string)").hex()],
+        }
+    )
+
+    # 3. Every intended vault is approved in fast-block-safe transactions.
+    assert len(approval_logs) == len(HYPERCORE_VAULTS_FOR_BATCH_TEST)
+    approved_vaults = {Web3.to_checksum_address(decode(["address", "string"], log["data"])[0]) for log in approval_logs}
+    assert approved_vaults == {Web3.to_checksum_address(vault) for vault in HYPERCORE_VAULTS_FOR_BATCH_TEST}
+    transaction_hashes = {log["transactionHash"] for log in approval_logs}
+    assert len(transaction_hashes) == 2
+    assert all(web3.eth.get_transaction_receipt(tx_hash)["gasUsed"] < HYPEREVM_FAST_BLOCK_GAS_LIMIT for tx_hash in transaction_hashes)
+    assert all(web3.eth.get_transaction(tx_hash)["gas"] <= HYPEREVM_FAST_BLOCK_GAS_LIMIT for tx_hash in transaction_hashes)
+
+
+# Flaky on CI since 2026-08-04: HyperEVM fork setup can return provider 500 "Temporary internal error"; this passed locally on 2026-08-04.
+@flaky.flaky(max_runs=3)
+@pytest.mark.timeout(600)
 def test_lagoon_hypercore_vault_deposit(
+    _restore_hypercore_lagoon_state: None,
     web3: Web3,
     deployer: LocalAccount,
     lagoon_deployment: LagoonAutomatedDeployment,
@@ -323,8 +389,11 @@ def test_lagoon_hypercore_vault_deposit(
     assert action_id == 2
 
 
+# Flaky on CI since 2026-08-04: HyperEVM fork setup can return provider 500 "Temporary internal error"; this passed locally on 2026-08-04.
+@flaky.flaky(max_runs=3)
 @pytest.mark.timeout(600)
 def test_lagoon_hypercore_deposit_for_activation(
+    _restore_hypercore_lagoon_state: None,
     web3: Web3,
     deployer: LocalAccount,
     lagoon_deployment: LagoonAutomatedDeployment,
@@ -373,8 +442,11 @@ def test_lagoon_hypercore_deposit_for_activation(
     assert dex == SPOT_DEX
 
 
+# Flaky on CI since 2026-08-04: HyperEVM fork setup can return provider 500 "Temporary internal error"; this passed locally on 2026-08-04.
+@flaky.flaky(max_runs=3)
 @pytest.mark.timeout(600)
 def test_lagoon_hypercore_deposit_for_wrong_recipient(
+    _restore_hypercore_lagoon_state: None,
     web3: Web3,
     deployer: LocalAccount,
     lagoon_deployment: LagoonAutomatedDeployment,
@@ -399,60 +471,84 @@ def test_lagoon_hypercore_deposit_for_wrong_recipient(
         assert_transaction_success_with_explanation(web3, tx_hash)
 
 
+# Flaky on CI since 2026-08-04: HyperEVM fork setup can return provider 500 "Temporary internal error"; this passed locally on 2026-08-04.
+@flaky.flaky(max_runs=3)
 @pytest.mark.timeout(600)
-def test_lagoon_hypercore_any_asset_allows_non_whitelisted_vault(
-    web3: Web3,
+def test_lagoon_hypercore_any_hypercore_vault_allows_non_whitelisted_vault(
+    _restore_dynamic_hypercore_state: None,
+    dynamic_web3: Web3,
     deployer: LocalAccount,
-    mock_core_writer: Contract,
+    dynamic_mock_core_writer: Contract,
+    dynamic_mock_core_deposit_wallet: Contract,
+    dynamic_usdc: TokenDetails,
 ):
-    """With anyAsset enabled, Lagoon keeps HypercoreWriter but skips per-vault whitelisting.
+    """Stress-test anyHypercoreVault through a deployed Lagoon Safe on Anvil.
 
-    1. Deploy Lagoon with ``any_asset=True`` and an explicit Hypercore vault list.
-    2. Verify HypercoreWriter/CoreDepositWallet permissions are installed.
-    3. Verify the listed Hypercore vault was not individually whitelisted.
-    4. Verify deposit to a different Hypercore vault still succeeds.
+    This second full deployment uses a separate pool configuration from the
+    module-scoped baseline. A fresh Anvil process keeps the stress test
+    independent of the baseline process's repeated snapshot/revert cycles.
+
+    1. Deploy a full Lagoon vault, Safe and TradingStrategyModuleV0 on a
+       HyperEVM Anvil fork with ``any_hypercore_vault=True`` and no explicit
+       native-vault list.
+    2. Verify that this leaves the generic anyAsset approval bypass disabled
+       and explicitly allowlists USDC for the CoreDepositWallet approval.
+    3. Verify that no individual Hypercore vault was whitelisted.
+    4. Execute every leg of a deposit to an unlisted Hypercore vault through
+       the actual Safe module and injected system-contract mocks.
     """
-    web3.provider.make_request("anvil_setBalance", [deployer.address, hex(100 * 10**18)])
+    dynamic_web3.provider.make_request("anvil_setBalance", [deployer.address, hex(100 * 10**18)])
 
     wallet = HotWallet(deployer)
-    wallet.sync_nonce(web3)
+    wallet.sync_nonce(dynamic_web3)
 
-    listed_vault = Web3.to_checksum_address(TEST_HYPERCORE_VAULT)
     hypercore_amount = 1_000 * 10**6
     non_whitelisted_vault = "0x2222222222222222222222222222222222222222"
 
     config = LagoonConfig(
         parameters=LagoonDeploymentParameters(
             underlying=USDC_ADDRESS,
-            name="HyperEVM Hypercore AnyAsset Vault",
-            symbol="HHAV",
+            name="HyperEVM Any Hypercore Vault",
+            symbol="HHV",
         ),
         asset_manager=None,
         asset_managers=[deployer.address],
         safe_owners=[ANVIL_OWNER_1, ANVIL_OWNER_2],
         safe_threshold=2,
-        any_asset=True,
-        hypercore_vaults=[listed_vault],
+        any_hypercore_vault=True,
         safe_salt_nonce=43,
     )
 
-    # 1. Deploy Lagoon with any_asset=True and an explicit Hypercore vault list.
-    start_block = web3.eth.block_number
+    # 1. Deploy Lagoon with the dedicated dynamic Hypercore vault policy.
+    start_block = dynamic_web3.eth.block_number
     deploy_info = deploy_automated_lagoon_vault(
-        web3=web3,
+        web3=dynamic_web3,
         deployer=wallet,
         config=config,
     )
     module = deploy_info.trading_strategy_module
-    end_block = web3.eth.block_number
+    end_block = dynamic_web3.eth.block_number
 
-    # 2. Verify HypercoreWriter/CoreDepositWallet permissions are installed.
+    # 2. Verify the dedicated flag did not enable unsafe generic ERC-20 mode.
+    assert not module.functions.anyAsset().call()
+    assert module.functions.anyHypercoreVault().call()
+    assert module.functions.isAllowedAsset(USDC_ADDRESS).call()
     assert module.functions.isAllowedApprovalDestination(
         Web3.to_checksum_address(CORE_DEPOSIT_WALLET[999]),
     ).call()
 
-    # 3. Verify the listed Hypercore vault was not individually whitelisted.
-    hypercore_vault_approved_logs = web3.eth.get_logs(
+    flag_events = module.events.AnyHypercoreVaultSet().get_logs(
+        from_block=start_block,
+        to_block=end_block,
+    )
+    assert len(flag_events) == 1
+    assert flag_events[0]["args"] == {
+        "value": True,
+        "notes": "Allow any Hypercore vault",
+    }
+
+    # 3. Verify no Hypercore vault was individually whitelisted.
+    hypercore_vault_approved_logs = dynamic_web3.eth.get_logs(
         {
             "fromBlock": start_block + 1,
             "toBlock": end_block,
@@ -462,15 +558,41 @@ def test_lagoon_hypercore_any_asset_allows_non_whitelisted_vault(
     )
     assert hypercore_vault_approved_logs == []
 
-    # 4. Verify deposit to a different Hypercore vault still succeeds.
-    raw_action = encode_vault_deposit(non_whitelisted_vault, hypercore_amount)
-    fn_call = mock_core_writer.functions.sendRawAction(raw_action)
+    # 4. Execute every Hypercore deposit leg through the deployed Safe module.
+    safe_address = deploy_info.safe.address
+    dynamic_web3.provider.make_request("anvil_setBalance", [safe_address, hex(10 * 10**18)])
+    fund_erc20_on_anvil(dynamic_web3, USDC_ADDRESS, safe_address, hypercore_amount)
+
+    fn_call = dynamic_usdc.contract.functions.approve(
+        Web3.to_checksum_address(CORE_DEPOSIT_WALLET[999]),
+        hypercore_amount,
+    )
     tx_hash = _perform_call(module, fn_call, deployer.address)
-    assert_transaction_success_with_explanation(web3, tx_hash)
+    assert_transaction_success_with_explanation(dynamic_web3, tx_hash)
+
+    fn_call = dynamic_mock_core_deposit_wallet.functions.deposit(hypercore_amount, SPOT_DEX)
+    tx_hash = _perform_call(module, fn_call, deployer.address)
+    assert_transaction_success_with_explanation(dynamic_web3, tx_hash)
+
+    raw_action = encode_transfer_usd_class(hypercore_amount, to_perp=True)
+    fn_call = dynamic_mock_core_writer.functions.sendRawAction(raw_action)
+    tx_hash = _perform_call(module, fn_call, deployer.address)
+    assert_transaction_success_with_explanation(dynamic_web3, tx_hash)
+
+    raw_action = encode_vault_deposit(non_whitelisted_vault, hypercore_amount)
+    fn_call = dynamic_mock_core_writer.functions.sendRawAction(raw_action)
+    tx_hash = _perform_call(module, fn_call, deployer.address)
+    assert_transaction_success_with_explanation(dynamic_web3, tx_hash)
+
+    assert dynamic_mock_core_deposit_wallet.functions.getDepositCount().call() == 1
+    assert dynamic_mock_core_writer.functions.getActionCount().call() == 2
 
 
+# Flaky on CI since 2026-08-04: HyperEVM fork setup can return provider 500 "Temporary internal error"; this passed locally on 2026-08-04.
+@flaky.flaky(max_runs=3)
 @pytest.mark.timeout(600)
 def test_lagoon_hypercore_deposit_multicall(
+    _restore_hypercore_lagoon_state: None,
     web3: Web3,
     deployer: LocalAccount,
     lagoon_deployment: LagoonAutomatedDeployment,
@@ -529,8 +651,11 @@ def test_lagoon_hypercore_deposit_multicall(
     assert action_id == 2
 
 
+# Flaky on CI since 2026-08-04: HyperEVM fork setup can return provider 500 "Temporary internal error"; this passed locally on 2026-08-04.
+@flaky.flaky(max_runs=3)
 @pytest.mark.timeout(600)
 def test_lagoon_hypercore_granular_roundtrip_calls(
+    _restore_hypercore_lagoon_state: None,
     web3: Web3,
     deployer: LocalAccount,
     lagoon_deployment: LagoonAutomatedDeployment,
@@ -608,8 +733,11 @@ def test_lagoon_hypercore_granular_roundtrip_calls(
     assert amount_wei == linked_token_amount
 
 
+# Flaky on CI since 2026-08-04: HyperEVM fork setup can return provider 500 "Temporary internal error"; this passed locally on 2026-08-04.
+@flaky.flaky(max_runs=3)
 @pytest.mark.timeout(600)
 def test_lagoon_hypercore_granular_vault_transfer_calls(
+    _restore_hypercore_lagoon_state: None,
     web3: Web3,
     deployer: LocalAccount,
     lagoon_deployment: LagoonAutomatedDeployment,
@@ -657,8 +785,11 @@ def test_lagoon_hypercore_granular_vault_transfer_calls(
     assert amount_wei == usdc_amount
 
 
+# Flaky on CI since 2026-08-04: HyperEVM fork setup can return provider 500 "Temporary internal error"; this passed locally on 2026-08-04.
+@flaky.flaky(max_runs=3)
 @pytest.mark.timeout(600)
 def test_lagoon_hypercore_granular_activation_call(
+    _restore_hypercore_lagoon_state: None,
     web3: Web3,
     deployer: LocalAccount,
     lagoon_deployment: LagoonAutomatedDeployment,

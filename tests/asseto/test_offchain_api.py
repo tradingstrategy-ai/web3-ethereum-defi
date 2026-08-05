@@ -170,6 +170,10 @@ def test_fetch_asseto_product_roles_resolves_known_partner_logos(monkeypatch: py
                             "url": "https://static.asseto.finance/asseto/2026-03-19/dh6vej2bje9qdnvcrx.svg",
                         },
                         {
+                            "name": "Investment Advisor",
+                            "url": "https://static.asseto.finance/asseto/2026-02-01/dg392jckx5iud6zpxg.svg",
+                        },
+                        {
                             "name": "Auditor",
                             "url": "https://static.asseto.finance/asseto/unknown.svg",
                         },
@@ -188,6 +192,11 @@ def test_fetch_asseto_product_roles_resolves_known_partner_logos(monkeypatch: py
             role="Investment Manager",
             organisation_name="DL Holdings",
             logo_url="https://static.asseto.finance/asseto/2026-03-19/dh6vej2bje9qdnvcrx.svg",
+        ),
+        offchain_api.AssetoRoleInfo(
+            role="Investment Advisor",
+            organisation_name="Changfeng Asset Management Limited",
+            logo_url="https://static.asseto.finance/asseto/2026-02-01/dg392jckx5iud6zpxg.svg",
         ),
         offchain_api.AssetoRoleInfo(
             role="Auditor",

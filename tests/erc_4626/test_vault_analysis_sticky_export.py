@@ -93,6 +93,46 @@ def test_sticky_export_first_qualification_creates_state():
     assert entry["last_exported_record"]["address"] == "0xAbCd000000000000000000000000000000000001"
 
 
+def test_sticky_export_apex_protocol_threshold_override():
+    """A per-protocol override lets ApeX vaults qualify below the global bar.
+
+    1. Build an ApeX row and a control row, both with peak NAV below the
+       global threshold but above the ApeX override
+    2. Apply sticky export state with the global threshold
+    3. Assert only the ApeX row qualifies for export
+    """
+    # 1. Build an ApeX row and a control row below the global bar
+    module = get_top_vaults_json_module()
+    assert module.PROTOCOL_MIN_TVL_OVERRIDES["apex"] < 5_000.0
+    now = datetime.datetime(2026, 6, 24, 12, 0, 0)
+    state = module.make_empty_sticky_export_state(now)
+    apex_row = make_metrics_row(
+        address="0xAbCd000000000000000000000000000000000010",
+        name="ApeX Vault",
+        peak_nav=600.0,
+        protocol_slug="apex",
+    )
+    control_row = make_metrics_row(
+        address="0xAbCd000000000000000000000000000000000011",
+        name="Morpho Vault",
+        peak_nav=600.0,
+        protocol_slug="morpho",
+    )
+
+    # 2. Apply sticky export state with the global threshold
+    result = module.apply_sticky_export_state(
+        make_lifetime_df(apex_row, control_row),
+        state,
+        now=now,
+        threshold_tvl=5_000.0,
+        stale_warning_age_days=14,
+    )
+
+    # 3. Assert only the ApeX row qualifies for export
+    exported_names = {vault["name"] for vault in result.vaults}
+    assert exported_names == {"ApeX Vault"}
+
+
 def test_sticky_export_converts_decimal_current_row_values() -> None:
     """Persist current Decimal metrics as JSON-safe sticky state values."""
     module = get_top_vaults_json_module()
@@ -155,6 +195,8 @@ def test_sticky_export_missing_current_metrics_use_fallback():
     assert len(result.vaults) == 1
     assert result.vaults[0]["stale_export"] is True
     assert result.vaults[0]["risk_possibly_stale"] is True
+    assert result.vaults[0]["deposit_permission"] == "unknown"
+    assert result.vaults[0]["whitelist"] == {"status": "unknown", "notes": None}
 
     # 4. Assert stale state timestamps do not move backwards
     entry = result.state["vaults"][key]

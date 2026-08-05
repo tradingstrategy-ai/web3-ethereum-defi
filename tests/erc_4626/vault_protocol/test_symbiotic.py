@@ -12,8 +12,7 @@ from web3 import Web3
 from eth_defi.erc_4626.classification import _ProbeResultsDict, _should_yield_probe, create_vault_instance_autodetect, identify_vault_features  # noqa: PLC2701 - checks missing-probe handling
 from eth_defi.erc_4626.core import ERC4626Feature, get_vault_protocol_name
 from eth_defi.erc_4626.vault_protocol.symbiotic.vault import SymbioticVault
-from eth_defi.provider.anvil import AnvilLaunch, fork_network_anvil
-from eth_defi.provider.multi_provider import create_multi_provider_web3
+from eth_defi.testing.anvil_fork_pool import AnvilForkPool
 from eth_defi.vault.fee import VaultFeeMode, get_vault_fee_mode
 from eth_defi.vault.protocol_metadata import build_metadata_json
 from eth_defi.vault.risk import VaultTechnicalRisk, get_vault_risk
@@ -22,6 +21,8 @@ JSON_RPC_ETHEREUM = os.environ.get("JSON_RPC_ETHEREUM")
 
 SYMBIOTIC_VAULT_ADDRESS = "0x007e0b8e99c6134e81a1eaae754460e3202cb671"
 SYMBIOTIC_FORK_BLOCK = 25_587_299
+
+pytestmark = pytest.mark.xdist_group("fork:ethereum:25587299")
 
 
 def test_symbiotic_probe_requires_v2_withdrawal_queue() -> None:
@@ -53,19 +54,9 @@ def test_symbiotic_probe_requires_v2_withdrawal_queue() -> None:
 
 
 @pytest.fixture(scope="module")
-def anvil_ethereum_fork() -> AnvilLaunch:
-    """Fork Ethereum after the Keyrock Flagship USDC vault's first deposit."""
-    launch = fork_network_anvil(JSON_RPC_ETHEREUM, fork_block_number=SYMBIOTIC_FORK_BLOCK)
-    try:
-        yield launch
-    finally:
-        launch.close()
-
-
-@pytest.fixture(scope="module")
-def web3(anvil_ethereum_fork: AnvilLaunch) -> Web3:
-    """Create a Web3 client for the deterministic Symbiotic fork."""
-    return create_multi_provider_web3(anvil_ethereum_fork.json_rpc_url)
+def web3(anvil_fork_pool: AnvilForkPool) -> Web3:
+    """Share the read-only Symbiotic fork and its warmed RPC cache."""
+    return anvil_fork_pool.get_web3(JSON_RPC_ETHEREUM, SYMBIOTIC_FORK_BLOCK)
 
 
 @pytest.mark.skipif(JSON_RPC_ETHEREUM is None, reason="JSON_RPC_ETHEREUM needed to run this test")

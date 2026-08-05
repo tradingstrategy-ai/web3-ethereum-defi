@@ -4,14 +4,27 @@ import enum
 
 from eth_typing import HexAddress
 
+from eth_defi.erc_4626.vault_protocol.axis.constants import AXIS_CHAIN_ID, AXIS_NOTES, AXIS_STAKED_USDX_VAULT
 from eth_defi.tokenised_fund.ondo.constants import ONDO_PRODUCT_NOTES, ONDO_TOKENISED_FUND_ADDRESSES
 from eth_defi.tokenised_fund.securitize.description import SECURITIZE_PRODUCT_NOTES, SECURITIZE_TOKENISED_FUND_ADDRESSES
-from eth_defi.tokenised_fund.spiko.constants import USTBL_TOKEN_ADDRESS
+from eth_defi.tokenised_fund.spiko.constants import EUTBL_TOKEN_ADDRESS, USTBL_TOKEN_ADDRESS
 from eth_defi.vault.handwritten_metadata import PIKU_VAULT_METADATA, format_handwritten_vault_note
 
 
 class VaultFlag(str, enum.Enum):
-    """Flags indicating the status of a vault."""
+    """Flags indicating the status of a vault.
+
+    Manual vault flags are resolved through :py:meth:`eth_defi.vault.base.VaultBase.get_flags`
+    during vault metadata scanning and stored in the vault metadata database as
+    ``_flags``. Published vault JSON then serialises those stored values through
+    ``scripts/erc-4626/vault-analysis-json.py`` /
+    :py:mod:`eth_defi.vault.top_vaults_json`.
+
+    After changing :class:`VaultFlag`, :py:data:`VAULT_DESCRIPTIVE_FLAGS`, or
+    :py:data:`VAULT_FLAGS_AND_NOTES`, rerun the vault metadata scan and its
+    top-vault JSON post-processing. Running only the JSON export against an old
+    ``vault-metadata-db.pickle`` will keep the previously stored flags.
+    """
 
     #: We can deposit now
     deposit = "deposit"
@@ -81,6 +94,9 @@ class VaultFlag(str, enum.Enum):
 
     #: The vault does not do daily NAV. It's share price has confusing equity curve, making users misjudge the vault.
     irregular_reporting = "irregular_reporting"
+
+    #: This is for vaults with especially long redemption periods.
+    long_duration = "long_duration"
 
     #: Morpho Blue API reports one or more RED-level warnings on this vault or its underlying markets.
     #:
@@ -165,6 +181,15 @@ SPIKO_USTBL_NOTE = """Spiko US T-Bills Money Market Fund (USTBL).
 - **Fees:** Spiko states a 0.25% annual management fee, reflected in NAV/share.
 """
 
+SPIKO_EUTBL_NOTE = """Spiko EU T-Bills Money Market Fund (EUTBL).
+
+- **Curator:** Spiko.
+- **Vault strategy:** Permissioned tokenised share in Spiko's Eurozone Treasury-bill money-market fund.
+- **Valuation:** Spiko's verified Chainlink-compatible Oracle publishes EUR NAV/share; fund holdings are off-chain.
+- **Dealing:** Subscriptions, transfers and redemptions require eligibility checks and issuer-operated servicing.
+- **Fees:** Spiko states a 0.25% annual management fee, reflected in NAV/share.
+"""
+
 #: Vault-specific notes and classifications that do not exclude a vault from
 #: research datasets.
 #:
@@ -178,6 +203,7 @@ VAULT_NOTES: dict[str, str] = {
     "0x43415eb6ff9db7e26a15b704e7a3edce97d31c4e": SUPERSTATE_USTB_NOTE,
     "0x6a7c6aa2b8b8a6a891de552bdeffa87c3f53bd46": ODA_FACT_MONY_NOTE,
     USTBL_TOKEN_ADDRESS: SPIKO_USTBL_NOTE,
+    EUTBL_TOKEN_ADDRESS: SPIKO_EUTBL_NOTE,
 }
 
 #: Product classification flags that are descriptive rather than exclusionary.
@@ -189,6 +215,7 @@ VAULT_DESCRIPTIVE_FLAGS: dict[str, set[VaultFlag]] = {
     "0x43415eb6ff9db7e26a15b704e7a3edce97d31c4e": {VaultFlag.tokenised_fund},
     "0x6a7c6aa2b8b8a6a891de552bdeffa87c3f53bd46": {VaultFlag.tokenised_fund},
     USTBL_TOKEN_ADDRESS: {VaultFlag.tokenised_fund},
+    EUTBL_TOKEN_ADDRESS: {VaultFlag.tokenised_fund},
 }
 
 #: Vault-specific notes which must only apply on the specified EVM chain.
@@ -200,7 +227,7 @@ VAULT_DESCRIPTIVE_FLAGS: dict[str, set[VaultFlag]] = {
 CHAIN_SCOPED_VAULT_NOTES: dict[tuple[int, str], str] = {
     (chain_id, address): format_handwritten_vault_note(metadata)
     for (chain_id, address), metadata in PIKU_VAULT_METADATA.items()
-}
+} | {(AXIS_CHAIN_ID, AXIS_STAKED_USDX_VAULT): AXIS_NOTES}
 # fmt: on
 
 
@@ -377,6 +404,12 @@ Although the vault has long lock up matching the duration of the underlying real
 """
 
 ETH_STRATEGY_ESPN = """ESPN (ETH Strategy Perpetual Note) lends USDS to ETH Strategy, but instead of receiving interest, ESPN receives a long-dated ETH call option. To extract yield from this long-dated call option, ESPN systematically sells shorter-dated call options on [Derive](https://www.derive.xyz/). The symmetry between the long-dated convertibles acquired and short-dated calls sold keeps the strategy balanced in USD terms.
+
+Third-party comment:
+
+> They do not have a redemption queue in place (yet), that's one of the things on the roadmap they're promising since months and nothing is happening.
+>
+> I have read the docs and I know that they're using options on Derive, but in the last few months at least a part of those must have been expired, and they propably rolled them over to new ones without satisfying redemptions. If that isn't scammy behaviour, then I don't know...
 
 [Discussion about the ESPN vault](https://x.com/TradingProtocol/status/2011043276283900198).
 """
@@ -680,7 +713,7 @@ VAULT_FLAGS_AND_NOTES: dict[str, tuple[VaultFlag | None, str]] = {
     # USDC Fluid Lender
     "0x00c8a649c9837523ebb406ceb17a6378ab5c74cf": (VaultFlag.subvault, SUBVAULT),
     # ETH Strategy Perpetual Note (Ethereum)
-    "0xb250c9e0f7be4cff13f94374c993ac445a1385fe": (None, ETH_STRATEGY_ESPN),
+    "0xb250c9e0f7be4cff13f94374c993ac445a1385fe": (VaultFlag.long_duration, ETH_STRATEGY_ESPN),
     # Apostro aprUSDC (Sonic)
     "0xcca902f2d3d265151f123d8ce8fdac38ba9745ed": (VaultFlag.unofficial, MISSING_IN_PROTOCOL_FRONTEND),
     # Apostro USDC Frontier (Euler on Ethereum)
@@ -789,6 +822,10 @@ VAULT_FLAGS_AND_NOTES: dict[str, tuple[VaultFlag | None, str]] = {
     "0xe3ba8f17fe581dd473e6699cfad04502998a57c7": (VaultFlag.malicious, MALICIOUS_VAULT),
     # Mainstreet USDC (msUSDC, Morpho on Ethereum)
     "0xad755c6c31515aef8d2f830767d846774f7e9ea9": (VaultFlag.malicious, MALICIOUS_VAULT),
+    # Staked msUSD, Ethereum
+    "0x890a5122aa1da30fec4286de7904ff808f0bd74a": (None, MAINST_VAULT),
+    # Staked msUSD, Sonic
+    "0xc7990369da608c2f4903715e3bd22f2970536c29": (None, MAINST_VAULT),
     # Altura Vault Tokens (AVLT) on Hyperliquid
     "0xd0ee0cf300dfb598270cd7f4d0c6e0d8f6e13f29": (VaultFlag.controversial, CONTROVERSIAL_VAULT),
 }

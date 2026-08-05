@@ -252,6 +252,11 @@ These require a session cookie / JWT obtained via wallet signature through the w
 
 ## Known vaults (as of 2026-04-30)
 
+The ``/vault/info`` response does not expose whether public deposits are open
+or whether an account allow-list applies. Hibachi vaults therefore export
+``deposit_permission=unknown``. Returning a vault from a public metadata API is
+not sufficient evidence that deposits are permissionless.
+
 | vaultId | symbol | Name | Strategy |
 |---|---|---|---|
 | 2 | GAV | Growi Alpha Vault | Mean-reversion on crypto perps (long/short), operated by Growi Finance |
