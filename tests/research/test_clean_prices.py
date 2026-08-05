@@ -19,6 +19,7 @@ from eth_defi.research.wrangle_vault_prices import (
     calculate_vault_returns,
     clean_by_tvl,
     clean_returns,
+    discard_hypercore_initial_low_tvl_history,
     discard_hypercore_pre_recapitalisation_history,
     fix_outlier_share_prices,
     generate_cleaned_vault_datasets,
@@ -814,6 +815,42 @@ def test_approximate_hypercore_rejects_invalid_configuration() -> None:
 
     with pytest.raises(ValueError, match=r"missing columns:.*cumulative_pnl"):
         approximate_hypercore_share_prices_from_pnl_nav(prices_df.drop(columns="account_pnl"))
+
+
+def test_discard_hypercore_initial_low_tvl_history() -> None:
+    """Only meaningful initial capital starts a Hypercore performance curve."""
+    funded_id = "9999-0xfunded"
+    unfunded_id = "9999-0xunfunded"
+    evm_id = "1-0xevm"
+    prices_df = pd.DataFrame(
+        {
+            "chain": [9999] * 6 + [1],
+            "id": [funded_id] * 4 + [unfunded_id] * 2 + [evm_id],
+            "total_assets": [6.0, 999.0, 1_000.0, 900.0, 6.0, 999.0, 6.0],
+            "share_price": [1.0] * 7,
+        },
+        index=pd.to_datetime(
+            [
+                "2026-01-01",
+                "2026-01-02",
+                "2026-01-03",
+                "2026-01-04",
+                "2026-01-01",
+                "2026-01-02",
+                "2026-01-01",
+            ]
+        ),
+    )
+
+    messages: list[str] = []
+    result = discard_hypercore_initial_low_tvl_history(prices_df, logger=messages.append, min_tracking_assets=1_000.0)
+
+    funded = result[result["id"] == funded_id]
+    assert funded.index.tolist() == [pd.Timestamp("2026-01-03"), pd.Timestamp("2026-01-04")]
+    assert funded["total_assets"].tolist() == [1_000.0, 900.0]
+    assert result[result["id"] == unfunded_id].empty
+    assert len(result[result["id"] == evm_id]) == 1
+    assert messages == ["Discarded 4 initial low-TVL Hypercore price rows across 2 vaults; tracking starts at $1,000 NAV and 1 vaults have not reached it"]
 
 
 def test_discard_hypercore_pre_recapitalisation_history() -> None:

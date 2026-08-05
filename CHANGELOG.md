@@ -1,5 +1,6 @@
 # 1.2
 
+- feat: Start published Hypercore performance curves only after vault TVL reaches $20,000, preventing insignificant bootstrap capital from producing misleading lifetime drawdowns (2026-08-05)
 - feat: Add shared perp DEX vault exposure metrics for Hyperliquid and Lighter, explicit unavailable-position states for GRVT, Hibachi and ApeX, and cleaned-Parquet/JSON export support (2026-07-24)
 - feat: Add an ApeX Omni all-vault reader with bounded public API access, flexible timestamp observations, historical backfills, DuckDB storage and all-chain vault pipeline integration (2026-07-23)
 - feat: Automatically migrate Core3 risk databases to the latest DuckDB format and native Zstandard-compress historical raw JSON snapshots (2026-07-23)
