@@ -4,6 +4,7 @@
 with ERC-4626 USDC supply vaults on Avalanche, Base, and Optimism.
 """
 
+import datetime
 import os
 from collections.abc import Iterator
 from decimal import Decimal
@@ -13,8 +14,7 @@ import pytest
 from web3 import Web3
 
 from eth_defi.erc_4626.classification import create_vault_instance_autodetect
-from eth_defi.erc_4626.core import ERC4626Feature
-from eth_defi.erc_4626.deposit_redeem import ERC4626DepositManager
+from eth_defi.erc_4626.core import ERC4626Feature, is_lending_protocol
 from eth_defi.erc_4626.vault_protocol.forty_acres.deposit_redeem import FORTY_ACRES_INSUFFICIENT_LIQUIDITY_ERROR, PHARAOH_USDC_AVALANCHE_ADDRESS, FortyAcresDepositManager
 from eth_defi.erc_4626.vault_protocol.forty_acres.vault import FortyAcresVault
 from eth_defi.provider.anvil import AnvilLaunch, fork_network_anvil, fund_erc20_on_anvil, set_balance
@@ -29,8 +29,7 @@ from eth_defi.vault.deposit_redeem import VaultFlowUnavailable
 JSON_RPC_AVALANCHE = os.environ.get("JSON_RPC_AVALANCHE")
 JSON_RPC_BASE = os.environ.get("JSON_RPC_BASE")
 
-#: Exact 40acres Aerodrome deployment whose live redemption proves that the
-#: Pharaoh direct-balance rule is not protocol-wide.
+#: 40acres Aerodrome USDC supply vault on Base.
 AERODROME_USDC_VAULT = "0xb99b6df96d4d5448cc0a5b3e0ef7896df9507cf5"
 
 
@@ -104,6 +103,7 @@ def test_forty_acres_blackhole(
     1. Auto-detect the vault protocol from the hardcoded address
     2. Verify the vault instance type and protocol name
     3. Check the lender-facing fees are explicitly zero
+    4. Verify the historical reader records direct liquidity and utilisation
     """
 
     # 1. Auto-detect the vault protocol
@@ -124,6 +124,19 @@ def test_forty_acres_blackhole(
     # fee"), not None, which the vault API reserves for "fee not exposed".
     assert vault.get_management_fee("latest") == 0.0
     assert vault.get_performance_fee("latest") == 0.0
+    assert is_lending_protocol(vault.features) is True
+
+    # 4. Verify the historical reader records direct liquidity and utilisation.
+    reader = vault.get_historical_reader(stateful=False)
+    block_number = web3.eth.block_number
+    calls = list(reader.construct_multicalls())
+    call_results = [call.call_as_result(web3=web3, block_identifier=block_number) for call in calls]
+    timestamp = datetime.datetime(2026, 1, 1, tzinfo=datetime.timezone.utc).replace(tzinfo=None)
+    vault_read = reader.process_result(block_number, timestamp, call_results)
+    assert vault_read.available_liquidity is not None
+    assert vault_read.utilisation is not None
+    assert vault_read.available_liquidity == vault.fetch_available_liquidity(block_number)
+    assert vault_read.utilisation == pytest.approx(vault.fetch_utilisation_percent(block_number))
 
 
 @pytest.mark.skipif(JSON_RPC_AVALANCHE is None, reason="JSON_RPC_AVALANCHE needed to run this test")
@@ -236,25 +249,25 @@ def test_pharaoh_anvil_capacity_increase_preserves_real_redemption(
 
 @pytest.mark.skipif(JSON_RPC_BASE is None, reason="JSON_RPC_BASE needed to run this test")
 @pytest.mark.xdist_group("fork:base:midnight")
-def test_aerodrome_uses_generic_manager_and_redeems(
+def test_aerodrome_redemption_capacity_preflight_and_anvil_liquidity_intervention(
     aerodrome_base_web3: Web3,
     aerodrome_base_snapshot: None,
 ) -> None:
-    """Aerodrome keeps the generic flow and completes a real redemption.
+    """Aerodrome fails gracefully when loan capital is not directly redeemable.
 
-    Aerodrome has demonstrated a successful redemption despite little idle
-    underlying, so it is the regression control for Pharaoh's address-scoped
-    direct-balance preflight.
+    1. Deposit USDC into the real Aerodrome vault at the pinned Base block.
+    2. Remove its direct USDC on Anvil to model all capital deployed to loans.
+    3. Verify that the normal redemption request returns a typed preflight failure.
+    4. Add the smallest simulated liquidity and redeem the unchanged shares.
     """
+    # 1. Deposit USDC into the real Aerodrome vault at the pinned Base block.
     assert aerodrome_base_snapshot is None
     vault = create_vault_instance_autodetect(aerodrome_base_web3, vault_address=AERODROME_USDC_VAULT)
     assert isinstance(vault, FortyAcresVault)
     manager = vault.get_deposit_manager()
-    assert isinstance(manager, ERC4626DepositManager)
-    assert not isinstance(manager, FortyAcresDepositManager)
+    assert isinstance(manager, FortyAcresDepositManager)
     owner = aerodrome_base_web3.eth.accounts[0]
     deposit_amount = Decimal(1)
-    denomination_balance_before = vault.denomination_token.fetch_raw_balance_of(owner)
     funding_hash = vault.denomination_token.transfer(owner, deposit_amount).transact({"from": USDC_WHALE[8453]})
     assert_transaction_success_with_explanation(aerodrome_base_web3, funding_hash)
     approval_hash = vault.denomination_token.approve(vault.address, deposit_amount).transact({"from": owner})
@@ -263,6 +276,25 @@ def test_aerodrome_uses_generic_manager_and_redeems(
     raw_shares = vault.share_token.fetch_raw_balance_of(owner)
     assert raw_shares > 0
 
+    # 2. Remove its direct USDC on Anvil to model all capital deployed to loans.
+    fund_erc20_on_anvil(aerodrome_base_web3, vault.denomination_token.address, vault.address, 0)
+    assert vault.denomination_token.fetch_raw_balance_of(vault.address) == 0
+
+    # 3. Verify that the normal redemption request returns a typed preflight failure.
+    block_before_refusal = aerodrome_base_web3.eth.block_number
+    with pytest.raises(VaultFlowUnavailable) as exc_info:
+        manager.create_redemption_request(owner=owner, raw_shares=raw_shares)
+    failure = exc_info.value
+    assert failure.preflight_result == "redemption_capacity_limited"
+    assert failure.decoded_error == FORTY_ACRES_INSUFFICIENT_LIQUIDITY_ERROR
+    assert failure.available_raw_amount == 0
+    assert aerodrome_base_web3.eth.block_number == block_before_refusal
+
+    # 4. Add the smallest simulated liquidity and redeem the unchanged shares.
+    intervention = manager.force_redemption_liquidity(owner, raw_shares, failure)
+    assert intervention.kind == "redemption_capacity_increased"
+    assert intervention.evidence["available_raw_shares_after"] >= raw_shares
+    denomination_balance_before = vault.denomination_token.fetch_raw_balance_of(owner)
     redemption_ticket = manager.create_redemption_request(owner=owner, raw_shares=raw_shares).broadcast(from_=owner)
 
     assert redemption_ticket.raw_shares == raw_shares

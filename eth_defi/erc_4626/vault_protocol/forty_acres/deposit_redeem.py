@@ -18,13 +18,12 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-#: Legacy ERC-20 revert emitted when the vault's direct USDC transfer cannot
-#: cover a synchronous redemption. The exact Pharaoh deployment does not use
-#: OpenZeppelin 5's ``ERC20InsufficientBalance`` custom error.
+#: Legacy ERC-20 revert emitted when a 40acres vault's direct USDC transfer
+#: cannot cover a synchronous redemption. The verified deployments use this
+#: rather than OpenZeppelin 5's ``ERC20InsufficientBalance`` custom error.
 FORTY_ACRES_INSUFFICIENT_LIQUIDITY_ERROR = "ERC20: transfer amount exceeds balance"
 
-#: Exact Pharaoh deployment whose verified ``redeem()`` path transfers USDC
-#: directly from the vault and cannot source loan-deployed capital.
+#: Kept as a public identifier for the established Pharaoh fork tests.
 PHARAOH_USDC_AVALANCHE_ADDRESS: HexAddress = "0x124d00b1ce4453ffc5a5f65ce83af13a7709bac7"
 PHARAOH_USDC_AVALANCHE_CHAIN_ID = 43114
 
@@ -33,19 +32,14 @@ FORTY_ACRES_LIQUIDITY_SEARCH_MAX_ATTEMPTS = 16
 
 
 class FortyAcresDepositManager(ERC4626DepositManager):
-    """Pharaoh ERC-4626 manager with a direct-underlying redemption preflight.
+    """40acres ERC-4626 manager with a direct-underlying redemption preflight.
 
-    The exact Pharaoh deployment includes loan-deployed assets in
-    ``totalAssets()``, but its verified ``redeem()`` implementation pays lenders
-    by directly transferring the underlying from the vault. It cannot pull
-    liquidity from its loan contract during a redemption. This manager therefore
-    limits an immediate redemption to the current underlying balance held by the
-    vault and refuses a larger request before constructing ``redeem()``.
-
-    Other 40acres deployments use the generic ERC-4626 manager. The direct
-    balance rule is not generalised from this one verified deployment because
-    Aerodrome, for example, has independently demonstrated a successful
-    redemption with no meaningful idle balance.
+    The verified 40acres ``Vault.sol`` implementations include loan-deployed
+    assets in ``totalAssets()``, yet inherit OpenZeppelin ERC-4626's direct
+    underlying transfer during ``redeem()``. They cannot pull liquidity from
+    their loan contract during that call. This manager therefore limits an
+    immediate redemption to the current underlying balance held by the vault
+    and refuses a larger request before constructing ``redeem()``.
 
     Deposits remain the inherited synchronous ERC-4626 flow. Redemptions remain
     synchronous too; the manager does not model a loan repayment queue because
@@ -56,8 +50,8 @@ class FortyAcresDepositManager(ERC4626DepositManager):
         """Bind the manager to a 40acres vault.
 
         :param vault:
-            Exact Pharaoh ERC-4626 vault whose direct underlying balance
-            authorises immediate redemptions.
+            40acres ERC-4626 vault whose direct underlying balance authorises
+            immediate redemptions.
         """
         super().__init__(vault)
 
@@ -112,7 +106,7 @@ class FortyAcresDepositManager(ERC4626DepositManager):
         return min(owner_raw_shares, idle_raw_shares)
 
     def _read_redemption_capacity(self, owner: HexAddress, raw_shares: int) -> dict[str, int]:
-        """Read one Pharaoh capacity snapshot in raw units."""
+        """Read one 40acres capacity snapshot in raw units."""
         vault_contract = self.vault.vault_contract
         token = self.vault.denomination_token
         return {
@@ -147,9 +141,9 @@ class FortyAcresDepositManager(ERC4626DepositManager):
         raw_shares: int,
         failure: VaultFlowUnavailable,
     ) -> VaultRedemptionSimulationIntervention:
-        """Provision Pharaoh's direct fork liquidity for one real redemption.
+        """Provision 40acres direct fork liquidity for one real redemption.
 
-        Adding USDC changes both Pharaoh's direct balance and ERC-4626 share
+        Adding USDC changes both the direct balance and ERC-4626 share
         conversion. A bounded monotonic search therefore tests each candidate
         against the manager capacity and the unchanged ``redeem`` call before
         returning the smallest successful Anvil-only injection.
