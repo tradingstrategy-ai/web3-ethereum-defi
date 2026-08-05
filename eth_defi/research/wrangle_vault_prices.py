@@ -65,6 +65,13 @@ MIN_HYPERCORE_PNL_NAV_LAG_CHECKPOINTS = 3
 #: New capital must reach this NAV before a recapitalised vault is tracked again.
 MIN_HYPERCORE_RECAPITALISATION_ASSETS = 1_000.0
 
+#: A new Hypercore vault needs this NAV before its performance history is published.
+#:
+#: This is intentionally higher than the recapitalisation threshold. A newly
+#: reconstructed PnL/NAV index needs a material capital base, while a known
+#: post-wipe-out epoch only needs enough capital to resume its existing history.
+MIN_HYPERCORE_INITIAL_TRACKING_ASSETS = 20_000.0
+
 #: Ignore isolated zero-NAV observations that recover before this delay.
 MIN_HYPERCORE_RECAPITALISATION_RECOVERY_DELAY = pd.Timedelta(days=7)
 
@@ -1391,6 +1398,73 @@ def approximate_hypercore_share_prices_from_pnl_nav(  # noqa: PLR0914
     return prices_df
 
 
+def discard_hypercore_initial_low_tvl_history(
+    prices_df: pd.DataFrame,
+    logger: Callable[[str], None] = print,
+    min_tracking_assets: float = MIN_HYPERCORE_INITIAL_TRACKING_ASSETS,
+) -> pd.DataFrame:
+    """Discard an unfunded Hypercore vault's leading price observations.
+
+    Hypercore has no authoritative historical share price. Its cleaned share
+    price is instead a reconstructed PnL/NAV performance index, normally
+    rebased to one at the first retained observation. A few dollars of
+    bootstrap capital can therefore become the lifetime high-water mark for a
+    vault that later manages meaningful capital, producing an irrelevant
+    near-100% drawdown. Start the published performance history only once the
+    vault reaches a meaningful initial capital base.
+
+    This is deliberately an initial-history rule. A funded vault that later
+    falls below the threshold keeps its observations, because that decline is
+    material investor performance information. A vault that has not yet
+    reached the threshold has no cleaned price history; its raw observations
+    remain available for audit and will be included automatically once a
+    future cleaner run sees sufficient capital.
+
+    :param prices_df:
+        Vault price data indexed by timestamp, with ``id``, ``chain``, and
+        ``total_assets`` columns. It must be sorted by vault and timestamp.
+    :param logger:
+        Notebook or console logging function.
+    :param min_tracking_assets:
+        Minimum USD NAV needed before publishing the initial Hypercore
+        performance history.
+    :return:
+        Price data without the unfunded initial Hypercore observations.
+    """
+    hypercore_mask = prices_df["chain"] == HYPERCORE_CHAIN_ID
+    if not hypercore_mask.any():
+        return prices_df
+
+    remove_mask = np.zeros(len(prices_df), dtype=bool)
+    affected_vaults = 0
+    unfunded_vaults = 0
+    hypercore_positions = np.flatnonzero(hypercore_mask.to_numpy())
+    all_total_assets = prices_df["total_assets"].to_numpy(dtype=float)
+
+    for _vault_id, row_positions in prices_df.loc[hypercore_mask, ["id"]].groupby("id", sort=False).indices.items():
+        positions = hypercore_positions[np.asarray(row_positions, dtype=int)]
+        total_assets = all_total_assets[positions]
+        tracking_positions = np.flatnonzero(np.isfinite(total_assets) & (total_assets >= min_tracking_assets))
+
+        if len(tracking_positions) == 0:
+            remove_mask[positions] = True
+            affected_vaults += 1
+            unfunded_vaults += 1
+            continue
+
+        first_tracking_position = int(tracking_positions[0])
+        if first_tracking_position > 0:
+            remove_mask[positions[:first_tracking_position]] = True
+            affected_vaults += 1
+
+    if not remove_mask.any():
+        return prices_df
+
+    filtered_prices_df = prices_df.iloc[~remove_mask].copy()
+    logger(f"Discarded {int(remove_mask.sum()):,} initial low-TVL Hypercore price rows across {affected_vaults:,} vaults; tracking starts at ${min_tracking_assets:,.0f} NAV and {unfunded_vaults:,} vaults have not reached it")
+    return filtered_prices_df
+
+
 def discard_hypercore_pre_recapitalisation_history(  # noqa: PLR0914
     prices_df: pd.DataFrame,
     logger=print,
@@ -1804,6 +1878,10 @@ def process_raw_vault_scan_data(
     # prices_df = filter_unneeded_row(prices_df, logger)
 
     prices_df = remove_inactive_lead_time(prices_df, logger)
+
+    # Hypercore's share price is a reconstructed PnL/NAV performance index.
+    # Do not let an insignificant bootstrap deposit become its lifetime basis.
+    prices_df = discard_hypercore_initial_low_tvl_history(prices_df, logger)
 
     # A complete Hypercore wipe-out followed by later deposits is a new
     # investment epoch, not a recoverable price movement. Begin the cleaned

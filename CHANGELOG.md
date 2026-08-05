@@ -1,5 +1,6 @@
 # 1.2
 
+- feat: Start published Hypercore performance curves only after vault TVL reaches $20,000, preventing insignificant bootstrap capital from producing misleading lifetime drawdowns (2026-08-05)
 - feat: Add a narrowly scoped Hypercore dynamic-vault guard flag, keeping generic anyAsset out of native-vault policy and covering the full Safe execution path on Anvil (2026-08-03)
 
 - feat: Refresh and persist the dynamic Asseto product registry before each daily Asseto price cycle, allowing known products to recover after scanner restarts and new supported products to enter the address-scoped daily scan safely (2026-08-01)
