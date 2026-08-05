@@ -869,6 +869,7 @@ LENDING_PROTOCOL_FEATURES: frozenset[ERC4626Feature] = frozenset(
         ERC4626Feature.fluid_like,
         ERC4626Feature.silo_like,
         ERC4626Feature.llamma_like,
+        ERC4626Feature.forty_acres_like,
     }
 )
 

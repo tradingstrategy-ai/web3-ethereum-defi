@@ -1,4 +1,4 @@
-"""Certify the liquid 40acres Aerodrome vault through a non-governance GuardV0."""
+"""Certify guarded 40acres Aerodrome deposits and redemptions through GuardV0."""
 
 import os
 from collections.abc import Iterator
@@ -15,7 +15,6 @@ from web3.contract.contract import ContractFunction
 from eth_defi.abi import get_deployed_contract
 from eth_defi.deploy import GUARD_LIBRARIES, deploy_contract
 from eth_defi.erc_4626.classification import create_vault_instance_autodetect
-from eth_defi.erc_4626.deposit_redeem import ERC4626DepositManager
 from eth_defi.erc_4626.vault_protocol.forty_acres.deposit_redeem import FortyAcresDepositManager
 from eth_defi.erc_4626.vault_protocol.forty_acres.vault import FortyAcresVault
 from eth_defi.hotwallet import HotWallet
@@ -28,9 +27,7 @@ from eth_defi.trace import TransactionAssertionError, assert_transaction_success
 
 JSON_RPC_BASE = os.environ.get("JSON_RPC_BASE")
 
-#: A real 40acres vault whose deployed capital can be redeemed at the pinned
-#: Base state. This is deliberately not the Pharaoh deployment, which has a
-#: direct-underlying liquidity constraint and uses FortyAcresDepositManager.
+#: A real 40acres vault whose direct USDC balance is preflighted before redemption.
 AERODROME_USDC_VAULT: HexAddress = "0xb99b6df96d4d5448cc0a5b3e0ef7896df9507cf5"
 
 pytestmark = [
@@ -111,15 +108,20 @@ def test_guarded_forty_acres_aerodrome_deposit_and_redeem(
     protocol_vault: FortyAcresVault,
     guarded_simple_vault: tuple[Contract, Contract, HotWallet],
 ) -> None:
-    """Deposit and redeem against actual Aerodrome liquidity through GuardV0."""
+    """Redeem a direct USDC contribution through GuardV0.
+
+    1. Create the specialised 40acres redemption manager.
+    2. Fund and deposit USDC through the guarded SimpleVault.
+    3. Redeem the resulting shares while the direct contribution is available.
+    """
+    # 1. Create the specialised 40acres redemption manager.
     simple_vault, guard, asset_manager = guarded_simple_vault
     manager = protocol_vault.get_deposit_manager()
-    assert isinstance(manager, ERC4626DepositManager)
-    assert not isinstance(manager, FortyAcresDepositManager)
+    assert isinstance(manager, FortyAcresDepositManager)
 
+    # 2. Fund and deposit USDC through the guarded SimpleVault.
     raw_amount = protocol_vault.denomination_token.convert_to_raw(Decimal(10))
-    # Only the test wallet is funded. The vault and its loan deployment retain
-    # their unmodified Base-fork balances, which the redemption must use.
+    # The test deposit supplies the direct USDC needed for this guarded redemption.
     fund_erc20_on_anvil(web3, protocol_vault.denomination_token.address, simple_vault.address, raw_amount)
     approval = protocol_vault.denomination_token.contract.functions.approve(protocol_vault.address, raw_amount)
     _perform_guarded_call(web3, simple_vault, asset_manager, approval)
@@ -135,6 +137,8 @@ def test_guarded_forty_acres_aerodrome_deposit_and_redeem(
     raw_shares = protocol_vault.share_token.fetch_raw_balance_of(simple_vault.address)
     assert raw_shares > 0
     assert manager.force_settle(None).settlement_required is False
+
+    # 3. Redeem the resulting shares while the direct contribution is available.
     redemption_request = manager.create_redemption_request(owner=simple_vault.address, raw_shares=raw_shares)
     redemption_hash = _perform_guarded_call(web3, simple_vault, asset_manager, redemption_request.funcs[0])
     redemption_ticket = redemption_request.parse_redeem_transaction([redemption_hash])
@@ -150,9 +154,18 @@ def test_guarded_forty_acres_aerodrome_rejects_substituted_addresses(
     protocol_vault: FortyAcresVault,
     guarded_simple_vault: tuple[Contract, Contract, HotWallet],
 ) -> None:
-    """Reject unwhitelisted ERC-4626 receivers and share owners for 40acres."""
+    """Reject substituted ERC-4626 addresses for 40acres.
+
+    1. Use the guarded Aerodrome vault and its asset manager.
+    2. Attempt deposit and redemption calls with substituted receiver or owner addresses.
+    3. Verify GuardV0 rejects every altered address.
+    """
+    # 1. Use the guarded Aerodrome vault and its asset manager.
     simple_vault, _guard, asset_manager = guarded_simple_vault
     outsider = HexAddress(web3.eth.accounts[3])
+
+    # 2. Attempt deposit and redemption calls with substituted receiver or owner addresses.
+    # 3. Verify GuardV0 rejects every altered address.
     _assert_guarded_call_rejected(
         web3,
         simple_vault,
