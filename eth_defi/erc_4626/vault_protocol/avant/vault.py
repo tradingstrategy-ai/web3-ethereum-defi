@@ -23,6 +23,7 @@ import logging
 from eth_typing import BlockIdentifier
 
 from eth_defi.erc_4626.vault import ERC4626Vault
+from eth_defi.vault.base import WithdrawalDelayType, WithdrawalPeriod
 
 logger = logging.getLogger(__name__)
 
@@ -80,6 +81,21 @@ class AvantVault(ERC4626Vault):
         This returns a conservative estimate.
         """
         return datetime.timedelta(days=7)
+
+    def get_withdrawal_period(self) -> WithdrawalPeriod | None:
+        """Read Avant's governance-controlled cooldown from the vault.
+
+        See the `Avant unstaking documentation <https://docs.avantprotocol.com/overview/using-the-avant-protocol/unstaking-savassets>`__.
+
+        :return:
+            Fixed cooldown duration, or ``None`` when the deployment does not
+            expose the canonical ``cooldownDuration()`` accessor.
+        """
+        try:
+            period = datetime.timedelta(seconds=self.vault_contract.functions.cooldownDuration().call())
+        except (AttributeError, ValueError):
+            return None
+        return WithdrawalPeriod(period, period, WithdrawalDelayType.delay)
 
     def get_link(self, referral: str | None = None) -> str:
         """Get the vault's web UI link.

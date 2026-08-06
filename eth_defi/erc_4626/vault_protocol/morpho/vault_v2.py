@@ -40,7 +40,7 @@ from eth_defi.erc_4626.vault_protocol.morpho.offchain_metadata import (
 )
 from eth_defi.event_reader.multicall_batcher import EncodedCall, EncodedCallResult
 from eth_defi.types import Percent
-from eth_defi.vault.base import VaultHistoricalRead, VaultHistoricalReader
+from eth_defi.vault.base import INSTANT_WITHDRAWAL_PERIOD, VaultHistoricalRead, VaultHistoricalReader, WithdrawalPeriod
 from eth_defi.vault.flag import NOT_IN_MORPHO_API, VaultFlag
 
 logger = logging.getLogger(__name__)
@@ -497,6 +497,9 @@ class MorphoV2Vault(ERC4626Vault):
         Users can withdraw at any time using regular withdraw or forceDeallocate.
         """
         return datetime.timedelta(days=0)
+
+    def get_withdrawal_period(self) -> WithdrawalPeriod:
+        return INSTANT_WITHDRAWAL_PERIOD
 
     def get_link(self, referral: str | None = None) -> str:
         """Get link to the vault on Morpho app.

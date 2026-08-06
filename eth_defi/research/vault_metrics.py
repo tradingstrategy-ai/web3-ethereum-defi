@@ -1879,10 +1879,12 @@ def calculate_vault_record(
         min_withdrawal_period = None
         max_withdrawal_period = None
         withdrawal_delay_type = None
+        estimated_settlement = None
     else:
         min_withdrawal_period = withdrawal_period.min_period
         max_withdrawal_period = withdrawal_period.max_period
         withdrawal_delay_type = withdrawal_period.delay_type
+        estimated_settlement = withdrawal_period.estimated_settlement
         # Keep the long-standing public field as a backwards-compatible alias
         # for the maximum normal wait, rather than exposing a contradictory
         # generic adapter estimate beside the explicit range.
@@ -2287,6 +2289,7 @@ def calculate_vault_record(
             "min_withdrawal_period": min_withdrawal_period,
             "max_withdrawal_period": max_withdrawal_period,
             "withdrawal_delay_type": withdrawal_delay_type,
+            "estimated_settlement": estimated_settlement,
             "event_count": event_count,
             "protocol": protocol,
             "risk": risk,
@@ -2836,7 +2839,7 @@ def format_lifetime_table(
             return "---"
         return f"{period.total_seconds() / 86_400:g}"
 
-    for column in ("min_withdrawal_period", "max_withdrawal_period"):
+    for column in ("min_withdrawal_period", "max_withdrawal_period", "estimated_settlement"):
         if column in df.columns:
             df[column] = df[column].apply(_format_withdrawal_period)
     df["flags"] = df["flags"].apply(_str_enum_set)
@@ -2997,6 +3000,7 @@ def format_lifetime_table(
             "min_withdrawal_period": "Withdrawal min. days",
             "max_withdrawal_period": "Withdrawal max. days",
             "withdrawal_delay_type": "Withdrawal type",
+            "estimated_settlement": "Settlement est. days",
             "fee_label": "Fees (mgmt / perf / dep / with)",
             "flags": "Flags",
             "notes": "Notes",

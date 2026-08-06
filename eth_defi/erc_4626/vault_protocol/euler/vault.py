@@ -24,7 +24,7 @@ from eth_defi.erc_4626.vault import ERC4626HistoricalReader, ERC4626Vault
 from eth_defi.erc_4626.vault_protocol.euler.offchain_metadata import EulerVaultMetadata, fetch_euler_vault_metadata
 from eth_defi.event_reader.multicall_batcher import EncodedCall, EncodedCallResult
 from eth_defi.types import Percent
-from eth_defi.vault.base import VaultHistoricalRead, VaultHistoricalReader, VaultTechnicalRisk
+from eth_defi.vault.base import INSTANT_WITHDRAWAL_PERIOD, VaultHistoricalRead, VaultHistoricalReader, VaultTechnicalRisk, WithdrawalPeriod
 from eth_defi.vault.flag import BAD_FLAGS, get_vault_special_flags
 
 logger = logging.getLogger(__name__)
@@ -406,6 +406,9 @@ class EulerVault(ERC4626Vault):
     def get_estimated_lock_up(self) -> datetime.timedelta | None:
         return datetime.timedelta(days=0)
 
+    def get_withdrawal_period(self) -> WithdrawalPeriod:
+        return INSTANT_WITHDRAWAL_PERIOD
+
     def get_link(self, referral: str | None = None) -> str:
         """Get link to the Euler EVK vault frontend.
 
@@ -598,6 +601,9 @@ class EulerEarnVault(ERC4626Vault):
         Users can withdraw at any time depending on available liquidity.
         """
         return datetime.timedelta(days=0)
+
+    def get_withdrawal_period(self) -> WithdrawalPeriod:
+        return INSTANT_WITHDRAWAL_PERIOD
 
     def get_link(self, referral: str | None = None) -> str:
         """Get link to EulerEarn vault on Euler app.

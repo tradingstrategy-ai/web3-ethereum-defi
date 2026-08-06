@@ -34,6 +34,7 @@ import logging
 from web3.types import BlockIdentifier
 
 from eth_defi.erc_4626.vault import ERC4626Vault
+from eth_defi.vault.base import WithdrawalDelayType, WithdrawalPeriod
 
 logger = logging.getLogger(__name__)
 
@@ -113,6 +114,14 @@ class ThreeJaneVault(ERC4626Vault):
         if self.vault_address.lower() == SUSD3_ADDRESS:
             return SUSD3_LOCK_DURATION
         return datetime.timedelta(0)
+
+    def get_withdrawal_period(self) -> WithdrawalPeriod:
+        """Return the tranche-specific 3Jane redemption timing.
+
+        See the `3Jane documentation <https://docs.3jane.xyz/>`__.
+        """
+        period = self.get_estimated_lock_up()
+        return WithdrawalPeriod(period, period, WithdrawalDelayType.delay)
 
     def get_link(self, referral: str | None = None) -> str:
         return "https://www.3jane.xyz/"

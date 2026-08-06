@@ -30,6 +30,7 @@ from eth_typing import BlockIdentifier, HexAddress
 from web3.exceptions import BadFunctionCallOutput, ContractLogicError, Web3Exception
 
 from eth_defi.erc_4626.vault import ERC4626Vault
+from eth_defi.vault.base import WithdrawalDelayType, WithdrawalPeriod
 
 logger = logging.getLogger(__name__)
 
@@ -241,6 +242,23 @@ class AtomaVault(ERC4626Vault):
             return datetime.timedelta(seconds=duration_seconds)
         except (BadFunctionCallOutput, ContractLogicError, ValueError, Web3Exception):
             return DEFAULT_EPOCH_DURATION
+
+    def get_withdrawal_period(self) -> WithdrawalPeriod:
+        """Return the epoch-bounded Atoma request-to-claim window.
+
+        Atoma accepts a withdrawal request and pays it from the next processed
+        settlement epoch. A request can be made as soon as the current epoch
+        permits it, while the normal upper bound is one configured epoch.
+        See the `Atoma vault implementation <https://arbitrum.blockscout.com/address/0xd4242FD8DE6E3128f0435b52DCe29155098CbBFF>`__.
+
+        :return:
+            Zero-to-one epoch withdrawal period.
+        """
+        return WithdrawalPeriod(
+            min_period=datetime.timedelta(0),
+            max_period=self.get_estimated_lock_up(),
+            delay_type=WithdrawalDelayType.epoch,
+        )
 
     def get_link(self, referral: str | None = None) -> str:
         """Return the Atoma vault app link."""

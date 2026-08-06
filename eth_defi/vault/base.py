@@ -74,8 +74,13 @@ class WithdrawalDelayType(enum.StrEnum):
     lifetime metrics. It describes only the protocol's normal withdrawal
     timing rule, not current liquidity, a pause, or keeper execution.
 
-    ``delay`` applies when a request becomes claimable after a configured
-    cooldown. Examples include `Gains gUSDC <https://gains.trade/vaults/gUSDC>`__
+    ``instant`` applies when the protocol has no request, cooldown or epoch
+    gate; a direct ERC-4626 redemption is possible subject to liquidity.
+    Examples include `Aave <https://app.aave.com/markets/>`__ and
+    `Yearn V3 <https://yearn.fi/v3>`__.
+
+    ``delay`` applies when a request follows a cooldown or asynchronous
+    settlement lifecycle. Examples include `Gains gUSDC <https://gains.trade/vaults/gUSDC>`__
     and Upshift's `NEMO USDC Yield <https://app.upshift.finance/pools/1/0x955256B31097dDf47a9E47A95aDfDFB4460D8522>`__.
 
     ``epoch`` applies when withdrawal availability is determined by a
@@ -83,7 +88,11 @@ class WithdrawalDelayType(enum.StrEnum):
     vault <https://d2.finance/strategies/0x208f63a7f60c319597c05fa5ec67fde41839bad6>`__.
     """
 
-    #: A request becomes claimable after a fixed or configured time delay.
+    #: Immediate redemption without a protocol cooldown or epoch gate.
+    #: Aave and Yearn V3 are examples.
+    instant = "instant"
+
+    #: A request follows a fixed delay or asynchronous settlement lifecycle.
     #: Gains gUSDC and Upshift NEMO USDC Yield are examples.
     delay = "delay"
 
@@ -96,21 +105,50 @@ class WithdrawalDelayType(enum.StrEnum):
 class WithdrawalPeriod:
     """Protocol withdrawal timing bounds exported by the vault scanner.
 
-    The range describes the normal wait from a valid withdrawal request to
-    redemption availability. It excludes liquidity shortages, keeper delays,
-    paused contracts and other exceptional operating conditions. Both values
-    are :class:`datetime.timedelta` objects and are serialised as seconds in
-    the public lifetime-metrics JSON export.
+    ``min_period`` and ``max_period`` describe the wait from a valid withdrawal
+    request to redemption availability when the protocol's smart contracts
+    enforce a timing rule. These binding values exclude liquidity shortages,
+    paused contracts, and other exceptional operating conditions. They are
+    serialised as seconds in the public lifetime-metrics JSON export.
+
+    ``estimated_settlement`` is deliberately separate. It is a non-binding
+    offchain operating estimate for backtesting, such as how often a curator
+    normally performs a request-batch settlement or the expected duration of a
+    liquidity-dependent redemption. It must not be used to decide whether a
+    withdrawal is claimable or promised to settle by a particular time.
     """
 
-    #: Shortest configured wait before a withdrawal can become available.
-    min_period: datetime.timedelta
+    #: Shortest contract-enforced wait before a withdrawal can become available.
+    #: ``None`` when the protocol has no binding timing bound.
+    min_period: datetime.timedelta | None
 
-    #: Longest normal wait, including any protocol scheduling window.
-    max_period: datetime.timedelta
+    #: Longest contract-enforced wait, including any protocol scheduling window.
+    #: ``None`` when the protocol has no binding timing bound.
+    max_period: datetime.timedelta | None
 
     #: Whether the availability rule is a time delay or epoch window.
     delay_type: WithdrawalDelayType
+
+    #: Non-binding offchain estimate of a settlement cycle or redemption wait.
+    #: Used exclusively for backtesting; it never replaces a binding
+    #: smart-contract withdrawal period and settlement may not occur at all.
+    estimated_settlement: datetime.timedelta | None = None
+
+
+#: Withdrawal metadata for adapters whose documented ERC-4626 redemption path
+#: has no request, cooldown, or epoch timing gate. It is a timing declaration,
+#: not a liquidity guarantee: callers must still check liquidity, permissions,
+#: pause state, and transaction preflight before attempting redemption.
+#:
+#: An adapter must return this value explicitly. A zero
+#: :meth:`VaultBase.get_estimated_lock_up` alone is not sufficient evidence:
+#: it can describe a different lifecycle, such as an unlocked asynchronous
+#: redemption queue.
+INSTANT_WITHDRAWAL_PERIOD = WithdrawalPeriod(
+    min_period=datetime.timedelta(0),
+    max_period=datetime.timedelta(0),
+    delay_type=WithdrawalDelayType.instant,
+)
 
 
 class ParquetVerificationError(Exception):
@@ -1597,12 +1635,15 @@ class VaultBase(ABC):
         return None
 
     def get_withdrawal_period(self) -> WithdrawalPeriod | None:
-        """Return the normal withdrawal wait range and availability mechanism.
+        """Return binding withdrawal timing and optional settlement estimates.
 
         Unlike :meth:`get_estimated_lock_up`, this reports the redemption
-        lifecycle after a user submits a valid withdrawal request. Protocol
-        adapters return ``None`` when the contract does not expose reliable
-        timing data.
+        lifecycle after a user submits a valid withdrawal request. Adapters use
+        ``min_period`` and ``max_period`` only for a binding smart-contract
+        timing rule. An adapter may instead return a non-binding
+        ``estimated_settlement`` for backtesting an offchain operating cadence
+        or redemption wait; that estimate never establishes claimability and
+        does not require a synthetic timing bound.
 
         :return:
             Withdrawal period details, or ``None`` when unavailable.

@@ -36,12 +36,13 @@ import datetime
 import logging
 from functools import cached_property
 
-from web3.contract import Contract
 from eth_typing import BlockIdentifier
+from web3.contract import Contract
 
+from eth_defi.chain import get_chain_name
 from eth_defi.erc_4626.core import get_deployed_erc_4626_contract
 from eth_defi.erc_4626.vault import ERC4626Vault
-from eth_defi.chain import get_chain_name
+from eth_defi.vault.base import WithdrawalDelayType, WithdrawalPeriod
 
 logger = logging.getLogger(__name__)
 
@@ -124,6 +125,22 @@ class TellerVault(ERC4626Vault):
             return datetime.timedelta(seconds=delay_seconds)
         except Exception:
             return None
+
+    def get_withdrawal_period(self) -> WithdrawalPeriod | None:
+        """Read Teller's pool-specific withdrawal delay.
+
+        Teller's ``withdrawDelayTime()`` is measured in seconds and applies to
+        the request-to-claim flow for the pool.
+        See the `Teller V2 documentation <https://docs.teller.org/teller-v2>`__.
+
+        :return:
+            Fixed delay, or ``None`` when this deployment lacks the accessor.
+        """
+        try:
+            period = datetime.timedelta(seconds=self.vault_contract.functions.withdrawDelayTime().call())
+        except (AttributeError, ValueError):
+            return None
+        return WithdrawalPeriod(period, period, WithdrawalDelayType.delay)
 
     def get_link(self, referral: str | None = None) -> str:
         """Get the vault's web UI link.

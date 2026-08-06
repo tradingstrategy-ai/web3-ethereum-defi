@@ -11,6 +11,7 @@ from web3.contract import Contract
 from eth_defi.erc_4626.core import get_deployed_erc_4626_contract
 from eth_defi.erc_4626.vault import ERC4626Vault
 from eth_defi.erc_4626.vault_protocol.goat.deposit_redeem import GoatDepositManager
+from eth_defi.vault.base import INSTANT_WITHDRAWAL_PERIOD, WithdrawalPeriod
 
 logger = logging.getLogger(__name__)
 
@@ -212,3 +213,6 @@ class GoatVault(ERC4626Vault):
 
     def get_estimated_lock_up(self) -> datetime.timedelta:
         return datetime.timedelta(days=0)
+
+    def get_withdrawal_period(self) -> WithdrawalPeriod:
+        return INSTANT_WITHDRAWAL_PERIOD

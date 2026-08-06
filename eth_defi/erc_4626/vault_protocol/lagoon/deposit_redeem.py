@@ -87,9 +87,9 @@ class LagoonDepositManager(GenericERC7540DepositManager):
 
     **Lockups and cooldowns.** There is no fixed cooldown; the wait is one
     settlement round, whose cadence is off-vault operational rather than an
-    onchain deadline. :meth:`LagoonFlowManager.get_estimated_lock_up` returns
-    Lagoon's offchain ``average_settlement`` metadata when available, otherwise
-    ``None``.
+    onchain deadline. :meth:`LagoonVault.get_withdrawal_period` exports
+    Lagoon's offchain ``average_settlement`` metadata as a non-binding
+    backtesting estimate when available, otherwise ``None``.
 
     **Whitelisting / access control.** Deposit admission is version specific and
     checked before broadcast by :meth:`_assert_deposit_request_available` /

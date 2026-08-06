@@ -46,17 +46,29 @@ Withdrawal-period metadata
 --------------------------
 
 Public lifetime-metrics JSON records expose withdrawal timing separately from
-the legacy ``lockup`` field. When a withdrawal period is available, ``lockup``
+the legacy ``lockup`` field. When a binding maximum is available, ``lockup``
 is an alias of ``max_withdrawal_period``. ``min_withdrawal_period`` and
 ``max_withdrawal_period`` are seconds from a valid withdrawal request until
-normal redemption availability. ``withdrawal_delay_type`` is either ``delay``
-for a request-and-claim cooldown (for example `Gains gUSDC <https://gains.trade/vaults/gUSDC>`__
-or Upshift's `NEMO USDC Yield <https://app.upshift.finance/pools/1/0x955256B31097dDf47a9E47A95aDfDFB4460D8522>`__)
+normal redemption availability, derived from smart-contract timing rules.
+``withdrawal_delay_type`` is ``instant`` for a direct ERC-4626 redemption
+without a protocol timing gate, ``delay`` for a request-and-claim cooldown or
+an asynchronous settlement lifecycle
+(for example `Gains gUSDC <https://gains.trade/vaults/gUSDC>`__ or Upshift's
+`NEMO USDC Yield <https://app.upshift.finance/pools/1/0x955256B31097dDf47a9E47A95aDfDFB4460D8522>`__)
 or ``epoch`` for a protocol withdrawal window (for example D2's `Texas Hedge
 strategy vault <https://d2.finance/strategies/0x208f63a7f60c319597c05fa5ec67fde41839bad6>`__).
 These are the values of :py:class:`eth_defi.vault.base.WithdrawalDelayType`.
-The bounds do not promise liquidity or keeper execution and are ``null`` when
-the adapter cannot read reliable timing data.
+
+``estimated_settlement`` is a separate optional backtesting field, also in
+seconds. It records a curator's or operator's historical or operational
+estimate of settlement cadence or a liquidity-dependent redemption wait; it is
+not a contractual deadline. For example, `Lagoon's app <https://app.lagoon.finance/>`__
+provides its per-vault ``averageSettlement`` metadata. Curators can settle
+earlier, later, or not at all, so this value must never be used to decide
+whether a request is claimable. Unlike ``estimated_settlement``, populated
+``min_withdrawal_period`` and ``max_withdrawal_period`` are binding
+smart-contract timing rules; neither field promises liquidity or keeper
+execution. Unavailable values are ``null``.
 
 Deposit permission metadata
 ---------------------------
@@ -120,6 +132,7 @@ Supported protocols
    :maxdepth: 1
 
    perp-dex-account-metrics
+   withdrawal-period-audit
 
 .. toctree::
    :maxdepth: 1

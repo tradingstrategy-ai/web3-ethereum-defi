@@ -49,7 +49,7 @@ from eth_defi.event_reader.multicall_batcher import EncodedCall
 from eth_defi.provider.fallback import ExtraValueError
 from eth_defi.safe.safe_compat import create_safe_ethereum_client
 from eth_defi.trace import assert_transaction_success_with_explanation
-from eth_defi.vault.base import VaultFlowManager, VaultInfo, VaultSpec
+from eth_defi.vault.base import VaultFlowManager, VaultInfo, VaultSpec, WithdrawalDelayType, WithdrawalPeriod
 from eth_defi.vault.deposit_redeem import VaultDepositManagerCapability
 from eth_defi.vault.flag import MISSING_IN_PROTOCOL_FRONTEND, VaultFlag
 
@@ -574,6 +574,37 @@ class LagoonVault(ERC7540Vault, AutomatedSafe):
             return MISSING_IN_PROTOCOL_FRONTEND
         return self.description
 
+    def get_withdrawal_period(self) -> WithdrawalPeriod | None:
+        """Return Lagoon's non-binding curator settlement estimate for backtesting.
+
+        Lagoon redemptions follow the asynchronous `ERC-7540 lifecycle
+        <https://eips.ethereum.org/EIPS/eip-7540>`__: a request is only
+        claimable after the curator posts a valuation and the Safe settles the
+        batch. The contracts do not impose a time-bound settlement deadline.
+
+        The official Lagoon app supplies ``averageSettlement`` in its offchain
+        vault metadata. It describes the curator's estimated cadence for
+        deposit and redemption settlement cycles, not a contractual promise.
+        A curator may settle earlier, later, or not at all. Therefore the
+        binding ``min_period`` and ``max_period`` fields are ``None`` and only
+        ``estimated_settlement`` is populated for backtesting.
+
+        :return:
+            Asynchronous withdrawal metadata with an offchain settlement
+            estimate, or ``None`` if Lagoon has no valid estimate for the
+            vault.
+        """
+        metadata = self.lagoon_metadata
+        average_settlement = metadata.get("average_settlement") if metadata else None
+        if not isinstance(average_settlement, int) or average_settlement <= 0:
+            return None
+        return WithdrawalPeriod(
+            min_period=None,
+            max_period=None,
+            delay_type=WithdrawalDelayType.delay,
+            estimated_settlement=datetime.timedelta(seconds=average_settlement),
+        )
+
     @cached_property
     def vault_contract(self) -> Contract:
         """Get vault deployment."""
@@ -1070,14 +1101,15 @@ class LagoonFlowManager(VaultFlowManager):
         return shares_pending * share_price
 
     def get_estimated_lock_up(self) -> datetime.timedelta | None:
-        """Estimate lock up period from Lagoon's offchain metadata.
+        """Return Lagoon's legacy offchain settlement estimate.
 
-        - Uses ``average_settlement`` from Lagoon's web app API (in seconds)
-        - Returns None if metadata is not available
+        The structured :meth:`LagoonVault.get_withdrawal_period` accessor is
+        the source of truth. This compatibility accessor retains the estimate
+        for callers that still use the older flow-manager API.
+
+        :return:
+            Non-binding expected settlement cadence, or ``None`` when the
+            curator has not supplied a valid estimate.
         """
-        metadata = self.vault.lagoon_metadata
-        if metadata:
-            avg = metadata.get("average_settlement")
-            if avg is not None:
-                return datetime.timedelta(seconds=avg)
-        return None
+        withdrawal_period = self.vault.get_withdrawal_period()
+        return withdrawal_period.estimated_settlement if withdrawal_period else None

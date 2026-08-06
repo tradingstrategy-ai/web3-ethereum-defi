@@ -10,8 +10,9 @@ from web3.exceptions import ABIFunctionNotFound, BadFunctionCallOutput, Contract
 
 from eth_defi.abi import ZERO_ADDRESS_STR
 from eth_defi.erc_4626.core import get_deployed_erc_4626_contract
-from eth_defi.erc_4626.vault_protocol.yearn.deposit_redeem import YearnV3DepositManager
 from eth_defi.erc_4626.vault import ERC4626Vault
+from eth_defi.erc_4626.vault_protocol.yearn.deposit_redeem import YearnV3DepositManager
+from eth_defi.vault.base import INSTANT_WITHDRAWAL_PERIOD, WithdrawalPeriod
 
 logger = logging.getLogger(__name__)
 
@@ -191,6 +192,9 @@ class YearnV3Vault(ERC4626Vault):
 
     def get_estimated_lock_up(self) -> datetime.timedelta:
         return datetime.timedelta(0)
+
+    def get_withdrawal_period(self) -> WithdrawalPeriod:
+        return INSTANT_WITHDRAWAL_PERIOD
 
     def get_link(self, referral: str | None = None) -> str:
         return f"https://yearn.fi/v3/{self.chain_id}/{self.vault_address}"

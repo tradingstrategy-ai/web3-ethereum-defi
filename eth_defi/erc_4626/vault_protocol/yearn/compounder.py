@@ -14,6 +14,7 @@ import datetime
 from eth_typing import BlockIdentifier
 
 from eth_defi.erc_4626.vault import ERC4626Vault
+from eth_defi.vault.base import INSTANT_WITHDRAWAL_PERIOD, WithdrawalPeriod
 
 #: Yearn TokenizedStrategy fee precision: 10_000 basis points is 100%.
 PERFORMANCE_FEE_DENOMINATOR = 10_000
@@ -92,6 +93,9 @@ class YearnCompounderVault(ERC4626Vault):
             A zero-length lock-up.
         """
         return datetime.timedelta(0)
+
+    def get_withdrawal_period(self) -> WithdrawalPeriod:
+        return INSTANT_WITHDRAWAL_PERIOD
 
     def get_link(self, referral: str | None = None) -> str:
         """Return the direct Yearn vault page.

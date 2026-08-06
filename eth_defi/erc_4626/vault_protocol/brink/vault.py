@@ -21,6 +21,7 @@ import logging
 from eth_typing import BlockIdentifier
 
 from eth_defi.erc_4626.vault import ERC4626Vault
+from eth_defi.vault.base import INSTANT_WITHDRAWAL_PERIOD, WithdrawalPeriod
 
 logger = logging.getLogger(__name__)
 
@@ -62,6 +63,18 @@ class BrinkVault(ERC4626Vault):
         Brink vaults support instant redemption.
         """
         return None
+
+    def get_withdrawal_period(self) -> WithdrawalPeriod:
+        """Report Brink's direct redemption path.
+
+        Brink does not implement a withdrawal request, cooldown, or epoch for
+        this ERC-4626 vault adapter. See the `Brink application
+        <https://brink.money/app>`__ for an example vault interface.
+
+        :return:
+            A zero-length ``instant`` period.
+        """
+        return INSTANT_WITHDRAWAL_PERIOD
 
     def get_link(self, referral: str | None = None) -> str:
         """Get link to the vault page.
