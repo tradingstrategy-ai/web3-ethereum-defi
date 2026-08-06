@@ -216,6 +216,21 @@ def _parse_nest_vaults(contract_products: list[dict], cms_products: list[dict]) 
     return result
 
 
+def _read_cached_vaults(cache_file: Path) -> dict[str, NestVaultMetadata]:
+    """Read a previously fetched Nest route catalogue.
+
+    :param cache_file:
+        JSON cache file written by :func:`fetch_nest_vaults`.
+
+    :return:
+        Chain-and-address keyed Nest vault metadata.
+    """
+    try:
+        return json.loads(cache_file.read_text())
+    except JSONDecodeError as error:
+        raise RuntimeError(f"Could not decode Nest metadata cache {cache_file}") from error
+
+
 def fetch_nest_vaults(
     cache_path: Path = DEFAULT_CACHE_PATH,
     api_base_url: str = DEFAULT_API_BASE_URL,
@@ -256,10 +271,7 @@ def fetch_nest_vaults(
     with wait_other_writers(cache_file):
         cache_is_fresh = cache_file.exists() and cache_file.stat().st_size > 0 and now_ - native_datetime_utc_fromtimestamp(cache_file.stat().st_mtime) <= max_cache_duration
         if cache_is_fresh:
-            try:
-                return json.loads(cache_file.read_text())
-            except JSONDecodeError as error:
-                raise RuntimeError(f"Could not decode Nest metadata cache {cache_file}") from error
+            return _read_cached_vaults(cache_file)
 
         contracts_payload = _fetch_json(f"{api_base_url}/vaults", params={"status": "all"})
         cms_payload = _fetch_json(f"{cms_api_base_url}/vaults", params={"limit": 100, "depth": 2})
@@ -267,7 +279,10 @@ def fetch_nest_vaults(
         cms_products = cms_payload.get("docs", []) if cms_payload else []
         metadata = _parse_nest_vaults(contract_products, cms_products)
         if not metadata:
-            logger.warning("Nest API returned no vault routes; not replacing %s", cache_file)
+            if cache_file.exists() and cache_file.stat().st_size > 0:
+                logger.warning("Nest API returned no vault routes; using stale cache %s", cache_file)
+                return _read_cached_vaults(cache_file)
+            logger.warning("Nest API returned no vault routes and no cache is available")
             return {}
 
         cache_file.write_text(json.dumps(metadata, indent=2, sort_keys=True))
@@ -288,9 +303,11 @@ def fetch_nest_vault_metadata(web3: Web3, vault_address: HexAddress) -> NestVaul
     """
     global _cached_vaults  # noqa: PLW0603 - cache is intentionally shared by scanner adapters.
     if _cached_vaults is None:
-        _cached_vaults = fetch_nest_vaults()
+        vaults = fetch_nest_vaults()
+        if vaults:
+            _cached_vaults = vaults
     key = f"{web3.eth.chain_id}:{vault_address.lower()}"
-    return _cached_vaults.get(key)
+    return _cached_vaults.get(key) if _cached_vaults else None
 
 
 #: In-process cache shared by Nest vault adapters within one scanner process.

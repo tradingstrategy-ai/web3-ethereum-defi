@@ -8,11 +8,11 @@ and denomination routes, while its share token remains separate from the
 chain-specific ``NestVault`` entrypoint.
 
 NestVault combines ERC-4626 accounting with ERC-7540 asynchronous redemptions
-and ERC-7575 separate-share-token support. The adapter detects NestVault using
-the verified-contract ``totalPendingShares()`` view, and exposes its aggregate
-queued share balance. A redemption request may need compliance checks and a
-later claim, so the integration deliberately does not advertise a generic
-deposit manager.
+and ERC-7575 separate-share-token support. The adapter detects Nest's published
+deployments using the chain-restricted ``operatorRegistry()`` view and exposes
+their aggregate queued-share balance through ``totalPendingShares()``. A
+redemption request may need compliance checks and a later claim, so the
+integration deliberately does not advertise a generic deposit manager.
 
 The adapter joins Nest's public `contract catalogue
 <https://api.nest.credit/v1/vaults?status=all>`__ with its public CMS for

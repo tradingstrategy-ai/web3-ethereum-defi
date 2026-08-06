@@ -532,6 +532,8 @@ CHAIN_RESTRICTED_PROBES: dict[str, set[int]] = {
     "wards": {1, 8453, 42161},  # Centrifuge - Ethereum, Base, Arbitrum
     "SPOKE_REVISION": {1},  # Aave v4 Tokenization Spoke - Ethereum only
     "withdrawalQueue": {1},  # Symbiotic Core V2 - Ethereum only
+    # NestVaultCore deployments in Nest's first-party catalogue, checked 2026-08-06.
+    "operatorRegistry": {1, 56, 480, 9745, 43114, 98866},
 }
 
 
@@ -836,17 +838,18 @@ def create_probe_calls(
             extra_data=None,
         )
 
-        # Nest vaults maintain their ERC-7540 redemption queue as a global
-        # pending-share balance. This accessor is specific to NestVaultCore and
-        # avoids mistaking unrelated ERC-7540/ERC-7575 vaults for Nest.
+        # NestVaultCore exposes its configured operator registry. Restricting
+        # the probe to Nest's published deployment chains prevents this generic
+        # accessor from classifying unrelated ERC-7540/ERC-7575 vaults.
         # https://github.com/plumenetwork/nest-protocol/blob/main/contracts/NestVaultCore.sol
-        yield EncodedCall.from_keccak_signature(
-            address=address,
-            signature=Web3.keccak(text="totalPendingShares()")[0:4],
-            function="totalPendingShares",
-            data=b"",
-            extra_data=None,
-        )
+        if _should_yield_probe("operatorRegistry", chain_id):
+            yield EncodedCall.from_keccak_signature(
+                address=address,
+                signature=Web3.keccak(text="operatorRegistry()")[0:4],
+                function="operatorRegistry",
+                data=b"",
+                extra_data=None,
+            )
 
         # Kiln OmniVaults
         # https://docs.kiln.fi/v1/kiln-products/omnivaults/security/source-code
@@ -1500,10 +1503,9 @@ def identify_vault_features(
     if calls["share"].success:
         features.add(ERC4626Feature.erc_7575_like)
 
-    # NestVaultCore exposes the aggregate asynchronous-redemption queue.
-    # Unlike the common ERC-7540 and ERC-7575 accessors above, this is a
-    # Nest-specific no-argument view that identifies Nest vault entrypoints.
-    if calls["totalPendingShares"].success:
+    # NestVaultCore exposes an operator registry; the probe is restricted to
+    # Nest's published deployment chains to avoid unrelated async vaults.
+    if calls["operatorRegistry"].success:
         features.add(ERC4626Feature.nest_like)
 
     if calls["additionalRewardsStrategy"].success:

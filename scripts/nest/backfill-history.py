@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 """Backfill reviewed NestVault routes into the shared vault pipeline.
 
-Nest's public contract catalogue is the reviewed registry for this migration.
-The ordinary scanner discovers only new events after its saved cursor, so this
-tool seeds the already-deployed NestVault routes without restarting discovery
-for unrelated protocols. It updates only the selected Nest leads, metadata,
-reader states and price histories.
+Nest's public contract catalogue is the first-party route registry for this
+migration. The ordinary scanner discovers only new events after its saved
+cursor, so this tool seeds already-deployed NestVault routes without restarting
+discovery for unrelated protocols. It updates only the selected Nest leads,
+metadata, reader states and price histories.
 
 Usage:
 
@@ -35,7 +35,7 @@ from eth_defi.erc_4626.classification import create_vault_instance
 from eth_defi.erc_4626.core import ERC4262VaultDetection, ERC4626Feature
 from eth_defi.erc_4626.discovery_base import PotentialVaultMatch
 from eth_defi.erc_4626.scan import create_vault_scan_record
-from eth_defi.erc_4626.vault_protocol.nest.offchain_metadata import NestVaultMetadata, fetch_nest_vaults
+from eth_defi.erc_4626.vault_protocol.nest.offchain_metadata import NEST_CHAIN_NAMES, NestVaultMetadata, fetch_nest_vaults
 from eth_defi.hypersync.utils import configure_hypersync_from_env
 from eth_defi.provider.env import get_json_rpc_env, read_json_rpc_url
 from eth_defi.provider.multi_provider import MultiProviderWeb3Factory, create_multi_provider_web3
@@ -102,16 +102,34 @@ def get_chain_selector_names(chain_id: int) -> set[str]:
     :return:
         Decimal and canonical-name selector forms.
     """
-    chain_name = CHAIN_NAMES.get(chain_id)
-    return {str(chain_id), chain_name.lower()} if chain_name else {str(chain_id)}
+    selectors = {str(chain_id)}
+    if chain_name := CHAIN_NAMES.get(chain_id):
+        selectors.add(chain_name.lower())
+    if nest_chain_name := NEST_CHAIN_NAMES.get(chain_id):
+        selectors.add(nest_chain_name)
+    return selectors
+
+
+def get_nest_chain_name(chain_id: int) -> str:
+    """Return the generic or Nest-specific display name for a supported chain.
+
+    :param chain_id:
+        EVM chain identifier.
+
+    :return:
+        Human-readable chain name.
+    """
+    if chain_id in CHAIN_NAMES:
+        return get_chain_name(chain_id)
+    return NEST_CHAIN_NAMES.get(chain_id, f"Unknown chain {chain_id}").capitalize()
 
 
 def iter_selected_vaults() -> Iterable[NestVaultMetadata]:
     """Yield Nest catalogue routes selected by ``NETWORKS``.
 
     A route must have a published deployment block because it is used as the
-    earliest possible history point. Nest's own API is the address authority;
-    this script never broadens selection through an event scan.
+    earliest possible history point. Inspect the required dry-run output before
+    a production run: the public API is a dynamic first-party input.
 
     :return:
         Selected, deployment-block-qualified NestVault entries.
@@ -168,6 +186,25 @@ def create_lead(metadata: NestVaultMetadata) -> PotentialVaultMatch:
         deposit_count=0,
         withdrawal_count=0,
     )
+
+
+def upsert_metadata_preserving_discovery_cursor(vault_db: VaultDatabase, chain_id: int, leads: dict, rows: dict) -> None:
+    """Upsert selected Nest routes without advancing the chain discovery cursor.
+
+    :param vault_db:
+        Shared vault metadata database.
+
+    :param chain_id:
+        EVM chain identifier for the selected routes.
+
+    :param leads:
+        First-party Nest leads keyed by vault address.
+
+    :param rows:
+        Fresh scan rows keyed by vault specification.
+    """
+    vault_db.leads.update({VaultSpec(chain_id, address): lead for address, lead in leads.items()})
+    vault_db._merge_rows(rows)
 
 
 def read_reader_states(path: Path) -> dict[VaultSpec, dict]:
@@ -264,7 +301,7 @@ def backfill_chain(
 
     if not dry_run:
         vault_db_path.parent.mkdir(parents=True, exist_ok=True)
-        vault_db.update_leads_and_rows(chain_id=chain_id, last_scanned_block=end_block, leads=leads, rows=rows)
+        upsert_metadata_preserving_discovery_cursor(vault_db, chain_id, leads, rows)
         vault_db.write(vault_db_path)
 
     scan_summary = "disabled"
@@ -274,7 +311,7 @@ def backfill_chain(
             scan_summary = "dry-run"
         else:
             reader_states = read_reader_states(reader_state_path)
-            reader_states = {spec: state for spec, state in reader_states.items() if spec.vault_address.lower() not in vault_addresses}
+            reader_states = {spec: state for spec, state in reader_states.items() if spec.chain_id != chain_id or spec.vault_address.lower() not in vault_addresses}
             vaults = []
             for route in routes:
                 vault = create_vault_instance(
@@ -313,7 +350,7 @@ def backfill_chain(
             scan_summary = f"{pformat_scan_result(scan_result)}; cleaned_rows={cleaned_rows:,}"
 
     return {
-        "chain": get_chain_name(chain_id),
+        "chain": get_nest_chain_name(chain_id),
         "chain_id": chain_id,
         "rpc": get_json_rpc_env(chain_id),
         "routes": len(routes),
@@ -338,7 +375,21 @@ def main() -> None:
     raw_price_path = parse_path_env("UNCLEANED_PRICE_DATABASE", DEFAULT_UNCLEANED_PRICE_DATABASE)
     cleaned_price_path = parse_path_env("CLEANED_PRICE_DATABASE", DEFAULT_RAW_PRICE_DATABASE)
     reader_state_path = parse_path_env("READER_STATE_DATABASE", DEFAULT_READER_STATE_DATABASE)
-    print(tabulate([{"chain": get_chain_name(chain_id), "chain_id": chain_id, "routes": len(routes), "start_block": min(route["start_block"] for route in routes)} for chain_id, routes in sorted(routes_by_chain.items())], headers="keys", tablefmt="github"))
+    plan = [
+        {
+            "chain": get_nest_chain_name(chain_id),
+            "chain_id": chain_id,
+            "routes": len(routes),
+            "start_block": min(route["start_block"] for route in routes),
+        }
+        for chain_id, routes in sorted(routes_by_chain.items())
+    ]
+    print(tabulate(plan, headers="keys", tablefmt="github"))
+
+    unsupported_chain_ids = sorted(chain_id for chain_id in routes_by_chain if chain_id not in CHAIN_NAMES)
+    if unsupported_chain_ids:
+        chain_names = ", ".join(get_nest_chain_name(chain_id) for chain_id in unsupported_chain_ids)
+        raise RuntimeError(f"No JSON-RPC provider alias is configured for selected Nest chains: {chain_names}")
 
     if dry_run:
         print("Dry run: no vault database, reader state or price data will be read or changed")
@@ -362,8 +413,7 @@ def main() -> None:
         )
         for chain_id, routes in sorted(routes_by_chain.items())
     ]
-    if not dry_run:
-        token_cache.commit()
+    token_cache.commit()
     print(tabulate(summaries, headers="keys", tablefmt="github"))
 
 
