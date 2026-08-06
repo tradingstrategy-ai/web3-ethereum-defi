@@ -9,7 +9,7 @@ Usage:
 
 .. code-block:: shell
 
-    source .local-test.env && PROTOCOL_ID=accountable poetry run python scripts/erc-4626/update-vault-links.py
+    source .local-test.env && PROTOCOL_ID=euler poetry run python scripts/erc-4626/update-vault-links.py
 
 Optional environment variables:
 
@@ -17,8 +17,8 @@ Optional environment variables:
 - ``DRY_RUN``: set to ``true`` to report changes without writing
 - ``LOG_LEVEL``: console log level, defaults to ``info``
 
-The script reads chain RPC URLs from ``JSON_RPC_{CHAIN}`` environment variables,
-for example ``JSON_RPC_MONAD`` for Accountable vaults on Monad.
+This is a metadata-only migration. It needs the configured chain RPC endpoints
+to reconstruct and validate vault adapters, but performs no price reads.
 """
 
 import logging
@@ -149,7 +149,7 @@ def refresh_vault_links_for_protocol(
         Vault metadata database loaded from pickle.
 
     :param protocol_id:
-        Protocol id to refresh, e.g. ``"accountable"``.
+        Protocol id to refresh, e.g. ``"euler"``.
 
     :param web3_by_chain:
         Web3 connections keyed by chain id. Must contain every chain used by
@@ -214,16 +214,20 @@ def refresh_vault_links_for_protocol(
 
 
 def _create_web3_connections_for_protocol(vault_db: VaultDatabase, protocol_id: str) -> dict[int, Web3]:
-    """Create Web3 connections for all chains used by a protocol.
+    """Create and validate Web3 connections used by a protocol's vault adapters.
+
+    Adapter construction reads ``web3.eth.chain_id`` to build a :class:`VaultSpec`.
+    This migration therefore verifies the configured RPC endpoint for each
+    affected chain, while avoiding vault discovery and all price reads.
 
     :param vault_db:
         Vault metadata database loaded from pickle.
 
     :param protocol_id:
-        Protocol id to refresh, e.g. ``"accountable"``.
+        Protocol id to refresh, e.g. ``"euler"``.
 
     :return:
-        Web3 connections keyed by chain id.
+        Validated Web3 connections keyed by chain id.
     """
     protocol_id = slugify_protocol(protocol_id)
     chain_ids = sorted({spec.chain_id for spec, row in vault_db.rows.items() if _get_row_protocol_id(row) == protocol_id})
@@ -254,7 +258,7 @@ def main() -> None:
 
     protocol_id = os.environ.get("PROTOCOL_ID")
     if not protocol_id:
-        msg = "Set PROTOCOL_ID environment variable, e.g. PROTOCOL_ID=accountable"
+        msg = "Set PROTOCOL_ID environment variable, e.g. PROTOCOL_ID=euler"
         raise RuntimeError(msg)
 
     vault_db_path = Path(os.environ.get("VAULT_DB", str(DEFAULT_VAULT_DATABASE))).expanduser()
@@ -275,7 +279,7 @@ def main() -> None:
     changed = [update for update in updates if update.changed]
     logger.info("Refreshed %d %s vault links, %d changed", len(updates), slugify_protocol(protocol_id), len(changed))
     for update in changed:
-        logger.info("%s %s: %s -> %s", update.vault_class, update.spec.as_string_id(), update.old_link, update.new_link)
+        logger.debug("%s %s: %s -> %s", update.vault_class, update.spec.as_string_id(), update.old_link, update.new_link)
 
     if dry_run:
         logger.info("DRY_RUN=true, not writing %s", vault_db_path)

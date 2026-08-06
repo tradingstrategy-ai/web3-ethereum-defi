@@ -76,6 +76,17 @@ ALPHAGROWTH_EULER_LIGHT_MONAD_METADATA: dict[str, EulerVaultMetadata] = {
 ALPHAGROWTH_EULER_LIGHT_MONAD_VAULTS = frozenset(ALPHAGROWTH_EULER_LIGHT_MONAD_METADATA.keys())
 
 
+#: Usual's bUSD0 Zero Rate Vault is detected through the EulerEarn-compatible
+#: supply queue interface, but it is not listed in Euler's public Earn metadata.
+#: Euler's app therefore displays ``Unable to load Vault`` for this address.
+#: Fira maintains the vault's working user interface.
+#:
+#: Source: https://app.fira.money/market/busd0-usd0?type=variable
+FIRA_EULER_EARN_VAULT_LINKS: dict[tuple[int, str], str] = {
+    (1, "0xfe7c47895edb12a990b311df33b90cfea1d44c24"): "https://app.fira.money/market/busd0-usd0?type=variable",
+}
+
+
 def is_alphagrowth_euler_light_vault(chain_id: int, vault_address: str) -> bool:
     """Check if an Euler EVK vault should link to AlphaGrowth's Euler Light UI.
 
@@ -414,8 +425,7 @@ class EulerVault(ERC4626Vault):
         if is_alphagrowth_euler_light_vault(self.chain_id, self.vault_address):
             return f"{ALPHAGROWTH_EULER_LIGHT_BASE_URL}/lend/{self.vault_address}"
 
-        chain_name = get_chain_name(self.chain_id).lower()
-        return f"https://app.euler.finance/earn/{self.vault_address}?network={chain_name}"
+        return f"https://app.euler.finance/lend/{self.vault_address}?network={self.chain_id}"
 
     def can_check_redeem(self) -> bool:
         """Euler EVK does NOT support address(0) checks for redemption availability."""
@@ -592,10 +602,18 @@ class EulerEarnVault(ERC4626Vault):
     def get_link(self, referral: str | None = None) -> str:
         """Get link to EulerEarn vault on Euler app.
 
-        EulerEarn vaults are shown on the Euler Finance app under the "earn" section.
+        EulerEarn vaults are shown on the Euler Finance app under the "earn"
+        section. The app's canonical ``network`` value is the numerical EVM
+        chain id. Some EulerEarn-compatible vaults are not listed by Euler and
+        use their own frontend instead.
         """
-        chain_name = get_chain_name(self.chain_id).lower()
-        return f"https://app.euler.finance/earn/{self.vault_address}?network={chain_name}"
+        del referral
+
+        custom_link = FIRA_EULER_EARN_VAULT_LINKS.get((self.chain_id, self.vault_address.lower()))
+        if custom_link:
+            return custom_link
+
+        return f"https://app.euler.finance/earn/{self.vault_address}?network={self.chain_id}"
 
     def get_supply_queue_length(self, block_identifier: BlockIdentifier = "latest") -> int | None:
         """Get the number of strategies in the supply queue.

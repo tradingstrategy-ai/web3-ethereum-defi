@@ -96,6 +96,50 @@ The scanner does not support whole-chain lead resets. `RESET_LEADS` has been
 removed and setting it causes `scan-vaults.py` to fail before it makes any
 database or network changes.
 
+### update-vault-links.py
+
+Metadata-only repair for persisted native vault-app links. The script selects
+one protocol using `PROTOCOL_ID`, rebuilds only the relevant vault adapters
+from their stored detection data, and updates `Link` values atomically. It does
+not discover vaults, scan prices, or alter reader state. It does verify each
+affected chain's configured JSON-RPC endpoint while constructing the adapters.
+
+Always inspect the changes first:
+
+```shell
+source .local-test.env && \
+  DRY_RUN=true \
+  LOG_LEVEL=debug \
+  PROTOCOL_ID=euler \
+  poetry run python scripts/erc-4626/update-vault-links.py
+```
+
+The dry run logs a summary at `info` level and every proposed old/new link at
+`debug` level.
+
+After the updated adapter is deployed, apply the Euler link migration in the
+production checkout. This changes only `vault-metadata-db.pickle`. Run
+`export-data-files.py` afterwards to publish the refreshed pickle; it does not
+rescan historical prices.
+
+```shell
+source ~/vault-scanner/vault-rpc.env && \
+  (cd ~/vault-scanner/web3-ethereum-defi && \
+    PROTOCOL_ID=euler \
+    poetry run python scripts/erc-4626/update-vault-links.py)
+
+source ~/vault-scanner/vault-rpc.env && \
+  (cd ~/vault-scanner/web3-ethereum-defi && \
+    poetry run python scripts/erc-4626/export-data-files.py)
+```
+
+| Variable | Description |
+|----------|-------------|
+| `PROTOCOL_ID` | Required protocol slug, such as `euler`. |
+| `DRY_RUN` | Optional. Set to `true` to log proposed changes without writing. Default: `false`. |
+| `VAULT_DB` | Optional metadata-pickle path. Default: `~/.tradingstrategy/vaults/vault-metadata-db.pickle`. |
+| `LOG_LEVEL` | Optional console log level. Default: `info`. |
+
 ### backfill-tokenised-funds.py
 
 Generic dispatcher for all reviewed tokenised-fund protocols. Set `PROTOCOLS`
