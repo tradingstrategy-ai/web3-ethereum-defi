@@ -38,6 +38,18 @@ class YearnCompounderVault(ERC4626Vault):
     strategy reporting and therefore is already reflected in the share price.
     """
 
+    def is_whitelisted_deposit(self) -> bool:  # noqa: PLR6301
+        """Report the TokenizedStrategy adapter family's default permission policy.
+
+        Supported Yearn TokenizedStrategy compounders are treated as
+        permissionless by default. Shutdown and deposit-limit controls remain
+        independent global lifecycle conditions.
+
+        :return:
+            Always ``False``.
+        """
+        return False
+
     def get_management_fee(self, block_identifier: BlockIdentifier) -> float:  # noqa: PLR6301
         """Return the absent Yearn compounder management fee.
 

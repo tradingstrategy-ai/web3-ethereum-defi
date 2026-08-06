@@ -10,11 +10,14 @@
 ## Files
 
 - `hyperithm.generic.png` — White wordmark PNG (used on dark backgrounds). Full brand name, wide format (~2.4:1 aspect ratio).
-- `hyperithm.brandmark.png` — Icon-only favicon from the official website, used for formatted metadata logos.
+- `hyperithm.brandmark.png` — Icon-only favicon from the official website. This is the most square available official mark and is used for formatted metadata logos.
 
 ## Notes
 
 - No brand kit, press page, or separate dark/light logo variants were found on the website.
-- The favicon is low resolution but is the official square icon-only source; the
-  wide wordmark remains here as a source reference.
+- The favicon is a 256×256 official square icon-only source; the wide wordmark
+  remains here as a source reference.
+- The formatted `generic.png` and `light.png` assets use a white rendering of
+  the brand mark for contrast on dark curator cards. `dark.png` preserves the
+  official brown mark for light backgrounds.
 - Twitter: @hyperithm

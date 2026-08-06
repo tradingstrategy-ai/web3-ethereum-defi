@@ -17,12 +17,14 @@ from web3 import Web3
 from eth_defi.erc_4626.classification import create_vault_instance_autodetect
 from eth_defi.erc_4626.core import ERC4626Feature
 from eth_defi.erc_4626.vault_protocol.aave.vault import AaveVault
-from eth_defi.provider.anvil import AnvilLaunch, fork_network_anvil
-from eth_defi.provider.multi_provider import create_multi_provider_web3
+from eth_defi.testing.anvil_fork_pool import AnvilForkPool
 
 JSON_RPC_ETHEREUM = os.environ.get("JSON_RPC_ETHEREUM")
 
-pytestmark = pytest.mark.skipif(JSON_RPC_ETHEREUM is None, reason="JSON_RPC_ETHEREUM needed to run these tests")
+pytestmark = [
+    pytest.mark.skipif(JSON_RPC_ETHEREUM is None, reason="JSON_RPC_ETHEREUM needed to run these tests"),
+    pytest.mark.xdist_group("fork:ethereum:25354000"),
+]
 
 #: Aave v4 CORE_USDC Tokenization Spoke on Ethereum mainnet
 #: https://etherscan.io/address/0x531E90a2376902DE8915789Fcc1075e3B0c153E7
@@ -30,20 +32,9 @@ AAVE_CORE_USDC_SPOKE = "0x531E90a2376902DE8915789Fcc1075e3B0c153E7"
 
 
 @pytest.fixture(scope="module")
-def anvil_ethereum_fork(request) -> AnvilLaunch:
-    """Fork mainnet at a fixed block for reproducible values."""
-    launch = fork_network_anvil(JSON_RPC_ETHEREUM, fork_block_number=25_354_000)
-    try:
-        yield launch
-    finally:
-        # Wind down Anvil process after the test is complete
-        launch.close()
-
-
-@pytest.fixture(scope="module")
-def web3(anvil_ethereum_fork: AnvilLaunch) -> Web3:
-    web3 = create_multi_provider_web3(anvil_ethereum_fork.json_rpc_url, retries=2)
-    return web3
+def web3(anvil_fork_pool: AnvilForkPool) -> Web3:
+    """Share the read-only Aave fork and its warmed RPC cache."""
+    return anvil_fork_pool.get_web3(JSON_RPC_ETHEREUM, 25_354_000, web3_retries=2)
 
 
 @flaky.flaky

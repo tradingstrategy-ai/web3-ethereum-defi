@@ -548,6 +548,20 @@ class GainsVault(ERC4626Vault):
 
         return GainsDepositManager(self)
 
+    def is_whitelisted_deposit(self) -> bool:
+        """Report the public depositor policy of supported Gains-like vaults.
+
+        The verified Gains gToken implementation and the supported Ostium V1
+        and V1.5 deposit routes are callable by depositors without an
+        account-admission registry. Their supply caps, epoch scheduling,
+        settlement and disabled legacy ``deposit()`` entry points describe
+        availability or lifecycle, not investor eligibility.
+
+        :return:
+            ``False`` because the supported deposit routes are permissionless.
+        """
+        return False
+
     def get_deposit_manager_capability(self) -> "VaultDepositManagerCapability | None":
         """Declare Gains' direct deposit and epoch redemption lifecycle.
 
@@ -562,6 +576,7 @@ class GainsVault(ERC4626Vault):
             can_redeem=True,
             deposit_flow="synchronous",
             redemption_flow="asynchronous",
+            supports_anvil_settlement=True,
         )
 
     def fetch_deposit_closed_reason(self) -> str | None:
@@ -688,6 +703,19 @@ class OstiumVault(GainsVault):
     @property
     def name(self) -> str:
         return "Ostium Liquidity Pool Vault"
+
+    def is_whitelisted_deposit(self) -> bool:
+        """Report the public depositor policy of supported Ostium versions.
+
+        Ostium V1 exposes its direct public deposit route, while V1.5 exposes
+        the public asynchronous ``requestDeposit`` route. A disabled V1.5
+        compatibility ``deposit()`` function or a settlement interval does not
+        make either route account-restricted.
+
+        :return:
+            ``False`` because both supported Ostium versions are permissionless.
+        """
+        return False
 
     @cached_property
     def version(self) -> OstiumVersion:

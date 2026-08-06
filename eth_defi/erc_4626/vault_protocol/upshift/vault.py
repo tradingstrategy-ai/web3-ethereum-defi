@@ -255,6 +255,19 @@ class UpshiftVault(ERC4626Vault):
 
         return fetch_upshift_vault_metadata(self.web3, self.vault_address)
 
+    def is_whitelisted_deposit(self) -> bool:  # noqa: PLR6301
+        """Report Upshift account admission independently of its asset list.
+
+        Both supported Upshift families accept deposits from any account.
+        Multi-asset vaults separately restrict which input tokens may be used;
+        that accepted-asset set is validated by
+        :class:`UpshiftMultiAssetDepositManager` and is not KYC.
+
+        :return:
+            Always ``False`` because deposits have no per-account gate.
+        """
+        return False
+
     @property
     def description(self) -> str | None:
         """Return the full Upshift-supplied vault strategy description.
@@ -644,8 +657,9 @@ class UpshiftVault(ERC4626Vault):
 
         Multi-asset accounting vaults support synchronous deposits through
         Upshift's protocol-specific ``deposit(asset, amount, receiver)`` entry
-        point. Redemption remains deliberately unsupported until its complete
-        request and settlement lifecycle is fork-proven.
+        point. Redemptions use the verified queued
+        ``requestRedeem/processAllClaimsByDate/claim`` lifecycle; the manager
+        also exposes Upshift's optional atomic ``instantRedeem`` call.
 
         .. note::
 
@@ -659,9 +673,11 @@ class UpshiftVault(ERC4626Vault):
             accepted_assets = tuple(token.address for token in self.fetch_all_denomination_tokens())
             return VaultDepositManagerCapability(
                 can_deposit=True,
-                can_redeem=False,
+                can_redeem=True,
                 deposit_flow="synchronous",
-                redemption_unsupported_reason="multi_asset_application_flow_not_implemented",
+                redemption_flow="asynchronous",
+                supports_anvil_settlement=False,
+                anvil_settlement_unsupported_reason="upshift_operator_settlement_requires_mock",
                 deposit_assets=accepted_assets,
                 publish_partial=True,
             )

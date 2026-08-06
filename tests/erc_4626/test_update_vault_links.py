@@ -3,6 +3,7 @@
 import datetime
 import importlib.util
 from pathlib import Path
+from types import SimpleNamespace
 from typing import cast
 
 import pytest
@@ -39,15 +40,9 @@ def _create_detection(chain_id: int, address: str) -> ERC4262VaultDetection:
     )
 
 
-class FakeVault:
-    """Minimal vault class with native link generation."""
-
-    def __init__(self, link: str):
-        self.link = link
-
-    def get_link(self) -> str:
-        """Return a deterministic native vault link."""
-        return self.link
+def create_fake_vault(link: str) -> SimpleNamespace:
+    """Create a minimal vault object with a native link generator."""
+    return SimpleNamespace(get_link=lambda: link)
 
 
 def test_refresh_vault_links_for_protocol_updates_matching_rows():
@@ -73,7 +68,7 @@ def test_refresh_vault_links_for_protocol_updates_matching_rows():
     )
 
     def vault_factory(_web3, detection, _token_cache):
-        return FakeVault(f"https://yield.accountable.capital/vaults/{detection.address}")
+        return create_fake_vault(f"https://yield.accountable.capital/vaults/{detection.address}")
 
     updates = module.refresh_vault_links_for_protocol(
         vault_db=vault_db,
@@ -84,7 +79,7 @@ def test_refresh_vault_links_for_protocol_updates_matching_rows():
     )
 
     assert len(updates) == 1
-    assert updates[0].vault_class == "FakeVault"
+    assert updates[0].vault_class == "SimpleNamespace"
     assert vault_db.rows[spec]["Link"] == "https://yield.accountable.capital/vaults/0x58ba69b289de313e66a13b7d1f822fc98b970554"
     assert vault_db.rows[other_spec]["Link"] == "https://example.com/unchanged"
 
@@ -115,7 +110,7 @@ def test_refresh_vault_links_for_protocol_does_not_partially_update_on_error():
         if detection.address == second_spec.vault_address:
             msg = "Cannot resolve vault"
             raise ValueError(msg)
-        return FakeVault(f"https://yield.accountable.capital/vaults/{detection.address}")
+        return create_fake_vault(f"https://yield.accountable.capital/vaults/{detection.address}")
 
     with pytest.raises(ValueError, match="Cannot resolve vault"):
         module.refresh_vault_links_for_protocol(

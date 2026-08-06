@@ -100,9 +100,10 @@ def generate_sample_json(json_path: Path, output_path: Path) -> int:
     if len(filtered_vaults) == 0:
         raise ValueError(f"No Ethereum (chain_id={ETHEREUM_CHAIN_ID}) vaults found in {json_path}")
 
-    # Filter core3_protocols to only protocol slugs present in the sample vaults
+    # Filter core3_protocols / xerberus_protocols to protocol slugs in the sample
     sample_slugs = {v["protocol_slug"] for v in filtered_vaults if v.get("protocol_slug")}
     core3 = {k: v for k, v in data.get("core3_protocols", {}).items() if k in sample_slugs}
+    xerberus_protocols = {k: v for k, v in data.get("xerberus_protocols", {}).items() if k in sample_slugs}
 
     # Filter curators to only curator slugs present in the sample vaults
     sample_curator_slugs = {v["curator_slug"] for v in filtered_vaults if v.get("curator_slug")}
@@ -114,9 +115,12 @@ def generate_sample_json(json_path: Path, output_path: Path) -> int:
         # same provenance contract as the full export
         "metadata": data.get("metadata", {}),
         "core3_protocols": core3,
+        "xerberus_protocols": xerberus_protocols,
         "curators": curators,
         "vaults": filtered_vaults,
     }
+    if "xerberus_stats" in data:
+        sample_data["xerberus_stats"] = data["xerberus_stats"]
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
     with open(output_path, "w", encoding="utf-8") as f:

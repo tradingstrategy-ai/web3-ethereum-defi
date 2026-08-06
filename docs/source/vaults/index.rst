@@ -58,6 +58,37 @@ These are the values of :py:class:`eth_defi.vault.base.WithdrawalDelayType`.
 The bounds do not promise liquidity or keeper execution and are ``null`` when
 the adapter cannot read reliable timing data.
 
+Deposit permission metadata
+---------------------------
+
+Each vault metrics JSON record also contains the authoritative top-level
+``deposit_permission`` field. Its value is normally ``whitelisted`` when the
+deployed adapter has source-proven KYC or manual identity-approval policy,
+``permissionless`` when no such approval is required, and ``unknown`` when the
+contract generation cannot be classified safely. For EVM vault adapters, it
+does not describe an open date, lock-up, pause, capacity, epoch, allowance,
+token-holding requirement or liquidity state. Consumers must inspect
+``whitelist.notes`` before treating a classification as source-proven.
+
+Native perp DEX vaults have a documented compatibility exception because their
+source APIs expose public deposit availability rather than KYC mechanisms. For
+these synthetic vaults, ``whitelisted`` means the adapter has source-status
+evidence that public participation is unavailable under its documented
+protocol mapping. It does not prove that approved accounts can deposit. The
+mandatory ``whitelist.notes`` qualification identifies this mapping, while
+``deposit_closed_reason`` remains the availability detail.
+
+The ``whitelist`` object is the structured form of the same status. Its
+``status`` field mirrors ``deposit_permission`` and its optional ``notes``
+field records a protocol-specific qualification. For the current Morpho and
+Euler operating assumption, it states ``No permissioned hook checks were
+performed``.
+
+The legacy ``deposit_manager.deposit_permission`` copy remains available only
+for compatibility when ``deposit_manager`` is non-null. New consumers must use
+the top-level field. Sticky fallback records are always exported as
+``unknown`` because their permission observation is not current.
+
 Vault settlement event scanning
 -------------------------------
 
@@ -95,6 +126,7 @@ Supported protocols
 
    aave/index
    asseto/index
+   axis/index
    ondo/index
    wisdomtree/index
    libeara/index
@@ -164,6 +196,7 @@ Supported protocols
    sbold/index
    secured_finance/index
    securitize/index
+   shift/index
    superstate/index
    sentiment/index
    silo/index

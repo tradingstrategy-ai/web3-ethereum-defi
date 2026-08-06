@@ -20,6 +20,19 @@ def test_frankencoin_protocol_metadata_description():
     assert "Pay with digital Swiss francs" in metadata["long_description"]
 
 
+def test_atoma_protocol_metadata_highlights_transparency_dashboard():
+    """Atoma metadata describes the public onchain position dashboard."""
+    metadata = build_metadata_json(METADATA_DIR / "atoma.yaml", public_url="")
+
+    assert metadata["short_description"] is not None
+    assert "public dashboard" in metadata["short_description"]
+    assert metadata["long_description"] is not None
+    long_description = metadata["long_description"].replace("\n", " ")
+    assert "public transparency dashboard" in long_description
+    assert "all vault positions" in long_description
+    assert "independently verifiable onchain" in long_description
+
+
 @pytest.mark.skipif(os.environ.get("R2_VAULT_METADATA_BUCKET_NAME") is None, reason="R2_VAULT_METADATA_BUCKET_NAME not set")
 def test_upload_euler_protocol_metadata():
     """Test uploading Euler protocol metadata and logo to R2.

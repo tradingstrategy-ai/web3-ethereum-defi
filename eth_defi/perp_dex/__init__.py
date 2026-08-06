@@ -14,14 +14,17 @@ from eth_defi.perp_dex.metrics import (
     SourcePositionDataStatus,
     create_unavailable_perp_vault_observation_bundle,
 )
+from eth_defi.perp_dex.vault import PerpVaultDepositAccess, classify_perp_vault_deposit_access
 
 __all__ = [
     "PerpParquetDataStatus",
     "PerpVaultAccountObservation",
+    "PerpVaultDepositAccess",
     "PerpVaultIdentity",
     "PerpVaultObservationBundle",
     "PerpVaultPositionObservation",
     "PositionValuationBasis",
     "SourcePositionDataStatus",
+    "classify_perp_vault_deposit_access",
     "create_unavailable_perp_vault_observation_bundle",
 ]

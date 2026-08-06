@@ -27,14 +27,11 @@
 //   - This caps the maximum loss per transaction to amountIn of tokenIn
 //     and ensures the Safe receives meaningful output
 //
-// Trade-off: the balance-envelope approach does not prevent a flash-loan
-// from inflating preBalanceIn/preBalanceOut between this snapshot and the
-// swap execution, which could widen the acceptable output range. This is a
-// known limitation accepted at time of writing because the Augustus API
-// does not expose a stable, version-stable payload schema that would allow
-// robust on-chain decoding of the destination address and sub-call routing.
-// If Augustus adds such support in a future version, explicit calldata
-// validation should replace or supplement the balance-envelope check.
+// SECURITY: This adapter is not enabled for active product use. A flash loan
+// can widen the balance envelope between snapshot and execution, and there is
+// no oracle-backed cumulative slippage accounting. Before product adoption,
+// add a cumulative maximum-slippage policy like Enzyme used. If Augustus gains
+// a stable payload schema, supplement this with explicit calldata validation.
 //
 // Compare with CowSwap which constructs orders from validated params
 // (no opaque blob) — Velora cannot do this due to the API-driven calldata.
@@ -45,7 +42,6 @@ import {IERC20} from "./IERC20.sol";
 import {IGuardChecks} from "./IGuardChecks.sol";
 
 library VeloraLib {
-
     // ----- Diamond storage -----
 
     bytes32 constant STORAGE_SLOT = keccak256("eth_defi.velora.v1");
@@ -91,10 +87,7 @@ library VeloraLib {
 
     // ----- Whitelisting functions -----
 
-    function whitelistVelora(
-        address augustusSwapper,
-        string calldata notes
-    ) external {
+    function whitelistVelora(address augustusSwapper, string calldata notes) external {
         _storage().allowedVeloraSwappers[augustusSwapper] = true;
         emit VeloraSwapperApproved(augustusSwapper, notes);
     }
@@ -165,26 +158,20 @@ library VeloraLib {
         require(minAmountOut > 0, "minAmountOut must be positive");
 
         uint256 postBalanceOut = IERC20(tokenOut).balanceOf(safeAddress);
-        require(
-            postBalanceOut >= preBalanceOut + minAmountOut,
-            "Insufficient output amount"
-        );
+        require(postBalanceOut >= preBalanceOut + minAmountOut, "Insufficient output amount");
 
         uint256 postBalanceIn = IERC20(tokenIn).balanceOf(safeAddress);
-        require(
-            preBalanceIn - postBalanceIn <= amountIn,
-            "Token in overspent"
-        );
+        require(preBalanceIn - postBalanceIn <= amountIn, "Token in overspent");
 
         emit VeloraSwapExecuted(
             block.timestamp,
             augustusSwapper,
             tokenIn,
             tokenOut,
-            amountIn,                       // declared by caller
-            preBalanceIn - postBalanceIn,    // actual spent
-            postBalanceOut - preBalanceOut,  // actual received
-            minAmountOut                    // declared minimum
+            amountIn, // declared by caller
+            preBalanceIn - postBalanceIn, // actual spent
+            postBalanceOut - preBalanceOut, // actual received
+            minAmountOut // declared minimum
         );
     }
 }

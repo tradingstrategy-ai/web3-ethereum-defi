@@ -1,0 +1,19 @@
+# wstGBP protocol-managed curator — feeds provided by protocols/wstgbp.yaml.
+# 2026-08-01 maintain-curators: official wstGBP site links to @wstgbp; this
+# curator alias deliberately inherits that protocol feed rather than tGBP's
+# BCP Technologies sources.
+feeder-id: wstgbp
+name: wstGBP
+role: curator
+canonical-feeder-id: wstgbp
+short_description: Wren Spire operates the wstGBP protocol, a reward-bearing wrapper for tGBP on Ethereum.
+long_description: |
+  Wren Spire (BVI) Ltd operates the wstGBP interface and protocol, which lets tGBP holders mint
+  and redeem wstGBP on Ethereum. wstGBP is a non-rebasing ERC-20 wrapper: holders' balances do
+  not change, while the token's redemption value in tGBP is represented by the onchain exchange
+  rate. tGBP is issued by BCP Technologies Ltd, an unaffiliated third party, so this curator
+  record remains separate from the tGBP stablecoin issuer.
+
+other-links:
+  - title: wstGBP official interface terms — Wren Spire operator and tGBP relationship
+    url: https://wstgbp.com/

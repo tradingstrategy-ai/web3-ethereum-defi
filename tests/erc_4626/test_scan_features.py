@@ -1,6 +1,7 @@
 """Tests for ERC-4626 scan-record feature persistence."""
 
 import datetime
+from decimal import Decimal
 
 import pytest
 
@@ -9,6 +10,7 @@ from eth_defi.erc_4626.core import ERC4262VaultDetection, ERC4626Feature
 from eth_defi.vault.base import WithdrawalDelayType, WithdrawalPeriod
 from eth_defi.vault.deposit_redeem import VaultDepositManagerCapability
 from eth_defi.vault.fee import FeeData, VaultFeeMode
+from eth_defi.vault.price_source import PriceSource
 from eth_defi.vault.vaultdb import VaultDatabase
 
 
@@ -86,6 +88,21 @@ class _FakeVault:
         return None
 
     @staticmethod
+    def get_share_price_source() -> PriceSource:
+        """Return the standard contract-state source."""
+        return PriceSource.smart_contract_state
+
+    @staticmethod
+    def fetch_minimum_deposit(_block_identifier: int) -> Decimal:
+        """Return a source-proven denomination-token minimum."""
+        return Decimal("12.5")
+
+    @staticmethod
+    def fetch_minimum_redemption(_block_identifier: int) -> Decimal:
+        """Return a source-proven absence of a redemption minimum."""
+        return Decimal(0)
+
+    @staticmethod
     def fetch_scan_record_extra_data() -> dict:
         """Return no protocol-specific scan fields."""
         return {}
@@ -108,6 +125,11 @@ class _PermissionedFakeVault(_FakeVault):
     def is_whitelisted_deposit() -> bool:
         """Report that deposits require account permission."""
         return True
+
+    @staticmethod
+    def get_whitelist_notes() -> str:
+        """Return a classification caveat."""
+        return "No permissioned hook checks were performed"
 
 
 def _create_detection(features: set[ERC4626Feature]) -> ERC4262VaultDetection:
@@ -151,6 +173,9 @@ def test_create_vault_scan_record_persists_machine_readable_features(monkeypatch
         delay_type=WithdrawalDelayType.delay,
     )
     assert record["_lockup"] == datetime.timedelta(days=2)
+    assert record["_share_price_source"] is PriceSource.smart_contract_state
+    assert record["_minimum_deposit"] == Decimal("12.5")
+    assert record["_minimum_redemption"] == Decimal(0)
 
 
 def test_create_vault_scan_record_persists_deposit_permission(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -171,6 +196,7 @@ def test_create_vault_scan_record_persists_deposit_permission(monkeypatch: pytes
         "can_redeem": False,
     }
     assert record["_deposit_permission"] == "whitelisted"
+    assert record["_whitelist_notes"] == "No permissioned hook checks were performed"
 
 
 def test_vault_database_dataframe_falls_back_to_detection_features() -> None:

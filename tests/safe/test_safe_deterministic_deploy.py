@@ -12,21 +12,23 @@ import pytest
 from eth_account import Account
 from eth_account.signers.local import LocalAccount
 from eth_typing import HexAddress
+from safe_eth.eth.constants import NULL_ADDRESS
 from web3 import Web3
 
-from eth_defi.hotwallet import HotWallet
 from eth_defi.erc_4626.vault_protocol.lagoon.deployment import (
     LagoonDeploymentParameters,
     deploy_automated_lagoon_vault,
 )
+from eth_defi.hotwallet import HotWallet
 from eth_defi.provider.anvil import AnvilLaunch, fork_network_anvil
 from eth_defi.provider.multi_provider import create_multi_provider_web3
 from eth_defi.safe.deployment import (
+    assert_safe_fallback_handler_disabled,
     calculate_deterministic_safe_address,
     deploy_safe_with_deterministic_address,
 )
-from eth_defi.token import USDC_NATIVE_TOKEN
 from eth_defi.testing.fork_blocks import ARBITRUM_MIDNIGHT_BLOCK, BASE_MIDNIGHT_BLOCK
+from eth_defi.token import USDC_NATIVE_TOKEN
 
 logger = logging.getLogger(__name__)
 
@@ -158,6 +160,13 @@ def test_deterministic_safe_same_address_base_and_arbitrum(
     # Verify owners on both chains
     assert safe_base.retrieve_owners() == [Web3.to_checksum_address(a) for a in owners]
     assert safe_arbitrum.retrieve_owners() == [Web3.to_checksum_address(a) for a in owners]
+
+    # Lagoon Safe deployments must not enable a fallback handler. See the
+    # Zodiac/Gnosis Pay post-mortem cited by assert_safe_fallback_handler_disabled().
+    assert safe_base.retrieve_fallback_handler() == NULL_ADDRESS
+    assert safe_arbitrum.retrieve_fallback_handler() == NULL_ADDRESS
+    assert_safe_fallback_handler_disabled(safe_base)
+    assert_safe_fallback_handler_disabled(safe_arbitrum)
 
 
 def test_lagoon_deterministic_safe_base_and_arbitrum(

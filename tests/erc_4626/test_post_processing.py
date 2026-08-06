@@ -4,12 +4,14 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
-brotli = pytest.importorskip("brotli", reason="brotli not installed (cloudflare_r2 extra)")
-
+from eth_defi.cloudflare_r2 import R2RetryableOperationError
 from eth_defi.vault import post_processing
+
+brotli = pytest.importorskip("brotli", reason="brotli not installed (cloudflare_r2 extra)")
 
 
 def test_clean_prices_uses_structured_logger(
@@ -28,6 +30,31 @@ def test_clean_prices_uses_structured_logger(
 
     assert post_processing.clean_prices()
     assert any(record.name == post_processing.__name__ and record.message == "Wrangler progress" for record in caplog.records)
+
+
+def test_export_data_files_logs_retryable_r2_failure_as_warning_without_traceback(
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Transient R2 failures should await the scanner's next export attempt quietly."""
+    retryable_error = R2RetryableOperationError("R2 CompleteMultipartUpload failed with http_status=500")
+
+    def fake_main() -> None:
+        raise retryable_error
+
+    module = SimpleNamespace(main=fake_main)
+    spec = SimpleNamespace(loader=SimpleNamespace(exec_module=lambda _: None))
+    monkeypatch.setattr(post_processing.importlib.util, "spec_from_file_location", lambda *_: spec)
+    monkeypatch.setattr(post_processing.importlib.util, "module_from_spec", lambda _: module)
+
+    with caplog.at_level(logging.WARNING):
+        assert post_processing.export_data_files() is False
+
+    records = [record for record in caplog.records if record.name == post_processing.__name__]
+    assert len(records) == 1
+    assert records[0].levelno == logging.WARNING
+    assert "retryable R2 failure" in records[0].message
+    assert records[0].exc_info is None
 
 
 def test_export_top_vaults_json_passes_pipeline_data_dir(

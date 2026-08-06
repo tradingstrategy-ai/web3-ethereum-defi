@@ -6,7 +6,10 @@ from unittest.mock import patch
 
 import pytest
 
-from eth_defi.erc_4626.vault_protocol.lagoon.deployment import should_enable_hypercore_guard
+from eth_defi.erc_4626.vault_protocol.lagoon.deployment import (
+    should_enable_hypercore_guard,
+    validate_hypercore_guard_config,
+)
 from eth_defi.hyperliquid.evm_escrow import (
     HypercorePrecompileReadError,
     _assert_activation_guard_config,
@@ -48,10 +51,10 @@ def _make_vault(*, approval_allowed: bool, receiver_allowed: bool):
     )
 
 
-def test_should_enable_hypercore_guard_for_any_asset_on_hyperevm():
+def test_should_enable_hypercore_guard_for_any_hypercore_vault_on_hyperevm():
     assert should_enable_hypercore_guard(
         chain_id=999,
-        any_asset=True,
+        any_hypercore_vault=True,
         hypercore_vaults=None,
     )
 
@@ -59,9 +62,26 @@ def test_should_enable_hypercore_guard_for_any_asset_on_hyperevm():
 def test_should_not_enable_hypercore_guard_off_hyperevm_without_vaults():
     assert not should_enable_hypercore_guard(
         chain_id=1,
-        any_asset=True,
+        any_hypercore_vault=True,
         hypercore_vaults=None,
     )
+
+
+def test_hypercore_guard_config_rejects_unsupported_or_ambiguous_dynamic_policy():
+    """Fail before deployment for invalid dynamic Hypercore vault configuration."""
+    with pytest.raises(AssertionError, match="only supported on HyperEVM"):
+        validate_hypercore_guard_config(
+            chain_id=1,
+            any_hypercore_vault=True,
+            hypercore_vaults=None,
+        )
+
+    with pytest.raises(AssertionError, match="cannot be combined"):
+        validate_hypercore_guard_config(
+            chain_id=999,
+            any_hypercore_vault=True,
+            hypercore_vaults=["0x1000000000000000000000000000000000000001"],
+        )
 
 
 def test_activation_guard_check_rejects_missing_core_deposit_wallet_approval():

@@ -15,13 +15,80 @@ supported investment currency.
 
 import datetime
 import logging
+from dataclasses import dataclass
+from typing import Final
 
-from eth_typing import BlockIdentifier
+from eth_typing import BlockIdentifier, HexAddress
 
 from eth_defi.erc_4626.vault import ERC4626Vault
 from eth_defi.erc_4626.vault_protocol.centrifuge.centrifuge_utils import fetch_pool_id, fetch_tranche_id
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass(slots=True, frozen=True)
+class CentrifugeVaultDescription:
+    """Address-scoped display metadata for a Centrifuge vault.
+
+    Centrifuge's onchain vault interface does not expose product strategy
+    descriptions. Keep reviewed copy keyed by vault address because pools can
+    share an asset class while having different investor and transfer models.
+
+    :param short_description:
+        Listing-friendly product summary.
+    :param description:
+        Longer Markdown product description with authoritative sources.
+    """
+
+    #: Listing-friendly product summary.
+    short_description: str
+
+    #: Longer Markdown product description with authoritative sources.
+    description: str
+
+
+#: Janus Henderson Anemoy S&P500 Fund USDC vault on Base.
+#:
+#: https://docs.centrifuge.io/developer/protocol/deployments/
+SPXA_BASE_VAULT_ADDRESS = HexAddress("0x99e9092bae6d4394e54034ecb1e45441678323b9")
+
+#: DeFi Janus Henderson Anemoy S&P500 Fund Token USDC vault on Base.
+#:
+#: https://docs.centrifuge.io/developer/protocol/deployments/
+DESPXA_BASE_VAULT_ADDRESS = HexAddress("0x2da40f061536c2f3a8f95f23a5f4c133d07d393a")
+
+#: Official Anemoy product page for the SPXA fund share class.
+SPXA_FUND_PAGE_URL: Final[str] = "https://www.anemoy.io/funds/spxa"
+
+#: Official Centrifuge launch announcement for deSPXA.
+DESPXA_ANNOUNCEMENT_URL: Final[str] = "https://centrifuge.io/blog/despxa-on-base"
+
+#: Human-readable product copy for the Base SPXA and deSPXA vaults.
+#:
+#: These products have related S&P 500 exposure but are separate Centrifuge
+#: pools and share tokens. Keep the relationship explicit so downstream UIs do
+#: not present them as duplicate vault contracts or aggregate their NAV as
+#: independent fund assets.
+CENTRIFUGE_VAULT_DESCRIPTION_OVERLAY: Final[dict[HexAddress, CentrifugeVaultDescription]] = {
+    SPXA_BASE_VAULT_ADDRESS: CentrifugeVaultDescription(
+        short_description="Tokenised S&P 500 index fund share class for professional investors.",
+        description="\n\n".join(
+            (
+                f"[Janus Henderson Anemoy S&P500® Fund (SPXA)]({SPXA_FUND_PAGE_URL}) is a tokenised share class in an open-ended fund designed to track the S&P 500® Index. The fund is managed by Anemoy with Janus Henderson as sub-investment manager.",
+                f"**Relationship to deSPXA:** [deSPXA]({DESPXA_ANNOUNCEMENT_URL}) is a separate, freely transferable DeFi debt instrument whose NAV is linked to SPXA's NAV. SPXA is the permissioned fund share class, while deSPXA provides a DeFi distribution layer and is issued through its own Centrifuge pool. Their reported NAVs should not be added together as independent S&P 500 fund assets.",
+            )
+        ),
+    ),
+    DESPXA_BASE_VAULT_ADDRESS: CentrifugeVaultDescription(
+        short_description="Freely transferable DeFi token with NAV-linked S&P 500 fund exposure.",
+        description="\n\n".join(
+            (
+                f"[deSPXA]({DESPXA_ANNOUNCEMENT_URL}) is a Base-native, freely transferable ERC-20 debt instrument that gives holders exposure linked to the NAV of the Janus Henderson Anemoy S&P500® Fund. Eligible authorised participants mint and redeem it in USDC, while it can be traded and used in compatible DeFi applications.",
+                f"**Relationship to SPXA:** [SPXA]({SPXA_FUND_PAGE_URL}) is the permissioned share class of the underlying tokenised fund. deSPXA is a separately issued DeFi instrument linked to that share class's NAV, not a second independent S&P 500 portfolio. It has its own Centrifuge pool and contract, so it is listed separately; do not aggregate its NAV with SPXA as independent assets.",
+            )
+        ),
+    ),
+}
 
 
 class CentrifugeVault(ERC4626Vault):
@@ -48,6 +115,30 @@ class CentrifugeVault(ERC4626Vault):
     - Example vault on Etherscan: https://etherscan.io/address/0xa702ac7953e6a66d2b10a478eb2f0e2b8c8fd23e
     - Twitter: https://twitter.com/centrifuge
     """
+
+    @property
+    def description(self) -> str | None:
+        """Return reviewed Markdown product copy for known Centrifuge vaults.
+
+        :return:
+            Full product description, or ``None`` when the vault has no
+            address-scoped metadata overlay.
+        """
+
+        metadata = CENTRIFUGE_VAULT_DESCRIPTION_OVERLAY.get(HexAddress(str(self.vault_address).lower()))
+        return metadata.description if metadata else None
+
+    @property
+    def short_description(self) -> str | None:
+        """Return a concise product summary for known Centrifuge vaults.
+
+        :return:
+            Listing-friendly product summary, or ``None`` when the vault has
+            no address-scoped metadata overlay.
+        """
+
+        metadata = CENTRIFUGE_VAULT_DESCRIPTION_OVERLAY.get(HexAddress(str(self.vault_address).lower()))
+        return metadata.short_description if metadata else None
 
     def has_custom_fees(self) -> bool:
         """Centrifuge fees are managed at the pool/protocol level, not vault level."""

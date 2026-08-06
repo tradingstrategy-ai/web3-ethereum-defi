@@ -102,7 +102,14 @@ class HarvestVault(ERC4626Vault):
 
     def fetch_ftoken(self) -> TokenDetails:
         ftoken_addr = self.strategy.functions.fToken().call()
-        return fetch_erc20_details(self.web3, ftoken_addr)
+        # Pass the vault's token cache (and the chain id hint it keys on) so this
+        # metadata is not re-read over RPC on every vault instance.
+        return fetch_erc20_details(
+            self.web3,
+            ftoken_addr,
+            chain_id=self.chain_id,
+            cache=self.token_cache,
+        )
 
     @cached_property
     def strategy(self) -> Contract:

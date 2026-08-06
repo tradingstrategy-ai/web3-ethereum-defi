@@ -1,24 +1,30 @@
 # Agora Finance logo assets
 
-## Source
+## Sources
 
-- **Website**: https://www.agora.finance/
-- **Twitter/X**: https://x.com/withAUSD
-- **GitHub public assets**: https://github.com/agora-finance/public-assets
-- **Hosted assets**: https://agora-finance.github.io/public-assets/
+- **Official homepage**: https://www.agora.finance/
+- **Official generated favicon/app icon**: https://www.agora.finance/icon
+- **Official homepage header mark**: https://www.agora.finance/ (inline SVG in the `header-logo` link)
+- **Official public assets repository**: https://github.com/agora-finance/public-assets
 
 ## Downloaded files
 
 | File | Description |
 |------|-------------|
-| `agora-finance.generic.svg` | Wordmark SVG extracted from the agora.finance homepage inline SVG. Includes the triangular leaf brand mark and "AGORA" text. Colours: brand green `#476352` for the icon, dark `#22211d` for the text. |
+| `agora-finance.generic.svg` | Official icon-only Agora brandmark, extracted from the homepage inline SVG, in the brand green `#476352`. |
+| `agora-finance.dark.svg` | Same official green icon-only mark for the dark-on-light variant. |
+| `agora-finance.light.svg` | White icon-only mark matching the homepage header's official `brightness-0 invert` presentation, for dark backgrounds. |
 
-## Notes
+The previous source was a wide wordmark. It has been replaced because vault metadata uses the icon-only brandmark and the homepage exposes the triangular mark as a standalone favicon/header symbol.
 
-- No standalone SVG brand kit or icon-only file was found. The SVG was extracted from the Next.js page HTML at `https://www.agora.finance/`.
-- The `public-assets` GitHub repo contains only PNG wordmarks (`agora-logo-5x1.png`, `agora-logo-16x9.png`) — no SVG.
-- `ausd-green` CSS custom property resolves to `#476352`; `ausd-black` resolves to `#22211d`.
+## Processing result
+
+The three SVG brandmark variants were processed with `scripts/logos/post-process-logo.py` into transparent 256×256 PNG files:
+
+- `formatted_logos/agora-finance/generic.png` — green mark
+- `formatted_logos/agora-finance/dark.png` — green mark for light backgrounds
+- `formatted_logos/agora-finance/light.png` — white mark for dark backgrounds
 
 ## Extraction date
 
-2026-05-05
+2026-07-30

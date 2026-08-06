@@ -1,0 +1,18 @@
+feeder-id: hypertwin
+name: HyperTwin
+role: curator
+website: https://t.me/HyperTwin
+short_description: HyperTwin operates a 2x leveraged copy-trading vault on Hyperliquid.
+long_description: |
+  HyperTwin operates a Hyperliquid vault that mirrors the quantitative mean-reversion strategy of Growi HF at twice the leverage.
+  It is a separate vault operator, rather than a Growi Finance product, and identifies the vault through its HyperTwin brand and Telegram channel.
+
+# Evidence and background references.
+#
+# The vault name contains Growi because it copies Growi HF, but the vault
+# metadata identifies HyperTwin as a distinct team and the vault operator.
+other-links:
+  - title: HyperTwin - Growi HF 2x vault - HyperTwin is a separate 2x copy of Growi HF
+    url: https://tradingstrategy.ai/vaults/hypertwin-growi-hf-2x
+  - title: Hyperliquid vault - HyperTwin - Growi HF 2x (0x15be61aef0ea4e4dc93c79b668f26b3f1be75a66)
+    url: https://app.hyperliquid.xyz/vaults/0x15be61aef0ea4e4dc93c79b668f26b3f1be75a66

@@ -1,11 +1,23 @@
 # WisdomTree logo source
 
-The original `wisdomtree.generic.png` is the WisdomTree logo published in the
-header and structured organisation metadata of the official
-[WisdomTree Connect WTGXX page](https://www.wisdomtreeconnect.com/digital-funds/money-market/wtgxx).
-Downloaded on 2026-07-17 from
-`https://www.wisdomtreeconnect.com/images/wisdomtree-logo.png`.
+The previous asset was a horizontal WisdomTree wordmark, which is not suitable
+for the small vault-logo slot. The compact tree brandmark is now used instead.
 
-It is a transparent, dark wordmark (791×299). The formatted `light.png` is the
-standardised 256×256 transparent variant for dark interfaces. No official
-light-background brand mark was found on the WTGXX or WisdomTree Connect pages.
+## Sources
+
+- WisdomTree's official WTGXX page publishes the company logo in its structured
+  organisation metadata and at
+  [`wisdomtree-logo.png`](https://www.wisdomtreeconnect.com/images/wisdomtree-logo.png)
+  (accessed 2026-07-30).
+- The icon-only vector source is the tree symbol shown in the
+  [WisdomTree logo icon/symbol listing](https://companieslogo.com/wisdomtree-investments/logo/):
+  [`WT-abc9fcf8.svg`](https://companieslogo.com/img/orig/WT-abc9fcf8.svg) for the
+  dark navy mark and [`WT.D-05789d32.svg`](https://companieslogo.com/img/orig/WT.D-05789d32.svg)
+  for the white mark (accessed 2026-07-30).
+
+`wisdomtree.generic.svg` and `wisdomtree.dark.svg` contain only the official
+tree brandmark, without the WisdomTree wordmark. The processed `generic.png`,
+`light.png` and `dark.png` files are 256×256 transparent PNGs generated with
+`scripts/logos/post-process-logo.py`. `generic.png` and `light.png` use the
+light tree mark for dark surfaces, while `dark.png` retains WisdomTree's navy
+colour for light surfaces.

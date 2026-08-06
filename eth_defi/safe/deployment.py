@@ -18,7 +18,6 @@ from eth_typing import HexAddress
 from hexbytes import HexBytes
 from safe_eth.eth.constants import NULL_ADDRESS
 from safe_eth.eth.contracts import get_safe_contract
-from safe_eth.eth.utils import get_empty_tx_params
 from safe_eth.safe import Safe
 from safe_eth.safe.proxy_factory import ProxyFactory
 from safe_eth.safe.safe import SafeV141
@@ -27,7 +26,7 @@ from web3.contract.contract import ContractFunction
 from web3.exceptions import TimeExhausted
 
 from eth_defi.abi import ONE_ADDRESS_STR
-from eth_defi.gas import estimate_gas_price, apply_gas
+from eth_defi.gas import estimate_gas_price
 from eth_defi.provider.anvil import is_anvil
 from eth_defi.safe.execute import execute_safe_tx
 from eth_defi.safe.safe_compat import create_safe_ethereum_client
@@ -38,6 +37,31 @@ if TYPE_CHECKING:
 
 
 logger = logging.getLogger(__name__)
+
+
+def assert_safe_fallback_handler_disabled(safe: Safe) -> None:
+    """Reject a Safe that has an active fallback handler.
+
+    Lagoon Safes deliberately do not expose a fallback handler, as a handler can
+    extend the Safe's authentication surface. The June 2026 Gnosis Pay incident
+    was a Zodiac Delay/Roles ERC-1271 bug: its signature check accepted revert
+    data without confirming the call succeeded. The post-mortem does not name a
+    Safe fallback handler as the root cause. We still prohibit handlers as a
+    defence-in-depth boundary: Lagoon does not need one, and it must not add a
+    second signature/authentication path alongside Zodiac modules. See:
+    https://www.gnosis.io/blog/post-mortem-gnosis-pay-vulnerability-exploit
+
+    :param safe:
+        The deployed Safe whose fallback-handler storage slot is inspected.
+
+    :raise ValueError:
+        If the Safe has any non-zero fallback handler.
+    """
+    fallback_handler = safe.retrieve_fallback_handler()
+    if fallback_handler.lower() != NULL_ADDRESS.lower():
+        message = f"Safe {safe.address} has fallback handler {fallback_handler}. Lagoon Safes must keep fallback handling disabled as a defence-in-depth boundary after the Zodiac/Gnosis Pay vulnerability."
+        raise ValueError(message)
+
 
 #: Default timeout in seconds to wait for a deployment transaction to be mined.
 #:
@@ -95,9 +119,9 @@ def deploy_safe(
 
     assert len(owners) >= 1, "Safe must have at least one owner"
 
-    assert isinstance(deployer, LocalAccount), f"Safe can be only deployed using LocalAccount"
+    assert isinstance(deployer, LocalAccount), "Safe can be only deployed using LocalAccount"
     for a in owners:
-        assert type(a) == str and a.startswith("0x"), f"owners must be hex addresses, got {type(a)}"
+        assert isinstance(a, str) and a.startswith("0x"), f"owners must be hex addresses, got {type(a)}"
 
     logger.info("Deploying safe.\nInitial cosigner list: %s\nInitial threshold: %s", owners, threshold)
     ethereum_client = create_safe_ethereum_client(web3)
@@ -111,6 +135,11 @@ def deploy_safe(
         master_copy_address,
         owners,
         threshold,
+        # SECURITY: Lagoon Safes must not enable a fallback handler. Gnosis Pay
+        # attributes the June 2026 incident to Zodiac Delay/Roles ERC-1271 code,
+        # not the handler; zero remains a deliberate defence-in-depth boundary.
+        # https://www.gnosis.io/blog/post-mortem-gnosis-pay-vulnerability-exploit
+        fallback_handler=NULL_ADDRESS,
     )
 
     tx_hash = safe_tx_stuff.tx_hash
@@ -128,6 +157,7 @@ def deploy_safe(
     # for your Anvil.
     retrieved_owners = safe.retrieve_owners()
     assert retrieved_owners == owners
+    assert_safe_fallback_handler_disabled(safe)
 
     logger.info("Safe deployed at %s", safe.address)
     return safe
@@ -161,16 +191,23 @@ def _build_safe_initializer(
         ABI-encoded initializer bytes for Safe proxy deployment.
     """
     safe_contract = get_safe_contract(web3, NULL_ADDRESS)
-    initializer = safe_contract.functions.setup(
-        owners,
-        threshold,
-        NULL_ADDRESS,  # Contract address for optional delegate call
-        b"",  # Data payload for optional delegate call
-        NULL_ADDRESS,  # Handler for fallback calls to this contract
-        NULL_ADDRESS,  # Payment token
-        0,  # Payment
-        NULL_ADDRESS,  # Payment receiver
-    ).build_transaction(get_empty_tx_params())["data"]
+    initializer = safe_contract.encode_abi(
+        "setup",
+        args=[
+            owners,
+            threshold,
+            NULL_ADDRESS,  # Contract address for optional delegate call
+            b"",  # Data payload for optional delegate call
+            # SECURITY: Disable fallback handling for Lagoon Safes. The Gnosis
+            # Pay post-mortem attributes its ERC-1271 bug to Zodiac Delay/Roles,
+            # but a Lagoon Safe has no justified use for an extra auth path.
+            # https://www.gnosis.io/blog/post-mortem-gnosis-pay-vulnerability-exploit
+            NULL_ADDRESS,
+            NULL_ADDRESS,  # Payment token
+            0,  # Payment
+            NULL_ADDRESS,  # Payment receiver
+        ],
+    )
     return HexBytes(initializer)
 
 
@@ -286,7 +323,7 @@ def deploy_safe_with_deterministic_address(
     assert len(owners) >= 1, "Safe must have at least one owner"
     assert isinstance(deployer, LocalAccount), "Safe can be only deployed using LocalAccount"
     for a in owners:
-        assert type(a) == str and a.startswith("0x"), f"owners must be hex addresses, got {type(a)}"
+        assert isinstance(a, str) and a.startswith("0x"), f"owners must be hex addresses, got {type(a)}"
 
     owners = [Web3.to_checksum_address(a) for a in owners]
     master_copy_address = Web3.to_checksum_address(master_copy_address)
@@ -337,6 +374,7 @@ def deploy_safe_with_deterministic_address(
 
     retrieved_owners = safe.retrieve_owners()
     assert retrieved_owners == owners, f"Owner mismatch: expected {owners}, got {retrieved_owners}"
+    assert_safe_fallback_handler_disabled(safe)
 
     logger.info("Safe deployed at deterministic address %s", safe.address)
     return safe
@@ -386,7 +424,7 @@ def add_new_safe_owners(
     """
 
     assert isinstance(safe, Safe), f"Not safe: {safe}"
-    assert isinstance(deployer, LocalAccount), f"Safe can be only updated using deployer LocalAccount"
+    assert isinstance(deployer, LocalAccount), "Safe can be only updated using deployer LocalAccount"
 
     logger.info(
         "Updating Safe owner list: %s with threshold %d",

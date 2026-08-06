@@ -473,6 +473,14 @@ class ERC4626Feature(enum.Enum):
     #: https://etherscan.io/address/0xEB5f80aCEa6060764E91c185bE93752Ab40F01c2#code
     upshift_multi_asset_like = "upshift_multi_asset_like"
 
+    #: Shift Protocol custom ERC-20 share vaults.
+    #:
+    #: ShiftVault does not implement ERC-4626 accounting. Reviewed deployments
+    #: are selected through Shift's public address registry and read through a
+    #: tokenised-fund-style adapter.
+    #: https://shiftprotocol.gitbook.io/shift/resources/addresses
+    shift_like = "shift_like"
+
     #: Sky (formerly MakerDAO)
     #:
     #: stUSDS vault for USDS staking.
@@ -713,6 +721,13 @@ class ERC4626Feature(enum.Enum):
     #: https://frax.com/earn
     frax_staking_like = "frax_staking_like"
 
+    #: Axis StakedUSDx rewards vault.
+    #:
+    #: Address-routed because the reviewed single-vault deployment uses a
+    #: generic ERC-4626/ERC-7540 interface.
+    #: https://docs.axis.to/susdx-the-rewards-vault/susdx
+    axis_like = "axis_like"
+
     #: Hyperdrive (HyperEVM)
     #:
     #: Stablecoin money market and yield hub on Hyperliquid (HyperEVM).
@@ -854,6 +869,7 @@ LENDING_PROTOCOL_FEATURES: frozenset[ERC4626Feature] = frozenset(
         ERC4626Feature.fluid_like,
         ERC4626Feature.silo_like,
         ERC4626Feature.llamma_like,
+        ERC4626Feature.forty_acres_like,
     }
 )
 
@@ -1130,6 +1146,8 @@ def get_vault_protocol_name(features: set[ERC4626Feature]) -> str:
 
     elif ERC4626Feature.upshift_like in features:
         return "Upshift"
+    elif ERC4626Feature.shift_like in features:
+        return "Shift"
     elif ERC4626Feature.sky_like in features:
         return "Sky"
 
@@ -1240,6 +1258,9 @@ def get_vault_protocol_name(features: set[ERC4626Feature]) -> str:
 
     elif ERC4626Feature.frax_like in features or ERC4626Feature.frax_staking_like in features:
         return "Frax"
+
+    elif ERC4626Feature.axis_like in features:
+        return "Axis"
 
     elif ERC4626Feature.hyperdrive_hl_like in features:
         return "Hyperdrive"

@@ -39,6 +39,8 @@ A new vault protocol integration is not complete unless it includes:
 - Risk and fee matrix entries
 - Protocol metadata YAML under `eth_defi/data/vaults/metadata/`
 - Original and post-processed protocol logos
+- A post-processed `light.png`: a light-coloured logo that remains legible on
+  the frontend's dark backgrounds
 - Vault documentation and API documentation entries
 - Focused tests for the new protocol
 - A generated protocol-specific historical lead migration script that preserves
@@ -304,7 +306,10 @@ final response and in the logo README.
 2. Use the repo-local `post-process-logo` skill.
    - Read `.claude/skills/post-process-logo/SKILL.md`
    - Create post-processed 256x256 PNG logos under `eth_defi/data/vaults/formatted_logos/{protocol-slug}/`
-   - Produce at least `light.png` and `dark.png` when the source supports both; otherwise produce the best available variant and explain the limitation
+   - Always produce `light.png`, a light-coloured logo for dark frontend
+     backgrounds. This is the required listing-logo variant.
+   - Produce `dark.png` when the source supports a distinct dark-coloured
+     variant for light backgrounds; otherwise document why it is unavailable.
 3. Verify the metadata exporter sees the logos:
 
 ```shell
@@ -523,6 +528,7 @@ After implementation, verify:
 - [ ] Metadata YAML parses successfully
 - [ ] Original logos are saved under `eth_defi/data/vaults/original_logos/{protocol-slug}/`
 - [ ] Post-processed logos are saved under `eth_defi/data/vaults/formatted_logos/{protocol-slug}/`
+- [ ] `formatted_logos/{protocol-slug}/light.png` exists and is a light-coloured logo suitable for dark backgrounds
 - [ ] Metadata exporter sees the post-processed logos
 - [ ] API documents have been updated
 - [ ] Check that homepage link in the API documentation takes to the correct homepage
