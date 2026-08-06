@@ -189,6 +189,7 @@ Supported protocols
    morpho/index
    nashpoint/index
    nara/index
+   nest/index
    plutus/index
    renalta/index
    resolv/index

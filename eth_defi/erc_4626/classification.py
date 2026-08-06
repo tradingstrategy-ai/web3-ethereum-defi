@@ -532,6 +532,8 @@ CHAIN_RESTRICTED_PROBES: dict[str, set[int]] = {
     "wards": {1, 8453, 42161},  # Centrifuge - Ethereum, Base, Arbitrum
     "SPOKE_REVISION": {1},  # Aave v4 Tokenization Spoke - Ethereum only
     "withdrawalQueue": {1},  # Symbiotic Core V2 - Ethereum only
+    # NestVaultCore deployments in Nest's first-party catalogue, checked 2026-08-06.
+    "operatorRegistry": {1, 56, 480, 9745, 43114, 98866},
 }
 
 
@@ -835,6 +837,19 @@ def create_probe_calls(
             data=b"",
             extra_data=None,
         )
+
+        # NestVaultCore exposes its configured operator registry. Restricting
+        # the probe to Nest's published deployment chains prevents this generic
+        # accessor from classifying unrelated ERC-7540/ERC-7575 vaults.
+        # https://github.com/plumenetwork/nest-protocol/blob/main/contracts/NestVaultCore.sol
+        if _should_yield_probe("operatorRegistry", chain_id):
+            yield EncodedCall.from_keccak_signature(
+                address=address,
+                signature=Web3.keccak(text="operatorRegistry()")[0:4],
+                function="operatorRegistry",
+                data=b"",
+                extra_data=None,
+            )
 
         # Kiln OmniVaults
         # https://docs.kiln.fi/v1/kiln-products/omnivaults/security/source-code
@@ -1487,6 +1502,11 @@ def identify_vault_features(
     # TODO: Any better ways to check this?
     if calls["share"].success:
         features.add(ERC4626Feature.erc_7575_like)
+
+    # NestVaultCore exposes an operator registry; the probe is restricted to
+    # Nest's published deployment chains to avoid unrelated async vaults.
+    if calls["operatorRegistry"].success:
+        features.add(ERC4626Feature.nest_like)
 
     if calls["additionalRewardsStrategy"].success:
         features.add(ERC4626Feature.kiln_metavault_like)
@@ -2438,6 +2458,11 @@ def create_vault_instance(
         from eth_defi.erc_4626.vault_protocol.yieldnest.vault import YieldNestVault
 
         return YieldNestVault(web3, spec, **kwargs)
+
+    elif ERC4626Feature.nest_like in features:
+        from eth_defi.erc_4626.vault_protocol.nest.vault import NestVault
+
+        return NestVault(web3, spec, **kwargs)
 
     elif ERC4626Feature.secured_finance_like in features:
         from eth_defi.erc_4626.vault_protocol.secured_finance.vault import SecuredFinanceVault

@@ -179,6 +179,9 @@ VAULT_PROTOCOL_RISK_MATRIX = {
     "Brink": None,
     "Accountable": VaultTechnicalRisk.severe,
     "YieldNest": VaultTechnicalRisk.low,
+    # Nest's verified vault contracts are upgradeable and depend on accountants,
+    # issuers and offchain real-world-asset operations. Product risk is separate.
+    "Nest": None,
     "Secured Finance": VaultTechnicalRisk.low,
     "Dolomite": None,
     # No public GitHub repository for the contract development

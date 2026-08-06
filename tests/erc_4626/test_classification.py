@@ -34,6 +34,7 @@ AVALANCHE = 43114
 HYPEREVM = 999
 INK = 57073
 PLASMA = 9745
+PLUME = 98866
 
 
 def test_vault_street_hardcoded_protocol_is_ethereum_only() -> None:
@@ -155,6 +156,18 @@ def test_upshift_multi_asset_probe_is_unrestricted() -> None:
     for chain_id in upshift_chain_ids:
         call_names = {call.func_name for call in create_probe_calls([test_address], chain_id=chain_id)}
         assert "assetsWhitelistAddress" in call_names
+
+
+def test_nest_probe_is_limited_to_nest_deployment_chains() -> None:
+    """Avoid classifying an unrelated async vault as Nest on another chain."""
+
+    test_address = "0x0000000000000000000000000000000000000001"
+    avalanche_calls = {call.func_name for call in create_probe_calls([test_address], chain_id=AVALANCHE)}
+    hyperevm_calls = {call.func_name for call in create_probe_calls([test_address], chain_id=HYPEREVM)}
+
+    assert "operatorRegistry" in avalanche_calls
+    assert "operatorRegistry" not in hyperevm_calls
+    assert _should_yield_probe("operatorRegistry", PLUME) is True
 
 
 def test_chain_probe_filtering():
