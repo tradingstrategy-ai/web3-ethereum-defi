@@ -262,9 +262,9 @@ claude -p "Review the current git diff for correctness bugs" \
 
 # Restrict tools for a read-only review.
 claude -p "Review the current worktree diff. Do not edit files." \
-  --permission-mode bypassPermissions \
-  --dangerously-skip-permissions \
-  --allowedTools "Bash,Read,Grep,Glob"
+  --model opus \
+  --permission-mode dontAsk \
+  --allowedTools "Bash,Read,Grep,Glob,WebSearch,WebFetch"
 
 # Safer read-only review without broad bypass mode.
 claude -p "Review the current worktree diff. Do not edit files. Findings first." \
@@ -293,6 +293,40 @@ If these work but the broad review times out, shrink the request: ask Claude to
 inspect `git diff --name-only` first, review one file group at a time, or provide
 a concise summary of the proposed fix instead of embedding a large diff.
 
+### PR review permissions and workspace trust
+
+The checked-in `.claude/settings.json` grants Claude the tools required for a
+grounded PR review: local disk inspection, Git and `gh` access through Bash,
+and web search/fetch. It deliberately also retains write permissions for normal
+implementation work. A review prompt must still explicitly say **do not edit
+files, change GitHub state, or run tests**.
+
+Run the smoke test below before a costly review. It proves the actual current
+worktree can use local disk, GitHub and web tools; do not claim a completed
+review unless it returns a final result.
+
+```shell
+timeout 120 claude -p "Use Read to inspect AGENTS.md, Bash to run pwd and gh pr view --json url, and WebSearch to look up Claude Code. Do not edit files or change GitHub state. Summarise which tools succeeded." \
+  --model opus \
+  --permission-mode dontAsk \
+  --allowedTools "Bash,Read,Grep,Glob,WebSearch,WebFetch" \
+  --output-format json \
+  --no-session-persistence
+```
+
+`claude -p` deliberately skips the interactive workspace-trust dialogue. This
+is safe only for a trusted repository, and prevents an unattended review from
+stalling on that dialogue. Do not use `--bare`: it disables normal OAuth and
+keychain authentication. Do not use `--dangerously-skip-permissions` for an
+internet-connected review; the project permission allow-list above provides the
+needed access without bypassing every safety control.
+
+If the smoke test fails, run `claude doctor`, `claude auth status` and
+`gh auth status`, then fix the reported authentication or settings-validation
+problem before reviewing. Never report that a trust configuration prevented a
+review: either resolve it and obtain a final review result, or report the review
+as incomplete.
+
 ### Foreground command-window limits
 
 Some agent runners terminate a foreground command after roughly 30 seconds,
@@ -313,7 +347,7 @@ grounded Claude review.
 ```shell
 nohup timeout 900 claude -p "Review the current uncommitted worktree diff for correctness bugs only. Do not edit files or run tests. Return findings first with file:line references." \
   --permission-mode dontAsk \
-  --allowedTools "Read,Grep,Glob,Bash(git status:*),Bash(git diff:*),Bash(sed:*),Bash(rg:*)" \
+  --allowedTools "Bash,Read,Grep,Glob,WebSearch,WebFetch" \
   --output-format stream-json \
   --verbose \
   --no-session-persistence \
