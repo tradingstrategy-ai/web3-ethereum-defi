@@ -120,6 +120,7 @@ Supported protocols
    :maxdepth: 1
 
    perp-dex-account-metrics
+   withdrawal-period-audit
 
 .. toctree::
    :maxdepth: 1

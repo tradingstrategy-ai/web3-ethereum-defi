@@ -7,7 +7,10 @@ import pytest
 
 from eth_defi.erc_4626.vault_protocol.d2.vault import D2Vault
 from eth_defi.erc_4626.vault_protocol.gains.vault import GainsVault, OstiumVault, OstiumVersion
+from eth_defi.erc_4626.vault_protocol.kiloex.vault import KiloExVault
+from eth_defi.erc_4626.vault_protocol.nara.vault import NaraVault
 from eth_defi.erc_4626.vault_protocol.upshift.vault import UpshiftVault
+from eth_defi.erc_4626.vault_protocol.usdai.vault import StakedUSDaiVault
 from eth_defi.vault.base import WithdrawalDelayType
 
 
@@ -68,3 +71,37 @@ def test_upshift_withdrawal_period_uses_configured_lag_duration() -> None:
     assert period.min_period == datetime.timedelta(days=3)
     assert period.max_period == datetime.timedelta(days=3)
     assert period.delay_type is WithdrawalDelayType.delay
+
+
+def test_kiloex_withdrawal_period_covers_epoch_range() -> None:
+    """KiloEx exports its documented one-to-three epoch range."""
+    vault = object.__new__(KiloExVault)
+
+    period = vault.get_withdrawal_period()
+
+    assert period.min_period == datetime.timedelta(days=3)
+    assert period.max_period == datetime.timedelta(days=9)
+    assert period.delay_type is WithdrawalDelayType.epoch
+
+
+def test_nara_withdrawal_period_uses_cooldown(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Nara exports the live cooldown as a fixed delay."""
+    vault = object.__new__(NaraVault)
+    monkeypatch.setattr(NaraVault, "get_estimated_lock_up", lambda _vault: datetime.timedelta(days=7))
+
+    period = vault.get_withdrawal_period()
+
+    assert period.min_period == datetime.timedelta(days=7)
+    assert period.max_period == datetime.timedelta(days=7)
+    assert period.delay_type is WithdrawalDelayType.delay
+
+
+def test_usdai_withdrawal_period_is_redemption_window() -> None:
+    """USDai exports its thirty-day epoch window."""
+    vault = object.__new__(StakedUSDaiVault)
+
+    period = vault.get_withdrawal_period()
+
+    assert period.min_period == datetime.timedelta(0)
+    assert period.max_period == datetime.timedelta(days=30)
+    assert period.delay_type is WithdrawalDelayType.epoch

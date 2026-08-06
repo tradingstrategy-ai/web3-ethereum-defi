@@ -17,6 +17,7 @@ from web3.contract import Contract
 from eth_defi.erc_4626.core import get_deployed_erc_4626_contract
 from eth_defi.erc_4626.vault import ERC4626Vault
 from eth_defi.erc_4626.vault_protocol.nara.deposit_redeem import NaraDepositManager
+from eth_defi.vault.base import WithdrawalDelayType, WithdrawalPeriod
 from eth_defi.vault.deposit_redeem import VaultDepositManagerCapability
 
 
@@ -71,6 +72,15 @@ class NaraVault(ERC4626Vault):
         """
         duration = int(self.narausd_plus_contract.functions.cooldownDuration().call())
         return datetime.timedelta(seconds=duration)
+
+    def get_withdrawal_period(self) -> WithdrawalPeriod:
+        """Return NaraUSD+'s live cooldown duration.
+
+        See the `NaraUSD documentation <https://docs.nara.io/nara-protocol/narausd>`__.
+        """
+        period = self.get_estimated_lock_up()
+        assert period is not None
+        return WithdrawalPeriod(period, period, WithdrawalDelayType.delay)
 
     def get_deposit_manager(self) -> "NaraDepositManager":
         """Create the NaraUSD+ synchronous-deposit, asynchronous-redeem manager.

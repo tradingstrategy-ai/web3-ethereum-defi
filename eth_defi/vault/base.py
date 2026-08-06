@@ -75,7 +75,8 @@ class WithdrawalDelayType(enum.StrEnum):
     timing rule, not current liquidity, a pause, or keeper execution.
 
     ``delay`` applies when a request becomes claimable after a configured
-    cooldown. Examples include `Gains gUSDC <https://gains.trade/vaults/gUSDC>`__
+    cooldown, including a zero-second delay for synchronous ERC-4626
+    redemptions. Examples include `Gains gUSDC <https://gains.trade/vaults/gUSDC>`__
     and Upshift's `NEMO USDC Yield <https://app.upshift.finance/pools/1/0x955256B31097dDf47a9E47A95aDfDFB4460D8522>`__.
 
     ``epoch`` applies when withdrawal availability is determined by a
