@@ -21,6 +21,7 @@ from web3 import Web3
 from eth_defi.erc_4626.vault import ERC4626Vault
 from eth_defi.erc_4626.vault_protocol.frax.constants import FRAX_STAKING_VAULT_METADATA_BY_CHAIN, FRAXLEND_FEE_PRECISION, FRAXLEND_MAX_PROTOCOL_FEE_RAW, FRAXLEND_NOTES, FRAXLEND_SHORT_DESCRIPTION
 from eth_defi.types import Percent
+from eth_defi.vault.base import INSTANT_WITHDRAWAL_PERIOD, WithdrawalPeriod
 from eth_defi.vault.fee import VaultFeeMode
 
 logger = logging.getLogger(__name__)
@@ -124,6 +125,10 @@ class FraxVault(ERC4626Vault):
         Lenders can withdraw at any time, subject to available liquidity.
         """
         return datetime.timedelta(days=0)
+
+    def get_withdrawal_period(self) -> WithdrawalPeriod:
+        """Return the adapter's direct redemption timing."""
+        return INSTANT_WITHDRAWAL_PERIOD
 
     def get_link(self, referral: str | None = None) -> str:  # noqa: ARG002
         return f"https://app.frax.finance/fraxlend/pair/{self.vault_address}"

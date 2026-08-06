@@ -15,7 +15,7 @@ from web3 import Web3
 
 from eth_defi.abi import get_deployed_contract
 from eth_defi.erc_4626.vault import ERC4626Vault
-from eth_defi.vault.base import WithdrawalDelayType, WithdrawalPeriod
+from eth_defi.vault.base import INSTANT_WITHDRAWAL_PERIOD, WithdrawalPeriod
 
 logger = logging.getLogger(__name__)
 
@@ -95,7 +95,7 @@ class SentimentVault(ERC4626Vault):
         :return:
             A zero-length ``instant`` period.
         """
-        return WithdrawalPeriod(datetime.timedelta(0), datetime.timedelta(0), WithdrawalDelayType.instant)
+        return INSTANT_WITHDRAWAL_PERIOD
 
     def get_link(self, referral: str | None = None) -> str:
         """Get a link to the vault on Sentiment app.

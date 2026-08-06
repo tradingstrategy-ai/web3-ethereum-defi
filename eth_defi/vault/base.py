@@ -122,6 +122,22 @@ class WithdrawalPeriod:
     delay_type: WithdrawalDelayType
 
 
+#: Withdrawal metadata for adapters whose documented ERC-4626 redemption path
+#: has no request, cooldown, or epoch timing gate. It is a timing declaration,
+#: not a liquidity guarantee: callers must still check liquidity, permissions,
+#: pause state, and transaction preflight before attempting redemption.
+#:
+#: An adapter must return this value explicitly. A zero
+#: :meth:`VaultBase.get_estimated_lock_up` alone is not sufficient evidence:
+#: it can describe a different lifecycle, such as an unlocked asynchronous
+#: redemption queue.
+INSTANT_WITHDRAWAL_PERIOD = WithdrawalPeriod(
+    min_period=datetime.timedelta(0),
+    max_period=datetime.timedelta(0),
+    delay_type=WithdrawalDelayType.instant,
+)
+
+
 class ParquetVerificationError(Exception):
     """Raised when a parquet file fails post-write verification.
 

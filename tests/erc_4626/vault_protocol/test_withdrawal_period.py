@@ -6,21 +6,47 @@ from types import SimpleNamespace
 import pytest
 
 from eth_defi.erc_4626.vault_protocol.aave.vault import AaveVault
+from eth_defi.erc_4626.vault_protocol.autopool.vault import AutoPoolVault
 from eth_defi.erc_4626.vault_protocol.brink.vault import BrinkVault
 from eth_defi.erc_4626.vault_protocol.curvance.vault import CurvanceVault
 from eth_defi.erc_4626.vault_protocol.d2.vault import D2Vault
+from eth_defi.erc_4626.vault_protocol.deltr.vault import DeltrVault
 from eth_defi.erc_4626.vault_protocol.dolomite.vault import DolomiteVault
+from eth_defi.erc_4626.vault_protocol.euler.vault import EulerEarnVault, EulerVault
+from eth_defi.erc_4626.vault_protocol.fluid.vault import FluidVault
 from eth_defi.erc_4626.vault_protocol.foxify.vault import FoxifyVault
+from eth_defi.erc_4626.vault_protocol.frax.vault import FraxVault
 from eth_defi.erc_4626.vault_protocol.gains.vault import GainsVault, OstiumVault, OstiumVersion
 from eth_defi.erc_4626.vault_protocol.gearbox.vault import GearboxVault
+from eth_defi.erc_4626.vault_protocol.goat.vault import GoatVault
+from eth_defi.erc_4626.vault_protocol.harvest.vault import HarvestVault
+from eth_defi.erc_4626.vault_protocol.hyperlend.vault import WrappedHLPVault
+from eth_defi.erc_4626.vault_protocol.hypurrfi.vault import HypurrFiVault
+from eth_defi.erc_4626.vault_protocol.inverse_finance.vault import InverseFinanceVault
+from eth_defi.erc_4626.vault_protocol.kiln.vault import KilnVault
 from eth_defi.erc_4626.vault_protocol.kiloex.vault import KiloExVault
+from eth_defi.erc_4626.vault_protocol.llama_lend.vault import LlamaLendVault
+from eth_defi.erc_4626.vault_protocol.morpho.vault_v1 import MorphoV1Vault
+from eth_defi.erc_4626.vault_protocol.morpho.vault_v2 import MorphoV2Vault
 from eth_defi.erc_4626.vault_protocol.nara.vault import NaraVault
+from eth_defi.erc_4626.vault_protocol.resolv.vault import ResolvVault
+from eth_defi.erc_4626.vault_protocol.sbold.vault import SBOLDVault
 from eth_defi.erc_4626.vault_protocol.sentiment.vault import SentimentVault
+from eth_defi.erc_4626.vault_protocol.silo.vault import SiloVault
 from eth_defi.erc_4626.vault_protocol.singularity.vault import SingularityVault
+from eth_defi.erc_4626.vault_protocol.sky.vault import SkyVault
+from eth_defi.erc_4626.vault_protocol.spark.vault import SparkVault
+from eth_defi.erc_4626.vault_protocol.spectra.erc4626_wrapper_vault import SpectraERC4626WrapperVault
+from eth_defi.erc_4626.vault_protocol.summer.vault import SummerVault
 from eth_defi.erc_4626.vault_protocol.term_finance.vault import TermFinanceVault
+from eth_defi.erc_4626.vault_protocol.threejane.vault import ThreeJaneVault
 from eth_defi.erc_4626.vault_protocol.upshift.vault import UpshiftVault
 from eth_defi.erc_4626.vault_protocol.usdai.vault import StakedUSDaiVault
-from eth_defi.vault.base import WithdrawalDelayType
+from eth_defi.erc_4626.vault_protocol.usdd.vault import USSDVault
+from eth_defi.erc_4626.vault_protocol.yearn.compounder import YearnCompounderVault
+from eth_defi.erc_4626.vault_protocol.yearn.morpho_compounder import YearnMorphoCompounderStrategy
+from eth_defi.erc_4626.vault_protocol.yearn.vault import YearnV3Vault
+from eth_defi.vault.base import INSTANT_WITHDRAWAL_PERIOD, WithdrawalDelayType
 
 
 def _call(value: int) -> SimpleNamespace:
@@ -116,18 +142,56 @@ def test_usdai_withdrawal_period_is_redemption_window() -> None:
     assert period.delay_type is WithdrawalDelayType.epoch
 
 
+def test_zero_legacy_lockup_can_use_a_non_instant_lifecycle(monkeypatch: pytest.MonkeyPatch) -> None:
+    """3Jane keeps its explicit cooldown lifecycle when the senior tranche is unlocked."""
+    vault = object.__new__(ThreeJaneVault)
+    monkeypatch.setattr(ThreeJaneVault, "get_estimated_lock_up", lambda _vault: datetime.timedelta(0))
+
+    period = vault.get_withdrawal_period()
+
+    assert period.min_period == datetime.timedelta(0)
+    assert period.max_period == datetime.timedelta(0)
+    assert period.delay_type is WithdrawalDelayType.delay
+
+
 @pytest.mark.parametrize(
     "vault_class",
     [
         AaveVault,
+        AutoPoolVault,
         BrinkVault,
         CurvanceVault,
+        DeltrVault,
         DolomiteVault,
+        EulerVault,
+        EulerEarnVault,
+        FluidVault,
         FoxifyVault,
+        FraxVault,
         GearboxVault,
+        GoatVault,
+        HarvestVault,
+        WrappedHLPVault,
+        HypurrFiVault,
+        InverseFinanceVault,
+        KilnVault,
+        LlamaLendVault,
+        MorphoV1Vault,
+        MorphoV2Vault,
+        ResolvVault,
+        SBOLDVault,
         SentimentVault,
+        SiloVault,
         SingularityVault,
+        SkyVault,
+        SparkVault,
+        SpectraERC4626WrapperVault,
+        SummerVault,
         TermFinanceVault,
+        USSDVault,
+        YearnCompounderVault,
+        YearnMorphoCompounderStrategy,
+        YearnV3Vault,
     ],
 )
 def test_direct_redemption_vaults_export_instant_period(vault_class: type) -> None:
@@ -136,6 +200,7 @@ def test_direct_redemption_vaults_export_instant_period(vault_class: type) -> No
 
     period = vault.get_withdrawal_period()
 
+    assert period is INSTANT_WITHDRAWAL_PERIOD
     assert period.min_period == datetime.timedelta(0)
     assert period.max_period == datetime.timedelta(0)
     assert period.delay_type is WithdrawalDelayType.instant

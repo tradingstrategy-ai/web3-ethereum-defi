@@ -29,7 +29,7 @@ from eth_defi.erc_4626.vault_protocol.morpho.offchain_metadata import (
 )
 from eth_defi.event_reader.multicall_batcher import EncodedCall, EncodedCallResult
 from eth_defi.types import Percent
-from eth_defi.vault.base import VaultHistoricalRead, VaultHistoricalReader
+from eth_defi.vault.base import INSTANT_WITHDRAWAL_PERIOD, VaultHistoricalRead, VaultHistoricalReader, WithdrawalPeriod
 from eth_defi.vault.flag import NOT_IN_MORPHO_API, VaultFlag
 
 logger = logging.getLogger(__name__)
@@ -321,6 +321,10 @@ class MorphoV1Vault(ERC4626Vault):
 
     def get_estimated_lock_up(self) -> datetime.timedelta | None:
         return datetime.timedelta(days=0)
+
+    def get_withdrawal_period(self) -> WithdrawalPeriod:
+        """Return the adapter's direct redemption timing."""
+        return INSTANT_WITHDRAWAL_PERIOD
 
     def get_link(self, referral: str | None = None) -> str:
         chain_name = get_chain_name(self.chain_id).lower()

@@ -1,22 +1,20 @@
 """Silo Finance vault support."""
 
 import datetime
+import logging
 from decimal import Decimal
 from functools import cached_property
-import logging
 from typing import Iterable
 
-from web3.contract import Contract
-
 from eth_typing import BlockIdentifier
+from web3.contract import Contract
 
 from eth_defi.chain import get_chain_name
 from eth_defi.erc_4626.core import get_deployed_erc_4626_contract
 from eth_defi.erc_4626.vault import ERC4626HistoricalReader, ERC4626Vault
 from eth_defi.event_reader.multicall_batcher import EncodedCall, EncodedCallResult
 from eth_defi.types import Percent
-from eth_defi.vault.base import VaultHistoricalRead, VaultHistoricalReader, VaultTechnicalRisk
-
+from eth_defi.vault.base import INSTANT_WITHDRAWAL_PERIOD, VaultHistoricalRead, VaultHistoricalReader, VaultTechnicalRisk, WithdrawalPeriod
 
 logger = logging.getLogger(__name__)
 
@@ -75,6 +73,10 @@ class SiloVault(ERC4626Vault):
     def get_estimated_lock_up(self) -> datetime.timedelta:
         """Buffered withdraws"""
         return datetime.timedelta(days=0)
+
+    def get_withdrawal_period(self) -> WithdrawalPeriod:
+        """Return the adapter's direct redemption timing."""
+        return INSTANT_WITHDRAWAL_PERIOD
 
     def get_historical_reader(self, stateful: bool) -> VaultHistoricalReader:
         """Get Silo-specific historical reader with utilisation metrics."""

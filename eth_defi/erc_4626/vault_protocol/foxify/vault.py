@@ -6,7 +6,7 @@ import logging
 from eth_typing import BlockIdentifier
 
 from eth_defi.erc_4626.vault import ERC4626Vault
-from eth_defi.vault.base import WithdrawalDelayType, WithdrawalPeriod
+from eth_defi.vault.base import INSTANT_WITHDRAWAL_PERIOD, WithdrawalPeriod
 
 logger = logging.getLogger(__name__)
 
@@ -66,7 +66,7 @@ class FoxifyVault(ERC4626Vault):
         :return:
             A zero-length ``instant`` period.
         """
-        return WithdrawalPeriod(datetime.timedelta(0), datetime.timedelta(0), WithdrawalDelayType.instant)
+        return INSTANT_WITHDRAWAL_PERIOD
 
     def get_link(self, referral: str | None = None) -> str:
         """Get the vault's web UI link."""

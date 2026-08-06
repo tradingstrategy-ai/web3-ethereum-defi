@@ -22,6 +22,7 @@ from eth_typing import BlockIdentifier
 from web3 import Web3
 
 from eth_defi.erc_4626.vault import ERC4626Vault
+from eth_defi.vault.base import INSTANT_WITHDRAWAL_PERIOD, WithdrawalPeriod
 
 
 class KilnVault(ERC4626Vault):
@@ -137,6 +138,10 @@ class KilnVault(ERC4626Vault):
             Zero, because Kiln does not impose a protocol-level lock-up.
         """
         return datetime.timedelta(0)
+
+    def get_withdrawal_period(self) -> WithdrawalPeriod:
+        """Return the adapter's direct redemption timing."""
+        return INSTANT_WITHDRAWAL_PERIOD
 
     def get_link(self, referral: str | None = None) -> str:  # noqa: PLR6301, ARG002
         """Return Kiln's DeFi product page.

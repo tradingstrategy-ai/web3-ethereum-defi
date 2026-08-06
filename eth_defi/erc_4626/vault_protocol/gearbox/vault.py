@@ -36,11 +36,11 @@ from eth_defi.event_reader.multicall_batcher import EncodedCall, EncodedCallResu
 from eth_defi.types import Percent
 from eth_defi.vault.base import (
     DEPOSIT_CLOSED_PAUSED,
+    INSTANT_WITHDRAWAL_PERIOD,
     REDEMPTION_CLOSED_INSUFFICIENT_LIQUIDITY,
     REDEMPTION_CLOSED_PAUSED,
     VaultHistoricalRead,
     VaultHistoricalReader,
-    WithdrawalDelayType,
     WithdrawalPeriod,
 )
 
@@ -211,7 +211,7 @@ class GearboxVault(ERC4626Vault):
         :return:
             A zero-length ``instant`` period.
         """
-        return WithdrawalPeriod(datetime.timedelta(0), datetime.timedelta(0), WithdrawalDelayType.instant)
+        return INSTANT_WITHDRAWAL_PERIOD
 
     def get_link(self, referral: str | None = None) -> str:
         """Get link to the Gearbox app."""

@@ -12,17 +12,18 @@ price (``totalAssets / totalSupply``).
 """
 
 import datetime
+import logging
 from decimal import Decimal
 from functools import cached_property
-import logging
 
-from web3.contract import Contract
 from eth_typing import BlockIdentifier, HexAddress
+from web3.contract import Contract
 
 from eth_defi.erc_4626.core import get_deployed_erc_4626_contract
 from eth_defi.erc_4626.deposit_redeem import ERC4626DepositManager
 from eth_defi.erc_4626.estimate import estimate_value_by_share_price
 from eth_defi.erc_4626.vault import ERC4626Vault
+from eth_defi.vault.base import INSTANT_WITHDRAWAL_PERIOD, WithdrawalPeriod
 
 logger = logging.getLogger(__name__)
 
@@ -68,6 +69,10 @@ class AutoPoolVault(ERC4626Vault):
 
     def get_estimated_lock_up(self) -> datetime.timedelta | None:
         return datetime.timedelta(days=0)
+
+    def get_withdrawal_period(self) -> WithdrawalPeriod:
+        """Return the adapter's direct redemption timing."""
+        return INSTANT_WITHDRAWAL_PERIOD
 
     def get_deposit_manager(self) -> "AutoPoolDepositManager":
         return AutoPoolDepositManager(self)

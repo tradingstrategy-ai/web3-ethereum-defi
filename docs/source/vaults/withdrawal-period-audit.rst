@@ -43,13 +43,14 @@ The following adapters now return ``WithdrawalPeriod`` and populate
 Instant adapters
 ----------------
 
-Adapters that explicitly report a zero legacy lock-up are normalised by the
-scanner into a zero-to-zero ``instant`` period. This applies to
+Adapters with source-backed direct redemption explicitly implement
+``get_withdrawal_period()`` and return ``INSTANT_WITHDRAWAL_PERIOD``, a
+zero-to-zero ``instant`` period. This applies to
 Auto Finance, Deltr, Euler, Fluid, Frax, Goat, Harvest, HyperLend, HypurrFi,
 Inverse Finance, Kiln, LlamaLend, Morpho, Resolv, sBOLD, Silo, Sky, Spark,
 Spectra, Summer, USDD and Yearn (including its compounder variants). This
-means synchronous redemption is distinguished from an unavailable timing
-value, while the JSON caveat about liquidity still applies.
+means a source-backed direct redemption is distinguished from an unavailable
+timing value, while the JSON caveat about liquidity still applies.
 
 Timing that is not representable
 ---------------------------------

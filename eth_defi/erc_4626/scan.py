@@ -21,7 +21,7 @@ from eth_defi.erc_4626.vault_protocol.morpho.vault_v2 import MorphoV2Vault
 from eth_defi.event_reader.web3factory import Web3Factory
 from eth_defi.provider.fallback import ExtraValueError
 from eth_defi.token import TokenDiskCache
-from eth_defi.vault.base import VaultBase, WithdrawalDelayType, WithdrawalPeriod
+from eth_defi.vault.base import VaultBase, WithdrawalPeriod
 from eth_defi.vault.deposit_redeem import VaultDepositPermission
 from eth_defi.vault.fee import BROKEN_FEE_DATA, FeeData
 
@@ -397,12 +397,6 @@ def create_vault_scan_record(
 
             if lockup is not None:
                 assert isinstance(lockup, datetime.timedelta), f"Expected timedelta, got {type(lockup)}: {lockup}"
-                if lockup == datetime.timedelta(0):
-                    withdrawal_period = WithdrawalPeriod(
-                        min_period=lockup,
-                        max_period=lockup,
-                        delay_type=WithdrawalDelayType.instant,
-                    )
 
         # Resolve vault flags from the smart contract state
         try:
