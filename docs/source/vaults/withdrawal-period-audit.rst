@@ -81,7 +81,7 @@ queue has no deadline. Add a protocol-specific accessor once a canonical
 contract field or a bounded, source-backed SLA is available.
 
 Known model gaps
----------------
+----------------
 
 The two-value export cannot currently represent all of the following without
 new fields:
