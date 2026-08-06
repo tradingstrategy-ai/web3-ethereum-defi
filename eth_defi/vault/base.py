@@ -79,8 +79,8 @@ class WithdrawalDelayType(enum.StrEnum):
     Examples include `Aave <https://app.aave.com/markets/>`__ and
     `Yearn V3 <https://yearn.fi/v3>`__.
 
-    ``delay`` applies when a request becomes claimable after a configured
-    cooldown. Examples include `Gains gUSDC <https://gains.trade/vaults/gUSDC>`__
+    ``delay`` applies when a request follows a cooldown or asynchronous
+    settlement lifecycle. Examples include `Gains gUSDC <https://gains.trade/vaults/gUSDC>`__
     and Upshift's `NEMO USDC Yield <https://app.upshift.finance/pools/1/0x955256B31097dDf47a9E47A95aDfDFB4460D8522>`__.
 
     ``epoch`` applies when withdrawal availability is determined by a
@@ -92,7 +92,7 @@ class WithdrawalDelayType(enum.StrEnum):
     #: Aave and Yearn V3 are examples.
     instant = "instant"
 
-    #: A request becomes claimable after a fixed or configured time delay.
+    #: A request follows a fixed delay or asynchronous settlement lifecycle.
     #: Gains gUSDC and Upshift NEMO USDC Yield are examples.
     delay = "delay"
 
@@ -112,10 +112,10 @@ class WithdrawalPeriod:
     serialised as seconds in the public lifetime-metrics JSON export.
 
     ``estimated_settlement`` is deliberately separate. It is a non-binding
-    offchain operational-cadence estimate for backtesting, such as how often a
-    curator normally performs a request-batch settlement. It must not be used
-    to decide whether a withdrawal is claimable or promised to settle by a
-    particular time.
+    offchain operating estimate for backtesting, such as how often a curator
+    normally performs a request-batch settlement or the expected duration of a
+    liquidity-dependent redemption. It must not be used to decide whether a
+    withdrawal is claimable or promised to settle by a particular time.
     """
 
     #: Shortest contract-enforced wait before a withdrawal can become available.
@@ -129,9 +129,9 @@ class WithdrawalPeriod:
     #: Whether the availability rule is a time delay or epoch window.
     delay_type: WithdrawalDelayType
 
-    #: Non-binding offchain estimate of the interval between curator settlement
-    #: cycles. Used exclusively for backtesting; it never replaces a binding
-    #: smart-contract withdrawal period and a settlement may not occur at all.
+    #: Non-binding offchain estimate of a settlement cycle or redemption wait.
+    #: Used exclusively for backtesting; it never replaces a binding
+    #: smart-contract withdrawal period and settlement may not occur at all.
     estimated_settlement: datetime.timedelta | None = None
 
 
@@ -1641,9 +1641,9 @@ class VaultBase(ABC):
         lifecycle after a user submits a valid withdrawal request. Adapters use
         ``min_period`` and ``max_period`` only for a binding smart-contract
         timing rule. An adapter may instead return a non-binding
-        ``estimated_settlement`` for backtesting an offchain curator cadence;
-        that estimate never establishes claimability and does not require a
-        synthetic timing bound.
+        ``estimated_settlement`` for backtesting an offchain operating cadence
+        or redemption wait; that estimate never establishes claimability and
+        does not require a synthetic timing bound.
 
         :return:
             Withdrawal period details, or ``None`` when unavailable.

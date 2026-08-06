@@ -66,7 +66,6 @@ class SummerVault(ERC4626Vault):
         return datetime.timedelta(days=0)
 
     def get_withdrawal_period(self) -> WithdrawalPeriod:
-        """Return the adapter's direct redemption timing."""
         return INSTANT_WITHDRAWAL_PERIOD
 
     def fetch_tip_rate(self, block_identifier: BlockIdentifier) -> float:

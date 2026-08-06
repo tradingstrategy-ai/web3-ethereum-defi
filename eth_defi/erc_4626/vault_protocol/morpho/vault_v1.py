@@ -323,7 +323,6 @@ class MorphoV1Vault(ERC4626Vault):
         return datetime.timedelta(days=0)
 
     def get_withdrawal_period(self) -> WithdrawalPeriod:
-        """Return the adapter's direct redemption timing."""
         return INSTANT_WITHDRAWAL_PERIOD
 
     def get_link(self, referral: str | None = None) -> str:
