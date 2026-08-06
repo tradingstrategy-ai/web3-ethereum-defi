@@ -59,8 +59,8 @@ strategy vault <https://d2.finance/strategies/0x208f63a7f60c319597c05fa5ec67fde4
 These are the values of :py:class:`eth_defi.vault.base.WithdrawalDelayType`.
 
 ``estimated_settlement`` is a separate optional backtesting field, also in
-seconds. It records a curator's historical or operational estimate of how
-often deposit and redemption batches are settled; it is not a contractual
+seconds. It records a curator's or operator's historical or operational
+estimate of how often deposit and redemption batches are settled; it is not a contractual
 deadline. For example, `Lagoon's app <https://app.lagoon.finance/>`__ provides
 its per-vault ``averageSettlement`` metadata. Curators can settle earlier,
 later, or not at all, so this value must never be used to decide whether a

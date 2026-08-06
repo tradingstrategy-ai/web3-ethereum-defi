@@ -8,10 +8,12 @@ import pytest
 from eth_defi.erc_4626.vault_protocol.aave.vault import AaveVault
 from eth_defi.erc_4626.vault_protocol.autopool.vault import AutoPoolVault
 from eth_defi.erc_4626.vault_protocol.brink.vault import BrinkVault
+from eth_defi.erc_4626.vault_protocol.bulla.vault import BullaVault
 from eth_defi.erc_4626.vault_protocol.curvance.vault import CurvanceVault
 from eth_defi.erc_4626.vault_protocol.d2.vault import D2Vault
 from eth_defi.erc_4626.vault_protocol.deltr.vault import DeltrVault
 from eth_defi.erc_4626.vault_protocol.dolomite.vault import DolomiteVault
+from eth_defi.erc_4626.vault_protocol.ember.vault import EmberVault
 from eth_defi.erc_4626.vault_protocol.euler.vault import EulerEarnVault, EulerVault
 from eth_defi.erc_4626.vault_protocol.fluid.vault import FluidVault
 from eth_defi.erc_4626.vault_protocol.foxify.vault import FoxifyVault
@@ -167,6 +169,35 @@ def test_lagoon_withdrawal_period_exports_non_binding_settlement_estimate() -> N
     assert period.max_period is None
     assert period.delay_type is WithdrawalDelayType.delay
     assert period.estimated_settlement == datetime.timedelta(days=1)
+
+
+def test_ember_withdrawal_period_exports_non_binding_settlement_estimate() -> None:
+    """Ember exports its API's queued-redemption service estimate only."""
+    vault = object.__new__(EmberVault)
+    vault.__dict__["ember_metadata"] = {"withdrawal_period_days": 4}
+
+    period = vault.get_withdrawal_period()
+
+    assert period is not None
+    assert period.min_period is None
+    assert period.max_period is None
+    assert period.delay_type is WithdrawalDelayType.delay
+    assert period.estimated_settlement == datetime.timedelta(days=4)
+
+
+def test_bulla_withdrawal_period_exports_non_binding_redemption_estimate(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Bulla exports its address-scoped public average without fabricating a bound."""
+    vault = object.__new__(BullaVault)
+    metadata = SimpleNamespace(average_redemption_period_days=30)
+    monkeypatch.setattr(BullaVault, "bulla_metadata", property(lambda _vault: metadata))
+
+    period = vault.get_withdrawal_period()
+
+    assert period is not None
+    assert period.min_period is None
+    assert period.max_period is None
+    assert period.delay_type is WithdrawalDelayType.delay
+    assert period.estimated_settlement == datetime.timedelta(days=30)
 
 
 @pytest.mark.parametrize(

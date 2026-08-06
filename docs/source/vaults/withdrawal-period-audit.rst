@@ -51,6 +51,13 @@ to a settlement deadline, so ``min_withdrawal_period`` and
 ``max_withdrawal_period`` remain ``null``. The estimate is not a promise: a
 curator can settle earlier, later, or not at all.
 
+**Ember** exposes an offchain, per-vault ``withdrawalPeriodDays`` operator
+service estimate for its redemption queue. **Bulla** publishes an
+address-scoped 30-day average redemption period for its TCS pool, whose queue
+depends on invoice repayments and liquidity. Both are exported as
+``estimated_settlement`` for backtesting only, without contract-enforced
+minimum or maximum withdrawal periods.
+
 Instant adapters
 ----------------
 
@@ -69,8 +76,8 @@ Timing that is not representable
 The current JSON model intentionally does **not** fabricate a period for the
 following adapters:
 
-* **Queue or liquidity dependent:** Aarna, Accountable, Aera, BaseVol, Bulla,
-  Cap, cSigma, ETH Strategy, 40acres, Hyperdrive HL, Infinifi, Maple,
+* **Queue or liquidity dependent:** Aarna, Accountable, Aera, BaseVol, Cap,
+  cSigma, ETH Strategy, 40acres, Hyperdrive HL, Infinifi, Maple,
   NashPoint, Renalta, Royco, Secured Finance, Superform, Symbiotic, T3tris,
   TrueFi, Untangle, YieldFi, Yo, Yuzu Money and ZeroLend. Their contracts or
   operator processes make redemption timing depend on liquidity, a queue
@@ -78,7 +85,7 @@ following adapters:
   current ``WithdrawalPeriod`` cannot express that conditional or unbounded
   wait.
 * **Variable or policy estimates:** Altura, Axis, Centrifuge, CrystalClear,
-  Ember, ForgeYields, Frankencoin, Liquid Royalty, Maple AQRU, Plutus,
+  ForgeYields, Frankencoin, Liquid Royalty, Maple AQRU, Plutus,
   Umami and YieldNest.
   Their existing ``get_estimated_lock_up()`` values describe an epoch estimate,
   maturity date, operator service target, reward-interest delay, or strategy

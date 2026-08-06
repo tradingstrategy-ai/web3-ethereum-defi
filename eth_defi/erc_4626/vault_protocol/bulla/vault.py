@@ -24,7 +24,7 @@ from web3 import Web3
 from eth_defi.erc_4626.vault import ERC4626Vault
 from eth_defi.erc_4626.vault_protocol.bulla.offchain_metadata import BullaVaultMetadata, get_bulla_vault_metadata
 from eth_defi.types import Percent
-from eth_defi.vault.base import VaultDepositManager
+from eth_defi.vault.base import VaultDepositManager, WithdrawalDelayType, WithdrawalPeriod
 from eth_defi.vault.fee import FeeData, VaultFeeMode
 
 #: Public transaction flows need a pool-specific permission and redemption-queue adapter.
@@ -511,6 +511,31 @@ class BullaVault(ERC4626Vault):
         :return: ``None`` because redemption timing is pool-state dependent.
         """
         return None
+
+    def get_withdrawal_period(self) -> WithdrawalPeriod | None:
+        """Return Bulla's published non-binding redemption estimate.
+
+        The reviewed TCS pool's public materials state an average redemption
+        period, but the actual queue is funded by invoice repayment and pool
+        liquidity. This is not a contract-enforced settlement cycle or a
+        maximum wait. Export the published average solely as
+        ``estimated_settlement`` for backtesting, with no binding
+        ``min_period`` or ``max_period``.
+
+        :return:
+            Queued-redemption metadata with an address-scoped operational
+            estimate, or ``None`` for pools without reviewed public terms.
+        """
+        metadata = self.bulla_metadata
+        average_redemption_period_days = metadata.average_redemption_period_days if metadata else None
+        if not isinstance(average_redemption_period_days, int) or average_redemption_period_days <= 0:
+            return None
+        return WithdrawalPeriod(
+            min_period=None,
+            max_period=None,
+            delay_type=WithdrawalDelayType.delay,
+            estimated_settlement=datetime.timedelta(days=average_redemption_period_days),
+        )
 
     def get_deposit_manager(self) -> VaultDepositManager:
         """Block the generic ERC-4626 transaction manager.

@@ -36,6 +36,14 @@ class BullaVaultMetadata:
     #: Publicly named organisations managing the pool, if published by Bulla.
     manager_name: str | None
 
+    #: Publicly reported average redemption time in days. This is an operational
+    #: estimate tied to the selected pool's invoice collections, not a deadline.
+    average_redemption_period_days: int | None
+
+    #: Publicly reported maximum redemption time in days. This is descriptive
+    #: pool material and not a smart-contract-enforced withdrawal bound.
+    maximum_redemption_period_days: int | None
+
 
 #: TCS Settlement Pool Token V2.1 on Arbitrum.
 #:
@@ -56,6 +64,8 @@ _BULLA_VAULT_METADATA: dict[tuple[int, str], BullaVaultMetadata] = {
         short_description="Permissioned stablecoin pool financing short-term freight receivables through TCS Blockchain.",
         description=("The TCS Settlement Pool provides stablecoin liquidity for short-term freight receivables originated through TCS Blockchain. Bulla presents the pool as an offering for accredited investors, with exposure to 30-60 day invoices. Withdrawals depend on available liquidity; Bulla states an average 30-day redemption period and a maximum of 40 days. Returns depend on the repayment and collection of the financed invoices, so payment delays or impairments can affect both liquidity and returns."),
         manager_name="Bulla and TCS Blockchain",
+        average_redemption_period_days=30,
+        maximum_redemption_period_days=40,
     ),
 }
 
