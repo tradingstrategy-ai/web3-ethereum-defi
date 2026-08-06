@@ -1239,6 +1239,46 @@ value when the live adapter read is inconclusive (`unknown`). Run
 | `JSON_RPC_<CHAIN>` | Required for every EVM chain represented in the cache. |
 | `LOG_LEVEL` | Optional console log level. Default: info. |
 
+### migrate-withdrawal-period-estimates.py
+
+Repair metadata pickles written before ``WithdrawalPeriod`` gained its nullable
+``estimated_settlement`` field. These legacy slotted objects load successfully,
+but lifetime-metrics export raises an attribute error when it reads the missing
+field. The migration replaces only those objects, preserving every binding
+timing value and setting ``estimated_settlement`` to ``None``. It performs no
+network reads and does not modify price Parquet files, reader state or any other
+metadata.
+
+Always inspect the dry run first:
+
+```shell
+source .local-test.env && \
+  DRY_RUN=true \
+  poetry run python scripts/erc-4626/migrate-withdrawal-period-estimates.py
+```
+
+Then back up and apply the metadata-only repair, followed by JSON export:
+
+```shell
+source ~/vault-scanner/vault-rpc.env && \
+  (cd ~/vault-scanner/web3-ethereum-defi && \
+    DRY_RUN=false \
+    poetry run python scripts/erc-4626/migrate-withdrawal-period-estimates.py)
+
+source ~/vault-scanner/vault-rpc.env && \
+  (cd ~/vault-scanner/web3-ethereum-defi && \
+    poetry run python scripts/erc-4626/export-data-files.py)
+```
+
+The migration creates a non-overwriting
+``*.pickle.bak-withdrawal-period-estimates`` backup before it writes.
+
+| Variable | Description |
+|----------|-------------|
+| `VAULT_DB_PATH` | Optional vault metadata pickle path. Defaults to `~/.tradingstrategy/vaults/vault-metadata-db.pickle`. |
+| `DRY_RUN` | Report only when true. Default: true. |
+| `LOG_LEVEL` | Optional console log level. Default: info. |
+
 ### migrate-vault-token-metadata.py
 
 Refresh persisted vault `Name` and `Symbol` fields when an ERC-20/ERC-4626
