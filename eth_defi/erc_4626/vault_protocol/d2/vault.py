@@ -25,6 +25,8 @@ from eth_defi.vault.base import (
     REDEMPTION_CLOSED_FUNDS_CUSTODIED,
     VaultHistoricalRead,
     VaultHistoricalReader,
+    WithdrawalDelayType,
+    WithdrawalPeriod,
 )
 from eth_defi.vault.deposit_redeem import VaultFlowUnavailable, WhitelistingRequired
 
@@ -752,6 +754,22 @@ class D2Vault(ERC4626Vault):
     def get_estimated_lock_up(self) -> datetime.timedelta:
         epoch = self.fetch_current_epoch_info()
         return epoch.epoch_end - epoch.epoch_start
+
+    def get_withdrawal_period(self) -> WithdrawalPeriod:
+        """Return the D2 redemption window bounds for the current epoch.
+
+        D2 has no post-request cooldown: redemptions become available in the
+        withdrawal phase after a trading epoch. Consequently the shortest
+        wait is zero and the longest normal wait is one configured epoch.
+
+        :return:
+            Current epoch-length withdrawal window bounds.
+        """
+        return WithdrawalPeriod(
+            min_period=datetime.timedelta(0),
+            max_period=self.get_estimated_lock_up(),
+            delay_type=WithdrawalDelayType.epoch,
+        )
 
     def fetch_observation_time(self) -> datetime.datetime:
         """Read the EVM timestamp used by the current vault observation.

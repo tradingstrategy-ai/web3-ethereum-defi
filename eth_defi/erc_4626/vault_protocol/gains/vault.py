@@ -44,6 +44,8 @@ from eth_defi.vault.base import (
     REDEMPTION_CLOSED_EPOCH_WINDOW,
     VaultHistoricalRead,
     VaultHistoricalReader,
+    WithdrawalDelayType,
+    WithdrawalPeriod,
 )
 from eth_defi.vault.risk import VaultTechnicalRisk
 
@@ -502,6 +504,24 @@ class GainsVault(ERC4626Vault):
 
         return now_ + (epochs * self.fetch_epoch_duration()) - gone
 
+    def get_withdrawal_period(self) -> WithdrawalPeriod:
+        """Return Gains' collateralisation-dependent withdrawal delay range.
+
+        Gains permits redemption one, two or three epochs after a valid
+        request, depending on the vault collateralisation ratio. The epoch
+        duration is read from the deployed Open PnL contract so the exported
+        range follows each vault's actual configuration.
+
+        :return:
+            One-to-three epoch delay bounds.
+        """
+        epoch_duration = self.fetch_epoch_duration()
+        return WithdrawalPeriod(
+            min_period=epoch_duration,
+            max_period=3 * epoch_duration,
+            delay_type=WithdrawalDelayType.delay,
+        )
+
     def get_max_discount_percent(self) -> float:
         """Get max discount percent.
 
@@ -825,6 +845,28 @@ class OstiumVault(GainsVault):
         if self.version == OstiumVersion.v1_5:
             return OstiumV15HistoricalReader(self, stateful)
         return GainsHistoricalReader(self, stateful)
+
+    def get_withdrawal_period(self) -> WithdrawalPeriod:
+        """Return the version-appropriate Ostium withdrawal wait range.
+
+        Legacy V1 follows the Gains one-to-three epoch delay. V1.5 queues a
+        withdrawal for a configurable number of settlement intervals; request
+        timing adds at most one further interval before the target settlement.
+
+        :return:
+            Onchain-configured withdrawal delay bounds.
+        """
+        if self.version != OstiumVersion.v1_5:
+            return super().get_withdrawal_period()
+
+        interval = self.vault_contract.functions.maxSettlementInterval().call()
+        configured_delay = self.vault_contract.functions.withdrawSettlementDelay().call()
+        min_settlements = max(configured_delay, 1)
+        return WithdrawalPeriod(
+            min_period=datetime.timedelta(seconds=min_settlements * interval),
+            max_period=datetime.timedelta(seconds=(min_settlements + 1) * interval),
+            delay_type=WithdrawalDelayType.delay,
+        )
 
     def fetch_deposit_closed_reason(self) -> str | None:
         """Check if deposits are closed.

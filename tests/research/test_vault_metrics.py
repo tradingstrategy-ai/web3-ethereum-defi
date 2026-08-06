@@ -1,5 +1,6 @@
 """Test vault metrics calculations and charts."""
 
+import datetime
 import json
 import os.path
 import pickle
@@ -30,7 +31,7 @@ from eth_defi.research.vault_metrics import (
     format_lifetime_table,
     make_vault_display_flags,
 )
-from eth_defi.vault.base import VaultSpec
+from eth_defi.vault.base import VaultSpec, WithdrawalDelayType, WithdrawalPeriod
 from eth_defi.vault.fee import FeeData, VaultFeeMode
 from eth_defi.vault.flag import NOT_IN_MORPHO_API, VaultFlag
 from eth_defi.vault.price_source import PriceSource
@@ -452,6 +453,29 @@ def test_calculate_lifetime_metrics_exports_deposit_permission(
         "notes": "No permissioned hook checks were performed",
     }
     assert stored_manager == {"can_deposit": True, "can_redeem": True, "deposit_flow": "synchronous", "redemption_flow": "synchronous"}
+
+
+def test_calculate_lifetime_metrics_exports_withdrawal_period(
+    vault_db: VaultDatabase,
+    price_df: pd.DataFrame,
+) -> None:
+    """Lifetime export preserves withdrawal bounds and availability mechanism."""
+    vault_id = "43111-0x05c2e246156d37b39a825a25dd08d5589e3fd883"
+    vault_spec = VaultSpec.parse_string(vault_id)
+    vault_row = dict(vault_db.rows[vault_spec])
+    vault_row["_withdrawal_period"] = WithdrawalPeriod(
+        min_period=datetime.timedelta(days=1),
+        max_period=datetime.timedelta(days=3),
+        delay_type=WithdrawalDelayType.delay,
+    )
+
+    metrics = calculate_lifetime_metrics(price_df.loc[price_df["id"] == vault_id], {vault_spec: vault_row})
+    exported = export_lifetime_row(metrics.iloc[0])
+
+    assert exported["lockup"] == 259_200
+    assert exported["min_withdrawal_period"] == 86_400
+    assert exported["max_withdrawal_period"] == 259_200
+    assert exported["withdrawal_delay_type"] == "delay"
 
 
 def test_calculate_lifetime_metrics_defaults_legacy_deposit_permission_to_unknown(

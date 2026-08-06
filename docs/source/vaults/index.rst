@@ -42,6 +42,22 @@ transaction revert, then handle the declared flow type. The field does not
 assert that an account is permissioned, funded, within a vault cap, or able to
 obtain redemption liquidity.
 
+Withdrawal-period metadata
+--------------------------
+
+Public lifetime-metrics JSON records expose withdrawal timing separately from
+the legacy ``lockup`` field. When a withdrawal period is available, ``lockup``
+is an alias of ``max_withdrawal_period``. ``min_withdrawal_period`` and
+``max_withdrawal_period`` are seconds from a valid withdrawal request until
+normal redemption availability. ``withdrawal_delay_type`` is either ``delay``
+for a request-and-claim cooldown (for example `Gains gUSDC <https://gains.trade/vaults/gUSDC>`__
+or Upshift's `NEMO USDC Yield <https://app.upshift.finance/pools/1/0x955256B31097dDf47a9E47A95aDfDFB4460D8522>`__)
+or ``epoch`` for a protocol withdrawal window (for example D2's `Texas Hedge
+strategy vault <https://d2.finance/strategies/0x208f63a7f60c319597c05fa5ec67fde41839bad6>`__).
+These are the values of :py:class:`eth_defi.vault.base.WithdrawalDelayType`.
+The bounds do not promise liquidity or keeper execution and are ``null`` when
+the adapter cannot read reliable timing data.
+
 Deposit permission metadata
 ---------------------------
 

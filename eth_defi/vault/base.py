@@ -15,6 +15,7 @@
 
 import dataclasses
 import datetime
+import enum
 import logging
 import os
 import pathlib
@@ -64,6 +65,52 @@ REDEMPTION_CLOSED_FUNDS_CUSTODIED = "Funds custodied or epoch in progress"
 REDEMPTION_CLOSED_BY_ADMIN = "Redemptions closed by vault admin"
 REDEMPTION_CLOSED_INSUFFICIENT_LIQUIDITY = "Insufficient liquidity for redemption"
 REDEMPTION_CLOSED_PAUSED = "Vault paused by admin"
+
+
+class WithdrawalDelayType(enum.StrEnum):
+    """Classify how a valid withdrawal request becomes redeemable.
+
+    This enum is exported as the ``withdrawal_delay_type`` string in public
+    lifetime metrics. It describes only the protocol's normal withdrawal
+    timing rule, not current liquidity, a pause, or keeper execution.
+
+    ``delay`` applies when a request becomes claimable after a configured
+    cooldown. Examples include `Gains gUSDC <https://gains.trade/vaults/gUSDC>`__
+    and Upshift's `NEMO USDC Yield <https://app.upshift.finance/pools/1/0x955256B31097dDf47a9E47A95aDfDFB4460D8522>`__.
+
+    ``epoch`` applies when withdrawal availability is determined by a
+    protocol-defined epoch window. An example is D2's `Texas Hedge strategy
+    vault <https://d2.finance/strategies/0x208f63a7f60c319597c05fa5ec67fde41839bad6>`__.
+    """
+
+    #: A request becomes claimable after a fixed or configured time delay.
+    #: Gains gUSDC and Upshift NEMO USDC Yield are examples.
+    delay = "delay"
+
+    #: A request can be completed only in a protocol-defined epoch window.
+    #: D2 Texas Hedge is an example.
+    epoch = "epoch"
+
+
+@dataclass(frozen=True, slots=True)
+class WithdrawalPeriod:
+    """Protocol withdrawal timing bounds exported by the vault scanner.
+
+    The range describes the normal wait from a valid withdrawal request to
+    redemption availability. It excludes liquidity shortages, keeper delays,
+    paused contracts and other exceptional operating conditions. Both values
+    are :class:`datetime.timedelta` objects and are serialised as seconds in
+    the public lifetime-metrics JSON export.
+    """
+
+    #: Shortest configured wait before a withdrawal can become available.
+    min_period: datetime.timedelta
+
+    #: Longest normal wait, including any protocol scheduling window.
+    max_period: datetime.timedelta
+
+    #: Whether the availability rule is a time delay or epoch window.
+    delay_type: WithdrawalDelayType
 
 
 class ParquetVerificationError(Exception):
@@ -1546,6 +1593,19 @@ class VaultBase(ABC):
 
         :return:
             None if not know
+        """
+        return None
+
+    def get_withdrawal_period(self) -> WithdrawalPeriod | None:
+        """Return the normal withdrawal wait range and availability mechanism.
+
+        Unlike :meth:`get_estimated_lock_up`, this reports the redemption
+        lifecycle after a user submits a valid withdrawal request. Protocol
+        adapters return ``None`` when the contract does not expose reliable
+        timing data.
+
+        :return:
+            Withdrawal period details, or ``None`` when unavailable.
         """
         return None
 

@@ -21,7 +21,7 @@ from eth_defi.erc_4626.vault_protocol.morpho.vault_v2 import MorphoV2Vault
 from eth_defi.event_reader.web3factory import Web3Factory
 from eth_defi.provider.fallback import ExtraValueError
 from eth_defi.token import TokenDiskCache
-from eth_defi.vault.base import VaultBase
+from eth_defi.vault.base import VaultBase, WithdrawalPeriod
 from eth_defi.vault.deposit_redeem import VaultDepositPermission
 from eth_defi.vault.fee import BROKEN_FEE_DATA, FeeData
 
@@ -353,6 +353,7 @@ def create_vault_scan_record(
         "_notes": None,
         "_deposit_manager": None,
         "_deposit_permission": VaultDepositPermission.unknown.value,
+        "_withdrawal_period": None,
         "_whitelist_notes": None,
         "_minimum_deposit": None,
         "_minimum_redemption": None,
@@ -383,14 +384,19 @@ def create_vault_scan_record(
         total_supply = _fetch_total_supply(vault, block_identifier)
         denomination_token = _export_denomination_token(vault)
 
-        try:
-            lockup = vault.get_estimated_lock_up()
-        except ValueError as e:
-            logger.error(f"Failed to read lockup for vault {vault} at {detection.address}: {e}", exc_info=e)
-            lockup = None
+        withdrawal_period = _optional_vault_read(vault.get_withdrawal_period)
+        if withdrawal_period is not None:
+            assert isinstance(withdrawal_period, WithdrawalPeriod), f"Expected WithdrawalPeriod, got {type(withdrawal_period)}: {withdrawal_period}"
+            lockup = withdrawal_period.max_period
+        else:
+            try:
+                lockup = vault.get_estimated_lock_up()
+            except ValueError as e:
+                logger.error(f"Failed to read lockup for vault {vault} at {detection.address}: {e}", exc_info=e)
+                lockup = None
 
-        if lockup is not None:
-            assert isinstance(lockup, datetime.timedelta), f"Expected timedelta, got {type(lockup)}: {lockup}"
+            if lockup is not None:
+                assert isinstance(lockup, datetime.timedelta), f"Expected timedelta, got {type(lockup)}: {lockup}"
 
         # Resolve vault flags from the smart contract state
         try:
@@ -438,6 +444,7 @@ def create_vault_scan_record(
             "_fees": fees,
             "_flags": flags,
             "_lockup": lockup,
+            "_withdrawal_period": withdrawal_period,
             "_description": description,
             "_short_description": short_description,
             "_notes": notes,
