@@ -48,6 +48,15 @@ def test_superstate_risk_is_low() -> None:
     assert get_vault_risk("Superstate") == VaultTechnicalRisk.low
 
 
+def test_spxa_is_a_tokenised_fund() -> None:
+    """The permissioned Base SPXA fund share class has the descriptive fund flag."""
+
+    flags = get_vault_special_flags("0x99e9092bae6d4394e54034ecb1e45441678323b9")
+
+    assert flags == {VaultFlag.tokenised_fund}
+    assert not is_flagged_vault("0x99e9092bae6d4394e54034ecb1e45441678323b9")
+
+
 @pytest.mark.parametrize(
     ("address", "expected_note"),
     [

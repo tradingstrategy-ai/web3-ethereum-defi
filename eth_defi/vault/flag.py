@@ -214,6 +214,9 @@ VAULT_DESCRIPTIVE_FLAGS: dict[str, set[VaultFlag]] = {
     "0x1fecf3d9d4fee7f2c02917a66028a48c6706c179": {VaultFlag.tokenised_fund},
     "0x43415eb6ff9db7e26a15b704e7a3edce97d31c4e": {VaultFlag.tokenised_fund},
     "0x6a7c6aa2b8b8a6a891de552bdeffa87c3f53bd46": {VaultFlag.tokenised_fund},
+    # Centrifuge: Janus Henderson Anemoy S&P500® Fund (SPXA) USDC vault on Base.
+    # https://docs.centrifuge.io/developer/protocol/deployments/
+    "0x99e9092bae6d4394e54034ecb1e45441678323b9": {VaultFlag.tokenised_fund},
     USTBL_TOKEN_ADDRESS: {VaultFlag.tokenised_fund},
     EUTBL_TOKEN_ADDRESS: {VaultFlag.tokenised_fund},
 }
