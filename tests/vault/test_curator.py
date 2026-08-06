@@ -1232,3 +1232,23 @@ def test_identify_vault_name_sweep_curators() -> None:
 
     # 3. The calendar month must not be mistaken for August Digital
     assert identify_curator(1, "", "Prize imToken August Campaign", "0x0", "morpho") is None
+
+
+def test_identify_hypertwin_copy_vault() -> None:
+    """Attribute the separately operated HyperTwin copy vault to HyperTwin.
+
+    The name mentions Growi HF only because HyperTwin copies that strategy at
+    twice the leverage.  Its own brand must take precedence over Growi Finance.
+    """
+
+    slug = identify_curator(
+        chain_id=9999,
+        vault_token_symbol="HyperTwin",
+        vault_name="HyperTwin - Growi HF 2x",
+        vault_address="0x15be61aef0ea4e4dc93c79b668f26b3f1be75a66",
+        protocol_slug="hyperliquid",
+    )
+
+    assert slug == "hypertwin"
+    assert slug != "growi-finance"
+    assert get_curator_name(slug) == "HyperTwin"
