@@ -167,6 +167,9 @@ VAULT_PROTOCOL_FEE_MATRIX = {
     # Accountable fees are internalised in the share price
     "Accountable": VaultFeeMode.internalised_skimming,
     "YieldNest": None,
+    # Nest configures fee schedules per vault and redemption route. There is no
+    # universal protocol-wide fee mode suitable for scanner classification.
+    "Nest": None,
     # Secured Finance charges protocol trading fees on the underlying fixed-rate lending actions.
     # These costs are incurred at trade execution time instead of as explicit vault deposit/withdraw fees.
     "Secured Finance": VaultFeeMode.internalised_skimming,

@@ -3,6 +3,8 @@
 - feat: Start published Hypercore performance curves only after vault TVL reaches $20,000, preventing insignificant bootstrap capital from producing misleading lifetime drawdowns (2026-08-05)
 - feat: Add a narrowly scoped Hypercore dynamic-vault guard flag, keeping generic anyAsset out of native-vault policy and covering the full Safe execution path on Anvil (2026-08-03)
 
+- feat: Add NestVault protocol detection, first-party Nest API metadata, scoped historical backfill and public catalogue tooling (2026-08-06)
+
 - feat: Refresh and persist the dynamic Asseto product registry before each daily Asseto price cycle, allowing known products to recover after scanner restarts and new supported products to enter the address-scoped daily scan safely (2026-08-01)
 - feat: Schedule reviewed tokenised-fund price feeds independently, retain daily samples for unchanged NAVs, and provide a recurring-path targeted price backfill command (2026-08-01)
 - feat: Refresh Lagoon offchain vault metadata daily in persistent scanner processes while retaining stale descriptions during transient API failures (2026-08-01)

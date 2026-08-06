@@ -836,6 +836,18 @@ def create_probe_calls(
             extra_data=None,
         )
 
+        # Nest vaults maintain their ERC-7540 redemption queue as a global
+        # pending-share balance. This accessor is specific to NestVaultCore and
+        # avoids mistaking unrelated ERC-7540/ERC-7575 vaults for Nest.
+        # https://github.com/plumenetwork/nest-protocol/blob/main/contracts/NestVaultCore.sol
+        yield EncodedCall.from_keccak_signature(
+            address=address,
+            signature=Web3.keccak(text="totalPendingShares()")[0:4],
+            function="totalPendingShares",
+            data=b"",
+            extra_data=None,
+        )
+
         # Kiln OmniVaults
         # https://docs.kiln.fi/v1/kiln-products/omnivaults/security/source-code
         # https://arbiscan.io/address/0x19A0F016Ac3989e754ab8216810beD8503bDA37e#readProxyContract
@@ -1487,6 +1499,12 @@ def identify_vault_features(
     # TODO: Any better ways to check this?
     if calls["share"].success:
         features.add(ERC4626Feature.erc_7575_like)
+
+    # NestVaultCore exposes the aggregate asynchronous-redemption queue.
+    # Unlike the common ERC-7540 and ERC-7575 accessors above, this is a
+    # Nest-specific no-argument view that identifies Nest vault entrypoints.
+    if calls["totalPendingShares"].success:
+        features.add(ERC4626Feature.nest_like)
 
     if calls["additionalRewardsStrategy"].success:
         features.add(ERC4626Feature.kiln_metavault_like)
@@ -2438,6 +2456,11 @@ def create_vault_instance(
         from eth_defi.erc_4626.vault_protocol.yieldnest.vault import YieldNestVault
 
         return YieldNestVault(web3, spec, **kwargs)
+
+    elif ERC4626Feature.nest_like in features:
+        from eth_defi.erc_4626.vault_protocol.nest.vault import NestVault
+
+        return NestVault(web3, spec, **kwargs)
 
     elif ERC4626Feature.secured_finance_like in features:
         from eth_defi.erc_4626.vault_protocol.secured_finance.vault import SecuredFinanceVault

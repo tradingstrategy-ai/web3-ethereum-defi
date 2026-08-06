@@ -629,6 +629,12 @@ class ERC4626Feature(enum.Enum):
     #: https://www.yieldnest.finance
     yieldnest_like = "yieldnest_like"
 
+    #: Nest
+    #:
+    #: Tokenised real-world-asset vault infrastructure operated by Plume.
+    #: https://www.nest.credit/
+    nest_like = "nest_like"
+
     #: Secured Finance
     #:
     #: Fixed-rate lending protocol with ERC-4626 lender vaults.
@@ -1216,6 +1222,9 @@ def get_vault_protocol_name(features: set[ERC4626Feature]) -> str:
 
     elif ERC4626Feature.yieldnest_like in features:
         return "YieldNest"
+
+    elif ERC4626Feature.nest_like in features:
+        return "Nest"
 
     elif ERC4626Feature.secured_finance_like in features:
         return "Secured Finance"
