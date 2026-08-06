@@ -47,9 +47,19 @@ from eth_defi.foundry.forge import deploy_contract_with_forge
 from eth_defi.gas import apply_gas, estimate_gas_price
 from eth_defi.gmx.whitelist import GMXDeployment, resolve_gmx_market_labels
 from eth_defi.hotwallet import HotWallet
+from eth_defi.hyperliquid.block import HYPEREVM_FAST_BLOCK_GAS_LIMIT
+from eth_defi.hyperliquid.core_writer import CORE_DEPOSIT_WALLET, CORE_WRITER_ADDRESS
+from eth_defi.hyperliquid.guard_whitelist import get_core_deposit_wallet
 from eth_defi.lighter.deployment import LighterDeployment, setup_lighter_whitelisting
 from eth_defi.provider.anvil import is_anvil
-from eth_defi.safe.deployment import DEFAULT_TX_CONFIRMATION_TIMEOUT, add_new_safe_owners, deploy_safe, deploy_safe_with_deterministic_address, fetch_safe_deployment
+from eth_defi.safe.deployment import (
+    DEFAULT_TX_CONFIRMATION_TIMEOUT,
+    add_new_safe_owners,
+    assert_safe_fallback_handler_disabled,
+    deploy_safe,
+    deploy_safe_with_deterministic_address,
+    fetch_safe_deployment,
+)
 from eth_defi.safe.execute import execute_safe_tx
 from eth_defi.token import WRAPPED_NATIVE_TOKEN, fetch_erc20_details, get_wrapped_native_token_address
 from eth_defi.trace import assert_transaction_success_with_explanation
@@ -90,6 +100,13 @@ LAGOON_SETTLEMENT_LIMIT_INTERNAL_VERSION = 3
 #: only charged for gas actually used, so over-provisioning the limit is free.
 DEFAULT_DEPLOYMENT_GAS_MULTIPLIER = 2.0
 
+#: Maximum explicit Hypercore native vaults whitelisted in one GuardV0
+#: multicall. HyperEVM fast blocks have a 2M gas limit, so do not use the
+#: caller-configurable generic multicall chunk size here.
+#: The 40-vault batch, including CoreWriter and USDC setup, is regression-tested
+#: to consume less than 2M gas on the fixed HyperEVM fork.
+HYPERCORE_MULTICALL_CHUNK_SIZE = 40
+
 
 CONTRACTS_ROOT = Path(os.path.dirname(__file__)) / ".." / ".." / ".." / ".." / "contracts"
 
@@ -129,6 +146,7 @@ def _validate_lagoon_settlement_limit_config(
         return
 
     assert isinstance(max_settlement_amount, Decimal), "max_settlement_amount must be Decimal"
+    assert max_settlement_amount.is_finite(), "max_settlement_amount must be finite"
     assert max_settlement_amount >= 0, "max_settlement_amount cannot be negative"
     assert type(settlement_cooldown) is int, "settlement_cooldown must be an int number of seconds"
     assert settlement_cooldown > 0, "settlement_cooldown must be positive when max_settlement_amount is configured"
@@ -139,18 +157,54 @@ def _validate_lagoon_settlement_limit_config(
 def should_enable_hypercore_guard(
     *,
     chain_id: int,
-    any_asset: bool,
+    any_hypercore_vault: bool,
     hypercore_vaults: list[HexAddress | str] | None,
 ) -> bool:
     """Should Hypercore guard support be enabled for this deployment.
 
-    ``any_asset=True`` intentionally bypasses per-vault Hypercore address
-    checks, but Hypercore deposits and withdrawals still require CoreWriter
-    actions and CoreDepositWallet approval/target validation to be whitelisted.
-    """
-    from eth_defi.hyperliquid.core_writer import CORE_DEPOSIT_WALLET
+    ``any_hypercore_vault=True`` intentionally bypasses only the per-vault
+    Hypercore address check. Hypercore deposits and withdrawals still require
+    CoreWriter actions, the CoreDepositWallet approval/target, and ERC-20
+    token validation to be explicitly whitelisted.
 
-    return bool(hypercore_vaults) or (any_asset and chain_id in CORE_DEPOSIT_WALLET)
+    :param chain_id:
+        EVM chain ID for the deployment.
+    :param any_hypercore_vault:
+        Whether to enable the narrow dynamic Hypercore vault policy.
+    :param hypercore_vaults:
+        Explicit Hypercore vault addresses, if any.
+    :return:
+        ``True`` when the deployment must install Hypercore guard rules.
+    """
+    return bool(hypercore_vaults) or (any_hypercore_vault and chain_id in CORE_DEPOSIT_WALLET)
+
+
+def validate_hypercore_guard_config(
+    *,
+    chain_id: int,
+    any_hypercore_vault: bool,
+    hypercore_vaults: list[HexAddress | str] | None,
+) -> None:
+    """Reject ambiguous or unsupported Hypercore guard configuration.
+
+    The dynamic policy cannot be combined with an explicit list: the former
+    permits every native vault, so retaining the latter would mislead an
+    operator into believing it constrains CoreWriter action-2 transfers.
+
+    :param chain_id:
+        EVM chain ID for the deployment.
+    :param any_hypercore_vault:
+        Whether to enable the dynamic native-vault policy.
+    :param hypercore_vaults:
+        Explicit Hypercore vault addresses, if any.
+    :return:
+        ``None``. Raises :class:`AssertionError` for invalid configuration.
+    """
+    if any_hypercore_vault:
+        assert not hypercore_vaults, "any_hypercore_vault cannot be combined with hypercore_vaults; omit the explicit list"
+
+    if any_hypercore_vault or hypercore_vaults:
+        assert chain_id in CORE_DEPOSIT_WALLET, f"Hypercore guard is only supported on HyperEVM, got chain {chain_id}"
 
 
 # struct InitStruct {
@@ -202,7 +256,7 @@ class LagoonDeploymentParameters:
             self.underlying = Web3.to_checksum_address(self.underlying)
 
         if self.managementRate:
-            assert type(self.managementRate) == int
+            assert isinstance(self.managementRate, int)
 
     def as_solidity_struct(self) -> dict:
         # Return Vault.InitStruct to be passed to the constructor
@@ -357,7 +411,13 @@ class LagoonConfig:
     #: CCTP V2 deployment for cross-chain USDC transfers
     cctp_deployment: CCTPDeployment | None = None
 
-    #: Allow any ERC-20 asset instead of explicit whitelist
+    #: Development and live-network rehearsal escape hatch for any ERC-20.
+    #:
+    #: Product deployments must provide ``assets`` and leave this disabled. It
+    #: remains permitted on mainnet for testing because the helper cannot
+    #: distinguish a rehearsal from a product deployment on the same network.
+    #: With anyAsset enabled, GuardV0Base skips ERC-20 approval token/call-site
+    #: checks and approvals are therefore unsafe for product asset managers.
     any_asset: bool = False
 
     #: Etherscan API key for contract verification
@@ -427,6 +487,14 @@ class LagoonConfig:
     #: Hypercore native vault addresses to whitelist (HyperEVM only).
     #: When set, also whitelists CoreWriter and CoreDepositWallet.
     hypercore_vaults: list[HexAddress | str] | None = None
+
+    #: Allow CoreWriter deposits and withdrawals for every Hypercore native
+    #: vault. This narrowly bypasses the per-vault allowlist while preserving
+    #: explicit ERC-20 approval and call-site validation. It is independent of
+    #: and narrower than :attr:`any_asset`. Cannot be combined with
+    #: :attr:`hypercore_vaults`, because an explicit list would not constrain
+    #: the dynamic policy.
+    any_hypercore_vault: bool = False
 
     #: ERC-20 token addresses to whitelist
     assets: list[HexAddress | str] | None = None
@@ -1298,6 +1366,10 @@ def deploy_safe_trading_strategy_module(
     :func:`deploy_automated_lagoon_vault` for the public human-readable API, or
     call :func:`setup_guard` with raw token units in lower-level integrations.
 
+    Lagoon Safes must have no fallback handler. This prevents a lower-level
+    caller from attaching the execution module to a Safe with an unnecessary
+    second authentication surface.
+
     :param deployer:
         Deployer account. When a :class:`~eth_defi.hotwallet.HotWallet` is
         passed, nonces are managed internally (avoids stale RPC nonce reads
@@ -1317,6 +1389,12 @@ def deploy_safe_trading_strategy_module(
     :return:
         TradingStrategyModuleV0 instance
     """
+    if lagoon:
+        # SECURITY: Keep the Safe fallback handler disabled. Gnosis Pay reports
+        # the June 2026 ERC-1271 bug in Zodiac Delay/Roles, not the handler, but
+        # Lagoon has no reason to add a second authentication path. See:
+        # https://www.gnosis.io/blog/post-mortem-gnosis-pay-vulnerability-exploit
+        assert_safe_fallback_handler_disabled(safe)
 
     logger.info("Deploying TradingStrategyModuleV0")
 
@@ -1529,6 +1607,7 @@ def setup_guard(
     lighter_deployment: "LighterDeployment | None" = None,
     cctp_deployment: CCTPDeployment | None = None,
     hypercore_vaults: list[HexAddress | str] | None = None,
+    any_hypercore_vault: bool = False,
     hack_sleep=20.0,
     assets: list[HexAddress | str] | None = None,
     multicall_chunk_size=40,
@@ -1587,6 +1666,11 @@ def setup_guard(
         reverts during atomic post-call validation; empty and direct Safe
         governance transactions remain available.
 
+    :param any_hypercore_vault:
+        Enable the narrow, HyperEVM-only dynamic native-vault policy. It
+        bypasses only the CoreWriter action-2 vault address list and does not
+        enable the unsafe generic ``any_asset`` ERC-20 policy.
+
     :return:
         List of :class:`WhitelistEntry` recording everything that was whitelisted.
     """
@@ -1597,6 +1681,11 @@ def setup_guard(
     if vault is not None:
         assert isinstance(vault, Contract)
     assert callable(broadcast_func), "Must have a broadcast function for txs"
+    validate_hypercore_guard_config(
+        chain_id=web3.eth.chain_id,
+        any_hypercore_vault=any_hypercore_vault,
+        hypercore_vaults=hypercore_vaults,
+    )
 
     if lagoon_max_settlement_amount_raw is not None:
         # Fail before broadcasting any whitelist transaction. A balance-delta
@@ -1644,6 +1733,9 @@ def setup_guard(
     anvil = is_anvil(web3)
 
     if any_asset:
+        # SECURITY: Keep this mainnet-test escape hatch out of product
+        # deployments. anyAsset bypasses ERC-20 approval target and call-site
+        # checks because there is no fixed token list.
         assert not assets, f"Cannot use any_asset with specific assets whitelist, got: {assets}"
 
     # Whitelist Uniswap v2
@@ -1878,15 +1970,13 @@ def setup_guard(
         logger.info("Not whitelisted: CCTP")
 
     # Whitelist Hypercore native vault support (HyperEVM only).
-    # Batch CoreWriter + all vault whitelisting into a single multicall transaction.
+    # The first batch configures CoreWriter and the required underlying token;
+    # explicit vaults are split so they fit in HyperEVM fast blocks.
     if should_enable_hypercore_guard(
         chain_id=web3.eth.chain_id,
-        any_asset=any_asset,
+        any_hypercore_vault=any_hypercore_vault,
         hypercore_vaults=hypercore_vaults,
     ):
-        from eth_defi.hyperliquid.core_writer import CORE_WRITER_ADDRESS
-        from eth_defi.hyperliquid.guard_whitelist import get_core_deposit_wallet
-
         chain_id = web3.eth.chain_id
         cdw_address = get_core_deposit_wallet(chain_id)
         logger.info(
@@ -1895,12 +1985,13 @@ def setup_guard(
             cdw_address,
         )
 
-        multicalls = []
+        initial_multicalls = []
 
         # The bridge flow starts with approve(USDC, CoreDepositWallet).
         # In explicit-asset mode we must whitelist the underlying token.
-        # In anyAsset mode token-level call site checks are intentionally bypassed,
-        # so only CoreDepositWallet/CoreWriter permissions need to be installed.
+        # anyHypercoreVault does not relax ERC-20 validation. When the
+        # separate anyAsset escape hatch is disabled, whitelist the underlying
+        # token that the Safe approves to CoreDepositWallet.
         if not any_asset:
             if vault is not None:
                 underlying_address = Web3.to_checksum_address(vault.functions.asset().call())
@@ -1909,14 +2000,14 @@ def setup_guard(
             else:
                 raise ValueError("Hypercore guard setup without any_asset requires either vault or underlying_token_address")
 
-            multicalls.append(
+            initial_multicalls.append(
                 module.functions.whitelistToken(
                     underlying_address,
                     "Underlying token for Hypercore deposit approve",
                 )
             )
 
-        multicalls.append(
+        initial_multicalls.append(
             module.functions.whitelistCoreWriter(
                 Web3.to_checksum_address(CORE_WRITER_ADDRESS),
                 Web3.to_checksum_address(cdw_address),
@@ -1925,8 +2016,25 @@ def setup_guard(
         )
 
         explicit_hypercore_vaults = hypercore_vaults or []
-        if explicit_hypercore_vaults and not any_asset:
-            for idx, hv_address in enumerate(hypercore_vaults, start=1):
+        if explicit_hypercore_vaults:
+            hypercore_vault_chunks = chunked(
+                explicit_hypercore_vaults,
+                HYPERCORE_MULTICALL_CHUNK_SIZE,
+            )
+        else:
+            # Dynamic Hypercore policy has no explicit vaults, but still needs
+            # the underlying-token and CoreWriter configuration above.
+            hypercore_vault_chunks = [[]]
+
+        for chunk_id, chunk in enumerate(hypercore_vault_chunks, start=1):
+            multicalls = list(initial_multicalls) if chunk_id == 1 else []
+            logger.info(
+                "Processing Hypercore vault batch #%d, size %d",
+                chunk_id,
+                len(chunk),
+            )
+            start_index = (chunk_id - 1) * HYPERCORE_MULTICALL_CHUNK_SIZE + 1
+            for idx, hv_address in enumerate(chunk, start=start_index):
                 logger.info("Whitelisting Hypercore vault #%d: %s", idx, hv_address)
                 multicalls.append(
                     module.functions.whitelistHypercoreVault(
@@ -1934,29 +2042,28 @@ def setup_guard(
                         f"Hypercore vault: {hv_address}",
                     )
                 )
-        elif explicit_hypercore_vaults:
-            logger.info(
-                "Skipping %d explicit Hypercore vault whitelist entries because any_asset=True",
-                len(explicit_hypercore_vaults),
-            )
-        else:
-            logger.info("No explicit Hypercore vault list supplied; any_asset mode will allow any Hypercore vault address")
 
-        call = module.functions.multicall(encode_multicalls(multicalls))
-        tx_hash = _broadcast(call)
-        assert_transaction_success_with_explanation(web3, tx_hash, timeout=DEFAULT_TX_CONFIRMATION_TIMEOUT)
+            call = module.functions.multicall(encode_multicalls(multicalls))
+            tx_hash = _broadcast(call)
+            assert_transaction_success_with_explanation(web3, tx_hash, timeout=DEFAULT_TX_CONFIRMATION_TIMEOUT)
 
         entries.append(WhitelistEntry("Hypercore", "CoreWriter", CORE_WRITER_ADDRESS))
         entries.append(WhitelistEntry("Hypercore", "CoreDepositWallet", cdw_address))
-        for hv_address in explicit_hypercore_vaults if not any_asset else []:
+        for hv_address in explicit_hypercore_vaults:
             entries.append(WhitelistEntry("Hypercore vault", str(hv_address), hv_address))
 
         logger.info(
             "Hypercore whitelisting complete: %d explicit vault(s)",
-            len(explicit_hypercore_vaults if not any_asset else []),
+            len(explicit_hypercore_vaults),
         )
     else:
         logger.info("Not whitelisted: Hypercore")
+
+    if any_hypercore_vault:
+        logger.info("Allow any Hypercore vault")
+        tx_hash = _broadcast(module.functions.setAnyHypercoreVaultAllowed(True, "Allow any Hypercore vault"))
+        assert_transaction_success_with_explanation(web3, tx_hash, timeout=DEFAULT_TX_CONFIRMATION_TIMEOUT)
+        entries.append(WhitelistEntry("Any Hypercore vault", "enabled"))
 
     # Whitelist all assets
     if any_asset:
@@ -2029,6 +2136,7 @@ def deploy_automated_lagoon_vault(
     lighter_deployment: "LighterDeployment | None" = None,
     cctp_deployment: CCTPDeployment | None = None,
     hypercore_vaults: list[HexAddress | str] | None = None,
+    any_hypercore_vault: bool = False,
     any_asset: bool = False,
     etherscan_api_key: str = None,
     verifier: Literal["etherscan", "blockscout", "sourcify", "oklink"] | None = None,
@@ -2120,6 +2228,11 @@ def deploy_automated_lagoon_vault(
         settlements. Defaults to 24 hours. Empty settlements do not start or
         wait for it. Ignored when the maximum amount safety feature is disabled.
 
+    :param any_hypercore_vault:
+        Enable the narrow, HyperEVM-only dynamic native-vault policy instead
+        of relying on the generic ``any_asset`` escape hatch. Ignored when
+        ``config`` is supplied, like every other individual deployment kwarg.
+
     :param guard_only:
         Deploy a new version of the guard smart contract and skip deploying the actual vault.
 
@@ -2156,6 +2269,7 @@ def deploy_automated_lagoon_vault(
         gmx_deployment = config.gmx_deployment
         lighter_deployment = config.lighter_deployment
         cctp_deployment = config.cctp_deployment
+        any_hypercore_vault = config.any_hypercore_vault
         any_asset = config.any_asset
         etherscan_api_key = config.etherscan_api_key
         verifier = config.verifier
@@ -2192,6 +2306,11 @@ def deploy_automated_lagoon_vault(
         settlement_cooldown,
         vault_abi,
         satellite_chain,
+    )
+    validate_hypercore_guard_config(
+        chain_id=web3.eth.chain_id,
+        any_hypercore_vault=any_hypercore_vault,
+        hypercore_vaults=hypercore_vaults,
     )
 
     normalised_asset_managers = _normalise_asset_managers(asset_manager, asset_managers)
@@ -2272,6 +2391,11 @@ def deploy_automated_lagoon_vault(
             try:
                 estimated_gas = bound_func.estimate_gas({"from": deployer.address})
                 gas_limit = int(estimated_gas * DEFAULT_DEPLOYMENT_GAS_MULTIPLIER)
+                if web3.eth.chain_id in (998, 999) and bound_func.fn_name == "multicall":
+                    # Guard configuration runs in a fast block. Do not let the
+                    # generic multiplier create a transaction the node rejects
+                    # before it can use the measured safe batch size.
+                    gas_limit = min(gas_limit, HYPEREVM_FAST_BLOCK_GAS_LIMIT)
             except (ValueError, ContractLogicError) as e:
                 logger.warning("Gas estimation failed for %s, using node auto-estimate: %s", bound_func.fn_name, e)
             tx_hash = deployer.transact_and_broadcast_with_contract(bound_func, gas_limit=gas_limit)
@@ -2373,6 +2497,12 @@ def deploy_automated_lagoon_vault(
                 raise RuntimeError(f"Does not look like Lagoon vault: {existing_vault_address}") from e
 
         existing_guard_module = _resolve_existing_guard_module(safe, vault_contract)
+
+    # SECURITY: Lagoon intentionally has no Safe fallback handler. Do not add
+    # one: Gnosis Pay traced its ERC-1271 bug to Zodiac Delay/Roles, while a
+    # handler would still add an unnecessary authentication path. See:
+    # https://www.gnosis.io/blog/post-mortem-gnosis-pay-vulnerability-exploit
+    assert_safe_fallback_handler_disabled(safe)
 
     if not is_anvil(web3):
         logger.info("Between contracts deployment delay: Sleeping %s for new nonce to propagade", between_contracts_delay_seconds)
@@ -2497,6 +2627,7 @@ def deploy_automated_lagoon_vault(
         lighter_deployment=lighter_deployment,
         cctp_deployment=cctp_deployment,
         hypercore_vaults=hypercore_vaults,
+        any_hypercore_vault=any_hypercore_vault,
         erc_4626_vaults=erc_4626_vaults,
         any_asset=any_asset,
         broadcast_func=_broadcast,

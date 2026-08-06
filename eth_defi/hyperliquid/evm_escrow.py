@@ -254,7 +254,7 @@ def _assert_activation_guard_config(
     core_deposit_wallet_address = Web3.to_checksum_address(core_deposit_wallet_address)
 
     if not module.functions.isAllowedApprovalDestination(core_deposit_wallet_address).call():
-        raise RuntimeError(f"TradingStrategyModuleV0 {module.address} does not allow approving CoreDepositWallet {core_deposit_wallet_address}. Hypercore activation requires whitelistCoreWriter() to be configured on the guard. On HyperEVM deployments this should be enabled whenever Hypercore trading is intended, including anyAsset mode.")
+        raise RuntimeError(f"TradingStrategyModuleV0 {module.address} does not allow approving CoreDepositWallet {core_deposit_wallet_address}. Hypercore activation requires whitelistCoreWriter() to be configured on the guard. On HyperEVM deployments this should be enabled whenever Hypercore trading is intended, including anyHypercoreVault mode.")
 
     if not module.functions.isAllowedReceiver(safe_address).call():
         raise RuntimeError(f"TradingStrategyModuleV0 {module.address} does not allow Safe {safe_address} as a receiver. Hypercore activation via depositFor() requires the Safe to be whitelisted as an allowed receiver.")

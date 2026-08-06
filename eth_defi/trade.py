@@ -144,6 +144,10 @@ class TradeSuccess(TradeResult):
             otherwise `token1`.
         """
         if reverse_token_order:
+            if self.price == 0:
+                # A successful transaction may have a genuine zero output.
+                # Its reciprocal is positive infinity, not an analysis error.
+                return Decimal("Infinity")
             return Decimal(1) / self.price
         else:
             return self.price

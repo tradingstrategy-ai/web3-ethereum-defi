@@ -17,6 +17,7 @@ from eth_defi.erc_4626.classification import (
     identify_vault_features,
 )
 from eth_defi.erc_4626.core import ERC4626Feature
+from eth_defi.erc_4626.vault_protocol.axis.constants import AXIS_STAKED_USDX_VAULT
 from eth_defi.erc_4626.vault_protocol.frax.constants import FRAX_STAKING_VAULTS_BY_CHAIN
 from eth_defi.vault_street.constants import PRIME_USD_ADDRESS
 
@@ -27,6 +28,7 @@ BASE = 8453
 POLYGON = 137
 BSC = 56
 MONAD = 143
+ROBINHOOD = 4663
 MANTLE = 5000
 AVALANCHE = 43114
 HYPEREVM = 999
@@ -47,6 +49,65 @@ def test_frax_staking_vaults_are_hardcoded_on_ethereum() -> None:
     for address in FRAX_STAKING_VAULTS_BY_CHAIN[ETHEREUM_MAINNET]:
         assert _get_hardcoded_protocol_features(address, chain_id=ETHEREUM_MAINNET) == {ERC4626Feature.frax_staking_like}
         assert _get_hardcoded_protocol_features(address, chain_id=ARBITRUM) is None
+
+
+def test_axis_staked_usdx_is_hardcoded_on_plasma() -> None:
+    """Route the single reviewed Axis StakedUSDx vault only on Plasma."""
+
+    assert _get_hardcoded_protocol_features(AXIS_STAKED_USDX_VAULT, chain_id=PLASMA) == {ERC4626Feature.axis_like, ERC4626Feature.erc_7540_like}
+    assert _get_hardcoded_protocol_features(AXIS_STAKED_USDX_VAULT, chain_id=ETHEREUM_MAINNET) is None
+
+
+def test_lagoon_legacy_and_recent_interfaces_are_detected() -> None:
+    """Identify Lagoon through its legacy and recent contract interfaces."""
+
+    probe_names = {call.func_name for call in create_probe_calls(["0x03d1ec0d01b659b89a87eabb56e4af5cb6e14bfc"], chain_id=ETHEREUM_MAINNET)}
+    assert "isTotalAssetsValid" in probe_names
+
+    erc4626_probe = SimpleNamespace(success=True, result=eth_abi.encode(["uint256"], [1]))
+    bool_probe = SimpleNamespace(success=True, result=eth_abi.encode(["bool"], [False]))
+    legacy_probe = SimpleNamespace(success=True, result=eth_abi.encode(["uint256"], [1]))
+
+    legacy_features = identify_vault_features(
+        "0x03d1ec0d01b659b89a87eabb56e4af5cb6e14bfc",
+        _ProbeResultsDict(
+            {
+                "convertToShares": erc4626_probe,
+                "isOperator": bool_probe,
+                "MAX_MANAGEMENT_RATE": legacy_probe,
+            }
+        ),
+        debug_text=None,
+        chain_id=ETHEREUM_MAINNET,
+    )
+    assert legacy_features == {ERC4626Feature.erc_7540_like, ERC4626Feature.lagoon_like}
+
+    recent_features = identify_vault_features(
+        "0x03d1ec0d01b659b89a87eabb56e4af5cb6e14bfc",
+        _ProbeResultsDict(
+            {
+                "convertToShares": erc4626_probe,
+                "isOperator": bool_probe,
+                "isTotalAssetsValid": bool_probe,
+            }
+        ),
+        debug_text=None,
+        chain_id=ETHEREUM_MAINNET,
+    )
+    assert recent_features == {ERC4626Feature.erc_7540_like, ERC4626Feature.lagoon_like}
+
+    non_erc7540_features = identify_vault_features(
+        "0x03d1ec0d01b659b89a87eabb56e4af5cb6e14bfc",
+        _ProbeResultsDict(
+            {
+                "convertToShares": erc4626_probe,
+                "isTotalAssetsValid": bool_probe,
+            }
+        ),
+        debug_text=None,
+        chain_id=ETHEREUM_MAINNET,
+    )
+    assert ERC4626Feature.lagoon_like not in non_erc7540_features
 
 
 def test_fraxlend_probe_requires_event_derived_deployer() -> None:
@@ -134,12 +195,14 @@ def test_chain_probe_filtering():
     assert _should_yield_probe("getPerformanceFeeData", ARBITRUM) is True
     assert _should_yield_probe("getPerformanceFeeData", POLYGON) is False
 
-    # Accountable restricted to Ethereum and Monad
+    # Accountable probes are enabled on every scanner chain.
     assert _should_yield_probe("strategy", ETHEREUM_MAINNET) is True
     assert _should_yield_probe("queue", ETHEREUM_MAINNET) is True
     assert _should_yield_probe("strategy", MONAD) is True
     assert _should_yield_probe("queue", MONAD) is True
-    assert _should_yield_probe("strategy", BASE) is False
+    assert _should_yield_probe("strategy", ROBINHOOD) is True
+    assert _should_yield_probe("queue", ROBINHOOD) is True
+    assert _should_yield_probe("strategy", BASE) is True
 
     # Brink restricted to Mantle
     assert _should_yield_probe("strategist", MANTLE) is True
@@ -155,6 +218,12 @@ def test_chain_probe_filtering():
     func_names_monad = [p.func_name for p in probes_monad]
     assert "strategy" in func_names_monad
     assert "queue" in func_names_monad
+
+    # Accountable probes on Robinhood for Meridian Liquidity Provider.
+    probes_robinhood = list(create_probe_calls([test_address], chain_id=ROBINHOOD))
+    func_names_robinhood = [p.func_name for p in probes_robinhood]
+    assert "strategy" in func_names_robinhood
+    assert "queue" in func_names_robinhood
 
     # Accountable probes included on Ethereum for OnRe Core Vault.
     probes_eth = list(create_probe_calls([test_address], chain_id=ETHEREUM_MAINNET))

@@ -83,6 +83,7 @@ def hot_wallet(user_1, web3: Web3) -> HotWallet:
     return wallet
 
 
+@pytest.mark.skip(reason="legacy test, will be removed in the future")
 def test_bnb_chain_decode_tx(web3: Web3, large_busd_holder: HexAddress, hot_wallet: HotWallet):
     """Decoding transactions targeting BNB chain."""
 

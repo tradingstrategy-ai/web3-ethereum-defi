@@ -51,11 +51,17 @@ class MidasProduct:
     #: Human-readable NAV denomination. The initial integration supports USD products.
     denomination: str = "USD"
 
-    #: Whether this particular product is a regulated tokenised fund.
-    #:
-    #: Midas also issues crypto-strategy products, so this must remain a
-    #: product-level decision instead of a property of the shared adapter.
+    #: Whether this particular product is a reviewed tokenised fund.
     is_tokenised_fund: bool = False
+
+    #: Listing-friendly strategy summary.
+    short_description: str | None = None
+
+    #: Longer product description for the vault detail page.
+    description: str | None = None
+
+    #: Official issuer product page, when reviewed product metadata exists.
+    product_link: str | None = None
 
 
 def _optional_hex_address(address: str | None) -> HexAddress | None:
@@ -105,7 +111,10 @@ def create_midas_product_from_registry(product: MidasRegistryProduct) -> MidasPr
         redemption_vault=_optional_hex_address(product.redemption_vault),
         first_seen_at_block=product.first_seen_at_block,
         first_seen_at=product.first_seen_at,
-        is_tokenised_fund=product.symbol == "mTBILL",
+        is_tokenised_fund=product.metadata.is_tokenised_fund if product.metadata else False,
+        short_description=product.metadata.short_description if product.metadata else None,
+        description=product.metadata.description if product.metadata else None,
+        product_link=product.metadata.product_link if product.metadata else None,
     )
 
 

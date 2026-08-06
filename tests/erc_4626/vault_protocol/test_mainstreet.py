@@ -10,9 +10,8 @@ from web3 import Web3
 from eth_defi.abi import ZERO_ADDRESS_STR
 from eth_defi.erc_4626.classification import create_vault_instance_autodetect
 from eth_defi.erc_4626.core import ERC4626Feature
-from eth_defi.provider.anvil import AnvilLaunch, fork_network_anvil
-from eth_defi.provider.multi_provider import create_multi_provider_web3
 from eth_defi.erc_4626.vault_protocol.mainstreet.vault import MainstreetVault
+from eth_defi.testing.anvil_fork_pool import AnvilForkPool
 
 JSON_RPC_SONIC = os.environ.get("JSON_RPC_SONIC")
 JSON_RPC_ETHEREUM = os.environ.get("JSON_RPC_ETHEREUM")
@@ -21,22 +20,13 @@ pytestmark = pytest.mark.skipif(not JSON_RPC_ETHEREUM or not JSON_RPC_SONIC, rea
 
 
 @pytest.fixture(scope="module")
-def anvil_sonic_fork(request) -> AnvilLaunch:
-    """Fork at a specific block for reproducibility."""
-    launch = fork_network_anvil(JSON_RPC_SONIC, fork_block_number=59_684_622)
-    try:
-        yield launch
-    finally:
-        launch.close()
-
-
-@pytest.fixture(scope="module")
-def web3(anvil_sonic_fork):
-    web3 = create_multi_provider_web3(anvil_sonic_fork.json_rpc_url)
-    return web3
+def web3(anvil_fork_pool: AnvilForkPool) -> Web3:
+    """Share the read-only Sonic Mainstreet fork and its warmed RPC cache."""
+    return anvil_fork_pool.get_web3(JSON_RPC_SONIC, 59_684_622)
 
 
 @flaky.flaky
+@pytest.mark.xdist_group("fork:sonic:59684622")
 def test_mainstreet_legacy_smsUSD(
     web3: Web3,
     tmp_path: Path,
@@ -71,24 +61,13 @@ def test_mainstreet_legacy_smsUSD(
 
 
 @pytest.fixture(scope="module")
-def anvil_ethereum_fork(request) -> AnvilLaunch:
-    """Fork Ethereum at a specific block for reproducibility."""
-    if JSON_RPC_ETHEREUM is None:
-        pytest.skip("JSON_RPC_ETHEREUM needed to run this test")
-    launch = fork_network_anvil(JSON_RPC_ETHEREUM, fork_block_number=24_217_821)
-    try:
-        yield launch
-    finally:
-        launch.close()
-
-
-@pytest.fixture(scope="module")
-def web3_ethereum(anvil_ethereum_fork):
-    web3 = create_multi_provider_web3(anvil_ethereum_fork.json_rpc_url)
-    return web3
+def web3_ethereum(anvil_fork_pool: AnvilForkPool) -> Web3:
+    """Share the read-only Ethereum Mainstreet fork and its warmed RPC cache."""
+    return anvil_fork_pool.get_web3(JSON_RPC_ETHEREUM, 24_217_821)
 
 
 @flaky.flaky
+@pytest.mark.xdist_group("fork:ethereum:24217821")
 def test_mainstreet_staked_msusd_ethereum(
     web3_ethereum: Web3,
     tmp_path: Path,

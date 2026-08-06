@@ -251,6 +251,41 @@ class Markets:
 
         return result
 
+    def _fetch_onchain_market_addresses(self) -> set[str] | None:
+        """Read the set of market tokens actually registered in the DataStore.
+
+        The REST ``/markets`` endpoint can advertise markets that do not exist
+        on the chain it claims to describe. On Arbitrum Sepolia it returns 16
+        markets while the DataStore holds 10; ordering against one of the six
+        phantom entries reverts with GMX's ``EmptyMarket`` custom error, after
+        the guard has already approved the call.
+
+        ``IS_MARKET_DISABLED`` cannot detect this: the flag was never written
+        for a market that was never registered, so it reads ``false``
+        ("enabled"). Only membership of the registered set distinguishes them.
+
+        :return: Checksummed registered market addresses, or ``None`` if the
+            lookup failed, in which case callers should skip filtering rather
+            than discard every market.
+        """
+        try:
+            reader_contract = get_reader_contract(self.config.web3, self.config.chain)
+            contract_addresses = get_contract_addresses(self.config.chain)
+            datastore_contract = get_datastore_contract(self.config.web3, self.config.chain)
+            market_count = datastore_contract.functions.getAddressCount(MARKET_LIST).call()
+            raw = reader_contract.functions.getMarkets(
+                contract_addresses.datastore,
+                0,
+                market_count + 1,
+            ).call()
+            return {to_checksum_address(tup[0]) for tup in raw}
+        except Exception as exc:
+            logger.warning(
+                "Could not read registered markets from the DataStore, skipping the registration filter: %s",
+                exc,
+            )
+            return None
+
     def _fetch_markets_from_onchain(self) -> list[dict]:
         """Fallback market source: on-chain ``SyntheticsReader.getMarkets()``.
 
@@ -439,7 +474,10 @@ class Markets:
            ``/markets`` endpoint (via :meth:`_fetch_markets_from_rest`) and
            synthesise metadata.  ``isListed:false`` and zero-index-token
            entries are pre-filtered by the REST helper.
-        3. **Partial-build detection** — compare the processed count to the
+        3. **Onchain enabled-market filter** — remove markets which the
+           DataStore marks disabled. REST keeps historical listed entries, but
+           GMX rejects them as swap routes.
+        4. **Partial-build detection** — compare the processed count to the
            raw REST market count.  If the new build is partial *and* a prior
            complete entry exists, return the prior entry (logged as a warning)
            so a transient gap cannot permanently shrink the cached set.
@@ -480,6 +518,24 @@ class Markets:
                 rest_exc,
             )
             rest_markets = self._fetch_markets_from_onchain()
+        else:
+            disabled_markets = self._check_markets_disabled_onchain([market["market_address"] for market in rest_markets])
+            rest_markets = [market for market in rest_markets if not disabled_markets.get(market["market_address"], False)]
+
+            # Drop markets the REST endpoint advertises but the chain does not
+            # have. These pass the disabled check (their flag was never set) yet
+            # revert with EmptyMarket at order time.
+            registered_markets = self._fetch_onchain_market_addresses()
+            if registered_markets is not None:
+                before = len(rest_markets)
+                rest_markets = [market for market in rest_markets if to_checksum_address(market["market_address"]) in registered_markets]
+                if len(rest_markets) != before:
+                    logger.warning(
+                        "Dropped %d market(s) advertised by REST but not registered in the %s DataStore",
+                        before - len(rest_markets),
+                        self.config.chain,
+                    )
+
         rest_markets_count = len(rest_markets)
         logger.debug("Retrieved %d markets (REST primary with on-chain fallback)", rest_markets_count)
 

@@ -140,7 +140,7 @@ from eth_defi.tokenised_fund.kaio.constants import CASHX_ETHEREUM
 from eth_defi.tokenised_fund.libeara.constants import LIBEARA_PRODUCTS
 from eth_defi.tokenised_fund.ondo.constants import ONDO_PRODUCTS
 from eth_defi.tokenised_fund.securitize.description import SECURITIZE_PRODUCTS
-from eth_defi.tokenised_fund.spiko.constants import USTBL_TOKEN_ADDRESS
+from eth_defi.tokenised_fund.spiko.constants import EUTBL_TOKEN_ADDRESS, USTBL_TOKEN_ADDRESS
 from eth_defi.tokenised_fund.sygnum.constants import FILQ_CURATOR_SLUG, SYGNUM_PRODUCTS_BY_CHAIN
 from eth_defi.tokenised_fund.wisdomtree.constants import WTGXX_ETHEREUM
 
@@ -404,8 +404,9 @@ CURATOR_ADDRESS_OVERRIDES: dict[tuple[int, str], str] = {
     # Asseto supplies the tokenisation layer. Export the reviewed underlying
     # manager or strategy adviser for each supported product share instead.
     **{key: curator.curator_slug for key, curator in ASSETO_CURATORS.items()},
-    # Spiko operates the eligibility-gated USTBL servicing and oracle.
+    # Spiko operates the eligibility-gated USTBL and EUTBL servicing and oracle.
     (1, USTBL_TOKEN_ADDRESS): "spiko-curator",
+    (42161, EUTBL_TOKEN_ADDRESS): "spiko-curator",
     # Theo operates thBILL's KYC-gated direct dealing workflow.
     (1, "0x5fa487bca6158c64046b2813623e20755091da0b"): "theo-curator",
     # Piku publishes these as its USP token and curated Morini Capital vaults.

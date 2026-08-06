@@ -107,7 +107,6 @@ interface ILagoonVaultV05 {
 /// vault address remains an argument to validation functions so the library
 /// can reject calls whose target is not the paired vault.
 library LagoonLib {
-
     // ----- Diamond storage -----
 
     // Namespace version v1 describes this library's storage layout. It is
@@ -209,10 +208,7 @@ library LagoonLib {
     error LagoonInvalidSettlementCooldown(uint256 settlementCooldown);
 
     /// An asset manager attempted another settlement before the safety delay.
-    error LagoonSettlementCooldownActive(
-        uint256 currentTimestamp,
-        uint256 nextSettlementTimestamp
-    );
+    error LagoonSettlementCooldownActive(uint256 currentTimestamp, uint256 nextSettlementTimestamp);
 
     /// The Silo moved in the opposite direction to a stock v0.5 settlement.
     error LagoonSiloBalanceIncreased(uint256 beforeBalance, uint256 afterBalance);
@@ -240,11 +236,7 @@ library LagoonLib {
     /// This separate event preserves the existing LagoonSettlementLimitSet
     /// signature for indexers. Older limit events imply the 24-hour default;
     /// this event records an explicit default or governance override.
-    event LagoonSettlementCooldownSet(
-        address indexed vault,
-        uint256 settlementCooldown,
-        string notes
-    );
+    event LagoonSettlementCooldownSet(address indexed vault, uint256 settlementCooldown, string notes);
 
     /// Record a successful post-execution settlement measurement.
     ///
@@ -261,9 +253,7 @@ library LagoonLib {
 
     /// Record when a successful non-zero automated settlement starts cooldown.
     event LagoonSettlementCooldownStarted(
-        address indexed vault,
-        uint256 settlementTimestamp,
-        uint256 nextSettlementTimestamp
+        address indexed vault, uint256 settlementTimestamp, uint256 nextSettlementTimestamp
     );
 
     /// Resolve this library's namespaced storage in the caller's context.
@@ -336,12 +326,7 @@ library LagoonLib {
         string calldata notes
     ) external {
         _whitelistVaultWithSettlementSafety(
-            vault,
-            asset,
-            pendingSilo,
-            maxSettlementAmount,
-            DEFAULT_LAGOON_SETTLEMENT_COOLDOWN,
-            notes
+            vault, asset, pendingSilo, maxSettlementAmount, DEFAULT_LAGOON_SETTLEMENT_COOLDOWN, notes
         );
     }
 
@@ -365,14 +350,7 @@ library LagoonLib {
         uint256 settlementCooldown,
         string calldata notes
     ) external {
-        _whitelistVaultWithSettlementSafety(
-            vault,
-            asset,
-            pendingSilo,
-            maxSettlementAmount,
-            settlementCooldown,
-            notes
-        );
+        _whitelistVaultWithSettlementSafety(vault, asset, pendingSilo, maxSettlementAmount, settlementCooldown, notes);
     }
 
     /// Validate and store one amount-and-cooldown safety policy.
@@ -401,14 +379,7 @@ library LagoonLib {
         config.settlementCooldown = settlementCooldown;
 
         emit LagoonVaultApproved(vault, notes);
-        emit LagoonSettlementLimitSet(
-            vault,
-            asset,
-            pendingSilo,
-            maxSettlementAmount,
-            true,
-            notes
-        );
+        emit LagoonSettlementLimitSet(vault, asset, pendingSilo, maxSettlementAmount, true, notes);
         emit LagoonSettlementCooldownSet(vault, settlementCooldown, notes);
     }
 
@@ -434,27 +405,17 @@ library LagoonLib {
     /// @return asset Underlying ERC-20 measured by the validator.
     /// @return pendingSilo Lagoon pending-deposit Silo being measured.
     /// @return maxSettlementAmount Gross cap in raw asset units.
-    function getVaultConfig(
-        address vault
-    ) external view returns (
-        bool allowed,
-        bool limitEnabled,
-        address asset,
-        address pendingSilo,
-        uint256 maxSettlementAmount
-    ) {
+    function getVaultConfig(address vault)
+        external
+        view
+        returns (bool allowed, bool limitEnabled, address asset, address pendingSilo, uint256 maxSettlementAmount)
+    {
         LagoonStorage storage config = _storage();
         bool isAllowed = config.vault != address(0) && config.vault == vault;
         if (!isAllowed) {
             return (false, false, address(0), address(0), 0);
         }
-        return (
-            true,
-            config.limitEnabled,
-            config.asset,
-            config.pendingSilo,
-            config.maxSettlementAmount
-        );
+        return (true, config.limitEnabled, config.asset, config.pendingSilo, config.maxSettlementAmount);
     }
 
     /// Return the time-based settlement safety state without changing the
@@ -469,19 +430,13 @@ library LagoonLib {
     /// @return settlementCooldown Minimum seconds between non-zero settlements.
     /// @return lastSettlementTimestamp Latest non-zero automated settlement.
     /// @return nextSettlementTimestamp Earliest next non-zero settlement time.
-    function getSettlementCooldownConfig(
-        address vault
-    ) external view returns (
-        uint256 settlementCooldown,
-        uint256 lastSettlementTimestamp,
-        uint256 nextSettlementTimestamp
-    ) {
+    function getSettlementCooldownConfig(address vault)
+        external
+        view
+        returns (uint256 settlementCooldown, uint256 lastSettlementTimestamp, uint256 nextSettlementTimestamp)
+    {
         LagoonStorage storage config = _storage();
-        if (
-            config.vault == address(0) ||
-            config.vault != vault ||
-            !config.limitEnabled
-        ) {
+        if (config.vault == address(0) || config.vault != vault || !config.limitEnabled) {
             return (0, 0, 0);
         }
 
@@ -509,18 +464,20 @@ library LagoonLib {
     /// @return settlementCooldown Delay between non-zero settlements in seconds.
     /// @return lastSettlementTimestamp Latest non-zero settlement Unix timestamp.
     /// @return nextSettlementTimestamp Earliest next non-zero settlement Unix timestamp.
-    function getSettlementSafetyConfig(
-        address vault
-    ) external view returns (
-        bool allowed,
-        bool limitEnabled,
-        address asset,
-        address pendingSilo,
-        uint256 maxSettlementAmount,
-        uint256 settlementCooldown,
-        uint256 lastSettlementTimestamp,
-        uint256 nextSettlementTimestamp
-    ) {
+    function getSettlementSafetyConfig(address vault)
+        external
+        view
+        returns (
+            bool allowed,
+            bool limitEnabled,
+            address asset,
+            address pendingSilo,
+            uint256 maxSettlementAmount,
+            uint256 settlementCooldown,
+            uint256 lastSettlementTimestamp,
+            uint256 nextSettlementTimestamp
+        )
+    {
         LagoonStorage storage config = _storage();
         allowed = config.vault != address(0) && config.vault == vault;
         if (!allowed) return (false, false, address(0), address(0), 0, 0, 0, 0);
@@ -529,16 +486,9 @@ library LagoonLib {
         asset = config.asset;
         pendingSilo = config.pendingSilo;
         maxSettlementAmount = config.maxSettlementAmount;
-        if (!limitEnabled) return (
-            allowed,
-            limitEnabled,
-            asset,
-            pendingSilo,
-            maxSettlementAmount,
-            0,
-            0,
-            0
-        );
+        if (!limitEnabled) {
+            return (allowed, limitEnabled, asset, pendingSilo, maxSettlementAmount, 0, 0, 0);
+        }
 
         settlementCooldown = _effectiveSettlementCooldown(config);
         lastSettlementTimestamp = config.lastSettlementTimestamp;
@@ -559,9 +509,7 @@ library LagoonLib {
     ///
     /// @param vault Allowlisted Lagoon vault about to receive a settlement call.
     /// @return context Empty for unlimited mode, otherwise encoded Lagoon state.
-    function capturePostCallContext(
-        address vault
-    ) external view returns (bytes memory context) {
+    function capturePostCallContext(address vault) external view returns (bytes memory context) {
         LagoonStorage storage config = _storage();
         if (config.vault == address(0) || config.vault != vault) {
             revert LagoonVaultNotAllowed(vault);
@@ -611,13 +559,8 @@ library LagoonLib {
     ///
     /// @param context Value returned by capturePostCallContext() before execution.
     /// @return grossSettlementAmount Deposit plus redemption assets in raw units.
-    function validatePostCall(
-        bytes calldata context
-    ) external returns (uint256 grossSettlementAmount) {
-        (address vault, SettlementSnapshot memory snapshot) = abi.decode(
-            context,
-            (address, SettlementSnapshot)
-        );
+    function validatePostCall(bytes calldata context) external returns (uint256 grossSettlementAmount) {
+        (address vault, SettlementSnapshot memory snapshot) = abi.decode(context, (address, SettlementSnapshot));
 
         uint256 siloBalanceAfter = IERC20(snapshot.asset).balanceOf(snapshot.pendingSilo);
         uint256 vaultBalanceAfter = IERC20(snapshot.asset).balanceOf(vault);
@@ -641,18 +584,11 @@ library LagoonLib {
         uint256 redeemAssets = vaultBalanceAfter - snapshot.vaultBalanceBefore;
         grossSettlementAmount = depositAssets + redeemAssets;
         if (grossSettlementAmount > snapshot.maxSettlementAmount) {
-            revert LagoonSettlementLimitExceeded(
-                grossSettlementAmount,
-                snapshot.maxSettlementAmount
-            );
+            revert LagoonSettlementLimitExceeded(grossSettlementAmount, snapshot.maxSettlementAmount);
         }
 
         emit LagoonSettlementValidated(
-            vault,
-            depositAssets,
-            redeemAssets,
-            grossSettlementAmount,
-            snapshot.maxSettlementAmount
+            vault, depositAssets, redeemAssets, grossSettlementAmount, snapshot.maxSettlementAmount
         );
 
         // Empty Lagoon settlements are operational no-ops and must not start,
@@ -665,13 +601,10 @@ library LagoonLib {
             // timestamp tolerance in mind.
             if (
                 snapshot.nextSettlementTimestamp != 0 &&
-                // forge-lint: disable-next-line(block-timestamp)
-                block.timestamp < snapshot.nextSettlementTimestamp
+                    // forge-lint: disable-next-line(block-timestamp)
+                    block.timestamp < snapshot.nextSettlementTimestamp
             ) {
-                revert LagoonSettlementCooldownActive(
-                    block.timestamp,
-                    snapshot.nextSettlementTimestamp
-                );
+                revert LagoonSettlementCooldownActive(block.timestamp, snapshot.nextSettlementTimestamp);
             }
 
             // Only a fully validated non-zero asset-manager settlement reaches
@@ -680,11 +613,7 @@ library LagoonLib {
             LagoonStorage storage config = _storage();
             config.lastSettlementTimestamp = block.timestamp;
             uint256 nextSettlementTimestamp = block.timestamp + snapshot.settlementCooldown;
-            emit LagoonSettlementCooldownStarted(
-                vault,
-                block.timestamp,
-                nextSettlementTimestamp
-            );
+            emit LagoonSettlementCooldownStarted(vault, block.timestamp, nextSettlementTimestamp);
         }
     }
 
@@ -696,9 +625,7 @@ library LagoonLib {
     ///
     /// @param config Lagoon singleton storage.
     /// @return Cooldown duration in seconds.
-    function _effectiveSettlementCooldown(
-        LagoonStorage storage config
-    ) private view returns (uint256) {
+    function _effectiveSettlementCooldown(LagoonStorage storage config) private view returns (uint256) {
         uint256 configuredCooldown = config.settlementCooldown;
         if (configuredCooldown == 0) {
             return DEFAULT_LAGOON_SETTLEMENT_COOLDOWN;
@@ -723,11 +650,7 @@ library LagoonLib {
     /// @param vault Lagoon vault being configured.
     /// @param asset Expected underlying ERC-20 contract.
     /// @param pendingSilo Expected pending-deposit Silo contract.
-    function _validateConfiguration(
-        address vault,
-        address asset,
-        address pendingSilo
-    ) private view {
+    function _validateConfiguration(address vault, address asset, address pendingSilo) private view {
         _validateVaultAssignment(vault);
         if (asset == address(0)) revert LagoonInvalidAddress(asset);
         if (pendingSilo == address(0)) revert LagoonInvalidAddress(pendingSilo);

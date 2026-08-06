@@ -1,11 +1,13 @@
 name: Panoptic
 slug: panoptic
 short_description: |
-  Permissionless protocol for perpetual options and options-strategy vaults.
+  Decentralised trading platform, built on top of Uniswap, that lets people trade options on crypto assets that never expire.
 long_description: |
-  Panoptic enables the minting, trading and market making of perpetual put and call options using onchain liquidity. Its vault products let managers run options strategies for depositors.
+  Panoptic is a decentralised options trading protocol founded in 2022 by Guillaume Lambert, an applied-physics professor at Cornell University, together with Jesper Kristensen. It grew out of academic research: Lambert's paper describing a perpetual, oracle-free options protocol was published in 2022, and the idea was supported by one of the first grants awarded by the Uniswap Foundation, which allowed him to take a sabbatical from Cornell to build it.
 
-  Options and managed strategy vaults involve material market, liquidity and smart-contract risks. Depositors should understand the strategy and its fee terms before participating.
+  The project attracted early backing from well-known names in crypto and traditional finance, raising around 11.5 million U.S. dollars across two seed rounds — one in 2022 led by gumi Cryptos Capital and one in 2023 led by Greenfield Capital — with participants including Uniswap Labs Ventures, Coinbase Ventures and Jane Street.
+
+  Panoptic is best known for pioneering perpetual options — options that never expire — built directly on Uniswap's liquidity. After an extensively audited testing phase, it went live on Ethereum in December 2024 and has since expanded to other networks such as Base and Unichain.
 fee_description: |
   Vault managers can set fees for their strategies. Trading and liquidity provision can also involve protocol, transaction and market costs that vary by position and network.
 links:
@@ -15,8 +17,8 @@ links:
   github: https://github.com/panoptic-labs
   documentation: https://panoptic.xyz/docs/intro
   fact_sheet:
-  defillama: https://defillama.com/protocol/panoptic
+  defillama: https://defillama.com/protocol/panoptic-protocol
   audits: https://panoptic.xyz/docs/security/security-audits
-  fees:
+  fees: https://panoptic.xyz/docs/product/streamia
   trading_strategy: https://tradingstrategy.ai/trading-view/vaults/protocols/panoptic
   integration_documentation:

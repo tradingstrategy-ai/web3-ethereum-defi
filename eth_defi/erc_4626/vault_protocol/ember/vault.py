@@ -19,6 +19,7 @@ and distributing traditional and onchain financial products through crypto capit
 
 import datetime
 import logging
+from decimal import Decimal
 from functools import cached_property
 from typing import TYPE_CHECKING
 
@@ -101,6 +102,18 @@ class EmberVault(ERC4626Vault):
             return self.ember_metadata.get("management_fee")
         return None
 
+    def is_whitelisted_deposit(self) -> bool:  # noqa: PLR6301
+        """Report the Ember adapter family's default permission policy.
+
+        Supported Ember deployments are treated as permissionless by default.
+        Global pause, capacity and minimum checks are independent lifecycle
+        conditions handled by the deposit manager.
+
+        :return:
+            Always ``False``.
+        """
+        return False
+
     def get_performance_fee(self, block_identifier: BlockIdentifier) -> float | None:
         """Weekly performance fee from Ember's offchain API.
 
@@ -129,6 +142,25 @@ class EmberVault(ERC4626Vault):
             if days is not None:
                 return datetime.timedelta(days=days)
         return datetime.timedelta(days=4)
+
+    def fetch_minimum_redemption(self, block_identifier: BlockIdentifier = "latest") -> Decimal | None:
+        """Fetch Ember's minimum queued redemption in decimal share units.
+
+        Ember's ``minWithdrawableShares()`` is checked by its
+        ``redeemShares`` request path, so it is a redemption minimum rather
+        than a withdrawal-capacity value.
+
+        :param block_identifier:
+            Block at which to read the configured minimum.
+        :return:
+            Decimal share minimum.
+        """
+        minimum_raw = int(
+            self.vault_contract.functions.minWithdrawableShares().call(
+                block_identifier=block_identifier,
+            )
+        )
+        return self.share_token.convert_to_decimals(minimum_raw)
 
     def get_deposit_manager(self) -> "EmberDepositManager":
         """Create Ember's synchronous-deposit, asynchronous-redemption manager.
@@ -161,6 +193,9 @@ class EmberVault(ERC4626Vault):
             can_redeem=True,
             deposit_flow="synchronous",
             redemption_flow="asynchronous",
+            # Ember redemption is terminal only after force_settle validates a
+            # request-specific operator event and positive direct payout.
+            supports_anvil_settlement=True,
         )
 
     def get_notes(self) -> str | None:

@@ -19,6 +19,7 @@ from eth_defi.erc_4626.core import ERC4262VaultDetection, ERC4626Feature, get_va
 from eth_defi.erc_4626.discovery_base import PotentialVaultMatch
 from eth_defi.vault.base import VaultSpec
 from eth_defi.vault.flag import VaultFlag
+from eth_defi.vault.price_source import PriceSource
 from eth_defi.vault.risk import VaultTechnicalRisk
 
 logger = logging.getLogger(__name__)
@@ -128,12 +129,29 @@ class VaultRow(TypedDict):
     _deposit_manager: dict | None
 
     #: Vault-wide deposit policy as ``whitelisted``, ``permissionless``, or
-    #: ``unknown``.
+    #: ``unknown``. Native perp DEX compatibility mappings are qualified by
+    #: ``_whitelist_notes``.
     #:
-    #: Stored independently from ``_deposit_manager`` in scanner metadata.
-    #: The lifetime report nests this value in a non-null deposit-manager
-    #: capability object; missing values in legacy pickles mean ``unknown``.
+    #: Stored independently from ``_deposit_manager`` in scanner metadata and
+    #: exported at top level. Missing values in legacy pickles mean ``unknown``.
     _deposit_permission: NotRequired[str]
+
+    #: Optional caveat for the exported vault-wide whitelist classification.
+    _whitelist_notes: NotRequired[str | None]
+
+    #: Source-proven minimum deposit in decimal denomination-token units.
+    #:
+    #: ``0`` means the scanner verified that this vault has no minimum.
+    #: ``None`` means the adapter could not establish the value. Missing in a
+    #: legacy pickle also means ``None``.
+    _minimum_deposit: NotRequired[Decimal | None]
+
+    #: Source-proven minimum redemption in decimal vault-share units.
+    #:
+    #: ``0`` means the scanner verified that this vault has no minimum.
+    #: ``None`` means the adapter could not establish the value. Missing in a
+    #: legacy pickle also means ``None``.
+    _minimum_redemption: NotRequired[Decimal | None]
 
     #: Protocol-supplied vault manager or curator display name.
     #:
@@ -158,6 +176,14 @@ class VaultRow(TypedDict):
     #: ``_detection_data`` because that ID is the Lighter price-partition and
     #: :class:`~eth_defi.vault.base.VaultSpec` identity.
     _deployment_chain_id: NotRequired[int | None]
+
+    #: Source used to produce the vault share-price series.
+    #:
+    #: Missing in legacy pickles and adapters without a known price source.
+    _share_price_source: NotRequired[PriceSource | None]
+
+    #: Whether the current UTC daily-flow observation is provisional.
+    _daily_flow_current_day_is_provisional: NotRequired[bool]
 
     __annotations__ = {
         "First seen at": datetime.datetime,

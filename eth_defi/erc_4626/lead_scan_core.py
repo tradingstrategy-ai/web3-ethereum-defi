@@ -157,6 +157,8 @@ def scan_leads(
         existing_db = VaultDatabase.read(vault_db_file)
         assert type(existing_db) == VaultDatabase, f"Got: {type(existing_db)}: {existing_db}"
 
+    last_scanned_block = existing_db.last_scanned_block.get(chain_id)
+
     if start_block is None:
         start_block = existing_db.get_chain_start_block(web3.eth.chain_id)
 
@@ -178,6 +180,9 @@ def scan_leads(
             end_block = get_hypersync_block_height(hypersync_config.hypersync_client)
 
     else:
+        if start_block <= 1:
+            message = "Initial vault lead discovery requires HyperSync; refusing genesis-to-head JSON-RPC event scanning"
+            raise RuntimeError(message)
         # Create a scanner that uses web3 and subprocesses
         vault_discover = JSONRPCVaultDiscover(
             web3,
@@ -188,7 +193,8 @@ def scan_leads(
         if not end_block:
             end_block = web3.eth.block_number
 
-    vault_discover.seed_existing_leads(existing_db.get_existing_leads_by_chain(chain_id))
+    existing_leads = existing_db.get_existing_leads_by_chain(chain_id)
+    vault_discover.seed_existing_leads(existing_leads)
 
     printer(f"Chain: {name}: scan range {start_block:,} - {end_block:,}")
 
@@ -196,6 +202,10 @@ def scan_leads(
     # so we get information which address contains which kind of a vault
     report = vault_discover.scan_vaults(start_block, end_block)
     end_block = report.end_block
+    minimum_end_block = max(start_block, last_scanned_block or 0)
+    if end_block <= minimum_end_block:
+        message = f"Vault lead discovery did not advance past its scan range for chain {chain_id}: minimum={minimum_end_block}, received={end_block}"
+        raise RuntimeError(message)
     vault_detections = list(report.detections.values())
 
     # Prepare data export by reading further per-vault data using multiprocessing
@@ -208,17 +218,14 @@ def scan_leads(
 
     printer(f"Total {len(rows)} vaults detected")
 
-    chain = web3.eth.chain_id
-
-    if len(rows) == 0:
-        printer(f"No vaults found on chain {chain}, not generating any database updates")
-        return report
-
-    df = pd.DataFrame(rows)
-    # Parquet cannot export the raw Python objects,
-    # so we remove columns that are marked Python-internal only
-    df = df.drop(columns=[col for col in df.columns if col.startswith("_")])
-    df = df.sort_values("First seen")
+    if rows:
+        df = pd.DataFrame(rows)
+        # Parquet cannot export the raw Python objects,
+        # so we remove columns that are marked Python-internal only
+        df = df.drop(columns=[col for col in df.columns if col.startswith("_")])
+        df = df.sort_values("First seen")
+    else:
+        df = pd.DataFrame()
 
     #
     # Save raw data rows
@@ -246,7 +253,8 @@ def scan_leads(
     data_dict = {r["_detection_data"].get_spec(): r for r in rows}
     report.rows = data_dict
 
-    display_vaults_table(df, max_entries=max_display_entries)
+    if rows:
+        display_vaults_table(df, max_entries=max_display_entries)
 
     printer(f"Saving vault pickled database to {vault_db_file}")
     # Merge new results
@@ -259,6 +267,6 @@ def scan_leads(
     existing_db.write(vault_db_file)
     printer(f"Chain: {name}: {len(report.leads)} leads, {len(report.detections)} detections, {len(report.rows)} metadata rows")
     printer(f"Vault database has {existing_db.get_lead_count()} entries")
-    printer(f"Total: {len(df)} vaults detected, last block is now {report.end_block:,}")
+    printer(f"Total: {len(rows)} vaults detected, last block is now {report.end_block:,}")
 
     return report

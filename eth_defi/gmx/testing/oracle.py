@@ -8,7 +8,9 @@ from eth_utils import to_checksum_address
 from web3 import Web3
 
 from eth_defi.chain import get_chain_name
+from eth_defi.gmx.contracts import get_datastore_contract
 from eth_defi.gmx.core import OraclePrices
+from eth_defi.gmx.keys import oracle_timestamp_adjustment_key
 from eth_defi.gmx.testing.constants import ARBITRUM_DEFAULTS, resolve_contract_address, resolve_token_address
 from eth_defi.gmx.testing.fork_provider import deal_eth, detect_provider_type, set_code
 from eth_defi.trace import assert_transaction_success_with_explanation
@@ -203,8 +205,8 @@ def setup_mock_oracle(
         should_adjust = mock.functions.shouldAdjustTimestamp().call()
         logger.info("  shouldAdjustTimestamp() = %s", should_adjust)
 
-        assert not is_chainlink, f"Expected isChainlinkOnChainProvider() to return False, got {is_chainlink}"
-        assert not should_adjust, f"Expected shouldAdjustTimestamp() to return False, got {should_adjust}"
+        assert is_chainlink, "Mock must bypass GMX's live reference-feed deviation check"
+        assert should_adjust, "Mock must apply GMX's provider-specific timestamp adjustment"
 
         logger.info("Mock functions working correctly - bytecode replacement successful!")
     except AssertionError:
@@ -240,6 +242,18 @@ def setup_mock_oracle(
     usdc_tx = mock.functions.setPrice(usdc_address, usdc_price, usdc_price).build_transaction({"from": account, "gas": 500_000, "gasPrice": web3.eth.gas_price})
     usdc_tx_hash = web3.eth.send_transaction(usdc_tx)
     assert_transaction_success_with_explanation(web3, usdc_tx_hash, "Set USDC price on mock oracle")
+
+    data_store = get_datastore_contract(web3, chain)
+    for token_address in (weth_address, usdc_address):
+        timestamp_adjustment = data_store.functions.getUint(oracle_timestamp_adjustment_key(production_provider_address, token_address)).call()
+        adjustment_tx = mock.functions.setTimestampAdjustment(token_address, timestamp_adjustment).build_transaction({"from": account, "gas": 500_000, "gasPrice": web3.eth.gas_price})
+        adjustment_tx_hash = web3.eth.send_transaction(adjustment_tx)
+        assert_transaction_success_with_explanation(web3, adjustment_tx_hash, "Set mock oracle timestamp adjustment")
+
+    validated_weth_price = mock.functions.getOraclePrice(weth_address, b"").call()
+    assert validated_weth_price[0] == weth_address
+    assert validated_weth_price[1] == weth_price
+    assert validated_weth_price[2] == weth_price
 
     logger.info("Mock oracle configured: ETH=$%d, USDC=$%d", eth_price_usd, usdc_price_usd)
     return production_provider_address

@@ -21,6 +21,7 @@ from eth_defi.provider.broken_provider import set_block_tip_latency
 from eth_defi.provider.fallback import ChainIdMismatch, FallbackProvider
 from eth_defi.provider.mev_blocker import MEVBlockerProvider
 from eth_defi.provider.named import NamedProvider, get_provider_name
+from eth_defi.provider.rpc_failure import classify_rpc_failure
 from eth_defi.provider.rpcdb import RPCRequestStats, normalise_rpc_error
 from eth_defi.utils import get_url_domain
 
@@ -407,7 +408,18 @@ def create_multi_provider_web3(
                     error_code, error_message = normalise_rpc_error(e)
                     rpc_request_stats.record_error(transact_domain, error_code, error_message)
                 transact_name = get_provider_name(transact_provider)
-                raise ChainIdMismatch(f"Could not call eth_chainId on {transact_name} provider. Is it a valid JSON-RPC provider? As this is often the first call, you might be also out of API credits. Hint is {e}") from e
+                # Name the failure mode so CI output shows *why* the first call
+                # failed (out of credits / rate limited / timeout) instead of a
+                # generic eth_chainId error. See eth_defi.provider.rpc_failure.
+                failure_mode = classify_rpc_failure(e)
+                # Log only the redacted domain + failure mode. The raw exception
+                # can embed the full RPC URL (API key in path/query). JSON-RPC API
+                # keys are not security critical (they only meter read access to
+                # public chain data), so this is not a serious leak, but it is
+                # still avoided here; the raised ChainIdMismatch keeps the
+                # pre-existing hint for local debugging.
+                logger.warning("eth_chainId probe failed for transact provider %s: failure_mode=%s", transact_domain, failure_mode.value)
+                raise ChainIdMismatch(f"Could not call eth_chainId on {transact_name} provider (failure_mode={failure_mode.value}). Is it a valid JSON-RPC provider? A healthy first call answers within seconds, so a timeout here means a slow or rate-limited upstream (see failure_mode), not necessarily out of API credits.") from e
 
         provider = MEVBlockerProvider(
             call_provider=fallback_provider,

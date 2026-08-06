@@ -22,11 +22,14 @@ from decimal import Decimal
 from functools import cached_property
 from typing import Iterable
 
-from eth_typing import BlockIdentifier
+from eth_typing import BlockIdentifier, HexAddress
 from web3 import Web3
+from web3.exceptions import BadFunctionCallOutput
 
+from eth_defi.abi import ZERO_ADDRESS_STR
 from eth_defi.chain import get_chain_name
 from eth_defi.erc_4626.vault import ERC4626HistoricalReader, ERC4626Vault
+from eth_defi.erc_4626.vault_protocol.morpho.deposit_redeem import MorphoV2DepositManager
 from eth_defi.erc_4626.vault_protocol.morpho.flag_analytics import analyze_morpho_flags
 from eth_defi.erc_4626.vault_protocol.morpho.offchain_metadata import (
     MorphoVaultAPIResult,
@@ -54,6 +57,34 @@ FEE_DENOMINATOR = 10**18
 #: Keccak signatures for fee multicalls
 PERFORMANCE_FEE_SIGNATURE = Web3.keccak(text="performanceFee()")[0:4]
 MANAGEMENT_FEE_SIGNATURE = Web3.keccak(text="managementFee()")[0:4]
+RECEIVE_SHARES_GATE_SIGNATURE = Web3.keccak(text="receiveSharesGate()")[0:4]
+SEND_ASSETS_GATE_SIGNATURE = Web3.keccak(text="sendAssetsGate()")[0:4]
+
+#: ABI return-word width for address getters
+ABI_ADDRESS_WORD_SIZE = 32
+
+
+class MorphoGateAddressMissing(BadFunctionCallOutput):
+    """A Morpho V2 gate getter did not return an ABI-encoded address.
+
+    The gate slots are optional, but a supported Morpho V2 vault must return
+    one 32-byte ABI word even when the configured gate is the zero address.
+    An empty or malformed response therefore means that the cached adapter
+    classification cannot be safely used for a permission read.
+    """
+
+    def __init__(
+        self,
+        vault_address: HexAddress,
+        function_name: str,
+        block_identifier: BlockIdentifier,
+        response: bytes,
+    ) -> None:
+        self.vault_address = vault_address
+        self.function_name = function_name
+        self.block_identifier = block_identifier
+        self.response = response
+        super().__init__(f"Morpho V2 gate getter {function_name}() returned {len(response)} bytes for vault {vault_address} at block {block_identifier}; expected one 32-byte ABI-encoded address, response=0x{response.hex()}")
 
 
 class MorphoV2VaultHistoricalReader(ERC4626HistoricalReader):
@@ -205,6 +236,104 @@ class MorphoV2Vault(ERC4626Vault):
     See also :py:class:`eth_defi.erc_4626.vault_protocol.morpho.vault_v1.MorphoV1Vault`
     for the original MetaMorpho architecture.
     """
+
+    def is_whitelisted_deposit(self) -> bool:
+        """Determine whether Morpho V2 has depositor gates configured.
+
+        Canonical Morpho V2 vaults are permissionless when both optional gate
+        addresses are zero. Configured gates implement Morpho's
+        ``IReceiveSharesGate`` and ``ISendAssetsGate`` predicates and cannot
+        safely be called KYC without recognising their implementation.
+
+        :return:
+            ``False`` when both canonical gate slots are disabled.
+        :raise NotImplementedError:
+            If a deployed gate requires implementation-specific analysis.
+        """
+        receive_shares_gate, send_assets_gate = self.fetch_deposit_gates()
+        if receive_shares_gate.lower() == ZERO_ADDRESS_STR and send_assets_gate.lower() == ZERO_ADDRESS_STR:
+            return False
+        raise NotImplementedError(f"Morpho V2 vault {self.address} has custom gates: receiveSharesGate={receive_shares_gate}, sendAssetsGate={send_assets_gate}")
+
+    def fetch_deposit_gates(self, block_identifier: BlockIdentifier | None = None) -> tuple[HexAddress, HexAddress]:
+        """Read Morpho V2's canonical receiver and sender gate slots.
+
+        Deposits can be restricted independently by the account receiving
+        shares and the account sending assets. The zero address disables each
+        corresponding gate.
+
+        See `Morpho Vault V2 gate documentation <https://github.com/morpho-org/vault-v2#Gates>`__
+        and `gate interfaces <https://github.com/morpho-org/vault-v2/blob/main/src/interfaces/IGate.sol>`__.
+
+        :param block_identifier:
+            Block at which both gate slots are inspected.
+        :return:
+            ``(receiveSharesGate, sendAssetsGate)`` addresses.
+        """
+        if block_identifier is None:
+            block_identifier = self._get_block_identifier()
+        receive_shares_gate = self._fetch_gate_address(
+            RECEIVE_SHARES_GATE_SIGNATURE,
+            "receiveSharesGate",
+            block_identifier,
+        )
+        send_assets_gate = self._fetch_gate_address(
+            SEND_ASSETS_GATE_SIGNATURE,
+            "sendAssetsGate",
+            block_identifier,
+        )
+        return receive_shares_gate, send_assets_gate
+
+    def _fetch_gate_address(
+        self,
+        signature: bytes,
+        function_name: str,
+        block_identifier: BlockIdentifier,
+    ) -> HexAddress:
+        """Read one Morpho V2 gate address without widening the ERC-4626 ABI.
+
+        :param signature:
+            Four-byte getter selector.
+        :param function_name:
+            Human-readable getter name used in diagnostics.
+        :param block_identifier:
+            Block at which the gate is read.
+        :return:
+            Checksummed gate address.
+        :raise MorphoGateAddressMissing:
+            If the getter returns anything other than the 32-byte ABI word
+            required for an address. The exception includes the vault, getter,
+            block, and raw response for diagnosing stale classifications or
+            inconsistent RPC responses.
+        """
+        call = EncodedCall.from_keccak_signature(
+            address=self.address,
+            signature=signature,
+            function=function_name,
+            data=b"",
+            extra_data=None,
+        )
+        data = call.call(self.web3, block_identifier)
+        if len(data) != ABI_ADDRESS_WORD_SIZE:
+            raise MorphoGateAddressMissing(
+                self.address,
+                function_name,
+                block_identifier,
+                data,
+            )
+        return Web3.to_checksum_address(data[12:32])
+
+    def get_deposit_manager(self) -> MorphoV2DepositManager:
+        """Create a manager that simulates exact Morpho V2 redemptions.
+
+        Morpho V2 returns zero from its ERC-4626 maximum functions, so the
+        manager performs an exact ``eth_call`` before returning a redemption
+        request.
+
+        :return:
+            Morpho V2-specific synchronous deposit and redemption manager.
+        """
+        return MorphoV2DepositManager(self)
 
     @cached_property
     def morpho_api_result(self) -> MorphoVaultAPIResult:

@@ -185,6 +185,50 @@ share-price rows in the requested block range.
 | `CLEANED_PRICE_DATABASE` | Optional. Cleaned price parquet path. Default: production path. |
 | `READER_STATE_DATABASE` | Optional. Reader-state pickle path. Default: production path. |
 
+### backfill-tokenised-fund-prices.py
+
+Run a price-only repair through the same recurring address-scoped scan path as
+`scan-vaults-all-chains.py`. Unlike `backfill-tokenised-funds.py`, this command
+does not discover leads, modify metadata or update reader state. It operates
+only on products already registered in `VAULT_DB_PATH` and rewrites only the
+selected products' raw-price rows from their continuation blocks onward.
+If existing rows inside that window were sampled at a higher frequency, the
+repair deliberately replaces them with the dedicated daily samples.
+
+The command defaults to `DRY_RUN=true` and prints the exact target and start
+block for each selected product. Use `TOKENISED_FUND_PRODUCTS` to scope an
+execution to exact token addresses; this is the recommended production repair
+workflow. The dedicated reader writes every approximate daily sample even when
+the NAV has not changed, so dashboard freshness advances for stable funds.
+
+```shell
+source .local-test.env && \
+  DRY_RUN=true \
+  TOKENISED_FUND_PROTOCOLS=securitize \
+  TOKENISED_FUND_PRODUCTS=0x1f41e42d0a9e3c0dd3ba15b527342783b43200a9 \
+  poetry run python scripts/erc-4626/backfill-tokenised-fund-prices.py
+```
+
+After reviewing the plan, execute the same targeted repair:
+
+```shell
+source .local-test.env && \
+  DRY_RUN=false \
+  TOKENISED_FUND_PROTOCOLS=securitize \
+  TOKENISED_FUND_PRODUCTS=0x1f41e42d0a9e3c0dd3ba15b527342783b43200a9 \
+  poetry run python scripts/erc-4626/backfill-tokenised-fund-prices.py
+```
+
+| Variable | Description |
+|----------|-------------|
+| `DRY_RUN` | Optional. Print the exact recurring-path plan without writing. Default: true. |
+| `TOKENISED_FUND_PROTOCOLS` | Optional. Comma-separated recurring feed selectors; unset selects every price-capable feed. |
+| `TOKENISED_FUND_PRODUCTS` | Optional. Comma-separated token addresses, normalised to lowercase. Restricts both the plan and write window to these exact products. |
+| `TOKENISED_FUND_MAX_WORKERS` | Optional. Historical reader worker count. Default: 8. |
+| `HYPERSYNC_CONCURRENCY` | Optional. Shared Hypersync stream concurrency. Default: 1. |
+| `VAULT_DB_PATH` | Optional. Existing vault metadata database path. Default: production path. |
+| `UNCLEANED_PRICE_DATABASE` | Optional. Shared raw price Parquet path. Default: production path. |
+
 ### scan-vaults-all-chains.py
 
 Scan ERC-4626 vaults across all supported chains with a live console dashboard.
@@ -195,7 +239,11 @@ poetry run python scripts/erc-4626/scan-vaults-all-chains.py
 
 | Variable | Description |
 |----------|-------------|
-| `SCAN_PRICES` | Optional. Also scan prices after vault discovery. Default: false. |
+| `SCAN_PRICES` | Optional. Scan prices after vault discovery, including dedicated tokenised-fund feeds. Default: false in the command; production Compose defaults to true. |
+| `SKIP_TOKENISED_FUNDS` | Optional. When `SCAN_PRICES=true`, disable dedicated tokenised-fund price feeds and return their registered products to the generic chain price scan. Default: false. |
+| `TOKENISED_FUND_PROTOCOLS` | Optional. Comma-separated focused feed selection, e.g. `securitize,asseto`. Unselected feeds remain visible as disabled; their products stay in the generic chain scan. |
+| `TOKENISED_FUND_MAX_WORKERS` | Optional. Historical reader workers for tokenised-fund feeds. Default: 8. |
+| `WISDOMTREE_DATASPAN_API_KEY` | Optional. Enables the WisdomTree DataSpan NAV feed; without it WisdomTree remains visibly disabled. |
 | `RETRY_COUNT` | Optional. Number of retries on failure. |
 | `TEST_CHAINS` | Optional. Comma-separated chain names to scan (for testing). Use `none` to skip all EVM chains. |
 | `DISABLE_CHAINS` | Optional. Comma-separated chain names to exclude. |
@@ -207,11 +255,14 @@ poetry run python scripts/erc-4626/scan-vaults-all-chains.py
 | `SCAN_CYCLES` | Optional. Per-item cycle intervals, e.g. `Ethereum=8h,Base=8h,Arbitrum=8h,Lighter Ethereum=4h,Lighter Robinhood=4h,GRVT=4h,Hypercore=4h,Hibachi=4h,ApeX=4h,Core3=24h`. Legacy `Lighter=4h` applies to both Lighter deployments. |
 | `DEFAULT_CYCLE` | Optional. Default cycle for items not in `SCAN_CYCLES`. Default: `24h`. |
 | `MAX_CYCLES` | Optional. Exit after N cycles (for testing). Default: 0 (unlimited). |
+| `LEAD_DISCOVERY_STATE_TIMEOUT` | Optional. Lead-discovery cache lifetime. A matching per-chain JSON state skips the incremental lead scan and metadata refresh until it expires. An expiry resumes from the saved cursor and refreshes all vault metadata. Default: `7d`. |
+| `FORCE_LEAD_DISCOVERY` | Optional. Bypass a valid lead-discovery cache for this invocation. In looped mode, it makes all configured EVM chains due in the next tick, then resets. It resumes from saved cursors while refreshing all vault classifications and metadata; replacement state is written only after persistence succeeds. Default: false. |
 | `SCAN_HYPERCORE` | Optional. Enable Hyperliquid native vault scanning. Default: false. |
 | `SCAN_GRVT` | Optional. Enable GRVT native vault scanning. Default: false. |
 | `SCAN_LIGHTER` | Optional. Enable native pool scanning for both Lighter Ethereum and Lighter Robinhood. Default: false. |
 | `SCAN_HIBACHI` | Optional. Enable Hibachi native vault scanning. Default: false. |
 | `SCAN_APEX` | Optional. Enable ApeX native vault scanning and due history maintenance. Default: false. |
+
 | `SCAN_VAULT_SETTLEMENTS` | Optional. Scan Lagoon and D2 settlement events during each successful EVM chain cycle. Default: true. The scan fills `vault-settlements.duckdb` before price cleaning; `vault_settlement_at` is then merged into the cleaned price frame during cleaning. Set to `false` only for debugging runs where new settlement event reads are deliberately skipped. Settlement scan failures are logged and shown in the dashboard without aborting the rest of the scanner cycle. |
 | `VAULT_SETTLEMENT_START_BLOCK` | Optional. Inclusive settlement scan start block for forced backfills. Normally unset so scans continue incrementally from `vault-settlements.duckdb`. |
 | `VAULT_SETTLEMENT_END_BLOCK` | Optional. Inclusive settlement scan end block for forced backfills. Normally unset so scans continue up to the just-completed chain scan end block. |
@@ -221,10 +272,68 @@ poetry run python scripts/erc-4626/scan-vaults-all-chains.py
 | `CURRENCY_API_DB_PATH` / `CURRENCY_API_DATABASE_PATH` | Optional. Exchange-rate DuckDB bundle path. Default: `$PIPELINE_DATA_DIR/exchange-rates.duckdb`. |
 | `CORE3_MAX_WORKERS` | Optional. Core3 API worker threads. Default: 8. |
 | `CORE3_FETCH_SECTIONS` | Optional. Fetch detailed Core3 section endpoints. Default: true. Set to `false` to skip. |
+| `SKIP_XERBERUS` | Optional. Skip Xerberus risk enrichment. Default: false. |
+| `XERBERUS_API_KEY` | Optional for pipeline. Xerberus API key. If missing, Xerberus is disabled with a warning. |
+| `XERBERUS_API_EMAIL` | Optional for pipeline, **required with the key** for live API calls. Email registered with the key when it was issued (sent as `x-user-email`). **Agents must not guess this value** — only use operator-supplied env/secrets. |
+| `XERBERUS_DATABASE_PATH` | Optional. Xerberus DuckDB path. Default: `~/.tradingstrategy/vaults/xerberus/xerberus.duckdb`. |
+| `XERBERUS_FETCH_VAULT_LIST` | Optional. Poll platform vault lists. Default: true. |
+| `XERBERUS_FETCH_REPORTS` | Optional. Backfill dendrogram report URLs. Default: true. |
+
+### Xerberus risk enrichment
+
+Xerberus composite vault/protocol scores are stored in
+`~/.tradingstrategy/vaults/xerberus/xerberus.duckdb`. Manual scan and backfill
+scripts live under `scripts/xerberus/`. See
+[`README-xerberus.md`](../../eth_defi/xerberus/README-xerberus.md) for dual-auth
+details (`XERBERUS_API_KEY` + `XERBERUS_API_EMAIL`).
 | `SKIP_SAMPLES` | Optional. Skip Ethereum-only sample file export. Default: false. |
 | `HYPERSYNC_RPM` | Optional. Hypersync API requests-per-minute limit. Default: 80. Lower after persistent 429 errors. |
 | `HYPERSYNC_CONCURRENCY` | Optional. Hypersync stream concurrency. Default: 1 (sequential) in the all-chains scanner to avoid API pressure when scanning many chains. Set higher for faster throughput. See [Envio StreamConfig tuning](https://docs.envio.dev/docs/HyperSync/stream-config-tuning). |
-| `RPC_TRACKING_DATABASE_PATH` | Optional. Shared JSON-RPC accounting DuckDB used by all EVM vault scanners. Default: `~/.tradingstrategy/rpc-tracking.duckdb`. |
+| `RPC_TRACKING_DATABASE_PATH` | Optional. Shared JSON-RPC accounting DuckDB used by the generic EVM lead and price scanners. Default: `~/.tradingstrategy/rpc-tracking.duckdb`. |
+
+The recurring tokenised-fund rows are `Asseto`, `Franklin`, `Libeara`, `Midas`,
+`Ondo`, `OpenEden`, `Securitize`, `Spiko`, `Superstate`, `Sygnum`, `USYC` and
+`WisdomTree`. They default to a 24-hour cycle and have their own dashboard and
+cycle-state entries. Each product is continued from its latest valid raw price
+in a separate stateless, address-scoped daily scan; newer missing-price rows
+(stored as either null or `NaN`) do not conceal a price gap. These products
+receive daily rather than hourly samples even though they share the historical
+`vault-prices-1h.parquet`
+file with generic vault price rows. If a product has no raw price row, its
+first recurring cycle starts from the reviewed token deployment block. Keeping
+one rewrite window per product prevents a new backfill from deleting a
+neighbouring product's newer history. This favours broad history coverage over
+an exact initial oracle boundary. Price rows begin only where the product
+adapter's oracle or issuer source is available; pre-source sample points may be
+empty. Disabled, unselected and product-filtered vaults remain under the generic
+chain scanner. The dashboard's
+`Last data` value is the newest valid daily sample timestamp, not the
+original publication time of an oracle or issuer observation. Securitize is
+therefore the recurring owner of BCAP and fills its missing sampled history as
+far back as its reviewed source permits.
+
+### Asseto registry refresh
+
+The daily `Asseto` tokenised-fund row refreshes Asseto's public product registry
+before it creates any Asseto adapter. The validated registry cache survives a
+scanner restart at `~/.tradingstrategy/cache/asseto/registry-cache.json`; a
+temporary upstream failure may rebuild known adapters from that cache but cannot
+write stale metadata or introduce a new product. See
+[`README-Asseto.md`](../../eth_defi/tokenised_fund/asseto/README-Asseto.md) for
+source precedence, daily history, stale-cache and repair behaviour.
+
+Dedicated tokenised-fund feeds retain one daily sample per selected block even
+when the NAV is unchanged. This is intentional: a stable share price is still
+a fresh observation and must advance the dashboard's `Last data` timestamp.
+
+#### check-asseto-registry.py
+
+Inspect the live Asseto registry and report products that the scheduled scanner
+can or cannot use. The command is read-only.
+
+```shell
+poetry run python scripts/erc-4626/check-asseto-registry.py
+```
 
 Both Lighter deployments use synthetic native-pool chain ID `9998`; their
 address prefixes distinguish price series. Lifetime-metrics export the
@@ -233,6 +342,23 @@ and `deployment` slug. The Lighter DuckDB schema migration runs automatically
 when an existing database is opened. See the
 [Lighter native-pool pipeline](../lighter/README-lighter-vaults.md) for the
 storage and partial-scan replacement rules.
+
+#### Lead discovery cache
+
+Each EVM chain stores its successful lead and metadata refresh status in
+`$PIPELINE_DATA_DIR/lead-discovery-state-{chain_id}.json`. While its signature
+(lead detection code plus enabled EVM chains) and timestamp are valid, the
+scanner skips lead discovery and reuses `vault-metadata-db.pickle`; price scans
+continue normally. It still verifies the chain ID before selecting the cached
+metadata. A missing, malformed, expired or changed state triggers a
+an incremental event read from the saved cursor, followed by a refresh of every
+persisted vault classification and metadata row. The cache can therefore delay
+a new lead by up to the configured timeout, but it never resets price Parquet
+or reader-state data.
+
+The initial discovery for a chain requires HyperSync. The scanner refuses a
+genesis-to-head JSON-RPC event read rather than putting uncontrolled load on an
+RPC provider.
 
 #### JSON-RPC usage accounting
 
@@ -246,7 +372,7 @@ after 60 seconds; stop the daemon or retry when its tick has finished.
 
 Calls are separated into `lead_discovery` and `price_scan` phases. For lead
 discovery, `items_scanned` is the number of unique candidate addresses sent to
-on-chain feature probing. For price scans it is the number of filtered,
+onchain feature probing. For price scans it is the number of filtered,
 supported vault readers sent to the historical scan. A retry appends its calls
 to the same cycle; daily aggregation sums calls but takes the maximum item count
 for the cycle so the retried population is not multiplied.
@@ -905,7 +1031,7 @@ PARQUET_URL=https://vault-protocol-metadata.tradingstrategy.ai/cleaned-vault-pri
 
 ### check-vault-onchain.py
 
-Check a vault's current on-chain data: name, TVL, share price, descriptions, flags, deposit/redemption status.
+Check a vault's current onchain data: name, TVL, share price, descriptions, flags, deposit/redemption status.
 Edit the vault spec inside the script to change the target vault.
 
 ```shell
@@ -1033,6 +1159,42 @@ source .local-test.env && poetry run python scripts/erc-4626/heal-broken-vaults.
 | `JSON_RPC_<CHAIN>` | Required per chain with broken vaults. |
 | `LOG_LEVEL` | Optional. Default: info. |
 
+### migrate-vault-deposit-permissions.py
+
+Refresh cached `_deposit_permission` values through each vault's current
+protocol adapter. Use this targeted metadata-only repair after a reviewed
+permission-classification fix when waiting for the normal metadata scan is not
+appropriate. It does not change vault discovery, prices, reader state, or any
+other cached metadata field.
+
+First inspect live differences without modifying the pickle:
+
+```shell
+source .local-test.env && \
+  DRY_RUN=true \
+  poetry run python scripts/erc-4626/migrate-vault-deposit-permissions.py
+```
+
+Then persist the reviewed differences:
+
+```shell
+source .local-test.env && \
+  DRY_RUN=false \
+  poetry run python scripts/erc-4626/migrate-vault-deposit-permissions.py
+```
+
+The migration creates a non-overwriting `*.bak-deposit-permission` backup
+before writing. It preserves an existing `whitelisted` or `permissionless`
+value when the live adapter read is inconclusive (`unknown`). Run
+`export-data-files.py` afterwards to publish the corrected JSON.
+
+| Variable | Description |
+|----------|-------------|
+| `VAULT_DB_PATH` | Optional vault metadata pickle path. Defaults to `~/.tradingstrategy/vaults/vault-metadata-db.pickle`. |
+| `DRY_RUN` | Report only when true. Default: true. |
+| `JSON_RPC_<CHAIN>` | Required for every EVM chain represented in the cache. |
+| `LOG_LEVEL` | Optional console log level. Default: info. |
+
 ### migrate-vault-token-metadata.py
 
 Refresh persisted vault `Name` and `Symbol` fields when an ERC-20/ERC-4626
@@ -1061,6 +1223,33 @@ source .local-test.env && \
 | `DRY_RUN` | Optional. Report only when true. Default: true. |
 | `MAX_WORKERS` | Optional Multicall worker threads per chain. Default: 8. |
 | `JSON_RPC_<CHAIN>` | Required for every recognised EVM chain represented in the vault database. |
+| `LOG_LEVEL` | Optional. Default: info. |
+
+### migrate-atoma-vault-names.py
+
+Persist the curated strategy names for the two supported Atoma vaults on
+Arbitrum. This migration targets only those two cached rows, makes no RPC
+calls, and creates a sibling metadata-pickle backup before writing. Do not use
+`migrate-vault-token-metadata.py` for this repair: that generic command reads
+the contracts' generic onchain token names and would overwrite the curated
+strategy labels.
+
+```shell
+# Report the two name updates without writing (default)
+source .local-test.env && \
+  DRY_RUN=true \
+  poetry run python scripts/erc-4626/migrate-atoma-vault-names.py
+
+# Back up and persist the curated display names
+source .local-test.env && \
+  DRY_RUN=false \
+  poetry run python scripts/erc-4626/migrate-atoma-vault-names.py
+```
+
+| Variable | Description |
+|----------|-------------|
+| `VAULT_DB_PATH` | Optional vault metadata pickle path. Default: `~/.tradingstrategy/vaults/vault-metadata-db.pickle`. |
+| `DRY_RUN` | Optional. Report only when true. Default: true. |
 | `LOG_LEVEL` | Optional. Default: info. |
 
 ### prepopulate-timestamps.py
