@@ -381,6 +381,10 @@ ODINS_RESERVE_ILLIQUID = "Odins Reserve vault is illiquid"
 
 BORROWABLE_USDC_SILOID_111_ILLIQUID = "Borrowable USDC Deposit, SiloId: 111 is illiquid"
 
+BORROWABLE_USDC_SILOID_142_ILLIQUID = "Borrowable USDC Deposit, SiloId: 142 is illiquid"
+
+BORROWABLE_USDC_SILOID_145_ILLIQUID = "Borrowable USDC Deposit, SiloId: 145 is illiquid"
+
 
 #: Protocol-wide flags and notes.
 #:
@@ -727,6 +731,10 @@ VAULT_FLAGS_AND_NOTES: dict[str, tuple[VaultFlag | None, str]] = {
     "0x21ed44c18c926c60092b1b2985e2c999421a5a69": (VaultFlag.unofficial, MISSING_IN_PROTOCOL_FRONTEND),
     # Borrowable USDC Deposit, SiloId: 125 on Avalanche
     "0xe0345f66318f482acccd67244a921c7fdc410957": (VaultFlag.illiquid, XUSD_MESSAGE),
+    # Borrowable USDC Deposit, SiloId: 142 on Avalanche
+    "0x606fe9a70338e798a292ca22c1f28c829f24048e": (VaultFlag.illiquid, BORROWABLE_USDC_SILOID_142_ILLIQUID),
+    # Borrowable USDC Deposit, SiloId: 145 on Arbitrum
+    "0xdc1ab820c92735e7a5e48f10fa3d8424ec47a93e": (VaultFlag.illiquid, BORROWABLE_USDC_SILOID_145_ILLIQUID),
     # Peapods Interest Bearing USDC - 22 (Arbitrum)
     "0x0319c82013cf676661f7bde576c6731869a93fc0": (VaultFlag.illiquid, PEAPODS_ILLIQUID),
     # Peapods Interest Bearing USDC - 38 (Sonic)
