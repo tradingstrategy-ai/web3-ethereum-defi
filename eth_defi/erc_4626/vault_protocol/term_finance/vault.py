@@ -37,6 +37,7 @@ import logging
 from eth_typing import BlockIdentifier
 
 from eth_defi.erc_4626.vault import ERC4626Vault
+from eth_defi.vault.base import WithdrawalDelayType, WithdrawalPeriod
 
 logger = logging.getLogger(__name__)
 
@@ -70,6 +71,19 @@ class TermFinanceVault(ERC4626Vault):
     def get_estimated_lock_up(self) -> datetime.timedelta | None:
         """Term Finance vaults have no lock-up period."""
         return None
+
+    def get_withdrawal_period(self) -> WithdrawalPeriod:
+        """Report Term Finance's direct ERC-4626 redemption timing.
+
+        Term vaults expose the Yearn V3 redemption path without a withdrawal
+        request, cooldown, or epoch. Liquidity remains dependent on the vault
+        strategy. See the `Term Finance developer documentation
+        <https://developers.term.finance/>`__.
+
+        :return:
+            A zero-length ``instant`` period.
+        """
+        return WithdrawalPeriod(datetime.timedelta(0), datetime.timedelta(0), WithdrawalDelayType.instant)
 
     def get_link(self, referral: str | None = None) -> str:
         """Get link to the Term Finance vault page.

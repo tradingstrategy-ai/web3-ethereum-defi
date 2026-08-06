@@ -401,7 +401,7 @@ def create_vault_scan_record(
                     withdrawal_period = WithdrawalPeriod(
                         min_period=lockup,
                         max_period=lockup,
-                        delay_type=WithdrawalDelayType.delay,
+                        delay_type=WithdrawalDelayType.instant,
                     )
 
         # Resolve vault flags from the smart contract state

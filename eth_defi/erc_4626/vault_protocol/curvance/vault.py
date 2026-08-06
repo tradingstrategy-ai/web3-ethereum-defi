@@ -29,6 +29,7 @@ import logging
 from eth_typing import BlockIdentifier
 
 from eth_defi.erc_4626.vault import ERC4626Vault
+from eth_defi.vault.base import WithdrawalDelayType, WithdrawalPeriod
 
 logger = logging.getLogger(__name__)
 
@@ -79,6 +80,19 @@ class CurvanceVault(ERC4626Vault):
         Users can withdraw at any time, subject to available liquidity.
         """
         return None
+
+    def get_withdrawal_period(self) -> WithdrawalPeriod:
+        """Report Curvance's direct ERC-4626 redemption timing.
+
+        Curvance cTokens have no withdrawal request, cooldown, or epoch. A
+        redemption can nevertheless be limited by lending-market liquidity;
+        this does not create a protocol timing gate. See the `Curvance
+        documentation <https://docs.curvance.com/>`__.
+
+        :return:
+            A zero-length ``instant`` period.
+        """
+        return WithdrawalPeriod(datetime.timedelta(0), datetime.timedelta(0), WithdrawalDelayType.instant)
 
     def get_link(self, referral: str | None = None) -> str:
         """Return link to Curvance app."""

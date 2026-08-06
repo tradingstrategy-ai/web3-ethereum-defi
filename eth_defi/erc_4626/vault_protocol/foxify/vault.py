@@ -6,6 +6,7 @@ import logging
 from eth_typing import BlockIdentifier
 
 from eth_defi.erc_4626.vault import ERC4626Vault
+from eth_defi.vault.base import WithdrawalDelayType, WithdrawalPeriod
 
 logger = logging.getLogger(__name__)
 
@@ -54,6 +55,18 @@ class FoxifyVault(ERC4626Vault):
     def get_estimated_lock_up(self) -> datetime.timedelta | None:
         """No lock-up period for Foxify vaults."""
         return None
+
+    def get_withdrawal_period(self) -> WithdrawalPeriod:
+        """Report Foxify's direct redemption timing.
+
+        The Foxify LP vault adapter has no withdrawal request, cooldown, or
+        epoch mechanism. See the `Foxify documentation
+        <https://docs.foxify.trade/>`__.
+
+        :return:
+            A zero-length ``instant`` period.
+        """
+        return WithdrawalPeriod(datetime.timedelta(0), datetime.timedelta(0), WithdrawalDelayType.instant)
 
     def get_link(self, referral: str | None = None) -> str:
         """Get the vault's web UI link."""

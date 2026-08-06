@@ -132,6 +132,20 @@ class _PermissionedFakeVault(_FakeVault):
         return "No permissioned hook checks were performed"
 
 
+class _LegacyInstantFakeVault(_FakeVault):
+    """Legacy adapter that explicitly reported a zero lock-up."""
+
+    @staticmethod
+    def get_estimated_lock_up() -> datetime.timedelta:
+        """Return the old zero-duration lock-up representation."""
+        return datetime.timedelta(0)
+
+    @staticmethod
+    def get_withdrawal_period() -> None:
+        """Use the scanner's legacy compatibility path."""
+        return None
+
+
 def _create_detection(features: set[ERC4626Feature]) -> ERC4262VaultDetection:
     """Create a detection object."""
     timestamp = datetime.datetime(2026, 7, 3, tzinfo=datetime.UTC).replace(tzinfo=None)
@@ -197,6 +211,26 @@ def test_create_vault_scan_record_persists_deposit_permission(monkeypatch: pytes
     }
     assert record["_deposit_permission"] == "whitelisted"
     assert record["_whitelist_notes"] == "No permissioned hook checks were performed"
+
+
+def test_create_vault_scan_record_normalises_legacy_zero_lockup_to_instant(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Preserve the timing semantics of adapters that predate ``WithdrawalPeriod``."""
+    detection = _create_detection({ERC4626Feature.usdai_like})
+    monkeypatch.setattr(scan_module, "create_vault_instance", lambda *_args, **_kwargs: _LegacyInstantFakeVault())
+
+    record = scan_module.create_vault_scan_record(
+        web3=None,
+        detection=detection,
+        block_identifier=1,
+        token_cache={},
+    )
+
+    assert record["_withdrawal_period"] == WithdrawalPeriod(
+        min_period=datetime.timedelta(0),
+        max_period=datetime.timedelta(0),
+        delay_type=WithdrawalDelayType.instant,
+    )
+    assert record["_lockup"] == datetime.timedelta(0)
 
 
 def test_vault_database_dataframe_falls_back_to_detection_features() -> None:

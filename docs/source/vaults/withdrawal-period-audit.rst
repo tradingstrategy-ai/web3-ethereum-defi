@@ -35,12 +35,16 @@ The following adapters now return ``WithdrawalPeriod`` and populate
   USD3), marked ``delay``.
 * **Upshift** — the vault-specific ``lagDuration()`` value, marked ``delay``.
 * **USDai** — zero to the current 30-day redemption window, marked ``epoch``.
+* **Aave, Brink, Curvance, Dolomite, Foxify, Gearbox, Sentiment, Singularity
+  Finance and Term Finance** — direct ERC-4626 redemption with no protocol
+  request, cooldown or epoch, marked ``instant``. This does not promise that
+  the vault or its underlying lending market has sufficient liquidity.
 
-Zero-delay adapters
--------------------
+Instant adapters
+----------------
 
 Adapters that explicitly report a zero legacy lock-up are normalised by the
-scanner into a zero-to-zero ``delay`` period. This applies to
+scanner into a zero-to-zero ``instant`` period. This applies to
 Auto Finance, Deltr, Euler, Fluid, Frax, Goat, Harvest, HyperLend, HypurrFi,
 Inverse Finance, Kiln, LlamaLend, Morpho, Resolv, sBOLD, Silo, Sky, Spark,
 Spectra, Summer, USDD and Yearn (including its compounder variants). This
@@ -53,14 +57,13 @@ Timing that is not representable
 The current JSON model intentionally does **not** fabricate a period for the
 following adapters:
 
-* **Queue or liquidity dependent:** Aarna, Aave, Accountable, Aera, BaseVol,
-  Brink, Bulla, cSigma, Curvance, Dolomite, ETH Strategy, 40acres, Foxify,
-  Gearbox, Hyperdrive HL, Infinifi, Maple, NashPoint, Renalta, Royco, Secured
-  Finance, Sentiment, Singularity, Superform, Symbiotic, Term Finance, TrueFi,
-  Untangle, YieldFi, Yo, Yuzu Money and ZeroLend. Their contracts or operator
-  processes make redemption timing depend on liquidity, a queue position,
-  an underlying strategy or an unbounded operator action. The current
-  ``WithdrawalPeriod`` cannot express that conditional or unbounded wait.
+* **Queue or liquidity dependent:** Aarna, Accountable, Aera, BaseVol, Bulla,
+  cSigma, ETH Strategy, 40acres, Hyperdrive HL, Infinifi, Maple, NashPoint,
+  Renalta, Royco, Secured Finance, Superform, Symbiotic, TrueFi, Untangle,
+  YieldFi, Yo, Yuzu Money and ZeroLend. Their contracts or operator processes
+  make redemption timing depend on liquidity, a queue position, an underlying
+  strategy or an unbounded operator action. The current ``WithdrawalPeriod``
+  cannot express that conditional or unbounded wait.
 * **Variable or policy estimates:** Altura, Axis, Centrifuge, CrystalClear,
   Ember, ForgeYields, Frankencoin, Lagoon, Liquid Royalty, Maple AQRU, Plutus,
   Umami and YieldNest.

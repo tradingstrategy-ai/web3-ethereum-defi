@@ -5,10 +5,19 @@ from types import SimpleNamespace
 
 import pytest
 
+from eth_defi.erc_4626.vault_protocol.aave.vault import AaveVault
+from eth_defi.erc_4626.vault_protocol.brink.vault import BrinkVault
+from eth_defi.erc_4626.vault_protocol.curvance.vault import CurvanceVault
 from eth_defi.erc_4626.vault_protocol.d2.vault import D2Vault
+from eth_defi.erc_4626.vault_protocol.dolomite.vault import DolomiteVault
+from eth_defi.erc_4626.vault_protocol.foxify.vault import FoxifyVault
 from eth_defi.erc_4626.vault_protocol.gains.vault import GainsVault, OstiumVault, OstiumVersion
+from eth_defi.erc_4626.vault_protocol.gearbox.vault import GearboxVault
 from eth_defi.erc_4626.vault_protocol.kiloex.vault import KiloExVault
 from eth_defi.erc_4626.vault_protocol.nara.vault import NaraVault
+from eth_defi.erc_4626.vault_protocol.sentiment.vault import SentimentVault
+from eth_defi.erc_4626.vault_protocol.singularity.vault import SingularityVault
+from eth_defi.erc_4626.vault_protocol.term_finance.vault import TermFinanceVault
 from eth_defi.erc_4626.vault_protocol.upshift.vault import UpshiftVault
 from eth_defi.erc_4626.vault_protocol.usdai.vault import StakedUSDaiVault
 from eth_defi.vault.base import WithdrawalDelayType
@@ -105,3 +114,28 @@ def test_usdai_withdrawal_period_is_redemption_window() -> None:
     assert period.min_period == datetime.timedelta(0)
     assert period.max_period == datetime.timedelta(days=30)
     assert period.delay_type is WithdrawalDelayType.epoch
+
+
+@pytest.mark.parametrize(
+    "vault_class",
+    [
+        AaveVault,
+        BrinkVault,
+        CurvanceVault,
+        DolomiteVault,
+        FoxifyVault,
+        GearboxVault,
+        SentimentVault,
+        SingularityVault,
+        TermFinanceVault,
+    ],
+)
+def test_direct_redemption_vaults_export_instant_period(vault_class: type) -> None:
+    """Direct ERC-4626 adapters do not conflate a liquidity limit with a delay."""
+    vault = object.__new__(vault_class)
+
+    period = vault.get_withdrawal_period()
+
+    assert period.min_period == datetime.timedelta(0)
+    assert period.max_period == datetime.timedelta(0)
+    assert period.delay_type is WithdrawalDelayType.instant

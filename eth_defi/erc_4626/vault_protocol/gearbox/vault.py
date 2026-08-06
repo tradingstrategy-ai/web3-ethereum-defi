@@ -40,6 +40,8 @@ from eth_defi.vault.base import (
     REDEMPTION_CLOSED_PAUSED,
     VaultHistoricalRead,
     VaultHistoricalReader,
+    WithdrawalDelayType,
+    WithdrawalPeriod,
 )
 
 logger = logging.getLogger(__name__)
@@ -196,6 +198,20 @@ class GearboxVault(ERC4626Vault):
     def get_estimated_lock_up(self) -> datetime.timedelta | None:
         """Gearbox pools have no lock-up for passive lenders."""
         return None
+
+    def get_withdrawal_period(self) -> WithdrawalPeriod:
+        """Report Gearbox's direct redemption timing.
+
+        PoolV3 does not impose a request, cooldown, or epoch. Its available
+        liquidity may be lower than the requested redemption while credit
+        accounts are borrowed, which is intentionally exported separately
+        from timing. See the `Gearbox documentation
+        <https://docs.gearbox.finance/>`__.
+
+        :return:
+            A zero-length ``instant`` period.
+        """
+        return WithdrawalPeriod(datetime.timedelta(0), datetime.timedelta(0), WithdrawalDelayType.instant)
 
     def get_link(self, referral: str | None = None) -> str:
         """Get link to the Gearbox app."""

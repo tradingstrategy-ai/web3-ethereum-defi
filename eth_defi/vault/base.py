@@ -74,15 +74,23 @@ class WithdrawalDelayType(enum.StrEnum):
     lifetime metrics. It describes only the protocol's normal withdrawal
     timing rule, not current liquidity, a pause, or keeper execution.
 
+    ``instant`` applies when the protocol has no request, cooldown or epoch
+    gate; a direct ERC-4626 redemption is possible subject to liquidity.
+    Examples include `Aave <https://app.aave.com/markets/>`__ and
+    `Yearn V3 <https://yearn.fi/v3>`__.
+
     ``delay`` applies when a request becomes claimable after a configured
-    cooldown, including a zero-second delay for synchronous ERC-4626
-    redemptions. Examples include `Gains gUSDC <https://gains.trade/vaults/gUSDC>`__
+    cooldown. Examples include `Gains gUSDC <https://gains.trade/vaults/gUSDC>`__
     and Upshift's `NEMO USDC Yield <https://app.upshift.finance/pools/1/0x955256B31097dDf47a9E47A95aDfDFB4460D8522>`__.
 
     ``epoch`` applies when withdrawal availability is determined by a
     protocol-defined epoch window. An example is D2's `Texas Hedge strategy
     vault <https://d2.finance/strategies/0x208f63a7f60c319597c05fa5ec67fde41839bad6>`__.
     """
+
+    #: Immediate redemption without a protocol cooldown or epoch gate.
+    #: Aave and Yearn V3 are examples.
+    instant = "instant"
 
     #: A request becomes claimable after a fixed or configured time delay.
     #: Gains gUSDC and Upshift NEMO USDC Yield are examples.
