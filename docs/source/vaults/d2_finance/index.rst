@@ -10,6 +10,11 @@ Hyperliquid and other EVM chains.
 The protocol offers high-yield strategies on stablecoins, Bitcoin, and real-world assets,
 designed for both retail and institutional investors seeking managed yield products.
 
+D2 withdrawals are epoch-based rather than cooldown-based. Public lifetime
+metrics therefore export ``withdrawal_delay_type: "epoch"``, with a zero
+minimum wait when the withdrawal phase is open and the current epoch duration
+as the maximum normal wait.
+
 Links
 ~~~~~
 

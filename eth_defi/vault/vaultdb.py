@@ -17,7 +17,7 @@ from eth_typing import HexAddress
 
 from eth_defi.erc_4626.core import ERC4262VaultDetection, ERC4626Feature, get_vault_protocol_name
 from eth_defi.erc_4626.discovery_base import PotentialVaultMatch
-from eth_defi.vault.base import VaultSpec
+from eth_defi.vault.base import VaultSpec, WithdrawalPeriod
 from eth_defi.vault.flag import VaultFlag
 from eth_defi.vault.risk import VaultTechnicalRisk
 
@@ -87,7 +87,10 @@ class VaultRow(TypedDict):
 
     _denomination_token: dict
 
-    _lockup: datetime.datetime | None
+    _lockup: datetime.timedelta | None
+
+    #: Normal withdrawal wait bounds and mechanism.
+    _withdrawal_period: NotRequired[WithdrawalPeriod | None]
 
     features: set[ERC4626Feature]
 

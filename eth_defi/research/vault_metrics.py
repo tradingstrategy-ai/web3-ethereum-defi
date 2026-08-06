@@ -35,7 +35,7 @@ from eth_defi.perp_dex.export import build_perp_dex_other_data
 from eth_defi.research.value_table import format_grouped_series_as_multi_column_grid, format_series_as_multi_column_grid
 from eth_defi.research.wrangle_vault_prices import forward_fill_vault
 from eth_defi.token import is_stablecoin_like, normalise_token_symbol
-from eth_defi.vault.base import VaultSpec
+from eth_defi.vault.base import VaultSpec, WithdrawalPeriod
 from eth_defi.vault.curator import get_curator_name, identify_curator, is_protocol_curator
 from eth_defi.vault.deposit_redeem import VaultDepositPermission
 from eth_defi.vault.fee import FeeData, VaultFeeMode, get_vault_fee_mode
@@ -1745,6 +1745,20 @@ def calculate_vault_record(
         # Clean up some legacy data
         lockup = None
 
+    withdrawal_period = vault_metadata.get("_withdrawal_period")
+    if not isinstance(withdrawal_period, WithdrawalPeriod):
+        min_withdrawal_period = None
+        max_withdrawal_period = None
+        withdrawal_delay_type = None
+    else:
+        min_withdrawal_period = withdrawal_period.min_period
+        max_withdrawal_period = withdrawal_period.max_period
+        withdrawal_delay_type = withdrawal_period.delay_type
+        # Keep the long-standing public field as a backwards-compatible alias
+        # for the maximum normal wait, rather than exposing a contradictory
+        # generic adapter estimate beside the explicit range.
+        lockup = max_withdrawal_period
+
     # Deposit/redemption status from vault scan.
     # Note: deposit_closed_reason uses empty string "" instead of None
     # because PyArrow does not accept None for string columns in the
@@ -2112,6 +2126,10 @@ def calculate_vault_record(
             "net_fees": net_fee_data,
             "fee_label": fee_label,
             "lockup": lockup,
+            # Timedeltas are serialised as seconds by export_lifetime_row().
+            "min_withdrawal_period": min_withdrawal_period,
+            "max_withdrawal_period": max_withdrawal_period,
+            "withdrawal_delay_type": withdrawal_delay_type,
             "event_count": event_count,
             "protocol": protocol,
             "risk": risk,
@@ -2619,6 +2637,23 @@ def format_lifetime_table(
     df["event_count"] = df["event_count"].apply(lambda x: f"{x:,}")
     df["risk"] = df["risk"].apply(lambda x: x.get_risk_level_name() if x is not None else "Unknown")
     df["lockup"] = df["lockup"].apply(lambda x: f"{x.days}" if pd.notna(x) else "---")
+
+    def _format_withdrawal_period(period: datetime.timedelta | None) -> str:
+        """Format a withdrawal period as fractional days for the table.
+
+        :param period:
+            Withdrawal wait bound, or ``None`` when unavailable.
+
+        :return:
+            Fractional day string, or ``---`` when unavailable.
+        """
+        if pd.isna(period):
+            return "---"
+        return f"{period.total_seconds() / 86_400:g}"
+
+    for column in ("min_withdrawal_period", "max_withdrawal_period"):
+        if column in df.columns:
+            df[column] = df[column].apply(_format_withdrawal_period)
     df["flags"] = df["flags"].apply(_str_enum_set)
 
     # Format lending protocol statistics
@@ -2769,6 +2804,9 @@ def format_lifetime_table(
             # "end_date": "Latest deposit",
             "name": "Name",
             "lockup": "Lock up est. days",
+            "min_withdrawal_period": "Withdrawal min. days",
+            "max_withdrawal_period": "Withdrawal max. days",
+            "withdrawal_delay_type": "Withdrawal type",
             "fee_label": "Fees (mgmt / perf / dep / with)",
             "flags": "Flags",
             "notes": "Notes",

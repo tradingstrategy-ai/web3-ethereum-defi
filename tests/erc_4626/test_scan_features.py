@@ -6,6 +6,7 @@ import pytest
 
 import eth_defi.erc_4626.scan as scan_module
 from eth_defi.erc_4626.core import ERC4262VaultDetection, ERC4626Feature
+from eth_defi.vault.base import WithdrawalDelayType, WithdrawalPeriod
 from eth_defi.vault.deposit_redeem import VaultDepositManagerCapability
 from eth_defi.vault.fee import FeeData, VaultFeeMode
 from eth_defi.vault.vaultdb import VaultDatabase
@@ -59,6 +60,15 @@ class _FakeVault:
     def get_estimated_lock_up() -> None:
         """Return no lock-up."""
         return None
+
+    @staticmethod
+    def get_withdrawal_period() -> WithdrawalPeriod:
+        """Return withdrawal period metadata."""
+        return WithdrawalPeriod(
+            min_period=datetime.timedelta(days=1),
+            max_period=datetime.timedelta(days=2),
+            delay_type=WithdrawalDelayType.delay,
+        )
 
     @staticmethod
     def get_flags() -> set:
@@ -135,6 +145,12 @@ def test_create_vault_scan_record_persists_machine_readable_features(monkeypatch
     assert record["_detection_data"].features == features
     assert "erc_7575_like" in record["Features"]
     assert record["_deposit_manager"] is None
+    assert record["_withdrawal_period"] == WithdrawalPeriod(
+        min_period=datetime.timedelta(days=1),
+        max_period=datetime.timedelta(days=2),
+        delay_type=WithdrawalDelayType.delay,
+    )
+    assert record["_lockup"] == datetime.timedelta(days=2)
 
 
 def test_create_vault_scan_record_persists_deposit_permission(monkeypatch: pytest.MonkeyPatch) -> None:

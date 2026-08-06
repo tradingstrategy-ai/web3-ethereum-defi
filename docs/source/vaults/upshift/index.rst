@@ -33,6 +33,11 @@ Examples include RockawayX's
 `Tori Ecosystem Vault <https://etherscan.io/address/0xcd69123b3FBBfC666E1f6a501da27B564C00De54>`__
 and `Earn ctUSD <https://etherscan.io/address/0xc87DBBB8C67e4F19fCD2E297c05937567b2572Ce>`__.
 
+Upshift request-and-claim withdrawals use the vault-specific onchain
+``lagDuration`` rather than a platform-wide one-day assumption. Public
+lifetime metrics export this fixed value as both ``min_withdrawal_period`` and
+``max_withdrawal_period`` (seconds), with ``withdrawal_delay_type: "delay"``.
+
 Links
 ~~~~~
 

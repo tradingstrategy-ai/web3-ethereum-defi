@@ -1,21 +1,21 @@
 """D2 Finance vault support."""
 
 import datetime
+import logging
 from dataclasses import dataclass
 from decimal import Decimal
 from functools import cached_property
-import logging
 from typing import Iterable, Literal
 
-from web3.contract import Contract
 from eth_typing import BlockIdentifier, HexAddress
+from web3.contract import Contract
 
+from eth_defi.compat import native_datetime_utc_now
 from eth_defi.erc_4626.core import get_deployed_erc_4626_contract
 from eth_defi.erc_4626.deposit_redeem import ERC4626DepositManager, ERC4626DepositRequest, ERC4626RedemptionRequest
 from eth_defi.erc_4626.vault import ERC4626HistoricalReader, ERC4626Vault
 from eth_defi.event_reader.conversion import convert_int256_bytes_to_int
 from eth_defi.event_reader.multicall_batcher import EncodedCall, EncodedCallResult
-from eth_defi.compat import native_datetime_utc_now
 from eth_defi.token import TokenDetails, fetch_erc20_details
 from eth_defi.utils import from_unix_timestamp
 from eth_defi.vault.base import (
@@ -24,6 +24,8 @@ from eth_defi.vault.base import (
     VaultHistoricalRead,
     VaultHistoricalReader,
     VaultTechnicalRisk,
+    WithdrawalDelayType,
+    WithdrawalPeriod,
 )
 from eth_defi.vault.deposit_redeem import VaultFlowUnavailable
 
@@ -543,6 +545,22 @@ class D2Vault(ERC4626Vault):
     def get_estimated_lock_up(self) -> datetime.timedelta:
         epoch = self.fetch_current_epoch_info()
         return epoch.epoch_end - epoch.epoch_start
+
+    def get_withdrawal_period(self) -> WithdrawalPeriod:
+        """Return the D2 redemption window bounds for the current epoch.
+
+        D2 has no post-request cooldown: redemptions become available in the
+        withdrawal phase after a trading epoch. Consequently the shortest
+        wait is zero and the longest normal wait is one configured epoch.
+
+        :return:
+            Current epoch-length withdrawal window bounds.
+        """
+        return WithdrawalPeriod(
+            min_period=datetime.timedelta(0),
+            max_period=self.get_estimated_lock_up(),
+            delay_type=WithdrawalDelayType.epoch,
+        )
 
     def fetch_deposit_closed_reason(self) -> str | None:
         """Deposits open during isFunding() phase."""

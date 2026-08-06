@@ -22,6 +22,7 @@ from eth_defi.testing.anvil_fork_pool import AnvilForkPool
 from eth_defi.testing.evm_snapshot_fixture import evm_snapshot_revert
 from eth_defi.testing.fork_blocks import ETHEREUM_MIDNIGHT_BLOCK
 from eth_defi.token import TokenDiskCache
+from eth_defi.vault.base import WithdrawalDelayType
 from eth_defi.vault.deposit_redeem import VaultFlowUnavailable
 from eth_defi.vault.fee import VaultFeeMode
 from eth_defi.vault.risk import VaultTechnicalRisk
@@ -33,6 +34,7 @@ pytestmark = pytest.mark.skipif(JSON_RPC_ETHEREUM is None, reason="JSON_RPC_ETHE
 UPSHIFT_MULTI_ASSET_FORK_BLOCK = 25_405_251
 UPSHIFT_TORI_VAULT = "0xcd69123b3FBBfC666E1f6a501da27B564C00De54"
 UPSHIFT_CTUSD_VAULT = "0xc87DBBB8C67e4F19fCD2E297c05937567b2572Ce"
+UPSHIFT_NEMO_USDC_VAULT = "0x955256B31097dDf47a9E47A95aDfDFB4460D8522"
 UPSHIFT_SENTORA_USD_EARN_VAULT = "0x74ad2f789ed583dbd141bbdafc673fe1f033718b"
 UPSHIFT_SENTORA_ONE_USDT_RAW_SHARES = 969_683
 UPSHIFT_SENTORA_INSTANT_REDEMPTION_FEE = 0.002
@@ -192,6 +194,23 @@ def test_upshift_multi_asset_vault_metadata(
     link = vault.get_link()
     assert "app.upshift.finance" in link
     assert Web3.to_checksum_address(vault_address) in link
+
+
+@pytest.mark.xdist_group("fork:ethereum:upshift-metadata")
+def test_upshift_nemo_withdrawal_period(web3: Web3) -> None:
+    """NEMO exports its vault-specific Upshift withdrawal timelock."""
+    vault = create_vault_instance_autodetect(web3, vault_address=UPSHIFT_NEMO_USDC_VAULT)
+
+    assert isinstance(vault, UpshiftVault)
+    assert vault.multi_asset_like is True
+
+    period = vault.get_withdrawal_period()
+    configured_lag = vault.upshift_contract.functions.lagDuration().call()
+
+    assert period is not None
+    assert period.min_period == datetime.timedelta(seconds=configured_lag)
+    assert period.max_period == datetime.timedelta(seconds=configured_lag)
+    assert period.delay_type is WithdrawalDelayType.delay
 
 
 @pytest.mark.xdist_group("fork:ethereum:midnight")
