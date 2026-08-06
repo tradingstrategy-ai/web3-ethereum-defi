@@ -341,6 +341,10 @@ PROTOCOL_MANAGER_YAML_FIELDS: dict[str, str] = {
 #: carries a co-branded protocol/issuer name that would otherwise win fuzzy
 #: matching.  Keys are ``(chain_id, lowercase_vault_address)``.
 CURATOR_ADDRESS_OVERRIDES: dict[tuple[int, str], str] = {
+    # Growi's official lending page identifies this HyperEVM Morpho Vault V2
+    # as Growi Lending / Growi USDC Core.
+    # https://growi.fi/lending/
+    (999, "0x54e24c904cfc563af7a1ee9dfaf1354d034e44e4"): "growi-finance",
     # RockawayX Dune dashboard, query 6932634, checked 2026-07-01.
     # https://dune.com/rockawayxvault/rockawayx-dashboard
     (1, "0xcd69123b3fbbfc666e1f6a501da27b564c00de54"): "rockawayx",

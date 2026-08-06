@@ -502,6 +502,24 @@ def test_identify_morpho_curator_by_curator_metadata() -> None:
     assert slug == "gauntlet"
 
 
+def test_identify_growi_lending_vault_by_address_override() -> None:
+    """Map Growi's unbranded HyperEVM Morpho Vault V2 to its curator.
+
+    The explicit address rule preserves Growi attribution if the vault's
+    display name or share-token symbol later changes.
+    """
+
+    slug = identify_curator(
+        chain_id=999,
+        vault_token_symbol="GWUSDC1-HL",
+        vault_name="USDC Core",
+        vault_address="0x54E24C904CfC563Af7A1EE9DfAF1354d034e44e4",
+        protocol_slug="morpho",
+    )
+
+    assert slug == "growi-finance"
+
+
 def test_identify_galaxy_morpho_curator_by_curator_metadata() -> None:
     """Galaxy Curation maps to the Galaxy curator through Morpho manager metadata."""
 
