@@ -79,8 +79,9 @@ def test_ember(
     assert vault.get_performance_fee("latest") is not None
     assert vault.get_performance_fee("latest") >= 0
 
-    # Manager info
-    assert vault.ember_metadata["manager_name"] == "Third Eye"
+    # The live API no longer populates its optional ``managers`` field, but
+    # retains the curator attribution in the public vault description.
+    assert "Third Eye" in vault.description
 
     # Withdrawal period from offchain API
     assert vault.get_estimated_lock_up().days == 4
@@ -106,7 +107,6 @@ def test_ember_offchain_fetch(tmp_path: Path):
     assert crosschain_vault["weekly_performance_fee"] is not None
     assert crosschain_vault["withdrawal_period_days"] is not None
     assert crosschain_vault["reported_apy"] is not None
-    assert crosschain_vault["manager_name"] is not None
 
     # New fields
     assert crosschain_vault["long_name"] is not None
