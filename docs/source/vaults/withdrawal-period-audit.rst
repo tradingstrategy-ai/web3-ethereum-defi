@@ -58,12 +58,13 @@ The current JSON model intentionally does **not** fabricate a period for the
 following adapters:
 
 * **Queue or liquidity dependent:** Aarna, Accountable, Aera, BaseVol, Bulla,
-  cSigma, ETH Strategy, 40acres, Hyperdrive HL, Infinifi, Maple, NashPoint,
-  Renalta, Royco, Secured Finance, Superform, Symbiotic, TrueFi, Untangle,
-  YieldFi, Yo, Yuzu Money and ZeroLend. Their contracts or operator processes
-  make redemption timing depend on liquidity, a queue position, an underlying
-  strategy or an unbounded operator action. The current ``WithdrawalPeriod``
-  cannot express that conditional or unbounded wait.
+  Cap, cSigma, ETH Strategy, 40acres, Hyperdrive HL, Infinifi, Maple,
+  NashPoint, Renalta, Royco, Secured Finance, Superform, Symbiotic, T3tris,
+  TrueFi, Untangle, YieldFi, Yo, Yuzu Money and ZeroLend. Their contracts or
+  operator processes make redemption timing depend on liquidity, a queue
+  position, an underlying strategy or an unbounded operator action. The
+  current ``WithdrawalPeriod`` cannot express that conditional or unbounded
+  wait.
 * **Variable or policy estimates:** Altura, Axis, Centrifuge, CrystalClear,
   Ember, ForgeYields, Frankencoin, Lagoon, Liquid Royalty, Maple AQRU, Plutus,
   Umami and YieldNest.
