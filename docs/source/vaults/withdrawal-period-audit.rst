@@ -40,8 +40,8 @@ The following adapters now return ``WithdrawalPeriod`` and populate
   request, cooldown or epoch, marked ``instant``. This does not promise that
   the vault or its underlying lending market has sufficient liquidity.
 
-Operational settlement estimates
---------------------------------
+Offchain settlement and redemption estimates
+---------------------------------------------
 
 **Lagoon** exposes a curator-provided ``averageSettlement`` value through its
 offchain application metadata. The adapter exports it as
@@ -56,7 +56,9 @@ service estimate for its redemption queue. **Bulla** publishes an
 address-scoped 30-day average redemption period for its TCS pool, whose queue
 depends on invoice repayments and liquidity. Both are exported as
 ``estimated_settlement`` for backtesting only, without contract-enforced
-minimum or maximum withdrawal periods.
+minimum or maximum withdrawal periods. In particular, Bulla's published
+40-day maximum is descriptive pool material, not a smart-contract timing
+bound, and is therefore not exported as ``max_withdrawal_period``.
 
 Instant adapters
 ----------------
