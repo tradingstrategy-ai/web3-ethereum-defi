@@ -25,6 +25,7 @@ from eth_defi.erc_4626.vault_protocol.hypurrfi.vault import HypurrFiVault
 from eth_defi.erc_4626.vault_protocol.inverse_finance.vault import InverseFinanceVault
 from eth_defi.erc_4626.vault_protocol.kiln.vault import KilnVault
 from eth_defi.erc_4626.vault_protocol.kiloex.vault import KiloExVault
+from eth_defi.erc_4626.vault_protocol.lagoon.vault import LagoonVault
 from eth_defi.erc_4626.vault_protocol.llama_lend.vault import LlamaLendVault
 from eth_defi.erc_4626.vault_protocol.morpho.vault_v1 import MorphoV1Vault
 from eth_defi.erc_4626.vault_protocol.morpho.vault_v2 import MorphoV2Vault
@@ -152,6 +153,20 @@ def test_zero_legacy_lockup_can_use_a_non_instant_lifecycle(monkeypatch: pytest.
     assert period.min_period == datetime.timedelta(0)
     assert period.max_period == datetime.timedelta(0)
     assert period.delay_type is WithdrawalDelayType.delay
+
+
+def test_lagoon_withdrawal_period_exports_non_binding_settlement_estimate() -> None:
+    """Lagoon leaves contractual timing empty and exports curator cadence only."""
+    vault = object.__new__(LagoonVault)
+    vault.__dict__["lagoon_metadata"] = {"average_settlement": 86_400}
+
+    period = vault.get_withdrawal_period()
+
+    assert period is not None
+    assert period.min_period is None
+    assert period.max_period is None
+    assert period.delay_type is WithdrawalDelayType.delay
+    assert period.estimated_settlement == datetime.timedelta(days=1)
 
 
 @pytest.mark.parametrize(

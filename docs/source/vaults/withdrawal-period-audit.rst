@@ -12,8 +12,8 @@ Structured export
 -----------------
 
 The following adapters now return ``WithdrawalPeriod`` and populate
-``min_withdrawal_period``, ``max_withdrawal_period`` and
-``withdrawal_delay_type`` in lifetime JSON:
+``min_withdrawal_period``, ``max_withdrawal_period``,
+``withdrawal_delay_type`` and ``estimated_settlement`` in lifetime JSON:
 
 * **Atoma** — zero to one ``epochDuration()`` interval; the verified vault
   uses ``requestWithdrawal``/``claimWithdrawal``. See the
@@ -39,6 +39,17 @@ The following adapters now return ``WithdrawalPeriod`` and populate
   Finance and Term Finance** — direct ERC-4626 redemption with no protocol
   request, cooldown or epoch, marked ``instant``. This does not promise that
   the vault or its underlying lending market has sufficient liquidity.
+
+Operational settlement estimates
+--------------------------------
+
+**Lagoon** exposes a curator-provided ``averageSettlement`` value through its
+offchain application metadata. The adapter exports it as
+``estimated_settlement`` for backtesting the expected cadence of deposit and
+redemption settlement rounds. Lagoon's ERC-7540 contracts do not bind curators
+to a settlement deadline, so ``min_withdrawal_period`` and
+``max_withdrawal_period`` remain ``null``. The estimate is not a promise: a
+curator can settle earlier, later, or not at all.
 
 Instant adapters
 ----------------
@@ -67,7 +78,7 @@ following adapters:
   current ``WithdrawalPeriod`` cannot express that conditional or unbounded
   wait.
 * **Variable or policy estimates:** Altura, Axis, Centrifuge, CrystalClear,
-  Ember, ForgeYields, Frankencoin, Lagoon, Liquid Royalty, Maple AQRU, Plutus,
+  Ember, ForgeYields, Frankencoin, Liquid Royalty, Maple AQRU, Plutus,
   Umami and YieldNest.
   Their existing ``get_estimated_lock_up()`` values describe an epoch estimate,
   maturity date, operator service target, reward-interest delay, or strategy

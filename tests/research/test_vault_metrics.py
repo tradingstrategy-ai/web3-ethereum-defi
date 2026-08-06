@@ -467,6 +467,7 @@ def test_calculate_lifetime_metrics_exports_withdrawal_period(
         min_period=datetime.timedelta(days=1),
         max_period=datetime.timedelta(days=3),
         delay_type=WithdrawalDelayType.delay,
+        estimated_settlement=datetime.timedelta(days=2),
     )
 
     metrics = calculate_lifetime_metrics(price_df.loc[price_df["id"] == vault_id], {vault_spec: vault_row})
@@ -476,6 +477,7 @@ def test_calculate_lifetime_metrics_exports_withdrawal_period(
     assert exported["min_withdrawal_period"] == 86_400
     assert exported["max_withdrawal_period"] == 259_200
     assert exported["withdrawal_delay_type"] == "delay"
+    assert exported["estimated_settlement"] == 172_800
 
 
 def test_calculate_lifetime_metrics_defaults_legacy_deposit_permission_to_unknown(

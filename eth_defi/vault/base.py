@@ -105,21 +105,34 @@ class WithdrawalDelayType(enum.StrEnum):
 class WithdrawalPeriod:
     """Protocol withdrawal timing bounds exported by the vault scanner.
 
-    The range describes the normal wait from a valid withdrawal request to
-    redemption availability. It excludes liquidity shortages, keeper delays,
-    paused contracts and other exceptional operating conditions. Both values
-    are :class:`datetime.timedelta` objects and are serialised as seconds in
-    the public lifetime-metrics JSON export.
+    ``min_period`` and ``max_period`` describe the wait from a valid withdrawal
+    request to redemption availability when the protocol's smart contracts
+    enforce a timing rule. These binding values exclude liquidity shortages,
+    paused contracts, and other exceptional operating conditions. They are
+    serialised as seconds in the public lifetime-metrics JSON export.
+
+    ``estimated_settlement`` is deliberately separate. It is a non-binding
+    offchain operational-cadence estimate for backtesting, such as how often a
+    curator normally performs a request-batch settlement. It must not be used
+    to decide whether a withdrawal is claimable or promised to settle by a
+    particular time.
     """
 
-    #: Shortest configured wait before a withdrawal can become available.
-    min_period: datetime.timedelta
+    #: Shortest contract-enforced wait before a withdrawal can become available.
+    #: ``None`` when the protocol has no binding timing bound.
+    min_period: datetime.timedelta | None
 
-    #: Longest normal wait, including any protocol scheduling window.
-    max_period: datetime.timedelta
+    #: Longest contract-enforced wait, including any protocol scheduling window.
+    #: ``None`` when the protocol has no binding timing bound.
+    max_period: datetime.timedelta | None
 
     #: Whether the availability rule is a time delay or epoch window.
     delay_type: WithdrawalDelayType
+
+    #: Non-binding offchain estimate of the interval between curator settlement
+    #: cycles. Used exclusively for backtesting; it never replaces a binding
+    #: smart-contract withdrawal period and a settlement may not occur at all.
+    estimated_settlement: datetime.timedelta | None = None
 
 
 #: Withdrawal metadata for adapters whose documented ERC-4626 redemption path
@@ -1622,12 +1635,15 @@ class VaultBase(ABC):
         return None
 
     def get_withdrawal_period(self) -> WithdrawalPeriod | None:
-        """Return the normal withdrawal wait range and availability mechanism.
+        """Return binding withdrawal timing and optional settlement estimates.
 
         Unlike :meth:`get_estimated_lock_up`, this reports the redemption
-        lifecycle after a user submits a valid withdrawal request. Protocol
-        adapters return ``None`` when the contract does not expose reliable
-        timing data.
+        lifecycle after a user submits a valid withdrawal request. Adapters use
+        ``min_period`` and ``max_period`` only for a binding smart-contract
+        timing rule. An adapter may instead return a non-binding
+        ``estimated_settlement`` for backtesting an offchain curator cadence;
+        that estimate never establishes claimability and does not require a
+        synthetic timing bound.
 
         :return:
             Withdrawal period details, or ``None`` when unavailable.
