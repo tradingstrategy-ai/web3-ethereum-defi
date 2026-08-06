@@ -274,6 +274,9 @@ def _restore_hypercore_lagoon_state(
     yield from evm_snapshot_revert(anvil_hyperliquid)
 
 
+# Flaky on CI since 2026-08-06: two runs failed during HyperEVM fork setup with
+# provider HTTP 500 "Temporary internal error"; the focused test passed locally.
+@flaky.flaky(max_runs=3)
 @pytest.mark.timeout(600)
 def test_lagoon_hypercore_vault_whitelisting_is_batched(
     web3: Web3,
