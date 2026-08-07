@@ -68,6 +68,9 @@ _MAPPING_SCHEMA = Map(
                 {
                     "date": Str(),
                     "links": Seq(Str()),
+                    #: Add context about which vaults and protocols were affected by the incident.
+                    "vault_addresses": Seq(Str()),
+                    "protocols": Seq(Str()),
                     "title": Str(),
                     "description": Str(),
                     "incident_kind": Enum(["collapse", "significant_loss", "minor_loss", "misleading", "questionable_behaviour"]),
@@ -286,16 +289,21 @@ def _normalise_incidents(incidents: object, mapping_file: Path) -> list[dict[str
                 raise ValueError(f"incidents[{index}].{field_name} must be a non-empty string in {mapping_file}")
             normalised_incident[field_name] = value.strip()
 
-        links = incident.get("links")
-        if not isinstance(links, list) or not links:
-            raise ValueError(f"incidents[{index}].links must be a non-empty list of URLs in {mapping_file}")
+        for list_field in ("links", "vault_addresses", "protocols"):
+            values = incident.get(list_field)
+            if not isinstance(values, list) or not values:
+                raise ValueError(f"incidents[{index}].{list_field} must be a non-empty list of strings in {mapping_file}")
 
-        normalised_links: list[str] = []
-        for link_index, link in enumerate(links):
-            if not isinstance(link, str) or not link.strip():
-                raise ValueError(f"incidents[{index}].links[{link_index}] must be a non-empty URL in {mapping_file}")
-            normalised_links.append(_normalise_http_url(link, mapping_file))
-        normalised_incident["links"] = normalised_links
+            normalised_values: list[str] = []
+            for value_index, value in enumerate(values):
+                if not isinstance(value, str) or not value.strip():
+                    raise ValueError(f"incidents[{index}].{list_field}[{value_index}] must be a non-empty string in {mapping_file}")
+                if list_field == "links":
+                    value = _normalise_http_url(value, mapping_file)
+                else:
+                    value = value.strip()
+                normalised_values.append(value)
+            normalised_incident[list_field] = normalised_values
         normalised_incidents.append(normalised_incident)
 
     return normalised_incidents

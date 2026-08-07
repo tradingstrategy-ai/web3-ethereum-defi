@@ -91,6 +91,10 @@ incidents:
   - date: { ISO 8601 incident date }
     links:
       - { canonical evidence URL }
+    vault_addresses:
+      - { affected vault address }
+    protocols:
+      - { affected protocol slug }
     title: { short incident title }
     description: { Markdown incident description }
     incident_kind: { collapse | significant_loss | minor_loss | misleading | questionable_behaviour }
@@ -121,10 +125,11 @@ Notes:
 - `risk.status` is optional curator-only manual review metadata; it defaults to
   `unknown` when omitted and is one of `unknown`, `whitelisted`, or `blacklisted`
 - `incidents` is an optional curator-only list of documented incidents. Every
-  entry has an ISO 8601 `date`, one or more canonical evidence `links`, Markdown
-  `description`, an `incident_kind` of `collapse`, `significant_loss`,
-  `minor_loss`, `misleading`, or `questionable_behaviour`, and a severity of
-  `collapse`, `significant_loss`, `minor_loss`, or `other`
+  entry has an ISO 8601 `date`, one or more canonical evidence `links`, affected
+  `vault_addresses` and `protocols` for context, a Markdown `description`, an
+  `incident_kind` of `collapse`, `significant_loss`, `minor_loss`, `misleading`,
+  or `questionable_behaviour`, and a severity of `collapse`, `significant_loss`,
+  `minor_loss`, or `other`
 - `ipor-atomist`, `euler-entity`, `morpho-curator`, `lagoon-curator`,
   `t3tris-curator`, and `asseto-role` are
   optional curator metadata fields. They are not collected as feeds; they map

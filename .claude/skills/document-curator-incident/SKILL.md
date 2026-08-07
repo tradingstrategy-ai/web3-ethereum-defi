@@ -1,6 +1,6 @@
 ---
 name: document-curator-incident
-description: Document curator incidents from one or more post links in curator YAML metadata. Use when the user supplies social posts, announcements, post-mortems, or reports about a vault curator and wants to add a new incident or merge evidence into an existing incident.
+description: Document curator incidents from one or more post links in curator YAML metadata, including affected vault addresses and protocols. Use when the user supplies social posts, announcements, post-mortems, or reports about a vault curator and wants to add a new incident or merge evidence into an existing incident.
 ---
 
 # Document curator incident
@@ -21,6 +21,7 @@ Open every supplied link and record:
 - The author and publication date
 - The curator named or clearly implicated
 - The underlying event, impact, and current resolution status
+- The specifically affected vault addresses and protocol slugs
 - Whether statements are first-party facts, a post-mortem, or third-party claims
 
 When a social site blocks direct access, use indexed search results or another
@@ -62,7 +63,8 @@ Read the curator's existing `incidents` list in full.
 
 When merging, append only new links, preserve useful existing evidence, and revise
 the title, description, date, label, or severity only when the new sources justify
-the change.
+the change. Merge newly confirmed vault addresses and protocols into their existing
+lists without removing previously sourced context.
 
 ## Step 4: Classify and write the incident
 
@@ -74,6 +76,10 @@ incidents:
     links:
       - https://example.com/primary-source
       - https://example.com/additional-source
+    vault_addresses:
+      - 0x1234567890abcdef1234567890abcdef12345678
+    protocols:
+      - lagoon
     title: Concise incident title
     description: |
       Write three to five factual Markdown sentences with [inline source links](https://example.com/primary-source).
@@ -108,10 +114,17 @@ demonstrate a loss or collapse.
 Do not change `risk.status` merely because an incident is added. Risk review is a
 separate decision unless the user explicitly requests it.
 
-## Step 5: Update links and validate
+## Step 5: Update context lists and validate
 
 Store all supplied links that support the incident in `links`, preserving the
 primary source first and removing exact duplicates. Links must use HTTP(S).
+
+Fill `vault_addresses` with only the vaults demonstrated to be affected by the
+sources. Resolve named vaults through repository metadata or the public vault page,
+and lowercase EVM addresses. Do not add every vault managed by the curator. Fill
+`protocols` with the canonical protocol slugs used by repository vault metadata.
+Both lists must be non-empty. If an affected address or protocol cannot be verified,
+stop and ask the user for the missing context rather than guessing.
 
 Validate the edited curator through the shared strict YAML schema:
 
@@ -136,4 +149,5 @@ git diff --check
 ```
 
 Report the curator, whether the incident was added or merged, the selected date,
-`incident_kind`, severity, and the number of links now attached to the record.
+`incident_kind`, severity, and the number of links, vault addresses, and protocols
+now attached to the record.

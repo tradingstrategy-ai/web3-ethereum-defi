@@ -467,6 +467,12 @@ class CuratorIncident(TypedDict):
     #: Canonical evidence URLs for the incident.
     links: list[str]
 
+    #: Affected vault addresses, providing context about the scope of the incident.
+    vault_addresses: list[str]
+
+    #: Affected protocol slugs, providing context about where the incident occurred.
+    protocols: list[str]
+
     #: Short, human-readable incident title.
     title: str
 
@@ -644,6 +650,8 @@ def _load_curator_yaml(yaml_path: Path) -> CuratorInfo:
         CuratorIncident(
             date=incident["date"],
             links=list(incident["links"]),
+            vault_addresses=list(incident["vault_addresses"]),
+            protocols=list(incident["protocols"]),
             title=incident["title"],
             description=incident["description"],
             incident_kind=CuratorIncidentKind(incident["incident_kind"]),
