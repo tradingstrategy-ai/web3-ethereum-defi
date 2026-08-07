@@ -32,7 +32,10 @@ from eth_defi.vault.curator import (
     ALL_PROTOCOL_CURATOR_SLUGS,
     CURATORS_DATA_DIR,
     PROTOCOL_CURATOR_NAMES,
+    CuratorIncident,
     CuratorLogos,
+    CuratorRisk,
+    CuratorRiskStatus,
     _build_curator_logo_urls,
     build_curator_metadata_json,
     load_curator_map,
@@ -100,6 +103,12 @@ class CuratorExportRecord(TypedDict):
 
     #: Multi-paragraph Markdown description of the curator.
     long_description: str | None
+
+    #: Manual curator risk-review status.
+    risk: CuratorRisk
+
+    #: Documented curator incidents in chronological order.
+    incidents: list[CuratorIncident]
 
     #: Full Twitter/X profile URL (e.g. ``"https://x.com/gauntlet_xyz"``),
     #: or ``None``.
@@ -180,6 +189,8 @@ def _build_protocol_curator_from_yaml(
         website=website,
         short_description=short_description,
         long_description=long_description,
+        risk=CuratorRisk(status=CuratorRiskStatus.unknown),
+        incidents=[],
         twitter=twitter_url,
         linkedin=linkedin_url,
         rss=rss,
@@ -253,6 +264,8 @@ def build_curators_for_export(
                 website=meta["website"],
                 short_description=meta["short_description"],
                 long_description=meta["long_description"],
+                risk=meta["risk"],
+                incidents=meta["incidents"],
                 twitter=meta["twitter"],
                 linkedin=meta["linkedin"],
                 rss=meta["rss"],

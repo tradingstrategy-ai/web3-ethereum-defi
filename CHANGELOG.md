@@ -1,5 +1,7 @@
 # 1.2
 
+- feat: Add curator risk-review status and documented incident metadata to the YAML and JSON export schemas (2026-08-07)
+
 - feat: Start published Hypercore performance curves only after vault TVL reaches $20,000, preventing insignificant bootstrap capital from producing misleading lifetime drawdowns (2026-08-05)
 - feat: Add a narrowly scoped Hypercore dynamic-vault guard flag, keeping generic anyAsset out of native-vault policy and covering the full Safe execution path on Anvil (2026-08-03)
 

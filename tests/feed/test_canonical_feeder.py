@@ -9,6 +9,7 @@ import logging
 from pathlib import Path
 
 import pytest
+from strictyaml.exceptions import YAMLValidationError
 
 from eth_defi.feed.sources import (
     FEEDS_DATA_DIR,
@@ -188,6 +189,56 @@ def test_other_links_metadata_loads(tmp_path: Path):
     ]
 
 
+def test_curator_risk_and_incidents_metadata_loads(tmp_path: Path):
+    """Curator risk status and Markdown incident records are validated and exported."""
+
+    yaml_path = tmp_path / "curators" / "flowdesk.yaml"
+    _write_yaml(
+        yaml_path,
+        "feeder-id: flowdesk\nname: Flowdesk\nrole: curator\ntwitter: flowdesk_co\nrisk:\n  status: blacklisted\nincidents:\n  - date: 2026-08-01\n    link: https://example.com/post-mortem\n    title: Incorrect valuation reported\n    description: |\n      The curator reported an **incorrect valuation**.\n    incident_kind: misleading_accounting\n    severity: significant_loss\n",
+    )
+
+    metadata = load_feeder_metadata(yaml_path)
+    exported = curator_module.build_curator_metadata_json(yaml_path)
+
+    assert metadata["risk"] == {"status": "blacklisted"}
+    assert metadata["incidents"] == [
+        {
+            "date": "2026-08-01",
+            "link": "https://example.com/post-mortem",
+            "title": "Incorrect valuation reported",
+            "description": "The curator reported an **incorrect valuation**.",
+            "incident_kind": "misleading_accounting",
+            "severity": "significant_loss",
+        }
+    ]
+    assert exported["risk"]["status"] == "blacklisted"
+    assert exported["incidents"] == metadata["incidents"]
+
+
+@pytest.mark.parametrize(
+    "field_value",
+    [
+        pytest.param("risk:\n  status: pending", id="risk-status"),
+        pytest.param(
+            "incidents:\n  - date: 2026-08-01\n    link: https://example.com/post-mortem\n    title: Incorrect valuation reported\n    description: Incorrect valuation reported.\n    incident_kind: misleading_accounting\n    severity: critical",
+            id="incident-severity",
+        ),
+    ],
+)
+def test_curator_risk_and_incident_enums_are_validated(tmp_path: Path, field_value: str):
+    """Curator risk statuses and incident severities accept only their declared enums."""
+
+    yaml_path = tmp_path / "curators" / "flowdesk.yaml"
+    _write_yaml(
+        yaml_path,
+        f"feeder-id: flowdesk\nname: Flowdesk\nrole: curator\ntwitter: flowdesk_co\n{field_value}\n",
+    )
+
+    with pytest.raises(YAMLValidationError, match="when expecting one of"):
+        load_feeder_metadata(yaml_path)
+
+
 def test_metadata_inheritance_in_curator_export(tmp_path: Path):
     """Curator metadata export inherits source fields from canonical stablecoin feeder.
 
@@ -215,6 +266,8 @@ def test_metadata_inheritance_in_curator_export(tmp_path: Path):
     assert metadata["website"] == "https://ethena.fi/"
     assert metadata["short_description"] == "Ethena is a synthetic dollar protocol team."
     assert metadata["long_description"] == "Ethena operates the protocol behind USDe and related products."
+    assert metadata["risk"] == {"status": "unknown"}
+    assert metadata["incidents"] == []
     assert metadata["twitter"] == "https://x.com/ethena"
     assert metadata["linkedin"] == "https://www.linkedin.com/company/ethena-labs"
     assert metadata["logos"] == {"generic": None, "dark": None, "light": None}

@@ -16,7 +16,7 @@ from urllib.parse import urlparse, urlunparse
 if TYPE_CHECKING:
     from eth_defi.feed.collector import CollectorRunSummary
 
-from strictyaml import Int, Map, Optional, Seq, Str, load
+from strictyaml import Enum, Int, Map, Optional, Seq, Str, load
 
 logger = logging.getLogger(__name__)
 
@@ -58,6 +58,23 @@ _MAPPING_SCHEMA = Map(
         Optional("curatorwatch"): Str(),
         Optional("short_description"): Str(),
         Optional("long_description"): Str(),
+        Optional("risk"): Map(
+            {
+                "status": Enum(["unknown", "whitelisted", "blacklisted"]),
+            }
+        ),
+        Optional("incidents"): Seq(
+            Map(
+                {
+                    "date": Str(),
+                    "link": Str(),
+                    "title": Str(),
+                    "description": Str(),
+                    "incident_kind": Str(),
+                    "severity": Enum(["collapse", "significant_loss", "minor_loss", "other"]),
+                }
+            )
+        ),
         Optional("twitter"): Str(),
         Optional("linkedin"): Str(),
         Optional("linkedin-rss-hub-disabled-at"): Str(),
@@ -242,6 +259,42 @@ def _normalise_other_links(other_links: object, mapping_file: Path) -> list[dict
     return normalised_links
 
 
+def _normalise_incidents(incidents: object, mapping_file: Path) -> list[dict[str, str]] | None:
+    """Normalise curator incident records from YAML metadata.
+
+    Incident descriptions are Markdown strings. Their dates, titles, kinds, and
+    severities are left as schema-validated scalar values, while evidence links
+    are normalised as canonical HTTP(S) URLs.
+
+    :param incidents:
+        Parsed ``incidents`` YAML value.
+    :param mapping_file:
+        YAML file path used for validation errors.
+    :return:
+        Normalised incident records, or ``None`` when the YAML omits incidents.
+    """
+
+    if incidents is None:
+        return None
+
+    normalised_incidents: list[dict[str, str]] = []
+    for index, incident in enumerate(incidents):
+        normalised_incident: dict[str, str] = {}
+        for field_name in ("date", "title", "description", "incident_kind", "severity"):
+            value = incident.get(field_name)
+            if not isinstance(value, str) or not value.strip():
+                raise ValueError(f"incidents[{index}].{field_name} must be a non-empty string in {mapping_file}")
+            normalised_incident[field_name] = value.strip()
+
+        link = incident.get("link")
+        if not isinstance(link, str) or not link.strip():
+            raise ValueError(f"incidents[{index}].link must be a non-empty URL in {mapping_file}")
+        normalised_incident["link"] = _normalise_http_url(link, mapping_file)
+        normalised_incidents.append(normalised_incident)
+
+    return normalised_incidents
+
+
 def _normalise_mapping_metadata(parsed: dict, mapping_file: Path) -> None:
     """Normalise optional metadata fields in a parsed feeder YAML mapping.
 
@@ -254,6 +307,10 @@ def _normalise_mapping_metadata(parsed: dict, mapping_file: Path) -> None:
     other_links = _normalise_other_links(parsed.get("other-links"), mapping_file)
     if other_links is not None:
         parsed["other-links"] = other_links
+
+    incidents = _normalise_incidents(parsed.get("incidents"), mapping_file)
+    if incidents is not None:
+        parsed["incidents"] = incidents
 
     curatorwatch = parsed.get("curatorwatch")
     if curatorwatch is not None:

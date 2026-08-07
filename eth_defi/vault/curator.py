@@ -123,6 +123,7 @@ Usage example::
     assert is_protocol_curator(slug)
 """
 
+import enum
 import json
 import logging
 import re
@@ -423,6 +424,52 @@ CURATOR_ADDRESS_OVERRIDES: dict[tuple[int, str], str] = {
 }
 
 
+class CuratorRiskStatus(str, enum.Enum):
+    """Manual curator risk-review status values."""
+
+    unknown = "unknown"
+    whitelisted = "whitelisted"
+    blacklisted = "blacklisted"
+
+
+class CuratorIncidentSeverity(str, enum.Enum):
+    """Impact classifications for curator incidents."""
+
+    collapse = "collapse"
+    significant_loss = "significant_loss"
+    minor_loss = "minor_loss"
+    other = "other"
+
+
+class CuratorRisk(TypedDict):
+    """Manual risk review information for a curator."""
+
+    #: Current manual curator risk-review status.
+    status: CuratorRiskStatus
+
+
+class CuratorIncident(TypedDict):
+    """A documented incident involving a curator."""
+
+    #: ISO 8601 calendar date when the incident occurred.
+    date: str
+
+    #: Canonical evidence URL for the incident.
+    link: str
+
+    #: Short, human-readable incident title.
+    title: str
+
+    #: Markdown description of the incident and its impact.
+    description: str
+
+    #: Curator-maintained incident category.
+    incident_kind: str
+
+    #: Impact severity classification.
+    severity: CuratorIncidentSeverity
+
+
 class CuratorInfo(TypedDict):
     """Metadata for a single curator loaded from YAML.
 
@@ -448,6 +495,12 @@ class CuratorInfo(TypedDict):
 
     #: Multi-paragraph Markdown description of the curator.
     long_description: str | None
+
+    #: Manual curator risk-review status.
+    risk: CuratorRisk
+
+    #: Documented curator incidents in chronological order.
+    incidents: list[CuratorIncident]
 
     #: Twitter/X handle without ``@`` prefix (e.g. ``"gauntlet_xyz"``),
     #: or ``None`` if not configured.
@@ -525,6 +578,12 @@ class CuratorMetadata(TypedDict):
     #: Multi-paragraph Markdown description of the curator.
     long_description: str | None
 
+    #: Manual curator risk-review status.
+    risk: CuratorRisk
+
+    #: Documented curator incidents in chronological order.
+    incidents: list[CuratorIncident]
+
     #: Full Twitter/X profile URL (e.g. ``"https://x.com/gauntlet_xyz"``),
     #: or ``None``.
     twitter: str | None
@@ -569,6 +628,19 @@ def _load_curator_yaml(yaml_path: Path) -> CuratorInfo:
         Path to a curator YAML file.
     """
     parsed = load_feeder_metadata(yaml_path)
+    raw_risk = parsed.get("risk", {"status": CuratorRiskStatus.unknown.value})
+    risk = CuratorRisk(status=CuratorRiskStatus(raw_risk["status"]))
+    incidents = [
+        CuratorIncident(
+            date=incident["date"],
+            link=incident["link"],
+            title=incident["title"],
+            description=incident["description"],
+            incident_kind=incident["incident_kind"],
+            severity=CuratorIncidentSeverity(incident["severity"]),
+        )
+        for incident in parsed.get("incidents", [])
+    ]
     protocol_manager_names: dict[str, str | tuple[str, ...]] = {}
     for protocol_slug, yaml_key in PROTOCOL_MANAGER_YAML_FIELDS.items():
         raw_names = parsed.get(yaml_key)
@@ -587,6 +659,8 @@ def _load_curator_yaml(yaml_path: Path) -> CuratorInfo:
         curatorwatch=parsed.get("curatorwatch"),
         short_description=parsed.get("short_description"),
         long_description=parsed.get("long_description"),
+        risk=risk,
+        incidents=incidents,
         twitter=parsed.get("twitter"),
         linkedin=parsed.get("linkedin"),
         rss=parsed.get("rss"),
@@ -1014,6 +1088,8 @@ def build_curator_metadata_json(yaml_path: Path, public_url: str = "") -> Curato
         curatorwatch=curatorwatch,
         short_description=info["short_description"],
         long_description=info["long_description"],
+        risk=info["risk"],
+        incidents=info["incidents"],
         twitter=twitter_url,
         linkedin=linkedin_url,
         rss=rss,
@@ -1050,6 +1126,8 @@ def _build_protocol_curator_entries(public_url: str = "") -> list[CuratorMetadat
                     curatorwatch=None,
                     short_description=None,
                     long_description=None,
+                    risk=CuratorRisk(status=CuratorRiskStatus.unknown),
+                    incidents=[],
                     twitter=None,
                     linkedin=None,
                     rss=None,

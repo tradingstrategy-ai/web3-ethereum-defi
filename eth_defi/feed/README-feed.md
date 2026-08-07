@@ -85,6 +85,15 @@ website: { optional company website URL }
 curatorwatch: { optional CuratorWatch curator page URL }
 short_description: { optional one-line company or project summary }
 long_description: { optional multi-paragraph Markdown company or project description }
+risk:
+  status: { unknown | whitelisted | blacklisted }
+incidents:
+  - date: { ISO 8601 incident date }
+    link: { canonical evidence URL }
+    title: { short incident title }
+    description: { Markdown incident description }
+    incident_kind: { curator-maintained incident category }
+    severity: { collapse | significant_loss | minor_loss | other }
 ipor-atomist: { optional IPOR Fusion atomist display name, normally curator role }
 euler-entity: { optional Euler offchain API entity value, normally curator role }
 morpho-curator: { optional Morpho offchain API curator display name, normally curator role }
@@ -108,6 +117,12 @@ Notes:
   collected as a feed
 - `short_description` is optional feeder metadata for list and card views
 - `long_description` is optional Markdown feeder metadata for detail views
+- `risk.status` is optional curator-only manual review metadata; it defaults to
+  `unknown` when omitted and is one of `unknown`, `whitelisted`, or `blacklisted`
+- `incidents` is an optional curator-only list of documented incidents. Every
+  entry has an ISO 8601 `date`, canonical evidence `link`, Markdown
+  `description`, and severity of `collapse`, `significant_loss`, `minor_loss`,
+  or `other`
 - `ipor-atomist`, `euler-entity`, `morpho-curator`, `lagoon-curator`,
   `t3tris-curator`, and `asseto-role` are
   optional curator metadata fields. They are not collected as feeds; they map
