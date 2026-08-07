@@ -7,7 +7,7 @@
   ``api.morpho.org``
 - Vault-level warnings cover governance risk; market-level warnings cover
   financial risk in underlying market allocations
-- Two-level caching: disk (24h TTL) + in-process dictionary keyed by
+- Two-level caching: disk and in-process (both 24h TTL) keyed by
   ``"{cache_path}:{chain_id}:{address}"`` so tests using ``tmp_path`` are
   isolated from each other and from the default production cache
 
@@ -289,11 +289,25 @@ class MorphoVaultData(TypedDict):
     manager_name: str | None
 
 
+@dataclass(slots=True)
+class _MorphoVaultCacheEntry:
+    """One in-process Morpho warning cache entry."""
+
+    #: Morpho warning and curator data for the vault.
+    data: MorphoVaultData
+
+    #: UTC time at which the data was fetched or written to the disk cache.
+    cached_at: datetime.datetime
+
+
 #: In-process cache of fetched vault data.
 #:
 #: Key: ``"{cache_path}:{chain_id}:{address_lower}"`` — includes cache_path
-#: so test fixtures using ``tmp_path`` get isolated entries.
-_cached_vault_data: dict[str, MorphoVaultData] = {}
+#: so test fixtures using ``tmp_path`` get isolated entries. Entries expire
+#: after the same 24-hour TTL as the disk cache: Morpho warnings can change
+#: quickly, and users complain when published vault flags are wrong. The scan
+#: pipeline must therefore check Morpho flags at least once a day.
+_cached_vault_data: dict[str, _MorphoVaultCacheEntry] = {}
 
 #: Sentinel to distinguish transient API failures from definitively-not-found
 _TRANSIENT_ERROR = object()
@@ -432,7 +446,7 @@ def fetch_morpho_vault_api_result(  # noqa: PLR0917
 
     Two-level caching is used:
 
-    1. In-process dict (``_cached_vault_data``) — fastest, lives for the process lifetime
+    1. In-process dict (``_cached_vault_data``) — fastest, 24-hour TTL
     2. Disk JSON file (24h TTL) — survives process restarts, multiprocess-safe
 
     Caching policy:
@@ -490,16 +504,20 @@ def fetch_morpho_vault_api_result(  # noqa: PLR0917
 
     address_lower = vault_address.lower()
     cache_key = _get_cache_key(cache_path, chain_id, address_lower, api_version)
+    if now_ is None:
+        now_ = native_datetime_utc_now()
 
     logger.debug("Resolving Morpho GraphQL data for vault %s on chain %d", checksum_address, chain_id)
 
-    # 1. In-process cache hit
-    if cache_key in _cached_vault_data:
-        return MorphoVaultAPIResult(MorphoVaultAPIStatus.found, _cached_vault_data[cache_key])
+    # 1. In-process cache
+    cached_entry = _cached_vault_data.get(cache_key)
+    if cached_entry is not None:
+        age = now_ - cached_entry.cached_at
+        if age <= max_cache_duration:
+            return MorphoVaultAPIResult(MorphoVaultAPIStatus.found, cached_entry.data)
+        _cached_vault_data.pop(cache_key, None)
 
     # 2. Disk cache
-    if not now_:
-        now_ = native_datetime_utc_now()
 
     cache_path.mkdir(parents=True, exist_ok=True)
     file = _get_cache_file(cache_path, chain_id, address_lower, api_version)
@@ -521,7 +539,10 @@ def fetch_morpho_vault_api_result(  # noqa: PLR0917
                     file.unlink(missing_ok=True)
                     cached = _TRANSIENT_ERROR
                 if cached is not _TRANSIENT_ERROR:
-                    _cached_vault_data[cache_key] = cached  # type: ignore[assignment]
+                    _cached_vault_data[cache_key] = _MorphoVaultCacheEntry(
+                        data=cached,  # type: ignore[arg-type]
+                        cached_at=native_datetime_utc_fromtimestamp(file.stat().st_mtime),
+                    )
                     return MorphoVaultAPIResult(MorphoVaultAPIStatus.found, cached)  # type: ignore[arg-type]
 
         # 3. Fetch from API
@@ -547,7 +568,7 @@ def fetch_morpho_vault_api_result(  # noqa: PLR0917
             json.dump(serialisable, f, indent=2)
         logger.debug("Wrote Morpho vault data cache %s (%d vault warnings, %d market warnings)", file, len(result.data["vault_warnings"]), len(result.data["market_warnings"]))
 
-        _cached_vault_data[cache_key] = result.data
+        _cached_vault_data[cache_key] = _MorphoVaultCacheEntry(data=result.data, cached_at=now_)
         return result
 
 
