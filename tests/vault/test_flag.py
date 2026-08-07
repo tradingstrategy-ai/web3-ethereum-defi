@@ -32,6 +32,11 @@ def test_eth_strategy_long_duration_flag_is_not_bad_flag() -> None:
     assert get_vault_risk("ETH Strategy", address) == VaultTechnicalRisk.low
 
 
+def test_misleading_valuation_is_bad_flag():
+    """Vaults with misleading historical valuations are blacklisted."""
+    assert VaultFlag.misleading_valuation in BAD_FLAGS
+
+
 def test_oda_fact_risk_is_low() -> None:
     """ODA-FACT protocol risk is classified as low."""
     assert get_vault_risk("Kinexys") == VaultTechnicalRisk.low
@@ -145,6 +150,7 @@ def test_old_mainnet_out_of_gas_contract_is_skipped_by_multicall_blacklist() -> 
 @pytest.mark.parametrize(
     ("address", "protocol", "expected_flag", "expected_note"),
     [
+        ("0xce0b790ae0d8cf91e01f3fb69025e14569b574f3", "Lagoon Finance", VaultFlag.misleading_valuation, "misleading accounting"),
         ("0x4f55e28d36b30a638c3aa1d5cbf9c4ccb3831506", "Silo Finance", VaultFlag.illiquid, "likely illiquid"),
         ("0xae79b0d94e1c53cd2e8160899b8d58ec138d341f", "Silo Finance", VaultFlag.illiquid, "illiquid"),
         ("0xbed7c02887efd6b5eb9a547ac1a4d5e582791647", "<protocol not yet identified>", VaultFlag.abnormal_share_price, "abnormal high returns"),
