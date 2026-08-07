@@ -1,0 +1,4 @@
+interface:
+  display_name: "Document curator incident"
+  short_description: "Document or merge curator incident reports"
+  default_prompt: "Use $document-curator-incident to document these post links in the relevant curator YAML."

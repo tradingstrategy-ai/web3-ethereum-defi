@@ -1,0 +1,5 @@
+# sUSDx is Axis's staked USDx vault; its sources are tracked under usdx-axis.
+feeder-id: susdx
+name: Axis Staked USDx
+role: stablecoin
+canonical-feeder-id: usdx-axis

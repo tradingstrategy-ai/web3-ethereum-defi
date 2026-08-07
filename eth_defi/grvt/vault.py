@@ -66,11 +66,12 @@ class GRVTVaultSummary:
     #: Vault type (``prime`` or ``launchpad``)
     vault_type: str
 
-    #: Whether the vault is listed on the strategies page
-    discoverable: bool
+    #: Whether the vault is listed on the strategies page, or unknown when the
+    #: GraphQL field is missing.
+    discoverable: bool | None
 
-    #: Vault status (e.g. ``active``)
-    status: str
+    #: Vault status (e.g. ``active``), or unknown when omitted.
+    status: str | None
 
     #: Manager name
     manager_name: str
@@ -187,8 +188,12 @@ query VaultListingQuery($first: Int, $where: VaultWhereInput) {
 """
 
 
-def _graphql_node_to_summary(node: dict[str, Any]) -> GRVTVaultSummary:
+def parse_grvt_vault_summary(node: dict[str, Any]) -> GRVTVaultSummary:
     """Convert a GraphQL vault node into a :py:class:`GRVTVaultSummary`.
+
+    Missing access-status fields remain ``None`` so downstream exporters do
+    not invent public availability from a partial `GRVT GraphQL response
+    <https://edge.grvt.io/query>`__.
 
     :param node:
         Vault node dict from the GraphQL response.
@@ -215,6 +220,11 @@ def _graphql_node_to_summary(node: dict[str, Any]) -> GRVTVaultSummary:
     manager_profile_image_url = manager_info.get("profileImageURL") or None
     cover_image_url = node.get("coverImageURL") or None
 
+    raw_discoverable = node.get("discoverable")
+    discoverable = raw_discoverable if isinstance(raw_discoverable, bool) else None
+    raw_status = node.get("status")
+    status = raw_status.strip() if isinstance(raw_status, str) and raw_status.strip() else None
+
     return GRVTVaultSummary(
         vault_id=node["id"],
         chain_vault_id=int(node["chainVaultID"]),
@@ -224,8 +234,8 @@ def _graphql_node_to_summary(node: dict[str, Any]) -> GRVTVaultSummary:
         investment_philosophy=node.get("investmentPhilosophy", ""),
         risk_management_process=node.get("riskManagementProcess", ""),
         vault_type=node.get("type", ""),
-        discoverable=node.get("discoverable", False),
-        status=node.get("status", ""),
+        discoverable=discoverable,
+        status=status,
         manager_name=node.get("managerName", ""),
         categories=categories,
         manager_profile_image_url=manager_profile_image_url,
@@ -337,7 +347,7 @@ def fetch_vault_listing_graphql(
 
     logger.info("GraphQL returned %d vaults (totalCount=%d)", len(edges), total_count)
 
-    summaries = [_graphql_node_to_summary(e["node"]) for e in edges]
+    summaries = [parse_grvt_vault_summary(e["node"]) for e in edges]
 
     if only_discoverable:
         summaries = [s for s in summaries if s.discoverable]

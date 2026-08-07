@@ -112,3 +112,22 @@ def test_stablecoin_rate_refresh_can_be_disabled_for_metadata_export(monkeypatch
 
     assert summary is None
     assert called is False
+
+
+def test_every_protocol_metadata_has_light_logo_for_dark_background() -> None:
+    """Require a dark-background logo for every protocol metadata entry.
+
+    The frontend protocol-logo proxy loads ``light.png`` for each protocol
+    listing. Keep this source-tree invariant so a new protocol cannot merge
+    with metadata that would render as a broken image on the dark interface.
+
+    :return:
+        None.
+    """
+    repo_root = Path(__file__).resolve().parents[2]
+    metadata_dir = repo_root / "eth_defi" / "data" / "vaults" / "metadata"
+    formatted_logos_dir = repo_root / "eth_defi" / "data" / "vaults" / "formatted_logos"
+
+    missing = sorted(yaml_path.stem for yaml_path in metadata_dir.glob("*.yaml") if not (formatted_logos_dir / yaml_path.stem / "light.png").is_file())
+
+    assert not missing, f"Protocol metadata entries without dark-background light.png logos: {', '.join(missing)}"

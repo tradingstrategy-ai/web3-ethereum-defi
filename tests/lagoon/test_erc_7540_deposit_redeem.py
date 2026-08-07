@@ -15,11 +15,11 @@ from eth_defi.erc_4626.vault import ERC4626Vault
 from eth_defi.erc_4626.vault_protocol.lagoon.deposit_redeem import LagoonDepositManager, LagoonDepositRequest
 from eth_defi.erc_4626.vault_protocol.lagoon.vault import LagoonVault, LagoonVersion
 from eth_defi.erc_7540.deposit_redeem import ERC7540DepositTicket, ERC7540RedemptionTicket
-from eth_defi.provider.anvil import AnvilLaunch, fork_network_anvil
+from eth_defi.provider.anvil import AnvilLaunch, fork_network_anvil, fund_erc20_on_anvil, make_anvil_custom_rpc_request
 from eth_defi.provider.multi_provider import create_multi_provider_web3
 from eth_defi.token import USDC_WHALE, TokenDetails, fetch_erc20_details
 from eth_defi.trace import assert_transaction_success_with_explanation
-from eth_defi.vault.deposit_redeem import AsyncVaultRequestStatus, DepositRedeemEventAnalysis
+from eth_defi.vault.deposit_redeem import AsyncVaultRequestStatus, DepositRedeemEventAnalysis, UnsupportedVaultSimulation
 
 JSON_RPC_BASE = os.environ.get("JSON_RPC_BASE")
 
@@ -256,6 +256,9 @@ def test_erc_7540_redeem_722_capital(
     assert redemption_settlement.status_before is AsyncVaultRequestStatus.pending
     assert redemption_settlement.status_after is AsyncVaultRequestStatus.claimable
     assert redemption_settlement.transaction_hashes
+    # This self-deployed Safe already holds redemption liquidity and a standing
+    # approval, so the driver injects nothing: a real-liquidity settlement.
+    assert redemption_settlement.synthetic_assets_injected_raw == 0
 
     # Claim
     assert deposit_manager.can_finish_redeem(redeem_ticket)
@@ -280,3 +283,74 @@ def test_erc_7540_redeem_722_capital(
     assert isinstance(redeem_result.block_timestamp, datetime.datetime)
     assert redeem_result.share_count == pytest.approx(Decimal("960.645517122092231912"))
     assert redeem_result.denomination_amount == pytest.approx(Decimal("1000"))
+
+
+@flaky.flaky
+def test_erc_7540_settle_synthetically_provisions_shared_redemption_queue_by_default(
+    vault: ERC4626Vault,
+    test_user: HexAddress,
+    usdc: TokenDetails,
+) -> None:
+    """Simulated Lagoon settlement must tolerate a short Safe redemption queue.
+
+    1. Deposit, settle and claim shares on the reference Lagoon vault.
+    2. Confirm that the healthy deposit settlement needed no synthetic liquidity.
+    3. Queue a redemption and reproduce a Safe with no allowance or liquid assets.
+    4. Verify strict mode refuses the short Safe before settlement.
+    5. Verify the default Anvil simulation restores the allowance, injects
+       synthetic liquidity and makes the request claimable with honest metadata.
+    6. Claim the settled redemption.
+    """
+    web3 = vault.web3
+    deposit_manager = vault.get_deposit_manager()
+    assert isinstance(deposit_manager, LagoonDepositManager)
+
+    # 1. Deposit -> settle -> claim shares.
+    amount = Decimal(1_000)
+    assert_transaction_success_with_explanation(web3, usdc.approve(vault.address, amount).transact({"from": test_user}))
+    deposit_ticket = deposit_manager.create_deposit_request(test_user, amount=amount).broadcast()
+    deposit_settlement = deposit_manager.force_settle(deposit_ticket)
+
+    # 2. The healthy deposit settlement uses only real fork state.
+    assert deposit_settlement.synthetic_assets_injected_raw == 0
+    assert deposit_settlement.liquidity_constraints_ignored is False
+    assert_transaction_success_with_explanation(web3, deposit_manager.finish_deposit(deposit_ticket).transact({"from": test_user, "gas": 1_000_000}))
+    share_count = vault.share_token.fetch_balance_of(test_user)
+
+    # 2. Queue a redemption.
+    assert_transaction_success_with_explanation(web3, vault.share_token.approve(vault.address, share_count).transact({"from": test_user}))
+    redeem_ticket = deposit_manager.create_redemption_request(test_user, shares=share_count).broadcast()
+    assert isinstance(redeem_ticket, ERC7540RedemptionTicket)
+
+    # 3. Reproduce the short Safe and missing approval:
+    #  (b) revoke the standing approval so _settleRedeem's transferFrom reverts;
+    #  (a) drain the Safe's USDC so _settleRedeem would silently stall.
+    safe_address = vault.safe_address
+    make_anvil_custom_rpc_request(web3, "anvil_impersonateAccount", [safe_address])
+    make_anvil_custom_rpc_request(web3, "anvil_setBalance", [safe_address, hex(10**18)])
+    assert_transaction_success_with_explanation(web3, usdc.contract.functions.approve(vault.address, 0).transact({"from": safe_address}))
+    fund_erc20_on_anvil(web3, usdc.address, safe_address, 1)  # ~drain
+    assert int(usdc.contract.functions.allowance(safe_address, vault.address).call()) == 0
+    assert usdc.fetch_raw_balance_of(safe_address) == 1
+
+    # 4. Strict mode retains the real-liquidity validation for callers that
+    # need it, without broadcasting a partially successful settlement.
+    with pytest.raises(UnsupportedVaultSimulation) as exc_info:
+        deposit_manager.force_settle(redeem_ticket, ignore_liquidity=False)
+    assert exc_info.value.unsupported_reason == "lagoon_settlement_insufficient_liquidity"
+
+    # 5. Default Anvil simulation must re-approve, top up the shortfall and
+    # settle to claimable. This is the path used by vault-trade simulation.
+    redemption_settlement = deposit_manager.force_settle(redeem_ticket)
+    assert redemption_settlement.status_before is AsyncVaultRequestStatus.pending
+    assert redemption_settlement.status_after is AsyncVaultRequestStatus.claimable
+    # Non-zero: liquidity was synthetically injected, so a claimable result here
+    # does NOT prove the live vault could pay this redemption.
+    assert redemption_settlement.synthetic_assets_injected_raw > 0
+    assert redemption_settlement.liquidity_constraints_ignored is True
+
+    # 6. The claim now succeeds and the user receives the underlying.
+    assert deposit_manager.can_finish_redeem(redeem_ticket)
+    usdc_before = usdc.fetch_raw_balance_of(test_user)
+    assert_transaction_success_with_explanation(web3, deposit_manager.finish_redemption(redeem_ticket).transact({"from": test_user, "gas": 1_000_000}))
+    assert usdc.fetch_raw_balance_of(test_user) > usdc_before

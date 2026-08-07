@@ -19,10 +19,11 @@ jobs:
     # Reserved multicore instance for running tests
     runs-on:
       group: Beefy runners
-    # Hard cap — test job typically runs ~7-9 min on Beefy on warm cache;
-    # cold-cache or slow external RPC runs can exceed 15 min. 20 min keeps
-    # enough headroom for bounded provider failover while still killing stalls.
-    timeout-minutes: 20
+    # Hard 15-minute cap — do NOT raise it. If a run exceeds 15 min, fix the
+    # test runs (warm the fork RPC cache, isolate/repair flaky tests, speed up
+    # fixtures), not the timeout. Growing a CI timeout hides the real slowdown
+    # instead of surfacing it.
+    timeout-minutes: 15
 
     # Only run the action for the latest push
     # See https://docs.github.com/en/actions/using-jobs/using-concurrency#example-only-cancel-in-progress-jobs-or-runs-for-the-current-workflow
@@ -98,15 +99,12 @@ jobs:
       - name: Install Ganache
         run: yarn global add ganache
 
-      # Split the Foundry cache in two:
-      #  1. The pinned toolchain binaries — immutable key, never needs updating.
-      #  2. The Anvil fork RPC cache (~/.foundry/cache/rpc) — one STABLE,
-      #     accumulating cache. GitHub caches are immutable and saved only on a
-      #     key miss, so to keep it GROWING we use a unique per-run key
-      #     (github.run_id) + a stable restore-keys prefix, and save it with
-      #     `if: always()` (end of job). Each run restores the newest cache and
-      #     saves back a superset, so it self-warms and persists across runs —
-      #     no monthly reset. Bounded naturally (finite fixed fork blocks).
+      # Cache only the pinned toolchain binaries (immutable key). The Anvil fork
+      # RPC cache is NOT an Actions cache: the warm fork cache ships in the repo
+      # (eth_defi/testing/rpc_cache_seed/, auto-applied by the
+      # _seed_foundry_rpc_cache session fixture), so every runner — not just
+      # GitHub Actions — starts warm with no cross-run cache dependency. See
+      # eth_defi/testing/README.md section 5.
       - name: Cache Foundry toolchain
         uses: actions/cache@v4
         with:
@@ -115,20 +113,6 @@ jobs:
           restore-keys: |
             foundry-toolchain-v1.2.3-
             foundry-toolchain-
-
-      # Restore the Anvil fork RPC cache (layout rpc/<network-name>/<block>/*.json).
-      # Split from the save step (end of job) so the cache is saved with
-      # `if: always()` even on failure — a plain actions/cache@v4 only saves on
-      # success, which kept the cache cold and re-hammered the archive provider.
-      - name: Restore Foundry fork RPC cache
-        uses: actions/cache/restore@v4
-        with:
-          path: ~/.foundry/cache/rpc
-          key: foundry-rpc-v1.2.3-${{ runner.os }}-${{ github.run_id }}
-          # Stable prefix: restore the newest accumulated cache from any prior
-          # run (the fork cache is naturally bounded — finite fixed blocks).
-          restore-keys: |
-            foundry-rpc-v1.2.3-${{ runner.os }}-
 
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@v1
@@ -260,16 +244,6 @@ jobs:
           else
             echo "No pytest log captured." >> "$GITHUB_STEP_SUMMARY"
           fi
-
-      # Persist the fork RPC cache even on failure so blocks read this run
-      # replay from disk next run (fewer archive round-trips). run_id key always
-      # writes a fresh entry; the restore step's stable prefix picks up the latest.
-      - name: Save Foundry fork RPC cache
-        if: always()
-        uses: actions/cache/save@v4
-        with:
-          path: ~/.foundry/cache/rpc
-          key: foundry-rpc-v1.2.3-${{ runner.os }}-${{ github.run_id }}
 
       # Ruff format check now runs in .github/workflows/lint.yml on the free
       # ubuntu-latest runner. Keeping it out of the Beefy job saves billable

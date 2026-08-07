@@ -37,6 +37,7 @@ from eth_defi.types import Percent
 from eth_defi.vault.base import TradingUniverse, VaultFlowManager, VaultHistoricalReader, VaultInfo, VaultPortfolio, VaultSpec
 from eth_defi.vault.fee import BROKEN_FEE_DATA, FeeData, VaultFeeMode
 from eth_defi.vault.lower_case_dict import LowercaseDict
+from eth_defi.vault.price_source import PriceSource
 
 logger = logging.getLogger(__name__)
 
@@ -343,6 +344,18 @@ class OdaFactVault(TokenisedFundVault):
         """
 
         return None
+
+    def get_share_price_source(self) -> PriceSource | None:
+        """Return the ODA-FACT share-price source classification.
+
+        JLTXX is exported using the explicitly labelled USD 1 NAV estimate.
+        MONY has no share-price observation and therefore remains unknown.
+
+        :return:
+            Fixed-price source for JLTXX, otherwise ``None``.
+        """
+
+        return None if is_mony(self.address) else PriceSource.fixed_price
 
     def fetch_share_price(self, block_identifier: BlockIdentifier = "latest") -> Decimal | None:
         """Fetch ODA-FACT share price when an authorised source is available.

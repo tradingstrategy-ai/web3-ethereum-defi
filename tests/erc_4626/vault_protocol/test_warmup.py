@@ -144,7 +144,10 @@ def test_warmup_skips_already_checked(web3: Web3):
     assert len(results2) == 0, "Second warmup should skip already-checked calls"
 
 
-@flaky.flaky(max_runs=3)
+# One retry only (max_runs default = 2), matching the rest of the
+# vault_protocol suite: a genuine outage should fail fast rather than burn a
+# third full run against a stalled Plasma upstream.
+@flaky.flaky
 def test_warmup_affects_multicall_generation(web3: Web3):
     """Test that broken calls are actually skipped in multicall generation.
 

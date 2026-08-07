@@ -2,18 +2,27 @@
 
 ## Source
 
-- Website: https://www.axil.pro/
-- Source asset: https://www.axil.pro/images/icons/axil.svg
-- Extracted from the official AXIL homepage header logo on 2026-06-25.
+- Official website: https://www.axil.pro/
+- Brandmark source: https://www.axil.pro/favicon.ico (the site's 256 x 256 favicon)
+- Extracted on 2026-07-30.
 
-## Files
+The favicon is the compact AXIL brandmark (a triangular cut-out in a circular
+mark), so it is preferred over the previous wide `AXIL` wordmark for small
+vault cards. The original header wordmark remains in `axil.generic.svg` as
+provenance, but is not used for the formatted artwork.
 
-- `axil.generic.svg` - official AXIL wordmark SVG from the homepage header.
+## Files and processing
 
-## Processing
+- `axil.brandmark.png` - 256 x 256 RGBA copy of the official favicon.
+- `formatted_logos/axil/{generic,light,dark}.png` - 256 x 256 transparent
+  outputs generated from the brandmark with `scripts/logos/post-process-logo.py`.
 
-The formatted logo was generated with:
+The standard pipeline was run once for each variant:
 
 ```shell
-INPUT_IMAGE=eth_defi/data/vaults/original_logos/axil/axil.generic.svg OUTPUT_IMAGE=eth_defi/data/vaults/formatted_logos/axil/generic.png poetry run python scripts/logos/post-process-logo.py
+for variant in generic light dark; do
+  INPUT_IMAGE=eth_defi/data/vaults/original_logos/axil/axil.brandmark.png \
+  OUTPUT_IMAGE=eth_defi/data/vaults/formatted_logos/axil/$variant.png \
+  poetry run python scripts/logos/post-process-logo.py
+done
 ```

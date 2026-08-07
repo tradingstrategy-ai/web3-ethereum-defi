@@ -10,21 +10,21 @@
 """
 
 import datetime
+import logging
 from decimal import Decimal
 from functools import cached_property
-import logging
 from typing import Iterable
 
+from eth_typing import BlockIdentifier, HexAddress
 from web3 import Web3
 
-from eth_typing import BlockIdentifier
-
+from eth_defi.abi import ZERO_ADDRESS_STR
 from eth_defi.chain import get_chain_name
 from eth_defi.erc_4626.vault import ERC4626HistoricalReader, ERC4626Vault
 from eth_defi.erc_4626.vault_protocol.euler.offchain_metadata import EulerVaultMetadata, fetch_euler_vault_metadata
 from eth_defi.event_reader.multicall_batcher import EncodedCall, EncodedCallResult
 from eth_defi.types import Percent
-from eth_defi.vault.base import VaultHistoricalRead, VaultHistoricalReader, VaultTechnicalRisk
+from eth_defi.vault.base import INSTANT_WITHDRAWAL_PERIOD, VaultHistoricalRead, VaultHistoricalReader, VaultTechnicalRisk, WithdrawalPeriod
 from eth_defi.vault.flag import BAD_FLAGS, get_vault_special_flags
 
 logger = logging.getLogger(__name__)
@@ -33,6 +33,11 @@ logger = logging.getLogger(__name__)
 CASH_SIGNATURE = Web3.keccak(text="cash()")[0:4]
 TOTAL_BORROWS_SIGNATURE = Web3.keccak(text="totalBorrows()")[0:4]
 INTEREST_FEE_SIGNATURE = Web3.keccak(text="interestFee()")[0:4]
+HOOK_CONFIG_SIGNATURE = Web3.keccak(text="hookConfig()")[0:4]
+
+#: EVK operation bitmap values from ``Constants.sol``.
+EULER_OP_DEPOSIT = 1 << 0
+EULER_OP_MINT = 1 << 1
 
 #: Monad mainnet chain id.
 MONAD_CHAIN_ID = 143
@@ -69,6 +74,17 @@ ALPHAGROWTH_EULER_LIGHT_MONAD_METADATA: dict[str, EulerVaultMetadata] = {
 }
 
 ALPHAGROWTH_EULER_LIGHT_MONAD_VAULTS = frozenset(ALPHAGROWTH_EULER_LIGHT_MONAD_METADATA.keys())
+
+
+#: Usual's bUSD0 Zero Rate Vault is detected through the EulerEarn-compatible
+#: supply queue interface, but it is not listed in Euler's public Earn metadata.
+#: Euler's app therefore displays ``Unable to load Vault`` for this address.
+#: Fira maintains the vault's working user interface.
+#:
+#: Source: https://app.fira.money/market/busd0-usd0?type=variable
+FIRA_EULER_EARN_VAULT_LINKS: dict[tuple[int, str], str] = {
+    (1, "0xfe7c47895edb12a990b311df33b90cfea1d44c24"): "https://app.fira.money/market/busd0-usd0?type=variable",
+}
 
 
 def is_alphagrowth_euler_light_vault(chain_id: int, vault_address: str) -> bool:
@@ -257,6 +273,55 @@ class EulerVault(ERC4626Vault):
     TODO: Fees
     """
 
+    def is_whitelisted_deposit(self) -> bool:
+        """Determine whether EVK deposit hooks impose an identity gate.
+
+        Euler Vault Kit exposes the hook target and operation bitmap through
+        ``hookConfig()``. Deposits are permissionless when neither ``deposit``
+        nor ``mint`` is hooked. A zero hook target with either bit set disables
+        that operation for everyone, which is availability rather than KYC.
+        A non-zero custom hook is not assumed to be an allow-list because EVK
+        hooks are arbitrary protocol extensions.
+
+        :return:
+            ``False`` for the canonical unhooked or globally disabled cases.
+        :raise NotImplementedError:
+            If a custom deposit or mint hook needs protocol-specific analysis.
+        """
+        hook_target, hooked_ops = self.fetch_hook_config()
+        deposit_hooks = hooked_ops & (EULER_OP_DEPOSIT | EULER_OP_MINT)
+        if deposit_hooks == 0 or hook_target.lower() == ZERO_ADDRESS_STR:
+            return False
+        raise NotImplementedError(f"Euler EVK vault {self.address} uses custom deposit hooks {hook_target} with operation bitmap {hooked_ops:#x}")
+
+    def fetch_hook_config(self, block_identifier: BlockIdentifier | None = None) -> tuple[HexAddress, int]:
+        """Read the canonical EVK hook target and operation bitmap.
+
+        EVK's `hookConfig()` packs the hook contract and operation bitmap into
+        its standard return tuple. Deposit permission classification only uses
+        the deposit and mint bits.
+
+        See `Euler Vault Kit hooks <https://github.com/euler-xyz/euler-vault-kit/blob/master/docs/whitepaper.md#hooks>`__.
+
+        :param block_identifier:
+            Block at which the EVK configuration is inspected.
+        :return:
+            Hook contract address and complete hooked-operation bitmap.
+        """
+        call = EncodedCall.from_keccak_signature(
+            address=self.address,
+            signature=HOOK_CONFIG_SIGNATURE,
+            function="hookConfig",
+            data=b"",
+            extra_data=None,
+        )
+        if block_identifier is None:
+            block_identifier = self._get_block_identifier()
+        data = call.call(self.web3, block_identifier)
+        hook_target = Web3.to_checksum_address(data[12:32])
+        hooked_ops = int.from_bytes(data[32:64], byteorder="big")
+        return hook_target, hooked_ops
+
     def get_risk(self) -> VaultTechnicalRisk | None:
         # Check for vault-specific flags (e.g., xUSD exposure) first
         flags = get_vault_special_flags(self.address)
@@ -341,6 +406,9 @@ class EulerVault(ERC4626Vault):
     def get_estimated_lock_up(self) -> datetime.timedelta | None:
         return datetime.timedelta(days=0)
 
+    def get_withdrawal_period(self) -> WithdrawalPeriod:
+        return INSTANT_WITHDRAWAL_PERIOD
+
     def get_link(self, referral: str | None = None) -> str:
         """Get link to the Euler EVK vault frontend.
 
@@ -360,8 +428,7 @@ class EulerVault(ERC4626Vault):
         if is_alphagrowth_euler_light_vault(self.chain_id, self.vault_address):
             return f"{ALPHAGROWTH_EULER_LIGHT_BASE_URL}/lend/{self.vault_address}"
 
-        chain_name = get_chain_name(self.chain_id).lower()
-        return f"https://app.euler.finance/earn/{self.vault_address}?network={chain_name}"
+        return f"https://app.euler.finance/lend/{self.vault_address}?network={self.chain_id}"
 
     def can_check_redeem(self) -> bool:
         """Euler EVK does NOT support address(0) checks for redemption availability."""
@@ -463,6 +530,14 @@ class EulerEarnVault(ERC4626Vault):
     - Example vault: https://snowtrace.io/address/0xE1A62FDcC6666847d5EA752634E45e134B2F824B
     """
 
+    def is_whitelisted_deposit(self) -> bool:
+        """Report canonical EulerEarn vault deposits as permissionless.
+
+        :return:
+            Always ``False`` because EulerEarn has no depositor identity gate.
+        """
+        return False
+
     def get_risk(self) -> VaultTechnicalRisk | None:
         """EulerEarn vaults have negligible risk due to battle-tested infrastructure.
 
@@ -527,13 +602,24 @@ class EulerEarnVault(ERC4626Vault):
         """
         return datetime.timedelta(days=0)
 
+    def get_withdrawal_period(self) -> WithdrawalPeriod:
+        return INSTANT_WITHDRAWAL_PERIOD
+
     def get_link(self, referral: str | None = None) -> str:
         """Get link to EulerEarn vault on Euler app.
 
-        EulerEarn vaults are shown on the Euler Finance app under the "earn" section.
+        EulerEarn vaults are shown on the Euler Finance app under the "earn"
+        section. The app's canonical ``network`` value is the numerical EVM
+        chain id. Some EulerEarn-compatible vaults are not listed by Euler and
+        use their own frontend instead.
         """
-        chain_name = get_chain_name(self.chain_id).lower()
-        return f"https://app.euler.finance/earn/{self.vault_address}?network={chain_name}"
+        del referral
+
+        custom_link = FIRA_EULER_EARN_VAULT_LINKS.get((self.chain_id, self.vault_address.lower()))
+        if custom_link:
+            return custom_link
+
+        return f"https://app.euler.finance/earn/{self.vault_address}?network={self.chain_id}"
 
     def get_supply_queue_length(self, block_identifier: BlockIdentifier = "latest") -> int | None:
         """Get the number of strategies in the supply queue.

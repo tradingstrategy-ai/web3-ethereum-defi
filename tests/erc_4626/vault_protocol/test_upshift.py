@@ -22,6 +22,7 @@ from eth_defi.testing.anvil_fork_pool import AnvilForkPool
 from eth_defi.testing.evm_snapshot_fixture import evm_snapshot_revert
 from eth_defi.testing.fork_blocks import ETHEREUM_MIDNIGHT_BLOCK
 from eth_defi.token import TokenDiskCache
+from eth_defi.vault.base import WithdrawalDelayType
 from eth_defi.vault.deposit_redeem import VaultFlowUnavailable
 from eth_defi.vault.fee import VaultFeeMode
 from eth_defi.vault.risk import VaultTechnicalRisk
@@ -33,6 +34,7 @@ pytestmark = pytest.mark.skipif(JSON_RPC_ETHEREUM is None, reason="JSON_RPC_ETHE
 UPSHIFT_MULTI_ASSET_FORK_BLOCK = 25_405_251
 UPSHIFT_TORI_VAULT = "0xcd69123b3FBBfC666E1f6a501da27B564C00De54"
 UPSHIFT_CTUSD_VAULT = "0xc87DBBB8C67e4F19fCD2E297c05937567b2572Ce"
+UPSHIFT_NEMO_USDC_VAULT = "0x955256B31097dDf47a9E47A95aDfDFB4460D8522"
 UPSHIFT_SENTORA_USD_EARN_VAULT = "0x74ad2f789ed583dbd141bbdafc673fe1f033718b"
 UPSHIFT_SENTORA_ONE_USDT_RAW_SHARES = 969_683
 UPSHIFT_SENTORA_INSTANT_REDEMPTION_FEE = 0.002
@@ -175,9 +177,11 @@ def test_upshift_multi_asset_vault_metadata(
     assert vault.fetch_share_price(UPSHIFT_MULTI_ASSET_FORK_BLOCK) > 0
     assert vault.get_deposit_manager_capability().as_dict() == {
         "can_deposit": True,
-        "can_redeem": False,
+        "can_redeem": True,
         "deposit_flow": "synchronous",
-        "redemption_unsupported_reason": "multi_asset_application_flow_not_implemented",
+        "redemption_flow": "asynchronous",
+        "supports_anvil_settlement": False,
+        "anvil_settlement_unsupported_reason": "upshift_operator_settlement_requires_mock",
         "deposit_assets": [token.address for token in denomination_tokens],
     }
     assert vault.fetch_total_assets(UPSHIFT_MULTI_ASSET_FORK_BLOCK) > 0
@@ -192,6 +196,23 @@ def test_upshift_multi_asset_vault_metadata(
     link = vault.get_link()
     assert "app.upshift.finance" in link
     assert Web3.to_checksum_address(vault_address) in link
+
+
+@pytest.mark.xdist_group("fork:ethereum:upshift-metadata")
+def test_upshift_nemo_withdrawal_period(web3: Web3) -> None:
+    """NEMO exports its vault-specific Upshift withdrawal timelock."""
+    vault = create_vault_instance_autodetect(web3, vault_address=UPSHIFT_NEMO_USDC_VAULT)
+
+    assert isinstance(vault, UpshiftVault)
+    assert vault.multi_asset_like is True
+
+    period = vault.get_withdrawal_period()
+    configured_lag = vault.upshift_contract.functions.lagDuration().call()
+
+    assert period is not None
+    assert period.min_period == datetime.timedelta(seconds=configured_lag)
+    assert period.max_period == datetime.timedelta(seconds=configured_lag)
+    assert period.delay_type is WithdrawalDelayType.delay
 
 
 @pytest.mark.xdist_group("fork:ethereum:midnight")
@@ -215,9 +236,11 @@ def test_upshift_sentora_multi_asset_deposit_lifecycle(sentora_web3: Web3, sento
     capability = vault.get_deposit_manager_capability()
     assert capability.as_initial_public_schema() == {
         "can_deposit": True,
-        "can_redeem": False,
+        "can_redeem": True,
         "deposit_flow": "synchronous",
-        "redemption_unsupported_reason": "multi_asset_application_flow_not_implemented",
+        "redemption_flow": "asynchronous",
+        "supports_anvil_settlement": False,
+        "anvil_settlement_unsupported_reason": "upshift_operator_settlement_requires_mock",
         "deposit_assets": [token.address for token in manager.fetch_accepted_assets()],
     }
     assert manager.has_synchronous_deposit() is True
@@ -229,8 +252,7 @@ def test_upshift_sentora_multi_asset_deposit_lifecycle(sentora_web3: Web3, sento
         manager.create_deposit_request(owner=owner, raw_amount=raw_amount)
     with pytest.raises(VaultFlowUnavailable, match="explicitly selected"):
         manager.estimate_deposit(owner, Decimal(1))
-    with pytest.raises(VaultFlowUnavailable, match="not implemented"):
-        manager.estimate_redeem(owner, Decimal(1))
+    assert manager.estimate_redeem(owner, Decimal(1)) > 0
 
     assert manager.estimate_deposit_for_asset(owner, Decimal(1), asset.address) == Decimal("0.969683")
     max_deposit = manager.fetch_max_deposit_for_asset(asset.address)
@@ -239,6 +261,15 @@ def test_upshift_sentora_multi_asset_deposit_lifecycle(sentora_web3: Web3, sento
     assert manager.estimate_deposit_for_asset(owner, Decimal(1), eighteen_decimal_asset.address) == Decimal("0.969683")
     eighteen_decimal_max_deposit = manager.fetch_max_deposit_for_asset(eighteen_decimal_asset.address)
     assert eighteen_decimal_asset.convert_to_decimals(eighteen_decimal_max_deposit) == asset.convert_to_decimals(max_deposit)
+
+    # The generic deposit-limit hook answers from the multi-asset reader (first
+    # accepted asset) instead of raising ABIFunctionNotFound on the missing
+    # ERC-4626 maxDeposit.
+    first_asset = manager.fetch_accepted_assets()[0]
+    hook_limit = manager.fetch_depositable_raw_assets(owner)
+    assert hook_limit == manager.fetch_max_deposit_for_asset(first_asset.address)
+    assert hook_limit > 0
+
     with pytest.raises(VaultFlowUnavailable, match="protocol limits") as exc_info:
         manager.create_deposit_request(
             owner=owner,

@@ -2,7 +2,7 @@
 
 HyperEVM produces two types of blocks:
 
-- **Small blocks** (~2-3M gas, every ~1 second): normal transactions
+- **Small blocks** (2M gas, every ~1 second): normal transactions
 - **Large blocks** (30M gas, every ~1 minute): contract deployments, heavy computation
 
 Transactions are routed to independent mempools based on the sender's
@@ -58,10 +58,17 @@ HYPEREVM_CHAIN_IDS: set[int] = {998, 999}
 
 #: Gas limit for HyperEVM large blocks (30M).
 #:
-#: Small blocks have ~2-3M gas; large blocks always have 30M.
+#: Small blocks have a 2M gas cap; large blocks always have 30M.
 #: Used to override ``eth_getBlock("latest")["gasLimit"]`` which may return
 #: a small block's limit even when the deployer has big blocks enabled.
 HYPEREVM_BIG_BLOCK_GAS_LIMIT: int = 30_000_000
+
+#: Conservative gas cap for HyperEVM fast-block transactions.
+#:
+#: Guard configuration must use fast blocks after contract deployment. Keep a
+#: transaction's declared gas limit at or below this value, rather than letting
+#: a generic estimate multiplier make an otherwise valid call unpublishable.
+HYPEREVM_FAST_BLOCK_GAS_LIMIT: int = 2_000_000
 
 #: Hyperliquid exchange API URL (mainnet).
 HYPERLIQUID_EXCHANGE_API_MAINNET = "https://api.hyperliquid.xyz"

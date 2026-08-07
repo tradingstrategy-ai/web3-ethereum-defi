@@ -1,7 +1,17 @@
 # Vault lead migrations
 
-Vault lead discovery is incremental. The normal scanner resumes from each
-chain's recorded cursor and only identifies events emitted after that point.
+Vault lead discovery is normally cached for seven days per chain. While the
+matching `lead-discovery-state-{chain_id}.json` cache is fresh, the all-chain
+scanner reuses the saved metadata database and skips the costly lead-discovery
+refresh. A cache expiry, a lead-detection configuration change, or
+`FORCE_LEAD_DISCOVERY=true` refreshes classifications and metadata for every
+persisted lead. It resumes event discovery from the database cursor, so it
+does not replay the chain from block 1. This cache refresh does not reset price
+data or reader states.
+
+The first discovery for a chain still requires HyperSync. The scanner refuses a
+genesis-to-head JSON-RPC event read, because it is too costly and unreliable for
+production providers.
 
 When an integration adds a discovery event or a non-ERC-4626 vault adapter,
 historical leads for that integration must be recovered through a dedicated,
@@ -19,6 +29,6 @@ adapter. It is the required replacement for whole-chain lead rediscovery and
 must be safe to run against an existing production vault database.
 
 `RESET_LEADS` has been removed. Setting it for `scan-vaults.py` is an error.
-The scanner must never restart discovery from block 1, because that can refresh
-unrelated metadata and makes a targeted protocol migration depend on every
-historical discovery adapter.
+Use the bounded all-chain cache refresh only for the scanner's automatic
+configuration and expiry policy; protocol migrations remain targeted so they
+can update their reviewed leads without changing unrelated vault histories.

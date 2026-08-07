@@ -39,6 +39,13 @@ interactions with these vault in your application:
 - Query your vault positions
 - Query vault redemption delays
 
+Withdrawal periods are exported in public lifetime metrics. Gains and legacy
+Ostium V1 withdrawals use a delay of one to three Open PnL epochs, selected by
+the collateralisation ratio. Ostium V1.5 uses its onchain settlement interval
+and withdrawal-settlement delay; the export includes one additional interval
+as the maximum because a request can arrive immediately after a settlement.
+All of these records use ``withdrawal_delay_type: "delay"``.
+
 For the example usage, see :py:class:`~eth_defi.erc_4626.vault_protocol.gains.vault.GainsVault` class.
 
 .. autosummary::

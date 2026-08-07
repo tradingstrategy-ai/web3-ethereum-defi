@@ -71,7 +71,7 @@ class GRVTDailyMetricsDatabase:
 
     """
 
-    def __init__(self, path: Path):
+    def __init__(self, path: Path) -> None:
         """Initialise the database connection.
 
         :param path:
@@ -82,19 +82,22 @@ class GRVTDailyMetricsDatabase:
 
         path.parent.mkdir(parents=True, exist_ok=True)
 
-        import duckdb
-
         self.path = path
         self.con = duckdb.connect(str(path))
         self._init_schema()
 
-    def __del__(self):
+    def __del__(self) -> None:
         if hasattr(self, "con") and self.con is not None:
             self.con.close()
             self.con = None
 
-    def _init_schema(self):
-        """Create tables if they don't exist."""
+    def _init_schema(self) -> None:
+        """Create and migrate the database schema.
+
+        Existing metadata rows are preserved. New access columns are nullable,
+        and source values are recovered from valid stored extended metadata
+        where possible.
+        """
         initialise_perp_vault_observation_schema(self.con)
         self.con.execute("""
             CREATE TABLE IF NOT EXISTS vault_metadata (
@@ -103,6 +106,8 @@ class GRVTDailyMetricsDatabase:
                 name VARCHAR NOT NULL,
                 description VARCHAR,
                 vault_type VARCHAR,
+                discoverable BOOLEAN,
+                status VARCHAR,
                 manager_name VARCHAR,
                 tvl DOUBLE,
                 share_price DOUBLE,
@@ -115,27 +120,32 @@ class GRVTDailyMetricsDatabase:
             )
         """)
 
-        # Migrate existing databases that lack fee columns
-        try:
-            self.con.execute("ALTER TABLE vault_metadata ADD COLUMN management_fee DOUBLE")
-        except duckdb.CatalogException:
-            pass  # Column already exists
-        try:
-            self.con.execute("ALTER TABLE vault_metadata ADD COLUMN performance_fee DOUBLE")
-        except duckdb.CatalogException:
-            pass  # Column already exists
+        # New columns are nullable so existing metadata remains valid.
+        metadata_columns = (
+            "management_fee DOUBLE",
+            "performance_fee DOUBLE",
+            "extended_vault_info VARCHAR",
+            "extended_vault_info_metadata_last_updated_at TIMESTAMP",
+            "discoverable BOOLEAN",
+            "status VARCHAR",
+        )
+        for column_definition in metadata_columns:
+            self.con.execute(f"ALTER TABLE vault_metadata ADD COLUMN IF NOT EXISTS {column_definition}")
 
-        # Migrate existing databases that lack the extended vault info columns.
-        # New columns are nullable with no default, so existing rows keep all
-        # their data and simply carry NULLs until the next weekly refresh.
-        try:
-            self.con.execute("ALTER TABLE vault_metadata ADD COLUMN extended_vault_info VARCHAR")
-        except duckdb.CatalogException:
-            pass  # Column already exists
-        try:
-            self.con.execute("ALTER TABLE vault_metadata ADD COLUMN extended_vault_info_metadata_last_updated_at TIMESTAMP")
-        except duckdb.CatalogException:
-            pass  # Column already exists
+        self.con.execute("""
+            UPDATE vault_metadata
+            SET
+                discoverable = COALESCE(
+                    discoverable,
+                    TRY_CAST(json_extract_string(TRY_CAST(extended_vault_info AS JSON), '$.discoverable') AS BOOLEAN)
+                ),
+                status = COALESCE(
+                    status,
+                    json_extract_string(TRY_CAST(extended_vault_info AS JSON), '$.status')
+                )
+            WHERE extended_vault_info IS NOT NULL
+              AND (discoverable IS NULL OR status IS NULL)
+        """)
 
         self.con.execute("""
             CREATE TABLE IF NOT EXISTS vault_daily_prices (
@@ -149,11 +159,7 @@ class GRVTDailyMetricsDatabase:
             )
         """)
 
-        # Migration for existing databases: add written_at column for data auditability
-        try:
-            self.con.execute("ALTER TABLE vault_daily_prices ADD COLUMN written_at TIMESTAMP")
-        except duckdb.CatalogException:
-            pass
+        self.con.execute("ALTER TABLE vault_daily_prices ADD COLUMN IF NOT EXISTS written_at TIMESTAMP")
 
     def upsert_vault_metadata(
         self,
@@ -166,11 +172,14 @@ class GRVTDailyMetricsDatabase:
         tvl: float | None,
         share_price: float | None,
         investor_count: int | None,
+        *,
+        discoverable: bool | None = None,
+        status: str | None = None,
         management_fee: float | None = None,
         performance_fee: float | None = None,
         extended_vault_info: str | None = None,
         extended_info_max_age: datetime.timedelta = GRVT_EXTENDED_INFO_MAX_AGE,
-    ):
+    ) -> None:
         """Insert or update a vault's metadata.
 
         The regular fields (name, TVL, fees, description, ...) are updated on
@@ -185,6 +194,10 @@ class GRVTDailyMetricsDatabase:
             Vault string ID (e.g. ``VLT:xxx``).
         :param chain_vault_id:
             Numeric on-chain vault ID.
+        :param discoverable:
+            Whether GRVT lists the vault publicly on its strategies page.
+        :param status:
+            Current GRVT vault lifecycle status, such as ``active``.
         :param management_fee:
             Annual management fee as a decimal fraction (e.g. 0.01 = 1%).
         :param performance_fee:
@@ -203,16 +216,18 @@ class GRVTDailyMetricsDatabase:
             """
             INSERT INTO vault_metadata (
                 vault_id, chain_vault_id, name, description, vault_type,
-                manager_name, tvl, share_price, investor_count,
+                discoverable, status, manager_name, tvl, share_price, investor_count,
                 management_fee, performance_fee, last_updated,
                 extended_vault_info, extended_vault_info_metadata_last_updated_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT (vault_id)
             DO UPDATE SET
                 chain_vault_id = EXCLUDED.chain_vault_id,
                 name = EXCLUDED.name,
                 description = EXCLUDED.description,
                 vault_type = EXCLUDED.vault_type,
+                discoverable = COALESCE(EXCLUDED.discoverable, vault_metadata.discoverable),
+                status = COALESCE(EXCLUDED.status, vault_metadata.status),
                 manager_name = EXCLUDED.manager_name,
                 tvl = EXCLUDED.tvl,
                 share_price = EXCLUDED.share_price,
@@ -247,6 +262,8 @@ class GRVTDailyMetricsDatabase:
                 name,
                 description,
                 vault_type,
+                discoverable,
+                status,
                 manager_name,
                 tvl,
                 share_price,
@@ -381,6 +398,8 @@ def fetch_and_store_vault(
         name=summary.name,
         description=build_vault_description(summary),
         vault_type=summary.vault_type,
+        discoverable=summary.discoverable,
+        status=summary.status,
         manager_name=summary.manager_name,
         tvl=summary.tvl,
         share_price=summary.share_price,

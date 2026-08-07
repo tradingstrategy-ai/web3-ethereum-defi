@@ -233,7 +233,7 @@ def test_safe_module_initialised(
     assert guard.functions.isAllowedAsset(weth.address).call()
 
 
-@pytest.mark.skip(reason="MockSafe integration does not behave, instead use tests against real Gnosis Safe")
+@pytest.mark.skip(reason="MockSafe does not model the full Safe integration; exercise this flow on a real Gnosis Safe")
 def test_safe_module_can_trade_uniswap_v2(
     web3: Web3,
     uniswap_v2: UniswapV2Deployment,

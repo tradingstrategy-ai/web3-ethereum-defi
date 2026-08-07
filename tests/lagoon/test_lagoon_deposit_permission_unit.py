@@ -8,7 +8,7 @@ from eth_defi.erc_4626.vault_protocol.lagoon.deposit_redeem import ADDRESS_NOT_A
 from eth_defi.erc_4626.vault_protocol.lagoon.vault import LagoonVault, LagoonVersion
 from eth_defi.provider.fallback import ExtraValueError
 from eth_defi.vault.base import VaultSpec
-from eth_defi.vault.deposit_redeem import VaultFlowUnavailable
+from eth_defi.vault.deposit_redeem import UnsupportedVaultSimulation, VaultFlowUnavailable
 
 VAULT_ADDRESS = "0x0000000000000000000000000000000000000001"
 OWNER_ADDRESS = "0x0000000000000000000000000000000000000002"
@@ -207,3 +207,14 @@ def test_lagoon_v06_manager_reports_address_not_allowed() -> None:
     assert exc_info.value.decoded_error == "AddressNotAllowed"
     assert exc_info.value.function_selector == REQUEST_DEPOSIT_SELECTOR
     assert exc_info.value.error_selector == ADDRESS_NOT_ALLOWED_SELECTOR
+
+
+def test_lagoon_mock_settlement_is_typed_unsupported() -> None:
+    """Lagoon accepts the shared mock keyword without invoking its real driver."""
+    vault = object.__new__(LagoonVault)
+    vault.spec = VaultSpec(chain_id=1, vault_address=VAULT_ADDRESS)
+    manager = LagoonDepositManager(vault)
+
+    with pytest.raises(UnsupportedVaultSimulation, match="no local mock settlement driver") as exc_info:
+        manager.force_settle(object(), mock=object())
+    assert exc_info.value.unsupported_reason == "mock_settlement_driver_not_implemented"

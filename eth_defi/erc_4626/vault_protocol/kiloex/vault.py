@@ -6,6 +6,7 @@ from eth_typing import BlockIdentifier
 
 from eth_defi.erc_4626.vault import ERC4626Vault
 from eth_defi.erc_4626.vault_protocol.kiloex.constants import KILOEX_EARN_URL, KILOEX_VAULT_LINK_MATRIX
+from eth_defi.vault.base import WithdrawalDelayType, WithdrawalPeriod
 
 
 class KiloExVault(ERC4626Vault):
@@ -68,6 +69,14 @@ class KiloExVault(ERC4626Vault):
             Nine days, the maximum documented withdrawal wait.
         """
         return datetime.timedelta(days=9)
+
+    def get_withdrawal_period(self) -> WithdrawalPeriod:
+        """Return KiloEx's one-to-three epoch withdrawal range.
+
+        See the `KiloEx Hybrid Vault documentation <https://docs.kiloex.io/kiloex/about-kiloex/hybrid-vault>`__.
+        """
+        epoch = datetime.timedelta(days=3)
+        return WithdrawalPeriod(epoch, 3 * epoch, WithdrawalDelayType.epoch)
 
     def get_link(self, referral: str | None = None) -> str:  # noqa: ARG002
         """Get the KiloEx Earn page for this vault.

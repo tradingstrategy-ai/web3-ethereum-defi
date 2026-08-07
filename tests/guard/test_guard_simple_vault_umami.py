@@ -266,3 +266,29 @@ def test_guard_umami_redeem_malicious_receiver(
 
     with pytest.raises(Exception, match="Receiver not whitelisted"):
         guard.functions.validateCall(asset_manager, target, call_data).call()
+
+
+@pytest.mark.skipif(CI, reason="Flaky on CI due to Anvil fork block range errors")
+def test_guard_umami_redeem_malicious_owner(
+    umami_vault: UmamiVault,
+    asset_manager: str,
+    vault: Contract,
+    guard: Contract,
+    third_party: str,
+):
+    """Reject a redeem that tries to spend shares owned by an outsider.
+
+    Umami's non-standard redeem selector has both receiver and owner address
+    arguments. The owner must be checked just like standard ERC-4626 redeem,
+    otherwise an approved outsider share balance could be targeted.
+    """
+    redeem_fn = umami_vault.vault_contract.functions.redeem(
+        100 * 10**6,
+        0,
+        vault.address,
+        third_party,
+    )
+    target, call_data = encode_simple_vault_transaction(redeem_fn)
+
+    with pytest.raises(Exception, match="Owner not whitelisted"):
+        guard.functions.validateCall(asset_manager, target, call_data).call()

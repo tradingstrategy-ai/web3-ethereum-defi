@@ -44,8 +44,8 @@ MAX_ASSETO_PRICE_HISTORY_DAYS = 10_000
 #: These mappings are deliberately exact so an unrecognised or changed logo is
 #: surfaced as ``None`` instead of being guessed.
 ASSETO_PARTNER_ORGANISATIONS_BY_LOGO_URL: dict[str, str] = {
-    "https://static.asseto.finance/asseto/2026-02-01/dg392jckx5iud6zpxg.svg": "CMS Asset Management (HK)",
-    "https://static.asseto.finance/asseto/2026-03-19/dh6virggiynbuf4t21.svg": "CMS Asset Management (HK)",
+    "https://static.asseto.finance/asseto/2026-02-01/dg392jckx5iud6zpxg.svg": "Changfeng Asset Management Limited",
+    "https://static.asseto.finance/asseto/2026-03-19/dh6virggiynbuf4t21.svg": "Changfeng Asset Management Limited",
     "https://static.asseto.finance/asseto/2026-03-19/dh6vislm02h0udjoml.svg": "CMS Asset Management (HK)",
     "https://static.asseto.finance/asseto/2026-04-29/di5didybcyuypabu83.svg": "DFZQ / Orient Securities International",
     "https://static.asseto.finance/asseto/2026-03-19/dh6vej2bje9qdnvcrx.svg": "DL Holdings",

@@ -1,13 +1,16 @@
 """Tests for ERC-4626 scan-record feature persistence."""
 
 import datetime
+from decimal import Decimal
 
 import pytest
 
 import eth_defi.erc_4626.scan as scan_module
 from eth_defi.erc_4626.core import ERC4262VaultDetection, ERC4626Feature
+from eth_defi.vault.base import INSTANT_WITHDRAWAL_PERIOD, WithdrawalDelayType, WithdrawalPeriod
 from eth_defi.vault.deposit_redeem import VaultDepositManagerCapability
 from eth_defi.vault.fee import FeeData, VaultFeeMode
+from eth_defi.vault.price_source import PriceSource
 from eth_defi.vault.vaultdb import VaultDatabase
 
 
@@ -61,6 +64,15 @@ class _FakeVault:
         return None
 
     @staticmethod
+    def get_withdrawal_period() -> WithdrawalPeriod:
+        """Return withdrawal period metadata."""
+        return WithdrawalPeriod(
+            min_period=datetime.timedelta(days=1),
+            max_period=datetime.timedelta(days=2),
+            delay_type=WithdrawalDelayType.delay,
+        )
+
+    @staticmethod
     def get_flags() -> set:
         """Return no flags."""
         return set()
@@ -74,6 +86,21 @@ class _FakeVault:
     def get_notes() -> None:
         """Return no vault notes."""
         return None
+
+    @staticmethod
+    def get_share_price_source() -> PriceSource:
+        """Return the standard contract-state source."""
+        return PriceSource.smart_contract_state
+
+    @staticmethod
+    def fetch_minimum_deposit(_block_identifier: int) -> Decimal:
+        """Return a source-proven denomination-token minimum."""
+        return Decimal("12.5")
+
+    @staticmethod
+    def fetch_minimum_redemption(_block_identifier: int) -> Decimal:
+        """Return a source-proven absence of a redemption minimum."""
+        return Decimal(0)
 
     @staticmethod
     def fetch_scan_record_extra_data() -> dict:
@@ -98,6 +125,34 @@ class _PermissionedFakeVault(_FakeVault):
     def is_whitelisted_deposit() -> bool:
         """Report that deposits require account permission."""
         return True
+
+    @staticmethod
+    def get_whitelist_notes() -> str:
+        """Return a classification caveat."""
+        return "No permissioned hook checks were performed"
+
+
+class _LegacyInstantFakeVault(_FakeVault):
+    """Legacy adapter that explicitly reported a zero lock-up."""
+
+    @staticmethod
+    def get_estimated_lock_up() -> datetime.timedelta:
+        """Return the old zero-duration lock-up representation."""
+        return datetime.timedelta(0)
+
+    @staticmethod
+    def get_withdrawal_period() -> None:
+        """Report no structured withdrawal timing metadata."""
+        return None
+
+
+class _ExplicitInstantFakeVault(_LegacyInstantFakeVault):
+    """Legacy zero-lockup adapter that explicitly declares direct redemption."""
+
+    @staticmethod
+    def get_withdrawal_period() -> WithdrawalPeriod:
+        """Return the adapter's explicit direct-redemption timing."""
+        return INSTANT_WITHDRAWAL_PERIOD
 
 
 def _create_detection(features: set[ERC4626Feature]) -> ERC4262VaultDetection:
@@ -135,6 +190,15 @@ def test_create_vault_scan_record_persists_machine_readable_features(monkeypatch
     assert record["_detection_data"].features == features
     assert "erc_7575_like" in record["Features"]
     assert record["_deposit_manager"] is None
+    assert record["_withdrawal_period"] == WithdrawalPeriod(
+        min_period=datetime.timedelta(days=1),
+        max_period=datetime.timedelta(days=2),
+        delay_type=WithdrawalDelayType.delay,
+    )
+    assert record["_lockup"] == datetime.timedelta(days=2)
+    assert record["_share_price_source"] is PriceSource.smart_contract_state
+    assert record["_minimum_deposit"] == Decimal("12.5")
+    assert record["_minimum_redemption"] == Decimal(0)
 
 
 def test_create_vault_scan_record_persists_deposit_permission(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -155,6 +219,42 @@ def test_create_vault_scan_record_persists_deposit_permission(monkeypatch: pytes
         "can_redeem": False,
     }
     assert record["_deposit_permission"] == "whitelisted"
+    assert record["_whitelist_notes"] == "No permissioned hook checks were performed"
+
+
+def test_create_vault_scan_record_does_not_infer_instant_from_legacy_zero_lockup(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A legacy lock-up estimate cannot establish a withdrawal lifecycle."""
+    detection = _create_detection({ERC4626Feature.usdai_like})
+    monkeypatch.setattr(scan_module, "create_vault_instance", lambda *_args, **_kwargs: _LegacyInstantFakeVault())
+
+    record = scan_module.create_vault_scan_record(
+        web3=None,
+        detection=detection,
+        block_identifier=1,
+        token_cache={},
+    )
+
+    assert record["_withdrawal_period"] is None
+    assert record["_lockup"] == datetime.timedelta(0)
+
+
+def test_create_vault_scan_record_exports_explicit_instant_period(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Only an adapter's explicit direct-redemption declaration exports ``instant``."""
+    detection = _create_detection({ERC4626Feature.usdai_like})
+    monkeypatch.setattr(scan_module, "create_vault_instance", lambda *_args, **_kwargs: _ExplicitInstantFakeVault())
+
+    record = scan_module.create_vault_scan_record(
+        web3=None,
+        detection=detection,
+        block_identifier=1,
+        token_cache={},
+    )
+
+    assert record["_withdrawal_period"] == WithdrawalPeriod(
+        min_period=datetime.timedelta(0),
+        max_period=datetime.timedelta(0),
+        delay_type=WithdrawalDelayType.instant,
+    )
 
 
 def test_vault_database_dataframe_falls_back_to_detection_features() -> None:

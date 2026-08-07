@@ -428,8 +428,12 @@ def test_unified_vault_metrics_json(tmp_path):
         assert "deposit_usd" in nf
         assert "withdrawal_usd" in nf
         assert "net_flow_usd" in nf
-        assert nf["deposit_count"] >= 0
-        assert nf["withdrawal_count"] >= 0
+        if nf["data_complete"]:
+            assert nf["deposit_count"] >= 0
+            assert nf["withdrawal_count"] >= 0
+        else:
+            assert nf["deposit_count"] is None
+            assert nf["withdrawal_count"] is None
 
     # Arbitrum vault has no flow data — netflow should be null
     assert arb_vault.get("netflow") is None, f"Arbitrum vault should have null netflow, got: {arb_vault.get('netflow')}"

@@ -104,6 +104,20 @@ def clear_apy_cache() -> None:
     logger.debug("APY cache cleared")
 
 
+class GMXAPIChainUnsupported(ValueError):
+    """GMX serves no ``gmxapi.ai`` host for this chain.
+
+    A structural absence, not a failure: GMX simply does not run the
+    wallet-scoped REST service (``/positions``, ``/orders``) for every chain it
+    has contracts on — Arbitrum Sepolia is one such chain.
+
+    Distinct from a request that was attempted and failed, so callers using this
+    host as one tier of a fallback chain can skip it quietly instead of reporting
+    an error for something that will never work and needs no fixing. Subclasses
+    :class:`ValueError` so existing ``except ValueError`` handlers keep working.
+    """
+
+
 class GMXAPI:
     """
     API interaction functionality for GMX protocol.
@@ -233,7 +247,7 @@ class GMXAPI:
         """
         base = self.base_gmxapi_ai_url
         if not base:
-            raise ValueError(f"No gmxapi.ai URL configured for chain: {self.chain!r}")
+            raise GMXAPIChainUnsupported(f"No gmxapi.ai URL configured for chain: {self.chain!r}")
 
         url = f"{base}{endpoint}"
         last_error: Exception | None = None

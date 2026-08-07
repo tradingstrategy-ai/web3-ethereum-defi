@@ -3,13 +3,17 @@
 import datetime
 import logging
 from decimal import Decimal
+from functools import cached_property
 from typing import Iterable
 
 from eth_typing import BlockIdentifier, HexAddress
+from web3.contract import Contract
 
-from eth_defi.abi import ZERO_ADDRESS_STR
+from eth_defi.abi import ZERO_ADDRESS_STR, get_deployed_contract
+from eth_defi.erc_4626.core import get_deployed_erc_4626_contract
 from eth_defi.erc_4626.deposit_redeem import ERC4626DepositManager
 from eth_defi.erc_4626.vault import ERC4626HistoricalReader, ERC4626Vault
+from eth_defi.erc_4626.vault_protocol.plutus.deposit_redeem import PlutusAsyncDepositManager
 from eth_defi.event_reader.conversion import convert_int256_bytes_to_int
 from eth_defi.event_reader.multicall_batcher import EncodedCall, EncodedCallResult
 from eth_defi.vault.base import (
@@ -18,24 +22,74 @@ from eth_defi.vault.base import (
     VaultHistoricalRead,
     VaultHistoricalReader,
 )
+from eth_defi.vault.deposit_redeem import VaultDepositManager, VaultDepositManagerCapability
 
 logger = logging.getLogger(__name__)
 
+#: Plutus deployments upgraded to the ERC-7540-style asynchronous redemption
+#: contract (``HedgeVaultV2``): synchronous deposits, but ``redeem`` is disabled
+#: (reverts ``UseRequestRedeem``) and redemptions go through
+#: ``requestRedeem`` / ``fulfillRedeem`` / ``redeem(requestId, receiver)``.
+PLUTUS_ASYNC_VAULT_ADDRESSES = frozenset(
+    {
+        "0x58bfc95a864e18e8f3041d2fcd3418f48393fe6a",  # Plutus Hedge Token (plvHedge), Arbitrum
+    }
+)
+
 
 class PlutusDepositManager(ERC4626DepositManager):
-    """Plutus synchronous ERC-4626 lifecycle without ``previewDeposit``.
+    """Plutus synchronous ERC-4626 lifecycle that estimates via ``convertToShares``.
 
-    **Supported simulation path**
+    This manager serves the standard (non-async) Plutus Hedge Token
+    deployments, where both deposit and redemption are direct synchronous
+    ERC-4626 calls. The upgraded ``HedgeVaultV2`` deployment, whose ``redeem``
+    is disabled in favour of ``requestRedeem`` / ``fulfillRedeem``, uses the
+    separate :class:`PlutusAsyncDepositManager` instead (selected by
+    :meth:`PlutusVault.get_deposit_manager`). Plutus vaults are manually
+    opened and closed by an admin, so a window may simply be shut.
 
-    The selected Hedge Token deployment uses direct ERC-4626 deposit and
-    redeem calls. :meth:`force_settle` accepts ``None`` and performs the
-    shared Anvil-only no-op.
+    **Deposit process**
 
-    **Known limitations**
+    Synchronous. After ``approve()``, :meth:`create_deposit_request` builds the
+    inherited single ERC-4626 ``deposit`` call. :meth:`estimate_deposit` is
+    overridden: instead of ``previewDeposit`` (unreliable/reverting on these
+    deployments) it prices shares through the non-reverting
+    ``convertToShares(raw_amount)`` and raises :class:`ValueError` when the
+    result is zero, which indicates the deposit window is closed or pricing is
+    unavailable rather than a free deposit.
 
-    The adapter supports only direct calls while the manual deposit and
-    redemption windows are open. Queued generations, delegated operators,
-    cancellation and reclaim remain unsupported.
+    **Redemption process**
+
+    Synchronous, fully inherited. :meth:`create_redemption_request` builds a
+    single ERC-4626 ``redeem`` call returning denomination tokens to the owner
+    in the same transaction.
+
+    **Queues and settlement**
+
+    No per-owner request queue: each ``deposit`` / ``redeem`` settles in its own
+    transaction. The only gating is the admin-controlled open/closed state,
+    read at the vault level from ``maxDeposit(address(0))`` and
+    ``maxRedeem(address(0))`` (zero means closed). Queued generations, delegated
+    operators, cancellation and reclaim are not modelled.
+
+    **Lockups and cooldowns**
+
+    This manager enforces no onchain cooldown. For modelling purposes
+    :meth:`PlutusVault.get_estimated_lock_up` returns a fixed 30-day estimate
+    (from Plutus Discord guidance, since windows are manually scheduled rather
+    than time-locked in the contract).
+
+    **Whitelisting / access control**
+
+    Permissionless. No Plutus-specific whitelist is applied beyond the inherited
+    :meth:`check_deposit_whitelist` preflight; access is gated only by whether
+    the admin currently has the deposit/redemption window open.
+
+    **Anvil settlement (force_settle)**
+
+    The direct ``deposit`` and ``redeem`` calls complete in their originating
+    transaction, so the inherited :meth:`force_settle` accepts ``None`` and
+    performs the Anvil-validated shared no-op.
     """
 
     def estimate_deposit(
@@ -139,16 +193,73 @@ class PlutusVault(ERC4626Vault):
     - About plHEDGE vault: https://medium.com/@plutus.fi/introducing-plvhedge-an-automated-funding-arbitrage-vault-f2f222fa8c56
     """
 
+    def is_async_redemption_deployment(self) -> bool:
+        """Return whether this deployment uses the ERC-7540-style async redemption.
+
+        :return:
+            ``True`` for the upgraded Hedge (``HedgeVaultV2``) deployment.
+        """
+        return self.address.lower() in PLUTUS_ASYNC_VAULT_ADDRESSES
+
+    @cached_property
+    def vault_contract(self) -> Contract:
+        """Bind the deployment-appropriate ABI.
+
+        The async Hedge deployment needs the ``HedgeVaultV2`` interface for its
+        ``requestRedeem`` / ``fulfillRedeem`` / ``pendingRedeemRequest`` surface;
+        other Plutus vaults use the standard ERC-4626 interface.
+
+        :return:
+            Web3 contract bound to the vault address.
+        """
+        if self.is_async_redemption_deployment():
+            return get_deployed_contract(self.web3, "plutus/HedgeVaultV2.json", self.vault_address)
+        return get_deployed_erc_4626_contract(self.web3, self.vault_address)
+
     def get_historical_reader(self, stateful) -> VaultHistoricalReader:
         return PlutusHistoricalReader(self, stateful)
 
-    def get_deposit_manager(self) -> PlutusDepositManager:
-        """Create the Plutus lifecycle manager.
+    def get_deposit_manager(self) -> VaultDepositManager:
+        """Create the Plutus lifecycle manager for this deployment.
 
         :return:
-            Manager that avoids Plutus' reverting ``previewDeposit`` path.
+            Asynchronous-redemption manager for the upgraded Hedge deployment,
+            otherwise the synchronous manager that avoids Plutus' reverting
+            ``previewDeposit`` path.
         """
+        if self.is_async_redemption_deployment():
+            return PlutusAsyncDepositManager(self)
         return PlutusDepositManager(self)
+
+    def is_whitelisted_deposit(self) -> bool:  # noqa: PLR6301
+        """Report the Plutus adapter family's default permission policy.
+
+        Supported Plutus deployments are treated as permissionless by default.
+        Deposit and withdrawal windows remain independent global lifecycle
+        controls.
+
+        :return:
+            Always ``False``.
+        """
+        return False
+
+    def get_deposit_manager_capability(self) -> VaultDepositManagerCapability:
+        """Declare the deployment-specific deposit/redemption capability.
+
+        :return:
+            Synchronous-deposit / asynchronous-redemption capability for the
+            upgraded Hedge deployment, otherwise the fully synchronous
+            capability.
+        """
+        if self.is_async_redemption_deployment():
+            return VaultDepositManagerCapability(
+                can_deposit=True,
+                can_redeem=True,
+                deposit_flow="synchronous",
+                redemption_flow="asynchronous",
+                supports_anvil_settlement=True,
+            )
+        return self.get_synchronous_deposit_manager_capability()
 
     def has_custom_fees(self) -> bool:
         """Deposit/withdrawal fees."""

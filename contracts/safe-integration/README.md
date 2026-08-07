@@ -6,10 +6,10 @@ where the algorithm has limited access rights to open and close trades with the 
 
 ![Overview](./documentation/overview.svg)
 
-The module enables making offchain trading decision by an asset manager, either automated (algorithm) or manual (discretional trading), and then verifying that these trades are within the given security rules. 
-The security rules are in onchain `TradingStrategyModuleV0` smart contract. When an asset manager initiates a trade,
-the trade is first verified by the module, and if it passes the verification, it is executed by the Safe wallet. 
-Even if the asset manager is compromised, they cannot withdraw the capital or do harm to the liquidity providers of the vault. 
+The module lets an automated or discretionary asset manager propose trades. The onchain
+`TradingStrategyModuleV0` checks each asset-manager call against the configured guard
+rules before the Safe executes it. A narrow, reviewed configuration limits the impact of a
+compromised asset manager; it does not make an arbitrary configuration or adapter safe.
 
 - The main use case is enable safe algorithmic trading ("AI agents" or "trading bots") for vaults and private capital in Gnosis Safe wallets.
   The algorithm is hosted on [offchain oracles](https://github.com/tradingstrategy-ai/trade-executor/) called Trade Executors,
@@ -34,6 +34,42 @@ Included as Github submodules
 - Zodiac: main: https://github.com/gnosisguild/zodiac/tree/master/contractscd ..
 - Safe> v1.3.0-1: https://github.com/safe-global/safe-smart-account/
 - OpenZeppelin: release-v3.4: https://github.com/OpenZeppelin/openzeppelin-contracts
+
+## Compiler pipeline
+
+Build TradingStrategyModuleV0 with the legacy Solidity compiler pipeline
+(`via_ir = false`). The module inherits the large GuardV0 dispatcher, and with
+the default `optimizer_runs = 1` configuration the Yul IR pipeline
+produces larger deployed top-level contracts and reduces their EIP-170 margin.
+Do not select IR based on the size of an individual linked library. Keep the
+Guard and Safe integration configurations aligned, rebuild both with
+`make guard safe-integration`, and check their deployed sizes after changing
+compiler settings or guard rules. See the detailed
+[contract-size notes](../../docs/README-contract-size.md).
+
+## Security boundaries
+
+The [GuardV0 security model](../guard/README.md#security-model) defines the allowed
+senders, call sites, assets and receivers. Product deployments must provide an explicit
+asset list and keep `anyAsset` disabled. `anyAsset` remains available for development and
+mainnet rehearsals, but its `approve()` bypass cannot validate the dynamic token target and
+is unsafe as a product policy.
+
+HyperEVM strategies that need access to an open-ended native vault universe can
+instead enable `anyHypercoreVault`. This permits only unlisted Hypercore
+`vaultTransfer()` destinations and leaves the ERC-20, approval and call-site
+policies intact. It does not make a separately enabled `anyAsset` policy safe.
+
+Lagoon Safes must have a zero Safe fallback handler. The deployment helpers encode and
+verify that state, including when attaching to an existing Safe. Do not enable a fallback
+handler later: Lagoon has no need for an additional authentication path alongside Zodiac
+modules. The [Gnosis Pay post-mortem](https://www.gnosis.io/blog/post-mortem-gnosis-pay-vulnerability-exploit)
+attributes the June 2026 incident to an ERC-1271 validation bug in Zodiac Delay and Roles,
+not to a Safe fallback handler. Disabling the unused handler is therefore a deliberate
+defence-in-depth measure, not a claim about the incident's root cause.
+
+Uniswap V2/V3, CowSwap and Velora adapters are not approved for active product use until
+they have an oracle-backed cumulative maximum-slippage policy.
 
 ## Rules and whitelists
 

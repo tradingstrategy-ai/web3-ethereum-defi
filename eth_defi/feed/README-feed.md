@@ -85,6 +85,20 @@ website: { optional company website URL }
 curatorwatch: { optional CuratorWatch curator page URL }
 short_description: { optional one-line company or project summary }
 long_description: { optional multi-paragraph Markdown company or project description }
+risk:
+  status: { unknown | whitelisted | blacklisted }
+incidents:
+  - date: { ISO 8601 incident date }
+    links:
+      - { canonical evidence URL }
+    vault_addresses:
+      - { affected vault address }
+    protocols:
+      - { affected protocol slug }
+    title: { short incident title }
+    description: { Markdown incident description }
+    incident_kind: { collapse | significant_loss | minor_loss | misleading | questionable_behaviour }
+    severity: { collapse | significant_loss | minor_loss | other }
 ipor-atomist: { optional IPOR Fusion atomist display name, normally curator role }
 euler-entity: { optional Euler offchain API entity value, normally curator role }
 morpho-curator: { optional Morpho offchain API curator display name, normally curator role }
@@ -108,6 +122,14 @@ Notes:
   collected as a feed
 - `short_description` is optional feeder metadata for list and card views
 - `long_description` is optional Markdown feeder metadata for detail views
+- `risk.status` is optional curator-only manual review metadata; it defaults to
+  `unknown` when omitted and is one of `unknown`, `whitelisted`, or `blacklisted`
+- `incidents` is an optional curator-only list of documented incidents. Every
+  entry has an ISO 8601 `date`, one or more canonical evidence `links`, affected
+  `vault_addresses` and `protocols` for context, a Markdown `description`, an
+  `incident_kind` of `collapse`, `significant_loss`, `minor_loss`, `misleading`,
+  or `questionable_behaviour`, and a severity of `collapse`, `significant_loss`,
+  `minor_loss`, or `other`
 - `ipor-atomist`, `euler-entity`, `morpho-curator`, `lagoon-curator`,
   `t3tris-curator`, and `asseto-role` are
   optional curator metadata fields. They are not collected as feeds; they map
@@ -123,6 +145,27 @@ Notes:
   - one Twitter source
   - one LinkedIn source
   - one RSS source
+
+## Curator risk and incident metadata
+
+`risk` and `incidents` are accepted only in files whose `role` is `curator`.
+Omitting `risk` exports `{"status": "unknown"}`; adding an incident does not
+automatically whitelist or blacklist its curator. Risk status is a separate
+manual review decision.
+
+Incident dates must use `YYYY-MM-DD`. `links`, `vault_addresses`, and
+`protocols` must each contain at least one value, evidence links must use HTTP
+or HTTPS, and protocol values must match a lowercase slug under
+`eth_defi/data/vaults/metadata/`. Vault context may contain an EVM address or a
+protocol-native vault identifier; valid EVM addresses are normalised to
+lowercase and malformed `0x` values are rejected. The list may include a
+downstream vault when the source explicitly documents contagion through a
+position in a directly affected vault.
+
+The loader preserves Markdown in `description` and exports risk and incident
+metadata through both `CuratorMetadata` and `CuratorExportRecord`. Consumers
+therefore receive a default unknown risk status and an empty incident list even
+when the optional YAML fields are absent.
 
 ## Protocol manager metadata
 
@@ -233,7 +276,7 @@ website: https://www.gauntlet.xyz/
 short_description: Gauntlet is a DeFi risk manager.
 long_description: |
   Gauntlet builds risk management systems for lending markets, vaults and
-  other on-chain financial applications.
+  other onchain financial applications.
 twitter: gauntlet_xyz
 linkedin: gauntlet-xyz
 rss: https://medium.com/feed/gauntlet-networks
@@ -604,7 +647,7 @@ The first table shows totals for the whole run:
 - **Posts inserted** — genuinely new posts written to the database this run
   (idempotent: re-running inserts 0 if nothing changed)
 - **Posts pruned** — old posts removed by the retention window
-  (`MAX_POST_AGE_DAYS`, default 365)
+  (`MAX_POST_AGE_DAYS`, default 36,135 days / 99 years)
 
 ### Per-source breakdown
 
@@ -639,6 +682,10 @@ Columns:
   nothing new since the last run
 - **Last post** — publish timestamp of the most recent post in the database for
   this source; `-` if no posts have ever been collected
+
+When a scan inserts posts, a third dashboard table lists each new post's title
+or short description, capped at 80 characters. This makes an unexpected
+backfill visible without writing complete post bodies to daemon logs.
 
 ### Failed sources table
 
@@ -686,7 +733,7 @@ Environment variables accepted by the main scanner:
 - `WEBSHARE_API_KEY`: optional Webshare API token for proxy-backed feed fetches
 - `WEBSHARE_PROXY_MODE`: optional Webshare proxy pool mode
 - `MAX_POST_AGE_DAYS`: retention window in days for pruning old posts, default
-  `365`
+  `36135` (99 years)
 - `X_LIST_ID`: optional X list ID override for list sync
 - `X_LIST_NAME`: optional X list name to resolve when `X_LIST_ID` is unset,
   default `Best builders in DeFi`

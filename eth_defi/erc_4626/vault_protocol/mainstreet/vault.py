@@ -29,6 +29,7 @@ import logging
 from eth_typing import BlockIdentifier
 
 from eth_defi.erc_4626.vault import ERC4626Vault
+from eth_defi.vault.base import WithdrawalDelayType, WithdrawalPeriod
 
 logger = logging.getLogger(__name__)
 
@@ -114,6 +115,17 @@ class MainstreetVault(ERC4626Vault):
         The actual cooldown duration can be read from the contract.
         """
         return datetime.timedelta(days=7)
+
+    def get_withdrawal_period(self) -> WithdrawalPeriod | None:
+        """Read Mainstreet's live cooldown duration from ``StakedmsUSD``.
+
+        See the `Mainstreet protocol documentation <https://mainstreet-finance.gitbook.io/mainstreet.finance>`__.
+        """
+        try:
+            period = datetime.timedelta(seconds=self.vault_contract.functions.cooldownDuration().call())
+        except (AttributeError, ValueError):
+            return None
+        return WithdrawalPeriod(period, period, WithdrawalDelayType.delay)
 
     def get_link(self, referral: str | None = None) -> str:
         """Get the vault's web UI link.

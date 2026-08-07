@@ -7,7 +7,8 @@ import pytest
 from eth_defi.erc_4626.classification import create_vault_instance, identify_vault_features
 from eth_defi.erc_4626.core import ERC4626Feature, get_vault_protocol_name
 from eth_defi.erc_4626.scan import OPTIONAL_READ_EXCEPTIONS
-from eth_defi.midas.constants import MIDAS_MBASIS_ETHEREUM, MIDAS_MTBILL_ETHEREUM
+from eth_defi.midas.constants import MIDAS_MBASIS_ETHEREUM, MIDAS_MTBILL_ETHEREUM, MIDAS_PRODUCTS
+from eth_defi.midas.registry import iter_midas_registry_products
 from eth_defi.midas.vault import MidasVault
 from eth_defi.tokenised_fund.fdit.constants import FDIT_ETHEREUM, FDIT_HARDCODED_LEADS
 from eth_defi.tokenised_fund.fdit.vault import FditVault
@@ -21,10 +22,14 @@ from eth_defi.vault.flag import VaultFlag
 
 
 def test_midas_marks_only_mtbill_as_a_tokenised_fund() -> None:
-    """Keep Midas's product-level classification narrow."""
+    """Keep Midas's explicit product-level fund classification narrow."""
 
     assert MIDAS_MTBILL_ETHEREUM.is_tokenised_fund
     assert not MIDAS_MBASIS_ETHEREUM.is_tokenised_fund
+    mtbill_deployments = [product for product in iter_midas_registry_products(require_adapter_data=True) if product.symbol == "mTBILL"]
+    assert {product.chain_id for product in mtbill_deployments} == {1, 42161, 8453}
+    assert all(product.metadata is not None and product.metadata.is_tokenised_fund for product in mtbill_deployments)
+    assert all(MIDAS_PRODUCTS[product.chain_id, product.token.lower()].is_tokenised_fund for product in mtbill_deployments if product.token)
     web3 = SimpleNamespace(eth=SimpleNamespace(chain_id=1))
     mtbill = create_vault_instance(web3, MIDAS_MTBILL_ETHEREUM.token, features={ERC4626Feature.midas_like})
     mbasis = create_vault_instance(web3, MIDAS_MBASIS_ETHEREUM.token, features={ERC4626Feature.midas_like})

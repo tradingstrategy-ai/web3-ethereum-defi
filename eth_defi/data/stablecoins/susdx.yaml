@@ -1,0 +1,27 @@
+symbol: sUSDx
+name: Axis Staked USDx
+slug: susdx
+category: yield_bearing
+short_description: sUSDx is Axis's ERC-4626 rewards vault share token, minted when USDx is staked. Each sUSDx represents a growing amount of USDx as vested rewards accrue to the vault.
+long_description: |
+  [sUSDx](https://docs.axis.to/susdx-the-rewards-vault/susdx) is the share token of
+  Axis's StakedUSDx ERC-4626 rewards vault. Depositing USDx mints sUSDx at the current
+  exchange rate; the token balance remains fixed while each share can represent more
+  USDx as funded rewards vest.
+
+  Rewards are discretionary and accrue in the vault rather than being rebased or
+  manually claimed. Redemptions are asynchronous: holders request a redemption, wait
+  through the configured cooldown, and then claim the underlying USDx once serviced.
+links:
+  homepage: https://axis.to/
+  coingecko: ''
+  defillama: ''
+  twitter: https://x.com/AxisFDN
+contract_addresses:
+  - chain: ethereum
+    address: '0xEB892628D1E58BC475A6dCB7F5dBC4F591632AA4'
+checks:
+  twitter_last_post_at: ''
+  domain_up_at: ''
+  marked_dead_at: ''
+  information_found_missing_at: ''

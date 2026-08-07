@@ -26,6 +26,7 @@ import logging
 from eth_typing import BlockIdentifier
 
 from eth_defi.erc_4626.vault import ERC4626Vault
+from eth_defi.vault.base import INSTANT_WITHDRAWAL_PERIOD, WithdrawalPeriod
 
 logger = logging.getLogger(__name__)
 
@@ -65,6 +66,19 @@ class SingularityVault(ERC4626Vault):
         DynaVaults support instant redemption with EIP-5143 slippage protection.
         """
         return None
+
+    def get_withdrawal_period(self) -> WithdrawalPeriod:
+        """Report DynaVault's direct EIP-5143 redemption timing.
+
+        EIP-5143 adds slippage protection to the direct ERC-4626 path; it does
+        not introduce a withdrawal request, cooldown, or epoch. See the
+        `DynaVault architecture
+        <https://docs.singularityfinance.ai/sfi-value-proposition/core-pillars-of-the-sfi-l2/sfi-vaults/architecture>`__.
+
+        :return:
+            A zero-length ``instant`` period.
+        """
+        return INSTANT_WITHDRAWAL_PERIOD
 
     def get_link(self, referral: str | None = None) -> str:
         """Get link to the vault page.

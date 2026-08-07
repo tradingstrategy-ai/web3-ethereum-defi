@@ -1,17 +1,17 @@
 """Harvest Finance vault support."""
 
 import datetime
-from functools import cached_property
 import logging
+from functools import cached_property
 
-from web3.contract import Contract
 from eth_typing import BlockIdentifier
+from web3.contract import Contract
 
 from eth_defi.chain import get_chain_name
 from eth_defi.erc_4626.core import get_deployed_erc_4626_contract
 from eth_defi.erc_4626.vault import ERC4626Vault
 from eth_defi.token import TokenDetails, fetch_erc20_details
-from eth_defi.vault.base import VaultTechnicalRisk
+from eth_defi.vault.base import INSTANT_WITHDRAWAL_PERIOD, VaultTechnicalRisk, WithdrawalPeriod
 
 logger = logging.getLogger(__name__)
 
@@ -102,7 +102,14 @@ class HarvestVault(ERC4626Vault):
 
     def fetch_ftoken(self) -> TokenDetails:
         ftoken_addr = self.strategy.functions.fToken().call()
-        return fetch_erc20_details(self.web3, ftoken_addr)
+        # Pass the vault's token cache (and the chain id hint it keys on) so this
+        # metadata is not re-read over RPC on every vault instance.
+        return fetch_erc20_details(
+            self.web3,
+            ftoken_addr,
+            chain_id=self.chain_id,
+            cache=self.token_cache,
+        )
 
     @cached_property
     def strategy(self) -> Contract:
@@ -116,6 +123,9 @@ class HarvestVault(ERC4626Vault):
 
     def get_estimated_lock_up(self) -> datetime.timedelta:
         return datetime.timedelta(0)
+
+    def get_withdrawal_period(self) -> WithdrawalPeriod:
+        return INSTANT_WITHDRAWAL_PERIOD
 
     def get_link(self, referral: str | None = None) -> str:
         """Get link to the Harvest Finance app.

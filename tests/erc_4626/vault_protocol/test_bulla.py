@@ -12,9 +12,8 @@ from eth_defi.erc_4626.classification import create_probe_calls, create_vault_in
 from eth_defi.erc_4626.core import ERC4626Feature, get_vault_protocol_name
 from eth_defi.erc_4626.vault_protocol.bulla.offchain_metadata import get_bulla_vault_metadata
 from eth_defi.erc_4626.vault_protocol.bulla.vault import BullaFeeData, BullaVault
-from eth_defi.provider.anvil import AnvilLaunch, fork_network_anvil
-from eth_defi.provider.multi_provider import create_multi_provider_web3
 from eth_defi.research.vault_metrics import slugify_protocol
+from eth_defi.testing.anvil_fork_pool import AnvilForkPool
 from eth_defi.vault.fee import VaultFeeMode, get_vault_fee_mode
 from eth_defi.vault.protocol_metadata import build_metadata_json
 from eth_defi.vault.risk import VaultTechnicalRisk, get_vault_risk
@@ -25,6 +24,8 @@ BULLA_FORK_BLOCK = 486_151_800
 BULLA_PROTOCOL_FEE_BPS = 30
 BULLA_TARGET_YIELD_BPS = 800
 BULLA_INVOICE_UPFRONT_BPS = 10_000
+
+pytestmark = pytest.mark.xdist_group("fork:arbitrum:486151800")
 
 
 def test_bulla_uses_one_protocol_specific_probe() -> None:
@@ -37,19 +38,9 @@ def test_bulla_uses_one_protocol_specific_probe() -> None:
 
 
 @pytest.fixture(scope="module")
-def anvil_arbitrum_fork() -> AnvilLaunch:
-    """Fork Arbitrum at the Bulla integration's recorded latest block."""
-    launch = fork_network_anvil(JSON_RPC_ARBITRUM, fork_block_number=BULLA_FORK_BLOCK)
-    try:
-        yield launch
-    finally:
-        launch.close()
-
-
-@pytest.fixture(scope="module")
-def web3(anvil_arbitrum_fork: AnvilLaunch) -> Web3:
-    """Create a Web3 client for the deterministic Arbitrum fork."""
-    return create_multi_provider_web3(anvil_arbitrum_fork.json_rpc_url)
+def web3(anvil_fork_pool: AnvilForkPool) -> Web3:
+    """Share the read-only Bulla fork and its warmed RPC cache."""
+    return anvil_fork_pool.get_web3(JSON_RPC_ARBITRUM, BULLA_FORK_BLOCK)
 
 
 @pytest.mark.skipif(JSON_RPC_ARBITRUM is None, reason="JSON_RPC_ARBITRUM needed to run this test")

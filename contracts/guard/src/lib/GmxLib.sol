@@ -20,18 +20,17 @@ import {BytesLib} from "./BytesLib.sol";
 import {IGuardChecks} from "./IGuardChecks.sol";
 
 // Pre-computed GMX function selectors
-bytes4 constant SEL_GMX_MULTICALL = 0xac9650d8;  // multicall(bytes[])
-bytes4 constant SEL_GMX_SEND_WNT = 0x7d39aaf1;  // sendWnt(address,uint256)
-bytes4 constant SEL_GMX_SEND_TOKENS = 0xe6d66ac8;  // sendTokens(address,address,uint256)
-bytes4 constant SEL_GMX_CREATE_ORDER = 0xf59c48eb;  // createOrder(tuple)
-bytes4 constant SEL_GMX_CANCEL_ORDER = 0x7489ec23;  // cancelOrder(bytes32)
-bytes4 constant SEL_GMX_UPDATE_ORDER = 0xdd5baad2;  // updateOrder(bytes32,uint256,uint256,uint256,uint256,uint256,bool)
-bytes4 constant SEL_GMX_CLAIM_FUNDING_FEES = 0xc41b1ab3;  // claimFundingFees(address[],address[],address)
-bytes4 constant SEL_GMX_CLAIM_COLLATERAL = 0xe9249b57;  // claimCollateral(address[],address[],uint256[],address)
-bytes4 constant SEL_GMX_CLAIM_AFFILIATE_REWARDS = 0x49287a22;  // claimAffiliateRewards(address[],address[],address)
+bytes4 constant SEL_GMX_MULTICALL = 0xac9650d8; // multicall(bytes[])
+bytes4 constant SEL_GMX_SEND_WNT = 0x7d39aaf1; // sendWnt(address,uint256)
+bytes4 constant SEL_GMX_SEND_TOKENS = 0xe6d66ac8; // sendTokens(address,address,uint256)
+bytes4 constant SEL_GMX_CREATE_ORDER = 0xf59c48eb; // createOrder(tuple)
+bytes4 constant SEL_GMX_CANCEL_ORDER = 0x7489ec23; // cancelOrder(bytes32)
+bytes4 constant SEL_GMX_UPDATE_ORDER = 0xdd5baad2; // updateOrder(bytes32,uint256,uint256,uint256,uint256,uint256,bool)
+bytes4 constant SEL_GMX_CLAIM_FUNDING_FEES = 0xc41b1ab3; // claimFundingFees(address[],address[],address)
+bytes4 constant SEL_GMX_CLAIM_COLLATERAL = 0xe9249b57; // claimCollateral(address[],address[],uint256[],address)
+bytes4 constant SEL_GMX_CLAIM_AFFILIATE_REWARDS = 0x49287a22; // claimAffiliateRewards(address[],address[],address)
 
 library GmxLib {
-
     using BytesLib for bytes;
 
     // Diamond storage slot for GMX state
@@ -75,18 +74,12 @@ library GmxLib {
         emit GMXRouterApproved(exchangeRouter, syntheticsRouter, notes);
     }
 
-    function whitelistMarket(
-        address market,
-        string calldata notes
-    ) external {
+    function whitelistMarket(address market, string calldata notes) external {
         _storage().allowedMarkets[market] = true;
         emit GMXMarketApproved(market, notes);
     }
 
-    function removeMarket(
-        address market,
-        string calldata notes
-    ) external {
+    function removeMarket(address market, string calldata notes) external {
         _storage().allowedMarkets[market] = false;
         emit GMXMarketRemoved(market, notes);
     }
@@ -117,11 +110,7 @@ library GmxLib {
     /// @param exchangeRouter The GMX ExchangeRouter address
     /// @param callData The multicall calldata (bytes[])
     /// @param anyAsset Whether all assets are allowed
-    function validateMulticall(
-        address exchangeRouter,
-        bytes calldata callData,
-        bool anyAsset
-    ) external view {
+    function validateMulticall(address exchangeRouter, bytes calldata callData, bool anyAsset) external view {
         GmxStorage storage s = _storage();
         require(s.allowedRouters[exchangeRouter], "GMX router not allowed");
 
@@ -135,14 +124,15 @@ library GmxLib {
 
         for (uint256 i = 0; i < calls.length; i++) {
             require(calls[i].length >= 4, "GMX: call too short");
-            bytes4 selector = bytes4(calls[i][0]) | (bytes4(calls[i][1]) >> 8) | (bytes4(calls[i][2]) >> 16) | (bytes4(calls[i][3]) >> 24);
+            bytes4 selector = bytes4(calls[i][0]) | (bytes4(calls[i][1]) >> 8) | (bytes4(calls[i][2]) >> 16)
+                | (bytes4(calls[i][3]) >> 24);
             bytes memory innerCallData = calls[i].slice(4, calls[i].length - 4);
 
             if (selector == SEL_GMX_SEND_WNT) {
-                (address receiver, ) = abi.decode(innerCallData, (address, uint256));
+                (address receiver,) = abi.decode(innerCallData, (address, uint256));
                 require(receiver == orderVault, "GMX sendWnt: invalid receiver");
             } else if (selector == SEL_GMX_SEND_TOKENS) {
-                (address token, address receiver, ) = abi.decode(innerCallData, (address, address, uint256));
+                (address token, address receiver,) = abi.decode(innerCallData, (address, address, uint256));
                 require(receiver == orderVault, "GMX sendTokens: invalid receiver");
                 if (!anyAsset) {
                     require(guard.isAllowedAsset(token), "GMX: asset not allowed");
@@ -172,13 +162,13 @@ library GmxLib {
                 // The receiver is a fund-flow destination, so it must be a
                 // whitelisted receiver (the vault) — otherwise the asset manager
                 // could redirect claimed rewards to an arbitrary address.
-                (, , address receiver) = abi.decode(innerCallData, (address[], address[], address));
+                (,, address receiver) = abi.decode(innerCallData, (address[], address[], address));
                 require(guard.isAllowedReceiver(receiver), "GMX: receiver not allowed");
             } else if (selector == SEL_GMX_CLAIM_COLLATERAL) {
                 // claimCollateral(address[] markets, address[] tokens, uint256[] timeKeys, address receiver)
                 // Same fund-flow reasoning as the other claim functions: the
                 // receiver must be whitelisted.
-                (, , , address receiver) = abi.decode(innerCallData, (address[], address[], uint256[], address));
+                (,,, address receiver) = abi.decode(innerCallData, (address[], address[], uint256[], address));
                 require(guard.isAllowedReceiver(receiver), "GMX: receiver not allowed");
             } else {
                 revert("GMX: Unknown function in multicall");

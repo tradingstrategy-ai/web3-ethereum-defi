@@ -29,6 +29,7 @@ from eth_defi.vault.fee import FeeData, VaultFeeMode
 from eth_defi.vault.flag import VaultFlag
 from eth_defi.vault.handwritten_metadata import get_handwritten_vault_metadata
 from eth_defi.vault.lower_case_dict import LowercaseDict
+from eth_defi.vault.price_source import PriceSource
 
 MIDAS_HOMEPAGE = "https://midas.app/products"
 MIDAS_CONTRACTS_GITHUB = "https://github.com/midas-apps/contracts"
@@ -328,7 +329,7 @@ class MidasVault(VaultBase):
         metadata = get_handwritten_vault_metadata(self.chain_id, self.address)
         if metadata:
             return metadata.description
-        return self.product.product_name
+        return self.product.description or self.product.product_name
 
     @property
     def short_description(self) -> str | None:
@@ -337,7 +338,7 @@ class MidasVault(VaultBase):
         metadata = get_handwritten_vault_metadata(self.chain_id, self.address)
         if metadata:
             return metadata.short_description
-        return "Midas tokenised investment product with NAV published through the Midas oracle pipeline"
+        return self.product.short_description or "Midas tokenised investment product with NAV published through the Midas oracle pipeline"
 
     @property
     def manager_name(self) -> str | None:
@@ -348,11 +349,12 @@ class MidasVault(VaultBase):
     def get_flags(self) -> set[VaultFlag]:
         """Return the product-specific vault classification flags.
 
-        Midas serves both regulated tokenised funds and crypto strategy
-        products through the same contract family.  Only reviewed ``mTBILL``
-        product records receive the tokenised-fund listing flag.
+        Midas serves both tokenised funds and crypto strategy products through
+        the same contract family. Only products explicitly marked in the
+        reviewed Midas registry metadata receive the tokenised-fund listing
+        flag.
 
-        :return: Generic flags, with ``tokenised_fund`` for mTBILL only.
+        :return: Generic flags, with ``tokenised_fund`` for reviewed fund products.
         """
 
         flags = set(super().get_flags())
@@ -498,6 +500,18 @@ class MidasVault(VaultBase):
         if self.product.is_tokenised_fund:
             return None
         return self.fetch_primary_payment_token()
+
+    def get_share_price_source(self) -> PriceSource:
+        """Return the Midas NAV source classification.
+
+        Midas share prices are read from its deployed data-feed contracts at
+        the requested archive block.
+
+        :return:
+            Smart-contract state source.
+        """
+
+        return PriceSource.smart_contract_state
 
     def fetch_share_price(self, block_identifier: BlockIdentifier = "latest") -> Decimal:
         """Fetch Midas NAV per mToken.
@@ -782,6 +796,4 @@ class MidasVault(VaultBase):
         metadata = get_handwritten_vault_metadata(self.chain_id, self.address)
         if metadata:
             return metadata.link
-        if self.product.is_tokenised_fund:
-            return "https://midas.app/mtbill"
-        return MIDAS_HOMEPAGE
+        return self.product.product_link or MIDAS_HOMEPAGE
