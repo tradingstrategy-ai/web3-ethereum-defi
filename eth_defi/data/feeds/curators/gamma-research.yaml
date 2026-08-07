@@ -10,6 +10,20 @@ short_description: Gamma Research provides risk management and strategy curation
 long_description: |
   Gamma Research describes its work as risk management and strategy curation for DeFi and CeFi vaults, with quantitative strategies across several blockchain ecosystems.
   Upshift names Gamma Research as the strategist for its Gamma vaults, including its Ethereum USDC vault, which uses market-neutral and cross-chain strategies intended to prioritise capital protection and risk-adjusted yield.
+incidents:
+  - date: 2026-08-06
+    links:
+      - https://x.com/upshift_fi/status/2085463558385463777
+    vault_addresses:
+      - 0x998d7b14c123c1982404562b68eddb057b0477cb
+      - 0xe9b725010a9e419412ed67d0fa5f3a5f40159d32
+    protocols:
+      - upshift
+    title: apxUSD exposure caused USDC vault drawdowns
+    description: |
+      [Upshift reported](https://x.com/upshift_fi/status/2085463558385463777) that Upshift Gamma USDC held apxUSD, a synthetic dollar issued by Apyx Finance and backed primarily by dividend-bearing preferred shares, notably Strategy's STRC. According to the [first-party update](https://x.com/upshift_fi/status/2085463558385463777), STRC traded well below its $100 par value and apxUSD fell below its intended value. [Upshift said](https://x.com/upshift_fi/status/2085463558385463777) that marking down the position caused a 12.8% drawdown in Upshift Gamma USDC and an 8% drawdown in Upshift Core USDC, which held a position in the Gamma vault. The [update stated](https://x.com/upshift_fi/status/2085463558385463777) that the drawdowns were reflected in vault share prices and all other positions were unaffected and performing as expected.
+    incident_kind: significant_loss
+    severity: significant_loss
 other-links:
   - title: Upshift - Gamma USDC Vault
     url: https://app.upshift.finance/pools/1/0x998D7b14c123c1982404562b68edDB057b0477cB
