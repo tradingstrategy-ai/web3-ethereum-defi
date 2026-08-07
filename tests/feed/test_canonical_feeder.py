@@ -195,7 +195,7 @@ def test_curator_risk_and_incidents_metadata_loads(tmp_path: Path):
     yaml_path = tmp_path / "curators" / "flowdesk.yaml"
     _write_yaml(
         yaml_path,
-        "feeder-id: flowdesk\nname: Flowdesk\nrole: curator\ntwitter: flowdesk_co\nrisk:\n  status: blacklisted\nincidents:\n  - date: 2026-08-01\n    link: https://example.com/post-mortem\n    title: Incorrect valuation reported\n    description: |\n      The curator reported an **incorrect valuation**.\n    incident_kind: misleading\n    severity: significant_loss\n",
+        "feeder-id: flowdesk\nname: Flowdesk\nrole: curator\ntwitter: flowdesk_co\nrisk:\n  status: blacklisted\nincidents:\n  - date: 2026-08-01\n    links:\n      - https://example.com/post-mortem\n      - https://example.com/community-report\n    title: Incorrect valuation reported\n    description: |\n      The curator reported an **incorrect valuation**.\n    incident_kind: misleading\n    severity: significant_loss\n",
     )
 
     metadata = load_feeder_metadata(yaml_path)
@@ -205,7 +205,10 @@ def test_curator_risk_and_incidents_metadata_loads(tmp_path: Path):
     assert metadata["incidents"] == [
         {
             "date": "2026-08-01",
-            "link": "https://example.com/post-mortem",
+            "links": [
+                "https://example.com/post-mortem",
+                "https://example.com/community-report",
+            ],
             "title": "Incorrect valuation reported",
             "description": "The curator reported an **incorrect valuation**.",
             "incident_kind": "misleading",
@@ -221,11 +224,11 @@ def test_curator_risk_and_incidents_metadata_loads(tmp_path: Path):
     [
         pytest.param("risk:\n  status: pending", id="risk-status"),
         pytest.param(
-            "incidents:\n  - date: 2026-08-01\n    link: https://example.com/post-mortem\n    title: Incorrect valuation reported\n    description: Incorrect valuation reported.\n    incident_kind: operational\n    severity: other",
+            "incidents:\n  - date: 2026-08-01\n    links:\n      - https://example.com/post-mortem\n    title: Incorrect valuation reported\n    description: Incorrect valuation reported.\n    incident_kind: operational\n    severity: other",
             id="incident-kind",
         ),
         pytest.param(
-            "incidents:\n  - date: 2026-08-01\n    link: https://example.com/post-mortem\n    title: Incorrect valuation reported\n    description: Incorrect valuation reported.\n    incident_kind: misleading\n    severity: critical",
+            "incidents:\n  - date: 2026-08-01\n    links:\n      - https://example.com/post-mortem\n    title: Incorrect valuation reported\n    description: Incorrect valuation reported.\n    incident_kind: misleading\n    severity: critical",
             id="incident-severity",
         ),
     ],

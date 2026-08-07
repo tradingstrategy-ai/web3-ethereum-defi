@@ -67,7 +67,7 @@ _MAPPING_SCHEMA = Map(
             Map(
                 {
                     "date": Str(),
-                    "link": Str(),
+                    "links": Seq(Str()),
                     "title": Str(),
                     "description": Str(),
                     "incident_kind": Enum(["collapse", "significant_loss", "minor_loss", "misleading", "questionable_behaviour"]),
@@ -259,7 +259,7 @@ def _normalise_other_links(other_links: object, mapping_file: Path) -> list[dict
     return normalised_links
 
 
-def _normalise_incidents(incidents: object, mapping_file: Path) -> list[dict[str, str]] | None:
+def _normalise_incidents(incidents: object, mapping_file: Path) -> list[dict[str, str | list[str]]] | None:
     """Normalise curator incident records from YAML metadata.
 
     Incident descriptions are Markdown strings. Their dates, titles, kinds, and
@@ -277,19 +277,25 @@ def _normalise_incidents(incidents: object, mapping_file: Path) -> list[dict[str
     if incidents is None:
         return None
 
-    normalised_incidents: list[dict[str, str]] = []
+    normalised_incidents: list[dict[str, str | list[str]]] = []
     for index, incident in enumerate(incidents):
-        normalised_incident: dict[str, str] = {}
+        normalised_incident: dict[str, str | list[str]] = {}
         for field_name in ("date", "title", "description", "incident_kind", "severity"):
             value = incident.get(field_name)
             if not isinstance(value, str) or not value.strip():
                 raise ValueError(f"incidents[{index}].{field_name} must be a non-empty string in {mapping_file}")
             normalised_incident[field_name] = value.strip()
 
-        link = incident.get("link")
-        if not isinstance(link, str) or not link.strip():
-            raise ValueError(f"incidents[{index}].link must be a non-empty URL in {mapping_file}")
-        normalised_incident["link"] = _normalise_http_url(link, mapping_file)
+        links = incident.get("links")
+        if not isinstance(links, list) or not links:
+            raise ValueError(f"incidents[{index}].links must be a non-empty list of URLs in {mapping_file}")
+
+        normalised_links: list[str] = []
+        for link_index, link in enumerate(links):
+            if not isinstance(link, str) or not link.strip():
+                raise ValueError(f"incidents[{index}].links[{link_index}] must be a non-empty URL in {mapping_file}")
+            normalised_links.append(_normalise_http_url(link, mapping_file))
+        normalised_incident["links"] = normalised_links
         normalised_incidents.append(normalised_incident)
 
     return normalised_incidents

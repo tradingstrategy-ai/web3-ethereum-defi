@@ -89,7 +89,8 @@ risk:
   status: { unknown | whitelisted | blacklisted }
 incidents:
   - date: { ISO 8601 incident date }
-    link: { canonical evidence URL }
+    links:
+      - { canonical evidence URL }
     title: { short incident title }
     description: { Markdown incident description }
     incident_kind: { collapse | significant_loss | minor_loss | misleading | questionable_behaviour }
@@ -120,7 +121,7 @@ Notes:
 - `risk.status` is optional curator-only manual review metadata; it defaults to
   `unknown` when omitted and is one of `unknown`, `whitelisted`, or `blacklisted`
 - `incidents` is an optional curator-only list of documented incidents. Every
-  entry has an ISO 8601 `date`, canonical evidence `link`, Markdown
+  entry has an ISO 8601 `date`, one or more canonical evidence `links`, Markdown
   `description`, an `incident_kind` of `collapse`, `significant_loss`,
   `minor_loss`, `misleading`, or `questionable_behaviour`, and a severity of
   `collapse`, `significant_loss`, `minor_loss`, or `other`

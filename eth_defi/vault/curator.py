@@ -464,8 +464,8 @@ class CuratorIncident(TypedDict):
     #: ISO 8601 calendar date when the incident occurred.
     date: str
 
-    #: Canonical evidence URL for the incident.
-    link: str
+    #: Canonical evidence URLs for the incident.
+    links: list[str]
 
     #: Short, human-readable incident title.
     title: str
@@ -643,7 +643,7 @@ def _load_curator_yaml(yaml_path: Path) -> CuratorInfo:
     incidents = [
         CuratorIncident(
             date=incident["date"],
-            link=incident["link"],
+            links=list(incident["links"]),
             title=incident["title"],
             description=incident["description"],
             incident_kind=CuratorIncidentKind(incident["incident_kind"]),
