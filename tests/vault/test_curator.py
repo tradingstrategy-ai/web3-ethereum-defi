@@ -225,6 +225,29 @@ def test_identify_wstgbp_as_protocol_curated() -> None:
     assert get_curator_name(slug) == "wstGBP"
 
 
+def test_identify_yearn_as_protocol_curator() -> None:
+    """Identify every Yearn protocol vault as Yearn-curated.
+
+    The `yearn` protocol slug is blanket-curated: individual vault names do
+    not need to carry the Yearn brand for the curator attribution to apply.
+    """
+
+    slug = identify_curator(
+        chain_id=1,
+        vault_token_symbol="yrnUSDC",
+        vault_name="Unbranded USDC strategy",
+        vault_address="0x0000000000000000000000000000000000000001",
+        protocol_slug="yearn",
+    )
+
+    assert slug == "yearn"
+    assert get_curator_name(slug) == "Yearn"
+    assert is_protocol_curator(slug)
+    assert "https://curation.yearn.fi/" in load_curator_map()[slug]["long_description"]
+    metadata = build_curator_metadata_json(Path("eth_defi/data/feeds/curators/yearn.yaml"))
+    assert metadata["website"] == "https://curation.yearn.fi/"
+
+
 def test_identify_felix_vault() -> None:
     """Felix Morpho vault names resolve to the Felix curator.
 

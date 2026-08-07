@@ -1,8 +1,23 @@
-# Yearn curator — feeds provided by protocols/yearn.yaml
+# Yearn Curation curator — feeds provided by protocols/yearn.yaml
 feeder-id: yearn
 name: Yearn
 role: curator
-short_description: 'Yearn is a DeFi protocol that automates yield generation through vaults and related products.'
+website: https://curation.yearn.fi/
+short_description: Yearn Curation selects, monitors and manages DeFi lending-market exposure for Yearn-curated vaults.
 long_description: |
-  Yearn documentation describes yVaults as capital pools that automatically generate yield from market opportunities. The docs say vaults socialise gas costs, automate yield generation and rebalancing, and move capital as opportunities arise. Yearn also offers yLockers, which are vault products built around vote-escrow governance tokens.
+  [Yearn Curation](https://curation.yearn.fi/) is Yearn’s risk-management practice for selecting and overseeing DeFi lending markets and vaults. It publishes assessments of contract, control, funds-management, liquidity and operational risks, then uses them to set exposure limits and pursue risk-adjusted yield rather than simply the highest yield. Automated monitoring tracks market liquidity, utilisation, governance and contract changes; when alerts trigger, Yearn can reduce allocations or move funds out of affected markets. These controls seek to manage risk, but they cannot remove the smart-contract, liquidity, market or governance risks of DeFi.
 canonical-feeder-id: yearn
+
+# Evidence and background references.
+#
+# Yearn's curation documentation describes the risk reports, allocation limits,
+# continuous monitoring and emergency response used for its Morpho vaults.
+other-links:
+  - title: Yearn Curation dashboard - risk-curated yield, reports and monitoring
+    url: https://curation.yearn.fi/
+  - title: Yearn documentation - curation methodology, allocation guardrails and emergency response
+    url: https://docs.yearn.fi/getting-started/products/curating/introduction
+  - title: Yearn Curation - published risk assessment reports
+    url: https://curation.yearn.fi/reports/
+  - title: Morpho app - Yearn curator vaults
+    url: https://app.morpho.org/curator/yearn
