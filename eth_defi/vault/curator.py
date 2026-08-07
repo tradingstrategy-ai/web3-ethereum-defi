@@ -441,6 +441,16 @@ class CuratorIncidentSeverity(str, enum.Enum):
     other = "other"
 
 
+class CuratorIncidentKind(str, enum.Enum):
+    """Classifications for the nature of curator incidents."""
+
+    collapse = "collapse"
+    significant_loss = "significant_loss"
+    minor_loss = "minor_loss"
+    misleading = "misleading"
+    questionable_behaviour = "questionable_behaviour"
+
+
 class CuratorRisk(TypedDict):
     """Manual risk review information for a curator."""
 
@@ -463,8 +473,8 @@ class CuratorIncident(TypedDict):
     #: Markdown description of the incident and its impact.
     description: str
 
-    #: Curator-maintained incident category.
-    incident_kind: str
+    #: Classification describing the nature of the incident.
+    incident_kind: CuratorIncidentKind
 
     #: Impact severity classification.
     severity: CuratorIncidentSeverity
@@ -636,7 +646,7 @@ def _load_curator_yaml(yaml_path: Path) -> CuratorInfo:
             link=incident["link"],
             title=incident["title"],
             description=incident["description"],
-            incident_kind=incident["incident_kind"],
+            incident_kind=CuratorIncidentKind(incident["incident_kind"]),
             severity=CuratorIncidentSeverity(incident["severity"]),
         )
         for incident in parsed.get("incidents", [])

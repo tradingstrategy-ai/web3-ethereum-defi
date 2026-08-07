@@ -70,7 +70,7 @@ _MAPPING_SCHEMA = Map(
                     "link": Str(),
                     "title": Str(),
                     "description": Str(),
-                    "incident_kind": Str(),
+                    "incident_kind": Enum(["collapse", "significant_loss", "minor_loss", "misleading", "questionable_behaviour"]),
                     "severity": Enum(["collapse", "significant_loss", "minor_loss", "other"]),
                 }
             )
