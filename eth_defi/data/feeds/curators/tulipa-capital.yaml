@@ -20,7 +20,7 @@ incidents:
     description: |
       [Trading Strategy's 7 August 2026 review](https://x.com/TradingProtocol/status/2085637521942208534) reported that Tulipa USDC's valuation manager marked its illiquid PMUSD position near the observable mid-price without accounting for liquidation price impact. The [same review](https://x.com/TradingProtocol/status/2085637521942208534) said the main PMUSD pools were severely imbalanced and lacked enough paired stablecoin liquidity to redeem even half of the position, so the mark did not represent net realisable value. [Onchain update history cited in the post](https://x.com/TradingProtocol/status/2085637521942208534) also showed that the vault NAV was not updated daily, while neither Tulipa nor Lagoon publicly identified the valuation manager. Although [the review estimated](https://x.com/TradingProtocol/status/2085637521942208534) that writing the exposed position down to zero would affect only about 2% of the portfolio and leave the vault profitable, it concluded that the reported share price and performance were not robust until the valuation process was corrected.
     incident_kind: misleading
-    severity: other
+    severity: minor_loss
 twitter: tulipacapital
 linkedin: tulipa-capital
 linkedin-rss-hub-disabled-at: 2026-04-04
