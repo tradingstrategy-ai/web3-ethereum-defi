@@ -1,5 +1,6 @@
 # 1.2
 
+- feat: Add Yearn Curation curator metadata and automatically attribute all Yearn protocol vaults to Yearn (2026-08-07)
 - feat: Add curator risk-review status and documented incident metadata to the YAML and JSON export schemas (2026-08-07)
 
 - fix: Send an explicit 100k gas limit with the HyperCore `coreUserExists` read precompile call instead of letting the node apply its own `eth_call` gas cap — a failing precompile consumes all remaining gas, so a transient node-side HyperCore read failure was reported as `out of gas: gas exhausted during precompiled contract execution: 300000000`, which reads like a caller mistake and hides the real cause (2026-08-07)

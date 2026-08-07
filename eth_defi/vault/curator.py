@@ -195,6 +195,7 @@ PROTOCOL_CURATED_SLUGS: set[str] = {
     "ostium",
     "ondo",
     "domination-finance",
+    "yearn",
     "3jane",
     "usyc",
     "wstgbp",
@@ -234,6 +235,7 @@ PROTOCOL_CURATOR_NAMES: dict[str, str] = {
     "ostium": "Ostium",
     "ondo": "Ondo Finance",
     "domination-finance": "Domination Finance",
+    "yearn": "Yearn",
     "hyperliquid": "Hyperliquid",
     "lighter": "Lighter",
     "grvt": "GRVT",
@@ -1054,7 +1056,8 @@ def build_curator_metadata_json(yaml_path: Path, public_url: str = "") -> Curato
     info = _load_curator_yaml(yaml_path)
     slug = info["slug"]
 
-    # If alias, inherit metadata from the canonical feeder.
+    # Aliases reuse their canonical feeder's post sources and display metadata
+    # unless they declare a dedicated curator homepage.
     # Derive the feeds root from yaml_path: curators/foo.yaml -> parent.parent
     if info["canonical_feeder_id"]:
         feeds_root = yaml_path.parent.parent
@@ -1063,7 +1066,7 @@ def build_curator_metadata_json(yaml_path: Path, public_url: str = "") -> Curato
             mappings_dir=feeds_root,
         )
         canonical = load_feeder_metadata(canonical_yaml)
-        website = canonical.get("website")
+        website = info["website"] or canonical.get("website")
         curatorwatch = info["curatorwatch"] or canonical.get("curatorwatch")
         twitter_handle = canonical.get("twitter")
         linkedin_id = canonical.get("linkedin")
