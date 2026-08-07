@@ -39,7 +39,23 @@ Curator YAML files use the shared feeder schema defined in
     short_description: Gauntlet is a DeFi risk manager.
     long_description: |
       Gauntlet builds risk management systems for lending markets,
-      vaults and other on-chain financial applications.
+      vaults and other onchain financial applications.
+    risk:
+      status: unknown
+    incidents:
+      - date: 2026-08-01
+        links:
+          - https://example.com/post-mortem
+        vault_addresses:
+          - 0x1234567890abcdef1234567890abcdef12345678
+        protocols:
+          - morpho
+        title: Example incident
+        description: |
+          [The post-mortem](https://example.com/post-mortem) describes the
+          incident and its effect on the vault.
+        incident_kind: minor_loss
+        severity: minor_loss
 
 Canonical feeder aliases
 ~~~~~~~~~~~~~~~~~~~~~~~~
@@ -123,14 +139,15 @@ Usage example::
     assert is_protocol_curator(slug)
 """
 
-import enum
 import json
 import logging
 import re
 from pathlib import Path
 from typing import TypedDict
 
-from eth_defi.feed.sources import load_feeder_metadata, resolve_canonical_feeder_yaml
+from eth_typing import HexAddress
+
+from eth_defi.feed.sources import CuratorIncidentKind, CuratorIncidentSeverity, CuratorRiskStatus, load_feeder_metadata, resolve_canonical_feeder_yaml
 from eth_defi.grvt.constants import GRVT_SYSTEM_VAULT_ADDRESSES
 from eth_defi.hyperliquid.constants import HYPERLIQUID_SYSTEM_VAULT_ADDRESSES
 from eth_defi.lighter.constants import LIGHTER_SYSTEM_POOL_ADDRESSES
@@ -144,6 +161,7 @@ from eth_defi.tokenised_fund.securitize.description import SECURITIZE_PRODUCTS
 from eth_defi.tokenised_fund.spiko.constants import EUTBL_TOKEN_ADDRESS, USTBL_TOKEN_ADDRESS
 from eth_defi.tokenised_fund.sygnum.constants import FILQ_CURATOR_SLUG, SYGNUM_PRODUCTS_BY_CHAIN
 from eth_defi.tokenised_fund.wisdomtree.constants import WTGXX_ETHEREUM
+from eth_defi.types import ISODateString
 
 logger = logging.getLogger(__name__)
 
@@ -424,33 +442,6 @@ CURATOR_ADDRESS_OVERRIDES: dict[tuple[int, str], str] = {
 }
 
 
-class CuratorRiskStatus(str, enum.Enum):
-    """Manual curator risk-review status values."""
-
-    unknown = "unknown"
-    whitelisted = "whitelisted"
-    blacklisted = "blacklisted"
-
-
-class CuratorIncidentSeverity(str, enum.Enum):
-    """Impact classifications for curator incidents."""
-
-    collapse = "collapse"
-    significant_loss = "significant_loss"
-    minor_loss = "minor_loss"
-    other = "other"
-
-
-class CuratorIncidentKind(str, enum.Enum):
-    """Classifications for the nature of curator incidents."""
-
-    collapse = "collapse"
-    significant_loss = "significant_loss"
-    minor_loss = "minor_loss"
-    misleading = "misleading"
-    questionable_behaviour = "questionable_behaviour"
-
-
 class CuratorRisk(TypedDict):
     """Manual risk review information for a curator."""
 
@@ -461,14 +452,14 @@ class CuratorRisk(TypedDict):
 class CuratorIncident(TypedDict):
     """A documented incident involving a curator."""
 
-    #: ISO 8601 calendar date when the incident occurred.
-    date: str
+    #: ISO 8601 publication date of the primary incident source.
+    date: ISODateString
 
     #: Canonical evidence URLs for the incident.
     links: list[str]
 
-    #: Affected vault addresses, providing context about the scope of the incident.
-    vault_addresses: list[str]
+    #: Directly or downstream affected vault addresses or native vault identifiers.
+    vault_addresses: list[HexAddress | str]
 
     #: Affected protocol slugs, providing context about where the incident occurred.
     protocols: list[str]
@@ -515,7 +506,7 @@ class CuratorInfo(TypedDict):
     #: Manual curator risk-review status.
     risk: CuratorRisk
 
-    #: Documented curator incidents in chronological order.
+    #: Documented curator incidents in curator YAML order.
     incidents: list[CuratorIncident]
 
     #: Twitter/X handle without ``@`` prefix (e.g. ``"gauntlet_xyz"``),
@@ -597,7 +588,7 @@ class CuratorMetadata(TypedDict):
     #: Manual curator risk-review status.
     risk: CuratorRisk
 
-    #: Documented curator incidents in chronological order.
+    #: Documented curator incidents in curator YAML order.
     incidents: list[CuratorIncident]
 
     #: Full Twitter/X profile URL (e.g. ``"https://x.com/gauntlet_xyz"``),
@@ -889,7 +880,7 @@ def identify_curator(  # noqa: PLR0917
         typically brand with their organisation name.
 
     :param vault_address:
-        The vault's on-chain address (hex or synthetic format).
+        The vault's onchain address (hex or synthetic format).
 
     :param protocol_slug:
         Slugified protocol name from

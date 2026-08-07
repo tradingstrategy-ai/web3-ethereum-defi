@@ -107,7 +107,7 @@ class CuratorExportRecord(TypedDict):
     #: Manual curator risk-review status.
     risk: CuratorRisk
 
-    #: Documented curator incidents in chronological order.
+    #: Documented curator incidents in curator YAML order.
     incidents: list[CuratorIncident]
 
     #: Full Twitter/X profile URL (e.g. ``"https://x.com/gauntlet_xyz"``),

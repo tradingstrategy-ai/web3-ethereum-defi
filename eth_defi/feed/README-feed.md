@@ -146,6 +146,27 @@ Notes:
   - one LinkedIn source
   - one RSS source
 
+## Curator risk and incident metadata
+
+`risk` and `incidents` are accepted only in files whose `role` is `curator`.
+Omitting `risk` exports `{"status": "unknown"}`; adding an incident does not
+automatically whitelist or blacklist its curator. Risk status is a separate
+manual review decision.
+
+Incident dates must use `YYYY-MM-DD`. `links`, `vault_addresses`, and
+`protocols` must each contain at least one value, evidence links must use HTTP
+or HTTPS, and protocol values must match a lowercase slug under
+`eth_defi/data/vaults/metadata/`. Vault context may contain an EVM address or a
+protocol-native vault identifier; valid EVM addresses are normalised to
+lowercase and malformed `0x` values are rejected. The list may include a
+downstream vault when the source explicitly documents contagion through a
+position in a directly affected vault.
+
+The loader preserves Markdown in `description` and exports risk and incident
+metadata through both `CuratorMetadata` and `CuratorExportRecord`. Consumers
+therefore receive a default unknown risk status and an empty incident list even
+when the optional YAML fields are absent.
+
 ## Protocol manager metadata
 
 Some vault protocols expose the manager or curator identity through an offchain
@@ -255,7 +276,7 @@ website: https://www.gauntlet.xyz/
 short_description: Gauntlet is a DeFi risk manager.
 long_description: |
   Gauntlet builds risk management systems for lending markets, vaults and
-  other on-chain financial applications.
+  other onchain financial applications.
 twitter: gauntlet_xyz
 linkedin: gauntlet-xyz
 rss: https://medium.com/feed/gauntlet-networks

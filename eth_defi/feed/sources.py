@@ -5,6 +5,8 @@ LinkedIn company identifiers, and feeder websites that should be tracked for
 vault-related post collection.
 """
 
+import datetime
+import enum
 import logging
 import re
 from collections.abc import Iterable, Sequence
@@ -24,6 +26,9 @@ logger = logging.getLogger(__name__)
 #: Repository-resolved base directory for feed source YAML files.
 FEEDS_DATA_DIR = Path(__file__).parent.parent / "data" / "feeds"
 
+#: Repository-resolved directory containing canonical vault protocol metadata.
+VAULT_PROTOCOL_METADATA_DIR = Path(__file__).parent.parent / "data" / "vaults" / "metadata"
+
 #: Backwards-compatible alias for the old constant name.
 POST_TRACKING_DATA_DIR = FEEDS_DATA_DIR
 
@@ -36,8 +41,58 @@ KNOWN_FEEDER_ROLES = {
 }
 
 _SLUG_RE = re.compile(r"^[a-z0-9][a-z0-9-]*$")
+_EVM_ADDRESS_RE = re.compile(r"^0x[0-9a-fA-F]{40}$")
 _VALID_SOURCE_TYPES = {"rss", "twitter", "linkedin"}
 _MANAGER_METADATA_KEYS = ("ipor-atomist", "euler-entity", "morpho-curator", "lagoon-curator", "t3tris-curator", "asseto-role", "accountable-company", "upshift-strategist", "symbiotic-curator")
+
+
+class CuratorRiskStatus(str, enum.Enum):
+    """Manual curator risk-review status values."""
+
+    #: No manual review decision has been recorded.
+    unknown = "unknown"
+
+    #: The curator has passed manual risk review.
+    whitelisted = "whitelisted"
+
+    #: The curator has failed manual risk review.
+    blacklisted = "blacklisted"
+
+
+class CuratorIncidentSeverity(str, enum.Enum):
+    """Impact classifications for curator incidents."""
+
+    #: The curator or its managed operation failed broadly.
+    collapse = "collapse"
+
+    #: Investors experienced a material loss without a full collapse.
+    significant_loss = "significant_loss"
+
+    #: Investors experienced a limited loss.
+    minor_loss = "minor_loss"
+
+    #: The incident had no demonstrated loss or collapse classification.
+    other = "other"
+
+
+class CuratorIncidentKind(str, enum.Enum):
+    """Classifications for the nature of curator incidents."""
+
+    #: The curator or its managed operation failed broadly.
+    collapse = "collapse"
+
+    #: Investors experienced a material loss without a full collapse.
+    significant_loss = "significant_loss"
+
+    #: Investors experienced a limited loss.
+    minor_loss = "minor_loss"
+
+    #: Accounting, valuation, performance, or public disclosures were misleading.
+    misleading = "misleading"
+
+    #: Substantiated governance, conflict, or conduct concerns.
+    questionable_behaviour = "questionable_behaviour"
+
 
 _MAPPING_SCHEMA = Map(
     {
@@ -60,7 +115,7 @@ _MAPPING_SCHEMA = Map(
         Optional("long_description"): Str(),
         Optional("risk"): Map(
             {
-                "status": Enum(["unknown", "whitelisted", "blacklisted"]),
+                "status": Enum([status.value for status in CuratorRiskStatus]),
             }
         ),
         Optional("incidents"): Seq(
@@ -73,8 +128,8 @@ _MAPPING_SCHEMA = Map(
                     "protocols": Seq(Str()),
                     "title": Str(),
                     "description": Str(),
-                    "incident_kind": Enum(["collapse", "significant_loss", "minor_loss", "misleading", "questionable_behaviour"]),
-                    "severity": Enum(["collapse", "significant_loss", "minor_loss", "other"]),
+                    "incident_kind": Enum([kind.value for kind in CuratorIncidentKind]),
+                    "severity": Enum([severity.value for severity in CuratorIncidentSeverity]),
                 }
             )
         ),
@@ -183,6 +238,25 @@ def _validate_slug(value: object, field_name: str, mapping_file: Path) -> str:
     return slug
 
 
+def _validate_protocol_slug(value: str, field_name: str, mapping_file: Path) -> str:
+    """Validate a protocol slug against repository vault metadata.
+
+    :param value:
+        Protocol slug from an incident context list.
+    :param field_name:
+        Fully qualified field name used in validation errors.
+    :param mapping_file:
+        YAML file path used for validation errors.
+    :return:
+        Validated canonical protocol slug.
+    """
+
+    slug = _validate_slug(value, field_name, mapping_file)
+    if not (VAULT_PROTOCOL_METADATA_DIR / f"{slug}.yaml").is_file():
+        raise ValueError(f"{field_name} contains unknown protocol slug in {mapping_file}: {slug}")
+    return slug
+
+
 def _validate_role(role: object, mapping_file: Path) -> str:
     """Validate feeder role names."""
 
@@ -262,12 +336,76 @@ def _normalise_other_links(other_links: object, mapping_file: Path) -> list[dict
     return normalised_links
 
 
-def _normalise_incidents(incidents: object, mapping_file: Path) -> list[dict[str, str | list[str]]] | None:
+def _normalise_non_empty_string_list(values: list[str], field_name: str, mapping_file: Path) -> list[str]:
+    """Normalise a required list of non-empty strings.
+
+    The shared helper keeps list validation consistent across incident links,
+    vault addresses, and protocol slugs.
+
+    :param values:
+        Parsed YAML value.
+    :param field_name:
+        Fully qualified field name used in validation errors.
+    :param mapping_file:
+        YAML file path used for validation errors.
+    :return:
+        Stripped list values.
+    """
+
+    if not values or not all(value.strip() for value in values):
+        raise ValueError(f"{field_name} must contain only non-empty strings in {mapping_file}")
+    return [value.strip() for value in values]
+
+
+def _normalise_incident_date(value: str, field_name: str, mapping_file: Path) -> str:
+    """Validate and normalise an incident date in ``YYYY-MM-DD`` format.
+
+    :param value:
+        Parsed YAML date value.
+    :param field_name:
+        Fully qualified field name used in validation errors.
+    :param mapping_file:
+        YAML file path used for validation errors.
+    :return:
+        Validated ISO 8601 calendar date.
+    """
+
+    normalised_value = value.strip()
+    try:
+        parsed_date = datetime.date.fromisoformat(normalised_value)
+    except ValueError as error:
+        raise ValueError(f"{field_name} must use YYYY-MM-DD format in {mapping_file}: {value}") from error
+    if parsed_date.isoformat() != normalised_value:
+        raise ValueError(f"{field_name} must use YYYY-MM-DD format in {mapping_file}: {value}")
+    return normalised_value
+
+
+def _normalise_vault_identifier(value: str, field_name: str, mapping_file: Path) -> str:
+    """Normalise an EVM address or preserve a protocol-native vault identifier.
+
+    :param value:
+        Vault address or native identifier from incident context.
+    :param field_name:
+        Fully qualified field name used in validation errors.
+    :param mapping_file:
+        YAML file path used for validation errors.
+    :return:
+        Lowercase EVM address or unchanged native identifier.
+    """
+
+    if value.startswith("0x"):
+        if not _EVM_ADDRESS_RE.fullmatch(value):
+            raise ValueError(f"{field_name} contains malformed EVM address in {mapping_file}: {value}")
+        return value.lower()
+    return value
+
+
+def _normalise_incidents(incidents: list[dict] | None, mapping_file: Path) -> list[dict[str, str | list[str]]] | None:
     """Normalise curator incident records from YAML metadata.
 
-    Incident descriptions are Markdown strings. Their dates, titles, kinds, and
-    severities are left as schema-validated scalar values, while evidence links
-    are normalised as canonical HTTP(S) URLs.
+    Incident descriptions remain Markdown strings. Dates, evidence links, EVM
+    addresses, and protocol slugs receive semantic validation and normalisation;
+    enum-backed classifications are already checked by the strict YAML schema.
 
     :param incidents:
         Parsed ``incidents`` YAML value.
@@ -282,41 +420,41 @@ def _normalise_incidents(incidents: object, mapping_file: Path) -> list[dict[str
 
     normalised_incidents: list[dict[str, str | list[str]]] = []
     for index, incident in enumerate(incidents):
-        normalised_incident: dict[str, str | list[str]] = {}
-        for field_name in ("date", "title", "description", "incident_kind", "severity"):
-            value = incident.get(field_name)
-            if not isinstance(value, str) or not value.strip():
-                raise ValueError(f"incidents[{index}].{field_name} must be a non-empty string in {mapping_file}")
-            normalised_incident[field_name] = value.strip()
+        field_prefix = f"incidents[{index}]"
+        normalised_incident: dict[str, str | list[str]] = {
+            "date": _normalise_incident_date(incident["date"], f"{field_prefix}.date", mapping_file),
+        }
+        for field_name in ("title", "description", "incident_kind", "severity"):
+            value = incident[field_name].strip()
+            if not value:
+                raise ValueError(f"{field_prefix}.{field_name} must be a non-empty string in {mapping_file}")
+            normalised_incident[field_name] = value
 
-        for list_field in ("links", "vault_addresses", "protocols"):
-            values = incident.get(list_field)
-            if not isinstance(values, list) or not values:
-                raise ValueError(f"incidents[{index}].{list_field} must be a non-empty list of strings in {mapping_file}")
-
-            normalised_values: list[str] = []
-            for value_index, value in enumerate(values):
-                if not isinstance(value, str) or not value.strip():
-                    raise ValueError(f"incidents[{index}].{list_field}[{value_index}] must be a non-empty string in {mapping_file}")
-                if list_field == "links":
-                    value = _normalise_http_url(value, mapping_file)
-                else:
-                    value = value.strip()
-                normalised_values.append(value)
-            normalised_incident[list_field] = normalised_values
+        links = _normalise_non_empty_string_list(incident["links"], f"{field_prefix}.links", mapping_file)
+        normalised_incident["links"] = [_normalise_http_url(link, mapping_file) for link in links]
+        vault_identifiers = _normalise_non_empty_string_list(incident["vault_addresses"], f"{field_prefix}.vault_addresses", mapping_file)
+        normalised_incident["vault_addresses"] = [_normalise_vault_identifier(identifier, f"{field_prefix}.vault_addresses", mapping_file) for identifier in vault_identifiers]
+        protocols = _normalise_non_empty_string_list(incident["protocols"], f"{field_prefix}.protocols", mapping_file)
+        normalised_incident["protocols"] = [_validate_protocol_slug(protocol, f"{field_prefix}.protocols", mapping_file) for protocol in protocols]
         normalised_incidents.append(normalised_incident)
 
     return normalised_incidents
 
 
-def _normalise_mapping_metadata(parsed: dict, mapping_file: Path) -> None:
+def _normalise_mapping_metadata(parsed: dict, role: str, mapping_file: Path) -> None:
     """Normalise optional metadata fields in a parsed feeder YAML mapping.
 
     :param parsed:
         Parsed feeder YAML data.  Updated in place.
+    :param role:
+        Validated feeder role.
     :param mapping_file:
         YAML file path used for validation errors.
     """
+
+    curator_only_fields = {"risk", "incidents"}.intersection(parsed)
+    if curator_only_fields and role != "curator":
+        raise ValueError(f"{', '.join(sorted(curator_only_fields))} metadata is only valid for curator feeders in {mapping_file}")
 
     other_links = _normalise_other_links(parsed.get("other-links"), mapping_file)
     if other_links is not None:
@@ -437,7 +575,7 @@ def _load_mapping_file(mapping_file: Path) -> tuple[list[TrackedPostSource], Fee
         raise ValueError(f"name must be a non-empty string in {mapping_file}")
 
     role = _validate_role(parsed.get("role"), mapping_file)
-    _normalise_mapping_metadata(parsed, mapping_file)
+    _normalise_mapping_metadata(parsed, role, mapping_file)
 
     # Handle alias files — canonical-feeder-id delegates feed sources
     canonical_feeder_id = parsed.get("canonical-feeder-id")
@@ -894,7 +1032,7 @@ def load_feeder_metadata(yaml_path: Path) -> dict:
     """
     parsed = load(yaml_path.read_text(), _MAPPING_SCHEMA).data
     feeder_id = _validate_slug(parsed.get("feeder-id"), "feeder-id", yaml_path)
-    _validate_role(parsed.get("role"), yaml_path)
-    _normalise_mapping_metadata(parsed, yaml_path)
+    role = _validate_role(parsed.get("role"), yaml_path)
+    _normalise_mapping_metadata(parsed, role, yaml_path)
     assert feeder_id == yaml_path.stem, f"feeder-id {feeder_id!r} does not match filename {yaml_path.stem!r} in {yaml_path}"
     return parsed

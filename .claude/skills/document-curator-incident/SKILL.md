@@ -79,7 +79,7 @@ incidents:
     vault_addresses:
       - 0x1234567890abcdef1234567890abcdef12345678
     protocols:
-      - lagoon
+      - lagoon-finance
     title: Concise incident title
     description: |
       Write three to five factual Markdown sentences with [inline source links](https://example.com/primary-source).
@@ -121,7 +121,9 @@ primary source first and removing exact duplicates. Links must use HTTP(S).
 
 Fill `vault_addresses` with only the vaults demonstrated to be affected by the
 sources. Resolve named vaults through repository metadata or the public vault page,
-and lowercase EVM addresses. Do not add every vault managed by the curator. Fill
+and lowercase EVM addresses. Include downstream vaults when a source explicitly
+documents contagion through a position in the directly affected vault, but do not
+add every vault managed by the curator. Fill
 `protocols` with the canonical protocol slugs used by repository vault metadata.
 Both lists must be non-empty. If an affected address or protocol cannot be verified,
 stop and ask the user for the missing context rather than guessing.
