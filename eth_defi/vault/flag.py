@@ -86,6 +86,9 @@ class VaultFlag(str, enum.Enum):
     #: Share price is unrealistically high (> $1M), likely a broken contract
     abnormal_share_price = "abnormal_share_price"
 
+    #: Vault reported an incorrect share price because of misleading accounting
+    misleading_valuation = "misleading_valuation"
+
     #: Annualised volatility is unrealistically high
     abnormal_volatility = "abnormal_volatility"
 
@@ -123,6 +126,7 @@ BAD_FLAGS = {
     VaultFlag.unofficial,
     VaultFlag.abnormal_price_on_low_tvl,
     VaultFlag.abnormal_share_price,
+    VaultFlag.misleading_valuation,
     VaultFlag.abnormal_volatility,
     VaultFlag.subvault,
     VaultFlag.irregular_reporting,
@@ -325,6 +329,8 @@ ABNORMAL_TVL = "The TVL on this vault is abnormal"
 
 ABNORMAL_SHARE_PRICE = "Share price is unrealistically high, likely a broken smart contract"
 
+MISLEADING_VALUATION = "This vault incorrectly reported its share price in the past, due to misleading accounting"
+
 ABNORMAL_VOLATILITY = "Annualised volatility is unrealistically high, likely a low-TVL vault with very few trades"
 
 HYPERCORE_VAULT_NOTE = "Profit and loss (PnL) results here differ from the method used on the Hyperliquid website. Instead of raw account PnL, the data is cleaned from deposit/redeem flow and reflects better the actual profitability of the underlying trading activity."
@@ -463,6 +469,8 @@ The system checks your total equity meets the minimum for your tier when you att
 #:
 #: Make sure address is lowercased
 VAULT_FLAGS_AND_NOTES: dict[str, tuple[VaultFlag | None, str]] = {
+    # Tulipa USDC
+    "0xce0b790ae0d8cf91e01f3fb69025e14569b574f3": (VaultFlag.misleading_valuation, MISLEADING_VALUATION),
     # Borrowable USDC Deposit, SiloId: 127
     "0x2433d6ac11193b4695d9ca73530de93c538ad18a": (VaultFlag.illiquid, XUSD_MESSAGE),
     # https://tradingstrategy.ai/trading-view/sonic/vaults/borrowable-xusd-deposit-siloid-112
