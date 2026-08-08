@@ -93,6 +93,32 @@ def test_build_guard_config_tracks_latest_lagoon_settlement_limit():
     assert f"{vault}: unlimited" in reset_config.format_human_readable()
 
 
+def test_build_guard_config_tracks_any_hypercore_vault_flag():
+    """Expose the narrow Hypercore vault bypass without reporting any ERC-20 bypass."""
+    safe_address = Web3.to_checksum_address("0x1000000000000000000000000000000000000001")
+    module_address = Web3.to_checksum_address("0x2000000000000000000000000000000000000002")
+    events = [
+        DecodedGuardEvent(
+            event_name="AnyHypercoreVaultSet",
+            args={"value": True, "notes": "Allow all Hypercore vaults"},
+            block_number=1,
+            transaction_hash="0x01",
+            log_index=0,
+        ),
+    ]
+
+    config = build_multichain_guard_config(
+        events={999: events},
+        safe_address=safe_address,
+        module_addresses={999: module_address},
+    )
+
+    chain_config = config.chains[999]
+    assert not chain_config.any_asset
+    assert chain_config.any_hypercore_vault
+    assert "Any Hypercore vault: enabled" in config.format_human_readable()
+
+
 def test_fetch_guard_config_events_falls_back_to_rpc_and_records_scan_metadata(monkeypatch):
     safe_address = "0x1000000000000000000000000000000000000001"
     module_address = "0x2000000000000000000000000000000000000002"

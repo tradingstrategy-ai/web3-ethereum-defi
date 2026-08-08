@@ -6,7 +6,7 @@ import pytest
 
 from eth_defi.erc_4626.core import ERC4626Feature
 from eth_defi.tokenised_fund.spiko import backfill
-from eth_defi.tokenised_fund.spiko.constants import USTBL_ORACLE_FIRST_SEEN_AT_BLOCK
+from eth_defi.tokenised_fund.spiko.constants import EUTBL_PRODUCT, SPIKO_ARBITRUM_CHAIN_ID, USTBL_ORACLE_FIRST_SEEN_AT_BLOCK
 from eth_defi.vault.base import VaultSpec
 
 
@@ -23,6 +23,22 @@ def test_spiko_backfill_starts_at_oracle(monkeypatch: pytest.MonkeyPatch, backfi
     """Avoid manufacturing price rows before the verified NAV oracle exists."""
     monkeypatch.delenv("START_BLOCK", raising=False)
     assert backfill_history_module.resolve_start_block() == USTBL_ORACLE_FIRST_SEEN_AT_BLOCK
+
+
+def test_spiko_backfill_selects_eutbl(monkeypatch: pytest.MonkeyPatch, backfill_history_module) -> None:
+    """Select EUTBL's Arbitrum oracle deployment through the product environment.
+
+    :param monkeypatch:
+        Isolated environment-variable fixture.
+    :param backfill_history_module:
+        Imported Spiko backfill module.
+    """
+
+    monkeypatch.setenv("SPIKO_PRODUCT", "eutbl")
+    product = backfill_history_module.resolve_product()
+    assert product == EUTBL_PRODUCT
+    assert backfill_history_module.resolve_start_block(product) == EUTBL_PRODUCT.oracle_first_seen_at_block
+    assert backfill_history_module.create_spiko_detection(product).chain == SPIKO_ARBITRUM_CHAIN_ID
 
 
 def test_spiko_backfill_rejects_hourly_fill_forward(monkeypatch: pytest.MonkeyPatch, backfill_history_module) -> None:

@@ -2,17 +2,22 @@
 
 ## Source
 
-- **Primary SVG (white/dark variant)**: Downloaded from the official website `paretotechnologies.com`
-  - Direct URL: `https://paretotechnologies.com/img/pt-stacked-top-white.svg`
-- **PNG fallback**: `https://paretotechnologies.com/img/pt-logo2.png`
+- **Official website:** [paretotechnologies.com](https://paretotechnologies.com/)
+- **Compact brandmark:** [`pt-fav-blue.png`](https://paretotechnologies.com/assets/img/pt-fav-blue.png)
+- **Official wordmark reference:** [`pt-logo-1.svg`](https://paretotechnologies.com/assets/img/pt-logo-1.svg)
 
-## Variants
+The favicon/brandmark is the standalone Pareto triangular `P` symbol and is
+preferred for the small vault-logo display. The previous stacked wordmark is
+retained as an original reference but is not used for the processed outputs.
 
-- `pareto-technologies.generic.svg` — stacked wordmark (white fill on transparent), 853×204 viewBox, white text/shapes
-- `pareto-technologies.generic.png` — same wordmark as PNG (853×106, RGBA, white on transparent)
+## Processing
 
-## Notes
+Downloaded on 2026-07-30. The official 256×256 RGBA brandmark was processed
+with `scripts/logos/post-process-logo.py` using the `extract-project-logo` and
+`post-process-logo` workflows. The resulting transparent 256×256 variants are
+in `eth_defi/data/vaults/formatted_logos/pareto-technologies/`:
 
-- The SVG logo uses `fill="#fff"` throughout — it is designed for dark backgrounds
-- The post-process script handles inversion/recolouring automatically
-- Post-processed to `formatted_logos/pareto-technologies/generic.png` (256×256 PNG, transparent background)
+- `generic.png`
+- `light.png`
+- `dark.png`
+

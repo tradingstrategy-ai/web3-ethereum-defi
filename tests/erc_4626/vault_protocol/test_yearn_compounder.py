@@ -69,6 +69,7 @@ def test_yearn_legacy_compounder_fee_data(web3: Web3) -> None:
     assert isinstance(vault, YearnCompounderVault)
     assert vault.features == {ERC4626Feature.yearn_compounder_like}
     assert vault.get_protocol_name() == "Yearn"
+    assert vault.is_whitelisted_deposit() is False
 
     fee_data = vault.get_fee_data()
     assert fee_data.fee_mode == VaultFeeMode.internalised_skimming
@@ -93,6 +94,7 @@ def test_yearn_modern_compounder_fee_data() -> None:
 
         assert isinstance(vault, YearnCompounderVault)
         assert vault.features == {ERC4626Feature.yearn_compounder_like}
+        assert vault.is_whitelisted_deposit() is False
         assert vault.get_fee_data().performance == MOONWELL_PERFORMANCE_FEE
     finally:
         launch.close()

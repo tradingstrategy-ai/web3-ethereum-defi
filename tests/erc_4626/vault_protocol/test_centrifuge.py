@@ -13,11 +13,10 @@ from web3 import Web3
 from eth_defi.abi import ZERO_ADDRESS_STR
 from eth_defi.erc_4626.classification import create_vault_instance_autodetect
 from eth_defi.erc_4626.core import ERC4626Feature
-from eth_defi.erc_4626.vault_protocol.centrifuge.vault import CentrifugeVault
-from eth_defi.vault.base import VaultTechnicalRisk
-
+from eth_defi.erc_4626.vault_protocol.centrifuge.vault import DESPXA_ANNOUNCEMENT_URL, DESPXA_BASE_VAULT_ADDRESS, SPXA_BASE_VAULT_ADDRESS, SPXA_FUND_PAGE_URL, CentrifugeVault
 from eth_defi.testing.anvil_fork_pool import AnvilForkPool
 from eth_defi.testing.fork_blocks import ETHEREUM_MIDNIGHT_BLOCK
+from eth_defi.vault.base import VaultSpec, VaultTechnicalRisk
 
 JSON_RPC_ETHEREUM = os.environ.get("JSON_RPC_ETHEREUM")
 
@@ -26,6 +25,25 @@ pytestmark = [
     # Shared with the other Ethereum midnight-block characterisation tests.
     pytest.mark.xdist_group("fork:ethereum:midnight"),
 ]
+
+
+def test_centrifuge_spxa_description_overlay() -> None:
+    """SPXA and deSPXA have address-scoped Markdown product descriptions."""
+
+    spxa = CentrifugeVault(Web3(), VaultSpec(8453, SPXA_BASE_VAULT_ADDRESS), features={ERC4626Feature.centrifuge_like})
+    despxa = CentrifugeVault(Web3(), VaultSpec(8453, DESPXA_BASE_VAULT_ADDRESS), features={ERC4626Feature.centrifuge_like})
+
+    assert spxa.short_description == "Tokenised S&P 500 index fund share class for professional investors."
+    assert spxa.description is not None
+    assert "**Relationship to deSPXA:**" in spxa.description
+    assert SPXA_FUND_PAGE_URL in spxa.description
+    assert DESPXA_ANNOUNCEMENT_URL in spxa.description
+
+    assert despxa.short_description == "Freely transferable DeFi token with NAV-linked S&P 500 fund exposure."
+    assert despxa.description is not None
+    assert "**Relationship to SPXA:**" in despxa.description
+    assert SPXA_FUND_PAGE_URL in despxa.description
+    assert DESPXA_ANNOUNCEMENT_URL in despxa.description
 
 
 @pytest.fixture(scope="module")

@@ -65,6 +65,12 @@ MIN_HYPERCORE_PNL_NAV_LAG_CHECKPOINTS = 3
 #: New capital must reach this NAV before a recapitalised vault is tracked again.
 MIN_HYPERCORE_RECAPITALISATION_ASSETS = 1_000.0
 
+#: A new Hypercore vault needs this NAV before its performance history is published.
+#:
+#: Use the same threshold as a post-wipe-out epoch, so a vault starts its
+#: initial and recovery curves from the first $1,000 NAV observation.
+MIN_HYPERCORE_INITIAL_TRACKING_ASSETS = MIN_HYPERCORE_RECAPITALISATION_ASSETS
+
 #: Ignore isolated zero-NAV observations that recover before this delay.
 MIN_HYPERCORE_RECAPITALISATION_RECOVERY_DELAY = pd.Timedelta(days=7)
 
@@ -1009,13 +1015,16 @@ def remove_inactive_lead_time(
         # timestamp label through the index. A vault can have multiple
         # observations with the same timestamp, in which case get_loc()
         # returns a slice rather than one integer position.
-        first_valid_loc = int(valid_supply_mask.to_numpy().argmax())
+        first_valid_loc = int(valid_supply_mask.to_numpy(dtype=bool, na_value=False).argmax())
         initial_supply = group.iloc[first_valid_loc]["total_supply"]
 
         # Find the first index where total_supply differs from initial value
         # Only consider rows from first_valid_loc onwards
         remaining_group = group.iloc[first_valid_loc:]
-        supply_changed_mask = remaining_group["total_supply"] != initial_supply
+        # The raw Parquet is read using the PyArrow nullable dtype backend.
+        # A missing supply reading is not an activation change, and must not
+        # leave ``pd.NA`` values in the NumPy array used to locate a change.
+        supply_changed_mask = (remaining_group["total_supply"] != initial_supply).fillna(False)
 
         if not supply_changed_mask.any():
             # Total supply never changed after initial valid value - keep from first valid
@@ -1025,7 +1034,7 @@ def remove_inactive_lead_time(
             return remaining_group
 
         # Get the index of the first change
-        first_change_loc = int(supply_changed_mask.to_numpy().argmax())
+        first_change_loc = int(supply_changed_mask.to_numpy(dtype=bool, na_value=False).argmax())
 
         # Calculate total rows to remove (invalid initial rows + constant supply rows)
         total_lead_rows = first_valid_loc + first_change_loc
@@ -1388,6 +1397,73 @@ def approximate_hypercore_share_prices_from_pnl_nav(  # noqa: PLR0914
     return prices_df
 
 
+def discard_hypercore_initial_low_tvl_history(
+    prices_df: pd.DataFrame,
+    logger: Callable[[str], None] = print,
+    min_tracking_assets: float = MIN_HYPERCORE_INITIAL_TRACKING_ASSETS,
+) -> pd.DataFrame:
+    """Discard an unfunded Hypercore vault's leading price observations.
+
+    Hypercore has no authoritative historical share price. Its cleaned share
+    price is instead a reconstructed PnL/NAV performance index, normally
+    rebased to one at the first retained observation. A few dollars of
+    bootstrap capital can therefore become the lifetime high-water mark for a
+    vault that later manages meaningful capital, producing an irrelevant
+    near-100% drawdown. Start the published performance history only once the
+    vault reaches a meaningful initial capital base.
+
+    This is deliberately an initial-history rule. A funded vault that later
+    falls below the threshold keeps its observations, because that decline is
+    material investor performance information. A vault that has not yet
+    reached the threshold has no cleaned price history; its raw observations
+    remain available for audit and will be included automatically once a
+    future cleaner run sees sufficient capital.
+
+    :param prices_df:
+        Vault price data indexed by timestamp, with ``id``, ``chain``, and
+        ``total_assets`` columns. It must be sorted by vault and timestamp.
+    :param logger:
+        Notebook or console logging function.
+    :param min_tracking_assets:
+        Minimum USD NAV needed before publishing the initial Hypercore
+        performance history.
+    :return:
+        Price data without the unfunded initial Hypercore observations.
+    """
+    hypercore_mask = prices_df["chain"] == HYPERCORE_CHAIN_ID
+    if not hypercore_mask.any():
+        return prices_df
+
+    remove_mask = np.zeros(len(prices_df), dtype=bool)
+    affected_vaults = 0
+    unfunded_vaults = 0
+    hypercore_positions = np.flatnonzero(hypercore_mask.to_numpy())
+    all_total_assets = prices_df["total_assets"].to_numpy(dtype=float)
+
+    for _vault_id, row_positions in prices_df.loc[hypercore_mask, ["id"]].groupby("id", sort=False).indices.items():
+        positions = hypercore_positions[np.asarray(row_positions, dtype=int)]
+        total_assets = all_total_assets[positions]
+        tracking_positions = np.flatnonzero(np.isfinite(total_assets) & (total_assets >= min_tracking_assets))
+
+        if len(tracking_positions) == 0:
+            remove_mask[positions] = True
+            affected_vaults += 1
+            unfunded_vaults += 1
+            continue
+
+        first_tracking_position = int(tracking_positions[0])
+        if first_tracking_position > 0:
+            remove_mask[positions[:first_tracking_position]] = True
+            affected_vaults += 1
+
+    if not remove_mask.any():
+        return prices_df
+
+    filtered_prices_df = prices_df.iloc[~remove_mask].copy()
+    logger(f"Discarded {int(remove_mask.sum()):,} initial low-TVL Hypercore price rows across {affected_vaults:,} vaults; tracking starts at ${min_tracking_assets:,.0f} NAV and {unfunded_vaults:,} vaults have not reached it")
+    return filtered_prices_df
+
+
 def discard_hypercore_pre_recapitalisation_history(  # noqa: PLR0914
     prices_df: pd.DataFrame,
     logger=print,
@@ -1605,7 +1681,22 @@ def fix_outlier_share_prices(
         if len(prices_df) == 0:
             return prices_df
 
+        # Flow rows are interval observations, not state snapshots. Preserve
+        # their unknown markers while filling sparse vault state used by the
+        # share-price cleaner.
+        flow_columns = [
+            column
+            for column in (
+                "daily_deposit_count",
+                "daily_withdrawal_count",
+                "daily_deposit_usd",
+                "daily_withdrawal_usd",
+            )
+            if column in group.columns
+        ]
+        source_flows = group[flow_columns].copy()
         group = group.ffill()
+        group[flow_columns] = source_flows
 
         # Compute row-based shift from actual time spacing so that vaults
         # with non-hourly polling (daily, weekly) get a sensible window.
@@ -1645,10 +1736,13 @@ def fix_outlier_share_prices(
         abnormal_mask = (group["pct_change_prev"] > max_diff) | (group["pct_change_next"] > max_diff)
 
         group["fixed_share_price"] = np.nan
+        fixed_share_price_col = group.columns.get_loc("fixed_share_price")
 
-        # Print pass, figure out damanged entries
-        for idx in group[abnormal_mask].index:
-            idx_loc = group.index.get_loc(idx)
+        # Work with row positions because timestamp labels are not unique on
+        # high-throughput chains. ``get_loc()`` and ``loc[]`` would otherwise
+        # select every row with the same timestamp.
+        abnormal_positions = np.flatnonzero(abnormal_mask.to_numpy(dtype=bool, na_value=False))
+        for idx_loc in abnormal_positions:
             current_price = group.iloc[idx_loc]["share_price"]
             next_price = group.iloc[idx_loc]["next_price_candidate"]
             prev_price = group.iloc[idx_loc]["prev_price_candidate"]
@@ -1665,11 +1759,12 @@ def fix_outlier_share_prices(
                 # Maybe a genuine crash
                 fixed_price = current_price
 
-            # logger(f"Abnormal share price detected for {vault_id} at index {idx} ({idx_loc}): fixing: {current_price} -> {fixed_price}, prev: {prev_price}, next: {next_price}")
-            group.loc[idx, "fixed_share_price"] = fixed_price
+            group.iat[idx_loc, fixed_share_price_col] = fixed_price
 
         # Apply the fixes
-        group.loc[pd.notna(group["fixed_share_price"]), "share_price"] = group["fixed_share_price"]
+        share_price_col = group.columns.get_loc("share_price")
+        fixed_positions = np.flatnonzero(group["fixed_share_price"].notna().to_numpy(dtype=bool, na_value=False))
+        group.iloc[fixed_positions, share_price_col] = group.iloc[fixed_positions, fixed_share_price_col].to_numpy()
         # group["id"] = vault_id
 
         # Don't export extra columns, only needed for calculations and debugging
@@ -1782,6 +1877,10 @@ def process_raw_vault_scan_data(
     # prices_df = filter_unneeded_row(prices_df, logger)
 
     prices_df = remove_inactive_lead_time(prices_df, logger)
+
+    # Hypercore's share price is a reconstructed PnL/NAV performance index.
+    # Do not let an insignificant bootstrap deposit become its lifetime basis.
+    prices_df = discard_hypercore_initial_low_tvl_history(prices_df, logger)
 
     # A complete Hypercore wipe-out followed by later deposits is a new
     # investment epoch, not a recoverable price movement. Begin the cleaned

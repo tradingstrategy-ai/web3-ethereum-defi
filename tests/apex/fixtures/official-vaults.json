@@ -1,0 +1,41 @@
+{
+  "data": {
+    "totalSize": 0,
+    "vaultList": [
+      {
+        "vaultId": "10000",
+        "name": "Protocol Vault",
+        "desc": "Official description placeholder",
+        "vaultEthAddress": "0x83F0e6dC9C352F9156a3a06B512B58012629D05C",
+        "vaultNetValue": "1.042",
+        "share": "1000000",
+        "tvl": "1042000",
+        "status": "VAULT_IN_PROCESS",
+        "type": "NORMAL_OFFICIAL_VAULT_TYPE",
+        "createdTime": 1720000000000,
+        "updatedTime": 1720003600000,
+        "finishedTime": 0,
+        "maxAmount": "20000000",
+        "purchaseFeeRate": "0",
+        "shareProfitRatio": ""
+      },
+      {
+        "vaultId": "10001",
+        "name": "New Vault",
+        "desc": "Official description placeholder",
+        "vaultEthAddress": "0xf33561bA75bE787bA53914C2bfE9A7A7DD320B8a",
+        "vaultNetValue": "1.001",
+        "share": "20000",
+        "tvl": "20020",
+        "status": "VAULT_IN_PROCESS",
+        "type": "NEW_OFFICIAL_VAULT_TYPE",
+        "createdTime": 1720000000000,
+        "updatedTime": 1720003600000,
+        "finishedTime": 0,
+        "maxAmount": "300000",
+        "purchaseFeeRate": "0",
+        "shareProfitRatio": ""
+      }
+    ]
+  }
+}

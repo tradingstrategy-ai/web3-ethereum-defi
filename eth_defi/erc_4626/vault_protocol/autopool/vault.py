@@ -12,17 +12,18 @@ price (``totalAssets / totalSupply``).
 """
 
 import datetime
+import logging
 from decimal import Decimal
 from functools import cached_property
-import logging
 
-from web3.contract import Contract
 from eth_typing import BlockIdentifier, HexAddress
+from web3.contract import Contract
 
 from eth_defi.erc_4626.core import get_deployed_erc_4626_contract
 from eth_defi.erc_4626.deposit_redeem import ERC4626DepositManager
 from eth_defi.erc_4626.estimate import estimate_value_by_share_price
 from eth_defi.erc_4626.vault import ERC4626Vault
+from eth_defi.vault.base import INSTANT_WITHDRAWAL_PERIOD, WithdrawalPeriod
 
 logger = logging.getLogger(__name__)
 
@@ -69,21 +70,57 @@ class AutoPoolVault(ERC4626Vault):
     def get_estimated_lock_up(self) -> datetime.timedelta | None:
         return datetime.timedelta(days=0)
 
+    def get_withdrawal_period(self) -> WithdrawalPeriod:
+        return INSTANT_WITHDRAWAL_PERIOD
+
     def get_deposit_manager(self) -> "AutoPoolDepositManager":
         return AutoPoolDepositManager(self)
 
 
 class AutoPoolDepositManager(ERC4626DepositManager):
-    """Deposit manager for Autopool (Tokemak / AUTO Finance) vaults.
+    """Autopool (Tokemak / AUTO Finance) manager that estimates redemptions via share price.
 
-    Overrides redemption estimation because ``previewRedeem()`` reverts on
-    all Autopool vaults with ``BalanceNotSettled()`` (selector ``0x20f1d86d``).
-    The vaults use a flash-accounting pattern (like Uniswap v4) that requires
-    internal balances to be settled inside a callback — calling
-    ``previewRedeem()`` outside that context always reverts.
+    Autopool vaults are plain synchronous ERC-4626 vaults except for one quirk:
+    they use a flash-accounting pattern (similar to Uniswap v4) so
+    ``previewRedeem()`` reverts with ``BalanceNotSettled()`` (selector
+    ``0x20f1d86d``) whenever it is called outside a flash-loan callback context.
+    This manager keeps every standard ERC-4626 behaviour and overrides only
+    redemption estimation to route around that reverting preview.
 
-    Instead of calling ``previewRedeem()``, we estimate the redemption value
-    directly from the share price (``totalAssets / totalSupply``).
+    **Deposit process**
+
+    Synchronous, fully inherited. After ``approve()``,
+    :meth:`create_deposit_request` builds a single ERC-4626 ``deposit`` call and
+    :meth:`estimate_deposit` uses the standard ``previewDeposit`` path, which
+    does not revert on these vaults.
+
+    **Redemption process**
+
+    Synchronous. :meth:`create_redemption_request` builds the inherited single
+    ERC-4626 ``redeem`` call. Only :meth:`estimate_redeem` is overridden: rather
+    than calling the reverting ``previewRedeem()``, it computes the estimate
+    from the current share price (``totalAssets / totalSupply``) via
+    :func:`estimate_value_by_share_price`.
+
+    **Queues and settlement**
+
+    None (synchronous). Each ``deposit`` / ``redeem`` settles in its own
+    transaction; there is no request queue or ticket.
+
+    **Lockups and cooldowns**
+
+    None. :meth:`AutoPoolVault.get_estimated_lock_up` returns zero.
+
+    **Whitelisting / access control**
+
+    Permissionless. No Autopool-specific whitelist is applied beyond the
+    inherited :meth:`check_deposit_whitelist` preflight.
+
+    **Anvil settlement (force_settle)**
+
+    The ``deposit`` and ``redeem`` calls complete in their originating
+    transaction, so the inherited :meth:`force_settle` accepts ``None`` and
+    performs the Anvil-validated shared no-op.
     """
 
     def estimate_redeem(self, owner: HexAddress, shares: Decimal, block_identifier: BlockIdentifier = "latest") -> Decimal:

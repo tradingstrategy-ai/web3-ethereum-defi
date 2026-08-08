@@ -8,6 +8,19 @@ website: https://tulipa.capital
 short_description: 'Tulipa Capital is a DeFi prop fund and risk curator focused on asset management and capital protection.'
 long_description: |
   Tulipa Capital describes itself as a DeFi risk curator for the long term. Its homepage says the team has been active in DeFi since 2019, began as a prop fund running delta-neutral strategies, and later built a public curation arm for lending markets and vaults. Its stated approach prioritises risk assessment, transparent feedback, accountability and capital protection over chasing yield.
+incidents:
+  - date: 2026-08-07
+    links:
+      - https://x.com/TradingProtocol/status/2085637521942208534
+    vault_addresses:
+      - 0xce0b790ae0d8cf91e01f3fb69025e14569b574f3
+    protocols:
+      - lagoon-finance
+    title: Tulipa USDC PMUSD valuation omitted liquidity impact
+    description: |
+      [Trading Strategy's 7 August 2026 review](https://x.com/TradingProtocol/status/2085637521942208534) reported that Tulipa USDC's valuation manager marked its illiquid PMUSD position near the observable mid-price without accounting for liquidation price impact. The [same review](https://x.com/TradingProtocol/status/2085637521942208534) said the main PMUSD pools were severely imbalanced and lacked enough paired stablecoin liquidity to redeem even half of the position, so the mark did not represent net realisable value. [Onchain update history cited in the post](https://x.com/TradingProtocol/status/2085637521942208534) also showed that the vault NAV was not updated daily, while neither Tulipa nor Lagoon provided offchain metadata identifying the valuation manager. Although [the review estimated](https://x.com/TradingProtocol/status/2085637521942208534) that writing the exposed position down to zero would affect only about 2% of the portfolio and leave the vault profitable, it concluded that the reported share price and performance were not robust until the valuation process was corrected.
+    incident_kind: misleading
+    severity: minor_loss
 twitter: tulipacapital
 linkedin: tulipa-capital
 linkedin-rss-hub-disabled-at: 2026-04-04

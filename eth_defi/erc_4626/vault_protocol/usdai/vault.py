@@ -10,6 +10,7 @@ from web3.exceptions import BadFunctionCallOutput, ContractLogicError
 
 from eth_defi.erc_4626.core import get_deployed_erc_4626_contract
 from eth_defi.erc_7540.vault import ERC7540Vault
+from eth_defi.vault.base import WithdrawalDelayType, WithdrawalPeriod
 
 logger = logging.getLogger(__name__)
 
@@ -66,6 +67,17 @@ class StakedUSDaiVault(ERC7540Vault):
             The protocol redemption window.
         """
         return USDAI_REDEMPTION_WINDOW
+
+    def get_withdrawal_period(self) -> WithdrawalPeriod:
+        """Return USDai's zero-to-one redemption-window range.
+
+        The queue and redemption timestamp are described in the `USDai contracts <https://github.com/metastreet-labs/metastreet-usdai-contracts>`__.
+        """
+        return WithdrawalPeriod(
+            min_period=datetime.timedelta(0),
+            max_period=USDAI_REDEMPTION_WINDOW,
+            delay_type=WithdrawalDelayType.epoch,
+        )
 
     def fetch_redemption_next_open(self) -> datetime.datetime | None:
         """Fetch the next USDai redemption processing timestamp.

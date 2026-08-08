@@ -1,0 +1,18 @@
+feeder-id: apex
+name: ApeX
+role: protocol
+website: https://www.apex.exchange/
+twitter: OfficialApeXdex
+other-links:
+  - title: ApeX Protocol project overview
+    url: https://www.apex.exchange/blog/detail/the-apex-protocol-project
+  - title: Davion Labs incubator
+    url: https://davionlabs.com/
+  - title: ApeX Protocol seed round
+    url: https://www.newsfilecorp.com/release/115630/ApeX-Protocol-Closes-Seed-Round-Led-by-Top-Strategic-and-Anchor-Investors
+  - title: HG Ventures investment announcement
+    url: https://www.apex.exchange/blog/detail/apex-pro-partners-venture-capital-hg-ventures
+  - title: ApeX Omni multichain launch article
+    url: https://blog.zk.link/apex-protocol-zklink-launch-multi-chain-orderbook-perp-dex-apex-omni-e86a968b25af
+  - title: ApeX Omni Chainlink Data Streams announcement
+    url: https://www.apex.exchange/blog/detail/apex-omni-chainlink-data-streams-integration

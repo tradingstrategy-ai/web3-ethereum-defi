@@ -39,7 +39,23 @@ Curator YAML files use the shared feeder schema defined in
     short_description: Gauntlet is a DeFi risk manager.
     long_description: |
       Gauntlet builds risk management systems for lending markets,
-      vaults and other on-chain financial applications.
+      vaults and other onchain financial applications.
+    risk:
+      status: unknown
+    incidents:
+      - date: 2026-08-01
+        links:
+          - https://example.com/post-mortem
+        vault_addresses:
+          - 0x1234567890abcdef1234567890abcdef12345678
+        protocols:
+          - morpho
+        title: Example incident
+        description: |
+          [The post-mortem](https://example.com/post-mortem) describes the
+          incident and its effect on the vault.
+        incident_kind: minor_loss
+        severity: minor_loss
 
 Canonical feeder aliases
 ~~~~~~~~~~~~~~~~~~~~~~~~
@@ -129,7 +145,9 @@ import re
 from pathlib import Path
 from typing import TypedDict
 
-from eth_defi.feed.sources import load_feeder_metadata, resolve_canonical_feeder_yaml
+from eth_typing import HexAddress
+
+from eth_defi.feed.sources import CuratorIncidentKind, CuratorIncidentSeverity, CuratorRiskStatus, load_feeder_metadata, resolve_canonical_feeder_yaml
 from eth_defi.grvt.constants import GRVT_SYSTEM_VAULT_ADDRESSES
 from eth_defi.hyperliquid.constants import HYPERLIQUID_SYSTEM_VAULT_ADDRESSES
 from eth_defi.lighter.constants import LIGHTER_SYSTEM_POOL_ADDRESSES
@@ -140,9 +158,10 @@ from eth_defi.tokenised_fund.kaio.constants import CASHX_ETHEREUM
 from eth_defi.tokenised_fund.libeara.constants import LIBEARA_PRODUCTS
 from eth_defi.tokenised_fund.ondo.constants import ONDO_PRODUCTS
 from eth_defi.tokenised_fund.securitize.description import SECURITIZE_PRODUCTS
-from eth_defi.tokenised_fund.spiko.constants import USTBL_TOKEN_ADDRESS
+from eth_defi.tokenised_fund.spiko.constants import EUTBL_TOKEN_ADDRESS, USTBL_TOKEN_ADDRESS
 from eth_defi.tokenised_fund.sygnum.constants import FILQ_CURATOR_SLUG, SYGNUM_PRODUCTS_BY_CHAIN
 from eth_defi.tokenised_fund.wisdomtree.constants import WTGXX_ETHEREUM
+from eth_defi.types import ISODateString
 
 logger = logging.getLogger(__name__)
 
@@ -176,6 +195,7 @@ PROTOCOL_CURATED_SLUGS: set[str] = {
     "ostium",
     "ondo",
     "domination-finance",
+    "yearn",
     "3jane",
     "usyc",
     "wstgbp",
@@ -215,6 +235,7 @@ PROTOCOL_CURATOR_NAMES: dict[str, str] = {
     "ostium": "Ostium",
     "ondo": "Ondo Finance",
     "domination-finance": "Domination Finance",
+    "yearn": "Yearn",
     "hyperliquid": "Hyperliquid",
     "lighter": "Lighter",
     "grvt": "GRVT",
@@ -341,6 +362,10 @@ PROTOCOL_MANAGER_YAML_FIELDS: dict[str, str] = {
 #: carries a co-branded protocol/issuer name that would otherwise win fuzzy
 #: matching.  Keys are ``(chain_id, lowercase_vault_address)``.
 CURATOR_ADDRESS_OVERRIDES: dict[tuple[int, str], str] = {
+    # Growi's official lending page identifies this HyperEVM Morpho Vault V2
+    # as Growi Lending / Growi USDC Core.
+    # https://growi.fi/lending/
+    (999, "0x54e24c904cfc563af7a1ee9dfaf1354d034e44e4"): "growi-finance",
     # RockawayX Dune dashboard, query 6932634, checked 2026-07-01.
     # https://dune.com/rockawayxvault/rockawayx-dashboard
     (1, "0xcd69123b3fbbfc666e1f6a501da27b564c00de54"): "rockawayx",
@@ -404,8 +429,9 @@ CURATOR_ADDRESS_OVERRIDES: dict[tuple[int, str], str] = {
     # Asseto supplies the tokenisation layer. Export the reviewed underlying
     # manager or strategy adviser for each supported product share instead.
     **{key: curator.curator_slug for key, curator in ASSETO_CURATORS.items()},
-    # Spiko operates the eligibility-gated USTBL servicing and oracle.
+    # Spiko operates the eligibility-gated USTBL and EUTBL servicing and oracle.
     (1, USTBL_TOKEN_ADDRESS): "spiko-curator",
+    (42161, EUTBL_TOKEN_ADDRESS): "spiko-curator",
     # Theo operates thBILL's KYC-gated direct dealing workflow.
     (1, "0x5fa487bca6158c64046b2813623e20755091da0b"): "theo-curator",
     # Morini Capital curates these vaults in the Piku Finance ecosystem. The
@@ -415,6 +441,41 @@ CURATOR_ADDRESS_OVERRIDES: dict[tuple[int, str], str] = {
     (1, "0x827ce7e8e35861d9ac7fe002755767b695a5594a"): "morini-capital",
     (1, "0x2bf11d2e04bc40daa95c24b8b90ec4f5c57dd326"): "morini-capital",
 }
+
+
+class CuratorRisk(TypedDict):
+    """Manual risk review information for a curator."""
+
+    #: Current manual curator risk-review status.
+    status: CuratorRiskStatus
+
+
+class CuratorIncident(TypedDict):
+    """A documented incident involving a curator."""
+
+    #: ISO 8601 publication date of the primary incident source.
+    date: ISODateString
+
+    #: Canonical evidence URLs for the incident.
+    links: list[str]
+
+    #: Directly or downstream affected vault addresses or native vault identifiers.
+    vault_addresses: list[HexAddress | str]
+
+    #: Affected protocol slugs, providing context about where the incident occurred.
+    protocols: list[str]
+
+    #: Short, human-readable incident title.
+    title: str
+
+    #: Markdown description of the incident and its impact.
+    description: str
+
+    #: Classification describing the nature of the incident.
+    incident_kind: CuratorIncidentKind
+
+    #: Impact severity classification.
+    severity: CuratorIncidentSeverity
 
 
 class CuratorInfo(TypedDict):
@@ -442,6 +503,12 @@ class CuratorInfo(TypedDict):
 
     #: Multi-paragraph Markdown description of the curator.
     long_description: str | None
+
+    #: Manual curator risk-review status.
+    risk: CuratorRisk
+
+    #: Documented curator incidents in curator YAML order.
+    incidents: list[CuratorIncident]
 
     #: Twitter/X handle without ``@`` prefix (e.g. ``"gauntlet_xyz"``),
     #: or ``None`` if not configured.
@@ -519,6 +586,12 @@ class CuratorMetadata(TypedDict):
     #: Multi-paragraph Markdown description of the curator.
     long_description: str | None
 
+    #: Manual curator risk-review status.
+    risk: CuratorRisk
+
+    #: Documented curator incidents in curator YAML order.
+    incidents: list[CuratorIncident]
+
     #: Full Twitter/X profile URL (e.g. ``"https://x.com/gauntlet_xyz"``),
     #: or ``None``.
     twitter: str | None
@@ -563,6 +636,21 @@ def _load_curator_yaml(yaml_path: Path) -> CuratorInfo:
         Path to a curator YAML file.
     """
     parsed = load_feeder_metadata(yaml_path)
+    raw_risk = parsed.get("risk", {"status": CuratorRiskStatus.unknown.value})
+    risk = CuratorRisk(status=CuratorRiskStatus(raw_risk["status"]))
+    incidents = [
+        CuratorIncident(
+            date=incident["date"],
+            links=list(incident["links"]),
+            vault_addresses=list(incident["vault_addresses"]),
+            protocols=list(incident["protocols"]),
+            title=incident["title"],
+            description=incident["description"],
+            incident_kind=CuratorIncidentKind(incident["incident_kind"]),
+            severity=CuratorIncidentSeverity(incident["severity"]),
+        )
+        for incident in parsed.get("incidents", [])
+    ]
     protocol_manager_names: dict[str, str | tuple[str, ...]] = {}
     for protocol_slug, yaml_key in PROTOCOL_MANAGER_YAML_FIELDS.items():
         raw_names = parsed.get(yaml_key)
@@ -581,6 +669,8 @@ def _load_curator_yaml(yaml_path: Path) -> CuratorInfo:
         curatorwatch=parsed.get("curatorwatch"),
         short_description=parsed.get("short_description"),
         long_description=parsed.get("long_description"),
+        risk=risk,
+        incidents=incidents,
         twitter=parsed.get("twitter"),
         linkedin=parsed.get("linkedin"),
         rss=parsed.get("rss"),
@@ -791,7 +881,7 @@ def identify_curator(  # noqa: PLR0917
         typically brand with their organisation name.
 
     :param vault_address:
-        The vault's on-chain address (hex or synthetic format).
+        The vault's onchain address (hex or synthetic format).
 
     :param protocol_slug:
         Slugified protocol name from
@@ -965,7 +1055,8 @@ def build_curator_metadata_json(yaml_path: Path, public_url: str = "") -> Curato
     info = _load_curator_yaml(yaml_path)
     slug = info["slug"]
 
-    # If alias, inherit metadata from the canonical feeder.
+    # Aliases reuse their canonical feeder's post sources and display metadata
+    # unless they declare a dedicated curator homepage.
     # Derive the feeds root from yaml_path: curators/foo.yaml -> parent.parent
     if info["canonical_feeder_id"]:
         feeds_root = yaml_path.parent.parent
@@ -974,7 +1065,7 @@ def build_curator_metadata_json(yaml_path: Path, public_url: str = "") -> Curato
             mappings_dir=feeds_root,
         )
         canonical = load_feeder_metadata(canonical_yaml)
-        website = canonical.get("website")
+        website = info["website"] or canonical.get("website")
         curatorwatch = info["curatorwatch"] or canonical.get("curatorwatch")
         twitter_handle = canonical.get("twitter")
         linkedin_id = canonical.get("linkedin")
@@ -1008,6 +1099,8 @@ def build_curator_metadata_json(yaml_path: Path, public_url: str = "") -> Curato
         curatorwatch=curatorwatch,
         short_description=info["short_description"],
         long_description=info["long_description"],
+        risk=info["risk"],
+        incidents=info["incidents"],
         twitter=twitter_url,
         linkedin=linkedin_url,
         rss=rss,
@@ -1044,6 +1137,8 @@ def _build_protocol_curator_entries(public_url: str = "") -> list[CuratorMetadat
                     curatorwatch=None,
                     short_description=None,
                     long_description=None,
+                    risk=CuratorRisk(status=CuratorRiskStatus.unknown),
+                    incidents=[],
                     twitter=None,
                     linkedin=None,
                     rss=None,

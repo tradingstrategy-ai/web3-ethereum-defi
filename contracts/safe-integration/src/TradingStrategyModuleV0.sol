@@ -110,11 +110,6 @@ contract TradingStrategyModuleV0 is Module, GuardV0Base {
      * - Execute transaction on behalf of Safe
      *
      */
-    // NOTE: The `value` parameter (ETH sent with the call) is not validated
-    // by the guard. This is accepted behaviour — Safes typically hold minimal
-    // ETH (gas money), all targets are governance-approved contracts, and any
-    // ETH sent goes to those trusted targets (not to the asset manager).
-    //
     // If msg.value > 0, the caller's ETH is forwarded to the Safe (avatar)
     // before execution — this allows the asset manager to fund execution fees
     // (e.g. GMX keeper fees) without the Safe needing a pre-funded ETH balance.

@@ -89,10 +89,10 @@ class VaultProtocolLogos(TypedDict):
     #: Default logo for protocol listing pages
     generic: str | None
 
-    #: Logo for dark backgrounds (light-coloured logo)
+    #: Alternative dark-coloured logo for light backgrounds
     dark: str | None
 
-    #: Logo for light backgrounds (dark-coloured logo)
+    #: Light-coloured logo for dark frontend backgrounds
     light: str | None
 
 

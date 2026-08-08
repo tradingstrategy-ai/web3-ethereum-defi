@@ -1,0 +1,17 @@
+# Axis curator - feeds provided by stablecoins/usdx-axis.yaml
+feeder-id: axis
+name: Axis
+role: curator
+canonical-feeder-id: usdx-axis
+upshift-strategist:
+  - Axis
+short_description: Axis is a digital-asset strategy provider that curates the Axis Origin Vault and operates the USDx synthetic-dollar ecosystem.
+long_description: |
+  Axis develops market-neutral, cross-venue arbitrage strategies and the USDx synthetic-dollar ecosystem. Its Origin Vault documentation identifies the Axis core team as the curator of the pre-deposit vault, whose mandate is to grow USDx supply and seed its distribution across DeFi. The Origin Vault is hosted via Upshift and accepts USDT or USDC during its pre-deposit phase.
+
+  Axis's source-bearing stablecoin feeder tracks the organisation's official website, X account, and LinkedIn profile. This curator record aliases that feeder so the same sources are not collected twice.
+
+# Evidence and background references.
+other-links:
+  - title: Axis documentation - Origin Vault is curated by the Axis core team and hosted via Upshift
+    url: https://docs.axis.to/origin-vault/origin-vault

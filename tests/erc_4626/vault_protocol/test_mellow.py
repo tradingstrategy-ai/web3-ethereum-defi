@@ -13,8 +13,8 @@ from eth_defi.erc_4626.classification import create_vault_instance_autodetect
 from eth_defi.erc_4626.core import ERC4262VaultDetection, ERC4626Feature
 from eth_defi.erc_4626.scan import create_vault_scan_record
 from eth_defi.mellow.vault import MellowVault
-from eth_defi.provider.anvil import AnvilLaunch, fork_network_anvil
 from eth_defi.provider.multi_provider import create_multi_provider_web3
+from eth_defi.testing.anvil_fork_pool import AnvilForkPool
 from eth_defi.token import TokenDiskCache
 from eth_defi.vault.fee import VaultFeeMode
 
@@ -37,29 +37,16 @@ USDC = "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48"
 USDT = "0xdAC17F958D2ee523a2206206994597C13D831ec7"
 USDE = "0x4c9EDD5852cd905f086C759E8383e09bff1E68B3"
 
-pytestmark = pytest.mark.skipif(JSON_RPC_ETHEREUM is None, reason="JSON_RPC_ETHEREUM needed to run these tests")
+pytestmark = [
+    pytest.mark.skipif(JSON_RPC_ETHEREUM is None, reason="JSON_RPC_ETHEREUM needed to run these tests"),
+    pytest.mark.xdist_group("fork:ethereum:25431636"),
+]
 
 
 @pytest.fixture(scope="module")
-def anvil_ethereum_fork() -> AnvilLaunch:
-    """Fork at a specific block for reproducibility.
-
-    Lido Earn USD was created through the Mellow Core Vault factory before this
-    block. The fixed block pins the component graph and share supply values.
-    """
-
-    launch = fork_network_anvil(JSON_RPC_ETHEREUM, fork_block_number=FORK_BLOCK)
-    try:
-        yield launch
-    finally:
-        launch.close()
-
-
-@pytest.fixture(scope="module")
-def web3(anvil_ethereum_fork) -> Web3:
-    """Create Web3 connection to the Ethereum fork."""
-
-    return create_multi_provider_web3(anvil_ethereum_fork.json_rpc_url, retries=2)
+def web3(anvil_fork_pool: AnvilForkPool) -> Web3:
+    """Share the read-only Mellow fork and its warmed RPC cache."""
+    return anvil_fork_pool.get_web3(JSON_RPC_ETHEREUM, FORK_BLOCK, web3_retries=2)
 
 
 @flaky.flaky

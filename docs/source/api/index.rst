@@ -15,11 +15,13 @@ See :ref:`tutorials <tutorials>` for guides and examples on how to use the libra
 
    core/index
    provider/index
+   testing/index
    usdc/index
    uniswap_v2/index
    uniswap_v3/index
    aave_v2/index
    aave_v3/index
+   axis/index
    upshift/index
    cowswap/index
    velora/index
@@ -39,6 +41,7 @@ See :ref:`tutorials <tutorials>` for guides and examples on how to use the libra
    safe/index
    vault/index
    core3/index
+   xerberus/index
    feed/index
    erc_4626/index
    tokenised_fund/index
@@ -48,6 +51,7 @@ See :ref:`tutorials <tutorials>` for guides and examples on how to use the libra
    bulla/index
    ondo/index
    nara/index
+   nest/index
    franklin/index
    atoma/index
    frankencoin/index
@@ -60,6 +64,7 @@ See :ref:`tutorials <tutorials>` for guides and examples on how to use the libra
    midas/index
    kinexys/index
    securitize/index
+   shift/index
    wisdomtree/index
    superstate/index
    symbiotic/index

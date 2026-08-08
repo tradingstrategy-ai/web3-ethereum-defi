@@ -1,23 +1,25 @@
 name: OpenEden
 slug: openeden
 short_description: |
-  Tokenised U.S. Treasury bill fund for eligible professional investors.
+  Tokenised fund from OpenEden that lets investors earn U.S. Treasury yields onchain, backed one-to-one by short-dated U.S. government bills.
 long_description: |
-  OpenEden's TBILL product tokenises exposure to a fund that holds short-dated U.S. Treasury bills. The token is designed to provide onchain settlement and a value that follows the fund's net asset value.
+  OpenEden is a Singapore-based real-world asset platform founded in 2022 by Jeremy Ng and Eugene Ng, part of the founding team of crypto exchange Gemini's Asia-Pacific business. Its chief executive, Jeremy Ng, previously held senior roles at Goldman Sachs, Morgan Stanley and the structured-products firm Leonteq. The company is backed by investors including YZi Labs, formerly Binance Labs.
 
-  Access to TBILL is restricted to eligible investors and subscriptions or redemptions can require prior approval. Availability varies by jurisdiction.
+  Launched in 2023, its flagship TBILL product was one of the earliest smart-contract vaults to bring short-dated U.S. Treasury bills onchain. Each token is backed one-to-one by a pool of U.S. Treasury bills and a small cash buffer, and investors can subscribe and redeem using USDC. The fund's assets are managed and custodied by BNY (Bank of New York Mellon), connecting established institutional finance with onchain settlement.
+
+  TBILL became a landmark in the tokenised-Treasury sector as the first such fund to earn ratings from major credit agencies, including an investment-grade rating from Moody's and a rating from S&P Global. It is available across several networks including Ethereum, Arbitrum, Solana and the XRP Ledger, and OpenEden has since grown into a broader ecosystem that includes the USDO stablecoin.
 fee_description: |
   The product page publishes the applicable transaction fee and expense ratio. Investors should also review the offering and onboarding documents for any costs that apply to their account.
 links:
   homepage: https://openeden.com/
   app: https://app.openeden.com/tbill
   twitter: https://x.com/openeden_labs
-  github:
+  github: https://github.com/OpenEdenHQ
   documentation: https://docs.openeden.com/
   fact_sheet:
-  defillama: https://defillama.com/protocol/openeden
+  defillama: https://defillama.com/protocol/openeden-tbill
   audits: https://openeden.com/static/Verichains%20Public%20Audit%20Report%20-%20OpenEden%20Vault%20-%20310323.pdf
-  fees: https://app.openeden.com/tbill
+  fees: https://docs.openeden.com/tbill/fees
   trading_strategy: https://tradingstrategy.ai/trading-view/vaults/protocols/openeden
   integration_documentation:
 example_smart_contracts:

@@ -9,6 +9,7 @@ from functools import cached_property
 from eth_typing import BlockIdentifier, HexAddress
 from web3 import Web3
 from web3.contract import Contract
+from web3.exceptions import BadFunctionCallOutput, ContractLogicError
 
 from eth_defi.abi import get_deployed_contract
 from eth_defi.erc_4626.core import ERC4626Feature
@@ -18,7 +19,7 @@ from eth_defi.erc_4626.vault_protocol.upshift.offchain_metadata import UpshiftVa
 from eth_defi.event_reader.conversion import convert_int256_bytes_to_int
 from eth_defi.event_reader.multicall_batcher import EncodedCall, EncodedCallResult
 from eth_defi.token import TokenDetails, fetch_erc20_details
-from eth_defi.vault.base import VaultHistoricalRead, VaultHistoricalReader
+from eth_defi.vault.base import VaultHistoricalRead, VaultHistoricalReader, WithdrawalDelayType, WithdrawalPeriod
 from eth_defi.vault.deposit_redeem import VaultDepositManagerCapability
 from eth_defi.vault.fee import VaultFeeMode
 
@@ -253,6 +254,19 @@ class UpshiftVault(ERC4626Vault):
         """
 
         return fetch_upshift_vault_metadata(self.web3, self.vault_address)
+
+    def is_whitelisted_deposit(self) -> bool:  # noqa: PLR6301
+        """Report Upshift account admission independently of its asset list.
+
+        Both supported Upshift families accept deposits from any account.
+        Multi-asset vaults separately restrict which input tokens may be used;
+        that accepted-asset set is validated by
+        :class:`UpshiftMultiAssetDepositManager` and is not KYC.
+
+        :return:
+            Always ``False`` because deposits have no per-account gate.
+        """
+        return False
 
     @property
     def description(self) -> str | None:
@@ -643,8 +657,9 @@ class UpshiftVault(ERC4626Vault):
 
         Multi-asset accounting vaults support synchronous deposits through
         Upshift's protocol-specific ``deposit(asset, amount, receiver)`` entry
-        point. Redemption remains deliberately unsupported until its complete
-        request and settlement lifecycle is fork-proven.
+        point. Redemptions use the verified queued
+        ``requestRedeem/processAllClaimsByDate/claim`` lifecycle; the manager
+        also exposes Upshift's optional atomic ``instantRedeem`` call.
 
         .. note::
 
@@ -658,9 +673,11 @@ class UpshiftVault(ERC4626Vault):
             accepted_assets = tuple(token.address for token in self.fetch_all_denomination_tokens())
             return VaultDepositManagerCapability(
                 can_deposit=True,
-                can_redeem=False,
+                can_redeem=True,
                 deposit_flow="synchronous",
-                redemption_unsupported_reason="multi_asset_application_flow_not_implemented",
+                redemption_flow="asynchronous",
+                supports_anvil_settlement=False,
+                anvil_settlement_unsupported_reason="upshift_operator_settlement_requires_mock",
                 deposit_assets=accepted_assets,
                 publish_partial=True,
             )
@@ -767,14 +784,33 @@ class UpshiftVault(ERC4626Vault):
         return super().get_historical_reader(stateful)
 
     def get_estimated_lock_up(self) -> datetime.timedelta | None:
-        """Upshift vaults use a daily claim processing system.
+        """Return Upshift's configured request-to-claim delay."""
+        withdrawal_period = self.get_withdrawal_period()
+        return withdrawal_period.min_period if withdrawal_period else None
 
-        Withdrawals are processed through a request-claim system where users
-        request redemption and then claim on designated days. Some curated
-        pre-deposit vaults can have longer strategy-specific lock-ups; these
-        are not exposed through the generic adapter.
+    def get_withdrawal_period(self) -> WithdrawalPeriod | None:
+        """Read Upshift's configured redemption delay from ``lagDuration()``.
+
+        ``lagDuration`` is the onchain request-to-claim timelock in seconds;
+        it is configurable per vault and must not be assumed to be one day.
+        The optional instant-redemption path has a separate fee and therefore
+        does not alter the standard request-and-claim timing exported here.
+
+        :return:
+            Fixed configured delay for standard Upshift withdrawals, or
+            ``None`` for an older deployment that lacks ``lagDuration()``.
         """
-        return datetime.timedelta(days=1)
+        try:
+            lag_duration = self.upshift_contract.functions.lagDuration().call()
+        except (BadFunctionCallOutput, ContractLogicError):
+            logger.debug("Upshift vault %s does not expose lagDuration()", self.address)
+            return None
+        period = datetime.timedelta(seconds=lag_duration)
+        return WithdrawalPeriod(
+            min_period=period,
+            max_period=period,
+            delay_type=WithdrawalDelayType.delay,
+        )
 
     def get_link(self, referral: str | None = None) -> str:
         """Get link to the vault on Upshift app.

@@ -54,6 +54,7 @@ Because the Morpho Blue API is a live external service these tests are marked
 ``flaky`` and skipped on CI if the required ``JSON_RPC_*`` env var is absent.
 """
 
+import datetime
 import logging
 import os
 from dataclasses import dataclass
@@ -64,6 +65,7 @@ import pytest
 import requests
 from web3 import Web3
 
+from eth_defi.compat import native_datetime_utc_fromtimestamp
 from eth_defi.erc_4626.classification import create_vault_instance_autodetect
 from eth_defi.erc_4626.vault_protocol.morpho.offchain_metadata import (
     MorphoVaultAPIResult,
@@ -453,6 +455,46 @@ def test_morpho_found_data_uses_disk_cache(monkeypatch: pytest.MonkeyPatch, tmp_
     assert result_3.data is not None
     assert result_3.data["manager_name"] == "Steakhouse Financial"
     assert len(v2_calls) == 1
+
+
+def test_morpho_in_process_cache_expires_after_one_day(monkeypatch: pytest.MonkeyPatch, tmp_path: Path):
+    """Refresh Morpho warnings after 24 hours even when the scanner stays running."""
+    calls = _patch_morpho_api(
+        monkeypatch,
+        [
+            {
+                "data": {
+                    "vaultByAddress": {
+                        "address": Web3.to_checksum_address(DUNE_USDC_ETHEREUM),
+                        "warnings": [{"type": "short_timelock", "level": "RED"}],
+                        "state": {"curators": [], "allocation": []},
+                    }
+                }
+            },
+            {
+                "data": {
+                    "vaultByAddress": {
+                        "address": Web3.to_checksum_address(DUNE_USDC_ETHEREUM),
+                        "warnings": [],
+                        "state": {"curators": [], "allocation": []},
+                    }
+                }
+            },
+        ],
+    )
+    web3 = _FakeWeb3()  # type: ignore[assignment]
+
+    first_result = fetch_morpho_vault_data(web3, DUNE_USDC_ETHEREUM, cache_path=tmp_path)
+    assert first_result is not None
+    assert first_result["vault_warnings"] == [{"type": "short_timelock", "level": "RED"}]
+
+    cache_file = tmp_path / f"morpho_1_{DUNE_USDC_ETHEREUM.lower()}.json"
+    refresh_at = native_datetime_utc_fromtimestamp(cache_file.stat().st_mtime) + datetime.timedelta(hours=24, seconds=1)
+    refreshed_result = fetch_morpho_vault_data(web3, DUNE_USDC_ETHEREUM, cache_path=tmp_path, now_=refresh_at)
+
+    assert refreshed_result is not None
+    assert refreshed_result["vault_warnings"] == []
+    assert len(calls) == 2  # noqa: PLR2004
 
 
 # ---------------------------------------------------------------------------

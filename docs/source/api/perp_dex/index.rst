@@ -15,3 +15,6 @@ Perp DEX vault account API
 
 .. automodule:: eth_defi.perp_dex.export
    :members:
+
+.. automodule:: eth_defi.perp_dex.vault
+   :members:

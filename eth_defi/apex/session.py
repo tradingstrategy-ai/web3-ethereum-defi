@@ -218,7 +218,7 @@ class ApexSessionPool:
         self._sessions_lock = threading.Lock()
         self._scan_lock = threading.Lock()
         self._worker_condition = threading.Condition()
-        self._active_history_workers = 0
+        self._active_workers = 0
         self._closed = False
 
     def _create_session(self) -> requests.Session:
@@ -267,7 +267,7 @@ class ApexSessionPool:
             None.
         """
         with self._worker_condition:
-            self._worker_condition.wait_for(lambda: self._active_history_workers == 0)
+            self._worker_condition.wait_for(lambda: self._active_workers == 0)
         current_thread_id = threading.get_ident()
         with self._sessions_lock:
             worker_sessions = tuple(session for thread_id, session in self._sessions if thread_id != current_thread_id)
@@ -276,23 +276,23 @@ class ApexSessionPool:
             session.close()
 
     @contextmanager
-    def history_worker_scope(self) -> Iterator[None]:
-        """Track one active history worker through cleanup.
+    def worker_scope(self) -> Iterator[None]:
+        """Track one active fetch worker through cleanup.
 
-        Joblib may surface one worker exception before sibling threads have
-        returned. The owning scan waits for all scopes to exit before closing
-        any worker-local session.
+        Joblib may surface one worker exception before sibling threads return.
+        The owning scan waits for every scope to exit before closing any
+        worker-local session.
 
         :return:
-            Context manager yielding while one history worker is active.
+            Context manager yielding while one fetch worker is active.
         """
         with self._worker_condition:
-            self._active_history_workers += 1
+            self._active_workers += 1
         try:
             yield
         finally:
             with self._worker_condition:
-                self._active_history_workers -= 1
+                self._active_workers -= 1
                 self._worker_condition.notify_all()
 
     @contextmanager

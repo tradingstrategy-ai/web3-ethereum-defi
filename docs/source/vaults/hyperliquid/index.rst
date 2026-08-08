@@ -14,6 +14,14 @@ operated as automated market makers (e.g. the Hyperliquidity Provider, HLP).
 All strategies carry their own risk profile. Users should conduct due diligence
 on vault performance history before depositing.
 
+The metrics export derives native-vault public deposit access from the
+``vaultDetails`` fields ``isClosed`` and ``allowDeposits``. A normal vault that
+is closed or has deposits disabled exports the compatibility value
+``whitelisted`` with a qualification that no approved-account route is implied.
+Open vaults export ``permissionless``. The exporter preserves its existing HLP
+parent exception and treats ``allowDeposits`` as non-authoritative for those
+protocol vaults.
+
 Key features:
 
 - Vault leaders deploy perpetual trading strategies on HyperCore

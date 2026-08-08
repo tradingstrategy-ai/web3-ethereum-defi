@@ -34,6 +34,11 @@ def test_sample_json_filters_core3_protocols_and_curators(tmp_path: Path):
             "fluid": {"slug": "instadapp", "name": "Fluid", "pol": {"score": 45.0}},
             "gains-network": {"slug": "gains-network", "name": "Gains", "pol": {"score": 60.0}},
         },
+        "xerberus_protocols": {
+            "morpho": {"protocol_slug": "morpho", "entity_id": "proto_m", "score": 84, "score_scale": "0_100_higher_is_better", "name": "Morpho", "report_url": "https://app.xerberus.io/protocol/dendrogram/proto_m", "fetched_at": "2026-07-25T00:00:00"},
+            "fluid": {"protocol_slug": "fluid", "entity_id": "proto_f", "score": 70, "score_scale": "0_100_higher_is_better", "name": "Fluid", "report_url": "https://app.xerberus.io/protocol/dendrogram/proto_f", "fetched_at": "2026-07-25T00:00:00"},
+            "gains-network": {"protocol_slug": "gains-network", "entity_id": "proto_g", "score": 50, "score_scale": "0_100_higher_is_better", "name": "Gains", "report_url": "https://app.xerberus.io/protocol/dendrogram/proto_g", "fetched_at": "2026-07-25T00:00:00"},
+        },
         "curators": {
             "gauntlet": {
                 "slug": "gauntlet",
@@ -85,6 +90,12 @@ def test_sample_json_filters_core3_protocols_and_curators(tmp_path: Path):
     assert "fluid" in result["core3_protocols"]
     # gains-network is Arbitrum only — should be excluded
     assert "gains-network" not in result["core3_protocols"]
+
+    # xerberus_protocols filtered the same way
+    assert "morpho" in result["xerberus_protocols"]
+    assert "fluid" in result["xerberus_protocols"]
+    assert "gains-network" not in result["xerberus_protocols"]
+    assert result["xerberus_protocols"]["morpho"]["report_url"] == "https://app.xerberus.io/protocol/dendrogram/proto_m"
 
     # 4. curators should only have gauntlet and re7-labs (Ethereum vaults)
     assert "gauntlet" in result["curators"]

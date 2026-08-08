@@ -15,6 +15,7 @@ from web3 import Web3
 
 from eth_defi.abi import get_deployed_contract
 from eth_defi.erc_4626.vault import ERC4626Vault
+from eth_defi.vault.base import INSTANT_WITHDRAWAL_PERIOD, WithdrawalPeriod
 
 logger = logging.getLogger(__name__)
 
@@ -82,6 +83,19 @@ class SentimentVault(ERC4626Vault):
         Withdrawal may be limited if underlying pools have insufficient liquidity.
         """
         return None
+
+    def get_withdrawal_period(self) -> WithdrawalPeriod:
+        """Report Sentiment's direct withdrawal timing.
+
+        SuperPools do not impose a request, cooldown, or epoch. Underlying
+        pool liquidity can still restrict an otherwise immediate redemption.
+        See the `Sentiment protocol source
+        <https://github.com/sentimentxyz/protocol-v2>`__.
+
+        :return:
+            A zero-length ``instant`` period.
+        """
+        return INSTANT_WITHDRAWAL_PERIOD
 
     def get_link(self, referral: str | None = None) -> str:
         """Get a link to the vault on Sentiment app.

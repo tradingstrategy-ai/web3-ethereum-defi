@@ -72,3 +72,28 @@ and the `Lighter account API
 position-value fields used by the supported adapters. The source timestamp and
 valuation basis are retained in DuckDB for auditability; only the common
 derived fields are materialised in Parquet.
+
+Public deposit classification
+-----------------------------
+
+Native perp DEX APIs generally expose whether public deposits are available,
+not whether an investor passed KYC. The shared vault JSON schema nevertheless
+uses ``deposit_permission`` and the mirrored ``whitelist.status`` field. These
+adapters therefore use ``whitelisted`` as a compatibility value when the
+source explicitly reports public deposits unavailable. Every such row carries
+a ``whitelist.notes`` qualification stating that no approved-account deposit
+route is implied.
+
+=================  ==============================================  ===========================================
+Protocol           Source fields                                   Classification
+=================  ==============================================  ===========================================
+Hyperliquid        ``isClosed``, ``allowDeposits``, relationship    Open or closed
+Lighter            Public pool ``status``                           ``0`` open; ``1`` closed; other/missing unknown
+GRVT               ``discoverable`` and vault ``status``            Public active, non-discoverable or unknown
+Hibachi            No vault deposit-access field                    ``unknown``
+ApeX               Explicit recognised lifecycle statuses           Open, closed or ``unknown``
+=================  ==============================================  ===========================================
+
+Temporary capacity, lock-up and the Hyperliquid leader-share warning do not
+change this classification. Unknown or future ApeX statuses remain ``unknown``
+until their public-deposit meaning is verified.

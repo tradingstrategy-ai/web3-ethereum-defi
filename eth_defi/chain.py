@@ -21,6 +21,7 @@ from eth_defi.compat import native_datetime_utc_fromtimestamp
 from eth_defi.event_reader.conversion import convert_jsonrpc_value_to_int
 from eth_defi.middleware import http_retry_request_with_sleep_middleware
 from eth_defi.provider.named import get_provider_name
+from eth_defi.provider.rpc_failure import classify_rpc_failure
 
 #: List of chain ids that need to have proof-of-authority middleweare installed
 POA_MIDDLEWARE_NEEDED_CHAIN_IDS = {
@@ -181,6 +182,54 @@ CHAIN_NAMES = {
     957: "Derive",
     4326: "Megaeth",
 }
+
+#: Foundry / Anvil fork-cache network-directory names, keyed by chain id.
+#:
+#: Anvil stores its fork RPC cache at
+#: ``~/.foundry/cache/rpc/<network>/<block>/storage.json`` where ``<network>`` is
+#: Foundry's own chain name (from ``alloy-chains``), which is **not** our
+#: :data:`CHAIN_NAMES` display name — e.g. Ethereum is ``mainnet`` and BNB Smart
+#: Chain (Binance) is ``bsc``. The committed fork-cache seed
+#: (``eth_defi/testing/rpc_cache_seed/<network>/<block>/``) and any code that
+#: locates a chain's fork cache must use these names so the paths match what
+#: Foundry writes. Values are verified against the directories Anvil 1.7.1
+#: actually created; chains not listed here fall back to Foundry's default (the
+#: numeric chain id as the directory) and should be added once verified.
+FOUNDRY_NETWORK_NAMES: dict[int, str] = {
+    1: "mainnet",  # Ethereum
+    56: "bsc",  # BNB Smart Chain (a.k.a. Binance / BNB chain)
+    137: "polygon",
+    143: "monad",
+    5000: "mantle",
+    146: "sonic",
+    999: "hyperliquid",  # HyperEVM
+    8453: "base",
+    9745: "plasma",
+    42161: "arbitrum",
+    43114: "avalanche",
+    80094: "berachain",
+}
+
+
+def get_foundry_network_name(chain_id: int) -> str | None:
+    """Return Foundry's fork-cache network directory name for a chain id.
+
+    Anvil stores its fork RPC cache under
+    ``~/.foundry/cache/rpc/<network>/<block>/`` keyed by Foundry's own chain name
+    (e.g. ``mainnet`` for Ethereum, ``bsc`` for BNB Smart Chain), not our
+    :data:`CHAIN_NAMES` display name. Use this to locate or seed a chain's fork
+    cache directory (see :mod:`eth_defi.testing.rpc_cache`).
+
+    :param chain_id:
+        EVM chain id.
+
+    :return:
+        The Foundry network directory name, or ``None`` when not recorded in
+        :data:`FOUNDRY_NETWORK_NAMES` (Foundry then falls back to the numeric
+        chain id as the directory name).
+    """
+    return FOUNDRY_NETWORK_NAMES.get(chain_id)
+
 
 #: For linking on reports
 CHAIN_HOMEPAGES = {
@@ -411,9 +460,16 @@ def install_chain_middleware(web3: Web3, poa_middleware=None, hint: str = ""):
         try:
             poa_middleware = web3.eth.chain_id in POA_MIDDLEWARE_NEEDED_CHAIN_IDS
         except Exception as e:
-            # Github WTF
+            # Github WTF. Dominant fork-setup failure path. Name the classified
+            # failure mode (read_timeout / rate_limited / out_of_credits / …) so
+            # CI output shows *why* the first call failed instead of guessing
+            # "out of API credits" — measured healthy cold forks answer in a few
+            # seconds, so a timeout here is a slow/rate-limited upstream, not
+            # necessarily an exhausted quota. See eth_defi.provider.rpc_failure
+            # and scripts/measure-cold-fork-time.py.
             name = get_provider_name(web3.provider)
-            raise RuntimeError(f"Could not call eth_chainId on {name} provider. Is it a valid JSON-RPC provider? As this is often the first call, you might be also out of API credits. Hint is {hint}") from e
+            failure_mode = classify_rpc_failure(e)
+            raise RuntimeError(f"Could not call eth_chainId on {name} provider (failure_mode={failure_mode.value}). Is it a valid JSON-RPC provider? A healthy cold fork answers within seconds, so a timeout here means a slow or rate-limited upstream (see failure_mode), not necessarily out of API credits. Hint is {hint}") from e
 
     if poa_middleware:
         from web3.middleware import ExtraDataToPOAMiddleware

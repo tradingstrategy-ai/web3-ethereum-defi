@@ -10,13 +10,7 @@ import "./lib/Path.sol";
 import "./IGuard.sol";
 
 contract MockGuard is IGuard {
-
-    function validateCall(
-        address sender,
-        address target,
-        bytes calldata callDataWithSelector
-    ) public view {
+    function validateCall(address sender, address target, bytes calldata callDataWithSelector) public view {
         // Don't revert
     }
-
 }
