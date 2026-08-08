@@ -1,0 +1,33 @@
+name: Barker
+slug: barker
+short_description: |
+  Stablecoin yield discovery and routing platform.
+long_description: |
+  Barker provides a public stablecoin yield index and an application for finding
+  and routing stablecoin deposits to listed opportunities. Its public site
+  describes the service as non-custodial: users retain control of their wallet
+  while choosing a destination.
+
+  This integration currently covers Barker H1, a USDC-denominated HyperEVM
+  vault identified by its reviewed address. The vault uses an epoch-based
+  deposit and redemption process. Its implementation is not verified on the
+  chain explorer, so the integration only provides read-only vault data and
+  does not provide a transaction adapter.
+fee_description: |
+  Barker does not publish a fee schedule for the reviewed H1 vault, and the
+  unverified implementation has no reviewed fee accessor. Management,
+  performance, deposit and redemption fees are therefore reported as unknown.
+links:
+  homepage: https://barker.money/
+  app: https://app.barker.money/
+  twitter: https://x.com/BarkerMoneyX
+  github:
+  documentation:
+  defillama:
+  audits:
+  fees:
+  trading_strategy: https://tradingstrategy.ai/trading-view/vaults/protocols/barker
+  integration_documentation: https://web3-ethereum-defi.readthedocs.io/vaults/barker/index.html
+example_smart_contracts:
+  - https://hyperevmscan.io/address/0x54251e24e7e5dfc66c02ea02f41bcb2419380bad
+  -

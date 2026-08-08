@@ -373,6 +373,13 @@ class ERC4626Feature(enum.Enum):
     #: https://nashpoint.gitbook.io/nashpoint
     nashpoint_like = "nashpoint_like"
 
+    #: Barker
+    #:
+    #: Stablecoin-yield routing platform. The reviewed H1 vault on HyperEVM is
+    #: recognised by address because its implementation is unverified.
+    #: https://barker.money/
+    barker_like = "barker_like"
+
     #: Llama Lend (powered by LLAMMA)
     #:
     #: Llama Lend is Curve Finance's lending protocol powered by the liquidation protection
@@ -1098,6 +1105,9 @@ def get_vault_protocol_name(features: set[ERC4626Feature]) -> str:
         return "AUTO Finance"
     elif ERC4626Feature.nashpoint_like in features:
         return "NashPoint"
+
+    elif ERC4626Feature.barker_like in features:
+        return "Barker"
 
     elif ERC4626Feature.llamma_like in features:
         return "Llama Lend"

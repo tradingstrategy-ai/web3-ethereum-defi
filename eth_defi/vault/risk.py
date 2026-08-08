@@ -129,6 +129,9 @@ VAULT_PROTOCOL_RISK_MATRIX = {
     "USDai": VaultTechnicalRisk.low,
     "AUTO Finance": VaultTechnicalRisk.low,
     "NashPoint": VaultTechnicalRisk.low,
+    # Barker H1 uses an upgradeable implementation which is not verified on
+    # HyperEVM Scan. No public audit or source repository was located.
+    "Barker": None,
     "Silo Finance": VaultTechnicalRisk.low,
     # Summer.fi was blacklisted after 2026-07-06 exploit reporting.
     #
