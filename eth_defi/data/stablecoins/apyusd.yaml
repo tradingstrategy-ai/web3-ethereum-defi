@@ -15,6 +15,13 @@ long_description: |
   Collateral backing consists of a diversified basket of variable-rate perpetual preferred shares from DAT companies (Strategy STRC, Strive SATA) supplemented by cash and short-duration US Treasuries. Apyx publishes monthly third-party attestations prepared by Wolf & Company, P.C., a PCAOB-registered audit firm.
 
   apyUSD launched on Ethereum mainnet in February 2026 and is also deployed on Base. It is listed on [CoinGecko](https://www.coingecko.com/en/coins/apyusd) and tracked on [DefiLlama](https://defillama.com/rwa/asset/apyusd).
+
+  ## Depeg
+
+  apyUSD fell to $0.9736 during the June 2026 Apyx collateral event, alongside
+  the more material apxUSD depeg. [CoinDesk's 4 June report](https://www.coindesk.com/markets/2026/06/04/apyx-s-stablecoin-suffers-a-brief-depeg-protocol-says-its-a-feature-not-bug)
+  documents the STRC-driven discount and explains apyUSD's relationship to its
+  underlying dollar token.
 links:
   homepage: https://apyx.fi/
   coingecko: https://www.coingecko.com/en/coins/apyusd
