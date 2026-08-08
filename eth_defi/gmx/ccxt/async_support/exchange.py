@@ -4095,7 +4095,10 @@ class GMX(Exchange):
         leverage = params.get("leverage", 1.0)
         collateral_symbol = params.get("collateral_symbol", "USDC")
         slippage_percent = params.get("slippage_percent", 0.003)
-        execution_buffer = params.get("execution_buffer", 2.2)
+        # Sync/async lockstep — the sync adapter falls back to the configured
+        # ``executionBuffer`` rather than the hardcoded default, so an adapter
+        # constructed with one does not silently price orders at 2.2x.
+        execution_buffer = params.get("execution_buffer", self.execution_buffer)
         reduceOnly = params.get("reduceOnly", False)
 
         # GMX Extension: Support direct USD sizing via size_usd parameter
