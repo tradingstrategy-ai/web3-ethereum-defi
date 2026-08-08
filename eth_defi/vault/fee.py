@@ -132,6 +132,9 @@ VAULT_PROTOCOL_FEE_MATRIX = {
     "USDai": VaultFeeMode.internalised_skimming,
     "AUTO Finance": VaultFeeMode.internalised_minting,
     "NashPoint": VaultFeeMode.internalised_skimming,
+    # The reviewed Barker H1 deployment does not expose or publish a fee
+    # schedule, so its accounting mode cannot be determined safely.
+    "Barker": None,
     "Llama Lend": VaultFeeMode.internalised_skimming,
     "Summer.fi": VaultFeeMode.internalised_minting,
     "Silo Finance": VaultFeeMode.internalised_minting,

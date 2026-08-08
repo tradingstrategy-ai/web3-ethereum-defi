@@ -2161,6 +2161,11 @@ def create_vault_instance(
 
         return NashpointNodeVault(web3, spec, **kwargs)
 
+    elif ERC4626Feature.barker_like in features:
+        from eth_defi.erc_4626.vault_protocol.barker.vault import BarkerVault
+
+        return BarkerVault(web3, spec, **kwargs)
+
     elif ERC4626Feature.llamma_like in features:
         # Llama Lend - fees are internalised
         from eth_defi.erc_4626.vault_protocol.llama_lend.vault import LlamaLendVault
@@ -2482,6 +2487,11 @@ HARDCODED_PROTOCOLS = {
     **VAULT_STREET_HARDCODED_PROTOCOLS,
     **FRAX_STAKING_HARDCODED_PROTOCOLS,
     **NARA_HARDCODED_PROTOCOLS,
+    # Barker - H1 USDC vault on HyperEVM.
+    # The proxy implementation is not verified on HyperEVM Scan, so this is
+    # deliberately classified only by the reviewed deployment address.
+    # https://hyperevmscan.io/address/0x54251e24e7e5dfc66c02ea02f41bcb2419380bad
+    "0x54251e24e7e5dfc66c02ea02f41bcb2419380bad": {ERC4626Feature.barker_like},
     # 3Jane - USD3 senior tranche credit vault on Ethereum
     # https://etherscan.io/address/0x056B269Eb1f75477a8666ae8C7fE01b64dD55eCc
     "0x056b269eb1f75477a8666ae8c7fe01b64dd55ecc": {ERC4626Feature.threejane_like},

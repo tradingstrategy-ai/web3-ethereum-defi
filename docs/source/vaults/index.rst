@@ -128,6 +128,7 @@ Supported protocols
    kiln/index
    kiloex/index
    kinexys/index
+   barker/index
    lagoon/index
    liquid_royalty/index
    llama-lend/index

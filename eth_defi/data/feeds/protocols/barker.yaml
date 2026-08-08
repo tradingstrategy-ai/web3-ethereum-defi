@@ -1,0 +1,10 @@
+# Barker's public website links its X, Discord and Telegram communities. No
+# RSS/Atom feed or publicly indexed blog feed was found on 2026-08-08.
+feeder-id: barker
+name: Barker
+role: protocol
+website: https://barker.money/
+twitter: BarkerMoneyX
+linkedin: barker-money
+# rss: none found on barker.money or app.barker.money as of 2026-08-08
+linkedin-rss-hub-disabled-at: 2026-08-08
