@@ -1463,3 +1463,16 @@ def test_packaged_duplicate_symbol_stablecoins_match_by_contract_only() -> None:
     assert (1, "0x7b43e3875440b44613dc3bc08e7763e6da63c8f8") in depegged_contracts  # StablR USD
     assert (1, "0x5bc25f649fc4e26069ddf4cf4010f9f706c23831") in depegged_contracts  # DefiDollar DUSD
     assert (1, "0x674c6ad92fd080e4004b2312b45f796a192d27a0") in depegged_contracts  # Neutrino USD (USDN)
+
+
+def test_packaged_apyusd_manual_depeg_blacklists_pinned_contracts() -> None:
+    """The manually reviewed apyUSD depeg blacklists both deployed contracts.
+
+    apyUSD is an ERC-4626 yield-bearing share, so automated dollar-peg detection
+    intentionally skips it. A manually set ``depegged_at`` marker must still
+    protect vault discovery from its underlying apxUSD collateral depeg.
+    """
+    depegged_contracts, _depegged_symbols = build_depegged_stablecoin_lookups()
+
+    assert (1, "0x38eeb52f0771140d10c4e9a9a72349a329fe8a6a") in depegged_contracts
+    assert (8453, "0x2c271ddf484ac0386d216eb7eb9ff02d4dc0f6aa") in depegged_contracts
