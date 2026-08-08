@@ -21,7 +21,7 @@ from eth_defi.erc_4626.vault_protocol.morpho.vault_v2 import MorphoV2Vault
 from eth_defi.event_reader.web3factory import Web3Factory
 from eth_defi.provider.fallback import ExtraValueError
 from eth_defi.token import TokenDiskCache
-from eth_defi.vault.base import VaultBase
+from eth_defi.vault.base import VaultBase, WithdrawalPeriod
 from eth_defi.vault.deposit_redeem import VaultDepositPermission
 from eth_defi.vault.fee import BROKEN_FEE_DATA, FeeData
 
@@ -123,7 +123,7 @@ def _best_effort_vault_read(reader: Callable[[], OptionalVaultRead]) -> Optional
 
 
 def fetch_deposit_permission(vault: VaultBase) -> VaultDepositPermission:
-    """Read a vault-wide deposit permission policy for a scan record.
+    """Read a vault-wide KYC requirement for a scan record.
 
     The report remains usable when a deployed adapter version lacks the
     protocol-specific view method or its node cannot answer a view call.  It
@@ -132,11 +132,11 @@ def fetch_deposit_permission(vault: VaultBase) -> VaultDepositPermission:
     propagate to the row-level scanner guard instead of becoming ``unknown``.
 
     :param vault:
-        Protocol adapter whose vault-wide policy is queried.
+        Protocol adapter whose vault-wide KYC requirement is queried.
 
     :return:
-        JSON-compatible enum representing whitelist policy or an explicitly
-        unknown policy.
+        JSON-compatible enum representing a KYC requirement or an explicitly
+        unknown status.
     """
     try:
         whitelisted = vault.is_whitelisted_deposit()
@@ -353,6 +353,11 @@ def create_vault_scan_record(
         "_notes": None,
         "_deposit_manager": None,
         "_deposit_permission": VaultDepositPermission.unknown.value,
+        "_withdrawal_period": None,
+        "_whitelist_notes": None,
+        "_minimum_deposit": None,
+        "_minimum_redemption": None,
+        "_share_price_source": None,
     }
 
     vault = create_vault_instance(
@@ -379,14 +384,19 @@ def create_vault_scan_record(
         total_supply = _fetch_total_supply(vault, block_identifier)
         denomination_token = _export_denomination_token(vault)
 
-        try:
-            lockup = vault.get_estimated_lock_up()
-        except ValueError as e:
-            logger.error(f"Failed to read lockup for vault {vault} at {detection.address}: {e}", exc_info=e)
-            lockup = None
+        withdrawal_period = _optional_vault_read(vault.get_withdrawal_period)
+        if withdrawal_period is not None:
+            assert isinstance(withdrawal_period, WithdrawalPeriod), f"Expected WithdrawalPeriod, got {type(withdrawal_period)}: {withdrawal_period}"
+            lockup = withdrawal_period.max_period
+        else:
+            try:
+                lockup = vault.get_estimated_lock_up()
+            except ValueError as e:
+                logger.error(f"Failed to read lockup for vault {vault} at {detection.address}: {e}", exc_info=e)
+                lockup = None
 
-        if lockup is not None:
-            assert isinstance(lockup, datetime.timedelta), f"Expected timedelta, got {type(lockup)}: {lockup}"
+            if lockup is not None:
+                assert isinstance(lockup, datetime.timedelta), f"Expected timedelta, got {type(lockup)}: {lockup}"
 
         # Resolve vault flags from the smart contract state
         try:
@@ -404,6 +414,12 @@ def create_vault_scan_record(
         notes = _normalise_scan_note(vault.get_notes(), description, short_description)
         capability_resolver = getattr(vault, "get_deposit_manager_capability", None)
         deposit_manager_capability = capability_resolver() if capability_resolver is not None else None
+        whitelist_notes_resolver = getattr(vault, "get_whitelist_notes", None)
+        whitelist_notes = whitelist_notes_resolver() if whitelist_notes_resolver is not None else None
+        share_price_source_resolver = getattr(vault, "get_share_price_source", None)
+        share_price_source = share_price_source_resolver() if share_price_source_resolver is not None else None
+        minimum_deposit = _best_effort_vault_read(lambda: vault.fetch_minimum_deposit(block_identifier))
+        minimum_redemption = _best_effort_vault_read(lambda: vault.fetch_minimum_redemption(block_identifier))
 
         data = {
             "Symbol": vault.symbol,
@@ -428,13 +444,18 @@ def create_vault_scan_record(
             "_fees": fees,
             "_flags": flags,
             "_lockup": lockup,
+            "_withdrawal_period": withdrawal_period,
             "_description": description,
             "_short_description": short_description,
             "_notes": notes,
             "_manager_name": vault.manager_name,
+            "_share_price_source": share_price_source,
             "_morpho_offchain_data": vault.morpho_offchain_data if isinstance(vault, (MorphoV1Vault, MorphoV2Vault)) else None,
             "_deposit_manager": deposit_manager_capability.as_initial_public_schema() if deposit_manager_capability else None,
             "_deposit_permission": fetch_deposit_permission(vault).value,
+            "_whitelist_notes": whitelist_notes,
+            "_minimum_deposit": minimum_deposit,
+            "_minimum_redemption": minimum_redemption,
         }
         data.update(activity_status)
         data.update(lending_stats)

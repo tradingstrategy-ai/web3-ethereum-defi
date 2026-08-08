@@ -25,6 +25,8 @@ from eth_defi.vault.base import (
     DEPOSIT_CLOSED_UTILISATION,
     VaultHistoricalRead,
     VaultHistoricalReader,
+    WithdrawalDelayType,
+    WithdrawalPeriod,
 )
 from eth_defi.vault.deposit_redeem import VaultDepositManagerCapability
 from eth_defi.vault.flag import MISSING_IN_PROTOCOL_FRONTEND, VaultFlag
@@ -746,6 +748,16 @@ class IPORVault(ERC4626Vault):  # noqa: PLR0904
 
     def get_estimated_lock_up(self) -> datetime.timedelta | None:
         return self.get_redemption_delay()
+
+    def get_withdrawal_period(self) -> WithdrawalPeriod | None:
+        """Return IPOR's onchain account redemption delay.
+
+        The accessor is part of IPOR's `Fusion vault access manager <https://app.ipor.io/>`__.
+        """
+        period = self.get_redemption_delay()
+        if period is None:
+            return None
+        return WithdrawalPeriod(period, period, WithdrawalDelayType.delay)
 
     # https://app.ipor.io/fusion/arbitrum/0x4c4f752fa54dafb6d51b4a39018271c90ba1156f
     def get_link(self, referral: str | None = None) -> str:

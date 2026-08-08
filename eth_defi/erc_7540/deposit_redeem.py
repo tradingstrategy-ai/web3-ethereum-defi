@@ -28,9 +28,14 @@ from eth_defi.vault.deposit_redeem import (
     DepositTicket,
     RedemptionRequest,
     RedemptionTicket,
+    UnsupportedVaultSimulation,
     VaultDepositManager,
     VaultFlowUnavailable,
+    VaultForcedSettlementResult,
 )
+
+#: Generic ERC-7540 cannot know a protocol's operator settlement action.
+ERC7540_ANVIL_SETTLEMENT_UNSUPPORTED_REASON = "generic_erc_7540_settlement_driver_not_implemented"
 from eth_defi.vault.flow_events import (
     PendingVaultFlow,
     VaultFlowDirection,
@@ -142,22 +147,83 @@ class ERC7540RedemptionRequest(RedemptionRequest):
 
 
 class ERC7540DepositManager(VaultDepositManager):
-    """Protocol-neutral ERC-7540 asynchronous deposit and redemption flow.
+    """Protocol-neutral asynchronous `ERC-7540 <https://eips.ethereum.org/EIPS/eip-7540>`__ deposit and redemption flow.
 
-    **Supported simulation path**
+    Generic manager for ERC-7540 request-based vaults, where deposits and
+    redemptions are two-phase: a request transaction registers the intent, an
+    operator settles it off-interface, and a later claim transaction moves the
+    tokens. Protocol adapters such as Lagoon subclass this manager to add their
+    settlement driver and access policies; the generic manager only builds the
+    standard request and claim calls.
 
-    This manager builds standard ERC-7540 request and claim calls. Settlement
-    is operator-specific, so the generic implementation deliberately has no
-    Anvil settlement driver. Protocol adapters such as Lagoon may subclass the
-    manager and implement :meth:`force_settle`.
+    **Deposit process**
 
-    **Known limitations**
+    Asynchronous. The owner first ``approve()``s the ERC-20 denomination token
+    to the vault (the default :meth:`get_deposit_approval_target`).
+    :meth:`create_deposit_request` builds the standard
+    ``requestDeposit(assets, owner, owner)`` call (the request is
+    controller-scoped, so ``owner`` is both controller and receiver — a
+    separate ``to`` is unsupported). Broadcasting it emits a ``DepositRequest``
+    event whose ``requestId`` is parsed into an :class:`ERC7540DepositTicket`.
+    Once the operator settles, :meth:`can_finish_deposit` (reading
+    ``claimableDepositRequest``) turns ``True`` and :meth:`finish_deposit`
+    builds the three-argument ``deposit(assets, to, owner)`` claim that mints
+    the shares.
 
-    The generic manager does not model protocol-specific access policies,
-    settlement roles, partial settlements, cancellation or reclaim.
+    **Redemption process**
 
-    See the canonical `ERC-7540 specification
-    <https://eips.ethereum.org/EIPS/eip-7540>`__ for the request lifecycle.
+    Asynchronous. :meth:`create_redemption_request` builds the standard
+    ``requestRedeem`` call (via ``vault.request_redeem``), controller-scoped to
+    ``owner``; a separate ``to`` is unsupported. Broadcasting emits a
+    ``RedeemRequest`` event whose ``requestId`` is parsed into an
+    :class:`ERC7540RedemptionTicket`. After operator settlement
+    :meth:`can_finish_redeem` (reading ``claimableRedeemRequest``) turns
+    ``True`` and :meth:`finish_redemption` builds the three-argument
+    ``redeem(shares, to, owner)`` claim. A request is identified by its
+    ERC-7540 ``requestId`` carried on the ticket.
+
+    **Queues and settlement**
+
+    Requests are queued onchain and settled by the vault operator; the timing
+    and mechanism are outside the ERC-7540 standard. Status is derived from the
+    request-specific claimable views:
+    :meth:`get_deposit_request_status` and :meth:`get_redemption_request_status`
+    check the ticket's claimable amount **first** (an aggregate
+    ``pendingDepositRequest(0, owner)``/``pendingRedeemRequest(0, owner)`` query
+    lumps all of an owner's requests together), then fall back to the aggregate
+    pending query, returning ``claimable``/``pending``/``none``. The generic
+    layer has no reclaim signal, so ``reclaimable`` is never returned.
+    :meth:`fetch_vault_flow_events` streams ``DepositRequest`` and
+    ``RedeemRequest`` events from Hypersync.
+
+    **Lockups and cooldowns**
+
+    No deterministic protocol-level delay: settlement cadence is operator-driven.
+    :meth:`estimate_redemption_delay` returns zero and
+    :meth:`get_redemption_delay_over` returns the Unix epoch sentinel.
+    :meth:`can_create_deposit_request` and :meth:`can_create_redemption_request`
+    reflect only the vault's optional ``paused()`` flag.
+
+    **Whitelisting / access control**
+
+    Deposit admission is checked in :meth:`_assert_deposit_request_available`,
+    called at the start of :meth:`create_deposit_request`: it first rejects a
+    paused vault with :class:`~eth_defi.vault.deposit_redeem.VaultFlowUnavailable`,
+    then runs the shared
+    :meth:`~eth_defi.vault.deposit_redeem.VaultDepositManager.check_deposit_whitelist`
+    preflight (raising
+    :class:`~eth_defi.vault.deposit_redeem.WhitelistingRequired` for an
+    unpermitted owner). The pause flag is read defensively — a missing
+    ``paused()`` view is treated as unpaused. Protocol-specific admission
+    policies belong in subclasses.
+
+    **Anvil settlement (force_settle)**
+
+    Settlement is operator-specific, so the generic manager deliberately has no
+    Anvil settlement driver: the inherited :meth:`force_settle` raises
+    :class:`~eth_defi.vault.deposit_redeem.UnsupportedVaultSimulation` for an
+    async ticket. Protocol subclasses (such as Lagoon) override it to drive
+    settlement on a fork.
     """
 
     #: Request wrapper used for deposits. Protocol subclasses may replace it.
@@ -603,6 +669,8 @@ class ERC7540DepositManager(VaultDepositManager):
 
         :param owner:
             Request owner and controller used by ``requestDeposit``.
+        :raise WhitelistingRequired:
+            If the vault whitelist is applicable and excludes ``owner``.
         :raise VaultFlowUnavailable:
             If the vault is paused.
         """
@@ -615,6 +683,10 @@ class ERC7540DepositManager(VaultDepositManager):
                 direction="deposit",
                 phase="preflight",
             )
+
+        # Reject a whitelisted vault before broadcast when the owner is not
+        # permitted; a no-op when the policy cannot be determined.
+        self.check_deposit_whitelist(owner)
 
     def _is_vault_paused(self) -> bool:
         """Read an ERC-7540 vault's optional ``paused()`` flag defensively.
@@ -642,6 +714,54 @@ class ERC7540DepositManager(VaultDepositManager):
             return convert_int256_bytes_to_int(result) != 0
         except (ValueError, BadFunctionCallOutput, BadAddressError, ProbablyNodeHasNoBlock):
             return False
+
+    def force_settle(
+        self,
+        ticket: DepositTicket | RedemptionTicket | None,
+        *,
+        mock: object | None = None,
+        ignore_liquidity: bool = False,
+    ) -> VaultForcedSettlementResult:
+        """Refuse generic ERC-7540 operator settlement before a fork broadcast.
+
+        ERC-7540 standardises request and claim interfaces but not the operator
+        action which makes a particular ticket claimable. Protocol-specific
+        managers must implement and prove that action before advertising an
+        Anvil settlement capability.
+
+        :param ticket:
+            Asynchronous deposit or redemption ticket whose settlement is not
+            implemented by this protocol-neutral manager.
+        :param mock:
+            Optional local protocol mock. Generic ERC-7540 does not define an
+            operator settlement action, so no mock driver is available.
+        :param ignore_liquidity:
+            Unsupported for the protocol-neutral ERC-7540 manager. Concrete
+            protocol managers must opt in explicitly.
+        :return:
+            This method never returns because both generic ERC-7540 directions
+            are asynchronous.
+        :raise UnsupportedVaultSimulation:
+            Always, with the generic capability's stable reason.
+        """
+        if ignore_liquidity:
+            return super().force_settle(ticket, mock=mock, ignore_liquidity=True)
+
+        if mock is not None:
+            raise UnsupportedVaultSimulation(
+                f"{self.__class__.__name__} has no local mock settlement driver",
+                unsupported_reason="mock_settlement_driver_not_implemented",
+                protocol=self.vault.get_protocol_name(),
+                vault_address=self.vault.address,
+            )
+
+        raise UnsupportedVaultSimulation(
+            f"Generic ERC-7540 settlement driver is not implemented for vault {self.vault.address} on chain {self.vault.chain_id}",
+            unsupported_reason=ERC7540_ANVIL_SETTLEMENT_UNSUPPORTED_REASON,
+            protocol=self.vault.get_protocol_name(),
+            vault_address=self.vault.address,
+            direction="deposit" if isinstance(ticket, DepositTicket) else "redeem" if isinstance(ticket, RedemptionTicket) else None,
+        )
 
     def has_synchronous_deposit(self) -> bool:
         """Report that deposits use the asynchronous request lifecycle.

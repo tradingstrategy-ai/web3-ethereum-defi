@@ -97,6 +97,8 @@ library OracleUtils {
         address token;
         uint256 min;
         uint256 max;
+        uint256 rawMin;
+        uint256 rawMax;
         uint256 timestamp;
         address provider;
     }

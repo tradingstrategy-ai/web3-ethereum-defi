@@ -21,7 +21,7 @@ import numpy as np
 import requests
 from eth_utils import to_checksum_address
 
-from eth_defi.gmx.api import GMXAPI
+from eth_defi.gmx.api import GMXAPI, GMXAPIChainUnsupported
 from eth_defi.gmx.config import GMXConfig
 from eth_defi.gmx.core.get_data import GetData
 from eth_defi.gmx.core.oracle import OraclePrices
@@ -97,6 +97,11 @@ class GetOpenPositions(GetData):
             if positions:
                 return positions
             logger.debug("REST API returned empty positions for %s", checksum_address)
+        except GMXAPIChainUnsupported as e:
+            # GMX runs no wallet-scoped REST host for this chain at all, so this
+            # tier can never succeed here. Expected, permanent, and nothing to
+            # act on — the on-chain reader below is authoritative anyway.
+            logger.debug("REST API not available on this chain, using a later tier: %s", e)
         except Exception as e:
             logger.warning("REST API v2 positions query failed, trying GraphQL: %s", e)
 

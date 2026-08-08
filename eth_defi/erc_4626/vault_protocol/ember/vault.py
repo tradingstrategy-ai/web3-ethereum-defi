@@ -19,6 +19,7 @@ and distributing traditional and onchain financial products through crypto capit
 
 import datetime
 import logging
+from decimal import Decimal
 from functools import cached_property
 from typing import TYPE_CHECKING
 
@@ -31,6 +32,7 @@ from eth_defi.erc_4626.vault_protocol.ember.offchain_metadata import (
     EmberVaultMetadata,
     fetch_ember_vault_metadata,
 )
+from eth_defi.vault.base import WithdrawalDelayType, WithdrawalPeriod
 
 logger = logging.getLogger(__name__)
 
@@ -101,6 +103,18 @@ class EmberVault(ERC4626Vault):
             return self.ember_metadata.get("management_fee")
         return None
 
+    def is_whitelisted_deposit(self) -> bool:  # noqa: PLR6301
+        """Report the Ember adapter family's default permission policy.
+
+        Supported Ember deployments are treated as permissionless by default.
+        Global pause, capacity and minimum checks are independent lifecycle
+        conditions handled by the deposit manager.
+
+        :return:
+            Always ``False``.
+        """
+        return False
+
     def get_performance_fee(self, block_identifier: BlockIdentifier) -> float | None:
         """Weekly performance fee from Ember's offchain API.
 
@@ -124,11 +138,54 @@ class EmberVault(ERC4626Vault):
         Uses the ``withdrawalPeriodDays`` from the offchain API if available,
         otherwise defaults to 4 days.
         """
-        if self.ember_metadata:
-            days = self.ember_metadata.get("withdrawal_period_days")
-            if days is not None:
-                return datetime.timedelta(days=days)
+        withdrawal_period = self.get_withdrawal_period()
+        if withdrawal_period:
+            return withdrawal_period.estimated_settlement
         return datetime.timedelta(days=4)
+
+    def get_withdrawal_period(self) -> WithdrawalPeriod | None:
+        """Return Ember's non-binding operator settlement estimate.
+
+        Ember's offchain API publishes the per-vault ``withdrawalPeriodDays``
+        service estimate for its operator-driven redemption queue. The contract
+        has no corresponding deadline: an operator can process a request
+        earlier, later, or not at all. The value is therefore exported only as
+        ``estimated_settlement`` for backtesting and does not produce binding
+        ``min_period`` or ``max_period`` values.
+
+        :return:
+            Asynchronous withdrawal metadata with an offchain settlement
+            estimate, or ``None`` when the API has no valid per-vault value.
+        """
+        metadata = self.ember_metadata
+        withdrawal_period_days = metadata.get("withdrawal_period_days") if metadata else None
+        if not isinstance(withdrawal_period_days, int) or withdrawal_period_days <= 0:
+            return None
+        return WithdrawalPeriod(
+            min_period=None,
+            max_period=None,
+            delay_type=WithdrawalDelayType.delay,
+            estimated_settlement=datetime.timedelta(days=withdrawal_period_days),
+        )
+
+    def fetch_minimum_redemption(self, block_identifier: BlockIdentifier = "latest") -> Decimal | None:
+        """Fetch Ember's minimum queued redemption in decimal share units.
+
+        Ember's ``minWithdrawableShares()`` is checked by its
+        ``redeemShares`` request path, so it is a redemption minimum rather
+        than a withdrawal-capacity value.
+
+        :param block_identifier:
+            Block at which to read the configured minimum.
+        :return:
+            Decimal share minimum.
+        """
+        minimum_raw = int(
+            self.vault_contract.functions.minWithdrawableShares().call(
+                block_identifier=block_identifier,
+            )
+        )
+        return self.share_token.convert_to_decimals(minimum_raw)
 
     def get_deposit_manager(self) -> "EmberDepositManager":
         """Create Ember's synchronous-deposit, asynchronous-redemption manager.
@@ -161,6 +218,9 @@ class EmberVault(ERC4626Vault):
             can_redeem=True,
             deposit_flow="synchronous",
             redemption_flow="asynchronous",
+            # Ember redemption is terminal only after force_settle validates a
+            # request-specific operator event and positive direct payout.
+            supports_anvil_settlement=True,
         )
 
     def get_notes(self) -> str | None:

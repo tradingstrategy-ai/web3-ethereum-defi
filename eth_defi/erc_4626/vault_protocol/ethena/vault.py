@@ -27,6 +27,7 @@ import logging
 from eth_typing import BlockIdentifier
 
 from eth_defi.erc_4626.vault import ERC4626Vault
+from eth_defi.vault.base import WithdrawalDelayType, WithdrawalPeriod
 
 logger = logging.getLogger(__name__)
 
@@ -86,6 +87,21 @@ class EthenaVault(ERC4626Vault):
         The actual cooldown duration can be read from the contract.
         """
         return datetime.timedelta(days=7)
+
+    def get_withdrawal_period(self) -> WithdrawalPeriod | None:
+        """Read Ethena's live cooldown duration.
+
+        The contract interface is documented in the `Ethena smart-contract repository <https://github.com/ethena-labs>`__.
+
+        :return:
+            Fixed cooldown duration, or ``None`` when the accessor is not
+            available on an older deployment.
+        """
+        try:
+            period = datetime.timedelta(seconds=self.vault_contract.functions.cooldownDuration().call())
+        except (AttributeError, ValueError):
+            return None
+        return WithdrawalPeriod(period, period, WithdrawalDelayType.delay)
 
     def get_link(self, referral: str | None = None) -> str:
         """Get the vault's web UI link.

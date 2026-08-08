@@ -18,6 +18,7 @@ from web3.types import RPCEndpoint, RPCResponse
 from eth_defi.event_reader.fast_json_rpc import get_last_headers
 from eth_defi.middleware import DEFAULT_RETRYABLE_EXCEPTIONS, DEFAULT_RETRYABLE_HTTP_STATUS_CODES, DEFAULT_RETRYABLE_RPC_ERROR_CODES, ProbablyNodeHasNoBlock, SomeCrappyRPCProviderException, is_retryable_http_exception
 from eth_defi.provider.named import BaseNamedProvider, NamedProvider, get_provider_name
+from eth_defi.provider.rpc_failure import classify_rpc_failure
 from eth_defi.provider.rpcdb import RPCRequestStats, normalise_rpc_error
 from eth_defi.utils import get_url_domain
 
@@ -281,16 +282,24 @@ class FallbackProvider(BaseNamedProvider):
                 chain_id = self._fetch_chain_id_from_provider(provider)
             except Exception as e:
                 unavailable[name] = e
+                # Log the redacted provider name + classified failure mode only.
+                # The raw exception can embed the full upstream RPC URL (API key in
+                # path/query), so it is not logged; get_provider_name(name) and the
+                # failure mode carry the actionable signal without the leak.
                 logger.warning(
-                    "Provider %s did not respond to eth_chainId during startup verification, keeping it in fallback rotation: %s",
+                    "Provider %s did not respond to eth_chainId during startup verification, keeping it in fallback rotation: failure_mode=%s",
                     name,
-                    e,
+                    classify_rpc_failure(e).value,
                 )
                 continue
             results[name] = chain_id
 
         if not results:
-            detail = ", ".join(f"{name}: {exc}" for name, exc in unavailable.items())
+            # Name each provider's redacted name + failure mode so an
+            # all-providers-down startup (e.g. every archive endpoint rate
+            # limited) is obvious, without leaking the raw URL/key from the
+            # exception text.
+            detail = ", ".join(f"{name}: failure_mode={classify_rpc_failure(exc).value}" for name, exc in unavailable.items())
             raise ChainIdMismatch(f"No RPC providers responded to eth_chainId during startup verification: {detail}")
 
         chain_ids = set(results.values())

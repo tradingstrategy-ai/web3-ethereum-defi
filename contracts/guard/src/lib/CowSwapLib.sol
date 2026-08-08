@@ -19,9 +19,13 @@ struct PresignCallData {
 }
 
 library CowSwapLib {
-
     // How long are our CowSwap orders valid for
     uint256 internal constant _SIGN_COOLDOWN = 20 minutes;
+
+    // SECURITY: This adapter is not enabled for active product use. The asset
+    // manager sets buyAmount/minAmountOut, including zero, with no oracle-backed
+    // cumulative slippage accounting. Before product adoption, add a cumulative
+    // maximum-slippage policy like Enzyme used.
 
     // Diamond storage slot for CowSwap state
     bytes32 constant STORAGE_SLOT = keccak256("eth_defi.cowswap.v1");
@@ -32,7 +36,12 @@ library CowSwapLib {
 
     // Let offchain logic get our order details
     event OrderSigned(
-        uint256 indexed timestamp, bytes orderUid, GPv2Order.Data order, uint32 validTo, uint256 buyAmount, uint256 sellAmount
+        uint256 indexed timestamp,
+        bytes orderUid,
+        GPv2Order.Data order,
+        uint32 validTo,
+        uint256 buyAmount,
+        uint256 sellAmount
     );
 
     event CowSwapApproved(address settlementContract, string notes);
@@ -97,11 +106,7 @@ library CowSwapLib {
         return PresignCallData({
             orderUid: orderUid,
             targetAddress: settlementContract,
-            data: abi.encodeWithSelector(
-                ICowSettlement.setPreSignature.selector,
-                orderUid,
-                true
-            )
+            data: abi.encodeWithSelector(ICowSettlement.setPreSignature.selector, orderUid, true)
         });
     }
 
@@ -112,11 +117,6 @@ library CowSwapLib {
     /// bytecode (EIP-170). Uses IGuardChecks callbacks via address(this)
     /// to check permissions on the calling contract's storage.
     ///
-    /// NOTE: minAmountOut (buyAmount) is not enforced to be > 0 here.
-    /// Unlike Velora's opaque calldata, CowSwap orders are constructed
-    /// from validated parameters and filled via a competitive solver
-    /// auction — a zero buyAmount order would still receive market-price
-    /// surplus from the solver competition. This is accepted behaviour.
     function validateAndCreateOrder(
         address settlementContract,
         address receiver,
@@ -160,11 +160,7 @@ library CowSwapLib {
         return PresignCallData({
             orderUid: orderUid,
             targetAddress: settlementContract,
-            data: abi.encodeWithSelector(
-                ICowSettlement.setPreSignature.selector,
-                orderUid,
-                true
-            )
+            data: abi.encodeWithSelector(ICowSettlement.setPreSignature.selector, orderUid, true)
         });
     }
 }

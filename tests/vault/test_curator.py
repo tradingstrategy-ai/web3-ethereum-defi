@@ -74,7 +74,9 @@ def test_tokenised_fund_curator_metadata_has_logos() -> None:
 
     slugs = (
         "bosera-asset-management-international",
+        "changfeng-asset-management",
         "chinaamc-hong-kong",
+        "cms-asset-management-hk",
         "cncb-capital",
         "epoch-rwa",
         "fidelity",
@@ -134,6 +136,7 @@ def test_live_curators_with_verified_artwork_include_generic_logo() -> None:
     slugs = (
         "722-capital",
         "alpine",
+        "axis",
         "bizantine",
         "btcd-labs",
         "candle-effect",
@@ -145,6 +148,7 @@ def test_live_curators_with_verified_artwork_include_generic_logo() -> None:
         "hardcore-labs",
         "libeara",
         "m1-capital",
+        "morini-capital",
         "monarq",
         "nemo",
         "nerona",
@@ -169,14 +173,15 @@ def test_live_curators_with_verified_artwork_include_generic_logo() -> None:
     assert get_curator_available_logos("wstgbp")["generic"]
 
 
-def test_upshift_curator_brandmarks_are_visible_on_dark_background() -> None:
-    """Upshift curator brandmarks retain high-contrast pixels on dark surfaces."""
+def test_curator_brandmarks_are_visible_on_dark_background() -> None:
+    """Curator brandmarks retain high-contrast pixels on dark surfaces."""
 
     brandmark_slugs = (
         "alpine",
         "ergonia",
         "gamma-research",
         "hardcore-labs",
+        "hyperithm",
         "m1-capital",
         "monarq",
         "nemo",
@@ -210,7 +215,7 @@ def test_upshift_curator_brandmarks_are_visible_on_dark_background() -> None:
 
 
 def test_identify_wstgbp_as_protocol_curated() -> None:
-    """wstGBP has no third-party curator."""
+    """wstGBP is curated by its protocol operator, Wren Spire."""
 
     slug = identify_curator(
         chain_id=1,
@@ -223,6 +228,45 @@ def test_identify_wstgbp_as_protocol_curated() -> None:
     assert slug == "wstgbp"
     assert is_protocol_curator(slug)
     assert get_curator_name(slug) == "wstGBP"
+
+
+def test_identify_yearn_as_protocol_curator() -> None:
+    """Identify every Yearn protocol vault as Yearn-curated.
+
+    The `yearn` protocol slug is blanket-curated: individual vault names do
+    not need to carry the Yearn brand for the curator attribution to apply.
+    """
+
+    slug = identify_curator(
+        chain_id=1,
+        vault_token_symbol="yrnUSDC",
+        vault_name="Unbranded USDC strategy",
+        vault_address="0x0000000000000000000000000000000000000001",
+        protocol_slug="yearn",
+    )
+
+    assert slug == "yearn"
+    assert get_curator_name(slug) == "Yearn"
+    assert is_protocol_curator(slug)
+    assert "https://curation.yearn.fi/" in load_curator_map()[slug]["long_description"]
+    metadata = build_curator_metadata_json(Path("eth_defi/data/feeds/curators/yearn.yaml"))
+    assert metadata["website"] == "https://curation.yearn.fi/"
+
+
+def test_wstgbp_protocol_curator_metadata_uses_official_feed() -> None:
+    """Keep Wren's curator details separate from the tGBP issuer's feeds."""
+
+    metadata = build_curator_metadata_json(
+        Path("eth_defi/data/feeds/curators/wstgbp.yaml"),
+        public_url="https://example.com",
+    )
+
+    assert metadata["protocol_curator"] is True
+    assert metadata["canonical_feeder_id"] == "wstgbp"
+    assert metadata["website"] == "https://wstgbp.com"
+    assert metadata["twitter"] == "https://x.com/wstgbp"
+    assert "BCP Technologies" in metadata["long_description"]
+    assert metadata["logos"]["generic"] == "https://example.com/curator-metadata/wstgbp/generic.png"
 
 
 def test_identify_felix_vault() -> None:
@@ -482,6 +526,24 @@ def test_identify_morpho_curator_by_curator_metadata() -> None:
     assert slug == "gauntlet"
 
 
+def test_identify_growi_lending_vault_by_address_override() -> None:
+    """Map Growi's unbranded HyperEVM Morpho Vault V2 to its curator.
+
+    The explicit address rule preserves Growi attribution if the vault's
+    display name or share-token symbol later changes.
+    """
+
+    slug = identify_curator(
+        chain_id=999,
+        vault_token_symbol="GWUSDC1-HL",
+        vault_name="USDC Core",
+        vault_address="0x54E24C904CfC563Af7A1EE9DfAF1354d034e44e4",
+        protocol_slug="morpho",
+    )
+
+    assert slug == "growi-finance"
+
+
 def test_identify_galaxy_morpho_curator_by_curator_metadata() -> None:
     """Galaxy Curation maps to the Galaxy curator through Morpho manager metadata."""
 
@@ -586,6 +648,10 @@ def test_identify_asseto_curator_by_priority_partner_role() -> None:
     """Asseto investment manager/advisor names resolve through curator YAML."""
 
     assert identify_curator(1, "", "", "0x0", "asseto", "CMS Asset Management (HK)") == "cms-asset-management-hk"
+    assert get_curator_name("cms-asset-management-hk") == "CMS Asset Management"
+    assert get_curator_name("chinaamc-hong-kong") == "China Asset Management"
+    assert identify_curator(1, "", "", "0x0", "asseto", "Changfeng Asset Management Limited") == "changfeng-asset-management"
+    assert get_curator_name("changfeng-asset-management") == "Changfeng Asset Management"
     assert identify_curator(1, "", "", "0x0", "asseto", "DL Holdings") == "dl-holdings"
     assert identify_curator(1, "", "", "0x0", "asseto", "Four Seasons") == "four-seasons"
     assert identify_curator(1, "", "", "0x0", "asseto", "DFZQ / Orient Securities International") == "dfzq"
@@ -709,15 +775,14 @@ def test_identify_jpmorgan_mony_by_address() -> None:
     assert slug == "jpmorgan"
 
 
-def test_identify_piku_vaults_by_address() -> None:
-    """Resolve the published Piku token and Morini vaults by exact address.
+def test_identify_morini_capital_vaults_by_address() -> None:
+    """Resolve Morini Capital's curated vaults by exact address.
 
-    Piku's branding is not part of every vault name, so the mappings must stay
-    address-scoped across Inverter, Accountable and Midas infrastructure.
+    Morini's branding is not part of every vault name, so the mappings must
+    stay address-scoped across Accountable and Midas infrastructure.
     """
 
     cases = [
-        ("USP", "USP", "0x098697bA3Fee4eA76294C5d6A466a4e3b3E95FE6", "inverter"),
         ("aFXArbUSDTRY", "Morini FXArbUSDTRY", "0x99351BaEd3d8aB544CCb08aF96A105910fdA71E7", "accountable"),
         ("StockMarketTRBasisTrade", "Morini StockMarketTRBasisTrade Vault", "0x827Ce7E8e35861D9Ac7fE002755767b695A5594a", "midas"),
         ("CarryTradeUSDTRYLeverage", "Morini CarryTradeUSDTRYLeverage Vault", "0x2bf11d2E04Bc40daa95c24B8b90EC4F5c57Dd326", "midas"),
@@ -731,7 +796,7 @@ def test_identify_piku_vaults_by_address() -> None:
             vault_address=vault_address,
             protocol_slug=protocol_slug,
         )
-        assert slug == "piku", f"{vault_name!r} resolved to {slug!r}"
+        assert slug == "morini-capital", f"{vault_name!r} resolved to {slug!r}"
 
 
 def test_identify_accountable_curators_by_public_company_metadata() -> None:
@@ -750,7 +815,7 @@ def test_identify_accountable_curators_by_public_company_metadata() -> None:
         ("Ouroboros 90D Fixed Term Vault", "Ouroboros Capital", "ouroboros-capital"),
         ("aHYPER Looping Vault", "Hyperithm", "hyperithm"),
         ("Hyperithm Delta Neutral cbBTC Vault", "Hyperithm", "hyperithm"),
-        ("Morini FXArbUSDTRY", "Morini Capital", "piku"),
+        ("Morini FXArbUSDTRY", "Morini Capital", "morini-capital"),
         ("Noon wcBTC Yield Vault", "Noon", "noon"),
         ("OnRe Core Vault", "RockawayX", "rockawayx"),
         ("Yuzu Money Vault", "Yuzu Money", "yuzu-money"),
@@ -1054,6 +1119,22 @@ def test_identify_atoma_protocol_curator() -> None:
     assert get_curator_name("atoma") == "Atoma"
 
 
+def test_atoma_curator_metadata_highlights_transparency_dashboard() -> None:
+    """Atoma curator metadata describes the public onchain position dashboard."""
+    metadata = build_curator_metadata_json(
+        Path("eth_defi/data/feeds/curators/atoma.yaml"),
+        public_url="",
+    )
+
+    assert metadata["short_description"] is not None
+    assert "public dashboard" in metadata["short_description"]
+    assert metadata["long_description"] is not None
+    long_description = metadata["long_description"].replace("\n", " ")
+    assert "public transparency dashboard" in long_description
+    assert "all vault positions" in long_description
+    assert "independently verifiable onchain" in long_description
+
+
 def test_identify_frankencoin_protocol_curator() -> None:
     """Frankencoin svZCHF vaults resolve to the protocol-managed slug."""
 
@@ -1216,6 +1297,7 @@ def test_identify_vault_name_sweep_curators() -> None:
         ("euler", "HypurrFi Earn USDC"): "hypurrfi",
         ("lagoon-finance", "DAMM Stablecoin Fund"): "damm-capital",
         ("morpho", "August USDC"): "august-digital",
+        ("upshift", "Axis Origin USDx"): "axis",
     }
     for (protocol_slug, name), expected in cases.items():
         slug = identify_curator(
@@ -1232,3 +1314,39 @@ def test_identify_vault_name_sweep_curators() -> None:
 
     # 3. The calendar month must not be mistaken for August Digital
     assert identify_curator(1, "", "Prize imToken August Campaign", "0x0", "morpho") is None
+
+
+def test_identify_hypertwin_copy_vault() -> None:
+    """Attribute the separately operated HyperTwin copy vault to HyperTwin.
+
+    The name mentions Growi HF only because HyperTwin copies that strategy at
+    twice the leverage.  Its own brand must take precedence over Growi Finance.
+    """
+
+    slug = identify_curator(
+        chain_id=9999,
+        vault_token_symbol="HyperTwin",
+        vault_name="HyperTwin - Growi HF 2x",
+        vault_address="0x15be61aef0ea4e4dc93c79b668f26b3f1be75a66",
+        protocol_slug="hyperliquid",
+    )
+
+    assert slug == "hypertwin"
+    assert slug != "growi-finance"
+    assert get_curator_name(slug) == "HyperTwin"
+
+
+def test_identify_axis_from_upshift_strategist() -> None:
+    """Identify Axis from Upshift's strategist metadata for the Origin vault."""
+
+    assert (
+        identify_curator(
+            chain_id=1,
+            vault_token_symbol="ogUSDx",
+            vault_name="Axis Origin USDx",
+            vault_address="0xAD958C4c0c90bf0216e0f5472F074a9AB30f595F",
+            protocol_slug="upshift",
+            manager_name="Axis",
+        )
+        == "axis"
+    )

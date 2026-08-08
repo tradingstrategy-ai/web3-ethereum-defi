@@ -19,6 +19,7 @@ from eth_defi.research.wrangle_vault_prices import (
     calculate_vault_returns,
     clean_by_tvl,
     clean_returns,
+    discard_hypercore_initial_low_tvl_history,
     discard_hypercore_pre_recapitalisation_history,
     fix_outlier_share_prices,
     generate_cleaned_vault_datasets,
@@ -296,6 +297,27 @@ def test_remove_inactive_lead_time_with_duplicate_timestamps():
     assert delayed_supply["total_supply"].tolist() == [200, 300]
     assert duplicate_activation["total_supply"].tolist() == [200, 200, 300]
     assert duplicate_activation.index.duplicated().any()
+
+
+def test_remove_inactive_lead_time_with_nullable_pyarrow_supply():
+    """Ignore missing supply readings when locating the first supply change.
+
+    ``generate_cleaned_vault_datasets()`` loads raw Parquet with
+    ``dtype_backend="pyarrow"``. A missing supply therefore becomes
+    ``pd.NA`` rather than ``numpy.nan``. The mask must remain usable even
+    when the missing reading follows the first detected supply change.
+    """
+    df = pd.DataFrame(
+        {
+            "id": ["nullable-supply-vault"] * 5,
+            "total_supply": pd.array([100, 0, None, 0, 200], dtype="float64[pyarrow]"),
+            "timestamp": pd.date_range("2026-07-01", periods=5, freq="h"),
+        }
+    ).set_index("timestamp")
+
+    result = remove_inactive_lead_time(df, logger=lambda _: None)
+
+    assert result["total_supply"].tolist() == [0.0, pd.NA, 0.0, 200.0]
 
 
 def test_approximate_hypercore_share_prices_from_pnl_nav() -> None:
@@ -816,6 +838,42 @@ def test_approximate_hypercore_rejects_invalid_configuration() -> None:
         approximate_hypercore_share_prices_from_pnl_nav(prices_df.drop(columns="account_pnl"))
 
 
+def test_discard_hypercore_initial_low_tvl_history() -> None:
+    """A Hypercore performance curve starts at its first $1,000 NAV observation."""
+    funded_id = "9999-0xfunded"
+    unfunded_id = "9999-0xunfunded"
+    evm_id = "1-0xevm"
+    prices_df = pd.DataFrame(
+        {
+            "chain": [9999] * 6 + [1],
+            "id": [funded_id] * 4 + [unfunded_id] * 2 + [evm_id],
+            "total_assets": [6.0, 999.0, 1_000.0, 900.0, 6.0, 999.0, 6.0],
+            "share_price": [1.0] * 7,
+        },
+        index=pd.to_datetime(
+            [
+                "2026-01-01",
+                "2026-01-02",
+                "2026-01-03",
+                "2026-01-04",
+                "2026-01-01",
+                "2026-01-02",
+                "2026-01-01",
+            ]
+        ),
+    )
+
+    messages: list[str] = []
+    result = discard_hypercore_initial_low_tvl_history(prices_df, logger=messages.append)
+
+    funded = result[result["id"] == funded_id]
+    assert funded.index.tolist() == [pd.Timestamp("2026-01-03"), pd.Timestamp("2026-01-04")]
+    assert funded["total_assets"].tolist() == [1_000.0, 900.0]
+    assert result[result["id"] == unfunded_id].empty
+    assert len(result[result["id"] == evm_id]) == 1
+    assert messages == ["Discarded 4 initial low-TVL Hypercore price rows across 2 vaults; tracking starts at $1,000 NAV and 1 vaults have not reached it"]
+
+
 def test_discard_hypercore_pre_recapitalisation_history() -> None:
     """A durable wipe-out starts a new cleaned Hypercore performance epoch."""
     recapitalised_id = "9999-0xrecapitalised"
@@ -1107,3 +1165,36 @@ def test_fix_outlier_ipor_tau_yield_bond_spike():
     normal_rows = result[(result["block_number"] != 24700201)]
     changed = normal_rows[normal_rows["share_price"] != normal_rows["raw_share_price"]]
     assert len(changed) == 0, f"Expected no changes to normal rows, but {len(changed)} rows were modified"
+
+
+def test_fix_outlier_share_prices_with_duplicate_timestamps():
+    """Clean an outlier without treating a repeated timestamp as multiple rows.
+
+    Modern chains can emit several block observations in one second. The
+    cleaner must select the abnormal observation by its row position, because
+    label-based ``loc[]`` access returns every row sharing that timestamp.
+    """
+    df = pd.DataFrame(
+        {
+            "id": ["duplicate-timestamp-vault"] * 5,
+            "block_number": [1, 2, 3, 4, 5],
+            "share_price": [1.0, 1.0, 10.0, 1.0, 1.0],
+        },
+        index=pd.to_datetime(
+            [
+                "2026-07-01 00:00:00",
+                "2026-07-01 01:00:00",
+                "2026-07-01 01:00:00",
+                "2026-07-01 02:00:00",
+                "2026-07-01 03:00:00",
+            ]
+        ),
+    )
+
+    result = fix_outlier_share_prices(df, logger=lambda _: None, look_back_hours=1, look_ahead_hours=1)
+
+    spike = result[result["block_number"] == 3].iloc[0]
+    assert spike["raw_share_price"] == 10.0
+    assert spike["share_price"] == 1.0
+    assert len(result) == len(df)
+    assert result.index.duplicated().any()

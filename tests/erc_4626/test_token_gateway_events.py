@@ -24,6 +24,7 @@ from eth_defi.erc_4626.discovery_base import (
 )
 
 JSON_RPC_ETHEREUM = os.environ.get("JSON_RPC_ETHEREUM")
+CI = os.environ.get("CI") == "true"
 
 
 @pytest.fixture(scope="module")
@@ -122,6 +123,11 @@ def test_token_gateway_deposit_distinct_from_erc4626(web3: Web3):
 
 
 @pytest.mark.slow
+# Disabled on CI (2026-07-26): this live JSON-RPC fallback scan took 741.12s
+# (and exhausted the 15-minute job during cleanup) in run 30189138010. It
+# passed locally in 9.58s, 11.49s and 9.15s, and in a later CI run in 6.08s.
+# The variable provider latency makes it unsuitable for the PR CI budget.
+@pytest.mark.skipif(CI, reason="Live JSON-RPC fallback scan is too slow and provider-brittle for CI; run locally")
 @pytest.mark.skipif(JSON_RPC_ETHEREUM is None, reason="JSON_RPC_ETHEREUM needed")
 def test_token_gateway_vault_discovery_ethereum():
     """Verify that JSONRPCVaultDiscover detects the ForgeYieldsUSDC vault on Ethereum.

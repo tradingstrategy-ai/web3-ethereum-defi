@@ -42,6 +42,7 @@ from eth_defi.provider.multi_provider import create_multi_provider_web3
 from eth_defi.research.vault_metrics import calculate_hourly_returns_for_all_vaults, calculate_lifetime_metrics, export_lifetime_row
 from eth_defi.token import TokenDetails
 from eth_defi.vault.base import VaultSpec
+from eth_defi.vault.flag import VaultFlag
 from eth_defi.vault.top_vaults_json import validate_strict_json_serialisable
 from eth_defi.vault.vaultdb import VaultDatabase
 
@@ -349,7 +350,7 @@ def test_midas_anvil_forked_mtbill_properties(web3: Web3) -> None:
     assert vault.vault_address == vault.address
     assert vault.name == "Midas US Treasury Bill Token"
     assert vault.symbol == "mTBILL"
-    assert vault.description == MIDAS_MTBILL_ETHEREUM.product_name
+    assert vault.description == MIDAS_MTBILL_ETHEREUM.description
     assert vault.manager_name == "Midas"
     assert vault.get_link() == "https://midas.app/mtbill"
     assert vault.has_block_range_event_support() is False
@@ -577,6 +578,9 @@ def test_midas_scan_record_live_mtbill(web3: Web3) -> None:
     assert record["_denomination_token"]["address"] is None
     assert record["_share_token"]["symbol"] == "mTBILL"
     assert record["_manager_name"] == "Midas"
+    assert record["_short_description"] == "Tokenised U.S. Treasury-bill investment product with USD NAV."
+    assert record["_description"] == ("mTBILL is a tokenised investment product backed by short-duration U.S. Treasury Bills and Treasury-bill funds. Midas publishes its USD net asset value through an onchain data feed; issuance and redemption use separate Midas contracts and are subject to eligibility checks.")
+    assert VaultFlag.tokenised_fund in record["_flags"]
     assert record["_deposit_closed_reason"] == MIDAS_BESPOKE_FLOW_REASON
     assert record["_redemption_closed_reason"] == MIDAS_BESPOKE_FLOW_REASON
     assert record["_nav_source"] == MIDAS_NAV_SOURCE

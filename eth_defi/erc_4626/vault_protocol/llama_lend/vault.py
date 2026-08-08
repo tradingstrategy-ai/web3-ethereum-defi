@@ -19,8 +19,7 @@ from eth_defi.erc_4626.vault import ERC4626HistoricalReader, ERC4626Vault
 from eth_defi.event_reader.multicall_batcher import EncodedCall, EncodedCallResult
 from eth_defi.token import TokenDetails, fetch_erc20_details
 from eth_defi.types import Percent
-from eth_defi.vault.base import VaultHistoricalRead, VaultHistoricalReader, VaultTechnicalRisk
-
+from eth_defi.vault.base import INSTANT_WITHDRAWAL_PERIOD, VaultHistoricalRead, VaultHistoricalReader, VaultTechnicalRisk, WithdrawalPeriod
 
 logger = logging.getLogger(__name__)
 
@@ -175,6 +174,9 @@ class LlamaLendVault(ERC4626Vault):
 
     def get_estimated_lock_up(self) -> datetime.timedelta:
         return datetime.timedelta(days=0)
+
+    def get_withdrawal_period(self) -> WithdrawalPeriod:
+        return INSTANT_WITHDRAWAL_PERIOD
 
     def get_link(self, referral: str | None = None) -> str:
         chain_name = get_chain_name(self.chain_id).lower()

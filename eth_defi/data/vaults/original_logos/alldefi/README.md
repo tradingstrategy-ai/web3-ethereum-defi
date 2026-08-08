@@ -1,12 +1,23 @@
-# AllDeFi logo
+# AllDeFi logo assets
 
-Source: GRVT manager profile image (`managerInfo.profileImageURL`) for the
-AllDeFi Quant Directional Strategy vault (chain vault id 794368819), fetched
-from the GRVT CDN.
+## Sources
 
-- Original: `alldefi.generic.png`
-- "AllDefi" wordmark with a blue accent dot.
+- **Homepage**: <https://www.alldefi.finance/>
+- **Favicon / compact brandmark**: <https://www.alldefi.finance/favicon.ico>
+- **Extracted**: 2026-07-30
 
-Formatted logo keeps the wordmark on a white background (no `rembg` background
-removal, which destroyed the thin wordmark strokes). GRVT exposes no website or
-social media field for managers.
+The official favicon is a 256×256 RGBA icon: a blue rounded square with the
+white “All” mark. It is the compact brandmark used for the formatted vault
+logos because it remains legible in a small UI slot and does not contain the
+wide “AllDeFi” wordmark. The ICO and equivalent PNG extraction are retained as
+`alldefi.brandmark.ico` and `alldefi.brandmark.png`.
+
+The previous `alldefi.generic.png` source was a GRVT manager profile image
+containing the full wordmark; it is retained for provenance but is no longer
+used as the processed source.
+
+## Processed files
+
+`generic.png`, `dark.png`, and `light.png` in
+`eth_defi/data/vaults/formatted_logos/alldefi/` were generated from the
+official brandmark with `scripts/logos/post-process-logo.py`.

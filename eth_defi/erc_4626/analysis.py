@@ -7,7 +7,7 @@ from web3.logs import DISCARD
 
 from eth_defi.erc_4626.vault import ERC4626Vault
 from eth_defi.revert_reason import fetch_transaction_revert_reason
-from eth_defi.trade import TradeSuccess, TradeFail
+from eth_defi.trade import TradeFail, TradeSuccess
 
 
 def analyse_4626_flow_transaction(
@@ -16,6 +16,9 @@ def analyse_4626_flow_transaction(
     tx_receipt: dict,
     direction: Literal["deposit", "redeem"],
     hot_wallet=True,
+    *,
+    deposit_event_signature: str | None = None,
+    redemption_event_signature: str | None = None,
 ) -> TradeSuccess | TradeFail:
     """Analyse a ERC-4626 deposit/redeem transaction.
 
@@ -37,6 +40,16 @@ def analyse_4626_flow_transaction(
         Is this a hot wallet originiated transaction or contract to contract transaction.
 
         We can perform additioanl checks with hot wallet transactions.
+
+    :param deposit_event_signature:
+        Explicit event signature for a vault that overloads ``Deposit``. This
+        is only used for the deposit direction; plain ERC-4626 vaults leave it
+        unset and continue to use ``Deposit`` by name.
+
+    :param redemption_event_signature:
+        Explicit event signature for a vault that overloads ``Withdraw``. This
+        is only used for the redemption direction; plain ERC-4626 vaults leave
+        it unset and continue to use ``Withdraw`` by name.
 
     """
 
@@ -61,11 +74,13 @@ def analyse_4626_flow_transaction(
     if direction == "deposit":
         in_token_details = vault.denomination_token
         out_token_details = vault.share_token
-        swap_events = contract.events.Deposit().process_receipt(tx_receipt, errors=DISCARD)
+        deposit_event = contract.events[deposit_event_signature]() if deposit_event_signature else contract.events.Deposit()
+        swap_events = deposit_event.process_receipt(tx_receipt, errors=DISCARD)
     else:
         in_token_details = vault.share_token
         out_token_details = vault.denomination_token
-        swap_events = contract.events.Withdraw().process_receipt(tx_receipt, errors=DISCARD)
+        redemption_event = contract.events[redemption_event_signature]() if redemption_event_signature else contract.events.Withdraw()
+        swap_events = redemption_event.process_receipt(tx_receipt, errors=DISCARD)
 
     # The contract deposit/redeem may trigger same event in nested contracts so we clean up here
     swap_events = [event for event in swap_events if event["address"].lower() == vault.vault_address.lower()]
@@ -91,10 +106,19 @@ def analyse_4626_flow_transaction(
     else:
         raise AssertionError(f"Can handle only single event per tx, got {len(swap_events)}. Receipt: {tx_receipt}")
 
-    assert amount_out > 0, "amount out should be negative for ERC-4626 flow event"
+    # ERC-4626 Deposit and Withdraw event amounts are uint256 values. Keep the
+    # decoded event values as-is so malformed negative values cannot produce a
+    # plausible-looking trade result.
+    # A successful redemption may also burn shares for zero assets. The mined
+    # economic outcome must be reported as zero instead of turning an
+    # irreversible successful transaction into a receipt-analysis failure.
 
-    amount_out_cleaned = Decimal(abs(amount_out)) / Decimal(10**out_token_details.decimals)
-    amount_in_cleaned = Decimal(abs(amount_in)) / Decimal(10**in_token_details.decimals)
+    assert amount_in > 0, f"{direction} event input amount must be positive"
+    assert amount_out >= 0, f"{direction} event output amount must not be negative"
+    assert direction == "redeem" or amount_out > 0, "Deposit event output shares must be positive"
+
+    amount_out_cleaned = Decimal(amount_out) / Decimal(10**out_token_details.decimals)
+    amount_in_cleaned = Decimal(amount_in) / Decimal(10**in_token_details.decimals)
 
     price = amount_out_cleaned / amount_in_cleaned
 
@@ -107,7 +131,7 @@ def analyse_4626_flow_transaction(
         path,
         amount_in,
         amount_out_min,
-        abs(amount_out),
+        amount_out,
         price,
         in_token_details.decimals,
         out_token_details.decimals,

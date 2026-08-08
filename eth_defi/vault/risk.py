@@ -154,6 +154,9 @@ VAULT_PROTOCOL_RISK_MATRIX = {
     "Teller": VaultTechnicalRisk.severe,
     "Deltr": VaultTechnicalRisk.dangerous,
     "Upshift": VaultTechnicalRisk.severe,
+    # Shift has public source code and an SB Security audit; executor and TVL
+    # feed operational risks remain separate from this technical classification.
+    "Shift": VaultTechnicalRisk.low,
     "Sky": VaultTechnicalRisk.negligible,
     "Maple": VaultTechnicalRisk.negligible,
     "Centrifuge": VaultTechnicalRisk.negligible,
@@ -167,10 +170,11 @@ VAULT_PROTOCOL_RISK_MATRIX = {
     "Royco": None,
     "ETH Strategy": VaultTechnicalRisk.low,
     "Yuzu Money": VaultTechnicalRisk.low,
-    "Altura": VaultTechnicalRisk.severe,
+    "Altura": VaultTechnicalRisk.blacklisted,
     "Spectra": VaultTechnicalRisk.low,
     "Gearbox": VaultTechnicalRisk.low,
-    "Mainstreet Finance": None,
+    # Mainstreet Finance vaults are blacklisted due to a reported scam.
+    "Mainstreet Finance": VaultTechnicalRisk.blacklisted,
     "YieldFi": None,
     "Resolv": None,
     "Curvance": None,
@@ -178,6 +182,9 @@ VAULT_PROTOCOL_RISK_MATRIX = {
     "Brink": None,
     "Accountable": VaultTechnicalRisk.severe,
     "YieldNest": VaultTechnicalRisk.low,
+    # Nest's verified vault contracts are upgradeable and depend on accountants,
+    # issuers and offchain real-world-asset operations. Product risk is separate.
+    "Nest": None,
     "Secured Finance": VaultTechnicalRisk.low,
     "Dolomite": None,
     # No public GitHub repository for the contract development
@@ -202,6 +209,8 @@ VAULT_PROTOCOL_RISK_MATRIX = {
     "Yo": VaultTechnicalRisk.severe,
     # Frax - extensively audited, open source, well-established protocol
     "Frax": VaultTechnicalRisk.low,
+    # Axis's fully custodial offchain assets and trading positions are not transparently disclosed.
+    "Axis": VaultTechnicalRisk.severe,
     # Hyperdrive - unverified smart contracts, suffered $782k exploit in 2025
     "Hyperdrive": VaultTechnicalRisk.dangerous,
     # BaseVol - options protocol on Base, audited by FailSafe, Diamond proxy architecture
@@ -265,6 +274,20 @@ VAULT_SPECIFIC_RISK = {
     # LONGV4 HyperEVM vault - totalAssets() and convertToAssets() run out of gas
     # with CALL_GAS=2,000,000 and poison historical scanner Multicall3 batches.
     "0x2eee42a0704dd4c0ff8141f85e24de9085a76093": VaultTechnicalRisk.blacklisted,
+    # Altcopy Flagship and Index HyperEVM vaults. At block 41,487,203 all
+    # configured RPC providers reject the scanner's 2,000,000-gas
+    # totalAssets(), convertToAssets() and maxDeposit() probes. The two vaults
+    # therefore poison historical Multicall3 batches and cannot be exported
+    # safely as generic ERC-4626 vaults.
+    "0xcdb9671e671562b60481e4929ef80a5360af718b": VaultTechnicalRisk.blacklisted,
+    "0xf8f7c57fb94cc1f7f2c77dc29b5216c4d3c3125d": VaultTechnicalRisk.blacklisted,
+    # Hyperdrive HLP and Gamma Symphony Vault on HyperEVM. At historical block
+    # 41,858,003 their totalAssets(), convertToAssets() and maxDeposit() calls
+    # revert with the 0x18c34104 custom error, leaving only totalSupply()
+    # usable. This poisons their historical Multicall3 price-reader batch;
+    # current-state probes working again does not restore the missing history.
+    "0x6ed613e86e8d0b6617e445f17323ac0162ff6ce6": VaultTechnicalRisk.blacklisted,
+    "0x2b37f3566933e4dbe59c6b86bedbc91c1e04d774": VaultTechnicalRisk.blacklisted,
     # Rocket Markets Survivor Vaults on Monad.
     #
     # Scanner failure context:
@@ -291,6 +314,17 @@ VAULT_SPECIFIC_RISK = {
     "0xdafeeae1fceec53d30a3534041121a7c1d3b7f9a": VaultTechnicalRisk.blacklisted,
     "0xf51ddfc0ecdf061f57ce4e2dd4aff2899ae0957c": VaultTechnicalRisk.blacklisted,
     "0x982cac08b77511b67c296a758668f4a4fe012746": VaultTechnicalRisk.blacklisted,
+    # Additional Rocket Markets Survivor Vaults discovered in a failing Monad
+    # historical scanner batch on 2026-07-28. At block 91,095,183 and again
+    # at the current head, totalAssets() and convertToAssets(uint256) revert
+    # with empty data, while asset(), totalSupply() and maxDeposit() succeed.
+    # Each vault's core four-call Multicall3 probe consumes about 8.15M gas;
+    # adding normal adjacent calls exhausts the provider limit and aborts the
+    # whole historical price batch with -32003 "out of gas". They are not
+    # usable generic ERC-4626 valuation sources.
+    "0x1462519131836e6eff76ccf7720c323604f380c7": VaultTechnicalRisk.blacklisted,
+    "0x2b1264bde2dccfa82a42e4c141094f9dede63537": VaultTechnicalRisk.blacklisted,
+    "0x1681f371c88b0655d32e61e83d398c75dcdfcd13": VaultTechnicalRisk.blacklisted,
 }
 
 
@@ -451,6 +485,14 @@ _BROKEN_VAULT_CONTRACTS = {
     "0x8fF6aDBC653405245B6b686E31b14A7da7000281",  # BNB broken contract
     "0x6949bcab16c0B389095C5b744f6FBF9741A1b3b6",  # Test vault on Monad
     "0x2eEe42A0704DD4C0fF8141f85E24De9085A76093",  # LONGV4 HyperEVM vault - totalAssets() and convertToAssets() hit BasicOutOfGas(2000000), poisoning historical scanner Multicall3 batches
+    "0xcDB9671E671562B60481e4929eF80A5360af718b",  # Altcopy Flagship HyperEVM vault - its core ERC-4626 probes hit BasicOutOfGas(2000000) at block 41,487,203
+    "0xF8F7c57FB94CC1F7f2C77Dc29b5216C4D3C3125d",  # Altcopy Index HyperEVM vault - totalAssets() hits BasicOutOfGas(2000000) at block 41,487,203
+    # Hyperdrive HLP and Gamma Symphony Vault on HyperEVM. At block
+    # 41,858,003, totalAssets(), convertToAssets() and maxDeposit() revert
+    # with 0x18c34104, so they cannot provide historical valuations and poison
+    # the failing Multicall3 batch. See VAULT_SPECIFIC_RISK above.
+    "0x6ED613E86e8D0b6617e445f17323AC0162FF6ce6",
+    "0x2b37f3566933E4DBe59c6b86BedbC91c1E04D774",
     # Rocket Markets Survivor Vault (RKTSV) on Monad. See the detailed
     # VAULT_SPECIFIC_RISK comment above. totalAssets() and convertToAssets()
     # revert at block 87,952,850 and at current head, and the Monad RPC reports
@@ -464,6 +506,13 @@ _BROKEN_VAULT_CONTRACTS = {
     # reduced failing batch of four addresses and was manually replayed with
     # JSON_RPC_MONAD at block 87,952,850.
     "0x982cAC08B77511b67C296a758668f4A4fE012746",
+    # Additional RKTSV/Monad contracts. Their totalAssets() and
+    # convertToAssets() calls revert at block 91,095,183 and current head;
+    # their four-call valuation probe needs about 8.15M gas in Multicall3 and
+    # poisons adjacent scanner calls with -32003 "out of gas".
+    "0x1462519131836e6eff76ccf7720c323604f380c7",
+    "0x2b1264bde2dccfa82a42e4c141094f9dede63537",
+    "0x1681f371c88b0655d32e61e83d398c75dcdfcd13",
     "0x5a8aFb250525aB8Fa85EF9a5f260Eb11B77a409a",  # Age old mainnet contract from 2017 (block 4,655,173) - burns all forwarded gas before reverting, poisoning the multicall probe batch with out-of-gas (-32003)
     "0x162428775A4C6c513FF8722B91D1aF45a9Caff41",  # Unverified old mainnet EtherDelta-style DEX from 2018 (block 4,934,650) - deposit/trade/withdraw methods, not a vault
     "0xd3F41DAC84594332E4fF3C7fd2242DeAF7857e79",  # HYPE Funding Yield (HFY) HyperEVM USDt0 vault - totalAssets() and convertToAssets() hit HyperCore SpotBalance precompile revert at block 39,542,844, poisoning Multicall3 scanner batches with out-of-gas (-32003)

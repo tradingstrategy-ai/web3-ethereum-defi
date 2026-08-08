@@ -19,6 +19,7 @@ from eth_defi.lighter.daily_metrics import LighterDailyMetricsDatabase
 from eth_defi.lighter.session import LighterSession
 from eth_defi.lighter.vault import fetch_all_pools
 from eth_defi.lighter.vault_data_export import build_raw_prices_dataframe, create_lighter_pool_row, merge_into_uncleaned_parquet, merge_into_vault_database
+from eth_defi.research.vault_metrics import slugify_vaults
 from eth_defi.vault.base import VaultHistoricalRead, VaultSpec
 from eth_defi.vault.vaultdb import VaultDatabase
 
@@ -153,9 +154,9 @@ def test_legacy_database_migrates_to_composite_deployment_keys(tmp_path: Path) -
         assert migrated_prices["deployment"].tolist() == [LIGHTER_ETHEREUM.slug]
 
         db.upsert_pool_metadata(
-            deployment=LIGHTER_ROBINHOOD.slug,
-            account_index=ACCOUNT_INDEX,
-            name="Robinhood LLP",
+            LIGHTER_ROBINHOOD.slug,
+            ACCOUNT_INDEX,
+            "Robinhood LLP",
             description="Robinhood deployment row",
             is_llp=True,
             total_asset_value=2_000.0,
@@ -213,6 +214,35 @@ def test_robinhood_pool_export_uses_deployment_metadata() -> None:
     assert "USDC deposited" not in row["_notes"]
     assert row["_deployment"] == "robinhood"
     assert row["_deployment_chain_id"] == 4663
+
+
+def test_llp_deployments_have_unique_display_names_and_slugs() -> None:
+    """Distinguish canonical LLP pools in the public vault catalogue."""
+    ethereum_spec, ethereum_row = create_lighter_pool_row(
+        account_index=ACCOUNT_INDEX,
+        name="Lighter Liquidity Provider (LLP)",
+        description="Ethereum LLP",
+        tvl=123_000.0,
+        created_at=datetime.datetime(2026, 7, 1),
+        is_llp=True,
+        deployment=LIGHTER_ETHEREUM,
+    )
+    robinhood_spec, robinhood_row = create_lighter_pool_row(
+        account_index=ACCOUNT_INDEX,
+        name="Lighter Liquidity Provider (LLP)",
+        description="Robinhood LLP",
+        tvl=123_000.0,
+        created_at=datetime.datetime(2026, 7, 1),
+        is_llp=True,
+        deployment=LIGHTER_ROBINHOOD,
+    )
+
+    slugify_vaults({ethereum_spec: ethereum_row, robinhood_spec: robinhood_row})
+
+    assert ethereum_row["Name"] == "Lighter Ethereum Liquidity Provider (LLP)"
+    assert robinhood_row["Name"] == "Lighter Robinhood Liquidity Provider (LLP)"
+    assert ethereum_row["vault_slug"] == "lighter-ethereum-liquidity-provider-llp"
+    assert robinhood_row["vault_slug"] == "lighter-robinhood-liquidity-provider-llp"
 
 
 def test_vault_database_merge_removes_legacy_robinhood_chain(tmp_path: Path) -> None:

@@ -26,6 +26,7 @@ import logging
 from eth_typing import BlockIdentifier
 
 from eth_defi.erc_4626.vault import ERC4626Vault
+from eth_defi.vault.base import INSTANT_WITHDRAWAL_PERIOD, WithdrawalPeriod
 
 logger = logging.getLogger(__name__)
 
@@ -75,6 +76,9 @@ class USSDVault(ERC4626Vault):
         USDD sUSDD vault has no lock-up period. Withdrawals are instant.
         """
         return datetime.timedelta(days=0)
+
+    def get_withdrawal_period(self) -> WithdrawalPeriod:
+        return INSTANT_WITHDRAWAL_PERIOD
 
     def get_link(self, referral: str | None = None) -> str:
         """Get the vault's web UI link.

@@ -14,6 +14,7 @@ import datetime
 from eth_typing import BlockIdentifier
 
 from eth_defi.erc_4626.vault import ERC4626Vault
+from eth_defi.vault.base import INSTANT_WITHDRAWAL_PERIOD, WithdrawalPeriod
 
 #: Yearn TokenizedStrategy fee precision: 10_000 basis points is 100%.
 PERFORMANCE_FEE_DENOMINATOR = 10_000
@@ -37,6 +38,18 @@ class YearnCompounderVault(ERC4626Vault):
     deposit, or standard-withdrawal fee.  The performance fee is accrued during
     strategy reporting and therefore is already reflected in the share price.
     """
+
+    def is_whitelisted_deposit(self) -> bool:  # noqa: PLR6301
+        """Report the TokenizedStrategy adapter family's default permission policy.
+
+        Supported Yearn TokenizedStrategy compounders are treated as
+        permissionless by default. Shutdown and deposit-limit controls remain
+        independent global lifecycle conditions.
+
+        :return:
+            Always ``False``.
+        """
+        return False
 
     def get_management_fee(self, block_identifier: BlockIdentifier) -> float:  # noqa: PLR6301
         """Return the absent Yearn compounder management fee.
@@ -80,6 +93,9 @@ class YearnCompounderVault(ERC4626Vault):
             A zero-length lock-up.
         """
         return datetime.timedelta(0)
+
+    def get_withdrawal_period(self) -> WithdrawalPeriod:
+        return INSTANT_WITHDRAWAL_PERIOD
 
     def get_link(self, referral: str | None = None) -> str:
         """Return the direct Yearn vault page.

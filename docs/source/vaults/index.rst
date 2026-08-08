@@ -42,6 +42,65 @@ transaction revert, then handle the declared flow type. The field does not
 assert that an account is permissioned, funded, within a vault cap, or able to
 obtain redemption liquidity.
 
+Withdrawal-period metadata
+--------------------------
+
+Public lifetime-metrics JSON records expose withdrawal timing separately from
+the legacy ``lockup`` field. When a binding maximum is available, ``lockup``
+is an alias of ``max_withdrawal_period``. ``min_withdrawal_period`` and
+``max_withdrawal_period`` are seconds from a valid withdrawal request until
+normal redemption availability, derived from smart-contract timing rules.
+``withdrawal_delay_type`` is ``instant`` for a direct ERC-4626 redemption
+without a protocol timing gate, ``delay`` for a request-and-claim cooldown or
+an asynchronous settlement lifecycle
+(for example `Gains gUSDC <https://gains.trade/vaults/gUSDC>`__ or Upshift's
+`NEMO USDC Yield <https://app.upshift.finance/pools/1/0x955256B31097dDf47a9E47A95aDfDFB4460D8522>`__)
+or ``epoch`` for a protocol withdrawal window (for example D2's `Texas Hedge
+strategy vault <https://d2.finance/strategies/0x208f63a7f60c319597c05fa5ec67fde41839bad6>`__).
+These are the values of :py:class:`eth_defi.vault.base.WithdrawalDelayType`.
+
+``estimated_settlement`` is a separate optional backtesting field, also in
+seconds. It records a curator's or operator's historical or operational
+estimate of settlement cadence or a liquidity-dependent redemption wait; it is
+not a contractual deadline. For example, `Lagoon's app <https://app.lagoon.finance/>`__
+provides its per-vault ``averageSettlement`` metadata. Curators can settle
+earlier, later, or not at all, so this value must never be used to decide
+whether a request is claimable. Unlike ``estimated_settlement``, populated
+``min_withdrawal_period`` and ``max_withdrawal_period`` are binding
+smart-contract timing rules; neither field promises liquidity or keeper
+execution. Unavailable values are ``null``.
+
+Deposit permission metadata
+---------------------------
+
+Each vault metrics JSON record also contains the authoritative top-level
+``deposit_permission`` field. Its value is normally ``whitelisted`` when the
+deployed adapter has source-proven KYC or manual identity-approval policy,
+``permissionless`` when no such approval is required, and ``unknown`` when the
+contract generation cannot be classified safely. For EVM vault adapters, it
+does not describe an open date, lock-up, pause, capacity, epoch, allowance,
+token-holding requirement or liquidity state. Consumers must inspect
+``whitelist.notes`` before treating a classification as source-proven.
+
+Native perp DEX vaults have a documented compatibility exception because their
+source APIs expose public deposit availability rather than KYC mechanisms. For
+these synthetic vaults, ``whitelisted`` means the adapter has source-status
+evidence that public participation is unavailable under its documented
+protocol mapping. It does not prove that approved accounts can deposit. The
+mandatory ``whitelist.notes`` qualification identifies this mapping, while
+``deposit_closed_reason`` remains the availability detail.
+
+The ``whitelist`` object is the structured form of the same status. Its
+``status`` field mirrors ``deposit_permission`` and its optional ``notes``
+field records a protocol-specific qualification. For the current Morpho and
+Euler operating assumption, it states ``No permissioned hook checks were
+performed``.
+
+The legacy ``deposit_manager.deposit_permission`` copy remains available only
+for compatibility when ``deposit_manager`` is non-null. New consumers must use
+the top-level field. Sticky fallback records are always exported as
+``unknown`` because their permission observation is not current.
+
 Vault settlement event scanning
 -------------------------------
 
@@ -73,12 +132,14 @@ Supported protocols
    :maxdepth: 1
 
    perp-dex-account-metrics
+   withdrawal-period-audit
 
 .. toctree::
    :maxdepth: 1
 
    aave/index
    asseto/index
+   axis/index
    ondo/index
    wisdomtree/index
    libeara/index
@@ -142,6 +203,7 @@ Supported protocols
    morpho/index
    nashpoint/index
    nara/index
+   nest/index
    plutus/index
    renalta/index
    resolv/index
@@ -149,6 +211,7 @@ Supported protocols
    sbold/index
    secured_finance/index
    securitize/index
+   shift/index
    superstate/index
    sentiment/index
    silo/index

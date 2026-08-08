@@ -3,6 +3,7 @@
 # ruff: noqa: DTZ001
 
 import datetime
+from dataclasses import replace
 from pathlib import Path
 
 import pytest
@@ -64,14 +65,44 @@ def test_apex_synthetic_identity_is_a_shared_vault_spec() -> None:
         created_at=vault.created_at,
         first_seen=datetime.datetime(2026, 7, 23, 12),
         status=vault.status,
+        redemption_delay=datetime.timedelta(days=1),
     )
 
     assert is_good_multichain_address(vault.synthetic_address)
     assert spec == VaultSpec(chain_id=APEX_CHAIN_ID, vault_address=vault.synthetic_address)
     assert row["Protocol"] == "ApeX"
+    assert row["Link"] == "https://omni.apex.exchange/vaultInfo/2044287989957394432/1"
     assert row["_fees"].fee_mode is None
     assert row["Perf fee"] is None
+    assert row["_lockup"] == datetime.timedelta(days=1)
     assert get_vault_protocol_name({ERC4626Feature.apex_native}) == "ApeX"
+
+
+def test_apex_export_normalises_and_validates_vault_id() -> None:
+    """Use a canonical non-empty platform identity for the direct link."""
+    _, row = create_apex_vault_row(
+        vault_id=" 10001 ",
+        name="ApeX vault",
+        description=None,
+        tvl=None,
+        share_count=None,
+        created_at=None,
+        first_seen=datetime.datetime(2026, 7, 23, 12),
+        status="VAULT_IN_PROCESS",
+    )
+
+    assert row["Link"] == "https://omni.apex.exchange/vaultInfo/10001/1"
+    with pytest.raises(ValueError, match="vault ID is required"):
+        create_apex_vault_row(
+            vault_id=" ",
+            name="ApeX vault",
+            description=None,
+            tvl=None,
+            share_count=None,
+            created_at=None,
+            first_seen=datetime.datetime(2026, 7, 23, 12),
+            status="VAULT_IN_PROCESS",
+        )
 
 
 def test_apex_duckdb_exports_metadata_and_exact_timestamp_prices(tmp_path: Path) -> None:
@@ -91,7 +122,12 @@ def test_apex_duckdb_exports_metadata_and_exact_timestamp_prices(tmp_path: Path)
 
     try:
         vault = _vault()
-        database.apply_ranking((vault,), observed_at, manage_disappearance=True)
+        database.apply_ranking(
+            (vault,),
+            observed_at,
+            manage_disappearance=True,
+            redemption_delays={vault.vault_id: datetime.timedelta(days=1)},
+        )
         database.apply_history_success(
             vault.vault_id,
             (ApexHistoryPoint(timestamp=history_at, net_value=1.2, total_value=120.0),),
@@ -112,4 +148,25 @@ def test_apex_duckdb_exports_metadata_and_exact_timestamp_prices(tmp_path: Path)
     assert existing_spec in merged.rows
     assert apex_spec in merged.rows
     assert merged.rows[apex_spec]["NAV"] == EXPECTED_TVL
+    assert merged.rows[apex_spec]["_lockup"] == datetime.timedelta(days=1)
     assert set(merged_again.rows) == {existing_spec, apex_spec}
+
+
+def test_apex_official_vault_export_uses_curated_descriptions(tmp_path: Path) -> None:
+    """Replace the official API placeholder text with reviewed protocol copy."""
+    database = ApexMetricsDatabase(tmp_path / "apex-vaults.duckdb")
+    vault_db_path = tmp_path / "vault-metadata-db.pickle"
+    observed_at = datetime.datetime(2026, 7, 23, 12)
+    official = _vault("10000")
+    official = replace(official, name="Source API name", description="Source API placeholder")
+    try:
+        database.apply_ranking((official,), observed_at, manage_disappearance=True)
+        merged = merge_into_vault_database(database, vault_db_path)
+    finally:
+        database.close()
+
+    row = merged.rows[VaultSpec(chain_id=APEX_CHAIN_ID, vault_address="apex-vault-10000")]
+    assert row["Name"] == "Protocol Vault"
+    assert "flagship official vault" in row["_description"]
+    assert row["_short_description"].startswith("ApeX Omni's flagship")
+    assert row["_lockup"] is None

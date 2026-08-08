@@ -1,19 +1,16 @@
 """Summer finance vault support."""
 
 import datetime
-
-from functools import cached_property
 import logging
-
-from web3.contract import Contract
+from functools import cached_property
 
 from eth_typing import BlockIdentifier
+from web3.contract import Contract
 
 from eth_defi.erc_4626.core import get_deployed_erc_4626_contract
 from eth_defi.erc_4626.vault import ERC4626Vault
 from eth_defi.token import TokenDetails, fetch_erc20_details
-from eth_defi.vault.base import VaultTechnicalRisk
-
+from eth_defi.vault.base import INSTANT_WITHDRAWAL_PERIOD, VaultTechnicalRisk, WithdrawalPeriod
 
 logger = logging.getLogger(__name__)
 
@@ -67,6 +64,9 @@ class SummerVault(ERC4626Vault):
     def get_estimated_lock_up(self) -> datetime.timedelta:
         """Buffered withdraws?"""
         return datetime.timedelta(days=0)
+
+    def get_withdrawal_period(self) -> WithdrawalPeriod:
+        return INSTANT_WITHDRAWAL_PERIOD
 
     def fetch_tip_rate(self, block_identifier: BlockIdentifier) -> float:
         return self.vault_contract.functions.tipRate().call(block_identifier=block_identifier) / 10**20

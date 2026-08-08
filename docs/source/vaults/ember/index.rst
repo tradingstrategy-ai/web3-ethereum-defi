@@ -14,8 +14,20 @@ instead of the standard ``Withdraw`` event. Platform fees are embedded in the va
 Deposits are synchronous, while withdrawals call ``redeemShares`` to enter a
 pending queue. The Ember operator later processes the request and transfers
 assets directly to its chosen receiver: there is no depositor claim transaction.
-The displayed T+4 period is an off-chain operator service estimate, not an
-on-chain settlement deadline.
+The displayed T+4 period is an offchain operator service estimate, not an
+onchain settlement deadline.
+
+Withdrawal timing metadata
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The scanner reads Ember's per-vault offchain ``withdrawalPeriodDays`` metadata
+and exports it as ``estimated_settlement`` (in seconds) for backtesting. This
+field is a historical or operational estimate of the queue's redemption wait,
+not a promise that a request is claimable at that time. Ember does not expose
+a binding contract timing bound for this lifecycle, so
+``min_withdrawal_period`` and ``max_withdrawal_period`` are ``null`` and
+``withdrawal_delay_type`` is ``delay``. See :doc:`../withdrawal-period-audit`
+for the public export contract.
 
 Links
 ~~~~~

@@ -10,6 +10,7 @@ from web3.contract import Contract
 
 from eth_defi.erc_4626.core import get_deployed_erc_4626_contract
 from eth_defi.erc_4626.vault import ERC4626Vault
+from eth_defi.vault.base import INSTANT_WITHDRAWAL_PERIOD, WithdrawalPeriod
 
 logger = logging.getLogger(__name__)
 
@@ -109,6 +110,20 @@ class AaveVault(ERC4626Vault):
     def get_estimated_lock_up(self) -> datetime.timedelta | None:
         """Redemptions are liquid, subject to available Hub liquidity (no fixed lock-up)."""
         return None
+
+    def get_withdrawal_period(self) -> WithdrawalPeriod:
+        """Report the absence of a protocol withdrawal timing gate.
+
+        ATokenVault and Tokenization Spoke redemption uses the direct ERC-4626
+        path. The Aave v4 Hub can still lack the assets required to settle a
+        redemption, but this is an availability constraint rather than a
+        request, cooldown, or epoch rule. See the `Aave v4 documentation
+        <https://aave.com/docs/aave-v4>`__.
+
+        :return:
+            A zero-length ``instant`` period.
+        """
+        return INSTANT_WITHDRAWAL_PERIOD
 
     def get_link(self, referral: str | None = None) -> str:
         """Link to the Aave markets app.

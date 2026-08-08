@@ -42,7 +42,7 @@ Environment variables:
 - ``WEBSHARE_API_KEY``: Optional. Enable Webshare-backed proxy rotation.
 - ``WEBSHARE_PROXY_MODE``: Optional. Webshare proxy pool mode.
 - ``MAX_PROXY_ROTATIONS``: Optional. Default: 3.
-- ``MAX_POST_AGE_DAYS``: Optional. Default: 365.
+- ``MAX_POST_AGE_DAYS``: Optional. Default: 36135 (99 years).
 - ``LOOP_INTERVAL_SECONDS``: Optional. Default: 28800 (8 hours). Set to 0 for single run.
 - ``LIMIT``: Optional. Limit sources per type for test runs.
 - ``DEATH_DETECTION_PERIOD``: Optional. Default: 180 days.
@@ -74,6 +74,12 @@ from eth_defi.utils import setup_console_logging
 logger = logging.getLogger(__name__)
 
 SECONDS_PER_MINUTE = 60
+
+#: Keep historical posts long enough that old but still-present RSS entries do
+#: not get inserted and immediately pruned on every collection cycle.
+#: The post database is small, so retaining this history does not create a
+#: meaningful storage-growth concern.
+DEFAULT_MAX_POST_AGE_DAYS = 99 * 365
 
 
 def _parse_csv(raw_value: str | None) -> list[str]:
@@ -203,6 +209,17 @@ def _print_dashboard(summary) -> None:
         )
     )
 
+    inserted_post_rows = [[result.feeder_id, result.role, result.source_type, preview] for result in source_results for preview in result.inserted_post_previews]
+    if inserted_post_rows:
+        print()
+        print(
+            tabulate(
+                inserted_post_rows,
+                headers=["Feeder", "Role", "Source", "New post title / summary (max 80 chars)"],
+                tablefmt="fancy_grid",
+            )
+        )
+
     failed_results = [r for r in source_results if r.status == "failed"]
     if failed_results:
         failed_rows = [[r.feeder_id, r.role, r.source_type, (r.error or "")[:60]] for r in failed_results]
@@ -233,7 +250,7 @@ def _build_config() -> PostScanConfig:
         max_posts_per_source=int(os.environ.get("MAX_POSTS_PER_SOURCE", "20")),
         request_timeout=float(os.environ.get("REQUEST_TIMEOUT", "20")),
         request_delay_seconds=float(os.environ.get("REQUEST_DELAY_SECONDS", "1")),
-        max_post_age_days=int(os.environ.get("MAX_POST_AGE_DAYS", "365")),
+        max_post_age_days=int(os.environ.get("MAX_POST_AGE_DAYS", str(DEFAULT_MAX_POST_AGE_DAYS))),
         max_proxy_rotations=int(os.environ.get("MAX_PROXY_ROTATIONS", "3")),
         twitter_bearer_token=os.environ.get("TWITTER_BEARER_TOKEN"),
         twitter_consumer_key=os.environ.get("TWITTER_CONSUMER_KEY"),

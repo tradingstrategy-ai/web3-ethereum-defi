@@ -20,12 +20,11 @@ pragma solidity ^0.8.0;
 import {IGuardChecks} from "./IGuardChecks.sol";
 
 // Pre-computed function selectors
-bytes4 constant SEL_SEND_RAW_ACTION = 0x17938e13;  // sendRawAction(bytes)
-bytes4 constant SEL_CORE_DEPOSIT = 0x2b2dfd2c;      // deposit(uint256,uint32)
-bytes4 constant SEL_CORE_DEPOSIT_FOR = 0xc23c545a;  // depositFor(address,uint256,uint32) — needed for Hypercore account activation
+bytes4 constant SEL_SEND_RAW_ACTION = 0x17938e13; // sendRawAction(bytes)
+bytes4 constant SEL_CORE_DEPOSIT = 0x2b2dfd2c; // deposit(uint256,uint32)
+bytes4 constant SEL_CORE_DEPOSIT_FOR = 0xc23c545a; // depositFor(address,uint256,uint32) — needed for Hypercore account activation
 
 library HypercoreVaultLib {
-
     // ----- Diamond storage -----
 
     bytes32 constant STORAGE_SLOT = keccak256("eth_defi.hypercore.vault.v1");
@@ -69,11 +68,7 @@ library HypercoreVaultLib {
 
     // ----- Whitelisting functions (called via delegatecall from guard) -----
 
-    function whitelistCoreWriter(
-        address coreWriter,
-        address coreDepositWallet,
-        string calldata notes
-    ) external {
+    function whitelistCoreWriter(address coreWriter, address coreDepositWallet, string calldata notes) external {
         HypercoreStorage storage s = _storage();
         s.allowedCoreWriter = coreWriter;
         s.allowedCoreDepositWallet = coreDepositWallet;
@@ -84,18 +79,12 @@ library HypercoreVaultLib {
         emit CoreDepositWalletApproved(coreDepositWallet, notes);
     }
 
-    function whitelistHypercoreVault(
-        address vault,
-        string calldata notes
-    ) external {
+    function whitelistHypercoreVault(address vault, string calldata notes) external {
         _storage().allowedHypercoreVaults[vault] = true;
         emit HypercoreVaultApproved(vault, notes);
     }
 
-    function removeHypercoreVault(
-        address vault,
-        string calldata notes
-    ) external {
+    function removeHypercoreVault(address vault, string calldata notes) external {
         _storage().allowedHypercoreVaults[vault] = false;
         emit HypercoreVaultRemoved(vault, notes);
     }
@@ -112,25 +101,15 @@ library HypercoreVaultLib {
     /// Uses IGuardChecks(address(this)) callbacks for cross-cutting receiver
     /// checks, consolidating all Hypercore dispatcher logic into the library
     /// to reduce the calling contract's bytecode (EIP-170).
-    function validateCall(
-        bytes4 selector,
-        address target,
-        bytes calldata callData,
-        bool anyAsset
-    ) external view {
+    function validateCall(bytes4 selector, address target, bytes calldata callData, bool anyHypercoreVault) external view {
         if (selector == SEL_SEND_RAW_ACTION) {
             (uint24 actionId, address dest) = _validateAction(target, callData);
             if (actionId == VAULT_TRANSFER_ACTION) {
-                // anyAsset: skip per-vault whitelisting — this is intentional behaviour.
-                // The flag is set by governance (onlyGuardOwner) and allows deposit/withdraw
-                // to any Hypercore vault address. No timelock is required because all guard
-                // configuration changes are already gated behind the governance multisig;
-                // the governance process itself is the safeguard.
-                if (!anyAsset) {
-                    require(
-                        _storage().allowedHypercoreVaults[dest],
-                        "Hypercore vault not allowed"
-                    );
+                // The dedicated anyHypercoreVault flag may skip per-vault
+                // whitelisting, without enabling GuardV0Base.anyAsset and its
+                // unsafe dynamic ERC-20 approval behaviour.
+                if (!anyHypercoreVault) {
+                    require(_storage().allowedHypercoreVaults[dest], "Hypercore vault not allowed");
                 }
             }
             // Action 7 (USD_CLASS_TRANSFER_ACTION): no external address.
@@ -143,11 +122,8 @@ library HypercoreVaultLib {
             _validateDeposit(target);
         } else if (selector == SEL_CORE_DEPOSIT_FOR) {
             _validateDeposit(target);
-            (address recipient, , ) = abi.decode(callData, (address, uint256, uint32));
-            require(
-                IGuardChecks(address(this)).isAllowedReceiver(recipient),
-                "depositFor recipient not allowed"
-            );
+            (address recipient,,) = abi.decode(callData, (address, uint256, uint32));
+            require(IGuardChecks(address(this)).isAllowedReceiver(recipient), "depositFor recipient not allowed");
         }
     }
 
@@ -162,10 +138,11 @@ library HypercoreVaultLib {
     /// - Action 7 (usdClassTransfer): no external address — destination stays address(0)
     /// - Action 13 (sendAsset): validates the USDC spot-to-EVM bridge parameters
     ///   and returns the linked-token system address
-    function _validateAction(
-        address target,
-        bytes calldata callData
-    ) private view returns (uint24 actionId, address destination) {
+    function _validateAction(address target, bytes calldata callData)
+        private
+        view
+        returns (uint24 actionId, address destination)
+    {
         HypercoreStorage storage s = _storage();
         require(target == s.allowedCoreWriter, "CoreWriter not allowed");
 
@@ -203,22 +180,16 @@ library HypercoreVaultLib {
             }
 
             if (actionId == VAULT_TRANSFER_ACTION) {
-                (destination, , ) = abi.decode(actionParams, (address, bool, uint64));
+                (destination,,) = abi.decode(actionParams, (address, bool, uint64));
             } else if (actionId == SPOT_SEND_ACTION) {
-                (destination, , ) = abi.decode(actionParams, (address, uint64, uint64));
+                (destination,,) = abi.decode(actionParams, (address, uint64, uint64));
             } else if (actionId == SEND_ASSET_ACTION) {
                 address subAccount;
                 uint32 sourceDex;
                 uint32 destinationDex;
                 uint64 token;
-                (
-                    destination,
-                    subAccount,
-                    sourceDex,
-                    destinationDex,
-                    token,
-
-                ) = abi.decode(actionParams, (address, address, uint32, uint32, uint64, uint64));
+                (destination, subAccount, sourceDex, destinationDex, token,) =
+                    abi.decode(actionParams, (address, address, uint32, uint32, uint64, uint64));
                 require(destination == USDC_SYSTEM_ADDRESS, "CoreWriter sendAsset destination not allowed");
                 require(subAccount == address(0), "CoreWriter sendAsset subAccount not allowed");
                 require(sourceDex == SPOT_DEX, "CoreWriter sendAsset source_dex not allowed");
@@ -244,8 +215,8 @@ library HypercoreVaultLib {
         return _storage().allowedCoreDepositWallet;
     }
 
-    function isAllowedHypercoreVault(address vault, bool anyAsset) external view returns (bool) {
-        return anyAsset || _storage().allowedHypercoreVaults[vault];
+    function isAllowedHypercoreVault(address vault, bool anyHypercoreVault) external view returns (bool) {
+        return anyHypercoreVault || _storage().allowedHypercoreVaults[vault];
     }
 
     function isAllowedCoreWriterAction(uint24 actionId) external view returns (bool) {
