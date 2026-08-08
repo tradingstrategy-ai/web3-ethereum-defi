@@ -46,6 +46,40 @@ def test_get_trading_strategy_links_use_canonical_vault_routes():
     assert vault_metrics._get_trading_strategy_chain_link("Hypercore") == "https://tradingstrategy.ai/trading-view/vaults/chains/hyperliquid"
 
 
+def test_calculate_vault_rankings_includes_per_curator_ranks_at_one_hundred_dollars() -> None:
+    """Rank eligible vaults within each curator while excluding smaller and unknown groups.
+
+    Curator cohorts deliberately use the lower $100 TVL eligibility threshold,
+    independently of the $10,000 threshold for chain and protocol cohorts.
+    """
+    results_df = pd.DataFrame(
+        {
+            "chain": ["Ethereum"] * 5,
+            "protocol_slug": ["morpho"] * 5,
+            "curator_slug": ["alpha", "alpha", "beta", "alpha", None],
+            "risk": [VaultTechnicalRisk.negligible] * 5,
+            "period_results": [
+                [PeriodMetrics(period="1W", cagr_net=0.10, tvl_end=100)],
+                [PeriodMetrics(period="1W", cagr_net=0.20, tvl_end=100)],
+                [PeriodMetrics(period="1W", cagr_net=0.30, tvl_end=100)],
+                [PeriodMetrics(period="1W", cagr_net=0.40, tvl_end=99)],
+                [PeriodMetrics(period="1W", cagr_net=0.50, tvl_end=100)],
+            ],
+        },
+        index=["alpha-lower", "alpha-higher", "beta", "alpha-too-small", "unknown"],
+    )
+
+    vault_metrics.calculate_vault_rankings(results_df)
+
+    expected_lower_rank = 2
+    expected_best_rank = 1
+    assert results_df.loc["alpha-lower", "period_results"][0].ranking_curator == expected_lower_rank
+    assert results_df.loc["alpha-higher", "period_results"][0].ranking_curator == expected_best_rank
+    assert results_df.loc["beta", "period_results"][0].ranking_curator == expected_best_rank
+    assert results_df.loc["alpha-too-small", "period_results"][0].ranking_curator is None
+    assert results_df.loc["unknown", "period_results"][0].ranking_curator is None
+
+
 def test_calculate_net_profit_accepts_one_hundred_percent_performance_fee() -> None:
     """Euler vaults may charge the valid 100% performance-fee boundary."""
     start = pd.Timestamp("2026-01-01").to_pydatetime()
@@ -390,6 +424,7 @@ def test_calculate_lifetime_metrics(
         assert hasattr(pm, "ranking_overall")
         assert hasattr(pm, "ranking_chain")
         assert hasattr(pm, "ranking_protocol")
+        assert hasattr(pm, "ranking_curator")
         # avg_utilisation must be present on every period (None for non-lending vaults)
         assert hasattr(pm, "avg_utilisation")
 

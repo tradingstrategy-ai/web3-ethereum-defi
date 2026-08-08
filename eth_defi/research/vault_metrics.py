@@ -163,6 +163,9 @@ class PeriodMetrics:
     #: Rank among vaults in the same protocol (1 = best), based on CAGR
     ranking_protocol: int | None = None
 
+    #: Rank among vaults managed by the same curator (1 = best), based on CAGR
+    ranking_curator: int | None = None
+
     #: Average utilisation over the period (lending vaults only, 0.0–1.0)
     avg_utilisation: Percent | None = None
 
@@ -2296,6 +2299,7 @@ def calculate_vault_rankings(
     results_df: pd.DataFrame,
     min_tvl_chain_protocol: float = 10_000,
     min_tvl_overall: float = 50_000,
+    min_tvl_curator: float = 100,
 ) -> pd.DataFrame:
     """Calculate rankings for all periods inside PeriodMetrics objects.
 
@@ -2306,7 +2310,7 @@ def calculate_vault_rankings(
     - They have no CAGR data (zero or NaN)
     - They have an error_reason set
     - They are blacklisted (risk == VaultTechnicalRisk.blacklisted)
-    - Their period TVL is below the threshold
+    - Their period TVL is below the applicable ranking threshold
 
     :param results_df:
         DataFrame from calculate_lifetime_metrics()
@@ -2317,6 +2321,9 @@ def calculate_vault_rankings(
     :param min_tvl_overall:
         Minimum TVL required for overall rankings (default: $50,000)
 
+    :param min_tvl_curator:
+        Minimum TVL required for curator rankings (default: $100)
+
     :return:
         DataFrame with rankings updated in PeriodMetrics objects
     """
@@ -2326,6 +2333,7 @@ def calculate_vault_rankings(
         # Build Series of CAGR values for this period with different TVL thresholds
         cagr_values_chain_protocol = []
         cagr_values_overall = []
+        cagr_values_curator = []
 
         for idx in results_df.index:
             row = results_df.loc[idx]
@@ -2335,6 +2343,7 @@ def calculate_vault_rankings(
             if pm is None or pm.error_reason is not None:
                 cagr_values_chain_protocol.append(pd.NA)
                 cagr_values_overall.append(pd.NA)
+                cagr_values_curator.append(pd.NA)
                 continue
 
             # Use net CAGR, fall back to gross
@@ -2352,6 +2361,14 @@ def calculate_vault_rankings(
             else:
                 cagr_values_chain_protocol.append(cagr)
 
+            # Curator rankings include smaller vaults, but still omit unknown
+            # curators because there is no meaningful comparison group.
+            has_low_tvl_curator = tvl < min_tvl_curator
+            if is_blacklisted or has_low_tvl_curator or has_no_cagr:
+                cagr_values_curator.append(pd.NA)
+            else:
+                cagr_values_curator.append(cagr)
+
             # Overall rankings use higher TVL threshold
             has_low_tvl_overall = tvl < min_tvl_overall
             if is_blacklisted or has_low_tvl_overall or has_no_cagr:
@@ -2361,11 +2378,13 @@ def calculate_vault_rankings(
 
         cagr_series_chain_protocol = pd.Series(cagr_values_chain_protocol, index=results_df.index)
         cagr_series_overall = pd.Series(cagr_values_overall, index=results_df.index)
+        cagr_series_curator = pd.Series(cagr_values_curator, index=results_df.index)
 
         # Calculate rankings with different series
         overall_ranks = cagr_series_overall.rank(method="min", ascending=False, na_option="keep")
         chain_ranks = cagr_series_chain_protocol.groupby(results_df["chain"]).rank(method="min", ascending=False, na_option="keep")
         protocol_ranks = cagr_series_chain_protocol.groupby(results_df["protocol_slug"]).rank(method="min", ascending=False, na_option="keep")
+        curator_ranks = cagr_series_curator.groupby(results_df["curator_slug"]).rank(method="min", ascending=False, na_option="keep")
 
         # Update PeriodMetrics objects in-place
         for idx in results_df.index:
@@ -2374,6 +2393,7 @@ def calculate_vault_rankings(
                 pm.ranking_overall = int(overall_ranks[idx]) if pd.notna(overall_ranks[idx]) else None
                 pm.ranking_chain = int(chain_ranks[idx]) if pd.notna(chain_ranks[idx]) else None
                 pm.ranking_protocol = int(protocol_ranks[idx]) if pd.notna(protocol_ranks[idx]) else None
+                pm.ranking_curator = int(curator_ranks[idx]) if pd.notna(curator_ranks[idx]) else None
 
     return results_df
 
@@ -2724,6 +2744,7 @@ def format_lifetime_table(
     _del("ranking_overall_3m")
     _del("ranking_chain_3m")
     _del("ranking_protocol_3m")
+    _del("ranking_curator_3m")
 
     # Lending protocol statistics are kept in the table (formatted above)
 
