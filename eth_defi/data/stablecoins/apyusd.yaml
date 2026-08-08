@@ -44,7 +44,11 @@ peg_rate: ''
 peg_rate_currency: ''
 rate_fetch_failed_at: '2026-07-17T18:45:14'
 rate_fetch_failed_reason: missing_source_currency
-depegged_at: ''
+# Manually marked after apyUSD's $0.9736 low on 26 June 2026. Automatic
+# detection excludes yield-bearing ERC-4626 shares because their USD value is
+# not nominally fixed, but this incident follows the apxUSD collateral depeg
+# and must blacklist apyUSD-denominated vaults.
+depegged_at: '2026-06-26T00:00:00'
 checks:
   twitter_last_post_at: ''
   domain_up_at: ''
