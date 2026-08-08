@@ -148,6 +148,7 @@ def test_live_curators_with_verified_artwork_include_generic_logo() -> None:
         "hardcore-labs",
         "libeara",
         "m1-capital",
+        "morini-capital",
         "monarq",
         "nemo",
         "nerona",
@@ -774,15 +775,14 @@ def test_identify_jpmorgan_mony_by_address() -> None:
     assert slug == "jpmorgan"
 
 
-def test_identify_piku_vaults_by_address() -> None:
-    """Resolve the published Piku token and Morini vaults by exact address.
+def test_identify_morini_capital_vaults_by_address() -> None:
+    """Resolve Morini Capital's curated vaults by exact address.
 
-    Piku's branding is not part of every vault name, so the mappings must stay
-    address-scoped across Inverter, Accountable and Midas infrastructure.
+    Morini's branding is not part of every vault name, so the mappings must
+    stay address-scoped across Accountable and Midas infrastructure.
     """
 
     cases = [
-        ("USP", "USP", "0x098697bA3Fee4eA76294C5d6A466a4e3b3E95FE6", "inverter"),
         ("aFXArbUSDTRY", "Morini FXArbUSDTRY", "0x99351BaEd3d8aB544CCb08aF96A105910fdA71E7", "accountable"),
         ("StockMarketTRBasisTrade", "Morini StockMarketTRBasisTrade Vault", "0x827Ce7E8e35861D9Ac7fE002755767b695A5594a", "midas"),
         ("CarryTradeUSDTRYLeverage", "Morini CarryTradeUSDTRYLeverage Vault", "0x2bf11d2E04Bc40daa95c24B8b90EC4F5c57Dd326", "midas"),
@@ -796,7 +796,7 @@ def test_identify_piku_vaults_by_address() -> None:
             vault_address=vault_address,
             protocol_slug=protocol_slug,
         )
-        assert slug == "piku", f"{vault_name!r} resolved to {slug!r}"
+        assert slug == "morini-capital", f"{vault_name!r} resolved to {slug!r}"
 
 
 def test_identify_accountable_curators_by_public_company_metadata() -> None:
@@ -815,7 +815,7 @@ def test_identify_accountable_curators_by_public_company_metadata() -> None:
         ("Ouroboros 90D Fixed Term Vault", "Ouroboros Capital", "ouroboros-capital"),
         ("aHYPER Looping Vault", "Hyperithm", "hyperithm"),
         ("Hyperithm Delta Neutral cbBTC Vault", "Hyperithm", "hyperithm"),
-        ("Morini FXArbUSDTRY", "Morini Capital", "piku"),
+        ("Morini FXArbUSDTRY", "Morini Capital", "morini-capital"),
         ("Noon wcBTC Yield Vault", "Noon", "noon"),
         ("OnRe Core Vault", "RockawayX", "rockawayx"),
         ("Yuzu Money Vault", "Yuzu Money", "yuzu-money"),

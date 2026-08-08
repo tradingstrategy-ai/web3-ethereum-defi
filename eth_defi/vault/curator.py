@@ -434,13 +434,12 @@ CURATOR_ADDRESS_OVERRIDES: dict[tuple[int, str], str] = {
     (42161, EUTBL_TOKEN_ADDRESS): "spiko-curator",
     # Theo operates thBILL's KYC-gated direct dealing workflow.
     (1, "0x5fa487bca6158c64046b2813623e20755091da0b"): "theo-curator",
-    # Piku publishes these as its USP token and curated Morini Capital vaults.
-    # The vault names do not consistently include Piku, so keep their explicit
+    # Morini Capital curates these vaults in the Piku Finance ecosystem. The
+    # vault names do not consistently include Morini, so keep their explicit
     # Ethereum contract addresses rather than using a fuzzy name pattern.
-    (1, "0x098697ba3fee4ea76294c5d6a466a4e3b3e95fe6"): "piku",
-    (1, "0x99351baed3d8ab544ccb08af96a105910fda71e7"): "piku",
-    (1, "0x827ce7e8e35861d9ac7fe002755767b695a5594a"): "piku",
-    (1, "0x2bf11d2e04bc40daa95c24b8b90ec4f5c57dd326"): "piku",
+    (1, "0x99351baed3d8ab544ccb08af96a105910fda71e7"): "morini-capital",
+    (1, "0x827ce7e8e35861d9ac7fe002755767b695a5594a"): "morini-capital",
+    (1, "0x2bf11d2e04bc40daa95c24b8b90ec4f5c57dd326"): "morini-capital",
 }
 
 

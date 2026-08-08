@@ -32,15 +32,15 @@ class HandwrittenVaultMetadata:
     link: str
 
 
-#: Morini Capital's canonical public overview of its Piku vault strategies.
+#: Morini Capital's canonical public overview of its curated vault strategies.
 MORINI_VAULTS_OVERVIEW_URL: Final[str] = "https://morini.capital/"
 
-#: Handwritten metadata for Piku's published Morini Capital vaults.
+#: Handwritten metadata for Morini Capital's curated vaults.
 #:
 #: Piku uses Accountable and Midas as issuance infrastructure. Their APIs do
 #: not provide the strategy descriptions maintained by Morini, so key this map
 #: by the Ethereum share-token address rather than by protocol-specific IDs.
-PIKU_VAULT_METADATA: Final[dict[tuple[int, HexAddress], HandwrittenVaultMetadata]] = {
+MORINI_CAPITAL_VAULT_METADATA: Final[dict[tuple[int, HexAddress], HandwrittenVaultMetadata]] = {
     (1, HexAddress("0x99351baed3d8ab544ccb08af96a105910fda71e7")): HandwrittenVaultMetadata(
         name="Morini FXArbUSDTRY",
         short_description="Delta-neutral USD/TRY foreign-exchange arbitrage strategy.",
@@ -76,14 +76,14 @@ def get_handwritten_vault_metadata(chain_id: int, address: HexAddress | str) -> 
         Curated metadata when the vault is known, otherwise ``None``.
     """
 
-    return PIKU_VAULT_METADATA.get((chain_id, HexAddress(str(address).lower())))
+    return MORINI_CAPITAL_VAULT_METADATA.get((chain_id, HexAddress(str(address).lower())))
 
 
 def format_handwritten_vault_note(metadata: HandwrittenVaultMetadata) -> str:
     """Format a source-linked vault note for scanner exports.
 
     The note supplements the plain-text description and gives users a direct
-    route to the manager-maintained Piku vault page and strategy overview.
+    route to a published vault page and Morini's strategy overview.
 
     :param metadata:
         Curated metadata for a vault.
@@ -91,9 +91,9 @@ def format_handwritten_vault_note(metadata: HandwrittenVaultMetadata) -> str:
         Markdown note suitable for ``_notes`` export.
     """
 
-    return f"""{metadata.name} is a Piku Finance vault managed by Morini Capital.
+    return f"""{metadata.name} is curated by Morini Capital, the curation arm of Piku Finance.
 
 **Summary:** {metadata.description}
 
-The authoritative source for this vault is the [Piku vault page]({metadata.link}). Morini provides a [portfolio overview]({MORINI_VAULTS_OVERVIEW_URL}).
+The published vault details are available on the [Piku vault page]({metadata.link}). Morini provides a [portfolio overview]({MORINI_VAULTS_OVERVIEW_URL}).
 """
