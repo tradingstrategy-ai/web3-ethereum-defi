@@ -14,6 +14,7 @@ from tqdm_loggable.auto import tqdm
 from eth_defi.cloudflare_r2 import copy_r2_object_daily_backup, create_r2_client, upload_file_to_r2
 from eth_defi.core3.constants import resolve_core3_database_path
 from eth_defi.currency_api.constants import CURRENCY_API_DATABASE
+from eth_defi.xerberus.constants import resolve_xerberus_database_path
 from eth_defi.utils import setup_console_logging
 from eth_defi.vault.settlement_data import (
     VAULT_SETTLEMENT_DATABASE_FILENAME,
@@ -53,6 +54,7 @@ def get_data_file_paths(
     base_path: Path,
     core3_db_path: Path | None = None,
     exchange_rate_db_path: Path | None = None,
+    xerberus_db_path: Path | None = None,
 ) -> list[Path]:
     """Build the data file list uploaded to R2.
 
@@ -62,6 +64,8 @@ def get_data_file_paths(
         Optional Core3 DuckDB path override.
     :param exchange_rate_db_path:
         Optional exchange-rate DuckDB path override.
+    :param xerberus_db_path:
+        Optional Xerberus DuckDB path override.
     :return:
         Files to upload, including optional files that may be skipped later
         if they do not exist.
@@ -75,6 +79,7 @@ def get_data_file_paths(
         base_path / "vault-reader-state-1h.pickle",
         base_path / VAULT_SETTLEMENT_DATABASE_FILENAME,
         core3_db_path or resolve_core3_database_path(),
+        xerberus_db_path or resolve_xerberus_database_path(),
         exchange_rate_path,
         *sticky_export_state_paths,
     ]

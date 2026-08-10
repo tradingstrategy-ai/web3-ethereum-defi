@@ -3,7 +3,7 @@ Lagoon Finance API
 
 `Lagoon Finance <https://lagoon.finance/>`__ integration.
 
-Lagoon provides open, general-purpose, secure vault infrastructure to build and scale on-chain
+Lagoon provides open, general-purpose, secure vault infrastructure to build and scale onchain
 yield products. The platform is designed for asset managers, DAOs, DeFi protocols and market
 makers who need flexible vault infrastructure.
 
@@ -18,6 +18,19 @@ Key features:
 - Smart contract code reviewed seven times by reputable firms
 - Vault access controls with optional KYC/KYB integration
 - CoW Protocol integration for trade execution
+
+Withdrawal timing metadata
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The scanner reads each vault's ``averageSettlement`` field from Lagoon's app
+metadata and exports it as ``estimated_settlement`` (in seconds) for
+backtesting. It measures an observed or curator-provided settlement cadence,
+not the time at which a redemption becomes claimable. Curators can settle
+earlier, later, or not at all; Lagoon's ERC-7540 contracts do not make this a
+binding deadline. Accordingly, the scanner exports ``withdrawal_delay_type``
+as ``delay`` but leaves ``min_withdrawal_period`` and
+``max_withdrawal_period`` as ``null``. See :doc:`../withdrawal-period-audit`
+for the public export contract.
 
 Links
 ~~~~~

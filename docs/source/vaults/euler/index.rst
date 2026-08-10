@@ -21,6 +21,17 @@ Key features:
 - Market-leading risk-adjusted rates for lenders and borrowers
 - Institutional-grade security with multiple audits
 
+Deposit permissions
+~~~~~~~~~~~~~~~~~~~
+
+Euler Earn deposits are permissionless. EVK vaults expose a hook target and
+operation bitmap through ``hookConfig()``. When neither the deposit nor mint
+operation is hooked, deposits are permissionless. A non-zero custom hook can
+implement arbitrary policy, so the adapter leaves it unknown until that hook
+implementation is recognised. A zero hook target with operation bits set is a
+global operation disable, not an account whitelist. See the `EVK hook design
+<https://github.com/euler-xyz/euler-vault-kit/blob/master/docs/whitepaper.md#hooks>`__.
+
 Links
 ~~~~~
 

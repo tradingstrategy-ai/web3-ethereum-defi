@@ -15,6 +15,7 @@
 
 import dataclasses
 import datetime
+import enum
 import logging
 import os
 import pathlib
@@ -23,7 +24,7 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from decimal import Decimal
 from functools import cached_property
-from typing import TYPE_CHECKING, Iterable, Tuple, TypedDict
+from typing import TYPE_CHECKING, ClassVar, Iterable, Tuple, TypedDict
 
 from eth_typing import BlockIdentifier, BlockNumber, HexAddress
 from web3 import Web3
@@ -34,6 +35,7 @@ from eth_defi.types import Percent
 from eth_defi.utils import is_good_multichain_address
 from eth_defi.vault.deposit_redeem import VaultDepositManager, VaultDepositManagerCapability
 from eth_defi.vault.lower_case_dict import LowercaseDict
+from eth_defi.vault.price_source import PriceSource
 from eth_defi.version_info import stamp_parquet_schema_metadata
 
 from .fee import FeeData, VaultFeeMode, get_vault_fee_mode
@@ -63,6 +65,90 @@ REDEMPTION_CLOSED_FUNDS_CUSTODIED = "Funds custodied or epoch in progress"
 REDEMPTION_CLOSED_BY_ADMIN = "Redemptions closed by vault admin"
 REDEMPTION_CLOSED_INSUFFICIENT_LIQUIDITY = "Insufficient liquidity for redemption"
 REDEMPTION_CLOSED_PAUSED = "Vault paused by admin"
+
+
+class WithdrawalDelayType(enum.StrEnum):
+    """Classify how a valid withdrawal request becomes redeemable.
+
+    This enum is exported as the ``withdrawal_delay_type`` string in public
+    lifetime metrics. It describes only the protocol's normal withdrawal
+    timing rule, not current liquidity, a pause, or keeper execution.
+
+    ``instant`` applies when the protocol has no request, cooldown or epoch
+    gate; a direct ERC-4626 redemption is possible subject to liquidity.
+    Examples include `Aave <https://app.aave.com/markets/>`__ and
+    `Yearn V3 <https://yearn.fi/v3>`__.
+
+    ``delay`` applies when a request follows a cooldown or asynchronous
+    settlement lifecycle. Examples include `Gains gUSDC <https://gains.trade/vaults/gUSDC>`__
+    and Upshift's `NEMO USDC Yield <https://app.upshift.finance/pools/1/0x955256B31097dDf47a9E47A95aDfDFB4460D8522>`__.
+
+    ``epoch`` applies when withdrawal availability is determined by a
+    protocol-defined epoch window. An example is D2's `Texas Hedge strategy
+    vault <https://d2.finance/strategies/0x208f63a7f60c319597c05fa5ec67fde41839bad6>`__.
+    """
+
+    #: Immediate redemption without a protocol cooldown or epoch gate.
+    #: Aave and Yearn V3 are examples.
+    instant = "instant"
+
+    #: A request follows a fixed delay or asynchronous settlement lifecycle.
+    #: Gains gUSDC and Upshift NEMO USDC Yield are examples.
+    delay = "delay"
+
+    #: A request can be completed only in a protocol-defined epoch window.
+    #: D2 Texas Hedge is an example.
+    epoch = "epoch"
+
+
+@dataclass(frozen=True, slots=True)
+class WithdrawalPeriod:
+    """Protocol withdrawal timing bounds exported by the vault scanner.
+
+    ``min_period`` and ``max_period`` describe the wait from a valid withdrawal
+    request to redemption availability when the protocol's smart contracts
+    enforce a timing rule. These binding values exclude liquidity shortages,
+    paused contracts, and other exceptional operating conditions. They are
+    serialised as seconds in the public lifetime-metrics JSON export.
+
+    ``estimated_settlement`` is deliberately separate. It is a non-binding
+    offchain operating estimate for backtesting, such as how often a curator
+    normally performs a request-batch settlement or the expected duration of a
+    liquidity-dependent redemption. It must not be used to decide whether a
+    withdrawal is claimable or promised to settle by a particular time.
+    """
+
+    #: Shortest contract-enforced wait before a withdrawal can become available.
+    #: ``None`` when the protocol has no binding timing bound.
+    min_period: datetime.timedelta | None
+
+    #: Longest contract-enforced wait, including any protocol scheduling window.
+    #: ``None`` when the protocol has no binding timing bound.
+    max_period: datetime.timedelta | None
+
+    #: Whether the availability rule is a time delay or epoch window.
+    delay_type: WithdrawalDelayType
+
+    #: Non-binding offchain estimate of a settlement cycle or redemption wait.
+    #: Used exclusively for backtesting; it never replaces a binding
+    #: smart-contract withdrawal period and settlement may not occur at all.
+    estimated_settlement: datetime.timedelta | None = None
+
+
+#: Withdrawal metadata for adapters whose documented ERC-4626 redemption path
+#: has no request, cooldown, or epoch timing gate. It is a timing declaration,
+#: not a liquidity guarantee: callers must still check liquidity, permissions,
+#: pause state, and transaction preflight before attempting redemption.
+#:
+#: An adapter must return this value explicitly. A zero
+#: :meth:`VaultBase.get_estimated_lock_up` alone is not sufficient evidence:
+#: it can describe a different lifecycle, such as an unlocked asynchronous
+#: redemption queue.
+INSTANT_WITHDRAWAL_PERIOD = WithdrawalPeriod(
+    min_period=datetime.timedelta(0),
+    max_period=datetime.timedelta(0),
+    delay_type=WithdrawalDelayType.instant,
+)
 
 
 class ParquetVerificationError(Exception):
@@ -995,6 +1081,10 @@ class VaultFlowManager(ABC):
 class VaultBase(ABC):
     """Base class for vault protocol adapters.
 
+    For the deposit and redemption support contract for subclasses and their
+    managers, see
+    :file:`eth_defi/erc_4626/README-vault-protocol-support.md`.
+
     - Allows automated interaction with different `vault protocols <https://tradingstrategy.ai/glossary/vault>`__.
 
     - Contains various abstract methods that the implementation class must override
@@ -1054,6 +1144,9 @@ class VaultBase(ABC):
     #: Allows us to avoid unnecessary work when scanning historical price data.
     #:
     first_seen_at_block: int | None
+
+    #: Optional qualification for the exported whitelist status.
+    whitelist_notes: ClassVar[str | None] = None
 
     def __init__(
         self,
@@ -1145,6 +1238,20 @@ class VaultBase(ABC):
         """
         return None
 
+    def get_share_price_source(self) -> PriceSource | None:  # noqa: PLR6301
+        """Return the source used for share-price observations.
+
+        Vault integrations override this method when they expose a share
+        price. Returning ``None`` distinguishes unsupported or unknown pricing
+        from a known source classification.
+
+        :return:
+            Share-price source, or ``None`` when the adapter does not provide
+            one.
+        """
+
+        return None
+
     def fetch_scan_record_extra_data(self) -> dict[str, object]:  # noqa: PLR6301
         """Fetch protocol-specific private scan row columns.
 
@@ -1184,37 +1291,94 @@ class VaultBase(ABC):
         """
         return None
 
-    def is_whitelisted_deposit(self) -> bool:
-        """Determine whether this vault applies a deposit whitelist policy.
+    def fetch_minimum_deposit(self, block_identifier: BlockIdentifier = "latest") -> Decimal | None:
+        """Fetch a source-proven minimum deposit in decimal token units.
 
-        Protocol adapters override this predicate only when their deployed
-        contract version exposes a reliable vault-wide policy read.  ``True``
-        means the vault requires account permission; ``False`` means its
-        policy is permissionless.  This is independent of a caller's current
-        balance, allowance, pause state, capacity, and request lifecycle.
+        A ``None`` result means this adapter does not expose a known minimum;
+        it does not prove the protocol accepts arbitrarily small deposits.
+        A zero result means the adapter positively established that the vault
+        has no minimum deposit.
+
+        :param block_identifier:
+            Block at which to read the protocol configuration.
+        :return:
+            Decimal denomination-token minimum, or ``None`` when unknown.
+        """
+        del block_identifier
+        return None
+
+    def fetch_minimum_redemption(self, block_identifier: BlockIdentifier = "latest") -> Decimal | None:
+        """Fetch a source-proven redemption minimum in decimal share units.
+
+        A ``None`` result means this adapter does not expose a known minimum;
+        it does not prove the protocol accepts arbitrarily small redemptions.
+        A zero result means the adapter positively established that the vault
+        has no minimum redemption.
+
+        :param block_identifier:
+            Block at which to read the protocol configuration.
+        :return:
+            Decimal vault-share minimum, or ``None`` when unknown.
+        """
+        del block_identifier
+        return None
+
+    def is_whitelisted_deposit(self) -> bool:
+        """Determine whether deposits require KYC or identity approval.
+
+        Protocol adapters override this predicate only when the deployed
+        contract version has verified implementation source or a canonical
+        application ABI that proves a reliable vault-wide policy read. An
+        explicitly documented operating assumption may also override it, but
+        must set :attr:`whitelist_notes` so consumers can distinguish it from
+        a source-proven result. ``True`` means the vault requires KYC or
+        comparable manual identity approval; ``False`` means its policy is
+        permissionless. An open date, lock-up, epoch, pause, cap, token
+        balance, or other non-identity eligibility condition must not affect
+        the result.
+        A source-proven override requires a fixed-block adapter test for every
+        supported implementation generation. An operating assumption requires
+        a unit test that asserts both its classification and its caveat. This
+        is independent of a caller's current balance, allowance, pause state,
+        capacity, and request lifecycle.
 
         :return:
-            ``True`` for a whitelist-restricted vault and ``False`` for a
-            permissionless vault.
+            ``True`` when deposits require KYC/identity approval and ``False``
+            when they do not.
 
         :raise NotImplementedError:
             If the adapter cannot safely determine the policy.
         """
         raise NotImplementedError()
 
-    def is_account_whitelisted(self, address: HexAddress) -> bool:
-        """Determine whether an account belongs to the vault deposit policy.
+    def get_whitelist_notes(self) -> str | None:
+        """Return an export caveat for the vault-wide whitelist status.
 
-        The result concerns policy membership only.  A protocol may still
-        require scheduling, an allowance, available capacity, or an open epoch
-        before a deposit can be submitted.  Callers must use the relevant
-        deposit manager pre-flight before broadcasting a transaction.
+        Adapters may attach a concise, stable explanation when a classification
+        is an explicitly requested operating assumption or excludes an
+        integration-specific permission mechanism. The note describes the
+        policy classification only; it must not be used to report temporary
+        deposit availability.
+
+        :return:
+            Export note, or ``None`` when the classification needs no caveat.
+        """
+        return self.whitelist_notes
+
+    def is_account_whitelisted(self, address: HexAddress) -> bool:
+        """Determine whether an account has completed the vault's KYC policy.
+
+        The result concerns KYC or manual identity-approval membership only.
+        A protocol may still require scheduling, a token balance, an allowance,
+        available capacity, or an open epoch before a deposit can be submitted.
+        Callers must use the relevant deposit manager pre-flight before
+        broadcasting a transaction.
 
         :param address:
             Account whose deposit-policy membership is queried.
 
         :return:
-            ``True`` when the account belongs to the applicable policy.
+            ``True`` when the account has the required KYC/identity approval.
 
         :raise NotImplementedError:
             If the adapter cannot safely query account membership.
@@ -1470,6 +1634,22 @@ class VaultBase(ABC):
         """
         return None
 
+    def get_withdrawal_period(self) -> WithdrawalPeriod | None:
+        """Return binding withdrawal timing and optional settlement estimates.
+
+        Unlike :meth:`get_estimated_lock_up`, this reports the redemption
+        lifecycle after a user submits a valid withdrawal request. Adapters use
+        ``min_period`` and ``max_period`` only for a binding smart-contract
+        timing rule. An adapter may instead return a non-binding
+        ``estimated_settlement`` for backtesting an offchain operating cadence
+        or redemption wait; that estimate never establishes claimability and
+        does not require a synthetic timing bound.
+
+        :return:
+            Withdrawal period details, or ``None`` when unavailable.
+        """
+        return None
+
     def fetch_deposit_closed_reason(self) -> str | None:
         """Get human-readable reason why deposits are closed.
 
@@ -1585,6 +1765,15 @@ class VaultBase(ABC):
 
         - Override to add status flags
         - Also add flags from our manual flag list in :py:mod:`eth_defi.vault.flag`
+
+        The vault metadata scan stores this result as ``_flags`` in
+        ``vault-metadata-db.pickle``. ``top_vaults_by_chain.json`` is generated
+        from those stored values through ``scripts/erc-4626/vault-analysis-json.py``
+        / :py:mod:`eth_defi.vault.top_vaults_json`.
+
+        After editing manual flags in :py:mod:`eth_defi.vault.flag`, rerun the
+        vault metadata scan and top-vault JSON post-processing. Regenerating the
+        JSON from an old metadata database will not pick up new manual flags.
 
         :return:
             Flag set.

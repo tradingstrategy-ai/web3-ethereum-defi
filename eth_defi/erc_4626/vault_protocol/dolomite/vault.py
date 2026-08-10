@@ -6,6 +6,7 @@ import logging
 from eth_typing import BlockIdentifier
 
 from eth_defi.erc_4626.vault import ERC4626Vault
+from eth_defi.vault.base import INSTANT_WITHDRAWAL_PERIOD, WithdrawalPeriod
 
 logger = logging.getLogger(__name__)
 
@@ -62,6 +63,19 @@ class DolomiteVault(ERC4626Vault):
         Deposits and withdrawals are instant, subject to market liquidity.
         """
         return None
+
+    def get_withdrawal_period(self) -> WithdrawalPeriod:
+        """Report Dolomite's direct redemption timing.
+
+        Dolomite does not impose a cooldown, request-and-claim process, or
+        withdrawal epoch. Market liquidity can still limit the amount
+        redeemable in a transaction. See the `Dolomite documentation
+        <https://docs.dolomite.io/>`__.
+
+        :return:
+            A zero-length ``instant`` period.
+        """
+        return INSTANT_WITHDRAWAL_PERIOD
 
     def get_link(self, referral: str | None = None) -> str:
         """Get link to Dolomite application."""

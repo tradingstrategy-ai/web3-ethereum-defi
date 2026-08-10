@@ -1,8 +1,8 @@
 """Atoma protocol vault support.
 
-Atoma runs an Arbitrum USDC vault that seeks delta-neutral yield from perpetual
-DEX funding-rate spreads. Users deposit USDC into an ERC-4626 vault share token
-and withdraw through an epoch-based request/claim flow.
+Atoma runs Arbitrum USDC vaults that seek delta-neutral yield from perpetual DEX
+funding-rate spreads. Users deposit USDC into an ERC-4626 vault share token and
+withdraw through an epoch-based request/claim flow.
 
 The verified AtomaVault implementation exposes fixed fee constants:
 
@@ -15,24 +15,100 @@ high-water mark. The withdrawal fee is externalised and deducted from the USDC
 payout in ``claimWithdrawal()``.
 
 - App: https://app.atoma.fi/
-- Proxy vault: https://arbiscan.io/address/0xCC56410e1a136aF0eCEb7241c6aE394F4d8b581c
-- Verified implementation: https://arbitrum.blockscout.com/address/0xd4242FD8DE6E3128f0435b52DCe29155098CbBFF
+- AVS proxy: https://arbiscan.io/address/0xCC56410e1a136aF0eCEb7241c6aE394F4d8b581c
+- AVS implementation: https://arbitrum.blockscout.com/address/0xd4242FD8DE6E3128f0435b52DCe29155098CbBFF
+- AVS2 proxy: https://arbiscan.io/address/0x1C788E14d8e5B446e3F71B5142e2edaBcAB36da1
+- AVS2 implementation: https://arbitrum.blockscout.com/address/0x9521B08303AE010e85e24fC15D5334A0E506641E
 """
 
 import datetime
 import logging
+from dataclasses import dataclass
+from typing import Final
 
-from eth_typing import BlockIdentifier
+from eth_typing import BlockIdentifier, HexAddress
 from web3.exceptions import BadFunctionCallOutput, ContractLogicError, Web3Exception
 
 from eth_defi.erc_4626.vault import ERC4626Vault
+from eth_defi.vault.base import WithdrawalDelayType, WithdrawalPeriod
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass(slots=True, frozen=True)
+class AtomaVaultDescription:
+    """Address-scoped display metadata for an Atoma vault.
+
+    Atoma does not expose the strategy descriptions onchain. Keep the overlay
+    keyed by vault address so each vault can retain its specific strategy copy.
+
+    :param short_description:
+        Listing-friendly strategy summary.
+    :param description:
+        Longer strategy description, including its authoritative source.
+    """
+
+    #: Listing-friendly strategy summary.
+    short_description: str
+
+    #: Longer source-linked strategy description.
+    description: str
+
 
 #: Atoma Vault Share (AVS) vault address on Arbitrum.
 #:
 #: https://arbiscan.io/address/0xCC56410e1a136aF0eCEb7241c6aE394F4d8b581c
-ATOMA_VAULT_ADDRESS = "0xcc56410e1a136af0eceb7241c6ae394f4d8b581c"
+ATOMA_VAULT_ADDRESS = HexAddress("0xcc56410e1a136af0eceb7241c6ae394f4d8b581c")
+
+#: Atoma Vault Share 2 (AVS2) vault address on Arbitrum.
+#:
+#: https://arbiscan.io/address/0x1C788E14d8e5B446e3F71B5142e2edaBcAB36da1
+ATOMA_VAULT_2_ADDRESS = HexAddress("0x1c788e14d8e5b446e3f71b5142e2edabcab36da1")
+
+#: All supported Atoma vault addresses on Arbitrum.
+ATOMA_VAULT_ADDRESSES: frozenset[HexAddress] = frozenset((ATOMA_VAULT_ADDRESS, ATOMA_VAULT_2_ADDRESS))
+
+#: Official Atoma announcement for the AVS2 RWA vault.
+ATOMA_RWA_VAULT_LAUNCH_POST_URL: Final[str] = "https://x.com/atoma_fi/status/2079672209400832319?s=46"
+
+#: Official overview for Atoma Vault Share's perpetual DEX strategy.
+ATOMA_VAULT_OVERVIEW_URL: Final[str] = "https://atoma.fi/"
+
+#: Human-readable strategy copy for Atoma vaults without an offchain metadata API.
+#:
+#: AVS uses Nado and Extended perpetual markets, while AVS2 is the RWA vault
+#: announced by Atoma for Lighter and Trade.xyz. Keep this address-scoped,
+#: because the vaults use different strategies.
+ATOMA_VAULT_DESCRIPTION_OVERLAY: Final[dict[HexAddress, AtomaVaultDescription]] = {
+    ATOMA_VAULT_ADDRESS: AtomaVaultDescription(
+        short_description="Market-neutral perpetuals strategy across Nado and Extended.",
+        description=" ".join(
+            (
+                "Atoma Vault is a delta-neutral USDC strategy that captures funding-rate spreads across Nado and Extended perpetual DEXs.",
+                "It holds offsetting long and short positions across the venues, seeking to avoid price-direction exposure.",
+                "Funding yield is paid into NAV in USDC, while Nado and Extended points accrue to depositors in weekly epochs.",
+                f"See [Atoma's vault overview]({ATOMA_VAULT_OVERVIEW_URL}).",
+            )
+        ),
+    ),
+    ATOMA_VAULT_2_ADDRESS: AtomaVaultDescription(
+        short_description="Market-neutral RWA perpetuals strategy across Lighter and Trade.xyz.",
+        description=" ".join(
+            (
+                "Atoma RWA Vault is a delta-neutral USDC strategy that captures funding and price spreads in gold, oil and equity-index perpetuals.",
+                "It takes offsetting long and short positions across Lighter and Trade.xyz, seeking to avoid price-direction exposure.",
+                "Atoma says future venue airdrops are mostly shared with depositors.",
+                f"See the [Atoma RWA vault launch post]({ATOMA_RWA_VAULT_LAUNCH_POST_URL}).",
+            )
+        ),
+    ),
+}
+
+#: Curated display names for Atoma vaults whose onchain share-token names are generic.
+ATOMA_VAULT_NAME_OVERLAY: Final[dict[HexAddress, str]] = {
+    ATOMA_VAULT_ADDRESS: "Extended and Nado arbitrage",
+    ATOMA_VAULT_2_ADDRESS: "Lighter and Trade.xyz arbitrage",
+}
 
 #: Atoma performance fee in basis points.
 PERFORMANCE_FEE_BPS = 2_000
@@ -66,6 +142,48 @@ class AtomaVault(ERC4626Vault):
     later ``claimWithdrawal(epochId)`` after the settlement epoch has been
     processed.
     """
+
+    @property
+    def name(self) -> str:
+        """Return a curated name for a known Atoma strategy.
+
+        AVS2's onchain share-token name is generic, so its address-scoped
+        overlay provides a descriptive name. Other Atoma vaults retain their
+        onchain token names.
+
+        :return:
+            Curated name when available, otherwise the onchain token name.
+        """
+
+        name = ATOMA_VAULT_NAME_OVERLAY.get(HexAddress(str(self.vault_address).lower()))
+        return name if name else super().name
+
+    @property
+    def description(self) -> str | None:
+        """Return a source-linked description for a known Atoma strategy.
+
+        The common Atoma contract interface does not distinguish strategy
+        details. The address-scoped overlay supplies reviewed offchain copy
+        only where Atoma has published a dedicated strategy announcement.
+
+        :return:
+            Full strategy description, or ``None`` when no overlay exists.
+        """
+
+        metadata = ATOMA_VAULT_DESCRIPTION_OVERLAY.get(HexAddress(str(self.vault_address).lower()))
+        return metadata.description if metadata else None
+
+    @property
+    def short_description(self) -> str | None:
+        """Return a concise description for a known Atoma strategy.
+
+        :return:
+            Listing-friendly strategy summary, or ``None`` when no overlay
+            exists.
+        """
+
+        metadata = ATOMA_VAULT_DESCRIPTION_OVERLAY.get(HexAddress(str(self.vault_address).lower()))
+        return metadata.short_description if metadata else None
 
     def has_custom_fees(self) -> bool:
         """Atoma has a mixed internalised performance fee and external withdrawal fee."""
@@ -124,6 +242,23 @@ class AtomaVault(ERC4626Vault):
             return datetime.timedelta(seconds=duration_seconds)
         except (BadFunctionCallOutput, ContractLogicError, ValueError, Web3Exception):
             return DEFAULT_EPOCH_DURATION
+
+    def get_withdrawal_period(self) -> WithdrawalPeriod:
+        """Return the epoch-bounded Atoma request-to-claim window.
+
+        Atoma accepts a withdrawal request and pays it from the next processed
+        settlement epoch. A request can be made as soon as the current epoch
+        permits it, while the normal upper bound is one configured epoch.
+        See the `Atoma vault implementation <https://arbitrum.blockscout.com/address/0xd4242FD8DE6E3128f0435b52DCe29155098CbBFF>`__.
+
+        :return:
+            Zero-to-one epoch withdrawal period.
+        """
+        return WithdrawalPeriod(
+            min_period=datetime.timedelta(0),
+            max_period=self.get_estimated_lock_up(),
+            delay_type=WithdrawalDelayType.epoch,
+        )
 
     def get_link(self, referral: str | None = None) -> str:
         """Return the Atoma vault app link."""

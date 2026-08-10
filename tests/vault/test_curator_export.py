@@ -1,6 +1,7 @@
 """Test curator export builder for vault metrics JSON export."""
 
 import datetime
+import json
 from pathlib import Path
 
 from eth_defi.feed.database import CollectedPost, VaultPostDatabase
@@ -79,7 +80,7 @@ def test_build_curators_for_export_with_feed(tmp_path: Path):
     assert "T" in post["published_at"]
 
 
-def test_build_curators_for_export_without_feed():
+def test_build_curators_for_export_without_feed() -> None:
     """Curator export builder works without a feed database.
 
     1. Call build_curators_for_export with feed_db=None for a known curator
@@ -94,9 +95,35 @@ def test_build_curators_for_export_without_feed():
     rec = result["gauntlet"]
     assert rec["name"] == "Gauntlet"
     assert rec["protocol_curator"] is False
+    assert rec["risk"] == {"status": "unknown"}
+    assert rec["incidents"] == []
 
     # 3. Assert recent_posts is empty
     assert rec["recent_posts"] == []
+    assert json.loads(json.dumps(rec))["risk"]["status"] == "unknown"
+
+
+def test_build_curators_for_export_with_incidents() -> None:
+    """Incident metadata reaches the JSON-compatible curator export record.
+
+    1. Build the Gamma Research curator record without feed enrichment.
+    2. Assert its incident and affected-vault context reach the export.
+    3. Serialise the record and assert enum values become JSON strings.
+    """
+
+    result = build_curators_for_export(["gamma-research"], feed_db=None)
+    record = result["gamma-research"]
+    incident = record["incidents"][0]
+
+    assert incident["incident_kind"] == "significant_loss"
+    assert incident["severity"] == "significant_loss"
+    assert incident["vault_addresses"] == [
+        "0x998d7b14c123c1982404562b68eddb057b0477cb",
+        "0xe9b725010a9e419412ed67d0fa5f3a5f40159d32",
+    ]
+    serialised = json.loads(json.dumps(record))
+    assert serialised["risk"]["status"] == "unknown"
+    assert serialised["incidents"][0]["severity"] == "significant_loss"
 
 
 def test_build_curators_for_export_protocol_curator_alias():
@@ -160,8 +187,13 @@ def test_build_curators_for_export_ondo_protocol_curator_alias() -> None:
     assert "tokenised investment products" in rec["short_description"]
 
 
-def test_build_curators_for_export_d2_finance_protocol_curator():
-    """D2 Finance protocol curator metadata uses its protocol feeder and logos."""
+def test_build_curators_for_export_d2_finance_protocol_curator() -> None:
+    """D2 Finance protocol curator metadata uses its protocol feeder and logos.
+
+    1. Build the protocol-curator fallback record for D2 Finance.
+    2. Assert protocol metadata and public logo URLs are exported.
+    3. Assert risk and incident fields receive safe defaults.
+    """
 
     result = build_curators_for_export(
         ["d2-finance"],
@@ -176,6 +208,8 @@ def test_build_curators_for_export_d2_finance_protocol_curator():
     assert rec["linkedin"] == "https://www.linkedin.com/company/d2finance"
     assert rec["protocol_curator"] is True
     assert rec["canonical_feeder_id"] is None
+    assert rec["risk"] == {"status": "unknown"}
+    assert rec["incidents"] == []
     assert rec["logos"] == {
         "generic": "https://example.com/curator-metadata/d2-finance/generic.png",
         "dark": "https://example.com/curator-metadata/d2-finance/dark.png",

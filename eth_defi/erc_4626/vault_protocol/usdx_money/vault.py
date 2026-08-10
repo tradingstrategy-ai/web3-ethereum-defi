@@ -31,6 +31,7 @@ import logging
 from eth_typing import BlockIdentifier
 
 from eth_defi.erc_4626.vault import ERC4626Vault
+from eth_defi.vault.base import WithdrawalDelayType, WithdrawalPeriod
 
 logger = logging.getLogger(__name__)
 
@@ -94,6 +95,17 @@ class USDXMoneyVault(ERC4626Vault):
         The default cooldown duration is typically 7 days.
         """
         return datetime.timedelta(days=7)
+
+    def get_withdrawal_period(self) -> WithdrawalPeriod | None:
+        """Read USDX Money's live unstaking cooldown.
+
+        See the `USDX Money documentation <https://docs.usdx.money/>`__.
+        """
+        try:
+            period = datetime.timedelta(seconds=self.vault_contract.functions.cooldownDuration().call())
+        except (AttributeError, ValueError):
+            return None
+        return WithdrawalPeriod(period, period, WithdrawalDelayType.delay)
 
     def get_link(self, referral: str | None = None) -> str:
         """Get the vault's web UI link.

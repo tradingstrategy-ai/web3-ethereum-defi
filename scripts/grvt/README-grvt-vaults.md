@@ -109,6 +109,13 @@ Key fields on the `Vault` type:
 | `mappedCategories` | List | Strategy categories |
 | `valuationCap` | String | Max AUM capacity |
 
+The scanner persists ``discoverable`` and ``status`` as first-class DuckDB
+columns instead of relying only on the weekly raw metadata JSON. A discoverable
+``active`` vault exports ``permissionless``. A source-proven non-discoverable
+vault exports the native-perp compatibility value ``whitelisted`` with a
+qualification note. Missing or unrecognised field combinations remain
+``unknown``.
+
 Example query:
 
 ```graphql

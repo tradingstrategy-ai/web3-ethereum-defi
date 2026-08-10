@@ -107,15 +107,27 @@ def shutdown_hard(
     block=True,
     block_timeout=30,
     check_port: Optional[int] = None,
+    graceful_timeout: float = 0.0,
 ) -> tuple[bytes, bytes]:
     """Kill Psutil process.
 
-    - Straight out OS `SIGKILL` a process
+    - Optionally ask the process to exit cleanly first (``graceful_timeout``),
+      then fall back to OS ``SIGKILL``
 
     - Log output if necessary
 
     - Use port listening to check that the process goes down
       and frees its ports
+
+    :param graceful_timeout:
+        When greater than zero, send ``SIGTERM`` and wait up to this many
+        seconds for the process to exit on its own before ``SIGKILL``. This lets
+        a process flush on-disk state — critically, Anvil only writes its fork
+        RPC cache (``~/.foundry/cache/rpc/<network>/<block>/storage.json``) on a
+        graceful shutdown; a straight ``SIGKILL`` discards it, so a warm cache
+        never accumulates. Defaults to ``0.0`` (immediate ``SIGKILL``) to
+        preserve the fast, hang-proof behaviour for callers that do not need the
+        flush.
 
     :param process:
         Process to kill
@@ -142,8 +154,21 @@ def shutdown_hard(
     stderr = b""
 
     if process.poll() is None:
-        # Still alive, we need to kill to read the output
-        process.kill()
+        # Ask the process to exit cleanly first when a graceful budget is given,
+        # so it can flush on-disk state before dying. Anvil only writes its fork
+        # RPC cache on a graceful shutdown (Rust Drop); a straight SIGKILL loses
+        # it, which is why the CI fork cache never warmed and every run re-fetched
+        # from (and got throttled by) the upstream archive. The bounded wait +
+        # SIGKILL fallback keeps teardown from hanging.
+        if graceful_timeout > 0:
+            try:
+                process.terminate()  # SIGTERM — Anvil flushes its cache on this
+                process.wait(timeout=graceful_timeout)
+            except psutil.TimeoutExpired:
+                pass
+        # Still alive (graceful disabled, timed out, or signal ignored): SIGKILL.
+        if process.poll() is None:
+            process.kill()
 
     # Read stdout/stderr before wait() as wait() may close the pipes
     # Also check if streams are not already closed (e.g. if close() is called twice)
@@ -220,6 +245,15 @@ def get_url_domain(url: str) -> str:
     """Redact URL so that only domain is displayed.
 
     Some services e.g. infura use path as an API key.
+
+    .. note::
+
+        Unlike other secrets, JSON-RPC API keys are **not** security critical:
+        they only meter/authorise read access to public blockchain data, so an
+        accidental exposure (e.g. a key leaking into a CI log via a raw
+        exception message) does no real harm. It should still be avoided —
+        prefer this redaction when logging provider URLs — but it is not an
+        incident on the level of a leaked private key or database credential.
     """
     parsed = urlparse(url)
     if parsed.port in (80, 443, None):

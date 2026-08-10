@@ -7,6 +7,14 @@ long_description: |
   Growi.fi builds decentralised finance products that aim to make quantitative investment strategies easier to access.
   Its Growi.HF documentation describes an expert-driven protocol for bringing hedge fund-style quant strategies to DeFi through automated, transparent vault operations.
   The product uses Hyperliquid infrastructure and quantitative models to trade futures contracts while showing allocations and activity on-chain.
+  Growi Lending is a USDC Morpho Vault V2 on HyperEVM, where Growi acts as risk curator for the vault's overcollateralised lending-market allocations.
 twitter: GrowiFinance
 linkedin: growi-fi
 linkedin-rss-hub-disabled-at: 2026-06-09
+# 2026-08-06 maintain-curators: Added the official Growi Lending announcement
+# and Morpho configuration record as curator evidence for Growi USDC Core.
+other-links:
+  - title: Growi Lending - curated USDC lending on Morpho
+    url: https://growi.fi/lending/
+  - title: Morpho API - Growi USDC Core HyperEVM vault configuration
+    url: https://api.morpho.org/v0/vaults-v2/999:0x54E24C904CfC563Af7A1EE9DfAF1354d034e44e4

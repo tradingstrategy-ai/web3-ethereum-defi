@@ -13,6 +13,19 @@ liquidity and underwriter-selection risk. Published `audit reports
 <https://github.com/bulla-network/factoring-contracts/tree/main/audits>`__
 are useful security evidence, but do not cover those economic risks.
 
+Withdrawal timing metadata
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+For the reviewed TCS Settlement Pool, Bulla publishes a 30-day average
+redemption period. The scanner exports this as ``estimated_settlement`` (in
+seconds) for backtesting, with ``withdrawal_delay_type`` set to ``delay``.
+Invoice repayment and available pool liquidity determine the actual queue
+duration, so it is not a binding contract period: both
+``min_withdrawal_period`` and ``max_withdrawal_period`` are ``null``. Bulla's
+published 40-day maximum remains descriptive pool material rather than an
+exported smart-contract bound. See :doc:`../withdrawal-period-audit` for the
+public export contract.
+
 Links
 ~~~~~
 

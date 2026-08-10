@@ -9,7 +9,6 @@ import "@openzeppelin/access/Ownable.sol";
 
 import "./GuardV0.sol";
 
-
 /**
  * Simple vault allowing delegating of a trading activites to a hot wallet.
  *
@@ -20,7 +19,6 @@ import "./GuardV0.sol";
  * - No slippage protection (unlike Enzyme)
  */
 contract SimpleVaultV0 is Ownable {
-
     address public assetManager;
 
     address public withdrawAddress;
@@ -33,22 +31,21 @@ contract SimpleVaultV0 is Ownable {
         // Set the initial asset manager
         assetManager = _assetManager;
         guard.allowSender(_assetManager, "Initial asset manager set");
-
     }
 
     /**
      * Initialise vault and guard for a withdrawal destination.
      */
-    function initialiseOwnership(address _owner) onlyOwner external {
+    function initialiseOwnership(address _owner) external onlyOwner {
         // Initialise the guard where the deployer
         // is the owner and can always withdraw
         guard.allowWithdrawDestination(_owner, "Initial owner can withdraw");
         guard.allowReceiver(address(this), "Vault can receive tokens from a trade");
-        guard.transferOwnership(_owner);  // The owner of the guard is the vault creator, not the vault itself
+        guard.transferOwnership(_owner); // The owner of the guard is the vault creator, not the vault itself
         transferOwnership(_owner);
     }
 
-    function resetGuard(GuardV0 _guard) onlyOwner external {
+    function resetGuard(GuardV0 _guard) external onlyOwner {
         guard = _guard;
     }
 
@@ -77,30 +74,28 @@ contract SimpleVaultV0 is Ownable {
      *
      */
     function updateAssetManager(address _assetManager, string calldata notes) public onlyOwner {
-        if(assetManager != address(0)) {
+        if (assetManager != address(0)) {
             guard.removeSender(assetManager, notes);
         }
         assetManager = _assetManager;
-        if(assetManager != address(0)) {
+        if (assetManager != address(0)) {
             guard.allowSender(_assetManager, notes);
         }
     }
 
     function performCall(address target, bytes calldata callData) external {
-
         // Check that the asset manager can perform this function
         guard.validateCall(msg.sender, target, callData);
 
         // https://ethereum.stackexchange.com/a/69134/620
         (bool success, bytes memory returnData) = target.call(callData);
 
-        if(!success) {
-            assembly{
+        if (!success) {
+            assembly {
                 let revertStringLength := mload(returnData)
                 let revertStringPtr := add(returnData, 0x20)
                 revert(revertStringPtr, revertStringLength)
             }
         }
     }
-
 }

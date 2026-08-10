@@ -1482,3 +1482,16 @@ def test_packaged_metronome_msusd_depeg_is_contract_pinned() -> None:
     assert feeder.is_depegged_stablecoin_token(1, metronome_ethereum, "msUSD") is True
     assert feeder.is_depegged_stablecoin_token(1, main_street_ethereum, "msUSD") is False
     assert feeder.is_depegged_stablecoin_token(1, None, "msUSD") is False
+
+
+def test_packaged_apyusd_manual_depeg_blacklists_pinned_contracts() -> None:
+    """The manually reviewed apyUSD depeg blacklists both deployed contracts.
+
+    apyUSD is an ERC-4626 yield-bearing share, so automated dollar-peg detection
+    intentionally skips it. A manually set ``depegged_at`` marker must still
+    protect vault discovery from its underlying apxUSD collateral depeg.
+    """
+    depegged_contracts, _depegged_symbols = build_depegged_stablecoin_lookups()
+
+    assert (1, "0x38eeb52f0771140d10c4e9a9a72349a329fe8a6a") in depegged_contracts
+    assert (8453, "0x2c271ddf484ac0386d216eb7eb9ff02d4dc0f6aa") in depegged_contracts

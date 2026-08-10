@@ -1,0 +1,20 @@
+feeder-id: morini-capital
+name: Morini Capital
+role: curator
+accountable-company: Morini Capital
+website: https://morini.capital/
+twitter: MoriniCapital
+short_description: Morini Capital is the curation arm of Piku Finance, bringing emerging-market yield onchain through curated yield strategies.
+long_description: |
+  Morini Capital is an emerging-market-focused curator in the Piku Finance ecosystem. It sources uncorrelated yield from regulated funds and proprietary delta-neutral strategies, and brings those strategies onchain through curated vaults covering global FX arbitrage, basis trades and carry trades.
+
+  Morini Capital has launched lending vaults on Morpho, including Morini RLUSD Emerging Yield. It plans to expand its lending vaults and bring similar strategies from other emerging markets onchain.
+
+# Evidence and background references.
+other-links:
+  - title: Morini Capital - curation arm of Piku Finance and emerging-market yield strategies
+    url: https://morini.capital/
+  - title: Morini Capital on X
+    url: https://x.com/MoriniCapital
+  - title: Piku Finance vaults - Morini Capital FX arbitrage, basis-trade and carry-trade vaults
+    url: https://piku.co/vaults

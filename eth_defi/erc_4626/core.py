@@ -373,6 +373,13 @@ class ERC4626Feature(enum.Enum):
     #: https://nashpoint.gitbook.io/nashpoint
     nashpoint_like = "nashpoint_like"
 
+    #: Barker
+    #:
+    #: Stablecoin-yield routing platform. The reviewed H1 vault on HyperEVM is
+    #: recognised by address because its implementation is unverified.
+    #: https://barker.money/
+    barker_like = "barker_like"
+
     #: Llama Lend (powered by LLAMMA)
     #:
     #: Llama Lend is Curve Finance's lending protocol powered by the liquidation protection
@@ -472,6 +479,14 @@ class ERC4626Feature(enum.Enum):
     #: ERC-20 token for share metadata and supply.
     #: https://etherscan.io/address/0xEB5f80aCEa6060764E91c185bE93752Ab40F01c2#code
     upshift_multi_asset_like = "upshift_multi_asset_like"
+
+    #: Shift Protocol custom ERC-20 share vaults.
+    #:
+    #: ShiftVault does not implement ERC-4626 accounting. Reviewed deployments
+    #: are selected through Shift's public address registry and read through a
+    #: tokenised-fund-style adapter.
+    #: https://shiftprotocol.gitbook.io/shift/resources/addresses
+    shift_like = "shift_like"
 
     #: Sky (formerly MakerDAO)
     #:
@@ -621,6 +636,12 @@ class ERC4626Feature(enum.Enum):
     #: https://www.yieldnest.finance
     yieldnest_like = "yieldnest_like"
 
+    #: Nest
+    #:
+    #: Tokenised real-world-asset vault infrastructure operated by Plume.
+    #: https://www.nest.credit/
+    nest_like = "nest_like"
+
     #: Secured Finance
     #:
     #: Fixed-rate lending protocol with ERC-4626 lender vaults.
@@ -712,6 +733,13 @@ class ERC4626Feature(enum.Enum):
     #: :py:attr:`frax_like`, which is retained for Fraxlend compatibility.
     #: https://frax.com/earn
     frax_staking_like = "frax_staking_like"
+
+    #: Axis StakedUSDx rewards vault.
+    #:
+    #: Address-routed because the reviewed single-vault deployment uses a
+    #: generic ERC-4626/ERC-7540 interface.
+    #: https://docs.axis.to/susdx-the-rewards-vault/susdx
+    axis_like = "axis_like"
 
     #: Hyperdrive (HyperEVM)
     #:
@@ -854,6 +882,7 @@ LENDING_PROTOCOL_FEATURES: frozenset[ERC4626Feature] = frozenset(
         ERC4626Feature.fluid_like,
         ERC4626Feature.silo_like,
         ERC4626Feature.llamma_like,
+        ERC4626Feature.forty_acres_like,
     }
 )
 
@@ -1077,6 +1106,9 @@ def get_vault_protocol_name(features: set[ERC4626Feature]) -> str:
     elif ERC4626Feature.nashpoint_like in features:
         return "NashPoint"
 
+    elif ERC4626Feature.barker_like in features:
+        return "Barker"
+
     elif ERC4626Feature.llamma_like in features:
         return "Llama Lend"
 
@@ -1130,6 +1162,8 @@ def get_vault_protocol_name(features: set[ERC4626Feature]) -> str:
 
     elif ERC4626Feature.upshift_like in features:
         return "Upshift"
+    elif ERC4626Feature.shift_like in features:
+        return "Shift"
     elif ERC4626Feature.sky_like in features:
         return "Sky"
 
@@ -1199,6 +1233,9 @@ def get_vault_protocol_name(features: set[ERC4626Feature]) -> str:
     elif ERC4626Feature.yieldnest_like in features:
         return "YieldNest"
 
+    elif ERC4626Feature.nest_like in features:
+        return "Nest"
+
     elif ERC4626Feature.secured_finance_like in features:
         return "Secured Finance"
 
@@ -1240,6 +1277,9 @@ def get_vault_protocol_name(features: set[ERC4626Feature]) -> str:
 
     elif ERC4626Feature.frax_like in features or ERC4626Feature.frax_staking_like in features:
         return "Frax"
+
+    elif ERC4626Feature.axis_like in features:
+        return "Axis"
 
     elif ERC4626Feature.hyperdrive_hl_like in features:
         return "Hyperdrive"

@@ -1,0 +1,12 @@
+{
+  "data": {
+    "vaultConfig": {
+      "maxAmount": "1000000",
+      "ownerMinAmountRatio": "0.05",
+      "profitShareRatio": "0.1",
+      "freezePurchaseShareDuration": "86400000",
+      "minAmount": "2000",
+      "freezeDays": "1"
+    }
+  }
+}

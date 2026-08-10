@@ -53,6 +53,6 @@ rate_fetch_failed_reason: missing_source_currency_rate
 depegged_at: ''
 checks:
   twitter_last_post_at: ''
-  domain_up_at: ''
+  domain_up_at: '2026-08-01'
   marked_dead_at: ''
   information_found_missing_at: ''

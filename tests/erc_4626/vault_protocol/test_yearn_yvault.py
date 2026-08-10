@@ -53,6 +53,7 @@ def test_yvault_usdce_symbol(
 
     assert isinstance(vault, YearnV3Vault)
     assert vault.get_protocol_name() == "Yearn"
+    assert vault.is_whitelisted_deposit() is False
     assert vault.denomination_token.address == "0xFF970A61A04b1cA14834A43f5dE4533eBDDB5CC8"
     assert vault.denomination_token.symbol == "USDC.e"
     assert vault.get_management_fee("latest") == 0.00
@@ -65,4 +66,5 @@ def test_yvault_usdce_symbol(
     assert max_redeem == 0
 
     # Yearn vaults don't support address(0) checks for maxDeposit/maxRedeem
+    assert vault.can_check_deposit() is False
     assert vault.can_check_redeem() is False

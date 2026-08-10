@@ -9,6 +9,7 @@ import logging
 from pathlib import Path
 
 import pytest
+from strictyaml.exceptions import YAMLValidationError
 
 from eth_defi.feed.sources import (
     FEEDS_DATA_DIR,
@@ -188,6 +189,136 @@ def test_other_links_metadata_loads(tmp_path: Path):
     ]
 
 
+def test_curator_risk_and_incidents_metadata_loads(tmp_path: Path) -> None:
+    """Curator risk status and Markdown incident records are validated and exported.
+
+    1. Write valid risk and incident metadata for a curator.
+    2. Load and export the curator metadata.
+    3. Assert scalar fields are preserved and EVM addresses are lowercased.
+    """
+
+    yaml_path = tmp_path / "curators" / "flowdesk.yaml"
+    _write_yaml(
+        yaml_path,
+        "feeder-id: flowdesk\nname: Flowdesk\nrole: curator\ntwitter: flowdesk_co\nrisk:\n  status: blacklisted\nincidents:\n  - date: 2026-08-01\n    links:\n      - https://example.com/post-mortem\n      - https://example.com/community-report\n    vault_addresses:\n      - 0x1234567890ABCDEF1234567890ABCDEF12345678\n    protocols:\n      - lagoon-finance\n    title: Incorrect valuation reported\n    description: |\n      The curator reported an **incorrect valuation**.\n    incident_kind: misleading\n    severity: significant_loss\n",
+    )
+
+    metadata = load_feeder_metadata(yaml_path)
+    exported = curator_module.build_curator_metadata_json(yaml_path)
+
+    assert metadata["risk"] == {"status": "blacklisted"}
+    assert metadata["incidents"] == [
+        {
+            "date": "2026-08-01",
+            "links": [
+                "https://example.com/post-mortem",
+                "https://example.com/community-report",
+            ],
+            "vault_addresses": ["0x1234567890abcdef1234567890abcdef12345678"],
+            "protocols": ["lagoon-finance"],
+            "title": "Incorrect valuation reported",
+            "description": "The curator reported an **incorrect valuation**.",
+            "incident_kind": "misleading",
+            "severity": "significant_loss",
+        }
+    ]
+    assert exported["risk"]["status"] == "blacklisted"
+    assert exported["incidents"] == metadata["incidents"]
+
+
+@pytest.mark.parametrize(
+    "field_value",
+    [
+        pytest.param("risk:\n  status: pending", id="risk-status"),
+        pytest.param(
+            "incidents:\n  - date: 2026-08-01\n    links:\n      - https://example.com/post-mortem\n    vault_addresses:\n      - 0x1234567890abcdef1234567890abcdef12345678\n    protocols:\n      - lagoon-finance\n    title: Incorrect valuation reported\n    description: Incorrect valuation reported.\n    incident_kind: operational\n    severity: other",
+            id="incident-kind",
+        ),
+        pytest.param(
+            "incidents:\n  - date: 2026-08-01\n    links:\n      - https://example.com/post-mortem\n    vault_addresses:\n      - 0x1234567890abcdef1234567890abcdef12345678\n    protocols:\n      - lagoon-finance\n    title: Incorrect valuation reported\n    description: Incorrect valuation reported.\n    incident_kind: misleading\n    severity: critical",
+            id="incident-severity",
+        ),
+    ],
+)
+def test_curator_risk_and_incident_enums_are_validated(tmp_path: Path, field_value: str) -> None:
+    """Curator risk statuses and incident classifications accept only declared enums.
+
+    1. Write a curator record with one invalid enum value.
+    2. Load the record through the strict schema.
+    3. Assert schema validation rejects the value.
+    """
+
+    yaml_path = tmp_path / "curators" / "flowdesk.yaml"
+    _write_yaml(
+        yaml_path,
+        f"feeder-id: flowdesk\nname: Flowdesk\nrole: curator\ntwitter: flowdesk_co\n{field_value}\n",
+    )
+
+    with pytest.raises(YAMLValidationError, match="when expecting one of"):
+        load_feeder_metadata(yaml_path)
+
+
+def test_curator_incident_date_requires_iso_format(tmp_path: Path) -> None:
+    """Incident dates must use the documented ``YYYY-MM-DD`` format.
+
+    1. Write otherwise valid curator incident metadata with a compact date.
+    2. Load the record through the shared feeder metadata loader.
+    3. Assert semantic date validation rejects the compact representation.
+    """
+
+    yaml_path = tmp_path / "curators" / "flowdesk.yaml"
+    _write_yaml(
+        yaml_path,
+        "feeder-id: flowdesk\nname: Flowdesk\nrole: curator\ntwitter: flowdesk_co\nincidents:\n  - date: 20260801\n    links:\n      - https://example.com/post-mortem\n    vault_addresses:\n      - 0x1234567890abcdef1234567890abcdef12345678\n    protocols:\n      - lagoon-finance\n    title: Incorrect valuation reported\n    description: Incorrect valuation reported.\n    incident_kind: misleading\n    severity: other\n",
+    )
+
+    with pytest.raises(ValueError, match="must use YYYY-MM-DD format"):
+        load_feeder_metadata(yaml_path)
+
+
+def test_curator_only_metadata_rejected_for_protocol(tmp_path: Path) -> None:
+    """Risk and incident metadata cannot be attached to non-curator feeders.
+
+    1. Write risk metadata on a protocol feeder.
+    2. Load the record through the shared feeder metadata loader.
+    3. Assert role-aware validation rejects the curator-only field.
+    """
+
+    yaml_path = tmp_path / "protocols" / "flowdesk.yaml"
+    _write_yaml(
+        yaml_path,
+        "feeder-id: flowdesk\nname: Flowdesk\nrole: protocol\ntwitter: flowdesk_co\nrisk:\n  status: unknown\n",
+    )
+
+    with pytest.raises(ValueError, match="risk metadata is only valid for curator feeders"):
+        load_feeder_metadata(yaml_path)
+
+
+@pytest.mark.parametrize(
+    ("vault_address", "protocol", "error_pattern"),
+    [
+        pytest.param("0x1234", "lagoon-finance", "malformed EVM address", id="malformed-evm-address"),
+        pytest.param("0x1234567890abcdef1234567890abcdef12345678", "missing-protocol", "unknown protocol slug", id="unknown-protocol"),
+    ],
+)
+def test_curator_incident_rejects_invalid_context(tmp_path: Path, vault_address: str, protocol: str, error_pattern: str) -> None:
+    """Incident context must use valid vault identifiers and repository protocol slugs.
+
+    1. Write otherwise valid curator incident metadata with invalid context.
+    2. Load the record through the shared feeder metadata loader.
+    3. Assert context validation rejects the invalid value.
+    """
+
+    yaml_path = tmp_path / "curators" / "flowdesk.yaml"
+    _write_yaml(
+        yaml_path,
+        f"feeder-id: flowdesk\nname: Flowdesk\nrole: curator\ntwitter: flowdesk_co\nincidents:\n  - date: 2026-08-01\n    links:\n      - https://example.com/post-mortem\n    vault_addresses:\n      - {vault_address}\n    protocols:\n      - {protocol}\n    title: Incorrect valuation reported\n    description: Incorrect valuation reported.\n    incident_kind: misleading\n    severity: other\n",
+    )
+
+    with pytest.raises(ValueError, match=error_pattern):
+        load_feeder_metadata(yaml_path)
+
+
 def test_metadata_inheritance_in_curator_export(tmp_path: Path):
     """Curator metadata export inherits source fields from canonical stablecoin feeder.
 
@@ -215,6 +346,8 @@ def test_metadata_inheritance_in_curator_export(tmp_path: Path):
     assert metadata["website"] == "https://ethena.fi/"
     assert metadata["short_description"] == "Ethena is a synthetic dollar protocol team."
     assert metadata["long_description"] == "Ethena operates the protocol behind USDe and related products."
+    assert metadata["risk"] == {"status": "unknown"}
+    assert metadata["incidents"] == []
     assert metadata["twitter"] == "https://x.com/ethena"
     assert metadata["linkedin"] == "https://www.linkedin.com/company/ethena-labs"
     assert metadata["logos"] == {"generic": None, "dark": None, "light": None}

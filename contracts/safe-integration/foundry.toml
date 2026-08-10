@@ -11,7 +11,8 @@ bytecode_hash = "none"
 # See more config options https://github.com/foundry-rs/foundry/blob/master/crates/config/README.md#all-options
 optimizer = true
 optimizer_runs = 1
-# The legacy pipeline produces substantially smaller TradingStrategyModuleV0
-# runtime bytecode at optimizer_runs=1. Keep Guard libraries on via_ir=true;
-# their deployed bytecode is smaller with IR and remains ABI/link compatible.
+# Do not enable the Yul IR pipeline: at optimizer_runs=1 it produces larger
+# deployed TradingStrategyModuleV0 and GuardV0 dispatcher bytecode, reducing
+# their EIP-170 deployment margin. Keep both integration projects on this
+# legacy pipeline and measure the top-level contracts after compiler changes.
 via_ir = false

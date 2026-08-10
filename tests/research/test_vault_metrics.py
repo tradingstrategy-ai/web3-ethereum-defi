@@ -1,5 +1,6 @@
 """Test vault metrics calculations and charts."""
 
+import datetime
 import json
 import os.path
 import pickle
@@ -12,6 +13,8 @@ import zstandard as zstd
 from plotly.graph_objects import Figure
 
 from eth_defi.erc_4626.vault_protocol.d2.vault import D2_PROTOCOL_NAME, format_d2_vault_note
+from eth_defi.hyperliquid.constants import HYPERCORE_CHAIN_ID
+from eth_defi.hyperliquid.vault_data_export import create_hyperliquid_vault_row
 from eth_defi.lighter.constants import LIGHTER_ETHEREUM, LIGHTER_ROBINHOOD, LighterAPIConfig
 from eth_defi.lighter.vault_data_export import create_lighter_pool_row
 from eth_defi.research import vault_metrics
@@ -28,9 +31,10 @@ from eth_defi.research.vault_metrics import (
     format_lifetime_table,
     make_vault_display_flags,
 )
-from eth_defi.vault.base import VaultSpec
+from eth_defi.vault.base import VaultSpec, WithdrawalDelayType, WithdrawalPeriod
 from eth_defi.vault.fee import FeeData, VaultFeeMode
 from eth_defi.vault.flag import NOT_IN_MORPHO_API, VaultFlag
+from eth_defi.vault.price_source import PriceSource
 from eth_defi.vault.risk import VaultTechnicalRisk
 from eth_defi.vault.vaultdb import VaultDatabase
 
@@ -44,6 +48,40 @@ def test_get_trading_strategy_links_use_canonical_vault_routes():
     assert vault_link == "https://tradingstrategy.ai/trading-view/vaults/texashedge"
     assert vault_metrics._get_trading_strategy_chain_link("Ethereum") == "https://tradingstrategy.ai/trading-view/vaults/chains/ethereum"
     assert vault_metrics._get_trading_strategy_chain_link("Hypercore") == "https://tradingstrategy.ai/trading-view/vaults/chains/hyperliquid"
+
+
+def test_calculate_vault_rankings_includes_per_curator_ranks_at_one_hundred_dollars() -> None:
+    """Rank eligible vaults within each curator while excluding smaller and unknown groups.
+
+    Curator cohorts deliberately use the lower $100 TVL eligibility threshold,
+    independently of the $10,000 threshold for chain and protocol cohorts.
+    """
+    results_df = pd.DataFrame(
+        {
+            "chain": ["Ethereum"] * 5,
+            "protocol_slug": ["morpho"] * 5,
+            "curator_slug": ["alpha", "alpha", "beta", "alpha", None],
+            "risk": [VaultTechnicalRisk.negligible] * 5,
+            "period_results": [
+                [PeriodMetrics(period="1W", cagr_net=0.10, tvl_end=100)],
+                [PeriodMetrics(period="1W", cagr_net=0.20, tvl_end=100)],
+                [PeriodMetrics(period="1W", cagr_net=0.30, tvl_end=100)],
+                [PeriodMetrics(period="1W", cagr_net=0.40, tvl_end=99)],
+                [PeriodMetrics(period="1W", cagr_net=0.50, tvl_end=100)],
+            ],
+        },
+        index=["alpha-lower", "alpha-higher", "beta", "alpha-too-small", "unknown"],
+    )
+
+    vault_metrics.calculate_vault_rankings(results_df)
+
+    expected_lower_rank = 2
+    expected_best_rank = 1
+    assert results_df.loc["alpha-lower", "period_results"][0].ranking_curator == expected_lower_rank
+    assert results_df.loc["alpha-higher", "period_results"][0].ranking_curator == expected_best_rank
+    assert results_df.loc["beta", "period_results"][0].ranking_curator == expected_best_rank
+    assert results_df.loc["alpha-too-small", "period_results"][0].ranking_curator is None
+    assert results_df.loc["unknown", "period_results"][0].ranking_curator is None
 
 
 def test_calculate_net_profit_accepts_one_hundred_percent_performance_fee() -> None:
@@ -390,6 +428,7 @@ def test_calculate_lifetime_metrics(
         assert hasattr(pm, "ranking_overall")
         assert hasattr(pm, "ranking_chain")
         assert hasattr(pm, "ranking_protocol")
+        assert hasattr(pm, "ranking_curator")
         # avg_utilisation must be present on every period (None for non-lending vaults)
         assert hasattr(pm, "avg_utilisation")
 
@@ -420,6 +459,8 @@ def test_calculate_lifetime_metrics(
     # Lending statistics should be present in formatted table with proper column names
     assert "Available liquidity" in formatted.columns
     assert "Utilisation" in formatted.columns
+    assert "deposit_permission" not in formatted.columns
+    assert "whitelist" not in formatted.columns
 
     # Verify period_results is not in formatted output
     # assert "period_results" not in formatted.columns
@@ -436,11 +477,42 @@ def test_calculate_lifetime_metrics_exports_deposit_permission(
     stored_manager = {"can_deposit": True, "can_redeem": True, "deposit_flow": "synchronous", "redemption_flow": "synchronous"}
     vault_row["_deposit_manager"] = stored_manager
     vault_row["_deposit_permission"] = "whitelisted"
+    vault_row["_whitelist_notes"] = "No permissioned hook checks were performed"
 
     metrics = calculate_lifetime_metrics(price_df.loc[price_df["id"] == vault_id], {vault_spec: vault_row})
 
     assert metrics.iloc[0]["deposit_manager"] == stored_manager | {"deposit_permission": "whitelisted"}
+    assert metrics.iloc[0]["deposit_permission"] == "whitelisted"
+    assert metrics.iloc[0]["whitelist"] == {
+        "status": "whitelisted",
+        "notes": "No permissioned hook checks were performed",
+    }
     assert stored_manager == {"can_deposit": True, "can_redeem": True, "deposit_flow": "synchronous", "redemption_flow": "synchronous"}
+
+
+def test_calculate_lifetime_metrics_exports_withdrawal_period(
+    vault_db: VaultDatabase,
+    price_df: pd.DataFrame,
+) -> None:
+    """Lifetime export preserves withdrawal bounds and availability mechanism."""
+    vault_id = "43111-0x05c2e246156d37b39a825a25dd08d5589e3fd883"
+    vault_spec = VaultSpec.parse_string(vault_id)
+    vault_row = dict(vault_db.rows[vault_spec])
+    vault_row["_withdrawal_period"] = WithdrawalPeriod(
+        min_period=datetime.timedelta(days=1),
+        max_period=datetime.timedelta(days=3),
+        delay_type=WithdrawalDelayType.delay,
+        estimated_settlement=datetime.timedelta(days=2),
+    )
+
+    metrics = calculate_lifetime_metrics(price_df.loc[price_df["id"] == vault_id], {vault_spec: vault_row})
+    exported = export_lifetime_row(metrics.iloc[0])
+
+    assert exported["lockup"] == 259_200
+    assert exported["min_withdrawal_period"] == 86_400
+    assert exported["max_withdrawal_period"] == 259_200
+    assert exported["withdrawal_delay_type"] == "delay"
+    assert exported["estimated_settlement"] == 172_800
 
 
 def test_calculate_lifetime_metrics_defaults_legacy_deposit_permission_to_unknown(
@@ -457,6 +529,8 @@ def test_calculate_lifetime_metrics_defaults_legacy_deposit_permission_to_unknow
     metrics = calculate_lifetime_metrics(price_df.loc[price_df["id"] == vault_id], {vault_spec: vault_row})
 
     assert metrics.iloc[0]["deposit_manager"]["deposit_permission"] == "unknown"
+    assert metrics.iloc[0]["deposit_permission"] == "unknown"
+    assert metrics.iloc[0]["whitelist"] == {"status": "unknown", "notes": None}
 
 
 def test_calculate_lifetime_metrics_exports_permission_for_refusing_manager(
@@ -477,6 +551,8 @@ def test_calculate_lifetime_metrics_exports_permission_for_refusing_manager(
         "can_redeem": False,
         "deposit_permission": "whitelisted",
     }
+    assert metrics.iloc[0]["deposit_permission"] == "whitelisted"
+    assert metrics.iloc[0]["whitelist"] == {"status": "whitelisted", "notes": None}
 
 
 def test_calculate_lifetime_metrics_preserves_null_deposit_manager(
@@ -493,6 +569,8 @@ def test_calculate_lifetime_metrics_preserves_null_deposit_manager(
     metrics = calculate_lifetime_metrics(price_df.loc[price_df["id"] == vault_id], {vault_spec: vault_row})
 
     assert metrics.iloc[0]["deposit_manager"] is None
+    assert metrics.iloc[0]["deposit_permission"] == "permissionless"
+    assert metrics.iloc[0]["whitelist"] == {"status": "permissionless", "notes": None}
 
 
 @pytest.mark.parametrize(
@@ -517,6 +595,7 @@ def test_calculate_lifetime_metrics_exports_lighter_deployment_chain(
         tvl=1_000_000.0,
         created_at=None,
         is_llp=True,
+        status=0,
         deployment=deployment,
     )
     vault_prices = price_df.loc[price_df["id"] == source_vault_id].copy()
@@ -536,6 +615,33 @@ def test_calculate_lifetime_metrics_exports_lighter_deployment_chain(
     assert exported["chain_id"] == deployment.chain_id
     assert exported["deployment"] == expected_slug
     assert exported["deployment_chain_id"] == expected_deployment_chain_id
+    assert exported["deposit_permission"] == "permissionless"
+    assert exported["whitelist"] == {"status": "permissionless", "notes": None}
+
+
+def test_calculate_lifetime_metrics_exports_closed_hyperliquid_vault_as_whitelisted(price_df: pd.DataFrame) -> None:
+    """Carry Hyperliquid's closed public-deposit status through the JSON export."""
+    source_vault_id = "43111-0x05c2e246156d37b39a825a25dd08d5589e3fd883"
+    spec, vault_row = create_hyperliquid_vault_row(
+        vault_address="0x1111111111111111111111111111111111111111",
+        name="Closed Hyperliquid vault",
+        description=None,
+        tvl=1_000_000.0,
+        create_time=None,
+        is_closed=True,
+    )
+    vault_prices = price_df.loc[price_df["id"] == source_vault_id].copy()
+    vault_prices["id"] = spec.as_string_id()
+    vault_prices["chain"] = HYPERCORE_CHAIN_ID
+
+    metrics = calculate_lifetime_metrics(vault_prices, {spec: vault_row})
+    exported = export_lifetime_row(metrics.iloc[0])
+
+    assert exported["deposit_permission"] == "whitelisted"
+    assert exported["whitelist"] == {
+        "status": "whitelisted",
+        "notes": "Vault is permanently closed. Native perp DEX compatibility status: public deposits are unavailable; this does not imply an approved-account deposit route.",
+    }
 
 
 @pytest.mark.parametrize(
@@ -982,6 +1088,61 @@ def test_export_lifetime_metrics(
     # Verify they serialize to JSON properly (None becomes null)
     assert r["available_liquidity"] is None or isinstance(r["available_liquidity"], (int, float))
     assert r["utilisation"] is None or isinstance(r["utilisation"], (int, float))
+
+
+def test_calculate_lifetime_metrics_exports_share_price_source(
+    vault_db: VaultDatabase,
+    price_df: pd.DataFrame,
+) -> None:
+    """Adapter price-source metadata reaches the DataFrame and JSON export."""
+
+    vault_id = "43111-0x05c2e246156d37b39a825a25dd08d5589e3fd883"
+    spec = VaultSpec.parse_string(vault_id)
+    vault_row = dict(vault_db.rows[spec])
+    vault_row["_share_price_source"] = PriceSource.smart_contract_state
+
+    metrics = calculate_lifetime_metrics(
+        price_df.loc[price_df["id"] == vault_id],
+        {spec: vault_row},
+    )
+
+    assert metrics.iloc[0]["share_price_source"] == "smart-contract-state"
+    assert export_lifetime_row(metrics.iloc[0])["share_price_source"] == "smart-contract-state"
+
+
+def test_calculate_lifetime_metrics_exports_vault_minimums(
+    vault_db: VaultDatabase,
+    price_df: pd.DataFrame,
+) -> None:
+    """Export known, absent, and zero vault minimums without conflating them.
+
+    1. Add a known deposit minimum and a confirmed zero redemption minimum to scanned metadata.
+    2. Calculate and JSON-export the vault metrics.
+    3. Remove the metadata fields and verify legacy unavailable values remain null.
+    """
+    vault_id = "43111-0x05c2e246156d37b39a825a25dd08d5589e3fd883"
+    spec = VaultSpec.parse_string(vault_id)
+    vault_row = dict(vault_db.rows[spec])
+    vault_row["_minimum_deposit"] = Decimal("12.5")
+    vault_row["_minimum_redemption"] = Decimal(0)
+    vault_prices = price_df.loc[price_df["id"] == vault_id]
+
+    # 1. Calculate metadata with source-proven values.
+    metrics = calculate_lifetime_metrics(vault_prices, {spec: vault_row})
+
+    # 2. Preserve decimal units in metrics and strict JSON values in the export.
+    assert metrics.iloc[0]["minimum_deposit"] == Decimal("12.5")
+    assert metrics.iloc[0]["minimum_redemption"] == Decimal(0)
+    exported = export_lifetime_row(metrics.iloc[0])
+    assert exported["minimum_deposit"] == 12.5
+    assert exported["minimum_redemption"] == 0.0
+
+    # 3. Preserve unavailable legacy metadata as null, not as no minimum.
+    vault_row.pop("_minimum_deposit")
+    vault_row.pop("_minimum_redemption")
+    legacy_metrics = calculate_lifetime_metrics(vault_prices, {spec: vault_row})
+    assert legacy_metrics.iloc[0]["minimum_deposit"] is None
+    assert legacy_metrics.iloc[0]["minimum_redemption"] is None
 
 
 def test_export_lifetime_row_nat_serialization():

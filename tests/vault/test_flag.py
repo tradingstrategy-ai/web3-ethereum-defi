@@ -21,6 +21,22 @@ def test_paused_is_bad_flag():
     assert VaultFlag.paused in BAD_FLAGS
 
 
+def test_eth_strategy_long_duration_flag_is_not_bad_flag() -> None:
+    """ETH Strategy has a long-duration warning without being blacklisted."""
+    address = "0xb250c9e0f7be4cff13f94374c993ac445a1385fe"
+
+    assert VaultFlag.long_duration not in BAD_FLAGS
+    assert get_vault_special_flags(address) == {VaultFlag.long_duration}
+    assert "long-dated ETH call option" in get_notes(address)
+    assert "They do not have a redemption queue in place" in get_notes(address)
+    assert get_vault_risk("ETH Strategy", address) == VaultTechnicalRisk.low
+
+
+def test_misleading_valuation_is_bad_flag():
+    """Vaults with misleading historical valuations are blacklisted."""
+    assert VaultFlag.misleading_valuation in BAD_FLAGS
+
+
 def test_oda_fact_risk_is_low() -> None:
     """ODA-FACT protocol risk is classified as low."""
     assert get_vault_risk("Kinexys") == VaultTechnicalRisk.low
@@ -35,6 +51,15 @@ def test_superstate_risk_is_low() -> None:
     """Superstate protocol risk is classified as low."""
 
     assert get_vault_risk("Superstate") == VaultTechnicalRisk.low
+
+
+def test_spxa_is_a_tokenised_fund() -> None:
+    """The permissioned Base SPXA fund share class has the descriptive fund flag."""
+
+    flags = get_vault_special_flags("0x99e9092bae6d4394e54034ecb1e45441678323b9")
+
+    assert flags == {VaultFlag.tokenised_fund}
+    assert not is_flagged_vault("0x99e9092bae6d4394e54034ecb1e45441678323b9")
 
 
 @pytest.mark.parametrize(
@@ -75,12 +100,44 @@ def test_summer_fi_protocol_vaults_are_blacklisted() -> None:
     assert get_vault_risk(protocol, address) == VaultTechnicalRisk.blacklisted
 
 
-def test_hyperevm_out_of_gas_vault_is_blacklisted() -> None:
-    """HyperEVM vaults that poison Multicall3 batches are blacklisted."""
-    address = "0x2eee42a0704dd4c0ff8141f85e24de9085a76093"
+@pytest.mark.parametrize(
+    "address",
+    [
+        "0x2eee42a0704dd4c0ff8141f85e24de9085a76093",
+        "0xcdb9671e671562b60481e4929ef80a5360af718b",
+        "0xf8f7c57fb94cc1f7f2c77dc29b5216c4d3c3125d",
+        "0x6ed613e86e8d0b6617e445f17323ac0162ff6ce6",
+        "0x2b37f3566933e4dbe59c6b86bedbc91c1e04d774",
+        "0x1462519131836e6eff76ccf7720c323604f380c7",
+        "0x2b1264bde2dccfa82a42e4c141094f9dede63537",
+        "0x1681f371c88b0655d32e61e83d398c75dcdfcd13",
+    ],
+)
+def test_multicall_out_of_gas_vault_is_blacklisted(address: str) -> None:
+    """Vaults that poison Multicall3 batches are blacklisted."""
 
     assert get_vault_risk("ERC-4626", address) == VaultTechnicalRisk.blacklisted
     assert address in BROKEN_VAULT_CONTRACTS
+
+
+@pytest.mark.parametrize(
+    "address",
+    [
+        "0x890a5122aa1da30fec4286de7904ff808f0bd74a",
+        "0xc7990369da608c2f4903715e3bd22f2970536c29",
+    ],
+)
+def test_mainstreet_finance_vaults_are_blacklisted(address: str) -> None:
+    """Mainstreet Finance vaults are blacklisted due to a reported scam."""
+    assert get_vault_risk("Mainstreet Finance") == VaultTechnicalRisk.blacklisted
+    assert get_vault_risk("Mainstreet Finance", address) == VaultTechnicalRisk.blacklisted
+    assert get_vault_special_flags(address) == set()
+    assert get_notes(address) == "Main Street Market related products were wiped out in Oct 10th event https://x.com/Main_St_Finance/status/1976972055951147194"
+
+
+def test_altura_vaults_are_blacklisted() -> None:
+    """All Altura vaults are hard-blacklisted."""
+    assert get_vault_risk("Altura") == VaultTechnicalRisk.blacklisted
 
 
 def test_old_mainnet_out_of_gas_contract_is_skipped_by_multicall_blacklist() -> None:
@@ -93,6 +150,7 @@ def test_old_mainnet_out_of_gas_contract_is_skipped_by_multicall_blacklist() -> 
 @pytest.mark.parametrize(
     ("address", "protocol", "expected_flag", "expected_note"),
     [
+        ("0xce0b790ae0d8cf91e01f3fb69025e14569b574f3", "Lagoon Finance", VaultFlag.misleading_valuation, "misleading accounting"),
         ("0x4f55e28d36b30a638c3aa1d5cbf9c4ccb3831506", "Silo Finance", VaultFlag.illiquid, "likely illiquid"),
         ("0xae79b0d94e1c53cd2e8160899b8d58ec138d341f", "Silo Finance", VaultFlag.illiquid, "illiquid"),
         ("0xbed7c02887efd6b5eb9a547ac1a4d5e582791647", "<protocol not yet identified>", VaultFlag.abnormal_share_price, "abnormal high returns"),
@@ -106,6 +164,10 @@ def test_old_mainnet_out_of_gas_contract_is_skipped_by_multicall_blacklist() -> 
         ("0x7193794ec82f527efb618ac50c078d348ecba4b6", "Morpho", VaultFlag.illiquid, "illiquid"),
         ("0xed9278c5188f37670b33ef3b00729e38260cd5d5", "Euler", VaultFlag.illiquid, "illiquid"),
         ("0xcbc9b61177444a793b85442d3a953b90f6170b7d", "Euler", VaultFlag.illiquid, "illiquid"),
+        ("0x606fe9a70338e798a292ca22c1f28c829f24048e", "Silo Finance", VaultFlag.illiquid, "illiquid"),
+        ("0xdc1ab820c92735e7a5e48f10fa3d8424ec47a93e", "Silo Finance", VaultFlag.illiquid, "illiquid"),
+        ("0x5eb03d0fcfd3860be03b81a1ab3d46db3315202a", "Peapods", VaultFlag.illiquid, "illiquid"),
+        ("0x3a87cf9af4d21778dad1ce7d0bf053f4b8f2631f", "Peapods", VaultFlag.illiquid, "illiquid"),
         ("0x01864ae3c7d5f507cc4c24ca67b4cabbdda37ecd", "Euler", VaultFlag.illiquid, "Stream xUSD"),
         ("0x49c5733d71511a78a3e12925ea832f49031c97e9", "Euler", VaultFlag.illiquid, "Stream xUSD"),
         ("0xf1ba8c5ca5ab011d06f31e64dad313d204acb9eb", "Euler", VaultFlag.illiquid, "Stream xUSD"),

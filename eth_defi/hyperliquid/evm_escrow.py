@@ -132,6 +132,27 @@ logger = logging.getLogger(__name__)
 #: See PrecompileLib.sol in hyper-evm-lib.
 CORE_USER_EXISTS_ADDRESS = "0x0000000000000000000000000000000000000810"
 
+#: Gas limit sent with HyperCore read precompile ``eth_call`` requests.
+#:
+#: HyperCore read precompiles are cheap - a few thousand gas - so this is a
+#: generous ceiling. It exists to bound the *failure* case, not the success
+#: case: when a node cannot serve a HyperCore read, the precompile fails and
+#: the EVM consumes all remaining gas, which the RPC then reports as an
+#: out-of-gas error quoting whatever limit was in play. An ``eth_call`` with
+#: no ``gas`` field is executed against the node's own RPC gas cap, so a
+#: transient precompile failure surfaces as::
+#:
+#:     {'code': -32003, 'message': 'out of gas: gas exhausted during
+#:      precompiled contract execution: 300000000'}
+#:
+#: That message reads like a caller mistake and hides the real cause, which is
+#: an unhealthy HyperCore view on one upstream node (the same class of
+#: node-dependent precompile behaviour documented in
+#: ``docs/README-hyperevm-goldsky-failure.md``). Sending an explicit small
+#: limit keeps the error honest and stops a node burning a 300M gas cap on a
+#: read that should cost a few thousand.
+CORE_PRECOMPILE_READ_GAS = 100_000
+
 #: Default USDC amount (raw, 6 decimals) for account activation.
 #: New HyperCore accounts incur a ~1 USDC fee, so the minimum
 #: activation deposit must comfortably exceed that.
@@ -189,6 +210,11 @@ def is_account_activated(
         (``CDW.deposit``) are in separate transactions, and the trade
         executor waits for activation receipt before proceeding.
 
+    The read is issued with an explicit
+    :py:data:`CORE_PRECOMPILE_READ_GAS` limit rather than the node's default
+    ``eth_call`` gas cap, so that a node unable to serve the HyperCore read
+    fails fast and legibly instead of reporting a 300M-gas out-of-gas error.
+
     Example::
 
         from eth_defi.hyperliquid.evm_escrow import is_account_activated
@@ -214,6 +240,8 @@ def is_account_activated(
         {
             "to": Web3.to_checksum_address(CORE_USER_EXISTS_ADDRESS),
             "data": "0x" + data.hex(),
+            # Bound the failure case - see CORE_PRECOMPILE_READ_GAS
+            "gas": CORE_PRECOMPILE_READ_GAS,
         }
     )
     provider_name = _get_loggable_rpc_provider_name(web3)
@@ -254,7 +282,7 @@ def _assert_activation_guard_config(
     core_deposit_wallet_address = Web3.to_checksum_address(core_deposit_wallet_address)
 
     if not module.functions.isAllowedApprovalDestination(core_deposit_wallet_address).call():
-        raise RuntimeError(f"TradingStrategyModuleV0 {module.address} does not allow approving CoreDepositWallet {core_deposit_wallet_address}. Hypercore activation requires whitelistCoreWriter() to be configured on the guard. On HyperEVM deployments this should be enabled whenever Hypercore trading is intended, including anyAsset mode.")
+        raise RuntimeError(f"TradingStrategyModuleV0 {module.address} does not allow approving CoreDepositWallet {core_deposit_wallet_address}. Hypercore activation requires whitelistCoreWriter() to be configured on the guard. On HyperEVM deployments this should be enabled whenever Hypercore trading is intended, including anyHypercoreVault mode.")
 
     if not module.functions.isAllowedReceiver(safe_address).call():
         raise RuntimeError(f"TradingStrategyModuleV0 {module.address} does not allow Safe {safe_address} as a receiver. Hypercore activation via depositFor() requires the Safe to be whitelisted as an allowed receiver.")

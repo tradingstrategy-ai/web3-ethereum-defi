@@ -6,8 +6,15 @@ from unittest.mock import patch
 
 import pytest
 
-from eth_defi.erc_4626.vault_protocol.lagoon.deployment import should_enable_hypercore_guard
+from eth_defi.erc_4626.vault_protocol.lagoon.deployment import (
+    should_enable_hypercore_guard,
+    validate_hypercore_guard_config,
+)
+from eth_abi import encode
+
 from eth_defi.hyperliquid.evm_escrow import (
+    CORE_PRECOMPILE_READ_GAS,
+    CORE_USER_EXISTS_ADDRESS,
     HypercorePrecompileReadError,
     _assert_activation_guard_config,
     is_account_activated,
@@ -48,10 +55,10 @@ def _make_vault(*, approval_allowed: bool, receiver_allowed: bool):
     )
 
 
-def test_should_enable_hypercore_guard_for_any_asset_on_hyperevm():
+def test_should_enable_hypercore_guard_for_any_hypercore_vault_on_hyperevm():
     assert should_enable_hypercore_guard(
         chain_id=999,
-        any_asset=True,
+        any_hypercore_vault=True,
         hypercore_vaults=None,
     )
 
@@ -59,9 +66,26 @@ def test_should_enable_hypercore_guard_for_any_asset_on_hyperevm():
 def test_should_not_enable_hypercore_guard_off_hyperevm_without_vaults():
     assert not should_enable_hypercore_guard(
         chain_id=1,
-        any_asset=True,
+        any_hypercore_vault=True,
         hypercore_vaults=None,
     )
+
+
+def test_hypercore_guard_config_rejects_unsupported_or_ambiguous_dynamic_policy():
+    """Fail before deployment for invalid dynamic Hypercore vault configuration."""
+    with pytest.raises(AssertionError, match="only supported on HyperEVM"):
+        validate_hypercore_guard_config(
+            chain_id=1,
+            any_hypercore_vault=True,
+            hypercore_vaults=None,
+        )
+
+    with pytest.raises(AssertionError, match="cannot be combined"):
+        validate_hypercore_guard_config(
+            chain_id=999,
+            any_hypercore_vault=True,
+            hypercore_vaults=["0x1000000000000000000000000000000000000001"],
+        )
 
 
 def test_activation_guard_check_rejects_missing_core_deposit_wallet_approval():
@@ -105,6 +129,44 @@ def test_is_account_activated_reports_empty_precompile_reply(caplog: pytest.LogC
     assert "rpc.hyperliquid.xyz" in str(exc_info.value)
     assert "Last RPC headers" in str(exc_info.value)
     assert "rpc.hyperliquid.xyz" in caplog.text
+
+
+def test_is_account_activated_sends_explicit_precompile_gas_limit():
+    """Test the HyperCore read precompile is called with a bounded gas limit.
+
+    An ``eth_call`` without a ``gas`` field runs against the node's own RPC gas
+    cap. A failing HyperCore precompile consumes all remaining gas, so the cap
+    is what gets reported back, producing a misleading
+    ``out of gas: gas exhausted during precompiled contract execution:
+    300000000`` for a read that should cost a few thousand gas.
+
+    1. Build a fake HyperEVM Web3 object that records the call parameters and
+       returns an ABI-encoded ``True``.
+    2. Call ``is_account_activated()`` for a valid address.
+    3. Verify the call carried an explicit, small gas limit and still decoded.
+    """
+    captured = {}
+
+    def _call(tx: dict) -> bytes:
+        # Mocked because the assertion is about the request we send, which a
+        # live RPC round trip would not expose to the test.
+        captured.update(tx)
+        return encode(["bool"], [True])
+
+    # 1. Build a fake HyperEVM Web3 object that records the call parameters.
+    web3 = SimpleNamespace(
+        provider=SimpleNamespace(endpoint_uri="https://rpc.hyperliquid.xyz/evm"),
+        eth=SimpleNamespace(call=_call),
+    )
+
+    # 2. Call is_account_activated() for a valid address.
+    activated = is_account_activated(web3, "0x49Be988d2090aa221586e9A51cacBA3D3A1eA087")
+
+    # 3. Verify the call carried an explicit, small gas limit and still decoded.
+    assert activated is True
+    assert captured["to"].lower() == CORE_USER_EXISTS_ADDRESS.lower()
+    assert captured["gas"] == CORE_PRECOMPILE_READ_GAS
+    assert CORE_PRECOMPILE_READ_GAS < 1_000_000
 
 
 def _monotonic_time():

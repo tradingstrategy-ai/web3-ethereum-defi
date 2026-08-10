@@ -13,8 +13,8 @@ from eth_defi.erc_4626.core import ERC4626Feature
 from eth_defi.erc_4626.vault import ERC4626HistoricalReader
 from eth_defi.erc_4626.vault_protocol.t3tris.vault import STALE_NAV_CORRECTED_ERROR, STALE_NAV_FIRST_SAMPLE_ERROR, T3trisHistoricalReader, T3trisVault
 from eth_defi.event_reader.multicall_batcher import EncodedCall, EncodedCallResult
-from eth_defi.provider.anvil import AnvilLaunch, fork_network_anvil
 from eth_defi.provider.multi_provider import create_multi_provider_web3
+from eth_defi.testing.anvil_fork_pool import AnvilForkPool
 from eth_defi.vault.base import VaultHistoricalRead, VaultHistoricalReader, VaultSpec
 from eth_defi.vault.fee import VaultFeeMode
 from eth_defi.vault.risk import VaultTechnicalRisk
@@ -41,6 +41,7 @@ STALE_NAV_GAP_BLOCK = 478_000_000
 STALE_NAV_AFTER_BLOCK = 478_353_946
 
 requires_arbitrum_rpc = pytest.mark.skipif(JSON_RPC_ARBITRUM is None, reason="JSON_RPC_ARBITRUM needed to run these tests")
+pytestmark = pytest.mark.xdist_group("fork:arbitrum:480900000")
 SYNTHETIC_SAMPLE_START = datetime.datetime(2026, 6, 27, 12, 0, tzinfo=datetime.UTC).replace(tzinfo=None)
 
 
@@ -511,25 +512,9 @@ def test_t3tris_reader_rejects_out_of_order_samples() -> None:
 
 
 @pytest.fixture(scope="module")
-def anvil_arbitrum_fork() -> AnvilLaunch:
-    """Fork Arbitrum at a specific block for reproducibility.
-
-    Gami USDC is a live T3tris vault at the pinned block. The fixed block pins
-    the classification probe response and fee configuration values.
-    """
-
-    launch = fork_network_anvil(JSON_RPC_ARBITRUM, fork_block_number=FORK_BLOCK)
-    try:
-        yield launch
-    finally:
-        launch.close()
-
-
-@pytest.fixture(scope="module")
-def web3(anvil_arbitrum_fork) -> Web3:
-    """Create Web3 connection to the Arbitrum fork."""
-
-    return create_multi_provider_web3(anvil_arbitrum_fork.json_rpc_url, retries=2)
+def web3(anvil_fork_pool: AnvilForkPool) -> Web3:
+    """Share the read-only T3tris fork and its warmed RPC cache."""
+    return anvil_fork_pool.get_web3(JSON_RPC_ARBITRUM, FORK_BLOCK, web3_retries=2)
 
 
 @pytest.fixture(scope="module")

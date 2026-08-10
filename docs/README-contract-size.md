@@ -7,27 +7,26 @@ to stay within the [EIP-170 24,576-byte limit](https://eips.ethereum.org/EIPS/ei
 
 | Contract | Project | Size (bytes) | % of 24,576 limit | Margin (bytes) |
 |----------|---------|-------------:|------------------:|---------------:|
-| TradingStrategyModuleV0 | safe-integration | 22,582 | 91.9% | 1,994 |
-| GuardV0 | guard | 22,503 | 91.6% | 2,073 |
-| GmxLib | guard | 5,165 | 21.0% | 19,411 |
-| HypercoreVaultLib | guard | 3,761 | 15.3% | 20,815 |
-| LagoonLib | guard | 5,078 | 20.7% | 19,498 |
-| CowSwapLib | guard | 2,757 | 11.2% | 21,819 |
-| UniswapLib | guard | 2,448 | 10.0% | 22,128 |
-| VeloraLib | guard | 2,247 | 9.1% | 22,329 |
-| SimpleVaultV0 | guard | 2,201 | 9.0% | 22,375 |
-| LighterLib | guard | 1,862 | 7.6% | 22,714 |
-| MockCoreWriter | guard | 1,632 | 6.6% | 22,944 |
-| MockCoreDepositWallet | guard | 755 | 3.1% | 23,821 |
-| MockSafe | safe-integration | 1,026 | 4.2% | 23,550 |
+| TradingStrategyModuleV0 | safe-integration | 23,816 | 96.9% | 760 |
+| GuardV0 | guard | 21,691 | 88.3% | 2,885 |
+| GmxLib | guard | 6,153 | 25.0% | 18,423 |
+| HypercoreVaultLib | guard | 3,927 | 16.0% | 20,649 |
+| LagoonLib | guard | 4,928 | 20.1% | 19,648 |
+| CowSwapLib | guard | 3,464 | 14.1% | 21,112 |
+| UniswapLib | guard | 3,333 | 13.6% | 21,243 |
+| VeloraLib | guard | 2,686 | 10.9% | 21,890 |
+| SimpleVaultV0 | guard | 2,058 | 8.4% | 22,518 |
+| LighterLib | guard | 2,370 | 9.6% | 22,206 |
+| MockCoreWriter | guard | 2,010 | 8.2% | 22,566 |
+| MockCoreDepositWallet | guard | 1,101 | 4.5% | 23,475 |
+| MockSafe | safe-integration | 1,408 | 5.7% | 23,168 |
 
 `TradingStrategyModuleV0` is the critical contract — it inherits all guard logic
 from `GuardV0Base` and is closest to the EIP-170 limit.
 
 ## Compiler options
 
-Both projects share the size-oriented compiler and optimiser settings below,
-but deliberately use different Solidity compilation pipelines:
+Both projects use the same size-oriented compiler and legacy pipeline:
 
 ```toml
 solc_version = "0.8.26"
@@ -37,10 +36,7 @@ bytecode_hash = "none"
 optimizer = true
 optimizer_runs = 1
 
-# contracts/guard/foundry.toml
-via_ir = true
-
-# contracts/safe-integration/foundry.toml
+# contracts/guard/foundry.toml and contracts/safe-integration/foundry.toml
 via_ir = false
 ```
 
@@ -48,103 +44,36 @@ via_ir = false
 
 | Option | Effect | Savings |
 |--------|--------|---------|
-| `optimizer_runs = 1` | Optimise for minimal deployment size over execution gas cost. Value of 1 (vs default 200) tells the compiler to prefer smaller bytecode even if function calls cost slightly more gas at runtime. | Major |
-| `via_ir = true` (Guard and libraries) | Use the Yul IR pipeline, which produces smaller deployed protocol libraries. | Library-specific |
-| `via_ir = false` (TradingStrategyModuleV0) | Use the legacy compiler pipeline. With `optimizer_runs=1`, this avoids verbose IR-generated dispatch and error-handling bytecode in the large inherited module. | 2,190 bytes |
+| `optimizer_runs = 1` | Optimise for minimal deployment size over execution gas cost. Value 1 tells the compiler to favour smaller bytecode even if repeated calls cost slightly more gas. | Major |
+| `via_ir = false` | Use the legacy compiler pipeline. With `optimizer_runs=1`, it keeps both large dispatch contracts smaller than the Yul IR pipeline and preserves EIP-170 margin. | Major |
 | `bytecode_hash = "none"` | Removes the CBOR-encoded metadata hash appended to contract bytecode. This hash (typically ~50 bytes) encodes the compiler version and source code hash for verification. Safe to remove because metadata is available from the ABI JSON files. | ~50 bytes |
 | `evm_version = "cancun"` | Enables `PUSH0` opcode (EIP-3855) which replaces `PUSH1 0x00` sequences, saving 1 byte per zero-value push. HyperEVM supports Cancun opcodes. | ~10-30 bytes |
 | `solc_version = "0.8.26"` | Newer compiler versions sometimes generate tighter code through improved optimisation passes. | Incremental |
 
-### Compiler settings comparison
+### Pipeline choice
 
-TradingStrategyModuleV0 size under different compiler configurations (solc 0.8.26, cancun,
-bytecode_hash=none unless noted). Configurations that exceed the 24,576-byte EIP-170 limit
-are marked with a negative margin.
+The Yul IR pipeline can make individual protocol libraries smaller, but at
+`optimizer_runs=1` it makes the two large guard dispatch contracts larger.
+The legacy pipeline provides the current deployable margins above. Re-run both
+size builds after changing a guard rule or compiler setting; do not optimise a
+library in isolation.
 
-Note: The table below was measured before library extraction (GmxLib, UniswapLib,
-HypercoreVaultLib). With all libraries extracted, TSM is ~4,400 bytes smaller
-across all configurations.
+The measured one-run comparison demonstrates why IR is disabled:
 
-| optimizer_runs | via_ir | TSM size (bytes) | Margin | GuardV0 | CowSwapLib | HypercoreVaultLib |
-|---------------:|--------|----------------:|-------:|--------:|-----------:|------------------:|
-| 1 | true | 23,643 | 933 | 21,150 | 1,895 | 2,434 |
-| **1** | **false** | **22,106** | **2,470** | **19,632** | **2,027** | **2,497** |
-| 200 | true | 23,851 | 725 | 21,198 | 1,934 | 2,512 |
-| 200 | false | 22,618 | 1,958 | 20,053 | 2,024 | 2,751 |
-| 1,000 | true | 23,058 | 1,518 | 20,216 | 2,077 | 2,846 |
-| 1,000 | false | 25,730 | -1,154 | 23,441 | 2,143 | 2,930 |
-| 10,000 | true | 26,221 | -1,645 | 22,989 | 2,470 | 3,448 |
-| 10,000 | false | 26,576 | -2,000 | 24,649 | 2,492 | 3,576 |
+| Contract | Legacy size | Yul IR size | IR size increase | Yul IR EIP-170 margin |
+|----------|------------:|------------:|-----------------:|----------------------:|
+| GuardV0 | 21,691 | 24,737 | 3,046 | -161 |
+| TradingStrategyModuleV0 | 23,816 | 26,907 | 3,091 | -2,331 |
 
-Other settings tested:
+Both Yul IR builds exceed EIP-170, even though several individual protocol
+libraries are smaller. The deployable entry-point size therefore controls the
+pipeline decision.
 
-| Variation | TSM size (bytes) | Margin |
-|-----------|----------------:|-------:|
-| bytecode_hash = "ipfs" (vs "none") | 23,684 | 892 |
-| evm_version = "shanghai" (vs "cancun") | 23,676 | 900 |
-
-### via_ir analysis
-
-With the current generic post-call validation and Lagoon amount-and-cooldown
-safety implementation, `optimizer_runs=1` and **`via_ir=false` produce 2,190
-bytes smaller module bytecode** than `via_ir=true` (22,582 vs 24,772), turning
-an EIP-170 excess of 196 bytes into 1,994 bytes of margin. The module ABI and Forge
-library names are identical under both
-pipelines, so it can safely link to the smaller IR-compiled protocol libraries.
-
-This is counterintuitive because the Yul IR pipeline is designed for better
-cross-function optimisation. A historical pre-library-extraction bytecode
-breakdown illustrates why the legacy pipeline works better for this module:
-
-| Metric | via_ir=true | via_ir=false | Delta |
-|--------|------------|-------------|------:|
-| Total size | 23,643 | 22,106 | +1,537 |
-| Opcode bytes | 14,653 | 14,071 | +582 |
-| Push data bytes | 8,990 | 8,035 | +955 |
-| Embedded string bytes | 2,430 | 1,520 | +910 |
-| Embedded string count | 228 | 118 | +110 |
-| REVERT instructions | 54 | 198 | -144 |
-| PUSH0 count | 375 | 445 | -70 |
-| PUSH1 count | 2,328 | 1,835 | +493 |
-| PUSH2 count | 1,801 | 1,572 | +229 |
-
-The IR pipeline generates more verbose error handling — nearly double the embedded string
-bytes (2,430 vs 1,520). It uses fewer REVERT opcodes (54 vs 198) but more push data for
-ABI-encoded revert strings. The legacy pipeline uses compact revert patterns with more
-REVERT instructions and less string data.
-
-This contract has characteristics that work against the IR pipeline's strengths:
-
-- **83 public functions** — the IR pipeline creates more elaborate dispatch code
-- **Large if-else dispatcher** with 20+ branches — IR cannot collapse this effectively
-- **Many small validation functions** — inlining them may increase total size vs subroutines
-- **Abundant revert strings** — IR generates fuller ABI-encoded revert data
-
-With higher `optimizer_runs`, via_ir starts winning: at runs=1,000, via_ir=true is 23,058
-vs via_ir=false at 25,730. The IR pipeline's cross-function optimisation helps when
-optimising for execution gas. But at runs=1 (deployment size focus), the legacy pipeline wins.
-
-### Bytecode composition (via_ir=true, runs=1, pre-library extraction)
-
-This breakdown was measured before library extraction. After extraction,
-validation logic now lives in separate libraries
-(GmxLib, UniswapLib, HypercoreVaultLib, CowSwapLib, VeloraLib, LagoonLib).
-
-| Category | Approx. bytes | % of total | Notes |
-|----------|-------------:|----------:|----|
-| Selector dispatcher (`_validateCallInternal`) | ~3,500 | 15% | 20+ if-else branches for protocol routing |
-| GMX validation | ~3,000 | 13% | Extracted to GmxLib |
-| Whitelisting functions | ~2,800 | 12% | 16 functions, each with event emissions |
-| Embedded revert strings | ~2,430 | 10% | 228 string fragments across all validators |
-| Uniswap V2/V3 validation | ~1,800 | 8% | Extracted to UniswapLib |
-| CCTP validation | ~1,000 | 4% | Tuple unpacking, bytes32-to-address conversion |
-| CowSwap delegation | ~500 | 2% | isDeployed check + library call (validation consolidated in CowSwapLib) |
-| Velora delegation | ~200 | 1% | isDeployed check + library calls (validation consolidated in VeloraLib) |
-| ERC-4626 validation | ~1,000 | 4% | Multiple selector variants |
-| View/query functions | ~800 | 3% | 31 simple mapping reads |
-| Zodiac Module, Ownable, init, ABI encoding | ~4,500 | 19% | Inherited framework code |
-| Hypercore validation | ~500 | 2% | Extracted to HypercoreVaultLib |
-| Other (Aave, Lagoon, constants) | ~300 | 1% | Small validators |
+Therefore, `via_ir` must remain `false` in both
+`contracts/guard/foundry.toml` and
+`contracts/safe-integration/foundry.toml`. Do not enable IR based on an
+individual library result: `GuardV0` and `TradingStrategyModuleV0` are the
+deployment-size constraints and must be measured together.
 
 ### Further size reduction opportunities
 
@@ -158,7 +87,7 @@ If additional space is needed in future:
 | Consolidate CowSwap validation into `CowSwapLib` | ~550 bytes | Combined validate+create function | Done |
 | Consolidate Velora validation into `VeloraLib` | ~450 bytes | Combined validate+balance function | Done |
 | Error bubbling helper | ~150 bytes | Shared `_bubbleUpRevert()` in module | Done |
-| Switch TradingStrategyModuleV0 to `via_ir=false` | 2,190 bytes | Config change; potentially higher runtime gas | Done |
+| Use `via_ir=false` for GuardV0 and TradingStrategyModuleV0 | Major | Config change; potentially higher runtime gas | Done |
 | Shorten revert strings (e.g. "GMX:R01" codes) | ~1,000 bytes | All validators; hurts debuggability | Available |
 | Extract CCTP validation to `CctpLib` | ~800 bytes | New library | Available |
 
@@ -175,13 +104,13 @@ DELEGATECALL context.
 
 | Library | Purpose | Size (bytes) | Storage slot |
 |---------|---------|-------------:|-------------|
-| `GmxLib` | GMX V2 perpetuals: router/market whitelisting, multicall validation | 5,165 | `keccak256("eth_defi.gmx.v1")` |
-| `HypercoreVaultLib` | Hypercore vault deposit/action validation, CoreWriter checking | 3,761 | `keccak256("eth_defi.hypercore.vault.v1")` |
-| `LagoonLib` | Lagoon allowlisting, atomic gross-settlement validation and cooldown state | 5,078 | `keccak256("eth_defi.lagoon.v1")` |
-| `CowSwapLib` | CowSwap order creation, GPv2Order hashing, presigning, and swap validation | 2,757 | `keccak256("eth_defi.cowswap.v1")` |
-| `UniswapLib` | Uniswap V2 swap path validation, V3 exactInput/exactOutput/SwapRouter02 recipient checks | 2,448 | None (stateless) |
-| `VeloraLib` | Velora (ParaSwap) swapper whitelisting, swap validation, balance-envelope verification | 2,247 | `keccak256("eth_defi.velora.v1")` |
-| `LighterLib` | Lighter deposits, withdrawals and asset-index validation | 1,862 | `keccak256("eth_defi.lighter.v1")` |
+| `GmxLib` | GMX V2 perpetuals: router/market whitelisting, multicall validation | 6,153 | `keccak256("eth_defi.gmx.v1")` |
+| `HypercoreVaultLib` | Hypercore vault deposit/action validation, CoreWriter checking | 3,927 | `keccak256("eth_defi.hypercore.vault.v1")` |
+| `LagoonLib` | Lagoon allowlisting, atomic gross-settlement validation and cooldown state | 4,928 | `keccak256("eth_defi.lagoon.v1")` |
+| `CowSwapLib` | CowSwap order creation, GPv2Order hashing, presigning, and swap validation | 3,464 | `keccak256("eth_defi.cowswap.v1")` |
+| `UniswapLib` | Uniswap V2 swap path validation, V3 exactInput/exactOutput/SwapRouter02 recipient checks | 3,333 | None (stateless) |
+| `VeloraLib` | Velora (ParaSwap) swapper whitelisting, swap validation, balance-envelope verification | 2,686 | `keccak256("eth_defi.velora.v1")` |
+| `LighterLib` | Lighter deposits, withdrawals and asset-index validation | 2,370 | `keccak256("eth_defi.lighter.v1")` |
 
 On chains where a library is not needed, it is linked with the zero address
 (`0x0000...0000`) so the library code is never actually called and doesn't need

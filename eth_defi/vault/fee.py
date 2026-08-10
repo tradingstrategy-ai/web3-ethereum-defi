@@ -118,6 +118,9 @@ VAULT_PROTOCOL_FEE_MATRIX = {
     "Ostium": VaultFeeMode.feeless,
     "Gains": VaultFeeMode.feeless,
     "KiloEx": None,
+    # Shift's performance and maintenance fees are realised by minting shares
+    # to its fee collector; per-vault rates are read by ShiftVault.
+    "Shift": VaultFeeMode.internalised_minting,
     # Kiln combines a fixed asset-denominated deposit fee with a reward fee
     # collected by minting shares. This mixed model has no single enum value.
     # Per-vault values are read by KilnVault.
@@ -132,6 +135,9 @@ VAULT_PROTOCOL_FEE_MATRIX = {
     "USDai": VaultFeeMode.internalised_skimming,
     "AUTO Finance": VaultFeeMode.internalised_minting,
     "NashPoint": VaultFeeMode.internalised_skimming,
+    # The reviewed Barker H1 deployment does not expose or publish a fee
+    # schedule, so its accounting mode cannot be determined safely.
+    "Barker": None,
     "Llama Lend": VaultFeeMode.internalised_skimming,
     "Summer.fi": VaultFeeMode.internalised_minting,
     "Silo Finance": VaultFeeMode.internalised_minting,
@@ -164,6 +170,9 @@ VAULT_PROTOCOL_FEE_MATRIX = {
     # Accountable fees are internalised in the share price
     "Accountable": VaultFeeMode.internalised_skimming,
     "YieldNest": None,
+    # Nest configures fee schedules per vault and redemption route. There is no
+    # universal protocol-wide fee mode suitable for scanner classification.
+    "Nest": None,
     # Secured Finance charges protocol trading fees on the underlying fixed-rate lending actions.
     # These costs are incurred at trade execution time instead of as explicit vault deposit/withdraw fees.
     "Secured Finance": VaultFeeMode.internalised_skimming,
@@ -201,6 +210,9 @@ VAULT_PROTOCOL_FEE_MATRIX = {
     "Frax": VaultFeeMode.internalised_minting,
     # Hyperdrive - fee mode unknown (unverified contracts)
     "Hyperdrive": None,
+    # Axis's StakedUSDx rewards vest into the share price; its management,
+    # performance, deposit and withdrawal fees are all set to 0%.
+    "Axis": VaultFeeMode.internalised_skimming,
     # BaseVol - fee mode unknown
     "BaseVol": None,
     # sBOLD - yield accrues through stability pool rewards, no external fees

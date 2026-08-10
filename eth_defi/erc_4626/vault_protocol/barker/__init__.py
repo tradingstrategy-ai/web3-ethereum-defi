@@ -1,0 +1,1 @@
+"""Barker vault protocol integration."""
