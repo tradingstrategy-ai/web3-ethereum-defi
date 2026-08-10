@@ -249,7 +249,9 @@ def _fetch_activity_status(vault: VaultBase, total_assets: Decimal | None) -> di
     # Deposit availability is compact current metadata, not a costly activity
     # diagnostic. In particular, T3tris needs this field even for a new or
     # empty vault whose native async flow makes ERC-4626 maxDeposit unusable.
-    status["_deposits_open"] = _best_effort_vault_read(vault.fetch_deposit_open)
+    fetch_deposit_open = getattr(vault, "fetch_deposit_open", None)
+    if fetch_deposit_open is not None:
+        status["_deposits_open"] = _best_effort_vault_read(fetch_deposit_open)
 
     if total_assets is None or total_assets <= ACTIVITY_STATUS_MIN_NAV:
         return status
