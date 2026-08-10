@@ -798,6 +798,8 @@ VAULT_FLAGS_AND_NOTES: dict[str, tuple[VaultFlag | None, str]] = {
     "0x3f2de801629116a83b9734bb72012a554e01cfc1": (VaultFlag.subvault, SUBVAULT),
     # Spark USDS Compounder (Yearn on Ethereum)
     "0xc9f01b5c6048b064e6d925d1c2d7206d4feef8a3": (VaultFlag.subvault, SUBVAULT),
+    # Spark USDC Lender (Yearn on Ethereum)
+    "0x25f893276544d86a82b1ce407182836f45cb6673": (VaultFlag.subvault, SUBVAULT),
     # Inverse Finance sDOLA vault on Ethereum
     "0xb45ad160634c528cc3d2926d9807104fa3157305": (None, INVERSE_SDOLA_FLASH_LOAN_EXPLOIT),
     # Vault Shares (vUSDC) on Ethereum - unidentified protocol
