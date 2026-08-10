@@ -1,39 +1,84 @@
 symbol: msUSD
-name: Main Street USD
-short_description: Main Street USD (msUSD) is a stablecoin issued by Main Street Finance on Ethereum. It is generated through delta-neutral options box-spread strategies to produce yield. The protocol operates a multi-token system for on-chain yield generation.
-long_description: |
-  msUSD is issued by [Main Street Finance](https://mainstreet.finance/), a DeFi yield protocol
-  on Ethereum.
-
-  ## Mechanism
-
-  According to the protocol, Main Street "revolutionises yield generation on-chain by harnessing
-  delta-neutral options box spread strategies." The protocol deploys a multi-token system
-  where msUSD serves as the stablecoin component.
-
-  ## Status
-
-  The Ethereum contract shows approximately 36.5 million msUSD in supply with 170 holders
-  as of early 2025. The project is active but small.
-
-  ## Sources
-
-  - [Main Street Finance](https://mainstreet.finance/)
-  - [Etherscan — msUSD](https://etherscan.io/token/0x4ba01f22827018b4772CD326C7627FB4956A7C00)
 category: stablecoin
-links:
-  homepage: https://mainstreet.finance/
-  coingecko: ''
-  defillama: ''
-  twitter: https://x.com/Main_St_Finance
-contract_addresses:
-  - chain: ethereum
-    address: '0x4ba01f22827018b4772CD326C7627FB4956A7C00'
+entries:
+- name: Main Street USD
+  short_description: Main Street USD (msUSD) is a stablecoin issued by Main Street Finance on Ethereum. It is generated through delta-neutral options box-spread strategies to produce yield. The protocol operates a multi-token system for onchain yield generation.
+  long_description: |
+    msUSD is issued by [Main Street Finance](https://mainstreet.finance/), a DeFi yield protocol
+    on Ethereum.
+
+    ## Mechanism
+
+    According to the protocol, Main Street "revolutionises yield generation onchain by harnessing
+    delta-neutral options box spread strategies." The protocol deploys a multi-token system
+    where msUSD serves as the stablecoin component.
+
+    ## Status
+
+    The Ethereum contract shows approximately 36.5 million msUSD in supply with 170 holders
+    as of early 2025. The project is active but small.
+
+    ## Sources
+
+    - [Main Street Finance](https://mainstreet.finance/)
+    - [Etherscan — msUSD](https://etherscan.io/token/0x4ba01f22827018b4772CD326C7627FB4956A7C00)
+  links:
+    homepage: https://mainstreet.finance/
+    coingecko: ''
+    defillama: ''
+    twitter: https://x.com/Main_St_Finance
+  contract_addresses:
+    - chain: ethereum
+      address: '0x4ba01f22827018b4772CD326C7627FB4956A7C00'
+  rate_fetch_failed_at: '2026-07-17T18:45:14'
+  rate_fetch_failed_reason: missing_coingecko_id
+  checks:
+    twitter_last_post_at: ''
+    domain_up_at: '2026-03-17'
+    marked_dead_at: ''
+    information_found_missing_at: '2026-03-17'
+- name: Metronome Synth USD
+  short_description: Metronome Synth USD (msUSD) is a decentralised synthetic USD asset issued by MetronomeDAO on Ethereum, Base, and Optimism.
+  long_description: |
+    Metronome Synth USD (msUSD) is a synthetic asset designed to track the US dollar. Users
+    mint it against deposited collateral in Metronome's Synth Engine, and can transfer it
+    across networks using LayerZero's Omnichain Fungible Token standard.
+
+    ## Incident status
+
+    MetronomeDAO reported on 30 July 2026 that 4.57 million msUSD, around 16% of its supply,
+    had no backing after an oracle-lag issue in its swap module created unbacked float. The
+    incident report said msUSD traded 25% below its peg at the time. Mark this entry depegged
+    manually until the backing shortfall has been resolved and the marker is deliberately
+    reviewed. Contract-address matching prevents this status from applying to Main Street USD,
+    which uses the same ticker.
+
+    ## Sources
+
+    - [Metronome incident coverage — The Defiant](https://thedefiant.io/news/defi/metronome-discloses-usd15-7-million-synth-shortfall-blames-oracle-lag-in-swap-module)
+    - [CoinGecko — Metronome Synth USD](https://www.coingecko.com/en/coins/metronome-synth-usd)
+    - [Etherscan — Metronome Synth USD](https://etherscan.io/token/0xab5eb14c09d416f0ac63661e57edb7aecdb9befa)
+  links:
+    homepage: https://metronome.io/
+    coingecko: https://www.coingecko.com/en/coins/metronome-synth-usd
+    defillama: ''
+    twitter: ''
+  contract_addresses:
+    - chain: ethereum
+      address: '0xab5eb14c09d416f0ac63661e57edb7aecdb9befa'
+    - chain: base
+      address: '0x526728dbc96689597f85ae4cd716d4f7fccbae9d'
+    - chain: optimism
+      address: '0x9dabae7274d28a45f0b65bf8ed201a5731492ca0'
+  source_currency: usd
+  source_currency_source: manual
+  coingecko_id: metronome-synth-usd
+  coingecko_link: https://www.coingecko.com/en/coins/metronome-synth-usd
+  coingecko_id_source: manual
+  depegged_at: '2026-07-30T00:00:00'
+  checks:
+    twitter_last_post_at: ''
+    domain_up_at: ''
+    marked_dead_at: ''
+    information_found_missing_at: ''
 slug: msusd
-rate_fetch_failed_at: '2026-07-17T18:45:14'
-rate_fetch_failed_reason: missing_coingecko_id
-checks:
-  twitter_last_post_at: ''
-  domain_up_at: '2026-03-17'
-  marked_dead_at: ''
-  information_found_missing_at: '2026-03-17'
