@@ -765,10 +765,12 @@ class D2Vault(ERC4626Vault):
         :return:
             Current epoch-length withdrawal window bounds.
         """
+        epoch_length = self.get_estimated_lock_up()
         return WithdrawalPeriod(
             min_period=datetime.timedelta(0),
-            max_period=self.get_estimated_lock_up(),
+            max_period=epoch_length,
             delay_type=WithdrawalDelayType.epoch,
+            estimated_settlement=epoch_length / 2,
         )
 
     def fetch_observation_time(self) -> datetime.datetime:
