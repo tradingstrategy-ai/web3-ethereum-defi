@@ -617,15 +617,15 @@ metadata database and reader state; enable price history only after inspecting
 the result.
 
 ```shell
-source ~/vault-scanner/vault-rpc.env && \\
-(cd ~/vault-scanner/web3-ethereum-defi && \\
-  docker compose run --rm \\
-  -e T3TRIS_CHAIN_IDS=4663 \\
-  -e T3TRIS_VAULT_ADDRESSES="0x5b93dd3eb7fd224565498045f5e1a2ebda49e672,0xd4d607239dcbdb5cc3a301266433810bb63c63bf" \\
-  -e T3TRIS_FETCH_API=false \\
-  -e T3TRIS_REFRESH_EXISTING_METADATA=true \\
-  -e T3TRIS_SCAN_PRICES=false \\
-  --entrypoint /bin/bash vault-scanner-oneshot \\
+source ~/vault-scanner/vault-rpc.env && \
+(cd ~/vault-scanner/web3-ethereum-defi && \
+  docker compose run --rm \
+  -e T3TRIS_CHAIN_IDS=4663 \
+  -e T3TRIS_VAULT_ADDRESSES="0x5b93dd3eb7fd224565498045f5e1a2ebda49e672,0xd4d607239dcbdb5cc3a301266433810bb63c63bf" \
+  -e T3TRIS_FETCH_API=false \
+  -e T3TRIS_REFRESH_EXISTING_METADATA=true \
+  -e T3TRIS_SCAN_PRICES=false \
+  --entrypoint /bin/bash vault-scanner-oneshot \
   -lc "python scripts/erc-4626/fix-t3tris-vaults.py")
 ```
 

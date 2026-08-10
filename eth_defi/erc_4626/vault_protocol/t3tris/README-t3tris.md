@@ -423,8 +423,8 @@ Example vaults seen in the API:
 | --- | --- |
 | `0x394c4db21b6b429848e123272f206f1f9d8d74b0` | Arbitrum USDC test vault with non-zero accounting and pending deposits during research |
 | `0x98e43a491a464f0886bc5e57207c340bbed0d01f` | Arbitrum USDC vault observed in earlier app data |
-| `0x5b93dd3eb7fd224565498045f5e1a2ebda49e672` | Robinhood Morini vault; first T3tris configuration event at block 27,650,917 |
-| `0xd4d607239dcbdb5cc3a301266433810bb63c63bf` | Robinhood Kingfisher vault; first T3tris configuration event at block 21,034,332 |
+| `0x5b93dd3eb7fd224565498045f5e1a2ebda49e672` | Robinhood Morini vault; first seen in the API at block 27,650,917 |
+| `0xd4d607239dcbdb5cc3a301266433810bb63c63bf` | Robinhood Kingfisher vault; first seen in the API at block 21,034,332 |
 
 ## ABI files and sources
 

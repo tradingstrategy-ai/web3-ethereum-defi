@@ -470,6 +470,9 @@ def filter_references(refs: list[T3trisVaultReference]) -> list[T3trisVaultRefer
         refs = [ref for ref in refs if ref.chain_id in chain_ids]
     if addresses is not None:
         refs = [ref for ref in refs if ref.address.lower() in addresses]
+        unmatched_addresses = addresses - {ref.address.lower() for ref in refs}
+        if unmatched_addresses:
+            raise ValueError(f"T3TRIS_VAULT_ADDRESSES did not match selected references: {sorted(unmatched_addresses)}")
 
     if not parse_bool_env("T3TRIS_VERIFIED_ONLY", default=False):
         return refs

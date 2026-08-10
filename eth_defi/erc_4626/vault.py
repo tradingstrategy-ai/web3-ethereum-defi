@@ -1514,33 +1514,17 @@ class ERC4626Vault(VaultBase):
             or ``None`` if deposits are open or this adapter cannot safely use
             zero-address ``maxDeposit`` as a global availability read.
         """
-        deposits_open = self.fetch_deposit_open()
-        if deposits_open is False:
-            return f"{DEPOSIT_CLOSED_CAP_REACHED} (maxDeposit=0)"
-        return None
-
-    def fetch_deposit_open(self) -> bool | None:
-        """Read global deposit availability through ``maxDeposit(address(0))``.
-
-        ERC-4626 only makes this inference for adapters that explicitly opt in
-        through :py:meth:`can_check_deposit`.  Async vaults and vaults with
-        account-dependent admission must override this method with their own
-        authoritative state instead of treating zero-address ``maxDeposit`` as
-        a capacity cap.
-
-        :return:
-            ``True`` or ``False`` when the ERC-4626 implementation supports
-            the global check, otherwise ``None``.
-        """
         if not self.can_check_deposit():
             return None
 
         try:
             max_deposit_raw = self.vault_contract.functions.maxDeposit(ZERO_ADDRESS_STR).call()
-        except (BadFunctionCallOutput, ContractLogicError, ValueError, Web3Exception):
+        except (BadFunctionCallOutput, ContractLogicError, HTTPError, OSError, ValueError, Web3Exception):
             return None
 
-        return max_deposit_raw > 0
+        if max_deposit_raw == 0:
+            return f"{DEPOSIT_CLOSED_CAP_REACHED} (maxDeposit=0)"
+        return None
 
     def fetch_redemption_closed_reason(self) -> str | None:
         """Check if redemptions are closed using maxRedeem(address(0)).

@@ -353,7 +353,8 @@ class T3trisHistoricalReader(ERC4626HistoricalReader):
            update adaptive scanner state. The raw values may be a known-bad
            T3tris stale-NAV sample, so state must only be updated after the
            T3tris correction decision is made.
-        2. Decode ``isVaultOpen()`` and oracle ``lastValuationTimestamp()``.
+        2. Decode ``isVaultOpen()``, ``isDepositEnabled()`` and oracle
+           ``lastValuationTimestamp()``.
            ``isVaultOpen() == True`` means sync/live accounting. ``False`` means
            async/oracle accounting and may need stale-NAV correction.
         3. Reject out-of-order blocks. The stale-NAV detector depends on the
@@ -567,7 +568,7 @@ class T3trisVault(ERC4626Vault):
             ``True`` when T3tris accepts deposit requests and ``False`` when
             its administrator has disabled deposits.
         """
-        return self.vault_contract.functions.isDepositEnabled().call()
+        return self.vault_contract.functions.isDepositEnabled().call(block_identifier=self._get_block_identifier())
 
     def fetch_deposit_closed_reason(self) -> str | None:
         """Explain a native T3tris deposit closure.
@@ -592,7 +593,7 @@ class T3trisVault(ERC4626Vault):
         :return:
             ``True`` when deposit requests require whitelisting.
         """
-        return self.vault_contract.functions.isDepositWhitelistEnabled().call()
+        return self.vault_contract.functions.isDepositWhitelistEnabled().call(block_identifier=self._get_block_identifier())
 
     @property
     def description(self) -> str | None:

@@ -97,7 +97,7 @@ class _FakeT3trisCall:
     def __init__(self, *, value: bool):
         self.value = value
 
-    def call(self) -> bool:
+    def call(self, **kwargs) -> bool:
         """Return the configured ABI call result."""
         return self.value
 
@@ -115,6 +115,10 @@ class _FakeT3trisStatusVault:
         functions.isDepositEnabled = lambda: _FakeT3trisCall(value=deposits_open)
         functions.isDepositWhitelistEnabled = lambda: _FakeT3trisCall(value=whitelist_enabled)
         self.vault_contract = type("FakeContract", (), {"functions": functions})()
+
+    def _get_block_identifier(self) -> str:
+        """Use the same latest-state default as a normal vault adapter."""
+        return "latest"
 
 
 def _make_t3tris_reader() -> T3trisHistoricalReader:
