@@ -1465,6 +1465,25 @@ def test_packaged_duplicate_symbol_stablecoins_match_by_contract_only() -> None:
     assert (1, "0x674c6ad92fd080e4004b2312b45f796a192d27a0") in depegged_contracts  # Neutrino USD (USDN)
 
 
+def test_packaged_metronome_msusd_depeg_is_contract_pinned() -> None:
+    """Metronome msUSD is manually depegged without affecting Main Street msUSD."""
+    metronome_ethereum = "0xab5eb14c09d416f0ac63661e57edb7aecdb9befa"
+    metronome_base = "0x526728dbc96689597f85ae4cd716d4f7fccbae9d"
+    metronome_optimism = "0x9dabae7274d28a45f0b65bf8ed201a5731492ca0"
+    main_street_ethereum = "0x4ba01f22827018b4772cd326c7627fb4956a7c00"
+
+    depegged_contracts, depegged_symbols = build_depegged_stablecoin_lookups()
+    feeder = StablecoinRateFeeder()
+
+    assert (1, metronome_ethereum) in depegged_contracts
+    assert (8453, metronome_base) in depegged_contracts
+    assert (10, metronome_optimism) in depegged_contracts
+    assert "MSUSD" not in depegged_symbols
+    assert feeder.is_depegged_stablecoin_token(1, metronome_ethereum, "msUSD") is True
+    assert feeder.is_depegged_stablecoin_token(1, main_street_ethereum, "msUSD") is False
+    assert feeder.is_depegged_stablecoin_token(1, None, "msUSD") is False
+
+
 def test_packaged_apyusd_manual_depeg_blacklists_pinned_contracts() -> None:
     """The manually reviewed apyUSD depeg blacklists both deployed contracts.
 
