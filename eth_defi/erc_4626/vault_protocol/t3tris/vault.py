@@ -26,7 +26,7 @@ from eth_defi.erc_4626.vault import ERC4626HistoricalReader, ERC4626Vault
 from eth_defi.erc_4626.vault_protocol.t3tris.offchain_metadata import T3trisVaultMetadata, fetch_t3tris_vault_metadata
 from eth_defi.event_reader.conversion import convert_int256_bytes_to_int, convert_uint256_bytes_to_address
 from eth_defi.event_reader.multicall_batcher import EncodedCall, EncodedCallResult
-from eth_defi.vault.base import VaultHistoricalRead, VaultHistoricalReader
+from eth_defi.vault.base import DEPOSIT_CLOSED_BY_ADMIN, VaultHistoricalRead, VaultHistoricalReader
 
 logger = logging.getLogger(__name__)
 
@@ -71,9 +71,10 @@ class T3trisHistoricalReader(ERC4626HistoricalReader):
 
     PPS scenarios handled by this reader:
 
-    - **Sync/open vault:** ``isVaultOpen()`` returns ``True``. T3tris is using
-      live vault accounting, so the generic ERC-4626 PPS is already the
-      effective PPS. No stale-NAV correction is applied.
+    - **Synchronous-accounting vault:** ``isVaultOpen()`` returns ``True``.
+      T3tris is using live vault accounting, so the generic ERC-4626 PPS is
+      already the effective PPS. This mode flag is not deposit availability;
+      no stale-NAV correction is applied.
     - **Normal async vault:** ``isVaultOpen()`` returns ``False`` but supply and
       PPS move without a large supply-driven collapse. The raw
       ``convertToAssets(1 share)`` value is accepted and stored as the next
@@ -140,7 +141,8 @@ class T3trisHistoricalReader(ERC4626HistoricalReader):
         """Get on-chain calls needed for corrected T3tris historical prices.
 
         In addition to the generic ERC-4626 calls we read ``isVaultOpen()`` to
-        distinguish sync and async vault modes, and
+        distinguish sync and async vault modes, ``isDepositEnabled()`` for the
+        protocol-defined historical deposit state, and
         ``lastValuationTimestamp()`` from the configured oracle to observe
         valuation refreshes.
 
@@ -153,6 +155,15 @@ class T3trisHistoricalReader(ERC4626HistoricalReader):
             self.vault.vault_contract.functions.isVaultOpen(),
             extra_data={
                 "function": "isVaultOpen",
+                "vault": self.vault.address,
+            },
+            first_block_number=self.first_block,
+        )
+
+        yield EncodedCall.from_contract_call(
+            self.vault.vault_contract.functions.isDepositEnabled(),
+            extra_data={
+                "function": "isDepositEnabled",
                 "vault": self.vault.address,
             },
             first_block_number=self.first_block,
@@ -321,7 +332,7 @@ class T3trisHistoricalReader(ERC4626HistoricalReader):
         stale_nav_gap = async_vault and (starts_new_gap or continues_existing_gap)
         return stale_nav_gap, possible_first_gap_sample
 
-    def process_result(
+    def process_result(  # noqa: PLR0914
         self,
         block_number: int,
         timestamp: datetime.datetime,
@@ -390,6 +401,7 @@ class T3trisHistoricalReader(ERC4626HistoricalReader):
         share_price, total_supply, total_assets, errors, max_deposit, reader_state = self._process_core_without_state_update(call_by_name)
 
         is_vault_open = self._decode_bool_call(call_by_name, "isVaultOpen", errors)
+        deposits_open = self._decode_bool_call(call_by_name, "isDepositEnabled", errors)
         last_valuation_timestamp = self._decode_uint_call(call_by_name, "lastValuationTimestamp", errors)
         protocol_reads_failed = is_vault_open is None or last_valuation_timestamp is None
         raw_price_collapsed = self.last_good_share_price is not None and share_price is not None and share_price < self.last_good_share_price * STALE_NAV_SHARE_PRICE_DROP_THRESHOLD
@@ -446,6 +458,7 @@ class T3trisHistoricalReader(ERC4626HistoricalReader):
             management_fee=None,
             errors=errors or None,
             max_deposit=max_deposit,
+            deposits_open=deposits_open,
         )
 
     @staticmethod
@@ -527,6 +540,59 @@ class T3trisVault(ERC4626Vault):
                     attempts=2,
                 )
             )
+
+    def can_check_deposit(self) -> bool:  # noqa: PLR6301
+        """Disable the generic zero-address ``maxDeposit`` availability probe.
+
+        T3tris async vaults return zero from the synchronous ERC-4626 preview
+        method even while they accept ``requestDeposit``.  The native
+        ``isDepositEnabled`` flag is the authoritative vault-wide admission
+        state, so the inherited cap inference must not run.
+
+        :return:
+            Always ``False`` because T3tris does not support the generic
+            ERC-4626 availability interpretation.
+        """
+        return False
+
+    def fetch_deposit_open(self) -> bool | None:
+        """Fetch the native T3tris deposit availability state.
+
+        This state deliberately excludes whitelist policy: a whitelisted vault
+        can be accepting deposits for permitted accounts and is therefore
+        operationally open.  The scanner records its policy separately through
+        :py:meth:`is_whitelisted_deposit`.
+
+        :return:
+            ``True`` when T3tris accepts deposit requests and ``False`` when
+            its administrator has disabled deposits.
+        """
+        return self.vault_contract.functions.isDepositEnabled().call()
+
+    def fetch_deposit_closed_reason(self) -> str | None:
+        """Explain a native T3tris deposit closure.
+
+        T3tris' ERC-4626 ``maxDeposit`` result describes only the synchronous
+        flow and must not be rendered as a global capacity cap for its async
+        request flow.
+
+        :return:
+            Administrative closure reason, or ``None`` when deposit requests
+            are enabled.
+        """
+        return None if self.fetch_deposit_open() else DEPOSIT_CLOSED_BY_ADMIN
+
+    def is_whitelisted_deposit(self) -> bool:
+        """Fetch the vault-wide T3tris deposit whitelist policy.
+
+        This is a policy read, not an account eligibility check.  It remains
+        independent of the deposit-enabled state recorded by
+        :py:meth:`fetch_deposit_open`.
+
+        :return:
+            ``True`` when deposit requests require whitelisting.
+        """
+        return self.vault_contract.functions.isDepositWhitelistEnabled().call()
 
     @property
     def description(self) -> str | None:

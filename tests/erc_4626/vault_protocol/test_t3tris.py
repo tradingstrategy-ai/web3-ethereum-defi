@@ -3,6 +3,7 @@
 import datetime
 import os
 from decimal import Decimal
+from types import SimpleNamespace
 
 import flaky
 import pytest
@@ -10,12 +11,13 @@ from web3 import Web3
 
 from eth_defi.erc_4626.classification import create_vault_instance_autodetect
 from eth_defi.erc_4626.core import ERC4626Feature
+from eth_defi.erc_4626.scan import _fetch_activity_status  # noqa: PLC2701
 from eth_defi.erc_4626.vault import ERC4626HistoricalReader
 from eth_defi.erc_4626.vault_protocol.t3tris.vault import STALE_NAV_CORRECTED_ERROR, STALE_NAV_FIRST_SAMPLE_ERROR, T3trisHistoricalReader, T3trisVault
 from eth_defi.event_reader.multicall_batcher import EncodedCall, EncodedCallResult
 from eth_defi.provider.multi_provider import create_multi_provider_web3
 from eth_defi.testing.anvil_fork_pool import AnvilForkPool
-from eth_defi.vault.base import VaultHistoricalRead, VaultHistoricalReader, VaultSpec
+from eth_defi.vault.base import DEPOSIT_CLOSED_BY_ADMIN, VaultHistoricalRead, VaultHistoricalReader, VaultSpec
 from eth_defi.vault.fee import VaultFeeMode
 from eth_defi.vault.risk import VaultTechnicalRisk
 
@@ -89,6 +91,32 @@ class _FakeReaderState:
         )
 
 
+class _FakeT3trisCall:
+    """Minimal Web3 call object returning one fixed value."""
+
+    def __init__(self, *, value: bool):
+        self.value = value
+
+    def call(self) -> bool:
+        """Return the configured ABI call result."""
+        return self.value
+
+
+class _FakeT3trisStatusVault:
+    """Bind T3tris status methods to a minimal contract double."""
+
+    can_check_deposit = T3trisVault.can_check_deposit
+    fetch_deposit_open = T3trisVault.fetch_deposit_open
+    fetch_deposit_closed_reason = T3trisVault.fetch_deposit_closed_reason
+    is_whitelisted_deposit = T3trisVault.is_whitelisted_deposit
+
+    def __init__(self, *, deposits_open: bool, whitelist_enabled: bool):
+        functions = type("FakeFunctions", (), {})()
+        functions.isDepositEnabled = lambda: _FakeT3trisCall(value=deposits_open)
+        functions.isDepositWhitelistEnabled = lambda: _FakeT3trisCall(value=whitelist_enabled)
+        self.vault_contract = type("FakeContract", (), {"functions": functions})()
+
+
 def _make_t3tris_reader() -> T3trisHistoricalReader:
     """Create a T3tris reader without Web3 dependencies."""
     reader = T3trisHistoricalReader.__new__(T3trisHistoricalReader)
@@ -137,6 +165,7 @@ def _make_t3tris_sample(
     total_supply: Decimal,
     share_price: Decimal,
     is_vault_open: bool = False,
+    is_deposit_enabled: bool = True,
     last_valuation_timestamp: int = 1,
     state: _FakeReaderState | None = None,
 ) -> list[EncodedCallResult]:
@@ -149,6 +178,7 @@ def _make_t3tris_sample(
         _make_call_result("convertToAssets", int(share_price * scale), block_number=block_number, timestamp=timestamp, state=state),
         _make_call_result("maxDeposit", 0, block_number=block_number, timestamp=timestamp, state=state),
         _make_call_result("isVaultOpen", int(is_vault_open), block_number=block_number, timestamp=timestamp, state=state),
+        _make_call_result("isDepositEnabled", int(is_deposit_enabled), block_number=block_number, timestamp=timestamp, state=state),
         _make_call_result("lastValuationTimestamp", last_valuation_timestamp, block_number=block_number, timestamp=timestamp, state=state),
     ]
 
@@ -161,6 +191,7 @@ def _process_t3tris_sample(
     total_supply: Decimal,
     share_price: Decimal,
     is_vault_open: bool = False,
+    is_deposit_enabled: bool = True,
     last_valuation_timestamp: int = 1,
     state: _FakeReaderState | None = None,
     failed_calls: set[str] | None = None,
@@ -173,6 +204,7 @@ def _process_t3tris_sample(
         total_supply=total_supply,
         share_price=share_price,
         is_vault_open=is_vault_open,
+        is_deposit_enabled=is_deposit_enabled,
         last_valuation_timestamp=last_valuation_timestamp,
         state=state,
     )
@@ -182,6 +214,57 @@ def _process_t3tris_sample(
                 result.success = False
                 result.result = b""
     return reader.process_result(block_number, timestamp, call_results)
+
+
+def test_t3tris_reader_records_native_historical_deposit_state() -> None:
+    """Historical rows must use T3tris deposit state, not ERC-4626 maxDeposit."""
+    reader = _make_t3tris_reader()
+
+    enabled_read = _process_t3tris_sample(
+        reader,
+        block_number=1,
+        total_assets=Decimal("100"),
+        total_supply=Decimal("100"),
+        share_price=Decimal("1"),
+        is_deposit_enabled=True,
+    )
+    disabled_read = _process_t3tris_sample(
+        reader,
+        block_number=2,
+        total_assets=Decimal("100"),
+        total_supply=Decimal("100"),
+        share_price=Decimal("1"),
+        is_deposit_enabled=False,
+    )
+
+    assert enabled_read.max_deposit == Decimal("0")
+    assert enabled_read.deposits_open is True
+    assert disabled_read.deposits_open is False
+
+
+def test_t3tris_current_deposit_state_uses_native_status_and_separate_policy() -> None:
+    """Current metadata must distinguish closure from whitelist permission."""
+    permissionless_open_vault = _FakeT3trisStatusVault(deposits_open=True, whitelist_enabled=False)
+    whitelisted_closed_vault = _FakeT3trisStatusVault(deposits_open=False, whitelist_enabled=True)
+
+    assert permissionless_open_vault.can_check_deposit() is False
+    assert permissionless_open_vault.fetch_deposit_open() is True
+    assert permissionless_open_vault.fetch_deposit_closed_reason() is None
+    assert permissionless_open_vault.is_whitelisted_deposit() is False
+
+    assert whitelisted_closed_vault.fetch_deposit_open() is False
+    assert whitelisted_closed_vault.fetch_deposit_closed_reason() == DEPOSIT_CLOSED_BY_ADMIN
+    assert whitelisted_closed_vault.is_whitelisted_deposit() is True
+
+
+def test_current_metadata_records_deposit_status_for_empty_vault() -> None:
+    """Current deposit status must not depend on a vault crossing the TVL threshold."""
+    vault = SimpleNamespace(fetch_deposit_open=lambda: True)
+
+    status = _fetch_activity_status(vault, total_assets=Decimal("0"))
+
+    assert status["_deposits_open"] is True
+    assert status["_deposit_closed_reason"] is None
 
 
 def test_t3tris_reader_updates_state_once_with_corrected_values() -> None:

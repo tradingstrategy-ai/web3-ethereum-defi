@@ -221,6 +221,13 @@ def test_chain_probe_filtering():
     assert _should_yield_probe("strategist", MANTLE) is True
     assert _should_yield_probe("strategist", ETHEREUM_MAINNET) is False
 
+    # T3tris deployments use the same protocol-specific accounting getter on
+    # Arbitrum and Robinhood. Without the Robinhood probe, discovery retains a
+    # generic ERC-4626 lead but cannot instantiate the T3tris adapter.
+    assert _should_yield_probe("getGrossTVL", ARBITRUM) is True
+    assert _should_yield_probe("getGrossTVL", ROBINHOOD) is True
+    assert _should_yield_probe("getGrossTVL", ETHEREUM_MAINNET) is False
+
     # Disabled protocols (empty sets) never yield
     assert _should_yield_probe("outputToLp0Route", ETHEREUM_MAINNET) is False  # Baklava
     assert _should_yield_probe("agent", ARBITRUM) is False  # Astrolab
@@ -243,6 +250,9 @@ def test_chain_probe_filtering():
     func_names_eth = [p.func_name for p in probes_eth]
     assert "strategy" in func_names_eth
     assert "queue" in func_names_eth
+
+    probes_robinhood = list(create_probe_calls([test_address], chain_id=ROBINHOOD))
+    assert "getGrossTVL" in {probe.func_name for probe in probes_robinhood}
 
     royco_tranche_probe_names = ["getRawNAV"]
     assert sum(1 for func_name in func_names_eth if func_name in royco_tranche_probe_names) == 1
