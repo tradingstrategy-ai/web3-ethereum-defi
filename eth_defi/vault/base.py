@@ -1654,11 +1654,13 @@ class VaultBase(ABC):
         """Get human-readable reason why deposits are closed.
 
         - Override in protocol-specific subclasses
-        - Default behaviour: assume deposits are always open (return None)
+        - Default behaviour: no closure reason is known (return None)
 
         :return:
             Human-readable string explaining why deposits are closed,
-            or None if deposits are open.
+            or None if deposits are open or the adapter cannot determine a
+            closure reason. Use :py:meth:`fetch_deposit_open` for explicit
+            tri-state availability metadata.
 
             Example reasons:
 
@@ -1666,6 +1668,22 @@ class VaultBase(ABC):
             - "Vault paused by admin"
             - "Max deposit cap reached"
             - "Vault utilisation too high"
+        """
+        return None
+
+    def fetch_deposit_open(self) -> bool | None:  # noqa: PLR6301
+        """Fetch the current protocol-defined deposit availability.
+
+        This is deliberately a tri-state value. ``True`` and ``False`` mean
+        that the adapter read an authoritative vault-wide state; ``None``
+        means that the generic adapter cannot safely determine the state.  It
+        is separate from :py:meth:`fetch_deposit_closed_reason`, because an
+        absent human-readable reason does not prove that deposits are open.
+
+        :return:
+            ``True`` when deposits are open, ``False`` when they are closed,
+            or ``None`` when the protocol does not expose a reliable global
+            availability read.
         """
         return None
 

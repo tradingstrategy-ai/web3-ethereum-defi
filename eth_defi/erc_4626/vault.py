@@ -1511,19 +1511,20 @@ class ERC4626Vault(VaultBase):
 
         :return:
             Human-readable string if deposits are closed/restricted,
-            or None if deposits are open (maxDeposit > 0).
+            or ``None`` if deposits are open or this adapter cannot safely use
+            zero-address ``maxDeposit`` as a global availability read.
         """
         if not self.can_check_deposit():
             return None
 
         try:
             max_deposit_raw = self.vault_contract.functions.maxDeposit(ZERO_ADDRESS_STR).call()
-            if max_deposit_raw == 0:
-                return f"{DEPOSIT_CLOSED_CAP_REACHED} (maxDeposit=0)"
+        except (BadFunctionCallOutput, ContractLogicError, HTTPError, OSError, ValueError, Web3Exception):
+            return None
 
-            return None  # Deposits are open
-        except Exception:
-            return None  # Cannot determine, assume open
+        if max_deposit_raw == 0:
+            return f"{DEPOSIT_CLOSED_CAP_REACHED} (maxDeposit=0)"
+        return None
 
     def fetch_redemption_closed_reason(self) -> str | None:
         """Check if redemptions are closed using maxRedeem(address(0)).

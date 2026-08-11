@@ -222,7 +222,11 @@ def _export_denomination_token(vault: VaultBase) -> dict | None:
 
 
 def _fetch_activity_status(vault: VaultBase, total_assets: Decimal | None) -> dict[str, object]:
-    """Fetch deposit and redemption status fields for sizeable vaults.
+    """Fetch current deposit status and sizeable-vault activity fields.
+
+    Deposit availability is always collected when an adapter has an
+    authoritative state read. Closure reasons, redemption state and opening
+    schedules remain limited to sizeable vaults to control scan cost.
 
     :param vault:
         Vault adapter instance.
@@ -235,11 +239,19 @@ def _fetch_activity_status(vault: VaultBase, total_assets: Decimal | None) -> di
     """
 
     status = {
+        "_deposits_open": None,
         "_deposit_closed_reason": None,
         "_redemption_closed_reason": None,
         "_deposit_next_open": None,
         "_redemption_next_open": None,
     }
+
+    # Deposit availability is compact current metadata, not a costly activity
+    # diagnostic. In particular, T3tris needs this field even for a new or
+    # empty vault whose native async flow makes ERC-4626 maxDeposit unusable.
+    fetch_deposit_open = getattr(vault, "fetch_deposit_open", None)
+    if fetch_deposit_open is not None:
+        status["_deposits_open"] = _best_effort_vault_read(fetch_deposit_open)
 
     if total_assets is None or total_assets <= ACTIVITY_STATUS_MIN_NAV:
         return status

@@ -588,6 +588,8 @@ source .local-test.env && poetry run python scripts/erc-4626/fix-t3tris-vaults.p
 | `DRY_RUN` | Optional. Show planned work without writing metadata or prices. Default: false. |
 | `T3TRIS_FETCH_API` | Optional. Fetch the live T3tris API and prefer it over the baked snapshot. Default: true. |
 | `T3TRIS_VERIFIED_ONLY` | Optional. Process only API-verified vaults, while retaining reviewed migration vaults. Default: false. |
+| `T3TRIS_CHAIN_IDS` | Optional. Comma-separated chain IDs that restrict the repair scope. |
+| `T3TRIS_VAULT_ADDRESSES` | Optional. Comma-separated vault addresses that restrict the repair scope. |
 | `T3TRIS_SCAN_PRICES` | Optional. Set to `false` to update only leads and metadata. Default: true. |
 | `T3TRIS_REWRITE_TARGETED` | Optional. Rescan every selected T3tris vault from its first known API block and rewrite only that vault's rows. Default: false. |
 | `T3TRIS_REFRESH_EXISTING_METADATA` | Optional. Refresh existing good metadata rows as well as missing or broken rows. Default: false. |
@@ -600,8 +602,32 @@ source .local-test.env && poetry run python scripts/erc-4626/fix-t3tris-vaults.p
 | `READER_STATE_DATABASE` | Optional. Reader-state pickle path. Default: production reader state DB. |
 
 The script reads RPC URLs using normal `JSON_RPC_<CHAIN_NAME>` variables where
-the chain is known by `eth_defi.chain`. T3tris currently returns Arbitrum vaults,
-so set `JSON_RPC_ARBITRUM` in `.local-test.env`.
+the chain is known by `eth_defi.chain`. T3tris currently has Arbitrum and
+Robinhood deployments, so configure `JSON_RPC_ARBITRUM` and/or
+`JSON_RPC_ROBINHOOD` as needed.
+
+#### Robinhood migration
+
+Use the same targeted migration script for the reviewed Morini and Kingfisher
+vaults on Robinhood. The chain and address filters ensure that it refreshes
+Kingfisher's old generic ERC-4626 row and adds Morini without resetting the
+global discovery cursor or changing unrelated vaults. Run this metadata-only
+repair inside the production one-shot container. This preserves the mounted
+metadata database and reader state; enable price history only after inspecting
+the result.
+
+```shell
+source ~/vault-scanner/vault-rpc.env && \
+(cd ~/vault-scanner/web3-ethereum-defi && \
+  docker compose run --rm \
+  -e T3TRIS_CHAIN_IDS=4663 \
+  -e T3TRIS_VAULT_ADDRESSES="0x5b93dd3eb7fd224565498045f5e1a2ebda49e672,0xd4d607239dcbdb5cc3a301266433810bb63c63bf" \
+  -e T3TRIS_FETCH_API=false \
+  -e T3TRIS_REFRESH_EXISTING_METADATA=true \
+  -e T3TRIS_SCAN_PRICES=false \
+  --entrypoint /bin/bash vault-scanner-oneshot \
+  -lc "python scripts/erc-4626/fix-t3tris-vaults.py")
+```
 
 ### fix-frankencoin-tvl.py
 

@@ -518,7 +518,7 @@ CHAIN_RESTRICTED_PROBES: dict[str, set[int]] = {
     "DEPLOYER_ADDRESS": {1, 42161},  # Fraxlend - Ethereum, Arbitrum
     "shareManager": MELLOW_CORE_CHAIN_IDS,  # Mellow Core - Ethereum, Plasma, Arbitrum, Monad
     "getAssetCount": MELLOW_CORE_CHAIN_IDS,  # Mellow Core - Ethereum, Plasma, Arbitrum, Monad
-    "getGrossTVL": {42161},  # T3tris - Arbitrum
+    "getGrossTVL": {42161, 4663},  # T3tris - Arbitrum, Robinhood
     # Two chain protocols
     "claimableKeeper": {137, 42161},  # Untangle Finance - Polygon, Arbitrum
     # Three chain protocols
@@ -894,7 +894,7 @@ def create_probe_calls(
             data=b"",
             extra_data=None,
         )
-        # T3tris - ERC-4626-derived asynchronous vaults on Arbitrum.
+        # T3tris - ERC-4626-derived asynchronous vaults on Arbitrum and Robinhood.
         # Live app ABI exposes this protocol-specific accounting getter.
         # https://app.t3tris.finance/vaults
         if _should_yield_probe("getGrossTVL", chain_id):

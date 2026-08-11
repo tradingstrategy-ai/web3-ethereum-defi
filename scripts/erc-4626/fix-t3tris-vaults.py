@@ -41,6 +41,10 @@ Useful environment variables:
      - Fetch the live T3tris API and prefer it over the baked snapshot. Default: ``true``.
    * - ``T3TRIS_VERIFIED_ONLY``
      - If ``true``, process only API-verified vaults. Default: ``false``.
+   * - ``T3TRIS_CHAIN_IDS``
+     - Optional comma-separated EVM chain IDs to repair.
+   * - ``T3TRIS_VAULT_ADDRESSES``
+     - Optional comma-separated vault addresses to repair.
    * - ``T3TRIS_SCAN_PRICES``
      - If ``false``, update only leads and metadata. Default: ``true``.
    * - ``T3TRIS_REWRITE_TARGETED``
@@ -109,7 +113,7 @@ logger = logging.getLogger(__name__)
 
 T3TRIS_API_URL = "https://api.t3tris.finance/api/v1/vaults"
 USER_AGENT = "web3-ethereum-defi-t3tris-maintenance/1.0"
-SUPPORTED_CHAIN_IDS = {42161}
+SUPPORTED_CHAIN_IDS = {42161, 4663}
 
 #: Baked snapshot from ``GET https://api.t3tris.finance/api/v1/vaults``.
 #:
@@ -152,6 +156,24 @@ T3TRIS_VAULT_SNAPSHOT_JSON = """
       "createdAtBlock": "481469145",
       "createdAtTs": 1783458649,
       "curatorName": null,
+      "verified": true
+    },
+    {
+      "chainId": 4663,
+      "address": "0x5b93dd3eb7fd224565498045f5e1a2ebda49e672",
+      "name": "Morini StockMarketTRBasisTrade Vault",
+      "createdAtBlock": "27650917",
+      "createdAtTs": 1785849175,
+      "curatorName": "Morini Capital",
+      "verified": true
+    },
+    {
+      "chainId": 4663,
+      "address": "0xd4d607239dcbdb5cc3a301266433810bb63c63bf",
+      "name": "The Kingfisher Vault",
+      "createdAtBlock": "21034332",
+      "createdAtTs": 1785185732,
+      "curatorName": "The Kingfisher",
       "verified": true
     }
   ]
@@ -218,6 +240,49 @@ def parse_bool_env(name: str, *, default: bool = False) -> bool:
     if value is None:
         return default
     return value.strip().lower() in {"1", "true", "yes", "y", "on"}
+
+
+def parse_chain_id_filter() -> set[int] | None:
+    """Parse an optional T3tris repair chain filter from the environment.
+
+    The generic repair normally processes every supported T3tris chain. A
+    migration uses this filter to constrain its writes to one reviewed chain
+    while still reusing the same API and snapshot validation.
+
+    :return:
+        Set of selected EVM chain IDs, or ``None`` when no filter is set.
+
+    :raise ValueError:
+        If the environment value contains an invalid integer chain ID.
+    """
+    value = os.environ.get("T3TRIS_CHAIN_IDS")
+    if not value:
+        return None
+    return {int(chain_id.strip()) for chain_id in value.split(",") if chain_id.strip()}
+
+
+def parse_address_filter() -> set[str] | None:
+    """Parse an optional T3tris repair address filter from the environment.
+
+    Addresses are normalised to lower case so they can be compared with the
+    canonical :py:class:`T3trisVaultReference` specifications without relying
+    on the checksum casing returned by an API.
+
+    :return:
+        Lowercase selected vault addresses, or ``None`` when no filter is set.
+
+    :raise ValueError:
+        If an environment entry is not an EVM address.
+    """
+    value = os.environ.get("T3TRIS_VAULT_ADDRESSES")
+    if not value:
+        return None
+
+    addresses = {address.strip().lower() for address in value.split(",") if address.strip()}
+    invalid_addresses = {address for address in addresses if not Web3.is_address(address)}
+    if invalid_addresses:
+        raise ValueError(f"Invalid T3TRIS_VAULT_ADDRESSES entries: {sorted(invalid_addresses)}")
+    return addresses
 
 
 def parse_optional_int_env(name: str) -> int | None:
@@ -387,7 +452,28 @@ def load_t3tris_vault_references() -> list[T3trisVaultReference]:
 
 
 def filter_references(refs: list[T3trisVaultReference]) -> list[T3trisVaultReference]:
-    """Apply operator filters."""
+    """Apply verified, chain and address filters to repair references.
+
+    Reviewed migration references retain their existing verified-only
+    exemption. Chain and address filters are strict operational scopes and
+    therefore apply to all references, including reviewed migrations.
+
+    :param refs:
+        De-duplicated T3tris references from the API, snapshot and registry.
+
+    :return:
+        References selected for this repair invocation.
+    """
+    chain_ids = parse_chain_id_filter()
+    addresses = parse_address_filter()
+    if chain_ids is not None:
+        refs = [ref for ref in refs if ref.chain_id in chain_ids]
+    if addresses is not None:
+        refs = [ref for ref in refs if ref.address.lower() in addresses]
+        unmatched_addresses = addresses - {ref.address.lower() for ref in refs}
+        if unmatched_addresses:
+            raise ValueError(f"T3TRIS_VAULT_ADDRESSES did not match selected references: {sorted(unmatched_addresses)}")
+
     if not parse_bool_env("T3TRIS_VERIFIED_ONLY", default=False):
         return refs
 

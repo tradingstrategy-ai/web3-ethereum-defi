@@ -2,6 +2,7 @@
 
 import datetime
 import importlib.util
+import json
 import sys
 import types
 from pathlib import Path
@@ -119,3 +120,46 @@ def test_t3tris_repair_uses_configuration_threshold_for_reviewed_migration() -> 
     assert lead.configuration_count == 1
     assert detection.deposit_count == 0
     assert detection.configuration_count == 1
+
+
+def test_t3tris_repair_accepts_robinhood_api_vaults() -> None:
+    """The targeted repair must retain Robinhood vaults from the official API."""
+    module = _load_fix_t3tris_module()
+
+    refs = module.parse_t3tris_payload(
+        {
+            "vaults": [
+                {
+                    "chainId": 4663,
+                    "address": "0x5b93dd3eb7fd224565498045f5e1a2ebda49e672",
+                    "name": "Morini StockMarketTRBasisTrade Vault",
+                    "createdAtBlock": "27650917",
+                    "createdAtTs": 1785849175,
+                    "curatorName": "Morini Capital",
+                    "verified": True,
+                }
+            ]
+        }
+    )
+
+    assert len(refs) == 1
+    assert refs[0].chain_id in module.SUPPORTED_CHAIN_IDS
+    assert refs[0].address.lower() == "0x5b93dd3eb7fd224565498045f5e1a2ebda49e672"
+
+
+def test_t3tris_repair_can_limit_a_migration_to_reviewed_robinhood_vaults(monkeypatch) -> None:
+    """Chain and address filters must keep a migration's writes exact."""
+    module = _load_fix_t3tris_module()
+    monkeypatch.setenv("T3TRIS_CHAIN_IDS", "4663")
+    monkeypatch.setenv(
+        "T3TRIS_VAULT_ADDRESSES",
+        "0x5b93dd3eb7fd224565498045f5e1a2ebda49e672,0xd4d607239dcbdb5cc3a301266433810bb63c63bf",
+    )
+
+    refs = module.filter_references(module.parse_t3tris_payload(json.loads(module.T3TRIS_VAULT_SNAPSHOT_JSON)))
+
+    assert [ref.chain_id for ref in refs] == [4663, 4663]
+    assert {ref.address.lower() for ref in refs} == {
+        "0x5b93dd3eb7fd224565498045f5e1a2ebda49e672",
+        "0xd4d607239dcbdb5cc3a301266433810bb63c63bf",
+    }
