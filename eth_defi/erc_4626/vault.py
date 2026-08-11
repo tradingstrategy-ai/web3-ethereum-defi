@@ -508,6 +508,19 @@ class VaultReaderState(BatchCallState):
                     logger.debug(f"{self.last_call_at}:  Vault {self.vault} disabled at {self.max_tvl}, never reached min TVL {self.min_tvl_threshold}, no longer reading it, first read at {self.first_read_at}, last call at {self.last_call_at}, traction period was {self.traction_period}")
                     self.faded_at = timestamp
 
+        # A vault can receive meaningful deposits after it was classified as
+        # faded. Restore the normal polling cadence once it has demonstrated
+        # the TVL traction that the faded state originally lacked.
+        if self.faded_at and self.last_tvl >= self.min_tvl_threshold:
+            logger.debug(
+                "%s: Vault %s recovered from faded state at TVL %s, restarting normal polling",
+                self.last_call_at,
+                self.vault,
+                self.last_tvl,
+            )
+            self.faded_at = None
+            self.reading_restarted_count += 1
+
         # Cache for debugging
         # self.token_symbol = self.vault.denomination_token.symbol if self.vault.denomination_token else "-"
 
