@@ -1,5 +1,6 @@
 """Robust receipt visibility helper tests."""
 
+import inspect
 import shutil
 
 import pytest
@@ -17,7 +18,6 @@ from eth_defi.provider.receipt import (
     get_read_providers,
     wait_for_transaction_receipt_robust,
 )
-
 
 TX_HASH = "0x" + "12" * 32
 BLOCK_HASH = "0x" + "34" * 32
@@ -455,6 +455,20 @@ def test_wait_for_transaction_receipt_robust_default_confirmations(monkeypatch: 
     # 3. Check block numbers were polled until two confirmations were reached.
     assert receipt_module.DEFAULT_CONFIRMATION_BLOCK_COUNT == 2
     assert provider_1.calls.count("eth_blockNumber") == 2
+
+
+def test_wait_for_transaction_receipt_robust_default_timeout():
+    """Expose the extended receipt visibility timeout for transient Derive RPC lag.
+
+    1. Inspect the public robust receipt helper signature.
+    2. Assert its default allows three minutes and thirty seconds for recovery.
+    """
+
+    # 1. Inspect the public robust receipt helper signature.
+    signature = inspect.signature(wait_for_transaction_receipt_robust)
+
+    # 2. Assert its default allows three minutes and thirty seconds for recovery.
+    assert signature.parameters["timeout"].default == receipt_module.DEFAULT_RECEIPT_VISIBILITY_TIMEOUT
 
 
 def test_wait_for_transaction_receipt_robust_confirmation_block_time(monkeypatch: pytest.MonkeyPatch):

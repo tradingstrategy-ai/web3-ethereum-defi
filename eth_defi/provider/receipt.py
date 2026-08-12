@@ -12,8 +12,8 @@ from web3.exceptions import (
     MultipleFailedRequests,
     ProviderConnectionError,
     RequestTimedOut,
-    TransactionNotFound,
     TooManyRequests,
+    TransactionNotFound,
     Web3RPCError,
 )
 from web3.providers import BaseProvider
@@ -23,7 +23,6 @@ from eth_defi.chain import get_evm_block_time
 from eth_defi.provider.anvil import is_anvil
 from eth_defi.provider.fallback import FallbackProvider
 from eth_defi.provider.named import get_provider_name
-
 
 logger = logging.getLogger(__name__)
 
@@ -73,6 +72,14 @@ DEFAULT_CONFIRMATION_BLOCK_COUNT = 2
 #: ``confirmation_block_count``. An explicit ``confirmation_block_count=0`` (the
 #: documented pure receipt-visibility opt-out) also disables this default.
 DEFAULT_CONFIRMATION_BLOCK_TIME: float = 25.0
+
+#: Default upper bound in seconds for receipt visibility polling.
+#:
+#: The 2026-08-11 Derive incident showed that a two-minute window was too short:
+#: its Lagoon NAV transaction mined two seconds after broadcast, but the Derive RPC
+#: reported a chain head 139 blocks behind that receipt for the whole 120-second wait.
+#: The 210-second default adds a 90-second recovery margin for this measured failure.
+DEFAULT_RECEIPT_VISIBILITY_TIMEOUT: float = 210.0
 
 
 class ReceiptVisibilityTimedOut(TimeoutError):
@@ -237,7 +244,7 @@ def _get_insufficient_confirmations(
 def wait_for_transaction_receipt_robust(
     web3: Web3,
     tx_hash: HexBytes | str,
-    timeout: float = 120.0,
+    timeout: float = DEFAULT_RECEIPT_VISIBILITY_TIMEOUT,
     poll_delay: float = 1.0,
     max_poll_delay: float = 5.0,
     confirmation_block_count: int | None = None,
@@ -259,7 +266,14 @@ def wait_for_transaction_receipt_robust(
     :param tx_hash:
         Transaction hash to wait for.
     :param timeout:
-        Maximum seconds to wait.
+        Maximum seconds to wait. Defaults to 210 seconds (3 minutes 30 seconds).
+
+        This leaves a 90-second margin over the measured 120-second receipt
+        visibility timeout during the 2026-08-11 Derive incident: the Lagoon
+        NAV transaction was mined two seconds after broadcast, but Derive's RPC
+        reported a chain head 139 blocks behind that receipt for the whole
+        two-minute wait. Callers that need a different operational bound can
+        pass an explicit value.
     :param poll_delay:
         Initial delay between polling rounds.
     :param max_poll_delay:
