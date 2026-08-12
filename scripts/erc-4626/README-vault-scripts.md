@@ -629,6 +629,24 @@ source ~/vault-scanner/vault-rpc.env && \
   -lc "python scripts/erc-4626/fix-t3tris-vaults.py")
 ```
 
+### migrate-t3tris-robinhood-vaults.py
+
+One-use production migration for the audited Robinhood T3tris vaults Morini
+and Kingfisher. Its chain, vault addresses, metadata refresh, baked snapshot
+and metadata-only mode are hardcoded; it cannot widen the repair scope or
+rewrite price data. Set DRY_RUN=true for a no-write inspection.
+
+```shell
+source ~/vault-scanner/vault-rpc.env && \\
+(cd ~/vault-scanner/web3-ethereum-defi && \\
+  docker compose run --rm \\
+  -e DRY_RUN=true \\
+  --entrypoint /bin/bash vault-scanner-oneshot \\
+  -lc "python scripts/erc-4626/migrate-t3tris-robinhood-vaults.py")
+```
+
+After inspecting the dry-run output, omit -e DRY_RUN=true to apply it.
+
 ### fix-frankencoin-tvl.py
 
 Manual repair script for Frankencoin savings vault TVL in the uncleaned price
