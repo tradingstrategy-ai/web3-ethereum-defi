@@ -1,0 +1,27 @@
+# Arcus curator - feeds provided by protocols/arcus.yaml
+#
+# Alias rationale:
+# - The reviewed Robinhood Chain pTokens are protocol-operated products. Arcus
+#   is therefore exported as their curator rather than inferring a third-party
+#   manager from a generic contract accessor.
+# - The protocol feed already collects Arcus's official X account, so this
+#   curator aliases it and does not duplicate feed collection.
+#
+# Description sources:
+# - https://arcus.xyz/
+# - https://docs.arcus.xyz/
+feeder-id: arcus
+name: Arcus
+role: curator
+canonical-feeder-id: arcus
+short_description: Arcus provides an exchange application for Stock Tokens and perpetual futures on Robinhood Chain.
+long_description: |
+  Arcus publishes Stock Token and perpetual-futures markets on Robinhood Chain
+  across equities, crypto, commodities and indices. Its public API provides
+  exchange-market data and order-routing interfaces.
+
+  The reviewed Arcus pTokens are attributed to Arcus as protocol-curated
+  products because they share the reviewed Arcus factory and contract family.
+  This is not an identity claim about the unlabelled address returned by the
+  generic ``manager()`` accessor. No separate third-party curator has been
+  identified for these products.

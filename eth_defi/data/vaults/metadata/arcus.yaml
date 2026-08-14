@@ -1,0 +1,33 @@
+name: Arcus
+slug: arcus
+short_description: |
+  Exchange application on Robinhood Chain with Stock Token and perpetual-futures markets.
+long_description: |
+  Arcus publishes Stock Token and perpetual-futures markets on Robinhood Chain
+  across equities, crypto, commodities and indices.
+
+  This integration recognises a reviewed Arcus pToken wrapper family on
+  Robinhood Chain. The reviewed BTC (3x Long) and HOOD (3x Long) contracts use
+  USDG as their asset. Their BeaconProxy implementation is not source-verified,
+  so the reader provides generic read-only ERC-4626 data only and does not
+  certify transaction flows.
+fee_description: |
+  No pToken-specific management or performance fee schedule has been verified
+  for the reviewed products. This integration reports those fields as
+  unavailable rather than inferring that the products are fee-free. Users
+  should review current product terms before interacting with a pToken.
+links:
+  homepage: https://arcus.xyz/
+  app: https://app.arcus.xyz/
+  twitter: https://x.com/arcus_xyz
+  github: ''
+  documentation: https://docs.arcus.xyz/
+  fact_sheet: ''
+  defillama: ''
+  audits: ''
+  fees: ''
+  trading_strategy: https://tradingstrategy.ai/trading-view/vaults/protocols/arcus
+  integration_documentation: https://web3-ethereum-defi.readthedocs.io/vaults/arcus/index.html
+example_smart_contracts:
+  - https://robinhoodchain.blockscout.com/address/0x4472C69d299382F8847ebCE4FC6Ed8e295510E3e
+  - https://robinhoodchain.blockscout.com/address/0xe24CABDf76DD1c2576049167eB1755C84b985C36

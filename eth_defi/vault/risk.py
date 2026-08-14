@@ -153,6 +153,10 @@ VAULT_PROTOCOL_RISK_MATRIX = {
     "3Jane": VaultTechnicalRisk.low,
     "Teller": VaultTechnicalRisk.severe,
     "Deltr": VaultTechnicalRisk.dangerous,
+    # The reviewed Arcus pTokens use a BeaconProxy whose implementation is not
+    # source-verified. Their product mechanics, fee schedule, and redemption
+    # terms have not been independently verified.
+    "Arcus": VaultTechnicalRisk.dangerous,
     "Upshift": VaultTechnicalRisk.severe,
     # Shift has public source code and an SB Security audit; executor and TVL
     # feed operational risks remain separate from this technical classification.
