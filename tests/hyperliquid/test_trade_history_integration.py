@@ -39,10 +39,10 @@ from eth_defi.hyperliquid.trade_history_db import HyperliquidTradeHistoryDatabas
 pytestmark = pytest.mark.slow
 
 
-#: Growi HF leader wallet — actively trading account used for fill-dependent tests.
-#: The vault address (0x1e37…) has periods of inactivity with zero fills,
-#: so we use the leader wallet which trades more consistently.
-ACTIVE_ACCOUNT = "0x3df9769bbbb335340872f01d8157c779d73c6ed0"
+#: Growi HF vault — actively trading account used for fill-dependent tests.
+#: Revalidated on 2026-08-15 after the IchiV3 LS leader wallet returned zero
+#: fills and funding payments through the live Hyperliquid API for seven days.
+ACTIVE_ACCOUNT = "0x1e37a337ed460039d1b15bd3bc489de789768d5e"
 
 #: Short time range for faster tests — must be recent enough
 #: that Hyperliquid API still returns fills (old data is purged).
@@ -86,7 +86,7 @@ def test_reconstruct_vault_trade_history(session, tmp_path):
     """Reconstruct trade history for an active account and verify fill data."""
     db = HyperliquidTradeHistoryDatabase(tmp_path / "trade-history.duckdb")
     try:
-        db.add_account(ACTIVE_ACCOUNT, label="Growi HF leader", is_vault=False)
+        db.add_account(ACTIVE_ACCOUNT, label="Growi HF vault", is_vault=True)
         db.sync_account_fills(session, ACTIVE_ACCOUNT, start_time=TEST_START, end_time=TEST_END)
 
         history = fetch_account_trade_history(
@@ -115,9 +115,9 @@ def test_reconstruct_vault_trade_history(session, tmp_path):
 def test_reconstruct_normal_account_trade_history(session, tmp_path):
     """Reconstruct trade history for a normal (non-vault) Hyperliquid account.
 
-    Uses a known active trader address (Growi HF leader wallet).
+    Uses the active Growi HF vault to exercise the normal-account code path.
     """
-    account_address = "0x3df9769bbbb335340872f01d8157c779d73c6ed0"
+    account_address = ACTIVE_ACCOUNT
 
     db = HyperliquidTradeHistoryDatabase(tmp_path / "trade-history.duckdb")
     try:
@@ -151,7 +151,7 @@ def test_sync_idempotent(session, tmp_path):
     """
     db = HyperliquidTradeHistoryDatabase(tmp_path / "trade-history.duckdb")
     try:
-        db.add_account(ACTIVE_ACCOUNT, label="Growi HF leader", is_vault=False)
+        db.add_account(ACTIVE_ACCOUNT, label="Growi HF vault", is_vault=True)
 
         # First sync: fetches real data
         first_result = db.sync_account(
@@ -199,7 +199,7 @@ def test_trade_history_sync_resume(session, tmp_path):
     """
     db = HyperliquidTradeHistoryDatabase(tmp_path / "trade-history.duckdb")
     try:
-        db.add_account(ACTIVE_ACCOUNT, label="Growi HF leader", is_vault=False)
+        db.add_account(ACTIVE_ACCOUNT, label="Growi HF vault", is_vault=True)
 
         # First sync: narrow window (simulates partial/interrupted sync)
         db.sync_account_fills(
