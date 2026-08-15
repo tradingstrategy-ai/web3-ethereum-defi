@@ -17,6 +17,7 @@ from eth_defi.erc_4626.classification import (
     identify_vault_features,
 )
 from eth_defi.erc_4626.core import ERC4626Feature
+from eth_defi.erc_4626.vault_protocol.arcus.constants import ARCUS_BRIDGE_VAULT, ARCUS_CHAIN_ID
 from eth_defi.erc_4626.vault_protocol.axis.constants import AXIS_STAKED_USDX_VAULT
 from eth_defi.erc_4626.vault_protocol.frax.constants import FRAX_STAKING_VAULTS_BY_CHAIN
 from eth_defi.vault_street.constants import PRIME_USD_ADDRESS
@@ -168,6 +169,44 @@ def test_nest_probe_is_limited_to_nest_deployment_chains() -> None:
     assert "operatorRegistry" in avalanche_calls
     assert "operatorRegistry" not in hyperevm_calls
     assert _should_yield_probe("operatorRegistry", PLUME) is True
+
+
+def test_arcus_probe_is_limited_to_robinhood_and_expected_bridge_vault() -> None:
+    """Recognise Arcus's reviewed pToken surface with its uncommon accessor."""
+
+    test_address = "0x0000000000000000000000000000000000000001"
+    robinhood_calls = {call.func_name for call in create_probe_calls([test_address], chain_id=ARCUS_CHAIN_ID)}
+    base_calls = {call.func_name for call in create_probe_calls([test_address], chain_id=BASE)}
+
+    assert "bridgeVault" in robinhood_calls
+    assert "bridgeVault" not in base_calls
+
+    erc4626_probe = SimpleNamespace(success=True, result=eth_abi.encode(["uint256"], [1]))
+    bridge_vault_probe = SimpleNamespace(success=True, result=eth_abi.encode(["address"], [ARCUS_BRIDGE_VAULT]))
+    arcus_features = identify_vault_features(
+        test_address,
+        _ProbeResultsDict({"convertToShares": erc4626_probe, "bridgeVault": bridge_vault_probe}),
+        debug_text=None,
+        chain_id=ARCUS_CHAIN_ID,
+    )
+    assert arcus_features == {ERC4626Feature.arcus_like}
+
+    non_arcus_bridge_vault_probe = SimpleNamespace(success=True, result=eth_abi.encode(["address"], [test_address]))
+    non_arcus_features = identify_vault_features(
+        test_address,
+        _ProbeResultsDict({"convertToShares": erc4626_probe, "bridgeVault": non_arcus_bridge_vault_probe}),
+        debug_text=None,
+        chain_id=ARCUS_CHAIN_ID,
+    )
+    assert ERC4626Feature.arcus_like not in non_arcus_features
+
+    wrong_chain_features = identify_vault_features(
+        test_address,
+        _ProbeResultsDict({"convertToShares": erc4626_probe, "bridgeVault": bridge_vault_probe}),
+        debug_text=None,
+        chain_id=BASE,
+    )
+    assert ERC4626Feature.arcus_like not in wrong_chain_features
 
 
 def test_chain_probe_filtering():

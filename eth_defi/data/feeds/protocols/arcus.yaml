@@ -1,0 +1,19 @@
+feeder-id: arcus
+name: Arcus
+role: protocol
+website: https://arcus.xyz/
+short_description: Self-custodial trading venue on Robinhood Chain for Stock Tokens and perpetual futures.
+long_description: |
+  [Arcus](https://arcus.xyz/) is a self-custodial exchange on Robinhood Chain
+  for Stock Tokens, cryptoassets and perpetual futures. Its
+  [launch announcement](https://arcus.xyz/blog/arcus-x-robinhood-trade-stocks-perpetuals-24-7)
+  describes 24/7 spot trading with no Arcus spot-trading fee, subject to product
+  availability and eligibility.
+
+  Arcus is developed by the team behind dYdX and led by founder and chief
+  executive [Eddie Zhang](https://arcus.xyz/blog/arcus-x-robinhood-trade-stocks-perpetuals-24-7).
+  [Robinhood Crypto invested in Arcus](https://arcus.xyz/blog/arcus-x-robinhood-trade-stocks-perpetuals-24-7)
+  as part of its Robinhood Chain partnership. Stock Tokens provide economic
+  exposure rather than direct ownership and carry product-specific risks.
+twitter: arcus_xyz
+# rss: not found — Arcus publishes updates on its website without an advertised RSS feed

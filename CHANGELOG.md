@@ -1,5 +1,6 @@
 # 1.2
 
+- feat: Add Robinhood-only Arcus pToken recognition through its reviewed bridge-vault selector, address-scoped product copy and protocol-curator attribution (2026-08-14)
 - feat: Add read-only Barker H1 HyperEVM vault tracking with hardcoded address recognition (2026-08-08)
 - fix: Start initial and post-wipe-out Hypercore performance curves at their first $1,000 NAV observation (2026-08-08)
 

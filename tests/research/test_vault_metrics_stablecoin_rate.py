@@ -392,8 +392,14 @@ def test_calculate_lifetime_metrics_handles_usd_denomination_without_token_addre
 
 
 @pytest.mark.live
-def test_live_coingecko_refresh_blacklists_usdx_denomination_and_keeps_usdc_healthy(tmp_path: Path) -> None:
-    """Fetch real CoinGecko rates and blacklist a USDX-denominated vault."""
+def test_live_coingecko_refresh_keeps_usdc_healthy_and_records_unpriceable_usdx(tmp_path: Path) -> None:
+    """Fetch USDC's live rate and record that CoinGecko no longer prices Kava USDX.
+
+    Deterministic tests above cover the depegged-denomination blacklist. Kava
+    USDX remains listed by CoinGecko but its ``usdx`` API identifier no longer
+    returns a price, so this live test verifies failure recording instead of
+    incorrectly expecting it to be blacklisted from a missing rate.
+    """
     _write_live_usdc_yaml(tmp_path)
     _write_live_usdx_yaml(tmp_path)
     now_ = datetime.datetime(2026, 6, 26, 12, 0, 0)
@@ -405,22 +411,21 @@ def test_live_coingecko_refresh_blacklists_usdx_denomination_and_keeps_usdc_heal
         pytest.skip("CoinGecko live API returned an HTTP error during this run")
 
     assert summary.entries_seen == 2
-    assert summary.rates_fetched == 2
-    assert summary.failed_count == 0
-    assert summary.depegged_count == 1
+    assert summary.rates_fetched == 1
+    assert summary.failed_count == 1
+    assert summary.depegged_count == 0
 
     usdc_target = targets["USDC"]
     usdx_target = targets["USDX"]
     assert usdc_target.usd_rate == pytest.approx(1.0, abs=0.02)
     assert usdc_target.depegged_at is None
-    assert usdx_target.usd_rate is not None
-    assert usdx_target.usd_rate < 0.90
-    assert usdx_target.depegged_at == now_
+    assert usdx_target.usd_rate is None
+    assert usdx_target.depegged_at is None
+    assert usdx_target.rate_fetch_failed_at == now_
+    assert usdx_target.rate_fetch_failed_reason == "coingecko_id_not_found"
+    assert usdx_target.coingecko_id_verification_failed_at == now_
+    assert usdx_target.coingecko_id_verification_failed_reason == "CoinGecko id usdx not found"
 
     feeder = StablecoinRateFeeder(data_dir=tmp_path)
     assert feeder.is_depegged_stablecoin_token(1, USDC_ADDRESS, "USDC") is False
-    assert feeder.is_depegged_stablecoin_token(1, USDX_ADDRESS, "USDX") is True
-
-    metrics = _calculate_bad_stablecoin_vault_metrics(tmp_path)
-
-    _assert_bad_stablecoin_vault_blacklisted(metrics, expected_symbol="USDX", expected_usd_rate=usdx_target.usd_rate, expected_fetched_at=now_)
+    assert feeder.is_depegged_stablecoin_token(1, USDX_ADDRESS, "USDX") is False
