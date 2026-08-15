@@ -1107,7 +1107,7 @@ def test_identify_arcus_protocol_curator() -> None:
     assert metadata["canonical_feeder_id"] == "arcus"
     assert metadata["website"] == "https://arcus.xyz/"
     assert metadata["twitter"] == "https://x.com/arcus_xyz"
-    assert "not an identity claim" in metadata["long_description"]
+    assert "third-party curator has been publicly named" in metadata["long_description"]
 
 
 def test_identify_3jane_protocol_curator() -> None:
