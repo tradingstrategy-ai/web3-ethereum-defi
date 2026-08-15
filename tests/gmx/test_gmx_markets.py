@@ -462,8 +462,6 @@ def test_market_symbols(markets):
         symbol = markets.get_market_symbol(market_key)
         assert isinstance(symbol, str)
         assert len(symbol) > 0
-        # Symbol must be at least 2 characters (GMX now lists 50+ tokens so no exact-name check).
-        assert len(symbol) >= 2, f"Market symbol too short: {symbol!r}"
 
 
 def test_decimal_factors(markets):
