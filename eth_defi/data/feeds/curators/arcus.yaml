@@ -1,27 +1,29 @@
 # Arcus curator - feeds provided by protocols/arcus.yaml
 #
 # Alias rationale:
-# - The reviewed Robinhood Chain pTokens are protocol-operated products. Arcus
-#   is therefore exported as their curator rather than inferring a third-party
-#   manager from a generic contract accessor.
+# - Arcus is the named protocol for the pToken strategies listed under its
+#   brand. No separate third-party curator is publicly named for them.
 # - The protocol feed already collects Arcus's official X account, so this
 #   curator aliases it and does not duplicate feed collection.
 #
 # Description sources:
 # - https://arcus.xyz/
-# - https://docs.arcus.xyz/
+# - https://arcus.xyz/blog/arcus-x-robinhood-trade-stocks-perpetuals-24-7
+# - https://globaldollar.com/about-usdg
 feeder-id: arcus
 name: Arcus
 role: curator
 canonical-feeder-id: arcus
-short_description: Arcus provides an exchange application for Stock Tokens and perpetual futures on Robinhood Chain.
+short_description: Arcus is listed as the curator of its pToken strategies on Robinhood Chain.
 long_description: |
-  Arcus publishes Stock Token and perpetual-futures markets on Robinhood Chain
-  across equities, crypto, commodities and indices. Its public API provides
-  exchange-market data and order-routing interfaces.
+  [Arcus](https://arcus.xyz/) is a self-custodial exchange on Robinhood Chain
+  for Stock Tokens, cryptoassets and perpetual futures. Its
+  [launch announcement](https://arcus.xyz/blog/arcus-x-robinhood-trade-stocks-perpetuals-24-7)
+  describes 24/7 Stock Token trading, while product access remains subject to
+  eligibility and applicable terms.
 
-  The reviewed Arcus pTokens are attributed to Arcus as protocol-curated
-  products because they share the reviewed Arcus factory and contract family.
-  This is not an identity claim about the unlabelled address returned by the
-  generic ``manager()`` accessor. No separate third-party curator has been
-  identified for these products.
+  Arcus is listed as curator for the pToken strategies shown here; no separate
+  third-party curator has been publicly named. They are denominated in
+  [USDG](https://globaldollar.com/about-usdg), a dollar stablecoin that Global
+  Dollar says can be redeemed one-to-one with Paxos. Assess the strategy,
+  stablecoin and product-specific liquidity and redemption terms separately.

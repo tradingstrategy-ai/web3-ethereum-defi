@@ -17,6 +17,30 @@ Tokenised fund protocols belong under
 protocols commonly expose permissioned ERC-20 token shares and bespoke
 subscription and redemption flows instead of ERC-4626 vault contracts.
 
+## Website descriptions
+
+Protocol metadata YAML is public website copy for DeFi professionals. The
+`short_description`, `long_description` and `fee_description` fields must
+explain the product, not this repository's integration.
+
+- Use clear, neutral language to describe what the protocol offers, who
+  operates it, its strategies or markets, and any material stablecoin,
+  collateral, liquidity, redemption, eligibility and fee considerations.
+- Add inline Markdown links in the body for the official website and for the
+  primary source supporting important claims. Link launch announcements,
+  product terms, fee schedules, risk disclosures and stablecoin documentation
+  when relevant; the `links` mapping alone is not enough.
+- Name public founders, executives or well-known backers only where a primary
+  source confirms the relationship and it adds useful context. Link that source
+  and never infer a relationship from a database, present it as an endorsement,
+  or repeat promotional claims.
+- Keep financial and risk language factual: explain the product-specific risk
+  without giving investment advice or describing unsupported guarantees.
+- Exclude project-specific logic and technical implementation details: no
+  scanner, adapter, reader, classifier or pipeline behaviour, contract probe,
+  ABI, standard, method name, bytecode or proxy discussion. Those belong in
+  technical integration and API documentation.
+
 ## Required inputs
 
 Before starting, gather the following information from the user:
@@ -272,14 +296,9 @@ Create `eth_defi/data/vaults/metadata/{protocol-slug}.yaml`.
 - Include name, slug, short description, long description, fee description, links, and example smart contracts
 - Use `eth_defi/data/vaults/README.md` as the schema reference
 - Include `trading_strategy` and `integration_documentation` links even if the Trading Strategy listing is not live yet
-- Write descriptions for a general audience. Explain what the product offers,
-  who can use it, material eligibility or liquidity constraints, and how fees
-  affect holders in plain language.
-- Do not include library implementation, smart-contract interface, or data-pipeline
-  details. In particular, avoid standards and function names such as ERC-4626,
-  `gem()`, `navprice()`, and WAD scaling, as well as adapter, scanner, and TVL
-  calculation internals. Put those details in the technical integration and API
-  documentation instead.
+- Apply the website-description standard above. In particular, include body
+  links for material product, fee, stablecoin, backer or public-figure claims;
+  do not leave the evidence only in the `links` mapping.
 
 Validate that the metadata can be parsed:
 

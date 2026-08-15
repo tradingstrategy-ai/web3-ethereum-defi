@@ -42,6 +42,32 @@ example `China Asset Management`, not `China Asset Management (Hong Kong)`.
 - Create separate curator records only for genuinely separate, independently
   branded organisations, not geographic variants of one brand.
 
+## Website descriptions
+
+The YAML `short_description` and `long_description` fields are public website
+copy for DeFi professionals, not repository notes.
+
+- Use clear, neutral language to explain the curator's organisation, investment
+  remit and the protocols, strategies or stablecoins it oversees when those are
+  publicly verified. State whether the curator is independent or protocol
+  operated when that affects how users assess responsibility.
+- Do not imply custody, discretionary control, affiliation, endorsement or a
+  performance record unless an authoritative source supports it. If no separate
+  curator is disclosed, say so plainly rather than inferring one from contract
+  data.
+- Add inline Markdown links in the body: link the official website on first
+  mention, and link the announcement, documentation or terms that support a
+  material relationship or claim. A URL in a separate YAML field is not a
+  replacement for the in-text source.
+- Mention a public founder, executive or well-known backer only when a primary
+  source confirms the connection and it materially helps readers understand the
+  organisation. Link the supporting announcement or biography; never infer an
+  investor from an aggregator database or use the name as an endorsement.
+- Exclude project-specific logic and technical internals, including classifier
+  decisions, scanner or adapter behaviour, ABI names, contract accessors and
+  implementation details. Put those in code comments or technical
+  documentation instead.
+
 ## Step 1: Check existing coverage
 
 Run the existing curator inventory and search for nearby entries:
@@ -76,12 +102,12 @@ Use official sources when possible:
 
 Add descriptions from primary sources:
 
-- `short_description`: one concise sentence.  Prefer the Twitter/X or
-  LinkedIn bio when available; otherwise use the official homepage
-  tagline.  Describe the organisation, not a single vault or token.
-- `long_description`: two to four Markdown-safe sentences summarising
-  the official homepage, docs, or product overview.  Avoid hype,
-  rankings, unverifiable performance claims, and investment advice.
+- `short_description`: one concise, audience-facing sentence. Prefer the
+  Twitter/X or LinkedIn bio when available; otherwise use the official homepage
+  tagline. Describe the organisation, not a single vault or token.
+- `long_description`: two to four Markdown-safe sentences or short paragraphs
+  following the website-description standard above. Avoid hype, rankings,
+  unverifiable performance claims and investment advice.
 - For alias curators, describe the curator organisation represented by
   the alias.  Do not blindly inherit a product-only description from
   the canonical feeder when it would misrepresent the alias.

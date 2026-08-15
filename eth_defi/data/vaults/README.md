@@ -48,3 +48,22 @@ example_smart_contracts:
 ```
 
 If any of the information missing the corresponding field is present, but left empty.
+
+## Writing website descriptions
+
+The `short_description`, `long_description` and `fee_description` fields are
+public website copy for DeFi professionals. Explain the product, issuer or
+curator in clear, neutral language; describe material stablecoin, redemption,
+liquidity, eligibility and fee considerations where they are relevant.
+
+Use inline Markdown links in the body for the official homepage and the primary
+source behind important claims. Link launch announcements, product terms and
+fee disclosures when they support the description; links in the `links` block
+are not a substitute for those citations. Name a public founder, executive or
+backer only when an authoritative source confirms the relationship and it gives
+useful context.
+
+Do not put repository-specific logic, implementation details, contract method
+names, ABI terminology, scanner behaviour or unsupported inferences in these
+fields. Keep technical integration detail in the API or integration
+documentation instead.

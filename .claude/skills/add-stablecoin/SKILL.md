@@ -119,6 +119,30 @@ Gather or infer before editing:
 If the symbol came from a vault denomination (e.g. via the Royco diagnosis),
 note its chain and address as evidence.
 
+## Website descriptions
+
+The metadata YAML `short_description` and `long_description` fields are public
+website copy for DeFi professionals, not a record of repository implementation
+work.
+
+- Explain the token's price reference, issuer, redemption route and reserve or
+  yield design in clear, neutral language. For a wrapped or yield-bearing token,
+  distinguish it from the parent stablecoin and state the underlying only when
+  verified.
+- Cover material liquidity, redemption, eligibility, counterparty and yield
+  considerations without turning the description into investment advice. Do not
+  suggest that a peg, redemption claim or past yield is guaranteed.
+- Add inline Markdown links in the body for the issuer on first mention and
+  for the official announcement, transparency report, terms or reserve
+  disclosure supporting a material claim. The `links` mapping is navigation,
+  not a substitute for in-text evidence.
+- Include a well-known founder, executive or backer only when a primary source
+  confirms that relationship and it adds material context. Link the source and
+  never infer backing from an aggregator or use it as an endorsement.
+- Exclude classification sets, filtering logic, scanner behaviour, ABI or
+  contract-accessor details, and other project-specific internals. Keep them in
+  code comments or technical documentation instead.
+
 ## Slug convention
 
 The **slug** is the lowercased symbol with non-alphanumeric characters replaced
@@ -237,9 +261,11 @@ name: { Full human-readable name }
 slug: { slug } # matches filename stem and feeder-id
 category: yield_bearing # stablecoin | yield_bearing | wrapped — MUST match the set chosen in Step 3
 short_description: |
-  {One to three sentences. Describe the token and its peg/yield mechanism.}
+  {One to three audience-facing sentences. Describe the token and its
+  peg/yield mechanism without implementation detail.}
 long_description: |
-  {Multi-paragraph Markdown with inline links to the issuer. Empty string if not yet written.}
+  {Multi-paragraph Markdown with inline primary-source links, following the
+  website-description standard. Empty string if not yet written.}
 links:
   homepage: https://example.org/
   coingecko: "" # empty string if not listed
@@ -295,7 +321,8 @@ Field rules learned from real runs:
 Use an `entries:` file (top level holds only `symbol`/`slug`/`category`) only
 when several unrelated projects share the same ticker — see the module docstring
 in `stablecoin_metadata.py` for that shape. Write descriptions from primary
-sources only; if evidence is too weak, stop and ask rather than invent.
+sources only and follow the website-description standard; if evidence is too
+weak, stop and ask rather than invent.
 
 ## Step 6: Logos (layer 4 — optional)
 

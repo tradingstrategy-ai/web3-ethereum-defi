@@ -1,31 +1,45 @@
 name: Arcus
 slug: arcus
 short_description: |
-  Exchange application on Robinhood Chain with Stock Token and perpetual-futures markets.
+  Self-custodial trading venue on Robinhood Chain for Stock Tokens and perpetual futures.
 long_description: |
-  Arcus publishes Stock Token and perpetual-futures markets on Robinhood Chain
-  across equities, crypto, commodities and indices.
+  [Arcus](https://arcus.xyz/) is a self-custodial exchange on Robinhood Chain
+  for trading Stock Tokens, cryptoassets and perpetual futures around the clock.
+  Its [July 2026 launch announcement](https://arcus.xyz/blog/arcus-x-robinhood-trade-stocks-perpetuals-24-7)
+  introduced spot trading with 95 Stock Token markets and no Arcus fee on spot
+  trades.
 
-  This integration recognises a reviewed Arcus pToken wrapper family on
-  Robinhood Chain. The reviewed BTC (3x Long) and HOOD (3x Long) contracts use
-  USDG as their asset. Their BeaconProxy implementation is not source-verified,
-  so the reader provides generic read-only ERC-4626 data only and does not
-  certify transaction flows.
+  Stock Tokens provide economic exposure to their referenced equity or exchange-
+  traded product, rather than direct ownership. The pToken strategies listed
+  here are denominated in [USDG](https://globaldollar.com/about-usdg), a dollar
+  stablecoin that Global Dollar says can be redeemed one-to-one with Paxos.
+  Liquidity, redemption access, price tracking and eligibility can vary by
+  product, market conditions and jurisdiction.
+
+  Arcus is developed by the team behind dYdX and led by founder and chief
+  executive [Eddie Zhang](https://arcus.xyz/blog/arcus-x-robinhood-trade-stocks-perpetuals-24-7).
+  [Robinhood Crypto invested in Arcus](https://arcus.xyz/blog/arcus-x-robinhood-trade-stocks-perpetuals-24-7)
+  as part of the Robinhood Chain partnership. Review the current
+  [Arcus terms](https://arcus.xyz/legal/terms) and product information before
+  trading.
 fee_description: |
-  No pToken-specific management or performance fee schedule has been verified
-  for the reviewed products. This integration reports those fields as
-  unavailable rather than inferring that the products are fee-free. Users
-  should review current product terms before interacting with a pToken.
+  Arcus says it does not charge a fee on Stock Token spot trades. That statement
+  does not establish the costs of holding, trading or redeeming every Arcus
+  product: spreads, funding, conversion, withdrawal or redemption costs may
+  still apply. Arcus has not published a separate pToken management or
+  performance fee schedule; check current quotes, product terms and the
+  [launch announcement](https://arcus.xyz/blog/arcus-x-robinhood-trade-stocks-perpetuals-24-7)
+  before trading.
 links:
   homepage: https://arcus.xyz/
   app: https://app.arcus.xyz/
   twitter: https://x.com/arcus_xyz
   github: ''
   documentation: https://docs.arcus.xyz/
-  fact_sheet: ''
+  fact_sheet: https://arcus.xyz/blog/arcus-x-robinhood-trade-stocks-perpetuals-24-7
   defillama: ''
   audits: ''
-  fees: ''
+  fees: https://arcus.xyz/blog/arcus-x-robinhood-trade-stocks-perpetuals-24-7
   trading_strategy: https://tradingstrategy.ai/trading-view/vaults/protocols/arcus
   integration_documentation: https://web3-ethereum-defi.readthedocs.io/vaults/arcus/index.html
 example_smart_contracts:
