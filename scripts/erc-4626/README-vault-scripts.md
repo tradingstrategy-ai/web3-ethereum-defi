@@ -831,6 +831,40 @@ defaults to dry-run mode and creates a non-overwriting
 `*.bak-lagoon-fee-mode` backup before writing. Run `export-data-files.py`
 afterwards to publish regenerated fee-adjusted metrics.
 
+### migrate-arcus-vault-metadata.py
+
+Reclassify the two reviewed Arcus BTC and HOOD pTokens on Robinhood Chain after
+the Arcus detector was added to an already-progressed incremental scanner. The
+script rebuilds only their metadata rows, retaining the discovery event counts
+and first-seen blocks that already exist in the metadata database. It does not
+modify reader-state or raw/cleaned price parquet files.
+
+Inspect the proposed changes first:
+
+```shell
+source .local-test.env && \
+DRY_RUN=true \
+poetry run python scripts/erc-4626/migrate-arcus-vault-metadata.py
+```
+
+Then write the metadata repair and regenerate a local vault JSON for review:
+
+```shell
+source .local-test.env && \
+DRY_RUN=false \
+poetry run python scripts/erc-4626/migrate-arcus-vault-metadata.py
+
+OUTPUT_JSON=/tmp/top-vaults-by-chain.json \
+VAULT_EXPORT_STATE_PATH=/tmp/vault-export-state.json \
+poetry run python scripts/erc-4626/vault-analysis-json.py
+```
+
+`JSON_RPC_ROBINHOOD` is required to confirm that both pTokens still classify as
+Arcus. Set `VAULT_DB_PATH` to operate on a downloaded or test metadata pickle.
+The script defaults to dry-run mode and writes a non-overwriting
+`*.bak-arcus-metadata` backup before it changes the metadata database. The
+production scanner's normal post-processing cycle uploads the regenerated JSON.
+
 ### clean-prices.py
 
 Clean raw scanned vault data. Reads `vault-prices-1h.parquet` and generates `cleaned-vault-prices-1h.parquet`.
