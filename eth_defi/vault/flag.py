@@ -697,6 +697,8 @@ VAULT_FLAGS_AND_NOTES: dict[str, tuple[VaultFlag | None, str]] = {
     "0x87caed1e19da46098e710b69cae33e74c146bacd": (VaultFlag.illiquid, PEAPODS_ILLIQUID),
     # Curve Boosted crvUSD-fxSAVE Lender (Yearn on Ethereum)
     "0x5103d3ee6d599984609daaadd3a439152cc0c392": (VaultFlag.subvault, SUBVAULT),
+    # Convex crvUSD-fxSAVE Lender (Yearn on Ethereum)
+    "0x6c7150b9eb23ee563b28905791ad5b6c9cb6b21a": (VaultFlag.subvault, SUBVAULT),
     # Grvt Liquidity Provider (GLP)
     "vlt:34dtzyg6lhkgm49je5aabi9tebw": (None, GRVT_GLP_DEPOSIT_LIMITS),
     # Lighter Liquidity Provider (LLP) — requires LIT token staking for deposits
