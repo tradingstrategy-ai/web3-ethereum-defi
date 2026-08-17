@@ -21,6 +21,7 @@ from eth_defi.vault.base import VaultSpec, WithdrawalPeriod
 from eth_defi.vault.flag import VaultFlag
 from eth_defi.vault.price_source import PriceSource
 from eth_defi.vault.risk import VaultTechnicalRisk
+from eth_defi.vault.strategy_tag import StrategyTag
 
 logger = logging.getLogger(__name__)
 
@@ -96,6 +97,10 @@ class VaultRow(TypedDict):
     features: set[ERC4626Feature]
 
     _flags: set[VaultFlag]
+
+    #: Maintained investment strategy classifications, or ``None`` where the
+    #: vault's strategy information is missing.
+    _strategy_tags: NotRequired[set[StrategyTag] | None]
 
     #: Override the risk level for this vault.
     #:

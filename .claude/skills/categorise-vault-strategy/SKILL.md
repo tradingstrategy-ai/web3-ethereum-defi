@@ -1,6 +1,6 @@
 ---
 name: categorise-vault-strategy
-description: Categorise a DeFi vault's investment strategy from its address, link, name, and published strategy context. Use when adding or reviewing StrategyTag classifications, including maintaining a vault protocol's tags.py mapping and its vault adapter's get_strategy_tags() implementation.
+description: Categorise a DeFi vault's investment strategy from its address, link, name, and published strategy context. Use when adding or reviewing StrategyTag classifications for VaultBase adapters or native perpetual DEX vault exports, including their maintained tags.py mappings.
 ---
 
 # Categorise vault strategy
@@ -15,10 +15,15 @@ address-to-tag mapping next to its vault protocol adapter.
    - Resolve the chain and lowercase contract address from the supplied link,
      address, or name. Do not classify a same-address deployment on a different
      chain without confirming it is the same product.
-   - Locate `eth_defi/erc_4626/vault_protocol/{slug}/vault.py` and read its
+   - For an ERC-4626 adapter, locate
+     `eth_defi/erc_4626/vault_protocol/{slug}/vault.py` and read its
      description, `short_description`, nearby address overlays, and protocol
      metadata. Use the vault's official documentation or announcement to
      corroborate material claims.
+   - Treat Hyperliquid, GRVT, Hibachi, and Lighter as native perpetual DEX
+     integrations, not `VaultBase` adapters. Their vaults are materialised by
+     `eth_defi/{slug}/vault_data_export.py` with either an address, a platform
+     vault ID, or a synthetic address.
 
 2. Select tags from `eth_defi.vault.strategy_tag.StrategyTag`.
 
@@ -34,7 +39,11 @@ address-to-tag mapping next to its vault protocol adapter.
      researched classification explicitly establishes that the strategy is
      unknown.
 
-3. Create or update `eth_defi/erc_4626/vault_protocol/{slug}/tags.py`.
+3. Create or update the protocol tag mapping.
+
+   For a `VaultBase` adapter, use
+   `eth_defi/erc_4626/vault_protocol/{slug}/tags.py` with lowercase
+   `HexAddress` keys:
 
    ```python
    """Maintained strategy classifications for {Protocol} vaults."""
@@ -51,7 +60,16 @@ address-to-tag mapping next to its vault protocol adapter.
    Keep addresses lowercase and scope every entry to an individual vault. Add
    an explanatory Sphinx comment when a tag needs non-obvious context.
 
-4. Ensure the corresponding vault class reads the mapping.
+   For a native perpetual DEX, use `eth_defi/{slug}/tags.py` with string keys,
+   because GRVT vault IDs and Hibachi/Lighter synthetic addresses are not EVM
+   addresses. Its resolver must return a new set combining the maintained
+   address-specific tags with `StrategyTag.perpetual_futures`; do not omit this
+   default for any Hyperliquid, GRVT, Hibachi, or Lighter vault.
+
+4. Wire the classification into the correct data path.
+
+   For a `VaultBase` adapter, ensure the corresponding vault class reads the
+   mapping:
 
    ```python
    from eth_defi.erc_4626.vault_protocol.{slug}.tags import STRATEGY_TAGS
@@ -66,6 +84,13 @@ address-to-tag mapping next to its vault protocol adapter.
    Return a copy so callers cannot mutate the maintained mapping. Preserve
    `None` for an address with no mapping entry.
 
-5. Add or update a focused no-RPC test that checks the known address returns
-   the exact tag set and an unmapped address returns `None`. Format modified
-   Python files and run the focused test.
+   For a native perpetual DEX, import the resolver in its
+   `vault_data_export.py` module and save its return value in the synthetic
+   `VaultRow` as `_strategy_tags`. Do not add a fictional vault class or use
+   `HexAddress` for a non-EVM identifier.
+
+5. Add or update focused no-RPC coverage. For a `VaultBase` adapter, check the
+   known address returns the exact tag set and an unmapped address returns
+   `None`. For a native perpetual DEX, check both the default
+   `perpetual_futures` tag and an address-specific tag added by its mapping.
+   Format modified Python files and run the focused test.
