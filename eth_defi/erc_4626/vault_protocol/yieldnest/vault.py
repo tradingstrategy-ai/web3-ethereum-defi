@@ -11,7 +11,9 @@ from web3.contract import Contract
 from eth_defi.abi import get_deployed_contract
 from eth_defi.compat import native_datetime_utc_now
 from eth_defi.erc_4626.vault import ERC4626Vault
+from eth_defi.erc_4626.vault_protocol.yieldnest.tags import STRATEGY_TAGS
 from eth_defi.vault.deposit_redeem import VaultDepositManagerCapability
+from eth_defi.vault.strategy_tag import StrategyTag
 
 if TYPE_CHECKING:
     from eth_defi.erc_4626.vault_protocol.yieldnest.deposit_redeem import YieldNestDepositManager
@@ -49,6 +51,16 @@ class YieldNestVault(ERC4626Vault):
             fname="yieldnest/Vault.json",
             address=self.vault_address,
         )
+
+    def get_strategy_tags(self) -> set[StrategyTag] | None:
+        """Return the maintained strategy tags for this YieldNest vault.
+
+        :return:
+            Copy of the tag set, or ``None`` when this vault has not yet been
+            classified.
+        """
+        tags = STRATEGY_TAGS.get(HexAddress(str(self.vault_address).lower()))
+        return tags.copy() if tags is not None else None
 
     def get_withdrawal_fee(self, block_identifier: BlockIdentifier) -> float:
         """Get the current withdrawal fee as a percent.

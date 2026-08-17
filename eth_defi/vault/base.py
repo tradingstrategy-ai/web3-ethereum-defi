@@ -36,6 +36,7 @@ from eth_defi.utils import is_good_multichain_address
 from eth_defi.vault.deposit_redeem import VaultDepositManager, VaultDepositManagerCapability
 from eth_defi.vault.lower_case_dict import LowercaseDict
 from eth_defi.vault.price_source import PriceSource
+from eth_defi.vault.strategy_tag import StrategyTag
 from eth_defi.version_info import stamp_parquet_schema_metadata
 
 from .fee import FeeData, VaultFeeMode, get_vault_fee_mode
@@ -1225,6 +1226,20 @@ class VaultBase(ABC):
         - Shorter version of :py:meth:`description` suitable for listings and tables
         - Returns None if not available
         - Override in subclasses that support offchain metadata
+        """
+        return None
+
+    def get_strategy_tags(self) -> set[StrategyTag] | None:
+        """Get the known investment strategy classifications for this vault.
+
+        Override this method when an adapter or its metadata source can
+        determine the vault's strategy. ``None`` means the strategy
+        information is missing or has not yet been classified; it is distinct
+        from an empty set, which would mean the strategy was evaluated but did
+        not match any available tag.
+
+        :return:
+            Strategy tag set, or ``None`` when the information is missing.
         """
         return None
 
