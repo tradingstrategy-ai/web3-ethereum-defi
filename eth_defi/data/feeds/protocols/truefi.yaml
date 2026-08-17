@@ -5,3 +5,5 @@ website: https://truefi.io/
 twitter: TrueFiDAO
 rss: https://truefi.substack.com/feed
 twitter-dead-at: 2026-04-06
+rss-failure-at: 2026-08-17
+rss-failure-exception-message: "HTTPSConnectionPool(host='blog.truefi.io', port=443): Max retries exceeded with url: /feed (Caused by SSLError(SSLEOFError(8, '[SSL: UNEXPECTED_EOF_WHILE_READING] EOF occurred in violation of protocol"
