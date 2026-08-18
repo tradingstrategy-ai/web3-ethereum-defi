@@ -113,6 +113,15 @@ def test_hyperliquid_statistical_arbitrage_vaults_are_tagged() -> None:
     assert hyperliquid_tags.get_strategy_tags("0xdb25411e42659d910136dbe9c0f8330d952b5df8") == expected
 
 
+def test_systemic_strategies_ls_grids_is_directional_grid_trading() -> None:
+    """Systemic Strategies L/S Grids receives its description-backed tags."""
+    assert hyperliquid_tags.get_strategy_tags("0x07fd993f0fa3a185f7207adccd29f7a87404689d") == {
+        StrategyTag.directional_trading,
+        StrategyTag.grid_trading,
+        StrategyTag.perpetual_futures,
+    }
+
+
 def test_hlp_and_fire_liquidity_provider_are_market_makers() -> None:
     """Protocol liquidity pools receive consistent market-making tags."""
     expected = {

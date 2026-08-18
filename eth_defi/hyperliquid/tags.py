@@ -119,6 +119,20 @@ STRATEGY_TAGS: dict[str, set[StrategyTag]] = {
     #: - https://hyperliquid.gitbook.io/hyperliquid-docs/for-developers/api/info-endpoint
     #: - eth_defi/hyperliquid/vault.py
     "0xdb25411e42659d910136dbe9c0f8330d952b5df8": {StrategyTag.statistical_arbitrage},
+    #: Vault: [ Systemic Strategies ] L/S Grids.
+    #: Added: 2026-08-18.
+    #: Decision material: The current vault description says it uses grids to
+    #: go long assets with low inflation or unlocks and short assets with high
+    #: inflation or unlocks. This explicitly supports grid-trading and
+    #: directional long/short classifications.
+    #: Sources:
+    #: - http://100.103.237.120:5182/vaults/systemic-strategies-l-s-grids
+    #: - https://app.hyperliquid.xyz/vaults/0x07fd993f0fa3a185f7207adccd29f7a87404689d
+    #: - https://api.hyperliquid.xyz/info
+    "0x07fd993f0fa3a185f7207adccd29f7a87404689d": {
+        StrategyTag.directional_trading,
+        StrategyTag.grid_trading,
+    },
     #: Vault: Wilkins Capital.
     #: Added: 2026-08-17.
     #: Decision material: The Hyperliquid vault description explicitly says
