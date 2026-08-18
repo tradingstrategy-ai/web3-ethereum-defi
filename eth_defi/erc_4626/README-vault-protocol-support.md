@@ -38,6 +38,14 @@ exports keep theirs under ``eth_defi/{slug}/tags.py``. Aave, Euler and Morpho
 adapters add the generic ``StrategyTag.lending`` tag automatically, while
 their address-level mappings remain additive.
 
+EVM ``STRATEGY_TAGS`` tables use plain lowercase string keys such as
+``"0x1234..."`` rather than ``HexAddress(...)`` constructors. The shared
+lookup helper normalises adapter addresses before reading the mapping. These
+mappings are intentionally address-only: an entry applies to every supported
+deployment at that address, and must be added only after confirming that any
+same-address deployments use the same strategy. Handle a genuine
+chain-specific exception in the protocol adapter's strategy-tag hook.
+
 ## Deposit manager
 
 Implement a protocol-specific ``VaultDepositManager`` when the generic

@@ -1,9 +1,14 @@
-"""Vault investment strategy classifications."""
+"""Vault investment strategy classifications.
+
+Protocol-local ``STRATEGY_TAGS`` tables use plain lowercase ``str`` keys for
+EVM addresses, for example ``"0x1234..."``.  Keeping address literals as
+strings avoids noisy ``HexAddress(...)`` constructors while allowing the same
+mapping convention to be used for native protocol identifiers.  The lookup
+helper normalises adapter-supplied addresses before consulting these tables.
+"""
 
 import enum
 from collections.abc import Collection, Mapping
-
-from eth_typing import HexAddress
 
 
 class StrategyTag(str, enum.Enum):
@@ -144,24 +149,32 @@ class StrategyTag(str, enum.Enum):
 
 
 def lookup_strategy_tags(
-    mapping: Mapping[HexAddress, Collection[StrategyTag]],
-    address: HexAddress,
+    mapping: Mapping[str, Collection[StrategyTag]],
+    address: str,
 ) -> set[StrategyTag] | None:
     """Look up a copy of the maintained tags for one EVM vault address.
 
-    Address keys are normalised to lowercase before lookup. Returning a fresh
-    set prevents scan consumers from mutating the protocol's source mapping;
-    an absent key remains ``None`` so missing information is not confused with
-    a deliberately empty classification.
+    Maintained EVM mapping keys are plain lowercase strings rather than
+    ``HexAddress`` constructor calls. Address inputs are normalised to
+    lowercase before lookup. Returning a fresh set prevents scan consumers
+    from mutating the protocol's source mapping; an absent key remains
+    ``None`` so missing information is not confused with a deliberately empty
+    classification.
+
+    Mappings are intentionally keyed by address without a chain ID. An entry
+    applies to every supported deployment at that address, so maintainers must
+    confirm that same-address deployments use the same strategy before adding
+    one. A genuinely chain-specific classification belongs in the protocol
+    adapter's hook instead of this shared address mapping.
 
     :param mapping:
-        Protocol-local address-to-tag mapping.
+        Protocol-local lowercase string address-to-tag mapping.
     :param address:
         EVM vault address to look up.
     :return:
         A mutable copy of the maintained tags, or ``None`` when no entry exists.
     """
-    tags = mapping.get(HexAddress(str(address).lower()))
+    tags = mapping.get(address.lower())
     return set(tags) if tags is not None else None
 
 

@@ -1,10 +1,8 @@
 """Maintained strategy classifications for Ethena vaults."""
 
-from eth_typing import HexAddress
-
 from eth_defi.vault.strategy_tag import StrategyTag
 
-STRATEGY_TAGS: dict[HexAddress, set[StrategyTag]] = {
+STRATEGY_TAGS: dict[str, set[StrategyTag]] = {
     #: Vault: Staked USDe.
     #: Added: 2026-08-18.
     #: Decision material: Ethena documents automated, programmatic
@@ -18,7 +16,7 @@ STRATEGY_TAGS: dict[HexAddress, set[StrategyTag]] = {
     #: - https://docs.ethena.fi/solution-design/staking-usde
     #: - https://etherscan.io/address/0x9d39a5de30e57443bff2a8307a4256c8797a3497
     #: - eth_defi/erc_4626/vault_protocol/ethena/vault.py
-    HexAddress("0x9d39a5de30e57443bff2a8307a4256c8797a3497"): {
+    "0x9d39a5de30e57443bff2a8307a4256c8797a3497": {
         StrategyTag.algorithmic_trading,
         StrategyTag.carry_trade,
         StrategyTag.delta_neutral,

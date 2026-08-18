@@ -42,29 +42,30 @@ address-to-tag mapping next to its vault protocol adapter.
 3. Create or update the protocol tag mapping.
 
    For a `VaultBase` adapter, use
-   `eth_defi/erc_4626/vault_protocol/{slug}/tags.py` with lowercase
-   `HexAddress` keys:
+   `eth_defi/erc_4626/vault_protocol/{slug}/tags.py` with plain lowercase
+   string keys. Do not wrap table literals in verbose `HexAddress(...)`
+   constructors:
 
    ```python
    """Maintained strategy classifications for {Protocol} vaults."""
 
-   from eth_typing import HexAddress
-
    from eth_defi.vault.strategy_tag import StrategyTag
 
-   STRATEGY_TAGS: dict[HexAddress, set[StrategyTag]] = {
+   STRATEGY_TAGS: dict[str, set[StrategyTag]] = {
        #: Vault: Example RWA lending vault.
        #: Added: 2026-08-17.
        #: Decision material: The issuer describes this product as lending
        #: against real-world assets.
        #: Sources:
        #: - https://issuer.example/vaults/example
-       HexAddress("0x..."): {StrategyTag.rwa, StrategyTag.rwa_lending},
+       "0x...": {StrategyTag.rwa, StrategyTag.rwa_lending},
    }
    ```
 
-   Keep addresses lowercase and scope every entry to an individual vault. Put
-   a Sphinx line-comment block immediately above every address-specific entry.
+   Keep every EVM address key lowercase and scope every entry to an individual
+   vault. `lookup_strategy_tags()` normalises the adapter's `HexAddress`
+   input before looking up the string key. Put a Sphinx line-comment block
+   immediately above every address-specific entry.
    It must include the vault name, the UTC date the tagging entry was added,
    and the decision material used to assign the tags. Include every page URL
    consulted during the decision directly in the comment; cite repository

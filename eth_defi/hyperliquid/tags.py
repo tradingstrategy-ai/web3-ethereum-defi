@@ -39,7 +39,10 @@ STRATEGY_TAGS: dict[str, set[StrategyTag]] = {
     #: Sources:
     #: - https://app.hyperliquid.xyz/vaults/0x1e37a337ed460039d1b15bd3bc489de789768d5e
     #: - https://hyperliquid.gitbook.io/hyperliquid-docs/for-developers/api/info-endpoint
-    "0x1e37a337ed460039d1b15bd3bc489de789768d5e": {StrategyTag.mean_reversion},
+    "0x1e37a337ed460039d1b15bd3bc489de789768d5e": {
+        StrategyTag.algorithmic_trading,
+        StrategyTag.mean_reversion,
+    },
     #: Vault: Gen Wealth Algo.
     #: Added: 2026-08-17.
     #: Decision material: The Hyperliquid vault description explicitly says
@@ -47,7 +50,10 @@ STRATEGY_TAGS: dict[str, set[StrategyTag]] = {
     #: Sources:
     #: - https://app.hyperliquid.xyz/vaults/0xdda7f4805dfdf145a74cd68992d90780f73cf6c7
     #: - https://hyperliquid.gitbook.io/hyperliquid-docs/for-developers/api/info-endpoint
-    "0xdda7f4805dfdf145a74cd68992d90780f73cf6c7": {StrategyTag.trend_following},
+    "0xdda7f4805dfdf145a74cd68992d90780f73cf6c7": {
+        StrategyTag.algorithmic_trading,
+        StrategyTag.trend_following,
+    },
     #: Vault: Opportunistic Fund 1.
     #: Added: 2026-08-17.
     #: Decision material: The Hyperliquid vault description explicitly says
@@ -55,7 +61,10 @@ STRATEGY_TAGS: dict[str, set[StrategyTag]] = {
     #: Sources:
     #: - https://app.hyperliquid.xyz/vaults/0xfb7b73ff7c93f5552541de37454ffa0f8b76462a
     #: - https://hyperliquid.gitbook.io/hyperliquid-docs/for-developers/api/info-endpoint
-    "0xfb7b73ff7c93f5552541de37454ffa0f8b76462a": {StrategyTag.trend_following},
+    "0xfb7b73ff7c93f5552541de37454ffa0f8b76462a": {
+        StrategyTag.discretionary_trading,
+        StrategyTag.trend_following,
+    },
     #: Vault: S&P MA375 Alpha Vault.
     #: Added: 2026-08-17.
     #: Decision material: The Hyperliquid vault description explicitly says
@@ -63,7 +72,10 @@ STRATEGY_TAGS: dict[str, set[StrategyTag]] = {
     #: Sources:
     #: - https://app.hyperliquid.xyz/vaults/0x1b03878805333a0e13d7eea4abdfa2d97977c448
     #: - https://hyperliquid.gitbook.io/hyperliquid-docs/for-developers/api/info-endpoint
-    "0x1b03878805333a0e13d7eea4abdfa2d97977c448": {StrategyTag.trend_following},
+    "0x1b03878805333a0e13d7eea4abdfa2d97977c448": {
+        StrategyTag.algorithmic_trading,
+        StrategyTag.trend_following,
+    },
     #: Vault: Super Trend Following.
     #: Added: 2026-08-17.
     #: Decision material: The Hyperliquid vault description explicitly says
@@ -79,7 +91,10 @@ STRATEGY_TAGS: dict[str, set[StrategyTag]] = {
     #: Sources:
     #: - https://app.hyperliquid.xyz/vaults/0x15a141990fc6591838646467273c41c92999772f
     #: - https://hyperliquid.gitbook.io/hyperliquid-docs/for-developers/api/info-endpoint
-    "0x15a141990fc6591838646467273c41c92999772f": {StrategyTag.trend_following},
+    "0x15a141990fc6591838646467273c41c92999772f": {
+        StrategyTag.algorithmic_trading,
+        StrategyTag.trend_following,
+    },
     #: Vault: SOL/BTC Neutral.
     #: Added: 2026-08-18.
     #: Decision material: The current Hyperliquid description calls this a
@@ -111,7 +126,10 @@ STRATEGY_TAGS: dict[str, set[StrategyTag]] = {
     #: Sources:
     #: - https://app.hyperliquid.xyz/vaults/0x5048900eb10b569e77f515efe85f8da5cfd5fb3a
     #: - https://hyperliquid.gitbook.io/hyperliquid-docs/for-developers/api/info-endpoint
-    "0x5048900eb10b569e77f515efe85f8da5cfd5fb3a": {StrategyTag.trend_following},
+    "0x5048900eb10b569e77f515efe85f8da5cfd5fb3a": {
+        StrategyTag.algorithmic_trading,
+        StrategyTag.trend_following,
+    },
 }
 
 

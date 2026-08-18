@@ -1,10 +1,8 @@
 """Maintained strategy classifications for Centrifuge vaults."""
 
-from eth_typing import HexAddress
-
 from eth_defi.vault.strategy_tag import StrategyTag
 
-STRATEGY_TAGS: dict[HexAddress, set[StrategyTag]] = {
+STRATEGY_TAGS: dict[str, set[StrategyTag]] = {
     #: Vault: Janus Henderson Anemoy S&P500® Fund (SPXA) on Base.
     #: Added: 2026-08-18.
     #: Decision material: Trading Strategy describes this as a tokenised
@@ -20,7 +18,7 @@ STRATEGY_TAGS: dict[HexAddress, set[StrategyTag]] = {
     #: - https://docs.centrifuge.io/
     #: - https://basescan.org/address/0x99e9092bae6d4394e54034ecb1e45441678323b9
     #: - eth_defi/erc_4626/vault_protocol/centrifuge/vault.py
-    HexAddress("0x99e9092bae6d4394e54034ecb1e45441678323b9"): {
+    "0x99e9092bae6d4394e54034ecb1e45441678323b9": {
         StrategyTag.index,
         StrategyTag.rwa,
     },

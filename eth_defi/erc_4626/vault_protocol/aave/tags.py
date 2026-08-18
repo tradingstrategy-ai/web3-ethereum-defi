@@ -8,7 +8,7 @@ from eth_defi.vault.strategy_tag import StrategyTag, lookup_strategy_tags
 DEFAULT_STRATEGY_TAGS: frozenset[StrategyTag] = frozenset({StrategyTag.lending})
 
 #: Address-specific classifications maintained by the vault categorisation skill.
-STRATEGY_TAGS: dict[HexAddress, set[StrategyTag]] = {}
+STRATEGY_TAGS: dict[str, set[StrategyTag]] = {}
 
 
 def get_strategy_tags(address: HexAddress) -> set[StrategyTag]:

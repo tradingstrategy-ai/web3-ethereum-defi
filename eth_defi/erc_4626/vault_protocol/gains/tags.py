@@ -1,7 +1,5 @@
 """Maintained strategy classifications for Gains Network gTrade vaults."""
 
-from eth_typing import HexAddress
-
 from eth_defi.vault.strategy_tag import StrategyTag
 
 _GTRADE_TAGS: set[StrategyTag] = {
@@ -14,7 +12,7 @@ _GTRADE_TAGS: set[StrategyTag] = {
 }
 
 
-STRATEGY_TAGS: dict[HexAddress, set[StrategyTag]] = {
+STRATEGY_TAGS: dict[str, set[StrategyTag]] = {
     #: Vault: gTrade (Gains Network USDC) on Base.
     #: Added: 2026-08-18.
     #: Decision material: The database identifies this as a Gains Network
@@ -29,7 +27,7 @@ STRATEGY_TAGS: dict[HexAddress, set[StrategyTag]] = {
     #: - https://docs.gains.trade/liquidity-farming-pools/gtoken-vaults
     #: - https://docs.gains.trade/gtrade-leveraged-trading/overview
     #: - eth_defi/erc_4626/vault_protocol/gains/vault.py
-    HexAddress("0xad20523a7dc37babc1cc74897e4977232b3d02e5"): _GTRADE_TAGS.copy(),
+    "0xad20523a7dc37babc1cc74897e4977232b3d02e5": _GTRADE_TAGS.copy(),
     #: Vault: gTrade (Gains Network BTCUSD) on Base.
     #: Added: 2026-08-18.
     #: Decision material: The database identifies this as a Gains Network
@@ -43,7 +41,7 @@ STRATEGY_TAGS: dict[HexAddress, set[StrategyTag]] = {
     #: - https://docs.gains.trade/liquidity-farming-pools/gtoken-vaults
     #: - https://docs.gains.trade/gtrade-leveraged-trading/overview
     #: - eth_defi/erc_4626/vault_protocol/gains/vault.py
-    HexAddress("0xb7cb7cb7c3cd96e251c9bf8800b9631134bbadc6"): _GTRADE_TAGS.copy(),
+    "0xb7cb7cb7c3cd96e251c9bf8800b9631134bbadc6": _GTRADE_TAGS.copy(),
     #: Vault: gTrade (xVault) on HyperEVM.
     #: Added: 2026-08-18.
     #: Decision material: The database identifies this as a Gains Network
@@ -58,7 +56,7 @@ STRATEGY_TAGS: dict[HexAddress, set[StrategyTag]] = {
     #: - https://docs.gains.trade/liquidity-farming-pools/gtoken-vaults
     #: - https://docs.gains.trade/gtrade-leveraged-trading/overview
     #: - eth_defi/erc_4626/vault_protocol/gains/vault.py
-    HexAddress("0x31297b564fb8ec52a7d84cc2dee437e0992ef2b8"): _GTRADE_TAGS.copy(),
+    "0x31297b564fb8ec52a7d84cc2dee437e0992ef2b8": _GTRADE_TAGS.copy(),
     #: Vault: gTrade (Gains Network DAI) on Polygon.
     #: Added: 2026-08-18.
     #: Decision material: The database identifies this as a Gains Network
@@ -73,7 +71,7 @@ STRATEGY_TAGS: dict[HexAddress, set[StrategyTag]] = {
     #: - https://docs.gains.trade/liquidity-farming-pools/gtoken-vaults
     #: - https://docs.gains.trade/gtrade-leveraged-trading/overview
     #: - eth_defi/erc_4626/vault_protocol/gains/vault.py
-    HexAddress("0x91993f2101cc758d0deb7279d41e880f7defe827"): _GTRADE_TAGS.copy(),
+    "0x91993f2101cc758d0deb7279d41e880f7defe827": _GTRADE_TAGS.copy(),
     #: Vault: gTrade (Gains Network ETH) on Polygon.
     #: Added: 2026-08-18.
     #: Decision material: The database identifies this as a Gains Network
@@ -88,7 +86,7 @@ STRATEGY_TAGS: dict[HexAddress, set[StrategyTag]] = {
     #: - https://docs.gains.trade/liquidity-farming-pools/gtoken-vaults
     #: - https://docs.gains.trade/gtrade-leveraged-trading/overview
     #: - eth_defi/erc_4626/vault_protocol/gains/vault.py
-    HexAddress("0x1544e1ff1a6f6bdbfb901622c12bb352a43464fb"): _GTRADE_TAGS.copy(),
+    "0x1544e1ff1a6f6bdbfb901622c12bb352a43464fb": _GTRADE_TAGS.copy(),
     #: Vault: gTrade (Gains Network USDC) on Polygon.
     #: Added: 2026-08-18.
     #: Decision material: The database identifies this as a Gains Network
@@ -103,7 +101,7 @@ STRATEGY_TAGS: dict[HexAddress, set[StrategyTag]] = {
     #: - https://docs.gains.trade/liquidity-farming-pools/gtoken-vaults
     #: - https://docs.gains.trade/gtrade-leveraged-trading/overview
     #: - eth_defi/erc_4626/vault_protocol/gains/vault.py
-    HexAddress("0x29019fe2e72e8d4d2118e8d0318bef389ffe2c81"): _GTRADE_TAGS.copy(),
+    "0x29019fe2e72e8d4d2118e8d0318bef389ffe2c81": _GTRADE_TAGS.copy(),
     #: Vault: gTrade (hsHONEY) on Berachain.
     #: Added: 2026-08-18.
     #: Decision material: The database identifies this as a Gains Network
@@ -118,7 +116,7 @@ STRATEGY_TAGS: dict[HexAddress, set[StrategyTag]] = {
     #: - https://docs.gains.trade/liquidity-farming-pools/gtoken-vaults
     #: - https://docs.gains.trade/gtrade-leveraged-trading/overview
     #: - eth_defi/erc_4626/vault_protocol/gains/vault.py
-    HexAddress("0x6a6e4ad4a5ca14b940cd6949b1a90f947ae21c19"): _GTRADE_TAGS.copy(),
+    "0x6a6e4ad4a5ca14b940cd6949b1a90f947ae21c19": _GTRADE_TAGS.copy(),
     #: Vault: gTrade (hsHONEY) on Berachain.
     #: Added: 2026-08-18.
     #: Decision material: The database identifies this as a Gains Network
@@ -133,7 +131,7 @@ STRATEGY_TAGS: dict[HexAddress, set[StrategyTag]] = {
     #: - https://docs.gains.trade/liquidity-farming-pools/gtoken-vaults
     #: - https://docs.gains.trade/gtrade-leveraged-trading/overview
     #: - eth_defi/erc_4626/vault_protocol/gains/vault.py
-    HexAddress("0xdd560bc2c98bc3fa39fcafe256249707f9b83b3c"): _GTRADE_TAGS.copy(),
+    "0xdd560bc2c98bc3fa39fcafe256249707f9b83b3c": _GTRADE_TAGS.copy(),
     #: Vault: gTrade (gDAI) on Arbitrum.
     #: Added: 2026-08-18.
     #: Decision material: The database identifies this as a Gains Network
@@ -148,7 +146,7 @@ STRATEGY_TAGS: dict[HexAddress, set[StrategyTag]] = {
     #: - https://docs.gains.trade/liquidity-farming-pools/gtoken-vaults
     #: - https://docs.gains.trade/gtrade-leveraged-trading/overview
     #: - eth_defi/erc_4626/vault_protocol/gains/vault.py
-    HexAddress("0xfe3e29b3328026003a15bf0846846b03af86b537"): _GTRADE_TAGS.copy(),
+    "0xfe3e29b3328026003a15bf0846846b03af86b537": _GTRADE_TAGS.copy(),
     #: Vault: gTrade (Gains Network DAI) on Arbitrum.
     #: Added: 2026-08-18.
     #: Decision material: The database identifies this as a Gains Network
@@ -163,7 +161,7 @@ STRATEGY_TAGS: dict[HexAddress, set[StrategyTag]] = {
     #: - https://docs.gains.trade/liquidity-farming-pools/gtoken-vaults
     #: - https://docs.gains.trade/gtrade-leveraged-trading/overview
     #: - eth_defi/erc_4626/vault_protocol/gains/vault.py
-    HexAddress("0xd85e038593d7a098614721eae955ec2022b9b91b"): _GTRADE_TAGS.copy(),
+    "0xd85e038593d7a098614721eae955ec2022b9b91b": _GTRADE_TAGS.copy(),
     #: Vault: gTrade (Gains Network DAI) on Arbitrum.
     #: Added: 2026-08-18.
     #: Decision material: The database identifies this as a Gains Network
@@ -178,7 +176,7 @@ STRATEGY_TAGS: dict[HexAddress, set[StrategyTag]] = {
     #: - https://docs.gains.trade/liquidity-farming-pools/gtoken-vaults
     #: - https://docs.gains.trade/gtrade-leveraged-trading/overview
     #: - eth_defi/erc_4626/vault_protocol/gains/vault.py
-    HexAddress("0xf40808f50b8d858f3ac6d10c441bb61da4564d53"): _GTRADE_TAGS.copy(),
+    "0xf40808f50b8d858f3ac6d10c441bb61da4564d53": _GTRADE_TAGS.copy(),
     #: Vault: gTrade (mUSDC) on Arbitrum.
     #: Added: 2026-08-18.
     #: Decision material: The database identifies this as a Gains Network
@@ -193,7 +191,7 @@ STRATEGY_TAGS: dict[HexAddress, set[StrategyTag]] = {
     #: - https://docs.gains.trade/liquidity-farming-pools/gtoken-vaults
     #: - https://docs.gains.trade/gtrade-leveraged-trading/overview
     #: - eth_defi/erc_4626/vault_protocol/gains/vault.py
-    HexAddress("0x992eb7040b66b13abea94e2621d4e61d5ce608bd"): _GTRADE_TAGS.copy(),
+    "0x992eb7040b66b13abea94e2621d4e61d5ce608bd": _GTRADE_TAGS.copy(),
     #: Vault: gTrade (Gains Network ETH) on Arbitrum.
     #: Added: 2026-08-18.
     #: Decision material: The database identifies this as a Gains Network
@@ -208,7 +206,7 @@ STRATEGY_TAGS: dict[HexAddress, set[StrategyTag]] = {
     #: - https://docs.gains.trade/liquidity-farming-pools/gtoken-vaults
     #: - https://docs.gains.trade/gtrade-leveraged-trading/overview
     #: - eth_defi/erc_4626/vault_protocol/gains/vault.py
-    HexAddress("0x5977a9682d7af81d347cfc338c61692163a2784c"): _GTRADE_TAGS.copy(),
+    "0x5977a9682d7af81d347cfc338c61692163a2784c": _GTRADE_TAGS.copy(),
     #: Vault: gTrade (Gains Network USDC) on Arbitrum.
     #: Added: 2026-08-18.
     #: Decision material: The database identifies this as a Gains Network
@@ -223,7 +221,7 @@ STRATEGY_TAGS: dict[HexAddress, set[StrategyTag]] = {
     #: - https://docs.gains.trade/liquidity-farming-pools/gtoken-vaults
     #: - https://docs.gains.trade/gtrade-leveraged-trading/overview
     #: - eth_defi/erc_4626/vault_protocol/gains/vault.py
-    HexAddress("0xd3443ee1e91af28e5fb858fbd0d72a63ba8046e0"): _GTRADE_TAGS.copy(),
+    "0xd3443ee1e91af28e5fb858fbd0d72a63ba8046e0": _GTRADE_TAGS.copy(),
     #: Vault: gTrade (Vault Staked GNS) on Arbitrum.
     #: Added: 2026-08-18.
     #: Decision material: The database identifies this as a Gains Network
@@ -238,7 +236,7 @@ STRATEGY_TAGS: dict[HexAddress, set[StrategyTag]] = {
     #: - https://docs.gains.trade/liquidity-farming-pools/gtoken-vaults
     #: - https://docs.gains.trade/gtrade-leveraged-trading/overview
     #: - eth_defi/erc_4626/vault_protocol/gains/vault.py
-    HexAddress("0x4beef1113f968326905224d2ca272f3032a9a9f4"): _GTRADE_TAGS.copy(),
+    "0x4beef1113f968326905224d2ca272f3032a9a9f4": _GTRADE_TAGS.copy(),
     #: Vault: gTrade (X-Cloud USD) on BNB Chain.
     #: Added: 2026-08-18.
     #: Decision material: The database identifies this as a Gains Network
@@ -253,7 +251,7 @@ STRATEGY_TAGS: dict[HexAddress, set[StrategyTag]] = {
     #: - https://docs.gains.trade/liquidity-farming-pools/gtoken-vaults
     #: - https://docs.gains.trade/gtrade-leveraged-trading/overview
     #: - eth_defi/erc_4626/vault_protocol/gains/vault.py
-    HexAddress("0xd796a9e7e30bfc1b1a9380f501430f681c31eb78"): _GTRADE_TAGS.copy(),
+    "0xd796a9e7e30bfc1b1a9380f501430f681c31eb78": _GTRADE_TAGS.copy(),
     #: Vault: gTrade (X-Solaris USD) on BNB Chain.
     #: Added: 2026-08-18.
     #: Decision material: The database identifies this as a Gains Network
@@ -268,7 +266,7 @@ STRATEGY_TAGS: dict[HexAddress, set[StrategyTag]] = {
     #: - https://docs.gains.trade/liquidity-farming-pools/gtoken-vaults
     #: - https://docs.gains.trade/gtrade-leveraged-trading/overview
     #: - eth_defi/erc_4626/vault_protocol/gains/vault.py
-    HexAddress("0xfb34af2138280e13b0759fd322fe63fccc7508a6"): _GTRADE_TAGS.copy(),
+    "0xfb34af2138280e13b0759fd322fe63fccc7508a6": _GTRADE_TAGS.copy(),
     #: Vault: gTrade (hsUSDT) on BNB Chain.
     #: Added: 2026-08-18.
     #: Decision material: The database identifies this as a Gains Network
@@ -283,7 +281,7 @@ STRATEGY_TAGS: dict[HexAddress, set[StrategyTag]] = {
     #: - https://docs.gains.trade/liquidity-farming-pools/gtoken-vaults
     #: - https://docs.gains.trade/gtrade-leveraged-trading/overview
     #: - eth_defi/erc_4626/vault_protocol/gains/vault.py
-    HexAddress("0x28e1afcd2d91a7f0ea49e81192599fbe1e700169"): _GTRADE_TAGS.copy(),
+    "0x28e1afcd2d91a7f0ea49e81192599fbe1e700169": _GTRADE_TAGS.copy(),
     #: Vault: gTrade (Staked ARA Vault) on Base.
     #: Added: 2026-08-18.
     #: Decision material: The database identifies this as a Gains Network
@@ -298,7 +296,7 @@ STRATEGY_TAGS: dict[HexAddress, set[StrategyTag]] = {
     #: - https://docs.gains.trade/liquidity-farming-pools/gtoken-vaults
     #: - https://docs.gains.trade/gtrade-leveraged-trading/overview
     #: - eth_defi/erc_4626/vault_protocol/gains/vault.py
-    HexAddress("0xd78bd3aef2e8aa7820fea8ffb33eddc4f13fa933"): _GTRADE_TAGS.copy(),
+    "0xd78bd3aef2e8aa7820fea8ffb33eddc4f13fa933": _GTRADE_TAGS.copy(),
     #: Vault: gTrade (hsUSD1) on BNB Chain.
     #: Added: 2026-08-18.
     #: Decision material: The database identifies this as a Gains Network
@@ -313,7 +311,7 @@ STRATEGY_TAGS: dict[HexAddress, set[StrategyTag]] = {
     #: - https://docs.gains.trade/liquidity-farming-pools/gtoken-vaults
     #: - https://docs.gains.trade/gtrade-leveraged-trading/overview
     #: - eth_defi/erc_4626/vault_protocol/gains/vault.py
-    HexAddress("0x1e98b6143a4eaf78ab63de8ea8186eec3dbe5edc"): _GTRADE_TAGS.copy(),
+    "0x1e98b6143a4eaf78ab63de8ea8186eec3dbe5edc": _GTRADE_TAGS.copy(),
     #: Vault: gTrade (Gains Network USDM) on MegaETH.
     #: Added: 2026-08-18.
     #: Decision material: The database identifies this as a Gains Network
@@ -328,7 +326,7 @@ STRATEGY_TAGS: dict[HexAddress, set[StrategyTag]] = {
     #: - https://docs.gains.trade/liquidity-farming-pools/gtoken-vaults
     #: - https://docs.gains.trade/gtrade-leveraged-trading/overview
     #: - eth_defi/erc_4626/vault_protocol/gains/vault.py
-    HexAddress("0x46344456f130e9dcdea7f98cdb0e02fb9f4ab72d"): _GTRADE_TAGS.copy(),
+    "0x46344456f130e9dcdea7f98cdb0e02fb9f4ab72d": _GTRADE_TAGS.copy(),
     #: Vault: gTrade (Gains Network USDC (staging)) on Arbitrum.
     #: Added: 2026-08-18.
     #: Decision material: The database identifies this as a Gains Network
@@ -343,5 +341,5 @@ STRATEGY_TAGS: dict[HexAddress, set[StrategyTag]] = {
     #: - https://docs.gains.trade/liquidity-farming-pools/gtoken-vaults
     #: - https://docs.gains.trade/gtrade-leveraged-trading/overview
     #: - eth_defi/erc_4626/vault_protocol/gains/vault.py
-    HexAddress("0xb7058370db10f0712eddb297bc3a58c3a2e5c3a7"): _GTRADE_TAGS.copy(),
+    "0xb7058370db10f0712eddb297bc3a58c3a2e5c3a7": _GTRADE_TAGS.copy(),
 }

@@ -162,6 +162,31 @@ def test_migrate_vault_strategy_tags_repairs_legacy_values(tmp_path: Path) -> No
     }
 
 
+def test_migrate_vault_strategy_tags_canonicalises_recognised_string_values(tmp_path: Path) -> None:
+    """Recognised raw strings are rewritten as ``StrategyTag`` members."""
+
+    migration = load_migration_module()
+    spec = VaultSpec(1, "0x0000000000000000000000000000000000000001")
+    vault_db_path = tmp_path / "vault-metadata-db.pickle"
+    VaultDatabase(
+        rows={
+            spec: {
+                "Protocol": "Aave",
+                "_detection_data": create_detection(spec, {ERC4626Feature.aave_like}),
+                "_strategy_tags": {"lending"},
+            }
+        }
+    ).write(vault_db_path)
+
+    result = migration.migrate_vault_strategy_tags(vault_db_path, dry_run=False)
+
+    assert result.updated_rows == 1
+    assert result.invalid_tag_rows == 1
+    persisted_tags = VaultDatabase.read(vault_db_path).rows[spec]["_strategy_tags"]
+    assert persisted_tags == {StrategyTag.lending}
+    assert all(isinstance(tag, StrategyTag) for tag in persisted_tags)
+
+
 def test_migrate_vault_strategy_tags_follows_adapter_priority() -> None:
     """The migration chooses IPOR before the later Spiko feature branch."""
 

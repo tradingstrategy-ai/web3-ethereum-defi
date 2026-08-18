@@ -17,7 +17,10 @@ STRATEGY_TAGS: dict[str, set[StrategyTag]] = {
     #: - https://data-api.hibachi.xyz/vault/info?vaultId=2
     #: - https://hibachi.xyz/vaults
     #: - eth_defi/hibachi/README.md
-    "hibachi-vault-2": {StrategyTag.mean_reversion},
+    "hibachi-vault-2": {
+        StrategyTag.algorithmic_trading,
+        StrategyTag.mean_reversion,
+    },
     #: Vault: Fire Liquidity Provider.
     #: Added: 2026-08-17.
     #: Decision material: Hibachi describes FLP as market making across all

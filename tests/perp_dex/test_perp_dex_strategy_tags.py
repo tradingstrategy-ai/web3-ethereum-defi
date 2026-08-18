@@ -95,7 +95,11 @@ def test_pmalt_native_vaults_are_algorithmic_pair_trading() -> None:
 
 def test_growi_vaults_are_mean_reversion() -> None:
     """Growi's Hyperliquid and Hibachi vaults have mean-reversion tags."""
-    expected = {StrategyTag.mean_reversion, StrategyTag.perpetual_futures}
+    expected = {
+        StrategyTag.algorithmic_trading,
+        StrategyTag.mean_reversion,
+        StrategyTag.perpetual_futures,
+    }
 
     assert hyperliquid_tags.get_strategy_tags("0x1e37a337ed460039d1b15bd3bc489de789768d5e") == expected
     assert hibachi_tags.get_strategy_tags("hibachi-vault-2") == expected
@@ -123,19 +127,23 @@ def test_hlp_and_fire_liquidity_provider_are_market_makers() -> None:
 
 
 @pytest.mark.parametrize(
-    "vault_address",
+    ("vault_address", "execution_tag"),
     [
-        "0xdda7f4805dfdf145a74cd68992d90780f73cf6c7",
-        "0xfb7b73ff7c93f5552541de37454ffa0f8b76462a",
-        "0x1b03878805333a0e13d7eea4abdfa2d97977c448",
-        "0x6b13de56131bfa2256e2dcd64b67c38272c72318",
-        "0x15a141990fc6591838646467273c41c92999772f",
-        "0x5048900eb10b569e77f515efe85f8da5cfd5fb3a",
+        ("0xdda7f4805dfdf145a74cd68992d90780f73cf6c7", StrategyTag.algorithmic_trading),
+        ("0xfb7b73ff7c93f5552541de37454ffa0f8b76462a", StrategyTag.discretionary_trading),
+        ("0x1b03878805333a0e13d7eea4abdfa2d97977c448", StrategyTag.algorithmic_trading),
+        ("0x6b13de56131bfa2256e2dcd64b67c38272c72318", None),
+        ("0x15a141990fc6591838646467273c41c92999772f", StrategyTag.algorithmic_trading),
+        ("0x5048900eb10b569e77f515efe85f8da5cfd5fb3a", StrategyTag.algorithmic_trading),
     ],
 )
-def test_hyperliquid_trend_following_descriptions_are_tagged(vault_address: str) -> None:
+def test_hyperliquid_trend_following_descriptions_are_tagged(vault_address: str, execution_tag: StrategyTag | None) -> None:
     """Explicit trend-following descriptions receive the maintained tag."""
-    assert hyperliquid_tags.get_strategy_tags(vault_address) == {
+    expected = {
         StrategyTag.perpetual_futures,
         StrategyTag.trend_following,
     }
+    if execution_tag is not None:
+        expected.add(execution_tag)
+
+    assert hyperliquid_tags.get_strategy_tags(vault_address) == expected

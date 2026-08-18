@@ -85,6 +85,11 @@ an evidence-based tag mapping or are deliberately left unmapped so the
 resolver returns the explicit missing-information result (``None`` for
 ``VaultBase`` adapters).
 
+EVM address keys in protocol ``tags.py`` tables must be plain lowercase
+strings, such as ``"0x1234..."``. Do not use verbose ``HexAddress(...)``
+constructors in table literals; the shared lookup helper normalises adapter
+inputs before looking up these keys.
+
 ## Step-by-step implementation
 
 ### Step 1: Download and store the ABI

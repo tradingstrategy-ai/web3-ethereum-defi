@@ -1392,6 +1392,12 @@ metadata-only:
 the script makes no RPC calls and does not touch prices, Parquet files, or
 reader state.
 
+All maintained EVM ``STRATEGY_TAGS`` tables use plain lowercase ``str`` keys,
+such as ``"0x1234..."``. Do not add verbose ``HexAddress(...)`` constructors
+to these table literals. The shared lookup helper lowercases an adapter's
+``HexAddress`` value before consulting the string-keyed mapping; native
+protocol identifiers follow the same lowercase-string convention.
+
 Always inspect the dry run first:
 
 ```shell

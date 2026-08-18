@@ -1,10 +1,8 @@
 """Maintained strategy classifications for Securitize tokenised funds."""
 
-from eth_typing import HexAddress
-
 from eth_defi.vault.strategy_tag import StrategyTag
 
-STRATEGY_TAGS: dict[HexAddress, set[StrategyTag]] = {
+STRATEGY_TAGS: dict[str, set[StrategyTag]] = {
     #: Vault: Mantle Index Four.
     #: Added: 2026-08-18.
     #: Decision material: The vault is described as a tokenised fund providing
@@ -16,7 +14,7 @@ STRATEGY_TAGS: dict[HexAddress, set[StrategyTag]] = {
     #: - https://securitize.io/primary-market/mantle-index-four-fund
     #: - eth_defi/tokenised_fund/securitize/description.py
     #: - eth_defi/tokenised_fund/securitize/vault.py
-    HexAddress("0x671642ac281c760e34251d51bc9eef27026f3b7a"): {
+    "0x671642ac281c760e34251d51bc9eef27026f3b7a": {
         StrategyTag.index,
     },
     #: Vault: BCAP.
@@ -32,7 +30,7 @@ STRATEGY_TAGS: dict[HexAddress, set[StrategyTag]] = {
     #: - https://etherscan.io/address/0x1f41e42d0a9e3c0dd3ba15b527342783b43200a9
     #: - eth_defi/tokenised_fund/securitize/description.py
     #: - eth_defi/tokenised_fund/securitize/vault.py
-    HexAddress("0x1f41e42d0a9e3c0dd3ba15b527342783b43200a9"): {
+    "0x1f41e42d0a9e3c0dd3ba15b527342783b43200a9": {
         StrategyTag.venture_funding,
     },
 }

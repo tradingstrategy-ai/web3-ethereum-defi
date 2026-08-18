@@ -329,7 +329,8 @@ def _normalise_persisted_tags(value: object) -> tuple[set[StrategyTag] | None, b
         Value read from ``VaultRow['_strategy_tags']``.
     :return:
         A normalised mutable set (or ``None`` for missing strategy information)
-        and a flag indicating whether every persisted value was recognised.
+        and a flag indicating whether the persisted value already uses the
+        canonical ``set[StrategyTag]`` schema.
     """
 
     if value is None:
@@ -338,16 +339,19 @@ def _normalise_persisted_tags(value: object) -> tuple[set[StrategyTag] | None, b
         return None, False
 
     tags: set[StrategyTag] = set()
-    valid = True
+    canonical = isinstance(value, set)
     for tag in value:
         if isinstance(tag, StrategyTag):
             tags.add(tag)
             continue
+        canonical = False
         try:
             tags.add(StrategyTag(str(tag)))
         except (TypeError, ValueError):
-            valid = False
-    return tags, valid
+            # The caller reports and rewrites non-canonical rows when a
+            # maintained resolver is available.
+            continue
+    return tags, canonical
 
 
 def resolve_strategy_tags(spec: VaultSpec, row: VaultRow) -> tuple[set[StrategyTag] | None, str] | None:
@@ -402,10 +406,10 @@ def collect_strategy_tag_updates(vault_db: VaultDatabase) -> tuple[tuple[Strateg
     invalid_tag_rows = 0
     for spec, row in vault_db.rows.items():
         try:
-            current_tags, persisted_tags_valid = _normalise_persisted_tags(row.get("_strategy_tags"))
-            if not persisted_tags_valid:
+            current_tags, persisted_tags_canonical = _normalise_persisted_tags(row.get("_strategy_tags"))
+            if not persisted_tags_canonical:
                 invalid_tag_rows += 1
-                logger.warning("Found legacy strategy tags for %s", spec.as_string_id())
+                logger.warning("Found legacy or malformed strategy tags for %s", spec.as_string_id())
             resolved = resolve_strategy_tags(spec, row)
         except (AttributeError, ImportError, KeyError, TypeError, ValueError, RuntimeError) as error:
             logger.warning("Could not resolve strategy tags for %s: %s", spec.as_string_id(), error)
@@ -419,7 +423,7 @@ def collect_strategy_tag_updates(vault_db: VaultDatabase) -> tuple[tuple[Strateg
 
         new_tags, source = resolved
         normalised_new_tags = None if new_tags is None else set(new_tags)
-        if persisted_tags_valid and current_tags == normalised_new_tags:
+        if persisted_tags_canonical and current_tags == normalised_new_tags:
             continue
 
         updates.append(

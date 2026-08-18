@@ -35,6 +35,11 @@ newly associated with the curator must have an evidence-based mapping, or must
 remain unmapped so its resolver returns the explicit missing-information
 result (``None`` for ``VaultBase`` adapters).
 
+When adding EVM address mappings, use plain lowercase string keys in
+``tags.py`` (for example ``"0x1234..."``), not ``HexAddress(...)``
+constructors. The strategy-tag lookup helper normalises adapter addresses
+before reading these mappings.
+
 If the candidate was produced by `find-new-curators`, open its result
 file first and keep the evidence trail in mind.
 
