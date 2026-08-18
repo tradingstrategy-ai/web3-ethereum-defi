@@ -22,10 +22,12 @@ from eth_defi.abi import ZERO_ADDRESS_STR
 from eth_defi.chain import get_chain_name
 from eth_defi.erc_4626.vault import ERC4626HistoricalReader, ERC4626Vault
 from eth_defi.erc_4626.vault_protocol.euler.offchain_metadata import EulerVaultMetadata, fetch_euler_vault_metadata
+from eth_defi.erc_4626.vault_protocol.euler.tags import get_strategy_tags as get_euler_strategy_tags
 from eth_defi.event_reader.multicall_batcher import EncodedCall, EncodedCallResult
 from eth_defi.types import Percent
 from eth_defi.vault.base import INSTANT_WITHDRAWAL_PERIOD, VaultHistoricalRead, VaultHistoricalReader, VaultTechnicalRisk, WithdrawalPeriod
 from eth_defi.vault.flag import BAD_FLAGS, get_vault_special_flags
+from eth_defi.vault.strategy_tag import StrategyTag
 
 logger = logging.getLogger(__name__)
 
@@ -272,6 +274,17 @@ class EulerVault(ERC4626Vault):
 
     TODO: Fees
     """
+
+    def get_strategy_tags(self) -> set[StrategyTag]:
+        """Return automatic lending plus any maintained Euler tags.
+
+        Euler EVK vaults are lending markets by construction. Address-specific
+        classifications are merged in by the Euler tag registry.
+
+        :return:
+            Strategy tags including :attr:`StrategyTag.lending`.
+        """
+        return get_euler_strategy_tags(self.vault_address)
 
     def is_whitelisted_deposit(self) -> bool:
         """Determine whether EVK deposit hooks impose an identity gate.
@@ -529,6 +542,17 @@ class EulerEarnVault(ERC4626Vault):
     - Integrator guide: https://docs.euler.finance/developers/euler-earn/integrator-guide/
     - Example vault: https://snowtrace.io/address/0xE1A62FDcC6666847d5EA752634E45e134B2F824B
     """
+
+    def get_strategy_tags(self) -> set[StrategyTag]:
+        """Return automatic lending plus any maintained Euler tags.
+
+        EulerEarn vaults aggregate lending strategies. Address-specific
+        classifications are merged in by the Euler tag registry.
+
+        :return:
+            Strategy tags including :attr:`StrategyTag.lending`.
+        """
+        return get_euler_strategy_tags(self.vault_address)
 
     def is_whitelisted_deposit(self) -> bool:
         """Report canonical EulerEarn vault deposits as permissionless.

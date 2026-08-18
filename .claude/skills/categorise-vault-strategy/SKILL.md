@@ -53,12 +53,27 @@ address-to-tag mapping next to its vault protocol adapter.
    from eth_defi.vault.strategy_tag import StrategyTag
 
    STRATEGY_TAGS: dict[HexAddress, set[StrategyTag]] = {
+       #: Vault: Example RWA lending vault.
+       #: Added: 2026-08-17.
+       #: Decision material: The issuer describes this product as lending
+       #: against real-world assets.
+       #: Sources:
+       #: - https://issuer.example/vaults/example
        HexAddress("0x..."): {StrategyTag.rwa, StrategyTag.rwa_lending},
    }
    ```
 
-   Keep addresses lowercase and scope every entry to an individual vault. Add
-   an explanatory Sphinx comment when a tag needs non-obvious context.
+   Keep addresses lowercase and scope every entry to an individual vault. Put
+   a Sphinx line-comment block immediately above every address-specific entry.
+   It must include the vault name, the UTC date the tagging entry was added,
+   and the decision material used to assign the tags. Include every page URL
+   consulted during the decision directly in the comment; cite repository
+   files by their path. Do not add an entry where the source material does not
+   support the selected tags.
+
+   Aave, Euler, and Morpho adapters automatically add the generic
+   `StrategyTag.lending` tag to every vault. Their `STRATEGY_TAGS` mappings are
+   additive and should contain only additional address-specific classifications.
 
    For a native perpetual DEX, use `eth_defi/{slug}/tags.py` with string keys,
    because GRVT vault IDs and Hibachi/Lighter synthetic addresses are not EVM
@@ -94,3 +109,11 @@ address-to-tag mapping next to its vault protocol adapter.
    `None`. For a native perpetual DEX, check both the default
    `perpetual_futures` tag and an address-specific tag added by its mapping.
    Format modified Python files and run the focused test.
+
+## Chat output
+
+When reporting a completed categorisation, output one entry per vault with:
+
+- Vault name
+- Vault address
+- Tags added

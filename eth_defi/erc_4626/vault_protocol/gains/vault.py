@@ -26,7 +26,7 @@ from functools import cached_property
 from typing import Iterable
 
 import eth_abi
-from eth_typing import BlockIdentifier
+from eth_typing import BlockIdentifier, HexAddress
 from web3 import Web3
 from web3.contract.contract import Contract
 from web3.exceptions import BadFunctionCallOutput, ContractLogicError
@@ -35,6 +35,7 @@ from eth_defi.abi import ZERO_ADDRESS_STR, get_deployed_contract
 from eth_defi.compat import native_datetime_utc_now
 from eth_defi.erc_4626.core import get_deployed_erc_4626_contract
 from eth_defi.erc_4626.vault import ERC4626HistoricalReader, ERC4626Vault
+from eth_defi.erc_4626.vault_protocol.gains.tags import STRATEGY_TAGS
 from eth_defi.event_reader.conversion import convert_bytes32_to_address, convert_int256_bytes_to_int, convert_string_to_bytes32
 from eth_defi.event_reader.multicall_batcher import EncodedCall, EncodedCallResult
 from eth_defi.utils import from_unix_timestamp
@@ -48,6 +49,7 @@ from eth_defi.vault.base import (
     WithdrawalPeriod,
 )
 from eth_defi.vault.risk import VaultTechnicalRisk
+from eth_defi.vault.strategy_tag import StrategyTag
 
 logger = logging.getLogger(__name__)
 
@@ -366,6 +368,20 @@ class GainsVault(ERC4626Vault):
     @property
     def name(self) -> str:
         return f"gTrade ({super().name})"
+
+    def get_strategy_tags(self) -> set[StrategyTag] | None:
+        """Return the maintained strategy tags for this Gains-like vault.
+
+        Gains Network gTrade entries are maintained per vault address. Other
+        Gains-like adapters, such as Ostium, return ``None`` unless their
+        address has an explicit classification in the mapping.
+
+        :return:
+            Copy of the tag set, or ``None`` when this vault has not yet been
+            classified.
+        """
+        tags = STRATEGY_TAGS.get(HexAddress(str(self.vault_address).lower()))
+        return tags.copy() if tags is not None else None
 
     def get_link(self, referral: str | None = None) -> str:
         """Get the official gTrade page for a known gTrade vault.

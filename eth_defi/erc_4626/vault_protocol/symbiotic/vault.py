@@ -10,11 +10,13 @@ how adapter liquidity affects redemptions.
 import datetime
 from functools import cached_property
 
-from eth_typing import BlockIdentifier
+from eth_typing import BlockIdentifier, HexAddress
 from web3 import Web3
 
 from eth_defi.erc_4626.vault import ERC4626Vault
 from eth_defi.erc_4626.vault_protocol.symbiotic.offchain_metadata import SymbioticVaultMetadata, fetch_symbiotic_vault_metadata
+from eth_defi.erc_4626.vault_protocol.symbiotic.tags import STRATEGY_TAGS
+from eth_defi.vault.strategy_tag import StrategyTag
 
 
 class SymbioticVault(ERC4626Vault):
@@ -61,6 +63,16 @@ class SymbioticVault(ERC4626Vault):
             return None
         sentence_end = description.find(". ")
         return description[: sentence_end + 1] if sentence_end >= 0 else description.rstrip(".") + "."
+
+    def get_strategy_tags(self) -> set[StrategyTag] | None:
+        """Return the maintained strategy tags for this Symbiotic vault.
+
+        :return:
+            Copy of the tag set, or ``None`` when this vault has not yet been
+            classified.
+        """
+        tags = STRATEGY_TAGS.get(HexAddress(str(self.vault_address).lower()))
+        return tags.copy() if tags is not None else None
 
     @property
     def manager_name(self) -> str | None:

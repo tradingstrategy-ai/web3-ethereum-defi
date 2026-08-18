@@ -18,6 +18,7 @@ from eth_defi.erc_4626.deposit_redeem import ERC4626DepositManager
 from eth_defi.erc_4626.vault import ERC4626HistoricalReader, ERC4626Vault
 from eth_defi.erc_4626.vault_protocol.ipor.deposit_redeem import IPORDepositManager
 from eth_defi.erc_4626.vault_protocol.ipor.offchain_metadata import IPORVaultMetadata, fetch_ipor_vault_atomist, fetch_ipor_vault_is_listed, fetch_ipor_vault_metadata
+from eth_defi.erc_4626.vault_protocol.ipor.tags import STRATEGY_TAGS
 from eth_defi.event_reader.multicall_batcher import EncodedCall, EncodedCallResult
 from eth_defi.provider.fallback import ExtraValueError
 from eth_defi.types import Percent
@@ -31,6 +32,7 @@ from eth_defi.vault.base import (
 from eth_defi.vault.deposit_redeem import VaultDepositManagerCapability
 from eth_defi.vault.flag import MISSING_IN_PROTOCOL_FRONTEND, VaultFlag
 from eth_defi.vault.risk import VaultTechnicalRisk
+from eth_defi.vault.strategy_tag import StrategyTag
 
 #: function getPerformanceFeeData() external view returns (PlasmaVaultStorageLib.PerformanceFeeData memory feeData);
 #: PlasmaVaultLib.sol
@@ -398,6 +400,16 @@ class IPORVault(ERC4626Vault):  # noqa: PLR0904
             return text[: dot_idx + 1]
         # If no sentence boundary, return the whole text (it's likely one sentence)
         return text.rstrip(".") + "."
+
+    def get_strategy_tags(self) -> set[StrategyTag] | None:
+        """Return the maintained strategy tags for this IPOR vault.
+
+        :return:
+            Copy of the tag set, or ``None`` when this vault has not yet been
+            classified.
+        """
+        tags = STRATEGY_TAGS.get(HexAddress(str(self.vault_address).lower()))
+        return tags.copy() if tags is not None else None
 
     def get_flags(self) -> set[VaultFlag]:
         """Get vault flags, auto-flagging vaults missing from IPOR's public list.
