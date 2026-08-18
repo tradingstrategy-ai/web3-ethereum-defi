@@ -19,6 +19,8 @@ STRATEGY_TAGS: dict[HexAddress, set[StrategyTag]] = {
     #: - eth_defi/erc_4626/vault_protocol/symbiotic/vault.py
     HexAddress("0x8bcd746976885b5832bad07b4921e3f2dd1d3703"): {
         StrategyTag.algorithmic_trading,
+        StrategyTag.liquidity_provider,
+        StrategyTag.market_maker,
         StrategyTag.market_making,
         StrategyTag.rwa,
     },

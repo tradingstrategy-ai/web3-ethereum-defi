@@ -1385,9 +1385,10 @@ source .local-test.env && \
 Recalculate the persisted ``_strategy_tags`` field for every vault row using
 the current address mappings backing the strategy-tag hooks. EVM rows use the
 persisted protocol feature flags to select the matching mapping without
-constructing a ``VaultBase`` adapter. Hyperliquid, GRVT, Hibachi, and Lighter
-rows use their native address-to-tag resolvers (including each protocol's
-default ``perpetual_futures`` classification). Resolution is metadata-only:
+constructing a ``VaultBase`` adapter. ApeX, Hyperliquid, GRVT, Hibachi, and
+Lighter rows use their native address-to-tag resolvers (including each
+protocol's default ``perpetual_futures`` classification). Resolution is
+metadata-only:
 the script makes no RPC calls and does not touch prices, Parquet files, or
 reader state.
 
@@ -1411,8 +1412,12 @@ source .local-test.env && \
 The apply mode creates a non-overwriting
 ``*.pickle.bak-strategy-tags`` backup before writing. Rows without persisted
 detection metadata or a maintained resolver are reported as skipped and left
-unchanged. Legacy or malformed tag values are repaired whenever the row has a
-maintained resolver. Run
+unchanged. The resolver order follows the scanner's adapter precedence, so a
+later mapping cannot classify a row that the scanner would route to an earlier
+unsupported adapter. Legacy or malformed tag values are repaired whenever the
+row has a maintained resolver. A subsequent scanner pass also preserves an
+existing non-empty tag set when the current adapter reports missing strategy
+information. Run
 ``export-data-files.py`` afterwards to publish the updated strategy tags in
 the JSON exports.
 

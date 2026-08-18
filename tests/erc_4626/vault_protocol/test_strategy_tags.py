@@ -97,6 +97,8 @@ def test_kpk_usdc_liquidlane_strategy_tags() -> None:
 
     assert vault.get_strategy_tags() == {
         StrategyTag.algorithmic_trading,
+        StrategyTag.liquidity_provider,
+        StrategyTag.market_maker,
         StrategyTag.market_making,
         StrategyTag.rwa,
     }

@@ -2,9 +2,9 @@
 
 The migration uses the current address resolvers backing
 :class:`~eth_defi.vault.base.VaultBase` strategy hooks for EVM vaults and the
-native resolver used by each perpetual DEX exporter for Hyperliquid, GRVT,
-Hibachi, and Lighter. No adapters are constructed, no RPC calls are made, and
-no price, parquet, or reader-state files are touched.
+native resolver used by each perpetual DEX exporter for ApeX, Hyperliquid,
+GRVT, Hibachi, and Lighter. No adapters are constructed, no RPC calls are
+made, and no price, parquet, or reader-state files are touched.
 
 The scanner and this migration both replace the complete metadata pickle when
 writing. Keep the scanner stopped while applying the migration so a concurrent
@@ -40,6 +40,7 @@ from pathlib import Path
 from eth_typing import HexAddress
 from tabulate import tabulate
 
+from eth_defi.apex.tags import get_strategy_tags as get_apex_strategy_tags
 from eth_defi.erc_4626.core import ERC4262VaultDetection, ERC4626Feature, get_vault_protocol_name
 from eth_defi.erc_4626.vault_protocol.aave.tags import get_strategy_tags as get_aave_strategy_tags
 from eth_defi.erc_4626.vault_protocol.atoma.tags import STRATEGY_TAGS as ATOMA_STRATEGY_TAGS
@@ -48,6 +49,8 @@ from eth_defi.erc_4626.vault_protocol.ethena.tags import STRATEGY_TAGS as ETHENA
 from eth_defi.erc_4626.vault_protocol.euler.tags import get_strategy_tags as get_euler_strategy_tags
 from eth_defi.erc_4626.vault_protocol.gains.tags import STRATEGY_TAGS as GAINS_STRATEGY_TAGS
 from eth_defi.erc_4626.vault_protocol.ipor.tags import STRATEGY_TAGS as IPOR_STRATEGY_TAGS
+from eth_defi.erc_4626.vault_protocol.kiloex.tags import STRATEGY_TAGS as KILOEX_STRATEGY_TAGS
+from eth_defi.erc_4626.vault_protocol.liquid_royalty.tags import STRATEGY_TAGS as LIQUID_ROYALTY_STRATEGY_TAGS
 from eth_defi.erc_4626.vault_protocol.morpho.tags import get_strategy_tags as get_morpho_strategy_tags
 from eth_defi.erc_4626.vault_protocol.panoptic.tags import STRATEGY_TAGS as PANOPTIC_STRATEGY_TAGS
 from eth_defi.erc_4626.vault_protocol.symbiotic.tags import STRATEGY_TAGS as SYMBIOTIC_STRATEGY_TAGS
@@ -72,6 +75,7 @@ NativeStrategyTagResolver = Callable[[str], set[StrategyTag]]
 # These protocols do not use VaultBase adapters. Their native exporters own
 # the default perpetual-futures tag and address-specific classifications.
 NATIVE_STRATEGY_TAG_RESOLVERS: dict[ERC4626Feature, NativeStrategyTagResolver] = {
+    ERC4626Feature.apex_native: get_apex_strategy_tags,
     ERC4626Feature.grvt_native: get_grvt_strategy_tags,
     ERC4626Feature.hibachi_native: get_hibachi_strategy_tags,
     ERC4626Feature.hypercore_native: get_hyperliquid_strategy_tags,
@@ -81,28 +85,154 @@ NATIVE_STRATEGY_TAG_RESOLVERS: dict[ERC4626Feature, NativeStrategyTagResolver] =
 # VaultBase adapters expose the same hook, but some constructors perform
 # onchain probes. Resolve their maintained address mappings directly from the
 # persisted feature flag instead of constructing an adapter in this metadata
-# migration. Keep this tuple in the same order as the corresponding branches
-# in :func:`eth_defi.erc_4626.classification.create_vault_instance`.
-EVM_STRATEGY_TAG_RESOLVERS: tuple[tuple[ERC4626Feature, StrategyTagResolver], ...] = (
-    (ERC4626Feature.symbiotic_like, partial(lookup_strategy_tags, SYMBIOTIC_STRATEGY_TAGS)),
-    (ERC4626Feature.securitize_like, partial(lookup_strategy_tags, SECURITIZE_STRATEGY_TAGS)),
-    (ERC4626Feature.ipor_like, partial(lookup_strategy_tags, IPOR_STRATEGY_TAGS)),
-    (ERC4626Feature.spiko_like, partial(lookup_strategy_tags, SPIKO_STRATEGY_TAGS)),
-    (ERC4626Feature.morpho_like, get_morpho_strategy_tags),
-    (ERC4626Feature.morpho_v2_like, get_morpho_strategy_tags),
-    (ERC4626Feature.panoptic_like, partial(lookup_strategy_tags, PANOPTIC_STRATEGY_TAGS)),
-    (ERC4626Feature.euler_earn_like, get_euler_strategy_tags),
-    (ERC4626Feature.euler_like, get_euler_strategy_tags),
-    (ERC4626Feature.domination_finance_like, partial(lookup_strategy_tags, GAINS_STRATEGY_TAGS)),
-    (ERC4626Feature.gains_like, partial(lookup_strategy_tags, GAINS_STRATEGY_TAGS)),
-    (ERC4626Feature.ostium_like, partial(lookup_strategy_tags, GAINS_STRATEGY_TAGS)),
-    (ERC4626Feature.atoma_like, partial(lookup_strategy_tags, ATOMA_STRATEGY_TAGS)),
-    (ERC4626Feature.aave_like, get_aave_strategy_tags),
-    (ERC4626Feature.upshift_like, partial(lookup_strategy_tags, UPSHIFT_STRATEGY_TAGS)),
-    (ERC4626Feature.centrifuge_like, partial(lookup_strategy_tags, CENTRIFUGE_STRATEGY_TAGS)),
-    (ERC4626Feature.ethena_like, partial(lookup_strategy_tags, ETHENA_STRATEGY_TAGS)),
-    (ERC4626Feature.yieldnest_like, partial(lookup_strategy_tags, YIELDNEST_STRATEGY_TAGS)),
+# migration. This order mirrors the branches in
+# :func:`eth_defi.erc_4626.classification.create_vault_instance`: an
+# unsupported higher-priority adapter must prevent a later resolver from
+# classifying the row differently from the scanner.
+EVM_ADAPTER_FEATURE_PRIORITY: tuple[ERC4626Feature, ...] = (
+    ERC4626Feature.mellow_like,
+    ERC4626Feature.symbiotic_like,
+    ERC4626Feature.securitize_like,
+    ERC4626Feature.usyc_like,
+    ERC4626Feature.franklin_like,
+    ERC4626Feature.superstate_like,
+    ERC4626Feature.broken,
+    ERC4626Feature.ipor_like,
+    ERC4626Feature.lagoon_like,
+    ERC4626Feature.t3tris_like,
+    ERC4626Feature.arcus_like,
+    ERC4626Feature.oda_fact_like,
+    ERC4626Feature.shift_like,
+    ERC4626Feature.midas_like,
+    ERC4626Feature.fdit_like,
+    ERC4626Feature.kaio_like,
+    ERC4626Feature.openeden_like,
+    ERC4626Feature.asseto_like,
+    ERC4626Feature.ondo_like,
+    ERC4626Feature.centrifuge_tranche_like,
+    ERC4626Feature.wisdomtree_like,
+    ERC4626Feature.libeara_like,
+    ERC4626Feature.spiko_like,
+    ERC4626Feature.sygnum_like,
+    ERC4626Feature.theo_itoken_like,
+    ERC4626Feature.wstgbp_like,
+    ERC4626Feature.vault_street_like,
+    ERC4626Feature.morpho_like,
+    ERC4626Feature.morpho_v2_like,
+    ERC4626Feature.panoptic_like,
+    ERC4626Feature.euler_earn_like,
+    ERC4626Feature.euler_like,
+    ERC4626Feature.domination_finance_like,
+    ERC4626Feature.kiloex_like,
+    ERC4626Feature.kiln_metavault_like,
+    ERC4626Feature.gains_like,
+    ERC4626Feature.ostium_like,
+    ERC4626Feature.umami_like,
+    ERC4626Feature.plutus_like,
+    ERC4626Feature.bulla_like,
+    ERC4626Feature.harvest_finance,
+    ERC4626Feature.d2_like,
+    ERC4626Feature.untangled_like,
+    ERC4626Feature.threejane_like,
+    ERC4626Feature.atoma_like,
+    ERC4626Feature.cap_like,
+    ERC4626Feature.foxify_like,
+    ERC4626Feature.liquid_royalty_like,
+    ERC4626Feature.csigma_like,
+    ERC4626Feature.spark_like,
+    ERC4626Feature.frankencoin_like,
+    ERC4626Feature.term_finance_like,
+    ERC4626Feature.yearn_morpho_compounder_like,
+    ERC4626Feature.yearn_v3_like,
+    ERC4626Feature.yearn_tokenised_strategy,
+    ERC4626Feature.yearn_compounder_like,
+    ERC4626Feature.goat_like,
+    ERC4626Feature.aave_like,
+    ERC4626Feature.usdai_like,
+    ERC4626Feature.autopool_like,
+    ERC4626Feature.nashpoint_like,
+    ERC4626Feature.barker_like,
+    ERC4626Feature.llamma_like,
+    ERC4626Feature.summer_like,
+    ERC4626Feature.silo_like,
+    ERC4626Feature.truefi_like,
+    ERC4626Feature.superform_like,
+    ERC4626Feature.teller_like,
+    ERC4626Feature.deltr_like,
+    ERC4626Feature.upshift_like,
+    ERC4626Feature.sky_like,
+    ERC4626Feature.maple_like,
+    ERC4626Feature.maple_aqru_like,
+    ERC4626Feature.centrifuge_like,
+    ERC4626Feature.ethena_like,
+    ERC4626Feature.usdd_like,
+    ERC4626Feature.zerolend_like,
+    ERC4626Feature.royco_tranche_like,
+    ERC4626Feature.royco_like,
+    ERC4626Feature.eth_strategy_like,
+    ERC4626Feature.yuzu_money_like,
+    ERC4626Feature.altura_like,
+    ERC4626Feature.spectra_usdn_wrapper_like,
+    ERC4626Feature.spectra_erc4626_wrapper_like,
+    ERC4626Feature.gearbox_like,
+    ERC4626Feature.mainstreet_like,
+    ERC4626Feature.yieldfi_like,
+    ERC4626Feature.resolv_like,
+    ERC4626Feature.curvance_like,
+    ERC4626Feature.singularity_like,
+    ERC4626Feature.brink_like,
+    ERC4626Feature.accountable_like,
+    ERC4626Feature.yieldnest_like,
+    ERC4626Feature.nest_like,
+    ERC4626Feature.secured_finance_like,
+    ERC4626Feature.dolomite_like,
+    ERC4626Feature.hypurrfi_like,
+    ERC4626Feature.fluid_like,
+    ERC4626Feature.usdx_money_like,
+    ERC4626Feature.nara_like,
+    ERC4626Feature.hyperlend_like,
+    ERC4626Feature.sentiment_like,
+    ERC4626Feature.infinifi_like,
+    ERC4626Feature.renalta_like,
+    ERC4626Feature.avant_like,
+    ERC4626Feature.aarna_like,
+    ERC4626Feature.aera_like,
+    ERC4626Feature.yo_like,
+    ERC4626Feature.frax_staking_like,
+    ERC4626Feature.frax_like,
+    ERC4626Feature.axis_like,
+    ERC4626Feature.hyperdrive_hl_like,
+    ERC4626Feature.basevol_like,
+    ERC4626Feature.sbold_like,
+    ERC4626Feature.ember_like,
+    ERC4626Feature.inverse_finance_like,
+    ERC4626Feature.forty_acres_like,
+    ERC4626Feature.forgeyields_like,
+    ERC4626Feature.crystalclear_like,
 )
+
+EVM_STRATEGY_TAG_RESOLVERS: dict[ERC4626Feature, StrategyTagResolver] = {
+    ERC4626Feature.symbiotic_like: partial(lookup_strategy_tags, SYMBIOTIC_STRATEGY_TAGS),
+    ERC4626Feature.securitize_like: partial(lookup_strategy_tags, SECURITIZE_STRATEGY_TAGS),
+    ERC4626Feature.ipor_like: partial(lookup_strategy_tags, IPOR_STRATEGY_TAGS),
+    ERC4626Feature.spiko_like: partial(lookup_strategy_tags, SPIKO_STRATEGY_TAGS),
+    ERC4626Feature.morpho_like: get_morpho_strategy_tags,
+    ERC4626Feature.morpho_v2_like: get_morpho_strategy_tags,
+    ERC4626Feature.panoptic_like: partial(lookup_strategy_tags, PANOPTIC_STRATEGY_TAGS),
+    ERC4626Feature.euler_earn_like: get_euler_strategy_tags,
+    ERC4626Feature.euler_like: get_euler_strategy_tags,
+    ERC4626Feature.domination_finance_like: partial(lookup_strategy_tags, GAINS_STRATEGY_TAGS),
+    ERC4626Feature.kiloex_like: partial(lookup_strategy_tags, KILOEX_STRATEGY_TAGS),
+    ERC4626Feature.gains_like: partial(lookup_strategy_tags, GAINS_STRATEGY_TAGS),
+    ERC4626Feature.ostium_like: partial(lookup_strategy_tags, GAINS_STRATEGY_TAGS),
+    ERC4626Feature.atoma_like: partial(lookup_strategy_tags, ATOMA_STRATEGY_TAGS),
+    ERC4626Feature.liquid_royalty_like: partial(lookup_strategy_tags, LIQUID_ROYALTY_STRATEGY_TAGS),
+    ERC4626Feature.aave_like: get_aave_strategy_tags,
+    ERC4626Feature.upshift_like: partial(lookup_strategy_tags, UPSHIFT_STRATEGY_TAGS),
+    ERC4626Feature.centrifuge_like: partial(lookup_strategy_tags, CENTRIFUGE_STRATEGY_TAGS),
+    ERC4626Feature.ethena_like: partial(lookup_strategy_tags, ETHENA_STRATEGY_TAGS),
+    ERC4626Feature.yieldnest_like: partial(lookup_strategy_tags, YIELDNEST_STRATEGY_TAGS),
+}
 
 
 @dataclass(slots=True, frozen=True)
@@ -242,13 +372,19 @@ def resolve_strategy_tags(spec: VaultSpec, row: VaultRow) -> tuple[set[StrategyT
     if native_resolver is not None:
         return native_resolver(spec.vault_address), f"{protocol_name} native resolver"
 
-    evm_match = next(((feature, resolver) for feature, resolver in EVM_STRATEGY_TAG_RESOLVERS if feature in detection.features), None)
-    if evm_match is None:
+    evm_feature = next((feature for feature in EVM_ADAPTER_FEATURE_PRIORITY if feature in detection.features), None)
+    if evm_feature is None:
         # Do not clear a manually persisted classification merely because this
         # migration has not yet learned about the adapter.
         return None
 
-    _evm_feature, evm_resolver = evm_match
+    evm_resolver = EVM_STRATEGY_TAG_RESOLVERS.get(evm_feature)
+    if evm_resolver is None:
+        # The scanner will instantiate the higher-priority adapter, but this
+        # migration deliberately does not construct adapters or make RPC calls.
+        # Preserve any existing manual tags until a direct resolver is added.
+        return None
+
     return evm_resolver(spec.vault_address), f"{protocol_name} tag resolver"
 
 

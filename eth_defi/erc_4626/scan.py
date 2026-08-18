@@ -417,7 +417,11 @@ def create_vault_scan_record(
         except ValueError as e:
             logger.error(f"Failed to read flags for vault {vault} at {detection.address}: {e}", exc_info=e)
             flags = {}
-        strategy_tags = vault.get_strategy_tags()
+        try:
+            strategy_tags = vault.get_strategy_tags()
+        except (AttributeError, ImportError, KeyError, NotImplementedError, RuntimeError, TypeError, ValueError) as error:
+            logger.warning("Failed to read strategy tags for vault %s: %s", detection.address, error, exc_info=True)
+            strategy_tags = None
 
         link = vault.get_link()
         protocol_name = get_vault_protocol_name(detection.features)

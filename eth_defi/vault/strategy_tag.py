@@ -45,7 +45,7 @@ class StrategyTag(str, enum.Enum):
     delta_neutral = "delta_neutral"
 
     #: Trades quantitatively identified pricing patterns.
-    #: Example vault: none currently mapped.
+    #: Example vault: SOL/BTC Neutral (Hyperliquid).
     statistical_arbitrage = "statistical_arbitrage"
 
     #: Trades against price moves expected to return towards an average.
@@ -127,7 +127,7 @@ class StrategyTag(str, enum.Enum):
     rwa_lending = "rwa_lending"
 
     #: Invests in real-world royalty streams.
-    #: Example vault: none currently mapped.
+    #: Example vault: ALAR SailOut Royalty (Liquid Royalty).
     rwa_royalties = "rwa_royalties"
 
     #: Invests in money-market instruments.
@@ -172,9 +172,10 @@ def combine_strategy_tags(
 ) -> set[StrategyTag]:
     """Combine default and address-specific tags for a native vault export.
 
-    Native perpetual DEX integrations use synthetic identifiers rather than
-    EVM addresses. The helper normalises those identifiers and always returns a
-    fresh set so callers cannot mutate either source collection.
+    Native integrations use protocol-specific identifiers, which may be
+    EVM-style addresses or synthetic IDs. The helper normalises those
+    identifiers and always returns a fresh set so callers cannot mutate either
+    source collection.
 
     :param defaults:
         Tags that apply to every vault in the native integration.

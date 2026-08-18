@@ -6,15 +6,16 @@ from pathlib import Path
 
 import pytest
 
+from eth_defi.apex.constants import APEX_CHAIN_ID
 from eth_defi.erc_4626.core import ERC4262VaultDetection, ERC4626Feature
 from eth_defi.hyperliquid.constants import HYPERCORE_CHAIN_ID
 from eth_defi.vault.base import VaultSpec
 from eth_defi.vault.strategy_tag import StrategyTag
 from eth_defi.vault.vaultdb import VaultDatabase
 
-EXPECTED_INSPECTED_ROWS = 3
+EXPECTED_INSPECTED_ROWS = 4
 EXPECTED_UPDATED_ROWS = 2
-EXPECTED_SKIPPED_ROWS = 1
+EXPECTED_SKIPPED_ROWS = 2
 EXPECTED_INVALID_TAG_ROWS = 0
 
 
@@ -83,9 +84,9 @@ def test_migrate_vault_strategy_tags_updates_evm_and_native_rows(tmp_path: Path)
 
     result = migration.migrate_vault_strategy_tags(vault_db_path, dry_run=False)
 
-    assert result.inspected_rows == EXPECTED_INSPECTED_ROWS + 1
+    assert result.inspected_rows == EXPECTED_INSPECTED_ROWS
     assert result.updated_rows == EXPECTED_UPDATED_ROWS
-    assert result.skipped_rows == EXPECTED_SKIPPED_ROWS + 1
+    assert result.skipped_rows == EXPECTED_SKIPPED_ROWS
     assert result.invalid_tag_rows == EXPECTED_INVALID_TAG_ROWS
     assert result.backup_path == tmp_path / "vault-metadata-db.pickle.bak-strategy-tags"
     assert result.backup_path.exists()
@@ -99,6 +100,7 @@ def test_migrate_vault_strategy_tags_updates_evm_and_native_rows(tmp_path: Path)
     assert migrated_db.rows[hyperliquid_spec]["_strategy_tags"] == {
         StrategyTag.liquidity_provider,
         StrategyTag.market_maker,
+        StrategyTag.market_making,
         StrategyTag.perpetual_futures,
     }
     assert migrated_db.rows[unresolved_spec]["_strategy_tags"] == {StrategyTag.unknown}
@@ -173,6 +175,76 @@ def test_migrate_vault_strategy_tags_follows_adapter_priority() -> None:
 
     assert result is not None
     assert result[1] == "IPOR Fusion tag resolver"
+
+
+def test_migrate_vault_strategy_tags_resolves_apex_native_rows() -> None:
+    """ApeX native rows receive the platform's perpetual-futures default."""
+
+    migration = load_migration_module()
+    spec = VaultSpec(APEX_CHAIN_ID, "apex-vault-10001")
+    row = {
+        "_detection_data": create_detection(spec, {ERC4626Feature.apex_native}),
+    }
+
+    result = migration.resolve_strategy_tags(spec, row)
+
+    assert result == ({StrategyTag.perpetual_futures}, "ApeX native resolver")
+
+
+def test_migrate_vault_strategy_tags_resolves_kiloex_rows() -> None:
+    """KiloEx rows use their own transferred address mapping."""
+
+    migration = load_migration_module()
+    spec = VaultSpec(8453, "0x43e3e6ffb2e363e64cd480cbb7cd0cf47bc6b477")
+    row = {
+        "_detection_data": create_detection(spec, {ERC4626Feature.kiloex_like}),
+    }
+
+    result = migration.resolve_strategy_tags(spec, row)
+
+    assert result == (
+        {
+            StrategyTag.amm,
+            StrategyTag.liquidity_provider,
+            StrategyTag.market_maker,
+            StrategyTag.market_making,
+            StrategyTag.market_making_amm,
+            StrategyTag.perpetual_futures,
+        },
+        "KiloEx tag resolver",
+    )
+
+
+def test_migrate_vault_strategy_tags_resolves_liquid_royalty_rows() -> None:
+    """Liquid Royalty rows use their maintained royalty-stream mapping."""
+
+    migration = load_migration_module()
+    spec = VaultSpec(80094, "0x09cea16a2563c2d7d807c86f5b8da760389b5915")
+    row = {
+        "_detection_data": create_detection(spec, {ERC4626Feature.liquid_royalty_like}),
+    }
+
+    result = migration.resolve_strategy_tags(spec, row)
+
+    assert result == ({StrategyTag.rwa_royalties}, "Liquid Royalty tag resolver")
+
+
+@pytest.mark.parametrize(
+    "features",
+    [
+        {ERC4626Feature.mellow_like, ERC4626Feature.symbiotic_like},
+        {ERC4626Feature.lagoon_like, ERC4626Feature.spiko_like},
+        {ERC4626Feature.kiln_metavault_like, ERC4626Feature.gains_like},
+    ],
+)
+def test_migrate_vault_strategy_tags_skips_unsupported_higher_priority_adapters(features: set[ERC4626Feature]) -> None:
+    """The migration follows scanner adapter precedence before resolving tags."""
+
+    migration = load_migration_module()
+    spec = VaultSpec(1, "0x0000000000000000000000000000000000000001")
+    row = {"_detection_data": create_detection(spec, features)}
+
+    assert migration.resolve_strategy_tags(spec, row) is None
 
 
 def test_create_backup_path_avoids_existing_backups(tmp_path: Path) -> None:

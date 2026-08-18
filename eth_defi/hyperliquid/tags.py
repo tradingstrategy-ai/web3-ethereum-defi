@@ -30,6 +30,7 @@ STRATEGY_TAGS: dict[str, set[StrategyTag]] = {
     "0xdfc24b077bc1425ad1dea75bcb6f8158e10df303": {
         StrategyTag.liquidity_provider,
         StrategyTag.market_maker,
+        StrategyTag.market_making,
     },
     #: Vault: Growi HF.
     #: Added: 2026-08-17.
@@ -79,6 +80,30 @@ STRATEGY_TAGS: dict[str, set[StrategyTag]] = {
     #: - https://app.hyperliquid.xyz/vaults/0x15a141990fc6591838646467273c41c92999772f
     #: - https://hyperliquid.gitbook.io/hyperliquid-docs/for-developers/api/info-endpoint
     "0x15a141990fc6591838646467273c41c92999772f": {StrategyTag.trend_following},
+    #: Vault: SOL/BTC Neutral.
+    #: Added: 2026-08-18.
+    #: Decision material: The current Hyperliquid description calls this a
+    #: market-neutral relative-value strategy and explicitly says it uses
+    #: statistical mean-reversion signals. This supports statistical
+    #: arbitrage classification.
+    #: Sources:
+    #: - https://app.hyperliquid.xyz/vaults/0xf085dbd3f4cda645be4884c9d4c1af9cd1303591
+    #: - https://api.hyperliquid.xyz/info
+    #: - https://hyperliquid.gitbook.io/hyperliquid-docs/for-developers/api/info-endpoint
+    #: - eth_defi/hyperliquid/vault.py
+    "0xf085dbd3f4cda645be4884c9d4c1af9cd1303591": {StrategyTag.statistical_arbitrage},
+    #: Vault: [ Signal Fusion] Conservative Growth.
+    #: Added: 2026-08-18.
+    #: Decision material: The current Hyperliquid description explicitly
+    #: describes a statistical long/short strategy with zero leverage. The
+    #: statistical long/short construction supports statistical arbitrage
+    #: classification.
+    #: Sources:
+    #: - https://app.hyperliquid.xyz/vaults/0xdb25411e42659d910136dbe9c0f8330d952b5df8
+    #: - https://api.hyperliquid.xyz/info
+    #: - https://hyperliquid.gitbook.io/hyperliquid-docs/for-developers/api/info-endpoint
+    #: - eth_defi/hyperliquid/vault.py
+    "0xdb25411e42659d910136dbe9c0f8330d952b5df8": {StrategyTag.statistical_arbitrage},
     #: Vault: Wilkins Capital.
     #: Added: 2026-08-17.
     #: Decision material: The Hyperliquid vault description explicitly says

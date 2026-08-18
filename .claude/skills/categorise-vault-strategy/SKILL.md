@@ -20,7 +20,7 @@ address-to-tag mapping next to its vault protocol adapter.
      description, `short_description`, nearby address overlays, and protocol
      metadata. Use the vault's official documentation or announcement to
      corroborate material claims.
-   - Treat Hyperliquid, GRVT, Hibachi, and Lighter as native perpetual DEX
+   - Treat ApeX, Hyperliquid, GRVT, Hibachi, and Lighter as native perpetual DEX
      integrations, not `VaultBase` adapters. Their vaults are materialised by
      `eth_defi/{slug}/vault_data_export.py` with either an address, a platform
      vault ID, or a synthetic address.
@@ -69,15 +69,18 @@ address-to-tag mapping next to its vault protocol adapter.
    and the decision material used to assign the tags. Include every page URL
    consulted during the decision directly in the comment; cite repository
    files by their path. Do not add an entry where the source material does not
-   support the selected tags.
+   support the selected tags. Do not use a bundled or historical research
+   snapshot as the sole evidence for a current address classification; verify
+   the current metadata row or a current official protocol source before adding
+   the entry.
 
    Aave, Euler, and Morpho adapters automatically add the generic
    `StrategyTag.lending` tag to every vault. Their `STRATEGY_TAGS` mappings are
    additive and should contain only additional address-specific classifications.
 
    For a native perpetual DEX, use `eth_defi/{slug}/tags.py` with string keys,
-   because GRVT vault IDs and Hibachi/Lighter synthetic addresses are not EVM
-   addresses. Its resolver normally combines the maintained address-specific
+   because ApeX, GRVT vault IDs and Hibachi/Lighter synthetic addresses are not
+   EVM addresses. Its resolver normally combines the maintained address-specific
    tags with `StrategyTag.perpetual_futures`. If the source description
    explicitly identifies a product as a non-perpetual RWA or fund product,
    omit that default for the address by adding its lowercase identifier to the

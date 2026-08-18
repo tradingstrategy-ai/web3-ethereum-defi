@@ -6,7 +6,9 @@ from eth_typing import BlockIdentifier
 
 from eth_defi.erc_4626.vault import ERC4626Vault
 from eth_defi.erc_4626.vault_protocol.kiloex.constants import KILOEX_EARN_URL, KILOEX_VAULT_LINK_MATRIX
+from eth_defi.erc_4626.vault_protocol.kiloex.tags import STRATEGY_TAGS
 from eth_defi.vault.base import WithdrawalDelayType, WithdrawalPeriod
+from eth_defi.vault.strategy_tag import StrategyTag, lookup_strategy_tags
 
 
 class KiloExVault(ERC4626Vault):
@@ -25,6 +27,15 @@ class KiloExVault(ERC4626Vault):
     - `Fee documentation <https://docs.kiloex.io/kiloex/trading/fees-and-spread>`__
     - `Example kUSDT vault <https://bscscan.com/address/0x1c3f35f7883fc4ea8c4bca1507144dc6087ad0fb>`__
     """
+
+    def get_strategy_tags(self) -> set[StrategyTag] | None:
+        """Return the maintained strategy tags for this KiloEx vault.
+
+        :return:
+            Copy of the tag set, or ``None`` when this address has not yet
+            been classified.
+        """
+        return lookup_strategy_tags(STRATEGY_TAGS, self.vault_address)
 
     def get_management_fee(self, block_identifier: BlockIdentifier) -> float | None:  # noqa: PLR6301
         """Return the management fee when KiloEx publishes it on-chain.
@@ -70,7 +81,7 @@ class KiloExVault(ERC4626Vault):
         """
         return datetime.timedelta(days=9)
 
-    def get_withdrawal_period(self) -> WithdrawalPeriod:
+    def get_withdrawal_period(self) -> WithdrawalPeriod:  # noqa: PLR6301
         """Return KiloEx's one-to-three epoch withdrawal range.
 
         See the `KiloEx Hybrid Vault documentation <https://docs.kiloex.io/kiloex/about-kiloex/hybrid-vault>`__.

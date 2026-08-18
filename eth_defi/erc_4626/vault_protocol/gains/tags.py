@@ -30,22 +30,6 @@ STRATEGY_TAGS: dict[HexAddress, set[StrategyTag]] = {
     #: - https://docs.gains.trade/gtrade-leveraged-trading/overview
     #: - eth_defi/erc_4626/vault_protocol/gains/vault.py
     HexAddress("0xad20523a7dc37babc1cc74897e4977232b3d02e5"): _GTRADE_TAGS.copy(),
-    #: Vault: gTrade (kUSDC) on Base.
-    #: Added: 2026-08-18.
-    #: Decision material: The repository's research database identifies this
-    #: as a Gains Network gTrade gToken vault. Gains documents that gToken
-    #: vaults provide trading collateral, serve as counterparty to every trade,
-    #: and receive trading fees. The gTrade engine uses a single liquidity pool
-    #: per vault instead of an order book. This supports liquidity-provider,
-    #: market-maker, market-making, AMM, and perpetual-futures tags;
-    #: market-making-AMM is applied to every Gains Network vault as requested.
-    #: Sources:
-    #: - https://gains.trade/vault
-    #: - https://docs.gains.trade/liquidity-farming-pools/gtoken-vaults
-    #: - https://docs.gains.trade/gtrade-leveraged-trading/overview
-    #: - tests/research/vault-metadata-db.pickle.zstd
-    #: - eth_defi/erc_4626/vault_protocol/gains/vault.py
-    HexAddress("0x43e3e6ffb2e363e64cd480cbb7cd0cf47bc6b477"): _GTRADE_TAGS.copy(),
     #: Vault: gTrade (Gains Network BTCUSD) on Base.
     #: Added: 2026-08-18.
     #: Decision material: The database identifies this as a Gains Network
@@ -270,22 +254,6 @@ STRATEGY_TAGS: dict[HexAddress, set[StrategyTag]] = {
     #: - https://docs.gains.trade/gtrade-leveraged-trading/overview
     #: - eth_defi/erc_4626/vault_protocol/gains/vault.py
     HexAddress("0xd796a9e7e30bfc1b1a9380f501430f681c31eb78"): _GTRADE_TAGS.copy(),
-    #: Vault: gTrade (kUSDT) on BNB Chain.
-    #: Added: 2026-08-18.
-    #: Decision material: The repository's research database identifies this
-    #: as a Gains Network gTrade gToken vault. Gains documents that gToken
-    #: vaults provide trading collateral, serve as counterparty to every trade,
-    #: and receive trading fees. The gTrade engine uses a single liquidity pool
-    #: per vault instead of an order book. This supports liquidity-provider,
-    #: market-maker, market-making, AMM, and perpetual-futures tags;
-    #: market-making-AMM is applied to every Gains Network vault as requested.
-    #: Sources:
-    #: - https://gains.trade/vault
-    #: - https://docs.gains.trade/liquidity-farming-pools/gtoken-vaults
-    #: - https://docs.gains.trade/gtrade-leveraged-trading/overview
-    #: - tests/research/vault-metadata-db.pickle.zstd
-    #: - eth_defi/erc_4626/vault_protocol/gains/vault.py
-    HexAddress("0x1c3f35f7883fc4ea8c4bca1507144dc6087ad0fb"): _GTRADE_TAGS.copy(),
     #: Vault: gTrade (X-Solaris USD) on BNB Chain.
     #: Added: 2026-08-18.
     #: Decision material: The database identifies this as a Gains Network
@@ -301,38 +269,6 @@ STRATEGY_TAGS: dict[HexAddress, set[StrategyTag]] = {
     #: - https://docs.gains.trade/gtrade-leveraged-trading/overview
     #: - eth_defi/erc_4626/vault_protocol/gains/vault.py
     HexAddress("0xfb34af2138280e13b0759fd322fe63fccc7508a6"): _GTRADE_TAGS.copy(),
-    #: Vault: gTrade (kREX) on BNB Chain.
-    #: Added: 2026-08-18.
-    #: Decision material: The repository's research database identifies this
-    #: as a Gains Network gTrade gToken vault. Gains documents that gToken
-    #: vaults provide trading collateral, serve as counterparty to every trade,
-    #: and receive trading fees. The gTrade engine uses a single liquidity pool
-    #: per vault instead of an order book. This supports liquidity-provider,
-    #: market-maker, market-making, AMM, and perpetual-futures tags;
-    #: market-making-AMM is applied to every Gains Network vault as requested.
-    #: Sources:
-    #: - https://gains.trade/vault
-    #: - https://docs.gains.trade/liquidity-farming-pools/gtoken-vaults
-    #: - https://docs.gains.trade/gtrade-leveraged-trading/overview
-    #: - tests/research/vault-metadata-db.pickle.zstd
-    #: - eth_defi/erc_4626/vault_protocol/gains/vault.py
-    HexAddress("0xa40e085d0584eed39daaa077fcc4cd153ae9a5b0"): _GTRADE_TAGS.copy(),
-    #: Vault: gTrade (kBOX) on BNB Chain.
-    #: Added: 2026-08-18.
-    #: Decision material: The repository's research database identifies this
-    #: as a Gains Network gTrade gToken vault. Gains documents that gToken
-    #: vaults provide trading collateral, serve as counterparty to every trade,
-    #: and receive trading fees. The gTrade engine uses a single liquidity pool
-    #: per vault instead of an order book. This supports liquidity-provider,
-    #: market-maker, market-making, AMM, and perpetual-futures tags;
-    #: market-making-AMM is applied to every Gains Network vault as requested.
-    #: Sources:
-    #: - https://gains.trade/vault
-    #: - https://docs.gains.trade/liquidity-farming-pools/gtoken-vaults
-    #: - https://docs.gains.trade/gtrade-leveraged-trading/overview
-    #: - tests/research/vault-metadata-db.pickle.zstd
-    #: - eth_defi/erc_4626/vault_protocol/gains/vault.py
-    HexAddress("0x6e7a6eb5feec64bf6401a744757aba89c5c7e813"): _GTRADE_TAGS.copy(),
     #: Vault: gTrade (hsUSDT) on BNB Chain.
     #: Added: 2026-08-18.
     #: Decision material: The database identifies this as a Gains Network
@@ -348,22 +284,6 @@ STRATEGY_TAGS: dict[HexAddress, set[StrategyTag]] = {
     #: - https://docs.gains.trade/gtrade-leveraged-trading/overview
     #: - eth_defi/erc_4626/vault_protocol/gains/vault.py
     HexAddress("0x28e1afcd2d91a7f0ea49e81192599fbe1e700169"): _GTRADE_TAGS.copy(),
-    #: Vault: gTrade (hsUSD1) on BNB Chain.
-    #: Added: 2026-08-18.
-    #: Decision material: The repository's research database identifies this
-    #: as a Gains Network gTrade gToken vault. Gains documents that gToken
-    #: vaults provide trading collateral, serve as counterparty to every trade,
-    #: and receive trading fees. The gTrade engine uses a single liquidity pool
-    #: per vault instead of an order book. This supports liquidity-provider,
-    #: market-maker, market-making, AMM, and perpetual-futures tags;
-    #: market-making-AMM is applied to every Gains Network vault as requested.
-    #: Sources:
-    #: - https://gains.trade/vault
-    #: - https://docs.gains.trade/liquidity-farming-pools/gtoken-vaults
-    #: - https://docs.gains.trade/gtrade-leveraged-trading/overview
-    #: - tests/research/vault-metadata-db.pickle.zstd
-    #: - eth_defi/erc_4626/vault_protocol/gains/vault.py
-    HexAddress("0x7470c48fbf23067f6f8ef63f7d9b4a2aa5d0afef"): _GTRADE_TAGS.copy(),
     #: Vault: gTrade (Staked ARA Vault) on Base.
     #: Added: 2026-08-18.
     #: Decision material: The database identifies this as a Gains Network

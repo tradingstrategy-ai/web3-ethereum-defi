@@ -29,6 +29,7 @@ STRATEGY_TAGS: dict[str, set[StrategyTag]] = {
     "hibachi-vault-3": {
         StrategyTag.liquidity_provider,
         StrategyTag.market_maker,
+        StrategyTag.market_making,
     },
 }
 

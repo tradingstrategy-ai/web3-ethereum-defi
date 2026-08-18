@@ -101,9 +101,22 @@ def test_growi_vaults_are_mean_reversion() -> None:
     assert hibachi_tags.get_strategy_tags("hibachi-vault-2") == expected
 
 
+def test_hyperliquid_statistical_arbitrage_vaults_are_tagged() -> None:
+    """Hyperliquid statistical strategies receive the maintained tag."""
+    expected = {StrategyTag.perpetual_futures, StrategyTag.statistical_arbitrage}
+
+    assert hyperliquid_tags.get_strategy_tags("0xf085dbd3f4cda645be4884c9d4c1af9cd1303591") == expected
+    assert hyperliquid_tags.get_strategy_tags("0xdb25411e42659d910136dbe9c0f8330d952b5df8") == expected
+
+
 def test_hlp_and_fire_liquidity_provider_are_market_makers() -> None:
-    """Protocol liquidity pools receive both requested role tags."""
-    expected = {StrategyTag.liquidity_provider, StrategyTag.market_maker, StrategyTag.perpetual_futures}
+    """Protocol liquidity pools receive consistent market-making tags."""
+    expected = {
+        StrategyTag.liquidity_provider,
+        StrategyTag.market_maker,
+        StrategyTag.market_making,
+        StrategyTag.perpetual_futures,
+    }
 
     assert hyperliquid_tags.get_strategy_tags("0xdfc24b077bc1425ad1dea75bcb6f8158e10df303") == expected
     assert hibachi_tags.get_strategy_tags("hibachi-vault-3") == expected

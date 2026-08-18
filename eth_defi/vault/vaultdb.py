@@ -356,6 +356,15 @@ class VaultDatabase:
                 retained["_deposit_manager"] = None
                 self.rows[spec] = retained
                 continue
+
+            # An adapter may not have a maintained classification yet. Keep a
+            # previously persisted value instead of erasing manual metadata on
+            # every subsequent scan; the explicit migration can still replace
+            # or clear it when a resolver is reviewed.
+            if existing is not None and new_row.get("_strategy_tags") is None and existing.get("_strategy_tags") is not None:
+                new_row = new_row.copy()
+                new_row["_strategy_tags"] = existing["_strategy_tags"]
+
             self.rows[spec] = new_row
 
     def limit_to_single_vault(self, vault_spec: VaultSpec) -> "VaultDatabase":

@@ -7,7 +7,7 @@ import pytest
 
 import eth_defi.erc_4626.scan as scan_module
 from eth_defi.erc_4626.core import ERC4262VaultDetection, ERC4626Feature
-from eth_defi.vault.base import INSTANT_WITHDRAWAL_PERIOD, WithdrawalDelayType, WithdrawalPeriod
+from eth_defi.vault.base import INSTANT_WITHDRAWAL_PERIOD, VaultSpec, WithdrawalDelayType, WithdrawalPeriod
 from eth_defi.vault.deposit_redeem import VaultDepositManagerCapability
 from eth_defi.vault.fee import FeeData, VaultFeeMode
 from eth_defi.vault.price_source import PriceSource
@@ -147,6 +147,16 @@ class _TaggedFakeVault(_FakeVault):
         return {StrategyTag.algorithmic_trading}
 
 
+class _BrokenStrategyTagFakeVault(_FakeVault):
+    """Minimal vault whose optional strategy-tag hook fails."""
+
+    @staticmethod
+    def get_strategy_tags() -> set[StrategyTag]:
+        """Raise a representative lookup error."""
+        error_message = "classification mapping is unavailable"
+        raise KeyError(error_message)
+
+
 class _LegacyInstantFakeVault(_FakeVault):
     """Legacy adapter that explicitly reported a zero lock-up."""
 
@@ -250,6 +260,46 @@ def test_create_vault_scan_record_persists_strategy_tags(monkeypatch: pytest.Mon
     )
 
     assert record["_strategy_tags"] == {StrategyTag.algorithmic_trading}
+
+
+def test_create_vault_scan_record_treats_strategy_tag_errors_as_missing(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A broken optional hook leaves strategy information explicitly missing."""
+    detection = _create_detection({ERC4626Feature.usdai_like})
+    monkeypatch.setattr(scan_module, "create_vault_instance", lambda *_args, **_kwargs: _BrokenStrategyTagFakeVault())
+
+    record = scan_module.create_vault_scan_record(
+        web3=None,
+        detection=detection,
+        block_identifier=1,
+        token_cache={},
+    )
+
+    assert record["_strategy_tags"] is None
+
+
+def test_vault_database_merge_preserves_existing_strategy_tags() -> None:
+    """A rescan without a classification does not erase persisted tags."""
+    spec = VaultSpec(1, "0x0000000000000000000000000000000000000001")
+    database = VaultDatabase(
+        rows={
+            spec: {
+                "Name": "Existing vault",
+                "_strategy_tags": {StrategyTag.algorithmic_trading},
+            }
+        }
+    )
+
+    database._merge_rows(
+        {
+            spec: {
+                "Name": "Fresh vault",
+                "Denomination": "USDC",
+                "_strategy_tags": None,
+            }
+        }
+    )
+
+    assert database.rows[spec]["_strategy_tags"] == {StrategyTag.algorithmic_trading}
 
 
 def test_create_vault_scan_record_does_not_infer_instant_from_legacy_zero_lockup(monkeypatch: pytest.MonkeyPatch) -> None:
