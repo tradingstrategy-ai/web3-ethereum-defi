@@ -145,9 +145,11 @@ STRATEGY_TAGS: dict[str, set[StrategyTag]] = {
     },
     #: Vault: Ignight Inverse-Trend.
     #: Added: 2026-08-17.
-    #: Decision material: The description calls the counter-trend
-    #: accumulation strategy automated, with predefined price intervals and a
-    #: fixed schedule; this supports algorithmic directional mean reversion.
+    #: Updated: 2026-08-18.
+    #: Decision material: The description calls the counter-trend accumulation
+    #: strategy automated, with predefined price intervals and a fixed
+    #: schedule. Its maintained category explicitly says Grid Trading. This
+    #: supports algorithmic directional grid trading and mean reversion.
     #: Sources:
     #: - https://edge.grvt.io/query
     #: - https://grvt.io/exchange/strategies/1756934834
@@ -155,6 +157,7 @@ STRATEGY_TAGS: dict[str, set[StrategyTag]] = {
     "vlt:32aef5qkjhkibvf8inqq9oqsyep": {
         StrategyTag.algorithmic_trading,
         StrategyTag.directional_trading,
+        StrategyTag.grid_trading,
         StrategyTag.mean_reversion,
     },
     #: Vault: Grvt Liquidity Provider (GLP).

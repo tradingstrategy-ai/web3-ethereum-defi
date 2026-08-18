@@ -119,6 +119,104 @@ STRATEGY_TAGS: dict[str, set[StrategyTag]] = {
     #: - https://hyperliquid.gitbook.io/hyperliquid-docs/for-developers/api/info-endpoint
     #: - eth_defi/hyperliquid/vault.py
     "0xdb25411e42659d910136dbe9c0f8330d952b5df8": {StrategyTag.statistical_arbitrage},
+    #: Vault: ETHbotic.
+    #: Added: 2026-08-18.
+    #: Decision material: The current vault description explicitly says it
+    #: uses advanced automation and smart grid strategies, supporting
+    #: algorithmic grid trading.
+    #: Sources:
+    #: - https://app.hyperliquid.xyz/vaults/0x30f14b7169c657a03d0b6c722b969bee04b8f642
+    #: - https://api.hyperliquid.xyz/info
+    "0x30f14b7169c657a03d0b6c722b969bee04b8f642": {
+        StrategyTag.algorithmic_trading,
+        StrategyTag.grid_trading,
+    },
+    #: Vault: Gizbar Gird.
+    #: Added: 2026-08-18.
+    #: Decision material: The current vault description explicitly says it
+    #: runs long-only grid strategies on trending assets, supporting
+    #: directional grid trading.
+    #: Sources:
+    #: - https://app.hyperliquid.xyz/vaults/0xbe9ee55bc95b43b6a31bad63d5934492b99c6a87
+    #: - https://api.hyperliquid.xyz/info
+    "0xbe9ee55bc95b43b6a31bad63d5934492b99c6a87": {
+        StrategyTag.directional_trading,
+        StrategyTag.grid_trading,
+    },
+    #: Vault: Gucky_1coin_1dot5x.
+    #: Added: 2026-08-18.
+    #: Decision material: The current vault description explicitly calls the
+    #: strategy reverse grid trading, using dollar-cost averaging and
+    #: multiple re-entries.
+    #: Sources:
+    #: - https://app.hyperliquid.xyz/vaults/0xd2f03635901956b950737bbf02463dfad9f2e9e1
+    #: - https://api.hyperliquid.xyz/info
+    "0xd2f03635901956b950737bbf02463dfad9f2e9e1": {StrategyTag.grid_trading},
+    #: Vault: Gucky_2coin_1dot75x.
+    #: Added: 2026-08-18.
+    #: Decision material: The current vault description explicitly calls the
+    #: strategy reverse grid trading, using dollar-cost averaging and
+    #: multiple re-entries.
+    #: Sources:
+    #: - https://app.hyperliquid.xyz/vaults/0x3a6747c8e913085e243a2c22d188dafa8c6a612a
+    #: - https://api.hyperliquid.xyz/info
+    "0x3a6747c8e913085e243a2c22d188dafa8c6a612a": {StrategyTag.grid_trading},
+    #: Vault: Gucky_4coin_2dot5x.
+    #: Added: 2026-08-18.
+    #: Decision material: The current vault description explicitly calls the
+    #: strategy reverse grid trading, using dollar-cost averaging and
+    #: multiple re-entries.
+    #: Sources:
+    #: - https://app.hyperliquid.xyz/vaults/0x73f6553d3a6b570ab37957b32a75c7fc0ebff6e9
+    #: - https://api.hyperliquid.xyz/info
+    "0x73f6553d3a6b570ab37957b32a75c7fc0ebff6e9": {StrategyTag.grid_trading},
+    #: Vault: Hype $1 Club.
+    #: Added: 2026-08-18.
+    #: Decision material: The current vault description explicitly calls the
+    #: strategy automated grid trading on HYPE, supporting algorithmic grid
+    #: trading.
+    #: Sources:
+    #: - https://app.hyperliquid.xyz/vaults/0x7833b1d61c016fefaa52a1da509b6daa2fbfd71b
+    #: - https://api.hyperliquid.xyz/info
+    "0x7833b1d61c016fefaa52a1da509b6daa2fbfd71b": {
+        StrategyTag.algorithmic_trading,
+        StrategyTag.grid_trading,
+    },
+    #: Vault: Proven grid trading.
+    #: Added: 2026-08-18.
+    #: Decision material: The current vault description explicitly calls the
+    #: strategy a proven grid strategy backed by four years of testing.
+    #: Sources:
+    #: - https://app.hyperliquid.xyz/vaults/0xa91dc75e17795cf4c0e4e5b4fc29d3f07432b895
+    #: - https://api.hyperliquid.xyz/info
+    "0xa91dc75e17795cf4c0e4e5b4fc29d3f07432b895": {StrategyTag.grid_trading},
+    #: Vault: [ Systemic Strategies ] L/S Grids.
+    #: Added: 2026-08-18.
+    #: Decision material: The current vault description says it uses grids to
+    #: go long assets with low inflation or unlocks and short assets with high
+    #: inflation or unlocks. This explicitly supports grid-trading and
+    #: directional long/short classifications.
+    #: Sources:
+    #: - http://100.103.237.120:5182/vaults/systemic-strategies-l-s-grids
+    #: - https://app.hyperliquid.xyz/vaults/0x07fd993f0fa3a185f7207adccd29f7a87404689d
+    #: - https://api.hyperliquid.xyz/info
+    "0x07fd993f0fa3a185f7207adccd29f7a87404689d": {
+        StrategyTag.directional_trading,
+        StrategyTag.grid_trading,
+    },
+    #: Vault: wmm.club | grid-hype-long-2x.
+    #: Added: 2026-08-18.
+    #: Decision material: The current vault description explicitly says this
+    #: is an algorithm-managed infinite grid on HYPE with long-only exposure,
+    #: supporting algorithmic directional grid trading.
+    #: Sources:
+    #: - https://app.hyperliquid.xyz/vaults/0x3dc8751d34ac4e5786e9cd1c52a001d2fe58dc37
+    #: - https://api.hyperliquid.xyz/info
+    "0x3dc8751d34ac4e5786e9cd1c52a001d2fe58dc37": {
+        StrategyTag.algorithmic_trading,
+        StrategyTag.directional_trading,
+        StrategyTag.grid_trading,
+    },
     #: Vault: Wilkins Capital.
     #: Added: 2026-08-17.
     #: Decision material: The Hyperliquid vault description explicitly says
