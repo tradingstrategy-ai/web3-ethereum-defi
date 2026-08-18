@@ -68,13 +68,20 @@ def test_grvt_rwa_bundle_vaults_do_not_receive_perpetual_futures_default() -> No
         assert StrategyTag.perpetual_futures not in grvt_tags.get_strategy_tags(address)
 
 
-def test_grvt_ai_grid_vault_is_grid_trading() -> None:
-    """The AI Grid Trading vault has the specific grid-trading tag."""
+def test_grvt_grid_vaults_are_grid_trading() -> None:
+    """GRVT vaults with explicit grid descriptions receive the tag."""
     assert grvt_tags.get_strategy_tags("VLT:35jPjdfRWaEuJ0W7He4wI5vbOaG") == {
         StrategyTag.algorithmic_trading,
         StrategyTag.directional_trading,
         StrategyTag.grid_trading,
         StrategyTag.multistrategy,
+        StrategyTag.perpetual_futures,
+    }
+    assert grvt_tags.get_strategy_tags("VLT:32Aef5QKjhKibVf8inQq9OQsYEP") == {
+        StrategyTag.algorithmic_trading,
+        StrategyTag.directional_trading,
+        StrategyTag.grid_trading,
+        StrategyTag.mean_reversion,
         StrategyTag.perpetual_futures,
     }
 
@@ -116,6 +123,49 @@ def test_hyperliquid_statistical_arbitrage_vaults_are_tagged() -> None:
 def test_systemic_strategies_ls_grids_is_directional_grid_trading() -> None:
     """Systemic Strategies L/S Grids receives its description-backed tags."""
     assert hyperliquid_tags.get_strategy_tags("0x07fd993f0fa3a185f7207adccd29f7a87404689d") == {
+        StrategyTag.directional_trading,
+        StrategyTag.grid_trading,
+        StrategyTag.perpetual_futures,
+    }
+
+
+@pytest.mark.parametrize(
+    ("vault_address", "specific_tags"),
+    [
+        (
+            "0x30f14b7169c657a03d0b6c722b969bee04b8f642",
+            {StrategyTag.algorithmic_trading, StrategyTag.grid_trading},
+        ),
+        (
+            "0xbe9ee55bc95b43b6a31bad63d5934492b99c6a87",
+            {StrategyTag.directional_trading, StrategyTag.grid_trading},
+        ),
+        ("0xd2f03635901956b950737bbf02463dfad9f2e9e1", {StrategyTag.grid_trading}),
+        ("0x3a6747c8e913085e243a2c22d188dafa8c6a612a", {StrategyTag.grid_trading}),
+        ("0x73f6553d3a6b570ab37957b32a75c7fc0ebff6e9", {StrategyTag.grid_trading}),
+        (
+            "0x7833b1d61c016fefaa52a1da509b6daa2fbfd71b",
+            {StrategyTag.algorithmic_trading, StrategyTag.grid_trading},
+        ),
+        ("0xa91dc75e17795cf4c0e4e5b4fc29d3f07432b895", {StrategyTag.grid_trading}),
+        (
+            "0x3dc8751d34ac4e5786e9cd1c52a001d2fe58dc37",
+            {
+                StrategyTag.algorithmic_trading,
+                StrategyTag.directional_trading,
+                StrategyTag.grid_trading,
+            },
+        ),
+    ],
+)
+def test_hyperliquid_grid_descriptions_are_tagged(vault_address: str, specific_tags: set[StrategyTag]) -> None:
+    """Explicit Hyperliquid grid descriptions receive all supported tags."""
+    assert hyperliquid_tags.get_strategy_tags(vault_address) == specific_tags | {StrategyTag.perpetual_futures}
+
+
+def test_lighter_grid_description_is_tagged() -> None:
+    """The long-only Lighter grid pool receives its supported tags."""
+    assert lighter_tags.get_strategy_tags("lighter-pool-281474976552443") == {
         StrategyTag.directional_trading,
         StrategyTag.grid_trading,
         StrategyTag.perpetual_futures,

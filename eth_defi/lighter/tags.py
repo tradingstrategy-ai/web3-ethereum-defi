@@ -19,6 +19,17 @@ STRATEGY_TAGS: dict[str, set[StrategyTag]] = {
         StrategyTag.algorithmic_trading,
         StrategyTag.pair_trading,
     },
+    #: Vault: Steady Wealth Builder.
+    #: Added: 2026-08-18.
+    #: Decision material: The current Lighter description explicitly calls
+    #: this a long-only DCA grid strategy, supporting directional grid trading.
+    #: Sources:
+    #: - https://app.lighter.xyz/public-pools/281474976552443
+    #: - https://mainnet.zklighter.elliot.ai/api/v1/account?by=index&value=281474976552443
+    "lighter-pool-281474976552443": {
+        StrategyTag.directional_trading,
+        StrategyTag.grid_trading,
+    },
 }
 
 
