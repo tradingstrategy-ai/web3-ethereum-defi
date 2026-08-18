@@ -16,12 +16,14 @@ from eth_defi.erc_4626.core import ERC4626Feature
 from eth_defi.erc_4626.vault import ERC4626Vault, VaultReaderState
 from eth_defi.erc_4626.vault_protocol.upshift.deposit_redeem import UpshiftMultiAssetDepositManager
 from eth_defi.erc_4626.vault_protocol.upshift.offchain_metadata import UpshiftVaultMetadata, fetch_upshift_vault_metadata
+from eth_defi.erc_4626.vault_protocol.upshift.tags import STRATEGY_TAGS
 from eth_defi.event_reader.conversion import convert_int256_bytes_to_int
 from eth_defi.event_reader.multicall_batcher import EncodedCall, EncodedCallResult
 from eth_defi.token import TokenDetails, fetch_erc20_details
 from eth_defi.vault.base import VaultHistoricalRead, VaultHistoricalReader, WithdrawalDelayType, WithdrawalPeriod
 from eth_defi.vault.deposit_redeem import VaultDepositManagerCapability
 from eth_defi.vault.fee import VaultFeeMode
+from eth_defi.vault.strategy_tag import StrategyTag, lookup_strategy_tags
 
 logger = logging.getLogger(__name__)
 
@@ -238,6 +240,19 @@ class UpshiftVault(ERC4626Vault):
     See the `TokenizedAccount implementation <https://etherscan.io/address/0x83AF2736AD2f59BA60F2da1493DE95730Bc0649d#code>`__
     for the fee collection logic.
     """
+
+    def get_strategy_tags(self) -> set[StrategyTag] | None:
+        """Return the maintained strategy tags for this Upshift vault.
+
+        The protocol hosts independently managed vaults, so classifications
+        are maintained per vault address rather than applied to every Upshift
+        deployment.
+
+        :return:
+            Copy of the tag set, or ``None`` when this vault has not yet been
+            classified.
+        """
+        return lookup_strategy_tags(STRATEGY_TAGS, self.vault_address)
 
     @cached_property
     def upshift_metadata(self) -> UpshiftVaultMetadata | None:

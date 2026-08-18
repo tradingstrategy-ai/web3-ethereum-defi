@@ -1,5 +1,6 @@
 # 1.2
 
+- feat: Add vault investment strategy tag classifications across ERC-4626 adapters, tokenised funds and native perpetual DEX exports (2026-08-18)
 - fix: Add a targeted Arcus pToken metadata migration so pre-existing Robinhood Chain vault rows export with Arcus protocol and curator data (2026-08-17)
 - feat: Add Robinhood-only Arcus pToken recognition through its reviewed bridge-vault selector, address-scoped product copy and protocol-curator attribution (2026-08-14)
 - feat: Add read-only Barker H1 HyperEVM vault tracking with hardcoded address recognition (2026-08-08)

@@ -50,6 +50,7 @@ from eth_defi.vault.flag import (
 )
 from eth_defi.vault.price_source import PriceSource
 from eth_defi.vault.risk import VaultTechnicalRisk, get_vault_risk
+from eth_defi.vault.strategy_tag import StrategyTag
 from eth_defi.vault.vaultdb import VaultDatabase, VaultRow
 from eth_defi.xerberus.vault_export import (
     XerberusPoolLookupRow,
@@ -305,6 +306,10 @@ class VaultMetricsRecord(TypedDict, total=False):
 
     #: Technical risk classification
     risk: str | None
+
+    #: Maintained investment strategy classifications, or ``None`` when the
+    #: strategy information is missing.
+    strategy_tags: list[str] | None
 
     #: Latest adaptive vault scan cycle, e.g. ``"large_tvl"`` or ``"peaked"``.
     vault_poll_frequency: str | None
@@ -1795,6 +1800,11 @@ def calculate_vault_record(
         share_price_source = PriceSource(raw_share_price_source).value
 
     flags = set(vault_metadata.get("_flags") or set())
+    raw_strategy_tags = vault_metadata.get("_strategy_tags")
+    if isinstance(raw_strategy_tags, (set, frozenset, list, tuple)):
+        strategy_tags = sorted(tag.value if isinstance(tag, StrategyTag) else str(tag) for tag in raw_strategy_tags)
+    else:
+        strategy_tags = None
     risk, notes, flags = apply_bad_flag_check(
         risk=risk,
         notes=notes,
@@ -2313,6 +2323,7 @@ def calculate_vault_record(
             "last_share_price": last_share_price,
             "features": features,
             "flags": flags,
+            "strategy_tags": strategy_tags,
             "notes": notes,
             "link": link,
             "trading_strategy_link": trading_strategy_link,
@@ -2926,6 +2937,7 @@ def format_lifetime_table(
     _del("last_updated_at")
     _del("last_updated_block")
     _del("features")
+    _del("strategy_tags")
     _del("fee_mode")
     _del("fee_internalised")
     _del("gross_fees")

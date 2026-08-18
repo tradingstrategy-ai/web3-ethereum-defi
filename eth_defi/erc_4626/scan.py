@@ -362,6 +362,7 @@ def create_vault_scan_record(
         "_detection_data": detection,
         "_fees": None,
         "_flags": {},
+        "_strategy_tags": None,
         "_notes": None,
         "_deposit_manager": None,
         "_deposit_permission": VaultDepositPermission.unknown.value,
@@ -416,6 +417,11 @@ def create_vault_scan_record(
         except ValueError as e:
             logger.error(f"Failed to read flags for vault {vault} at {detection.address}: {e}", exc_info=e)
             flags = {}
+        try:
+            strategy_tags = vault.get_strategy_tags()
+        except (AttributeError, ImportError, KeyError, NotImplementedError, RuntimeError, TypeError, ValueError) as error:
+            logger.warning("Failed to read strategy tags for vault %s: %s", detection.address, error, exc_info=True)
+            strategy_tags = None
 
         link = vault.get_link()
         protocol_name = get_vault_protocol_name(detection.features)
@@ -455,6 +461,7 @@ def create_vault_scan_record(
             "_share_token": vault.share_token.export() if vault.share_token else None,
             "_fees": fees,
             "_flags": flags,
+            "_strategy_tags": strategy_tags,
             "_lockup": lockup,
             "_withdrawal_period": withdrawal_period,
             "_description": description,

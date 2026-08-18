@@ -2194,6 +2194,10 @@ def create_vault_instance(
         from eth_defi.erc_4626.vault_protocol.morpho.vault_v2 import MorphoV2Vault
 
         return MorphoV2Vault(web3, spec, **kwargs)
+    elif ERC4626Feature.panoptic_like in features:
+        from eth_defi.erc_4626.vault_protocol.panoptic.vault import PanopticVault
+
+        return PanopticVault(web3, spec, **kwargs)
     elif ERC4626Feature.euler_earn_like in features:
         # EulerEarn metavault instance
         from eth_defi.erc_4626.vault_protocol.euler.vault import EulerEarnVault

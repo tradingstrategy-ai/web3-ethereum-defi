@@ -30,7 +30,9 @@ from eth_typing import BlockIdentifier, HexAddress
 from web3.exceptions import BadFunctionCallOutput, ContractLogicError, Web3Exception
 
 from eth_defi.erc_4626.vault import ERC4626Vault
+from eth_defi.erc_4626.vault_protocol.atoma.tags import STRATEGY_TAGS
 from eth_defi.vault.base import WithdrawalDelayType, WithdrawalPeriod
+from eth_defi.vault.strategy_tag import StrategyTag, lookup_strategy_tags
 
 logger = logging.getLogger(__name__)
 
@@ -184,6 +186,15 @@ class AtomaVault(ERC4626Vault):
 
         metadata = ATOMA_VAULT_DESCRIPTION_OVERLAY.get(HexAddress(str(self.vault_address).lower()))
         return metadata.short_description if metadata else None
+
+    def get_strategy_tags(self) -> set[StrategyTag] | None:
+        """Return the maintained strategy tags for this Atoma vault.
+
+        :return:
+            Copy of the tag set, or ``None`` when this vault has not yet been
+            classified.
+        """
+        return lookup_strategy_tags(STRATEGY_TAGS, self.vault_address)
 
     def has_custom_fees(self) -> bool:
         """Atoma has a mixed internalised performance fee and external withdrawal fee."""

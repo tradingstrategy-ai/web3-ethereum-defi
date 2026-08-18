@@ -13,6 +13,39 @@ synchronous lifecycle. It executes the manager-selected approval, deposit and
 redemption calls through ``SimpleVaultV0.performCall()`` on a fixed Ethereum
 mainnet Anvil fork.
 
+## Strategy tags
+
+VaultBase adapters expose ``VaultBase.get_strategy_tags()`` for investment
+strategy classification. ``None`` means that strategy information is missing;
+it is distinct from an empty set, which means the vault was reviewed but no
+available tag applied. Native perpetual DEX exports do not use ``VaultBase``;
+ApeX, Hyperliquid, GRVT, Hibachi, and Lighter persist their default and
+address-specific tags in their native protocol ``tags.py`` modules. The
+perpetual-futures default applies to products that actually trade perpetuals;
+a documented RWA or fund exception must opt out of that default rather than
+inherit a misleading tag. All mappings are maintained with the
+``categorise-vault-strategy`` skill. Use ``StrategyTag.unknown`` only when
+research establishes that the strategy itself is unknown; otherwise leave an
+unclassified address unmapped so the missing-information result is retained.
+
+When adding a protocol or expanding an existing detector, run
+``categorise-vault-strategy`` for **every newly added and every newly covered
+vault**, not only the example contract. Use the vault's published strategy
+description and context, preserve source/date decision comments above each
+address mapping, and add focused no-RPC coverage. Tokenised funds keep their
+mapping under ``eth_defi/tokenised_fund/{slug}/tags.py``; native perpetual DEX
+exports keep theirs under ``eth_defi/{slug}/tags.py``. Aave, Euler and Morpho
+adapters add the generic ``StrategyTag.lending`` tag automatically, while
+their address-level mappings remain additive.
+
+EVM ``STRATEGY_TAGS`` tables use plain lowercase string keys such as
+``"0x1234..."`` rather than ``HexAddress(...)`` constructors. The shared
+lookup helper normalises adapter addresses before reading the mapping. These
+mappings are intentionally address-only: an entry applies to every supported
+deployment at that address, and must be added only after confirming that any
+same-address deployments use the same strategy. Handle a genuine
+chain-specific exception in the protocol adapter's strategy-tag hook.
+
 ## Deposit manager
 
 Implement a protocol-specific ``VaultDepositManager`` when the generic

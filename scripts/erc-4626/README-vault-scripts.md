@@ -1414,6 +1414,59 @@ source .local-test.env && \
 | `DRY_RUN` | Optional. Report only when true. Default: true. |
 | `LOG_LEVEL` | Optional. Default: info. |
 
+### migrate-vault-strategy-tags.py
+
+Recalculate the persisted ``_strategy_tags`` field for every vault row using
+the current address mappings backing the strategy-tag hooks. EVM rows use the
+persisted protocol feature flags to select the matching mapping without
+constructing a ``VaultBase`` adapter. ApeX, Hyperliquid, GRVT, Hibachi, and
+Lighter rows use their native address-to-tag resolvers (including each
+protocol's default ``perpetual_futures`` classification). Resolution is
+metadata-only:
+the script makes no RPC calls and does not touch prices, Parquet files, or
+reader state.
+
+All maintained EVM ``STRATEGY_TAGS`` tables use plain lowercase ``str`` keys,
+such as ``"0x1234..."``. Do not add verbose ``HexAddress(...)`` constructors
+to these table literals. The shared lookup helper lowercases an adapter's
+``HexAddress`` value before consulting the string-keyed mapping; native
+protocol identifiers follow the same lowercase-string convention.
+
+Always inspect the dry run first:
+
+```shell
+# Report rows whose tags would change (default)
+source .local-test.env && \
+  DRY_RUN=true \
+  poetry run python scripts/erc-4626/migrate-vault-strategy-tags.py
+
+# Stop ``vault-scanner-looped`` before applying the migration. Both processes
+# rewrite the complete metadata pickle, so a concurrent scan can overwrite
+# these changes.
+# Back up and persist the current classifications
+source .local-test.env && \
+  DRY_RUN=false \
+  poetry run python scripts/erc-4626/migrate-vault-strategy-tags.py
+```
+
+The apply mode creates a non-overwriting
+``*.pickle.bak-strategy-tags`` backup before writing. Rows without persisted
+detection metadata or a maintained resolver are reported as skipped and left
+unchanged. The resolver order follows the scanner's adapter precedence, so a
+later mapping cannot classify a row that the scanner would route to an earlier
+unsupported adapter. Legacy or malformed tag values are repaired whenever the
+row has a maintained resolver. A subsequent scanner pass also preserves an
+existing non-empty tag set when the current adapter reports missing strategy
+information. Run
+``export-data-files.py`` afterwards to publish the updated strategy tags in
+the JSON exports.
+
+| Variable | Description |
+|----------|-------------|
+| `VAULT_DB_PATH` | Optional vault metadata pickle path. Default: `~/.tradingstrategy/vaults/vault-metadata-db.pickle`. |
+| `DRY_RUN` | Optional. Report only when true. Default: true. |
+| `LOG_LEVEL` | Optional. Default: info. |
+
 ### prepopulate-timestamps.py
 
 Prepopulate the Hypersync block timestamp DuckDB cache for all scanner chains.

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Categorise vault strategy"
+  short_description: "Classify vault investment strategies."
+  default_prompt: "Use $categorise-vault-strategy to classify a vault strategy from its address, name, or link."

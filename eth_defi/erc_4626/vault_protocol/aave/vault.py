@@ -10,7 +10,9 @@ from web3.contract import Contract
 
 from eth_defi.erc_4626.core import get_deployed_erc_4626_contract
 from eth_defi.erc_4626.vault import ERC4626Vault
+from eth_defi.erc_4626.vault_protocol.aave.tags import get_strategy_tags as get_aave_strategy_tags
 from eth_defi.vault.base import INSTANT_WITHDRAWAL_PERIOD, WithdrawalPeriod
+from eth_defi.vault.strategy_tag import StrategyTag
 
 logger = logging.getLogger(__name__)
 
@@ -54,6 +56,17 @@ class AaveVault(ERC4626Vault):
         until that is implemented these metrics are unsupported. This matches the
         existing ZeroLend (Aave v3 fork) integration.
     """
+
+    def get_strategy_tags(self) -> set[StrategyTag]:
+        """Return automatic lending plus any maintained Aave tags.
+
+        Aave vaults are lending products by construction. Address-specific
+        classifications are merged in by the Aave tag registry.
+
+        :return:
+            Strategy tags including :attr:`StrategyTag.lending`.
+        """
+        return get_aave_strategy_tags(self.vault_address)
 
     @cached_property
     def vault_contract(self) -> Contract:

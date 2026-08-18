@@ -70,6 +70,26 @@ A new vault protocol integration is not complete unless it includes:
 - A generated protocol-specific historical lead migration script that preserves
   unrelated vault database, reader-state and Parquet entries
 
+## Strategy tags
+
+Run the `categorise-vault-strategy` skill for **every newly added vault and
+every existing vault newly covered by the protocol integration**. Do not tag
+only the example contract used for protocol detection. Use
+`.claude/skills/categorise-vault-strategy/SKILL.md` to review each vault's
+description and context, maintain the protocol's address-level `tags.py`
+mapping, wire `get_strategy_tags()` into the adapter, and add focused coverage.
+
+Strategy tagging is part of protocol onboarding: the integration is incomplete
+until all vault addresses introduced or newly covered by detection have either
+an evidence-based tag mapping or are deliberately left unmapped so the
+resolver returns the explicit missing-information result (``None`` for
+``VaultBase`` adapters).
+
+EVM address keys in protocol ``tags.py`` tables must be plain lowercase
+strings, such as ``"0x1234..."``. Do not use verbose ``HexAddress(...)``
+constructors in table literals; the shared lookup helper normalises adapter
+inputs before looking up these keys.
+
 ## Step-by-step implementation
 
 ### Step 1: Download and store the ABI
@@ -553,6 +573,10 @@ After implementation, verify:
 - [ ] Check that homepage link in the API documentation takes to the correct homepage
 - [ ] Check that Twitter link in the API documentation works and takes to the same Twitter account as listed on the protocol homepage
 - [ ] Feed YAML file exists at `eth_defi/data/feeds/protocols/{protocol-slug}.yaml`
+- [ ] Every newly added or newly covered vault has been reviewed with the
+      `categorise-vault-strategy` skill and has an evidence-based strategy tag
+      mapping, or is deliberately left unmapped for the explicit
+      missing-information result
 
 If there are problems with the checklist, ask for human assistance.
 

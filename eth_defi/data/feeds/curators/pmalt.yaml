@@ -1,10 +1,10 @@
 feeder-id: pmalt
 name: pmalt
 role: curator
-short_description: pmalt is a discretionary trader on X as @hyperbulla, combining directional stock bets and crypto pair trading in a public pool on Lighter.
+short_description: pmalt is an algorithmic trader on X as @hyperbulla, combining directional stock bets and crypto pair trading in a public pool on Lighter.
 long_description: |
-  pmalt is an individual discretionary trader operating under the X handle @hyperbulla (display name "PM"), previously associated with Nostra Finance, a StarkNet lending protocol.
-  The operator runs a public pool on the Lighter perpetuals exchange using a strategy that blends directional equity positions with crypto pair trades.
+  pmalt is an individual algorithmic trader operating under the X handle @hyperbulla (display name "PM"), previously associated with Nostra Finance, a StarkNet lending protocol.
+  The operator runs a public pool on the Lighter perpetuals exchange using an algorithmic strategy that blends directional equity positions with crypto pair trades.
   A prior vault under the same name pmalt was operated on Hyperliquid, evidencing a track record across multiple trading venues.
 twitter: hyperbulla
 

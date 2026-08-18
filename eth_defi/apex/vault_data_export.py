@@ -16,6 +16,7 @@ import pandas as pd
 
 from eth_defi.apex.constants import APEX_CHAIN_ID, APEX_OFFICIAL_VAULTS, APEX_VAULT_URL_TEMPLATE
 from eth_defi.apex.metrics import ApexMetricsDatabase
+from eth_defi.apex.tags import get_strategy_tags
 from eth_defi.compat import native_datetime_utc_now
 from eth_defi.erc_4626.core import ERC4262VaultDetection, ERC4626Feature
 from eth_defi.perp_dex.vault import classify_perp_vault_deposit_access
@@ -146,6 +147,7 @@ def create_apex_vault_row(
         "_share_token": None,
         "_fees": fees,
         "_flags": {VaultFlag.perp_dex_trading_vault},
+        "_strategy_tags": get_strategy_tags(address),
         "_lockup": redemption_delay,
         "_description": description,
         "_short_description": short_description,

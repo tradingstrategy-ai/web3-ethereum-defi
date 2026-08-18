@@ -35,6 +35,7 @@ from eth_defi.compat import native_datetime_utc_now
 from eth_defi.erc_4626.core import ERC4262VaultDetection, ERC4626Feature
 from eth_defi.hibachi.constants import HIBACHI_CHAIN_ID, HIBACHI_VAULT_FEE_MODE, HIBACHI_VAULT_LOCKUP
 from eth_defi.hibachi.daily_metrics import HibachiDailyMetricsDatabase
+from eth_defi.hibachi.tags import get_strategy_tags
 from eth_defi.perp_dex.vault import classify_perp_vault_deposit_access
 from eth_defi.vault.base import VaultHistoricalRead, VaultSpec
 from eth_defi.vault.fee import FeeData
@@ -156,6 +157,7 @@ def create_hibachi_vault_row(
         "_share_token": None,
         "_fees": fee_data,
         "_flags": flags,
+        "_strategy_tags": get_strategy_tags(address),
         "_lockup": HIBACHI_VAULT_LOCKUP,
         "_description": description,
         "_short_description": _create_short_description(name, description),

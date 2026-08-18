@@ -15,6 +15,8 @@ from web3 import Web3
 
 from eth_defi.erc_4626.vault import ERC4626Vault
 from eth_defi.erc_4626.vault_protocol.symbiotic.offchain_metadata import SymbioticVaultMetadata, fetch_symbiotic_vault_metadata
+from eth_defi.erc_4626.vault_protocol.symbiotic.tags import STRATEGY_TAGS
+from eth_defi.vault.strategy_tag import StrategyTag, lookup_strategy_tags
 
 
 class SymbioticVault(ERC4626Vault):
@@ -61,6 +63,15 @@ class SymbioticVault(ERC4626Vault):
             return None
         sentence_end = description.find(". ")
         return description[: sentence_end + 1] if sentence_end >= 0 else description.rstrip(".") + "."
+
+    def get_strategy_tags(self) -> set[StrategyTag] | None:
+        """Return the maintained strategy tags for this Symbiotic vault.
+
+        :return:
+            Copy of the tag set, or ``None`` when this vault has not yet been
+            classified.
+        """
+        return lookup_strategy_tags(STRATEGY_TAGS, self.vault_address)
 
     @property
     def manager_name(self) -> str | None:

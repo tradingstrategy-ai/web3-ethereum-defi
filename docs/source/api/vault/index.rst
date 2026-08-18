@@ -11,6 +11,10 @@ A generic high-level Python framework to integrate different vault providers.
 
 - See also ERC-4626 specific implementation :py:mod:`eth_defi.vault.erc_4626`.
 
+Strategy-tag mapping modules keep EVM address keys as plain lowercase strings
+instead of ``HexAddress(...)`` constructor calls. The shared lookup helper
+normalises addresses supplied by adapters before reading these mappings.
+
 .. autosummary::
    :toctree: _autosummary_vault
    :recursive:
@@ -19,6 +23,7 @@ A generic high-level Python framework to integrate different vault providers.
    eth_defi.vault.flow_events
    eth_defi.vault.risk
    eth_defi.vault.price_source
+   eth_defi.vault.strategy_tag
    eth_defi.vault.fee
    eth_defi.vault.deposit_redeem
    eth_defi.vault.vaultdb

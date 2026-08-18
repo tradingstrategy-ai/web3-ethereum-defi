@@ -6,6 +6,8 @@ import logging
 from eth_typing import BlockIdentifier
 
 from eth_defi.erc_4626.vault import ERC4626Vault
+from eth_defi.erc_4626.vault_protocol.liquid_royalty.tags import STRATEGY_TAGS
+from eth_defi.vault.strategy_tag import StrategyTag, lookup_strategy_tags
 
 logger = logging.getLogger(__name__)
 
@@ -26,6 +28,15 @@ class LiquidRoyaltyVault(ERC4626Vault):
     - Smart contracts: https://github.com/stratosphere-network/LiquidRoyaltyContracts
     - Example vault: https://berascan.com/address/0x09cea16a2563c2d7d807c86f5b8da760389b5915
     """
+
+    def get_strategy_tags(self) -> set[StrategyTag] | None:
+        """Return the maintained strategy tags for this Liquid Royalty vault.
+
+        :return:
+            Copy of the tag set, or ``None`` when this address has not yet
+            been classified.
+        """
+        return lookup_strategy_tags(STRATEGY_TAGS, self.vault_address)
 
     def has_custom_fees(self) -> bool:
         """Liquid Royalty vaults have a 20% early withdrawal penalty within 7-day cooldown."""

@@ -35,6 +35,7 @@ from eth_defi.compat import native_datetime_utc_now
 from eth_defi.erc_4626.core import ERC4262VaultDetection, ERC4626Feature
 from eth_defi.grvt.constants import GRVT_CHAIN_ID, GRVT_VAULT_FEE_MODE, GRVT_VAULT_LOCKUP
 from eth_defi.grvt.daily_metrics import GRVTDailyMetricsDatabase
+from eth_defi.grvt.tags import get_strategy_tags
 from eth_defi.perp_dex.vault import classify_perp_vault_deposit_access
 from eth_defi.vault.base import VaultHistoricalRead, VaultSpec
 from eth_defi.vault.fee import FeeData
@@ -168,6 +169,7 @@ def create_grvt_vault_row(
         "_share_token": None,
         "_fees": fee_data,
         "_flags": flags,
+        "_strategy_tags": get_strategy_tags(address),
         "_lockup": GRVT_VAULT_LOCKUP,
         "_description": description,
         "_short_description": None,

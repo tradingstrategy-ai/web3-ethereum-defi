@@ -7,10 +7,12 @@ import pytest
 
 from eth_defi.erc_4626.classification import _get_hardcoded_protocol_features, create_vault_instance  # noqa: PLC2701
 from eth_defi.erc_4626.core import ERC4626Feature, get_vault_protocol_name
-from eth_defi.erc_4626.vault_protocol.kiloex.constants import KILOEX_VAULTS_BY_CHAIN
+from eth_defi.erc_4626.vault_protocol.kiloex.constants import KILOEX_VAULT_ADDRESSES, KILOEX_VAULTS_BY_CHAIN
+from eth_defi.erc_4626.vault_protocol.kiloex.tags import STRATEGY_TAGS
 from eth_defi.erc_4626.vault_protocol.kiloex.vault import KiloExVault
 from eth_defi.vault.fee import get_vault_fee_mode
 from eth_defi.vault.risk import get_vault_risk
+from eth_defi.vault.strategy_tag import StrategyTag
 
 
 @pytest.mark.parametrize(
@@ -39,6 +41,31 @@ def test_kiloex_hardcoded_vault_detection(chain_id: int, address: str, expected_
     assert vault.get_management_fee("latest") is None
     assert vault.get_performance_fee("latest") is None
     assert vault.get_estimated_lock_up() == datetime.timedelta(days=9)
+    assert vault.get_strategy_tags() == {
+        StrategyTag.amm,
+        StrategyTag.liquidity_provider,
+        StrategyTag.market_maker,
+        StrategyTag.market_making,
+        StrategyTag.market_making_amm,
+        StrategyTag.perpetual_futures,
+    }
+
+
+def test_kiloex_strategy_mappings_cover_known_deployments() -> None:
+    """Every known KiloEx deployment has the transferred classification."""
+    assert set(STRATEGY_TAGS) == set(KILOEX_VAULT_ADDRESSES)
+
+
+def test_unmapped_kiloex_vault_returns_missing_strategy_tags() -> None:
+    """An address outside the maintained KiloEx set remains unclassified."""
+    vault = create_vault_instance(
+        web3=SimpleNamespace(eth=SimpleNamespace(chain_id=56)),
+        address="0x000000000000000000000000000000000000f00d",
+        features={ERC4626Feature.kiloex_like},
+    )
+
+    assert isinstance(vault, KiloExVault)
+    assert vault.get_strategy_tags() is None
 
 
 def test_kiloex_hardcoded_detection_is_chain_aware() -> None:

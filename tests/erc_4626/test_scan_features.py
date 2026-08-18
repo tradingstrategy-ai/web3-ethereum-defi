@@ -7,10 +7,11 @@ import pytest
 
 import eth_defi.erc_4626.scan as scan_module
 from eth_defi.erc_4626.core import ERC4262VaultDetection, ERC4626Feature
-from eth_defi.vault.base import INSTANT_WITHDRAWAL_PERIOD, WithdrawalDelayType, WithdrawalPeriod
+from eth_defi.vault.base import INSTANT_WITHDRAWAL_PERIOD, VaultSpec, WithdrawalDelayType, WithdrawalPeriod
 from eth_defi.vault.deposit_redeem import VaultDepositManagerCapability
 from eth_defi.vault.fee import FeeData, VaultFeeMode
 from eth_defi.vault.price_source import PriceSource
+from eth_defi.vault.strategy_tag import StrategyTag
 from eth_defi.vault.vaultdb import VaultDatabase
 
 
@@ -78,6 +79,11 @@ class _FakeVault:
         return set()
 
     @staticmethod
+    def get_strategy_tags() -> None:
+        """Report missing strategy classification."""
+        return None
+
+    @staticmethod
     def get_link() -> str:
         """Return vault link."""
         return "https://example.com/vault"
@@ -130,6 +136,25 @@ class _PermissionedFakeVault(_FakeVault):
     def get_whitelist_notes() -> str:
         """Return a classification caveat."""
         return "No permissioned hook checks were performed"
+
+
+class _TaggedFakeVault(_FakeVault):
+    """Minimal vault exposing the optional strategy-tag hook."""
+
+    @staticmethod
+    def get_strategy_tags() -> set[StrategyTag]:
+        """Return one maintained strategy tag."""
+        return {StrategyTag.algorithmic_trading}
+
+
+class _BrokenStrategyTagFakeVault(_FakeVault):
+    """Minimal vault whose optional strategy-tag hook fails."""
+
+    @staticmethod
+    def get_strategy_tags() -> set[StrategyTag]:
+        """Raise a representative lookup error."""
+        error_message = "classification mapping is unavailable"
+        raise KeyError(error_message)
 
 
 class _LegacyInstantFakeVault(_FakeVault):
@@ -220,6 +245,61 @@ def test_create_vault_scan_record_persists_deposit_permission(monkeypatch: pytes
     }
     assert record["_deposit_permission"] == "whitelisted"
     assert record["_whitelist_notes"] == "No permissioned hook checks were performed"
+
+
+def test_create_vault_scan_record_persists_strategy_tags(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Persist strategy tags returned by the VaultBase strategy hook."""
+    detection = _create_detection({ERC4626Feature.usdai_like})
+    monkeypatch.setattr(scan_module, "create_vault_instance", lambda *_args, **_kwargs: _TaggedFakeVault())
+
+    record = scan_module.create_vault_scan_record(
+        web3=None,
+        detection=detection,
+        block_identifier=1,
+        token_cache={},
+    )
+
+    assert record["_strategy_tags"] == {StrategyTag.algorithmic_trading}
+
+
+def test_create_vault_scan_record_treats_strategy_tag_errors_as_missing(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A broken optional hook leaves strategy information explicitly missing."""
+    detection = _create_detection({ERC4626Feature.usdai_like})
+    monkeypatch.setattr(scan_module, "create_vault_instance", lambda *_args, **_kwargs: _BrokenStrategyTagFakeVault())
+
+    record = scan_module.create_vault_scan_record(
+        web3=None,
+        detection=detection,
+        block_identifier=1,
+        token_cache={},
+    )
+
+    assert record["_strategy_tags"] is None
+
+
+def test_vault_database_merge_preserves_existing_strategy_tags() -> None:
+    """A rescan without a classification does not erase persisted tags."""
+    spec = VaultSpec(1, "0x0000000000000000000000000000000000000001")
+    database = VaultDatabase(
+        rows={
+            spec: {
+                "Name": "Existing vault",
+                "_strategy_tags": {StrategyTag.algorithmic_trading},
+            }
+        }
+    )
+
+    database._merge_rows(
+        {
+            spec: {
+                "Name": "Fresh vault",
+                "Denomination": "USDC",
+                "_strategy_tags": None,
+            }
+        }
+    )
+
+    assert database.rows[spec]["_strategy_tags"] == {StrategyTag.algorithmic_trading}
 
 
 def test_create_vault_scan_record_does_not_infer_instant_from_legacy_zero_lockup(monkeypatch: pytest.MonkeyPatch) -> None:

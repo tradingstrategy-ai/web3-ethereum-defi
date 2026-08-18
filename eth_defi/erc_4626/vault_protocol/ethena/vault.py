@@ -27,7 +27,9 @@ import logging
 from eth_typing import BlockIdentifier
 
 from eth_defi.erc_4626.vault import ERC4626Vault
+from eth_defi.erc_4626.vault_protocol.ethena.tags import STRATEGY_TAGS
 from eth_defi.vault.base import WithdrawalDelayType, WithdrawalPeriod
+from eth_defi.vault.strategy_tag import StrategyTag, lookup_strategy_tags
 
 logger = logging.getLogger(__name__)
 
@@ -45,6 +47,15 @@ class EthenaVault(ERC4626Vault):
     - Twitter: https://x.com/ethena_labs
     - Contract: https://etherscan.io/address/0x9d39a5de30e57443bff2a8307a4256c8797a3497
     """
+
+    def get_strategy_tags(self) -> set[StrategyTag] | None:
+        """Return the maintained strategy tags for this Ethena vault.
+
+        :return:
+            Copy of the tag set, or ``None`` when this vault has not yet been
+            classified.
+        """
+        return lookup_strategy_tags(STRATEGY_TAGS, self.vault_address)
 
     def has_custom_fees(self) -> bool:
         """Whether this vault has deposit/withdrawal fees.

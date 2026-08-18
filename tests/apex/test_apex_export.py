@@ -15,6 +15,7 @@ from eth_defi.apex.vault_data_export import build_raw_prices_dataframe, create_a
 from eth_defi.erc_4626.core import ERC4626Feature, get_vault_protocol_name
 from eth_defi.utils import is_good_multichain_address
 from eth_defi.vault.base import VaultSpec
+from eth_defi.vault.strategy_tag import StrategyTag
 from eth_defi.vault.vaultdb import VaultDatabase
 
 EXPECTED_TVL = 125.0
@@ -75,6 +76,7 @@ def test_apex_synthetic_identity_is_a_shared_vault_spec() -> None:
     assert row["_fees"].fee_mode is None
     assert row["Perf fee"] is None
     assert row["_lockup"] == datetime.timedelta(days=1)
+    assert row["_strategy_tags"] == {StrategyTag.perpetual_futures}
     assert get_vault_protocol_name({ERC4626Feature.apex_native}) == "ApeX"
 
 

@@ -16,12 +16,14 @@ from eth_defi.token import TokenDetails, fetch_erc20_details
 from eth_defi.tokenised_fund.securitize.description import BUIDL_ETHEREUM, SECURITIZE_PRODUCTS
 from eth_defi.tokenised_fund.securitize.historical import SecuritizeVaultHistoricalReader
 from eth_defi.tokenised_fund.securitize.redstone import REDSTONE_SECURITIZE_FEEDS, RedstoneSecuritizeFeed, fetch_redstone_feed_contract, fetch_redstone_price_at
+from eth_defi.tokenised_fund.securitize.tags import STRATEGY_TAGS
 from eth_defi.tokenised_fund.vault import TokenisedFundVault
 from eth_defi.types import Percent
 from eth_defi.vault.base import TradingUniverse, VaultFlowManager, VaultHistoricalReader, VaultInfo, VaultPortfolio, VaultSpec
 from eth_defi.vault.fee import BROKEN_FEE_DATA, FeeData
 from eth_defi.vault.lower_case_dict import LowercaseDict
 from eth_defi.vault.price_source import PriceSource
+from eth_defi.vault.strategy_tag import StrategyTag, lookup_strategy_tags
 
 #: Backwards-compatible aliases for the first registered Securitize product.
 BUIDL_ETHEREUM_CHAIN_ID = BUIDL_ETHEREUM.chain_id
@@ -237,6 +239,15 @@ class SecuritizeVault(TokenisedFundVault):
         """
 
         return self.product.short_description if self.product else "Unclassified Securitize fund strategy"
+
+    def get_strategy_tags(self) -> set[StrategyTag] | None:
+        """Return the maintained strategy tags for this Securitize fund.
+
+        :return:
+            Copy of the tag set, or ``None`` when this fund has not yet been
+            classified.
+        """
+        return lookup_strategy_tags(STRATEGY_TAGS, self.vault_address)
 
     @property
     def manager_name(self) -> str | None:

@@ -45,6 +45,7 @@ from eth_defi.lighter.constants import (
     identify_lighter_pool_deployment,
 )
 from eth_defi.lighter.daily_metrics import LighterDailyMetricsDatabase
+from eth_defi.lighter.tags import get_strategy_tags
 from eth_defi.perp_dex.vault import classify_perp_vault_deposit_access
 from eth_defi.types import Percent
 from eth_defi.vault.base import VaultHistoricalRead, VaultSpec
@@ -206,6 +207,7 @@ def create_lighter_pool_row(
         "_share_token": None,
         "_fees": fee_data,
         "_flags": flags,
+        "_strategy_tags": get_strategy_tags(address),
         "_lockup": deployment.lockup,
         "_description": description,
         "_short_description": description.split(".")[0].strip() + "." if description else None,

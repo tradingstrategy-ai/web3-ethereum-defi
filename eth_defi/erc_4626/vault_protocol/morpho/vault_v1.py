@@ -27,10 +27,12 @@ from eth_defi.erc_4626.vault_protocol.morpho.offchain_metadata import (
     fetch_morpho_vault_api_result,
     is_morpho_api_not_found_flag_bypassed,
 )
+from eth_defi.erc_4626.vault_protocol.morpho.tags import get_strategy_tags as get_morpho_strategy_tags
 from eth_defi.event_reader.multicall_batcher import EncodedCall, EncodedCallResult
 from eth_defi.types import Percent
 from eth_defi.vault.base import INSTANT_WITHDRAWAL_PERIOD, VaultHistoricalRead, VaultHistoricalReader, WithdrawalPeriod
 from eth_defi.vault.flag import NOT_IN_MORPHO_API, VaultFlag
+from eth_defi.vault.strategy_tag import StrategyTag
 
 logger = logging.getLogger(__name__)
 
@@ -161,6 +163,17 @@ class MorphoV1Vault(ERC4626Vault):
     See also :py:class:`eth_defi.erc_4626.vault_protocol.morpho.vault_v2.MorphoV2Vault`
     for the newer adapter-based architecture.
     """
+
+    def get_strategy_tags(self) -> set[StrategyTag]:
+        """Return automatic lending plus any maintained Morpho tags.
+
+        MetaMorpho vaults supply assets to Morpho lending markets. Address-
+        specific classifications are merged in by the Morpho tag registry.
+
+        :return:
+            Strategy tags including :attr:`StrategyTag.lending`.
+        """
+        return get_morpho_strategy_tags(self.vault_address)
 
     def is_whitelisted_deposit(self) -> bool:
         """Report canonical MetaMorpho deposits as permissionless.

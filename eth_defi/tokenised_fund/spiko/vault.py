@@ -24,11 +24,13 @@ from eth_defi.token import TokenDetails, fetch_erc20_details
 from eth_defi.tokenised_fund.spiko.constants import SPIKO_PRODUCTS, SpikoProduct
 from eth_defi.tokenised_fund.spiko.constants import USTBL_MANAGEMENT_FEE as _USTBL_MANAGEMENT_FEE
 from eth_defi.tokenised_fund.spiko.historical import SpikoHistoricalReader
+from eth_defi.tokenised_fund.spiko.tags import STRATEGY_TAGS
 from eth_defi.tokenised_fund.vault import TokenisedFundVault
 from eth_defi.types import Percent
 from eth_defi.vault.base import TradingUniverse, VaultFlowManager, VaultHistoricalReader, VaultInfo, VaultPortfolio, VaultSpec
 from eth_defi.vault.fee import FeeData, VaultFeeMode
 from eth_defi.vault.lower_case_dict import LowercaseDict
+from eth_defi.vault.strategy_tag import StrategyTag, lookup_strategy_tags
 
 #: Public flows must not be advertised for Spiko's permissioned lifecycle.
 SPIKO_PERMISSIONED_FLOW_REASON = "Spiko subscriptions, transfers and redemptions require eligibility checks and issuer-operated daily servicing"
@@ -248,6 +250,15 @@ class SpikoVault(TokenisedFundVault):
         """
 
         return self.product.short_description
+
+    def get_strategy_tags(self) -> set[StrategyTag] | None:
+        """Return the maintained strategy tags for this Spiko fund.
+
+        :return:
+            Copy of the tag set, or ``None`` when this fund has not yet been
+            classified.
+        """
+        return lookup_strategy_tags(STRATEGY_TAGS, self.vault_address)
 
     @property
     def manager_name(self) -> str:
