@@ -23,7 +23,7 @@ from eth_defi.token import TokenDetails, fetch_erc20_details
 from eth_defi.vault.base import VaultHistoricalRead, VaultHistoricalReader, WithdrawalDelayType, WithdrawalPeriod
 from eth_defi.vault.deposit_redeem import VaultDepositManagerCapability
 from eth_defi.vault.fee import VaultFeeMode
-from eth_defi.vault.strategy_tag import StrategyTag
+from eth_defi.vault.strategy_tag import StrategyTag, lookup_strategy_tags
 
 logger = logging.getLogger(__name__)
 
@@ -252,8 +252,7 @@ class UpshiftVault(ERC4626Vault):
             Copy of the tag set, or ``None`` when this vault has not yet been
             classified.
         """
-        tags = STRATEGY_TAGS.get(HexAddress(str(self.vault_address).lower()))
-        return tags.copy() if tags is not None else None
+        return lookup_strategy_tags(STRATEGY_TAGS, self.vault_address)
 
     @cached_property
     def upshift_metadata(self) -> UpshiftVaultMetadata | None:

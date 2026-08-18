@@ -1,6 +1,6 @@
 """Maintained strategy classifications for Hyperliquid native vaults."""
 
-from eth_defi.vault.strategy_tag import StrategyTag
+from eth_defi.vault.strategy_tag import StrategyTag, combine_strategy_tags
 
 #: Hyperliquid native vaults trade perpetual futures by definition.
 DEFAULT_STRATEGY_TAGS: frozenset[StrategyTag] = frozenset({StrategyTag.perpetual_futures})
@@ -14,6 +14,7 @@ STRATEGY_TAGS: dict[str, set[StrategyTag]] = {
     #: Hyperliquid strategy as algorithmic trading and pair trading.
     #: Sources:
     #: - eth_defi/data/feeds/curators/pmalt.yaml
+    #: - https://app.hyperliquid.xyz/vaults/0x4dec0a851849056e259128464ef28ce78afa27f6
     #: - https://app.lighter.xyz/public-pools/281474976552918
     "0x4dec0a851849056e259128464ef28ce78afa27f6": {
         StrategyTag.algorithmic_trading,
@@ -98,4 +99,4 @@ def get_strategy_tags(address: str) -> set[StrategyTag]:
         New tag set containing the native perpetual-futures default and any
         address-specific classifications.
     """
-    return set(DEFAULT_STRATEGY_TAGS) | STRATEGY_TAGS.get(address.lower(), set())
+    return combine_strategy_tags(DEFAULT_STRATEGY_TAGS, STRATEGY_TAGS, address)

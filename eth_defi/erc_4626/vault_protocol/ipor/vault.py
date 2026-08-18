@@ -32,7 +32,7 @@ from eth_defi.vault.base import (
 from eth_defi.vault.deposit_redeem import VaultDepositManagerCapability
 from eth_defi.vault.flag import MISSING_IN_PROTOCOL_FRONTEND, VaultFlag
 from eth_defi.vault.risk import VaultTechnicalRisk
-from eth_defi.vault.strategy_tag import StrategyTag
+from eth_defi.vault.strategy_tag import StrategyTag, lookup_strategy_tags
 
 #: function getPerformanceFeeData() external view returns (PlasmaVaultStorageLib.PerformanceFeeData memory feeData);
 #: PlasmaVaultLib.sol
@@ -408,8 +408,7 @@ class IPORVault(ERC4626Vault):  # noqa: PLR0904
             Copy of the tag set, or ``None`` when this vault has not yet been
             classified.
         """
-        tags = STRATEGY_TAGS.get(HexAddress(str(self.vault_address).lower()))
-        return tags.copy() if tags is not None else None
+        return lookup_strategy_tags(STRATEGY_TAGS, self.vault_address)
 
     def get_flags(self) -> set[VaultFlag]:
         """Get vault flags, auto-flagging vaults missing from IPOR's public list.

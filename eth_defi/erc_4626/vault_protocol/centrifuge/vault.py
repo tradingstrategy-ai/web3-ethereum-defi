@@ -23,7 +23,7 @@ from eth_typing import BlockIdentifier, HexAddress
 from eth_defi.erc_4626.vault import ERC4626Vault
 from eth_defi.erc_4626.vault_protocol.centrifuge.centrifuge_utils import fetch_pool_id, fetch_tranche_id
 from eth_defi.erc_4626.vault_protocol.centrifuge.tags import STRATEGY_TAGS
-from eth_defi.vault.strategy_tag import StrategyTag
+from eth_defi.vault.strategy_tag import StrategyTag, lookup_strategy_tags
 
 logger = logging.getLogger(__name__)
 
@@ -149,8 +149,7 @@ class CentrifugeVault(ERC4626Vault):
             Copy of the tag set, or ``None`` when this vault has not yet been
             classified.
         """
-        tags = STRATEGY_TAGS.get(HexAddress(str(self.vault_address).lower()))
-        return tags.copy() if tags is not None else None
+        return lookup_strategy_tags(STRATEGY_TAGS, self.vault_address)
 
     def has_custom_fees(self) -> bool:
         """Centrifuge fees are managed at the pool/protocol level, not vault level."""

@@ -1,18 +1,22 @@
 """Vault investment strategy classifications."""
 
 import enum
+from collections.abc import Collection, Mapping
+
+from eth_typing import HexAddress
 
 
 class StrategyTag(str, enum.Enum):
     """Classify the investment strategies used by a vault.
 
-    A vault may have more than one strategy tag.  Tags describe its economic
-    strategy rather than its smart-contract implementation, risk level, or
-    current trading state.  String values are stable identifiers suitable for
-    persisted vault metadata and public data exports.
+    A vault may have more than one strategy tag. Tags describe its economic
+    strategy, instrument, execution venue, or asset exposure rather than its
+    smart-contract implementation, risk level, or current trading state.
+    String values are stable identifiers suitable for persisted vault metadata
+    and public data exports.
     """
 
-    #: The vault strategy has not yet been classified.
+    #: Research established that the vault's strategy is unknown.
     #: Example vault: none currently mapped.
     unknown = "unknown"
 
@@ -84,7 +88,8 @@ class StrategyTag(str, enum.Enum):
     #: Example vault: Grvt Liquidity Provider (GLP).
     market_maker = "market_maker"
 
-    #: Provides liquidity through an automated market maker.
+    #: Actively makes markets by supplying liquidity through an automated
+    #: market maker.
     #: Example vault: gTrade (Gains Network USDC).
     market_making_amm = "market_making_amm"
 
@@ -104,7 +109,8 @@ class StrategyTag(str, enum.Enum):
     #: Example vault: Grvt Liquidity Provider (GLP).
     perpetual_futures = "perpetual_futures"
 
-    #: Provides liquidity through an automated market maker.
+    #: Uses an automated market maker as the liquidity venue, regardless of
+    #: whether the vault itself runs a market-making strategy.
     #: Example vault: gTrade (Gains Network USDC).
     amm = "amm"
 
@@ -135,3 +141,48 @@ class StrategyTag(str, enum.Enum):
     #: Seeks return from the carry of an asset or position.
     #: Example vault: Staked USDe (Ethena).
     carry_trade = "carry_trade"
+
+
+def lookup_strategy_tags(
+    mapping: Mapping[HexAddress, Collection[StrategyTag]],
+    address: HexAddress,
+) -> set[StrategyTag] | None:
+    """Look up a copy of the maintained tags for one EVM vault address.
+
+    Address keys are normalised to lowercase before lookup. Returning a fresh
+    set prevents scan consumers from mutating the protocol's source mapping;
+    an absent key remains ``None`` so missing information is not confused with
+    a deliberately empty classification.
+
+    :param mapping:
+        Protocol-local address-to-tag mapping.
+    :param address:
+        EVM vault address to look up.
+    :return:
+        A mutable copy of the maintained tags, or ``None`` when no entry exists.
+    """
+    tags = mapping.get(HexAddress(str(address).lower()))
+    return set(tags) if tags is not None else None
+
+
+def combine_strategy_tags(
+    defaults: Collection[StrategyTag],
+    mapping: Mapping[str, Collection[StrategyTag]],
+    address: str,
+) -> set[StrategyTag]:
+    """Combine default and address-specific tags for a native vault export.
+
+    Native perpetual DEX integrations use synthetic identifiers rather than
+    EVM addresses. The helper normalises those identifiers and always returns a
+    fresh set so callers cannot mutate either source collection.
+
+    :param defaults:
+        Tags that apply to every vault in the native integration.
+    :param mapping:
+        Lowercase identifier-to-tag mapping.
+    :param address:
+        Native vault identifier.
+    :return:
+        Combined mutable tag set.
+    """
+    return set(defaults) | set(mapping.get(address.lower(), ()))

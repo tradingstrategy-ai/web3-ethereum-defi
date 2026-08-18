@@ -53,11 +53,19 @@ def test_all_grvt_vaults_have_binary_execution_tag() -> None:
     execution_tags = {StrategyTag.algorithmic_trading, StrategyTag.discretionary_trading}
 
     assert len(grvt_tags.STRATEGY_TAGS) == EXPECTED_GRVT_VAULT_COUNT
+    assert grvt_tags.NON_PERPETUAL_VAULTS <= grvt_tags.STRATEGY_TAGS.keys()
 
     for address, tags in grvt_tags.STRATEGY_TAGS.items():
         assert address == address.lower()
         assert len(tags & execution_tags) == 1
-        assert grvt_tags.get_strategy_tags(address) == {StrategyTag.perpetual_futures} | tags
+        expected_defaults = set() if address in grvt_tags.NON_PERPETUAL_VAULTS else {StrategyTag.perpetual_futures}
+        assert grvt_tags.get_strategy_tags(address) == expected_defaults | tags
+
+
+def test_grvt_rwa_bundle_vaults_do_not_receive_perpetual_futures_default() -> None:
+    """Documented GRVT RWA bundle products opt out of the perp default."""
+    for address in grvt_tags.NON_PERPETUAL_VAULTS:
+        assert StrategyTag.perpetual_futures not in grvt_tags.get_strategy_tags(address)
 
 
 def test_grvt_ai_grid_vault_is_grid_trading() -> None:

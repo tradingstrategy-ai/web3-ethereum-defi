@@ -1236,7 +1236,9 @@ class VaultBase(ABC):
         determine the vault's strategy. ``None`` means the strategy
         information is missing or has not yet been classified; it is distinct
         from an empty set, which would mean the strategy was evaluated but did
-        not match any available tag.
+        not match any available tag. Maintained mappings normally omit an
+        unclassified address; use ``StrategyTag.unknown`` only when research
+        establishes that the strategy itself is unknown.
 
         :return:
             Strategy tag set, or ``None`` when the information is missing.

@@ -36,6 +36,7 @@ from eth_defi.vault.fee import FeeData, VaultFeeMode
 from eth_defi.vault.flag import NOT_IN_MORPHO_API, VaultFlag
 from eth_defi.vault.price_source import PriceSource
 from eth_defi.vault.risk import VaultTechnicalRisk
+from eth_defi.vault.strategy_tag import StrategyTag
 from eth_defi.vault.vaultdb import VaultDatabase
 
 
@@ -1108,6 +1109,30 @@ def test_calculate_lifetime_metrics_exports_share_price_source(
 
     assert metrics.iloc[0]["share_price_source"] == "smart-contract-state"
     assert export_lifetime_row(metrics.iloc[0])["share_price_source"] == "smart-contract-state"
+
+
+def test_calculate_lifetime_metrics_exports_strategy_tags_to_json(
+    vault_db: VaultDatabase,
+    price_df: pd.DataFrame,
+) -> None:
+    """Persisted strategy tags survive lifetime calculation and JSON export."""
+
+    vault_id = "43111-0x05c2e246156d37b39a825a25dd08d5589e3fd883"
+    spec = VaultSpec.parse_string(vault_id)
+    vault_row = dict(vault_db.rows[spec])
+    vault_row["_strategy_tags"] = {StrategyTag.lending, StrategyTag.algorithmic_trading}
+
+    metrics = calculate_lifetime_metrics(
+        price_df.loc[price_df["id"] == vault_id],
+        {spec: vault_row},
+    )
+
+    assert metrics.iloc[0]["strategy_tags"] == ["algorithmic_trading", "lending"]
+    exported = export_lifetime_row(metrics.iloc[0])
+    encoded = json.dumps(exported)
+    decoded = json.loads(encoded)
+
+    assert decoded["strategy_tags"] == ["algorithmic_trading", "lending"]
 
 
 def test_calculate_lifetime_metrics_exports_vault_minimums(

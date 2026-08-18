@@ -23,7 +23,7 @@ from eth_defi.vault.base import TradingUniverse, VaultFlowManager, VaultHistoric
 from eth_defi.vault.fee import BROKEN_FEE_DATA, FeeData
 from eth_defi.vault.lower_case_dict import LowercaseDict
 from eth_defi.vault.price_source import PriceSource
-from eth_defi.vault.strategy_tag import StrategyTag
+from eth_defi.vault.strategy_tag import StrategyTag, lookup_strategy_tags
 
 #: Backwards-compatible aliases for the first registered Securitize product.
 BUIDL_ETHEREUM_CHAIN_ID = BUIDL_ETHEREUM.chain_id
@@ -247,8 +247,7 @@ class SecuritizeVault(TokenisedFundVault):
             Copy of the tag set, or ``None`` when this fund has not yet been
             classified.
         """
-        tags = STRATEGY_TAGS.get(HexAddress(str(self.vault_address).lower()))
-        return tags.copy() if tags is not None else None
+        return lookup_strategy_tags(STRATEGY_TAGS, self.vault_address)
 
     @property
     def manager_name(self) -> str | None:

@@ -19,6 +19,22 @@ Gather or infer these before editing:
 - Short curator description and long curator description
 - Optional website, Twitter/X, LinkedIn, blog/RSS, supporting links, and logo source
 
+## Strategy tags
+
+After identifying the vaults associated with the curator, run the
+`categorise-vault-strategy` skill for **every newly added vault and every
+existing vault newly covered by the curator metadata**. Curator attribution
+does not replace strategy classification. Follow
+`.claude/skills/categorise-vault-strategy/SKILL.md` to review each vault's
+strategy context, update the protocol-local address-level `tags.py` mapping,
+and verify `get_strategy_tags()` or the native vault export returns the
+maintained tags.
+
+Do not stop after tagging one representative vault: every vault identified as
+newly associated with the curator must have an evidence-based mapping, or must
+remain unmapped so its resolver returns the explicit missing-information
+result (``None`` for ``VaultBase`` adapters).
+
 If the candidate was produced by `find-new-curators`, open its result
 file first and keep the evidence trail in mind.
 

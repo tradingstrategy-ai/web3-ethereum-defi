@@ -1,12 +1,26 @@
 """Maintained strategy classifications for GRVT native vaults."""
 
-from eth_defi.vault.strategy_tag import StrategyTag
+from eth_defi.vault.strategy_tag import StrategyTag, combine_strategy_tags
 
-#: GRVT native vaults trade perpetual futures by definition.
+#: Most GRVT native vaults trade perpetual futures.
 DEFAULT_STRATEGY_TAGS: frozenset[StrategyTag] = frozenset({StrategyTag.perpetual_futures})
 
+#: These GRVT products are documented as tokenised RWA funds rather than
+#: perpetual-futures vaults, so the native perpetual-futures default does not
+#: apply. Keep the exception explicit and address-scoped.
+NON_PERPETUAL_VAULTS: frozenset[str] = frozenset(
+    {
+        #: Vault: Balanced Bundle.
+        #: Added: 2026-08-18.
+        #: Decision material: The description identifies a tokenised CLO ETF
+        #: and RWA credit exposure, not a perpetual-futures strategy.
+        #: Sources: https://grvt.io/exchange/strategies/1662126310
+        "vlt:3eesf9iphosimfc4szp2ixoqgiw",
+    }
+)
+
 #: Vault-ID-specific classifications maintained in addition to the native
-#: perpetual-futures default. GRVT IDs are stored in lowercase.
+#: default. GRVT IDs are stored in lowercase.
 STRATEGY_TAGS: dict[str, set[StrategyTag]] = {
     #: Vault: The Crypto Meerkat.
     #: Added: 2026-08-17.
@@ -368,7 +382,8 @@ STRATEGY_TAGS: dict[str, set[StrategyTag]] = {
     #: Decision material: The description provides exposure to an actively
     #: managed AAA-rated CLO ETF, a real-world credit asset. No automation
     #: claim is made, so the binary tag is discretionary; the additional tags
-    #: capture RWA and RWA credit exposure.
+    #: capture RWA and RWA credit exposure. This documented non-perpetual
+    #: product is excluded from the native perpetual-futures default.
     #: Sources:
     #: - https://edge.grvt.io/query
     #: - https://grvt.io/exchange/strategies/1662126310
@@ -384,7 +399,8 @@ STRATEGY_TAGS: dict[str, set[StrategyTag]] = {
     #: asset-backed fund investing in Brazilian credit-card receivables and a
     #: market-neutral basis-trade sleeve. It provides no automation claim, so
     #: the binary tag is discretionary, with RWA credit, delta-neutral, and
-    #: arbitrage tags for the documented exposures.
+    #: arbitrage tags for the documented exposures. The basis-trade sleeve
+    #: retains the native perpetual-futures default.
     #: Sources:
     #: - https://edge.grvt.io/query
     #: - https://grvt.io/exchange/strategies/744299587
@@ -405,7 +421,9 @@ def get_strategy_tags(address: str) -> set[StrategyTag]:
     :param address:
         Lowercase-compatible GRVT vault ID.
     :return:
-        New tag set containing the native perpetual-futures default and any
-        address-specific classifications.
+        New tag set containing the native perpetual-futures default when
+        applicable and any address-specific classifications.
     """
-    return set(DEFAULT_STRATEGY_TAGS) | STRATEGY_TAGS.get(address.lower(), set())
+    key = address.lower()
+    defaults = () if key in NON_PERPETUAL_VAULTS else DEFAULT_STRATEGY_TAGS
+    return combine_strategy_tags(defaults, STRATEGY_TAGS, key)

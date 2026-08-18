@@ -22,11 +22,11 @@ Notes:
 import datetime
 import enum
 import logging
+from collections.abc import Iterable
 from functools import cached_property
-from typing import Iterable
 
 import eth_abi
-from eth_typing import BlockIdentifier, HexAddress
+from eth_typing import BlockIdentifier
 from web3 import Web3
 from web3.contract.contract import Contract
 from web3.exceptions import BadFunctionCallOutput, ContractLogicError
@@ -48,8 +48,7 @@ from eth_defi.vault.base import (
     WithdrawalDelayType,
     WithdrawalPeriod,
 )
-from eth_defi.vault.risk import VaultTechnicalRisk
-from eth_defi.vault.strategy_tag import StrategyTag
+from eth_defi.vault.strategy_tag import StrategyTag, lookup_strategy_tags
 
 logger = logging.getLogger(__name__)
 
@@ -380,8 +379,7 @@ class GainsVault(ERC4626Vault):
             Copy of the tag set, or ``None`` when this vault has not yet been
             classified.
         """
-        tags = STRATEGY_TAGS.get(HexAddress(str(self.vault_address).lower()))
-        return tags.copy() if tags is not None else None
+        return lookup_strategy_tags(STRATEGY_TAGS, self.vault_address)
 
     def get_link(self, referral: str | None = None) -> str:
         """Get the official gTrade page for a known gTrade vault.

@@ -77,9 +77,13 @@ address-to-tag mapping next to its vault protocol adapter.
 
    For a native perpetual DEX, use `eth_defi/{slug}/tags.py` with string keys,
    because GRVT vault IDs and Hibachi/Lighter synthetic addresses are not EVM
-   addresses. Its resolver must return a new set combining the maintained
-   address-specific tags with `StrategyTag.perpetual_futures`; do not omit this
-   default for any Hyperliquid, GRVT, Hibachi, or Lighter vault.
+   addresses. Its resolver normally combines the maintained address-specific
+   tags with `StrategyTag.perpetual_futures`. If the source description
+   explicitly identifies a product as a non-perpetual RWA or fund product,
+   omit that default for the address by adding its lowercase identifier to the
+   protocol's `NON_PERPETUAL_VAULTS` set and documenting the exception in the
+   entry comments; do not infer perpetual-futures exposure from the platform
+   name alone.
 
 4. Wire the classification into the correct data path.
 
@@ -88,12 +92,11 @@ address-to-tag mapping next to its vault protocol adapter.
 
    ```python
    from eth_defi.erc_4626.vault_protocol.{slug}.tags import STRATEGY_TAGS
-   from eth_defi.vault.strategy_tag import StrategyTag
+   from eth_defi.vault.strategy_tag import StrategyTag, lookup_strategy_tags
 
    def get_strategy_tags(self) -> set[StrategyTag] | None:
        """Return maintained strategy tags for this vault."""
-       tags = STRATEGY_TAGS.get(HexAddress(str(self.vault_address).lower()))
-       return tags.copy() if tags is not None else None
+       return lookup_strategy_tags(STRATEGY_TAGS, self.vault_address)
    ```
 
    Return a copy so callers cannot mutate the maintained mapping. Preserve

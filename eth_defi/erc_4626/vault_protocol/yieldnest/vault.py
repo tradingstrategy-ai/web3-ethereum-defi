@@ -13,7 +13,7 @@ from eth_defi.compat import native_datetime_utc_now
 from eth_defi.erc_4626.vault import ERC4626Vault
 from eth_defi.erc_4626.vault_protocol.yieldnest.tags import STRATEGY_TAGS
 from eth_defi.vault.deposit_redeem import VaultDepositManagerCapability
-from eth_defi.vault.strategy_tag import StrategyTag
+from eth_defi.vault.strategy_tag import StrategyTag, lookup_strategy_tags
 
 if TYPE_CHECKING:
     from eth_defi.erc_4626.vault_protocol.yieldnest.deposit_redeem import YieldNestDepositManager
@@ -33,7 +33,8 @@ YNRWAX_MATURITY_DATE = datetime.datetime(2026, 10, 15)
 class YieldNestVault(ERC4626Vault):
     """YieldNest vault support.
 
-    YieldNest offers automated liquid restaking with AI-enhanced strategy optimisation.
+    YieldNest offers automated yield strategies, including fixed-maturity
+    real-world-asset lending through its ``ynRWAx`` vault.
 
     - Homepage: https://www.yieldnest.finance
     - Docs: https://docs.yieldnest.finance
@@ -59,8 +60,7 @@ class YieldNestVault(ERC4626Vault):
             Copy of the tag set, or ``None`` when this vault has not yet been
             classified.
         """
-        tags = STRATEGY_TAGS.get(HexAddress(str(self.vault_address).lower()))
-        return tags.copy() if tags is not None else None
+        return lookup_strategy_tags(STRATEGY_TAGS, self.vault_address)
 
     def get_withdrawal_fee(self, block_identifier: BlockIdentifier) -> float:
         """Get the current withdrawal fee as a percent.

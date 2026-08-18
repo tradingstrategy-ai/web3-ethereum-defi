@@ -2,7 +2,7 @@
 
 from eth_typing import HexAddress
 
-from eth_defi.vault.strategy_tag import StrategyTag
+from eth_defi.vault.strategy_tag import StrategyTag, lookup_strategy_tags
 
 #: Euler EVK and EulerEarn vaults supply assets to lending markets by definition.
 DEFAULT_STRATEGY_TAGS: frozenset[StrategyTag] = frozenset({StrategyTag.lending})
@@ -19,6 +19,4 @@ def get_strategy_tags(address: HexAddress) -> set[StrategyTag]:
     :return:
         A copy of the default lending tag plus any manually maintained tags.
     """
-    tags = set(DEFAULT_STRATEGY_TAGS)
-    tags.update(STRATEGY_TAGS.get(HexAddress(address.lower()), set()))
-    return tags
+    return set(DEFAULT_STRATEGY_TAGS) | (lookup_strategy_tags(STRATEGY_TAGS, address) or set())
