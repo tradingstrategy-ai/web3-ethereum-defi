@@ -373,6 +373,8 @@ ETHEREALM_USDC_ILLIQUID = "Etherealm USDC is illiquid"
 
 APOSTRO_USDC_FRONTIER_ILLIQUID = "Apostro USDC Frontier is illiquid"
 
+APOSTRO_RESOLV_ILLIQUID = "Apostro Resolv is illiquid"
+
 HYUSDT0_HWHLP_ILLIQUID = "hyUSD₮0 (hwHLP) vault is illiquid"
 
 RESOLV_ILLIQUID = "Resolv vault is illiquid"
@@ -733,6 +735,8 @@ VAULT_FLAGS_AND_NOTES: dict[str, tuple[VaultFlag | None, str]] = {
     "0xcca902f2d3d265151f123d8ce8fdac38ba9745ed": (VaultFlag.unofficial, MISSING_IN_PROTOCOL_FRONTEND),
     # Apostro USDC Frontier (Euler on Ethereum)
     "0xed9278c5188f37670b33ef3b00729e38260cd5d5": (VaultFlag.illiquid, APOSTRO_USDC_FRONTIER_ILLIQUID),
+    # Apostro Resolv (Euler on Base)
+    "0xc063c3b3625df5f362f60f35b0bcd98e0fa650fb": (VaultFlag.illiquid, APOSTRO_RESOLV_ILLIQUID),
     # Blue Chip USDC Vault (Prime) on Ethereum - Morpho
     "0x74847d0d124ce5c89ca8f4e7547aecd09e86b2e0": (VaultFlag.unofficial, MISSING_IN_PROTOCOL_FRONTEND),
     # VaultMorpho on Ethereum - Morpho
