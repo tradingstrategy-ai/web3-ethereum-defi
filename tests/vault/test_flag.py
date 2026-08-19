@@ -185,6 +185,7 @@ def test_old_mainnet_out_of_gas_contract_is_skipped_by_multicall_blacklist() -> 
         ("0xa5eed1615cd883dd6883ca3a385f525e3beb4e79", "Euler", VaultFlag.illiquid, "Stream xUSD"),
         ("0x70c329d6f06b33fa6b75e335b35168b1de84217b", "Euler", VaultFlag.illiquid, "Stream xUSD"),
         ("0xeaf77df5d03306bca4ee8b58b6821e6aca76309d", "Euler", VaultFlag.illiquid, "Stream xUSD"),
+        ("0xd80c3e98c9093b41645c07c2b6d956136f89559b", "Euler", VaultFlag.illiquid, "illiquid"),
         ("0xd0ee0cf300dfb598270cd7f4d0c6e0d8f6e13f29", "Altura", VaultFlag.controversial, "controversial"),
         ("0xda2f1b3cba732d779cff56f0cf9d3bc8aea6cd8d", "Yearn", VaultFlag.subvault, "not intended"),
         ("0x8092c20351cf4048b464df2144dc8a4dd49ce71d", "Morpho", VaultFlag.subvault, "not intended"),
