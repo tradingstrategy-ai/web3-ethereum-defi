@@ -391,6 +391,8 @@ BORROWABLE_USDC_SILOID_142_ILLIQUID = "Borrowable USDC Deposit, SiloId: 142 is i
 
 BORROWABLE_USDC_SILOID_145_ILLIQUID = "Borrowable USDC Deposit, SiloId: 145 is illiquid"
 
+VI_USDC_QA_G_ILLIQUID = "VI-USDC-QA_G is illiquid."
+
 
 #: Protocol-wide flags and notes.
 #:
@@ -855,6 +857,8 @@ VAULT_FLAGS_AND_NOTES: dict[str, tuple[VaultFlag | None, str]] = {
     "0xc7990369da608c2f4903715e3bd22f2970536c29": (None, MAINST_VAULT),
     # Altura Vault Tokens (AVLT) on Hyperliquid
     "0xd0ee0cf300dfb598270cd7f4d0c6e0d8f6e13f29": (VaultFlag.controversial, CONTROVERSIAL_VAULT),
+    # VI-USDC-QA_G (Euler on Sonic)
+    "0xd80c3e98c9093b41645c07c2b6d956136f89559b": (VaultFlag.illiquid, VI_USDC_QA_G_ILLIQUID),
 }
 
 for addr in VAULT_FLAGS_AND_NOTES.keys():
