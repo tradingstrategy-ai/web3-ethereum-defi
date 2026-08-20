@@ -1,0 +1,25 @@
+name: pToken
+slug: ptoken
+short_description: |
+  Currently not yet identified issuer of two USDG-denominated asynchronous vaults on Robinhood Chain.
+long_description: |
+  Currently not yet identified. The reviewed [BTC (3x Long)](https://robinhoodchain.blockscout.com/address/0x4472C69d299382F8847ebCE4FC6Ed8e295510E3e) and [HOOD (3x Long)](https://robinhoodchain.blockscout.com/address/0xe24CABDf76DD1c2576049167eB1755C84b985C36) pTokens are USDG-denominated asynchronous vaults on Robinhood Chain. Their issuer has not published a website, source repository, product terms or a deployment registry that identifies an organisation or team.
+
+  The two reviewed products share a factory, upgradeable beacon and unlabelled manager address. Their deployment transactions contain Arcus-branded product labels. The contracts also use Arcus's [published Paxos USDG deposit proxy](https://github.com/arcus-xyz/rootchain-contracts-abis/blob/main/deployments.json); that shared funding integration does not by itself identify the pToken issuer. Treat their leverage maintenance, liquidity and redemption terms as unverified.
+fee_description: |
+  The reviewed contracts currently report a 25 basis-point deposit fee, but no complete public fee schedule, management fee or performance fee terms have been identified. Confirm all applicable costs and redemption conditions from the contract and transaction preview before use.
+links:
+  homepage: ''
+  app: ''
+  twitter: ''
+  github: ''
+  documentation: ''
+  fact_sheet: ''
+  defillama: ''
+  audits: ''
+  fees: ''
+  trading_strategy: https://tradingstrategy.ai/trading-view/vaults/protocols/ptoken
+  integration_documentation: https://web3-ethereum-defi.readthedocs.io/vaults/ptoken/index.html
+example_smart_contracts:
+  - https://robinhoodchain.blockscout.com/address/0x4472C69d299382F8847ebCE4FC6Ed8e295510E3e
+  - https://robinhoodchain.blockscout.com/address/0xe24CABDf76DD1c2576049167eB1755C84b985C36
