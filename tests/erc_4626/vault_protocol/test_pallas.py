@@ -1,6 +1,7 @@
 """Pallas vault characterisation tests."""
 
 import os
+from pathlib import Path
 
 import pytest
 from web3 import Web3
@@ -8,10 +9,12 @@ from web3 import Web3
 from eth_defi.erc_4626.classification import _get_hardcoded_protocol_features, create_vault_instance_autodetect  # noqa: PLC2701
 from eth_defi.erc_4626.core import ERC4626Feature
 from eth_defi.erc_4626.discovery_base import DEFAULT_HARDCODED_VAULT_LEAD_SOURCES
-from eth_defi.erc_4626.vault_protocol.pallas.constants import PALLAS_BASIS_TRADING_HIP_3_VAULT, PALLAS_DIRECTIONAL_VOLATILITY_VAULT, PALLAS_HARDCODED_LEADS
+from eth_defi.erc_4626.vault_protocol.pallas.constants import HYPERLIQUID_CHAIN_ID, PALLAS_BASIS_TRADING_HIP_3_VAULT, PALLAS_DIRECTIONAL_VOLATILITY_VAULT, PALLAS_HARDCODED_LEADS
 from eth_defi.erc_4626.vault_protocol.pallas.vault import PallasVault
 from eth_defi.testing.anvil_fork_pool import AnvilForkPool
 from eth_defi.testing.fork_blocks import HYPERLIQUID_MIDNIGHT_BLOCK
+from eth_defi.vault.fee import VaultFeeMode
+from eth_defi.vault.protocol_metadata import build_metadata_json
 
 JSON_RPC_HYPERLIQUID = os.environ.get("JSON_RPC_HYPERLIQUID")
 
@@ -49,10 +52,23 @@ def test_pallas_hardcoded_addresses_are_chain_aware() -> None:
     """
     expected = {ERC4626Feature.pallas_like}
 
-    assert _get_hardcoded_protocol_features(PALLAS_BASIS_TRADING_HIP_3_VAULT, chain_id=999) == expected
-    assert _get_hardcoded_protocol_features(PALLAS_DIRECTIONAL_VOLATILITY_VAULT, chain_id=999) == expected
+    assert _get_hardcoded_protocol_features(PALLAS_BASIS_TRADING_HIP_3_VAULT, chain_id=HYPERLIQUID_CHAIN_ID) == expected
+    assert _get_hardcoded_protocol_features(PALLAS_DIRECTIONAL_VOLATILITY_VAULT, chain_id=HYPERLIQUID_CHAIN_ID) == expected
     assert _get_hardcoded_protocol_features(PALLAS_BASIS_TRADING_HIP_3_VAULT, chain_id=1) is None
     assert _get_hardcoded_protocol_features(PALLAS_DIRECTIONAL_VOLATILITY_VAULT, chain_id=1) is None
+
+
+def test_pallas_protocol_metadata() -> None:
+    """Validate the documented Pallas protocol metadata and logo export.
+
+    :return:
+        ``None``. Assertions validate the public metadata payload.
+    """
+    metadata = build_metadata_json(Path("eth_defi/data/vaults/metadata/pallas.yaml"), "https://example.invalid")
+
+    assert metadata["name"] == "Pallas"
+    assert metadata["slug"] == "pallas"
+    assert metadata["logos"]["generic"] == "https://example.invalid/vault-protocol-metadata/pallas/generic.png"
 
 
 @pytest.mark.skipif(JSON_RPC_HYPERLIQUID is None, reason="JSON_RPC_HYPERLIQUID needed to run this test")
@@ -76,9 +92,11 @@ def test_pallas_basis_trading_hip_3(web3: Web3) -> None:
     assert vault.name == "Pallas Vault Share"
     assert vault.symbol == "PALLAS"
     assert vault.denomination_token.symbol == "USD₮0"
-    assert vault.get_management_fee("latest") is None
-    assert vault.get_performance_fee("latest") is None
+    assert vault.get_management_fee(HYPERLIQUID_MIDNIGHT_BLOCK) == pytest.approx(0.0145)
+    assert vault.get_performance_fee(HYPERLIQUID_MIDNIGHT_BLOCK) == pytest.approx(0.17)
+    assert vault.get_fee_mode() is VaultFeeMode.internalised_minting
     assert vault.get_estimated_lock_up() is None
+    assert vault.erc_7540 is False
     assert vault.get_deposit_manager_capability() is None
     assert vault.get_link() == "https://app.pallas.fund/vault/basis-trading-hip-3"
 
@@ -86,8 +104,8 @@ def test_pallas_basis_trading_hip_3(web3: Web3) -> None:
 def test_pallas_hardcoded_leads_are_enabled_for_default_discovery() -> None:
     """Keep reviewed Pallas deployments available to default lead discovery.
 
-    Hardcoded leads are needed because ERC-7540 queue events need not be
-    emitted by the vault proxy using ordinary ERC-4626 event signatures.
+    Hardcoded leads keep the reviewed deployments available without relying on
+    prior ERC-4626 activity or Pallas' custom request events.
 
     :return:
         ``None``. Assertion validates default discovery source registration.

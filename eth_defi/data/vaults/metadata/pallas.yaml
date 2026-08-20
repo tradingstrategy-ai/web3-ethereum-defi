@@ -1,33 +1,30 @@
 name: Pallas
 slug: pallas
 short_description: |
-  HyperEVM trading-vault manager offering asynchronous USDT0 subscriptions and redemptions.
+  Pallas operates USDT0 trading vaults on HyperEVM with asynchronous subscriptions and redemptions.
 long_description: |
-  [Pallas](https://app.pallas.fund/) operates strategy vaults on HyperEVM and
-  HyperCore. Its active products accept USDT0 and issue PALLAS vault shares.
-  The current strategies include a market-neutral HIP-3 basis-trading programme
-  and a directional-volatility programme.
+  [Pallas](https://app.pallas.fund/) operates strategy vault contracts on
+  HyperEVM. The reviewed products accept USDT0, issue PALLAS shares and trade
+  Hyperliquid HIP-3 perpetual markets. They include a market-neutral
+  basis-trading strategy and a directional long/short strategy.
 
   Deposits and redemptions use a request-and-claim process rather than an
   immediate swap between USDT0 and shares. A request can therefore remain
-  pending while the operator processes it, and users should check the current
-  vault state and Pallas application before relying on a particular settlement
-  time.
+  pending until the operator fulfils it. The application is marked as a private
+  beta with whitelisted access, so users should confirm their eligibility and
+  the current vault state before submitting a request.
 
   Security notes:
 
-  - The reviewed vaults are verified upgradeable proxy contracts, so authorised
-    roles can change their implementation.
-  - The contract explorer currently shows no submitted independent security
-    audit, and Pallas has not published a public GitHub repository for this
-    vault implementation.
+  - The reviewed vaults are verified upgradeable proxy contracts. Authorised
+    roles can upgrade the implementation, pause the vault, change fees, set the
+    share price and fulfil pending requests.
 fee_description: |
-  Pallas displays a management fee and performance fee on each strategy page,
-  with different standard and premium-pass rates. For example, the active
-  Basis Trading HIP-3 vault displays 1.45% management and 17% performance fees
-  for standard users, versus 1% and 15% for premium users. These terms are
-  presented by the application and may change; users should read the current
-  strategy page before depositing.
+  Each Pallas vault has its own annual management fee and profit-based
+  performance fee. These fees reduce holder returns through share dilution.
+  The application advertises lower effective fees for Premium Pass holders
+  through rebates. Rates can change, so users should review the current
+  strategy page before requesting a deposit.
 links:
   homepage: https://app.pallas.fund/
   app: https://app.pallas.fund/

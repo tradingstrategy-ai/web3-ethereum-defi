@@ -1,85 +1,117 @@
 """Pallas asynchronous trading-vault support.
 
-`Pallas <https://app.pallas.fund/>`__ runs USDT0-denominated trading vaults on
-HyperEVM. The reviewed deployments issue ``PALLAS`` shares and settle deposits
-and redemptions asynchronously, while their strategies trade across HyperEVM
-and HyperCore markets.
+`Pallas <https://app.pallas.fund/>`__ runs USDT0-denominated vault contracts on
+HyperEVM. The reviewed strategies trade Hyperliquid HIP-3 perpetual markets.
 
-The vault proxies point to verified implementations named
-``ERC7540NonCustodialTradingVaultUpgradeable``. They use a request-and-claim
-life cycle rather than the inherited synchronous ERC-4626 transaction manager,
-so this adapter intentionally declares no public deposit-manager capability.
+The proxies point to verified implementations named
+``ERC7540NonCustodialTradingVaultUpgradeable``. Despite that name, the public
+ABI uses Pallas-specific one-argument request and claim functions instead of
+the standard ERC-7540 signatures. The generic synchronous ERC-4626 transaction
+manager is therefore not exposed for these vaults.
 
 - `Basis Trading HIP-3 vault <https://hyperevmscan.io/address/0x9b3aa83BD833123437d4efa656E7121B7F317899>`__
 - `Directional Volatility vault <https://hyperevmscan.io/address/0xa642188e1345AEe1809f6db5431464b079978c68>`__
 - `Current Basis implementation <https://hyperevmscan.io/address/0xe324e4a5C9f8ea9Db2F957702d4Bb164DE3caF17>`__
 """
 
-import datetime
-
+from eth_typing import HexAddress
+from web3 import Web3
 from web3.types import BlockIdentifier
 
 from eth_defi.erc_4626.vault import ERC4626Vault
-from eth_defi.erc_4626.vault_protocol.pallas.constants import PALLAS_VAULT_LINK_MATRIX
+from eth_defi.erc_4626.vault_protocol.pallas.constants import PALLAS_VAULT_LINKS
+from eth_defi.types import Percent
+
+#: Pallas stores management and performance fees in basis points.
+PALLAS_FEE_BPS_DENOMINATOR = 10_000
+
+#: ABI-encoded integer return size.
+ABI_WORD_SIZE = 32
+
+#: Selector for ``managementFeeBps()`` from the verified Pallas implementation.
+PALLAS_MANAGEMENT_FEE_SELECTOR = bytes(Web3.keccak(text="managementFeeBps()")[0:4])
+
+#: Selector for ``performanceFeeBps()`` from the verified Pallas implementation.
+PALLAS_PERFORMANCE_FEE_SELECTOR = bytes(Web3.keccak(text="performanceFeeBps()")[0:4])
+
+
+def fetch_pallas_fee(
+    web3: Web3,
+    vault_address: HexAddress | str,
+    selector: bytes,
+    block_identifier: BlockIdentifier,
+) -> Percent:
+    """Read one Pallas basis-point fee getter as a fractional percentage.
+
+    The reviewed implementation exposes ordinary no-argument fee getters.
+    Reading them with their canonical selectors keeps the adapter small while
+    retaining block-pinned historical reads.
+
+    - `Verified Basis implementation <https://hyperevmscan.io/address/0xe324e4a5C9f8ea9Db2F957702d4Bb164DE3caF17#code>`__
+
+    :param web3:
+        HyperEVM connection.
+    :param vault_address:
+        Pallas proxy address.
+    :param selector:
+        Four-byte selector for a no-argument fee getter.
+    :param block_identifier:
+        Block at which the fee is read.
+    :return:
+        Fee as a fraction, such as ``0.0145`` for 1.45%.
+    :raise ValueError:
+        If the return value is malformed or outside the basis-point range.
+    """
+
+    result = web3.eth.call(
+        {
+            "to": Web3.to_checksum_address(vault_address),
+            "data": selector,
+        },
+        block_identifier=block_identifier,
+    )
+    if len(result) != ABI_WORD_SIZE:
+        raise ValueError(f"Unexpected Pallas fee return size for {vault_address}: {len(result)} bytes")
+
+    raw_fee = int.from_bytes(result)
+    if raw_fee > PALLAS_FEE_BPS_DENOMINATOR:
+        raise ValueError(f"Invalid Pallas fee for {vault_address}: {raw_fee} BPS")
+    return raw_fee / PALLAS_FEE_BPS_DENOMINATOR
 
 
 class PallasVault(ERC4626Vault):
-    """Pallas ERC-7540 non-custodial trading vault.
+    """Pallas trading vault with asynchronous settlement.
 
-    Pallas' public app lists strategy-specific management and performance fees,
-    including separate standard and premium-pass rates. The reviewed contracts
-    do not expose a stable public fee accessor, so callers must not infer a
-    universal rate from this reader.
+    Management and performance fees are configured independently for each
+    vault. The contract accrues them by minting shares to the fee recipient;
+    application-level premium rebates are separate from these configured rates.
     """
 
-    def get_management_fee(self, block_identifier: BlockIdentifier) -> float | None:  # noqa: PLR6301
-        """Return the published management fee when a canonical onchain value exists.
-
-        Pallas presents tier-dependent strategy fees in its application but the
-        reviewed vault ABI has no stable no-argument management-fee accessor.
+    def get_management_fee(self, block_identifier: BlockIdentifier) -> Percent:
+        """Read the vault's annual management fee from ``managementFeeBps()``.
 
         :param block_identifier:
-            Block at which fee data would be read.
+            Block at which the fee is read.
         :return:
-            ``None`` because management fees are not exposed as a canonical
-            onchain value.
+            Annual fee as a fraction.
         """
-        del block_identifier
-        return None
+        return fetch_pallas_fee(self.web3, self.vault_address, PALLAS_MANAGEMENT_FEE_SELECTOR, block_identifier)
 
-    def get_performance_fee(self, block_identifier: BlockIdentifier) -> float | None:  # noqa: PLR6301
-        """Return the published performance fee when a canonical onchain value exists.
-
-        Pallas presents tier-dependent strategy fees in its application but the
-        reviewed vault ABI has no stable no-argument performance-fee accessor.
+    def get_performance_fee(self, block_identifier: BlockIdentifier) -> Percent:
+        """Read the vault's profit fee from ``performanceFeeBps()``.
 
         :param block_identifier:
-            Block at which fee data would be read.
+            Block at which the fee is read.
         :return:
-            ``None`` because performance fees are not exposed as a canonical
-            onchain value.
+            Performance fee as a fraction.
         """
-        del block_identifier
-        return None
-
-    def get_estimated_lock_up(self) -> datetime.timedelta | None:  # noqa: PLR6301
-        """Return the documented redemption waiting period when Pallas publishes one.
-
-        The vaults have an asynchronous request-and-claim redemption flow, but
-        Pallas does not publish a fixed settlement duration for the reviewed
-        deployments. A queue should not be represented as a deterministic lock-up.
-
-        :return:
-            ``None`` because no fixed redemption waiting period is documented.
-        """
-        return None
+        return fetch_pallas_fee(self.web3, self.vault_address, PALLAS_PERFORMANCE_FEE_SELECTOR, block_identifier)
 
     def get_link(self, referral: str | None = None) -> str:
         """Return the strategy-specific Pallas app page when the vault is reviewed.
 
-        Pallas exposes separate pages for its active strategies. Unknown future
-        deployments fall back to the vault list, preserving a useful user-facing
-        destination without assuming an unsupported URL format.
+        Pallas exposes separate pages for the reviewed strategies. Unknown
+        future deployments fall back to the vault list.
 
         :param referral:
             Unused because Pallas' vault pages do not provide a documented
@@ -88,4 +120,4 @@ class PallasVault(ERC4626Vault):
             Strategy page for a reviewed deployment, otherwise the Pallas app.
         """
         del referral
-        return PALLAS_VAULT_LINK_MATRIX.get((self.chain_id, self.address.lower()), "https://app.pallas.fund/")
+        return PALLAS_VAULT_LINKS.get(self.address.lower(), "https://app.pallas.fund/")

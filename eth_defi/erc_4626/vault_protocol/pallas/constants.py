@@ -38,7 +38,7 @@ PALLAS_VAULTS_BY_CHAIN: frozenset[tuple[int, HexAddress]] = frozenset(
 )
 
 #: Address-only Pallas deployment index used to reject a reviewed address on another chain.
-PALLAS_VAULT_ADDRESSES = frozenset(address for _, address in PALLAS_VAULTS_BY_CHAIN)
+PALLAS_VAULT_ADDRESSES: frozenset[HexAddress] = frozenset(address for _, address in PALLAS_VAULTS_BY_CHAIN)
 
 #: Pallas vault leads retained independently of historical ERC-4626 event discovery.
 PALLAS_HARDCODED_LEADS = (
@@ -56,8 +56,8 @@ PALLAS_HARDCODED_LEADS = (
     ),
 )
 
-#: Direct Pallas application routes for each reviewed vault address.
-PALLAS_VAULT_LINK_MATRIX: dict[tuple[int, str], str] = {
-    (HYPERLIQUID_CHAIN_ID, PALLAS_BASIS_TRADING_HIP_3_VAULT.lower()): "https://app.pallas.fund/vault/basis-trading-hip-3",
-    (HYPERLIQUID_CHAIN_ID, PALLAS_DIRECTIONAL_VOLATILITY_VAULT.lower()): "https://app.pallas.fund/vault/directional-volatility",
+#: Direct Pallas application routes keyed by reviewed vault address.
+PALLAS_VAULT_LINKS: dict[str, str] = {
+    PALLAS_BASIS_TRADING_HIP_3_VAULT.lower(): "https://app.pallas.fund/vault/basis-trading-hip-3",
+    PALLAS_DIRECTIONAL_VOLATILITY_VAULT.lower(): "https://app.pallas.fund/vault/directional-volatility",
 }

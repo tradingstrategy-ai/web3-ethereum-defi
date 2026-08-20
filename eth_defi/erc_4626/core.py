@@ -844,7 +844,7 @@ class ERC4626Feature(enum.Enum):
 
     #: Pallas
     #:
-    #: HyperEVM asynchronous non-custodial trading vaults.
+    #: HyperEVM vaults with custom asynchronous request and claim methods.
     #: https://app.pallas.fund/
     pallas_like = "pallas_like"
 

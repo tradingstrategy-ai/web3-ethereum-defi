@@ -1,8 +1,8 @@
 # Pallas protocol-managed curator - feeds provided by protocols/pallas.yaml
 #
 # Alias rationale:
-# - Pallas operates the reviewed Basis Trading HIP-3 and Directional Volatility
-#   vaults in its own application, so it is the curator for those deployments.
+# - Pallas operates its strategy vaults in its own application, so curator
+#   attribution follows the Pallas protocol classification.
 # - The organisation's Twitter/X account is already tracked by the canonical
 #   protocol feeder, avoiding duplicate post collection.
 # - Official app: https://app.pallas.fund/
@@ -15,12 +15,12 @@ feeder-id: pallas
 name: Pallas
 role: curator
 canonical-feeder-id: pallas
-short_description: Pallas operates asynchronous USDT0-denominated trading vaults on HyperEVM and HyperCore.
+short_description: Pallas operates asynchronous USDT0 trading vaults on HyperEVM for Hyperliquid HIP-3 strategies.
 long_description: |
   Pallas operates strategy vaults that accept USDT0 and issue PALLAS shares through its
   application. Its reviewed products include a market-neutral HIP-3 basis-trading strategy
-  and a directional-volatility strategy. Pallas controls the vault operation and request-and-
-  claim subscription and redemption process, so it acts as the curator for the reviewed vaults.
+  and a directional long/short strategy. Pallas controls the vault operation and asynchronous
+  subscription and redemption process, so it acts as the curator for its protocol vaults.
 
 # Evidence and background references.
 other-links:

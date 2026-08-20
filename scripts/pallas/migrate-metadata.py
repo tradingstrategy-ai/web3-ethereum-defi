@@ -1,21 +1,40 @@
 #!/usr/bin/env python3
 """Upsert reviewed Pallas vault metadata without disturbing historical data.
 
-Pallas uses ERC-7540 request-and-claim vaults on HyperEVM.  Their queue flow
-does not provide a reviewed, deterministic historical share-price source, so
-this migration deliberately registers only the two reviewed addresses and
-refreshes their live metadata.  Normal lead discovery receives the same
-hardcoded leads through :mod:`eth_defi.erc_4626.discovery_base`.
+Pallas uses custom asynchronous request-and-claim vaults on HyperEVM. This
+migration registers only the two reviewed addresses and refreshes their live
+metadata. Normal lead discovery receives the same hardcoded leads through
+:mod:`eth_defi.erc_4626.discovery_base`.
 
 The migration is address-scoped.  It preserves all unrelated metadata rows,
 the HyperEVM discovery cursor, reader state and raw/cleaned price Parquet
 files.  It starts in dry-run mode; inspect the plan and then set
 ``DRY_RUN=false`` to perform the metadata write.
 
+For a local dry run:
+
 .. code-block:: shell
 
-    source .local-test.env && poetry run python scripts/pallas/backfill-history.py
-    source .local-test.env && DRY_RUN=false poetry run python scripts/pallas/backfill-history.py
+    source .local-test.env && poetry run python scripts/pallas/migrate-metadata.py
+    source .local-test.env && DRY_RUN=false poetry run python scripts/pallas/migrate-metadata.py
+
+For production, run the script in the one-shot scanner container so it uses
+the mounted ``/root/.tradingstrategy`` state. The deployed image must contain
+this script:
+
+.. code-block:: shell
+
+    source ~/vault-scanner/vault-rpc.env
+    cd ~/vault-scanner/web3-ethereum-defi
+    docker compose run --rm \
+        -e DRY_RUN=true \
+        --entrypoint /bin/bash \
+        vault-scanner-oneshot \
+        -lc 'python scripts/pallas/migrate-metadata.py'
+
+Repeat the command with ``DRY_RUN=false`` after reviewing the dry-run output.
+The overridden entrypoint runs only this metadata migration; it does not invoke
+the historical price scanner.
 
 Configuration is through environment variables:
 
@@ -38,7 +57,6 @@ Configuration is through environment variables:
     Python logging level. Defaults to ``info``.
 """
 
-import datetime
 import logging
 import os
 import shutil
@@ -56,7 +74,7 @@ from eth_defi.erc_4626.vault_protocol.pallas.constants import HYPERLIQUID_CHAIN_
 from eth_defi.provider.env import read_json_rpc_url
 from eth_defi.provider.multi_provider import create_multi_provider_web3
 from eth_defi.token import TokenDiskCache
-from eth_defi.utils import setup_console_logging
+from eth_defi.utils import setup_console_logging, wait_other_writers
 from eth_defi.vault.base import VaultSpec
 from eth_defi.vault.vaultdb import VaultDatabase, VaultRow, get_pipeline_data_dir
 
@@ -108,64 +126,57 @@ def resolve_backup_path(vault_db_path: Path) -> Path:
     return vault_db_path.with_name(f"{vault_db_path.stem}.before-pallas-metadata-migration-{timestamp}{vault_db_path.suffix}")
 
 
-def create_pallas_detection(
-    chain_id: int,
-    address: HexAddress,
-    first_seen_at_block: int,
-    first_seen_at: datetime.datetime,
-) -> ERC4262VaultDetection:
-    """Create a reviewed Pallas classification record from a hardcoded lead.
+def fetch_pallas_metadata_updates(
+    web3: Web3,
+    end_block: int,
+    token_cache: TokenDiskCache,
+) -> tuple[dict[HexAddress, PotentialVaultMatch], dict[VaultSpec, VaultRow]]:
+    """Build hardcoded leads and live metadata for the reviewed deployments.
 
-    :param chain_id:
-        HyperEVM chain id from the reviewed lead.
-    :param address:
-        Reviewed Pallas vault address.
-    :param first_seen_at_block:
-        Proxy deployment block.
-    :param first_seen_at:
-        Proxy deployment timestamp stored as naive UTC.
+    Metadata reads use the ordinary ERC-4626 view interface at one pinned
+    HyperEVM block. The function returns complete in-memory updates so an RPC
+    failure cannot leave a partially written vault database.
+
+    :param web3:
+        HyperEVM connection.
+    :param end_block:
+        Block used for all live metadata calls.
+    :param token_cache:
+        Shared token metadata cache used by the vault scanner.
     :return:
-        Hardcoded Pallas feature detection for one vault.
+        Address-keyed leads and specification-keyed metadata rows.
     """
 
-    return ERC4262VaultDetection(
-        chain=chain_id,
-        address=address,
-        first_seen_at_block=first_seen_at_block,
-        first_seen_at=first_seen_at,
-        features={ERC4626Feature.pallas_like},
-        updated_at=native_datetime_utc_now(),
-        deposit_count=0,
-        redeem_count=0,
-    )
+    updated_at = native_datetime_utc_now()
+    leads: dict[HexAddress, PotentialVaultMatch] = {}
+    rows: dict[VaultSpec, VaultRow] = {}
 
+    for chain_id, address, first_seen_at_block, first_seen_at in PALLAS_HARDCODED_LEADS:
+        lead = PotentialVaultMatch(
+            chain=chain_id,
+            address=address,
+            first_seen_at_block=first_seen_at_block,
+            first_seen_at=first_seen_at,
+        )
+        detection = ERC4262VaultDetection(
+            chain=chain_id,
+            address=address,
+            first_seen_at_block=first_seen_at_block,
+            first_seen_at=first_seen_at,
+            features={ERC4626Feature.pallas_like},
+            updated_at=updated_at,
+            deposit_count=0,
+            redeem_count=0,
+        )
+        leads[address] = lead
+        rows[detection.get_spec()] = create_vault_scan_record(
+            web3,
+            detection,
+            block_identifier=end_block,
+            token_cache=token_cache,
+        )
 
-def create_pallas_lead(
-    chain_id: int,
-    address: HexAddress,
-    first_seen_at_block: int,
-    first_seen_at: datetime.datetime,
-) -> PotentialVaultMatch:
-    """Create a durable hardcoded Pallas discovery lead.
-
-    :param chain_id:
-        HyperEVM chain id from the reviewed lead.
-    :param address:
-        Reviewed Pallas vault address.
-    :param first_seen_at_block:
-        Proxy deployment block.
-    :param first_seen_at:
-        Proxy deployment timestamp stored as naive UTC.
-    :return:
-        Lead that remains available independently of historical event scans.
-    """
-
-    return PotentialVaultMatch(
-        chain=chain_id,
-        address=address,
-        first_seen_at_block=first_seen_at_block,
-        first_seen_at=first_seen_at,
-    )
+    return leads, rows
 
 
 def upsert_pallas_metadata(vault_db: VaultDatabase, leads: dict[HexAddress, PotentialVaultMatch], rows: dict[VaultSpec, VaultRow]) -> None:
@@ -218,30 +229,31 @@ def main() -> None:
     if dry_run:
         return
 
-    web3: Web3 = create_multi_provider_web3(read_json_rpc_url(HYPERLIQUID_CHAIN_ID), retries=2, hint="Pallas metadata migration")
-    if web3.eth.chain_id != HYPERLIQUID_CHAIN_ID:
-        message = f"Pallas metadata migration requires HyperEVM chain {HYPERLIQUID_CHAIN_ID}, got {web3.eth.chain_id}"
-        raise ValueError(message)
-    end_block = int(os.environ.get("END_BLOCK", web3.eth.block_number))
-    vault_db_existed = vault_db_path.exists()
-    vault_db = VaultDatabase.read(vault_db_path) if vault_db_existed else VaultDatabase()
-    token_cache = TokenDiskCache()
-    leads = {address: create_pallas_lead(chain_id, address, first_seen_at_block, first_seen_at) for chain_id, address, first_seen_at_block, first_seen_at in PALLAS_HARDCODED_LEADS}
-    rows = {detection.get_spec(): create_vault_scan_record(web3, detection, block_identifier=end_block, token_cache=token_cache) for detection in (create_pallas_detection(chain_id, address, first_seen_at_block, first_seen_at) for chain_id, address, first_seen_at_block, first_seen_at in PALLAS_HARDCODED_LEADS)}
+    pipeline_lock_path = get_pipeline_data_dir() / "scan-pipeline"
+    with wait_other_writers(pipeline_lock_path, timeout=60):
+        web3: Web3 = create_multi_provider_web3(read_json_rpc_url(HYPERLIQUID_CHAIN_ID), retries=2, hint="Pallas metadata migration")
+        if web3.eth.chain_id != HYPERLIQUID_CHAIN_ID:
+            message = f"Pallas metadata migration requires HyperEVM chain {HYPERLIQUID_CHAIN_ID}, got {web3.eth.chain_id}"
+            raise ValueError(message)
+        end_block = int(os.environ.get("END_BLOCK", web3.eth.block_number))
+        vault_db_existed = vault_db_path.exists()
+        vault_db = VaultDatabase.read(vault_db_path) if vault_db_existed else VaultDatabase()
+        token_cache = TokenDiskCache()
+        leads, rows = fetch_pallas_metadata_updates(web3, end_block, token_cache)
 
-    if vault_db_existed:
-        backup_path = resolve_backup_path(vault_db_path)
-        if backup_path.exists():
-            raise FileExistsError(f"Refusing to overwrite existing backup: {backup_path}")
-        backup_path.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copy2(vault_db_path, backup_path)
-        logger.info("Backup written to %s", backup_path)
+        if vault_db_existed:
+            backup_path = resolve_backup_path(vault_db_path)
+            if backup_path.exists():
+                raise FileExistsError(f"Refusing to overwrite existing backup: {backup_path}")
+            backup_path.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(vault_db_path, backup_path)
+            logger.info("Backup written to %s", backup_path)
 
-    upsert_pallas_metadata(vault_db, leads, rows)
-    vault_db_path.parent.mkdir(parents=True, exist_ok=True)
-    vault_db.write(vault_db_path)
-    token_cache.commit()
-    logger.info("Upserted %d Pallas metadata rows at block %d into %s", len(rows), end_block, vault_db_path)
+        upsert_pallas_metadata(vault_db, leads, rows)
+        vault_db_path.parent.mkdir(parents=True, exist_ok=True)
+        vault_db.write(vault_db_path)
+        token_cache.commit()
+        logger.info("Upserted %d Pallas metadata rows at block %d into %s", len(rows), end_block, vault_db_path)
 
 
 if __name__ == "__main__":

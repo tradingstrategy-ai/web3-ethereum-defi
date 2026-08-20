@@ -14,11 +14,11 @@ from eth_defi.tokenised_fund.sygnum.constants import FILQ_CURATOR_SLUG, SYGNUM_P
 from eth_defi.vault.curator import build_curator_metadata_json, get_curator_available_logos, get_curator_name, identify_curator, is_protocol_curator, load_curator_map
 
 
-def test_identify_reviewed_pallas_vaults_as_protocol_curated() -> None:
-    """Attribute only reviewed Pallas deployments to the Pallas curator.
+def test_identify_pallas_vaults_as_protocol_curated() -> None:
+    """Attribute Pallas protocol vaults to the Pallas curator.
 
-    Pallas has address-scoped protocol support, so an unknown address must not
-    become protocol-curated merely because its supplied protocol slug is Pallas.
+    Pallas operates its own strategy vaults, so curator attribution follows
+    the protocol slug instead of maintaining a second address registry.
 
     :return:
         ``None``. Assertions validate the reviewed curator attribution.
@@ -27,7 +27,7 @@ def test_identify_reviewed_pallas_vaults_as_protocol_curated() -> None:
     for address in (PALLAS_BASIS_TRADING_HIP_3_VAULT, PALLAS_DIRECTIONAL_VOLATILITY_VAULT):
         assert identify_curator(HYPERLIQUID_CHAIN_ID, "PALLAS", "Pallas Vault Share", address, "pallas") == "pallas"
 
-    assert identify_curator(HYPERLIQUID_CHAIN_ID, "PALLAS", "Pallas Vault Share", "0x0000000000000000000000000000000000000000", "pallas") is None
+    assert identify_curator(HYPERLIQUID_CHAIN_ID, "PALLAS", "Pallas Vault Share", "0x0000000000000000000000000000000000000000", "pallas") == "pallas"
     assert is_protocol_curator("pallas")
     assert get_curator_name("pallas") == "Pallas"
 

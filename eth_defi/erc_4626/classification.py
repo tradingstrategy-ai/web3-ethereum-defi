@@ -159,8 +159,8 @@ WSTGBP_HARDCODED_PROTOCOLS = {
 #: known deployments by address instead of the generic ``maxDiscountP()`` probe.
 KILOEX_HARDCODED_PROTOCOLS = {address: {ERC4626Feature.kiloex_like} for address in KILOEX_VAULT_ADDRESSES}
 
-#: Pallas' ERC-7540 trading vaults share an implementation with no public
-#: deployment registry, so the reviewed HyperEVM deployments are address-based.
+#: Pallas has no public deployment registry, so the reviewed custom
+#: asynchronous HyperEVM vaults are classified by address.
 PALLAS_HARDCODED_PROTOCOLS = {address: {ERC4626Feature.pallas_like} for address in PALLAS_VAULT_ADDRESSES}
 
 #: Aave V3 ATokenVault deployments, identified by the Aave-specific

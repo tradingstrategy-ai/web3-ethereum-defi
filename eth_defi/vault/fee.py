@@ -121,9 +121,10 @@ VAULT_PROTOCOL_FEE_MATRIX = {
     # Shift's performance and maintenance fees are realised by minting shares
     # to its fee collector; per-vault rates are read by ShiftVault.
     "Shift": VaultFeeMode.internalised_minting,
-    # Pallas publishes strategy- and tier-specific fee schedules in its app;
-    # the reviewed vault contracts do not expose a canonical universal fee mode.
-    "Pallas": None,
+    # Pallas accrues management and high-water-mark performance fees by minting
+    # fee-recipient shares. Rates are read from each vault's BPS getters.
+    # https://hyperevmscan.io/address/0xe324e4a5C9f8ea9Db2F957702d4Bb164DE3caF17#code
+    "Pallas": VaultFeeMode.internalised_minting,
     # Kiln combines a fixed asset-denominated deposit fee with a reward fee
     # collected by minting shares. This mixed model has no single enum value.
     # Per-vault values are read by KilnVault.
