@@ -833,11 +833,12 @@ afterwards to publish regenerated fee-adjusted metrics.
 
 ### migrate-ptoken-vault-metadata.py
 
-Reclassify the two reviewed BTC and HOOD pTokens on Robinhood Chain after their
-Arcus attribution was withdrawn. The issuer is currently not yet identified.
-The script rebuilds only their metadata rows, retaining the discovery event
-counts and first-seen blocks that already exist in the metadata database. It
-does not modify reader-state or raw/cleaned price parquet files.
+Reclassify the two reviewed BTC and HOOD pTokens on Robinhood Chain after an
+Arcus attribution based on their shared USDG deposit proxy proved insufficient.
+The issuer is currently not yet identified. The script rebuilds only their
+metadata rows, retaining the discovery event counts and first-seen blocks that
+already exist in the metadata database. It does not modify reader-state or
+raw/cleaned price Parquet files.
 
 Inspect the proposed changes first:
 

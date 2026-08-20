@@ -3,6 +3,7 @@
 import os
 
 import pytest
+from eth_typing import HexAddress
 from web3 import Web3
 
 from eth_defi.erc_4626.classification import create_vault_instance_autodetect
@@ -41,7 +42,7 @@ def web3(anvil_fork_pool: AnvilForkPool) -> Web3:
         (PTOKEN_HOOD_3X_LONG_VAULT, "HOOD (3x Long)", "pHOOD3x"),
     ),
 )
-def test_ptoken_vaults(web3: Web3, vault_address: str, name: str, symbol: str) -> None:
+def test_ptoken_vaults(web3: Web3, vault_address: HexAddress, name: str, symbol: str) -> None:
     """Classify only the reviewed pToken vaults as unknown-issuer products.
 
     :param web3:
@@ -68,7 +69,8 @@ def test_ptoken_vaults(web3: Web3, vault_address: str, name: str, symbol: str) -
     assert vault.get_risk() == VaultTechnicalRisk.dangerous
     assert vault.get_fee_mode() is None
     assert vault.manager_name is None
-    assert vault.short_description is not None
+    assert vault.short_description == "Currently not yet identified issuer of reviewed USDG-denominated pTokens."
     assert vault.description is not None
     assert vault.description.startswith("Currently not yet identified.")
+    assert "does not by itself identify the issuer" in vault.description
     assert vault.get_link() == f"https://robinhoodchain.blockscout.com/address/{Web3.to_checksum_address(vault_address)}"

@@ -8,5 +8,4 @@ Currently not yet identified. The pToken reader supports only the two reviewed R
    :recursive:
 
    eth_defi.erc_4626.vault_protocol.ptoken.constants
-   eth_defi.erc_4626.vault_protocol.ptoken.offchain_data
    eth_defi.erc_4626.vault_protocol.ptoken.vault

@@ -9,10 +9,10 @@ Sources: On-disk vault metadata database (~11,000 stablecoin vaults across Morph
 ## pTokens
 
 Currently not yet identified. The reviewed BTC (3x Long) and HOOD (3x Long)
-pTokens on Robinhood Chain share an unlabelled manager and deployer-controlled
-upgrade path. Arcus states that these vaults are not Arcus products; use of its
-USDG deposit infrastructure is not curator evidence. No curator record is
-created until an issuer publicly binds its identity to the contracts.
+pTokens on Robinhood Chain share an unlabelled manager and upgradeable beacon.
+Their use of Arcus's published USDG deposit proxy does not by itself identify a
+curator or issuer. No curator record is created until an issuer publicly binds
+its identity to the contracts.
 
 ## Curator YAML manager metadata
 

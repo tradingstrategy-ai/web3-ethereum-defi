@@ -2,7 +2,8 @@
 """Reclassify persisted pToken metadata for the vault JSON export.
 
 The BTC and HOOD pTokens were initially discovered as generic ERC-7540 vaults
-and later incorrectly attributed to Arcus. Their issuer is currently not yet
+and later attributed to Arcus through a shared USDG deposit proxy. That
+integration does not establish issuer identity, which is currently not yet
 identified. This migration rebuilds only the two reviewed Robinhood Chain rows
 with the address-scoped pToken reader, preserving observed discovery history.
 It never changes reader-state or raw/cleaned price Parquet files.
@@ -163,6 +164,9 @@ def create_reclassified_detection(existing: ERC4262VaultDetection, features: set
 def needs_metadata_refresh(row: VaultRow, detection: ERC4262VaultDetection) -> bool:
     """Determine whether a row lacks the corrected pToken metadata.
 
+    A row is current only when both its persisted detection and exported fields
+    retain the address-scoped pToken classification and unknown-issuer copy.
+
     :param row:
         Existing vault metadata row.
     :param detection:
@@ -171,7 +175,15 @@ def needs_metadata_refresh(row: VaultRow, detection: ERC4262VaultDetection) -> b
         ``True`` when the metadata needs rebuilding.
     """
 
-    return row.get("Protocol") != "pToken" or ERC4626Feature.ptoken_like not in detection.features or ERC4626Feature.ptoken_like not in row.get("features", set()) or row.get("_manager_name") is not None or not str(row.get("_description", "")).startswith("Currently not yet identified")
+    return any(
+        (
+            row.get("Protocol") != "pToken",
+            ERC4626Feature.ptoken_like not in detection.features,
+            ERC4626Feature.ptoken_like not in row.get("features", set()),
+            row.get("_manager_name") is not None,
+            not str(row.get("_description", "")).startswith("Currently not yet identified"),
+        )
+    )
 
 
 def create_lead_from_detection(detection: ERC4262VaultDetection) -> PotentialVaultMatch:

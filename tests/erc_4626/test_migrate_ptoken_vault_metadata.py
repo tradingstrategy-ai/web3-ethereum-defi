@@ -5,6 +5,7 @@ import importlib.util
 from pathlib import Path
 
 import pytest
+from eth_typing import HexAddress
 
 from eth_defi.erc_4626.core import ERC4262VaultDetection, ERC4626Feature
 from eth_defi.erc_4626.vault_protocol.ptoken.constants import PTOKEN_BTC_3X_LONG_VAULT, PTOKEN_CHAIN_ID, PTOKEN_HOOD_3X_LONG_VAULT
@@ -34,7 +35,7 @@ def load_migration_module():
     return module
 
 
-def create_detection(address: str, deposit_count: int) -> ERC4262VaultDetection:
+def create_detection(address: HexAddress, deposit_count: int) -> ERC4262VaultDetection:
     """Create an old persisted detector result.
 
     :param address:

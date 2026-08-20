@@ -153,7 +153,7 @@ VAULT_PROTOCOL_RISK_MATRIX = {
     "3Jane": VaultTechnicalRisk.low,
     "Teller": VaultTechnicalRisk.severe,
     "Deltr": VaultTechnicalRisk.dangerous,
-    # The reviewed pTokens use an unverified shared implementation and their
+    # The reviewed pTokens share a factory and upgradeable beacon, while their
     # issuer, product mechanics, fees and redemption terms are unknown.
     "pToken": VaultTechnicalRisk.dangerous,
     "Upshift": VaultTechnicalRisk.severe,

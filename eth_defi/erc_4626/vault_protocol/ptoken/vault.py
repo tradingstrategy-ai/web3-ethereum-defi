@@ -1,50 +1,45 @@
 """Read-only pToken vault support."""
 
-from functools import cached_property
-
 from eth_typing import BlockIdentifier
 
 from eth_defi.erc_4626.vault import ERC4626Vault
-from eth_defi.erc_4626.vault_protocol.ptoken.offchain_data import PTokenVaultOffchainData, get_ptoken_vault_offchain_data
+
+#: Product and provenance copy shared by the two reviewed pToken vaults.
+UNKNOWN_ISSUER_DESCRIPTION = "Currently not yet identified. These USDG-denominated Robinhood Chain pTokens share a factory, upgradeable beacon and unlabelled manager address. Their issuer, source repository, product terms and public deployment registry have not been identified. The contracts use Arcus's published Paxos USDG deposit proxy; this shared funding integration does not by itself identify the issuer. Their leverage maintenance, liquidity, redemption timetable and complete fee terms have not been independently verified."
+
+#: Listing-friendly provenance copy shared by the reviewed vaults.
+UNKNOWN_ISSUER_SHORT_DESCRIPTION = "Currently not yet identified issuer of reviewed USDG-denominated pTokens."
 
 
 class PTokenVault(ERC4626Vault):
     """Read one reviewed pToken vault on Robinhood Chain.
 
-    Currently not yet identified. The pToken issuer and source code have not
-    been publicly identified, so this adapter exposes generic ERC-4626 reads
-    only and does not certify deposit, redemption or fee behaviour.
+    The adapter is address-scoped because the issuer and source code of this
+    contract family have not been identified. It exposes generic ERC-4626 reads
+    only and does not certify deposit, redemption or fee behaviour. See the
+    `published Arcus deployment registry <https://github.com/arcus-xyz/rootchain-contracts-abis/blob/main/deployments.json>`__
+    for the shared Paxos USDG deposit proxy.
     """
-
-    @cached_property
-    def ptoken_offchain_data(self) -> PTokenVaultOffchainData | None:
-        """Return reviewed, address-scoped product copy.
-
-        :return:
-            Local pToken data for a reviewed address, if available.
-        """
-
-        return get_ptoken_vault_offchain_data(self.vault_address)
 
     @property
     def description(self) -> str | None:
-        """Return the pToken provenance and product description.
+        """Return the pToken provenance and product limitations.
 
         :return:
-            Address-scoped description, if the vault is reviewed.
+            Shared copy for an address-scoped reviewed pToken vault.
         """
 
-        return self.ptoken_offchain_data["description"] if self.ptoken_offchain_data else None
+        return UNKNOWN_ISSUER_DESCRIPTION
 
     @property
     def short_description(self) -> str | None:
-        """Return a concise pToken product description.
+        """Return a concise pToken provenance description.
 
         :return:
-            Address-scoped short description, if the vault is reviewed.
+            Shared copy for an address-scoped reviewed pToken vault.
         """
 
-        return self.ptoken_offchain_data["short_description"] if self.ptoken_offchain_data else None
+        return UNKNOWN_ISSUER_SHORT_DESCRIPTION
 
     def get_management_fee(self, block_identifier: BlockIdentifier) -> float | None:  # noqa: PLR6301
         """Return the management fee when verified.
