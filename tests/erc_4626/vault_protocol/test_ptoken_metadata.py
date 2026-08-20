@@ -16,6 +16,6 @@ def test_ptoken_protocol_metadata() -> None:
     assert metadata["slug"] == "ptoken"
     assert metadata["short_description"].startswith("Currently not yet identified")
     assert "does not by itself identify the pToken issuer" in metadata["long_description"]
-    assert metadata["logos"] == {"generic": None, "dark": None, "light": None}
+    assert metadata["logos"] == {"generic": None, "dark": None, "light": "https://example.invalid/vault-protocol-metadata/ptoken/light.png"}
     assert metadata["links"]["fact_sheet"] is None
     assert get_vault_fee_mode("pToken", PTOKEN_HOOD_3X_LONG_VAULT) is None
