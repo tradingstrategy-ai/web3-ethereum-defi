@@ -361,6 +361,8 @@ SUBVAULT = "This vault is likely not intended to be directly exposed to the end 
 
 PEAPODS_ILLIQUID = "Peapods vault is illiquid"
 
+USDN_WRAPPER_ILLIQUID = "USDN Wrapper is illiquid"
+
 SUMMER_FI_ILLIQUID = "Summer.fi vault is illiquid"
 
 GREENHOUSE_ILLIQUID = "Greenhouse vault is illiquid"
@@ -623,6 +625,8 @@ VAULT_FLAGS_AND_NOTES: dict[str, tuple[VaultFlag | None, str]] = {
     "0xb8a14b03900828f863aedd9dd905363863bc31f4": (VaultFlag.illiquid, XUSD_MESSAGE),
     # Spectra ERC4626 Wrapper: MEV USDC
     "0x92fbb58342164546325602588599b05802c69bbe": (VaultFlag.illiquid, XUSD_MESSAGE),
+    # USDN Wrapper (Spectra on Ethereum)
+    "0x06a491e3efee37eb191d0434f54be6e42509f9d3": (VaultFlag.illiquid, USDN_WRAPPER_ILLIQUID),
     # Greenhouse USD ghUSDC
     # https://x.com/Main_St_Finance/status/1976972055951147194
     "0xf6bc16b79c469b94cdd25f3e2334dd4fee47a581": (VaultFlag.illiquid, MAINST_VAULT),
