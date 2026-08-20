@@ -32,6 +32,7 @@ Usage::
 """
 
 import asyncio
+import inspect
 import logging
 import os
 import time
@@ -69,7 +70,6 @@ DEFAULT_HYPERSYNC_MAX_NUM_RETRIES = 0
 #: Linux has ``response_bytes_target``.
 def _detect_stream_tuning_params() -> tuple[str, ...]:
     """Introspect ``StreamConfig.__init__`` to find available tuning params."""
-    import inspect
 
     sig = inspect.signature(hypersync.StreamConfig.__init__)
     available = set(sig.parameters.keys()) - {"self"}

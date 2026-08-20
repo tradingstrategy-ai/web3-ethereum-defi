@@ -1,0 +1,10 @@
+{
+  "abi": [
+    {"type": "function", "name": "name", "inputs": [], "outputs": [{"name": "", "type": "string"}], "stateMutability": "view"},
+    {"type": "function", "name": "symbol", "inputs": [], "outputs": [{"name": "", "type": "string"}], "stateMutability": "view"},
+    {"type": "function", "name": "totalSupply", "inputs": [], "outputs": [{"name": "", "type": "uint256"}], "stateMutability": "view"},
+    {"type": "function", "name": "getValueAsset", "inputs": [], "outputs": [{"name": "", "type": "bytes32"}], "stateMutability": "view"},
+    {"type": "function", "name": "getFeeHandler", "inputs": [], "outputs": [{"name": "", "type": "address"}], "stateMutability": "view"},
+    {"type": "function", "name": "sharePrice", "inputs": [], "outputs": [{"name": "price_", "type": "uint256"}, {"name": "timestamp_", "type": "uint256"}], "stateMutability": "view"}
+  ]
+}

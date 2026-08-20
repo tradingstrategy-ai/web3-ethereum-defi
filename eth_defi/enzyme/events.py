@@ -112,7 +112,7 @@ class EnzymeBalanceEvent:
     def denomination_token(self) -> TokenDetails:
         """Get the denominator token for withdrawal/deposit.
 
-        Read the token on-chain details.
+        Read the token onchain details.
 
         :return:
             Usually ERC-20 details for USDC
@@ -124,7 +124,7 @@ class EnzymeBalanceEvent:
     def shares_token(self) -> TokenDetails:
         """Get the shares token for withdrawal/deposit.
 
-        Read the token on-chain details.
+        Read the token onchain details.
 
         :return:
             ERC-20 details for a token with the fund name/symbol and 18 decimals.

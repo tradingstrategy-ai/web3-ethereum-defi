@@ -1,0 +1,8 @@
+{
+  "abi": [
+    {"type": "function", "name": "getManagementFeeTracker", "inputs": [], "outputs": [{"name": "", "type": "address"}], "stateMutability": "view"},
+    {"type": "function", "name": "getPerformanceFeeTracker", "inputs": [], "outputs": [{"name": "", "type": "address"}], "stateMutability": "view"},
+    {"type": "function", "name": "getEntranceFeeBps", "inputs": [], "outputs": [{"name": "", "type": "uint16"}], "stateMutability": "view"},
+    {"type": "function", "name": "getExitFeeBps", "inputs": [], "outputs": [{"name": "", "type": "uint16"}], "stateMutability": "view"}
+  ]
+}

@@ -240,6 +240,44 @@ def test_replace_cleaned_vault_histories_rejects_vault_removed_by_cleaning(
     pd.testing.assert_frame_equal(after, before)
 
 
+def test_replace_cleaned_vault_histories_allows_inactive_discovery_candidates(
+    vault_db: Path,
+    raw_price_df: Path,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """An exhaustive migration may deliberately remove an uncleanable target."""
+
+    cleaned_path = tmp_path / "cleaned-vault-prices.parquet"
+    generate_cleaned_vault_datasets(
+        vault_db_path=vault_db,
+        price_df_path=raw_price_df,
+        cleaned_price_df_path=cleaned_path,
+    )
+    before = pd.read_parquet(cleaned_path).reset_index(drop=True)
+    target_id = str(before["id"].iloc[0])
+    empty_cleaned_rows = pd.read_parquet(cleaned_path).iloc[0:0].copy()
+
+    def return_empty_cleaned_rows(*_args: object, **_kwargs: object) -> pd.DataFrame:
+        """Simulate an inactive vault whose raw history is not publishable."""
+
+        return empty_cleaned_rows
+
+    monkeypatch.setattr(vault_price_wrangle, "process_raw_vault_scan_data", return_empty_cleaned_rows)
+
+    replaced_rows = replace_cleaned_vault_histories(
+        {target_id},
+        vault_db_path=vault_db,
+        raw_price_df_path=raw_price_df,
+        cleaned_price_df_path=cleaned_path,
+        logger=lambda _message: None,
+        require_all_cleaned=False,
+    )
+
+    assert replaced_rows == 0
+    assert target_id not in set(pd.read_parquet(cleaned_path)["id"])
+
+
 def test_remove_inactive_lead_time():
     """Test removal of initial rows where total_supply hasn't changed."""
     # Create test data with inactive lead time

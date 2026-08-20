@@ -354,14 +354,15 @@ class VaultMetricsRecord(TypedDict, total=False):
     #: permission, funds, acceptable slippage, spare cap, or liquidity.
     deposit_manager: dict | None
 
-    #: Vault-wide KYC or manual identity-approval policy.
+    #: Vault-wide account-admission policy.
     #:
-    #: ``whitelisted`` normally means deposits require prior KYC or manual
-    #: identity approval, ``permissionless`` means no such approval applies and
-    #: ``unknown`` means the scanner has no source-proven KYC result for this
+    #: ``whitelisted`` normally means deposits require prior KYC, manual
+    #: identity approval, or a source-proven recipient allowlist.
+    #: ``permissionless`` means no prior account approval applies and
+    #: ``unknown`` means the scanner has no source-proven result for this
     #: contract version. Open dates, lock-ups, epoch windows, pauses, caps and
     #: token-holding requirements do not change this status. Consult
-    #: ``whitelist.notes`` for explicitly documented operating assumptions.
+    #: ``whitelist.notes`` for protocol-specific qualifications.
     #: Native perp DEX vaults use a documented compatibility exception where
     #: closed public participation maps to ``whitelisted`` with a mandatory
     #: qualification note.

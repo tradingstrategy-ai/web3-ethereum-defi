@@ -19,9 +19,6 @@ JSON_RPC_ETHEREUM = os.environ.get("JSON_RPC_ETHEREUM")
 MIN_DESCRIPTION_LENGTH = 10
 EXPECTED_LOCKUP_DAYS = 4
 MIN_EMBER_VAULTS = 5
-EMBER_THIRD_EYE_NAME = "Ember Third Eye"
-#: The cached API record may retain the predecessor name until cache expiry.
-KNOWN_THIRD_EYE_NAMES = frozenset({"Crosschain USD Vault", EMBER_THIRD_EYE_NAME})
 
 pytestmark = [
     pytest.mark.skipif(JSON_RPC_ETHEREUM is None, reason="JSON_RPC_ETHEREUM needed to run these tests"),
@@ -65,7 +62,9 @@ def test_ember(
 
     # Offchain metadata from Ember's Bluefin API
     assert vault.ember_metadata is not None
-    assert vault.ember_metadata["name"] in KNOWN_THIRD_EYE_NAMES
+    # Ember controls the product name in its live API and may rename a vault.
+    assert isinstance(vault.ember_metadata["name"], str)
+    assert vault.ember_metadata["name"]
     assert vault.description is not None
     assert len(vault.description) > MIN_DESCRIPTION_LENGTH
     assert vault.short_description is not None
@@ -103,25 +102,27 @@ def test_ember_offchain_fetch(tmp_path: Path):
     # Should find Ethereum vaults
     assert len(vaults) >= MIN_EMBER_VAULTS
 
-    # Check the Ember Third Eye vault is present.
-    third_eye_vault = vaults.get("0xf3190A3ECC109F88e7947b849b281918c798A0C4")
-    assert third_eye_vault is not None
-    assert third_eye_vault["name"] == EMBER_THIRD_EYE_NAME
-    assert third_eye_vault["description"] is not None
-    assert third_eye_vault["management_fee"] is not None
-    assert third_eye_vault["weekly_performance_fee"] is not None
-    assert third_eye_vault["withdrawal_period_days"] is not None
-    assert third_eye_vault["reported_apy"] is not None
+    # Check the known Ethereum vault is present.
+    vault_record = vaults.get("0xf3190A3ECC109F88e7947b849b281918c798A0C4")
+    assert vault_record is not None
+    # Ember controls the product name in its live API and may rename a vault.
+    assert isinstance(vault_record["name"], str)
+    assert vault_record["name"]
+    assert vault_record["description"] is not None
+    assert vault_record["management_fee"] is not None
+    assert vault_record["weekly_performance_fee"] is not None
+    assert vault_record["withdrawal_period_days"] is not None
+    assert vault_record["reported_apy"] is not None
 
     # New fields
-    assert third_eye_vault["long_name"] is not None
-    assert third_eye_vault["status"] is not None
-    assert isinstance(third_eye_vault["tags"], list)
-    assert third_eye_vault["total_depositors_count"] is not None
-    assert third_eye_vault["total_depositors_count"] >= 0
-    assert third_eye_vault["created_at"] is not None
-    assert isinstance(third_eye_vault["rewards"], list)
-    assert isinstance(third_eye_vault["supported_coins"], list)
+    assert vault_record["long_name"] is not None
+    assert vault_record["status"] is not None
+    assert isinstance(vault_record["tags"], list)
+    assert vault_record["total_depositors_count"] is not None
+    assert vault_record["total_depositors_count"] >= 0
+    assert vault_record["created_at"] is not None
+    assert isinstance(vault_record["rewards"], list)
+    assert isinstance(vault_record["supported_coins"], list)
 
     # Verify cache file was written
     cache_file = tmp_path / "ember_vaults.json"

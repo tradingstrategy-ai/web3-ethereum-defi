@@ -18,7 +18,9 @@ from web3 import Web3
 from eth_defi.abi import get_topic_signature_from_event
 from eth_defi.chain import get_chain_name
 from eth_defi.compat import native_datetime_utc_fromtimestamp
-from eth_defi.erc_4626.discovery_base import HardcodedVaultLeadSources, LeadScanReport, PotentialVaultMatch, VaultDiscoveryBase, add_mellow_factory_candidate_lead, get_vault_discovery_events, get_vault_event_topic_map, is_configuration_event, is_deposit_event
+from eth_defi.enzyme.blue_discovery import create_enzyme_blue_factory_candidate, fetch_enzyme_blue_dispatchers_for_chain, fetch_enzyme_blue_vault_deployed_event_topic, is_enzyme_blue_factory_log
+from eth_defi.enzyme.onyx_discovery import create_enzyme_factory_candidate, fetch_enzyme_shares_deployed_event_topic, fetch_enzyme_shares_factories_for_chain, is_enzyme_factory_log
+from eth_defi.erc_4626.discovery_base import HardcodedVaultLeadSources, LeadScanReport, PotentialVaultMatch, VaultDiscoveryBase, add_enzyme_blue_factory_candidate_lead, add_enzyme_factory_candidate_lead, add_mellow_factory_candidate_lead, get_vault_discovery_events, get_vault_event_topic_map, is_configuration_event, is_deposit_event
 from eth_defi.event_reader.web3factory import Web3Factory
 from eth_defi.hypersync.hypersync_timestamp import HypersyncFlaky, get_hypersync_block_height_with_retries, is_hypersync_next_block_range_error, is_hypersync_rate_limit_error, is_hypersync_retryable_runtime_error
 from eth_defi.mellow.discovery import create_mellow_factory_candidate, fetch_mellow_created_event_topic, fetch_mellow_factories_for_chain, is_mellow_factory_log
@@ -119,6 +121,22 @@ class HypersyncVaultDiscover(VaultDiscoveryBase):
                     topics=[[fetch_mellow_created_event_topic()]],
                 )
             )
+        enzyme_factories = fetch_enzyme_shares_factories_for_chain(self.web3.eth.chain_id)
+        if enzyme_factories:
+            log_selections.append(
+                hypersync.LogSelection(
+                    address=enzyme_factories,
+                    topics=[[fetch_enzyme_shares_deployed_event_topic()]],
+                )
+            )
+        enzyme_blue_dispatchers = fetch_enzyme_blue_dispatchers_for_chain(self.web3.eth.chain_id)
+        if enzyme_blue_dispatchers:
+            log_selections.append(
+                hypersync.LogSelection(
+                    address=enzyme_blue_dispatchers,
+                    topics=[[fetch_enzyme_blue_vault_deployed_event_topic()]],
+                )
+            )
 
         # The query to run
         query = hypersync.Query(
@@ -200,9 +218,10 @@ class HypersyncVaultDiscover(VaultDiscoveryBase):
     ) -> None:
         """Process one Hypersync log into the shared lead map.
 
-        Both ERC-4626-like event leads and Mellow factory leads are written to
-        ``leads`` as ``PotentialVaultMatch`` objects. Mellow keeps decoded
-        factory metadata on the lead for the later detection construction step.
+        ERC-4626-like event leads plus Mellow and Enzyme factory leads are
+        written to ``leads`` as ``PotentialVaultMatch`` objects. Factory leads
+        retain their decoded metadata for the later detection construction
+        step.
 
         :param report:
             Mutable scan report.
@@ -248,6 +267,38 @@ class HypersyncVaultDiscover(VaultDiscoveryBase):
                 return
 
             add_mellow_factory_candidate_lead(report, leads, candidate)
+            return
+
+        if is_enzyme_factory_log(chain, log.address, log.topics[0]):
+            try:
+                candidate = create_enzyme_factory_candidate(self.web3, chain, log, block_timestamp)
+            except (DecodingError, ValueError) as e:
+                logger.warning(
+                    "Could not decode Enzyme ProxyDeployed log at %s:%s tx %s: %s",
+                    log.block_number,
+                    getattr(log, "log_index", None),
+                    log.transaction_hash,
+                    e,
+                )
+                return
+
+            add_enzyme_factory_candidate_lead(report, leads, candidate)
+            return
+
+        if is_enzyme_blue_factory_log(chain, log.address, log.topics[0]):
+            try:
+                candidate = create_enzyme_blue_factory_candidate(self.web3, chain, log, block_timestamp)
+            except (DecodingError, ValueError) as e:
+                logger.warning(
+                    "Could not decode Enzyme Blue VaultProxyDeployed log at %s:%s tx %s: %s",
+                    log.block_number,
+                    getattr(log, "log_index", None),
+                    log.transaction_hash,
+                    e,
+                )
+                return
+
+            add_enzyme_blue_factory_candidate_lead(report, leads, candidate)
             return
 
         address_key = HexAddress(log.address.lower())

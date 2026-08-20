@@ -2,6 +2,7 @@
 
 import datetime
 from collections.abc import Callable, Iterable, Iterator
+from types import SimpleNamespace
 from unittest.mock import MagicMock
 
 import pytest
@@ -10,6 +11,76 @@ from eth_defi.event_reader import multicall_batcher
 from eth_defi.provider.rpcdb import RPCRequestStats
 
 ParallelExecutor = Callable[[Iterable[object]], Iterator[object]]
+HTTP_OK = 200
+
+
+def test_historical_state_error_classification() -> None:
+    """Classify archive-retention errors separately from vault call failures."""
+
+    missing_trie = "missing trie node deadbeef state is not available"
+    missing_metadata = "metadata is not found, 227823446"
+    stale_layer = "layer stale"
+
+    assert multicall_batcher.is_historical_state_unavailable_error(missing_trie)
+    assert multicall_batcher.is_historical_state_unavailable_error(missing_metadata)
+    assert multicall_batcher.is_historical_state_unavailable_error(stale_layer)
+    assert not multicall_batcher.is_historical_state_unavailable_error("execution reverted")
+
+
+def test_historical_state_exception_is_not_same_provider_retryable() -> None:
+    """Allow callers to rotate archives without entering batch-size retries."""
+
+    error = multicall_batcher.MulticallHistoricalDataUnavailable("layer stale", status_code=HTTP_OK, headers={"endpoint_uri": "alchemy"})
+
+    assert isinstance(error, multicall_batcher.MulticallNonRetryable)
+    assert not isinstance(error, multicall_batcher.MulticallRetryable)
+    assert error.status_code == HTTP_OK
+    assert error.headers == {"endpoint_uri": "alchemy"}
+
+
+def test_historical_state_rotation_wraps_from_last_provider_to_first_two(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Retry a failed third provider at providers one and two exactly once."""
+
+    class FakeFallbackProvider:
+        def __init__(self) -> None:
+            self.providers = [SimpleNamespace(endpoint_uri="https://first.example"), SimpleNamespace(endpoint_uri="https://second.example"), SimpleNamespace(endpoint_uri="https://third.example")]
+            self.currently_active_provider = 2
+            self.switched_to: list[int] = []
+
+        def get_active_provider(self) -> SimpleNamespace:
+            return self.providers[self.currently_active_provider]
+
+        def switch_to_provider_index(self, index: int, **_kwargs: object) -> None:
+            self.currently_active_provider = index
+            self.switched_to.append(index)
+
+    fallback_provider = FakeFallbackProvider()
+    reader = object.__new__(multicall_batcher.MultiprocessMulticallReader)
+    reader.web3 = SimpleNamespace(provider=fallback_provider, eth=SimpleNamespace(chain_id=42_161))
+    attempted_indices: list[int] = []
+
+    def fake_call_multicall_with_batch_size(_reader: object, **_kwargs: object) -> list[tuple[bool, bytes]]:
+        attempted_indices.append(fallback_provider.currently_active_provider)
+        if fallback_provider.currently_active_provider == 0:
+            message = "missing trie node"
+            raise multicall_batcher.MulticallHistoricalDataUnavailable(message)
+        return [(True, b"result")]
+
+    monkeypatch.setattr(multicall_batcher, "FallbackProvider", FakeFallbackProvider)
+    monkeypatch.setattr(multicall_batcher, "get_multicall_contract", lambda *_args, **_kwargs: object())
+    reader.call_multicall_with_batch_size = fake_call_multicall_with_batch_size
+
+    result = reader.retry_historical_state_with_provider_rotation(
+        block_identifier=421_460_233,
+        batch_size=40,
+        encoded_calls=[],
+        require_multicall_result=False,
+        error=multicall_batcher.MulticallHistoricalDataUnavailable("layer stale"),
+    )
+
+    assert fallback_provider.switched_to == [0, 1]
+    assert attempted_indices == [0, 1]
+    assert result == [(True, b"result")]
 
 
 def make_empty_parallel(*_args: object, **_kwargs: object) -> ParallelExecutor:
@@ -73,10 +144,10 @@ def test_historical_multicall_without_hypersync_keeps_inline_timestamps(monkeypa
 def test_historical_multicall_closes_hypersync_timestamps_on_interruption(monkeypatch: pytest.MonkeyPatch) -> None:
     """Close the timestamp cache when a caller stops reading early."""
 
-    timestamp = datetime.datetime(2026, 1, 1)
+    timestamp = datetime.datetime.fromisoformat("2026-01-01")
     timestamps = MagicMock()
     timestamps.get_last_block.return_value = 101
-    timestamps.__getitem__.side_effect = lambda block_number: timestamp
+    timestamps.__getitem__.side_effect = lambda _block_number: timestamp
     result = object()
     hypersync_client = object()
 
@@ -106,7 +177,7 @@ def test_historical_multicall_closes_hypersync_timestamps_on_interruption(monkey
 def test_historical_multicall_merges_worker_rpc_stats_once(monkeypatch: pytest.MonkeyPatch) -> None:
     """Merge a successful process task's physical calls into its phase."""
 
-    timestamp = datetime.datetime(2026, 1, 1)
+    timestamp = datetime.datetime.fromisoformat("2026-01-01")
     worker_stats = RPCRequestStats()
     worker_stats.record_call("rpc.example", "eth_call", 2)
     worker_stats.record_error("rpc.example", "http_429", "rate limited")

@@ -2100,6 +2100,7 @@ def replace_cleaned_vault_histories(  # noqa: PLR0914
     cleaned_price_df_path: Path = DEFAULT_RAW_PRICE_DATABASE,
     settlement_db_path: Path | None = None,
     logger: Callable[[str], None] = print,
+    require_all_cleaned: bool = True,
 ) -> int:
     """Rebuild and atomically replace cleaned histories for selected vaults.
 
@@ -2129,6 +2130,13 @@ def replace_cleaned_vault_histories(  # noqa: PLR0914
         Optional settlement database applied to the selected cleaned rows.
     :param logger:
         Progress callback.
+    :param require_all_cleaned:
+        Keep the default safety check that rejects a replacement when cleaning
+        removes any selected id. Set to ``False`` only for an exhaustive
+        discovery migration where valid but inactive vaults are expected to
+        have no cleanable history. In that mode an existing selected cleaned
+        history is deliberately replaced by no rows when its raw history is
+        no longer suitable for publication.
     :return:
         Number of cleaned rows written for the selected vaults.
     """
@@ -2186,7 +2194,7 @@ def replace_cleaned_vault_histories(  # noqa: PLR0914
 
     cleaned_ids = set(cleaned_selected_df["id"].astype(str).str.lower())
     missing_cleaned_ids = set(canonical_ids) - cleaned_ids
-    if missing_cleaned_ids:
+    if missing_cleaned_ids and require_all_cleaned:
         raise ValueError(f"Cleaning removed all rows for selected vault ids; refusing to replace existing histories: {', '.join(sorted(missing_cleaned_ids))}")
     cleaned_selected_df.sort_values(by=["id", "timestamp"], inplace=True)
 
