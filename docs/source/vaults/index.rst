@@ -138,7 +138,7 @@ Supported protocols
    :maxdepth: 1
 
    aave/index
-   arcus/index
+   ptoken/index
    asseto/index
    axis/index
    ondo/index

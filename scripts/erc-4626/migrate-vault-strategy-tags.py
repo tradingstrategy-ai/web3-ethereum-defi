@@ -100,7 +100,7 @@ EVM_ADAPTER_FEATURE_PRIORITY: tuple[ERC4626Feature, ...] = (
     ERC4626Feature.ipor_like,
     ERC4626Feature.lagoon_like,
     ERC4626Feature.t3tris_like,
-    ERC4626Feature.arcus_like,
+    ERC4626Feature.ptoken_like,
     ERC4626Feature.oda_fact_like,
     ERC4626Feature.shift_like,
     ERC4626Feature.midas_like,

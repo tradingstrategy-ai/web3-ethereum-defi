@@ -6,13 +6,13 @@ Curators are responsible for setting risk parameters, allocating assets, and man
 
 Sources: On-disk vault metadata database (~11,000 stablecoin vaults across Morpho, Euler, IPOR Fusion, Lagoon Finance, and other protocols), Lagoon Finance API cache, Hyperliquid/GRVT/Lighter native DuckDB databases (vault descriptions parsed for manager identity), web search verification.
 
-## Arcus pTokens
+## pTokens
 
-The reviewed Arcus pTokens on Robinhood Chain are attributed to Arcus as
-protocol-curated products. The known BTC (3x Long) and HOOD (3x Long) contracts
-return the same unlabelled EOA from ``manager()``. This is not sufficient
-evidence for a distinct curator record; no third-party curator has been
-identified.
+Currently not yet identified. The reviewed BTC (3x Long) and HOOD (3x Long)
+pTokens on Robinhood Chain share an unlabelled manager and deployer-controlled
+upgrade path. Arcus states that these vaults are not Arcus products; use of its
+USDG deposit infrastructure is not curator evidence. No curator record is
+created until an issuer publicly binds its identity to the contracts.
 
 ## Curator YAML manager metadata
 
