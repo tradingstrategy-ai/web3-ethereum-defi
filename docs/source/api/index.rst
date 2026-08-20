@@ -21,7 +21,7 @@ See :ref:`tutorials <tutorials>` for guides and examples on how to use the libra
    uniswap_v3/index
    aave_v2/index
    aave_v3/index
-   ptoken/index
+   arcus/index
    axis/index
    upshift/index
    cowswap/index

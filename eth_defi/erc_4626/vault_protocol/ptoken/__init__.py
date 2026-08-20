@@ -1,1 +1,0 @@
-"""pToken vault integration."""

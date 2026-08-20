@@ -17,12 +17,12 @@ from web3.types import BlockIdentifier
 
 from eth_defi.abi import ZERO_ADDRESS_STR
 from eth_defi.erc_4626.core import ERC4626Feature
+from eth_defi.erc_4626.vault_protocol.arcus.constants import ARCUS_BRIDGE_VAULT, ARCUS_CHAIN_ID
 from eth_defi.erc_4626.vault_protocol.axis.constants import AXIS_CHAIN_ID, AXIS_STAKED_USDX_VAULT
 from eth_defi.erc_4626.vault_protocol.frankencoin.vault import FRANKENCOIN_SAVINGS_VAULTS
 from eth_defi.erc_4626.vault_protocol.frax.constants import FRAX_STAKING_VAULT_ADDRESSES, FRAX_STAKING_VAULTS_BY_CHAIN, FRAXLEND_DEPLOYERS_BY_CHAIN
 from eth_defi.erc_4626.vault_protocol.kiloex.constants import KILOEX_VAULT_ADDRESSES, KILOEX_VAULTS_BY_CHAIN
 from eth_defi.erc_4626.vault_protocol.nara.constants import NARAUSD_PLUS_VAULT
-from eth_defi.erc_4626.vault_protocol.ptoken.constants import PTOKEN_CHAIN_ID, PTOKEN_VAULTS
 from eth_defi.event_reader.multicall_batcher import EncodedCall, EncodedCallResult, MultiprocessMulticallReader, read_multicall_chunked
 from eth_defi.event_reader.web3factory import Web3Factory
 from eth_defi.midas.constants import MIDAS_PRODUCTS, MIDAS_PRODUCTS_BY_TOKEN
@@ -450,15 +450,6 @@ def _get_hardcoded_protocol_features(address: HexAddress | str, chain_id: int | 
                 return NARA_HARDCODED_PROTOCOLS[normalised_address]
             return None
 
-        if normalised_address in PTOKEN_VAULTS:
-            if chain_id == PTOKEN_CHAIN_ID:
-                return {
-                    ERC4626Feature.ptoken_like,
-                    ERC4626Feature.erc_7540_like,
-                    ERC4626Feature.erc_7575_like,
-                }
-            return None
-
         shift_vaults = SHIFT_VAULTS_BY_CHAIN.get(chain_id, frozenset())
         if normalised_address in shift_vaults:
             return SHIFT_HARDCODED_PROTOCOLS[normalised_address]
@@ -529,6 +520,7 @@ CHAIN_RESTRICTED_PROBES: dict[str, set[int]] = {
     "shareManager": MELLOW_CORE_CHAIN_IDS,  # Mellow Core - Ethereum, Plasma, Arbitrum, Monad
     "getAssetCount": MELLOW_CORE_CHAIN_IDS,  # Mellow Core - Ethereum, Plasma, Arbitrum, Monad
     "getGrossTVL": {42161, 4663},  # T3tris - Arbitrum, Robinhood
+    "bridgeVault": {ARCUS_CHAIN_ID},  # Arcus pToken vaults - Robinhood only
     # Two chain protocols
     "claimableKeeper": {137, 42161},  # Untangle Finance - Polygon, Arbitrum
     # Three chain protocols
@@ -847,6 +839,19 @@ def create_probe_calls(
             data=b"",
             extra_data=None,
         )
+
+        # Arcus pToken vaults on Robinhood Chain expose a shared bridge-vault
+        # address. Keep this single uncommon selector tightly constrained to
+        # the reviewed chain.
+        # https://tradingstrategy.ai/vaults/hood-3x-long
+        if _should_yield_probe("bridgeVault", chain_id):
+            yield EncodedCall.from_keccak_signature(
+                address=address,
+                signature=Web3.keccak(text="bridgeVault()")[0:4],
+                function="bridgeVault",
+                data=b"",
+                extra_data=None,
+            )
 
         # NestVaultCore exposes its configured operator registry. Restricting
         # the probe to Nest's published deployment chains prevents this generic
@@ -1513,6 +1518,13 @@ def identify_vault_features(
     if calls["share"].success:
         features.add(ERC4626Feature.erc_7575_like)
 
+    # Arcus pToken wrappers currently share one bridge-vault address. Restrict
+    # both selector and classification to Robinhood Chain.
+    if chain_id == ARCUS_CHAIN_ID and _is_nonzero_abi_address(calls["bridgeVault"]):
+        bridge_vault = HexAddress("0x" + calls["bridgeVault"].result[-20:].hex())
+        if bridge_vault == ARCUS_BRIDGE_VAULT:
+            features.add(ERC4626Feature.arcus_like)
+
     # NestVaultCore exposes an operator registry; the probe is restricted to
     # Nest's published deployment chains to avoid unrelated async vaults.
     if calls["operatorRegistry"].success:
@@ -2100,10 +2112,10 @@ def create_vault_instance(
         from eth_defi.erc_4626.vault_protocol.t3tris.vault import T3trisVault
 
         return T3trisVault(web3, spec, **kwargs)
-    elif ERC4626Feature.ptoken_like in features:
-        from eth_defi.erc_4626.vault_protocol.ptoken.vault import PTokenVault
+    elif ERC4626Feature.arcus_like in features:
+        from eth_defi.erc_4626.vault_protocol.arcus.vault import ArcusVault
 
-        return PTokenVault(web3, spec, **kwargs)
+        return ArcusVault(web3, spec, **kwargs)
     elif ERC4626Feature.oda_fact_like in features:
         from eth_defi.tokenised_fund.kinexys.vault import OdaFactVault
 
