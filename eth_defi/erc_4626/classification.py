@@ -23,6 +23,7 @@ from eth_defi.erc_4626.vault_protocol.frankencoin.vault import FRANKENCOIN_SAVIN
 from eth_defi.erc_4626.vault_protocol.frax.constants import FRAX_STAKING_VAULT_ADDRESSES, FRAX_STAKING_VAULTS_BY_CHAIN, FRAXLEND_DEPLOYERS_BY_CHAIN
 from eth_defi.erc_4626.vault_protocol.kiloex.constants import KILOEX_VAULT_ADDRESSES, KILOEX_VAULTS_BY_CHAIN
 from eth_defi.erc_4626.vault_protocol.nara.constants import NARAUSD_PLUS_VAULT
+from eth_defi.erc_4626.vault_protocol.pallas.constants import PALLAS_VAULT_ADDRESSES, PALLAS_VAULTS_BY_CHAIN
 from eth_defi.event_reader.multicall_batcher import EncodedCall, EncodedCallResult, MultiprocessMulticallReader, read_multicall_chunked
 from eth_defi.event_reader.web3factory import Web3Factory
 from eth_defi.midas.constants import MIDAS_PRODUCTS, MIDAS_PRODUCTS_BY_TOKEN
@@ -157,6 +158,10 @@ WSTGBP_HARDCODED_PROTOCOLS = {
 #: KiloEx Hybrid Vaults reuse a Gains-compatible contract surface. Classify
 #: known deployments by address instead of the generic ``maxDiscountP()`` probe.
 KILOEX_HARDCODED_PROTOCOLS = {address: {ERC4626Feature.kiloex_like} for address in KILOEX_VAULT_ADDRESSES}
+
+#: Pallas' ERC-7540 trading vaults share an implementation with no public
+#: deployment registry, so the reviewed HyperEVM deployments are address-based.
+PALLAS_HARDCODED_PROTOCOLS = {address: {ERC4626Feature.pallas_like} for address in PALLAS_VAULT_ADDRESSES}
 
 #: Aave V3 ATokenVault deployments, identified by the Aave-specific
 #: ``ATOKEN()`` accessor. Addresses are chain-aware because several addresses
@@ -367,6 +372,10 @@ def _get_hardcoded_protocol_features(address: HexAddress | str, chain_id: int | 
         if (chain_id, normalised_address) in KILOEX_VAULTS_BY_CHAIN:
             return {ERC4626Feature.kiloex_like}
         if normalised_address in KILOEX_VAULT_ADDRESSES:
+            return None
+        if (chain_id, normalised_address) in PALLAS_VAULTS_BY_CHAIN:
+            return {ERC4626Feature.pallas_like}
+        if normalised_address in PALLAS_VAULT_ADDRESSES:
             return None
         if (chain_id, normalised_address) in MIDAS_PRODUCTS:
             return MIDAS_HARDCODED_PROTOCOLS[normalised_address]
@@ -2262,6 +2271,10 @@ def create_vault_instance(
         from eth_defi.erc_4626.vault_protocol.threejane.vault import ThreeJaneVault
 
         return ThreeJaneVault(web3, spec, **kwargs)
+    elif ERC4626Feature.pallas_like in features:
+        from eth_defi.erc_4626.vault_protocol.pallas.vault import PallasVault
+
+        return PallasVault(web3, spec, **kwargs)
     elif ERC4626Feature.atoma_like in features:
         from eth_defi.erc_4626.vault_protocol.atoma.vault import AtomaVault
 
@@ -2677,6 +2690,7 @@ HARDCODED_PROTOCOLS = {
     # https://hyperevmscan.io/address/0x54251e24e7e5dfc66c02ea02f41bcb2419380bad
     "0x54251e24e7e5dfc66c02ea02f41bcb2419380bad": {ERC4626Feature.barker_like},
     **SHIFT_HARDCODED_PROTOCOLS,
+    **PALLAS_HARDCODED_PROTOCOLS,
     # 3Jane - USD3 senior tranche credit vault on Ethereum
     # https://etherscan.io/address/0x056B269Eb1f75477a8666ae8C7fE01b64dD55eCc
     "0x056b269eb1f75477a8666ae8c7fe01b64dd55ecc": {ERC4626Feature.threejane_like},

@@ -1,0 +1,44 @@
+name: Pallas
+slug: pallas
+short_description: |
+  HyperEVM trading-vault manager offering asynchronous USDT0 subscriptions and redemptions.
+long_description: |
+  [Pallas](https://app.pallas.fund/) operates strategy vaults on HyperEVM and
+  HyperCore. Its active products accept USDT0 and issue PALLAS vault shares.
+  The current strategies include a market-neutral HIP-3 basis-trading programme
+  and a directional-volatility programme.
+
+  Deposits and redemptions use a request-and-claim process rather than an
+  immediate swap between USDT0 and shares. A request can therefore remain
+  pending while the operator processes it, and users should check the current
+  vault state and Pallas application before relying on a particular settlement
+  time.
+
+  Security notes:
+
+  - The reviewed vaults are verified upgradeable proxy contracts, so authorised
+    roles can change their implementation.
+  - The contract explorer currently shows no submitted independent security
+    audit, and Pallas has not published a public GitHub repository for this
+    vault implementation.
+fee_description: |
+  Pallas displays a management fee and performance fee on each strategy page,
+  with different standard and premium-pass rates. For example, the active
+  Basis Trading HIP-3 vault displays 1.45% management and 17% performance fees
+  for standard users, versus 1% and 15% for premium users. These terms are
+  presented by the application and may change; users should read the current
+  strategy page before depositing.
+links:
+  homepage: https://app.pallas.fund/
+  app: https://app.pallas.fund/
+  twitter: https://x.com/pallas_vault
+  github:
+  documentation:
+  defillama:
+  audits:
+  fees: https://app.pallas.fund/
+  trading_strategy: https://tradingstrategy.ai/trading-view/vaults/protocols/pallas
+  integration_documentation: https://web3-ethereum-defi.readthedocs.io/vaults/pallas/index.html
+example_smart_contracts:
+  - https://hyperevmscan.io/address/0x9b3aa83BD833123437d4efa656E7121B7F317899
+  - https://hyperevmscan.io/address/0xa642188e1345AEe1809f6db5431464b079978c68

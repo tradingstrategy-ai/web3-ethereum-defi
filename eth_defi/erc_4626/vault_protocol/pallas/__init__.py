@@ -1,0 +1,1 @@
+"""Pallas vault protocol integration."""

@@ -148,6 +148,7 @@ from typing import TypedDict
 from eth_typing import HexAddress
 
 from eth_defi.feed.sources import CuratorIncidentKind, CuratorIncidentSeverity, CuratorRiskStatus, load_feeder_metadata, resolve_canonical_feeder_yaml
+from eth_defi.erc_4626.vault_protocol.pallas.constants import PALLAS_VAULT_ADDRESSES
 from eth_defi.grvt.constants import GRVT_SYSTEM_VAULT_ADDRESSES
 from eth_defi.hyperliquid.constants import HYPERLIQUID_SYSTEM_VAULT_ADDRESSES
 from eth_defi.lighter.constants import LIGHTER_SYSTEM_POOL_ADDRESSES
@@ -221,6 +222,7 @@ ALL_PROTOCOL_CURATOR_SLUGS: set[str] = PROTOCOL_CURATED_SLUGS | {
     "grvt",
     "spiko-curator",
     "theo-curator",
+    "pallas",
 }
 
 #: Human-readable names for protocol-curator slugs.
@@ -245,6 +247,7 @@ PROTOCOL_CURATOR_NAMES: dict[str, str] = {
     "usyc": "Circle USYC",
     "spiko-curator": "Spiko",
     "theo-curator": "Theo",
+    "pallas": "Pallas",
     "wstgbp": "wstGBP",
 }
 
@@ -340,9 +343,11 @@ SPONSOR_CURATOR_SLUGS: set[str] = {
 #:
 #: Frax assets are widely used by third-party protocols and curators. A vault
 #: name containing FRAX or frxUSD establishes its denomination or strategy,
-#: not that Frax operates the vault.
+#: not that Frax operates the vault. Pallas is currently address-scoped, so its
+#: brand is not enough to establish curator attribution for a future vault.
 PROTOCOL_BOUND_CURATOR_SLUGS: set[str] = {
     "frax-finance",
+    "pallas",
 }
 
 #: Protocol-specific curator metadata fields in curator YAML files.
@@ -942,17 +947,22 @@ def identify_curator(  # noqa: PLR0917
         if vault_address.lower() in GRVT_SYSTEM_VAULT_ADDRESSES:
             return "grvt"
 
-    # 7. Exact protocol-specific manager name mapping from offchain APIs.
+    # 7. Reviewed Pallas vaults are operated by Pallas, but the protocol's
+    # hardcoded registry currently covers only these confirmed deployments.
+    if protocol_slug == "pallas" and vault_address.lower() in PALLAS_VAULT_ADDRESSES:
+        return "pallas"
+
+    # 8. Exact protocol-specific manager name mapping from offchain APIs.
     patterns = _build_matching_patterns()
     if manager_slug := _identify_curator_by_protocol_manager_name(protocol_slug, manager_name):
         return manager_slug
 
-    # 8. Ordinary vault-name fuzzy matching. Protocol-bound curators must have
+    # 9. Ordinary vault-name fuzzy matching. Protocol-bound curators must have
     #    already matched by protocol slug and cannot be inferred from an asset.
     if vault_slug := _identify_curator_by_patterns(vault_name, patterns, exclude_slugs=PROTOCOL_BOUND_CURATOR_SLUGS):
         return vault_slug
 
-    # 9. Legacy fuzzy matching against manager name for native marketplaces like GRVT.
+    # 10. Legacy fuzzy matching against manager name for native marketplaces like GRVT.
     if manager_slug := _identify_curator_by_patterns(manager_name, patterns, exclude_slugs=PROTOCOL_BOUND_CURATOR_SLUGS):
         return manager_slug
 

@@ -205,6 +205,7 @@ Supported protocols
    nashpoint/index
    nara/index
    nest/index
+   pallas/index
    plutus/index
    renalta/index
    resolv/index

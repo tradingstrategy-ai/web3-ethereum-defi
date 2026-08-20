@@ -842,6 +842,12 @@ class ERC4626Feature(enum.Enum):
     #: https://www.3jane.xyz/
     threejane_like = "threejane_like"
 
+    #: Pallas
+    #:
+    #: HyperEVM asynchronous non-custodial trading vaults.
+    #: https://app.pallas.fund/
+    pallas_like = "pallas_like"
+
     #: Aave (v3 and v4)
     #:
     #: Aave V3 ATokenVault wraps an interest-bearing Aave aToken into ERC-4626
@@ -1136,6 +1142,9 @@ def get_vault_protocol_name(features: set[ERC4626Feature]) -> str:
 
     elif ERC4626Feature.threejane_like in features:
         return "3Jane"
+
+    elif ERC4626Feature.pallas_like in features:
+        return "Pallas"
 
     elif ERC4626Feature.aave_like in features:
         return "Aave"
