@@ -12,8 +12,10 @@ Usage::
 Environment variables:
 
 - ``VAULT_DB_PATH``: metadata database path.
+- ``LOG_LEVEL``: optional console log level, default ``warning``.
 """
 
+import logging
 import math
 import os
 from decimal import Decimal
@@ -23,7 +25,10 @@ from tabulate import tabulate
 
 from eth_defi.chain import get_chain_name
 from eth_defi.erc_4626.core import ERC4626Feature
+from eth_defi.utils import setup_console_logging
 from eth_defi.vault.vaultdb import DEFAULT_VAULT_DATABASE, VaultDatabase, VaultRow
+
+logger = logging.getLogger(__name__)
 
 
 def parse_path_env(name: str, default: Path) -> Path:
@@ -76,11 +81,20 @@ def get_enzyme_protocol_version(row: VaultRow) -> str:
 
 
 def main() -> None:
-    """Render collected Enzyme vault rows as a Markdown table."""
+    """Render collected Enzyme vault rows as a Markdown table.
 
+    The report reads existing metadata only and does not contact RPC providers
+    or update scanner state. It includes both current Enzyme feature families,
+    preserving their accounting units instead of labelling all values as USD.
+
+    :return: None.
+    """
+
+    setup_console_logging(default_log_level=os.environ.get("LOG_LEVEL", "warning"))
     vault_db_path = parse_path_env("VAULT_DB_PATH", DEFAULT_VAULT_DATABASE)
     vault_db = VaultDatabase.read(vault_db_path)
     rows = {spec: row for spec, row in vault_db.rows.items() if row.get("Protocol") == "Enzyme"}
+    logger.info("Exporting %d Enzyme vault rows from %s", len(rows), vault_db_path)
     table = []
     for spec, row in sorted(rows.items(), key=lambda item: (item[0].chain_id, item[1].get("Name") or "")):
         tvl = row.get("NAV")
@@ -97,7 +111,7 @@ def main() -> None:
                 "Total value": format_metric(tvl),
                 "Share price": format_metric(share_price),
                 "Performance fee": format_metric(row.get("Perf fee")),
-                "Management fee (incl. protocol)": format_metric(row.get("Mgmt fee")),
+                "Management fee (user-facing)": format_metric(row.get("Mgmt fee")),
                 "Protocol fee": format_metric(row.get("Protocol fee")),
             }
         )

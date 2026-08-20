@@ -46,10 +46,34 @@ separate Base Dispatcher. The old
 persisted ``enzyme_like`` feature value is retained as an Onyx compatibility
 alias.
 
+Deposit permission and availability
+-----------------------------------
+
+Current vault metadata exports the shared ``deposit_permission`` status. For
+Blue, the direct adapter reads the active PolicyManager contracts and reports
+``whitelisted`` when the reviewed ``ALLOWED_DEPOSIT_RECIPIENTS`` policy is
+enabled. This policy limits the wallets that may invest. No such policy means
+``permissionless``; this classification does not promise that a deposit will
+succeed, because approvals and other fund policies still apply. The
+accompanying ``whitelist.notes`` value makes clear that this is an
+address-level restriction and does not establish an offchain KYC process.
+
+Onyx Shares does not enumerate its active deposit handlers. Because a handler
+can impose a depositor allowlist or a queue-controller restriction, the direct
+adapter exports ``unknown`` rather than guessing whether deposits are
+permissioned. Establishing this requires a separate, chain-level HyperSync
+handler index.
+
+Neither architecture exports historical ``deposits_open`` or
+``redemption_open`` values. Blue policies and Onyx handlers are mutable and
+can depend on the particular investor and action, so past GAV, share price and
+supply samples cannot demonstrate universal availability. These historical
+columns intentionally remain null rather than reporting a misleading state.
+
 Fees
 ----
 
-The current adapter's fee reads apply to Onyx. Fees are selected per vehicle;
+The Onyx adapter reads current fees selected per vehicle;
 it reads active management and performance fee trackers, plus the current
 standard FeeHandler entrance and exit rates, during a current metadata scan.
 Management and performance rates are annual fractions; entrance and exit rates

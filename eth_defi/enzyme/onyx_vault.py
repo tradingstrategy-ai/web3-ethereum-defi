@@ -261,7 +261,15 @@ class EnzymeVault(VaultBase):
         raise EnzymeVaultUnsupportedError(message)
 
     def get_historical_reader(self, stateful: bool) -> VaultHistoricalReader:
-        """Return the share-price and TVL historical reader."""
+        """Return the share-price and TVL historical reader.
+
+        Historical deposit and redemption availability remains unsupported;
+        see :class:`EnzymeVaultHistoricalReader` for the reason.
+
+        :param stateful: Whether the shared reader should retain adaptive scan
+            state between runs.
+        :return: Historical share-price and TVL reader.
+        """
 
         return EnzymeVaultHistoricalReader(self, stateful)
 
@@ -269,6 +277,27 @@ class EnzymeVault(VaultBase):
         """Return the protocol display name."""
 
         return "Enzyme"
+
+    def is_whitelisted_deposit(self) -> bool:
+        """Report Onyx deposit permission as unavailable without a handler index.
+
+        An Onyx Shares token has only ``isDepositHandler(address)``; it does
+        not provide an enumerable handler list. Individual current deposit
+        handlers can enforce an allowlist, such as a SyncDepositHandler's
+        ``getDepositorAllowlist()``, or a queue's controller restriction. A
+        direct Shares adapter therefore cannot safely claim either
+        ``whitelisted`` or ``permissionless`` until a chain-level HyperSync
+        index has reconstructed the active handlers and inspected their
+        reviewed interfaces. The shared scan maps this explicit unsupported
+        read to :attr:`~eth_defi.vault.deposit_redeem.VaultDepositPermission.unknown`.
+
+        :return: Never returns normally because the current handler set is not
+            enumerable from the Shares contract.
+        :raise NotImplementedError: Always, until the adapter receives an
+            authoritative current handler index.
+        """
+
+        raise NotImplementedError(f"Enzyme Onyx Shares vault {self.address} does not enumerate its active deposit handlers")
 
     def fetch_fee_tracker_rate(
         self,

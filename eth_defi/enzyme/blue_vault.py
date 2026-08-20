@@ -37,6 +37,13 @@ MANAGEMENT_FEE_RATE_SCALE = Decimal(10**27)
 FEE_BPS_DENOMINATOR = Decimal(10_000)
 SECONDS_PER_YEAR = Decimal(365 * 24 * 60 * 60)
 
+#: Reviewed ``AllowedDepositRecipientsPolicy.identifier()`` value.
+#:
+#: This policy limits the wallet addresses that may call ``buyShares``. The
+#: adapter classifies this identifier, and no other policy identifier, as a
+#: vault-wide investor allowlist.
+ALLOWED_DEPOSIT_RECIPIENTS_POLICY_IDENTIFIER = "ALLOWED_DEPOSIT_RECIPIENTS"
+
 
 class EnzymeBlueVault(VaultBase):
     """Read an Enzyme Blue VaultProxy and its paired ComptrollerProxy."""
@@ -233,7 +240,15 @@ class EnzymeBlueVault(VaultBase):
         raise RuntimeError(message)
 
     def get_historical_reader(self, stateful: bool) -> VaultHistoricalReader:
-        """Return the GAV and supply historical reader."""
+        """Return the GAV and supply historical reader.
+
+        Historical deposit and redemption availability remains unsupported;
+        see :class:`EnzymeBlueVaultHistoricalReader` for the reason.
+
+        :param stateful: Whether the shared reader should retain adaptive scan
+            state between runs.
+        :return: Historical GAV and share-supply reader.
+        """
 
         return EnzymeBlueVaultHistoricalReader(self, stateful)
 
@@ -241,6 +256,40 @@ class EnzymeBlueVault(VaultBase):
         """Return shared Enzyme display name."""
 
         return "Enzyme"
+
+    def is_whitelisted_deposit(self) -> bool:
+        """Determine whether Blue limits investors through its recipient policy.
+
+        Enzyme Blue's `Allowed Deposit Recipients policy
+        <https://docs.enzyme.finance/user-documentation/blue-enzyme-vaults/markdown/seeding>`__
+        is the reviewed vault-level allowlist for ``buyShares``. The policy
+        manager enumerates enabled policy contracts for the paired
+        ComptrollerProxy. Every policy implements ``identifier()``, so reading
+        its stable identifier avoids hardcoding a release-specific policy
+        deployment address. The adapter does not treat other policy types as
+        investor allowlists.
+
+        This is a current-state classification only. A result of ``False``
+        means no recipient allowlist policy is active; it does not promise a
+        successful deposit because Blue can apply other policies, balances,
+        approvals or fund-specific conditions.
+
+        :return: ``True`` when ``ALLOWED_DEPOSIT_RECIPIENTS`` is enabled for
+            this fund, otherwise ``False``.
+        """
+
+        block_identifier = self._get_block_identifier()
+        policy_manager_address = self.comptroller_contract.functions.getPolicyManager().call(block_identifier=block_identifier)
+        policy_manager = get_deployed_contract(self.web3, "enzyme/PolicyManager.json", policy_manager_address)
+        policy_addresses = policy_manager.functions.getEnabledPoliciesForFund(self.comptroller_contract.address).call(block_identifier=block_identifier)
+        for policy_address in policy_addresses:
+            policy = get_deployed_contract(self.web3, "enzyme/IPolicy.json", policy_address)
+            identifier = policy.functions.identifier().call(block_identifier=block_identifier)
+            if identifier == ALLOWED_DEPOSIT_RECIPIENTS_POLICY_IDENTIFIER:
+                self.whitelist_notes = "Allowed Deposit Recipients restricts investor addresses; the policy does not establish KYC."
+                return True
+        self.whitelist_notes = None
+        return False
 
     def get_fee_mode(self) -> VaultFeeMode:
         """Return Blue's share-minting dilution fee mechanism."""

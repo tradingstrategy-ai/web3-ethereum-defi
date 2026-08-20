@@ -1372,18 +1372,18 @@ class VaultBase(ABC):
         return None
 
     def is_whitelisted_deposit(self) -> bool:
-        """Determine whether deposits require KYC or identity approval.
+        """Determine whether deposits require pre-approved recipient accounts.
 
         Protocol adapters override this predicate only when the deployed
         contract version has verified implementation source or a canonical
         application ABI that proves a reliable vault-wide policy read. An
         explicitly documented operating assumption may also override it, but
         must set :attr:`whitelist_notes` so consumers can distinguish it from
-        a source-proven result. ``True`` means the vault requires KYC or
-        comparable manual identity approval; ``False`` means its policy is
-        permissionless. An open date, lock-up, epoch, pause, cap, token
-        balance, or other non-identity eligibility condition must not affect
-        the result.
+        a source-proven result. ``True`` means the vault requires KYC,
+        manual identity approval, or a source-proven recipient allowlist;
+        ``False`` means its policy is permissionless. An open date, lock-up,
+        epoch, pause, cap, token balance, or other runtime eligibility
+        condition must not affect the result.
         A source-proven override requires a fixed-block adapter test for every
         supported implementation generation. An operating assumption requires
         a unit test that asserts both its classification and its caveat. This
@@ -1391,8 +1391,8 @@ class VaultBase(ABC):
         capacity, and request lifecycle.
 
         :return:
-            ``True`` when deposits require KYC/identity approval and ``False``
-            when they do not.
+            ``True`` when deposits require account pre-approval and
+            ``False`` when they do not.
 
         :raise NotImplementedError:
             If the adapter cannot safely determine the policy.
@@ -1416,8 +1416,9 @@ class VaultBase(ABC):
     def is_account_whitelisted(self, address: HexAddress) -> bool:
         """Determine whether an account has completed the vault's KYC policy.
 
-        The result concerns KYC or manual identity-approval membership only.
-        A protocol may still require scheduling, a token balance, an allowance,
+        The result concerns KYC, manual identity approval, or recipient
+        allowlist membership only. A protocol may still require scheduling, a
+        token balance, an allowance,
         available capacity, or an open epoch before a deposit can be submitted.
         Callers must use the relevant deposit manager pre-flight before
         broadcasting a transaction.
@@ -1426,7 +1427,7 @@ class VaultBase(ABC):
             Account whose deposit-policy membership is queried.
 
         :return:
-            ``True`` when the account has the required KYC/identity approval.
+            ``True`` when the account has the required pre-approval.
 
         :raise NotImplementedError:
             If the adapter cannot safely query account membership.

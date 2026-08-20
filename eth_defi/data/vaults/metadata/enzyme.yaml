@@ -17,9 +17,12 @@ long_description: |
   supported Base scanner discovers official Onyx SharesFactory deployments and
   publishes each vehicle's share price and supply in a selected accounting
   unit, which may be a named unit such as USD. Its calculated total value is
-  in that unit and is not necessarily a US-dollar valuation. Availability,
-  investment terms, transfer restrictions, deposits and redemptions vary by
-  vehicle.
+  in that unit and is not necessarily a US-dollar valuation. Blue current
+  metadata recognises the reviewed allowed-deposit-recipients policy. Onyx
+  Shares cannot enumerate deposit handlers, so its current deposit permission
+  remains unknown. Historical open/closed deposit and redemption status is not
+  exported for either architecture: policies and handlers are mutable and can
+  be specific to an investor or action.
 fee_description: |
   Fee configuration differs by architecture. Enzyme Blue can combine
   fund-level FeeManager fees with a separate protocol fee. The scanner exports

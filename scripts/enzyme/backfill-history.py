@@ -43,6 +43,7 @@ import logging
 import os
 import pickle  # noqa: S403 - trusted local production reader-state pickle.
 import sys
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal, cast
 
@@ -94,6 +95,27 @@ ENZYME_MIGRATION_CHAINS = {
     8453: "JSON_RPC_BASE",
     42161: "JSON_RPC_ARBITRUM",
 }
+
+
+@dataclass(slots=True)
+class EnzymeChainRun:
+    """Keep the fixed discovery scope for one resumable chain migration.
+
+    The checkpoint fixes its end block and discovered candidates before
+    metadata or price writes begin. Keeping these fields together avoids
+    accidentally mixing one chain's RPC connection, candidate set, or
+    historical boundary with another chain.
+
+    :param web3: Connected Web3 instance for the selected chain.
+    :param json_rpc_url: Configured multi-provider RPC URL string.
+    :param end_block: Fixed inclusive migration end block.
+    :param candidates: Factory-discovered Blue and/or Onyx vaults.
+    """
+
+    web3: Web3
+    json_rpc_url: str
+    end_block: int
+    candidates: list[EnzymeFactoryCandidate]
 
 
 def parse_bool_env(name: str, *, default: bool = False) -> bool:
@@ -269,7 +291,7 @@ def create_factory_query(chain_id: int, start_block: int, end_block: int) -> hyp
 async def fetch_enzyme_vault_candidates_async(web3: Web3, start_block: int, end_block: int) -> list[EnzymeFactoryCandidate]:
     """Fetch all supported Enzyme factory events through one HyperSync stream.
 
-    :param web3: Connected Base Web3 instance.
+    :param web3: Connected Web3 instance for a selected Enzyme chain.
     :param start_block: Inclusive factory-event scan start block.
     :param end_block: Inclusive factory-event scan end block.
     :return: Deduplicated canonical Onyx Shares or Blue VaultProxy candidates.
@@ -304,10 +326,11 @@ async def fetch_enzyme_vault_candidates_async(web3: Web3, start_block: int, end_
 def fetch_enzyme_vault_candidates(web3: Web3, start_block: int, end_block: int) -> list[EnzymeFactoryCandidate]:
     """Synchronously fetch all Enzyme factory candidates for the migration.
 
-    :param web3: Connected Base Web3 instance.
+    :param web3: Connected Web3 instance for a selected Enzyme chain.
     :param start_block: Inclusive factory-event scan start block.
     :param end_block: Inclusive factory-event scan end block.
-    :return: Canonical Shares vault candidates ordered by creation block.
+    :return: Canonical Onyx Shares and Blue VaultProxy candidates ordered by
+        creation block.
     """
 
     return asyncio.run(fetch_enzyme_vault_candidates_async(web3, start_block, end_block))
@@ -372,8 +395,8 @@ def fetch_latest_existing_price_blocks(price_path: Path, chain_id: int, addresse
     """Read the latest raw-price block for each selected Enzyme vault.
 
     :param price_path: Uncleaned historical price parquet path.
-    :param addresses: Lower-case Enzyme Shares addresses.
-    :return: Mapping from address to its latest stored Base block.
+    :param addresses: Lower-case Enzyme Shares or Blue VaultProxy addresses.
+    :return: Mapping from address to its latest stored block on the chain.
     """
 
     if not price_path.exists() or not addresses:
@@ -428,7 +451,7 @@ def fetch_vault_price_start_block(
 def build_vaults(web3: Web3, candidates: list[EnzymeFactoryCandidate], token_cache: TokenDiskCache) -> list[VaultBase]:
     """Construct direct ``VaultBase`` adapters for selected Enzyme vaults.
 
-    :param web3: Connected Base Web3 instance.
+    :param web3: Connected Web3 instance for the candidates' chain.
     :param candidates: Factory-discovered vaults.
     :param token_cache: Shared token metadata cache.
     :return: Enzyme vault adapters annotated with their deployment blocks.
@@ -615,7 +638,7 @@ def main() -> None:  # noqa: PLR0914 - linear migration steps favour operational
     checkpoint_path = parse_path_env("ENZYME_CHECKPOINT_PATH", vault_db_path.with_name("enzyme-backfill-history-state.json"))
     checkpoint = read_checkpoint(checkpoint_path)
 
-    chain_runs: list[tuple[Web3, str, int, list[EnzymeFactoryCandidate]]] = []
+    chain_runs: list[EnzymeChainRun] = []
     for expected_chain_id, environment_name in ENZYME_MIGRATION_CHAINS.items():
         json_rpc_url = os.environ.get(environment_name)
         if not json_rpc_url:
@@ -640,10 +663,10 @@ def main() -> None:  # noqa: PLR0914 - linear migration steps favour operational
             }
             if not dry_run:
                 write_checkpoint(checkpoint_path, checkpoint)
-        chain_runs.append((web3, json_rpc_url, end_block, candidates))
+        chain_runs.append(EnzymeChainRun(web3, json_rpc_url, end_block, candidates))
 
     print("Enzyme backfill plan")
-    print(tabulate([{"chain": web3.eth.chain_id, "vaults": len(candidates), "first_block": min(candidate.created_block for candidate in candidates), "last_block": end_block} for web3, _rpc_url, end_block, candidates in chain_runs], headers="keys", tablefmt="github"))
+    print(tabulate([{"chain": run.web3.eth.chain_id, "vaults": len(run.candidates), "first_block": min(candidate.created_block for candidate in run.candidates), "last_block": run.end_block} for run in chain_runs], headers="keys", tablefmt="github"))
     print(f"Vault DB: {vault_db_path}")
     print(f"Price DB: {price_path}")
     print(f"Cleaned price DB: {cleaned_price_path}")
@@ -656,16 +679,16 @@ def main() -> None:  # noqa: PLR0914 - linear migration steps favour operational
 
     vault_db = read_vault_database(vault_db_path)
     leads_added = metadata_upserted = 0
-    all_candidates = [candidate for _web3, _rpc_url, _end_block, candidates in chain_runs for candidate in candidates]
-    for _web3, json_rpc_url, end_block, candidates in chain_runs:
-        for candidate in candidates:
+    all_candidates = [candidate for run in chain_runs for candidate in run.candidates]
+    for run in chain_runs:
+        for candidate in run.candidates:
             spec = VaultSpec(candidate.chain, candidate.address)
             if spec not in vault_db.leads:
                 vault_db.leads[spec] = create_enzyme_lead(candidate)
                 leads_added += 1
-        metadata_candidates = [candidate for candidate in candidates if should_refresh_metadata(vault_db, candidate)]
+        metadata_candidates = [candidate for candidate in run.candidates if should_refresh_metadata(vault_db, candidate)]
         for metadata_batch in itertools.batched(metadata_candidates, metadata_batch_size):
-            for candidate, record in fetch_enzyme_metadata_records(json_rpc_url, end_block, list(metadata_batch), max_workers):
+            for candidate, record in fetch_enzyme_metadata_records(run.json_rpc_url, run.end_block, list(metadata_batch), max_workers):
                 vault_db.rows[VaultSpec(candidate.chain, candidate.address)] = record
                 metadata_upserted += 1
             vault_db_path.parent.mkdir(parents=True, exist_ok=True)
@@ -680,19 +703,19 @@ def main() -> None:  # noqa: PLR0914 - linear migration steps favour operational
     scan_results: list[dict] = []
     if scan_prices:
         reader_states = read_reader_states(reader_state_path)
-        for web3, json_rpc_url, end_block, candidates in chain_runs:
-            chain_checkpoint = checkpoint["chains"][str(web3.eth.chain_id)]
+        for run in chain_runs:
+            chain_checkpoint = checkpoint["chains"][str(run.web3.eth.chain_id)]
             if chain_checkpoint["prices_complete"]:
-                logger.info("Skipping completed Enzyme price history on chain %d", web3.eth.chain_id)
+                logger.info("Skipping completed Enzyme price history on chain %d", run.web3.eth.chain_id)
                 continue
             scan_result = scan_price_history(
-                web3=web3,
-                json_rpc_url=json_rpc_url,
+                web3=run.web3,
+                json_rpc_url=run.json_rpc_url,
                 token_cache=token_cache,
                 reader_states=reader_states,
-                candidates=candidates,
+                candidates=run.candidates,
                 price_path=price_path,
-                end_block=end_block,
+                end_block=run.end_block,
                 frequency=frequency,
                 max_workers=max_workers,
                 rewrite_targeted=rewrite_targeted,

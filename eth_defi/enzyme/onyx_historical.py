@@ -24,7 +24,12 @@ class EnzymeVaultHistoricalReader(VaultHistoricalReader):
     The current Onyx ``sharePrice`` field and Shares ERC-20 token use
     18-decimal fixed-point values. The reader reports the stored share value
     in the vault's declared value asset and calculates total value as
-    ``share_price * total_supply``.
+    ``share_price * total_supply``. Historical deposit and redemption
+    availability is unsupported: Shares delegates these actions to mutable,
+    potentially account-restricted handlers and cannot enumerate those
+    handlers. The reader therefore leaves ``deposits_open`` and
+    ``redemption_open`` as ``None`` rather than deriving them from price or
+    supply observations.
     """
 
     def __init__(self, vault: "EnzymeVault", stateful: bool):
@@ -84,7 +89,7 @@ class EnzymeVaultHistoricalReader(VaultHistoricalReader):
 
         total_assets = share_price * total_supply if share_price is not None and total_supply is not None else None
         state = getattr(self, "reader_state", None)
-        if state and share_price_result and getattr(self.vault, "denomination_token", None) is not None:
+        if state and share_price_result and share_price is not None:
             state.on_called(
                 share_price_result,
                 total_assets=total_assets,

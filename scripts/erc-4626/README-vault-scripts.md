@@ -123,6 +123,16 @@ fee`` for a transparent breakdown; internal
 [protocol-access settlement](https://specs.enzyme.finance/topics/protocol-fee)
 does not change the investor-facing aggregate.
 
+Historical Enzyme price rows intentionally do not populate ``deposits_open``
+or ``redemption_open``. Enzyme Blue policies and Onyx handler configurations
+are mutable and may apply to a particular investor or transaction, so a
+historical GAV, supply or share-price multicall cannot prove universal action
+availability. The current metadata export instead reports Blue's reviewed
+``ALLOWED_DEPOSIT_RECIPIENTS`` policy as ``deposit_permission=whitelisted``.
+Onyx Shares cannot enumerate active deposit handlers, so its current
+``deposit_permission`` is ``unknown`` until a chain-level handler index is
+implemented.
+
 The migration is resumable. Its JSON checkpoint defaults to
 `enzyme-backfill-history-state.json` beside the vault database and is written
 after each discovered chain, metadata batch and completed price-history chain.

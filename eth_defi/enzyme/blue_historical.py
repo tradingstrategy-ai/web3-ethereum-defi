@@ -22,8 +22,13 @@ class EnzymeBlueVaultHistoricalReader(VaultHistoricalReader):
     Blue's ``ComptrollerProxy.calcGav()`` returns the gross asset value in the
     denomination-token's raw units.  Combining this with VaultProxy supply in
     one Multicall request gives TVL and the gross share value without requiring
-    an ERC-4626 interface.  Historical fee configurations are deliberately
-    TODO: Blue fees may be changed during a release migration.
+    an ERC-4626 interface. Historical fee configurations are deliberately
+    TODO: Blue fees may be changed during a release migration. Historical
+    deposit and redemption availability is also unsupported: Blue does not
+    expose a universal availability flag, and its mutable policies can depend
+    on the investor and exact transaction. The reader consequently leaves
+    ``deposits_open`` and ``redemption_open`` as ``None`` rather than
+    inferring them from GAV, supply, or a current policy configuration.
     """
 
     def __init__(self, vault: "EnzymeBlueVault", stateful: bool):

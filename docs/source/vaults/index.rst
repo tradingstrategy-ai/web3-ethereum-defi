@@ -75,9 +75,10 @@ Deposit permission metadata
 
 Each vault metrics JSON record also contains the authoritative top-level
 ``deposit_permission`` field. Its value is normally ``whitelisted`` when the
-deployed adapter has source-proven KYC or manual identity-approval policy,
-``permissionless`` when no such approval is required, and ``unknown`` when the
-contract generation cannot be classified safely. For EVM vault adapters, it
+deployed adapter has source-proven KYC, manual identity-approval or
+recipient-allowlist policy, ``permissionless`` when no such account approval
+is required, and ``unknown`` when the contract generation cannot be classified
+safely. For EVM vault adapters, it
 does not describe an open date, lock-up, pause, capacity, epoch, allowance,
 token-holding requirement or liquidity state. Consumers must inspect
 ``whitelist.notes`` before treating a classification as source-proven.

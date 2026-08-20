@@ -7,12 +7,15 @@ from types import SimpleNamespace
 import pytest
 from eth_abi import encode
 
+from eth_defi.enzyme import blue_vault
 from eth_defi.enzyme.blue_discovery import ENZYME_BLUE_DEPLOYMENTS, EnzymeBlueVaultFactoryCandidate, decode_enzyme_blue_vault_deployed_event, fetch_enzyme_blue_dispatchers_for_chain
 from eth_defi.enzyme.blue_historical import EnzymeBlueVaultHistoricalReader
-from eth_defi.enzyme.blue_vault import FEE_RATE_SCALE, MANAGEMENT_FEE_RATE_SCALE, SECONDS_PER_YEAR, EnzymeBlueVault
+from eth_defi.enzyme.blue_vault import ALLOWED_DEPOSIT_RECIPIENTS_POLICY_IDENTIFIER, FEE_RATE_SCALE, MANAGEMENT_FEE_RATE_SCALE, SECONDS_PER_YEAR, EnzymeBlueVault
 from eth_defi.erc_4626.core import ERC4626Feature
 from eth_defi.erc_4626.discovery_base import _prepare_probe_leads, create_enzyme_blue_factory_detection, create_enzyme_blue_potential_vault_match  # noqa: PLC2701
+from eth_defi.erc_4626.scan import fetch_deposit_permission
 from eth_defi.event_reader.multicall_batcher import EncodedCall, EncodedCallResult
+from eth_defi.vault.deposit_redeem import VaultDepositPermission
 
 CHAIN_ID = 1
 VAULT = "0x000000000000000000000000000000000000bEEF"
@@ -87,6 +90,54 @@ def test_blue_historical_reader_derives_price_and_tvl() -> None:
     assert result.total_supply == Decimal("40")
     assert result.share_price == Decimal("1.25")
     assert len(updates) == 1
+
+
+@pytest.mark.parametrize(
+    ("policy_identifier", "expected_permission"),
+    [
+        (ALLOWED_DEPOSIT_RECIPIENTS_POLICY_IDENTIFIER, VaultDepositPermission.whitelisted),
+        ("ALLOWED_ADAPTERS", VaultDepositPermission.permissionless),
+    ],
+)
+def test_blue_current_deposit_permission(
+    monkeypatch: pytest.MonkeyPatch,
+    policy_identifier: str,
+    expected_permission: VaultDepositPermission,
+) -> None:
+    """Classify only Blue's reviewed recipient policy as permissioned."""
+
+    policy_address = "0x0000000000000000000000000000000000000001"
+    policy_manager_address = "0x0000000000000000000000000000000000000002"
+    vault = EnzymeBlueVault.__new__(EnzymeBlueVault)
+    vault.web3 = SimpleNamespace()
+    vault.default_block_identifier = None
+    vault.comptroller_contract = SimpleNamespace(
+        address=ACCESSOR,
+        functions=SimpleNamespace(
+            getPolicyManager=lambda: SimpleNamespace(call=lambda **_kwargs: policy_manager_address),
+        ),
+    )
+    policy_manager = SimpleNamespace(
+        functions=SimpleNamespace(
+            getEnabledPoliciesForFund=lambda _fund: SimpleNamespace(call=lambda **_kwargs: [policy_address]),
+        )
+    )
+    policy = SimpleNamespace(
+        functions=SimpleNamespace(
+            identifier=lambda: SimpleNamespace(call=lambda **_kwargs: policy_identifier),
+        )
+    )
+
+    def fake_get_deployed_contract(_web3, abi_name: str, _address: str):
+        """Resolve policy-manager and policy test doubles."""
+
+        return policy_manager if abi_name.endswith("PolicyManager.json") else policy
+
+    monkeypatch.setattr(blue_vault, "get_deployed_contract", fake_get_deployed_contract)
+
+    assert vault.is_whitelisted_deposit() is (expected_permission is VaultDepositPermission.whitelisted)
+    assert fetch_deposit_permission(vault) is expected_permission
+    assert vault.get_whitelist_notes() == ("Allowed Deposit Recipients restricts investor addresses; the policy does not establish KYC." if expected_permission is VaultDepositPermission.whitelisted else None)
 
 
 def test_blue_current_fees_include_protocol_fee_in_user_facing_management_rate(monkeypatch) -> None:

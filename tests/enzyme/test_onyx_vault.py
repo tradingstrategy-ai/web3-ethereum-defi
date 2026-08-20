@@ -14,7 +14,9 @@ from eth_defi.enzyme.onyx_vault import EnzymeVault
 from eth_defi.erc_4626.classification import create_probe_calls, create_vault_instance
 from eth_defi.erc_4626.core import ERC4626Feature, get_vault_protocol_name, is_activity_filter_exempt
 from eth_defi.erc_4626.discovery_base import _prepare_probe_leads, create_enzyme_factory_detection, create_enzyme_potential_vault_match  # noqa: PLC2701
+from eth_defi.erc_4626.scan import fetch_deposit_permission
 from eth_defi.event_reader.multicall_batcher import EncodedCall, EncodedCallResult
+from eth_defi.vault.deposit_redeem import VaultDepositPermission
 from eth_defi.vault.fee import VaultFeeMode
 from eth_defi.vault.risk import VaultTechnicalRisk, get_vault_risk
 
@@ -187,7 +189,7 @@ def test_enzyme_historical_reader_derives_value_asset_total_value() -> None:
 
     state_updates = []
     reader = EnzymeVaultHistoricalReader.__new__(EnzymeVaultHistoricalReader)
-    reader.vault = SimpleNamespace(address=TEST_SHARES_ADDRESS, denomination_token=object())
+    reader.vault = SimpleNamespace(address=TEST_SHARES_ADDRESS)
     reader.reader_state = SimpleNamespace(
         on_called=lambda result, total_assets, share_price: state_updates.append((result, total_assets, share_price)),
     )
@@ -209,8 +211,8 @@ def test_enzyme_historical_reader_derives_value_asset_total_value() -> None:
     assert state_updates[0][1:] == (Decimal("50"), Decimal("1.25"))
 
 
-def test_enzyme_historical_reader_records_progress_without_value_asset() -> None:
-    """Advance reader state for a test Shares contract without a value asset."""
+def test_enzyme_historical_reader_records_progress_without_share_price() -> None:
+    """Advance reader state when an early Shares contract has no share price."""
 
     progress_updates = []
 
@@ -229,11 +231,20 @@ def test_enzyme_historical_reader_records_progress_without_value_asset() -> None
         block_number=123,
         timestamp=datetime.datetime(2026, 8, 20),  # noqa: DTZ001
         call_results=[
-            EncodedCallResult(call=share_price_call, success=True, result=encode(["uint256", "uint256"], [int(Decimal("1.25") * 10**18), 123]), block_identifier=123),
+            EncodedCallResult(call=share_price_call, success=False, result=b"", block_identifier=123),
             EncodedCallResult(call=total_supply_call, success=True, result=(0).to_bytes(32, "big"), block_identifier=123),
         ],
     )
 
-    assert read.share_price == Decimal("1.25")
-    assert read.total_assets == Decimal(0)
+    assert read.share_price is None
+    assert read.total_assets is None
     assert len(progress_updates) == 1
+
+
+def test_onyx_current_deposit_permission_is_unknown_without_handler_index() -> None:
+    """Do not infer investor permission from a non-enumerable Shares contract."""
+
+    vault = EnzymeVault.__new__(EnzymeVault)
+    vault.spec = SimpleNamespace(vault_address=TEST_SHARES_ADDRESS)
+
+    assert fetch_deposit_permission(vault) is VaultDepositPermission.unknown
