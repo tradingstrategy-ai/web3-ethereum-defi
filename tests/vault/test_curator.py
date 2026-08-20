@@ -1087,6 +1087,29 @@ def test_identify_d2_finance_protocol_curator() -> None:
     assert is_protocol_curator(slug)
 
 
+def test_identify_arcus_protocol_curator() -> None:
+    """Arcus pTokens resolve to Arcus as the protocol-operated curator."""
+
+    slug = identify_curator(
+        chain_id=4663,
+        vault_token_symbol="pHOOD3x",
+        vault_name="HOOD (3x Long)",
+        vault_address="0xe24cabdf76dd1c2576049167eb1755c84b985c36",
+        protocol_slug="arcus",
+    )
+
+    assert slug == "arcus"
+    assert get_curator_name(slug) == "Arcus"
+    assert is_protocol_curator(slug)
+
+    metadata = build_curator_metadata_json(Path("eth_defi/data/feeds/curators/arcus.yaml"))
+    assert metadata["protocol_curator"] is True
+    assert metadata["canonical_feeder_id"] == "arcus"
+    assert metadata["website"] == "https://arcus.xyz/"
+    assert metadata["twitter"] == "https://x.com/arcus_xyz"
+    assert "third-party curator has been publicly named" in metadata["long_description"]
+
+
 def test_identify_3jane_protocol_curator() -> None:
     """3Jane protocol vaults (USD3/sUSD3) resolve to the protocol-managed slug."""
 

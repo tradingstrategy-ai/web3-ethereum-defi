@@ -187,9 +187,9 @@ VAULT_PROTOCOL_FEE_MATRIX = {
     "USDX Money": VaultFeeMode.internalised_skimming,
     # NaraUSD+ does not publish a universal management or performance fee schedule.
     "Nara": None,
-    # No complete pToken fee schedule has been identified for the reviewed
+    # No pToken-specific fee schedule has been verified for reviewed Arcus
     # products.
-    "pToken": None,
+    "Arcus": None,
     # Hyperlend WHLP - 10% performance fee on yield, internalised in share price
     "Hyperlend": VaultFeeMode.internalised_skimming,
     # Sentiment SuperPools - fees taken from interest earned

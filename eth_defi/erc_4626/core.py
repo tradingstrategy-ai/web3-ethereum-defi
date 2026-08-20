@@ -467,13 +467,12 @@ class ERC4626Feature(enum.Enum):
     #: https://etherscan.io/address/0xa7a31e6a81300120b7c4488ec3126bc1ad11f320
     deltr_like = "deltr_like"
 
-    #: pToken vaults on Robinhood Chain.
+    #: Arcus pToken vaults on Robinhood Chain.
     #:
-    #: The issuer is currently not yet identified. Only reviewed deployment
-    #: addresses are classified because Arcus USDG infrastructure use does not
-    #: establish product ownership.
-    #: https://robinhoodchain.blockscout.com/address/0x4472C69d299382F8847ebCE4FC6Ed8e295510E3e
-    ptoken_like = "ptoken_like"
+    #: Detected through the reviewed pToken ``bridgeVault()`` return value on
+    #: Robinhood Chain only. The deployed implementation is not source-verified.
+    #: https://arcus.xyz/
+    arcus_like = "arcus_like"
 
     #: Upshift
     #:
@@ -1168,8 +1167,8 @@ def get_vault_protocol_name(features: set[ERC4626Feature]) -> str:
     elif ERC4626Feature.deltr_like in features:
         return "Deltr"
 
-    elif ERC4626Feature.ptoken_like in features:
-        return "pToken"
+    elif ERC4626Feature.arcus_like in features:
+        return "Arcus"
 
     elif ERC4626Feature.upshift_like in features:
         return "Upshift"
