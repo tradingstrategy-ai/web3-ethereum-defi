@@ -451,6 +451,7 @@ def create_vault_scan_record(
             "Perf fee": fees.performance,
             "Deposit fee": fees.deposit,
             "Withdraw fee": fees.withdraw,
+            "Protocol fee": fees.protocol,
             "Shares": total_supply,
             "First seen": detection.first_seen_at,
             "Features": ", ".join(sorted([f.name for f in detection.features])),

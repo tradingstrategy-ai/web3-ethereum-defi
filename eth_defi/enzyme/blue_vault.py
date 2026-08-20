@@ -1,0 +1,332 @@
+"""Direct :class:`VaultBase` adapter for Enzyme Blue VaultProxy funds.
+
+Blue predates ERC-4626.  Its VaultProxy is the share token and delegates fund
+valuation to the paired ComptrollerProxy.  This adapter exposes the pair as a
+single scanner vault while keeping the canonical VaultProxy address as its
+identity.
+
+See https://docs.enzyme.finance/enzyme-blue-protocol/architecture/persistent.
+"""
+
+# ruff: noqa: FBT001, FBT002, PLR0904, PLR0917, PLR6301
+
+from decimal import Decimal
+from functools import cached_property
+
+from eth_typing import BlockIdentifier, HexAddress
+from web3 import Web3
+from web3.contract import Contract
+from web3.exceptions import ABIFunctionNotFound, BadFunctionCallOutput, ContractLogicError
+
+from eth_defi.abi import ZERO_ADDRESS, get_deployed_contract
+from eth_defi.enzyme.blue_discovery import ENZYME_BLUE_DEPLOYMENTS
+from eth_defi.enzyme.blue_historical import EnzymeBlueVaultHistoricalReader
+from eth_defi.enzyme.offchain_metadata import fetch_enzyme_vault_metadata
+from eth_defi.enzyme.onyx_flow import EnzymeVaultFlowManager
+from eth_defi.erc_4626.core import ERC4626Feature
+from eth_defi.token import TokenDetails, fetch_erc20_details
+from eth_defi.types import Percent
+from eth_defi.vault.base import TradingUniverse, VaultBase, VaultFlowManager, VaultHistoricalReader, VaultInfo, VaultPortfolio, VaultSpec
+from eth_defi.vault.deposit_redeem import VaultDepositManager
+from eth_defi.vault.fee import FeeData, VaultFeeMode
+from eth_defi.vault.lower_case_dict import LowercaseDict
+
+FEE_RATE_SCALE = Decimal(10**18)
+MANAGEMENT_FEE_RATE_SCALE = Decimal(10**27)
+FEE_BPS_DENOMINATOR = Decimal(10_000)
+SECONDS_PER_YEAR = Decimal(365 * 24 * 60 * 60)
+
+
+class EnzymeBlueVault(VaultBase):
+    """Read an Enzyme Blue VaultProxy and its paired ComptrollerProxy."""
+
+    def __init__(
+        self,
+        web3: Web3,
+        spec: VaultSpec,
+        token_cache: dict | None = None,
+        features: set[ERC4626Feature] | None = None,
+        default_block_identifier: BlockIdentifier | None = None,
+        require_denomination_token: bool = False,
+    ):
+        """Create a scanner adapter for a canonical Blue VaultProxy.
+
+        :param web3: Web3 connection for the vault's chain.
+        :param spec: Chain and VaultProxy address.
+        :param token_cache: Shared ERC-20 metadata cache.
+        :param features: Scanner feature flags.
+        :param default_block_identifier: Optional point-in-time metadata block.
+        :param require_denomination_token: Base-class compatibility option.
+        """
+
+        super().__init__(token_cache=token_cache, require_denomination_token=require_denomination_token)
+        self.web3 = web3
+        self.spec = spec
+        self.default_block_identifier = default_block_identifier
+        self.api_metadata = fetch_enzyme_vault_metadata(spec.chain_id, spec.vault_address)
+        del features
+
+    def _get_block_identifier(self) -> BlockIdentifier:
+        """Return the configured metadata block or latest."""
+
+        return self.default_block_identifier or "latest"
+
+    @property
+    def chain_id(self) -> int:
+        """Return this vault's EVM chain id."""
+
+        return self.spec.chain_id
+
+    @property
+    def address(self) -> HexAddress:
+        """Return the canonical VaultProxy/share-token address."""
+
+        return HexAddress(Web3.to_checksum_address(self.spec.vault_address))
+
+    @property
+    def vault_address(self) -> HexAddress:
+        """Return scanner-compatible alias for :py:attr:`address`."""
+
+        return self.address
+
+    @cached_property
+    def vault_contract(self) -> Contract:
+        """Load VaultLib ABI at the proxy address."""
+
+        return get_deployed_contract(self.web3, "enzyme/VaultLib.json", self.address)
+
+    @cached_property
+    def comptroller_contract(self) -> Contract:
+        """Resolve and load the currently paired ComptrollerProxy."""
+
+        accessor = self.vault_contract.functions.getAccessor().call(block_identifier=self._get_block_identifier())
+        return get_deployed_contract(self.web3, "enzyme/ComptrollerLib.json", accessor)
+
+    @cached_property
+    def denomination_token(self) -> TokenDetails:
+        """Fetch the current denominator ERC-20 token details."""
+
+        token = fetch_erc20_details(
+            self.web3,
+            self.fetch_denomination_token_address(),
+            chain_id=self.chain_id,
+            raise_on_error=True,
+            cache=self.token_cache,
+            cause_diagnostics_message=f"Enzyme Blue vault {self.address}",
+        )
+        assert token is not None
+        return token
+
+    @property
+    def name(self) -> str:
+        """Return the cached VaultProxy ERC-20 name."""
+
+        return self.share_token.name or ""
+
+    @property
+    def symbol(self) -> str:
+        """Return the cached VaultProxy ERC-20 symbol."""
+
+        return self.share_token.symbol or ""
+
+    @property
+    def description(self) -> str | None:
+        """Return optional curated offchain description."""
+
+        return self.api_metadata.description if self.api_metadata else None
+
+    @property
+    def short_description(self) -> str | None:
+        """Return optional curated offchain one-liner."""
+
+        return self.api_metadata.short_description if self.api_metadata else None
+
+    @property
+    def manager_name(self) -> str | None:
+        """Return optional curated manager name."""
+
+        return self.api_metadata.manager_name if self.api_metadata else None
+
+    def fetch_share_token(self) -> TokenDetails:
+        """Fetch the VaultProxy ERC-20 share token."""
+
+        token = fetch_erc20_details(self.web3, self.address, chain_id=self.chain_id, raise_on_error=True, cache=self.token_cache)
+        assert token is not None
+        return token
+
+    @cached_property
+    def share_token(self) -> TokenDetails:
+        """Return cached VaultProxy share-token metadata."""
+
+        return self.fetch_share_token()
+
+    def fetch_share_token_address(self, block_identifier: BlockIdentifier = "latest") -> HexAddress:
+        """Return the immutable VaultProxy share-token address."""
+
+        del block_identifier
+        return self.address
+
+    def fetch_denomination_token_address(self) -> HexAddress:
+        """Read the current ComptrollerProxy denomination token."""
+
+        return HexAddress(self.comptroller_contract.functions.getDenominationAsset().call(block_identifier=self._get_block_identifier()))
+
+    def fetch_denomination_token(self) -> TokenDetails:
+        """Return the current Blue denominator token."""
+
+        return self.denomination_token
+
+    def fetch_total_supply(self, block_identifier: BlockIdentifier = "latest") -> Decimal:
+        """Read human-readable VaultProxy share supply."""
+
+        raw_supply = self.vault_contract.functions.totalSupply().call(block_identifier=block_identifier)
+        return Decimal(raw_supply) / Decimal(10**self.share_token.decimals)
+
+    def fetch_total_assets(self, block_identifier: BlockIdentifier = "latest") -> Decimal:
+        """Read GAV expressed in human-readable denomination-token units."""
+
+        raw_gav = self.comptroller_contract.functions.calcGav().call(block_identifier=block_identifier)
+        return Decimal(raw_gav) / Decimal(10**self.denomination_token.decimals)
+
+    def fetch_share_price(self, block_identifier: BlockIdentifier = "latest") -> Decimal:
+        """Calculate GAV per human-readable share."""
+
+        supply = self.fetch_total_supply(block_identifier)
+        return self.fetch_total_assets(block_identifier) / supply if supply else Decimal(0)
+
+    def fetch_nav(self, block_identifier: BlockIdentifier = "latest") -> Decimal:
+        """Return Blue GAV as scanner TVL."""
+
+        return self.fetch_total_assets(block_identifier)
+
+    def fetch_info(self) -> VaultInfo:
+        """Return the paired current Blue core contract addresses."""
+
+        return {"vault": self.address, "comptroller": self.comptroller_contract.address, "denomination_asset": self.denomination_token.address}
+
+    def fetch_portfolio(self, universe: TradingUniverse, block_identifier: BlockIdentifier | None = None) -> VaultPortfolio:
+        """Return empty positions until Blue portfolio accounting is integrated."""
+
+        del universe, block_identifier
+        return VaultPortfolio(spot_erc20=LowercaseDict())
+
+    def has_block_range_event_support(self) -> bool:
+        """Return false until Blue flow events are mapped to VaultProxy."""
+
+        return False
+
+    def has_deposit_distribution_to_all_positions(self) -> bool:
+        """Return false; Blue allocations do not make this guarantee."""
+
+        return False
+
+    def get_flow_manager(self) -> VaultFlowManager:
+        """Return the explicit unsupported Enzyme flow reader."""
+
+        return EnzymeVaultFlowManager()
+
+    def get_deposit_manager(self) -> VaultDepositManager:
+        """Reject unimplemented Blue transaction flows."""
+
+        message = "Enzyme Blue deposit and redemption flows are not implemented"
+        raise RuntimeError(message)
+
+    def get_historical_reader(self, stateful: bool) -> VaultHistoricalReader:
+        """Return the GAV and supply historical reader."""
+
+        return EnzymeBlueVaultHistoricalReader(self, stateful)
+
+    def get_protocol_name(self) -> str:
+        """Return shared Enzyme display name."""
+
+        return "Enzyme"
+
+    def get_fee_mode(self) -> VaultFeeMode:
+        """Return Blue's share-minting dilution fee mechanism."""
+
+        return VaultFeeMode.internalised_minting
+
+    def _try_fee_call(self, contract: Contract, function_name: str, *args, block_identifier: BlockIdentifier) -> object | None:
+        """Call an optional Blue fee function without hiding transport errors."""
+
+        try:
+            return getattr(contract.functions, function_name)(*args).call(block_identifier=block_identifier)
+        except (ABIFunctionNotFound, BadFunctionCallOutput, ContractLogicError, ValueError):
+            return None
+
+    def _fetch_enabled_fee_contracts(self, block_identifier: BlockIdentifier) -> list[Contract]:
+        """Resolve configured FeeManager plugins for this fund once."""
+
+        fee_manager_address = self.comptroller_contract.functions.getFeeManager().call(block_identifier=block_identifier)
+        fee_manager = get_deployed_contract(self.web3, "enzyme/FeeManager.json", fee_manager_address)
+        addresses = fee_manager.functions.getEnabledFeesForFund(self.comptroller_contract.address).call(block_identifier=block_identifier)
+        return [get_deployed_contract(self.web3, "enzyme/EnzymeBlueFee.json", address) for address in addresses]
+
+    def _fetch_protocol_fee(self, block_identifier: BlockIdentifier) -> Percent | None:
+        """Read the configured current Blue protocol-access rate, if enabled."""
+
+        deployment = ENZYME_BLUE_DEPLOYMENTS.get(self.chain_id)
+        if deployment is None:
+            return None
+        dispatcher = get_deployed_contract(self.web3, "enzyme/Dispatcher.json", deployment.dispatcher)
+        fund_deployer_address = dispatcher.functions.getFundDeployerForVaultProxy(self.address).call(block_identifier=block_identifier)
+        fund_deployer = get_deployed_contract(self.web3, "enzyme/FundDeployer.json", fund_deployer_address)
+        tracker_address = fund_deployer.functions.getProtocolFeeTracker().call(block_identifier=block_identifier)
+        if tracker_address.lower() == ZERO_ADDRESS.lower():
+            return None
+        tracker = get_deployed_contract(self.web3, "enzyme/ProtocolFeeTracker.json", tracker_address)
+        fee_bps = tracker.functions.getFeeBpsForVault(self.address).call(block_identifier=block_identifier)
+        return Percent(float(Decimal(fee_bps) / FEE_BPS_DENOMINATOR))
+
+    def get_fee_data(self) -> FeeData:
+        """Read current Blue manager, investor, and protocol fee rates.
+
+        Blue's protocol fee is distinct from a fund's optional ManagementFee
+        plugin. The exported management fee is their user-facing combined rate,
+        while the protocol component is retained separately for transparency.
+        Historical fee configuration is TODO because Blue fee plugins,
+        releases, and protocol-fee trackers can be replaced.
+
+        :return:
+            Current fee settings, with the additional protocol charge in
+            :attr:`~eth_defi.vault.fee.FeeData.protocol`.
+        """
+
+        block_identifier = self._get_block_identifier()
+        management = performance = deposit = withdraw = None
+        for fee in self._fetch_enabled_fee_contracts(block_identifier):
+            entrance_rate = self._try_fee_call(fee, "getRateForFund", self.comptroller_contract.address, block_identifier=block_identifier)
+            if entrance_rate is not None:
+                deposit = Percent(float(Decimal(entrance_rate) / FEE_RATE_SCALE))
+                continue
+            exit_rate = self._try_fee_call(fee, "getInKindRateForFund", self.comptroller_contract.address, block_identifier=block_identifier)
+            if exit_rate is not None:
+                withdraw = Percent(float(Decimal(exit_rate) / FEE_RATE_SCALE))
+                continue
+            fee_info = self._try_fee_call(fee, "getFeeInfoForFund", self.comptroller_contract.address, block_identifier=block_identifier)
+            if fee_info is None:
+                continue
+            rate = Decimal(fee_info[0])
+            # ManagementFee stores a 1e27-scaled per-second compounding factor,
+            # whereas PerformanceFee stores a direct 1e18 fraction. The former
+            # is always at least 1e27 (including a zero annual rate), making
+            # the ABI-identical FeeInfo structs safely distinguishable.
+            if rate >= MANAGEMENT_FEE_RATE_SCALE:
+                annual_effective_rate = (rate / MANAGEMENT_FEE_RATE_SCALE) ** int(SECONDS_PER_YEAR)
+                management = Percent(float(1 - 1 / annual_effective_rate))
+            else:
+                performance = Percent(float(rate / FEE_RATE_SCALE))
+
+        protocol_fee = self._fetch_protocol_fee(block_identifier)
+        if protocol_fee is not None:
+            # Export the aggregate rate paid by an investor, not the protocol's
+            # internal settlement representation or recipient bookkeeping.
+            # Blue's protocol fee is charged on top of the vault manager fee.
+            management = Percent(float((management or 0) + protocol_fee))
+        return FeeData(fee_mode=self.get_fee_mode(), management=management, performance=performance, deposit=deposit, withdraw=withdraw, protocol=protocol_fee)
+
+    def get_link(self, referral: str | None = None) -> str:
+        """Return the Enzyme Blue discovery page for this vault's network."""
+
+        del referral
+        return "https://app.enzyme.finance/discover/vaults"

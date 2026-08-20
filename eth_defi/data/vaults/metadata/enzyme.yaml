@@ -1,0 +1,44 @@
+name: Enzyme
+slug: enzyme
+short_description: |
+  Infrastructure for Enzyme Blue and Onyx tokenised digital-asset investment vehicles.
+long_description: |
+  Enzyme provides two distinct architectures for creating and operating
+  tokenised investment vehicles. Investors hold ERC-20 shares representing
+  their interest in a vehicle, while its manager sets the strategy and
+  operating configuration.
+
+  Enzyme Blue uses a VaultProxy ERC-20 share token with a paired
+  ComptrollerProxy. The VaultBase scanner discovers reviewed Blue Dispatcher
+  deployments on Ethereum, Polygon, Base and Arbitrum, and reads current and
+  historical GAV, TVL and share price directly from the contract pair.
+
+  Enzyme Onyx uses a standalone Shares token and modular components. The
+  supported Base scanner discovers official Onyx SharesFactory deployments and
+  publishes each vehicle's share price and supply in a selected accounting
+  unit, which may be a named unit such as USD. Its calculated total value is
+  in that unit and is not necessarily a US-dollar valuation. Availability,
+  investment terms, transfer restrictions, deposits and redemptions vary by
+  vehicle.
+fee_description: |
+  Fee configuration differs by architecture. Enzyme Blue can combine
+  fund-level FeeManager fees with a separate protocol fee. The scanner exports
+  the current Blue management fee as the user-facing sum of both rates, and
+  also exports the protocol component for transparency. Consumers must not add
+  the component to management a second time. Historical Blue fee configuration
+  remains TODO.
+
+  Enzyme Onyx's standard FeeHandler has management, performance, entrance and
+  exit fees configured per vehicle. The scanner reads their current values
+  only; historical Onyx fee rates are not yet exported.
+links:
+  homepage: https://enzyme.finance/
+  app: https://app.enzyme.finance/discover/vaults?network=base
+  github: https://github.com/enzymefinance/protocol-onyx
+  documentation: https://docs.enzyme.finance/onyx-protocol/onyx-overview
+  audits:
+  fees: https://docs.enzyme.finance/onyx-protocol/architecture/fees
+  trading_strategy:
+  integration_documentation: https://web3-ethereum-defi.readthedocs.io/vaults/enzyme/index.html
+example_smart_contracts:
+  - https://basescan.org/address/0xd3d5d4b2d7d935039ad3357132902c62bf5901a8

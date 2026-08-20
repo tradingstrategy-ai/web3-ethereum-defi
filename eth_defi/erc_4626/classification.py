@@ -2085,6 +2085,14 @@ def create_vault_instance(
         from eth_defi.mellow.vault import MellowVault
 
         return MellowVault(web3, spec, **kwargs)
+    elif ERC4626Feature.enzyme_onyx_like in features:
+        from eth_defi.enzyme.onyx_vault import EnzymeVault
+
+        return EnzymeVault(web3, spec, **kwargs)
+    elif ERC4626Feature.enzyme_blue_like in features:
+        from eth_defi.enzyme.blue_vault import EnzymeBlueVault
+
+        return EnzymeBlueVault(web3, spec, **kwargs)
     elif ERC4626Feature.symbiotic_like in features:
         from eth_defi.erc_4626.vault_protocol.symbiotic.vault import SymbioticVault
 

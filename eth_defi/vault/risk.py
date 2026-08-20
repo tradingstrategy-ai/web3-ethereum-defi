@@ -62,7 +62,7 @@ class VaultTechnicalRisk(enum.Enum):
 VAULT_PROTOCOL_RISK_MATRIX = {
     "Euler": VaultTechnicalRisk.negligible,
     "Morpho": VaultTechnicalRisk.negligible,
-    "Enzyme": VaultTechnicalRisk.negligible,
+    "Enzyme": VaultTechnicalRisk.low,
     "Lagoon Finance": VaultTechnicalRisk.minimal,
     "T3tris": VaultTechnicalRisk.low,
     "IPOR Fusion": VaultTechnicalRisk.minimal,

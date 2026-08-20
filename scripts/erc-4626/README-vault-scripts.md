@@ -92,6 +92,62 @@ metadata rows, and run vault-address-scoped price history only where a
 historical price reader is supported. Follow the full requirements in
 [`README-vault-leads.md`](../../eth_defi/erc_4626/README-vault-leads.md).
 
+#### Enzyme Blue and Onyx migration
+
+`scripts/enzyme/backfill-history.py` covers the Enzyme families that do not
+implement ERC-4626. It scans the reviewed Onyx SharesFactory once on Base and
+the reviewed Blue persistent Dispatcher once each on Ethereum, Polygon, Base
+and Arbitrum. Base queries both the Onyx factory and the Blue Dispatcher in
+one chain scan. For each chain, all discovered vaults share one historical multicall
+scan; the script never performs a per-vault factory rediscovery or a per-vault
+price backfill. The shared history reader, rather than the migration script,
+handles a failed historical block's fallback-provider rotation; it does not
+repeat a whole chain scan.
+
+Run a non-mutating coverage check first:
+
+```shell
+source .local-test.env && DRY_RUN=true poetry run python scripts/enzyme/backfill-history.py
+```
+
+The full migration requires archive-capable values for `JSON_RPC_ETHEREUM`,
+`JSON_RPC_POLYGON`, `JSON_RPC_BASE` and `JSON_RPC_ARBITRUM`, plus
+`HYPERSYNC_API_KEY`. It stores its normal scanner state in the configured vault
+database, price parquet and reader-state paths. Do not delete existing reader
+state or price parquet before a rerun. `ENZYME_END_BLOCK_<chain-id>` can bound
+one chain for diagnosis; use `ENZYME_SCAN_PRICES=false` for a metadata-only
+repair. Historical fees are intentionally TODO. Current Blue metadata exports
+the user-facing management fee as the manager rate plus the additional
+ProtocolFeeTracker rate. The latter is also exported separately as ``Protocol
+fee`` for a transparent breakdown; internal
+[protocol-access settlement](https://specs.enzyme.finance/topics/protocol-fee)
+does not change the investor-facing aggregate.
+
+The migration is resumable. Its JSON checkpoint defaults to
+`enzyme-backfill-history-state.json` beside the vault database and is written
+after each discovered chain, metadata batch and completed price-history chain.
+If the process is interrupted, rerun the same command: it reuses the saved
+factory candidates and fixed end blocks, skips already-good metadata rows, and
+continues from the raw parquet and persisted reader state. Set
+`ENZYME_CHECKPOINT_PATH` only when all of the associated database, parquet and
+reader-state paths are moved together. A successfully completed run starts a
+fresh discovery on its next invocation so newly deployed vaults are included.
+Historical Multicall classifies node-retention failures as
+`MulticallHistoricalDataUnavailable`. This includes Geth's `missing trie node`,
+dRPC's `metadata is not found` and Alchemy's `layer stale` responses: all mean
+the RPC node cannot supply the requested historical state, rather than that a
+vault returned a zero value or reverted. The Enzyme Arbitrum backfill observed
+Alchemy's `-32000 layer stale` response at block `368,237,833` on 2026-08-20.
+For every failed historical block, Multicall keeps the original batch and makes
+one deterministic pass through the other configured RPC endpoints. This wraps
+from the final endpoint back to the first two, so an error from endpoint three
+does not end the chain before endpoints one and two have been tried for that
+exact block. It preserves the previous Parquet file until one complete scan
+verifies and atomically replaces it. If all configured providers report this
+exception for the same block, stop the migration with its checkpoint intact and
+obtain an archive-complete provider; do not publish a partial history as a
+completed backfill.
+
 The scanner does not support whole-chain lead resets. `RESET_LEADS` has been
 removed and setting it causes `scan-vaults.py` to fail before it makes any
 database or network changes.
@@ -558,6 +614,86 @@ JSON_RPC_URL=$JSON_RPC_ETHEREUM \
 START_BLOCK=1 \
 poetry run python scripts/erc-4626/scan-prices.py
 ```
+
+### Enzyme backfill-history.py
+
+`scripts/enzyme/backfill-history.py` is the targeted migration for both
+non-ERC-4626 Enzyme families. Enzyme Onyx is discovered from the official Base
+SharesFactory's `ProxyDeployed` events. Enzyme Blue is discovered from each
+reviewed chain's persistent Dispatcher `VaultProxyDeployed` event stream. The
+script scans each supported chain once, then upserts only those Enzyme leads
+and metadata; it never resets general vault discovery.
+
+Historical reads are scoped to the discovered vault addresses, preserving all
+unrelated raw and cleaned price histories. One shared history-reader invocation
+handles every Enzyme vault on each chain; at each sampled block, the adapter's
+share-price and total-supply calls are combined by Multicall3. Existing good
+metadata is not read again unless `ENZYME_REFRESH_EXISTING_METADATA=true`. The
+calculated total value is denominated in the vault's named value asset, so it
+is not necessarily a US-dollar valuation. Metadata refreshes read current
+management, performance, entrance, exit and (for Blue) protocol fees.
+Historical fee rates remain TODO because fee-handler/tracker replacement and
+fee-configuration events must first be backfilled.
+
+The current standard Onyx FeeHandler exposes management, performance, entrance
+and exit settings. Blue's ``Mgmt fee`` is the investor-facing sum of the fund
+manager fee and ProtocolFeeTracker rate. ``Protocol fee`` retains the latter
+as a transparent breakdown, not as an extra charge to add again.
+
+Run a read-only discovery plan first:
+
+```shell
+source .local-test.env && \
+DRY_RUN=true \
+poetry run python scripts/enzyme/backfill-history.py
+```
+
+Run the full migration with archive-capable RPC URLs for Ethereum, Polygon,
+Base and Arbitrum, plus retained per-chain timestamp caches:
+
+```shell
+source .local-test.env && \
+DRY_RUN=false \
+FREQUENCY=1d \
+poetry run python scripts/enzyme/backfill-history.py
+```
+
+| Variable | Description |
+|----------|-------------|
+| `JSON_RPC_ETHEREUM` / `JSON_RPC_POLYGON` / `JSON_RPC_BASE` / `JSON_RPC_ARBITRUM` | Required archive-capable RPC connections for the supported Enzyme chains. |
+| `HYPERSYNC_API_KEY` | Required for the official factory-event stream and historical timestamp cache. |
+| `DRY_RUN` | Discover and print the plan without writing. Default: false. |
+| `ENZYME_SCAN_PRICES` | Set to `false` to add leads and metadata only. Default: true. |
+| `ENZYME_CLEAN_PRICES` | Set to `false` to leave cleaned histories unchanged. Cleaning runs only after a raw-price scan. The exhaustive factory discovery includes inactive vaults that have no cleanable history; these are omitted from cleaned output without failing the migration. Default: true. |
+| `ENZYME_REWRITE_TARGETED` | Rewrite every selected Enzyme history from its factory creation block. Otherwise resumes after each vault's latest raw row; a new vault starts at its factory creation block. Default: false. |
+| `ENZYME_DISCOVERY_START_BLOCK` | Optional lower block for factory-event discovery. Default: the reviewed Enzyme deployment block for each chain. |
+| `ENZYME_REFRESH_EXISTING_METADATA` | Refresh good metadata rows as well as missing or broken rows. Default: false. |
+| `FREQUENCY` | Historical frequency, `1h` or `1d`. Default: `1d`. |
+| `START_BLOCK` / `END_BLOCK` | Optional inclusive historical price bounds. `START_BLOCK` overrides the normal per-vault resume point, so use it only for a scoped repair. |
+| `ENZYME_END_BLOCK_<chain-id>` | Optional per-chain inclusive end block, useful for diagnosis without changing other chains. |
+| `MAX_WORKERS` | Historical multicall worker count. Default: 8. |
+| `ENZYME_CHECKPOINT_PATH` | Optional durable migration checkpoint. Move it only together with the associated database, parquet and reader-state files. |
+| `VAULT_DB_PATH` / `UNCLEANED_PRICE_DATABASE` / `CLEANED_PRICE_DATABASE` / `READER_STATE_DATABASE` | Optional isolated pipeline state paths. |
+
+### Enzyme export-vaults.py
+
+`scripts/enzyme/export-vaults.py` prints the latest collected Enzyme rows as
+a Markdown table. It is read-only and includes the chain, name, curated short
+description, accounting unit, total value, share price, performance fee,
+user-facing management fee and a separate Blue protocol-fee breakdown. It calculates share price
+from the latest onchain `NAV` and `Shares` stored in the metadata database.
+An Onyx value asset can be a named accounting unit instead of an ERC-20
+stablecoin, so the reported total value must not be treated as USD TVL without
+an independent conversion.
+
+```shell
+source .local-test.env && \
+poetry run python scripts/enzyme/export-vaults.py
+```
+
+| Variable | Description |
+|----------|-------------|
+| `VAULT_DB_PATH` | Optional metadata database path. Default: production path. |
 
 ### fix-t3tris-vaults.py
 

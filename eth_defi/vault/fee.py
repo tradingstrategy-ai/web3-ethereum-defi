@@ -325,6 +325,13 @@ class FeeData:
     #: Fee for this class
     withdraw: float | None
 
+    #: Protocol-level fee charged in addition to vault-manager fees.
+    #:
+    #: Most protocols do not expose a separate protocol charge, so this is
+    #: optional. Adapters can retain it alongside a user-facing aggregate
+    #: management fee when their protocol charges it on top of manager fees.
+    protocol: float | None = None
+
     def __post_init__(self) -> None:
         """Validate and normalise fee values at the metadata ingestion boundary.
 
@@ -340,7 +347,7 @@ class FeeData:
         :raises ValueError:
             If a fee is not finite or outside the inclusive ``[0, 1]`` range.
         """
-        for field_name in ("management", "performance", "deposit", "withdraw"):
+        for field_name in ("management", "performance", "deposit", "withdraw", "protocol"):
             fee = getattr(self, field_name)
             assert fee is None or (isinstance(fee, Real) and not isinstance(fee, bool)), f"FeeData.{field_name} must be a real number or None, got {type(fee)}"
             if fee is not None:
@@ -368,6 +375,7 @@ class FeeData:
                 performance=0.0,
                 deposit=self.deposit,
                 withdraw=self.withdraw,
+                protocol=0.0,
             )
         else:
             return self

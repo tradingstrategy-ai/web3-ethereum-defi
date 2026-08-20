@@ -21,7 +21,7 @@ from eth_defi.token import fetch_erc20_details, TokenDetails
 
 
 class UnsupportedBaseAsset(Exception):
-    """Cannot calculate on-chain price using Enzyme's ValueInterpreter.
+    """Cannot calculate onchain price using Enzyme's ValueInterpreter.
 
     Likely the price feed was removed.
     """
@@ -31,7 +31,7 @@ class UnsupportedBaseAsset(Exception):
 class EnzymePriceFeed:
     """High-level Python interface for Enzyme's ValueInterpreter price mechanism.
 
-    - Uses `ValueInterpreter` methods to calculate on-chain price for supported assets
+    - Uses `ValueInterpreter` methods to calculate onchain price for supported assets
 
     .. note ::
 
@@ -89,7 +89,7 @@ class EnzymePriceFeed:
 
     @property
     def web3(self) -> Web3:
-        """The connection we use to resolve on-chain info"""
+        """The connection we use to resolve onchain info"""
         return self.deployment.web3
 
     @property

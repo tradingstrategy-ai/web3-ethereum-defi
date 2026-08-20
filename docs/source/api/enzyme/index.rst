@@ -1,11 +1,15 @@
 Enzyme protocol API
 -------------------
 
-Enzyme protocol is a digital asset management protocol, where a vault owner
-can safely manage assets for investors.
+Enzyme has two separate vault architectures. The established Enzyme Blue
+helpers use a paired VaultProxy and ComptrollerProxy, while the Onyx adapter
+uses a standalone Shares contract and component system. Their feature flags
+are respectively ``enzyme_blue_like`` and ``enzyme_onyx_like``.
 
-The module provides Python bindings for creating vaults, interaction adapters
-and reading the deposit and redemption information.
+The read-only Onyx adapter discovers official Base factory deployments and
+reads metadata, stored share prices and total value. The direct Blue adapter
+discovers reviewed Dispatcher deployments on Ethereum, Polygon, Base and Arbitrum,
+then reads its paired ComptrollerProxy for current and historical GAV data.
 
 .. autosummary::
    :toctree: _autosummary_enzyme
@@ -13,6 +17,13 @@ and reading the deposit and redemption information.
 
    eth_defi.enzyme.deployment
    eth_defi.enzyme.vault
+   eth_defi.enzyme.blue_discovery
+   eth_defi.enzyme.blue_vault
+   eth_defi.enzyme.blue_historical
+   eth_defi.enzyme.onyx_discovery
+   eth_defi.enzyme.onyx_vault
+   eth_defi.enzyme.onyx_historical
+   eth_defi.enzyme.offchain_metadata
    eth_defi.enzyme.integration_manager
    eth_defi.enzyme.events
    eth_defi.enzyme.price_feed

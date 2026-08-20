@@ -1,7 +1,7 @@
 Vault protocols
 ===============
 
-This section documents integrations with ERC-4626 compliant vault protocols.
+This section documents integrations with ERC-4626 and other tokenised EVM vault protocols.
 
 About ERC-4626
 --------------
@@ -14,7 +14,7 @@ making it easier to integrate with different vault implementations.
 Vault integrations
 ------------------
 
-This Python package provides integrations with various ERC-4626 vault protocols,
+This Python package provides integrations with various tokenised vault protocols,
 enabling you to:
 
 - **Discover vaults**: Find vaults and query their features across multiple chains
@@ -167,6 +167,7 @@ Supported protocols
    dolomite/index
    domination/index
    ember/index
+   enzyme/index
    ethena/index
    euler/index
    eth_strategy/index

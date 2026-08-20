@@ -51,6 +51,37 @@ if TYPE_CHECKING:
 
 BlockRange = Tuple[BlockNumber, BlockNumber]
 
+
+class WithdrawalDelayType(enum.StrEnum):
+    """Classify how a valid withdrawal request becomes redeemable."""
+
+    #: Immediate redemption without a protocol cooldown or epoch gate.
+    instant = "instant"
+
+    #: A request follows a fixed delay or asynchronous settlement lifecycle.
+    delay = "delay"
+
+    #: A request can be completed only in a protocol-defined epoch window.
+    epoch = "epoch"
+
+
+@dataclass(frozen=True, slots=True)
+class WithdrawalPeriod:
+    """Protocol withdrawal timing bounds exported by the vault scanner."""
+
+    #: Shortest contract-enforced wait before a withdrawal can become available.
+    min_period: datetime.timedelta | None
+
+    #: Longest contract-enforced wait, including a scheduling window.
+    max_period: datetime.timedelta | None
+
+    #: Whether the availability rule is a time delay or epoch window.
+    delay_type: WithdrawalDelayType
+
+    #: Non-binding offchain estimate of a settlement cycle or redemption wait.
+    estimated_settlement: datetime.timedelta | None = None
+
+
 #: Deposit closed reason constants
 DEPOSIT_CLOSED_EPOCH_WINDOW = "Epoch deposit window closed"
 DEPOSIT_CLOSED_FUNDING_PHASE = "Funding phase closed"

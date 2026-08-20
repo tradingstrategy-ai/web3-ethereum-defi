@@ -100,7 +100,6 @@ class VaultFlag(str, enum.Enum):
 
     #: This is for vaults with especially long redemption periods.
     long_duration = "long_duration"
-
     #: Morpho Blue API reports one or more RED-level warnings on this vault or its underlying markets.
     #:
     #: RED warnings include unrealised bad debt (``bad_debt_unrealized``), oracle price deviation,

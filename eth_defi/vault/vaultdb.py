@@ -199,6 +199,7 @@ class VaultRow(TypedDict):
         "Perf fee": float,
         "Deposit fee": float,
         "Withdrawal fee": float,
+        "Protocol fee": float,
         "Share token": str,
         "Peak NAV": Decimal,
     }
