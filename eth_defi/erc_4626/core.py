@@ -891,26 +891,6 @@ class ERC4626Feature(enum.Enum):
     #: https://docs.enzyme.finance/enzyme-blue-protocol/architecture/persistent
     enzyme_blue_like = "enzyme_blue_like"
 
-    #: Axis protocol vault.
-    #:
-    #: Retained for compatibility with persisted vault-database records.
-    axis_like = "axis_like"
-
-    #: Nest protocol vault.
-    #:
-    #: Retained for compatibility with persisted vault-database records.
-    nest_like = "nest_like"
-
-    #: Shift protocol vault.
-    #:
-    #: Retained for compatibility with persisted vault-database records.
-    shift_like = "shift_like"
-
-    #: Barker protocol vault.
-    #:
-    #: Retained for compatibility with persisted vault-database records.
-    barker_like = "barker_like"
-
     #: Atoma
     #:
     #: Delta-neutral USDC vault on Arbitrum with epoch-based withdrawals.

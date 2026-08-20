@@ -62,7 +62,8 @@ def test_historical_state_rotation_wraps_from_last_provider_to_first_two(monkeyp
     def fake_call_multicall_with_batch_size(_reader: object, **_kwargs: object) -> list[tuple[bool, bytes]]:
         attempted_indices.append(fallback_provider.currently_active_provider)
         if fallback_provider.currently_active_provider == 0:
-            raise multicall_batcher.MulticallHistoricalDataUnavailable("missing trie node")
+            message = "missing trie node"
+            raise multicall_batcher.MulticallHistoricalDataUnavailable(message)
         return [(True, b"result")]
 
     monkeypatch.setattr(multicall_batcher, "FallbackProvider", FakeFallbackProvider)
@@ -143,10 +144,10 @@ def test_historical_multicall_without_hypersync_keeps_inline_timestamps(monkeypa
 def test_historical_multicall_closes_hypersync_timestamps_on_interruption(monkeypatch: pytest.MonkeyPatch) -> None:
     """Close the timestamp cache when a caller stops reading early."""
 
-    timestamp = datetime.datetime(2026, 1, 1)
+    timestamp = datetime.datetime.fromisoformat("2026-01-01")
     timestamps = MagicMock()
     timestamps.get_last_block.return_value = 101
-    timestamps.__getitem__.side_effect = lambda block_number: timestamp
+    timestamps.__getitem__.side_effect = lambda _block_number: timestamp
     result = object()
     hypersync_client = object()
 
@@ -176,7 +177,7 @@ def test_historical_multicall_closes_hypersync_timestamps_on_interruption(monkey
 def test_historical_multicall_merges_worker_rpc_stats_once(monkeypatch: pytest.MonkeyPatch) -> None:
     """Merge a successful process task's physical calls into its phase."""
 
-    timestamp = datetime.datetime(2026, 1, 1)
+    timestamp = datetime.datetime.fromisoformat("2026-01-01")
     worker_stats = RPCRequestStats()
     worker_stats.record_call("rpc.example", "eth_call", 2)
     worker_stats.record_error("rpc.example", "http_429", "rate limited")
