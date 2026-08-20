@@ -195,6 +195,7 @@ PROTOCOL_CURATED_SLUGS: set[str] = {
     "gains-network",
     "ostium",
     "ondo",
+    "pallas",
     "domination-finance",
     "yearn",
     "3jane",
@@ -245,6 +246,7 @@ PROTOCOL_CURATOR_NAMES: dict[str, str] = {
     "usyc": "Circle USYC",
     "spiko-curator": "Spiko",
     "theo-curator": "Theo",
+    "pallas": "Pallas",
     "wstgbp": "wstGBP",
 }
 

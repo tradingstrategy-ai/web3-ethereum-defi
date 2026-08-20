@@ -4,6 +4,7 @@ from pathlib import Path
 
 from PIL import Image
 
+from eth_defi.erc_4626.vault_protocol.pallas.constants import HYPERLIQUID_CHAIN_ID, PALLAS_BASIS_TRADING_HIP_3_VAULT, PALLAS_DIRECTIONAL_VOLATILITY_VAULT
 from eth_defi.midas.registry import iter_midas_registry_products
 from eth_defi.tokenised_fund.asseto.constants import ASSETO_AOABT_HASHKEY, ASSETO_CURATORS
 from eth_defi.tokenised_fund.fdit.constants import FDIT_ETHEREUM
@@ -11,6 +12,25 @@ from eth_defi.tokenised_fund.kaio.constants import CASHX_ETHEREUM
 from eth_defi.tokenised_fund.libeara.constants import LIBEARA_PRODUCTS
 from eth_defi.tokenised_fund.sygnum.constants import FILQ_CURATOR_SLUG, SYGNUM_PRODUCTS_BY_CHAIN
 from eth_defi.vault.curator import build_curator_metadata_json, get_curator_available_logos, get_curator_name, identify_curator, is_protocol_curator, load_curator_map
+
+
+def test_identify_pallas_vaults_as_protocol_curated() -> None:
+    """Attribute Pallas protocol vaults to the Pallas curator.
+
+    Pallas operates its own strategy vaults, so curator attribution follows
+    the protocol slug instead of maintaining a second address registry.
+
+    :return:
+        ``None``. Assertions validate the reviewed curator attribution.
+    """
+
+    for address in (PALLAS_BASIS_TRADING_HIP_3_VAULT, PALLAS_DIRECTIONAL_VOLATILITY_VAULT):
+        assert identify_curator(HYPERLIQUID_CHAIN_ID, "PALLAS", "Pallas Vault Share", address, "pallas") == "pallas"
+
+    assert identify_curator(HYPERLIQUID_CHAIN_ID, "PALLAS", "Pallas Vault Share", "0x0000000000000000000000000000000000000000", "pallas") == "pallas"
+    assert is_protocol_curator("pallas")
+    assert get_curator_name("pallas") == "Pallas"
+
 
 DARK_UI_BACKGROUND_LUMINANCE = 0.0098
 BRANDMARK_VISIBLE_ALPHA_THRESHOLD = 15

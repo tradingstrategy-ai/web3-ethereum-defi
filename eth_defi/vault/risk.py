@@ -116,6 +116,9 @@ VAULT_PROTOCOL_RISK_MATRIX = {
     "Ostium": VaultTechnicalRisk.high,
     "gTrade": VaultTechnicalRisk.high,
     "KiloEx": None,
+    # Pallas uses verified upgradeable trading-vault proxies. No technical risk
+    # level has been assigned yet.
+    "Pallas": None,
     # Kiln OmniVault contracts are audited and use verified beacon-proxy deployments.
     "Kiln": VaultTechnicalRisk.low,
     "Domination Finance": VaultTechnicalRisk.severe,

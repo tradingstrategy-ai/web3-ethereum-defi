@@ -477,6 +477,10 @@ Create `eth_defi/erc_4626/vault_protocol/{protocol_slug}/__init__.py`:
 - Add the new modules to the protocol index page TOC
 - Add the protocol to the master index in `docs/source/vaults/index.rst`
 
+Do not run a Sphinx documentation build as part of this skill. Verifying the
+new documentation source files, their index references, and metadata parsing
+is sufficient; documentation builds are handled separately by the project CI.
+
 Examples include
 
 - `docs/source/vaults/plutus/index.rst`, `docs/source/vaults/truefi/index.rst`, `docs/source/api/vaults/index.rst`,
