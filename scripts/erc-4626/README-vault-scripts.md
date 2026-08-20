@@ -636,9 +636,11 @@ Historical fee rates remain TODO because fee-handler/tracker replacement and
 fee-configuration events must first be backfilled.
 
 The current standard Onyx FeeHandler exposes management, performance, entrance
-and exit settings. Blue's ``Mgmt fee`` is the investor-facing sum of the fund
-manager fee and ProtocolFeeTracker rate. ``Protocol fee`` retains the latter
-as a transparent breakdown, not as an extra charge to add again.
+and exit settings, but no separately configured protocol fee. Its ``Mgmt fee``
+is therefore its full user-facing recurring management charge. Blue's ``Mgmt
+fee`` is the corresponding investor-facing sum of the fund manager fee and
+ProtocolFeeTracker rate. ``Protocol fee`` retains the latter as a transparent
+breakdown, not as an extra charge to add again.
 
 Run a read-only discovery plan first:
 

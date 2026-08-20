@@ -18,6 +18,7 @@ then reads its paired ComptrollerProxy for current and historical GAV data.
    eth_defi.enzyme.deployment
    eth_defi.enzyme.vault
    eth_defi.enzyme.blue_discovery
+   eth_defi.enzyme.fee
    eth_defi.enzyme.blue_vault
    eth_defi.enzyme.blue_historical
    eth_defi.enzyme.onyx_discovery

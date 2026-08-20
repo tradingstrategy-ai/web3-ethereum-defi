@@ -21,6 +21,7 @@ from web3.exceptions import ABIFunctionNotFound, BadFunctionCallOutput, Contract
 from eth_defi.abi import ZERO_ADDRESS, get_deployed_contract
 from eth_defi.enzyme.blue_discovery import ENZYME_BLUE_DEPLOYMENTS
 from eth_defi.enzyme.blue_historical import EnzymeBlueVaultHistoricalReader
+from eth_defi.enzyme.fee import combine_user_facing_management_fee
 from eth_defi.enzyme.offchain_metadata import fetch_enzyme_vault_metadata
 from eth_defi.enzyme.onyx_flow import EnzymeVaultFlowManager
 from eth_defi.erc_4626.core import ERC4626Feature
@@ -318,11 +319,7 @@ class EnzymeBlueVault(VaultBase):
                 performance = Percent(float(rate / FEE_RATE_SCALE))
 
         protocol_fee = self._fetch_protocol_fee(block_identifier)
-        if protocol_fee is not None:
-            # Export the aggregate rate paid by an investor, not the protocol's
-            # internal settlement representation or recipient bookkeeping.
-            # Blue's protocol fee is charged on top of the vault manager fee.
-            management = Percent(float((management or 0) + protocol_fee))
+        management = combine_user_facing_management_fee(management, protocol_fee)
         return FeeData(fee_mode=self.get_fee_mode(), management=management, performance=performance, deposit=deposit, withdraw=withdraw, protocol=protocol_fee)
 
     def get_link(self, referral: str | None = None) -> str:

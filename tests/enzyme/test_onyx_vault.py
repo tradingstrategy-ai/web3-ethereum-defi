@@ -175,6 +175,7 @@ def test_enzyme_current_reader_reads_fee_trackers(monkeypatch) -> None:
     fee_data = vault.get_fee_data()
 
     assert fee_data.management == EXPECTED_MANAGEMENT_FEE
+    assert fee_data.protocol is None
     assert fee_data.performance == EXPECTED_PERFORMANCE_FEE
     assert fee_data.deposit == EXPECTED_ENTRANCE_FEE
     assert fee_data.withdraw == EXPECTED_EXIT_FEE

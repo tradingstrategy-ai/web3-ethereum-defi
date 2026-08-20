@@ -54,7 +54,8 @@ it reads active management and performance fee trackers, plus the current
 standard FeeHandler entrance and exit rates, during a current metadata scan.
 Management and performance rates are annual fractions; entrance and exit rates
 reduce the investor's issued or redeemed shares. The standard FeeHandler has no
-separate global protocol-fee setting, so exported fees do not double-count a
+separate global protocol-fee setting, so the exported Onyx management fee is
+already the full user-facing recurring charge and does not double-count a
 platform charge.
 Historical fee rates are not yet exported, because the fee handler or tracker
 can change over a vault's lifetime; that backfill needs component-change,

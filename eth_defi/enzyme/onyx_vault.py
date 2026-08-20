@@ -20,6 +20,7 @@ from web3 import Web3
 from web3.contract import Contract
 
 from eth_defi.abi import get_deployed_contract
+from eth_defi.enzyme.fee import combine_user_facing_management_fee
 from eth_defi.enzyme.offchain_metadata import fetch_enzyme_vault_metadata
 from eth_defi.enzyme.onyx_flow import EnzymeVaultFlowManager
 from eth_defi.enzyme.onyx_historical import EnzymeVaultHistoricalReader
@@ -366,6 +367,25 @@ class EnzymeVault(VaultBase):
 
         return self.fetch_fee_tracker_rate("getManagementFeeTracker", block_identifier)
 
+    def fetch_protocol_fee(self, block_identifier: BlockIdentifier) -> Percent | None:
+        """Return the additional current Onyx protocol fee when configured.
+
+        The reviewed standard Onyx FeeHandler exposes management, performance,
+        entrance and exit fee settings, but no distinct protocol-fee rate. The
+        explicit ``None`` keeps the shared user-facing aggregation path aligned
+        with Blue without inventing a platform charge from internal fee-recipient
+        details.
+
+        :param block_identifier:
+            Accepted for a consistent point-in-time fee-reader interface.
+        :return:
+            ``None`` until a reviewed Onyx contract exposes a separate protocol
+            management-fee rate.
+        """
+
+        del block_identifier
+        return None
+
     def get_performance_fee(self, block_identifier: BlockIdentifier) -> Percent | None:
         """Read the current performance fee from the configured tracker.
 
@@ -403,11 +423,11 @@ class EnzymeVault(VaultBase):
         """Read all currently configured Enzyme fee classes efficiently.
 
         The four rate reads share the same FeeHandler. Reading it once avoids
-        three redundant Shares calls during scanner metadata refreshes.
-        Onyx has no separate global protocol-fee rate: the FeeHandler's
-        management, performance, entrance and exit settings are its complete
-        standard fee surface, so this reader does not double-count a platform
-        charge.
+        three redundant Shares calls during scanner metadata refreshes. The
+        standard Onyx FeeHandler has no separate protocol-fee rate, but its
+        management rate still passes through the same user-facing aggregation
+        as Blue. This preserves correct output if a reviewed Onyx protocol fee
+        is added later.
 
         :return:
             Current management, performance, entrance and exit fee data.
@@ -415,12 +435,15 @@ class EnzymeVault(VaultBase):
 
         block_identifier = self._get_block_identifier()
         fee_handler = self.fetch_fee_handler(block_identifier)
+        manager_fee = self.fetch_fee_tracker_rate("getManagementFeeTracker", block_identifier, fee_handler)
+        protocol_fee = self.fetch_protocol_fee(block_identifier)
         return FeeData(
             fee_mode=self.get_fee_mode(),
-            management=self.fetch_fee_tracker_rate("getManagementFeeTracker", block_identifier, fee_handler),
+            management=combine_user_facing_management_fee(manager_fee, protocol_fee),
             performance=self.fetch_fee_tracker_rate("getPerformanceFeeTracker", block_identifier, fee_handler),
             deposit=self.fetch_fee_handler_bps("getEntranceFeeBps", block_identifier, fee_handler),
             withdraw=self.fetch_fee_handler_bps("getExitFeeBps", block_identifier, fee_handler),
+            protocol=protocol_fee,
         )
 
     def get_link(self, referral: str | None = None) -> str:

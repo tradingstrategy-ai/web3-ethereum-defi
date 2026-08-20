@@ -29,8 +29,9 @@ fee_description: |
   remains TODO.
 
   Enzyme Onyx's standard FeeHandler has management, performance, entrance and
-  exit fees configured per vehicle. The scanner reads their current values
-  only; historical Onyx fee rates are not yet exported.
+  exit fees configured per vehicle, with no separate protocol-fee setting. Its
+  exported management rate is therefore the full current user-facing recurring
+  charge. Historical Onyx fee rates are not yet exported.
 links:
   homepage: https://enzyme.finance/
   app: https://app.enzyme.finance/discover/vaults?network=base
