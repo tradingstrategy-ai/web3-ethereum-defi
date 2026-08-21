@@ -1,11 +1,13 @@
 import time
 from unittest.mock import MagicMock, patch
 
+import aiohttp
 import pytest
 import requests
 from ccxt import ExchangeNotAvailable
 
 from eth_defi.gmx.api import _TICKER_PRICES_CACHE, GMXAPI  # noqa: PLC2701  # cache inspection required by the failover tests
+from eth_defi.gmx.ccxt.async_support.async_http import async_make_gmx_api_request
 from eth_defi.gmx.ccxt.exchange import GMX
 from eth_defi.gmx.retry import (
     GMXAPIUnavailable,
@@ -263,3 +265,97 @@ def test_fetch_ticker_missing_ticker_raises_exchange_not_available():
 
     with pytest.raises(ExchangeNotAvailable):
         gmx.fetch_ticker("BTC/USDC:USDC")
+
+
+class _FakeClientResponse:
+    def __init__(self, status_code, payload):
+        self.status_code = status_code
+        # aiohttp.ClientResponse exposes the status as ``status``; mirror it so
+        # the driver's status checks work against the mock unchanged.
+        self.status = status_code
+        self.reason = "mock"
+        # ClientResponseError.__str__ dereferences ``request_info.real_url``,
+        # so give it a minimal request-info stand-in (same shape aiohttp uses).
+        self.request_info = type("_RequestInfo", (), {"real_url": "https://example.com/prices/tickers"})()
+        self.history = ()
+        self._payload = payload
+
+    async def json(self):
+        return self._payload
+
+    def raise_for_status(self):
+        if self.status_code >= 400:  # noqa: PLR2004  # HTTP error threshold literal
+            raise aiohttp.ClientResponseError(
+                self.request_info, self.history, status=self.status_code, message=self.reason
+            )
+
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, *exc):
+        return False
+
+
+class _FakeSession:
+    def __init__(self, responses):
+        self._responses = list(responses)
+        self.calls = 0
+
+    def get(self, url, params=None, timeout=None):  # noqa: ARG002  # mock signature must mirror aiohttp session.get
+        self.calls += 1
+        if self._responses:
+            self._last_response = self._responses.pop(0)
+        # A real session keeps serving requests; when the seeded queue is
+        # exhausted, keep returning the last response (e.g. "endpoint down").
+        return self._last_response
+
+    async def close(self):  # noqa: PLR6301  # stub mimics aiohttp.ClientSession surface
+        return None
+
+
+@pytest.mark.asyncio
+async def test_async_fails_over_on_404_without_retry():
+    session = _FakeSession([
+        _FakeClientResponse(404, []),
+        _FakeClientResponse(200, {"ok": True}),
+    ])
+    result = await async_make_gmx_api_request(
+        chain="arbitrum",
+        endpoint="/prices/tickers",
+        session=session,
+        max_retries=3,
+        retry_delay=0.01,
+    )
+    assert result == {"ok": True}
+    assert session.calls == 2  # noqa: PLR2004
+
+
+@pytest.mark.asyncio
+async def test_async_validate_rejects_degraded_payload():
+    healthy = [{"tokenAddress": "0x1", "maxPrice": "100"} for _ in range(120)]
+    session = _FakeSession([
+        _FakeClientResponse(200, []),
+        _FakeClientResponse(200, healthy),
+    ])
+    result = await async_make_gmx_api_request(
+        chain="arbitrum",
+        endpoint="/prices/tickers",
+        session=session,
+        max_retries=3,
+        retry_delay=0.01,
+        validate=lambda p: validate_tickers_payload(p, min_expected_tickers=100),
+    )
+    assert len(result) == 120  # noqa: PLR2004
+
+
+@pytest.mark.asyncio
+async def test_async_raises_gmxapiunavailable_on_total_failure():
+    session = _FakeSession([_FakeClientResponse(500, {})])
+    with pytest.raises(GMXAPIUnavailable):
+        await async_make_gmx_api_request(
+            chain="arbitrum",
+            endpoint="/prices/tickers",
+            session=session,
+            max_retries=1,
+            retry_delay=0.01,
+        )
