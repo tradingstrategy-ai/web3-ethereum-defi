@@ -1,0 +1,21 @@
+feeder-id: zharta-finance
+name: Zharta Finance
+role: curator
+lagoon-curator: Zharta Finance
+website: https://www.zharta.io/
+twitter: Zharta
+linkedin: zharta
+short_description: Zharta provides fixed-rate onchain credit infrastructure for tokenised assets and institutional investors.
+long_description: |
+  Zharta provides programmable, compliant lending infrastructure for fixed-rate loans against tokenised real-world and digital assets. Its website describes borrower and lender workflows with custom terms, smart-contract settlement, and API-enabled automation. Lagoon Finance lists Zharta Finance as the curator of its Ethereum Zharta RWA Prime USDC vault.
+
+# Evidence and background references.
+#
+# Zharta's official homepage describes its fixed-rate, institutional credit
+# infrastructure. Lagoon identifies Zharta Finance as the curator of the
+# Zharta RWA Prime USDC vault on Ethereum and describes the RWA credit mandate.
+other-links:
+  - title: Zharta official homepage - fixed-rate onchain credit infrastructure
+    url: https://www.zharta.io/
+  - title: Lagoon Finance vault - Zharta RWA Prime USDC lists Zharta Finance as curator
+    url: https://app.lagoon.finance/vault/1/0xb4a4c9a736f91e2694c6b921445eef3e3585a591

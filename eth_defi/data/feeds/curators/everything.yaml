@@ -1,0 +1,26 @@
+feeder-id: everything
+name: Everything
+role: curator
+lagoon-curator: Everything
+website: https://everything.inc/
+twitter: every_thing
+short_description: Everything is an EVM liquidity layer for trading, lending, borrowing, and leverage.
+long_description: |
+  Everything describes itself as a deterministic, oracleless, decentralised liquidity layer for humans and AI agents. Its platform combines trading, lending, borrowing, and leverage through a single liquidity pool, and presents market-neutral and arbitrage yield strategies in its Earn products. Lagoon Finance lists Everything as curator of three Ethereum funding-arbitrage vaults.
+
+# Evidence and background references.
+#
+# Lagoon's vault pages identify Everything as the curator for the three
+# Ethereum funding-arbitrage vaults below. The official Everything homepage
+# describes its liquidity layer and its market-neutral/arbitrage Earn products.
+other-links:
+  - title: Everything official homepage - deterministic and oracleless EVM liquidity layer
+    url: https://everything.inc/
+  - title: Lagoon Finance curators API - Everything registered curator profile
+    url: https://app.lagoon.finance/api/curators
+  - title: Lagoon Finance vault - DeltaUSD HyperLiquid USDN Funding Arb curated by Everything
+    url: https://app.lagoon.finance/vault/1/0x01f461a0bbb218bc1943aa027c5bbc424391e541
+  - title: Lagoon Finance vault - DeltaETH HyperLiquid USDN EVERYTHING Funding Arb curated by Everything
+    url: https://app.lagoon.finance/vault/1/0x56105f694e9549cebd0d509f1de71b22abe8f1d8
+  - title: Lagoon Finance vault - CEX Automated Funding Rate Arbitrage curated by Everything
+    url: https://app.lagoon.finance/vault/1/0x60a2612996ddfb1aa1c53e7bfbf179ccc1fcd734

@@ -1,0 +1,23 @@
+feeder-id: sigma-labs
+name: σ-Labs
+role: curator
+lagoon-curator: σ-Labs
+website: https://www.sigmalabs.fi/
+short_description: σ-Labs is an onchain research lab specialising in risk analysis, quantitative strategies and multichain infrastructure.
+long_description: |
+  σ-Labs describes itself as an onchain research lab specialising in risk analysis and multichain infrastructure. Lagoon Finance identifies σ-Labs as a co-curator, alongside Ellen Capital, of its Ethereum stETH Redemption Carry and Cross-chain USDC Lending vaults.
+
+# Evidence and background references.
+#
+# Sigma Labs' official homepage describes its onchain research work. Lagoon's
+# official curator and vault APIs identify σ-Labs as a curator and show that it
+# co-curates the two named Ethereum vaults with Ellen Capital.
+other-links:
+  - title: Sigma Labs official homepage - onchain research, risk analysis and multichain infrastructure
+    url: https://www.sigmalabs.fi/
+  - title: Lagoon Finance curators API - σ-Labs registered curator profile
+    url: https://app.lagoon.finance/api/curators
+  - title: Lagoon Finance vault - stETH Redemption Carry lists Ellen Capital and σ-Labs as co-curators
+    url: https://app.lagoon.finance/vault/1/0x2746f31096f23670caf4043f8b30d8d02405a257
+  - title: Lagoon Finance vault - Cross-chain USDC Lending lists Ellen Capital and σ-Labs as co-curators
+    url: https://app.lagoon.finance/vault/1/0xf02030ab0d7385ce4cc2f7f64b7b44430fb44c89
