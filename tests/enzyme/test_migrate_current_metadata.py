@@ -38,6 +38,7 @@ def test_metadata_migration_forces_incremental_non_price_mode() -> None:
         "ENZYME_SCAN_PRICES": "false",
         "ENZYME_CLEAN_PRICES": "false",
         "ENZYME_REFRESH_EXISTING_METADATA": "false",
+        "ENZYME_CHECKPOINT_PATH": str(module.DEFAULT_VAULT_DATABASE.with_name("enzyme-current-metadata-state.json")),
     }
 
 
@@ -48,8 +49,26 @@ def test_metadata_migration_delegates_to_shared_resumable_engine(monkeypatch) ->
     calls = []
     monkeypatch.setattr(module.runpy, "run_path", lambda path, run_name: calls.append((Path(path), run_name)))
     monkeypatch.setenv("ENZYME_SCAN_PRICES", "true")
+    monkeypatch.setenv("ENZYME_CLEAN_PRICES", "true")
+    monkeypatch.setenv("ENZYME_REFRESH_EXISTING_METADATA", "true")
+    monkeypatch.delenv("ENZYME_CHECKPOINT_PATH", raising=False)
 
     module.main()
 
     assert calls == [(SCRIPT_PATH.with_name("backfill-history.py"), "__main__")]
-    assert os.environ["ENZYME_SCAN_PRICES"] == "false"
+    assert os.environ["ENZYME_SCAN_PRICES"] == "true"
+    assert os.environ["ENZYME_CLEAN_PRICES"] == "true"
+    assert os.environ["ENZYME_REFRESH_EXISTING_METADATA"] == "true"
+    assert "ENZYME_CHECKPOINT_PATH" not in os.environ
+
+
+def test_metadata_migration_preserves_explicit_checkpoint(tmp_path: Path) -> None:
+    """Allow an operator to relocate the metadata-only checkpoint deliberately."""
+
+    module = load_migration_module()
+    checkpoint_path = tmp_path / "custom-enzyme-metadata-state.json"
+    environment = {"ENZYME_CHECKPOINT_PATH": str(checkpoint_path)}
+
+    module.configure_metadata_migration_environment(environment)
+
+    assert environment["ENZYME_CHECKPOINT_PATH"] == str(checkpoint_path)

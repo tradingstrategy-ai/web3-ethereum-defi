@@ -31,6 +31,8 @@ Environment variables:
 - ``ENZYME_METADATA_BATCH_SIZE``: resumable current-metadata batch size, default ``128``.
 - ``ENZYME_CHECKPOINT_PATH``: durable migration checkpoint path, defaulting to
   ``enzyme-backfill-history-state.json`` beside the vault database.
+- ``PIPELINE_LOCK_TIMEOUT``: seconds to wait for the shared scanner writer
+  lock, default ``60``.
 - ``VAULT_DB_PATH``, ``UNCLEANED_PRICE_DATABASE``, ``CLEANED_PRICE_DATABASE``,
   ``READER_STATE_DATABASE``: optional pipeline state paths.
 """
@@ -54,6 +56,7 @@ import pyarrow.compute as pc
 import pyarrow.parquet as pq
 from atomicwrites import atomic_write
 from eth_typing import HexAddress
+from filelock import Timeout as FileLockTimeout
 from hypersync import BlockField, LogField
 from joblib import Parallel, delayed
 from tabulate import tabulate
@@ -73,7 +76,7 @@ from eth_defi.hypersync.utils import configure_hypersync_from_env
 from eth_defi.provider.multi_provider import MultiProviderWeb3Factory, create_multi_provider_web3
 from eth_defi.research.wrangle_vault_prices import replace_cleaned_vault_histories
 from eth_defi.token import TokenDiskCache
-from eth_defi.utils import setup_console_logging
+from eth_defi.utils import setup_console_logging, wait_other_writers
 from eth_defi.vault.base import VaultBase, VaultSpec
 from eth_defi.vault.deposit_redeem import VaultDepositPermission
 from eth_defi.vault.historical import pformat_scan_result, scan_historical_prices_to_parquet
@@ -537,38 +540,58 @@ def scan_price_history(  # noqa: PLR0917 - explicit operational arguments make t
     return result
 
 
-def should_refresh_metadata(vault_db: VaultDatabase, candidate: EnzymeFactoryCandidate) -> bool:
-    """Determine whether this Enzyme vault needs a metadata read.
+def has_complete_current_metadata(vault_db: VaultDatabase, candidate: EnzymeFactoryCandidate) -> bool:
+    """Check whether a persisted Enzyme row satisfies the migration contract.
 
-    A Blue row with a missing or inconclusive permission is stale even when
-    its token metadata is otherwise healthy. Blue has an authoritative current
-    PolicyManager read, so the migration repairs these rows automatically.
-    Onyx ``unknown`` is intentional until active handler indexing exists and
-    must not cause an otherwise good row to be fetched on every migration.
-
-    Both architectures are refreshed when either public description is absent.
-    A successful metadata batch fills those fields, making this check the
-    durable resume marker without a second per-vault checkpoint structure.
+    Blue requires a conclusive current PolicyManager result. Onyx ``unknown``
+    permission is intentional until active handler indexing exists and does not
+    make an otherwise healthy row incomplete.
 
     :param vault_db: Existing vault metadata database.
     :param candidate: Factory-discovered Enzyme vault.
+    :return: ``True`` when all required current catalogue fields are present.
+    """
+
+    row = vault_db.rows.get(VaultSpec(candidate.chain, candidate.address))
+    if row is None or not row.get("Name") or (row.get("Name") or "").startswith("<broken"):
+        return False
+    if not row.get("Symbol") or not row.get("_denomination_token"):
+        return False
+    if any(key not in row or row[key] is None for key in ("NAV", "Shares")):
+        return False
+    if (fees := row.get("_fees")) is None or getattr(fees, "fee_mode", None) is None:
+        return False
+    if not row.get("_short_description") or not row.get("_description"):
+        return False
+    if isinstance(candidate, EnzymeBlueVaultFactoryCandidate):
+        try:
+            permission = VaultDepositPermission(row.get("_deposit_permission", VaultDepositPermission.unknown.value))
+        except (TypeError, ValueError):
+            permission = VaultDepositPermission.unknown
+        return permission is not VaultDepositPermission.unknown
+    return True
+
+
+def should_refresh_metadata(vault_db: VaultDatabase, candidate: EnzymeFactoryCandidate, end_block: int) -> bool:
+    """Determine whether this Enzyme vault needs a metadata read.
+
+    Every attempted row records the fixed discovery end block. This prevents a
+    permanently unreadable or inconclusive contract from being called again
+    after an interruption at the same checkpoint, while a later completed run
+    with a newer end block can retry it.
+
+    :param vault_db: Existing vault metadata database.
+    :param candidate: Factory-discovered Enzyme vault.
+    :param end_block: Fixed current-state block for this migration attempt.
     :return: ``True`` for missing, broken, or explicitly refreshed rows.
     """
 
     if parse_bool_env("ENZYME_REFRESH_EXISTING_METADATA", default=False):
         return True
     row = vault_db.rows.get(VaultSpec(candidate.chain, candidate.address))
-    if row is None or (row.get("Name") or "").startswith("<broken"):
-        return True
-    if not row.get("_short_description") or not row.get("_description"):
-        return True
-    if isinstance(candidate, EnzymeBlueVaultFactoryCandidate):
-        try:
-            permission = VaultDepositPermission(row.get("_deposit_permission", VaultDepositPermission.unknown.value))
-        except (TypeError, ValueError):
-            permission = VaultDepositPermission.unknown
-        return permission is VaultDepositPermission.unknown
-    return False
+    if row is not None and int(row.get("_enzyme_metadata_checked_block") or 0) >= end_block:
+        return False
+    return not has_complete_current_metadata(vault_db, candidate)
 
 
 def update_enzyme_vault_links(vault_db: VaultDatabase, candidates: Iterable[EnzymeFactoryCandidate]) -> int:
@@ -672,7 +695,7 @@ def fetch_end_block(web3: Web3) -> int:
     return parse_optional_int_env(f"ENZYME_END_BLOCK_{web3.eth.chain_id}") or web3.eth.block_number
 
 
-def main() -> None:  # noqa: PLR0914 - linear migration steps favour operational review.
+def _run_migration() -> None:  # noqa: PLR0914 - linear migration steps favour operational review.
     """Discover, add, and backfill all supported Enzyme Onyx and Blue vaults."""
 
     setup_console_logging(default_log_level=os.environ.get("LOG_LEVEL", "info"), log_file=Path("logs/enzyme-backfill-history.log"))
@@ -739,9 +762,14 @@ def main() -> None:  # noqa: PLR0914 - linear migration steps favour operational
                 vault_db.leads[spec] = create_enzyme_lead(candidate)
                 leads_added += 1
         links_updated += update_enzyme_vault_links(vault_db, run.candidates)
-        metadata_candidates = [candidate for candidate in run.candidates if should_refresh_metadata(vault_db, candidate)]
+        metadata_candidates = [candidate for candidate in run.candidates if should_refresh_metadata(vault_db, candidate, run.end_block)]
         for metadata_batch in itertools.batched(metadata_candidates, metadata_batch_size):
             for candidate, record in fetch_enzyme_metadata_records(run.json_rpc_url, run.end_block, list(metadata_batch), max_workers):
+                # Record even inconclusive or broken reads at this checkpoint so
+                # an interrupted migration does not repeat the same failed RPC
+                # calls. A later completed run selects a newer end block and
+                # retries these rows automatically.
+                record["_enzyme_metadata_checked_block"] = run.end_block
                 vault_db.rows[VaultSpec(candidate.chain, candidate.address)] = record
                 metadata_upserted += 1
             vault_db_path.parent.mkdir(parents=True, exist_ok=True)
@@ -792,14 +820,43 @@ def main() -> None:  # noqa: PLR0914 - linear migration steps favour operational
             write_checkpoint(checkpoint_path, checkpoint)
 
     token_cache.commit()
+    incomplete_metadata = [candidate for candidate in all_candidates if not has_complete_current_metadata(vault_db, candidate)]
+    if incomplete_metadata:
+        logger.warning(
+            "%d Enzyme metadata rows remain incomplete after current-state reads; first addresses: %s",
+            len(incomplete_metadata),
+            ", ".join(candidate.address for candidate in incomplete_metadata[:20]),
+        )
     checkpoint["complete"] = not scan_prices or (all(state["prices_complete"] for state in checkpoint["chains"].values()) and (not clean_prices or checkpoint["cleaned"]))
     write_checkpoint(checkpoint_path, checkpoint)
     print("Enzyme backfill summary")
-    print(tabulate([{"vaults": len(all_candidates), "leads_added": leads_added, "links_updated": links_updated, "metadata_upserted": metadata_upserted, "chains_price_scanned": len(scan_results)}], headers="keys", tablefmt="github"))
+    print(tabulate([{"vaults": len(all_candidates), "leads_added": leads_added, "links_updated": links_updated, "metadata_upserted": metadata_upserted, "metadata_incomplete": len(incomplete_metadata), "chains_price_scanned": len(scan_results)}], headers="keys", tablefmt="github"))
+
+
+def main() -> None:
+    """Run the Enzyme migration under the shared scanner writer lock.
+
+    The metadata database is a whole-object pickle. Holding the same pipeline
+    lock as the looped scanner from the initial read through the final write
+    prevents either process from silently replacing updates made by the other.
+
+    :return: None after the migration completes.
+    :raises filelock.Timeout: If another scanner retains the writer lock past
+        ``PIPELINE_LOCK_TIMEOUT``.
+    """
+
+    vault_db_path = parse_path_env("VAULT_DB_PATH", DEFAULT_VAULT_DATABASE)
+    pipeline_lock_path = vault_db_path.parent.resolve() / "scan-pipeline"
+    lock_timeout = float(os.environ.get("PIPELINE_LOCK_TIMEOUT", "60"))
+    with wait_other_writers(pipeline_lock_path, timeout=lock_timeout):
+        _run_migration()
 
 
 if __name__ == "__main__":
     try:
         main()
+    except FileLockTimeout:
+        logger.error("Vault scan pipeline is locked by another scanner; stop it or retry after it finishes")
+        raise SystemExit(1) from None
     except KeyboardInterrupt:
         sys.exit(130)

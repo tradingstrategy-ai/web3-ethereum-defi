@@ -748,9 +748,11 @@ links locally, refreshes complete current adapter metadata for affected rows,
 and resolves current Blue deposit permission. Onyx permission remains
 ``unknown`` until deposit-handler indexing is implemented. A completed row is
 skipped after an interruption, and a successful metadata-only run marks its
-checkpoint complete.
+separate metadata checkpoint complete. The script holds the shared scanner
+writer lock for the complete database read/write lifetime so a concurrent
+process cannot replace its metadata updates.
 
-Review the factory coverage without writing:
+For local development, review the factory coverage without writing:
 
 ```shell
 source .local-test.env && \
@@ -758,13 +760,36 @@ DRY_RUN=true \
 poetry run python scripts/enzyme/migrate-current-metadata.py
 ```
 
-Apply the migration:
+Apply the migration locally:
 
 ```shell
 source .local-test.env && \
 MAX_WORKERS=8 \
 poetry run python scripts/enzyme/migrate-current-metadata.py
 ```
+
+In production, inspect `docker-compose.yml`, load the production environment,
+and stop the looped scanner before starting the long-running maintenance
+container:
+
+```shell
+source ~/vault-scanner/vault-rpc.env
+cd ~/vault-scanner/web3-ethereum-defi
+docker compose ps vault-scanner-looped
+docker compose stop vault-scanner-looped
+
+docker compose run --rm \
+  --entrypoint /bin/bash \
+  -e MAX_WORKERS=8 \
+  vault-scanner-oneshot \
+  -lc 'poetry run python scripts/enzyme/migrate-current-metadata.py'
+
+docker compose start vault-scanner-looped
+```
+
+Stopping the looped service avoids holding it idle behind the migration lock.
+If another writer still owns the lock, the migration exits without touching
+the pickle; rerun it after that writer finishes.
 
 Then audit the persisted Blue/Onyx permission distribution:
 
@@ -774,12 +799,16 @@ poetry run python scripts/enzyme/report-whitelist.py
 
 The command requires all four Enzyme chain RPC variables and
 `HYPERSYNC_API_KEY`. Preserve the production `~/.tradingstrategy` mount and
-rerun the same command after an interruption; never delete its checkpoint or
-metadata database.
+rerun the same command after an interruption; never delete its metadata-only
+checkpoint or metadata database. This checkpoint is intentionally separate
+from `enzyme-backfill-history-state.json`, so a metadata repair cannot discard
+an unfinished historical-price backfill.
 
 | Variable | Description |
 |----------|-------------|
 | `VAULT_DB_PATH` | Optional metadata database path. Default: production path. |
+| `ENZYME_CHECKPOINT_PATH` | Optional metadata-only checkpoint path. Default: `enzyme-current-metadata-state.json` beside the vault database. |
+| `PIPELINE_LOCK_TIMEOUT` | Seconds to wait for the shared scanner writer lock. Default: `60`. |
 
 ### fix-t3tris-vaults.py
 

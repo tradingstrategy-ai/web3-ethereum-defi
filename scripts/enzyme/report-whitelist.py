@@ -40,14 +40,16 @@ from collections.abc import Iterable, Iterator
 from dataclasses import dataclass
 from pathlib import Path
 
-import requests
 from joblib import Parallel, delayed
-from requests import RequestException
+from requests import RequestException, Session
+from requests.adapters import HTTPAdapter
 from tabulate import tabulate
 from tqdm_loggable.auto import tqdm
+from web3 import Web3
 
 from eth_defi.chain import get_chain_name
 from eth_defi.erc_4626.core import ERC4626Feature
+from eth_defi.logging_retry import LoggingRetry
 from eth_defi.utils import setup_console_logging
 from eth_defi.vault.base import VaultSpec
 from eth_defi.vault.deposit_redeem import VaultDepositPermission
@@ -202,10 +204,10 @@ def iter_enzyme_permission_records(vault_db: VaultDatabase) -> Iterator[EnzymePe
 def create_summary_table(records: Iterable[EnzymePermissionRecord]) -> list[dict[str, str | int]]:
     """Aggregate Enzyme statuses by chain and protocol architecture.
 
-    :param records: Normalised database rows.
     The final rows aggregate each architecture across all chains, allowing an
     operator to see protocol-level totals without losing the chain breakdown.
 
+    :param records: Normalised database rows.
     :return: Table rows with chain, architecture and all enum counts.
     """
 
@@ -245,7 +247,7 @@ def create_summary_table(records: Iterable[EnzymePermissionRecord]) -> list[dict
     return table
 
 
-def permission_from_enzyme_api_response(payload: dict) -> tuple[VaultDepositPermission, tuple[str, ...]]:
+def permission_from_enzyme_api_response(payload: object) -> tuple[VaultDepositPermission, tuple[str, ...]]:
     """Map an official Blue configuration response to the shared enum.
 
     Only enabled account-admission policies affect the result.  Asset,
@@ -260,6 +262,9 @@ def permission_from_enzyme_api_response(payload: dict) -> tuple[VaultDepositPerm
     if not isinstance(payload, dict):
         message = "Enzyme API response must be a JSON object"
         raise ValueError(message)
+    # Connect's protobuf JSON encoding may omit an empty repeated field. An
+    # absent policyConfigurations key therefore means the vault has no enabled
+    # policies; malformed non-list values remain errors.
     policy_configurations = payload.get("policyConfigurations", [])
     if not isinstance(policy_configurations, list):
         message = "Enzyme API policyConfigurations must be a list"
@@ -270,13 +275,48 @@ def permission_from_enzyme_api_response(payload: dict) -> tuple[VaultDepositPerm
     return permission, matches
 
 
-def fetch_enzyme_api_permission(record: EnzymePermissionRecord, api_token: str, timeout: float) -> EnzymeApiPermissionResult:
+def create_enzyme_api_session(max_workers: int, retries: int = 5, backoff_factor: float = 0.5) -> Session:
+    """Create a pooled, retrying session for Enzyme's configuration API.
+
+    The audit performs thousands of independent POST requests. A shared pool
+    avoids reconnecting for every vault, while bounded exponential backoff and
+    ``Retry-After`` support keep throttling and transient server failures from
+    appearing as permission mismatches.
+
+    :param max_workers: Maximum concurrent API requests and connection pool size.
+    :param retries: Maximum transport or retryable-status attempts per request.
+    :param backoff_factor: Exponential delay factor between retries.
+    :return: Thread-shareable configured HTTP session.
+    """
+
+    retry_policy = LoggingRetry(
+        total=retries,
+        backoff_factor=backoff_factor,
+        status_forcelist=[429, 500, 502, 503, 504],
+        allowed_methods=frozenset({"POST"}),
+        respect_retry_after_header=True,
+        logger=logger,
+    )
+    adapter = HTTPAdapter(
+        max_retries=retry_policy,
+        pool_connections=max_workers,
+        pool_maxsize=max_workers,
+        pool_block=True,
+    )
+    session = Session()
+    session.mount("http://", adapter)
+    session.mount("https://", adapter)
+    return session
+
+
+def fetch_enzyme_api_permission(session: Session, record: EnzymePermissionRecord, api_token: str, timeout: float) -> EnzymeApiPermissionResult:
     """Fetch one Blue vault's current permission from Enzyme's official API.
 
     The endpoint is a Connect/gRPC JSON gateway and requires a bearer token.
     A failed request remains an explicit ``unknown`` comparison result; it
     never overwrites or downgrades the persisted onchain classification.
 
+    :param session: Shared retrying and connection-pooling HTTP session.
     :param record: Blue database record to check.
     :param api_token: Enzyme API bearer token.
     :param timeout: HTTP timeout in seconds.
@@ -289,10 +329,10 @@ def fetch_enzyme_api_permission(record: EnzymePermissionRecord, api_token: str, 
         return EnzymeApiPermissionResult(record.spec, VaultDepositPermission.unknown, error=f"Unsupported Blue chain {record.spec.chain_id}")
 
     try:
-        response = requests.post(
+        response = session.post(
             ENZYME_API_CONFIGURATION_URL,
             headers={"Authorization": f"Bearer {api_token}", "Content-Type": "application/json"},
-            json={"deployment": deployment, "address": record.spec.vault_address, "currency": "CURRENCY_USD"},
+            json={"deployment": deployment, "address": Web3.to_checksum_address(record.spec.vault_address), "currency": "CURRENCY_USD"},
             timeout=timeout,
         )
         response.raise_for_status()
@@ -323,7 +363,8 @@ def fetch_enzyme_api_permissions(
     """
 
     blue_records = [record for record in records if record.architecture == "Blue"]
-    results = Parallel(n_jobs=max_workers, backend="threading")(delayed(fetch_enzyme_api_permission)(record, api_token, timeout) for record in tqdm(blue_records, desc="Checking Enzyme Blue API"))
+    with create_enzyme_api_session(max_workers) as session:
+        results = Parallel(n_jobs=max_workers, backend="threading")(delayed(fetch_enzyme_api_permission)(session, record, api_token, timeout) for record in tqdm(blue_records, desc="Checking Enzyme Blue API"))
     return tuple(results)
 
 
@@ -400,7 +441,9 @@ def main() -> None:
         comparisons = create_api_comparison_table(records, api_results)
         permissions_by_spec = {record.spec: record.permission for record in records}
         matched = sum(result.error is None and result.permission is permissions_by_spec[result.spec] for result in api_results)
-        print(f"\nEnzyme Blue API comparison: {matched} matched, {len(comparisons)} mismatched or failed")
+        failed = sum(result.error is not None for result in api_results)
+        mismatched = len(api_results) - matched - failed
+        print(f"\nEnzyme Blue API comparison: {matched} matched, {mismatched} mismatched, {failed} failed")
         print(tabulate(comparisons, headers="keys", tablefmt="github"))
 
 

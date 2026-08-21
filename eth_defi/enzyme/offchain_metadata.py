@@ -16,9 +16,17 @@ from typing import Literal
 from eth_typing import HexAddress
 from web3 import Web3
 
-from eth_defi.chain import get_chain_name
-
 EnzymeArchitecture = Literal["blue", "onyx"]
+
+#: Enzyme application network slugs for reviewed Blue and Onyx deployments.
+#: Keep these integration-owned values separate from generic display names,
+#: which may change independently and are not URL identifiers.
+ENZYME_NETWORK_SLUGS: dict[int, str] = {
+    1: "ethereum",
+    137: "polygon",
+    8453: "base",
+    42161: "arbitrum",
+}
 
 
 @dataclass(slots=True, frozen=True)
@@ -55,7 +63,10 @@ def create_enzyme_vault_link(chain_id: int, shares_address: HexAddress | str) ->
     :return: Direct Enzyme vault-detail URL.
     """
 
-    network = get_chain_name(chain_id).lower()
+    try:
+        network = ENZYME_NETWORK_SLUGS[chain_id]
+    except KeyError as error:
+        raise ValueError(f"Unsupported Enzyme chain: {chain_id}") from error
     address = Web3.to_checksum_address(shares_address)
     return f"https://app.enzyme.finance/vault/{address}?network={network}"
 

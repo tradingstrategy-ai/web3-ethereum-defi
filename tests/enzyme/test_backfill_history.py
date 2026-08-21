@@ -2,6 +2,8 @@
 
 import datetime
 import importlib.util
+from collections.abc import Iterator
+from contextlib import contextmanager
 from pathlib import Path
 from types import ModuleType, SimpleNamespace
 
@@ -15,6 +17,7 @@ SCRIPT_PATH = Path(__file__).resolve().parents[2] / "scripts" / "enzyme" / "back
 TEST_MAX_WORKERS = 4
 BASE_ENZYME_FACTORY_COUNT = 2
 EXPECTED_LINK_UPDATES = 2
+METADATA_END_BLOCK = 50_000_000
 
 
 def load_backfill_module() -> ModuleType:
@@ -106,6 +109,37 @@ def test_enzyme_backfill_checkpoint_roundtrips_both_protocol_candidates(tmp_path
     assert candidates == [onyx, blue]
 
 
+def test_enzyme_backfill_holds_shared_pipeline_lock(monkeypatch, tmp_path: Path) -> None:
+    """Protect the whole metadata pickle from concurrent scanner replacement."""
+
+    module = load_backfill_module()
+    vault_db_path = tmp_path / "vault-metadata-db.pickle"
+    lock_calls = []
+    migration_calls = []
+    monkeypatch.setenv("VAULT_DB_PATH", str(vault_db_path))
+    monkeypatch.setenv("PIPELINE_LOCK_TIMEOUT", "12")
+    monkeypatch.setattr(module, "_run_migration", lambda: migration_calls.append(True))
+
+    @contextmanager
+    def fake_wait_other_writers(path: Path, timeout: float) -> Iterator[None]:
+        """Capture the lock target around the mocked migration.
+
+        :param path: Requested shared lock path.
+        :param timeout: Requested acquisition timeout.
+        :yield: Control to the protected migration body.
+        """
+
+        lock_calls.append((path, timeout))
+        yield
+
+    monkeypatch.setattr(module, "wait_other_writers", fake_wait_other_writers)
+
+    module.main()
+
+    assert lock_calls == [(tmp_path / "scan-pipeline", 12.0)]
+    assert migration_calls == [True]
+
+
 def test_enzyme_backfill_repairs_unknown_blue_permission_without_refetching_onyx(monkeypatch) -> None:
     """Refresh conclusive Blue permissions while retaining intentional Onyx unknowns."""
 
@@ -128,14 +162,24 @@ def test_enzyme_backfill_repairs_unknown_blue_permission_without_refetching_onyx
         rows={
             VaultSpec(blue.chain, blue.address): {
                 "Name": "Blue",
+                "Symbol": "BLUE",
                 "Link": f"https://app.enzyme.finance/vault/{blue.address}?network=base",
+                "NAV": 0,
+                "Shares": 0,
+                "_denomination_token": {"symbol": "USDC"},
+                "_fees": SimpleNamespace(fee_mode="internalised"),
                 "_deposit_permission": "unknown",
                 "_short_description": "Blue summary",
                 "_description": "Blue description",
             },
             VaultSpec(onyx.chain, onyx.address): {
                 "Name": "Onyx",
+                "Symbol": "ONYX",
                 "Link": f"https://app.enzyme.finance/vault/{onyx.address}?network=base",
+                "NAV": 0,
+                "Shares": 0,
+                "_denomination_token": {"symbol": "USDC"},
+                "_fees": SimpleNamespace(fee_mode="internalised"),
                 "_deposit_permission": "unknown",
                 "_short_description": "Onyx summary",
                 "_description": "Onyx description",
@@ -143,11 +187,11 @@ def test_enzyme_backfill_repairs_unknown_blue_permission_without_refetching_onyx
         }
     )
 
-    assert module.should_refresh_metadata(database, blue) is True
-    assert module.should_refresh_metadata(database, onyx) is False
+    assert module.should_refresh_metadata(database, blue, METADATA_END_BLOCK) is True
+    assert module.should_refresh_metadata(database, onyx, METADATA_END_BLOCK) is False
 
     database.rows[VaultSpec(blue.chain, blue.address)]["_deposit_permission"] = "permissionless"
-    assert module.should_refresh_metadata(database, blue) is False
+    assert module.should_refresh_metadata(database, blue, METADATA_END_BLOCK) is False
 
 
 def test_enzyme_backfill_repairs_missing_descriptions(monkeypatch) -> None:
@@ -161,17 +205,42 @@ def test_enzyme_backfill_repairs_missing_descriptions(monkeypatch) -> None:
         rows={
             spec: {
                 "Name": "Onyx",
+                "Symbol": "ONYX",
                 "Link": module.create_enzyme_vault_link(onyx.chain, onyx.address),
+                "NAV": 0,
+                "Shares": 0,
+                "_denomination_token": {"symbol": "USDC"},
+                "_fees": SimpleNamespace(fee_mode="internalised"),
                 "_deposit_permission": "unknown",
             }
         }
     )
 
-    assert module.should_refresh_metadata(database, onyx) is True
+    assert module.should_refresh_metadata(database, onyx, METADATA_END_BLOCK) is True
 
     database.rows[spec]["_short_description"] = "Onyx summary"
     database.rows[spec]["_description"] = "Onyx description"
-    assert module.should_refresh_metadata(database, onyx) is False
+    assert module.should_refresh_metadata(database, onyx, METADATA_END_BLOCK) is False
+
+
+def test_enzyme_backfill_does_not_repeat_failed_metadata_at_same_checkpoint(monkeypatch) -> None:
+    """Retry an inconclusive row only after a later run advances its fixed head."""
+
+    module = load_backfill_module()
+    monkeypatch.delenv("ENZYME_REFRESH_EXISTING_METADATA", raising=False)
+    onyx = create_candidate("0x000000000000000000000000000000000000bEEF", 35_306_010)
+    spec = VaultSpec(onyx.chain, onyx.address)
+    database = module.VaultDatabase(
+        rows={
+            spec: {
+                "Name": "<broken: ContractLogicError>",
+                "_enzyme_metadata_checked_block": METADATA_END_BLOCK,
+            }
+        }
+    )
+
+    assert module.should_refresh_metadata(database, onyx, METADATA_END_BLOCK) is False
+    assert module.should_refresh_metadata(database, onyx, METADATA_END_BLOCK + 1) is True
 
 
 def test_enzyme_backfill_repairs_generic_listing_links_without_metadata_reads() -> None:

@@ -39,3 +39,10 @@ def test_enzyme_vault_link_uses_address_and_network(chain_id: int, network: str)
     address = "0x000000000000000000000000000000000000bEEF"
 
     assert create_enzyme_vault_link(chain_id, address) == f"https://app.enzyme.finance/vault/0x000000000000000000000000000000000000bEEF?network={network}"
+
+
+def test_enzyme_vault_link_rejects_unsupported_network() -> None:
+    """Fail explicitly instead of publishing a malformed unknown-chain URL."""
+
+    with pytest.raises(ValueError, match="Unsupported Enzyme chain"):
+        create_enzyme_vault_link(999_999, "0x000000000000000000000000000000000000bEEF")

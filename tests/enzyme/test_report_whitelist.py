@@ -3,6 +3,7 @@
 import importlib.util
 from pathlib import Path
 from types import ModuleType, SimpleNamespace
+from unittest.mock import Mock
 
 from eth_defi.erc_4626.core import ERC4626Feature
 from eth_defi.vault.base import VaultSpec
@@ -10,6 +11,8 @@ from eth_defi.vault.deposit_redeem import VaultDepositPermission
 from eth_defi.vault.vaultdb import VaultDatabase
 
 SCRIPT_PATH = Path(__file__).resolve().parents[2] / "scripts" / "enzyme" / "report-whitelist.py"
+EXPECTED_API_RETRIES = 5
+TOO_MANY_REQUESTS_STATUS = 429
 
 
 def load_report_module() -> ModuleType:
@@ -91,6 +94,17 @@ def test_enzyme_api_permission_uses_only_enabled_depositor_policies() -> None:
     assert policies == ()
 
 
+def test_enzyme_api_permission_accepts_omitted_empty_policy_list() -> None:
+    """Treat protobuf JSON's omitted empty repeated field as no active policy."""
+
+    module = load_report_module()
+
+    permission, policies = module.permission_from_enzyme_api_response({})
+
+    assert permission is VaultDepositPermission.permissionless
+    assert policies == ()
+
+
 def test_enzyme_api_permission_supports_current_and_pre_sulu_allowlists() -> None:
     """Map all official API account-admission policy variants consistently."""
 
@@ -107,6 +121,39 @@ def test_enzyme_api_permission_supports_current_and_pre_sulu_allowlists() -> Non
 
     assert permission is VaultDepositPermission.whitelisted
     assert policies == ("allowedDepositRecipientsPolicy", "buySharesCallerWhitelistPolicy", "depositorWhitelistPolicy")
+
+
+def test_enzyme_api_session_retries_throttled_post_requests() -> None:
+    """Use pooling and Retry-After aware retries for the full Blue audit."""
+
+    module = load_report_module()
+    session = module.create_enzyme_api_session(max_workers=4)
+    try:
+        retry = session.get_adapter(module.ENZYME_API_CONFIGURATION_URL).max_retries
+        assert retry.total == EXPECTED_API_RETRIES
+        assert retry.allowed_methods == frozenset({"POST"})
+        assert retry.respect_retry_after_header is True
+        assert TOO_MANY_REQUESTS_STATUS in retry.status_forcelist
+    finally:
+        session.close()
+
+
+def test_enzyme_api_permission_uses_checksum_address() -> None:
+    """Send the canonical EIP-55 vault identity expected by the API gateway."""
+
+    module = load_report_module()
+    response = Mock()
+    response.json.return_value = {"policyConfigurations": []}
+    session = Mock()
+    session.post.return_value = response
+
+    spec = VaultSpec(1, "0x000000000000000000000000000000000000beef")
+    record = module.EnzymePermissionRecord(spec, "Blue", "Checksum", VaultDepositPermission.permissionless, None)
+
+    result = module.fetch_enzyme_api_permission(session, record, "token", 30)
+
+    assert result.permission is VaultDepositPermission.permissionless
+    assert session.post.call_args.kwargs["json"]["address"] == "0x000000000000000000000000000000000000bEEF"
 
 
 def test_enzyme_api_comparison_reports_only_mismatch_or_failure() -> None:

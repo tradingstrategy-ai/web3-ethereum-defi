@@ -183,12 +183,28 @@ current Blue permission data to existing Enzyme rows. It reuses the targeted
 factory discovery and durable metadata batching while forcibly disabling
 historical price and cleaned-Parquet writes. Successfully migrated rows become
 their own resume markers, so an interrupted rerun skips them without a blanket
-metadata refresh or duplicate RPC calls.
+metadata refresh or duplicate RPC calls. The metadata-only checkpoint is
+separate from the historical-price checkpoint, and the command holds the
+shared scanner writer lock while the metadata pickle is loaded and replaced.
 
 .. code-block:: shell
 
     DRY_RUN=true poetry run python scripts/enzyme/migrate-current-metadata.py
     MAX_WORKERS=8 poetry run python scripts/enzyme/migrate-current-metadata.py
+
+For production maintenance, first inspect ``docker-compose.yml`` and stop the
+looped scanner. Run the migration through the one-shot service so it uses the
+mounted production state, then restart the looped service:
+
+.. code-block:: shell
+
+    source ~/vault-scanner/vault-rpc.env
+    cd ~/vault-scanner/web3-ethereum-defi
+    docker compose stop vault-scanner-looped
+    docker compose run --rm --entrypoint /bin/bash \
+        -e MAX_WORKERS=8 vault-scanner-oneshot \
+        -lc 'poetry run python scripts/enzyme/migrate-current-metadata.py'
+    docker compose start vault-scanner-looped
 
 Links
 -----

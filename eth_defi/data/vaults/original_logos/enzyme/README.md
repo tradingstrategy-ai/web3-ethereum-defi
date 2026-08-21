@@ -20,4 +20,7 @@ https://x.com/enzymefinance
 
 The formatted generic, light and dark logos use only the standalone brand
 mark. The archived horizontal wordmarks are retained as source material, but
-are not used for vault protocol listings.
+are not used for vault protocol listings. `formatted_logos/enzyme/light.png`
+is the white-background variant rendered from `enzyme.brandmark.dark.svg`;
+`formatted_logos/enzyme/dark.png` is the same official vector recoloured white
+for contrast on dark backgrounds.
