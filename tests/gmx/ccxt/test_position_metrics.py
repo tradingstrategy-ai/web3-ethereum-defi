@@ -13,15 +13,22 @@ Covers two crash-loop fixes that landed on ``fix/issue-67-no-key-resolver``:
   raises :pyexc:`ccxt.base.errors.InvalidOrder` for sub-$2 opens and
   is exempt for reduce-only closes.
 
-Unit-level only — no network, no fork, no GMX instance construction.
-The helper is a pure function; the ``_convert_ccxt_to_gmx_params``
-checks bind to instance method only for ``self.markets`` lookup, so the
-W2 cases mock the minimum surface (``self.markets``, ``load_markets``
-no-op) rather than spinning up an anvil fork.
+Unit-level for the liquidation-price helper (a pure function). The W2
+sync guard mocks the minimum surface (``self.markets``, ``load_markets``
+no-op) since ``_convert_ccxt_to_gmx_params`` needs a loaded market to look
+up ``market["base"]``. The W2 async guard uses a real, non-mocked
+``AsyncGMX`` connected to ``JSON_RPC_ARBITRUM`` instead: unlike the sync
+path, ``_convert_ccxt_to_gmx_params_async`` never touches ``self.markets``
+for these cases, so a real instance costs nothing extra over a mock, and
+a real instance cannot silently drift out of sync with the class's own
+constructor the way a mock can — see the async breakage this guarded
+against: a mock lacking ``self.execution_buffer`` masked a real change to
+``_convert_ccxt_to_gmx_params_async()`` until CI caught it.
 """
 
 from __future__ import annotations
 
+import os
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -265,18 +272,35 @@ class TestSyncMinCostGuard:
         assert result["size_delta_usd"] == 0.5
 
 
+@pytest.fixture
+def async_gmx_arbitrum():
+    """Real, non-mocked async :pyclass:`AsyncGMX` connected to Arbitrum mainnet.
+
+    ``_convert_ccxt_to_gmx_params_async()`` never touches ``self.markets`` --
+    it only reads ``params`` and ``self.execution_buffer`` (set by the real
+    ``__init__``) -- so a freshly constructed instance needs no
+    ``load_markets()`` call for these guard checks. Deliberately a real
+    instance, not a mock: a mock silently drifts out of sync with the real
+    class's constructor (e.g. missing a newly added instance attribute) in a
+    way a real instance structurally cannot.
+    """
+    rpc_url = os.environ.get("JSON_RPC_ARBITRUM")
+    if not rpc_url:
+        pytest.skip("JSON_RPC_ARBITRUM environment variable not set")
+
+    from eth_defi.gmx.ccxt.async_support.exchange import GMX as AsyncGMX
+
+    return AsyncGMX({"rpcUrl": rpc_url})
+
+
 class TestAsyncMinCostGuard:
     """Async ``_convert_ccxt_to_gmx_params_async`` must mirror the sync
     guard verbatim (sync/async lockstep)."""
 
     @pytest.mark.asyncio
-    async def test_open_below_min_raises_invalid_order(self):
-        from eth_defi.gmx.ccxt.async_support.exchange import GMX as AsyncGMX
-
-        gmx = MagicMock(spec=AsyncGMX)
-        gmx._convert_ccxt_to_gmx_params_async = AsyncGMX._convert_ccxt_to_gmx_params_async.__get__(gmx, AsyncGMX)
+    async def test_open_below_min_raises_invalid_order(self, async_gmx_arbitrum):
         with pytest.raises(InvalidOrder, match="below GMX minimum"):
-            await gmx._convert_ccxt_to_gmx_params_async(
+            await async_gmx_arbitrum._convert_ccxt_to_gmx_params_async(
                 symbol="BTC/USDC:USDC",
                 type="market",
                 side="buy",
@@ -286,12 +310,8 @@ class TestAsyncMinCostGuard:
             )
 
     @pytest.mark.asyncio
-    async def test_reduce_only_below_min_allowed(self):
-        from eth_defi.gmx.ccxt.async_support.exchange import GMX as AsyncGMX
-
-        gmx = MagicMock(spec=AsyncGMX)
-        gmx._convert_ccxt_to_gmx_params_async = AsyncGMX._convert_ccxt_to_gmx_params_async.__get__(gmx, AsyncGMX)
-        result = await gmx._convert_ccxt_to_gmx_params_async(
+    async def test_reduce_only_below_min_allowed(self, async_gmx_arbitrum):
+        result = await async_gmx_arbitrum._convert_ccxt_to_gmx_params_async(
             symbol="BTC/USDC:USDC",
             type="market",
             side="sell",
@@ -305,12 +325,8 @@ class TestAsyncMinCostGuard:
         assert result["size_delta_usd"] == 0.5
 
     @pytest.mark.asyncio
-    async def test_open_above_min_succeeds(self):
-        from eth_defi.gmx.ccxt.async_support.exchange import GMX as AsyncGMX
-
-        gmx = MagicMock(spec=AsyncGMX)
-        gmx._convert_ccxt_to_gmx_params_async = AsyncGMX._convert_ccxt_to_gmx_params_async.__get__(gmx, AsyncGMX)
-        result = await gmx._convert_ccxt_to_gmx_params_async(
+    async def test_open_above_min_succeeds(self, async_gmx_arbitrum):
+        result = await async_gmx_arbitrum._convert_ccxt_to_gmx_params_async(
             symbol="BTC/USDC:USDC",
             type="market",
             side="buy",
