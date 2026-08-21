@@ -3,7 +3,7 @@
 from eth_defi.vault.strategy_tag import StrategyTag, combine_strategy_tags
 
 #: ApeX native vaults trade perpetual futures by definition.
-DEFAULT_STRATEGY_TAGS: frozenset[StrategyTag] = frozenset({StrategyTag.perpetual_futures})
+DEFAULT_STRATEGY_TAGS: set[StrategyTag] = {StrategyTag.perpetual_futures}
 
 #: ApeX platform vault IDs may receive additional reviewed classifications.
 #: Keys are the synthetic identities exported by the ApeX pipeline.

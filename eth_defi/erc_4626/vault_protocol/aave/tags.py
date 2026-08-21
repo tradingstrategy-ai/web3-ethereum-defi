@@ -1,17 +1,15 @@
 """Strategy classifications for Aave vaults."""
 
-from eth_typing import HexAddress
-
 from eth_defi.vault.strategy_tag import StrategyTag, lookup_strategy_tags
 
 #: Aave vaults supply assets to Aave lending markets by definition.
-DEFAULT_STRATEGY_TAGS: frozenset[StrategyTag] = frozenset({StrategyTag.lending})
+DEFAULT_STRATEGY_TAGS: set[StrategyTag] = {StrategyTag.lending}
 
 #: Address-specific classifications maintained by the vault categorisation skill.
 STRATEGY_TAGS: dict[str, set[StrategyTag]] = {}
 
 
-def get_strategy_tags(address: HexAddress) -> set[StrategyTag]:
+def get_strategy_tags(address: str) -> set[StrategyTag]:
     """Return automatic Aave lending and any address-specific tags.
 
     :param address:
