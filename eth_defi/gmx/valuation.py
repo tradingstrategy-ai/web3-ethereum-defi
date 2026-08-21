@@ -85,13 +85,16 @@ class GMXEquity:
     positions: Decimal
 
     #: Portion of ``reserves`` summed at face value because the token
-    #: looks like a USD-pegged stablecoin.
-    stable_reserves: Decimal
+    #: looks like a USD-pegged stablecoin. Defaults to ``Decimal(0)`` for
+    #: backward-compatible direct construction (``fetch_gmx_total_equity()``
+    #: always sets this explicitly and correctly).
+    stable_reserves: Decimal = Decimal(0)
 
     #: Portion of ``reserves`` converted to USD via the GMX oracle mark
     #: price -- non-stablecoin reserve tokens, plus native ETH when
-    #: ``include_native_eth`` was set.
-    non_stable_reserves: Decimal
+    #: ``include_native_eth`` was set. Defaults to ``Decimal(0)`` for
+    #: backward-compatible direct construction.
+    non_stable_reserves: Decimal = Decimal(0)
 
     def get_total(self) -> Decimal:
         """Total equity = reserves + positions."""
@@ -102,7 +105,6 @@ def fetch_gmx_total_equity(
     web3: Web3,
     account: HexAddress | str,
     reserve_tokens: list[TokenDetails],
-    *,
     block_identifier: BlockIdentifier = "latest",
     chain: str = "arbitrum",
     include_native_eth: bool = True,

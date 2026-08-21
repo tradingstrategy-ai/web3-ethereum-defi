@@ -31,11 +31,14 @@ import os
 
 import pytest
 
+from eth_defi.gmx.constants import OrderType
+from eth_defi.gmx.order.pending_orders import fetch_pending_orders
 from eth_defi.provider.anvil import AnvilLaunch
 from eth_defi.token import fetch_erc20_details
 from tests.gmx.fork_helpers import execute_order_as_keeper, extract_order_key_from_receipt, fetch_on_chain_oracle_prices, setup_mock_oracle
 from tests.gmx.lagoon.test_gmx_lagoon_integration import (
     USDC_ARBITRUM,
+    WETH_ARBITRUM,
     LagoonGMXForkEnv,
     _create_lagoon_gmx_fork_env,
 )
@@ -322,3 +325,151 @@ def test_close_profitable_short_is_unaffected_by_pnl_swap_fix(lagoon_gmx_fork_en
     # unchanged from before the fix — no native ETH leak, profit in USDC.
     assert eth_delta_usd < _GAS_REFUND_CEILING_USD, f"Native ETH increased by ~${eth_delta_usd:.2f} on a short close — unexpected for a position whose PnL token already equals its collateral token"
     assert usdc_delta > collateral_usd + 0.5 * expected_profit_usd, f"USDC only increased by {usdc_delta:.2f}, expected collateral (~${collateral_usd:.2f}) plus most of the ~${expected_profit_usd:.2f} short profit"
+
+
+def test_take_profit_order_execution_pays_pnl_in_usdc(lagoon_gmx_fork_env: LagoonGMXForkEnv):
+    """A triggered take-profit order must pay PnL in USDC, not native ETH.
+
+    Every other test in this file drives a close through
+    ``GMXTrading.close_position()`` — the manual/standalone close path. GMX's
+    bundled take-profit order is built by a *separate* code path,
+    ``SLTPOrder._build_decrease_order_arguments()``
+    (``eth_defi/gmx/order/sltp_order.py``), which carries its own
+    ``decrease_position_swap_type``/``should_unwrap_native_token`` fields set
+    from the ``SLTPOrder`` instance rather than an ``OrderParams`` object.
+
+    Neither this file's other tests nor ``tests/gmx/test_sltp_order.py``'s
+    ``test_full_lifecycle_open_and_close_with_sl_tp`` ever let a bundled
+    take-profit order actually *trigger* — that test opens with a bundled
+    TP, then closes manually via ``close_position()``, leaving the TP order
+    dangling and unexecuted. That left the SL/TP-specific fix path completely
+    unexercised, even though the design plan
+    (``docs/claude-plans/2026-08-20-gmx-pnl-token-nav-leak.md``) explicitly
+    names take-profit as the highest-exposure case — it only ever fires in
+    profit, by construction.
+
+    This test opens a long with a bundled take-profit, executes the open,
+    finds the resulting pending take-profit (``LIMIT_DECREASE``) order via
+    the on-chain Reader, moves the mock oracle price past its trigger, and
+    executes *that specific order* via the keeper harness — the same call
+    GMX's real keeper infrastructure makes when a take-profit fires in
+    production.
+    """
+    env = lagoon_gmx_fork_env
+    web3 = env.web3
+    safe_address = env.vault.safe_address
+    usdc = fetch_erc20_details(web3, USDC_ARBITRUM)
+    weth = fetch_erc20_details(web3, WETH_ARBITRUM)
+
+    env.lagoon_wallet.sync_nonce(web3)
+
+    # === Step 1: open a long with a bundled 15% take-profit ===
+    take_profit_percent = 0.15
+    order_result = env.trading.open_position_with_sltp(
+        market_symbol="ETH",
+        collateral_symbol="USDC",
+        start_token_symbol="USDC",
+        is_long=True,
+        size_delta_usd=_SIZE_DELTA_USD,
+        leverage=_LEVERAGE,
+        take_profit_percent=take_profit_percent,
+        slippage_percent=0.005,
+        execution_buffer=30,
+    )
+    assert order_result.take_profit_trigger_price is not None, "Take-profit trigger should be set"
+
+    transaction = order_result.transaction.copy()
+    transaction.pop("nonce", None)
+    signed_tx = env.lagoon_wallet.sign_transaction_with_new_nonce(transaction)
+    tx_hash = web3.eth.send_raw_transaction(signed_tx.rawTransaction)
+    receipt = web3.eth.wait_for_transaction_receipt(tx_hash)
+    assert receipt["status"] == 1, "Bundled open+take-profit transaction should succeed"
+
+    # === Step 2: execute the main open order as keeper ===
+    open_order_key = extract_order_key_from_receipt(receipt)
+    exec_receipt, _keeper = execute_order_as_keeper(web3, open_order_key)
+    assert exec_receipt["status"] == 1, "Open order execution should succeed"
+
+    positions = env.positions.get_data(safe_address)
+    assert len(positions) == 1, f"Expected exactly 1 open position after open, got {len(positions)}"
+    _key, position = next(iter(positions.items()))
+    assert position["market_symbol"] == "ETH"
+    assert position["is_long"] is True
+    collateral_usd = position["initial_collateral_amount_usd"]
+
+    # === Step 3: locate the pending take-profit order on-chain ===
+    pending_tp_orders = list(
+        fetch_pending_orders(
+            web3,
+            "arbitrum",
+            safe_address,
+            order_type_filter=OrderType.LIMIT_DECREASE,
+        )
+    )
+    assert len(pending_tp_orders) == 1, f"Expected exactly 1 pending take-profit order, found {len(pending_tp_orders)}"
+    tp_order = pending_tp_orders[0]
+    logger.info("Found pending take-profit order: key=%s trigger=$%.2f", tp_order.order_key.hex(), tp_order.trigger_price_usd)
+
+    # === Step 4: move the mock oracle price past the take-profit trigger ===
+    current_eth_price, current_usdc_price = fetch_on_chain_oracle_prices(web3)
+    # Cross the trigger with margin, not just touch it.
+    new_eth_price = int(order_result.take_profit_trigger_price * 1.02)
+    setup_mock_oracle(web3, eth_price_usd=new_eth_price, usdc_price_usd=current_usdc_price)
+    expected_profit_usd = _SIZE_DELTA_USD * take_profit_percent
+    logger.info(
+        "Moved mock ETH price %d -> %d to cross TP trigger $%.2f (expected PnL ~$%.2f)",
+        current_eth_price,
+        new_eth_price,
+        order_result.take_profit_trigger_price,
+        expected_profit_usd,
+    )
+
+    # === Step 5: record balances immediately before the take-profit fires ===
+    safe_eth_before = web3.eth.get_balance(safe_address)
+    safe_usdc_before = usdc.contract.functions.balanceOf(safe_address).call()
+    safe_weth_before = weth.contract.functions.balanceOf(safe_address).call()
+
+    # === Step 6: execute the take-profit order as keeper — this is the
+    # actual code path under test, SLTPOrder._build_decrease_order_arguments() ===
+    tp_exec_receipt, _tp_keeper = execute_order_as_keeper(web3, tp_order.order_key)
+    assert tp_exec_receipt["status"] == 1, "Take-profit order execution should succeed"
+
+    # === Step 7: verify the position closed and PnL landed in USDC ===
+    positions_after = env.positions.get_data(safe_address)
+    assert len(positions_after) == 0, "Take-profit should have fully closed the position"
+
+    safe_eth_after = web3.eth.get_balance(safe_address)
+    safe_usdc_after = usdc.contract.functions.balanceOf(safe_address).call()
+    safe_weth_after = weth.contract.functions.balanceOf(safe_address).call()
+
+    eth_delta_wei = safe_eth_after - safe_eth_before
+    usdc_delta = (safe_usdc_after - safe_usdc_before) / 10**usdc.decimals
+    weth_delta = (safe_weth_after - safe_weth_before) / 10**weth.decimals
+    eth_delta_usd = (eth_delta_wei / 10**18) * new_eth_price
+
+    logger.info(
+        "Take-profit fire deltas: native ETH %+.6f ETH (~$%.2f), WETH %+.8f, USDC %+.2f (expected collateral+profit ~$%.2f)",
+        eth_delta_wei / 10**18,
+        eth_delta_usd,
+        weth_delta,
+        usdc_delta,
+        collateral_usd + expected_profit_usd,
+    )
+
+    # The fix-under-test: WETH (the market's long token, i.e. the PnL token
+    # for a long) must not accumulate in the Safe -- that is the actual leak
+    # this test exists to catch, per SLTPOrder._build_decrease_order_arguments().
+    #
+    # Native ETH is deliberately NOT asserted against a tight ceiling here,
+    # unlike the manual-close tests above. shouldUnwrapNativeToken only
+    # controls the collateral/PnL settlement token; it does not touch GMX's
+    # unused-execution-fee refund, which is always paid in native ETH
+    # regardless of that flag. The bundled take-profit order's execution fee
+    # was pre-funded *at open time* using the same execution_buffer=30 as the
+    # main order, and actual fork gas usage is negligible, so almost that
+    # entire escrow legitimately refunds as native ETH on execution -- a
+    # fixed-dollar ceiling calibrated for a plain close_position() call (a
+    # few dollars) does not hold for this pre-funded-at-open path and would
+    # make this assertion fight the fee mechanism instead of testing the fix.
+    assert weth_delta == pytest.approx(0, abs=1e-6), f"WETH increased by {weth_delta:.8f} when the take-profit fired — PnL is leaking out as the market's long token instead of being swapped to USDC"
+    assert usdc_delta > collateral_usd + 0.5 * expected_profit_usd, f"USDC only increased by {usdc_delta:.2f}, expected collateral (~${collateral_usd:.2f}) plus most of the ~${expected_profit_usd:.2f} take-profit"
