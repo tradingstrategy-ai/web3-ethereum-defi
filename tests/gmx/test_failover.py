@@ -11,7 +11,7 @@ from eth_defi.gmx.retry import (
     is_retryable_http_status,
     make_gmx_api_request,
 )
-from eth_defi.gmx.ticker_validation import validate_tickers_payload
+from eth_defi.gmx.ticker_validation import GMXInvalidPayloadError, validate_tickers_payload
 
 
 def _ticker(address: str = "0xaaa", max_price: str = "1000") -> dict:
@@ -200,6 +200,36 @@ def test_get_tickers_refuses_stale_snapshot_by_default(monkeypatch):
 
     def always_fail(*args, **kwargs):  # noqa: ARG001  # mock signature must accept endpoint/params
         raise GMXAPIUnavailable("arbitrum", "/prices/tickers", ("primary: 500",))  # noqa: EM101  # mock exception with fixed arguments
+
+    monkeypatch.setattr(api, "_make_request", always_fail)
+
+    with pytest.raises(GMXAPIUnavailable):
+        api.get_tickers(use_cache=False)
+
+
+def test_get_tickers_raises_when_retry_also_degraded(monkeypatch):
+    _TICKER_PRICES_CACHE.clear()
+    api = GMXAPI(chain="arbitrum")
+
+    def always_degraded(*args, **kwargs):  # noqa: ARG001
+        return []  # degraded 200 every time
+
+    monkeypatch.setattr(api, "_make_request", always_degraded)
+
+    with pytest.raises(GMXInvalidPayloadError):
+        api.get_tickers(use_cache=True)
+
+
+def test_get_tickers_refuses_stale_snapshot_past_max_age(monkeypatch):
+    _TICKER_PRICES_CACHE.clear()
+    api = GMXAPI(chain="arbitrum")
+    api.retry_config = GMXRetryConfig(allow_stale_prices=True, max_stale_seconds=1.0)
+
+    # Seed a snapshot older than max_stale_seconds.
+    _TICKER_PRICES_CACHE["arbitrum"] = (_healthy_tickers(), time.time() - 5.0)
+
+    def always_fail(*args, **kwargs):  # noqa: ARG001
+        raise GMXAPIUnavailable("arbitrum", "/prices/tickers", ("primary: 500",))  # noqa: EM101
 
     monkeypatch.setattr(api, "_make_request", always_fail)
 
