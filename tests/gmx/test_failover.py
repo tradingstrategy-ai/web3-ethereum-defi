@@ -3,8 +3,10 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 import requests
+from ccxt import ExchangeNotAvailable
 
 from eth_defi.gmx.api import _TICKER_PRICES_CACHE, GMXAPI  # noqa: PLC2701  # cache inspection required by the failover tests
+from eth_defi.gmx.ccxt.exchange import GMX
 from eth_defi.gmx.retry import (
     GMXAPIUnavailable,
     GMXRetryConfig,
@@ -235,3 +237,29 @@ def test_get_tickers_refuses_stale_snapshot_past_max_age(monkeypatch):
 
     with pytest.raises(GMXAPIUnavailable):
         api.get_tickers(use_cache=False)
+
+
+def test_fetch_ticker_missing_ticker_raises_exchange_not_available():
+    gmx = object.__new__(GMX)
+
+    market = {"info": {"index_token": "0xAAA"}}
+
+    class _Stub:
+        def market(self, symbol):  # noqa: PLR6301, ARG002  # stub mimics ccxt API surface
+            return market
+
+        def load_markets(self, *a, **k):  # noqa: PLR6301, ARG002  # stub mimics ccxt API surface
+            return None
+
+        def api(self):  # noqa: PLR6301  # stub mimics ccxt API surface
+            return None
+
+    gmx.market = _Stub().market
+    gmx.load_markets = _Stub().load_markets
+
+    api = _Stub()
+    api.get_tickers = lambda: []  # no tickers at all -> missing
+    gmx.api = api
+
+    with pytest.raises(ExchangeNotAvailable):
+        gmx.fetch_ticker("BTC/USDC:USDC")

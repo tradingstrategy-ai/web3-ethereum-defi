@@ -34,6 +34,7 @@ from typing import Any
 from ccxt.base.errors import (
     BaseError,
     ExchangeError,
+    ExchangeNotAvailable,
     InvalidOrder,
     NotSupported,
     OrderNotFound,
@@ -96,6 +97,7 @@ from eth_defi.gmx.order.cancel_order import CancelOrder
 from eth_defi.gmx.order.pending_orders import PendingOrder, fetch_pending_orders
 from eth_defi.gmx.order.sltp_order import SLTPEntry, SLTPOrder, SLTPParams
 from eth_defi.gmx.order_tracking import check_order_status, is_order_pending
+from eth_defi.gmx.retry import GMXAPIUnavailable
 from eth_defi.gmx.trading import GMXTrading
 from eth_defi.gmx.ccxt._position_metrics import safe_liquidation_price
 from eth_defi.gmx.utils import convert_raw_price_to_usd
@@ -3854,7 +3856,10 @@ class GMX(ExchangeCompatible):
         index_token_address = market["info"]["index_token"]
 
         # Fetch ticker from GMX API
-        all_tickers = self.api.get_tickers()
+        try:
+            all_tickers = self.api.get_tickers()
+        except GMXAPIUnavailable as exc:
+            raise ExchangeNotAvailable(str(exc)) from exc
 
         # Find ticker for this token
         ticker = None
@@ -3864,7 +3869,7 @@ class GMX(ExchangeCompatible):
                 break
 
         if not ticker:
-            raise ValueError(f"No ticker data found for {symbol}")
+            raise ExchangeNotAvailable(f"No ticker data found for {symbol}")
 
         # Parse to CCXT format
         result = self.parse_ticker(ticker, market)
