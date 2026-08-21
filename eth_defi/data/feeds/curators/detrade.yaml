@@ -1,6 +1,7 @@
 feeder-id: detrade
 name: DeTrade
 role: curator
+lagoon-curator: DeTrade
 website: https://detrade.fund/
 curatorwatch: https://curatorwatch.com/curator/detrade
 short_description: DeTrade Fund offers actively managed DeFi vaults powered by real-time data and protocol integrations.

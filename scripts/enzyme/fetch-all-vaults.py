@@ -1,4 +1,4 @@
-""" "Fetch all Enzyme vaults, TVL, policies and such from on-chain data.
+"""Fetch all Enzyme vaults, TVL, policies and such from onchain data.
 
 Example how to run:
 

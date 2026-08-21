@@ -12,9 +12,8 @@ from pathlib import Path
 import pytest
 from eth_typing import HexAddress
 from pytest import FixtureRequest
-from web3 import EthereumTesterProvider, HTTPProvider, Web3
+from web3 import Web3
 from web3.contract import Contract
-
 
 from eth_defi.deploy import deploy_contract
 from eth_defi.provider.anvil import AnvilLaunch, launch_anvil
@@ -30,18 +29,20 @@ from eth_defi.usdc.deployment import deploy_fiat_token
 
 logger = logging.getLogger(__name__)
 
-#: Enzyme integration is no longer supported, so every test under this directory is skipped.
-ENZYME_SKIP_REASON = "Enzyme no longer supported"
+#: The legacy Blue V4 deployment suite is retained for reference. Focused
+#: Dispatcher discovery and direct VaultBase reader tests are active.
+ENZYME_SKIP_REASON = "Legacy Enzyme Blue V4 deployment suite is no longer maintained"
 
 _ENZYME_TEST_DIR = Path(__file__).parent
+_ACTIVE_ENZYME_TEST_FILES = {"test_backfill_history.py", "test_blue_vault.py", "test_enzyme_lifetime_metrics.py", "test_onyx_vault.py"}
 
 
 def pytest_collection_modifyitems(items: list[pytest.Item]) -> None:
-    """Skip all Enzyme tests.
+    """Skip retired Blue V4 deployment tests while retaining scanner coverage.
 
-    Enzyme is no longer supported, so we mark every test collected from this
-    directory as skipped rather than deleting the suite, keeping the code and
-    fixtures available for reference.
+    The existing suite targets Enzyme Blue V4, a different contract
+    architecture that this repository no longer maintains. The scanner now
+    supports both protocol families, so its focused unit tests must run.
 
     :param items:
         Collected test items for the whole session; only those living under the
@@ -49,7 +50,7 @@ def pytest_collection_modifyitems(items: list[pytest.Item]) -> None:
     """
     skip_marker = pytest.mark.skip(reason=ENZYME_SKIP_REASON)
     for item in items:
-        if _ENZYME_TEST_DIR in Path(item.fspath).parents:
+        if _ENZYME_TEST_DIR in Path(item.fspath).parents and Path(item.fspath).name not in _ACTIVE_ENZYME_TEST_FILES:
             item.add_marker(skip_marker)
 
 

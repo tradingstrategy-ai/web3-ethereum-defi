@@ -123,7 +123,7 @@ def _best_effort_vault_read(reader: Callable[[], OptionalVaultRead]) -> Optional
 
 
 def fetch_deposit_permission(vault: VaultBase) -> VaultDepositPermission:
-    """Read a vault-wide KYC requirement for a scan record.
+    """Read a vault-wide account-admission policy for a scan record.
 
     The report remains usable when a deployed adapter version lacks the
     protocol-specific view method or its node cannot answer a view call.  It
@@ -132,10 +132,10 @@ def fetch_deposit_permission(vault: VaultBase) -> VaultDepositPermission:
     propagate to the row-level scanner guard instead of becoming ``unknown``.
 
     :param vault:
-        Protocol adapter whose vault-wide KYC requirement is queried.
+        Protocol adapter whose vault-wide account-admission policy is queried.
 
     :return:
-        JSON-compatible enum representing a KYC requirement or an explicitly
+        JSON-compatible enum representing account admission or an explicitly
         unknown status.
     """
     try:
@@ -451,6 +451,7 @@ def create_vault_scan_record(
             "Perf fee": fees.performance,
             "Deposit fee": fees.deposit,
             "Withdraw fee": fees.withdraw,
+            "Protocol fee": fees.protocol,
             "Shares": total_supply,
             "First seen": detection.first_seen_at,
             "Features": ", ".join(sorted([f.name for f in detection.features])),

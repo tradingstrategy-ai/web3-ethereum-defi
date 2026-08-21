@@ -1,7 +1,7 @@
 Vault protocols
 ===============
 
-This section documents integrations with ERC-4626 compliant vault protocols.
+This section documents integrations with ERC-4626 and other tokenised EVM vault protocols.
 
 About ERC-4626
 --------------
@@ -14,7 +14,7 @@ making it easier to integrate with different vault implementations.
 Vault integrations
 ------------------
 
-This Python package provides integrations with various ERC-4626 vault protocols,
+This Python package provides integrations with various tokenised vault protocols,
 enabling you to:
 
 - **Discover vaults**: Find vaults and query their features across multiple chains
@@ -75,9 +75,10 @@ Deposit permission metadata
 
 Each vault metrics JSON record also contains the authoritative top-level
 ``deposit_permission`` field. Its value is normally ``whitelisted`` when the
-deployed adapter has source-proven KYC or manual identity-approval policy,
-``permissionless`` when no such approval is required, and ``unknown`` when the
-contract generation cannot be classified safely. For EVM vault adapters, it
+deployed adapter has source-proven KYC, manual identity-approval or
+recipient-allowlist policy, ``permissionless`` when no such account approval
+is required, and ``unknown`` when the contract generation cannot be classified
+safely. For EVM vault adapters, it
 does not describe an open date, lock-up, pause, capacity, epoch, allowance,
 token-holding requirement or liquidity state. Consumers must inspect
 ``whitelist.notes`` before treating a classification as source-proven.
@@ -167,6 +168,7 @@ Supported protocols
    dolomite/index
    domination/index
    ember/index
+   enzyme/index
    ethena/index
    euler/index
    eth_strategy/index
@@ -205,6 +207,7 @@ Supported protocols
    nashpoint/index
    nara/index
    nest/index
+   pallas/index
    plutus/index
    renalta/index
    resolv/index

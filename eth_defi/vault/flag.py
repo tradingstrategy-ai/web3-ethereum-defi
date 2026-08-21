@@ -100,7 +100,6 @@ class VaultFlag(str, enum.Enum):
 
     #: This is for vaults with especially long redemption periods.
     long_duration = "long_duration"
-
     #: Morpho Blue API reports one or more RED-level warnings on this vault or its underlying markets.
     #:
     #: RED warnings include unrealised bad debt (``bad_debt_unrealized``), oracle price deviation,
@@ -360,6 +359,8 @@ UNKNOWN_ABNORMAL_SHARE_PRICE = "Share price chart has abnormal high returns and 
 SUBVAULT = "This vault is likely not intended to be directly exposed to the end users. It may be used by other vaults as a part of the strategy mix and has erratic TVL."
 
 PEAPODS_ILLIQUID = "Peapods vault is illiquid"
+
+USDN_WRAPPER_ILLIQUID = "USDN Wrapper is illiquid"
 
 SUMMER_FI_ILLIQUID = "Summer.fi vault is illiquid"
 
@@ -623,6 +624,8 @@ VAULT_FLAGS_AND_NOTES: dict[str, tuple[VaultFlag | None, str]] = {
     "0xb8a14b03900828f863aedd9dd905363863bc31f4": (VaultFlag.illiquid, XUSD_MESSAGE),
     # Spectra ERC4626 Wrapper: MEV USDC
     "0x92fbb58342164546325602588599b05802c69bbe": (VaultFlag.illiquid, XUSD_MESSAGE),
+    # USDN Wrapper (Spectra on Ethereum)
+    "0x06a491e3efee37eb191d0434f54be6e42509f9d3": (VaultFlag.illiquid, USDN_WRAPPER_ILLIQUID),
     # Greenhouse USD ghUSDC
     # https://x.com/Main_St_Finance/status/1976972055951147194
     "0xf6bc16b79c469b94cdd25f3e2334dd4fee47a581": (VaultFlag.illiquid, MAINST_VAULT),
@@ -723,6 +726,8 @@ VAULT_FLAGS_AND_NOTES: dict[str, tuple[VaultFlag | None, str]] = {
     "0x85968bf0f1f110c707fef10a59f80118f349c058": (VaultFlag.subvault, SUBVAULT),
     # Curve Boosted crvUSD-sfrxUSD Lender
     "0xf91a9a1c782a1c11b627f6e576d92c7d72cdd4af": (VaultFlag.subvault, SUBVAULT),
+    # Curve Boosted crvUSD-sUSDe Lender
+    "0x6abbda8243f4bf130a97beae759a6e91522520b9": (VaultFlag.subvault, SUBVAULT),
     # dgnHYPE (D2 Finance on Arbitrum)
     "0x64167cd42859f64cff2aa4b63c3175ccef9659dd": (VaultFlag.subvault, SUBVAULT),
     # Convex crvUSD-sfrxUSD Lender

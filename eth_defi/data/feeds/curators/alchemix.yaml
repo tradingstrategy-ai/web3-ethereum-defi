@@ -1,0 +1,20 @@
+# Alchemix curator — feeds provided by stablecoins/alusd.yaml
+feeder-id: alchemix
+name: Alchemix
+role: curator
+lagoon-curator: Alchemix
+canonical-feeder-id: alusd
+short_description: Alchemix is a DeFi protocol for saving, borrowing and earning fixed-yield returns.
+long_description: |
+  Alchemix describes its protocol as combining saving, borrowing and fixed-yield returns in one application. Its Mix-Yield Tokens represent portfolios of yield strategies selected and rebalanced by the Alchemix DAO. Depositors can use ETH or USDC in those vaults while accessing interest-free borrowing against their deposits.
+
+# Evidence and background references.
+#
+# Lagoon's official curator API identifies Alchemix as the ``Alchemix``
+# curator. Lagoon's vault API has listed the Ethereum Alchemix Ecosystem ETH
+# vault at 0xa6e8d7871153d030c918a0ca5d33f90779967484 under this curator.
+other-links:
+  - title: Lagoon Finance curator API - Alchemix curator profile
+    url: https://app.lagoon.finance/api/curators
+  - title: Alchemix documentation - protocol overview and DAO-selected vault strategies
+    url: https://docs.alchemix.fi/

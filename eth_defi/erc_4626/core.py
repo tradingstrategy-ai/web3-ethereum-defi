@@ -8,7 +8,6 @@
 import dataclasses
 import datetime
 import enum
-from typing import Type
 
 from eth_typing import HexAddress
 from web3 import Web3
@@ -153,8 +152,9 @@ class ERC4626Feature(enum.Enum):
         """Map retired feature values retained in persisted vault databases.
 
         Vault discovery state is pickled, and enum unpickling resolves members
-        by their value. ``maseer_one_like`` was renamed to ``wstgbp_like``;
-        retain this value-level migration so existing scan databases remain
+        by their value. ``maseer_one_like`` was renamed to ``wstgbp_like`` and
+        the old ambiguous ``enzyme_like`` value now means ``enzyme_onyx_like``;
+        retain these value-level migrations so existing scan databases remain
         readable without reclassification or data loss.
 
         :param value:
@@ -166,6 +166,8 @@ class ERC4626Feature(enum.Enum):
 
         if value == "maseer_one_like":
             return cls.wstgbp_like
+        if value == "enzyme_like":
+            return cls.enzyme_onyx_like
         return None
 
     #: Vault Street permissioned tokenised investment products.
@@ -842,6 +844,12 @@ class ERC4626Feature(enum.Enum):
     #: https://www.3jane.xyz/
     threejane_like = "threejane_like"
 
+    #: Pallas
+    #:
+    #: HyperEVM vaults with custom asynchronous request and claim methods.
+    #: https://app.pallas.fund/
+    pallas_like = "pallas_like"
+
     #: Aave (v3 and v4)
     #:
     #: Aave V3 ATokenVault wraps an interest-bearing Aave aToken into ERC-4626
@@ -859,6 +867,29 @@ class ERC4626Feature(enum.Enum):
     #: vault address is separate from the ERC-20 ShareManager.
     #: https://docs.mellow.finance/core-vaults
     mellow_like = "mellow_like"
+
+    #: Enzyme Onyx Shares vault.
+    #:
+    #: Routing marker for the non-ERC-4626 Enzyme Onyx vaults discovered from
+    #: the official SharesFactory ``ProxyDeployed`` factory event.
+    #: https://docs.enzyme.finance/onyx-protocol/contract-addresses
+    enzyme_onyx_like = "enzyme_onyx_like"
+
+    #: Backwards-compatible alias for :py:attr:`enzyme_onyx_like`.
+    #:
+    #: ``enzyme_like`` was introduced for Onyx before Enzyme Blue was named as
+    #: a separate feature. Persisted ``"enzyme_like"`` values are mapped to
+    #: :py:attr:`enzyme_onyx_like` in :meth:`_missing_`.
+    enzyme_like = "enzyme_onyx_like"
+
+    #: Enzyme Blue VaultProxy and paired ComptrollerProxy vault.
+    #:
+    #: Blue is the established two-contract Enzyme architecture, distinct from
+    #: Onyx Shares and its component system. Existing Blue helpers live under
+    #: :mod:`eth_defi.enzyme.vault`; this marker prevents a Blue vault from
+    #: being confused with a factory-discovered Onyx Shares vault.
+    #: https://docs.enzyme.finance/enzyme-blue-protocol/architecture/persistent
+    enzyme_blue_like = "enzyme_blue_like"
 
     #: Atoma
     #:
@@ -934,6 +965,7 @@ def is_activity_filter_exempt(detection: "ERC4262VaultDetection") -> bool:
         feature in detection.features
         for feature in (
             ERC4626Feature.mellow_like,
+            ERC4626Feature.enzyme_onyx_like,
             ERC4626Feature.upshift_multi_asset_like,
         )
     )
@@ -990,6 +1022,8 @@ def get_vault_protocol_name(features: set[ERC4626Feature]) -> str:
         return "<not ERC-4626>"
     elif ERC4626Feature.mellow_like in features:
         return "Mellow"
+    elif ERC4626Feature.enzyme_onyx_like in features or ERC4626Feature.enzyme_blue_like in features:
+        return "Enzyme"
     elif ERC4626Feature.atoma_like in features:
         return "Atoma"
     elif ERC4626Feature.symbiotic_like in features:
@@ -1136,6 +1170,9 @@ def get_vault_protocol_name(features: set[ERC4626Feature]) -> str:
 
     elif ERC4626Feature.threejane_like in features:
         return "3Jane"
+
+    elif ERC4626Feature.pallas_like in features:
+        return "Pallas"
 
     elif ERC4626Feature.aave_like in features:
         return "Aave"
@@ -1337,7 +1374,7 @@ def get_vault_protocol_name(features: set[ERC4626Feature]) -> str:
         return "<protocol not yet identified>"
 
 
-def get_erc_4626_contract(web3: Web3) -> Type[Contract]:
+def get_erc_4626_contract(web3: Web3) -> type[Contract]:
     """Get IERC4626 interface."""
     return get_contract(
         web3,

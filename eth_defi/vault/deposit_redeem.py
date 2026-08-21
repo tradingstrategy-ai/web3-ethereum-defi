@@ -29,13 +29,13 @@ VaultDepositFlow = Literal["synchronous", "asynchronous"]
 
 
 class VaultDepositPermission(str, enum.Enum):
-    """Whether deposits require KYC or comparable identity approval.
+    """Whether deposits require a pre-approved recipient account.
 
-    This class deliberately represents only a depositor's KYC or manual
-    identity-approval requirement. It does not describe a particular account's
-    balance, allowance, token-holding eligibility, pause state, capacity,
-    lock-up, open date, epoch window, or whether an asynchronous request is
-    currently claimable.
+    A pre-approval can be KYC, manual identity approval, or a source-proven
+    recipient allowlist. It does not describe a particular account's balance,
+    allowance, token-holding eligibility, pause state, capacity, lock-up, open
+    date, epoch window, or whether an asynchronous request is currently
+    claimable.
 
     Native perp DEX vaults have one documented compatibility exception because
     their APIs expose public deposit availability rather than identity policy.
@@ -46,11 +46,11 @@ class VaultDepositPermission(str, enum.Enum):
     The string values are persisted in vault metadata and public reports.
     """
 
-    #: Deposits require prior identity approval, or a documented native-perp
+    #: Deposits require prior account approval, or a documented native-perp
     #: compatibility mapping applies.
     whitelisted = "whitelisted"
 
-    #: Deposits need no prior KYC or manual identity approval.
+    #: Deposits need no prior account approval.
     #:
     #: An open date, lock-up, epoch, cap, pause or token-holding condition does
     #: not change this status.

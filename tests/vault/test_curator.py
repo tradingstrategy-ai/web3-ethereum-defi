@@ -4,6 +4,7 @@ from pathlib import Path
 
 from PIL import Image
 
+from eth_defi.erc_4626.vault_protocol.pallas.constants import HYPERLIQUID_CHAIN_ID, PALLAS_BASIS_TRADING_HIP_3_VAULT, PALLAS_DIRECTIONAL_VOLATILITY_VAULT
 from eth_defi.midas.registry import iter_midas_registry_products
 from eth_defi.tokenised_fund.asseto.constants import ASSETO_AOABT_HASHKEY, ASSETO_CURATORS
 from eth_defi.tokenised_fund.fdit.constants import FDIT_ETHEREUM
@@ -11,6 +12,25 @@ from eth_defi.tokenised_fund.kaio.constants import CASHX_ETHEREUM
 from eth_defi.tokenised_fund.libeara.constants import LIBEARA_PRODUCTS
 from eth_defi.tokenised_fund.sygnum.constants import FILQ_CURATOR_SLUG, SYGNUM_PRODUCTS_BY_CHAIN
 from eth_defi.vault.curator import build_curator_metadata_json, get_curator_available_logos, get_curator_name, identify_curator, is_protocol_curator, load_curator_map
+
+
+def test_identify_pallas_vaults_as_protocol_curated() -> None:
+    """Attribute Pallas protocol vaults to the Pallas curator.
+
+    Pallas operates its own strategy vaults, so curator attribution follows
+    the protocol slug instead of maintaining a second address registry.
+
+    :return:
+        ``None``. Assertions validate the reviewed curator attribution.
+    """
+
+    for address in (PALLAS_BASIS_TRADING_HIP_3_VAULT, PALLAS_DIRECTIONAL_VOLATILITY_VAULT):
+        assert identify_curator(HYPERLIQUID_CHAIN_ID, "PALLAS", "Pallas Vault Share", address, "pallas") == "pallas"
+
+    assert identify_curator(HYPERLIQUID_CHAIN_ID, "PALLAS", "Pallas Vault Share", "0x0000000000000000000000000000000000000000", "pallas") == "pallas"
+    assert is_protocol_curator("pallas")
+    assert get_curator_name("pallas") == "Pallas"
+
 
 DARK_UI_BACKGROUND_LUMINANCE = 0.0098
 BRANDMARK_VISIBLE_ALPHA_THRESHOLD = 15
@@ -626,6 +646,36 @@ def test_identify_lagoon_curator_by_curator_metadata() -> None:
     )
 
     assert slug == "722-capital"
+
+    expected_slugs = {
+        "9Summits": "9summits",
+        "DeTrade": "detrade",
+        "Gami": "gami",
+        "Noon": "noon",
+        "Syntropia": "syntropia",
+    }
+    for manager_name, expected_slug in expected_slugs.items():
+        slug = identify_curator(
+            chain_id=1,
+            vault_token_symbol="",
+            vault_name="Unbranded vault",
+            vault_address="0x0000000000000000000000000000000000000000",
+            protocol_slug="lagoon-finance",
+            manager_name=manager_name,
+        )
+        assert slug == expected_slug
+
+    # Lagoon returns co-curator display names as a comma-separated string.
+    # The export has one curator field, so preserve the API's first identity.
+    slug = identify_curator(
+        chain_id=1,
+        vault_token_symbol="",
+        vault_name="stETH Redemption Carry",
+        vault_address="0x2746f31096f23670caf4043f8b30d8d02405a257",
+        protocol_slug="lagoon-finance",
+        manager_name="Ellen Capital, \N{GREEK SMALL LETTER SIGMA}-Labs",
+    )
+    assert slug == "ellen-capital"
 
 
 def test_identify_t3tris_curator_by_curator_metadata() -> None:

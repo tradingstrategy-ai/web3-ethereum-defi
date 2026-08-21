@@ -1,0 +1,24 @@
+feeder-id: ammalgam
+name: Ammalgam
+role: curator
+lagoon-curator: Ammalgam
+website: https://ammalgam.xyz/
+short_description: Ammalgam is a decentralised lending exchange for lending, trading and leveraging assets without oracles.
+long_description: |
+  Ammalgam describes its protocol as a decentralised lending exchange (DLEX) that combines lending and trading. Its official homepage says users can lend, trade and leverage assets without oracles. Lagoon Finance lists Ammalgam as the curator of its Ethereum WETH and USDC vaults.
+twitter: ammalgam
+
+# Evidence and background references.
+#
+# Lagoon's vault API lists Ammalgam as the curator for the Ammalgam WETH Vault
+# and Ammalgam USDC Vault on Ethereum. The official homepage defines Ammalgam
+# as a decentralised lending exchange (DLEX).
+other-links:
+  - title: Ammalgam official homepage - decentralised lending exchange (DLEX)
+    url: https://ammalgam.xyz/
+  - title: Lagoon Finance curators API - Ammalgam registered curator profile
+    url: https://app.lagoon.finance/api/curators
+  - title: Lagoon Finance vault - Ammalgam WETH Vault on Ethereum
+    url: https://app.lagoon.finance/vault/1/0xbb211be8664128e30c6adcd5998eca9592be272f
+  - title: Lagoon Finance vault - Ammalgam USDC Vault on Ethereum
+    url: https://app.lagoon.finance/vault/1/0x8417430a31851ae0a36a854394227c5d86be8fc9

@@ -88,26 +88,156 @@ MUTLICALL_DEPLOYED_AT: Final[dict[int, tuple[BlockNumber, datetime.datetime]]] =
 }
 
 
+HISTORICAL_STATE_UNAVAILABLE_MESSAGE_CLUES: Final[frozenset[str]] = frozenset(
+    {
+        "missing trie node",
+        "metadata is not found",
+        "layer stale",
+    }
+)
+"""RPC error-message fragments indicating unavailable historical state.
+
+These are provider implementation and retention errors, not Solidity reverts
+from the target vault. A node may serve the requested chain head correctly but
+still be unable to execute an ``eth_call`` at the requested historical block.
+"""
+
+
+def is_historical_state_unavailable_error(error: str | Exception) -> bool:
+    """Identify an RPC response which cannot supply requested historical state.
+
+    Historical Multicall uses ``eth_call`` with a block identifier. The call
+    requires the RPC node to retain both the block and the associated state trie.
+    Many endpoints advertised as archive-capable retain this data incompletely,
+    route some historical requests to a pruned replica, or temporarily lose the
+    rollup metadata needed to reconstruct a historical call. Repeating the same
+    request against that endpoint normally cannot repair the problem; reducing
+    the Multicall batch size cannot repair it either.
+
+    The recognised messages describe the observed provider behaviours:
+
+    - Geth-compatible nodes return ``missing trie node ... state ... is not
+      available`` when the historical state trie was pruned.
+    - dRPC has returned ``metadata is not found, <block>`` when its Arbitrum
+      backend lacked rollup metadata for the requested state.
+    - Alchemy has returned ``layer stale`` when its Arbitrum historical layer
+      could not serve the requested block.
+
+    A concrete production case occurred during the Enzyme historical backfill
+    on 2026-08-20. At Arbitrum block ``368,237,833``, the configured
+    ``arb-mainnet.g.alchemy.com`` endpoint returned JSON-RPC ``-32000`` with
+    ``{"message": "layer stale"}``. Earlier attempts in the same run saw
+    Goldsky return ``missing trie node`` and dRPC return
+    ``metadata is not found``. All mean that the *RPC node*, rather than the
+    Enzyme vault, is missing historical data.
+
+    :py:class:`MultiprocessMulticallReader` automatically rotates the failed
+    block through every configured fallback endpoint once, including wrapping
+    from the final endpoint back to the first. Callers should catch
+    :py:class:`MulticallHistoricalDataUnavailable` only after that complete
+    round is exhausted, preserve their durable checkpoint, and obtain an
+    archive-complete provider instead of silently creating a gap in the time
+    series.
+
+    :param error:
+        Provider exception, multicall exception, or raw JSON-RPC error message.
+
+    :return:
+        ``True`` if the error means the selected node cannot provide the
+        requested historical state and another provider may recover the scan.
+    """
+
+    message = str(error).lower()
+    return any(clue in message for clue in HISTORICAL_STATE_UNAVAILABLE_MESSAGE_CLUES)
+
+
 class MulticallStateProblem(Exception):
-    """TODO"""
+    """Multicall returned structurally invalid data despite a successful RPC call.
+
+    This exception is raised when a Multicall response is empty where the caller
+    required a result. It differs from
+    :py:class:`MulticallHistoricalDataUnavailable`: the provider did answer the
+    historical request, but the returned response cannot be safely interpreted.
+    Inspect the attached debug data, contract call and block before retrying.
+    """
 
 
 class MulticallRetryable(Exception):
-    """Out of gas.
+    """Transient Multicall transport or payload failure.
 
-    - Broken contract in a gas loop
+    This exception is used for failures that can plausibly recover by retrying
+    the *same historical block* with a smaller batch size, a different fallback
+    endpoint, or after a short provider outage. Typical examples are HTTP
+    timeouts, connection failures, request-rate errors and out-of-gas Multicall
+    payloads caused by an expensive target contract.
 
-    Try to decrease batch size.
+    It deliberately does not represent missing historical state. For errors
+    such as ``missing trie node``, ``metadata is not found`` and ``layer stale``,
+    :py:class:`MulticallHistoricalDataUnavailable` is raised instead. Retrying
+    those errors with a smaller batch wastes RPC capacity because the selected
+    node lacks the data regardless of payload size.
+
+    Callers may retry this error locally. When using a multi-provider RPC
+    configuration, normal fallback rotation is also appropriate.
     """
 
-    def __init__(self, message: str, status_code: int = None, headers: dict | None = None):
+    def __init__(self, message: str, status_code: int | None = None, headers: dict | None = None):
         super().__init__(message)
         self.status_code = status_code
         self.headers = headers
 
 
 class MulticallNonRetryable(Exception):
-    """Need to take a manual look these errors."""
+    """Multicall failure which cannot be recovered by its generic retry loop.
+
+    This base class covers malformed requests, deterministic contract failures
+    and other errors for which reducing the Multicall batch size is not useful.
+    Most instances need application-specific investigation. Historical
+    node-retention failures are represented by the more specific
+    :py:class:`MulticallHistoricalDataUnavailable` subclass, so a historical
+    scanner can distinguish an unavailable archive endpoint from a bad vault
+    call and rotate to another provider.
+    """
+
+
+class MulticallHistoricalDataUnavailable(MulticallNonRetryable):
+    """The selected RPC node cannot execute a Multicall at a historical block.
+
+    A node can return this exception even when it serves the latest block and
+    ordinary contract calls correctly. It indicates that required historical
+    state has been pruned, is missing from the provider's rollup metadata store,
+    or is temporarily stale. The Multicall request itself remains valid.
+
+    The exception is intentionally a :py:class:`MulticallNonRetryable` for the
+    current provider: the internal Multicall retry loop must not repeatedly
+    halve the batch and reissue a request for state the endpoint cannot supply.
+    It is recoverable at the *caller* level. Catch this exception around a
+    checkpointed historical scan, rotate a different archive RPC URL to the
+    first position in the :py:class:`~eth_defi.provider.multi_provider.MultiProviderWeb3Factory`
+    configuration, and rerun the affected chain. Preserve existing historical
+    parquet rows until a replacement scan completes successfully.
+
+    The error classification includes Geth's ``missing trie node``, dRPC's
+    ``metadata is not found`` and Alchemy's ``layer stale`` messages. In the
+    Enzyme Arbitrum backfill on 2026-08-20, Alchemy returned ``layer stale``
+    (JSON-RPC ``-32000``) at block ``368,237,833``. This is a documented
+    example of an RPC archive-data gap, not a vault-level failure.
+
+    :param message:
+        Complete Multicall diagnostic message, including chain, block, active
+        provider and the original JSON-RPC response.
+
+    :param status_code:
+        HTTP status code when available.
+
+    :param headers:
+        Last provider response headers when available, retained for diagnosis.
+    """
+
+    def __init__(self, message: str, status_code: int | None = None, headers: dict | None = None):
+        super().__init__(message)
+        self.status_code = status_code
+        self.headers = headers
 
 
 def get_multicall_block_number(chain_id: int) -> int | None:
@@ -1211,6 +1341,8 @@ class MultiprocessMulticallReader:
 
                 # Check for upstream RPC being broken issues
                 parsed_error = parsed_error.lower()
+                if is_historical_state_unavailable_error(parsed_error):
+                    raise MulticallHistoricalDataUnavailable(error_msg, status_code=status_code, headers=headers) from e
                 wtf_error = any(clue in parsed_error for clue in WTF_RETRY_EXCEPTIONS_MESSAGE_CLUES)
 
                 if wtf_error or isinstance(e, ProbablyNodeHasNoBlock) or isinstance(e, (ReadTimeout, RemoteDisconnected, ConnectionError)) or (isinstance(e, HTTPError) and e.response.status_code >= 400):
@@ -1233,6 +1365,128 @@ class MultiprocessMulticallReader:
             calls_results += batch_results
 
         return calls_results
+
+    def retry_historical_state_with_provider_rotation(
+        self,
+        *,
+        block_identifier: BlockIdentifier,
+        batch_size: int,
+        encoded_calls: list[tuple[HexAddress, bytes]],
+        require_multicall_result: bool,
+        error: MulticallHistoricalDataUnavailable,
+    ) -> list[tuple[bool, bytes]]:
+        """Retry one failed historical block through every other configured RPC.
+
+        A :py:class:`MulticallHistoricalDataUnavailable` means that the current
+        endpoint cannot execute ``eth_call`` at ``block_identifier``. It is not
+        a payload-size or target-contract problem, so reducing the batch size or
+        retrying the same endpoint does not help. Instead, this method performs
+        exactly one deterministic provider-rotation round for this *one block*.
+
+        The endpoint that produced ``error`` has already been tried. Each other
+        member of the active :py:class:`FallbackProvider` is selected once in
+        cyclic order, retaining the original Multicall batch and call set. Thus,
+        with three endpoints where endpoint 3 failed, the retry order is
+        endpoint 1 followed by endpoint 2. A failure on endpoint 1 tries
+        endpoints 2 and 3. This avoids discarding an entire historical scan just
+        because a single provider has a state-retention gap at one block.
+
+        The Enzyme Arbitrum backfill exposed why this is needed: at block
+        ``421,460,233`` on 2026-08-20, the final configured Alchemy endpoint
+        returned JSON-RPC ``-32000`` / ``layer stale``. Before this recovery
+        path, a final-provider error stopped the full chain attempt without
+        revisiting the first two endpoints for that failed block. This method
+        ensures the caller gives those endpoints one opportunity to serve it.
+
+        A successful retry leaves its provider active for subsequent blocks.
+        If every endpoint returns missing historical data, the final specialised
+        exception is re-raised to the outer checkpointed scan. The caller should
+        preserve existing parquet data and obtain an archive-complete RPC
+        provider before retrying. Never convert unavailable historical state
+        into a zero-valued result.
+
+        :param block_identifier:
+            Historical block whose Multicall request failed.
+
+        :param batch_size:
+            Original Multicall batch size. It is deliberately not reduced for
+            archive-state errors.
+
+        :param encoded_calls:
+            Exact encoded calls which failed at this block.
+
+        :param require_multicall_result:
+            Whether to reject an empty Multicall result, passed through unchanged.
+
+        :param error:
+            Historical-data exception raised by the endpoint that has already
+            been tried.
+
+        :return:
+            Successful Multicall results from one of the other endpoints.
+
+        :raises MulticallHistoricalDataUnavailable:
+            If all configured endpoints fail this block with unavailable
+            historical state, or the reader has no alternate fallback endpoint.
+        """
+
+        provider = self.web3.provider
+        if not isinstance(provider, FallbackProvider) or len(provider.providers) < 2:
+            raise error
+
+        failed_provider_index = provider.currently_active_provider
+        last_error = error
+        attempted_provider_names = [get_provider_name(provider.get_active_provider())]
+
+        for rotation_offset in range(1, len(provider.providers)):
+            provider_index = (failed_provider_index + rotation_offset) % len(provider.providers)
+            try:
+                provider.switch_to_provider_index(
+                    provider_index,
+                    log_level=logging.WARNING,
+                    cause=f"Historical state unavailable at block {block_identifier}: {last_error}",
+                )
+            except ChainIdMismatch as switch_error:
+                logger.warning(
+                    "Could not rotate historical multicall at chain %d, block %s to provider %d: %s",
+                    self.web3.eth.chain_id,
+                    block_identifier,
+                    provider_index,
+                    switch_error,
+                )
+                continue
+
+            active_provider = provider.get_active_provider()
+            active_provider_name = get_provider_name(active_provider)
+            attempted_provider_names.append(active_provider_name)
+            multicall_contract = get_multicall_contract(self.web3, block_identifier=block_identifier)
+
+            try:
+                return self.call_multicall_with_batch_size(
+                    multicall_contract,
+                    block_identifier=block_identifier,
+                    batch_size=batch_size,
+                    encoded_calls=encoded_calls,
+                    require_multicall_result=require_multicall_result,
+                )
+            except MulticallHistoricalDataUnavailable as retry_error:
+                last_error = retry_error
+                logger.warning(
+                    "Historical multicall state unavailable at chain %d, block %s from provider %s; continuing provider rotation (%d/%d)",
+                    self.web3.eth.chain_id,
+                    block_identifier,
+                    active_provider_name,
+                    rotation_offset + 1,
+                    len(provider.providers),
+                )
+
+        logger.warning(
+            "Historical multicall provider rotation exhausted at chain %d, block %s; attempted providers: %s",
+            self.web3.eth.chain_id,
+            block_identifier,
+            attempted_provider_names,
+        )
+        raise last_error
 
     def process_calls(
         self,
@@ -1320,6 +1574,14 @@ class MultiprocessMulticallReader:
                 batch_size=batch_size,
                 encoded_calls=encoded_calls,
                 require_multicall_result=require_multicall_result,
+            )
+        except MulticallHistoricalDataUnavailable as error:
+            calls_results = self.retry_historical_state_with_provider_rotation(
+                block_identifier=block_identifier,
+                batch_size=batch_size,
+                encoded_calls=encoded_calls,
+                require_multicall_result=require_multicall_result,
+                error=error,
             )
         except MulticallRetryable as e:
             # Fall back to one call per time if someone is out of gas bombing us.

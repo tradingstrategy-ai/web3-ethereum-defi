@@ -30,6 +30,7 @@ from eth_defi.erc_4626.classification import ODA_FACT_HARDCODED_LEADS, probe_vau
 from eth_defi.erc_4626.core import ERC4262VaultDetection, ERC4626Feature, get_erc_4626_contract
 from eth_defi.erc_4626.vault_protocol.axis.constants import AXIS_HARDCODED_LEADS
 from eth_defi.erc_4626.vault_protocol.nara.constants import NARAUSD_PLUS_HARDCODED_LEADS
+from eth_defi.erc_4626.vault_protocol.pallas.constants import PALLAS_HARDCODED_LEADS
 from eth_defi.erc_4626.vault_protocol.t3tris.constants import T3TRIS_HARDCODED_LEADS
 from eth_defi.midas.constants import MIDAS_HARDCODED_LEADS
 from eth_defi.tokenised_fund.asseto.constants import ASSETO_HARDCODED_LEADS
@@ -80,10 +81,13 @@ DEFAULT_HARDCODED_VAULT_LEAD_SOURCES: HardcodedVaultLeadSources = (
     ("Shift", SHIFT_HARDCODED_LEADS),
     ("Nara", NARAUSD_PLUS_HARDCODED_LEADS),
     ("Axis", AXIS_HARDCODED_LEADS),
+    ("Pallas", PALLAS_HARDCODED_LEADS),
     ("T3tris", T3TRIS_HARDCODED_LEADS),
 )
 
 if TYPE_CHECKING:
+    from eth_defi.enzyme.blue_discovery import EnzymeBlueVaultFactoryCandidate
+    from eth_defi.enzyme.onyx_discovery import EnzymeVaultFactoryCandidate
     from eth_defi.mellow.discovery import MellowFactoryCandidate
 
 
@@ -119,10 +123,17 @@ class PotentialVaultMatch:
     #: the canonical Vault. Keep this metadata on the normal lead object so the
     #: discovery path can still use one lead map and one feature-probe loop.
     mellow_factory_candidate: "MellowFactoryCandidate | None" = None
+    #: Enzyme Onyx ``SharesFactory.ProxyDeployed`` metadata when a lead was
+    #: created by the protocol factory rather than a vault-local flow event.
+    enzyme_factory_candidate: "EnzymeVaultFactoryCandidate | None" = None
+    #: Enzyme Blue ``Dispatcher.VaultProxyDeployed`` metadata. Blue's
+    #: VaultProxy is not ERC-4626, so this direct protocol lead bypasses the
+    #: generic feature probe just like an Onyx Shares lead.
+    enzyme_blue_factory_candidate: "EnzymeBlueVaultFactoryCandidate | None" = None
 
     def is_candidate(self) -> bool:
         # Compatibility shim: older persisted lead objects may not have this slot; remove after reader state migration.
-        if getattr(self, "mellow_factory_candidate", None) is not None:
+        if getattr(self, "mellow_factory_candidate", None) is not None or getattr(self, "enzyme_factory_candidate", None) is not None or getattr(self, "enzyme_blue_factory_candidate", None) is not None:
             return True
 
         # Deposit-only event streams and protocol-specific configuration events
@@ -572,31 +583,37 @@ def _prepare_probe_leads(leads: dict[HexAddress, PotentialVaultMatch]) -> tuple[
     """Prepare lead data for the shared feature-probe pass.
 
     :param leads:
-        Vault leads keyed by emitting contract address or canonical Mellow
-        Vault address.
+        Vault leads keyed by emitting contract address or the canonical Mellow
+        or Enzyme vault address.
 
     :return:
-        Probe addresses, lower-case lead lookup and Mellow factory lead count.
+        Probe addresses, lower-case lead lookup and factory lead count.
     """
 
     addresses = []
     leads_by_address = {}
     seen_addresses = set()
-    mellow_lead_count = 0
+    factory_lead_count = 0
     for address, lead in leads.items():
         lowered_address = address.lower()
         leads_by_address[lowered_address] = lead
 
         # Compatibility shim: older persisted lead objects may not have this slot; remove after reader state migration.
-        if getattr(lead, "mellow_factory_candidate", None) is not None:
-            mellow_lead_count += 1
+        if getattr(lead, "mellow_factory_candidate", None) is not None or getattr(lead, "enzyme_factory_candidate", None) is not None or getattr(lead, "enzyme_blue_factory_candidate", None) is not None:
+            factory_lead_count += 1
+
+        # A reviewed Enzyme ``ProxyDeployed`` event is sufficient protocol
+        # identification. Its adapter does not depend on the broad ERC-4626
+        # probe surface, so skip dozens of unnecessary probe calls per vault.
+        if getattr(lead, "enzyme_factory_candidate", None) is not None or getattr(lead, "enzyme_blue_factory_candidate", None) is not None:
+            continue
 
         if lowered_address in BROKEN_VAULT_CONTRACTS or lowered_address in seen_addresses:
             continue
         addresses.append(address)
         seen_addresses.add(lowered_address)
 
-    return addresses, leads_by_address, mellow_lead_count
+    return addresses, leads_by_address, factory_lead_count
 
 
 def create_mellow_potential_vault_match(candidate: "MellowFactoryCandidate") -> PotentialVaultMatch:
@@ -648,6 +665,103 @@ def add_mellow_factory_candidate_lead(
     key = HexAddress(candidate.address.lower())
     if key not in leads:
         leads[key] = create_mellow_potential_vault_match(candidate)
+        report.new_leads += 1
+
+
+def create_enzyme_potential_vault_match(candidate: "EnzymeVaultFactoryCandidate") -> PotentialVaultMatch:
+    """Create a normal lead object from an Enzyme Onyx factory candidate."""
+
+    return PotentialVaultMatch(
+        chain=candidate.chain,
+        address=candidate.address,
+        first_seen_at_block=candidate.created_block,
+        first_seen_at=candidate.created_at,
+        # Shares handlers emit deposits/redemptions, while the Shares contract
+        # is the canonical vault identity. The feature exemption keeps valid
+        # factory leads eligible for historical valuation scanning.
+        deposit_count=0,
+        withdrawal_count=0,
+        enzyme_factory_candidate=candidate,
+    )
+
+
+def create_enzyme_factory_detection(candidate: "EnzymeVaultFactoryCandidate") -> ERC4262VaultDetection:
+    """Create a detection for an official Enzyme factory deployment.
+
+    The reviewed factory event establishes the canonical Shares address
+    and the adapter type, so it intentionally avoids generic ERC-4626 feature
+    probing.
+
+    :param candidate:
+        Decoded Enzyme ``SharesFactory.ProxyDeployed`` candidate.
+    :return:
+        Detection eligible for direct Enzyme metadata and price reads.
+    """
+
+    return ERC4262VaultDetection(
+        chain=candidate.chain,
+        address=candidate.address,
+        features={ERC4626Feature.enzyme_onyx_like},
+        first_seen_at_block=candidate.created_block,
+        first_seen_at=candidate.created_at,
+        updated_at=native_datetime_utc_now(),
+        deposit_count=0,
+        redeem_count=0,
+    )
+
+
+def add_enzyme_factory_candidate_lead(
+    report: LeadScanReport,
+    leads: dict[HexAddress, PotentialVaultMatch],
+    candidate: "EnzymeVaultFactoryCandidate",
+) -> None:
+    """Add a decoded Enzyme Onyx factory candidate to the shared lead map."""
+
+    key = HexAddress(candidate.address.lower())
+    if key not in leads:
+        leads[key] = create_enzyme_potential_vault_match(candidate)
+        report.new_leads += 1
+
+
+def create_enzyme_blue_potential_vault_match(candidate: "EnzymeBlueVaultFactoryCandidate") -> PotentialVaultMatch:
+    """Create a direct lead for a Blue Dispatcher deployment event."""
+
+    return PotentialVaultMatch(
+        chain=candidate.chain,
+        address=candidate.address,
+        first_seen_at_block=candidate.created_block,
+        first_seen_at=candidate.created_at,
+        deposit_count=0,
+        withdrawal_count=0,
+        enzyme_blue_factory_candidate=candidate,
+    )
+
+
+def create_enzyme_blue_factory_detection(candidate: "EnzymeBlueVaultFactoryCandidate") -> ERC4262VaultDetection:
+    """Create direct, non-ERC-4626 detection for a Blue VaultProxy."""
+
+    return ERC4262VaultDetection(
+        chain=candidate.chain,
+        address=candidate.address,
+        features={ERC4626Feature.enzyme_blue_like},
+        first_seen_at_block=candidate.created_block,
+        first_seen_at=candidate.created_at,
+        updated_at=native_datetime_utc_now(),
+        deposit_count=0,
+        redeem_count=0,
+    )
+
+
+def add_enzyme_blue_factory_candidate_lead(
+    report: LeadScanReport,
+    leads: dict[HexAddress, PotentialVaultMatch],
+    candidate: "EnzymeBlueVaultFactoryCandidate",
+) -> None:
+    """Add a decoded Blue Dispatcher lead if it is not persisted already."""
+
+    key = HexAddress(candidate.address.lower())
+    if key not in leads:
+        leads[key] = create_enzyme_blue_potential_vault_match(candidate)
         report.new_leads += 1
 
 
@@ -747,10 +861,23 @@ class VaultDiscoveryBase(abc.ABC):
                 report.new_leads += 1
                 logger.info("Added hardcoded Asseto vault lead %s", address)
 
-        addresses, leads_by_address, mellow_lead_count = _prepare_probe_leads(leads)
+        addresses, leads_by_address, factory_lead_count = _prepare_probe_leads(leads)
         report.items_scanned = len(addresses)
-        logger.info("Found %d vault leads, of which %d are Mellow factory leads", len(leads), mellow_lead_count)
+        logger.info("Found %d vault leads, of which %d are factory leads", len(leads), factory_lead_count)
         good_vaults = broken_vaults = 0
+
+        # Enzyme's reviewed factory event is a stronger signal than the
+        # generic ERC-4626 probes and also avoids repeatedly probing all
+        # existing Enzyme leads on future scanner cycles.
+        for lead in leads_by_address.values():
+            enzyme_candidate = getattr(lead, "enzyme_factory_candidate", None)
+            if enzyme_candidate is not None:
+                report.detections[enzyme_candidate.address] = create_enzyme_factory_detection(enzyme_candidate)
+                good_vaults += 1
+            enzyme_blue_candidate = getattr(lead, "enzyme_blue_factory_candidate", None)
+            if enzyme_blue_candidate is not None:
+                report.detections[enzyme_blue_candidate.address] = create_enzyme_blue_factory_detection(enzyme_blue_candidate)
+                good_vaults += 1
 
         if display_progress:
             progress_bar_desc = f"Identifying vaults, using {self.max_workers} workers"
@@ -821,7 +948,7 @@ class VaultDiscoveryBase(abc.ABC):
                 good_vaults += 1
 
         logger.info(
-            "Found %d good ERC-4626/Mellow vaults, %d broken vaults",
+            "Found %d good ERC-4626, Mellow, or Enzyme vaults, %d broken vaults",
             good_vaults,
             broken_vaults,
         )

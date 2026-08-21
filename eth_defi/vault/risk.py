@@ -62,7 +62,7 @@ class VaultTechnicalRisk(enum.Enum):
 VAULT_PROTOCOL_RISK_MATRIX = {
     "Euler": VaultTechnicalRisk.negligible,
     "Morpho": VaultTechnicalRisk.negligible,
-    "Enzyme": VaultTechnicalRisk.negligible,
+    "Enzyme": VaultTechnicalRisk.low,
     "Lagoon Finance": VaultTechnicalRisk.minimal,
     "T3tris": VaultTechnicalRisk.low,
     "IPOR Fusion": VaultTechnicalRisk.minimal,
@@ -116,6 +116,9 @@ VAULT_PROTOCOL_RISK_MATRIX = {
     "Ostium": VaultTechnicalRisk.high,
     "gTrade": VaultTechnicalRisk.high,
     "KiloEx": None,
+    # Pallas uses verified upgradeable trading-vault proxies. No technical risk
+    # level has been assigned yet.
+    "Pallas": None,
     # Kiln OmniVault contracts are audited and use verified beacon-proxy deployments.
     "Kiln": VaultTechnicalRisk.low,
     "Domination Finance": VaultTechnicalRisk.severe,

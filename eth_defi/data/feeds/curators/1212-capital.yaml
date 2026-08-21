@@ -1,0 +1,20 @@
+feeder-id: 1212-capital
+name: 1212 Capital
+role: curator
+lagoon-curator: 1212 Capital
+website: https://www.1212.capital/
+linkedin: 1212capital
+short_description: 1212 Capital provides digital asset investment strategies for asset managers, wealth managers, and private investors.
+long_description: |
+  1212 Capital describes its offering as institutional digital asset strategies with liquid, transparent, and risk-managed exposure to digital assets. Its strategies use open-ended structures and are executed fully onchain, with positions, yields, and protocol exposures available for investors to audit. Lagoon Finance lists 1212 Capital as curator of the Ethereum 1212.Stable and 1212.Alpha vaults.
+
+# Evidence and background references.
+#
+# Lagoon's vault pages identify 1212 Capital as the curator of both listed
+# Ethereum vaults. The official 1212 Capital homepage describes its digital
+# asset investment-strategy offering and onchain transparency approach.
+other-links:
+  - title: Lagoon Finance vault - 1212.Stable lists 1212 Capital as curator
+    url: https://app.lagoon.finance/vault/1/0xbb30c3b6046debcbe941281218d18dec8ecebeb5
+  - title: Lagoon Finance vault - 1212.Alpha lists 1212 Capital as curator
+    url: https://app.lagoon.finance/vault/1/0xc35ce0c1acfc448d18ddacbf641b09f2a18e1958

@@ -1,0 +1,24 @@
+feeder-id: odyssey-digital-am
+name: Odyssey Digital AM
+role: curator
+lagoon-curator: Odyssey Digital AM
+website: https://www.odysseydigitalam.com/
+linkedin: odysseydigitalam
+short_description: Odyssey Digital AM is a professional investment manager offering liquid, market-neutral yield strategies across digital and tokenised assets.
+long_description: |
+  Odyssey Digital AM provides yield strategies for digital and tokenised assets, combining institutional risk frameworks with real-time onchain transparency. Its homepage describes stablecoin, BTC, and ETH yield products and identifies Lagoon as the infrastructure it uses for vault operations. The homepage links those three products to Odyssey's Ethereum Lagoon vaults.
+
+# Evidence and background references.
+#
+# Odyssey's official website links its USDC, BTC, and ETH products directly
+# to its Lagoon vaults. Lagoon's curator API identifies Odyssey Digital AM as
+# a curator, using the same display name recorded above.
+other-links:
+  - title: Odyssey Digital AM homepage - institutional digital-asset yield strategies and Lagoon vault links
+    url: https://www.odysseydigitalam.com/
+  - title: Lagoon Finance vault - Moon Digital AM USDC on Ethereum
+    url: https://app.lagoon.finance/vault/1/0xa00f63e85b3d242568a9edecb48f5e2cf879b07b
+  - title: Lagoon Finance vault - Moon Digital AM BTC on Ethereum
+    url: https://app.lagoon.finance/vault/1/0x2f945864126c6ba1dcadcb97ad114c9ef94f1379
+  - title: Lagoon Finance vault - Moon Digital AM ETH on Ethereum
+    url: https://app.lagoon.finance/vault/1/0x08d7eef35f3e317001fe12c19a32f93307b008b4

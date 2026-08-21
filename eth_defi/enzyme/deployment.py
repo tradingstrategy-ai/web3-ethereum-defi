@@ -1,6 +1,6 @@
 """Enzyme protocol deployment.
 
-Functions to fetch live on-chain Enzyme deployment or deploy your own unit testing version.
+Functions to fetch live onchain Enzyme deployment or deploy your own unit testing version.
 
 Setting the Enzyme to debug mode:
 
@@ -241,7 +241,7 @@ class VaultPolicyConfiguration:
 class EnzymeDeployment:
     """Enzyme protocol deployment description.
 
-    - Describe on-chain Enzyme deployment
+    - Describe onchain Enzyme deployment
 
     - Provide property access and documentation of different parts of Enzyme protocol
 
@@ -616,7 +616,7 @@ class EnzymeDeployment:
     ) -> "EnzymeDeployment":
         """Fetch enzyme deployment and some of its contract.
 
-        Read existing Enzyme deployment from on-chain.
+        Read existing Enzyme deployment from onchain.
 
         .. note::
 

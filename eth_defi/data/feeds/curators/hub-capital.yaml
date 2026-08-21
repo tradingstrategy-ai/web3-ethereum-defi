@@ -1,0 +1,18 @@
+feeder-id: hub-capital
+name: Hub Capital
+role: curator
+lagoon-curator: Hub Capital
+short_description: Hub Capital is the asset manager for a USDC vault on Lagoon Finance.
+long_description: |
+  Lagoon Finance identifies Hub Capital as the asset manager of the Hub Capital USDC vault on Ethereum. The vault describes a strategy that uses blue-chip protocols, strategies, and tokens in pursuit of liquid USDC yield, without points or other illiquid rewards.
+
+# Evidence and background references.
+#
+# Lagoon's curator API identifies Hub Capital as a curator and publishes its
+# curator logo. Its Hub Capital USDC vault page identifies Hub Capital as the
+# asset manager and describes the vault strategy.
+other-links:
+  - title: Lagoon Finance curator API - Hub Capital curator record
+    url: https://app.lagoon.finance/api/curators
+  - title: Lagoon Finance vault - Hub Capital USDC vault lists Hub Capital as asset manager
+    url: https://app.lagoon.finance/vault/1/0xca790385506b790554571cbc9da73f0130cdcfd5

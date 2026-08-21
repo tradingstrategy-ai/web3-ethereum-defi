@@ -195,6 +195,7 @@ PROTOCOL_CURATED_SLUGS: set[str] = {
     "gains-network",
     "ostium",
     "ondo",
+    "pallas",
     "domination-finance",
     "yearn",
     "3jane",
@@ -245,6 +246,7 @@ PROTOCOL_CURATOR_NAMES: dict[str, str] = {
     "usyc": "Circle USYC",
     "spiko-curator": "Spiko",
     "theo-curator": "Theo",
+    "pallas": "Pallas",
     "wstgbp": "wstGBP",
 }
 
@@ -774,7 +776,7 @@ def _identify_curator_by_protocol_manager_name(protocol_slug: str, manager_name:
         return None
 
     manager_names = (manager_name,)
-    if protocol_slug == "upshift":
+    if protocol_slug in {"lagoon-finance", "upshift"}:
         manager_names = tuple(name.strip() for name in manager_name.split(",") if name.strip())
 
     for manager_name in manager_names:

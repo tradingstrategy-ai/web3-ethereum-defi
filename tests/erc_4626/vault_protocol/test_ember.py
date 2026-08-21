@@ -11,12 +11,14 @@ from eth_defi.erc_4626.classification import create_vault_instance_autodetect
 from eth_defi.erc_4626.core import ERC4626Feature
 from eth_defi.erc_4626.vault_protocol.ember.offchain_metadata import fetch_ember_vaults
 from eth_defi.erc_4626.vault_protocol.ember.vault import EmberVault
-from eth_defi.vault.base import VaultTechnicalRisk
-
 from eth_defi.testing.anvil_fork_pool import AnvilForkPool
 from eth_defi.testing.fork_blocks import ETHEREUM_MIDNIGHT_BLOCK
+from eth_defi.vault.base import VaultTechnicalRisk
 
 JSON_RPC_ETHEREUM = os.environ.get("JSON_RPC_ETHEREUM")
+MIN_DESCRIPTION_LENGTH = 10
+EXPECTED_LOCKUP_DAYS = 4
+MIN_EMBER_VAULTS = 5
 
 pytestmark = [
     pytest.mark.skipif(JSON_RPC_ETHEREUM is None, reason="JSON_RPC_ETHEREUM needed to run these tests"),
@@ -39,7 +41,6 @@ def web3(anvil_fork_pool: AnvilForkPool) -> Web3:
 @flaky.flaky
 def test_ember(
     web3: Web3,
-    tmp_path: Path,
 ):
     """Read Ember vault metadata with offchain data.
 
@@ -61,9 +62,11 @@ def test_ember(
 
     # Offchain metadata from Ember's Bluefin API
     assert vault.ember_metadata is not None
-    assert vault.ember_metadata["name"] == "Crosschain USD Vault"
+    # Ember controls the product name in its live API and may rename a vault.
+    assert isinstance(vault.ember_metadata["name"], str)
+    assert vault.ember_metadata["name"]
     assert vault.description is not None
-    assert len(vault.description) > 10
+    assert len(vault.description) > MIN_DESCRIPTION_LENGTH
     assert vault.short_description is not None
 
     # New metadata fields
@@ -85,7 +88,7 @@ def test_ember(
     assert "Third Eye" in vault.description
 
     # Withdrawal period from offchain API
-    assert vault.get_estimated_lock_up().days == 4
+    assert vault.get_estimated_lock_up().days == EXPECTED_LOCKUP_DAYS
 
     # Check link
     assert vault.get_link() == "https://ember.so/earn"
@@ -97,27 +100,29 @@ def test_ember_offchain_fetch(tmp_path: Path):
     vaults = fetch_ember_vaults(cache_path=tmp_path)
 
     # Should find Ethereum vaults
-    assert len(vaults) >= 5
+    assert len(vaults) >= MIN_EMBER_VAULTS
 
-    # Check the Crosschain USD Vault is present
-    crosschain_vault = vaults.get("0xf3190A3ECC109F88e7947b849b281918c798A0C4")
-    assert crosschain_vault is not None
-    assert crosschain_vault["name"] == "Crosschain USD Vault"
-    assert crosschain_vault["description"] is not None
-    assert crosschain_vault["management_fee"] is not None
-    assert crosschain_vault["weekly_performance_fee"] is not None
-    assert crosschain_vault["withdrawal_period_days"] is not None
-    assert crosschain_vault["reported_apy"] is not None
+    # Check the known Ethereum vault is present.
+    vault_record = vaults.get("0xf3190A3ECC109F88e7947b849b281918c798A0C4")
+    assert vault_record is not None
+    # Ember controls the product name in its live API and may rename a vault.
+    assert isinstance(vault_record["name"], str)
+    assert vault_record["name"]
+    assert vault_record["description"] is not None
+    assert vault_record["management_fee"] is not None
+    assert vault_record["weekly_performance_fee"] is not None
+    assert vault_record["withdrawal_period_days"] is not None
+    assert vault_record["reported_apy"] is not None
 
     # New fields
-    assert crosschain_vault["long_name"] is not None
-    assert crosschain_vault["status"] is not None
-    assert isinstance(crosschain_vault["tags"], list)
-    assert crosschain_vault["total_depositors_count"] is not None
-    assert crosschain_vault["total_depositors_count"] >= 0
-    assert crosschain_vault["created_at"] is not None
-    assert isinstance(crosschain_vault["rewards"], list)
-    assert isinstance(crosschain_vault["supported_coins"], list)
+    assert vault_record["long_name"] is not None
+    assert vault_record["status"] is not None
+    assert isinstance(vault_record["tags"], list)
+    assert vault_record["total_depositors_count"] is not None
+    assert vault_record["total_depositors_count"] >= 0
+    assert vault_record["created_at"] is not None
+    assert isinstance(vault_record["rewards"], list)
+    assert isinstance(vault_record["supported_coins"], list)
 
     # Verify cache file was written
     cache_file = tmp_path / "ember_vaults.json"

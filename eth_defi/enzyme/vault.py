@@ -1,6 +1,12 @@
-"""High level interface to read Enzyme vaults.
+"""High level interface to read Enzyme Blue vaults.
 
 See :py:class:`Vault`.
+
+This module handles the established Enzyme Blue architecture, in which a fund
+consists of a ``VaultProxy`` ERC-20 shares contract and a paired
+``ComptrollerProxy``. It is distinct from Enzyme Onyx's standalone ``Shares``
+contract and component system, which are implemented in
+:mod:`eth_defi.enzyme.onyx_vault`.
 """
 
 from decimal import Decimal
@@ -30,9 +36,9 @@ logger = logging.getLogger(__name__)
 # @dataclass(slots=True)
 @dataclass()
 class Vault:
-    """Enzyme vault wrapper.
+    """Enzyme Blue vault wrapper.
 
-    - Vaults are Enzyme Protocol "funds" where you have investors and assets
+    - Vaults are Enzyme Blue "funds" where you have investors and assets
 
     - Investors have ownership of vault assets with a share token
 
@@ -180,7 +186,7 @@ class Vault:
     def denomination_token(self) -> TokenDetails:
         """Get the denominator token for withdrawal/deposit.
 
-        - Read the token on-chain details.
+        - Read the token onchain details.
 
         - Cache the results for the future calls
 
@@ -194,7 +200,7 @@ class Vault:
     def shares_token(self) -> TokenDetails:
         """Get the shares token for withdrawal/deposit.
 
-        - Read the token on-chain details.
+        - Read the token onchain details.
 
         - Cache the results for the future calls
 
