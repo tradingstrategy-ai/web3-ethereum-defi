@@ -49,7 +49,4 @@ def validate_tickers_payload(
         return False
 
     sample = payload[:5]
-    return all(
-        isinstance(t, dict) and "tokenAddress" in t and "maxPrice" in t
-        for t in sample
-    )
+    return all(isinstance(t, dict) and "tokenAddress" in t and "maxPrice" in t for t in sample)

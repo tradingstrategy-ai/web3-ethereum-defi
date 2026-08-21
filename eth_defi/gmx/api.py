@@ -418,9 +418,7 @@ class GMXAPI:
                 )
                 response = self._make_request("/prices/tickers", validate=validate)
                 if not validate(response):
-                    raise GMXInvalidPayloadError(
-                        f"Ticker payload for {self.chain} failed validation"
-                    )
+                    raise GMXInvalidPayloadError(f"Ticker payload for {self.chain} failed validation")
         except GMXAPIUnavailable:
             if cfg.allow_stale_prices and self.chain in _TICKER_PRICES_CACHE:
                 snapshot, snap_time = _TICKER_PRICES_CACHE[self.chain]

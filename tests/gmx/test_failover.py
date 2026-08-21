@@ -286,9 +286,7 @@ class _FakeClientResponse:
 
     def raise_for_status(self):
         if self.status_code >= 400:  # noqa: PLR2004  # HTTP error threshold literal
-            raise aiohttp.ClientResponseError(
-                self.request_info, self.history, status=self.status_code, message=self.reason
-            )
+            raise aiohttp.ClientResponseError(self.request_info, self.history, status=self.status_code, message=self.reason)
 
     async def __aenter__(self):
         return self
@@ -316,10 +314,12 @@ class _FakeSession:
 
 @pytest.mark.asyncio
 async def test_async_fails_over_on_404_without_retry():
-    session = _FakeSession([
-        _FakeClientResponse(404, []),
-        _FakeClientResponse(200, {"ok": True}),
-    ])
+    session = _FakeSession(
+        [
+            _FakeClientResponse(404, []),
+            _FakeClientResponse(200, {"ok": True}),
+        ]
+    )
     result = await async_make_gmx_api_request(
         chain="arbitrum",
         endpoint="/prices/tickers",
@@ -334,10 +334,12 @@ async def test_async_fails_over_on_404_without_retry():
 @pytest.mark.asyncio
 async def test_async_validate_rejects_degraded_payload():
     healthy = [{"tokenAddress": "0x1", "maxPrice": "100"} for _ in range(120)]
-    session = _FakeSession([
-        _FakeClientResponse(200, []),
-        _FakeClientResponse(200, healthy),
-    ])
+    session = _FakeSession(
+        [
+            _FakeClientResponse(200, []),
+            _FakeClientResponse(200, healthy),
+        ]
+    )
     result = await async_make_gmx_api_request(
         chain="arbitrum",
         endpoint="/prices/tickers",

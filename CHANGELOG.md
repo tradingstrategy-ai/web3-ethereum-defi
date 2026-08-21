@@ -1,5 +1,6 @@
 # 1.2
 
+- feat: Fix GMX API failover so a transient upstream 5xx on one price endpoint no longer kills live trading bots. The sync and async ticker transports now fail over immediately on non-retryable 4xx, treat a degraded 200 (empty, truncated or wrong-schema ticker payload) as an endpoint failure instead of caching it, and raise `ccxt.ExchangeNotAvailable` instead of a fatal `ValueError`/`ExchangeError` when a ticker is missing or every endpoint is down. Adds a default-off stale-price fallback and a per-endpoint `GMXAPIUnavailable` attempt summary for diagnostics (2026-08-21)
 - feat: Add Pallas HyperEVM vault recognition, onchain fee reads and curator attribution for the Basis Trading HIP-3 and Directional Volatility vaults (2026-08-20)
 - feat: Replace the unsupported Arcus attribution for two Robinhood Chain pTokens with an address-scoped unknown-issuer pToken protocol and metadata repair (2026-08-20)
 - feat: Add Enzyme Blue and Onyx vault discovery, direct accounting adapters, current fee reads and resumable historical price migration (2026-08-20)

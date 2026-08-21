@@ -93,9 +93,7 @@ async def async_make_gmx_api_request(  # noqa: PLR0917  # failover driver mirror
 
                         payload = await response.json()
                         if validate is not None and not validate(payload):
-                            last_error = GMXInvalidPayloadError(
-                                f"{url_type} returned invalid payload for {endpoint}"
-                            )
+                            last_error = GMXInvalidPayloadError(f"{url_type} returned invalid payload for {endpoint}")
                             logger.warning(
                                 "GMX %s API invalid payload for %s. Failing over.",
                                 url_type,
