@@ -1,5 +1,6 @@
 # 1.2
 
+- fix: Stop GMX profitable-long closes from leaking PnL as unaccounted native ETH into the Safe, and price GMX positions and non-stablecoin Safe reserves correctly in vault NAV (2026-08-20)
 - feat: Classify explicitly documented grid-trading vaults across Hyperliquid, GRVT and Lighter (2026-08-18)
 - feat: Add vault investment strategy tag classifications across ERC-4626 adapters, tokenised funds and native perpetual DEX exports (2026-08-18)
 - fix: Add a targeted Arcus pToken metadata migration so pre-existing Robinhood Chain vault rows export with Arcus protocol and curator data (2026-08-17)
