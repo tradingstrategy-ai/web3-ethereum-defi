@@ -11,16 +11,20 @@ For every factory-confirmed Enzyme Blue and Onyx vault, the migration provides:
 
 - complete short and long descriptions;
 - a direct address-specific Enzyme application link;
-- mandatory current name, symbol and denomination, plus best-effort TVL,
-  share supply and fee metadata where deprecated contracts still execute;
-- current Blue deposit permission and its qualification;
-- the intentional ``unknown`` Onyx permission until handler indexing exists.
+- mandatory current name, symbol and denomination, plus best-effort total
+  value in the vault's accounting unit, share supply and fee metadata where
+  deprecated contracts still execute;
+- current Blue PolicyManager deposit permission and its qualification;
+- current Onyx deposit permission reconstructed from active handler events and
+  resolved with a single batched Multicall handler read.
 
 Already migrated rows are skipped. Database writes occur after each metadata
 batch, and a metadata-specific checkpoint retains each chain's fixed factory
-candidates, so rerunning the command after an interruption resumes without
-another chain scan or discarding completed rows. Direct link repairs are
-deterministic local updates and do not add token, fee or policy RPC calls.
+candidates and Onyx handler set. Factory and Onyx handler events are collected
+in one Hypersync stream per chain, so rerunning the command after an
+interruption resumes without another chain scan or discarding completed rows.
+Direct link repairs are deterministic local updates and do not add token, fee
+or policy RPC calls.
 
 The delegated engine holds the shared scanner writer lock from the initial
 metadata-pickle read through the final write. If the looped scanner is active,

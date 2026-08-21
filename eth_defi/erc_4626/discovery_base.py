@@ -26,6 +26,7 @@ from web3.contract.contract import ContractEvent
 
 from eth_defi.abi import get_contract
 from eth_defi.compat import native_datetime_utc_now
+from eth_defi.enzyme.onyx_permission import fetch_onyx_current_deposit_permissions
 from eth_defi.erc_4626.classification import ODA_FACT_HARDCODED_LEADS, probe_vaults
 from eth_defi.erc_4626.core import ERC4262VaultDetection, ERC4626Feature, get_erc_4626_contract
 from eth_defi.erc_4626.vault_protocol.axis.constants import AXIS_HARDCODED_LEADS
@@ -126,6 +127,11 @@ class PotentialVaultMatch:
     #: Enzyme Onyx ``SharesFactory.ProxyDeployed`` metadata when a lead was
     #: created by the protocol factory rather than a vault-local flow event.
     enzyme_factory_candidate: "EnzymeVaultFactoryCandidate | None" = None
+    #: Active Onyx deposit handlers reconstructed from Shares events. ``None``
+    #: means an older incremental lead has no complete event history; an empty
+    #: tuple conclusively means that deposits currently have no authorised
+    #: handler.
+    enzyme_active_deposit_handlers: tuple[HexAddress, ...] | None = None
     #: Enzyme Blue ``Dispatcher.VaultProxyDeployed`` metadata. Blue's
     #: VaultProxy is not ERC-4626, so this direct protocol lead bypasses the
     #: generic feature probe just like an Onyx Shares lead.
@@ -682,10 +688,11 @@ def create_enzyme_potential_vault_match(candidate: "EnzymeVaultFactoryCandidate"
         deposit_count=0,
         withdrawal_count=0,
         enzyme_factory_candidate=candidate,
+        enzyme_active_deposit_handlers=(),
     )
 
 
-def create_enzyme_factory_detection(candidate: "EnzymeVaultFactoryCandidate") -> ERC4262VaultDetection:
+def create_enzyme_factory_detection(candidate: "EnzymeVaultFactoryCandidate", current_deposit_permission: str | None = None) -> ERC4262VaultDetection:
     """Create a detection for an official Enzyme factory deployment.
 
     The reviewed factory event establishes the canonical Shares address
@@ -694,6 +701,8 @@ def create_enzyme_factory_detection(candidate: "EnzymeVaultFactoryCandidate") ->
 
     :param candidate:
         Decoded Enzyme ``SharesFactory.ProxyDeployed`` candidate.
+    :param current_deposit_permission:
+        Fixed-block result from the chain-level Onyx handler reader.
     :return:
         Detection eligible for direct Enzyme metadata and price reads.
     """
@@ -707,6 +716,7 @@ def create_enzyme_factory_detection(candidate: "EnzymeVaultFactoryCandidate") ->
         updated_at=native_datetime_utc_now(),
         deposit_count=0,
         redeem_count=0,
+        current_deposit_permission=current_deposit_permission,
     )
 
 
@@ -866,13 +876,24 @@ class VaultDiscoveryBase(abc.ABC):
         logger.info("Found %d vault leads, of which %d are factory leads", len(leads), factory_lead_count)
         good_vaults = broken_vaults = 0
 
+        onyx_active_handlers = {HexAddress(lead.address.lower()): handlers for lead in leads_by_address.values() if getattr(lead, "enzyme_factory_candidate", None) is not None and (handlers := getattr(lead, "enzyme_active_deposit_handlers", None)) is not None}
+        onyx_permissions = fetch_onyx_current_deposit_permissions(
+            chain_id=chain,
+            web3factory=self.web3factory,
+            active_handlers=onyx_active_handlers,
+            block_identifier=end_block,
+            max_workers=self.max_workers,
+        )
+
         # Enzyme's reviewed factory event is a stronger signal than the
         # generic ERC-4626 probes and also avoids repeatedly probing all
         # existing Enzyme leads on future scanner cycles.
         for lead in leads_by_address.values():
             enzyme_candidate = getattr(lead, "enzyme_factory_candidate", None)
             if enzyme_candidate is not None:
-                report.detections[enzyme_candidate.address] = create_enzyme_factory_detection(enzyme_candidate)
+                permission_result = onyx_permissions.get(HexAddress(enzyme_candidate.address.lower()))
+                permission = permission_result.value if permission_result is not None else None
+                report.detections[enzyme_candidate.address] = create_enzyme_factory_detection(enzyme_candidate, permission)
                 good_vaults += 1
             enzyme_blue_candidate = getattr(lead, "enzyme_blue_factory_candidate", None)
             if enzyme_blue_candidate is not None:

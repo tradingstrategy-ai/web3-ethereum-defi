@@ -2033,6 +2033,7 @@ def create_vault_instance(
     auto_detect: bool = False,
     default_block_identifier: BlockIdentifier | None = None,
     require_denomination_token: bool = False,
+    current_deposit_permission: str | None = None,
 ) -> VaultBase | None:
     """Create a new vault instance class based on the detected features.
 
@@ -2062,6 +2063,10 @@ def create_vault_instance(
         If ``True``, accessing ``denomination_token`` will raise
         :py:exc:`RuntimeError` when the on-chain lookup returns ``None``.
 
+    :param current_deposit_permission:
+        Optional fixed-block permission snapshot for adapters whose permission
+        state must be indexed at chain level, currently Enzyme Onyx.
+
     :return:
         None if the vault creation is not supported
     """
@@ -2088,7 +2093,7 @@ def create_vault_instance(
     elif ERC4626Feature.enzyme_onyx_like in features:
         from eth_defi.enzyme.onyx_vault import EnzymeVault
 
-        return EnzymeVault(web3, spec, **kwargs)
+        return EnzymeVault(web3, spec, current_deposit_permission=current_deposit_permission, **kwargs)
     elif ERC4626Feature.enzyme_blue_like in features:
         from eth_defi.enzyme.blue_vault import EnzymeBlueVault
 

@@ -67,7 +67,8 @@ from web3 import Web3
 from eth_defi.compat import native_datetime_utc_fromtimestamp
 from eth_defi.enzyme.blue_discovery import EnzymeBlueVaultFactoryCandidate, create_enzyme_blue_factory_candidate, fetch_enzyme_blue_dispatchers_for_chain, fetch_enzyme_blue_first_block, fetch_enzyme_blue_vault_deployed_event_topic, is_enzyme_blue_factory_log
 from eth_defi.enzyme.offchain_metadata import create_enzyme_vault_link
-from eth_defi.enzyme.onyx_discovery import ENZYME_BASE_CHAIN_ID, EnzymeVaultFactoryCandidate, create_enzyme_factory_candidate, fetch_enzyme_shares_deployed_event_topic, fetch_enzyme_shares_factories_for_chain, is_enzyme_factory_log
+from eth_defi.enzyme.onyx_discovery import ENZYME_BASE_CHAIN_ID, EnzymeDepositHandlerUpdate, EnzymeVaultFactoryCandidate, create_enzyme_factory_candidate, decode_enzyme_deposit_handler_event, fetch_enzyme_deposit_handler_event_topics, fetch_enzyme_shares_deployed_event_topic, fetch_enzyme_shares_factories_for_chain, is_enzyme_factory_log, reconstruct_active_enzyme_deposit_handlers
+from eth_defi.enzyme.onyx_permission import fetch_onyx_current_deposit_permissions
 from eth_defi.erc_4626.classification import create_vault_instance
 from eth_defi.erc_4626.core import ERC4626Feature
 from eth_defi.erc_4626.discovery_base import ERC4262VaultDetection, PotentialVaultMatch, create_enzyme_blue_factory_detection, create_enzyme_blue_potential_vault_match, create_enzyme_factory_detection, create_enzyme_potential_vault_match
@@ -98,6 +99,11 @@ CHECKPOINT_VERSION = 1
 #: new adapter read even when a resumable checkpoint retains the same head.
 ENZYME_CURRENT_METADATA_VERSION = 2
 
+#: Increment only when Onyx deposit-handler classification changes. Keeping
+#: this separate from the general metadata version avoids rereading thousands
+#: of unaffected Blue vaults for an Onyx-only migration.
+ENZYME_ONYX_PERMISSION_VERSION = 1
+
 #: The migration scans these chains independently exactly once.  Blue discovery
 #: uses one persistent Dispatcher event stream per chain; Base remains the
 #: separate Onyx SharesFactory integration.
@@ -118,16 +124,40 @@ class EnzymeChainRun:
     accidentally mixing one chain's RPC connection, candidate set, or
     historical boundary with another chain.
 
-    :param web3: Connected Web3 instance for the selected chain.
-    :param json_rpc_url: Configured multi-provider RPC URL string.
-    :param end_block: Fixed inclusive migration end block.
-    :param candidates: Factory-discovered Blue and/or Onyx vaults.
     """
 
+    #: Connected Web3 instance for the selected chain.
     web3: Web3
+
+    #: Configured multi-provider RPC URL string.
     json_rpc_url: str
+
+    #: Fixed inclusive migration end block.
     end_block: int
+
+    #: Factory-discovered Blue and/or Onyx vaults.
     candidates: list[EnzymeFactoryCandidate]
+
+    #: Event-reconstructed current handler membership for every Onyx vault.
+    active_onyx_deposit_handlers: dict[HexAddress, tuple[HexAddress, ...]]
+
+
+@dataclass(slots=True)
+class EnzymeChainDiscovery:
+    """One complete per-chain event discovery result.
+
+    Factory deployments and mutable Onyx handler membership are collected by
+    one Hypersync stream.  The result is checkpointed before current metadata
+    reads, so an interrupted run never rescans the chain merely to recover the
+    non-enumerable Onyx handler set.
+
+    """
+
+    #: Factory-confirmed Blue and Onyx vaults.
+    candidates: list[EnzymeFactoryCandidate]
+
+    #: Current handler membership through the same fixed discovery end block.
+    active_onyx_deposit_handlers: dict[HexAddress, tuple[HexAddress, ...]]
 
 
 def parse_bool_env(name: str, *, default: bool = False) -> bool:
@@ -257,10 +287,13 @@ def resolve_frequency() -> Literal["1h", "1d"]:
 
 
 def create_factory_query(chain_id: int, start_block: int, end_block: int) -> hypersync.Query:
-    """Build one per-chain HyperSync query for reviewed Enzyme factories.
+    """Build one per-chain Hypersync query for factories and Onyx handlers.
 
-    The query intentionally asks only for official ``SharesFactory`` logs,
-    avoiding a generic whole-chain vault event rediscovery.
+    Factory events and the two distinctive Onyx Shares handler-membership
+    topics are streamed together. Handler events are filtered against
+    factory-confirmed Shares addresses after the stream completes. This keeps
+    discovery to one historical scan per chain without trusting arbitrary
+    contracts that emit a copied event signature.
 
     :param chain_id: Target EVM chain id.
     :param start_block: Inclusive first chain block.
@@ -285,6 +318,15 @@ def create_factory_query(chain_id: int, start_block: int, end_block: int) -> hyp
             *(
                 [
                     hypersync.LogSelection(
+                        topics=[list(fetch_enzyme_deposit_handler_event_topics())],
+                    )
+                ]
+                if chain_id == ENZYME_BASE_CHAIN_ID
+                else []
+            ),
+            *(
+                [
+                    hypersync.LogSelection(
                         address=fetch_enzyme_blue_dispatchers_for_chain(chain_id),
                         topics=[[fetch_enzyme_blue_vault_deployed_event_topic()]],
                     )
@@ -300,49 +342,61 @@ def create_factory_query(chain_id: int, start_block: int, end_block: int) -> hyp
     )
 
 
-async def fetch_enzyme_vault_candidates_async(web3: Web3, start_block: int, end_block: int) -> list[EnzymeFactoryCandidate]:
-    """Fetch all supported Enzyme factory events through one HyperSync stream.
+async def fetch_enzyme_chain_discovery_async(web3: Web3, start_block: int, end_block: int) -> EnzymeChainDiscovery:
+    """Fetch factory candidates and Onyx handler events in one stream.
 
     :param web3: Connected Web3 instance for a selected Enzyme chain.
     :param start_block: Inclusive factory-event scan start block.
     :param end_block: Inclusive factory-event scan end block.
-    :return: Deduplicated canonical Onyx Shares or Blue VaultProxy candidates.
-    :raises RuntimeError: If a HyperSync client is not configured.
+    :return:
+        Deduplicated candidates and active Onyx handler membership.
+    :raises RuntimeError: If a Hypersync client is not configured.
     """
 
     config = configure_hypersync_from_env(web3)
     if config.hypersync_client is None:
-        message = "Enzyme factory discovery requires HyperSync; set SCAN_BACKEND=auto or hypersync and HYPERSYNC_API_KEY"
+        message = "Enzyme factory discovery requires Hypersync; set SCAN_BACKEND=auto or hypersync and HYPERSYNC_API_KEY"
         raise RuntimeError(message)
 
     chain_id = web3.eth.chain_id
     receiver = await open_hypersync_stream(config.hypersync_client, create_factory_query(chain_id, start_block, end_block))
     candidates: dict[VaultSpec, EnzymeFactoryCandidate] = {}
+    handler_updates: list[EnzymeDepositHandlerUpdate] = []
+    handler_topics = set(fetch_enzyme_deposit_handler_event_topics())
     while response := await receiver.recv():
         block_timestamps = {block.number: native_datetime_utc_fromtimestamp(int(block.timestamp, 16) if isinstance(block.timestamp, str) else block.timestamp) for block in response.data.blocks}
         for log in response.data.logs:
-            timestamp = block_timestamps.get(log.block_number)
-            if timestamp is None:
-                raise RuntimeError(f"HyperSync response omitted timestamp for Enzyme factory log block {log.block_number}")
             if is_enzyme_factory_log(chain_id, log.address, log.topics[0]):
+                timestamp = block_timestamps.get(log.block_number)
+                if timestamp is None:
+                    raise RuntimeError(f"Hypersync response omitted timestamp for Enzyme factory log block {log.block_number}")
                 candidate = create_enzyme_factory_candidate(web3, chain_id, log, timestamp)
             elif is_enzyme_blue_factory_log(chain_id, log.address, log.topics[0]):
+                timestamp = block_timestamps.get(log.block_number)
+                if timestamp is None:
+                    raise RuntimeError(f"Hypersync response omitted timestamp for Enzyme factory log block {log.block_number}")
                 candidate = create_enzyme_blue_factory_candidate(web3, chain_id, log, timestamp)
+            elif chain_id == ENZYME_BASE_CHAIN_ID and log.topics[0] in handler_topics:
+                handler_updates.append(decode_enzyme_deposit_handler_event(log))
+                continue
             else:
                 continue
             candidates[VaultSpec(chain_id, candidate.address.lower())] = candidate
 
-    return sorted(candidates.values(), key=lambda candidate: (candidate.created_block, candidate.address.lower()))
+    sorted_candidates = sorted(candidates.values(), key=lambda candidate: (candidate.created_block, candidate.address.lower()))
+    onyx_addresses = {HexAddress(candidate.address.lower()) for candidate in sorted_candidates if isinstance(candidate, EnzymeVaultFactoryCandidate)}
+    active_handlers = reconstruct_active_enzyme_deposit_handlers(onyx_addresses, handler_updates)
+    return EnzymeChainDiscovery(sorted_candidates, active_handlers)
 
 
-def fetch_enzyme_vault_candidates(
+def fetch_enzyme_chain_discovery(
     web3: Web3,
     start_block: int,
     end_block: int,
     attempts: int = 3,
     retry_sleep: float = 30.0,
-) -> list[EnzymeFactoryCandidate]:
-    """Synchronously fetch all Enzyme factory candidates for the migration.
+) -> EnzymeChainDiscovery:
+    """Synchronously fetch one complete Enzyme chain discovery state.
 
     Hypersync deliberately exposes transient server rate limits and near-head
     pagination failures to Python with no Rust-side retries. Retry the complete
@@ -356,8 +410,8 @@ def fetch_enzyme_vault_candidates(
     :param attempts: Maximum complete stream attempts for retryable Hypersync
         failures.
     :param retry_sleep: Seconds to wait between retryable stream attempts.
-    :return: Canonical Onyx Shares and Blue VaultProxy candidates ordered by
-        creation block.
+    :return:
+        Canonical candidates and current Onyx handler membership.
     :raises RuntimeError: If all retry attempts fail or Hypersync returns a
         non-recoverable error.
     """
@@ -365,7 +419,7 @@ def fetch_enzyme_vault_candidates(
     assert attempts >= 1
     for attempt in range(1, attempts + 1):
         try:
-            return asyncio.run(fetch_enzyme_vault_candidates_async(web3, start_block, end_block))
+            return asyncio.run(fetch_enzyme_chain_discovery_async(web3, start_block, end_block))
         except RuntimeError as e:
             if not is_hypersync_retryable_runtime_error(e) or attempt == attempts:
                 raise
@@ -395,12 +449,24 @@ def create_enzyme_lead(candidate: EnzymeFactoryCandidate) -> PotentialVaultMatch
     return create_enzyme_potential_vault_match(candidate)
 
 
-def create_enzyme_detection(candidate: EnzymeFactoryCandidate) -> ERC4262VaultDetection:
-    """Create correct direct detection for either Enzyme protocol family."""
+def create_enzyme_detection(
+    candidate: EnzymeFactoryCandidate,
+    current_deposit_permissions: dict[HexAddress, VaultDepositPermission] | None = None,
+) -> ERC4262VaultDetection:
+    """Create a direct detection with any indexed Onyx permission snapshot.
+
+    :param candidate:
+        Factory-confirmed Blue or Onyx vault.
+    :param current_deposit_permissions:
+        Lower-case Onyx Shares addresses mapped to a fixed-block result.
+    :return:
+        Detection ready for the shared metadata reader.
+    """
 
     if isinstance(candidate, EnzymeBlueVaultFactoryCandidate):
         return create_enzyme_blue_factory_detection(candidate)
-    return create_enzyme_factory_detection(candidate)
+    permission = (current_deposit_permissions or {}).get(HexAddress(candidate.address.lower()))
+    return create_enzyme_factory_detection(candidate, permission.value if permission is not None else None)
 
 
 def read_vault_database(path: Path) -> VaultDatabase:
@@ -584,13 +650,14 @@ def scan_price_history(  # noqa: PLR0917 - explicit operational arguments make t
 def has_complete_current_metadata(vault_db: VaultDatabase, candidate: EnzymeFactoryCandidate) -> bool:
     """Check whether a persisted Enzyme row satisfies the migration contract.
 
-    Blue requires a conclusive current PolicyManager result. Onyx ``unknown``
-    permission is intentional until active handler indexing exists and does not
-    make an otherwise healthy row incomplete. Name, symbol, denomination token,
-    and descriptions are mandatory catalogue identity fields. Current NAV,
-    share supply, and fees remain best-effort values: deprecated or invalid
-    vault configurations can no longer execute their valuation or release
-    extension calls, and repeatedly retrying them cannot recover those values.
+    Both Enzyme architectures require a conclusive current permission result.
+    Blue reads its PolicyManager; Onyx uses the chain-level active handler
+    index and batched current handler configuration. Name, symbol, denomination
+    token, and descriptions are mandatory catalogue identity fields. Current
+    NAV, share supply, and fees remain best-effort values: deprecated or
+    invalid vault configurations can no longer execute their valuation or
+    release extension calls, and repeatedly retrying them cannot recover those
+    values.
 
     :param vault_db: Existing vault metadata database.
     :param candidate: Factory-discovered Enzyme vault.
@@ -604,13 +671,11 @@ def has_complete_current_metadata(vault_db: VaultDatabase, candidate: EnzymeFact
         return False
     if not row.get("_short_description") or not row.get("_description"):
         return False
-    if isinstance(candidate, EnzymeBlueVaultFactoryCandidate):
-        try:
-            permission = VaultDepositPermission(row.get("_deposit_permission", VaultDepositPermission.unknown.value))
-        except (TypeError, ValueError):
-            permission = VaultDepositPermission.unknown
-        return permission is not VaultDepositPermission.unknown
-    return True
+    try:
+        permission = VaultDepositPermission(row.get("_deposit_permission", VaultDepositPermission.unknown.value))
+    except (TypeError, ValueError):
+        permission = VaultDepositPermission.unknown
+    return permission is not VaultDepositPermission.unknown
 
 
 def should_refresh_metadata(vault_db: VaultDatabase, candidate: EnzymeFactoryCandidate, end_block: int) -> bool:
@@ -631,6 +696,8 @@ def should_refresh_metadata(vault_db: VaultDatabase, candidate: EnzymeFactoryCan
         return True
     row = vault_db.rows.get(VaultSpec(candidate.chain, candidate.address))
     if row is not None and row.get("_enzyme_metadata_version") != ENZYME_CURRENT_METADATA_VERSION:
+        return True
+    if isinstance(candidate, EnzymeVaultFactoryCandidate) and row is not None and row.get("_enzyme_onyx_permission_version") != ENZYME_ONYX_PERMISSION_VERSION:
         return True
     if row is not None and int(row.get("_enzyme_metadata_checked_block") or 0) >= end_block:
         return False
@@ -671,6 +738,7 @@ def fetch_enzyme_metadata_records(
     end_block: int,
     candidates: list[EnzymeFactoryCandidate],
     max_workers: int,
+    current_deposit_permissions: dict[HexAddress, VaultDepositPermission] | None = None,
 ) -> list[tuple[EnzymeFactoryCandidate, dict]]:
     """Fetch current Enzyme metadata concurrently without redundant RPC setup.
 
@@ -688,6 +756,9 @@ def fetch_enzyme_metadata_records(
         Factory-confirmed Enzyme vault candidates requiring metadata.
     :param max_workers:
         Number of threaded metadata workers.
+    :param current_deposit_permissions:
+        Fixed-block Onyx permissions calculated from the chain-level handler
+        index. Blue continues to read its PolicyManager directly.
     :return:
         Candidate and scanner row pairs in factory-event order.
     """
@@ -712,7 +783,7 @@ def fetch_enzyme_metadata_records(
         max_workers=max_workers,
         block_identifier=end_block,
     )
-    detections = [create_enzyme_detection(candidate) for candidate in candidates]
+    detections = [create_enzyme_detection(candidate, current_deposit_permissions) for candidate in candidates]
     rows = Parallel(n_jobs=max_workers, backend="threading")(delayed(create_vault_scan_record_subprocess)(web3factory, detection, end_block) for detection in tqdm(detections, desc=f"Reading Enzyme metadata on chain {chain_id}"))
     return list(zip(candidates, rows, strict=True))
 
@@ -736,6 +807,38 @@ def fetch_end_block(web3: Web3) -> int:
     """Fetch the optional chain-specific migration end block."""
 
     return parse_optional_int_env(f"ENZYME_END_BLOCK_{web3.eth.chain_id}") or web3.eth.block_number
+
+
+def fetch_run_onyx_permissions(run: EnzymeChainRun, max_workers: int) -> dict[HexAddress, VaultDepositPermission]:
+    """Read all current Onyx permissions for one fixed chain run.
+
+    The active handler mapping was produced by the run's only historical event
+    stream. All handler interfaces are now inspected in one Multicall pass at
+    that same end block.
+
+    :param run:
+        Fixed chain discovery scope and RPC configuration.
+    :param max_workers:
+        Threaded Multicall worker count.
+    :return:
+        Current deposit permission keyed by Shares address.
+    """
+
+    if not run.active_onyx_deposit_handlers:
+        return {}
+    web3factory = MultiProviderWeb3Factory(
+        run.json_rpc_url,
+        retries=5,
+        skip_verification=True,
+        expected_chain_id=run.web3.eth.chain_id,
+    )
+    return fetch_onyx_current_deposit_permissions(
+        chain_id=run.web3.eth.chain_id,
+        web3factory=web3factory,
+        active_handlers=run.active_onyx_deposit_handlers,
+        block_identifier=run.end_block,
+        max_workers=max_workers,
+    )
 
 
 def _run_migration() -> None:  # noqa: PLR0914 - linear migration steps favour operational review.
@@ -768,20 +871,36 @@ def _run_migration() -> None:  # noqa: PLR0914 - linear migration steps favour o
         if chain_checkpoint is not None:
             end_block = int(chain_checkpoint["end_block"])
             candidates = [deserialise_candidate(item) for item in chain_checkpoint["candidates"]]
-            logger.info("Resuming %d Enzyme candidates on chain %d without rediscovery", len(candidates), expected_chain_id)
+            if expected_chain_id == ENZYME_BASE_CHAIN_ID and "active_onyx_deposit_handlers" not in chain_checkpoint:
+                # Checkpoint version 1 predates the additive Onyx handler
+                # index. Reconstruct only Base at its existing fixed end block;
+                # preserve completed historical-price state for every chain.
+                discovery = fetch_enzyme_chain_discovery(web3, _resolve_discovery_start_block(expected_chain_id), end_block)
+                candidates = discovery.candidates
+                active_onyx_deposit_handlers = discovery.active_onyx_deposit_handlers
+                chain_checkpoint["candidates"] = [serialise_candidate(candidate) for candidate in candidates]
+                chain_checkpoint["active_onyx_deposit_handlers"] = {shares_address: list(handlers) for shares_address, handlers in active_onyx_deposit_handlers.items()}
+                if not dry_run:
+                    write_checkpoint(checkpoint_path, checkpoint)
+            else:
+                active_onyx_deposit_handlers = {HexAddress(shares_address): tuple(HexAddress(handler) for handler in handlers) for shares_address, handlers in chain_checkpoint.get("active_onyx_deposit_handlers", {}).items()}
+            logger.info("Resuming %d Enzyme candidates on chain %d at fixed block %d", len(candidates), expected_chain_id, end_block)
         else:
             end_block = fetch_end_block(web3)
-            candidates = fetch_enzyme_vault_candidates(web3, _resolve_discovery_start_block(expected_chain_id), end_block)
+            discovery = fetch_enzyme_chain_discovery(web3, _resolve_discovery_start_block(expected_chain_id), end_block)
+            candidates = discovery.candidates
+            active_onyx_deposit_handlers = discovery.active_onyx_deposit_handlers
             if not candidates:
                 raise RuntimeError(f"No Enzyme factory events found on chain {expected_chain_id}; refusing to write an incomplete migration")
             checkpoint["chains"][str(expected_chain_id)] = {
                 "end_block": end_block,
                 "candidates": [serialise_candidate(candidate) for candidate in candidates],
+                "active_onyx_deposit_handlers": {shares_address: list(handlers) for shares_address, handlers in active_onyx_deposit_handlers.items()},
                 "prices_complete": False,
             }
             if not dry_run:
                 write_checkpoint(checkpoint_path, checkpoint)
-        chain_runs.append(EnzymeChainRun(web3, json_rpc_url, end_block, candidates))
+        chain_runs.append(EnzymeChainRun(web3, json_rpc_url, end_block, candidates, active_onyx_deposit_handlers))
 
     print("Enzyme backfill plan")
     print(tabulate([{"chain": run.web3.eth.chain_id, "vaults": len(run.candidates), "first_block": min(candidate.created_block for candidate in run.candidates), "last_block": run.end_block} for run in chain_runs], headers="keys", tablefmt="github"))
@@ -799,21 +918,43 @@ def _run_migration() -> None:  # noqa: PLR0914 - linear migration steps favour o
     leads_added = metadata_upserted = links_updated = 0
     all_candidates = [candidate for run in chain_runs for candidate in run.candidates]
     for run in chain_runs:
+        current_deposit_permissions = fetch_run_onyx_permissions(run, max_workers)
+        if current_deposit_permissions:
+            logger.info(
+                "Resolved %d Enzyme Onyx permissions on chain %d: whitelisted=%d, permissionless=%d, unknown=%d",
+                len(current_deposit_permissions),
+                run.web3.eth.chain_id,
+                sum(permission is VaultDepositPermission.whitelisted for permission in current_deposit_permissions.values()),
+                sum(permission is VaultDepositPermission.permissionless for permission in current_deposit_permissions.values()),
+                sum(permission is VaultDepositPermission.unknown for permission in current_deposit_permissions.values()),
+            )
         for candidate in run.candidates:
             spec = VaultSpec(candidate.chain, candidate.address)
             if spec not in vault_db.leads:
                 vault_db.leads[spec] = create_enzyme_lead(candidate)
                 leads_added += 1
+            if isinstance(candidate, EnzymeVaultFactoryCandidate):
+                lead = vault_db.leads[spec]
+                lead.enzyme_factory_candidate = candidate
+                lead.enzyme_active_deposit_handlers = run.active_onyx_deposit_handlers[HexAddress(candidate.address.lower())]
         links_updated += update_enzyme_vault_links(vault_db, run.candidates)
         metadata_candidates = [candidate for candidate in run.candidates if should_refresh_metadata(vault_db, candidate, run.end_block)]
         for metadata_batch in itertools.batched(metadata_candidates, metadata_batch_size):
-            for candidate, record in fetch_enzyme_metadata_records(run.json_rpc_url, run.end_block, list(metadata_batch), max_workers):
+            for candidate, record in fetch_enzyme_metadata_records(
+                run.json_rpc_url,
+                run.end_block,
+                list(metadata_batch),
+                max_workers,
+                current_deposit_permissions,
+            ):
                 # Record even inconclusive or broken reads at this checkpoint so
                 # an interrupted migration does not repeat the same failed RPC
                 # calls. A later completed run selects a newer end block and
                 # retries these rows automatically.
                 record["_enzyme_metadata_checked_block"] = run.end_block
                 record["_enzyme_metadata_version"] = ENZYME_CURRENT_METADATA_VERSION
+                if isinstance(candidate, EnzymeVaultFactoryCandidate):
+                    record["_enzyme_onyx_permission_version"] = ENZYME_ONYX_PERMISSION_VERSION
                 vault_db.rows[VaultSpec(candidate.chain, candidate.address)] = record
                 metadata_upserted += 1
             vault_db_path.parent.mkdir(parents=True, exist_ok=True)

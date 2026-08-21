@@ -18,7 +18,7 @@ from eth_defi.vault.base import VaultSpec
 
 SCRIPT_PATH = Path(__file__).resolve().parents[2] / "scripts" / "enzyme" / "backfill-history.py"
 TEST_MAX_WORKERS = 4
-BASE_ENZYME_FACTORY_COUNT = 2
+BASE_ENZYME_DISCOVERY_SELECTION_COUNT = 3
 EXPECTED_LINK_UPDATES = 2
 METADATA_END_BLOCK = 50_000_000
 RETRY_ATTEMPTS = 2
@@ -50,15 +50,16 @@ def create_candidate(address: str, block_number: int) -> EnzymeVaultFactoryCandi
     )
 
 
-def test_enzyme_backfill_query_is_limited_to_official_factory() -> None:
-    """Do not turn the targeted migration into a generic lead scan."""
+def test_enzyme_backfill_query_combines_factory_and_handler_discovery() -> None:
+    """Collect Onyx handler changes without a second Base history scan."""
 
     module = load_backfill_module()
     query = module.create_factory_query(8453, 35_306_000, 35_306_100)
 
-    assert len(query.logs) == BASE_ENZYME_FACTORY_COUNT
+    assert len(query.logs) == BASE_ENZYME_DISCOVERY_SELECTION_COUNT
     assert [address.lower() for address in query.logs[0].address] == [ENZYME_BASE_SHARES_FACTORY.lower()]
-    assert query.logs[1].address == [ENZYME_BLUE_DEPLOYMENTS[8453].dispatcher]
+    assert query.logs[1].topics == [list(module.fetch_enzyme_deposit_handler_event_topics())]
+    assert query.logs[2].address == [ENZYME_BLUE_DEPLOYMENTS[8453].dispatcher]
 
 
 def test_enzyme_backfill_uses_one_blue_dispatcher_query_per_chain() -> None:
@@ -88,13 +89,14 @@ def test_enzyme_backfill_retries_hypersync_rate_limit(monkeypatch) -> None:
         calls.append(True)
         if len(calls) == 1:
             raise rate_limit
-        return candidates
+        return module.EnzymeChainDiscovery(candidates, {})
 
     sleeps = []
-    monkeypatch.setattr(module, "fetch_enzyme_vault_candidates_async", fake_fetch)
+    monkeypatch.setattr(module, "fetch_enzyme_chain_discovery_async", fake_fetch)
     monkeypatch.setattr(module.time, "sleep", sleeps.append)
 
-    assert module.fetch_enzyme_vault_candidates(web3, 1, 2, attempts=RETRY_ATTEMPTS, retry_sleep=0.25) == candidates
+    discovery = module.fetch_enzyme_chain_discovery(web3, 1, 2, attempts=RETRY_ATTEMPTS, retry_sleep=0.25)
+    assert discovery.candidates == candidates
     assert len(calls) == RETRY_ATTEMPTS
     assert sleeps == [0.25]
 
@@ -113,11 +115,11 @@ def test_enzyme_backfill_does_not_retry_nonrecoverable_hypersync_error(monkeypat
         message = "HyperSync response omitted timestamp"
         raise RuntimeError(message)
 
-    monkeypatch.setattr(module, "fetch_enzyme_vault_candidates_async", fake_fetch)
+    monkeypatch.setattr(module, "fetch_enzyme_chain_discovery_async", fake_fetch)
     monkeypatch.setattr(module.time, "sleep", pytest.fail)
 
     with pytest.raises(RuntimeError, match="omitted timestamp"):
-        module.fetch_enzyme_vault_candidates(web3, 1, 2, attempts=3, retry_sleep=0.25)
+        module.fetch_enzyme_chain_discovery(web3, 1, 2, attempts=3, retry_sleep=0.25)
 
     assert len(calls) == 1
 
@@ -129,10 +131,11 @@ def test_enzyme_backfill_creates_factory_qualified_lead_and_detection() -> None:
     candidate = create_candidate("0x000000000000000000000000000000000000bEEF", 35_306_010)
 
     lead = module.create_enzyme_lead(candidate)
-    detection = module.create_enzyme_detection(candidate)
+    detection = module.create_enzyme_detection(candidate, {candidate.address.lower(): module.VaultDepositPermission.whitelisted})
 
     assert lead.enzyme_factory_candidate == candidate
     assert detection.features == {module.ERC4626Feature.enzyme_onyx_like}
+    assert detection.current_deposit_permission == "whitelisted"
 
 
 def test_enzyme_backfill_checkpoint_roundtrips_both_protocol_candidates(tmp_path: Path) -> None:
@@ -153,13 +156,49 @@ def test_enzyme_backfill_checkpoint_roundtrips_both_protocol_candidates(tmp_path
         log_index=3,
     )
     checkpoint_path = tmp_path / "enzyme-state.json"
-    checkpoint = {"version": module.CHECKPOINT_VERSION, "chains": {"8453": {"end_block": 50_000_000, "candidates": [module.serialise_candidate(onyx), module.serialise_candidate(blue)], "prices_complete": False}}, "cleaned": False}
+    checkpoint = {
+        "version": module.CHECKPOINT_VERSION,
+        "chains": {
+            "8453": {
+                "end_block": 50_000_000,
+                "candidates": [module.serialise_candidate(onyx), module.serialise_candidate(blue)],
+                "active_onyx_deposit_handlers": {onyx.address: ["0x0000000000000000000000000000000000000001"]},
+                "prices_complete": False,
+            }
+        },
+        "cleaned": False,
+    }
 
     module.write_checkpoint(checkpoint_path, checkpoint)
     loaded = module.read_checkpoint(checkpoint_path)
     candidates = [module.deserialise_candidate(item) for item in loaded["chains"]["8453"]["candidates"]]
 
     assert candidates == [onyx, blue]
+    assert loaded["chains"]["8453"]["active_onyx_deposit_handlers"] == {onyx.address: ["0x0000000000000000000000000000000000000001"]}
+
+
+def test_enzyme_backfill_retains_checkpoint_before_handler_index(tmp_path: Path) -> None:
+    """Preserve completed price state when an old Base checkpoint lacks handlers."""
+
+    module = load_backfill_module()
+    onyx = create_candidate("0x000000000000000000000000000000000000bEEF", 35_306_010)
+    checkpoint_path = tmp_path / "enzyme-state.json"
+    checkpoint = {
+        "version": module.CHECKPOINT_VERSION,
+        "chains": {
+            "8453": {
+                "end_block": 50_000_000,
+                "candidates": [module.serialise_candidate(onyx)],
+                "prices_complete": True,
+            }
+        },
+        "cleaned": False,
+    }
+
+    module.write_checkpoint(checkpoint_path, checkpoint)
+    loaded = module.read_checkpoint(checkpoint_path)
+
+    assert loaded == checkpoint
 
 
 def test_enzyme_backfill_holds_shared_pipeline_lock(monkeypatch, tmp_path: Path) -> None:
@@ -193,8 +232,8 @@ def test_enzyme_backfill_holds_shared_pipeline_lock(monkeypatch, tmp_path: Path)
     assert migration_calls == [True]
 
 
-def test_enzyme_backfill_repairs_unknown_blue_permission_without_refetching_onyx(monkeypatch) -> None:
-    """Refresh conclusive Blue permissions while retaining intentional Onyx unknowns."""
+def test_enzyme_backfill_repairs_unknown_permissions_for_both_architectures(monkeypatch) -> None:
+    """Require conclusive current permissions for both Blue and Onyx."""
 
     module = load_backfill_module()
     monkeypatch.delenv("ENZYME_REFRESH_EXISTING_METADATA", raising=False)
@@ -243,10 +282,13 @@ def test_enzyme_backfill_repairs_unknown_blue_permission_without_refetching_onyx
     )
 
     assert module.should_refresh_metadata(database, blue, METADATA_END_BLOCK) is True
-    assert module.should_refresh_metadata(database, onyx, METADATA_END_BLOCK) is False
+    assert module.should_refresh_metadata(database, onyx, METADATA_END_BLOCK) is True
 
     database.rows[VaultSpec(blue.chain, blue.address)]["_deposit_permission"] = "permissionless"
+    database.rows[VaultSpec(onyx.chain, onyx.address)]["_deposit_permission"] = "whitelisted"
+    database.rows[VaultSpec(onyx.chain, onyx.address)]["_enzyme_onyx_permission_version"] = module.ENZYME_ONYX_PERMISSION_VERSION
     assert module.should_refresh_metadata(database, blue, METADATA_END_BLOCK) is False
+    assert module.should_refresh_metadata(database, onyx, METADATA_END_BLOCK) is False
 
 
 def test_enzyme_backfill_repairs_missing_descriptions(monkeypatch) -> None:
@@ -266,8 +308,9 @@ def test_enzyme_backfill_repairs_missing_descriptions(monkeypatch) -> None:
                 "Shares": 0,
                 "_denomination_token": {"symbol": "USDC"},
                 "_fees": SimpleNamespace(fee_mode="internalised"),
-                "_deposit_permission": "unknown",
+                "_deposit_permission": "whitelisted",
                 "_enzyme_metadata_version": module.ENZYME_CURRENT_METADATA_VERSION,
+                "_enzyme_onyx_permission_version": module.ENZYME_ONYX_PERMISSION_VERSION,
             }
         }
     )
@@ -276,6 +319,29 @@ def test_enzyme_backfill_repairs_missing_descriptions(monkeypatch) -> None:
 
     database.rows[spec]["_short_description"] = "Onyx summary"
     database.rows[spec]["_description"] = "Onyx description"
+    assert module.should_refresh_metadata(database, onyx, METADATA_END_BLOCK) is False
+
+
+def test_enzyme_backfill_refreshes_only_onyx_permission_semantics(monkeypatch) -> None:
+    """Use a protocol-specific marker instead of rereading unaffected Blue rows."""
+
+    module = load_backfill_module()
+    monkeypatch.delenv("ENZYME_REFRESH_EXISTING_METADATA", raising=False)
+    onyx = create_candidate("0x000000000000000000000000000000000000bEEF", 35_306_010)
+    row = {
+        "Name": "Onyx",
+        "Symbol": "ONYX",
+        "_denomination_token": {"symbol": "USDC"},
+        "_deposit_permission": "whitelisted",
+        "_short_description": "Onyx summary",
+        "_description": "Onyx description",
+        "_enzyme_metadata_version": module.ENZYME_CURRENT_METADATA_VERSION,
+    }
+    database = module.VaultDatabase(rows={VaultSpec(onyx.chain, onyx.address): row})
+
+    assert module.should_refresh_metadata(database, onyx, METADATA_END_BLOCK) is True
+
+    row["_enzyme_onyx_permission_version"] = module.ENZYME_ONYX_PERMISSION_VERSION
     assert module.should_refresh_metadata(database, onyx, METADATA_END_BLOCK) is False
 
 
@@ -291,10 +357,11 @@ def test_enzyme_backfill_refreshes_old_metadata_semantics(monkeypatch) -> None:
                 "Name": "Onyx",
                 "Symbol": "ONYX",
                 "_denomination_token": {"symbol": "USDC"},
-                "_deposit_permission": "unknown",
+                "_deposit_permission": "whitelisted",
                 "_short_description": "Onyx summary",
                 "_description": "Onyx description",
                 "_enzyme_metadata_version": module.ENZYME_CURRENT_METADATA_VERSION - 1,
+                "_enzyme_onyx_permission_version": module.ENZYME_ONYX_PERMISSION_VERSION,
                 "_enzyme_metadata_checked_block": METADATA_END_BLOCK,
             }
         }
@@ -316,6 +383,7 @@ def test_enzyme_backfill_does_not_repeat_failed_metadata_at_same_checkpoint(monk
                 "Name": "<broken: ContractLogicError>",
                 "_enzyme_metadata_checked_block": METADATA_END_BLOCK,
                 "_enzyme_metadata_version": module.ENZYME_CURRENT_METADATA_VERSION,
+                "_enzyme_onyx_permission_version": module.ENZYME_ONYX_PERMISSION_VERSION,
             }
         }
     )
@@ -340,7 +408,7 @@ def test_enzyme_backfill_accepts_unavailable_optional_current_values(monkeypatch
                 "Shares": 0,
                 "_denomination_token": {"symbol": "USDC"},
                 "_fees": SimpleNamespace(fee_mode=None),
-                "_deposit_permission": "unknown",
+                "_deposit_permission": "whitelisted",
                 "_short_description": "Onyx summary",
                 "_description": "Onyx description",
             }

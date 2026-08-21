@@ -96,23 +96,42 @@ the `Allowed Deposit Recipients policy
 The official Blue ``GetVaultConfiguration`` API exposes the same enabled
 policy for an independent current-state comparison.
 
-Onyx Shares does not enumerate its active deposit handlers. Because a handler
-can impose a depositor allowlist or a queue-controller restriction, the direct
-adapter exports ``unknown`` rather than guessing whether deposits are
-permissioned. Establishing this requires a separate, chain-level HyperSync
-handler index. That index must reconstruct the active set from
-``DepositHandlerAdded`` and ``DepositHandlerRemoved`` events, identify each
-reviewed handler type, and read the handler's current depositor or controller
-allowlist. The aggregation rule is: a proven public active route makes the
-vault ``permissionless``; all active routes requiring prior account approval
-make it ``whitelisted``; a missing or unrecognised active handler remains
-``unknown``. `Onyx user-role documentation
-<https://docs.enzyme.finance/onyx-protocol/user-roles>`__ describes deposits as
-open by default while administrators can restrict share holders, and its
-`subscription control documentation
+Onyx Shares does not enumerate its active deposit handlers. The Enzyme
+migration therefore collects ``DepositHandlerAdded`` and
+``DepositHandlerRemoved`` alongside factory events in the same chain-level
+Hypersync stream. It then inspects all active handlers at the fixed metadata
+block using one batched Multicall read. A ``SyncDepositHandler`` is
+``whitelisted`` when ``getDepositorAllowlist()`` is non-zero; an
+``ERC7540LikeDepositQueue`` is ``whitelisted`` when
+``getDepositRestriction()`` selects its internal or external controller
+allowlist. ``SharesMintHandler`` is also permissioned because only the owner or
+an admin can select recipients for subscriptions settled offchain.
+
+The migration persists that active handler set on each Onyx discovery lead.
+Later all-chain scanner cycles include the same add/remove topics in their
+normal incremental Hypersync stream and repeat only the batched current-state
+handler read. They therefore refresh current permission without rescanning
+historical blocks or falling back to per-vault event or RPC calls.
+
+Issuance hooks can run arbitrary policies, including Chainlink ACE. A handler
+with no built-in allowlist is therefore public only when its relevant pre- and
+post-issuance hooks are also absent. The aggregation rule is: a proven public
+active route makes the vault ``permissionless``; all active routes requiring
+prior account approval make it ``whitelisted``; and a vault with no active
+handler is permissionless for identity policy but has no route that can
+currently accept deposits. An
+unrecognised active handler or opaque hook remains ``unknown``. Share-transfer
+validators are deliberately excluded because they validate secondary
+transfers, not minting. Likewise, an administrator's ability to choose which
+queued requests to settle is an operating condition rather than an address
+whitelist. The
+`Onyx Shares and components documentation
+<https://docs.enzyme.finance/onyx-protocol/architecture/shares-and-components>`__
+defines deposit handlers as the accounts authorised to perform deposit actions,
+while the `subscription control documentation
 <https://docs.enzyme.finance/onyx-user-documentation/enzyme-vault/subscription/control>`__
-describes the optional wallet allowlist. These product defaults must not be
-used as a substitute for per-vault handler state.
+describes the optional wallet allowlist. Neither is a substitute for reading
+each vault's current handler configuration.
 
 Neither architecture exports historical ``deposits_open`` or
 ``redemption_open`` values. Blue policies and Onyx handlers are mutable and
@@ -159,10 +178,12 @@ Enzyme's authenticated `vault configuration API
 ``CHECK_ENZYME_API=true`` and ``ENZYME_API_TOKEN``; ``MAX_WORKERS`` controls
 the bounded threaded API reads. Onyx is excluded from this API comparison
 because its authoritative permission state belongs to the active handler set.
-The Enzyme backfill migration automatically refreshes a healthy Blue row whose
-persisted permission is missing or ``unknown``; a metadata-only repair can be
-run with ``ENZYME_SCAN_PRICES=false``. It does not repeatedly refresh Onyx
-``unknown`` rows, because that is currently the expected conservative result.
+The Enzyme migration refreshes a healthy Blue or Onyx row whose persisted
+permission is missing or ``unknown``. The Onyx-specific migration marker also
+forces one refresh of previously labelled rows when handler-classification
+semantics change. An inconclusive custom handler is not retried repeatedly at
+the same checkpoint, but a later completed run evaluates it at the newer fixed
+block.
 
 .. code-block:: shell
 
@@ -179,9 +200,11 @@ Current metadata migration
 
 ``scripts/enzyme/migrate-current-metadata.py`` is the safe production entry
 point for adding complete descriptions, direct address-specific links and
-current Blue permission data to existing Enzyme rows. It reuses the targeted
-factory discovery and durable metadata batching while forcibly disabling
-historical price and cleaned-Parquet writes. Successfully migrated rows become
+current Blue and Onyx permission data to existing Enzyme rows. It reuses the
+targeted factory discovery and durable metadata batching while forcibly
+disabling historical price and cleaned-Parquet writes. Factory and Onyx handler
+events use the same per-chain Hypersync stream, and all active Onyx handlers
+use one current-state Multicall pass on Base. Successfully migrated rows become
 their own resume markers, so an interrupted rerun skips them without a blanket
 metadata refresh or duplicate RPC calls. The metadata-only checkpoint is
 separate from the historical-price checkpoint, and the command holds the

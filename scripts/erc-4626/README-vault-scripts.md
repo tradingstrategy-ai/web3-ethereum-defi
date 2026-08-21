@@ -129,9 +129,15 @@ are mutable and may apply to a particular investor or transaction, so a
 historical GAV, supply or share-price multicall cannot prove universal action
 availability. The current metadata export instead reports Blue's reviewed
 ``ALLOWED_DEPOSIT_RECIPIENTS`` policy as ``deposit_permission=whitelisted``.
-Onyx Shares cannot enumerate active deposit handlers, so its current
-``deposit_permission`` is ``unknown`` until a chain-level handler index is
-implemented.
+Onyx Shares cannot enumerate active deposit handlers through a view function,
+so the migration reconstructs the active set from
+``DepositHandlerAdded``/``DepositHandlerRemoved`` events in the same Hypersync
+pass used for factory discovery. It then classifies the current handler
+configuration at the fixed migration end block with one batched Multicall.
+The reconstructed set is persisted on the Onyx lead. Future ordinary scanner
+cycles update it from their incremental Hypersync stream and refresh the
+fixed-block permission with the same batched reader, so the migration result
+does not regress to ``unknown``.
 
 The migration is resumable. Its JSON checkpoint defaults to
 `enzyme-backfill-history-state.json` beside the vault database and is written
@@ -639,13 +645,12 @@ unrelated raw and cleaned price histories. One shared history-reader invocation
 handles every Enzyme vault on each chain; at each sampled block, the adapter's
 share-price and total-supply calls are combined by Multicall3. Existing good
 metadata is not read again unless `ENZYME_REFRESH_EXISTING_METADATA=true`,
-except that Blue rows with missing or ``unknown`` deposit permission are
-automatically repaired from the current PolicyManager. Onyx ``unknown`` is an
-intentional result until handler indexing exists and does not trigger repeated
-metadata reads. Rows whose `Link` still targets the generic Enzyme discovery
-catalogue are rewritten locally so both architectures publish a direct
-address-specific vault page; this deterministic repair makes no token, fee or
-policy RPC calls. The calculated total value is denominated in the vault's
+except that Blue or Onyx rows with missing or ``unknown`` deposit permission
+are automatically repaired from the current PolicyManager or active Onyx
+deposit-handler index. Rows whose `Link` still targets the generic Enzyme
+discovery catalogue are rewritten locally so both architectures publish a
+direct address-specific vault page; this deterministic repair makes no token,
+fee or policy RPC calls. The calculated total value is denominated in the vault's
 named value asset, so it is not necessarily a US-dollar valuation. Metadata
 refreshes read current management, performance, entrance, exit and (for Blue)
 protocol fees.
@@ -745,14 +750,19 @@ replacement and unconditional metadata refreshes.
 
 The migration fills missing short and long descriptions, repairs direct vault
 links locally, refreshes complete current adapter metadata for affected rows,
-and resolves current Blue deposit permission across Sulu, Encore and Phoenix.
-The legacy result uses the reviewed release PolicyManager addresses and
-investor-whitelist identifiers published by Enzyme, and matches the policies
-used by the Enzyme website. Onyx permission remains ``unknown`` until
-deposit-handler indexing is implemented. Name, symbol, denomination and both
-descriptions are mandatory; current NAV and fees can be blank for deprecated
-vaults whose old valuation or extension calls no longer execute. A completed
-row is skipped after an interruption, and a successful metadata-only run marks
+and resolves current deposit permission for Blue and Onyx. Blue uses the
+reviewed release PolicyManager addresses and investor-whitelist identifiers
+published by Enzyme, matching the policies used by the Enzyme website. Onyx
+uses an event-reconstructed active handler set plus current-state Multicall:
+an unrestricted standard deposit handler is permissionless, a built-in
+allowlist/controller restriction or admin-only mint handler is whitelisted,
+and an unreviewed hook or handler remains unknown. A vault with no active
+deposit handler is permissionless for identity policy, while no handler can
+currently accept a deposit.
+Name, symbol, denomination and both descriptions are mandatory; current NAV
+and fees can be blank for deprecated vaults whose old valuation or extension
+calls no longer execute. A completed row is skipped after an interruption, and
+a successful metadata-only run marks
 its separate metadata checkpoint complete. The script holds the shared scanner
 writer lock for the complete database read/write lifetime so a concurrent
 process cannot replace its metadata updates.

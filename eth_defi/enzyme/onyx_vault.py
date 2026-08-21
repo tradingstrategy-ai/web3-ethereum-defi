@@ -31,7 +31,7 @@ from eth_defi.erc_4626.core import ERC4626Feature
 from eth_defi.token import USDC_NATIVE_TOKEN, TokenDetails, fetch_erc20_details
 from eth_defi.types import Percent
 from eth_defi.vault.base import TradingUniverse, VaultBase, VaultFlowManager, VaultHistoricalReader, VaultInfo, VaultPortfolio, VaultSpec
-from eth_defi.vault.deposit_redeem import VaultDepositManager
+from eth_defi.vault.deposit_redeem import VaultDepositManager, VaultDepositPermission
 from eth_defi.vault.fee import FeeData
 from eth_defi.vault.lower_case_dict import LowercaseDict
 
@@ -78,7 +78,8 @@ class EnzymeVault(VaultBase):
         features: set[ERC4626Feature] | None = None,
         default_block_identifier: BlockIdentifier | None = None,
         require_denomination_token: bool = False,
-    ):
+        current_deposit_permission: str | None = None,
+    ) -> None:
         """Create an Enzyme Onyx vault adapter.
 
         :param web3:
@@ -97,6 +98,9 @@ class EnzymeVault(VaultBase):
             comparability assumption documented in
             :meth:`fetch_denomination_token_address`; this does not certify
             USDC as a handler deposit asset.
+        :param current_deposit_permission:
+            Fixed-block result from the chain-level active handler index. The
+            Shares contract cannot enumerate this state on its own.
         """
 
         super().__init__(token_cache=token_cache, require_denomination_token=require_denomination_token)
@@ -104,6 +108,7 @@ class EnzymeVault(VaultBase):
         self.spec = spec
         del features
         self.default_block_identifier = default_block_identifier
+        self.current_deposit_permission = VaultDepositPermission(current_deposit_permission) if current_deposit_permission is not None else VaultDepositPermission.unknown
         self.api_metadata = fetch_enzyme_vault_metadata(spec.chain_id, spec.vault_address)
 
     def _get_block_identifier(self) -> BlockIdentifier:
@@ -366,25 +371,50 @@ class EnzymeVault(VaultBase):
         return "Enzyme"
 
     def is_whitelisted_deposit(self) -> bool:
-        """Report Onyx deposit permission as unavailable without a handler index.
+        """Return current account-approval status from the handler index.
 
-        An Onyx Shares token has only ``isDepositHandler(address)``; it does
-        not provide an enumerable handler list. Individual current deposit
-        handlers can enforce an allowlist, such as a SyncDepositHandler's
-        ``getDepositorAllowlist()``, or a queue's controller restriction. A
-        direct Shares adapter therefore cannot safely claim either
-        ``whitelisted`` or ``permissionless`` until a chain-level HyperSync
-        index has reconstructed the active handlers and inspected their
-        reviewed interfaces. The shared scan maps this explicit unsupported
-        read to :attr:`~eth_defi.vault.deposit_redeem.VaultDepositPermission.unknown`.
+        An Onyx Shares token exposes ``isDepositHandler(address)`` but no
+        enumerable handler list. The chain-level Enzyme discovery pass
+        reconstructs the active set from ``DepositHandlerAdded`` and
+        ``DepositHandlerRemoved`` events, and a batched current-state reader
+        inspects the standard synchronous, queued and manual-mint handlers.
+        The resulting fixed-block permission is injected into this adapter.
 
-        :return: Never returns normally because the current handler set is not
-            enumerable from the Shares contract.
-        :raise NotImplementedError: Always, until the adapter receives an
-            authoritative current handler index.
+        A directly constructed adapter without that chain context remains
+        explicit ``unknown`` rather than performing a costly per-vault event
+        scan or assuming the protocol's permissionless default.
+
+        :return:
+            ``True`` when every active route requires prior account approval;
+            ``False`` when at least one route is proven public or no deposit
+            handler is active.
+        :raise NotImplementedError:
+            If no conclusive chain-level permission snapshot was supplied.
         """
 
-        raise NotImplementedError(f"Enzyme Onyx Shares vault {self.address} does not enumerate its active deposit handlers")
+        permission = getattr(self, "current_deposit_permission", VaultDepositPermission.unknown)
+        if permission is VaultDepositPermission.unknown:
+            raise NotImplementedError(f"Enzyme Onyx Shares vault {self.address} needs a conclusive active deposit-handler index")
+        return permission is VaultDepositPermission.whitelisted
+
+    def get_whitelist_notes(self) -> str | None:
+        """Explain the current Onyx permission classification.
+
+        The qualification distinguishes investor identity approval from route
+        availability and other operating conditions that the shared enum does
+        not represent.
+
+        :return:
+            Qualification for a resolved chain-level result, or ``None`` when
+            the adapter has no conclusive handler snapshot.
+        """
+
+        permission = getattr(self, "current_deposit_permission", VaultDepositPermission.unknown)
+        if permission is VaultDepositPermission.whitelisted:
+            return "Current Enzyme Onyx deposit handlers require prior recipient or controller approval. This is an onchain access rule and does not by itself prove an offchain KYC process."
+        if permission is VaultDepositPermission.permissionless:
+            return "Current Enzyme Onyx identity policy is permissionless. Either a public deposit route exists or no deposit handler is active; deposit availability, queue settlement, asset checks and other operating conditions are separate."
+        return None
 
     def fetch_fee_tracker_rate(
         self,

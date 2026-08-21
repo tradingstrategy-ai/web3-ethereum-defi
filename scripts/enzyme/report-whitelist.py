@@ -9,8 +9,9 @@ is missing and therefore means ``unknown``.
 An optional Enzyme API comparison is available for Blue.  Enzyme's
 ``GetVaultConfiguration`` response exposes the enabled deposit-recipient
 policy, so it is a useful independent check of the current onchain adapter
-result.  The API is authenticated and provides Blue configuration data; it is
-not an authoritative Onyx deposit-handler index.
+result. The API is authenticated and provides Blue configuration data. Onyx
+status in the database is instead resolved onchain by the metadata migration's
+event-reconstructed active deposit-handler index and fixed-block Multicall.
 
 Usage::
 
