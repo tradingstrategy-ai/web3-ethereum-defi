@@ -15,9 +15,19 @@ Current public positions are stored through the shared perp DEX observation
 tables and attached to the combined daily/high-frequency price frame by the
 generic temporal join. If the newest price row precedes the account read, the
 same bounded latest-row alignment used by other delayed native feeds applies.
-`perp_metrics_observed_at` retains the actual one-second-resolution measurement
-time through raw Parquet, cleaned Parquet and `other_data.perp_dex`, including
-when the values are stale.
+`perp_metrics_observed_at` retains the actual measurement time through raw
+Parquet, cleaned Parquet and `other_data.perp_dex`, including when the values
+are stale.
+
+### Production scan mode
+
+Production uses the high-frequency scanner (`HYPERCORE_MODE=high_freq`) every
+four hours. It collects both the price history and the current public position
+observations used for long, short, gross and net exposure derivations. The
+daily scanner and its `hyperliquid-vaults.duckdb` database remain for legacy
+history, standalone use and combined Parquet reads, but are not part of the
+looped production schedule. Do not expect new daily-scanner rows or position
+observations unless an operator explicitly runs `HYPERCORE_MODE=daily`.
 
 ## Architecture
 
@@ -374,9 +384,9 @@ The sync runs in **two** entry points with identical semantics:
   progress via `print()` for interactive use.
 - [`eth_defi/vault/scan_all_chains.py::_run_hypercore_scan`](../../eth_defi/vault/scan_all_chains.py)
   — the docker production path that `scan-vaults-all-chains.py` routes
-  all Hypercore scans through. Logs via the module logger. This is the
-  path both docker compose services (`vault-scanner` daily and
-  `vault-scanner-looped` HF) go through.
+  all Hypercore scans through. Logs via the module logger. The looped
+  production service selects the high-frequency scanner; daily mode runs
+  only when it is explicitly selected for a compatibility or maintenance run.
 
 Both paths use the same `GS_*` environment variables, the same
 `fetch_vault_review_statuses()` / `sync_vault_review_sheet()` functions,

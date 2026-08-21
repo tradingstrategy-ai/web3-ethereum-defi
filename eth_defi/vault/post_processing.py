@@ -548,6 +548,8 @@ def merge_native_protocols(
                     hypercore_df = build_hypercore_prices_dataframe(daily_db=daily_db, hf_db=hf_db)
                     if daily_db is not None:
                         _append_perp_metric_snapshots(daily_db, perp_snapshots)
+                    if hf_db is not None:
+                        _append_perp_metric_snapshots(hf_db, perp_snapshots)
             finally:
                 if daily_db is not None:
                     daily_db.close()

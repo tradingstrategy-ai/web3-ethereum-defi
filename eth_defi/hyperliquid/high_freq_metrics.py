@@ -1,6 +1,6 @@
 """High-frequency Hyperliquid vault metrics pipeline.
 
-Collects vault share prices, PnL, TVL and flow data. The ``default 4 h``
+Collects vault share prices, PnL, TVL, flow and current-position data. The ``default 4 h``
 interval is the *scan trigger* cadence (how often we poll), **not** the data
 resolution: the ``vaultDetails`` API serves the ``day`` period at a fixed
 ~20 min resolution, which is the finest it ever offers. Polling harder yields
@@ -51,6 +51,7 @@ from eth_defi.hyperliquid.deposit import (
     aggregate_daily_flows,
     fetch_vault_deposits,
 )
+from eth_defi.hyperliquid.perp_metrics import collect_hyperliquid_vault_observations
 from eth_defi.hyperliquid.session import HyperliquidSession
 from eth_defi.hyperliquid.vault import (
     HyperliquidVault,
@@ -787,12 +788,20 @@ def run_high_freq_scan(
         desc = "Fetching HF Hyperliquid vault details"
         results = Parallel(n_jobs=n_workers, backend="threading")(delayed(_hf_worker)(s) for s in tqdm(filtered, desc=desc))
 
-        success_count = sum(1 for r in results if r)
-        fail_count = sum(1 for r in results if not r)
+        success_count = sum(results)
+        fail_count = len(results) - success_count
     else:
         logger.info("No vaults matched filters, skipping parallel fetch")
         success_count = 0
         fail_count = 0
+
+    position_attempts = collect_hyperliquid_vault_observations(
+        session,
+        db.con,
+        filtered,
+        max_workers=max_workers,
+        timeout=timeout,
+    )
 
     # Lifecycle maintenance (runs unconditionally)
     if vault_addresses is None:
@@ -831,10 +840,11 @@ def run_high_freq_scan(
     db.save()
 
     logger.info(
-        "HF scan complete. Processed %d vaults (%d successful, %d failed) into %s",
+        "HF scan complete. Processed %d vaults (%d successful, %d failed, %d position observation attempts) into %s",
         len(filtered),
         success_count,
         fail_count,
+        position_attempts,
         db_path,
     )
 

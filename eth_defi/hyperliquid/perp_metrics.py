@@ -113,7 +113,7 @@ def _fetch_hyperliquid_vault_bundle(
     :param session:
         Configured public Hyperliquid session.
     :param summary:
-        Vault identity and account equity discovered by the daily scanner.
+        Vault identity and account equity discovered by the native vault scanner.
     :param timeout:
         HTTP request timeout in seconds.
     :return:
@@ -153,9 +153,9 @@ def collect_hyperliquid_vault_observations(
     :param session:
         Configured public Hyperliquid HTTP session.
     :param connection:
-        Owner-thread daily metrics DuckDB connection.
+        Owner-thread native metrics DuckDB connection.
     :param summaries:
-        Vaults already selected by the daily scanner.
+        Vaults already selected by the native vault scanner.
     :param max_workers:
         Threaded HTTP worker count.
     :param timeout:
@@ -164,7 +164,10 @@ def collect_hyperliquid_vault_observations(
         Number of attempted vault observations.
     """
     selected = tuple(summaries)
-    results = Parallel(n_jobs=max_workers, backend="threading")(delayed(_fetch_hyperliquid_vault_bundle)(session, summary, timeout) for summary in selected)
+    if not selected:
+        return 0
+    worker_count = min(max_workers, len(selected))
+    results = Parallel(n_jobs=worker_count, backend="threading")(delayed(_fetch_hyperliquid_vault_bundle)(session, summary, timeout) for summary in selected)
     for bundle, payload in results:
         write_perp_vault_observation_bundle(connection, bundle, payload)
     return len(results)

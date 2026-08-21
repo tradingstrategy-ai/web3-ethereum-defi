@@ -2,6 +2,7 @@
 
 from decimal import Decimal
 
+import flaky
 import pytest
 from eth_abi import decode, encode
 from eth_typing import HexAddress
@@ -391,6 +392,9 @@ def test_lagoon_v05_settlement_safety_accepts_after_cooldown_and_rejects_repeat(
     assert combined_state_after == combined_state_before
 
 
+# 2026-08-21: CI's local Anvil timed out after 250 seconds under parallel load;
+# the exact test passed locally in 9.67 seconds immediately after the failure.
+@flaky.flaky
 def test_lagoon_v05_max_settlement_rejects_atomically_and_safe_can_recover(
     web3: Web3,
     base_usdc: TokenDetails,
