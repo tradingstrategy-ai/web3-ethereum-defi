@@ -3,30 +3,28 @@
 import os
 from decimal import Decimal
 
+import flaky
 import pytest
 from eth_typing import HexAddress
 from web3 import Web3
 from web3.contract.contract import ContractFunction
 
-import flaky
-
-from eth_defi.event_reader.multicall_batcher import get_multicall_contract, call_multicall_batched_single_thread, MulticallWrapper
+from eth_defi.abi import ZERO_ADDRESS
 from eth_defi.erc_4626.vault_protocol.lagoon.vault import LagoonVault
+from eth_defi.event_reader.multicall_batcher import MulticallWrapper, call_multicall_batched_single_thread, get_multicall_contract
 from eth_defi.provider.broken_provider import get_almost_latest_block_number
 from eth_defi.safe.trace import assert_execute_module_success
 from eth_defi.token import TokenDetails, fetch_erc20_details
 from eth_defi.trace import assert_transaction_success_with_explanation
 from eth_defi.uniswap_v2.constants import UNISWAP_V2_DEPLOYMENTS
-from eth_defi.uniswap_v2.deployment import fetch_deployment, UniswapV2Deployment
-from eth_defi.abi import ZERO_ADDRESS
+from eth_defi.uniswap_v2.deployment import UniswapV2Deployment, fetch_deployment
 from eth_defi.uniswap_v3.constants import UNISWAP_V3_DEPLOYMENTS
-from eth_defi.uniswap_v3.deployment import fetch_deployment as fetch_deployment_uni_v3, UniswapV3Deployment
+from eth_defi.uniswap_v3.deployment import UniswapV3Deployment
+from eth_defi.uniswap_v3.deployment import fetch_deployment as fetch_deployment_uni_v3
 from eth_defi.uniswap_v3.utils import encode_path
-
 from eth_defi.vault.base import TradingUniverse, VaultPortfolio
-from eth_defi.vault.mass_buyer import create_buy_portfolio, BASE_SHOPPING_LIST, buy_tokens
-from eth_defi.vault.valuation import NetAssetValueCalculator, UniswapV2Router02Quoter, Route, UniswapV3Quoter
-
+from eth_defi.vault.mass_buyer import BASE_SHOPPING_LIST, buy_tokens, create_buy_portfolio
+from eth_defi.vault.valuation import NetAssetValueCalculator, Route, UniswapV2Router02Quoter, UniswapV3Quoter
 
 CI = os.environ.get("CI") == "true"
 
@@ -402,6 +400,9 @@ def test_lagoon_diagnose_routes(
     assert routes.loc[routes["Path"] == "DINO -> USDC"]["Value"].iloc[0] == "-"
 
 
+# 2026-08-21: CI's local Anvil timed out after 152 seconds under parallel load;
+# the exact test passed locally in 1.13 seconds immediately after the failure.
+@flaky.flaky
 def test_lagoon_post_valuation(
     web3: Web3,
     lagoon_vault: LagoonVault,
