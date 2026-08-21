@@ -1,6 +1,6 @@
 # 1.2
 
-- feat: Add the yield-farming vault investment strategy tag (2026-08-21)
+- feat: Add the yield-farming vault investment strategy tag and classify documented Lagoon vault strategies (2026-08-21)
 - feat: Add Pallas HyperEVM vault recognition, onchain fee reads and curator attribution for the Basis Trading HIP-3 and Directional Volatility vaults (2026-08-20)
 - feat: Replace the unsupported Arcus attribution for two Robinhood Chain pTokens with an address-scoped unknown-issuer pToken protocol and metadata repair (2026-08-20)
 - feat: Add Enzyme Blue and Onyx vault discovery, direct accounting adapters, current fee reads and resumable historical price migration (2026-08-20)
