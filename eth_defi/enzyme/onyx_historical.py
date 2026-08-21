@@ -24,9 +24,10 @@ class EnzymeVaultHistoricalReader(VaultHistoricalReader):
     The current Onyx ``sharePrice`` field and Shares ERC-20 token use
     18-decimal fixed-point values. The reader reports the stored share value
     in the vault's declared value asset and calculates total value as
-    ``share_price * total_supply``. For the Base ``USD`` value-asset label,
-    the adapter deliberately exports these values in USDC terms so generic
-    lifetime metrics remain comparable; this is not proof that USDC was the
+    ``share_price * total_supply``. For the Base ``USD``, ``BTC`` and ``EUR``
+    value-asset labels, the adapter deliberately exports these values in USDC,
+    cbBTC and EURC terms respectively so generic lifetime metrics retain an
+    ERC-20 denomination. This is not proof that the mapped token was the
     active deposit token. Historical deposit and redemption
     availability is unsupported: Shares delegates these actions to mutable,
     potentially account-restricted handlers and cannot enumerate those

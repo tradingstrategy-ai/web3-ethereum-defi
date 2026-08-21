@@ -16,10 +16,10 @@ long_description: |
   Enzyme Onyx uses a standalone Shares token and modular components. The
   supported Base scanner discovers official Onyx SharesFactory deployments and
   publishes each vehicle's share price and supply in a selected accounting
-  unit, which may be a named unit such as USD. USD-denominated investment
-  vehicles are presented in USDC terms for like-for-like comparison with other
-  USD vaults; their specific subscription handler can nevertheless accept a
-  different token. Blue current
+  unit, which may be a named unit such as USD, BTC or EUR. These investment
+  vehicles are presented in canonical Base USDC, cbBTC or EURC terms for
+  like-for-like comparison with other vaults; their specific subscription
+  handler can nevertheless accept a different token. Blue current
   metadata recognises the reviewed allowed-deposit-recipients policy. Onyx
   Shares cannot enumerate deposit handlers, so its current deposit permission
   remains unknown. Historical open/closed deposit and redemption status is not

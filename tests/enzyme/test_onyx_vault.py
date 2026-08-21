@@ -4,13 +4,14 @@ import datetime
 from decimal import Decimal
 from types import SimpleNamespace
 
+import pytest
 from eth_abi import encode
 
 from eth_defi.enzyme import onyx_vault
 from eth_defi.enzyme.blue_vault import EnzymeBlueVault
 from eth_defi.enzyme.onyx_discovery import ENZYME_BASE_SHARES_FACTORY, EnzymeVaultFactoryCandidate, decode_enzyme_shares_deployed_event, fetch_enzyme_shares_factories_for_chain
 from eth_defi.enzyme.onyx_historical import EnzymeVaultHistoricalReader
-from eth_defi.enzyme.onyx_vault import ONYX_USD_COMPARABILITY_TOKEN, EnzymeVault
+from eth_defi.enzyme.onyx_vault import ONYX_VALUE_ASSET_COMPARABILITY_TOKENS, EnzymeVault
 from eth_defi.erc_4626.classification import create_probe_calls, create_vault_instance
 from eth_defi.erc_4626.core import ERC4626Feature, get_vault_protocol_name, is_activity_filter_exempt
 from eth_defi.erc_4626.discovery_base import _prepare_probe_leads, create_enzyme_factory_detection, create_enzyme_potential_vault_match  # noqa: PLC2701
@@ -118,10 +119,19 @@ def test_enzyme_current_reader_derives_share_price_and_total_value() -> None:
     assert isinstance(vault.get_historical_reader(stateful=False), EnzymeVaultHistoricalReader)
 
 
-def test_enzyme_usd_value_asset_uses_usdc_as_metric_denomination(monkeypatch) -> None:
-    """Normalise USD-valued Onyx metrics to Base USDC, not handler assets."""
+@pytest.mark.parametrize(
+    ("value_asset", "expected_symbol"),
+    [
+        ("USD", "USDC"),
+        ("BTC", "cbBTC"),
+        ("EUR", "EURC"),
+    ],
+)
+def test_enzyme_value_assets_use_canonical_metric_denominations(monkeypatch, value_asset: str, expected_symbol: str) -> None:
+    """Normalise every discovered Onyx value asset without using handler assets."""
 
-    token = SimpleNamespace(address=ONYX_USD_COMPARABILITY_TOKEN, symbol="USDC")
+    expected_address = ONYX_VALUE_ASSET_COMPARABILITY_TOKENS[value_asset]
+    token = SimpleNamespace(address=expected_address, symbol=expected_symbol)
     vault = EnzymeVault.__new__(EnzymeVault)
     vault.web3 = SimpleNamespace()
     vault.spec = SimpleNamespace(chain_id=BASE_CHAIN_ID, vault_address=TEST_SHARES_ADDRESS)
@@ -129,14 +139,30 @@ def test_enzyme_usd_value_asset_uses_usdc_as_metric_denomination(monkeypatch) ->
     vault.token_cache = {}
     vault.shares_contract = SimpleNamespace(
         functions=SimpleNamespace(
-            getValueAsset=lambda: SimpleNamespace(call=lambda **_kwargs: b"USD".ljust(32, b"\x00")),
+            getValueAsset=lambda: SimpleNamespace(call=lambda **_kwargs: value_asset.encode("ascii").ljust(32, b"\x00")),
         )
     )
     monkeypatch.setattr(onyx_vault, "fetch_erc20_details", lambda *_args, **_kwargs: token)
 
-    assert vault.fetch_denomination_token_address() == ONYX_USD_COMPARABILITY_TOKEN
+    assert vault.fetch_denomination_token_address() == expected_address
     assert vault.fetch_denomination_token() is token
-    assert vault.fetch_info()["denomination_assumption"] == "USD values are exported as native Base USDC for cross-vault metric comparison"
+    assert vault.fetch_info()["denomination_assumption"] == "Onyx USD, BTC and EUR values are exported as canonical Base USDC, cbBTC and EURC metrics respectively"
+
+
+def test_enzyme_unknown_value_asset_fails_before_historical_reader() -> None:
+    """Reject a new named value asset instead of leaving its denomination null."""
+
+    vault = EnzymeVault.__new__(EnzymeVault)
+    vault.spec = SimpleNamespace(chain_id=BASE_CHAIN_ID, vault_address=TEST_SHARES_ADDRESS)
+    vault.default_block_identifier = None
+    vault.shares_contract = SimpleNamespace(
+        functions=SimpleNamespace(
+            getValueAsset=lambda: SimpleNamespace(call=lambda **_kwargs: b"GOLD".ljust(32, b"\x00")),
+        )
+    )
+
+    with pytest.raises(onyx_vault.EnzymeVaultUnsupportedError, match="unsupported value asset 'GOLD'"):
+        vault.fetch_denomination_token_address()
 
 
 def test_enzyme_current_reader_reads_fee_trackers(monkeypatch) -> None:

@@ -40,12 +40,22 @@ FEE_BPS_DENOMINATOR = 10_000
 ZERO_ADDRESS = "0x0000000000000000000000000000000000000000"
 
 #: Onyx ``Shares.getValueAsset()`` is a human-readable accounting label, not
-#: an ERC-20 deposit-token address. For comparable vault metrics, every Base
-#: Shares vehicle labelled ``USD`` is deliberately denominated in native Base
-#: USDC. This is a reporting assumption: a current handler can instead accept
-#: USDT, EURC, or another asset, and transaction code must never use this value
-#: to choose a deposit token.
-ONYX_USD_COMPARABILITY_TOKEN = HexAddress(USDC_NATIVE_TOKEN[ENZYME_BASE_CHAIN_ID])
+#: an ERC-20 deposit-token address. Every currently discovered Base label has
+#: a canonical ERC-20 used only to export comparable scanner metrics. This
+#: mapping must reflect the value shown to an investor, not a protocol-internal
+#: handler implementation: a handler can accept USDT, EURC, or another asset
+#: while the Shares vehicle reports its NAV in USD, BTC, or EUR.
+#:
+#: Never use these addresses to select a subscription or redemption token. The
+#: transaction flow must inspect the active handler instead.
+ONYX_VALUE_ASSET_COMPARABILITY_TOKENS: dict[str, HexAddress] = {
+    "USD": HexAddress(USDC_NATIVE_TOKEN[ENZYME_BASE_CHAIN_ID]),
+    "BTC": HexAddress("0xcbb7c0000ab88b473b1f5afd9ef808440eed33bf"),  # Base cbBTC
+    "EUR": HexAddress("0x60a3e35cc302bfa44cb288bc5a4f316fdb1adb42"),  # Base EURC
+}
+
+#: Compatibility alias for callers that need the USD reporting normalisation.
+ONYX_USD_COMPARABILITY_TOKEN = ONYX_VALUE_ASSET_COMPARABILITY_TOKENS["USD"]
 
 
 class EnzymeVaultUnsupportedError(RuntimeError):
@@ -183,31 +193,45 @@ class EnzymeVault(VaultBase):
         del block_identifier
         return self.address
 
-    def fetch_denomination_token_address(self) -> HexAddress | None:
-        """Map Onyx USD accounting values to Base USDC for metric comparison.
+    def fetch_denomination_token_address(self) -> HexAddress:
+        """Map every supported Onyx value asset to a canonical Base ERC-20.
 
         Onyx ``Shares`` records a named value asset rather than an ERC-20
         denomination token. The scanner needs an ERC-20 denomination to keep
-        USD-valued Onyx share prices, TVL and lifetime metrics comparable with
-        other vaults. It therefore deliberately maps every Base ``USD`` value
-        asset to native Base USDC.
+        its share prices, TVL and lifetime metrics comparable with other vaults.
+        It deliberately maps each reviewed Base value-asset label to its
+        canonical ERC-20: ``USD`` to USDC, ``BTC`` to cbBTC, and ``EUR`` to
+        EURC. The mapping covers all 16 Onyx Shares discovered from the
+        official Base SharesFactory as of 2026-08-21.
 
-        This is not evidence that USDC is the active deposit asset. An Onyx
-        vehicle can use a handler that accepts USDT or another ERC-20 while
-        continuing to report its valuation in USD. Deposit and redemption code
-        must inspect the active handler instead of relying on this reporting
-        normalisation.
+        This is not evidence that the canonical token is the active deposit
+        asset. For example, an USD-valued vehicle can use a handler that
+        accepts USDT while continuing to report its NAV in USD. Deposit and
+        redemption code must inspect the active handler instead of relying on
+        this reporting normalisation. An unknown label raises immediately so a
+        historical scan cannot proceed with a missing denomination token and
+        later fail inside the generic reader state.
 
         :return:
-            Base USDC for ``USD``-valued Base Shares, otherwise ``None`` until
-            the corresponding non-USD reporting-unit policy is implemented.
+            Canonical Base ERC-20 used to represent the Shares value asset in
+            scanner metrics.
+        :raise EnzymeVaultUnsupportedError:
+            If the vault is not on Base or Enzyme introduces a value-asset
+            label with no reviewed canonical ERC-20 mapping.
         """
 
-        if self.chain_id == ENZYME_BASE_CHAIN_ID and self.fetch_value_asset(self._get_block_identifier()) == "USD":
-            return ONYX_USD_COMPARABILITY_TOKEN
-        return None
+        if self.chain_id != ENZYME_BASE_CHAIN_ID:
+            raise EnzymeVaultUnsupportedError(f"Enzyme Onyx value-asset mappings are only configured for Base, got chain {self.chain_id}")
 
-    def fetch_denomination_token(self) -> TokenDetails | None:
+        value_asset = self.fetch_value_asset(self._get_block_identifier())
+        try:
+            return ONYX_VALUE_ASSET_COMPARABILITY_TOKENS[value_asset]
+        except KeyError as error:
+            supported_labels = ", ".join(sorted(ONYX_VALUE_ASSET_COMPARABILITY_TOKENS))
+            message = f"Enzyme Onyx Shares vault {self.address} reports unsupported value asset {value_asset!r}; add a reviewed Base ERC-20 mapping before historical scanning. Supported labels: {supported_labels}"
+            raise EnzymeVaultUnsupportedError(message) from error
+
+    def fetch_denomination_token(self) -> TokenDetails:
         """Fetch the ERC-20 selected by the Onyx reporting normalisation.
 
         The returned token represents the scanner's valuation denomination,
@@ -216,21 +240,21 @@ class EnzymeVault(VaultBase):
         comparability assumption and its transaction-flow limitation.
 
         :return:
-            Native Base USDC metadata for a ``USD`` value asset, otherwise
-            ``None``.
+            Metadata for the canonical Base ERC-20 used by the mapped Onyx
+            value asset.
         """
 
-        address = self.fetch_denomination_token_address()
-        if address is None:
-            return None
-        return fetch_erc20_details(
+        token = fetch_erc20_details(
             self.web3,
-            address,
+            self.fetch_denomination_token_address(),
             chain_id=self.chain_id,
             raise_on_error=False,
             cache=self.token_cache,
-            cause_diagnostics_message=f"Enzyme Onyx USD value asset normalised to Base USDC for {self.address}",
+            cause_diagnostics_message=f"Enzyme Onyx value asset normalised to a canonical Base ERC-20 for {self.address}",
         )
+        if token is None:
+            raise EnzymeVaultUnsupportedError(f"Could not read canonical denomination-token metadata for Enzyme Onyx Shares vault {self.address}")
+        return token
 
     def fetch_value_asset(self, block_identifier: BlockIdentifier = "latest") -> str:
         """Read the declared Onyx accounting unit, such as ``USD``.
@@ -281,9 +305,9 @@ class EnzymeVault(VaultBase):
     def fetch_info(self) -> VaultInfo:
         """Fetch the vault address, accounting unit and metric denomination.
 
-        ``denomination_assumption`` records that the USD-to-USDC mapping is a
-        metrics convention. It must not be interpreted as a handler deposit
-        asset or as evidence that a user can deposit USDC.
+        ``denomination_assumption`` records that the named-value-asset mapping
+        is a metrics convention. It must not be interpreted as a handler
+        deposit asset or as evidence that a user can deposit the mapped token.
 
         :return:
             Shares address, declared value asset and exported denomination
@@ -293,7 +317,7 @@ class EnzymeVault(VaultBase):
         return {
             "shares": self.address,
             "value_asset": self.fetch_value_asset(self._get_block_identifier()),
-            "denomination_assumption": "USD values are exported as native Base USDC for cross-vault metric comparison",
+            "denomination_assumption": "Onyx USD, BTC and EUR values are exported as canonical Base USDC, cbBTC and EURC metrics respectively",
         }
 
     def fetch_portfolio(self, universe: TradingUniverse, block_identifier: BlockIdentifier | None = None) -> VaultPortfolio:

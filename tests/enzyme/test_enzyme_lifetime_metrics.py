@@ -31,6 +31,12 @@ ENZYME_ONYX_VAULT = "0xdd922b0a90c3273c76fd68f3265293d50923a904"
 ENZYME_ONYX_FIRST_SEEN_BLOCK = 36_213_502
 ENZYME_ONYX_FIRST_SEEN_AT = datetime.datetime(2025, 9, 30, 7, 12, 31)  # noqa: DTZ001 - scanner uses naive UTC.
 
+#: Enzyme Onyx EUR-valued Shares vault. It verifies that a non-USD value asset
+#: reaches the generic historical reader state with an ERC-20 denomination.
+ENZYME_ONYX_EUR_VAULT = "0x48e7c4b85ed4e8b7b0921101c21a806e49dd5006"
+ENZYME_ONYX_EUR_FIRST_SEEN_BLOCK = 44_432_466
+ENZYME_ONYX_EUR_FIRST_SEEN_AT = datetime.datetime(2026, 4, 8, 13, 17, 59)  # noqa: DTZ001 - scanner uses naive UTC.
+
 
 @dataclass(slots=True, frozen=True)
 class EnzymeMetricProfile:
@@ -97,6 +103,16 @@ def web3(anvil_fork_pool: AnvilForkPool) -> Web3:
             expected_share_price=Decimal("0.962906956707870729"),
             expected_total_assets=Decimal("12.85933917909920077489685820"),
             expected_total_supply=Decimal("13.35470586178400751"),
+        ),
+        EnzymeMetricProfile(
+            address=ENZYME_ONYX_EUR_VAULT,
+            features={ERC4626Feature.enzyme_onyx_like},
+            first_seen_block=ENZYME_ONYX_EUR_FIRST_SEEN_BLOCK,
+            first_seen_at=ENZYME_ONYX_EUR_FIRST_SEEN_AT,
+            expected_denomination="EURC",
+            expected_share_price=Decimal("1"),
+            expected_total_assets=Decimal("100"),
+            expected_total_supply=Decimal("100"),
         ),
     ],
 )
