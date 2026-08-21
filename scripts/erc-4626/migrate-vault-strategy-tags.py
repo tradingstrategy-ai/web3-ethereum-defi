@@ -384,7 +384,7 @@ def resolve_strategy_tags(spec: VaultSpec, row: VaultRow) -> tuple[set[StrategyT
         return None
 
     if evm_feature == ERC4626Feature.lagoon_like:
-        tags = get_lagoon_strategy_tags(spec.chain_id, spec.vault_address)
+        tags = get_lagoon_strategy_tags(spec.vault_address)
         if tags is None:
             return None
         return tags, f"{protocol_name} tag resolver"

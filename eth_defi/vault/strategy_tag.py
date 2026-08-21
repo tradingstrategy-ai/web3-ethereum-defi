@@ -1,10 +1,10 @@
 """Vault investment strategy classifications.
 
 Protocol-local ``STRATEGY_TAGS`` tables use plain lowercase ``str`` keys for
-EVM addresses, for example ``"0x1234..."``.  Keeping address literals as
-strings avoids noisy ``HexAddress(...)`` constructors while allowing the same
-mapping convention to be used for native protocol identifiers.  The lookup
-helper normalises adapter-supplied addresses before consulting these tables.
+EVM addresses, for example ``"0x1234..."``, and ordinary mutable ``set``
+values. Keeping these literals simple makes the maintained classifications
+easy to review. The lookup helper normalises adapter-supplied addresses before
+consulting these tables.
 """
 
 import enum
@@ -167,10 +167,9 @@ def lookup_strategy_tags(
     classification.
 
     Mappings are intentionally keyed by address without a chain ID. An entry
-    applies to every supported deployment at that address, so maintainers must
-    confirm that same-address deployments use the same strategy before adding
-    one. A genuinely chain-specific classification belongs in the protocol
-    adapter's hook instead of this shared address mapping.
+    applies to every deployment at that address. If a protocol reuses an
+    address for distinct documented products, record the combined tags in one
+    clearly documented address entry.
 
     :param mapping:
         Protocol-local lowercase string address-to-tag mapping.

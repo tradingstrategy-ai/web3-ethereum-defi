@@ -217,7 +217,7 @@ def test_migrate_vault_strategy_tags_resolves_apex_native_rows() -> None:
 
 
 def test_migrate_vault_strategy_tags_resolves_lagoon_rows() -> None:
-    """Lagoon resolution includes the deployment chain to avoid address collisions."""
+    """Lagoon resolution uses the shared address mapping."""
     migration = load_migration_module()
     spec = VaultSpec(8453, "0xb09f761cb13baca8ec087ac476647361b6314f98")
     row = {
@@ -230,7 +230,10 @@ def test_migrate_vault_strategy_tags_resolves_lagoon_rows() -> None:
         {
             StrategyTag.arbitrage,
             StrategyTag.delta_neutral,
+            StrategyTag.amm,
+            StrategyTag.lending,
             StrategyTag.lending_looping,
+            StrategyTag.liquidity_provider,
             StrategyTag.multistrategy,
             StrategyTag.yield_farming,
         },

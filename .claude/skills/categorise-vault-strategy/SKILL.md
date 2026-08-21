@@ -13,8 +13,8 @@ address-to-tag mapping next to its vault protocol adapter.
 1. Identify the vault and its adapter.
 
    - Resolve the chain and lowercase contract address from the supplied link,
-     address, or name. Do not classify a same-address deployment on a different
-     chain without confirming it is the same product.
+     address, or name. The maintained tag table is keyed by address only;
+     retain the union of documented tags if a protocol reuses an address.
    - For an ERC-4626 adapter, locate
      `eth_defi/erc_4626/vault_protocol/{slug}/vault.py` and read its
      description, `short_description`, nearby address overlays, and protocol
@@ -62,10 +62,12 @@ address-to-tag mapping next to its vault protocol adapter.
    }
    ```
 
-   Keep every EVM address key lowercase and scope every entry to an individual
-   vault. `lookup_strategy_tags()` normalises the adapter's `HexAddress`
-   input before looking up the string key. Put a Sphinx line-comment block
-   immediately above every address-specific entry.
+   Keep every EVM address key lowercase and every value as an ordinary set;
+   do not include a chain ID or use `frozenset`. `lookup_strategy_tags()`
+   normalises the adapter's `HexAddress` input before looking up the string
+   key. If a protocol reuses an address, use one entry with the union of
+   documented tags and name every covered product in its comment. Put a
+   Sphinx line-comment block immediately above every address-specific entry.
    It must include the vault name, the UTC date the tagging entry was added,
    and the decision material used to assign the tags. Include every page URL
    consulted during the decision directly in the comment; cite repository

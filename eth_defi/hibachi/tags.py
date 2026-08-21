@@ -3,7 +3,7 @@
 from eth_defi.vault.strategy_tag import StrategyTag, combine_strategy_tags
 
 #: Hibachi native vaults trade perpetual futures by definition.
-DEFAULT_STRATEGY_TAGS: frozenset[StrategyTag] = frozenset({StrategyTag.perpetual_futures})
+DEFAULT_STRATEGY_TAGS: set[StrategyTag] = {StrategyTag.perpetual_futures}
 
 #: Synthetic-address-specific classifications maintained in addition to the
 #: native perpetual-futures default, e.g. ``hibachi-vault-2``.

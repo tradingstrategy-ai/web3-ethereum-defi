@@ -3,21 +3,19 @@
 from eth_defi.vault.strategy_tag import StrategyTag, combine_strategy_tags
 
 #: Most GRVT native vaults trade perpetual futures.
-DEFAULT_STRATEGY_TAGS: frozenset[StrategyTag] = frozenset({StrategyTag.perpetual_futures})
+DEFAULT_STRATEGY_TAGS: set[StrategyTag] = {StrategyTag.perpetual_futures}
 
 #: These GRVT products are documented as tokenised RWA funds rather than
 #: perpetual-futures vaults, so the native perpetual-futures default does not
 #: apply. Keep the exception explicit and address-scoped.
-NON_PERPETUAL_VAULTS: frozenset[str] = frozenset(
-    {
-        #: Vault: Balanced Bundle.
-        #: Added: 2026-08-18.
-        #: Decision material: The description identifies a tokenised CLO ETF
-        #: and RWA credit exposure, not a perpetual-futures strategy.
-        #: Sources: https://grvt.io/exchange/strategies/1662126310
-        "vlt:3eesf9iphosimfc4szp2ixoqgiw",
-    }
-)
+NON_PERPETUAL_VAULTS: set[str] = {
+    #: Vault: Balanced Bundle.
+    #: Added: 2026-08-18.
+    #: Decision material: The description identifies a tokenised CLO ETF
+    #: and RWA credit exposure, not a perpetual-futures strategy.
+    #: Sources: https://grvt.io/exchange/strategies/1662126310
+    "vlt:3eesf9iphosimfc4szp2ixoqgiw",
+}
 
 #: Vault-ID-specific classifications maintained in addition to the native
 #: default. GRVT IDs are stored in lowercase.

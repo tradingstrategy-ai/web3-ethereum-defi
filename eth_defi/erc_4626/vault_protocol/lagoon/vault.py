@@ -573,7 +573,7 @@ class LagoonVault(ERC7540Vault, AutomatedSafe):
             A copy of the maintained tag set, or ``None`` when the current
             public strategy description is too vague to categorise.
         """
-        return get_lagoon_strategy_tags(self.chain_id, self.vault_address)
+        return get_lagoon_strategy_tags(self.vault_address)
 
     def get_notes(self) -> str | None:
         """Get notes for this vault.
