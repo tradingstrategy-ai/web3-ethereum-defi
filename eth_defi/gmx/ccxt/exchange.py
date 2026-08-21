@@ -55,6 +55,7 @@ from eth_defi.gmx.ccxt.validation import _validate_ohlcv_data_sufficiency
 from eth_defi.gmx.config import GMXConfig
 from eth_defi.gmx.symbols import DEPRECATED_MARKET_TOKENS, SYMBOL_NORMALISE
 from eth_defi.gmx.constants import (
+    DECREASE_POSITION_SWAP_TYPES,
     DEFAULT_GAS_CRITICAL_THRESHOLD_USD,
     DEFAULT_GAS_ESTIMATE_BUFFER,
     DEFAULT_GAS_MONITOR_ENABLED,
@@ -6296,6 +6297,13 @@ class GMX(ExchangeCompatible):
             gmx_params["execution_buffer"] = params["execution_buffer"]
         if "auto_cancel" in params:
             gmx_params["auto_cancel"] = params["auto_cancel"]
+        # GMX PnL-payout direction on close -- see DECREASE_POSITION_SWAP_TYPES
+        # in eth_defi.gmx.constants and OrderParams in eth_defi.gmx.order.base_order.
+        # Only meaningful on a decrease/close; harmless (ignored by GMX) on an open.
+        if "decrease_position_swap_type" in params:
+            gmx_params["decrease_position_swap_type"] = params["decrease_position_swap_type"]
+        if "should_unwrap_native_token" in params:
+            gmx_params["should_unwrap_native_token"] = params["should_unwrap_native_token"]
 
         return gmx_params
 
@@ -7302,6 +7310,14 @@ class GMX(ExchangeCompatible):
             close_kwargs["market_key"] = gmx_params["market_key"]
         if gmx_params.get("index_token_address"):
             close_kwargs["index_token_address"] = gmx_params["index_token_address"]
+        # PnL-payout direction on close. Only added when the caller configured
+        # one; DecreaseOrder.create_decrease_order() supplies its own default
+        # (swap_pnl_token_to_collateral_token / should_unwrap_native_token=False)
+        # otherwise.
+        if "decrease_position_swap_type" in gmx_params:
+            close_kwargs["decrease_position_swap_type"] = gmx_params["decrease_position_swap_type"]
+        if "should_unwrap_native_token" in gmx_params:
+            close_kwargs["should_unwrap_native_token"] = gmx_params["should_unwrap_native_token"]
         return self.trader.close_position(**close_kwargs)
 
     def create_order(

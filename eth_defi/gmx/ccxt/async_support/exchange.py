@@ -45,6 +45,7 @@ from eth_defi.gmx.api import GMXAPI
 from eth_defi.gmx.config import GMXConfig
 from eth_defi.gmx.symbols import DEPRECATED_MARKET_TOKENS, SYMBOL_NORMALISE
 from eth_defi.gmx.constants import (
+    DECREASE_POSITION_SWAP_TYPES,
     GMX_MIN_COST_USD,
     GMX_SUPPORTED_CHAINS,
     PRECISION,
@@ -4129,6 +4130,21 @@ class GMX(Exchange):
             "size_delta_usd": size_delta_usd,
             "slippage_percent": slippage_percent,
             "execution_buffer": execution_buffer,
+            # Sync/async lockstep with _convert_ccxt_to_gmx_params() in
+            # eth_defi/gmx/ccxt/exchange.py. Unlike execution_buffer, nothing
+            # downstream in this async module currently reads these two keys --
+            # async standard order creation (including closes) is not yet
+            # implemented (see create_order()'s NotSupported fallback), and the
+            # bundled SL/TP decrease legs take their own
+            # decrease_position_swap_type/should_unwrap_native_token from the
+            # SLTPOrder instance, not from this dict. Kept here so the two
+            # converters' return shapes stay identical and this dict is ready
+            # once/if an async close path is added.
+            "decrease_position_swap_type": params.get(
+                "decrease_position_swap_type",
+                DECREASE_POSITION_SWAP_TYPES["swap_pnl_token_to_collateral_token"],
+            ),
+            "should_unwrap_native_token": params.get("should_unwrap_native_token", False),
         }
 
     async def _ensure_token_approval_async(
