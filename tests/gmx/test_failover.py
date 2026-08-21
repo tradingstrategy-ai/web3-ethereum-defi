@@ -1,8 +1,10 @@
+import time
 from unittest.mock import MagicMock, patch
 
 import pytest
 import requests
 
+from eth_defi.gmx.api import _TICKER_PRICES_CACHE, GMXAPI  # noqa: PLC2701  # cache inspection required by the failover tests
 from eth_defi.gmx.retry import (
     GMXAPIUnavailable,
     GMXRetryConfig,
@@ -146,3 +148,60 @@ def test_make_gmx_api_request_attempts_summary_covers_all_five_tiers():
     for tier in ("primary", "backup", "fallback", "fallback-2", "fallback-3"):
         assert f"{tier}:" in str(err)
     assert err.__cause__ is not None
+
+
+def _healthy_tickers(n: int = 120) -> list:
+    return [{"tokenAddress": f"0x{i:03x}", "maxPrice": "1000"} for i in range(n)]
+
+
+def test_get_tickers_does_not_cache_degraded_payload(monkeypatch):
+    _TICKER_PRICES_CACHE.clear()
+    api = GMXAPI(chain="arbitrum")
+
+    # First call: degraded payload triggers failover to a healthy one.
+    calls = {"n": 0}
+
+    def fake_request(*args, **kwargs):  # noqa: ARG001  # mock signature must accept endpoint/params
+        calls["n"] += 1
+        if calls["n"] == 1:
+            return []  # degraded 200
+        return _healthy_tickers()
+
+    monkeypatch.setattr(api, "_make_request", fake_request)
+
+    result = api.get_tickers(use_cache=True)
+    assert len(result) == 120  # noqa: PLR2004
+    # The degraded payload must not be in the cache.
+    assert len(_TICKER_PRICES_CACHE["arbitrum"][0]) == 120  # noqa: PLR2004
+
+
+def test_get_tickers_serves_stale_snapshot_when_allowed(monkeypatch):
+    _TICKER_PRICES_CACHE.clear()
+    api = GMXAPI(chain="arbitrum")
+    api.retry_config = GMXRetryConfig(allow_stale_prices=True, max_stale_seconds=120.0)
+
+    # Seed a last-known-good snapshot.
+    _TICKER_PRICES_CACHE["arbitrum"] = (_healthy_tickers(), time.time())
+
+    def always_fail(*args, **kwargs):  # noqa: ARG001  # mock signature must accept endpoint/params
+        raise GMXAPIUnavailable("arbitrum", "/prices/tickers", ("primary: 500",))  # noqa: EM101  # mock exception with fixed arguments
+
+    monkeypatch.setattr(api, "_make_request", always_fail)
+
+    result = api.get_tickers(use_cache=False)
+    assert len(result) == 120  # noqa: PLR2004
+
+
+def test_get_tickers_refuses_stale_snapshot_by_default(monkeypatch):
+    _TICKER_PRICES_CACHE.clear()
+    api = GMXAPI(chain="arbitrum")
+    # Default: allow_stale_prices=False.
+    _TICKER_PRICES_CACHE["arbitrum"] = (_healthy_tickers(), time.time())
+
+    def always_fail(*args, **kwargs):  # noqa: ARG001  # mock signature must accept endpoint/params
+        raise GMXAPIUnavailable("arbitrum", "/prices/tickers", ("primary: 500",))  # noqa: EM101  # mock exception with fixed arguments
+
+    monkeypatch.setattr(api, "_make_request", always_fail)
+
+    with pytest.raises(GMXAPIUnavailable):
+        api.get_tickers(use_cache=False)

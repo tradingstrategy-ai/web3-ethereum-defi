@@ -6,6 +6,7 @@ This module provides functionality for interacting with GMX APIs.
 
 import logging
 import time
+from collections.abc import Callable
 from typing import Any, Optional
 
 import pandas as pd
@@ -13,14 +14,7 @@ import requests
 from eth_typing import HexAddress
 
 from eth_defi.gmx.config import GMXConfig
-from eth_defi.gmx.market_depth import MarketDepthInfo, parse_market_depth
 from eth_defi.gmx.constants import (
-    GMX_API_URLS,
-    GMX_API_URLS_BACKUP,
-    GMX_API_URLS_FALLBACK_3,
-    GMX_API_V2_URLS,
-    GMX_API_V2_URLS_FALLBACK,
-    GMX_SUPPORTED_CHAINS,
     _APY_CACHE_TTL_SECONDS,
     _MARKETS_CACHE_TTL_SECONDS,
     _MARKETS_INFO_CACHE_TTL_SECONDS,
@@ -29,8 +23,21 @@ from eth_defi.gmx.constants import (
     _RATES_CACHE_TTL_SECONDS,
     _TICKER_CACHE_TTL_SECONDS,
     _TOKEN_INFO_CACHE_TTL_SECONDS,
+    GMX_API_URLS,
+    GMX_API_URLS_BACKUP,
+    GMX_API_URLS_FALLBACK_3,
+    GMX_API_V2_URLS,
+    GMX_API_V2_URLS_FALLBACK,
+    GMX_SUPPORTED_CHAINS,
 )
-from eth_defi.gmx.retry import GMXRetryConfig, make_gmx_api_request
+from eth_defi.gmx.market_depth import MarketDepthInfo, parse_market_depth
+from eth_defi.gmx.retry import (
+    DEFAULT_RETRY_CONFIG,
+    GMXAPIUnavailable,
+    GMXRetryConfig,
+    make_gmx_api_request,
+)
+from eth_defi.gmx.ticker_validation import GMXInvalidPayloadError, validate_tickers_payload
 
 logger = logging.getLogger(__name__)
 
@@ -338,6 +345,7 @@ class GMXAPI:
         endpoint: str,
         params: Optional[dict[str, Any]] = None,
         timeout: float = 10.0,
+        validate: Callable[[Any], bool] | None = None,
     ) -> dict[str, Any]:
         """
         Make a request to the GMX API with retry logic and automatic failover to backup URL.
@@ -347,6 +355,10 @@ class GMXAPI:
         :param endpoint: API endpoint path (e.g., "/prices/tickers", "/signed_prices/latest")
         :param params: Optional query parameters
         :param timeout: HTTP request timeout in seconds
+        :param validate:
+            Optional callable taking the parsed payload and returning ``True``
+            when valid. A ``False`` result treats the endpoint's response as a
+            failure and fails over to the next endpoint.
         :return: API response parsed as a dictionary
         :raises RuntimeError: When all retry and backup attempts fail
         """
@@ -356,15 +368,16 @@ class GMXAPI:
             params=params,
             timeout=timeout,
             retry_config=self.retry_config,
+            validate=validate,
         )
 
     def get_tickers(self, use_cache: bool = True) -> dict[str, Any]:
-        """
-        Get current price information for all supported tokens.
+        """Get current price information for all supported tokens.
 
-        This endpoint provides real-time pricing data for all tokens supported
-        by the GMX protocol on the configured network. Results are cached for
-        10 seconds to reduce API calls.
+        Validates the payload before caching so a degraded ``200`` (empty,
+        truncated, or wrong schema) is never cached. When every endpoint fails
+        and ``allow_stale_prices`` is enabled on the retry config, serves the
+        last-known-good snapshot if it is younger than ``max_stale_seconds``.
 
         :param use_cache:
             Whether to use cached data if available (default True)
@@ -374,35 +387,56 @@ class GMXAPI:
             typically including bid/ask prices, last price, and volume data
         :rtype: dict[str, Any]
         """
-        # Check cache if enabled
+        cfg = self.retry_config or DEFAULT_RETRY_CONFIG
+
         if use_cache and self.chain in _TICKER_PRICES_CACHE:
             cached_tickers, cached_time = _TICKER_PRICES_CACHE[self.chain]
-            age = time.time() - cached_time
-
-            if age < _TICKER_CACHE_TTL_SECONDS:
-                logger.debug(
-                    "Using cached ticker prices for %s (age: %.1fs)",
-                    self.chain,
-                    age,
-                )
+            if time.time() - cached_time < _TICKER_CACHE_TTL_SECONDS:
+                logger.debug("Using cached ticker prices for %s", self.chain)
                 return cached_tickers
 
-        # Fetch fresh data
-        response = self._make_request("/prices/tickers")
+        last_good_count = None
+        if self.chain in _TICKER_PRICES_CACHE:
+            last_good_count = len(_TICKER_PRICES_CACHE[self.chain][0])
 
-        # Cache the response
+        validate = lambda payload: validate_tickers_payload(  # noqa: E731  # short closure; a named helper would obscure the call site
+            payload,
+            min_expected_tickers=cfg.min_expected_tickers,
+            last_good_count=last_good_count,
+        )
+
+        try:
+            response = self._make_request("/prices/tickers", validate=validate)
+            if not validate(response):
+                # Fail-safe for drivers that bypass the transport `validate`
+                # hook (e.g. `_make_request` mocked in tests). Retry once so a
+                # transient degraded payload still yields a healthy snapshot;
+                # a repeated degraded payload is a failed fetch.
+                logger.warning(
+                    "Ticker payload for %s failed validation, retrying once",
+                    self.chain,
+                )
+                response = self._make_request("/prices/tickers", validate=validate)
+                if not validate(response):
+                    raise GMXInvalidPayloadError(
+                        f"Ticker payload for {self.chain} failed validation"
+                    )
+        except GMXAPIUnavailable:
+            if cfg.allow_stale_prices and self.chain in _TICKER_PRICES_CACHE:
+                snapshot, snap_time = _TICKER_PRICES_CACHE[self.chain]
+                age = time.time() - snap_time
+                if age < cfg.max_stale_seconds:
+                    logger.warning(
+                        "Serving stale ticker prices for %s (age: %.1fs)",
+                        self.chain,
+                        age,
+                    )
+                    return snapshot
+            raise
+
         if use_cache:
             _TICKER_PRICES_CACHE[self.chain] = (response, time.time())
             logger.debug("Cached ticker prices for %s", self.chain)
-
-        # Log a small summary to help debugging without dumping full payloads
-        sample = None
-        if isinstance(response, list) and response:
-            sample = {
-                "token": response[3].get("tokenSymbol") or response[3].get("tokenAddress"),
-                "maxPrice": response[3].get("maxPrice"),
-                "minPrice": response[3].get("minPrice"),
-            }
 
         return response
 
