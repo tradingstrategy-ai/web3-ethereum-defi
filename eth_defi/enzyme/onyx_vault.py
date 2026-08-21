@@ -3,7 +3,9 @@
 Enzyme's current Base deployment is the modular Onyx protocol. Its ``Shares``
 contract is an ERC-20 vault share token, but it deliberately does not implement
 ERC-4626. Valuation is published by a connected handler as a stored
-18-decimal ``sharePrice()`` in a named accounting unit such as USD.
+18-decimal ``sharePrice()`` in a named accounting unit such as USD. The scanner
+normalises the USD reporting unit to native Base USDC for cross-vault metrics;
+this does not identify the active handler's deposit asset.
 
 Official Base deployment and ABI source:
 https://github.com/enzymefinance/onyx-sdk/tree/main/packages/environment
@@ -22,10 +24,11 @@ from web3.contract import Contract
 from eth_defi.abi import get_deployed_contract
 from eth_defi.enzyme.fee import combine_user_facing_management_fee
 from eth_defi.enzyme.offchain_metadata import fetch_enzyme_vault_metadata
+from eth_defi.enzyme.onyx_discovery import ENZYME_BASE_CHAIN_ID
 from eth_defi.enzyme.onyx_flow import EnzymeVaultFlowManager
 from eth_defi.enzyme.onyx_historical import EnzymeVaultHistoricalReader
 from eth_defi.erc_4626.core import ERC4626Feature
-from eth_defi.token import TokenDetails, fetch_erc20_details
+from eth_defi.token import USDC_NATIVE_TOKEN, TokenDetails, fetch_erc20_details
 from eth_defi.types import Percent
 from eth_defi.vault.base import TradingUniverse, VaultBase, VaultFlowManager, VaultHistoricalReader, VaultInfo, VaultPortfolio, VaultSpec
 from eth_defi.vault.deposit_redeem import VaultDepositManager
@@ -35,6 +38,14 @@ from eth_defi.vault.lower_case_dict import LowercaseDict
 VALUE_ASSET_DECIMALS = 18
 FEE_BPS_DENOMINATOR = 10_000
 ZERO_ADDRESS = "0x0000000000000000000000000000000000000000"
+
+#: Onyx ``Shares.getValueAsset()`` is a human-readable accounting label, not
+#: an ERC-20 deposit-token address. For comparable vault metrics, every Base
+#: Shares vehicle labelled ``USD`` is deliberately denominated in native Base
+#: USDC. This is a reporting assumption: a current handler can instead accept
+#: USDT, EURC, or another asset, and transaction code must never use this value
+#: to choose a deposit token.
+ONYX_USD_COMPARABILITY_TOKEN = HexAddress(USDC_NATIVE_TOKEN[ENZYME_BASE_CHAIN_ID])
 
 
 class EnzymeVaultUnsupportedError(RuntimeError):
@@ -71,8 +82,11 @@ class EnzymeVault(VaultBase):
         :param default_block_identifier:
             Block used for ordinary metadata reads.
         :param require_denomination_token:
-            Kept for :class:`VaultBase` compatibility. Onyx uses a named
-            value asset, not a denomination ERC-20 token.
+            Enforce a resolved reporting denomination in operational callers.
+            USD-value Onyx Shares resolve to native Base USDC by the explicit
+            comparability assumption documented in
+            :meth:`fetch_denomination_token_address`; this does not certify
+            USDC as a handler deposit asset.
         """
 
         super().__init__(token_cache=token_cache, require_denomination_token=require_denomination_token)
@@ -170,14 +184,53 @@ class EnzymeVault(VaultBase):
         return self.address
 
     def fetch_denomination_token_address(self) -> HexAddress | None:
-        """Return no denomination token because Onyx uses a named value asset."""
+        """Map Onyx USD accounting values to Base USDC for metric comparison.
 
+        Onyx ``Shares`` records a named value asset rather than an ERC-20
+        denomination token. The scanner needs an ERC-20 denomination to keep
+        USD-valued Onyx share prices, TVL and lifetime metrics comparable with
+        other vaults. It therefore deliberately maps every Base ``USD`` value
+        asset to native Base USDC.
+
+        This is not evidence that USDC is the active deposit asset. An Onyx
+        vehicle can use a handler that accepts USDT or another ERC-20 while
+        continuing to report its valuation in USD. Deposit and redemption code
+        must inspect the active handler instead of relying on this reporting
+        normalisation.
+
+        :return:
+            Base USDC for ``USD``-valued Base Shares, otherwise ``None`` until
+            the corresponding non-USD reporting-unit policy is implemented.
+        """
+
+        if self.chain_id == ENZYME_BASE_CHAIN_ID and self.fetch_value_asset(self._get_block_identifier()) == "USD":
+            return ONYX_USD_COMPARABILITY_TOKEN
         return None
 
     def fetch_denomination_token(self) -> TokenDetails | None:
-        """Return no ERC-20 denomination token for named Onyx value assets."""
+        """Fetch the ERC-20 selected by the Onyx reporting normalisation.
 
-        return None
+        The returned token represents the scanner's valuation denomination,
+        not a source-proven Onyx handler deposit asset. See
+        :meth:`fetch_denomination_token_address` for the USD-to-USDC
+        comparability assumption and its transaction-flow limitation.
+
+        :return:
+            Native Base USDC metadata for a ``USD`` value asset, otherwise
+            ``None``.
+        """
+
+        address = self.fetch_denomination_token_address()
+        if address is None:
+            return None
+        return fetch_erc20_details(
+            self.web3,
+            address,
+            chain_id=self.chain_id,
+            raise_on_error=False,
+            cache=self.token_cache,
+            cause_diagnostics_message=f"Enzyme Onyx USD value asset normalised to Base USDC for {self.address}",
+        )
 
     def fetch_value_asset(self, block_identifier: BlockIdentifier = "latest") -> str:
         """Read the declared Onyx accounting unit, such as ``USD``.
@@ -226,11 +279,21 @@ class EnzymeVault(VaultBase):
         return self.fetch_total_assets(block_identifier)
 
     def fetch_info(self) -> VaultInfo:
-        """Fetch the vault address and its declared accounting unit."""
+        """Fetch the vault address, accounting unit and metric denomination.
+
+        ``denomination_assumption`` records that the USD-to-USDC mapping is a
+        metrics convention. It must not be interpreted as a handler deposit
+        asset or as evidence that a user can deposit USDC.
+
+        :return:
+            Shares address, declared value asset and exported denomination
+            assumption.
+        """
 
         return {
             "shares": self.address,
             "value_asset": self.fetch_value_asset(self._get_block_identifier()),
+            "denomination_assumption": "USD values are exported as native Base USDC for cross-vault metric comparison",
         }
 
     def fetch_portfolio(self, universe: TradingUniverse, block_identifier: BlockIdentifier | None = None) -> VaultPortfolio:

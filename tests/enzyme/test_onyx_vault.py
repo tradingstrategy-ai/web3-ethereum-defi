@@ -10,7 +10,7 @@ from eth_defi.enzyme import onyx_vault
 from eth_defi.enzyme.blue_vault import EnzymeBlueVault
 from eth_defi.enzyme.onyx_discovery import ENZYME_BASE_SHARES_FACTORY, EnzymeVaultFactoryCandidate, decode_enzyme_shares_deployed_event, fetch_enzyme_shares_factories_for_chain
 from eth_defi.enzyme.onyx_historical import EnzymeVaultHistoricalReader
-from eth_defi.enzyme.onyx_vault import EnzymeVault
+from eth_defi.enzyme.onyx_vault import ONYX_USD_COMPARABILITY_TOKEN, EnzymeVault
 from eth_defi.erc_4626.classification import create_probe_calls, create_vault_instance
 from eth_defi.erc_4626.core import ERC4626Feature, get_vault_protocol_name, is_activity_filter_exempt
 from eth_defi.erc_4626.discovery_base import _prepare_probe_leads, create_enzyme_factory_detection, create_enzyme_potential_vault_match  # noqa: PLC2701
@@ -116,6 +116,27 @@ def test_enzyme_current_reader_derives_share_price_and_total_value() -> None:
     assert vault.fetch_total_assets(123) == Decimal("50")
     assert vault.fetch_nav(123) == Decimal("50")
     assert isinstance(vault.get_historical_reader(stateful=False), EnzymeVaultHistoricalReader)
+
+
+def test_enzyme_usd_value_asset_uses_usdc_as_metric_denomination(monkeypatch) -> None:
+    """Normalise USD-valued Onyx metrics to Base USDC, not handler assets."""
+
+    token = SimpleNamespace(address=ONYX_USD_COMPARABILITY_TOKEN, symbol="USDC")
+    vault = EnzymeVault.__new__(EnzymeVault)
+    vault.web3 = SimpleNamespace()
+    vault.spec = SimpleNamespace(chain_id=BASE_CHAIN_ID, vault_address=TEST_SHARES_ADDRESS)
+    vault.default_block_identifier = None
+    vault.token_cache = {}
+    vault.shares_contract = SimpleNamespace(
+        functions=SimpleNamespace(
+            getValueAsset=lambda: SimpleNamespace(call=lambda **_kwargs: b"USD".ljust(32, b"\x00")),
+        )
+    )
+    monkeypatch.setattr(onyx_vault, "fetch_erc20_details", lambda *_args, **_kwargs: token)
+
+    assert vault.fetch_denomination_token_address() == ONYX_USD_COMPARABILITY_TOKEN
+    assert vault.fetch_denomination_token() is token
+    assert vault.fetch_info()["denomination_assumption"] == "USD values are exported as native Base USDC for cross-vault metric comparison"
 
 
 def test_enzyme_current_reader_reads_fee_trackers(monkeypatch) -> None:

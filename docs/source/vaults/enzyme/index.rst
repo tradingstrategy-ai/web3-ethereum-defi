@@ -35,6 +35,13 @@ It calculates total value as ``share price × share supply`` in the declared
 value asset. A value asset can be a named unit, such as USD, rather than an
 ERC-20 token, so this value is not necessarily a US-dollar valuation.
 
+For comparable scanner metrics, Base Onyx Shares with the named ``USD`` value
+asset are exported with Base USDC as their denomination token. This is a
+reporting convention for the USD-valued share price and TVL, not a claim that
+USDC is the asset accepted by the current deposit handler: an Onyx handler can
+instead accept USDT or another ERC-20. Transaction integrations must inspect
+the active handler rather than use this normalised denomination.
+
 The Onyx adapter supports discovery, metadata and historical accounting. It
 does not implement deposits, redemptions, flow-event accounting or portfolio
 composition, because these depend on the particular handler configuration.
