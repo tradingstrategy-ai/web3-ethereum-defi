@@ -1435,6 +1435,13 @@ class ERC4262VaultDetection:
     #: persisted detections compatible after this slot was added.
     configuration_count: int = 0
 
+    #: Optional current permission snapshot supplied by a chain-level reader.
+    #:
+    #: Enzyme Onyx uses this because its Shares contract keeps deposit handlers
+    #: in a non-enumerable mapping. Discovery reconstructs the active set once
+    #: for the chain and passes the fixed-block result to each direct adapter.
+    current_deposit_permission: str | None = None
+
     def __setstate__(self, state: list[object] | tuple[object, ...]) -> None:
         """Restore persisted detections created before configuration events were tracked.
 
@@ -1450,8 +1457,10 @@ class ERC4262VaultDetection:
         for field, value in zip(fields, state):
             object.__setattr__(self, field.name, value)
 
-        if len(state) < len(fields):
+        if len(state) < len(fields) - 1:
             object.__setattr__(self, "configuration_count", 0)
+        if len(state) < len(fields):
+            object.__setattr__(self, "current_deposit_permission", None)
 
     def get_spec(self) -> VaultSpec:
         """Chain id/address tuple identifying this vault."""

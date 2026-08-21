@@ -143,6 +143,8 @@ def test_enzyme_vault_reaches_lifetime_metrics(
     assert vault is not None
     assert vault.denomination_token is not None
     assert vault.denomination_token.symbol == profile.expected_denomination
+    assert vault.short_description
+    assert vault.description
 
     reader = vault.get_historical_reader(stateful=True)
     call_results = [call.call_as_result(web3, block_identifier=BASE_MIDNIGHT_BLOCK, ignore_error=True) for call in reader.construct_multicalls()]

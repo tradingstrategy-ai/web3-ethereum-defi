@@ -6,17 +6,24 @@ from types import SimpleNamespace
 
 import pytest
 from eth_abi import encode
+from eth_typing import HexAddress
+from web3 import Web3
 
-from eth_defi.enzyme import onyx_vault
+from eth_defi.compat import native_datetime_utc_fromtimestamp
+from eth_defi.enzyme import onyx_permission, onyx_vault
 from eth_defi.enzyme.blue_vault import EnzymeBlueVault
-from eth_defi.enzyme.onyx_discovery import ENZYME_BASE_SHARES_FACTORY, EnzymeVaultFactoryCandidate, decode_enzyme_shares_deployed_event, fetch_enzyme_shares_factories_for_chain
+from eth_defi.enzyme.onyx_discovery import ENZYME_BASE_SHARES_FACTORY, EnzymeVaultFactoryCandidate, decode_enzyme_deposit_handler_event, decode_enzyme_shares_deployed_event, fetch_enzyme_deposit_handler_event_topics, fetch_enzyme_shares_factories_for_chain, reconstruct_active_enzyme_deposit_handlers
 from eth_defi.enzyme.onyx_historical import EnzymeVaultHistoricalReader
+from eth_defi.enzyme.onyx_permission import aggregate_onyx_vault_permission, classify_onyx_deposit_handler
 from eth_defi.enzyme.onyx_vault import ONYX_VALUE_ASSET_COMPARABILITY_TOKENS, EnzymeVault
+from eth_defi.erc_4626 import discovery_base
 from eth_defi.erc_4626.classification import create_probe_calls, create_vault_instance
 from eth_defi.erc_4626.core import ERC4626Feature, get_vault_protocol_name, is_activity_filter_exempt
-from eth_defi.erc_4626.discovery_base import _prepare_probe_leads, create_enzyme_factory_detection, create_enzyme_potential_vault_match  # noqa: PLC2701
+from eth_defi.erc_4626.discovery_base import LeadScanReport, VaultDiscoveryBase, _prepare_probe_leads, create_enzyme_factory_detection, create_enzyme_potential_vault_match  # noqa: PLC2701
+from eth_defi.erc_4626.hypersync_discovery import HypersyncVaultDiscover
 from eth_defi.erc_4626.scan import fetch_deposit_permission
 from eth_defi.event_reader.multicall_batcher import EncodedCall, EncodedCallResult
+from eth_defi.vault.base import VaultSpec
 from eth_defi.vault.deposit_redeem import VaultDepositPermission
 from eth_defi.vault.fee import VaultFeeMode
 from eth_defi.vault.risk import VaultTechnicalRisk, get_vault_risk
@@ -43,6 +50,173 @@ def test_enzyme_factory_event_decodes_canonical_shares_address() -> None:
     shares = decode_enzyme_shares_deployed_event({"address": ENZYME_BASE_SHARES_FACTORY, "data": data.hex()})
 
     assert shares == TEST_SHARES_ADDRESS
+
+
+def test_enzyme_deposit_handler_events_reconstruct_current_membership() -> None:
+    """Replay mutable Onyx handler membership in block and log order."""
+
+    handler_a = "0x0000000000000000000000000000000000000001"
+    handler_b = "0x0000000000000000000000000000000000000002"
+    added_topic, removed_topic = fetch_enzyme_deposit_handler_event_topics()
+    updates = [
+        decode_enzyme_deposit_handler_event({"address": TEST_SHARES_ADDRESS, "topics": [added_topic], "data": encode(["address"], [handler_a]).hex(), "blockNumber": 10, "logIndex": 1}),
+        decode_enzyme_deposit_handler_event({"address": TEST_SHARES_ADDRESS, "topics": [added_topic], "data": encode(["address"], [handler_b]).hex(), "blockNumber": 11, "logIndex": 1}),
+        decode_enzyme_deposit_handler_event({"address": TEST_SHARES_ADDRESS, "topics": [removed_topic], "data": encode(["address"], [handler_a]).hex(), "blockNumber": 12, "logIndex": 1}),
+    ]
+
+    active = reconstruct_active_enzyme_deposit_handlers({HexAddress(TEST_SHARES_ADDRESS.lower())}, list(reversed(updates)))
+
+    assert active == {TEST_SHARES_ADDRESS.lower(): (handler_b,)}
+
+
+def test_onyx_hypersync_discovery_updates_persisted_handler_membership() -> None:
+    """Keep Onyx handler state current during ordinary incremental scans."""
+
+    candidate = EnzymeVaultFactoryCandidate(
+        chain=BASE_CHAIN_ID,
+        address=TEST_SHARES_ADDRESS,
+        factory_address=ENZYME_BASE_SHARES_FACTORY,
+        created_block=10,
+        created_at=native_datetime_utc_fromtimestamp(0),
+        transaction_hash="0x01",
+        log_index=0,
+    )
+    lead = create_enzyme_potential_vault_match(candidate)
+    handler = "0x0000000000000000000000000000000000000001"
+    added_topic, removed_topic = fetch_enzyme_deposit_handler_event_topics()
+    report = LeadScanReport(leads={TEST_SHARES_ADDRESS.lower(): lead})
+
+    for topic in (added_topic, removed_topic):
+        log = SimpleNamespace(
+            address=TEST_SHARES_ADDRESS,
+            topics=[topic],
+            data=encode(["address"], [handler]).hex(),
+            block_number=11,
+            log_index=1,
+            transaction_hash="0x02",
+        )
+        HypersyncVaultDiscover.process_log(SimpleNamespace(), report, report.leads, {}, BASE_CHAIN_ID, log, native_datetime_utc_fromtimestamp(0), set())
+        expected = (handler,) if topic == added_topic else ()
+        assert lead.enzyme_active_deposit_handlers == expected
+
+
+def test_onyx_normal_scanner_injects_batched_permission(monkeypatch) -> None:
+    """Prevent later all-chain scans from reverting migrated Onyx status."""
+
+    candidate = EnzymeVaultFactoryCandidate(
+        chain=BASE_CHAIN_ID,
+        address=TEST_SHARES_ADDRESS,
+        factory_address=ENZYME_BASE_SHARES_FACTORY,
+        created_block=10,
+        created_at=native_datetime_utc_fromtimestamp(0),
+        transaction_hash="0x01",
+        log_index=0,
+    )
+    lead = create_enzyme_potential_vault_match(candidate)
+    handler = "0x0000000000000000000000000000000000000001"
+    lead.enzyme_active_deposit_handlers = (handler,)
+    discover = SimpleNamespace(
+        web3=SimpleNamespace(eth=SimpleNamespace(chain_id=BASE_CHAIN_ID)),
+        web3factory=SimpleNamespace(),
+        max_workers=4,
+        fetch_leads=lambda *_args: LeadScanReport(leads={TEST_SHARES_ADDRESS.lower(): lead}),
+    )
+    captured_handlers = []
+
+    def fake_fetch_permissions(**kwargs):
+        captured_handlers.append(kwargs["active_handlers"])
+        return {TEST_SHARES_ADDRESS.lower(): VaultDepositPermission.whitelisted}
+
+    monkeypatch.setattr(discovery_base, "fetch_onyx_current_deposit_permissions", fake_fetch_permissions)
+    monkeypatch.setattr(discovery_base, "probe_vaults", lambda *_args, **_kwargs: ())
+
+    report = VaultDiscoveryBase.scan_vaults(discover, 1, 20, display_progress=False, hardcoded_lead_sources=())
+
+    assert captured_handlers == [{TEST_SHARES_ADDRESS.lower(): (handler,)}]
+    assert report.detections[TEST_SHARES_ADDRESS].current_deposit_permission == "whitelisted"
+
+
+def create_successful_getter_result(value_type: str, value: object) -> SimpleNamespace:
+    """Create a minimal successful Multicall result for permission tests."""
+
+    return SimpleNamespace(success=True, result=encode([value_type], [value]))
+
+
+def test_onyx_standard_handler_permission_classification() -> None:
+    """Resolve synchronous, queued and manual-mint Onyx permission routes."""
+
+    zero = "0x0000000000000000000000000000000000000000"
+    allowlist = "0x0000000000000000000000000000000000000001"
+    sync_public = classify_onyx_deposit_handler(
+        {
+            "getDepositorAllowlist": create_successful_getter_result("address", zero),
+            "getPostDepositHook": create_successful_getter_result("address", zero),
+        },
+    )
+    sync_whitelisted = classify_onyx_deposit_handler(
+        {
+            "getDepositorAllowlist": create_successful_getter_result("address", allowlist),
+            "getPostDepositHook": create_successful_getter_result("address", zero),
+        },
+    )
+    queue_whitelisted = classify_onyx_deposit_handler(
+        {
+            "getDepositRestriction": create_successful_getter_result("uint8", 1),
+            "getPreRequestDepositHook": create_successful_getter_result("address", zero),
+            "getPostExecuteDepositRequestHook": create_successful_getter_result("address", zero),
+        },
+    )
+    manual_mint = classify_onyx_deposit_handler(
+        {"getPreMintHook": create_successful_getter_result("address", zero)},
+    )
+
+    assert sync_public is VaultDepositPermission.permissionless
+    assert sync_whitelisted is VaultDepositPermission.whitelisted
+    assert queue_whitelisted is VaultDepositPermission.whitelisted
+    assert manual_mint is VaultDepositPermission.whitelisted
+    assert aggregate_onyx_vault_permission([sync_whitelisted, queue_whitelisted, manual_mint]) is VaultDepositPermission.whitelisted
+    assert aggregate_onyx_vault_permission([sync_public, queue_whitelisted]) is VaultDepositPermission.permissionless
+    assert aggregate_onyx_vault_permission([]) is VaultDepositPermission.permissionless
+
+
+def test_onyx_permission_reader_batches_all_handler_getters(monkeypatch) -> None:
+    """Resolve active handler state through one shared Multicall invocation."""
+
+    handler = "0x0000000000000000000000000000000000000010"
+    allowlist = "0x0000000000000000000000000000000000000001"
+    zero = "0x0000000000000000000000000000000000000000"
+    invocations = []
+
+    def fake_read_multicall_chunked(**kwargs):
+        """Return a synchronous allowlist response and selector reverts."""
+
+        calls = kwargs["calls"]
+        invocations.append(calls)
+        for call in calls:
+            if call.func_name == "getDepositorAllowlist":
+                result = encode(["address"], [allowlist])
+                success = True
+            elif call.func_name == "getPostDepositHook":
+                result = encode(["address"], [zero])
+                success = True
+            else:
+                result = b""
+                success = False
+            yield EncodedCallResult(call=call, success=success, result=result, block_identifier=123)
+
+    monkeypatch.setattr(onyx_permission, "read_multicall_chunked", fake_read_multicall_chunked)
+
+    reads = onyx_permission.fetch_onyx_current_deposit_permissions(
+        chain_id=BASE_CHAIN_ID,
+        web3factory=SimpleNamespace(),
+        active_handlers={TEST_SHARES_ADDRESS.lower(): (handler,)},
+        block_identifier=123,
+        max_workers=4,
+    )
+
+    assert len(invocations) == 1
+    assert len(invocations[0]) == len(onyx_permission.ONYX_HANDLER_GETTERS)
+    assert reads[TEST_SHARES_ADDRESS.lower()] is VaultDepositPermission.whitelisted
 
 
 def test_enzyme_adapter_routes_through_vault_base() -> None:
@@ -295,3 +469,30 @@ def test_onyx_current_deposit_permission_is_unknown_without_handler_index() -> N
     vault.spec = SimpleNamespace(vault_address=TEST_SHARES_ADDRESS)
 
     assert fetch_deposit_permission(vault) is VaultDepositPermission.unknown
+
+
+@pytest.mark.parametrize(
+    "permission",
+    [
+        VaultDepositPermission.whitelisted,
+        VaultDepositPermission.permissionless,
+    ],
+)
+def test_onyx_current_deposit_permission_uses_handler_index(permission: VaultDepositPermission) -> None:
+    """Expose a conclusive chain-level Onyx permission through the adapter."""
+
+    vault = EnzymeVault.__new__(EnzymeVault)
+    vault.spec = SimpleNamespace(vault_address=TEST_SHARES_ADDRESS)
+    vault.current_deposit_permission = permission
+
+    assert vault.is_whitelisted_deposit() is (permission is VaultDepositPermission.whitelisted)
+    assert fetch_deposit_permission(vault) is permission
+
+
+def test_onyx_link_opens_address_specific_enzyme_page() -> None:
+    """Link a Base Onyx Shares address directly to its vault detail page."""
+
+    vault = EnzymeVault.__new__(EnzymeVault)
+    vault.spec = VaultSpec(8453, TEST_SHARES_ADDRESS)
+
+    assert vault.get_link() == f"https://app.enzyme.finance/vault/{Web3.to_checksum_address(TEST_SHARES_ADDRESS)}?network=base"
