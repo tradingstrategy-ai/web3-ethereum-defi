@@ -12,7 +12,11 @@ oracle prices before it builds order parameters. The forwarding is intercepted a
 ``GMXTrading.open_position`` so nothing is broadcast.
 """
 
+import asyncio
+
 import pytest
+
+from eth_defi.gmx.ccxt.async_support import exchange as async_exchange
 
 #: Distinctive value, unlike any default in the codebase, so a match cannot be
 #: coincidental.
@@ -85,3 +89,38 @@ def test_explicit_execution_buffer_wins_over_the_instance_default(ccxt_gmx_fork_
     _open(gmx, {"execution_buffer": 3.5})
 
     assert captured.get("execution_buffer") == 3.5
+
+
+def _convert_async(execution_buffer: float, params: dict) -> dict:
+    """Run the async converter with a bare instance, no network or chain needed."""
+    exchange = async_exchange.GMX.__new__(async_exchange.GMX)
+    exchange.execution_buffer = execution_buffer
+    return asyncio.run(
+        exchange._convert_ccxt_to_gmx_params_async(
+            symbol="ETH/USDC:USDC",
+            type="market",
+            side="buy",
+            amount=0,
+            price=None,
+            params={"size_usd": 10.0, "leverage": 2.0, **params},
+        )
+    )
+
+
+def test_async_converter_uses_the_configured_execution_buffer():
+    """The async converter must not hardcode the buffer past the configured one.
+
+    ``_convert_ccxt_to_gmx_params_async()`` read ``params["execution_buffer"]``
+    with a literal ``2.2`` fallback, so an async adapter constructed with
+    ``executionBuffer`` and not repeating it per order was priced at 2.2x.
+    """
+    gmx_params = _convert_async(SENTINEL_BUFFER, {})
+
+    assert gmx_params["execution_buffer"] == SENTINEL_BUFFER
+
+
+def test_async_explicit_execution_buffer_wins_over_the_instance_default():
+    """A per-order buffer must still override the instance default."""
+    gmx_params = _convert_async(SENTINEL_BUFFER, {"execution_buffer": 3.5})
+
+    assert gmx_params["execution_buffer"] == 3.5
