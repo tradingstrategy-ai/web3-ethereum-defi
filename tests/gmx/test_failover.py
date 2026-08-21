@@ -8,6 +8,7 @@ from ccxt import ExchangeNotAvailable
 
 from eth_defi.gmx.api import _TICKER_PRICES_CACHE, GMXAPI  # noqa: PLC2701  # cache inspection required by the failover tests
 from eth_defi.gmx.ccxt.async_support.async_http import async_make_gmx_api_request
+from eth_defi.gmx.ccxt.async_support.exchange import GMX as AsyncGMX  # noqa: N811  # async exchange alias used throughout the codebase
 from eth_defi.gmx.ccxt.exchange import GMX
 from eth_defi.gmx.retry import (
     GMXAPIUnavailable,
@@ -359,3 +360,35 @@ async def test_async_raises_gmxapiunavailable_on_total_failure():
             max_retries=1,
             retry_delay=0.01,
         )
+
+
+@pytest.mark.asyncio
+async def test_async_fetch_ticker_missing_ticker_raises_exchange_not_available(monkeypatch):
+    gmx = object.__new__(AsyncGMX)
+    gmx.chain = "arbitrum"
+    gmx.session = None
+
+    market = {"id": "BTC"}
+
+    async def fake_ensure_session():  # noqa: RUF029  # stub replacing the real coroutine
+        return None
+
+    async def fake_load_markets(*a, **k):  # noqa: ARG001, RUF029  # stub replacing the real coroutine
+        return None
+
+    def fake_market(symbol):  # noqa: ARG001  # stub replacing the real method
+        return market
+
+    async def fake_api(*args, **kwargs):  # noqa: ARG001, RUF029  # stub replacing the real coroutine
+        return []  # empty ticker list -> missing
+
+    gmx._ensure_session = fake_ensure_session
+    gmx.load_markets = fake_load_markets
+    gmx.market = fake_market
+    monkeypatch.setattr(
+        "eth_defi.gmx.ccxt.async_support.exchange.async_make_gmx_api_request",
+        fake_api,
+    )
+
+    with pytest.raises(ExchangeNotAvailable):
+        await gmx.fetch_ticker("BTC/USDC:USDC")

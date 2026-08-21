@@ -17,6 +17,7 @@ import aiohttp
 from ccxt.async_support import Exchange
 from ccxt.base.errors import (
     ExchangeError,
+    ExchangeNotAvailable,
     InvalidOrder,
     NotSupported,
     OrderNotFound,
@@ -66,6 +67,8 @@ from eth_defi.gmx.events import (
 from eth_defi.gmx.order.cancel_order import CancelOrder
 from eth_defi.gmx.order.sltp_order import SLTPEntry, SLTPOrder, SLTPParams
 from eth_defi.gmx.order_tracking import check_order_status, is_order_pending
+from eth_defi.gmx.retry import GMXAPIUnavailable
+from eth_defi.gmx.ticker_validation import validate_tickers_payload
 from eth_defi.gmx.utils import convert_raw_price_to_usd
 from eth_defi.gmx.verification import verify_gmx_order_execution
 from eth_defi.hotwallet import HotWallet
@@ -1617,11 +1620,15 @@ class GMX(Exchange):
         token_symbol = market["id"]
 
         # Fetch from GMX API
-        data = await async_make_gmx_api_request(
-            chain=self.chain,
-            endpoint="/prices/tickers",
-            session=self.session,
-        )
+        try:
+            data = await async_make_gmx_api_request(
+                chain=self.chain,
+                endpoint="/prices/tickers",
+                session=self.session,
+                validate=lambda p: validate_tickers_payload(p),  # noqa: PLW0108  # short closure; a named helper would obscure the call site
+            )
+        except GMXAPIUnavailable as exc:
+            raise ExchangeNotAvailable(str(exc)) from exc
 
         # Find ticker for this token
         ticker_data = None
@@ -1632,7 +1639,7 @@ class GMX(Exchange):
                     break
 
         if not ticker_data:
-            raise ExchangeError(f"Ticker data not found for {symbol}")
+            raise ExchangeNotAvailable(f"Ticker data not found for {symbol}")
 
         # Parse to CCXT format
         min_price = float(ticker_data.get("minPrice", 0)) / 10**PRECISION
