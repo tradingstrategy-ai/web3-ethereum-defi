@@ -1,12 +1,15 @@
 """Regression tests for the Enzyme historical migration script."""
 
+import asyncio
 import datetime
 import importlib.util
 from collections.abc import Iterator
 from contextlib import contextmanager
 from pathlib import Path
 from types import ModuleType, SimpleNamespace
+from unittest.mock import MagicMock
 
+import pytest
 from eth_typing import HexAddress
 
 from eth_defi.enzyme.blue_discovery import ENZYME_BLUE_DEPLOYMENTS, EnzymeBlueVaultFactoryCandidate, fetch_enzyme_blue_vault_deployed_event_topic
@@ -18,6 +21,7 @@ TEST_MAX_WORKERS = 4
 BASE_ENZYME_FACTORY_COUNT = 2
 EXPECTED_LINK_UPDATES = 2
 METADATA_END_BLOCK = 50_000_000
+RETRY_ATTEMPTS = 2
 
 
 def load_backfill_module() -> ModuleType:
@@ -67,6 +71,55 @@ def test_enzyme_backfill_uses_one_blue_dispatcher_query_per_chain() -> None:
     assert query.logs[0].address == [ENZYME_BLUE_DEPLOYMENTS[1].dispatcher]
     assert query.logs[0].topics == [[fetch_enzyme_blue_vault_deployed_event_topic()]]
     assert set(module.ENZYME_MIGRATION_CHAINS) == {1, 137, 8453, 42161}
+
+
+def test_enzyme_backfill_retries_hypersync_rate_limit(monkeypatch) -> None:
+    """Restart one factory stream after a temporary server rate limit."""
+
+    module = load_backfill_module()
+    web3 = MagicMock()
+    web3.eth.chain_id = 137
+    candidates = [create_candidate("0x000000000000000000000000000000000000bEEF", 35_306_010)]
+    rate_limit = RuntimeError("inner receiver\nCaused by:\nrate limited by server (remaining=0/30 reqs, resets_in=3s)")
+    calls = []
+
+    async def fake_fetch(*_args):
+        await asyncio.sleep(0)
+        calls.append(True)
+        if len(calls) == 1:
+            raise rate_limit
+        return candidates
+
+    sleeps = []
+    monkeypatch.setattr(module, "fetch_enzyme_vault_candidates_async", fake_fetch)
+    monkeypatch.setattr(module.time, "sleep", sleeps.append)
+
+    assert module.fetch_enzyme_vault_candidates(web3, 1, 2, attempts=RETRY_ATTEMPTS, retry_sleep=0.25) == candidates
+    assert len(calls) == RETRY_ATTEMPTS
+    assert sleeps == [0.25]
+
+
+def test_enzyme_backfill_does_not_retry_nonrecoverable_hypersync_error(monkeypatch) -> None:
+    """Surface malformed Hypersync data without hiding it behind retries."""
+
+    module = load_backfill_module()
+    web3 = MagicMock()
+    web3.eth.chain_id = 1
+    calls = []
+
+    async def fake_fetch(*_args):
+        await asyncio.sleep(0)
+        calls.append(True)
+        message = "HyperSync response omitted timestamp"
+        raise RuntimeError(message)
+
+    monkeypatch.setattr(module, "fetch_enzyme_vault_candidates_async", fake_fetch)
+    monkeypatch.setattr(module.time, "sleep", pytest.fail)
+
+    with pytest.raises(RuntimeError, match="omitted timestamp"):
+        module.fetch_enzyme_vault_candidates(web3, 1, 2, attempts=3, retry_sleep=0.25)
+
+    assert len(calls) == 1
 
 
 def test_enzyme_backfill_creates_factory_qualified_lead_and_detection() -> None:
@@ -171,6 +224,7 @@ def test_enzyme_backfill_repairs_unknown_blue_permission_without_refetching_onyx
                 "_deposit_permission": "unknown",
                 "_short_description": "Blue summary",
                 "_description": "Blue description",
+                "_enzyme_metadata_version": module.ENZYME_CURRENT_METADATA_VERSION,
             },
             VaultSpec(onyx.chain, onyx.address): {
                 "Name": "Onyx",
@@ -183,6 +237,7 @@ def test_enzyme_backfill_repairs_unknown_blue_permission_without_refetching_onyx
                 "_deposit_permission": "unknown",
                 "_short_description": "Onyx summary",
                 "_description": "Onyx description",
+                "_enzyme_metadata_version": module.ENZYME_CURRENT_METADATA_VERSION,
             },
         }
     )
@@ -212,6 +267,7 @@ def test_enzyme_backfill_repairs_missing_descriptions(monkeypatch) -> None:
                 "_denomination_token": {"symbol": "USDC"},
                 "_fees": SimpleNamespace(fee_mode="internalised"),
                 "_deposit_permission": "unknown",
+                "_enzyme_metadata_version": module.ENZYME_CURRENT_METADATA_VERSION,
             }
         }
     )
@@ -221,6 +277,30 @@ def test_enzyme_backfill_repairs_missing_descriptions(monkeypatch) -> None:
     database.rows[spec]["_short_description"] = "Onyx summary"
     database.rows[spec]["_description"] = "Onyx description"
     assert module.should_refresh_metadata(database, onyx, METADATA_END_BLOCK) is False
+
+
+def test_enzyme_backfill_refreshes_old_metadata_semantics(monkeypatch) -> None:
+    """Refresh otherwise complete rows after fee or permission semantics change."""
+
+    module = load_backfill_module()
+    monkeypatch.delenv("ENZYME_REFRESH_EXISTING_METADATA", raising=False)
+    onyx = create_candidate("0x000000000000000000000000000000000000bEEF", 35_306_010)
+    database = module.VaultDatabase(
+        rows={
+            VaultSpec(onyx.chain, onyx.address): {
+                "Name": "Onyx",
+                "Symbol": "ONYX",
+                "_denomination_token": {"symbol": "USDC"},
+                "_deposit_permission": "unknown",
+                "_short_description": "Onyx summary",
+                "_description": "Onyx description",
+                "_enzyme_metadata_version": module.ENZYME_CURRENT_METADATA_VERSION - 1,
+                "_enzyme_metadata_checked_block": METADATA_END_BLOCK,
+            }
+        }
+    )
+
+    assert module.should_refresh_metadata(database, onyx, METADATA_END_BLOCK) is True
 
 
 def test_enzyme_backfill_does_not_repeat_failed_metadata_at_same_checkpoint(monkeypatch) -> None:
@@ -235,12 +315,39 @@ def test_enzyme_backfill_does_not_repeat_failed_metadata_at_same_checkpoint(monk
             spec: {
                 "Name": "<broken: ContractLogicError>",
                 "_enzyme_metadata_checked_block": METADATA_END_BLOCK,
+                "_enzyme_metadata_version": module.ENZYME_CURRENT_METADATA_VERSION,
             }
         }
     )
 
     assert module.should_refresh_metadata(database, onyx, METADATA_END_BLOCK) is False
     assert module.should_refresh_metadata(database, onyx, METADATA_END_BLOCK + 1) is True
+
+
+def test_enzyme_backfill_accepts_unavailable_optional_current_values(monkeypatch) -> None:
+    """Do not retry deprecated vaults whose current NAV or fees cannot execute."""
+
+    module = load_backfill_module()
+    monkeypatch.delenv("ENZYME_REFRESH_EXISTING_METADATA", raising=False)
+    onyx = create_candidate("0x000000000000000000000000000000000000bEEF", 35_306_010)
+    spec = VaultSpec(onyx.chain, onyx.address)
+    database = module.VaultDatabase(
+        rows={
+            spec: {
+                "Name": "Inactive Onyx",
+                "Symbol": "ONYX",
+                "NAV": None,
+                "Shares": 0,
+                "_denomination_token": {"symbol": "USDC"},
+                "_fees": SimpleNamespace(fee_mode=None),
+                "_deposit_permission": "unknown",
+                "_short_description": "Onyx summary",
+                "_description": "Onyx description",
+            }
+        }
+    )
+
+    assert module.has_complete_current_metadata(database, onyx) is True
 
 
 def test_enzyme_backfill_repairs_generic_listing_links_without_metadata_reads() -> None:

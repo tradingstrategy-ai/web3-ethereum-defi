@@ -11,7 +11,8 @@ For every factory-confirmed Enzyme Blue and Onyx vault, the migration provides:
 
 - complete short and long descriptions;
 - a direct address-specific Enzyme application link;
-- current name, symbol, denomination, TVL, share supply and fee metadata;
+- mandatory current name, symbol and denomination, plus best-effort TVL,
+  share supply and fee metadata where deprecated contracts still execute;
 - current Blue deposit permission and its qualification;
 - the intentional ``unknown`` Onyx permission until handler indexing exists.
 

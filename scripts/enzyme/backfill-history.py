@@ -45,6 +45,7 @@ import logging
 import os
 import pickle  # noqa: S403 - trusted local production reader-state pickle.
 import sys
+import time
 from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path
@@ -71,6 +72,7 @@ from eth_defi.erc_4626.classification import create_vault_instance
 from eth_defi.erc_4626.core import ERC4626Feature
 from eth_defi.erc_4626.discovery_base import ERC4262VaultDetection, PotentialVaultMatch, create_enzyme_blue_factory_detection, create_enzyme_blue_potential_vault_match, create_enzyme_factory_detection, create_enzyme_potential_vault_match
 from eth_defi.erc_4626.scan import create_vault_scan_record_subprocess
+from eth_defi.hypersync.hypersync_timestamp import is_hypersync_retryable_runtime_error
 from eth_defi.hypersync.session import open_hypersync_stream
 from eth_defi.hypersync.utils import configure_hypersync_from_env
 from eth_defi.provider.multi_provider import MultiProviderWeb3Factory, create_multi_provider_web3
@@ -91,6 +93,10 @@ ENZYME_BASE_DEPLOYMENT_BLOCK = 35_306_000
 EnzymeFactoryCandidate = EnzymeVaultFactoryCandidate | EnzymeBlueVaultFactoryCandidate
 
 CHECKPOINT_VERSION = 1
+
+#: Increment when current metadata semantics change and existing rows need one
+#: new adapter read even when a resumable checkpoint retains the same head.
+ENZYME_CURRENT_METADATA_VERSION = 2
 
 #: The migration scans these chains independently exactly once.  Blue discovery
 #: uses one persistent Dispatcher event stream per chain; Base remains the
@@ -329,17 +335,52 @@ async def fetch_enzyme_vault_candidates_async(web3: Web3, start_block: int, end_
     return sorted(candidates.values(), key=lambda candidate: (candidate.created_block, candidate.address.lower()))
 
 
-def fetch_enzyme_vault_candidates(web3: Web3, start_block: int, end_block: int) -> list[EnzymeFactoryCandidate]:
+def fetch_enzyme_vault_candidates(
+    web3: Web3,
+    start_block: int,
+    end_block: int,
+    attempts: int = 3,
+    retry_sleep: float = 30.0,
+) -> list[EnzymeFactoryCandidate]:
     """Synchronously fetch all Enzyme factory candidates for the migration.
+
+    Hypersync deliberately exposes transient server rate limits and near-head
+    pagination failures to Python with no Rust-side retries. Retry the complete
+    per-chain stream here because candidates are persisted only after the
+    stream finishes, making each attempt atomic from the checkpoint's point of
+    view. A completed chain is never scanned again when the migration resumes.
 
     :param web3: Connected Web3 instance for a selected Enzyme chain.
     :param start_block: Inclusive factory-event scan start block.
     :param end_block: Inclusive factory-event scan end block.
+    :param attempts: Maximum complete stream attempts for retryable Hypersync
+        failures.
+    :param retry_sleep: Seconds to wait between retryable stream attempts.
     :return: Canonical Onyx Shares and Blue VaultProxy candidates ordered by
         creation block.
+    :raises RuntimeError: If all retry attempts fail or Hypersync returns a
+        non-recoverable error.
     """
 
-    return asyncio.run(fetch_enzyme_vault_candidates_async(web3, start_block, end_block))
+    assert attempts >= 1
+    for attempt in range(1, attempts + 1):
+        try:
+            return asyncio.run(fetch_enzyme_vault_candidates_async(web3, start_block, end_block))
+        except RuntimeError as e:
+            if not is_hypersync_retryable_runtime_error(e) or attempt == attempts:
+                raise
+            logger.warning(
+                "Retryable Hypersync factory discovery failure on chain %d; retrying complete stream in %.1f seconds (%d/%d): %s",
+                web3.eth.chain_id,
+                retry_sleep,
+                attempt,
+                attempts,
+                e,
+            )
+            time.sleep(retry_sleep)
+
+    message = "Unreachable Enzyme Hypersync retry state"
+    raise AssertionError(message)
 
 
 def create_enzyme_lead(candidate: EnzymeFactoryCandidate) -> PotentialVaultMatch:
@@ -545,7 +586,11 @@ def has_complete_current_metadata(vault_db: VaultDatabase, candidate: EnzymeFact
 
     Blue requires a conclusive current PolicyManager result. Onyx ``unknown``
     permission is intentional until active handler indexing exists and does not
-    make an otherwise healthy row incomplete.
+    make an otherwise healthy row incomplete. Name, symbol, denomination token,
+    and descriptions are mandatory catalogue identity fields. Current NAV,
+    share supply, and fees remain best-effort values: deprecated or invalid
+    vault configurations can no longer execute their valuation or release
+    extension calls, and repeatedly retrying them cannot recover those values.
 
     :param vault_db: Existing vault metadata database.
     :param candidate: Factory-discovered Enzyme vault.
@@ -556,10 +601,6 @@ def has_complete_current_metadata(vault_db: VaultDatabase, candidate: EnzymeFact
     if row is None or not row.get("Name") or (row.get("Name") or "").startswith("<broken"):
         return False
     if not row.get("Symbol") or not row.get("_denomination_token"):
-        return False
-    if any(key not in row or row[key] is None for key in ("NAV", "Shares")):
-        return False
-    if (fees := row.get("_fees")) is None or getattr(fees, "fee_mode", None) is None:
         return False
     if not row.get("_short_description") or not row.get("_description"):
         return False
@@ -589,6 +630,8 @@ def should_refresh_metadata(vault_db: VaultDatabase, candidate: EnzymeFactoryCan
     if parse_bool_env("ENZYME_REFRESH_EXISTING_METADATA", default=False):
         return True
     row = vault_db.rows.get(VaultSpec(candidate.chain, candidate.address))
+    if row is not None and row.get("_enzyme_metadata_version") != ENZYME_CURRENT_METADATA_VERSION:
+        return True
     if row is not None and int(row.get("_enzyme_metadata_checked_block") or 0) >= end_block:
         return False
     return not has_complete_current_metadata(vault_db, candidate)
@@ -770,6 +813,7 @@ def _run_migration() -> None:  # noqa: PLR0914 - linear migration steps favour o
                 # calls. A later completed run selects a newer end block and
                 # retries these rows automatically.
                 record["_enzyme_metadata_checked_block"] = run.end_block
+                record["_enzyme_metadata_version"] = ENZYME_CURRENT_METADATA_VERSION
                 vault_db.rows[VaultSpec(candidate.chain, candidate.address)] = record
                 metadata_upserted += 1
             vault_db_path.parent.mkdir(parents=True, exist_ok=True)

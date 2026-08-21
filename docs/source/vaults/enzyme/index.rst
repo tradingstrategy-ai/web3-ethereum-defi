@@ -186,6 +186,10 @@ their own resume markers, so an interrupted rerun skips them without a blanket
 metadata refresh or duplicate RPC calls. The metadata-only checkpoint is
 separate from the historical-price checkpoint, and the command holds the
 shared scanner writer lock while the metadata pickle is loaded and replaced.
+Blue permission reads cover Sulu and the deprecated Encore and Phoenix policy
+managers and whitelist identifiers used by the Enzyme website. Current NAV and
+fee fields remain blank when a deprecated vault can no longer execute its old
+release calls; name, symbol, denomination and descriptions remain mandatory.
 
 .. code-block:: shell
 

@@ -745,10 +745,15 @@ replacement and unconditional metadata refreshes.
 
 The migration fills missing short and long descriptions, repairs direct vault
 links locally, refreshes complete current adapter metadata for affected rows,
-and resolves current Blue deposit permission. Onyx permission remains
-``unknown`` until deposit-handler indexing is implemented. A completed row is
-skipped after an interruption, and a successful metadata-only run marks its
-separate metadata checkpoint complete. The script holds the shared scanner
+and resolves current Blue deposit permission across Sulu, Encore and Phoenix.
+The legacy result uses the reviewed release PolicyManager addresses and
+investor-whitelist identifiers published by Enzyme, and matches the policies
+used by the Enzyme website. Onyx permission remains ``unknown`` until
+deposit-handler indexing is implemented. Name, symbol, denomination and both
+descriptions are mandatory; current NAV and fees can be blank for deprecated
+vaults whose old valuation or extension calls no longer execute. A completed
+row is skipped after an interruption, and a successful metadata-only run marks
+its separate metadata checkpoint complete. The script holds the shared scanner
 writer lock for the complete database read/write lifetime so a concurrent
 process cannot replace its metadata updates.
 
