@@ -76,8 +76,8 @@ def test_merge_native_protocols_rewrites_parquet_once_and_preserves_empty_source
     class FakeDatabase:
         """Provide the close method required by the post-processing pipeline."""
 
-        def __init__(self, _: Path) -> None:
-            pass
+        def __init__(self, path: Path) -> None:
+            self.path = path
 
         def close(self) -> None:
             pass
@@ -104,6 +104,8 @@ def test_merge_native_protocols_rewrites_parquet_once_and_preserves_empty_source
     monkeypatch.setattr(post_processing, "build_hibachi_prices_dataframe", lambda _: pd.DataFrame())
     monkeypatch.setattr(post_processing, "build_hypercore_prices_dataframe", lambda **_: fresh_hypercore)
     monkeypatch.setattr(post_processing, "build_apex_prices_dataframe", lambda _: fresh_apex)
+    perp_snapshot_paths: list[Path] = []
+    monkeypatch.setattr(post_processing, "_append_perp_metric_snapshots", lambda database, _: perp_snapshot_paths.append(database.path))
 
     writes = 0
     original_write = VaultHistoricalRead.write_uncleaned_arrow_table
@@ -159,6 +161,7 @@ def test_merge_native_protocols_rewrites_parquet_once_and_preserves_empty_source
     assert set(result_df.loc[result_df["address"].str.startswith("lighter-"), "chain"]) == {LIGHTER_CHAIN_ID}
     assert result_df.loc[result_df["address"] == "hypercore-new", "account_pnl"].iloc[0] == pytest.approx(123.0)
     assert result_df.loc[result_df["address"] == "apex-vault-new", "share_price"].iloc[0] == pytest.approx(1.0)
+    assert {hyperliquid_db_path, hyperliquid_hf_db_path}.issubset(perp_snapshot_paths)
 
 
 def test_partial_lighter_merge_preserves_other_deployment_and_legacy_partition(

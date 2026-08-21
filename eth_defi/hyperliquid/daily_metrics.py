@@ -1455,8 +1455,8 @@ def run_daily_scan(
     desc = "Fetching Hyperliquid vault details"
     results = Parallel(n_jobs=max_workers, backend="threading")(delayed(_process_vault_worker)(session, db, summary, cutoff_date, timeout, flow_backfill_days) for summary in tqdm(filtered, desc=desc))
 
-    success_count = sum(1 for r in results if r)
-    fail_count = sum(1 for r in results if not r)
+    success_count = sum(results)
+    fail_count = len(results) - success_count
 
     position_attempts = collect_hyperliquid_vault_observations(
         session,
@@ -1502,7 +1502,7 @@ def run_daily_scan(
     db.save()
 
     logger.info(
-        "Daily scan complete. Processed %d vaults (%d successful, %d failed, %d position reads) into %s",
+        "Daily scan complete. Processed %d vaults (%d successful, %d failed, %d position observation attempts) into %s",
         len(filtered),
         success_count,
         fail_count,
