@@ -4,10 +4,8 @@ GMX API Retry and Failover Logic
 Centralised retry and backup failover handling for all GMX API calls.
 
 HTTP status codes (408, 429, 400, 500, ...) are the domain vocabulary here;
-the magic-number lint is silenced module-wide for that reason.
+the magic-number lint is silenced per-line on the status-code comparisons.
 """
-
-# ruff: noqa: PLR2004  # HTTP status code literals are idiomatic in this module
 
 import logging
 import time
@@ -38,7 +36,7 @@ def is_retryable_http_status(status_code: int) -> bool:
     """
     if status_code in {408, 429}:
         return True
-    if 400 <= status_code < 500:
+    if 400 <= status_code < 500:  # noqa: PLR2004  # HTTP status code range literal
         return False
     return True
 
@@ -169,7 +167,7 @@ def _try_api_with_retries(  # noqa: PLR0917  # endpoint-retry state passed posit
             url = f"{base_url}{endpoint}"
             response = requests.get(url, params=params, timeout=timeout)
 
-            if response.status_code >= 400 and not is_retryable_http_status(response.status_code):
+            if response.status_code >= 400 and not is_retryable_http_status(response.status_code):  # noqa: PLR2004  # HTTP error threshold literal
                 last_error = requests.HTTPError(
                     f"{response.status_code} {response.reason} for url {url}",
                     response=response,
@@ -245,7 +243,7 @@ def make_gmx_api_request(  # noqa: PLR0917  # central failover entry point; depr
     3. Try fallback API (max_retries attempts with exponential backoff)
     4. Try fallback-2 API (max_retries attempts with exponential backoff)
     5. Wait initial_delay, then repeat full cycle
-    6. After full_cycle_retries full cycles, raise RuntimeError
+    6. After full_cycle_retries full cycles, raise GMXAPIUnavailable
 
     :param chain:
         Chain name (e.g., "arbitrum", "avalanche")
@@ -267,7 +265,7 @@ def make_gmx_api_request(  # noqa: PLR0917  # central failover entry point; depr
         failure.
     :return:
         Parsed JSON response
-    :raises RuntimeError:
+    :raises GMXAPIUnavailable:
         If all retries and backup attempts fail
     """
     _ = max_retries, retry_delay  # Backwards compat — ignored

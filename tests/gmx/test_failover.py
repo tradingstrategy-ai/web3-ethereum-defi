@@ -1,4 +1,4 @@
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 import requests
@@ -73,19 +73,30 @@ class _FakeResponse:
 
 def test_make_gmx_api_request_fails_over_on_404_without_backoff():
     # Primary 404s immediately; backup returns healthy data.
+    # max_retries=3 makes the "no backoff" assertion meaningful: a retryable
+    # failure would retry + sleep, but a 404 must fail over instantly.
     primary = _FakeResponse(404, [])
     backup = _FakeResponse(200, {"ok": True})
 
     with patch("eth_defi.gmx.retry.requests.get", side_effect=[primary, backup]) as get:
-        result = make_gmx_api_request(
-            chain="arbitrum",
-            endpoint="/prices/tickers",
-            retry_config=GMXRetryConfig.create_test_config(),
-        )
+        with patch("eth_defi.gmx.retry.time.sleep", new_callable=MagicMock) as sleep_mock:
+            result = make_gmx_api_request(
+                chain="arbitrum",
+                endpoint="/prices/tickers",
+                retry_config=GMXRetryConfig(
+                    max_retries=3,
+                    initial_delay=0.01,
+                    max_delay=0.05,
+                    backoff_multiplier=2.0,
+                    full_cycle_retries=1,
+                ),
+            )
 
     assert result == {"ok": True}
     # Primary is hit exactly once (no retry/backoff on 404), backup once.
     assert get.call_count == 2  # noqa: PLR2004
+    # 404 fails over immediately — exponential backoff must never run.
+    sleep_mock.assert_not_called()
 
 
 def test_make_gmx_api_request_raises_gmxapiunavailable_on_total_failure():
@@ -118,3 +129,20 @@ def test_gmxapiunavailable_carries_attempt_summary():
     err = GMXAPIUnavailable("arbitrum", "/prices/tickers", ("primary: 500", "backup: 500"))
     assert "primary: 500" in str(err)
     assert isinstance(err, RuntimeError)
+
+
+def test_make_gmx_api_request_attempts_summary_covers_all_five_tiers():
+    failing = _FakeResponse(500, {})
+    with patch("eth_defi.gmx.retry.requests.get", return_value=failing):
+        with pytest.raises(GMXAPIUnavailable) as exc_info:
+            make_gmx_api_request(
+                chain="arbitrum",
+                endpoint="/prices/tickers",
+                retry_config=GMXRetryConfig.create_test_config(),
+            )
+
+    err = exc_info.value
+    assert len(err.attempts) == 5  # noqa: PLR2004  # one attempt per failover tier
+    for tier in ("primary", "backup", "fallback", "fallback-2", "fallback-3"):
+        assert f"{tier}:" in str(err)
+    assert err.__cause__ is not None
