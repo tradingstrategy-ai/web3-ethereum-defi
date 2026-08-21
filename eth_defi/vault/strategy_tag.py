@@ -89,6 +89,11 @@ class StrategyTag(str, enum.Enum):
     #: Example vault: Hyperliquidity Provider (HLP).
     liquidity_provider = "liquidity_provider"
 
+    #: Deploys assets across decentralised-finance protocols to earn yield and
+    #: incentive rewards.
+    #: Example vault: Harvest Finance USDC Vault.
+    yield_farming = "yield_farming"
+
     #: Operates a strategy that quotes or supplies both sides of a market.
     #: Example vault: Grvt Liquidity Provider (GLP).
     market_maker = "market_maker"

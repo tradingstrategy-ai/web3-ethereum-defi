@@ -12,6 +12,12 @@ from eth_defi.vault.base import VaultBase
 from eth_defi.vault.strategy_tag import StrategyTag
 
 
+def test_yield_farming_strategy_tag_has_stable_identifier() -> None:
+    """Yield farming has a stable persisted strategy-tag identifier."""
+    assert StrategyTag.yield_farming.value == "yield_farming"
+    assert StrategyTag("yield_farming") is StrategyTag.yield_farming
+
+
 def test_atoma_strategy_tags() -> None:
     """Atoma's reviewed strategies return their maintained address tags."""
     vault = object.__new__(AtomaVault)
