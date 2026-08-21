@@ -14,6 +14,9 @@ from dataclasses import dataclass
 from typing import Literal
 
 from eth_typing import HexAddress
+from web3 import Web3
+
+from eth_defi.chain import get_chain_name
 
 EnzymeArchitecture = Literal["blue", "onyx"]
 
@@ -37,6 +40,24 @@ class EnzymeVaultMetadata:
 #: families are discovered dynamically from reviewed protocol events, so this
 #: registry is enrichment only and never an allowlist.
 ENZYME_VAULT_METADATA: dict[tuple[int, HexAddress], EnzymeVaultMetadata] = {}
+
+
+def create_enzyme_vault_link(chain_id: int, shares_address: HexAddress | str) -> str:
+    """Create an address-specific Enzyme application URL.
+
+    Blue VaultProxy and Onyx Shares vehicles use the same application route.
+    The canonical address selects the vault and the lower-case network query
+    selects its deployment, so callers never need to fall back to the generic
+    discovery catalogue.
+
+    :param chain_id: EVM chain id of the Enzyme deployment.
+    :param shares_address: Blue VaultProxy or Onyx Shares address.
+    :return: Direct Enzyme vault-detail URL.
+    """
+
+    network = get_chain_name(chain_id).lower()
+    address = Web3.to_checksum_address(shares_address)
+    return f"https://app.enzyme.finance/vault/{address}?network={network}"
 
 
 def create_enzyme_fallback_metadata(architecture: EnzymeArchitecture, vault_name: str) -> EnzymeVaultMetadata:

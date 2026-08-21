@@ -2,7 +2,7 @@
 
 import pytest
 
-from eth_defi.enzyme.offchain_metadata import EnzymeVaultMetadata, create_enzyme_fallback_metadata, resolve_enzyme_vault_metadata
+from eth_defi.enzyme.offchain_metadata import EnzymeVaultMetadata, create_enzyme_fallback_metadata, create_enzyme_vault_link, resolve_enzyme_vault_metadata
 
 
 @pytest.mark.parametrize("architecture", ["blue", "onyx"])
@@ -27,3 +27,15 @@ def test_curated_enzyme_copy_overrides_only_the_provided_fields() -> None:
 
     assert metadata.description == "Curator-supplied strategy narrative."
     assert metadata.short_description == "Enzyme Blue tokenised digital-asset investment vehicle."
+
+
+@pytest.mark.parametrize(
+    ("chain_id", "network"),
+    [(1, "ethereum"), (137, "polygon"), (8453, "base"), (42161, "arbitrum")],
+)
+def test_enzyme_vault_link_uses_address_and_network(chain_id: int, network: str) -> None:
+    """Create one canonical direct URL format for Blue and Onyx adapters."""
+
+    address = "0x000000000000000000000000000000000000bEEF"
+
+    assert create_enzyme_vault_link(chain_id, address) == f"https://app.enzyme.finance/vault/0x000000000000000000000000000000000000bEEF?network={network}"

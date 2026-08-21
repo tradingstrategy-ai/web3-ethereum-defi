@@ -23,7 +23,7 @@ from web3.contract import Contract
 
 from eth_defi.abi import get_deployed_contract
 from eth_defi.enzyme.fee import combine_user_facing_management_fee
-from eth_defi.enzyme.offchain_metadata import fetch_enzyme_vault_metadata, resolve_enzyme_vault_metadata
+from eth_defi.enzyme.offchain_metadata import create_enzyme_vault_link, fetch_enzyme_vault_metadata, resolve_enzyme_vault_metadata
 from eth_defi.enzyme.onyx_discovery import ENZYME_BASE_CHAIN_ID
 from eth_defi.enzyme.onyx_flow import EnzymeVaultFlowManager
 from eth_defi.enzyme.onyx_historical import EnzymeVaultHistoricalReader
@@ -563,7 +563,16 @@ class EnzymeVault(VaultBase):
         )
 
     def get_link(self, referral: str | None = None) -> str:
-        """Return the Enzyme discovery page for Base vaults."""
+        """Return the address-specific Enzyme Onyx application page.
+
+        The canonical Shares address identifies the vehicle in the Enzyme
+        application. The network query distinguishes the Base deployment and
+        keeps the URL format aligned with Blue vault detail pages.
+
+        :param referral: Accepted for the shared vault interface; Enzyme does
+            not expose a reviewed referral query parameter.
+        :return: Direct Enzyme application URL for this Onyx Shares vault.
+        """
 
         del referral
-        return "https://app.enzyme.finance/discover/vaults?network=base"
+        return create_enzyme_vault_link(self.chain_id, self.address)

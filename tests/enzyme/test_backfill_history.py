@@ -14,6 +14,7 @@ from eth_defi.vault.base import VaultSpec
 SCRIPT_PATH = Path(__file__).resolve().parents[2] / "scripts" / "enzyme" / "backfill-history.py"
 TEST_MAX_WORKERS = 4
 BASE_ENZYME_FACTORY_COUNT = 2
+EXPECTED_LINK_UPDATES = 2
 
 
 def load_backfill_module() -> ModuleType:
@@ -103,6 +104,112 @@ def test_enzyme_backfill_checkpoint_roundtrips_both_protocol_candidates(tmp_path
     candidates = [module.deserialise_candidate(item) for item in loaded["chains"]["8453"]["candidates"]]
 
     assert candidates == [onyx, blue]
+
+
+def test_enzyme_backfill_repairs_unknown_blue_permission_without_refetching_onyx(monkeypatch) -> None:
+    """Refresh conclusive Blue permissions while retaining intentional Onyx unknowns."""
+
+    module = load_backfill_module()
+    monkeypatch.delenv("ENZYME_REFRESH_EXISTING_METADATA", raising=False)
+    onyx = create_candidate("0x000000000000000000000000000000000000bEEF", 35_306_010)
+    blue = EnzymeBlueVaultFactoryCandidate(
+        chain=8453,
+        address=HexAddress("0x000000000000000000000000000000000000cafE"),
+        dispatcher_address=ENZYME_BLUE_DEPLOYMENTS[8453].dispatcher,
+        fund_deployer=HexAddress("0x000000000000000000000000000000000000a11c"),
+        vault_accessor=HexAddress("0x000000000000000000000000000000000000acce"),
+        fund_name="Permission repair",
+        created_block=23_200_000,
+        created_at=onyx.created_at,
+        transaction_hash="0xbead",
+        log_index=3,
+    )
+    database = module.VaultDatabase(
+        rows={
+            VaultSpec(blue.chain, blue.address): {
+                "Name": "Blue",
+                "Link": f"https://app.enzyme.finance/vault/{blue.address}?network=base",
+                "_deposit_permission": "unknown",
+                "_short_description": "Blue summary",
+                "_description": "Blue description",
+            },
+            VaultSpec(onyx.chain, onyx.address): {
+                "Name": "Onyx",
+                "Link": f"https://app.enzyme.finance/vault/{onyx.address}?network=base",
+                "_deposit_permission": "unknown",
+                "_short_description": "Onyx summary",
+                "_description": "Onyx description",
+            },
+        }
+    )
+
+    assert module.should_refresh_metadata(database, blue) is True
+    assert module.should_refresh_metadata(database, onyx) is False
+
+    database.rows[VaultSpec(blue.chain, blue.address)]["_deposit_permission"] = "permissionless"
+    assert module.should_refresh_metadata(database, blue) is False
+
+
+def test_enzyme_backfill_repairs_missing_descriptions(monkeypatch) -> None:
+    """Use complete descriptions as the resumable current-metadata marker."""
+
+    module = load_backfill_module()
+    monkeypatch.delenv("ENZYME_REFRESH_EXISTING_METADATA", raising=False)
+    onyx = create_candidate("0x000000000000000000000000000000000000bEEF", 35_306_010)
+    spec = VaultSpec(onyx.chain, onyx.address)
+    database = module.VaultDatabase(
+        rows={
+            spec: {
+                "Name": "Onyx",
+                "Link": module.create_enzyme_vault_link(onyx.chain, onyx.address),
+                "_deposit_permission": "unknown",
+            }
+        }
+    )
+
+    assert module.should_refresh_metadata(database, onyx) is True
+
+    database.rows[spec]["_short_description"] = "Onyx summary"
+    database.rows[spec]["_description"] = "Onyx description"
+    assert module.should_refresh_metadata(database, onyx) is False
+
+
+def test_enzyme_backfill_repairs_generic_listing_links_without_metadata_reads() -> None:
+    """Rewrite both architectures locally and keep the operation idempotent."""
+
+    module = load_backfill_module()
+    onyx = create_candidate("0x000000000000000000000000000000000000bEEF", 35_306_010)
+    blue = EnzymeBlueVaultFactoryCandidate(
+        chain=8453,
+        address=HexAddress("0x000000000000000000000000000000000000cafE"),
+        dispatcher_address=ENZYME_BLUE_DEPLOYMENTS[8453].dispatcher,
+        fund_deployer=HexAddress("0x000000000000000000000000000000000000a11c"),
+        vault_accessor=HexAddress("0x000000000000000000000000000000000000acce"),
+        fund_name="Link repair",
+        created_block=23_200_000,
+        created_at=onyx.created_at,
+        transaction_hash="0xbead",
+        log_index=3,
+    )
+    database = module.VaultDatabase(
+        rows={
+            VaultSpec(onyx.chain, onyx.address): {
+                "Name": "Onyx",
+                "Link": "https://app.enzyme.finance/discover/vaults?network=base",
+                "_deposit_permission": "unknown",
+            },
+            VaultSpec(blue.chain, blue.address): {
+                "Name": "Blue",
+                "Link": "https://app.enzyme.finance/discover/vaults",
+                "_deposit_permission": "permissionless",
+            },
+        }
+    )
+
+    assert module.update_enzyme_vault_links(database, [onyx, blue]) == EXPECTED_LINK_UPDATES
+    assert database.rows[VaultSpec(onyx.chain, onyx.address)]["Link"] == module.create_enzyme_vault_link(onyx.chain, onyx.address)
+    assert database.rows[VaultSpec(blue.chain, blue.address)]["Link"] == module.create_enzyme_vault_link(blue.chain, blue.address)
+    assert module.update_enzyme_vault_links(database, [onyx, blue]) == 0
 
 
 def test_enzyme_backfill_skips_caught_up_vaults(monkeypatch, tmp_path: Path) -> None:

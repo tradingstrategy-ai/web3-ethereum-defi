@@ -6,6 +6,7 @@ from types import SimpleNamespace
 
 import pytest
 from eth_abi import encode
+from web3 import Web3
 
 from eth_defi.enzyme import blue_vault
 from eth_defi.enzyme.blue_discovery import ENZYME_BLUE_DEPLOYMENTS, EnzymeBlueVaultFactoryCandidate, decode_enzyme_blue_vault_deployed_event, fetch_enzyme_blue_dispatchers_for_chain
@@ -15,6 +16,7 @@ from eth_defi.erc_4626.core import ERC4626Feature
 from eth_defi.erc_4626.discovery_base import _prepare_probe_leads, create_enzyme_blue_factory_detection, create_enzyme_blue_potential_vault_match  # noqa: PLC2701
 from eth_defi.erc_4626.scan import fetch_deposit_permission
 from eth_defi.event_reader.multicall_batcher import EncodedCall, EncodedCallResult
+from eth_defi.vault.base import VaultSpec
 from eth_defi.vault.deposit_redeem import VaultDepositPermission
 
 CHAIN_ID = 1
@@ -65,6 +67,19 @@ def test_blue_factory_lead_bypasses_generic_erc4626_probe() -> None:
     assert addresses == []
     assert count == 1
     assert create_enzyme_blue_factory_detection(candidate).features == {ERC4626Feature.enzyme_blue_like}
+
+
+@pytest.mark.parametrize(
+    ("chain_id", "network"),
+    [(1, "ethereum"), (137, "polygon"), (8453, "base"), (42161, "arbitrum")],
+)
+def test_blue_link_opens_address_specific_enzyme_page(chain_id: int, network: str) -> None:
+    """Link every supported Blue deployment directly to its vault detail page."""
+
+    vault = EnzymeBlueVault.__new__(EnzymeBlueVault)
+    vault.spec = VaultSpec(chain_id, VAULT)
+
+    assert vault.get_link() == f"https://app.enzyme.finance/vault/{Web3.to_checksum_address(VAULT)}?network={network}"
 
 
 def test_blue_historical_reader_derives_price_and_tvl() -> None:

@@ -638,10 +638,17 @@ Historical reads are scoped to the discovered vault addresses, preserving all
 unrelated raw and cleaned price histories. One shared history-reader invocation
 handles every Enzyme vault on each chain; at each sampled block, the adapter's
 share-price and total-supply calls are combined by Multicall3. Existing good
-metadata is not read again unless `ENZYME_REFRESH_EXISTING_METADATA=true`. The
-calculated total value is denominated in the vault's named value asset, so it
-is not necessarily a US-dollar valuation. Metadata refreshes read current
-management, performance, entrance, exit and (for Blue) protocol fees.
+metadata is not read again unless `ENZYME_REFRESH_EXISTING_METADATA=true`,
+except that Blue rows with missing or ``unknown`` deposit permission are
+automatically repaired from the current PolicyManager. Onyx ``unknown`` is an
+intentional result until handler indexing exists and does not trigger repeated
+metadata reads. Rows whose `Link` still targets the generic Enzyme discovery
+catalogue are rewritten locally so both architectures publish a direct
+address-specific vault page; this deterministic repair makes no token, fee or
+policy RPC calls. The calculated total value is denominated in the vault's
+named value asset, so it is not necessarily a US-dollar valuation. Metadata
+refreshes read current management, performance, entrance, exit and (for Blue)
+protocol fees.
 Historical fee rates remain TODO because fee-handler/tracker replacement and
 fee-configuration events must first be backfilled.
 
@@ -702,6 +709,73 @@ an independent conversion.
 source .local-test.env && \
 poetry run python scripts/enzyme/export-vaults.py
 ```
+
+### Enzyme report-whitelist.py
+
+`scripts/enzyme/report-whitelist.py` is a read-only audit of the current
+deposit-permission enums persisted for Enzyme Blue and Onyx. It groups the
+database by chain and architecture, and counts ``whitelisted``,
+``permissionless`` and ``unknown`` separately. This is the quickest way to
+check exactly what the website export will publish without starting a scan.
+
+```shell
+poetry run python scripts/enzyme/report-whitelist.py
+```
+
+Set `DETAILS=true` to list every vault. Blue can also be independently checked
+against Enzyme's authenticated `GetVaultConfiguration` API; the comparison
+uses only enabled account-admission policies and reports only mismatches or
+failed requests. Onyx is not checked through this Blue API because its status
+depends on the active modular deposit handlers.
+
+```shell
+CHECK_ENZYME_API=true \
+ENZYME_API_TOKEN="$ENZYME_API_TOKEN" \
+MAX_WORKERS=8 \
+poetry run python scripts/enzyme/report-whitelist.py
+```
+
+### Enzyme migrate-current-metadata.py
+
+`scripts/enzyme/migrate-current-metadata.py` is the production migration for
+all current Enzyme catalogue data added or corrected by the integration. It
+uses the same one-scan-per-chain discovery and durable metadata batches as the
+historical backfill, but forcibly disables raw-price scanning, cleaned-Parquet
+replacement and unconditional metadata refreshes.
+
+The migration fills missing short and long descriptions, repairs direct vault
+links locally, refreshes complete current adapter metadata for affected rows,
+and resolves current Blue deposit permission. Onyx permission remains
+``unknown`` until deposit-handler indexing is implemented. A completed row is
+skipped after an interruption, and a successful metadata-only run marks its
+checkpoint complete.
+
+Review the factory coverage without writing:
+
+```shell
+source .local-test.env && \
+DRY_RUN=true \
+poetry run python scripts/enzyme/migrate-current-metadata.py
+```
+
+Apply the migration:
+
+```shell
+source .local-test.env && \
+MAX_WORKERS=8 \
+poetry run python scripts/enzyme/migrate-current-metadata.py
+```
+
+Then audit the persisted Blue/Onyx permission distribution:
+
+```shell
+poetry run python scripts/enzyme/report-whitelist.py
+```
+
+The command requires all four Enzyme chain RPC variables and
+`HYPERSYNC_API_KEY`. Preserve the production `~/.tradingstrategy` mount and
+rerun the same command after an interruption; never delete its checkpoint or
+metadata database.
 
 | Variable | Description |
 |----------|-------------|

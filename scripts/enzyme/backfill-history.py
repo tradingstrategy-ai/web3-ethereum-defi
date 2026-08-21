@@ -43,6 +43,7 @@ import logging
 import os
 import pickle  # noqa: S403 - trusted local production reader-state pickle.
 import sys
+from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal, cast
@@ -61,6 +62,7 @@ from web3 import Web3
 
 from eth_defi.compat import native_datetime_utc_fromtimestamp
 from eth_defi.enzyme.blue_discovery import EnzymeBlueVaultFactoryCandidate, create_enzyme_blue_factory_candidate, fetch_enzyme_blue_dispatchers_for_chain, fetch_enzyme_blue_first_block, fetch_enzyme_blue_vault_deployed_event_topic, is_enzyme_blue_factory_log
+from eth_defi.enzyme.offchain_metadata import create_enzyme_vault_link
 from eth_defi.enzyme.onyx_discovery import ENZYME_BASE_CHAIN_ID, EnzymeVaultFactoryCandidate, create_enzyme_factory_candidate, fetch_enzyme_shares_deployed_event_topic, fetch_enzyme_shares_factories_for_chain, is_enzyme_factory_log
 from eth_defi.erc_4626.classification import create_vault_instance
 from eth_defi.erc_4626.core import ERC4626Feature
@@ -73,6 +75,7 @@ from eth_defi.research.wrangle_vault_prices import replace_cleaned_vault_histori
 from eth_defi.token import TokenDiskCache
 from eth_defi.utils import setup_console_logging
 from eth_defi.vault.base import VaultBase, VaultSpec
+from eth_defi.vault.deposit_redeem import VaultDepositPermission
 from eth_defi.vault.historical import pformat_scan_result, scan_historical_prices_to_parquet
 from eth_defi.vault.vaultdb import DEFAULT_RAW_PRICE_DATABASE, DEFAULT_READER_STATE_DATABASE, DEFAULT_UNCLEANED_PRICE_DATABASE, DEFAULT_VAULT_DATABASE, VaultDatabase
 
@@ -537,6 +540,16 @@ def scan_price_history(  # noqa: PLR0917 - explicit operational arguments make t
 def should_refresh_metadata(vault_db: VaultDatabase, candidate: EnzymeFactoryCandidate) -> bool:
     """Determine whether this Enzyme vault needs a metadata read.
 
+    A Blue row with a missing or inconclusive permission is stale even when
+    its token metadata is otherwise healthy. Blue has an authoritative current
+    PolicyManager read, so the migration repairs these rows automatically.
+    Onyx ``unknown`` is intentional until active handler indexing exists and
+    must not cause an otherwise good row to be fetched on every migration.
+
+    Both architectures are refreshed when either public description is absent.
+    A successful metadata batch fills those fields, making this check the
+    durable resume marker without a second per-vault checkpoint structure.
+
     :param vault_db: Existing vault metadata database.
     :param candidate: Factory-discovered Enzyme vault.
     :return: ``True`` for missing, broken, or explicitly refreshed rows.
@@ -545,7 +558,46 @@ def should_refresh_metadata(vault_db: VaultDatabase, candidate: EnzymeFactoryCan
     if parse_bool_env("ENZYME_REFRESH_EXISTING_METADATA", default=False):
         return True
     row = vault_db.rows.get(VaultSpec(candidate.chain, candidate.address))
-    return row is None or (row.get("Name") or "").startswith("<broken")
+    if row is None or (row.get("Name") or "").startswith("<broken"):
+        return True
+    if not row.get("_short_description") or not row.get("_description"):
+        return True
+    if isinstance(candidate, EnzymeBlueVaultFactoryCandidate):
+        try:
+            permission = VaultDepositPermission(row.get("_deposit_permission", VaultDepositPermission.unknown.value))
+        except (TypeError, ValueError):
+            permission = VaultDepositPermission.unknown
+        return permission is VaultDepositPermission.unknown
+    return False
+
+
+def update_enzyme_vault_links(vault_db: VaultDatabase, candidates: Iterable[EnzymeFactoryCandidate]) -> int:
+    """Replace generic persisted Enzyme links without any network reads.
+
+    A vault-detail URL depends only on the factory-proven chain and canonical
+    share-token address. Updating it locally avoids a full metadata refresh—and
+    its fee, token and policy RPC calls—solely to repair presentation data.
+    Missing rows are left for the normal metadata creation path.
+
+    :param vault_db: Existing vault metadata database to update in memory.
+    :param candidates: Factory-proven Blue and Onyx vaults.
+    :return: Number of existing rows whose link changed.
+    """
+
+    updated = 0
+    for candidate in candidates:
+        spec = VaultSpec(candidate.chain, candidate.address)
+        row = vault_db.rows.get(spec)
+        if row is None:
+            continue
+        expected_link = create_enzyme_vault_link(candidate.chain, candidate.address)
+        if row.get("Link") == expected_link:
+            continue
+        row = row.copy()
+        row["Link"] = expected_link
+        vault_db.rows[spec] = row
+        updated += 1
+    return updated
 
 
 def fetch_enzyme_metadata_records(
@@ -678,7 +730,7 @@ def main() -> None:  # noqa: PLR0914 - linear migration steps favour operational
         return
 
     vault_db = read_vault_database(vault_db_path)
-    leads_added = metadata_upserted = 0
+    leads_added = metadata_upserted = links_updated = 0
     all_candidates = [candidate for run in chain_runs for candidate in run.candidates]
     for run in chain_runs:
         for candidate in run.candidates:
@@ -686,6 +738,7 @@ def main() -> None:  # noqa: PLR0914 - linear migration steps favour operational
             if spec not in vault_db.leads:
                 vault_db.leads[spec] = create_enzyme_lead(candidate)
                 leads_added += 1
+        links_updated += update_enzyme_vault_links(vault_db, run.candidates)
         metadata_candidates = [candidate for candidate in run.candidates if should_refresh_metadata(vault_db, candidate)]
         for metadata_batch in itertools.batched(metadata_candidates, metadata_batch_size):
             for candidate, record in fetch_enzyme_metadata_records(run.json_rpc_url, run.end_block, list(metadata_batch), max_workers):
@@ -739,10 +792,10 @@ def main() -> None:  # noqa: PLR0914 - linear migration steps favour operational
             write_checkpoint(checkpoint_path, checkpoint)
 
     token_cache.commit()
-    checkpoint["complete"] = scan_prices and all(state["prices_complete"] for state in checkpoint["chains"].values()) and (not clean_prices or checkpoint["cleaned"])
+    checkpoint["complete"] = not scan_prices or (all(state["prices_complete"] for state in checkpoint["chains"].values()) and (not clean_prices or checkpoint["cleaned"]))
     write_checkpoint(checkpoint_path, checkpoint)
     print("Enzyme backfill summary")
-    print(tabulate([{"vaults": len(all_candidates), "leads_added": leads_added, "metadata_upserted": metadata_upserted, "chains_price_scanned": len(scan_results)}], headers="keys", tablefmt="github"))
+    print(tabulate([{"vaults": len(all_candidates), "leads_added": leads_added, "links_updated": links_updated, "metadata_upserted": metadata_upserted, "chains_price_scanned": len(scan_results)}], headers="keys", tablefmt="github"))
 
 
 if __name__ == "__main__":

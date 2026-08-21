@@ -22,7 +22,7 @@ from eth_defi.abi import ZERO_ADDRESS, get_deployed_contract
 from eth_defi.enzyme.blue_discovery import ENZYME_BLUE_DEPLOYMENTS
 from eth_defi.enzyme.blue_historical import EnzymeBlueVaultHistoricalReader
 from eth_defi.enzyme.fee import combine_user_facing_management_fee
-from eth_defi.enzyme.offchain_metadata import fetch_enzyme_vault_metadata, resolve_enzyme_vault_metadata
+from eth_defi.enzyme.offchain_metadata import create_enzyme_vault_link, fetch_enzyme_vault_metadata, resolve_enzyme_vault_metadata
 from eth_defi.enzyme.onyx_flow import EnzymeVaultFlowManager
 from eth_defi.erc_4626.core import ERC4626Feature
 from eth_defi.token import TokenDetails, fetch_erc20_details
@@ -372,7 +372,17 @@ class EnzymeBlueVault(VaultBase):
         return FeeData(fee_mode=self.get_fee_mode(), management=management, performance=performance, deposit=deposit, withdraw=withdraw, protocol=protocol_fee)
 
     def get_link(self, referral: str | None = None) -> str:
-        """Return the Enzyme Blue discovery page for this vault's network."""
+        """Return the address-specific Enzyme Blue application page.
+
+        Enzyme selects the deployment using a lower-case network query value.
+        Linking the canonical VaultProxy directly avoids sending an investor to
+        the generic discovery catalogue where they would need to locate the
+        vault again.
+
+        :param referral: Accepted for the shared vault interface; Enzyme does
+            not expose a reviewed referral query parameter.
+        :return: Direct Enzyme application URL for this Blue VaultProxy.
+        """
 
         del referral
-        return "https://app.enzyme.finance/discover/vaults"
+        return create_enzyme_vault_link(self.chain_id, self.address)

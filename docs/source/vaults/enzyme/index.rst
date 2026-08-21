@@ -56,6 +56,11 @@ separate Base Dispatcher. The old
 persisted ``enzyme_like`` feature value is retained as an Onyx compatibility
 alias.
 
+Every exported vault link points directly to that vehicle's Enzyme application
+page using its canonical VaultProxy or Shares address and deployment network.
+Protocol-level metadata and the links section below may still use the generic
+discovery catalogue because they do not identify an individual vault.
+
 Listing descriptions
 --------------------
 
@@ -76,15 +81,38 @@ Blue, the direct adapter reads the active PolicyManager contracts and reports
 ``whitelisted`` when the reviewed ``ALLOWED_DEPOSIT_RECIPIENTS`` policy is
 enabled. This policy limits the wallets that may invest. No such policy means
 ``permissionless``; this classification does not promise that a deposit will
-succeed, because approvals and other fund policies still apply. The
-accompanying ``whitelist.notes`` value makes clear that this is an
-address-level restriction and does not establish an offchain KYC process.
+succeed, because approvals and other fund policies still apply. Asset,
+adapter, transfer-recipient, deposit-size and redemption policies do not turn
+the deposit-permission enum into ``whitelisted``. The accompanying
+``whitelist.notes`` value makes clear that this is an address-level
+restriction and does not establish an offchain KYC process.
+
+The classification is per vault, not per Enzyme product family. `Enzyme's
+Blue and Onyx comparison <https://www.enzyme.finance/blue-vs-onyx>`__ describes
+Blue access as public while also listing whitelisting and deposit control for
+both products. In practice, Blue is permissionless unless its manager enables
+the `Allowed Deposit Recipients policy
+<https://docs.enzyme.finance/user-documentation/blue-enzyme-vaults/markdown/seeding>`__.
+The official Blue ``GetVaultConfiguration`` API exposes the same enabled
+policy for an independent current-state comparison.
 
 Onyx Shares does not enumerate its active deposit handlers. Because a handler
 can impose a depositor allowlist or a queue-controller restriction, the direct
 adapter exports ``unknown`` rather than guessing whether deposits are
 permissioned. Establishing this requires a separate, chain-level HyperSync
-handler index.
+handler index. That index must reconstruct the active set from
+``DepositHandlerAdded`` and ``DepositHandlerRemoved`` events, identify each
+reviewed handler type, and read the handler's current depositor or controller
+allowlist. The aggregation rule is: a proven public active route makes the
+vault ``permissionless``; all active routes requiring prior account approval
+make it ``whitelisted``; a missing or unrecognised active handler remains
+``unknown``. `Onyx user-role documentation
+<https://docs.enzyme.finance/onyx-protocol/user-roles>`__ describes deposits as
+open by default while administrators can restrict share holders, and its
+`subscription control documentation
+<https://docs.enzyme.finance/onyx-user-documentation/enzyme-vault/subscription/control>`__
+describes the optional wallet allowlist. These product defaults must not be
+used as a substitute for per-vault handler state.
 
 Neither architecture exports historical ``deposits_open`` or
 ``redemption_open`` values. Blue policies and Onyx handlers are mutable and
@@ -118,6 +146,49 @@ management, performance, entrance, exit and protocol rates are current reads
 only.
 Historical Blue fee configuration remains TODO because releases, FeeManager
 plugins and protocol-fee trackers can change at migration boundaries.
+
+Permission audit report
+-----------------------
+
+``scripts/enzyme/report-whitelist.py`` reads the persisted metadata used by
+the website and groups all Enzyme rows by chain, Blue/Onyx architecture and
+``whitelisted``/``permissionless``/``unknown`` status. It does not mutate the
+database. Set ``DETAILS=true`` to print every vault. To compare Blue rows with
+Enzyme's authenticated `vault configuration API
+<https://sdk.enzyme.finance/api/endpoints/vault/>`__, set
+``CHECK_ENZYME_API=true`` and ``ENZYME_API_TOKEN``; ``MAX_WORKERS`` controls
+the bounded threaded API reads. Onyx is excluded from this API comparison
+because its authoritative permission state belongs to the active handler set.
+The Enzyme backfill migration automatically refreshes a healthy Blue row whose
+persisted permission is missing or ``unknown``; a metadata-only repair can be
+run with ``ENZYME_SCAN_PRICES=false``. It does not repeatedly refresh Onyx
+``unknown`` rows, because that is currently the expected conservative result.
+
+.. code-block:: shell
+
+    poetry run python scripts/enzyme/report-whitelist.py
+
+    CHECK_ENZYME_API=true ENZYME_API_TOKEN="$ENZYME_API_TOKEN" \
+        poetry run python scripts/enzyme/report-whitelist.py
+
+    ENZYME_SCAN_PRICES=false \
+        poetry run python scripts/enzyme/backfill-history.py
+
+Current metadata migration
+--------------------------
+
+``scripts/enzyme/migrate-current-metadata.py`` is the safe production entry
+point for adding complete descriptions, direct address-specific links and
+current Blue permission data to existing Enzyme rows. It reuses the targeted
+factory discovery and durable metadata batching while forcibly disabling
+historical price and cleaned-Parquet writes. Successfully migrated rows become
+their own resume markers, so an interrupted rerun skips them without a blanket
+metadata refresh or duplicate RPC calls.
+
+.. code-block:: shell
+
+    DRY_RUN=true poetry run python scripts/enzyme/migrate-current-metadata.py
+    MAX_WORKERS=8 poetry run python scripts/enzyme/migrate-current-metadata.py
 
 Links
 -----

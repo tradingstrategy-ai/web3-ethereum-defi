@@ -6,6 +6,7 @@ from types import SimpleNamespace
 
 import pytest
 from eth_abi import encode
+from web3 import Web3
 
 from eth_defi.enzyme import onyx_vault
 from eth_defi.enzyme.blue_vault import EnzymeBlueVault
@@ -17,6 +18,7 @@ from eth_defi.erc_4626.core import ERC4626Feature, get_vault_protocol_name, is_a
 from eth_defi.erc_4626.discovery_base import _prepare_probe_leads, create_enzyme_factory_detection, create_enzyme_potential_vault_match  # noqa: PLC2701
 from eth_defi.erc_4626.scan import fetch_deposit_permission
 from eth_defi.event_reader.multicall_batcher import EncodedCall, EncodedCallResult
+from eth_defi.vault.base import VaultSpec
 from eth_defi.vault.deposit_redeem import VaultDepositPermission
 from eth_defi.vault.fee import VaultFeeMode
 from eth_defi.vault.risk import VaultTechnicalRisk, get_vault_risk
@@ -295,3 +297,12 @@ def test_onyx_current_deposit_permission_is_unknown_without_handler_index() -> N
     vault.spec = SimpleNamespace(vault_address=TEST_SHARES_ADDRESS)
 
     assert fetch_deposit_permission(vault) is VaultDepositPermission.unknown
+
+
+def test_onyx_link_opens_address_specific_enzyme_page() -> None:
+    """Link a Base Onyx Shares address directly to its vault detail page."""
+
+    vault = EnzymeVault.__new__(EnzymeVault)
+    vault.spec = VaultSpec(8453, TEST_SHARES_ADDRESS)
+
+    assert vault.get_link() == f"https://app.enzyme.finance/vault/{Web3.to_checksum_address(TEST_SHARES_ADDRESS)}?network=base"

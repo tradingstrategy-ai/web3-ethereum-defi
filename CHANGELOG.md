@@ -1,6 +1,6 @@
 # 1.2
 
-- feat: Add complete short and long offchain listing descriptions for every Enzyme Blue and Onyx vault, with neutral per-architecture fallback copy when a manager has not published strategy details, and replace the horizontal wordmark listing artwork with the official standalone Enzyme brand mark (2026-08-21)
+- feat: Add complete short and long offchain listing descriptions for every Enzyme Blue and Onyx vault, with neutral per-architecture fallback copy when a manager has not published strategy details, replace the horizontal wordmark listing artwork with the official standalone Enzyme brand mark, add direct address-specific vault links, and add a resumable current-metadata migration plus Blue/Onyx deposit-permission audit with an optional official Enzyme API comparison (2026-08-21)
 - feat: Add Pallas HyperEVM vault recognition, onchain fee reads and curator attribution for the Basis Trading HIP-3 and Directional Volatility vaults (2026-08-20)
 - feat: Replace the unsupported Arcus attribution for two Robinhood Chain pTokens with an address-scoped unknown-issuer pToken protocol and metadata repair (2026-08-20)
 - feat: Add Enzyme Blue and Onyx vault discovery, direct accounting adapters, current fee reads and resumable historical price migration (2026-08-20)
