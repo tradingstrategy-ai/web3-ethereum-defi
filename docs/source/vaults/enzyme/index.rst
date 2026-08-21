@@ -56,6 +56,18 @@ separate Base Dispatcher. The old
 persisted ``enzyme_like`` feature value is retained as an Onyx compatibility
 alias.
 
+Listing descriptions
+--------------------
+
+Enzyme share-token contracts provide a vault name, but do not require a
+manager to publish a strategy narrative. The catalogue accepts an optional
+address-specific curated description and supplies neutral short and long
+descriptions for every discovered Blue and Onyx vault when no such narrative
+is available. The fallback copy identifies only the relevant Enzyme
+architecture and explicitly says that manager-provided strategy detail is not
+available; it does not infer a strategy from the vault name, holdings or
+historical returns.
+
 Deposit permission and availability
 -----------------------------------
 

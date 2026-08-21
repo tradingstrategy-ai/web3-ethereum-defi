@@ -1,26 +1,30 @@
-"""Optional offchain metadata for Enzyme Blue and Onyx vault listings.
+"""Offchain descriptions for Enzyme Blue and Onyx vault listings.
 
-The Onyx ``Shares`` contract exposes a vault name and symbol, but not a
-strategy description or curator display name. This small curated registry adds
-listing context without making the scanner depend on the Enzyme web application
-or an indexer API.
+Enzyme share-token contracts identify a vault but do not require a manager to
+publish a strategy narrative. The scanner must nevertheless export a short and
+long description for every factory-confirmed vault. This module therefore has
+two layers: address-specific curated metadata, when available, and a neutral
+architecture-level fallback for every remaining Blue or Onyx vault.
+
+The fallback describes the investment vehicle only. It does not invent an
+investment strategy, performance objective, manager, or eligibility claim.
 """
 
 from dataclasses import dataclass
+from typing import Literal
 
 from eth_typing import HexAddress
+
+EnzymeArchitecture = Literal["blue", "onyx"]
 
 
 @dataclass(slots=True, frozen=True)
 class EnzymeVaultMetadata:
     """Human-curated presentation data for one Enzyme vault.
 
-    :param description:
-        Longer strategy description suitable for a vault detail view.
-    :param short_description:
-        One-line strategy summary suitable for a table.
-    :param manager_name:
-        Curator or manager display name, if it differs from the vault name.
+    :param description: Longer product description suitable for a detail view.
+    :param short_description: One-line product summary suitable for a table.
+    :param manager_name: Curator or manager display name, if known.
     """
 
     description: str | None = None
@@ -35,15 +39,55 @@ class EnzymeVaultMetadata:
 ENZYME_VAULT_METADATA: dict[tuple[int, HexAddress], EnzymeVaultMetadata] = {}
 
 
-def fetch_enzyme_vault_metadata(chain_id: int, shares_address: HexAddress | str) -> EnzymeVaultMetadata | None:
-    """Look up optional Enzyme vault presentation metadata.
+def create_enzyme_fallback_metadata(architecture: EnzymeArchitecture, vault_name: str) -> EnzymeVaultMetadata:
+    """Create complete neutral listing metadata for an uncurated Enzyme vault.
 
-    :param chain_id:
-        EVM chain id of the vault.
-    :param shares_address:
-        Enzyme Blue VaultProxy or Onyx Shares contract address.
-    :return:
-        Curated metadata, or ``None`` when the vault has no local override.
+    A share-token name is an identifier, not evidence of a trading strategy.
+    The fallback makes that limitation explicit, so public catalogue rows never
+    have blank descriptions while avoiding a fabricated strategy narrative.
+
+    :param architecture: Factory-confirmed Enzyme Blue or Onyx architecture.
+    :param vault_name: Onchain ERC-20 share-token name.
+    :return: Non-empty short and long descriptions for the catalogue.
+    """
+
+    display_name = vault_name.strip() or "Unnamed vault"
+    if architecture == "blue":
+        return EnzymeVaultMetadata(
+            short_description="Enzyme Blue tokenised digital-asset investment vehicle.",
+            description=(f"{display_name} is an Enzyme Blue tokenised investment vehicle. Investors hold ERC-20 shares while the vault manager controls the investment configuration and portfolio operations. No manager-provided strategy description is available in this catalogue entry."),
+        )
+    return EnzymeVaultMetadata(
+        short_description="Enzyme Onyx tokenised digital-asset investment vehicle.",
+        description=(f"{display_name} is an Enzyme Onyx tokenised investment vehicle. Investors hold ERC-20 Shares while the vault manager configures the vehicle's valuation and subscription components. No manager-provided strategy description is available in this catalogue entry."),
+    )
+
+
+def fetch_enzyme_vault_metadata(chain_id: int, shares_address: HexAddress | str) -> EnzymeVaultMetadata | None:
+    """Look up optional address-specific Enzyme listing metadata.
+
+    :param chain_id: EVM chain id of the vault.
+    :param shares_address: Enzyme Blue VaultProxy or Onyx Shares contract address.
+    :return: Curated metadata, or ``None`` when fallback copy applies.
     """
 
     return ENZYME_VAULT_METADATA.get((chain_id, HexAddress(shares_address.lower())))
+
+
+def resolve_enzyme_vault_metadata(architecture: EnzymeArchitecture, vault_name: str, override: EnzymeVaultMetadata | None) -> EnzymeVaultMetadata:
+    """Merge optional curator copy with complete Enzyme fallback descriptions.
+
+    :param architecture: Factory-confirmed Enzyme Blue or Onyx architecture.
+    :param vault_name: Onchain share-token name used in fallback text.
+    :param override: Optional address-specific metadata.
+    :return: Metadata with non-empty short and long descriptions.
+    """
+
+    fallback = create_enzyme_fallback_metadata(architecture, vault_name)
+    if override is None:
+        return fallback
+    return EnzymeVaultMetadata(
+        description=override.description or fallback.description,
+        short_description=override.short_description or fallback.short_description,
+        manager_name=override.manager_name,
+    )

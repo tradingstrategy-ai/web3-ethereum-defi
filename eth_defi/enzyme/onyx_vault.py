@@ -23,7 +23,7 @@ from web3.contract import Contract
 
 from eth_defi.abi import get_deployed_contract
 from eth_defi.enzyme.fee import combine_user_facing_management_fee
-from eth_defi.enzyme.offchain_metadata import fetch_enzyme_vault_metadata
+from eth_defi.enzyme.offchain_metadata import fetch_enzyme_vault_metadata, resolve_enzyme_vault_metadata
 from eth_defi.enzyme.onyx_discovery import ENZYME_BASE_CHAIN_ID
 from eth_defi.enzyme.onyx_flow import EnzymeVaultFlowManager
 from eth_defi.enzyme.onyx_historical import EnzymeVaultHistoricalReader
@@ -149,21 +149,21 @@ class EnzymeVault(VaultBase):
 
     @property
     def description(self) -> str | None:
-        """Return a curated vault strategy description when available."""
+        """Return complete offchain listing copy for this Onyx vault."""
 
-        return self.api_metadata.description if self.api_metadata else None
+        return resolve_enzyme_vault_metadata("onyx", self.name, self.api_metadata).description
 
     @property
     def short_description(self) -> str | None:
-        """Return a curated vault one-liner when available."""
+        """Return complete offchain table copy for this Onyx vault."""
 
-        return self.api_metadata.short_description if self.api_metadata else None
+        return resolve_enzyme_vault_metadata("onyx", self.name, self.api_metadata).short_description
 
     @property
     def manager_name(self) -> str | None:
         """Return a curated manager name when available."""
 
-        return self.api_metadata.manager_name if self.api_metadata else None
+        return resolve_enzyme_vault_metadata("onyx", self.name, self.api_metadata).manager_name
 
     def fetch_share_token(self) -> TokenDetails:
         """Fetch the Shares ERC-20 token metadata."""
