@@ -1,6 +1,6 @@
-import pytest
+import pytest  # noqa: F401  # used by later tasks (pytest.raises, pytest.mark.asyncio)
 
-from eth_defi.gmx.ticker_validation import GMXInvalidPayloadError, validate_tickers_payload
+from eth_defi.gmx.ticker_validation import GMXInvalidPayloadError, validate_tickers_payload  # noqa: F401  # GMXInvalidPayloadError used by later tasks
 
 
 def _ticker(address: str = "0xaaa", max_price: str = "1000") -> dict:
