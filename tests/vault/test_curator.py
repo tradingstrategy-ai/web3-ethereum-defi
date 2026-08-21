@@ -565,6 +565,36 @@ def test_identify_lagoon_curator_by_curator_metadata() -> None:
 
     assert slug == "722-capital"
 
+    expected_slugs = {
+        "9Summits": "9summits",
+        "DeTrade": "detrade",
+        "Gami": "gami",
+        "Noon": "noon",
+        "Syntropia": "syntropia",
+    }
+    for manager_name, expected_slug in expected_slugs.items():
+        slug = identify_curator(
+            chain_id=1,
+            vault_token_symbol="",
+            vault_name="Unbranded vault",
+            vault_address="0x0000000000000000000000000000000000000000",
+            protocol_slug="lagoon-finance",
+            manager_name=manager_name,
+        )
+        assert slug == expected_slug
+
+    # Lagoon returns co-curator display names as a comma-separated string.
+    # The export has one curator field, so preserve the API's first identity.
+    slug = identify_curator(
+        chain_id=1,
+        vault_token_symbol="",
+        vault_name="stETH Redemption Carry",
+        vault_address="0x2746f31096f23670caf4043f8b30d8d02405a257",
+        protocol_slug="lagoon-finance",
+        manager_name="Ellen Capital, \N{GREEK SMALL LETTER SIGMA}-Labs",
+    )
+    assert slug == "ellen-capital"
+
 
 def test_identify_t3tris_curator_by_curator_metadata() -> None:
     """T3tris manager names resolve by exact ``t3tris-curator`` YAML metadata."""

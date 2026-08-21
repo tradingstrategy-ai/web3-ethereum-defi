@@ -1,0 +1,25 @@
+feeder-id: ellen-capital
+name: Ellen Capital
+role: curator
+lagoon-curator: Ellen Capital
+website: https://www.ellen.capital/
+twitter: EllenCapital
+short_description: Ellen Capital provides secure and selective onchain crypto investment vehicles for optimised yield strategies.
+long_description: |
+  Ellen Capital presents itself as a crypto investment infrastructure provider offering secure and selective onchain investment vehicles for optimised yield strategies. Lagoon Finance identifies Ellen Capital as a digital-asset manager specialising in DeFi and lists it as co-curator, with σ-Labs, of the Ethereum stETH Redemption Carry and Cross-chain USDC Lending vaults.
+
+# Evidence and background references.
+#
+# Ellen Capital's official homepage describes its crypto investment infrastructure
+# and onchain yield-strategy vehicles. Lagoon's official curator and vault APIs
+# identify Ellen Capital as a curator and show that it co-curates the two named
+# Ethereum vaults with σ-Labs.
+other-links:
+  - title: Ellen Capital official homepage - crypto investment infrastructure and onchain yield strategies
+    url: https://www.ellen.capital/
+  - title: Lagoon Finance curators API - Ellen Capital registered curator profile
+    url: https://app.lagoon.finance/api/curators
+  - title: Lagoon Finance vault - stETH Redemption Carry lists Ellen Capital and σ-Labs as co-curators
+    url: https://app.lagoon.finance/vault/1/0x2746f31096f23670caf4043f8b30d8d02405a257
+  - title: Lagoon Finance vault - Cross-chain USDC Lending lists Ellen Capital and σ-Labs as co-curators
+    url: https://app.lagoon.finance/vault/1/0xf02030ab0d7385ce4cc2f7f64b7b44430fb44c89

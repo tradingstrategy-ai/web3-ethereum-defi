@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg id="Layer_1" xmlns="http://www.w3.org/2000/svg" version="1.1" viewBox="0 0 302.4 302.4">
+  <!-- Generator: Adobe Illustrator 30.5.0, SVG Export Plug-In . SVG Version: 2.1.4 Build 167)  -->
+  <circle cx="151.2" cy="151.2" r="151.2" fill="#252736"/>
+  <g>
+    <circle cx="151.2" cy="151.2" r="138.3" fill="none" stroke="#f5c09a" stroke-linecap="round" stroke-linejoin="round" stroke-width="5.5"/>
+    <line x1="151.2" y1="191.2" x2="151.2" y2="289.5" fill="none" stroke="#f5c09a" stroke-linecap="round" stroke-linejoin="round" stroke-width="5.5"/>
+    <line x1="151.2" y1="12.9" x2="151.2" y2="42.1" fill="none" stroke="#f5c09a" stroke-linecap="round" stroke-linejoin="round" stroke-width="5.5"/>
+    <g>
+      <polyline points="151.2 191.2 56.9 116.6 151.2 42.1 245.4 116.6 203.3 149.9" fill="none" stroke="#f5c09a" stroke-linecap="round" stroke-linejoin="round" stroke-width="5.5"/>
+      <polyline points="231 197.8 245.4 186.3 245.4 116.6" fill="none" stroke="#f5c09a" stroke-linecap="round" stroke-linejoin="round" stroke-width="5.5"/>
+      <polyline points="56.9 116.6 56.9 186.3 151.2 260.9 193.6 227.2" fill="none" stroke="#f5c09a" stroke-linecap="round" stroke-linejoin="round" stroke-width="5.5"/>
+    </g>
+    <g>
+      <polyline points="73.5 199.4 57.4 227.2 108.7 227.2" fill="none" stroke="#f5c09a" stroke-linecap="round" stroke-linejoin="round" stroke-width="5.5"/>
+      <polyline points="151.2 227.2 245 227.2 151.2 64.8 102.2 149.7" fill="none" stroke="#f5c09a" stroke-linecap="round" stroke-linejoin="round" stroke-width="5.5"/>
+    </g>
+  </g>
+</svg>

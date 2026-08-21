@@ -1,0 +1,19 @@
+feeder-id: money-fi
+name: MoneyFi
+role: curator
+lagoon-curator: MoneyFi
+website: https://moneyfi.fund/
+short_description: MoneyFi is a DeFAI platform that automates stablecoin yield strategies across protocols and blockchains.
+long_description: |
+  MoneyFi provides AI-driven, automated strategies for users to deploy stablecoins across DeFi protocols and blockchains. Its platform describes automated yield scanning, compounding, allocation, and cross-chain management, while its documentation presents the product as a simplified stablecoin monetisation service. Lagoon Finance lists MoneyFi as the curator of the MoneyFi FlowForge Vault on Base.
+
+# Evidence and background references.
+#
+# Lagoon's vault page identifies MoneyFi as the curator of the Base MoneyFi
+# FlowForge Vault. MoneyFi's official homepage and documentation describe its
+# automated, cross-chain stablecoin strategy platform.
+other-links:
+  - title: Lagoon Finance vault - MoneyFi FlowForge Vault lists MoneyFi as curator
+    url: https://app.lagoon.finance/vault/8453/0x4efc07dca8697792119484af33549f33ab11bf3c
+  - title: MoneyFi documentation - introduction to its automated stablecoin strategy platform
+    url: https://moneyfi-1.gitbook.io/docs

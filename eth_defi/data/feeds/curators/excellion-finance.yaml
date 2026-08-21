@@ -1,0 +1,24 @@
+feeder-id: excellion-finance
+name: Excellion Finance
+role: curator
+lagoon-curator: Excellion Finance
+website: https://excellion.finance/
+twitter: EF_Fund
+linkedin: excellion-finance
+short_description: Excellion Finance is a delta-neutral DeFi fund.
+long_description: |
+  Excellion Finance describes itself as a delta-neutral DeFi fund offering investment strategies designed to limit market-direction exposure. Its website presents strategies that use stablecoins, hedging, lending, liquidity provision and arbitrage, alongside strategies focused on BTC and ETH holdings. Lagoon Finance lists Excellion Finance as the curator of the Excellion USDC Vault on Avalanche.
+
+# Evidence and background references.
+#
+# Excellion Finance's official homepage describes its delta-neutral investment
+# approach and links to its official social profiles. Lagoon's API identifies
+# Excellion Finance as a registered curator and its Avalanche vault page lists
+# Excellion Finance as the Excellion USDC Vault curator.
+other-links:
+  - title: Excellion Finance official homepage - delta-neutral DeFi fund and investment strategies
+    url: https://excellion.finance/
+  - title: Lagoon Finance curators API - Excellion Finance registered curator profile
+    url: https://app.lagoon.finance/api/curators
+  - title: Lagoon Finance vault - Excellion USDC Vault on Avalanche, curated by Excellion Finance
+    url: https://app.lagoon.finance/vault/43114/0xb8a14b03900828f863aedd9dd905363863bc31f4

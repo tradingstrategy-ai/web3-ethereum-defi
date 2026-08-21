@@ -1,0 +1,22 @@
+feeder-id: hemi
+name: Hemi
+role: curator
+lagoon-curator: Hemi
+website: https://hemi.xyz/
+twitter: hemi_xyz
+short_description: Hemi is a Bitcoin-focused DeFi layer that enables compliant yield while users retain custody of their BTC.
+long_description: |
+  Hemi describes itself as a unified DeFi layer for Bitcoin, designed to turn idle BTC into compliant yield with full ownership and in-custody execution. Its website presents Bitcoin yield products and infrastructure. Lagoon Finance identifies Hemi as co-curator, with Gami, of the Ethereum Gami hemiBTC vault.
+
+# Evidence and background references.
+#
+# Hemi's official homepage describes its Bitcoin-focused DeFi and yield offering.
+# Although Hemi is not returned by Lagoon's curators API, Lagoon's official Gami
+# hemiBTC vault page explicitly labels the vault as co-curated by Hemi and Gami.
+other-links:
+  - title: Hemi official homepage - Bitcoin DeFi layer and compliant BTC yield
+    url: https://hemi.xyz/
+  - title: Lagoon Finance vault - Gami hemiBTC explicitly lists Hemi and Gami as co-curators
+    url: https://app.lagoon.finance/vault/1/0x2a676c2744421b4fae65ce86b47adacb620047d4
+  - title: Lagoon Finance curators API - Hemi is absent despite the vault-page co-curator attribution
+    url: https://app.lagoon.finance/api/curators

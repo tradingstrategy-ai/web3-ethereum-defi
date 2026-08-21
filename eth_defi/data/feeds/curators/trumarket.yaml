@@ -1,0 +1,24 @@
+feeder-id: trumarket
+name: TruMarket
+role: curator
+lagoon-curator: TruMarket
+website: https://www.trumarket.tech/
+short_description: TruMarket provides blockchain-enabled agricultural trade financing for institutional and high-net-worth investors.
+long_description: |
+  TruMarket provides agricultural trade financing through a blockchain-enabled platform with investor reporting, deal traceability and risk-management tooling.
+  Its official website describes capital being deployed to agricultural trade deals through USDC or wire transfers, with deal documentation and milestone tracking.
+  Lagoon Finance identifies TruMarket as the curator of its Base USDC vault, which provides onchain access to the company's agricultural trade financing strategy.
+
+# Evidence and background references.
+#
+# Lagoon's detailed API record identifies TruMarket as the curator of the
+# Base TruMarket vault. TruMarket's official website describes its
+# blockchain-enabled agricultural trade financing platform and its use of
+# documented agricultural trade deals.
+other-links:
+  - title: TruMarket official homepage - blockchain-enabled agricultural trade financing platform
+    url: https://www.trumarket.tech/
+  - title: Lagoon Finance API - TruMarket Base USDC vault with TruMarket curator record
+    url: https://app.lagoon.finance/api/vault?chainId=8453&address=0xbe7db44f4ce20dac83b578b94fd35087f66e9754
+  - title: Lagoon Finance vault - Base TruMarket USDC vault curated by TruMarket
+    url: https://app.lagoon.finance/vault/8453/0xbe7db44f4ce20dac83b578b94fd35087f66e9754

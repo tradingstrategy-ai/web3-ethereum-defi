@@ -26,11 +26,11 @@ Equivalent wrappers or aliases for the same tools are covered as well.
 Apply these whenever this file is required before an agent CLI run:
 
 - For plan reviews with Claude CLI, default to the no-tools inline review pattern after the primary agent has inspected the relevant code. Only use a grounded tool-using review when fresh repository inspection is actually required.
-- For code and PR reviews with Claude CLI, scope the request to correctness bugs, behavioural regressions, missing tests, security or money-movement risks, and repository instruction compliance. Ask for findings first with file:line references and residual risks.
-- For long Claude CLI reviews, use streaming output (`--output-format stream-json --verbose`) and a wall-clock timeout. If a grounded review produces no output after roughly one minute, stop it and switch to a smaller no-tools or file-group review unless repository inspection is strictly required.
+- For code and PR reviews with Claude CLI, scope the request to correctness bugs, behavioural regressions, missing tests, security or money-movement risks, and repository instruction compliance. Ask for findings first with file:line references and residual risks. These reviews need repository inspection: do not use `--tools ""` or tell Claude not to use tools.
+- For long Claude CLI reviews, use streaming output (`--output-format stream-json --verbose`) and a wall-clock timeout. If a grounded review produces no output after roughly one minute, stop it and repeat it for a smaller, tool-enabled file group. A no-tools review is only valid when the complete review material is embedded in the prompt, such as a plan or document.
 - Do not paste huge diffs into Claude, Codex, or Grok prompts. Make the agent inspect `git status --short`, `git diff --name-only`, and targeted hunks, or provide only the plan text for no-tools plan reviews.
 - For non-interactive Codex reviews, use `codex exec --json` in read-only mode. Plain text mode can buffer output and look hung.
-- Before trusting any external-agent "no findings" result, verify it reviewed the correct worktree and non-empty diff.
+- Before trusting any external-agent "no findings" result, verify it reviewed the correct worktree and non-empty diff. For a streaming Claude review, require a successful `result` event with a final verdict; tool calls, thinking events, and a live process are not a completed review.
 
 ## Codex CLI
 
@@ -260,11 +260,12 @@ claude -p "Review the current git diff for correctness bugs" \
   --output-format stream-json \
   --verbose
 
-# Restrict tools for a read-only review.
+# Read-only PR review. Use the checked-in workspace permissions and permit
+# repository inspection; the prompt prohibits state-changing actions.
 claude -p "Review the current worktree diff. Do not edit files." \
-  --permission-mode bypassPermissions \
-  --dangerously-skip-permissions \
-  --allowedTools "Bash,Read,Grep,Glob"
+  --model opus \
+  --permission-mode dontAsk \
+  --allowedTools "Bash,Read,Grep,Glob,WebSearch,WebFetch"
 
 # Safer read-only review without broad bypass mode.
 claude -p "Review the current worktree diff. Do not edit files. Findings first." \
@@ -290,8 +291,31 @@ claude -p "Run git status --short and summarise it in one sentence." \
 ```
 
 If these work but the broad review times out, shrink the request: ask Claude to
-inspect `git diff --name-only` first, review one file group at a time, or provide
-a concise summary of the proposed fix instead of embedding a large diff.
+inspect `git diff --name-only` first, then review one tool-enabled file group at
+a time. Do not replace a PR review with a no-tools behavioural prompt: it lacks
+the repository context needed for a review verdict. Use a no-tools prompt only
+when it embeds the complete source material being reviewed.
+
+### PR review tool-access smoke test
+
+Before a costly PR review, prove that the current worktree can use the tools it
+needs. The repository's `.claude/settings.json` grants local inspection, Bash,
+GitHub and web tools, but a non-interactive command still needs an explicit
+permission mode and tool allow-list. Require a final JSON result from this
+smoke test before starting the review:
+
+```shell
+timeout 120 claude -p "Use Read to inspect AGENTS.md, Bash to run pwd and gh pr view --json url, and WebSearch to look up Claude Code. Do not edit files or change GitHub state. Summarise which tools succeeded." \
+  --model opus \
+  --permission-mode dontAsk \
+  --allowedTools "Bash,Read,Grep,Glob,WebSearch,WebFetch" \
+  --output-format json \
+  --no-session-persistence
+```
+
+If it fails, run `claude doctor`, `claude auth status` and `gh auth status`.
+Fix the reported trust, authentication or settings issue before reviewing. Do
+not substitute a no-tools PR review: that cannot validate the repository.
 
 ### Foreground command-window limits
 
@@ -332,7 +356,9 @@ tail -n 40 /tmp/claude-review.jsonl
 Only trust the review after the JSONL file contains a successful ``result``
 event with the final findings. If the command reaches its timeout without that
 event, narrow the file scope and repeat the background review rather than trying
-to resume a `--no-session-persistence` session.
+to resume a `--no-session-persistence` session. Do not describe a partial event
+stream as a review result, and do not fall back to a no-tools review unless the
+complete target content is supplied in its prompt.
 
 ### Reviewing a plan or document with Claude CLI
 
@@ -366,7 +392,8 @@ Only use a grounded repository review when Claude specifically needs fresh code
 inspection, for example when the primary agent has not checked the relevant
 files or when the plan makes claims that need independent verification against
 the worktree. In that case, allow only read-only tools and make the scope
-explicit:
+explicit. This exception applies to plan reviews only; code and PR reviews are
+always grounded reviews:
 
 ```shell
 claude -p "Review .claude/plans/my-plan.md for correctness and completeness. Focus on implementation risks, missing code paths, and test gaps. Keep the review concise and actionable." \
@@ -382,7 +409,8 @@ strictly required.
 
 Notes:
 
-- Use `--tools ""` only when the prompt embeds all necessary context.
+- Use `--tools ""` only when the prompt embeds all necessary context. Never use
+  it for a code or PR review that needs to inspect the worktree or a diff.
 - If you allow tools, use comma-separated tool names for `--allowedTools`.
 - `--permission-mode dontAsk` avoids interactive permission prompts in
   non-interactive review runs.
