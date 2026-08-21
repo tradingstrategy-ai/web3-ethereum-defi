@@ -2,10 +2,16 @@
 GMX API Retry and Failover Logic
 
 Centralised retry and backup failover handling for all GMX API calls.
+
+HTTP status codes (408, 429, 400, 500, ...) are the domain vocabulary here;
+the magic-number lint is silenced module-wide for that reason.
 """
+
+# ruff: noqa: PLR2004  # HTTP status code literals are idiomatic in this module
 
 import logging
 import time
+from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any
 
@@ -18,8 +24,41 @@ from eth_defi.gmx.constants import (
     GMX_API_URLS_FALLBACK_2,
     GMX_API_URLS_FALLBACK_3,
 )
+from eth_defi.gmx.ticker_validation import GMXInvalidPayloadError
 
 logger = logging.getLogger(__name__)
+
+
+def is_retryable_http_status(status_code: int) -> bool:
+    """Return ``True`` if an HTTP status should be retried.
+
+    5xx, 408 (request timeout) and 429 (rate limit) are transient and retried
+    with backoff. Other 4xx (404, 400, 403, ...) are permanent for that
+    endpoint and fail over immediately without consuming the backoff budget.
+    """
+    if status_code in {408, 429}:
+        return True
+    if 400 <= status_code < 500:
+        return False
+    return True
+
+
+class GMXAPIUnavailable(RuntimeError):  # noqa: N818  # Name specified by the failover plan and public API; not an Error suffix
+    """Raised when every GMX API endpoint fails for a request.
+
+    Carries a per-endpoint attempt summary so callers and logs can distinguish
+    "GMX is down" from "you asked for something that does not exist".
+    Subclasses :class:`RuntimeError` so existing ``except RuntimeError``
+    handlers keep working.
+    """
+
+    #: Human-readable summary of each endpoint tried and why it failed.
+    attempts: tuple[str, ...]
+
+    def __init__(self, chain: str, endpoint: str, attempts: tuple[str, ...] | list[str]):
+        self.attempts = tuple(attempts)
+        detail = "; ".join(self.attempts) if self.attempts else "no endpoints tried"
+        super().__init__(f"GMX API unavailable for {endpoint} on {chain}: {detail}")
 
 
 @dataclass(slots=True)
@@ -54,6 +93,19 @@ class GMXRetryConfig:
     #: Number of full cycles through all endpoints before giving up
     full_cycle_retries: int = 2
 
+    #: Minimum number of tickers a ``/prices/tickers`` payload must contain to
+    #: pass validation (live Arbitrum count is ~124).
+    min_expected_tickers: int = 100
+
+    #: Maximum age (seconds) of a last-known-good snapshot that may be served
+    #: when ``allow_stale_prices`` is enabled.
+    max_stale_seconds: float = 120.0
+
+    #: Serve a last-known-good snapshot on read-only paths when every endpoint
+    #: fails. Default ``False``: existing behaviour unchanged until a consumer
+    #: opts in. Never applies to signed-price paths.
+    allow_stale_prices: bool = False
+
     @classmethod
     def create_test_config(cls) -> "GMXRetryConfig":
         """Create a retry config tuned for fast test feedback.
@@ -74,15 +126,20 @@ class GMXRetryConfig:
 DEFAULT_RETRY_CONFIG = GMXRetryConfig()
 
 
-def _try_api_with_retries(
+def _try_api_with_retries(  # noqa: PLR0917  # endpoint-retry state passed positionally; pre-existing signature style
     base_url: str,
     endpoint: str,
     params: dict | None,
     timeout: float,
     retry_config: GMXRetryConfig,
     api_name: str,
+    validate: Callable[[Any], bool] | None = None,
 ) -> tuple[dict | None, Exception | None]:
-    """Try API endpoint with retries and exponential backoff.
+    """Try API endpoint with retries, exponential backoff, and validation.
+
+    A non-retryable 4xx or an invalid payload fails over immediately (no
+    backoff). A retryable failure (5xx, 408, 429, transport error) is retried
+    with exponential backoff.
 
     :param base_url:
         Base URL of the API
@@ -96,21 +153,50 @@ def _try_api_with_retries(
         Retry behaviour configuration
     :param api_name:
         Name for logging (e.g., "primary", "backup")
+    :param validate:
+        Optional callable taking the parsed payload and returning ``True``
+        when valid. A ``False`` result treats that endpoint's response as a
+        failure.
     :return:
         Tuple of (result, error). If successful, result is dict and error is None.
         If failed, result is None and error is the last exception.
     """
     delay = retry_config.initial_delay
-    last_error = None
+    last_error: Exception | None = None
 
     for attempt in range(retry_config.max_retries):
         try:
             url = f"{base_url}{endpoint}"
             response = requests.get(url, params=params, timeout=timeout)
-            response.raise_for_status()
-            return response.json(), None
 
-        except Exception as e:
+            if response.status_code >= 400 and not is_retryable_http_status(response.status_code):
+                last_error = requests.HTTPError(
+                    f"{response.status_code} {response.reason} for url {url}",
+                    response=response,
+                )
+                logger.warning(
+                    "GMX %s API non-retryable %d for %s. Failing over immediately.",
+                    api_name,
+                    response.status_code,
+                    endpoint,
+                )
+                return None, last_error
+
+            response.raise_for_status()
+
+            payload = response.json()
+            if validate is not None and not validate(payload):
+                last_error = GMXInvalidPayloadError(f"{api_name} returned invalid payload for {endpoint}")
+                logger.warning(
+                    "GMX %s API invalid payload for %s. Failing over.",
+                    api_name,
+                    endpoint,
+                )
+                return None, last_error
+
+            return payload, None
+
+        except requests.RequestException as e:
             last_error = e
             if attempt < retry_config.max_retries - 1:
                 logger.warning(
@@ -134,7 +220,7 @@ def _try_api_with_retries(
     return None, last_error
 
 
-def make_gmx_api_request(
+def make_gmx_api_request(  # noqa: PLR0917  # central failover entry point; deprecated kwargs kept for backwards compat
     chain: str,
     endpoint: str,
     params: dict[str, Any] | None = None,
@@ -142,6 +228,7 @@ def make_gmx_api_request(
     retry_config: GMXRetryConfig | None = None,
     max_retries: int | None = None,
     retry_delay: float | None = None,
+    validate: Callable[[Any], bool] | None = None,
 ) -> dict[str, Any]:
     """Make a GMX API request with full-cycle retry.
 
@@ -174,6 +261,10 @@ def make_gmx_api_request(
         Deprecated. Kept for backwards compatibility but ignored.
     :param retry_delay:
         Deprecated. Kept for backwards compatibility but ignored.
+    :param validate:
+        Optional callable taking the parsed payload and returning ``True``
+        when valid. A ``False`` result treats that endpoint's response as a
+        failure.
     :return:
         Parsed JSON response
     :raises RuntimeError:
@@ -197,6 +288,7 @@ def make_gmx_api_request(
         raise ValueError(f"No GMX API URLs configured for chain: {chain}")
 
     last_error = None
+    attempts: list[str] = []
 
     for cycle in range(retry_config.full_cycle_retries):
         if cycle > 0:
@@ -219,10 +311,12 @@ def make_gmx_api_request(
                 timeout,
                 retry_config,
                 "primary",
+                validate=validate,
             )
             if result is not None:
                 return result
             last_error = error
+            attempts.append(f"primary: {error}")
 
         # Try backup API
         if backup_url:
@@ -233,10 +327,12 @@ def make_gmx_api_request(
                 timeout,
                 retry_config,
                 "backup",
+                validate=validate,
             )
             if result is not None:
                 return result
             last_error = error
+            attempts.append(f"backup: {error}")
 
         # Try fallback API
         if fallback_url:
@@ -247,10 +343,12 @@ def make_gmx_api_request(
                 timeout,
                 retry_config,
                 "fallback",
+                validate=validate,
             )
             if result is not None:
                 return result
             last_error = error
+            attempts.append(f"fallback: {error}")
 
         # Try second fallback API
         if fallback_url_2:
@@ -261,10 +359,12 @@ def make_gmx_api_request(
                 timeout,
                 retry_config,
                 "fallback-2",
+                validate=validate,
             )
             if result is not None:
                 return result
             last_error = error
+            attempts.append(f"fallback-2: {error}")
 
         # Try third fallback API (gmxapi.ai)
         if fallback_url_3:
@@ -275,9 +375,11 @@ def make_gmx_api_request(
                 timeout,
                 retry_config,
                 "fallback-3",
+                validate=validate,
             )
             if result is not None:
                 return result
             last_error = error
+            attempts.append(f"fallback-3: {error}")
 
-    raise RuntimeError(f"Failed to connect to GMX API endpoint {endpoint} for chain {chain} after {retry_config.full_cycle_retries} full cycles. Last error: {last_error}") from last_error
+    raise GMXAPIUnavailable(chain, endpoint, attempts) from last_error
