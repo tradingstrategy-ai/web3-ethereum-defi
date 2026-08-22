@@ -22,6 +22,14 @@ from eth_defi.gmx.ticker_validation import (
 )
 
 
+@pytest.fixture(autouse=True)
+def _clear_ticker_cache() -> None:
+    """Clear the module-level ticker cache before and after every test."""
+    _TICKER_PRICES_CACHE.clear()
+    yield
+    _TICKER_PRICES_CACHE.clear()
+
+
 def _ticker(address: str = "0xaaa", max_price: str = "1000", symbol: str = "BTC") -> dict[str, str]:
     return {
         "tokenAddress": address,
@@ -35,49 +43,49 @@ def _healthy_ticker_list(n: int = 120) -> list[dict[str, str]]:
     return [_ticker(f"0x{i:03x}", symbol=f"TOKEN{i}") for i in range(n)]
 
 
-def test_validate_tickers_payload_accepts_healthy_payload():
+def test_validate_tickers_payload_accepts_healthy_payload() -> None:
     payload = _healthy_ticker_list(120)
     assert validate_tickers_payload(payload) is True
 
 
-def test_validate_tickers_payload_rejects_non_list():
+def test_validate_tickers_payload_rejects_non_list() -> None:
     assert validate_tickers_payload({"markets": []}) is False
 
 
-def test_validate_tickers_payload_rejects_empty_list():
+def test_validate_tickers_payload_rejects_empty_list() -> None:
     assert validate_tickers_payload([]) is False
 
 
-def test_validate_tickers_payload_rejects_below_minimum_count():
+def test_validate_tickers_payload_rejects_below_minimum_count() -> None:
     payload = [_ticker() for _ in range(10)]
     assert validate_tickers_payload(payload, min_expected_tickers=100) is False
 
 
-def test_validate_tickers_payload_rejects_missing_min_price():
+def test_validate_tickers_payload_rejects_missing_min_price() -> None:
     payload = _healthy_ticker_list(120)
     payload[7] = {k: v for k, v in payload[7].items() if k != "minPrice"}
     assert validate_tickers_payload(payload) is False
 
 
-def test_validate_tickers_payload_rejects_missing_token_symbol():
+def test_validate_tickers_payload_rejects_missing_token_symbol() -> None:
     payload = _healthy_ticker_list(120)
     payload[3] = {k: v for k, v in payload[3].items() if k != "tokenSymbol"}
     assert validate_tickers_payload(payload) is False
 
 
-def test_validate_tickers_payload_rejects_non_numeric_price():
+def test_validate_tickers_payload_rejects_non_numeric_price() -> None:
     payload = _healthy_ticker_list(120)
     payload[2]["maxPrice"] = "not-a-number"
     assert validate_tickers_payload(payload) is False
 
 
-def test_validate_tickers_payload_rejects_bad_record_anywhere_not_just_first_five():
+def test_validate_tickers_payload_rejects_bad_record_anywhere_not_just_first_five() -> None:
     payload = _healthy_ticker_list(120)
     payload[100] = {"tokenAddress": "0xbroken"}  # missing fields, beyond index 5
     assert validate_tickers_payload(payload) is False
 
 
-def test_validate_tickers_payload_ratio_guard_not_floor():
+def test_validate_tickers_payload_ratio_guard_not_floor() -> None:
     # last_good_count=124 -> threshold = int(124 * 0.8) = 99 (not the 100 floor)
     payload = _healthy_ticker_list(110)
     assert validate_tickers_payload(payload, last_good_count=124) is True
@@ -85,12 +93,12 @@ def test_validate_tickers_payload_ratio_guard_not_floor():
     assert validate_tickers_payload(truncated, last_good_count=124) is False
 
 
-def test_get_min_expected_tickers_chain_aware():
-    assert get_min_expected_tickers("arbitrum") == 100
-    assert get_min_expected_tickers("arbitrum_sepolia") == 10
+def test_get_min_expected_tickers_chain_aware() -> None:
+    assert get_min_expected_tickers("arbitrum") == 100  # noqa: PLR2004  # expected minimum for mainnet
+    assert get_min_expected_tickers("arbitrum_sepolia") == 10  # noqa: PLR2004  # expected minimum for testnet
 
 
-def test_is_retryable_http_status_classification():
+def test_is_retryable_http_status_classification() -> None:
     assert is_retryable_http_status(500) is True
     assert is_retryable_http_status(503) is True
     assert is_retryable_http_status(408) is True
@@ -114,7 +122,7 @@ class _FakeResponse:
             raise requests.HTTPError(f"{self.status_code} {self.reason}", response=self)
 
 
-def test_make_gmx_api_request_fails_over_on_404_without_backoff():
+def test_make_gmx_api_request_fails_over_on_404_without_backoff() -> None:
     # Primary 404s immediately; backup returns healthy data.
     # max_retries=3 makes the "no backoff" assertion meaningful: a retryable
     # failure would retry + sleep, but a 404 must fail over instantly.
@@ -142,7 +150,7 @@ def test_make_gmx_api_request_fails_over_on_404_without_backoff():
     sleep_mock.assert_not_called()
 
 
-def test_make_gmx_api_request_raises_gmxapiunavailable_on_total_failure():
+def test_make_gmx_api_request_raises_gmxapiunavailable_on_total_failure() -> None:
     failing = _FakeResponse(500, {})
     with patch("eth_defi.gmx.retry.requests.get", return_value=failing):
         with pytest.raises(GMXAPIUnavailable):
@@ -153,7 +161,7 @@ def test_make_gmx_api_request_raises_gmxapiunavailable_on_total_failure():
             )
 
 
-def test_make_gmx_api_request_validate_rejects_degraded_payload_and_fails_over():
+def test_make_gmx_api_request_validate_rejects_degraded_payload_and_fails_over() -> None:
     degraded = _FakeResponse(200, [])
     healthy = _FakeResponse(200, [{"tokenAddress": "0x1", "tokenSymbol": "X", "minPrice": "99", "maxPrice": "100"} for _ in range(120)])
 
@@ -168,13 +176,13 @@ def test_make_gmx_api_request_validate_rejects_degraded_payload_and_fails_over()
     assert len(result) == 120  # noqa: PLR2004
 
 
-def test_gmxapiunavailable_carries_attempt_summary():
+def test_gmxapiunavailable_carries_attempt_summary() -> None:
     err = GMXAPIUnavailable("arbitrum", "/prices/tickers", ("primary: 500", "backup: 500"))
     assert "primary: 500" in str(err)
     assert isinstance(err, RuntimeError)
 
 
-def test_make_gmx_api_request_attempts_summary_covers_all_five_tiers():
+def test_make_gmx_api_request_attempts_summary_skips_dead_tier_for_prices() -> None:
     failing = _FakeResponse(500, {})
     with patch("eth_defi.gmx.retry.requests.get", return_value=failing):
         with pytest.raises(GMXAPIUnavailable) as exc_info:
@@ -185,7 +193,25 @@ def test_make_gmx_api_request_attempts_summary_covers_all_five_tiers():
             )
 
     err = exc_info.value
-    assert len(err.attempts) == 5  # noqa: PLR2004  # one attempt per failover tier
+    assert len(err.attempts) == 4  # noqa: PLR2004  # fallback-3 skipped for /prices*
+    for tier in ("primary", "backup", "fallback", "fallback-2"):
+        assert f"{tier}:" in str(err)
+    assert "fallback-3:" not in str(err)
+    assert err.__cause__ is not None
+
+
+def test_make_gmx_api_request_attempts_summary_covers_all_five_tiers_for_non_price_path() -> None:
+    failing = _FakeResponse(500, {})
+    with patch("eth_defi.gmx.retry.requests.get", return_value=failing):
+        with pytest.raises(GMXAPIUnavailable) as exc_info:
+            make_gmx_api_request(
+                chain="arbitrum",
+                endpoint="/tokens",
+                retry_config=GMXRetryConfig.create_test_config(),
+            )
+
+    err = exc_info.value
+    assert len(err.attempts) == 5  # noqa: PLR2004  # non-price paths still use all tiers
     for tier in ("primary", "backup", "fallback", "fallback-2", "fallback-3"):
         assert f"{tier}:" in str(err)
     assert err.__cause__ is not None
@@ -195,12 +221,11 @@ def test_make_gmx_api_request_attempts_summary_covers_all_five_tiers():
 # GMXAPI.get_tickers — uses module-level helpers above
 # ---------------------------------------------------------------------------
 
-def _healthy_tickers(n: int = 120) -> list:
+def _healthy_tickers(n: int = 120) -> list[dict[str, str]]:
     return [{"tokenAddress": f"0x{i:03x}", "tokenSymbol": f"T{i}", "minPrice": "999", "maxPrice": "1000"} for i in range(n)]
 
 
-def test_get_tickers_does_not_cache_degraded_payload(monkeypatch):
-    _TICKER_PRICES_CACHE.clear()
+def test_get_tickers_does_not_cache_degraded_payload(monkeypatch) -> None:
     api = GMXAPI(chain="arbitrum")
 
     calls = {"n": 0}
@@ -216,8 +241,7 @@ def test_get_tickers_does_not_cache_degraded_payload(monkeypatch):
     assert len(_TICKER_PRICES_CACHE["arbitrum"][0]) == 120  # noqa: PLR2004
 
 
-def test_get_tickers_serves_stale_snapshot_when_allowed(monkeypatch):
-    _TICKER_PRICES_CACHE.clear()
+def test_get_tickers_serves_stale_snapshot_when_allowed(monkeypatch) -> None:
     api = GMXAPI(chain="arbitrum")
     api.retry_config = GMXRetryConfig(allow_stale_prices=True, max_stale_seconds=120.0)
 
@@ -233,8 +257,7 @@ def test_get_tickers_serves_stale_snapshot_when_allowed(monkeypatch):
     assert len(result) == 120  # noqa: PLR2004
 
 
-def test_get_tickers_refuses_stale_snapshot_by_default(monkeypatch):
-    _TICKER_PRICES_CACHE.clear()
+def test_get_tickers_refuses_stale_snapshot_by_default(monkeypatch) -> None:
     api = GMXAPI(chain="arbitrum")
     # Default: allow_stale_prices=False.
     _TICKER_PRICES_CACHE["arbitrum"] = (_healthy_tickers(), time.time())
@@ -248,8 +271,7 @@ def test_get_tickers_refuses_stale_snapshot_by_default(monkeypatch):
         api.get_tickers(use_cache=False)
 
 
-def test_get_tickers_total_degraded_upstream_raises_gmxapiunavailable(monkeypatch):
-    _TICKER_PRICES_CACHE.clear()
+def test_get_tickers_total_degraded_upstream_raises_gmxapiunavailable(monkeypatch) -> None:
     api = GMXAPI(chain="arbitrum")
 
     def always_degraded(*args, **kwargs):  # noqa: ARG001
@@ -261,8 +283,7 @@ def test_get_tickers_total_degraded_upstream_raises_gmxapiunavailable(monkeypatc
         api.get_tickers(use_cache=True)
 
 
-def test_get_tickers_refuses_stale_snapshot_past_max_age(monkeypatch):
-    _TICKER_PRICES_CACHE.clear()
+def test_get_tickers_refuses_stale_snapshot_past_max_age(monkeypatch) -> None:
     api = GMXAPI(chain="arbitrum")
     api.retry_config = GMXRetryConfig(allow_stale_prices=True, max_stale_seconds=1.0)
 
@@ -278,7 +299,7 @@ def test_get_tickers_refuses_stale_snapshot_past_max_age(monkeypatch):
         api.get_tickers(use_cache=False)
 
 
-def test_fetch_ticker_missing_ticker_raises_exchange_not_available():
+def test_fetch_ticker_missing_ticker_raises_exchange_not_available() -> None:
     gmx = object.__new__(GMX)
 
     market = {"info": {"index_token": "0xAAA"}}
@@ -349,7 +370,7 @@ class _FakeSession:
 
 
 @pytest.mark.asyncio
-async def test_async_fails_over_on_404_without_retry():
+async def test_async_fails_over_on_404_without_retry() -> None:
     session = _FakeSession(
         [
             _FakeClientResponse(404, []),
@@ -368,7 +389,7 @@ async def test_async_fails_over_on_404_without_retry():
 
 
 @pytest.mark.asyncio
-async def test_async_validate_rejects_degraded_payload():
+async def test_async_validate_rejects_degraded_payload() -> None:
     healthy = [{"tokenAddress": "0x1", "tokenSymbol": "X", "minPrice": "99", "maxPrice": "100"} for _ in range(120)]
     session = _FakeSession(
         [
@@ -388,7 +409,7 @@ async def test_async_validate_rejects_degraded_payload():
 
 
 @pytest.mark.asyncio
-async def test_async_raises_gmxapiunavailable_on_total_failure():
+async def test_async_raises_gmxapiunavailable_on_total_failure() -> None:
     session = _FakeSession([_FakeClientResponse(500, {})])
     with pytest.raises(GMXAPIUnavailable):
         await async_make_gmx_api_request(
@@ -401,7 +422,7 @@ async def test_async_raises_gmxapiunavailable_on_total_failure():
 
 
 @pytest.mark.asyncio
-async def test_async_fetch_ticker_missing_ticker_raises_exchange_not_available(monkeypatch):
+async def test_async_fetch_ticker_missing_ticker_raises_exchange_not_available(monkeypatch) -> None:
     gmx = object.__new__(AsyncGMX)
     gmx.chain = "arbitrum"
     gmx.session = None
@@ -432,12 +453,12 @@ async def test_async_fetch_ticker_missing_ticker_raises_exchange_not_available(m
         await gmx.fetch_ticker("BTC/USDC:USDC")
 
 
-def test_sync_fetch_tickers_converts_gmxapiunavailable():
+def test_sync_fetch_tickers_converts_gmxapiunavailable() -> None:
     gmx = object.__new__(GMX)
 
     class _Api:
         def get_tickers(self):  # noqa: PLR6301
-            raise GMXAPIUnavailable("arbitrum", "/prices/tickers", ("primary: 500",))
+            raise GMXAPIUnavailable("arbitrum", "/prices/tickers", ("primary: 500",))  # noqa: EM101  # mock exception with fixed arguments
 
     gmx.api = _Api()
 
@@ -447,14 +468,14 @@ def test_sync_fetch_tickers_converts_gmxapiunavailable():
 
     gmx.load_markets = _Load().load_markets
     gmx.markets = {}
-    gmx.market = lambda s: {"symbol": s, "info": {"index_token": "0xabc"}}  # noqa: ARG005
+    gmx.market = lambda s: {"symbol": s, "info": {"index_token": "0xabc"}}
 
     with pytest.raises(ExchangeNotAvailable):
         gmx.fetch_tickers([])
 
 
 @pytest.mark.asyncio
-async def test_async_fetch_ohlcv_converts_gmxapiunavailable(monkeypatch):
+async def test_async_fetch_ohlcv_converts_gmxapiunavailable(monkeypatch) -> None:
     gmx = object.__new__(AsyncGMX)
     gmx.chain = "arbitrum"
     gmx.session = object()  # non-None so _ensure_session is a no-op
@@ -474,7 +495,7 @@ async def test_async_fetch_ohlcv_converts_gmxapiunavailable(monkeypatch):
     gmx.timeframes = {"1h": "1h"}
 
     async def fake_api(*args, **kwargs):  # noqa: ARG001, RUF029
-        raise GMXAPIUnavailable("arbitrum", "/prices/candles", ("primary: 500",))
+        raise GMXAPIUnavailable("arbitrum", "/prices/candles", ("primary: 500",))  # noqa: EM101  # mock exception with fixed arguments
 
     monkeypatch.setattr(
         "eth_defi.gmx.ccxt.async_support.exchange.async_make_gmx_api_request",
