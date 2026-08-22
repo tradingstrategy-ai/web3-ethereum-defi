@@ -1677,11 +1677,18 @@ class GMX(Exchange):
         tasks = [self.fetch_ticker(symbol, params) for symbol in symbols]
         results = await asyncio.gather(*tasks, return_exceptions=True)
 
-        # Build result dict, filtering out errors
+        # Build result dict; keep partial results but surface a total outage as
+        # a retryable CCXT error instead of silently returning {}.
         tickers = {}
+        first_error: Exception | None = None
         for symbol, result in zip(symbols, results):
-            if not isinstance(result, Exception):
+            if isinstance(result, Exception):
+                first_error = first_error or result
+            else:
                 tickers[symbol] = result
+
+        if not tickers and first_error is not None:
+            raise first_error
 
         return tickers
 

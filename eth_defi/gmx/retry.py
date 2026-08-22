@@ -192,7 +192,21 @@ def _try_api_with_retries(  # noqa: PLR0917  # endpoint-retry state passed posit
 
             response.raise_for_status()
 
-            payload = response.json()
+            try:
+                payload = response.json()
+            except ValueError as e:
+                # Malformed JSON (requests raises JSONDecodeError, a ValueError
+                # subclass) is an endpoint failure: fail over to the next tier
+                # instead of letting the decode error escape the retry loop.
+                last_error = e
+                logger.warning(
+                    "GMX %s API returned malformed JSON for %s: %s. Failing over.",
+                    api_name,
+                    endpoint,
+                    e,
+                )
+                return None, last_error
+
             if validate is not None and not validate(payload):
                 last_error = GMXInvalidPayloadError(f"{api_name} returned invalid payload for {endpoint}")
                 logger.warning(

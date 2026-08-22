@@ -516,3 +516,107 @@ async def test_async_fetch_ohlcv_converts_gmxapiunavailable(monkeypatch) -> None
 
     with pytest.raises(ExchangeNotAvailable):
         await gmx.fetch_ohlcv("BTC/USDC:USDC", "1h")
+
+
+# ---------------------------------------------------------------------------
+# Round-3 regression tests: finite/empty validation, JSON failover, OHLCV
+# conversion, async bulk outage
+# ---------------------------------------------------------------------------
+
+
+def test_validate_tickers_payload_rejects_infinite_price() -> None:
+    payload = _healthy_ticker_list(120)
+    payload[4]["maxPrice"] = "Infinity"
+    assert validate_tickers_payload(payload) is False
+
+
+def test_validate_tickers_payload_rejects_nan_price() -> None:
+    payload = _healthy_ticker_list(120)
+    payload[4]["minPrice"] = "NaN"
+    assert validate_tickers_payload(payload) is False
+
+
+def test_validate_tickers_payload_rejects_empty_token_address() -> None:
+    payload = _healthy_ticker_list(120)
+    payload[3]["tokenAddress"] = ""
+    assert validate_tickers_payload(payload) is False
+
+
+def test_validate_tickers_payload_rejects_empty_token_symbol() -> None:
+    payload = _healthy_ticker_list(120)
+    payload[3]["tokenSymbol"] = ""
+    assert validate_tickers_payload(payload) is False
+
+
+def test_make_gmx_api_request_fails_over_on_malformed_json() -> None:
+    class _BrokenJsonResponse:
+        def __init__(self, status_code: int = 200) -> None:
+            self.status_code = status_code
+            self.reason = "mock"
+            self._calls = 0
+
+        def json(self):
+            self._calls += 1
+            raise ValueError("Expecting value: line 1 column 1 (char 0)")  # noqa: EM101  # mock decode error with fixed text
+
+        def raise_for_status(self) -> None:
+            pass
+
+    broken = _BrokenJsonResponse()
+    healthy = _FakeResponse(200, {"ok": True})
+
+    with patch("eth_defi.gmx.retry.requests.get", side_effect=[broken, healthy]) as get:
+        result = make_gmx_api_request(
+            chain="arbitrum",
+            endpoint="/prices/tickers",
+            retry_config=GMXRetryConfig.create_test_config(),
+        )
+
+    assert result == {"ok": True}
+    # Primary attempted once, then failed over to backup; no retry on decode error.
+    assert get.call_count == 2  # noqa: PLR2004
+
+
+def test_sync_fetch_ohlcv_converts_gmxapiunavailable() -> None:
+    gmx = object.__new__(GMX)
+
+    class _Api:
+        def get_candlesticks(self, token_symbol: str, period: str) -> dict:  # noqa: ARG002, PLR6301
+            raise GMXAPIUnavailable("arbitrum", "/prices/candles", ("primary: 500",))  # noqa: EM101  # mock exception with fixed arguments
+
+    gmx.api = _Api()
+
+    class _Markets:
+        def load_markets(self, *a: object, **k: object) -> None:  # noqa: ARG002, PLR6301
+            return None
+
+        def market(self, symbol: str) -> dict:  # noqa: PLR6301
+            return {"id": "BTC", "symbol": symbol, "info": {"index_token": "0xabc"}}
+
+    gmx.load_markets = _Markets().load_markets
+    gmx.market = _Markets().market
+    gmx.timeframes = {"1h": "1h"}
+    gmx.parse_ohlcvs = lambda *a, **k: []  # noqa: ARG005  # not reached when the API call fails
+
+    with pytest.raises(ExchangeNotAvailable):
+        gmx.fetch_ohlcv("BTC/USDC:USDC", "1h")
+
+
+@pytest.mark.asyncio
+async def test_async_fetch_tickers_raises_on_total_outage() -> None:
+    gmx = object.__new__(AsyncGMX)
+    gmx.chain = "arbitrum"
+    gmx.session = object()
+
+    async def fake_load_markets(*a: object, **k: object) -> None:  # noqa: ARG001, RUF029
+        return None
+
+    async def failing_fetch_ticker(symbol: str, params: dict | None = None) -> dict:  # noqa: ARG001, RUF029
+        raise ExchangeNotAvailable("GMX API unavailable")  # noqa: EM101  # mock exception with fixed text
+
+    gmx.load_markets = fake_load_markets
+    gmx.market = lambda s: {"id": "BTC"}  # noqa: ARG005  # not used when every task fails
+    gmx.fetch_ticker = failing_fetch_ticker
+
+    with pytest.raises(ExchangeNotAvailable):
+        await gmx.fetch_tickers(["BTC/USDC:USDC", "ETH/USDC:USDC"])

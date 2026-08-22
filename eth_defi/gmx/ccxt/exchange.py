@@ -3085,7 +3085,10 @@ class GMX(ExchangeCompatible):
         # path — it returns 400 for some symbols (e.g. wstETH) and times out
         # intermittently, adding 3×retry latency on every bot loop.  Keep v1 as
         # the sole production source until the v2 endpoint is proven stable.
-        response = self.api.get_candlesticks(token_symbol, gmx_period)
+        try:
+            response = self.api.get_candlesticks(token_symbol, gmx_period)
+        except GMXAPIUnavailable as exc:
+            raise ExchangeNotAvailable(str(exc)) from exc
         candles_data = response.get("candles", [])
         ohlcv = self.parse_ohlcvs(candles_data, market_info, timeframe, since, limit)
 

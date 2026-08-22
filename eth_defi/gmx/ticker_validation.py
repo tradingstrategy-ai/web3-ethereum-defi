@@ -5,6 +5,7 @@ degraded payload (empty list, truncated list, or wrong schema) is treated as
 an endpoint failure rather than being returned to callers and cached.
 """
 
+import math
 from typing import Any
 
 #: Minimum ticker count a healthy payload must contain, by chain. Testnets
@@ -53,21 +54,25 @@ def _ticker_record_is_well_formed(record: Any) -> bool:
     """Return ``True`` if one ticker record has all required fields and values.
 
     A well-formed record carries every field in :data:`_REQUIRED_TICKER_FIELDS`
-    and a ``minPrice``/``maxPrice`` that parse to a positive float. Zero or
-    missing prices must be rejected: the async adapter reads ``minPrice`` with a
-    zero default, so a degenerate record would otherwise halve the midpoint
-    price (the P1b degraded-200 bug).
+    with non-empty identifiers, and a ``minPrice``/``maxPrice`` that parse to a
+    finite positive float. Zero or missing prices must be rejected: the async
+    adapter reads ``minPrice`` with a zero default, so a degenerate record would
+    otherwise halve the midpoint price (the P1b degraded-200 bug). ``NaN`` and
+    ``Infinity`` must also be rejected — ``float("inf") > 0`` is ``True`` and
+    would propagate an unusable price into the cached payload.
     """
     if not isinstance(record, dict):
         return False
     if not all(field in record for field in _REQUIRED_TICKER_FIELDS):
+        return False
+    if not record["tokenAddress"] or not record["tokenSymbol"]:
         return False
     try:
         min_price = float(record["minPrice"])
         max_price = float(record["maxPrice"])
     except (TypeError, ValueError):
         return False
-    return min_price > 0 and max_price > 0
+    return math.isfinite(min_price) and math.isfinite(max_price) and min_price > 0 and max_price > 0
 
 
 def validate_tickers_payload(
