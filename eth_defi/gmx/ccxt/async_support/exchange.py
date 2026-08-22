@@ -40,6 +40,8 @@ from eth_defi.gmx.ccxt.cancel_helpers import (
 )
 from eth_defi.gmx.ccxt.exchange import (
     _derive_side_from_trade_action,
+    _resolve_close_order_filled_amount,  # noqa: F401  # sync/async lockstep; async close paths reuse the same helper
+    _resolve_reduce_only_size_delta_usd,  # noqa: F401  # sync/async lockstep; async close paths reuse the same helper
 )
 from eth_defi.gmx.ccxt.properties import describe_gmx
 from eth_defi.gmx.ccxt.validation import _validate_ohlcv_data_sufficiency
@@ -265,7 +267,7 @@ async def _block_timestamp_ms(web3: "AsyncWeb3", block_number: int | None) -> in
     try:
         block = await web3.eth.get_block(block_number)
         return int(block["timestamp"]) * 1000
-    except Exception as e:  # noqa: BLE001  # RPC get_block can raise many provider-specific error types; degrade to None here
+    except Exception as e:  # RPC get_block can raise many provider-specific error types; degrade to None here
         logger.debug("_block_timestamp_ms: get_block(%s) failed: %s", block_number, e)
         return None
 
