@@ -221,6 +221,7 @@ def test_make_gmx_api_request_attempts_summary_covers_all_five_tiers_for_non_pri
 # GMXAPI.get_tickers — uses module-level helpers above
 # ---------------------------------------------------------------------------
 
+
 def _healthy_tickers(n: int = 120) -> list[dict[str, str]]:
     return [{"tokenAddress": f"0x{i:03x}", "tokenSymbol": f"T{i}", "minPrice": "999", "maxPrice": "1000"} for i in range(n)]
 

@@ -398,10 +398,10 @@ def make_gmx_api_request(  # noqa: PLR0917  # central failover entry point; depr
             attempts.append(f"fallback-3: {error}")
 
     logger.error(
-            "GMX API unavailable for %s on %s after %d cycle(s): %s",
-            endpoint,
-            chain,
-            retry_config.full_cycle_retries,
-            "; ".join(attempts),
-        )
+        "GMX API unavailable for %s on %s after %d cycle(s): %s",
+        endpoint,
+        chain,
+        retry_config.full_cycle_retries,
+        "; ".join(attempts),
+    )
     raise GMXAPIUnavailable(chain, endpoint, attempts) from last_error
