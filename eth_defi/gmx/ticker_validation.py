@@ -8,11 +8,12 @@ an endpoint failure rather than being returned to callers and cached.
 from typing import Any
 
 #: Minimum ticker count a healthy payload must contain, by chain. Testnets
-#: serve far fewer tokens than mainnet (Arbitrum Sepolia returns 13 on
-#: 2026-08-21); a mainnet-sized floor would reject every valid testnet
-#: response.
+#: serve far fewer tokens than mainnet (Arbitrum Sepolia returns 13 and
+#: Avalanche Fuji a similar low count on 2026-08-21); a mainnet-sized floor
+#: would reject every valid testnet response.
 MIN_EXPECTED_TICKERS_BY_CHAIN: dict[str, int] = {
     "arbitrum_sepolia": 10,
+    "avalanche_fuji": 10,
 }
 
 #: Default minimum when a chain has no explicit entry above.
@@ -52,7 +53,10 @@ def _ticker_record_is_well_formed(record: Any) -> bool:
     """Return ``True`` if one ticker record has all required fields and values.
 
     A well-formed record carries every field in :data:`_REQUIRED_TICKER_FIELDS`
-    and a ``minPrice``/``maxPrice`` that parse to a positive float.
+    and a ``minPrice``/``maxPrice`` that parse to a positive float. Zero or
+    missing prices must be rejected: the async adapter reads ``minPrice`` with a
+    zero default, so a degenerate record would otherwise halve the midpoint
+    price (the P1b degraded-200 bug).
     """
     if not isinstance(record, dict):
         return False

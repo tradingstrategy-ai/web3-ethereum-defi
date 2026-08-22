@@ -28,8 +28,9 @@ async def async_make_gmx_api_request(  # noqa: PLR0917  # failover driver mirror
 
     Shares 4xx classification, validation, and the ``GMXAPIUnavailable`` final
     exception with :func:`eth_defi.gmx.retry.make_gmx_api_request`, but drives
-    four tiers (no ``gmxapi.ai`` v2 fallback for price paths) with a single
-    cycle and ad-hoc ``max_retries``/``retry_delay`` kwargs rather than
+    four tiers (``primary``, ``backup``, ``fallback``, ``fallback-2`` — no
+    ``gmxapi.ai`` v2 tier) with a single cycle and ad-hoc
+    ``max_retries``/``retry_delay`` kwargs rather than
     :class:`~eth_defi.gmx.retry.GMXRetryConfig`.
 
     :param chain: Chain name (e.g., "arbitrum", "avalanche")

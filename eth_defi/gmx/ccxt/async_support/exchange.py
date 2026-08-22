@@ -265,7 +265,7 @@ async def _block_timestamp_ms(web3: "AsyncWeb3", block_number: int | None) -> in
     try:
         block = await web3.eth.get_block(block_number)
         return int(block["timestamp"]) * 1000
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001  # RPC get_block can raise many provider-specific error types; degrade to None here
         logger.debug("_block_timestamp_ms: get_block(%s) failed: %s", block_number, e)
         return None
 

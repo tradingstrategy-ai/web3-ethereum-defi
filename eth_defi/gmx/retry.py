@@ -105,10 +105,6 @@ class GMXRetryConfig:
     #: Number of full cycles through all endpoints before giving up
     full_cycle_retries: int = 2
 
-    #: Minimum number of tickers a ``/prices/tickers`` payload must contain to
-    #: pass validation (live Arbitrum count is ~124).
-    min_expected_tickers: int = 100
-
     #: Maximum age (seconds) of a last-known-good snapshot that may be served
     #: when ``allow_stale_prices`` is enabled.
     max_stale_seconds: float = 120.0
@@ -381,8 +377,8 @@ def make_gmx_api_request(  # noqa: PLR0917  # central failover entry point; depr
         # Try third fallback API (gmxapi.ai) — only for v2 paths
         # (e.g. /markets, /tokens, /apy).  The DigitalOcean v1 host serves
         # /prices* and /signed_prices* instead; gmxapi.ai 404s on those.
-        price_path = endpoint.startswith("/prices") or endpoint.startswith("/signed_prices")
-        if fallback_url_3 and not price_path:
+        is_price_endpoint = endpoint.startswith("/prices") or endpoint.startswith("/signed_prices")
+        if fallback_url_3 and not is_price_endpoint:
             result, error = _try_api_with_retries(
                 fallback_url_3,
                 endpoint,

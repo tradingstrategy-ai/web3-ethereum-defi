@@ -79,6 +79,12 @@ def test_validate_tickers_payload_rejects_non_numeric_price() -> None:
     assert validate_tickers_payload(payload) is False
 
 
+def test_validate_tickers_payload_rejects_zero_price() -> None:
+    payload = _healthy_ticker_list(120)
+    payload[5]["minPrice"] = "0"
+    assert validate_tickers_payload(payload) is False
+
+
 def test_validate_tickers_payload_rejects_bad_record_anywhere_not_just_first_five() -> None:
     payload = _healthy_ticker_list(120)
     payload[100] = {"tokenAddress": "0xbroken"}  # missing fields, beyond index 5
@@ -96,6 +102,7 @@ def test_validate_tickers_payload_ratio_guard_not_floor() -> None:
 def test_get_min_expected_tickers_chain_aware() -> None:
     assert get_min_expected_tickers("arbitrum") == 100  # noqa: PLR2004  # expected minimum for mainnet
     assert get_min_expected_tickers("arbitrum_sepolia") == 10  # noqa: PLR2004  # expected minimum for testnet
+    assert get_min_expected_tickers("avalanche_fuji") == 10  # noqa: PLR2004  # expected minimum for testnet
 
 
 def test_is_retryable_http_status_classification() -> None:
@@ -231,7 +238,7 @@ def test_get_tickers_does_not_cache_degraded_payload(monkeypatch) -> None:
 
     calls = {"n": 0}
 
-    def fake_get(*args, **kwargs):  # noqa: ARG001
+    def fake_get(*args: object, **kwargs: object) -> _FakeResponse:  # noqa: ARG001  # mock signature must accept endpoint/params
         calls["n"] += 1
         return _FakeResponse(200, []) if calls["n"] == 1 else _FakeResponse(200, _healthy_tickers())
 
@@ -249,7 +256,7 @@ def test_get_tickers_serves_stale_snapshot_when_allowed(monkeypatch) -> None:
     # Seed a last-known-good snapshot.
     _TICKER_PRICES_CACHE["arbitrum"] = (_healthy_tickers(), time.time())
 
-    def always_fail(*args, **kwargs):  # noqa: ARG001  # mock signature must accept endpoint/params
+    def always_fail(*args: object, **kwargs: object) -> None:  # noqa: ARG001  # mock signature must accept endpoint/params
         raise GMXAPIUnavailable("arbitrum", "/prices/tickers", ("primary: 500",))  # noqa: EM101  # mock exception with fixed arguments
 
     monkeypatch.setattr(api, "_make_request", always_fail)
@@ -263,7 +270,7 @@ def test_get_tickers_refuses_stale_snapshot_by_default(monkeypatch) -> None:
     # Default: allow_stale_prices=False.
     _TICKER_PRICES_CACHE["arbitrum"] = (_healthy_tickers(), time.time())
 
-    def always_fail(*args, **kwargs):  # noqa: ARG001  # mock signature must accept endpoint/params
+    def always_fail(*args: object, **kwargs: object) -> None:  # noqa: ARG001  # mock signature must accept endpoint/params
         raise GMXAPIUnavailable("arbitrum", "/prices/tickers", ("primary: 500",))  # noqa: EM101  # mock exception with fixed arguments
 
     monkeypatch.setattr(api, "_make_request", always_fail)
@@ -275,7 +282,7 @@ def test_get_tickers_refuses_stale_snapshot_by_default(monkeypatch) -> None:
 def test_get_tickers_total_degraded_upstream_raises_gmxapiunavailable(monkeypatch) -> None:
     api = GMXAPI(chain="arbitrum")
 
-    def always_degraded(*args, **kwargs):  # noqa: ARG001
+    def always_degraded(*args: object, **kwargs: object) -> _FakeResponse:  # noqa: ARG001  # mock signature must accept endpoint/params
         return _FakeResponse(200, [])
 
     monkeypatch.setattr("eth_defi.gmx.retry.requests.get", always_degraded)
@@ -430,16 +437,16 @@ async def test_async_fetch_ticker_missing_ticker_raises_exchange_not_available(m
 
     market = {"id": "BTC"}
 
-    async def fake_ensure_session():  # noqa: RUF029  # stub replacing the real coroutine
+    async def fake_ensure_session() -> None:  # noqa: RUF029  # stub replacing the real coroutine
         return None
 
-    async def fake_load_markets(*a, **k):  # noqa: ARG001, RUF029  # stub replacing the real coroutine
+    async def fake_load_markets(*a: object, **k: object) -> None:  # noqa: ARG001, RUF029  # stub replacing the real coroutine
         return None
 
-    def fake_market(symbol):  # noqa: ARG001  # stub replacing the real method
+    def fake_market(symbol: str) -> dict[str, str]:  # noqa: ARG001  # stub replacing the real method
         return market
 
-    async def fake_api(*args, **kwargs):  # noqa: ARG001, RUF029  # stub replacing the real coroutine
+    async def fake_api(*args: object, **kwargs: object) -> list[dict[str, str]]:  # noqa: ARG001, RUF029  # stub replacing the real coroutine
         return []  # empty ticker list -> missing
 
     gmx._ensure_session = fake_ensure_session
@@ -458,18 +465,22 @@ def test_sync_fetch_tickers_converts_gmxapiunavailable() -> None:
     gmx = object.__new__(GMX)
 
     class _Api:
-        def get_tickers(self):  # noqa: PLR6301
+        def get_tickers(self) -> None:  # noqa: PLR6301
             raise GMXAPIUnavailable("arbitrum", "/prices/tickers", ("primary: 500",))  # noqa: EM101  # mock exception with fixed arguments
 
     gmx.api = _Api()
 
     class _Load:
-        def load_markets(self, *a, **k):  # noqa: ARG002, PLR6301
+        def load_markets(self, *a: object, **k: object) -> None:  # noqa: ARG002, PLR6301
             return None
 
     gmx.load_markets = _Load().load_markets
     gmx.markets = {}
-    gmx.market = lambda s: {"symbol": s, "info": {"index_token": "0xabc"}}
+
+    def fake_market(symbol: str) -> dict[str, object]:
+        return {"symbol": symbol, "info": {"index_token": "0xabc"}}
+
+    gmx.market = fake_market
 
     with pytest.raises(ExchangeNotAvailable):
         gmx.fetch_tickers([])
@@ -481,13 +492,13 @@ async def test_async_fetch_ohlcv_converts_gmxapiunavailable(monkeypatch) -> None
     gmx.chain = "arbitrum"
     gmx.session = object()  # non-None so _ensure_session is a no-op
 
-    async def fake_ensure_session():  # noqa: RUF029
+    async def fake_ensure_session() -> None:  # noqa: RUF029
         return None
 
-    async def fake_load_markets(*a, **k):  # noqa: ARG001, RUF029
+    async def fake_load_markets(*a: object, **k: object) -> None:  # noqa: ARG001, RUF029
         return None
 
-    def fake_market(symbol):  # noqa: ARG001
+    def fake_market(symbol: str) -> dict[str, str]:  # noqa: ARG001
         return {"id": "BTC"}
 
     gmx._ensure_session = fake_ensure_session
@@ -495,7 +506,7 @@ async def test_async_fetch_ohlcv_converts_gmxapiunavailable(monkeypatch) -> None
     gmx.market = fake_market
     gmx.timeframes = {"1h": "1h"}
 
-    async def fake_api(*args, **kwargs):  # noqa: ARG001, RUF029
+    async def fake_api(*args: object, **kwargs: object) -> None:  # noqa: ARG001, RUF029
         raise GMXAPIUnavailable("arbitrum", "/prices/candles", ("primary: 500",))  # noqa: EM101  # mock exception with fixed arguments
 
     monkeypatch.setattr(
