@@ -1,0 +1,22 @@
+feeder-id: nova-markets
+name: Nova Markets
+role: curator
+lagoon-curator: Nova Markets
+website: https://nova.markets/
+short_description: Nova Markets is a Hyperliquid-powered platform focused on emerging cryptocurrency markets and trading opportunities.
+long_description: |
+  Nova Markets presents itself as a Hyperliquid-powered platform focused on emerging cryptocurrency markets. Its official application describes a USDC market-making vault that shares revenue from listed Hyperliquid HIP-3 and HIP-4 markets, with idle capital routed to Felix Finance Morpho vaults. Lagoon Finance lists Nova Markets in its curator API, but the current Lagoon vault API response has no vault association for this curator, so this metadata does not assert a specific Lagoon vault.
+
+# Evidence and background references.
+#
+# Nova's official website and application describe the Hyperliquid market-making
+# product. Lagoon's curator catalogue registers Nova Markets under the
+# ``nova-markets`` ID; the curator has no current association in Lagoon's vault
+# catalogue, so no specific vault is represented here.
+other-links:
+  - title: Nova Markets official website - Hyperliquid-powered emerging markets platform
+    url: https://nova.markets/
+  - title: Nova Markets official application - market-making vault on Hyperliquid HIP-3 and HIP-4 markets
+    url: https://app.nova.markets/
+  - title: Lagoon Finance curator API - Nova Markets registered as nova-markets without a current vault API association
+    url: https://app.lagoon.finance/api/curators

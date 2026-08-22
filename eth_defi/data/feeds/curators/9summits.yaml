@@ -1,6 +1,7 @@
 feeder-id: 9summits
 name: 9Summits
 role: curator
+lagoon-curator: 9Summits
 website: https://vaults.9summits.io
 short_description: '9Summits curates DeFi vaults to help clients access yield opportunities with confidence and precision.'
 long_description: |

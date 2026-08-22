@@ -22,7 +22,7 @@ from eth_defi.abi import ZERO_ADDRESS, get_deployed_contract
 from eth_defi.enzyme.blue_discovery import ENZYME_BLUE_DEPLOYMENTS
 from eth_defi.enzyme.blue_historical import EnzymeBlueVaultHistoricalReader
 from eth_defi.enzyme.fee import combine_user_facing_management_fee
-from eth_defi.enzyme.offchain_metadata import fetch_enzyme_vault_metadata
+from eth_defi.enzyme.offchain_metadata import create_enzyme_vault_link, fetch_enzyme_vault_metadata, resolve_enzyme_vault_metadata
 from eth_defi.enzyme.onyx_flow import EnzymeVaultFlowManager
 from eth_defi.erc_4626.core import ERC4626Feature
 from eth_defi.token import TokenDetails, fetch_erc20_details
@@ -32,17 +32,36 @@ from eth_defi.vault.deposit_redeem import VaultDepositManager
 from eth_defi.vault.fee import FeeData, VaultFeeMode
 from eth_defi.vault.lower_case_dict import LowercaseDict
 
-FEE_RATE_SCALE = Decimal(10**18)
 MANAGEMENT_FEE_RATE_SCALE = Decimal(10**27)
 FEE_BPS_DENOMINATOR = Decimal(10_000)
 SECONDS_PER_YEAR = Decimal(365 * 24 * 60 * 60)
 
-#: Reviewed ``AllowedDepositRecipientsPolicy.identifier()`` value.
+#: Reviewed policy identifiers that restrict who may deposit into Blue.
 #:
-#: This policy limits the wallet addresses that may call ``buyShares``. The
-#: adapter classifies this identifier, and no other policy identifier, as a
-#: vault-wide investor allowlist.
+#: Sulu uses ``ALLOWED_DEPOSIT_RECIPIENTS``. Deprecated Phoenix and Encore
+#: releases used the equivalent investor/depositor whitelist and caller
+#: whitelist policies. Enzyme's website exposes these as
+#: ``DepositorWhitelist`` and ``BuySharesCallerWhitelist`` respectively.
+ENZYME_BLUE_DEPOSIT_PERMISSION_POLICY_IDENTIFIERS = frozenset(
+    {
+        "ALLOWED_DEPOSIT_RECIPIENTS",
+        "BUY_SHARES_CALLER_WHITELIST",
+        "DEPOSITOR_WHITELIST",
+        "INVESTOR_WHITELIST",
+    }
+)
+
+#: Backwards-compatible public constant for the current Sulu identifier.
 ALLOWED_DEPOSIT_RECIPIENTS_POLICY_IDENTIFIER = "ALLOWED_DEPOSIT_RECIPIENTS"
+
+#: Deprecated Ethereum releases do not expose ``getPolicyManager()`` through
+#: their Comptroller ABI. Resolve their reviewed manager from the current
+#: FundDeployer recorded by the persistent Dispatcher. Source:
+#: https://github.com/enzymefinance/sdk/blob/main/packages/environment/src/deployments/ethereum.ts
+ENZYME_BLUE_LEGACY_POLICY_MANAGERS: dict[tuple[int, str], HexAddress] = {
+    (1, "0x7e6d3b1161df9c9c7527f68d651b297d2fdb820b"): HexAddress("0x0bd9f0465d21d4c300c7b8d781a013bdc87a31e8"),
+    (1, "0x9134c9975244b46692ad9a7da36dba8734ec6da3"): HexAddress("0x4c2c07b15b0b32bad989d9defaec775e2aa8a7ad"),
+}
 
 
 class EnzymeBlueVault(VaultBase):
@@ -139,21 +158,21 @@ class EnzymeBlueVault(VaultBase):
 
     @property
     def description(self) -> str | None:
-        """Return optional curated offchain description."""
+        """Return complete offchain listing copy for this Blue vault."""
 
-        return self.api_metadata.description if self.api_metadata else None
+        return resolve_enzyme_vault_metadata("blue", self.name, self.api_metadata).description
 
     @property
     def short_description(self) -> str | None:
-        """Return optional curated offchain one-liner."""
+        """Return complete offchain table copy for this Blue vault."""
 
-        return self.api_metadata.short_description if self.api_metadata else None
+        return resolve_enzyme_vault_metadata("blue", self.name, self.api_metadata).short_description
 
     @property
     def manager_name(self) -> str | None:
         """Return optional curated manager name."""
 
-        return self.api_metadata.manager_name if self.api_metadata else None
+        return resolve_enzyme_vault_metadata("blue", self.name, self.api_metadata).manager_name
 
     def fetch_share_token(self) -> TokenDetails:
         """Fetch the VaultProxy ERC-20 share token."""
@@ -265,9 +284,12 @@ class EnzymeBlueVault(VaultBase):
         is the reviewed vault-level allowlist for ``buyShares``. The policy
         manager enumerates enabled policy contracts for the paired
         ComptrollerProxy. Every policy implements ``identifier()``, so reading
-        its stable identifier avoids hardcoding a release-specific policy
-        deployment address. The adapter does not treat other policy types as
-        investor allowlists.
+        its stable identifier avoids hardcoding policy deployment addresses.
+        Deprecated Phoenix and Encore Comptrollers cannot return their policy
+        manager directly; for these releases the persistent Dispatcher gives
+        the current FundDeployer, which is mapped to Enzyme's reviewed release
+        deployment metadata. The adapter does not treat asset, adapter, risk,
+        redemption, or transfer policies as investor allowlists.
 
         This is a current-state classification only. A result of ``False``
         means no recipient allowlist policy is active; it does not promise a
@@ -279,14 +301,24 @@ class EnzymeBlueVault(VaultBase):
         """
 
         block_identifier = self._get_block_identifier()
-        policy_manager_address = self.comptroller_contract.functions.getPolicyManager().call(block_identifier=block_identifier)
+        try:
+            policy_manager_address = self.comptroller_contract.functions.getPolicyManager().call(block_identifier=block_identifier)
+        except (BadFunctionCallOutput, ContractLogicError, ValueError):
+            deployment = ENZYME_BLUE_DEPLOYMENTS.get(self.chain_id)
+            if deployment is None:
+                raise
+            dispatcher = get_deployed_contract(self.web3, "enzyme/Dispatcher.json", deployment.dispatcher)
+            fund_deployer = dispatcher.functions.getFundDeployerForVaultProxy(self.address).call(block_identifier=block_identifier)
+            policy_manager_address = ENZYME_BLUE_LEGACY_POLICY_MANAGERS.get((self.chain_id, fund_deployer.lower()))
+            if policy_manager_address is None:
+                raise
         policy_manager = get_deployed_contract(self.web3, "enzyme/PolicyManager.json", policy_manager_address)
         policy_addresses = policy_manager.functions.getEnabledPoliciesForFund(self.comptroller_contract.address).call(block_identifier=block_identifier)
         for policy_address in policy_addresses:
             policy = get_deployed_contract(self.web3, "enzyme/IPolicy.json", policy_address)
             identifier = policy.functions.identifier().call(block_identifier=block_identifier)
-            if identifier == ALLOWED_DEPOSIT_RECIPIENTS_POLICY_IDENTIFIER:
-                self.whitelist_notes = "Allowed Deposit Recipients restricts investor addresses; the policy does not establish KYC."
+            if identifier in ENZYME_BLUE_DEPOSIT_PERMISSION_POLICY_IDENTIFIERS:
+                self.whitelist_notes = f"Enzyme {identifier} policy restricts investor addresses; the policy does not establish KYC."
                 return True
         self.whitelist_notes = None
         return False
@@ -334,6 +366,11 @@ class EnzymeBlueVault(VaultBase):
         Blue's protocol fee is distinct from a fund's optional ManagementFee
         plugin. The exported management fee is their user-facing combined rate,
         while the protocol component is retained separately for transparency.
+        Performance, entrance, and exit contracts store their rates in basis
+        points, as documented by Enzyme's canonical `PerformanceFee contract
+        <https://github.com/enzymefinance/protocol/blob/current/contracts/release/extensions/fee-manager/fees/PerformanceFee.sol>`__
+        and fee base contracts. ManagementFee instead stores a Ray-scaled
+        per-second compounding factor.
         Historical fee configuration is TODO because Blue fee plugins,
         releases, and protocol-fee trackers can be replaced.
 
@@ -347,32 +384,42 @@ class EnzymeBlueVault(VaultBase):
         for fee in self._fetch_enabled_fee_contracts(block_identifier):
             entrance_rate = self._try_fee_call(fee, "getRateForFund", self.comptroller_contract.address, block_identifier=block_identifier)
             if entrance_rate is not None:
-                deposit = Percent(float(Decimal(entrance_rate) / FEE_RATE_SCALE))
+                deposit = Percent(float(Decimal(entrance_rate) / FEE_BPS_DENOMINATOR))
                 continue
             exit_rate = self._try_fee_call(fee, "getInKindRateForFund", self.comptroller_contract.address, block_identifier=block_identifier)
             if exit_rate is not None:
-                withdraw = Percent(float(Decimal(exit_rate) / FEE_RATE_SCALE))
+                withdraw = Percent(float(Decimal(exit_rate) / FEE_BPS_DENOMINATOR))
                 continue
             fee_info = self._try_fee_call(fee, "getFeeInfoForFund", self.comptroller_contract.address, block_identifier=block_identifier)
             if fee_info is None:
                 continue
             rate = Decimal(fee_info[0])
             # ManagementFee stores a 1e27-scaled per-second compounding factor,
-            # whereas PerformanceFee stores a direct 1e18 fraction. The former
+            # whereas PerformanceFee stores a direct basis-point rate. The former
             # is always at least 1e27 (including a zero annual rate), making
             # the ABI-identical FeeInfo structs safely distinguishable.
             if rate >= MANAGEMENT_FEE_RATE_SCALE:
                 annual_effective_rate = (rate / MANAGEMENT_FEE_RATE_SCALE) ** int(SECONDS_PER_YEAR)
                 management = Percent(float(1 - 1 / annual_effective_rate))
             else:
-                performance = Percent(float(rate / FEE_RATE_SCALE))
+                performance = Percent(float(rate / FEE_BPS_DENOMINATOR))
 
         protocol_fee = self._fetch_protocol_fee(block_identifier)
         management = combine_user_facing_management_fee(management, protocol_fee)
         return FeeData(fee_mode=self.get_fee_mode(), management=management, performance=performance, deposit=deposit, withdraw=withdraw, protocol=protocol_fee)
 
     def get_link(self, referral: str | None = None) -> str:
-        """Return the Enzyme Blue discovery page for this vault's network."""
+        """Return the address-specific Enzyme Blue application page.
+
+        Enzyme selects the deployment using a lower-case network query value.
+        Linking the canonical VaultProxy directly avoids sending an investor to
+        the generic discovery catalogue where they would need to locate the
+        vault again.
+
+        :param referral: Accepted for the shared vault interface; Enzyme does
+            not expose a reviewed referral query parameter.
+        :return: Direct Enzyme application URL for this Blue VaultProxy.
+        """
 
         del referral
-        return "https://app.enzyme.finance/discover/vaults"
+        return create_enzyme_vault_link(self.chain_id, self.address)

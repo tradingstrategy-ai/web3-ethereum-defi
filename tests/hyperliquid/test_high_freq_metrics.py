@@ -28,9 +28,62 @@ from eth_defi.hyperliquid.high_freq_metrics import (
     HyperliquidHighFreqMetricsDatabase,
     HyperliquidHighFreqPriceRow,
     fetch_and_store_vault_high_freq,
+    run_high_freq_scan,
 )
 from eth_defi.hyperliquid.session import create_hyperliquid_session
 from eth_defi.hyperliquid.vault import HyperliquidVault, PortfolioHistory, VaultSummary, fetch_all_vaults
+
+
+def test_high_freq_scan_collects_perp_vault_observations(tmp_path) -> None:
+    """Ensure the production HF path writes shared position observations.
+
+    Production selects ``HYPERCORE_MODE=high_freq``. The collector must run in
+    that path, rather than only in the inactive daily compatibility scanner.
+
+    :param tmp_path:
+        Temporary DuckDB database location supplied by pytest.
+    """
+    summary = VaultSummary(
+        name="Test vault",
+        vault_address="0x0000000000000000000000000000000000000001",
+        leader="0x0000000000000000000000000000000000000002",
+        tvl=Decimal("10000"),
+        is_closed=False,
+        relationship_type="normal",
+    )
+    session = SimpleNamespace()
+
+    def clone_for_worker(proxy_start_index: int) -> SimpleNamespace:
+        """Return the single fake session used by this one-worker test."""
+        assert proxy_start_index == 0
+        return session
+
+    session.clone_for_worker = clone_for_worker
+    db_path = tmp_path / "hf-perp-observations.duckdb"
+
+    with (
+        patch("eth_defi.hyperliquid.high_freq_metrics.fetch_all_vaults", return_value=[summary]),
+        patch("eth_defi.hyperliquid.high_freq_metrics.fetch_and_store_vault_high_freq", return_value=True),
+        patch("eth_defi.hyperliquid.high_freq_metrics.collect_hyperliquid_vault_observations", return_value=1) as collect,
+    ):
+        db = run_high_freq_scan(
+            session,
+            db_path=db_path,
+            max_workers=1,
+            min_tvl=0,
+            flow_backfill_days=0,
+        )
+
+    try:
+        collect.assert_called_once_with(
+            session,
+            db.con,
+            [summary],
+            max_workers=1,
+            timeout=30.0,
+        )
+    finally:
+        db.close()
 
 
 @pytest.mark.timeout(180)

@@ -6,15 +6,17 @@ from types import SimpleNamespace
 
 import pytest
 from eth_abi import encode
+from web3 import Web3
 
 from eth_defi.enzyme import blue_vault
 from eth_defi.enzyme.blue_discovery import ENZYME_BLUE_DEPLOYMENTS, EnzymeBlueVaultFactoryCandidate, decode_enzyme_blue_vault_deployed_event, fetch_enzyme_blue_dispatchers_for_chain
 from eth_defi.enzyme.blue_historical import EnzymeBlueVaultHistoricalReader
-from eth_defi.enzyme.blue_vault import ALLOWED_DEPOSIT_RECIPIENTS_POLICY_IDENTIFIER, FEE_RATE_SCALE, MANAGEMENT_FEE_RATE_SCALE, SECONDS_PER_YEAR, EnzymeBlueVault
+from eth_defi.enzyme.blue_vault import ALLOWED_DEPOSIT_RECIPIENTS_POLICY_IDENTIFIER, ENZYME_BLUE_LEGACY_POLICY_MANAGERS, FEE_BPS_DENOMINATOR, MANAGEMENT_FEE_RATE_SCALE, SECONDS_PER_YEAR, EnzymeBlueVault
 from eth_defi.erc_4626.core import ERC4626Feature
 from eth_defi.erc_4626.discovery_base import _prepare_probe_leads, create_enzyme_blue_factory_detection, create_enzyme_blue_potential_vault_match  # noqa: PLC2701
 from eth_defi.erc_4626.scan import fetch_deposit_permission
 from eth_defi.event_reader.multicall_batcher import EncodedCall, EncodedCallResult
+from eth_defi.vault.base import VaultSpec
 from eth_defi.vault.deposit_redeem import VaultDepositPermission
 
 CHAIN_ID = 1
@@ -67,6 +69,19 @@ def test_blue_factory_lead_bypasses_generic_erc4626_probe() -> None:
     assert create_enzyme_blue_factory_detection(candidate).features == {ERC4626Feature.enzyme_blue_like}
 
 
+@pytest.mark.parametrize(
+    ("chain_id", "network"),
+    [(1, "ethereum"), (137, "polygon"), (8453, "base"), (42161, "arbitrum")],
+)
+def test_blue_link_opens_address_specific_enzyme_page(chain_id: int, network: str) -> None:
+    """Link every supported Blue deployment directly to its vault detail page."""
+
+    vault = EnzymeBlueVault.__new__(EnzymeBlueVault)
+    vault.spec = VaultSpec(chain_id, VAULT)
+
+    assert vault.get_link() == f"https://app.enzyme.finance/vault/{Web3.to_checksum_address(VAULT)}?network={network}"
+
+
 def test_blue_historical_reader_derives_price_and_tvl() -> None:
     """Calculate denomination-token TVL and share price from GAV/supply."""
 
@@ -96,6 +111,9 @@ def test_blue_historical_reader_derives_price_and_tvl() -> None:
     ("policy_identifier", "expected_permission"),
     [
         (ALLOWED_DEPOSIT_RECIPIENTS_POLICY_IDENTIFIER, VaultDepositPermission.whitelisted),
+        ("BUY_SHARES_CALLER_WHITELIST", VaultDepositPermission.whitelisted),
+        ("DEPOSITOR_WHITELIST", VaultDepositPermission.whitelisted),
+        ("INVESTOR_WHITELIST", VaultDepositPermission.whitelisted),
         ("ALLOWED_ADAPTERS", VaultDepositPermission.permissionless),
     ],
 )
@@ -137,7 +155,61 @@ def test_blue_current_deposit_permission(
 
     assert vault.is_whitelisted_deposit() is (expected_permission is VaultDepositPermission.whitelisted)
     assert fetch_deposit_permission(vault) is expected_permission
-    assert vault.get_whitelist_notes() == ("Allowed Deposit Recipients restricts investor addresses; the policy does not establish KYC." if expected_permission is VaultDepositPermission.whitelisted else None)
+    assert vault.get_whitelist_notes() == (f"Enzyme {policy_identifier} policy restricts investor addresses; the policy does not establish KYC." if expected_permission is VaultDepositPermission.whitelisted else None)
+
+
+def test_blue_legacy_policy_manager_fallback(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Resolve deprecated Phoenix policy state through its FundDeployer."""
+
+    fund_deployer = next(address for chain_id, address in ENZYME_BLUE_LEGACY_POLICY_MANAGERS if chain_id == CHAIN_ID)
+    policy_manager_address = ENZYME_BLUE_LEGACY_POLICY_MANAGERS[CHAIN_ID, fund_deployer]
+    policy_address = "0x0000000000000000000000000000000000000001"
+    vault = EnzymeBlueVault.__new__(EnzymeBlueVault)
+    vault.web3 = SimpleNamespace()
+    vault.spec = VaultSpec(CHAIN_ID, VAULT)
+    vault.default_block_identifier = None
+
+    def raise_legacy_comptroller(**_kwargs):
+        """Reproduce the missing legacy Comptroller method."""
+
+        message = "legacy Comptroller"
+        raise ValueError(message)
+
+    vault.comptroller_contract = SimpleNamespace(
+        address=ACCESSOR,
+        functions=SimpleNamespace(
+            getPolicyManager=lambda: SimpleNamespace(call=raise_legacy_comptroller),
+        ),
+    )
+    dispatcher = SimpleNamespace(
+        functions=SimpleNamespace(
+            getFundDeployerForVaultProxy=lambda _vault: SimpleNamespace(call=lambda **_kwargs: fund_deployer),
+        )
+    )
+    policy_manager = SimpleNamespace(
+        functions=SimpleNamespace(
+            getEnabledPoliciesForFund=lambda _fund: SimpleNamespace(call=lambda **_kwargs: [policy_address]),
+        )
+    )
+    policy = SimpleNamespace(
+        functions=SimpleNamespace(
+            identifier=lambda: SimpleNamespace(call=lambda **_kwargs: "INVESTOR_WHITELIST"),
+        )
+    )
+
+    def fake_get_deployed_contract(_web3, abi_name: str, address: str):
+        """Resolve deprecated-release test doubles by ABI and address."""
+
+        if abi_name.endswith("Dispatcher.json"):
+            return dispatcher
+        if abi_name.endswith("PolicyManager.json"):
+            assert address == policy_manager_address
+            return policy_manager
+        return policy
+
+    monkeypatch.setattr(blue_vault, "get_deployed_contract", fake_get_deployed_contract)
+
+    assert vault.is_whitelisted_deposit() is True
 
 
 def test_blue_current_fees_include_protocol_fee_in_user_facing_management_rate(monkeypatch) -> None:
@@ -157,9 +229,9 @@ def test_blue_current_fees_include_protocol_fee_in_user_facing_management_rate(m
         "_try_fee_call",
         lambda fee, function_name, *_args, **_kwargs: {
             ("management", "getFeeInfoForFund"): (management_per_second_rate, 0),
-            ("performance", "getFeeInfoForFund"): (int(FEE_RATE_SCALE * Decimal(str(EXPECTED_PERFORMANCE_FEE))), 0),
-            ("entrance", "getRateForFund"): int(FEE_RATE_SCALE * Decimal(str(EXPECTED_ENTRANCE_FEE))),
-            ("exit", "getInKindRateForFund"): int(FEE_RATE_SCALE * Decimal(str(EXPECTED_EXIT_FEE))),
+            ("performance", "getFeeInfoForFund"): (int(FEE_BPS_DENOMINATOR * Decimal(str(EXPECTED_PERFORMANCE_FEE))), 0),
+            ("entrance", "getRateForFund"): int(FEE_BPS_DENOMINATOR * Decimal(str(EXPECTED_ENTRANCE_FEE))),
+            ("exit", "getInKindRateForFund"): int(FEE_BPS_DENOMINATOR * Decimal(str(EXPECTED_EXIT_FEE))),
         }.get((fee, function_name)),
     )
 

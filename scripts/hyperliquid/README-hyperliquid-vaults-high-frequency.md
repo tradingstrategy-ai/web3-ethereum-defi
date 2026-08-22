@@ -2,11 +2,12 @@
 
 ## Overview
 
-The high-frequency (HF) pipeline is an alternative Hyperliquid vault data collector
-that operates at configurable sub-daily intervals (default 4h, down to 1h). It
-runs alongside the existing daily pipeline, using a separate DuckDB database with
-timestamp-precision rows and optional Webshare rotating proxies for parallel
-throughput.
+The high-frequency (HF) pipeline is the production Hyperliquid vault data
+collector. It operates at configurable sub-daily intervals (default 4h, down to
+1h), using a separate DuckDB database with timestamp-precision rows and optional
+Webshare rotating proxies for parallel throughput. The older daily pipeline is
+retained for legacy history, standalone use and combined Parquet reads, but the
+looped production scanner does not run it.
 
 The motivation is more responsive PnL tracking. The daily pipeline produces one
 data point per vault per day. For vaults with intra-day volatility or for
@@ -22,40 +23,21 @@ points are.
 ```
 Hyperliquid API
 ├── stats-data (bulk GET) ── filter by TVL ─→ vault list
-└── vaultDetails (per-vault POST, via post_info with proxy rotation)
-        │
-        ├── portfolio: allTime / month / week / day
-        │   └── _merge_portfolio_periods() → highest available resolution
-        │       └── portfolio_to_combined_dataframe()
-        │           └── _calculate_share_price() → share_price, total_assets, pnl
-        │
-        └── userNonFundingLedgerUpdates (deposit/withdrawal events)
-            └── aggregate_daily_flows(events)
-                │
-                ▼
-        Raw API timestamps preserved (no flooring or normalisation)
-                │
-                ▼
-        HyperliquidHighFreqPriceRow (timestamp, not date)
-                │
-                ▼
-        hyperliquid-vaults-hf.duckdb
-        ├── vault_metadata (shared schema, from base class)
-        └── vault_high_freq_prices (PK: vault_address, timestamp)
-                │
-                ▼
-        merge_hypercore_prices_to_parquet()
-        ├── reads BOTH daily + HF DuckDB databases
-        ├── _prepare_hypercore_export() — shared forward-fill + deposit status
-        ├── deduplicates on (address, timestamp) — HF wins on collision
-        └── writes combined data to parquet
-                │
-                ▼
-        vault-prices-1h.parquet (chain 9999 rows replaced with combined data)
-                │
-                ▼
-        process_raw_vault_scan_data() → cleaned-vault-prices-1h.parquet
-        (forward_fill_vault() resamples to 1h when needed downstream)
+├── vaultDetails (per-vault POST, via post_info with proxy rotation)
+│   └── portfolio: allTime / month / week / day
+│       └── _merge_portfolio_periods() → portfolio_to_combined_dataframe()
+│           └── _calculate_share_price() → HyperliquidHighFreqPriceRow
+├── userNonFundingLedgerUpdates (per-vault POST)
+│   └── aggregate_daily_flows(events) → price-row flow fields
+└── clearinghouseState (per-vault POST)
+    └── collect_hyperliquid_vault_observations() → current position observations
+
+HyperliquidHighFreqMetricsDatabase (hyperliquid-vaults-hf.duckdb)
+├── vault_metadata and vault_high_freq_prices
+│   └── merge_hypercore_prices_to_parquet() → vault-prices-1h.parquet
+│       └── process_raw_vault_scan_data() → cleaned-vault-prices-1h.parquet
+└── perp_vault_* observation tables
+    └── generic temporal join → `other_data.perp_dex` exposure metrics
 ```
 
 ### Key components
@@ -125,10 +107,10 @@ only way to retain 20-min history permanently is to snapshot the `day` period
 into our own DuckDB before those points age out of the 24h window — which is the
 whole point of this pipeline.
 
-The daily pipeline calls this once per day, truncates every timestamp to `.date()`,
-and stores one row per vault per calendar day. This discards all intra-day
-resolution — the `day` period's ~20-min data points are collapsed into a single
-daily entry.
+When explicitly run, the legacy daily pipeline truncates every timestamp to
+`.date()` and stores one row per vault per calendar day. This discards all
+intra-day resolution — the `day` period's ~20-min data points are collapsed
+into a single daily entry.
 
 ### What the HF pipeline does differently
 
@@ -269,7 +251,8 @@ for sparse columns. This means:
 
 `post_processing.py` opens whichever Hyperliquid databases exist on disc
 (daily and/or HF) and passes both to `merge_hypercore_prices_to_parquet()`.
-Both databases are always merged regardless of the `HYPERCORE_MODE` setting.
+When both databases exist, they are merged regardless of the active
+`HYPERCORE_MODE` setting.
 
 ### Integration via scan_all_chains.py
 
@@ -284,9 +267,15 @@ SCAN_HYPERCORE=true HYPERCORE_MODE=high_freq SCAN_CYCLES="Hypercore=4h" \
   poetry run python scripts/erc-4626/scan-vaults-all-chains.py
 ```
 
-Both DuckDB paths are always available:
+The price merge reads either database when it exists:
 - `hyperliquid-vaults.duckdb` — daily pipeline
 - `hyperliquid-vaults-hf.duckdb` — HF pipeline
+
+The looped production Compose service defaults to `HYPERCORE_MODE=high_freq`.
+It is therefore this scanner that persists current public positions for the
+shared perp-Dex exposure export. Set `HYPERCORE_MODE=daily` only for an
+intentional standalone or compatibility run; that database is otherwise
+inactive in production.
 
 ### Potential issues and caveats
 

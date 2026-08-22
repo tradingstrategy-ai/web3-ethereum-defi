@@ -1,6 +1,7 @@
 feeder-id: monarq
 name: Monarq Asset Management
 role: curator
+lagoon-curator: Monarq
 upshift-strategist:
   - Monarq
   - MNNC Group
@@ -9,9 +10,15 @@ twitter: Monarq_mgmt
 linkedin: monarq-asset-mgmt
 short_description: Monarq Asset Management is a quantitative multi-strategy digital-asset investment firm.
 long_description: |
-  Monarq Asset Management is a quantitative, multi-strategy digital-asset investment firm that uses systematic research, data and trading infrastructure to seek risk-adjusted returns. The firm was formerly known as MNNC Group, which is retained as an Upshift strategist alias for historical vault metadata.
-  Upshift lists Monarq as the strategist for the Monarq XRP Yield Vault on Flare, and its official launch materials identify Monarq Asset Management as the curator of that vault.
+  Monarq Asset Management describes itself as a multi-strategy investment firm focused on digital-asset markets. Its official website highlights quantitative strategies and options trading, combining traditional risk discipline with crypto-native expertise. The firm was formerly known as MNNC Group, which is retained as an Upshift strategist alias for historical vault metadata.
+  Lagoon's curator API registers Monarq under the display name ``Monarq``. The current Lagoon vault API does not associate Monarq with a vault, so this metadata records the registered curator identity without asserting Lagoon vault activity.
 other-links:
+  - title: Monarq Asset Management homepage - quantitative digital-asset investment firm
+    url: https://www.monarq-am.com/
+  - title: Lagoon Finance curator API - registers Monarq as a curator
+    url: https://app.lagoon.finance/api/curators
+  - title: Lagoon Finance vault API - current listing has no Monarq vault association
+    url: https://app.lagoon.finance/api/vaults
   - title: Upshift - Monarq XRP Yield Vault
     url: https://app.upshift.finance/pools/14/0x2439D4bb753A0f3777d4C9011AFacc475ba6B951
   - title: Flare - Monarq, Flare and Upshift XRP vault launch

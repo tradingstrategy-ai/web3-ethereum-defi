@@ -945,7 +945,9 @@ def is_activity_filter_exempt(detection: "ERC4262VaultDetection") -> bool:
 
     Some shared vault database entries are not discovered from canonical
     ERC-4626 ``Deposit`` and ``Withdraw`` events emitted by the vault address.
-    Mellow Core Vaults are the first EVM example: the vault identity comes from
+    Enzyme Blue and Onyx use protocol-specific investor actions, so their
+    factory-confirmed vaults have no canonical ERC-4626 deposit count. Mellow
+    Core Vaults have the same split: the vault identity comes from
     ``Factory.Created`` while user flow events live on per-asset queue
     contracts. Upshift multi-asset vaults are another exception: older
     production metadata can be seeded or refreshed by address after the custom
@@ -966,6 +968,7 @@ def is_activity_filter_exempt(detection: "ERC4262VaultDetection") -> bool:
         for feature in (
             ERC4626Feature.mellow_like,
             ERC4626Feature.enzyme_onyx_like,
+            ERC4626Feature.enzyme_blue_like,
             ERC4626Feature.upshift_multi_asset_like,
         )
     )
@@ -1435,6 +1438,13 @@ class ERC4262VaultDetection:
     #: persisted detections compatible after this slot was added.
     configuration_count: int = 0
 
+    #: Optional current permission snapshot supplied by a chain-level reader.
+    #:
+    #: Enzyme Onyx uses this because its Shares contract keeps deposit handlers
+    #: in a non-enumerable mapping. Discovery reconstructs the active set once
+    #: for the chain and passes the fixed-block result to each direct adapter.
+    current_deposit_permission: str | None = None
+
     def __setstate__(self, state: list[object] | tuple[object, ...]) -> None:
         """Restore persisted detections created before configuration events were tracked.
 
@@ -1450,8 +1460,10 @@ class ERC4262VaultDetection:
         for field, value in zip(fields, state):
             object.__setattr__(self, field.name, value)
 
-        if len(state) < len(fields):
+        if len(state) < len(fields) - 1:
             object.__setattr__(self, "configuration_count", 0)
+        if len(state) < len(fields):
+            object.__setattr__(self, "current_deposit_permission", None)
 
     def get_spec(self) -> VaultSpec:
         """Chain id/address tuple identifying this vault."""

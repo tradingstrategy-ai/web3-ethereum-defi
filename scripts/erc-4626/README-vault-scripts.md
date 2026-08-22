@@ -129,9 +129,15 @@ are mutable and may apply to a particular investor or transaction, so a
 historical GAV, supply or share-price multicall cannot prove universal action
 availability. The current metadata export instead reports Blue's reviewed
 ``ALLOWED_DEPOSIT_RECIPIENTS`` policy as ``deposit_permission=whitelisted``.
-Onyx Shares cannot enumerate active deposit handlers, so its current
-``deposit_permission`` is ``unknown`` until a chain-level handler index is
-implemented.
+Onyx Shares cannot enumerate active deposit handlers through a view function,
+so the migration reconstructs the active set from
+``DepositHandlerAdded``/``DepositHandlerRemoved`` events in the same Hypersync
+pass used for factory discovery. It then classifies the current handler
+configuration at the fixed migration end block with one batched Multicall.
+The reconstructed set is persisted on the Onyx lead. Future ordinary scanner
+cycles update it from their incremental Hypersync stream and refresh the
+fixed-block permission with the same batched reader, so the migration result
+does not regress to ``unknown``.
 
 The migration is resumable. Its JSON checkpoint defaults to
 `enzyme-backfill-history-state.json` beside the vault database and is written
@@ -638,10 +644,16 @@ Historical reads are scoped to the discovered vault addresses, preserving all
 unrelated raw and cleaned price histories. One shared history-reader invocation
 handles every Enzyme vault on each chain; at each sampled block, the adapter's
 share-price and total-supply calls are combined by Multicall3. Existing good
-metadata is not read again unless `ENZYME_REFRESH_EXISTING_METADATA=true`. The
-calculated total value is denominated in the vault's named value asset, so it
-is not necessarily a US-dollar valuation. Metadata refreshes read current
-management, performance, entrance, exit and (for Blue) protocol fees.
+metadata is not read again unless `ENZYME_REFRESH_EXISTING_METADATA=true`,
+except that Blue or Onyx rows with missing or ``unknown`` deposit permission
+are automatically repaired from the current PolicyManager or active Onyx
+deposit-handler index. Rows whose `Link` still targets the generic Enzyme
+discovery catalogue are rewritten locally so both architectures publish a
+direct address-specific vault page; this deterministic repair makes no token,
+fee or policy RPC calls. The calculated total value is denominated in the vault's
+named value asset, so it is not necessarily a US-dollar valuation. Metadata
+refreshes read current management, performance, entrance, exit and (for Blue)
+protocol fees.
 Historical fee rates remain TODO because fee-handler/tracker replacement and
 fee-configuration events must first be backfilled.
 
@@ -703,9 +715,115 @@ source .local-test.env && \
 poetry run python scripts/enzyme/export-vaults.py
 ```
 
+### Enzyme report-whitelist.py
+
+`scripts/enzyme/report-whitelist.py` is a read-only audit of the current
+deposit-permission enums persisted for Enzyme Blue and Onyx. It groups the
+database by chain and architecture, and counts ``whitelisted``,
+``permissionless`` and ``unknown`` separately. This is the quickest way to
+check exactly what the website export will publish without starting a scan.
+
+```shell
+poetry run python scripts/enzyme/report-whitelist.py
+```
+
+Set `DETAILS=true` to list every vault. Blue can also be independently checked
+against Enzyme's authenticated `GetVaultConfiguration` API; the comparison
+uses only enabled account-admission policies and reports only mismatches or
+failed requests. Onyx is not checked through this Blue API because its status
+depends on the active modular deposit handlers.
+
+```shell
+CHECK_ENZYME_API=true \
+ENZYME_API_TOKEN="$ENZYME_API_TOKEN" \
+MAX_WORKERS=8 \
+poetry run python scripts/enzyme/report-whitelist.py
+```
+
+### Enzyme migrate-current-metadata.py
+
+`scripts/enzyme/migrate-current-metadata.py` is the production migration for
+all current Enzyme catalogue data added or corrected by the integration. It
+uses the same one-scan-per-chain discovery and durable metadata batches as the
+historical backfill, but forcibly disables raw-price scanning, cleaned-Parquet
+replacement and unconditional metadata refreshes.
+
+The migration fills missing short and long descriptions, repairs direct vault
+links locally, refreshes complete current adapter metadata for affected rows,
+and resolves current deposit permission for Blue and Onyx. Blue uses the
+reviewed release PolicyManager addresses and investor-whitelist identifiers
+published by Enzyme, matching the policies used by the Enzyme website. Onyx
+uses an event-reconstructed active handler set plus current-state Multicall:
+an unrestricted standard deposit handler is permissionless, a built-in
+allowlist/controller restriction or admin-only mint handler is whitelisted,
+and an unreviewed hook or handler remains unknown. A vault with no active
+deposit handler is permissionless for identity policy, while no handler can
+currently accept a deposit.
+Name, symbol, denomination and both descriptions are mandatory; current NAV
+and fees can be blank for deprecated vaults whose old valuation or extension
+calls no longer execute. A completed row is skipped after an interruption, and
+a successful metadata-only run marks
+its separate metadata checkpoint complete. The script holds the shared scanner
+writer lock for the complete database read/write lifetime so a concurrent
+process cannot replace its metadata updates.
+
+For local development, review the factory coverage without writing:
+
+```shell
+source .local-test.env && \
+DRY_RUN=true \
+poetry run python scripts/enzyme/migrate-current-metadata.py
+```
+
+Apply the migration locally:
+
+```shell
+source .local-test.env && \
+MAX_WORKERS=8 \
+poetry run python scripts/enzyme/migrate-current-metadata.py
+```
+
+In production, inspect `docker-compose.yml`, load the production environment,
+and stop the looped scanner before starting the long-running maintenance
+container:
+
+```shell
+source ~/vault-scanner/vault-rpc.env
+cd ~/vault-scanner/web3-ethereum-defi
+docker compose ps vault-scanner-looped
+docker compose stop vault-scanner-looped
+
+docker compose run --rm \
+  --entrypoint /bin/bash \
+  -e MAX_WORKERS=8 \
+  vault-scanner-oneshot \
+  -lc 'poetry run python scripts/enzyme/migrate-current-metadata.py'
+
+docker compose start vault-scanner-looped
+```
+
+Stopping the looped service avoids holding it idle behind the migration lock.
+If another writer still owns the lock, the migration exits without touching
+the pickle; rerun it after that writer finishes.
+
+Then audit the persisted Blue/Onyx permission distribution:
+
+```shell
+poetry run python scripts/enzyme/report-whitelist.py
+```
+
+The command requires all four Enzyme chain RPC variables and
+`HYPERSYNC_API_KEY`. Preserve the production `~/.tradingstrategy` mount and
+rerun the same command after an interruption; never delete its metadata-only
+checkpoint or metadata database. This checkpoint is intentionally separate
+from `enzyme-backfill-history-state.json`, so a metadata repair cannot discard
+an unfinished historical-price backfill.
+
 | Variable | Description |
 |----------|-------------|
 | `VAULT_DB_PATH` | Optional metadata database path. Default: production path. |
+| `ENZYME_CHECKPOINT_PATH` | Optional metadata-only checkpoint path. Default: `enzyme-current-metadata-state.json` beside the vault database. |
+| `PIPELINE_LOCK_TIMEOUT` | Seconds to wait for the shared scanner writer lock. Default: `60`. |
 
 ### fix-t3tris-vaults.py
 

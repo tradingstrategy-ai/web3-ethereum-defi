@@ -19,7 +19,7 @@ from eth_defi.abi import get_topic_signature_from_event
 from eth_defi.chain import get_chain_name
 from eth_defi.compat import native_datetime_utc_fromtimestamp
 from eth_defi.enzyme.blue_discovery import create_enzyme_blue_factory_candidate, fetch_enzyme_blue_dispatchers_for_chain, fetch_enzyme_blue_vault_deployed_event_topic, is_enzyme_blue_factory_log
-from eth_defi.enzyme.onyx_discovery import create_enzyme_factory_candidate, fetch_enzyme_shares_deployed_event_topic, fetch_enzyme_shares_factories_for_chain, is_enzyme_factory_log
+from eth_defi.enzyme.onyx_discovery import ENZYME_BASE_CHAIN_ID, create_enzyme_factory_candidate, decode_enzyme_deposit_handler_event, fetch_enzyme_deposit_handler_event_topics, fetch_enzyme_shares_deployed_event_topic, fetch_enzyme_shares_factories_for_chain, is_enzyme_factory_log
 from eth_defi.erc_4626.discovery_base import HardcodedVaultLeadSources, LeadScanReport, PotentialVaultMatch, VaultDiscoveryBase, add_enzyme_blue_factory_candidate_lead, add_enzyme_factory_candidate_lead, add_mellow_factory_candidate_lead, get_vault_discovery_events, get_vault_event_topic_map, is_configuration_event, is_deposit_event
 from eth_defi.event_reader.web3factory import Web3Factory
 from eth_defi.hypersync.hypersync_timestamp import HypersyncFlaky, get_hypersync_block_height_with_retries, is_hypersync_next_block_range_error, is_hypersync_rate_limit_error, is_hypersync_retryable_runtime_error
@@ -34,6 +34,8 @@ except ImportError as e:
 from eth_defi.hypersync.session import open_hypersync_stream
 
 logger = logging.getLogger(__name__)
+
+ENZYME_DEPOSIT_HANDLER_EVENT_TOPICS = frozenset(fetch_enzyme_deposit_handler_event_topics())
 
 VAULT_LEAD_HEIGHT_CHECK_ATTEMPTS = 3
 VAULT_LEAD_HEIGHT_CHECK_RETRY_SLEEP = 30
@@ -127,6 +129,12 @@ class HypersyncVaultDiscover(VaultDiscoveryBase):
                 hypersync.LogSelection(
                     address=enzyme_factories,
                     topics=[[fetch_enzyme_shares_deployed_event_topic()]],
+                )
+            )
+        if self.web3.eth.chain_id == ENZYME_BASE_CHAIN_ID:
+            log_selections.append(
+                hypersync.LogSelection(
+                    topics=[list(ENZYME_DEPOSIT_HANDLER_EVENT_TOPICS)],
                 )
             )
         enzyme_blue_dispatchers = fetch_enzyme_blue_dispatchers_for_chain(self.web3.eth.chain_id)
@@ -283,6 +291,25 @@ class HypersyncVaultDiscover(VaultDiscoveryBase):
                 return
 
             add_enzyme_factory_candidate_lead(report, leads, candidate)
+            return
+
+        if chain == ENZYME_BASE_CHAIN_ID and log.topics[0] in ENZYME_DEPOSIT_HANDLER_EVENT_TOPICS:
+            address_key = HexAddress(log.address.lower())
+            lead = leads.get(address_key)
+            if lead is None or getattr(lead, "enzyme_factory_candidate", None) is None:
+                return
+            active_handlers = getattr(lead, "enzyme_active_deposit_handlers", None)
+            if active_handlers is None:
+                # An incremental scan cannot reconstruct events that predate an
+                # old lead. The Enzyme migration supplies the missing baseline.
+                return
+            update = decode_enzyme_deposit_handler_event(log)
+            updated_handlers = set(active_handlers)
+            if update.action == "added":
+                updated_handlers.add(update.handler_address)
+            else:
+                updated_handlers.discard(update.handler_address)
+            lead.enzyme_active_deposit_handlers = tuple(sorted(updated_handlers))
             return
 
         if is_enzyme_blue_factory_log(chain, log.address, log.topics[0]):

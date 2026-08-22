@@ -379,6 +379,7 @@ def create_vault_scan_record(
         detection.features,
         token_cache=token_cache,
         default_block_identifier=block_identifier,
+        current_deposit_permission=getattr(detection, "current_deposit_permission", None),
     )
 
     if vault is None:

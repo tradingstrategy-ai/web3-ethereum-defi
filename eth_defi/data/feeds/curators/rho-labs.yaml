@@ -1,0 +1,20 @@
+feeder-id: rho-labs
+name: Rho Labs
+role: curator
+lagoon-curator: Rho X
+website: https://rho.trading/
+short_description: Rho Labs builds onchain trading and settlement infrastructure for institutional capital markets.
+long_description: |
+  Rho Labs provides a multi-asset trading and settlement layer for onchain capital markets, including rates, perpetuals, and tokenised real-world assets. Its Rho X product includes curator-run ERC-4626 vaults with contract-enforced KYC, whitelist, jurisdiction, and risk-limit controls. Lagoon Finance lists Rho X as curator of the Ethereum Rho X Liquidity Provider vault.
+
+# Evidence and background references.
+#
+# Lagoon identifies Rho X as the curator of its Rho X Liquidity Provider
+# vault and describes Rho Labs as the team behind Rho X. Rho's official site
+# describes its onchain trading and settlement infrastructure and curator-run
+# vault model.
+other-links:
+  - title: Lagoon Finance vault - Rho X Liquidity Provider lists Rho X as curator
+    url: https://app.lagoon.finance/vault/1/0x4cb280e63251b9ab24a54def74bf5995d82ff398
+  - title: Rho Vaults - official description of curator-run ERC-4626 vaults
+    url: https://rho.trading/vaults

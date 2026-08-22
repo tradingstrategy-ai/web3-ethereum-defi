@@ -3,7 +3,9 @@
 Enzyme's current Base deployment is the modular Onyx protocol. Its ``Shares``
 contract is an ERC-20 vault share token, but it deliberately does not implement
 ERC-4626. Valuation is published by a connected handler as a stored
-18-decimal ``sharePrice()`` in a named accounting unit such as USD.
+18-decimal ``sharePrice()`` in a named accounting unit such as USD. The scanner
+normalises the USD reporting unit to native Base USDC for cross-vault metrics;
+this does not identify the active handler's deposit asset.
 
 Official Base deployment and ABI source:
 https://github.com/enzymefinance/onyx-sdk/tree/main/packages/environment
@@ -21,20 +23,39 @@ from web3.contract import Contract
 
 from eth_defi.abi import get_deployed_contract
 from eth_defi.enzyme.fee import combine_user_facing_management_fee
-from eth_defi.enzyme.offchain_metadata import fetch_enzyme_vault_metadata
+from eth_defi.enzyme.offchain_metadata import create_enzyme_vault_link, fetch_enzyme_vault_metadata, resolve_enzyme_vault_metadata
+from eth_defi.enzyme.onyx_discovery import ENZYME_BASE_CHAIN_ID
 from eth_defi.enzyme.onyx_flow import EnzymeVaultFlowManager
 from eth_defi.enzyme.onyx_historical import EnzymeVaultHistoricalReader
 from eth_defi.erc_4626.core import ERC4626Feature
-from eth_defi.token import TokenDetails, fetch_erc20_details
+from eth_defi.token import USDC_NATIVE_TOKEN, TokenDetails, fetch_erc20_details
 from eth_defi.types import Percent
 from eth_defi.vault.base import TradingUniverse, VaultBase, VaultFlowManager, VaultHistoricalReader, VaultInfo, VaultPortfolio, VaultSpec
-from eth_defi.vault.deposit_redeem import VaultDepositManager
+from eth_defi.vault.deposit_redeem import VaultDepositManager, VaultDepositPermission
 from eth_defi.vault.fee import FeeData
 from eth_defi.vault.lower_case_dict import LowercaseDict
 
 VALUE_ASSET_DECIMALS = 18
 FEE_BPS_DENOMINATOR = 10_000
 ZERO_ADDRESS = "0x0000000000000000000000000000000000000000"
+
+#: Onyx ``Shares.getValueAsset()`` is a human-readable accounting label, not
+#: an ERC-20 deposit-token address. Every currently discovered Base label has
+#: a canonical ERC-20 used only to export comparable scanner metrics. This
+#: mapping must reflect the value shown to an investor, not a protocol-internal
+#: handler implementation: a handler can accept USDT, EURC, or another asset
+#: while the Shares vehicle reports its NAV in USD, BTC, or EUR.
+#:
+#: Never use these addresses to select a subscription or redemption token. The
+#: transaction flow must inspect the active handler instead.
+ONYX_VALUE_ASSET_COMPARABILITY_TOKENS: dict[str, HexAddress] = {
+    "USD": HexAddress(USDC_NATIVE_TOKEN[ENZYME_BASE_CHAIN_ID]),
+    "BTC": HexAddress("0xcbb7c0000ab88b473b1f5afd9ef808440eed33bf"),  # Base cbBTC
+    "EUR": HexAddress("0x60a3e35cc302bfa44cb288bc5a4f316fdb1adb42"),  # Base EURC
+}
+
+#: Compatibility alias for callers that need the USD reporting normalisation.
+ONYX_USD_COMPARABILITY_TOKEN = ONYX_VALUE_ASSET_COMPARABILITY_TOKENS["USD"]
 
 
 class EnzymeVaultUnsupportedError(RuntimeError):
@@ -57,7 +78,8 @@ class EnzymeVault(VaultBase):
         features: set[ERC4626Feature] | None = None,
         default_block_identifier: BlockIdentifier | None = None,
         require_denomination_token: bool = False,
-    ):
+        current_deposit_permission: str | None = None,
+    ) -> None:
         """Create an Enzyme Onyx vault adapter.
 
         :param web3:
@@ -71,8 +93,14 @@ class EnzymeVault(VaultBase):
         :param default_block_identifier:
             Block used for ordinary metadata reads.
         :param require_denomination_token:
-            Kept for :class:`VaultBase` compatibility. Onyx uses a named
-            value asset, not a denomination ERC-20 token.
+            Enforce a resolved reporting denomination in operational callers.
+            USD-value Onyx Shares resolve to native Base USDC by the explicit
+            comparability assumption documented in
+            :meth:`fetch_denomination_token_address`; this does not certify
+            USDC as a handler deposit asset.
+        :param current_deposit_permission:
+            Fixed-block result from the chain-level active handler index. The
+            Shares contract cannot enumerate this state on its own.
         """
 
         super().__init__(token_cache=token_cache, require_denomination_token=require_denomination_token)
@@ -80,6 +108,7 @@ class EnzymeVault(VaultBase):
         self.spec = spec
         del features
         self.default_block_identifier = default_block_identifier
+        self.current_deposit_permission = VaultDepositPermission(current_deposit_permission) if current_deposit_permission is not None else VaultDepositPermission.unknown
         self.api_metadata = fetch_enzyme_vault_metadata(spec.chain_id, spec.vault_address)
 
     def _get_block_identifier(self) -> BlockIdentifier:
@@ -125,21 +154,21 @@ class EnzymeVault(VaultBase):
 
     @property
     def description(self) -> str | None:
-        """Return a curated vault strategy description when available."""
+        """Return complete offchain listing copy for this Onyx vault."""
 
-        return self.api_metadata.description if self.api_metadata else None
+        return resolve_enzyme_vault_metadata("onyx", self.name, self.api_metadata).description
 
     @property
     def short_description(self) -> str | None:
-        """Return a curated vault one-liner when available."""
+        """Return complete offchain table copy for this Onyx vault."""
 
-        return self.api_metadata.short_description if self.api_metadata else None
+        return resolve_enzyme_vault_metadata("onyx", self.name, self.api_metadata).short_description
 
     @property
     def manager_name(self) -> str | None:
         """Return a curated manager name when available."""
 
-        return self.api_metadata.manager_name if self.api_metadata else None
+        return resolve_enzyme_vault_metadata("onyx", self.name, self.api_metadata).manager_name
 
     def fetch_share_token(self) -> TokenDetails:
         """Fetch the Shares ERC-20 token metadata."""
@@ -169,15 +198,68 @@ class EnzymeVault(VaultBase):
         del block_identifier
         return self.address
 
-    def fetch_denomination_token_address(self) -> HexAddress | None:
-        """Return no denomination token because Onyx uses a named value asset."""
+    def fetch_denomination_token_address(self) -> HexAddress:
+        """Map every supported Onyx value asset to a canonical Base ERC-20.
 
-        return None
+        Onyx ``Shares`` records a named value asset rather than an ERC-20
+        denomination token. The scanner needs an ERC-20 denomination to keep
+        its share prices, TVL and lifetime metrics comparable with other vaults.
+        It deliberately maps each reviewed Base value-asset label to its
+        canonical ERC-20: ``USD`` to USDC, ``BTC`` to cbBTC, and ``EUR`` to
+        EURC. The mapping covers all 16 Onyx Shares discovered from the
+        official Base SharesFactory as of 2026-08-21.
 
-    def fetch_denomination_token(self) -> TokenDetails | None:
-        """Return no ERC-20 denomination token for named Onyx value assets."""
+        This is not evidence that the canonical token is the active deposit
+        asset. For example, an USD-valued vehicle can use a handler that
+        accepts USDT while continuing to report its NAV in USD. Deposit and
+        redemption code must inspect the active handler instead of relying on
+        this reporting normalisation. An unknown label raises immediately so a
+        historical scan cannot proceed with a missing denomination token and
+        later fail inside the generic reader state.
 
-        return None
+        :return:
+            Canonical Base ERC-20 used to represent the Shares value asset in
+            scanner metrics.
+        :raise EnzymeVaultUnsupportedError:
+            If the vault is not on Base or Enzyme introduces a value-asset
+            label with no reviewed canonical ERC-20 mapping.
+        """
+
+        if self.chain_id != ENZYME_BASE_CHAIN_ID:
+            raise EnzymeVaultUnsupportedError(f"Enzyme Onyx value-asset mappings are only configured for Base, got chain {self.chain_id}")
+
+        value_asset = self.fetch_value_asset(self._get_block_identifier())
+        try:
+            return ONYX_VALUE_ASSET_COMPARABILITY_TOKENS[value_asset]
+        except KeyError as error:
+            supported_labels = ", ".join(sorted(ONYX_VALUE_ASSET_COMPARABILITY_TOKENS))
+            message = f"Enzyme Onyx Shares vault {self.address} reports unsupported value asset {value_asset!r}; add a reviewed Base ERC-20 mapping before historical scanning. Supported labels: {supported_labels}"
+            raise EnzymeVaultUnsupportedError(message) from error
+
+    def fetch_denomination_token(self) -> TokenDetails:
+        """Fetch the ERC-20 selected by the Onyx reporting normalisation.
+
+        The returned token represents the scanner's valuation denomination,
+        not a source-proven Onyx handler deposit asset. See
+        :meth:`fetch_denomination_token_address` for the USD-to-USDC
+        comparability assumption and its transaction-flow limitation.
+
+        :return:
+            Metadata for the canonical Base ERC-20 used by the mapped Onyx
+            value asset.
+        """
+
+        token = fetch_erc20_details(
+            self.web3,
+            self.fetch_denomination_token_address(),
+            chain_id=self.chain_id,
+            raise_on_error=False,
+            cache=self.token_cache,
+            cause_diagnostics_message=f"Enzyme Onyx value asset normalised to a canonical Base ERC-20 for {self.address}",
+        )
+        if token is None:
+            raise EnzymeVaultUnsupportedError(f"Could not read canonical denomination-token metadata for Enzyme Onyx Shares vault {self.address}")
+        return token
 
     def fetch_value_asset(self, block_identifier: BlockIdentifier = "latest") -> str:
         """Read the declared Onyx accounting unit, such as ``USD``.
@@ -226,11 +308,21 @@ class EnzymeVault(VaultBase):
         return self.fetch_total_assets(block_identifier)
 
     def fetch_info(self) -> VaultInfo:
-        """Fetch the vault address and its declared accounting unit."""
+        """Fetch the vault address, accounting unit and metric denomination.
+
+        ``denomination_assumption`` records that the named-value-asset mapping
+        is a metrics convention. It must not be interpreted as a handler
+        deposit asset or as evidence that a user can deposit the mapped token.
+
+        :return:
+            Shares address, declared value asset and exported denomination
+            assumption.
+        """
 
         return {
             "shares": self.address,
             "value_asset": self.fetch_value_asset(self._get_block_identifier()),
+            "denomination_assumption": "Onyx USD, BTC and EUR values are exported as canonical Base USDC, cbBTC and EURC metrics respectively",
         }
 
     def fetch_portfolio(self, universe: TradingUniverse, block_identifier: BlockIdentifier | None = None) -> VaultPortfolio:
@@ -279,25 +371,50 @@ class EnzymeVault(VaultBase):
         return "Enzyme"
 
     def is_whitelisted_deposit(self) -> bool:
-        """Report Onyx deposit permission as unavailable without a handler index.
+        """Return current account-approval status from the handler index.
 
-        An Onyx Shares token has only ``isDepositHandler(address)``; it does
-        not provide an enumerable handler list. Individual current deposit
-        handlers can enforce an allowlist, such as a SyncDepositHandler's
-        ``getDepositorAllowlist()``, or a queue's controller restriction. A
-        direct Shares adapter therefore cannot safely claim either
-        ``whitelisted`` or ``permissionless`` until a chain-level HyperSync
-        index has reconstructed the active handlers and inspected their
-        reviewed interfaces. The shared scan maps this explicit unsupported
-        read to :attr:`~eth_defi.vault.deposit_redeem.VaultDepositPermission.unknown`.
+        An Onyx Shares token exposes ``isDepositHandler(address)`` but no
+        enumerable handler list. The chain-level Enzyme discovery pass
+        reconstructs the active set from ``DepositHandlerAdded`` and
+        ``DepositHandlerRemoved`` events, and a batched current-state reader
+        inspects the standard synchronous, queued and manual-mint handlers.
+        The resulting fixed-block permission is injected into this adapter.
 
-        :return: Never returns normally because the current handler set is not
-            enumerable from the Shares contract.
-        :raise NotImplementedError: Always, until the adapter receives an
-            authoritative current handler index.
+        A directly constructed adapter without that chain context remains
+        explicit ``unknown`` rather than performing a costly per-vault event
+        scan or assuming the protocol's permissionless default.
+
+        :return:
+            ``True`` when every active route requires prior account approval;
+            ``False`` when at least one route is proven public or no deposit
+            handler is active.
+        :raise NotImplementedError:
+            If no conclusive chain-level permission snapshot was supplied.
         """
 
-        raise NotImplementedError(f"Enzyme Onyx Shares vault {self.address} does not enumerate its active deposit handlers")
+        permission = getattr(self, "current_deposit_permission", VaultDepositPermission.unknown)
+        if permission is VaultDepositPermission.unknown:
+            raise NotImplementedError(f"Enzyme Onyx Shares vault {self.address} needs a conclusive active deposit-handler index")
+        return permission is VaultDepositPermission.whitelisted
+
+    def get_whitelist_notes(self) -> str | None:
+        """Explain the current Onyx permission classification.
+
+        The qualification distinguishes investor identity approval from route
+        availability and other operating conditions that the shared enum does
+        not represent.
+
+        :return:
+            Qualification for a resolved chain-level result, or ``None`` when
+            the adapter has no conclusive handler snapshot.
+        """
+
+        permission = getattr(self, "current_deposit_permission", VaultDepositPermission.unknown)
+        if permission is VaultDepositPermission.whitelisted:
+            return "Current Enzyme Onyx deposit handlers require prior recipient or controller approval. This is an onchain access rule and does not by itself prove an offchain KYC process."
+        if permission is VaultDepositPermission.permissionless:
+            return "Current Enzyme Onyx identity policy is permissionless. Either a public deposit route exists or no deposit handler is active; deposit availability, queue settlement, asset checks and other operating conditions are separate."
+        return None
 
     def fetch_fee_tracker_rate(
         self,
@@ -476,7 +593,16 @@ class EnzymeVault(VaultBase):
         )
 
     def get_link(self, referral: str | None = None) -> str:
-        """Return the Enzyme discovery page for Base vaults."""
+        """Return the address-specific Enzyme Onyx application page.
+
+        The canonical Shares address identifies the vehicle in the Enzyme
+        application. The network query distinguishes the Base deployment and
+        keeps the URL format aligned with Blue vault detail pages.
+
+        :param referral: Accepted for the shared vault interface; Enzyme does
+            not expose a reviewed referral query parameter.
+        :return: Direct Enzyme application URL for this Onyx Shares vault.
+        """
 
         del referral
-        return "https://app.enzyme.finance/discover/vaults?network=base"
+        return create_enzyme_vault_link(self.chain_id, self.address)
