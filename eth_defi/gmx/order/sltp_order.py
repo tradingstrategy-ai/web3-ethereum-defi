@@ -276,6 +276,9 @@ class SLTPOrder(BaseOrder):
         collateral_address: ChecksumAddress,
         index_token_address: ChecksumAddress,
         is_long: bool,
+        *,
+        decrease_position_swap_type: int = DECREASE_POSITION_SWAP_TYPES["swap_pnl_token_to_collateral_token"],
+        should_unwrap_native_token: bool = False,
     ):
         """Initialize SL/TP order with position identification.
 
@@ -284,12 +287,16 @@ class SLTPOrder(BaseOrder):
         :param collateral_address: Collateral token address
         :param index_token_address: Index token address
         :param is_long: True for long position, False for short
+        :param decrease_position_swap_type: How GMX should convert the PnL token when a SL/TP order closes. Defaults to swapping PnL token to collateral token, matching :class:`~eth_defi.gmx.order.base_order.OrderParams`'s default. See ``DECREASE_POSITION_SWAP_TYPES`` in :mod:`eth_defi.gmx.constants`.
+        :param should_unwrap_native_token: Whether a native-token payout on a SL/TP close should be unwrapped to the chain's native currency. Defaults to ``False``, matching :class:`~eth_defi.gmx.order.base_order.OrderParams`'s default.
         """
         super().__init__(config)
         self.market_key = to_checksum_address(market_key)
         self.collateral_address = to_checksum_address(collateral_address)
         self.index_token_address = to_checksum_address(index_token_address)
         self.is_long = is_long
+        self.decrease_position_swap_type = decrease_position_swap_type
+        self.should_unwrap_native_token = should_unwrap_native_token
 
         logger.debug(
             "Initialized SLTPOrder for market %s, %s position",
@@ -472,9 +479,9 @@ class SLTPOrder(BaseOrder):
                 0,  # validFromTime
             ),
             int(order_type),  # orderType
-            DECREASE_POSITION_SWAP_TYPES["no_swap"],  # decreasePositionSwapType
+            self.decrease_position_swap_type,  # decreasePositionSwapType
             self.is_long,  # isLong
-            True,  # shouldUnwrapNativeToken
+            self.should_unwrap_native_token,  # shouldUnwrapNativeToken
             auto_cancel,  # autoCancel
             self.config.referral_code or ZERO_REFERRAL_CODE,  # referralCode
             [],  # dataList
@@ -804,6 +811,7 @@ class SLTPOrder(BaseOrder):
             OrderType.MARKET_INCREASE,
             main_result.acceptable_price,
             int(main_result.mark_price * (10 ** (PRECISION - decimals))),
+            is_close=False,
         )
         multicall_args.append(self._create_order(main_arguments))
 

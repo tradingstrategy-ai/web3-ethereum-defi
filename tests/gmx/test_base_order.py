@@ -496,7 +496,7 @@ def test_build_multicall_args_close_position(chain_name, base_order):
     )
 
     execution_fee = 1000000000000
-    arguments = base_order._build_order_arguments(params, execution_fee, 4, 2000000, 0)
+    arguments = base_order._build_order_arguments(params, execution_fee, 4, 2000000, 0, is_close=True)
 
     multicall_args, value_amount = base_order._build_multicall_args(params, arguments, execution_fee, is_close=True)
 

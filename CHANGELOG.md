@@ -1,5 +1,6 @@
 # 1.2
 
+- fix: Stop GMX profitable-long closes from leaking PnL as unaccounted native ETH into the Safe, and price GMX positions and non-stablecoin Safe reserves correctly in vault NAV (2026-08-20)
 - feat: Add complete short and long offchain listing descriptions for every Enzyme Blue and Onyx vault, with neutral per-architecture fallback copy when a manager has not published strategy details, replace the horizontal wordmark listing artwork with the official standalone Enzyme brand mark, add direct address-specific vault links, and add a resumable current-metadata migration plus current handler-indexed Onyx and PolicyManager-based Blue deposit-permission auditing with an optional official Enzyme API comparison (2026-08-21)
 - feat: Add Pallas HyperEVM vault recognition, onchain fee reads and curator attribution for the Basis Trading HIP-3 and Directional Volatility vaults (2026-08-20)
 - feat: Replace the unsupported Arcus attribution for two Robinhood Chain pTokens with an address-scoped unknown-issuer pToken protocol and metadata repair (2026-08-20)

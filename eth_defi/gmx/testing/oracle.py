@@ -4,9 +4,11 @@ import json
 import logging
 from pathlib import Path
 
+from eth_typing import HexAddress
 from eth_utils import to_checksum_address
 from web3 import Web3
 
+from eth_defi.abi import get_contract
 from eth_defi.chain import get_chain_name
 from eth_defi.gmx.contracts import get_datastore_contract
 from eth_defi.gmx.core import OraclePrices
@@ -257,3 +259,61 @@ def setup_mock_oracle(
 
     logger.info("Mock oracle configured: ETH=$%d, USDC=$%d", eth_price_usd, usdc_price_usd)
     return production_provider_address
+
+
+def set_mock_token_price(
+    web3: Web3,
+    token_address: HexAddress,
+    price_usd: int,
+    decimals: int,
+) -> None:
+    """Set an arbitrary token's price on the already-deployed mock oracle from :func:`setup_mock_oracle`.
+
+    ``setup_mock_oracle()`` only accepts ETH/USDC prices, but it deploys a
+    generic ``MockOracleProvider`` at GMX's production oracle address that
+    can price *any* token. This reuses that already-deployed contract to add
+    one, mirroring this module's own WETH price-setting steps exactly
+    (``setPrice`` then ``setTimestampAdjustment``), rather than needing a
+    dedicated per-token price-setting helper of its own for every market a
+    fork test suite might eventually cover.
+
+    :param web3: Web3 connection to the Anvil fork.
+    :param token_address: Checksummed token address to price.
+    :param price_usd: Price in whole USD to set on the mock oracle.
+    :param decimals: The token's own decimals (used for GMX's 30-decimal price scaling).
+    """
+    chain = get_chain_name(web3.eth.chain_id).lower()
+    production_provider_address = resolve_contract_address(
+        chain,
+        ("chainlinkdatastreamprovider", "gmoracleprovider"),
+        ARBITRUM_DEFAULTS["chainlink_provider"],
+    )
+    mock = get_contract(web3, "gmx/MockOracleProvider.json")(address=production_provider_address)
+
+    account = web3.eth.accounts[0]
+
+    # GMX oracle prices are 30-decimal fixed point, adjusted for the token's
+    # own decimals -- e.g. WETH (18 decimals) -> price * 10^12, USDC (6
+    # decimals) -> price * 10^24, matching setup_mock_oracle's scaling.
+    scaled_price = int(price_usd * (10 ** (30 - decimals)))
+    price_tx = mock.functions.setPrice(token_address, scaled_price, scaled_price).build_transaction(
+        {
+            "from": account,
+            "gas": 500_000,
+            "gasPrice": web3.eth.gas_price,
+        }
+    )
+    price_tx_hash = web3.eth.send_transaction(price_tx)
+    assert_transaction_success_with_explanation(web3, price_tx_hash, f"Set mock oracle price for {token_address}")
+
+    data_store = get_datastore_contract(web3, chain)
+    timestamp_adjustment = data_store.functions.getUint(oracle_timestamp_adjustment_key(production_provider_address, token_address)).call()
+    adjustment_tx = mock.functions.setTimestampAdjustment(token_address, timestamp_adjustment).build_transaction(
+        {
+            "from": account,
+            "gas": 500_000,
+            "gasPrice": web3.eth.gas_price,
+        }
+    )
+    adjustment_tx_hash = web3.eth.send_transaction(adjustment_tx)
+    assert_transaction_success_with_explanation(web3, adjustment_tx_hash, f"Set mock oracle timestamp adjustment for {token_address}")

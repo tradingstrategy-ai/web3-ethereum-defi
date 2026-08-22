@@ -11,7 +11,7 @@ from typing import Optional
 from eth_utils import to_checksum_address
 from eth_typing import ChecksumAddress
 
-from eth_defi.gmx.constants import DEFAULT_EXECUTION_BUFFER
+from eth_defi.gmx.constants import DECREASE_POSITION_SWAP_TYPES, DEFAULT_EXECUTION_BUFFER
 from eth_defi.gmx.order.base_order import BaseOrder, OrderParams, OrderResult
 
 
@@ -70,6 +70,9 @@ class DecreaseOrder(BaseOrder):
         callback_gas_limit: int = 0,
         min_output_amount: int = 0,
         valid_from_time: int = 0,
+        *,
+        decrease_position_swap_type: int = DECREASE_POSITION_SWAP_TYPES["swap_pnl_token_to_collateral_token"],
+        should_unwrap_native_token: bool = False,
     ) -> OrderResult:
         """Create a decrease order transaction.
 
@@ -94,6 +97,10 @@ class DecreaseOrder(BaseOrder):
         :type min_output_amount: int
         :param valid_from_time: Timestamp when order becomes valid
         :type valid_from_time: int
+        :param decrease_position_swap_type: How GMX should convert the PnL token on close. Defaults to swapping the PnL token to the collateral token, matching :class:`~eth_defi.gmx.order.base_order.OrderParams`'s default. See ``DECREASE_POSITION_SWAP_TYPES`` in :mod:`eth_defi.gmx.constants`.
+        :type decrease_position_swap_type: int
+        :param should_unwrap_native_token: Whether a native-token payout should be unwrapped to the chain's native currency. Defaults to ``False``, matching :class:`~eth_defi.gmx.order.base_order.OrderParams`'s default.
+        :type should_unwrap_native_token: bool
         :return: OrderResult containing unsigned transaction and execution details
         :rtype: OrderResult
         :raises ValueError: If parameters are invalid or market doesn't exist
@@ -115,6 +122,8 @@ class DecreaseOrder(BaseOrder):
             callback_gas_limit=callback_gas_limit,
             min_output_amount=min_output_amount,
             valid_from_time=valid_from_time,
+            decrease_position_swap_type=decrease_position_swap_type,
+            should_unwrap_native_token=should_unwrap_native_token,
         )
 
         logger.debug("Creating decrease order: size_delta=$%s, collateral_delta=%s", size_delta, initial_collateral_delta_amount)
