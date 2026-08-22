@@ -7,46 +7,97 @@ an endpoint failure rather than being returned to callers and cached.
 
 from typing import Any
 
+#: Minimum ticker count a healthy payload must contain, by chain. Testnets
+#: serve far fewer tokens than mainnet (Arbitrum Sepolia returns 13 on
+#: 2026-08-21); a mainnet-sized floor would reject every valid testnet
+#: response.
+MIN_EXPECTED_TICKERS_BY_CHAIN: dict[str, int] = {
+    "arbitrum_sepolia": 10,
+}
 
-class GMXInvalidPayloadError(ValueError):
+#: Default minimum when a chain has no explicit entry above.
+DEFAULT_MIN_EXPECTED_TICKERS: int = 100
+
+#: Fields every ticker record must carry for either adapter to read a price.
+#: The sync adapter keys on ``tokenAddress`` and reads ``minPrice``/``maxPrice``;
+#: the async adapter keys on ``tokenSymbol`` and reads ``minPrice``/``maxPrice``.
+_REQUIRED_TICKER_FIELDS: tuple[str, ...] = ("tokenAddress", "tokenSymbol", "minPrice", "maxPrice")
+
+#: Fraction of the last-known-good count that a fresh payload must retain.
+#: Survives legitimate GMX delistings while still catching a truncated payload.
+_TICKER_COUNT_RATIO_GUARD: float = 0.8
+
+
+class GMXInvalidPayloadError(RuntimeError):
     """Raised when a GMX endpoint returned a payload that fails validation.
 
     A ``200`` with a degraded body is a failure of that endpoint: it must be
-    failed over and never cached. Subclasses :class:`ValueError` so callers
-    that already catch ``ValueError`` for programmer errors keep working, but
-    the failover driver checks for this type specifically.
+    failed over and never cached. Subclasses :class:`RuntimeError` so it is
+    never mistaken for a programmer-error ``ValueError`` by consumer retriers.
     """
+
+
+def get_min_expected_tickers(chain: str) -> int:
+    """Return the minimum ticker count a healthy payload must contain for a chain.
+
+    :param chain:
+        Chain name (e.g. ``"arbitrum"``, ``"arbitrum_sepolia"``).
+    :return:
+        The chain-specific minimum, or :data:`DEFAULT_MIN_EXPECTED_TICKERS`.
+    """
+    return MIN_EXPECTED_TICKERS_BY_CHAIN.get(chain.lower(), DEFAULT_MIN_EXPECTED_TICKERS)
+
+
+def _ticker_record_is_well_formed(record: Any) -> bool:
+    """Return ``True`` if one ticker record has all required fields and values.
+
+    A well-formed record carries every field in :data:`_REQUIRED_TICKER_FIELDS`
+    and a ``minPrice``/``maxPrice`` that parse to a positive float.
+    """
+    if not isinstance(record, dict):
+        return False
+    if not all(field in record for field in _REQUIRED_TICKER_FIELDS):
+        return False
+    try:
+        min_price = float(record["minPrice"])
+        max_price = float(record["maxPrice"])
+    except (TypeError, ValueError):
+        return False
+    return min_price > 0 and max_price > 0
 
 
 def validate_tickers_payload(
     payload: Any,
-    min_expected_tickers: int = 100,
+    min_expected_tickers: int = DEFAULT_MIN_EXPECTED_TICKERS,
     last_good_count: int | None = None,
 ) -> bool:
     """Return ``True`` if ``payload`` looks like a healthy ticker list.
 
     A ticker list is healthy when it is a non-empty list with at least
-    ``min_expected_tickers`` entries (or 80 % of ``last_good_count``, whichever
-    is larger — the ratio guard survives legitimate GMX delistings while still
-    catching a truncated payload) and the first five entries carry the fields
-    the ccxt adapter reads (``tokenAddress`` and ``maxPrice``).
+    ``min_expected_tickers`` entries (or ``_TICKER_COUNT_RATIO_GUARD`` of
+    ``last_good_count`` when known) and every record is well-formed per
+    :func:`_ticker_record_is_well_formed`.
 
     :param payload:
         The parsed JSON body returned by ``/prices/tickers``.
     :param min_expected_tickers:
         Floor for a cold process with no last-known-good count.
     :param last_good_count:
-        Number of tickers in the last successfully validated payload, used for
-        the 80 % ratio guard. ``None`` disables the ratio guard.
+        Number of tickers in the last successfully validated payload. When
+        set, the ratio guard (rather than the floor) is the threshold, so
+        legitimate delistings do not fail validation.
     :return:
         ``True`` when the payload passes; ``False`` otherwise.
     """
     if not isinstance(payload, list) or not payload:
         return False
 
-    threshold = max(min_expected_tickers, int((last_good_count or 0) * 0.8))
+    if last_good_count:
+        threshold = int(last_good_count * _TICKER_COUNT_RATIO_GUARD)
+    else:
+        threshold = min_expected_tickers
+
     if len(payload) < threshold:
         return False
 
-    sample = payload[:5]
-    return all(isinstance(t, dict) and "tokenAddress" in t and "maxPrice" in t for t in sample)
+    return all(_ticker_record_is_well_formed(record) for record in payload)

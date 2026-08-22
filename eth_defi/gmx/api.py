@@ -4,6 +4,7 @@ GMX API Module
 This module provides functionality for interacting with GMX APIs.
 """
 
+import functools
 import logging
 import time
 from collections.abc import Callable
@@ -37,7 +38,7 @@ from eth_defi.gmx.retry import (
     GMXRetryConfig,
     make_gmx_api_request,
 )
-from eth_defi.gmx.ticker_validation import GMXInvalidPayloadError, validate_tickers_payload
+from eth_defi.gmx.ticker_validation import get_min_expected_tickers, validate_tickers_payload
 
 logger = logging.getLogger(__name__)
 
@@ -374,18 +375,20 @@ class GMXAPI:
     def get_tickers(self, use_cache: bool = True) -> dict[str, Any]:
         """Get current price information for all supported tokens.
 
-        Validates the payload before caching so a degraded ``200`` (empty,
-        truncated, or wrong schema) is never cached. When every endpoint fails
-        and ``allow_stale_prices`` is enabled on the retry config, serves the
-        last-known-good snapshot if it is younger than ``max_stale_seconds``.
+        Validates the payload via the transport before caching so a degraded
+        ``200`` (empty, truncated, or wrong schema) is never cached. When
+        every endpoint fails and ``allow_stale_prices`` is enabled on the
+        retry config, serves the last-known-good snapshot if it is younger
+        than ``max_stale_seconds``.
 
         :param use_cache:
-            Whether to use cached data if available (default True)
-        :type use_cache: bool
+            Whether to use cached data if available (default True).
+        :type use_cache:
+            bool
         :return:
-            Dictionary containing current price information for all tokens,
-            typically including bid/ask prices, last price, and volume data
-        :rtype: dict[str, Any]
+            Dictionary containing current price information for all tokens.
+        :rtype:
+            dict[str, Any]
         """
         cfg = self.retry_config or DEFAULT_RETRY_CONFIG
 
@@ -399,26 +402,14 @@ class GMXAPI:
         if self.chain in _TICKER_PRICES_CACHE:
             last_good_count = len(_TICKER_PRICES_CACHE[self.chain][0])
 
-        validate = lambda payload: validate_tickers_payload(  # noqa: E731  # short closure; a named helper would obscure the call site
-            payload,
-            min_expected_tickers=cfg.min_expected_tickers,
+        validate = functools.partial(
+            validate_tickers_payload,
+            min_expected_tickers=get_min_expected_tickers(self.chain),
             last_good_count=last_good_count,
         )
 
         try:
             response = self._make_request("/prices/tickers", validate=validate)
-            if not validate(response):
-                # Fail-safe for drivers that bypass the transport `validate`
-                # hook (e.g. `_make_request` mocked in tests). Retry once so a
-                # transient degraded payload still yields a healthy snapshot;
-                # a repeated degraded payload is a failed fetch.
-                logger.warning(
-                    "Ticker payload for %s failed validation, retrying once",
-                    self.chain,
-                )
-                response = self._make_request("/prices/tickers", validate=validate)
-                if not validate(response):
-                    raise GMXInvalidPayloadError(f"Ticker payload for {self.chain} failed validation")
         except GMXAPIUnavailable:
             if cfg.allow_stale_prices and self.chain in _TICKER_PRICES_CACHE:
                 snapshot, snap_time = _TICKER_PRICES_CACHE[self.chain]

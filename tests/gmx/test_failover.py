@@ -16,15 +16,27 @@ from eth_defi.gmx.retry import (
     is_retryable_http_status,
     make_gmx_api_request,
 )
-from eth_defi.gmx.ticker_validation import GMXInvalidPayloadError, validate_tickers_payload
+from eth_defi.gmx.ticker_validation import (
+    get_min_expected_tickers,
+    validate_tickers_payload,
+)
 
 
-def _ticker(address: str = "0xaaa", max_price: str = "1000") -> dict:
-    return {"tokenAddress": address, "maxPrice": max_price}
+def _ticker(address: str = "0xaaa", max_price: str = "1000", symbol: str = "BTC") -> dict[str, str]:
+    return {
+        "tokenAddress": address,
+        "tokenSymbol": symbol,
+        "minPrice": str(int(max_price) - 1),
+        "maxPrice": max_price,
+    }
+
+
+def _healthy_ticker_list(n: int = 120) -> list[dict[str, str]]:
+    return [_ticker(f"0x{i:03x}", symbol=f"TOKEN{i}") for i in range(n)]
 
 
 def test_validate_tickers_payload_accepts_healthy_payload():
-    payload = [_ticker(f"0x{i:03x}") for i in range(120)]
+    payload = _healthy_ticker_list(120)
     assert validate_tickers_payload(payload) is True
 
 
@@ -41,17 +53,41 @@ def test_validate_tickers_payload_rejects_below_minimum_count():
     assert validate_tickers_payload(payload, min_expected_tickers=100) is False
 
 
-def test_validate_tickers_payload_rejects_bad_schema_in_first_five():
-    payload = [{"tokenAddress": "0x1"}] * 5 + [_ticker() for _ in range(120)]
+def test_validate_tickers_payload_rejects_missing_min_price():
+    payload = _healthy_ticker_list(120)
+    payload[7] = {k: v for k, v in payload[7].items() if k != "minPrice"}
     assert validate_tickers_payload(payload) is False
 
 
-def test_validate_tickers_payload_rejects_truncated_below_ratio():
-    payload = [_ticker() for _ in range(110)]
-    # last_good_count=124 -> 80% floor = 99; 110 passes
+def test_validate_tickers_payload_rejects_missing_token_symbol():
+    payload = _healthy_ticker_list(120)
+    payload[3] = {k: v for k, v in payload[3].items() if k != "tokenSymbol"}
+    assert validate_tickers_payload(payload) is False
+
+
+def test_validate_tickers_payload_rejects_non_numeric_price():
+    payload = _healthy_ticker_list(120)
+    payload[2]["maxPrice"] = "not-a-number"
+    assert validate_tickers_payload(payload) is False
+
+
+def test_validate_tickers_payload_rejects_bad_record_anywhere_not_just_first_five():
+    payload = _healthy_ticker_list(120)
+    payload[100] = {"tokenAddress": "0xbroken"}  # missing fields, beyond index 5
+    assert validate_tickers_payload(payload) is False
+
+
+def test_validate_tickers_payload_ratio_guard_not_floor():
+    # last_good_count=124 -> threshold = int(124 * 0.8) = 99 (not the 100 floor)
+    payload = _healthy_ticker_list(110)
     assert validate_tickers_payload(payload, last_good_count=124) is True
-    truncated = [_ticker() for _ in range(90)]
+    truncated = _healthy_ticker_list(90)
     assert validate_tickers_payload(truncated, last_good_count=124) is False
+
+
+def test_get_min_expected_tickers_chain_aware():
+    assert get_min_expected_tickers("arbitrum") == 100
+    assert get_min_expected_tickers("arbitrum_sepolia") == 10
 
 
 def test_is_retryable_http_status_classification():
@@ -119,7 +155,7 @@ def test_make_gmx_api_request_raises_gmxapiunavailable_on_total_failure():
 
 def test_make_gmx_api_request_validate_rejects_degraded_payload_and_fails_over():
     degraded = _FakeResponse(200, [])
-    healthy = _FakeResponse(200, [{"tokenAddress": "0x1", "maxPrice": "100"} for _ in range(120)])
+    healthy = _FakeResponse(200, [{"tokenAddress": "0x1", "tokenSymbol": "X", "minPrice": "99", "maxPrice": "100"} for _ in range(120)])
 
     with patch("eth_defi.gmx.retry.requests.get", side_effect=[degraded, healthy]):
         result = make_gmx_api_request(
@@ -155,28 +191,28 @@ def test_make_gmx_api_request_attempts_summary_covers_all_five_tiers():
     assert err.__cause__ is not None
 
 
+# ---------------------------------------------------------------------------
+# GMXAPI.get_tickers — uses module-level helpers above
+# ---------------------------------------------------------------------------
+
 def _healthy_tickers(n: int = 120) -> list:
-    return [{"tokenAddress": f"0x{i:03x}", "maxPrice": "1000"} for i in range(n)]
+    return [{"tokenAddress": f"0x{i:03x}", "tokenSymbol": f"T{i}", "minPrice": "999", "maxPrice": "1000"} for i in range(n)]
 
 
 def test_get_tickers_does_not_cache_degraded_payload(monkeypatch):
     _TICKER_PRICES_CACHE.clear()
     api = GMXAPI(chain="arbitrum")
 
-    # First call: degraded payload triggers failover to a healthy one.
     calls = {"n": 0}
 
-    def fake_request(*args, **kwargs):  # noqa: ARG001  # mock signature must accept endpoint/params
+    def fake_get(*args, **kwargs):  # noqa: ARG001
         calls["n"] += 1
-        if calls["n"] == 1:
-            return []  # degraded 200
-        return _healthy_tickers()
+        return _FakeResponse(200, []) if calls["n"] == 1 else _FakeResponse(200, _healthy_tickers())
 
-    monkeypatch.setattr(api, "_make_request", fake_request)
+    monkeypatch.setattr("eth_defi.gmx.retry.requests.get", fake_get)
 
     result = api.get_tickers(use_cache=True)
     assert len(result) == 120  # noqa: PLR2004
-    # The degraded payload must not be in the cache.
     assert len(_TICKER_PRICES_CACHE["arbitrum"][0]) == 120  # noqa: PLR2004
 
 
@@ -212,16 +248,16 @@ def test_get_tickers_refuses_stale_snapshot_by_default(monkeypatch):
         api.get_tickers(use_cache=False)
 
 
-def test_get_tickers_raises_when_retry_also_degraded(monkeypatch):
+def test_get_tickers_total_degraded_upstream_raises_gmxapiunavailable(monkeypatch):
     _TICKER_PRICES_CACHE.clear()
     api = GMXAPI(chain="arbitrum")
 
     def always_degraded(*args, **kwargs):  # noqa: ARG001
-        return []  # degraded 200 every time
+        return _FakeResponse(200, [])
 
-    monkeypatch.setattr(api, "_make_request", always_degraded)
+    monkeypatch.setattr("eth_defi.gmx.retry.requests.get", always_degraded)
 
-    with pytest.raises(GMXInvalidPayloadError):
+    with pytest.raises(GMXAPIUnavailable):
         api.get_tickers(use_cache=True)
 
 
@@ -333,7 +369,7 @@ async def test_async_fails_over_on_404_without_retry():
 
 @pytest.mark.asyncio
 async def test_async_validate_rejects_degraded_payload():
-    healthy = [{"tokenAddress": "0x1", "maxPrice": "100"} for _ in range(120)]
+    healthy = [{"tokenAddress": "0x1", "tokenSymbol": "X", "minPrice": "99", "maxPrice": "100"} for _ in range(120)]
     session = _FakeSession(
         [
             _FakeClientResponse(200, []),
