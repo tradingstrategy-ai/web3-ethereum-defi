@@ -33,6 +33,11 @@ def is_retryable_http_status(status_code: int) -> bool:
     5xx, 408 (request timeout) and 429 (rate limit) are transient and retried
     with backoff. Other 4xx (404, 400, 403, ...) are permanent for that
     endpoint and fail over immediately without consuming the backoff budget.
+
+    :param status_code:
+        HTTP status code from the response.
+    :return:
+        ``True`` when the status is retryable; ``False`` otherwise.
     """
     if status_code in {408, 429}:
         return True
@@ -53,7 +58,16 @@ class GMXAPIUnavailable(RuntimeError):  # noqa: N818  # Name specified by the fa
     #: Human-readable summary of each endpoint tried and why it failed.
     attempts: tuple[str, ...]
 
-    def __init__(self, chain: str, endpoint: str, attempts: tuple[str, ...] | list[str]):
+    def __init__(self, chain: str, endpoint: str, attempts: tuple[str, ...] | list[str]) -> None:
+        """Initialise the exception.
+
+        :param chain:
+            Chain name the request was for.
+        :param endpoint:
+            API endpoint that failed (e.g. ``"/prices/tickers"``).
+        :param attempts:
+            Per-endpoint failure summaries collected during failover.
+        """
         self.attempts = tuple(attempts)
         detail = "; ".join(self.attempts) if self.attempts else "no endpoints tried"
         super().__init__(f"GMX API unavailable for {endpoint} on {chain}: {detail}")
@@ -364,8 +378,11 @@ def make_gmx_api_request(  # noqa: PLR0917  # central failover entry point; depr
             last_error = error
             attempts.append(f"fallback-2: {error}")
 
-        # Try third fallback API (gmxapi.ai)
-        if fallback_url_3:
+        # Try third fallback API (gmxapi.ai) — only for v2 paths
+        # (e.g. /markets, /tokens, /apy).  The DigitalOcean v1 host serves
+        # /prices* and /signed_prices* instead; gmxapi.ai 404s on those.
+        price_path = endpoint.startswith("/prices") or endpoint.startswith("/signed_prices")
+        if fallback_url_3 and not price_path:
             result, error = _try_api_with_retries(
                 fallback_url_3,
                 endpoint,
@@ -380,4 +397,11 @@ def make_gmx_api_request(  # noqa: PLR0917  # central failover entry point; depr
             last_error = error
             attempts.append(f"fallback-3: {error}")
 
+    logger.error(
+            "GMX API unavailable for %s on %s after %d cycle(s): %s",
+            endpoint,
+            chain,
+            retry_config.full_cycle_retries,
+            "; ".join(attempts),
+        )
     raise GMXAPIUnavailable(chain, endpoint, attempts) from last_error
