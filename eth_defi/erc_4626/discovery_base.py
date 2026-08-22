@@ -741,8 +741,6 @@ def create_enzyme_blue_potential_vault_match(candidate: "EnzymeBlueVaultFactoryC
         address=candidate.address,
         first_seen_at_block=candidate.created_block,
         first_seen_at=candidate.created_at,
-        # Blue flow events do not use the ERC-4626 Deposit signature. The
-        # feature-based activity exemption keeps this factory lead price-scannable.
         deposit_count=0,
         withdrawal_count=0,
         enzyme_blue_factory_candidate=candidate,
@@ -759,8 +757,6 @@ def create_enzyme_blue_factory_detection(candidate: "EnzymeBlueVaultFactoryCandi
         first_seen_at_block=candidate.created_block,
         first_seen_at=candidate.created_at,
         updated_at=native_datetime_utc_now(),
-        # Preserve the truthful event count; the Blue feature bypasses the
-        # ERC-4626 deposit-count gate in every shared price-scan entry point.
         deposit_count=0,
         redeem_count=0,
     )

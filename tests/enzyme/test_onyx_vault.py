@@ -18,7 +18,7 @@ from eth_defi.enzyme.onyx_permission import aggregate_onyx_vault_permission, cla
 from eth_defi.enzyme.onyx_vault import ONYX_VALUE_ASSET_COMPARABILITY_TOKENS, EnzymeVault
 from eth_defi.erc_4626 import discovery_base
 from eth_defi.erc_4626.classification import create_probe_calls, create_vault_instance
-from eth_defi.erc_4626.core import ERC4626Feature, get_vault_protocol_name, is_activity_filter_exempt, passes_price_scan_activity_filter
+from eth_defi.erc_4626.core import ERC4626Feature, get_vault_protocol_name, passes_price_scan_activity_filter
 from eth_defi.erc_4626.discovery_base import LeadScanReport, VaultDiscoveryBase, _prepare_probe_leads, create_enzyme_factory_detection, create_enzyme_potential_vault_match  # noqa: PLC2701
 from eth_defi.erc_4626.hypersync_discovery import HypersyncVaultDiscover
 from eth_defi.erc_4626.scan import fetch_deposit_permission
@@ -240,19 +240,19 @@ def test_enzyme_risk_is_low() -> None:
 
 
 @pytest.mark.parametrize("feature", [ERC4626Feature.enzyme_blue_like, ERC4626Feature.enzyme_onyx_like])
-def test_enzyme_factory_leads_bypass_erc4626_activity_threshold(feature: ERC4626Feature) -> None:
-    """Keep Blue and Onyx factory discoveries eligible with zero ERC-4626 deposits.
+def test_enzyme_vaults_bypass_price_scan_activity_threshold(feature: ERC4626Feature) -> None:
+    """Keep Blue and Onyx vaults eligible with zero ERC-4626 deposits.
 
-    Both architectures use protocol-specific investor actions, so their
-    factory-confirmed vault identities must survive the shared price scanner's
-    generic ERC-4626 activity threshold.
+    Both architectures use protocol-specific investor actions and must survive
+    the shared price scanner's generic ERC-4626 activity threshold.
 
     :param feature:
         Enzyme architecture feature under test.
+    :return:
+        None.
     """
 
     detection = SimpleNamespace(features={feature}, deposit_count=0)
-    assert is_activity_filter_exempt(detection) is True
     assert passes_price_scan_activity_filter(detection, min_deposit_threshold=5) is True
 
 

@@ -945,14 +945,14 @@ def is_activity_filter_exempt(detection: "ERC4262VaultDetection") -> bool:
 
     Some shared vault database entries are not discovered from canonical
     ERC-4626 ``Deposit`` and ``Withdraw`` events emitted by the vault address.
-    Enzyme Blue and Onyx are confirmed by their respective Dispatcher and
-    SharesFactory events, but neither architecture emits ERC-4626 deposits from
-    its canonical vault identity. Mellow Core Vaults have the same split: the
-    vault identity comes from ``Factory.Created`` while user flow events live on
-    per-asset queue contracts. Upshift multi-asset vaults are another exception:
-    older production metadata can be seeded or refreshed by address after the
-    custom event support lands, and targeted price rescans should not be blocked
-    by a stale low deposit counter. T3tris migration-pool vaults are handled
+    Enzyme Blue and Onyx use protocol-specific investor actions, so their
+    factory-confirmed vaults have no canonical ERC-4626 deposit count. Mellow
+    Core Vaults have the same split: the vault identity comes from
+    ``Factory.Created`` while user flow events live on per-asset queue
+    contracts. Upshift multi-asset vaults are another exception: older
+    production metadata can be seeded or refreshed by address after the custom
+    event support lands, and targeted price rescans should not be blocked by a
+    stale low deposit counter. T3tris migration-pool vaults are handled
     separately by :py:func:`passes_price_scan_activity_filter`, which requires
     a recorded configuration event instead of broadly exempting the protocol.
 

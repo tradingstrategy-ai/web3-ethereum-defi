@@ -17,21 +17,20 @@ discovers every reviewed Blue vault on Ethereum, Polygon, Base and Arbitrum from
 persistent Dispatcher ``VaultProxyDeployed`` event. It records the canonical
 VaultProxy together with its ComptrollerProxy accessor, reads current GAV,
 share supply and fees through a direct VaultBase adapter, and backfills GAV,
-TVL and gross share price using one historical Multicall batch per chain.
-Blue factory detections retain a truthful zero ERC-4626 deposit count because
-their investor actions use Enzyme-specific events. The ``enzyme_blue_like``
-feature therefore bypasses the generic activity threshold, as does
-``enzyme_onyx_like``, so ordinary scanner cycles continue both histories after
-the initial migration.
+TVL and gross share price using batched historical Multicall reads.
+Blue and Onyx factory detections retain a zero ERC-4626 deposit count because
+their investor actions use protocol-specific events. Their feature flags bypass
+the generic activity threshold so recurring scans continue both histories.
 
-The historical Blue reader deliberately derives gross share value from GAV and
-share supply. The release-aware onchain source for a fee-adjusted value is
-``FundValueCalculatorRouter.calcNetShareValue()``, but adding it would require a
-third call in every Multicall batch for each vault and sampled block. Instead,
-consumer-facing net return presentation estimates the deduction from the
-exported user-facing fee schedule. Historical fee configurations remain
-unsupported, so the reader does not invent changing fee rates or mix Enzyme's
-offchain API data into the deterministic onchain history.
+The historical Blue reader derives gross share value from GAV and share supply.
+The future exact source is Enzyme's release-aware
+`FundValueCalculatorRouter.calcNetShareValue()
+<https://github.com/enzymefinance/protocol/blob/dev/contracts/persistent/fund-value-calculator/FundValueCalculatorRouter.sol>`__,
+called through ``eth_call`` so fee settlement is simulated but not persisted.
+It requires a third call per vault and sampled block. Until that is implemented,
+the frontend fee-fill step will subtract the current exported fees to estimate
+net value. Historical fee rates and performance-fee state can change, so this
+is not an exact historical net share value.
 
 Enzyme onyx
 -----------
