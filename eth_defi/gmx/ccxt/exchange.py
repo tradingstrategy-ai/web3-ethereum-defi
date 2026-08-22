@@ -6503,6 +6503,16 @@ class GMX(ExchangeCompatible):
         actual_collateral_symbol = token_details.symbol
         self._ensure_token_approval(actual_collateral_symbol, size_delta_usd, leverage)
 
+        # PnL-payout direction for the bundled SL/TP decrease legs -- see
+        # DECREASE_POSITION_SWAP_TYPES in eth_defi.gmx.constants. Falls back
+        # to OrderParams' own defaults so an unconfigured caller gets exactly
+        # SLTPOrder's existing behaviour, unchanged.
+        decrease_position_swap_type = gmx_params.get(
+            "decrease_position_swap_type",
+            DECREASE_POSITION_SWAP_TYPES["swap_pnl_token_to_collateral_token"],
+        )
+        should_unwrap_native_token = gmx_params.get("should_unwrap_native_token", False)
+
         # Create SLTPOrder instance
         sltp_order = SLTPOrder(
             config=self.config,
@@ -6510,6 +6520,8 @@ class GMX(ExchangeCompatible):
             collateral_address=to_checksum_address(collateral_address),
             index_token_address=to_checksum_address(index_token_address),
             is_long=is_long,  # Use actual position direction from gmx_params
+            decrease_position_swap_type=decrease_position_swap_type,
+            should_unwrap_native_token=should_unwrap_native_token,
         )
 
         # Build SLTPParams

@@ -3985,13 +3985,18 @@ class GMX(Exchange):
             token_details,
         )
 
-        # Create SLTPOrder instance (sync operation)
+        # Create SLTPOrder instance (sync operation). gmx_params always carries
+        # decrease_position_swap_type/should_unwrap_native_token -- see
+        # _convert_ccxt_to_gmx_params_async()'s return dict -- so no fallback
+        # default is needed here; the converter is the single source of truth.
         sltp_order = SLTPOrder(
             config=self.config,
             market_key=to_checksum_address(market_address),
             collateral_address=to_checksum_address(collateral_address),
             index_token_address=to_checksum_address(index_token_address),
             is_long=True,
+            decrease_position_swap_type=gmx_params["decrease_position_swap_type"],
+            should_unwrap_native_token=gmx_params["should_unwrap_native_token"],
         )
 
         # Build SLTPParams
@@ -4131,15 +4136,12 @@ class GMX(Exchange):
             "slippage_percent": slippage_percent,
             "execution_buffer": execution_buffer,
             # Sync/async lockstep with _convert_ccxt_to_gmx_params() in
-            # eth_defi/gmx/ccxt/exchange.py. Unlike execution_buffer, nothing
-            # downstream in this async module currently reads these two keys --
-            # async standard order creation (including closes) is not yet
-            # implemented (see create_order()'s NotSupported fallback), and the
-            # bundled SL/TP decrease legs take their own
-            # decrease_position_swap_type/should_unwrap_native_token from the
-            # SLTPOrder instance, not from this dict. Kept here so the two
-            # converters' return shapes stay identical and this dict is ready
-            # once/if an async close path is added.
+            # eth_defi/gmx/ccxt/exchange.py. Consumed by _create_order_with_sltp()
+            # when constructing the bundled SL/TP's SLTPOrder instance. Async
+            # standard order creation (including plain closes) is separately
+            # not yet implemented (see create_order()'s NotSupported fallback),
+            # so these keys currently matter only for the bundled-SL/TP path,
+            # not a standalone async close.
             "decrease_position_swap_type": params.get(
                 "decrease_position_swap_type",
                 DECREASE_POSITION_SWAP_TYPES["swap_pnl_token_to_collateral_token"],

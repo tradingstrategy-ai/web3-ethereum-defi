@@ -21,10 +21,19 @@ assembly logic can be exercised without broadcasting anything: the trader's
 with a mock, so nothing is silently faked.
 """
 
-import pytest
+import asyncio
+import os
 
+import pytest
+from eth_typing import HexAddress
+from web3.main import to_checksum_address
+
+from eth_defi.gmx.ccxt.async_support import exchange as async_exchange
 from eth_defi.gmx.ccxt.exchange import GMX
-from eth_defi.gmx.constants import DECREASE_POSITION_SWAP_TYPES
+from eth_defi.gmx.constants import DECREASE_POSITION_SWAP_TYPES, PRECISION
+from eth_defi.gmx.core.oracle import OraclePrices
+from eth_defi.gmx.order.sltp_order import SLTPEntry, SLTPOrder
+from eth_defi.gmx.valuation import _native_wrapped_token_address  # noqa: PLC2701
 
 
 class _Intercepted(Exception):
@@ -159,3 +168,177 @@ def test_close_omits_swap_type_when_caller_does_not_configure_one(ccxt_gmx_fork_
 
     assert "decrease_position_swap_type" not in captured
     assert "should_unwrap_native_token" not in captured
+
+
+def test_bundled_sltp_forwards_configured_pnl_payout_options(ccxt_gmx_fork_open_close: GMX, monkeypatch):
+    """A configured swap type must reach the bundled SL/TP's ``SLTPOrder`` instance too.
+
+    Separate gap from the plain-close path above: bundled SL/TP orders (a
+    position opened together with stop-loss/take-profit in one multicall)
+    are assembled by ``_create_order_with_sltp()``, which constructs its own
+    ``SLTPOrder`` directly -- a code path independent of ``close_kwargs`` /
+    ``trader.close_position()``. Before this fix, that constructor call never
+    read ``decrease_position_swap_type`` / ``should_unwrap_native_token``
+    from the caller's params at all, so a bundled take-profit always used
+    ``SLTPOrder``'s hardcoded defaults regardless of what was configured.
+
+    Intercepts ``SLTPOrder.create_increase_order_with_sltp()`` -- called
+    immediately after construction, before anything is signed -- to read
+    back what the constructor actually received.
+    """
+    gmx = ccxt_gmx_fork_open_close
+    captured: dict = {}
+
+    def _stop_after_sltp_construction(sltp_order, *_args, **_kwargs):
+        captured["decrease_position_swap_type"] = sltp_order.decrease_position_swap_type
+        captured["should_unwrap_native_token"] = sltp_order.should_unwrap_native_token
+        raise _Intercepted(captured)
+
+    monkeypatch.setattr(SLTPOrder, "create_increase_order_with_sltp", _stop_after_sltp_construction)
+
+    with pytest.raises(_Intercepted):
+        gmx.create_order(
+            "ETH/USDC:USDC",
+            "market",
+            "buy",
+            0,
+            params={
+                "size_usd": 10.0,
+                "leverage": 2.0,
+                "collateral_symbol": "USDC",
+                "takeProfit": {"triggerPercent": 0.10, "closePercent": 1.0},
+                "decrease_position_swap_type": DECREASE_POSITION_SWAP_TYPES["no_swap"],
+                "should_unwrap_native_token": True,
+            },
+        )
+
+    assert captured == {
+        "decrease_position_swap_type": DECREASE_POSITION_SWAP_TYPES["no_swap"],
+        "should_unwrap_native_token": True,
+    }
+
+
+def test_bundled_sltp_omits_swap_type_when_caller_does_not_configure_one(ccxt_gmx_fork_open_close: GMX, monkeypatch):
+    """When the caller configures nothing, the bundled SL/TP still gets ``SLTPOrder``'s own defaults."""
+    gmx = ccxt_gmx_fork_open_close
+    captured: dict = {}
+
+    def _stop_after_sltp_construction(sltp_order, *_args, **_kwargs):
+        captured["decrease_position_swap_type"] = sltp_order.decrease_position_swap_type
+        captured["should_unwrap_native_token"] = sltp_order.should_unwrap_native_token
+        raise _Intercepted(captured)
+
+    monkeypatch.setattr(SLTPOrder, "create_increase_order_with_sltp", _stop_after_sltp_construction)
+
+    with pytest.raises(_Intercepted):
+        gmx.create_order(
+            "ETH/USDC:USDC",
+            "market",
+            "buy",
+            0,
+            params={
+                "size_usd": 10.0,
+                "leverage": 2.0,
+                "collateral_symbol": "USDC",
+                "takeProfit": {"triggerPercent": 0.10, "closePercent": 1.0},
+            },
+        )
+
+    assert captured == {
+        "decrease_position_swap_type": DECREASE_POSITION_SWAP_TYPES["swap_pnl_token_to_collateral_token"],
+        "should_unwrap_native_token": False,
+    }
+
+
+def test_async_bundled_sltp_forwards_configured_pnl_payout_options(monkeypatch):
+    """The async adapter's independent bundled-SL/TP assembly must forward the same options.
+
+    ``eth_defi/gmx/ccxt/async_support/exchange.py::_create_order_with_sltp()``
+    builds its own ``SLTPOrder`` directly, exactly like the sync
+    ``_create_order_with_sltp()`` above, but is a fully separate code path
+    (no shared implementation) -- so the sync fix does not cover it.
+
+    Uses a real, non-mocked ``AsyncGMX`` connected to Arbitrum over
+    ``JSON_RPC_ARBITRUM`` -- the same construction as the ``async_gmx_arbitrum``
+    fixture in ``test_position_metrics.py``. ``_ensure_session()`` makes one
+    real (cheap, read-only) RPC round trip to populate ``chain``/``config``,
+    which ``SLTPOrder.__init__`` needs for its own ``web3.eth.chain_id``
+    read. The remaining network-bound calls this method makes on its way to
+    constructing ``SLTPOrder`` -- ERC-20 metadata, GMX's live oracle-price
+    API, and token approval (which would need a funded wallet and broadcast
+    a transaction) -- are replaced via ``monkeypatch`` on the real
+    functions/methods, not a mock object, so nothing about the assembly
+    logic actually under test is faked.
+    """
+    rpc_url = os.environ.get("JSON_RPC_ARBITRUM")
+    if not rpc_url:
+        pytest.skip("JSON_RPC_ARBITRUM environment variable not set")
+
+    gmx = async_exchange.GMX({"rpcUrl": rpc_url})
+    captured: dict = {}
+
+    async def _fake_ensure_token_approval_async(*_args, **_kwargs):
+        await asyncio.sleep(0)
+
+    class _FakeTokenDetails:
+        symbol = "WETH"
+        decimals = 18
+
+    def _fake_get_recent_prices(_self, weth_address: HexAddress):
+        raw_price = 3_000 * 10 ** (PRECISION - 18)
+        return {weth_address: {"maxPriceFull": str(raw_price), "minPriceFull": str(raw_price)}}
+
+    def _stop_after_sltp_construction(sltp_order, *_args, **_kwargs):
+        captured["decrease_position_swap_type"] = sltp_order.decrease_position_swap_type
+        captured["should_unwrap_native_token"] = sltp_order.should_unwrap_native_token
+        raise _Intercepted(captured)
+
+    async def _run() -> None:
+        try:
+            await gmx._ensure_session()
+
+            weth_address: HexAddress = to_checksum_address(_native_wrapped_token_address(gmx.chain))
+            market_address: HexAddress = to_checksum_address("0x70d95587d40A2caf56bd97485aB3Eec10Bee6336")  # GM ETH/USDC
+
+            gmx.markets["ETH/USDC:USDC"] = {
+                "base": "ETH",
+                "info": {
+                    "market_token": market_address,
+                    "long_token": weth_address,
+                    "index_token": weth_address,
+                },
+            }
+
+            monkeypatch.setattr(gmx, "_ensure_token_approval_async", _fake_ensure_token_approval_async)
+            monkeypatch.setattr(async_exchange, "fetch_erc20_details", lambda *_args, **_kwargs: _FakeTokenDetails())
+            monkeypatch.setattr(OraclePrices, "get_recent_prices", lambda self: _fake_get_recent_prices(self, weth_address))
+            monkeypatch.setattr(SLTPOrder, "create_increase_order_with_sltp", _stop_after_sltp_construction)
+
+            tp_entry = SLTPEntry(trigger_percent=0.10, close_percent=1.0)
+
+            await gmx._create_order_with_sltp(
+                symbol="ETH/USDC:USDC",
+                type="market",
+                side="buy",
+                amount=0,
+                price=None,
+                params={
+                    "size_usd": 10.0,
+                    "leverage": 2.0,
+                    "collateral_symbol": "USDC",
+                    "decrease_position_swap_type": DECREASE_POSITION_SWAP_TYPES["no_swap"],
+                    "should_unwrap_native_token": True,
+                },
+                sl_entry=None,
+                tp_entry=tp_entry,
+            )
+        finally:
+            await gmx.close()
+
+    with pytest.raises(_Intercepted):
+        asyncio.run(_run())
+
+    assert captured == {
+        "decrease_position_swap_type": DECREASE_POSITION_SWAP_TYPES["no_swap"],
+        "should_unwrap_native_token": True,
+    }
