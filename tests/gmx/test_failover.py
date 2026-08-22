@@ -430,3 +430,56 @@ async def test_async_fetch_ticker_missing_ticker_raises_exchange_not_available(m
 
     with pytest.raises(ExchangeNotAvailable):
         await gmx.fetch_ticker("BTC/USDC:USDC")
+
+
+def test_sync_fetch_tickers_converts_gmxapiunavailable():
+    gmx = object.__new__(GMX)
+
+    class _Api:
+        def get_tickers(self):  # noqa: PLR6301
+            raise GMXAPIUnavailable("arbitrum", "/prices/tickers", ("primary: 500",))
+
+    gmx.api = _Api()
+
+    class _Load:
+        def load_markets(self, *a, **k):  # noqa: ARG002, PLR6301
+            return None
+
+    gmx.load_markets = _Load().load_markets
+    gmx.markets = {}
+    gmx.market = lambda s: {"symbol": s, "info": {"index_token": "0xabc"}}  # noqa: ARG005
+
+    with pytest.raises(ExchangeNotAvailable):
+        gmx.fetch_tickers([])
+
+
+@pytest.mark.asyncio
+async def test_async_fetch_ohlcv_converts_gmxapiunavailable(monkeypatch):
+    gmx = object.__new__(AsyncGMX)
+    gmx.chain = "arbitrum"
+    gmx.session = object()  # non-None so _ensure_session is a no-op
+
+    async def fake_ensure_session():  # noqa: RUF029
+        return None
+
+    async def fake_load_markets(*a, **k):  # noqa: ARG001, RUF029
+        return None
+
+    def fake_market(symbol):  # noqa: ARG001
+        return {"id": "BTC"}
+
+    gmx._ensure_session = fake_ensure_session
+    gmx.load_markets = fake_load_markets
+    gmx.market = fake_market
+    gmx.timeframes = {"1h": "1h"}
+
+    async def fake_api(*args, **kwargs):  # noqa: ARG001, RUF029
+        raise GMXAPIUnavailable("arbitrum", "/prices/candles", ("primary: 500",))
+
+    monkeypatch.setattr(
+        "eth_defi.gmx.ccxt.async_support.exchange.async_make_gmx_api_request",
+        fake_api,
+    )
+
+    with pytest.raises(ExchangeNotAvailable):
+        await gmx.fetch_ohlcv("BTC/USDC:USDC", "1h")

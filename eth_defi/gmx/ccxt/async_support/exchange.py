@@ -1837,12 +1837,15 @@ class GMX(Exchange):
             limit = 10000
 
         # Fetch from GMX API
-        data = await async_make_gmx_api_request(
-            chain=self.chain,
-            endpoint="/prices/candles",
-            params={"tokenSymbol": token_symbol, "period": gmx_period, "limit": limit},
-            session=self.session,
-        )
+        try:
+            data = await async_make_gmx_api_request(
+                chain=self.chain,
+                endpoint="/prices/candles",
+                params={"tokenSymbol": token_symbol, "period": gmx_period, "limit": limit},
+                session=self.session,
+            )
+        except GMXAPIUnavailable as exc:
+            raise ExchangeNotAvailable(str(exc)) from exc
 
         candles_data = data.get("candles", [])
 

@@ -4026,7 +4026,10 @@ class GMX(ExchangeCompatible):
         self.load_markets()
 
         # Fetch all tickers from GMX API once
-        all_tickers = self.api.get_tickers()
+        try:
+            all_tickers = self.api.get_tickers()
+        except GMXAPIUnavailable as exc:
+            raise ExchangeNotAvailable(str(exc)) from exc
 
         # Build mapping of token address to ticker data
         ticker_by_address = {}
