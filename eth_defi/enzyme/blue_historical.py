@@ -80,6 +80,12 @@ class EnzymeBlueVaultHistoricalReader(VaultHistoricalReader):
         if raw_total_supply is not None:
             total_supply = Decimal(raw_total_supply) / Decimal(10**self.vault.share_token.decimals)
         if total_assets is not None and total_supply not in {None, Decimal(0)}:
+            # Keep the onchain history gross and deterministic. A release-aware
+            # net read must use FundValueCalculatorRouter.calcNetShareValue().
+            # TODO: Add that third historical call once release-aware router
+            # deployments and historical fee configurations are supported.
+            # Until then the frontend subtracts the exported user-facing fees
+            # for its estimated net curve; do not approximate changing fees here.
             share_price = total_assets / total_supply
 
         state = getattr(self, "reader_state", None)

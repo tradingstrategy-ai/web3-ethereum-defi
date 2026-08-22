@@ -18,6 +18,20 @@ persistent Dispatcher ``VaultProxyDeployed`` event. It records the canonical
 VaultProxy together with its ComptrollerProxy accessor, reads current GAV,
 share supply and fees through a direct VaultBase adapter, and backfills GAV,
 TVL and gross share price using one historical Multicall batch per chain.
+Blue factory detections retain a truthful zero ERC-4626 deposit count because
+their investor actions use Enzyme-specific events. The ``enzyme_blue_like``
+feature therefore bypasses the generic activity threshold, as does
+``enzyme_onyx_like``, so ordinary scanner cycles continue both histories after
+the initial migration.
+
+The historical Blue reader deliberately derives gross share value from GAV and
+share supply. The release-aware onchain source for a fee-adjusted value is
+``FundValueCalculatorRouter.calcNetShareValue()``, but adding it would require a
+third call in every Multicall batch for each vault and sampled block. Instead,
+consumer-facing net return presentation estimates the deduction from the
+exported user-facing fee schedule. Historical fee configurations remain
+unsupported, so the reader does not invent changing fee rates or mix Enzyme's
+offchain API data into the deterministic onchain history.
 
 Enzyme onyx
 -----------
