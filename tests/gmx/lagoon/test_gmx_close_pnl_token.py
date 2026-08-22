@@ -26,22 +26,21 @@ See ``docs/claude-plans/2026-08-20-gmx-pnl-token-nav-leak.md`` (Defect A,
 Phase 1/2) for the full root-cause analysis.
 """
 
-import json
 import logging
 import os
-from pathlib import Path
+from decimal import Decimal
 
 import pytest
 
 from eth_defi.gmx.constants import OrderType
-from eth_defi.gmx.contracts import get_datastore_contract, get_tokens_metadata_dict
+from eth_defi.gmx.contracts import get_tokens_metadata_dict
 from eth_defi.gmx.core.oracle import OraclePrices
-from eth_defi.gmx.keys import oracle_timestamp_adjustment_key
 from eth_defi.gmx.order.pending_orders import fetch_pending_orders
-from eth_defi.gmx.testing.constants import ARBITRUM_DEFAULTS, resolve_contract_address, resolve_token_address
+from eth_defi.gmx.testing.constants import resolve_token_address
+from eth_defi.gmx.testing.oracle import set_mock_token_price
+from eth_defi.gmx.valuation import fetch_gmx_total_equity
 from eth_defi.provider.anvil import AnvilLaunch
 from eth_defi.token import fetch_erc20_details
-from eth_defi.trace import assert_transaction_success_with_explanation
 from tests.gmx.fork_helpers import execute_order_as_keeper, extract_order_key_from_receipt, fetch_on_chain_oracle_prices, setup_mock_oracle
 from tests.gmx.lagoon.test_gmx_lagoon_integration import (
     USDC_ARBITRUM,
@@ -604,63 +603,6 @@ def test_close_profitable_long_swap_collateral_to_pnl_pays_weth(lagoon_gmx_fork_
     assert usdc_delta < collateral_usd * 0.5, f"USDC only decreased to a delta of {usdc_delta:.2f}, expected most of the ~${collateral_usd:.2f} collateral to be swapped away, not returned as USDC"
 
 
-def _set_mock_token_price(web3, token_address: str, price_usd: int, decimals: int) -> None:
-    """Set an arbitrary token's price on the already-deployed mock oracle from ``setup_mock_oracle``.
-
-    ``setup_mock_oracle()`` only accepts ETH/USDC prices, but it deploys a
-    generic ``MockOracleProvider`` at GMX's production oracle address that
-    can price *any* token. This reuses that already-deployed contract to add
-    one, mirroring ``eth_defi.gmx.testing.oracle.setup_mock_oracle``'s own
-    WETH price-setting steps exactly (``setPrice`` then
-    ``setTimestampAdjustment``), rather than needing a dedicated per-token
-    price-setting helper of its own for every market this fork test suite
-    might eventually cover.
-
-    :param web3: Web3 connection to the Anvil fork.
-    :param token_address: Checksummed token address to price.
-    :param price_usd: Price in whole USD to set on the mock oracle.
-    :param decimals: The token's own decimals (used for GMX's 30-decimal price scaling).
-    """
-    chain = "arbitrum"
-    production_provider_address = resolve_contract_address(
-        chain,
-        ("chainlinkdatastreamprovider", "gmoracleprovider"),
-        ARBITRUM_DEFAULTS["chainlink_provider"],
-    )
-    contract_path = Path(__file__).resolve().parents[3] / "eth_defi" / "abi" / "gmx" / "MockOracleProvider.json"
-    with open(contract_path) as f:
-        abi = json.load(f)["abi"]
-    mock = web3.eth.contract(address=production_provider_address, abi=abi)
-
-    account = web3.eth.accounts[0]
-
-    # GMX oracle prices are 30-decimal fixed point, adjusted for the token's
-    # own decimals -- e.g. WETH (18 decimals) -> price * 10^12, USDC (6
-    # decimals) -> price * 10^24, matching setup_mock_oracle's scaling.
-    scaled_price = int(price_usd * (10 ** (30 - decimals)))
-    price_tx = mock.functions.setPrice(token_address, scaled_price, scaled_price).build_transaction(
-        {
-            "from": account,
-            "gas": 500_000,
-            "gasPrice": web3.eth.gas_price,
-        }
-    )
-    price_tx_hash = web3.eth.send_transaction(price_tx)
-    assert_transaction_success_with_explanation(web3, price_tx_hash, f"Set mock oracle price for {token_address}")
-
-    data_store = get_datastore_contract(web3, chain)
-    timestamp_adjustment = data_store.functions.getUint(oracle_timestamp_adjustment_key(production_provider_address, token_address)).call()
-    adjustment_tx = mock.functions.setTimestampAdjustment(token_address, timestamp_adjustment).build_transaction(
-        {
-            "from": account,
-            "gas": 500_000,
-            "gasPrice": web3.eth.gas_price,
-        }
-    )
-    adjustment_tx_hash = web3.eth.send_transaction(adjustment_tx)
-    assert_transaction_success_with_explanation(web3, adjustment_tx_hash, f"Set mock oracle timestamp adjustment for {token_address}")
-
-
 def test_close_profitable_long_wbtc_market_pays_pnl_in_usdc(lagoon_gmx_fork_env: LagoonGMXForkEnv):
     """A profitable WBTC (BTC/USD) long close pays PnL in USDC, not WBTC.
 
@@ -699,7 +641,7 @@ def test_close_profitable_long_wbtc_market_pays_pnl_in_usdc(lagoon_gmx_fork_env:
     assert btc_price_data is not None, "GMX oracle must have a current BTC price to seed the mock with"
     starting_btc_price = int((int(btc_price_data["maxPriceFull"]) + int(btc_price_data["minPriceFull"])) / 2 / 10 ** (30 - 8))
     for token_address in price_tokens:
-        _set_mock_token_price(web3, token_address, starting_btc_price, decimals=8)
+        set_mock_token_price(web3, token_address, starting_btc_price, decimals=8)
 
     # === Step 1: open a BTC long with USDC collateral ===
     env.lagoon_wallet.sync_nonce(web3)
@@ -736,7 +678,7 @@ def test_close_profitable_long_wbtc_market_pays_pnl_in_usdc(lagoon_gmx_fork_env:
     assert entry_price_usd > 0, f"Expected a positive BTC entry price, got {entry_price_usd}"
     new_btc_price = int(entry_price_usd * (1 + _PRICE_MOVE_FRACTION))
     for token_address in price_tokens:
-        _set_mock_token_price(web3, token_address, new_btc_price, decimals=8)
+        set_mock_token_price(web3, token_address, new_btc_price, decimals=8)
     expected_profit_usd = _SIZE_DELTA_USD * _PRICE_MOVE_FRACTION
 
     # === Step 3: record balances, close fully ===
@@ -779,3 +721,91 @@ def test_close_profitable_long_wbtc_market_pays_pnl_in_usdc(lagoon_gmx_fork_env:
 
     assert wbtc_delta < 1e-6, f"WBTC increased by {wbtc_delta:.8f} — PnL is leaking out as WBTC instead of being swapped to USDC"
     assert usdc_delta > collateral_usd + 0.5 * expected_profit_usd, f"USDC only increased by {usdc_delta:.2f}, expected collateral (~${collateral_usd:.2f}) plus most of the ~${expected_profit_usd:.2f} profit"
+
+
+def test_fetch_gmx_total_equity_end_to_end(lagoon_gmx_fork_env: LagoonGMXForkEnv):
+    """NAV correctly counts mixed reserves and an open position, then captures a profitable close.
+
+    Funds the Safe with USDC (stable) and a WETH dust balance (non-stable --
+    exactly what a pre-fix leaked profit would have left behind, and exactly
+    what the pre-fix blanket assert would have crashed on), opens a real
+    leveraged long through the Safe, and checks NAV twice:
+
+    1. While the position is open, with mixed reserves: stable reserves at
+       face value, WETH and native ETH priced via the GMX oracle rather than
+       asserted away, and the open position's net-of-fees value all counted.
+    2. After forcing the position into profit and closing it fully: NAV must
+       have captured most of the realised profit, not silently lost it --
+       the exact regression this PR fixes. Before the fix, this assertion
+       would fail: the profit landed as native ETH, invisible to a
+       stablecoin-only reserves total.
+
+    Exercises both defects fixed by :mod:`eth_defi.gmx.valuation` in the one
+    scenario that actually matters, rather than each in isolation against
+    synthetic setups (see ``docs/claude-plans/2026-08-20-gmx-pnl-token-nav-leak.md``):
+
+    - **Defect A (reserves).** ``fetch_gmx_total_equity()`` used to assert every
+      reserve token was a stablecoin, making it impossible to value a Safe that
+      had accumulated WETH (e.g. from GMX paying profitable-long PnL in the
+      market's long token) or native ETH.
+    - **Defect B (position value).** Position value used to be computed by hand
+      as ``collateral + naive PnL``, ignoring borrowing fees, funding fees,
+      position fees and price impact.
+    """
+    env = lagoon_gmx_fork_env
+    web3 = env.web3
+    safe_address = env.vault.safe_address
+    usdc = fetch_erc20_details(web3, USDC_ARBITRUM)
+    weth = fetch_erc20_details(web3, WETH_ARBITRUM)
+
+    position = _open_long_and_get_position(env)
+
+    # === Check 1: NAV while the position is open, with mixed reserves ===
+    safe_usdc_balance = usdc.fetch_balance_of(safe_address)
+    safe_weth_balance = weth.fetch_balance_of(safe_address)
+    assert safe_weth_balance > 0, "Lagoon fork env should fund the Safe with WETH dust -- see _create_lagoon_gmx_fork_env"
+
+    equity_while_open = fetch_gmx_total_equity(
+        web3=web3,
+        account=safe_address,
+        reserve_tokens=[usdc, weth],
+        chain="arbitrum",
+        include_native_eth=True,
+    )
+    logger.info(
+        "NAV while open: stable_reserves=%s non_stable_reserves=%s positions=%s total=%s",
+        equity_while_open.stable_reserves,
+        equity_while_open.non_stable_reserves,
+        equity_while_open.positions,
+        equity_while_open.get_total(),
+    )
+
+    assert equity_while_open.stable_reserves == safe_usdc_balance, "Stablecoin reserve must be summed at face value"
+    assert equity_while_open.non_stable_reserves > 0, "WETH dust and native ETH must be priced via the oracle, not asserted away"
+    assert equity_while_open.positions > 0, "The open long must contribute a positive net-of-fees position value"
+    assert equity_while_open.get_total() == equity_while_open.reserves + equity_while_open.positions
+
+    # === Check 2: NAV must capture the profit after a real close ===
+    current_eth_price, current_usdc_price = fetch_on_chain_oracle_prices(web3)
+    new_eth_price = int(current_eth_price * (1 + _PRICE_MOVE_FRACTION))
+    setup_mock_oracle(web3, eth_price_usd=new_eth_price, usdc_price_usd=current_usdc_price)
+    expected_profit_usd = Decimal(str(_SIZE_DELTA_USD * _PRICE_MOVE_FRACTION))
+
+    _close_position(env, position, is_long=True)
+
+    equity_after_close = fetch_gmx_total_equity(
+        web3=web3,
+        account=safe_address,
+        reserve_tokens=[usdc, weth],
+        chain="arbitrum",
+        include_native_eth=True,
+    )
+    logger.info(
+        "NAV after close: total=%s (was %s while open; expected profit ~$%s)",
+        equity_after_close.get_total(),
+        equity_while_open.get_total(),
+        expected_profit_usd,
+    )
+
+    assert equity_after_close.positions == Decimal(0), "No open positions should remain after a full close"
+    assert equity_after_close.get_total() > equity_while_open.get_total() + expected_profit_usd * Decimal("0.5"), f"NAV went from {equity_while_open.get_total()} to {equity_after_close.get_total()} across a profitable close (~${expected_profit_usd} expected) -- PnL is not being counted in NAV, exactly the regression this PR fixes"
