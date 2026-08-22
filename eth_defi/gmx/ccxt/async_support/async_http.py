@@ -26,9 +26,11 @@ async def async_make_gmx_api_request(  # noqa: PLR0917  # failover driver mirror
 ) -> dict[str, Any]:
     """Make async GMX API request with retry logic and failover.
 
-    Mirrors :func:`eth_defi.gmx.retry.make_gmx_api_request` with the same
-    tier list, retry defaults, 4xx classification, validation, and final
-    exception. Kept a thin aiohttp driver over the shared helpers.
+    Shares 4xx classification, validation, and the ``GMXAPIUnavailable`` final
+    exception with :func:`eth_defi.gmx.retry.make_gmx_api_request`, but drives
+    four tiers (no ``gmxapi.ai`` v2 fallback for price paths) with a single
+    cycle and ad-hoc ``max_retries``/``retry_delay`` kwargs rather than
+    :class:`~eth_defi.gmx.retry.GMXRetryConfig`.
 
     :param chain: Chain name (e.g., "arbitrum", "avalanche")
     :param endpoint: API endpoint path (e.g., "/prices/tickers")
@@ -135,6 +137,12 @@ async def async_make_gmx_api_request(  # noqa: PLR0917  # failover driver mirror
 
             attempts.append(f"{url_type}: {last_error}")
 
+        logger.error(
+            "GMX API unavailable for %s on %s: %s",
+            endpoint,
+            chain,
+            "; ".join(attempts),
+        )
         raise GMXAPIUnavailable(chain, endpoint, attempts)
 
     finally:
