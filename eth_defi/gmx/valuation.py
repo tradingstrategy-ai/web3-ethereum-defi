@@ -65,6 +65,7 @@ from eth_defi.gmx.contracts import (
     get_reader_contract,
 )
 from eth_defi.gmx.core.oracle import OraclePrices
+from eth_defi.gmx.types import MarketPriceTuple, MarketTokenAddresses, OraclePriceMap, RawOraclePriceRange
 from eth_defi.token import TokenDetails
 
 logger = logging.getLogger(__name__)
@@ -253,7 +254,7 @@ def fetch_gmx_total_equity(
     )
 
 
-def _native_wrapped_token_address(chain: str) -> str:
+def _native_wrapped_token_address(chain: str) -> HexAddress:
     """Resolve the wrapped-native-token address used to price native ETH/AVAX.
 
     GMX has no oracle feed keyed by "native ETH" -- native ETH and AVAX
@@ -273,7 +274,7 @@ def _native_wrapped_token_address(chain: str) -> str:
     if address is None:
         raise ValueError(f"No native wrapped token address configured for chain {chain!r}")
 
-    return address
+    return HexAddress(to_checksum_address(address))
 
 
 #: GMX ``ReferralStorage`` contract address, required by
@@ -282,12 +283,12 @@ def _native_wrapped_token_address(chain: str) -> str:
 #: :func:`eth_defi.gmx.core.liquidation.get_liquidation_price` for the same
 #: contract call. It is not part of :func:`~eth_defi.gmx.contracts.get_contract_addresses`
 #: because that release-pinned table has no ``referralstorage`` entry.
-_REFERRAL_STORAGE_ADDRESSES: dict[str, str] = {
-    "arbitrum": to_checksum_address("0xe6fab3F0c7199b0d34d7FbE83394fc0e0D06e99d"),
+_REFERRAL_STORAGE_ADDRESSES: dict[str, HexAddress] = {
+    "arbitrum": HexAddress(to_checksum_address("0xe6fab3F0c7199b0d34d7FbE83394fc0e0D06e99d")),
 }
 
 
-def _get_referral_storage_address(chain: str) -> str:
+def _get_referral_storage_address(chain: str) -> HexAddress:
     """Look up the GMX ``ReferralStorage`` address for ``chain``.
 
     :raises ValueError:
@@ -315,7 +316,7 @@ def _fetch_market_token_addresses(
     reader: Contract,
     datastore_address: str,
     block_identifier: BlockIdentifier,
-) -> dict[str, tuple[str, str, str]]:
+) -> dict[HexAddress, MarketTokenAddresses]:
     """Build a market_address -> (index_token, long_token, short_token) mapping.
 
     Calls ``Reader.getMarkets()`` directly, needed to build the
@@ -333,12 +334,12 @@ def _fetch_market_token_addresses(
     """
     raw_markets = reader.functions.getMarkets(datastore_address, 0, 1000).call(block_identifier=block_identifier)
 
-    market_tokens: dict[str, tuple[str, str, str]] = {}
+    market_tokens: dict[HexAddress, MarketTokenAddresses] = {}
     for raw_market in raw_markets:
-        market_addr = to_checksum_address(raw_market[0])
-        index_token = to_checksum_address(raw_market[1])
-        long_token = to_checksum_address(raw_market[2])
-        short_token = to_checksum_address(raw_market[3])
+        market_addr = HexAddress(to_checksum_address(raw_market[0]))
+        index_token = HexAddress(to_checksum_address(raw_market[1]))
+        long_token = HexAddress(to_checksum_address(raw_market[2]))
+        short_token = HexAddress(to_checksum_address(raw_market[3]))
 
         if index_token == _ZERO_ADDRESS:
             if market_addr == _WSTETH_MARKET:
@@ -351,7 +352,7 @@ def _fetch_market_token_addresses(
     return market_tokens
 
 
-def _oracle_price_tuple(oracle_prices: dict, token_address: str) -> tuple[int, int]:
+def _oracle_price_tuple(oracle_prices: OraclePriceMap, token_address: HexAddress) -> RawOraclePriceRange:
     """Look up a token's ``(min, max)`` GMX oracle price as raw integers.
 
     Unlike :func:`_get_mark_price`, this returns the raw, GMX-precision
@@ -371,7 +372,7 @@ def _oracle_price_tuple(oracle_prices: dict, token_address: str) -> tuple[int, i
     raise ValueError(f"No oracle price available for token {token_address}; cannot value open GMX position.")
 
 
-def _build_market_prices(tokens: tuple[str, str, str], oracle_prices: dict) -> tuple:
+def _build_market_prices(tokens: MarketTokenAddresses, oracle_prices: OraclePriceMap) -> MarketPriceTuple:
     """Build one ``MarketUtils.MarketPrices`` tuple for ``Reader.getAccountPositionInfoList()``.
 
     :param tokens:
@@ -393,7 +394,7 @@ def _fetch_gmx_positions_value(
     account: HexAddress,
     block_identifier: BlockIdentifier,
     chain: str,
-    oracle_prices: dict,
+    oracle_prices: OraclePriceMap,
 ) -> Decimal:
     """Read all open GMX positions and sum their net USD value.
 
@@ -475,8 +476,8 @@ def _fetch_gmx_positions_value(
 
 
 def _get_mark_price(
-    oracle_prices: dict,
-    index_token_address: str,
+    oracle_prices: OraclePriceMap,
+    index_token_address: HexAddress,
     index_token_decimals: int,
 ) -> Decimal | None:
     """Get the current mark price for a token from GMX oracle data.

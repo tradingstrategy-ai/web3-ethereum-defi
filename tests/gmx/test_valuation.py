@@ -14,8 +14,22 @@ import pytest
 from eth_typing import HexAddress
 from web3 import Web3
 
-from eth_defi.gmx.valuation import fetch_gmx_total_equity
+from eth_defi.gmx.types import OraclePriceMap
+from eth_defi.gmx.valuation import _oracle_price_tuple, fetch_gmx_total_equity  # noqa: PLC2701
 from eth_defi.token import create_token, fetch_erc20_details
+
+
+def test_oracle_price_tuple_reads_raw_gmx_prices() -> None:
+    """``_oracle_price_tuple`` reads a token's raw ``(min, max)`` price as integers.
+
+    Characterisation test for the untyped oracle-price boundary
+    :func:`~eth_defi.gmx.valuation._oracle_price_tuple` reads from -- see
+    :class:`~eth_defi.gmx.types.OraclePriceMap`. No RPC access required.
+    """
+    token = HexAddress("0x0000000000000000000000000000000000000001")
+    prices: OraclePriceMap = {token: {"minPriceFull": "10", "maxPriceFull": "12"}}
+
+    assert _oracle_price_tuple(prices, token) == (10, 12)
 
 
 def test_reserves_unpriceable_token_raises(
