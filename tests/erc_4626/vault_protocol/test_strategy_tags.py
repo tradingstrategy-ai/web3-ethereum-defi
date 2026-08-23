@@ -37,8 +37,10 @@ def test_atoma_strategy_tags() -> None:
     assert vault.get_strategy_tags() == {
         StrategyTag.delta_neutral,
         StrategyTag.funding_rate_arbitrage,
+        StrategyTag.multistrategy,
         StrategyTag.perpetual_futures,
         StrategyTag.rwa,
+        StrategyTag.statistical_arbitrage,
     }
 
 

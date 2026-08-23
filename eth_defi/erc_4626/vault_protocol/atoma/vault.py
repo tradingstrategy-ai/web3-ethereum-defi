@@ -62,7 +62,7 @@ class AtomaVaultDescription:
 #: https://arbiscan.io/address/0xCC56410e1a136aF0eCEb7241c6aE394F4d8b581c
 ATOMA_VAULT_ADDRESS = HexAddress("0xcc56410e1a136af0eceb7241c6ae394f4d8b581c")
 
-#: Atoma Vault Share 2 (AVS2) vault address on Arbitrum.
+#: Atoma Index (formerly Atoma Vault Share 2) vault address on Arbitrum.
 #:
 #: https://arbiscan.io/address/0x1C788E14d8e5B446e3F71B5142e2edaBcAB36da1
 ATOMA_VAULT_2_ADDRESS = HexAddress("0x1c788e14d8e5b446e3f71b5142e2edabcab36da1")
@@ -70,17 +70,17 @@ ATOMA_VAULT_2_ADDRESS = HexAddress("0x1c788e14d8e5b446e3f71b5142e2edabcab36da1")
 #: All supported Atoma vault addresses on Arbitrum.
 ATOMA_VAULT_ADDRESSES: frozenset[HexAddress] = frozenset((ATOMA_VAULT_ADDRESS, ATOMA_VAULT_2_ADDRESS))
 
-#: Official Atoma announcement for the AVS2 RWA vault.
-ATOMA_RWA_VAULT_LAUNCH_POST_URL: Final[str] = "https://x.com/atoma_fi/status/2079672209400832319?s=46"
+#: Official Atoma Index page.
+ATOMA_INDEX_URL: Final[str] = "https://app.atoma.fi/atoma-index"
 
 #: Official overview for Atoma Vault Share's perpetual DEX strategy.
 ATOMA_VAULT_OVERVIEW_URL: Final[str] = "https://atoma.fi/"
 
 #: Human-readable strategy copy for Atoma vaults without an offchain metadata API.
 #:
-#: AVS uses Nado and Extended perpetual markets, while AVS2 is the RWA vault
-#: announced by Atoma for Lighter and Trade.xyz. Keep this address-scoped,
-#: because the vaults use different strategies.
+#: AVS uses Nado and Extended perpetual markets, while Atoma Index trades RWA
+#: perpetual markets. Keep this address-scoped because the vaults use different
+#: strategies.
 ATOMA_VAULT_DESCRIPTION_OVERLAY: Final[dict[HexAddress, AtomaVaultDescription]] = {
     ATOMA_VAULT_ADDRESS: AtomaVaultDescription(
         short_description="Market-neutral perpetuals strategy across Nado and Extended.",
@@ -94,13 +94,13 @@ ATOMA_VAULT_DESCRIPTION_OVERLAY: Final[dict[HexAddress, AtomaVaultDescription]] 
         ),
     ),
     ATOMA_VAULT_2_ADDRESS: AtomaVaultDescription(
-        short_description="Market-neutral RWA perpetuals strategy across Lighter and Trade.xyz.",
+        short_description="Market-neutral RWA perpetuals index strategy.",
         description=" ".join(
             (
-                "Atoma RWA Vault is a delta-neutral USDC strategy that captures funding and price spreads in gold, oil and equity-index perpetuals.",
-                "It takes offsetting long and short positions across Lighter and Trade.xyz, seeking to avoid price-direction exposure.",
-                "Atoma says future venue airdrops are mostly shared with depositors.",
-                f"See the [Atoma RWA vault launch post]({ATOMA_RWA_VAULT_LAUNCH_POST_URL}).",
+                "Atoma Index is a market-neutral USDC vault for onchain real-world-asset perpetual markets, including equities, commodities and FX/rates.",
+                "It combines funding arbitrage, statistical arbitrage and protocol rewards while automatically rebalancing to avoid a directional market bet.",
+                "Funding and trading gains are paid into NAV in USDC, and protocol rewards earned by the vault are distributed to depositors.",
+                f"See [Atoma Index]({ATOMA_INDEX_URL}).",
             )
         ),
     ),
@@ -109,7 +109,7 @@ ATOMA_VAULT_DESCRIPTION_OVERLAY: Final[dict[HexAddress, AtomaVaultDescription]] 
 #: Curated display names for Atoma vaults whose onchain share-token names are generic.
 ATOMA_VAULT_NAME_OVERLAY: Final[dict[HexAddress, str]] = {
     ATOMA_VAULT_ADDRESS: "Extended and Nado arbitrage",
-    ATOMA_VAULT_2_ADDRESS: "Lighter and Trade.xyz arbitrage",
+    ATOMA_VAULT_2_ADDRESS: "Atoma Index",
 }
 
 #: Atoma performance fee in basis points.

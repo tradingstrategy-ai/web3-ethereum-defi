@@ -8,10 +8,11 @@ from web3 import Web3
 
 from eth_defi.erc_4626.classification import HARDCODED_PROTOCOLS, create_vault_instance
 from eth_defi.erc_4626.core import ERC4626Feature, get_vault_protocol_name
-from eth_defi.erc_4626.vault_protocol.atoma.vault import ATOMA_RWA_VAULT_LAUNCH_POST_URL, ATOMA_VAULT_2_ADDRESS, ATOMA_VAULT_ADDRESS, ATOMA_VAULT_ADDRESSES, ATOMA_VAULT_OVERVIEW_URL, AtomaVault
+from eth_defi.erc_4626.vault_protocol.atoma.vault import ATOMA_INDEX_URL, ATOMA_VAULT_2_ADDRESS, ATOMA_VAULT_ADDRESS, ATOMA_VAULT_ADDRESSES, ATOMA_VAULT_OVERVIEW_URL, AtomaVault
 from eth_defi.vault.base import VaultSpec
 from eth_defi.vault.fee import VaultFeeMode
 from eth_defi.vault.risk import VaultTechnicalRisk
+from eth_defi.vault.strategy_tag import StrategyTag
 
 
 def test_atoma_hardcoded_protocol() -> None:
@@ -63,13 +64,47 @@ def test_atoma_static_fee_metadata() -> None:
     assert ATOMA_VAULT_OVERVIEW_URL in vault.description
 
 
-def test_atoma_rwa_vault_description_overlay() -> None:
-    """AVS2 has source-linked strategy copy and name specific to the RWA vault."""
+def test_atoma_index_description_overlay() -> None:
+    """Atoma Index has current source-linked RWA strategy copy and name."""
     vault = AtomaVault(Web3(), VaultSpec(42161, ATOMA_VAULT_2_ADDRESS), features={ERC4626Feature.atoma_like})
 
-    assert vault.name == "Lighter and Trade.xyz arbitrage"
-    assert vault.short_description == "Market-neutral RWA perpetuals strategy across Lighter and Trade.xyz."
+    assert vault.name == "Atoma Index"
+    assert vault.short_description == "Market-neutral RWA perpetuals index strategy."
     assert vault.description is not None
-    assert "gold, oil and equity-index perpetuals" in vault.description
-    assert "[Atoma RWA vault launch post](https://x.com/atoma_fi/status/2079672209400832319?s=46)" in vault.description
-    assert ATOMA_RWA_VAULT_LAUNCH_POST_URL in vault.description
+    assert "equities, commodities and FX/rates" in vault.description
+    assert "funding arbitrage, statistical arbitrage and protocol rewards" in vault.description
+    assert f"[Atoma Index]({ATOMA_INDEX_URL})" in vault.description
+
+
+@pytest.mark.parametrize(
+    ("vault_address", "expected_tags"),
+    (
+        (
+            ATOMA_VAULT_ADDRESS,
+            {StrategyTag.delta_neutral, StrategyTag.funding_rate_arbitrage, StrategyTag.perpetual_futures},
+        ),
+        (
+            ATOMA_VAULT_2_ADDRESS,
+            {
+                StrategyTag.delta_neutral,
+                StrategyTag.funding_rate_arbitrage,
+                StrategyTag.multistrategy,
+                StrategyTag.perpetual_futures,
+                StrategyTag.rwa,
+                StrategyTag.statistical_arbitrage,
+            },
+        ),
+    ),
+)
+def test_atoma_strategy_tags(vault_address: HexAddress, expected_tags: set[StrategyTag]) -> None:
+    """Both supported Atoma vaults expose their evidence-based strategy tags."""
+    vault = AtomaVault(Web3(), VaultSpec(42161, vault_address), features={ERC4626Feature.atoma_like})
+
+    assert vault.get_strategy_tags() == expected_tags
+
+
+def test_atoma_unmapped_vault_has_no_strategy_tags() -> None:
+    """An unclassified Atoma vault retains missing strategy-tag information."""
+    vault = AtomaVault(Web3(), VaultSpec(42161, "0x0000000000000000000000000000000000000001"), features={ERC4626Feature.atoma_like})
+
+    assert vault.get_strategy_tags() is None

@@ -59,7 +59,7 @@ def test_atoma_vault_name_updates_use_the_reviewed_strategy_names() -> None:
 
     assert migration.ATOMA_VAULT_NAME_UPDATES == {
         VaultSpec(42_161, "0xcc56410e1a136af0eceb7241c6ae394f4d8b581c"): "Extended and Nado arbitrage",
-        VaultSpec(42_161, "0x1c788e14d8e5b446e3f71b5142e2edabcab36da1"): "Lighter and Trade.xyz arbitrage",
+        VaultSpec(42_161, "0x1c788e14d8e5b446e3f71b5142e2edabcab36da1"): "Atoma Index",
     }
 
 
