@@ -56,6 +56,7 @@ from eth_defi.gmx.ccxt.validation import _validate_ohlcv_data_sufficiency
 from eth_defi.gmx.config import GMXConfig
 from eth_defi.gmx.symbols import DEPRECATED_MARKET_TOKENS, SYMBOL_NORMALISE
 from eth_defi.gmx.constants import (
+    DECREASE_POSITION_SWAP_TYPES,
     DEFAULT_GAS_CRITICAL_THRESHOLD_USD,
     DEFAULT_GAS_ESTIMATE_BUFFER,
     DEFAULT_GAS_MONITOR_ENABLED,
@@ -6307,6 +6308,13 @@ class GMX(ExchangeCompatible):
             gmx_params["execution_buffer"] = params["execution_buffer"]
         if "auto_cancel" in params:
             gmx_params["auto_cancel"] = params["auto_cancel"]
+        # GMX PnL-payout direction on close -- see DECREASE_POSITION_SWAP_TYPES
+        # in eth_defi.gmx.constants and OrderParams in eth_defi.gmx.order.base_order.
+        # Only meaningful on a decrease/close; harmless (ignored by GMX) on an open.
+        if "decrease_position_swap_type" in params:
+            gmx_params["decrease_position_swap_type"] = params["decrease_position_swap_type"]
+        if "should_unwrap_native_token" in params:
+            gmx_params["should_unwrap_native_token"] = params["should_unwrap_native_token"]
 
         return gmx_params
 
@@ -6506,6 +6514,16 @@ class GMX(ExchangeCompatible):
         actual_collateral_symbol = token_details.symbol
         self._ensure_token_approval(actual_collateral_symbol, size_delta_usd, leverage)
 
+        # PnL-payout direction for the bundled SL/TP decrease legs -- see
+        # DECREASE_POSITION_SWAP_TYPES in eth_defi.gmx.constants. Falls back
+        # to OrderParams' own defaults so an unconfigured caller gets exactly
+        # SLTPOrder's existing behaviour, unchanged.
+        decrease_position_swap_type = gmx_params.get(
+            "decrease_position_swap_type",
+            DECREASE_POSITION_SWAP_TYPES["swap_pnl_token_to_collateral_token"],
+        )
+        should_unwrap_native_token = gmx_params.get("should_unwrap_native_token", False)
+
         # Create SLTPOrder instance
         sltp_order = SLTPOrder(
             config=self.config,
@@ -6513,6 +6531,8 @@ class GMX(ExchangeCompatible):
             collateral_address=to_checksum_address(collateral_address),
             index_token_address=to_checksum_address(index_token_address),
             is_long=is_long,  # Use actual position direction from gmx_params
+            decrease_position_swap_type=decrease_position_swap_type,
+            should_unwrap_native_token=should_unwrap_native_token,
         )
 
         # Build SLTPParams
@@ -7313,6 +7333,14 @@ class GMX(ExchangeCompatible):
             close_kwargs["market_key"] = gmx_params["market_key"]
         if gmx_params.get("index_token_address"):
             close_kwargs["index_token_address"] = gmx_params["index_token_address"]
+        # PnL-payout direction on close. Only added when the caller configured
+        # one; DecreaseOrder.create_decrease_order() supplies its own default
+        # (swap_pnl_token_to_collateral_token / should_unwrap_native_token=False)
+        # otherwise.
+        if "decrease_position_swap_type" in gmx_params:
+            close_kwargs["decrease_position_swap_type"] = gmx_params["decrease_position_swap_type"]
+        if "should_unwrap_native_token" in gmx_params:
+            close_kwargs["should_unwrap_native_token"] = gmx_params["should_unwrap_native_token"]
         return self.trader.close_position(**close_kwargs)
 
     def create_order(

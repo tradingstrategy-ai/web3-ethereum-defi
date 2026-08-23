@@ -15,10 +15,18 @@ from eth_defi.trace import assert_transaction_success_with_explanation
 logger = logging.getLogger(__name__)
 
 
-def execute_order_as_keeper(web3: Web3, order_key: bytes):
+def execute_order_as_keeper(web3: Web3, order_key: bytes, extra_oracle_tokens: list[str] | None = None):
     """Execute order by impersonating keeper.
 
     Works with both Anvil and Tenderly.
+
+    :param extra_oracle_tokens:
+        Additional token addresses to supply oracle prices for, beyond the
+        WETH/USDC pair always included. Needed when executing an order on a
+        market whose index token is neither -- e.g. a BTC/USD market's index
+        token, which is a distinct address from the WBTC ERC-20 used as
+        collateral/long token. ``None`` (the default) preserves the exact
+        prior WETH/USDC-only behaviour for every existing caller.
 
     .. warning::
 
@@ -92,10 +100,13 @@ def execute_order_as_keeper(web3: Web3, order_key: bytes):
         ARBITRUM_DEFAULTS["chainlink_provider"],
     )
 
+    oracle_tokens = [weth_address, usdc_address]
+    if extra_oracle_tokens:
+        oracle_tokens.extend(to_checksum_address(t) for t in extra_oracle_tokens)
     oracle_params = (
-        [weth_address, usdc_address],
-        [oracle_provider, oracle_provider],
-        [b"", b""],
+        oracle_tokens,
+        [oracle_provider] * len(oracle_tokens),
+        [b""] * len(oracle_tokens),
     )
 
     impersonate_account(web3, keeper)

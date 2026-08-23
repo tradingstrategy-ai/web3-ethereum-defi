@@ -119,15 +119,17 @@ Identical structure — same 3 inner calls. The differences from a short are:
 | Field | Short | Long |
 |-------|-------|------|
 | `isLong` | `false` | `true` |
-| `swapPath` | `[]` | `[ETH_USD_market_address]` |
+| `swapPath` | `[]` | `[]` |
 | `acceptablePrice` | `oracle * (1 - slippage)` | `oracle * (1 + slippage)` |
 
-When going long with USDC, GMX needs a `swapPath` to swap USDC → WETH at the market, because the native long collateral is WETH. The swap happens atomically during keeper execution.
+No swap is needed. GMX v2 markets accept either their long token or their short token as collateral for either position direction, and `_classify_collateral_support()` in [order_argument_parser.py](order/order_argument_parser.py) checks the collateral against both `long_token_address` and `short_token_address` regardless of `isLong`. USDC is the ETH/USD market's short token, so it is accepted directly for a long position: `start_token == collateral`, `_handle_missing_swap_path()` takes the no-swap branch, and `swapPath` stays `[]` — exactly like the short case above.
+
+> **Note — this does not mean the PnL is USDC too.** GMX v2 always denominates a long's *profit* in the market's long token (WETH), regardless of what collateral was used to open it. A USDC-collateralised long that closes in profit gets its collateral back in USDC and its PnL paid separately in WETH (or native ETH, depending on `shouldUnwrapNativeToken`), unless `decreasePositionSwapType` converts it. This is the subject of a P0 fix tracked in [`docs/claude-plans/2026-08-20-gmx-pnl-token-nav-leak.md`](../../docs/claude-plans/2026-08-20-gmx-pnl-token-nav-leak.md); see that plan for the full root-cause chain and remediation.
 
 **Token flow (long with USDC):**
 
 ```
-Safe USDC  ──sendTokens──▶  OrderVault  ──keeper: swap USDC→WETH──▶  GMX long position (WETH collateral)
+Safe USDC  ──sendTokens──▶  OrderVault  ──keeper executes──▶  GMX long position (owned by Safe, USDC collateral)
 Safe ETH   ──sendWnt────▶  OrderVault  ──keeper fee
 ```
 
@@ -151,7 +153,7 @@ CreateOrderParams {
         cancellationReceiver:   Safe_address,
         market:                 ETH_USD_market_address,
         initialCollateralToken: USDC_address,     // (or WETH for longs)
-        swapPath:               [],               // (or [market] for long→USDC)
+        swapPath:               [],               // always empty — see below
         ...
     },
     numbers: {
@@ -165,12 +167,16 @@ CreateOrderParams {
 }
 ```
 
+`swapPath` is always `[]` on close: it is not part of the `is_decrease` required-key list in [order_argument_parser.py](order/order_argument_parser.py), so it is never populated, and every close call site (`trading.py`'s `close_position()`, and `order.py`'s `create_decrease_order()` and `close_position_by_key()`) falls through to `.get("swap_path", [])`.
+
 **Token flow (close):**
 
 ```
 GMX position  ──keeper executes──▶  collateral + PnL returned to Safe (receiver)
 Safe ETH      ──sendWnt──────────▶  OrderVault (keeper fee)
 ```
+
+> **Note**: for a USDC-collateralised long, "collateral + PnL" above is two separate token transfers, not one — see the note under "Opening a long" above.
 
 ## Guard validation
 

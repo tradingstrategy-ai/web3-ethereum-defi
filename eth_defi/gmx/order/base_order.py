@@ -151,6 +151,21 @@ class OrderParams:
     slippage_percent: float = 0.005
     swap_path: list[str] = field(default_factory=list)
 
+    #: How GMX should handle the PnL token on a decrease order. Defaults to
+    #: swapping any profit paid in the market's PnL token (e.g. WETH for a
+    #: long) into the position's collateral token (e.g. USDC), so a
+    #: collateral/PnL-token mismatch never leaks value out of collateral-only
+    #: NAV accounting. Ignored by GMX on increase orders. See
+    #: ``DECREASE_POSITION_SWAP_TYPES`` in :mod:`eth_defi.gmx.constants`.
+    decrease_position_swap_type: int = DECREASE_POSITION_SWAP_TYPES["swap_pnl_token_to_collateral_token"]
+
+    #: Whether a native-token (e.g. WETH) payout should be unwrapped to the
+    #: chain's native currency (e.g. ETH) before delivery. Defaults to
+    #: ``False`` so payouts stay as the ERC-20, which keeps them visible to
+    #: token-balance-based NAV accounting instead of landing as untracked
+    #: native currency.
+    should_unwrap_native_token: bool = False
+
     # Optional parameters
     max_fee_per_gas: Optional[int] = None
     auto_cancel: bool = False
@@ -426,6 +441,7 @@ class BaseOrder:
             order_type,
             acceptable_price_val,
             mark_price,
+            is_close,
         )
 
         # Build multicall
@@ -649,6 +665,7 @@ class BaseOrder:
         order_type: int,
         acceptable_price: int,
         mark_price: int,
+        is_close: bool = False,
     ) -> tuple:
         """Build order arguments tuple.
 
@@ -659,6 +676,9 @@ class BaseOrder:
         :param order_type: GMX order type constant
         :param acceptable_price: Acceptable execution price
         :param mark_price: Current mark/trigger price
+        :param is_close: Whether this is a decrease/close order. Gates
+            ``decreasePositionSwapType``/``shouldUnwrapNativeToken`` -- see
+            the inline comment at the return tuple for why.
         :return: Tuple of order arguments for contract call
         """
         user_wallet_address = self.config.get_wallet_address()
@@ -704,9 +724,16 @@ class BaseOrder:
                 params.valid_from_time,  # Use param instead of hardcoded 0
             ),
             order_type,  # orderType
-            DECREASE_POSITION_SWAP_TYPES["no_swap"],  # decreasePositionSwapType
+            # decreasePositionSwapType/shouldUnwrapNativeToken are only meaningful
+            # on a decrease (close). GMX ignores decreasePositionSwapType on an
+            # increase/swap regardless, but shouldUnwrapNativeToken is NOT ignored
+            # there -- it controls whether e.g. an execution-fee refund or a WETH
+            # swap output arrives as native ETH. Opens/swaps keep the pre-fix
+            # behaviour (always no-op swap type, always unwrap) so this fix stays
+            # scoped to closes, per the plan's "leave increase orders alone".
+            params.decrease_position_swap_type if is_close else DECREASE_POSITION_SWAP_TYPES["no_swap"],  # decreasePositionSwapType
             params.is_long,  # isLong
-            True,  # shouldUnwrapNativeToken
+            params.should_unwrap_native_token if is_close else True,  # shouldUnwrapNativeToken
             params.auto_cancel,  # autoCancel
             referral_code,  # referralCode
             params.data_list,  # dataList
