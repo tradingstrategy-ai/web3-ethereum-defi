@@ -74,17 +74,36 @@ page using its canonical VaultProxy or Shares address and deployment network.
 Protocol-level metadata and the links section below may still use the generic
 discovery catalogue because they do not identify an individual vault.
 
-Listing descriptions
---------------------
+Listing metadata
+----------------
 
-Enzyme share-token contracts provide a vault name, but do not require a
-manager to publish a strategy narrative. The catalogue accepts an optional
-address-specific curated description and supplies neutral short and long
-descriptions for every discovered Blue and Onyx vault when no such narrative
-is available. The fallback copy identifies only the relevant Enzyme
-architecture and explicitly says that manager-provided strategy detail is not
-available; it does not infer a strategy from the vault name, holdings or
-historical returns.
+Enzyme share-token contracts provide a vault name, but not a manager-entered
+strategy narrative. For Blue vaults, the authenticated `Enzyme GetVault API
+<https://sdk.enzyme.finance/api/endpoints/vault/>`__ is the authoritative
+offchain metadata source. It returns a manager-entered ``tagline`` for the
+catalogue's short description, plus a ``description`` for the product-detail
+view. The API documentation says it aggregates Enzyme-managed offchain sources
+including vault descriptions, rather than merely reproducing onchain ERC-20
+names.
+
+The scanner does not call that API per vault during each chain scan. The
+metadata migration gathers all existing Blue rows through a bounded,
+authenticated batch and writes a versioned JSON cache under
+``~/.tradingstrategy/cache/enzyme/vault-metadata.json``. Adapters read that
+cache without credentials, so the scheduled scanner remains deterministic and
+does not turn a temporary API failure into a database-wide fallback rewrite.
+The migration retains a successful API response with empty fields: this is
+evidence that the manager has supplied no public copy, not a failed lookup.
+
+Onyx supports manager-editable vault and collection taglines and descriptions
+in its management application, but Enzyme does not document a corresponding
+public API endpoint. Onyx therefore uses neutral architecture-level fallback
+copy until that source becomes available. The fallback is also used for a Blue
+vault whose official API response has no text. It identifies only the relevant
+Enzyme architecture and explicitly says that manager-provided strategy detail
+is unavailable; it does not infer a strategy from the vault name, holdings or
+historical returns. A small reviewed address registry may supplement the cache
+for exceptional metadata that has no API source.
 
 Deposit permission and availability
 -----------------------------------
@@ -231,6 +250,35 @@ release calls; name, symbol, denomination and descriptions remain mandatory.
 
     DRY_RUN=true poetry run python scripts/enzyme/migrate-current-metadata.py
     MAX_WORKERS=8 poetry run python scripts/enzyme/migrate-current-metadata.py
+
+Offchain description migration
+------------------------------
+
+``scripts/enzyme/migrate-offchain-metadata.py`` fetches all existing Enzyme
+Blue vault taglines and descriptions from Enzyme's authenticated ``GetVault``
+API, warms the durable adapter cache and updates the public metadata pickle.
+It is deliberately a separate migration: it has no JSON-RPC or Hypersync work,
+does not change historical price data, and does not attempt unsupported Onyx
+UI scraping. It starts in dry-run mode and writes neither cache nor database
+if any API response fails. A real run creates a timestamped backup of the
+metadata pickle before modifying it.
+
+Create an API token in the `Enzyme application
+<https://app.enzyme.finance/account/api-tokens>`__, then run:
+
+.. code-block:: shell
+
+    source .local-test.env
+    ENZYME_API_TOKEN="$ENZYME_API_TOKEN" \
+        poetry run python scripts/enzyme/migrate-offchain-metadata.py
+
+    ENZYME_API_TOKEN="$ENZYME_API_TOKEN" DRY_RUN=false MAX_WORKERS=8 \
+        poetry run python scripts/enzyme/migrate-offchain-metadata.py
+
+For production, first stop ``vault-scanner-looped`` and run this command in
+the one-shot container described above, so the cache and metadata database are
+the same mounted persistent state used by the scanner. Restart the looped
+scanner after the migration completes.
 
 For production maintenance, first inspect ``docker-compose.yml`` and stop the
 looped scanner. Run the migration through the one-shot service so it uses the
