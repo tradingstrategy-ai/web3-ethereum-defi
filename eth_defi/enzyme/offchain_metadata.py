@@ -1,4 +1,4 @@
-"""Offchain descriptions for Enzyme Blue and Onyx vault listings.
+"""Offchain description handling for Enzyme vault listings.
 
 Enzyme Blue publishes manager-entered vault metadata through its authenticated
 `GetVault API <https://sdk.enzyme.finance/api/endpoints/vault/>`__.  In
@@ -11,8 +11,8 @@ unavailable marker until Enzyme publishes a supported reader.
 The production scanner never makes thousands of API requests as a side effect
 of scanning a chain.  ``scripts/enzyme/migrate-offchain-metadata.py`` fetches
 the reviewed Blue metadata and saves it in a durable, multiprocess-safe cache.
-Adapters read this cache and fall back only when the official source has no
-manager-entered copy. A small in-source registry remains available for
+Blue adapters read this cache and fall back only when the official source has
+no manager-entered copy. A small in-source registry remains available for
 reviewed exceptional Blue metadata that has no API source.
 """
 
@@ -22,7 +22,6 @@ from collections.abc import Mapping
 from dataclasses import asdict, dataclass
 from json import JSONDecodeError
 from pathlib import Path
-from typing import Literal
 
 from eth_typing import HexAddress
 from requests import Session
@@ -32,8 +31,6 @@ from web3 import Web3
 from eth_defi.disk_cache import DEFAULT_CACHE_ROOT
 from eth_defi.logging_retry import LoggingRetry
 from eth_defi.utils import wait_other_writers
-
-EnzymeArchitecture = Literal["blue", "onyx"]
 
 logger = logging.getLogger(__name__)
 
@@ -86,15 +83,14 @@ class EnzymeVaultMetadata:
     manager_name: str | None = None
 
 
-#: Entries are keyed by ``(chain id, lower-case canonical share-token
-#: address)``. This is a VaultProxy on Blue and Shares token on Onyx. Both
-#: families are discovered dynamically from reviewed protocol events, so this
-#: registry is enrichment only and never an allowlist.
+#: Entries are keyed by ``(chain id, lower-case canonical Blue VaultProxy
+#: address)``. Blue vaults are discovered dynamically from reviewed protocol
+#: events, so this registry is enrichment only and never an allowlist.
 #:
 #: The official Blue API cache takes precedence over this registry only when it
-#: contains manager-entered copy. Keep this registry for reviewed Onyx or other
-#: exceptional entries that cannot be fetched from a documented API.
-ENZYME_VAULT_METADATA: dict[tuple[int, HexAddress], EnzymeVaultMetadata] = {}
+#: contains manager-entered copy. Keep this registry for reviewed exceptional
+#: Blue entries that cannot be fetched from a documented API.
+ENZYME_BLUE_VAULT_METADATA: dict[tuple[int, HexAddress], EnzymeVaultMetadata] = {}
 
 
 def _normalise_optional_text(value: object) -> str | None:
@@ -221,7 +217,7 @@ def _metadata_key(chain_id: int, shares_address: HexAddress | str) -> tuple[int,
     """Build the canonical metadata mapping key.
 
     :param chain_id: EVM chain id.
-    :param shares_address: Blue VaultProxy or Onyx Shares address.
+    :param shares_address: Blue VaultProxy address.
     :return: ``(chain_id, lower-case address)`` key.
     """
 
@@ -231,9 +227,8 @@ def _metadata_key(chain_id: int, shares_address: HexAddress | str) -> tuple[int,
 def load_enzyme_vault_metadata_cache(cache_path: Path = DEFAULT_ENZYME_METADATA_CACHE_PATH) -> dict[tuple[int, HexAddress], EnzymeVaultMetadata]:
     """Load durable API metadata without making an HTTP request.
 
-    A malformed cache is ignored with a warning. The scanner can safely use
-    safe architecture-specific fallback descriptions in that case, while the migration will
-    replace the bad file after a successful authenticated API collection.
+    A malformed cache is ignored with a warning. Blue adapters then use generic
+    fallback copy until a successful authenticated migration replaces the cache.
 
     :param cache_path: Versioned JSON cache written by the migration.
     :return: Address-indexed official Enzyme Blue metadata.
@@ -283,8 +278,8 @@ def write_enzyme_vault_metadata_cache(
     """Atomically replace the durable Enzyme metadata cache.
 
     Cache entries with no text are retained. They document a successful API
-    read whose vault has not supplied descriptions, while allowing the adapter
-    to select the architecture-specific fallback.
+    read whose vault has not supplied descriptions, while allowing the Blue
+    adapter to select generic fallback copy.
 
     :param metadata: Complete address-indexed cache contents.
     :param cache_path: JSON cache destination.
@@ -330,33 +325,25 @@ def create_enzyme_vault_link(chain_id: int, shares_address: HexAddress | str) ->
     return f"https://app.enzyme.finance/vault/{address}?network={network}"
 
 
-def create_enzyme_fallback_metadata(architecture: EnzymeArchitecture, vault_name: str) -> EnzymeVaultMetadata:
-    """Create safe listing metadata for an uncurated Enzyme vault.
+def create_enzyme_blue_fallback_metadata(vault_name: str) -> EnzymeVaultMetadata:
+    """Create safe listing metadata for an uncurated Enzyme Blue vault.
 
-    A share-token name is an identifier, not evidence of a trading strategy.
-    Blue rows retain generic architecture-level copy when Enzyme's official API
-    has no manager text. Onyx has no public metadata reader, so its rows must
-    remain visibly unavailable rather than presenting fabricated generic copy.
+    A share-token name is an identifier, not evidence of a strategy. This
+    generic copy applies only when the official Blue API has no manager text.
 
-    :param architecture: Factory-confirmed Enzyme Blue or Onyx architecture.
-    :param vault_name: Onchain ERC-20 share-token name.
-    :return: Blue fallback copy or the deliberate Onyx unavailable marker.
+    :param vault_name: Onchain Blue VaultProxy ERC-20 name.
+    :return: Complete generic Blue listing copy.
     """
 
     display_name = vault_name.strip() or "Unnamed vault"
-    if architecture == "blue":
-        return EnzymeVaultMetadata(
-            short_description="Enzyme Blue tokenised digital-asset investment vehicle.",
-            description=(f"{display_name} is an Enzyme Blue tokenised investment vehicle. Investors hold ERC-20 shares while the vault manager controls the investment configuration and portfolio operations. No manager-provided strategy description is available in this catalogue entry."),
-        )
     return EnzymeVaultMetadata(
-        short_description=None,
-        description=ONYX_PUBLIC_DESCRIPTION_UNAVAILABLE,
+        short_description="Enzyme Blue tokenised digital-asset investment vehicle.",
+        description=(f"{display_name} is an Enzyme Blue tokenised investment vehicle. Investors hold ERC-20 shares while the vault manager controls the investment configuration and portfolio operations. No manager-provided strategy description is available in this catalogue entry."),
     )
 
 
-def fetch_enzyme_vault_metadata(chain_id: int, shares_address: HexAddress | str) -> EnzymeVaultMetadata | None:
-    """Look up cached or manually curated Enzyme listing metadata.
+def load_enzyme_blue_vault_metadata(chain_id: int, vault_proxy_address: HexAddress | str) -> EnzymeVaultMetadata | None:
+    """Look up cached or manually curated Enzyme Blue listing metadata.
 
     This adapter-facing function deliberately never calls the authenticated API.
     The metadata migration warms the durable cache in a bounded batch, keeping
@@ -364,13 +351,13 @@ def fetch_enzyme_vault_metadata(chain_id: int, shares_address: HexAddress | str)
     Manually reviewed metadata wins over an API entry only when it contains a
     field not present in the API response.
 
-    :param chain_id: EVM chain id of the vault.
-    :param shares_address: Enzyme Blue VaultProxy or Onyx Shares contract address.
+    :param chain_id: EVM chain id of the Blue vault.
+    :param vault_proxy_address: Canonical Blue VaultProxy address.
     :return: Cached or curated metadata, or ``None`` when fallback copy applies.
     """
 
-    key = _metadata_key(chain_id, shares_address)
-    curated = ENZYME_VAULT_METADATA.get(key)
+    key = _metadata_key(chain_id, vault_proxy_address)
+    curated = ENZYME_BLUE_VAULT_METADATA.get(key)
     cached = _load_cached_enzyme_vault_metadata().get(key)
     if curated is None:
         return cached
@@ -383,22 +370,15 @@ def fetch_enzyme_vault_metadata(chain_id: int, shares_address: HexAddress | str)
     )
 
 
-def resolve_enzyme_vault_metadata(architecture: EnzymeArchitecture, vault_name: str, override: EnzymeVaultMetadata | None) -> EnzymeVaultMetadata:
-    """Merge source metadata with the appropriate Enzyme fallback policy.
+def resolve_enzyme_blue_vault_metadata(vault_name: str, override: EnzymeVaultMetadata | None) -> EnzymeVaultMetadata:
+    """Merge optional source metadata with generic Enzyme Blue fallback copy.
 
-    Onyx's management API requires an authenticated human session. Its
-    unverified cache or manually entered copy must never leak into the public
-    export, so every Onyx row uses the same explicit unavailable marker.
-
-    :param architecture: Factory-confirmed Enzyme Blue or Onyx architecture.
-    :param vault_name: Onchain share-token name used in fallback text.
-    :param override: Optional API or curator metadata.
-    :return: Resolved Blue metadata or explicit Onyx unavailable metadata.
+    :param vault_name: Onchain Blue VaultProxy name used in fallback text.
+    :param override: Optional official API or curator metadata.
+    :return: Complete Blue listing metadata.
     """
 
-    fallback = create_enzyme_fallback_metadata(architecture, vault_name)
-    if architecture == "onyx":
-        return fallback
+    fallback = create_enzyme_blue_fallback_metadata(vault_name)
     if override is None:
         return fallback
     return EnzymeVaultMetadata(

@@ -23,7 +23,7 @@ from web3.contract import Contract
 
 from eth_defi.abi import get_deployed_contract
 from eth_defi.enzyme.fee import combine_user_facing_management_fee
-from eth_defi.enzyme.offchain_metadata import create_enzyme_vault_link, fetch_enzyme_vault_metadata, resolve_enzyme_vault_metadata
+from eth_defi.enzyme.offchain_metadata import ONYX_PUBLIC_DESCRIPTION_UNAVAILABLE, create_enzyme_vault_link
 from eth_defi.enzyme.onyx_discovery import ENZYME_BASE_CHAIN_ID
 from eth_defi.enzyme.onyx_flow import EnzymeVaultFlowManager
 from eth_defi.enzyme.onyx_historical import EnzymeVaultHistoricalReader
@@ -111,7 +111,6 @@ class EnzymeVault(VaultBase):
         del features
         self.default_block_identifier = default_block_identifier
         self.current_deposit_permission = VaultDepositPermission(current_deposit_permission) if current_deposit_permission is not None else VaultDepositPermission.unknown
-        self.api_metadata = fetch_enzyme_vault_metadata(spec.chain_id, spec.vault_address)
 
     def _get_block_identifier(self) -> BlockIdentifier:
         """Return the configured metadata block or ``latest``."""
@@ -156,15 +155,15 @@ class EnzymeVault(VaultBase):
 
     @property
     def description(self) -> str | None:
-        """Return complete offchain listing copy for this Onyx vault."""
+        """Return the explicit unavailable note for this Onyx vault."""
 
-        return resolve_enzyme_vault_metadata("onyx", self.name, self.api_metadata).description
+        return ONYX_PUBLIC_DESCRIPTION_UNAVAILABLE
 
     @property
     def short_description(self) -> str | None:
-        """Return complete offchain table copy for this Onyx vault."""
+        """Return no table copy because Onyx has no public description API."""
 
-        return resolve_enzyme_vault_metadata("onyx", self.name, self.api_metadata).short_description
+        return None
 
     def get_strategy_tags(self) -> set[StrategyTag] | None:
         """Return documented strategy tags for this Onyx Shares vault.
@@ -182,9 +181,9 @@ class EnzymeVault(VaultBase):
 
     @property
     def manager_name(self) -> str | None:
-        """Return a curated manager name when available."""
+        """Return no manager name because Onyx has no public metadata API."""
 
-        return resolve_enzyme_vault_metadata("onyx", self.name, self.api_metadata).manager_name
+        return None
 
     def fetch_share_token(self) -> TokenDetails:
         """Fetch the Shares ERC-20 token metadata."""

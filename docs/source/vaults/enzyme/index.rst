@@ -89,22 +89,23 @@ names.
 The scanner does not call that API per vault during each chain scan. The
 metadata migration gathers all existing Blue rows through a bounded,
 authenticated batch and writes a versioned JSON cache under
-``~/.tradingstrategy/cache/enzyme/vault-metadata.json``. Adapters read that
-cache without credentials, so the scheduled scanner remains deterministic and
-does not turn a temporary API failure into a database-wide fallback rewrite.
+``~/.tradingstrategy/cache/enzyme/vault-metadata.json``. Blue adapters read
+that cache without credentials, so the scheduled scanner remains deterministic
+and does not turn a temporary API failure into a database-wide fallback
+rewrite.
+
 The migration retains a successful API response with empty fields: this is
 evidence that the manager has supplied no public copy, not a failed lookup.
 
 Onyx supports manager-editable vault and collection taglines and descriptions
-in its management application, but its observed back-office endpoint requires
-an authenticated human session and Enzyme does not document a public API for
-this data. Every Onyx row therefore has an empty short description and the
-exact long-description marker ``Description is not publicly available``. This
-is intentional: the catalogue must not scrape a gated UI or infer strategy
-copy from a vault name, holdings or historical returns. Blue falls back to
-generic architecture-level copy only when its official API response has no
-manager text. A small reviewed address registry may supplement the Blue cache
-for exceptional metadata that has no API source.
+in its management application, but Enzyme does not document a public API for
+this data. The scanner therefore does not scrape a gated interface or consume
+an undocumented endpoint. Every refreshed Onyx row has an empty short
+description and the exact long-description marker ``Description is not
+publicly available``; a dedicated migration marker refreshes older generic
+copy once. Blue falls back to generic architecture-level copy only when its
+official API response has no manager text. A small reviewed address registry
+may supplement the Blue cache for exceptional metadata that has no API source.
 
 Deposit permission and availability
 -----------------------------------
@@ -232,9 +233,9 @@ Current metadata migration
 --------------------------
 
 ``scripts/enzyme/migrate-current-metadata.py`` is the safe production entry
-point for adding Blue descriptions and the explicit Onyx unavailable marker,
-direct address-specific links and
-current Blue and Onyx permission data to existing Enzyme rows. It reuses the
+point for applying cached Blue descriptions (or generic Blue fallback copy),
+the explicit Onyx unavailable marker, direct address-specific links and current
+Blue and Onyx permission data to existing Enzyme rows. It reuses the
 targeted factory discovery and durable metadata batching while forcibly
 disabling historical price and cleaned-Parquet writes. Factory and Onyx handler
 events use the same per-chain Hypersync stream, and all active Onyx handlers

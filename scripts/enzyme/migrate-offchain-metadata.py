@@ -9,8 +9,8 @@ updates the public ``_short_description`` and ``_description`` fields.
 
 The Enzyme API documents the Blue deployments on Ethereum, Polygon, Base and
 Arbitrum. Enzyme Onyx descriptions are editable in the management application,
-but no public metadata endpoint is documented for it, so this migration leaves
-Onyx on the neutral architecture-level fallback instead of scraping a gated UI.
+but no public metadata endpoint is documented for it. This migration therefore
+does not alter Onyx rows or scrape a gated UI.
 
 The command starts in dry-run mode. It never alters historical prices, scanner
 reader state or discovery leads. A failed API response aborts before either the
@@ -57,7 +57,7 @@ from eth_defi.enzyme.offchain_metadata import (
     create_enzyme_api_session,
     fetch_enzyme_api_vault_metadata,
     load_enzyme_vault_metadata_cache,
-    resolve_enzyme_vault_metadata,
+    resolve_enzyme_blue_vault_metadata,
     write_enzyme_vault_metadata_cache,
 )
 from eth_defi.erc_4626.core import ERC4626Feature
@@ -217,7 +217,7 @@ def create_metadata_update(vault_spec: VaultSpec, row: VaultRow, metadata: Enzym
     :return: Complete replacement values for the migration-owned fields.
     """
 
-    resolved = resolve_enzyme_vault_metadata("blue", row.get("Name") or "", metadata)
+    resolved = resolve_enzyme_blue_vault_metadata(row.get("Name") or "", metadata)
     assert resolved.short_description is not None
     assert resolved.description is not None
     updates = {

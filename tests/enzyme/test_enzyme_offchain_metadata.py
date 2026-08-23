@@ -5,16 +5,19 @@ from pathlib import Path
 from types import ModuleType, SimpleNamespace
 
 import pytest
+from eth_typing import HexAddress
 
+from eth_defi.enzyme import offchain_metadata
 from eth_defi.enzyme.offchain_metadata import (
     ENZYME_API_VAULT_URL,
     EnzymeVaultMetadata,
-    create_enzyme_fallback_metadata,
+    create_enzyme_blue_fallback_metadata,
     create_enzyme_vault_link,
     fetch_enzyme_api_vault_metadata,
+    load_enzyme_blue_vault_metadata,
     load_enzyme_vault_metadata_cache,
     parse_enzyme_api_vault_metadata,
-    resolve_enzyme_vault_metadata,
+    resolve_enzyme_blue_vault_metadata,
     write_enzyme_vault_metadata_cache,
 )
 from eth_defi.erc_4626.core import ERC4626Feature
@@ -24,6 +27,7 @@ from eth_defi.vault.vaultdb import VaultDatabase
 VAULT_ADDRESS = "0x000000000000000000000000000000000000bEEF"
 MIGRATION_SCRIPT_PATH = Path(__file__).resolve().parents[2] / "scripts" / "enzyme" / "migrate-offchain-metadata.py"
 BLUE_SPEC = VaultSpec(1, VAULT_ADDRESS)
+BLUE_METADATA_KEY = (BLUE_SPEC.chain_id, HexAddress(BLUE_SPEC.vault_address.lower()))
 ONYX_SPEC = VaultSpec(8453, "0x000000000000000000000000000000000000c0Fe")
 
 
@@ -44,37 +48,43 @@ def load_offchain_metadata_migration_module() -> ModuleType:
 def test_enzyme_blue_fallback_has_complete_listing_copy() -> None:
     """Provide generic Blue copy when the official API has no manager text."""
 
-    metadata = create_enzyme_fallback_metadata("blue", "Example vault")
+    metadata = create_enzyme_blue_fallback_metadata("Example vault")
 
     assert metadata.short_description
     assert metadata.description
     assert "Example vault" in metadata.description
 
 
-def test_enzyme_onyx_fallback_does_not_invent_public_metadata() -> None:
-    """Leave Onyx table copy blank and export the required unavailable note."""
-
-    metadata = resolve_enzyme_vault_metadata(
-        "onyx",
-        "Example vault",
-        EnzymeVaultMetadata(short_description="Private tagline", description="Private description"),
-    )
-
-    assert metadata.short_description is None
-    assert metadata.description == "Description is not publicly available"
-
-
 def test_curated_enzyme_copy_overrides_only_the_provided_fields() -> None:
     """Retain the fallback field when a curator supplies partial metadata."""
 
-    metadata = resolve_enzyme_vault_metadata(
-        "blue",
+    metadata = resolve_enzyme_blue_vault_metadata(
         "Example vault",
         EnzymeVaultMetadata(description="Curator-supplied strategy narrative."),
     )
 
     assert metadata.description == "Curator-supplied strategy narrative."
     assert metadata.short_description == "Enzyme Blue tokenised digital-asset investment vehicle."
+
+
+def test_load_enzyme_blue_metadata_merges_curated_and_cached_fields(monkeypatch) -> None:
+    """Retain complementary manager copy from both supported metadata sources."""
+
+    monkeypatch.setattr(
+        offchain_metadata,
+        "ENZYME_BLUE_VAULT_METADATA",
+        {BLUE_METADATA_KEY: EnzymeVaultMetadata(description="Curated strategy narrative.")},
+    )
+    monkeypatch.setattr(
+        offchain_metadata,
+        "_cached_enzyme_vault_metadata",
+        {BLUE_METADATA_KEY: EnzymeVaultMetadata(short_description="Official tagline")},
+    )
+
+    assert load_enzyme_blue_vault_metadata(*BLUE_METADATA_KEY) == EnzymeVaultMetadata(
+        short_description="Official tagline",
+        description="Curated strategy narrative.",
+    )
 
 
 @pytest.mark.parametrize(

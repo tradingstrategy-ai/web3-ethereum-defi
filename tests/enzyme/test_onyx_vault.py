@@ -12,6 +12,7 @@ from web3 import Web3
 from eth_defi.compat import native_datetime_utc_fromtimestamp
 from eth_defi.enzyme import onyx_permission, onyx_vault
 from eth_defi.enzyme.blue_vault import EnzymeBlueVault
+from eth_defi.enzyme.offchain_metadata import ONYX_PUBLIC_DESCRIPTION_UNAVAILABLE
 from eth_defi.enzyme.onyx_discovery import ENZYME_BASE_SHARES_FACTORY, EnzymeVaultFactoryCandidate, decode_enzyme_deposit_handler_event, decode_enzyme_shares_deployed_event, fetch_enzyme_deposit_handler_event_topics, fetch_enzyme_shares_factories_for_chain, reconstruct_active_enzyme_deposit_handlers
 from eth_defi.enzyme.onyx_historical import EnzymeVaultHistoricalReader
 from eth_defi.enzyme.onyx_permission import aggregate_onyx_vault_permission, classify_onyx_deposit_handler
@@ -34,6 +35,17 @@ EXPECTED_MANAGEMENT_FEE = 0.01
 EXPECTED_PERFORMANCE_FEE = 0.2
 EXPECTED_ENTRANCE_FEE = 0.0025
 EXPECTED_EXIT_FEE = 0.005
+
+
+def test_onyx_adapter_exposes_only_the_public_metadata_marker() -> None:
+    """Avoid cache lookups or unverified manager copy for Onyx descriptions."""
+
+    vault = EnzymeVault(SimpleNamespace(), VaultSpec(BASE_CHAIN_ID, TEST_SHARES_ADDRESS))
+
+    assert not hasattr(vault, "api_metadata")
+    assert vault.description == ONYX_PUBLIC_DESCRIPTION_UNAVAILABLE
+    assert vault.short_description is None
+    assert vault.manager_name is None
 
 
 def test_enzyme_base_shares_factory_is_configured() -> None:
