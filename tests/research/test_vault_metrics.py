@@ -85,6 +85,37 @@ def test_calculate_vault_rankings_includes_per_curator_ranks_at_one_hundred_doll
     assert results_df.loc["unknown", "period_results"][0].ranking_curator is None
 
 
+def test_calculate_sharpe_requires_two_weeks_and_ten_price_samples() -> None:
+    """Preserve the 2026-08-23 short-history Sharpe incident guard.
+
+    A few nearly identical daily price updates have an artificially tiny
+    standard deviation and must not be annualised into a ranking signal. Both
+    gates are needed: a 14-day window can be sparse, while ten observations
+    can be clustered into a short launch period.
+    """
+    returns = pd.Series([0.001, 0.002] * 5)
+
+    assert (
+        vault_metrics.calculate_sharpe_ratio_from_returns(
+            returns,
+            sample_duration=pd.Timedelta(days=13),
+        )
+        is None
+    )
+    assert (
+        vault_metrics.calculate_sharpe_ratio_from_returns(
+            returns.iloc[:8],
+            sample_duration=pd.Timedelta(days=14),
+        )
+        is None
+    )
+
+    assert vault_metrics.calculate_sharpe_ratio_from_returns(
+        returns.iloc[:9],
+        sample_duration=pd.Timedelta(days=14),
+    ) == pytest.approx(52.35986588557648)
+
+
 def test_calculate_net_profit_accepts_one_hundred_percent_performance_fee() -> None:
     """Euler vaults may charge the valid 100% performance-fee boundary."""
     start = pd.Timestamp("2026-01-01").to_pydatetime()
