@@ -332,16 +332,6 @@ def load_enzyme_blue_vault_metadata(chain_id: int, vault_proxy_address: HexAddre
     return _load_cached_enzyme_vault_metadata().get(key)
 
 
-def resolve_enzyme_blue_vault_metadata(override: EnzymeVaultMetadata | None) -> EnzymeVaultMetadata:
-    """Normalise optional official Enzyme Blue metadata.
-
-    :param override: Optional official API or curator metadata.
-    :return: Official metadata, or an empty record when Enzyme supplied no copy.
-    """
-
-    return override or EnzymeVaultMetadata()
-
-
 def _load_cached_enzyme_vault_metadata() -> dict[tuple[int, HexAddress], EnzymeVaultMetadata]:
     """Load the process-wide read-only metadata cache once.
 

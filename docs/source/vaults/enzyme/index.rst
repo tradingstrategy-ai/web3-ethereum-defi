@@ -246,8 +246,10 @@ shared scanner writer lock while the metadata pickle is loaded and replaced.
 Blue permission reads cover Sulu and the deprecated Encore and Phoenix policy
 managers and whitelist identifiers used by the Enzyme website. Current NAV and
 fee fields remain blank when a deprecated vault can no longer execute its old
-release calls; name, symbol, denomination and architecture-specific
-descriptions remain mandatory.
+release calls; name, symbol, denomination and the architecture-specific
+description policy remain mandatory. Blue API fields are optional, whereas
+Onyx must have an empty short description and the explicit unavailable
+long-description marker.
 
 .. code-block:: shell
 
@@ -258,8 +260,9 @@ Offchain description migration
 ------------------------------
 
 ``scripts/enzyme/migrate-offchain-metadata.py`` fetches Enzyme Blue vault
-taglines and descriptions above its accounting-unit TVL threshold from Enzyme's authenticated ``GetVault``
-API, warms the durable adapter cache and updates the public metadata pickle.
+taglines and descriptions above its recorded accounting-unit NAV threshold from
+Enzyme's authenticated ``GetVault`` API, warms the durable adapter cache and
+updates the public metadata pickle.
 It is deliberately a separate migration: it has no JSON-RPC or Hypersync work,
 does not change historical price data, and does not attempt unsupported Onyx
 UI scraping. It starts in dry-run mode and writes neither cache nor database
@@ -276,7 +279,9 @@ to override its location.
 To conserve Enzyme API quota, only Blue rows with a recorded NAV greater than
 1,000 in a reviewed USD-pegged accounting unit, 1 in an ETH-equivalent unit,
 or 0.1 in a BTC-equivalent unit are collected. The migration does not convert
-unsupported denominations through an inferred exchange rate.
+unsupported denominations through an inferred exchange rate. It also clears
+the exact retired generated Blue fallback pair locally for every Blue row; this
+does not make an API request and ensures older rows do not retain invented copy.
 
 Create an API token in the `Enzyme application
 <https://app.enzyme.finance/account/api-tokens>`__, then run:

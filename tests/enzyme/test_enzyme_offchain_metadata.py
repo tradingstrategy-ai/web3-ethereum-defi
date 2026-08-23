@@ -18,7 +18,6 @@ from eth_defi.enzyme.offchain_metadata import (
     load_enzyme_blue_vault_metadata,
     load_enzyme_vault_metadata_cache,
     parse_enzyme_api_vault_metadata,
-    resolve_enzyme_blue_vault_metadata,
     write_enzyme_vault_metadata_cache,
 )
 from eth_defi.erc_4626.core import ERC4626Feature
@@ -50,24 +49,6 @@ def load_offchain_metadata_migration_module() -> ModuleType:
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module
-
-
-def test_missing_enzyme_blue_copy_stays_absent() -> None:
-    """Do not infer strategy text when Enzyme has supplied no copy."""
-
-    metadata = resolve_enzyme_blue_vault_metadata(None)
-
-    assert metadata.short_description is None
-    assert metadata.description is None
-
-
-def test_partial_enzyme_api_copy_keeps_missing_field_absent() -> None:
-    """Keep an absent API field absent when the other field has text."""
-
-    metadata = resolve_enzyme_blue_vault_metadata(EnzymeVaultMetadata(description="Official strategy narrative."))
-
-    assert metadata.description == "Official strategy narrative."
-    assert metadata.short_description is None
 
 
 def test_load_enzyme_blue_metadata_reads_cached_api_fields(monkeypatch) -> None:
@@ -241,12 +222,12 @@ def test_offchain_metadata_state_resumes_successful_api_replies(tmp_path) -> Non
         ("EURC", "100000", False),
     ],
 )
-def test_description_metadata_tvl_threshold(denomination: str, nav: str, expected: object) -> None:
+def test_description_metadata_minimum_value(denomination: str, nav: str, expected: object) -> None:
     """Collect only vaults above the reviewed accounting-unit limits."""
 
     module = load_offchain_metadata_migration_module()
 
-    assert module.has_description_metadata_tvl({"Denomination": denomination, "NAV": nav}) is expected
+    assert module.has_description_metadata_minimum_value({"Denomination": denomination, "NAV": nav}) is expected
 
 
 def test_offchain_metadata_migration_changes_only_existing_enzyme_blue_copy() -> None:
@@ -275,7 +256,7 @@ def test_offchain_metadata_migration_changes_only_existing_enzyme_blue_copy() ->
         }
     )
 
-    selected_rows = list(module.iter_enzyme_blue_rows(vault_db))
+    selected_rows = list(module.iter_all_enzyme_blue_rows(vault_db))
     assert selected_rows == [(BLUE_SPEC, vault_db.rows[BLUE_SPEC])]
 
     update = module.create_metadata_update(
@@ -309,3 +290,26 @@ def test_offchain_metadata_migration_clears_empty_api_copy() -> None:
 
     assert update.short_description is None
     assert update.description is None
+
+
+def test_offchain_metadata_migration_clears_only_exact_legacy_fallback() -> None:
+    """Clear a retired generated pair without touching similarly worded copy."""
+
+    module = load_offchain_metadata_migration_module()
+    legacy_row = {
+        "Name": "Legacy Blue vault",
+        "_short_description": module.LEGACY_BLUE_SHORT_DESCRIPTION,
+        "_description": f"Legacy Blue vault{module.LEGACY_BLUE_DESCRIPTION_SUFFIX}",
+    }
+    manager_row = {
+        "Name": "Manager Blue vault",
+        "_short_description": module.LEGACY_BLUE_SHORT_DESCRIPTION,
+        "_description": "Manager Blue vault is an Enzyme Blue investment vehicle with a manager-authored strategy.",
+    }
+
+    update = module.create_legacy_fallback_clear_update(BLUE_SPEC, legacy_row)
+
+    assert update is not None
+    assert update.short_description is None
+    assert update.description is None
+    assert module.create_legacy_fallback_clear_update(BLUE_SPEC, manager_row) is None

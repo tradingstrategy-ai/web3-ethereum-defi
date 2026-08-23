@@ -50,7 +50,9 @@ published cache without a token.
 To conserve the Enzyme API quota, the migration only reads vaults whose
 recorded accounting-unit NAV exceeds 1,000 in a reviewed USD-pegged unit, 1 in
 an ETH-equivalent unit, or 0.1 in a BTC-equivalent unit. Unsupported
-denominations are skipped rather than converted through an inferred price.
+denominations are skipped rather than converted through an inferred price. The
+exact retired generated fallback pair is cleared locally for every Blue row,
+without an API request, so older databases cannot keep invented copy.
 
 Create a token in the Enzyme application, store it only in the operator's
 secret environment, and run the migration serially. The provider can return
