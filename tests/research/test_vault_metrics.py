@@ -73,6 +73,41 @@ def test_sparse_share_prices_are_regularised_once_for_daily_risk_metrics() -> No
     assert calculate_sharpe_ratio_from_returns(daily_returns) == pytest.approx(daily_returns.dropna().mean() / daily_returns.dropna().std() * 365**0.5)
 
 
+def test_calculate_sharpe_requires_two_weeks_and_ten_price_samples() -> None:
+    """Reject short or sparse histories before they become ranking signals.
+
+    1. Supply enough returns over fewer than 14 calendar days.
+    2. Supply fewer than ten price observations over 14 calendar days.
+    3. Confirm only the eligible series yields a Sharpe ratio.
+    """
+
+    returns = pd.Series([0.001, 0.002] * 5)
+
+    # 1. A short launch history must not be annualised.
+    assert (
+        vault_metrics.calculate_sharpe_ratio_from_returns(
+            returns,
+            sample_duration=pd.Timedelta(days=13),
+        )
+        is None
+    )
+
+    # 2. A sparse history must not be annualised either.
+    assert (
+        vault_metrics.calculate_sharpe_ratio_from_returns(
+            returns.iloc[:8],
+            sample_duration=pd.Timedelta(days=14),
+        )
+        is None
+    )
+
+    # 3. Ten price observations over two weeks are eligible.
+    assert vault_metrics.calculate_sharpe_ratio_from_returns(
+        returns.iloc[:9],
+        sample_duration=pd.Timedelta(days=14),
+    ) == pytest.approx(52.35986588557648)
+
+
 def test_period_metrics_rejects_empty_share_price_series_cleanly() -> None:
     """A raw vault group without usable prices must not abort the batch."""
 
@@ -936,7 +971,12 @@ def test_morpho_daily_state_pipeline_exports_estimated_period_flows(vault_db: Va
 
 
 def test_event_observed_gmx_exports_approximated_daily_metrics(vault_db: VaultDatabase, price_df: pd.DataFrame) -> None:
-    """Calculate exact forward-filled risk metrics from sparse GMX events."""
+    """Keep sparse GMX history out of Sharpe rankings while retaining other metrics.
+
+    1. Create six calendar days from three event-observed GMX prices.
+    2. Calculate the forward-filled risk metrics used by the vault report.
+    3. Confirm volatility remains measurable but the insufficient history has no Sharpe.
+    """
 
     address = "0x05c2e246156d37b39a825a25dd08d5589e3fd883"
     spec = VaultSpec(43111, address)
@@ -961,9 +1001,8 @@ def test_event_observed_gmx_exports_approximated_daily_metrics(vault_db: VaultDa
     # changes do not affect the supply-normalised price or its return series.
     expected_returns = pd.Series([0.0, 0.1, 0.0, 0.0, 0.1])
     expected_volatility = expected_returns.std() * 365**0.5
-    expected_sharpe = expected_returns.mean() / expected_returns.std() * 365**0.5
     assert three_months.volatility == pytest.approx(expected_volatility)
-    assert three_months.sharpe == pytest.approx(expected_sharpe)
+    assert three_months.sharpe is None
 
     for period in result["period_results"]:
         if period.error_reason is not None:
@@ -974,7 +1013,6 @@ def test_event_observed_gmx_exports_approximated_daily_metrics(vault_db: VaultDa
             period.cagr_gross,
             period.cagr_net,
             period.volatility,
-            period.sharpe,
             period.max_drawdown,
             period.tvl_start,
             period.tvl_end,
@@ -984,7 +1022,7 @@ def test_event_observed_gmx_exports_approximated_daily_metrics(vault_db: VaultDa
         assert all(value is not None and pd.notna(value) for value in available_metrics), period.period
 
     assert pd.notna(result["three_months_volatility"])
-    assert pd.notna(result["three_months_sharpe"])
+    assert pd.isna(result["three_months_sharpe"])
 
 
 def test_calculate_lifetime_metrics_exports_deposit_permission(
