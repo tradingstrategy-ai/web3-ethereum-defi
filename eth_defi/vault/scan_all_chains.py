@@ -677,10 +677,10 @@ def scan_vaults_for_chain(
         if cache_miss_reason is None:
             assert existing_db is not None
             assert state is not None
-            gmx_sync = fetch_and_sync_current_gmx_catalogue(web3.eth.block_number)
+            last_block = existing_db.last_scanned_block[chain_id]
+            gmx_sync = fetch_and_sync_current_gmx_catalogue(getattr(web3.eth, "block_number", last_block))
             existing_db = VaultDatabase.read(vault_db_path)
             chain_rows = [row for row in existing_db.rows.values() if row["_detection_data"].chain == chain_id]
-            last_block = existing_db.last_scanned_block[chain_id]
             logger.debug(
                 "Lead discovery cache hit for chain %d: state=%s, age=%s, last refresh block=%d, timeout=%s, signature=%s",
                 chain_id,

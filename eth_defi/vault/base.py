@@ -1091,7 +1091,8 @@ class VaultHistoricalReader(ABC):
             ``share_price_equivalence`` feature.
         """
 
-        return any(getattr(feature, "value", None) == "share_price_equivalence" for feature in getattr(self.vault, "features", ()))
+        features = getattr(self.vault, "features", None) or ()
+        return any(getattr(feature, "value", None) == "share_price_equivalence" for feature in features)
 
     def fetch_contextual_historical_reads(
         self,

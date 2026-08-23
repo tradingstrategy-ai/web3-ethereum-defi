@@ -213,7 +213,15 @@ def test_migrate_vault_strategy_tags_resolves_apex_native_rows() -> None:
 
     result = migration.resolve_strategy_tags(spec, row)
 
-    assert result == ({StrategyTag.perpetual_futures}, "ApeX native resolver")
+    assert result == (
+        {
+            StrategyTag.liquidity_provider,
+            StrategyTag.market_maker,
+            StrategyTag.market_making,
+            StrategyTag.perpetual_futures,
+        },
+        "ApeX native resolver",
+    )
 
 
 def test_migrate_vault_strategy_tags_resolves_kiloex_rows() -> None:
