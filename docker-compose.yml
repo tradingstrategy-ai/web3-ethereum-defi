@@ -37,6 +37,12 @@ services:
       CHAIN_ORDER: ${CHAIN_ORDER:-}
       HYPERSYNC_API_KEY: ${HYPERSYNC_API_KEY:-}
       HYPERSYNC_RPM: ${HYPERSYNC_RPM:-}
+
+      # Enzyme Blue offchain-metadata migration only. The recurring scanner
+      # reads the resulting local cache and deliberately does not receive this
+      # credential.
+      ENZYME_BLUE_API_TOKEN: ${ENZYME_BLUE_API_TOKEN:-}
+
       JSON_RPC_ETHEREUM: ${JSON_RPC_ETHEREUM:-}
       JSON_RPC_BERACHAIN: ${JSON_RPC_BERACHAIN:-}
       JSON_RPC_UNICHAIN: ${JSON_RPC_UNICHAIN:-}
