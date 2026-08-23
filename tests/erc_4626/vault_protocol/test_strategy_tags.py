@@ -2,13 +2,14 @@
 
 from eth_typing import HexAddress
 
+from eth_defi.enzyme.onyx_vault import EnzymeVault
 from eth_defi.erc_4626.vault_protocol.atoma.vault import ATOMA_VAULT_2_ADDRESS, ATOMA_VAULT_ADDRESS, AtomaVault
 from eth_defi.erc_4626.vault_protocol.ethena.vault import EthenaVault
 from eth_defi.erc_4626.vault_protocol.ipor.vault import IPORVault
 from eth_defi.erc_4626.vault_protocol.symbiotic.vault import SymbioticVault
 from eth_defi.erc_4626.vault_protocol.upshift.vault import UpshiftVault
 from eth_defi.erc_4626.vault_protocol.yieldnest.vault import YNRWAX_VAULT_ADDRESS, YieldNestVault
-from eth_defi.vault.base import VaultBase
+from eth_defi.vault.base import VaultBase, VaultSpec
 from eth_defi.vault.strategy_tag import StrategyTag
 
 
@@ -117,6 +118,38 @@ def test_axis_origin_strategy_tags() -> None:
         StrategyTag.delta_neutral,
         StrategyTag.multistrategy,
     }
+
+
+def test_opalaccess_liquidstone_strategy_tags() -> None:
+    """Return researched RWA-credit tags for OpalAccess - LiquidStone 2."""
+
+    vault = object.__new__(EnzymeVault)
+    vault.spec = VaultSpec(chain_id=8453, vault_address=HexAddress("0x1B6d1EDf854CA5d8A7c32DDb79C24B117eBc6433"))
+
+    tags = vault.get_strategy_tags()
+
+    assert tags == {
+        StrategyTag.multistrategy,
+        StrategyTag.rwa,
+        StrategyTag.rwa_credit,
+    }
+
+    assert tags is not None
+    tags.add(StrategyTag.carry_trade)
+    assert vault.get_strategy_tags() == {
+        StrategyTag.multistrategy,
+        StrategyTag.rwa,
+        StrategyTag.rwa_credit,
+    }
+
+
+def test_unmapped_enzyme_vault_has_no_strategy_tags() -> None:
+    """Preserve ``None`` for Enzyme vaults without strategy evidence."""
+
+    vault = object.__new__(EnzymeVault)
+    vault.spec = VaultSpec(chain_id=8453, vault_address=HexAddress("0x0000000000000000000000000000000000000000"))
+
+    assert vault.get_strategy_tags() is None
 
 
 def test_missing_strategy_tags_return_none() -> None:

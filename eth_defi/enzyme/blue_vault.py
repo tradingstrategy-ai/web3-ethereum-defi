@@ -24,6 +24,7 @@ from eth_defi.enzyme.blue_historical import EnzymeBlueVaultHistoricalReader
 from eth_defi.enzyme.fee import combine_user_facing_management_fee
 from eth_defi.enzyme.offchain_metadata import create_enzyme_vault_link, fetch_enzyme_vault_metadata, resolve_enzyme_vault_metadata
 from eth_defi.enzyme.onyx_flow import EnzymeVaultFlowManager
+from eth_defi.enzyme.tags import get_strategy_tags as lookup_strategy_tags
 from eth_defi.erc_4626.core import ERC4626Feature
 from eth_defi.token import TokenDetails, fetch_erc20_details
 from eth_defi.types import Percent
@@ -31,6 +32,7 @@ from eth_defi.vault.base import TradingUniverse, VaultBase, VaultFlowManager, Va
 from eth_defi.vault.deposit_redeem import VaultDepositManager
 from eth_defi.vault.fee import FeeData, VaultFeeMode
 from eth_defi.vault.lower_case_dict import LowercaseDict
+from eth_defi.vault.strategy_tag import StrategyTag
 
 MANAGEMENT_FEE_RATE_SCALE = Decimal(10**27)
 FEE_BPS_DENOMINATOR = Decimal(10_000)
@@ -167,6 +169,20 @@ class EnzymeBlueVault(VaultBase):
         """Return complete offchain table copy for this Blue vault."""
 
         return resolve_enzyme_vault_metadata("blue", self.name, self.api_metadata).short_description
+
+    def get_strategy_tags(self) -> set[StrategyTag] | None:
+        """Return documented strategy tags for this Blue vault.
+
+        The shared Enzyme mapping keys classifications by canonical share-token
+        address. Unmapped addresses intentionally return ``None`` because the
+        protocol's generic metadata does not establish an investment strategy.
+
+        :return:
+            A mutable tag set for a researched vault, or ``None`` when its
+            strategy remains undocumented.
+        """
+
+        return lookup_strategy_tags(self.address)
 
     @property
     def manager_name(self) -> str | None:

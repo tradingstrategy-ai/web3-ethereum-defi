@@ -27,6 +27,7 @@ from eth_defi.enzyme.offchain_metadata import create_enzyme_vault_link, fetch_en
 from eth_defi.enzyme.onyx_discovery import ENZYME_BASE_CHAIN_ID
 from eth_defi.enzyme.onyx_flow import EnzymeVaultFlowManager
 from eth_defi.enzyme.onyx_historical import EnzymeVaultHistoricalReader
+from eth_defi.enzyme.tags import get_strategy_tags as lookup_strategy_tags
 from eth_defi.erc_4626.core import ERC4626Feature
 from eth_defi.token import USDC_NATIVE_TOKEN, TokenDetails, fetch_erc20_details
 from eth_defi.types import Percent
@@ -34,6 +35,7 @@ from eth_defi.vault.base import TradingUniverse, VaultBase, VaultFlowManager, Va
 from eth_defi.vault.deposit_redeem import VaultDepositManager, VaultDepositPermission
 from eth_defi.vault.fee import FeeData
 from eth_defi.vault.lower_case_dict import LowercaseDict
+from eth_defi.vault.strategy_tag import StrategyTag
 
 VALUE_ASSET_DECIMALS = 18
 FEE_BPS_DENOMINATOR = 10_000
@@ -163,6 +165,20 @@ class EnzymeVault(VaultBase):
         """Return complete offchain table copy for this Onyx vault."""
 
         return resolve_enzyme_vault_metadata("onyx", self.name, self.api_metadata).short_description
+
+    def get_strategy_tags(self) -> set[StrategyTag] | None:
+        """Return documented strategy tags for this Onyx Shares vault.
+
+        The shared Enzyme mapping uses the canonical Shares address. An
+        unmapped address remains ``None`` because the Onyx accounting and
+        subscription metadata cannot establish the manager's strategy alone.
+
+        :return:
+            A mutable tag set for a researched vault, or ``None`` where no
+            sufficient strategy evidence is available.
+        """
+
+        return lookup_strategy_tags(self.address)
 
     @property
     def manager_name(self) -> str | None:
