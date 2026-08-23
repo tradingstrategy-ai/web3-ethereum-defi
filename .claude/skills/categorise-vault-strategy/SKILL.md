@@ -117,6 +117,26 @@ address-to-tag mapping next to its vault protocol adapter.
    `perpetual_futures` tag and an address-specific tag added by its mapping.
    Format modified Python files and run the focused test.
 
+6. Schedule the production database migration.
+
+   - Do not update `~/.tradingstrategy/vaults/vault-metadata-db.pickle` on a
+     local development machine as part of this workflow. The pickle is a
+     materialised cache; the resolver and focused tests are the source-controlled
+     change.
+   - After opening the pull request, post the production migration instructions
+     below as a pull-request comment. The operator must run them only after the
+     code is merged and deployed.
+   - Stop the persistent scanner before the migration so it cannot overwrite
+     the metadata pickle. Run the dry run, inspect its output, then apply the
+     migration and restart the scanner:
+
+     ```shell
+     source ~/vault-scanner/vault-rpc.env && (cd ~/vault-scanner/web3-ethereum-defi && docker compose stop vault-scanner-looped)
+     source ~/vault-scanner/vault-rpc.env && (cd ~/vault-scanner/web3-ethereum-defi && docker compose run --rm --entrypoint /bin/bash vault-scanner-oneshot -lc 'DRY_RUN=true python scripts/erc-4626/migrate-vault-strategy-tags.py')
+     source ~/vault-scanner/vault-rpc.env && (cd ~/vault-scanner/web3-ethereum-defi && docker compose run --rm --entrypoint /bin/bash vault-scanner-oneshot -lc 'DRY_RUN=false python scripts/erc-4626/migrate-vault-strategy-tags.py')
+     source ~/vault-scanner/vault-rpc.env && (cd ~/vault-scanner/web3-ethereum-defi && docker compose up -d vault-scanner-looped)
+     ```
+
 ## Chat output
 
 When reporting a completed categorisation, output one entry per vault with:
@@ -124,3 +144,4 @@ When reporting a completed categorisation, output one entry per vault with:
 - Vault name
 - Vault address
 - Tags added
+- Link to the production migration comment when a pull request was opened.
