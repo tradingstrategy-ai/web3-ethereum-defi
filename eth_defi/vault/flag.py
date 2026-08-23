@@ -200,6 +200,7 @@ SPIKO_EUTBL_NOTE = """Spiko EU T-Bills Money Market Fund (EUTBL).
 - **Fees:** Spiko states a 0.25% annual management fee, reflected in NAV/share.
 """
 
+#: Public qualification for GMX's share-price-equivalent performance curve.
 GMX_SINGLE_SIDED_USDC_NOTE = "The vault performance approximates the performance of a single-sided USDC deposit."
 
 #: Vault-specific notes and classifications that do not exclude a vault from

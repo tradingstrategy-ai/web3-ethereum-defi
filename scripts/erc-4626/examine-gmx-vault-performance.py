@@ -40,7 +40,7 @@ def _load_gmx_metadata(path: Path) -> VaultDatabase:
         Vault metadata pickle produced by the scanner or GMX seed script.
     :return:
         A database containing only GM and GLV rows.
-    :raise RuntimeError:
+    :raises RuntimeError:
         If the database contains no GMX products.
     """
 
@@ -70,7 +70,7 @@ def _load_gmx_prices(path: Path, vault_db: VaultDatabase) -> pd.DataFrame:
     :return:
         Timestamp-indexed GMX observations with ``id`` and ``event_count``
         columns.
-    :raise RuntimeError:
+    :raises RuntimeError:
         If no collected GMX observations exist in the file.
     """
 

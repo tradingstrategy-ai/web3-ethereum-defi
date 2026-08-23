@@ -21,15 +21,15 @@ BLOCK_NUMBER = 123
 class _Call:
     """Minimal Web3 contract-call fake."""
 
-    def __init__(self, result):
+    def __init__(self, result: object) -> None:
         self.result = result
 
-    def call(self, *, block_identifier):
+    def call(self, *, block_identifier: int) -> object:
         assert block_identifier == BLOCK_NUMBER
         return self.result
 
 
-def _fake_get_markets(_datastore, start, end):
+def _fake_get_markets(_datastore: str, start: int, end: int) -> _Call:
     """Return deterministic paginated GM products."""
     pages = {
         (0, 2): [(MARKET_1, INDEX, LONG, SHORT), (MARKET_2, INDEX, LONG, SHORT)],
@@ -38,7 +38,7 @@ def _fake_get_markets(_datastore, start, end):
     return _Call(pages.get((start, end), []))
 
 
-def _fake_get_glv_info_list(_datastore, start, end):
+def _fake_get_glv_info_list(_datastore: str, start: int, end: int) -> _Call:
     """Return deterministic paginated GLV products."""
     pages = {
         (0, 2): [((GLV, LONG, SHORT), (MARKET_1, MARKET_2))],
@@ -46,7 +46,7 @@ def _fake_get_glv_info_list(_datastore, start, end):
     return _Call(pages.get((start, end), []))
 
 
-def _fake_get_bool(_key):
+def _fake_get_bool(_key: bytes) -> _Call:
     """Mark every fake GMX DataStore flag as enabled."""
     return _Call(False)
 

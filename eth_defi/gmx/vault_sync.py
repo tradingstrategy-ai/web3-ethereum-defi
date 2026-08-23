@@ -17,15 +17,25 @@ from eth_defi.vault.vaultdb import VaultDatabase, VaultRow
 
 logger = logging.getLogger(__name__)
 
-GMX_DISABLED_DEPOSIT_REASON = "GMX product disabled"
+#: Deposit-closure reason exported for disabled GMX products.
+GMX_DISABLED_DEPOSIT_REASON: str = "GMX product disabled"
 
 
 @dataclass(slots=True, frozen=True)
 class GMXVaultCatalogueSyncResult:
-    """Summary of one GMX metadata reconciliation."""
+    """Summarise one GMX metadata reconciliation.
 
+    Separates the complete current catalogue size from newly inserted and
+    refreshed rows for scanner diagnostics.
+    """
+
+    #: Number of GM and GLV products returned by GMX.
     products: int
+
+    #: Number of products newly inserted into the common vault database.
     inserted: int
+
+    #: Number of existing products refreshed in the common vault database.
     updated: int
 
 

@@ -32,8 +32,11 @@ from eth_defi.vault.deposit_redeem import VaultDepositManager
 from eth_defi.vault.flag import VaultFlag
 from eth_defi.vault.lower_case_dict import LowercaseDict
 
-GMX_UNSUPPORTED_FLOW_REASON = "GMX liquidity deposits and withdrawals are asynchronous ExchangeRouter requests and are not supported by the generic vault transaction adapter"
-GMX_HISTORICAL_READER_REASON = "Use the GMX historical event reader through the common vault price scanner"
+#: Explanation returned for unsupported generic GMX flow operations.
+GMX_UNSUPPORTED_FLOW_REASON: str = "GMX liquidity deposits and withdrawals are asynchronous ExchangeRouter requests and are not supported by the generic vault transaction adapter"
+
+#: Explanation returned for unsupported isolated GMX NAV reads.
+GMX_HISTORICAL_READER_REASON: str = "Use the GMX historical event reader through the common vault price scanner"
 
 
 class GMXHistoricalReader(VaultHistoricalReader):
@@ -58,7 +61,7 @@ class GMXHistoricalReader(VaultHistoricalReader):
     ) -> VaultHistoricalRead:
         """Reject the static multicall path for GMX.
 
-        :raise RuntimeError:
+        :raises RuntimeError:
             Always; :meth:`fetch_contextual_historical_reads` owns GMX reads.
         """
 
@@ -115,7 +118,10 @@ class GMXHistoricalReader(VaultHistoricalReader):
 class GMXVaultBase(VaultBase):
     """Common read-only adapter surface for GM and GLV ERC-20 shares."""
 
+    #: Protocol feature selecting the concrete GM or GLV adapter.
     feature: ERC4626Feature
+
+    #: Lowercase GMX product kind used in exported metadata.
     product_type: str
 
     def __init__(
@@ -321,12 +327,18 @@ class GMXVaultBase(VaultBase):
 class GMXMarketVault(GMXVaultBase):
     """One GMX V2 GM market-token liquidity-provider vault."""
 
+    #: Select GM market-token handling.
     feature = ERC4626Feature.gmx_gm
+
+    #: Protocol-native product kind.
     product_type = "gm"
 
 
 class GMXLiquidityVault(GMXVaultBase):
     """One GMX V2 GLV multi-market liquidity-provider vault."""
 
+    #: Select GLV multi-market handling.
     feature = ERC4626Feature.gmx_glv
+
+    #: Protocol-native product kind.
     product_type = "glv"

@@ -15,6 +15,7 @@ from collections.abc import Iterable
 from contextlib import AbstractContextManager
 from dataclasses import dataclass
 from pathlib import Path
+from types import TracebackType
 
 import duckdb
 from eth_typing import HexAddress
@@ -24,12 +25,20 @@ from web3 import Web3
 from eth_defi.gmx.constants import GMX_EVENT_EMITTER_ADDRESS
 from eth_defi.gmx.historical_oracle import GMXHistoricalSharePriceObservation, fetch_historical_share_price_observations_hypersync
 from eth_defi.gmx.vault_catalog import GMX_CHAIN_NAMES_BY_ID
+from eth_defi.hypersync.session import ThrottledHypersyncClient
 from eth_defi.vault.vaultdb import get_pipeline_data_dir
 
-GMX_HISTORICAL_CONTEXT_SCHEMA_VERSION = 3
-GMX_HYPERSYNC_VALUATION_CHUNK_SIZE = 10_000_000
-GMX_LP_SHARE_PRICE_VALUATION_CONTEXT = "lp_share_price"
-GMX_HYPERSYNC_RATE_LIMIT_RETRIES = 10
+#: Current payload schema accepted by :class:`GMXHistoricalContextStore`.
+GMX_HISTORICAL_CONTEXT_SCHEMA_VERSION: int = 3
+
+#: Maximum Hypersync block range committed in one transaction.
+GMX_HYPERSYNC_VALUATION_CHUNK_SIZE: int = 10_000_000
+
+#: Stable context identifier for supply-normalised GMX LP prices.
+GMX_LP_SHARE_PRICE_VALUATION_CONTEXT: str = "lp_share_price"
+
+#: Maximum bounded retries for a rate-limited Hypersync request.
+GMX_HYPERSYNC_RATE_LIMIT_RETRIES: int = 10
 
 logger = logging.getLogger(__name__)
 
@@ -48,22 +57,23 @@ def get_gmx_historical_context_path() -> Path:
 class GMXHistoricalContextPrefillResult:
     """Summarise one incremental GMX observation fetch.
 
-    :param chain_id:
-        GMX deployment chain.
-    :param start_block:
-        Inclusive source range boundary.
-    :param end_block:
-        Exclusive source range boundary.
-    :param observations_fetched:
-        Value-and-supply events decoded from the source range.
-    :param observations_inserted:
-        New immutable observations written to DuckDB.
+    Records the source range and event counts for scanner diagnostics and
+    operator-facing backfill output.
     """
 
+    #: GMX deployment chain.
     chain_id: int
+
+    #: Inclusive source range boundary.
     start_block: int
+
+    #: Exclusive source range boundary.
     end_block: int
+
+    #: Value-and-supply events decoded from the source range.
     observations_fetched: int
+
+    #: Observations inserted or promoted to the current payload schema.
     observations_inserted: int
 
 
@@ -114,10 +124,15 @@ class GMXHistoricalContextStore(AbstractContextManager):
     def insert_share_price(self, observation: GMXHistoricalSharePriceObservation) -> bool:
         """Persist one GM or GLV observation idempotently.
 
+        Existing observations with an identical payload are promoted to the
+        current schema version when necessary. Their source payload is never
+        mutated.
+
         :param observation:
             Canonical onchain value-and-supply event.
         :return:
-            ``True`` when inserted and ``False`` for an identical retry.
+            ``True`` when inserted or schema-promoted, and ``False`` for an
+            identical retry already using the current schema.
         :raises ValueError:
             If an existing observation has a different payload.
         """
@@ -245,7 +260,12 @@ class GMXHistoricalContextStore(AbstractContextManager):
 
         self.connection.close()
 
-    def __exit__(self, exc_type, exc_value, traceback) -> None:
+    def __exit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_value: BaseException | None,
+        traceback: TracebackType | None,
+    ) -> None:
         """Close the connection on normal and exceptional exits."""
 
         self.close()
@@ -254,7 +274,7 @@ class GMXHistoricalContextStore(AbstractContextManager):
 def fetch_and_store_gmx_historical_share_prices(
     *,
     web3: Web3,
-    hypersync_client,
+    hypersync_client: ThrottledHypersyncClient,
     start_block: int,
     end_block: int,
     context_path: Path | None = None,

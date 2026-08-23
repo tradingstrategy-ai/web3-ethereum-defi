@@ -20,7 +20,7 @@ from hexbytes import HexBytes
 from web3 import Web3
 
 from eth_defi.gmx.events import EVENT_LOG1_SIGNATURE, GMXEventData
-from eth_defi.hypersync.session import open_hypersync_stream
+from eth_defi.hypersync.session import ThrottledHypersyncClient, open_hypersync_stream
 from eth_defi.vault.flow_events import decode_hypersync_int
 
 try:
@@ -30,12 +30,15 @@ except ImportError:
     hypersync = None
 
 
-GMX_SHARE_PRICE_EVENT_NAMES = ("MarketPoolValueUpdated", "GlvValueUpdated")
-GMX_DEPOSIT_ACTION_TYPE = keccak(encode(["string"], ["DEPOSIT"]))
+#: GMX EventEmitter event names containing matched value and supply.
+GMX_SHARE_PRICE_EVENT_NAMES: tuple[str, ...] = ("MarketPoolValueUpdated", "GlvValueUpdated")
+
+#: ``actionType`` emitted by GMX after a deposit execution.
+GMX_DEPOSIT_ACTION_TYPE: bytes = keccak(encode(["string"], ["DEPOSIT"]))
 
 #: Non-indexed ``EventLog1`` inputs. Direct decoding avoids materialising all
 #: seven generic GMX key/value families through Web3's event wrapper.
-GMX_EVENT_LOG1_DATA_TYPES = (
+GMX_EVENT_LOG1_DATA_TYPES: tuple[str, str, str] = (
     "address",
     "string",
     "(((string,address)[],(string,address[])[]),((string,uint256)[],(string,uint256[])[]),((string,int256)[],(string,int256[])[]),((string,bool)[],(string,bool[])[]),((string,bytes32)[],(string,bytes32[])[]),((string,bytes)[],(string,bytes[])[]),((string,string)[],(string,string[])[]))",
@@ -94,35 +97,33 @@ class GMXHistoricalSharePriceObservation:
     value and supply after execution; GLV minting and burning use the pre-flow
     ratio, so updating both numerator and denominator does not mechanically
     rebase the existing holders' claim.
-
-    :param chain_id:
-        EVM chain where GMX emitted the observation.
-    :param block_number:
-        Block containing the valuation event.
-    :param block_timestamp:
-        Unix timestamp of the valuation block.
-    :param transaction_hash:
-        Emitting transaction hash.
-    :param log_index:
-        Log position inside its block.
-    :param product_address:
-        GM market token or GLV share token.
-    :param raw_value:
-        USD GM market or GLV value using GMX's 30-decimal precision.
-    :param raw_supply:
-        ERC-20 share supply using 18-decimal precision.
-    :param event_name:
-        ``MarketPoolValueUpdated`` or ``GlvValueUpdated``.
     """
 
+    #: EVM chain where GMX emitted the observation.
     chain_id: int
+
+    #: Block containing the valuation event.
     block_number: int
+
+    #: Unix timestamp of the valuation block.
     block_timestamp: int
+
+    #: Emitting transaction hash.
     transaction_hash: str
+
+    #: Log position inside its block.
     log_index: int
+
+    #: GM market token or GLV share token.
     product_address: HexAddress
+
+    #: USD GM market or GLV value using GMX's 30-decimal precision.
     raw_value: int
+
+    #: ERC-20 share supply using 18-decimal precision.
     raw_supply: int
+
+    #: ``MarketPoolValueUpdated`` or ``GlvValueUpdated``.
     event_name: str
 
     @property
@@ -215,7 +216,7 @@ def extract_historical_share_price_observation(
 
 async def _fetch_historical_share_price_observations_hypersync_async(
     *,
-    hypersync_client,
+    hypersync_client: ThrottledHypersyncClient,
     web3: Web3,
     chain_id: int,
     event_emitter_address: HexAddress,
@@ -270,7 +271,7 @@ async def _fetch_historical_share_price_observations_hypersync_async(
 
 def fetch_historical_share_price_observations_hypersync(
     *,
-    hypersync_client,
+    hypersync_client: ThrottledHypersyncClient,
     web3: Web3,
     chain_id: int,
     event_emitter_address: HexAddress,

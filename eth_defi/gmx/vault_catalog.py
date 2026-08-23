@@ -5,15 +5,22 @@ They must therefore be enumerated from GMX's Reader contracts rather than the
 generic Deposit-event discovery path.  This module is deliberately limited to
 current catalogue facts; historical first-usable-block evidence and historical
 valuation are separate stages.
+
+The contract interfaces follow GMX's canonical `Reader.sol
+<https://github.com/gmx-io/gmx-synthetics/blob/main/contracts/reader/Reader.sol>`__
+and `GlvReader.sol
+<https://github.com/gmx-io/gmx-synthetics/blob/main/contracts/reader/GlvReader.sol>`__
+implementations.
 """
 
 import logging
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from dataclasses import dataclass
 
 from eth_typing import BlockIdentifier, HexAddress
 from eth_utils import to_checksum_address
 from web3 import Web3
+from web3.contract.contract import Contract, ContractFunction
 
 from eth_defi.gmx.contracts import get_contract_addresses, get_datastore_contract, get_glv_reader_contract, get_reader_contract
 from eth_defi.gmx.keys import is_glv_market_disabled_key, is_market_disabled_key
@@ -22,7 +29,8 @@ from eth_defi.token import fetch_erc20_details
 logger = logging.getLogger(__name__)
 
 
-GMX_CHAIN_NAMES_BY_ID = {
+#: Supported GMX V2 vault-catalogue deployments by EVM chain ID.
+GMX_CHAIN_NAMES_BY_ID: dict[int, str] = {
     42161: "arbitrum",
     43114: "avalanche",
 }
@@ -32,40 +40,41 @@ GMX_CHAIN_NAMES_BY_ID = {
 class GMXVaultProduct:
     """Current onchain identity and composition of one GMX V2 share token.
 
-    :param chain_id:
-        EVM chain where the product is deployed.
-    :param token_address:
-        GM market-token or GLV share-token address.
-    :param product_type:
-        ``"gm"`` for a market token or ``"glv"`` for a multi-market share.
-    :param symbol:
-        ERC-20 share-token symbol.
-    :param name:
-        ERC-20 share-token name.
-    :param decimals:
-        ERC-20 share-token decimals.
-    :param component_addresses:
-        GM: market, index, long and short token addresses. GLV: GLV, long and
-        short token addresses followed by supported GM market addresses.
-    :param accepted_deposit_tokens:
-        GMX long and short token addresses accepted for this product.
-    :param is_enabled:
-        Current GMX DataStore status. Disabled products remain present so a
-        later metadata synchronisation does not orphan historical rows.
+    The catalogue synchroniser converts this protocol-native description into
+    a common vault metadata row without losing GM/GLV composition details.
     """
 
+    #: EVM chain where the product is deployed.
     chain_id: int
+
+    #: GM market-token or GLV share-token address.
     token_address: HexAddress
+
+    #: ``"gm"`` for a market token or ``"glv"`` for a multi-market share.
     product_type: str
+
+    #: ERC-20 share-token symbol.
     symbol: str
+
+    #: ERC-20 share-token name.
     name: str
+
+    #: ERC-20 share-token decimals.
     decimals: int
+
+    #: GM market, index, long and short addresses, or GLV share, long, short
+    #: and supported GM market addresses.
     component_addresses: tuple[HexAddress, ...]
+
+    #: GMX long and short token addresses accepted for this product.
     accepted_deposit_tokens: tuple[HexAddress, ...]
+
+    #: Current GMX DataStore status. Disabled products remain present so later
+    #: metadata synchronisation does not orphan historical rows.
     is_enabled: bool
 
 
-def _paginate_reader_call(reader_call, *, page_size: int, block_identifier: BlockIdentifier) -> Iterator[tuple]:
+def _fetch_paginated_reader_items(reader_call: Callable[[int, int], ContractFunction], *, page_size: int, block_identifier: BlockIdentifier) -> Iterator[tuple]:
     """Yield every item returned by one GMX Reader pagination function.
 
     :param reader_call:
@@ -115,7 +124,7 @@ def _fetch_token_metadata(web3: Web3, chain_id: int, token_address: HexAddress, 
     return token.symbol, token.name, token.decimals
 
 
-def _fetch_market_enabled(datastore, market_address: HexAddress, block_identifier: BlockIdentifier) -> bool:
+def _fetch_market_enabled(datastore: Contract, market_address: HexAddress, block_identifier: BlockIdentifier) -> bool:
     """Read the current enablement flag for one GM market token.
 
     :param datastore:
@@ -130,7 +139,7 @@ def _fetch_market_enabled(datastore, market_address: HexAddress, block_identifie
     return not datastore.functions.getBool(is_market_disabled_key(market_address)).call(block_identifier=block_identifier)
 
 
-def _fetch_glv_enabled(datastore, glv_address: HexAddress, markets: tuple[HexAddress, ...], block_identifier: BlockIdentifier) -> bool:
+def _fetch_glv_enabled(datastore: Contract, glv_address: HexAddress, markets: tuple[HexAddress, ...], block_identifier: BlockIdentifier) -> bool:
     """Determine whether a GLV has at least one currently enabled market.
 
     :param datastore:
@@ -151,8 +160,8 @@ def _fetch_gm_products(
     *,
     web3: Web3,
     chain_id: int,
-    datastore,
-    reader,
+    datastore: Contract,
+    reader: Contract,
     datastore_address: HexAddress,
     page_size: int,
     block_identifier: BlockIdentifier,
@@ -180,11 +189,11 @@ def _fetch_gm_products(
         Every GM market-token product, including disabled markets.
     """
 
-    def market_call(start: int, end: int):
+    def market_call(start: int, end: int) -> ContractFunction:
         """Build one page request for the SyntheticsReader."""
         return reader.functions.getMarkets(datastore_address, start, end)
 
-    for raw_market in _paginate_reader_call(market_call, page_size=page_size, block_identifier=block_identifier):
+    for raw_market in _fetch_paginated_reader_items(market_call, page_size=page_size, block_identifier=block_identifier):
         market_address, index_token, long_token, short_token = (to_checksum_address(address) for address in raw_market)
         symbol, name, decimals = _fetch_token_metadata(web3, chain_id, market_address, token_cache)
         yield GMXVaultProduct(
@@ -204,8 +213,8 @@ def _fetch_glv_products(
     *,
     web3: Web3,
     chain_id: int,
-    datastore,
-    glv_reader,
+    datastore: Contract,
+    glv_reader: Contract,
     datastore_address: HexAddress,
     page_size: int,
     block_identifier: BlockIdentifier,
@@ -233,11 +242,11 @@ def _fetch_glv_products(
         Every GLV product, including products without enabled constituent markets.
     """
 
-    def glv_call(start: int, end: int):
+    def glv_call(start: int, end: int) -> ContractFunction:
         """Build one page request for the GlvReader."""
         return glv_reader.functions.getGlvInfoList(datastore_address, start, end)
 
-    for raw_glv_info in _paginate_reader_call(glv_call, page_size=page_size, block_identifier=block_identifier):
+    for raw_glv_info in _fetch_paginated_reader_items(glv_call, page_size=page_size, block_identifier=block_identifier):
         raw_glv, raw_markets = raw_glv_info
         glv_address, long_token, short_token = (to_checksum_address(address) for address in raw_glv)
         markets = tuple(to_checksum_address(address) for address in raw_markets)
