@@ -149,7 +149,7 @@ def test_gmx_reader_uses_supply_normalised_value_event(tmp_path: Path) -> None:
         product_address=GM_TOKEN,
         raw_value=250 * 10**30,
         raw_supply=100 * 10**18,
-        event_name="MarketPoolValueInfo",
+        event_name="MarketPoolValueUpdated",
     )
     with GMXHistoricalContextStore(context_path) as store:
         assert store.insert_share_price(observation)

@@ -28,7 +28,7 @@ from eth_defi.chain import get_chain_name
 from eth_defi.compat import native_datetime_utc_now
 from eth_defi.core3.vault_protocol import Core3ExportRecord, Core3VaultSection, build_core3_vault_section
 from eth_defi.erc_4626.classification import HARDCODED_PROTOCOLS
-from eth_defi.erc_4626.core import ERC4262VaultDetection
+from eth_defi.erc_4626.core import ERC4262VaultDetection, ERC4626Feature
 from eth_defi.erc_4626.vault_protocol.morpho.flag_analytics import MorphoFlagAnalytics, analyze_morpho_flags
 from eth_defi.feed.stablecoin_rate import DenominationTokenRate, StablecoinRateFeeder
 from eth_defi.perp_dex.export import build_perp_dex_other_data
@@ -2214,6 +2214,7 @@ def calculate_vault_record(
             utilisation_series = utilisation_observations.resample("D").last().ffill()
 
     period_results = []
+    is_event_observed_gmx = any(feature in features for feature in (ERC4626Feature.gmx_gm.name, ERC4626Feature.gmx_glv.name))
     for period in LOOKBACK_AND_TOLERANCES.keys():
         period_metric = calculate_period_metrics(
             period=period,
@@ -2226,6 +2227,12 @@ def calculate_vault_record(
             now_=now_,
             utilisation=utilisation_series,
         )
+        if is_event_observed_gmx:
+            # GMX observations occur only when a GM/GLV operation emits a
+            # value event. Event-free days are unobserved, not zero-return
+            # days, so daily volatility and Sharpe would measure flow cadence.
+            period_metric.volatility = None
+            period_metric.sharpe = None
         period_results.append(period_metric)
 
     # Extract period metrics for backward compatibility
@@ -2616,6 +2623,7 @@ def calculate_vault_rankings(
     - They have no CAGR data (zero or NaN)
     - They have an error_reason set
     - They are blacklisted (risk == VaultTechnicalRisk.blacklisted)
+    - They are disabled GMX products retained only for historical continuity
     - Their period TVL is below the applicable ranking threshold
 
     :param results_df:
@@ -2657,12 +2665,14 @@ def calculate_vault_rankings(
 
             # Apply exclusion criteria (common checks)
             is_blacklisted = row["risk"] == VaultTechnicalRisk.blacklisted
+            deposit_closed_reason = row.get("deposit_closed_reason")
+            is_disabled_gmx = row.get("protocol") == "GMX" and pd.notna(deposit_closed_reason) and bool(deposit_closed_reason)
             tvl = pm.tvl_end if pd.notna(pm.tvl_end) else 0
             has_no_cagr = cagr is None or cagr == 0 or pd.isna(cagr)
 
             # Chain/protocol rankings use lower TVL threshold
             has_low_tvl_chain_protocol = tvl < min_tvl_chain_protocol
-            if is_blacklisted or has_low_tvl_chain_protocol or has_no_cagr:
+            if is_blacklisted or is_disabled_gmx or has_low_tvl_chain_protocol or has_no_cagr:
                 cagr_values_chain_protocol.append(pd.NA)
             else:
                 cagr_values_chain_protocol.append(cagr)
@@ -2670,14 +2680,14 @@ def calculate_vault_rankings(
             # Curator rankings include smaller vaults, but still omit unknown
             # curators because there is no meaningful comparison group.
             has_low_tvl_curator = tvl < min_tvl_curator
-            if is_blacklisted or has_low_tvl_curator or has_no_cagr:
+            if is_blacklisted or is_disabled_gmx or has_low_tvl_curator or has_no_cagr:
                 cagr_values_curator.append(pd.NA)
             else:
                 cagr_values_curator.append(cagr)
 
             # Overall rankings use higher TVL threshold
             has_low_tvl_overall = tvl < min_tvl_overall
-            if is_blacklisted or has_low_tvl_overall or has_no_cagr:
+            if is_blacklisted or is_disabled_gmx or has_low_tvl_overall or has_no_cagr:
                 cagr_values_overall.append(pd.NA)
             else:
                 cagr_values_overall.append(cagr)

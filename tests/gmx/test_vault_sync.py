@@ -1,5 +1,6 @@
 """Tests for GMX catalogue reconciliation into the common metadata database."""
 
+from dataclasses import replace
 from types import SimpleNamespace
 
 import pytest
@@ -54,6 +55,7 @@ def test_fetch_and_sync_gmx_vault_catalogue_is_idempotent(monkeypatch: pytest.Mo
     vault_db = VaultDatabase()
 
     first = fetch_and_sync_gmx_vault_catalogue(web3=web3, vault_db=vault_db, token_cache={}, block_number=FIRST_CATALOGUE_BLOCK)
+    vault_db.rows[VaultSpec(42161, GM_TOKEN)]["_manual_enrichment"] = "keep me"
     monkeypatch.setattr(
         vault_sync,
         "create_vault_scan_record",
@@ -65,15 +67,31 @@ def test_fetch_and_sync_gmx_vault_catalogue_is_idempotent(monkeypatch: pytest.Mo
         },
     )
     second = fetch_and_sync_gmx_vault_catalogue(web3=web3, vault_db=vault_db, token_cache={}, block_number=456)
+    monkeypatch.setattr(vault_sync, "fetch_gmx_v2_vault_products", lambda *_args, **_kwargs: iter((replace(product, is_enabled=False),)))
+    monkeypatch.setattr(
+        vault_sync,
+        "create_vault_scan_record",
+        lambda _web3, detection, _block_number, _token_cache: {
+            "_detection_data": detection,
+            "Name": "GMX market refreshed",
+            "Protocol": "GMX",
+            "Denomination": "USD",
+        },
+    )
+    third = fetch_and_sync_gmx_vault_catalogue(web3=web3, vault_db=vault_db, token_cache={}, block_number=789)
 
     row = vault_db.rows[VaultSpec(42161, GM_TOKEN)]
     detection = row["_detection_data"]
     assert first.inserted == 1
     assert second.inserted == 0
     assert second.updated == 1
-    assert row["Name"] == "GMX market"
+    assert third.inserted == 0
+    assert third.updated == 1
+    assert row["Name"] == "GMX market refreshed"
+    assert row["_manual_enrichment"] == "keep me"
     assert detection.first_seen_at_block == FIRST_CATALOGUE_BLOCK
     assert detection.address == GM_TOKEN.lower()
     assert detection.features == {ERC4626Feature.gmx_gm, ERC4626Feature.share_price_equivalence}
     assert row["_gmx_component_addresses"] == tuple(address.lower() for address in product.component_addresses)
-    assert row["_gmx_enabled"] is True
+    assert row["_gmx_enabled"] is False
+    assert row["_deposit_closed_reason"] == "GMX product disabled"

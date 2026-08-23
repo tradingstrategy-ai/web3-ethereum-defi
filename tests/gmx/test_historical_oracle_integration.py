@@ -22,11 +22,11 @@ from eth_defi.vault.vaultdb import VaultDatabase
 pytestmark = pytest.mark.skipif(not os.environ.get("JSON_RPC_ARBITRUM"), reason="requires JSON_RPC_ARBITRUM")
 
 
-#: Fixed block containing a value-and-supply event for the selected
-#: GM market.
+#: Fixed block containing a post-deposit value-and-supply event for the
+#: selected GM market.
 GMX_VALUE_EVENT_BLOCK = 305_647_934
 GM_MARKET = to_checksum_address("0x0c11Ed89889Fd03394E8d9d685cC5b85be569C99")
-EXPECTED_SHARE_PRICE = 1.0000741432025045
+EXPECTED_SHARE_PRICE = 1.0003274676219793
 
 
 def test_gmx_context_to_common_parquet_and_lifetime_metrics(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:  # noqa: PLR0914

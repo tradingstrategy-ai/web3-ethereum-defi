@@ -466,26 +466,26 @@ lead discovery and GMX catalogue sync
 ```
 
 GMX has no ERC-4626 ``convertToAssets()`` share price. Instead the reader uses
-``MarketPoolValueInfo`` and ``GlvValueUpdated`` events:
+deposit-context ``MarketPoolValueUpdated`` and ``GlvValueUpdated`` events:
 
 ```text
 share price equivalent = event USD value / corresponding event token supply
 ```
 
-For GM, ``MarketPoolValueInfo`` contains value and supply before the mint or
-burn. For GLV, ``GlvValueUpdated`` contains both after execution; GLV shares
-are minted or burned proportionally using the pre-flow ratio. Dividing the
-matched values prevents the liquidity amount or share-count change itself from
-appearing as profit. Fees and rounding that genuinely affect existing holders
-remain visible. GM deposit and withdrawal events use their respective GMX
-valuation contexts, so this is an event-observed share-price equivalent rather
-than a continuously sampled canonical NAV.
+For GM, only post-deposit updates are accepted. GMX values deposits and
+withdrawals with different PnL-factor and maximise/minimise settings, so mixing
+the two contexts would create false returns. For GLV, ``GlvValueUpdated``
+contains value and supply after execution; GLV shares are minted or burned
+proportionally using the pre-flow ratio. GMX notes that GLV values can omit
+shift, deposit or withdrawal fees when a GLV oracle price is used. The result
+is an event-observed share-price approximation rather than a continuously
+sampled canonical NAV.
 
 The common writer retains the first row and subsequent share-price moves above
 ``DEFAULT_HISTORICAL_SHARE_PRICE_CHANGE_THRESHOLD``; it ignores flow-only
 changes and sub-threshold noise. Raw Parquet remains sparse. Metric calculation
-forward-fills the last observation onto a consecutive daily index once per
-vault before calculating CAGR, volatility or Sharpe ratios.
+uses observed endpoints for returns and CAGR. GMX volatility and Sharpe are
+reported as unavailable because operation events do not provide daily NAVs.
 
 The curve approximates a single-sided USDC deposit. It does not simulate an
 individual request, so it excludes execution fees, price impact, token
@@ -543,15 +543,15 @@ source .local-test.env && \
   poetry run python scripts/erc-4626/examine-gmx-vault-performance.py
 ```
 
-``3M CAGR`` and ``3M Sharpe`` are ``N/A`` when the available observation
-window does not satisfy the common three-month period rules.
+``3M CAGR`` is ``N/A`` when the available observation window does not satisfy
+the common three-month period rules. ``3M Sharpe`` is always ``N/A`` for GMX's
+event-observed curve.
 
 | Variable | Script | Description |
 |----------|--------|-------------|
 | `CHAINS` | seed | Comma-separated `arbitrum,avalanche`; defaults to both. |
 | `CHAIN` | backfill | One of `arbitrum` or `avalanche`. |
 | `START_BLOCK` / `END_BLOCK` | backfill | Required half-open price range with `START_BLOCK >= 1`. |
-| `OBSERVATION_START_BLOCK` | backfill | Optional cache resume boundary; defaults to `START_BLOCK`. |
 | `FREQUENCY` | backfill | Common block bucket frequency, `1h` or `1d`; default `1h`. |
 | `VAULT_ADDRESSES` | backfill | Optional comma-separated GM/GLV subset. |
 | `MAX_WORKERS` | seed, backfill | Thread worker count. |

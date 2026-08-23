@@ -7,9 +7,6 @@ Environment variables:
 
 - ``CHAIN``: Required, ``arbitrum`` or ``avalanche``.
 - ``START_BLOCK`` / ``END_BLOCK``: Required half-open block range.
-- ``OBSERVATION_START_BLOCK``: Optional resume boundary for an already
-  partially populated observation cache. The price scan still begins at
-  ``START_BLOCK``.
 - ``FREQUENCY``: ``1h`` (default) or ``1d``.
 - ``MAX_WORKERS``: Historical reader worker count. Defaults to 4.
 - ``VAULT_ADDRESSES``: Optional comma-separated GM/GLV address subset.
@@ -42,7 +39,6 @@ def _run_backfill(
     *,
     chain_name: str,
     start_block: int,
-    observation_start_block: int,
     end_block: int,
     frequency: str,
     max_workers: int,
@@ -73,7 +69,7 @@ def _run_backfill(
     prefill = fetch_and_store_gmx_historical_share_prices(
         web3=web3,
         hypersync_client=hypersync.hypersync_client,
-        start_block=observation_start_block,
+        start_block=start_block,
         end_block=end_block,
         context_path=context_database,
         product_addresses=(detection.address for detection in detections),
@@ -120,13 +116,9 @@ def main() -> None:
         message = "Set CHAIN to arbitrum or avalanche"
         raise ValueError(message)
     start_block = int(os.environ["START_BLOCK"])
-    observation_start_block = int(os.environ.get("OBSERVATION_START_BLOCK", start_block))
     end_block = int(os.environ["END_BLOCK"])
     if not 1 <= start_block < end_block:
         message = "Require 1 <= START_BLOCK < END_BLOCK"
-        raise ValueError(message)
-    if not start_block <= observation_start_block < end_block:
-        message = "Require START_BLOCK <= OBSERVATION_START_BLOCK < END_BLOCK"
         raise ValueError(message)
     frequency = os.environ.get("FREQUENCY", "1h")
     if frequency not in {"1h", "1d"}:
@@ -148,7 +140,6 @@ def main() -> None:
             _run_backfill(
                 chain_name=chain_name,
                 start_block=start_block,
-                observation_start_block=observation_start_block,
                 end_block=end_block,
                 frequency=frequency,
                 max_workers=max_workers,
@@ -165,7 +156,6 @@ def main() -> None:
         _run_backfill(
             chain_name=chain_name,
             start_block=start_block,
-            observation_start_block=observation_start_block,
             end_block=end_block,
             frequency=frequency,
             max_workers=max_workers,

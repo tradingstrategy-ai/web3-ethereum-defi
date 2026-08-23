@@ -11,8 +11,8 @@ transaction construction are out of scope.
 
 ## Valuation model
 
-GMX emits ``MarketPoolValueInfo`` and ``GlvValueUpdated`` while processing LP
-operations. Both events contain a pool value and its corresponding token
+GMX emits ``MarketPoolValueUpdated`` and ``GlvValueUpdated`` while processing
+LP operations. Both events contain a pool value and its corresponding token
 supply:
 
 ```text
@@ -20,13 +20,13 @@ share_price_usd = raw_value / raw_token_supply
 total_assets_usd = share_price_usd × total_supply
 ```
 
-GM records both before minting or burning. GLV records both after execution,
-but its mint or burn is proportional to the pre-flow ratio. Dividing the
-matched values prevents a change in liquidity or share count from being
-mistaken for profit; fees and rounding that affect existing holders remain.
-GM deposit and withdrawal observations use their respective GMX valuation
-contexts, so the result is an event-observed share-price equivalent rather
-than a continuous canonical NAV.
+For GM, accept only post-deposit updates. GMX uses different PnL-factor and
+maximise/minimise settings for withdrawals, so alternating deposit and
+withdrawal observations would create false returns. GLV records value and
+supply after execution, and its mint or burn is proportional to the pre-flow
+ratio. GMX notes that GLV values may omit shift, deposit or withdrawal fees
+when a GLV oracle price is used. The result is an event-observed share-price
+approximation rather than a continuous canonical NAV.
 
 The curve approximates a single-sided USDC deposit but does not simulate
 transaction-specific execution fees, price impact, spreads or
@@ -124,10 +124,10 @@ filter and Parquet write. ``share_price_equivalence`` rows compare only share
 price, so TVL/supply changes caused by LP flows do not create observations.
 The normal 0.1% share-price threshold removes sub-threshold changes.
 
-Raw observations remain sparse. ``calculate_lifetime_metrics()`` prepares one
-forward-filled consecutive daily price/return pair per vault and passes it to
-all period calculations, avoiding both irregular-time Sharpe inputs and
-duplicate resampling work.
+Raw observations remain sparse. ``calculate_lifetime_metrics()`` calculates
+GMX returns and CAGR from observed endpoints. It leaves volatility and Sharpe
+unavailable because GMX operation events cannot establish a regular daily NAV
+series.
 
 ## 5. Migration and examination tools
 
@@ -142,7 +142,7 @@ Add four environment-variable-driven scripts:
    positive values, the asset identity and the common change threshold.
 4. ``examine-gmx-vault-performance.py`` runs
    ``calculate_lifetime_metrics()`` and prints name, accepted tokens, TVL,
-   lifetime CAGR, 3M CAGR and 3M Sharpe.
+   lifetime CAGR and 3M CAGR, with GMX 3M Sharpe shown as unavailable.
 
 No Parquet schema migration or second vault database is needed. Back up the
 metadata pickle, raw Parquet and shared context DuckDB before the first
@@ -161,7 +161,7 @@ Hypersync value-and-supply event
   → GMX DuckDB table
   → GMXHistoricalReader
   → common raw Parquet
-  → daily return preparation
+  → endpoint return and CAGR calculation
   → calculate_lifetime_metrics()
 ```
 

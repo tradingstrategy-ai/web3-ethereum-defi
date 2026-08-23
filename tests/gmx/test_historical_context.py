@@ -25,7 +25,7 @@ def _observation(block_number: int, log_index: int = 1, raw_value: int = 10**30)
         product_address=TOKEN,
         raw_value=raw_value,
         raw_supply=10**18,
-        event_name="MarketPoolValueInfo",
+        event_name="MarketPoolValueUpdated",
     )
 
 
@@ -44,6 +44,21 @@ def test_share_price_events_are_idempotent_and_downsampled(tmp_path: Path) -> No
 
     assert selected == (late, next_bucket)
     assert selected[0].share_price == pytest.approx(2)
+
+
+def test_identical_observation_is_promoted_to_current_schema(tmp_path: Path) -> None:
+    """A refetch makes an unchanged, still-valid cached observation readable."""
+
+    observation = _observation(5)
+    with GMXHistoricalContextStore(tmp_path / "vault-historical-context.duckdb") as store:
+        assert store.insert_share_price(observation)
+        store.connection.execute("UPDATE gmx_historical_context SET schema_version = 2")
+        assert tuple(store.iter_share_prices(chain_id=42161, product_address=TOKEN, start_block=0, end_block=10, step=10)) == ()
+
+        assert store.insert_share_price(observation)
+        selected = tuple(store.iter_share_prices(chain_id=42161, product_address=TOKEN, start_block=0, end_block=10, step=10))
+
+    assert selected == (observation,)
 
 
 def test_share_price_reader_rejects_tampered_payload(tmp_path: Path) -> None:

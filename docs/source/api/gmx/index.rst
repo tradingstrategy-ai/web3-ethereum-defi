@@ -50,24 +50,26 @@ Liquidity-provider vault data
 
 The vault dataset enumerates GM and GLV tokens from the GMX V2 Reader
 contracts on Arbitrum and Avalanche. Historical USD performance comes from
-``MarketPoolValueInfo`` and ``GlvValueUpdated`` events:
+deposit-context ``MarketPoolValueUpdated`` and ``GlvValueUpdated`` events:
 
 .. code-block:: text
 
    share price equivalent = event USD value / corresponding event token supply
 
-For GM, ``MarketPoolValueInfo`` records value and supply before the mint or
-burn. For GLV, ``GlvValueUpdated`` records both after execution; GLV shares are
-minted or burned proportionally using the pre-flow ratio. Dividing the matched
-value and supply therefore prevents the liquidity amount or share-count change
-itself from appearing as profit. Fees and rounding that genuinely change the
-claim of existing holders remain in the curve.
+For GM, the reader accepts only post-deposit ``MarketPoolValueUpdated`` rows.
+GMX values deposits and withdrawals with different PnL-factor and
+maximise/minimise settings, so mixing their observations would create false
+returns. For GLV, ``GlvValueUpdated`` records value and supply after execution;
+GLV shares are minted or burned proportionally using the pre-flow ratio.
+Dividing matched value and supply prevents flow size alone from appearing as
+profit. GMX notes that GLV values may omit shift, deposit or withdrawal fees
+when a GLV oracle price is used, so the curve remains approximate.
 
 This is an event-observed share-price equivalent, not a continuously sampled
-canonical NAV. In particular, GM deposit and withdrawal calculations use their
-respective GMX valuation contexts. Sparse observations pass through the same
-change threshold, Parquet writer, daily regularisation and lifetime metrics as
-other EVM vaults.
+canonical NAV. Sparse observations pass through the same change threshold,
+Parquet writer and endpoint return/CAGR calculations as other EVM vaults.
+Volatility and Sharpe are unavailable because an event-free day is unobserved,
+not evidence of a zero daily return.
 
 The result approximates the performance of a single-sided USDC deposit. It is
 not a transaction simulation: execution fees, price impact, token spreads,

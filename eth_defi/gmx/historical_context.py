@@ -26,7 +26,7 @@ from eth_defi.gmx.historical_oracle import GMXHistoricalSharePriceObservation, f
 from eth_defi.gmx.vault_catalog import GMX_CHAIN_NAMES_BY_ID
 from eth_defi.vault.vaultdb import get_pipeline_data_dir
 
-GMX_HISTORICAL_CONTEXT_SCHEMA_VERSION = 2
+GMX_HISTORICAL_CONTEXT_SCHEMA_VERSION = 3
 GMX_HYPERSYNC_VALUATION_CHUNK_SIZE = 10_000_000
 GMX_LP_SHARE_PRICE_VALUATION_CONTEXT = "lp_share_price"
 GMX_HYPERSYNC_RATE_LIMIT_RETRIES = 10
@@ -147,7 +147,7 @@ class GMXHistoricalContextStore(AbstractContextManager):
         )
         existing = self.connection.execute(
             """
-            SELECT payload_hash
+            SELECT payload_hash, schema_version
             FROM gmx_historical_context
             WHERE chain_id = ? AND sample_block_number = ? AND valuation_context = ?
               AND source_observation_id = ? AND token_coverage_hash = ?
@@ -157,6 +157,17 @@ class GMXHistoricalContextStore(AbstractContextManager):
         if existing is not None:
             if existing[0] != payload_hash:
                 raise ValueError(f"GMX historical share-price conflict for {key}")
+            if existing[1] != GMX_HISTORICAL_CONTEXT_SCHEMA_VERSION:
+                self.connection.execute(
+                    """
+                    UPDATE gmx_historical_context
+                    SET schema_version = ?
+                    WHERE chain_id = ? AND sample_block_number = ? AND valuation_context = ?
+                      AND source_observation_id = ? AND token_coverage_hash = ?
+                    """,
+                    (GMX_HISTORICAL_CONTEXT_SCHEMA_VERSION, *key),
+                )
+                return True
             return False
         self.connection.execute(
             "INSERT INTO gmx_historical_context VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
@@ -198,10 +209,10 @@ class GMXHistoricalContextStore(AbstractContextManager):
             FROM gmx_historical_context
             WHERE chain_id = ? AND sample_block_number >= ?
               AND sample_block_number < ? AND valuation_context = ?
-              AND token_coverage_hash = ?
+              AND token_coverage_hash = ? AND schema_version = ?
             ORDER BY sample_block_number ASC, source_observation_id ASC
             """,
-            (chain_id, start_block, end_block, GMX_LP_SHARE_PRICE_VALUATION_CONTEXT, coverage_hash),
+            (chain_id, start_block, end_block, GMX_LP_SHARE_PRICE_VALUATION_CONTEXT, coverage_hash, GMX_HISTORICAL_CONTEXT_SCHEMA_VERSION),
         ).fetchall()
         by_bucket: dict[int, GMXHistoricalSharePriceObservation] = {}
         for sample_block_number, source_observation_id, payload_hash, schema_version, context_json in rows:

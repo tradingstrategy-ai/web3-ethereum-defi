@@ -43,8 +43,8 @@ share price        = total assets / total supply
 ```
 
 This ratio measures the USD value attributable to one GM or GLV share. It lets
-GMX products use the same equity-curve, CAGR, volatility and Sharpe-ratio code
-as vaults that publish a conventional share price.
+GMX products use the same equity-curve and endpoint CAGR code as vaults that
+publish a conventional share price.
 
 The vault performance approximates the performance of a single-sided USDC deposit.
 
@@ -55,8 +55,10 @@ are also not management or performance fees in the `VaultBase` fee interface.
 GMX exposes zero for those two manager-level fee fields.
 
 The curve includes changes that affect the value of all existing shares, such
-as pool asset prices, trader profit and loss, liquidity-provider fee revenue,
-and any fees or rounding that change the value per share.
+as pool asset prices, trader profit and loss and liquidity-provider fee
+revenue. It remains an approximation: in particular, GMX notes that a GLV
+value can omit shift, deposit or withdrawal fees when a GLV oracle price is
+used.
 
 ## Why deposits and withdrawals do not create false profit
 
@@ -65,17 +67,20 @@ TVL and a large withdrawal lowers it even when existing liquidity providers
 have made no profit or loss. The GMX reader instead divides matched pool value
 and token supply from the same protocol event.
 
-GM and GLV have slightly different event ordering:
+GM and GLV have different source limitations:
 
-- `MarketPoolValueInfo` contains GM market value and supply before the related
-  mint or burn.
+- `MarketPoolValueUpdated` contains GM market value and supply after an
+  operation. The curve accepts deposit updates only. GMX values deposits and
+  withdrawals with different PnL-factor and maximise/minimise settings, so
+  alternating the two contexts would create false returns.
 - `GlvValueUpdated` contains GLV value and supply after execution. GLV shares
   are minted or burned using the pre-flow ratio, so value and supply change
   proportionally in the absence of costs.
 
-Consequently, deposit or withdrawal size alone does not mechanically rebase the
-equity curve. Fees, rounding and price impact that genuinely change the value
-per existing share remain visible.
+Consequently, deposit size alone does not mechanically rebase the GM equity
+curve, and proportional GLV flows do not mechanically rebase the GLV curve.
+The source limitations above mean this remains an approximation rather than a
+complete accounting of every flow cost.
 
 This is still an event-observed share-price equivalent, not a continuously
 sampled canonical NAV. GMX can calculate values in different execution
@@ -140,9 +145,9 @@ detection row. The persisted features are:
   derived price represent performance.
 
 The row also records component addresses, accepted deposit-token addresses and
-the current enabled status. Catalogue updates are merged into the existing
-vault database so unrelated rows and better previously collected metadata are
-preserved.
+the current enabled status. Catalogue updates refresh scanner-owned fields
+while preserving unrelated enrichment fields. Disabled products retain their
+history, are marked deposit-closed and are excluded from vault rankings.
 
 ## Vault adapters
 
@@ -180,14 +185,14 @@ types through Hypersync:
 
 | Product | Event | Value field | Supply field |
 |---------|-------|-------------|--------------|
-| GM | `MarketPoolValueInfo` | `poolValue` | `marketTokensSupply` |
+| GM | Deposit-context `MarketPoolValueUpdated` | `poolValue` | `marketTokensSupply` |
 | GLV | `GlvValueUpdated` | `value` | `supply` |
 
 The Hypersync query filters by EventEmitter address, event-name topic and,
 where supplied, the selected product-address topics. It fetches block
 timestamps with the logs, decodes only the fields needed for valuation, rejects
-non-positive value or supply pairs, and sorts observations by block and log
-index.
+non-positive value or supply pairs and non-deposit GM updates, and sorts
+observations by block and log index.
 
 This reader does not replay GMX's signed price oracle and does not reconstruct
 historical GMX state with archive RPC calls. The emitted value-and-supply pair
@@ -221,8 +226,10 @@ observation is ignored; finding the same key with a different payload raises an
 error instead of silently changing history.
 
 Large backfills are split into half-open Hypersync chunks and each chunk is
-committed independently. A failed backfill can therefore resume from a later
-`OBSERVATION_START_BLOCK` without rebuilding the earlier cache.
+committed independently. Repeating the complete requested range is safe because
+source observations are inserted idempotently. The script always fetches the
+full replacement range; it does not accept an unverified resume cursor that
+could leave the rebuilt Parquet interval incomplete.
 
 ## Contextual historical reader
 
@@ -284,10 +291,11 @@ Because GMX rows carry `share_price_equivalence`, changes in total assets or
 total supply alone do not defeat this filter. This prevents deposits and
 withdrawals from creating unnecessary Parquet rows.
 
-The resulting Parquet series remains sparse. Before calculating CAGR,
-volatility, Sharpe ratios and period metrics, the common metrics code prepares
-one consecutive daily share-price series per vault and reuses it for all
-calculations. It does not treat irregular event intervals as daily returns.
+The resulting Parquet series remains sparse. Endpoint return and CAGR remain
+available. Volatility and Sharpe are intentionally unavailable for GMX because
+events occur only during GM/GLV operations: an event-free day is unobserved,
+not evidence of a zero daily return. Forward-filling those days would make risk
+metrics depend on liquidity-flow cadence.
 
 ## Manual migration and examination
 
@@ -299,7 +307,7 @@ local verification:
 | [`seed-gmx-vaults.py`](../../scripts/erc-4626/seed-gmx-vaults.py) | Enumerate current GM/GLV products into the common metadata database |
 | [`backfill-gmx-vault-prices.py`](../../scripts/erc-4626/backfill-gmx-vault-prices.py) | Prefill a bounded context range and run the common Parquet writer without modifying production reader state |
 | [`examine-gmx-vault-backfill.py`](../../scripts/erc-4626/examine-gmx-vault-backfill.py) | Check duplicates, positive values, source linkage, asset identity and sparse-threshold behaviour |
-| [`examine-gmx-vault-performance.py`](../../scripts/erc-4626/examine-gmx-vault-performance.py) | Run common lifetime metrics and display TVL, lifetime CAGR, three-month CAGR and three-month Sharpe |
+| [`examine-gmx-vault-performance.py`](../../scripts/erc-4626/examine-gmx-vault-performance.py) | Run common lifetime metrics and display TVL, lifetime CAGR and three-month CAGR; GMX Sharpe is reported as unavailable |
 
 The backfill uses half-open `[START_BLOCK, END_BLOCK)` ranges and limits
 Parquet replacement to the selected GMX addresses and block interval. It does
@@ -329,6 +337,10 @@ Focused tests live under [`tests/gmx`](../../tests/gmx):
   transactions.
 - The historical curve is event observed rather than a continuous GMX NAV
   oracle replay.
+- GM deposit observations use one consistent deposit valuation context;
+  withdrawal-context observations are excluded.
+- GMX volatility and Sharpe are unavailable because operation events do not
+  provide regular daily NAV observations.
 - Synthetic USD is the comparison denomination; it is not an ERC-20 token held
   by the adapter.
 - Reported performance is a pool-share approximation and not the realised

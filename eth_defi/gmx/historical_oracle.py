@@ -2,10 +2,10 @@
 
 The ratio of value to corresponding supply provides a sparse USD share-price
 equivalent without treating a change in TVL or share count as profit. GM emits
-``MarketPoolValueInfo`` before its mint or burn. GLV emits
-``GlvValueUpdated`` after execution, once value and supply have both been
-updated proportionally. The common vault scanner later applies its normal
-change threshold.
+``MarketPoolValueUpdated`` after a deposit and GLV emits ``GlvValueUpdated``
+after execution. GM withdrawal observations are deliberately excluded because
+GMX values deposits and withdrawals with different PnL-factor contexts. The
+common vault scanner later applies its normal change threshold.
 """
 
 import asyncio
@@ -13,6 +13,7 @@ from collections.abc import Iterable
 from dataclasses import dataclass
 from decimal import Decimal
 
+from eth_abi import encode
 from eth_typing import HexAddress
 from eth_utils import keccak, to_checksum_address
 from hexbytes import HexBytes
@@ -29,7 +30,8 @@ except ImportError:
     hypersync = None
 
 
-GMX_SHARE_PRICE_EVENT_NAMES = ("MarketPoolValueInfo", "GlvValueUpdated")
+GMX_SHARE_PRICE_EVENT_NAMES = ("MarketPoolValueUpdated", "GlvValueUpdated")
+GMX_DEPOSIT_ACTION_TYPE = keccak(encode(["string"], ["DEPOSIT"]))
 
 #: Non-indexed ``EventLog1`` inputs. Direct decoding avoids materialising all
 #: seven generic GMX key/value families through Web3's event wrapper.
@@ -67,7 +69,7 @@ def decode_historical_share_price_event_data(web3: Web3, data: str | bytes, prod
 
     _, event_name, event_data = web3.codec.decode(GMX_EVENT_LOG1_DATA_TYPES, HexBytes(data))
     product_address = to_checksum_address(HexBytes(product_topic)[-20:])
-    if event_name == "MarketPoolValueInfo":
+    if event_name == "MarketPoolValueUpdated":
         address_items = {"market": product_address}
     elif event_name == "GlvValueUpdated":
         address_items = {"glv": product_address}
@@ -78,6 +80,7 @@ def decode_historical_share_price_event_data(web3: Web3, data: str | bytes, prod
         address_items=address_items,
         uint_items=dict(event_data[1][0]),
         int_items=dict(event_data[2][0]),
+        bytes32_items=dict(event_data[4][0]),
     )
 
 
@@ -85,10 +88,12 @@ def decode_historical_share_price_event_data(web3: Web3, data: str | bytes, prod
 class GMXHistoricalSharePriceObservation:
     """One GM or GLV value-and-supply observation.
 
-    ``MarketPoolValueInfo`` contains GM value and supply before the mint or
-    burn. ``GlvValueUpdated`` contains GLV value and supply after execution;
-    GLV minting and burning use the pre-flow ratio, so updating both numerator
-    and denominator does not mechanically rebase the existing holders' claim.
+    ``MarketPoolValueUpdated`` contains GM value and supply after a deposit.
+    Withdrawal-context observations are excluded because GMX uses different
+    valuation parameters for withdrawals. ``GlvValueUpdated`` contains GLV
+    value and supply after execution; GLV minting and burning use the pre-flow
+    ratio, so updating both numerator and denominator does not mechanically
+    rebase the existing holders' claim.
 
     :param chain_id:
         EVM chain where GMX emitted the observation.
@@ -107,7 +112,7 @@ class GMXHistoricalSharePriceObservation:
     :param raw_supply:
         ERC-20 share supply using 18-decimal precision.
     :param event_name:
-        ``MarketPoolValueInfo`` or ``GlvValueUpdated``.
+        ``MarketPoolValueUpdated`` or ``GlvValueUpdated``.
     """
 
     chain_id: int
@@ -178,7 +183,9 @@ def extract_historical_share_price_observation(
         or a non-positive value/supply pair.
     """
 
-    if event.event_name == "MarketPoolValueInfo":
+    if event.event_name == "MarketPoolValueUpdated":
+        if event.get_bytes32("actionType") != GMX_DEPOSIT_ACTION_TYPE:
+            return None
         product_address = event.get_address("market")
         raw_value = event.get_int("poolValue")
         raw_supply = event.get_uint("marketTokensSupply")

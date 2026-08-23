@@ -4,6 +4,7 @@ import datetime
 import json
 import os.path
 import pickle
+from dataclasses import replace
 from decimal import Decimal
 from pathlib import Path
 
@@ -12,6 +13,7 @@ import pytest
 import zstandard as zstd
 from plotly.graph_objects import Figure
 
+from eth_defi.erc_4626.core import ERC4626Feature
 from eth_defi.erc_4626.vault_protocol.d2.vault import D2_PROTOCOL_NAME, format_d2_vault_note
 from eth_defi.hyperliquid.constants import HYPERCORE_CHAIN_ID
 from eth_defi.hyperliquid.vault_data_export import create_hyperliquid_vault_row
@@ -161,6 +163,35 @@ def test_calculate_vault_rankings_includes_per_curator_ranks_at_one_hundred_doll
     assert results_df.loc["beta", "period_results"][0].ranking_curator == expected_best_rank
     assert results_df.loc["alpha-too-small", "period_results"][0].ranking_curator is None
     assert results_df.loc["unknown", "period_results"][0].ranking_curator is None
+
+
+def test_calculate_vault_rankings_excludes_disabled_gmx_products() -> None:
+    """Keep disabled GMX history queryable without ranking it as investable."""
+
+    active = PeriodMetrics(period="1W", cagr_net=0.10, tvl_end=100_000)
+    disabled = PeriodMetrics(period="1W", cagr_net=0.20, tvl_end=100_000)
+    results_df = pd.DataFrame(
+        {
+            "chain": ["Arbitrum", "Arbitrum"],
+            "protocol": ["GMX", "GMX"],
+            "protocol_slug": ["gmx", "gmx"],
+            "curator_slug": ["gmx", "gmx"],
+            "risk": [VaultTechnicalRisk.low, VaultTechnicalRisk.low],
+            "deposit_closed_reason": [None, "GMX product disabled"],
+            "period_results": [[active], [disabled]],
+        },
+    )
+
+    vault_metrics.calculate_vault_rankings(results_df)
+
+    assert active.ranking_overall == 1
+    assert active.ranking_chain == 1
+    assert active.ranking_protocol == 1
+    assert active.ranking_curator == 1
+    assert disabled.ranking_overall is None
+    assert disabled.ranking_chain is None
+    assert disabled.ranking_protocol is None
+    assert disabled.ranking_curator is None
 
 
 def test_calculate_net_profit_accepts_one_hundred_percent_performance_fee() -> None:
@@ -568,6 +599,31 @@ def test_calculate_lifetime_metrics(
 
     # Verify period_results is not in formatted output
     # assert "period_results" not in formatted.columns
+
+
+def test_event_observed_gmx_does_not_export_daily_risk_metrics(vault_db: VaultDatabase, price_df: pd.DataFrame) -> None:
+    """Do not infer GMX volatility or Sharpe from operation-event cadence."""
+
+    address = "0x05c2e246156d37b39a825a25dd08d5589e3fd883"
+    spec = VaultSpec(43111, address)
+    row = vault_db.rows[spec].copy()
+    row["Protocol"] = "GMX"
+    row["_deposit_closed_reason"] = None
+    row["_detection_data"] = replace(
+        row["_detection_data"],
+        features={ERC4626Feature.gmx_gm, ERC4626Feature.share_price_equivalence},
+    )
+    gmx_db = VaultDatabase(rows={spec: row})
+    gmx_prices = price_df[price_df["id"] == f"43111-{address}"].copy()
+
+    result = calculate_lifetime_metrics(gmx_prices, gmx_db).iloc[0]
+    three_months = next(period for period in result["period_results"] if period.period == "3M")
+
+    assert three_months.cagr_gross is not None
+    assert three_months.volatility is None
+    assert three_months.sharpe is None
+    assert result["three_months_volatility"] is None
+    assert result["three_months_sharpe"] is None
 
 
 def test_calculate_lifetime_metrics_exports_deposit_permission(

@@ -17,6 +17,8 @@ from eth_defi.vault.vaultdb import VaultDatabase, VaultRow
 
 logger = logging.getLogger(__name__)
 
+GMX_DISABLED_DEPOSIT_REASON = "GMX product disabled"
+
 
 @dataclass(slots=True, frozen=True)
 class GMXVaultCatalogueSyncResult:
@@ -101,6 +103,13 @@ def fetch_and_sync_gmx_vault_catalogue(
         row["_gmx_component_addresses"] = tuple(address.lower() for address in product.component_addresses)
         row["_gmx_accepted_deposit_tokens"] = tuple(address.lower() for address in product.accepted_deposit_tokens)
         row["_gmx_enabled"] = product.is_enabled
+        row["_deposit_closed_reason"] = None if product.is_enabled else GMX_DISABLED_DEPOSIT_REASON
+        if existing is not None:
+            # Refresh scanner-owned facts without discarding manual or
+            # downstream enrichment fields attached to a healthy row.
+            merged_row = existing.copy()
+            merged_row.update(row)
+            row = merged_row
         return spec, row, existing is None
 
     results = Parallel(n_jobs=max_workers, backend="threading")(delayed(fetch_product_row)(product) for product in products)

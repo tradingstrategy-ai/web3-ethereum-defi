@@ -632,7 +632,7 @@ def scan_vaults_for_chain(
         web3 = create_multi_provider_web3(rpc_url, rpc_request_stats=stats)
         chain_id = web3.eth.chain_id
 
-        def sync_gmx_catalogue(block_number: int) -> GMXVaultCatalogueSyncResult | None:
+        def fetch_and_sync_current_gmx_catalogue(block_number: int) -> GMXVaultCatalogueSyncResult | None:
             """Refresh GMX products independently of generic lead discovery."""
 
             if chain_id not in GMX_CHAIN_NAMES_BY_ID:
@@ -677,7 +677,7 @@ def scan_vaults_for_chain(
         if cache_miss_reason is None:
             assert existing_db is not None
             assert state is not None
-            gmx_sync = sync_gmx_catalogue(web3.eth.block_number)
+            gmx_sync = fetch_and_sync_current_gmx_catalogue(web3.eth.block_number)
             existing_db = VaultDatabase.read(vault_db_path)
             chain_rows = [row for row in existing_db.rows.values() if row["_detection_data"].chain == chain_id]
             last_block = existing_db.last_scanned_block[chain_id]
@@ -721,7 +721,7 @@ def scan_vaults_for_chain(
         )
         items_scanned = report.items_scanned
 
-        gmx_sync = sync_gmx_catalogue(report.end_block)
+        gmx_sync = fetch_and_sync_current_gmx_catalogue(report.end_block)
         refreshed_db = VaultDatabase.read(vault_db_path)
         refreshed_chain_rows = [row for row in refreshed_db.rows.values() if row["_detection_data"].chain == chain_id]
 

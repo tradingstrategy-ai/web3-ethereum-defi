@@ -51,6 +51,7 @@ if TYPE_CHECKING:
 
 BlockRange = Tuple[BlockNumber, BlockNumber]
 
+
 class WithdrawalDelayType(enum.StrEnum):
     """Classify how a valid withdrawal request becomes redeemable."""
 
