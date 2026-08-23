@@ -30,6 +30,7 @@ from eth_defi.provider.anvil import is_anvil, mine
 from eth_defi.provider.fallback import FallbackProvider, get_fallback_provider
 from eth_defi.provider.mev_blocker import MEVBlockerProvider
 from eth_defi.provider.named import get_provider_name
+from eth_defi.provider.receipt import TransactionVisibilityTimedOut, wait_for_transaction_visibility
 from eth_defi.revert_reason import fetch_transaction_revert_reason
 from eth_defi.timestamp import get_latest_block_timestamp
 from eth_defi.tx import DecodeFailure, decode_signed_transaction, get_tx_broadcast_data
@@ -855,7 +856,14 @@ def wait_and_broadcast_multiple_nodes(
     :param inter_node_delay:
         Work around bad JSON-RPC SaaS providers.
 
-        Sleep this time between multiple tx broadcasts.
+        Wait up to this time between multiple tx broadcasts for all read
+        providers to see the preceding transaction. Progress immediately once
+        they do. At timeout, progress when at least one read provider sees it.
+        If no provider sees it, continue with normal confirmation and rebroadcast
+        handling.
+
+        This checks transaction visibility only; normal receipt confirmation
+        follows after the complete batch has been broadcast.
 
         See https://github.com/ethereum/go-ethereum/issues/26890
 
@@ -905,8 +913,7 @@ def wait_and_broadcast_multiple_nodes(
     anviled = is_anvil(web3)
 
     if anviled:
-        # Anvil is buggy piece of crap when you hit it with multiple RPC/broadcast requests,
-        # so try to sleep and pray it works
+        # Keep the visibility deadline short on Anvil so unit tests remain fast.
         inter_node_delay = datetime.timedelta(seconds=0.5)
 
     for tx in txs:
@@ -937,7 +944,7 @@ def wait_and_broadcast_multiple_nodes(
         logger.info("No MEV blocker enable, Anvil is %s", anviled)
 
     logger.info(
-        "Broadcasting %d transactions using %s to confirm in %d blocks, timeout is %s, inter node delay is %s",
+        "Broadcasting %d transactions using %s to confirm in %d blocks, timeout is %s, inter-node visibility timeout is %s",
         len(txs),
         ", ".join([get_provider_name(p) for p in providers]),
         confirmation_block_count,
@@ -968,8 +975,9 @@ def wait_and_broadcast_multiple_nodes(
 
     last_exception: Exception | None = None
 
-    # Initial broadcast of txs
-    for tx in txs:
+    # Initial broadcast of txs. Wait for read-provider visibility before the
+    # following sequential nonce, using the former sleep as a maximum budget.
+    for tx_index, tx in enumerate(txs):
         try:
             _broadcast_multiple_nodes(providers, tx)
             last_exception = None
@@ -979,18 +987,45 @@ def wait_and_broadcast_multiple_nodes(
         except Exception as e:
             last_exception = e
 
-        if len(txs) >= 2:
+        if tx_index < len(txs) - 1:
             # https://github.com/ethereum/go-ethereum/issues/26890
-            logger.info("Broadcasting multiple transactions, using inter node delay %s to sleep to ensure poor-quality nodes like Alchemy work", inter_node_delay)
-            time.sleep(inter_node_delay.total_seconds())
-
-            if anviled:
-                mine(web3)
-
-            # logger.info("Sleep done")
+            visibility_timeout = inter_node_delay.total_seconds()
+            if visibility_timeout > 0:
+                visibility_poll_delay = min(1.0, visibility_timeout / 2)
+                try:
+                    wait_for_transaction_visibility(
+                        web3,
+                        tx.hash,
+                        timeout=visibility_timeout,
+                        poll_delay=visibility_poll_delay,
+                        max_poll_delay=max(visibility_poll_delay, min(5.0, visibility_timeout / 2)),
+                    )
+                except TransactionVisibilityTimedOut as e:
+                    # A private or unhealthy read provider can hide a broadcast
+                    # temporarily. Let the existing confirmation/rebroadcast
+                    # loop handle this just as it did after the former sleep.
+                    logger.warning(
+                        "Transaction visibility gate timed out, continuing with broadcast batch, tx_hash=%s, error=%s",
+                        tx.hash.hex(),
+                        e,
+                    )
+                except Exception as e:
+                    # Provider implementations can raise exceptions outside the
+                    # normal JSON-RPC hierarchy. Visibility is only a best-effort
+                    # sequencing optimisation and must not interrupt the batch.
+                    logger.warning(
+                        "Transaction visibility gate failed, continuing with broadcast batch, tx_hash=%s, error=%s",
+                        tx.hash.hex(),
+                        e,
+                    )
+            else:
+                logger.info(
+                    "Transaction visibility wait disabled, tx_hash=%s",
+                    tx.hash.hex(),
+                )
         else:
             logger.info(
-                "Internode sleep skipped",
+                "Transaction visibility wait skipped after final transaction",
             )
 
     while len(unconfirmed_txs) > 0:

@@ -1,5 +1,7 @@
 """Test transaction confirmation timeout gas-price diagnostics."""
 
+import datetime
+from types import SimpleNamespace
 from unittest.mock import MagicMock
 
 import pytest
@@ -13,7 +15,7 @@ from eth_defi.hotwallet import SignedTransactionWithNonce
 from eth_defi.provider.fallback import FallbackProvider
 
 
-def _create_signed_transaction(source: dict, hash_byte: str = "12") -> SignedTransactionWithNonce:
+def _create_signed_transaction(source: dict, hash_byte: str = "12", nonce: int = 7) -> SignedTransactionWithNonce:
     """Create a minimal signed transaction carrying diagnostic source fields."""
     return SignedTransactionWithNonce(
         rawTransaction=HexBytes("0x01"),
@@ -21,7 +23,7 @@ def _create_signed_transaction(source: dict, hash_byte: str = "12") -> SignedTra
         r=0,
         s=0,
         v=0,
-        nonce=7,
+        nonce=nonce,
         address="0x" + "34" * 20,
         source=source,
     )
@@ -160,6 +162,63 @@ def test_confirmation_timeout_uses_single_provider_for_diagnostics() -> None:
     fallback_provider.get_active_provider.return_value = active_provider
 
     assert confirmation._get_single_attempt_provider(web3) is active_provider
+
+
+def test_multi_node_broadcast_continues_when_transaction_visibility_fails(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Continue sequential broadcasts when the visibility gate fails.
+
+    1. Arrange three sequential transactions and successful receipt responses.
+    2. Make the first gate time out and the second raise an unexpected provider error.
+    3. Check every transaction is still broadcast for normal confirmation/rebroadcast handling.
+    """
+
+    # 1. Arrange three sequential transactions and successful receipt responses.
+    provider = MagicMock(spec=BaseProvider)
+    provider.endpoint_uri = "https://read-provider.example"
+    web3 = MagicMock()
+    web3.provider = provider
+    web3.eth.chain_id = 1
+    web3.eth.block_number = 1
+    web3.eth.get_transaction_receipt.return_value = {"blockNumber": 1}
+    tx_1 = _create_signed_transaction({}, hash_byte="12", nonce=7)
+    tx_2 = _create_signed_transaction({}, hash_byte="34", nonce=8)
+    tx_3 = _create_signed_transaction({}, hash_byte="56", nonce=9)
+    events = []
+    monkeypatch.setattr(confirmation, "is_anvil", lambda web3: False)
+    monkeypatch.setattr(confirmation, "get_fallback_provider", lambda web3: SimpleNamespace(providers=[provider]))
+    monkeypatch.setattr(confirmation, "_broadcast_multiple_nodes", lambda providers, tx: events.append(("broadcast", tx.nonce)))
+
+    visibility_errors = iter(
+        [
+            confirmation.TransactionVisibilityTimedOut("transaction unavailable to readers"),
+            RuntimeError("unexpected provider error"),
+        ]
+    )
+
+    def fail_visibility(web3, tx_hash, **kwargs) -> None:
+        """Simulate a timed-out and an unexpected read-provider failure."""
+        events.append(("visibility", tx_hash))
+        raise next(visibility_errors)
+
+    monkeypatch.setattr(confirmation, "wait_for_transaction_visibility", fail_visibility)
+
+    # 2. Make the visibility gate fail after the first two broadcasts.
+    confirmation.wait_and_broadcast_multiple_nodes(
+        web3,
+        [tx_1, tx_2, tx_3],
+        check_nonce_validity=False,
+        max_timeout=datetime.timedelta(seconds=1),
+        inter_node_delay=datetime.timedelta(seconds=1),
+    )
+
+    # 3. Check every transaction is still broadcast for normal confirmation/rebroadcast handling.
+    assert events == [
+        ("broadcast", 7),
+        ("visibility", tx_1.hash),
+        ("broadcast", 8),
+        ("visibility", tx_2.hash),
+        ("broadcast", 9),
+    ]
 
 
 def test_confirmation_timeout_reports_priority_fee_when_network_price_is_unavailable() -> None:
