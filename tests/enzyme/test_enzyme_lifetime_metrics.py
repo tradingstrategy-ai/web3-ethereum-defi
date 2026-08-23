@@ -10,6 +10,7 @@ import pytest
 from web3 import Web3
 
 from eth_defi.compat import native_datetime_utc_fromtimestamp
+from eth_defi.enzyme.offchain_metadata import ONYX_PUBLIC_DESCRIPTION_UNAVAILABLE
 from eth_defi.erc_4626.classification import create_vault_instance
 from eth_defi.erc_4626.core import ERC4262VaultDetection, ERC4626Feature
 from eth_defi.erc_4626.scan import create_vault_scan_record
@@ -143,8 +144,12 @@ def test_enzyme_vault_reaches_lifetime_metrics(
     assert vault is not None
     assert vault.denomination_token is not None
     assert vault.denomination_token.symbol == profile.expected_denomination
-    assert vault.short_description
-    assert vault.description
+    if ERC4626Feature.enzyme_onyx_like in profile.features:
+        assert vault.short_description is None
+        assert vault.description == ONYX_PUBLIC_DESCRIPTION_UNAVAILABLE
+    else:
+        assert vault.short_description
+        assert vault.description
 
     reader = vault.get_historical_reader(stateful=True)
     call_results = [call.call_as_result(web3, block_identifier=BASE_MIDNIGHT_BLOCK, ignore_error=True) for call in reader.construct_multicalls()]
