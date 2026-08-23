@@ -76,7 +76,10 @@ def test_apex_synthetic_identity_is_a_shared_vault_spec() -> None:
     assert row["_fees"].fee_mode is None
     assert row["Perf fee"] is None
     assert row["_lockup"] == datetime.timedelta(days=1)
-    assert row["_strategy_tags"] == {StrategyTag.perpetual_futures}
+    assert row["_strategy_tags"] == {
+        StrategyTag.discretionary_trading,
+        StrategyTag.perpetual_futures,
+    }
     assert get_vault_protocol_name({ERC4626Feature.apex_native}) == "ApeX"
 
 
@@ -172,3 +175,9 @@ def test_apex_official_vault_export_uses_curated_descriptions(tmp_path: Path) ->
     assert "flagship official vault" in row["_description"]
     assert row["_short_description"].startswith("ApeX Omni's flagship")
     assert row["_lockup"] is None
+    assert row["_strategy_tags"] == {
+        StrategyTag.liquidity_provider,
+        StrategyTag.market_maker,
+        StrategyTag.market_making,
+        StrategyTag.perpetual_futures,
+    }
