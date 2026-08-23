@@ -1,4 +1,4 @@
-"""Test Enzyme API description collection and safe fallback copy."""
+"""Test Enzyme API description collection without inferred fallback copy."""
 
 import importlib.util
 import os
@@ -13,7 +13,6 @@ from eth_defi.enzyme.offchain_metadata import (
     ENZYME_API_VAULT_URL,
     EnzymeVaultMetadata,
     create_enzyme_api_session,
-    create_enzyme_blue_fallback_metadata,
     create_enzyme_vault_link,
     fetch_enzyme_api_vault_metadata,
     load_enzyme_blue_vault_metadata,
@@ -53,45 +52,36 @@ def load_offchain_metadata_migration_module() -> ModuleType:
     return module
 
 
-def test_enzyme_blue_fallback_has_complete_listing_copy() -> None:
-    """Provide generic Blue copy when the official API has no manager text."""
+def test_missing_enzyme_blue_copy_stays_absent() -> None:
+    """Do not infer strategy text when Enzyme has supplied no copy."""
 
-    metadata = create_enzyme_blue_fallback_metadata("Example vault")
+    metadata = resolve_enzyme_blue_vault_metadata(None)
 
-    assert metadata.short_description
-    assert metadata.description
-    assert "Example vault" in metadata.description
-
-
-def test_curated_enzyme_copy_overrides_only_the_provided_fields() -> None:
-    """Retain the fallback field when a curator supplies partial metadata."""
-
-    metadata = resolve_enzyme_blue_vault_metadata(
-        "Example vault",
-        EnzymeVaultMetadata(description="Curator-supplied strategy narrative."),
-    )
-
-    assert metadata.description == "Curator-supplied strategy narrative."
-    assert metadata.short_description == "Enzyme Blue tokenised digital-asset investment vehicle."
+    assert metadata.short_description is None
+    assert metadata.description is None
 
 
-def test_load_enzyme_blue_metadata_merges_curated_and_cached_fields(monkeypatch) -> None:
-    """Retain complementary manager copy from both supported metadata sources."""
+def test_partial_enzyme_api_copy_keeps_missing_field_absent() -> None:
+    """Keep an absent API field absent when the other field has text."""
 
-    monkeypatch.setattr(
-        offchain_metadata,
-        "ENZYME_BLUE_VAULT_METADATA",
-        {BLUE_METADATA_KEY: EnzymeVaultMetadata(description="Curated strategy narrative.")},
-    )
+    metadata = resolve_enzyme_blue_vault_metadata(EnzymeVaultMetadata(description="Official strategy narrative."))
+
+    assert metadata.description == "Official strategy narrative."
+    assert metadata.short_description is None
+
+
+def test_load_enzyme_blue_metadata_reads_cached_api_fields(monkeypatch) -> None:
+    """Read the exact successful official API response from the cache."""
+
     monkeypatch.setattr(
         offchain_metadata,
         "_cached_enzyme_vault_metadata",
-        {BLUE_METADATA_KEY: EnzymeVaultMetadata(short_description="Official tagline")},
+        {BLUE_METADATA_KEY: EnzymeVaultMetadata(short_description="Official tagline", description="Official strategy narrative.")},
     )
 
     assert load_enzyme_blue_vault_metadata(*BLUE_METADATA_KEY) == EnzymeVaultMetadata(
         short_description="Official tagline",
-        description="Curated strategy narrative.",
+        description="Official strategy narrative.",
     )
 
 
@@ -223,6 +213,22 @@ def test_enzyme_metadata_cache_round_trip_retains_empty_api_reply(tmp_path) -> N
     assert loaded == metadata
 
 
+def test_offchain_metadata_state_resumes_successful_api_replies(tmp_path) -> None:
+    """Keep completed official replies when the migration is interrupted."""
+
+    module = load_offchain_metadata_migration_module()
+    state_path = tmp_path / "enzyme-offchain-metadata-state.json"
+    state = {
+        BLUE_SPEC: EnzymeVaultMetadata(short_description="Official tagline"),
+        ONYX_SPEC: EnzymeVaultMetadata(description="Not selected"),
+    }
+
+    module.write_metadata_state(state_path, state)
+    loaded = module.load_metadata_state(state_path, {BLUE_SPEC})
+
+    assert loaded == {BLUE_SPEC: EnzymeVaultMetadata(short_description="Official tagline")}
+
+
 def test_offchain_metadata_migration_changes_only_existing_enzyme_blue_copy() -> None:
     """Apply official fields to Blue without changing Onyx or unrelated metadata."""
 
@@ -265,8 +271,8 @@ def test_offchain_metadata_migration_changes_only_existing_enzyme_blue_copy() ->
     assert vault_db.rows[ONYX_SPEC]["_short_description"] == "Keep Onyx fallback"
 
 
-def test_offchain_metadata_migration_reverts_empty_api_copy_to_safe_fallback() -> None:
-    """Replace obsolete text only after a successful authoritative empty reply."""
+def test_offchain_metadata_migration_clears_empty_api_copy() -> None:
+    """Clear obsolete text after a successful authoritative empty reply."""
 
     module = load_offchain_metadata_migration_module()
     row = {
@@ -279,5 +285,5 @@ def test_offchain_metadata_migration_reverts_empty_api_copy_to_safe_fallback() -
 
     update = module.create_metadata_update(BLUE_SPEC, row, EnzymeVaultMetadata())
 
-    assert update.short_description == "Enzyme Blue tokenised digital-asset investment vehicle."
-    assert "No manager-provided strategy description is available" in update.description
+    assert update.short_description is None
+    assert update.description is None

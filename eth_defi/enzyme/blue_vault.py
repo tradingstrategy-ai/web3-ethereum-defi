@@ -160,15 +160,15 @@ class EnzymeBlueVault(VaultBase):
 
     @property
     def description(self) -> str | None:
-        """Return complete offchain listing copy for this Blue vault."""
+        """Return optional official offchain listing copy for this Blue vault."""
 
-        return resolve_enzyme_blue_vault_metadata(self.name, self.api_metadata).description
+        return resolve_enzyme_blue_vault_metadata(self.api_metadata).description
 
     @property
     def short_description(self) -> str | None:
-        """Return complete offchain table copy for this Blue vault."""
+        """Return optional official offchain table copy for this Blue vault."""
 
-        return resolve_enzyme_blue_vault_metadata(self.name, self.api_metadata).short_description
+        return resolve_enzyme_blue_vault_metadata(self.api_metadata).short_description
 
     def get_strategy_tags(self) -> set[StrategyTag] | None:
         """Return documented strategy tags for this Blue vault.
@@ -186,9 +186,9 @@ class EnzymeBlueVault(VaultBase):
 
     @property
     def manager_name(self) -> str | None:
-        """Return optional curated manager name."""
+        """Return optional official manager name."""
 
-        return resolve_enzyme_blue_vault_metadata(self.name, self.api_metadata).manager_name
+        return resolve_enzyme_blue_vault_metadata(self.api_metadata).manager_name
 
     def fetch_share_token(self) -> TokenDetails:
         """Fetch the VaultProxy ERC-20 share token."""

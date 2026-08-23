@@ -9,7 +9,7 @@ state and timestamp caches.
 
 For every factory-confirmed Enzyme Blue and Onyx vault, the migration provides:
 
-- cached or generic Blue descriptions and the explicit unavailable marker for
+- cached optional Blue descriptions and the explicit unavailable marker for
   Onyx;
 - a direct address-specific Enzyme application link;
 - mandatory current name, symbol and denomination, plus best-effort total

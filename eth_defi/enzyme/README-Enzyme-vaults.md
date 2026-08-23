@@ -35,12 +35,17 @@ authoritative source for Blue listing metadata:
 - API ``tagline`` becomes the short description.
 - API ``description`` becomes the long description.
 - An empty successful response means that the manager has supplied no public
-  copy. The scanner then retains its generic Blue fallback text.
+  copy. The scanner leaves that description field empty.
 
 The scheduled scanner never makes a per-vault API request. Instead,
 ``scripts/enzyme/migrate-offchain-metadata.py`` creates the versioned cache at
 ``~/.tradingstrategy/cache/enzyme/vault-metadata.json`` and updates the local
-vault database in one transaction. Adapters read that cache without a token.
+vault database in one transaction. In apply mode it checkpoints successful API
+replies in ``enzyme-offchain-metadata-state.json`` beside the metadata pickle,
+then resumes only the missing replies after an interruption. The checkpoint is
+deleted after the complete cache/database update; set
+``ENZYME_METADATA_STATE_PATH`` to use another location. Adapters read the
+published cache without a token.
 
 Create a token in the Enzyme application, store it only in the operator's
 secret environment, and run the migration serially. The provider can return

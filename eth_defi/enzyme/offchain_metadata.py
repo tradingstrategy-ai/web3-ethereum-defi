@@ -9,11 +9,10 @@ management application, but its scanner rows therefore retain an explicit
 unavailable marker until Enzyme publishes a supported reader.
 
 The production scanner never makes thousands of API requests as a side effect
-of scanning a chain.  ``scripts/enzyme/migrate-offchain-metadata.py`` fetches
+of scanning a chain. ``scripts/enzyme/migrate-offchain-metadata.py`` fetches
 the reviewed Blue metadata and saves it in a durable, multiprocess-safe cache.
-Blue adapters read this cache and fall back only when the official source has
-no manager-entered copy. A small in-source registry remains available for
-reviewed exceptional Blue metadata that has no API source.
+Blue adapters read this cache only; when Enzyme has no manager-entered copy,
+both description fields remain absent rather than using inferred fallback text.
 """
 
 import json
@@ -83,22 +82,12 @@ class EnzymeVaultMetadata:
     manager_name: str | None = None
 
 
-#: Entries are keyed by ``(chain id, lower-case canonical Blue VaultProxy
-#: address)``. Blue vaults are discovered dynamically from reviewed protocol
-#: events, so this registry is enrichment only and never an allowlist.
-#:
-#: The official Blue API cache takes precedence over this registry only when it
-#: contains manager-entered copy. Keep this registry for reviewed exceptional
-#: Blue entries that cannot be fetched from a documented API.
-ENZYME_BLUE_VAULT_METADATA: dict[tuple[int, HexAddress], EnzymeVaultMetadata] = {}
-
-
 def _normalise_optional_text(value: object) -> str | None:
     """Turn an optional API text field into meaningful listing copy.
 
     Connect JSON omits absent protobuf scalar fields, while managers can also
     save whitespace-only values. Treat both cases as missing instead of
-    replacing useful fallback copy with blank text.
+    publishing invented strategy copy.
 
     :param value: Raw JSON field value.
     :return: Stripped non-empty string or ``None``.
@@ -227,8 +216,8 @@ def _metadata_key(chain_id: int, shares_address: HexAddress | str) -> tuple[int,
 def load_enzyme_vault_metadata_cache(cache_path: Path = DEFAULT_ENZYME_METADATA_CACHE_PATH) -> dict[tuple[int, HexAddress], EnzymeVaultMetadata]:
     """Load durable API metadata without making an HTTP request.
 
-    A malformed cache is ignored with a warning. Blue adapters then use generic
-    fallback copy until a successful authenticated migration replaces the cache.
+    A malformed cache is ignored with a warning. Blue adapters then expose no
+    offchain copy until a successful authenticated migration replaces the cache.
 
     :param cache_path: Versioned JSON cache written by the migration.
     :return: Address-indexed official Enzyme Blue metadata.
@@ -278,8 +267,8 @@ def write_enzyme_vault_metadata_cache(
     """Atomically replace the durable Enzyme metadata cache.
 
     Cache entries with no text are retained. They document a successful API
-    read whose vault has not supplied descriptions, while allowing the Blue
-    adapter to select generic fallback copy.
+    read whose vault has not supplied descriptions, so the Blue adapter can
+    expose no text rather than infer a strategy.
 
     :param metadata: Complete address-indexed cache contents.
     :param cache_path: JSON cache destination.
@@ -325,67 +314,32 @@ def create_enzyme_vault_link(chain_id: int, shares_address: HexAddress | str) ->
     return f"https://app.enzyme.finance/vault/{address}?network={network}"
 
 
-def create_enzyme_blue_fallback_metadata(vault_name: str) -> EnzymeVaultMetadata:
-    """Create safe listing metadata for an uncurated Enzyme Blue vault.
-
-    A share-token name is an identifier, not evidence of a strategy. This
-    generic copy applies only when the official Blue API has no manager text.
-
-    :param vault_name: Onchain Blue VaultProxy ERC-20 name.
-    :return: Complete generic Blue listing copy.
-    """
-
-    display_name = vault_name.strip() or "Unnamed vault"
-    return EnzymeVaultMetadata(
-        short_description="Enzyme Blue tokenised digital-asset investment vehicle.",
-        description=(f"{display_name} is an Enzyme Blue tokenised investment vehicle. Investors hold ERC-20 shares while the vault manager controls the investment configuration and portfolio operations. No manager-provided strategy description is available in this catalogue entry."),
-    )
-
-
 def load_enzyme_blue_vault_metadata(chain_id: int, vault_proxy_address: HexAddress | str) -> EnzymeVaultMetadata | None:
-    """Look up cached or manually curated Enzyme Blue listing metadata.
+    """Look up cached Enzyme Blue listing metadata.
 
     This adapter-facing function deliberately never calls the authenticated API.
     The metadata migration warms the durable cache in a bounded batch, keeping
     ordinary scanner cycles deterministic and independent of API credentials.
-    Manually reviewed metadata wins over an API entry only when it contains a
-    field not present in the API response.
+    The cache contains successful empty responses, allowing callers to
+    distinguish absent manager copy from a transient API failure.
 
     :param chain_id: EVM chain id of the Blue vault.
     :param vault_proxy_address: Canonical Blue VaultProxy address.
-    :return: Cached or curated metadata, or ``None`` when fallback copy applies.
+    :return: Cached API metadata, or ``None`` when no successful cache entry exists.
     """
 
     key = _metadata_key(chain_id, vault_proxy_address)
-    curated = ENZYME_BLUE_VAULT_METADATA.get(key)
-    cached = _load_cached_enzyme_vault_metadata().get(key)
-    if curated is None:
-        return cached
-    if cached is None:
-        return curated
-    return EnzymeVaultMetadata(
-        description=curated.description or cached.description,
-        short_description=curated.short_description or cached.short_description,
-        manager_name=curated.manager_name or cached.manager_name,
-    )
+    return _load_cached_enzyme_vault_metadata().get(key)
 
 
-def resolve_enzyme_blue_vault_metadata(vault_name: str, override: EnzymeVaultMetadata | None) -> EnzymeVaultMetadata:
-    """Merge optional source metadata with generic Enzyme Blue fallback copy.
+def resolve_enzyme_blue_vault_metadata(override: EnzymeVaultMetadata | None) -> EnzymeVaultMetadata:
+    """Normalise optional official Enzyme Blue metadata.
 
-    :param vault_name: Onchain Blue VaultProxy name used in fallback text.
     :param override: Optional official API or curator metadata.
-    :return: Complete Blue listing metadata.
+    :return: Official metadata, or an empty record when Enzyme supplied no copy.
     """
 
-    fallback = create_enzyme_blue_fallback_metadata(vault_name)
-    if override is None:
-        return fallback
-    return EnzymeVaultMetadata(
-        description=override.description or fallback.description,
-        short_description=override.short_description or fallback.short_description,
-        manager_name=override.manager_name,
-    )
+    return override or EnzymeVaultMetadata()
 
 
 def _load_cached_enzyme_vault_metadata() -> dict[tuple[int, HexAddress], EnzymeVaultMetadata]:

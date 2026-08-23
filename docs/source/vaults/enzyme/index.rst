@@ -91,7 +91,7 @@ metadata migration gathers all existing Blue rows through a bounded,
 authenticated batch and writes a versioned JSON cache under
 ``~/.tradingstrategy/cache/enzyme/vault-metadata.json``. Blue adapters read
 that cache without credentials, so the scheduled scanner remains deterministic
-and does not turn a temporary API failure into a database-wide fallback
+and does not turn a temporary API failure into a database-wide description
 rewrite.
 
 The migration retains a successful API response with empty fields: this is
@@ -103,9 +103,8 @@ this data. The scanner therefore does not scrape a gated interface or consume
 an undocumented endpoint. Every refreshed Onyx row has an empty short
 description and the exact long-description marker ``Description is not
 publicly available``; a dedicated migration marker refreshes older generic
-copy once. Blue falls back to generic architecture-level copy only when its
-official API response has no manager text. A small reviewed address registry
-may supplement the Blue cache for exceptional metadata that has no API source.
+copy once. Blue leaves each description field empty when its official API
+response has no manager text.
 
 Deposit permission and availability
 -----------------------------------
@@ -233,7 +232,7 @@ Current metadata migration
 --------------------------
 
 ``scripts/enzyme/migrate-current-metadata.py`` is the safe production entry
-point for applying cached Blue descriptions (or generic Blue fallback copy),
+point for applying cached optional Blue descriptions,
 the explicit Onyx unavailable marker, direct address-specific links and current
 Blue and Onyx permission data to existing Enzyme rows. It reuses the
 targeted factory discovery and durable metadata batching while forcibly
@@ -266,6 +265,13 @@ does not change historical price data, and does not attempt unsupported Onyx
 UI scraping. It starts in dry-run mode and writes neither cache nor database
 if any API response fails. A real run creates a timestamped backup of the
 metadata pickle before modifying it.
+
+While collecting, a real run writes the successful API replies to
+``enzyme-offchain-metadata-state.json`` next to the metadata pickle. This
+minimal migration-only checkpoint resumes after an interruption without
+repeating completed API reads. It is deleted only after the cache and metadata
+pickle have both been updated successfully; set ``ENZYME_METADATA_STATE_PATH``
+to override its location.
 
 Create an API token in the `Enzyme application
 <https://app.enzyme.finance/account/api-tokens>`__, then run:
