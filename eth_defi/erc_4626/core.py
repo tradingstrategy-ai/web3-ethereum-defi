@@ -138,6 +138,25 @@ class ERC4626Feature(enum.Enum):
     #: OpenEden permissioned TBILL fund shares.
     openeden_like = "openeden_like"
 
+    #: GMX V2 GM market-token liquidity-provider share.
+    #:
+    #: https://docs.gmx.io/docs/providing-liquidity/
+    gmx_gm = "gmx_gm"
+
+    #: GMX V2 GLV multi-market liquidity-provider share.
+    #:
+    #: https://docs.gmx.io/docs/providing-liquidity/
+    gmx_glv = "gmx_glv"
+
+    #: Vault-like product without a standard contract share-price method.
+    #:
+    #: GMX GM and GLV holders earn or lose value through their pro-rata claim
+    #: on the market pool: trader PnL changes the pool value, while a share of
+    #: trading, liquidation, borrowing and swap fees accrues to liquidity
+    #: providers. The scanner therefore derives a USD NAV-per-token equivalent
+    #: from GMX pool-value and token-supply events.
+    share_price_equivalence = "share_price_equivalence"
+
     #: Theo multi-asset iToken tokenised funds.
     theo_itoken_like = "theo_itoken_like"
 
@@ -952,7 +971,10 @@ def is_activity_filter_exempt(detection: "ERC4262VaultDetection") -> bool:
     contracts. Upshift multi-asset vaults are another exception: older
     production metadata can be seeded or refreshed by address after the custom
     event support lands, and targeted price rescans should not be blocked by a
-    stale low deposit counter. T3tris migration-pool vaults are handled
+    stale low deposit counter. GMX GM and GLV products are enumerated from the
+    protocol Reader contracts and use asynchronous ExchangeRouter requests, so
+    they do not emit the ERC-4626 flow events counted by this filter. T3tris
+    migration-pool vaults are handled
     separately by :py:func:`passes_price_scan_activity_filter`, which requires
     a recorded configuration event instead of broadly exempting the protocol.
 
@@ -970,6 +992,8 @@ def is_activity_filter_exempt(detection: "ERC4262VaultDetection") -> bool:
             ERC4626Feature.enzyme_onyx_like,
             ERC4626Feature.enzyme_blue_like,
             ERC4626Feature.upshift_multi_asset_like,
+            ERC4626Feature.gmx_gm,
+            ERC4626Feature.gmx_glv,
         )
     )
 
@@ -1049,6 +1073,8 @@ def get_vault_protocol_name(features: set[ERC4626Feature]) -> str:
         return "Kinexys"
     elif ERC4626Feature.midas_like in features:
         return "Midas"
+    elif ERC4626Feature.gmx_gm in features or ERC4626Feature.gmx_glv in features:
+        return "GMX"
     elif ERC4626Feature.asseto_like in features:
         return "Asseto"
     elif ERC4626Feature.franklin_like in features:

@@ -59,7 +59,7 @@ from eth_defi.currency_api.constants import (
 )
 from eth_defi.currency_api.scanner import run_incremental_scan as currency_run_incremental_scan
 from eth_defi.erc_4626.classification import HARDCODED_PROTOCOLS, create_vault_instance
-from eth_defi.erc_4626.core import MIN_PRICE_SCAN_DEPOSIT_COUNT, passes_price_scan_activity_filter
+from eth_defi.erc_4626.core import MIN_PRICE_SCAN_DEPOSIT_COUNT, ERC4626Feature, passes_price_scan_activity_filter
 from eth_defi.erc_4626.lead_discovery_state import (
     DEFAULT_LEAD_DISCOVERY_STATE_TIMEOUT,
     LeadDiscoveryState,
@@ -74,6 +74,9 @@ from eth_defi.erc_4626.settlement_scan import (
     fetch_and_store_vault_settlements_for_chain,
 )
 from eth_defi.feed.database import resolve_feed_database_path
+from eth_defi.gmx.historical_context import fetch_and_store_gmx_historical_share_prices, get_gmx_historical_context_path
+from eth_defi.gmx.vault_catalog import GMX_CHAIN_NAMES_BY_ID
+from eth_defi.gmx.vault_sync import GMXVaultCatalogueSyncResult, fetch_and_sync_gmx_vault_catalogue
 from eth_defi.grvt.daily_metrics import run_daily_scan as grvt_run_daily_scan
 from eth_defi.grvt.vault_data_export import merge_into_vault_database as grvt_merge_vault_db
 from eth_defi.hibachi.constants import HIBACHI_DAILY_METRICS_DATABASE
@@ -120,6 +123,10 @@ CORE3_PROTOCOL_NAME = "Core3"
 XERBERUS_PROTOCOL_NAME = "Xerberus"
 CURRENCY_RATES_PROTOCOL_NAME = "CurrencyRates"
 CURRENCY_RATES_DEFAULT_CYCLE = datetime.timedelta(hours=24)
+
+#: Bound the first scheduled GMX observation fetch. Older history is introduced by
+#: the explicit backfill script rather than delaying an ordinary chain cycle.
+GMX_INITIAL_CONTEXT_LOOKBACK_BLOCKS = 100_000
 
 logger = logging.getLogger(__name__)
 
@@ -624,6 +631,25 @@ def scan_vaults_for_chain(
     try:
         web3 = create_multi_provider_web3(rpc_url, rpc_request_stats=stats)
         chain_id = web3.eth.chain_id
+
+        def fetch_and_sync_current_gmx_catalogue(block_number: int) -> GMXVaultCatalogueSyncResult | None:
+            """Refresh GMX products independently of generic lead discovery."""
+
+            if chain_id not in GMX_CHAIN_NAMES_BY_ID:
+                return None
+            current_db = VaultDatabase.read(vault_db_path)
+            gmx_token_cache = TokenDiskCache()
+            sync_result = fetch_and_sync_gmx_vault_catalogue(
+                web3=web3,
+                vault_db=current_db,
+                token_cache=gmx_token_cache,
+                block_number=block_number,
+                max_workers=max_workers,
+            )
+            gmx_token_cache.commit()
+            current_db.write(vault_db_path)
+            return sync_result
+
         enabled_chains = [(config.name, config.env_var) for config in build_chain_configs() if config.scan_vaults]
         signature, signature_configuration = create_lead_discovery_signature(enabled_chains)
         state_path = get_lead_discovery_state_path(vault_db_path.parent, chain_id)
@@ -651,8 +677,10 @@ def scan_vaults_for_chain(
         if cache_miss_reason is None:
             assert existing_db is not None
             assert state is not None
-            chain_rows = [row for row in existing_db.rows.values() if row["_detection_data"].chain == chain_id]
             last_block = existing_db.last_scanned_block[chain_id]
+            gmx_sync = fetch_and_sync_current_gmx_catalogue(getattr(web3.eth, "block_number", last_block))
+            existing_db = VaultDatabase.read(vault_db_path)
+            chain_rows = [row for row in existing_db.rows.values() if row["_detection_data"].chain == chain_id]
             logger.debug(
                 "Lead discovery cache hit for chain %d: state=%s, age=%s, last refresh block=%d, timeout=%s, signature=%s",
                 chain_id,
@@ -667,7 +695,8 @@ def scan_vaults_for_chain(
                 "start_block": last_block,
                 "end_block": last_block,
                 "vault_count": len(chain_rows),
-                "new_vaults": 0,
+                "new_vaults": gmx_sync.inserted if gmx_sync else 0,
+                "gmx_products": gmx_sync.products if gmx_sync else 0,
                 "items_scanned": 0,
                 "lead_discovery_cache_hit": True,
             }
@@ -692,6 +721,7 @@ def scan_vaults_for_chain(
         )
         items_scanned = report.items_scanned
 
+        gmx_sync = fetch_and_sync_current_gmx_catalogue(report.end_block)
         refreshed_db = VaultDatabase.read(vault_db_path)
         refreshed_chain_rows = [row for row in refreshed_db.rows.values() if row["_detection_data"].chain == chain_id]
 
@@ -711,7 +741,8 @@ def scan_vaults_for_chain(
             "start_block": report.start_block,
             "end_block": report.end_block,
             "vault_count": len(refreshed_chain_rows),
-            "new_vaults": len(set(report.leads) - existing_lead_addresses),
+            "new_vaults": len(set(report.leads) - existing_lead_addresses) + (gmx_sync.inserted if gmx_sync else 0),
+            "gmx_products": gmx_sync.products if gmx_sync else 0,
             "items_scanned": items_scanned,
             "lead_discovery_cache_hit": False,
         }
@@ -736,6 +767,11 @@ def scan_prices_for_chain(
     hypersync_concurrency: int | None = None,
     rpc_request_stats: RPCRequestStats | None = None,
     excluded_specs: frozenset[VaultSpec] = frozenset(),
+    historical_context_path: Path | None = None,
+    start_block: int | None = None,
+    end_block: int | None = None,
+    vault_addresses: set[str] | None = None,
+    persist_reader_state: bool = True,
 ) -> tuple[bool, dict]:
     """Scan historical prices for a single chain.
 
@@ -749,6 +785,11 @@ def scan_prices_for_chain(
     :param excluded_specs:
         Exact products owned by ready dedicated tokenised-fund feeds. Disabled,
         unselected and product-filtered vaults remain under generic ownership.
+    :param historical_context_path: Optional shared contextual-reader DuckDB path.
+    :param start_block: Optional inclusive manual scan boundary.
+    :param end_block: Optional exclusive manual scan boundary.
+    :param vault_addresses: Optional lower-case address subset for a bounded repair.
+    :param persist_reader_state: Persist scheduled reader state; disable for manual backfills.
     :return: Tuple of (success, metrics_dict)
     """
     stats = rpc_request_stats or RPCRequestStats()
@@ -777,15 +818,23 @@ def scan_prices_for_chain(
 
         # Load reader states
         reader_states = {}
-        if reader_state_path.exists():
+        if persist_reader_state and reader_state_path.exists():
             reader_states = pickle.load(reader_state_path.open("rb"))
 
         # Filter vaults for this chain
         chain_vaults = [v for v in vault_db.rows.values() if v["_detection_data"].chain == chain_id]
+        if vault_addresses is not None:
+            if not vault_addresses:
+                raise ValueError("vault_addresses cannot be empty")
+            vault_addresses = {address.lower() for address in vault_addresses}
+            chain_vaults = [row for row in chain_vaults if row["_detection_data"].address.lower() in vault_addresses]
 
         if len(chain_vaults) == 0:
             logger.info("No vaults on chain %d, skipping price scan", chain_id)
             return True, {**metrics, "rows_written": 0}
+
+        gmx_features = {ERC4626Feature.gmx_gm, ERC4626Feature.gmx_glv}
+        gmx_rows = [row for row in chain_vaults if row["_detection_data"].features & gmx_features]
 
         # Create vault instances with filtering
         vaults = []
@@ -805,7 +854,16 @@ def scan_prices_for_chain(
             vault = create_vault_instance(web3, detection.address, detection.features, token_cache=token_cache)
             if vault:
                 vault.first_seen_at_block = detection.first_seen_at_block
+                if detection.features & gmx_features:
+                    vault.historical_context_path = historical_context_path or get_gmx_historical_context_path()
                 vaults.append(vault)
+
+        if vault_addresses is not None:
+            instantiated_addresses = {vault.address.lower() for vault in vaults}
+            if instantiated_addresses != vault_addresses:
+                missing = sorted(vault_addresses - instantiated_addresses)
+                message = f"Could not instantiate every selected vault; refusing bounded deletion: {missing}"
+                raise ValueError(message)
 
         if len(vaults) == 0:
             logger.info("No vaults to scan on chain %d after filtering", chain_id)
@@ -817,10 +875,33 @@ def scan_prices_for_chain(
         # batch's continuation point. Merge the updated subset back into the
         # complete shared mapping after the scan.
         scanned_specs = {vault.get_spec() for vault in vaults}
-        scanned_reader_states = {vault_spec: state for vault_spec, state in reader_states.items() if vault_spec in scanned_specs}
+        scanned_reader_states = {vault_spec: state for vault_spec, state in reader_states.items() if vault_spec in scanned_specs} if persist_reader_state else None
 
         # Configure HyperSync (shares throttle with vault lead discovery)
         hypersync_config = configure_hypersync_from_env(web3, concurrency=hypersync_concurrency)
+
+        current_end_block = end_block if end_block is not None else web3.eth.block_number
+        gmx_prefill = None
+        if gmx_rows:
+            context_path = historical_context_path or get_gmx_historical_context_path()
+            context_path.parent.mkdir(parents=True, exist_ok=True)
+            initial_lookback = int(os.environ.get("GMX_INITIAL_CONTEXT_LOOKBACK_BLOCKS", GMX_INITIAL_CONTEXT_LOOKBACK_BLOCKS))
+            chain_reader_start = max(((state["last_block"] or 0) for spec, state in (reader_states or {}).items() if spec.chain_id == chain_id), default=0)
+            if start_block is not None:
+                gmx_start_block = start_block
+            elif chain_reader_start:
+                gmx_start_block = chain_reader_start
+            else:
+                gmx_start_block = max(0, current_end_block - initial_lookback)
+            if gmx_start_block < current_end_block:
+                gmx_prefill = fetch_and_store_gmx_historical_share_prices(
+                    web3=web3,
+                    hypersync_client=hypersync_config.hypersync_client,
+                    start_block=gmx_start_block,
+                    end_block=current_end_block,
+                    context_path=context_path,
+                    product_addresses=(row["_detection_data"].address for row in gmx_rows),
+                )
 
         # Scan historical prices
         result = scan_historical_prices_to_parquet(
@@ -828,8 +909,8 @@ def scan_prices_for_chain(
             web3=web3,
             web3factory=web3factory,
             vaults=vaults,
-            start_block=None,
-            end_block=web3.eth.block_number,
+            start_block=start_block,
+            end_block=current_end_block,
             max_workers=max_workers,
             chunk_size=32,
             token_cache=token_cache,
@@ -841,7 +922,7 @@ def scan_prices_for_chain(
         )
 
         # Save reader states atomically to avoid corruption on interruption
-        if result["reader_states"]:
+        if persist_reader_state and result["reader_states"]:
             reader_states.update(result["reader_states"])
             with atomic_write(str(reader_state_path), mode="wb", overwrite=True) as f:
                 pickle.dump(reader_states, f)
@@ -851,6 +932,7 @@ def scan_prices_for_chain(
             "rows_written": result["rows_written"],
             "start_block": result["start_block"],
             "end_block": result["end_block"],
+            "gmx_observations_inserted": gmx_prefill.observations_inserted if gmx_prefill else 0,
         }
 
     except Exception as e:
@@ -872,6 +954,7 @@ def scan_chain(
     rpc_cycle_started: datetime.date | None = None,
     rpc_cycle_number: int | None = None,
     excluded_price_specs: frozenset[VaultSpec] = frozenset(),
+    historical_context_path: Path | None = None,
     *,
     lead_discovery_state_timeout: datetime.timedelta = DEFAULT_LEAD_DISCOVERY_STATE_TIMEOUT,
     force_lead_discovery: bool = False,
@@ -890,6 +973,7 @@ def scan_chain(
     :param excluded_price_specs: Vaults owned by a dedicated price scanner.
     :param lead_discovery_state_timeout: Maximum age of a successful incremental lead and metadata refresh.
     :param force_lead_discovery: Bypass a valid discovery cache on this scan.
+    :param historical_context_path: Shared contextual-reader DuckDB path
     :return: Scan result
     """
     result = ChainResult(name=config.name, status="running", retry_attempt=retry_attempt)
@@ -978,6 +1062,7 @@ def scan_chain(
             vault_db_path=vault_db_path,
             uncleaned_price_path=uncleaned_price_path,
             reader_state_path=reader_state_path,
+            historical_context_path=historical_context_path,
             hypersync_concurrency=hypersync_concurrency,
             rpc_request_stats=price_stats,
             excluded_specs=excluded_price_specs,
@@ -2054,6 +2139,7 @@ def backup_pipeline_files(backup_files: list[Path] | None = None, backup_dir: Pa
             DEFAULT_UNCLEANED_PRICE_DATABASE,
             DEFAULT_READER_STATE_DATABASE,
             DEFAULT_VAULT_DATABASE,
+            get_gmx_historical_context_path(),
             HYPERLIQUID_DAILY_METRICS_DATABASE,
             GRVT_DAILY_METRICS_DATABASE,
             LIGHTER_DAILY_METRICS_DATABASE,
@@ -2156,6 +2242,7 @@ def run_scan_tick(
     tokenised_fund_scheduling_enabled: bool = False,
     tokenised_fund_enabled_chain_ids: frozenset[int] = frozenset(),
     disabled_items: dict[str, str] | None = None,
+    historical_context_path: Path | None = None,
     *,
     lead_discovery_state_timeout: datetime.timedelta = DEFAULT_LEAD_DISCOVERY_STATE_TIMEOUT,
     force_lead_discovery: bool = False,
@@ -2186,6 +2273,8 @@ def run_scan_tick(
     :param core3_scan_scope:
         ``"mapped"`` limits Core3 API detail and history calls to projects
         used by the vault export. ``"all"`` refreshes the complete catalogue.
+    :param historical_context_path:
+        Shared contextual-reader DuckDB used by GMX price scans.
 
     :param feed_db_path:
         Path to the vault post feed DuckDB used to enrich the top-vaults
@@ -2342,6 +2431,7 @@ def run_scan_tick(
                 vault_db_path=vault_db_path,
                 uncleaned_price_path=uncleaned_price_path,
                 reader_state_path=reader_state_path,
+                historical_context_path=historical_context_path,
                 hypersync_concurrency=hypersync_concurrency,
                 rpc_usage_database=rpc_usage_database,
                 rpc_cycle_started=rpc_cycle_started,
@@ -2629,6 +2719,7 @@ def run_scan_tick(
                     vault_db_path=vault_db_path,
                     uncleaned_price_path=uncleaned_price_path,
                     reader_state_path=reader_state_path,
+                    historical_context_path=historical_context_path,
                     hypersync_concurrency=hypersync_concurrency,
                     rpc_usage_database=rpc_usage_database,
                     rpc_cycle_started=rpc_cycle_started,
@@ -2855,6 +2946,7 @@ def main():
     lighter_db_path = data_dir / "lighter-pools.duckdb"
     hibachi_db_path = data_dir / "hibachi-vaults.duckdb"
     apex_db_path = data_dir / "apex-vaults.duckdb"
+    historical_context_db_path = data_dir / "vault-historical-context.duckdb"
     hypercore_mode = os.environ.get("HYPERCORE_MODE", "daily").strip().lower()
     hyperliquid_db_path = data_dir / "hyperliquid-vaults.duckdb"
     hyperliquid_hf_db_path = data_dir / "hyperliquid-vaults-hf.duckdb"
@@ -2882,6 +2974,7 @@ def main():
         lighter_db_path,
         hibachi_db_path,
         apex_db_path,
+        historical_context_db_path,
         settlement_db_path,
         core3_db_path,
         xerberus_db_path,
@@ -3055,6 +3148,7 @@ def main():
         vault_db_path=vault_db_path,
         uncleaned_price_path=uncleaned_price_path,
         reader_state_path=reader_state_path,
+        historical_context_path=historical_context_db_path,
         hyperliquid_db_path=hyperliquid_db_path,
         hyperliquid_hf_db_path=hyperliquid_hf_db_path,
         grvt_db_path=grvt_db_path,

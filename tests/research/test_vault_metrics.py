@@ -4,6 +4,7 @@ import datetime
 import json
 import os.path
 import pickle
+from dataclasses import replace
 from decimal import Decimal
 from pathlib import Path
 
@@ -12,6 +13,7 @@ import pytest
 import zstandard as zstd
 from plotly.graph_objects import Figure
 
+from eth_defi.erc_4626.core import ERC4626Feature
 from eth_defi.erc_4626.vault_protocol.d2.vault import D2_PROTOCOL_NAME, format_d2_vault_note
 from eth_defi.hyperliquid.constants import HYPERCORE_CHAIN_ID
 from eth_defi.hyperliquid.vault_data_export import create_hyperliquid_vault_row
@@ -24,12 +26,18 @@ from eth_defi.research.vault_metrics import (
     PeriodMetrics,
     apply_abnormal_value_checks,
     apply_morpho_not_in_api_check,
+    calculate_annualised_volatility_from_daily_returns,
+    calculate_hourly_returns_for_all_vaults,
     calculate_lifetime_metrics,
     calculate_period_metrics,
+    calculate_returns,
+    calculate_sharpe_ratio_from_returns,
     display_vault_chart_and_tearsheet,
     export_lifetime_row,
     format_lifetime_table,
     make_vault_display_flags,
+    prepare_daily_share_price_series,
+    resample_returns,
 )
 from eth_defi.vault.base import VaultSpec, WithdrawalDelayType, WithdrawalPeriod
 from eth_defi.vault.fee import FeeData, VaultFeeMode
@@ -38,6 +46,80 @@ from eth_defi.vault.price_source import PriceSource
 from eth_defi.vault.risk import VaultTechnicalRisk
 from eth_defi.vault.strategy_tag import StrategyTag
 from eth_defi.vault.vaultdb import VaultDatabase
+
+
+def test_sparse_share_prices_are_regularised_once_for_daily_risk_metrics() -> None:
+    """Accept forward filling as the common sparse-series approximation."""
+
+    observations = pd.Series(
+        [100.0, 121.0],
+        index=pd.to_datetime(["2026-01-01 12:00:00", "2026-01-04 12:00:00"]),
+    )
+
+    daily_prices, daily_returns = prepare_daily_share_price_series(observations)
+
+    # The accepted approximation makes unobserved days flat and assigns the
+    # complete intervening movement to the next observed day.
+    assert daily_prices.tolist() == [100.0, 100.0, 100.0, 121.0]
+    assert pd.isna(daily_returns.iloc[0])
+    assert daily_returns.iloc[1:].tolist() == pytest.approx([0.0, 0.0, 0.21])
+    assert calculate_annualised_volatility_from_daily_returns(daily_returns) == pytest.approx(daily_returns.dropna().std() * 365**0.5)
+    assert calculate_sharpe_ratio_from_returns(daily_returns) == pytest.approx(daily_returns.dropna().mean() / daily_returns.dropna().std() * 365**0.5)
+
+
+def test_period_metrics_rejects_empty_share_price_series_cleanly() -> None:
+    """A raw vault group without usable prices must not abort the batch."""
+
+    empty = pd.Series(index=pd.DatetimeIndex([]), dtype="float64")
+    fees = FeeData(fee_mode=VaultFeeMode.feeless, management=0, performance=0, deposit=0, withdraw=0)
+
+    result = calculate_period_metrics(
+        period="lifetime",
+        gross_fee_data=fees,
+        net_fee_data=fees,
+        share_price_hourly=empty,
+        share_price_daily=empty,
+        daily_returns=empty,
+        tvl=empty,
+        now_=pd.Timestamp("2026-01-01"),
+    )
+
+    assert result.error_reason == "Vault has no usable share-price observations"
+    assert result.raw_samples == 0
+
+
+def test_return_resampling_preserves_missing_calendar_days() -> None:
+    """General return helpers produce zero returns for unobserved days."""
+
+    index = pd.to_datetime(["2026-01-01 12:00:00", "2026-01-04 12:00:00"])
+    prices = pd.Series([100.0, 121.0], index=index)
+    sparse_returns = prices.pct_change(fill_method=None).fillna(0.0)
+
+    assert calculate_returns(prices).tolist() == pytest.approx([0.0, 0.0, 0.0, 0.21])
+    assert resample_returns(sparse_returns).tolist() == pytest.approx([0.0, 0.0, 0.0, 0.21])
+
+
+def test_daily_vault_resampling_does_not_forward_fill_flow_totals() -> None:
+    """Daily price filling must not duplicate deposits on missing days."""
+
+    vault_id = "1-0x1234"
+    rows = pd.DataFrame(
+        {
+            "chain": [1, 1],
+            "address": ["0x1234", "0x1234"],
+            "id": [vault_id, vault_id],
+            "share_price": [100.0, 110.0],
+            "daily_deposit_usd": [10.0, 20.0],
+        },
+        index=pd.to_datetime(["2026-01-01 12:00:00", "2026-01-03 12:00:00"]),
+    )
+
+    daily = calculate_hourly_returns_for_all_vaults(rows)
+
+    assert daily["share_price"].tolist() == [100.0, 100.0, 110.0]
+    assert daily["id"].tolist() == [vault_id, vault_id, vault_id]
+    assert pd.isna(daily["daily_deposit_usd"].iloc[1])
+    assert daily["daily_deposit_usd"].sum() == pytest.approx(30.0)
 
 
 def test_get_trading_strategy_links_use_canonical_vault_routes():
@@ -83,6 +165,35 @@ def test_calculate_vault_rankings_includes_per_curator_ranks_at_one_hundred_doll
     assert results_df.loc["beta", "period_results"][0].ranking_curator == expected_best_rank
     assert results_df.loc["alpha-too-small", "period_results"][0].ranking_curator is None
     assert results_df.loc["unknown", "period_results"][0].ranking_curator is None
+
+
+def test_calculate_vault_rankings_excludes_disabled_gmx_products() -> None:
+    """Keep disabled GMX history queryable without ranking it as investable."""
+
+    active = PeriodMetrics(period="1W", cagr_net=0.10, tvl_end=100_000)
+    disabled = PeriodMetrics(period="1W", cagr_net=0.20, tvl_end=100_000)
+    results_df = pd.DataFrame(
+        {
+            "chain": ["Arbitrum", "Arbitrum"],
+            "protocol": ["GMX", "GMX"],
+            "protocol_slug": ["gmx", "gmx"],
+            "curator_slug": ["gmx", "gmx"],
+            "risk": [VaultTechnicalRisk.low, VaultTechnicalRisk.low],
+            "deposit_closed_reason": [None, "GMX product disabled"],
+            "period_results": [[active], [disabled]],
+        },
+    )
+
+    vault_metrics.calculate_vault_rankings(results_df)
+
+    assert active.ranking_overall == 1
+    assert active.ranking_chain == 1
+    assert active.ranking_protocol == 1
+    assert active.ranking_curator == 1
+    assert disabled.ranking_overall is None
+    assert disabled.ranking_chain is None
+    assert disabled.ranking_protocol is None
+    assert disabled.ranking_curator is None
 
 
 def test_calculate_net_profit_accepts_one_hundred_percent_performance_fee() -> None:
@@ -136,6 +247,29 @@ def test_calculate_lifetime_metrics_skips_invalid_vault_record(
 
     assert metrics["id"].tolist() == [valid_id]
     assert f"Skipping invalid vault metrics record for {invalid_id}" in caplog.text
+
+
+def test_calculate_lifetime_metrics_prepares_daily_series_once_per_vault(
+    vault_db: VaultDatabase,
+    price_df: pd.DataFrame,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """All period metrics reuse one daily price and return pair per vault."""
+
+    vault_id = "43111-0x05c2e246156d37b39a825a25dd08d5589e3fd883"
+    spec = VaultSpec.parse_string(vault_id)
+    calls = 0
+    original = vault_metrics.prepare_daily_share_price_series
+
+    def count_preparations(observations: pd.Series) -> tuple[pd.Series, pd.Series]:
+        nonlocal calls
+        calls += 1
+        return original(observations)
+
+    monkeypatch.setattr(vault_metrics, "prepare_daily_share_price_series", count_preparations)
+    calculate_lifetime_metrics(price_df.loc[price_df["id"] == vault_id], {spec: dict(vault_db.rows[spec])})
+
+    assert calls == 1
 
 
 def test_net_return_calculations_accept_decimal_fees() -> None:
@@ -389,8 +523,10 @@ def test_calculate_lifetime_metrics(
     # Three months metrics - the test data spans ~41 days, which fits within 3M tolerance
     assert sample_row["three_months_cagr"] == pytest.approx(0.02483940718068034)
     assert sample_row["three_months_cagr_net"] == pytest.approx(0.02483940718068034)
-    assert sample_row["three_months_sharpe"] == pytest.approx(5.280916994701033)
-    assert sample_row["three_months_sharpe_net"] == pytest.approx(5.280916994701033)
+    # Sparse change-only observations are expanded to consecutive calendar
+    # days before annualising the risk metrics.
+    assert sample_row["three_months_sharpe"] == pytest.approx(16.510952815481623)
+    assert sample_row["three_months_sharpe_net"] == pytest.approx(16.510952815481623)
 
     assert sample_row["one_month_returns"] == pytest.approx(0.0018523254977500514)
     assert sample_row["one_month_returns_net"] == pytest.approx(0.0018523254977500514)
@@ -465,6 +601,58 @@ def test_calculate_lifetime_metrics(
 
     # Verify period_results is not in formatted output
     # assert "period_results" not in formatted.columns
+
+
+def test_event_observed_gmx_exports_approximated_daily_metrics(vault_db: VaultDatabase, price_df: pd.DataFrame) -> None:
+    """Calculate exact forward-filled risk metrics from sparse GMX events."""
+
+    address = "0x05c2e246156d37b39a825a25dd08d5589e3fd883"
+    spec = VaultSpec(43111, address)
+    row = vault_db.rows[spec].copy()
+    row["Protocol"] = "GMX"
+    row["_deposit_closed_reason"] = None
+    row["_detection_data"] = replace(
+        row["_detection_data"],
+        features={ERC4626Feature.gmx_gm, ERC4626Feature.share_price_equivalence},
+    )
+    gmx_db = VaultDatabase(rows={spec: row})
+    gmx_prices = price_df[price_df["id"] == f"43111-{address}"].iloc[:3].copy()
+    gmx_prices.index = pd.to_datetime(["2026-01-01", "2026-01-03", "2026-01-06"])
+    gmx_prices["share_price"] = [1.0, 1.1, 1.21]
+    gmx_prices["total_supply"] = [100.0, 200.0, 150.0]
+    gmx_prices["total_assets"] = gmx_prices["share_price"] * gmx_prices["total_supply"]
+
+    result = calculate_lifetime_metrics(gmx_prices, gmx_db).iloc[0]
+    three_months = next(period for period in result["period_results"] if period.period == "3M")
+
+    # Forward filling produces returns [0%, 10%, 0%, 0%, 10%]. The supply
+    # changes do not affect the supply-normalised price or its return series.
+    expected_returns = pd.Series([0.0, 0.1, 0.0, 0.0, 0.1])
+    expected_volatility = expected_returns.std() * 365**0.5
+    expected_sharpe = expected_returns.mean() / expected_returns.std() * 365**0.5
+    assert three_months.volatility == pytest.approx(expected_volatility)
+    assert three_months.sharpe == pytest.approx(expected_sharpe)
+
+    for period in result["period_results"]:
+        if period.error_reason is not None:
+            continue
+        available_metrics = (
+            period.returns_gross,
+            period.returns_net,
+            period.cagr_gross,
+            period.cagr_net,
+            period.volatility,
+            period.sharpe,
+            period.max_drawdown,
+            period.tvl_start,
+            period.tvl_end,
+            period.tvl_low,
+            period.tvl_high,
+        )
+        assert all(value is not None and pd.notna(value) for value in available_metrics), period.period
+
+    assert pd.notna(result["three_months_volatility"])
+    assert pd.notna(result["three_months_sharpe"])
 
 
 def test_calculate_lifetime_metrics_exports_deposit_permission(
@@ -846,7 +1034,7 @@ def test_calculate_period_metrics(
 
     # Prepare inputs
     share_price_hourly = vault_data["share_price"]
-    share_price_daily = share_price_hourly.resample("D").last().dropna()
+    share_price_daily, daily_returns = prepare_daily_share_price_series(share_price_hourly)
     tvl = vault_data["total_assets"]
     now_ = vault_data.index.max()
 
@@ -857,6 +1045,7 @@ def test_calculate_period_metrics(
         net_fee_data=net_fee_data,
         share_price_hourly=share_price_hourly,
         share_price_daily=share_price_daily,
+        daily_returns=daily_returns,
         tvl=tvl,
         now_=now_,
     )
@@ -874,6 +1063,7 @@ def test_calculate_period_metrics(
         net_fee_data=net_fee_data,
         share_price_hourly=share_price_hourly,
         share_price_daily=share_price_daily,
+        daily_returns=daily_returns,
         tvl=tvl,
         now_=now_,
     )
@@ -888,6 +1078,7 @@ def test_calculate_period_metrics(
         net_fee_data=net_fee_data,
         share_price_hourly=share_price_hourly,
         share_price_daily=share_price_daily,
+        daily_returns=daily_returns,
         tvl=tvl,
         now_=now_,
     )
@@ -906,13 +1097,14 @@ def test_calculate_period_metrics(
 
     # Test avg_utilisation with a synthetic utilisation series (lending vault scenario).
     # All samples are 0.75 so the mean must equal 0.75 exactly.
-    utilisation_uniform = pd.Series(0.75, index=vault_data.index)
+    utilisation_uniform = pd.Series(0.75, index=vault_data.index).resample("D").last().ffill()
     metrics_util_lifetime = calculate_period_metrics(
         period="lifetime",
         gross_fee_data=fee_data,
         net_fee_data=net_fee_data,
         share_price_hourly=share_price_hourly,
         share_price_daily=share_price_daily,
+        daily_returns=daily_returns,
         tvl=tvl,
         now_=now_,
         utilisation=utilisation_uniform,
@@ -922,9 +1114,14 @@ def test_calculate_period_metrics(
     # Test that varying utilisation values are averaged correctly.
     # Assign linearly spaced values 0.6 … 0.8 across the vault index; the mean is 0.7.
     n = len(vault_data)
-    utilisation_varying = pd.Series(
-        [0.6 + 0.2 * i / (n - 1) for i in range(n)],
-        index=vault_data.index,
+    utilisation_varying = (
+        pd.Series(
+            [0.6 + 0.2 * i / (n - 1) for i in range(n)],
+            index=vault_data.index,
+        )
+        .resample("D")
+        .last()
+        .ffill()
     )
     metrics_util_varying = calculate_period_metrics(
         period="lifetime",
@@ -932,11 +1129,12 @@ def test_calculate_period_metrics(
         net_fee_data=net_fee_data,
         share_price_hourly=share_price_hourly,
         share_price_daily=share_price_daily,
+        daily_returns=daily_returns,
         tvl=tvl,
         now_=now_,
         utilisation=utilisation_varying,
     )
-    assert metrics_util_varying.avg_utilisation == pytest.approx(0.7, rel=0.01)
+    assert metrics_util_varying.avg_utilisation == pytest.approx(utilisation_varying.mean())
 
 
 def test_apply_abnormal_value_checks_handles_pandas_na():
