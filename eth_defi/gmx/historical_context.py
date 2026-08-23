@@ -6,8 +6,6 @@ vault price scanner reads them.  Calculated prices remain in the common
 Parquet dataset, not in this cache.
 """
 
-import hashlib
-import json
 import logging
 import re
 import time
@@ -28,17 +26,26 @@ from eth_defi.gmx.vault_catalog import GMX_CHAIN_NAMES_BY_ID
 from eth_defi.hypersync.session import ThrottledHypersyncClient
 from eth_defi.vault.vaultdb import get_pipeline_data_dir
 
-#: Current payload schema accepted by :class:`GMXHistoricalContextStore`.
-GMX_HISTORICAL_CONTEXT_SCHEMA_VERSION: int = 3
-
 #: Maximum Hypersync block range committed in one transaction.
 GMX_HYPERSYNC_VALUATION_CHUNK_SIZE: int = 10_000_000
 
-#: Stable context identifier for supply-normalised GMX LP prices.
-GMX_LP_SHARE_PRICE_VALUATION_CONTEXT: str = "lp_share_price"
-
 #: Maximum bounded retries for a rate-limited Hypersync request.
 GMX_HYPERSYNC_RATE_LIMIT_RETRIES: int = 10
+
+#: Direct columns owned by the GMX context table.
+GMX_HISTORICAL_CONTEXT_COLUMNS: frozenset[str] = frozenset(
+    {
+        "chain_id",
+        "block_number",
+        "block_timestamp",
+        "transaction_hash",
+        "log_index",
+        "product_address",
+        "raw_value",
+        "raw_supply",
+        "event_name",
+    }
+)
 
 logger = logging.getLogger(__name__)
 
@@ -92,102 +99,144 @@ class GMXHistoricalContextStore(AbstractContextManager):
         self._create_schema()
 
     def _create_schema(self) -> None:
-        """Create the GMX observation table.
+        """Create the minimal GMX observation table or migrate its legacy layout.
 
-        The table retains the original generic column names for compatibility
-        with existing backfills.  ``context_json`` contains the protocol-owned
-        event fields and ``payload_hash`` protects them from silent mutation.
+        Early development caches stored GMX fields inside a generic JSON
+        envelope. The migration copies only the current deposit-context rows
+        into direct protocol-owned columns and replaces the old table in one
+        DuckDB transaction.
+
+        :return:
+            None.
         """
 
+        existing_columns = {
+            row[0]
+            for row in self.connection.execute(
+                """
+                SELECT column_name
+                FROM information_schema.columns
+                WHERE table_name = 'gmx_historical_context'
+                """
+            ).fetchall()
+        }
+        if existing_columns and existing_columns != GMX_HISTORICAL_CONTEXT_COLUMNS:
+            if "context_json" not in existing_columns:
+                raise RuntimeError(f"Unsupported gmx_historical_context columns: {sorted(existing_columns)}")
+            self._migrate_legacy_schema()
+            return
+
+        self._create_direct_table("gmx_historical_context")
+
+    def _create_direct_table(self, table_name: str) -> None:
+        """Create a direct-column GMX observation table.
+
+        The internal table name is allowlisted because DuckDB identifiers
+        cannot be passed as query parameters.
+
+        :param table_name:
+            Valid internal table name chosen by this module.
+        :return:
+            None.
+        """
+
+        if table_name not in {"gmx_historical_context", "gmx_historical_context_direct"}:
+            raise ValueError(f"Unsupported GMX context table name: {table_name}")
+
         self.connection.execute(
-            """
-            CREATE TABLE IF NOT EXISTS gmx_historical_context (
+            f"""
+            CREATE TABLE IF NOT EXISTS {table_name} (
                 chain_id UINTEGER NOT NULL,
-                sample_block_number UBIGINT NOT NULL,
-                valuation_context VARCHAR NOT NULL,
-                source_observation_id VARCHAR NOT NULL,
-                token_coverage_hash VARCHAR NOT NULL,
-                payload_hash VARCHAR NOT NULL,
-                schema_version UINTEGER NOT NULL,
-                context_json JSON NOT NULL,
-                PRIMARY KEY (
-                    chain_id,
-                    sample_block_number,
-                    valuation_context,
-                    source_observation_id,
-                    token_coverage_hash
-                )
+                block_number UBIGINT NOT NULL,
+                block_timestamp UBIGINT NOT NULL,
+                transaction_hash VARCHAR NOT NULL,
+                log_index UINTEGER NOT NULL,
+                product_address VARCHAR NOT NULL,
+                raw_value UHUGEINT NOT NULL,
+                raw_supply UHUGEINT NOT NULL,
+                event_name VARCHAR NOT NULL,
+                PRIMARY KEY (chain_id, transaction_hash, log_index)
             )
             """
         )
 
+    def _migrate_legacy_schema(self) -> None:
+        """Replace the legacy generic JSON envelope with direct GMX columns.
+
+        The replacement is transactional, so an interrupted or invalid legacy
+        cache leaves the original table available for operator recovery.
+
+        :return:
+            None.
+        """
+
+        self.connection.execute("BEGIN TRANSACTION")
+        try:
+            self._create_direct_table("gmx_historical_context_direct")
+            self.connection.execute(
+                """
+                INSERT INTO gmx_historical_context_direct
+                SELECT chain_id,
+                       sample_block_number,
+                       CAST(json_extract_string(context_json, '$.block_timestamp') AS UBIGINT),
+                       lower(json_extract_string(context_json, '$.transaction_hash')),
+                       CAST(json_extract_string(context_json, '$.log_index') AS UINTEGER),
+                       lower(json_extract_string(context_json, '$.product_address')),
+                       CAST(json_extract_string(context_json, '$.raw_value') AS UHUGEINT),
+                       CAST(json_extract_string(context_json, '$.raw_supply') AS UHUGEINT),
+                       json_extract_string(context_json, '$.event_name')
+                FROM gmx_historical_context
+                WHERE valuation_context = 'lp_share_price' AND schema_version = 3
+                """
+            )
+            self.connection.execute("DROP TABLE gmx_historical_context")
+            self.connection.execute("ALTER TABLE gmx_historical_context_direct RENAME TO gmx_historical_context")
+        except duckdb.Error:
+            self.connection.execute("ROLLBACK")
+            raise
+        else:
+            self.connection.execute("COMMIT")
+
     def insert_share_price(self, observation: GMXHistoricalSharePriceObservation) -> bool:
         """Persist one GM or GLV observation idempotently.
 
-        Existing observations with an identical payload are promoted to the
-        current schema version when necessary. Their source payload is never
-        mutated.
+        The chain transaction hash and log index identify the source event.
+        Repeating an identical event is a no-op; conflicting values are rejected.
 
         :param observation:
             Canonical onchain value-and-supply event.
         :return:
-            ``True`` when inserted or schema-promoted, and ``False`` for an
-            identical retry already using the current schema.
+            ``True`` when inserted and ``False`` for an identical retry.
         :raises ValueError:
             If an existing observation has a different payload.
         """
 
-        product_address = observation.product_address.lower()
-        coverage_hash = hashlib.sha256(product_address.encode("ascii")).hexdigest()
-        payload = json.dumps(
-            {
-                "block_timestamp": observation.block_timestamp,
-                "event_name": observation.event_name,
-                "log_index": observation.log_index,
-                "product_address": product_address,
-                "raw_supply": str(observation.raw_supply),
-                "raw_value": str(observation.raw_value),
-                "transaction_hash": observation.transaction_hash.lower(),
-            },
-            sort_keys=True,
-            separators=(",", ":"),
-        )
-        payload_hash = hashlib.sha256(payload.encode("utf-8")).hexdigest()
-        key = (
+        values = (
             observation.chain_id,
             observation.block_number,
-            GMX_LP_SHARE_PRICE_VALUATION_CONTEXT,
-            observation.source_observation_id,
-            coverage_hash,
+            observation.block_timestamp,
+            observation.transaction_hash.lower(),
+            observation.log_index,
+            observation.product_address.lower(),
+            observation.raw_value,
+            observation.raw_supply,
+            observation.event_name,
         )
         existing = self.connection.execute(
             """
-            SELECT payload_hash, schema_version
+            SELECT chain_id, block_number, block_timestamp, transaction_hash,
+                   log_index, product_address, raw_value, raw_supply, event_name
             FROM gmx_historical_context
-            WHERE chain_id = ? AND sample_block_number = ? AND valuation_context = ?
-              AND source_observation_id = ? AND token_coverage_hash = ?
+            WHERE chain_id = ? AND transaction_hash = ? AND log_index = ?
             """,
-            key,
+            (observation.chain_id, observation.transaction_hash.lower(), observation.log_index),
         ).fetchone()
         if existing is not None:
-            if existing[0] != payload_hash:
+            if tuple(existing) != values:
+                key = (observation.chain_id, observation.transaction_hash.lower(), observation.log_index)
                 raise ValueError(f"GMX historical share-price conflict for {key}")
-            if existing[1] != GMX_HISTORICAL_CONTEXT_SCHEMA_VERSION:
-                self.connection.execute(
-                    """
-                    UPDATE gmx_historical_context
-                    SET schema_version = ?
-                    WHERE chain_id = ? AND sample_block_number = ? AND valuation_context = ?
-                      AND source_observation_id = ? AND token_coverage_hash = ?
-                    """,
-                    (GMX_HISTORICAL_CONTEXT_SCHEMA_VERSION, *key),
-                )
-                return True
             return False
-        self.connection.execute(
-            "INSERT INTO gmx_historical_context VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-            (*key, payload_hash, GMX_HISTORICAL_CONTEXT_SCHEMA_VERSION, payload),
-        )
+        self.connection.execute("INSERT INTO gmx_historical_context VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)", values)
         return True
 
     def iter_share_prices(
@@ -216,39 +265,30 @@ class GMXHistoricalContextStore(AbstractContextManager):
         """
 
         assert step > 0
-        coverage_hash = hashlib.sha256(product_address.lower().encode("ascii")).hexdigest()
         rows = self.connection.execute(
             """
-            SELECT sample_block_number, source_observation_id, payload_hash,
-                   schema_version, context_json
+            SELECT block_number, block_timestamp, transaction_hash, log_index,
+                   product_address, raw_value, raw_supply, event_name
             FROM gmx_historical_context
-            WHERE chain_id = ? AND sample_block_number >= ?
-              AND sample_block_number < ? AND valuation_context = ?
-              AND token_coverage_hash = ? AND schema_version = ?
-            ORDER BY sample_block_number ASC, source_observation_id ASC
+            WHERE chain_id = ? AND block_number >= ? AND block_number < ?
+              AND product_address = ?
+            ORDER BY block_number ASC, log_index ASC
             """,
-            (chain_id, start_block, end_block, GMX_LP_SHARE_PRICE_VALUATION_CONTEXT, coverage_hash, GMX_HISTORICAL_CONTEXT_SCHEMA_VERSION),
+            (chain_id, start_block, end_block, product_address.lower()),
         ).fetchall()
         by_bucket: dict[int, GMXHistoricalSharePriceObservation] = {}
-        for sample_block_number, source_observation_id, payload_hash, schema_version, context_json in rows:
-            if schema_version != GMX_HISTORICAL_CONTEXT_SCHEMA_VERSION:
-                raise ValueError(f"Unknown GMX historical share-price schema version: {schema_version}")
-            if hashlib.sha256(context_json.encode("utf-8")).hexdigest() != payload_hash:
-                raise ValueError(f"GMX historical share-price payload hash mismatch for {source_observation_id}")
-            payload = json.loads(context_json)
+        for block_number, block_timestamp, transaction_hash, log_index, stored_product_address, raw_value, raw_supply, event_name in rows:
             observation = GMXHistoricalSharePriceObservation(
                 chain_id=chain_id,
-                block_number=int(sample_block_number),
-                block_timestamp=int(payload["block_timestamp"]),
-                transaction_hash=payload["transaction_hash"],
-                log_index=int(payload["log_index"]),
-                product_address=to_checksum_address(payload["product_address"]),
-                raw_value=int(payload["raw_value"]),
-                raw_supply=int(payload["raw_supply"]),
-                event_name=payload["event_name"],
+                block_number=int(block_number),
+                block_timestamp=int(block_timestamp),
+                transaction_hash=transaction_hash,
+                log_index=int(log_index),
+                product_address=to_checksum_address(stored_product_address),
+                raw_value=int(raw_value),
+                raw_supply=int(raw_supply),
+                event_name=event_name,
             )
-            if observation.source_observation_id != source_observation_id:
-                raise ValueError(f"GMX historical share-price source mismatch for {source_observation_id}")
             bucket = (observation.block_number - start_block) // step
             previous = by_bucket.get(bucket)
             if previous is None or (observation.block_number, observation.log_index) > (previous.block_number, previous.log_index):

@@ -1,6 +1,7 @@
 # 1.2
 
 - feat: Add GMX V2 GM and GLV vault catalogue discovery, supply-normalised historical USD equity curves and incremental all-chain scanner integration (2026-08-23)
+- fix: Regularise sparse observations for every vault to one forward-filled calendar-day series before calculating volatility, Sharpe and drawdown metrics (2026-08-23)
 - Fix bounded vault-price rescans to replace only the requested half-open block range while preserving the legacy ERC-4626 sparse-change rules (2026-08-23)
 - fix: Stop GMX profitable-long closes from leaking PnL as unaccounted native ETH into the Safe, and price GMX positions and non-stablecoin Safe reserves correctly in vault NAV (2026-08-20)
 - feat: Add authenticated Enzyme Blue manager-entered listing descriptions with neutral Blue fallback copy; mark all Onyx descriptions as not publicly available rather than publishing unverified manager copy; replace the horizontal wordmark listing artwork with the official standalone Enzyme brand mark; add direct address-specific vault links; and add a resumable current-metadata migration plus current handler-indexed Onyx and PolicyManager-based Blue deposit-permission auditing with an optional official Enzyme API comparison (2026-08-21)

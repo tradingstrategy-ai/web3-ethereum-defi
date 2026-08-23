@@ -28,9 +28,10 @@ ratio. GMX notes that GLV values may omit shift, deposit or withdrawal fees
 when a GLV oracle price is used. The result is an event-observed share-price
 approximation rather than a continuous canonical NAV.
 
-The curve approximates a single-sided USDC deposit but does not simulate
-transaction-specific execution fees, price impact, spreads or
-deposit/withdrawal fees.
+The result is a USD-denominated GMX share curve. It approximates a single-sided
+USDC deposit only where USDC is accepted; actual deposit tokens are
+product-specific. It does not simulate transaction-specific execution fees,
+price impact, spreads or deposit/withdrawal fees.
 
 ## 1. Enumerate products and collect metadata
 
@@ -63,28 +64,23 @@ GMX owns one table so future protocols can choose different observations:
 ```sql
 CREATE TABLE gmx_historical_context (
     chain_id UINTEGER NOT NULL,
-    sample_block_number UBIGINT NOT NULL,
-    valuation_context VARCHAR NOT NULL,
-    source_observation_id VARCHAR NOT NULL,
-    token_coverage_hash VARCHAR NOT NULL,
-    payload_hash VARCHAR NOT NULL,
-    schema_version UINTEGER NOT NULL,
-    context_json JSON NOT NULL,
-    PRIMARY KEY (
-        chain_id,
-        sample_block_number,
-        valuation_context,
-        source_observation_id,
-        token_coverage_hash
-    )
+    block_number UBIGINT NOT NULL,
+    block_timestamp UBIGINT NOT NULL,
+    transaction_hash VARCHAR NOT NULL,
+    log_index UINTEGER NOT NULL,
+    product_address VARCHAR NOT NULL,
+    raw_value UHUGEINT NOT NULL,
+    raw_supply UHUGEINT NOT NULL,
+    event_name VARCHAR NOT NULL,
+    PRIMARY KEY (chain_id, transaction_hash, log_index)
 );
 ```
 
-The existing column layout is retained for already-collected caches. For GMX
-share-price rows, ``context_json`` needs only product address, block timestamp,
-transaction hash, log index, event name, raw product value and raw supply.
-``payload_hash`` detects corruption. Do not store calculated NAV, metadata,
-failure rows or scanner cursors in this table.
+The table stores only the GMX event fields required by the reader. Do not add a
+generic payload envelope, calculated NAV, metadata, failure rows or scanner
+cursors. Existing development caches using the earlier JSON envelope are
+migrated transactionally when opened. Only corrected deposit-context rows are
+copied; obsolete mixed-context rows are not copied.
 
 ``fetch_and_store_gmx_historical_share_prices()`` streams selected events via
 Hypersync, commits each source chunk and inserts idempotently. It does not fetch

@@ -146,7 +146,8 @@ class PeriodMetrics:
     volatility: Percent | None = None
 
     #: Sharpe ratio based on daily returns. For sparse price sources, missing
-    #: days are forward filled and the result is an approximation.
+    #: days are forward filled and the result is an approximation. Eligible
+    #: periods with no measurable return dispersion use the export value zero.
     sharpe: float | None = None
 
     #: Period maximum drawdown
@@ -1463,6 +1464,8 @@ def calculate_period_metrics(
     volatility = calculate_annualised_volatility_from_daily_returns(period_daily_returns)
     sharpe = calculate_sharpe_ratio_from_returns(period_daily_returns)
     if not np.isfinite(sharpe):
+        # Common exported period metrics use zero for an eligible flat series,
+        # where Sharpe is mathematically undefined because volatility is zero.
         sharpe = 0
 
     # Calculate max drawdown directly from share prices.
@@ -3682,6 +3685,39 @@ def cross_check_data(
     return errors
 
 
+def _calculate_regular_daily_returns(df_work: pd.DataFrame, returns_column: str) -> pd.DataFrame:
+    """Regularise sparse vault prices and calculate one return per calendar day.
+
+    Share prices and descriptive metadata are forward filled independently for
+    each vault. Flow columns are deliberately left sparse so a deposit or
+    withdrawal is not repeated on every filled day.
+
+    :param df_work:
+        Vault price rows indexed by timestamp, with ``chain``, ``address`` and
+        numeric ``share_price`` columns. Optional daily flow columns remain
+        attached only to their original observation day.
+    :param returns_column:
+        Name assigned to the calculated percentage-return column.
+    :return:
+        Daily vault rows with the requested return column.
+    """
+
+    assert isinstance(df_work, pd.DataFrame)
+    assert isinstance(df_work.index, pd.DatetimeIndex), "DataFrame index must be a DatetimeIndex"
+    result_dfs = []
+    for (chain_val, addr_val), group in df_work.groupby(["chain", "address"]):
+        resampled = group.resample("D").last()
+        flow_columns = [column for column in ("daily_deposit_count", "daily_withdrawal_count", "daily_deposit_usd", "daily_withdrawal_usd") if column in resampled.columns]
+        sparse_flows = resampled[flow_columns].copy()
+        resampled = resampled.ffill()
+        resampled[flow_columns] = sparse_flows
+        resampled[returns_column] = resampled["share_price"].pct_change(fill_method=None).fillna(0)
+        resampled["chain"] = chain_val
+        resampled["address"] = addr_val
+        result_dfs.append(resampled)
+    return pd.concat(result_dfs)
+
+
 def calculate_daily_returns_for_all_vaults(df_work: pd.DataFrame) -> pd.DataFrame:
     """Calculate consecutive calendar-day returns for each vault.
 
@@ -3694,32 +3730,7 @@ def calculate_daily_returns_for_all_vaults(df_work: pd.DataFrame) -> pd.DataFram
         Daily vault rows with a ``daily_returns`` percentage-return column.
     """
 
-    # Group by chain and address, then resample and forward fill
-
-    df_work = df_work.set_index("timestamp")
-
-    result_dfs = []
-    for (chain_val, addr_val), group in df_work.groupby(["chain", "address"]):
-        # Resample this group to daily frequency and forward fill
-        resampled = group.resample("D").last()
-        flow_columns = [column for column in ("daily_deposit_count", "daily_withdrawal_count", "daily_deposit_usd", "daily_withdrawal_usd") if column in resampled.columns]
-        sparse_flows = resampled[flow_columns].copy()
-        resampled = resampled.ffill()
-        resampled[flow_columns] = sparse_flows
-
-        # Calculate daily returns
-        resampled["daily_returns"] = resampled["share_price"].pct_change(fill_method=None).fillna(0)
-
-        # Add back the groupby keys as they'll be dropped during resampling
-        resampled["chain"] = chain_val
-        resampled["address"] = addr_val
-
-        result_dfs.append(resampled)
-
-    # Concatenate all the processed groups
-    df_result = pd.concat(result_dfs)
-
-    return df_result
+    return _calculate_regular_daily_returns(df_work.set_index("timestamp"), "daily_returns")
 
 
 def calculate_hourly_returns_for_all_vaults(df_work: pd.DataFrame) -> pd.DataFrame:
@@ -3736,33 +3747,7 @@ def calculate_hourly_returns_for_all_vaults(df_work: pd.DataFrame) -> pd.DataFra
         Daily vault rows with the compatibility column ``returns_1h``.
     """
 
-    # Group by chain and address, then resample and forward fill
-
-    assert isinstance(df_work, pd.DataFrame)
-    assert isinstance(df_work.index, pd.DatetimeIndex), "DataFrame index must be a DatetimeIndex"
-
-    result_dfs = []
-    for (chain_val, addr_val), group in df_work.groupby(["chain", "address"]):
-        # Resample this group to daily frequency and forward fill
-        resampled = group.resample("D").last()
-        flow_columns = [column for column in ("daily_deposit_count", "daily_withdrawal_count", "daily_deposit_usd", "daily_withdrawal_usd") if column in resampled.columns]
-        sparse_flows = resampled[flow_columns].copy()
-        resampled = resampled.ffill()
-        resampled[flow_columns] = sparse_flows
-
-        # Calculate daily returns
-        resampled["returns_1h"] = resampled["share_price"].pct_change(fill_method=None).fillna(0)
-
-        # Add back the groupby keys as they'll be dropped during resampling
-        resampled["chain"] = chain_val
-        resampled["address"] = addr_val
-
-        result_dfs.append(resampled)
-
-    # Concatenate all the processed groups
-    df_result = pd.concat(result_dfs)
-
-    return df_result
+    return _calculate_regular_daily_returns(df_work, "returns_1h")
 
 
 def display_vault_chart_and_tearsheet(

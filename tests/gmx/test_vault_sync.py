@@ -67,6 +67,12 @@ def test_fetch_and_sync_gmx_vault_catalogue_is_idempotent(monkeypatch: pytest.Mo
         },
     )
     second = fetch_and_sync_gmx_vault_catalogue(web3=web3, vault_db=vault_db, token_cache={}, block_number=456)
+    row_after_failed_refresh = vault_db.rows[VaultSpec(42161, GM_TOKEN)]
+    assert row_after_failed_refresh["Name"] == "GMX market"
+    assert row_after_failed_refresh["Protocol"] == "GMX"
+    assert row_after_failed_refresh["Denomination"] == "USD"
+    assert row_after_failed_refresh["_manual_enrichment"] == "keep me"
+
     monkeypatch.setattr(vault_sync, "fetch_gmx_v2_vault_products", lambda *_args, **_kwargs: iter((replace(product, is_enabled=False),)))
     monkeypatch.setattr(
         vault_sync,

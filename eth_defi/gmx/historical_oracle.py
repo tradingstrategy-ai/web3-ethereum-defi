@@ -127,12 +127,6 @@ class GMXHistoricalSharePriceObservation:
     event_name: str
 
     @property
-    def source_observation_id(self) -> str:
-        """Return a stable identifier for persistence and retries."""
-
-        return f"{self.block_number}:{self.transaction_hash.lower()}:{self.log_index}"
-
-    @property
     def total_assets(self) -> Decimal:
         """Return the USD product value in decimal units."""
 

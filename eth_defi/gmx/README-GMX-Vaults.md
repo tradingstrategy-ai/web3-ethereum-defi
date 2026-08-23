@@ -46,7 +46,10 @@ This ratio measures the USD value attributable to one GM or GLV share. It lets
 GMX products use the same equity-curve, return, CAGR, volatility, Sharpe and
 drawdown code as vaults that publish a conventional share price.
 
-The vault performance approximates the performance of a single-sided USDC deposit.
+The vault performance is a USD-denominated GMX share curve. It approximates a
+single-sided USDC deposit only where USDC is accepted and does not model the
+deposit transaction. Accepted deposit tokens are product-specific, and some
+products have no stablecoin side.
 
 This is a comparison convention, not a transaction simulator. The curve does
 not model the execution fee, price impact, token spread, deposit or withdrawal
@@ -213,17 +216,17 @@ owns its own table. The minimal GMX table contains:
 | Column | Purpose |
 |--------|---------|
 | `chain_id` | Arbitrum or Avalanche chain ID |
-| `sample_block_number` | Block containing the GMX value event |
-| `valuation_context` | Constant `lp_share_price` context |
-| `source_observation_id` | Stable block, transaction and log identifier |
-| `token_coverage_hash` | Product-address lookup key |
-| `payload_hash` | Integrity check for immutable source data |
-| `schema_version` | Stored payload version |
-| `context_json` | Timestamp, product, event, value and supply fields |
+| `block_number` / `block_timestamp` | Location and time of the GMX value event |
+| `transaction_hash` / `log_index` | Stable source-event identity |
+| `product_address` | GM market token or GLV share token |
+| `raw_value` / `raw_supply` | GMX value and matching share supply |
+| `event_name` | `MarketPoolValueUpdated` or `GlvValueUpdated` |
 
-The compound primary key makes retries idempotent. Re-inserting the same source
-observation is ignored; finding the same key with a different payload raises an
-error instead of silently changing history.
+The primary key is chain, transaction hash and log index. Re-inserting the same
+source observation is ignored; conflicting values for the same source event
+raise an error. Older development caches using the generic JSON envelope are
+migrated transactionally when opened; obsolete rows from the earlier mixed GM
+valuation context are not copied.
 
 Large backfills are split into half-open Hypersync chunks and each chunk is
 committed independently. Repeating the complete requested range is safe because

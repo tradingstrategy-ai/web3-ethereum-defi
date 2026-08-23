@@ -604,7 +604,7 @@ def test_calculate_lifetime_metrics(
 
 
 def test_event_observed_gmx_exports_approximated_daily_metrics(vault_db: VaultDatabase, price_df: pd.DataFrame) -> None:
-    """Export common GMX metrics using forward-filled daily prices."""
+    """Calculate exact forward-filled risk metrics from sparse GMX events."""
 
     address = "0x05c2e246156d37b39a825a25dd08d5589e3fd883"
     spec = VaultSpec(43111, address)
@@ -616,10 +616,22 @@ def test_event_observed_gmx_exports_approximated_daily_metrics(vault_db: VaultDa
         features={ERC4626Feature.gmx_gm, ERC4626Feature.share_price_equivalence},
     )
     gmx_db = VaultDatabase(rows={spec: row})
-    gmx_prices = price_df[price_df["id"] == f"43111-{address}"].copy()
+    gmx_prices = price_df[price_df["id"] == f"43111-{address}"].iloc[:3].copy()
+    gmx_prices.index = pd.to_datetime(["2026-01-01", "2026-01-03", "2026-01-06"])
+    gmx_prices["share_price"] = [1.0, 1.1, 1.21]
+    gmx_prices["total_supply"] = [100.0, 200.0, 150.0]
+    gmx_prices["total_assets"] = gmx_prices["share_price"] * gmx_prices["total_supply"]
 
     result = calculate_lifetime_metrics(gmx_prices, gmx_db).iloc[0]
     three_months = next(period for period in result["period_results"] if period.period == "3M")
+
+    # Forward filling produces returns [0%, 10%, 0%, 0%, 10%]. The supply
+    # changes do not affect the supply-normalised price or its return series.
+    expected_returns = pd.Series([0.0, 0.1, 0.0, 0.0, 0.1])
+    expected_volatility = expected_returns.std() * 365**0.5
+    expected_sharpe = expected_returns.mean() / expected_returns.std() * 365**0.5
+    assert three_months.volatility == pytest.approx(expected_volatility)
+    assert three_months.sharpe == pytest.approx(expected_sharpe)
 
     for period in result["period_results"]:
         if period.error_reason is not None:

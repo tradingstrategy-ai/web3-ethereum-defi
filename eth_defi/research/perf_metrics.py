@@ -79,8 +79,9 @@ def compute_sharpe(
 ) -> float | None:
     """Compute annualised Sharpe ratio from daily returns.
 
-    Uses zero risk-free rate (appropriate for crypto markets
-    where opportunity cost is typically stablecoin yield).
+    Uses a zero risk-free rate for compatibility with the existing exported
+    metric. The result is therefore an unadjusted return-to-volatility ratio;
+    it does not deduct stablecoin yield or another opportunity cost.
 
     :param daily_returns:
         Series with one percentage return per consecutive calendar day (e.g.

@@ -115,10 +115,26 @@ def fetch_and_sync_gmx_vault_catalogue(
         row["_gmx_enabled"] = product.is_enabled
         row["_deposit_closed_reason"] = None if product.is_enabled else GMX_DISABLED_DEPOSIT_REASON
         if existing is not None:
-            # Refresh scanner-owned facts without discarding manual or
-            # downstream enrichment fields attached to a healthy row.
             merged_row = existing.copy()
-            merged_row.update(row)
+            if str(row.get("Name", "")).startswith("<broken:"):
+                # A transient row-level RPC failure produces placeholder scan
+                # fields. Keep the last healthy metadata while still applying
+                # current catalogue identity, composition and enabled status.
+                catalogue_fields = {
+                    key: row[key]
+                    for key in (
+                        "_detection_data",
+                        "_gmx_component_addresses",
+                        "_gmx_accepted_deposit_tokens",
+                        "_gmx_enabled",
+                        "_deposit_closed_reason",
+                    )
+                }
+                merged_row.update(catalogue_fields)
+            else:
+                # Refresh scanner-owned facts without discarding manual or
+                # downstream enrichment fields attached to a healthy row.
+                merged_row.update(row)
             row = merged_row
         return spec, row, existing is None
 

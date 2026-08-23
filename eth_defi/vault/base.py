@@ -84,8 +84,8 @@ class WithdrawalPeriod:
 
 #: Minimum relative share-price movement retained by historical scans.
 #:
-#: Ten basis points removes insignificant observations without obscuring
-#: economically meaningful vault performance.
+#: Ten basis points reduces repeated rows; cumulative movement is retained once
+#: it exceeds the threshold relative to the last written observation.
 DEFAULT_HISTORICAL_SHARE_PRICE_CHANGE_THRESHOLD: Percent = 0.001
 
 

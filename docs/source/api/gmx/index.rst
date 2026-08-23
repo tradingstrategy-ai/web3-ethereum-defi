@@ -77,11 +77,12 @@ Return and CAGR retain their endpoint interpretation. Volatility and Sharpe
 describe the approximated daily path and therefore depend on operation-event
 cadence; they are not continuously sampled GMX NAV statistics.
 
-The result approximates the performance of a single-sided USDC deposit. It is
-not a transaction simulation: execution fees, price impact, token spreads,
-deposit or withdrawal fees, and waiting time are not deducted. GMX has no
-depositor-facing management or performance fee, so the generic vault fee
-interface reports those two fee types as zero.
+The result is a USD-denominated GMX share curve. It approximates a single-sided
+USDC deposit only where USDC is accepted and does not model the deposit
+transaction. Accepted deposit tokens are product-specific. Execution fees,
+price impact, token spreads, deposit or withdrawal fees, and waiting time are
+not deducted. GMX has no depositor-facing management or performance fee, so
+the generic vault fee interface reports those two fee types as zero.
 
 More info
 =========

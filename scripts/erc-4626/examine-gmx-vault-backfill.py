@@ -52,11 +52,8 @@ def main() -> None:  # noqa: PLR0914
     try:
         context_rows = connection.execute(
             """
-            SELECT chain_id,
-                   json_extract_string(context_json, '$.product_address'),
-                   sample_block_number
+            SELECT chain_id, product_address, block_number
             FROM gmx_historical_context
-            WHERE valuation_context = 'lp_share_price'
             """
         ).fetchall()
     finally:

@@ -451,6 +451,23 @@ can or cannot use. The command is read-only.
 poetry run python scripts/erc-4626/check-asseto-registry.py
 ```
 
+#### Sparse observations and daily risk metrics
+
+The common lifetime-metrics path regularises sparse price observations for
+every vault, not only GMX. It builds one calendar-day share-price series per
+vault, forward fills missing days and reuses that series for volatility,
+Sharpe and drawdown calculations across all periods. This replaces the older
+behaviour that treated irregularly spaced observations as equally spaced
+returns, so historical Sharpe and volatility values can differ from older
+exports.
+
+Forward filling is an explicit approximation: an unobserved day receives a
+zero return and accumulated movement falls on the next observed day. Metrics
+therefore depend on observation cadence. For an otherwise eligible flat period,
+the common export uses zero for volatility and Sharpe; Sharpe is mathematically
+undefined in that case, so zero is a compatibility value rather than evidence
+of a measured risk-adjusted return.
+
 #### GMX V2 liquidity-provider vaults
 
 Arbitrum and Avalanche cycles include GMX V2 GM market tokens and GLV
@@ -491,11 +508,12 @@ is an accepted approximation that makes volatility, Sharpe and drawdown
 available. Volatility and Sharpe remain sensitive to GMX operation cadence and
 must not be interpreted as continuously sampled NAV statistics.
 
-The curve approximates a single-sided USDC deposit. It does not simulate an
-individual request, so it excludes execution fees, price impact, token
-spreads, deposit or withdrawal fees and waiting time. GMX's transaction costs
-are not management or performance fees; those two depositor-facing fields are
-zero in the common fee interface.
+The result is a USD-denominated GMX share curve. It approximates a single-sided
+USDC deposit only where USDC is accepted and does not model an individual
+request. Accepted deposit tokens are product-specific. The curve excludes
+execution fees, price impact, token spreads, deposit or withdrawal fees and
+waiting time. GMX's transaction costs are not management or performance fees;
+those two depositor-facing fields are zero in the common fee interface.
 
 The observation cache is
 ``$PIPELINE_DATA_DIR/vault-historical-context.duckdb``. The file is shared by
