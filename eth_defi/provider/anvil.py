@@ -371,6 +371,31 @@ def _create_default_anvil_proxy_config(provider_count: int) -> RPCProxyConfig:
     )
 
 
+def _get_proxy_client_timeout(proxy: RPCProxy, minimum_timeout: float) -> float:
+    """Return a client timeout that allows one complete proxy failover pass.
+
+    The proxy's ``timeout`` applies separately to connect and read phases of
+    one upstream request.  Its retry loop can also sleep between attempts.  A
+    client which talks to the proxy must therefore wait longer than one
+    upstream attempt; otherwise it can abandon the request while the proxy is
+    correctly failing over to the next provider.
+
+    :param proxy:
+        Running proxy whose effective configuration determines the budget.
+
+    :param minimum_timeout:
+        Caller-configured lower bound for a non-proxied request.
+
+    :return:
+        Timeout in seconds covering the configured pass plus a small local
+        response margin.
+    """
+    config = proxy.config
+    retry_sleep = sum(config.backoff * 1.5**attempt for attempt in range(max(config.retries - 1, 0)))
+    full_proxy_pass = config.retries * config.timeout * 2 + retry_sleep
+    return max(minimum_timeout, full_proxy_pass + 1.0)
+
+
 def _register_anvil_launch_metadata(
     json_rpc_url: str,
     metadata: AnvilForkMetadata,
@@ -1420,13 +1445,23 @@ def launch_anvil(
     _startup_guard.proxy_managed = proxy_managed
 
     # Check given RPC works.
-    # When a proxy is active, smoke-test one of the upstream URLs directly
-    # rather than through the proxy. The proxy has its own (longer) timeout
-    # budget for failover; testing it with the short smoke-test timeout
-    # would defeat the purpose and raise false positives.
+    #
+    # The smoke test and archive preflight deliberately use the same proxy URL
+    # as Anvil.  Calling ``available_rpcs[0]`` directly used to make the first
+    # configured provider a setup-time single point of failure: its timeout
+    # raised ArchiveNodeRequired before the proxy could try the fallback, and
+    # before Anvil had a chance to replay state from Foundry's warm storage
+    # cache.  Bootstrap traffic is still remote by design, but it now obeys
+    # the configured bounded failover policy just like Anvil's later archive
+    # reads.
+    #
+    # A proxy can spend longer than one upstream request while it fails over,
+    # so wait for its complete budget rather than applying the short direct-RPC
+    # smoke-test timeout to localhost.
     if fork_url and rpc_smoke_test:
-        smoke_test_url = available_rpcs[0] if (proxy is not None and available_rpcs) else cleaned_fork_url
-        web3 = Web3(HTTPProvider(smoke_test_url, request_kwargs={"timeout": test_request_timeout}))
+        smoke_test_url = cleaned_fork_url
+        smoke_test_timeout = _get_proxy_client_timeout(proxy, test_request_timeout) if proxy is not None else test_request_timeout
+        web3 = Web3(HTTPProvider(smoke_test_url, request_kwargs={"timeout": smoke_test_timeout}))
         # Will raise an exception if not working
         try:
             current_rpc_block = web3.eth.block_number

@@ -90,6 +90,9 @@ def test_launch_anvil_preserves_proxy_modes(monkeypatch: pytest.MonkeyPatch) -> 
 
     The deliberately dead upstreams stop each launch at its smoke test, after
     the proxy-selection branch has run but before an Anvil process is spawned.
+    When automatic or caller-provided proxying is enabled, the raised URL must
+    be the proxy, proving both ordinary bootstrap calls and archive preflight
+    can use the configured upstream failover policy.
 
     :param monkeypatch:
         Pytest monkeypatch fixture.
@@ -100,10 +103,11 @@ def test_launch_anvil_preserves_proxy_modes(monkeypatch: pytest.MonkeyPatch) -> 
     rpc_url = "http://127.0.0.1:1 http://127.0.0.1:2"
     managed_proxy = Mock(spec=RPCProxy)
     managed_proxy.url = "http://127.0.0.1:23456"
+    managed_proxy.config = anvil_module._create_default_anvil_proxy_config(2)
     start_rpc_proxy = Mock(return_value=managed_proxy)
     monkeypatch.setattr(anvil_module, "start_rpc_proxy", start_rpc_proxy)
 
-    with pytest.raises(ValueError, match="RPC smoke test failed"):
+    with pytest.raises(ValueError, match="127.0.0.1:23456"):
         anvil_module.launch_anvil(
             rpc_url,
             proxy_multiple_upstream=True,
@@ -117,7 +121,7 @@ def test_launch_anvil_preserves_proxy_modes(monkeypatch: pytest.MonkeyPatch) -> 
 
     explicit_config = RPCProxyConfig(timeout=7.0, retries=3)
     start_rpc_proxy.reset_mock()
-    with pytest.raises(ValueError, match="RPC smoke test failed"):
+    with pytest.raises(ValueError, match="127.0.0.1:23456"):
         anvil_module.launch_anvil(
             rpc_url,
             proxy_multiple_upstream=explicit_config,
@@ -126,7 +130,7 @@ def test_launch_anvil_preserves_proxy_modes(monkeypatch: pytest.MonkeyPatch) -> 
     assert start_rpc_proxy.call_args.kwargs["config"] is explicit_config
 
     start_rpc_proxy.reset_mock()
-    with pytest.raises(ValueError, match="RPC smoke test failed"):
+    with pytest.raises(ValueError, match="RPC smoke test failed for http://127.0.0.1:[12]"):
         anvil_module.launch_anvil(
             rpc_url,
             proxy_multiple_upstream=False,
@@ -136,7 +140,8 @@ def test_launch_anvil_preserves_proxy_modes(monkeypatch: pytest.MonkeyPatch) -> 
 
     caller_proxy = object.__new__(RPCProxy)
     caller_proxy.url = "http://127.0.0.1:23457"
-    with pytest.raises(ValueError, match="RPC smoke test failed"):
+    caller_proxy.config = RPCProxyConfig(timeout=7.0, retries=3)
+    with pytest.raises(ValueError, match="127.0.0.1:23457"):
         anvil_module.launch_anvil(
             rpc_url,
             proxy_multiple_upstream=caller_proxy,

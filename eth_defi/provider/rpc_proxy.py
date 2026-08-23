@@ -738,6 +738,16 @@ class RPCProxy:
     #: URL clients should connect to (``http://localhost:{port}``)
     url: str
 
+    #: Effective upstream failover policy.
+    #:
+    #: Exposed so callers that connect *to this proxy* can set a client timeout
+    #: large enough for its full bounded provider pass.  In particular,
+    #: :func:`eth_defi.provider.anvil.launch_anvil` uses this for its archive
+    #: preflight: the preflight must receive the proxy's fallback response
+    #: instead of timing out locally while the proxy is still trying another
+    #: archive provider.
+    config: RPCProxyConfig
+
     #: Per-provider statistics, keyed by provider display name
     #: (URL with API keys stripped) for easy lookup.
     provider_stats: dict[str, UpstreamRPCProviderStatistics]
@@ -928,6 +938,7 @@ def start_rpc_proxy(
         name=proxy_name,
         port=port,
         url=url,
+        config=config,
         provider_stats=provider_stats,
         _server_thread=server_thread,
         _http_server=server,
