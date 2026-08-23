@@ -41,15 +41,27 @@ def load_offchain_metadata_migration_module() -> ModuleType:
     return module
 
 
-@pytest.mark.parametrize("architecture", ["blue", "onyx"])
-def test_every_enzyme_architecture_has_complete_fallback_copy(architecture: str) -> None:
-    """Provide non-empty listing descriptions without a manager override."""
+def test_enzyme_blue_fallback_has_complete_listing_copy() -> None:
+    """Provide generic Blue copy when the official API has no manager text."""
 
-    metadata = create_enzyme_fallback_metadata(architecture, "Example vault")
+    metadata = create_enzyme_fallback_metadata("blue", "Example vault")
 
     assert metadata.short_description
     assert metadata.description
     assert "Example vault" in metadata.description
+
+
+def test_enzyme_onyx_fallback_does_not_invent_public_metadata() -> None:
+    """Leave Onyx table copy blank and export the required unavailable note."""
+
+    metadata = resolve_enzyme_vault_metadata(
+        "onyx",
+        "Example vault",
+        EnzymeVaultMetadata(short_description="Private tagline", description="Private description"),
+    )
+
+    assert metadata.short_description is None
+    assert metadata.description == "Description is not publicly available"
 
 
 def test_curated_enzyme_copy_overrides_only_the_provided_fields() -> None:

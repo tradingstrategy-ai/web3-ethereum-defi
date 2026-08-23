@@ -96,13 +96,14 @@ The migration retains a successful API response with empty fields: this is
 evidence that the manager has supplied no public copy, not a failed lookup.
 
 Onyx supports manager-editable vault and collection taglines and descriptions
-in its management application, but Enzyme does not document a corresponding
-public API endpoint. Onyx therefore uses neutral architecture-level fallback
-copy until that source becomes available. The fallback is also used for a Blue
-vault whose official API response has no text. It identifies only the relevant
-Enzyme architecture and explicitly says that manager-provided strategy detail
-is unavailable; it does not infer a strategy from the vault name, holdings or
-historical returns. A small reviewed address registry may supplement the cache
+in its management application, but its observed back-office endpoint requires
+an authenticated human session and Enzyme does not document a public API for
+this data. Every Onyx row therefore has an empty short description and the
+exact long-description marker ``Description is not publicly available``. This
+is intentional: the catalogue must not scrape a gated UI or infer strategy
+copy from a vault name, holdings or historical returns. Blue falls back to
+generic architecture-level copy only when its official API response has no
+manager text. A small reviewed address registry may supplement the Blue cache
 for exceptional metadata that has no API source.
 
 Deposit permission and availability
@@ -231,7 +232,8 @@ Current metadata migration
 --------------------------
 
 ``scripts/enzyme/migrate-current-metadata.py`` is the safe production entry
-point for adding complete descriptions, direct address-specific links and
+point for adding Blue descriptions and the explicit Onyx unavailable marker,
+direct address-specific links and
 current Blue and Onyx permission data to existing Enzyme rows. It reuses the
 targeted factory discovery and durable metadata batching while forcibly
 disabling historical price and cleaned-Parquet writes. Factory and Onyx handler
@@ -244,7 +246,8 @@ shared scanner writer lock while the metadata pickle is loaded and replaced.
 Blue permission reads cover Sulu and the deprecated Encore and Phoenix policy
 managers and whitelist identifiers used by the Enzyme website. Current NAV and
 fee fields remain blank when a deprecated vault can no longer execute its old
-release calls; name, symbol, denomination and descriptions remain mandatory.
+release calls; name, symbol, denomination and architecture-specific
+descriptions remain mandatory.
 
 .. code-block:: shell
 

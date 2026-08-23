@@ -274,9 +274,10 @@ def test_enzyme_backfill_repairs_unknown_permissions_for_both_architectures(monk
                 "_denomination_token": {"symbol": "USDC"},
                 "_fees": SimpleNamespace(fee_mode="internalised"),
                 "_deposit_permission": "unknown",
-                "_short_description": "Onyx summary",
-                "_description": "Onyx description",
+                "_short_description": None,
+                "_description": module.ONYX_PUBLIC_DESCRIPTION_UNAVAILABLE,
                 "_enzyme_metadata_version": module.ENZYME_CURRENT_METADATA_VERSION,
+                "_enzyme_onyx_description_version": module.ENZYME_ONYX_DESCRIPTION_VERSION,
             },
         }
     )
@@ -291,8 +292,8 @@ def test_enzyme_backfill_repairs_unknown_permissions_for_both_architectures(monk
     assert module.should_refresh_metadata(database, onyx, METADATA_END_BLOCK) is False
 
 
-def test_enzyme_backfill_repairs_missing_descriptions(monkeypatch) -> None:
-    """Use complete descriptions as the resumable current-metadata marker."""
+def test_enzyme_backfill_repairs_missing_onyx_description_marker(monkeypatch) -> None:
+    """Use the explicit Onyx description marker as resumable metadata state."""
 
     module = load_backfill_module()
     monkeypatch.delenv("ENZYME_REFRESH_EXISTING_METADATA", raising=False)
@@ -317,8 +318,9 @@ def test_enzyme_backfill_repairs_missing_descriptions(monkeypatch) -> None:
 
     assert module.should_refresh_metadata(database, onyx, METADATA_END_BLOCK) is True
 
-    database.rows[spec]["_short_description"] = "Onyx summary"
-    database.rows[spec]["_description"] = "Onyx description"
+    database.rows[spec]["_short_description"] = None
+    database.rows[spec]["_description"] = module.ONYX_PUBLIC_DESCRIPTION_UNAVAILABLE
+    database.rows[spec]["_enzyme_onyx_description_version"] = module.ENZYME_ONYX_DESCRIPTION_VERSION
     assert module.should_refresh_metadata(database, onyx, METADATA_END_BLOCK) is False
 
 
@@ -333,9 +335,10 @@ def test_enzyme_backfill_refreshes_only_onyx_permission_semantics(monkeypatch) -
         "Symbol": "ONYX",
         "_denomination_token": {"symbol": "USDC"},
         "_deposit_permission": "whitelisted",
-        "_short_description": "Onyx summary",
-        "_description": "Onyx description",
+        "_short_description": None,
+        "_description": module.ONYX_PUBLIC_DESCRIPTION_UNAVAILABLE,
         "_enzyme_metadata_version": module.ENZYME_CURRENT_METADATA_VERSION,
+        "_enzyme_onyx_description_version": module.ENZYME_ONYX_DESCRIPTION_VERSION,
     }
     database = module.VaultDatabase(rows={VaultSpec(onyx.chain, onyx.address): row})
 
@@ -358,10 +361,11 @@ def test_enzyme_backfill_refreshes_old_metadata_semantics(monkeypatch) -> None:
                 "Symbol": "ONYX",
                 "_denomination_token": {"symbol": "USDC"},
                 "_deposit_permission": "whitelisted",
-                "_short_description": "Onyx summary",
-                "_description": "Onyx description",
+                "_short_description": None,
+                "_description": module.ONYX_PUBLIC_DESCRIPTION_UNAVAILABLE,
                 "_enzyme_metadata_version": module.ENZYME_CURRENT_METADATA_VERSION - 1,
                 "_enzyme_onyx_permission_version": module.ENZYME_ONYX_PERMISSION_VERSION,
+                "_enzyme_onyx_description_version": module.ENZYME_ONYX_DESCRIPTION_VERSION,
                 "_enzyme_metadata_checked_block": METADATA_END_BLOCK,
             }
         }
@@ -384,6 +388,7 @@ def test_enzyme_backfill_does_not_repeat_failed_metadata_at_same_checkpoint(monk
                 "_enzyme_metadata_checked_block": METADATA_END_BLOCK,
                 "_enzyme_metadata_version": module.ENZYME_CURRENT_METADATA_VERSION,
                 "_enzyme_onyx_permission_version": module.ENZYME_ONYX_PERMISSION_VERSION,
+                "_enzyme_onyx_description_version": module.ENZYME_ONYX_DESCRIPTION_VERSION,
             }
         }
     )
@@ -409,8 +414,8 @@ def test_enzyme_backfill_accepts_unavailable_optional_current_values(monkeypatch
                 "_denomination_token": {"symbol": "USDC"},
                 "_fees": SimpleNamespace(fee_mode=None),
                 "_deposit_permission": "whitelisted",
-                "_short_description": "Onyx summary",
-                "_description": "Onyx description",
+                "_short_description": None,
+                "_description": module.ONYX_PUBLIC_DESCRIPTION_UNAVAILABLE,
             }
         }
     )

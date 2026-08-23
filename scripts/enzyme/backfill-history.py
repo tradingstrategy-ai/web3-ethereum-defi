@@ -66,7 +66,7 @@ from web3 import Web3
 
 from eth_defi.compat import native_datetime_utc_fromtimestamp
 from eth_defi.enzyme.blue_discovery import EnzymeBlueVaultFactoryCandidate, create_enzyme_blue_factory_candidate, fetch_enzyme_blue_dispatchers_for_chain, fetch_enzyme_blue_first_block, fetch_enzyme_blue_vault_deployed_event_topic, is_enzyme_blue_factory_log
-from eth_defi.enzyme.offchain_metadata import create_enzyme_vault_link
+from eth_defi.enzyme.offchain_metadata import ONYX_PUBLIC_DESCRIPTION_UNAVAILABLE, create_enzyme_vault_link
 from eth_defi.enzyme.onyx_discovery import ENZYME_BASE_CHAIN_ID, EnzymeDepositHandlerUpdate, EnzymeVaultFactoryCandidate, create_enzyme_factory_candidate, decode_enzyme_deposit_handler_event, fetch_enzyme_deposit_handler_event_topics, fetch_enzyme_shares_deployed_event_topic, fetch_enzyme_shares_factories_for_chain, is_enzyme_factory_log, reconstruct_active_enzyme_deposit_handlers
 from eth_defi.enzyme.onyx_permission import fetch_onyx_current_deposit_permissions
 from eth_defi.erc_4626.classification import create_vault_instance
@@ -103,6 +103,10 @@ ENZYME_CURRENT_METADATA_VERSION = 2
 #: this separate from the general metadata version avoids rereading thousands
 #: of unaffected Blue vaults for an Onyx-only migration.
 ENZYME_ONYX_PERMISSION_VERSION = 1
+
+#: Increment only when the explicit public Onyx-description policy changes.
+#: This refreshes legacy generic copy without rereading unaffected Blue rows.
+ENZYME_ONYX_DESCRIPTION_VERSION = 1
 
 #: The migration scans these chains independently exactly once.  Blue discovery
 #: uses one persistent Dispatcher event stream per chain; Base remains the
@@ -653,7 +657,9 @@ def has_complete_current_metadata(vault_db: VaultDatabase, candidate: EnzymeFact
     Both Enzyme architectures require a conclusive current permission result.
     Blue reads its PolicyManager; Onyx uses the chain-level active handler
     index and batched current handler configuration. Name, symbol, denomination
-    token, and descriptions are mandatory catalogue identity fields. Current
+    token and appropriate architecture-specific descriptions are mandatory
+    catalogue identity fields. Blue must have both descriptions; Onyx must have
+    no short description and the explicit public unavailable marker. Current
     NAV, share supply, and fees remain best-effort values: deprecated or
     invalid vault configurations can no longer execute their valuation or
     release extension calls, and repeatedly retrying them cannot recover those
@@ -669,7 +675,10 @@ def has_complete_current_metadata(vault_db: VaultDatabase, candidate: EnzymeFact
         return False
     if not row.get("Symbol") or not row.get("_denomination_token"):
         return False
-    if not row.get("_short_description") or not row.get("_description"):
+    if isinstance(candidate, EnzymeVaultFactoryCandidate):
+        if row.get("_short_description") is not None or row.get("_description") != ONYX_PUBLIC_DESCRIPTION_UNAVAILABLE:
+            return False
+    elif not row.get("_short_description") or not row.get("_description"):
         return False
     try:
         permission = VaultDepositPermission(row.get("_deposit_permission", VaultDepositPermission.unknown.value))
@@ -698,6 +707,8 @@ def should_refresh_metadata(vault_db: VaultDatabase, candidate: EnzymeFactoryCan
     if row is not None and row.get("_enzyme_metadata_version") != ENZYME_CURRENT_METADATA_VERSION:
         return True
     if isinstance(candidate, EnzymeVaultFactoryCandidate) and row is not None and row.get("_enzyme_onyx_permission_version") != ENZYME_ONYX_PERMISSION_VERSION:
+        return True
+    if isinstance(candidate, EnzymeVaultFactoryCandidate) and row is not None and row.get("_enzyme_onyx_description_version") != ENZYME_ONYX_DESCRIPTION_VERSION:
         return True
     if row is not None and int(row.get("_enzyme_metadata_checked_block") or 0) >= end_block:
         return False
@@ -955,6 +966,7 @@ def _run_migration() -> None:  # noqa: PLR0914 - linear migration steps favour o
                 record["_enzyme_metadata_version"] = ENZYME_CURRENT_METADATA_VERSION
                 if isinstance(candidate, EnzymeVaultFactoryCandidate):
                     record["_enzyme_onyx_permission_version"] = ENZYME_ONYX_PERMISSION_VERSION
+                    record["_enzyme_onyx_description_version"] = ENZYME_ONYX_DESCRIPTION_VERSION
                 vault_db.rows[VaultSpec(candidate.chain, candidate.address)] = record
                 metadata_upserted += 1
             vault_db_path.parent.mkdir(parents=True, exist_ok=True)
