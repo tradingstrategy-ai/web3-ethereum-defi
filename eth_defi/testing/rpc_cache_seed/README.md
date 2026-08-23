@@ -33,8 +33,8 @@ At session start `seed_default_foundry_rpc_cache()` copies this tree into
 
 ## Capturing a seed file
 
-1. Run the relevant fork test locally with a warm archive so Anvil populates
-   `~/.foundry/cache/rpc/<network>/<block>/`.
+1. Run the relevant fork test locally against a responsive archive provider so
+   Anvil populates `~/.foundry/cache/rpc/<network>/<block>/`.
 2. Copy the resulting `<network>/<block>/` directory here, keeping the layout.
 3. Keep files small and dense — only the canonical midnight blocks. Do not
    commit mutable-tip (`latest`) fork caches; they are non-reproducible and
@@ -48,6 +48,7 @@ via the `ETH_DEFI_RPC_CACHE_SEED_DIR` environment variable.
 Stored state covers repeatable historical reads after Anvil starts. The initial
 chain-identity and archive-availability checks are necessarily remote, so with
 multiple providers they must use the same bounded failover proxy as Anvil; no
-setup check may make the first provider a single point of failure. Refresh a
-seed by running its complete fixed-block integration group with an empty cache
-directory, then commit the `storage.json` written when Anvil closes cleanly.
+setup check may make the first provider a single point of failure. To refresh a
+seed, start with an empty Foundry cache directory, run its complete fixed-block
+integration group, then commit the `storage.json` written when Anvil closes
+cleanly.

@@ -388,7 +388,8 @@ def _get_proxy_client_timeout(proxy: RPCProxy, minimum_timeout: float) -> float:
     """
     config = proxy.config
     retry_sleep = sum(config.backoff * 1.5**attempt for attempt in range(max(config.retries - 1, 0)))
-    full_proxy_pass = config.retries * config.timeout * 2 + retry_sleep
+    upstream_attempt = min(config.timeout, 5.0) + config.timeout
+    full_proxy_pass = config.retries * upstream_attempt + retry_sleep
     return max(minimum_timeout, full_proxy_pass + 1.0)
 
 
@@ -868,7 +869,7 @@ def _verify_archive_node_access(
 
     Makes a test call to the fork block number to ensure the RPC
     provides archive node access. If the call fails, raises an
-    informative exception with HTTP response headers for debugging.
+    informative exception with the response details available at the tested URL.
 
     .. note::
 
@@ -910,7 +911,7 @@ def _verify_archive_node_access(
     test_address = "0x0000000000000000000000000000000000000000"
 
     try:
-        # Make a direct HTTP request so we can capture response headers
+        # Make a direct HTTP request so we can retain response details.
         payload = {
             "jsonrpc": "2.0",
             "method": "eth_getBalance",
@@ -926,7 +927,18 @@ def _verify_archive_node_access(
         response_headers = dict(response.headers)
         response_data = response.json()
 
-        # Check for JSON-RPC error indicating missing block data
+        if not response.ok:
+            raise ArchiveNodeRequired(
+                f"RPC endpoint {rpc_url} returned HTTP {response.status_code} while checking block {fork_block_number:,}: {response_data}. Response headers: {json.dumps(response_headers, indent=2)}",
+                rpc_url=rpc_url,
+                requested_block=fork_block_number,
+                available_block=current_block,
+                response_headers=response_headers,
+            )
+
+        # A proxy reports exhausted upstreams as JSON-RPC errors. Treat every
+        # error as a failed preflight; only some errors identify a missing
+        # archive specifically.
         if "error" in response_data:
             error = response_data["error"]
             error_message = error.get("message", str(error))
@@ -952,6 +964,13 @@ def _verify_archive_node_access(
                     available_block=current_block,
                     response_headers=response_headers,
                 )
+            raise ArchiveNodeRequired(
+                f"RPC endpoint {rpc_url} returned an error while checking block {fork_block_number:,}: {error_message}. Response headers: {json.dumps(response_headers, indent=2)}",
+                rpc_url=rpc_url,
+                requested_block=fork_block_number,
+                available_block=current_block,
+                response_headers=response_headers,
+            )
 
     except requests.exceptions.RequestException as e:
         # Network error - wrap with context
@@ -1240,7 +1259,9 @@ def launch_anvil(
         See https://book.getfoundry.sh/reference/anvil/
 
     :param test_request_timeout:
-        Set the timeout fro the JSON-RPC requests that attempt to determine if Anvil was successfully launched.
+        Set the timeout for direct JSON-RPC readiness checks. With a failover
+        proxy, bootstrap uses at least the proxy's complete bounded request
+        budget so it can receive the fallback result.
 
     :param fork_block_number:
         For at a specific block height of the parent chain.
@@ -1297,7 +1318,7 @@ def launch_anvil(
         When True (default) and ``fork_block_number`` is specified,
         performs a smoke test to verify the RPC can access historical blocks.
         If the RPC cannot access the requested block, raises :py:class:`ArchiveNodeRequired`
-        with HTTP response headers to help identify the problematic RPC provider.
+        with response details from the tested endpoint.
 
     :param proxy_multiple_upstream:
         Controls how multiple upstream RPC providers in ``fork_url`` are handled.

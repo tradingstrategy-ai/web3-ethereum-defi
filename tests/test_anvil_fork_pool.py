@@ -83,6 +83,9 @@ def test_default_anvil_proxy_policy_is_bounded(provider_count: int) -> None:
     assert config.backoff == 0
     combined_requests_timeout = min(config.timeout, 5.0) + config.timeout
     assert combined_requests_timeout * provider_count <= anvil_module.ANVIL_PROXY_TOTAL_TIMEOUT
+    proxy = Mock(spec=RPCProxy)
+    proxy.config = config
+    assert anvil_module._get_proxy_client_timeout(proxy, minimum_timeout=3.0) <= anvil_module.ANVIL_PROXY_TOTAL_TIMEOUT + 1.0
 
 
 def test_archive_preflight_uses_proxy_failover_budget(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -102,7 +105,7 @@ def test_archive_preflight_uses_proxy_failover_budget(monkeypatch: pytest.Monkey
     proxy = Mock(spec=RPCProxy)
     proxy.url = "http://127.0.0.1:23456"
     proxy.config = RPCProxyConfig(timeout=7.0, retries=3, backoff=0.5)
-    expected_timeout = 44.25
+    expected_timeout = 38.25
     monkeypatch.setattr(anvil_module, "start_rpc_proxy", Mock(return_value=proxy))
     web3 = Mock()
     web3.eth.block_number = 100
@@ -125,6 +128,34 @@ def test_archive_preflight_uses_proxy_failover_budget(monkeypatch: pytest.Monkey
     assert anvil_module._get_proxy_client_timeout(proxy, minimum_timeout=3.0) == pytest.approx(expected_timeout)
     assert preflight.call_args.kwargs["rpc_url"] == proxy.url
     assert preflight.call_args.kwargs["timeout"] == pytest.approx(expected_timeout)
+
+
+def test_archive_preflight_rejects_proxy_failure(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Reject a proxy response after every upstream archive request has failed.
+
+    1. Make the archive probe receive the proxy's HTTP 502 JSON-RPC error.
+    2. Run the archive preflight against the fixed historical block.
+    3. Verify that it fails immediately instead of starting Anvil.
+
+    :param monkeypatch:
+        Pytest monkeypatch fixture.
+
+    :return:
+        None.
+    """
+    # 1. Make the archive probe receive the proxy's HTTP 502 JSON-RPC error.
+    response = Mock(ok=False, status_code=502, headers={})
+    response.json.return_value = {"error": {"code": -32603, "message": "All upstream providers failed"}}
+    monkeypatch.setattr(anvil_module.requests, "post", Mock(return_value=response))
+
+    # 2-3. Run the preflight and reject the failed proxy response.
+    with pytest.raises(anvil_module.ArchiveNodeRequired, match="HTTP 502"):
+        anvil_module._verify_archive_node_access(
+            web3=Mock(),
+            rpc_url="http://127.0.0.1:23456",
+            fork_block_number=50,
+            current_block=100,
+        )
 
 
 def test_launch_anvil_preserves_proxy_modes(monkeypatch: pytest.MonkeyPatch) -> None:
