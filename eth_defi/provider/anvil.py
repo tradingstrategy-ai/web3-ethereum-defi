@@ -1486,7 +1486,14 @@ def launch_anvil(
                 rpc_url=smoke_test_url,
                 fork_block_number=fork_block_number,
                 current_block=current_rpc_block,
-                timeout=test_request_timeout,
+                # The archive preflight also travels through ``smoke_test_url``.
+                # When that URL is the local failover proxy, its request cannot
+                # complete within the original direct-provider timeout: the
+                # proxy may need to try every upstream.  Using the same bounded
+                # budget as the smoke test prevents a healthy fallback from
+                # being reported as an archive-node failure after (for example)
+                # the default three-second direct timeout.
+                timeout=smoke_test_timeout,
             )
 
     # Validate command options before taking a port lease. These assertions do

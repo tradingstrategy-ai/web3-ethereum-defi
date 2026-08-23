@@ -103,6 +103,54 @@ def test_proxy_client_timeout_covers_complete_failover_pass() -> None:
     assert timeout == pytest.approx(44.25)
 
 
+def test_archive_preflight_uses_proxy_failover_budget(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Give archive preflight time to complete the proxy's bounded failover pass.
+
+    1. Set up a three-attempt proxy and a successful bootstrap Web3 response.
+    2. Stop launch immediately after capturing the archive-preflight arguments.
+    3. Verify the preflight targets the proxy and uses its full client budget.
+
+    :param monkeypatch:
+        Pytest monkeypatch fixture.
+
+    :return:
+        None.
+    """
+    # 1. Set up a three-attempt proxy and a successful bootstrap Web3 response.
+    proxy = Mock(spec=RPCProxy)
+    proxy.url = "http://127.0.0.1:23456"
+    proxy.config = RPCProxyConfig(timeout=7.0, retries=3, backoff=0.5)
+    monkeypatch.setattr(anvil_module, "start_rpc_proxy", Mock(return_value=proxy))
+    web3 = Mock()
+    web3.eth.block_number = 100
+    web3.eth.chain_id = 8453
+    monkeypatch.setattr(anvil_module, "Web3", Mock(return_value=web3))
+
+    captured: dict[str, object] = {}
+
+    class StopAfterPreflight(Exception):
+        """End the unit test before it starts an Anvil subprocess."""
+
+    def verify_archive(**kwargs) -> None:
+        captured.update(kwargs)
+        raise StopAfterPreflight
+
+    monkeypatch.setattr(anvil_module, "_verify_archive_node_access", verify_archive)
+
+    # 2. Stop launch immediately after capturing the archive-preflight arguments.
+    with pytest.raises(StopAfterPreflight):
+        anvil_module.launch_anvil(
+            "https://primary.example https://fallback.example",
+            fork_block_number=50,
+            proxy_multiple_upstream=True,
+            test_request_timeout=3.0,
+        )
+
+    # 3. Verify the preflight targets the proxy and uses its full client budget.
+    assert captured["rpc_url"] == proxy.url
+    assert captured["timeout"] == pytest.approx(44.25)
+
+
 def test_launch_anvil_preserves_proxy_modes(monkeypatch: pytest.MonkeyPatch) -> None:
     """Wire the bounded automatic policy without changing explicit modes.
 
