@@ -10,6 +10,9 @@ from eth_typing import HexAddress
 
 from eth_defi.vault.flag import BAD_FLAGS, get_vault_special_flags
 
+#: Retired ``minimal`` risk value used by existing vault database pickles.
+LEGACY_MINIMAL_RISK_VALUE = 10
+
 
 class VaultTechnicalRisk(enum.Enum):
     """Vault risk profile enum.
@@ -26,14 +29,20 @@ class VaultTechnicalRisk(enum.Enum):
     we cannot verify if they match what the audit says (if there is any).
     """
 
-    #: See vault technicak risk matrix documentation.
+    #: Reserved only for immutable strategies without an upgrade mechanism,
+    #: privileged administration, or other mutable control surface.
     negligible = 1
 
-    #: See vault technicak risk matrix documentation.
-    minimal = 10
-
-    #: See vault technicak risk matrix documentation.
+    #: ``minimal`` and ``low`` had no material semantic distinction and made
+    #: the classification needlessly confusing, so they are unified as low.
     low = 20
+
+    #: Deprecated compatibility alias for :attr:`low`.
+    #:
+    #: New classifications must use :attr:`low`. Historic persisted values
+    #: from the former standalone ``minimal = 10`` level are normalised by
+    #: :meth:`_missing_` during deserialisation.
+    minimal = low
 
     #: See vault technicak risk matrix documentation.
     high = 30
@@ -51,6 +60,23 @@ class VaultTechnicalRisk(enum.Enum):
     #:
     blacklisted = 999
 
+    @classmethod
+    def _missing_(cls, value: object) -> "VaultTechnicalRisk | None":
+        """Map the retired minimal risk value in persisted vault data to low.
+
+        Historic vault database pickles serialise enum members by value. Keep
+        them readable after merging the old standalone ``minimal`` level.
+
+        :param value:
+            Unknown enum value encountered during deserialisation.
+        :return:
+            The matching technical risk level, if a legacy mapping exists.
+        """
+
+        if value == LEGACY_MINIMAL_RISK_VALUE:
+            return cls.low
+        return None
+
     def get_risk_level_name(self) -> str:
         return self.name.replace("_", " ").title()
 
@@ -63,9 +89,9 @@ VAULT_PROTOCOL_RISK_MATRIX = {
     "Euler": VaultTechnicalRisk.negligible,
     "Morpho": VaultTechnicalRisk.negligible,
     "Enzyme": VaultTechnicalRisk.low,
-    "Lagoon Finance": VaultTechnicalRisk.minimal,
+    "Lagoon Finance": VaultTechnicalRisk.low,
     "T3tris": VaultTechnicalRisk.low,
-    "IPOR Fusion": VaultTechnicalRisk.minimal,
+    "IPOR Fusion": VaultTechnicalRisk.low,
     # Bulla Network has verified, publicly maintained Factoring contracts and
     # published audits. Pool-specific borrower, collection and liquidity risks
     # remain outside this technical smart-contract-risk classification.
@@ -127,7 +153,7 @@ VAULT_PROTOCOL_RISK_MATRIX = {
     "Harvest Finance": VaultTechnicalRisk.low,
     "D2 Finance": VaultTechnicalRisk.high,
     "Untangle Finance": VaultTechnicalRisk.low,
-    "Yearn": VaultTechnicalRisk.minimal,
+    "Yearn": VaultTechnicalRisk.low,
     "Goat Protocol": VaultTechnicalRisk.low,
     "USDai": VaultTechnicalRisk.low,
     "AUTO Finance": VaultTechnicalRisk.low,

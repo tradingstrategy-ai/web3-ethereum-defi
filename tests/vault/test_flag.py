@@ -62,6 +62,36 @@ def test_spxa_is_a_tokenised_fund() -> None:
     assert not is_flagged_vault("0x99e9092bae6d4394e54034ecb1e45441678323b9")
 
 
+@pytest.mark.parametrize("protocol", ("Lagoon Finance", "IPOR Fusion", "Yearn"))
+def test_minimal_risk_protocols_are_reclassified_as_low(protocol: str) -> None:
+    """Former minimal protocol classifications use the unified low level."""
+
+    assert get_vault_risk(protocol) is VaultTechnicalRisk.low
+
+
+def test_deprecated_minimal_risk_alias_is_low() -> None:
+    """Deprecated minimal compatibility and persisted values resolve to low."""
+
+    assert VaultTechnicalRisk.minimal is VaultTechnicalRisk.low
+    assert VaultTechnicalRisk["minimal"] is VaultTechnicalRisk.low
+    assert VaultTechnicalRisk(10) is VaultTechnicalRisk.low
+    assert list(VaultTechnicalRisk) == [
+        VaultTechnicalRisk.negligible,
+        VaultTechnicalRisk.low,
+        VaultTechnicalRisk.high,
+        VaultTechnicalRisk.severe,
+        VaultTechnicalRisk.dangerous,
+        VaultTechnicalRisk.blacklisted,
+    ]
+
+
+def test_unknown_technical_risk_value_is_rejected() -> None:
+    """Unknown persisted risk values must not silently become low risk."""
+
+    with pytest.raises(ValueError):
+        VaultTechnicalRisk(11)
+
+
 @pytest.mark.parametrize(
     ("address", "expected_note"),
     [
