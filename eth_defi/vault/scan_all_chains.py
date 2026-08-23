@@ -797,10 +797,8 @@ def scan_prices_for_chain(
             if VaultSpec(chain_id, detection.address.lower()) in excluded_specs:
                 continue
 
-            # Skip vaults with low activity while retaining hardcoded protocol
-            # vaults and protocol-specific alternative evidence. Mellow stores
-            # zero counts because its canonical Vault does not emit user flows;
-            # T3tris migration pools use a reviewed configuration event.
+            # Protocol-specific features can provide activity evidence when the
+            # canonical vault address does not emit ERC-4626 deposit events.
             if detection.address.lower() not in HARDCODED_PROTOCOLS and not passes_price_scan_activity_filter(detection, min_deposit_threshold):
                 continue
 

@@ -227,10 +227,8 @@ def _run_scan(stats: RPCRequestStats, metrics: dict) -> None:
         detection = row["_detection_data"]
         address = detection.address
 
-        # Mellow Core Vault identities come from Factory.Created, while user
-        # flow events live on DepositQueue/RedeemQueue contracts. The metadata
-        # database stores zero counts for compatibility, so use the central
-        # feature-based exemption instead of looking at count field names.
+        # Use the shared filter because some protocol features provide activity
+        # evidence without ERC-4626 deposit events at the canonical vault address.
         if address.lower() not in HARDCODED_PROTOCOLS and not passes_price_scan_activity_filter(detection, min_deposit_threshold):
             # print(f"Vault does not have enough deposits: {address}, has: {detection.deposit_count}, threshold {min_deposit_threshold}")
             continue

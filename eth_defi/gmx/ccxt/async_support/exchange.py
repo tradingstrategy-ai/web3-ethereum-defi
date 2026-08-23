@@ -5,6 +5,7 @@ AsyncWeb3 for blockchain operations, and async GraphQL for Subsquid queries.
 """
 
 import asyncio
+import functools
 import logging
 import os
 import time
@@ -17,6 +18,7 @@ import aiohttp
 from ccxt.async_support import Exchange
 from ccxt.base.errors import (
     ExchangeError,
+    ExchangeNotAvailable,
     InvalidOrder,
     NotSupported,
     OrderNotFound,
@@ -26,47 +28,47 @@ from web3 import AsyncWeb3
 
 from eth_defi.chain import get_chain_name
 from eth_defi.erc_4626.vault_protocol.lagoon.vault import LagoonVault
+from eth_defi.event_reader.multicall_batcher import get_multicall_contract
+from eth_defi.gmx.api import GMXAPI
 from eth_defi.gmx.cache import GMXMarketCache
+from eth_defi.gmx.ccxt._position_metrics import safe_liquidation_price
 from eth_defi.gmx.ccxt.async_support.async_graphql import AsyncGMXSubsquidClient
 from eth_defi.gmx.ccxt.async_support.async_http import async_make_gmx_api_request
 from eth_defi.gmx.ccxt.cancel_helpers import (
     build_cancel_order_response,
     resolve_order_id,
 )
-from eth_defi.gmx.ccxt._position_metrics import safe_liquidation_price
 from eth_defi.gmx.ccxt.exchange import (
     _derive_side_from_trade_action,
-    _resolve_close_order_filled_amount,
-    _resolve_reduce_only_size_delta_usd,
+    _resolve_close_order_filled_amount,  # noqa: F401  # sync/async lockstep; async close paths reuse the same helper
+    _resolve_reduce_only_size_delta_usd,  # noqa: F401  # sync/async lockstep; async close paths reuse the same helper
 )
 from eth_defi.gmx.ccxt.properties import describe_gmx
 from eth_defi.gmx.ccxt.validation import _validate_ohlcv_data_sufficiency
-from eth_defi.gmx.api import GMXAPI
 from eth_defi.gmx.config import GMXConfig
-from eth_defi.gmx.symbols import DEPRECATED_MARKET_TOKENS, SYMBOL_NORMALISE
 from eth_defi.gmx.constants import (
+    _MIN_LOG_CHUNK_BLOCKS,
     DECREASE_POSITION_SWAP_TYPES,
     GMX_MIN_COST_USD,
     GMX_SUPPORTED_CHAINS,
     PRECISION,
-    _MIN_LOG_CHUNK_BLOCKS,
 )
-from eth_defi.event_reader.multicall_batcher import get_multicall_contract
 from eth_defi.gmx.contracts import get_contract_addresses, get_datastore_contract, get_reader_contract
-from eth_defi.gmx.keys import is_market_disabled_key
 from eth_defi.gmx.core import Markets
 from eth_defi.gmx.core.open_positions import GetOpenPositions
 from eth_defi.gmx.core.oracle import OraclePrices
 from eth_defi.gmx.errors import decode_gmx_revert_selector  # noqa: F401  -- sync/async lockstep with eth_defi.gmx.ccxt.exchange
 from eth_defi.gmx.events import (
-    GMX_USD_PRECISION,
     decode_gmx_event,
-    extract_order_execution_result,
     extract_order_key_from_receipt,
 )
+from eth_defi.gmx.keys import is_market_disabled_key
 from eth_defi.gmx.order.cancel_order import CancelOrder
 from eth_defi.gmx.order.sltp_order import SLTPEntry, SLTPOrder, SLTPParams
 from eth_defi.gmx.order_tracking import check_order_status, is_order_pending
+from eth_defi.gmx.retry import GMXAPIUnavailable
+from eth_defi.gmx.symbols import DEPRECATED_MARKET_TOKENS, SYMBOL_NORMALISE
+from eth_defi.gmx.ticker_validation import get_min_expected_tickers, validate_tickers_payload
 from eth_defi.gmx.utils import convert_raw_price_to_usd
 from eth_defi.gmx.verification import verify_gmx_order_execution
 from eth_defi.hotwallet import HotWallet
@@ -266,7 +268,7 @@ async def _block_timestamp_ms(web3: "AsyncWeb3", block_number: int | None) -> in
     try:
         block = await web3.eth.get_block(block_number)
         return int(block["timestamp"]) * 1000
-    except Exception as e:  # noqa: BLE001 — fetch_order must never raise here
+    except Exception as e:  # RPC get_block can raise many provider-specific error types; degrade to None here
         logger.debug("_block_timestamp_ms: get_block(%s) failed: %s", block_number, e)
         return None
 
@@ -1618,11 +1620,18 @@ class GMX(Exchange):
         token_symbol = market["id"]
 
         # Fetch from GMX API
-        data = await async_make_gmx_api_request(
-            chain=self.chain,
-            endpoint="/prices/tickers",
-            session=self.session,
-        )
+        try:
+            data = await async_make_gmx_api_request(
+                chain=self.chain,
+                endpoint="/prices/tickers",
+                session=self.session,
+                validate=functools.partial(
+                    validate_tickers_payload,
+                    min_expected_tickers=get_min_expected_tickers(self.chain),
+                ),
+            )
+        except GMXAPIUnavailable as exc:
+            raise ExchangeNotAvailable(str(exc)) from exc
 
         # Find ticker for this token
         ticker_data = None
@@ -1633,7 +1642,7 @@ class GMX(Exchange):
                     break
 
         if not ticker_data:
-            raise ExchangeError(f"Ticker data not found for {symbol}")
+            raise ExchangeNotAvailable(f"Ticker data not found for {symbol}")
 
         # Parse to CCXT format
         min_price = float(ticker_data.get("minPrice", 0)) / 10**PRECISION
@@ -1671,11 +1680,18 @@ class GMX(Exchange):
         tasks = [self.fetch_ticker(symbol, params) for symbol in symbols]
         results = await asyncio.gather(*tasks, return_exceptions=True)
 
-        # Build result dict, filtering out errors
+        # Build result dict; keep partial results but surface a total outage as
+        # a retryable CCXT error instead of silently returning {}.
         tickers = {}
+        first_error: Exception | None = None
         for symbol, result in zip(symbols, results):
-            if not isinstance(result, Exception):
+            if isinstance(result, Exception):
+                first_error = first_error or result
+            else:
                 tickers[symbol] = result
+
+        if not tickers and first_error is not None:
+            raise first_error
 
         return tickers
 
@@ -1831,12 +1847,15 @@ class GMX(Exchange):
             limit = 10000
 
         # Fetch from GMX API
-        data = await async_make_gmx_api_request(
-            chain=self.chain,
-            endpoint="/prices/candles",
-            params={"tokenSymbol": token_symbol, "period": gmx_period, "limit": limit},
-            session=self.session,
-        )
+        try:
+            data = await async_make_gmx_api_request(
+                chain=self.chain,
+                endpoint="/prices/candles",
+                params={"tokenSymbol": token_symbol, "period": gmx_period, "limit": limit},
+                session=self.session,
+            )
+        except GMXAPIUnavailable as exc:
+            raise ExchangeNotAvailable(str(exc)) from exc
 
         candles_data = data.get("candles", [])
 

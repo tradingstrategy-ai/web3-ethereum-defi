@@ -20,14 +20,14 @@ STRATEGY_TAGS: dict[str, set[StrategyTag]] = {
         StrategyTag.funding_rate_arbitrage,
         StrategyTag.perpetual_futures,
     },
-    #: Vault: Lighter and Trade.xyz arbitrage.
-    #: Added: 2026-08-18.
-    #: Decision material: Atoma describes this RWA vault as a delta-neutral
-    #: USDC strategy that captures funding and price spreads in gold, oil and
-    #: equity-index perpetuals through offsetting Lighter and Trade.xyz
-    #: positions.
+    #: Vault: Atoma Index.
+    #: Added: 2026-08-22.
+    #: Decision material: Atoma describes the Index as a market-neutral USDC
+    #: vault for RWA perpetual markets. Its funding-arbitrage and
+    #: statistical-arbitrage engines are automatically rebalanced, while its
+    #: protocol rewards are distributed to depositors.
     #: Sources:
-    #: - https://x.com/atoma_fi/status/2079672209400832319?s=46
+    #: - https://app.atoma.fi/atoma-index
     #: - https://arbiscan.io/address/0x1C788E14d8e5B446e3F71B5142e2edaBcAB36da1
     #: - eth_defi/erc_4626/vault_protocol/atoma/vault.py
     "0x1c788e14d8e5b446e3f71b5142e2edabcab36da1": {
@@ -35,5 +35,7 @@ STRATEGY_TAGS: dict[str, set[StrategyTag]] = {
         StrategyTag.funding_rate_arbitrage,
         StrategyTag.perpetual_futures,
         StrategyTag.rwa,
+        StrategyTag.statistical_arbitrage,
+        StrategyTag.multistrategy,
     },
 }

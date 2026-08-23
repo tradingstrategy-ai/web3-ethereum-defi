@@ -17,7 +17,20 @@ discovers every reviewed Blue vault on Ethereum, Polygon, Base and Arbitrum from
 persistent Dispatcher ``VaultProxyDeployed`` event. It records the canonical
 VaultProxy together with its ComptrollerProxy accessor, reads current GAV,
 share supply and fees through a direct VaultBase adapter, and backfills GAV,
-TVL and gross share price using one historical Multicall batch per chain.
+TVL and gross share price using batched historical Multicall reads.
+Blue and Onyx factory detections retain a zero ERC-4626 deposit count because
+their investor actions use protocol-specific events. Their feature flags bypass
+the generic activity threshold so recurring scans continue both histories.
+
+The historical Blue reader derives gross share value from GAV and share supply.
+The future exact source is Enzyme's release-aware
+`FundValueCalculatorRouter.calcNetShareValue()
+<https://github.com/enzymefinance/protocol/blob/dev/contracts/persistent/fund-value-calculator/FundValueCalculatorRouter.sol>`__,
+called through ``eth_call`` so fee settlement is simulated but not persisted.
+It requires a third call per vault and sampled block. Until that is implemented,
+the frontend fee-fill step will subtract the current exported fees to estimate
+net value. Historical fee rates and performance-fee state can change, so this
+is not an exact historical net share value.
 
 Enzyme onyx
 -----------
