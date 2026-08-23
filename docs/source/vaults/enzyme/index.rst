@@ -273,10 +273,10 @@ Create an API token in the `Enzyme application
 .. code-block:: shell
 
     source .local-test.env
-    ENZYME_API_TOKEN="$ENZYME_API_TOKEN" \
+    ENZYME_BLUE_API_TOKEN="$ENZYME_BLUE_API_TOKEN" \
         poetry run python scripts/enzyme/migrate-offchain-metadata.py
 
-    ENZYME_API_TOKEN="$ENZYME_API_TOKEN" DRY_RUN=false MAX_WORKERS=8 \
+    ENZYME_BLUE_API_TOKEN="$ENZYME_BLUE_API_TOKEN" DRY_RUN=false MAX_WORKERS=1 \
         poetry run python scripts/enzyme/migrate-offchain-metadata.py
 
 For production, first stop ``vault-scanner-looped`` and run this command in
@@ -294,9 +294,29 @@ mounted production state, then restart the looped service:
     cd ~/vault-scanner/web3-ethereum-defi
     docker compose stop vault-scanner-looped
     docker compose run --rm --entrypoint /bin/bash \
-        -e MAX_WORKERS=8 vault-scanner-oneshot \
-        -lc 'poetry run python scripts/enzyme/migrate-current-metadata.py'
+        -e ENZYME_BLUE_API_TOKEN -e MAX_WORKERS=1 vault-scanner-oneshot \
+        -lc 'poetry run python scripts/enzyme/migrate-offchain-metadata.py'
     docker compose start vault-scanner-looped
+
+Vault export
+------------
+
+``scripts/enzyme/export-vaults.py`` prints the local Enzyme database as a
+Markdown table, including its stored short-description column. It is read-only
+and never contacts Enzyme, JSON-RPC or Hypersync. Its ``Total value`` column
+is the vault's accounting-unit NAV, not USD-normalised TVL, so rows with
+different denominations must not be ranked together. To review the twenty
+largest rows among selected USD-pegged accounting units, run:
+
+.. code-block:: shell
+
+    VALUE_UNITS=USDC,DAI,USDT SORT_BY_TOTAL_VALUE=true LIMIT=20 \
+        poetry run python scripts/enzyme/export-vaults.py
+
+``VALUE_UNITS`` is a case-insensitive comma-separated filter,
+``SORT_BY_TOTAL_VALUE=true`` sorts the selected records descending by their
+reported NAV, and ``LIMIT`` caps the output. The command does not infer a
+live USD exchange rate or guarantee that a pegged asset is worth one dollar.
 
 Links
 -----
