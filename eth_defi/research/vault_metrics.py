@@ -614,17 +614,25 @@ def resample_returns(
     returns_1h: pd.Series,
     freq="D",
 ) -> pd.Series:
-    """Calculate returns from resampled returns series.
+    """Calculate regular period returns from a finer-grained return series.
+
+    Empty output periods carry the last wealth value and therefore produce a
+    zero return. For daily output this guarantees one return per consecutive
+    calendar day, as required by annualised risk metrics.
 
     :param returns_1h:
         The original returns series.
+    :param freq:
+        Pandas resampling frequency. Defaults to daily.
+    :return:
+        Regular period percentage returns.
     """
 
     # Wealth index from hourly returns
     wealth = (1.0 + returns_1h).cumprod()
     # Take last wealth per period and compute period-over-period returns
-    wealth_resampled = wealth.resample(freq).last()
-    returns = wealth_resampled.dropna().pct_change().fillna(0.0)
+    wealth_resampled = wealth.resample(freq).last().ffill()
+    returns = wealth_resampled.pct_change(fill_method=None).fillna(0.0)
     return returns
 
 
@@ -632,10 +640,22 @@ def calculate_returns(
     share_price: pd.Series,
     freq="D",
 ) -> pd.Series:
-    """Calculate returns from resampled share price series."""
+    """Calculate regular period returns from share-price observations.
 
-    share_price = share_price.resample(freq).last()
-    returns = share_price.dropna().pct_change().fillna(0.0)
+    Missing output periods are forward filled before percentage changes are
+    calculated. Daily output is therefore suitable for functions that require
+    consecutive calendar-day returns.
+
+    :param share_price:
+        Share-price observations with a :class:`pandas.DatetimeIndex`.
+    :param freq:
+        Pandas resampling frequency. Defaults to daily.
+    :return:
+        Regular period percentage returns.
+    """
+
+    share_price = share_price.resample(freq).last().ffill()
+    returns = share_price.pct_change(fill_method=None).fillna(0.0)
     return returns
 
 
@@ -959,36 +979,103 @@ def calculate_net_returns_from_gross(
     )
 
 
-def calculate_sharpe_ratio_from_returns(
-    hourly_returns: pd.Series,
-    risk_free_rate: float = 0.00,
-    year_multiplier: float = 365,
+def prepare_daily_share_price_series(
+    share_price_observations: pd.Series,
+) -> tuple[pd.Series, pd.Series]:
+    """Create one regular daily price and return series from sparse observations.
+
+    Vault prices are persisted only when a configured change threshold is
+    exceeded. Risk metrics must not interpret the resulting irregular gaps as
+    equal-length return periods. Missing calendar days are therefore forward
+    filled with the last known share price before daily returns are calculated.
+
+    Build this pair once per vault and pass it to every period calculation.
+
+    :param share_price_observations:
+        Sparse share-price observations with a :class:`pandas.DatetimeIndex`.
+        Values must be decimal share-price levels, not returns.
+    :return:
+        Regular daily share prices and their daily percentage returns. The
+        first return is ``NaN`` because no preceding daily price exists.
+    """
+
+    assert isinstance(share_price_observations, pd.Series)
+    assert isinstance(share_price_observations.index, pd.DatetimeIndex)
+    observations = pd.to_numeric(share_price_observations, errors="coerce").dropna().sort_index(kind="stable")
+    if observations.empty:
+        empty = pd.Series(index=pd.DatetimeIndex([], name=share_price_observations.index.name), dtype="float64")
+        return empty, empty.copy()
+    daily_prices = observations.resample("D").last().ffill()
+    daily_returns = daily_prices.pct_change(fill_method=None)
+    return daily_prices, daily_returns
+
+
+def calculate_annualised_volatility_from_daily_returns(
+    daily_returns: pd.Series,
+    annualisation_factor: float = 365,
 ) -> float:
+    """Calculate annualised volatility from regular daily returns.
+
+    :param daily_returns:
+        Percentage returns with exactly one observation per consecutive
+        calendar day. Call :func:`prepare_daily_share_price_series` first when
+        the source price observations are sparse.
+    :param annualisation_factor:
+        Calendar periods per year. Crypto vaults use 365 daily periods.
+    :return:
+        Annualised standard deviation, or zero with fewer than two usable
+        returns or a non-finite result.
     """
-    Calculate annualized Sharpe ratio from hourly returns.
 
-    :param hourly_returns: Pandas Series of hourly percentage returns.
-    :param risk_free_rate: Annualized risk-free rate (default 2%).
-    :return: Sharpe ratio as a float.
+    clean = pd.to_numeric(daily_returns, errors="coerce")
+    clean = clean[np.isfinite(clean)].dropna()
+    if len(clean) < 2:
+        return 0
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", RuntimeWarning)
+        volatility = clean.std() * np.sqrt(annualisation_factor)
+    return float(volatility) if np.isfinite(volatility) else 0
+
+
+def calculate_sharpe_ratio_from_returns(
+    daily_returns: pd.Series,
+    risk_free_rate: float = 0.00,
+    annualisation_factor: float = 365,
+) -> float:
+    """Calculate annualised Sharpe ratio from regular daily returns.
+
+    Sparse change-only observations must be converted to one price per
+    consecutive calendar day and forward filled before calculating the input
+    returns. Use :func:`prepare_daily_share_price_series` for vault data.
+
+    :param daily_returns:
+        Percentage returns with exactly one observation per consecutive
+        calendar day.
+    :param risk_free_rate:
+        Annualised risk-free rate. Defaults to zero.
+    :param annualisation_factor:
+        Calendar periods per year. Crypto vaults use 365 daily periods.
+    :return:
+        Annualised Sharpe ratio, or ``NaN`` with insufficient observations or
+        zero volatility.
     """
 
-    assert isinstance(hourly_returns, pd.Series), f"hourly_returns must be a pandas Series, got {type(hourly_returns)}"
+    assert isinstance(daily_returns, pd.Series), f"daily_returns must be a pandas Series, got {type(daily_returns)}"
 
-    if len(hourly_returns) < 2:
+    clean = pd.to_numeric(daily_returns, errors="coerce")
+    clean = clean[np.isfinite(clean)].dropna()
+    if len(clean) < 2:
         return np.nan  # Not enough data
 
-    # Annualize mean return (assuming compounding)
-    mean_hourly_return = hourly_returns.mean()
-    annualized_return = mean_hourly_return * year_multiplier  # ~8760 hours/year
+    mean_daily_return = clean.mean()
+    annualised_return = mean_daily_return * annualisation_factor
 
-    # Annualize volatility
-    std_hourly_return = hourly_returns.std()
-    annualized_volatility = std_hourly_return * np.sqrt(year_multiplier)
+    daily_volatility = clean.std()
+    annualised_volatility = daily_volatility * np.sqrt(annualisation_factor)
 
-    # Sharpe ratio
-    if annualized_volatility == 0:
+    if annualised_volatility == 0:
         return np.nan  # Avoid division by zero
-    sharpe = (annualized_return - risk_free_rate) / annualized_volatility
+    sharpe = (annualised_return - risk_free_rate) / annualised_volatility
 
     return sharpe
 
@@ -1144,6 +1231,7 @@ def calculate_period_metrics(
     net_fee_data: FeeData,
     share_price_hourly: pd.Series,
     share_price_daily: pd.Series,
+    daily_returns: pd.Series,
     tvl: pd.Series,
     now_: pd.Timestamp,
     utilisation: pd.Series | None = None,
@@ -1160,10 +1248,17 @@ def calculate_period_metrics(
         Fee data after fee mode adjustments (for net return calculations)
 
     :param share_price_hourly:
-        Hourly share price series with DatetimeIndex
+        Sparse source share-price observations with a DatetimeIndex. The
+        historical name is retained for API compatibility; the series is not
+        assumed to contain every hour.
 
     :param share_price_daily:
-        Daily share price series with DatetimeIndex
+        Regular, forward-filled daily share-price series prepared once for the
+        vault with :func:`prepare_daily_share_price_series`.
+
+    :param daily_returns:
+        Regular daily returns derived once from ``share_price_daily``. The same
+        series must be passed to every period calculation for the vault.
 
     :param tvl:
         Total value locked series with DatetimeIndex
@@ -1172,12 +1267,16 @@ def calculate_period_metrics(
         The reference timestamp (usually the last timestamp in the data)
 
     :param utilisation:
-        Optional utilisation series (lending vaults only, values 0.0–1.0).
-        When provided, ``avg_utilisation`` is computed for the period window.
+        Optional regular daily utilisation series (lending vaults only,
+        values 0.0–1.0). When provided, ``avg_utilisation`` is a calendar-day
+        average for the period rather than an observation-frequency average.
 
     :return:
         PeriodMetrics dataclass with calculated metrics
     """
+    if share_price_hourly.empty:
+        return PeriodMetrics(period=period, period_end_at=now_, error_reason="Vault has no usable share-price observations")
+
     period_duration, period_tolerance = LOOKBACK_AND_TOLERANCES[period]
 
     if period == "lifetime":
@@ -1331,39 +1430,19 @@ def calculate_period_metrics(
     if cagr_net is not None:
         cagr_net = min(cagr_net, max_cagr)
 
-    # Calculate daily returns for volatility.
-    # Drop NaN prices first so pct_change works across sparse data
-    # (e.g. Hyperliquid weekly snapshots resampled to daily produce NaN gaps).
-    daily_prices_clean = period_samples_daily.dropna()
-    daily_returns = daily_prices_clean.pct_change(fill_method=None).dropna()
-    # Ensure numeric dtype and filter out inf values to avoid std() errors
-    daily_returns = pd.to_numeric(daily_returns, errors="coerce")
-    daily_returns = daily_returns[np.isfinite(daily_returns)].dropna()
-
-    # Calculate volatility (annualized from daily)
-    if len(daily_returns) >= 2:
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore", RuntimeWarning)
-            volatility = daily_returns.std() * np.sqrt(365)
-            if not np.isfinite(volatility):
-                volatility = 0
-    else:
-        volatility = 0
-
-    # Calculate Sharpe ratio using hourly returns
-    hourly_returns = period_samples_hourly.pct_change(fill_method=None).dropna()
-    # Ensure numeric dtype and filter out inf values
-    hourly_returns = pd.to_numeric(hourly_returns, errors="coerce")
-    hourly_returns = hourly_returns[np.isfinite(hourly_returns)].dropna()
-    sharpe = calculate_sharpe_ratio_from_returns(hourly_returns)
+    # The daily return at daily_start belongs to the preceding day-to-day
+    # interval, which begins outside this period. Exclude it consistently for
+    # every risk metric.
+    period_daily_returns = daily_returns.loc[daily_start:samples_end_at]
+    period_daily_returns = period_daily_returns.loc[period_daily_returns.index > daily_start]
+    volatility = calculate_annualised_volatility_from_daily_returns(period_daily_returns)
+    sharpe = calculate_sharpe_ratio_from_returns(period_daily_returns)
     if not np.isfinite(sharpe):
         sharpe = 0
 
     # Calculate max drawdown directly from share prices.
-    # Using share prices (not daily returns) is robust for sparse data
-    # such as Hyperliquid vaults with weekly snapshots, where
-    # resample("D").last() produces NaN gaps that destroy daily returns
-    # via pct_change(fill_method=None).
+    # Forward-filled daily prices put every vault on the same calendar while
+    # preserving the observed stepwise equity curve.
     period_prices = period_samples_daily.dropna()
     if len(period_prices) >= 2:
         with warnings.catch_warnings():
@@ -1391,7 +1470,7 @@ def calculate_period_metrics(
     # Average utilisation for lending vaults.
     avg_utilisation = None
     if utilisation is not None:
-        period_utilisation = utilisation.loc[samples_start_at:samples_end_at].dropna()
+        period_utilisation = utilisation.loc[daily_start:samples_end_at].dropna()
         if len(period_utilisation) > 0:
             avg_utilisation = float(period_utilisation.mean())
 
@@ -2122,11 +2201,17 @@ def calculate_vault_record(
     prices_df = prices_df.loc[~prices_df.index.isna()].sort_index(kind="stable")
 
     # Calculate period metrics using the new structured approach
-    # Resample share price once for all period calculations
-    share_price_hourly = prices_df["share_price"]
-    share_price_daily = share_price_hourly.resample("D").last()
+    # Build one regular daily price/return pair for all period calculations.
+    # ``prices_df`` contains sparse change-only observations despite the
+    # historical ``share_price_hourly`` variable name.
+    share_price_hourly = pd.to_numeric(prices_df["share_price"], errors="coerce").dropna()
+    share_price_daily, daily_returns = prepare_daily_share_price_series(share_price_hourly)
     tvl_series = prices_df["total_assets"]
-    utilisation_series = prices_df["utilisation"] if "utilisation" in prices_df.columns else None
+    utilisation_series = None
+    if "utilisation" in prices_df.columns:
+        utilisation_observations = pd.to_numeric(prices_df["utilisation"], errors="coerce").dropna()
+        if not utilisation_observations.empty:
+            utilisation_series = utilisation_observations.resample("D").last().ffill()
 
     period_results = []
     for period in LOOKBACK_AND_TOLERANCES.keys():
@@ -2136,6 +2221,7 @@ def calculate_vault_record(
             net_fee_data=net_fee_data,
             share_price_hourly=share_price_hourly,
             share_price_daily=share_price_daily,
+            daily_returns=daily_returns,
             tvl=tvl_series,
             now_=now_,
             utilisation=utilisation_series,
@@ -3175,8 +3261,8 @@ def analyse_vault(
 
     cleaned_price_series = vault_df["share_price"]
     cleaned_price_series = cleaned_price_series
-    daily_prices = cleaned_price_series.resample("D").last()  # Take last price of each day
-    daily_returns = daily_prices.dropna().pct_change().dropna()
+    daily_prices, daily_returns = prepare_daily_share_price_series(cleaned_price_series)
+    daily_returns = daily_returns.dropna()
 
     hourly_prices = cleaned_price_series.resample("h").last()  # Take last price of each day
     hourly_returns = hourly_prices.dropna().pct_change().dropna()
@@ -3568,7 +3654,16 @@ def cross_check_data(
 
 
 def calculate_daily_returns_for_all_vaults(df_work: pd.DataFrame) -> pd.DataFrame:
-    """Calculate daily returns for each vault in isolation"""
+    """Calculate consecutive calendar-day returns for each vault.
+
+    Sparse price observations are forward filled independently per vault.
+
+    :param df_work:
+        Vault price rows with a ``timestamp`` column and ``chain``, ``address``
+        and ``share_price`` columns.
+    :return:
+        Daily vault rows with a ``daily_returns`` percentage-return column.
+    """
 
     # Group by chain and address, then resample and forward fill
 
@@ -3578,6 +3673,10 @@ def calculate_daily_returns_for_all_vaults(df_work: pd.DataFrame) -> pd.DataFram
     for (chain_val, addr_val), group in df_work.groupby(["chain", "address"]):
         # Resample this group to daily frequency and forward fill
         resampled = group.resample("D").last()
+        flow_columns = [column for column in ("daily_deposit_count", "daily_withdrawal_count", "daily_deposit_usd", "daily_withdrawal_usd") if column in resampled.columns]
+        sparse_flows = resampled[flow_columns].copy()
+        resampled = resampled.ffill()
+        resampled[flow_columns] = sparse_flows
 
         # Calculate daily returns
         resampled["daily_returns"] = resampled["share_price"].pct_change(fill_method=None).fillna(0)
@@ -3595,7 +3694,18 @@ def calculate_daily_returns_for_all_vaults(df_work: pd.DataFrame) -> pd.DataFram
 
 
 def calculate_hourly_returns_for_all_vaults(df_work: pd.DataFrame) -> pd.DataFrame:
-    """Calculate hourly returns for each vault in isolation"""
+    """Calculate consecutive daily returns under a historical API name.
+
+    Despite the function and ``returns_1h`` column names, this compatibility
+    helper resamples to daily frequency. Sparse prices are forward filled so
+    downstream annualised metrics receive consecutive calendar-day returns.
+
+    :param df_work:
+        Vault price rows indexed by timestamp, with ``chain``, ``address`` and
+        ``share_price`` columns.
+    :return:
+        Daily vault rows with the compatibility column ``returns_1h``.
+    """
 
     # Group by chain and address, then resample and forward fill
 
@@ -3606,6 +3716,10 @@ def calculate_hourly_returns_for_all_vaults(df_work: pd.DataFrame) -> pd.DataFra
     for (chain_val, addr_val), group in df_work.groupby(["chain", "address"]):
         # Resample this group to daily frequency and forward fill
         resampled = group.resample("D").last()
+        flow_columns = [column for column in ("daily_deposit_count", "daily_withdrawal_count", "daily_deposit_usd", "daily_withdrawal_usd") if column in resampled.columns]
+        sparse_flows = resampled[flow_columns].copy()
+        resampled = resampled.ffill()
+        resampled[flow_columns] = sparse_flows
 
         # Calculate daily returns
         resampled["returns_1h"] = resampled["share_price"].pct_change(fill_method=None).fillna(0)

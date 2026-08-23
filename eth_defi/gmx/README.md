@@ -4,6 +4,9 @@ A [CCXT](https://docs.ccxt.com/)-compatible adapter enabling Python trading bots
 
 **Note:** No API keys required - uses Web3 wallet authentication directly with GMX smart contracts.
 
+For the separate GM and GLV liquidity-provider vault dataset integration, see
+[GMX liquidity-provider vaults](README-GMX-Vaults.md).
+
 For a complete trading bot example with Freqtrade, see the [gmx-ccxt-freqtrade tutorial](https://github.com/tradingstrategy-ai/gmx-ccxt-freqtrade).
 
 ## Key features

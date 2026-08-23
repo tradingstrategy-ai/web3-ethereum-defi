@@ -2098,6 +2098,14 @@ def create_vault_instance(
         from eth_defi.enzyme.blue_vault import EnzymeBlueVault
 
         return EnzymeBlueVault(web3, spec, **kwargs)
+    elif ERC4626Feature.gmx_gm in features:
+        from eth_defi.gmx.vault import GMXMarketVault
+
+        return GMXMarketVault(web3, spec, **kwargs)
+    elif ERC4626Feature.gmx_glv in features:
+        from eth_defi.gmx.vault import GMXLiquidityVault
+
+        return GMXLiquidityVault(web3, spec, **kwargs)
     elif ERC4626Feature.symbiotic_like in features:
         from eth_defi.erc_4626.vault_protocol.symbiotic.vault import SymbioticVault
 

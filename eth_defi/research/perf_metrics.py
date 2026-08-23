@@ -36,7 +36,6 @@ Example::
 import numpy as np
 import pandas as pd
 
-
 #: Maximum CAGR cap to prevent astronomical extrapolations
 #: from very short time windows.
 MAX_CAGR = 100.0
@@ -84,8 +83,9 @@ def compute_sharpe(
     where opportunity cost is typically stablecoin yield).
 
     :param daily_returns:
-        Series of daily percentage returns (e.g. from
-        ``equity.pct_change()``). NaN values are dropped.
+        Series with one percentage return per consecutive calendar day (e.g.
+        from a daily, forward-filled equity curve). Sparse observations must
+        be regularised before calling. NaN values are dropped.
     :param annualisation_factor:
         Number of periods per year. Use 365 for daily crypto
         data (markets trade every day), 252 for traditional
@@ -116,7 +116,9 @@ def compute_sortino(
     penalising it.
 
     :param daily_returns:
-        Series of daily percentage returns. NaN values are dropped.
+        Series with one percentage return per consecutive calendar day.
+        Sparse observations must be regularised before calling. NaN values
+        are dropped.
     :param annualisation_factor:
         Number of periods per year (365 for crypto, 252 for equities).
     :return:

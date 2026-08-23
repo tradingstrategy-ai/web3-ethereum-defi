@@ -8,7 +8,7 @@ the total_assets series — no metadata fallback involved.
 import pandas as pd
 import pytest
 
-from eth_defi.research.vault_metrics import calculate_period_metrics
+from eth_defi.research.vault_metrics import calculate_period_metrics, prepare_daily_share_price_series
 from eth_defi.vault.fee import FeeData, VaultFeeMode
 
 
@@ -38,12 +38,14 @@ def test_period_metrics_reads_tvl_from_total_assets():
     tvl.iloc[-1] = 1_069_435.71
 
     fee_data = _make_fee_data()
+    share_price_daily, daily_returns = prepare_daily_share_price_series(share_price)
     pm = calculate_period_metrics(
         period="1M",
         gross_fee_data=fee_data,
         net_fee_data=fee_data.get_net_fees(),
         share_price_hourly=share_price,
-        share_price_daily=share_price.resample("D").last(),
+        share_price_daily=share_price_daily,
+        daily_returns=daily_returns,
         tvl=tvl,
         now_=dates[-1],
     )
@@ -73,12 +75,14 @@ def test_period_metrics_with_full_tvl_history():
         deposit=0.0,
         withdraw=0.0,
     )
+    share_price_daily, daily_returns = prepare_daily_share_price_series(share_price)
     pm = calculate_period_metrics(
         period="1M",
         gross_fee_data=fee_data,
         net_fee_data=fee_data.get_net_fees(),
         share_price_hourly=share_price,
-        share_price_daily=share_price.resample("D").last(),
+        share_price_daily=share_price_daily,
+        daily_returns=daily_returns,
         tvl=tvl,
         now_=dates[-1],
     )

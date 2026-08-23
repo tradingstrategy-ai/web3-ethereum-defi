@@ -65,6 +65,13 @@ class VaultFlag(str, enum.Enum):
     # Properitary trading
     proprietary_trading = "proprietary_trading"
 
+    #: The vault supplies automated-market-maker inventory and is exposed to
+    #: trader profit and loss.
+    market_making = "market_making"
+
+    #: The vault represents a pro-rata share of protocol liquidity.
+    liquidity_provision = "liquidity_provision"
+
     #: This vault represents an underlying wrapped asset like a share
     wrapped_asset = "wrapped_asset"
 
@@ -193,6 +200,8 @@ SPIKO_EUTBL_NOTE = """Spiko EU T-Bills Money Market Fund (EUTBL).
 - **Fees:** Spiko states a 0.25% annual management fee, reflected in NAV/share.
 """
 
+GMX_SINGLE_SIDED_USDC_NOTE = "The vault performance approximates the performance of a single-sided USDC deposit."
+
 #: Vault-specific notes and classifications that do not exclude a vault from
 #: research datasets.
 #:
@@ -207,6 +216,11 @@ VAULT_NOTES: dict[str, str] = {
     "0x6a7c6aa2b8b8a6a891de552bdeffa87c3f53bd46": ODA_FACT_MONY_NOTE,
     USTBL_TOKEN_ADDRESS: SPIKO_USTBL_NOTE,
     EUTBL_TOKEN_ADDRESS: SPIKO_EUTBL_NOTE,
+}
+
+#: Protocol-wide descriptive notes that do not flag products as problematic.
+PROTOCOL_NOTES: dict[str, str] = {
+    "GMX": GMX_SINGLE_SIDED_USDC_NOTE,
 }
 
 #: Product classification flags that are descriptive rather than exclusionary.
@@ -264,8 +278,9 @@ def get_vault_special_flags(address: str | HexAddress, protocol_name: str | None
 def get_notes(address: HexAddress | str, chain_id: int | None = None, protocol_name: str | None = None) -> str | None:
     """Get vault-specific notes.
 
-    Notes can come from the descriptive notes matrix, special vault flags or
-    chain-wide defaults. Descriptive notes do not make a vault flagged.
+    Notes can come from the descriptive vault or protocol notes matrices,
+    special vault flags or chain-wide defaults. Descriptive notes do not make
+    a vault flagged.
 
     :param address:
         Vault address (will be lowercased).
@@ -291,6 +306,10 @@ def get_notes(address: HexAddress | str, chain_id: int | None = None, protocol_n
         protocol_entry = PROTOCOL_FLAGS_AND_NOTES.get(protocol_name)
         if protocol_entry:
             return protocol_entry[1]
+
+        note = PROTOCOL_NOTES.get(protocol_name)
+        if note:
+            return note
 
     # Default note for all Hypercore vaults
     from eth_defi.hyperliquid.constants import HYPERCORE_CHAIN_ID

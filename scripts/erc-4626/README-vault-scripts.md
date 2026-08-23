@@ -451,6 +451,126 @@ can or cannot use. The command is read-only.
 poetry run python scripts/erc-4626/check-asseto-registry.py
 ```
 
+#### GMX V2 liquidity-provider vaults
+
+Arbitrum and Avalanche cycles include GMX V2 GM market tokens and GLV
+multi-market tokens in the ordinary EVM vault scan. GMX V1 GLP is not
+supported. The chain cycle is:
+
+```text
+lead discovery and GMX catalogue sync
+  → prefill GMX value-and-supply observations
+  → scan_prices_for_chain() for all eligible EVM vaults
+  → common raw Parquet
+  → common cleaning and lifetime metrics
+```
+
+GMX has no ERC-4626 ``convertToAssets()`` share price. Instead the reader uses
+``MarketPoolValueInfo`` and ``GlvValueUpdated`` events:
+
+```text
+share price equivalent = event USD value / corresponding event token supply
+```
+
+For GM, ``MarketPoolValueInfo`` contains value and supply before the mint or
+burn. For GLV, ``GlvValueUpdated`` contains both after execution; GLV shares
+are minted or burned proportionally using the pre-flow ratio. Dividing the
+matched values prevents the liquidity amount or share-count change itself from
+appearing as profit. Fees and rounding that genuinely affect existing holders
+remain visible. GM deposit and withdrawal events use their respective GMX
+valuation contexts, so this is an event-observed share-price equivalent rather
+than a continuously sampled canonical NAV.
+
+The common writer retains the first row and subsequent share-price moves above
+``DEFAULT_HISTORICAL_SHARE_PRICE_CHANGE_THRESHOLD``; it ignores flow-only
+changes and sub-threshold noise. Raw Parquet remains sparse. Metric calculation
+forward-fills the last observation onto a consecutive daily index once per
+vault before calculating CAGR, volatility or Sharpe ratios.
+
+The curve approximates a single-sided USDC deposit. It does not simulate an
+individual request, so it excludes execution fees, price impact, token
+spreads, deposit or withdrawal fees and waiting time. GMX's transaction costs
+are not management or performance fees; those two depositor-facing fields are
+zero in the common fee interface.
+
+The observation cache is
+``$PIPELINE_DATA_DIR/vault-historical-context.duckdb``. The file is shared by
+the scanner, but GMX owns the ``gmx_historical_context`` table. It stores only
+source event observations. Calculated share prices and TVL are written to the
+normal vault Parquet files.
+
+Use the manual scripts in this order. First enumerate current products into the
+common metadata database:
+
+```shell
+source .local-test.env && \
+  CHAINS=arbitrum,avalanche \
+  DRY_RUN=false \
+  poetry run python scripts/erc-4626/seed-gmx-vaults.py
+```
+
+Use ``DRY_RUN=true`` for a read-only preview, then rerun with ``false`` before
+the backfill.
+
+Run a bounded half-open backfill. Repeating a range is safe; cache insertion is
+idempotent and Parquet replacement is limited to the selected GMX addresses
+and block interval.
+
+```shell
+source .local-test.env && \
+  CHAIN=arbitrum \
+  START_BLOCK=300000000 \
+  END_BLOCK=500000000 \
+  FREQUENCY=1h \
+  poetry run python scripts/erc-4626/backfill-gmx-vault-prices.py
+```
+
+Then check source linkage, positive values, the
+``total_assets = share_price × total_supply`` identity, duplicates and the
+common change threshold:
+
+```shell
+source .local-test.env && \
+  poetry run python scripts/erc-4626/examine-gmx-vault-backfill.py
+```
+
+Finally calculate the same lifetime and three-month metrics used by the common
+export pipeline:
+
+```shell
+source .local-test.env && \
+  PRICE_DATABASE=~/.tradingstrategy/vaults/vault-prices-1h.parquet \
+  poetry run python scripts/erc-4626/examine-gmx-vault-performance.py
+```
+
+``3M CAGR`` and ``3M Sharpe`` are ``N/A`` when the available observation
+window does not satisfy the common three-month period rules.
+
+| Variable | Script | Description |
+|----------|--------|-------------|
+| `CHAINS` | seed | Comma-separated `arbitrum,avalanche`; defaults to both. |
+| `CHAIN` | backfill | One of `arbitrum` or `avalanche`. |
+| `START_BLOCK` / `END_BLOCK` | backfill | Required half-open price range with `START_BLOCK >= 1`. |
+| `OBSERVATION_START_BLOCK` | backfill | Optional cache resume boundary; defaults to `START_BLOCK`. |
+| `FREQUENCY` | backfill | Common block bucket frequency, `1h` or `1d`; default `1h`. |
+| `VAULT_ADDRESSES` | backfill | Optional comma-separated GM/GLV subset. |
+| `MAX_WORKERS` | seed, backfill | Thread worker count. |
+| `DRY_RUN` | seed, backfill | Enumerate or use temporary output without changing production files. |
+| `VAULT_DATABASE` | all | Common metadata pickle override. |
+| `UNCLEANED_PRICE_DATABASE` | backfill, structural examiner | Common raw Parquet override. |
+| `PRICE_DATABASE` | performance examiner | Cleaned or raw common Parquet input. |
+| `TOKEN_CACHE` | performance examiner | Read-only token metadata cache used for token symbols. |
+| `CONTEXT_DATABASE` | backfill, structural examiner | Shared observation-cache DuckDB override. |
+| `REQUIRE_ALL_PRODUCTS` | structural examiner | Fail when any current product has no rows; use only after a full backfill. |
+| `MIN_TVL` / `LIMIT` | performance examiner | Filter and limit the output table. |
+| `LOG_LEVEL` | seed, backfill, performance examiner | Console log level. |
+
+The scheduled pipeline prefills at most
+``GMX_INITIAL_CONTEXT_LOOKBACK_BLOCKS`` on its first run (default 100,000
+blocks), then follows the existing per-chain price-reader state. This avoids
+re-fetching a growing empty range when a chain has no recent GMX event. Use the
+manual backfill for older history.
+
 Both Lighter deployments use synthetic native-pool chain ID `9998`; their
 address prefixes distinguish price series. Lifetime-metrics export the
 additional `deployment_chain_id` (`1` for Ethereum or `4663` for Robinhood)
