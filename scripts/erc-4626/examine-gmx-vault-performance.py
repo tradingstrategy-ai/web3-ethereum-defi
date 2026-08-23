@@ -4,6 +4,12 @@ The script reads GM and GLV metadata and price observations, calculates the
 same lifetime metrics used by the vault export pipeline, and prints a compact
 table ordered by current TVL. It performs no network requests or data writes.
 
+GMX valuations occur when protocol operations emit events, so the common
+metrics path forward fills missing calendar days. This accepted approximation
+assigns zero return to unobserved days and the complete intervening movement to
+the next event day. Sharpe and volatility are therefore sensitive to operation
+cadence and are not continuously sampled NAV statistics.
+
 Environment variables:
 
 - ``VAULT_DATABASE``: Vault metadata pickle. Defaults to the common pipeline

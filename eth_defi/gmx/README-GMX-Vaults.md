@@ -43,8 +43,8 @@ share price        = total assets / total supply
 ```
 
 This ratio measures the USD value attributable to one GM or GLV share. It lets
-GMX products use the same equity-curve and endpoint CAGR code as vaults that
-publish a conventional share price.
+GMX products use the same equity-curve, return, CAGR, volatility, Sharpe and
+drawdown code as vaults that publish a conventional share price.
 
 The vault performance approximates the performance of a single-sided USDC deposit.
 
@@ -291,11 +291,18 @@ Because GMX rows carry `share_price_equivalence`, changes in total assets or
 total supply alone do not defeat this filter. This prevents deposits and
 withdrawals from creating unnecessary Parquet rows.
 
-The resulting Parquet series remains sparse. Endpoint return and CAGR remain
-available. Volatility and Sharpe are intentionally unavailable for GMX because
-events occur only during GM/GLV operations: an event-free day is unobserved,
-not evidence of a zero daily return. Forward-filling those days would make risk
-metrics depend on liquidity-flow cadence.
+The resulting Parquet series remains sparse. The common metrics builder forward
+fills the last observed share price to a daily index. An event-free day is
+therefore assigned a zero return and the complete intervening movement is
+assigned to the next observed event day. This is an explicitly accepted
+approximation that keeps return, CAGR, volatility, Sharpe and drawdown metrics
+available through the common vault interface.
+
+Endpoint return and CAGR continue to describe the observed change over the
+selected period. Path-dependent metrics, especially volatility and Sharpe, are
+observation-cadence-sensitive approximations rather than statistics derived
+from a continuously sampled GMX NAV. They must be interpreted with that
+limitation when comparing products with different operation frequency.
 
 ## Manual migration and examination
 
@@ -307,7 +314,7 @@ local verification:
 | [`seed-gmx-vaults.py`](../../scripts/erc-4626/seed-gmx-vaults.py) | Enumerate current GM/GLV products into the common metadata database |
 | [`backfill-gmx-vault-prices.py`](../../scripts/erc-4626/backfill-gmx-vault-prices.py) | Prefill a bounded context range and run the common Parquet writer without modifying production reader state |
 | [`examine-gmx-vault-backfill.py`](../../scripts/erc-4626/examine-gmx-vault-backfill.py) | Check duplicates, positive values, source linkage, asset identity and sparse-threshold behaviour |
-| [`examine-gmx-vault-performance.py`](../../scripts/erc-4626/examine-gmx-vault-performance.py) | Run common lifetime metrics and display TVL, lifetime CAGR and three-month CAGR; GMX Sharpe is reported as unavailable |
+| [`examine-gmx-vault-performance.py`](../../scripts/erc-4626/examine-gmx-vault-performance.py) | Run common lifetime metrics and display TVL, lifetime CAGR, three-month CAGR and approximate three-month Sharpe |
 
 The backfill uses half-open `[START_BLOCK, END_BLOCK)` ranges and limits
 Parquet replacement to the selected GMX addresses and block interval. It does
@@ -339,8 +346,8 @@ Focused tests live under [`tests/gmx`](../../tests/gmx):
   oracle replay.
 - GM deposit observations use one consistent deposit valuation context;
   withdrawal-context observations are excluded.
-- GMX volatility and Sharpe are unavailable because operation events do not
-  provide regular daily NAV observations.
+- GMX volatility and Sharpe use forward-filled daily prices and are
+  observation-cadence-sensitive approximations, not continuous NAV metrics.
 - Synthetic USD is the comparison denomination; it is not an ERC-20 token held
   by the adapter.
 - Reported performance is a pool-share approximation and not the realised

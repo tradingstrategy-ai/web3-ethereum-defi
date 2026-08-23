@@ -49,7 +49,7 @@ from eth_defi.vault.vaultdb import VaultDatabase
 
 
 def test_sparse_share_prices_are_regularised_once_for_daily_risk_metrics() -> None:
-    """Missing calendar days become flat daily returns before risk metrics."""
+    """Accept forward filling as the common sparse-series approximation."""
 
     observations = pd.Series(
         [100.0, 121.0],
@@ -58,6 +58,8 @@ def test_sparse_share_prices_are_regularised_once_for_daily_risk_metrics() -> No
 
     daily_prices, daily_returns = prepare_daily_share_price_series(observations)
 
+    # The accepted approximation makes unobserved days flat and assigns the
+    # complete intervening movement to the next observed day.
     assert daily_prices.tolist() == [100.0, 100.0, 100.0, 121.0]
     assert pd.isna(daily_returns.iloc[0])
     assert daily_returns.iloc[1:].tolist() == pytest.approx([0.0, 0.0, 0.21])
@@ -601,8 +603,8 @@ def test_calculate_lifetime_metrics(
     # assert "period_results" not in formatted.columns
 
 
-def test_event_observed_gmx_does_not_export_daily_risk_metrics(vault_db: VaultDatabase, price_df: pd.DataFrame) -> None:
-    """Do not infer GMX volatility or Sharpe from operation-event cadence."""
+def test_event_observed_gmx_exports_approximated_daily_metrics(vault_db: VaultDatabase, price_df: pd.DataFrame) -> None:
+    """Export common GMX metrics using forward-filled daily prices."""
 
     address = "0x05c2e246156d37b39a825a25dd08d5589e3fd883"
     spec = VaultSpec(43111, address)
@@ -619,11 +621,26 @@ def test_event_observed_gmx_does_not_export_daily_risk_metrics(vault_db: VaultDa
     result = calculate_lifetime_metrics(gmx_prices, gmx_db).iloc[0]
     three_months = next(period for period in result["period_results"] if period.period == "3M")
 
-    assert three_months.cagr_gross is not None
-    assert three_months.volatility is None
-    assert three_months.sharpe is None
-    assert result["three_months_volatility"] is None
-    assert result["three_months_sharpe"] is None
+    for period in result["period_results"]:
+        if period.error_reason is not None:
+            continue
+        available_metrics = (
+            period.returns_gross,
+            period.returns_net,
+            period.cagr_gross,
+            period.cagr_net,
+            period.volatility,
+            period.sharpe,
+            period.max_drawdown,
+            period.tvl_start,
+            period.tvl_end,
+            period.tvl_low,
+            period.tvl_high,
+        )
+        assert all(value is not None and pd.notna(value) for value in available_metrics), period.period
+
+    assert pd.notna(result["three_months_volatility"])
+    assert pd.notna(result["three_months_sharpe"])
 
 
 def test_calculate_lifetime_metrics_exports_deposit_permission(

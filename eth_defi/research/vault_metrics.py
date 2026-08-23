@@ -28,7 +28,7 @@ from eth_defi.chain import get_chain_name
 from eth_defi.compat import native_datetime_utc_now
 from eth_defi.core3.vault_protocol import Core3ExportRecord, Core3VaultSection, build_core3_vault_section
 from eth_defi.erc_4626.classification import HARDCODED_PROTOCOLS
-from eth_defi.erc_4626.core import ERC4262VaultDetection, ERC4626Feature
+from eth_defi.erc_4626.core import ERC4262VaultDetection
 from eth_defi.erc_4626.vault_protocol.morpho.flag_analytics import MorphoFlagAnalytics, analyze_morpho_flags
 from eth_defi.feed.stablecoin_rate import DenominationTokenRate, StablecoinRateFeeder
 from eth_defi.perp_dex.export import build_perp_dex_other_data
@@ -141,10 +141,12 @@ class PeriodMetrics:
 
     cagr_net: Percent | None = None
 
-    #: Annualised volatility, calculated based on daily returns
+    #: Annualised volatility based on daily returns. For sparse price sources,
+    #: missing days are forward filled and the result is an approximation.
     volatility: Percent | None = None
 
-    #: Sharpe ratio
+    #: Sharpe ratio based on daily returns. For sparse price sources, missing
+    #: days are forward filled and the result is an approximation.
     sharpe: float | None = None
 
     #: Period maximum drawdown
@@ -617,8 +619,10 @@ def resample_returns(
     """Calculate regular period returns from a finer-grained return series.
 
     Empty output periods carry the last wealth value and therefore produce a
-    zero return. For daily output this guarantees one return per consecutive
-    calendar day, as required by annualised risk metrics.
+    zero return. Any accumulated movement appears in the next observed period.
+    This forward-fill convention is an accepted approximation for sparse
+    sources and guarantees one value per consecutive period. Risk metrics
+    calculated from the result remain sensitive to observation cadence.
 
     :param returns_1h:
         The original returns series.
@@ -643,8 +647,11 @@ def calculate_returns(
     """Calculate regular period returns from share-price observations.
 
     Missing output periods are forward filled before percentage changes are
-    calculated. Daily output is therefore suitable for functions that require
-    consecutive calendar-day returns.
+    calculated. An unobserved period therefore receives a zero return and the
+    full accumulated movement appears in the next observed period. This is an
+    accepted approximation for sparse sources: it provides consecutive inputs
+    for common risk metrics, but those metrics remain sensitive to observation
+    cadence.
 
     :param share_price:
         Share-price observations with a :class:`pandas.DatetimeIndex`.
@@ -984,10 +991,16 @@ def prepare_daily_share_price_series(
 ) -> tuple[pd.Series, pd.Series]:
     """Create one regular daily price and return series from sparse observations.
 
-    Vault prices are persisted only when a configured change threshold is
-    exceeded. Risk metrics must not interpret the resulting irregular gaps as
-    equal-length return periods. Missing calendar days are therefore forward
-    filled with the last known share price before daily returns are calculated.
+    Vault prices may be persisted only when a configured change threshold is
+    exceeded. Some sources, including GMX, also produce valuations only when a
+    protocol operation emits an event. Missing calendar days are forward filled
+    with the last known price before daily returns are calculated.
+
+    Forward filling is an accepted approximation for these sparse sources. It
+    assigns a zero return to each unobserved day and the full intervening price
+    movement to the next observed day. This creates a common daily input for
+    volatility, Sharpe and drawdown calculations, but the path-dependent
+    results are sensitive to event cadence and are not continuous NAV metrics.
 
     Build this pair once per vault and pass it to every period calculation.
 
@@ -995,8 +1008,9 @@ def prepare_daily_share_price_series(
         Sparse share-price observations with a :class:`pandas.DatetimeIndex`.
         Values must be decimal share-price levels, not returns.
     :return:
-        Regular daily share prices and their daily percentage returns. The
-        first return is ``NaN`` because no preceding daily price exists.
+        Approximate regular daily share prices and their daily percentage
+        returns. The first return is ``NaN`` because no preceding daily price
+        exists.
     """
 
     assert isinstance(share_price_observations, pd.Series)
@@ -1024,7 +1038,8 @@ def calculate_annualised_volatility_from_daily_returns(
         Calendar periods per year. Crypto vaults use 365 daily periods.
     :return:
         Annualised standard deviation, or zero with fewer than two usable
-        returns or a non-finite result.
+        returns or a non-finite result. For a forward-filled sparse source,
+        this is an observation-cadence-sensitive approximation.
     """
 
     clean = pd.to_numeric(daily_returns, errors="coerce")
@@ -1046,7 +1061,11 @@ def calculate_sharpe_ratio_from_returns(
 
     Sparse change-only observations must be converted to one price per
     consecutive calendar day and forward filled before calculating the input
-    returns. Use :func:`prepare_daily_share_price_series` for vault data.
+    returns. This accepted approximation treats an unobserved day as flat and
+    assigns the accumulated movement to the next observed day. Use
+    :func:`prepare_daily_share_price_series` for vault data. The resulting
+    Sharpe ratio is therefore sensitive to observation cadence and must not be
+    interpreted as a continuously sampled NAV statistic.
 
     :param daily_returns:
         Percentage returns with exactly one observation per consecutive
@@ -1254,11 +1273,14 @@ def calculate_period_metrics(
 
     :param share_price_daily:
         Regular, forward-filled daily share-price series prepared once for the
-        vault with :func:`prepare_daily_share_price_series`.
+        vault with :func:`prepare_daily_share_price_series`. For sparse sources,
+        this is an explicit approximation rather than a continuous NAV series.
 
     :param daily_returns:
         Regular daily returns derived once from ``share_price_daily``. The same
         series must be passed to every period calculation for the vault.
+        Unobserved days have zero return and the next observed day receives the
+        accumulated movement.
 
     :param tvl:
         Total value locked series with DatetimeIndex
@@ -1430,6 +1452,9 @@ def calculate_period_metrics(
     if cagr_net is not None:
         cagr_net = min(cagr_net, max_cagr)
 
+    # Forward filling is intentionally accepted for sparse sources such as
+    # GMX: unobserved days become flat and accumulated movement lands on the
+    # next event day. Volatility and Sharpe are cadence-sensitive approximations.
     # The daily return at daily_start belongs to the preceding day-to-day
     # interval, which begins outside this period. Exclude it consistently for
     # every risk metric.
@@ -2200,10 +2225,11 @@ def calculate_vault_record(
     # Ensure prices_df index is monotonic and clean
     prices_df = prices_df.loc[~prices_df.index.isna()].sort_index(kind="stable")
 
-    # Calculate period metrics using the new structured approach
     # Build one regular daily price/return pair for all period calculations.
     # ``prices_df`` contains sparse change-only observations despite the
-    # historical ``share_price_hourly`` variable name.
+    # historical ``share_price_hourly`` variable name. Forward filling is an
+    # accepted approximation, including for operation-observed GMX curves:
+    # missing days are flat and the next event day carries accumulated movement.
     share_price_hourly = pd.to_numeric(prices_df["share_price"], errors="coerce").dropna()
     share_price_daily, daily_returns = prepare_daily_share_price_series(share_price_hourly)
     tvl_series = prices_df["total_assets"]
@@ -2214,7 +2240,6 @@ def calculate_vault_record(
             utilisation_series = utilisation_observations.resample("D").last().ffill()
 
     period_results = []
-    is_event_observed_gmx = any(feature in features for feature in (ERC4626Feature.gmx_gm.name, ERC4626Feature.gmx_glv.name))
     for period in LOOKBACK_AND_TOLERANCES.keys():
         period_metric = calculate_period_metrics(
             period=period,
@@ -2227,12 +2252,6 @@ def calculate_vault_record(
             now_=now_,
             utilisation=utilisation_series,
         )
-        if is_event_observed_gmx:
-            # GMX observations occur only when a GM/GLV operation emits a
-            # value event. Event-free days are unobserved, not zero-return
-            # days, so daily volatility and Sharpe would measure flow cadence.
-            period_metric.volatility = None
-            period_metric.sharpe = None
         period_results.append(period_metric)
 
     # Extract period metrics for backward compatibility

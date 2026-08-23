@@ -67,9 +67,15 @@ when a GLV oracle price is used, so the curve remains approximate.
 
 This is an event-observed share-price equivalent, not a continuously sampled
 canonical NAV. Sparse observations pass through the same change threshold,
-Parquet writer and endpoint return/CAGR calculations as other EVM vaults.
-Volatility and Sharpe are unavailable because an event-free day is unobserved,
-not evidence of a zero daily return.
+Parquet writer and metric calculations as other EVM vaults. The common metric
+path forward fills the last observed value to a daily index. An event-free day
+is therefore assigned a zero return and the complete intervening movement is
+assigned to the next observed event day. This is an accepted approximation
+that makes all common performance metrics available.
+
+Return and CAGR retain their endpoint interpretation. Volatility and Sharpe
+describe the approximated daily path and therefore depend on operation-event
+cadence; they are not continuously sampled GMX NAV statistics.
 
 The result approximates the performance of a single-sided USDC deposit. It is
 not a transaction simulation: execution fees, price impact, token spreads,

@@ -124,10 +124,12 @@ filter and Parquet write. ``share_price_equivalence`` rows compare only share
 price, so TVL/supply changes caused by LP flows do not create observations.
 The normal 0.1% share-price threshold removes sub-threshold changes.
 
-Raw observations remain sparse. ``calculate_lifetime_metrics()`` calculates
-GMX returns and CAGR from observed endpoints. It leaves volatility and Sharpe
-unavailable because GMX operation events cannot establish a regular daily NAV
-series.
+Raw observations remain sparse. ``calculate_lifetime_metrics()`` builds one
+forward-filled daily series per vault and reuses it for every period. This is
+an accepted approximation: unobserved days receive zero returns and the next
+event day receives the accumulated movement. It keeps the common return, CAGR,
+volatility, Sharpe and drawdown metrics available, while path-dependent metrics
+remain operation-cadence-sensitive rather than continuous NAV statistics.
 
 ## 5. Migration and examination tools
 
@@ -142,7 +144,7 @@ Add four environment-variable-driven scripts:
    positive values, the asset identity and the common change threshold.
 4. ``examine-gmx-vault-performance.py`` runs
    ``calculate_lifetime_metrics()`` and prints name, accepted tokens, TVL,
-   lifetime CAGR and 3M CAGR, with GMX 3M Sharpe shown as unavailable.
+   lifetime CAGR, 3M CAGR and approximate 3M Sharpe.
 
 No Parquet schema migration or second vault database is needed. Back up the
 metadata pickle, raw Parquet and shared context DuckDB before the first

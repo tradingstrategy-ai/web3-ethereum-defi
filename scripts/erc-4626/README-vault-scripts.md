@@ -484,8 +484,12 @@ sampled canonical NAV.
 The common writer retains the first row and subsequent share-price moves above
 ``DEFAULT_HISTORICAL_SHARE_PRICE_CHANGE_THRESHOLD``; it ignores flow-only
 changes and sub-threshold noise. Raw Parquet remains sparse. Metric calculation
-uses observed endpoints for returns and CAGR. GMX volatility and Sharpe are
-reported as unavailable because operation events do not provide daily NAVs.
+uses observed endpoints for returns and CAGR. For daily path metrics, the common
+reader forward fills the last observation: an unobserved day receives a zero
+return and the complete intervening movement falls on the next event day. This
+is an accepted approximation that makes volatility, Sharpe and drawdown
+available. Volatility and Sharpe remain sensitive to GMX operation cadence and
+must not be interpreted as continuously sampled NAV statistics.
 
 The curve approximates a single-sided USDC deposit. It does not simulate an
 individual request, so it excludes execution fees, price impact, token
@@ -543,9 +547,10 @@ source .local-test.env && \
   poetry run python scripts/erc-4626/examine-gmx-vault-performance.py
 ```
 
-``3M CAGR`` is ``N/A`` when the available observation window does not satisfy
-the common three-month period rules. ``3M Sharpe`` is always ``N/A`` for GMX's
-event-observed curve.
+``3M CAGR`` and ``3M Sharpe`` are ``N/A`` when the available observation window
+does not satisfy the common three-month period rules. When available, Sharpe is
+the forward-filled, observation-cadence-sensitive approximation described
+above.
 
 | Variable | Script | Description |
 |----------|--------|-------------|
