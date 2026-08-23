@@ -565,10 +565,10 @@ source .local-test.env && \
   poetry run python scripts/erc-4626/examine-gmx-vault-performance.py
 ```
 
-``3M CAGR`` and ``3M Sharpe`` are ``N/A`` when the available observation window
-does not satisfy the common three-month period rules. When available, Sharpe is
-the forward-filled, observation-cadence-sensitive approximation described
-above.
+``3M CAGR``, ``3M volatility`` and ``3M Sharpe`` are ``N/A`` when the available
+observation window does not satisfy the common three-month period rules. When
+available, volatility and Sharpe are the forward-filled,
+observation-cadence-sensitive approximations described above.
 
 | Variable | Script | Description |
 |----------|--------|-------------|

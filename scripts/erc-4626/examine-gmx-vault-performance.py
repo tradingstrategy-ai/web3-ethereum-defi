@@ -158,7 +158,7 @@ def _create_performance_table(metrics: pd.DataFrame, vault_db: VaultDatabase, sy
         Locally resolved accepted-token symbols.
     :return:
         DataFrame with vault name, tokens, TVL, lifetime CAGR, three-month
-        CAGR and three-month Sharpe ratio.
+        CAGR, three-month volatility and three-month Sharpe ratio.
     """
 
     records = []
@@ -173,6 +173,7 @@ def _create_performance_table(metrics: pd.DataFrame, vault_db: VaultDatabase, sy
         three_months = get_period_metrics(metric["period_results"], "3M")
         lifetime_cagr = None if lifetime is None or lifetime.error_reason else lifetime.cagr_net if lifetime.cagr_net is not None else lifetime.cagr_gross
         three_months_cagr = None if three_months is None or three_months.error_reason else three_months.cagr_net if three_months.cagr_net is not None else three_months.cagr_gross
+        three_months_volatility = None if three_months is None or three_months.error_reason else three_months.volatility
         three_months_sharpe = None if three_months is None or three_months.error_reason else three_months.sharpe
         records.append(
             {
@@ -181,6 +182,7 @@ def _create_performance_table(metrics: pd.DataFrame, vault_db: VaultDatabase, sy
                 "TVL": float(metric["current_nav"]),
                 "Lifetime CAGR": lifetime_cagr,
                 "3M CAGR": three_months_cagr,
+                "3M volatility": three_months_volatility,
                 "3M Sharpe": three_months_sharpe,
             },
         )
@@ -215,6 +217,7 @@ def main() -> None:
     display_table["TVL"] = display_table["TVL"].map(lambda value: f"${value:,.0f}")
     display_table["Lifetime CAGR"] = display_table["Lifetime CAGR"].map(lambda value: "N/A" if pd.isna(value) else f"{value:.2%}")
     display_table["3M CAGR"] = display_table["3M CAGR"].map(lambda value: "N/A" if pd.isna(value) else f"{value:.2%}")
+    display_table["3M volatility"] = display_table["3M volatility"].map(lambda value: "N/A" if pd.isna(value) else f"{value:.2%}")
     display_table["3M Sharpe"] = display_table["3M Sharpe"].map(lambda value: "N/A" if pd.isna(value) else f"{value:.2f}")
     print(tabulate(display_table, headers="keys", tablefmt="rounded_outline", showindex=False))
 
