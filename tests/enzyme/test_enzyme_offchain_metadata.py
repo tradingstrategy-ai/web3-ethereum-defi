@@ -229,6 +229,26 @@ def test_offchain_metadata_state_resumes_successful_api_replies(tmp_path) -> Non
     assert loaded == {BLUE_SPEC: EnzymeVaultMetadata(short_description="Official tagline")}
 
 
+@pytest.mark.parametrize(
+    ("denomination", "nav", "expected"),
+    [
+        ("USDC", "1000", False),
+        ("USDC", "1000.01", True),
+        ("WETH", "1", False),
+        ("WETH", "1.01", True),
+        ("cbBTC", "0.1", False),
+        ("cbBTC", "0.100001", True),
+        ("EURC", "100000", False),
+    ],
+)
+def test_description_metadata_tvl_threshold(denomination: str, nav: str, expected: object) -> None:
+    """Collect only vaults above the reviewed accounting-unit limits."""
+
+    module = load_offchain_metadata_migration_module()
+
+    assert module.has_description_metadata_tvl({"Denomination": denomination, "NAV": nav}) is expected
+
+
 def test_offchain_metadata_migration_changes_only_existing_enzyme_blue_copy() -> None:
     """Apply official fields to Blue without changing Onyx or unrelated metadata."""
 
@@ -241,6 +261,8 @@ def test_offchain_metadata_migration_changes_only_existing_enzyme_blue_copy() ->
                 "_detection_data": SimpleNamespace(features={ERC4626Feature.enzyme_blue_like}),
                 "_short_description": "Old short copy",
                 "_description": "Old long copy",
+                "Denomination": "USDC",
+                "NAV": 1_001,
                 "unrelated_field": "preserved",
             },
             ONYX_SPEC: {

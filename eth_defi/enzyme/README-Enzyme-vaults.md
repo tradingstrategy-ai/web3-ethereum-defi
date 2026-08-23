@@ -47,6 +47,11 @@ deleted after the complete cache/database update; set
 ``ENZYME_METADATA_STATE_PATH`` to use another location. Adapters read the
 published cache without a token.
 
+To conserve the Enzyme API quota, the migration only reads vaults whose
+recorded accounting-unit NAV exceeds 1,000 in a reviewed USD-pegged unit, 1 in
+an ETH-equivalent unit, or 0.1 in a BTC-equivalent unit. Unsupported
+denominations are skipped rather than converted through an inferred price.
+
 Create a token in the Enzyme application, store it only in the operator's
 secret environment, and run the migration serially. The provider can return
 ``429`` with ``Retry-After``; do not increase concurrency to work around it.

@@ -257,8 +257,8 @@ descriptions remain mandatory.
 Offchain description migration
 ------------------------------
 
-``scripts/enzyme/migrate-offchain-metadata.py`` fetches all existing Enzyme
-Blue vault taglines and descriptions from Enzyme's authenticated ``GetVault``
+``scripts/enzyme/migrate-offchain-metadata.py`` fetches Enzyme Blue vault
+taglines and descriptions above its accounting-unit TVL threshold from Enzyme's authenticated ``GetVault``
 API, warms the durable adapter cache and updates the public metadata pickle.
 It is deliberately a separate migration: it has no JSON-RPC or Hypersync work,
 does not change historical price data, and does not attempt unsupported Onyx
@@ -272,6 +272,11 @@ minimal migration-only checkpoint resumes after an interruption without
 repeating completed API reads. It is deleted only after the cache and metadata
 pickle have both been updated successfully; set ``ENZYME_METADATA_STATE_PATH``
 to override its location.
+
+To conserve Enzyme API quota, only Blue rows with a recorded NAV greater than
+1,000 in a reviewed USD-pegged accounting unit, 1 in an ETH-equivalent unit,
+or 0.1 in a BTC-equivalent unit are collected. The migration does not convert
+unsupported denominations through an inferred exchange rate.
 
 Create an API token in the `Enzyme application
 <https://app.enzyme.finance/account/api-tokens>`__, then run:

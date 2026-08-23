@@ -35,6 +35,9 @@ Environment variables:
 - ``ENZYME_METADATA_STATE_PATH``: resumable migration state path. Defaults to
   ``enzyme-offchain-metadata-state.json`` next to the vault database and is
   deleted only after a complete cache/database update.
+- Only Blue vaults whose recorded accounting-unit NAV exceeds 1,000 USD,
+  1 ETH or 0.1 BTC equivalents are collected. Unsupported denominations are
+  skipped rather than converted using an inferred exchange rate.
 - ``MAX_WORKERS``: bounded concurrent API requests, default ``1``. Keep this
   conservative because Enzyme returns ``429`` with a ``Retry-After`` header
   when a token exceeds its request quota.
@@ -50,6 +53,7 @@ import os
 import shutil
 from collections.abc import Iterator
 from dataclasses import dataclass
+from decimal import Decimal, InvalidOperation
 from pathlib import Path
 
 from eth_typing import HexAddress
@@ -74,6 +78,16 @@ from eth_defi.vault.base import VaultSpec
 from eth_defi.vault.vaultdb import VaultDatabase, VaultRow, get_pipeline_data_dir
 
 ENZYME_METADATA_STATE_VERSION = 1
+
+#: Minimum recorded NAV by accounting-unit family for API metadata collection.
+#: The database stores values in each vault's denomination, not a universal
+#: USD price feed. Keep symbols only where the denomination itself is a
+#: reviewed USD, ETH or BTC equivalent.
+MINIMUM_NAV_BY_DENOMINATION = {
+    **dict.fromkeys({"USD", "USDC", "USDC.E", "USDT", "USDT0", "USD₮0", "DAI", "USDS", "SUSD", "BUSD", "FRAX", "USDE", "SUSDE"}, Decimal("1000")),
+    **dict.fromkeys({"ETH", "WETH", "STETH", "WSTETH", "RETH", "CBETH", "WEETH", "OSETH"}, Decimal("1")),
+    **dict.fromkeys({"BTC", "WBTC", "CBBTC", "IBTC", "TBTC", "FBTC", "LBTC"}, Decimal("0.1")),
+}
 
 
 @dataclass(slots=True, frozen=True)
@@ -260,14 +274,43 @@ def is_enzyme_blue_row(row: VaultRow) -> bool:
     return ERC4626Feature.enzyme_blue_like.value in feature_values
 
 
-def iter_enzyme_blue_rows(vault_db: VaultDatabase) -> Iterator[tuple[VaultSpec, VaultRow]]:
-    """Yield existing Enzyme Blue rows in deterministic request order.
+def get_metadata_value_unit(row: VaultRow) -> str | None:
+    """Read the persisted accounting-unit symbol used for the NAV threshold.
 
-    :param vault_db: Loaded vault metadata database.
-    :return: Existing Blue identity and row pairs.
+    :param row: Persisted vault metadata row.
+    :return: Uppercase accounting-unit symbol, if known.
     """
 
-    rows = ((spec, row) for spec, row in vault_db.rows.items() if is_enzyme_blue_row(row))
+    value_unit = row.get("Denomination") or (row.get("_vault_info") or {}).get("value_asset")
+    return value_unit.upper() if isinstance(value_unit, str) else None
+
+
+def has_description_metadata_tvl(row: VaultRow) -> bool:
+    """Check whether a Blue row meets the documented API-collection threshold.
+
+    :param row: Persisted Blue vault metadata row with accounting-unit NAV.
+    :return: ``True`` only above the reviewed USD, ETH or BTC-equivalent limit.
+    """
+
+    value_unit = get_metadata_value_unit(row)
+    threshold = MINIMUM_NAV_BY_DENOMINATION.get(value_unit)
+    if threshold is None:
+        return False
+    try:
+        nav = Decimal(str(row.get("NAV")))
+    except (InvalidOperation, ValueError):
+        return False
+    return nav.is_finite() and nav > threshold
+
+
+def iter_enzyme_blue_rows(vault_db: VaultDatabase) -> Iterator[tuple[VaultSpec, VaultRow]]:
+    """Yield Enzyme Blue rows above the metadata-collection TVL threshold.
+
+    :param vault_db: Loaded vault metadata database.
+    :return: Eligible Blue identity and row pairs in deterministic request order.
+    """
+
+    rows = ((spec, row) for spec, row in vault_db.rows.items() if is_enzyme_blue_row(row) and has_description_metadata_tvl(row))
     yield from sorted(rows, key=lambda item: (item[0].chain_id, item[0].vault_address.lower()))
 
 
@@ -399,7 +442,7 @@ def main() -> None:  # noqa: PLR0914 - Keeps the one-shot migration transaction 
     print(
         tabulate(
             [
-                ["Existing Enzyme Blue rows", len(selected_rows)],
+                ["Eligible Enzyme Blue rows", len(selected_rows)],
                 ["Resumed API replies", len(selected_rows) - len(missing_specs)],
                 ["Official API taglines", with_short_description],
                 ["Official API descriptions", with_description],
