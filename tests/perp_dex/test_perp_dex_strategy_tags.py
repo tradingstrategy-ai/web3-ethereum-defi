@@ -4,6 +4,8 @@ import datetime
 
 import pytest
 
+from eth_defi.apex import tags as apex_tags
+from eth_defi.apex.vault_data_export import create_apex_vault_row
 from eth_defi.grvt import tags as grvt_tags
 from eth_defi.grvt.vault_data_export import create_grvt_vault_row
 from eth_defi.hibachi import tags as hibachi_tags
@@ -20,6 +22,16 @@ EXPECTED_GRVT_VAULT_COUNT = 26
 def test_native_perp_dex_vault_rows_have_default_strategy_tag() -> None:
     """Native perp DEX exporters persist the perpetual-futures tag."""
     timestamp = datetime.datetime(2026, 1, 1, tzinfo=datetime.UTC).replace(tzinfo=None)
+    _, apex = create_apex_vault_row(
+        "test",
+        name="ApeX test vault",
+        description=None,
+        tvl=1_000,
+        share_count=1_000,
+        created_at=timestamp,
+        first_seen=timestamp,
+        status="normal",
+    )
     _, hyperliquid = create_hyperliquid_vault_row(
         "0x0000000000000000000000000000000000000001",
         "Hyperliquid test vault",
@@ -31,7 +43,21 @@ def test_native_perp_dex_vault_rows_have_default_strategy_tag() -> None:
     _, hibachi = create_hibachi_vault_row(1, "HIB", "Hibachi test vault", None, 1_000)
     _, lighter = create_lighter_pool_row(1, "Lighter test pool", None, 1_000, timestamp)
 
+    assert apex["_strategy_tags"] == {StrategyTag.discretionary_trading, StrategyTag.perpetual_futures}
     assert all(row["_strategy_tags"] == {StrategyTag.perpetual_futures} for row in (hyperliquid, grvt, hibachi, lighter))
+
+
+def test_apex_official_vaults_are_market_makers() -> None:
+    """ApeX's official liquidation-fee vaults have their documented tags."""
+    expected = {
+        StrategyTag.liquidity_provider,
+        StrategyTag.market_maker,
+        StrategyTag.market_making,
+        StrategyTag.perpetual_futures,
+    }
+
+    assert apex_tags.get_strategy_tags("apex-vault-10000") == expected
+    assert apex_tags.get_strategy_tags("apex-vault-10001") == expected
 
 
 def test_native_perp_dex_tag_mappings_add_to_default(monkeypatch: pytest.MonkeyPatch) -> None:
