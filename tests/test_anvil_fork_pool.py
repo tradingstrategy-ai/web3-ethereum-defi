@@ -85,6 +85,24 @@ def test_default_anvil_proxy_policy_is_bounded(provider_count: int) -> None:
     assert combined_requests_timeout * provider_count <= anvil_module.ANVIL_PROXY_TOTAL_TIMEOUT
 
 
+def test_proxy_client_timeout_covers_complete_failover_pass() -> None:
+    """Keep bootstrap connected while the proxy tries every configured provider.
+
+    1. Create an explicit three-attempt proxy policy with backoff.
+    2. Calculate the client timeout used by Anvil bootstrap through that proxy.
+    3. Verify it covers connect/read budgets, retry sleeps and a local margin.
+    """
+    # 1. Create an explicit three-attempt proxy policy with backoff.
+    proxy = Mock(spec=RPCProxy)
+    proxy.config = RPCProxyConfig(timeout=7.0, retries=3, backoff=0.5)
+
+    # 2. Calculate the client timeout used by Anvil bootstrap through that proxy.
+    timeout = anvil_module._get_proxy_client_timeout(proxy, minimum_timeout=3.0)
+
+    # 3. Verify it covers connect/read budgets, retry sleeps and a local margin.
+    assert timeout == pytest.approx(44.25)
+
+
 def test_launch_anvil_preserves_proxy_modes(monkeypatch: pytest.MonkeyPatch) -> None:
     """Wire the bounded automatic policy without changing explicit modes.
 
