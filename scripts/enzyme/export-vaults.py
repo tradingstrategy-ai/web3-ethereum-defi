@@ -165,7 +165,7 @@ def main() -> None:
     sort_by_total_value = parse_bool_env("SORT_BY_TOTAL_VALUE")
     limit = parse_limit_env()
     if value_units:
-        rows = {spec: row for spec, row in rows.items() if (row.get("Denomination") or (row.get("_vault_info") or {}).get("value_asset") or "").upper() in value_units}
+        rows = {spec: row for spec, row in rows.items() if (row.get("Denomination") or "").upper() in value_units}
     logger.info("Exporting %d Enzyme vault rows from %s", len(rows), vault_db_path)
     table = []
     if sort_by_total_value:
@@ -181,7 +181,7 @@ def main() -> None:
         tvl = row.get("NAV")
         shares = row.get("Shares")
         share_price = tvl / shares if tvl is not None and shares not in {None, 0} else None
-        value_unit = row.get("Denomination") or (row.get("_vault_info") or {}).get("value_asset") or "—"
+        value_unit = row.get("Denomination") or "—"
         table.append(
             {
                 "Chain": get_chain_name(spec.chain_id),

@@ -51,8 +51,11 @@ To conserve the Enzyme API quota, the migration only reads vaults whose
 recorded accounting-unit NAV exceeds 1,000 in a reviewed USD-pegged unit, 1 in
 an ETH-equivalent unit, or 0.1 in a BTC-equivalent unit. Unsupported
 denominations are skipped rather than converted through an inferred price. The
-exact retired generated fallback pair is cleared locally for every Blue row,
+exact retired generated fallback fields are cleared locally for every Blue row,
 without an API request, so older databases cannot keep invented copy.
+After a complete cache/database update, later runs reuse the cache without a
+token. Set ``ENZYME_METADATA_REFRESH=true`` with a token to fetch every
+eligible Blue row again.
 
 Create a token in the Enzyme application, store it only in the operator's
 secret environment, and run the migration serially. The provider can return
@@ -120,7 +123,7 @@ source ~/vault-scanner/vault-rpc.env
 cd ~/vault-scanner/web3-ethereum-defi
 docker compose stop vault-scanner-looped
 docker compose --profile oneshot run --rm --entrypoint /bin/bash vault-scanner-oneshot \
-  -lc 'DRY_RUN=false MAX_WORKERS=1 poetry run python scripts/enzyme/migrate-offchain-metadata.py'
+  -c 'DRY_RUN=false MAX_WORKERS=1 poetry run python scripts/enzyme/migrate-offchain-metadata.py'
 docker compose start vault-scanner-looped
 ```
 

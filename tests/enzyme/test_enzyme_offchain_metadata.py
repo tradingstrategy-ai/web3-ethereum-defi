@@ -292,16 +292,16 @@ def test_offchain_metadata_migration_clears_empty_api_copy() -> None:
     assert update.description is None
 
 
-def test_offchain_metadata_migration_clears_only_exact_legacy_fallback() -> None:
-    """Clear a retired generated pair without touching similarly worded copy."""
+def test_offchain_metadata_migration_clears_legacy_fields_independently() -> None:
+    """Clear each retired generated field without discarding official copy."""
 
     module = load_offchain_metadata_migration_module()
     legacy_row = {
-        "Name": "Legacy Blue vault",
+        "Name": "Renamed Blue vault",
         "_short_description": module.LEGACY_BLUE_SHORT_DESCRIPTION,
-        "_description": f"Legacy Blue vault{module.LEGACY_BLUE_DESCRIPTION_SUFFIX}",
+        "_description": f"Previous Blue vault{module.LEGACY_BLUE_DESCRIPTION_SUFFIX}",
     }
-    manager_row = {
+    official_description_row = {
         "Name": "Manager Blue vault",
         "_short_description": module.LEGACY_BLUE_SHORT_DESCRIPTION,
         "_description": "Manager Blue vault is an Enzyme Blue investment vehicle with a manager-authored strategy.",
@@ -312,4 +312,8 @@ def test_offchain_metadata_migration_clears_only_exact_legacy_fallback() -> None
     assert update is not None
     assert update.short_description is None
     assert update.description is None
-    assert module.create_legacy_fallback_clear_update(BLUE_SPEC, manager_row) is None
+    partial_update = module.create_legacy_fallback_clear_update(BLUE_SPEC, official_description_row)
+    assert partial_update is not None
+    assert partial_update.short_description is None
+    assert partial_update.description == official_description_row["_description"]
+    assert partial_update.changed_fields == ("_short_description",)

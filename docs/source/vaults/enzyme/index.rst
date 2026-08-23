@@ -280,8 +280,12 @@ To conserve Enzyme API quota, only Blue rows with a recorded NAV greater than
 1,000 in a reviewed USD-pegged accounting unit, 1 in an ETH-equivalent unit,
 or 0.1 in a BTC-equivalent unit are collected. The migration does not convert
 unsupported denominations through an inferred exchange rate. It also clears
-the exact retired generated Blue fallback pair locally for every Blue row; this
-does not make an API request and ensures older rows do not retain invented copy.
+the exact retired generated Blue fallback fields locally for every Blue row;
+this does not make an API request and ensures older rows do not retain invented
+copy.
+After a complete cache/database update, later runs reuse the cache without a
+token. Set ``ENZYME_METADATA_REFRESH=true`` with a token to fetch all eligible
+Blue rows again.
 
 Create an API token in the `Enzyme application
 <https://app.enzyme.finance/account/api-tokens>`__, then run:
@@ -311,7 +315,7 @@ mounted production state, then restart the looped service:
     docker compose stop vault-scanner-looped
     docker compose run --rm --entrypoint /bin/bash \
         -e ENZYME_BLUE_API_TOKEN -e MAX_WORKERS=1 vault-scanner-oneshot \
-        -lc 'poetry run python scripts/enzyme/migrate-offchain-metadata.py'
+        -c 'poetry run python scripts/enzyme/migrate-offchain-metadata.py'
     docker compose start vault-scanner-looped
 
 Vault export
@@ -319,7 +323,8 @@ Vault export
 
 ``scripts/enzyme/export-vaults.py`` prints the local Enzyme database as a
 Markdown table, including its stored short-description column. It is read-only
-and never contacts Enzyme, JSON-RPC or Hypersync. Its ``Total value`` column
+and never contacts Enzyme, JSON-RPC or Hypersync. Its
+``Total value (accounting unit)`` column
 is the vault's accounting-unit NAV, not USD-normalised TVL, so rows with
 different denominations must not be ranked together. To review the twenty
 largest rows among selected USD-pegged accounting units, run:
