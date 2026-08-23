@@ -43,13 +43,11 @@ At session start `seed_default_foundry_rpc_cache()` copies this tree into
 An external (uncommitted, larger) seed directory can also be supplied at runtime
 via the `ETH_DEFI_RPC_CACHE_SEED_DIR` environment variable.
 
-## Archive provider invariant
+## Archive bootstrap and cache invariant
 
-Stored state covers repeatable historical reads made after an Anvil fork has
-started. Bootstrap remains allowed to contact the configured archive providers:
-it confirms the chain identity and that the requested block is available. When
-multiple space-separated providers are configured, both bootstrap and later
-Anvil requests must go through the same bounded failover proxy; no setup check
-may turn the first provider into a single point of failure. Refresh a seed by
-running its complete fixed-block integration group with an empty cache
-directory, then commit the gracefully flushed `storage.json` it produces.
+Stored state covers repeatable historical reads after Anvil starts. The initial
+chain-identity and archive-availability checks are necessarily remote, so with
+multiple providers they must use the same bounded failover proxy as Anvil; no
+setup check may make the first provider a single point of failure. Refresh a
+seed by running its complete fixed-block integration group with an empty cache
+directory, then commit the `storage.json` written when Anvil closes cleanly.

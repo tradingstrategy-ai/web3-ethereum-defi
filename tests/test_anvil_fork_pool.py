@@ -85,24 +85,6 @@ def test_default_anvil_proxy_policy_is_bounded(provider_count: int) -> None:
     assert combined_requests_timeout * provider_count <= anvil_module.ANVIL_PROXY_TOTAL_TIMEOUT
 
 
-def test_proxy_client_timeout_covers_complete_failover_pass() -> None:
-    """Keep bootstrap connected while the proxy tries every configured provider.
-
-    1. Create an explicit three-attempt proxy policy with backoff.
-    2. Calculate the client timeout used by Anvil bootstrap through that proxy.
-    3. Verify it covers connect/read budgets, retry sleeps and a local margin.
-    """
-    # 1. Create an explicit three-attempt proxy policy with backoff.
-    proxy = Mock(spec=RPCProxy)
-    proxy.config = RPCProxyConfig(timeout=7.0, retries=3, backoff=0.5)
-
-    # 2. Calculate the client timeout used by Anvil bootstrap through that proxy.
-    timeout = anvil_module._get_proxy_client_timeout(proxy, minimum_timeout=3.0)
-
-    # 3. Verify it covers connect/read budgets, retry sleeps and a local margin.
-    assert timeout == pytest.approx(44.25)
-
-
 def test_archive_preflight_uses_proxy_failover_budget(monkeypatch: pytest.MonkeyPatch) -> None:
     """Give archive preflight time to complete the proxy's bounded failover pass.
 
@@ -120,25 +102,18 @@ def test_archive_preflight_uses_proxy_failover_budget(monkeypatch: pytest.Monkey
     proxy = Mock(spec=RPCProxy)
     proxy.url = "http://127.0.0.1:23456"
     proxy.config = RPCProxyConfig(timeout=7.0, retries=3, backoff=0.5)
+    expected_timeout = 44.25
     monkeypatch.setattr(anvil_module, "start_rpc_proxy", Mock(return_value=proxy))
     web3 = Mock()
     web3.eth.block_number = 100
     web3.eth.chain_id = 8453
     monkeypatch.setattr(anvil_module, "Web3", Mock(return_value=web3))
 
-    captured: dict[str, object] = {}
-
-    class StopAfterPreflight(Exception):
-        """End the unit test before it starts an Anvil subprocess."""
-
-    def verify_archive(**kwargs) -> None:
-        captured.update(kwargs)
-        raise StopAfterPreflight
-
-    monkeypatch.setattr(anvil_module, "_verify_archive_node_access", verify_archive)
+    preflight = Mock(side_effect=RuntimeError("stop after preflight"))
+    monkeypatch.setattr(anvil_module, "_verify_archive_node_access", preflight)
 
     # 2. Stop launch immediately after capturing the archive-preflight arguments.
-    with pytest.raises(StopAfterPreflight):
+    with pytest.raises(RuntimeError, match="stop after preflight"):
         anvil_module.launch_anvil(
             "https://primary.example https://fallback.example",
             fork_block_number=50,
@@ -147,8 +122,9 @@ def test_archive_preflight_uses_proxy_failover_budget(monkeypatch: pytest.Monkey
         )
 
     # 3. Verify the preflight targets the proxy and uses its full client budget.
-    assert captured["rpc_url"] == proxy.url
-    assert captured["timeout"] == pytest.approx(44.25)
+    assert anvil_module._get_proxy_client_timeout(proxy, minimum_timeout=3.0) == pytest.approx(expected_timeout)
+    assert preflight.call_args.kwargs["rpc_url"] == proxy.url
+    assert preflight.call_args.kwargs["timeout"] == pytest.approx(expected_timeout)
 
 
 def test_launch_anvil_preserves_proxy_modes(monkeypatch: pytest.MonkeyPatch) -> None:

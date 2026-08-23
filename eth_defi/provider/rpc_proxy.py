@@ -738,14 +738,8 @@ class RPCProxy:
     #: URL clients should connect to (``http://localhost:{port}``)
     url: str
 
-    #: Effective upstream failover policy.
-    #:
-    #: Exposed so callers that connect *to this proxy* can set a client timeout
-    #: large enough for its full bounded provider pass.  In particular,
-    #: :func:`eth_defi.provider.anvil.launch_anvil` uses this for its archive
-    #: preflight: the preflight must receive the proxy's fallback response
-    #: instead of timing out locally while the proxy is still trying another
-    #: archive provider.
+    #: Effective upstream policy, exposed for callers that need to wait for a
+    #: complete failover pass (such as Anvil archive preflight).
     config: RPCProxyConfig
 
     #: Per-provider statistics, keyed by provider display name
