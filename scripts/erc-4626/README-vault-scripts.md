@@ -748,9 +748,9 @@ uses the same one-scan-per-chain discovery and durable metadata batches as the
 historical backfill, but forcibly disables raw-price scanning, cleaned-Parquet
 replacement and unconditional metadata refreshes.
 
-The migration fills missing short and long descriptions, repairs direct vault
-links locally, refreshes complete current adapter metadata for affected rows,
-and resolves current deposit permission for Blue and Onyx. Blue uses the
+The migration applies the architecture-specific description policy, repairs
+direct vault links locally, refreshes complete current adapter metadata for
+affected rows, and resolves current deposit permission for Blue and Onyx. Blue uses the
 reviewed release PolicyManager addresses and investor-whitelist identifiers
 published by Enzyme, matching the policies used by the Enzyme website. Onyx
 uses an event-reconstructed active handler set plus current-state Multicall:
@@ -759,7 +759,9 @@ allowlist/controller restriction or admin-only mint handler is whitelisted,
 and an unreviewed hook or handler remains unknown. A vault with no active
 deposit handler is permissionless for identity policy, while no handler can
 currently accept a deposit.
-Name, symbol, denomination and both descriptions are mandatory; current NAV
+Name, symbol and denomination are mandatory. Blue descriptions are optional
+official API fields; Onyx has no short description and uses the explicit
+``Description is not publicly available`` long-description marker. Current NAV
 and fees can be blank for deprecated vaults whose old valuation or extension
 calls no longer execute. A completed row is skipped after an interruption, and
 a successful metadata-only run marks

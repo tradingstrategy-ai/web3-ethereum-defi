@@ -1,6 +1,7 @@
-"""Test Enzyme API description collection and safe fallback copy."""
+"""Test Enzyme API description collection without inferred fallback copy."""
 
 import importlib.util
+import os
 from pathlib import Path
 from types import ModuleType, SimpleNamespace
 
@@ -11,13 +12,12 @@ from eth_defi.enzyme import offchain_metadata
 from eth_defi.enzyme.offchain_metadata import (
     ENZYME_API_VAULT_URL,
     EnzymeVaultMetadata,
-    create_enzyme_blue_fallback_metadata,
+    create_enzyme_api_session,
     create_enzyme_vault_link,
     fetch_enzyme_api_vault_metadata,
     load_enzyme_blue_vault_metadata,
     load_enzyme_vault_metadata_cache,
     parse_enzyme_api_vault_metadata,
-    resolve_enzyme_blue_vault_metadata,
     write_enzyme_vault_metadata_cache,
 )
 from eth_defi.erc_4626.core import ERC4626Feature
@@ -29,6 +29,12 @@ MIGRATION_SCRIPT_PATH = Path(__file__).resolve().parents[2] / "scripts" / "enzym
 BLUE_SPEC = VaultSpec(1, VAULT_ADDRESS)
 BLUE_METADATA_KEY = (BLUE_SPEC.chain_id, HexAddress(BLUE_SPEC.vault_address.lower()))
 ONYX_SPEC = VaultSpec(8453, "0x000000000000000000000000000000000000c0Fe")
+
+#: Enzyme Blue Base Camp VaultProxy. The endpoint may validly return no
+#: manager-entered text, but a successful authenticated response validates the
+#: real Connect API request, token and schema path.
+LIVE_ENZYME_BLUE_VAULT = "0x75a17c22235b2dd584e3ea8c142422d97b826816"
+ENZYME_BLUE_API_TOKEN = os.environ.get("ENZYME_BLUE_API_TOKEN")
 
 
 def load_offchain_metadata_migration_module() -> ModuleType:
@@ -45,45 +51,18 @@ def load_offchain_metadata_migration_module() -> ModuleType:
     return module
 
 
-def test_enzyme_blue_fallback_has_complete_listing_copy() -> None:
-    """Provide generic Blue copy when the official API has no manager text."""
+def test_load_enzyme_blue_metadata_reads_cached_api_fields(monkeypatch) -> None:
+    """Read the exact successful official API response from the cache."""
 
-    metadata = create_enzyme_blue_fallback_metadata("Example vault")
-
-    assert metadata.short_description
-    assert metadata.description
-    assert "Example vault" in metadata.description
-
-
-def test_curated_enzyme_copy_overrides_only_the_provided_fields() -> None:
-    """Retain the fallback field when a curator supplies partial metadata."""
-
-    metadata = resolve_enzyme_blue_vault_metadata(
-        "Example vault",
-        EnzymeVaultMetadata(description="Curator-supplied strategy narrative."),
-    )
-
-    assert metadata.description == "Curator-supplied strategy narrative."
-    assert metadata.short_description == "Enzyme Blue tokenised digital-asset investment vehicle."
-
-
-def test_load_enzyme_blue_metadata_merges_curated_and_cached_fields(monkeypatch) -> None:
-    """Retain complementary manager copy from both supported metadata sources."""
-
-    monkeypatch.setattr(
-        offchain_metadata,
-        "ENZYME_BLUE_VAULT_METADATA",
-        {BLUE_METADATA_KEY: EnzymeVaultMetadata(description="Curated strategy narrative.")},
-    )
     monkeypatch.setattr(
         offchain_metadata,
         "_cached_enzyme_vault_metadata",
-        {BLUE_METADATA_KEY: EnzymeVaultMetadata(short_description="Official tagline")},
+        {BLUE_METADATA_KEY: EnzymeVaultMetadata(short_description="Official tagline", description="Official strategy narrative.")},
     )
 
     assert load_enzyme_blue_vault_metadata(*BLUE_METADATA_KEY) == EnzymeVaultMetadata(
         short_description="Official tagline",
-        description="Curated strategy narrative.",
+        description="Official strategy narrative.",
     )
 
 
@@ -172,6 +151,34 @@ def test_fetch_enzyme_api_vault_metadata_uses_official_connect_endpoint() -> Non
     assert kwargs["headers"]["Connect-Protocol-Version"] == "1"
 
 
+@pytest.mark.skipif(not ENZYME_BLUE_API_TOKEN, reason="ENZYME_BLUE_API_TOKEN needed to exercise the live Enzyme Blue API")
+def test_fetch_enzyme_api_vault_metadata_live() -> None:
+    """Authenticate to the real Enzyme Blue ``GetVault`` endpoint.
+
+    The selected VaultProxy can validly have no manager-entered listing copy.
+    This test therefore asserts a successful authenticated response and the
+    parsed result shape, rather than making a volatile assertion about current
+    manager text. It runs automatically wherever the token is available.
+
+    :return: None after the live authenticated read succeeds.
+    """
+
+    session = create_enzyme_api_session(max_workers=1)
+    try:
+        metadata = fetch_enzyme_api_vault_metadata(
+            session,
+            chain_id=8453,
+            shares_address=LIVE_ENZYME_BLUE_VAULT,
+            api_token=ENZYME_BLUE_API_TOKEN,
+            timeout=30,
+        )
+    finally:
+        session.close()
+
+    assert isinstance(metadata, EnzymeVaultMetadata)
+    assert all(value is None or isinstance(value, str) for value in (metadata.short_description, metadata.description, metadata.manager_name))
+
+
 def test_enzyme_metadata_cache_round_trip_retains_empty_api_reply(tmp_path) -> None:
     """Keep a valid empty reply distinct from an absent or broken cache entry."""
 
@@ -187,6 +194,42 @@ def test_enzyme_metadata_cache_round_trip_retains_empty_api_reply(tmp_path) -> N
     assert loaded == metadata
 
 
+def test_offchain_metadata_state_resumes_successful_api_replies(tmp_path) -> None:
+    """Keep completed official replies when the migration is interrupted."""
+
+    module = load_offchain_metadata_migration_module()
+    state_path = tmp_path / "enzyme-offchain-metadata-state.json"
+    state = {
+        BLUE_SPEC: EnzymeVaultMetadata(short_description="Official tagline"),
+        ONYX_SPEC: EnzymeVaultMetadata(description="Not selected"),
+    }
+
+    module.write_metadata_state(state_path, state)
+    loaded = module.load_metadata_state(state_path, {BLUE_SPEC})
+
+    assert loaded == {BLUE_SPEC: EnzymeVaultMetadata(short_description="Official tagline")}
+
+
+@pytest.mark.parametrize(
+    ("denomination", "nav", "expected"),
+    [
+        ("USDC", "1000", False),
+        ("USDC", "1000.01", True),
+        ("WETH", "1", False),
+        ("WETH", "1.01", True),
+        ("cbBTC", "0.1", False),
+        ("cbBTC", "0.100001", True),
+        ("EURC", "100000", False),
+    ],
+)
+def test_description_metadata_minimum_value(denomination: str, nav: str, expected: object) -> None:
+    """Collect only vaults above the reviewed accounting-unit limits."""
+
+    module = load_offchain_metadata_migration_module()
+
+    assert module.has_description_metadata_minimum_value({"Denomination": denomination, "NAV": nav}) is expected
+
+
 def test_offchain_metadata_migration_changes_only_existing_enzyme_blue_copy() -> None:
     """Apply official fields to Blue without changing Onyx or unrelated metadata."""
 
@@ -199,6 +242,8 @@ def test_offchain_metadata_migration_changes_only_existing_enzyme_blue_copy() ->
                 "_detection_data": SimpleNamespace(features={ERC4626Feature.enzyme_blue_like}),
                 "_short_description": "Old short copy",
                 "_description": "Old long copy",
+                "Denomination": "USDC",
+                "NAV": 1_001,
                 "unrelated_field": "preserved",
             },
             ONYX_SPEC: {
@@ -211,7 +256,7 @@ def test_offchain_metadata_migration_changes_only_existing_enzyme_blue_copy() ->
         }
     )
 
-    selected_rows = list(module.iter_enzyme_blue_rows(vault_db))
+    selected_rows = list(module.iter_all_enzyme_blue_rows(vault_db))
     assert selected_rows == [(BLUE_SPEC, vault_db.rows[BLUE_SPEC])]
 
     update = module.create_metadata_update(
@@ -229,8 +274,8 @@ def test_offchain_metadata_migration_changes_only_existing_enzyme_blue_copy() ->
     assert vault_db.rows[ONYX_SPEC]["_short_description"] == "Keep Onyx fallback"
 
 
-def test_offchain_metadata_migration_reverts_empty_api_copy_to_safe_fallback() -> None:
-    """Replace obsolete text only after a successful authoritative empty reply."""
+def test_offchain_metadata_migration_clears_empty_api_copy() -> None:
+    """Clear obsolete text after a successful authoritative empty reply."""
 
     module = load_offchain_metadata_migration_module()
     row = {
@@ -243,5 +288,32 @@ def test_offchain_metadata_migration_reverts_empty_api_copy_to_safe_fallback() -
 
     update = module.create_metadata_update(BLUE_SPEC, row, EnzymeVaultMetadata())
 
-    assert update.short_description == "Enzyme Blue tokenised digital-asset investment vehicle."
-    assert "No manager-provided strategy description is available" in update.description
+    assert update.short_description is None
+    assert update.description is None
+
+
+def test_offchain_metadata_migration_clears_legacy_fields_independently() -> None:
+    """Clear each retired generated field without discarding official copy."""
+
+    module = load_offchain_metadata_migration_module()
+    legacy_row = {
+        "Name": "Renamed Blue vault",
+        "_short_description": module.LEGACY_BLUE_SHORT_DESCRIPTION,
+        "_description": f"Previous Blue vault{module.LEGACY_BLUE_DESCRIPTION_SUFFIX}",
+    }
+    official_description_row = {
+        "Name": "Manager Blue vault",
+        "_short_description": module.LEGACY_BLUE_SHORT_DESCRIPTION,
+        "_description": "Manager Blue vault is an Enzyme Blue investment vehicle with a manager-authored strategy.",
+    }
+
+    update = module.create_legacy_fallback_clear_update(BLUE_SPEC, legacy_row)
+
+    assert update is not None
+    assert update.short_description is None
+    assert update.description is None
+    partial_update = module.create_legacy_fallback_clear_update(BLUE_SPEC, official_description_row)
+    assert partial_update is not None
+    assert partial_update.short_description is None
+    assert partial_update.description == official_description_row["_description"]
+    assert partial_update.changed_fields == ("_short_description",)

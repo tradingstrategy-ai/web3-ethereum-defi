@@ -148,8 +148,8 @@ def test_enzyme_vault_reaches_lifetime_metrics(
         assert vault.short_description is None
         assert vault.description == ONYX_PUBLIC_DESCRIPTION_UNAVAILABLE
     else:
-        assert vault.short_description
-        assert vault.description
+        assert vault.short_description is None or isinstance(vault.short_description, str)
+        assert vault.description is None or isinstance(vault.description, str)
 
     reader = vault.get_historical_reader(stateful=True)
     call_results = [call.call_as_result(web3, block_identifier=BASE_MIDNIGHT_BLOCK, ignore_error=True) for call in reader.construct_multicalls()]

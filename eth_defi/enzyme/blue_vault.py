@@ -22,7 +22,7 @@ from eth_defi.abi import ZERO_ADDRESS, get_deployed_contract
 from eth_defi.enzyme.blue_discovery import ENZYME_BLUE_DEPLOYMENTS
 from eth_defi.enzyme.blue_historical import EnzymeBlueVaultHistoricalReader
 from eth_defi.enzyme.fee import combine_user_facing_management_fee
-from eth_defi.enzyme.offchain_metadata import create_enzyme_vault_link, load_enzyme_blue_vault_metadata, resolve_enzyme_blue_vault_metadata
+from eth_defi.enzyme.offchain_metadata import create_enzyme_vault_link, load_enzyme_blue_vault_metadata
 from eth_defi.enzyme.onyx_flow import EnzymeVaultFlowManager
 from eth_defi.enzyme.tags import get_strategy_tags as lookup_strategy_tags
 from eth_defi.erc_4626.core import ERC4626Feature
@@ -160,15 +160,15 @@ class EnzymeBlueVault(VaultBase):
 
     @property
     def description(self) -> str | None:
-        """Return complete offchain listing copy for this Blue vault."""
+        """Return optional official offchain listing copy for this Blue vault."""
 
-        return resolve_enzyme_blue_vault_metadata(self.name, self.api_metadata).description
+        return self.api_metadata.description if self.api_metadata else None
 
     @property
     def short_description(self) -> str | None:
-        """Return complete offchain table copy for this Blue vault."""
+        """Return optional official offchain table copy for this Blue vault."""
 
-        return resolve_enzyme_blue_vault_metadata(self.name, self.api_metadata).short_description
+        return self.api_metadata.short_description if self.api_metadata else None
 
     def get_strategy_tags(self) -> set[StrategyTag] | None:
         """Return documented strategy tags for this Blue vault.
@@ -186,9 +186,9 @@ class EnzymeBlueVault(VaultBase):
 
     @property
     def manager_name(self) -> str | None:
-        """Return optional curated manager name."""
+        """Return optional official manager name."""
 
-        return resolve_enzyme_blue_vault_metadata(self.name, self.api_metadata).manager_name
+        return self.api_metadata.manager_name if self.api_metadata else None
 
     def fetch_share_token(self) -> TokenDetails:
         """Fetch the VaultProxy ERC-20 share token."""

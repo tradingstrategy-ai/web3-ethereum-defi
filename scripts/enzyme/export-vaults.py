@@ -12,6 +12,12 @@ Usage::
 Environment variables:
 
 - ``VAULT_DB_PATH``: metadata database path.
+- ``VALUE_UNITS``: optional comma-separated accounting-unit filter, such as
+  ``USDC,DAI,USDT``. Use this before comparing total values: Enzyme's NAV is
+  not normalised to USD by the local database.
+- ``SORT_BY_TOTAL_VALUE``: set to ``true`` to order the selected rows by
+  descending reported total value.
+- ``LIMIT``: optional positive maximum number of rows to output.
 - ``LOG_LEVEL``: optional console log level, default ``warning``.
 """
 
@@ -40,6 +46,65 @@ def parse_path_env(name: str, default: Path) -> Path:
     """
 
     return Path(os.environ.get(name, str(default))).expanduser()
+
+
+def parse_bool_env(name: str) -> bool:
+    """Read a conventional boolean environment variable.
+
+    This keeps the report reproducible from a shell without adding command
+    line arguments to an operational script.
+
+    :param name: Environment variable name.
+    :return: Parsed boolean value.
+    :raises ValueError: If a configured value is not a recognised boolean.
+    """
+
+    value = os.environ.get(name)
+    if value is None:
+        return False
+
+    normalised_value = value.strip().lower()
+    if normalised_value in {"1", "true", "yes", "on"}:
+        return True
+    if normalised_value in {"0", "false", "no", "off"}:
+        return False
+    raise ValueError(f"{name} must be a boolean, got {value!r}")
+
+
+def parse_limit_env(name: str = "LIMIT") -> int | None:
+    """Read an optional positive row limit from the environment.
+
+    :param name: Environment variable name.
+    :return: Row limit, or ``None`` when no limit was configured.
+    :raises ValueError: If the configured limit is not a positive integer.
+    """
+
+    value = os.environ.get(name)
+    if value is None:
+        return None
+
+    limit = int(value)
+    if limit < 1:
+        raise ValueError(f"{name} must be a positive integer, got {value!r}")
+    return limit
+
+
+def parse_value_units_env(name: str = "VALUE_UNITS") -> frozenset[str] | None:
+    """Read an optional case-insensitive accounting-unit filter.
+
+    :param name: Environment variable containing comma-separated asset symbols.
+    :return: Uppercase selected symbols, or ``None`` when filtering is disabled.
+    :raises ValueError: If the variable is set but contains no symbols.
+    """
+
+    value = os.environ.get(name)
+    if value is None:
+        return None
+
+    units = frozenset(unit.strip().upper() for unit in value.split(",") if unit.strip())
+    if not units:
+        raise ValueError(f"{name} must contain at least one accounting unit")
+    return units
 
 
 def format_metric(value: object) -> str:
@@ -85,7 +150,9 @@ def main() -> None:
 
     The report reads existing metadata only and does not contact RPC providers
     or update scanner state. It includes both current Enzyme feature families,
-    preserving their accounting units instead of labelling all values as USD.
+    including each vault's stored short description.  It preserves accounting
+    units instead of incorrectly labelling all NAV values as USD; use
+    ``VALUE_UNITS`` when comparing the reported total values.
 
     :return: None.
     """
@@ -94,13 +161,27 @@ def main() -> None:
     vault_db_path = parse_path_env("VAULT_DB_PATH", DEFAULT_VAULT_DATABASE)
     vault_db = VaultDatabase.read(vault_db_path)
     rows = {spec: row for spec, row in vault_db.rows.items() if row.get("Protocol") == "Enzyme"}
+    value_units = parse_value_units_env()
+    sort_by_total_value = parse_bool_env("SORT_BY_TOTAL_VALUE")
+    limit = parse_limit_env()
+    if value_units:
+        rows = {spec: row for spec, row in rows.items() if (row.get("Denomination") or "").upper() in value_units}
     logger.info("Exporting %d Enzyme vault rows from %s", len(rows), vault_db_path)
     table = []
-    for spec, row in sorted(rows.items(), key=lambda item: (item[0].chain_id, item[1].get("Name") or "")):
+    if sort_by_total_value:
+        sorted_rows = sorted(
+            rows.items(),
+            key=lambda item: (item[1].get("NAV") is not None, item[1].get("NAV") or Decimal(0)),
+            reverse=True,
+        )
+    else:
+        sorted_rows = sorted(rows.items(), key=lambda item: (item[0].chain_id, item[1].get("Name") or ""))
+
+    for spec, row in sorted_rows[:limit]:
         tvl = row.get("NAV")
         shares = row.get("Shares")
         share_price = tvl / shares if tvl is not None and shares not in {None, 0} else None
-        value_unit = row.get("Denomination") or (row.get("_vault_info") or {}).get("value_asset") or "—"
+        value_unit = row.get("Denomination") or "—"
         table.append(
             {
                 "Chain": get_chain_name(spec.chain_id),
@@ -108,7 +189,7 @@ def main() -> None:
                 "Name": row.get("Name"),
                 "Short description": row.get("_short_description") or "—",
                 "Value unit": value_unit,
-                "Total value": format_metric(tvl),
+                "Total value (accounting unit)": format_metric(tvl),
                 "Share price": format_metric(share_price),
                 "Performance fee": format_metric(row.get("Perf fee")),
                 "Management fee (user-facing)": format_metric(row.get("Mgmt fee")),

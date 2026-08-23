@@ -657,9 +657,9 @@ def has_complete_current_metadata(vault_db: VaultDatabase, candidate: EnzymeFact
     Both Enzyme architectures require a conclusive current permission result.
     Blue reads its PolicyManager; Onyx uses the chain-level active handler
     index and batched current handler configuration. Name, symbol, denomination
-    token and appropriate architecture-specific descriptions are mandatory
-    catalogue identity fields. Blue must have both descriptions; Onyx must have
-    no short description and the explicit public unavailable marker. Current
+    token and architecture-specific description policy are mandatory catalogue
+    identity fields. Blue descriptions are optional official API fields; Onyx
+    must have no short description and the explicit public unavailable marker. Current
     NAV, share supply, and fees remain best-effort values: deprecated or
     invalid vault configurations can no longer execute their valuation or
     release extension calls, and repeatedly retrying them cannot recover those
@@ -678,8 +678,6 @@ def has_complete_current_metadata(vault_db: VaultDatabase, candidate: EnzymeFact
     if isinstance(candidate, EnzymeVaultFactoryCandidate):
         if row.get("_short_description") is not None or row.get("_description") != ONYX_PUBLIC_DESCRIPTION_UNAVAILABLE:
             return False
-    elif not row.get("_short_description") or not row.get("_description"):
-        return False
     try:
         permission = VaultDepositPermission(row.get("_deposit_permission", VaultDepositPermission.unknown.value))
     except (TypeError, ValueError):

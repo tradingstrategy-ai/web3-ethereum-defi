@@ -132,6 +132,27 @@ otherwise the test cannot find environment variables.
 
 Avoid running the whole test suite as it takes several minutes. Only run specific test cases.
 
+### External integration tests
+
+Every new or materially changed external integration must include at least one
+minimal real integration test that exercises the actual provider end-to-end.
+For authenticated APIs, this means using a supplied API token and verifying a
+real successful response; mocked requests and fixture-only tests are necessary
+unit coverage but do not replace this check.
+
+- Prefer an automatic CI integration test whenever credentials can be supplied
+  securely and the provider is reliable enough for CI.
+- Otherwise, provide a focused manual command, guarded by the required
+  environment variable or token, so an operator can run the check without
+  modifying source code. Never print, commit or include a token in the command
+  or its output.
+- The pull request that adds the integration must include a PR comment with
+  the real-test result: the exact test or command, whether it passed, the date,
+  and the redacted environment or provider used. State clearly when the result
+  is a manual run rather than CI. If the provider rate-limits a bulk migration,
+  record the response and the safe retry plan instead of repeatedly retrying
+  the same request burst.
+
 Hypersync block scan tests (`tests/erc_4626/test_scan.py`) are disabled on CI by
 default because they dominated the CI critical path; they still run locally. To
 run them on CI (e.g. when touching Hypersync discovery code), see
@@ -469,6 +490,7 @@ Consult these for domain-specific context. Logo READMEs under `eth_defi/data/vau
 | `eth_defi/xerberus/README-xerberus.md` | Xerberus vault risk scores — per-vault pool ratings, DuckDB, export, scripts |
 | `eth_defi/currency_api/README-currency-api.md` | Historical exchange rate ingestion (fawazahmed0 Exchange API) into DuckDB |
 | `eth_defi/data/vaults/README.md` | Vault protocol metadata and logo system |
+| `eth_defi/enzyme/README-Enzyme-vaults.md` | Enzyme Blue and Onyx architecture, metadata and migration operations |
 | `eth_defi/tokenised_fund/asseto/README-Asseto.md` | Asseto dynamic registry, daily NAV history and operations |
 | `eth_defi/erc_4626/vault_protocol/README-reader-states.md` | Vault reader states and warmup system |
 | `eth_defi/erc_4626/vault_protocol/README-utilisation.md` | Utilisation and available liquidity metrics for lending vaults |
