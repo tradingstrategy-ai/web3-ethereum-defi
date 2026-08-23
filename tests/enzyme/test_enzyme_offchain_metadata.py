@@ -1,6 +1,7 @@
 """Test Enzyme API description collection and safe fallback copy."""
 
 import importlib.util
+import os
 from pathlib import Path
 from types import ModuleType, SimpleNamespace
 
@@ -11,6 +12,7 @@ from eth_defi.enzyme import offchain_metadata
 from eth_defi.enzyme.offchain_metadata import (
     ENZYME_API_VAULT_URL,
     EnzymeVaultMetadata,
+    create_enzyme_api_session,
     create_enzyme_blue_fallback_metadata,
     create_enzyme_vault_link,
     fetch_enzyme_api_vault_metadata,
@@ -29,6 +31,12 @@ MIGRATION_SCRIPT_PATH = Path(__file__).resolve().parents[2] / "scripts" / "enzym
 BLUE_SPEC = VaultSpec(1, VAULT_ADDRESS)
 BLUE_METADATA_KEY = (BLUE_SPEC.chain_id, HexAddress(BLUE_SPEC.vault_address.lower()))
 ONYX_SPEC = VaultSpec(8453, "0x000000000000000000000000000000000000c0Fe")
+
+#: Enzyme Blue Base Camp VaultProxy. The endpoint may validly return no
+#: manager-entered text, but a successful authenticated response validates the
+#: real Connect API request, token and schema path.
+LIVE_ENZYME_BLUE_VAULT = "0x75a17c22235b2dd584e3ea8c142422d97b826816"
+ENZYME_BLUE_API_TOKEN = os.environ.get("ENZYME_BLUE_API_TOKEN")
 
 
 def load_offchain_metadata_migration_module() -> ModuleType:
@@ -170,6 +178,34 @@ def test_fetch_enzyme_api_vault_metadata_uses_official_connect_endpoint() -> Non
     }
     assert kwargs["headers"]["Authorization"] == "Bearer test-token"
     assert kwargs["headers"]["Connect-Protocol-Version"] == "1"
+
+
+@pytest.mark.skipif(not ENZYME_BLUE_API_TOKEN, reason="ENZYME_BLUE_API_TOKEN needed to exercise the live Enzyme Blue API")
+def test_fetch_enzyme_api_vault_metadata_live() -> None:
+    """Authenticate to the real Enzyme Blue ``GetVault`` endpoint.
+
+    The selected VaultProxy can validly have no manager-entered listing copy.
+    This test therefore asserts a successful authenticated response and the
+    parsed result shape, rather than making a volatile assertion about current
+    manager text. It runs automatically wherever the token is available.
+
+    :return: None after the live authenticated read succeeds.
+    """
+
+    session = create_enzyme_api_session(max_workers=1)
+    try:
+        metadata = fetch_enzyme_api_vault_metadata(
+            session,
+            chain_id=8453,
+            shares_address=LIVE_ENZYME_BLUE_VAULT,
+            api_token=ENZYME_BLUE_API_TOKEN,
+            timeout=30,
+        )
+    finally:
+        session.close()
+
+    assert isinstance(metadata, EnzymeVaultMetadata)
+    assert all(value is None or isinstance(value, str) for value in (metadata.short_description, metadata.description, metadata.manager_name))
 
 
 def test_enzyme_metadata_cache_round_trip_retains_empty_api_reply(tmp_path) -> None:

@@ -19,19 +19,21 @@ existing descriptions with fallbacks.
 
 Usage::
 
-    source .local-test.env && ENZYME_API_TOKEN=... \\
+    source .local-test.env && ENZYME_BLUE_API_TOKEN=... \\
         poetry run python scripts/enzyme/migrate-offchain-metadata.py
 
-    source .local-test.env && ENZYME_API_TOKEN=... DRY_RUN=false \\
+    source .local-test.env && ENZYME_BLUE_API_TOKEN=... DRY_RUN=false \\
         poetry run python scripts/enzyme/migrate-offchain-metadata.py
 
 Environment variables:
 
-- ``ENZYME_API_TOKEN``: required bearer token generated in the Enzyme app.
+- ``ENZYME_BLUE_API_TOKEN``: required bearer token generated in the Enzyme app.
 - ``DRY_RUN``: print proposed changes without writing, default ``true``.
 - ``VAULT_DB_PATH``: metadata pickle to update, default pipeline location.
 - ``ENZYME_METADATA_CACHE_PATH``: persistent API cache location.
-- ``MAX_WORKERS``: bounded concurrent API requests, default ``8``.
+- ``MAX_WORKERS``: bounded concurrent API requests, default ``1``. Keep this
+  conservative because Enzyme returns ``429`` with a ``Retry-After`` header
+  when a token exceeds its request quota.
 - ``API_TIMEOUT``: per-request timeout in seconds, default ``30``.
 - ``BACKUP_PATH``: optional database backup destination for a real run.
 
@@ -253,11 +255,11 @@ def main() -> None:  # noqa: PLR0914 - Keeps the one-shot migration transaction 
     """
 
     dry_run = parse_bool_env("DRY_RUN", default=True)
-    api_token = os.environ.get("ENZYME_API_TOKEN")
+    api_token = os.environ.get("ENZYME_BLUE_API_TOKEN")
     if not api_token:
-        message = "ENZYME_API_TOKEN is required to fetch official Enzyme vault metadata"
+        message = "ENZYME_BLUE_API_TOKEN is required to fetch official Enzyme Blue vault metadata"
         raise RuntimeError(message)
-    max_workers = int(os.environ.get("MAX_WORKERS", "8"))
+    max_workers = int(os.environ.get("MAX_WORKERS", "1"))
     timeout = float(os.environ.get("API_TIMEOUT", "30"))
     if max_workers < 1:
         message = "MAX_WORKERS must be positive"

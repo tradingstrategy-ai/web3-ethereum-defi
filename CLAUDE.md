@@ -149,7 +149,9 @@ unit coverage but do not replace this check.
 - The pull request that adds the integration must include a PR comment with
   the real-test result: the exact test or command, whether it passed, the date,
   and the redacted environment or provider used. State clearly when the result
-  is a manual run rather than CI.
+  is a manual run rather than CI. If the provider rate-limits a bulk migration,
+  record the response and the safe retry plan instead of repeatedly retrying
+  the same request burst.
 
 Hypersync block scan tests (`tests/erc_4626/test_scan.py`) are disabled on CI by
 default because they dominated the CI critical path; they still run locally. To
