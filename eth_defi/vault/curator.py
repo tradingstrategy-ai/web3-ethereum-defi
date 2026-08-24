@@ -401,6 +401,12 @@ CURATOR_ADDRESS_OVERRIDES: dict[tuple[int, str], str] = {
     # the vault title is a product name and does not contain the curator brand.
     # https://app.enzyme.finance/vault/0xf67e2dc041b8a3c39d066037d29f500757b1e886?network=ethereum
     (1, "0xf67e2dc041b8a3c39d066037d29f500757b1e886"): "smardex",
+    # 3F presents this co-branded Morpho vault as part of its RWA lending
+    # product, but Morpho's offchain metadata identifies Steakhouse Financial
+    # as the risk curator. Scope the 3F attribution to this product only.
+    # https://3f.xyz/
+    # https://app.morpho.org/ethereum/vault/0xBEEf3f3A04e28895f3D5163d910474901981183D/3f-x-steakhouse-usdc
+    (1, "0xbeef3f3a04e28895f3d5163d910474901981183d"): "3f",
     # Growi's official lending page identifies this HyperEVM Morpho Vault V2
     # as Growi Lending / Growi USDC Core.
     # https://growi.fi/lending/
