@@ -98,6 +98,9 @@ class GMXHistoricalContextStore(AbstractContextManager):
 
         self.path = path
         self.connection = duckdb.connect(str(path))
+        # Avoid automatic checkpoints during bulk writes as a second defensive
+        # measure around the DuckDB 1.5.0 file-backed ART corruption issue.
+        self.connection.execute("SET wal_autocheckpoint = '1TB'")
         self._create_schema()
 
     def _create_schema(self) -> None:
@@ -129,6 +132,33 @@ class GMXHistoricalContextStore(AbstractContextManager):
             return
 
         self._create_direct_table("gmx_historical_context")
+        if existing_columns and self._has_art_index("gmx_historical_context"):
+            self._migrate_art_index_schema()
+
+    def _has_art_index(self, table_name: str) -> bool:
+        """Check whether a table has a DuckDB ART-backed constraint.
+
+        DuckDB implements ``PRIMARY KEY`` and ``UNIQUE`` constraints with an
+        Adaptive Radix Tree. DuckDB 1.5.0 can corrupt the native heap for large
+        file-backed ART indexes under Python 3.14, so GMX uses application-level
+        source-event deduplication instead. See the related `DuckDB ART issue
+        <https://github.com/duckdb/duckdb/issues/18190>`__.
+
+        :param table_name:
+            GMX table to inspect.
+        :return:
+            ``True`` when a primary-key or unique constraint exists.
+        """
+
+        count = self.connection.execute(
+            """
+            SELECT count(*)
+            FROM duckdb_constraints()
+            WHERE table_name = ? AND constraint_type IN ('PRIMARY KEY', 'UNIQUE')
+            """,
+            (table_name,),
+        ).fetchone()[0]
+        return count > 0
 
     def _create_direct_table(self, table_name: str) -> None:
         """Create a direct-column GMX observation table.
@@ -156,11 +186,34 @@ class GMXHistoricalContextStore(AbstractContextManager):
                 product_address VARCHAR NOT NULL,
                 raw_value UHUGEINT NOT NULL,
                 raw_supply UHUGEINT NOT NULL,
-                event_name VARCHAR NOT NULL,
-                PRIMARY KEY (chain_id, transaction_hash, log_index)
+                event_name VARCHAR NOT NULL
             )
             """
         )
+
+    def _migrate_art_index_schema(self) -> None:
+        """Remove the legacy ART-backed primary key transactionally.
+
+        Existing rows and columns stay unchanged. Application-level conflict
+        checks retain the ``(chain_id, transaction_hash, log_index)`` source
+        identity contract without the unsafe native index.
+
+        :return:
+            None.
+        """
+
+        self.connection.execute("BEGIN TRANSACTION")
+        try:
+            self.connection.execute("DROP TABLE IF EXISTS gmx_historical_context_direct")
+            self._create_direct_table("gmx_historical_context_direct")
+            self.connection.execute("INSERT INTO gmx_historical_context_direct SELECT * FROM gmx_historical_context")
+            self.connection.execute("DROP TABLE gmx_historical_context")
+            self.connection.execute("ALTER TABLE gmx_historical_context_direct RENAME TO gmx_historical_context")
+        except duckdb.Error:
+            self.connection.execute("ROLLBACK")
+            raise
+        else:
+            self.connection.execute("COMMIT")
 
     def _migrate_legacy_schema(self) -> None:
         """Replace the legacy generic JSON envelope with direct GMX columns.
@@ -213,7 +266,19 @@ class GMXHistoricalContextStore(AbstractContextManager):
             If an existing observation has a different payload.
         """
 
-        values = (
+        return self.insert_share_prices((observation,)) == 1
+
+    @staticmethod
+    def _observation_to_values(observation: GMXHistoricalSharePriceObservation) -> tuple[int, int, int, str, int, str, int, int, str]:
+        """Convert one observation to direct DuckDB column values.
+
+        :param observation:
+            Canonical GMX value-and-supply event.
+        :return:
+            Values in table-column order.
+        """
+
+        return (
             observation.chain_id,
             observation.block_number,
             observation.block_timestamp,
@@ -224,22 +289,71 @@ class GMXHistoricalContextStore(AbstractContextManager):
             observation.raw_supply,
             observation.event_name,
         )
-        existing = self.connection.execute(
-            """
-            SELECT chain_id, block_number, block_timestamp, transaction_hash,
-                   log_index, product_address, raw_value, raw_supply, event_name
-            FROM gmx_historical_context
-            WHERE chain_id = ? AND transaction_hash = ? AND log_index = ?
-            """,
-            (observation.chain_id, observation.transaction_hash.lower(), observation.log_index),
-        ).fetchone()
-        if existing is not None:
-            if tuple(existing) != values:
-                key = (observation.chain_id, observation.transaction_hash.lower(), observation.log_index)
-                raise ValueError(f"GMX historical share-price conflict for {key}")
-            return False
-        self.connection.execute("INSERT INTO gmx_historical_context VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)", values)
-        return True
+
+    def insert_share_prices(self, observations: Iterable[GMXHistoricalSharePriceObservation]) -> int:
+        """Persist a batch without using DuckDB ART indexes.
+
+        Rows are staged in an unconstrained temporary table. Hash joins detect
+        conflicting source identities and insert only previously unseen rows.
+        This preserves idempotency without the file-backed ``PRIMARY KEY``
+        index that can corrupt DuckDB 1.5.0 on Python 3.14. See the related
+        `DuckDB ART issue <https://github.com/duckdb/duckdb/issues/18190>`__.
+
+        :param observations:
+            Canonical GMX observations from one source chunk.
+        :return:
+            Number of newly inserted observations.
+        :raises ValueError:
+            If a source identity has different payloads within the batch or in
+            the existing table.
+        """
+
+        values = tuple(self._observation_to_values(observation) for observation in observations)
+        if not values:
+            return 0
+
+        self.connection.execute("DROP TABLE IF EXISTS gmx_historical_context_batch")
+        self.connection.execute("CREATE TEMP TABLE gmx_historical_context_batch AS SELECT * FROM gmx_historical_context LIMIT 0")
+        try:
+            self.connection.executemany("INSERT INTO gmx_historical_context_batch VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)", values)
+            conflicting_key = self.connection.execute(
+                """
+                SELECT chain_id, transaction_hash, log_index
+                FROM (
+                    SELECT * FROM gmx_historical_context
+                    UNION ALL
+                    SELECT * FROM gmx_historical_context_batch
+                ) observations
+                GROUP BY chain_id, transaction_hash, log_index
+                HAVING count(DISTINCT (
+                    block_number, block_timestamp, product_address,
+                    raw_value, raw_supply, event_name
+                )) > 1
+                LIMIT 1
+                """
+            ).fetchone()
+            if conflicting_key is not None:
+                raise ValueError(f"GMX historical share-price conflict for {tuple(conflicting_key)}")
+
+            before = self.connection.execute("SELECT count(*) FROM gmx_historical_context").fetchone()[0]
+            self.connection.execute(
+                """
+                INSERT INTO gmx_historical_context
+                SELECT DISTINCT batch.*
+                FROM gmx_historical_context_batch batch
+                WHERE NOT EXISTS (
+                    SELECT 1
+                    FROM gmx_historical_context existing
+                    WHERE existing.chain_id = batch.chain_id
+                      AND existing.transaction_hash = batch.transaction_hash
+                      AND existing.log_index = batch.log_index
+                )
+                """
+            )
+            after = self.connection.execute("SELECT count(*) FROM gmx_historical_context").fetchone()[0]
+            return after - before
+        finally:
+            self.connection.execute("DROP TABLE IF EXISTS gmx_historical_context_batch")
 
     def iter_share_prices(
         self,
@@ -364,7 +478,9 @@ def fetch_and_store_gmx_historical_share_prices(
     observations_inserted = 0
     # Keep the native Hypersync client's asynchronous resources on one event
     # loop throughout the backfill, while each response page remains bounded.
-    with asyncio.Runner() as event_loop_runner, GMXHistoricalContextStore(path) as store:
+    # Release Hypersync resources before the DuckDB connection is checkpointed
+    # and closed.
+    with GMXHistoricalContextStore(path) as store, asyncio.Runner() as event_loop_runner:
         for chunk_start in range(start_block, end_block, source_chunk_size):
             chunk_end = min(chunk_start + source_chunk_size, end_block)
             for attempt in range(1, GMX_HYPERSYNC_RATE_LIMIT_RETRIES + 1):
@@ -395,9 +511,10 @@ def fetch_and_store_gmx_historical_share_prices(
                     )
                     time.sleep(delay)
             observations_fetched += len(observations)
+            chunk_observation_count = len(observations)
             store.connection.execute("BEGIN TRANSACTION")
             try:
-                observations_inserted += sum(store.insert_share_price(observation) for observation in observations)
+                observations_inserted += store.insert_share_prices(observations)
             except (duckdb.Error, ValueError):
                 store.connection.execute("ROLLBACK")
                 raise
@@ -408,7 +525,8 @@ def fetch_and_store_gmx_historical_share_prices(
                 chain_id,
                 chunk_start,
                 chunk_end,
-                len(observations),
+                chunk_observation_count,
                 observations_inserted,
             )
+            del observations
     return GMXHistoricalContextPrefillResult(chain_id, start_block, end_block, observations_fetched, observations_inserted)

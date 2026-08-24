@@ -288,6 +288,9 @@ async def _fetch_historical_share_price_observations_hypersync_async(
         if not query.from_block < next_block <= end_block:
             raise RuntimeError(f"Hypersync returned invalid GMX pagination boundary {next_block} for range [{query.from_block}, {end_block})")
         query.from_block = next_block
+        # Do not retain the previous native response while awaiting the next
+        # page; this keeps the explicit-pagination memory boundary real.
+        del response
     observations.sort(key=lambda item: (item.block_number, item.log_index))
     return observations
 

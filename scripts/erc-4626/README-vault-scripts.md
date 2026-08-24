@@ -543,6 +543,10 @@ GMX source events use bounded Hypersync `get()` pages instead of concurrent
 native streams so dense history does not accumulate native response buffers in
 the scanner container. The shared request limiter applies to every page, so a
 full backfill favours bounded memory over maximum download speed.
+The GMX DuckDB table also avoids `PRIMARY KEY` and `UNIQUE` constraints because
+DuckDB 1.5.0 ART indexes can corrupt the native heap on large file-backed
+databases under Python 3.14. Existing indexed GMX tables are migrated
+transactionally, while application-level batch joins preserve idempotency.
 
 ```shell
 source .local-test.env && \
