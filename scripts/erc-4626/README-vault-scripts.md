@@ -539,6 +539,10 @@ parameters: it processes Arbitrum and Avalanche sequentially, snapshots one
 safe head per chain, and scans the half-open range from block 1 to that head
 using hourly buckets. Cache insertion is idempotent, and repeating the command
 rebuilds the same complete GMX ranges without modifying scheduled reader state.
+GMX source events use bounded Hypersync `get()` pages instead of concurrent
+native streams so dense history does not accumulate native response buffers in
+the scanner container. The shared request limiter applies to every page, so a
+full backfill favours bounded memory over maximum download speed.
 
 ```shell
 source .local-test.env && \

@@ -24,6 +24,7 @@ from web3 import Web3
 from eth_defi.gmx.constants import GMX_EVENT_EMITTER_ADDRESS
 from eth_defi.gmx.historical_oracle import GMXHistoricalSharePriceObservation, fetch_historical_share_price_observations_hypersync
 from eth_defi.gmx.vault_catalog import GMX_CHAIN_NAMES_BY_ID
+from eth_defi.hypersync.hypersync_timestamp import is_hypersync_rate_limit_error
 from eth_defi.hypersync.session import ThrottledHypersyncClient
 from eth_defi.vault.vaultdb import get_pipeline_data_dir
 
@@ -361,9 +362,8 @@ def fetch_and_store_gmx_historical_share_prices(
     path.parent.mkdir(parents=True, exist_ok=True)
     observations_fetched = 0
     observations_inserted = 0
-    # One native Hypersync client must stay on one event loop throughout the
-    # backfill. Repeated ``asyncio.run()`` calls can destroy Rust-backed stream
-    # resources on a different loop between chunks.
+    # Keep the native Hypersync client's asynchronous resources on one event
+    # loop throughout the backfill, while each response page remains bounded.
     with asyncio.Runner() as event_loop_runner, GMXHistoricalContextStore(path) as store:
         for chunk_start in range(start_block, end_block, source_chunk_size):
             chunk_end = min(chunk_start + source_chunk_size, end_block)
@@ -381,7 +381,7 @@ def fetch_and_store_gmx_historical_share_prices(
                     )
                     break
                 except RuntimeError as error:
-                    if "rate limited by server" not in str(error) or attempt == GMX_HYPERSYNC_RATE_LIMIT_RETRIES:
+                    if not is_hypersync_rate_limit_error(error) or attempt == GMX_HYPERSYNC_RATE_LIMIT_RETRIES:
                         raise
                     match = re.search(r"resets_in=(\d+)s", str(error))
                     delay = min(60, int(match.group(1)) + 2) if match else 35

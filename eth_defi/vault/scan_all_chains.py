@@ -828,6 +828,9 @@ def scan_prices_for_chain(
                 raise ValueError("vault_addresses cannot be empty")
             vault_addresses = {address.lower() for address in vault_addresses}
             chain_vaults = [row for row in chain_vaults if row["_detection_data"].address.lower() in vault_addresses]
+        # Keep only this chain's rows during network reads and price scanning;
+        # the all-chain metadata database otherwise needlessly raises peak RSS.
+        del vault_db
 
         if len(chain_vaults) == 0:
             logger.info("No vaults on chain %d, skipping price scan", chain_id)

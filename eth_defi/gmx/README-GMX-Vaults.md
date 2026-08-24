@@ -276,6 +276,13 @@ timestamps with the logs, decodes only the fields needed for valuation, rejects
 non-positive value or supply pairs and non-deposit GM updates, and sorts
 observations by block and log index.
 
+GMX uses Hypersync's explicit `get()` pagination rather than its native
+streaming engine. Dense full-history streams can retain large native response
+buffers, so the reader fetches and releases one server page at a time. This is
+slower than concurrent streaming but keeps memory bounded in the production
+scanner container. Each page is covered by the shared Hypersync request-rate
+limiter.
+
 This reader does not replay GMX's signed price oracle and does not reconstruct
 historical GMX state with archive RPC calls. The emitted value-and-supply pair
 is the source observation.
@@ -307,12 +314,12 @@ raise an error. Older development caches using the generic JSON envelope are
 migrated transactionally when opened; obsolete rows from the earlier mixed GM
 valuation context are not copied.
 
-Large backfills are split into half-open Hypersync chunks and each chunk is
-committed independently. Repeating a complete chain range is safe because
-source observations are inserted idempotently. The script always fetches the
-full replacement range from block 1 to one snapshotted safe head; it does not
-accept an unverified resume cursor that could leave the rebuilt Parquet
-interval incomplete.
+Large backfills are split into half-open Hypersync chunks, paginated within
+each chunk, and committed independently. Repeating a complete chain range is
+safe because source observations are inserted idempotently. The script always
+fetches the full replacement range from block 1 to one snapshotted safe head;
+it does not accept an unverified resume cursor that could leave the rebuilt
+Parquet interval incomplete.
 
 ## Contextual historical reader
 
