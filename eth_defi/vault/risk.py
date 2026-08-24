@@ -111,6 +111,9 @@ VAULT_PROTOCOL_RISK_MATRIX = {
     "Midas": VaultTechnicalRisk.low,
     # Asseto's AoABT deployment has verified contracts and a public audit.
     "Asseto": VaultTechnicalRisk.low,
+    # Rysk Premium uses curator-controlled, epoch-priced option-writing pools.
+    # The Rysk contracts and the NAV committee process require separate review.
+    "Rysk": None,
     # Franklin Templeton Benji is a permissioned, proprietary fund-token
     # platform. Product and operational risks need human assessment.
     "Franklin Templeton": None,

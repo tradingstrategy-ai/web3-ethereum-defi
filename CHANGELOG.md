@@ -2,6 +2,7 @@
 
 - feat: Add Flying Tulip sftUSD protocol metadata, documentation, feed registration and vault risk and fee classifications (2026-08-24)
 
+- feat: Add Rysk Premium option-pool discovery, epoch-price-equivalent history, backfill tooling and vault metadata (2026-08-24)
 - feat: Add GMX V2 GM and GLV vault catalogue discovery, supply-normalised historical USD equity curves and incremental all-chain scanner integration (2026-08-23)
 - fix: Regularise sparse observations for every vault to one forward-filled calendar-day series before calculating volatility, Sharpe and drawdown metrics (2026-08-23)
 - Fix bounded vault-price rescans to replace only the requested half-open block range while preserving the legacy ERC-4626 sparse-change rules (2026-08-23)

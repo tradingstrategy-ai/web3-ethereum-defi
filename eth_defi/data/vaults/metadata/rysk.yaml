@@ -1,0 +1,30 @@
+name: Rysk
+slug: rysk
+short_description: |
+  Epoch-settled liquidity pools for cash-secured puts and fully collateralised calls.
+long_description: |
+  [Rysk Premium](https://docs.rysk.finance/rysk-premium/rysk-premium-explainer)
+  lets liquidity providers deposit collateral into pools that write options. Deposits and
+  withdrawals are queued within discrete epochs and are converted at the price per share
+  submitted at an epoch boundary. Put collateral is fully cash-secured and call collateral is
+  the underlying notional.
+
+  A pool's displayed TVL is its free and allocated collateral. The full price per share uses
+  NAV after accounting for the marked value of open option positions and accrued protocol and
+  curator fees, as described in Rysk's
+  [Premium explainer](https://docs.rysk.finance/rysk-premium/rysk-premium-explainer).
+fee_description: |
+  Rysk Premium deducts protocol and curator fees from option premium before the remainder
+  accrues to liquidity providers. See the
+  [Premium explainer](https://docs.rysk.finance/rysk-premium/rysk-premium-explainer)
+  for the option-writing and fee flow.
+links:
+  homepage: https://rysk.finance/
+  app: https://app.rysk.finance/
+  documentation: https://docs.rysk.finance/rysk-premium/rysk-premium-explainer
+  defillama: https://defillama.com/protocol/rysk
+  trading_strategy:
+  integration_documentation: https://web3-ethereum-defi.readthedocs.io/vaults/rysk/index.html
+example_smart_contracts:
+  - https://hyperevmscan.io/address/0xa26801f689fbdf0ff96eff52077b958d1062ba85
+  - https://etherscan.io/address/0x1195826418541cb3e80a22ef5736a6794393c91a

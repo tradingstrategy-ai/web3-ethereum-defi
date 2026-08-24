@@ -75,10 +75,12 @@ class VaultFlag(str, enum.Enum):
     #: This vault represents an underlying wrapped asset like a share
     wrapped_asset = "wrapped_asset"
 
-    #: This vault represents shares in a tokenised fund.
+    #: This vault represents shares in a legally structured tokenised fund.
     #:
     #: Fund assets, NAV calculation and investor eligibility can be managed
-    #: off-chain by the fund issuer.
+    #: off-chain by the fund issuer. Apply this only where the product has a
+    #: legal fund structure; epoch-settled DeFi vault shares alone do not make
+    #: a product a tokenised fund.
     tokenised_fund = "tokenised_fund"
 
     #: Vault ls missing in the protocol official website and might be a spoof attempt

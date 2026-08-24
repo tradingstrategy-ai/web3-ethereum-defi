@@ -1,4 +1,9 @@
-"""Shared base class for tokenised fund vault adapters."""
+"""Shared base class for legally structured tokenised-fund vault adapters.
+
+This namespace is reserved for products with a legal fund structure. A DeFi
+vault is not a tokenised fund merely because it issues ERC-20 shares or settles
+at epochs.
+"""
 
 # ruff: noqa: ARG002, FBT001, FBT002, PLR0917, PLR6301, RUF013
 
@@ -228,8 +233,9 @@ class TokenisedFundVault(VaultBase):
     """Base class for every tokenised fund protocol adapter.
 
     Tokenised fund classification belongs to the adapter type instead of a
-    manually maintained address list. This also covers products discovered
-    dynamically from issuer registries, such as Asseto funds.
+    manually maintained address list. This also covers legally structured
+    products discovered dynamically from issuer registries, such as Asseto
+    funds. It must not be used for ordinary DeFi vault protocols.
     """
 
     def is_whitelisted_deposit(self) -> bool:
@@ -276,7 +282,9 @@ class TokenisedFundVault(VaultBase):
 
         Preserve address- and protocol-specific flags supplied by the generic
         vault implementation, then add the descriptive flag used by tokenised
-        fund listings.
+        fund listings. This base class is reserved for products with a legal
+        fund structure, and must not be used merely because a DeFi vault
+        issues epoch-settled shares.
 
         :return:
             A new set containing all generic flags and

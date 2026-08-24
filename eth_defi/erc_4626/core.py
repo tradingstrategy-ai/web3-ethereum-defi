@@ -81,6 +81,14 @@ class ERC4626Feature(enum.Enum):
     #: a :py:class:`eth_defi.vault.base.VaultBase` adapter.
     asseto_like = "asseto_like"
 
+    #: Rysk Premium epoch-settled DeFi option-writing pool share, not a fund.
+    #:
+    #: https://docs.rysk.finance/rysk-premium/rysk-premium-explainer
+    #: Routing marker for non-ERC-4626 Rysk Premium LP shares read through a
+    #: :py:class:`eth_defi.vault.base.VaultBase` adapter, rather than the
+    #: tokenised-fund integration.
+    rysk_premium_like = "rysk_premium_like"
+
     #: Franklin Templeton Benji tokenised fund share.
     #:
     #: https://digitalassets.franklintempleton.com/benji/
@@ -980,7 +988,9 @@ def is_activity_filter_exempt(detection: "ERC4262VaultDetection") -> bool:
     event support lands, and targeted price rescans should not be blocked by a
     stale low deposit counter. GMX GM and GLV products are enumerated from the
     protocol Reader contracts and use asynchronous ExchangeRouter requests, so
-    they do not emit the ERC-4626 flow events counted by this filter. T3tris
+    they do not emit the ERC-4626 flow events counted by this filter. Rysk
+    Premium shares have queued, epoch-settled flows published through the
+    Premium snapshot API rather than standard ERC-4626 flow events. T3tris
     migration-pool vaults are handled
     separately by :py:func:`passes_price_scan_activity_filter`, which requires
     a recorded configuration event instead of broadly exempting the protocol.
@@ -1001,6 +1011,7 @@ def is_activity_filter_exempt(detection: "ERC4262VaultDetection") -> bool:
             ERC4626Feature.upshift_multi_asset_like,
             ERC4626Feature.gmx_gm,
             ERC4626Feature.gmx_glv,
+            ERC4626Feature.rysk_premium_like,
         )
     )
 
@@ -1086,6 +1097,8 @@ def get_vault_protocol_name(features: set[ERC4626Feature]) -> str:
         return "Flying Tulip"
     elif ERC4626Feature.asseto_like in features:
         return "Asseto"
+    elif ERC4626Feature.rysk_premium_like in features:
+        return "Rysk"
     elif ERC4626Feature.franklin_like in features:
         return "Franklin Templeton"
     elif ERC4626Feature.securitize_like in features:

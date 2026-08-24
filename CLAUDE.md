@@ -523,6 +523,7 @@ Consult these for domain-specific context. Logo READMEs under `eth_defi/data/vau
 | `eth_defi/gmx/README.md` | GMX CCXT adapter for eth_defi |
 | `eth_defi/gmx/ccxt/README.md` | GMX CCXT adapter implementation |
 | `eth_defi/gmx/graphql/README.md` | GMX Subsquid GraphQL integration |
+| `eth_defi/erc_4626/vault_protocol/rysk/README-Rysk-vaults.md` | Rysk Premium epoch-priced option pools, adapter accounting and backfill operations |
 | `eth_defi/lighter/README-lighter-guard.md` | Lighter (zk-rollup perps DEX) L1 deposit/withdraw guard integration — architecture, security model, operator flow |
 | `eth_defi/testing/README.md` | Fast Anvil fork tests — shared session forks, per-chain midnight block cache, snapshot/revert, once-per-session deployments, the committed fork RPC cache and token cache (create/rebuild/purge), reference tests |
 | `eth_defi/testing/rpc_cache_seed/README.md` | Committed Anvil fork RPC cache seed — layout, how to capture and refresh it |

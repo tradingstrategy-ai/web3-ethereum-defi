@@ -25,6 +25,7 @@ from eth_defi.erc_4626.vault_protocol.frax.constants import FRAX_STAKING_VAULT_A
 from eth_defi.erc_4626.vault_protocol.kiloex.constants import KILOEX_VAULT_ADDRESSES, KILOEX_VAULTS_BY_CHAIN
 from eth_defi.erc_4626.vault_protocol.nara.constants import NARAUSD_PLUS_VAULT
 from eth_defi.erc_4626.vault_protocol.pallas.constants import PALLAS_VAULT_ADDRESSES, PALLAS_VAULTS_BY_CHAIN
+from eth_defi.erc_4626.vault_protocol.rysk.constants import RYSK_PREMIUM_POOL_ADDRESSES, RYSK_PREMIUM_POOLS
 from eth_defi.event_reader.multicall_batcher import EncodedCall, EncodedCallResult, MultiprocessMulticallReader, read_multicall_chunked
 from eth_defi.event_reader.web3factory import Web3Factory
 from eth_defi.midas.constants import MIDAS_PRODUCTS, MIDAS_PRODUCTS_BY_TOKEN
@@ -403,6 +404,10 @@ def _get_hardcoded_protocol_features(address: HexAddress | str, chain_id: int | 
         if (chain_id, normalised_address) in ASSETO_PRODUCTS:
             return {ERC4626Feature.asseto_like}
         if normalised_address in ASSETO_PRODUCTS_BY_TOKEN:
+            return None
+        if (chain_id, normalised_address) in RYSK_PREMIUM_POOLS:
+            return {ERC4626Feature.rysk_premium_like, ERC4626Feature.share_price_equivalence}
+        if normalised_address in RYSK_PREMIUM_POOL_ADDRESSES:
             return None
         if (chain_id, normalised_address) in ONDO_PRODUCTS:
             return ONDO_HARDCODED_PROTOCOLS[normalised_address]
@@ -2191,6 +2196,10 @@ def create_vault_instance(
         from eth_defi.tokenised_fund.asseto.vault import AssetoVault
 
         return AssetoVault(web3, spec, **kwargs)
+    elif ERC4626Feature.rysk_premium_like in features:
+        from eth_defi.erc_4626.vault_protocol.rysk.vault import RyskVault
+
+        return RyskVault(web3, spec, **kwargs)
     elif ERC4626Feature.ondo_like in features:
         from eth_defi.tokenised_fund.ondo.vault import OndoVault
 
