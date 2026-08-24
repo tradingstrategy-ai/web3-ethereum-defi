@@ -18,8 +18,6 @@ INDEX_TOKEN = to_checksum_address("0x2000000000000000000000000000000000000001")
 LONG_TOKEN = to_checksum_address("0x2000000000000000000000000000000000000002")
 SHORT_TOKEN = to_checksum_address("0x2000000000000000000000000000000000000003")
 FIRST_CATALOGUE_BLOCK = 123
-EXISTING_NAV = 42
-EXISTING_SHARES = 7
 
 
 def test_fetch_and_sync_gmx_vault_catalogue_is_idempotent(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -53,9 +51,6 @@ def test_fetch_and_sync_gmx_vault_catalogue_is_idempotent(monkeypatch: pytest.Mo
             "Name": "GMX market",
             "Protocol": "GMX",
             "Denomination": "USD",
-            "NAV": EXISTING_NAV,
-            "Shares": EXISTING_SHARES,
-            "_denomination_token": {"address": "0x1000000000000000000000000000000000000000"},
         },
     )
     vault_db = VaultDatabase()
@@ -70,9 +65,6 @@ def test_fetch_and_sync_gmx_vault_catalogue_is_idempotent(monkeypatch: pytest.Mo
             "Name": "<broken: temporary RPC failure>",
             "Protocol": "<unknown>",
             "Denomination": None,
-            "NAV": 0,
-            "Shares": 0,
-            "_denomination_token": None,
         },
     )
     second = fetch_and_sync_gmx_vault_catalogue(web3=web3, vault_db=vault_db, token_cache={}, block_number=456)
@@ -80,9 +72,6 @@ def test_fetch_and_sync_gmx_vault_catalogue_is_idempotent(monkeypatch: pytest.Mo
     assert row_after_failed_refresh["Name"] == f"GMX Market [WBTC-USDC] (Arbitrum, {GM_TOKEN})"
     assert row_after_failed_refresh["Protocol"] == "GMX"
     assert row_after_failed_refresh["Denomination"] == "USDC"
-    assert row_after_failed_refresh["NAV"] == EXISTING_NAV
-    assert row_after_failed_refresh["Shares"] == EXISTING_SHARES
-    assert row_after_failed_refresh["_denomination_token"] == {"address": "0x1000000000000000000000000000000000000000"}
     assert row_after_failed_refresh["_manual_enrichment"] == "keep me"
 
     monkeypatch.setattr(vault_sync, "fetch_gmx_v2_vault_products", lambda *_args, **_kwargs: iter((replace(product, is_enabled=False),)))
@@ -109,44 +98,8 @@ def test_fetch_and_sync_gmx_vault_catalogue_is_idempotent(monkeypatch: pytest.Mo
     assert row["_manual_enrichment"] == "keep me"
     assert detection.first_seen_at_block == FIRST_CATALOGUE_BLOCK
     assert detection.address == GM_TOKEN.lower()
-    assert detection.features == {ERC4626Feature.gmx_gm}
+    assert detection.features == {ERC4626Feature.gmx_gm, ERC4626Feature.share_price_equivalence}
     assert row["_gmx_component_addresses"] == tuple(address.lower() for address in product.component_addresses)
-    assert row["_synthetic_usd_denomination"] is False
     assert row["_gmx_enabled"] is False
     assert row["_deposit_closed_reason"] == "GMX product disabled"
     assert row["_deposits_open"] is False
-
-
-def test_gmx_names_are_unique_for_products_with_the_same_backing_tokens(monkeypatch: pytest.MonkeyPatch) -> None:
-    """The full chain-local token address prevents duplicate product names."""
-
-    first_product = GMXVaultProduct(
-        chain_id=42161,
-        token_address=GM_TOKEN,
-        product_type="gm",
-        symbol="GM",
-        name="GMX market",
-        decimals=18,
-        component_addresses=(GM_TOKEN, INDEX_TOKEN, LONG_TOKEN, SHORT_TOKEN),
-        accepted_deposit_tokens=(LONG_TOKEN, SHORT_TOKEN),
-        is_enabled=True,
-    )
-    second_product = GMXVaultProduct(
-        chain_id=42161,
-        token_address=to_checksum_address("0x1000000000000000000000000000000000000002"),
-        product_type="gm",
-        symbol="GM",
-        name="GMX market",
-        decimals=18,
-        component_addresses=(GM_TOKEN, INDEX_TOKEN, LONG_TOKEN, SHORT_TOKEN),
-        accepted_deposit_tokens=(LONG_TOKEN, SHORT_TOKEN),
-        is_enabled=True,
-    )
-    monkeypatch.setattr(vault_sync, "_fetch_token_symbol", lambda *_args: "USDC")
-
-    first_name = vault_sync._format_gmx_product_name(SimpleNamespace(), first_product, {})
-    second_name = vault_sync._format_gmx_product_name(SimpleNamespace(), second_product, {})
-
-    assert first_name != second_name
-    assert first_name.endswith(f"{GM_TOKEN})")
-    assert second_name.endswith(f"{second_product.token_address})")

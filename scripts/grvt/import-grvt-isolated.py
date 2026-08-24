@@ -25,10 +25,10 @@ import tempfile
 from pathlib import Path
 
 import pandas as pd
-from eth_defi.grvt.session import create_grvt_session
 from tabulate import tabulate
 
 from eth_defi.grvt.daily_metrics import GRVTDailyMetricsDatabase, fetch_and_store_vault
+from eth_defi.grvt.session import create_grvt_session
 from eth_defi.grvt.vault import (
     fetch_vault_details,
     fetch_vault_listing_graphql,
@@ -134,7 +134,7 @@ def main():
         daily_returns = None
 
         if daily_df is not None and len(daily_df) >= 2:
-            history_days = len(daily_df)
+            history_days = (daily_df.index[-1] - daily_df.index[0]).days
             prices = daily_df["share_price"]
             daily_returns = daily_df["daily_return"]
 
@@ -146,14 +146,16 @@ def main():
             mask_1m = daily_df.index >= cutoff_1m
             if mask_1m.sum() >= 2:
                 p1m = prices[mask_1m]
-                computed_1m_cagr = compute_cagr(p1m.iloc[0], p1m.iloc[-1], len(p1m))
+                period_days = (p1m.index[-1] - p1m.index[0]).days
+                computed_1m_cagr = compute_cagr(p1m.iloc[0], p1m.iloc[-1], period_days)
 
             # 3M CAGR (last 90 days)
             cutoff_3m = now - pd.Timedelta(days=90)
             mask_3m = daily_df.index >= cutoff_3m
             if mask_3m.sum() >= 2:
                 p3m = prices[mask_3m]
-                computed_3m_cagr = compute_cagr(p3m.iloc[0], p3m.iloc[-1], len(p3m))
+                period_days = (p3m.index[-1] - p3m.index[0]).days
+                computed_3m_cagr = compute_cagr(p3m.iloc[0], p3m.iloc[-1], period_days)
 
             # Sharpe from daily returns
             computed_sharpe = compute_sharpe(daily_returns)

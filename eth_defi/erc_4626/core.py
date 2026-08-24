@@ -138,6 +138,32 @@ class ERC4626Feature(enum.Enum):
     #: OpenEden permissioned TBILL fund shares.
     openeden_like = "openeden_like"
 
+    #: GMX V2 GM market-token liquidity-provider share.
+    #:
+    #: https://docs.gmx.io/docs/providing-liquidity/
+    gmx_gm = "gmx_gm"
+
+    #: GMX V2 GLV multi-market liquidity-provider share.
+    #:
+    #: https://docs.gmx.io/docs/providing-liquidity/
+    gmx_glv = "gmx_glv"
+
+    #: Vault-like product without a standard contract share-price method.
+    #:
+    #: GMX GM and GLV holders earn or lose value through their pro-rata claim
+    #: on the market pool: trader PnL changes the pool value, while a share of
+    #: trading, liquidation, borrowing and swap fees accrues to liquidity
+    #: providers. The scanner therefore derives a USD NAV-per-token equivalent
+    #: from GMX pool-value and token-supply events.
+    share_price_equivalence = "share_price_equivalence"
+
+    #: Flying Tulip's externally rewarded sftUSD vault.
+    #:
+    #: sftUSD deliberately keeps its ERC-4626 conversion at one ftUSD per
+    #: share.  Its FT reward distributions are represented separately through
+    #: a :attr:`share_price_equivalence` historical series.
+    flying_tulip_like = "flying_tulip_like"
+
     #: Theo multi-asset iToken tokenised funds.
     theo_itoken_like = "theo_itoken_like"
 
@@ -146,16 +172,6 @@ class ERC4626Feature(enum.Enum):
     #: Routing marker for the non-ERC-4626 wstGBP instrument that is read
     #: through a :py:class:`eth_defi.vault.base.VaultBase` adapter.
     wstgbp_like = "wstgbp_like"
-
-    #: GMX V2 GM market-token liquidity-provider shares.
-    #:
-    #: https://docs.gmx.io/docs/providing-liquidity/
-    gmx_gm = "gmx_gm"
-
-    #: GMX V2 GLV multi-market liquidity-provider shares.
-    #:
-    #: https://docs.gmx.io/docs/providing-liquidity/
-    gmx_glv = "gmx_glv"
 
     @classmethod
     def _missing_(cls, value: object) -> "ERC4626Feature | None":
@@ -962,7 +978,10 @@ def is_activity_filter_exempt(detection: "ERC4262VaultDetection") -> bool:
     contracts. Upshift multi-asset vaults are another exception: older
     production metadata can be seeded or refreshed by address after the custom
     event support lands, and targeted price rescans should not be blocked by a
-    stale low deposit counter. T3tris migration-pool vaults are handled
+    stale low deposit counter. GMX GM and GLV products are enumerated from the
+    protocol Reader contracts and use asynchronous ExchangeRouter requests, so
+    they do not emit the ERC-4626 flow events counted by this filter. T3tris
+    migration-pool vaults are handled
     separately by :py:func:`passes_price_scan_activity_filter`, which requires
     a recorded configuration event instead of broadly exempting the protocol.
 
@@ -980,6 +999,8 @@ def is_activity_filter_exempt(detection: "ERC4262VaultDetection") -> bool:
             ERC4626Feature.enzyme_onyx_like,
             ERC4626Feature.enzyme_blue_like,
             ERC4626Feature.upshift_multi_asset_like,
+            ERC4626Feature.gmx_gm,
+            ERC4626Feature.gmx_glv,
         )
     )
 
@@ -998,11 +1019,6 @@ def passes_price_scan_activity_filter(detection: "ERC4262VaultDetection", min_de
         alternative activity source, or a T3tris vault has at least one
         configuration event.
     """
-    if ERC4626Feature.gmx_gm in detection.features or ERC4626Feature.gmx_glv in detection.features:
-        # GM/GLV valuation needs per-block Reader or GlvReader context and is
-        # intentionally unsupported by the generic historical price scanner.
-        return False
-
     if detection.deposit_count >= min_deposit_threshold or is_activity_filter_exempt(detection):
         return True
 
@@ -1064,6 +1080,10 @@ def get_vault_protocol_name(features: set[ERC4626Feature]) -> str:
         return "Kinexys"
     elif ERC4626Feature.midas_like in features:
         return "Midas"
+    elif ERC4626Feature.gmx_gm in features or ERC4626Feature.gmx_glv in features:
+        return "GMX"
+    elif ERC4626Feature.flying_tulip_like in features:
+        return "Flying Tulip"
     elif ERC4626Feature.asseto_like in features:
         return "Asseto"
     elif ERC4626Feature.franklin_like in features:
@@ -1096,8 +1116,6 @@ def get_vault_protocol_name(features: set[ERC4626Feature]) -> str:
         return "Theo"
     elif ERC4626Feature.wstgbp_like in features:
         return "wstGBP"
-    elif ERC4626Feature.gmx_gm in features or ERC4626Feature.gmx_glv in features:
-        return "GMX"
     elif ERC4626Feature.vault_street_like in features:
         return "Vault Street"
     elif ERC4626Feature.morpho_like in features:

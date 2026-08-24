@@ -86,6 +86,14 @@ class VaultTechnicalRisk(enum.Enum):
 #: See :py:func:`eth_defi.erc_4626.core.get_vault_protocol_name` for the names list.
 #:
 VAULT_PROTOCOL_RISK_MATRIX = {
+    # Flying Tulip's reviewed sftUSD vault, wrapper and circuit breaker are
+    # upgradeable and no public report-level audit covering these deployments
+    # has been identified.
+    "Flying Tulip": VaultTechnicalRisk.severe,
+    # GMX V2 is an established, open-source liquidity protocol with publicly
+    # verifiable deployments. Market and oracle exposure remain separate from
+    # this technical smart-contract-risk classification.
+    "GMX": VaultTechnicalRisk.low,
     "Euler": VaultTechnicalRisk.negligible,
     "Morpho": VaultTechnicalRisk.negligible,
     "Enzyme": VaultTechnicalRisk.low,

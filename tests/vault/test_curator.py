@@ -4,6 +4,7 @@ from pathlib import Path
 
 from PIL import Image
 
+from eth_defi.erc_4626.vault_protocol.flying_tulip.constants import FLYING_TULIP_SFTUSD_BY_CHAIN
 from eth_defi.erc_4626.vault_protocol.pallas.constants import HYPERLIQUID_CHAIN_ID, PALLAS_BASIS_TRADING_HIP_3_VAULT, PALLAS_DIRECTIONAL_VOLATILITY_VAULT
 from eth_defi.midas.registry import iter_midas_registry_products
 from eth_defi.tokenised_fund.asseto.constants import ASSETO_AOABT_HASHKEY, ASSETO_CURATORS
@@ -30,6 +31,31 @@ def test_identify_pallas_vaults_as_protocol_curated() -> None:
     assert identify_curator(HYPERLIQUID_CHAIN_ID, "PALLAS", "Pallas Vault Share", "0x0000000000000000000000000000000000000000", "pallas") == "pallas"
     assert is_protocol_curator("pallas")
     assert get_curator_name("pallas") == "Pallas"
+
+
+def test_identify_flying_tulip_vaults_as_protocol_curated() -> None:
+    """Attribute every reviewed sftUSD deployment to Flying Tulip itself.
+
+    The sftUSD product is operated by Flying Tulip rather than a separately
+    branded third-party curator, so every reviewed deployment resolves to the
+    protocol curator slug and its canonical feed alias.
+
+    :return:
+        ``None``. Assertions validate detection and public curator metadata.
+    """
+
+    for chain_id, address in FLYING_TULIP_SFTUSD_BY_CHAIN.items():
+        assert identify_curator(chain_id, "sftUSD", "Staked Flying Tulip USD", address, "flying-tulip") == "flying-tulip"
+
+    assert is_protocol_curator("flying-tulip")
+    assert get_curator_name("flying-tulip") == "Flying Tulip"
+    metadata = build_curator_metadata_json(
+        Path("eth_defi/data/feeds/curators/flying-tulip.yaml"),
+        public_url="https://example.invalid",
+    )
+    assert metadata["protocol_curator"] is True
+    assert metadata["canonical_feeder_id"] == "flying-tulip"
+    assert any(metadata["logos"].values())
 
 
 DARK_UI_BACKGROUND_LUMINANCE = 0.0098
@@ -927,6 +953,21 @@ def test_identify_smokehouse_as_steakhouse_financial() -> None:
     )
 
     assert slug == "steakhouse-financial"
+
+
+def test_identify_3f_steakhouse_usdc_by_address_override() -> None:
+    """Attribute 3F's co-branded vault without changing Steakhouse's other vaults."""
+
+    slug = identify_curator(
+        chain_id=1,
+        vault_token_symbol="3F-steakUSDC",
+        vault_name="3F x Steakhouse USDC",
+        vault_address="0xBEEf3f3A04e28895f3D5163d910474901981183D",
+        protocol_slug="morpho",
+        manager_name="Steakhouse Financial",
+    )
+
+    assert slug == "3f"
 
 
 def test_identify_telosc_short_name() -> None:

@@ -192,6 +192,7 @@ PROTOCOL_CURATED_SLUGS: set[str] = {
     "d2-finance",
     "frax-finance",
     "frankencoin",
+    "flying-tulip",
     "gains-network",
     "ostium",
     "ondo",
@@ -234,6 +235,7 @@ PROTOCOL_CURATOR_NAMES: dict[str, str] = {
     "d2-finance": "D2 Finance",
     "frax-finance": "Frax Finance",
     "frankencoin": "Frankencoin",
+    "flying-tulip": "Flying Tulip",
     "gains-network": "Gains Network",
     "ostium": "Ostium",
     "ondo": "Ondo Finance",
@@ -322,6 +324,17 @@ CURATOR_NAME_PATTERNS: dict[str, list[str]] = {
     # deployed on several chains, so use its distinctive, exact token name
     # instead of a chain-specific address override.
     "edge-capital": ["mEDGE"],
+    # Enzyme Blue listings expose the manager in the manager-authored copy,
+    # while the canonical vault title uses the abbreviated ACC product name.
+    "asymmetry-crypto-capital": ["ACC Metaverse"],
+    # The Unicode Φ and the asset symbol are both regex word characters, so
+    # matching the curator name alone has no trailing word boundary.
+    "casphi": ["CASΦBTC", "CASΦNexus"],
+    "diva": ["Diva Early Stakers"],
+    # Match the public Enzyme vault-family names instead of generic words such
+    # as "Stratum" or "Walled", which would cause unrelated false positives.
+    "stratum-finance": ["Stratum DeFi"],
+    "walled-capital": ["Walled Fund"],
 }
 
 #: Distributor / sponsor curators whose brand is a white-label wrapper.
@@ -366,6 +379,36 @@ PROTOCOL_MANAGER_YAML_FIELDS: dict[str, str] = {
 #: carries a co-branded protocol/issuer name that would otherwise win fuzzy
 #: matching.  Keys are ``(chain_id, lowercase_vault_address)``.
 CURATOR_ADDRESS_OVERRIDES: dict[tuple[int, str], str] = {
+    # Enzyme's manager-authored B100 listing explicitly groups B100, BBTC, and
+    # BGC as Bgroup vaults, but none of the three titles contains Bgroup.
+    # https://app.enzyme.finance/vault/0xb8f69b26316818db0ea3b6d1639fedf744a2df41?network=ethereum
+    (1, "0xb8f69b26316818db0ea3b6d1639fedf744a2df41"): "bgroup",
+    (1, "0x10c4f975d37903cb278e6b531c0979fc1a0e1875"): "bgroup",
+    (1, "0x46593ac12cacd3f89395483288dffd2b550ff85d"): "bgroup",
+    # The ARC Enzyme Blue listings identify the Gemini, Leo, and Scorpio
+    # products as one strategy family, but individual vault titles omit ARC.
+    # https://app.enzyme.finance/vault/0x11d41452fcd89c3622f20e680ebbec8587483a63?network=arbitrum
+    (42161, "0x11d41452fcd89c3622f20e680ebbec8587483a63"): "arc",
+    (42161, "0xd065f37a0ea7f277bf36d93043d20bfb58b93761"): "arc",
+    (42161, "0xfde46c2e43d54bbb94eb21452aac711f9b9d8e0e"): "arc",
+    (42161, "0xc64197bf72d0ead4bd3563c4dab23b849848268c"): "arc",
+    (42161, "0xba6f18dd30f5048177bbb32122d49f91f0909844"): "arc",
+    (42161, "0xb99463e453e2a7ce9fcea6df0bf6991cffef13d1"): "arc",
+    (42161, "0xc0ba7e66631106f5b8e5716b50bd167431b7f6ca"): "arc",
+    (42161, "0xf11ec3070a2288f6a768364ebf8382ba36b9425b"): "arc",
+    (42161, "0xb0960326a94c33e5fdc302832550f8f82c3d31d4"): "arc",
+    (42161, "0xe8ce6ce5b39875321422a67ac5324e5990966c96"): "arc",
+    (42161, "0xd2c89dc816d0d2e9a52ab5124c66a2a731a74a7d"): "arc",
+    # SmarDex's seed-USDN listing explicitly identifies the sUSDN issuer, but
+    # the vault title is a product name and does not contain the curator brand.
+    # https://app.enzyme.finance/vault/0xf67e2dc041b8a3c39d066037d29f500757b1e886?network=ethereum
+    (1, "0xf67e2dc041b8a3c39d066037d29f500757b1e886"): "smardex",
+    # 3F presents this co-branded Morpho vault as part of its RWA lending
+    # product, but Morpho's offchain metadata identifies Steakhouse Financial
+    # as the risk curator. Scope the 3F attribution to this product only.
+    # https://3f.xyz/
+    # https://app.morpho.org/ethereum/vault/0xBEEf3f3A04e28895f3D5163d910474901981183D/3f-x-steakhouse-usdc
+    (1, "0xbeef3f3a04e28895f3d5163d910474901981183d"): "3f",
     # Growi's official lending page identifies this HyperEVM Morpho Vault V2
     # as Growi Lending / Growi USDC Core.
     # https://growi.fi/lending/

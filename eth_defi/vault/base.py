@@ -82,6 +82,42 @@ class WithdrawalPeriod:
     estimated_settlement: datetime.timedelta | None = None
 
 
+#: Minimum relative share-price movement retained by historical scans.
+#:
+#: Ten basis points reduces repeated rows; cumulative movement is retained once
+#: it exceeds the threshold relative to the last written observation.
+DEFAULT_HISTORICAL_SHARE_PRICE_CHANGE_THRESHOLD: Percent = 0.001
+
+
+def is_relative_change_within_threshold(
+    current: Decimal | float | None,
+    previous: Decimal | float | None,
+    threshold: Percent = DEFAULT_HISTORICAL_SHARE_PRICE_CHANGE_THRESHOLD,
+) -> bool:
+    """Return whether two optional values differ by at most a relative threshold.
+
+    Zero and missing values cannot be compared relatively and therefore match
+    only when they are exactly equal. Historical readers use this helper to
+    share one change-filtering rule across ERC-4626 and share-price-equivalent
+    products.
+
+    :param current:
+        Newly observed value.
+    :param previous:
+        Previously retained value.
+    :param threshold:
+        Maximum absolute relative difference considered unchanged.
+    :return:
+        ``True`` when the observation remains inside the threshold.
+    """
+
+    if threshold < 0:
+        raise ValueError(f"Relative change threshold must be non-negative, got {threshold}")
+    if current is None or previous is None or current == 0 or previous == 0:
+        return current == previous
+    return abs((previous - current) / current) <= threshold
+
+
 #: Deposit closed reason constants
 DEPOSIT_CLOSED_EPOCH_WINDOW = "Epoch deposit window closed"
 DEPOSIT_CLOSED_FUNDING_PHASE = "Funding phase closed"
@@ -726,7 +762,7 @@ class VaultHistoricalRead:
     def is_almost_equal(
         self,
         other: "VaultHistoricalRead | None",
-        epsilon: float = 0.001,
+        epsilon: Percent = DEFAULT_HISTORICAL_SHARE_PRICE_CHANGE_THRESHOLD,
     ) -> bool:
         """Check if the read statistics match.
 
@@ -738,15 +774,36 @@ class VaultHistoricalRead:
         if other is None:
             return False
 
-        # Cannot do relative comparison as some values are zero or missing
-        if (not self.share_price) or (not self.total_assets) or (not self.total_supply) or (not other.share_price) or (not other.total_assets) or (not other.total_supply):
+        values = (self.share_price, self.total_assets, self.total_supply, other.share_price, other.total_assets, other.total_supply)
+        if any(value is None or value == 0 for value in values):
             return self.share_price == other.share_price and self.total_assets == other.total_assets and self.total_supply == other.total_supply
 
-        share_price_diff = (other.share_price - self.share_price) / self.share_price
-        total_assets_diff = (other.total_assets - self.total_assets) / self.total_assets
-        total_supply_diff = (other.total_supply - self.total_supply) / self.total_supply
+        return self.is_share_price_almost_equal(other, epsilon) and is_relative_change_within_threshold(self.total_assets, other.total_assets, epsilon) and is_relative_change_within_threshold(self.total_supply, other.total_supply, epsilon)
 
-        return abs(share_price_diff) <= epsilon and abs(total_assets_diff) <= epsilon and abs(total_supply_diff) <= epsilon
+    def is_share_price_almost_equal(
+        self,
+        other: "VaultHistoricalRead | None",
+        threshold: Percent = DEFAULT_HISTORICAL_SHARE_PRICE_CHANGE_THRESHOLD,
+    ) -> bool:
+        """Check whether the share price remains inside the common threshold.
+
+        Share-price-equivalent products use this narrower comparison so a
+        deposit or withdrawal can change supply and TVL without creating a
+        false performance observation.
+
+        :param other:
+            Previously retained historical observation.
+        :param threshold:
+            Maximum relative share-price difference considered unchanged.
+        :return:
+            ``True`` when no economically meaningful share-price change
+            occurred.
+        """
+
+        if other is None:
+            return False
+        assert self.vault.address == other.vault.address
+        return is_relative_change_within_threshold(self.share_price, other.share_price, threshold)
 
     def export(self) -> "RawVaultPriceRow":
         """Convert historical read for a Parquet/DataFrame export.
@@ -1006,6 +1063,61 @@ class VaultHistoricalReader(ABC):
         assert isinstance(vault, VaultBase)
         self.vault = vault
         self.reader_state: BatchCallState | None = None
+
+    @property
+    def uses_contextual_history(self) -> bool:
+        """Return whether this reader supplies protocol-sourced observations.
+
+        Most EVM vaults expose static calldata that the common multicaller can
+        execute on a regular block grid. Protocols such as GMX instead expose
+        sparse value events that are prefetched into a protocol-owned cache.
+
+        :return:
+            ``False`` for the ordinary static-multicall path.
+        """
+
+        return False
+
+    @property
+    def uses_share_price_equivalence(self) -> bool:
+        """Return whether cash flows must be ignored by the sparse filter.
+
+        Vault-like products without a standard share-price method can still
+        expose a supply-normalised price equivalent. Their TVL and supply
+        changes must not create false performance observations.
+
+        :return:
+            ``True`` when the vault carries the
+            ``share_price_equivalence`` feature.
+        """
+
+        features = getattr(self.vault, "features", None) or ()
+        return any(getattr(feature, "value", None) == "share_price_equivalence" for feature in features)
+
+    def fetch_contextual_historical_reads(
+        self,
+        start_block: int,
+        end_block: int,
+        step: int,
+    ) -> Iterable[VaultHistoricalRead]:
+        """Yield protocol-sourced historical rows outside the static call grid.
+
+        Contextual readers override this method and read an already-prefilled
+        local cache. Network collection belongs before the common price scan.
+
+        :param start_block:
+            Inclusive archive block boundary.
+        :param end_block:
+            Exclusive archive block boundary.
+        :param step:
+            Approximate block spacing used to downsample source observations.
+        :return:
+            Ordinary :class:`VaultHistoricalRead` rows for the common writer.
+        :raises NotImplementedError:
+            If a reader opts into contextual history without implementing it.
+        """
+
+        raise NotImplementedError(f"{self.__class__.__name__} does not implement contextual history")
 
     @property
     def first_block(self) -> int | None:

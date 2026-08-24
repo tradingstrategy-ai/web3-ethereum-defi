@@ -240,8 +240,14 @@ def calculate_rolling_returns(
 def calculate_daily_returns_for_all_vaults(df_work: pd.DataFrame) -> pd.DataFrame:
     """Calculate daily returns for each vault in isolation.
 
+    Sparse observations are resampled and forward filled to produce one row
+    per consecutive calendar day for each vault.
+
     :param df_work:
-        DataFrame with hourly share price values.
+        DataFrame with sparse or hourly share-price values.
+    :return:
+        Daily vault rows with ``share_price_daily`` and ``daily_returns``
+        columns.
     """
 
     df_work = df_work.set_index("timestamp")
@@ -251,8 +257,8 @@ def calculate_daily_returns_for_all_vaults(df_work: pd.DataFrame) -> pd.DataFram
     # Group by chain and address, then resample and forward fill
     for (chain_val, addr_val), group in df_work.groupby(["chain", "address"]):
         # Resample this group to daily frequency and forward fill
-        resampled = group
-        resampled["share_price_daily"] = group["share_price"].resample("D").ffill()
+        resampled = group.resample("D").last().ffill()
+        resampled["share_price_daily"] = resampled["share_price"]
 
         # Calculate daily returns
         resampled["daily_returns"] = resampled["share_price_daily"].pct_change(fill_method=None).fillna(0)

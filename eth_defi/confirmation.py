@@ -12,31 +12,29 @@ Some notes
 import datetime
 import logging
 import time
+from _decimal import Decimal
+from dataclasses import dataclass
 from pprint import pformat
-
 from typing import Collection, Dict, List, Set, Union, cast
 
-from _decimal import Decimal
 from eth_account.datastructures import SignedTransaction
-
-from eth_defi.compat import native_datetime_utc_now
-from eth_defi.event_reader.fast_json_rpc import get_last_headers
-from eth_defi.provider.anvil import is_anvil
 from hexbytes import HexBytes
 from web3 import Web3
 from web3.exceptions import TransactionNotFound
 from web3.providers import BaseProvider
 
+from eth_defi.compat import native_datetime_utc_now
+from eth_defi.event_reader.fast_json_rpc import get_last_headers
 from eth_defi.hotwallet import SignedTransactionWithNonce
-from eth_defi.provider.anvil import mine
+from eth_defi.provider.anvil import is_anvil, mine
 from eth_defi.provider.fallback import FallbackProvider, get_fallback_provider
 from eth_defi.provider.mev_blocker import MEVBlockerProvider
 from eth_defi.provider.named import get_provider_name
+from eth_defi.provider.receipt import TransactionVisibilityTimedOut, wait_for_transaction_visibility
 from eth_defi.revert_reason import fetch_transaction_revert_reason
 from eth_defi.timestamp import get_latest_block_timestamp
-from eth_defi.tx import decode_signed_transaction, get_tx_broadcast_data
+from eth_defi.tx import DecodeFailure, decode_signed_transaction, get_tx_broadcast_data
 from eth_defi.utils import to_unix_timestamp
-
 
 logger = logging.getLogger(__name__)
 
@@ -372,6 +370,300 @@ def broadcast_and_wait_transactions_to_complete(
 SignedTxType = Union[SignedTransaction, SignedTransactionWithNonce]
 
 
+def _format_gas_price(value: int) -> str:
+    """Format a wei-denominated gas price for an exception message.
+
+    Keep the exact wei value and include a compact gwei equivalent so an
+    operator can compare signed and network pricing without doing conversion.
+
+    :param value:
+        Gas price in wei.
+
+    :return:
+        Human-readable gas price containing wei and gwei values.
+    """
+    gwei = f"{value / 10**9:.9f}".rstrip("0").rstrip(".")
+    return f"{value} wei ({gwei} gwei)"
+
+
+def _parse_gas_price(value: object) -> int | None:
+    """Parse a Python or JSON-RPC gas-price value.
+
+    Web3 transaction data normally contains integers, while raw JSON-RPC
+    responses contain hexadecimal strings. Other values are unusable for
+    diagnostics and return ``None``.
+
+    :param value:
+        Candidate gas-price value.
+
+    :return:
+        Parsed integer, or ``None`` for an unsupported value.
+    """
+    if type(value) is int:
+        return value
+    if isinstance(value, str):
+        try:
+            return int(value, 0)
+        except ValueError:
+            return None
+    return None
+
+
+def _get_gas_price_from_source(source: dict | None) -> tuple[int | None, int | None, str | None]:
+    """Extract EIP-1559 or legacy gas-price fields from transaction data.
+
+    EIP-1559 transactions use their maximum fee as the inclusion cap. Legacy
+    transactions use ``gasPrice`` directly.
+
+    :param source:
+        Decoded or retained transaction fields.
+
+    :return:
+        Gas-price cap, optional priority fee and formatted field description.
+    """
+    if not source:
+        return None, None, None
+
+    max_fee_per_gas = _parse_gas_price(source.get("maxFeePerGas"))
+    if max_fee_per_gas is not None:
+        priority_fee_per_gas = _parse_gas_price(source.get("maxPriorityFeePerGas"))
+        priority_description = _format_gas_price(priority_fee_per_gas) if priority_fee_per_gas is not None else "unavailable"
+        description = f"maxFeePerGas={_format_gas_price(max_fee_per_gas)}, maxPriorityFeePerGas={priority_description}"
+        return max_fee_per_gas, priority_fee_per_gas, description
+
+    legacy_gas_price = _parse_gas_price(source.get("gasPrice"))
+    if legacy_gas_price is not None:
+        return legacy_gas_price, None, f"gasPrice={_format_gas_price(legacy_gas_price)}"
+
+    return None, None, None
+
+
+def _get_signed_transaction_gas_price(signed_tx: SignedTxType) -> tuple[int | None, int | None, str]:
+    """Read gas pricing from a signed transaction.
+
+    Prefer retained source fields and decode the raw transaction only when
+    needed, because not every signed-transaction wrapper retains its source.
+
+    :param signed_tx:
+        Signed transaction whose submitted gas pricing is needed.
+
+    :return:
+        Gas-price cap, optional priority fee and formatted field description.
+    """
+    source = getattr(signed_tx, "source", None)
+    gas_price, priority_fee, description = _get_gas_price_from_source(source)
+    if gas_price is not None:
+        return gas_price, priority_fee, description
+
+    try:
+        raw_transaction = get_tx_broadcast_data(signed_tx)
+        decoded_source = decode_signed_transaction(raw_transaction)
+    except (AttributeError, DecodeFailure, TypeError, ValueError) as e:
+        logger.warning("Could not decode signed transaction gas price for timeout diagnostics: %s", e)
+        return None, None, "unavailable; the signed transaction source could not be recovered"
+
+    gas_price, priority_fee, description = _get_gas_price_from_source(decoded_source)
+    if gas_price is None:
+        return None, None, "unavailable from the signed transaction"
+    return gas_price, priority_fee, description
+
+
+@dataclass(slots=True, frozen=True)
+class _NetworkGasPrice:
+    """Best-effort network pricing captured for timeout diagnostics."""
+
+    price: int | None
+    priority_fee: int | None
+    source: str
+    is_base_fee: bool = False
+
+
+def _get_single_attempt_provider(web3: Web3) -> BaseProvider:
+    """Get one provider without the fallback provider's retry loop.
+
+    Unwrap both MEV Blocker and fallback providers so timeout diagnostics make
+    exactly one transport attempt instead of starting another failover cycle.
+
+    :param web3:
+        Web3 connection used by transaction confirmation.
+
+    :return:
+        Active raw provider for a single diagnostic request.
+    """
+    provider = web3.provider
+    if isinstance(provider, MEVBlockerProvider):
+        provider = provider.call_provider
+    if isinstance(provider, FallbackProvider):
+        return provider.get_active_provider()
+    return provider
+
+
+def _fetch_rpc_gas_price(provider: BaseProvider, method: str) -> tuple[int | None, str | None]:
+    """Fetch one integer gas-price value through raw JSON-RPC.
+
+    Diagnostic RPC failures are returned as text so they cannot replace the
+    original confirmation timeout.
+
+    :param provider:
+        Provider used for one raw request.
+
+    :param method:
+        Integer-valued JSON-RPC method to call.
+
+    :return:
+        Parsed value and optional failure description.
+    """
+    try:
+        response = provider.make_request(method, [])
+        if response.get("error"):
+            return None, f"{method} returned RPC error {response['error']}"
+        value = _parse_gas_price(response.get("result"))
+        if value is None or value < 0:
+            return None, f"{method} returned invalid value {response.get('result')!r}"
+        return value, None
+    except Exception as e:
+        # Raw provider failures vary by transport and must not replace the
+        # original ConfirmationTimedOut.
+        return None, f"{method} failed with {type(e).__name__}: {e}"
+
+
+def _fetch_current_network_gas_price(provider: BaseProvider) -> _NetworkGasPrice:
+    """Fetch current network pricing without masking a confirmation timeout.
+
+    Try ``eth_gasPrice`` first because chains may customise it to return their
+    recommended next-block price. If that RPC method is unavailable, fall back
+    to the latest block's EIP-1559 base fee. The caller supplies a provider for
+    a single raw RPC attempt so diagnostics cannot restart the
+    fallback provider's multi-minute retry cycle. Raw JSON-RPC values are parsed
+    here without depending on Web3 middleware.
+
+    :param provider:
+        Active Web3 provider used directly for diagnostic RPC calls.
+
+    :return:
+        Node-reported gas price, priority fee suggestion and source details.
+    """
+    gas_price, gas_price_error = _fetch_rpc_gas_price(provider, "eth_gasPrice")
+    priority_fee, priority_fee_error = _fetch_rpc_gas_price(provider, "eth_maxPriorityFeePerGas")
+    errors = [error for error in (gas_price_error, priority_fee_error) if error]
+
+    if gas_price is not None:
+        source = "eth_gasPrice"
+        if errors:
+            source += "; " + "; ".join(errors)
+        return _NetworkGasPrice(gas_price, priority_fee, source)
+
+    try:
+        response = provider.make_request("eth_getBlockByNumber", ["latest", False])
+        if response.get("error"):
+            errors.append(f"eth_getBlockByNumber returned RPC error {response['error']}")
+        else:
+            latest_block = response.get("result") or {}
+            base_fee = _parse_gas_price(latest_block.get("baseFeePerGas"))
+            if base_fee is not None and base_fee >= 0:
+                source = "latest block baseFeePerGas fallback; " + "; ".join(errors)
+                return _NetworkGasPrice(base_fee, priority_fee, source, is_base_fee=True)
+            errors.append(f"eth_getBlockByNumber returned invalid baseFeePerGas {latest_block.get('baseFeePerGas')!r}")
+    except Exception as e:
+        # Transport exceptions are diagnostic data and must not replace the
+        # original ConfirmationTimedOut.
+        errors.append(f"latest block lookup failed with {type(e).__name__}: {e}")
+
+    return _NetworkGasPrice(None, priority_fee, "; ".join(errors))
+
+
+def format_confirmation_timeout_gas_diagnostics(
+    provider: BaseProvider,
+    txs: Collection[SignedTxType],
+    unconfirmed_txs: Collection[HexBytes],
+) -> str:
+    """Format submitted and current network gas prices after a timeout.
+
+    :param provider:
+        Single-attempt provider for raw diagnostic RPC calls.
+
+    :param txs:
+        All signed transactions in the confirmation batch.
+
+    :param unconfirmed_txs:
+        Hashes that remained unconfirmed when the timeout elapsed.
+
+    :return:
+        Multi-line gas-price diagnostics for ``ConfirmationTimedOut``.
+    """
+    network = _fetch_current_network_gas_price(provider)
+    lines = ["Gas price diagnostics:"]
+
+    if network.price is None:
+        lines.append(f"Current network gas price unavailable: {network.source}.")
+    elif network.is_base_fee:
+        lines.append(f"Latest block base fee: {_format_gas_price(network.price)} (excludes priority fee; source: {network.source}).")
+    else:
+        lines.append(f"Current network gas price: {_format_gas_price(network.price)} (source: {network.source}).")
+    if network.priority_fee is not None:
+        lines.append(f"Current network priority fee: {_format_gas_price(network.priority_fee)} (source: eth_maxPriorityFeePerGas).")
+
+    unconfirmed_hashes = set(unconfirmed_txs)
+    for signed_tx in txs:
+        if signed_tx.hash not in unconfirmed_hashes:
+            continue
+
+        tx_hash = signed_tx.hash.hex()
+        used_price, used_priority_fee, used_price_description = _get_signed_transaction_gas_price(signed_tx)
+        lines.append(f"Transaction {tx_hash} used gas price: {used_price_description}.")
+
+        if used_price is None:
+            continue
+
+        effective_priority_fee = used_priority_fee
+        if network.is_base_fee and network.price is not None and used_priority_fee is not None:
+            effective_priority_fee = min(used_priority_fee, max(0, used_price - network.price))
+        priority_underpriced = effective_priority_fee is not None and network.priority_fee is not None and effective_priority_fee < network.priority_fee
+
+        if network.price is None and priority_underpriced:
+            lines.append(f"Likely transaction gas-price mispricing for {tx_hash}: maxPriorityFeePerGas {_format_gas_price(used_priority_fee)} is below the node's current priority-fee suggestion {_format_gas_price(network.priority_fee)}. The transaction may be deprioritised; maxFeePerGas sufficiency could not be assessed because the current network price was unavailable.")
+        elif network.price is None:
+            lines.append(f"Gas-price mispricing for {tx_hash} could not be assessed because the current network price was unavailable.")
+        elif used_price < network.price:
+            if network.is_base_fee:
+                lines.append(f"Likely transaction gas-price mispricing for {tx_hash}: the transaction cap {_format_gas_price(used_price)} is below the latest block base fee {_format_gas_price(network.price)} and cannot be included until the base fee falls.")
+            else:
+                lines.append(f"Likely transaction gas-price mispricing for {tx_hash}: the transaction cap {_format_gas_price(used_price)} is below the node's current suggested network price {_format_gas_price(network.price)}. The transaction may remain deprioritised or be dropped.")
+        elif priority_underpriced and network.is_base_fee:
+            lines.append(f"Likely transaction gas-price mispricing for {tx_hash}: the effective priority fee {_format_gas_price(effective_priority_fee)} is below the node's current priority-fee suggestion {_format_gas_price(network.priority_fee)}. The effective priority fee is limited by maxPriorityFeePerGas and by maxFeePerGas minus the base fee, so the transaction may be deprioritised.")
+        elif priority_underpriced:
+            lines.append(f"Likely transaction gas-price mispricing for {tx_hash}: maxPriorityFeePerGas {_format_gas_price(used_priority_fee)} is below the node's current priority-fee suggestion {_format_gas_price(network.priority_fee)}. The transaction may be deprioritised even though its maxFeePerGas is sufficient.")
+        else:
+            lines.append(f"The transaction cap for {tx_hash} is not below the available network fee reference at timeout. Gas pricing may have differed at initial broadcast; investigate nonce ordering, broadcast acceptance, and RPC propagation.")
+
+    return "\n".join(lines)
+
+
+def _fetch_timed_out_transaction(provider: BaseProvider, tx_hash: HexBytes) -> dict | None:
+    """Fetch a timed-out transaction through one raw JSON-RPC request.
+
+    Raw providers require a ``0x``-prefixed transaction hash. An RPC error is
+    distinct from a successful null result, which means the node does not know
+    the transaction.
+
+    :param provider:
+        Provider used for one raw request.
+
+    :param tx_hash:
+        Transaction hash to query.
+
+    :return:
+        Transaction data, or ``None`` when the node does not know the hash.
+
+    :raise ValueError:
+        The provider returned a JSON-RPC error response.
+    """
+    response = provider.make_request("eth_getTransactionByHash", [tx_hash.to_0x_hex()])
+    if response.get("error"):
+        raise ValueError(f"eth_getTransactionByHash returned RPC error {response['error']}")
+    return response.get("result")
+
+
 def _broadcast_multiple_nodes(
     providers: Collection[BaseProvider],
     signed_tx: SignedTxType,
@@ -564,7 +856,14 @@ def wait_and_broadcast_multiple_nodes(
     :param inter_node_delay:
         Work around bad JSON-RPC SaaS providers.
 
-        Sleep this time between multiple tx broadcasts.
+        Wait up to this time between multiple tx broadcasts for all read
+        providers to see the preceding transaction. Progress immediately once
+        they do. At timeout, progress when at least one read provider sees it.
+        If no provider sees it, continue with normal confirmation and rebroadcast
+        handling.
+
+        This checks transaction visibility only; normal receipt confirmation
+        follows after the complete batch has been broadcast.
 
         See https://github.com/ethereum/go-ethereum/issues/26890
 
@@ -576,7 +875,9 @@ def wait_and_broadcast_multiple_nodes(
         Map of transaction hashes -> receipt
 
     :raise ConfirmationTimedOut:
-        If we cannot get transactions out
+        If we cannot get transactions out. The exception includes the signed
+        transaction gas-price fields, best-effort current network gas and
+        priority fees, and an underpricing hint when the signed values are lower.
 
     :raise NonceMismatch:
         Starting nonce does not match what we see on chain.
@@ -612,8 +913,7 @@ def wait_and_broadcast_multiple_nodes(
     anviled = is_anvil(web3)
 
     if anviled:
-        # Anvil is buggy piece of crap when you hit it with multiple RPC/broadcast requests,
-        # so try to sleep and pray it works
+        # Keep the visibility deadline short on Anvil so unit tests remain fast.
         inter_node_delay = datetime.timedelta(seconds=0.5)
 
     for tx in txs:
@@ -644,7 +944,7 @@ def wait_and_broadcast_multiple_nodes(
         logger.info("No MEV blocker enable, Anvil is %s", anviled)
 
     logger.info(
-        "Broadcasting %d transactions using %s to confirm in %d blocks, timeout is %s, inter node delay is %s",
+        "Broadcasting %d transactions using %s to confirm in %d blocks, timeout is %s, inter-node visibility timeout is %s",
         len(txs),
         ", ".join([get_provider_name(p) for p in providers]),
         confirmation_block_count,
@@ -675,8 +975,9 @@ def wait_and_broadcast_multiple_nodes(
 
     last_exception: Exception | None = None
 
-    # Initial broadcast of txs
-    for tx in txs:
+    # Initial broadcast of txs. Wait for read-provider visibility before the
+    # following sequential nonce, using the former sleep as a maximum budget.
+    for tx_index, tx in enumerate(txs):
         try:
             _broadcast_multiple_nodes(providers, tx)
             last_exception = None
@@ -686,18 +987,45 @@ def wait_and_broadcast_multiple_nodes(
         except Exception as e:
             last_exception = e
 
-        if len(txs) >= 2:
+        if tx_index < len(txs) - 1:
             # https://github.com/ethereum/go-ethereum/issues/26890
-            logger.info("Broadcasting multiple transactions, using inter node delay %s to sleep to ensure poor-quality nodes like Alchemy work", inter_node_delay)
-            time.sleep(inter_node_delay.total_seconds())
-
-            if anviled:
-                mine(web3)
-
-            # logger.info("Sleep done")
+            visibility_timeout = inter_node_delay.total_seconds()
+            if visibility_timeout > 0:
+                visibility_poll_delay = min(1.0, visibility_timeout / 2)
+                try:
+                    wait_for_transaction_visibility(
+                        web3,
+                        tx.hash,
+                        timeout=visibility_timeout,
+                        poll_delay=visibility_poll_delay,
+                        max_poll_delay=max(visibility_poll_delay, min(5.0, visibility_timeout / 2)),
+                    )
+                except TransactionVisibilityTimedOut as e:
+                    # A private or unhealthy read provider can hide a broadcast
+                    # temporarily. Let the existing confirmation/rebroadcast
+                    # loop handle this just as it did after the former sleep.
+                    logger.warning(
+                        "Transaction visibility gate timed out, continuing with broadcast batch, tx_hash=%s, error=%s",
+                        tx.hash.hex(),
+                        e,
+                    )
+                except Exception as e:
+                    # Provider implementations can raise exceptions outside the
+                    # normal JSON-RPC hierarchy. Visibility is only a best-effort
+                    # sequencing optimisation and must not interrupt the batch.
+                    logger.warning(
+                        "Transaction visibility gate failed, continuing with broadcast batch, tx_hash=%s, error=%s",
+                        tx.hash.hex(),
+                        e,
+                    )
+            else:
+                logger.info(
+                    "Transaction visibility wait disabled, tx_hash=%s",
+                    tx.hash.hex(),
+                )
         else:
             logger.info(
-                "Internode sleep skipped",
+                "Transaction visibility wait skipped after final transaction",
             )
 
     while len(unconfirmed_txs) > 0:
@@ -761,19 +1089,31 @@ def wait_and_broadcast_multiple_nodes(
             time.sleep(poll_delay.total_seconds())
 
             if native_datetime_utc_now() > started_at + max_timeout:
-                for tx_hash in unconfirmed_txs:
-                    try:
-                        tx_data = web3.eth.get_transaction(tx_hash)
-                        logger.error("Data for transaction %s was %s", tx_hash.hex(), tx_data)
-                    except TransactionNotFound as e:
-                        # Happens on LlamaNodes - we have broadcasted the transaction
-                        # but its nodes do not see it yet
-                        name = get_provider_name(web3.provider)
-                        logger.warning("Node %s missing transaction broadcast %s", name, tx_hash.hex())
-                        logger.exception(e)
-
                 unconfirmed_tx_strs = ", ".join([tx_hash.hex() for tx_hash in unconfirmed_txs])
-                raise ConfirmationTimedOut(f"Transaction confirmation failed. Started: {started_at}, timed out after {max_timeout} ({max_timeout.total_seconds()}s). Poll delay: {poll_delay.total_seconds()}s. Still unconfirmed: {unconfirmed_tx_strs}")
+                try:
+                    diagnostic_provider = _get_single_attempt_provider(web3)
+                    for tx_hash in unconfirmed_txs:
+                        try:
+                            tx_data = _fetch_timed_out_transaction(diagnostic_provider, tx_hash)
+                            if tx_data:
+                                logger.error("Data for transaction %s was %s", tx_hash.hex(), tx_data)
+                            else:
+                                logger.warning("Node %s missing transaction broadcast %s", get_provider_name(diagnostic_provider), tx_hash.hex())
+                        except Exception as e:
+                            # Provider-specific transport and RPC failures are
+                            # diagnostic data and must not replace the timeout.
+                            logger.warning("Could not fetch timed-out transaction %s: %s", tx_hash.hex(), e)
+                    gas_diagnostics = format_confirmation_timeout_gas_diagnostics(
+                        diagnostic_provider,
+                        txs,
+                        unconfirmed_txs,
+                    )
+                except Exception as e:
+                    # Timeout diagnostics are best effort and must never mask
+                    # the original ConfirmationTimedOut.
+                    logger.warning("Could not construct gas-price timeout diagnostics: %s", e)
+                    gas_diagnostics = f"Gas price diagnostics unavailable: {type(e).__name__}: {e}"
+                raise ConfirmationTimedOut(f"Transaction confirmation failed. Started: {started_at}, timed out after {max_timeout} ({max_timeout.total_seconds()}s). Poll delay: {poll_delay.total_seconds()}s. Still unconfirmed: {unconfirmed_tx_strs}\n{gas_diagnostics}")
 
         if native_datetime_utc_now() >= next_node_switch:
             if transact_provider:

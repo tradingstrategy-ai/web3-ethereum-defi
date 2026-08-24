@@ -293,6 +293,29 @@ removing its flaky history comment.
 - Never write generic `Exception e:` catch but always catch a specific exception if we can
 - Never silently swallow exceptions and th
 
+### DuckDB and Python 3.14
+
+DuckDB 1.5.0 file-backed databases have caused native heap corruption in this
+repository under Python 3.14 when large tables use ART-backed `PRIMARY KEY` or
+`UNIQUE` constraints. The process can abort with allocator errors such as
+`free(): chunks in smallbin corrupted`, so Python cannot catch or recover from
+the failure. See [DuckDB issue #18190](https://github.com/duckdb/duckdb/issues/18190).
+
+- Do not add `PRIMARY KEY` or `UNIQUE` constraints to large, file-backed bulk
+  ingestion tables. Use an unconstrained staging table and hash joins for
+  conflict detection and application-level deduplication.
+- Migrate existing ART-backed tables transactionally, preserving every row,
+  before continuing a backfill. Inspect `duckdb_constraints()` to detect the
+  old schema.
+- For bulk ingestion, set `wal_autocheckpoint = '1TB'` to avoid automatic
+  checkpoints during writes. This is an additional safeguard, not a substitute
+  for removing ART indexes.
+- Test the migration and duplicate-ingestion path with a file-backed database
+  containing production-scale row counts. A small in-memory test does not
+  reproduce this class of crash.
+- Rerunning an unchanged backfill is not a fix: it can reach the same native
+  corruption threshold and abort again.
+
 ### Code comments
 
 - For code comments, Use Sphinx restructured text style

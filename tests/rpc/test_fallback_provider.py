@@ -16,12 +16,14 @@ from eth_defi.abi import ZERO_ADDRESS
 from eth_defi.compat import clear_middleware, create_http_provider
 from eth_defi.confirmation import NonceMismatch, check_nonce_mismatch, format_node_block_diagnostic, wait_and_broadcast_multiple_nodes
 from eth_defi.event_reader.fast_json_rpc import get_last_headers
+from eth_defi.event_reader.multicall_batcher import EncodedCall
 from eth_defi.gas import node_default_gas_price_strategy
 from eth_defi.hotwallet import HotWallet
 from eth_defi.middleware import ProbablyNodeHasNoBlock
 from eth_defi.provider.anvil import AnvilLaunch, launch_anvil
 from eth_defi.provider.broken_provider import get_default_block_tip_latency
 from eth_defi.provider.fallback import FallbackProvider
+from eth_defi.provider.mev_blocker import MEVBlockerProvider
 from eth_defi.token import fetch_erc20_details
 from eth_defi.trace import assert_transaction_success_with_explanation
 from eth_defi.tx import get_tx_broadcast_data
@@ -143,6 +145,119 @@ def test_fallback_unhandled_exception(fallback_provider: FallbackProvider, provi
     with patch.object(provider_1, "make_request", side_effect=RuntimeError):
         with pytest.raises(RuntimeError):
             web3.eth.block_number
+
+
+def test_fallback_retries_allowlisted_timeout_for_ignored_eth_call() -> None:
+    """Switch provider for a selected timeout but not for a Solidity revert.
+
+    ``ignore_error`` is used for optional contract interfaces whose selectors
+    may revert. It must not prevent recovery from an explicitly allowlisted
+    transient RPC exception.
+    """
+
+    def primary_request(method: str, _params: list) -> dict:
+        """Answer chain validation before timing out the contract call."""
+
+        if method == "eth_chainId":
+            return {"jsonrpc": "2.0", "id": 1, "result": hex(8453)}
+        raise requests.exceptions.ReadTimeout("primary timed out")
+
+    primary = SimpleNamespace(
+        endpoint_uri="https://primary.example/rpc",
+        middlewares=(),
+        exception_retry_configuration=None,
+        make_request=primary_request,
+    )
+    fallback_calls: list[tuple[str, list]] = []
+
+    def fallback_request(method: str, params: list) -> dict:
+        """Answer chain validation and the retried call from the fallback."""
+
+        fallback_calls.append((method, params))
+        if method == "eth_chainId":
+            return {"jsonrpc": "2.0", "id": 1, "result": hex(8453)}
+        assert method == "eth_call"
+        assert "ignore_error" not in params[0]
+        assert "retry_exceptions" not in params[0]
+        return {"jsonrpc": "2.0", "id": 1, "result": "0x"}
+
+    backup = SimpleNamespace(
+        endpoint_uri="https://backup.example/rpc",
+        middlewares=(),
+        exception_retry_configuration=None,
+        make_request=fallback_request,
+    )
+    provider = FallbackProvider([primary, backup], retries=1, sleep=0, backoff=1)
+    provider.expected_chain_id = 8453
+    call = EncodedCall.from_keccak_signature(
+        address="0x0000000000000000000000000000000000000001",
+        signature=b"\x00\x00\x00\x00",
+        function="asset",
+        data=b"",
+        extra_data=None,
+    )
+    mev_provider = MEVBlockerProvider(
+        call_provider=provider,
+        transact_provider=SimpleNamespace(endpoint_uri="https://transact.example/rpc"),
+    )
+    result = call.call(
+        Web3(mev_provider),
+        block_identifier="latest",
+        gas=1_000_000,
+        ignore_error=True,
+        attempts=1,
+        retry_sleep=0,
+        retry_exceptions={requests.exceptions.ReadTimeout},
+    )
+
+    assert result == b""
+    assert provider.currently_active_provider == 1
+    assert provider.retry_count == 1
+    assert any(method == "eth_call" for method, _params in fallback_calls)
+
+
+def test_fallback_does_not_retry_solidity_revert_with_timeout_allowlist() -> None:
+    """Keep an ignored contract revert on its original provider."""
+
+    def primary_request(method: str, _params: list) -> dict:
+        """Answer chain validation before simulating a Solidity revert."""
+
+        if method == "eth_chainId":
+            return {"jsonrpc": "2.0", "id": 1, "result": hex(8453)}
+        raise ValueError({"code": 3, "message": "execution reverted"})
+
+    primary = SimpleNamespace(
+        endpoint_uri="https://primary.example/rpc",
+        middlewares=(),
+        exception_retry_configuration=None,
+        make_request=primary_request,
+    )
+    backup = SimpleNamespace(
+        endpoint_uri="https://backup.example/rpc",
+        middlewares=(),
+        exception_retry_configuration=None,
+        make_request=lambda _method, _params: {"jsonrpc": "2.0", "id": 1, "result": "0x"},
+    )
+    provider = FallbackProvider([primary, backup], retries=1, sleep=0, backoff=1)
+
+    call = EncodedCall.from_keccak_signature(
+        address="0x0000000000000000000000000000000000000001",
+        signature=b"\x00\x00\x00\x00",
+        function="asset",
+        data=b"",
+        extra_data=None,
+    )
+    with pytest.raises(ValueError, match="execution reverted"):
+        call.call(
+            Web3(provider),
+            block_identifier="latest",
+            gas=1_000_000,
+            ignore_error=True,
+            retry_exceptions={requests.exceptions.ReadTimeout},
+        )
+
+    assert provider.currently_active_provider == 0
+    assert provider.retry_count == 0
 
 
 # Github flaky

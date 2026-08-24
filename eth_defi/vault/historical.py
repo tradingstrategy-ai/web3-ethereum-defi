@@ -263,7 +263,7 @@ class VaultHistoricalReadMulticaller:
         vault_id = f"{vault.__class__.__name__} at {vault.address}"
         if not isinstance(reader, VaultHistoricalReader):
             raise TypeError(f"{vault_id} returned invalid historical reader {reader!r}")
-        if stateful and not isinstance(reader.reader_state, BatchCallState):
+        if stateful and not reader.uses_contextual_history and not isinstance(reader.reader_state, BatchCallState):
             raise TypeError(f"{reader.__class__.__name__} did not initialise a BatchCallState reader_state for a stateful scan of {vault_id}")
         return reader
 
@@ -376,6 +376,8 @@ class VaultHistoricalReadMulticaller:
         cached_share_tokens = 0
         if saved_states:
             for reader in readers.values():
+                if reader.reader_state is None:
+                    continue
                 spec = reader.vault.get_spec()
                 existing_state = saved_states.get(spec)
                 if existing_state:
@@ -425,6 +427,8 @@ class VaultHistoricalReadMulticaller:
         populated_tokens = 0
         if saved_states:
             for reader in readers.values():
+                if reader.reader_state is None:
+                    continue
                 denomination_token_address = reader.reader_state.denomination_token_address
                 if denomination_token_address is not None:
                     vault = reader.vault
@@ -534,14 +538,17 @@ class VaultHistoricalReadMulticaller:
         #         state.pformat() if state else "-",
         #     )
 
+        static_readers = {address: reader for address, reader in readers.items() if not reader.uses_contextual_history}
+        contextual_readers = {address: reader for address, reader in readers.items() if reader.uses_contextual_history}
+
         # Dealing with legacy shit here
-        calls = {c: state for c, state in self.generate_vault_historical_calls(readers)}
+        calls = {c: state for c, state in self.generate_vault_historical_calls(static_readers)}
 
         if not stateful:
             # Discard any state mapping
             calls = list(calls.keys())
         else:
-            for reader in readers.values():
+            for reader in static_readers.values():
                 assert reader.reader_state, f"Stateful reading: Reader did not set up state: {reader}"
 
         logger.info(
@@ -567,24 +574,36 @@ class VaultHistoricalReadMulticaller:
         # Cache the last result per vault to detect changes
         last_results: dict[HexAddress, VaultHistoricalRead] = {}
 
+        def is_unchanged(reader: VaultHistoricalReader, current: VaultHistoricalRead, previous: VaultHistoricalRead | None) -> bool:
+            """Apply the sparse filter appropriate for one vault product."""
+
+            if reader.uses_share_price_equivalence:
+                return current.is_share_price_almost_equal(previous)
+            return current.is_almost_equal(previous)
+
         skipped_results = 0
         error_count = 0
 
-        for combined_result in reader_func(
-            chain_id=chain_id,
-            web3factory=self.web3factory,
-            calls=calls,
-            start_block=start_block,
-            end_block=end_block,
-            step=step,
-            display_progress=f"Reading {chain_name} historical with {self.max_workers} workers, blocks {start_block:,} - {end_block:,}",
-            max_workers=self.max_workers,
-            progress_suffix=_progress_bar_suffix,
-            require_multicall_result=self.require_multicall_result,
-            hypersync_client=self.hypersync_client,
-            timestamp_cache_file=self.timestamp_cache_file,
-            rpc_request_stats=self.rpc_request_stats,
-        ):
+        static_results = (
+            reader_func(
+                chain_id=chain_id,
+                web3factory=self.web3factory,
+                calls=calls,
+                start_block=start_block,
+                end_block=end_block,
+                step=step,
+                display_progress=f"Reading {chain_name} historical with {self.max_workers} workers, blocks {start_block:,} - {end_block:,}",
+                max_workers=self.max_workers,
+                progress_suffix=_progress_bar_suffix,
+                require_multicall_result=self.require_multicall_result,
+                hypersync_client=self.hypersync_client,
+                timestamp_cache_file=self.timestamp_cache_file,
+                rpc_request_stats=self.rpc_request_stats,
+            )
+            if static_readers
+            else ()
+        )
+        for combined_result in static_results:
             total_combined_results += 1
 
             active_vault_set.clear()
@@ -629,7 +648,7 @@ class VaultHistoricalReadMulticaller:
                         state.rpc_error_count += 1
                         state.last_rpc_error = str(current_result.errors)
 
-                if current_result.is_almost_equal(last_result) and not self.write_all_samples:
+                if is_unchanged(reader, current_result, last_result) and not self.write_all_samples:
                     # Only yield a new row if the vault state has changed,
                     # to not to unnecessary bloat the dataset
                     skipped_results += 1
@@ -640,6 +659,23 @@ class VaultHistoricalReadMulticaller:
                     if state:
                         state.write_done += 1
                     yield current_result
+
+        for reader in contextual_readers.values():
+            reader_start_block = max(start_block, reader.first_block or start_block)
+            if reader_start_block >= end_block:
+                continue
+            last_result = last_results.get(reader.address)
+            for current_result in reader.fetch_contextual_historical_reads(reader_start_block, end_block, step):
+                current_result.vault_poll_frequency = "contextual"
+                if current_result.errors:
+                    error_count += 1
+                if is_unchanged(reader, current_result, last_result):
+                    skipped_results += 1
+                    continue
+                last_result = current_result
+                last_results[reader.address] = current_result
+                total_results += 1
+                yield current_result
 
         logger.info("Processed total %d results, total %d combined results, for %d vaults, skipped %d new rows, error count %d", total_results, total_combined_results, len(vaults), skipped_results, error_count)
 
@@ -784,6 +820,10 @@ def scan_historical_prices_to_parquet(
         assert type(end_block) == int
 
     chain_id = web3.eth.chain_id
+    if vault_addresses is not None:
+        if not vault_addresses:
+            raise ValueError("vault_addresses cannot be empty because that would broaden deletion to the whole chain")
+        vault_addresses = {address.lower() for address in vault_addresses}
 
     logger.info(
         "Vault scan on %s: %s - %s, stateful is %s",
@@ -923,7 +963,8 @@ def scan_historical_prices_to_parquet(
             pc.equal(existing_table["chain"], chain_id),
             pc.greater_equal(existing_table["block_number"], start_block),
         )
-        if vault_addresses:
+        mask = pc.and_(mask, pc.less(existing_table["block_number"], end_block))
+        if vault_addresses is not None:
             address_mask = pc.is_in(existing_table["address"], pa.array(list(vault_addresses)))
             mask = pc.and_(mask, address_mask)
         all_row_count = len(existing_table)
@@ -1062,7 +1103,7 @@ def scan_historical_prices_to_parquet(
         # Merge new reader states
         new_states = reader.save_reader_state()
         logger.info("Total %d updates reader states available", len(new_states))
-        if len(vaults) > 0:
+        if any(not historical_reader.uses_contextual_history for historical_reader in reader.readers.values()):
             assert len(new_states) > 0, f"Reader states are empty, this is a bug, chain_id: {chain_id}, vaults: {vaults}"
         reader_states = reader_states or {}
         reader_states.update(new_states)

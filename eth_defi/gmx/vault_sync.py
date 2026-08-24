@@ -47,24 +47,14 @@ def _feature_for_product(product: GMXVaultProduct) -> ERC4626Feature:
 
 
 def _fetch_token_symbol(web3: Web3, chain_id: int, address: HexAddress, token_cache: TokenDiskCache) -> str:
-    """Fetch an ERC-20 symbol for display-name construction."""
+    """Fetch an ERC-20 symbol for GMX product-name construction."""
 
-    token = fetch_erc20_details(
-        web3,
-        address,
-        chain_id=chain_id,
-        cache=token_cache,
-        cause_diagnostics_message="Naming GMX V2 vault products",
-    )
+    token = fetch_erc20_details(web3, address, chain_id=chain_id, cache=token_cache, cause_diagnostics_message="Naming GMX V2 vault products")
     return str(token.symbol or address[:8])
 
 
-def _format_gmx_product_name(
-    web3: Web3,
-    product: GMXVaultProduct,
-    token_cache: TokenDiskCache,
-) -> str:
-    """Build a stable, human-readable and globally unique GMX vault name."""
+def _format_gmx_product_name(web3: Web3, product: GMXVaultProduct, token_cache: TokenDiskCache) -> str:
+    """Build a stable globally unique GMX product name."""
 
     symbols = tuple(_fetch_token_symbol(web3, product.chain_id, address, token_cache) for address in product.accepted_deposit_tokens)
     token_pair = "-".join(symbols)
@@ -73,13 +63,8 @@ def _format_gmx_product_name(
     return f"{prefix} [{token_pair}] ({chain_name}, {product.token_address})"
 
 
-def _normalise_gmx_row(
-    row: VaultRow,
-    *,
-    product: GMXVaultProduct,
-    name: str,
-) -> VaultRow:
-    """Apply GMX-specific metadata to a common scanner row."""
+def _normalise_gmx_row(row: VaultRow, *, product: GMXVaultProduct, name: str) -> VaultRow:
+    """Apply current GMX catalogue identity to a scanner row."""
 
     row["Name"] = name
     row["Protocol"] = "GMX"
@@ -101,8 +86,7 @@ def fetch_and_sync_gmx_vault_catalogue(
 ) -> GMXVaultCatalogueSyncResult:
     """Upsert GM and GLV products without disturbing unrelated vault rows.
 
-    New products record the block at which this catalogue first observed them.
-    This is discovery metadata, not a claim about the product deployment date.
+    New products record the block at which this catalogue first observes them.
 
     :param web3:
         Arbitrum One or Avalanche connection.
@@ -145,7 +129,7 @@ def fetch_and_sync_gmx_vault_catalogue(
             address=product.token_address.lower(),
             first_seen_at_block=first_seen_at_block,
             first_seen_at=first_seen_at,
-            features={feature},
+            features={feature, ERC4626Feature.share_price_equivalence},
             updated_at=updated_at,
             deposit_count=0,
             redeem_count=0,
