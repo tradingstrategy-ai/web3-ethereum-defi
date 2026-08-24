@@ -596,6 +596,57 @@ when an existing database is opened. See the
 [Lighter native-pool pipeline](../lighter/README-lighter-vaults.md) for the
 storage and partial-scan replacement rules.
 
+#### Flying Tulip reward-equivalence backfill
+
+Flying Tulip sftUSD has a fixed 1:1 principal conversion, while FT rewards are
+claimable separately. Its historical series is therefore a non-redeemable,
+reward-reinvested ftUSD share-price equivalent. The complete backfill streams
+the official Ethereum, BNB Chain and Sonic sftUSD event histories with
+Hypersync, and records FT/ftUSD Curve oracle provenance in the shared context
+database. It does not directly write common price Parquet rows.
+
+Performance tracking starts at Ethereum Curve pool deployment block
+`25,531,725` (Unix timestamp `1,784,042,255`). The first sftUSD settlement on
+or after that boundary establishes an equivalent price of 1.0, and subsequent
+settlements compound returns. Earlier epochs are excluded because the
+canonical FT/ftUSD market did not yet exist. Deployment-to-boundary mint and
+burn events remain in the source cache solely to reconstruct the correct
+post-boundary supply and TVL.
+
+Curve EMA observations may be at most seven days old. This ceiling was chosen
+after the complete real backfill observed a longest post-deployment no-update
+interval of about 4.7 days. The collector and replay both enforce it, so a
+previous accepted price cannot silently bridge a longer future market gap.
+
+```shell
+source .local-test.env && \
+  poetry run python scripts/erc-4626/backfill-flying-tulip-history.py
+
+source .local-test.env && \
+  poetry run python scripts/erc-4626/examine-flying-tulip-vaults.py
+
+# Refresh only previously discovered Flying Tulip metadata rows; this never
+# changes reader state or historical price Parquet files.
+source .local-test.env && DRY_RUN=true \
+  poetry run python scripts/erc-4626/migrate-flying-tulip-vault-metadata.py
+```
+
+The examiner is read-only and fails on incomplete source history, duplicate
+event keys, non-contiguous epochs, missing or stale Curve prices, or a
+contextual-reader replay invariant failure. Set `CONTEXT_DATABASE` to inspect
+an isolated DuckDB; the reviewed dormant BNB Chain deployment is accepted as
+empty. Use `REQUIRE_ALL_CHAINS=false` only for an intentionally bounded or
+in-progress backfill.
+
+The backfill defaults to one concurrent Hypersync stream at 20 requests per
+minute. It displays progress for source chunks, timestamp cache gaps and Curve
+oracle reads; stopping it is safe because every completed source chunk,
+timestamp chunk and oracle observation is committed. A provider may still
+return a retryable rate-limit response. Use
+`FLYING_TULIP_HYPERSYNC_RPM` and `FLYING_TULIP_HYPERSYNC_CONCURRENCY` only when
+the available provider quota supports higher values. Generic `HYPERSYNC_RPM`
+and `HYPERSYNC_CONCURRENCY` take precedence.
+
 #### Lead discovery cache
 
 Each EVM chain stores its successful lead and metadata refresh status in

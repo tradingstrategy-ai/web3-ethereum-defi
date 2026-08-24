@@ -142,6 +142,7 @@ Supported protocols
    arcus/index
    asseto/index
    axis/index
+   flying_tulip/index
    ondo/index
    wisdomtree/index
    libeara/index

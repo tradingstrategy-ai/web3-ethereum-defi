@@ -1,0 +1,39 @@
+name: Flying Tulip
+slug: flying-tulip
+short_description: |
+  ftUSD issuer offering optional sftUSD staking with separately claimable FT rewards.
+long_description: |
+  [Flying Tulip](https://flyingtulip.com/ftusd/) issues ftUSD, a stablecoin product
+  with an optional sftUSD staking position. The [ftUSD product documentation](https://docs.flyingtulip.com/product-suite/ft-usd/)
+  describes ftUSD as a dollar-denominated settlement asset and sftUSD as the
+  opt-in route for receiving FT reward distributions. The reviewed sftUSD
+  deployments are available on Ethereum, BNB Chain and Sonic.
+
+  sftUSD redemptions may be immediate or routed through a circuit-breaker queue,
+  depending on available capacity. Users should consider the stablecoin's
+  backing, the liquidity of the underlying strategies, the discretionary nature
+  of FT rewards and the queue's settlement delay. Flying Tulip publishes
+  [known issues](https://github.com/flyingtulipdotcom/security/blob/master/KNOWN_ISSUES.md),
+  but no public report-level audit covering the reviewed staking vault, wrapper
+  and circuit-breaker deployments has been identified.
+fee_description: |
+  The sftUSD staking vault does not publish a management, performance, deposit
+  or withdrawal fee. FT rewards are distributed separately at the protocol's
+  discretion. The separate [ftUSD mint and redemption route](https://docs.flyingtulip.com/product-suite/ft-usd/)
+  can charge collateral-specific fees; these are acquisition or exit costs for
+  ftUSD, not fees charged by the sftUSD staking position.
+links:
+  homepage: https://flyingtulip.com/
+  app: https://flyingtulip.com/ftusd/
+  twitter: https://x.com/flyingtulip_
+  github: https://github.com/flyingtulipdotcom
+  documentation: https://docs.flyingtulip.com/product-suite/ft-usd/
+  defillama: https://defillama.com/protocol/flying-tulip
+  audits: https://github.com/flyingtulipdotcom/security
+  fees: https://docs.flyingtulip.com/product-suite/ft-usd/
+  trading_strategy: https://tradingstrategy.ai/trading-view/vaults/protocols/flying-tulip
+  integration_documentation: https://web3-ethereum-defi.readthedocs.io/vaults/flying_tulip/index.html
+example_smart_contracts:
+  - https://etherscan.io/address/0xeb48218a4c35C814C7678cBcae88C6Ee037F7625
+  - https://bscscan.com/address/0xe1716796d6Bf37e4049bdb6e1150Cb713800FeEe
+  - https://sonicscan.org/address/0xD1E5A86f1005F6356Bd022C587dE0f430CD2aeb1
