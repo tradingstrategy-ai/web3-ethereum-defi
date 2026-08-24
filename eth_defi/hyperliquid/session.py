@@ -372,7 +372,11 @@ class HyperliquidSession(Session):
                     continue
                 raise
 
-    def clone_for_worker(self, proxy_start_index: int = 0) -> "HyperliquidSession":
+    def clone_for_worker(
+        self,
+        proxy_start_index: int = 0,
+        requests_per_second: float | None = None,
+    ) -> "HyperliquidSession":
         """Create a lightweight clone for a worker thread.
 
         The clone shares the same API URL. When proxies are configured, the
@@ -388,13 +392,22 @@ class HyperliquidSession(Session):
         proxy IP's full allowance. Without proxies, clones share the parent
         adapters so all direct workers coordinate through the same limiter.
 
+        Passing *requests_per_second* creates a new, worker-local limiter at
+        that rate even without a proxy.  Callers must use this only for a
+        single bounded worker or an endpoint with a separately justified
+        request budget, otherwise direct-IP workers would multiply the
+        effective API request rate.
+
         :param proxy_start_index:
             Starting proxy index for this worker (typically the worker
             ordinal: 0, 1, 2, ...).
+        :param requests_per_second:
+            Override rate for this clone.  ``None`` preserves the parent
+            limiter behaviour.
         :return:
             A new :py:class:`HyperliquidSession` with worker-local proxy
-            rotation state. The rate limiter is independent only when proxy
-            support is enabled.
+            rotation state. The rate limiter is independent when proxy support
+            is enabled or an override rate is supplied.
         """
         clone = HyperliquidSession(api_url=self.api_url)
 
@@ -402,7 +415,7 @@ class HyperliquidSession(Session):
         # proxy IP. Without proxies, every worker shares the same public IP, so
         # clones must share the parent adapter/rate limiter to avoid multiplying
         # the direct-IP request budget.
-        if self._adapter_config is not None and self.proxy_enabled:
+        if self._adapter_config is not None and (self.proxy_enabled or requests_per_second is not None):
             # Create a fresh adapter with a unique SQLite database for this
             # worker/proxy.
             fd, tmp_path = tempfile.mkstemp(
@@ -413,7 +426,7 @@ class HyperliquidSession(Session):
             os.close(fd)
             worker_db = Path(tmp_path)
             adapter = _create_adapter(
-                requests_per_second=self._adapter_config["requests_per_second"],
+                requests_per_second=requests_per_second or self._adapter_config["requests_per_second"],
                 retries=self._adapter_config["retries"],
                 backoff_factor=self._adapter_config["backoff_factor"],
                 pool_maxsize=self._adapter_config["pool_maxsize"],
@@ -422,7 +435,7 @@ class HyperliquidSession(Session):
             )
             clone.mount("http://", adapter)
             clone.mount("https://", adapter)
-            clone._adapter_config = self._adapter_config
+            clone._adapter_config = self._adapter_config | {"requests_per_second": requests_per_second or self._adapter_config["requests_per_second"]}
         else:
             # Direct-IP mode, or no adapter config stored: share the parent's
             # adapters so all clones coordinate through one limiter.
