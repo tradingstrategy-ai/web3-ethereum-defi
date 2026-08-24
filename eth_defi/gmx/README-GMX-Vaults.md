@@ -31,6 +31,85 @@ GM and GLV shares are ERC-20 tokens, but they are not ERC-4626 vaults. They do
 not expose the standard ERC-4626 share-price methods used by most EVM vaults,
 and deposits and withdrawals are asynchronous GMX ExchangeRouter requests.
 
+## Vaults and volatility risk
+
+A single-sided USDC deposit describes the entry asset, not the investment's
+continuing exposure. After GM or GLV shares are minted, the depositor owns a
+pro-rata claim on the whole pool. A typical crypto-USDC pool therefore exposes
+the depositor to the crypto backing token, trader profit and loss, and pool
+fees even though only USDC was supplied.
+
+GMX pools aim to keep equal USD values of their long and short backing tokens.
+Before fees and trader profit and loss, a balanced crypto-USDC pool behaves
+approximately like a continuously rebalanced 50/50 portfolio. If the crypto
+price changes by a factor `r`, its approximate backing return is
+`sqrt(r) - 1`. For example:
+
+| Crypto price change | Approximate crypto-USDC pool change |
+|---------------------|-------------------------------------|
+| +20% | +9.5% |
+| -20% | -10.6% |
+| +100% | +41.4% |
+| -50% | -29.3% |
+
+For small price movements this is roughly half the volatility of the crypto
+asset. Actual volatility can be higher or lower because pools need not remain
+perfectly balanced and the GM/GLV price also includes trader profit and loss.
+When traders make net profits, the pool pays them; trader losses and the
+liquidity provider's share of protocol fees increase pool value.
+
+### Simplified BTC-USDC example
+
+Suppose a depositor supplies 10,000 USDC to a balanced BTC-USDC GM pool and
+Bitcoin subsequently rises by 20%. Ignoring trader profit and loss, fees and
+price impact, the approximate value of the GM shares becomes:
+
+```text
+10,000 USD * sqrt(1.20) = 10,954 USD
+```
+
+On withdrawal, the depositor can receive the pool's long and short tokens,
+approximately 5,477 USD of WBTC and 5,477 USDC in this simplified balanced
+example. A configured withdrawal swap path can instead convert the WBTC output
+to USDC, producing approximately 10,954 USDC before withdrawal fees, swap fees,
+price impact and the keeper execution fee. Converting the USDC leg to WBTC is
+also possible when a suitable path is available.
+
+The realised result need not follow this example. If traders are net long BTC,
+a BTC price increase makes them profitable and their profit is paid by the
+pool, offsetting some or all of the backing-token gain. Net-short trader losses
+benefit the pool, while trading and borrowing fees also increase its value.
+The withdrawal quote at execution time determines the actual token amounts.
+
+Impermanent loss is only meaningful relative to holding the same backing
+tokens without rebalancing. For a balanced crypto-stablecoin pool, the
+approximate relative result is `2 * sqrt(r) / (1 + r) - 1`; a doubling or
+halving of the crypto price is about a 5.7% loss relative to an unchanged 50/50
+holding. Against simply retaining USDC, however, the pool's crypto-related
+drawdown is an investment loss rather than merely impermanent loss.
+
+Different products add different risks:
+
+- A fully backed GM market combines backing-token volatility with the profit
+  and loss of traders in that market.
+- A synthetic GM market can hold, for example, WETH and USDC while backing
+  positions in a different index token. It therefore adds index-trader risk
+  that is not visible from the backing pair alone.
+- A GLV allocates liquidity across multiple compatible GM markets. This
+  diversifies trader exposure but adds allocation, shifting and underlying-GM
+  liquidity risks; it does not remove the base crypto exposure.
+- A stablecoin-only pool has little ordinary price volatility while its tokens
+  hold their pegs, but retains issuer, depeg and, for bridged assets, bridge
+  risk.
+
+Deposits and withdrawals also face balance-dependent price impact, execution
+fees, token spreads and possible capacity limits. Reserved liquidity or high
+pending trader profit can temporarily constrain redemptions. Smart-contract,
+oracle, keeper, sequencer and governance risks remain in every product. The
+common `low_risk` classification describes GMX's technical protocol risk; it
+does not classify an individual GM or GLV investment as low-volatility or
+capital-stable.
+
 ## What the performance curve represents
 
 The integration derives a synthetic USD share-price equivalent from GMX's
