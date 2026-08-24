@@ -125,10 +125,12 @@ This ratio measures the USD value attributable to one GM or GLV share. It lets
 GMX products use the same equity-curve, return, CAGR, volatility, Sharpe and
 drawdown code as vaults that publish a conventional share price.
 
-The vault performance is a USD-denominated GMX share curve. It approximates a
-single-sided USDC deposit only where USDC is accepted and does not model the
-deposit transaction. Accepted deposit tokens are product-specific, and some
-products have no stablecoin side.
+The vault performance originates as a USD-valued GMX share curve. The catalogue
+uses native USDC as its display denomination for comparison, but this does not
+mean every pool accepts USDC, is backed solely by USDC, or has an onchain USDC
+NAV. It approximates a single-sided USDC deposit only where USDC is accepted
+and does not model the deposit transaction. Accepted deposit tokens are
+product-specific, and some products have no stablecoin side.
 
 This is a comparison convention, not a transaction simulator. The curve does
 not model the execution fee, price impact, token spread, deposit or withdrawal
@@ -246,6 +248,26 @@ synthetic USD denomination. It also classifies the strategy as market making
 and liquidity provision. GMX is classified as low technical protocol risk in
 the common risk matrix; this classification does not remove market, oracle or
 liquidity risk.
+
+## Deposits and withdrawals
+
+GM and GLV deposits and withdrawals are asynchronous GMX requests, not
+ERC-4626 transactions that complete in the caller's transaction. A request is
+submitted first, then a keeper executes it with oracle prices. GMX describes
+this execution as typically taking a few seconds, but it has no binding
+completion deadline. The catalogue reports a one-minute estimated settlement
+time as a conservative user-interface estimate for request inclusion, oracle
+handling and keeper execution; it is not a promise that a request will settle
+within that time.
+
+The catalogue marks a disabled GM or GLV product as closed for deposits.
+Enabled is not an unconditional deposit guarantee: pool caps, PnL-factor
+limits, available liquidity, oracle availability and price-impact constraints
+can still prevent a particular request from executing. Similarly, a redemption
+can be delayed or fail when liquidity is reserved for positions or market
+limits apply. See GMX's [architecture documentation](https://docs.gmx.io/docs/api/contracts/architecture/),
+[liquidity documentation](https://docs.gmx.io/docs/providing-liquidity/) and
+[known integration issues](https://docs.gmx.io/docs/api/contracts/known-issues/).
 
 The following operations are intentionally unavailable:
 
@@ -406,7 +428,7 @@ imports and local verification:
 
 | Script | Purpose |
 |--------|---------|
-| [`seed-gmx-vaults.py`](../../scripts/erc-4626/seed-gmx-vaults.py) | Enumerate current GM/GLV products into the common metadata database |
+| [`migrate-gmx-vaults-metadata.py`](../../scripts/erc-4626/migrate-gmx-vaults-metadata.py) | Idempotently refresh GM/GLV metadata, including unique names and the USDC display denomination |
 | [`backfill-gmx-vault-prices.py`](../../scripts/erc-4626/backfill-gmx-vault-prices.py) | Prefill complete Arbitrum and Avalanche context ranges and run the common hourly Parquet writer without modifying production reader state |
 | [`examine-gmx-vault-backfill.py`](../../scripts/erc-4626/examine-gmx-vault-backfill.py) | Check duplicates, positive values, source linkage, asset identity and sparse-threshold behaviour |
 | [`examine-gmx-vault-performance.py`](../../scripts/erc-4626/examine-gmx-vault-performance.py) | Run common lifetime metrics and display TVL, lifetime CAGR, three-month CAGR, approximate three-month volatility and Sharpe |
@@ -444,7 +466,7 @@ Focused tests live under [`tests/gmx`](../../tests/gmx):
   withdrawal-context observations are excluded.
 - GMX volatility and Sharpe use forward-filled daily prices and are
   observation-cadence-sensitive approximations, not continuous NAV metrics.
-- Synthetic USD is the comparison denomination; it is not an ERC-20 token held
-  by the adapter.
+- Native USDC is the display denomination. GMX source values remain USD-valued
+  pool-share observations, not an onchain USDC NAV.
 - Reported performance is a pool-share approximation and not the realised
   return of an individual deposit request.

@@ -2223,6 +2223,10 @@ def create_vault_instance(
         from eth_defi.wstgbp.vault import WSTGBPVault
 
         return WSTGBPVault(web3, spec, **kwargs)
+    elif ERC4626Feature.gmx_gm in features or ERC4626Feature.gmx_glv in features:
+        from eth_defi.gmx.vault import GMXVault
+
+        return GMXVault(web3, spec, **kwargs)
     elif ERC4626Feature.vault_street_like in features:
         from eth_defi.vault_street.vault import VaultStreetVault
 

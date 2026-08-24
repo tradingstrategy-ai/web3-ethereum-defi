@@ -4,14 +4,15 @@ import datetime
 import logging
 from dataclasses import dataclass
 
+from eth_typing import HexAddress
 from joblib import Parallel, delayed
 from web3 import Web3
 
 from eth_defi.compat import native_datetime_utc_now
 from eth_defi.erc_4626.core import ERC4262VaultDetection, ERC4626Feature
 from eth_defi.erc_4626.scan import create_vault_scan_record
-from eth_defi.gmx.vault_catalog import GMXVaultProduct, fetch_gmx_v2_vault_products
-from eth_defi.token import TokenDiskCache
+from eth_defi.gmx.vault_catalog import GMX_CHAIN_NAMES_BY_ID, GMXVaultProduct, fetch_gmx_v2_vault_products
+from eth_defi.token import TokenDiskCache, fetch_erc20_details
 from eth_defi.vault.base import VaultSpec
 from eth_defi.vault.vaultdb import VaultDatabase, VaultRow
 
@@ -45,6 +46,36 @@ def _feature_for_product(product: GMXVaultProduct) -> ERC4626Feature:
     return ERC4626Feature.gmx_gm if product.product_type == "gm" else ERC4626Feature.gmx_glv
 
 
+def _fetch_token_symbol(web3: Web3, chain_id: int, address: HexAddress, token_cache: TokenDiskCache) -> str:
+    """Fetch an ERC-20 symbol for GMX product-name construction."""
+
+    token = fetch_erc20_details(web3, address, chain_id=chain_id, cache=token_cache, cause_diagnostics_message="Naming GMX V2 vault products")
+    return str(token.symbol or address[:8])
+
+
+def _format_gmx_product_name(web3: Web3, product: GMXVaultProduct, token_cache: TokenDiskCache) -> str:
+    """Build a stable globally unique GMX product name."""
+
+    symbols = tuple(_fetch_token_symbol(web3, product.chain_id, address, token_cache) for address in product.accepted_deposit_tokens)
+    token_pair = "-".join(symbols)
+    prefix = "GMX Market" if product.product_type == "gm" else "GMX Liquidity Vault"
+    chain_name = GMX_CHAIN_NAMES_BY_ID[product.chain_id].title()
+    return f"{prefix} [{token_pair}] ({chain_name}, {product.token_address})"
+
+
+def _normalise_gmx_row(row: VaultRow, *, product: GMXVaultProduct, name: str) -> VaultRow:
+    """Apply current GMX catalogue identity to a scanner row."""
+
+    row["Name"] = name
+    row["Protocol"] = "GMX"
+    row["Denomination"] = "USDC"
+    row["_synthetic_usd_denomination"] = False
+    row["_gmx_product_type"] = product.product_type
+    if not product.is_enabled:
+        row["_deposits_open"] = False
+    return row
+
+
 def fetch_and_sync_gmx_vault_catalogue(
     *,
     web3: Web3,
@@ -55,9 +86,7 @@ def fetch_and_sync_gmx_vault_catalogue(
 ) -> GMXVaultCatalogueSyncResult:
     """Upsert GM and GLV products without disturbing unrelated vault rows.
 
-    New products start at the catalogue scan block.  The explicit migration
-    script can later scan older value events without changing the scheduled
-    catalogue cursor; scheduled scans therefore remain incremental.
+    New products record the block at which this catalogue first observes them.
 
     :param web3:
         Arbitrum One or Avalanche connection.
@@ -80,6 +109,7 @@ def fetch_and_sync_gmx_vault_catalogue(
     observed_at = datetime.datetime.fromtimestamp(block["timestamp"], tz=datetime.UTC).replace(tzinfo=None)
     updated_at = native_datetime_utc_now()
     products = tuple(fetch_gmx_v2_vault_products(web3, block_identifier=block_number, token_cache=token_cache))
+    product_names = {product.token_address.lower(): _format_gmx_product_name(web3, product, token_cache) for product in products}
 
     def fetch_product_row(product: GMXVaultProduct) -> tuple[VaultSpec, VaultRow, bool]:
         """Fetch one product's common metadata row."""
@@ -110,13 +140,15 @@ def fetch_and_sync_gmx_vault_catalogue(
             block_number,
             token_cache,
         )
+        scan_failed = str(row.get("Name", "")).startswith("<broken:")
         row["_gmx_component_addresses"] = tuple(address.lower() for address in product.component_addresses)
         row["_gmx_accepted_deposit_tokens"] = tuple(address.lower() for address in product.accepted_deposit_tokens)
         row["_gmx_enabled"] = product.is_enabled
         row["_deposit_closed_reason"] = None if product.is_enabled else GMX_DISABLED_DEPOSIT_REASON
+        row = _normalise_gmx_row(row, product=product, name=product_names[product.token_address.lower()])
         if existing is not None:
             merged_row = existing.copy()
-            if str(row.get("Name", "")).startswith("<broken:"):
+            if scan_failed:
                 # A transient row-level RPC failure produces placeholder scan
                 # fields. Keep the last healthy metadata while still applying
                 # current catalogue identity, composition and enabled status.
@@ -128,7 +160,14 @@ def fetch_and_sync_gmx_vault_catalogue(
                         "_gmx_accepted_deposit_tokens",
                         "_gmx_enabled",
                         "_deposit_closed_reason",
+                        "_gmx_product_type",
+                        "Name",
+                        "Protocol",
+                        "Denomination",
+                        "_synthetic_usd_denomination",
+                        "_deposits_open",
                     )
+                    if key in row
                 }
                 merged_row.update(catalogue_fields)
             else:

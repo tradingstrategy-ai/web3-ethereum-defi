@@ -131,7 +131,7 @@ remain operation-cadence-sensitive rather than continuous NAV statistics.
 
 Add four environment-variable-driven scripts:
 
-1. ``seed-gmx-vaults.py`` enumerates current products and idempotently updates
+1. ``migrate-gmx-vaults-metadata.py`` enumerates current products and idempotently updates
    the common metadata pickle; dry-run mode does not write.
 2. ``backfill-gmx-vault-prices.py`` prefills a bounded event range and invokes
    the common Parquet writer for only GMX addresses. It does not touch reader

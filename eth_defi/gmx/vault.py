@@ -25,9 +25,9 @@ from eth_defi.event_reader.multicall_batcher import EncodedCall, EncodedCallResu
 from eth_defi.gmx.historical_context import GMXHistoricalContextStore, get_gmx_historical_context_path
 from eth_defi.gmx.historical_oracle import GMXHistoricalSharePriceObservation
 from eth_defi.gmx.vault_catalog import GMX_CHAIN_NAMES_BY_ID
-from eth_defi.token import TokenDetails, fetch_erc20_details
+from eth_defi.token import USDC_NATIVE_TOKEN, TokenDetails, fetch_erc20_details
 from eth_defi.types import Percent
-from eth_defi.vault.base import TradingUniverse, VaultBase, VaultFlowManager, VaultHistoricalRead, VaultHistoricalReader, VaultInfo, VaultPortfolio, VaultSpec
+from eth_defi.vault.base import TradingUniverse, VaultBase, VaultFlowManager, VaultHistoricalRead, VaultHistoricalReader, VaultInfo, VaultPortfolio, VaultSpec, WithdrawalDelayType, WithdrawalPeriod
 from eth_defi.vault.deposit_redeem import VaultDepositManager
 from eth_defi.vault.flag import VaultFlag
 from eth_defi.vault.lower_case_dict import LowercaseDict
@@ -37,6 +37,15 @@ GMX_UNSUPPORTED_FLOW_REASON: str = "GMX liquidity deposits and withdrawals are a
 
 #: Explanation returned for unsupported isolated GMX NAV reads.
 GMX_HISTORICAL_READER_REASON: str = "Use the GMX historical event reader through the common vault price scanner"
+
+#: Non-binding operational estimate for a GMX keeper-executed liquidity request.
+#:
+#: GMX documents the two-phase request lifecycle as taking typically a few
+#: seconds, but gives no contractual completion bound. One minute leaves a
+#: conservative UI buffer for request inclusion, oracle handling and keeper
+#: execution; it is not a claim that a redemption will complete in one minute.
+#: See https://docs.gmx.io/docs/api/contracts/architecture/
+GMX_REQUEST_SETTLEMENT_ESTIMATE = datetime.timedelta(minutes=1)
 
 
 class GMXHistoricalReader(VaultHistoricalReader):
@@ -204,15 +213,21 @@ class GMXVaultBase(VaultBase):
 
         return self.address
 
-    def fetch_denomination_token_address(self) -> HexAddress | None:
-        """Return no ERC-20 because the valuation denomination is synthetic USD."""
+    def fetch_denomination_token_address(self) -> HexAddress:
+        """Return native USDC as the catalogue display denomination."""
 
-        return None
+        return HexAddress(Web3.to_checksum_address(USDC_NATIVE_TOKEN[self.chain_id]))
 
-    def fetch_denomination_token(self) -> TokenDetails | None:
-        """Return no ERC-20 denomination-token wrapper."""
+    def fetch_denomination_token(self) -> TokenDetails:
+        """Fetch native USDC metadata for the catalogue display denomination."""
 
-        return None
+        return fetch_erc20_details(
+            self.web3,
+            self.fetch_denomination_token_address(),
+            chain_id=self.chain_id,
+            cache=self.token_cache,
+            cause_diagnostics_message="GMX USDC display denomination",
+        )
 
     def fetch_total_supply(self, block_identifier: BlockIdentifier = "latest") -> Decimal:
         """Read decimal-scaled GM or GLV outstanding shares."""
@@ -238,15 +253,15 @@ class GMXVaultBase(VaultBase):
     def fetch_info(self) -> VaultInfo:
         """Return scanner-compatible GMX product metadata."""
 
-        return {"token": self.address, "chain_id": self.chain_id, "product_type": self.product_type, "synthetic_usd_denomination": True}
+        return {"token": self.address, "chain_id": self.chain_id, "product_type": self.product_type, "denomination": "USDC"}
 
     def fetch_scan_record_extra_data(self) -> dict[str, object]:
-        """Export synthetic USD and GMX product metadata."""
+        """Export USDC display denomination and GMX product metadata."""
 
         return {
-            "Denomination": "USD",
-            "_denomination_token": None,
-            "_synthetic_usd_denomination": True,
+            "Denomination": "USDC",
+            "_denomination_token": self.fetch_denomination_token().export(),
+            "_synthetic_usd_denomination": False,
             "_gmx_product_type": self.product_type,
             "_nav_source": "GMX value-and-supply events",
             "_nav_available": False,
@@ -310,6 +325,46 @@ class GMXVaultBase(VaultBase):
 
     def get_estimated_lock_up(self) -> datetime.timedelta | None:
         """Return no fixed lock-up period."""
+
+        return None
+
+    def get_withdrawal_period(self) -> WithdrawalPeriod:
+        """Describe GMX's asynchronous, keeper-executed redemption lifecycle.
+
+        GMX liquidity withdrawals are submitted as requests and execute after
+        a keeper supplies the required oracle prices. The official architecture
+        documentation describes this as typically taking a few seconds, but
+        the protocol does not provide a binding completion deadline: liquidity,
+        oracle availability, gas prices and keeper execution can extend the
+        wait. We therefore expose a one-minute non-binding estimate for the
+        website while leaving the contractual minimum and maximum unset.
+
+        :return:
+            Asynchronous withdrawal type with a one-minute settlement estimate.
+
+        .. seealso::
+
+            `GMX architecture <https://docs.gmx.io/docs/api/contracts/architecture/>`__.
+        """
+
+        return WithdrawalPeriod(
+            min_period=None,
+            max_period=None,
+            delay_type=WithdrawalDelayType.delay,
+            estimated_settlement=GMX_REQUEST_SETTLEMENT_ESTIMATE,
+        )
+
+    def fetch_deposit_open(self) -> bool | None:
+        """Return unknown for enabled markets whose dynamic caps can still reject a deposit.
+
+        The catalogue synchroniser exports ``False`` when GMX disables a
+        product. For enabled markets, a successful deposit can still depend on
+        dynamic pool caps and the deposit PnL-factor limit, so the adapter must
+        not report an unconditional ``True``.
+
+        :return:
+            ``None`` until a per-market executable deposit quote is available.
+        """
 
         return None
 

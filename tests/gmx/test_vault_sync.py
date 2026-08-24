@@ -42,6 +42,7 @@ def test_fetch_and_sync_gmx_vault_catalogue_is_idempotent(monkeypatch: pytest.Mo
         ),
     )
     monkeypatch.setattr(vault_sync, "fetch_gmx_v2_vault_products", lambda *_args, **_kwargs: iter((product,)))
+    monkeypatch.setattr(vault_sync, "_fetch_token_symbol", lambda _web3, _chain_id, address, _token_cache: "WBTC" if address == LONG_TOKEN else "USDC")
     monkeypatch.setattr(
         vault_sync,
         "create_vault_scan_record",
@@ -68,9 +69,9 @@ def test_fetch_and_sync_gmx_vault_catalogue_is_idempotent(monkeypatch: pytest.Mo
     )
     second = fetch_and_sync_gmx_vault_catalogue(web3=web3, vault_db=vault_db, token_cache={}, block_number=456)
     row_after_failed_refresh = vault_db.rows[VaultSpec(42161, GM_TOKEN)]
-    assert row_after_failed_refresh["Name"] == "GMX market"
+    assert row_after_failed_refresh["Name"] == f"GMX Market [WBTC-USDC] (Arbitrum, {GM_TOKEN})"
     assert row_after_failed_refresh["Protocol"] == "GMX"
-    assert row_after_failed_refresh["Denomination"] == "USD"
+    assert row_after_failed_refresh["Denomination"] == "USDC"
     assert row_after_failed_refresh["_manual_enrichment"] == "keep me"
 
     monkeypatch.setattr(vault_sync, "fetch_gmx_v2_vault_products", lambda *_args, **_kwargs: iter((replace(product, is_enabled=False),)))
@@ -93,7 +94,7 @@ def test_fetch_and_sync_gmx_vault_catalogue_is_idempotent(monkeypatch: pytest.Mo
     assert second.updated == 1
     assert third.inserted == 0
     assert third.updated == 1
-    assert row["Name"] == "GMX market refreshed"
+    assert row["Name"] == f"GMX Market [WBTC-USDC] (Arbitrum, {GM_TOKEN})"
     assert row["_manual_enrichment"] == "keep me"
     assert detection.first_seen_at_block == FIRST_CATALOGUE_BLOCK
     assert detection.address == GM_TOKEN.lower()
@@ -101,3 +102,4 @@ def test_fetch_and_sync_gmx_vault_catalogue_is_idempotent(monkeypatch: pytest.Mo
     assert row["_gmx_component_addresses"] == tuple(address.lower() for address in product.component_addresses)
     assert row["_gmx_enabled"] is False
     assert row["_deposit_closed_reason"] == "GMX product disabled"
+    assert row["_deposits_open"] is False

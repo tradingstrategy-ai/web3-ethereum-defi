@@ -508,9 +508,11 @@ is an accepted approximation that makes volatility, Sharpe and drawdown
 available. Volatility and Sharpe remain sensitive to GMX operation cadence and
 must not be interpreted as continuously sampled NAV statistics.
 
-The result is a USD-denominated GMX share curve. It approximates a single-sided
-USDC deposit only where USDC is accepted and does not model an individual
-request. Accepted deposit tokens are product-specific. The curve excludes
+The resulting GMX share curve is displayed in USDC, while GMX itself values the
+underlying shares in USD. The USDC label is a comparison convention: it does
+not mean every product accepts USDC or has an onchain USDC NAV. It approximates
+a single-sided USDC deposit only where USDC is accepted and does not model an
+individual request. Accepted deposit tokens are product-specific. The curve excludes
 execution fees, price impact, token spreads, deposit or withdrawal fees and
 waiting time. GMX's transaction costs are not management or performance fees;
 those two depositor-facing fields are zero in the common fee interface.
@@ -521,14 +523,16 @@ the scanner, but GMX owns the ``gmx_historical_context`` table. It stores only
 source event observations. Calculated share prices and TVL are written to the
 normal vault Parquet files.
 
-Use the manual scripts in this order. First enumerate current products into the
-common metadata database:
+Use the manual scripts in this order. First idempotently migrate current
+products into the common metadata database. This refreshes existing GM and GLV
+rows by chain and share-token address, including their unique names and USDC
+display denomination:
 
 ```shell
 source .local-test.env && \
   CHAINS=arbitrum,avalanche \
   DRY_RUN=false \
-  poetry run python scripts/erc-4626/seed-gmx-vaults.py
+  poetry run python scripts/erc-4626/migrate-gmx-vaults-metadata.py
 ```
 
 Use ``DRY_RUN=true`` for a read-only preview, then rerun with ``false`` before

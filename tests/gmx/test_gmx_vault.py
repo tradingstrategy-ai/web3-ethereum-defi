@@ -70,6 +70,19 @@ def test_gmx_fee_interface_matches_protocol_liquidity_pools() -> None:
         assert fee_data.can_calculate_investor_net_performance()
 
 
+def test_gmx_withdrawals_have_an_asynchronous_settlement_estimate() -> None:
+    """GMX has no binding redemption deadline but exposes a UI estimate."""
+
+    vault = GMXMarketVault(SimpleNamespace(eth=SimpleNamespace(chain_id=42161)), VaultSpec(42161, GM_TOKEN))
+
+    period = vault.get_withdrawal_period()
+    assert period.min_period is None
+    assert period.max_period is None
+    assert period.delay_type == "delay"
+    assert period.estimated_settlement == datetime.timedelta(minutes=1)
+    assert vault.fetch_deposit_open() is None
+
+
 def test_gmx_is_classified_as_low_technical_risk() -> None:
     """GMX adapters inherit the shared low technical-risk classification."""
 
@@ -93,7 +106,7 @@ def test_gmx_vaults_explain_single_sided_usdc_performance_equivalence() -> None:
     """GM and GLV expose the common performance-interpretation note."""
 
     web3 = SimpleNamespace(eth=SimpleNamespace(chain_id=42161))
-    expected = "The vault performance is a USD-denominated GMX share curve. It approximates a single-sided USDC deposit only where USDC is accepted and does not model the deposit transaction."
+    expected = "The vault performance is a GMX share curve displayed in USDC. GMX values the underlying share in USD; the USDC label is a comparison convention. It approximates a single-sided USDC deposit only where USDC is accepted and does not model the deposit transaction."
 
     for vault_class, token in ((GMXMarketVault, GM_TOKEN), (GMXLiquidityVault, GLV_TOKEN)):
         vault = vault_class(web3, VaultSpec(42161, token))
