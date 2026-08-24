@@ -38,3 +38,16 @@ def test_manual_aave_tags_are_added_to_automatic_lending(monkeypatch: pytest.Mon
         StrategyTag.algorithmic_trading,
         StrategyTag.lending,
     }
+
+
+def test_3f_steakhouse_usdc_has_rwa_lending_tags() -> None:
+    """3F's reviewed Morpho vault is classified as RWA-backed lending."""
+
+    vault = _make_vault(MorphoV2Vault)
+    vault.vault_address = HexAddress("0xBEEf3f3A04e28895f3D5163d910474901981183D")
+
+    assert vault.get_strategy_tags() == {
+        StrategyTag.lending,
+        StrategyTag.rwa,
+        StrategyTag.rwa_lending,
+    }

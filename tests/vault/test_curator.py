@@ -929,6 +929,21 @@ def test_identify_smokehouse_as_steakhouse_financial() -> None:
     assert slug == "steakhouse-financial"
 
 
+def test_identify_3f_steakhouse_usdc_by_address_override() -> None:
+    """Attribute 3F's co-branded vault without changing Steakhouse's other vaults."""
+
+    slug = identify_curator(
+        chain_id=1,
+        vault_token_symbol="3F-steakUSDC",
+        vault_name="3F x Steakhouse USDC",
+        vault_address="0xBEEf3f3A04e28895f3D5163d910474901981183D",
+        protocol_slug="morpho",
+        manager_name="Steakhouse Financial",
+    )
+
+    assert slug == "3f"
+
+
 def test_identify_telosc_short_name() -> None:
     """TelosC vault names resolve to Telos Consilium."""
 
