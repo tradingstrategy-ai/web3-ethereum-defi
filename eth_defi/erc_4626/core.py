@@ -147,6 +147,16 @@ class ERC4626Feature(enum.Enum):
     #: through a :py:class:`eth_defi.vault.base.VaultBase` adapter.
     wstgbp_like = "wstgbp_like"
 
+    #: GMX V2 GM market-token liquidity-provider shares.
+    #:
+    #: https://docs.gmx.io/docs/providing-liquidity/
+    gmx_gm = "gmx_gm"
+
+    #: GMX V2 GLV multi-market liquidity-provider shares.
+    #:
+    #: https://docs.gmx.io/docs/providing-liquidity/
+    gmx_glv = "gmx_glv"
+
     @classmethod
     def _missing_(cls, value: object) -> "ERC4626Feature | None":
         """Map retired feature values retained in persisted vault databases.
@@ -988,6 +998,11 @@ def passes_price_scan_activity_filter(detection: "ERC4262VaultDetection", min_de
         alternative activity source, or a T3tris vault has at least one
         configuration event.
     """
+    if ERC4626Feature.gmx_gm in detection.features or ERC4626Feature.gmx_glv in detection.features:
+        # GM/GLV valuation needs per-block Reader or GlvReader context and is
+        # intentionally unsupported by the generic historical price scanner.
+        return False
+
     if detection.deposit_count >= min_deposit_threshold or is_activity_filter_exempt(detection):
         return True
 
@@ -1081,6 +1096,8 @@ def get_vault_protocol_name(features: set[ERC4626Feature]) -> str:
         return "Theo"
     elif ERC4626Feature.wstgbp_like in features:
         return "wstGBP"
+    elif ERC4626Feature.gmx_gm in features or ERC4626Feature.gmx_glv in features:
+        return "GMX"
     elif ERC4626Feature.vault_street_like in features:
         return "Vault Street"
     elif ERC4626Feature.morpho_like in features:

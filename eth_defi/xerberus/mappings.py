@@ -46,6 +46,8 @@ XERBERUS_PROTOCOL_MAPPINGS: dict[str, str | None] = {
     "frankencoin": "frankencoin",
     # 2026-07-25 — registry ``gearbox-v3`` / Gearbox v3
     "gearbox": "gearbox-v3",
+    # 2026-08-24 — registry ``gmx-v2`` / GMX V2
+    "gmx": "gmx-v2",
     # 2026-07-25 — registry ``infinifi-v1`` / infiniFi v1
     "infinifi": "infinifi-v1",
     # 2026-07-25 — registry ``ipor-fusion-v1`` / IPOR Fusion v1
@@ -108,7 +110,6 @@ XERBERUS_UNMAPPED_PROTOCOL_REASONS: dict[str, str] = {
     "curve-v2": ("Curve Finance; we have no curve vault-protocol metadata slug (llama-lend is a different product and must not be aliased here)."),
     "digift-v1": "DigiFT; we have no digift vault-protocol metadata slug.",
     "ebisu-v1": "Ebisu Finance; we have no ebisu vault-protocol metadata slug.",
-    "gmx-v2": "GMX V2; we have no gmx vault-protocol metadata YAML in this repository.",
     "knox-finance": "Knox; we have no knox vault-protocol metadata slug.",
     "makina-finance": "Makina Finance; we have no makina vault-protocol metadata slug.",
     "moonwell-v1": "Moonwell; we have no moonwell vault-protocol metadata slug.",

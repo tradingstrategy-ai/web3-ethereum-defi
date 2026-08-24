@@ -24,17 +24,25 @@ What Is GMX?
 
 GMX is a `perpetual future <https://tradingstrategy.ai/glossary/perpetual%20future>`_ (“perp”) `DEX <https://tradingstrategy.ai/glossary/DEX>`_ for `EVM <https://tradingstrategy.ai/glossary/EVM>`_ blockchains.
 
-GMX offers dozens of perp trading pairs for popular cryptocurrencies like BTC, ETH and SOL. GMX is so-called pure `onchain <https://tradingstrategy.ai/glossary/onchain>`_ market with high degree of decentralisation. Thus, GMX has high `composability <https://tradingstrategy.ai/glossary/composability>`_ with other `decentralised finance <https://tradingstrategy.ai/glossary/decentralised%20finance>`_ `protocols <https://tradingstrategy.ai/glossary/protocols>`_. This allows users `longing <https://tradingstrategy.ai/glossary/longing>`_ and `shorting <https://tradingstrategy.ai/glossary/shorting>`_ different asset prices with `leverage <https://tradingstrategy.ai/glossary/leverage>`_ onchain.
+GMX provides perpetual trading and swaps using GM and GLV liquidity pools on
+Arbitrum and Avalanche. GM is an individual market pool; GLV is a pool that
+allocates liquidity across GM markets with the same backing tokens. Liquidity
+providers receive a share of protocol fees and bear the pool's market,
+liquidity and trader profit-and-loss exposure. See the `GMX liquidity
+documentation <https://docs.gmx.io/docs/providing-liquidity/>`__ for the
+current pool mechanics.
 
-GMX is one of the oldest pure onchain perpetual future market places still running. GMX mainly operates on Arbitrum, but has expanded to include cross-chain functionality. `GMX saw a hacking incident in July 2025 from which it recovered <www.google.com>`_.
+GM and GLV tokens are ERC-20 liquidity-provider shares, not ERC-4626 vaults.
+Their USD value depends on pool state, total supply, capped trader PnL and
+oracle prices. The GMX vault catalogue in this library gives each product a
+unique name and uses USDC as its display denomination; it does not treat that
+label as an onchain USDC NAV or publish a historical price curve. Exact
+valuation requires the inputs documented by `GMX <https://docs.gmx.io/docs/api/gm-glv-prices/>`__.
 
-GMX has its own pools for `market making <https://tradingstrategy.ai/glossary/market%20making>`_ where pools users can provide liquidity and take the other side of the trade. There are `GLP vaults <x.com>`_ in GMX v2 and older GLP vaults in GMX v1. GLV is the index pool of GMX’s markets, rebalancing liquidity to its best-performing GM pools and generating fees from them. As a result, GLV offers liquidity providers a balanced instrument with stable risk-adjusted returns and high capital efficiency.
-
-There are multiple third-party DeFi vaults built on the top of GMX, like `Umami’s GM vaults <umami.finance>`_ following `ERC-4626 <https://tradingstrategy.ai/glossary/ERC-4626>`_ standard.
-
-GMX price formation relies on its multi-asset liquidity pool (GLP) and a “virtual” `AMM <https://tradingstrategy.ai/glossary/AMM>`_ (vAMM) model that uses Chainlink oracles for price data instead of a traditional `order book <https://tradingstrategy.ai/glossary/order%20book>`_. When users trade, the vAMM calculates the price based on the ratio of assets in the GLP pool, and price feeds from Chainlink ensure accurate pricing for fixed-price trades.
-
-Unlike standard AMMs, GMX’s vAMM shifts risk to `liquidity providers <https://tradingstrategy.ai/glossary/liquidity%20providers>`_ (LPs) in the GLP pool, with traders paying a fee that is split between the GMX token holders and the GLP LPs.
+GMX V1 and its GLP pool are archived: `GMX documents <https://docs.gmx.io/docs/category/archived/>`__
+that V1 trading has been disabled since July 2025 and GLP no longer provides
+liquidity. The V2 GM and GLV products covered by this catalogue are separate
+from that archived deployment.
 
 More info
 =========
@@ -64,6 +72,9 @@ More info
    eth_defi.gmx.types
    eth_defi.gmx.utils
    eth_defi.gmx.valuation
+   eth_defi.gmx.vault
+   eth_defi.gmx.vault_catalog
+   eth_defi.gmx.vault_sync
    eth_defi.gmx.cache
    eth_defi.gmx.gas_monitor
    eth_defi.gmx.order_tracking
@@ -76,4 +87,3 @@ More info
    eth_defi.gmx.graphql
    eth_defi.gmx.lagoon
    eth_defi.gmx.onchain
-
