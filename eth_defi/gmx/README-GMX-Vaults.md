@@ -25,13 +25,16 @@ or has an onchain USDC NAV. GMX's own GM and GLV valuations remain USD values.
 
 ## Operations
 
-Use the metadata script to add or refresh current products. It does not modify
+Run the idempotent metadata migration after deploying this integration and when
+the GMX catalogue needs refreshing. It finds rows by chain and GM/GLV token
+address, so existing products receive their current unique names, USDC display
+denomination and enabled status without duplicating rows. It does not modify
 historical price data or reader state.
 
 ```shell
 source ~/vault-scanner/vault-rpc.env
 cd ~/vault-scanner/web3-ethereum-defi
-docker compose run --rm --entrypoint /bin/bash vault-scanner-oneshot -lc 'PYTHONPATH=. UPSHIFT_SCAN_PRICES=false python scripts/erc-4626/seed-gmx-vaults.py'
+docker compose run --rm --entrypoint /bin/bash vault-scanner-oneshot -lc 'PYTHONPATH=. UPSHIFT_SCAN_PRICES=false python scripts/erc-4626/migrate-gmx-vaults-metadata.py'
 ```
 
 Use `DRY_RUN=true` first to inspect the catalogue without writing it. GMX

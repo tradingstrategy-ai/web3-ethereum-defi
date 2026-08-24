@@ -1,4 +1,4 @@
-"""Seed GMX V2 GM and GLV products into the common vault metadata database.
+"""Migrate GMX V2 GM and GLV metadata into the common vault database.
 
 Environment variables:
 
@@ -27,7 +27,7 @@ CHAIN_IDS_BY_NAME = {name: chain_id for chain_id, name in GMX_CHAIN_NAMES_BY_ID.
 
 
 def main() -> None:
-    """Enumerate configured GMX deployments and atomically update metadata."""
+    """Migrate configured GMX deployments and atomically update metadata."""
 
     setup_console_logging(default_log_level=os.environ.get("LOG_LEVEL", "info"))
     chain_names = tuple(name.strip().lower() for name in os.environ.get("CHAINS", "arbitrum,avalanche").split(",") if name.strip())
