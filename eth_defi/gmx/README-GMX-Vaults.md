@@ -308,11 +308,16 @@ owns its own table. The minimal GMX table contains:
 | `raw_value` / `raw_supply` | GMX value and matching share supply |
 | `event_name` | `MarketPoolValueUpdated` or `GlvValueUpdated` |
 
-The primary key is chain, transaction hash and log index. Re-inserting the same
-source observation is ignored; conflicting values for the same source event
-raise an error. Older development caches using the generic JSON envelope are
-migrated transactionally when opened; obsolete rows from the earlier mixed GM
-valuation context are not copied.
+The application-level identity is chain, transaction hash and log index.
+Re-inserting the same source observation is ignored; conflicting values for the
+same source event raise an error. The table deliberately has no DuckDB
+`PRIMARY KEY` or `UNIQUE` constraint: DuckDB 1.5.0 ART indexes can corrupt the
+native heap on large file-backed databases under Python 3.14; see the related
+[DuckDB ART issue](https://github.com/duckdb/duckdb/issues/18190). Batches use
+an unconstrained temporary table and hash joins for conflict detection and
+deduplication. Existing indexed tables and older development caches using the
+generic JSON envelope are migrated transactionally when opened; obsolete rows
+from the earlier mixed GM valuation context are not copied.
 
 Large backfills are split into half-open Hypersync chunks, paginated within
 each chunk, and committed independently. Repeating a complete chain range is

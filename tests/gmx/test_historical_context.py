@@ -95,6 +95,62 @@ def test_legacy_context_table_is_migrated_to_direct_columns(tmp_path: Path) -> N
     assert columns == historical_context.GMX_HISTORICAL_CONTEXT_COLUMNS
 
 
+def test_primary_key_table_is_migrated_without_art_index(tmp_path: Path) -> None:
+    """Preserve observations while removing the unsafe DuckDB ART index."""
+
+    path = tmp_path / "vault-historical-context.duckdb"
+    observation = _observation(5)
+    connection = duckdb.connect(str(path))
+    try:
+        connection.execute(
+            """
+            CREATE TABLE gmx_historical_context (
+                chain_id UINTEGER NOT NULL,
+                block_number UBIGINT NOT NULL,
+                block_timestamp UBIGINT NOT NULL,
+                transaction_hash VARCHAR NOT NULL,
+                log_index UINTEGER NOT NULL,
+                product_address VARCHAR NOT NULL,
+                raw_value UHUGEINT NOT NULL,
+                raw_supply UHUGEINT NOT NULL,
+                event_name VARCHAR NOT NULL,
+                PRIMARY KEY (chain_id, transaction_hash, log_index)
+            )
+            """
+        )
+        connection.execute(
+            "INSERT INTO gmx_historical_context VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            GMXHistoricalContextStore._observation_to_values(observation),
+        )
+    finally:
+        connection.close()
+
+    with GMXHistoricalContextStore(path) as store:
+        assert not store._has_art_index("gmx_historical_context")
+        selected = tuple(store.iter_share_prices(chain_id=42161, product_address=TOKEN, start_block=0, end_block=10, step=10))
+
+    assert selected == (observation,)
+
+
+def test_batch_insert_is_idempotent_without_constraints(tmp_path: Path) -> None:
+    """Deduplicate a complete chunk through application-level hash joins."""
+
+    observations = (_observation(5), _observation(6), _observation(6))
+    with GMXHistoricalContextStore(tmp_path / "vault-historical-context.duckdb") as store:
+        assert store.insert_share_prices(observations) == 2
+        assert store.insert_share_prices(observations) == 0
+        assert not store._has_art_index("gmx_historical_context")
+
+
+def test_batch_insert_rejects_conflict_within_batch(tmp_path: Path) -> None:
+    """Reject two payloads carrying the same source-event identity."""
+
+    observations = (_observation(5), _observation(5, raw_value=2 * 10**30))
+    with GMXHistoricalContextStore(tmp_path / "vault-historical-context.duckdb") as store:
+        with pytest.raises(ValueError, match="conflict"):
+            store.insert_share_prices(observations)
+
+
 def test_share_price_reader_rejects_conflicting_source_event(tmp_path: Path) -> None:
     """Reject different values for the same chain transaction log."""
 
