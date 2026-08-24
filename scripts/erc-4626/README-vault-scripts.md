@@ -534,16 +534,14 @@ source .local-test.env && \
 Use ``DRY_RUN=true`` for a read-only preview, then rerun with ``false`` before
 the backfill.
 
-Run a bounded half-open backfill. Repeating a range is safe; cache insertion is
-idempotent and Parquet replacement is limited to the selected GMX addresses
-and block interval.
+Run the full backfill. The script needs no chain, range or frequency
+parameters: it processes Arbitrum and Avalanche sequentially, snapshots one
+safe head per chain, and scans the half-open range from block 1 to that head
+using hourly buckets. Cache insertion is idempotent, and repeating the command
+rebuilds the same complete GMX ranges without modifying scheduled reader state.
 
 ```shell
 source .local-test.env && \
-  CHAIN=arbitrum \
-  START_BLOCK=300000000 \
-  END_BLOCK=500000000 \
-  FREQUENCY=1h \
   poetry run python scripts/erc-4626/backfill-gmx-vault-prices.py
 ```
 
@@ -573,10 +571,6 @@ observation-cadence-sensitive approximations described above.
 | Variable | Script | Description |
 |----------|--------|-------------|
 | `CHAINS` | seed | Comma-separated `arbitrum,avalanche`; defaults to both. |
-| `CHAIN` | backfill | One of `arbitrum` or `avalanche`. |
-| `START_BLOCK` / `END_BLOCK` | backfill | Required half-open price range with `START_BLOCK >= 1`. |
-| `FREQUENCY` | backfill | Common block bucket frequency, `1h` or `1d`; default `1h`. |
-| `VAULT_ADDRESSES` | backfill | Optional comma-separated GM/GLV subset. |
 | `MAX_WORKERS` | seed, backfill | Thread worker count. |
 | `DRY_RUN` | seed, backfill | Enumerate or use temporary output without changing production files. |
 | `VAULT_DATABASE` | all | Common metadata pickle override. |

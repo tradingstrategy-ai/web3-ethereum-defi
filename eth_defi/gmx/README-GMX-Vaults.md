@@ -308,10 +308,11 @@ migrated transactionally when opened; obsolete rows from the earlier mixed GM
 valuation context are not copied.
 
 Large backfills are split into half-open Hypersync chunks and each chunk is
-committed independently. Repeating the complete requested range is safe because
+committed independently. Repeating a complete chain range is safe because
 source observations are inserted idempotently. The script always fetches the
-full replacement range; it does not accept an unverified resume cursor that
-could leave the rebuilt Parquet interval incomplete.
+full replacement range from block 1 to one snapshotted safe head; it does not
+accept an unverified resume cursor that could leave the rebuilt Parquet
+interval incomplete.
 
 ## Contextual historical reader
 
@@ -388,20 +389,21 @@ limitation when comparing products with different operation frequency.
 
 ## Manual migration and examination
 
-The manual scripts are intended for initial migration, bounded repairs and
-local verification:
+The manual scripts are intended for initial migration, complete historical
+imports and local verification:
 
 | Script | Purpose |
 |--------|---------|
 | [`seed-gmx-vaults.py`](../../scripts/erc-4626/seed-gmx-vaults.py) | Enumerate current GM/GLV products into the common metadata database |
-| [`backfill-gmx-vault-prices.py`](../../scripts/erc-4626/backfill-gmx-vault-prices.py) | Prefill a bounded context range and run the common Parquet writer without modifying production reader state |
+| [`backfill-gmx-vault-prices.py`](../../scripts/erc-4626/backfill-gmx-vault-prices.py) | Prefill complete Arbitrum and Avalanche context ranges and run the common hourly Parquet writer without modifying production reader state |
 | [`examine-gmx-vault-backfill.py`](../../scripts/erc-4626/examine-gmx-vault-backfill.py) | Check duplicates, positive values, source linkage, asset identity and sparse-threshold behaviour |
 | [`examine-gmx-vault-performance.py`](../../scripts/erc-4626/examine-gmx-vault-performance.py) | Run common lifetime metrics and display TVL, lifetime CAGR, three-month CAGR, approximate three-month volatility and Sharpe |
 
-The backfill uses half-open `[START_BLOCK, END_BLOCK)` ranges and limits
-Parquet replacement to the selected GMX addresses and block interval. It does
-not read or write the scheduled reader-state pickle. Repeating the same range
-is safe.
+The backfill requires no chain, block or frequency parameters. It processes
+Arbitrum and Avalanche sequentially with hourly buckets, using the half-open
+range from block 1 to a separately snapshotted safe head on each chain. It
+rewrites all seeded GMX addresses in those ranges without reading or writing
+the scheduled reader-state pickle. Repeating the command is safe.
 
 See the [operator documentation](../../scripts/erc-4626/README-vault-scripts.md#gmx-v2-liquidity-provider-vaults)
 for complete commands and environment variables.
