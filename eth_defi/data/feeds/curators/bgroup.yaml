@@ -1,0 +1,9 @@
+feeder-id: bgroup
+name: Bgroup
+role: curator
+short_description: Bgroup is the manager label used for the B100, BBTC, and BGC Enzyme fund family.
+long_description: |
+  The [B100 Enzyme Blue listing](https://app.enzyme.finance/vault/0xb8f69b26316818db0ea3b6d1639fedf744a2df41?network=ethereum) explicitly presents BBTC and BGC as other Bgroup vaults. The listing provides no separate human-readable manager field or public organisation profile, so this record preserves the manager label used by that vault family without inferring ownership or affiliation.
+other-links:
+  - title: Enzyme Blue - B100 listing naming the Bgroup vault family
+    url: https://app.enzyme.finance/vault/0xb8f69b26316818db0ea3b6d1639fedf744a2df41?network=ethereum

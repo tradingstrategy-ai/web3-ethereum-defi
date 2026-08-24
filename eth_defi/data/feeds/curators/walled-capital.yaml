@@ -1,0 +1,13 @@
+feeder-id: walled-capital
+name: Walled Capital
+role: curator
+short_description: Walled Capital is the manager label used for the Walled Fund crypto and DeFi portfolio family.
+long_description: |
+  The [Walled Fund II Enzyme Blue listing](https://app.enzyme.finance/vault/0x952a00d5fa79af70b28fed5725a86d60b17a3297?network=ethereum) describes the product as a continuation of Walled Fund I and links to its Walled Capital strategy paper. Its other Enzyme listings cover ETH options and a liquid digital-asset portfolio, establishing a shared fund family without claiming a separate legal identity.
+other-links:
+  - title: Enzyme Blue - Walled Fund II listing
+    url: https://app.enzyme.finance/vault/0x952a00d5fa79af70b28fed5725a86d60b17a3297?network=ethereum
+  - title: Enzyme Blue - Walled Fund ETH listing
+    url: https://app.enzyme.finance/vault/0x15ce0ce914f97ed7b0e3fe4da0c696002b3d2964?network=ethereum
+  - title: Enzyme Blue - Walled Fund Liquid listing
+    url: https://app.enzyme.finance/vault/0xd22c061a1ee043c75f642fcfb643f9541997fb85?network=ethereum

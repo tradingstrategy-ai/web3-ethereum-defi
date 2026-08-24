@@ -1,0 +1,11 @@
+feeder-id: starzfi
+name: StarzFi
+role: curator
+short_description: StarzFi is the manager label used for its Base savings and digital-asset portfolio vaults.
+long_description: |
+  The [StarzFi Smart Savings Vault listing](https://app.enzyme.finance/vault/0x80dc1c8ad380c8ce9f45c94422b70edc52aa8804?network=base) describes a hands-off DeFi yield product using lending and liquidity provision. Its [Growth Reserve counterpart](https://app.enzyme.finance/vault/0x7c05c4e1a0c35ff7a4b87302029af124a42375cb?network=base) offers long-term BTC and ETH exposure with optional lending, establishing a shared StarzFi vault family without a separate Enzyme manager field.
+other-links:
+  - title: Enzyme Blue - StarzFi Smart Savings Vault listing
+    url: https://app.enzyme.finance/vault/0x80dc1c8ad380c8ce9f45c94422b70edc52aa8804?network=base
+  - title: Enzyme Blue - StarzFi Growth Reserve listing
+    url: https://app.enzyme.finance/vault/0x7c05c4e1a0c35ff7a4b87302029af124a42375cb?network=base
