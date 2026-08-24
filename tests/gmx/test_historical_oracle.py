@@ -1,6 +1,7 @@
 """Unit tests for GMX historical liquidity-provider observations."""
 
 import asyncio
+from types import SimpleNamespace
 
 import pytest
 from eth_utils import to_checksum_address
@@ -41,44 +42,61 @@ def test_historical_fetch_reuses_supplied_event_loop(monkeypatch: pytest.MonkeyP
     assert event_loops[0] is event_loops[1]
 
 
-def test_historical_fetch_closes_native_stream(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Release native stream buffers deterministically after end-of-stream."""
+def test_historical_fetch_uses_bounded_pagination() -> None:
+    """Advance through explicit response pages without a native stream."""
 
-    class Receiver:
-        """Minimal native-stream substitute."""
+    class Client:
+        """Return two controlled response pages."""
 
-        closed = False
+        def __init__(self):
+            self.from_blocks: list[int] = []
 
-        async def recv(self) -> None:  # noqa: PLR6301
-            """Return end-of-stream immediately."""
+        async def get(self, query: object) -> SimpleNamespace:
+            """Record and advance the requested range."""
 
-            await asyncio.sleep(0)
+            self.from_blocks.append(query.from_block)
+            return SimpleNamespace(
+                next_block=5 if query.from_block == 1 else 10,
+                data=SimpleNamespace(blocks=[], logs=[]),
+            )
 
-        def close(self) -> None:
-            """Record deterministic resource release."""
-
-            self.closed = True
-
-    receiver = Receiver()
-
-    async def open_stream(*_args: object) -> Receiver:
-        """Return the controlled stream substitute."""
-
-        await asyncio.sleep(0)
-        return receiver
-
-    monkeypatch.setattr(historical_oracle, "open_hypersync_stream", open_stream)
+    client = Client()
     observations = fetch_historical_share_price_observations_hypersync(
-        hypersync_client=object(),
+        hypersync_client=client,
         web3=Web3(),
         chain_id=42161,
         event_emitter_address=TOKEN,
         start_block=1,
-        end_block=2,
+        end_block=10,
     )
 
     assert observations == []
-    assert receiver.closed
+    assert client.from_blocks == [1, 5]
+
+
+def test_historical_fetch_rejects_stalled_pagination() -> None:
+    """Abort instead of looping when a server page makes no progress."""
+
+    class Client:
+        """Return an invalid response boundary."""
+
+        async def get(self, query: object) -> SimpleNamespace:  # noqa: PLR6301
+            """Return the requested start block unchanged."""
+
+            return SimpleNamespace(
+                next_block=query.from_block,
+                data=SimpleNamespace(blocks=[], logs=[]),
+            )
+
+    with pytest.raises(RuntimeError, match="invalid GMX pagination boundary"):
+        fetch_historical_share_price_observations_hypersync(
+            hypersync_client=Client(),
+            web3=Web3(),
+            chain_id=42161,
+            event_emitter_address=TOKEN,
+            start_block=1,
+            end_block=10,
+        )
 
 
 def test_encode_product_address_as_event_topic() -> None:

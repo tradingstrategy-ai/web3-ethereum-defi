@@ -99,6 +99,9 @@ def _run_backfill(
     detections = [row["_detection_data"] for row in vault_db.rows.values() if row["_detection_data"].chain == chain_id and row["_detection_data"].features & GMX_FEATURES]
     if not detections:
         raise RuntimeError(f"No seeded GMX V2 products found for {chain_name}")
+    # The full metadata database is large and is not needed during context
+    # collection; retain only the selected GMX detection records.
+    del vault_db
 
     prefill = fetch_and_store_gmx_historical_share_prices(
         web3=web3,

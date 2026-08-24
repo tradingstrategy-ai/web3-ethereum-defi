@@ -20,7 +20,7 @@ from hexbytes import HexBytes
 from web3 import Web3
 
 from eth_defi.gmx.events import EVENT_LOG1_SIGNATURE, GMXEventData
-from eth_defi.hypersync.session import ThrottledHypersyncClient, open_hypersync_stream
+from eth_defi.hypersync.session import ThrottledHypersyncClient
 from eth_defi.vault.flow_events import decode_hypersync_int
 
 try:
@@ -218,7 +218,31 @@ async def _fetch_historical_share_price_observations_hypersync_async(
     end_block: int,
     product_addresses: Iterable[HexAddress] | None = None,
 ) -> list[GMXHistoricalSharePriceObservation]:
-    """Fetch GM and GLV value events from one half-open block range."""
+    """Fetch GM and GLV value events from one half-open block range.
+
+    GMX uses explicit ``get()`` pagination because the native Hypersync 1.1
+    streaming engine retains large buffers for dense GMX event ranges and can
+    corrupt its native heap during a full-chain backfill. One response page at
+    a time keeps native memory bounded while preserving the same server-side
+    query semantics.
+
+    :param hypersync_client:
+        Configured throttle-aware Hypersync client for the chain.
+    :param web3:
+        Web3 instance used to decode GMX EventEmitter payloads.
+    :param chain_id:
+        Chain represented by the query.
+    :param event_emitter_address:
+        GMX EventEmitter deployment.
+    :param start_block:
+        Inclusive block boundary.
+    :param end_block:
+        Exclusive block boundary.
+    :param product_addresses:
+        Optional GM and GLV addresses selected at the indexed-log level.
+    :return:
+        Chronologically ordered observations.
+    """
 
     assert hypersync is not None, "hypersync package is required to fetch GMX historical value events"
     assert 0 <= start_block < end_block, f"Bad half-open block range: [{start_block}, {end_block})"
@@ -241,29 +265,29 @@ async def _fetch_historical_share_price_observations_hypersync_async(
         ),
     )
     observations: list[GMXHistoricalSharePriceObservation] = []
-    receiver = await open_hypersync_stream(hypersync_client, query)
-    try:
-        while response := await receiver.recv():
-            block_timestamps = {decode_hypersync_int(block.number): decode_hypersync_int(block.timestamp) for block in response.data.blocks or [] if block.number is not None and block.timestamp is not None}
-            for log in response.data.logs or []:
-                block_number = decode_hypersync_int(log.block_number)
-                block_timestamp = block_timestamps.get(block_number)
-                if block_timestamp is None:
-                    raise ValueError(f"Hypersync did not return a timestamp for GMX value block {block_number}")
-                observation = extract_historical_share_price_observation(
-                    decode_historical_share_price_event_data(web3, log.data, log.topics[2]),
-                    chain_id=chain_id,
-                    block_number=block_number,
-                    block_timestamp=block_timestamp,
-                    transaction_hash=log.transaction_hash,
-                    log_index=decode_hypersync_int(log.log_index),
-                )
-                if observation is not None:
-                    observations.append(observation)
-    finally:
-        # :class:`hypersync.QueryResponseStream` owns native Rust buffers.
-        # Release them on their creating event loop before the next chunk.
-        receiver.close()
+    while query.from_block < end_block:
+        response = await hypersync_client.get(query)
+        block_timestamps = {decode_hypersync_int(block.number): decode_hypersync_int(block.timestamp) for block in response.data.blocks or [] if block.number is not None and block.timestamp is not None}
+        for log in response.data.logs or []:
+            block_number = decode_hypersync_int(log.block_number)
+            block_timestamp = block_timestamps.get(block_number)
+            if block_timestamp is None:
+                raise ValueError(f"Hypersync did not return a timestamp for GMX value block {block_number}")
+            observation = extract_historical_share_price_observation(
+                decode_historical_share_price_event_data(web3, log.data, log.topics[2]),
+                chain_id=chain_id,
+                block_number=block_number,
+                block_timestamp=block_timestamp,
+                transaction_hash=log.transaction_hash,
+                log_index=decode_hypersync_int(log.log_index),
+            )
+            if observation is not None:
+                observations.append(observation)
+
+        next_block = int(response.next_block)
+        if not query.from_block < next_block <= end_block:
+            raise RuntimeError(f"Hypersync returned invalid GMX pagination boundary {next_block} for range [{query.from_block}, {end_block})")
+        query.from_block = next_block
     observations.sort(key=lambda item: (item.block_number, item.log_index))
     return observations
 
@@ -286,7 +310,7 @@ def fetch_historical_share_price_observations_hypersync(
     :param web3:
         Web3 instance used to decode GMX EventEmitter payloads.
     :param chain_id:
-        Chain represented by the stream.
+        Chain represented by the query.
     :param event_emitter_address:
         GMX EventEmitter deployment.
     :param start_block:
@@ -297,8 +321,8 @@ def fetch_historical_share_price_observations_hypersync(
         Optional GM and GLV addresses selected at the indexed-log level.
     :param event_loop_runner:
         Optional long-lived event-loop runner. Full-chain backfills must reuse
-        one runner across chunks because the native Hypersync client and stream
-        resources must not be moved between short-lived event loops.
+        one runner across chunks so the native Hypersync client's asynchronous
+        resources stay on their creating loop.
     :return:
         Chronologically ordered observations.
     """

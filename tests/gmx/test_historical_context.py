@@ -137,3 +137,34 @@ def test_prefill_chunks_and_commits_completed_ranges(tmp_path: Path, monkeypatch
     with GMXHistoricalContextStore(context_path) as store:
         persisted = tuple(store.iter_share_prices(chain_id=42161, product_address=TOKEN, start_block=0, end_block=10, step=10))
     assert persisted == (_observation(5),)
+
+
+def test_prefill_retries_http_429(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Retry the HTTP error form returned by explicit Hypersync pages."""
+
+    attempts = 0
+    delays: list[float] = []
+
+    def fetch_observations(**_kwargs: object) -> list[GMXHistoricalSharePriceObservation]:
+        """Fail once with the direct-request rate-limit wording."""
+
+        nonlocal attempts
+        attempts += 1
+        if attempts == 1:
+            message = "429 Too Many Requests"
+            raise RuntimeError(message)
+        return []
+
+    monkeypatch.setattr(historical_context, "fetch_historical_share_price_observations_hypersync", fetch_observations)
+    monkeypatch.setattr(historical_context.time, "sleep", delays.append)
+
+    fetch_and_store_gmx_historical_share_prices(
+        web3=SimpleNamespace(eth=SimpleNamespace(chain_id=42161)),
+        hypersync_client=object(),
+        start_block=0,
+        end_block=10,
+        context_path=tmp_path / "vault-historical-context.duckdb",
+    )
+
+    assert attempts == 2
+    assert delays == [35]
