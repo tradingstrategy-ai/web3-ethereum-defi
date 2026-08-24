@@ -73,6 +73,10 @@ from eth_defi.erc_4626.lead_scan_core import scan_leads
 from eth_defi.erc_4626.settlement_scan import (
     fetch_and_store_vault_settlements_for_chain,
 )
+from eth_defi.erc_4626.vault_protocol.flying_tulip.constants import FLYING_TULIP_CURVE_CANONICAL_START_BLOCK
+from eth_defi.erc_4626.vault_protocol.flying_tulip.historical_context import FlyingTulipHistoricalContextStore, fetch_and_store_flying_tulip_source_history, fetch_flying_tulip_proxy_deployment_block
+from eth_defi.erc_4626.vault_protocol.flying_tulip.reward_price import fetch_and_store_flying_tulip_reward_prices
+from eth_defi.erc_4626.vault_protocol.flying_tulip.vault import get_flying_tulip_historical_context_path
 from eth_defi.feed.database import resolve_feed_database_path
 from eth_defi.gmx.historical_context import fetch_and_store_gmx_historical_share_prices, get_gmx_historical_context_path
 from eth_defi.gmx.vault_catalog import GMX_CHAIN_NAMES_BY_ID
@@ -89,7 +93,8 @@ from eth_defi.lighter.constants import LIGHTER_DAILY_METRICS_DATABASE, LIGHTER_D
 from eth_defi.lighter.daily_metrics import run_daily_scan as lighter_run_daily_scan
 from eth_defi.lighter.session import create_lighter_session
 from eth_defi.lighter.vault_data_export import merge_into_vault_database as lighter_merge_vault_db
-from eth_defi.provider.broken_provider import verify_archive_node
+from eth_defi.provider.broken_provider import get_almost_latest_block_number, verify_archive_node
+from eth_defi.provider.env import read_json_rpc_url
 from eth_defi.provider.multi_provider import MultiProviderWeb3Factory, create_multi_provider_web3
 from eth_defi.provider.rpcdb import RPCRequestStats, RPCUsageDatabase, format_rpc_usage_report, resolve_rpc_tracking_database_path
 from eth_defi.rate_limit import clear_sqlite_rate_limit_databases
@@ -838,6 +843,8 @@ def scan_prices_for_chain(
 
         gmx_features = {ERC4626Feature.gmx_gm, ERC4626Feature.gmx_glv}
         gmx_rows = [row for row in chain_vaults if row["_detection_data"].features & gmx_features]
+        flying_tulip_features = {ERC4626Feature.flying_tulip_like}
+        flying_tulip_rows = [row for row in chain_vaults if row["_detection_data"].features & flying_tulip_features]
 
         # Create vault instances with filtering
         vaults = []
@@ -859,6 +866,8 @@ def scan_prices_for_chain(
                 vault.first_seen_at_block = detection.first_seen_at_block
                 if detection.features & gmx_features:
                     vault.historical_context_path = historical_context_path or get_gmx_historical_context_path()
+                elif detection.features & flying_tulip_features:
+                    vault.historical_context_path = historical_context_path or get_flying_tulip_historical_context_path()
                 vaults.append(vault)
 
         if vault_addresses is not None:
@@ -906,6 +915,49 @@ def scan_prices_for_chain(
                     product_addresses=(row["_detection_data"].address for row in gmx_rows),
                 )
 
+        flying_tulip_source_rows_inserted = 0
+        if flying_tulip_rows:
+            if hypersync_config.hypersync_client is None:
+                raise RuntimeError(f"Flying Tulip history on chain {chain_id} requires a configured Hypersync client")
+            context_path = historical_context_path or get_flying_tulip_historical_context_path()
+            context_path.parent.mkdir(parents=True, exist_ok=True)
+            # Keep the contextual event cache clear of the reorg-prone head.
+            # The dedicated Flying Tulip backfill uses the same safe boundary.
+            flying_tulip_source_end_block = min(current_end_block, get_almost_latest_block_number(web3))
+            for row in flying_tulip_rows:
+                detection = row["_detection_data"]
+                with FlyingTulipHistoricalContextStore(context_path) as store:
+                    source_start = store.fetch_next_source_block(chain_id, detection.address)
+                if source_start is None:
+                    source_start = fetch_flying_tulip_proxy_deployment_block(web3, detection.address, flying_tulip_source_end_block)
+                if source_start < flying_tulip_source_end_block:
+                    prefill = fetch_and_store_flying_tulip_source_history(
+                        web3=web3,
+                        hypersync_client=hypersync_config.hypersync_client,
+                        start_block=source_start,
+                        end_block=flying_tulip_source_end_block,
+                        context_path=context_path,
+                    )
+                    flying_tulip_source_rows_inserted += prefill.rows_inserted
+            if chain_id == 1:
+                ethereum_web3 = web3
+                ethereum_hypersync = hypersync_config.hypersync_client
+            else:
+                ethereum_web3 = create_multi_provider_web3(read_json_rpc_url(1))
+                ethereum_hypersync = configure_hypersync_from_env(ethereum_web3, concurrency=hypersync_concurrency).hypersync_client
+            if ethereum_hypersync is None:
+                raise RuntimeError("Flying Tulip reward-price mapping requires a configured Ethereum Hypersync client")
+            else:
+                ethereum_end_block = flying_tulip_source_end_block if chain_id == 1 else get_almost_latest_block_number(ethereum_web3)
+                fetch_and_store_flying_tulip_reward_prices(
+                    ethereum_web3=ethereum_web3,
+                    ethereum_hypersync_client=ethereum_hypersync,
+                    chain_id=chain_id,
+                    ethereum_start_block=FLYING_TULIP_CURVE_CANONICAL_START_BLOCK,
+                    ethereum_end_block=ethereum_end_block,
+                    context_path=context_path,
+                )
+
         # Scan historical prices
         result = scan_historical_prices_to_parquet(
             output_fname=uncleaned_price_path,
@@ -936,6 +988,7 @@ def scan_prices_for_chain(
             "start_block": result["start_block"],
             "end_block": result["end_block"],
             "gmx_observations_inserted": gmx_prefill.observations_inserted if gmx_prefill else 0,
+            "flying_tulip_source_rows_inserted": flying_tulip_source_rows_inserted,
         }
 
     except Exception as e:

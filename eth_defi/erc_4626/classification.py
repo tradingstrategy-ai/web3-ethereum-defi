@@ -19,6 +19,7 @@ from eth_defi.abi import ZERO_ADDRESS_STR
 from eth_defi.erc_4626.core import ERC4626Feature
 from eth_defi.erc_4626.vault_protocol.arcus.constants import ARCUS_BRIDGE_VAULT, ARCUS_CHAIN_ID
 from eth_defi.erc_4626.vault_protocol.axis.constants import AXIS_CHAIN_ID, AXIS_STAKED_USDX_VAULT
+from eth_defi.erc_4626.vault_protocol.flying_tulip.constants import FLYING_TULIP_SFTUSD_BY_CHAIN
 from eth_defi.erc_4626.vault_protocol.frankencoin.vault import FRANKENCOIN_SAVINGS_VAULTS
 from eth_defi.erc_4626.vault_protocol.frax.constants import FRAX_STAKING_VAULT_ADDRESSES, FRAX_STAKING_VAULTS_BY_CHAIN, FRAXLEND_DEPLOYERS_BY_CHAIN
 from eth_defi.erc_4626.vault_protocol.kiloex.constants import KILOEX_VAULT_ADDRESSES, KILOEX_VAULTS_BY_CHAIN
@@ -341,6 +342,12 @@ NARA_HARDCODED_PROTOCOLS = {NARAUSD_PLUS_VAULT: {ERC4626Feature.nara_like}}
 #: unrelated contract cannot be selected by its generic ERC-20 surface.
 SHIFT_HARDCODED_PROTOCOLS = {address: {ERC4626Feature.shift_like} for address in SHIFT_VAULT_ADDRESSES}
 
+#: Flying Tulip's reviewed sftUSD proxies are a finite, chain-aware registry.
+#: The generic ERC-4626 surface deliberately cannot identify this externally
+#: rewarded fixed-price vault family safely. Do not add ABI-selector probes:
+#: only the published address list may map a vault to Flying Tulip.
+FLYING_TULIP_HARDCODED_PROTOCOLS = {HexAddress(address.lower()): {ERC4626Feature.flying_tulip_like, ERC4626Feature.share_price_equivalence} for address in FLYING_TULIP_SFTUSD_BY_CHAIN.values()}
+
 
 def _get_hardcoded_protocol_features(address: HexAddress | str, chain_id: int | None = None) -> set[ERC4626Feature] | None:
     """Return hardcoded protocol features for a vault address.
@@ -463,6 +470,12 @@ def _get_hardcoded_protocol_features(address: HexAddress | str, chain_id: int | 
         if normalised_address in shift_vaults:
             return SHIFT_HARDCODED_PROTOCOLS[normalised_address]
         if normalised_address in SHIFT_HARDCODED_PROTOCOLS:
+            return None
+
+        flying_tulip_address = FLYING_TULIP_SFTUSD_BY_CHAIN.get(chain_id)
+        if flying_tulip_address is not None and normalised_address == HexAddress(flying_tulip_address.lower()):
+            return FLYING_TULIP_HARDCODED_PROTOCOLS[normalised_address]
+        if normalised_address in FLYING_TULIP_HARDCODED_PROTOCOLS:
             return None
 
     return HARDCODED_PROTOCOLS.get(normalised_address)
@@ -2106,6 +2119,10 @@ def create_vault_instance(
         from eth_defi.gmx.vault import GMXLiquidityVault
 
         return GMXLiquidityVault(web3, spec, **kwargs)
+    elif ERC4626Feature.flying_tulip_like in features:
+        from eth_defi.erc_4626.vault_protocol.flying_tulip.vault import FlyingTulipVault
+
+        return FlyingTulipVault(web3, spec, **kwargs)
     elif ERC4626Feature.symbiotic_like in features:
         from eth_defi.erc_4626.vault_protocol.symbiotic.vault import SymbioticVault
 
@@ -2705,6 +2722,7 @@ HARDCODED_PROTOCOLS = {
     **FRAX_STAKING_HARDCODED_PROTOCOLS,
     **AXIS_HARDCODED_PROTOCOLS,
     **NARA_HARDCODED_PROTOCOLS,
+    **FLYING_TULIP_HARDCODED_PROTOCOLS,
     # Barker - H1 USDC vault on HyperEVM.
     # The proxy implementation is not verified on HyperEVM Scan, so this is
     # deliberately classified only by the reviewed deployment address.

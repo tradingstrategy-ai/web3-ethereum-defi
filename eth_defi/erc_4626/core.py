@@ -157,6 +157,13 @@ class ERC4626Feature(enum.Enum):
     #: from GMX pool-value and token-supply events.
     share_price_equivalence = "share_price_equivalence"
 
+    #: Flying Tulip's externally rewarded sftUSD vault.
+    #:
+    #: sftUSD deliberately keeps its ERC-4626 conversion at one ftUSD per
+    #: share.  Its FT reward distributions are represented separately through
+    #: a :attr:`share_price_equivalence` historical series.
+    flying_tulip_like = "flying_tulip_like"
+
     #: Theo multi-asset iToken tokenised funds.
     theo_itoken_like = "theo_itoken_like"
 
@@ -1075,6 +1082,8 @@ def get_vault_protocol_name(features: set[ERC4626Feature]) -> str:
         return "Midas"
     elif ERC4626Feature.gmx_gm in features or ERC4626Feature.gmx_glv in features:
         return "GMX"
+    elif ERC4626Feature.flying_tulip_like in features:
+        return "Flying Tulip"
     elif ERC4626Feature.asseto_like in features:
         return "Asseto"
     elif ERC4626Feature.franklin_like in features:

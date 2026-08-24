@@ -93,6 +93,9 @@ def test_fetch_account_funding(session):
     assert first.timestamp_ms > 0
 
 
+# Flaky: Hyperliquid did not answer before the 120-second timeout in PR #1512 CI on 2026-08-24;
+# the isolated test passed locally and the regular test-suite retry passed.
+@flaky.flaky
 @pytest.mark.timeout(120)
 def test_reconstruct_vault_trade_history(session, tmp_path):
     """Reconstruct trade history for an active account and verify fill data."""
