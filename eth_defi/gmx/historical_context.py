@@ -6,6 +6,7 @@ vault price scanner reads them.  Calculated prices remain in the common
 Parquet dataset, not in this cache.
 """
 
+import asyncio
 import logging
 import re
 import time
@@ -360,7 +361,10 @@ def fetch_and_store_gmx_historical_share_prices(
     path.parent.mkdir(parents=True, exist_ok=True)
     observations_fetched = 0
     observations_inserted = 0
-    with GMXHistoricalContextStore(path) as store:
+    # One native Hypersync client must stay on one event loop throughout the
+    # backfill. Repeated ``asyncio.run()`` calls can destroy Rust-backed stream
+    # resources on a different loop between chunks.
+    with asyncio.Runner() as event_loop_runner, GMXHistoricalContextStore(path) as store:
         for chunk_start in range(start_block, end_block, source_chunk_size):
             chunk_end = min(chunk_start + source_chunk_size, end_block)
             for attempt in range(1, GMX_HYPERSYNC_RATE_LIMIT_RETRIES + 1):
@@ -373,6 +377,7 @@ def fetch_and_store_gmx_historical_share_prices(
                         start_block=chunk_start,
                         end_block=chunk_end,
                         product_addresses=products,
+                        event_loop_runner=event_loop_runner,
                     )
                     break
                 except RuntimeError as error:

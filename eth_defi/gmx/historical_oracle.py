@@ -242,23 +242,28 @@ async def _fetch_historical_share_price_observations_hypersync_async(
     )
     observations: list[GMXHistoricalSharePriceObservation] = []
     receiver = await open_hypersync_stream(hypersync_client, query)
-    while response := await receiver.recv():
-        block_timestamps = {decode_hypersync_int(block.number): decode_hypersync_int(block.timestamp) for block in response.data.blocks or [] if block.number is not None and block.timestamp is not None}
-        for log in response.data.logs or []:
-            block_number = decode_hypersync_int(log.block_number)
-            block_timestamp = block_timestamps.get(block_number)
-            if block_timestamp is None:
-                raise ValueError(f"Hypersync did not return a timestamp for GMX value block {block_number}")
-            observation = extract_historical_share_price_observation(
-                decode_historical_share_price_event_data(web3, log.data, log.topics[2]),
-                chain_id=chain_id,
-                block_number=block_number,
-                block_timestamp=block_timestamp,
-                transaction_hash=log.transaction_hash,
-                log_index=decode_hypersync_int(log.log_index),
-            )
-            if observation is not None:
-                observations.append(observation)
+    try:
+        while response := await receiver.recv():
+            block_timestamps = {decode_hypersync_int(block.number): decode_hypersync_int(block.timestamp) for block in response.data.blocks or [] if block.number is not None and block.timestamp is not None}
+            for log in response.data.logs or []:
+                block_number = decode_hypersync_int(log.block_number)
+                block_timestamp = block_timestamps.get(block_number)
+                if block_timestamp is None:
+                    raise ValueError(f"Hypersync did not return a timestamp for GMX value block {block_number}")
+                observation = extract_historical_share_price_observation(
+                    decode_historical_share_price_event_data(web3, log.data, log.topics[2]),
+                    chain_id=chain_id,
+                    block_number=block_number,
+                    block_timestamp=block_timestamp,
+                    transaction_hash=log.transaction_hash,
+                    log_index=decode_hypersync_int(log.log_index),
+                )
+                if observation is not None:
+                    observations.append(observation)
+    finally:
+        # :class:`hypersync.QueryResponseStream` owns native Rust buffers.
+        # Release them on their creating event loop before the next chunk.
+        receiver.close()
     observations.sort(key=lambda item: (item.block_number, item.log_index))
     return observations
 
@@ -272,6 +277,7 @@ def fetch_historical_share_price_observations_hypersync(
     start_block: int,
     end_block: int,
     product_addresses: Iterable[HexAddress] | None = None,
+    event_loop_runner: asyncio.Runner | None = None,
 ) -> list[GMXHistoricalSharePriceObservation]:
     """Fetch GM and GLV value-and-supply observations.
 
@@ -289,18 +295,23 @@ def fetch_historical_share_price_observations_hypersync(
         Exclusive block boundary.
     :param product_addresses:
         Optional GM and GLV addresses selected at the indexed-log level.
+    :param event_loop_runner:
+        Optional long-lived event-loop runner. Full-chain backfills must reuse
+        one runner across chunks because the native Hypersync client and stream
+        resources must not be moved between short-lived event loops.
     :return:
         Chronologically ordered observations.
     """
 
-    return asyncio.run(
-        _fetch_historical_share_price_observations_hypersync_async(
-            hypersync_client=hypersync_client,
-            web3=web3,
-            chain_id=chain_id,
-            event_emitter_address=event_emitter_address,
-            start_block=start_block,
-            end_block=end_block,
-            product_addresses=product_addresses,
-        ),
+    coroutine = _fetch_historical_share_price_observations_hypersync_async(
+        hypersync_client=hypersync_client,
+        web3=web3,
+        chain_id=chain_id,
+        event_emitter_address=event_emitter_address,
+        start_block=start_block,
+        end_block=end_block,
+        product_addresses=product_addresses,
     )
+    if event_loop_runner is not None:
+        return event_loop_runner.run(coroutine)
+    return asyncio.run(coroutine)

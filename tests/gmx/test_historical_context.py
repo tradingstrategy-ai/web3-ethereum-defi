@@ -109,11 +109,13 @@ def test_prefill_chunks_and_commits_completed_ranges(tmp_path: Path, monkeypatch
 
     context_path = tmp_path / "vault-historical-context.duckdb"
     ranges: list[tuple[int, int]] = []
+    event_loop_runners: list[object] = []
 
     def fetch_observations(**kwargs: object) -> list[GMXHistoricalSharePriceObservation]:
         start_block = int(kwargs["start_block"])
         end_block = int(kwargs["end_block"])
         ranges.append((start_block, end_block))
+        event_loop_runners.append(kwargs["event_loop_runner"])
         if start_block == 0:
             return [_observation(5)]
         message = "interrupted source"
@@ -131,6 +133,7 @@ def test_prefill_chunks_and_commits_completed_ranges(tmp_path: Path, monkeypatch
         )
 
     assert ranges == [(0, 10), (10, 20)]
+    assert event_loop_runners[0] is event_loop_runners[1]
     with GMXHistoricalContextStore(context_path) as store:
         persisted = tuple(store.iter_share_prices(chain_id=42161, product_address=TOKEN, start_block=0, end_block=10, step=10))
     assert persisted == (_observation(5),)

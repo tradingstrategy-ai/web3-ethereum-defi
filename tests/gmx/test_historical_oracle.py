@@ -1,15 +1,84 @@
 """Unit tests for GMX historical liquidity-provider observations."""
 
+import asyncio
+
 import pytest
 from eth_utils import to_checksum_address
 from web3 import Web3
 
+from eth_defi.gmx import historical_oracle
 from eth_defi.gmx.events import GMXEventData
-from eth_defi.gmx.historical_oracle import GMX_DEPOSIT_ACTION_TYPE, GMX_EVENT_LOG1_DATA_TYPES, decode_historical_share_price_event_data, encode_address_as_event_topic, extract_historical_share_price_observation
+from eth_defi.gmx.historical_oracle import GMX_DEPOSIT_ACTION_TYPE, GMX_EVENT_LOG1_DATA_TYPES, decode_historical_share_price_event_data, encode_address_as_event_topic, extract_historical_share_price_observation, fetch_historical_share_price_observations_hypersync
 
 TOKEN = to_checksum_address("0x1111111111111111111111111111111111111111")
 PROVIDER = to_checksum_address("0x2222222222222222222222222222222222222222")
 SOURCE_TIMESTAMP = 1_700_000_000
+
+
+def test_historical_fetch_reuses_supplied_event_loop(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Keep successive native Hypersync streams on one caller-owned loop."""
+
+    event_loops: list[asyncio.AbstractEventLoop] = []
+
+    async def fetch_observations(**_kwargs: object) -> list:
+        await asyncio.sleep(0)
+        event_loops.append(asyncio.get_running_loop())
+        return []
+
+    monkeypatch.setattr(historical_oracle, "_fetch_historical_share_price_observations_hypersync_async", fetch_observations)
+    arguments = {
+        "hypersync_client": object(),
+        "web3": Web3(),
+        "chain_id": 42161,
+        "event_emitter_address": TOKEN,
+        "start_block": 1,
+        "end_block": 2,
+    }
+    with asyncio.Runner() as event_loop_runner:
+        fetch_historical_share_price_observations_hypersync(**arguments, event_loop_runner=event_loop_runner)
+        fetch_historical_share_price_observations_hypersync(**arguments, event_loop_runner=event_loop_runner)
+
+    assert event_loops[0] is event_loops[1]
+
+
+def test_historical_fetch_closes_native_stream(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Release native stream buffers deterministically after end-of-stream."""
+
+    class Receiver:
+        """Minimal native-stream substitute."""
+
+        closed = False
+
+        async def recv(self) -> None:  # noqa: PLR6301
+            """Return end-of-stream immediately."""
+
+            await asyncio.sleep(0)
+
+        def close(self) -> None:
+            """Record deterministic resource release."""
+
+            self.closed = True
+
+    receiver = Receiver()
+
+    async def open_stream(*_args: object) -> Receiver:
+        """Return the controlled stream substitute."""
+
+        await asyncio.sleep(0)
+        return receiver
+
+    monkeypatch.setattr(historical_oracle, "open_hypersync_stream", open_stream)
+    observations = fetch_historical_share_price_observations_hypersync(
+        hypersync_client=object(),
+        web3=Web3(),
+        chain_id=42161,
+        event_emitter_address=TOKEN,
+        start_block=1,
+        end_block=2,
+    )
+
+    assert observations == []
+    assert receiver.closed
 
 
 def test_encode_product_address_as_event_topic() -> None:
