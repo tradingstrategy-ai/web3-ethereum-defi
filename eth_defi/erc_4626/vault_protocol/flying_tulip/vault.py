@@ -1,9 +1,9 @@
 """Flying Tulip sftUSD vault adapter and contextual historical reader.
 
-sftUSD is an ERC-4626 vault whose contractual conversion is fixed at one
-ftUSD per share. Yield is separately claimable FT, so the contextual reader
-emits a non-redeemable, reinvested ``share_price_equivalence`` history while
-the ordinary live ERC-4626 calls retain the contractual principal accounting.
+sftUSD is an ERC-4626 vault with separately claimable FT rewards. The
+contextual reader emits a non-redeemable, reinvested
+``share_price_equivalence`` history while ordinary live ERC-4626 calls retain
+the contract-reported principal accounting.
 
 Only the reviewed chain/address pairs in the deployment registry instantiate
 this adapter. The scanner does not use contract selectors to discover or map
@@ -12,7 +12,6 @@ Flying Tulip vault equivalents.
 
 import datetime
 from collections.abc import Iterable
-from decimal import Decimal
 from functools import cached_property
 from pathlib import Path
 
@@ -21,13 +20,13 @@ from web3 import Web3
 
 from eth_defi.erc_4626.core import ERC4626Feature
 from eth_defi.erc_4626.vault import ERC4626Vault
-from eth_defi.erc_4626.vault_protocol.flying_tulip.constants import FLYING_TULIP_FT_BY_CHAIN, FLYING_TULIP_NOTES, FLYING_TULIP_SETTLEMENT_DELAY, FLYING_TULIP_SFTUSD_BY_CHAIN, FLYING_TULIP_SHORT_DESCRIPTION
+from eth_defi.erc_4626.vault_protocol.flying_tulip.constants import FLYING_TULIP_FT_BY_CHAIN, FLYING_TULIP_NOTES, FLYING_TULIP_SFTUSD_BY_CHAIN, FLYING_TULIP_SHORT_DESCRIPTION, FLYING_TULIP_USDC_MINT_REDEEM_FEE_BY_CHAIN
 from eth_defi.erc_4626.vault_protocol.flying_tulip.historical_context import FlyingTulipHistoricalContextStore, FlyingTulipSharePriceObservation
 from eth_defi.erc_4626.vault_protocol.flying_tulip.tags import STRATEGY_TAGS
 from eth_defi.event_reader.multicall_batcher import EncodedCall, EncodedCallResult
 from eth_defi.token import TokenDetails, fetch_erc20_details
 from eth_defi.types import Percent
-from eth_defi.vault.base import VaultHistoricalRead, VaultHistoricalReader, VaultSpec, WithdrawalDelayType, WithdrawalPeriod
+from eth_defi.vault.base import VaultHistoricalRead, VaultHistoricalReader, VaultSpec
 from eth_defi.vault.deposit_redeem import VaultDepositManager, VaultDepositManagerCapability
 from eth_defi.vault.strategy_tag import StrategyTag, lookup_strategy_tags
 from eth_defi.vault.vaultdb import get_pipeline_data_dir
@@ -267,23 +266,51 @@ class FlyingTulipVault(ERC4626Vault):
         del block_identifier
         return 0.0
 
-    def get_withdrawal_period(self) -> WithdrawalPeriod:
-        """Return the circuit-breaker delay observed at the research snapshot.
+    def get_deposit_fee(self, block_identifier: BlockIdentifier) -> Percent:
+        """Return the USDC-funded Flying Tulip vault-equivalent entry fee.
 
+        The direct ftUSD-to-sftUSD conversion is fee-free. For consistent
+        comparison with USDC-denominated vaults, the common fee field models
+        the preceding USDC-to-ftUSD mint fee instead.
+
+        :param block_identifier:
+            Unused fee-read block.
         :return:
-            Immediate-or-queued redemption period with six-hour observed delay.
+            Chain-specific externalised USDC entry fee.
         """
 
-        return WithdrawalPeriod(datetime.timedelta(0), FLYING_TULIP_SETTLEMENT_DELAY, WithdrawalDelayType.delay)
+        del block_identifier
+        return FLYING_TULIP_USDC_MINT_REDEEM_FEE_BY_CHAIN[self.chain_id]
 
-    def get_estimated_lock_up(self) -> datetime.timedelta:
-        """Return the circuit-breaker delay observed at the research snapshot.
+    def get_withdraw_fee(self, block_identifier: BlockIdentifier) -> Percent:
+        """Return the USDC-funded Flying Tulip vault-equivalent exit fee.
 
+        The direct sftUSD-to-ftUSD conversion is fee-free. For consistent
+        comparison with USDC-denominated vaults, the common fee field models
+        the following ftUSD-to-USDC redemption fee instead.
+
+        :param block_identifier:
+            Unused fee-read block.
         :return:
-            Six hours.
+            Chain-specific externalised USDC exit fee.
         """
 
-        return FLYING_TULIP_SETTLEMENT_DELAY
+        del block_identifier
+        return FLYING_TULIP_USDC_MINT_REDEEM_FEE_BY_CHAIN[self.chain_id]
+
+    def get_notes(self) -> str:
+        """Explain the USDC-equivalent entry and exit fee model.
+
+        The fee fields deliberately represent entering from and returning to
+        USDC so Flying Tulip can be compared with other vaults. The returned
+        Markdown distinguishes those conversion fees from the fee-free direct
+        sftUSD wrapping route and links to the authoritative deployment.
+
+        :return:
+            Protocol note with the fee route and operational caveats.
+        """
+
+        return FLYING_TULIP_NOTES
 
     def get_strategy_tags(self) -> set[StrategyTag] | None:
         """Return conservative, address-reviewed Flying Tulip strategy tags.
@@ -310,7 +337,7 @@ class FlyingTulipVault(ERC4626Vault):
         """Mark the historical curve as non-redeemable in scanner exports.
 
         :return:
-            Common metadata plus explicit contractual and synthetic semantics.
+            Common metadata plus explicit live and synthetic semantics.
         """
 
         return {
@@ -319,7 +346,6 @@ class FlyingTulipVault(ERC4626Vault):
             "_historical_share_price_redeemable": False,
             "_historical_total_assets_type": "share_price_equivalence",
             "_historical_total_assets_redeemable": False,
-            "_contractual_redemption_share_price": Decimal(1),
             "_external_reward_token": self.reward_token.address,
-            "_protocol_notes": FLYING_TULIP_NOTES,
+            "_protocol_notes": self.get_notes(),
         }

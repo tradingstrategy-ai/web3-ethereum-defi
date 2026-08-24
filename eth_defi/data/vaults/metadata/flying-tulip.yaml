@@ -1,27 +1,48 @@
 name: Flying Tulip
 slug: flying-tulip
 short_description: |
-  ftUSD issuer offering optional sftUSD staking with separately claimable FT rewards.
+  Dollar-targeted ftUSD issuer with optional sftUSD staking and variable,
+  separately claimable FT reward distributions.
 long_description: |
-  [Flying Tulip](https://flyingtulip.com/ftusd/) issues ftUSD, a stablecoin product
-  with an optional sftUSD staking position. The [ftUSD product documentation](https://docs.flyingtulip.com/product-suite/ft-usd/)
-  describes ftUSD as a dollar-denominated settlement asset and sftUSD as the
-  opt-in route for receiving FT reward distributions. The reviewed sftUSD
-  deployments are available on Ethereum, BNB Chain and Sonic.
+  [Flying Tulip](https://flyingtulip.com/ftusd/) issues ftUSD, a dollar-targeted
+  token intended for settlement and collateral within its product suite. Holders
+  can optionally stake ftUSD for sftUSD. The [ftUSD product documentation](https://docs.flyingtulip.com/product-suite/ft-usd/)
+  describes sftUSD as the position through which users receive distributions of
+  FT, while unstaked ftUSD does not receive those distributions. Reward rates
+  are variable, not guaranteed, and FT must be claimed separately.
 
-  sftUSD redemptions may be immediate or routed through a circuit-breaker queue,
-  depending on available capacity. Users should consider the stablecoin's
-  backing, the liquidity of the underlying strategies, the discretionary nature
-  of FT rewards and the queue's settlement delay. Flying Tulip publishes
-  [known issues](https://github.com/flyingtulipdotcom/security/blob/master/KNOWN_ISSUES.md),
-  but no public report-level audit covering the reviewed staking vault, wrapper
-  and circuit-breaker deployments has been identified.
+  Flying Tulip describes the current yield source as stablecoin lending, with
+  other delta-neutral carry strategies staged for later rollout. Net strategy
+  yield and protocol fee revenue are collected by the treasury and can be
+  distributed to stakers, so distributions depend on realised returns and
+  protocol policy. The reviewed sftUSD positions are available on Ethereum,
+  BNB Chain and Sonic; supported collateral, strategy composition and feature
+  availability can vary by chain.
+
+  sftUSD can be converted back to ftUSD immediately when sufficient capacity is
+  available, or be subject to a circuit-breaker queue and settlement delay. The
+  [product risk disclosure](https://docs.flyingtulip.com/product-suite/ft-usd/)
+  highlights stablecoin-peg, external-venue, liquidity and parameter risks.
+  Users should also consider FT price risk when valuing distributions and the
+  fact that the timing of a large exit can differ from the quoted ftUSD
+  conversion. Flying Tulip publishes [known issues](https://github.com/flyingtulipdotcom/security/blob/master/KNOWN_ISSUES.md);
+  no public report-level audit covering the reviewed staking vault, wrapper and
+  circuit-breaker deployments has been identified in the published materials.
 fee_description: |
-  The sftUSD staking vault does not publish a management, performance, deposit
-  or withdrawal fee. FT rewards are distributed separately at the protocol's
-  discretion. The separate [ftUSD mint and redemption route](https://docs.flyingtulip.com/product-suite/ft-usd/)
-  can charge collateral-specific fees; these are acquisition or exit costs for
-  ftUSD, not fees charged by the sftUSD staking position.
+  The ftUSD-to-sftUSD staking conversion does not publish a management,
+  performance, deposit or withdrawal fee. FT rewards are separately claimable
+  and their distribution is determined by realised strategy returns and
+  protocol policy, rather than by an automatic increase in the sftUSD
+  conversion value.
+
+  A USDC-funded position enters through the separate [ftUSD mint and redemption route](https://docs.flyingtulip.com/product-suite/ft-usd/).
+  At the reviewed USDC configuration, this route charges 0.07% to mint ftUSD
+  and 0.07% to redeem it on Ethereum and Sonic; BNB Chain charges 0.10% in
+  each direction. These are acquisition and exit costs rather than direct fees
+  charged by the sftUSD staking position. Collateral-specific settings can
+  change; the [verified MintAndRedeem contract](https://etherscan.io/address/0xAa48EcBC843cF7E9A29155D112b8Cb27902bD23C#code)
+  is the authoritative onchain source. Users may also incur network fees and,
+  if they sell claimed FT, trading fees and price impact.
 links:
   homepage: https://flyingtulip.com/
   app: https://flyingtulip.com/ftusd/

@@ -7,13 +7,23 @@ import pytest
 
 from eth_defi.erc_4626.classification import _get_hardcoded_protocol_features, create_vault_instance
 from eth_defi.erc_4626.core import ERC4626Feature, get_vault_protocol_name
-from eth_defi.erc_4626.vault_protocol.flying_tulip.constants import FLYING_TULIP_FT_BY_CHAIN, FLYING_TULIP_SFTUSD_BY_CHAIN
+from eth_defi.erc_4626.vault_protocol.flying_tulip.constants import FLYING_TULIP_FT_BY_CHAIN, FLYING_TULIP_SFTUSD_BY_CHAIN, FLYING_TULIP_USDC_MINT_REDEEM_FEE_BY_CHAIN
 from eth_defi.erc_4626.vault_protocol.flying_tulip.vault import FLYING_TULIP_UNSUPPORTED_FLOW_REASON, FlyingTulipVault
 from eth_defi.vault.base import VaultSpec
 from eth_defi.vault.fee import VaultFeeMode, get_vault_fee_mode
 from eth_defi.vault.protocol_metadata import build_metadata_json
 from eth_defi.vault.risk import VaultTechnicalRisk, get_vault_risk
 from eth_defi.vault.strategy_tag import StrategyTag
+
+
+def test_flying_tulip_usdc_equivalent_fee_schedule_is_chain_specific() -> None:
+    """Keep the reviewed USDC acquisition and exit fees explicit per chain."""
+
+    assert FLYING_TULIP_USDC_MINT_REDEEM_FEE_BY_CHAIN == {
+        1: 0.0007,
+        56: 0.001,
+        146: 0.0007,
+    }
 
 
 def test_flying_tulip_official_proxies_are_chain_aware_and_route_to_adapter() -> None:
@@ -25,6 +35,15 @@ def test_flying_tulip_official_proxies_are_chain_aware_and_route_to_adapter() ->
         vault = create_vault_instance(SimpleNamespace(eth=SimpleNamespace(chain_id=chain_id)), address, features)
         assert isinstance(vault, FlyingTulipVault)
         assert vault.fetch_reward_token_address(0) == FLYING_TULIP_FT_BY_CHAIN[chain_id]
+        assert vault.get_deposit_fee(0) == FLYING_TULIP_USDC_MINT_REDEEM_FEE_BY_CHAIN[chain_id]
+        assert vault.get_withdraw_fee(0) == FLYING_TULIP_USDC_MINT_REDEEM_FEE_BY_CHAIN[chain_id]
+        fee_data = vault.get_fee_data()
+        assert fee_data.fee_mode is VaultFeeMode.externalised
+        assert fee_data.internalised is False
+        assert fee_data.get_net_fees().deposit == FLYING_TULIP_USDC_MINT_REDEEM_FEE_BY_CHAIN[chain_id]
+        assert fee_data.get_net_fees().withdraw == FLYING_TULIP_USDC_MINT_REDEEM_FEE_BY_CHAIN[chain_id]
+        assert "USDC" in vault.get_notes()
+        assert "[verified Ethereum MintAndRedeem contract]" in vault.get_notes()
         assert vault.get_historical_reader(stateful=True).uses_contextual_history
         assert vault.get_historical_reader(stateful=True).uses_share_price_equivalence
 
@@ -44,14 +63,14 @@ def test_flying_tulip_queue_aware_transaction_support_is_fail_closed() -> None:
 
 
 def test_flying_tulip_strategy_tags_are_evidence_scoped() -> None:
-    """Return reviewed current strategy tags and leave dormant BNB untagged."""
+    """Expose only the documented current strategy and leave BNB untagged."""
 
     ethereum = FlyingTulipVault(SimpleNamespace(eth=SimpleNamespace(chain_id=1)), VaultSpec(1, FLYING_TULIP_SFTUSD_BY_CHAIN[1]))
     sonic = FlyingTulipVault(SimpleNamespace(eth=SimpleNamespace(chain_id=146)), VaultSpec(146, FLYING_TULIP_SFTUSD_BY_CHAIN[146]))
     bnb = FlyingTulipVault(SimpleNamespace(eth=SimpleNamespace(chain_id=56)), VaultSpec(56, FLYING_TULIP_SFTUSD_BY_CHAIN[56]))
 
-    assert ethereum.get_strategy_tags() == {StrategyTag.lending, StrategyTag.delta_neutral}
-    assert sonic.get_strategy_tags() == {StrategyTag.lending, StrategyTag.delta_neutral}
+    assert ethereum.get_strategy_tags() == {StrategyTag.lending}
+    assert sonic.get_strategy_tags() == {StrategyTag.lending}
     assert bnb.get_strategy_tags() is None
 
 
@@ -63,5 +82,9 @@ def test_flying_tulip_public_metadata_risk_and_fee_classification() -> None:
     assert metadata["name"] == "Flying Tulip"
     assert metadata["slug"] == "flying-tulip"
     assert metadata["logos"]["light"] == "https://example.invalid/vault-protocol-metadata/flying-tulip/light.png"
+    assert "variable" in metadata["short_description"]
+    assert "stablecoin-peg" in metadata["long_description"]
+    assert "0.07%" in metadata["fee_description"]
+    assert "[verified MintAndRedeem contract]" in metadata["fee_description"]
     assert get_vault_risk("Flying Tulip") == VaultTechnicalRisk.severe
-    assert get_vault_fee_mode("Flying Tulip", FLYING_TULIP_SFTUSD_BY_CHAIN[1]) == VaultFeeMode.feeless
+    assert get_vault_fee_mode("Flying Tulip", FLYING_TULIP_SFTUSD_BY_CHAIN[1]) == VaultFeeMode.externalised

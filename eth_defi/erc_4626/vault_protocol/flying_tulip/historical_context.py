@@ -165,6 +165,9 @@ class FlyingTulipSharePriceObservation:
     #: Compounded, non-redeemable ftUSD price equivalent.
     share_price: Decimal
     #: Synthetic equivalent value, ``share_price * total_supply``.
+    #:
+    #: This is a reward-reinvested performance value for the shared
+    #: ``share_price_equivalence`` pipeline, not contractual sftUSD TVL.
     total_assets: Decimal
 
 

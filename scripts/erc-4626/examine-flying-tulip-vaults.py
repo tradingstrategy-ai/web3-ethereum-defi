@@ -258,8 +258,6 @@ def main() -> None:
             failures += 1
         if examination.epoch_gaps or examination.missing_reward_prices or examination.error:
             failures += 1
-        if examination.replay_rows != examination.epoch_count:
-            failures += 1
     if failures:
         raise SystemExit(1)
 

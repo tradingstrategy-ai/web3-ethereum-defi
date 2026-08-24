@@ -2,9 +2,9 @@ Flying Tulip
 ============
 
 `Flying Tulip <https://flyingtulip.com/ftusd/>`__ issues ftUSD and its optional
-sftUSD staking position. The product documentation describes sftUSD as a
-one-ftUSD-per-share position whose FT rewards are separately claimable, rather
-than automatically added to its redemption conversion.
+sftUSD staking position. At the reviewed blocks the sftUSD contract reports a
+one-ftUSD-per-share conversion, while FT rewards are separately claimable
+rather than automatically added to that conversion.
 
 The reviewed sftUSD deployments on Ethereum, BNB Chain and Sonic can redeem
 immediately when capacity is available, or enter a circuit-breaker queue. The

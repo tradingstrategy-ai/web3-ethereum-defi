@@ -9,6 +9,8 @@ import datetime
 from eth_typing import HexAddress
 from eth_utils import to_checksum_address
 
+from eth_defi.types import Percent
+
 #: ftUSD uses CREATE2 and therefore has the same address on reviewed chains.
 FLYING_TULIP_FTUSD: HexAddress = to_checksum_address("0xF7D85EC4E7710F71992752EAC2111312E73E9C9C")
 
@@ -80,8 +82,17 @@ FLYING_TULIP_HARDCODED_LEADS = (
 #: Human-readable scanner description.
 FLYING_TULIP_SHORT_DESCRIPTION = "ftUSD staking vault with externally distributed FT rewards and conditional queued redemptions."
 
-#: Contractually configured circuit-breaker settlement delay at the research snapshot.
-FLYING_TULIP_SETTLEMENT_DELAY = datetime.timedelta(hours=6)
+#: USDC ``MintAndRedeem`` fees used to model Flying Tulip vault equivalents.
+#:
+#: The fee is configured per collateral in the MintAndRedeem engine. At the
+#: reviewed USDC configurations, Ethereum and Sonic charge seven basis points
+#: while BNB Chain charges ten basis points, in both directions. The sftUSD
+#: wrapping step has no separate fee in this model.
+FLYING_TULIP_USDC_MINT_REDEEM_FEE_BY_CHAIN: dict[int, Percent] = {
+    1: 7 / 10_000,
+    56: 10 / 10_000,
+    146: 7 / 10_000,
+}
 
 #: Protocol-owned note surfaced in vault metadata.
-FLYING_TULIP_NOTES = """Flying Tulip sftUSD has a fixed contractual 1:1 ftUSD redemption conversion. FT rewards are separately claimable and its historical `share_price` is a non-redeemable, reward-reinvested ftUSD share-price equivalent.\n\nRedemptions can be queued by the circuit breaker for the settlement delay. The generic ERC-4626 transaction manager is intentionally unsupported until that queue lifecycle is implemented and fork-tested. No public report-level audit covering the deployed sftUSD vault, wrapper and circuit-breaker versions has been identified.\n\n- [Flying Tulip ftUSD documentation](https://docs.flyingtulip.com/product-suite/ft-usd/)\n- [Official deployment registry](https://api.flyingtulip.com/ftusd/contracts/all)"""
+FLYING_TULIP_NOTES = """At the reviewed blocks, sftUSD's ERC-4626 conversion is 1:1 with ftUSD. FT rewards are separately claimable, so the historical `share_price` is a non-redeemable, reward-reinvested ftUSD share-price equivalent.\n\nTo compare sftUSD with USDC-denominated vaults, displayed entry and exit fees model the USDC → ftUSD → sftUSD and reverse route: 0.07% on Ethereum and Sonic, and 0.10% on BNB Chain. The ftUSD ↔ sftUSD step itself is fee-free; the model captures the separate ftUSD mint and redemption fees, not a direct sftUSD fee. It excludes gas, oracle conversion differences and FT reward-sale costs. MintAndRedeem fees are collateral-specific and governance-configurable; see the [verified Ethereum MintAndRedeem contract](https://etherscan.io/address/0xAa48EcBC843cF7E9A29155D112b8Cb27902bD23C#code).\n\nRedemptions can enter a circuit-breaker queue. The generic ERC-4626 transaction manager is intentionally unsupported until that lifecycle is implemented and fork-tested. No public report-level audit covering the deployed sftUSD vault, wrapper and circuit-breaker versions has been identified.\n\n- [Flying Tulip ftUSD documentation](https://docs.flyingtulip.com/product-suite/ft-usd/)\n- [Official deployment registry](https://api.flyingtulip.com/ftusd/contracts/all)"""

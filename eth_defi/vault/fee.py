@@ -50,9 +50,10 @@ class VaultFeeMode(enum.Enum):
 #: See :py:func:`eth_defi.erc_4626.core.get_vault_protocol_name` for the names list.
 #:
 VAULT_PROTOCOL_FEE_MATRIX = {
-    # sftUSD does not publish direct vault fees. FT distributions are separate
-    # discretionary rewards rather than a deducted share-price fee.
-    "Flying Tulip": VaultFeeMode.feeless,
+    # The direct sftUSD wrapper is fee-free, but FlyingTulipVault models the
+    # USDC -> ftUSD acquisition and ftUSD -> USDC redemption fees so its
+    # investor-return fields are comparable with USDC-denominated vaults.
+    "Flying Tulip": VaultFeeMode.externalised,
     # Like Hyperliquid's HLP, GM and GLV have no manager-level depositor fees.
     # Trading revenue and trader PnL are already reflected in their equity curve.
     "GMX": VaultFeeMode.feeless,

@@ -93,11 +93,14 @@ def _decode_uint256(value: bytes, label: str) -> int:
 
 
 def fetch_curve_pool_configuration(web3: Web3, block_identifier: int | str = "latest") -> None:
-    """Validate deployed Curve token order and inverse-oracle orientation.
+    """Validate deployed Curve token order and inverse-oracle orientation for tests.
 
     A one-FT ``get_dy(0, 1, 10**18)`` quote must agree broadly with the
-    reciprocal of ``price_oracle()``. This checks the token order and prevents
-    accidentally treating the pool's FT-per-ftUSD oracle as ftUSD per FT.
+    reciprocal of ``price_oracle()`` at a fixed regression block. This checks
+    the token order and prevents accidentally treating the pool's
+    FT-per-ftUSD oracle as ftUSD per FT. It is deliberately not a production
+    prefill gate: a live Curve spot quote and a lagging EMA can temporarily
+    diverge during normal market conditions.
 
     :param web3:
         Archive-capable Ethereum connection.
@@ -226,9 +229,12 @@ def _fetch_targeted_ethereum_timestamp_windows(
     finally:
         timestamp_db.close()
     missing_brackets = [(int(previous), int(following)) for _timestamp, previous, following in brackets if previous is not None and following is not None and int(following) > int(previous) + 1]
-    if any(previous is None or following is None for _timestamp, previous, following in brackets):
-        message = "Flying Tulip settlement timestamps fall outside the shared Ethereum timestamp-cache boundaries"
-        raise ValueError(message)
+    outside_cache_count = sum(previous is None or following is None for _timestamp, previous, following in brackets)
+    if outside_cache_count:
+        logger.warning(
+            "Flying Tulip: %d settlement timestamps are outside Ethereum timestamp-cache boundaries; deferring their reward prices until the cache advances",
+            outside_cache_count,
+        )
     unique_brackets = tuple(dict.fromkeys(missing_brackets))
     bounded_windows = []
     for previous, following in unique_brackets:
@@ -290,7 +296,6 @@ def fetch_and_store_flying_tulip_reward_prices(
         raise ValueError(f"FT reward price source must be Ethereum, got chain {ethereum_web3.eth.chain_id}")
     if not 1 <= ethereum_start_block < ethereum_end_block:
         raise ValueError(f"Invalid Ethereum price range: [{ethereum_start_block}, {ethereum_end_block})")
-    fetch_curve_pool_configuration(ethereum_web3, ethereum_end_block - 1)
     with FlyingTulipHistoricalContextStore(context_path, read_only=True) as source_store:
         epoch_rows = source_store.connection.execute(
             "SELECT block_timestamp, block_number FROM flying_tulip_epoch_context WHERE chain_id = ? AND block_timestamp >= ? ORDER BY block_timestamp",

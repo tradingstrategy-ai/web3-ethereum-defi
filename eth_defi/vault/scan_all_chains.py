@@ -918,18 +918,21 @@ def scan_prices_for_chain(
                 raise RuntimeError(f"Flying Tulip history on chain {chain_id} requires a configured Hypersync client")
             context_path = historical_context_path or get_flying_tulip_historical_context_path()
             context_path.parent.mkdir(parents=True, exist_ok=True)
+            # Keep the contextual event cache clear of the reorg-prone head.
+            # The dedicated Flying Tulip backfill uses the same safe boundary.
+            flying_tulip_source_end_block = min(current_end_block, get_almost_latest_block_number(web3))
             for row in flying_tulip_rows:
                 detection = row["_detection_data"]
                 with FlyingTulipHistoricalContextStore(context_path) as store:
                     source_start = store.fetch_next_source_block(chain_id, detection.address)
                 if source_start is None:
-                    source_start = fetch_flying_tulip_proxy_deployment_block(web3, detection.address, current_end_block)
-                if source_start < current_end_block:
+                    source_start = fetch_flying_tulip_proxy_deployment_block(web3, detection.address, flying_tulip_source_end_block)
+                if source_start < flying_tulip_source_end_block:
                     prefill = fetch_and_store_flying_tulip_source_history(
                         web3=web3,
                         hypersync_client=hypersync_config.hypersync_client,
                         start_block=source_start,
-                        end_block=current_end_block,
+                        end_block=flying_tulip_source_end_block,
                         context_path=context_path,
                     )
                     flying_tulip_source_rows_inserted += prefill.rows_inserted
@@ -942,7 +945,7 @@ def scan_prices_for_chain(
             if ethereum_hypersync is None:
                 raise RuntimeError("Flying Tulip reward-price mapping requires a configured Ethereum Hypersync client")
             else:
-                ethereum_end_block = current_end_block if chain_id == 1 else get_almost_latest_block_number(ethereum_web3)
+                ethereum_end_block = flying_tulip_source_end_block if chain_id == 1 else get_almost_latest_block_number(ethereum_web3)
                 fetch_and_store_flying_tulip_reward_prices(
                     ethereum_web3=ethereum_web3,
                     ethereum_hypersync_client=ethereum_hypersync,

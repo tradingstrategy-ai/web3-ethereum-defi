@@ -3,8 +3,8 @@ Flying Tulip API
 
 Flying Tulip sftUSD support is exposed through the shared ERC-4626 vault
 classification API. The adapter recognises the reviewed Ethereum, BNB Chain and
-Sonic deployments and retains the contractual one-ftUSD-per-share conversion
-for live reads. Its historical reader publishes a separately flagged,
+Sonic deployments and retains the contract-reported ERC-4626 conversion for
+live reads. Its historical reader publishes a separately flagged,
 non-redeemable FT-reward-equivalent series.
 
 See :doc:`the Flying Tulip vault documentation </vaults/flying_tulip/index>`

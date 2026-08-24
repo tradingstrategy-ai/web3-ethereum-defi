@@ -598,8 +598,8 @@ storage and partial-scan replacement rules.
 
 #### Flying Tulip reward-equivalence backfill
 
-Flying Tulip sftUSD has a fixed 1:1 principal conversion, while FT rewards are
-claimable separately. Its historical series is therefore a non-redeemable,
+Flying Tulip sftUSD has separately claimable FT rewards. Its historical series
+is therefore a non-redeemable,
 reward-reinvested ftUSD share-price equivalent. The complete backfill streams
 the official Ethereum, BNB Chain and Sonic sftUSD event histories with
 Hypersync, and records FT/ftUSD Curve oracle provenance in the shared context

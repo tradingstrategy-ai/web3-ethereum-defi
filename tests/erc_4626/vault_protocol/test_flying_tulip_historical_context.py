@@ -1,5 +1,6 @@
 """Deterministic Flying Tulip reward-equivalence replay tests."""
 
+import datetime
 from decimal import Decimal
 from pathlib import Path
 
@@ -8,6 +9,8 @@ from eth_utils import to_checksum_address
 
 from eth_defi.erc_4626.vault_protocol.flying_tulip.constants import FLYING_TULIP_CURVE_CANONICAL_START_TIMESTAMP, FLYING_TULIP_FT_FTUSD_CURVE_POOL, FLYING_TULIP_RATE_RAY
 from eth_defi.erc_4626.vault_protocol.flying_tulip.historical_context import ZERO_ADDRESS_TOPIC, EpochSettlement, FlyingTulipHistoricalContextStore, RewardPriceObservation, SupplyChange, is_mint_transfer
+from eth_defi.erc_4626.vault_protocol.flying_tulip.reward_price import _fetch_targeted_ethereum_timestamp_windows
+from eth_defi.event_reader.timestamp_cache import BlockTimestampDatabase
 
 CHAIN_ID = 1
 VAULT_ADDRESS = to_checksum_address("0xeb48218a4c35c814c7678cbcae88c6ee037f7625")
@@ -93,6 +96,35 @@ def test_source_coverage_advances_without_events(tmp_path: Path) -> None:
         store.set_source_scan_end_block(CHAIN_ID, VAULT_ADDRESS, 100)
 
         assert store.fetch_next_source_block(CHAIN_ID, VAULT_ADDRESS) == 123
+
+
+def test_foreign_settlement_outside_timestamp_cache_defers_price_without_failure(tmp_path: Path) -> None:
+    """Defer an unbracketed foreign settlement instead of aborting the vault scan.
+
+    The helper makes no Hypersync request when both cache boundaries are absent.
+    This keeps the regression test local while covering a fresh or lagging
+    Ethereum timestamp cache.
+
+    :param tmp_path:
+        Pytest temporary timestamp-cache directory.
+
+    :return:
+        ``None``.
+    """
+
+    timestamp_db = BlockTimestampDatabase.create(1, tmp_path)
+    try:
+        timestamp_db.import_chain_data(
+            1,
+            {
+                100: datetime.datetime(1970, 1, 1, 0, 16, 40),
+                200: datetime.datetime(1970, 1, 1, 0, 33, 20),
+            },
+        )
+    finally:
+        timestamp_db.con.close()
+
+    _fetch_targeted_ethereum_timestamp_windows(None, (3_000,), tmp_path)  # type: ignore[arg-type]
 
 
 def test_replay_compounds_external_reward_equivalence(tmp_path: Path) -> None:
