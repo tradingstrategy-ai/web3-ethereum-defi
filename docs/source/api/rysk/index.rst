@@ -14,3 +14,4 @@ legally structured fund.
    eth_defi.erc_4626.vault_protocol.rysk.api
    eth_defi.erc_4626.vault_protocol.rysk.historical
    eth_defi.erc_4626.vault_protocol.rysk.historical_context
+   eth_defi.erc_4626.vault_protocol.rysk.migration
