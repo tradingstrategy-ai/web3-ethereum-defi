@@ -16,7 +16,8 @@ Pools are discovered from their protocol-specific ``EpochPriceSet`` event and
 confirmed using Rysk-specific onchain function probes. Final epoch
 observations are streamed through Hypersync, their block times use the shared
 timestamp cache, and the results are stored in the shared contextual-history
-DuckDB. The application catalogue is used only by manual operator scripts.
+DuckDB. The application catalogue is used only by manual examination tools;
+the one-off production migration has a fixed reviewed scope.
 
 .. autosummary::
    :toctree: _autosummary_rysk

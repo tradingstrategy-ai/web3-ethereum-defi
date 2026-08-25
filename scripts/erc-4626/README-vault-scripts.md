@@ -5,6 +5,118 @@ Scripts for discovering, scanning, analysing, and debugging ERC-4626 vault data.
 All scripts use environment variables for configuration.
 Run with `poetry run python scripts/erc-4626/<script>.py`.
 
+## Instructions for migration scripts
+
+Vault migration scripts are one-off operational tools used to bring existing
+production data in line with a new or corrected protocol integration. They are
+not recurring scanner entry points and must not become a second implementation
+of the normal vault pipeline.
+
+A protocol migration usually has two independently runnable functions:
+
+1. **Fix current metadata.** Discover or select the reviewed vaults, then add or
+   repair only their rows in `vault-metadata-db.pickle`. Preserve unrelated
+   rows, manual enrichment, price data and reader state. Metadata writes must
+   be atomic or committed in resumable batches.
+2. **Backfill historical data.** Reconstruct the protocol's historical price,
+   TVL or contextual observations and write only the selected vault histories
+   through the common historical-data writers. Preserve unrelated Parquet
+   rows, the production timestamp caches and reader state unless an explicit
+   reader-state migration is the purpose of the script.
+
+Prefer separate, plainly named entry points such as
+`migrate-<protocol>-vault-metadata.py` and
+`backfill-<protocol>-vault-prices.py`. They may share implementation helpers,
+and a protocol that needs only one function must document why the other is not
+needed. Keeping metadata repair separate from historical backfill lets an
+operator validate and rerun either stage without repeating the other.
+
+### Migration interface
+
+Ideally, `DRY_RUN` is the only migration-specific input exposed to the
+operator. Use an environment variable, not a command-line argument parser:
+
+- `DRY_RUN=true` must make no persistent changes. It should use isolated
+  temporary output files or produce a fully non-mutating plan that exercises
+  as much of the real discovery and reading path as practical.
+- `DRY_RUN=false` applies the exact reviewed migration scope. A new one-off
+  migration should default to dry-run mode unless there is a documented reason
+  not to do so.
+- Chains, addresses, factories, start blocks, end-block policy, frequency and
+  target columns should normally be reviewed constants in the script, not
+  operator-selectable migration arguments. This prevents the production
+  command from accidentally widening or narrowing the audited scope.
+- RPC URLs, API credentials, logging level, worker count and test-only storage
+  paths are infrastructure configuration rather than migration scope. Read
+  them from the existing environment conventions, give safe defaults where
+  possible and do not require them to vary in the production run command.
+
+Persistent writes must take the shared `scan-pipeline` writer lock. Migration
+scripts must be safe to rerun after interruption, observable while running and
+fail loudly without discarding existing metadata, Parquet, DuckDB, timestamp
+cache or reader-state data. In production, use the `vault-scanner-oneshot`
+Compose service so the host `~/.tradingstrategy` directory remains mounted;
+inspect `docker-compose.yml` and coordinate with `vault-scanner-looped` before
+the write run.
+
+### Pull request run reminder
+
+Every pull request that adds a migration script must include a PR comment that
+both documents the production commands and explicitly reminds an operator that
+the one-off migration still needs to be run after merge and deployment. Adding
+the script to the repository does not execute it.
+
+The comment must include:
+
+- the script's purpose and exact fixed scope;
+- required production environment variables and external services;
+- the exact `DRY_RUN=true` command and expected output or row counts;
+- the exact persistent command, including scanner stop/start or lock
+  coordination;
+- files or database tables changed, files deliberately left unchanged and any
+  required backup or persistent-cache precautions;
+- a post-run validation command or concrete success criteria; and
+- a conspicuous **Run after merge** reminder, left unresolved until an
+  operator records the date and result in the PR.
+
+Use this minimal comment structure and replace every placeholder with the
+actual production command and expected result:
+
+```markdown
+## Production migration reminder
+
+**Run after merge:** this one-off migration has not run merely because the PR
+was merged.
+
+### Dry run
+
+<exact production container command with DRY_RUN=true>
+
+Expected: <reviewed vault, row and chain counts>; no persistent files changed.
+
+### Apply and validate
+
+<exact production container command with DRY_RUN=false>
+<exact validation command>
+
+Writes: <precise files or tables>. Preserves: <precise unaffected state>.
+
+Result: pending. After execution record the UTC date, deployed commit, redacted
+provider environment, command result and validation result here.
+```
+
+Good reference implementations are:
+
+- [`migrate-gmx-vaults-metadata.py`](migrate-gmx-vaults-metadata.py) and
+  [`backfill-gmx-vault-prices.py`](backfill-gmx-vault-prices.py), which split
+  GMX catalogue metadata from stateless, address-scoped historical writing;
+- [`migrate-current-metadata.py`](../enzyme/migrate-current-metadata.py), which
+  forces Enzyme's shared engine into metadata-only mode and preserves price and
+  reader state; and
+- [`backfill-history.py`](../enzyme/backfill-history.py), which demonstrates a
+  resumable, checkpointed Enzyme metadata and historical migration when the two
+  functions must share factory discovery.
+
 ### Monad historical state
 
 [Monad full nodes retain all historical transaction data but only a
@@ -91,6 +203,45 @@ must seed its reviewed addresses into the lead database, refresh only those
 metadata rows, and run vault-address-scoped price history only where a
 historical price reader is supported. Follow the full requirements in
 [`README-vault-leads.md`](../../eth_defi/erc_4626/README-vault-leads.md).
+
+#### Rysk Premium migration
+
+Rysk Premium uses two fixed-scope one-off entry points. The reviewed scope is
+eight public pools as of 2026-08-25: four on Ethereum and four on HyperEVM.
+Issuer-labelled internal pools are excluded. Both commands default to
+`DRY_RUN=true`; `DRY_RUN=false` is the only migration-specific operator
+choice. RPC, Hypersync and logging variables remain normal infrastructure
+configuration.
+
+First repair current metadata:
+
+```shell
+source .local-test.env && \
+poetry run python scripts/erc-4626/migrate-rysk-vault-metadata.py
+```
+
+The metadata stage reads each fixed deployment block timestamp, rebuilds the
+row through `RyskVault` and reports inserts and updates without writing. It
+does not modify price, contextual-history, timestamp-cache or reader-state
+files.
+
+Then exercise the full historical backfill with temporary files:
+
+```shell
+source .local-test.env && \
+poetry run python scripts/erc-4626/backfill-rysk-vault-prices.py
+```
+
+After inspecting both dry runs, rerun them in the same order with
+`DRY_RUN=false`. The metadata command atomically replaces only the common
+metadata pickle after all eight rows validate. The history command writes only
+the eight selected address histories to `vault-prices-1h.parquet` and the Rysk
+table in `vault-historical-context.duckdb`; it never changes metadata or reader
+state. Both persistent commands take the shared scanner writer lock.
+
+The pull request adding or changing these scripts must contain the production
+container commands and an unresolved **Run after merge** reminder as described
+in [Pull request run reminder](#pull-request-run-reminder).
 
 #### Enzyme Blue and Onyx migration
 

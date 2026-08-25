@@ -98,9 +98,10 @@ def fetch_rysk_premium_pools(*, session: requests.Session | None = None) -> tupl
     """Fetch the current Rysk Premium application catalogue.
 
     This unauthenticated endpoint is an application API, not a versioned
-    developer API. The scheduled scanner does not depend on it; backfill and
-    examination tools use it only to enumerate current public products. See
-    the official `Premium application <https://app.rysk.finance/premium/>`__.
+    developer API. The scheduled scanner and fixed-scope migration do not
+    depend on it; examination tools use it only to enumerate current public
+    products. See the official
+    `Premium application <https://app.rysk.finance/premium/>`__.
 
     :param session:
         Optional persistent HTTP session.

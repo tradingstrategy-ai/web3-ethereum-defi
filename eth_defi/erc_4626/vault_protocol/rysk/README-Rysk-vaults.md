@@ -32,9 +32,9 @@ streams the pool-specific
 Ethereum and HyperEVM without maintaining an address allowlist.
 
 The [public pools endpoint](https://premium.rysk.finance/api/pools) is still
-used by the manual backfill and examination scripts to enumerate the products
-currently shown in the application. It is not a source of scanner metadata or
-historical prices. Rysk also publishes code through its
+used by the manual examination script to enumerate the products currently
+shown in the application. It is not a source of scanner metadata, migration
+scope or historical prices. Rysk also publishes code through its
 [GitHub organisation](https://github.com/rysk-finance).
 
 A representative Ethereum deployment is the
@@ -127,12 +127,25 @@ classifier.
 
 ## Manual backfill and examination
 
+[`migrate-rysk-vault-metadata.py`](../../../../scripts/erc-4626/migrate-rysk-vault-metadata.py)
+repairs the common metadata pickle for the eight public pools reviewed on
+2026-08-25. The migration uses fixed Ethereum and HyperEVM addresses and
+archive-verified deployment blocks, then rebuilds each row through the normal
+onchain adapter. It leaves price, context, timestamp-cache and reader-state
+files unchanged.
+
 [`backfill-rysk-vault-prices.py`](../../../../scripts/erc-4626/backfill-rysk-vault-prices.py)
-enumerates the application's current public products and reconstructs
-finalised epochs from onchain events. A new context begins at block 1; an
-existing context resumes from its stored per-pool boundary. The script writes
-through the common historical Parquet writer without altering vault metadata
-or reader state. `DRY_RUN=true` uses temporary files.
+uses the same fixed eight-pool scope and reconstructs finalised epochs from
+onchain events. A new context begins at each pool's reviewed deployment block;
+an existing context resumes from its stored per-pool boundary. The script
+writes through the common historical Parquet writer without altering vault
+metadata or reader state.
+
+Both one-off entry points default to `DRY_RUN=true`, which performs real reads
+but makes no persistent changes. `DRY_RUN=false` is their only
+migration-specific operator choice. Run the metadata repair before the
+historical backfill; adding the scripts to the repository does not execute the
+production migration.
 
 [`examine-rysk-vault-performance.py`](../../../../scripts/erc-4626/examine-rysk-vault-performance.py)
 reports each current public product's name, chain, collateral-only reported
@@ -158,7 +171,9 @@ later next-epoch price update in the same block remains visible.
 - [`RyskPremiumHistoricalReader`](historical.py) exposes stored observations
   through the common historical-reader API.
 - [`fetch_rysk_premium_pools()`](api.py) reads the application catalogue for
-  operator scripts only.
+  examination tools only.
+- [`migration.py`](migration.py) fixes the reviewed one-off migration scope;
+  it is not imported by scheduled discovery.
 
 The shared adapter surface is defined by
 [`VaultBase`](../../../vault/base.py), while classification and construction
