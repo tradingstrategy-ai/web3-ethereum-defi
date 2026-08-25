@@ -353,6 +353,42 @@ def backfill_rysk_history(
         )
 
 
+def _prepare_dry_run_price_database(price_database: Path, temporary: Path) -> Path:
+    """Copy production Parquet into the mounted temporary workspace.
+
+    The common writer creates an atomic replacement beside its output, so the
+    workspace needs room for both the copied input and rewritten output.
+
+    :param price_database:
+        Production raw historical-price Parquet path.
+    :param temporary:
+        Dry-run workspace on the mounted pipeline volume.
+    :return:
+        Temporary Parquet path, whether or not production data exists yet.
+    :raises RuntimeError:
+        If the mounted volume cannot hold the copy and atomic rewrite.
+    """
+
+    dry_run_price_database = temporary / price_database.name
+    if not price_database.exists():
+        return dry_run_price_database
+
+    parquet_size = price_database.stat().st_size
+    required_free_space = parquet_size * 2
+    available_free_space = shutil.disk_usage(temporary).free
+    if available_free_space < required_free_space:
+        raise RuntimeError(f"Rysk dry run needs at least {required_free_space:,} free bytes on the pipeline volume to copy and rewrite {price_database}; only {available_free_space:,} bytes are available")
+    logger.info(
+        "Copying production Parquet (%d bytes) to %s for a non-persistent merge rehearsal; %d bytes are free",
+        parquet_size,
+        dry_run_price_database,
+        available_free_space,
+    )
+    shutil.copy2(price_database, dry_run_price_database)
+    logger.info("Copied production Parquet to %s", dry_run_price_database)
+    return dry_run_price_database
+
+
 def main() -> None:
     """Run both functions of the fixed Rysk production migration.
 
@@ -376,7 +412,8 @@ def main() -> None:
         raise FileNotFoundError(vault_db_path)
 
     lock = nullcontext() if dry_run else wait_other_writers(pipeline_dir / "scan-pipeline", timeout=60)
-    with lock, tempfile.TemporaryDirectory(prefix="rysk-migration-") as temporary_directory:
+    temporary_parent = pipeline_dir if dry_run else None
+    with lock, tempfile.TemporaryDirectory(prefix="rysk-migration-", dir=temporary_parent) as temporary_directory:
         temporary = Path(temporary_directory)
         vault_db = VaultDatabase.read(vault_db_path)
         token_cache_path = temporary / "tokens.sqlite" if dry_run else TokenDiskCache.DEFAULT_TOKEN_DISK_CACHE_PATH
@@ -394,11 +431,7 @@ def main() -> None:
 
         price_database = pipeline_dir / "vault-prices-1h.parquet"
         if dry_run:
-            dry_run_price_database = temporary / price_database.name
-            if price_database.exists():
-                shutil.copy2(price_database, dry_run_price_database)
-                logger.info("Copied production Parquet to %s for a non-persistent merge rehearsal", dry_run_price_database)
-            price_database = dry_run_price_database
+            price_database = _prepare_dry_run_price_database(price_database, temporary)
 
         backfill_rysk_history(
             price_database=price_database,

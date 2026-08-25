@@ -139,12 +139,14 @@ from its stored per-pool boundary.
 The single entry point defaults to `DRY_RUN=true`, which performs real reads
 for both functions using temporary storage and makes no persistent changes. It
 copies the production Parquet into that storage first, so the address-scoped
-merge and deletion counts are rehearsed against real rows. `DRY_RUN=false` is
-its only migration-specific operator choice; `MAX_WORKERS` remains normal
-infrastructure tuning. The persistent run holds one shared writer lock while
-updating the selected metadata and address-scoped historical rows; it does not
-alter reader state. Adding the script to the repository does not execute the
-production migration.
+merge and deletion counts are rehearsed against real rows. The temporary
+workspace is on the mounted pipeline volume and requires at least twice the
+production Parquet size in free space for the copy and atomic rewrite.
+`DRY_RUN=false` is its only migration-specific operator choice; `MAX_WORKERS`
+remains normal infrastructure tuning. The persistent run holds one shared
+writer lock while updating the selected metadata and address-scoped historical
+rows; it does not alter reader state. Adding the script to the repository does
+not execute the production migration.
 
 [`examine-rysk-vault-performance.py`](../../../../scripts/erc-4626/examine-rysk-vault-performance.py)
 reports each current public product's name, chain, collateral-only reported

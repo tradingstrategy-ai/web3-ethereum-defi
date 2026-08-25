@@ -159,6 +159,25 @@ def test_rysk_metadata_rejects_address_that_fails_shared_classifier(monkeypatch:
         module._build_metadata_replacement(fake_web3, pool, VaultDatabase(), Mock(), 456)
 
 
+def test_rysk_metadata_rejects_missing_share_token_name(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Abort cleanly when a classified Rysk pool has no usable token name.
+
+    :param monkeypatch:
+        Pytest fixture replacing onchain classification and row construction.
+    :return:
+        None.
+    """
+
+    module = load_script("migrate-rysk-vaults")
+    pool = RyskMigrationPool(1, HexAddress("0x0000000000000000000000000000000000000001"), TEST_DEPLOYMENT_BLOCK)
+    fake_web3 = SimpleNamespace(eth=SimpleNamespace(get_block=lambda _block: {"timestamp": 1_700_000_000}))
+    monkeypatch.setattr(module, "detect_vault_features", lambda _web3, _address, **_kwargs: set(module.RYSK_MIGRATION_FEATURES))
+    monkeypatch.setattr(module, "create_vault_scan_record", lambda *_args, **_kwargs: {"Name": None, "Protocol": "Rysk"})
+
+    with pytest.raises(RuntimeError, match="rebuilt as 'Rysk' / None"):
+        module._build_metadata_replacement(fake_web3, pool, VaultDatabase(), Mock(), 456)
+
+
 def test_rysk_history_threads_fixed_scope_and_workers(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     """Pass the fixed chain order, caches and worker count to each history stage.
 
@@ -185,6 +204,61 @@ def test_rysk_history_threads_fixed_scope_and_workers(monkeypatch: pytest.Monkey
     assert [call["chain_id"] for call in calls] == [1, 999]
     assert all(call["max_workers"] == TEST_HISTORY_MAX_WORKERS for call in calls)
     assert all(call["timestamp_cache_path"] == tmp_path / "timestamps" for call in calls)
+
+
+def test_rysk_history_passes_isolated_timestamp_cache_to_writer(monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    """Thread the selected timestamp cache into the common Parquet writer.
+
+    :param monkeypatch:
+        Pytest fixture replacing network and writer dependencies.
+    :param tmp_path:
+        Pytest temporary output directory.
+    :param capsys:
+        Pytest fixture capturing the per-chain migration summary.
+    :return:
+        None.
+    """
+
+    module = load_script("migrate-rysk-vaults")
+    pool = RyskMigrationPool(1, HexAddress("0x0000000000000000000000000000000000000001"), TEST_DEPLOYMENT_BLOCK)
+    fake_web3 = SimpleNamespace(eth=SimpleNamespace(chain_id=1))
+    token_cache = Mock()
+    captured: dict[str, object] = {}
+    timestamp_cache_path = tmp_path / "timestamps"
+
+    monkeypatch.setattr(module, "read_json_rpc_url", lambda _chain_id: "https://example.invalid")
+    monkeypatch.setattr(module, "create_multi_provider_web3", lambda _url: fake_web3)
+    monkeypatch.setattr(module, "iter_rysk_migration_pools", lambda _chain_id: iter((pool,)))
+    monkeypatch.setattr(module, "fetch_rysk_full_backfill_range", lambda _web3, _pools: (TEST_DEPLOYMENT_BLOCK, 456))
+    monkeypatch.setattr(module, "configure_hypersync_from_env", lambda _web3: SimpleNamespace(hypersync_client=object()))
+    monkeypatch.setattr(module, "fetch_and_store_rysk_premium_history", lambda **_kwargs: SimpleNamespace(observations_fetched=0, observations_inserted=0))
+    monkeypatch.setattr(module, "TokenDiskCache", lambda _path: token_cache)
+    monkeypatch.setattr(module, "RyskVault", lambda *_args, **_kwargs: SimpleNamespace(address=pool.address))
+    monkeypatch.setattr(module, "MultiProviderWeb3Factory", lambda _url: object())
+
+    def capture_scan(**kwargs: object) -> object:
+        """Capture common-writer arguments for assertions."""
+
+        captured.update(kwargs)
+        return object()
+
+    monkeypatch.setattr(module, "scan_historical_prices_to_parquet", capture_scan)
+    monkeypatch.setattr(module, "pformat_scan_result", lambda _result: "scan result")
+
+    module._backfill_rysk_history_chain(
+        chain_id=1,
+        price_database=tmp_path / "prices.parquet",
+        context_database=tmp_path / "context.duckdb",
+        token_cache_path=tmp_path / "tokens.sqlite",
+        timestamp_cache_path=timestamp_cache_path,
+        max_workers=TEST_HISTORY_MAX_WORKERS,
+    )
+
+    assert captured["timestamp_cache_file"] == timestamp_cache_path
+    assert captured["max_workers"] == TEST_HISTORY_MAX_WORKERS
+    token_cache.commit.assert_called_once()
+    token_cache.close.assert_called_once()
+    capsys.readouterr()
 
 
 def test_rysk_main_dry_run_rehearses_production_parquet_without_mutation(monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:

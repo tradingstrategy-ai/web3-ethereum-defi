@@ -227,12 +227,14 @@ row through `RyskVault` and reports inserts and updates without writing. It
 then copies the production Parquet into temporary storage and exercises the
 historical merge there, alongside temporary context, token and timestamp-cache
 storage. This reports the real address-scoped deletion count without modifying
-production. After inspecting the dry run, rerun the same command with
-`DRY_RUN=false`. It atomically replaces only the common metadata pickle after
-all eight rows validate, then writes only the eight selected address histories
-to `vault-prices-1h.parquet` and the Rysk table in
-`vault-historical-context.duckdb`. The persistent run holds one shared scanner
-writer lock and never changes reader state.
+production. The temporary workspace uses the mounted pipeline volume and
+preflights enough free space for both the Parquet copy and its atomic rewrite,
+approximately twice the production Parquet size. After inspecting the dry run,
+rerun the same command with `DRY_RUN=false`. It atomically replaces only the
+common metadata pickle after all eight rows validate, then writes only the
+eight selected address histories to `vault-prices-1h.parquet` and the Rysk
+table in `vault-historical-context.duckdb`. The persistent run holds one shared
+scanner writer lock and never changes reader state.
 
 The pull request adding or changing this script must contain the production
 container commands and an unresolved **Run after merge** reminder as described
