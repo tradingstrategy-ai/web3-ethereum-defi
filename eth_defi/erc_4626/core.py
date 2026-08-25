@@ -26,7 +26,7 @@ MIN_PRICE_SCAN_DEPOSIT_COUNT = 5
 MIN_PRICE_SCAN_CONFIGURATION_EVENT_COUNT = 1
 
 #: Chains with verified Rysk Premium LiquidityPool deployments.
-RYSK_PREMIUM_CHAIN_IDS = frozenset({1, 999})
+RYSK_PREMIUM_CHAIN_IDS = {1, 999}
 
 
 class ERC4626Feature(enum.Enum):

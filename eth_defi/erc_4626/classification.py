@@ -1511,22 +1511,24 @@ def identify_vault_features(
     if calls["shareManager"].success and calls["getAssetCount"].success:
         features.add(ERC4626Feature.mellow_like)
 
-    rysk_allocated = calls["collateralAllocated"]
-    rysk_asset = calls["collateralAsset"]
-    convert_to_shares = calls["convertToShares"]
-    is_non_erc_4626 = not convert_to_shares.success and len(convert_to_shares.result) != ABI_ENCODED_UINT256_LENGTH
-    if is_non_erc_4626 and rysk_allocated.success and len(rysk_allocated.result) == ABI_ENCODED_UINT256_LENGTH and _is_nonzero_abi_address(rysk_asset):
-        # Rysk publishes operational test pools whose onchain token names begin
-        # with "Rysk Internal". Do not export those as user-facing products.
-        raw_name = calls["name"].result.lower()
-        if b"rysk internal" not in raw_name:
-            features.update({ERC4626Feature.rysk_premium_like, ERC4626Feature.share_price_equivalence})
-
     # Securitize DSTokens deliberately extend ERC-20, but do not implement
     # ERC-4626's convertToShares(). Detect them before the generic ERC-4626
-    # failure branch below.
+    # failure branch and protocol-specific non-ERC-4626 probes below.
     if (compliance_service := calls.get("COMPLIANCE_SERVICE")) and compliance_service.success:
         return {ERC4626Feature.securitize_like}
+
+    rysk_allocated = calls.get("collateralAllocated")
+    rysk_asset = calls.get("collateralAsset")
+    convert_to_shares = calls["convertToShares"]
+    is_non_erc_4626 = not convert_to_shares.success and len(convert_to_shares.result) != ABI_ENCODED_UINT256_LENGTH
+    if rysk_allocated is not None and rysk_asset is not None:
+        has_rysk_shape = rysk_allocated.success and len(rysk_allocated.result) == ABI_ENCODED_UINT256_LENGTH and _is_nonzero_abi_address(rysk_asset)
+        if is_non_erc_4626 and has_rysk_shape:
+            # Rysk publishes operational test pools whose onchain token names begin
+            # with "Rysk Internal". Do not export those as user-facing products.
+            raw_name = calls["name"].result.lower()
+            if b"rysk internal" not in raw_name:
+                features.update({ERC4626Feature.rysk_premium_like, ERC4626Feature.share_price_equivalence})
 
     if calls["assetsWhitelistAddress"].success:
         features.add(ERC4626Feature.upshift_like)
