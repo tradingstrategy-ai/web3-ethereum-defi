@@ -77,6 +77,7 @@ from eth_defi.erc_4626.vault_protocol.flying_tulip.constants import FLYING_TULIP
 from eth_defi.erc_4626.vault_protocol.flying_tulip.historical_context import FlyingTulipHistoricalContextStore, fetch_and_store_flying_tulip_source_history, fetch_flying_tulip_proxy_deployment_block
 from eth_defi.erc_4626.vault_protocol.flying_tulip.reward_price import fetch_and_store_flying_tulip_reward_prices
 from eth_defi.erc_4626.vault_protocol.flying_tulip.vault import get_flying_tulip_historical_context_path
+from eth_defi.erc_4626.vault_protocol.rysk.historical_context import fetch_and_store_rysk_premium_history, get_rysk_historical_context_path
 from eth_defi.feed.database import resolve_feed_database_path
 from eth_defi.gmx.historical_context import fetch_and_store_gmx_historical_share_prices, get_gmx_historical_context_path
 from eth_defi.gmx.vault_catalog import GMX_CHAIN_NAMES_BY_ID
@@ -845,6 +846,7 @@ def scan_prices_for_chain(
         gmx_rows = [row for row in chain_vaults if row["_detection_data"].features & gmx_features]
         flying_tulip_features = {ERC4626Feature.flying_tulip_like}
         flying_tulip_rows = [row for row in chain_vaults if row["_detection_data"].features & flying_tulip_features]
+        rysk_rows = [row for row in chain_vaults if ERC4626Feature.rysk_premium_like in row["_detection_data"].features]
 
         # Create vault instances with filtering
         vaults = []
@@ -868,6 +870,8 @@ def scan_prices_for_chain(
                     vault.historical_context_path = historical_context_path or get_gmx_historical_context_path()
                 elif detection.features & flying_tulip_features:
                     vault.historical_context_path = historical_context_path or get_flying_tulip_historical_context_path()
+                elif ERC4626Feature.rysk_premium_like in detection.features:
+                    vault.historical_context_path = historical_context_path or get_rysk_historical_context_path()
                 vaults.append(vault)
 
         if vault_addresses is not None:
@@ -958,6 +962,20 @@ def scan_prices_for_chain(
                     context_path=context_path,
                 )
 
+        rysk_prefill = None
+        if rysk_rows:
+            if hypersync_config.hypersync_client is None:
+                raise RuntimeError(f"Rysk Premium history on chain {chain_id} requires a configured Hypersync client")
+            context_path = historical_context_path or get_rysk_historical_context_path()
+            rysk_source_end_block = min(current_end_block, get_almost_latest_block_number(web3))
+            rysk_prefill = fetch_and_store_rysk_premium_history(
+                web3=web3,
+                hypersync_client=hypersync_config.hypersync_client,
+                pool_start_blocks={row["_detection_data"].address: row["_detection_data"].first_seen_at_block for row in rysk_rows},
+                end_block=rysk_source_end_block,
+                context_path=context_path,
+            )
+
         # Scan historical prices
         result = scan_historical_prices_to_parquet(
             output_fname=uncleaned_price_path,
@@ -989,6 +1007,7 @@ def scan_prices_for_chain(
             "end_block": result["end_block"],
             "gmx_observations_inserted": gmx_prefill.observations_inserted if gmx_prefill else 0,
             "flying_tulip_source_rows_inserted": flying_tulip_source_rows_inserted,
+            "rysk_observations_inserted": rysk_prefill.observations_inserted if rysk_prefill else 0,
         }
 
     except Exception as e:
