@@ -12,7 +12,7 @@ production data in line with a new or corrected protocol integration. They are
 not recurring scanner entry points and must not become a second implementation
 of the normal vault pipeline.
 
-A protocol migration usually has two independently runnable functions:
+A protocol migration is usually a one-off script with two functions:
 
 1. **Fix current metadata.** Discover or select the reviewed vaults, then add or
    repair only their rows in `vault-metadata-db.pickle`. Preserve unrelated
@@ -24,12 +24,14 @@ A protocol migration usually has two independently runnable functions:
    rows, the production timestamp caches and reader state unless an explicit
    reader-state migration is the purpose of the script.
 
-Prefer separate, plainly named entry points such as
-`migrate-<protocol>-vault-metadata.py` and
-`backfill-<protocol>-vault-prices.py`. They may share implementation helpers,
-and a protocol that needs only one function must document why the other is not
-needed. Keeping metadata repair separate from historical backfill lets an
-operator validate and rerun either stage without repeating the other.
+For a newly added protocol, prefer a single, plainly named entry point such as
+`migrate-<protocol>-vaults.py` that runs the metadata repair and historical
+backfill in order. Keep the two operations as separate functions inside the
+script so their responsibilities remain clear and they can be tested
+independently. Use multiple scripts only when the stages have materially
+different operational requirements or need to be deployed and run separately;
+document the reason for the exception. A protocol that needs only one function
+must likewise document why the other is unnecessary.
 
 ### Migration interface
 
