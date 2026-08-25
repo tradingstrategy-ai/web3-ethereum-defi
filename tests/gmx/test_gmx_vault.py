@@ -6,6 +6,7 @@ from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
+from eth_typing import HexAddress
 from eth_utils import to_checksum_address
 
 from eth_defi.erc_4626.classification import create_vault_instance
@@ -70,6 +71,18 @@ def test_gmx_fee_interface_matches_protocol_liquidity_pools() -> None:
         assert fee_data.can_calculate_investor_net_performance()
 
 
+@pytest.mark.parametrize(
+    ("vault_class", "token"),
+    ((GMXMarketVault, GM_TOKEN), (GMXLiquidityVault, GLV_TOKEN)),
+)
+def test_gmx_vault_link_opens_its_direct_gmx_pool_details_page(vault_class: type[GMXMarketVault] | type[GMXLiquidityVault], token: HexAddress) -> None:
+    """GM and GLV vaults use their product address and chain in GMX links."""
+
+    vault = vault_class(SimpleNamespace(eth=SimpleNamespace(chain_id=42161)), VaultSpec(42161, token))
+
+    assert vault.get_link() == f"https://app.gmx.io/#/pools/details?market={token.lower()}&operation=Deposit&chainId=42161"
+
+
 def test_gmx_withdrawals_have_an_asynchronous_settlement_estimate() -> None:
     """GMX has no binding redemption deadline but exposes a UI estimate."""
 
@@ -106,10 +119,11 @@ def test_gmx_vaults_explain_single_sided_usdc_performance_equivalence() -> None:
     """GM and GLV expose the common performance-interpretation note."""
 
     web3 = SimpleNamespace(eth=SimpleNamespace(chain_id=42161))
-    expected = "The vault performance is a GMX share curve displayed in USDC. GMX values the underlying share in USD; the USDC label is a comparison convention. It approximates a single-sided USDC deposit only where USDC is accepted and does not model the deposit transaction."
+    expected = "The vault performance approximates the single-sided USDC deposit value. GMX vaults hold exposure to all underlying tokens they market make"
 
     for vault_class, token in ((GMXMarketVault, GM_TOKEN), (GMXLiquidityVault, GLV_TOKEN)):
         vault = vault_class(web3, VaultSpec(42161, token))
+        assert vault.short_description is None
         assert vault.get_notes() == expected
 
 

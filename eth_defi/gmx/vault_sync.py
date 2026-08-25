@@ -11,9 +11,11 @@ from web3 import Web3
 from eth_defi.compat import native_datetime_utc_now
 from eth_defi.erc_4626.core import ERC4262VaultDetection, ERC4626Feature
 from eth_defi.erc_4626.scan import create_vault_scan_record
-from eth_defi.gmx.vault_catalog import GMX_CHAIN_NAMES_BY_ID, GMXVaultProduct, fetch_gmx_v2_vault_products
+from eth_defi.gmx.links import get_gmx_pool_details_link
+from eth_defi.gmx.vault_catalog import GMXVaultProduct, fetch_gmx_v2_vault_products
 from eth_defi.token import TokenDiskCache, fetch_erc20_details
 from eth_defi.vault.base import VaultSpec
+from eth_defi.vault.flag import GMX_SINGLE_SIDED_USDC_NOTE
 from eth_defi.vault.vaultdb import VaultDatabase, VaultRow
 
 logger = logging.getLogger(__name__)
@@ -54,13 +56,27 @@ def _fetch_token_symbol(web3: Web3, chain_id: int, address: HexAddress, token_ca
 
 
 def _format_gmx_product_name(web3: Web3, product: GMXVaultProduct, token_cache: TokenDiskCache) -> str:
-    """Build a stable globally unique GMX product name."""
+    """Build the concise GMX trading-pair display name.
+
+    The common vault database identifies a product by its chain ID and share
+    token address, not its display name. Keeping only the product type and
+    long-short pair makes the public catalogue scannable while the
+    migration can safely update existing rows without a name-derived key.
+
+    :param web3:
+        Product-chain Web3 connection used to resolve token symbols.
+    :param product:
+        Current GM or GLV product definition.
+    :param token_cache:
+        Shared ERC-20 metadata cache.
+    :return:
+        Product-type and long-short token-pair label, for example
+        ``"GM WBTC-USDC"`` or ``"GLV WBTC-USDC"``.
+    """
 
     symbols = tuple(_fetch_token_symbol(web3, product.chain_id, address, token_cache) for address in product.accepted_deposit_tokens)
-    token_pair = "-".join(symbols)
-    prefix = "GMX Market" if product.product_type == "gm" else "GMX Liquidity Vault"
-    chain_name = GMX_CHAIN_NAMES_BY_ID[product.chain_id].title()
-    return f"{prefix} [{token_pair}] ({chain_name}, {product.token_address})"
+    product_label = "GM" if product.product_type == "gm" else "GLV"
+    return f"{product_label} {'-'.join(symbols)}"
 
 
 def _normalise_gmx_row(row: VaultRow, *, product: GMXVaultProduct, name: str) -> VaultRow:
@@ -69,10 +85,12 @@ def _normalise_gmx_row(row: VaultRow, *, product: GMXVaultProduct, name: str) ->
     row["Name"] = name
     row["Protocol"] = "GMX"
     row["Denomination"] = "USDC"
+    row["Link"] = get_gmx_pool_details_link(product.chain_id, product.token_address)
+    row["_notes"] = GMX_SINGLE_SIDED_USDC_NOTE
+    row["_short_description"] = None
     row["_synthetic_usd_denomination"] = False
     row["_gmx_product_type"] = product.product_type
-    if not product.is_enabled:
-        row["_deposits_open"] = False
+    row["_deposits_open"] = None if product.is_enabled else False
     return row
 
 
@@ -164,7 +182,11 @@ def fetch_and_sync_gmx_vault_catalogue(
                         "Name",
                         "Protocol",
                         "Denomination",
+                        "Link",
+                        "_notes",
+                        "_short_description",
                         "_synthetic_usd_denomination",
+                        "_deposits_open",
                         "_deposits_open",
                     )
                     if key in row

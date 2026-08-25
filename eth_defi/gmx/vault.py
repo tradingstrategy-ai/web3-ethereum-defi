@@ -24,6 +24,7 @@ from eth_defi.erc_4626.core import ERC4626Feature
 from eth_defi.event_reader.multicall_batcher import EncodedCall, EncodedCallResult
 from eth_defi.gmx.historical_context import GMXHistoricalContextStore, get_gmx_historical_context_path
 from eth_defi.gmx.historical_oracle import GMXHistoricalSharePriceObservation
+from eth_defi.gmx.links import get_gmx_pool_details_link
 from eth_defi.gmx.vault_catalog import GMX_CHAIN_NAMES_BY_ID
 from eth_defi.token import USDC_NATIVE_TOKEN, TokenDetails, fetch_erc20_details
 from eth_defi.types import Percent
@@ -198,10 +199,8 @@ class GMXVaultBase(VaultBase):
         return self.share_token.symbol
 
     @property
-    def short_description(self) -> str:
-        """Return a compact product description."""
-
-        return "GMX V2 liquidity-provider share valued from supply-normalised onchain pool value and supply events"
+    def short_description(self) -> None:
+        return None
 
     def fetch_share_token(self) -> TokenDetails:
         """Fetch GM or GLV ERC-20 metadata."""
@@ -369,9 +368,24 @@ class GMXVaultBase(VaultBase):
         return None
 
     def get_link(self, referral: str | None = None) -> str:
-        """Return the GMX liquidity markets page."""
+        """Return the direct GMX pool-details page for this share token.
 
-        return "https://app.gmx.io/#/pools"
+        Both GM and GLV products use GMX's ``market`` URL query parameter. The
+        link includes the deployment chain so the GMX interface selects the
+        correct network before resolving the product address.
+
+        :param referral:
+            Ignored because GMX's pool-details route does not accept the
+            common vault referral parameter.
+        :return:
+            Direct GMX pool-details URL with the deposit view selected.
+
+        .. seealso::
+
+            `GMX interface pool-details route <https://github.com/gmx-io/gmx-interface/blob/release/src/pages/PoolsDetails/PoolsDetails.tsx>`__.
+        """
+
+        return get_gmx_pool_details_link(self.chain_id, self.address)
 
     def is_whitelisted_deposit(self) -> bool:
         """Return whether GMX LP access is allowlisted."""

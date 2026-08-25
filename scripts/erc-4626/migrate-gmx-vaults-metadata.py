@@ -1,5 +1,11 @@
 """Migrate GMX V2 GM and GLV metadata into the common vault database.
 
+Existing rows are identified by chain and share-token address, so each run
+refreshes the GMX fields maintained by this migration: the concise GM/GLV
+trading-pair name, USDC display denomination, direct GMX pool-details link,
+performance note, deposit availability and short description. It does not
+overwrite manual enrichment fields belonging to other pipeline stages.
+
 Environment variables:
 
 - ``CHAINS``: Comma-separated ``arbitrum`` and/or ``avalanche``. Defaults to both.

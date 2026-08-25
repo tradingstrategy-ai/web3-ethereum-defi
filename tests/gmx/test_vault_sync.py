@@ -11,6 +11,7 @@ from eth_defi.gmx import vault_sync
 from eth_defi.gmx.vault_catalog import GMXVaultProduct
 from eth_defi.gmx.vault_sync import fetch_and_sync_gmx_vault_catalogue
 from eth_defi.vault.base import VaultSpec
+from eth_defi.vault.flag import GMX_SINGLE_SIDED_USDC_NOTE
 from eth_defi.vault.vaultdb import VaultDatabase
 
 GM_TOKEN = to_checksum_address("0x1000000000000000000000000000000000000001")
@@ -53,10 +54,14 @@ def test_fetch_and_sync_gmx_vault_catalogue_is_idempotent(monkeypatch: pytest.Mo
             "Denomination": "USD",
         },
     )
+    assert vault_sync._format_gmx_product_name(web3, replace(product, product_type="glv"), {}) == "GLV WBTC-USDC"
     vault_db = VaultDatabase()
 
     first = fetch_and_sync_gmx_vault_catalogue(web3=web3, vault_db=vault_db, token_cache={}, block_number=FIRST_CATALOGUE_BLOCK)
     vault_db.rows[VaultSpec(42161, GM_TOKEN)]["_manual_enrichment"] = "keep me"
+    vault_db.rows[VaultSpec(42161, GM_TOKEN)]["_short_description"] = "Remove me"
+    vault_db.rows[VaultSpec(42161, GM_TOKEN)]["_notes"] = "Replace me"
+    vault_db.rows[VaultSpec(42161, GM_TOKEN)]["_deposits_open"] = False
     monkeypatch.setattr(
         vault_sync,
         "create_vault_scan_record",
@@ -69,9 +74,13 @@ def test_fetch_and_sync_gmx_vault_catalogue_is_idempotent(monkeypatch: pytest.Mo
     )
     second = fetch_and_sync_gmx_vault_catalogue(web3=web3, vault_db=vault_db, token_cache={}, block_number=456)
     row_after_failed_refresh = vault_db.rows[VaultSpec(42161, GM_TOKEN)]
-    assert row_after_failed_refresh["Name"] == f"GMX Market [WBTC-USDC] (Arbitrum, {GM_TOKEN})"
+    assert row_after_failed_refresh["Name"] == "GM WBTC-USDC"
     assert row_after_failed_refresh["Protocol"] == "GMX"
     assert row_after_failed_refresh["Denomination"] == "USDC"
+    assert row_after_failed_refresh["Link"] == f"https://app.gmx.io/#/pools/details?market={GM_TOKEN.lower()}&operation=Deposit&chainId=42161"
+    assert row_after_failed_refresh["_notes"] == GMX_SINGLE_SIDED_USDC_NOTE
+    assert row_after_failed_refresh["_short_description"] is None
+    assert row_after_failed_refresh["_deposits_open"] is None
     assert row_after_failed_refresh["_manual_enrichment"] == "keep me"
 
     monkeypatch.setattr(vault_sync, "fetch_gmx_v2_vault_products", lambda *_args, **_kwargs: iter((replace(product, is_enabled=False),)))
@@ -94,7 +103,8 @@ def test_fetch_and_sync_gmx_vault_catalogue_is_idempotent(monkeypatch: pytest.Mo
     assert second.updated == 1
     assert third.inserted == 0
     assert third.updated == 1
-    assert row["Name"] == f"GMX Market [WBTC-USDC] (Arbitrum, {GM_TOKEN})"
+    assert row["Name"] == "GM WBTC-USDC"
+    assert row["Link"] == f"https://app.gmx.io/#/pools/details?market={GM_TOKEN.lower()}&operation=Deposit&chainId=42161"
     assert row["_manual_enrichment"] == "keep me"
     assert detection.first_seen_at_block == FIRST_CATALOGUE_BLOCK
     assert detection.address == GM_TOKEN.lower()

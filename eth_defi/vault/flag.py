@@ -202,9 +202,9 @@ SPIKO_EUTBL_NOTE = """Spiko EU T-Bills Money Market Fund (EUTBL).
 
 #: Public qualification for GMX's share-price-equivalent performance curve.
 #:
-#: Actual deposit tokens are product-specific, so the note distinguishes the
-#: USD comparison convention from a transaction path.
-GMX_SINGLE_SIDED_USDC_NOTE = "The vault performance is a GMX share curve displayed in USDC. GMX values the underlying share in USD; the USDC label is a comparison convention. It approximates a single-sided USDC deposit only where USDC is accepted and does not model the deposit transaction."
+#: GMX liquidity-provider shares retain exposure to every token in their
+#: underlying markets, despite the single-sided USDC performance convention.
+GMX_SINGLE_SIDED_USDC_NOTE = "The vault performance approximates the single-sided USDC deposit value. GMX vaults hold exposure to all underlying tokens they market make"
 
 #: Vault-specific notes and classifications that do not exclude a vault from
 #: research datasets.
