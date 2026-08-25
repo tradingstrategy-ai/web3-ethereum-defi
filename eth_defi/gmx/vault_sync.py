@@ -11,7 +11,7 @@ from web3 import Web3
 from eth_defi.compat import native_datetime_utc_now
 from eth_defi.erc_4626.core import ERC4262VaultDetection, ERC4626Feature
 from eth_defi.erc_4626.scan import create_vault_scan_record
-from eth_defi.gmx.vault_catalog import GMX_CHAIN_NAMES_BY_ID, GMXVaultProduct, fetch_gmx_v2_vault_products
+from eth_defi.gmx.vault_catalog import GMXVaultProduct, fetch_gmx_v2_vault_products
 from eth_defi.token import TokenDiskCache, fetch_erc20_details
 from eth_defi.vault.base import VaultSpec
 from eth_defi.vault.vaultdb import VaultDatabase, VaultRow
@@ -54,13 +54,25 @@ def _fetch_token_symbol(web3: Web3, chain_id: int, address: HexAddress, token_ca
 
 
 def _format_gmx_product_name(web3: Web3, product: GMXVaultProduct, token_cache: TokenDiskCache) -> str:
-    """Build a stable globally unique GMX product name."""
+    """Build the concise GMX trading-pair display name.
+
+    The common vault database identifies a product by its chain ID and share
+    token address, not its display name. Keeping only the long-short token
+    pair makes the public catalogue scannable while the migration can safely
+    update existing rows without a name-derived key.
+
+    :param web3:
+        Product-chain Web3 connection used to resolve token symbols.
+    :param product:
+        Current GM or GLV product definition.
+    :param token_cache:
+        Shared ERC-20 metadata cache.
+    :return:
+        Long-short token-pair label, for example ``"WBTC-USDC"``.
+    """
 
     symbols = tuple(_fetch_token_symbol(web3, product.chain_id, address, token_cache) for address in product.accepted_deposit_tokens)
-    token_pair = "-".join(symbols)
-    prefix = "GMX Market" if product.product_type == "gm" else "GMX Liquidity Vault"
-    chain_name = GMX_CHAIN_NAMES_BY_ID[product.chain_id].title()
-    return f"{prefix} [{token_pair}] ({chain_name}, {product.token_address})"
+    return "-".join(symbols)
 
 
 def _normalise_gmx_row(row: VaultRow, *, product: GMXVaultProduct, name: str) -> VaultRow:
