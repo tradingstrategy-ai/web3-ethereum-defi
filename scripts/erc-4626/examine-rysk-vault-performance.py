@@ -1,86 +1,58 @@
-"""Examine Rysk Premium name, chain, reported TVL and lifetime CAGR.
+"""Examine current Rysk pool size and finalised epoch performance.
 
-The script reads only local metadata, contextual history and raw price data.
-It performs no network requests or writes. ``Reported TVL`` is Rysk's
-published collateral figure, not full marked option-book NAV; it is formatted
-in the pool's collateral token and must not be treated as USD unless that token
-is a stablecoin.
-
-The lifetime CAGR uses the final epoch withdrawal-PPS curve. It is a return in
-the collateral denomination, not a USD return. A value is omitted when fewer
-than two final epochs or fewer than three calendar days are available.
+Names and the current public product set come from Rysk's application
+catalogue. ``Reported TVL`` is read from each pool's onchain ``getTVL()`` and
+means free plus allocated collateral, not marked option-book NAV. CAGR uses
+only locally backfilled ``epochExecuted`` share-price observations.
 
 Environment variables:
 
-- ``VAULT_DATABASE``: Vault metadata pickle. Defaults under
-  ``PIPELINE_DATA_DIR``.
-- ``UNCLEANED_PRICE_DATABASE``: Rysk backfill Parquet. Defaults to the common
-  raw vault-price Parquet.
-- ``CONTEXT_DATABASE``: Rysk snapshot context DuckDB. Defaults to the shared
-  contextual-history database.
-- ``LIMIT``: Optional maximum number of rows. Zero means all rows.
+- ``UNCLEANED_PRICE_DATABASE``: Common raw vault-price Parquet.
+- ``MAX_WORKERS``: Concurrent onchain TVL readers. Defaults to 4.
+- ``LIMIT``: Optional maximum rows; zero means all current public pools.
 """
 
 import os
 from collections.abc import Iterator
+from decimal import Decimal
 from pathlib import Path
 
-import duckdb
 import pandas as pd
+from joblib import Parallel, delayed
 from tabulate import tabulate
+from web3 import Web3
 
 from eth_defi.chain import get_chain_name
-from eth_defi.erc_4626.core import ERC4626Feature
+from eth_defi.erc_4626.vault_protocol.rysk.api import RyskPremiumPool, fetch_rysk_premium_pools, is_rysk_premium_test_pool
+from eth_defi.erc_4626.vault_protocol.rysk.vault import RyskVault
+from eth_defi.provider.env import read_json_rpc_url
+from eth_defi.provider.multi_provider import create_multi_provider_web3
+from eth_defi.utils import setup_console_logging
 from eth_defi.vault.base import VaultSpec
-from eth_defi.vault.vaultdb import VaultDatabase, VaultRow, get_pipeline_data_dir
+from eth_defi.vault.vaultdb import get_pipeline_data_dir
 
-RYSK_FEATURE = ERC4626Feature.rysk_premium_like
 MINIMUM_CAGR_DAYS = 3
 MINIMUM_CAGR_OBSERVATIONS = 2
 
 
-def _load_rysk_metadata(path: Path) -> dict[VaultSpec, VaultRow]:
-    """Load Rysk Premium rows from a common vault metadata database.
+def _load_rysk_prices(path: Path, pools: tuple[RyskPremiumPool, ...]) -> pd.DataFrame:
+    """Load local final-epoch observations for current public pools.
 
-    Filtering by the persisted detection feature keeps unrelated protocol rows
-    out of the report while retaining the common metadata schema intact.
-
-    :param path:
-        Metadata pickle produced by the Rysk backfill or scheduled scanner.
-    :return:
-        Rysk rows keyed by vault specification.
-    :raise RuntimeError:
-        If no Rysk Premium products are present.
-    """
-
-    source = VaultDatabase.read(path)
-    rows = {spec: row for spec, row in source.rows.items() if RYSK_FEATURE in row["_detection_data"].features}
-    if not rows:
-        message = f"Vault metadata contains no Rysk Premium products: {path}"
-        raise RuntimeError(message)
-    return rows
-
-
-def _load_rysk_prices(path: Path, rows: dict[VaultSpec, VaultRow]) -> pd.DataFrame:
-    """Load sparse final epoch share-price observations for selected Rysk pools.
-
-    The returned frame contains ``chain`` as integer, lower-case ``address`` as
-    string, naive UTC ``timestamp`` as ``datetime64``, integer ``block_number``
-    and numeric ``share_price``. Other common Parquet columns are preserved.
+    The returned frame contains integer ``chain``, lower-case ``address``,
+    naive UTC ``timestamp`` and numeric ``share_price`` columns.
 
     :param path:
         Common raw historical-price Parquet.
-    :param rows:
-        Rysk metadata rows defining accepted chain/address identities.
+    :param pools:
+        Current user-facing catalogue products.
     :return:
-        Timestamp-normalised observations for selected Rysk pools. May be
-        empty when the selected pools have not completed a final epoch yet.
+        Timestamp-normalised observations, possibly empty.
     """
 
-    chain_ids = sorted({spec.chain_id for spec in rows})
+    chain_ids = sorted({pool.chain_id for pool in pools})
     prices = pd.read_parquet(path, filters=[("chain", "in", chain_ids)])
     prices["address"] = prices["address"].str.lower()
-    identities = pd.MultiIndex.from_tuples((spec.chain_id, spec.vault_address.lower()) for spec in rows)
+    identities = pd.MultiIndex.from_tuples((pool.chain_id, pool.address) for pool in pools)
     price_identities = pd.MultiIndex.from_arrays((prices["chain"].astype(int), prices["address"]))
     prices = prices[price_identities.isin(identities)].copy()
     if prices.empty:
@@ -90,83 +62,14 @@ def _load_rysk_prices(path: Path, rows: dict[VaultSpec, VaultRow]) -> pd.DataFra
     return prices.dropna(subset=["share_price"]).sort_values(["chain", "address", "timestamp", "block_number"], kind="stable")
 
 
-def _load_latest_reported_tvls(context_database: Path) -> dict[tuple[int, str], int]:
-    """Read Rysk's most recently published collateral TVL per pool.
-
-    The source table stores ``chain_id`` and ``raw_tvl`` as integers and
-    ``pool_address`` as a lower-case string. The result deliberately retains
-    raw token units for later denomination-aware formatting.
-
-    :param context_database:
-        Shared contextual-history DuckDB containing Rysk source snapshots.
-    :return:
-        Raw TVL mapping by chain and pool address.
-    """
-
-    connection = duckdb.connect(str(context_database), read_only=True)
-    try:
-        records = connection.execute(
-            """
-            WITH ranked AS (
-                SELECT
-                    chain_id,
-                    pool_address,
-                    raw_tvl,
-                    row_number() OVER (
-                        PARTITION BY chain_id, pool_address
-                        ORDER BY block_number DESC, source_id DESC
-                    ) AS rank
-                FROM rysk_premium_historical_context
-                WHERE raw_tvl IS NOT NULL
-            )
-            SELECT chain_id, pool_address, raw_tvl
-            FROM ranked
-            WHERE rank = 1
-            """
-        ).fetchall()
-    finally:
-        connection.close()
-    return {(int(chain_id), address.lower()): int(raw_tvl) for chain_id, address, raw_tvl in records}
-
-
-def _format_reported_tvl(raw_tvl: int | None, row: VaultRow) -> str:
-    """Format a published collateral TVL using local denomination metadata.
-
-    The metadata row may contain an exported token mapping with integer
-    ``decimals`` and string ``symbol`` fields; incomplete mappings stay labelled
-    as raw quantities rather than being guessed.
-
-    :param raw_tvl:
-        Raw Rysk snapshot TVL, or ``None`` when the pool has no snapshot.
-    :param row:
-        Rysk metadata row with optional denomination-token export.
-    :return:
-        Human-readable collateral amount or ``N/A``.
-    """
-
-    if raw_tvl is None:
-        return "N/A"
-    token = row.get("_denomination_token")
-    if not isinstance(token, dict):
-        return f"{raw_tvl:,} raw"
-    decimals = token.get("decimals")
-    symbol = token.get("symbol") or "token"
-    if not isinstance(decimals, int):
-        return f"{raw_tvl:,} {symbol} raw"
-    return f"{raw_tvl / 10**decimals:,.2f} {symbol}"
-
-
 def _calculate_cagr(observations: pd.DataFrame) -> float | None:
-    """Calculate a collateral-denominated CAGR from final epoch exit prices.
-
-    ``observations`` must be ordered by naive UTC ``timestamp`` and contain a
-    positive numeric ``share_price`` column. The result is a decimal annualised
-    return, not a percentage-point value.
+    """Calculate collateral-denominated CAGR from final execution prices.
 
     :param observations:
-        One pool's time-ordered final withdrawal-PPS observations.
+        One pool's chronologically ordered observations with naive UTC
+        ``timestamp`` and positive numeric ``share_price`` columns.
     :return:
-        Annualised return, or ``None`` for insufficient history.
+        Decimal annualised return, or ``None`` for insufficient history.
     """
 
     if len(observations) < MINIMUM_CAGR_OBSERVATIONS:
@@ -179,80 +82,89 @@ def _calculate_cagr(observations: pd.DataFrame) -> float | None:
     return float((last["share_price"] / first["share_price"]) ** (365.25 / elapsed_days) - 1)
 
 
-def _create_rows(
-    prices: pd.DataFrame,
-    metadata: dict[VaultSpec, VaultRow],
-    reported_tvls: dict[tuple[int, str], int],
-) -> Iterator[dict[str, object]]:
-    """Yield display records ordered later by reported collateral TVL.
+def _fetch_reported_tvl(pool: RyskPremiumPool, web3_by_chain: dict[int, Web3]) -> tuple[Decimal, str]:
+    """Fetch and label one pool's collateral-only onchain TVL.
 
-    ``prices`` follows :func:`_load_rysk_prices`; each yielded mapping contains
-    string identity/date fields, integer observation counts, optional numeric
-    PPS/CAGR values and an internal integer TVL sort key.
-
-    :param prices:
-        Sparse final epoch share-price data.
-    :param metadata:
-        Rysk pool metadata.
-    :param reported_tvls:
-        Latest raw collateral TVL by pool.
+    :param pool:
+        Current Rysk catalogue identity.
+    :param web3_by_chain:
+        Reused Web3 connections keyed by EVM chain identifier.
     :return:
-        One display record per Rysk pool with price history.
+        Human-readable collateral amount and token symbol.
     """
 
-    for spec, row in metadata.items():
-        observations = prices[(prices["chain"] == spec.chain_id) & (prices["address"] == spec.vault_address.lower())]
-        raw_tvl = reported_tvls.get((spec.chain_id, spec.vault_address.lower()))
-        name = row.get("Name") or row.get("_rysk_pool_name") or spec.vault_address
+    vault = RyskVault(web3_by_chain[pool.chain_id], VaultSpec(pool.chain_id, pool.address))
+    denomination = vault.denomination_token
+    if denomination is None:
+        raise RuntimeError(f"Rysk pool {pool.address} has no readable collateral token")
+    return vault.fetch_reported_tvl(), denomination.symbol
+
+
+def _create_rows(
+    pools: tuple[RyskPremiumPool, ...],
+    prices: pd.DataFrame,
+    tvls: dict[tuple[int, str], tuple[Decimal, str]],
+) -> Iterator[dict[str, object]]:
+    """Yield display records for current public pools.
+
+    :param pools:
+        Current public Rysk products.
+    :param prices:
+        Local final-epoch observations.
+    :param tvls:
+        Current collateral-only TVL and denomination by pool identity.
+    :return:
+        One table record per pool.
+    """
+
+    for pool in pools:
+        observations = prices[(prices["chain"] == pool.chain_id) & (prices["address"] == pool.address)]
+        tvl, symbol = tvls[pool.chain_id, pool.address]
         yield {
-            "Name": name,
-            "Chain": get_chain_name(spec.chain_id),
-            "Reported TVL": _format_reported_tvl(raw_tvl, row),
-            "TVL sort value": raw_tvl or 0,
+            "Name": pool.name,
+            "Chain": get_chain_name(pool.chain_id),
+            "Reported TVL": f"{tvl:,.2f} {symbol}",
+            "TVL sort value": tvl,
             "Current PPS": observations.iloc[-1]["share_price"] if not observations.empty else None,
             "Lifetime CAGR": _calculate_cagr(observations),
-            "Epoch observations": len(observations),
+            "Final epochs": len(observations),
             "First epoch": observations.iloc[0]["timestamp"].date().isoformat() if not observations.empty else "N/A",
             "Last epoch": observations.iloc[-1]["timestamp"].date().isoformat() if not observations.empty else "N/A",
         }
 
 
 def main() -> None:
-    """Print a Rysk Premium performance table ordered by reported TVL.
-
-    Paths and the optional row limit come only from environment variables. The
-    table uses :func:`tabulate.tabulate` and labels collateral TVL separately
-    from full marked option-book NAV.
+    """Print current Rysk pool TVL and finalised-price performance.
 
     :return:
         None.
     """
 
+    setup_console_logging(default_log_level=os.environ.get("LOG_LEVEL", "info"))
     pipeline_dir = get_pipeline_data_dir()
-    vault_database = Path(os.environ.get("VAULT_DATABASE", pipeline_dir / "vault-metadata-db.pickle")).expanduser()
     price_database = Path(os.environ.get("UNCLEANED_PRICE_DATABASE", pipeline_dir / "vault-prices-1h.parquet")).expanduser()
-    context_database = Path(os.environ.get("CONTEXT_DATABASE", pipeline_dir / "vault-historical-context.duckdb")).expanduser()
+    if not price_database.exists():
+        raise FileNotFoundError(price_database)
+    max_workers = int(os.environ.get("MAX_WORKERS", "4"))
     limit = int(os.environ.get("LIMIT", "0"))
+    if max_workers <= 0:
+        raise ValueError(f"MAX_WORKERS must be positive, got {max_workers}")
     if limit < 0:
-        message = f"LIMIT must be non-negative, got {limit}"
-        raise ValueError(message)
-    for path in (vault_database, price_database, context_database):
-        if not path.exists():
-            raise FileNotFoundError(path)
+        raise ValueError(f"LIMIT must be non-negative, got {limit}")
 
-    metadata = _load_rysk_metadata(vault_database)
-    prices = _load_rysk_prices(price_database, metadata)
-    reported_tvls = _load_latest_reported_tvls(context_database)
-    table = pd.DataFrame(_create_rows(prices, metadata, reported_tvls))
-    table = table.sort_values("TVL sort value", ascending=False, kind="stable").drop(columns="TVL sort value")
+    pools = tuple(pool for pool in fetch_rysk_premium_pools() if not is_rysk_premium_test_pool(pool))
+    prices = _load_rysk_prices(price_database, pools)
+    web3_by_chain = {chain_id: create_multi_provider_web3(read_json_rpc_url(chain_id)) for chain_id in {pool.chain_id for pool in pools}}
+    tvl_values = Parallel(n_jobs=max_workers, backend="threading")(delayed(_fetch_reported_tvl)(pool, web3_by_chain) for pool in pools)
+    tvls = {(pool.chain_id, pool.address): value for pool, value in zip(pools, tvl_values, strict=True)}
+
+    table = pd.DataFrame(_create_rows(pools, prices, tvls)).sort_values("TVL sort value", ascending=False, kind="stable").drop(columns="TVL sort value")
     if limit:
         table = table.head(limit)
-
-    display = table.copy()
-    display["Current PPS"] = display["Current PPS"].map(lambda value: "N/A" if pd.isna(value) else f"{value:,.6f}")
-    display["Lifetime CAGR"] = display["Lifetime CAGR"].map(lambda value: "N/A" if pd.isna(value) else f"{value:.2%}")
-    print(tabulate(display, headers="keys", tablefmt="rounded_outline", showindex=False))
-    print("Reported TVL is collateral-only and is not full marked option-book NAV. CAGR is denominated in that collateral token.")
+    table["Current PPS"] = table["Current PPS"].map(lambda value: "N/A" if pd.isna(value) else f"{value:,.6f}")
+    table["Lifetime CAGR"] = table["Lifetime CAGR"].map(lambda value: "N/A" if pd.isna(value) else f"{value:.2%}")
+    print(tabulate(table, headers="keys", tablefmt="rounded_outline", showindex=False))
+    print("Reported TVL is collateral-only, not marked option-book NAV. CAGR is denominated in each pool's collateral token.")
 
 
 if __name__ == "__main__":

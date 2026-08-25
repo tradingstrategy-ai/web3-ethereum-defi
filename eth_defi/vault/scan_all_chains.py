@@ -48,6 +48,9 @@ from eth_defi.core3.constants import resolve_core3_database_path
 from eth_defi.core3.mappings import CORE3_MAPPINGS
 from eth_defi.core3.scanner import scan_projects as core3_scan_projects
 from eth_defi.core3.session import create_core3_session
+from eth_defi.xerberus.constants import resolve_xerberus_api_email, resolve_xerberus_database_path
+from eth_defi.xerberus.scanner import scan_xerberus as xerberus_scan
+from eth_defi.xerberus.session import create_xerberus_session
 from eth_defi.currency_api.constants import (
     CURRENCY_API_DATABASE,
     DEFAULT_BASE_CURRENCY,
@@ -74,10 +77,7 @@ from eth_defi.erc_4626.vault_protocol.flying_tulip.constants import FLYING_TULIP
 from eth_defi.erc_4626.vault_protocol.flying_tulip.historical_context import FlyingTulipHistoricalContextStore, fetch_and_store_flying_tulip_source_history, fetch_flying_tulip_proxy_deployment_block
 from eth_defi.erc_4626.vault_protocol.flying_tulip.reward_price import fetch_and_store_flying_tulip_reward_prices
 from eth_defi.erc_4626.vault_protocol.flying_tulip.vault import get_flying_tulip_historical_context_path
-from eth_defi.erc_4626.vault_protocol.rysk.api import RyskPremiumAPIError, fetch_rysk_premium_pools
-from eth_defi.erc_4626.vault_protocol.rysk.constants import RYSK_PREMIUM_POOLS, RYSK_SUPPORTED_CHAIN_IDS, install_rysk_premium_runtime_pools, is_rysk_premium_test_pool
 from eth_defi.erc_4626.vault_protocol.rysk.historical_context import fetch_and_store_rysk_premium_history, get_rysk_historical_context_path
-from eth_defi.erc_4626.vault_protocol.rysk.vault_sync import RyskPremiumCatalogueSyncResult, fetch_and_sync_rysk_premium_catalogue
 from eth_defi.feed.database import resolve_feed_database_path
 from eth_defi.gmx.historical_context import fetch_and_store_gmx_historical_share_prices, get_gmx_historical_context_path
 from eth_defi.gmx.vault_catalog import GMX_CHAIN_NAMES_BY_ID
@@ -121,9 +121,6 @@ from eth_defi.vault.settlement_data import (
 )
 from eth_defi.vault.vaultdb import DEFAULT_READER_STATE_DATABASE, DEFAULT_UNCLEANED_PRICE_DATABASE, DEFAULT_VAULT_DATABASE, VaultDatabase, get_pipeline_data_dir
 from eth_defi.version_info import VersionInfo
-from eth_defi.xerberus.constants import resolve_xerberus_api_email, resolve_xerberus_database_path
-from eth_defi.xerberus.scanner import scan_xerberus as xerberus_scan
-from eth_defi.xerberus.session import create_xerberus_session
 
 #: How many days of backups to keep
 BACKUP_RETENTION_DAYS = int(os.environ.get("BACKUP_RETENTION_DAYS", "7"))
@@ -659,41 +656,6 @@ def scan_vaults_for_chain(
             current_db.write(vault_db_path)
             return sync_result
 
-        def fetch_and_sync_current_rysk_catalogue(block_number: int) -> RyskPremiumCatalogueSyncResult | None:
-            """Refresh Rysk Premium products independently of ERC-4626 lead discovery.
-
-            The application API is an optional protocol dependency: a bounded
-            Rysk failure is logged and must not fail unrelated vault scanning on
-            the same chain.
-
-            :param block_number:
-                Current EVM block used for newly observed metadata rows.
-            :return:
-                Catalogue reconciliation counts, or ``None`` when unsupported
-                or temporarily unavailable.
-            """
-
-            if chain_id not in RYSK_SUPPORTED_CHAIN_IDS:
-                return None
-            try:
-                current_db = VaultDatabase.read(vault_db_path)
-                rysk_token_cache = TokenDiskCache()
-                try:
-                    sync_result = fetch_and_sync_rysk_premium_catalogue(
-                        web3=web3,
-                        vault_db=current_db,
-                        token_cache=rysk_token_cache,
-                        block_number=block_number,
-                    )
-                    rysk_token_cache.commit()
-                    current_db.write(vault_db_path)
-                finally:
-                    rysk_token_cache.close()
-            except RyskPremiumAPIError as error:
-                logger.warning("Skipping Rysk Premium catalogue refresh on chain %d: %s", chain_id, error)
-                return None
-            return sync_result
-
         enabled_chains = [(config.name, config.env_var) for config in build_chain_configs() if config.scan_vaults]
         signature, signature_configuration = create_lead_discovery_signature(enabled_chains)
         state_path = get_lead_discovery_state_path(vault_db_path.parent, chain_id)
@@ -723,7 +685,6 @@ def scan_vaults_for_chain(
             assert state is not None
             last_block = existing_db.last_scanned_block[chain_id]
             gmx_sync = fetch_and_sync_current_gmx_catalogue(getattr(web3.eth, "block_number", last_block))
-            rysk_sync = fetch_and_sync_current_rysk_catalogue(getattr(web3.eth, "block_number", last_block))
             existing_db = VaultDatabase.read(vault_db_path)
             chain_rows = [row for row in existing_db.rows.values() if row["_detection_data"].chain == chain_id]
             logger.debug(
@@ -740,9 +701,8 @@ def scan_vaults_for_chain(
                 "start_block": last_block,
                 "end_block": last_block,
                 "vault_count": len(chain_rows),
-                "new_vaults": (gmx_sync.inserted if gmx_sync else 0) + (rysk_sync.inserted if rysk_sync else 0),
+                "new_vaults": gmx_sync.inserted if gmx_sync else 0,
                 "gmx_products": gmx_sync.products if gmx_sync else 0,
-                "rysk_products": rysk_sync.pools if rysk_sync else 0,
                 "items_scanned": 0,
                 "lead_discovery_cache_hit": True,
             }
@@ -768,7 +728,6 @@ def scan_vaults_for_chain(
         items_scanned = report.items_scanned
 
         gmx_sync = fetch_and_sync_current_gmx_catalogue(report.end_block)
-        rysk_sync = fetch_and_sync_current_rysk_catalogue(report.end_block)
         refreshed_db = VaultDatabase.read(vault_db_path)
         refreshed_chain_rows = [row for row in refreshed_db.rows.values() if row["_detection_data"].chain == chain_id]
 
@@ -788,9 +747,8 @@ def scan_vaults_for_chain(
             "start_block": report.start_block,
             "end_block": report.end_block,
             "vault_count": len(refreshed_chain_rows),
-            "new_vaults": len(set(report.leads) - existing_lead_addresses) + (gmx_sync.inserted if gmx_sync else 0) + (rysk_sync.inserted if rysk_sync else 0),
+            "new_vaults": len(set(report.leads) - existing_lead_addresses) + (gmx_sync.inserted if gmx_sync else 0),
             "gmx_products": gmx_sync.products if gmx_sync else 0,
-            "rysk_products": rysk_sync.pools if rysk_sync else 0,
             "items_scanned": items_scanned,
             "lead_discovery_cache_hit": False,
         }
@@ -889,18 +847,6 @@ def scan_prices_for_chain(
         flying_tulip_features = {ERC4626Feature.flying_tulip_like}
         flying_tulip_rows = [row for row in chain_vaults if row["_detection_data"].features & flying_tulip_features]
         rysk_rows = [row for row in chain_vaults if ERC4626Feature.rysk_premium_like in row["_detection_data"].features]
-        if rysk_rows:
-            try:
-                runtime_pools = tuple(pool for pool in fetch_rysk_premium_pools() if not is_rysk_premium_test_pool(pool))
-                install_rysk_premium_runtime_pools(list(runtime_pools))
-            except RyskPremiumAPIError as error:
-                logger.warning("Could not refresh the Rysk Premium runtime catalogue on chain %d: %s", chain_id, error)
-
-            unresolved_rysk_addresses = {row["_detection_data"].address.lower() for row in rysk_rows if (chain_id, row["_detection_data"].address.lower()) not in RYSK_PREMIUM_POOLS}
-            if unresolved_rysk_addresses:
-                logger.warning("Skipping %d Rysk Premium rows with no current catalogue product on chain %d: %s", len(unresolved_rysk_addresses), chain_id, sorted(unresolved_rysk_addresses))
-                chain_vaults = [row for row in chain_vaults if row["_detection_data"].address.lower() not in unresolved_rysk_addresses]
-                rysk_rows = [row for row in rysk_rows if row["_detection_data"].address.lower() not in unresolved_rysk_addresses]
 
         # Create vault instances with filtering
         vaults = []
@@ -1018,10 +964,15 @@ def scan_prices_for_chain(
 
         rysk_prefill = None
         if rysk_rows:
+            if hypersync_config.hypersync_client is None:
+                raise RuntimeError(f"Rysk Premium history on chain {chain_id} requires a configured Hypersync client")
             context_path = historical_context_path or get_rysk_historical_context_path()
-            rysk_pools = (RYSK_PREMIUM_POOLS[chain_id, row["_detection_data"].address.lower()] for row in rysk_rows if (chain_id, row["_detection_data"].address.lower()) in RYSK_PREMIUM_POOLS)
+            rysk_source_end_block = min(current_end_block, get_almost_latest_block_number(web3))
             rysk_prefill = fetch_and_store_rysk_premium_history(
-                pools=rysk_pools,
+                web3=web3,
+                hypersync_client=hypersync_config.hypersync_client,
+                pool_start_blocks={row["_detection_data"].address: row["_detection_data"].first_seen_at_block for row in rysk_rows},
+                end_block=rysk_source_end_block,
                 context_path=context_path,
             )
 

@@ -1,191 +1,182 @@
 # Rysk Premium vaults
 
-This module integrates Rysk Premium with the common vault analytics pipeline.
-Rysk Premium shares are epoch-settled LP shares, rather than ERC-4626 vault
-shares.
+This package integrates Rysk Premium option-writing pools with the common
+vault analytics pipeline. Rysk Premium pools issue ERC-20 LP shares, but they
+are neither ERC-4626 vaults nor legally structured tokenised funds.
 
 ## What is Rysk
 
-[Rysk](https://docs.rysk.finance/) is an onchain options protocol. Its option
-writers receive upfront premium through a request-for-quote system and provide
-full collateral: cash for puts and the underlying asset for calls. The
+[Rysk](https://docs.rysk.finance/) is an onchain options protocol. Option
+writers receive premium and provide full collateral: cash for puts and the
+underlying asset for calls. The official
 [protocol overview](https://docs.rysk.finance/getting-started/protocol-and-product/how-it-works)
-describes the option lifecycle and collateralisation.
+describes the option lifecycle.
 
 Rysk Premium packages option writing into curator-managed liquidity pools. A
-curator selects which options the pool writes, including their strikes and
-expiries. Liquidity providers supply the collateral and receive ERC-20 pool
-shares. See the official [Rysk Premium LP explainer](https://docs.rysk.finance/rysk-premium/rysk-premium-explainer)
-for the authoritative description of shares, epochs, valuation, withdrawals,
-fees and risks.
-
-Premium shares are ERC-20 claims on a pool's epoch accounting process.
+curator chooses the options the pool may write, while liquidity providers
+supply collateral and receive pool shares. The
+[Rysk Premium explainer](https://docs.rysk.finance/rysk-premium/rysk-premium-explainer)
+is the canonical description of epochs, valuation, withdrawals, fees and
+risks.
 
 ## What are Rysk vaults
 
-A Rysk Premium vault is an option-writing pool with three relevant contract
-roles:
+A Rysk Premium pool is both the collateral-accounting contract and its ERC-20
+LP share token. It queues deposits and withdrawal requests, allocates
+collateral to options, and settles accounting at discrete epoch boundaries.
 
-- The **pool** holds accounting state, issues ERC-20 LP shares and queues
-  deposits and withdrawals.
-- The **registry** supplies protocol-level configuration for the pool.
-- The **option handler** connects the pool to its option-writing lifecycle.
+The scanner does not need a registry or application API to find a pool. It
+streams the pool-specific
+`EpochPriceSet(uint256,uint256,uint256)` event and confirms candidates through the
+`collateralAllocated()` and `collateralAsset()` contract methods. This covers
+Ethereum and HyperEVM without maintaining an address allowlist.
 
-The current catalogue is published by Rysk's [public pools API](https://premium.rysk.finance/api/pools).
-The pipeline refreshes this catalogue dynamically for the reviewed Ethereum
-and HyperEVM deployments. A newly supported chain also needs a scanner RPC
-configuration before it can be indexed.
+The [public pools endpoint](https://premium.rysk.finance/api/pools) is still
+used by the manual backfill and examination scripts to enumerate the products
+currently shown in the application. It is not a source of scanner metadata or
+historical prices. Rysk also publishes code through its
+[GitHub organisation](https://github.com/rysk-finance).
 
-Representative deployments from the catalogue include:
-
-| Product | Pool share | Registry | Option handler |
-|---|---|---|---|
-| Hyperion HiHYPE/USDC Put, HyperEVM | [pool](https://hyperevmscan.io/address/0xa26801f689fbdf0ff96eff52077b958d1062ba85) | [registry](https://hyperevmscan.io/address/0xb8dbfca0fd36cf5102cdf4d32087ca1e7b42f6c5) | [option handler](https://hyperevmscan.io/address/0xc92c394982a32c98bb8781101a825b7abed9e732) |
-| KPK WETH Put, Ethereum | [pool](https://etherscan.io/address/0x1195826418541cb3e80a22ef5736a6794393c91a) | [registry](https://etherscan.io/address/0x0941f9a243878d4d5922462d07c15027e3b9026b) | [option handler](https://etherscan.io/address/0x93bfe72a9729ae68c15c3d6da1206f408fca8c4e) |
-
-These addresses are examples, not a static statement of complete protocol
-coverage. Use the public pools API for the current set. Rysk's public source
-code and client libraries are available through the official
-[Rysk Finance GitHub organisation](https://github.com/rysk-finance).
+A representative Ethereum deployment is the
+[KPK WETH put pool](https://etherscan.io/address/0x1195826418541cb3e80a22ef5736a6794393c91a),
+whose verified proxy implementation exposes the discovery, accounting and
+epoch events used by this integration. Addresses are examples, not a static
+statement of complete coverage.
 
 ## How Rysk vaults differ from ERC-4626 vaults
 
-Rysk Premium shares are ERC-20 tokens, but the pools do not implement the
-ERC-4626 vault interface.
-
-| Behaviour | ERC-4626 vault | Rysk Premium vault |
+| Behaviour | ERC-4626 vault | Rysk Premium pool |
 |---|---|---|
-| Entry | Shares are normally minted by `deposit()` or `mint()` at the current conversion rate | Collateral enters `pendingDeposits`; shares are minted when the epoch executes at the final deposit price |
-| Exit | `withdraw()` or `redeem()` normally burns shares in one synchronous transaction | The user initiates a withdrawal, waits for an eligible epoch and then completes it |
-| Pricing | `convertToAssets()` and `totalAssets()` provide standardised onchain conversion inputs | A Governor submits deposit and withdrawal prices based on epoch NAV |
-| Price timing | Usually available continuously at an arbitrary block | Final only at discrete epoch boundaries, after the dispute period and epoch execution |
-| Valuation | Often derivable from onchain assets and share supply | Includes an offchain mark-to-market value for open option positions |
-| Generic flow events | Standard ERC-4626 `Deposit` and `Withdraw` events | Protocol-specific queued deposit, withdrawal and epoch activity |
+| Entry | `deposit()` or `mint()` normally returns shares at the current conversion rate | Collateral is queued and shares are minted when an epoch executes |
+| Exit | `withdraw()` or `redeem()` normally settles synchronously | A user initiates a withdrawal and completes it after epoch processing |
+| Pricing | `convertToAssets()` and `totalAssets()` expose standardised conversion inputs | Deposit and withdrawal prices are proposed for an epoch and become final only when that epoch executes |
+| Price timing | Usually readable at arbitrary blocks | Sparse, discrete finalisation events |
+| Valuation | Often derivable from onchain assets and share supply | Epoch NAV includes a mark for open option liabilities |
+| Events | Standard ERC-4626 `Deposit` and `Withdraw` | Protocol-specific deposit, withdrawal and epoch events |
 
-The Premium contract's simplified TVL is free collateral plus allocated
-collateral. The official explainer states that full NAV also subtracts the
-mark-to-market liability of the open option book. Consequently, dashboard TVL
-must not be divided by share supply to manufacture a share price.
+The contract's `getTVL()` returns free plus allocated collateral. It is useful
+for reporting pool size, but it is not full marked option-book NAV. Dividing
+this value by share supply would therefore manufacture an incorrect share
+price.
 
 ## What users should expect
 
-Liquidity providers should expect:
+Liquidity providers should expect discrete pricing, queued entry, a multi-step
+exit, option losses as well as premium income, and curator and valuation risk.
+An epoch price may be disputed before execution, so a price proposal is not a
+final observation.
 
-- **Discrete pricing.** Share prices change at finalised epoch boundaries, not
-  continuously with every block.
-- **Queued entry.** A deposit can be usable by the pool before its corresponding
-  shares are minted at the next executed epoch.
-- **Two-step exits.** A withdrawal is initiated first and completed after an
-  epoch processes it.
-- **Liquidity-dependent withdrawals.** If free collateral is insufficient,
-  escrowed shares remain queued until a later epoch can process them.
-- **Option risk.** Premium income can increase NAV, while adverse option
-  settlement or mark-to-market losses can reduce it materially.
-- **Curator and valuation risk.** Strategy selection is discretionary, and the
-  epoch NAV depends on governance submitting a committee-derived option-book
-  valuation. A dispute period delays final execution and permits corrections.
-- **Protocol-specific fees.** An option-sale fee is deducted from option
-  premium and split between the protocol and curator. It is not modelled as a
-  generic vault management or performance fee.
+Users of this Python integration should expect:
 
-Library users should also expect the adapter to be read-only. Generic deposit,
-redemption and flow-manager construction raises `NotImplementedError` until a
-complete Rysk epoch transaction lifecycle is implemented and tested. The
-adapter does not advertise public deposit-manager capability.
+- A sparse collateral-denominated source curve with at most one point per
+  finalised epoch whose proposal is inside the discovery range. The common
+  writer may omit a consecutive epoch when its price is economically unchanged;
+  this is not a continuously marked options portfolio.
+- The final withdrawal price as the share-price equivalent. The deposit price
+  is retained for audit but is not used as an exit-value curve.
+- `total_assets` and `total_supply` to remain empty on historical observations;
+  the integration will not mislabel collateral-only TVL as NAV.
+- Read-only vault support. Generic deposit, redemption and investor-flow
+  adapters raise `NotImplementedError` because Rysk uses a queued lifecycle.
+- No `tokenised_fund` flag. Rysk Premium is a DeFi protocol and does not have
+  the legal fund structure that flag represents.
 
 ## Share-price equivalent
 
-The historical equity curve uses the final epoch withdrawal price per share:
+The equity curve uses the redemption price made final by epoch execution:
 
 ```text
-share_price_equivalent = withdrawalPps / 10**collateral_token.decimals
+share_price_equivalent = final withdrawalPps / 10**collateral_token.decimals
 ```
 
-`withdrawalPps` is encoded in the native precision of the pool collateral
-token: six decimals for USDH or USDC, and eighteen for kHYPE. Once scaled, it
-is the final exit price per share. `depositPps` is retained for entry-price
-auditing but is not substituted into the equity curve. If the feed contains
-several final rows for an epoch, the row at the greatest source block is
-selected; rows tied within one block have no published update order and are
-selected by a deterministic record fingerprint.
+`EpochPriceSet` proposes `depositPps` and `withdrawalPps` for an epoch.
+`EpochPriceDisputed` can replace that proposal during the dispute window.
+`epochExecuted(newEpoch)` is the finalisation boundary for `newEpoch - 1`.
+The collector therefore chooses the latest price update for that epoch that
+precedes its execution event, and records the execution block and timestamp.
 
-The curve is sparse by design: it contains final epoch observations rather
-than interpolated hourly values. Historical rows leave `total_assets` and
-`total_supply` empty because the source does not provide a matching full-NAV
-and supply pair for the observation. This avoids presenting the simplified TVL
-as full option-book NAV.
+This is an exit-value curve in the pool's collateral token. It is not a USD
+curve unless that collateral itself tracks USD, and it does not include an
+intraday mark between epoch executions. The common post-processing pipeline
+may forward-fill sparse observations for daily analytics; it does not invent
+new source prices.
 
-## How the pipeline handles Rysk Premium
+## How the pipeline handles Rysk
 
-The normal EVM vault pipeline handles Rysk in the following sequence:
+The scheduled EVM pipeline follows the same discovery path as other vaults:
 
-1. [`fetch_rysk_premium_pools()`](api.py) reads the current public catalogue.
-2. [`fetch_and_sync_rysk_premium_catalogue()`](vault_sync.py) installs the
-   runtime catalogue and creates or refreshes common vault metadata rows.
-3. Chain-aware hardcoded classification assigns `rysk_premium_like` and
-   `share_price_equivalence`. Rysk is exempt from the generic ERC-4626 deposit
-   activity filter because its pools do not emit those standard events.
-4. [`fetch_rysk_premium_snapshots()`](api.py) reads the complete paginated
-   snapshot stream for each selected pool.
-5. [`RyskHistoricalContextStore`](historical_context.py) retains every raw
-   snapshot in the shared `vault-historical-context.duckdb` database. Exact
-   duplicate records are ignored; distinct corrected records are preserved for
-   deterministic epoch selection.
-6. [`RyskPremiumHistoricalReader`](historical.py) selects final `EPOCH` rows,
-   deterministically selects one record per epoch and emits the scaled withdrawal PPS
-   through the common `VaultHistoricalRead` interface.
-7. The generic historical scanner merges these sparse observations into the
-   common vault price Parquet without replacing unrelated vault data.
+1. Hypersync streams the Rysk `EpochPriceSet` lead event on Ethereum and
+   HyperEVM. This protocol-specific topic avoids unrelated MasterChef deposit
+   events and places discovery at the start of a finalisation sequence.
+2. The common multicall classifier confirms the Rysk accounting surface and
+   assigns `rysk_premium_like` plus `share_price_equivalence`.
+3. `RyskVault` reads the LP token identity and `collateralAsset()` onchain.
+4. Before a price scan, the Rysk context collector streams `EpochPriceSet`,
+   `EpochPriceDisputed` and `epochExecuted` through Hypersync.
+5. Execution timestamps are resolved through the shared cache under
+   `~/.tradingstrategy/block-timestamp`, then `RyskHistoricalContextStore`
+   persists only reconstructed final executions in the shared
+   `vault-historical-context.duckdb` file.
+6. `RyskPremiumHistoricalReader` scales the final withdrawal price and emits
+   sparse `VaultHistoricalRead` rows to the common Parquet writer.
 
-## Manual backfill and review
+No JSON-RPC `eth_getLogs`, application metadata scan, hardcoded pool catalogue
+or application snapshot feed is used by the scheduled path. Operational test
+pools whose onchain names begin with `Rysk Internal` are rejected by the
+classifier.
+
+## Manual backfill and examination
 
 [`backfill-rysk-vault-prices.py`](../../../../scripts/erc-4626/backfill-rysk-vault-prices.py)
-performs a complete source refresh for the current Ethereum and HyperEVM
-catalogue, then writes only final epoch exit-price observations through the
-common Parquet writer. It does not use reader state. Set `CHAINS` to
-`ethereum`, `hyperliquid`, or both when an operator needs to scope a run.
+enumerates the application's current public products and reconstructs
+finalised epochs from onchain events. A new context begins at block 1; an
+existing context resumes from its stored per-pool boundary. The script writes
+through the common historical Parquet writer without altering vault metadata
+or reader state. `DRY_RUN=true` uses temporary files.
 
 [`examine-rysk-vault-performance.py`](../../../../scripts/erc-4626/examine-rysk-vault-performance.py)
-is read-only. It prints each pool's name, chain, latest reported collateral
-TVL, last final PPS and lifetime collateral-denominated CAGR. It deliberately
-labels TVL as reported collateral rather than NAV and omits CAGR for curves
-with insufficient final epochs.
+reports each current public product's name, chain, collateral-only reported
+TVL, latest final price and collateral-denominated CAGR. CAGR is omitted when
+there are fewer than two final epochs or less than three days of history.
 
-The scheduled integration is wired through
-[`scan_all_chains.py`](../../../vault/scan_all_chains.py). Both metadata-cache
-hits and full lead scans refresh the Rysk catalogue, and price scans prefill
-the contextual Rysk history before requesting common vault reads.
+The scheduled integration lives in
+[`scan_all_chains.py`](../../../vault/scan_all_chains.py). The Rysk collector
+runs only for metadata rows already classified as Rysk. Each pool begins at
+its own discovery block, then resumes by replaying its last stored execution
+block. Already stored execution logs are ignored during that replay, while a
+later next-epoch price update in the same block remains visible.
 
-## Our Python APIs
+## Python APIs
 
-The main integration surfaces are:
+- [`RyskVault`](vault.py) provides the read-only common vault adapter.
+- [`get_rysk_premium_discovery_events()`](../../discovery_base.py) defines the
+  lead event used by the common scanner.
+- [`fetch_rysk_finalised_epoch_prices()`](historical_context.py) reconstructs
+  final prices from onchain events.
+- [`RyskHistoricalContextStore`](historical_context.py) persists final epoch
+  provenance and scales prices using collateral precision.
+- [`RyskPremiumHistoricalReader`](historical.py) exposes stored observations
+  through the common historical-reader API.
+- [`fetch_rysk_premium_pools()`](api.py) reads the application catalogue for
+  operator scripts only.
 
-- [`RyskVault`](vault.py) — common read-only `VaultBase` adapter, token metadata
-  and protocol identity.
-- [`RyskPremiumPool`](constants.py) — typed catalogue record and reviewed seed
-  deployments.
-- [`RyskPremiumSnapshot`](api.py) — typed raw snapshot.
-- [`fetch_rysk_premium_pools()`](api.py) — current Rysk Premium catalogue.
-- [`fetch_rysk_premium_snapshots()`](api.py) — paginated snapshot iterator for
-  one pool.
-- [`RyskHistoricalContextStore`](historical_context.py) — durable raw snapshot
-  storage and final-epoch selection.
-- [`fetch_and_store_rysk_premium_history()`](historical_context.py) — history
-  prefill for a set of pools.
-- [`RyskPremiumHistoricalReader`](historical.py) — adapter from final epoch PPS
-  to the common historical-read API.
-- [`fetch_and_sync_rysk_premium_catalogue()`](vault_sync.py) — metadata database
-  reconciliation.
+The shared adapter surface is defined by
+[`VaultBase`](../../../vault/base.py), while classification and construction
+are wired through [`classification.py`](../../classification.py). The Sphinx
+API entry is under
+[`docs/source/api/rysk`](../../../../docs/source/api/rysk/index.rst).
 
-The shared interfaces implemented by the adapter are documented in
-[`VaultBase`](../../../vault/base.py), while protocol selection is wired in
-[`classification.py`](../../classification.py). The generated Sphinx entry is
-under [`docs/source/api/rysk`](../../../../docs/source/api/rysk/index.rst).
+## Application API stability
 
-## External API stability
+The pools endpoint is an unauthenticated application endpoint rather than a
+versioned developer API. `api.py` validates its response and raises
+`RyskPremiumAPIError` for transport or schema failures. Such a failure can
+affect the manual operator scripts, but not scheduled onchain discovery or
+pricing.
 
-The catalogue and snapshot endpoints are public application APIs rather than a
-versioned developer API. The client validates response shapes and identifiers
-and raises `RyskPremiumAPIError` when the service returns malformed or
-incompatible data. Callers should treat endpoint availability and schema as an
-external dependency.
+The focused live endpoint check is opt-in so ordinary unit tests do not depend
+on application availability:
+
+```shell
+source .local-test.env && RUN_RYSK_API_INTEGRATION=true poetry run pytest tests/erc_4626/vault_protocol/test_rysk_api_integration.py -q
+```

@@ -26,6 +26,7 @@ def test_price_source_public_values() -> None:
 
     assert {source.value for source in PriceSource} == {
         "smart-contract-state",
+        "smart-contract-event",
         "api",
         "approximation",
         "fixed-price",

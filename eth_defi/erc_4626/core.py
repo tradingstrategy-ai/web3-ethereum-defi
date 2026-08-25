@@ -25,6 +25,9 @@ MIN_PRICE_SCAN_DEPOSIT_COUNT = 5
 #: :py:data:`MIN_PRICE_SCAN_DEPOSIT_COUNT`.
 MIN_PRICE_SCAN_CONFIGURATION_EVENT_COUNT = 1
 
+#: Chains with verified Rysk Premium LiquidityPool deployments.
+RYSK_PREMIUM_CHAIN_IDS = frozenset({1, 999})
+
 
 class ERC4626Feature(enum.Enum):
     """Additional extensionsERc-4626 vault may have.
@@ -84,9 +87,8 @@ class ERC4626Feature(enum.Enum):
     #: Rysk Premium epoch-settled DeFi option-writing pool share, not a fund.
     #:
     #: https://docs.rysk.finance/rysk-premium/rysk-premium-explainer
-    #: Routing marker for non-ERC-4626 Rysk Premium LP shares read through a
-    #: :py:class:`eth_defi.vault.base.VaultBase` adapter, rather than the
-    #: tokenised-fund integration.
+    #: Routing marker for non-ERC-4626 Rysk Premium LP shares discovered and
+    #: priced from protocol-specific onchain events.
     rysk_premium_like = "rysk_premium_like"
 
     #: Franklin Templeton Benji tokenised fund share.
@@ -989,9 +991,9 @@ def is_activity_filter_exempt(detection: "ERC4262VaultDetection") -> bool:
     stale low deposit counter. GMX GM and GLV products are enumerated from the
     protocol Reader contracts and use asynchronous ExchangeRouter requests, so
     they do not emit the ERC-4626 flow events counted by this filter. Rysk
-    Premium shares have queued, epoch-settled flows published through the
-    Premium snapshot API rather than standard ERC-4626 flow events. T3tris
-    migration-pool vaults are handled
+    Premium is discovered from epoch-price configuration and may have a valid
+    finalised curve below the generic LP-deposit threshold. T3tris migration-pool
+    vaults are handled
     separately by :py:func:`passes_price_scan_activity_filter`, which requires
     a recorded configuration event instead of broadly exempting the protocol.
 

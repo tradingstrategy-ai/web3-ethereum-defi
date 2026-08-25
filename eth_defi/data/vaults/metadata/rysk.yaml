@@ -5,13 +5,13 @@ short_description: |
 long_description: |
   [Rysk Premium](https://docs.rysk.finance/rysk-premium/rysk-premium-explainer)
   lets liquidity providers deposit collateral into pools that write options. Deposits and
-  withdrawals are queued within discrete epochs and are converted at the price per share
-  submitted at an epoch boundary. Put collateral is fully cash-secured and call collateral is
-  the underlying notional.
+  withdrawals are queued within discrete epochs and converted at epoch prices. Proposed prices
+  can be disputed and become final only when the epoch executes. Put collateral is fully
+  cash-secured and call collateral is the underlying notional.
 
-  A pool's displayed TVL is its free and allocated collateral. The full price per share uses
-  NAV after accounting for the marked value of open option positions and accrued protocol and
-  curator fees, as described in Rysk's
+  A pool's reported TVL is its free and allocated collateral, not full option-book NAV. The
+  final epoch price also accounts for the marked value of open option positions and accrued
+  protocol and curator fees, as described in Rysk's
   [Premium explainer](https://docs.rysk.finance/rysk-premium/rysk-premium-explainer).
 fee_description: |
   Rysk Premium deducts protocol and curator fees from option premium before the remainder

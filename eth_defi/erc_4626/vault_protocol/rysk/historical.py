@@ -13,13 +13,13 @@ from eth_defi.vault.base import VaultHistoricalRead, VaultHistoricalReader
 class RyskPremiumHistoricalReader(VaultHistoricalReader):
     """Read final Rysk Premium epoch withdrawal prices from local context.
 
-    The reader adapts sparse application snapshots to the common historical
-    interface without issuing block-by-block multicalls.
+    The reader adapts sparse, finalised onchain epoch events to the common
+    historical interface without issuing block-by-block multicalls.
     """
 
     @property
     def uses_contextual_history(self) -> bool:
-        """Select the Rysk API-backed contextual scanner branch.
+        """Select the Rysk event-backed contextual scanner branch.
 
         Rysk valuation is supplied by final epoch records, so the common
         scanner must invoke :meth:`fetch_contextual_historical_reads`.
@@ -93,6 +93,7 @@ class RyskPremiumHistoricalReader(VaultHistoricalReader):
                 collateral_decimals=collateral_token.decimals,
             ):
                 timestamp = datetime.datetime.fromtimestamp(observation.block_timestamp, tz=datetime.UTC).replace(tzinfo=None)
+                assert observation.withdrawal_share_price is not None
                 yield VaultHistoricalRead(
                     vault=self.vault,
                     block_number=observation.block_number,
@@ -105,6 +106,8 @@ class RyskPremiumHistoricalReader(VaultHistoricalReader):
                     performance_fee=None,
                     management_fee=None,
                     errors=None,
-                    deposits_open=False,
-                    redemption_open=False,
+                    # Unsupported generic transaction construction is not
+                    # evidence that the protocol itself was closed.
+                    deposits_open=None,
+                    redemption_open=None,
                 )
