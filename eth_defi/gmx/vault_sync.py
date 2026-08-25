@@ -85,6 +85,7 @@ def _normalise_gmx_row(row: VaultRow, *, product: GMXVaultProduct, name: str) ->
     row["Protocol"] = "GMX"
     row["Denomination"] = "USDC"
     row["Link"] = get_gmx_pool_details_link(product.chain_id, product.token_address)
+    row["_short_description"] = None
     row["_synthetic_usd_denomination"] = False
     row["_gmx_product_type"] = product.product_type
     if not product.is_enabled:
@@ -181,6 +182,7 @@ def fetch_and_sync_gmx_vault_catalogue(
                         "Protocol",
                         "Denomination",
                         "Link",
+                        "_short_description",
                         "_synthetic_usd_denomination",
                         "_deposits_open",
                     )

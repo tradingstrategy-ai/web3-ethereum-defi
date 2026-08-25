@@ -123,6 +123,7 @@ def test_gmx_vaults_explain_single_sided_usdc_performance_equivalence() -> None:
 
     for vault_class, token in ((GMXMarketVault, GM_TOKEN), (GMXLiquidityVault, GLV_TOKEN)):
         vault = vault_class(web3, VaultSpec(42161, token))
+        assert vault.short_description is None
         assert vault.get_notes() == expected
 
 

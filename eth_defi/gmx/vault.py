@@ -199,10 +199,8 @@ class GMXVaultBase(VaultBase):
         return self.share_token.symbol
 
     @property
-    def short_description(self) -> str:
-        """Return a compact product description."""
-
-        return "GMX V2 liquidity-provider share valued from supply-normalised onchain pool value and supply events"
+    def short_description(self) -> None:
+        return None
 
     def fetch_share_token(self) -> TokenDetails:
         """Fetch GM or GLV ERC-20 metadata."""

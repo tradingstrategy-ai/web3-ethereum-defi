@@ -2,7 +2,7 @@
 
 Existing rows are identified by chain and share-token address, so each run also
 refreshes display metadata such as the concise GM/GLV trading-pair name and
-the direct GMX pool-details link.
+the direct GMX pool-details link. It also clears GMX short descriptions.
 
 Environment variables:
 

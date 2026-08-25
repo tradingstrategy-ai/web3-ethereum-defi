@@ -431,7 +431,7 @@ imports and local verification:
 
 | Script | Purpose |
 |--------|---------|
-| [`migrate-gmx-vaults-metadata.py`](../../scripts/erc-4626/migrate-gmx-vaults-metadata.py) | Idempotently refresh GM/GLV metadata, including product-type-prefixed trading-pair display names, direct GMX links and the USDC display denomination |
+| [`migrate-gmx-vaults-metadata.py`](../../scripts/erc-4626/migrate-gmx-vaults-metadata.py) | Idempotently refresh GM/GLV metadata, including product-type-prefixed trading-pair display names, direct GMX links, no short description and the USDC display denomination |
 | [`backfill-gmx-vault-prices.py`](../../scripts/erc-4626/backfill-gmx-vault-prices.py) | Prefill complete Arbitrum and Avalanche context ranges and run the common hourly Parquet writer without modifying production reader state |
 | [`examine-gmx-vault-backfill.py`](../../scripts/erc-4626/examine-gmx-vault-backfill.py) | Check duplicates, positive values, source linkage, asset identity and sparse-threshold behaviour |
 | [`examine-gmx-vault-performance.py`](../../scripts/erc-4626/examine-gmx-vault-performance.py) | Run common lifetime metrics and display TVL, lifetime CAGR, three-month CAGR, approximate three-month volatility and Sharpe |
