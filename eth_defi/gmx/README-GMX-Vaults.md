@@ -125,12 +125,12 @@ This ratio measures the USD value attributable to one GM or GLV share. It lets
 GMX products use the same equity-curve, return, CAGR, volatility, Sharpe and
 drawdown code as vaults that publish a conventional share price.
 
-The vault performance originates as a USD-valued GMX share curve. The catalogue
+The vault performance approximates the single-sided USDC deposit value. GMX
+vaults hold exposure to all underlying tokens they market make. The catalogue
 uses native USDC as its display denomination for comparison, but this does not
 mean every pool accepts USDC, is backed solely by USDC, or has an onchain USDC
-NAV. It approximates a single-sided USDC deposit only where USDC is accepted
-and does not model the deposit transaction. Accepted deposit tokens are
-product-specific, and some products have no stablecoin side.
+NAV. Accepted deposit tokens are product-specific, and some products have no
+stablecoin side.
 
 This is a comparison convention, not a transaction simulator. The curve does
 not model the execution fee, price impact, token spread, deposit or withdrawal

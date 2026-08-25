@@ -119,7 +119,7 @@ def test_gmx_vaults_explain_single_sided_usdc_performance_equivalence() -> None:
     """GM and GLV expose the common performance-interpretation note."""
 
     web3 = SimpleNamespace(eth=SimpleNamespace(chain_id=42161))
-    expected = "The vault performance is a GMX share curve displayed in USDC. GMX values the underlying share in USD; the USDC label is a comparison convention. It approximates a single-sided USDC deposit only where USDC is accepted and does not model the deposit transaction."
+    expected = "The vault performance approximates the single-sided USDC deposit value. GMX vaults hold exposure to all underlying tokens they market make"
 
     for vault_class, token in ((GMXMarketVault, GM_TOKEN), (GMXLiquidityVault, GLV_TOKEN)):
         vault = vault_class(web3, VaultSpec(42161, token))
