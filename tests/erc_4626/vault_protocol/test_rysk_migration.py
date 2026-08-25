@@ -74,7 +74,7 @@ def test_rysk_backfill_range_uses_reviewed_deployments(monkeypatch: pytest.Monke
         None.
     """
 
-    module = load_script("backfill-rysk-vault-prices")
+    module = load_script("migrate-rysk-vaults")
     pools = (
         RyskMigrationPool(1, HexAddress("0x0000000000000000000000000000000000000001"), 200),
         RyskMigrationPool(1, HexAddress("0x0000000000000000000000000000000000000002"), 100),
@@ -95,7 +95,7 @@ def test_rysk_metadata_dry_run_builds_without_mutating(monkeypatch: pytest.Monke
         None.
     """
 
-    module = load_script("migrate-rysk-vault-metadata")
+    module = load_script("migrate-rysk-vaults")
     pool = RyskMigrationPool(1, HexAddress("0x0000000000000000000000000000000000000001"), TEST_DEPLOYMENT_BLOCK)
     fake_web3 = SimpleNamespace(eth=SimpleNamespace(chain_id=1, block_number=456, get_block=lambda block: {"timestamp": 1_700_000_000} if block == TEST_DEPLOYMENT_BLOCK else None))
     monkeypatch.setattr(module, "RYSK_MIGRATION_CHAIN_IDS", (1,))

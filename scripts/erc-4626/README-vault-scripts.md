@@ -208,40 +208,31 @@ historical price reader is supported. Follow the full requirements in
 
 #### Rysk Premium migration
 
-Rysk Premium uses two fixed-scope one-off entry points. The reviewed scope is
-eight public pools as of 2026-08-25: four on Ethereum and four on HyperEVM.
-Issuer-labelled internal pools are excluded. Both commands default to
-`DRY_RUN=true`; `DRY_RUN=false` is the only migration-specific operator
-choice. RPC, Hypersync and logging variables remain normal infrastructure
-configuration.
+Rysk Premium uses one fixed-scope migration script containing metadata repair
+and historical backfill functions. The reviewed scope is eight public pools as
+of 2026-08-25: four on Ethereum and four on HyperEVM. Issuer-labelled internal
+pools are excluded. The command defaults to `DRY_RUN=true`; `DRY_RUN=false` is
+the only migration-specific operator choice. RPC, Hypersync and logging
+variables remain normal infrastructure configuration.
 
-First repair current metadata:
+Exercise both functions without persistent writes:
 
 ```shell
 source .local-test.env && \
-poetry run python scripts/erc-4626/migrate-rysk-vault-metadata.py
+poetry run python scripts/erc-4626/migrate-rysk-vaults.py
 ```
 
 The metadata stage reads each fixed deployment block timestamp, rebuilds the
 row through `RyskVault` and reports inserts and updates without writing. It
-does not modify price, contextual-history, timestamp-cache or reader-state
-files.
+then exercises the historical stage with temporary price, context, token and
+timestamp-cache storage. After inspecting the dry run, rerun the same command
+with `DRY_RUN=false`. It atomically replaces only the common metadata pickle
+after all eight rows validate, then writes only the eight selected address
+histories to `vault-prices-1h.parquet` and the Rysk table in
+`vault-historical-context.duckdb`. The persistent run holds one shared scanner
+writer lock and never changes reader state.
 
-Then exercise the full historical backfill with temporary files:
-
-```shell
-source .local-test.env && \
-poetry run python scripts/erc-4626/backfill-rysk-vault-prices.py
-```
-
-After inspecting both dry runs, rerun them in the same order with
-`DRY_RUN=false`. The metadata command atomically replaces only the common
-metadata pickle after all eight rows validate. The history command writes only
-the eight selected address histories to `vault-prices-1h.parquet` and the Rysk
-table in `vault-historical-context.duckdb`; it never changes metadata or reader
-state. Both persistent commands take the shared scanner writer lock.
-
-The pull request adding or changing these scripts must contain the production
+The pull request adding or changing this script must contain the production
 container commands and an unresolved **Run after merge** reminder as described
 in [Pull request run reminder](#pull-request-run-reminder).
 

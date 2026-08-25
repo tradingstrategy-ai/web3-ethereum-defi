@@ -127,25 +127,21 @@ classifier.
 
 ## Manual backfill and examination
 
-[`migrate-rysk-vault-metadata.py`](../../../../scripts/erc-4626/migrate-rysk-vault-metadata.py)
-repairs the common metadata pickle for the eight public pools reviewed on
-2026-08-25. The migration uses fixed Ethereum and HyperEVM addresses and
-archive-verified deployment blocks, then rebuilds each row through the normal
-onchain adapter. It leaves price, context, timestamp-cache and reader-state
-files unchanged.
+[`migrate-rysk-vaults.py`](../../../../scripts/erc-4626/migrate-rysk-vaults.py)
+contains both functions of the one-off migration for the eight public pools
+reviewed on 2026-08-25. It first repairs the common metadata pickle using fixed
+Ethereum and HyperEVM addresses and archive-verified deployment blocks,
+rebuilding each row through the normal onchain adapter. It then reconstructs
+finalised epochs from onchain events using the same fixed scope. A new context
+begins at each pool's reviewed deployment block; an existing context resumes
+from its stored per-pool boundary.
 
-[`backfill-rysk-vault-prices.py`](../../../../scripts/erc-4626/backfill-rysk-vault-prices.py)
-uses the same fixed eight-pool scope and reconstructs finalised epochs from
-onchain events. A new context begins at each pool's reviewed deployment block;
-an existing context resumes from its stored per-pool boundary. The script
-writes through the common historical Parquet writer without altering vault
-metadata or reader state.
-
-Both one-off entry points default to `DRY_RUN=true`, which performs real reads
-but makes no persistent changes. `DRY_RUN=false` is their only
-migration-specific operator choice. Run the metadata repair before the
-historical backfill; adding the scripts to the repository does not execute the
-production migration.
+The single entry point defaults to `DRY_RUN=true`, which performs real reads
+for both functions using temporary storage and makes no persistent changes.
+`DRY_RUN=false` is its only migration-specific operator choice. The persistent
+run holds one shared writer lock while updating the selected metadata and
+address-scoped historical rows; it does not alter reader state. Adding the
+script to the repository does not execute the production migration.
 
 [`examine-rysk-vault-performance.py`](../../../../scripts/erc-4626/examine-rysk-vault-performance.py)
 reports each current public product's name, chain, collateral-only reported

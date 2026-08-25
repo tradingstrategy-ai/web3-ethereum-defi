@@ -1,28 +1,29 @@
-"""Repair metadata for the fixed Rysk Premium migration scope.
+"""Migrate metadata and historical prices for fixed Rysk Premium pools.
 
-This is the current-metadata half of the one-off Rysk production migration.
-It rebuilds exactly eight reviewed Ethereum and HyperEVM pool rows and their
-lead records through the normal :class:`RyskVault` adapter. The fixed
-deployment blocks provide the first-seen block and timestamp. Unrelated
-metadata, all price files, contextual history, timestamp caches and reader
-state remain unchanged.
+This one-off production migration has two functions. The metadata stage
+rebuilds exactly eight reviewed Ethereum and HyperEVM pool rows and their lead
+records through the normal :class:`RyskVault` adapter. The historical stage
+reconstructs their final epoch prices from onchain events through the common
+writer. Both stages use the same fixed deployment boundaries and run in that
+order from one entry point.
 
 Usage::
 
-    # Default: perform real reads and report without writing
-    poetry run python scripts/erc-4626/migrate-rysk-vault-metadata.py
+    # Default: perform real reads for both stages without persistent writes
+    poetry run python scripts/erc-4626/migrate-rysk-vaults.py
 
     # Apply the exact reviewed migration
-    DRY_RUN=false poetry run python scripts/erc-4626/migrate-rysk-vault-metadata.py
+    DRY_RUN=false poetry run python scripts/erc-4626/migrate-rysk-vaults.py
 
 Environment variables:
 
-- ``DRY_RUN``: report the complete repair without writing; defaults to
-  ``true``.
-- Standard Ethereum and HyperEVM RPC and logging environment variables are
-  infrastructure configuration, not migration scope.
+- ``DRY_RUN``: use temporary token, timestamp, context and price storage and
+  leave all production files unchanged; defaults to ``true``.
+- Standard Ethereum and HyperEVM RPC, Hypersync and logging environment
+  variables are infrastructure configuration, not migration scope.
 """
 
+import logging
 import os
 import tempfile
 from contextlib import nullcontext
@@ -36,15 +37,25 @@ from eth_defi.compat import native_datetime_utc_fromtimestamp, native_datetime_u
 from eth_defi.erc_4626.core import ERC4262VaultDetection, ERC4626Feature
 from eth_defi.erc_4626.discovery_base import PotentialVaultMatch
 from eth_defi.erc_4626.scan import create_vault_scan_record
+from eth_defi.erc_4626.vault_protocol.rysk.historical_context import fetch_and_store_rysk_premium_history
 from eth_defi.erc_4626.vault_protocol.rysk.migration import RYSK_MIGRATION_CHAIN_IDS, RyskMigrationPool, iter_rysk_migration_pools, parse_rysk_migration_dry_run
+from eth_defi.erc_4626.vault_protocol.rysk.vault import RyskVault
+from eth_defi.event_reader.timestamp_cache import DEFAULT_TIMESTAMP_CACHE_FOLDER
+from eth_defi.hypersync.utils import configure_hypersync_from_env
+from eth_defi.provider.broken_provider import get_almost_latest_block_number
 from eth_defi.provider.env import read_json_rpc_url
-from eth_defi.provider.multi_provider import create_multi_provider_web3
+from eth_defi.provider.multi_provider import MultiProviderWeb3Factory, create_multi_provider_web3
 from eth_defi.token import TokenDiskCache
 from eth_defi.utils import setup_console_logging, wait_other_writers
 from eth_defi.vault.base import VaultSpec
+from eth_defi.vault.historical import pformat_scan_result, scan_historical_prices_to_parquet
 from eth_defi.vault.vaultdb import VaultDatabase, VaultRow, get_pipeline_data_dir
 
 RYSK_MIGRATION_FEATURES = {ERC4626Feature.rysk_premium_like, ERC4626Feature.share_price_equivalence}
+RYSK_BACKFILL_FREQUENCY = "1h"
+RYSK_BACKFILL_MAX_WORKERS = 4
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass(slots=True, frozen=True)
@@ -193,12 +204,143 @@ def migrate_rysk_metadata(vault_db: VaultDatabase, token_cache: TokenDiskCache, 
     return RyskMetadataMigrationResult(pools=len(replacements), inserted=inserted, updated=len(replacements) - inserted)
 
 
-def main() -> None:
-    """Run the fixed Rysk metadata migration.
+def fetch_rysk_full_backfill_range(web3: Web3, pools: tuple[RyskMigrationPool, ...]) -> tuple[int, int]:
+    """Resolve the complete safe range for one fixed Rysk chain scope.
 
-    Dry-run mode reads the production metadata pickle and real contracts but
-    uses a temporary token cache. The persistent mode takes the shared scanner
-    writer lock before reading or atomically replacing the metadata pickle.
+    Rysk value events cannot predate their pool deployments. The common safe
+    head leaves the provider-specific confirmation margin used by ordinary
+    historical scans.
+
+    :param web3:
+        Ethereum or HyperEVM connection.
+    :param pools:
+        Reviewed targets on the connected chain.
+    :return:
+        Inclusive earliest deployment and exclusive reorg-safe end block.
+    """
+
+    if not pools:
+        message = "Rysk backfill range needs at least one reviewed pool"
+        raise ValueError(message)
+    return min(pool.deployment_block for pool in pools), get_almost_latest_block_number(web3)
+
+
+def _backfill_rysk_history_chain(
+    *,
+    chain_id: int,
+    price_database: Path,
+    context_database: Path,
+    token_cache_path: Path,
+    timestamp_cache_path: Path,
+) -> None:
+    """Backfill every reviewed Rysk pool on one migration chain.
+
+    :param chain_id:
+        Fixed Ethereum or HyperEVM chain identifier.
+    :param price_database:
+        Common raw historical-price Parquet output.
+    :param context_database:
+        Shared contextual-history DuckDB output.
+    :param token_cache_path:
+        Token metadata cache path.
+    :param timestamp_cache_path:
+        Per-chain execution-block timestamp-cache directory.
+    :return:
+        None.
+    """
+
+    rpc_url = read_json_rpc_url(chain_id)
+    web3 = create_multi_provider_web3(rpc_url)
+    if web3.eth.chain_id != chain_id:
+        raise RuntimeError(f"Rysk migration RPC returned chain ID {web3.eth.chain_id}, expected {chain_id}")
+
+    pools = tuple(iter_rysk_migration_pools(chain_id))
+    start_block, end_block = fetch_rysk_full_backfill_range(web3, pools)
+    hypersync_client = configure_hypersync_from_env(web3).hypersync_client
+    if hypersync_client is None:
+        raise RuntimeError(f"Rysk Premium backfill on chain {chain_id} requires Hypersync")
+
+    prefill = fetch_and_store_rysk_premium_history(
+        web3=web3,
+        hypersync_client=hypersync_client,
+        pool_start_blocks={pool.address: pool.deployment_block for pool in pools},
+        end_block=end_block,
+        context_path=context_database,
+        timestamp_cache_path=timestamp_cache_path,
+    )
+
+    token_cache = TokenDiskCache(token_cache_path)
+    try:
+        vaults = []
+        for pool in pools:
+            vault = RyskVault(web3, VaultSpec(chain_id, pool.address), token_cache=token_cache, features=RYSK_MIGRATION_FEATURES)
+            vault.first_seen_at_block = pool.deployment_block
+            vault.historical_context_path = context_database
+            vaults.append(vault)
+
+        price_database.parent.mkdir(parents=True, exist_ok=True)
+        result = scan_historical_prices_to_parquet(
+            output_fname=price_database,
+            web3=web3,
+            web3factory=MultiProviderWeb3Factory(rpc_url),
+            vaults=vaults,
+            token_cache=token_cache,
+            start_block=start_block,
+            end_block=end_block,
+            max_workers=RYSK_BACKFILL_MAX_WORKERS,
+            frequency=RYSK_BACKFILL_FREQUENCY,
+            hypersync_client=hypersync_client,
+            vault_addresses={vault.address.lower() for vault in vaults},
+        )
+        token_cache.commit()
+    finally:
+        token_cache.close()
+
+    print(f"Rysk chain {chain_id}: pools={len(pools)}, final epochs fetched={prefill.observations_fetched}, inserted={prefill.observations_inserted}\n{pformat_scan_result(result)}")
+
+
+def backfill_rysk_history(
+    *,
+    price_database: Path,
+    context_database: Path,
+    token_cache_path: Path,
+    timestamp_cache_path: Path,
+) -> None:
+    """Backfill historical prices for the complete reviewed Rysk scope.
+
+    The two chains run in fixed order and share the same selected output
+    stores. Each chain writes only its four reviewed pool addresses through the
+    common historical writer.
+
+    :param price_database:
+        Common raw historical-price Parquet output.
+    :param context_database:
+        Shared contextual-history DuckDB output.
+    :param token_cache_path:
+        Token metadata cache path.
+    :param timestamp_cache_path:
+        Per-chain execution-block timestamp-cache directory.
+    :return:
+        None.
+    """
+
+    for chain_id in RYSK_MIGRATION_CHAIN_IDS:
+        _backfill_rysk_history_chain(
+            chain_id=chain_id,
+            price_database=price_database,
+            context_database=context_database,
+            token_cache_path=token_cache_path,
+            timestamp_cache_path=timestamp_cache_path,
+        )
+
+
+def main() -> None:
+    """Run both functions of the fixed Rysk production migration.
+
+    Dry-run mode reads production metadata and real external services but uses
+    temporary token, timestamp, context and price stores. Persistent mode
+    holds one shared writer lock while it repairs metadata and then backfills
+    history.
 
     :return:
         None.
@@ -212,9 +354,10 @@ def main() -> None:
         raise FileNotFoundError(vault_db_path)
 
     lock = nullcontext() if dry_run else wait_other_writers(pipeline_dir / "scan-pipeline", timeout=60)
-    with lock, tempfile.TemporaryDirectory(prefix="rysk-metadata-") as temporary_directory:
+    with lock, tempfile.TemporaryDirectory(prefix="rysk-migration-") as temporary_directory:
+        temporary = Path(temporary_directory)
         vault_db = VaultDatabase.read(vault_db_path)
-        token_cache_path = Path(temporary_directory) / "tokens.sqlite" if dry_run else TokenDiskCache.DEFAULT_TOKEN_DISK_CACHE_PATH
+        token_cache_path = temporary / "tokens.sqlite" if dry_run else TokenDiskCache.DEFAULT_TOKEN_DISK_CACHE_PATH
         token_cache = TokenDiskCache(token_cache_path)
         try:
             result = migrate_rysk_metadata(vault_db, token_cache, dry_run=dry_run)
@@ -224,8 +367,20 @@ def main() -> None:
         finally:
             token_cache.close()
 
-    outcome = "Dry run; no files changed" if dry_run else f"Written atomically to {vault_db_path}"
-    print(f"Rysk metadata migration: pools={result.pools}, inserted={result.inserted}, updated={result.updated}. {outcome}.")
+        outcome = "Dry run; no files changed" if dry_run else f"Written atomically to {vault_db_path}"
+        print(f"Rysk metadata migration: pools={result.pools}, inserted={result.inserted}, updated={result.updated}. {outcome}.")
+
+        backfill_rysk_history(
+            price_database=temporary / "vault-prices-1h.parquet" if dry_run else pipeline_dir / "vault-prices-1h.parquet",
+            context_database=temporary / "vault-historical-context.duckdb" if dry_run else pipeline_dir / "vault-historical-context.duckdb",
+            token_cache_path=token_cache_path,
+            timestamp_cache_path=temporary / "block-timestamp" if dry_run else DEFAULT_TIMESTAMP_CACHE_FOLDER,
+        )
+
+    if dry_run:
+        print("Dry run complete; production metadata, reader state, prices, context and caches were not changed")
+    else:
+        print("Rysk metadata and historical migration complete")
 
 
 if __name__ == "__main__":
