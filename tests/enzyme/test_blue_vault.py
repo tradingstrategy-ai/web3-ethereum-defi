@@ -107,6 +107,33 @@ def test_blue_historical_reader_derives_price_and_tvl() -> None:
     assert len(updates) == 1
 
 
+def test_blue_historical_reader_rejects_zero_gav_with_outstanding_shares() -> None:
+    """Do not publish an unavailable historic Blue valuation as a full loss."""
+
+    unpriced_updates = []
+    reader = EnzymeBlueVaultHistoricalReader.__new__(EnzymeBlueVaultHistoricalReader)
+    reader.vault = SimpleNamespace(address=VAULT, denomination_token=SimpleNamespace(decimals=6), share_token=SimpleNamespace(decimals=18))
+    reader.reader_state = SimpleNamespace(on_called=pytest.fail, on_unpriced_call=unpriced_updates.append)
+    gav_call = EncodedCall(func_name="calcGav", address=ACCESSOR, data=b"", extra_data={"function": "gav"})
+    supply_call = EncodedCall(func_name="totalSupply", address=VAULT, data=b"", extra_data={"function": "total_supply"})
+
+    result = reader.process_result(
+        123,
+        datetime.datetime(2026, 8, 20),  # noqa: DTZ001
+        [
+            EncodedCallResult(call=gav_call, success=True, result=(0).to_bytes(32, "big"), block_identifier=123),
+            EncodedCallResult(call=supply_call, success=True, result=(40 * 10**18).to_bytes(32, "big"), block_identifier=123),
+        ],
+    )
+
+    assert result.share_price is None
+    assert result.total_assets is None
+    assert result.total_supply == Decimal("40")
+    assert result.errors == ["Enzyme Blue GAV is zero while share supply is positive; price is unavailable"]
+    assert len(unpriced_updates) == 1
+    assert unpriced_updates[0].call is gav_call
+
+
 @pytest.mark.parametrize(
     ("policy_identifier", "expected_permission"),
     [
