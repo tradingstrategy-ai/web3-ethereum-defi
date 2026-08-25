@@ -53,6 +53,7 @@ def test_fetch_and_sync_gmx_vault_catalogue_is_idempotent(monkeypatch: pytest.Mo
             "Denomination": "USD",
         },
     )
+    assert vault_sync._format_gmx_product_name(web3, replace(product, product_type="glv"), {}) == "GLV WBTC-USDC"
     vault_db = VaultDatabase()
 
     first = fetch_and_sync_gmx_vault_catalogue(web3=web3, vault_db=vault_db, token_cache={}, block_number=FIRST_CATALOGUE_BLOCK)
@@ -69,7 +70,7 @@ def test_fetch_and_sync_gmx_vault_catalogue_is_idempotent(monkeypatch: pytest.Mo
     )
     second = fetch_and_sync_gmx_vault_catalogue(web3=web3, vault_db=vault_db, token_cache={}, block_number=456)
     row_after_failed_refresh = vault_db.rows[VaultSpec(42161, GM_TOKEN)]
-    assert row_after_failed_refresh["Name"] == "WBTC-USDC"
+    assert row_after_failed_refresh["Name"] == "GM WBTC-USDC"
     assert row_after_failed_refresh["Protocol"] == "GMX"
     assert row_after_failed_refresh["Denomination"] == "USDC"
     assert row_after_failed_refresh["_manual_enrichment"] == "keep me"
@@ -94,7 +95,7 @@ def test_fetch_and_sync_gmx_vault_catalogue_is_idempotent(monkeypatch: pytest.Mo
     assert second.updated == 1
     assert third.inserted == 0
     assert third.updated == 1
-    assert row["Name"] == "WBTC-USDC"
+    assert row["Name"] == "GM WBTC-USDC"
     assert row["_manual_enrichment"] == "keep me"
     assert detection.first_seen_at_block == FIRST_CATALOGUE_BLOCK
     assert detection.address == GM_TOKEN.lower()

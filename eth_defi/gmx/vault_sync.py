@@ -57,9 +57,9 @@ def _format_gmx_product_name(web3: Web3, product: GMXVaultProduct, token_cache: 
     """Build the concise GMX trading-pair display name.
 
     The common vault database identifies a product by its chain ID and share
-    token address, not its display name. Keeping only the long-short token
-    pair makes the public catalogue scannable while the migration can safely
-    update existing rows without a name-derived key.
+    token address, not its display name. Keeping only the product type and
+    long-short pair makes the public catalogue scannable while the
+    migration can safely update existing rows without a name-derived key.
 
     :param web3:
         Product-chain Web3 connection used to resolve token symbols.
@@ -68,11 +68,13 @@ def _format_gmx_product_name(web3: Web3, product: GMXVaultProduct, token_cache: 
     :param token_cache:
         Shared ERC-20 metadata cache.
     :return:
-        Long-short token-pair label, for example ``"WBTC-USDC"``.
+        Product-type and long-short token-pair label, for example
+        ``"GM WBTC-USDC"`` or ``"GLV WBTC-USDC"``.
     """
 
     symbols = tuple(_fetch_token_symbol(web3, product.chain_id, address, token_cache) for address in product.accepted_deposit_tokens)
-    return "-".join(symbols)
+    product_label = "GM" if product.product_type == "gm" else "GLV"
+    return f"{product_label} {'-'.join(symbols)}"
 
 
 def _normalise_gmx_row(row: VaultRow, *, product: GMXVaultProduct, name: str) -> VaultRow:
