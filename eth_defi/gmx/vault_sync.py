@@ -11,6 +11,7 @@ from web3 import Web3
 from eth_defi.compat import native_datetime_utc_now
 from eth_defi.erc_4626.core import ERC4262VaultDetection, ERC4626Feature
 from eth_defi.erc_4626.scan import create_vault_scan_record
+from eth_defi.gmx.links import get_gmx_pool_details_link
 from eth_defi.gmx.vault_catalog import GMXVaultProduct, fetch_gmx_v2_vault_products
 from eth_defi.token import TokenDiskCache, fetch_erc20_details
 from eth_defi.vault.base import VaultSpec
@@ -83,6 +84,7 @@ def _normalise_gmx_row(row: VaultRow, *, product: GMXVaultProduct, name: str) ->
     row["Name"] = name
     row["Protocol"] = "GMX"
     row["Denomination"] = "USDC"
+    row["Link"] = get_gmx_pool_details_link(product.chain_id, product.token_address)
     row["_synthetic_usd_denomination"] = False
     row["_gmx_product_type"] = product.product_type
     if not product.is_enabled:
@@ -178,6 +180,7 @@ def fetch_and_sync_gmx_vault_catalogue(
                         "Name",
                         "Protocol",
                         "Denomination",
+                        "Link",
                         "_synthetic_usd_denomination",
                         "_deposits_open",
                     )

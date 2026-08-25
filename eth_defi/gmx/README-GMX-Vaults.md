@@ -243,6 +243,9 @@ history, are marked deposit-closed and are excluded from vault rankings.
 Both inherit from `GMXVaultBase`, which in turn implements `VaultBase` directly.
 They deliberately do not pretend to be ERC-4626 contracts.
 
+Each adapter's `get_link()` returns the direct GMX pool-details page for that
+GM or GLV share token, including its deployment chain and the GMX deposit view.
+
 The adapter provides the common read-only metadata surface and declares a
 synthetic USD denomination. It also classifies the strategy as market making
 and liquidity provision. GMX is classified as low technical protocol risk in
@@ -428,7 +431,7 @@ imports and local verification:
 
 | Script | Purpose |
 |--------|---------|
-| [`migrate-gmx-vaults-metadata.py`](../../scripts/erc-4626/migrate-gmx-vaults-metadata.py) | Idempotently refresh GM/GLV metadata, including product-type-prefixed trading-pair display names and the USDC display denomination |
+| [`migrate-gmx-vaults-metadata.py`](../../scripts/erc-4626/migrate-gmx-vaults-metadata.py) | Idempotently refresh GM/GLV metadata, including product-type-prefixed trading-pair display names, direct GMX links and the USDC display denomination |
 | [`backfill-gmx-vault-prices.py`](../../scripts/erc-4626/backfill-gmx-vault-prices.py) | Prefill complete Arbitrum and Avalanche context ranges and run the common hourly Parquet writer without modifying production reader state |
 | [`examine-gmx-vault-backfill.py`](../../scripts/erc-4626/examine-gmx-vault-backfill.py) | Check duplicates, positive values, source linkage, asset identity and sparse-threshold behaviour |
 | [`examine-gmx-vault-performance.py`](../../scripts/erc-4626/examine-gmx-vault-performance.py) | Run common lifetime metrics and display TVL, lifetime CAGR, three-month CAGR, approximate three-month volatility and Sharpe |

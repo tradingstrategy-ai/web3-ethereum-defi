@@ -73,6 +73,7 @@ def test_fetch_and_sync_gmx_vault_catalogue_is_idempotent(monkeypatch: pytest.Mo
     assert row_after_failed_refresh["Name"] == "GM WBTC-USDC"
     assert row_after_failed_refresh["Protocol"] == "GMX"
     assert row_after_failed_refresh["Denomination"] == "USDC"
+    assert row_after_failed_refresh["Link"] == f"https://app.gmx.io/#/pools/details?market={GM_TOKEN.lower()}&operation=Deposit&chainId=42161"
     assert row_after_failed_refresh["_manual_enrichment"] == "keep me"
 
     monkeypatch.setattr(vault_sync, "fetch_gmx_v2_vault_products", lambda *_args, **_kwargs: iter((replace(product, is_enabled=False),)))
@@ -96,6 +97,7 @@ def test_fetch_and_sync_gmx_vault_catalogue_is_idempotent(monkeypatch: pytest.Mo
     assert third.inserted == 0
     assert third.updated == 1
     assert row["Name"] == "GM WBTC-USDC"
+    assert row["Link"] == f"https://app.gmx.io/#/pools/details?market={GM_TOKEN.lower()}&operation=Deposit&chainId=42161"
     assert row["_manual_enrichment"] == "keep me"
     assert detection.first_seen_at_block == FIRST_CATALOGUE_BLOCK
     assert detection.address == GM_TOKEN.lower()

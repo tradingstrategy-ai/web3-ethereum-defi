@@ -1,7 +1,8 @@
 """Migrate GMX V2 GM and GLV metadata into the common vault database.
 
 Existing rows are identified by chain and share-token address, so each run also
-refreshes display metadata such as the concise GM/GLV trading-pair name.
+refreshes display metadata such as the concise GM/GLV trading-pair name and
+the direct GMX pool-details link.
 
 Environment variables:
 
