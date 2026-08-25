@@ -10,10 +10,13 @@ from eth_typing import HexAddress
 
 from eth_defi.erc_4626.vault_protocol.rysk.migration import RYSK_MIGRATION_CHAIN_IDS, RYSK_MIGRATION_POOLS, RyskMigrationPool, iter_rysk_migration_pools, parse_rysk_migration_dry_run
 from eth_defi.vault.base import VaultSpec
+from eth_defi.vault.strategy_tag import StrategyTag
 from eth_defi.vault.vaultdb import VaultDatabase
 
 RYSK_REVIEWED_POOL_COUNT = 8
 TEST_DEPLOYMENT_BLOCK = 123
+TEST_HISTORY_MAX_WORKERS = 7
+TEST_ENV_MAX_WORKERS = 6
 
 
 def load_script(name: str) -> ModuleType:
@@ -102,6 +105,7 @@ def test_rysk_metadata_dry_run_builds_without_mutating(monkeypatch: pytest.Monke
     monkeypatch.setattr(module, "iter_rysk_migration_pools", lambda chain_id: iter((pool,)) if chain_id == 1 else iter(()))
     monkeypatch.setattr(module, "read_json_rpc_url", lambda chain_id: "https://example.invalid" if chain_id == 1 else None)
     monkeypatch.setattr(module, "create_multi_provider_web3", lambda _url: fake_web3)
+    monkeypatch.setattr(module, "detect_vault_features", lambda _web3, _address, **_kwargs: set(module.RYSK_MIGRATION_FEATURES))
     monkeypatch.setattr(
         module,
         "create_vault_scan_record",
@@ -128,3 +132,107 @@ def test_rysk_metadata_dry_run_builds_without_mutating(monkeypatch: pytest.Monke
     assert detection.first_seen_at_block == TEST_DEPLOYMENT_BLOCK
     assert detection.features == set(module.RYSK_MIGRATION_FEATURES)
     assert "Reviewed Rysk pool" in capsys.readouterr().out
+
+    strategy_tags = {StrategyTag.delta_neutral}
+    vault_db.rows[VaultSpec(1, pool.address)]["_strategy_tags"] = strategy_tags
+    update_result = module.migrate_rysk_metadata(vault_db, Mock(), dry_run=False)
+    assert update_result.updated == 1
+    assert vault_db.rows[VaultSpec(1, pool.address)]["_strategy_tags"] == strategy_tags
+    capsys.readouterr()
+
+
+def test_rysk_metadata_rejects_address_that_fails_shared_classifier(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Reject a fixed address unless the maintained onchain probe identifies Rysk.
+
+    :param monkeypatch:
+        Pytest fixture replacing the expensive onchain classifier.
+    :return:
+        None.
+    """
+
+    module = load_script("migrate-rysk-vaults")
+    pool = RyskMigrationPool(1, HexAddress("0x0000000000000000000000000000000000000001"), TEST_DEPLOYMENT_BLOCK)
+    fake_web3 = SimpleNamespace(eth=SimpleNamespace(get_block=lambda _block: {"timestamp": 1_700_000_000}))
+    monkeypatch.setattr(module, "detect_vault_features", lambda _web3, _address, **_kwargs: {module.ERC4626Feature.broken})
+
+    with pytest.raises(RuntimeError, match="failed the shared onchain classifier"):
+        module._build_metadata_replacement(fake_web3, pool, VaultDatabase(), Mock(), 456)
+
+
+def test_rysk_history_threads_fixed_scope_and_workers(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """Pass the fixed chain order, caches and worker count to each history stage.
+
+    :param monkeypatch:
+        Pytest fixture replacing per-chain network work.
+    :param tmp_path:
+        Pytest temporary output directory.
+    :return:
+        None.
+    """
+
+    module = load_script("migrate-rysk-vaults")
+    calls: list[dict[str, object]] = []
+    monkeypatch.setattr(module, "_backfill_rysk_history_chain", lambda **kwargs: calls.append(kwargs))
+
+    module.backfill_rysk_history(
+        price_database=tmp_path / "prices.parquet",
+        context_database=tmp_path / "context.duckdb",
+        token_cache_path=tmp_path / "tokens.sqlite",
+        timestamp_cache_path=tmp_path / "timestamps",
+        max_workers=TEST_HISTORY_MAX_WORKERS,
+    )
+
+    assert [call["chain_id"] for call in calls] == [1, 999]
+    assert all(call["max_workers"] == TEST_HISTORY_MAX_WORKERS for call in calls)
+    assert all(call["timestamp_cache_path"] == tmp_path / "timestamps" for call in calls)
+
+
+def test_rysk_main_dry_run_rehearses_production_parquet_without_mutation(monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    """Copy production Parquet into temporary storage before dry-run history.
+
+    :param monkeypatch:
+        Pytest fixture replacing network and historical work.
+    :param tmp_path:
+        Pytest temporary production data directory.
+    :param capsys:
+        Pytest fixture capturing the migration summary.
+    :return:
+        None.
+    """
+
+    module = load_script("migrate-rysk-vaults")
+    vault_db_path = tmp_path / "vault-metadata-db.pickle"
+    price_database = tmp_path / "vault-prices-1h.parquet"
+    context_database = tmp_path / "vault-historical-context.duckdb"
+    VaultDatabase().write(vault_db_path)
+    price_database.write_bytes(b"production parquet sentinel")
+    context_database.write_bytes(b"production context sentinel")
+    token_cache = Mock()
+    observed: dict[str, object] = {}
+
+    monkeypatch.delenv("DRY_RUN", raising=False)
+    monkeypatch.setenv("MAX_WORKERS", str(TEST_ENV_MAX_WORKERS))
+    monkeypatch.setattr(module, "setup_console_logging", lambda **_kwargs: None)
+    monkeypatch.setattr(module, "get_pipeline_data_dir", lambda: tmp_path)
+    monkeypatch.setattr(module, "TokenDiskCache", lambda _path: token_cache)
+    monkeypatch.setattr(module, "migrate_rysk_metadata", lambda _db, _cache, *, dry_run: module.RyskMetadataMigrationResult(8, 8, 0) if dry_run else None)
+
+    def capture_backfill(**kwargs: object) -> None:
+        """Validate temporary paths while the temporary directory exists."""
+
+        dry_run_prices = kwargs["price_database"]
+        assert isinstance(dry_run_prices, Path)
+        assert dry_run_prices != price_database
+        assert dry_run_prices.read_bytes() == b"production parquet sentinel"
+        observed.update(kwargs)
+
+    monkeypatch.setattr(module, "backfill_rysk_history", capture_backfill)
+
+    module.main()
+
+    assert observed["max_workers"] == TEST_ENV_MAX_WORKERS
+    assert price_database.read_bytes() == b"production parquet sentinel"
+    assert context_database.read_bytes() == b"production context sentinel"
+    token_cache.commit.assert_not_called()
+    token_cache.close.assert_called_once()
+    assert "Dry run complete" in capsys.readouterr().out

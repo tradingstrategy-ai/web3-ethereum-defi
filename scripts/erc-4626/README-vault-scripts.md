@@ -212,8 +212,8 @@ Rysk Premium uses one fixed-scope migration script containing metadata repair
 and historical backfill functions. The reviewed scope is eight public pools as
 of 2026-08-25: four on Ethereum and four on HyperEVM. Issuer-labelled internal
 pools are excluded. The command defaults to `DRY_RUN=true`; `DRY_RUN=false` is
-the only migration-specific operator choice. RPC, Hypersync and logging
-variables remain normal infrastructure configuration.
+the only migration-specific operator choice. RPC, Hypersync, logging and
+`MAX_WORKERS` variables remain normal infrastructure configuration.
 
 Exercise both functions without persistent writes:
 
@@ -224,11 +224,13 @@ poetry run python scripts/erc-4626/migrate-rysk-vaults.py
 
 The metadata stage reads each fixed deployment block timestamp, rebuilds the
 row through `RyskVault` and reports inserts and updates without writing. It
-then exercises the historical stage with temporary price, context, token and
-timestamp-cache storage. After inspecting the dry run, rerun the same command
-with `DRY_RUN=false`. It atomically replaces only the common metadata pickle
-after all eight rows validate, then writes only the eight selected address
-histories to `vault-prices-1h.parquet` and the Rysk table in
+then copies the production Parquet into temporary storage and exercises the
+historical merge there, alongside temporary context, token and timestamp-cache
+storage. This reports the real address-scoped deletion count without modifying
+production. After inspecting the dry run, rerun the same command with
+`DRY_RUN=false`. It atomically replaces only the common metadata pickle after
+all eight rows validate, then writes only the eight selected address histories
+to `vault-prices-1h.parquet` and the Rysk table in
 `vault-historical-context.duckdb`. The persistent run holds one shared scanner
 writer lock and never changes reader state.
 

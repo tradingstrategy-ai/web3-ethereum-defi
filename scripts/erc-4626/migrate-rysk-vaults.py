@@ -19,12 +19,14 @@ Environment variables:
 
 - ``DRY_RUN``: use temporary token, timestamp, context and price storage and
   leave all production files unchanged; defaults to ``true``.
+- ``MAX_WORKERS``: common historical writer thread count; defaults to ``4``.
 - Standard Ethereum and HyperEVM RPC, Hypersync and logging environment
   variables are infrastructure configuration, not migration scope.
 """
 
 import logging
 import os
+import shutil
 import tempfile
 from contextlib import nullcontext
 from dataclasses import dataclass
@@ -34,6 +36,7 @@ from tabulate import tabulate
 from web3 import Web3
 
 from eth_defi.compat import native_datetime_utc_fromtimestamp, native_datetime_utc_now
+from eth_defi.erc_4626.classification import detect_vault_features
 from eth_defi.erc_4626.core import ERC4262VaultDetection, ERC4626Feature
 from eth_defi.erc_4626.discovery_base import PotentialVaultMatch
 from eth_defi.erc_4626.scan import create_vault_scan_record
@@ -53,7 +56,7 @@ from eth_defi.vault.vaultdb import VaultDatabase, VaultRow, get_pipeline_data_di
 
 RYSK_MIGRATION_FEATURES = {ERC4626Feature.rysk_premium_like, ERC4626Feature.share_price_equivalence}
 RYSK_BACKFILL_FREQUENCY = "1h"
-RYSK_BACKFILL_MAX_WORKERS = 4
+RYSK_DEFAULT_MAX_WORKERS = 4
 
 logger = logging.getLogger(__name__)
 
@@ -126,6 +129,11 @@ def _build_metadata_replacement(web3: Web3, pool: RyskMigrationPool, vault_db: V
         If the target does not rebuild as Rysk.
     """
 
+    features = detect_vault_features(web3, pool.address, verbose=False)
+    if ERC4626Feature.rysk_premium_like not in features:
+        feature_names = sorted(feature.value for feature in features)
+        raise RuntimeError(f"Rysk migration target {pool.chain_id}-{pool.address} failed the shared onchain classifier: {feature_names}")
+
     first_seen_at = native_datetime_utc_fromtimestamp(web3.eth.get_block(pool.deployment_block)["timestamp"])
     spec = VaultSpec(pool.chain_id, pool.address)
     existing = vault_db.rows.get(spec)
@@ -135,17 +143,20 @@ def _build_metadata_replacement(web3: Web3, pool: RyskMigrationPool, vault_db: V
         address=pool.address,
         first_seen_at_block=pool.deployment_block,
         first_seen_at=first_seen_at,
-        features=set(RYSK_MIGRATION_FEATURES),
+        features=features,
         updated_at=native_datetime_utc_now(),
         deposit_count=deposit_count,
         redeem_count=redeem_count,
         configuration_count=configuration_count,
     )
     rebuilt = create_vault_scan_record(web3, detection, metadata_block, token_cache)
-    if rebuilt.get("Protocol") != "Rysk" or rebuilt.get("Name", "").startswith("<broken:"):
+    rebuilt_name = rebuilt.get("Name") or ""
+    if rebuilt.get("Protocol") != "Rysk" or not rebuilt_name or rebuilt_name.startswith("<broken:"):
         raise RuntimeError(f"Rysk migration target {pool.chain_id}-{pool.address} rebuilt as {rebuilt.get('Protocol')!r} / {rebuilt.get('Name')!r}")
 
     merged = rebuilt if existing is None else existing | rebuilt
+    if existing is not None and rebuilt.get("_strategy_tags") is None and existing.get("_strategy_tags") is not None:
+        merged["_strategy_tags"] = existing["_strategy_tags"]
     lead = PotentialVaultMatch(
         chain=pool.chain_id,
         address=pool.address,
@@ -232,6 +243,7 @@ def _backfill_rysk_history_chain(
     context_database: Path,
     token_cache_path: Path,
     timestamp_cache_path: Path,
+    max_workers: int,
 ) -> None:
     """Backfill every reviewed Rysk pool on one migration chain.
 
@@ -245,6 +257,8 @@ def _backfill_rysk_history_chain(
         Token metadata cache path.
     :param timestamp_cache_path:
         Per-chain execution-block timestamp-cache directory.
+    :param max_workers:
+        Common historical writer thread count.
     :return:
         None.
     """
@@ -287,9 +301,10 @@ def _backfill_rysk_history_chain(
             token_cache=token_cache,
             start_block=start_block,
             end_block=end_block,
-            max_workers=RYSK_BACKFILL_MAX_WORKERS,
+            max_workers=max_workers,
             frequency=RYSK_BACKFILL_FREQUENCY,
             hypersync_client=hypersync_client,
+            timestamp_cache_file=timestamp_cache_path,
             vault_addresses={vault.address.lower() for vault in vaults},
         )
         token_cache.commit()
@@ -305,6 +320,7 @@ def backfill_rysk_history(
     context_database: Path,
     token_cache_path: Path,
     timestamp_cache_path: Path,
+    max_workers: int,
 ) -> None:
     """Backfill historical prices for the complete reviewed Rysk scope.
 
@@ -320,6 +336,8 @@ def backfill_rysk_history(
         Token metadata cache path.
     :param timestamp_cache_path:
         Per-chain execution-block timestamp-cache directory.
+    :param max_workers:
+        Common historical writer thread count.
     :return:
         None.
     """
@@ -331,6 +349,7 @@ def backfill_rysk_history(
             context_database=context_database,
             token_cache_path=token_cache_path,
             timestamp_cache_path=timestamp_cache_path,
+            max_workers=max_workers,
         )
 
 
@@ -348,6 +367,9 @@ def main() -> None:
 
     setup_console_logging(default_log_level=os.environ.get("LOG_LEVEL", "info"))
     dry_run = parse_rysk_migration_dry_run(os.environ.get("DRY_RUN"))
+    max_workers = int(os.environ.get("MAX_WORKERS", str(RYSK_DEFAULT_MAX_WORKERS)))
+    if max_workers <= 0:
+        raise ValueError(f"MAX_WORKERS must be positive, got {max_workers}")
     pipeline_dir = get_pipeline_data_dir()
     vault_db_path = pipeline_dir / "vault-metadata-db.pickle"
     if not vault_db_path.exists():
@@ -370,11 +392,20 @@ def main() -> None:
         outcome = "Dry run; no files changed" if dry_run else f"Written atomically to {vault_db_path}"
         print(f"Rysk metadata migration: pools={result.pools}, inserted={result.inserted}, updated={result.updated}. {outcome}.")
 
+        price_database = pipeline_dir / "vault-prices-1h.parquet"
+        if dry_run:
+            dry_run_price_database = temporary / price_database.name
+            if price_database.exists():
+                shutil.copy2(price_database, dry_run_price_database)
+                logger.info("Copied production Parquet to %s for a non-persistent merge rehearsal", dry_run_price_database)
+            price_database = dry_run_price_database
+
         backfill_rysk_history(
-            price_database=temporary / "vault-prices-1h.parquet" if dry_run else pipeline_dir / "vault-prices-1h.parquet",
+            price_database=price_database,
             context_database=temporary / "vault-historical-context.duckdb" if dry_run else pipeline_dir / "vault-historical-context.duckdb",
             token_cache_path=token_cache_path,
             timestamp_cache_path=temporary / "block-timestamp" if dry_run else DEFAULT_TIMESTAMP_CACHE_FOLDER,
+            max_workers=max_workers,
         )
 
     if dry_run:
