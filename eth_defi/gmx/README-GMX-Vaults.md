@@ -21,7 +21,8 @@ used to settle swaps and leveraged trading. In return, liquidity providers:
 
 A [GM market token](https://docs.gmx.io/docs/providing-liquidity/) represents a
 pro-rata claim on one GMX market pool. The pool normally contains a long token
-and a short token, such as WETH and USDC.
+and a short token, such as WETH and USDC. Some markets are single-token pools:
+the same asset serves as both the long and short backing token.
 
 A GLV token represents a pro-rata claim on liquidity allocated across multiple
 compatible GM markets. GLV is therefore a multi-market liquidity-provider
@@ -30,6 +31,47 @@ product rather than a single GM market.
 GM and GLV shares are ERC-20 tokens, but they are not ERC-4626 vaults. They do
 not expose the standard ERC-4626 share-price methods used by most EVM vaults,
 and deposits and withdrawals are asynchronous GMX ExchangeRouter requests.
+
+## History and naming of GMX vaults
+
+GMX V1 used the single GLP liquidity pool. GMX V2 replaced that shared model
+with individual, risk-isolated GM pools: a liquidity provider in one market is
+exposed to the fees and trader profit and loss of that market, but not to
+trading activity in other markets. GMX then expanded V2 from its initial major
+markets to synthetic markets and additional index assets. This is why the
+catalogue contains many separate GM share tokens that use the same backing
+assets. See the [GMX V2 go-to-market plan](https://gov.gmx.io/t/gmx-v2-go-to-market/2474)
+and [GMX's liquidity documentation](https://docs.gmx.io/docs/providing-liquidity/).
+
+The display pair in a GM vault name is the long and short backing-token pair,
+not necessarily the asset on which traders take positions. A GM market has
+three independent components:
+
+- an index price feed that determines the traded market;
+- a long token that backs long-position settlements; and
+- a short token that backs short-position settlements.
+
+When a GM pool uses the same asset for both backing roles, its description
+reports one shared “Long and short backing token” rather than falsely implying
+that the pool contains two different assets.
+
+For example, `ETH/USD [WETH-USDC]` uses the ETH/USD index price feed while
+WETH and USDC back the pool. A synthetic DOGE/USD market can also use
+WETH-USDC as its backing pair. These are distinct pools with separate market
+tokens, open interest, trader profit and loss, fees and performance curves;
+they must not be deduplicated merely because their backing pair matches.
+
+GM names use the compact format `GM {index} [{long}-{short}]`, for example
+`GM ETH [WETH-USDC]` and `GM DOGE [WETH-USDC]`. A short suffix from the GM
+share-token address is added only if the complete compact label still
+collides. If the canonical GMX market label cannot be resolved, the name uses
+a shortened market-token address as its stable index fallback. GLV names
+remain pair-based because a GLV can span several markets; their long
+descriptions list every supported index market and both backing-token roles.
+For GMX [TradFi markets](https://docs.gmx.io/docs/trading/overview/), including
+commodities, equities and equity indices, the description additionally states
+that the pool provides synthetic price exposure and does not hold the
+referenced real-world asset or financial instrument.
 
 ## Vaults and volatility risk
 
@@ -431,7 +473,7 @@ imports and local verification:
 
 | Script | Purpose |
 |--------|---------|
-| [`migrate-gmx-vaults-metadata.py`](../../scripts/erc-4626/migrate-gmx-vaults-metadata.py) | Idempotently refresh the GMX fields maintained by the migration: product-type-prefixed trading-pair display names, USDC display denomination, direct GMX links, performance note, deposit availability and no short description |
+| [`migrate-gmx-vaults-metadata.py`](../../scripts/erc-4626/migrate-gmx-vaults-metadata.py) | Idempotently refresh the GMX fields maintained by the migration: product-type-prefixed trading-pair display names, full LP description with index market and backing-token roles, USDC display denomination, direct GMX links, performance note and deposit availability |
 | [`backfill-gmx-vault-prices.py`](../../scripts/erc-4626/backfill-gmx-vault-prices.py) | Prefill complete Arbitrum and Avalanche context ranges and run the common hourly Parquet writer without modifying production reader state |
 | [`examine-gmx-vault-backfill.py`](../../scripts/erc-4626/examine-gmx-vault-backfill.py) | Check duplicates, positive values, source linkage, asset identity and sparse-threshold behaviour |
 | [`examine-gmx-vault-performance.py`](../../scripts/erc-4626/examine-gmx-vault-performance.py) | Run common lifetime metrics and display TVL, lifetime CAGR, three-month CAGR, approximate three-month volatility and Sharpe |
