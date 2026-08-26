@@ -58,6 +58,7 @@ def test_fetch_and_sync_gmx_vault_catalogue_is_idempotent(monkeypatch: pytest.Mo
         "create_vault_scan_record",
         lambda _web3, detection, _block_number, _token_cache: {
             "_detection_data": detection,
+            "features": set(detection.features),
             "Name": "GMX market",
             "Protocol": "GMX",
             "Denomination": "USD",
@@ -75,6 +76,12 @@ def test_fetch_and_sync_gmx_vault_catalogue_is_idempotent(monkeypatch: pytest.Mo
     vault_db = VaultDatabase()
 
     first = fetch_and_sync_gmx_vault_catalogue(web3=web3, vault_db=vault_db, token_cache={}, block_number=FIRST_CATALOGUE_BLOCK)
+    legacy_detection = replace(
+        vault_db.rows[VaultSpec(42161, GM_TOKEN)]["_detection_data"],
+        features={ERC4626Feature.gmx_gm, ERC4626Feature.share_price_equivalence},
+    )
+    vault_db.rows[VaultSpec(42161, GM_TOKEN)]["_detection_data"] = legacy_detection
+    vault_db.rows[VaultSpec(42161, GM_TOKEN)]["features"] = set(legacy_detection.features)
     vault_db.rows[VaultSpec(42161, GM_TOKEN)]["_manual_enrichment"] = "keep me"
     vault_db.rows[VaultSpec(42161, GM_TOKEN)]["_short_description"] = "Remove me"
     vault_db.rows[VaultSpec(42161, GM_TOKEN)]["_notes"] = "Replace me"
@@ -84,6 +91,7 @@ def test_fetch_and_sync_gmx_vault_catalogue_is_idempotent(monkeypatch: pytest.Mo
         "create_vault_scan_record",
         lambda _web3, detection, _block_number, _token_cache: {
             "_detection_data": detection,
+            "features": set(detection.features),
             "Name": "<broken: temporary RPC failure>",
             "Protocol": "<unknown>",
             "Denomination": None,
@@ -109,6 +117,11 @@ def test_fetch_and_sync_gmx_vault_catalogue_is_idempotent(monkeypatch: pytest.Mo
     assert row_after_failed_refresh["_description"] == expected_description
     assert row_after_failed_refresh["_deposits_open"] is None
     assert row_after_failed_refresh["_manual_enrichment"] == "keep me"
+    assert row_after_failed_refresh["features"] == {
+        ERC4626Feature.gmx_gm,
+        ERC4626Feature.amm_pool_like,
+        ERC4626Feature.share_price_equivalence,
+    }
 
     monkeypatch.setattr(vault_sync, "fetch_gmx_v2_vault_products", lambda *_args, **_kwargs: iter((replace(product, is_enabled=False),)))
     monkeypatch.setattr(
@@ -116,6 +129,7 @@ def test_fetch_and_sync_gmx_vault_catalogue_is_idempotent(monkeypatch: pytest.Mo
         "create_vault_scan_record",
         lambda _web3, detection, _block_number, _token_cache: {
             "_detection_data": detection,
+            "features": set(detection.features),
             "Name": "GMX market refreshed",
             "Protocol": "GMX",
             "Denomination": "USD",
@@ -135,7 +149,16 @@ def test_fetch_and_sync_gmx_vault_catalogue_is_idempotent(monkeypatch: pytest.Mo
     assert row["_manual_enrichment"] == "keep me"
     assert detection.first_seen_at_block == FIRST_CATALOGUE_BLOCK
     assert detection.address == GM_TOKEN.lower()
-    assert detection.features == {ERC4626Feature.gmx_gm, ERC4626Feature.share_price_equivalence}
+    assert detection.features == {
+        ERC4626Feature.gmx_gm,
+        ERC4626Feature.amm_pool_like,
+        ERC4626Feature.share_price_equivalence,
+    }
+    assert vault_sync._features_for_product(replace(product, product_type="glv")) == {
+        ERC4626Feature.gmx_glv,
+        ERC4626Feature.amm_pool_like,
+        ERC4626Feature.share_price_equivalence,
+    }
     assert row["_gmx_component_addresses"] == tuple(address.lower() for address in product.component_addresses)
     assert row["_gmx_enabled"] is False
     assert row["_deposit_closed_reason"] == "GMX product disabled"

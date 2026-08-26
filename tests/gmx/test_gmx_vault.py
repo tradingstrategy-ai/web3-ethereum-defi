@@ -41,6 +41,8 @@ def test_gmx_features_route_to_read_only_adapters() -> None:
 
     assert isinstance(gm, GMXMarketVault)
     assert isinstance(glv, GMXLiquidityVault)
+    assert ERC4626Feature.amm_pool_like in gm.features
+    assert ERC4626Feature.amm_pool_like in glv.features
     assert ERC4626Feature.share_price_equivalence in gm.features
     assert ERC4626Feature.share_price_equivalence in glv.features
     assert gm.get_historical_reader(stateful=True).uses_contextual_history

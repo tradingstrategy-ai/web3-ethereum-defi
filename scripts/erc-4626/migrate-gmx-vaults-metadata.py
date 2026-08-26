@@ -3,8 +3,9 @@
 Existing rows are identified by chain and share-token address, so each run
 refreshes the GMX fields maintained by this migration: an index-aware GM or
 backing-pair GLV name, full LP description, USDC display denomination, direct
-GMX pool-details link, performance note and deposit availability. It does not
-overwrite manual enrichment fields belonging to other pipeline stages.
+GMX pool-details link, performance note, deposit availability and shared
+``amm_pool_like`` feature. It does not overwrite manual enrichment fields
+belonging to other pipeline stages.
 
 Environment variables:
 

@@ -152,7 +152,8 @@ class GMXVaultBase(VaultBase):
         :param token_cache:
             Optional shared token metadata cache.
         :param features:
-            Persisted GMX product features.
+            Persisted GMX product features. The adapter also adds its common
+            AMM-pool and share-price-equivalence features.
         :param default_block_identifier:
             Retained shared-adapter compatibility option.
         :param require_denomination_token:
@@ -164,7 +165,10 @@ class GMXVaultBase(VaultBase):
             raise ValueError(f"Unsupported GMX V2 chain: {spec.chain_id}")
         self.web3 = web3
         self.spec = spec
-        self.features = set(features or {self.feature}) | {ERC4626Feature.share_price_equivalence}
+        self.features = set(features or {self.feature}) | {
+            ERC4626Feature.amm_pool_like,
+            ERC4626Feature.share_price_equivalence,
+        }
         self.default_block_identifier = default_block_identifier or "latest"
         self.historical_context_path: Path = get_gmx_historical_context_path()
 

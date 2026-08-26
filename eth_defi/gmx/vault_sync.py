@@ -73,10 +73,23 @@ class GMXVaultCatalogueSyncResult:
     updated: int
 
 
-def _feature_for_product(product: GMXVaultProduct) -> ERC4626Feature:
-    """Map an onchain product kind to its persisted adapter feature."""
+def _features_for_product(product: GMXVaultProduct) -> set[ERC4626Feature]:
+    """Build the persisted feature set for one GMX product.
 
-    return ERC4626Feature.gmx_gm if product.product_type == "gm" else ERC4626Feature.gmx_glv
+    Both GM and GLV token holders provide liquidity to GMX's AMM pools.  The
+    product-specific marker selects the appropriate adapter, while the shared
+    marker lets consumers classify the economic exposure without knowing the
+    GMX product type.
+
+    :param product:
+        GMX product returned by the onchain Reader contracts.
+
+    :return:
+        Product-specific and shared vault features for the metadata row.
+    """
+
+    product_feature = ERC4626Feature.gmx_gm if product.product_type == "gm" else ERC4626Feature.gmx_glv
+    return {product_feature, ERC4626Feature.amm_pool_like, ERC4626Feature.share_price_equivalence}
 
 
 def _fetch_token_symbol(web3: Web3, chain_id: int, address: HexAddress, token_cache: TokenDiskCache) -> str:
@@ -513,13 +526,12 @@ def fetch_and_sync_gmx_vault_catalogue(
             old_detection = existing["_detection_data"]
             first_seen_at_block = old_detection.first_seen_at_block
             first_seen_at = old_detection.first_seen_at
-        feature = _feature_for_product(product)
         detection = ERC4262VaultDetection(
             chain=product.chain_id,
             address=product.token_address.lower(),
             first_seen_at_block=first_seen_at_block,
             first_seen_at=first_seen_at,
-            features={feature, ERC4626Feature.share_price_equivalence},
+            features=_features_for_product(product),
             updated_at=updated_at,
             deposit_count=0,
             redeem_count=0,
@@ -556,6 +568,7 @@ def fetch_and_sync_gmx_vault_catalogue(
                     key: row[key]
                     for key in (
                         "_detection_data",
+                        "features",
                         "_gmx_component_addresses",
                         "_gmx_accepted_deposit_tokens",
                         "_gmx_enabled",

@@ -268,6 +268,7 @@ remain valid.
 detection row. The persisted features are:
 
 - `gmx_gm` or `gmx_glv`, selecting the correct adapter;
+- `amm_pool_like`, identifying both product types as market-making pool shares;
 - `share_price_equivalence`, telling the sparse writer that only changes in the
   derived price represent performance.
 
