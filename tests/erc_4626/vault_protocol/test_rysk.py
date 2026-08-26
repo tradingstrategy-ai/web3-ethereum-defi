@@ -54,7 +54,10 @@ def test_rysk_uses_onchain_lead_and_feature_probes() -> None:
 
     unsupported_web3 = Mock()
     unsupported_web3.eth.chain_id = 42161
+    unsupported_web3.eth.contract = web3.eth.contract
     assert get_rysk_premium_discovery_events(unsupported_web3) == []
+    unsupported_topic_map = get_vault_event_topic_map(unsupported_web3)
+    assert RYSK_EPOCH_PRICE_SET_TOPIC not in unsupported_topic_map
 
     for chain_id in (1, 999):
         probe_names = {call.func_name for call in create_probe_calls([RYSK_KPK_WETH_PUT], chain_id=chain_id)}

@@ -575,6 +575,7 @@ def get_vault_event_topic_map(web3) -> dict[str, VaultEventKind]:
     from eth_defi.abi import get_topic_signature_from_event
 
     t3tris_configuration_events = get_t3tris_vault_configuration_discovery_events(web3)
+    rysk_configuration_events = get_rysk_premium_discovery_events(web3)
     event_groups = (
         (get_standard_erc_4626_vault_discovery_events(web3), (VaultEventKind.deposit, VaultEventKind.withdraw)),
         (get_brink_vault_discovery_events(web3), (VaultEventKind.deposit, VaultEventKind.withdraw)),
@@ -586,7 +587,7 @@ def get_vault_event_topic_map(web3) -> dict[str, VaultEventKind]:
         (get_t3tris_vault_discovery_events(web3), (VaultEventKind.deposit, VaultEventKind.withdraw)),
         (t3tris_configuration_events, (VaultEventKind.configuration,) * len(t3tris_configuration_events)),
         (get_securitize_dstoken_discovery_events(web3), (VaultEventKind.deposit,)),
-        (get_rysk_premium_discovery_events(web3), (VaultEventKind.configuration,)),
+        (rysk_configuration_events, (VaultEventKind.configuration,) * len(rysk_configuration_events)),
     )
     return {get_topic_signature_from_event(event): event_kind for events, event_kinds in event_groups for event, event_kind in zip(events, event_kinds, strict=True)}
 
