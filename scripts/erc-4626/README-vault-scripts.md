@@ -673,8 +673,9 @@ normal vault Parquet files.
 
 Use the manual scripts in this order. First idempotently migrate current
 products into the common metadata database. This refreshes existing GM and GLV
-rows by chain and share-token address, including their GM/GLV trading-pair
-display names and USDC display denomination:
+rows by chain and share-token address, including index-aware GM names,
+backing-pair GLV names, full liquidity-provider descriptions and USDC display
+denomination:
 
 ```shell
 source .local-test.env && \
