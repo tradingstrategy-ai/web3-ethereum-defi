@@ -1,5 +1,6 @@
 # 1.2
 
+- feat: Add directional-leverage classifications for Lighter's fixed 2x long and short pool family (2026-08-26)
 - feat: Categorise all current Lighter public vault strategies, including auto-rebalanced directional products, documented managed pools and both protocol liquidity pools (2026-08-26)
 - feat: Add Dima curator attribution for three Lighter pools, including the automated breakout and long/short strategies (2026-08-26)
 - feat: Add Rysk Premium onchain option-pool discovery, finalised epoch share-price history, backfill tooling and vault metadata (2026-08-25)

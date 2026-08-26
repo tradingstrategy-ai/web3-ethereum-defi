@@ -1045,7 +1045,7 @@ STRATEGY_TAGS: dict[str, set[StrategyTag]] = {
     },
     #: Vault: ADA 2x long.
     #: Added: 2026-08-26.
-    #: Decision material: The current Lighter public-pool metadata describes this as an automatically rebalanced ADA 2x long product.
+    #: Decision material: The current Lighter public-pool metadata describes this as an automatically rebalanced ADA 2x long product. It maintains fixed leveraged ADA exposure without trade-selection intelligence.
     #: Sources:
     #: - https://app.lighter.xyz/public-pools/281474976708413
     "lighter-pool-281474976708413": {
@@ -1882,7 +1882,7 @@ STRATEGY_TAGS: dict[str, set[StrategyTag]] = {
         StrategyTag.market_maker,
         StrategyTag.market_making,
     },
-    #: Vault: PAWNZI ALGO – PROFITABLE (REAL).
+    #: Vault: PAWNZI ALGO - PROFITABLE (REAL).
     #: Added: 2026-08-26.
     #: Decision material: The current Lighter description explicitly calls this a BTC and majors multi-timeframe reversal algo.
     #: Sources:
@@ -2089,6 +2089,222 @@ STRATEGY_TAGS: dict[str, set[StrategyTag]] = {
         StrategyTag.grid_trading,
     },
 }
+
+#: Lighter's documented auto-rebalanced 2x long/short products maintain a
+#: fixed leveraged exposure to one asset. Their automatic rebalancing is an
+#: implementation mechanism, not trade intelligence, so they use
+#: ``directional_leverage`` instead of ``algorithmic_trading``. ADA 2x long
+#: (``lighter-pool-281474976708413``) is a representative example.
+#:
+#: Each identifier has an address-specific source block in
+#: :py:data:`STRATEGY_TAGS` above. Keep this set in sync when adding or
+#: removing a documented Lighter direct-leverage product.
+DIRECTIONAL_LEVERAGE_VAULTS: frozenset[str] = frozenset(
+    """
+    lighter-pool-281474976641572
+    lighter-pool-281474976641573
+    lighter-pool-281474976641574
+    lighter-pool-281474976641575
+    lighter-pool-281474976641576
+    lighter-pool-281474976641577
+    lighter-pool-281474976644848
+    lighter-pool-281474976647176
+    lighter-pool-281474976647177
+    lighter-pool-281474976647178
+    lighter-pool-281474976647201
+    lighter-pool-281474976656642
+    lighter-pool-281474976656643
+    lighter-pool-281474976664629
+    lighter-pool-281474976664630
+    lighter-pool-281474976665433
+    lighter-pool-281474976665434
+    lighter-pool-281474976665435
+    lighter-pool-281474976665436
+    lighter-pool-281474976667673
+    lighter-pool-281474976667674
+    lighter-pool-281474976670931
+    lighter-pool-281474976670932
+    lighter-pool-281474976680298
+    lighter-pool-281474976680299
+    lighter-pool-281474976680300
+    lighter-pool-281474976687562
+    lighter-pool-281474976687563
+    lighter-pool-281474976687807
+    lighter-pool-281474976687808
+    lighter-pool-281474976687809
+    lighter-pool-281474976687810
+    lighter-pool-281474976687811
+    lighter-pool-281474976687812
+    lighter-pool-281474976687813
+    lighter-pool-281474976687814
+    lighter-pool-281474976691057
+    lighter-pool-281474976691058
+    lighter-pool-281474976691059
+    lighter-pool-281474976691060
+    lighter-pool-281474976691920
+    lighter-pool-281474976691921
+    lighter-pool-281474976692286
+    lighter-pool-281474976692287
+    lighter-pool-281474976692288
+    lighter-pool-281474976692289
+    lighter-pool-281474976692347
+    lighter-pool-281474976692348
+    lighter-pool-281474976692953
+    lighter-pool-281474976692955
+    lighter-pool-281474976694731
+    lighter-pool-281474976694732
+    lighter-pool-281474976695151
+    lighter-pool-281474976695152
+    lighter-pool-281474976695498
+    lighter-pool-281474976695499
+    lighter-pool-281474976695500
+    lighter-pool-281474976695501
+    lighter-pool-281474976695502
+    lighter-pool-281474976695503
+    lighter-pool-281474976695504
+    lighter-pool-281474976695505
+    lighter-pool-281474976696148
+    lighter-pool-281474976696149
+    lighter-pool-281474976696150
+    lighter-pool-281474976696151
+    lighter-pool-281474976696152
+    lighter-pool-281474976696153
+    lighter-pool-281474976696154
+    lighter-pool-281474976696155
+    lighter-pool-281474976696156
+    lighter-pool-281474976696157
+    lighter-pool-281474976696955
+    lighter-pool-281474976696956
+    lighter-pool-281474976696957
+    lighter-pool-281474976696958
+    lighter-pool-281474976696959
+    lighter-pool-281474976696960
+    lighter-pool-281474976697776
+    lighter-pool-281474976697777
+    lighter-pool-281474976698538
+    lighter-pool-281474976698539
+    lighter-pool-281474976698540
+    lighter-pool-281474976698541
+    lighter-pool-281474976698542
+    lighter-pool-281474976698543
+    lighter-pool-281474976698544
+    lighter-pool-281474976698545
+    lighter-pool-281474976698546
+    lighter-pool-281474976698547
+    lighter-pool-281474976698548
+    lighter-pool-281474976698549
+    lighter-pool-281474976698596
+    lighter-pool-281474976698597
+    lighter-pool-281474976698599
+    lighter-pool-281474976698600
+    lighter-pool-281474976698601
+    lighter-pool-281474976698602
+    lighter-pool-281474976698774
+    lighter-pool-281474976698775
+    lighter-pool-281474976698776
+    lighter-pool-281474976698777
+    lighter-pool-281474976703225
+    lighter-pool-281474976703226
+    lighter-pool-281474976706164
+    lighter-pool-281474976706165
+    lighter-pool-281474976706166
+    lighter-pool-281474976706167
+    lighter-pool-281474976706997
+    lighter-pool-281474976706998
+    lighter-pool-281474976706999
+    lighter-pool-281474976707000
+    lighter-pool-281474976708410
+    lighter-pool-281474976708411
+    lighter-pool-281474976708412
+    lighter-pool-281474976708413
+    lighter-pool-281474976708830
+    lighter-pool-281474976708831
+    lighter-pool-281474976708832
+    lighter-pool-281474976708833
+    lighter-pool-281474976708834
+    lighter-pool-281474976708835
+    lighter-pool-281474976710314
+    lighter-pool-281474976710315
+    lighter-pool-281474976710316
+    lighter-pool-281474976710317
+    lighter-pool-281474976710318
+    lighter-pool-281474976710319
+    lighter-pool-281474976710414
+    lighter-pool-281474976710415
+    lighter-pool-281474976710416
+    lighter-pool-281474976710417
+    lighter-pool-281474976710537
+    lighter-pool-281474976710538
+    lighter-pool-281474976710539
+    lighter-pool-281474976710540
+    lighter-pool-281474976710541
+    lighter-pool-281474976710542
+    lighter-pool-281474976710543
+    lighter-pool-281474976710544
+    lighter-pool-281474976710559
+    lighter-pool-281474976710560
+    lighter-pool-281474976710561
+    lighter-pool-281474976710562
+    lighter-pool-281474976710563
+    lighter-pool-281474976710564
+    lighter-pool-281474976710575
+    lighter-pool-281474976710576
+    lighter-pool-281474976710577
+    lighter-pool-281474976710578
+    lighter-pool-281474976710579
+    lighter-pool-281474976710580
+    lighter-pool-281474976710581
+    lighter-pool-281474976710582
+    lighter-pool-281474976710599
+    lighter-pool-281474976710600
+    lighter-pool-281474976710601
+    lighter-pool-281474976710602
+    lighter-pool-281474976710603
+    lighter-pool-281474976710604
+    lighter-pool-281474976710605
+    lighter-pool-281474976710606
+    lighter-pool-281474976710608
+    lighter-pool-281474976710609
+    lighter-pool-281474976710623
+    lighter-pool-281474976710624
+    lighter-pool-281474976710625
+    lighter-pool-281474976710626
+    lighter-pool-281474976710627
+    lighter-pool-281474976710628
+    lighter-pool-281474976710629
+    lighter-pool-281474976710630
+    lighter-pool-281474976710631
+    lighter-pool-281474976710632
+    lighter-pool-281474976710633
+    lighter-pool-281474976710634
+    lighter-pool-281474976710635
+    lighter-pool-281474976710636
+    lighter-pool-281474976710637
+    lighter-pool-281474976710638
+    lighter-pool-281474976710640
+    lighter-pool-281474976710641
+    lighter-pool-281474976710642
+    lighter-pool-281474976710643
+    lighter-pool-281474976710644
+    lighter-pool-281474976710645
+    lighter-pool-281474976710646
+    lighter-pool-281474976710647
+    lighter-pool-281474976710648
+    lighter-pool-281474976710649
+    lighter-pool-281474976710650
+    lighter-pool-281474976710651
+    lighter-pool-281474976710652
+    lighter-pool-281474976710653
+    """.split()
+)
+
+assert DIRECTIONAL_LEVERAGE_VAULTS <= STRATEGY_TAGS.keys()
+
+for _address in DIRECTIONAL_LEVERAGE_VAULTS:
+    STRATEGY_TAGS[_address] = {
+        StrategyTag.directional_trading,
+        StrategyTag.directional_leverage,
+    }
 
 
 def get_strategy_tags(address: str) -> set[StrategyTag]:
