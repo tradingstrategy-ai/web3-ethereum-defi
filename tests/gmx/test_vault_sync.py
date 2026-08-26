@@ -149,6 +149,12 @@ def test_fetch_and_sync_gmx_vault_catalogue_is_idempotent(monkeypatch: pytest.Mo
     assert row["Name"] == healthy_name
     assert row["_description"] == healthy_description
 
+    monkeypatch.setattr(vault_sync, "get_tokens_metadata_dict", lambda _chain: {})
+    fifth = fetch_and_sync_gmx_vault_catalogue(web3=web3, vault_db=vault_db, token_cache={}, block_number=791)
+    assert fifth.updated == 1
+    assert row["Name"] == healthy_name
+    assert row["_description"] == healthy_description
+
 
 def test_disambiguate_gmx_product_names_adds_short_stable_suffix() -> None:
     """Duplicate index-plus-backing-pair labels remain unique and compact."""
@@ -331,3 +337,23 @@ def test_build_market_labels_preserves_wsteth_market_identity() -> None:
     )
 
     assert vault_sync._build_market_labels((product,), {INDEX_TOKEN.lower(): {"symbol": "ETH"}}) == {product.token_address.lower(): "wstETH/USD"}
+
+
+def test_unresolved_index_label_preserves_existing_perpetual_metadata() -> None:
+    """A partial registry result does not make a perpetual GM pool look like a swap pool."""
+
+    perpetual = GMXVaultProduct(
+        chain_id=42161,
+        token_address=GM_TOKEN,
+        product_type="gm",
+        symbol="GM",
+        name="GMX market",
+        decimals=18,
+        component_addresses=(GM_TOKEN, INDEX_TOKEN, LONG_TOKEN, SHORT_TOKEN),
+        accepted_deposit_tokens=(LONG_TOKEN, SHORT_TOKEN),
+        is_enabled=True,
+    )
+    swap = replace(perpetual, component_addresses=(GM_TOKEN, vault_sync.GMX_ZERO_ADDRESS, LONG_TOKEN, SHORT_TOKEN))
+
+    assert vault_sync._has_unresolved_index_label(perpetual, {GM_TOKEN.lower(): None})
+    assert not vault_sync._has_unresolved_index_label(swap, {})

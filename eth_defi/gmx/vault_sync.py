@@ -376,10 +376,14 @@ def _fetch_gmx_token_metadata(chain_name: str) -> dict[str, Mapping[str, object]
     """
 
     try:
-        return {address.lower(): metadata for address, metadata in get_tokens_metadata_dict(chain_name).items()}
+        metadata = {address.lower(): value for address, value in get_tokens_metadata_dict(chain_name).items()}
     except ValueError as exc:
         logger.warning("Could not enrich GMX vault descriptions with index labels: %s", exc)
         return None
+    if not metadata:
+        logger.warning("Could not enrich GMX vault descriptions with index labels: GMX returned an empty token registry")
+        return None
+    return metadata
 
 
 def _fetch_backing_token_symbols(web3: Web3, products: tuple[GMXVaultProduct, ...], token_cache: TokenDiskCache) -> dict[str, tuple[str, str]]:
@@ -402,6 +406,26 @@ def _fetch_backing_token_symbols(web3: Web3, products: tuple[GMXVaultProduct, ..
     token_addresses = {address for product in products for address in product.accepted_deposit_tokens}
     token_symbols = {address.lower(): _fetch_token_symbol(web3, web3.eth.chain_id, address, token_cache) for address in token_addresses}
     return {product.token_address.lower(): tuple(token_symbols[address.lower()] for address in product.accepted_deposit_tokens) for product in products}
+
+
+def _has_unresolved_index_label(product: GMXVaultProduct, market_labels: Mapping[str, str | None]) -> bool:
+    """Check whether a perpetual product lacks a label from a partial registry.
+
+    A partial but successful token-registry response must not overwrite an
+    existing public name or description with an ``unavailable`` placeholder.
+    Swap-only pools are deliberately excluded because they have no index label.
+
+    :param product:
+        GMX GM or GLV product being reconciled.
+    :param market_labels:
+        GM product address mapping to index labels or unresolved ``None``.
+    :return:
+        ``True`` if at least one perpetual market used by the product has no
+        resolved label.
+    """
+
+    market_addresses = product.component_addresses[3:] if product.product_type == "glv" else product.component_addresses[:1]
+    return any(_is_perpetual_market(address, market_labels) and _format_market_label(address, market_labels) is None for address in market_addresses)
 
 
 def _normalise_gmx_row(row: VaultRow, *, product: GMXVaultProduct, name: str, description: str) -> VaultRow:
@@ -517,7 +541,7 @@ def fetch_and_sync_gmx_vault_catalogue(
             name=product_names[product.token_address.lower()],
             description=product_descriptions[product.token_address.lower()],
         )
-        if existing is not None and token_metadata is None:
+        if existing is not None and (token_metadata is None or _has_unresolved_index_label(product, market_labels)):
             # Keep public labels stable during a temporary GMX token-registry
             # outage.  Reader-derived identity and availability still refresh.
             row["Name"] = existing["Name"]
