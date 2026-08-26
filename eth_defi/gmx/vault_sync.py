@@ -4,7 +4,7 @@ import datetime
 import logging
 from collections import defaultdict
 from collections.abc import Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
 from eth_typing import HexAddress
 from joblib import Parallel, delayed
@@ -26,6 +26,14 @@ logger = logging.getLogger(__name__)
 
 #: Deposit-closure reason exported for disabled GMX products.
 GMX_DISABLED_DEPOSIT_REASON: str = "GMX product disabled"
+
+#: Features that identify GMX products in persisted metadata.
+GMX_PRODUCT_FEATURES: frozenset[ERC4626Feature] = frozenset(
+    {
+        ERC4626Feature.gmx_gm,
+        ERC4626Feature.gmx_glv,
+    }
+)
 
 #: Number of equal candidate names required before adding an address suffix.
 GMX_NAME_COLLISION_SIZE: int = 2
@@ -90,6 +98,47 @@ def _features_for_product(product: GMXVaultProduct) -> set[ERC4626Feature]:
 
     product_feature = ERC4626Feature.gmx_gm if product.product_type == "gm" else ERC4626Feature.gmx_glv
     return {product_feature, ERC4626Feature.amm_pool_like, ERC4626Feature.share_price_equivalence}
+
+
+def mark_gmx_vault_rows_amm_pool_like(vault_db: VaultDatabase, *, chain_ids: set[int]) -> int:
+    """Add the AMM-pool marker to every persisted GMX vault in selected chains.
+
+    The onchain catalogue can no longer return delisted GMX products, while
+    their historical rows remain in the common database. This metadata-only
+    repair therefore examines all retained rows rather than only the current
+    catalogue and preserves the top-level and detection feature copies in
+    lockstep.
+
+    :param vault_db:
+        Common vault metadata database to repair in place.
+    :param chain_ids:
+        GMX deployment chain IDs included in this migration run.
+    :return:
+        Number of stored GMX rows changed.
+    """
+
+    changed_rows = 0
+    for spec, row in vault_db.rows.items():
+        if spec.chain_id not in chain_ids:
+            continue
+
+        detection = row.get("_detection_data")
+        detection_features = set(detection.features) if isinstance(detection, ERC4262VaultDetection) else set()
+        stored_features = set(row.get("features") or detection_features)
+        is_gmx_row = row.get("Protocol") == "GMX" or bool((detection_features | stored_features) & GMX_PRODUCT_FEATURES)
+        if not is_gmx_row:
+            continue
+
+        updated_features = detection_features | stored_features | {ERC4626Feature.amm_pool_like}
+        changed = stored_features != updated_features
+        row["features"] = set(updated_features)
+        if isinstance(detection, ERC4262VaultDetection) and detection_features != updated_features:
+            row["_detection_data"] = replace(detection, features=set(updated_features))
+            changed = True
+        if changed:
+            changed_rows += 1
+
+    return changed_rows
 
 
 def _fetch_token_symbol(web3: Web3, chain_id: int, address: HexAddress, token_cache: TokenDiskCache) -> str:
