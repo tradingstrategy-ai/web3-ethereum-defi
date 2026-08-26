@@ -1345,6 +1345,36 @@ def test_identify_lighter_pmalt_pool_curator() -> None:
     assert get_curator_name("pmalt") == "pmalt"
 
 
+def test_identify_lighter_dima_pools_curator() -> None:
+    """Dima's Lighter pools resolve through their verified operator address.
+
+    The automated breakout pool links directly to Dima's public X account.
+    Its L1 operator address is shared by the named Dima pool and the
+    Systematic Strategies long/short pool, so all three must resolve to the
+    same curator.  This address is distinct from Systemic Strategies' leader
+    address on Hyperliquid.
+
+    1. Resolve each pool through its native Lighter identifier.
+    2. Confirm the shared operator attribution is Dima.
+    """
+
+    for vault_name, vault_address in (
+        ("20d Breakout Long Binary (Automated)", "lighter-pool-281474976496745"),
+        ("dima systematic long/short bot", "lighter-pool-281474976501540"),
+        ("[Systematic Strategies] Long / Short Bot", "lighter-pool-281474976549878"),
+    ):
+        slug = identify_curator(
+            chain_id=9998,
+            vault_token_symbol="",
+            vault_name=vault_name,
+            vault_address=vault_address,
+            protocol_slug="lighter",
+        )
+        assert slug == "dima-quant"
+
+    assert get_curator_name("dima-quant") == "Dima"
+
+
 def test_identify_vault_name_sweep_curators() -> None:
     """Curators discovered from the vault-name sweep resolve on their vaults.
 

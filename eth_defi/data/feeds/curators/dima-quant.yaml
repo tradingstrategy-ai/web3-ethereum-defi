@@ -1,0 +1,15 @@
+feeder-id: dima-quant
+name: Dima
+role: curator
+short_description: Dima is an independent quantitative trader operating automated perpetuals pools on Lighter.
+long_description: |
+  Dima is the publicly disclosed operator of automated perpetuals pools on [Lighter](https://lighter.xyz), including a [20-day breakout strategy](https://app.lighter.xyz/public-pools/281474976496745) that links directly to the @dima_quant X account.
+  A separate [long/short pool](https://app.lighter.xyz/public-pools/281474976501540) describes a delta-neutral strategy with 40 to 60 active positions. No separate website or organisation information is publicly disclosed.
+twitter: dima_quant
+
+# Evidence and background references.
+other-links:
+  - title: Lighter public pool - 20d Breakout Long Binary (Automated), account index 281474976496745
+    url: https://app.lighter.xyz/public-pools/281474976496745
+  - title: Lighter public pool - dima systematic long/short bot, account index 281474976501540
+    url: https://app.lighter.xyz/public-pools/281474976501540
