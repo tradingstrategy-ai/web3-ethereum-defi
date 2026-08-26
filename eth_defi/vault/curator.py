@@ -379,6 +379,15 @@ PROTOCOL_MANAGER_YAML_FIELDS: dict[str, str] = {
 #: carries a co-branded protocol/issuer name that would otherwise win fuzzy
 #: matching.  Keys are ``(chain_id, lowercase_vault_address)``.
 CURATOR_ADDRESS_OVERRIDES: dict[tuple[int, str], str] = {
+    # These Lighter pools share an L1 operator address. The automated breakout
+    # pool directly identifies the operator's @dima_quant account, while the
+    # adjacent pool names identify Dima and Systematic Strategies respectively.
+    # The same address is distinct from Systemic Strategies' Lighter and
+    # Hyperliquid leader address.
+    # https://app.lighter.xyz/public-pools/281474976496745
+    (9998, "lighter-pool-281474976496745"): "dima-quant",
+    (9998, "lighter-pool-281474976501540"): "dima-quant",
+    (9998, "lighter-pool-281474976549878"): "dima-quant",
     # Enzyme's manager-authored B100 listing explicitly groups B100, BBTC, and
     # BGC as Bgroup vaults, but none of the three titles contains Bgroup.
     # https://app.enzyme.finance/vault/0xb8f69b26316818db0ea3b6d1639fedf744a2df41?network=ethereum
