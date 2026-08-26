@@ -8,16 +8,14 @@ from dataclasses import dataclass
 
 from eth_typing import HexAddress
 from joblib import Parallel, delayed
-from requests import RequestException
 from web3 import Web3
-from web3.exceptions import Web3Exception
 
 from eth_defi.compat import native_datetime_utc_now
 from eth_defi.erc_4626.core import ERC4262VaultDetection, ERC4626Feature
 from eth_defi.erc_4626.scan import create_vault_scan_record
 from eth_defi.gmx.links import get_gmx_pool_details_link
+from eth_defi.gmx.symbols import SYMBOL_NORMALISE
 from eth_defi.gmx.vault_catalog import GMXVaultProduct, fetch_gmx_v2_vault_products
-from eth_defi.gmx.whitelist import fetch_all_gmx_markets
 from eth_defi.token import TokenDiskCache, fetch_erc20_details
 from eth_defi.vault.base import VaultSpec
 from eth_defi.vault.flag import GMX_SINGLE_SIDED_USDC_NOTE
@@ -30,6 +28,9 @@ GMX_DISABLED_DEPOSIT_REASON: str = "GMX product disabled"
 
 #: Number of equal candidate names required before adding an address suffix.
 GMX_NAME_COLLISION_SIZE: int = 2
+
+#: GMX Reader uses this value for the absent index token of a swap-only pool.
+GMX_ZERO_ADDRESS: HexAddress = "0x0000000000000000000000000000000000000000"
 
 #: GMX index markets tracking a real-world commodity, equity or financial index.
 GMX_TRADFI_INDEX_MARKETS: frozenset[str] = frozenset(
@@ -107,8 +108,10 @@ def _format_gmx_product_name(
     backing_pair = f"{long_token_symbol}-{short_token_symbol}"
     if product.product_type == "gm":
         market_address = product.component_addresses[0]
-        index_market = _format_market_label(market_address, market_labels).removesuffix("/USD")
-        return f"GM {index_market} [{backing_pair}]"
+        market_label = _format_market_label(market_address, market_labels)
+        if market_label is not None:
+            return f"GM {market_label.removesuffix('/USD')} [{backing_pair}]"
+        return f"GM swap [{backing_pair}]"
     return f"GLV [{backing_pair}]"
 
 
@@ -141,13 +144,23 @@ def _disambiguate_gmx_product_names(candidate_names: Mapping[str, str]) -> dict[
     return result
 
 
-def _format_market_label(market_address: HexAddress, market_labels: Mapping[str, str]) -> str:
-    """Return a market label, retaining a short address as a safe fallback."""
+def _format_market_label(market_address: HexAddress, market_labels: Mapping[str, str]) -> str | None:
+    """Look up the index-market label for one GM market.
 
-    label = market_labels.get(market_address.lower())
-    if label is not None:
-        return label
-    return f"market {market_address[:8]}…{market_address[-6:]}"
+    A missing label means that the GMX Reader reported a swap-only pool with no
+    index token.  Keeping that distinction as ``None`` avoids inventing an
+    index market from a contract address and lets the caller describe the
+    product as swap liquidity instead of perpetual-trading liquidity.
+
+    :param market_address:
+        GM market-token address.
+    :param market_labels:
+        Lower-case GM market address to canonical ``ASSET/USD`` label mapping.
+    :return:
+        Canonical index-market label, or ``None`` for a swap-only pool.
+    """
+
+    return market_labels.get(market_address.lower())
 
 
 def _format_tradfi_synthetic_exposure_explanation(index_markets: tuple[str, ...]) -> str:
@@ -168,16 +181,32 @@ def _format_tradfi_synthetic_exposure_explanation(index_markets: tuple[str, ...]
     return f" For its {', '.join(tradfi_markets)} markets, this pool provides synthetic price exposure rather than holding the underlying real-world assets or financial instruments."
 
 
-def _format_backing_token_explanation(long_token_symbol: str, short_token_symbol: str) -> tuple[str, tuple[str, ...]]:
+def _format_backing_token_explanation(long_token_symbol: str, short_token_symbol: str, *, is_perpetual_market: bool) -> tuple[str, tuple[str, ...]]:
     """Describe whether a GMX pool uses one or two backing assets.
 
     :param long_token_symbol:
         Symbol of the long backing asset.
     :param short_token_symbol:
         Symbol of the short backing asset.
+    :param is_perpetual_market:
+        Whether the product backs a perpetual index market rather than swaps.
     :return:
         Introductory liquidity sentence fragment and Markdown bullet points.
     """
+
+    if not is_perpetual_market:
+        if long_token_symbol == short_token_symbol:
+            return (
+                f"Liquidity providers supply {long_token_symbol}",
+                (f"- **Pool token:** {long_token_symbol} — the asset supplied as swap liquidity.",),
+            )
+        return (
+            f"Liquidity providers supply {long_token_symbol} and {short_token_symbol}",
+            (
+                f"- **First pool token:** {long_token_symbol} — one asset supplied as swap liquidity.",
+                f"- **Second pool token:** {short_token_symbol} — the other asset supplied as swap liquidity.",
+            ),
+        )
 
     if long_token_symbol == short_token_symbol:
         return (
@@ -221,36 +250,53 @@ def _format_gmx_product_description(
 
     is_glv = product.product_type == "glv"
     market_addresses = product.component_addresses[3:] if is_glv else product.component_addresses[:1]
-    index_markets = tuple(_format_market_label(address, market_labels) for address in market_addresses)
-    liquidity_intro, backing_token_bullets = _format_backing_token_explanation(long_token_symbol, short_token_symbol)
-    description = f"{liquidity_intro} to provide liquidity for GMX perpetual trading and swaps. They earn a share of trading, borrowing, liquidation and swap fees, and benefit when traders make net losses. They bear net trader profits and changes in the value of the backing tokens."
+    index_markets = tuple(label for address in market_addresses if (label := _format_market_label(address, market_labels)) is not None)
+    is_swap_only_gm = not is_glv and not index_markets
+    liquidity_intro, backing_token_bullets = _format_backing_token_explanation(
+        long_token_symbol,
+        short_token_symbol,
+        is_perpetual_market=not is_swap_only_gm,
+    )
+    if is_swap_only_gm:
+        description = f"{liquidity_intro} to provide liquidity for GMX token swaps. They earn a share of swap fees and bear changes in the value of the pool tokens."
+        index_market_bullet = "- **Activity:** Swap-only market — this pool has no index market and does not back perpetual positions."
+    else:
+        description = f"{liquidity_intro} to provide liquidity for GMX perpetual trading and swaps. They earn a share of trading, borrowing, liquidation and swap fees, and benefit when traders make net losses. They bear net trader profits and changes in the value of the backing tokens."
     if is_glv:
         description += " This GMX Liquidity Vault allocates the supplied liquidity across its compatible GM markets according to GMX configuration."
         index_market_bullet = f"- **Supported index markets:** {', '.join(index_markets)} — the price markets for which the underlying GM pools back trader positions."
-    else:
+    elif not is_swap_only_gm:
         index_market_bullet = f"- **Index market:** {index_markets[0]} — the price market for which traders take long and short positions."
     description += _format_tradfi_synthetic_exposure_explanation(index_markets)
     return "\n".join((description, "", index_market_bullet, *backing_token_bullets))
 
 
-def _fetch_market_labels(web3: Web3) -> dict[str, str]:
-    """Fetch current GMX market labels without blocking a catalogue repair.
+def _build_market_labels(products: tuple[GMXVaultProduct, ...], token_symbols: Mapping[str, str]) -> dict[str, str]:
+    """Build canonical index labels directly from the GMX Reader catalogue.
 
-    Market labels are display enrichment only.  The Reader-derived component
-    addresses remain the source of truth, so a temporary GMX REST or RPC error
-    must not prevent the migration from repairing product metadata.
+    The Reader supplies the index-token address for every perpetual GM pool,
+    including single-token and delisted products omitted by the trading REST
+    catalogue.  This avoids the trading adapter's internal ``2`` suffix and
+    keeps a REST outage from overwriting public vault metadata with fallbacks.
 
-    :param web3:
-        Product-chain Web3 connection.
+    :param products:
+        Complete same-chain GM and GLV product catalogue from the GMX Reader.
+    :param token_symbols:
+        Lower-case token-address to ERC-20 symbol mapping for the catalogue.
     :return:
-        Lower-case GM market address to ``ASSET/USD`` display label mapping.
+        Lower-case GM market address to canonical ``ASSET/USD`` label mapping.
     """
 
-    try:
-        return {address.lower(): f"{info.market_symbol}/USD" for address, info in fetch_all_gmx_markets(web3).items()}
-    except (RequestException, RuntimeError, ValueError, Web3Exception) as exc:
-        logger.warning("Could not enrich GMX vault descriptions with market labels: %s", exc)
-        return {}
+    labels = {}
+    for product in products:
+        if product.product_type != "gm":
+            continue
+        market_address, index_token, _long_token, _short_token = product.component_addresses
+        if index_token.lower() == GMX_ZERO_ADDRESS:
+            continue
+        index_symbol = token_symbols[index_token.lower()]
+        labels[market_address.lower()] = f"{SYMBOL_NORMALISE.get(index_symbol, index_symbol)}/USD"
+    return labels
 
 
 def _normalise_gmx_row(row: VaultRow, *, product: GMXVaultProduct, name: str, description: str) -> VaultRow:
@@ -302,8 +348,10 @@ def fetch_and_sync_gmx_vault_catalogue(
     observed_at = datetime.datetime.fromtimestamp(block["timestamp"], tz=datetime.UTC).replace(tzinfo=None)
     updated_at = native_datetime_utc_now()
     products = tuple(fetch_gmx_v2_vault_products(web3, block_identifier=block_number, token_cache=token_cache))
-    market_labels = _fetch_market_labels(web3)
-    backing_token_symbols = {product.token_address.lower(): tuple(_fetch_token_symbol(web3, product.chain_id, address, token_cache) for address in product.accepted_deposit_tokens) for product in products}
+    token_addresses = {address for product in products for address in (*product.accepted_deposit_tokens, *(product.component_addresses[1:2] if product.product_type == "gm" and product.component_addresses[1].lower() != GMX_ZERO_ADDRESS else ()))}
+    token_symbols = {address.lower(): _fetch_token_symbol(web3, web3.eth.chain_id, address, token_cache) for address in token_addresses}
+    market_labels = _build_market_labels(products, token_symbols)
+    backing_token_symbols = {product.token_address.lower(): tuple(token_symbols[address.lower()] for address in product.accepted_deposit_tokens) for product in products}
     product_names = _disambiguate_gmx_product_names(
         {
             product.token_address.lower(): _format_gmx_product_name(
@@ -388,7 +436,6 @@ def fetch_and_sync_gmx_vault_catalogue(
                         "_short_description",
                         "_description",
                         "_synthetic_usd_denomination",
-                        "_deposits_open",
                         "_deposits_open",
                     )
                     if key in row

@@ -41,7 +41,7 @@ trading activity in other markets. GMX then expanded V2 from its initial major
 markets to synthetic markets and additional index assets. This is why the
 catalogue contains many separate GM share tokens that use the same backing
 assets. See the [GMX V2 go-to-market plan](https://gov.gmx.io/t/gmx-v2-go-to-market/2474)
-and [GMX's liquidity documentation](https://docs.gmx.io/docs/providing-liquidity/).
+and GMX's liquidity documentation linked above.
 
 The display pair in a GM vault name is the long and short backing-token pair,
 not necessarily the asset on which traders take positions. A GM market has
@@ -64,9 +64,10 @@ they must not be deduplicated merely because their backing pair matches.
 GM names use the compact format `GM {index} [{long}-{short}]`, for example
 `GM ETH [WETH-USDC]` and `GM DOGE [WETH-USDC]`. A short suffix from the GM
 share-token address is added only if the complete compact label still
-collides. If the canonical GMX market label cannot be resolved, the name uses
-a shortened market-token address as its stable index fallback. GLV names
-remain pair-based because a GLV can span several markets; their long
+collides. A swap-only GM pool has no index market and is instead named
+`GM swap [{first}-{second}]`; its description explains the two pool-token
+roles without incorrectly describing them as long and short backing tokens.
+GLV names remain pair-based because a GLV can span several markets; their long
 descriptions list every supported index market and both backing-token roles.
 For GMX [TradFi markets](https://docs.gmx.io/docs/trading/overview/), including
 commodities, equities and equity indices, the description additionally states
@@ -311,8 +312,7 @@ limits, available liquidity, oracle availability and price-impact constraints
 can still prevent a particular request from executing. Similarly, a redemption
 can be delayed or fail when liquidity is reserved for positions or market
 limits apply. See GMX's [architecture documentation](https://docs.gmx.io/docs/api/contracts/architecture/),
-[liquidity documentation](https://docs.gmx.io/docs/providing-liquidity/) and
-[known integration issues](https://docs.gmx.io/docs/api/contracts/known-issues/).
+the liquidity documentation linked above and [known integration issues](https://docs.gmx.io/docs/api/contracts/known-issues/).
 
 The following operations are intentionally unavailable:
 
@@ -473,7 +473,7 @@ imports and local verification:
 
 | Script | Purpose |
 |--------|---------|
-| [`migrate-gmx-vaults-metadata.py`](../../scripts/erc-4626/migrate-gmx-vaults-metadata.py) | Idempotently refresh the GMX fields maintained by the migration: product-type-prefixed trading-pair display names, full LP description with index market and backing-token roles, USDC display denomination, direct GMX links, performance note and deposit availability |
+| [`migrate-gmx-vaults-metadata.py`](../../scripts/erc-4626/migrate-gmx-vaults-metadata.py) | Idempotently refresh the GMX fields maintained by the migration: index-aware GM and backing-pair GLV display names, full LP description with index-market and backing-token roles, USDC display denomination, direct GMX links, performance note and deposit availability |
 | [`backfill-gmx-vault-prices.py`](../../scripts/erc-4626/backfill-gmx-vault-prices.py) | Prefill complete Arbitrum and Avalanche context ranges and run the common hourly Parquet writer without modifying production reader state |
 | [`examine-gmx-vault-backfill.py`](../../scripts/erc-4626/examine-gmx-vault-backfill.py) | Check duplicates, positive values, source linkage, asset identity and sparse-threshold behaviour |
 | [`examine-gmx-vault-performance.py`](../../scripts/erc-4626/examine-gmx-vault-performance.py) | Run common lifetime metrics and display TVL, lifetime CAGR, three-month CAGR, approximate three-month volatility and Sharpe |

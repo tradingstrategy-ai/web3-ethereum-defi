@@ -43,8 +43,15 @@ def test_fetch_and_sync_gmx_vault_catalogue_is_idempotent(monkeypatch: pytest.Mo
         ),
     )
     monkeypatch.setattr(vault_sync, "fetch_gmx_v2_vault_products", lambda *_args, **_kwargs: iter((product,)))
-    monkeypatch.setattr(vault_sync, "_fetch_token_symbol", lambda _web3, _chain_id, address, _token_cache: "WBTC" if address == LONG_TOKEN else "USDC")
-    monkeypatch.setattr(vault_sync, "fetch_all_gmx_markets", lambda _web3: {GM_TOKEN: SimpleNamespace(market_symbol="DOGE")})
+    monkeypatch.setattr(
+        vault_sync,
+        "_fetch_token_symbol",
+        lambda _web3, _chain_id, address, _token_cache: {
+            INDEX_TOKEN: "DOGE",
+            LONG_TOKEN: "WBTC",
+            SHORT_TOKEN: "USDC",
+        }[address],
+    )
     monkeypatch.setattr(
         vault_sync,
         "create_vault_scan_record",
@@ -232,3 +239,68 @@ def test_format_gmx_single_token_description_explains_shared_backing_token() -> 
     assert "Liquidity providers supply WETH to provide liquidity" in description
     assert "- **Long and short backing token:** WETH" in description
     assert "Long backing token" not in description
+    assert (
+        vault_sync._format_gmx_product_name(
+            product,
+            long_token_symbol="WETH",
+            short_token_symbol="WETH",
+            market_labels={GM_TOKEN.lower(): "ETH/USD"},
+        )
+        == "GM ETH [WETH-WETH]"
+    )
+
+
+def test_format_gmx_swap_pool_has_no_fabricated_index_market() -> None:
+    """Swap-only GM pools use token roles rather than perpetual-market roles."""
+
+    product = GMXVaultProduct(
+        chain_id=42161,
+        token_address=GM_TOKEN,
+        product_type="gm",
+        symbol="GM",
+        name="GMX swap pool",
+        decimals=18,
+        component_addresses=(GM_TOKEN, vault_sync.GMX_ZERO_ADDRESS, LONG_TOKEN, SHORT_TOKEN),
+        accepted_deposit_tokens=(LONG_TOKEN, SHORT_TOKEN),
+        is_enabled=True,
+    )
+
+    description = vault_sync._format_gmx_product_description(
+        product,
+        long_token_symbol="USDC",
+        short_token_symbol="USDT",
+        market_labels={},
+    )
+
+    assert description.startswith("Liquidity providers supply USDC and USDT to provide liquidity for GMX token swaps.")
+    assert "- **Activity:** Swap-only market — this pool has no index market and does not back perpetual positions." in description
+    assert "- **First pool token:** USDC" in description
+    assert "- **Second pool token:** USDT" in description
+    assert "Index market" not in description
+    assert (
+        vault_sync._format_gmx_product_name(
+            product,
+            long_token_symbol="USDC",
+            short_token_symbol="USDT",
+            market_labels={},
+        )
+        == "GM swap [USDC-USDT]"
+    )
+
+
+def test_build_market_labels_uses_onchain_index_symbols_without_sdk_suffix() -> None:
+    """Single-token GM pools retain their actual index symbol in catalogue names."""
+
+    product = GMXVaultProduct(
+        chain_id=42161,
+        token_address=GM_TOKEN,
+        product_type="gm",
+        symbol="GM",
+        name="GMX single-token ETH market",
+        decimals=18,
+        component_addresses=(GM_TOKEN, INDEX_TOKEN, LONG_TOKEN, LONG_TOKEN),
+        accepted_deposit_tokens=(LONG_TOKEN, LONG_TOKEN),
+        is_enabled=True,
+    )
+
+    assert vault_sync._build_market_labels((product,), {INDEX_TOKEN.lower(): "ETH"}) == {GM_TOKEN.lower(): "ETH/USD"}
