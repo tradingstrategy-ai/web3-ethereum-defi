@@ -52,6 +52,7 @@ def test_fetch_and_sync_gmx_vault_catalogue_is_idempotent(monkeypatch: pytest.Mo
             SHORT_TOKEN: "USDC",
         }[address],
     )
+    monkeypatch.setattr(vault_sync, "get_tokens_metadata_dict", lambda _chain: {INDEX_TOKEN: {"symbol": "DOGE"}})
     monkeypatch.setattr(
         vault_sync,
         "create_vault_scan_record",
@@ -139,6 +140,14 @@ def test_fetch_and_sync_gmx_vault_catalogue_is_idempotent(monkeypatch: pytest.Mo
     assert row["_gmx_enabled"] is False
     assert row["_deposit_closed_reason"] == "GMX product disabled"
     assert row["_deposits_open"] is False
+
+    healthy_name = row["Name"]
+    healthy_description = row["_description"]
+    monkeypatch.setattr(vault_sync, "get_tokens_metadata_dict", lambda _chain: (_ for _ in ()).throw(ValueError("temporary GMX API outage")))
+    fourth = fetch_and_sync_gmx_vault_catalogue(web3=web3, vault_db=vault_db, token_cache={}, block_number=790)
+    assert fourth.updated == 1
+    assert row["Name"] == healthy_name
+    assert row["_description"] == healthy_description
 
 
 def test_disambiguate_gmx_product_names_adds_short_stable_suffix() -> None:
@@ -303,4 +312,22 @@ def test_build_market_labels_uses_onchain_index_symbols_without_sdk_suffix() -> 
         is_enabled=True,
     )
 
-    assert vault_sync._build_market_labels((product,), {INDEX_TOKEN.lower(): "ETH"}) == {GM_TOKEN.lower(): "ETH/USD"}
+    assert vault_sync._build_market_labels((product,), {INDEX_TOKEN.lower(): {"symbol": "ETH"}}) == {GM_TOKEN.lower(): "ETH/USD"}
+
+
+def test_build_market_labels_preserves_wsteth_market_identity() -> None:
+    """The wstETH/USDe GM market is not published as an ETH market."""
+
+    product = GMXVaultProduct(
+        chain_id=42161,
+        token_address="0x0Cf1fb4d1FF67A3D8Ca92c9d6643F8F9be8e03E5",
+        product_type="gm",
+        symbol="GM",
+        name="GMX wstETH market",
+        decimals=18,
+        component_addresses=("0x0Cf1fb4d1FF67A3D8Ca92c9d6643F8F9be8e03E5", INDEX_TOKEN, LONG_TOKEN, SHORT_TOKEN),
+        accepted_deposit_tokens=(LONG_TOKEN, SHORT_TOKEN),
+        is_enabled=True,
+    )
+
+    assert vault_sync._build_market_labels((product,), {INDEX_TOKEN.lower(): {"symbol": "ETH"}}) == {product.token_address.lower(): "wstETH/USD"}

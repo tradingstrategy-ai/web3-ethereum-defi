@@ -13,9 +13,10 @@ from web3 import Web3
 from eth_defi.compat import native_datetime_utc_now
 from eth_defi.erc_4626.core import ERC4262VaultDetection, ERC4626Feature
 from eth_defi.erc_4626.scan import create_vault_scan_record
+from eth_defi.gmx.contracts import get_tokens_metadata_dict
 from eth_defi.gmx.links import get_gmx_pool_details_link
 from eth_defi.gmx.symbols import SYMBOL_NORMALISE
-from eth_defi.gmx.vault_catalog import GMXVaultProduct, fetch_gmx_v2_vault_products
+from eth_defi.gmx.vault_catalog import GMX_CHAIN_NAMES_BY_ID, GMXVaultProduct, fetch_gmx_v2_vault_products
 from eth_defi.token import TokenDiskCache, fetch_erc20_details
 from eth_defi.vault.base import VaultSpec
 from eth_defi.vault.flag import GMX_SINGLE_SIDED_USDC_NOTE
@@ -31,6 +32,13 @@ GMX_NAME_COLLISION_SIZE: int = 2
 
 #: GMX Reader uses this value for the absent index token of a swap-only pool.
 GMX_ZERO_ADDRESS: HexAddress = "0x0000000000000000000000000000000000000000"
+
+#: Special GMX index labels whose market identity differs from the token-registry symbol.
+GMX_INDEX_MARKET_LABEL_OVERRIDES: dict[str, str] = {
+    # GMX defines wstETH/USDe as a distinct wstETH market even though its
+    # Reader index-token address resolves to the ETH token-registry entry.
+    "0x0cf1fb4d1ff67a3d8ca92c9d6643f8f9be8e03e5": "wstETH/USD",
+}
 
 #: GMX index markets tracking a real-world commodity, equity or financial index.
 GMX_TRADFI_INDEX_MARKETS: frozenset[str] = frozenset(
@@ -83,7 +91,7 @@ def _format_gmx_product_name(
     *,
     long_token_symbol: str,
     short_token_symbol: str,
-    market_labels: Mapping[str, str],
+    market_labels: Mapping[str, str | None],
 ) -> str:
     """Build a concise GMX product name that includes the index market.
 
@@ -111,6 +119,8 @@ def _format_gmx_product_name(
         market_label = _format_market_label(market_address, market_labels)
         if market_label is not None:
             return f"GM {market_label.removesuffix('/USD')} [{backing_pair}]"
+        if _is_perpetual_market(market_address, market_labels):
+            return f"GM perpetual [{backing_pair}]"
         return f"GM swap [{backing_pair}]"
     return f"GLV [{backing_pair}]"
 
@@ -144,7 +154,7 @@ def _disambiguate_gmx_product_names(candidate_names: Mapping[str, str]) -> dict[
     return result
 
 
-def _format_market_label(market_address: HexAddress, market_labels: Mapping[str, str]) -> str | None:
+def _format_market_label(market_address: HexAddress, market_labels: Mapping[str, str | None]) -> str | None:
     """Look up the index-market label for one GM market.
 
     A missing label means that the GMX Reader reported a swap-only pool with no
@@ -161,6 +171,24 @@ def _format_market_label(market_address: HexAddress, market_labels: Mapping[str,
     """
 
     return market_labels.get(market_address.lower())
+
+
+def _is_perpetual_market(market_address: HexAddress, market_labels: Mapping[str, str | None]) -> bool:
+    """Check whether a GM product has an index market even when its label is absent.
+
+    The GMX Reader uses a zero index-token address for swap-only pools.  The
+    label registry can be temporarily unavailable, however, so a missing label
+    alone must not turn a genuine perpetual market into a swap pool.
+
+    :param market_address:
+        GM market-token address.
+    :param market_labels:
+        GM market address mapping which includes every perpetual market.
+    :return:
+        ``True`` if the product has a perpetual index market.
+    """
+
+    return market_address.lower() in market_labels
 
 
 def _format_tradfi_synthetic_exposure_explanation(index_markets: tuple[str, ...]) -> str:
@@ -227,7 +255,7 @@ def _format_gmx_product_description(
     *,
     long_token_symbol: str,
     short_token_symbol: str,
-    market_labels: Mapping[str, str],
+    market_labels: Mapping[str, str | None],
 ) -> str:
     """Build the complete human-readable liquidity-provider description.
 
@@ -251,7 +279,7 @@ def _format_gmx_product_description(
     is_glv = product.product_type == "glv"
     market_addresses = product.component_addresses[3:] if is_glv else product.component_addresses[:1]
     index_markets = tuple(label for address in market_addresses if (label := _format_market_label(address, market_labels)) is not None)
-    is_swap_only_gm = not is_glv and not index_markets
+    is_swap_only_gm = not is_glv and not _is_perpetual_market(market_addresses[0], market_labels)
     liquidity_intro, backing_token_bullets = _format_backing_token_explanation(
         long_token_symbol,
         short_token_symbol,
@@ -264,39 +292,116 @@ def _format_gmx_product_description(
         description = f"{liquidity_intro} to provide liquidity for GMX perpetual trading and swaps. They earn a share of trading, borrowing, liquidation and swap fees, and benefit when traders make net losses. They bear net trader profits and changes in the value of the backing tokens."
     if is_glv:
         description += " This GMX Liquidity Vault allocates the supplied liquidity across its compatible GM markets according to GMX configuration."
-        index_market_bullet = f"- **Supported index markets:** {', '.join(index_markets)} — the price markets for which the underlying GM pools back trader positions."
+        if index_markets:
+            index_market_bullet = f"- **Supported index markets:** {', '.join(index_markets)} — the price markets for which the underlying GM pools back trader positions."
+        else:
+            index_market_bullet = "- **Supported index markets:** GMX perpetual markets — their index labels were unavailable when this description was generated."
     elif not is_swap_only_gm:
-        index_market_bullet = f"- **Index market:** {index_markets[0]} — the price market for which traders take long and short positions."
+        if index_markets:
+            index_market_bullet = f"- **Index market:** {index_markets[0]} — the price market for which traders take long and short positions."
+        else:
+            index_market_bullet = "- **Index market:** GMX perpetual market — its index label was unavailable when this description was generated."
     description += _format_tradfi_synthetic_exposure_explanation(index_markets)
     return "\n".join((description, "", index_market_bullet, *backing_token_bullets))
 
 
-def _build_market_labels(products: tuple[GMXVaultProduct, ...], token_symbols: Mapping[str, str]) -> dict[str, str]:
-    """Build canonical index labels directly from the GMX Reader catalogue.
+def _get_index_token_address(product: GMXVaultProduct) -> HexAddress | None:
+    """Resolve the token-registry address used to label one perpetual GM product.
 
-    The Reader supplies the index-token address for every perpetual GM pool,
-    including single-token and delisted products omitted by the trading REST
-    catalogue.  This avoids the trading adapter's internal ``2`` suffix and
-    keeps a REST outage from overwriting public vault metadata with fallbacks.
+    GMX index addresses normally identify entries in its token registry rather
+    than deployable ERC-20 contracts. The zero-address sentinel consistently
+    denotes a swap-only pool in the Reader catalogue.
+
+    :param product:
+        GMX GM or GLV product returned by the Reader.
+    :return:
+        Token-registry address for a perpetual GM market, or ``None`` for a
+        swap-only product and all GLVs.
+    """
+
+    if product.product_type != "gm":
+        return None
+    _market_address, index_token, _long_token, _short_token = product.component_addresses
+    return index_token if index_token.lower() != GMX_ZERO_ADDRESS else None
+
+
+def _build_market_labels(products: tuple[GMXVaultProduct, ...], token_metadata: Mapping[str, Mapping[str, object]]) -> dict[str, str | None]:
+    """Build canonical index labels from Reader identity and the GMX token registry.
+
+    Index-token addresses are synthetic oracle identifiers and often have no
+    ERC-20 contract.  GMX's token registry supplies their symbols while the
+    Reader remains authoritative for the GM product identity.  A ``None``
+    value retains the perpetual-market identity if that registry is absent.
 
     :param products:
         Complete same-chain GM and GLV product catalogue from the GMX Reader.
-    :param token_symbols:
-        Lower-case token-address to ERC-20 symbol mapping for the catalogue.
+    :param token_metadata:
+        Lower-case GMX token-registry address to metadata mapping.
     :return:
-        Lower-case GM market address to canonical ``ASSET/USD`` label mapping.
+        Lower-case GM market address to canonical label, or ``None`` when its
+        index label could not be fetched.
     """
 
     labels = {}
     for product in products:
-        if product.product_type != "gm":
+        index_token = _get_index_token_address(product)
+        if index_token is None:
             continue
-        market_address, index_token, _long_token, _short_token = product.component_addresses
-        if index_token.lower() == GMX_ZERO_ADDRESS:
+        market_address = product.component_addresses[0]
+        override = GMX_INDEX_MARKET_LABEL_OVERRIDES.get(market_address.lower())
+        if override is not None:
+            labels[market_address.lower()] = override
             continue
-        index_symbol = token_symbols[index_token.lower()]
+        metadata = token_metadata.get(index_token.lower())
+        if metadata is None:
+            labels[market_address.lower()] = None
+            continue
+        index_symbol = str(metadata["symbol"])
         labels[market_address.lower()] = f"{SYMBOL_NORMALISE.get(index_symbol, index_symbol)}/USD"
     return labels
+
+
+def _fetch_gmx_token_metadata(chain_name: str) -> dict[str, Mapping[str, object]] | None:
+    """Fetch GMX's index-token registry without aborting a catalogue repair.
+
+    The registry gives symbols for synthetic oracle tokens which cannot be read
+    through the ERC-20 ABI.  A temporary GMX API issue must not stop catalogue
+    reconciliation, and existing descriptive fields are retained until labels
+    can be fetched again.
+
+    :param chain_name:
+        Canonical GMX chain name, such as ``"arbitrum"``.
+    :return:
+        Lower-case token-registry mapping, or ``None`` when unavailable.
+    """
+
+    try:
+        return {address.lower(): metadata for address, metadata in get_tokens_metadata_dict(chain_name).items()}
+    except ValueError as exc:
+        logger.warning("Could not enrich GMX vault descriptions with index labels: %s", exc)
+        return None
+
+
+def _fetch_backing_token_symbols(web3: Web3, products: tuple[GMXVaultProduct, ...], token_cache: TokenDiskCache) -> dict[str, tuple[str, str]]:
+    """Fetch the two deposited backing-token symbols for each GMX product.
+
+    GM and GLV products share many backing assets. Resolve every unique token
+    once, then reconstruct the product order so display names and descriptions
+    retain the protocol's long-short ordering.
+
+    :param web3:
+        Product-chain Web3 connection.
+    :param products:
+        Complete same-chain GM and GLV product catalogue.
+    :param token_cache:
+        Shared ERC-20 metadata cache.
+    :return:
+        Lower-case share-token address to two backing-token symbols.
+    """
+
+    token_addresses = {address for product in products for address in product.accepted_deposit_tokens}
+    token_symbols = {address.lower(): _fetch_token_symbol(web3, web3.eth.chain_id, address, token_cache) for address in token_addresses}
+    return {product.token_address.lower(): tuple(token_symbols[address.lower()] for address in product.accepted_deposit_tokens) for product in products}
 
 
 def _normalise_gmx_row(row: VaultRow, *, product: GMXVaultProduct, name: str, description: str) -> VaultRow:
@@ -348,10 +453,9 @@ def fetch_and_sync_gmx_vault_catalogue(
     observed_at = datetime.datetime.fromtimestamp(block["timestamp"], tz=datetime.UTC).replace(tzinfo=None)
     updated_at = native_datetime_utc_now()
     products = tuple(fetch_gmx_v2_vault_products(web3, block_identifier=block_number, token_cache=token_cache))
-    token_addresses = {address for product in products for address in (*product.accepted_deposit_tokens, *(product.component_addresses[1:2] if product.product_type == "gm" and product.component_addresses[1].lower() != GMX_ZERO_ADDRESS else ()))}
-    token_symbols = {address.lower(): _fetch_token_symbol(web3, web3.eth.chain_id, address, token_cache) for address in token_addresses}
-    market_labels = _build_market_labels(products, token_symbols)
-    backing_token_symbols = {product.token_address.lower(): tuple(token_symbols[address.lower()] for address in product.accepted_deposit_tokens) for product in products}
+    token_metadata = _fetch_gmx_token_metadata(GMX_CHAIN_NAMES_BY_ID[web3.eth.chain_id])
+    market_labels = _build_market_labels(products, token_metadata or {})
+    backing_token_symbols = _fetch_backing_token_symbols(web3, products, token_cache)
     product_names = _disambiguate_gmx_product_names(
         {
             product.token_address.lower(): _format_gmx_product_name(
@@ -413,6 +517,11 @@ def fetch_and_sync_gmx_vault_catalogue(
             name=product_names[product.token_address.lower()],
             description=product_descriptions[product.token_address.lower()],
         )
+        if existing is not None and token_metadata is None:
+            # Keep public labels stable during a temporary GMX token-registry
+            # outage.  Reader-derived identity and availability still refresh.
+            row["Name"] = existing["Name"]
+            row["_description"] = existing.get("_description", row["_description"])
         if existing is not None:
             merged_row = existing.copy()
             if scan_failed:

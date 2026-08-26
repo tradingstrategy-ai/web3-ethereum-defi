@@ -44,7 +44,7 @@ assets. See the [GMX V2 go-to-market plan](https://gov.gmx.io/t/gmx-v2-go-to-mar
 and GMX's liquidity documentation linked above.
 
 The display pair in a GM vault name is the long and short backing-token pair,
-not necessarily the asset on which traders take positions. A GM market has
+not necessarily the asset on which traders take positions. A perpetual GM market has
 three independent components:
 
 - an index price feed that determines the traded market;
