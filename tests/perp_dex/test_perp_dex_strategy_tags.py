@@ -18,6 +18,7 @@ from eth_defi.vault.strategy_tag import StrategyTag
 
 EXPECTED_GRVT_VAULT_COUNT = 26
 EXPECTED_LIGHTER_STRATEGY_TAGGED_VAULT_COUNT = 231
+EXPECTED_LIGHTER_DIRECTIONAL_LEVERAGE_VAULT_COUNT = 194
 
 
 def test_native_perp_dex_vault_rows_have_default_strategy_tag() -> None:
@@ -199,13 +200,18 @@ def test_lighter_grid_description_is_tagged() -> None:
     }
 
 
-def test_lighter_auto_rebalanced_pools_are_algorithmic_directional_trading() -> None:
-    """Lighter's documented auto-rebalanced long/short pools receive both tags."""
-    assert lighter_tags.get_strategy_tags("lighter-pool-281474976710653") == {
-        StrategyTag.algorithmic_trading,
+def test_lighter_auto_rebalanced_pools_are_directional_leverage() -> None:
+    """Lighter's fixed 2x pools are direct leveraged exposure, not trade intelligence."""
+    expected = {
         StrategyTag.directional_trading,
+        StrategyTag.directional_leverage,
         StrategyTag.perpetual_futures,
     }
+
+    #: ADA 2x long is the documented representative direct-leverage pool.
+    assert lighter_tags.get_strategy_tags("lighter-pool-281474976708413") == expected
+    assert len(lighter_tags.DIRECTIONAL_LEVERAGE_VAULTS) == EXPECTED_LIGHTER_DIRECTIONAL_LEVERAGE_VAULT_COUNT
+    assert all(lighter_tags.get_strategy_tags(address) == expected for address in lighter_tags.DIRECTIONAL_LEVERAGE_VAULTS)
 
 
 def test_lighter_documented_delta_neutral_grid_pool_is_tagged() -> None:
