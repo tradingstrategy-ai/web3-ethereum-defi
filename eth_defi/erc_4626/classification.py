@@ -16,9 +16,10 @@ from web3 import Web3
 from web3.types import BlockIdentifier
 
 from eth_defi.abi import ZERO_ADDRESS_STR
-from eth_defi.erc_4626.core import ERC4626Feature
+from eth_defi.erc_4626.core import RYSK_PREMIUM_CHAIN_IDS, ERC4626Feature
 from eth_defi.erc_4626.vault_protocol.arcus.constants import ARCUS_BRIDGE_VAULT, ARCUS_CHAIN_ID
 from eth_defi.erc_4626.vault_protocol.axis.constants import AXIS_CHAIN_ID, AXIS_STAKED_USDX_VAULT
+from eth_defi.erc_4626.vault_protocol.flying_tulip.constants import FLYING_TULIP_SFTUSD_BY_CHAIN
 from eth_defi.erc_4626.vault_protocol.frankencoin.vault import FRANKENCOIN_SAVINGS_VAULTS
 from eth_defi.erc_4626.vault_protocol.frax.constants import FRAX_STAKING_VAULT_ADDRESSES, FRAX_STAKING_VAULTS_BY_CHAIN, FRAXLEND_DEPLOYERS_BY_CHAIN
 from eth_defi.erc_4626.vault_protocol.kiloex.constants import KILOEX_VAULT_ADDRESSES, KILOEX_VAULTS_BY_CHAIN
@@ -51,6 +52,7 @@ logger = logging.getLogger(__name__)
 
 #: ABI-encoded address return value length in bytes.
 ABI_ENCODED_ADDRESS_LENGTH = 32
+ABI_ENCODED_UINT256_LENGTH = 32
 
 #: JPMorgan OnChain Liquidity-Token Money Market Fund (JLTXX) ODA-FACT diamond.
 #:
@@ -341,6 +343,12 @@ NARA_HARDCODED_PROTOCOLS = {NARAUSD_PLUS_VAULT: {ERC4626Feature.nara_like}}
 #: unrelated contract cannot be selected by its generic ERC-20 surface.
 SHIFT_HARDCODED_PROTOCOLS = {address: {ERC4626Feature.shift_like} for address in SHIFT_VAULT_ADDRESSES}
 
+#: Flying Tulip's reviewed sftUSD proxies are a finite, chain-aware registry.
+#: The generic ERC-4626 surface deliberately cannot identify this externally
+#: rewarded fixed-price vault family safely. Do not add ABI-selector probes:
+#: only the published address list may map a vault to Flying Tulip.
+FLYING_TULIP_HARDCODED_PROTOCOLS = {HexAddress(address.lower()): {ERC4626Feature.flying_tulip_like, ERC4626Feature.share_price_equivalence} for address in FLYING_TULIP_SFTUSD_BY_CHAIN.values()}
+
 
 def _get_hardcoded_protocol_features(address: HexAddress | str, chain_id: int | None = None) -> set[ERC4626Feature] | None:
     """Return hardcoded protocol features for a vault address.
@@ -465,6 +473,12 @@ def _get_hardcoded_protocol_features(address: HexAddress | str, chain_id: int | 
         if normalised_address in SHIFT_HARDCODED_PROTOCOLS:
             return None
 
+        flying_tulip_address = FLYING_TULIP_SFTUSD_BY_CHAIN.get(chain_id)
+        if flying_tulip_address is not None and normalised_address == HexAddress(flying_tulip_address.lower()):
+            return FLYING_TULIP_HARDCODED_PROTOCOLS[normalised_address]
+        if normalised_address in FLYING_TULIP_HARDCODED_PROTOCOLS:
+            return None
+
     return HARDCODED_PROTOCOLS.get(normalised_address)
 
 
@@ -530,6 +544,8 @@ CHAIN_RESTRICTED_PROBES: dict[str, set[int]] = {
     "getAssetCount": MELLOW_CORE_CHAIN_IDS,  # Mellow Core - Ethereum, Plasma, Arbitrum, Monad
     "getGrossTVL": {42161, 4663},  # T3tris - Arbitrum, Robinhood
     "bridgeVault": {ARCUS_CHAIN_ID},  # Arcus pToken vaults - Robinhood only
+    "collateralAllocated": RYSK_PREMIUM_CHAIN_IDS,
+    "collateralAsset": RYSK_PREMIUM_CHAIN_IDS,
     # Two chain protocols
     "claimableKeeper": {137, 42161},  # Untangle Finance - Polygon, Arbitrum
     # Three chain protocols
@@ -737,6 +753,28 @@ def create_probe_calls(
             data=b"",
             extra_data=None,
         )
+
+        # Rysk Premium LiquidityPool. The custom EpochPriceSet lead event and this
+        # protocol-specific accounting accessor together distinguish its
+        # non-ERC-4626 LP shares.
+        # https://etherscan.io/address/0x6ca8d390c37acc6883e96fa5283246fc39239741#code
+        if _should_yield_probe("collateralAllocated", chain_id):
+            yield EncodedCall.from_keccak_signature(
+                address=address,
+                signature=Web3.keccak(text="collateralAllocated()")[0:4],
+                function="collateralAllocated",
+                data=b"",
+                extra_data=None,
+            )
+
+        if _should_yield_probe("collateralAsset", chain_id):
+            yield EncodedCall.from_keccak_signature(
+                address=address,
+                signature=Web3.keccak(text="collateralAsset()")[0:4],
+                function="collateralAsset",
+                data=b"",
+                extra_data=None,
+            )
 
         # ====================
         # Protocol-specific probes - some filtered by chain_id
@@ -1475,18 +1513,31 @@ def identify_vault_features(
 
     # Securitize DSTokens deliberately extend ERC-20, but do not implement
     # ERC-4626's convertToShares(). Detect them before the generic ERC-4626
-    # failure branch below.
+    # failure branch and protocol-specific non-ERC-4626 probes below.
     if (compliance_service := calls.get("COMPLIANCE_SERVICE")) and compliance_service.success:
         return {ERC4626Feature.securitize_like}
+
+    rysk_allocated = calls.get("collateralAllocated")
+    rysk_asset = calls.get("collateralAsset")
+    convert_to_shares = calls["convertToShares"]
+    is_non_erc_4626 = not convert_to_shares.success and len(convert_to_shares.result) != ABI_ENCODED_UINT256_LENGTH
+    if rysk_allocated is not None and rysk_asset is not None:
+        has_rysk_shape = rysk_allocated.success and len(rysk_allocated.result) == ABI_ENCODED_UINT256_LENGTH and _is_nonzero_abi_address(rysk_asset)
+        if is_non_erc_4626 and has_rysk_shape:
+            # Rysk publishes operational test pools whose onchain token names begin
+            # with "Rysk Internal". Do not export those as user-facing products.
+            raw_name = calls["name"].result.lower()
+            if b"rysk internal" not in raw_name:
+                features.update({ERC4626Feature.rysk_premium_like, ERC4626Feature.share_price_equivalence})
 
     if calls["assetsWhitelistAddress"].success:
         features.add(ERC4626Feature.upshift_like)
         features.add(ERC4626Feature.upshift_multi_asset_like)
 
     # Should return uint256 share count. Broken proxies may return 0x or similar response.
-    if not calls["convertToShares"].success and len(calls["convertToShares"].result) != 32:
+    if is_non_erc_4626:
         # Not ERC-4626 vault
-        if ERC4626Feature.mellow_like in features or ERC4626Feature.upshift_multi_asset_like in features:
+        if any(feature in features for feature in (ERC4626Feature.mellow_like, ERC4626Feature.upshift_multi_asset_like, ERC4626Feature.rysk_premium_like)):
             return features
         return {ERC4626Feature.broken}
 
@@ -2098,6 +2149,18 @@ def create_vault_instance(
         from eth_defi.enzyme.blue_vault import EnzymeBlueVault
 
         return EnzymeBlueVault(web3, spec, **kwargs)
+    elif ERC4626Feature.gmx_gm in features:
+        from eth_defi.gmx.vault import GMXMarketVault
+
+        return GMXMarketVault(web3, spec, **kwargs)
+    elif ERC4626Feature.gmx_glv in features:
+        from eth_defi.gmx.vault import GMXLiquidityVault
+
+        return GMXLiquidityVault(web3, spec, **kwargs)
+    elif ERC4626Feature.flying_tulip_like in features:
+        from eth_defi.erc_4626.vault_protocol.flying_tulip.vault import FlyingTulipVault
+
+        return FlyingTulipVault(web3, spec, **kwargs)
     elif ERC4626Feature.symbiotic_like in features:
         from eth_defi.erc_4626.vault_protocol.symbiotic.vault import SymbioticVault
 
@@ -2166,6 +2229,10 @@ def create_vault_instance(
         from eth_defi.tokenised_fund.asseto.vault import AssetoVault
 
         return AssetoVault(web3, spec, **kwargs)
+    elif ERC4626Feature.rysk_premium_like in features:
+        from eth_defi.erc_4626.vault_protocol.rysk.vault import RyskVault
+
+        return RyskVault(web3, spec, **kwargs)
     elif ERC4626Feature.ondo_like in features:
         from eth_defi.tokenised_fund.ondo.vault import OndoVault
 
@@ -2198,6 +2265,10 @@ def create_vault_instance(
         from eth_defi.wstgbp.vault import WSTGBPVault
 
         return WSTGBPVault(web3, spec, **kwargs)
+    elif ERC4626Feature.gmx_gm in features or ERC4626Feature.gmx_glv in features:
+        from eth_defi.gmx.vault import GMXVault
+
+        return GMXVault(web3, spec, **kwargs)
     elif ERC4626Feature.vault_street_like in features:
         from eth_defi.vault_street.vault import VaultStreetVault
 
@@ -2697,6 +2768,7 @@ HARDCODED_PROTOCOLS = {
     **FRAX_STAKING_HARDCODED_PROTOCOLS,
     **AXIS_HARDCODED_PROTOCOLS,
     **NARA_HARDCODED_PROTOCOLS,
+    **FLYING_TULIP_HARDCODED_PROTOCOLS,
     # Barker - H1 USDC vault on HyperEVM.
     # The proxy implementation is not verified on HyperEVM Scan, so this is
     # deliberately classified only by the reviewed deployment address.

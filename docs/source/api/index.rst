@@ -23,6 +23,7 @@ See :ref:`tutorials <tutorials>` for guides and examples on how to use the libra
    aave_v3/index
    arcus/index
    axis/index
+   flying_tulip/index
    upshift/index
    cowswap/index
    velora/index
@@ -49,6 +50,7 @@ See :ref:`tutorials <tutorials>` for guides and examples on how to use the libra
    enzyme/index
    aera/index
    asseto/index
+   rysk/index
    barker/index
    bulla/index
    ondo/index

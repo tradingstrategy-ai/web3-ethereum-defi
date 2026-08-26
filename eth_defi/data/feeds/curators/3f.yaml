@@ -1,0 +1,21 @@
+# 3F's Morpho vault is co-branded with Steakhouse Financial, which Morpho
+# lists as the risk curator.  The address override in ``eth_defi.vault.curator``
+# attributes this specific 3F-branded product to 3F without changing
+# Steakhouse's attribution for its other vaults.
+feeder-id: 3f
+name: 3F
+role: curator
+website: https://3f.xyz/
+short_description: 3F develops onchain leverage infrastructure and Morpho-powered lending vaults for tokenised real-world assets.
+long_description: |
+  [3F](https://3f.xyz/) develops onchain infrastructure for leveraged strategies involving tokenised real-world assets and other asynchronously settled instruments. Its lender offering lets depositors supply stablecoins to Morpho-powered lending vaults that lend against RWAs. The 3F x Steakhouse USDC vault is co-branded with Steakhouse Financial; Morpho lists Steakhouse Financial as its risk curator, while 3F presents the vault as part of its lending product.
+twitter: 3f_xyz
+
+# Evidence and background references.
+other-links:
+  - title: 3F - lenders deposit stablecoins into Morpho-powered vaults that lend against RWAs
+    url: https://3f.xyz/
+  - title: 3F documentation - leveraged strategies for tokenised and asynchronously settled assets
+    url: https://docs.3f.xyz/protocol/overview/
+  - title: Morpho app - 3F x Steakhouse USDC vault on Ethereum
+    url: https://app.morpho.org/ethereum/vault/0xBEEf3f3A04e28895f3D5163d910474901981183D/3f-x-steakhouse-usdc

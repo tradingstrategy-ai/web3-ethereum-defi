@@ -41,6 +41,7 @@ from eth_typing import HexAddress
 from tabulate import tabulate
 
 from eth_defi.apex.tags import get_strategy_tags as get_apex_strategy_tags
+from eth_defi.enzyme.tags import get_strategy_tags as get_enzyme_strategy_tags
 from eth_defi.erc_4626.core import ERC4262VaultDetection, ERC4626Feature, get_vault_protocol_name
 from eth_defi.erc_4626.vault_protocol.aave.tags import get_strategy_tags as get_aave_strategy_tags
 from eth_defi.erc_4626.vault_protocol.atoma.tags import STRATEGY_TAGS as ATOMA_STRATEGY_TAGS
@@ -91,6 +92,7 @@ NATIVE_STRATEGY_TAG_RESOLVERS: dict[ERC4626Feature, NativeStrategyTagResolver] =
 # classifying the row differently from the scanner.
 EVM_ADAPTER_FEATURE_PRIORITY: tuple[ERC4626Feature, ...] = (
     ERC4626Feature.mellow_like,
+    ERC4626Feature.enzyme_blue_like,
     ERC4626Feature.symbiotic_like,
     ERC4626Feature.securitize_like,
     ERC4626Feature.usyc_like,
@@ -232,6 +234,7 @@ EVM_STRATEGY_TAG_RESOLVERS: dict[ERC4626Feature, StrategyTagResolver] = {
     ERC4626Feature.centrifuge_like: partial(lookup_strategy_tags, CENTRIFUGE_STRATEGY_TAGS),
     ERC4626Feature.ethena_like: partial(lookup_strategy_tags, ETHENA_STRATEGY_TAGS),
     ERC4626Feature.yieldnest_like: partial(lookup_strategy_tags, YIELDNEST_STRATEGY_TAGS),
+    ERC4626Feature.enzyme_blue_like: get_enzyme_strategy_tags,
 }
 
 

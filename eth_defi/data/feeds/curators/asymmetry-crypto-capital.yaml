@@ -1,0 +1,9 @@
+feeder-id: asymmetry-crypto-capital
+name: Asymmetry Crypto Capital
+role: curator
+short_description: Asymmetry Crypto Capital is the digital-asset manager named for Enzyme's ACC Metaverse Fund.
+long_description: |
+  The [ACC Metaverse Fund listing](https://app.enzyme.finance/vault/0xd618b03c7a1c0f3248ae049954d69e8d96a142c0?network=ethereum) states that the fund was launched by Asymmetry Crypto Capital and is actively managed as a non-custodial crypto-asset portfolio. The listing describes ACC as the fund's governance token; no separate public manager profile was supplied through the Enzyme API.
+other-links:
+  - title: Enzyme Blue - ACC Metaverse Fund listing
+    url: https://app.enzyme.finance/vault/0xd618b03c7a1c0f3248ae049954d69e8d96a142c0?network=ethereum

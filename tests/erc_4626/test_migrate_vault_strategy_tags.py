@@ -213,7 +213,15 @@ def test_migrate_vault_strategy_tags_resolves_apex_native_rows() -> None:
 
     result = migration.resolve_strategy_tags(spec, row)
 
-    assert result == ({StrategyTag.perpetual_futures}, "ApeX native resolver")
+    assert result == (
+        {
+            StrategyTag.liquidity_provider,
+            StrategyTag.market_maker,
+            StrategyTag.market_making,
+            StrategyTag.perpetual_futures,
+        },
+        "ApeX native resolver",
+    )
 
 
 def test_migrate_vault_strategy_tags_resolves_kiloex_rows() -> None:
@@ -252,6 +260,26 @@ def test_migrate_vault_strategy_tags_resolves_liquid_royalty_rows() -> None:
     result = migration.resolve_strategy_tags(spec, row)
 
     assert result == ({StrategyTag.rwa_royalties}, "Liquid Royalty tag resolver")
+
+
+def test_migrate_vault_strategy_tags_resolves_enzyme_blue_rows() -> None:
+    """Enzyme Blue rows use the shared documented share-token mapping."""
+
+    migration = load_migration_module()
+    spec = VaultSpec(1, "0xd89551d350532d001ad3105968fecb24b1c3cec8")
+    row = {
+        "_detection_data": create_detection(spec, {ERC4626Feature.enzyme_blue_like}),
+    }
+
+    result = migration.resolve_strategy_tags(spec, row)
+
+    assert result == (
+        {
+            StrategyTag.algorithmic_trading,
+            StrategyTag.directional_trading,
+        },
+        "Enzyme tag resolver",
+    )
 
 
 @pytest.mark.parametrize(

@@ -1,0 +1,9 @@
+feeder-id: hexadefi-capital
+name: Hexadefi Capital
+role: curator
+short_description: Hexadefi Capital is the active crypto fund manager named for the HEXADEFI CAPITAL vault.
+long_description: |
+  The [HEXADEFI CAPITAL Enzyme Blue listing](https://app.enzyme.finance/vault/0x7dbfc77b308356a5d90c586c7e3f0e089b8e37ec?network=ethereum) describes active management using liquidity pools and blue-chip swing trading. Enzyme does not provide a separate manager field or verified company website for this listing, so the curator identity follows the manager name published in the vault title and description.
+other-links:
+  - title: Enzyme Blue - HEXADEFI CAPITAL listing
+    url: https://app.enzyme.finance/vault/0x7dbfc77b308356a5d90c586c7e3f0e089b8e37ec?network=ethereum

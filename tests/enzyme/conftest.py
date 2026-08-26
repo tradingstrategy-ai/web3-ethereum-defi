@@ -34,7 +34,7 @@ logger = logging.getLogger(__name__)
 ENZYME_SKIP_REASON = "Legacy Enzyme Blue V4 deployment suite is no longer maintained"
 
 _ENZYME_TEST_DIR = Path(__file__).parent
-_ACTIVE_ENZYME_TEST_FILES = {"test_backfill_history.py", "test_blue_vault.py", "test_enzyme_lifetime_metrics.py", "test_migrate_current_metadata.py", "test_onyx_vault.py", "test_enzyme_offchain_metadata.py", "test_report_whitelist.py"}
+_ACTIVE_ENZYME_TEST_FILES = {"test_backfill_history.py", "test_blue_vault.py", "test_enzyme_lifetime_metrics.py", "test_migrate_current_metadata.py", "test_onyx_vault.py", "test_enzyme_offchain_metadata.py", "test_repair_zero_gav_history.py", "test_report_whitelist.py"}
 
 
 def pytest_collection_modifyitems(items: list[pytest.Item]) -> None:

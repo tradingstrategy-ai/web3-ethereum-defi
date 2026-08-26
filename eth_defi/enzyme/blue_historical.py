@@ -79,6 +79,13 @@ class EnzymeBlueVaultHistoricalReader(VaultHistoricalReader):
             total_assets = Decimal(raw_gav) / Decimal(10**self.vault.denomination_token.decimals)
         if raw_total_supply is not None:
             total_supply = Decimal(raw_total_supply) / Decimal(10**self.vault.share_token.decimals)
+        if total_assets == Decimal(0) and total_supply not in {None, Decimal(0)}:
+            # Blue GAV can be unavailable for a historical release even though
+            # the VaultProxy still has outstanding shares.  Publishing this as
+            # a zero price manufactures a 100% drawdown, so defer the sample
+            # until an authoritative historical value source is available.
+            errors.append("Enzyme Blue GAV is zero while share supply is positive; price is unavailable")
+            total_assets = None
         if total_assets is not None and total_supply not in {None, Decimal(0)}:
             # GAV divided by supply omits dilution from fees accrued since settlement.
             # TODO: Read FundValueCalculatorRouter.calcNetShareValue() for exact net value.

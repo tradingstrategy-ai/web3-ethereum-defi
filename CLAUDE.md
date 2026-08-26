@@ -293,6 +293,29 @@ removing its flaky history comment.
 - Never write generic `Exception e:` catch but always catch a specific exception if we can
 - Never silently swallow exceptions and th
 
+### DuckDB and Python 3.14
+
+DuckDB 1.5.0 file-backed databases have caused native heap corruption in this
+repository under Python 3.14 when large tables use ART-backed `PRIMARY KEY` or
+`UNIQUE` constraints. The process can abort with allocator errors such as
+`free(): chunks in smallbin corrupted`, so Python cannot catch or recover from
+the failure. See [DuckDB issue #18190](https://github.com/duckdb/duckdb/issues/18190).
+
+- Do not add `PRIMARY KEY` or `UNIQUE` constraints to large, file-backed bulk
+  ingestion tables. Use an unconstrained staging table and hash joins for
+  conflict detection and application-level deduplication.
+- Migrate existing ART-backed tables transactionally, preserving every row,
+  before continuing a backfill. Inspect `duckdb_constraints()` to detect the
+  old schema.
+- For bulk ingestion, set `wal_autocheckpoint = '1TB'` to avoid automatic
+  checkpoints during writes. This is an additional safeguard, not a substitute
+  for removing ART indexes.
+- Test the migration and duplicate-ingestion path with a file-backed database
+  containing production-scale row counts. A small in-memory test does not
+  reproduce this class of crash.
+- Rerunning an unchanged backfill is not a fix: it can reach the same native
+  corruption threshold and abort again.
+
 ### Code comments
 
 - For code comments, Use Sphinx restructured text style
@@ -496,9 +519,11 @@ Consult these for domain-specific context. Logo READMEs under `eth_defi/data/vau
 | `eth_defi/erc_4626/vault_protocol/README-utilisation.md` | Utilisation and available liquidity metrics for lending vaults |
 | `eth_defi/erc_4626/vault_protocol/README-vault-redeemable.md` | Why utilisation ≠ redeemable liquidity for Morpho/IPOR multi-market vaults |
 | `eth_defi/gmx/README-GMX-Lagoon.md` | GMX Lagoon integration security analysis |
+| `eth_defi/gmx/README-GMX-Vaults.md` | GMX GM and GLV liquidity catalogue |
 | `eth_defi/gmx/README.md` | GMX CCXT adapter for eth_defi |
 | `eth_defi/gmx/ccxt/README.md` | GMX CCXT adapter implementation |
 | `eth_defi/gmx/graphql/README.md` | GMX Subsquid GraphQL integration |
+| `eth_defi/erc_4626/vault_protocol/rysk/README-Rysk-vaults.md` | Rysk Premium epoch-priced option pools, adapter accounting and backfill operations |
 | `eth_defi/lighter/README-lighter-guard.md` | Lighter (zk-rollup perps DEX) L1 deposit/withdraw guard integration — architecture, security model, operator flow |
 | `eth_defi/testing/README.md` | Fast Anvil fork tests — shared session forks, per-chain midnight block cache, snapshot/revert, once-per-session deployments, the committed fork RPC cache and token cache (create/rebuild/purge), reference tests |
 | `eth_defi/testing/rpc_cache_seed/README.md` | Committed Anvil fork RPC cache seed — layout, how to capture and refresh it |

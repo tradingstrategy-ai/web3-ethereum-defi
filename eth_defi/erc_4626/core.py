@@ -25,6 +25,9 @@ MIN_PRICE_SCAN_DEPOSIT_COUNT = 5
 #: :py:data:`MIN_PRICE_SCAN_DEPOSIT_COUNT`.
 MIN_PRICE_SCAN_CONFIGURATION_EVENT_COUNT = 1
 
+#: Chains with verified Rysk Premium LiquidityPool deployments.
+RYSK_PREMIUM_CHAIN_IDS = {1, 999}
+
 
 class ERC4626Feature(enum.Enum):
     """Additional extensionsERc-4626 vault may have.
@@ -80,6 +83,13 @@ class ERC4626Feature(enum.Enum):
     #: Routing marker for non-ERC-4626 Asseto products that are read through
     #: a :py:class:`eth_defi.vault.base.VaultBase` adapter.
     asseto_like = "asseto_like"
+
+    #: Rysk Premium epoch-settled DeFi option-writing pool share, not a fund.
+    #:
+    #: https://docs.rysk.finance/rysk-premium/rysk-premium-explainer
+    #: Routing marker for non-ERC-4626 Rysk Premium LP shares discovered and
+    #: priced from protocol-specific onchain events.
+    rysk_premium_like = "rysk_premium_like"
 
     #: Franklin Templeton Benji tokenised fund share.
     #:
@@ -137,6 +147,32 @@ class ERC4626Feature(enum.Enum):
 
     #: OpenEden permissioned TBILL fund shares.
     openeden_like = "openeden_like"
+
+    #: GMX V2 GM market-token liquidity-provider share.
+    #:
+    #: https://docs.gmx.io/docs/providing-liquidity/
+    gmx_gm = "gmx_gm"
+
+    #: GMX V2 GLV multi-market liquidity-provider share.
+    #:
+    #: https://docs.gmx.io/docs/providing-liquidity/
+    gmx_glv = "gmx_glv"
+
+    #: Vault-like product without a standard contract share-price method.
+    #:
+    #: GMX GM and GLV holders earn or lose value through their pro-rata claim
+    #: on the market pool: trader PnL changes the pool value, while a share of
+    #: trading, liquidation, borrowing and swap fees accrues to liquidity
+    #: providers. The scanner therefore derives a USD NAV-per-token equivalent
+    #: from GMX pool-value and token-supply events.
+    share_price_equivalence = "share_price_equivalence"
+
+    #: Flying Tulip's externally rewarded sftUSD vault.
+    #:
+    #: sftUSD deliberately keeps its ERC-4626 conversion at one ftUSD per
+    #: share.  Its FT reward distributions are represented separately through
+    #: a :attr:`share_price_equivalence` historical series.
+    flying_tulip_like = "flying_tulip_like"
 
     #: Theo multi-asset iToken tokenised funds.
     theo_itoken_like = "theo_itoken_like"
@@ -952,7 +988,12 @@ def is_activity_filter_exempt(detection: "ERC4262VaultDetection") -> bool:
     contracts. Upshift multi-asset vaults are another exception: older
     production metadata can be seeded or refreshed by address after the custom
     event support lands, and targeted price rescans should not be blocked by a
-    stale low deposit counter. T3tris migration-pool vaults are handled
+    stale low deposit counter. GMX GM and GLV products are enumerated from the
+    protocol Reader contracts and use asynchronous ExchangeRouter requests, so
+    they do not emit the ERC-4626 flow events counted by this filter. Rysk
+    Premium is discovered from epoch-price configuration and may have a valid
+    finalised curve below the generic LP-deposit threshold. T3tris migration-pool
+    vaults are handled
     separately by :py:func:`passes_price_scan_activity_filter`, which requires
     a recorded configuration event instead of broadly exempting the protocol.
 
@@ -970,6 +1011,9 @@ def is_activity_filter_exempt(detection: "ERC4262VaultDetection") -> bool:
             ERC4626Feature.enzyme_onyx_like,
             ERC4626Feature.enzyme_blue_like,
             ERC4626Feature.upshift_multi_asset_like,
+            ERC4626Feature.gmx_gm,
+            ERC4626Feature.gmx_glv,
+            ERC4626Feature.rysk_premium_like,
         )
     )
 
@@ -1049,8 +1093,14 @@ def get_vault_protocol_name(features: set[ERC4626Feature]) -> str:
         return "Kinexys"
     elif ERC4626Feature.midas_like in features:
         return "Midas"
+    elif ERC4626Feature.gmx_gm in features or ERC4626Feature.gmx_glv in features:
+        return "GMX"
+    elif ERC4626Feature.flying_tulip_like in features:
+        return "Flying Tulip"
     elif ERC4626Feature.asseto_like in features:
         return "Asseto"
+    elif ERC4626Feature.rysk_premium_like in features:
+        return "Rysk"
     elif ERC4626Feature.franklin_like in features:
         return "Franklin Templeton"
     elif ERC4626Feature.securitize_like in features:
