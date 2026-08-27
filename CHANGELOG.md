@@ -1,5 +1,6 @@
 # 1.2
 
+- feat: Mark GMX GM and GLV vaults as automated-market-maker pool shares (2026-08-26)
 - feat: Add directional-leverage classifications for Lighter's fixed 2x long and short pool family (2026-08-26)
 - feat: Categorise all current Lighter public vault strategies, including auto-rebalanced directional products, documented managed pools and both protocol liquidity pools (2026-08-26)
 - feat: Add Dima curator attribution for three Lighter pools, including the automated breakout and long/short strategies (2026-08-26)

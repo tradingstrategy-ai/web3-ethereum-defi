@@ -158,6 +158,13 @@ class ERC4626Feature(enum.Enum):
     #: https://docs.gmx.io/docs/providing-liquidity/
     gmx_glv = "gmx_glv"
 
+    #: Vault-like share that represents liquidity in an automated market maker pool.
+    #:
+    #: GMX GM and GLV tokens are market-making claims on pools that hold the
+    #: assets used to settle swaps and perpetual-trading PnL.
+    #: https://docs.gmx.io/docs/providing-liquidity/
+    amm_pool_like = "amm_pool_like"
+
     #: Vault-like product without a standard contract share-price method.
     #:
     #: GMX GM and GLV holders earn or lose value through their pro-rata claim

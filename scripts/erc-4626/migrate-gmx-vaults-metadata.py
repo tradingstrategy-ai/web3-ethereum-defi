@@ -3,8 +3,11 @@
 Existing rows are identified by chain and share-token address, so each run
 refreshes the GMX fields maintained by this migration: an index-aware GM or
 backing-pair GLV name, full LP description, USDC display denomination, direct
-GMX pool-details link, performance note and deposit availability. It does not
-overwrite manual enrichment fields belonging to other pipeline stages.
+GMX pool-details link, performance note and deposit availability. It also adds
+the shared ``amm_pool_like`` feature to every retained GMX row in the selected
+chains, including products no longer returned by the current onchain catalogue.
+It does not overwrite manual enrichment fields belonging to other pipeline
+stages.
 
 Environment variables:
 
@@ -22,7 +25,7 @@ from pathlib import Path
 from tabulate import tabulate
 
 from eth_defi.gmx.vault_catalog import GMX_CHAIN_NAMES_BY_ID
-from eth_defi.gmx.vault_sync import fetch_and_sync_gmx_vault_catalogue
+from eth_defi.gmx.vault_sync import fetch_and_sync_gmx_vault_catalogue, mark_gmx_vault_rows_amm_pool_like
 from eth_defi.provider.env import read_json_rpc_url
 from eth_defi.provider.multi_provider import create_multi_provider_web3
 from eth_defi.token import TokenDiskCache
@@ -53,14 +56,15 @@ def main() -> None:
             chain_id = CHAIN_IDS_BY_NAME[chain_name]
             web3 = create_multi_provider_web3(read_json_rpc_url(chain_id))
             result = fetch_and_sync_gmx_vault_catalogue(web3=web3, vault_db=vault_db, token_cache=token_cache, max_workers=max_workers)
-            rows.append((chain_name, chain_id, result.products, result.inserted, result.updated))
+            feature_rows_updated = mark_gmx_vault_rows_amm_pool_like(vault_db, chain_ids={chain_id})
+            rows.append((chain_name, chain_id, result.products, result.inserted, result.updated, feature_rows_updated))
 
         if not dry_run:
             database_path.parent.mkdir(parents=True, exist_ok=True)
             vault_db.write(database_path)
             token_cache.commit()
 
-    print(tabulate(rows, headers=("Chain", "Chain ID", "Products", "Inserted", "Updated"), tablefmt="rounded_outline"))
+    print(tabulate(rows, headers=("Chain", "Chain ID", "Products", "Inserted", "Updated", "AMM flags added"), tablefmt="rounded_outline"))
     print(f"{'Dry run; not written' if dry_run else 'Written'}: {database_path}")
 
 
