@@ -562,9 +562,10 @@ def assign_unique_names(
     empty_names = set()
 
     for vault_id, vault in vaults_by_id.items():
-        # TODO: hack
-        # 40acres forgot to name their vault
-        if vault["Name"] == "Vault":
+        # 40acres historically exposed the generic ERC-4626 name ``Vault``.
+        # Restrict this compatibility repair to the detected protocol so other
+        # vaults with the same generic name retain their own identity.
+        if vault["Name"] == "Vault" and vault.get("Protocol") == "40acres":
             vault["Name"] = "40acres"
 
         if vault["Name"] in {None, ""}:
@@ -2025,6 +2026,12 @@ def materialise_daily_crypto_prices(prices_df: pd.DataFrame) -> pd.DataFrame:
     frame = frame.sort_values(sort_columns, kind="stable")
     daily = frame.groupby(["id", "_utc_date"], sort=False, as_index=False).tail(1).copy()
     daily = daily.sort_values(["id", "timestamp"], kind="stable")
+    if "returns_1h" in daily.columns:
+        # ``returns_1h`` is a legacy name. Crypto Parquet is sparse daily, so
+        # this is the return since the preceding exported observation.
+        daily["returns_1h"] = daily.groupby("id", sort=False)["share_price"].pct_change(fill_method=None).fillna(0.0)
+        if "tvl_filtering_mask" in daily.columns:
+            daily.loc[daily["tvl_filtering_mask"].fillna(False).astype(bool), "returns_1h"] = 0.0
     daily.drop(columns=["_utc_date"], inplace=True)
     daily.set_index("timestamp", inplace=True)
     return daily

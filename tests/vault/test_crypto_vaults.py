@@ -8,6 +8,7 @@ import pandas as pd
 import pytest
 
 from eth_defi.research.wrangle_vault_prices import (
+    assign_unique_names,
     filter_vaults_by_denomination_families,
     filter_vaults_by_stablecoin,
     materialise_daily_crypto_prices,
@@ -114,9 +115,75 @@ def test_daily_materialisation_preserves_last_observation_and_schema() -> None:
     assert result.columns.tolist() == ["id", "block_number", "share_price"]
 
 
+def test_daily_materialisation_recomputes_sparse_returns() -> None:
+    """Legacy returns describe consecutive exported observations and honour TVL filtering."""
+    prices = pd.DataFrame(
+        {
+            "id": ["1-0xvault"] * 4,
+            "timestamp": pd.to_datetime(
+                [
+                    "2026-01-01 10:00:00",
+                    "2026-01-01 15:00:00",
+                    "2026-01-02 09:00:00",
+                    "2026-01-03 09:00:00",
+                ]
+            ),
+            "share_price": [1.0, 1.2, 1.5, 1.8],
+            "returns_1h": [0.0, 0.2, 0.25, 0.2],
+            "tvl_filtering_mask": [False, False, False, True],
+        }
+    )
+
+    result = materialise_daily_crypto_prices(prices)
+
+    assert result["returns_1h"].tolist() == pytest.approx([0.0, 0.25, 0.0])
+
+
+def test_assign_unique_names_only_repairs_40acres() -> None:
+    """A generic ERC-4626 name is rewritten only for the detected 40acres protocol."""
+    forty_acres_spec = VaultSpec(1, "0x0000000000000000000000000000000000000001")
+    unrelated_spec = VaultSpec(1, "0x0000000000000000000000000000000000000002")
+    rows = {
+        forty_acres_spec: {
+            "Name": "Vault",
+            "Protocol": "40acres",
+            "NAV": 1_000,
+            "_detection_data": SimpleNamespace(chain=1, address=forty_acres_spec.vault_address),
+        },
+        unrelated_spec: {
+            "Name": "Vault",
+            "Protocol": "Example",
+            "NAV": 1_000,
+            "_detection_data": SimpleNamespace(chain=1, address=unrelated_spec.vault_address),
+        },
+    }
+
+    prices = pd.DataFrame(
+        {
+            "chain": [1, 1],
+            "address": [forty_acres_spec.vault_address, unrelated_spec.vault_address],
+        }
+    )
+    assign_unique_names(rows, prices, logger=lambda _message: None)
+
+    assert rows[forty_acres_spec]["Name"] == "40acres"
+    assert rows[unrelated_spec]["Name"] == "Vault"
+
+
 def test_crypto_metadata_identifies_underlying_and_stablecoinish_history() -> None:
     """Vault metadata distinguishes WBTC's BTC mapping and crypto history."""
-    common_record = {"current_nav": 1.0, "peak_nav": 2.0}
+    common_record = {
+        "current_nav": 1.0,
+        "peak_nav": 2.0,
+        "period_results": [
+            {
+                "ranking_overall": 1,
+                "ranking_chain": 2,
+                "ranking_protocol": 3,
+                "ranking_curator": 4,
+            }
+        ],
+    }
 
     wbtc_record, _ = build_crypto_vault_record(common_record, _vault_row(1, "0xbtc", "WBTC"), Decimal("5000"))
     stablecoin_record, _ = build_crypto_vault_record(common_record, _vault_row(1, "0xstable", "USDC"), Decimal("5000"))
@@ -127,6 +194,12 @@ def test_crypto_metadata_identifies_underlying_and_stablecoinish_history() -> No
     assert wbtc_record["denomination_decimals"] == DENOMINATION_DECIMALS
     assert wbtc_record["canonical_underlying"] == "BTC"
     assert wbtc_record["stablecoinish"] is False
+    assert wbtc_record["period_results"][0] == {
+        "ranking_overall": None,
+        "ranking_chain": None,
+        "ranking_protocol": None,
+        "ranking_curator": None,
+    }
     assert "denomination_token_symbol" not in wbtc_record
     assert "denomination_token_decimals" not in wbtc_record
     assert "total_assets_unit" not in wbtc_record
@@ -174,6 +247,17 @@ def test_manifest_describes_flat_crypto_payloads(tmp_path: Path) -> None:
         "crypto-vault-export-state.json",
     }
     assert manifest["files"]["crypto-vault-metadata.json"]["sha256"]
+
+
+def test_crypto_bundle_reports_missing_brotli_at_publication_time(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Importing scanner modules works without the optional R2 compression dependency."""
+    paths = resolve_crypto_vault_paths(tmp_path)
+    paths.directory.mkdir()
+    paths.metadata_path.write_text("{}", encoding="utf-8")
+    monkeypatch.setattr(crypto_vault_export, "brotli", None)
+
+    with pytest.raises(RuntimeError, match="install the cloudflare_r2 extra"):
+        crypto_vault_export._write_brotli_metadata(paths)
 
 
 def test_publish_crypto_bundle_uses_flat_prefixed_root_keys(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:

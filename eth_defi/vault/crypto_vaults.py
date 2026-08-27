@@ -243,6 +243,23 @@ def build_crypto_vault_record(record: dict[str, Any], vault_row: VaultRow, thres
     result["current_total_assets"] = result.pop("current_nav", None)
     result["peak_total_assets"] = result.pop("peak_nav", None)
     result["qualification_threshold"] = float(threshold)
+    # Rankings produced by the common metrics calculator use USD TVL gates and
+    # a mixed comparison set. They are not meaningful for native ETH/BTC units,
+    # so retain the shared period schema while explicitly leaving ranks unset.
+    period_results = result.get("period_results")
+    if isinstance(period_results, list):
+        result["period_results"] = [
+            {
+                **period,
+                "ranking_overall": None,
+                "ranking_chain": None,
+                "ranking_protocol": None,
+                "ranking_curator": None,
+            }
+            if isinstance(period, dict)
+            else period
+            for period in period_results
+        ]
     result.pop("denomination_token_rate", None)
     return result, threshold
 

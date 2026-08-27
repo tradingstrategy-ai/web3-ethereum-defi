@@ -181,10 +181,13 @@ metadata and sticky state. R2 publication additionally writes the current
 manifest. Its Parquet retains the final observed row for each vault/UTC date
 rather than inventing missing dates. It keeps the established
 ``CleanedVaultPriceRow`` columns without adding denomination metadata or a
-crypto-specific return column. Lifetime metrics use the normal forward-filled
-daily share-price series. ETH and BTC amounts stay in their denomination units.
-The fixed USD-to-denomination thresholds (USD 2,000/ETH and USD 60,000/BTC) are
-only low-TVL filtering guidelines, not live valuations.
+crypto-specific return column. The legacy ``returns_1h`` column is recomputed
+between consecutive exported observations: it is a sparse return, not an
+hourly or guaranteed one-day return, and existing TVL-filtered rows remain
+zeroed. Lifetime metrics use the normal forward-filled daily share-price
+series. ETH and BTC amounts stay in their denomination units. The fixed
+USD-to-denomination thresholds (USD 2,000/ETH and USD 60,000/BTC) are only
+low-TVL filtering guidelines, not live valuations.
 
 Every vault entry in ``crypto-vault-metadata.json`` uses the existing
 ``denomination``, ``denomination_token_address`` and ``denomination_decimals``
@@ -197,6 +200,8 @@ consumers join JSON vault records to the daily crypto Parquet using the existing
 vault ``id`` column. No duplicate denomination-symbol, decimals or total-assets
 unit aliases are added: ``denomination`` is also the unit for
 ``current_total_assets``, ``peak_total_assets`` and ``qualification_threshold``.
+Shared period ranking fields are left unset because USD-gated rankings across
+stablecoin, ETH and BTC native units would not be comparable.
 
 Only the configured alternative R2 bucket receives this bundle. Its objects use
 flat root keys with the ``crypto-`` prefix, such as
@@ -214,17 +219,17 @@ run that should publish the bundle.
 Use the read-only audit before extending the whitelist or rolling out a new
 inventory:
 
-The ETH/BTC substring candidate table is deliberately advisory. It can include
-LP, basket and unrelated protocol symbols, so strict mode does not treat an
-unreviewed candidate as proof of a missing wrapper. Strict mode does fail when
-an active classified vault has no raw price history.
-
 ```shell
 VAULT_DATABASE=~/.tradingstrategy/vaults/vault-metadata-db.pickle \
 UNCLEANED_PRICE_DATABASE=~/.tradingstrategy/vaults/vault-prices-1h.parquet \
 CRYPTO_VAULT_AUDIT_STRICT=true \
 poetry run python scripts/erc-4626/audit-crypto-vault-denominations.py
 ```
+
+The ETH/BTC substring candidate table is deliberately advisory. It can include
+LP, basket and unrelated protocol symbols, so strict mode does not treat an
+unreviewed candidate as proof of a missing wrapper. Strict mode does fail when
+an active classified vault has no raw price history.
 
 Run only the crypto cleaner, metadata build and private R2 export when
 repairing or publishing this bundle independently of the all-chain scanner:

@@ -10,7 +10,10 @@ import os
 from pathlib import Path
 from typing import Any
 
-import brotli
+try:
+    import brotli
+except ImportError:
+    brotli = None
 import pandas as pd
 from atomicwrites import atomic_write
 
@@ -56,7 +59,12 @@ def _write_brotli_metadata(paths: CryptoVaultPaths) -> None:
         Resolved crypto bundle paths.
     :return:
         ``None`` after atomically writing the sidecar.
+    :raises RuntimeError:
+        If the optional Cloudflare R2 compression dependency is unavailable.
     """
+    if brotli is None:
+        message = "brotli is required for crypto bundle publication; install the cloudflare_r2 extra"
+        raise RuntimeError(message)
     compressed = brotli.compress(paths.metadata_path.read_bytes())
     with atomic_write(str(paths.compressed_metadata_path), mode="wb", overwrite=True) as output:
         output.write(compressed)

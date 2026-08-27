@@ -151,8 +151,15 @@ broken smart contracts, missing names and so on.
 - Denormalise vault data to a single Parquet/DataFrame that can be handled
   without a ``vault-db.pickle`` file in any programming environment.
 - Calculate observation-to-observation returns in the legacy ``returns_1h``
-  column.
+  column. For the private daily crypto Parquet this is a sparse return between
+  consecutive exported observations, not an hourly or guaranteed one-day
+  return. Rows rejected by the existing TVL return filter remain zeroed.
 - Calculate rolling returns and other performance metrics.
+
+Crypto metadata leaves the shared period ranking fields unset. Comparing ranks
+across stablecoin, ETH and BTC native-unit TVL thresholds would be misleading;
+the bundle's lifetime return, CAGR and other per-vault metrics are still
+calculated normally.
 
 
 The script will:
