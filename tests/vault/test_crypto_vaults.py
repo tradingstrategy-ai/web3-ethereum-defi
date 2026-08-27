@@ -17,6 +17,7 @@ from eth_defi.vault import crypto_vault_export
 from eth_defi.vault.base import VaultSpec
 from eth_defi.vault.crypto_vault_export import build_crypto_vault_manifest, publish_crypto_vault_bundle
 from eth_defi.vault.crypto_vaults import (
+    CryptoVaultPaths,
     build_crypto_vault_record,
     resolve_crypto_vault_paths,
 )
@@ -298,9 +299,14 @@ def test_publish_crypto_bundle_uses_flat_prefixed_root_keys(tmp_path: Path, monk
     def fake_copy_r2_object_daily_backup(_client: object, _bucket_name: str, object_name: str) -> None:
         backup_keys.append(object_name)
 
+    def fake_write_brotli_metadata(bundle_paths: CryptoVaultPaths) -> None:
+        """Create the sidecar without requiring the optional R2 dependency."""
+        bundle_paths.compressed_metadata_path.write_bytes(b"compressed")
+
     monkeypatch.setattr(crypto_vault_export, "create_r2_client", lambda **_: object())
     monkeypatch.setattr(crypto_vault_export, "upload_file_to_r2", fake_upload_file_to_r2)
     monkeypatch.setattr(crypto_vault_export, "copy_r2_object_daily_backup", fake_copy_r2_object_daily_backup)
+    monkeypatch.setattr(crypto_vault_export, "_write_brotli_metadata", fake_write_brotli_metadata)
     monkeypatch.setenv("R2_ALTERNATIVE_VAULT_METADATA_BUCKET_NAME", "private-bucket")
     monkeypatch.setenv("R2_DATA_ENDPOINT_URL", "https://example.invalid")
     monkeypatch.setenv("R2_DATA_ACCESS_KEY_ID", "access-key")
