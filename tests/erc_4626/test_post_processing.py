@@ -32,6 +32,39 @@ def test_clean_prices_uses_structured_logger(
     assert any(record.name == post_processing.__name__ and record.message == "Wrangler progress" for record in caplog.records)
 
 
+def test_run_post_processing_contains_crypto_failures_and_keeps_public_skips(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Crypto processing is always attempted but remains isolated from public work."""
+    crypto_calls: list[tuple[str, object]] = []
+
+    monkeypatch.setattr(post_processing, "merge_native_protocols", lambda **_: {})
+    monkeypatch.setattr(post_processing, "clean_crypto_vault_prices", lambda **kwargs: crypto_calls.append(("clean", kwargs)) or True)
+    monkeypatch.setattr(post_processing, "calculate_crypto_vault_metadata", lambda **kwargs: crypto_calls.append(("metadata", kwargs)) or {"vaults": []})
+    monkeypatch.setattr(post_processing, "export_crypto_vault_bundle", lambda paths, metadata: crypto_calls.append(("export", (paths, metadata))) or False)
+
+    steps = post_processing.run_post_processing(
+        skip_cleaning=True,
+        skip_top_vaults=True,
+        skip_sparklines=True,
+        skip_metadata=True,
+        skip_data=True,
+        skip_samples=True,
+        vault_db_path=tmp_path / "vault-metadata-db.pickle",
+        uncleaned_parquet_path=tmp_path / "vault-prices-1h.parquet",
+        crypto_vaults_dir=tmp_path / "crypto-vaults",
+    )
+
+    assert [name for name, _ in crypto_calls] == ["clean", "metadata", "export"]
+    clean_kwargs = crypto_calls[0][1]
+    assert isinstance(clean_kwargs, dict)
+    assert clean_kwargs["cleaned_path"] == tmp_path / "crypto-vaults" / "cleaned-crypto-vault-prices-1d.parquet"
+    assert steps["clean-crypto-vault-prices"] is True
+    assert steps["calculate-crypto-vault-metadata"] is True
+    assert steps["export-crypto-vault-bundle"] is False
+
+
 def test_export_data_files_logs_retryable_r2_failure_as_warning_without_traceback(
     monkeypatch: pytest.MonkeyPatch,
     caplog: pytest.LogCaptureFixture,

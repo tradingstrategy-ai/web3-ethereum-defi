@@ -43,6 +43,9 @@ from eth_defi.perp_dex.storage import read_perp_vault_observations
 from eth_defi.research.wrangle_vault_prices import generate_cleaned_vault_datasets
 from eth_defi.vault import top_vaults_json
 from eth_defi.vault.base import VaultHistoricalRead
+from eth_defi.vault.crypto_vault_export import publish_crypto_vault_bundle
+from eth_defi.vault.crypto_vaults import CryptoVaultPaths, build_crypto_vault_metadata, resolve_crypto_vault_paths
+from eth_defi.vault.denomination import CRYPTO_DENOMINATION_FAMILIES
 from eth_defi.vault.vaultdb import DEFAULT_UNCLEANED_PRICE_DATABASE, get_pipeline_data_dir
 
 #: Required env vars for the top-vaults JSON R2 upload.
@@ -751,6 +754,89 @@ def clean_prices(
         return False
 
 
+def clean_crypto_vault_prices(
+    *,
+    vault_db_path: Path,
+    uncleaned_path: Path,
+    cleaned_path: Path,
+    settlement_db_path: Path | None = None,
+) -> bool:
+    """Build the isolated daily stablecoin/ETH/BTC cleaned Parquet.
+
+    Any error is contained here so the existing stablecoin and public export
+    path can complete.  The underlying cleaner still preserves its old output
+    file through its temporary-write verification protocol.
+
+    :param vault_db_path:
+        Common vault metadata pickle.
+    :param uncleaned_path:
+        Shared raw price Parquet file.
+    :param cleaned_path:
+        Isolated crypto daily Parquet destination.
+    :param settlement_db_path:
+        Optional settlement database.
+    :return:
+        ``True`` if the crypto cleaning phase completed.
+    """
+    try:
+        generate_cleaned_vault_datasets(
+            vault_db_path=vault_db_path,
+            price_df_path=uncleaned_path,
+            cleaned_price_df_path=cleaned_path,
+            settlement_db_path=settlement_db_path,
+            denomination_families=CRYPTO_DENOMINATION_FAMILIES,
+            daily_materialisation=True,
+            logger=logger.info,
+        )
+        return True
+    except Exception:
+        logger.exception("Crypto vault price cleaning failed")
+        return False
+
+
+def calculate_crypto_vault_metadata(
+    *,
+    vault_db_path: Path,
+    paths: CryptoVaultPaths,
+) -> dict[str, Any] | None:
+    """Calculate isolated crypto metadata while containing phase failures.
+
+    :param vault_db_path:
+        Common vault metadata pickle.
+    :param paths:
+        Explicit crypto bundle paths.
+    :return:
+        Metadata document, or ``None`` after a contained failure.
+    """
+    try:
+        return build_crypto_vault_metadata(
+            vault_db_path=vault_db_path,
+            cleaned_price_path=paths.cleaned_price_path,
+            metadata_path=paths.metadata_path,
+            sticky_state_path=paths.sticky_state_path,
+        )
+    except Exception:
+        logger.exception("Crypto vault metadata calculation failed")
+        return None
+
+
+def export_crypto_vault_bundle(paths: CryptoVaultPaths, metadata: dict[str, Any]) -> bool:
+    """Publish the prepared private crypto bundle without propagating errors.
+
+    :param paths:
+        Explicit crypto bundle paths.
+    :param metadata:
+        Prepared metadata document.
+    :return:
+        ``True`` after successful upload and backup attempt.
+    """
+    try:
+        return publish_crypto_vault_bundle(paths, metadata)
+    except Exception:
+        logger.exception("Crypto vault bundle export failed")
+        return False
+
+
 def export_sparklines() -> bool:
     """Export sparkline images to R2.
 
@@ -1036,6 +1122,7 @@ def run_post_processing(
     settlement_db_path: Path | None = None,
     core3_db_path: Path | None = None,
     feed_db_path: Path | None = None,
+    crypto_vaults_dir: Path | None = None,
 ) -> dict[str, bool]:
     """Run full post-processing pipeline after chain scans complete.
 
@@ -1071,6 +1158,7 @@ def run_post_processing(
     :param settlement_db_path: Override for the vault settlement DuckDB path
     :param core3_db_path: Override for the Core3 risk intelligence DuckDB path
     :param feed_db_path: Override for the vault post feed DuckDB path (curator metadata and feed entries)
+    :param crypto_vaults_dir: Override for the isolated crypto bundle directory.
     :return: Dictionary mapping step name to success boolean
     """
     steps = {}
@@ -1110,6 +1198,17 @@ def run_post_processing(
     # silently re-upload stale artefacts, masking the failure.
     cleaning_ok = steps.get("clean-prices", True) if not skip_cleaning else True
 
+    # Crypto price cleaning deliberately has its own contained failure boundary.
+    # It runs before public exports but cannot prevent them from completing.
+    crypto_paths = CryptoVaultPaths.from_directory(crypto_vaults_dir) if crypto_vaults_dir else resolve_crypto_vault_paths(get_pipeline_data_dir())
+    crypto_clean_ok = clean_crypto_vault_prices(
+        vault_db_path=vault_db_path or get_pipeline_data_dir() / "vault-metadata-db.pickle",
+        uncleaned_path=uncleaned_parquet_path or DEFAULT_UNCLEANED_PRICE_DATABASE,
+        cleaned_path=crypto_paths.cleaned_price_path,
+        settlement_db_path=settlement_db_path,
+    )
+    steps["clean-crypto-vault-prices"] = crypto_clean_ok
+
     # Step 3: Export top vaults JSON (depends on cleaned parquet, must run before data-file upload)
     if skip_top_vaults:
         logger.info("Skipping top vaults export (SKIP_TOP_VAULTS=true)")
@@ -1123,6 +1222,17 @@ def run_post_processing(
             core3_db_path=core3_db_path,
             feed_db_path=feed_db_path,
         )
+
+    crypto_metadata = None
+    if crypto_clean_ok:
+        crypto_metadata = calculate_crypto_vault_metadata(
+            vault_db_path=vault_db_path or get_pipeline_data_dir() / "vault-metadata-db.pickle",
+            paths=crypto_paths,
+        )
+        steps["calculate-crypto-vault-metadata"] = crypto_metadata is not None
+    else:
+        logger.warning("Skipping crypto metadata — crypto cleaning failed")
+        steps["calculate-crypto-vault-metadata"] = False
 
     # Step 4: Export sparklines
     if skip_sparklines:
@@ -1172,5 +1282,11 @@ def run_post_processing(
                 skip_parquet_sample=not parquet_ok,
                 skip_json_sample=not json_ok,
             )
+
+    if crypto_metadata is None:
+        logger.warning("Skipping crypto bundle publication — crypto metadata was not generated")
+        steps["export-crypto-vault-bundle"] = False
+    else:
+        steps["export-crypto-vault-bundle"] = export_crypto_vault_bundle(crypto_paths, crypto_metadata)
 
     return steps

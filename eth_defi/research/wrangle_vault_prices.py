@@ -19,8 +19,9 @@ import pickle
 import tempfile
 import warnings
 from bisect import bisect_right
+from decimal import Decimal
 from pathlib import Path
-from typing import Callable, TypedDict
+from typing import Callable, Iterable, TypedDict
 
 import numpy as np
 import pandas as pd
@@ -35,9 +36,16 @@ from eth_defi.chain import get_chain_name
 from eth_defi.hyperliquid.constants import HYPERCORE_CHAIN_ID
 from eth_defi.perp_dex.adapter import embed_perp_capability_registry, load_perp_capability_registry
 from eth_defi.perp_dex.parquet import PERP_DEX_NATIVE_CHAIN_IDS, build_registered_perp_vault_index, finalise_perp_metric_columns
-from eth_defi.token import is_stablecoin_like
 from eth_defi.types import Percent
 from eth_defi.vault.base import VaultSpec, verify_parquet_file
+from eth_defi.vault.denomination import (
+    DenominationFamily,
+    classify_denomination,
+    convert_usd_threshold_to_denomination,
+    get_denomination_whitelist_digest,
+    get_denomination_whitelist_entry,
+    normalise_denomination_symbol,
+)
 from eth_defi.vault.settlement_data import (
     merge_vault_settlements_into_cleaned_prices,
 )
@@ -242,6 +250,25 @@ class CleanedVaultPriceRow(TypedDict, total=False):
     #:
     #: General — present for all protocols.
     returns_1h: float
+
+    #: Legacy name for a sparse observation-to-observation return.
+    #: Consecutive observations may be more than one calendar day apart.
+    returns_1d: float
+
+    #: Isolated crypto bundle denomination family: stablecoin, ETH-like or BTC-like.
+    denomination_family: str
+
+    #: Canonical underlying used for denomination-unit semantics: USD, ETH or BTC.
+    canonical_underlying: str
+
+    #: Observed denomination token contract address, when the source exposes one.
+    denomination_token_address: str | None
+
+    #: Observed denomination symbol retained for auditing and display.
+    denomination_token_symbol: str | None
+
+    #: Observed denomination token decimals, when the source exposes them.
+    denomination_token_decimals: int | None
 
     # -- Vault state pass-through columns (from VAULT_STATE_COLUMNS) --
 
@@ -616,33 +643,84 @@ def add_denormalised_vault_data(
     return prices_df
 
 
+def filter_vaults_by_denomination_families(
+    rows: dict[HexAddress, VaultRow],
+    prices_df: pd.DataFrame,
+    denomination_families: Iterable[DenominationFamily],
+    *,
+    add_denomination_family: bool = False,
+    logger: Callable[[str], None] = print,
+) -> pd.DataFrame:
+    """Reduce vault price rows to selected denomination families.
+
+    Classification is based only on the denomination symbol stored in vault
+    metadata.  This preserves the legacy stablecoin filter while allowing the
+    isolated crypto bundle to select reviewed ETH/BTC wrappers.
+
+    :param rows:
+        Vault metadata rows keyed by vault specification.
+    :param prices_df:
+        Raw/enriched price rows containing the canonical ``id`` column.
+    :param denomination_families:
+        Families to retain.
+    :param add_denomination_family:
+        Add the selected family as a denormalised output column. The legacy
+        stablecoin pipeline leaves its schema untouched.
+    :param logger:
+        Log adapter.
+    :return:
+        Input rows whose vault metadata belongs to a requested family.
+    """
+    families = frozenset(denomination_families)
+    assert families, "At least one denomination family must be selected"
+    selected_vaults = [v for v in rows.values() if classify_denomination(v.get("Denomination")) in families]
+    allowed_vault_ids = {str(v["_detection_data"].chain) + "-" + v["_detection_data"].address for v in selected_vaults}
+    filtered = prices_df.loc[prices_df["id"].isin(allowed_vault_ids)].copy()
+    if add_denomination_family:
+        denomination_details = {}
+        for vault in selected_vaults:
+            vault_id = str(vault["_detection_data"].chain) + "-" + vault["_detection_data"].address
+            family = classify_denomination(vault.get("Denomination"))
+            whitelist_entry = get_denomination_whitelist_entry(vault.get("Denomination"))
+            assert family is DenominationFamily.stablecoin or whitelist_entry is not None
+            token_data = vault.get("_denomination_token") or {}
+            token_address = token_data.get("address")
+            denomination_details[vault_id] = {
+                "denomination_family": family.value,
+                "canonical_underlying": "USD" if family is DenominationFamily.stablecoin else whitelist_entry.canonical_underlying,
+                "denomination_token_address": token_address.lower() if isinstance(token_address, str) else None,
+                "denomination_token_symbol": normalise_denomination_symbol(vault.get("Denomination")),
+                "denomination_token_decimals": token_data.get("decimals"),
+            }
+        for column in (
+            "denomination_family",
+            "canonical_underlying",
+            "denomination_token_address",
+            "denomination_token_symbol",
+            "denomination_token_decimals",
+        ):
+            filtered[column] = filtered["id"].map(lambda vault_id, field=column: denomination_details[vault_id][field])
+    logger(f"Selected {len(selected_vaults):,} vaults and {len(filtered):,} price rows for denomination families {sorted(f.value for f in families)}")
+    return filtered
+
+
 def filter_vaults_by_stablecoin(
     rows: dict[HexAddress, VaultRow],
     prices_df: pd.DataFrame,
-    logger=print,
+    logger: Callable[[str], None] = print,
 ) -> pd.DataFrame:
-    """Reduce vaults to stablecoin vaults only.
+    """Reduce vaults to stablecoin vaults using the compatibility selection.
 
-
-    - In this notebooks, we focus on stablecoin yield
-    - Do not consider WETH, other native token vaults, as their returns calculation
-      would need to match the appreciation of underlying assets
-    - [is_stablecoin_like](https://web3-ethereum-defi.readthedocs.io/api/core/_autosummary/eth_defi.token.is_stablecoin_like.html?highlight=is_stablecoin_like#eth_defi.token.is_stablecoin_like) supports GHO, crvUSD and other DeFi/algorithmic stablecoins
-    - Note that this picks up very few EUR and other fiat-nominated vaults
-
+    :param rows:
+        Vault metadata rows keyed by vault specification.
+    :param prices_df:
+        Raw/enriched price rows containing the canonical ``id`` column.
+    :param logger:
+        Log adapter.
+    :return:
+        Stablecoin-denominated price rows.
     """
-
-    usd_vaults = [v for v in rows.values() if is_stablecoin_like(v["Denomination"])]
-    logger(f"We have {len(usd_vaults)} stablecoin-nominated vaults out of {len(rows)} total vaults")
-
-    # Build chain-address strings for vaults we are interested in
-    allowed_vault_ids = set(str(v["_detection_data"].chain) + "-" + v["_detection_data"].address for v in usd_vaults)
-
-    # Filter out prices to contain only data for vaults we are interested in
-    prices_df = prices_df.loc[prices_df["id"].isin(allowed_vault_ids)]
-    logger(f"Filtered out prices have {len(prices_df):,} rows")
-
-    return prices_df
+    return filter_vaults_by_denomination_families(rows, prices_df, {DenominationFamily.stablecoin}, logger=logger)
 
 
 def calculate_vault_returns(
@@ -752,7 +830,7 @@ def clean_by_tvl(
     rows: dict[HexAddress, VaultRow],
     prices_df: pd.DataFrame,
     logger=print,
-    tvl_threshold_min=1000.00,
+    tvl_threshold_min: float | Callable[[str], float] = 1000.00,
     tvl_threshold_max=99_000_000_000,  # USD 99B
     tvl_threshold_min_dynamic=0.02,
     returns_col="returns_1h",
@@ -777,7 +855,8 @@ def clean_by_tvl(
     :param logger:
         Notebook, console, or structured-log adapter accepting one message.
     :param tvl_threshold_min:
-        Absolute minimum NAV in USD.
+        Absolute minimum NAV, or a vault-id callback for a denomination-aware
+        threshold.  Legacy callers retain the USD scalar default.
     :param tvl_threshold_max:
         Absolute maximum NAV in USD.
     :param tvl_threshold_min_dynamic:
@@ -798,7 +877,11 @@ def clean_by_tvl(
     # Create a mask based on TVL conditions.
     # Clean up returns during low TVL periods
     # pd.Timestamp("2024-02-10")
-    mask = returns_df["total_assets"] < tvl_threshold_min
+    if callable(tvl_threshold_min):
+        minimum_thresholds = returns_df["id"].map(tvl_threshold_min)
+    else:
+        minimum_thresholds = float(tvl_threshold_min)
+    mask = returns_df["total_assets"] < minimum_thresholds
     mask |= returns_df["total_assets"] > tvl_threshold_max
 
     # Clean up by dynamic TVL threshold filtering
@@ -1823,6 +1906,9 @@ def process_raw_vault_scan_data(
     logger=print,
     display: Callable = lambda x: None,
     diagnose_vault_id: str | None = None,
+    *,
+    denomination_families: Iterable[DenominationFamily] | None = None,
+    crypto_min_tvl_usd: Decimal | None = None,
 ) -> pd.DataFrame:
     """Preprocess vault data for further analysis.
 
@@ -1869,9 +1955,16 @@ def process_raw_vault_scan_data(
     prices_df = prices_df.set_index("timestamp")
 
     prices_df = sort_and_index_vault_prices(prices_df, PRIORITY_SORT_IDS)
-    prices_df = filter_vaults_by_stablecoin(rows, prices_df, logger)
+    families = frozenset(denomination_families or {DenominationFamily.stablecoin})
+    prices_df = filter_vaults_by_denomination_families(
+        rows,
+        prices_df,
+        families,
+        add_denomination_family=families != {DenominationFamily.stablecoin},
+        logger=logger,
+    )
     if prices_df.empty:
-        logger("No stablecoin-nominated price rows remain; skipping return and TVL cleaning")
+        logger("No selected denomination price rows remain; skipping return and TVL cleaning")
         return prices_df
     # Disabled as low and does not result to any savings
     # prices_df = filter_unneeded_row(prices_df, logger)
@@ -1935,14 +2028,55 @@ def process_raw_vault_scan_data(
         logger("After clean_returns():")
         display(vault_prices_df)
 
+    tvl_threshold: float | Callable[[str], float] = 1000.0
+    if families != {DenominationFamily.stablecoin}:
+        base_guideline = crypto_min_tvl_usd or Decimal(os.environ.get("CRYPTO_VAULTS_MIN_TVL_USD", "5000"))
+        vault_symbols = {str(v["_detection_data"].chain) + "-" + v["_detection_data"].address: v["Denomination"] for v in rows.values()}
+
+        def resolve_crypto_threshold(vault_id: str) -> float:
+            """Resolve one selected vault's fixed-rate denomination threshold."""
+            return float(convert_usd_threshold_to_denomination(base_guideline, vault_symbols[vault_id]))
+
+        tvl_threshold = resolve_crypto_threshold
+
     prices_df = clean_by_tvl(
         rows,
         prices_df,
         logger,
+        tvl_threshold_min=tvl_threshold,
     )
     registered_perp_vaults = build_registered_perp_vault_index(prices_df)
     prices_df = finalise_perp_metric_columns(prices_df, registered_perp_vaults)
     return prices_df
+
+
+def materialise_daily_crypto_prices(prices_df: pd.DataFrame) -> pd.DataFrame:
+    """Select one real end-of-day observation and sparse return per vault.
+
+    The exported parquet deliberately preserves only real observations.  Metric
+    calculations subsequently build their own forward-filled daily view using
+    :func:`eth_defi.research.vault_metrics.prepare_daily_share_price_series`.
+
+    :param prices_df:
+        Cleaned selected-family price rows with timestamp/index, ``id`` and
+        ``share_price`` columns.
+    :return:
+        Chronologically sorted, observation-preserving daily price rows with
+        the legacy sparse ``returns_1d`` column.
+    """
+    frame = prices_df.reset_index() if "timestamp" not in prices_df.columns else prices_df.copy()
+    frame["timestamp"] = pd.to_datetime(frame["timestamp"])
+    frame["_utc_date"] = frame["timestamp"].dt.floor("D")
+    sort_columns = ["id", "timestamp"]
+    if "block_number" in frame.columns:
+        sort_columns.append("block_number")
+    frame = frame.sort_values(sort_columns, kind="stable")
+    daily = frame.groupby(["id", "_utc_date"], sort=False, as_index=False).tail(1).copy()
+    daily = daily.sort_values(["id", "timestamp"], kind="stable")
+    daily["returns_1d"] = daily.groupby("id")["share_price"].pct_change(fill_method=None).fillna(0.0)
+    daily.drop(columns=["_utc_date"], inplace=True)
+    daily.set_index("timestamp", inplace=True)
+    return daily
 
 
 def check_missing_metadata(
@@ -2009,10 +2143,14 @@ def generate_cleaned_vault_datasets(
     logger=print,
     display=display,
     diagnose_vault_id: str | None = None,
+    *,
+    denomination_families: Iterable[DenominationFamily] | None = None,
+    daily_materialisation: bool = False,
+    crypto_min_tvl_usd: Decimal | None = None,
 ):
     """A command line script entry point to take raw scanned vault price data and clean it up to a format that can be analysed.
 
-    - Reads ``vault-prices-1h.parquet`` and generates ``cleaned-vault-prices-1h.parquet``
+    - Reads ``vault-prices-1h.parquet`` and generates a cleaned Parquet dataset
     - Calculate returns and various performance metrics to be included with prices data
     - Clean returns from abnormalities
     - Stamp the cleaned Parquet with the current Docker ``metadata.version``
@@ -2020,8 +2158,8 @@ def generate_cleaned_vault_datasets(
 
     .. note::
 
-        Drops non-stablecoin vaults. The cleaning is currently applicable
-        for stable vaults only.
+        Defaults to stablecoin-only selection for compatibility.  The isolated
+        crypto bundle passes explicitly reviewed stablecoin, ETH and BTC families.
     """
 
     assert vault_db_path.exists()
@@ -2054,9 +2192,14 @@ def generate_cleaned_vault_datasets(
         logger,
         display=display,
         diagnose_vault_id=diagnose_vault_id,
+        denomination_families=denomination_families,
+        crypto_min_tvl_usd=crypto_min_tvl_usd,
     )
     logger(f"We have {len(enhanced_prices_df):,} price rows in the cleaned prices DataFrame before settlement annotation")
     enhanced_prices_df = merge_vault_settlements_into_cleaned_prices(enhanced_prices_df, settlement_db_path=settlement_db_path)
+
+    if daily_materialisation:
+        enhanced_prices_df = materialise_daily_crypto_prices(enhanced_prices_df)
 
     # Free the original uncleaned DataFrame to reduce peak memory
     del prices_df
@@ -2076,11 +2219,39 @@ def generate_cleaned_vault_datasets(
         if perp_capability_registry is not None:
             table = table.replace_schema_metadata(embed_perp_capability_registry(table.schema, perp_capability_registry).metadata)
         table = table.replace_schema_metadata(stamp_parquet_schema_metadata(table.schema).metadata)
+        if daily_materialisation:
+            crypto_metadata = dict(table.schema.metadata or {})
+            crypto_metadata.update(
+                {
+                    b"crypto_vaults_bundle_schema_version": b"1",
+                    b"crypto_vaults_whitelist_sha256": get_denomination_whitelist_digest().encode("ascii"),
+                    b"crypto_vaults_fixed_usd_rates": b'{"BTC":60000,"ETH":2000,"USD":1}',
+                }
+            )
+            table = table.replace_schema_metadata(crypto_metadata)
         pq.write_table(table, temp_path, compression="zstd")
         verify_parquet_file(
             temp_path,
             expected_rows=len(enhanced_prices_df),
-            required_columns=["id", "share_price", "raw_share_price", "returns_1h", "timestamp"],
+            required_columns=[
+                "id",
+                "share_price",
+                "raw_share_price",
+                "returns_1h",
+                "timestamp",
+                *(
+                    (
+                        "denomination_family",
+                        "canonical_underlying",
+                        "denomination_token_address",
+                        "denomination_token_symbol",
+                        "denomination_token_decimals",
+                        "returns_1d",
+                    )
+                    if daily_materialisation
+                    else []
+                ),
+            ],
         )
         os.replace(temp_path, str(cleaned_price_df_path))
     except BaseException:

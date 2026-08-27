@@ -165,6 +165,44 @@ for formulas, storage and temporal-staleness semantics.
 
 These scripts form the core data pipeline for vault discovery, price scanning, and export.
 
+### Private crypto-vaults bundle
+
+When all-chain post-processing runs, it also builds the isolated private
+``crypto-vaults`` bundle. It preserves the existing public stablecoin files and
+contains stablecoin, reviewed ETH-like and reviewed BTC-like denominations.
+The symbol policy is maintained in
+``eth_defi/data/crypto_assets/denomination-symbols.yaml``; it deliberately
+includes wrapped, bridged, liquid-staking, restaking and protocol-specific
+wrappers. It does not use token addresses as an inclusion criterion.
+
+The bundle is written below the pipeline data directory as
+``crypto-vaults/cleaned-crypto-vault-prices-1d.parquet`` and its separate JSON
+metadata, sticky state and manifest. Its Parquet retains the final observed
+row for each vault/UTC date rather than inventing missing dates. The
+legacy ``returns_1d`` field is therefore a sparse observation-to-observation
+return; lifetime metrics use the normal forward-filled daily share-price
+series. ETH and BTC amounts stay in their denomination units. The fixed
+USD-to-denomination thresholds (USD 2,000/ETH and USD 60,000/BTC) are only
+low-TVL filtering guidelines, not live valuations.
+
+Only the configured alternative R2 bucket receives this bundle namespace, under
+``crypto-vaults/`` (or ``test-crypto-vaults/`` with ``UPLOAD_PREFIX=test-``).
+``manifest.json`` is uploaded last and daily R2 backups use the established
+backup layout. A crypto phase failure is logged and contained so public exports
+can still complete. There is no crypto-specific skip flag: configure the
+alternative bucket and data/metadata R2 credentials for every post-processing
+run that should publish the bundle.
+
+Use the read-only audit before extending the whitelist or rolling out a new
+inventory:
+
+```shell
+VAULT_DB=~/.tradingstrategy/vaults/vault-metadata-db.pickle \
+UNCLEANED_PRICE_DATABASE=~/.tradingstrategy/vaults/vault-prices-1h.parquet \
+CRYPTO_VAULT_AUDIT_STRICT=true \
+poetry run python scripts/erc-4626/audit-crypto-vault-denominations.py
+```
+
 ### scan-vaults.py
 
 Discovery scan for ERC-4626 vaults on a single chain. Stores metadata in the vault database.

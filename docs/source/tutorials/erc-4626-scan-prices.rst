@@ -134,9 +134,13 @@ Cleaning data
 The raw vault data contains a lot of abnormalities like almost infinite profits,
 broken smart contracts, missing names and so on.
 
-- Cleaning only supports stablecoin-nominated vaults, i.e. vaults that have denomination token in stablecoin.
-  Cleaning process currently discards the data for other denonimations. If you need to access e.g.
-  ETH-nominated vaults, you need to clean the data yourselfs
+- The public hourly cleaning output supports stablecoin-nominated vaults. The
+  all-chain post-processing pipeline additionally writes a private
+  ``crypto-vaults`` bundle for stablecoin, reviewed ETH-like and reviewed
+  BTC-like denomination symbols. It preserves one actual observation per UTC
+  day and does not change the public stablecoin output. ETH/BTC selection is
+  symbol-whitelist based; token contract addresses are reported by the audit
+  command but do not decide membership.
 - Denormalise vault data to a single Parquet/Dataframe that can be handled without ``vault-db.pickle`` file,
   in any programming environment
 - We calculate 1h returns for each vault

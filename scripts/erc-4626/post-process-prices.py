@@ -29,7 +29,8 @@ Usage:
     MERGE_HYPERCORE=true MERGE_GRVT=true MERGE_LIGHTER=true MERGE_HIBACHI=true MERGE_APEX=true \\
     poetry run python scripts/erc-4626/post-process-prices.py
 
-    # Only merge and clean, skip all R2 uploads
+    # Skip legacy public R2 uploads. The private crypto-vaults bundle still
+    # runs and requires its alternative-bucket configuration.
     SKIP_SPARKLINES=true SKIP_METADATA=true SKIP_DATA=true SKIP_TOP_VAULTS=true \\
     poetry run python scripts/erc-4626/post-process-prices.py
 
@@ -79,6 +80,19 @@ Alternative R2 bucket (optional, for the upcoming private commercial professiona
 
 - ``R2_ALTERNATIVE_VAULT_METADATA_BUCKET_NAME``: When set, metadata and data files are uploaded
   to both the primary and this alternative bucket using the same credentials
+
+Private crypto-vaults R2 bundle (required whenever post-processing runs):
+
+- ``R2_ALTERNATIVE_VAULT_METADATA_BUCKET_NAME``: Private bundle bucket. Unlike
+  the legacy alternative export, the crypto bundle is uploaded only here.
+- ``R2_DATA_ENDPOINT_URL`` / ``R2_VAULT_METADATA_ENDPOINT_URL``: R2 endpoint.
+- ``R2_DATA_ACCESS_KEY_ID`` / ``R2_VAULT_METADATA_ACCESS_KEY_ID``: R2 access key.
+- ``R2_DATA_SECRET_ACCESS_KEY`` / ``R2_VAULT_METADATA_SECRET_ACCESS_KEY``: R2 secret.
+- ``R2_DAILY_BACKUP``: Set to ``false`` to disable private daily backup copies.
+
+There is deliberately no ``SKIP_CRYPTO_VAULTS`` switch. Crypto failures are
+recorded as failed post-processing steps and do not stop the public export
+steps, but the standalone command exits non-zero when any recorded step fails.
 
 Data files R2 bucket (falls back to ``R2_VAULT_METADATA_*`` if not set):
 
