@@ -14,6 +14,11 @@ import os
 from pathlib import Path
 from typing import Any
 
+try:
+    import brotli
+except ImportError:
+    brotli = None
+
 import pandas as pd
 import pyarrow as pa
 import pyarrow.compute as pc
@@ -45,6 +50,7 @@ from eth_defi.vault import top_vaults_json
 from eth_defi.vault.base import VaultHistoricalRead
 from eth_defi.vault.crypto_vault_export import publish_crypto_vault_bundle
 from eth_defi.vault.crypto_vaults import CryptoVaultPaths, build_crypto_vault_metadata, build_crypto_vault_prices, resolve_crypto_vault_paths
+from eth_defi.vault.sample_export import export_sample_files_to_r2
 from eth_defi.vault.vaultdb import DEFAULT_UNCLEANED_PRICE_DATABASE, get_pipeline_data_dir
 
 #: Required env vars for the top-vaults JSON R2 upload.
@@ -57,6 +63,9 @@ _R2_TOP_VAULTS_REQUIRED_ENV_VARS = (
 )
 
 logger = logging.getLogger(__name__)
+
+#: Access-key length below which masking would reveal the entire value.
+_MIN_MASKED_ACCESS_KEY_LENGTH = 8
 
 
 PERP_DEX_CAPABILITY_REGISTRY = PerpDexCapabilityRegistry(
@@ -103,12 +112,12 @@ def _mask_access_key_id(access_key_id: str | None) -> str:
     """
     if not access_key_id:
         return "<unknown>"
-    if len(access_key_id) <= 8:
+    if len(access_key_id) <= _MIN_MASKED_ACCESS_KEY_LENGTH:
         return access_key_id
     return f"{access_key_id[:4]}...{access_key_id[-4:]}"
 
 
-def _upload_top_vaults_json_to_bucket(
+def _upload_top_vaults_json_to_bucket(  # noqa: PLR0917 - internal upload payload has six required fields
     s3_client: Any,
     output_path: Path,
     bucket_name: str,
@@ -178,10 +187,11 @@ def _upload_top_vaults_json_to_bucket(
         return False
 
     # Upload brotli-compressed variant (.json.br) alongside raw JSON.
-    # Brotli is an optional dependency — if unavailable, raw upload still succeeds.
+    # Brotli is optional; the raw JSON upload remains valid without it.
+    if brotli is None:
+        logger.warning("brotli package not installed — skipping .json.br upload for %s bucket", bucket_label)
+        return False
     try:
-        import brotli
-
         raw_bytes = output_path.read_bytes()
         compressed = brotli.compress(raw_bytes, quality=11)
         source_digest = calculate_bytes_digest(raw_bytes)
@@ -208,9 +218,6 @@ def _upload_top_vaults_json_to_bucket(
             )
         else:
             logger.info("Skipped unchanged brotli for %s s3://%s/%s.br", bucket_label, bucket_name, object_key)
-    except ImportError:
-        logger.warning("brotli package not installed — skipping .json.br upload for %s bucket", bucket_label)
-        return False
     except Exception:
         logger.exception("Brotli compression/upload failed for %s bucket — raw JSON already uploaded", bucket_label)
         return False
@@ -218,7 +225,7 @@ def _upload_top_vaults_json_to_bucket(
     return True
 
 
-def _upload_top_vaults_json_to_configured_buckets(
+def _upload_top_vaults_json_to_configured_buckets(  # noqa: PLR0917 - internal R2 configuration has six required fields
     s3_client: Any,
     output_path: Path,
     bucket_name: str,
@@ -477,7 +484,8 @@ def _merge_apex_prices_with_existing_parquet(
     return pd.concat([existing_df, fresh_df], ignore_index=True).drop_duplicates(subset=["address", "timestamp"], keep="last").reset_index(drop=True)
 
 
-def merge_native_protocols(
+def merge_native_protocols(  # noqa: PLR0914 - one established coordinator owns all native inputs
+    *,
     merge_hypercore: bool = False,
     merge_grvt: bool = False,
     merge_lighter: bool = False,
@@ -895,6 +903,7 @@ def export_data_files() -> bool:
 
 
 def export_sample_files(
+    *,
     skip_parquet_sample: bool = False,
     skip_json_sample: bool = False,
 ) -> bool:
@@ -916,8 +925,6 @@ def export_sample_files(
     :return: True if export succeeded
     """
     try:
-        from eth_defi.vault.sample_export import export_sample_files_to_r2
-
         logger.info("Exporting sample data files")
         export_sample_files_to_r2(
             skip_parquet_sample=skip_parquet_sample,
@@ -930,7 +937,7 @@ def export_sample_files(
         return False
 
 
-def validate_top_vaults_config(skip_top_vaults: bool = False) -> None:
+def validate_top_vaults_config(*, skip_top_vaults: bool = False) -> None:
     """Fail-fast pre-flight check for the top-vaults JSON R2 upload.
 
     Both the long-running scanner and the standalone debug entry point
@@ -963,7 +970,7 @@ def validate_top_vaults_config(skip_top_vaults: bool = False) -> None:
         logger.info("R2 top-vaults alternative (private) bucket configured: %s", alt_bucket)
 
 
-def export_top_vaults_json(
+def export_top_vaults_json(  # noqa: PLR0914 - R2 export settings are resolved together
     vault_db_path: Path | None = None,
     cleaned_path: Path | None = None,
     output_path: Path | None = None,
@@ -1099,6 +1106,7 @@ def export_top_vaults_json(
 
 
 def run_post_processing(
+    *,
     scan_hypercore: bool = False,
     scan_grvt: bool = False,
     scan_lighter: bool = False,

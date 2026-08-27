@@ -3,8 +3,6 @@
 Uses the `Cloudflare R2 S3 API <https://developers.cloudflare.com/r2/api/s3/>`__.
 """
 
-from __future__ import annotations
-
 import hashlib
 import json
 import logging
@@ -20,7 +18,7 @@ from eth_defi.cloudflare_r2 import copy_r2_object_daily_backup, create_r2_client
 from eth_defi.vault.crypto_vaults import CryptoVaultPaths
 from eth_defi.vault.denomination import CRYPTO_DENOMINATION_FAMILY_NAMES, get_denomination_whitelist_digest
 
-#: Private R2 namespace and manifest identifier for this isolated bundle.
+#: Private-bundle identifier stored in metadata and manifest documents.
 CRYPTO_VAULTS_BUNDLE_NAME = "crypto-vaults"
 
 logger = logging.getLogger(__name__)
@@ -77,12 +75,12 @@ def _get_payload_paths(paths: CryptoVaultPaths, *, include_manifest: bool = Fals
         Ordered local payload definitions.
     """
     payloads = (
-        ("cleaned-vault-prices-1d.parquet", paths.cleaned_price_path),
-        ("vault-metadata.json", paths.metadata_path),
-        ("vault-metadata.json.br", paths.metadata_path.with_suffix(".json.br")),
-        ("vault-export-state.json", paths.sticky_state_path),
+        (paths.cleaned_price_path.name, paths.cleaned_price_path),
+        (paths.metadata_path.name, paths.metadata_path),
+        (paths.metadata_path.with_suffix(".json.br").name, paths.metadata_path.with_suffix(".json.br")),
+        (paths.sticky_state_path.name, paths.sticky_state_path),
     )
-    return (*payloads, ("manifest.json", paths.manifest_path)) if include_manifest else payloads
+    return (*payloads, (paths.manifest_path.name, paths.manifest_path)) if include_manifest else payloads
 
 
 def build_crypto_vault_manifest(paths: CryptoVaultPaths, metadata: dict[str, Any]) -> dict[str, Any]:
@@ -133,9 +131,9 @@ def build_crypto_vault_manifest(paths: CryptoVaultPaths, metadata: dict[str, Any
 def publish_crypto_vault_bundle(paths: CryptoVaultPaths, metadata: dict[str, Any]) -> bool:
     """Upload crypto payloads, manifest and daily backups to private R2.
 
-    Payload keys deliberately follow the current flat overwrite-in-place export
-    convention.  The manifest is uploaded last and consumers must verify its
-    digests before accepting the bundle.
+    Payload keys use flat root names prefixed with ``crypto-`` so they share the
+    public bundle's layout without colliding with it. The manifest is uploaded
+    last and consumers must verify its digests before accepting the bundle.
 
     :param paths:
         Local bundle paths.
@@ -160,7 +158,7 @@ def publish_crypto_vault_bundle(paths: CryptoVaultPaths, metadata: dict[str, Any
     prefix = os.environ.get("UPLOAD_PREFIX", "")
     uploaded_keys: list[str] = []
     for object_name, path in _get_payload_paths(paths, include_manifest=True):
-        object_key = f"{prefix}{CRYPTO_VAULTS_BUNDLE_NAME}/{object_name}"
+        object_key = f"{prefix}{object_name}"
         uploaded = upload_file_to_r2(
             s3_client=client,
             file_path=path,

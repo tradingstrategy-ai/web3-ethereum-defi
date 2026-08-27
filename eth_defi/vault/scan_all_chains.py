@@ -3055,7 +3055,7 @@ def main():
         core3_db_path,
         xerberus_db_path,
         currency_api_db_path,
-        data_dir / "crypto-vaults" / "cleaned-crypto-vault-prices-1d.parquet",
+        data_dir / "crypto-vaults" / "crypto-cleaned-vault-prices-1d.parquet",
         data_dir / "crypto-vaults" / "crypto-vault-metadata.json",
         data_dir / "crypto-vaults" / "crypto-vault-metadata.json.br",
         data_dir / "crypto-vaults" / "crypto-vault-manifest.json",

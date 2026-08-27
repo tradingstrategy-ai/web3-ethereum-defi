@@ -82,6 +82,9 @@ MIN_HYPERCORE_INITIAL_TRACKING_ASSETS = MIN_HYPERCORE_RECAPITALISATION_ASSETS
 #: Ignore isolated zero-NAV observations that recover before this delay.
 MIN_HYPERCORE_RECAPITALISATION_RECOVERY_DELAY = pd.Timedelta(days=7)
 
+#: Minimum observations needed to infer the median sampling interval.
+MIN_ROWS_FOR_INTERVAL_ESTIMATE = 2
+
 
 class CleanedVaultPriceRow(TypedDict, total=False):
     """Schema for a single row in the cleaned vault price DataFrame.
@@ -305,7 +308,7 @@ class CleanedVaultPriceRow(TypedDict, total=False):
     #: Lending only — IPOR, Euler, Morpho, Gearbox, etc. NaN for other protocols.
     available_liquidity: float
 
-    #: Utilisation ratio (0.0–1.0) for lending vaults. NaN if not applicable.
+    #: Utilisation ratio (0.0-1.0) for lending vaults. NaN if not applicable.
     #:
     #: .. warning::
     #:
@@ -370,12 +373,12 @@ class CleanedVaultPriceRow(TypedDict, total=False):
     # -- Hypercore only columns --
     # Populated for native Hyperliquid vaults (chain 9999). NaN for all other protocols.
 
-    #: Fraction of vault assets controlled by the leader (0.0–1.0).
+    #: Fraction of vault assets controlled by the leader (0.0-1.0).
     #:
     #: Hypercore only — NaN for all other protocols.
     leader_fraction: float
 
-    #: Commission rate charged by the vault leader (0.0–1.0).
+    #: Commission rate charged by the vault leader (0.0-1.0).
     #:
     #: Hypercore only — NaN for all other protocols.
     leader_commission: float
@@ -579,14 +582,14 @@ def assign_unique_names(
     used_names = set()
     empty_names = set()
 
-    for id, vault in vaults_by_id.items():
+    for vault_id, vault in vaults_by_id.items():
         # TODO: hack
         # 40acres forgot to name their vault
         if vault["Name"] == "Vault":
-            vault["Name"] == "40acres"
+            vault["Name"] = "40acres"
 
-        if vault["Name"] in (None, ""):
-            empty_names.add(id)
+        if vault["Name"] in {None, ""}:
+            empty_names.add(vault_id)
 
         if vault["Name"] in used_names:
             chain_name = get_chain_name(vault["_detection_data"].chain)
@@ -607,7 +610,7 @@ def assign_unique_names(
     logger(f"Fixed {counter} duplicate vault names, {len(empty_names)} vaults had empty names, duplicate names with NAV: {duplicate_names_with_nav}")
 
     if empty_names:
-        example_id = list(empty_names)[0]
+        example_id = next(iter(empty_names))
         example = vaults_by_id[example_id]
         logger(f"Example vault with empty name: {example}")
 
@@ -775,7 +778,7 @@ def calculate_vault_returns(
     return prices_df
 
 
-def clean_returns(
+def clean_returns(  # noqa: PLR0917 - stable cleaner API used by scripts and notebooks
     rows: dict[HexAddress, VaultRow],
     prices_df: pd.DataFrame,
     logger=print,
@@ -828,7 +831,7 @@ def clean_returns(
     return returns_df
 
 
-def clean_by_tvl(
+def clean_by_tvl(  # noqa: PLR0917 - stable cleaner API used by scripts and notebooks
     rows: dict[HexAddress, VaultRow],
     prices_df: pd.DataFrame,
     logger=print,
@@ -929,7 +932,7 @@ def clean_by_tvl(
 def filter_unneeded_row(
     prices_df: pd.DataFrame,
     logger=print,
-    epsilon=0.0025,  #
+    epsilon=0.0025,
 ) -> pd.DataFrame:
     """Dedpulicate data rows with epsilon.
 
@@ -1149,7 +1152,7 @@ def remove_inactive_lead_time(
     return filtered_df
 
 
-def _repair_hypercore_delayed_nav_returns(
+def _repair_hypercore_delayed_nav_returns(  # noqa: PLR0914 - array repair keeps correlated state local
     checkpoint_timestamp_ns: np.ndarray,
     checkpoint_nav: np.ndarray,
     checkpoint_pnl: np.ndarray,
@@ -1759,7 +1762,7 @@ def fix_outlier_share_prices(
 
     share_prices_fixed = 0
 
-    def _clean_share_price_for_pair(group: pd.DataFrame) -> pd.DataFrame:
+    def _clean_share_price_for_pair(group: pd.DataFrame) -> pd.DataFrame:  # noqa: PLR0914 - related rolling-window intermediates
         """Apply rolling window clean up technique that checks if 24h past and future prices are aligned, but the current price is not,
         then overwrite with the avg of past and future prices."""
         nonlocal share_prices_fixed
@@ -1788,7 +1791,7 @@ def fix_outlier_share_prices(
 
         # Compute row-based shift from actual time spacing so that vaults
         # with non-hourly polling (daily, weekly) get a sensible window.
-        if isinstance(group.index, pd.DatetimeIndex) and len(group) >= 2:
+        if isinstance(group.index, pd.DatetimeIndex) and len(group) >= MIN_ROWS_FOR_INTERVAL_ESTIMATE:
             median_interval = group.index.to_series().diff().median()
             if pd.notna(median_interval) and median_interval > pd.Timedelta(0):
                 rows_per_hour = pd.Timedelta(hours=1) / median_interval
@@ -1869,7 +1872,7 @@ def fix_outlier_share_prices(
     filtered_all_df = prices_df.groupby("id", group_keys=True, sort=False).apply(_clean_share_price_for_pair, include_groups=False)
 
     change_mask = (filtered_all_df["share_price"] != filtered_all_df["raw_share_price"]) & pd.notna(filtered_all_df["raw_share_price"])
-    change_count = len(change_mask[change_mask == True])
+    change_count = int(change_mask.sum())
 
     logger(f"Share prices fix count {share_prices_fixed}, updated {change_count:,} / {len(filtered_all_df):,} rows with abnormal share_price spikes (> {max_diff:.2%})")
 
@@ -1909,7 +1912,7 @@ def process_raw_vault_scan_data(
     rows: dict[VaultSpec, VaultRow] | VaultDatabase,
     prices_df: pd.DataFrame,
     logger=print,
-    display: Callable = lambda x: None,
+    display: Callable = lambda _: None,
     diagnose_vault_id: str | None = None,
     *,
     denomination_families: Iterable[DenominationFamily] | None = None,
@@ -2106,7 +2109,7 @@ def check_missing_metadata(
 
     assert isinstance(price_ids, pd.Series)
 
-    unique_price_ids = sorted(list(price_ids.unique()))
+    unique_price_ids = sorted(price_ids.unique())
 
     vaults_by_id = get_vaults_by_id(rows)
 
@@ -2136,10 +2139,10 @@ def check_missing_metadata(
     return missing_ids
 
 
-def generate_cleaned_vault_datasets(
+def generate_cleaned_vault_datasets(  # noqa: PLR0917 - stable cleaner API used by scripts and notebooks
     vault_db_path=DEFAULT_VAULT_DATABASE,
     price_df_path=DEFAULT_UNCLEANED_PRICE_DATABASE,
-    cleaned_price_df_path=Path.home() / ".tradingstrategy" / "vaults" / "cleaned-vault-prices-1h.parquet",
+    cleaned_price_df_path=DEFAULT_RAW_PRICE_DATABASE,
     settlement_db_path: Path | None = None,
     logger=print,
     display=display,

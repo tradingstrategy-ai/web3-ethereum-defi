@@ -77,8 +77,8 @@ The relevant implementation is split across:
 
 The existing data-file exporter cannot be reused unchanged for the new bundle:
 it uploads every selected file to both primary and alternative buckets. The
-`crypto-vaults` bundle is private-only and needs a namespaced, manifest-last
-publication operation.
+`crypto-vaults` bundle is private-only and needs a separately named,
+manifest-last publication operation.
 
 ## Output contract
 
@@ -86,7 +86,7 @@ Store generated files locally under:
 
 ```text
 $PIPELINE_DATA_DIR/crypto-vaults/
-  cleaned-crypto-vault-prices-1d.parquet
+  crypto-cleaned-vault-prices-1d.parquet
   crypto-vault-metadata.json
   crypto-vault-metadata.json.br
   crypto-vault-manifest.json
@@ -99,20 +99,21 @@ alternative/private data bucket using the same flat overwrite-in-place practice
 as the current exports:
 
 ```text
-crypto-vaults/cleaned-vault-prices-1d.parquet
-crypto-vaults/vault-metadata.json
-crypto-vaults/vault-metadata.json.br
-crypto-vaults/vault-export-state.json
-crypto-vaults/manifest.json
+crypto-cleaned-vault-prices-1d.parquet
+crypto-vault-metadata.json
+crypto-vault-metadata.json.br
+crypto-vault-export-state.json
+crypto-vault-manifest.json
 ```
 
-`UPLOAD_PREFIX=test-` must produce `test-crypto-vaults/...` so staging runs
+`UPLOAD_PREFIX=test-` must produce keys such as
+`test-crypto-cleaned-vault-prices-1d.parquet` so staging runs
 cannot overwrite production. Do not add any of these objects to the primary
 public data bucket, the primary top-vaults bucket, the current sample export or
 the existing flat object list returned by `get_data_file_paths()`.
 
 The current vault exports do not use generation IDs. Do not introduce them for
-this bundle. Use `manifest.json` as the current bundle checksum and provenance
+this bundle. Use `crypto-vault-manifest.json` as the current bundle checksum and provenance
 document and upload it last. It must contain:
 
 - bundle name and schema version;
@@ -398,7 +399,7 @@ Create a separate exporter module, for example
 
 The module should:
 
-1. read `cleaned-crypto-vault-prices-1d.parquet` and the common vault metadata
+1. read `crypto-cleaned-vault-prices-1d.parquet` and the common vault metadata
    pickle;
 2. cross-check every Parquet vault ID against metadata;
 3. select only the three allowed denomination families using the same shared
@@ -561,10 +562,10 @@ Publication rules:
 1. require `R2_ALTERNATIVE_VAULT_METADATA_BUCKET_NAME`, with startup validation
    errors contained and carried forward as a failed crypto publication step;
 2. upload only to that bucket;
-3. preserve `UPLOAD_PREFIX` in every key and use the flat `crypto-vaults/`
-   object keys from the output contract;
+3. preserve `UPLOAD_PREFIX` in every key and use the flat `crypto-` object
+   names from the output contract;
 4. upload Parquet, metadata JSON, Brotli metadata JSON and sticky state before
-   `manifest.json`;
+   `crypto-vault-manifest.json`;
 5. treat digest matches as successful unchanged uploads;
 6. publish the manifest last;
 7. after a complete successful publication, copy the committed manifest and
@@ -675,7 +676,7 @@ Extend `tests/erc_4626/test_post_processing.py`,
 2. each crypto failure gate skips stale downstream crypto publication;
 3. current stablecoin/public phases still run after an ordinary crypto failure;
 4. the existing public data-file list is unchanged;
-5. crypto keys go only to the alternative bucket under `crypto-vaults/`;
+5. crypto keys go only to the alternative bucket as flat `crypto-` names;
 6. `UPLOAD_PREFIX` is honoured;
 7. the manifest is uploaded last;
 8. no daily backup is made after a partial upload;
@@ -768,16 +769,17 @@ Roll out in four stages:
    publication.
 2. Generate and validate the local bundle from production copies; freeze the
    reviewed initial whitelist, USD guideline and fixed ETH/BTC rates.
-3. Publish from a staging deployment under `test-crypto-vaults/`, validate
+3. Publish from a staging deployment with `UPLOAD_PREFIX=test-`, validate
    consumer parsing and backup restoration, then remove only the staging prefix
    when authorised.
-4. Deploy the mandatory crypto phases to production under `crypto-vaults/`.
+4. Deploy the mandatory crypto phases to production with the flat root
+   `crypto-` keys.
    Consumers must require a valid manifest and supported schema version before
    reading payload files.
 
 Rollback is isolated and daily granularity is sufficient. Pause the looped
 scanner, deploy the previous scanner build and restore all flat
-`crypto-vaults/` objects together from the selected dated private R2 backup.
+`crypto-` objects together from the selected dated private R2 backup.
 Restore the matching local files from the same day's existing local backup when
 needed, including sticky state. Do not modify, delete or republish the existing
 stablecoin objects during crypto-bundle rollback. Retain the shared raw Parquet
@@ -794,8 +796,8 @@ and reader state unchanged.
   day, preserves denomination units and contains no unsupported denomination.
 - Lifetime metadata uses the daily series, has family-aware units, thresholds
   and sticky state, and carries matching provenance with the Parquet.
-- Only the alternative/private R2 bucket contains the `crypto-vaults/` live
-  namespace and dated backups.
+- Only the alternative/private R2 bucket contains the flat `crypto-` live
+  objects and their dated backups.
 - A partial upload cannot advance the manifest or create a backup advertised as
   complete; consumers reject flat payloads whose digests do not match the
   current manifest.

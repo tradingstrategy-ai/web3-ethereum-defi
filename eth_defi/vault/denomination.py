@@ -5,8 +5,6 @@ the vault database.  Contract addresses are reported by the audit command but
 are not an inclusion criterion, so the policy remains explicit and auditable.
 """
 
-from __future__ import annotations
-
 import hashlib
 from dataclasses import dataclass
 from decimal import Decimal
@@ -23,9 +21,16 @@ from eth_defi.stablecoin_metadata import is_stablecoin_like
 class DenominationFamily(str, Enum):
     """Supported denomination families for the crypto-vault bundle."""
 
+    #: USD-stablecoin denomination supported by the public bundle.
     stablecoin = "stablecoin"
+
+    #: ETH-like denomination selected through the reviewed symbol whitelist.
     eth = "eth"
+
+    #: BTC-like denomination selected through the reviewed symbol whitelist.
     btc = "btc"
+
+    #: Symbol outside the supported stablecoin/ETH/BTC policy.
     unsupported = "unsupported"
 
 
@@ -51,16 +56,6 @@ class DenominationWhitelistEntry:
     It deliberately does not contain addresses: classification must remain
     symbol based across chains and wrapper deployments.
 
-    :param symbol:
-        Uppercase, whitespace-normalised denomination symbol.
-    :param family:
-        ETH-like or BTC-like family.
-    :param canonical_underlying:
-        Canonical native asset used for fixed guideline conversions.
-    :param wrapper_kind:
-        Human-readable token wrapper category.
-    :param display_name:
-        Optional display label for metadata consumers.
     """
 
     #: Uppercase reviewed symbol.

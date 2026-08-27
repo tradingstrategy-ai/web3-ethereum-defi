@@ -141,6 +141,11 @@ broken smart contracts, missing names and so on.
   day and does not change the public stablecoin output. ETH/BTC selection is
   symbol-whitelist based; token contract addresses are reported by the audit
   command but do not decide membership.
+- The private vault JSON metadata preserves both the observed wrapper symbol
+  and its mapped native underlying (for example ``WBTC`` → ``BTC``). Its
+  existing ``stablecoinish`` boolean is true for records that reuse standard
+  stablecoin history, and false for ETH/BTC records cleaned in the private
+  crypto bundle.
 - Denormalise vault data to a single Parquet/Dataframe that can be handled without ``vault-db.pickle`` file,
   in any programming environment
 - We calculate 1h returns for each vault

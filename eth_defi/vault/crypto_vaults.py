@@ -5,8 +5,6 @@ state path.  It shares only the established metric calculations and JSON
 serialisation helpers so that public stablecoin exports remain unchanged.
 """
 
-from __future__ import annotations
-
 import json
 import logging
 import os
@@ -14,7 +12,7 @@ import tempfile
 from dataclasses import dataclass
 from decimal import Decimal
 from pathlib import Path
-from typing import Any
+from typing import Any, Self
 
 import pandas as pd
 import pyarrow as pa
@@ -42,6 +40,9 @@ from eth_defi.vault.vaultdb import VaultDatabase, VaultRow
 #: Stable schema version for the isolated metadata and sticky-state documents.
 CRYPTO_VAULTS_SCHEMA_VERSION = 1
 
+#: Private daily Parquet filename for the isolated crypto-vaults bundle.
+CRYPTO_CLEANED_PRICE_FILENAME = "crypto-cleaned-vault-prices-1d.parquet"
+
 logger = logging.getLogger(__name__)
 
 
@@ -49,26 +50,27 @@ logger = logging.getLogger(__name__)
 class CryptoVaultPaths:
     """Explicit local paths for one crypto-vaults build.
 
-    :param directory:
-        Bundle directory below the pipeline data directory.
-    :param cleaned_price_path:
-        Daily observation-preserving Parquet file.
-    :param metadata_path:
-        JSON metadata output.
-    :param sticky_state_path:
-        Private sticky qualification state.
-    :param manifest_path:
-        Current bundle manifest, created during R2 publication.
+    The isolated filenames prevent accidental collisions with the public vault
+    bundle in local state and backups.
     """
 
+    #: Bundle directory below the pipeline data directory.
     directory: Path
+
+    #: Daily observation-preserving Parquet file.
     cleaned_price_path: Path
+
+    #: JSON metadata output.
     metadata_path: Path
+
+    #: Private sticky qualification state.
     sticky_state_path: Path
+
+    #: Current bundle manifest, created during R2 publication.
     manifest_path: Path
 
     @classmethod
-    def from_directory(cls, directory: Path) -> CryptoVaultPaths:
+    def from_directory(cls, directory: Path) -> Self:
         """Construct all local bundle paths beneath one explicit directory.
 
         :param directory:
@@ -78,7 +80,7 @@ class CryptoVaultPaths:
         """
         return cls(
             directory=directory,
-            cleaned_price_path=directory / "cleaned-crypto-vault-prices-1d.parquet",
+            cleaned_price_path=directory / CRYPTO_CLEANED_PRICE_FILENAME,
             metadata_path=directory / "crypto-vault-metadata.json",
             sticky_state_path=directory / "crypto-vault-export-state.json",
             manifest_path=directory / "crypto-vault-manifest.json",
@@ -213,7 +215,7 @@ def _save_json_atomic(payload: dict[str, Any], path: Path) -> None:
         json.dump(payload, output, indent=2, ensure_ascii=False, allow_nan=False)
 
 
-def _vault_record_with_native_units(record: dict[str, Any], vault_row: VaultRow, threshold_usd: Decimal) -> tuple[dict[str, Any], Decimal]:
+def build_crypto_vault_record(record: dict[str, Any], vault_row: VaultRow, threshold_usd: Decimal) -> tuple[dict[str, Any], Decimal]:
     """Convert one common metric record to the crypto bundle schema.
 
     :param record:
@@ -233,8 +235,13 @@ def _vault_record_with_native_units(record: dict[str, Any], vault_row: VaultRow,
     token_data = vault_row.get("_denomination_token") or {}
     threshold = convert_usd_threshold_to_denomination(threshold_usd, symbol)
     result = dict(record)
+    mapped_underlying = "USD" if family is DenominationFamily.stablecoin else whitelist_entry.canonical_underlying
     result["denomination_family"] = family.value
-    result["canonical_underlying"] = "USD" if family is DenominationFamily.stablecoin else whitelist_entry.canonical_underlying
+    # ``canonical_underlying`` is the wrapper mapping, e.g. ``WBTC`` -> ``BTC``.
+    result["canonical_underlying"] = mapped_underlying
+    # ``stablecoinish`` is the existing source-history flag: true records reuse
+    # standard stablecoin history, while false ETH/BTC records use crypto history.
+    result["stablecoinish"] = family is DenominationFamily.stablecoin
     result["wrapper_kind"] = "stablecoin" if family is DenominationFamily.stablecoin else whitelist_entry.wrapper_kind
     result["denomination_token_symbol"] = normalise_denomination_symbol(symbol)
     result["denomination_token_address"] = token_data.get("address")
@@ -311,7 +318,7 @@ def build_crypto_vault_metadata(
     for _, metric_row in metrics_df.iterrows():
         vault_id = str(metric_row["id"])
         vault_row = vault_db.rows[VaultSpec.parse_string(vault_id, separator="-")]
-        record, resolved_threshold = _vault_record_with_native_units(export_lifetime_row(metric_row), vault_row, threshold_usd)
+        record, resolved_threshold = build_crypto_vault_record(export_lifetime_row(metric_row), vault_row, threshold_usd)
         current_ids.add(vault_id)
         peak_assets = record.get("peak_total_assets")
         qualifies = peak_assets is not None and float(peak_assets) >= float(resolved_threshold)

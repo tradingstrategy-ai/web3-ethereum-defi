@@ -59,7 +59,7 @@ def test_run_post_processing_contains_crypto_failures_and_keeps_public_skips(
     assert [name for name, _ in crypto_calls] == ["clean", "metadata", "export"]
     clean_kwargs = crypto_calls[0][1]
     assert isinstance(clean_kwargs, dict)
-    assert clean_kwargs["cleaned_path"] == tmp_path / "crypto-vaults" / "cleaned-crypto-vault-prices-1d.parquet"
+    assert clean_kwargs["cleaned_path"] == tmp_path / "crypto-vaults" / "crypto-cleaned-vault-prices-1d.parquet"
     assert steps["clean-crypto-vault-prices"] is True
     assert steps["calculate-crypto-vault-metadata"] is True
     assert steps["export-crypto-vault-bundle"] is False
@@ -156,7 +156,7 @@ def test_export_top_vaults_json_passes_pipeline_data_dir(
 
     monkeypatch.setattr(post_processing, "get_pipeline_data_dir", lambda: tmp_path)
     monkeypatch.setattr(post_processing.top_vaults_json, "main", fake_main)
-    monkeypatch.setattr(post_processing, "create_r2_client", lambda **kwargs: object())
+    monkeypatch.setattr(post_processing, "create_r2_client", lambda **_: object())
     monkeypatch.setattr(post_processing, "_upload_top_vaults_json_to_configured_buckets", fake_upload_top_vaults_json_to_configured_buckets)
     monkeypatch.setenv("R2_TOP_VAULTS_BUCKET_NAME", "top-vaults")
     monkeypatch.setenv("R2_TOP_VAULTS_ACCESS_KEY_ID", "access-key")
@@ -189,7 +189,8 @@ def test_upload_top_vaults_json_to_configured_buckets_continues_after_primary_fa
     def fake_upload_file_to_r2(*, bucket_name: str, **_: object) -> bool:
         upload_attempts.append(bucket_name)
         if bucket_name == "public-bucket":
-            raise RuntimeError("403 Forbidden")
+            message = "403 Forbidden"
+            raise RuntimeError(message)
         return True
 
     monkeypatch.setattr(post_processing, "upload_file_to_r2", fake_upload_file_to_r2)
@@ -238,7 +239,7 @@ def test_brotli_upload_params(
         brotli_calls.append(kwargs)
         return True
 
-    def fake_calculate_bytes_digest(payload: bytes):
+    def fake_calculate_bytes_digest(_payload: bytes):
         return "fake-digest"
 
     monkeypatch.setattr(post_processing, "upload_file_to_r2", fake_upload_file_to_r2)
@@ -294,10 +295,11 @@ def test_brotli_failure_returns_false(
         raw_calls.append(kwargs)
         return True
 
-    def fake_upload_bytes_to_r2(**kwargs) -> bool:
-        raise RuntimeError("Simulated brotli upload failure")
+    def fake_upload_bytes_to_r2(**_: object) -> bool:
+        message = "Simulated brotli upload failure"
+        raise RuntimeError(message)
 
-    def fake_calculate_bytes_digest(payload: bytes):
+    def fake_calculate_bytes_digest(_payload: bytes):
         return "fake-digest"
 
     monkeypatch.setattr(post_processing, "upload_file_to_r2", fake_upload_file_to_r2)
