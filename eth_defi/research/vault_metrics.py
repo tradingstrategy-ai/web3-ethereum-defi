@@ -32,7 +32,7 @@ from eth_defi.erc_4626.core import ERC4262VaultDetection
 from eth_defi.erc_4626.vault_protocol.morpho.flag_analytics import MorphoFlagAnalytics, analyze_morpho_flags
 from eth_defi.feed.stablecoin_rate import DenominationTokenRate, StablecoinRateFeeder
 from eth_defi.perp_dex.export import build_perp_dex_other_data
-from eth_defi.research.value_table import format_grouped_series_as_multi_column_grid, format_series_as_multi_column_grid
+from eth_defi.research.value_table import format_grouped_series_as_multi_column_grid
 from eth_defi.research.wrangle_vault_prices import forward_fill_vault
 from eth_defi.token import is_stablecoin_like, normalise_token_symbol
 from eth_defi.vault.base import VaultSpec, WithdrawalPeriod
@@ -1837,7 +1837,6 @@ def calculate_vault_record(
     source_denomination = _unnullify(vault_metadata.get("_source_denomination"), denomination)
     share_token = _unnullify(vault_metadata.get("Share token"), "<broken>")
     normalised_denomination = normalise_token_symbol(denomination)
-    denomination_slug = normalised_denomination.lower()
 
     max_nav = prices_df["total_assets"].max()
     current_nav = prices_df["total_assets"].iloc[-1]
@@ -2213,6 +2212,10 @@ def calculate_vault_record(
 
     if stablecoin_rate_feeder is None:
         stablecoin_rate_feeder = StablecoinRateFeeder()
+
+    denomination_slug = stablecoin_rate_feeder.get_denomination_token_slug(denomination_token_address)
+    if denomination_slug is None:
+        denomination_slug = normalised_denomination.lower()
 
     denomination_token_rate = stablecoin_rate_feeder.get_denomination_token_rate_section(
         chain_id=chain_id,

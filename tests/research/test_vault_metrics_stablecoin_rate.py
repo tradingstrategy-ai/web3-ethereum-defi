@@ -11,6 +11,7 @@ import pytest
 from eth_defi.erc_4626.core import ERC4262VaultDetection
 from eth_defi.feed.stablecoin_rate import StablecoinRateFeeder, iter_stablecoin_rate_targets, refresh_stablecoin_rates
 from eth_defi.research.vault_metrics import calculate_lifetime_metrics, export_lifetime_row
+from eth_defi.stablecoin_metadata import STABLECOINS_DATA_DIR
 from eth_defi.vault.base import VaultSpec
 from eth_defi.vault.fee import FeeData, VaultFeeMode
 from eth_defi.vault.flag import VaultFlag
@@ -20,6 +21,7 @@ VAULT_ADDRESS = "0x2222222222222222222222222222222222222222"
 USDC_ADDRESS = "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48"
 USDX_ADDRESS = "0x1111111111111111111111111111111111111111"
 EURE_ADDRESS = "0x3333333333333333333333333333333333333333"
+AXIS_USDX_PLASMA_ADDRESS = "0xA1FA77779e6866fa3eF48FC0720657E042158387"
 
 
 def _write_depegged_usdx_yaml(data_dir: Path) -> None:
@@ -175,9 +177,9 @@ def _calculate_bad_stablecoin_vault_metrics(
     token_symbol: str = "USDX",
     token_address: str | None = USDX_ADDRESS,
     token_decimals: int | None = 6,
+    chain_id: int = 1,
 ) -> pd.DataFrame:
     """Calculate lifetime metrics for a vault that uses a bad stablecoin denomination."""
-    chain_id = 1
     vault_id = f"{chain_id}-{VAULT_ADDRESS}"
     spec = VaultSpec(chain_id=chain_id, vault_address=VAULT_ADDRESS)
     detection = ERC4262VaultDetection(
@@ -302,6 +304,20 @@ def _assert_bad_stablecoin_vault_blacklisted(
     }
     assert exported["denomination_token_rate"] == expected_exported_rate
     assert "depegged_denomination_token" in exported["flags"]
+
+
+def test_calculate_lifetime_metrics_uses_axis_usdx_address_slug() -> None:
+    """Keep Axis USDx separate from the legacy Kava USDX ticker category."""
+    metrics = _calculate_bad_stablecoin_vault_metrics(
+        STABLECOINS_DATA_DIR,
+        token_symbol="USDx",
+        token_address=AXIS_USDX_PLASMA_ADDRESS,
+        chain_id=9745,
+    )
+
+    row = metrics.iloc[0]
+    assert row["denomination_slug"] == "usdx-axis"
+    assert row["risk"] != VaultTechnicalRisk.blacklisted
 
 
 @pytest.mark.parametrize(
