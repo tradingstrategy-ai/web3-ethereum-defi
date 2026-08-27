@@ -525,25 +525,25 @@ class SpikoVault(TokenisedFundVault):
         return self.product.management_fee
 
     def get_performance_fee(self, block_identifier: BlockIdentifier) -> Percent | None:
-        """Return no separately published performance fee.
+        """Return Spiko's zero performance fee.
 
         :param block_identifier:
             Accepted for shared fee API compatibility.
         :return:
-            ``None``.
+            Zero, as Spiko states only a management fee for reviewed products.
         """
 
         _ = block_identifier
-        return None
+        return 0.0
 
     def get_fee_data(self) -> FeeData:
         """Return published Spiko fee metadata.
 
         :return:
-            Management fee with no inferred dealing fees.
+            Stated management fee and zeroes for the other standard fee types.
         """
 
-        return FeeData(fee_mode=VaultFeeMode.internalised_skimming, management=self.product.management_fee, performance=None, deposit=None, withdraw=None)
+        return FeeData(fee_mode=VaultFeeMode.internalised_skimming, management=self.product.management_fee, performance=0.0, deposit=0.0, withdraw=0.0)
 
     def get_link(self, referral: str | None = None) -> str:
         """Return the official Spiko product page.
