@@ -32,6 +32,69 @@ def test_clean_prices_uses_structured_logger(
     assert any(record.name == post_processing.__name__ and record.message == "Wrangler progress" for record in caplog.records)
 
 
+def test_run_post_processing_contains_crypto_failures_and_keeps_public_skips(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Crypto processing is always attempted but remains isolated from public work."""
+    crypto_calls: list[tuple[str, object]] = []
+
+    monkeypatch.setattr(post_processing, "merge_native_protocols", lambda **_: {})
+    monkeypatch.setattr(post_processing, "clean_crypto_vault_prices", lambda **kwargs: crypto_calls.append(("clean", kwargs)) or True)
+    monkeypatch.setattr(post_processing, "calculate_crypto_vault_metadata", lambda **kwargs: crypto_calls.append(("metadata", kwargs)) or {"vaults": []})
+    monkeypatch.setattr(post_processing, "export_crypto_vault_bundle", lambda paths, metadata: crypto_calls.append(("export", (paths, metadata))) or False)
+
+    steps = post_processing.run_post_processing(
+        skip_cleaning=True,
+        skip_top_vaults=True,
+        skip_sparklines=True,
+        skip_metadata=True,
+        skip_data=True,
+        skip_samples=True,
+        vault_db_path=tmp_path / "vault-metadata-db.pickle",
+        uncleaned_parquet_path=tmp_path / "vault-prices-1h.parquet",
+        crypto_vaults_dir=tmp_path / "crypto-vaults",
+    )
+
+    assert [name for name, _ in crypto_calls] == ["clean", "metadata", "export"]
+    clean_kwargs = crypto_calls[0][1]
+    assert isinstance(clean_kwargs, dict)
+    assert clean_kwargs["cleaned_path"] == tmp_path / "crypto-vaults" / "crypto-cleaned-vault-prices-1d.parquet"
+    assert steps["clean-crypto-vault-prices"] is True
+    assert steps["calculate-crypto-vault-metadata"] is True
+    assert steps["export-crypto-vault-bundle"] is False
+
+
+def test_run_post_processing_does_not_publish_crypto_bundle_after_cleaning_failure(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Crypto preparation remains isolated but cannot publish stale stablecoin rows."""
+    crypto_calls: list[str] = []
+
+    monkeypatch.setattr(post_processing, "merge_native_protocols", lambda **_: {})
+    monkeypatch.setattr(post_processing, "clean_prices", lambda **_: False)
+    monkeypatch.setattr(post_processing, "clean_crypto_vault_prices", lambda **_: crypto_calls.append("clean") or True)
+    monkeypatch.setattr(post_processing, "calculate_crypto_vault_metadata", lambda **_: crypto_calls.append("metadata") or {"vaults": []})
+    monkeypatch.setattr(post_processing, "export_crypto_vault_bundle", lambda *_: crypto_calls.append("export") or True)
+
+    steps = post_processing.run_post_processing(
+        skip_top_vaults=True,
+        skip_sparklines=True,
+        skip_metadata=True,
+        skip_data=True,
+        skip_samples=True,
+        vault_db_path=tmp_path / "vault-metadata-db.pickle",
+        uncleaned_parquet_path=tmp_path / "vault-prices-1h.parquet",
+        crypto_vaults_dir=tmp_path / "crypto-vaults",
+    )
+
+    assert crypto_calls == ["clean"]
+    assert steps["clean-crypto-vault-prices"] is True
+    assert steps["calculate-crypto-vault-metadata"] is False
+    assert steps["export-crypto-vault-bundle"] is False
+
+
 def test_export_data_files_logs_retryable_r2_failure_as_warning_without_traceback(
     monkeypatch: pytest.MonkeyPatch,
     caplog: pytest.LogCaptureFixture,
@@ -93,7 +156,7 @@ def test_export_top_vaults_json_passes_pipeline_data_dir(
 
     monkeypatch.setattr(post_processing, "get_pipeline_data_dir", lambda: tmp_path)
     monkeypatch.setattr(post_processing.top_vaults_json, "main", fake_main)
-    monkeypatch.setattr(post_processing, "create_r2_client", lambda **kwargs: object())
+    monkeypatch.setattr(post_processing, "create_r2_client", lambda **_: object())
     monkeypatch.setattr(post_processing, "_upload_top_vaults_json_to_configured_buckets", fake_upload_top_vaults_json_to_configured_buckets)
     monkeypatch.setenv("R2_TOP_VAULTS_BUCKET_NAME", "top-vaults")
     monkeypatch.setenv("R2_TOP_VAULTS_ACCESS_KEY_ID", "access-key")
@@ -126,7 +189,8 @@ def test_upload_top_vaults_json_to_configured_buckets_continues_after_primary_fa
     def fake_upload_file_to_r2(*, bucket_name: str, **_: object) -> bool:
         upload_attempts.append(bucket_name)
         if bucket_name == "public-bucket":
-            raise RuntimeError("403 Forbidden")
+            message = "403 Forbidden"
+            raise RuntimeError(message)
         return True
 
     monkeypatch.setattr(post_processing, "upload_file_to_r2", fake_upload_file_to_r2)
@@ -175,7 +239,7 @@ def test_brotli_upload_params(
         brotli_calls.append(kwargs)
         return True
 
-    def fake_calculate_bytes_digest(payload: bytes):
+    def fake_calculate_bytes_digest(_payload: bytes):
         return "fake-digest"
 
     monkeypatch.setattr(post_processing, "upload_file_to_r2", fake_upload_file_to_r2)
@@ -231,10 +295,11 @@ def test_brotli_failure_returns_false(
         raw_calls.append(kwargs)
         return True
 
-    def fake_upload_bytes_to_r2(**kwargs) -> bool:
-        raise RuntimeError("Simulated brotli upload failure")
+    def fake_upload_bytes_to_r2(**_: object) -> bool:
+        message = "Simulated brotli upload failure"
+        raise RuntimeError(message)
 
-    def fake_calculate_bytes_digest(payload: bytes):
+    def fake_calculate_bytes_digest(_payload: bytes):
         return "fake-digest"
 
     monkeypatch.setattr(post_processing, "upload_file_to_r2", fake_upload_file_to_r2)

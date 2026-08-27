@@ -48,9 +48,6 @@ from eth_defi.core3.constants import resolve_core3_database_path
 from eth_defi.core3.mappings import CORE3_MAPPINGS
 from eth_defi.core3.scanner import scan_projects as core3_scan_projects
 from eth_defi.core3.session import create_core3_session
-from eth_defi.xerberus.constants import resolve_xerberus_api_email, resolve_xerberus_database_path
-from eth_defi.xerberus.scanner import scan_xerberus as xerberus_scan
-from eth_defi.xerberus.session import create_xerberus_session
 from eth_defi.currency_api.constants import (
     CURRENCY_API_DATABASE,
     DEFAULT_BASE_CURRENCY,
@@ -112,6 +109,7 @@ from eth_defi.tokenised_fund.scan import (
 )
 from eth_defi.utils import setup_console_logging, wait_other_writers
 from eth_defi.vault.base import VaultSpec
+from eth_defi.vault.crypto_vaults import CRYPTO_VAULTS_BUNDLE_NAME, resolve_crypto_vault_paths
 from eth_defi.vault.historical import scan_historical_prices_to_parquet
 from eth_defi.vault.post_processing import run_post_processing, validate_top_vaults_config
 from eth_defi.vault.settlement_data import (
@@ -121,6 +119,9 @@ from eth_defi.vault.settlement_data import (
 )
 from eth_defi.vault.vaultdb import DEFAULT_READER_STATE_DATABASE, DEFAULT_UNCLEANED_PRICE_DATABASE, DEFAULT_VAULT_DATABASE, VaultDatabase, get_pipeline_data_dir
 from eth_defi.version_info import VersionInfo
+from eth_defi.xerberus.constants import resolve_xerberus_api_email, resolve_xerberus_database_path
+from eth_defi.xerberus.scanner import scan_xerberus as xerberus_scan
+from eth_defi.xerberus.session import create_xerberus_session
 
 #: How many days of backups to keep
 BACKUP_RETENTION_DAYS = int(os.environ.get("BACKUP_RETENTION_DAYS", "7"))
@@ -2860,6 +2861,7 @@ def run_scan_tick(
             settlement_db_path=settlement_db_path,
             core3_db_path=core3_db_path,
             feed_db_path=feed_db_path,
+            crypto_vaults_dir=vault_db_path.parent / CRYPTO_VAULTS_BUNDLE_NAME,
         )
         for step, success in post_results.items():
             logger.info("Post-processing %s: %s", step, "SUCCESS" if success else "FAILED")
@@ -3039,6 +3041,7 @@ def main():
     # export reads the same database the feed collector writes.
     feed_db_path = resolve_feed_database_path()
 
+    crypto_paths = resolve_crypto_vault_paths(data_dir)
     bkp_files = [
         uncleaned_price_path,
         reader_state_path,
@@ -3054,6 +3057,11 @@ def main():
         core3_db_path,
         xerberus_db_path,
         currency_api_db_path,
+        crypto_paths.cleaned_price_path,
+        crypto_paths.metadata_path,
+        crypto_paths.compressed_metadata_path,
+        crypto_paths.manifest_path,
+        crypto_paths.sticky_state_path,
     ]
 
     # Test mode - filter chains if TEST_CHAINS is set
