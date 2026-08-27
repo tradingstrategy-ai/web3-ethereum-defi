@@ -808,6 +808,30 @@ return a retryable rate-limit response. Use
 the available provider quota supports higher values. Generic `HYPERSYNC_RPM`
 and `HYPERSYNC_CONCURRENCY` take precedence.
 
+#### Flying Tulip description migration
+
+`migrate-flying-tulip-descriptions.py` is a later, copy-only repair separate
+from the original adapter metadata migration because it has materially
+different operational requirements: it needs no RPC provider and must not
+rebuild complete scanner rows. Its fixed scope is the reviewed Ethereum, BNB
+Chain and Sonic sftUSD addresses. It updates only `_short_description`,
+`_notes` and `_protocol_notes` in `vault-metadata-db.pickle`. Protocol metadata
+YAML is published separately by the normal metadata exporter.
+
+The script defaults to a non-mutating dry run and requires all three reviewed
+rows to exist with the Flying Tulip protocol classification. Persistent mode
+takes the shared `scan-pipeline` writer lock and atomically replaces the
+metadata pickle. It does not read or write price Parquet, reader state, lead
+state, timestamp caches or historical-context DuckDB files.
+
+```shell
+# Expected: three reviewed rows and up to nine changed fields; no files changed.
+DRY_RUN=true poetry run python scripts/erc-4626/migrate-flying-tulip-descriptions.py
+
+# Apply after inspecting the dry-run table.
+DRY_RUN=false poetry run python scripts/erc-4626/migrate-flying-tulip-descriptions.py
+```
+
 #### Lead discovery cache
 
 Each EVM chain stores its successful lead and metadata refresh status in

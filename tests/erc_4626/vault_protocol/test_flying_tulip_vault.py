@@ -42,8 +42,10 @@ def test_flying_tulip_official_proxies_are_chain_aware_and_route_to_adapter() ->
         assert fee_data.internalised is False
         assert fee_data.get_net_fees().deposit == FLYING_TULIP_USDC_MINT_REDEEM_FEE_BY_CHAIN[chain_id]
         assert fee_data.get_net_fees().withdraw == FLYING_TULIP_USDC_MINT_REDEEM_FEE_BY_CHAIN[chain_id]
-        assert "USDC" in vault.get_notes()
-        assert "[verified Ethereum MintAndRedeem contract]" in vault.get_notes()
+        assert "Performance assumes entry and exit fees USDC -> ftUSD -> sftUSD." in vault.get_notes()
+        assert "[Ethereum FT/ftUSD Curve pool]" in vault.get_notes()
+        assert "divided by the average amount staked during the period" in vault.get_notes()
+        assert "Withdrawals may be subject to a variable exit delay or cooldown" in vault.get_notes()
         assert vault.get_historical_reader(stateful=True).uses_contextual_history
         assert vault.get_historical_reader(stateful=True).uses_share_price_equivalence
 
@@ -82,8 +84,9 @@ def test_flying_tulip_public_metadata_risk_and_fee_classification() -> None:
     assert metadata["name"] == "Flying Tulip"
     assert metadata["slug"] == "flying-tulip"
     assert metadata["logos"]["light"] == "https://example.invalid/vault-protocol-metadata/flying-tulip/light.png"
-    assert "variable" in metadata["short_description"]
-    assert "stablecoin-peg" in metadata["long_description"]
+    assert metadata["short_description"] == "Flying Tulip uses lending, staking and market-neutral strategies to generate yield and FT rewards for sftUSD holders."
+    assert "founded by [Andre Cronje]" in metadata["long_description"]
+    assert "$200 million private round" in metadata["long_description"]
     assert "0.07%" in metadata["fee_description"]
     assert "[verified MintAndRedeem contract]" in metadata["fee_description"]
     assert get_vault_risk("Flying Tulip") == VaultTechnicalRisk.severe
