@@ -1134,14 +1134,10 @@ def run_post_processing(
 ) -> dict[str, bool]:
     """Run full post-processing pipeline after chain scans complete.
 
-    Steps:
-    1. Merge native protocol data into uncleaned parquet
-    2. Clean prices
-    3. Export top vaults JSON to R2
-    4. Export sparklines to R2
-    5. Export protocol metadata to R2
-    6. Export data files (parquet, pickle) to R2
-    7. Export Ethereum-only sample files to R2 (public bucket only)
+    The pipeline merges native data, cleans the public and private price files,
+    calculates both metadata exports, runs the established public exports, and
+    finally publishes the private crypto bundle. Crypto failures are recorded
+    without preventing later public phases from running.
 
     :param scan_hypercore: Whether to merge Hypercore data
     :param scan_grvt: Whether to merge GRVT data
@@ -1171,7 +1167,7 @@ def run_post_processing(
     """
     steps = {}
 
-    # Step 1: Merge native protocols
+    # Merge native protocols.
     merge_results = merge_native_protocols(
         merge_hypercore=scan_hypercore,
         merge_grvt=scan_grvt,
@@ -1188,7 +1184,7 @@ def run_post_processing(
     )
     steps.update(merge_results)
 
-    # Step 2: Clean prices
+    # Clean the existing public stablecoin price file.
     if skip_cleaning:
         logger.info("Skipping price cleaning (SKIP_CLEANING=true)")
     else:
@@ -1208,17 +1204,20 @@ def run_post_processing(
 
     # Crypto price cleaning deliberately has its own contained failure boundary.
     # It runs before public exports but cannot prevent them from completing.
-    crypto_paths = CryptoVaultPaths.from_directory(crypto_vaults_dir) if crypto_vaults_dir else resolve_crypto_vault_paths(get_pipeline_data_dir())
+    data_dir = get_pipeline_data_dir()
+    crypto_paths = resolve_crypto_vault_paths(data_dir, crypto_vaults_dir)
+    resolved_vault_db_path = vault_db_path or data_dir / "vault-metadata-db.pickle"
     crypto_clean_ok = clean_crypto_vault_prices(
-        vault_db_path=vault_db_path or get_pipeline_data_dir() / "vault-metadata-db.pickle",
+        vault_db_path=resolved_vault_db_path,
         uncleaned_path=uncleaned_parquet_path or DEFAULT_UNCLEANED_PRICE_DATABASE,
         cleaned_path=crypto_paths.cleaned_price_path,
-        cleaned_stablecoin_path=cleaned_path or get_pipeline_data_dir() / "cleaned-vault-prices-1h.parquet",
+        cleaned_stablecoin_path=cleaned_path or data_dir / "cleaned-vault-prices-1h.parquet",
         settlement_db_path=settlement_db_path,
     )
     steps["clean-crypto-vault-prices"] = crypto_clean_ok
 
-    # Step 3: Export top vaults JSON (depends on cleaned parquet, must run before data-file upload)
+    # Export top vaults JSON. This depends on cleaned Parquet and must run before
+    # the public data-file upload.
     if skip_top_vaults:
         logger.info("Skipping top vaults export (SKIP_TOP_VAULTS=true)")
     elif not cleaning_ok:
@@ -1235,7 +1234,7 @@ def run_post_processing(
     crypto_metadata = None
     if crypto_clean_ok and cleaning_ok:
         crypto_metadata = calculate_crypto_vault_metadata(
-            vault_db_path=vault_db_path or get_pipeline_data_dir() / "vault-metadata-db.pickle",
+            vault_db_path=resolved_vault_db_path,
             paths=crypto_paths,
         )
         steps["calculate-crypto-vault-metadata"] = crypto_metadata is not None
@@ -1246,7 +1245,7 @@ def run_post_processing(
         logger.warning("Skipping crypto metadata and publication — clean-prices failed, refusing to publish stale stablecoin data")
         steps["calculate-crypto-vault-metadata"] = False
 
-    # Step 4: Export sparklines
+    # Export sparklines.
     if skip_sparklines:
         logger.info("Skipping sparkline export (SKIP_SPARKLINES=true)")
     elif not cleaning_ok:
@@ -1255,13 +1254,14 @@ def run_post_processing(
     else:
         steps["export-sparklines"] = export_sparklines()
 
-    # Step 5: Export protocol metadata (not derived from cleaned prices — always safe to run)
+    # Export protocol metadata. This is not derived from cleaned prices and is
+    # always safe to run.
     if skip_metadata:
         logger.info("Skipping metadata export (SKIP_METADATA=true)")
     else:
         steps["export-protocol-metadata"] = export_protocol_metadata()
 
-    # Step 6: Export data files
+    # Export public data files.
     if skip_data:
         logger.info("Skipping data file export (SKIP_DATA=true)")
     elif not cleaning_ok:
@@ -1270,7 +1270,7 @@ def run_post_processing(
     else:
         steps["export-data-files"] = export_data_files()
 
-    # Step 7: Export Ethereum-only sample files (public bucket only)
+    # Export Ethereum-only sample files to the public bucket.
     if skip_samples:
         logger.info("Skipping sample file export (SKIP_SAMPLES=true)")
     else:

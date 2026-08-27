@@ -12,7 +12,7 @@ import tempfile
 from dataclasses import dataclass
 from decimal import Decimal
 from pathlib import Path
-from typing import Any, Self
+from typing import Any
 
 import pandas as pd
 import pyarrow as pa
@@ -31,13 +31,15 @@ from eth_defi.vault.denomination import (
     classify_denomination,
     convert_usd_threshold_to_denomination,
     get_denomination_whitelist_digest,
-    get_denomination_whitelist_entry,
-    normalise_denomination_symbol,
+    get_denomination_wrapper_kind,
 )
 from eth_defi.vault.top_vaults_json import build_export_metadata, validate_strict_json_serialisable
 from eth_defi.vault.vaultdb import VaultDatabase, VaultRow
 
-#: Stable schema version for the isolated metadata and sticky-state documents.
+#: Bundle identifier stored in crypto metadata and manifest documents.
+CRYPTO_VAULTS_BUNDLE_NAME = "crypto-vaults"
+
+#: Stable schema version for crypto metadata, sticky state and manifests.
 CRYPTO_VAULTS_SCHEMA_VERSION = 1
 
 #: Private daily Parquet filename for the isolated crypto-vaults bundle.
@@ -46,12 +48,12 @@ CRYPTO_CLEANED_PRICE_FILENAME = "crypto-cleaned-vault-prices-1d.parquet"
 logger = logging.getLogger(__name__)
 
 
-@dataclass(slots=True)
+@dataclass(frozen=True, slots=True)
 class CryptoVaultPaths:
     """Explicit local paths for one crypto-vaults build.
 
-    The isolated filenames prevent accidental collisions with the public vault
-    bundle in local state and backups.
+    Instances are constructed by :func:`resolve_crypto_vault_paths`, which
+    derives every payload from one bundle directory.
     """
 
     #: Bundle directory below the pipeline data directory.
@@ -63,39 +65,36 @@ class CryptoVaultPaths:
     #: JSON metadata output.
     metadata_path: Path
 
+    #: Brotli-compressed JSON metadata output.
+    compressed_metadata_path: Path
+
     #: Private sticky qualification state.
     sticky_state_path: Path
 
     #: Current bundle manifest, created during R2 publication.
     manifest_path: Path
 
-    @classmethod
-    def from_directory(cls, directory: Path) -> Self:
-        """Construct all local bundle paths beneath one explicit directory.
 
-        :param directory:
-            Destination directory for the isolated bundle.
-        :return:
-            Paths with names that cannot collide in flattened local backups.
-        """
-        return cls(
-            directory=directory,
-            cleaned_price_path=directory / CRYPTO_CLEANED_PRICE_FILENAME,
-            metadata_path=directory / "crypto-vault-metadata.json",
-            sticky_state_path=directory / "crypto-vault-export-state.json",
-            manifest_path=directory / "crypto-vault-manifest.json",
-        )
-
-
-def resolve_crypto_vault_paths(data_dir: Path) -> CryptoVaultPaths:
+def resolve_crypto_vault_paths(data_dir: Path, directory: Path | None = None) -> CryptoVaultPaths:
     """Resolve crypto bundle paths under one pipeline data directory.
 
     :param data_dir:
         Root pipeline data directory.
+    :param directory:
+        Optional explicit crypto bundle directory.
     :return:
         Explicit bundle paths using backup-safe unique basenames.
     """
-    return CryptoVaultPaths.from_directory(data_dir / "crypto-vaults")
+    bundle_dir = directory if directory is not None else data_dir / CRYPTO_VAULTS_BUNDLE_NAME
+    metadata_path = bundle_dir / "crypto-vault-metadata.json"
+    return CryptoVaultPaths(
+        directory=bundle_dir,
+        cleaned_price_path=bundle_dir / CRYPTO_CLEANED_PRICE_FILENAME,
+        metadata_path=metadata_path,
+        compressed_metadata_path=metadata_path.with_suffix(".json.br"),
+        sticky_state_path=bundle_dir / "crypto-vault-export-state.json",
+        manifest_path=bundle_dir / "crypto-vault-manifest.json",
+    )
 
 
 def build_crypto_vault_prices(
@@ -132,11 +131,12 @@ def build_crypto_vault_prices(
     vault_db = VaultDatabase.read(vault_db_path)
     logger.info("Loading existing stablecoin prices %s", cleaned_stablecoin_path)
     stable_prices = pd.read_parquet(cleaned_stablecoin_path, dtype_backend="pyarrow")
+    # Reapply current metadata membership because the public cleaned file can
+    # retain historical IDs whose denomination was corrected after it was built.
     stable_prices = filter_vaults_by_denomination_families(
         vault_db.rows,
         stable_prices,
         {DenominationFamily.stablecoin},
-        add_denomination_family=True,
         logger=logger.info,
     )
     stable_prices = materialise_daily_crypto_prices(stable_prices)
@@ -168,16 +168,8 @@ def build_crypto_vault_prices(
     temporary_path = Path(temporary_path_text)
     try:
         table = pa.Table.from_pandas(combined)
-        metadata = dict(table.schema.metadata or {})
-        metadata.update(
-            {
-                b"crypto_vaults_bundle_schema_version": b"1",
-                b"crypto_vaults_whitelist_sha256": get_denomination_whitelist_digest().encode("ascii"),
-                b"crypto_vaults_fixed_usd_rates": json.dumps({"BTC": float(BTC_USD_GUIDELINE_RATE), "ETH": float(ETH_USD_GUIDELINE_RATE), "USD": 1}, sort_keys=True).encode("ascii"),
-            }
-        )
-        pq.write_table(table.replace_schema_metadata(metadata), temporary_path, compression="zstd")
-        verify_parquet_file(temporary_path, expected_rows=len(combined), required_columns=["id", "share_price", "timestamp", "denomination_family", "returns_1d"])
+        pq.write_table(table, temporary_path, compression="zstd")
+        verify_parquet_file(temporary_path, expected_rows=len(combined), required_columns=["id", "share_price", "timestamp", "returns_1h"])
         os.replace(temporary_path, cleaned_path)
     finally:
         temporary_path.unlink(missing_ok=True)
@@ -230,27 +222,27 @@ def build_crypto_vault_record(record: dict[str, Any], vault_row: VaultRow, thres
     symbol = vault_row["Denomination"]
     family = classify_denomination(symbol)
     assert family is not DenominationFamily.unsupported
-    whitelist_entry = get_denomination_whitelist_entry(symbol)
-    assert family is DenominationFamily.stablecoin or whitelist_entry is not None
+    wrapper_kind = get_denomination_wrapper_kind(symbol)
+    assert family is DenominationFamily.stablecoin or wrapper_kind is not None
     token_data = vault_row.get("_denomination_token") or {}
     threshold = convert_usd_threshold_to_denomination(threshold_usd, symbol)
     result = dict(record)
-    mapped_underlying = "USD" if family is DenominationFamily.stablecoin else whitelist_entry.canonical_underlying
+    # Reuse the established JSON fields for the observed token and asset unit;
+    # do not add crypto-only symbol, decimals or unit aliases.
+    result["denomination"] = symbol
+    result.setdefault("denomination_token_address", token_data.get("address"))
+    result.setdefault("denomination_decimals", token_data.get("decimals"))
+    mapped_underlying = "USD" if family is DenominationFamily.stablecoin else family.value.upper()
     result["denomination_family"] = family.value
     # ``canonical_underlying`` is the wrapper mapping, e.g. ``WBTC`` -> ``BTC``.
     result["canonical_underlying"] = mapped_underlying
     # ``stablecoinish`` is the existing source-history flag: true records reuse
     # standard stablecoin history, while false ETH/BTC records use crypto history.
     result["stablecoinish"] = family is DenominationFamily.stablecoin
-    result["wrapper_kind"] = "stablecoin" if family is DenominationFamily.stablecoin else whitelist_entry.wrapper_kind
-    result["denomination_token_symbol"] = normalise_denomination_symbol(symbol)
-    result["denomination_token_address"] = token_data.get("address")
-    result["denomination_token_decimals"] = token_data.get("decimals")
-    result["total_assets_unit"] = symbol
+    result["wrapper_kind"] = "stablecoin" if family is DenominationFamily.stablecoin else wrapper_kind
     result["current_total_assets"] = result.pop("current_nav", None)
     result["peak_total_assets"] = result.pop("peak_nav", None)
     result["qualification_threshold"] = float(threshold)
-    result["qualification_threshold_usd_guideline"] = float(threshold_usd)
     result.pop("denomination_token_rate", None)
     return result, threshold
 
@@ -303,7 +295,8 @@ def build_crypto_vault_metadata(
     :return:
         JSON-serialisable metadata document.
     """
-    threshold_usd = threshold_usd or Decimal(os.environ.get("CRYPTO_VAULTS_MIN_TVL_USD", "5000"))
+    if threshold_usd is None:
+        threshold_usd = Decimal(os.environ.get("CRYPTO_VAULTS_MIN_TVL_USD", "5000"))
     vault_db = VaultDatabase.read(vault_db_path)
     prices_df = pd.read_parquet(cleaned_price_path)
     if not isinstance(prices_df.index, pd.DatetimeIndex):
@@ -328,14 +321,14 @@ def build_crypto_vault_metadata(
             selected_records.append(record)
             state["vaults"][vault_id] = {
                 "denomination_family": record["denomination_family"],
-                "denomination_symbol": record["denomination_token_symbol"],
+                "denomination_symbol": record["denomination"],
                 "threshold": float(resolved_threshold),
                 "updated_at": native_datetime_utc_now().isoformat(),
             }
 
     state["vaults"] = {key: value for key, value in state["vaults"].items() if key in current_ids}
     metadata = {
-        "bundle": "crypto-vaults",
+        "bundle": CRYPTO_VAULTS_BUNDLE_NAME,
         "schema_version": CRYPTO_VAULTS_SCHEMA_VERSION,
         "generated_at": native_datetime_utc_now().isoformat(),
         "metadata": build_export_metadata(),

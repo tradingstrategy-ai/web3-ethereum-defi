@@ -28,7 +28,7 @@ from tabulate import tabulate
 
 from eth_defi.currency_api.constants import SOURCE_NAME
 from eth_defi.research.vault_metrics import MAX_VALID_NAV
-from eth_defi.vault.crypto_vaults import CryptoVaultPaths, resolve_crypto_vault_paths
+from eth_defi.vault.crypto_vaults import CRYPTO_VAULTS_BUNDLE_NAME, CryptoVaultPaths, resolve_crypto_vault_paths
 from eth_defi.vault.top_vaults_json import is_blacklisted_record
 from eth_defi.vault.vaultdb import get_pipeline_data_dir
 
@@ -53,7 +53,7 @@ def _format_tvl(vault: dict[str, Any]) -> str:
         Human-readable total assets with its denomination symbol.
     """
     total_assets = vault.get("current_total_assets")
-    unit = vault.get("total_assets_unit") or vault.get("denomination_token_symbol") or "unknown"
+    unit = vault.get("denomination") or "unknown"
     return "N/A" if total_assets is None else f"{float(total_assets):,.6g} {unit}"
 
 
@@ -114,7 +114,7 @@ def build_performance_table(metadata: dict[str, Any], usd_rates: dict[str, tuple
             {
                 "Vault name": vault.get("name") or vault.get("symbol") or vault["id"],
                 "Protocol": vault.get("protocol") or "Unknown",
-                "Denomination token": vault.get("denomination_token_symbol") or "Unknown",
+                "Denomination token": vault.get("denomination") or "Unknown",
                 "Lifetime CAGR": _get_lifetime_cagr(vault),
                 "TVL": _format_tvl(vault),
                 "Approx. TVL (USD)": float(vault.get("current_total_assets") or 0) * usd_rate,
@@ -137,7 +137,7 @@ def _validate_export(paths: CryptoVaultPaths, metadata: dict[str, Any]) -> None:
     :return:
         ``None``. Raises for incomplete or inconsistent local artefacts.
     """
-    if metadata.get("bundle") != "crypto-vaults":
+    if metadata.get("bundle") != CRYPTO_VAULTS_BUNDLE_NAME:
         raise ValueError(f"Unexpected crypto metadata bundle: {metadata.get('bundle')!r}")
     prices = pd.read_parquet(paths.cleaned_price_path, columns=["id"])
     price_ids = set(prices["id"].astype(str))
@@ -162,7 +162,8 @@ def main() -> None:
         ``None`` after printing the requested report.
     """
     data_dir = get_pipeline_data_dir()
-    paths = CryptoVaultPaths.from_directory(Path(os.environ["CRYPTO_VAULTS_DIRECTORY"]).expanduser()) if os.environ.get("CRYPTO_VAULTS_DIRECTORY") else resolve_crypto_vault_paths(data_dir)
+    crypto_directory = os.environ.get("CRYPTO_VAULTS_DIRECTORY")
+    paths = resolve_crypto_vault_paths(data_dir, Path(crypto_directory).expanduser() if crypto_directory else None)
     currency_db_path = Path(os.environ.get("CURRENCY_API_DB_PATH") or os.environ.get("CURRENCY_API_DATABASE_PATH") or data_dir / "exchange-rates.duckdb").expanduser()
     limit = int(os.environ.get("LIMIT", "0"))
     if limit < 0:

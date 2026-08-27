@@ -34,7 +34,6 @@ from tabulate import tabulate
 from eth_defi.utils import setup_console_logging
 from eth_defi.vault.crypto_vault_export import publish_crypto_vault_bundle
 from eth_defi.vault.crypto_vaults import (
-    CryptoVaultPaths,
     build_crypto_vault_metadata,
     build_crypto_vault_prices,
     resolve_crypto_vault_paths,
@@ -73,7 +72,8 @@ def main() -> None:
     vault_db_path = _resolve_path(os.environ.get("VAULT_DATABASE"), data_dir / "vault-metadata-db.pickle")
     uncleaned_path = _resolve_path(os.environ.get("UNCLEANED_PRICE_DATABASE"), data_dir / "vault-prices-1h.parquet")
     cleaned_stablecoin_path = _resolve_path(os.environ.get("CLEANED_STABLECOIN_PRICE_DATABASE"), data_dir / "cleaned-vault-prices-1h.parquet")
-    crypto_paths = CryptoVaultPaths.from_directory(Path(os.environ["CRYPTO_VAULTS_DIRECTORY"]).expanduser()) if os.environ.get("CRYPTO_VAULTS_DIRECTORY") else resolve_crypto_vault_paths(data_dir)
+    crypto_directory = os.environ.get("CRYPTO_VAULTS_DIRECTORY")
+    crypto_paths = resolve_crypto_vault_paths(data_dir, Path(crypto_directory).expanduser() if crypto_directory else None)
     settlement_db_path = _resolve_path(os.environ.get("SETTLEMENT_DATABASE"), get_default_vault_settlement_database_path())
 
     for path in (vault_db_path, uncleaned_path, cleaned_stablecoin_path):

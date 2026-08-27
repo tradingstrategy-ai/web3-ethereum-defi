@@ -43,8 +43,6 @@ from eth_defi.vault.denomination import (
     DenominationFamily,
     classify_denomination,
     convert_usd_threshold_to_denomination,
-    get_denomination_whitelist_entry,
-    normalise_denomination_symbol,
 )
 from eth_defi.vault.settlement_data import (
     merge_vault_settlements_into_cleaned_prices,
@@ -255,25 +253,6 @@ class CleanedVaultPriceRow(TypedDict, total=False):
     #:
     #: General — present for all protocols.
     returns_1h: float
-
-    #: Legacy name for a sparse observation-to-observation return.
-    #: Consecutive observations may be more than one calendar day apart.
-    returns_1d: float
-
-    #: Isolated crypto bundle denomination family: stablecoin, ETH-like or BTC-like.
-    denomination_family: str
-
-    #: Canonical underlying used for denomination-unit semantics: USD, ETH or BTC.
-    canonical_underlying: str
-
-    #: Observed denomination token contract address, when the source exposes one.
-    denomination_token_address: str | None
-
-    #: Observed denomination symbol retained for auditing and display.
-    denomination_token_symbol: str | None
-
-    #: Observed denomination token decimals, when the source exposes them.
-    denomination_token_decimals: int | None
 
     # -- Vault state pass-through columns (from VAULT_STATE_COLUMNS) --
 
@@ -649,11 +628,10 @@ def add_denormalised_vault_data(
 
 
 def filter_vaults_by_denomination_families(
-    rows: dict[HexAddress, VaultRow],
+    rows: Mapping[VaultSpec, VaultRow],
     prices_df: pd.DataFrame,
     denomination_families: Iterable[DenominationFamily],
     *,
-    add_denomination_family: bool = False,
     logger: Callable[[str], None] = print,
 ) -> pd.DataFrame:
     """Reduce vault price rows to selected denomination families.
@@ -668,9 +646,6 @@ def filter_vaults_by_denomination_families(
         Raw/enriched price rows containing the canonical ``id`` column.
     :param denomination_families:
         Families to retain.
-    :param add_denomination_family:
-        Add the selected family as a denormalised output column. The legacy
-        stablecoin pipeline leaves its schema untouched.
     :param logger:
         Log adapter.
     :return:
@@ -678,39 +653,15 @@ def filter_vaults_by_denomination_families(
     """
     families = frozenset(denomination_families)
     assert families, "At least one denomination family must be selected"
-    selected_vaults = [v for v in rows.values() if classify_denomination(v.get("Denomination")) in families]
-    allowed_vault_ids = {str(v["_detection_data"].chain) + "-" + v["_detection_data"].address for v in selected_vaults}
+    selected_specs = {spec for spec, vault in rows.items() if classify_denomination(vault.get("Denomination")) in families}
+    allowed_vault_ids = {spec.as_string_id() for spec in selected_specs}
     filtered = prices_df.loc[prices_df["id"].isin(allowed_vault_ids)].copy()
-    if add_denomination_family:
-        denomination_details = {}
-        for vault in selected_vaults:
-            vault_id = str(vault["_detection_data"].chain) + "-" + vault["_detection_data"].address
-            family = classify_denomination(vault.get("Denomination"))
-            whitelist_entry = get_denomination_whitelist_entry(vault.get("Denomination"))
-            assert family is DenominationFamily.stablecoin or whitelist_entry is not None
-            token_data = vault.get("_denomination_token") or {}
-            token_address = token_data.get("address")
-            denomination_details[vault_id] = {
-                "denomination_family": family.value,
-                "canonical_underlying": "USD" if family is DenominationFamily.stablecoin else whitelist_entry.canonical_underlying,
-                "denomination_token_address": token_address.lower() if isinstance(token_address, str) else None,
-                "denomination_token_symbol": normalise_denomination_symbol(vault.get("Denomination")),
-                "denomination_token_decimals": token_data.get("decimals"),
-            }
-        for column in (
-            "denomination_family",
-            "canonical_underlying",
-            "denomination_token_address",
-            "denomination_token_symbol",
-            "denomination_token_decimals",
-        ):
-            filtered[column] = filtered["id"].map(lambda vault_id, field=column: denomination_details[vault_id][field])
-    logger(f"Selected {len(selected_vaults):,} vaults and {len(filtered):,} price rows for denomination families {sorted(f.value for f in families)}")
+    logger(f"Selected {len(selected_specs):,} vaults and {len(filtered):,} price rows for denomination families {sorted(f.value for f in families)}")
     return filtered
 
 
 def filter_vaults_by_stablecoin(
-    rows: dict[HexAddress, VaultRow],
+    rows: Mapping[VaultSpec, VaultRow],
     prices_df: pd.DataFrame,
     logger: Callable[[str], None] = print,
 ) -> pd.DataFrame:
@@ -1968,7 +1919,6 @@ def process_raw_vault_scan_data(
         rows,
         prices_df,
         families,
-        add_denomination_family=families != {DenominationFamily.stablecoin},
         logger=logger,
     )
     if prices_df.empty:
@@ -2053,7 +2003,7 @@ def process_raw_vault_scan_data(
 
 
 def materialise_daily_crypto_prices(prices_df: pd.DataFrame) -> pd.DataFrame:
-    """Select one real end-of-day observation and sparse return per vault.
+    """Select one real end-of-day observation per vault.
 
     The exported parquet deliberately preserves only real observations.  Metric
     calculations subsequently build their own forward-filled daily view using
@@ -2063,8 +2013,8 @@ def materialise_daily_crypto_prices(prices_df: pd.DataFrame) -> pd.DataFrame:
         Cleaned selected-family price rows with timestamp/index, ``id`` and
         ``share_price`` columns.
     :return:
-        Chronologically sorted, observation-preserving daily price rows with
-        the legacy sparse ``returns_1d`` column.
+        Chronologically sorted, observation-preserving daily price rows using
+        the existing cleaned-price schema.
     """
     frame = prices_df.reset_index() if "timestamp" not in prices_df.columns else prices_df.copy()
     frame["timestamp"] = pd.to_datetime(frame["timestamp"])
@@ -2075,9 +2025,6 @@ def materialise_daily_crypto_prices(prices_df: pd.DataFrame) -> pd.DataFrame:
     frame = frame.sort_values(sort_columns, kind="stable")
     daily = frame.groupby(["id", "_utc_date"], sort=False, as_index=False).tail(1).copy()
     daily = daily.sort_values(["id", "timestamp"], kind="stable")
-    # Legacy name: sparse observations make this an observation-to-observation
-    # return, not necessarily a return across one calendar day.
-    daily["returns_1d"] = daily.groupby("id")["share_price"].pct_change(fill_method=None).fillna(0.0)
     daily.drop(columns=["_utc_date"], inplace=True)
     daily.set_index("timestamp", inplace=True)
     return daily
@@ -2258,18 +2205,6 @@ def generate_cleaned_vault_datasets(  # noqa: PLR0917 - stable cleaner API used 
                 "raw_share_price",
                 "returns_1h",
                 "timestamp",
-                *(
-                    (
-                        "denomination_family",
-                        "canonical_underlying",
-                        "denomination_token_address",
-                        "denomination_token_symbol",
-                        "denomination_token_decimals",
-                        "returns_1d",
-                    )
-                    if daily_materialisation
-                    else []
-                ),
             ],
         )
         os.replace(temp_path, str(cleaned_price_df_path))

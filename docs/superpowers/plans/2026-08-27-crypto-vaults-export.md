@@ -118,12 +118,12 @@ document and upload it last. It must contain:
 
 - bundle name and schema version;
 - `generated_at` and `metadata.version` build provenance;
-- the denomination-symbol whitelist schema/version or content digest;
-- flat object keys, file names, sizes, row counts and SHA-256 digests;
-- total vault and row counts by `stablecoin`, `eth` and `btc` family;
+- the denomination-symbol whitelist content digest;
+- flat payload filenames, sizes and SHA-256 digests;
+- total vault counts by `stablecoin`, `eth` and `btc` family and the total
+  Parquet row count;
 - minimum and maximum observation timestamps;
-- sparse daily-observation and forward-filled metric semantics; and
-- matching build provenance shared by the Parquet and JSON metadata.
+- sparse daily-observation and forward-filled metric semantics.
 
 If any payload upload before the manifest fails, leave the previous manifest
 unchanged, do not create daily backups for that run, and return a failed crypto
@@ -135,33 +135,17 @@ generation lifecycle.
 
 ### Cleaned Parquet schema
 
-The daily Parquet should retain the useful columns from
-`CleanedVaultPriceRow`, including protocol, fee, capacity, flow, settlement,
-utilisation and native-perp fields where present. Add explicit bundle columns:
-
-| Column | Meaning |
-|---|---|
-| `denomination_family` | `stablecoin`, `eth` or `btc` |
-| `canonical_underlying` | `USD`, `ETH` or `BTC` |
-| `denomination_token_address` | Exact lower-case token address, or null for a reviewed synthetic denomination |
-| `denomination_token_symbol` | Observed token symbol retained for display and auditing |
-| `returns_1d` | Legacy name for the sparse return between consecutive published observations, which may be more than one calendar day apart |
+The daily Parquet retains the existing `CleanedVaultPriceRow` schema, including
+protocol, fee, capacity, flow, settlement, utilisation and native-perp fields
+where present. Do not add denomination-family, wrapper or crypto-specific
+return columns. Store all new bundle metadata in `crypto-vault-metadata.json`.
 
 `share_price`, `total_assets`, `available_liquidity`, deposit/withdrawal values
 and related quantities remain in denomination-token units. Do not relabel ETH
-or BTC amounts as USD. Both `returns_1h` and `returns_1d` are legacy sparse
-observation-return names and must not be interpreted literally as fixed-cadence
-returns. New bundle metrics must calculate their regular daily series from
-`share_price` through `prepare_daily_share_price_series()`.
-
-Document the compatibility field with the repository's Sphinx-style line
-comments wherever it is declared, for example:
-
-```python
-#: Legacy name for a sparse observation-to-observation return.
-#: Consecutive observations may be more than one calendar day apart.
-returns_1d: float
-```
+or BTC amounts as USD. The existing `returns_1h` name remains a legacy sparse
+observation return and must not be interpreted literally as fixed cadence. New
+bundle metrics calculate their regular daily series from `share_price` through
+`prepare_daily_share_price_series()`.
 
 The initial bundle does not need historical USD conversion. The existing
 exchange-rate database can support a later, separately specified
@@ -181,9 +165,7 @@ Materialise at most one row per vault per occupied UTC date:
    exact timestamp tie with the greater block number and then stable source
    order;
 4. preserve the selected observation's original timestamp and block number;
-5. do not invent missing dates and do not forward-fill rows; and
-6. calculate the legacy sparse `returns_1d` field from consecutive selected
-   observations, with the first valid observation set to zero.
+5. do not invent missing dates, forward-fill rows or add derived columns.
 
 Preserving the source timestamp avoids labelling an end-of-day observation as
 midnight and accidentally introducing look-ahead behaviour. “One-day
@@ -208,7 +190,6 @@ are:
 
 ```text
 eth_defi/vault/denomination.py
-eth_defi/data/crypto_assets/denomination-symbols.yaml
 ```
 
 Use a string enum whose members and values are snake case:
@@ -234,21 +215,18 @@ the family from the vault name, protocol name, chain-native token or contract
 address. Address and decimals remain useful audit context but are not part of
 the inclusion decision.
 
-The whitelist data should contain:
-
-- separate `eth` and `btc` symbol lists;
-- exact normalised symbols, including bridge or wrapper variants where those
-  variants must remain distinct;
-- a display name and wrapper kind per symbol for metadata output;
-- canonical underlying (`ETH` or `BTC`); and
-- a short note and review date for non-obvious symbols.
+Keep the whitelist as one Python dictionary mapping each exact normalised
+symbol to its family and wrapper kind. Family determines the canonical
+underlying (`ETH` or `BTC`), so do not store a duplicate underlying value in
+the policy. Include bridge or wrapper variants as separate dictionary keys
+when those spellings must remain distinct.
 
 Normalisation must be deterministic and deliberately narrow: strip surrounding
 whitespace and uppercase the symbol. Do not automatically remove arbitrary
 prefixes or suffixes. Add bridge spellings such as `.E` explicitly when they
-are intended matches. Reject a symbol appearing in both family lists at load
-time. Also reject an ETH/BTC whitelist symbol already classified as a
-stablecoin, so precedence cannot hide a configuration conflict.
+are intended matches. Python dictionary keys make duplicate symbol entries
+impossible; tests must also ensure every entry has one family and does not
+conflict with established stablecoin classification.
 
 Make the whitelist deliberately broad. Include native representations, wrapped
 and bridged representations, liquid-staking tokens, liquid-restaking tokens,
@@ -325,12 +303,14 @@ Add `scripts/erc-4626/audit-crypto-vault-denominations.py`. It should read the
 configured vault metadata pickle and, when present, the shared raw price
 Parquet without network calls and output a tabulated report containing:
 
-- selected vault counts and current/peak denomination NAV by family and chain;
+- selected vault counts by family and chain, with per-vault native-unit NAV
+  retained separately because unlike wrapper-token units cannot be summed;
 - unique denomination tokens and vault counts;
 - exact stablecoin, ETH and BTC selections;
 - classified vaults with no valid raw price row and raw price vaults whose
   denomination is unsupported;
-- symbol-like ETH/BTC candidates missing from the maintained whitelist;
+- advisory symbol-like ETH/BTC candidates missing from the maintained
+  whitelist, acknowledging that substring matching has false positives;
 - whitelist symbols absent from the current vault database;
 - the chain/address/decimals observed for every whitelisted symbol, so symbol
   collisions and unexpected deployments are visible; and
@@ -339,16 +319,17 @@ Parquet without network calls and output a tabulated report containing:
 
 Expose `VAULT_DB`, `UNCLEANED_PRICE_DATABASE` and optional report-file paths
 through environment variables. The report must be read-only. Add a strict mode
-for CI/rollout validation that exits non-zero on whitelist conflicts, on a
-production denomination whose candidate symbol is not classified, or on a
-classified active vault without raw coverage. A missing history must be
+for CI/rollout validation that exits non-zero on whitelist conflicts or on a
+classified active vault without raw coverage. Candidate symbols remain advisory
+because names containing ETH or BTC can be LP, basket or unrelated protocol
+tokens. A missing history must be
 repaired through the existing address-scoped raw scanner and shared reader
 state, not a second crypto-bundle scanner. This makes “all wrapper tokens” an
 auditable, maintained symbol-whitelist claim.
 
 Run the audit against a copy of the production metadata pickle before merging
 the initial whitelist. Review every unique selected and candidate symbol, then
-record the accepted symbol in YAML.
+record the accepted symbol in the Python dictionary.
 
 ## Cleaning implementation
 
@@ -364,17 +345,14 @@ defaults:
    default it to stablecoin-only so every existing caller produces the same
    rows and schema.
 4. Add a separate daily materialisation helper which runs only for the new
-   bundle after common cleaning and writes the legacy sparse `returns_1d`
-   compatibility column.
-5. Parameterise required-column verification so the legacy output continues to
-   require `returns_1h`, while the crypto output additionally requires
-   denomination-family columns and `returns_1d`.
+   bundle after common cleaning and retains the existing cleaned-price schema.
+5. Keep required-column verification aligned with `CleanedVaultPriceRow` for
+   both outputs.
 6. Parameterise `clean_by_tvl()` to accept a per-vault or per-row absolute
    threshold derived by `convert_usd_threshold_to_denomination()`. Preserve its
    current scalar USD default for every legacy caller.
-7. Stamp denomination whitelist, fixed guideline rates and bundle schema
-   metadata into the new
-   Parquet alongside `metadata.version`.
+7. Stamp the denomination whitelist digest, fixed guideline rates and bundle
+   schema version into the JSON metadata only.
 8. Continue writing a temporary Parquet, verify row count, unique
    `(id, UTC date)` selection, schema, sorted order and readable footer, then
    atomically replace only the crypto destination.
@@ -406,8 +384,7 @@ The module should:
    classifier as cleaning;
 4. calculate regular daily returns and lifetime/period metrics from
    `share_price` using the existing forward-filled
-   `prepare_daily_share_price_series()` helper; never treat the legacy sparse
-   `returns_1d` column as fixed-cadence input;
+   `prepare_daily_share_price_series()` helper;
 5. reuse common risk, fees, curator, deposit/redemption, settlement, flow,
    Core3 and Xerberus enrichment where unit semantics remain valid;
 6. write its own sticky state at
@@ -438,10 +415,10 @@ The top-level `crypto-vault-metadata.json` should contain:
 Each vault record must explicitly contain:
 
 - vault, chain, protocol and curator identity;
-- denomination symbol, token address, decimals, family, wrapper kind and
-  canonical underlying;
+- the existing denomination, denomination-token address and denomination
+  decimals fields, plus family, wrapper kind and canonical underlying;
 - share-price source and observation range;
-- current and peak total assets with `total_assets_unit`;
+- current and peak total assets in the existing `denomination` unit;
 - returns, CAGR, volatility, Sharpe and drawdown metrics in denomination-token
   terms;
 - fees, risk, flags, strategy tags and technical/deposit metadata;
@@ -450,8 +427,8 @@ Each vault record must explicitly contain:
 
 Rename or qualify USD-specific labels in the new schema. In particular, do not
 describe native ETH/BTC `current_nav`, `peak_nav`, flow or liquidity values as
-USD. Prefer `current_total_assets`, `peak_total_assets`,
-`total_assets_unit`, and denomination-qualified flow fields. If common metric
+USD. Prefer `current_total_assets`, `peak_total_assets`, the existing
+`denomination` unit, and denomination-qualified flow fields. If common metric
 internals continue to use the historical `current_nav` variable name, convert
 only at the new serialisation boundary and document the internal legacy name.
 
@@ -464,8 +441,9 @@ guideline with a default of USD 5,000:
 CRYPTO_VAULTS_MIN_TVL_USD=5000
 ```
 
-Record the base USD guideline, fixed ETH/BTC rates and resolved family threshold
-in the manifest and each vault record. The conversion deliberately treats a
+Record the base USD guideline and fixed ETH/BTC rates once at bundle level, and
+the resolved denomination-unit threshold in each vault record. The conversion
+deliberately treats a
 whitelisted wrapper as its canonical ETH or BTC underlying and is approximate;
 it does not make TVL rankings across wrappers a live USD valuation. Do not use
 live USD or wrapper exchange rates to change membership from run to run.
@@ -501,8 +479,8 @@ The complete relevant order should be:
 3. build the isolated crypto-vault daily cleaned Parquet inside its guarded
    phase;
 4. run the existing stablecoin top-vault JSON export;
-5. calculate the isolated crypto-vault lifetime metadata and manifest inside
-   its guarded phase;
+5. calculate the isolated crypto-vault lifetime metadata inside its guarded
+   phase;
 6. run existing sparkline, protocol metadata, data-file and sample exports;
 7. upload the complete crypto bundle to private R2; and
 8. create private R2 daily backups only after all bundle uploads and the
@@ -511,7 +489,7 @@ The complete relevant order should be:
 The crypto phases need their own failure gate:
 
 - crypto cleaning failure skips crypto metadata and crypto upload;
-- crypto metadata/manifest failure skips crypto upload;
+- crypto metadata failure skips crypto upload;
 - crypto failure does not publish stale crypto files and does not block the
   existing stablecoin/public exports;
 - existing stablecoin cleaning failure keeps its current downstream gates;
@@ -524,21 +502,17 @@ The three crypto-vault phases are a mandatory part of post-processing with no
 separate escape hatch. Follow the existing guarded-phase examples in
 `scan-vaults-all-chains.py` and `post_processing.py`: helpers may raise normally,
 but their orchestration wrapper catches `Exception`, logs it with
-`logger.exception()`, marks the step false and continues the scanner. Validate
-the alternative bucket configuration and credentials at scanner startup inside
-the same kind of guarded boundary. Record a failed validation for later crypto
-publication, but continue the scan and all existing public exports. Reuse the
-existing R2 endpoint/access credentials and
+`logger.exception()`, marks the step false and continues the scanner. Resolve
+and validate alternative-bucket configuration during the guarded publication
+phase, so missing credentials fail only that crypto step after local artefacts
+have been built. Reuse the existing R2 endpoint/access credentials and
 `R2_ALTERNATIVE_VAULT_METADATA_BUCKET_NAME`; do not add a second secret set.
 
-Pass the following explicit paths from `scan_all_chains.py` into post-processing:
+Pass the crypto bundle directory from `scan_all_chains.py` into post-processing
+and derive its files with the shared path resolver:
 
 ```text
 crypto_vaults_dir
-crypto_cleaned_price_path
-crypto_metadata_path
-crypto_manifest_path
-crypto_sticky_state_path
 ```
 
 Do not make helpers rediscover these paths through global defaults during
@@ -610,8 +584,8 @@ Add focused tests for:
 4. WBNB, WAVAX, WHYPE and WMON remaining unsupported unless explicitly added
    to an allowed family whitelist;
 5. stablecoin membership matching `is_stablecoin_like()` exactly;
-6. a symbol listed in both ETH and BTC, or in crypto and stablecoin lists,
-   failing at load time;
+6. every dictionary entry having one family and no entry conflicting with
+   stablecoin classification;
 7. bridge suffixes matching only when explicitly whitelisted; and
 8. observed chain/address/decimal collisions being surfaced by the audit
    without changing symbol-based classification;
@@ -634,8 +608,7 @@ module covering:
 4. multiple observations on one UTC date select one deterministic last row;
 5. missing dates do not create rows;
 6. selected rows preserve original timestamps and block numbers;
-7. the legacy sparse `returns_1d` field is isolated per vault and starts from
-   zero;
+7. the crypto Parquet has exactly the established cleaned-price columns;
 8. denomination-valued columns retain native units;
 9. crypto output verification failure preserves the old destination; and
 10. a raw Parquet read/migration failure is raised rather than treated as an
@@ -661,10 +634,9 @@ Add tests for:
 5. sticky state isolation from the existing `vault-export-state.json`;
 6. a changed or conflicting denomination family suppressing stale replay;
 7. protocol/curator/risk enrichment being restricted to exported vaults;
-8. JSON and Parquet sharing build provenance;
-9. metadata JSON being atomically written before sticky state, matching the
+8. metadata JSON being atomically written before sticky state, matching the
    existing exporter; and
-10. corrupt crypto sticky state aborting only the crypto metadata phase without
+9. corrupt crypto sticky state aborting only the crypto metadata phase without
    resetting it.
 
 ### Orchestration, R2 and backup
@@ -753,7 +725,6 @@ Update:
 - `docs/source/tutorials/erc-4626-scan-prices.rst` so it distinguishes the
   existing stablecoin hourly cleaned file from the new mixed-family daily
   bundle;
-- `eth_defi/data/README.md` with the denomination-symbol whitelist schema;
 - `docs/source/api/vault/index.rst` with stubs for any new public API modules;
   and
 - the `scan-vaults-all-chains.py` module environment-variable documentation.
@@ -788,14 +759,15 @@ and reader state unchanged.
 ## Completion criteria
 
 - The classifier identifies stablecoin, ETH and BTC denomination families from
-  the maintained symbol whitelist and the production audit has no unresolved
-  wrapper candidates.
+  the maintained symbol whitelist, and likely wrapper candidates from the
+  production audit have been reviewed without treating substring false
+  positives as blockers.
 - The legacy stablecoin cleaner and public exports retain their existing
   selection, filenames and schemas.
 - The crypto daily Parquet has at most one real observation per vault and UTC
   day, preserves denomination units and contains no unsupported denomination.
-- Lifetime metadata uses the daily series, has family-aware units, thresholds
-  and sticky state, and carries matching provenance with the Parquet.
+- Lifetime metadata uses the daily series and has family-aware units,
+  thresholds, sticky state and build provenance.
 - Only the alternative/private R2 bucket contains the flat `crypto-` live
   objects and their dated backups.
 - A partial upload cannot advance the manifest or create a backup advertised as

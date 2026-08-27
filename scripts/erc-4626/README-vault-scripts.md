@@ -170,37 +170,42 @@ These scripts form the core data pipeline for vault discovery, price scanning, a
 When all-chain post-processing runs, it also builds the isolated private
 ``crypto-vaults`` bundle. It preserves the existing public stablecoin files and
 contains stablecoin, reviewed ETH-like and reviewed BTC-like denominations.
-The symbol policy is maintained in
-``eth_defi/data/crypto_assets/denomination-symbols.yaml``; it deliberately
-includes wrapped, bridged, liquid-staking, restaking and protocol-specific
-wrappers. It does not use token addresses as an inclusion criterion.
+The symbol policy is maintained as the ``DENOMINATION_SYMBOLS`` Python
+dictionary in ``eth_defi/vault/denomination.py``. It deliberately includes
+wrapped, bridged, liquid-staking, restaking and protocol-specific wrappers. It
+does not use token addresses as an inclusion criterion.
 
 The bundle is written below the pipeline data directory as
 ``crypto-vaults/crypto-cleaned-vault-prices-1d.parquet`` and its separate JSON
 metadata and sticky state. R2 publication additionally writes the current
 manifest. Its Parquet retains the final observed row for each vault/UTC date
-rather than inventing missing dates. The
-legacy ``returns_1d`` field is therefore a sparse observation-to-observation
-return; lifetime metrics use the normal forward-filled daily share-price
-series. ETH and BTC amounts stay in their denomination units. The fixed
-USD-to-denomination thresholds (USD 2,000/ETH and USD 60,000/BTC) are only
-low-TVL filtering guidelines, not live valuations.
+rather than inventing missing dates. It keeps the established
+``CleanedVaultPriceRow`` columns without adding denomination metadata or a
+crypto-specific return column. Lifetime metrics use the normal forward-filled
+daily share-price series. ETH and BTC amounts stay in their denomination units.
+The fixed USD-to-denomination thresholds (USD 2,000/ETH and USD 60,000/BTC) are
+only low-TVL filtering guidelines, not live valuations.
 
-Every vault entry in ``crypto-vault-metadata.json`` records its observed
-``denomination_token_symbol`` and the existing ``canonical_underlying`` mapping
+Every vault entry in ``crypto-vault-metadata.json`` uses the existing
+``denomination``, ``denomination_token_address`` and ``denomination_decimals``
+fields for the observed token, and adds its ``canonical_underlying`` mapping
 (for example ``WBTC`` to ``BTC``). The existing boolean ``stablecoinish`` is
 ``true`` when the vault reuses standard stablecoin history and ``false`` for
 ETH/BTC vaults whose historical cleaning is private crypto-bundle processing.
-All records are available to private-bundle consumers in the daily crypto
-Parquet.
+The added classification and mapping fields exist only in the JSON bundle;
+consumers join JSON vault records to the daily crypto Parquet using the existing
+vault ``id`` column. No duplicate denomination-symbol, decimals or total-assets
+unit aliases are added: ``denomination`` is also the unit for
+``current_total_assets``, ``peak_total_assets`` and ``qualification_threshold``.
 
 Only the configured alternative R2 bucket receives this bundle. Its objects use
 flat root keys with the ``crypto-`` prefix, such as
 ``crypto-cleaned-vault-prices-1d.parquet``, ``crypto-vault-metadata.json`` and
 ``crypto-vault-manifest.json``. With ``UPLOAD_PREFIX=test-``, the first key is
 ``test-crypto-cleaned-vault-prices-1d.parquet``. The manifest is uploaded last
-and daily R2 backups use the established backup layout. A crypto phase failure is logged and contained so public exports
-can still complete. The crypto cleaner is still attempted when the common
+and daily R2 backups use the established backup layout. A crypto phase failure
+is logged and contained so public exports can still complete. The crypto cleaner
+is still attempted when the common
 cleaner fails, but its metadata and R2 publication are withheld rather than
 publishing stale stablecoin rows. There is no crypto-specific skip flag: configure the
 alternative bucket and data/metadata R2 credentials for every post-processing
@@ -208,6 +213,11 @@ run that should publish the bundle.
 
 Use the read-only audit before extending the whitelist or rolling out a new
 inventory:
+
+The ETH/BTC substring candidate table is deliberately advisory. It can include
+LP, basket and unrelated protocol symbols, so strict mode does not treat an
+unreviewed candidate as proof of a missing wrapper. Strict mode does fail when
+an active classified vault has no raw price history.
 
 ```shell
 VAULT_DATABASE=~/.tradingstrategy/vaults/vault-metadata-db.pickle \

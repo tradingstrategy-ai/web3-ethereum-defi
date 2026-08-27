@@ -94,12 +94,6 @@ Includes contact details (website, Twitter) and platform-specific sections.
 
 This is a reference document — the machine-readable curator data lives in `feeds/curators/` YAML files.
 
-### `crypto_assets/`
-
-| File | Role |
-|------|------|
-| [`denomination-symbols.yaml`](crypto_assets/denomination-symbols.yaml) | Reviewed symbol-only ETH/BTC wrapper policy for the private crypto-vaults export |
-
 ## Data flow
 
 ```

@@ -109,6 +109,7 @@ from eth_defi.tokenised_fund.scan import (
 )
 from eth_defi.utils import setup_console_logging, wait_other_writers
 from eth_defi.vault.base import VaultSpec
+from eth_defi.vault.crypto_vaults import CRYPTO_VAULTS_BUNDLE_NAME, resolve_crypto_vault_paths
 from eth_defi.vault.historical import scan_historical_prices_to_parquet
 from eth_defi.vault.post_processing import run_post_processing, validate_top_vaults_config
 from eth_defi.vault.settlement_data import (
@@ -2860,7 +2861,7 @@ def run_scan_tick(
             settlement_db_path=settlement_db_path,
             core3_db_path=core3_db_path,
             feed_db_path=feed_db_path,
-            crypto_vaults_dir=vault_db_path.parent / "crypto-vaults",
+            crypto_vaults_dir=vault_db_path.parent / CRYPTO_VAULTS_BUNDLE_NAME,
         )
         for step, success in post_results.items():
             logger.info("Post-processing %s: %s", step, "SUCCESS" if success else "FAILED")
@@ -3040,6 +3041,7 @@ def main():
     # export reads the same database the feed collector writes.
     feed_db_path = resolve_feed_database_path()
 
+    crypto_paths = resolve_crypto_vault_paths(data_dir)
     bkp_files = [
         uncleaned_price_path,
         reader_state_path,
@@ -3055,11 +3057,11 @@ def main():
         core3_db_path,
         xerberus_db_path,
         currency_api_db_path,
-        data_dir / "crypto-vaults" / "crypto-cleaned-vault-prices-1d.parquet",
-        data_dir / "crypto-vaults" / "crypto-vault-metadata.json",
-        data_dir / "crypto-vaults" / "crypto-vault-metadata.json.br",
-        data_dir / "crypto-vaults" / "crypto-vault-manifest.json",
-        data_dir / "crypto-vaults" / "crypto-vault-export-state.json",
+        crypto_paths.cleaned_price_path,
+        crypto_paths.metadata_path,
+        crypto_paths.compressed_metadata_path,
+        crypto_paths.manifest_path,
+        crypto_paths.sticky_state_path,
     ]
 
     # Test mode - filter chains if TEST_CHAINS is set

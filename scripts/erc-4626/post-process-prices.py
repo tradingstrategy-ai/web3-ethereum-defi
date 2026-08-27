@@ -81,7 +81,7 @@ Alternative R2 bucket (optional, for the upcoming private commercial professiona
 - ``R2_ALTERNATIVE_VAULT_METADATA_BUCKET_NAME``: When set, metadata and data files are uploaded
   to both the primary and this alternative bucket using the same credentials
 
-Private crypto-vaults R2 bundle (required whenever post-processing runs):
+Private crypto-vaults R2 bundle (required for successful private publication):
 
 - ``R2_ALTERNATIVE_VAULT_METADATA_BUCKET_NAME``: Private bundle bucket. Unlike
   the legacy alternative export, the crypto bundle is uploaded only here.
@@ -128,26 +128,52 @@ from eth_defi.vault.vaultdb import get_pipeline_data_dir
 logger = logging.getLogger(__name__)
 
 
-def main():
+def _read_boolean(name: str) -> bool:
+    """Read one conventional true/false environment flag.
+
+    Values other than the case-insensitive string ``true`` are false, matching
+    the established behaviour of this operator script.
+
+    :param name:
+        Environment variable name.
+    :return:
+        ``True`` when the configured value is ``true``.
+    """
+    return os.environ.get(name, "false").lower() == "true"
+
+
+def main() -> None:
+    """Run post-processing from environment configuration.
+
+    The command prints every phase result and exits non-zero when any attempted
+    public or private phase fails.
+
+    :return:
+        ``None`` after all phases complete successfully.
+    """
     setup_console_logging(
         default_log_level=os.environ.get("LOG_LEVEL", "info"),
     )
 
-    merge_hypercore = os.environ.get("MERGE_HYPERCORE", "false").lower() == "true"
-    merge_grvt = os.environ.get("MERGE_GRVT", "false").lower() == "true"
-    merge_lighter = os.environ.get("MERGE_LIGHTER", "false").lower() == "true"
-    merge_hibachi = os.environ.get("MERGE_HIBACHI", "false").lower() == "true"
-    merge_apex = os.environ.get("MERGE_APEX", "false").lower() == "true"
-    skip_cleaning = os.environ.get("SKIP_CLEANING", "false").lower() == "true"
-    skip_top_vaults = os.environ.get("SKIP_TOP_VAULTS", "false").lower() == "true"
-    skip_sparklines = os.environ.get("SKIP_SPARKLINES", "false").lower() == "true"
-    skip_metadata = os.environ.get("SKIP_METADATA", "false").lower() == "true"
-    skip_data = os.environ.get("SKIP_DATA", "false").lower() == "true"
-    skip_samples = os.environ.get("SKIP_SAMPLES", "false").lower() == "true"
+    merge_options = {
+        "scan_hypercore": _read_boolean("MERGE_HYPERCORE"),
+        "scan_grvt": _read_boolean("MERGE_GRVT"),
+        "scan_lighter": _read_boolean("MERGE_LIGHTER"),
+        "scan_hibachi": _read_boolean("MERGE_HIBACHI"),
+        "scan_apex": _read_boolean("MERGE_APEX"),
+    }
+    skip_options = {
+        "skip_cleaning": _read_boolean("SKIP_CLEANING"),
+        "skip_top_vaults": _read_boolean("SKIP_TOP_VAULTS"),
+        "skip_sparklines": _read_boolean("SKIP_SPARKLINES"),
+        "skip_metadata": _read_boolean("SKIP_METADATA"),
+        "skip_data": _read_boolean("SKIP_DATA"),
+        "skip_samples": _read_boolean("SKIP_SAMPLES"),
+    }
 
     # Fail-fast: crash with a clear error before we touch anything if the
     # top-vaults R2 upload is not configured. Matches scan-vaults-all-chains.py.
-    validate_top_vaults_config(skip_top_vaults=skip_top_vaults)
+    validate_top_vaults_config(skip_top_vaults=skip_options["skip_top_vaults"])
 
     # Compute all pipeline paths from the shared data directory so
     # PIPELINE_DATA_DIR is honoured identically to the production scanner.
@@ -155,23 +181,25 @@ def main():
     # frozen module-level defaults resolved at import time from Path.home(),
     # which silently ignore PIPELINE_DATA_DIR.
     data_dir = get_pipeline_data_dir()
-    vault_db_path = data_dir / "vault-metadata-db.pickle"
-    uncleaned_price_path = data_dir / "vault-prices-1h.parquet"
-    cleaned_price_path = data_dir / "cleaned-vault-prices-1h.parquet"
-    hyperliquid_db_path = data_dir / "hyperliquid-vaults.duckdb"
-    hyperliquid_hf_db_path = data_dir / "hyperliquid-vaults-hf.duckdb"
-    grvt_db_path = data_dir / "grvt-vaults.duckdb"
-    lighter_db_path = data_dir / "lighter-pools.duckdb"
-    hibachi_db_path = data_dir / "hibachi-vaults.duckdb"
-    apex_db_path = data_dir / "apex-vaults.duckdb"
-    settlement_db_path = get_default_vault_settlement_database_path()
+    pipeline_paths = {
+        "vault_db_path": data_dir / "vault-metadata-db.pickle",
+        "uncleaned_parquet_path": data_dir / "vault-prices-1h.parquet",
+        "cleaned_path": data_dir / "cleaned-vault-prices-1h.parquet",
+        "hyperliquid_db_path": data_dir / "hyperliquid-vaults.duckdb",
+        "hyperliquid_hf_db_path": data_dir / "hyperliquid-vaults-hf.duckdb",
+        "grvt_db_path": data_dir / "grvt-vaults.duckdb",
+        "lighter_db_path": data_dir / "lighter-pools.duckdb",
+        "hibachi_db_path": data_dir / "hibachi-vaults.duckdb",
+        "apex_db_path": data_dir / "apex-vaults.duckdb",
+        "settlement_db_path": get_default_vault_settlement_database_path(),
+    }
 
     # Core3 risk intelligence database path — resolved from env var or default constant.
     core3_db_path_env = os.environ.get("CORE3_DATABASE_PATH")
     core3_db_path = Path(core3_db_path_env).expanduser() if core3_db_path_env else CORE3_DATABASE_PATH
 
     logger.info("Pipeline data directory: %s", data_dir)
-    if not any([merge_hypercore, merge_grvt, merge_lighter, merge_hibachi, merge_apex]):
+    if not any(merge_options.values()):
         logger.info("No native protocol merges requested (set a MERGE_* native source flag to true)")
 
     # run_post_processing() uses scan_hypercore/scan_grvt/scan_lighter for
@@ -179,34 +207,13 @@ def main():
     # MERGE_* env var names that this debug script has always documented
     # and map them at the call site — no behavioural change for operators.
     steps = run_post_processing(
-        scan_hypercore=merge_hypercore,
-        scan_grvt=merge_grvt,
-        scan_lighter=merge_lighter,
-        scan_hibachi=merge_hibachi,
-        scan_apex=merge_apex,
-        skip_cleaning=skip_cleaning,
-        skip_top_vaults=skip_top_vaults,
-        skip_sparklines=skip_sparklines,
-        skip_metadata=skip_metadata,
-        skip_data=skip_data,
-        skip_samples=skip_samples,
-        uncleaned_parquet_path=uncleaned_price_path,
-        hyperliquid_db_path=hyperliquid_db_path,
-        hyperliquid_hf_db_path=hyperliquid_hf_db_path,
-        grvt_db_path=grvt_db_path,
-        lighter_db_path=lighter_db_path,
-        hibachi_db_path=hibachi_db_path,
-        apex_db_path=apex_db_path,
-        vault_db_path=vault_db_path,
-        cleaned_path=cleaned_price_path,
-        settlement_db_path=settlement_db_path,
+        **merge_options,
+        **skip_options,
+        **pipeline_paths,
         core3_db_path=core3_db_path,
     )
 
-    # Summary
-    rows = []
-    for step_name, success in steps.items():
-        rows.append([step_name, "OK" if success else "FAILED"])
+    rows = [[step_name, "OK" if success else "FAILED"] for step_name, success in steps.items()]
 
     print(f"\n{tabulate(rows, headers=['Step', 'Status'], tablefmt='fancy_grid')}")
 
@@ -214,8 +221,7 @@ def main():
     if failed:
         print(f"\nFAILED steps: {', '.join(failed)}")
         sys.exit(1)
-    else:
-        print("\nAll steps completed successfully")
+    print("\nAll steps completed successfully")
 
 
 if __name__ == "__main__":
