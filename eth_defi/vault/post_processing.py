@@ -44,8 +44,7 @@ from eth_defi.research.wrangle_vault_prices import generate_cleaned_vault_datase
 from eth_defi.vault import top_vaults_json
 from eth_defi.vault.base import VaultHistoricalRead
 from eth_defi.vault.crypto_vault_export import publish_crypto_vault_bundle
-from eth_defi.vault.crypto_vaults import CryptoVaultPaths, build_crypto_vault_metadata, resolve_crypto_vault_paths
-from eth_defi.vault.denomination import CRYPTO_DENOMINATION_FAMILIES
+from eth_defi.vault.crypto_vaults import CryptoVaultPaths, build_crypto_vault_metadata, build_crypto_vault_prices, resolve_crypto_vault_paths
 from eth_defi.vault.vaultdb import DEFAULT_UNCLEANED_PRICE_DATABASE, get_pipeline_data_dir
 
 #: Required env vars for the top-vaults JSON R2 upload.
@@ -759,6 +758,7 @@ def clean_crypto_vault_prices(
     vault_db_path: Path,
     uncleaned_path: Path,
     cleaned_path: Path,
+    cleaned_stablecoin_path: Path,
     settlement_db_path: Path | None = None,
 ) -> bool:
     """Build the isolated daily stablecoin/ETH/BTC cleaned Parquet.
@@ -773,20 +773,20 @@ def clean_crypto_vault_prices(
         Shared raw price Parquet file.
     :param cleaned_path:
         Isolated crypto daily Parquet destination.
+    :param cleaned_stablecoin_path:
+        Standard stablecoin-only cleaned Parquet source.
     :param settlement_db_path:
         Optional settlement database.
     :return:
         ``True`` if the crypto cleaning phase completed.
     """
     try:
-        generate_cleaned_vault_datasets(
+        build_crypto_vault_prices(
             vault_db_path=vault_db_path,
-            price_df_path=uncleaned_path,
-            cleaned_price_df_path=cleaned_path,
+            uncleaned_path=uncleaned_path,
+            cleaned_path=cleaned_path,
+            cleaned_stablecoin_path=cleaned_stablecoin_path,
             settlement_db_path=settlement_db_path,
-            denomination_families=CRYPTO_DENOMINATION_FAMILIES,
-            daily_materialisation=True,
-            logger=logger.info,
         )
         return True
     except Exception:
@@ -1205,6 +1205,7 @@ def run_post_processing(
         vault_db_path=vault_db_path or get_pipeline_data_dir() / "vault-metadata-db.pickle",
         uncleaned_path=uncleaned_parquet_path or DEFAULT_UNCLEANED_PRICE_DATABASE,
         cleaned_path=crypto_paths.cleaned_price_path,
+        cleaned_stablecoin_path=cleaned_path or get_pipeline_data_dir() / "cleaned-vault-prices-1h.parquet",
         settlement_db_path=settlement_db_path,
     )
     steps["clean-crypto-vault-prices"] = crypto_clean_ok
@@ -1224,14 +1225,17 @@ def run_post_processing(
         )
 
     crypto_metadata = None
-    if crypto_clean_ok:
+    if crypto_clean_ok and cleaning_ok:
         crypto_metadata = calculate_crypto_vault_metadata(
             vault_db_path=vault_db_path or get_pipeline_data_dir() / "vault-metadata-db.pickle",
             paths=crypto_paths,
         )
         steps["calculate-crypto-vault-metadata"] = crypto_metadata is not None
-    else:
+    elif not crypto_clean_ok:
         logger.warning("Skipping crypto metadata — crypto cleaning failed")
+        steps["calculate-crypto-vault-metadata"] = False
+    else:
+        logger.warning("Skipping crypto metadata and publication — clean-prices failed, refusing to publish stale stablecoin data")
         steps["calculate-crypto-vault-metadata"] = False
 
     # Step 4: Export sparklines

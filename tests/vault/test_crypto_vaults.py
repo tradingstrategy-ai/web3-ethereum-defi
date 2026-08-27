@@ -110,7 +110,7 @@ def test_manifest_describes_flat_crypto_payloads(tmp_path: Path) -> None:
             "denomination_family": ["stablecoin", "eth", "btc"],
             "timestamp": pd.to_datetime(["2026-01-01", "2026-01-02", "2026-01-03"]),
         }
-    ).to_parquet(paths.cleaned_price_path, index=False)
+    ).set_index("timestamp").to_parquet(paths.cleaned_price_path)
     paths.metadata_path.write_text("{}", encoding="utf-8")
     paths.metadata_path.with_suffix(".json.br").write_bytes(b"compressed")
     paths.sticky_state_path.write_text("{}", encoding="utf-8")
@@ -128,7 +128,7 @@ def test_manifest_describes_flat_crypto_payloads(tmp_path: Path) -> None:
 
     manifest = build_crypto_vault_manifest(paths, metadata)
 
-    assert manifest["object_keys"]["cleaned-vault-prices-1d.parquet"] == "crypto-vaults/cleaned-vault-prices-1d.parquet"
+    assert "object_keys" not in manifest
     assert manifest["price_row_counts"] == {"stablecoin": 1, "eth": 1, "btc": 1}
     assert manifest["price_observation_range"]["min_timestamp"] == "2026-01-01T00:00:00"
     assert manifest["files"]["vault-metadata.json"]["sha256"]

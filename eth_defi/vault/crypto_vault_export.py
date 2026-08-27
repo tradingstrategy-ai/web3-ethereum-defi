@@ -1,4 +1,7 @@
-"""Publish the private flat-key crypto-vaults bundle to Cloudflare R2."""
+"""Publish the private flat-key crypto-vaults bundle to Cloudflare R2.
+
+Uses the `Cloudflare R2 S3 API <https://developers.cloudflare.com/r2/api/s3/>`__.
+"""
 
 from __future__ import annotations
 
@@ -102,9 +105,10 @@ def build_crypto_vault_manifest(paths: CryptoVaultPaths, metadata: dict[str, Any
         }
     family_counts = {family: sum(1 for vault in metadata["vaults"] if vault["denomination_family"] == family) for family in CRYPTO_DENOMINATION_FAMILY_NAMES}
     prices_df = pd.read_parquet(paths.cleaned_price_path, columns=["denomination_family", "timestamp"])
-    prices_df["timestamp"] = pd.to_datetime(prices_df["timestamp"])
+    # Pandas restores a Parquet ``timestamp`` index as an index, whereas
+    # hand-crafted or legacy files can retain it as a regular column.
+    timestamps = prices_df.index if isinstance(prices_df.index, pd.DatetimeIndex) else pd.to_datetime(prices_df["timestamp"])
     price_row_counts = {family: int((prices_df["denomination_family"] == family).sum()) for family in CRYPTO_DENOMINATION_FAMILY_NAMES}
-    object_keys = {object_name: f"{CRYPTO_VAULTS_BUNDLE_NAME}/{object_name}" for object_name, _ in _get_payload_paths(paths, include_manifest=True)}
     return {
         "bundle": CRYPTO_VAULTS_BUNDLE_NAME,
         "schema_version": 1,
@@ -112,14 +116,13 @@ def build_crypto_vault_manifest(paths: CryptoVaultPaths, metadata: dict[str, Any
         "metadata": metadata["metadata"],
         "denomination_whitelist_sha256": get_denomination_whitelist_digest(),
         "files": files,
-        "object_keys": object_keys,
         "vault_counts": family_counts,
         "vault_count_total": sum(family_counts.values()),
         "price_row_counts": price_row_counts,
         "price_row_count_total": sum(price_row_counts.values()),
         "price_observation_range": {
-            "min_timestamp": prices_df["timestamp"].min().isoformat() if not prices_df.empty else None,
-            "max_timestamp": prices_df["timestamp"].max().isoformat() if not prices_df.empty else None,
+            "min_timestamp": timestamps.min().isoformat() if not prices_df.empty else None,
+            "max_timestamp": timestamps.max().isoformat() if not prices_df.empty else None,
         },
         "threshold_usd_guideline": metadata["threshold_usd_guideline"],
         "fixed_usd_rates": metadata["fixed_usd_rates"],

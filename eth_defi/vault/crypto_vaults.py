@@ -8,20 +8,27 @@ serialisation helpers so that public stablecoin exports remain unchanged.
 from __future__ import annotations
 
 import json
+import logging
 import os
+import tempfile
 from dataclasses import dataclass
 from decimal import Decimal
 from pathlib import Path
 from typing import Any
 
 import pandas as pd
+import pyarrow as pa
+import pyarrow.parquet as pq
 from atomicwrites import atomic_write
 
 from eth_defi.compat import native_datetime_utc_now
 from eth_defi.research.vault_metrics import calculate_lifetime_metrics, export_lifetime_row
-from eth_defi.vault.base import VaultSpec
+from eth_defi.research.wrangle_vault_prices import filter_vaults_by_denomination_families, generate_cleaned_vault_datasets, materialise_daily_crypto_prices
+from eth_defi.vault.base import VaultSpec, verify_parquet_file
 from eth_defi.vault.denomination import (
+    BTC_USD_GUIDELINE_RATE,
     CRYPTO_DENOMINATION_FAMILY_NAMES,
+    ETH_USD_GUIDELINE_RATE,
     DenominationFamily,
     classify_denomination,
     convert_usd_threshold_to_denomination,
@@ -34,6 +41,8 @@ from eth_defi.vault.vaultdb import VaultDatabase, VaultRow
 
 #: Stable schema version for the isolated metadata and sticky-state documents.
 CRYPTO_VAULTS_SCHEMA_VERSION = 1
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass(slots=True)
@@ -49,7 +58,7 @@ class CryptoVaultPaths:
     :param sticky_state_path:
         Private sticky qualification state.
     :param manifest_path:
-        Current bundle manifest output.
+        Current bundle manifest, created during R2 publication.
     """
 
     directory: Path
@@ -85,6 +94,91 @@ def resolve_crypto_vault_paths(data_dir: Path) -> CryptoVaultPaths:
         Explicit bundle paths using backup-safe unique basenames.
     """
     return CryptoVaultPaths.from_directory(data_dir / "crypto-vaults")
+
+
+def build_crypto_vault_prices(
+    *,
+    vault_db_path: Path,
+    uncleaned_path: Path,
+    cleaned_path: Path,
+    cleaned_stablecoin_path: Path,
+    settlement_db_path: Path | None = None,
+) -> None:
+    """Create the isolated daily stablecoin/ETH/BTC price Parquet.
+
+    Stablecoin rows are derived from the existing standard cleaned Parquet;
+    ETH/BTC rows are cleaned from raw data. The result retains the final real
+    observation for each vault and UTC day.
+    It does not forward fill the exported rows; the shared lifetime-metrics
+    calculation forward fills only its internal calendar-day series.
+
+    :param vault_db_path:
+        Common scanner vault-metadata pickle.
+    :param uncleaned_path:
+        Shared raw vault-price Parquet source.
+    :param cleaned_path:
+        Isolated daily crypto Parquet destination.
+    :param cleaned_stablecoin_path:
+        Existing stablecoin-only cleaned Parquet from the standard cleaner.
+    :param settlement_db_path:
+        Optional vault-settlement DuckDB database.
+    :return:
+        ``None``. Raises if price cleaning cannot safely complete.
+    """
+    if not cleaned_stablecoin_path.is_file():
+        raise FileNotFoundError(cleaned_stablecoin_path)
+    vault_db = VaultDatabase.read(vault_db_path)
+    logger.info("Loading existing stablecoin prices %s", cleaned_stablecoin_path)
+    stable_prices = pd.read_parquet(cleaned_stablecoin_path, dtype_backend="pyarrow")
+    stable_prices = filter_vaults_by_denomination_families(
+        vault_db.rows,
+        stable_prices,
+        {DenominationFamily.stablecoin},
+        add_denomination_family=True,
+        logger=logger.info,
+    )
+    stable_prices = materialise_daily_crypto_prices(stable_prices)
+    eth_btc_families = frozenset({DenominationFamily.eth, DenominationFamily.btc})
+    raw_vault_specs = {spec for spec, row in vault_db.rows.items() if classify_denomination(row.get("Denomination")) in eth_btc_families}
+    cleaned_path.parent.mkdir(parents=True, exist_ok=True)
+    price_frames = [stable_prices]
+    if raw_vault_specs:
+        logger.info("Cleaning ETH/BTC prices for %d vaults from %s", len(raw_vault_specs), uncleaned_path)
+        with tempfile.TemporaryDirectory(dir=cleaned_path.parent, prefix="crypto-vaults-") as temporary_directory:
+            eth_btc_path = Path(temporary_directory) / "eth-btc-prices.parquet"
+            generate_cleaned_vault_datasets(
+                vault_db_path=vault_db_path,
+                price_df_path=uncleaned_path,
+                cleaned_price_df_path=eth_btc_path,
+                settlement_db_path=settlement_db_path,
+                denomination_families=eth_btc_families,
+                daily_materialisation=True,
+                raw_vault_specs=raw_vault_specs,
+                vault_db=vault_db,
+                logger=logger.info,
+            )
+            price_frames.append(pd.read_parquet(eth_btc_path, dtype_backend="pyarrow"))
+    else:
+        logger.info("No ETH/BTC vaults in the metadata database")
+    combined = pd.concat(price_frames).sort_values(["id", "timestamp"], kind="stable")
+    temporary_fd, temporary_path_text = tempfile.mkstemp(suffix=".parquet", dir=cleaned_path.parent)
+    os.close(temporary_fd)
+    temporary_path = Path(temporary_path_text)
+    try:
+        table = pa.Table.from_pandas(combined)
+        metadata = dict(table.schema.metadata or {})
+        metadata.update(
+            {
+                b"crypto_vaults_bundle_schema_version": b"1",
+                b"crypto_vaults_whitelist_sha256": get_denomination_whitelist_digest().encode("ascii"),
+                b"crypto_vaults_fixed_usd_rates": json.dumps({"BTC": float(BTC_USD_GUIDELINE_RATE), "ETH": float(ETH_USD_GUIDELINE_RATE), "USD": 1}, sort_keys=True).encode("ascii"),
+            }
+        )
+        pq.write_table(table.replace_schema_metadata(metadata), temporary_path, compression="zstd")
+        verify_parquet_file(temporary_path, expected_rows=len(combined), required_columns=["id", "share_price", "timestamp", "denomination_family", "returns_1d"])
+        os.replace(temporary_path, cleaned_path)
+    finally:
+        temporary_path.unlink(missing_ok=True)
 
 
 def _load_sticky_state(path: Path) -> dict[str, Any]:
@@ -165,11 +259,12 @@ def _validate_crypto_price_rows(vault_db: VaultDatabase, prices_df: pd.DataFrame
         ``None``. Raises when an input row cannot be represented safely.
     """
     price_vault_ids = set(prices_df["id"].astype(str))
-    metadata_vault_ids = {str(spec) for spec in vault_db.rows}
+    vault_rows_by_id = {spec.as_string_id(): row for spec, row in vault_db.rows.items()}
+    metadata_vault_ids = set(vault_rows_by_id)
     unknown_vault_ids = price_vault_ids - metadata_vault_ids
     if unknown_vault_ids:
         raise ValueError(f"Crypto cleaned prices contain vaults absent from metadata: {sorted(unknown_vault_ids)!r}")
-    unsupported_vault_ids = {vault_id for vault_id in price_vault_ids if classify_denomination(vault_db.rows[VaultSpec.parse_string(vault_id, separator="-")]["Denomination"]) is DenominationFamily.unsupported}
+    unsupported_vault_ids = {vault_id for vault_id in price_vault_ids if classify_denomination(vault_rows_by_id[vault_id]["Denomination"]) is DenominationFamily.unsupported}
     if unsupported_vault_ids:
         raise ValueError(f"Crypto cleaned prices contain unsupported denominations: {sorted(unsupported_vault_ids)!r}")
 
@@ -240,7 +335,7 @@ def build_crypto_vault_metadata(
         "denomination_whitelist_sha256": get_denomination_whitelist_digest(),
         "denomination_families": list(CRYPTO_DENOMINATION_FAMILY_NAMES),
         "threshold_usd_guideline": float(threshold_usd),
-        "fixed_usd_rates": {"ETH": 2000, "BTC": 60000},
+        "fixed_usd_rates": {"ETH": float(ETH_USD_GUIDELINE_RATE), "BTC": float(BTC_USD_GUIDELINE_RATE)},
         "vaults": selected_records,
     }
     _save_json_atomic(metadata, metadata_path)

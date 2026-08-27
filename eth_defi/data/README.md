@@ -84,7 +84,6 @@ Logo subfolders follow the same structure as vaults: `original_logos/` and `form
 |--------|------|
 | [`eth_defi/stablecoin_metadata.py`](../stablecoin_metadata.py) | Reads YAML metadata and formatted logos; builds JSON index; uploads to R2 |
 | [`scripts/erc-4626/export-protocol-metadata.py`](../../scripts/erc-4626/export-protocol-metadata.py) | Orchestrates stablecoin metadata + logo export to R2 |
-| [`crypto_assets/denomination-symbols.yaml`](crypto_assets/denomination-symbols.yaml) | Reviewed symbol-only ETH/BTC wrapper policy for the private crypto-vaults export |
 | [`scripts/logos/post-process-logo.py`](../../scripts/logos/post-process-logo.py) | Converts original logos into formatted 256x256 PNG files |
 
 ### `curators.md`
@@ -94,6 +93,12 @@ Morpho, Euler, IPOR Fusion, Lagoon Finance, Hyperliquid, GRVT, and Lighter.
 Includes contact details (website, Twitter) and platform-specific sections.
 
 This is a reference document — the machine-readable curator data lives in `feeds/curators/` YAML files.
+
+### `crypto_assets/`
+
+| File | Role |
+|------|------|
+| [`denomination-symbols.yaml`](crypto_assets/denomination-symbols.yaml) | Reviewed symbol-only ETH/BTC wrapper policy for the private crypto-vaults export |
 
 ## Data flow
 

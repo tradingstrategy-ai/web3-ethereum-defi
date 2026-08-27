@@ -65,6 +65,36 @@ def test_run_post_processing_contains_crypto_failures_and_keeps_public_skips(
     assert steps["export-crypto-vault-bundle"] is False
 
 
+def test_run_post_processing_does_not_publish_crypto_bundle_after_cleaning_failure(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Crypto preparation remains isolated but cannot publish stale stablecoin rows."""
+    crypto_calls: list[str] = []
+
+    monkeypatch.setattr(post_processing, "merge_native_protocols", lambda **_: {})
+    monkeypatch.setattr(post_processing, "clean_prices", lambda **_: False)
+    monkeypatch.setattr(post_processing, "clean_crypto_vault_prices", lambda **_: crypto_calls.append("clean") or True)
+    monkeypatch.setattr(post_processing, "calculate_crypto_vault_metadata", lambda **_: crypto_calls.append("metadata") or {"vaults": []})
+    monkeypatch.setattr(post_processing, "export_crypto_vault_bundle", lambda *_: crypto_calls.append("export") or True)
+
+    steps = post_processing.run_post_processing(
+        skip_top_vaults=True,
+        skip_sparklines=True,
+        skip_metadata=True,
+        skip_data=True,
+        skip_samples=True,
+        vault_db_path=tmp_path / "vault-metadata-db.pickle",
+        uncleaned_parquet_path=tmp_path / "vault-prices-1h.parquet",
+        crypto_vaults_dir=tmp_path / "crypto-vaults",
+    )
+
+    assert crypto_calls == ["clean"]
+    assert steps["clean-crypto-vault-prices"] is True
+    assert steps["calculate-crypto-vault-metadata"] is False
+    assert steps["export-crypto-vault-bundle"] is False
+
+
 def test_export_data_files_logs_retryable_r2_failure_as_warning_without_traceback(
     monkeypatch: pytest.MonkeyPatch,
     caplog: pytest.LogCaptureFixture,

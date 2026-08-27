@@ -48,7 +48,7 @@ def _build_vault_rows(vault_db: VaultDatabase, raw_ids: set[str], *, has_raw_pri
     rows: list[dict[str, Any]] = []
     errors: list[str] = []
     for spec, vault in vault_db.rows.items():
-        vault_id = str(spec)
+        vault_id = spec.as_string_id()
         raw_symbol = vault.get("Denomination")
         symbol = normalise_denomination_symbol(raw_symbol)
         family = classify_denomination(raw_symbol)
@@ -121,10 +121,10 @@ def build_audit_report(vault_db: VaultDatabase, prices_df: pd.DataFrame | None) 
 def main() -> None:
     """Run the read-only crypto denomination coverage audit.
 
-    Configuration uses ``VAULT_DB``, ``UNCLEANED_PRICE_DATABASE``, optional
+    Configuration uses ``VAULT_DATABASE``, ``UNCLEANED_PRICE_DATABASE``, optional
     ``CRYPTO_VAULT_AUDIT_REPORT`` and ``CRYPTO_VAULT_AUDIT_STRICT``.
     """
-    vault_db_path = Path(os.environ.get("VAULT_DB", DEFAULT_VAULT_DATABASE)).expanduser()
+    vault_db_path = Path(os.environ.get("VAULT_DATABASE") or os.environ.get("VAULT_DB", DEFAULT_VAULT_DATABASE)).expanduser()
     raw_price_path = Path(os.environ.get("UNCLEANED_PRICE_DATABASE", DEFAULT_UNCLEANED_PRICE_DATABASE)).expanduser()
     report_path = os.environ.get("CRYPTO_VAULT_AUDIT_REPORT")
     strict = os.environ.get("CRYPTO_VAULT_AUDIT_STRICT", "false").lower() == "true"

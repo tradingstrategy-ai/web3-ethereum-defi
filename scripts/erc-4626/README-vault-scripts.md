@@ -177,8 +177,9 @@ wrappers. It does not use token addresses as an inclusion criterion.
 
 The bundle is written below the pipeline data directory as
 ``crypto-vaults/cleaned-crypto-vault-prices-1d.parquet`` and its separate JSON
-metadata, sticky state and manifest. Its Parquet retains the final observed
-row for each vault/UTC date rather than inventing missing dates. The
+metadata and sticky state. R2 publication additionally writes the current
+manifest. Its Parquet retains the final observed row for each vault/UTC date
+rather than inventing missing dates. The
 legacy ``returns_1d`` field is therefore a sparse observation-to-observation
 return; lifetime metrics use the normal forward-filled daily share-price
 series. ETH and BTC amounts stay in their denomination units. The fixed
@@ -189,7 +190,9 @@ Only the configured alternative R2 bucket receives this bundle namespace, under
 ``crypto-vaults/`` (or ``test-crypto-vaults/`` with ``UPLOAD_PREFIX=test-``).
 ``manifest.json`` is uploaded last and daily R2 backups use the established
 backup layout. A crypto phase failure is logged and contained so public exports
-can still complete. There is no crypto-specific skip flag: configure the
+can still complete. The crypto cleaner is still attempted when the common
+cleaner fails, but its metadata and R2 publication are withheld rather than
+publishing stale stablecoin rows. There is no crypto-specific skip flag: configure the
 alternative bucket and data/metadata R2 credentials for every post-processing
 run that should publish the bundle.
 
@@ -197,10 +200,34 @@ Use the read-only audit before extending the whitelist or rolling out a new
 inventory:
 
 ```shell
-VAULT_DB=~/.tradingstrategy/vaults/vault-metadata-db.pickle \
+VAULT_DATABASE=~/.tradingstrategy/vaults/vault-metadata-db.pickle \
 UNCLEANED_PRICE_DATABASE=~/.tradingstrategy/vaults/vault-prices-1h.parquet \
 CRYPTO_VAULT_AUDIT_STRICT=true \
 poetry run python scripts/erc-4626/audit-crypto-vault-denominations.py
+```
+
+Run only the crypto cleaner, metadata build and private R2 export when
+repairing or publishing this bundle independently of the all-chain scanner:
+
+```shell
+source .local-test.env && \
+poetry run python scripts/erc-4626/export-crypto-vaults.py
+```
+
+Use ``CRYPTO_VAULTS_PUBLISH=false`` to generate local artefacts for inspection
+when the private R2 bucket is intentionally unavailable.
+
+Afterwards, inspect the local artefacts without network access. The report
+lists ETH- and BTC-denominated vault name, protocol, denomination token,
+lifetime CAGR, native-unit TVL and approximate USD-equivalent TVL. It reads the
+latest ETH and BTC rates from the local currency API DuckDB database and treats
+each wrapper as its canonical underlying; this is a comparison estimate, not a
+wrapper redemption valuation. Stablecoin and blacklisted vaults, plus values
+above the existing $100bn scanner sanity bound, are omitted from the report,
+but not changed in the exported data.
+
+```shell
+poetry run python scripts/erc-4626/examine-crypto-vault-performance.py
 ```
 
 ### scan-vaults.py

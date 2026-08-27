@@ -15,13 +15,14 @@ The output is a cleaned DataFrame conforming to
 """
 
 import os
-import pickle
 import tempfile
 import warnings
 from bisect import bisect_right
+from collections import defaultdict
+from collections.abc import Collection, Iterable, Mapping
 from decimal import Decimal
 from pathlib import Path
-from typing import Callable, Iterable, TypedDict
+from typing import Callable, TypedDict
 
 import numpy as np
 import pandas as pd
@@ -42,7 +43,6 @@ from eth_defi.vault.denomination import (
     DenominationFamily,
     classify_denomination,
     convert_usd_threshold_to_denomination,
-    get_denomination_whitelist_digest,
     get_denomination_whitelist_entry,
     normalise_denomination_symbol,
 )
@@ -92,7 +92,9 @@ class CleanedVaultPriceRow(TypedDict, total=False):
 
     It extends :py:class:`~eth_defi.vault.base.RawVaultPriceRow` with
     denormalised metadata columns (``id``, ``name``, ``event_count``,
-    ``protocol``) and computed columns (``returns_1h``).
+    ``protocol``) and computed columns (``returns_1h``). ``returns_1h`` is a
+    legacy name: it is the return between consecutive observations and does
+    not guarantee a one-hour interval.
     The DataFrame uses a :py:class:`~pandas.DatetimeIndex` built from the
     ``timestamp`` column.
 
@@ -830,7 +832,7 @@ def clean_by_tvl(
     rows: dict[HexAddress, VaultRow],
     prices_df: pd.DataFrame,
     logger=print,
-    tvl_threshold_min: float | Callable[[str], float] = 1000.00,
+    tvl_threshold_min: float | Mapping[str, float] | Callable[[str], float] = 1000.00,
     tvl_threshold_max=99_000_000_000,  # USD 99B
     tvl_threshold_min_dynamic=0.02,
     returns_col="returns_1h",
@@ -855,8 +857,9 @@ def clean_by_tvl(
     :param logger:
         Notebook, console, or structured-log adapter accepting one message.
     :param tvl_threshold_min:
-        Absolute minimum NAV, or a vault-id callback for a denomination-aware
-        threshold.  Legacy callers retain the USD scalar default.
+        Absolute minimum NAV, vault-id mapping, or vault-id callback for a
+        denomination-aware threshold. Legacy callers retain the USD scalar
+        default.
     :param tvl_threshold_max:
         Absolute maximum NAV in USD.
     :param tvl_threshold_min_dynamic:
@@ -877,7 +880,9 @@ def clean_by_tvl(
     # Create a mask based on TVL conditions.
     # Clean up returns during low TVL periods
     # pd.Timestamp("2024-02-10")
-    if callable(tvl_threshold_min):
+    if isinstance(tvl_threshold_min, Mapping):
+        minimum_thresholds = returns_df["id"].map(tvl_threshold_min)
+    elif callable(tvl_threshold_min):
         minimum_thresholds = returns_df["id"].map(tvl_threshold_min)
     else:
         minimum_thresholds = float(tvl_threshold_min)
@@ -2028,16 +2033,10 @@ def process_raw_vault_scan_data(
         logger("After clean_returns():")
         display(vault_prices_df)
 
-    tvl_threshold: float | Callable[[str], float] = 1000.0
+    tvl_threshold: float | Mapping[str, float] | Callable[[str], float] = 1000.0
     if families != {DenominationFamily.stablecoin}:
         base_guideline = crypto_min_tvl_usd or Decimal(os.environ.get("CRYPTO_VAULTS_MIN_TVL_USD", "5000"))
-        vault_symbols = {str(v["_detection_data"].chain) + "-" + v["_detection_data"].address: v["Denomination"] for v in rows.values()}
-
-        def resolve_crypto_threshold(vault_id: str) -> float:
-            """Resolve one selected vault's fixed-rate denomination threshold."""
-            return float(convert_usd_threshold_to_denomination(base_guideline, vault_symbols[vault_id]))
-
-        tvl_threshold = resolve_crypto_threshold
+        tvl_threshold = {str(v["_detection_data"].chain) + "-" + v["_detection_data"].address: float(convert_usd_threshold_to_denomination(base_guideline, v["Denomination"])) for v in rows.values() if classify_denomination(v["Denomination"]) in families}
 
     prices_df = clean_by_tvl(
         rows,
@@ -2073,6 +2072,8 @@ def materialise_daily_crypto_prices(prices_df: pd.DataFrame) -> pd.DataFrame:
     frame = frame.sort_values(sort_columns, kind="stable")
     daily = frame.groupby(["id", "_utc_date"], sort=False, as_index=False).tail(1).copy()
     daily = daily.sort_values(["id", "timestamp"], kind="stable")
+    # Legacy name: sparse observations make this an observation-to-observation
+    # return, not necessarily a return across one calendar day.
     daily["returns_1d"] = daily.groupby("id")["share_price"].pct_change(fill_method=None).fillna(0.0)
     daily.drop(columns=["_utc_date"], inplace=True)
     daily.set_index("timestamp", inplace=True)
@@ -2143,10 +2144,12 @@ def generate_cleaned_vault_datasets(
     logger=print,
     display=display,
     diagnose_vault_id: str | None = None,
+    vault_db: VaultDatabase | None = None,
     *,
     denomination_families: Iterable[DenominationFamily] | None = None,
     daily_materialisation: bool = False,
     crypto_min_tvl_usd: Decimal | None = None,
+    raw_vault_specs: Collection[VaultSpec] | None = None,
 ):
     """A command line script entry point to take raw scanned vault price data and clean it up to a format that can be analysed.
 
@@ -2160,17 +2163,40 @@ def generate_cleaned_vault_datasets(
 
         Defaults to stablecoin-only selection for compatibility.  The isolated
         crypto bundle passes explicitly reviewed stablecoin, ETH and BTC families.
+
+    :param raw_vault_specs:
+        Optional source vault identities to push down to the Parquet reader.
+        Raw Parquet stores these as ``chain`` and ``address`` rather than the
+        derived ``id`` column. The crypto-only cleaner uses this to avoid
+        materialising unrelated raw histories before denomination selection.
+
+    :param vault_db:
+        Optional preloaded vault metadata database. Supplying it avoids a
+        second pickle read when callers derive ``raw_vault_specs`` from the same
+        metadata.
     """
 
     assert vault_db_path.exists()
     assert price_df_path.exists()
 
-    logger(f"Loading vault database {vault_db_path}")
-    vault_db: VaultDatabase = pickle.load(vault_db_path.open("rb"))
+    if vault_db is None:
+        logger(f"Loading vault database {vault_db_path}")
+        vault_db = VaultDatabase.read(vault_db_path)
+    else:
+        logger(f"Using preloaded vault database {vault_db_path}")
 
     logger(f"Loading prices {price_df_path}")
     raw_schema = pq.read_schema(price_df_path)
-    prices_df = pd.read_parquet(price_df_path, dtype_backend="pyarrow")
+    parquet_filters = None
+    if raw_vault_specs is not None:
+        if not raw_vault_specs:
+            message = "raw_vault_specs must not be empty when Parquet push-down is requested"
+            raise ValueError(message)
+        addresses_by_chain: dict[int, set[str]] = defaultdict(set)
+        for spec in raw_vault_specs:
+            addresses_by_chain[spec.chain_id].add(spec.vault_address.lower())
+        parquet_filters = [[("chain", "==", chain_id), ("address", "in", sorted(addresses))] for chain_id, addresses in addresses_by_chain.items()]
+    prices_df = pd.read_parquet(price_df_path, dtype_backend="pyarrow", filters=parquet_filters)
 
     # A registry is mandatory once an artefact contains collected perp DEX
     # metrics. This deliberately fails rather than silently consulting a
@@ -2219,16 +2245,6 @@ def generate_cleaned_vault_datasets(
         if perp_capability_registry is not None:
             table = table.replace_schema_metadata(embed_perp_capability_registry(table.schema, perp_capability_registry).metadata)
         table = table.replace_schema_metadata(stamp_parquet_schema_metadata(table.schema).metadata)
-        if daily_materialisation:
-            crypto_metadata = dict(table.schema.metadata or {})
-            crypto_metadata.update(
-                {
-                    b"crypto_vaults_bundle_schema_version": b"1",
-                    b"crypto_vaults_whitelist_sha256": get_denomination_whitelist_digest().encode("ascii"),
-                    b"crypto_vaults_fixed_usd_rates": b'{"BTC":60000,"ETH":2000,"USD":1}',
-                }
-            )
-            table = table.replace_schema_metadata(crypto_metadata)
         pq.write_table(table, temp_path, compression="zstd")
         verify_parquet_file(
             temp_path,
