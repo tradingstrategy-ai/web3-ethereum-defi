@@ -195,6 +195,69 @@ obtainable near the head**. Backfilling their share price deep into the past is 
 possible on any provider, so gaps before the HyperCore read window must not be
 "repaired" by rescanning.
 
+## Blacklist audit — every HyperEVM entry reads HyperCore
+
+Because the failure signature turned out to be so easy to misread, the whole
+blacklist was re-audited on 2026-08-28. Of the 130 addresses in
+`BROKEN_VAULT_CONTRACTS` and `VAULT_SPECIFIC_RISK`, exactly six have code on chain
+999. `debug_traceCall` with `callTracer` enumerates the precompile callees of
+`totalAssets()` even for the contracts that are not source-verified, and **all six
+read HyperCore**:
+
+| Vault | Address | Precompiles read by `totalAssets()` | Assets at head | Historical read at head-20,000 (no gas cap) | `estimate_gas` at head | Verdict |
+|-------|---------|-------------------------------------|----------------|---------------------------------------------|------------------------|---------|
+| LONGV4 | `0x2eEe42A0…` | `0x…0800` position ×2, `0x…0803` withdrawable | 0.00 USDC | Alchemy ok (also at head-500k) | 59,501 | **unlisted** |
+| Altcopy Flagship | `0xcDB9671E…` | `0x…0801` spot balance, `0x…080f` | 7,765 USDC | ok on all three (also at head-500k) | 71,350 | **unlisted** |
+| Altcopy Index | `0xF8F7c57F…` | `0x…0801`, `0x…0802` vault equity ×8 | 8,168 USDC | fails everywhere | 222,530 | stays blacklisted |
+| Hyperdrive HLP | `0x6ED613E8…` | `0x…0809` L1 block number | 9,025 USDC | `ReadFailure` everywhere | 202,951 | stays blacklisted |
+| Gamma Symphony | `0x2b37f356…` | `0x…0809` | 36 USDC | `ReadFailure` everywhere | 144,186 | stays blacklisted |
+| HYPE Funding Yield | `0xd3F41DAC…` | `0x…0801` | 10 USD₮0 | reverts everywhere | 126,909 | stays blacklisted |
+| HYPED (never blacklisted) | `0x4d0fF6a0…` | `0x…0809` | 2,616 HYPE | `ReadFailure` everywhere | 117,896 | not listed |
+
+Notes on the evidence:
+
+- Hyperdrive HLP and Gamma Symphony share the implementation
+  `0xa05959fbd41e30396446c36d099e5f3b20fb6ad6`, verified as
+  `TokenizedVaultUpgradeable` — the same `CoreReaderLib` consumer as HYPED. The
+  `0x18c34104` revert their blacklist entries already recorded is exactly
+  `CoreReaderLib.ReadFailure`.
+- HYPE Funding Yield is unverified, but its runtime bytecode carries the strings
+  `SpotBalance precompile call failed`, `MarkPx precompile call failed`,
+  `Position precompile call failed` and `Withdrawable precompile call failed`, and
+  goldsky returns `execution reverted: SpotBalance precompile…`.
+- None of these vaults is intrinsically expensive: every `estimate_gas` at the head
+  is between 59k and 223k. The multi-hundred-megagas numbers are provider
+  accounting for the precompile staticcalls, as measured above.
+
+### Two entries were wrong and have been unlisted
+
+`LONGV4` and `Altcopy Flagship` were blacklisted with the reasoning "all configured
+RPC providers reject the scanner's 2,000,000-gas probes". That 2M figure is the
+`CALL_GAS` default of
+[`scripts/erc-4626/poke-hyperevm-vault-calls.py`](../scripts/erc-4626/poke-hyperevm-vault-calls.py),
+a cap the diagnostic script imposes, **not** a provider limit. Re-measured without
+it:
+
+```
+LONGV4            Alchemy  head:ok  -20k:ok  -100k:ok  -500k:ok
+Altcopy Flagship  Alchemy  head:ok  -20k:ok  -100k:ok  -500k:ok
+                  goldsky  head:ok  -20k:ok  -100k:ok  -500k:ok
+                  dRPC     head:ok  -20k:ok  -100k:ok  -500k:ok
+```
+
+Both are readable, including deep in the past, so their entries were removed from
+`VAULT_SPECIFIC_RISK` and `BROKEN_VAULT_CONTRACTS`. The script's docstring now warns
+against repeating the mistake. Residual risk is accepted and known: LONGV4 still
+draws `-32003` from dRPC and intermittently from goldsky, so its history will come
+from the Alchemy pin, and goldsky rejects Altcopy Flagship's four-probe multicall
+even though it answers the same calls individually.
+
+The remaining four stay blacklisted for a different reason than the entries
+originally claimed: not because they are broken or gas-poisonous, but because their
+HyperCore reads make historical valuation unobtainable on every provider, which is
+what the price pipeline needs. When a "head NAV only" path exists, they should be
+revisited — they are live vaults.
+
 ## Reproducing
 
 ```python

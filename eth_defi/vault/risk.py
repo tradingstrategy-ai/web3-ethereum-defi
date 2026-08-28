@@ -304,15 +304,21 @@ VAULT_SPECIFIC_RISK = {
     # Superform vault - no indication of underlying activity or positions
     # https://app.superform.xyz/vault/1_0x942bed98560e9b2aa0d4ec76bbda7a7e55f6b2d6
     "0x942bed98560e9b2aa0d4ec76bbda7a7e55f6b2d6": VaultTechnicalRisk.blacklisted,
-    # LONGV4 HyperEVM vault - totalAssets() and convertToAssets() run out of gas
-    # with CALL_GAS=2,000,000 and poison historical scanner Multicall3 batches.
-    "0x2eee42a0704dd4c0ff8141f85e24de9085a76093": VaultTechnicalRisk.blacklisted,
-    # Altcopy Flagship and Index HyperEVM vaults. At block 41,487,203 all
-    # configured RPC providers reject the scanner's 2,000,000-gas
-    # totalAssets(), convertToAssets() and maxDeposit() probes. The two vaults
-    # therefore poison historical Multicall3 batches and cannot be exported
-    # safely as generic ERC-4626 vaults.
-    "0xcdb9671e671562b60481e4929ef80a5360af718b": VaultTechnicalRisk.blacklisted,
+    # Altcopy Index HyperEVM vault. Its totalAssets() reads HyperCore through the
+    # spot balance (0x...0801) and user vault equity (0x...0802) precompiles, the
+    # latter eight times, confirmed with debug_traceCall on 2026-08-28. That is
+    # cheap at the head (estimate_gas 222,530) but unreadable in the past: at
+    # head-20,000, head-100,000 and head-500,000 the call fails on every
+    # configured provider, so no historical valuation exists for it.
+    #
+    # LONGV4 0x2eee42a0704dd4c0ff8141f85e24de9085a76093 and Altcopy Flagship
+    # 0xcdb9671e671562b60481e4929ef80a5360af718b were removed from this list on
+    # 2026-08-28. Their entries claimed "all providers reject the 2,000,000-gas
+    # probes", but that was the 2M CALL_GAS default of
+    # scripts/erc-4626/poke-hyperevm-vault-calls.py, not a provider limit.
+    # Without that cap LONGV4 reads at head, head-20k, head-100k and head-500k
+    # on Alchemy, and Altcopy Flagship reads at all of those depths on all three
+    # providers. See docs/README-hyperevm-hypercore-read-gas.md.
     "0xf8f7c57fb94cc1f7f2c77dc29b5216c4d3c3125d": VaultTechnicalRisk.blacklisted,
     # Hyperdrive HLP and Gamma Symphony Vault on HyperEVM. At historical block
     # 41,858,003 their totalAssets(), convertToAssets() and maxDeposit() calls
@@ -329,7 +335,13 @@ VAULT_SPECIFIC_RISK = {
     # Hyperdrive Liquid Staked Hype vault
     # 0x4d0fF6a0DD9f7316b674Fb37993A3Ce28BEA340e. These two entries stay
     # blacklisted because their whole valuation surface, not just its history,
-    # was unusable when reviewed.
+    # was unusable when reviewed. Re-audited on 2026-08-28: both proxies share
+    # the verified implementation 0xa05959fbd41e30396446c36d099e5f3b20fb6ad6
+    # (TokenizedVaultUpgradeable, the same CoreReaderLib consumer as HYPED),
+    # debug_traceCall shows totalAssets() staticcalling the L1 block number
+    # precompile 0x...0809, they answer at the head (9,025 USDC and 36 USDC of
+    # assets) and they fail with ReadFailure at head-20,000 on all three
+    # providers. Only their history is unobtainable.
     "0x6ed613e86e8d0b6617e445f17323ac0162ff6ce6": VaultTechnicalRisk.blacklisted,
     "0x2b37f3566933e4dbe59c6b86bedbc91c1e04d774": VaultTechnicalRisk.blacklisted,
     # Rocket Markets Survivor Vaults on Monad.
@@ -528,9 +540,12 @@ _BROKEN_VAULT_CONTRACTS = {
     "0x5705554BAa86Da01fF4A82d29a1598c5B3A8B476",  # Open PnL feed helper contract for broken Gains vault on Berachain
     "0x8fF6aDBC653405245B6b686E31b14A7da7000281",  # BNB broken contract
     "0x6949bcab16c0B389095C5b744f6FBF9741A1b3b6",  # Test vault on Monad
-    "0x2eEe42A0704DD4C0fF8141f85E24De9085A76093",  # LONGV4 HyperEVM vault - totalAssets() and convertToAssets() hit BasicOutOfGas(2000000), poisoning historical scanner Multicall3 batches
-    "0xcDB9671E671562B60481e4929eF80A5360af718b",  # Altcopy Flagship HyperEVM vault - its core ERC-4626 probes hit BasicOutOfGas(2000000) at block 41,487,203
-    "0xF8F7c57FB94CC1F7f2C77Dc29b5216C4D3C3125d",  # Altcopy Index HyperEVM vault - totalAssets() hits BasicOutOfGas(2000000) at block 41,487,203
+    # LONGV4 0x2eEe42A0704DD4C0fF8141f85E24De9085A76093 and Altcopy Flagship
+    # 0xcDB9671E671562B60481e4929eF80A5360af718b used to be listed here for
+    # BasicOutOfGas(2000000). That figure came from the diagnostic script's 2M
+    # CALL_GAS default; both read fine without it, so they were unlisted on
+    # 2026-08-28. See VAULT_SPECIFIC_RISK above.
+    "0xF8F7c57FB94CC1F7f2C77Dc29b5216C4D3C3125d",  # Altcopy Index HyperEVM vault - totalAssets() reads the HyperCore spot balance (0x...0801) and user vault equity (0x...0802, eight times) precompiles and is unreadable at head-20k/-100k/-500k on every provider
     # Hyperdrive HLP and Gamma Symphony Vault on HyperEVM. At block
     # 41,858,003, totalAssets(), convertToAssets() and maxDeposit() revert
     # with 0x18c34104, so they cannot provide historical valuations and poison
@@ -559,7 +574,7 @@ _BROKEN_VAULT_CONTRACTS = {
     "0x1681f371c88b0655d32e61e83d398c75dcdfcd13",
     "0x5a8aFb250525aB8Fa85EF9a5f260Eb11B77a409a",  # Age old mainnet contract from 2017 (block 4,655,173) - burns all forwarded gas before reverting, poisoning the multicall probe batch with out-of-gas (-32003)
     "0x162428775A4C6c513FF8722B91D1aF45a9Caff41",  # Unverified old mainnet EtherDelta-style DEX from 2018 (block 4,934,650) - deposit/trade/withdraw methods, not a vault
-    "0xd3F41DAC84594332E4fF3C7fd2242DeAF7857e79",  # HYPE Funding Yield (HFY) HyperEVM USDt0 vault - totalAssets() and convertToAssets() hit HyperCore SpotBalance precompile revert at block 39,542,844, poisoning Multicall3 scanner batches with out-of-gas (-32003)
+    "0xd3F41DAC84594332E4fF3C7fd2242DeAF7857e79",  # HYPE Funding Yield (HFY) HyperEVM USDt0 vault - totalAssets() staticcalls the HyperCore spot balance precompile 0x...0801 (debug_traceCall, 2026-08-28) and its bytecode carries "SpotBalance precompile call failed"; historical reads revert on every provider, so only head valuations exist
 }
 
 #: Cause excessive gas fees, RPC havoc.
