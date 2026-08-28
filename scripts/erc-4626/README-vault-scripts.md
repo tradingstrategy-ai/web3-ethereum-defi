@@ -1669,7 +1669,7 @@ poetry run python scripts/erc-4626/export-protocol-metadata.py
 | `R2_VAULT_METADATA_SECRET_ACCESS_KEY` | Required. R2 secret key. |
 | `R2_VAULT_METADATA_ENDPOINT_URL` | Required. R2 endpoint URL. |
 | `R2_VAULT_METADATA_PUBLIC_URL` | Required. R2 public URL. |
-| `R2_ALTERNATIVE_VAULT_METADATA_BUCKET_NAME` | Optional. Alternative R2 bucket for the upcoming private commercial professional vault data bucket. Uses same credentials as primary. |
+| `R2_ALTERNATIVE_VAULT_METADATA_BUCKET_NAME` | Optional. Mirrors protocol metadata into the alternative bucket. |
 | `MAX_WORKERS` | Optional. Default: 20. |
 
 ### export-data-files.py
@@ -1682,11 +1682,13 @@ files, Core3 risk intelligence DuckDB, and exchange-rate DuckDB.
 source .local-test.env && poetry run python scripts/erc-4626/export-data-files.py
 ```
 
-When `R2_ALTERNATIVE_VAULT_METADATA_BUCKET_NAME` is configured, files are
-uploaded to both buckets. Daily `daily/YYYY-MM-DD/...` backup copies are created
-only in the alternative bucket. Missing files, including the Core3 and exchange-rate
-DuckDB files, are logged and skipped. Existing `vault-export-state.json` is included
+Files are uploaded only to `R2_ALTERNATIVE_VAULT_METADATA_BUCKET_NAME`. Daily
+`daily/YYYY-MM-DD/...` backup copies are created in that private bucket. Missing
+files, including the Core3 and exchange-rate DuckDB files, are logged and skipped.
+Existing `vault-export-state.json` is included
 so sticky qualification history is backed up with the rest of the production data set.
+This exporter does not remove any historic objects from other buckets; remove
+legacy public Pro artefacts separately through a controlled R2 operation.
 The exchange-rate DuckDB path uses the same `CURRENCY_API_DB_PATH` /
 `CURRENCY_API_DATABASE_PATH` configuration as the scheduled currency-rate scanner;
 without an override it is read from `$PIPELINE_DATA_DIR/exchange-rates.duckdb`.
@@ -1695,12 +1697,10 @@ fixed `vault-metadata-db.pickle` is published.
 
 | Variable | Description |
 |----------|-------------|
-| `R2_DATA_BUCKET_NAME` | R2 bucket for data files (falls back to `R2_VAULT_METADATA_BUCKET_NAME`). |
+| `R2_ALTERNATIVE_VAULT_METADATA_BUCKET_NAME` | Required. Private R2 bucket for data files. |
 | `R2_DATA_ACCESS_KEY_ID` | R2 access key (falls back to `R2_VAULT_METADATA_ACCESS_KEY_ID`). |
 | `R2_DATA_SECRET_ACCESS_KEY` | R2 secret (falls back to `R2_VAULT_METADATA_SECRET_ACCESS_KEY`). |
 | `R2_DATA_ENDPOINT_URL` | R2 endpoint (falls back to `R2_VAULT_METADATA_ENDPOINT_URL`). |
-| `R2_DATA_PUBLIC_URL` | Public base URL (falls back to `R2_VAULT_METADATA_PUBLIC_URL`). |
-| `R2_ALTERNATIVE_VAULT_METADATA_BUCKET_NAME` | Optional. Alternative bucket for private/professional data. |
 | `R2_DAILY_BACKUP` | Optional. Set to `false` to disable daily backup copies. Default: true. |
 | `CORE3_DATABASE_PATH` | Optional. Core3 DuckDB path. Default: `~/.tradingstrategy/vaults/core3/core3.duckdb`. |
 | `CURRENCY_API_DB_PATH` / `CURRENCY_API_DATABASE_PATH` | Optional. Exchange-rate DuckDB bundle path. Default: `$PIPELINE_DATA_DIR/exchange-rates.duckdb`. |
@@ -1758,6 +1758,12 @@ poetry run python scripts/erc-4626/scan-vault-posts.py
 | `LOG_LEVEL` | Optional. Default: warning. |
 
 ## Docker usage
+
+Pro vault datasets—price Parquet, local metadata pickle, data DuckDB files,
+export-state JSON and the crypto bundle—are uploaded only to their configured
+private R2 bucket. The public top-vaults feed, protocol metadata, logos and
+sparklines retain their established publication configuration. The Ethereum-only
+sample files remain the free download artefacts.
 
 The vault scanner is packaged as a Docker image via `Dockerfile.vault-scanner`.
 The default entrypoint is `scan-vaults-all-chains.py`, which scans **all chains**.

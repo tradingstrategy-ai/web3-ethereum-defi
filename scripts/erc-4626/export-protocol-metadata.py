@@ -16,8 +16,6 @@ Environment variables:
     - R2_VAULT_METADATA_SECRET_ACCESS_KEY: R2 secret access key for metadata bucket (required)
     - R2_VAULT_METADATA_ENDPOINT_URL: R2 API endpoint URL for metadata bucket (required)
     - R2_VAULT_METADATA_PUBLIC_URL: Public base URL for logo URLs in metadata (required)
-    - R2_ALTERNATIVE_VAULT_METADATA_BUCKET_NAME: Alternative R2 bucket for the upcoming private
-      commercial professional vault data bucket (optional, uses same credentials as primary)
     - MAX_WORKERS: Number of parallel upload workers (default: 20)
     - REFRESH_STABLECOIN_RATES: Refresh stablecoin rates before uploading the stablecoin JSON bundle (default: true)
     - FORCE_STABLECOIN_RATE_REFRESH: Bypass the per-entry same-day stablecoin rate gate (default: false)
@@ -177,8 +175,6 @@ def main():  # noqa: PLR0914
     assert public_url, "R2_VAULT_METADATA_PUBLIC_URL environment variable is required"
 
     # Build list of target buckets.
-    # The alternative bucket is for the upcoming private commercial professional vault data bucket.
-    # When set, all uploads go to both the primary and alternative buckets using the same credentials.
     bucket_names = [bucket_name]
     alt_bucket_name = os.environ.get("R2_ALTERNATIVE_VAULT_METADATA_BUCKET_NAME")
     if alt_bucket_name:

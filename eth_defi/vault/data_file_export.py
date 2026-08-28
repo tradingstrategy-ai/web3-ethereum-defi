@@ -1,8 +1,8 @@
 """Export vault database files to Cloudflare R2.
 
-Uploads price databases, metadata pickles, and Core3 risk intelligence
-and exchange-rate DuckDB files so the backtester can download them
-without running the full scan pipeline.
+Uploads price databases, metadata pickles, Core3 risk intelligence and
+exchange-rate files to the private vault-data bucket. Public R2 uploads are
+limited to explicitly generated sample files.
 """
 
 import logging
@@ -122,7 +122,6 @@ def upload_files_to_r2(  # noqa: PLR0917
     access_key_id: str,
     secret_access_key: str,
     key_prefix: str = "",
-    public_url: str = "",
 ) -> int:
     """Upload a list of files to R2 bucket, excluding tmp* files.
 
@@ -138,8 +137,6 @@ def upload_files_to_r2(  # noqa: PLR0917
         R2 secret access key.
     :param key_prefix:
         Prefix for S3 keys, e.g. ``test-`` for test uploads.
-    :param public_url:
-        Public base URL for logging final download URLs.
     :return:
         Number of files uploaded.
     """
@@ -198,10 +195,6 @@ def upload_files_to_r2(  # noqa: PLR0917
         else:
             skipped_count += 1
             logger.info("Skipped unchanged file %s for s3://%s/%s", file_path, bucket_name, s3_key)
-
-        if public_url and uploaded:
-            final_url = f"{public_url.rstrip('/')}/{s3_key}"
-            print(f"  -> {final_url}")
 
     logger.info(
         "Data file upload summary for bucket %s: %d uploaded, %d skipped unchanged",
@@ -265,8 +258,8 @@ def main(
     """Run the data file export script.
 
     Reads R2 configuration from environment variables, uploads vault data
-    files to configured buckets, and creates daily backups in the alternative
-    bucket when enabled. A scheduled caller can supply the exact Parquet
+    files to the private bucket, and creates daily backups there when enabled.
+    A scheduled caller can supply the exact Parquet
     snapshot already used for crypto USD metrics. Standalone use materialises a
     fresh snapshot before upload.
 
@@ -282,24 +275,15 @@ def main(
         clear_log_file=False,
     )
 
-    # Data files use R2_DATA_* env vars, falling back to R2_VAULT_METADATA_*.
-    bucket_name = os.environ.get("R2_DATA_BUCKET_NAME") or os.environ.get("R2_VAULT_METADATA_BUCKET_NAME")
+    # Data-file exports deliberately target only the private bucket. Public
+    # downloads are provided by the separate sample-file export.
+    bucket_name = os.environ.get("R2_ALTERNATIVE_VAULT_METADATA_BUCKET_NAME")
     access_key_id = os.environ.get("R2_DATA_ACCESS_KEY_ID") or os.environ.get("R2_VAULT_METADATA_ACCESS_KEY_ID")
     secret_access_key = os.environ.get("R2_DATA_SECRET_ACCESS_KEY") or os.environ.get("R2_VAULT_METADATA_SECRET_ACCESS_KEY")
     endpoint_url = os.environ.get("R2_DATA_ENDPOINT_URL") or os.environ.get("R2_VAULT_METADATA_ENDPOINT_URL")
-    public_url = os.environ.get("R2_DATA_PUBLIC_URL") or os.environ.get("R2_VAULT_METADATA_PUBLIC_URL")
     upload_prefix = os.environ.get("UPLOAD_PREFIX", "")
 
-    assert bucket_name, "R2_DATA_BUCKET_NAME (or R2_VAULT_METADATA_BUCKET_NAME) environment variable is required"
-
-    # The alternative bucket is for the upcoming private commercial
-    # professional vault data bucket. When set, data files are uploaded to
-    # both the primary and alternative buckets using the same credentials.
-    bucket_names = [bucket_name]
-    alt_bucket_name = os.environ.get("R2_ALTERNATIVE_VAULT_METADATA_BUCKET_NAME")
-    if alt_bucket_name:
-        bucket_names.append(alt_bucket_name)
-        logger.info("Alternative bucket configured: %s", alt_bucket_name)
+    assert bucket_name, "R2_ALTERNATIVE_VAULT_METADATA_BUCKET_NAME environment variable is required"
 
     base_path = get_pipeline_data_dir()
     if exchange_rate_parquet_path is None and exchange_rate_parquet_error is None:
@@ -319,58 +303,44 @@ def main(
     )
     checkpoint_vault_settlement_database_if_exists(base_path / VAULT_SETTLEMENT_DATABASE_FILENAME)
 
-    print("\nExporting data files to R2")
-    print(f"  Bucket: {bucket_name}")
-    if alt_bucket_name:
-        print(f"  Alternative bucket: {alt_bucket_name}")
-    print(f"  Endpoint: {endpoint_url}")
-    print(f"  Public URL: {public_url}")
-    print(f"  Key prefix: '{upload_prefix}'" if upload_prefix else "  Key prefix: (none)")
-    print(f"  Files: {len(paths)}")
+    logger.info("Exporting %d data files to private R2 bucket %s via %s", len(paths), bucket_name, endpoint_url)
+    logger.info("Data-file key prefix: %s", upload_prefix or "(none)")
     for path in paths:
         exists = path.exists()
         size = f"{path.stat().st_size / 1024 / 1024:.1f} MB" if exists else "MISSING"
-        print(f"    - {path.name}: {size}")
+        logger.info("Data file: %s (%s)", path.name, size)
 
-    daily_backup_enabled = os.environ.get("R2_DAILY_BACKUP", "true").lower() != "false"
+    upload_files_to_r2(
+        file_paths=paths,
+        bucket_name=bucket_name,
+        endpoint_url=endpoint_url,
+        access_key_id=access_key_id,
+        secret_access_key=secret_access_key,
+        key_prefix=upload_prefix,
+    )
 
-    for current_bucket in bucket_names:
-        if len(bucket_names) > 1:
-            logger.info("Uploading data files to bucket: %s", current_bucket)
-
-        upload_files_to_r2(
-            file_paths=paths,
-            bucket_name=current_bucket,
+    if os.environ.get("R2_DAILY_BACKUP", "true").lower() != "false":
+        s3_client = create_r2_client(
             endpoint_url=endpoint_url,
             access_key_id=access_key_id,
             secret_access_key=secret_access_key,
-            key_prefix=upload_prefix,
-            public_url=public_url,
         )
-
-        # Create daily timestamped backups in the alternative (private) bucket only.
-        if current_bucket == alt_bucket_name and daily_backup_enabled:
-            s3_client = create_r2_client(
-                endpoint_url=endpoint_url,
-                access_key_id=access_key_id,
-                secret_access_key=secret_access_key,
-            )
-            backup_created = 0
-            backup_skipped = 0
-            for file_path in paths:
-                if not file_path.exists():
-                    continue
-                source_key = f"{upload_prefix}{file_path.name}"
-                if copy_r2_object_daily_backup(s3_client, current_bucket, source_key):
-                    backup_created += 1
-                else:
-                    backup_skipped += 1
-            logger.info(
-                "Daily backup summary for bucket %s: %d created, %d skipped",
-                current_bucket,
-                backup_created,
-                backup_skipped,
-            )
+        backup_created = 0
+        backup_skipped = 0
+        for file_path in paths:
+            if not file_path.exists():
+                continue
+            source_key = f"{upload_prefix}{file_path.name}"
+            if copy_r2_object_daily_backup(s3_client, bucket_name, source_key):
+                backup_created += 1
+            else:
+                backup_skipped += 1
+        logger.info(
+            "Daily backup summary for private bucket %s: %d created, %d skipped",
+            bucket_name,
+            backup_created,
+            backup_skipped,
+        )
 
     if exchange_rate_parquet_error is not None:
         raise exchange_rate_parquet_error

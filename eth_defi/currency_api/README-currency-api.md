@@ -222,8 +222,8 @@ The upload creates a flat R2 object key from the local file name. The default
 objects are therefore `exchange-rates.duckdb` and `exchange-rates.parquet`, next to `vault-prices-1h.parquet`,
 `cleaned-vault-prices-1h.parquet`, the vault metadata pickle, reader state,
 sticky export state, and Core3 DuckDB. When
-`R2_ALTERNATIVE_VAULT_METADATA_BUCKET_NAME` is configured, both files are
-uploaded to the alternative bucket and included in its daily
+`R2_ALTERNATIVE_VAULT_METADATA_BUCKET_NAME` is required, both files are
+uploaded only to that private bucket and included in its daily
 `daily/YYYY-MM-DD/...` backup copy.
 
 Crypto-vault USD metrics consume the same cleaned Parquet snapshot that the
