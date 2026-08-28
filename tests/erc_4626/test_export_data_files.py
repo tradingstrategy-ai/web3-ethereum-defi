@@ -4,6 +4,7 @@ from pathlib import Path
 
 import pytest
 
+from eth_defi.currency_api.database import CurrencyRateDatabase
 from eth_defi.vault import data_file_export
 from eth_defi.vault.settlement_data import VAULT_SETTLEMENT_DATABASE_FILENAME, VaultSettlementDatabase
 
@@ -12,8 +13,8 @@ def write_export_test_file(path: Path) -> None:
     """Create a valid export fixture file.
 
     Most export files can be byte placeholders because upload tests mock the
-    R2 calls. The settlement database is checkpointed before export, so it must
-    be a valid DuckDB file instead of arbitrary bytes.
+    R2 calls. Settlement data is checkpointed and exchange rates are converted
+    to Parquet before export, so both need valid DuckDB files.
 
     :param path:
         File path to create.
@@ -25,6 +26,9 @@ def write_export_test_file(path: Path) -> None:
             db.save()
         finally:
             db.close()
+    elif path.name == data_file_export.EXCHANGE_RATE_DATABASE_FILENAME:
+        db = CurrencyRateDatabase(path)
+        db.close()
     else:
         path.write_bytes(b"data")
 
