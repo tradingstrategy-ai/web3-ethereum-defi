@@ -30,7 +30,7 @@ entries:
   contract_addresses:
     - chain: ethereum
       address: '0x4ba01f22827018b4772CD326C7627FB4956A7C00'
-  rate_fetch_failed_at: '2026-08-17T00:59:45'
+  rate_fetch_failed_at: '2026-08-28T03:51:06'
   rate_fetch_failed_reason: missing_coingecko_id
   checks:
     twitter_last_post_at: ''
@@ -73,19 +73,19 @@ entries:
   source_currency: usd
   source_currency_source: manual
   source_currency_usd_rate: 1
-  source_currency_usd_rate_date: '2026-08-17'
-  source_currency_usd_rate_fetched_at: '2026-08-17T00:59:45'
+  source_currency_usd_rate_date: '2026-08-28'
+  source_currency_usd_rate_fetched_at: '2026-08-28T03:51:06'
   source_currency_usd_rate_source: fawazahmed0
   coingecko_id: metronome-synth-usd
   coingecko_link: https://www.coingecko.com/en/coins/metronome-synth-usd
   coingecko_id_source: manual
-  coingecko_id_verified_at: '2026-08-17T00:59:45'
+  coingecko_id_verified_at: '2026-08-28T03:51:06'
   coingecko_id_verification_failed_at: ''
   coingecko_id_verification_failed_reason: ''
-  usd_rate: 0.705763
-  usd_rate_fetched_at: '2026-08-17T00:59:45'
-  usd_rate_updated_at: '2026-08-17T00:58:30'
-  peg_rate: 0.705763
+  usd_rate: 0.66922
+  usd_rate_fetched_at: '2026-08-28T03:51:06'
+  usd_rate_updated_at: '2026-08-28T03:49:50'
+  peg_rate: 0.66922
   peg_rate_currency: usd
   rate_fetch_failed_at: ''
   rate_fetch_failed_reason: ''
