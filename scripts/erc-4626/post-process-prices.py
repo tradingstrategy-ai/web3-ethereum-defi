@@ -76,15 +76,15 @@ Protocol metadata R2 bucket (required unless ``SKIP_METADATA=true``):
 - ``R2_VAULT_METADATA_ENDPOINT_URL``: R2 endpoint URL for metadata bucket
 - ``R2_VAULT_METADATA_PUBLIC_URL``: Public base URL for logo URLs in metadata
 
-Alternative R2 bucket (optional, for the upcoming private commercial professional vault data bucket):
+Private R2 bucket (required for Pro vault datasets):
 
-- ``R2_ALTERNATIVE_VAULT_METADATA_BUCKET_NAME``: When set, metadata and data files are uploaded
-  to both the primary and this alternative bucket using the same credentials
+- ``R2_ALTERNATIVE_VAULT_METADATA_BUCKET_NAME``: Full vault price Parquet,
+  local metadata pickle, data DuckDB files, export-state JSON and the crypto
+  bundle are uploaded only here.
 
-Private crypto-vaults R2 bundle (required for successful private publication):
+Crypto-vaults R2 bundle:
 
-- ``R2_ALTERNATIVE_VAULT_METADATA_BUCKET_NAME``: Private bundle bucket. Unlike
-  the legacy alternative export, the crypto bundle is uploaded only here.
+- ``R2_ALTERNATIVE_VAULT_METADATA_BUCKET_NAME``: Private bundle bucket.
 - ``R2_DATA_ENDPOINT_URL`` / ``R2_VAULT_METADATA_ENDPOINT_URL``: R2 endpoint.
 - ``R2_DATA_ACCESS_KEY_ID`` / ``R2_VAULT_METADATA_ACCESS_KEY_ID``: R2 access key.
 - ``R2_DATA_SECRET_ACCESS_KEY`` / ``R2_VAULT_METADATA_SECRET_ACCESS_KEY``: R2 secret.
@@ -94,22 +94,24 @@ There is deliberately no ``SKIP_CRYPTO_VAULTS`` switch. Crypto failures are
 recorded as failed post-processing steps and do not stop the public export
 steps, but the standalone command exits non-zero when any recorded step fails.
 
-Data files R2 bucket (falls back to ``R2_VAULT_METADATA_*`` if not set):
+Private data-files R2 bucket:
 
-- ``R2_DATA_BUCKET_NAME``: R2 bucket for parquet/pickle data files
+- ``R2_ALTERNATIVE_VAULT_METADATA_BUCKET_NAME``: Private R2 bucket for
+  Parquet, pickle and DuckDB data files
 - ``R2_DATA_ACCESS_KEY_ID``: R2 access key ID for data bucket
 - ``R2_DATA_SECRET_ACCESS_KEY``: R2 secret access key for data bucket
 - ``R2_DATA_ENDPOINT_URL``: R2 endpoint URL for data bucket
-- ``R2_DATA_PUBLIC_URL``: Public base URL for data files
 
 Top-vaults JSON R2 bucket (required unless ``SKIP_TOP_VAULTS=true``):
 
-- ``R2_TOP_VAULTS_BUCKET_NAME``: R2 bucket for ``top_vaults_by_chain.json`` (primary public bucket, e.g. ``top-defi-vaults.tradingstrategy.ai``)
+- ``R2_TOP_VAULTS_BUCKET_NAME``: Public R2 bucket for
+  ``top_vaults_by_chain.json``
 - ``R2_TOP_VAULTS_ACCESS_KEY_ID``: R2 access key ID for top-vaults bucket
 - ``R2_TOP_VAULTS_SECRET_ACCESS_KEY``: R2 secret access key for top-vaults bucket
 - ``R2_TOP_VAULTS_ENDPOINT_URL``: R2 endpoint URL for top-vaults bucket
 - ``R2_TOP_VAULTS_PUBLIC_URL``: Optional public base URL for the top-vaults JSON
-- ``R2_TOP_VAULTS_ALTERNATIVE_BUCKET_NAME``: Optional alternative (private) bucket. When set, the JSON is uploaded to both primary and alternative using the same credentials.
+- ``R2_TOP_VAULTS_ALTERNATIVE_BUCKET_NAME``: Optional alternative R2 bucket
+  retaining the established backup copy.
 """
 
 import logging

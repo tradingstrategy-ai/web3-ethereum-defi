@@ -165,8 +165,8 @@ def _upload_top_vaults_json_to_bucket(  # noqa: PLR0917 - internal upload payloa
         Human-readable label such as ``primary`` or ``alternative``.
 
     :return:
-        ``True`` if the bucket upload succeeded or was skipped as
-        unchanged, ``False`` on failure.
+        ``True`` if the bucket upload succeeded or was skipped as unchanged,
+        otherwise ``False``.
     """
     try:
         uploaded = upload_file_to_r2(
@@ -245,34 +245,26 @@ def _upload_top_vaults_json_to_configured_buckets(  # noqa: PLR0917 - internal R
 ) -> bool:
     """Upload the generated top-vaults JSON to all configured buckets.
 
-    The primary and alternative buckets are attempted independently.
-    This means a permission issue on one bucket does not stop the other
-    upload attempt or later post-processing steps.
+    The primary and alternative buckets are attempted independently. This
+    means a permission issue on one bucket does not stop the other upload or
+    later post-processing steps.
 
     :param s3_client:
         Authenticated boto3 S3 client.
-
     :param output_path:
         Generated JSON file path.
-
     :param bucket_name:
         Primary bucket name.
-
     :param endpoint_url:
         R2 endpoint URL for logging.
-
     :param object_key:
         Destination object key.
-
     :param access_key_id:
         R2 access key ID for masked logging.
-
     :param public_url:
         Optional public URL for the primary bucket.
-
     :param alt_bucket_name:
         Optional alternative bucket name.
-
     :return:
         ``True`` if all configured uploads succeeded or were skipped as
         unchanged, otherwise ``False``.
@@ -1021,9 +1013,8 @@ def export_top_vaults_json(  # noqa: PLR0914 - R2 export settings are resolved t
     Runs :py:mod:`eth_defi.vault.top_vaults_json` against the
     active pipeline data directory to produce
     ``top_vaults_by_chain.json``, then uploads the result to the
-    primary (public) ``R2_TOP_VAULTS_*`` bucket and, if configured,
-    also to the alternative (private) bucket via
-    ``R2_TOP_VAULTS_ALTERNATIVE_BUCKET_NAME``.
+    primary (public) ``R2_TOP_VAULTS_*`` bucket and, if configured, also to the
+    alternative (private) bucket via ``R2_TOP_VAULTS_ALTERNATIVE_BUCKET_NAME``.
 
     This is a drop-in replacement for the standalone ``vault-analysis``
     docker image: the JSON generation and the R2 upload now both live
@@ -1043,9 +1034,9 @@ def export_top_vaults_json(  # noqa: PLR0914 - R2 export settings are resolved t
 
     :param output_path:
         Override for the generated JSON file. Defaults to
-        ``get_pipeline_data_dir() / "top_vaults_by_chain.json"``. The
-        filename is intentionally kept identical to the existing public
-        URL ``https://top-defi-vaults.tradingstrategy.ai/top_vaults_by_chain.json``.
+        ``get_pipeline_data_dir() / "top_vaults_by_chain.json"``. The filename
+        is intentionally kept identical to the existing public URL
+        ``https://top-defi-vaults.tradingstrategy.ai/top_vaults_by_chain.json``.
 
     :param core3_db_path:
         Override for the Core3 risk intelligence DuckDB path. When ``None``,
@@ -1105,9 +1096,8 @@ def export_top_vaults_json(  # noqa: PLR0914 - R2 export settings are resolved t
             secret_access_key=secret_access_key,
         )
 
-        # TODO: phase out public R2_TOP_VAULTS_BUCKET_NAME later once
-        # downstream consumers (classification.py, add-vault-note skill,
-        # deploy-lagoon-multichain.py) migrate to the private bucket.
+        # This public feed has downstream operational consumers, so retain its
+        # established primary and optional alternative publication paths.
         alt_bucket_name = os.environ.get("R2_TOP_VAULTS_ALTERNATIVE_BUCKET_NAME")
         uploads_ok = _upload_top_vaults_json_to_configured_buckets(
             s3_client=s3_client,
