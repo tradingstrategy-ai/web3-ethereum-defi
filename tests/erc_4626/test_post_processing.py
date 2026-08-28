@@ -1,7 +1,5 @@
 """Tests for vault post-processing error handling."""
 
-from __future__ import annotations
-
 import logging
 from pathlib import Path
 from types import SimpleNamespace
@@ -40,8 +38,12 @@ def test_run_post_processing_contains_crypto_failures_and_keeps_public_skips(
     crypto_calls: list[tuple[str, object]] = []
 
     monkeypatch.setattr(post_processing, "merge_native_protocols", lambda **_: {})
+    exchange_rate_path = tmp_path / "exchange-rates.parquet"
+    exchange_rate_path.write_bytes(b"rate snapshot")
     monkeypatch.setattr(post_processing, "clean_crypto_vault_prices", lambda **kwargs: crypto_calls.append(("clean", kwargs)) or True)
+    monkeypatch.setattr(post_processing, "materialise_exchange_rate_parquet", lambda **_: SimpleNamespace(path=exchange_rate_path))
     monkeypatch.setattr(post_processing, "calculate_crypto_vault_metadata", lambda **kwargs: crypto_calls.append(("metadata", kwargs)) or {"vaults": []})
+    monkeypatch.setattr(post_processing, "export_crypto_exchange_rate_parquet", lambda path: crypto_calls.append(("rate", path)) or True)
     monkeypatch.setattr(post_processing, "export_crypto_vault_bundle", lambda paths, metadata: crypto_calls.append(("export", (paths, metadata))) or False)
 
     steps = post_processing.run_post_processing(
@@ -56,11 +58,12 @@ def test_run_post_processing_contains_crypto_failures_and_keeps_public_skips(
         crypto_vaults_dir=tmp_path / "crypto-vaults",
     )
 
-    assert [name for name, _ in crypto_calls] == ["clean", "metadata", "export"]
+    assert [name for name, _ in crypto_calls] == ["clean", "metadata", "rate", "export"]
     clean_kwargs = crypto_calls[0][1]
     assert isinstance(clean_kwargs, dict)
     assert clean_kwargs["cleaned_path"] == tmp_path / "crypto-vaults" / "crypto-cleaned-vault-prices-1d.parquet"
     assert steps["clean-crypto-vault-prices"] is True
+    assert steps["materialise-exchange-rate-parquet"] is True
     assert steps["calculate-crypto-vault-metadata"] is True
     assert steps["export-crypto-vault-bundle"] is False
 
@@ -102,7 +105,7 @@ def test_export_data_files_logs_retryable_r2_failure_as_warning_without_tracebac
     """Transient R2 failures should await the scanner's next export attempt quietly."""
     retryable_error = R2RetryableOperationError("R2 CompleteMultipartUpload failed with http_status=500")
 
-    def fake_main() -> None:
+    def fake_main(**_: object) -> None:
         raise retryable_error
 
     module = SimpleNamespace(main=fake_main)

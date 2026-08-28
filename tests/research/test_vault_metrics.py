@@ -23,10 +23,12 @@ from eth_defi.research import vault_metrics
 from eth_defi.research.sparkline import export_sparkline_as_png, export_sparkline_as_svg, extract_vault_price_data, render_sparkline_simple
 from eth_defi.research.vault_benchmark import visualise_vault_return_benchmark
 from eth_defi.research.vault_metrics import (
+    CryptoUSDConversionContext,
     PeriodMetrics,
     apply_abnormal_value_checks,
     apply_morpho_not_in_api_check,
     calculate_annualised_volatility_from_daily_returns,
+    calculate_crypto_usd_period_results,
     calculate_hourly_returns_for_all_vaults,
     calculate_lifetime_metrics,
     calculate_period_metrics,
@@ -86,6 +88,92 @@ def test_period_metrics_rejects_empty_share_price_series_cleanly() -> None:
 
     assert result.error_reason == "Vault has no usable share-price observations"
     assert result.raw_samples == 0
+
+
+def test_usd_period_fee_path_does_not_charge_performance_fee_on_eth_appreciation() -> None:
+    """USD fee composition applies externalised fees to native vault returns only."""
+    index = pd.to_datetime(["2026-01-01", "2026-01-05"])
+    native_prices = pd.Series([1.0, 1.0], index=index)
+    usd_prices = pd.Series([1_000.0, 2_000.0], index=index)
+    daily_usd_prices, daily_usd_returns = prepare_daily_share_price_series(usd_prices)
+    native_fees = FeeData(
+        fee_mode=VaultFeeMode.externalised,
+        management=0.0,
+        performance=0.2,
+        deposit=0.0,
+        withdraw=0.0,
+    )
+    usd_metrics = calculate_period_metrics(
+        period="lifetime",
+        gross_fee_data=native_fees,
+        net_fee_data=native_fees,
+        share_price_hourly=usd_prices,
+        share_price_daily=daily_usd_prices,
+        daily_returns=daily_usd_returns,
+        tvl=pd.Series([1_000.0, 2_000.0], index=index),
+        now_=index[-1],
+        native_fee_share_price=native_prices,
+        exchange_rate=pd.Series([1_000.0, 2_000.0], index=index),
+    )
+
+    assert usd_metrics.returns_gross == pytest.approx(1.0)
+    assert usd_metrics.returns_net == pytest.approx(1.0)
+    assert usd_metrics.tvl_end == pytest.approx(2_000.0)
+
+
+def test_usd_period_metrics_include_underlying_exchange_rate_endpoints() -> None:
+    """BTC/ETH USD metrics expose the precise underlying prices they used."""
+    index = pd.to_datetime(["2026-01-01", "2026-01-05"])
+    native_prices = pd.Series([1.0, 1.0], index=index)
+    daily_native_prices, _ = prepare_daily_share_price_series(native_prices)
+    rates = pd.Series([1_000.0, 1_250.0, 1_500.0, 1_750.0, 2_000.0], index=pd.date_range("2026-01-01", "2026-01-05", freq="D"))
+    fees = FeeData(fee_mode=VaultFeeMode.feeless, management=0.0, performance=0.0, deposit=0.0, withdraw=0.0)
+    metrics = calculate_crypto_usd_period_results(
+        context=CryptoUSDConversionContext(
+            rates_by_family={"eth": rates},
+            errors_by_family={},
+            vault_families={"1-0xeth": "eth"},
+        ),
+        vault_id="1-0xeth",
+        native_share_price_observations=native_prices,
+        native_daily_share_prices=daily_native_prices,
+        native_total_assets=pd.Series([2.0, 2.0], index=index),
+        gross_fee_data=fees,
+        net_fee_data=fees,
+    )
+
+    assert metrics is not None
+    lifetime = next(metric for metric in metrics if metric.period == "lifetime")
+    assert lifetime.exchange_rate_start == pytest.approx(1_000.0)
+    assert lifetime.exchange_rate_end == pytest.approx(2_000.0)
+
+
+def test_usd_period_metrics_restart_lifetime_after_long_rate_gap() -> None:
+    """A rate gap longer than the bounded fill excludes older USD history."""
+    index = pd.date_range("2026-01-01", "2026-01-12", freq="D")
+    rates = pd.Series([1_000.0] * 3 + [float("nan")] * 4 + [2_000.0] * 5, index=index)
+    observations = pd.Series([1.0, 1.0, 1.0], index=pd.to_datetime(["2026-01-01", "2026-01-08", "2026-01-12"]))
+    daily_native_prices, _ = prepare_daily_share_price_series(observations)
+    fees = FeeData(fee_mode=VaultFeeMode.feeless, management=0.0, performance=0.0, deposit=0.0, withdraw=0.0)
+
+    metrics = calculate_crypto_usd_period_results(
+        context=CryptoUSDConversionContext(
+            rates_by_family={"eth": rates},
+            errors_by_family={},
+            vault_families={"1-0xeth": "eth"},
+        ),
+        vault_id="1-0xeth",
+        native_share_price_observations=observations,
+        native_daily_share_prices=daily_native_prices,
+        native_total_assets=pd.Series([1.0, 1.0, 1.0], index=observations.index),
+        gross_fee_data=fees,
+        net_fee_data=fees,
+    )
+
+    assert metrics is not None
+    lifetime = next(metric for metric in metrics if metric.period == "lifetime")
+    assert lifetime.samples_start_at == pd.Timestamp("2026-01-08")
+    assert lifetime.exchange_rate_start == pytest.approx(2_000.0)
 
 
 def test_return_resampling_preserves_missing_calendar_days() -> None:

@@ -18,6 +18,7 @@ from eth_defi.vault.base import VaultSpec
 from eth_defi.vault.crypto_vault_export import build_crypto_vault_manifest, publish_crypto_vault_bundle
 from eth_defi.vault.crypto_vaults import (
     CryptoVaultPaths,
+    build_crypto_usd_conversion_context,
     build_crypto_vault_record,
     resolve_crypto_vault_paths,
 )
@@ -28,6 +29,7 @@ from eth_defi.vault.denomination import (
     convert_usd_threshold_to_denomination,
     normalise_denomination_symbol,
 )
+from eth_defi.vault.vaultdb import VaultDatabase
 
 DENOMINATION_DECIMALS = 18
 
@@ -206,8 +208,42 @@ def test_crypto_metadata_identifies_underlying_and_stablecoinish_history() -> No
     assert "total_assets_unit" not in wbtc_record
     assert stablecoin_record["canonical_underlying"] == "USD"
     assert stablecoin_record["stablecoinish"] is True
+    assert "periodic_metrics_usd" not in stablecoin_record
     assert mixed_case_stablecoin_record["denomination"] == "sUSDe"
     assert mixed_case_stablecoin_record["stablecoinish"] is True
+
+
+def test_crypto_usd_context_shifts_provider_date_and_bounds_gap_fill(tmp_path: Path) -> None:
+    """USD conversion uses the prior vault day and never fills a long gap.
+
+    :param tmp_path:
+        Isolated local export directory supplied by pytest.
+    """
+    eth_spec = VaultSpec(1, "0x0000000000000000000000000000000000000002")
+    vault_db = VaultDatabase(rows={eth_spec: _vault_row(1, eth_spec.vault_address, "wstETH")})
+    exchange_rate_path = tmp_path / "exchange-rates.parquet"
+    pd.DataFrame(
+        {
+            "date": pd.to_datetime(["2026-01-02", "2026-01-03", "2026-01-08"]),
+            "base_currency": ["usd"] * 3,
+            "quote_currency": ["eth"] * 3,
+            "rate": [0.001, 0.0005, 0.00025],
+            "source": ["fawazahmed0"] * 3,
+            "written_at": pd.to_datetime(["2026-01-02", "2026-01-03", "2026-01-08"]),
+        }
+    ).to_parquet(exchange_rate_path)
+    prices = pd.DataFrame(index=pd.date_range("2026-01-01", "2026-01-08", freq="D"))
+
+    context, provenance = build_crypto_usd_conversion_context(vault_db, prices, exchange_rate_path)
+
+    eth_rates = context.rates_by_family["eth"]
+    assert eth_rates.loc[pd.Timestamp("2026-01-01")] == pytest.approx(1_000)
+    assert eth_rates.loc[pd.Timestamp("2026-01-02")] == pytest.approx(2_000)
+    assert eth_rates.loc[pd.Timestamp("2026-01-05")] == pytest.approx(2_000)
+    assert pd.isna(eth_rates.loc[pd.Timestamp("2026-01-06")])
+    assert eth_rates.loc[pd.Timestamp("2026-01-07")] == pytest.approx(4_000)
+    assert context.vault_families[eth_spec.as_string_id()] == "eth"
+    assert provenance["effective_date_policy"] == "provider date minus one UTC day"
 
 
 def test_manifest_describes_flat_crypto_payloads(tmp_path: Path) -> None:

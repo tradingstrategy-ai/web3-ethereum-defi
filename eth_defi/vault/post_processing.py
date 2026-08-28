@@ -19,6 +19,7 @@ try:
 except ImportError:
     brotli = None
 
+import duckdb
 import pandas as pd
 import pyarrow as pa
 import pyarrow.compute as pc
@@ -27,7 +28,8 @@ import pyarrow.parquet as pq
 from eth_defi.apex.constants import APEX_CHAIN_ID, APEX_METRICS_DATABASE
 from eth_defi.apex.metrics import ApexMetricsDatabase
 from eth_defi.apex.vault_data_export import build_raw_prices_dataframe as build_apex_prices_dataframe
-from eth_defi.cloudflare_r2 import R2RetryableOperationError, calculate_bytes_digest, copy_r2_object_daily_backup, create_r2_client, upload_bytes_to_r2, upload_file_to_r2
+from eth_defi.cloudflare_r2 import R2OperationError, R2RetryableOperationError, calculate_bytes_digest, copy_r2_object_daily_backup, create_r2_client, upload_bytes_to_r2, upload_file_to_r2
+from eth_defi.currency_api.parquet import materialise_exchange_rate_parquet
 from eth_defi.grvt.constants import GRVT_CHAIN_ID, GRVT_DAILY_METRICS_DATABASE
 from eth_defi.grvt.daily_metrics import GRVTDailyMetricsDatabase
 from eth_defi.grvt.vault_data_export import build_raw_prices_dataframe as build_grvt_prices_dataframe
@@ -50,6 +52,11 @@ from eth_defi.vault import top_vaults_json
 from eth_defi.vault.base import VaultHistoricalRead
 from eth_defi.vault.crypto_vault_export import publish_crypto_vault_bundle
 from eth_defi.vault.crypto_vaults import CryptoVaultPaths, build_crypto_vault_metadata, build_crypto_vault_prices, resolve_crypto_vault_paths
+from eth_defi.vault.data_file_export import (
+    publish_exchange_rate_parquet_to_alternative_bucket,
+    resolve_exchange_rate_database_path,
+    resolve_exchange_rate_parquet_path,
+)
 from eth_defi.vault.sample_export import export_sample_files_to_r2
 from eth_defi.vault.vaultdb import DEFAULT_UNCLEANED_PRICE_DATABASE, get_pipeline_data_dir
 
@@ -806,6 +813,7 @@ def calculate_crypto_vault_metadata(
     *,
     vault_db_path: Path,
     paths: CryptoVaultPaths,
+    exchange_rate_parquet_path: Path,
 ) -> dict[str, Any] | None:
     """Calculate isolated crypto metadata while containing phase failures.
 
@@ -813,6 +821,8 @@ def calculate_crypto_vault_metadata(
         Common vault metadata pickle.
     :param paths:
         Explicit crypto bundle paths.
+    :param exchange_rate_parquet_path:
+        Verified exchange-rate snapshot shared with the R2 data export.
     :return:
         Metadata document, or ``None`` after a contained failure.
     """
@@ -822,6 +832,7 @@ def calculate_crypto_vault_metadata(
             cleaned_price_path=paths.cleaned_price_path,
             metadata_path=paths.metadata_path,
             sticky_state_path=paths.sticky_state_path,
+            exchange_rate_parquet_path=exchange_rate_parquet_path,
         )
     except Exception:
         logger.exception("Crypto vault metadata calculation failed")
@@ -842,6 +853,22 @@ def export_crypto_vault_bundle(paths: CryptoVaultPaths, metadata: dict[str, Any]
         return publish_crypto_vault_bundle(paths, metadata)
     except Exception:
         logger.exception("Crypto vault bundle export failed")
+        return False
+
+
+def export_crypto_exchange_rate_parquet(parquet_path: Path) -> bool:
+    """Publish the crypto bundle's rate snapshot without stopping public work.
+
+    :param parquet_path:
+        Verified local exchange-rate Parquet used for USD metric calculation.
+    :return:
+        ``True`` when the private rate snapshot and its backup were published.
+    """
+    try:
+        publish_exchange_rate_parquet_to_alternative_bucket(parquet_path)
+        return True
+    except (AssertionError, FileNotFoundError, OSError, R2OperationError):
+        logger.exception("Crypto exchange-rate Parquet export failed")
         return False
 
 
@@ -881,9 +908,18 @@ def export_protocol_metadata() -> bool:
         return False
 
 
-def export_data_files() -> bool:
+def export_data_files(
+    exchange_rate_parquet_path: Path | None = None,
+    exchange_rate_parquet_error: Exception | None = None,
+) -> bool:
     """Export database files (parquet, pickle, DuckDB) to R2.
 
+    :param exchange_rate_parquet_path:
+        Optional exact snapshot used by the crypto USD metrics phase.
+    :param exchange_rate_parquet_error:
+        Earlier snapshot materialisation error. The export uploads unrelated
+        data and then reports this phase as failed without publishing stale
+        exchange-rate Parquet.
     :return: True if export succeeded
     """
     try:
@@ -891,7 +927,10 @@ def export_data_files() -> bool:
         spec = importlib.util.spec_from_file_location("export_data_files", "scripts/erc-4626/export-data-files.py")
         module = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(module)
-        module.main()
+        module.main(
+            exchange_rate_parquet_path=exchange_rate_parquet_path,
+            exchange_rate_parquet_error=exchange_rate_parquet_error,
+        )
         logger.info("Data file export complete")
         return True
     except R2RetryableOperationError as exc:
@@ -1216,6 +1255,22 @@ def run_post_processing(
     )
     steps["clean-crypto-vault-prices"] = crypto_clean_ok
 
+    # The crypto USD metrics and R2 data-file export must share one immutable
+    # local snapshot. A currency failure is isolated like crypto cleaning: it
+    # cannot prevent public exports, but it blocks crypto metadata publication.
+    exchange_rate_parquet_path = None
+    exchange_rate_parquet_error = None
+    try:
+        exchange_rate_parquet_path = materialise_exchange_rate_parquet(
+            source_path=resolve_exchange_rate_database_path(data_dir),
+            destination_path=resolve_exchange_rate_parquet_path(data_dir),
+        ).path
+        steps["materialise-exchange-rate-parquet"] = True
+    except (duckdb.Error, FileNotFoundError, KeyError, OSError, TypeError, ValueError, pa.ArrowException) as exc:
+        logger.exception("Exchange-rate Parquet materialisation failed")
+        exchange_rate_parquet_error = exc
+        steps["materialise-exchange-rate-parquet"] = False
+
     # Export top vaults JSON. This depends on cleaned Parquet and must run before
     # the public data-file upload.
     if skip_top_vaults:
@@ -1232,17 +1287,18 @@ def run_post_processing(
         )
 
     crypto_metadata = None
-    if crypto_clean_ok and cleaning_ok:
+    if crypto_clean_ok and cleaning_ok and exchange_rate_parquet_path is not None:
         crypto_metadata = calculate_crypto_vault_metadata(
             vault_db_path=resolved_vault_db_path,
             paths=crypto_paths,
+            exchange_rate_parquet_path=exchange_rate_parquet_path,
         )
         steps["calculate-crypto-vault-metadata"] = crypto_metadata is not None
     elif not crypto_clean_ok:
         logger.warning("Skipping crypto metadata — crypto cleaning failed")
         steps["calculate-crypto-vault-metadata"] = False
     else:
-        logger.warning("Skipping crypto metadata and publication — clean-prices failed, refusing to publish stale stablecoin data")
+        logger.warning("Skipping crypto metadata — no current exchange-rate snapshot or clean price input")
         steps["calculate-crypto-vault-metadata"] = False
 
     # Export sparklines.
@@ -1268,7 +1324,10 @@ def run_post_processing(
         logger.warning("Skipping data file export — clean_prices failed, refusing to export stale data")
         steps["export-data-files"] = False
     else:
-        steps["export-data-files"] = export_data_files()
+        steps["export-data-files"] = export_data_files(
+            exchange_rate_parquet_path=exchange_rate_parquet_path,
+            exchange_rate_parquet_error=exchange_rate_parquet_error,
+        )
 
     # Export Ethereum-only sample files to the public bucket.
     if skip_samples:
@@ -1295,8 +1354,18 @@ def run_post_processing(
                 skip_json_sample=not json_ok,
             )
 
+    crypto_rate_published = bool(steps.get("export-data-files"))
+    if not crypto_rate_published and exchange_rate_parquet_path is not None:
+        # ``SKIP_DATA=true`` and public-data export failures must not prevent
+        # the independent private bundle. Publish the exact local snapshot
+        # before making crypto metadata current.
+        crypto_rate_published = export_crypto_exchange_rate_parquet(exchange_rate_parquet_path)
+
     if crypto_metadata is None:
         logger.warning("Skipping crypto bundle publication — crypto metadata was not generated")
+        steps["export-crypto-vault-bundle"] = False
+    elif not crypto_rate_published:
+        logger.warning("Skipping crypto bundle publication — exchange-rate snapshot was not published to the private bucket")
         steps["export-crypto-vault-bundle"] = False
     else:
         steps["export-crypto-vault-bundle"] = export_crypto_vault_bundle(crypto_paths, crypto_metadata)

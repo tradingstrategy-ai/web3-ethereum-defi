@@ -16,6 +16,9 @@ Environment variables:
 - ``CRYPTO_VAULTS_DIRECTORY``: Local private bundle directory. Defaults to
   ``crypto-vaults`` below the pipeline data directory.
 - ``SETTLEMENT_DATABASE``: Optional vault settlement DuckDB database.
+- ``CURRENCY_API_DB_PATH`` / ``CURRENCY_API_DATABASE_PATH``: Source
+  exchange-rate DuckDB database. Defaults to ``exchange-rates.duckdb`` below
+  the pipeline data directory.
 - ``CRYPTO_VAULTS_MIN_TVL_USD``: Fixed USD low-TVL guideline.
 - ``CRYPTO_VAULTS_PUBLISH``: Set to ``false`` to build local artefacts without
   uploading them to R2. Defaults to ``true``.
@@ -31,12 +34,18 @@ from pathlib import Path
 
 from tabulate import tabulate
 
+from eth_defi.currency_api.parquet import materialise_exchange_rate_parquet
 from eth_defi.utils import setup_console_logging
 from eth_defi.vault.crypto_vault_export import publish_crypto_vault_bundle
 from eth_defi.vault.crypto_vaults import (
     build_crypto_vault_metadata,
     build_crypto_vault_prices,
     resolve_crypto_vault_paths,
+)
+from eth_defi.vault.data_file_export import (
+    publish_exchange_rate_parquet_to_alternative_bucket,
+    resolve_exchange_rate_database_path,
+    resolve_exchange_rate_parquet_path,
 )
 from eth_defi.vault.settlement_data import get_default_vault_settlement_database_path
 from eth_defi.vault.vaultdb import get_pipeline_data_dir
@@ -91,14 +100,22 @@ def main() -> None:
         cleaned_stablecoin_path=cleaned_stablecoin_path,
         settlement_db_path=settlement_db_path,
     )
+    exchange_rate_parquet_path = materialise_exchange_rate_parquet(
+        source_path=resolve_exchange_rate_database_path(data_dir),
+        destination_path=resolve_exchange_rate_parquet_path(data_dir),
+    ).path
     metadata = build_crypto_vault_metadata(
         vault_db_path=vault_db_path,
         cleaned_price_path=crypto_paths.cleaned_price_path,
         metadata_path=crypto_paths.metadata_path,
         sticky_state_path=crypto_paths.sticky_state_path,
+        exchange_rate_parquet_path=exchange_rate_parquet_path,
     )
     publish = os.environ.get("CRYPTO_VAULTS_PUBLISH", "true").lower() != "false"
     if publish:
+        # Publish and back up the exact rate snapshot first. Consumers never
+        # observe a metadata generation whose USD metrics lack rate artefacts.
+        publish_exchange_rate_parquet_to_alternative_bucket(exchange_rate_parquet_path)
         publish_crypto_vault_bundle(crypto_paths, metadata)
         logger.info("Published private crypto-vaults bundle with %d vaults", len(metadata["vaults"]))
     else:

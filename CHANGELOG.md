@@ -1,5 +1,6 @@
 # 1.2
 
+- feat: Export cleaned exchange-rate Parquet and USD-denominated period metrics for private ETH/BTC vault records (2026-08-28)
 - feat: Add a private crypto-vaults Parquet bundle for stablecoin, ETH and BTC-denominated vaults (2026-08-27)
 - feat: Mark GMX GM and GLV vaults as automated-market-maker pool shares (2026-08-26)
 - feat: Add directional-leverage classifications for Lighter's fixed 2x long and short pool family (2026-08-26)
