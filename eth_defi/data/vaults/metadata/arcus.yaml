@@ -3,25 +3,12 @@ slug: arcus
 short_description: |
   Self-custodial trading venue on Robinhood Chain for Stock Tokens and perpetual futures.
 long_description: |
-  [Arcus](https://arcus.xyz/) is a self-custodial exchange on Robinhood Chain
-  for trading Stock Tokens, cryptoassets and perpetual futures around the clock.
-  Its [July 2026 launch announcement](https://arcus.xyz/blog/arcus-x-robinhood-trade-stocks-perpetuals-24-7)
-  introduced spot trading with 95 Stock Token markets and no Arcus fee on spot
-  trades.
-
-  Stock Tokens provide economic exposure to their referenced equity or exchange-
-  traded product, rather than direct ownership. The pToken strategies listed
-  here are denominated in [USDG](https://globaldollar.com/about-usdg), a dollar
-  stablecoin that Global Dollar says can be redeemed one-to-one with Paxos.
-  Liquidity, redemption access, price tracking and eligibility can vary by
-  product, market conditions and jurisdiction.
-
-  Arcus is developed by the team behind dYdX and led by founder and chief
-  executive [Eddie Zhang](https://arcus.xyz/blog/arcus-x-robinhood-trade-stocks-perpetuals-24-7).
-  [Robinhood Crypto invested in Arcus](https://arcus.xyz/blog/arcus-x-robinhood-trade-stocks-perpetuals-24-7)
-  as part of the Robinhood Chain partnership. Review the current
-  [Arcus terms](https://arcus.xyz/legal/terms) and product information before
-  trading.
+  Arcus is a self-custodial trading venue on Robinhood Chain. Its pTokens
+  announcement describes pTokens as transferable ERC-20 representations of a
+  proportionate interest in an Arcus perpetuals account configured for a
+  particular market and leverage level. This packages a perpetual position into
+  a token that can be held, transferred or traded without the holder separately
+  managing the account's margin and collateral.
 fee_description: |
   Arcus says it does not charge a fee on Stock Token spot trades. That statement
   does not establish the costs of holding, trading or redeeming every Arcus

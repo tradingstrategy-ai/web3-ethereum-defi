@@ -205,21 +205,34 @@ poetry run python -m eth_defi.currency_api.cli
 | `MAX_TRANSIENT_ATTEMPTS` | `5` | Consecutive transient failures per date before giving up |
 | `SOURCE` | `fawazahmed0` | Value written to the `source` column |
 
-## Uploading the DuckDB bundle
+## Uploading exchange-rate bundles
 
 The all-chain vault scanner writes the currency API database to
 `$PIPELINE_DATA_DIR/exchange-rates.duckdb` by default, using
 `CURRENCY_API_DB_PATH` or `CURRENCY_API_DATABASE_PATH` when either override is
 set. `scripts/erc-4626/export-data-files.py` follows the same path resolution
-and uploads the resulting DuckDB file with the other vault data artefacts.
+and uploads the resulting DuckDB file with the other vault data artefacts. It
+also materialises a read-only, cleaned ``exchange-rates.parquet`` companion
+from the same database. The Parquet retains the source direction (quote units
+per USD), removes only documented known-bad rows, and has stable columns
+``date``, ``base_currency``, ``quote_currency``, ``rate``, ``source`` and
+``written_at``.
 
 The upload creates a flat R2 object key from the local file name. The default
-object is therefore `exchange-rates.duckdb`, next to `vault-prices-1h.parquet`,
+objects are therefore `exchange-rates.duckdb` and `exchange-rates.parquet`, next to `vault-prices-1h.parquet`,
 `cleaned-vault-prices-1h.parquet`, the vault metadata pickle, reader state,
 sticky export state, and Core3 DuckDB. When
-`R2_ALTERNATIVE_VAULT_METADATA_BUCKET_NAME` is configured, the same file is
+`R2_ALTERNATIVE_VAULT_METADATA_BUCKET_NAME` is configured, both files are
 uploaded to the alternative bucket and included in its daily
 `daily/YYYY-MM-DD/...` backup copy.
+
+Crypto-vault USD metrics consume the same cleaned Parquet snapshot that the
+data export later publishes. Provider observations labelled date ``D`` are
+treated as effective for the preceding UTC vault day ``D - 1`` and can be
+forward filled for at most three days. A longer gap starts a new USD-metric
+segment, so the USD lifetime view begins at that newest contiguous segment
+rather than combining unrelated rate windows. This is a valuation convention
+for the provider's midnight snapshot, not an intraday price fixing.
 
 ```shell
 source .local-test.env && poetry run python scripts/erc-4626/export-data-files.py

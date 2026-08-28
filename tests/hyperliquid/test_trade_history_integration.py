@@ -126,7 +126,11 @@ def test_reconstruct_vault_trade_history(session, tmp_path):
         db.close()
 
 
-@pytest.mark.timeout(120)
+# Flaky: CI timed out in DuckDB ``executemany`` at 120 seconds on PR #1529 on
+# 2026-08-27; the isolated live test passed locally in 117.22 seconds with a
+# 180-second timeout, so normal live API/data-volume variation can exceed 120.
+@flaky.flaky
+@pytest.mark.timeout(180)
 def test_reconstruct_normal_account_trade_history(session, tmp_path):
     """Reconstruct trade history for a normal (non-vault) Hyperliquid account.
 

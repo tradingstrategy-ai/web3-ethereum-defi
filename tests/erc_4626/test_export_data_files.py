@@ -4,6 +4,7 @@ from pathlib import Path
 
 import pytest
 
+from eth_defi.currency_api.database import CurrencyRateDatabase
 from eth_defi.vault import data_file_export
 from eth_defi.vault.settlement_data import VAULT_SETTLEMENT_DATABASE_FILENAME, VaultSettlementDatabase
 
@@ -12,8 +13,8 @@ def write_export_test_file(path: Path) -> None:
     """Create a valid export fixture file.
 
     Most export files can be byte placeholders because upload tests mock the
-    R2 calls. The settlement database is checkpointed before export, so it must
-    be a valid DuckDB file instead of arbitrary bytes.
+    R2 calls. Settlement data is checkpointed and exchange rates are converted
+    to Parquet before export, so both need valid DuckDB files.
 
     :param path:
         File path to create.
@@ -25,6 +26,9 @@ def write_export_test_file(path: Path) -> None:
             db.save()
         finally:
             db.close()
+    elif path.name == data_file_export.EXCHANGE_RATE_DATABASE_FILENAME:
+        db = CurrencyRateDatabase(path)
+        db.close()
     else:
         path.write_bytes(b"data")
 
@@ -57,6 +61,13 @@ def test_exchange_rate_duckdb_defaults_to_pipeline_data_dir(tmp_path: Path, monk
     paths = data_file_export.get_data_file_paths(tmp_path)
 
     assert tmp_path / "exchange-rates.duckdb" in paths
+
+
+def test_exchange_rate_parquet_defaults_to_pipeline_data_dir(tmp_path: Path) -> None:
+    """Cleaned exchange-rate Parquet uses the stable flat data-export name."""
+    paths = data_file_export.get_data_file_paths(tmp_path)
+
+    assert tmp_path / "exchange-rates.parquet" in paths
 
 
 def test_exchange_rate_duckdb_path_accepts_currency_api_database_path(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
@@ -219,3 +230,51 @@ def test_exchange_rate_duckdb_upload_gets_alternative_daily_backup(
     assert ("private-bucket", "exchange-rates.duckdb") in uploaded
     assert ("private-bucket", "exchange-rates.duckdb") in backups
     assert all(bucket == "private-bucket" for bucket, _ in backups)
+
+
+def test_exchange_rate_parquet_upload_gets_alternative_daily_backup(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """The verified Parquet snapshot follows the existing private backup path."""
+    exchange_rate_parquet_path = tmp_path / "exchange-rates.parquet"
+    exchange_rate_parquet_path.write_bytes(b"verified rate snapshot")
+    core3_path = tmp_path / "core3" / "core3.duckdb"
+    for path in data_file_export.get_data_file_paths(
+        tmp_path,
+        core3_db_path=core3_path,
+        exchange_rate_parquet_path=exchange_rate_parquet_path,
+    ):
+        if path != exchange_rate_parquet_path:
+            write_export_test_file(path)
+
+    monkeypatch.setenv("PIPELINE_DATA_DIR", str(tmp_path))
+    monkeypatch.setenv("R2_DATA_BUCKET_NAME", "public-bucket")
+    monkeypatch.setenv("R2_DATA_ACCESS_KEY_ID", "access")
+    monkeypatch.setenv("R2_DATA_SECRET_ACCESS_KEY", "secret")
+    monkeypatch.setenv("R2_DATA_ENDPOINT_URL", "https://example.invalid")
+    monkeypatch.setenv("R2_ALTERNATIVE_VAULT_METADATA_BUCKET_NAME", "private-bucket")
+    monkeypatch.setenv("R2_DAILY_BACKUP", "true")
+
+    uploaded: list[tuple[str, str]] = []
+    backups: list[tuple[str, str]] = []
+
+    def fake_upload_file_to_r2(*, bucket_name: str, object_name: str, **_: object) -> bool:
+        uploaded.append((bucket_name, object_name))
+        return True
+
+    def fake_copy_r2_object_daily_backup(_s3_client: object, bucket_name: str, source_key: str) -> bool:
+        backups.append((bucket_name, source_key))
+        return True
+
+    monkeypatch.setattr(data_file_export, "create_r2_client", lambda **_: object())
+    monkeypatch.setattr(data_file_export, "upload_file_to_r2", fake_upload_file_to_r2)
+    monkeypatch.setattr(data_file_export, "copy_r2_object_daily_backup", fake_copy_r2_object_daily_backup)
+
+    data_file_export.main(exchange_rate_parquet_path=exchange_rate_parquet_path)
+    capsys.readouterr()
+
+    assert ("public-bucket", "exchange-rates.parquet") in uploaded
+    assert ("private-bucket", "exchange-rates.parquet") in uploaded
+    assert ("private-bucket", "exchange-rates.parquet") in backups
