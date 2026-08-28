@@ -474,6 +474,7 @@ Consult these for domain-specific context. Logo READMEs under `eth_defi/data/vau
 | `contracts/safe-integration/README.md` | Trading Strategy Zodiac-module for Safe multisig wallets |
 | `docs/README-Hypercore-guard.md` | Hypercore native vault guard integration |
 | `docs/README-hyperevm-goldsky-failure.md` | HyperEVM goldsky eRPC "not enough agreement" consensus failure and Alchemy failover |
+| `docs/README-hyperevm-hypercore-read-gas.md` | HyperEVM HyperCore read gas — why HyperCore-reading vaults abort Multicall3 batches with `-32003 out of gas` and revert with `CoreReaderLib.ReadFailure`, and why they are not blacklisted |
 | `docs/README-hypersync-tests.md` | Hypersync scan tests — disabled on CI by default, how to run them on CI when needed |
 | `docs/README-test-suite-performance.md` | Test suite performance plan — CI caching, shared Anvil forks, vault-protocol gating |
 | `docs/README-contract-size.md` | Contract sizes and compiler optimisation |

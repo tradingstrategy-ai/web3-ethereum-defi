@@ -2915,7 +2915,16 @@ HARDCODED_PROTOCOLS = {
     "0x7f2b789ac6d93521fae86cbc838efcfc4f2b004b": {ERC4626Feature.hyperdrive_hl_like},
     # Hyperdrive vault
     "0x5743aec1f06e896544d1638e0febd15098855cb5": {ERC4626Feature.hyperdrive_hl_like},
-    # Hyperdrive vault
+    # Hyperdrive Liquid Staked Hype (HYPED) - ERC-7535 native HYPE staking vault.
+    # Deliberately kept on the list even though its historical price scans fail:
+    # totalAssets(), convertToAssets() and maxDeposit() read HyperCore through the
+    # read precompiles, so goldsky and dRPC attribute tens of millions of gas to
+    # them (-32003 "out of gas" for the whole Multicall3 batch) and they revert
+    # with CoreReaderLib.ReadFailure (0x18c34104) once the node no longer holds the
+    # matching HyperCore view. The vault itself is live and its implementation
+    # 0x6CA870794cd307243FCc8711899e46C74B2D3f2f is source-verified as
+    # StakingVaultUpgradeable, so this is not a blacklist case.
+    # See docs/README-hyperevm-hypercore-read-gas.md.
     "0x4d0ff6a0dd9f7316b674fb37993a3ce28bea340e": {ERC4626Feature.hyperdrive_hl_like},
     # sBOLD - K3 Capital yield-bearing tokenised Liquity V2 Stability Pool deposit
     # https://etherscan.io/address/0x50bd66d59911f5e086ec87ae43c811e0d059dd11

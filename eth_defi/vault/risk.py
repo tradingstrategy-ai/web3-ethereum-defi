@@ -319,6 +319,17 @@ VAULT_SPECIFIC_RISK = {
     # revert with the 0x18c34104 custom error, leaving only totalSupply()
     # usable. This poisons their historical Multicall3 price-reader batch;
     # current-state probes working again does not restore the missing history.
+    #
+    # 0x18c34104 is keccak("ReadFailure(address)")[:4], the custom error the
+    # HyperCore CoreReaderLib raises when a read precompile staticcall fails,
+    # so these reverts mean "this node cannot serve the HyperCore view for that
+    # block", not "the vault is broken". Sibling vaults with the same failure
+    # mode are therefore not automatically blacklisted - see
+    # docs/README-hyperevm-hypercore-read-gas.md and the deliberately unlisted
+    # Hyperdrive Liquid Staked Hype vault
+    # 0x4d0fF6a0DD9f7316b674Fb37993A3Ce28BEA340e. These two entries stay
+    # blacklisted because their whole valuation surface, not just its history,
+    # was unusable when reviewed.
     "0x6ed613e86e8d0b6617e445f17323ac0162ff6ce6": VaultTechnicalRisk.blacklisted,
     "0x2b37f3566933e4dbe59c6b86bedbc91c1e04d774": VaultTechnicalRisk.blacklisted,
     # Rocket Markets Survivor Vaults on Monad.

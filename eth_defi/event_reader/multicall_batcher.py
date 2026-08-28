@@ -992,6 +992,14 @@ class CombinedEncodedCallResult:
 WTF_RETRY_EXCEPTIONS_MESSAGE_CLUES = {
     m.lower()
     for m in (
+        # On HyperEVM (chain 999) this is usually not a real EVM out-of-gas.
+        # Vaults that read HyperCore through the read precompiles
+        # (0x...0801 spot balance, 0x...0805 delegator summary, 0x...0809 L1
+        # block number) get a punitive gas figure attributed to them by
+        # goldsky and dRPC nodes, so a normal 40-call batch is rejected up
+        # front with -32003 "out of gas: gas required exceeds: <cap>" for any
+        # cap we send, while Alchemy executes the same batch in ~117k gas.
+        # See docs/README-hyperevm-hypercore-read-gas.md.
         "out of gas",
         "evm timeout",
         "request timeout",
@@ -1588,6 +1596,17 @@ class MultiprocessMulticallReader:
             # See Mantle issues.
             # This will usually fix the issue, but it if is not resolve itself in few blocks the scan will grind snail pace and
             # the underlying contract needs to be manually blacklisted.
+            #
+            # Before blacklisting a HyperEVM (chain 999) address that shows up
+            # here, check whether its valuation calls read HyperCore. Those
+            # vaults are alive and correct at the head, but their precompile
+            # reads are charged tens of millions of gas by some providers and
+            # revert with CoreReaderLib.ReadFailure (0x18c34104) as soon as the
+            # node no longer holds the matching HyperCore view. That is a
+            # provider-side artefact, not a broken contract, so blacklisting it
+            # would drop a live vault. Hyperdrive Liquid Staked Hype
+            # 0x4d0fF6a0DD9f7316b674Fb37993A3Ce28BEA340e is the worked example
+            # in docs/README-hyperevm-hypercore-read-gas.md.
             block_identifier_str = f"{block_identifier:,}" if type(block_identifier) == int else str(block_identifier)
             status_code = e.status_code
             headers = e.headers
