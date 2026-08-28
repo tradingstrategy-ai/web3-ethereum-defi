@@ -7,8 +7,19 @@ vault/function pairs that can run out of gas and poison a larger Multicall3
 batch.
 
 The script is read-only for pipeline state. It writes only diagnostic output.
-Vaults with out-of-gas calls must be blacklisted in ``eth_defi/vault/risk.py``
-so they are excluded from reports and future historical scanner multicalls.
+
+An out-of-gas result here is **not** on its own a reason to blacklist a vault in
+``eth_defi/vault/risk.py``. ``CALL_GAS`` defaults to 2,000,000, which is a cap
+this script imposes, not a provider limit, and HyperEVM vaults that read
+HyperCore through the read precompiles legitimately need more than that while
+still answering correctly at the head. LONGV4 and Altcopy Flagship were
+blacklisted on this basis and had to be unlisted again in 2026-08.
+
+Before blacklisting, re-check the call without an explicit gas cap, at several
+block depths, on every configured provider, and identify the precompile reads
+with ``debug_traceCall``. Blacklist only when the whole valuation surface is
+unusable, not when a provider merely refuses to price the batch. See
+``docs/README-hyperevm-hypercore-read-gas.md``.
 
 Usage:
 
@@ -29,7 +40,9 @@ Environment variables:
 - ``BLOCK_NUMBER``: Optional. Decimal, hex, or ``latest``. Defaults to the
   current latest block number resolved once at startup.
 - ``CALL_GAS``: Optional. Gas cap for each isolated ``eth_call``. Defaults to
-  ``2000000`` to mirror HyperEVM small block constraints.
+  ``2000000`` to mirror HyperEVM small block constraints. This is a deliberately
+  pessimistic cap: exceeding it means "too heavy for a small block", not "broken
+  vault". Re-run with a higher value, or unset, before drawing conclusions.
 - ``MAX_ESTIMATED_GAS``: Optional. Above this estimate the call is marked as
   suspected gas poison. Defaults to ``CALL_GAS``.
 - ``ESTIMATE_GAS``: Optional. Run ``eth_estimateGas`` before the direct
