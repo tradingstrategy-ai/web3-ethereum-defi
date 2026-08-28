@@ -7,8 +7,11 @@ import pickle
 from dataclasses import replace
 from decimal import Decimal
 from pathlib import Path
+from types import MappingProxyType
 
+import numpy as np
 import pandas as pd
+import pyarrow as pa
 import pytest
 import zstandard as zstd
 from plotly.graph_objects import Figure
@@ -335,6 +338,84 @@ def test_calculate_lifetime_metrics_skips_invalid_vault_record(
 
     assert metrics["id"].tolist() == [valid_id]
     assert f"Skipping invalid vault metrics record for {invalid_id}" in caplog.text
+
+
+def test_calculate_lifetime_metrics_filters_pyarrow_nan_share_price(
+    vault_db: VaultDatabase,
+    price_df: pd.DataFrame,
+) -> None:
+    """An IEEE NaN scanner result does not discard an otherwise valid vault.
+
+    PyArrow stores an IEEE NaN as a double value instead of a nullable Arrow
+    cell. The metric preparation must therefore explicitly use finite-value
+    validation rather than relying on ``dropna()``.
+    """
+    vault_id = "43111-0x05c2e246156d37b39a825a25dd08d5589e3fd883"
+    vault_spec = VaultSpec.parse_string(vault_id)
+    prices = price_df.loc[price_df["id"] == vault_id].copy()
+    share_prices = prices["share_price"].astype("float64").to_numpy(copy=True)
+    share_prices[-1] = float("nan")
+    prices["share_price"] = pd.Series(pd.arrays.ArrowExtensionArray(pa.array(share_prices, type=pa.float64())), index=prices.index)
+    assert prices["share_price"].isna().sum() == 0
+
+    metrics = calculate_lifetime_metrics(prices, {vault_spec: dict(vault_db.rows[vault_spec])})
+
+    assert metrics["id"].tolist() == [vault_id]
+    lifetime = vault_metrics.get_period_metrics(metrics.iloc[0]["period_results"], "lifetime")
+    assert lifetime is not None
+    assert lifetime.error_reason is None
+    assert lifetime.raw_samples == len(prices) - 1
+    assert metrics.iloc[0]["last_share_price"] == pytest.approx(share_prices[-2])
+    assert metrics.iloc[0]["last_updated_block"] == prices.iloc[-2]["block_number"]
+
+
+def test_calculate_crypto_usd_period_results_filters_pyarrow_nan_share_price() -> None:
+    """USD conversion uses valid endpoint prices after a PyArrow NaN read failure."""
+    vault_id = "1-0x0000000000000000000000000000000000000001"
+    dates = pd.date_range("2026-01-01", periods=5, freq="D")
+    native_prices = pd.Series(
+        pd.arrays.ArrowExtensionArray(pa.array([1.0, float("nan"), 1.02, 1.03, 1.04], type=pa.float64())),
+        index=dates,
+    )
+    assert native_prices.isna().sum() == 0
+    native_daily, _daily_returns = prepare_daily_share_price_series(native_prices)
+    context = CryptoUSDConversionContext(
+        rates_by_family=MappingProxyType({"eth": pd.Series(2_000.0, index=dates)}),
+        errors_by_family=MappingProxyType({}),
+        vault_families=MappingProxyType({vault_id: "eth"}),
+    )
+    fees = FeeData(
+        fee_mode=VaultFeeMode.externalised,
+        management=0.0,
+        performance=0.0,
+        deposit=0.0,
+        withdraw=0.0,
+    )
+
+    metrics = calculate_crypto_usd_period_results(
+        context=context,
+        vault_id=vault_id,
+        native_share_price_observations=native_prices,
+        native_daily_share_prices=native_daily,
+        native_total_assets=pd.Series(10.0, index=dates),
+        gross_fee_data=fees,
+        net_fee_data=fees,
+    )
+
+    assert metrics is not None
+    lifetime = vault_metrics.get_period_metrics(metrics, "lifetime")
+    assert lifetime is not None
+    assert lifetime.error_reason is None
+    assert lifetime.raw_samples == len(native_prices) - 1
+    assert lifetime.share_price_end == pytest.approx(2_080.0)
+
+
+def test_export_lifetime_row_converts_non_finite_numpy_scalars_to_null() -> None:
+    """Strict JSON export cannot be blocked by NumPy share-price sentinels."""
+    exported = export_lifetime_row(pd.Series({"last_share_price": np.float64("nan"), "current_nav": np.float64("inf")}))
+
+    assert exported["last_share_price"] is None
+    assert exported["current_nav"] is None
 
 
 def test_calculate_lifetime_metrics_prepares_daily_series_once_per_vault(
