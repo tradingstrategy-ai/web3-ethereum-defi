@@ -1,26 +1,50 @@
-"""Render sparkline charts for ERC-4626 vault data.
-
-- Sparkline is a mini price chart, popularised by CoinMarketCap
-- Charts contain share price and TVL
-"""
+"""Prepare, render and upload share-price sparklines for vault data."""
 
 import gzip
 import warnings
+from dataclasses import dataclass
 from io import BytesIO
 
-import matplotlib
+import matplotlib as mpl
 import numpy as np
 import pandas as pd
 
-matplotlib.use("Agg")
+mpl.use("Agg")
 import matplotlib.pyplot as plt
 
 from eth_defi.cloudflare_r2 import calculate_bytes_digest, create_r2_client, upload_bytes_to_r2
 from eth_defi.research.wrangle_vault_prices import forward_fill_vault
 from eth_defi.vault.base import VaultSpec
 
+#: Width of the time axis used by published vault sparklines.
+DEFAULT_SPARKLINE_WINDOW = pd.Timedelta(days=90)
 
-def _filter_finite_share_prices(vault_prices_df: pd.DataFrame) -> pd.DataFrame:
+#: Minimum elapsed finite share-price history required for publication.
+MIN_SPARKLINE_HISTORY = pd.Timedelta(days=14)
+
+
+@dataclass(slots=True)
+class SparklineData:
+    """Daily share prices and their fixed chart bounds.
+
+    Every chart spans :data:`DEFAULT_SPARKLINE_WINDOW` and ends on the latest
+    UTC day containing a finite observation. A vault younger than the window
+    occupies only the right-hand side; the period before its first observation
+    remains blank.
+    """
+
+    #: Daily finite share-price observations. Established sparse vaults include
+    #: one carried observation at ``start_at``.
+    prices_df: pd.DataFrame
+
+    #: Inclusive left edge of the chart.
+    start_at: pd.Timestamp
+
+    #: Inclusive right edge and latest UTC day containing an observation.
+    end_at: pd.Timestamp
+
+
+def filter_finite_share_prices(vault_prices_df: pd.DataFrame) -> pd.DataFrame:
     """Return chart data with only finite, float share prices.
 
     PyArrow-backed parquet data can expose ``share_price`` as a nullable or
@@ -47,6 +71,61 @@ def _filter_finite_share_prices(vault_prices_df: pd.DataFrame) -> pd.DataFrame:
     filtered = vault_prices_df.iloc[finite_mask].copy()
     filtered["share_price"] = numeric_values[finite_mask]
     return filtered
+
+
+def prepare_sparkline_data(
+    vault_prices_df: pd.DataFrame,
+    minimum_history: pd.Timedelta = MIN_SPARKLINE_HISTORY,
+    window: pd.Timedelta = DEFAULT_SPARKLINE_WINDOW,
+) -> SparklineData | None:
+    """Prepare one vault's observations for a fixed-width sparkline.
+
+    Eligibility is based on elapsed time between the first and latest finite
+    source observations, not row count. Once that span reaches two weeks by
+    default, observations are reduced to daily points. Charts always retain a
+    90-day axis by default. Young vaults leave the period before their first
+    observation blank, while older sparse vaults carry their last pre-window
+    value to the left boundary.
+
+    :param vault_prices_df:
+        Single-vault data indexed by naive UTC timestamps with a
+        ``share_price`` column.
+    :param minimum_history:
+        Minimum elapsed finite share-price history required for publication.
+    :param window:
+        Full elapsed time represented by the horizontal axis.
+    :return:
+        Daily observations and chart bounds, or ``None`` when the finite price
+        history is shorter than ``minimum_history``.
+    """
+    assert isinstance(vault_prices_df.index, pd.DatetimeIndex), f"Expected DatetimeIndex, got {type(vault_prices_df.index)}"
+    assert minimum_history > pd.Timedelta(0), f"Minimum history must be positive, got {minimum_history}"
+    assert window >= minimum_history, f"Sparkline window {window} must cover minimum history {minimum_history}"
+
+    try:
+        finite_prices_df = filter_finite_share_prices(vault_prices_df).sort_index()
+    except ValueError:
+        return None
+
+    if finite_prices_df.index[-1] - finite_prices_df.index[0] < minimum_history:
+        return None
+
+    # Eligibility uses exact source timestamps. Published charts use day
+    # boundaries so the final plotted point reaches the fixed axis edge.
+    daily_prices_df = finite_prices_df.resample("D").last().dropna(subset=["share_price"])
+    end_at = daily_prices_df.index[-1]
+    start_at = end_at - window
+    visible_prices_df = daily_prices_df.loc[(daily_prices_df.index > start_at) & (daily_prices_df.index <= end_at)]
+
+    # Forward filling cannot carry a value that was cropped away. Seed an
+    # established vault at the boundary without inventing history for a vault
+    # whose first observation is inside the window.
+    previous_prices_df = daily_prices_df.loc[daily_prices_df.index <= start_at].tail(1)
+    if not previous_prices_df.empty:
+        previous_prices_df.index = pd.DatetimeIndex([start_at], name=vault_prices_df.index.name)
+        visible_prices_df = pd.concat((previous_prices_df, visible_prices_df))
+
+    return SparklineData(prices_df=visible_prices_df, start_at=start_at, end_at=end_at)
 
 
 def extract_vault_price_data(
@@ -76,25 +155,28 @@ def render_sparkline_simple(
     vault_prices_df: pd.DataFrame,
     width: int = 256,
     height: int = 64,
-    ffill=True,
+    ffill: bool = True,  # noqa: FBT001, FBT002
 ) -> plt.Figure:
-    """Render a sparkline chart for a single vault.
+    """Render a simple share-price sparkline for one vault.
 
-    :param spec:
-        chain-vault address identifier
-
+    :param vault_prices_df:
+        Single-vault prices indexed by naive UTC timestamps.
+    :param width:
+        Output width in pixels.
+    :param height:
+        Output height in pixels.
     :param ffill:
-        Forward-fill the sparse source data
+        Forward-fill sparse observations to an hourly line before rendering.
+    :return:
+        Matplotlib figure ready for export.
     """
+    assert not vault_prices_df.empty, "Cannot render an empty vault price series"
+    assert isinstance(vault_prices_df.index, pd.DatetimeIndex), f"Expected DatetimeIndex, got: {type(vault_prices_df.index)}"
 
     vault_data = vault_prices_df
-
-    assert len(vault_data) > 0, f"No data for vault: {id}"
-    assert isinstance(vault_data.index, pd.DatetimeIndex), f"Expected DatetimeIndex, got: {type(vault_data.index)}"
-
     if ffill:
-        # old_data = vault_data.copy()
         vault_data = forward_fill_vault(vault_data)
+    vault_data = filter_finite_share_prices(vault_data)
 
     # Convert pixels to inches (matplotlib uses inches)
     dpi = 100
@@ -106,48 +188,66 @@ def render_sparkline_simple(
     ax1.patch.set_alpha(0.0)
     ax1.plot(vault_data.index, vault_data["share_price"], color="#a6a4a0", linewidth=2)
 
-    # Alpha = 0 = hidden for now
-    ax2 = ax1.twinx()
-    # ax2.patch.set_alpha(0.0)
-    # ax2.plot(vault_data.index, vault_data["total_assets"], color="#999999", linewidth=2, alpha=0.0)
-
     # Remove all spines, ticks, labels
-    for ax in (ax1, ax2):
-        for spine in ax.spines.values():
-            spine.set_visible(False)
-        ax.set_xticks([])
-        ax.set_yticks([])
-        ax.get_xaxis().set_visible(False)
-        ax.get_yaxis().set_visible(False)
-        ax.margins(x=0, y=0)  # eliminate data padding
-
-    # Fill entire canvas
-    fig.subplots_adjust(left=0, right=1, top=1, bottom=0)
-
-    fig.patch.set_facecolor("black")
-    ax1.patch.set_facecolor("black")
+    for spine in ax1.spines.values():
+        spine.set_visible(False)
+    ax1.set_axis_off()
+    ax1.margins(x=0, y=0)
 
     return fig
 
 
-def render_sparkline_gradient(
+def render_sparkline_gradient(  # noqa: PLR0917
     vault_prices_df: pd.DataFrame,
     width: int = 300,
     height: int = 300,
-    ffill=True,
-    line_color="#22B452",
-    bg_color="#282827",
+    ffill: bool = True,  # noqa: FBT001, FBT002
+    line_color: str = "#22B452",
+    bg_color: str = "#282827",
     line_width: int = 2,
-    margin_ratio=50,
+    margin_ratio: int = 50,
+    x_axis_range: tuple[pd.Timestamp, pd.Timestamp] | None = None,
 ) -> plt.Figure:
-    """Render a sparkline chart with green-to-black gradient fill."""
+    """Render a sparkline chart with green-to-black gradient fill.
+
+    The optional explicit horizontal range lets callers render a short price
+    history within a longer fixed chart period. Matplotlib leaves time before
+    the first observation blank instead of stretching the available data to
+    fill the canvas.
+
+    :param vault_prices_df:
+        Single-vault prices indexed by naive UTC timestamps. ``share_price``
+        must contain at least one finite observation.
+    :param width:
+        Output figure width in pixels.
+    :param height:
+        Output figure height in pixels.
+    :param ffill:
+        Forward-fill sparse observations to an hourly line before rendering.
+    :param line_color:
+        Colour at the top of the gradient fill.
+    :param bg_color:
+        Figure and axes background colour.
+    :param line_width:
+        Price line width in pixels.
+    :param margin_ratio:
+        Vertical margin in pixels relative to the output height.
+    :param x_axis_range:
+        Optional inclusive chart bounds. The first value must precede the
+        second and both must be naive UTC timestamps.
+    :return:
+        Matplotlib figure ready for PNG or SVG export.
+    """
+
+    if x_axis_range is not None:
+        assert x_axis_range[0] < x_axis_range[1], f"Invalid sparkline x-axis range: {x_axis_range}"
 
     vault_data = vault_prices_df
 
     if ffill:
         vault_data = forward_fill_vault(vault_data)
 
-    vault_data = _filter_finite_share_prices(vault_data)
+    vault_data = filter_finite_share_prices(vault_data)
 
     dpi = 100
     fig = plt.figure(figsize=(width / dpi, height / dpi), dpi=dpi)
@@ -162,52 +262,38 @@ def render_sparkline_gradient(
     y_range = y_max - y_min
 
     # Calculate margin in data units (50px / height * y_range)
-    margin_ratio = margin_ratio / height
+    margin_ratio /= height
     y_margin = y_range * margin_ratio
 
-    # Apply margins (top only)
+    # Apply equal vertical margins.
     y_min_with_margin = y_min - y_margin
-
-    # y_min_with_margin = y_min
     y_max_with_margin = y_max + y_margin
 
-    # Set y-axis limits with margin
-    # UserWarning: Attempting to set identical low and high xlims makes transformation singular; automatically expanding.
+    # Constant-price series produce identical y limits. Matplotlib expands them
+    # automatically; the warning is expected and does not affect the image.
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
         ax1.set_ylim(y_min_with_margin, y_max_with_margin)
 
-        # Rest of the code remains the same, but use original y_min for gradient extent
-        gradient = np.linspace(0, 1, 256).reshape(256, 1)
-        im = ax1.imshow(
-            gradient,
-            extent=[vault_data.index[0], vault_data.index[-1], y_min, y_max],
-            aspect="auto",
-            cmap=plt.cm.colors.LinearSegmentedColormap.from_list("green_black", [line_color, bg_color]),
-            alpha=0.4,
-            zorder=0,
-        )
+    gradient = np.linspace(0, 1, 256).reshape(256, 1)
+    im = ax1.imshow(
+        gradient,
+        extent=[vault_data.index[0], vault_data.index[-1], y_min, y_max],
+        aspect="auto",
+        cmap=plt.cm.colors.LinearSegmentedColormap.from_list("green_black", [line_color, bg_color]),
+        alpha=0.4,
+        zorder=0,
+    )
+    collection = ax1.fill_between(vault_data.index, vault_data["share_price"], y_min, alpha=0)
+    im.set_clip_path(collection.get_paths()[0], transform=ax1.transData)
+    ax1.plot(vault_data.index, vault_data["share_price"], color="#00ff88", linewidth=line_width, zorder=2)
 
-        collection = ax1.fill_between(vault_data.index, vault_data["share_price"], y_min, alpha=0)
-        im.set_clip_path(collection.get_paths()[0], transform=ax1.transData)
-
-        ax1.plot(
-            vault_data.index,
-            vault_data["share_price"],
-            color="#00ff88",
-            linewidth=line_width,
-            zorder=2,
-        )
-
-        for spine in ax1.spines.values():
-            spine.set_visible(False)
-        ax1.set_xticks([])
-        ax1.set_yticks([])
-        ax1.get_xaxis().set_visible(False)
-        ax1.get_yaxis().set_visible(False)
-        ax1.margins(x=0, y=0)
-
-        fig.subplots_adjust(left=0, right=1, top=1, bottom=0)
+    for spine in ax1.spines.values():
+        spine.set_visible(False)
+    ax1.set_axis_off()
+    ax1.margins(x=0, y=0)
+    if x_axis_range is not None:
+        ax1.set_xlim(x_axis_range)
 
     return fig
 
@@ -217,16 +303,10 @@ def export_sparkline_as_png(
 ) -> bytes:
     """Render a sparkline chart and return as PNG bytes."""
 
-    # Create a BytesIO buffer to save the PNG
     buffer = BytesIO()
     fig.savefig(buffer, format="png", dpi=100, transparent=False)
     plt.close(fig)
-
-    # Get the PNG bytes
-    buffer.seek(0)
-    png_bytes = buffer.read()
-
-    return png_bytes
+    return buffer.getvalue()
 
 
 def export_sparkline_as_svg(
@@ -234,19 +314,16 @@ def export_sparkline_as_svg(
 ) -> bytes:
     """Render a sparkline chart and return as SVG bytes."""
 
-    # Create a BytesIO buffer to save the SVG
     buffer = BytesIO()
-    fig.savefig(buffer, format="svg", transparent=True)
+    # Matplotlib otherwise embeds the current time and randomises SVG element
+    # identifiers, making an unchanged chart look different to R2 on each run.
+    with mpl.rc_context({"svg.hashsalt": "eth-defi-sparkline"}):
+        fig.savefig(buffer, format="svg", transparent=True, metadata={"Date": None})
     plt.close(fig)
-
-    # Get the SVG bytes
-    buffer.seek(0)
-    svg_bytes = buffer.read()
-
-    return svg_bytes
+    return buffer.getvalue()
 
 
-def upload_to_r2_compressed(  # noqa: PLR0917, FBT001, FBT002
+def upload_to_r2_compressed(  # noqa: PLR0917
     payload: bytes,
     bucket_name: str,
     object_name: str,
@@ -254,17 +331,16 @@ def upload_to_r2_compressed(  # noqa: PLR0917, FBT001, FBT002
     access_key_id: str,
     secret_access_key: str,
     content_type: str,
-    skip_if_current: bool = False,
-):
-    """Uploads a the vault sparklines payload to a Cloudflare R2 bucket.
+    skip_if_current: bool = False,  # noqa: FBT001, FBT002
+) -> bool:
+    """Upload a gzip-compressed sparkline image to Cloudflare R2.
 
-    - Exported to the frontend listings
-    - Compress SVGs with gzip
+    The source checksum is calculated before compression so deterministic
+    chart bytes can skip an unchanged remote object.
 
     :param payload: The bytes data to upload.
     :param bucket_name: The name of the R2 bucket.
     :param object_name: The destination object name (e.g., "my-image.png").
-    :param account_id: Your Cloudflare R2 account ID.
     :param access_key_id: Your R2 access key ID.
     :param secret_access_key: Your R2 secret access key.
     :param content_type: The MIME type of the file.

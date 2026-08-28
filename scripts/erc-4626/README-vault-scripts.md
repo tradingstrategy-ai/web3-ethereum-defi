@@ -1626,7 +1626,21 @@ poetry run python scripts/erc-4626/clean-prices.py
 
 ### export-sparklines.py
 
-Export all vault sparklines to Cloudflare R2. Run after cleaned prices are generated.
+Export eligible vault share-price sparklines to Cloudflare R2. Run after
+`cleaned-vault-prices-1h.parquet` is generated.
+
+A vault is eligible when its denomination is stablecoin-like, its historical
+peak TVL reaches USD 5,000 (USD 500 for the temporary ApeX exemption), and its
+first and latest finite share-price observations span at least 14 days. The
+threshold is elapsed history, not a requirement for 14 daily samples.
+
+Every published chart has a 90-day horizontal axis ending on the vault's own
+latest observation day. A vault with 14–89 days of history is drawn on the
+right, while the period before its first observation stays blank. An inactive
+vault whose latest observation is older than the dataset-wide latest timestamp
+is still rendered from its own history. The exporter publishes a listing SVG
+and social-card PNG for each vault. Both are gzip-compressed, and unchanged
+source images are skipped using checksum metadata.
 
 ```shell
 poetry run python scripts/erc-4626/export-sparklines.py
@@ -1634,7 +1648,11 @@ poetry run python scripts/erc-4626/export-sparklines.py
 
 | Variable | Description |
 |----------|-------------|
-| `MAX_WORKERS` | Optional. Parallel workers. |
+| `R2_SPARKLINE_BUCKET_NAME` | Required. Destination R2 bucket name. |
+| `R2_SPARKLINE_ENDPOINT_URL` | Required. R2 S3-compatible endpoint URL. |
+| `R2_SPARKLINE_ACCESS_KEY_ID` | Required. R2 access key ID. |
+| `R2_SPARKLINE_SECRET_ACCESS_KEY` | Required. R2 secret access key. |
+| `MAX_WORKERS` | Optional. Rendering processes and upload threads. Default: 20. |
 
 ### export-protocol-metadata.py
 
@@ -2503,7 +2521,10 @@ poetry run python scripts/erc-4626/vault-price-stats.py
 
 ### render-sparkline.py
 
-Test rendering a sparkline for a single vault and open the result in a browser.
+Render one vault with the same 14-day eligibility and fixed 90-day axis as the
+production exporter, then open the PNG in a browser. Set `VAULT_ID` to override
+the example vault. If `R2_SPARKLINE_BUCKET_NAME` is configured, the script also
+uploads the PNG under a `test-<vault-id>.png` object name.
 
 ```shell
 poetry run python scripts/erc-4626/render-sparkline.py

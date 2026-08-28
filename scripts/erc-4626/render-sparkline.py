@@ -1,22 +1,24 @@
-"""Test rendering a sparkline for a single vault.
-
-- Open the result in a browser
-"""
+"""Render one production-style vault sparkline and open its PNG in a browser."""
 
 import base64
 import os
 import tempfile
 import webbrowser
 
+from eth_defi.research.sparkline import export_sparkline_as_png, extract_vault_price_data, prepare_sparkline_data, render_sparkline_gradient, upload_to_r2_compressed
 from eth_defi.vault.base import VaultSpec
-from eth_defi.research.sparkline import extract_vault_price_data, render_sparkline_simple, export_sparkline_as_svg, render_sparkline_gradient, export_sparkline_as_png
 from eth_defi.vault.vaultdb import VaultDatabase, read_default_vault_prices
 
 
-def display_png_in_browser(title: str, png_bytes: bytes):
+def display_png_in_browser(title: str, png_bytes: bytes) -> None:
     """Display PNG bytes in the default web browser.
 
-    :param png_bytes: PNG image as bytes
+    :param title:
+        Browser page title.
+    :param png_bytes:
+        PNG image bytes.
+    :return:
+        None.
     """
     # Encode PNG bytes as base64
     base64_png = base64.b64encode(png_bytes).decode("utf-8")
@@ -35,7 +37,7 @@ def display_png_in_browser(title: str, png_bytes: bytes):
     """
 
     # Write to temporary file
-    with tempfile.NamedTemporaryFile(mode="w", suffix=".html", delete=False) as f:
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".html", encoding="utf-8", delete=False) as f:
         f.write(html_content)
         temp_path = f.name
 
@@ -43,38 +45,8 @@ def display_png_in_browser(title: str, png_bytes: bytes):
     webbrowser.open(f"file://{temp_path}")
 
 
-def display_svg_in_browser(title: str, svg_bytes: bytes):
-    """Display SVG bytes in the default web browser.
-
-    :param title: The title for the HTML page.
-    :param svg_bytes: SVG image as bytes.
-    """
-    # Encode SVG bytes as base64
-    base64_svg = base64.b64encode(svg_bytes).decode("utf-8")
-
-    # Create HTML with embedded image
-    html_content = f"""
-    <!DOCTYPE html>
-    <html>
-    <head>
-        <title>Sparkline Chart for {title}</title>
-    </head>
-    <body bgcolor="#000000">
-        <img src="data:image/svg+xml;base64,{base64_svg}" />
-    </body>
-    </html>
-    """
-
-    # Write to temporary file
-    with tempfile.NamedTemporaryFile(mode="w", suffix=".html", delete=False) as f:
-        f.write(html_content)
-        temp_path = f.name
-
-    # Open in browser
-    webbrowser.open(f"file://{temp_path}")
-
-
-def main():
+def main() -> None:
+    """Render the configured vault using the publication preparation policy."""
     vault_db = VaultDatabase.read()
     prices_df = read_default_vault_prices()
 
@@ -91,29 +63,16 @@ def main():
         prices_df=prices_df,
     )
 
-    # Listing sparklien
-    # See export-sparklines.py
+    sparkline_data = prepare_sparkline_data(vault_prices_df[["share_price", "total_assets"]])
+    assert sparkline_data is not None, f"Vault needs at least 14 days of finite share-price history: {vault_id}"
+
     fig = render_sparkline_gradient(
-        vault_prices_df,
-        width=100,
-        height=25,
-        line_width=1,
-        margin_ratio=4,
+        sparkline_data.prices_df,
+        width=300,
+        height=300,
+        x_axis_range=(sparkline_data.start_at, sparkline_data.end_at),
     )
-
-    # Twitter Summary CArd
-    # https://developer.x.com/en/docs/x-for-websites/cards/overview/summary-card-with-large-image
-    # fig = render_sparkline_gradient(
-    #     vault_prices_df,
-    # )
-    #
-    svg_bytes = export_sparkline_as_svg(
-        fig,
-    )
-
-    png_bytes = export_sparkline_as_png(
-        fig,
-    )
+    png_bytes = export_sparkline_as_png(fig)
 
     display_png_in_browser(
         f"Vault {vault['Name']}: {vault_id}",
@@ -124,28 +83,28 @@ def main():
     object_name = f"test-{spec.as_string_id()}.png"
 
     bucket_name = os.environ.get("R2_SPARKLINE_BUCKET_NAME")
-    account_id = os.environ.get("R2_SPARKLINE_ACCOUNT_ID")
     access_key_id = os.environ.get("R2_SPARKLINE_ACCESS_KEY_ID")
     secret_access_key = os.environ.get("R2_SPARKLINE_SECRET_ACCESS_KEY")
     endpoint_url = os.environ.get("R2_SPARKLINE_ENDPOINT_URL")
 
     if bucket_name:
-        from eth_defi.research.sparkline import upload_to_r2_compressed
-
-        print(f"Uploading sparkline to R2 bucket '{bucket_name}' as '{object_name}', access key is {access_key_id}, account is {account_id}")
+        assert access_key_id, "R2_SPARKLINE_ACCESS_KEY_ID is required for upload"
+        assert secret_access_key, "R2_SPARKLINE_SECRET_ACCESS_KEY is required for upload"
+        assert endpoint_url, "R2_SPARKLINE_ENDPOINT_URL is required for upload"
+        print(f"Uploading sparkline to R2 bucket '{bucket_name}' as '{object_name}'")
 
         upload_to_r2_compressed(
-            payload=svg_bytes,
+            payload=png_bytes,
             bucket_name=bucket_name,
             object_name=object_name,
             endpoint_url=endpoint_url,
             access_key_id=access_key_id,
             secret_access_key=secret_access_key,
-            content_type="image/svg+xml",
+            content_type="image/png",
         )
         print(f"Uploaded sparkline to R2 bucket '{bucket_name}' as '{object_name}'")
     else:
-        print(f"R2_SPARKLINE_BUCKET_NAME not set, skipping upload")
+        print("R2_SPARKLINE_BUCKET_NAME not set, skipping upload")
 
 
 if __name__ == "__main__":
