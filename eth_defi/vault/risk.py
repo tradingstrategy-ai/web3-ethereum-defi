@@ -94,6 +94,9 @@ VAULT_PROTOCOL_RISK_MATRIX = {
     # verifiable deployments. Market and oracle exposure remain separate from
     # this technical smart-contract-risk classification.
     "GMX": VaultTechnicalRisk.low,
+    # YieldBasis contracts and deployment records are public and maintained,
+    # but leveraged AMM/oracle controls remain material protocol risks.
+    "YieldBasis": VaultTechnicalRisk.low,
     "Euler": VaultTechnicalRisk.negligible,
     "Morpho": VaultTechnicalRisk.negligible,
     "Enzyme": VaultTechnicalRisk.low,

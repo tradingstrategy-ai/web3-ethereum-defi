@@ -47,6 +47,7 @@ from eth_defi.vault.base import VaultBase, VaultSpec
 from eth_defi.vault.risk import BROKEN_VAULT_CONTRACTS
 from eth_defi.vault_street.constants import PRIME_USD_ADDRESS
 from eth_defi.wstgbp.constants import WSTGBP
+from eth_defi.yield_basis.addresses import YIELD_BASIS_ACTIVE_MARKETS
 
 logger = logging.getLogger(__name__)
 
@@ -355,6 +356,17 @@ SHIFT_HARDCODED_PROTOCOLS = {address: {ERC4626Feature.shift_like} for address in
 #: only the published address list may map a vault to Flying Tulip.
 FLYING_TULIP_HARDCODED_PROTOCOLS = {HexAddress(address.lower()): {ERC4626Feature.flying_tulip_like, ERC4626Feature.share_price_equivalence} for address in FLYING_TULIP_SFTUSD_BY_CHAIN.values()}
 
+#: YieldBasis LTs are not ERC-4626 vaults. Keep reviewed Ethereum addresses
+#: routable while the Factory catalogue remains the discovery source of truth.
+YIELD_BASIS_HARDCODED_PROTOCOLS: dict[str, set[ERC4626Feature]] = {
+    review.lt_address.lower(): {
+        ERC4626Feature.yield_basis_lt,
+        ERC4626Feature.amm_pool_like,
+        ERC4626Feature.share_price_equivalence,
+    }
+    for review in YIELD_BASIS_ACTIVE_MARKETS.values()
+}
+
 
 def _get_hardcoded_protocol_features(address: HexAddress | str, chain_id: int | None = None) -> set[ERC4626Feature] | None:
     """Return hardcoded protocol features for a vault address.
@@ -372,6 +384,8 @@ def _get_hardcoded_protocol_features(address: HexAddress | str, chain_id: int | 
     """
 
     normalised_address = HexAddress(address.lower())
+    if normalised_address in YIELD_BASIS_HARDCODED_PROTOCOLS:
+        return YIELD_BASIS_HARDCODED_PROTOCOLS[normalised_address] if chain_id == 1 else None
 
     if chain_id is not None:
         if normalised_address in ODA_FACT_HARDCODED_PROTOCOLS:
@@ -2163,6 +2177,10 @@ def create_vault_instance(
         from eth_defi.gmx.vault import GMXLiquidityVault
 
         return GMXLiquidityVault(web3, spec, **kwargs)
+    elif ERC4626Feature.yield_basis_lt in features:
+        from eth_defi.yield_basis.vault import YieldBasisVault
+
+        return YieldBasisVault(web3, spec, **kwargs)
     elif ERC4626Feature.flying_tulip_like in features:
         from eth_defi.erc_4626.vault_protocol.flying_tulip.vault import FlyingTulipVault
 
@@ -2775,6 +2793,7 @@ HARDCODED_PROTOCOLS = {
     **AXIS_HARDCODED_PROTOCOLS,
     **NARA_HARDCODED_PROTOCOLS,
     **FLYING_TULIP_HARDCODED_PROTOCOLS,
+    **YIELD_BASIS_HARDCODED_PROTOCOLS,
     # Barker - H1 USDC vault on HyperEVM.
     # The proxy implementation is not verified on HyperEVM Scan, so this is
     # deliberately classified only by the reviewed deployment address.

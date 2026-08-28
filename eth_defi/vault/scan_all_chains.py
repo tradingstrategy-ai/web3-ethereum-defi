@@ -35,14 +35,14 @@ import pyarrow as pa
 import pyarrow.parquet as pq
 from atomicwrites import atomic_write
 from filelock import Timeout as FileLockTimeout
-from web3.exceptions import Web3Exception
+from web3.exceptions import BadFunctionCallOutput, ContractLogicError, Web3Exception
 
 from eth_defi.apex.constants import APEX_METRICS_DATABASE
 from eth_defi.apex.metrics import ApexMetricsDatabase
 from eth_defi.apex.metrics import run_scan as apex_run_scan
 from eth_defi.apex.session import create_apex_session_pool
 from eth_defi.apex.vault_data_export import merge_into_vault_database as apex_merge_vault_db
-from eth_defi.chain import get_chain_id_by_name, get_chain_name
+from eth_defi.chain import EVM_BLOCK_TIMES, get_chain_id_by_name, get_chain_name
 from eth_defi.compat import native_datetime_utc_now
 from eth_defi.core3.constants import resolve_core3_database_path
 from eth_defi.core3.mappings import CORE3_MAPPINGS
@@ -122,6 +122,9 @@ from eth_defi.version_info import VersionInfo
 from eth_defi.xerberus.constants import resolve_xerberus_api_email, resolve_xerberus_database_path
 from eth_defi.xerberus.scanner import scan_xerberus as xerberus_scan
 from eth_defi.xerberus.session import create_xerberus_session
+from eth_defi.yield_basis.historical_context import fetch_and_store_yield_basis_historical_context, get_yield_basis_historical_context_path
+from eth_defi.yield_basis.vault_catalog import YieldBasisScanPreparation, fetch_yield_basis_scan_preparation
+from eth_defi.yield_basis.vault_sync import YieldBasisCatalogueSyncResult, fetch_and_sync_yield_basis_vault_catalogue
 
 #: How many days of backups to keep
 BACKUP_RETENTION_DAYS = int(os.environ.get("BACKUP_RETENTION_DAYS", "7"))
@@ -134,6 +137,10 @@ CURRENCY_RATES_DEFAULT_CYCLE = datetime.timedelta(hours=24)
 #: Bound the first scheduled GMX observation fetch. Older history is introduced by
 #: the explicit backfill script rather than delaying an ordinary chain cycle.
 GMX_INITIAL_CONTEXT_LOOKBACK_BLOCKS = 100_000
+
+#: Bound the first scheduled YieldBasis observation fetch. The dedicated
+#: backfill script supplies older history without delaying normal chain scans.
+YIELD_BASIS_INITIAL_CONTEXT_LOOKBACK_BLOCKS = 100_000
 
 logger = logging.getLogger(__name__)
 
@@ -657,9 +664,63 @@ def scan_vaults_for_chain(
             current_db.write(vault_db_path)
             return sync_result
 
+        def fetch_and_sync_current_yield_basis_catalogue(preparation: YieldBasisScanPreparation) -> YieldBasisCatalogueSyncResult | None:
+            """Merge one validated YieldBasis pre-scan into current metadata.
+
+            YieldBasis LTs do not emit the generic ERC-4626 lead events used by
+            ``scan_leads``. Reusing the preparation lets the pre- and
+            post-discovery merges share one fixed set of Factory reads.
+
+            :param preparation:
+                Validated products from the current Ethereum chain cycle.
+            :return:
+                Reconciliation counts, or ``None`` after an isolated metadata
+                read failure.
+            """
+
+            assert chain_id == 1 and preparation.factory_valid
+            current_db = VaultDatabase.read(vault_db_path) if vault_db_path.exists() else VaultDatabase()
+            yb_token_cache = TokenDiskCache()
+            try:
+                sync_result = fetch_and_sync_yield_basis_vault_catalogue(
+                    web3=web3,
+                    vault_db=current_db,
+                    token_cache=yb_token_cache,
+                    preparation=preparation,
+                )
+                yb_token_cache.commit()
+                current_db.write(vault_db_path)
+                return sync_result
+            except (BadFunctionCallOutput, ContractLogicError, Web3Exception, RuntimeError, ValueError, TypeError, ArithmeticError) as error:
+                logger.warning("YieldBasis metadata reconciliation deferred to the next chain cycle: %s", error)
+                return None
+            finally:
+                yb_token_cache.close()
+
         enabled_chains = [(config.name, config.env_var) for config in build_chain_configs() if config.scan_vaults]
         signature, signature_configuration = create_lead_discovery_signature(enabled_chains)
         state_path = get_lead_discovery_state_path(vault_db_path.parent, chain_id)
+
+        # Factory-backed YieldBasis products need a narrow validation pass
+        # before the generic lead-cache decision: LT contracts do not provide
+        # the ERC-4626 event surface used by ordinary lead discovery.
+        yield_basis_preparation = None
+        yield_basis_sync = None
+        if chain_id == 1:
+            try:
+                safe_head = get_almost_latest_block_number(web3)
+                preparation = fetch_yield_basis_scan_preparation(web3, safe_head)
+            except (BadFunctionCallOutput, ContractLogicError, Web3Exception, RuntimeError, ValueError, TypeError, ArithmeticError) as error:
+                logger.warning("YieldBasis pre-scan deferred to the next chain cycle: %s", error)
+            else:
+                if not preparation.factory_valid:
+                    logger.warning("YieldBasis pre-scan rejected Ethereum Factory; keeping existing metadata: %s", "; ".join(preparation.review_required))
+                elif not preparation.products:
+                    logger.warning("YieldBasis pre-scan found no reviewed products; keeping existing metadata: %s", "; ".join(preparation.review_required))
+                else:
+                    yield_basis_preparation = preparation
+                    if preparation.review_required:
+                        logger.warning("YieldBasis pre-scan withheld some markets for review: %s", "; ".join(preparation.review_required))
 
         existing_db = VaultDatabase.read(vault_db_path) if vault_db_path.exists() else None
         existing_lead_addresses = set(existing_db.get_existing_leads_by_chain(chain_id)) if existing_db is not None else set()
@@ -686,6 +747,8 @@ def scan_vaults_for_chain(
             assert state is not None
             last_block = existing_db.last_scanned_block[chain_id]
             gmx_sync = fetch_and_sync_current_gmx_catalogue(getattr(web3.eth, "block_number", last_block))
+            if yield_basis_preparation is not None:
+                yield_basis_sync = fetch_and_sync_current_yield_basis_catalogue(yield_basis_preparation)
             existing_db = VaultDatabase.read(vault_db_path)
             chain_rows = [row for row in existing_db.rows.values() if row["_detection_data"].chain == chain_id]
             logger.debug(
@@ -702,8 +765,10 @@ def scan_vaults_for_chain(
                 "start_block": last_block,
                 "end_block": last_block,
                 "vault_count": len(chain_rows),
-                "new_vaults": gmx_sync.inserted if gmx_sync else 0,
+                "new_vaults": (gmx_sync.inserted if gmx_sync else 0) + (yield_basis_sync.inserted if yield_basis_sync else 0),
                 "gmx_products": gmx_sync.products if gmx_sync else 0,
+                "yield_basis_products": yield_basis_sync.products if yield_basis_sync else 0,
+                "yield_basis_review_required": len(yield_basis_sync.review_required) if yield_basis_sync else 0,
                 "items_scanned": 0,
                 "lead_discovery_cache_hit": True,
             }
@@ -729,6 +794,10 @@ def scan_vaults_for_chain(
         items_scanned = report.items_scanned
 
         gmx_sync = fetch_and_sync_current_gmx_catalogue(report.end_block)
+        # Reconcile after generic discovery so a broken ERC-4626 candidate
+        # cannot replace a reviewed Factory product in the same cycle.
+        if yield_basis_preparation is not None:
+            yield_basis_sync = fetch_and_sync_current_yield_basis_catalogue(yield_basis_preparation)
         refreshed_db = VaultDatabase.read(vault_db_path)
         refreshed_chain_rows = [row for row in refreshed_db.rows.values() if row["_detection_data"].chain == chain_id]
 
@@ -748,8 +817,10 @@ def scan_vaults_for_chain(
             "start_block": report.start_block,
             "end_block": report.end_block,
             "vault_count": len(refreshed_chain_rows),
-            "new_vaults": len(set(report.leads) - existing_lead_addresses) + (gmx_sync.inserted if gmx_sync else 0),
+            "new_vaults": len(set(report.leads) - existing_lead_addresses) + (gmx_sync.inserted if gmx_sync else 0) + (yield_basis_sync.inserted if yield_basis_sync else 0),
             "gmx_products": gmx_sync.products if gmx_sync else 0,
+            "yield_basis_products": yield_basis_sync.products if yield_basis_sync else 0,
+            "yield_basis_review_required": len(yield_basis_sync.review_required) if yield_basis_sync else 0,
             "items_scanned": items_scanned,
             "lead_discovery_cache_hit": False,
         }
@@ -845,6 +916,8 @@ def scan_prices_for_chain(
 
         gmx_features = {ERC4626Feature.gmx_gm, ERC4626Feature.gmx_glv}
         gmx_rows = [row for row in chain_vaults if row["_detection_data"].features & gmx_features]
+        yield_basis_features = {ERC4626Feature.yield_basis_lt}
+        yield_basis_rows = [row for row in chain_vaults if row["_detection_data"].features & yield_basis_features]
         flying_tulip_features = {ERC4626Feature.flying_tulip_like}
         flying_tulip_rows = [row for row in chain_vaults if row["_detection_data"].features & flying_tulip_features]
         rysk_rows = [row for row in chain_vaults if ERC4626Feature.rysk_premium_like in row["_detection_data"].features]
@@ -869,6 +942,8 @@ def scan_prices_for_chain(
                 vault.first_seen_at_block = detection.first_seen_at_block
                 if detection.features & gmx_features:
                     vault.historical_context_path = historical_context_path or get_gmx_historical_context_path()
+                elif detection.features & yield_basis_features:
+                    vault.historical_context_path = historical_context_path or get_yield_basis_historical_context_path()
                 elif detection.features & flying_tulip_features:
                     vault.historical_context_path = historical_context_path or get_flying_tulip_historical_context_path()
                 elif ERC4626Feature.rysk_premium_like in detection.features:
@@ -886,6 +961,34 @@ def scan_prices_for_chain(
             logger.info("No vaults to scan on chain %d after filtering", chain_id)
             return True, {**metrics, "rows_written": 0}
 
+        # Configure HyperSync (shares throttle with vault lead discovery)
+        hypersync_config = configure_hypersync_from_env(web3, concurrency=hypersync_concurrency)
+
+        current_end_block = end_block if end_block is not None else web3.eth.block_number
+
+        if yield_basis_rows:
+            # The metadata phase may have been skipped, failed, or run against
+            # a different head from this price phase. Revalidate the small
+            # Factory catalogue before touching the YieldBasis context or
+            # selecting its adapters. If it is unavailable, withhold those
+            # adapters while unrelated vaults continue through the shared
+            # writer. Rows before the writer's current replacement window are
+            # preserved.
+            try:
+                yield_basis_preparation = fetch_yield_basis_scan_preparation(web3, current_end_block)
+            except (BadFunctionCallOutput, ContractLogicError, Web3Exception, RuntimeError, ValueError, TypeError, ArithmeticError) as error:
+                logger.warning("YieldBasis price pre-scan deferred; withholding YieldBasis adapters from this writer cycle: %s", error)
+                yield_basis_preparation = None
+            valid_yield_basis_addresses = {product.lt_address.lower() for product in yield_basis_preparation.products} if yield_basis_preparation and yield_basis_preparation.factory_valid else set()
+            invalid_yield_basis_addresses = {row["_detection_data"].address.lower() for row in yield_basis_rows} - valid_yield_basis_addresses
+            if invalid_yield_basis_addresses:
+                logger.warning("YieldBasis price scan withheld unvalidated products: %s", ", ".join(sorted(invalid_yield_basis_addresses)))
+                yield_basis_rows = [row for row in yield_basis_rows if row["_detection_data"].address.lower() in valid_yield_basis_addresses]
+                vaults = [vault for vault in vaults if vault.address.lower() not in invalid_yield_basis_addresses]
+                if not vaults:
+                    logger.info("No validated vaults remain on chain %d after YieldBasis price pre-scan", chain_id)
+                    return True, {**metrics, "rows_written": 0, "yield_basis_observations_inserted": 0}
+
         metrics["items_scanned"] = len(vaults)
 
         # Dedicated or activity-filtered vault states must not move this
@@ -894,10 +997,6 @@ def scan_prices_for_chain(
         scanned_specs = {vault.get_spec() for vault in vaults}
         scanned_reader_states = {vault_spec: state for vault_spec, state in reader_states.items() if vault_spec in scanned_specs} if persist_reader_state else None
 
-        # Configure HyperSync (shares throttle with vault lead discovery)
-        hypersync_config = configure_hypersync_from_env(web3, concurrency=hypersync_concurrency)
-
-        current_end_block = end_block if end_block is not None else web3.eth.block_number
         gmx_prefill = None
         if gmx_rows:
             context_path = historical_context_path or get_gmx_historical_context_path()
@@ -918,6 +1017,44 @@ def scan_prices_for_chain(
                     end_block=current_end_block,
                     context_path=context_path,
                     product_addresses=(row["_detection_data"].address for row in gmx_rows),
+                )
+
+        yield_basis_prefill = None
+        if yield_basis_rows:
+            context_path = historical_context_path or get_yield_basis_historical_context_path()
+            context_path.parent.mkdir(parents=True, exist_ok=True)
+            block_time = EVM_BLOCK_TIMES.get(chain_id)
+            if block_time is None:
+                raise ValueError(f"No configured block time for YieldBasis chain {chain_id}")
+            context_step = int((datetime.timedelta(days=1) if frequency == "1d" else datetime.timedelta(hours=1)) / datetime.timedelta(seconds=block_time))
+            if context_step <= 0:
+                context_step = 1
+            # Contextual readers do not own reader-state entries. Follow the
+            # common per-chain writer position, as GMX does, so routine cycles
+            # fetch only the range that the shared writer is about to consume.
+            chain_reader_start = max(((state["last_block"] or 0) for spec, state in (reader_states or {}).items() if spec.chain_id == chain_id), default=0)
+            first_seen_block = min(row["_detection_data"].first_seen_at_block for row in yield_basis_rows)
+            if start_block is not None:
+                yield_basis_start_block = max(start_block, first_seen_block)
+            elif chain_reader_start:
+                yield_basis_start_block = max(chain_reader_start, first_seen_block)
+            else:
+                yield_basis_start_block = max(
+                    first_seen_block,
+                    current_end_block - int(os.environ.get("YIELD_BASIS_INITIAL_CONTEXT_LOOKBACK_BLOCKS", YIELD_BASIS_INITIAL_CONTEXT_LOOKBACK_BLOCKS)),
+                )
+            if yield_basis_start_block < current_end_block:
+                yield_basis_addresses = {row["_detection_data"].address.lower() for row in yield_basis_rows}
+                yield_basis_vaults = [vault for vault in vaults if vault.address.lower() in yield_basis_addresses]
+                yield_basis_prefill = fetch_and_store_yield_basis_historical_context(
+                    web3=web3,
+                    vaults=yield_basis_vaults,
+                    start_block=yield_basis_start_block,
+                    end_block=current_end_block,
+                    step=context_step,
+                    max_workers=max_workers,
+                    context_path=context_path,
+                    hypersync_client=hypersync_config.hypersync_client,
                 )
 
         flying_tulip_source_rows_inserted = 0
@@ -1007,6 +1144,7 @@ def scan_prices_for_chain(
             "start_block": result["start_block"],
             "end_block": result["end_block"],
             "gmx_observations_inserted": gmx_prefill.observations_inserted if gmx_prefill else 0,
+            "yield_basis_observations_inserted": yield_basis_prefill.observations_inserted if yield_basis_prefill else 0,
             "flying_tulip_source_rows_inserted": flying_tulip_source_rows_inserted,
             "rysk_observations_inserted": rysk_prefill.observations_inserted if rysk_prefill else 0,
         }

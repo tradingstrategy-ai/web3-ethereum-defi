@@ -203,6 +203,7 @@ Supported protocols
    wstgbp/index
    midas/index
    vault_street/index
+   yield_basis/index
    usyc/index
    morpho/index
    nashpoint/index

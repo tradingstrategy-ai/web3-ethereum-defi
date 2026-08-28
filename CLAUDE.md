@@ -508,6 +508,7 @@ Consult these for domain-specific context. Logo READMEs under `eth_defi/data/vau
 | `eth_defi/abi/README.md` | Contract ABIs — what EVM ABIs are, how to fetch them from Sourcify/Etherscan/GitHub, storage layout, and the loader/usage API reference. Read before fetching or using any ABI file |
 | `eth_defi/abi/ipor/README.md` | IPOR ABI source links |
 | `eth_defi/abi/lagoon/README.md` | Lagoon ABI source links |
+| `eth_defi/abi/yield_basis/README.md` | YieldBasis ABI sources and reviewed deployment interfaces |
 | `eth_defi/abi/uniswap-swap-contracts/README.md` | SwapRouter02 deployment on Base |
 | `eth_defi/cctp/README-cctp.md` | Circle CCTP V2 integration |
 | `eth_defi/core3/README-core3.md` | Core3 risk intelligence integration — modules, database schema, scripts, API reference |
@@ -524,6 +525,7 @@ Consult these for domain-specific context. Logo READMEs under `eth_defi/data/vau
 | `eth_defi/gmx/README.md` | GMX CCXT adapter for eth_defi |
 | `eth_defi/gmx/ccxt/README.md` | GMX CCXT adapter implementation |
 | `eth_defi/gmx/graphql/README.md` | GMX Subsquid GraphQL integration |
+| `eth_defi/yield_basis/README-YieldBasis.md` | YieldBasis LT vault model, valuation and historical pipeline |
 | `eth_defi/erc_4626/vault_protocol/rysk/README-Rysk-vaults.md` | Rysk Premium epoch-priced option pools, adapter accounting and backfill operations |
 | `eth_defi/lighter/README-lighter-guard.md` | Lighter (zk-rollup perps DEX) L1 deposit/withdraw guard integration — architecture, security model, operator flow |
 | `eth_defi/testing/README.md` | Fast Anvil fork tests — shared session forks, per-chain midnight block cache, snapshot/revert, once-per-session deployments, the committed fork RPC cache and token cache (create/rebuild/purge), reference tests |

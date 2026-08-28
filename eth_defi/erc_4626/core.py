@@ -158,6 +158,13 @@ class ERC4626Feature(enum.Enum):
     #: https://docs.gmx.io/docs/providing-liquidity/
     gmx_glv = "gmx_glv"
 
+    #: YieldBasis unstaked yb-LP leveraged liquidity-provider share.
+    #:
+    #: YieldBasis LTs are ERC-20 shares whose fundamental value is read from
+    #: ``pricePerShare()`` and a Curve Cryptoswap asset/crvUSD oracle.
+    #: https://docs.yieldbasis.com/user/overview/how-yieldbasis-works
+    yield_basis_lt = "yield_basis_lt"
+
     #: Vault-like share that represents liquidity in an automated market maker pool.
     #:
     #: GMX GM and GLV tokens are market-making claims on pools that hold the
@@ -1020,6 +1027,7 @@ def is_activity_filter_exempt(detection: "ERC4262VaultDetection") -> bool:
             ERC4626Feature.upshift_multi_asset_like,
             ERC4626Feature.gmx_gm,
             ERC4626Feature.gmx_glv,
+            ERC4626Feature.yield_basis_lt,
             ERC4626Feature.rysk_premium_like,
         )
     )
@@ -1102,6 +1110,8 @@ def get_vault_protocol_name(features: set[ERC4626Feature]) -> str:
         return "Midas"
     elif ERC4626Feature.gmx_gm in features or ERC4626Feature.gmx_glv in features:
         return "GMX"
+    elif ERC4626Feature.yield_basis_lt in features:
+        return "YieldBasis"
     elif ERC4626Feature.flying_tulip_like in features:
         return "Flying Tulip"
     elif ERC4626Feature.asseto_like in features:

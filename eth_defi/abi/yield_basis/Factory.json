@@ -1,0 +1,5 @@
+[
+  {"stateMutability":"view","type":"function","name":"STABLECOIN","inputs":[],"outputs":[{"name":"","type":"address"}]},
+  {"stateMutability":"view","type":"function","name":"market_count","inputs":[],"outputs":[{"name":"","type":"uint256"}]},
+  {"stateMutability":"view","type":"function","name":"markets","inputs":[{"name":"arg0","type":"uint256"}],"outputs":[{"name":"","type":"tuple","components":[{"name":"asset_token","type":"address"},{"name":"cryptopool","type":"address"},{"name":"amm","type":"address"},{"name":"lt","type":"address"},{"name":"price_oracle","type":"address"},{"name":"virtual_pool","type":"address"},{"name":"staker","type":"address"}]}]}
+]
