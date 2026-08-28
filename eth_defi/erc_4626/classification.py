@@ -2924,7 +2924,7 @@ HARDCODED_PROTOCOLS = {
     # matching HyperCore view. The vault itself is live and its implementation
     # 0x6CA870794cd307243FCc8711899e46C74B2D3f2f is source-verified as
     # StakingVaultUpgradeable, so this is not a blacklist case.
-    # See docs/README-hyperevm-hypercore-read-gas.md.
+    # See docs/README-hyperevm-hypercore-read-gas.md and PR #1536.
     "0x4d0ff6a0dd9f7316b674fb37993a3ce28bea340e": {ERC4626Feature.hyperdrive_hl_like},
     # sBOLD - K3 Capital yield-bearing tokenised Liquity V2 Stability Pool deposit
     # https://etherscan.io/address/0x50bd66d59911f5e086ec87ae43c811e0d059dd11

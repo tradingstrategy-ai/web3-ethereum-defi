@@ -999,7 +999,7 @@ WTF_RETRY_EXCEPTIONS_MESSAGE_CLUES = {
         # goldsky and dRPC nodes, so a normal 40-call batch is rejected up
         # front with -32003 "out of gas: gas required exceeds: <cap>" for any
         # cap we send, while Alchemy executes the same batch in ~117k gas.
-        # See docs/README-hyperevm-hypercore-read-gas.md.
+        # See docs/README-hyperevm-hypercore-read-gas.md and PR #1536.
         "out of gas",
         "evm timeout",
         "request timeout",
@@ -1606,7 +1606,7 @@ class MultiprocessMulticallReader:
             # provider-side artefact, not a broken contract, so blacklisting it
             # would drop a live vault. Hyperdrive Liquid Staked Hype
             # 0x4d0fF6a0DD9f7316b674Fb37993A3Ce28BEA340e is the worked example
-            # in docs/README-hyperevm-hypercore-read-gas.md.
+            # in docs/README-hyperevm-hypercore-read-gas.md and PR #1536.
             block_identifier_str = f"{block_identifier:,}" if type(block_identifier) == int else str(block_identifier)
             status_code = e.status_code
             headers = e.headers
