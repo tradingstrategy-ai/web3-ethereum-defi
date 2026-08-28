@@ -5,6 +5,7 @@ state path.  It shares only the established metric calculations and JSON
 serialisation helpers so that public stablecoin exports remain unchanged.
 """
 
+import hashlib
 import json
 import logging
 import os
@@ -12,6 +13,7 @@ import tempfile
 from dataclasses import dataclass
 from decimal import Decimal
 from pathlib import Path
+from types import MappingProxyType
 from typing import Any
 
 import pandas as pd
@@ -20,8 +22,21 @@ import pyarrow.parquet as pq
 from atomicwrites import atomic_write
 
 from eth_defi.compat import native_datetime_utc_now
-from eth_defi.research.vault_metrics import calculate_lifetime_metrics, export_lifetime_row
-from eth_defi.research.wrangle_vault_prices import filter_vaults_by_denomination_families, generate_cleaned_vault_datasets, materialise_daily_crypto_prices
+from eth_defi.currency_api.cleaning import KNOWN_BAD_RATES
+from eth_defi.currency_api.constants import SOURCE_NAME
+from eth_defi.research.vault_metrics import (
+    USD_RATE_ERROR_INSUFFICIENT_COVERAGE,
+    USD_RATE_ERROR_INVALID_SERIES,
+    USD_RATE_ERROR_MISSING_SERIES,
+    CryptoUSDConversionContext,
+    calculate_lifetime_metrics,
+    export_lifetime_row,
+)
+from eth_defi.research.wrangle_vault_prices import (
+    filter_vaults_by_denomination_families,
+    generate_cleaned_vault_datasets,
+    materialise_daily_crypto_prices,
+)
 from eth_defi.vault.base import VaultSpec, verify_parquet_file
 from eth_defi.vault.denomination import (
     BTC_USD_GUIDELINE_RATE,
@@ -46,6 +61,36 @@ CRYPTO_VAULTS_SCHEMA_VERSION = 1
 CRYPTO_CLEANED_PRICE_FILENAME = "crypto-cleaned-vault-prices-1d.parquet"
 
 logger = logging.getLogger(__name__)
+
+#: Maximum provider-day gap filled when building the effective USD rate curve.
+#: A longer gap starts a new metric segment rather than inventing a price.
+USD_RATE_FORWARD_FILL_DAYS = 3
+
+#: Broad plausibility ranges for inverted USD-per-native exchange rates.
+#: They reject malformed provider values without turning a normal market move
+#: into an unsupported denomination failure.
+USD_RATE_BOUNDS = {
+    DenominationFamily.eth.value: (10.0, 100_000.0),
+    DenominationFamily.btc.value: (100.0, 1_000_000.0),
+}
+
+
+@dataclass(frozen=True, slots=True)
+class USDExchangeRateSeriesBuild:
+    """Validated effective USD-rate series for one denomination family.
+
+    The result keeps the optional rate curve, its export provenance and a
+    stable error together, avoiding positional tuple handling at the caller.
+    """
+
+    #: Effective USD-per-underlying daily rate curve when validation succeeds.
+    rates: pd.Series | None
+
+    #: JSON-serialisable source coverage information when source rows exist.
+    coverage: dict[str, Any] | None
+
+    #: Stable reason USD metrics cannot be calculated for this family.
+    error_reason: str | None
 
 
 @dataclass(frozen=True, slots=True)
@@ -240,6 +285,10 @@ def build_crypto_vault_record(record: dict[str, Any], vault_row: VaultRow, thres
     # standard stablecoin history, while false ETH/BTC records use crypto history.
     result["stablecoinish"] = family is DenominationFamily.stablecoin
     result["wrapper_kind"] = "stablecoin" if family is DenominationFamily.stablecoin else wrapper_kind
+    if family is DenominationFamily.stablecoin:
+        # A mixed metrics DataFrame represents absent ETH/BTC values as NaN.
+        # Do not expose that implementation detail as a nullable USD metric.
+        result.pop("periodic_metrics_usd", None)
     result["current_total_assets"] = result.pop("current_nav", None)
     result["peak_total_assets"] = result.pop("peak_nav", None)
     result["qualification_threshold"] = float(threshold)
@@ -285,12 +334,146 @@ def _validate_crypto_price_rows(vault_db: VaultDatabase, prices_df: pd.DataFrame
         raise ValueError(f"Crypto cleaned prices contain unsupported denominations: {sorted(unsupported_vault_ids)!r}")
 
 
+def build_crypto_usd_conversion_context(
+    vault_db: VaultDatabase,
+    prices_df: pd.DataFrame,
+    exchange_rate_parquet_path: Path,
+) -> tuple[CryptoUSDConversionContext, dict[str, Any]]:
+    """Build effective USD rate curves and provenance for crypto metrics.
+
+    Currency API values are stored as quote units per USD. The provider label
+    for day ``D`` represents the value fetched around 00:00 UTC, so each raw
+    USD→ETH/BTC value becomes an effective USD price for ``D - 1``. Bounded
+    forward fill only bridges short provider gaps; metric calculation later
+    isolates the newest remaining contiguous segment.
+
+    :param vault_db:
+        Common vault metadata used to map vault IDs to denomination families.
+    :param prices_df:
+        Crypto cleaned prices with a naive UTC DatetimeIndex.
+    :param exchange_rate_parquet_path:
+        The verified cleaned exchange-rate snapshot used by this export.
+    :return:
+        Shared calculation context and JSON-serialisable provenance.
+    :raises FileNotFoundError:
+        If the shared exchange-rate snapshot is absent.
+    :raises ValueError:
+        If its schema does not support a reliable USD conversion.
+    """
+    if not exchange_rate_parquet_path.is_file():
+        raise FileNotFoundError(exchange_rate_parquet_path)
+    expected_columns = {"date", "base_currency", "quote_currency", "rate", "source"}
+    exchange_rates = pd.read_parquet(exchange_rate_parquet_path)
+    missing_columns = expected_columns - set(exchange_rates.columns)
+    if missing_columns:
+        raise ValueError(f"Exchange-rate Parquet is missing columns: {sorted(missing_columns)!r}")
+
+    vault_families = {spec.as_string_id(): family.value for spec, row in vault_db.rows.items() if (family := classify_denomination(row.get("Denomination"))) in {DenominationFamily.eth, DenominationFamily.btc}}
+    rate_rows = exchange_rates.loc[(exchange_rates["base_currency"] == "usd") & (exchange_rates["source"] == SOURCE_NAME) & exchange_rates["quote_currency"].isin(("eth", "btc"))].copy()
+    if rate_rows.empty:
+        raise ValueError("Exchange-rate Parquet has no fawazahmed0 USD→ETH/BTC rates")
+    rate_rows["date"] = pd.to_datetime(rate_rows["date"], errors="raise").dt.normalize()
+    rate_rows["rate"] = pd.to_numeric(rate_rows["rate"], errors="coerce")
+
+    price_end = prices_df.index.max().normalize()
+    family_builds = {family: _build_effective_usd_rate_series(family, rate_rows, price_end) for family in (DenominationFamily.eth.value, DenominationFamily.btc.value)}
+    rates_by_family = {family: build.rates for family, build in family_builds.items() if build.rates is not None}
+    errors_by_family = {family: build.error_reason for family, build in family_builds.items() if build.error_reason is not None}
+    coverage = {family: build.coverage for family, build in family_builds.items() if build.coverage is not None}
+
+    selected_rates = rate_rows.sort_values(["quote_currency", "date"], kind="stable").to_csv(index=False).encode("utf-8")
+    cleaning_policy = repr(KNOWN_BAD_RATES).encode("utf-8")
+    provenance = {
+        "provider": SOURCE_NAME,
+        "rate_parquet_filename": exchange_rate_parquet_path.name,
+        "rate_parquet_sha256": hashlib.sha256(exchange_rate_parquet_path.read_bytes()).hexdigest(),
+        "selected_rate_rows_sha256": hashlib.sha256(selected_rates).hexdigest(),
+        "cleaning_policy_sha256": hashlib.sha256(cleaning_policy).hexdigest(),
+        "stored_rate_direction": "quote units per USD",
+        "applied_rate_direction": "USD per ETH/BTC",
+        "effective_date_policy": "provider date minus one UTC day",
+        "forward_fill_limit_days": USD_RATE_FORWARD_FILL_DAYS,
+        "coverage": coverage,
+        "errors": errors_by_family,
+    }
+    context = CryptoUSDConversionContext(
+        rates_by_family=MappingProxyType(rates_by_family),
+        errors_by_family=MappingProxyType(errors_by_family),
+        vault_families=MappingProxyType(vault_families),
+    )
+    return context, provenance
+
+
+def _build_effective_usd_rate_series(
+    family: str,
+    rate_rows: pd.DataFrame,
+    price_end: pd.Timestamp,
+) -> USDExchangeRateSeriesBuild:
+    """Validate and regularise one ETH/BTC provider series.
+
+    :param family:
+        Canonical ``eth`` or ``btc`` denomination family.
+    :param rate_rows:
+        Cleaned USD-base provider rows for both supported families.
+    :param price_end:
+        Latest UTC date in the crypto price Parquet.
+    :return:
+        Validated rate-series build result.
+    """
+    family_rows = rate_rows.loc[rate_rows["quote_currency"] == family].sort_values("date", kind="stable")
+    if family_rows.empty:
+        return USDExchangeRateSeriesBuild(None, None, USD_RATE_ERROR_MISSING_SERIES)
+    raw_rates = family_rows["rate"]
+    minimum, maximum = USD_RATE_BOUNDS[family]
+    valid_rates = raw_rates.notna() & (raw_rates > 0)
+    usd_per_native = 1.0 / raw_rates.loc[valid_rates]
+    valid_rates.loc[valid_rates] &= usd_per_native.between(minimum, maximum)
+    rejected_rows = int((~valid_rates).sum())
+    family_rows = family_rows.loc[valid_rates].copy()
+    usd_per_native = usd_per_native.loc[usd_per_native.between(minimum, maximum)]
+    if family_rows.empty:
+        return USDExchangeRateSeriesBuild(None, None, USD_RATE_ERROR_INVALID_SERIES)
+
+    effective_dates = family_rows["date"] - pd.Timedelta(days=1)
+    if effective_dates.duplicated().any():
+        return USDExchangeRateSeriesBuild(None, None, USD_RATE_ERROR_INVALID_SERIES)
+    raw_effective_rates = pd.Series(usd_per_native.to_numpy(), index=effective_dates, dtype="float64").sort_index()
+    if price_end < raw_effective_rates.index.min():
+        coverage = {
+            "provider_observation_start": family_rows["date"].min().date().isoformat(),
+            "provider_observation_end": family_rows["date"].max().date().isoformat(),
+            "effective_observation_start": None,
+            "effective_observation_end": None,
+            "provider_rows": len(family_rows),
+            "rejected_provider_rows": rejected_rows,
+            "covered_effective_days": 0,
+            "usd_per_underlying_min": float(usd_per_native.min()),
+            "usd_per_underlying_max": float(usd_per_native.max()),
+        }
+        return USDExchangeRateSeriesBuild(None, coverage, USD_RATE_ERROR_INSUFFICIENT_COVERAGE)
+    effective_index = pd.date_range(raw_effective_rates.index.min(), price_end, freq="D")
+    effective_rates = raw_effective_rates.reindex(effective_index).ffill(limit=USD_RATE_FORWARD_FILL_DAYS)
+    coverage = {
+        "provider_observation_start": family_rows["date"].min().date().isoformat(),
+        "provider_observation_end": family_rows["date"].max().date().isoformat(),
+        "effective_observation_start": effective_rates.index.min().date().isoformat(),
+        "effective_observation_end": effective_rates.index.max().date().isoformat(),
+        "provider_rows": len(family_rows),
+        "rejected_provider_rows": rejected_rows,
+        "covered_effective_days": int(effective_rates.notna().sum()),
+        "usd_per_underlying_min": float(usd_per_native.min()),
+        "usd_per_underlying_max": float(usd_per_native.max()),
+    }
+    return USDExchangeRateSeriesBuild(effective_rates, coverage, None)
+
+
 def build_crypto_vault_metadata(
     *,
     vault_db_path: Path,
     cleaned_price_path: Path,
     metadata_path: Path,
     sticky_state_path: Path,
+    exchange_rate_parquet_path: Path | None = None,
     threshold_usd: Decimal | None = None,
 ) -> dict[str, Any]:
     """Calculate and atomically persist private crypto-vault metadata.
@@ -307,6 +490,10 @@ def build_crypto_vault_metadata(
         Crypto metadata JSON destination.
     :param sticky_state_path:
         Crypto sticky-state JSON destination.
+    :param exchange_rate_parquet_path:
+        Optional verified snapshot used to add USD period metrics to ETH/BTC
+        vaults. Stablecoin records deliberately do not get a duplicate USD
+        metric view.
     :param threshold_usd:
         Optional fixed USD guideline; defaults to environment/config value.
     :return:
@@ -320,7 +507,19 @@ def build_crypto_vault_metadata(
         prices_df["timestamp"] = pd.to_datetime(prices_df["timestamp"])
         prices_df.set_index("timestamp", inplace=True)
     _validate_crypto_price_rows(vault_db, prices_df)
-    metrics_df = calculate_lifetime_metrics(prices_df, vault_db)
+    crypto_usd_conversion_context = None
+    usd_metrics_provenance = None
+    if exchange_rate_parquet_path is not None:
+        crypto_usd_conversion_context, usd_metrics_provenance = build_crypto_usd_conversion_context(
+            vault_db,
+            prices_df,
+            exchange_rate_parquet_path,
+        )
+    metrics_df = calculate_lifetime_metrics(
+        prices_df,
+        vault_db,
+        crypto_usd_conversion_context=crypto_usd_conversion_context,
+    )
     state = _load_sticky_state(sticky_state_path)
     selected_records: list[dict[str, Any]] = []
     current_ids: set[str] = set()
@@ -355,6 +554,8 @@ def build_crypto_vault_metadata(
         "fixed_usd_rates": {"ETH": float(ETH_USD_GUIDELINE_RATE), "BTC": float(BTC_USD_GUIDELINE_RATE)},
         "vaults": selected_records,
     }
+    if usd_metrics_provenance is not None:
+        metadata["usd_metrics"] = usd_metrics_provenance
     _save_json_atomic(metadata, metadata_path)
     _save_json_atomic(state, sticky_state_path)
     return metadata

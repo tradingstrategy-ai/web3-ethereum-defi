@@ -2,9 +2,10 @@
 
 The report reads the exported metadata and daily price Parquet, checks their
 basic identities and prints ETH- and BTC-denominated vault name, protocol,
-denomination token, lifetime CAGR and current TVL. The USD figure uses the
-latest local currency API ETH/BTC rate and treats each wrapper as its canonical
-underlying. It is a comparison estimate, not a wrapper redemption valuation.
+denomination token, native and USD lifetime CAGR, and current TVL. The USD TVL
+figure uses the latest local currency API ETH/BTC rate and treats each wrapper
+as its canonical underlying. It is a comparison estimate, not a wrapper
+redemption valuation.
 
 Environment variables:
 
@@ -42,6 +43,49 @@ def _get_lifetime_cagr(vault: dict[str, Any]) -> float | None:
         Net lifetime CAGR, gross lifetime CAGR or ``None``.
     """
     return vault.get("cagr_net") if vault.get("cagr_net") is not None else vault.get("cagr")
+
+
+def _get_lifetime_usd_cagr(vault: dict[str, Any]) -> float | None:
+    """Choose the net USD lifetime CAGR from converted period metrics.
+
+    The crypto export keeps its established native CAGR fields untouched. This
+    value comes from the optional USD period view, which applies the rate
+    snapshot pinned in the metadata document.
+
+    :param vault:
+        One JSON ETH/BTC vault-metadata record.
+    :return:
+        Net USD lifetime CAGR, gross USD CAGR or ``None`` when unavailable.
+    """
+    usd_metrics = vault.get("periodic_metrics_usd")
+    if usd_metrics is None:
+        return None
+    lifetime = next((metric for metric in usd_metrics if metric.get("period") == "lifetime"), None)
+    if lifetime is None or lifetime.get("error_reason") is not None:
+        return None
+    cagr = lifetime.get("cagr_net") if lifetime.get("cagr_net") is not None else lifetime.get("cagr_gross")
+    if cagr is None:
+        message = f"USD lifetime metric is missing CAGR fields for {vault['id']}"
+        raise ValueError(message)
+    return cagr
+
+
+def _get_lifetime_usd_start(vault: dict[str, Any]) -> str | None:
+    """Return the effective USD lifetime sample start for comparison.
+
+    :param vault:
+        One JSON ETH/BTC vault-metadata record.
+    :return:
+        ISO timestamp for the USD lifetime sample start, or ``None``.
+    """
+    usd_metrics = vault.get("periodic_metrics_usd")
+    if usd_metrics is None:
+        return None
+    lifetime = next((metric for metric in usd_metrics if metric.get("period") == "lifetime"), None)
+    if lifetime is None or lifetime.get("error_reason") is not None:
+        return None
+    value = lifetime.get("samples_start_at")
+    return str(value) if value is not None else None
 
 
 def _format_tvl(vault: dict[str, Any]) -> str:
@@ -115,7 +159,9 @@ def build_performance_table(metadata: dict[str, Any], usd_rates: dict[str, tuple
                 "Vault name": vault.get("name") or vault.get("symbol") or vault["id"],
                 "Protocol": vault.get("protocol") or "Unknown",
                 "Denomination token": vault.get("denomination") or "Unknown",
-                "Lifetime CAGR": _get_lifetime_cagr(vault),
+                "Lifetime CAGR (base)": _get_lifetime_cagr(vault),
+                "Lifetime CAGR (USD)": _get_lifetime_usd_cagr(vault),
+                "USD from": _get_lifetime_usd_start(vault),
                 "TVL": _format_tvl(vault),
                 "Approx. TVL (USD)": float(vault.get("current_total_assets") or 0) * usd_rate,
                 "USD rate as of": rate_date,
@@ -123,7 +169,7 @@ def build_performance_table(metadata: dict[str, Any], usd_rates: dict[str, tuple
         )
     table = pd.DataFrame(rows)
     if table.empty:
-        return table.reindex(columns=["Vault name", "Protocol", "Denomination token", "Lifetime CAGR", "TVL", "Approx. TVL (USD)", "USD rate as of"])
+        return table.reindex(columns=["Vault name", "Protocol", "Denomination token", "Lifetime CAGR (base)", "Lifetime CAGR (USD)", "USD from", "TVL", "Approx. TVL (USD)", "USD rate as of"])
     return table.sort_values(["Approx. TVL (USD)", "Vault name"], ascending=[False, True], kind="stable")
 
 
@@ -190,7 +236,9 @@ def main() -> None:
     if limit:
         table = table.head(limit)
     display_table = table.copy()
-    display_table["Lifetime CAGR"] = display_table["Lifetime CAGR"].map(lambda value: "N/A" if pd.isna(value) else f"{value:.2%}")
+    for column in ("Lifetime CAGR (base)", "Lifetime CAGR (USD)"):
+        display_table[column] = display_table[column].map(lambda value: "N/A" if pd.isna(value) else f"{value:.2%}")
+    display_table["USD from"] = display_table["USD from"].fillna("N/A")
     display_table["Approx. TVL (USD)"] = display_table["Approx. TVL (USD)"].map(lambda value: f"${value:,.0f}")
     print(tabulate(display_table, headers="keys", tablefmt="rounded_outline", showindex=False))
 

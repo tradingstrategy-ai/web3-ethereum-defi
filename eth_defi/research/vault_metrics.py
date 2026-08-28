@@ -8,6 +8,7 @@ import datetime
 import logging
 import math
 import warnings
+from collections.abc import Mapping
 from dataclasses import asdict, dataclass, is_dataclass
 from decimal import Decimal
 from enum import Enum
@@ -179,6 +180,54 @@ class PeriodMetrics:
 
     #: Average utilisation over the period (lending vaults only, 0.0–1.0)
     avg_utilisation: Percent | None = None
+
+
+@dataclass(slots=True)
+class USDPeriodMetrics(PeriodMetrics):
+    """USD-converted period metrics for one ETH/BTC vault period.
+
+    This JSON-only subtype leaves the public/native :class:`PeriodMetrics`
+    schema untouched. The exchange-rate fields are USD per canonical
+    underlying unit, e.g. Bitcoin price in US dollars for a BTC vault.
+    """
+
+    #: USD per canonical underlying unit at ``samples_start_at``.
+    exchange_rate_start: float | None = None
+
+    #: USD per canonical underlying unit at ``samples_end_at``.
+    exchange_rate_end: float | None = None
+
+
+#: USD metrics cannot be calculated because an ETH/BTC rate series is absent.
+USD_RATE_ERROR_MISSING_SERIES = "USD exchange-rate series is unavailable"
+
+#: USD metrics cannot be calculated because an ETH/BTC rate series failed validation.
+USD_RATE_ERROR_INVALID_SERIES = "USD exchange-rate series failed validation"
+
+#: USD metrics cannot be calculated without a contiguous bounded rate window.
+USD_RATE_ERROR_INSUFFICIENT_COVERAGE = "USD exchange-rate coverage is insufficient"
+
+
+@dataclass(frozen=True, slots=True)
+class CryptoUSDConversionContext:
+    """Cleaned ETH/BTC USD-rate inputs for one crypto metadata build.
+
+    The context is optional in the common metrics pipeline. Public stablecoin
+    callers keep their existing behaviour by passing ``None``. Values are keyed
+    by denomination family strings (``"eth"`` and ``"btc"``), while the vault
+    mapping is built by the crypto bundle before JSON-only canonical-underlying
+    fields exist.
+
+    """
+
+    #: Bounded effective-date USD-per-underlying daily rates by family.
+    rates_by_family: Mapping[str, pd.Series]
+
+    #: Family-specific validation or absence errors by family.
+    errors_by_family: Mapping[str, str]
+
+    #: Vault ID to denomination family mapping from crypto metadata policy.
+    vault_families: Mapping[str, str]
 
 
 @dataclass(slots=True)
@@ -1207,7 +1256,7 @@ def _calculate_netflow_metrics(
     if exclude_current_utc_day and now_.date() == native_datetime_utc_now().date():
         now_ -= pd.Timedelta(days=1)
 
-    results = []
+    results: list[NetflowMetrics] = []
     for period_label, days in [("1d", 1), ("7d", 7), ("30d", 30)]:
         cutoff = now_ - pd.Timedelta(days=days)
         mask = (prices_df.index > cutoff) & (prices_df.index <= now_)
@@ -1255,6 +1304,8 @@ def calculate_period_metrics(
     tvl: pd.Series,
     now_: pd.Timestamp,
     utilisation: pd.Series | None = None,
+    native_fee_share_price: pd.Series | None = None,
+    exchange_rate: pd.Series | None = None,
 ) -> PeriodMetrics:
     """Calculate metrics for one period.
 
@@ -1294,9 +1345,27 @@ def calculate_period_metrics(
         values 0.0–1.0). When provided, ``avg_utilisation`` is a calendar-day
         average for the period rather than an observation-frequency average.
 
+    :param native_fee_share_price:
+        Optional sparse native-denomination prices aligned to
+        ``share_price_hourly``. USD metrics use these values when calculating
+        externalised investor fees, so a vault performance fee is never charged
+        on ETH/BTC/USD market appreciation.
+
+    :param exchange_rate:
+        Optional USD-per-underlying sparse rate series aligned to
+        ``share_price_hourly``. Must be supplied together with
+        ``native_fee_share_price``.
+
     :return:
         PeriodMetrics dataclass with calculated metrics
     """
+    if (native_fee_share_price is None) != (exchange_rate is None):
+        raise ValueError("native_fee_share_price and exchange_rate must be supplied together")
+    if native_fee_share_price is not None and not native_fee_share_price.index.equals(share_price_hourly.index):
+        raise ValueError("native_fee_share_price must align with share_price_hourly")
+    if exchange_rate is not None and not exchange_rate.index.equals(share_price_hourly.index):
+        raise ValueError("exchange_rate must align with share_price_hourly")
+
     if share_price_hourly.empty:
         return PeriodMetrics(period=period, period_end_at=now_, error_reason="Vault has no usable share-price observations")
 
@@ -1386,17 +1455,23 @@ def calculate_period_metrics(
     net_performance_known = gross_fee_data.fee_mode is not None and net_fee_data.can_calculate_investor_net_performance()
     returns_net = None
     if net_performance_known:
-        returns_net = calculate_net_profit(
+        net_return_native = calculate_net_profit(
             start=samples_start_at,
             end=samples_end_at,
-            share_price_start=share_price_start,
-            share_price_end=share_price_end,
+            share_price_start=float(native_fee_share_price.loc[samples_start_at]) if native_fee_share_price is not None else share_price_start,
+            share_price_end=float(native_fee_share_price.loc[samples_end_at]) if native_fee_share_price is not None else share_price_end,
             management_fee_annual=net_fee_data.management,
             performance_fee=net_fee_data.performance,
             deposit_fee=net_fee_data.deposit,
             withdrawal_fee=net_fee_data.withdraw,
             sample_count=raw_samples,
         )
+        if exchange_rate is None:
+            returns_net = net_return_native
+        else:
+            rate_start = float(exchange_rate.loc[samples_start_at])
+            rate_end = float(exchange_rate.loc[samples_end_at])
+            returns_net = (1.0 + net_return_native) * (rate_end / rate_start) - 1.0
 
     # Calculate CAGR (gross and net)
     # CAGR formula: (1 + return) ^ (1/years) - 1
@@ -1526,6 +1601,225 @@ def calculate_period_metrics(
         tvl_high=tvl_high,
         avg_utilisation=avg_utilisation,
     )
+
+
+def calculate_period_results(
+    *,
+    gross_fee_data: FeeData,
+    net_fee_data: FeeData,
+    share_price_observations: pd.Series,
+    share_price_daily: pd.Series,
+    daily_returns: pd.Series,
+    tvl: pd.Series,
+    now_: pd.Timestamp,
+    utilisation: pd.Series | None = None,
+    native_fee_share_price: pd.Series | None = None,
+    exchange_rate: pd.Series | None = None,
+) -> list[PeriodMetrics]:
+    """Calculate every established period from paired sparse and daily inputs.
+
+    The sparse observations preserve the established endpoint, raw-sample and
+    fee semantics. The daily curve is independently supplied for volatility,
+    Sharpe and drawdown. USD metrics reuse this helper with native fee-basis
+    prices and matching USD-per-underlying rates.
+
+    :param gross_fee_data:
+        Vault fee schedule before fee-mode adjustments.
+    :param net_fee_data:
+        Investor-facing fee schedule after fee-mode adjustments.
+    :param share_price_observations:
+        Sparse real price observations used for period endpoints.
+    :param share_price_daily:
+        Regular covered daily price curve used for risk metrics.
+    :param daily_returns:
+        Daily returns derived from ``share_price_daily``.
+    :param tvl:
+        TVL curve aligned to the selected metric view.
+    :param now_:
+        Last timestamp of the selected contiguous metric segment.
+    :param utilisation:
+        Optional regular daily utilisation curve.
+    :param native_fee_share_price:
+        Optional native sparse fee-basis prices for a converted USD view.
+    :param exchange_rate:
+        Optional sparse USD-per-underlying rates for a converted USD view.
+    :return:
+        One :class:`PeriodMetrics` instance for each established lookback.
+    """
+    return [
+        calculate_period_metrics(
+            period=period,
+            gross_fee_data=gross_fee_data,
+            net_fee_data=net_fee_data,
+            share_price_hourly=share_price_observations,
+            share_price_daily=share_price_daily,
+            daily_returns=daily_returns,
+            tvl=tvl,
+            now_=now_,
+            utilisation=utilisation,
+            native_fee_share_price=native_fee_share_price,
+            exchange_rate=exchange_rate,
+        )
+        for period in LOOKBACK_AND_TOLERANCES
+    ]
+
+
+def calculate_crypto_usd_period_results(
+    *,
+    context: CryptoUSDConversionContext,
+    vault_id: str,
+    native_share_price_observations: pd.Series,
+    native_daily_share_prices: pd.Series,
+    native_total_assets: pd.Series,
+    gross_fee_data: FeeData,
+    net_fee_data: FeeData,
+) -> list[USDPeriodMetrics] | None:
+    """Calculate JSON-only USD period metrics for an ETH/BTC crypto vault.
+
+    A provider-rate gap longer than the configured bounded fill creates a new
+    segment. This function uses only the latest contiguous covered segment and
+    filters sparse real vault observations to it before calculating endpoints
+    or fees. Stablecoin vaults return ``None`` and retain their native metrics.
+
+    :param context:
+        Prepared crypto conversion rates and vault denomination mapping.
+    :param vault_id:
+        Common ``chain-address`` vault identifier.
+    :param native_share_price_observations:
+        Sparse real native share-price observations.
+    :param native_daily_share_prices:
+        Existing forward-filled native daily share-price curve.
+    :param native_total_assets:
+        Sparse native total-assets observations.
+    :param gross_fee_data:
+        Vault fee schedule before fee-mode adjustments.
+    :param net_fee_data:
+        Investor-facing fee schedule after fee-mode adjustments.
+    :return:
+        USD period metrics for ETH/BTC with USD-per-underlying endpoint rates,
+        an errored list when rate input is unavailable, or ``None`` for
+        non-crypto-denominated records.
+    """
+    family = context.vault_families.get(vault_id)
+    if family not in {"eth", "btc"}:
+        return None
+
+    error_reason = context.errors_by_family.get(family)
+    rates = context.rates_by_family.get(family)
+    if error_reason is not None or rates is None or rates.empty:
+        return _build_usd_rate_error_results(error_reason or USD_RATE_ERROR_MISSING_SERIES)
+
+    segment = _get_latest_contiguous_rate_segment(rates)
+    if segment is None:
+        return _build_usd_rate_error_results(USD_RATE_ERROR_INSUFFICIENT_COVERAGE)
+    segment_start, segment_end = segment
+
+    sparse_dates = native_share_price_observations.index.normalize()
+    sparse_rates = rates.reindex(sparse_dates)
+    sparse_mask = (sparse_dates >= segment_start) & (sparse_dates <= segment_end) & sparse_rates.notna().to_numpy()
+    native_sparse = native_share_price_observations.loc[sparse_mask]
+    # Price rows occasionally have several observations with the same block
+    # timestamp. Preserve the last value, matching daily resampling semantics,
+    # before endpoint lookups use timestamp labels.
+    native_sparse = native_sparse.loc[~native_sparse.index.duplicated(keep="last")]
+    rate_sparse = pd.Series(
+        rates.reindex(native_sparse.index.normalize()).to_numpy(),
+        index=native_sparse.index,
+        dtype="float64",
+    )
+    if native_sparse.empty:
+        return _build_usd_rate_error_results(USD_RATE_ERROR_INSUFFICIENT_COVERAGE)
+
+    daily_native = native_daily_share_prices.loc[segment_start:segment_end]
+    daily_rates = rates.loc[segment_start:segment_end]
+    daily_rates = daily_rates.reindex(daily_native.index)
+    if daily_native.empty or daily_rates.isna().any():
+        return _build_usd_rate_error_results(USD_RATE_ERROR_INSUFFICIENT_COVERAGE)
+    daily_usd = daily_native * daily_rates
+    daily_returns = daily_usd.pct_change(fill_method=None)
+
+    native_tvl = pd.to_numeric(native_total_assets, errors="coerce")
+    tvl_dates = native_tvl.index.normalize()
+    tvl_rates = rates.reindex(tvl_dates)
+    tvl_mask = (tvl_dates >= segment_start) & (tvl_dates <= segment_end) & tvl_rates.notna().to_numpy()
+    usd_tvl = pd.Series(
+        native_tvl.loc[tvl_mask].to_numpy() * tvl_rates.loc[tvl_mask].to_numpy(),
+        index=native_tvl.index[tvl_mask],
+        dtype="float64",
+    )
+    usd_sparse = native_sparse * rate_sparse
+    metrics = calculate_period_results(
+        gross_fee_data=gross_fee_data,
+        net_fee_data=net_fee_data,
+        share_price_observations=usd_sparse,
+        share_price_daily=daily_usd,
+        daily_returns=daily_returns,
+        tvl=usd_tvl,
+        now_=segment_end,
+        native_fee_share_price=native_sparse,
+        exchange_rate=rate_sparse,
+    )
+    return _attach_usd_exchange_rates(metrics, rate_sparse)
+
+
+def _get_latest_contiguous_rate_segment(rates: pd.Series) -> tuple[pd.Timestamp, pd.Timestamp] | None:
+    """Find the latest contiguous non-null effective-rate segment.
+
+    :param rates:
+        Daily bounded USD-per-underlying rate series.
+    :return:
+        Inclusive start and end timestamps of the latest contiguous coverage,
+        or ``None`` when no valid rate exists.
+    """
+    valid = rates.dropna()
+    if valid.empty:
+        return None
+    discontinuities = valid.index.to_series().diff().gt(pd.Timedelta(days=1))
+    segment_id = discontinuities.cumsum()
+    latest_segment = valid.loc[segment_id == segment_id.iloc[-1]]
+    return latest_segment.index[0], latest_segment.index[-1]
+
+
+def _attach_usd_exchange_rates(
+    metrics: list[PeriodMetrics],
+    exchange_rates: pd.Series,
+) -> list[USDPeriodMetrics]:
+    """Attach endpoint USD-underlying prices to converted metric records.
+
+    :param metrics:
+        Converted period metrics before endpoint-rate metadata is attached.
+    :param exchange_rates:
+        Sparse USD-per-underlying rates aligned to metric samples.
+    :return:
+        JSON-only USD period metrics with endpoint conversion prices.
+    """
+    results: list[USDPeriodMetrics] = []
+    for metric in metrics:
+        if metric.samples_start_at is None or metric.samples_end_at is None:
+            exchange_rate_start = None
+            exchange_rate_end = None
+        else:
+            exchange_rate_start = float(exchange_rates.loc[metric.samples_start_at])
+            exchange_rate_end = float(exchange_rates.loc[metric.samples_end_at])
+        results.append(
+            USDPeriodMetrics(
+                **asdict(metric),
+                exchange_rate_start=exchange_rate_start,
+                exchange_rate_end=exchange_rate_end,
+            )
+        )
+    return results
+
+
+def _build_usd_rate_error_results(error_reason: str) -> list[USDPeriodMetrics]:
+    """Create the full expected USD period list for unavailable rate input.
+
+    :param error_reason:
+        Stable operator-facing exchange-rate error message.
+    :return:
+        Errored metrics for every established period.
+    """
+    return [USDPeriodMetrics(period=period, error_reason=error_reason) for period in LOOKBACK_AND_TOLERANCES]
 
 
 def apply_abnormal_value_checks(
@@ -1772,6 +2066,7 @@ def calculate_vault_record(
     xerberus_pools: dict[tuple[int, str], XerberusPoolLookupRow] | None = None,
     xerberus_protocols: dict[str, XerberusProtocolExportRecord] | None = None,
     stablecoin_rate_feeder: StablecoinRateFeeder | None = None,
+    crypto_usd_conversion_context: CryptoUSDConversionContext | None = None,
 ) -> pd.Series:
     """Process a single vault metadata + prices to calculate its full data.
 
@@ -1819,6 +2114,12 @@ def calculate_vault_record(
         should pass one shared
         :py:class:`~eth_defi.feed.stablecoin_rate.StablecoinRateFeeder` so the
         stablecoin YAML lookups are cached consistently across the batch.
+
+    :param crypto_usd_conversion_context:
+        Optional effective USD-per-underlying exchange-rate context for the
+        private crypto bundle. When supplied, ETH/BTC records gain
+        ``periodic_metrics_usd`` while their established native
+        ``period_results`` remain unchanged.
 
     :return:
         Series with calculated metrics
@@ -2245,20 +2546,27 @@ def calculate_vault_record(
         if not utilisation_observations.empty:
             utilisation_series = utilisation_observations.resample("D").last().ffill()
 
-    period_results = []
-    for period in LOOKBACK_AND_TOLERANCES.keys():
-        period_metric = calculate_period_metrics(
-            period=period,
+    period_results = calculate_period_results(
+        gross_fee_data=gross_fee_data,
+        net_fee_data=net_fee_data,
+        share_price_observations=share_price_hourly,
+        share_price_daily=share_price_daily,
+        daily_returns=daily_returns,
+        tvl=tvl_series,
+        now_=now_,
+        utilisation=utilisation_series,
+    )
+    periodic_metrics_usd = None
+    if crypto_usd_conversion_context is not None:
+        periodic_metrics_usd = calculate_crypto_usd_period_results(
+            context=crypto_usd_conversion_context,
+            vault_id=id_val,
+            native_share_price_observations=share_price_hourly,
+            native_daily_share_prices=share_price_daily,
+            native_total_assets=tvl_series,
             gross_fee_data=gross_fee_data,
             net_fee_data=net_fee_data,
-            share_price_hourly=share_price_hourly,
-            share_price_daily=share_price_daily,
-            daily_returns=daily_returns,
-            tvl=tvl_series,
-            now_=now_,
-            utilisation=utilisation_series,
         )
-        period_results.append(period_metric)
 
     # Extract period metrics for backward compatibility
     lifetime_pm = get_period_metrics(period_results, "lifetime")
@@ -2496,6 +2804,7 @@ def calculate_vault_record(
             "denomination_token_rate": denomination_token_rate,
             # Protocol-specific extension data; see other_data definition above for structure
             "other_data": other_data,
+            **({"periodic_metrics_usd": periodic_metrics_usd} if periodic_metrics_usd is not None else {}),
         }
     )
 
@@ -2508,6 +2817,7 @@ def calculate_lifetime_metrics(
     xerberus_pools: dict[tuple[int, str], XerberusPoolLookupRow] | None = None,
     xerberus_protocols: dict[str, XerberusProtocolExportRecord] | None = None,
     stablecoin_rate_feeder: StablecoinRateFeeder | None = None,
+    crypto_usd_conversion_context: CryptoUSDConversionContext | None = None,
 ) -> pd.DataFrame:
     """Calculate lifetime metrics for each vault in the provided DataFrame.
 
@@ -2560,6 +2870,11 @@ def calculate_lifetime_metrics(
         Stablecoin rate/depeg lookup helper shared across all vault rows in
         this calculation. If omitted, one default feeder is constructed.
 
+    :param crypto_usd_conversion_context:
+        Optional USD conversion context for the crypto bundle. ETH/BTC output
+        records contain an additional ``periodic_metrics_usd`` field when it
+        is supplied; all existing native metrics preserve their semantics.
+
     :return:
         DataFrame, one row per vault.
     """
@@ -2597,6 +2912,7 @@ def calculate_lifetime_metrics(
                 xerberus_pools=xerberus_pools,
                 xerberus_protocols=xerberus_protocols,
                 stablecoin_rate_feeder=stablecoin_rate_feeder,
+                crypto_usd_conversion_context=crypto_usd_conversion_context,
             )
         except (ArithmeticError, AssertionError, KeyError, TypeError, ValueError):
             logger.exception("Skipping invalid vault metrics record for %s", vault_id)

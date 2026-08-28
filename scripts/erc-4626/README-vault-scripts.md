@@ -203,6 +203,21 @@ unit aliases are added: ``denomination`` is also the unit for
 Shared period ranking fields are left unset because USD-gated rankings across
 stablecoin, ETH and BTC native units would not be comparable.
 
+ETH/BTC records additionally contain ``periodic_metrics_usd``. It has the same
+per-period shape as ``period_results`` but converts native share-price and TVL
+bars using the canonical ETH/BTC USD rate; it is JSON-only and does not change
+the crypto Parquet schema or the established native CAGR fields. The metadata
+``usd_metrics`` section records the exact cleaned ``exchange-rates.parquet``
+snapshot, rate direction, effective-date convention and bounded-fill coverage.
+Each USD period also includes ``exchange_rate_start`` and
+``exchange_rate_end`` in USD per canonical underlying unit (for example, the
+Bitcoin prices used for a BTC vault's period endpoints).
+The provider date ``D`` is applied to the preceding UTC vault day ``D - 1``;
+gaps are forward filled for at most three days, after which USD calculations
+use only the latest contiguous covered window. Consequently, a later long
+provider gap restarts the USD lifetime view and excludes earlier rate history.
+This is a provider-snapshot guideline, not a wrapper redemption oracle.
+
 Only the configured alternative R2 bucket receives this bundle. Its objects use
 flat root keys with the ``crypto-`` prefix, such as
 ``crypto-cleaned-vault-prices-1d.parquet``, ``crypto-vault-metadata.json`` and
@@ -244,7 +259,8 @@ when the private R2 bucket is intentionally unavailable.
 
 Afterwards, inspect the local artefacts without network access. The report
 lists ETH- and BTC-denominated vault name, protocol, denomination token,
-lifetime CAGR, native-unit TVL and approximate USD-equivalent TVL. It reads the
+base and USD lifetime CAGR, the USD metric start date, native-unit TVL and
+approximate USD-equivalent TVL. It reads the
 latest ETH and BTC rates from the local currency API DuckDB database and treats
 each wrapper as its canonical underlying; this is a comparison estimate, not a
 wrapper redemption valuation. Stablecoin and blacklisted vaults, plus values
