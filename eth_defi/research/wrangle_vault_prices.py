@@ -686,7 +686,7 @@ def calculate_vault_returns(
 ) -> pd.DataFrame:
     """Calculate returns for each vault.
 
-    Filter out reads without a share price and add the compatibility
+    Discard invalid share-price observations and add the compatibility
     ``returns_1h`` column. Consecutive zero prices after a complete loss carry
     a zero return: the loss was already recorded by the first transition to
     zero, and leaving later ``0 / 0`` changes as NaN makes the terminal curve
@@ -709,13 +709,14 @@ def calculate_vault_returns(
     """
     assert isinstance(prices_df, pd.DataFrame), "prices_df must be a pandas DataFrame"
 
-    missing_share_price_mask = prices_df["share_price"].isna()
-    bad_share_price_df = prices_df[missing_share_price_mask]
-    if len(bad_share_price_df) > 0:
-        logger(f"We have NaN share price for {len(bad_share_price_df):,} rows, these will be dropped")
-        prices_df = prices_df[~missing_share_price_mask]
-
-    assert prices_df["share_price"].isna().sum() == 0, "share_price column must not contain NaN values"
+    share_prices = sanitise_share_price_observations(prices_df["share_price"])
+    invalid_share_price_mask = share_prices.isna()
+    invalid_share_price_count = invalid_share_price_mask.sum()
+    if invalid_share_price_count:
+        logger(f"Dropping {invalid_share_price_count:,} invalid share-price observations")
+        prices_df = prices_df.loc[~invalid_share_price_mask].copy()
+        share_prices = share_prices.loc[~invalid_share_price_mask]
+    prices_df["share_price"] = share_prices
     # NOTE: ``returns_1h`` is a misnomer.  The column is ``pct_change()``
     # between consecutive rows regardless of their actual time delta.
     # For EVM chains scanned at 1h frequency the name is accurate, but
@@ -728,6 +729,27 @@ def calculate_vault_returns(
     repeated_zero_price = (prices_df["share_price"] == 0) & (previous_share_price == 0)
     prices_df.loc[repeated_zero_price, "returns_1h"] = 0.0
     return prices_df
+
+
+def sanitise_share_price_observations(share_price_observations: pd.Series) -> pd.Series:
+    """Normalise share prices and mark unusable observations as missing.
+
+    Scanner failures may be persisted as IEEE ``NaN`` values in a PyArrow
+    ``double`` column. Unlike Arrow nulls, these values are not consistently
+    removed by :meth:`pandas.Series.dropna` until they are converted to a
+    NumPy-backed floating-point series. Negative share prices are invalid as
+    well, whereas zero is a valid complete-loss value.
+
+    :param share_price_observations:
+        Sparse share prices indexed by naive UTC timestamps. Values are
+        expected to be non-negative denomination-token amounts.
+    :return:
+        Float64 series preserving the original index and order. Invalid,
+        non-finite, and negative values are represented as ``NaN``.
+    """
+    prices = pd.to_numeric(share_price_observations, errors="coerce").astype("float64")
+    valid = np.isfinite(prices.to_numpy()) & (prices >= 0)
+    return prices.where(valid)
 
 
 def clean_returns(  # noqa: PLR0917 - stable cleaner API used by scripts and notebooks

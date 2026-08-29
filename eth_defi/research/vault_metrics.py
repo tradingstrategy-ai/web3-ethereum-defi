@@ -34,7 +34,7 @@ from eth_defi.erc_4626.vault_protocol.morpho.flag_analytics import MorphoFlagAna
 from eth_defi.feed.stablecoin_rate import DenominationTokenRate, StablecoinRateFeeder
 from eth_defi.perp_dex.export import build_perp_dex_other_data
 from eth_defi.research.value_table import format_grouped_series_as_multi_column_grid
-from eth_defi.research.wrangle_vault_prices import forward_fill_vault
+from eth_defi.research.wrangle_vault_prices import forward_fill_vault, sanitise_share_price_observations
 from eth_defi.token import is_stablecoin_like, normalise_token_symbol
 from eth_defi.vault.base import VaultSpec, WithdrawalPeriod
 from eth_defi.vault.curator import get_curator_name, identify_curator, is_protocol_curator
@@ -864,7 +864,7 @@ def calculate_net_profit(
     if sample_count is not None and sample_count < 2:
         return 0
 
-    assert share_price_end >= 0, "End share price must be non-negative"
+    assert math.isfinite(share_price_end) and share_price_end >= 0, "End share price must be finite and non-negative"
     management_fee_annual = _normalise_fee_for_calculation(management_fee_annual, "Management fee")
     performance_fee = _normalise_fee_for_calculation(performance_fee, "Performance fee")
     deposit_fee = _normalise_fee_for_calculation(deposit_fee, "Deposit fee")
@@ -1065,7 +1065,7 @@ def prepare_daily_share_price_series(
 
     assert isinstance(share_price_observations, pd.Series)
     assert isinstance(share_price_observations.index, pd.DatetimeIndex)
-    observations = pd.to_numeric(share_price_observations, errors="coerce").dropna().sort_index(kind="stable")
+    observations = sanitise_share_price_observations(share_price_observations).dropna().sort_index(kind="stable")
     if observations.empty:
         empty = pd.Series(index=pd.DatetimeIndex([], name=share_price_observations.index.name), dtype="float64")
         return empty, empty.copy()
@@ -1717,7 +1717,7 @@ def calculate_crypto_usd_period_results(
     sparse_dates = native_share_price_observations.index.normalize()
     sparse_rates = rates.reindex(sparse_dates)
     sparse_mask = (sparse_dates >= segment_start) & (sparse_dates <= segment_end) & sparse_rates.notna().to_numpy()
-    native_sparse = native_share_price_observations.loc[sparse_mask]
+    native_sparse = sanitise_share_price_observations(native_share_price_observations.loc[sparse_mask]).dropna()
     # Price rows occasionally have several observations with the same block
     # timestamp. Preserve the last value, matching daily resampling semantics,
     # before endpoint lookups use timestamp labels.
@@ -2219,20 +2219,6 @@ def calculate_vault_record(
         flags=flags,
     )
 
-    current_share_price = prices_df.iloc[-1]["share_price"]
-    risk, notes, flags = apply_abnormal_value_checks(
-        risk=risk,
-        notes=notes,
-        flags=flags,
-        current_nav=current_nav,
-        current_share_price=current_share_price,
-    )
-    risk, notes, flags = apply_morpho_not_in_api_check(
-        risk=risk,
-        notes=notes,
-        flags=flags,
-    )
-
     vault_slug = vault_metadata["vault_slug"]
     protocol_slug = vault_metadata["protocol_slug"]
     risk_numeric = risk.value if isinstance(risk, VaultTechnicalRisk) else None
@@ -2537,7 +2523,10 @@ def calculate_vault_record(
     # historical ``share_price_hourly`` variable name. Forward filling is an
     # accepted approximation, including for operation-observed GMX curves:
     # missing days are flat and the next event day carries accumulated movement.
-    share_price_hourly = pd.to_numeric(prices_df["share_price"], errors="coerce").dropna()
+    share_price_observations = sanitise_share_price_observations(prices_df["share_price"])
+    valid_share_price = share_price_observations.notna()
+    valid_price_rows = prices_df.loc[valid_share_price]
+    share_price_hourly = share_price_observations.loc[valid_share_price]
     share_price_daily, daily_returns = prepare_daily_share_price_series(share_price_hourly)
     tvl_series = prices_df["total_assets"]
     utilisation_series = None
@@ -2556,9 +2545,8 @@ def calculate_vault_record(
         now_=now_,
         utilisation=utilisation_series,
     )
-    periodic_metrics_usd = None
-    if crypto_usd_conversion_context is not None:
-        periodic_metrics_usd = calculate_crypto_usd_period_results(
+    periodic_metrics_usd = (
+        calculate_crypto_usd_period_results(
             context=crypto_usd_conversion_context,
             vault_id=id_val,
             native_share_price_observations=share_price_hourly,
@@ -2567,6 +2555,23 @@ def calculate_vault_record(
             gross_fee_data=gross_fee_data,
             net_fee_data=net_fee_data,
         )
+        if crypto_usd_conversion_context is not None
+        else None
+    )
+
+    current_share_price = share_price_hourly.iloc[-1]
+    risk, notes, flags = apply_abnormal_value_checks(
+        risk=risk,
+        notes=notes,
+        flags=flags,
+        current_nav=current_nav,
+        current_share_price=current_share_price,
+    )
+    risk, notes, flags = apply_morpho_not_in_api_check(
+        risk=risk,
+        notes=notes,
+        flags=flags,
+    )
 
     # Extract period metrics for backward compatibility
     lifetime_pm = get_period_metrics(period_results, "lifetime")
@@ -2574,9 +2579,9 @@ def calculate_vault_record(
     one_month_pm = get_period_metrics(period_results, "1M")
 
     # Lifetime metrics
-    lifetime_start_date = prices_df.index[0]
-    lifetime_end_date = prices_df.index[-1]
-    lifetime_samples = len(prices_df)
+    lifetime_start_date = share_price_hourly.index[0]
+    lifetime_end_date = share_price_hourly.index[-1]
+    lifetime_samples = len(share_price_hourly)
     age = (lifetime_end_date - lifetime_start_date).days / 365.25
 
     # Legacy: Lifetime metrics
@@ -2661,11 +2666,13 @@ def calculate_vault_record(
 
     fee_label = create_fee_label(fee_data)
 
-    last_updated_at = prices_df.index.max()
-    last_updated_block = prices_df.loc[last_updated_at]["block_number"]
-    last_share_price = prices_df.iloc[-1]["share_price"]
-    first_updated_at = prices_df.index.min()
-    first_updated_block = prices_df.iloc[0]["block_number"]
+    last_price_row = valid_price_rows.iloc[-1]
+    first_price_row = valid_price_rows.iloc[0]
+    last_updated_at = last_price_row.name
+    last_updated_block = last_price_row["block_number"]
+    last_share_price = share_price_hourly.iloc[-1]
+    first_updated_at = first_price_row.name
+    first_updated_block = first_price_row["block_number"]
     risk_numeric = risk.value if isinstance(risk, VaultTechnicalRisk) else None
 
     return pd.Series(
@@ -4170,7 +4177,7 @@ def export_lifetime_row(row: pd.Series) -> dict:
             return None
         # Numpy scalar
         if isinstance(value, (np.floating, np.integer)):
-            return value.item()
+            value = value.item()
         # Decimal values occur in scanned vault metadata, including fee fields.
         # JSON has one numeric representation, so retain the public export's
         # established float convention. JSON cannot represent Decimal NaN or
