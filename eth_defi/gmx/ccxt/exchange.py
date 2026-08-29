@@ -1553,6 +1553,15 @@ class GMX(ExchangeCompatible):
         issue-#67 deep-dive: a transient oracle gap must never silently
         shrink the production whitelist again.
 
+        Uses :meth:`Markets._fetch_markets_from_onchain` — a pure on-chain
+        ``SyntheticsReader.getMarkets()`` read with a DataStore
+        ``IS_MARKET_DISABLED`` filter, no REST endpoint and no
+        :class:`~eth_defi.gmx.core.oracle.OraclePrices` dependency at all.
+        (The private ``Markets._get_available_markets_raw`` this method used
+        to call was removed by the same issue-#67 refactor that introduced
+        this method, without updating this call site — see
+        ``tradingstrategy-ai/freqtrade-multistrategy-orchestrator#519``.)
+
         :returns: EIP-55 checksummed Ethereum addresses of every listed index
             token on the configured chain.  Zero-address sentinels (used by
             swap-only markets / the wstETH special-case) are filtered out.
@@ -1562,9 +1571,9 @@ class GMX(ExchangeCompatible):
         """
         from eth_defi.gmx.core.markets import Markets
 
-        raw_markets = Markets(self.config)._get_available_markets_raw()
+        raw_markets = Markets(self.config)._fetch_markets_from_onchain()
         zero = "0x" + "0" * 40
-        return {to_checksum_address(row[1]) for row in raw_markets if row[1] and row[1].lower() != zero}
+        return {to_checksum_address(row["index_token_address"]) for row in raw_markets if row["index_token_address"] and row["index_token_address"].lower() != zero}
 
     def _fetch_position_close_from_event_logs(
         self,

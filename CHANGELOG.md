@@ -1,5 +1,6 @@
 # 1.2
 
+- fix: Restore `GMX.get_on_chain_index_tokens()`'s oracle-decoupled whitelist enumeration by calling `Markets._fetch_markets_from_onchain()` instead of a method deleted in the same commit that added this enumerator (2026-08-29)
 - feat: Export cleaned exchange-rate Parquet and USD-denominated period metrics for private ETH/BTC vault records (2026-08-28)
 - feat: Add a private crypto-vaults Parquet bundle for stablecoin, ETH and BTC-denominated vaults (2026-08-27)
 - feat: Mark GMX GM and GLV vaults as automated-market-maker pool shares (2026-08-26)
