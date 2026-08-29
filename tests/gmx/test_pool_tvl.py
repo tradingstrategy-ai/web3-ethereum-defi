@@ -210,11 +210,7 @@ def test_get_pool_tvl_token_addresses(chain_name, get_pool_tvl):
     """
     pool_tvl_data = get_pool_tvl.get_data()
 
-    # Check at least one market
-    if pool_tvl_data:
-        market = next(iter(pool_tvl_data))
-        data = pool_tvl_data[market]
-
+    for market, data in pool_tvl_data.items():
         # Verify address format (0x followed by 40 hex characters)
         assert data["long_token"].startswith("0x"), f"Long token address should start with 0x: {data['long_token']}"
         assert len(data["long_token"]) == 42, f"Long token address should be 42 characters: {data['long_token']}"
@@ -224,9 +220,8 @@ def test_get_pool_tvl_token_addresses(chain_name, get_pool_tvl):
         assert len(data["short_token"]) == 42, f"Short token address should be 42 characters: {data['short_token']}"
         assert all(c in "0123456789abcdefABCDEF" for c in data["short_token"][2:]), f"Short token address should contain only hex characters: {data['short_token']}"
 
-        # Long and short tokens should be different for most markets
-        # Note: For BTC2 and ETH2 markets, long and short tokens are the same
-        if "BTC2" not in market and "ETH2" not in market and "UNKNOWN" not in market:
+        # Any *2 market is a single-token synthetic pool by construction.
+        if not market.endswith("2") and "UNKNOWN" not in market:
             assert data["long_token"] != data["short_token"], f"Long and short tokens should be different: {data['long_token']} == {data['short_token']}"
 
 
