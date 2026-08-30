@@ -5,7 +5,7 @@ import importlib.util
 from pathlib import Path
 
 from eth_defi.erc_4626.core import ERC4262VaultDetection, ERC4626Feature
-from eth_defi.erc_4626.vault_protocol.axis.constants import AXIS_ETHEREUM_CHAIN_ID, AXIS_NOTES, AXIS_SHORT_DESCRIPTION, AXIS_STAKED_USDX_BY_CHAIN, AXIS_VAULTS_BY_CHAIN
+from eth_defi.erc_4626.vault_protocol.axis.constants import AXIS_ERC7575_VAULTS_BY_CHAIN, AXIS_ETHEREUM_CHAIN_ID, AXIS_NOTES, AXIS_SHORT_DESCRIPTION, AXIS_STAKED_USDX_BY_CHAIN, AXIS_VAULTS_BY_CHAIN
 from eth_defi.vault.base import VaultSpec
 from eth_defi.vault.fee import FeeData, VaultFeeMode
 from eth_defi.vault.flag import get_notes
@@ -80,7 +80,7 @@ def test_repair_axis_features_updates_only_target_and_is_idempotent(tmp_path: Pa
     repair = load_repair_module()
     axis_specs = tuple(VaultSpec(chain_id, address) for chain_id, address in AXIS_STAKED_USDX_BY_CHAIN.items())
     unrelated_spec = VaultSpec(1, "0x0000000000000000000000000000000000000001")
-    axis_features = {ERC4626Feature.axis_like, ERC4626Feature.erc_7540_like}
+    base_axis_features = {ERC4626Feature.axis_like, ERC4626Feature.erc_7540_like}
     vault_db_path = tmp_path / "vault-metadata-db.pickle"
     VaultDatabase(
         rows={
@@ -97,6 +97,7 @@ def test_repair_axis_features_updates_only_target_and_is_idempotent(tmp_path: Pa
     assert (tmp_path / "vault-metadata-db.pickle.bak-axis-repair").exists()
     repaired_db = VaultDatabase.read(vault_db_path)
     for axis_spec in axis_specs:
+        axis_features = base_axis_features | ({ERC4626Feature.erc_7575_like} if (axis_spec.chain_id, axis_spec.vault_address) in AXIS_ERC7575_VAULTS_BY_CHAIN else set())
         repaired_row = repaired_db.rows[axis_spec]
         assert repaired_row["features"] == axis_features
         assert repaired_row["_detection_data"].features == axis_features

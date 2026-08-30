@@ -37,6 +37,12 @@ AXIS_STAKED_USDX_BY_CHAIN: dict[int, HexAddress] = {
 #: Chain-aware Axis deployment index used by hardcoded protocol routing.
 AXIS_VAULTS_BY_CHAIN: frozenset[tuple[int, HexAddress]] = frozenset(AXIS_STAKED_USDX_BY_CHAIN.items())
 
+#: Axis deployments that expose the ERC-7575 ``share()`` accessor.
+#:
+#: V2 returns the proxy itself as its share token. Plasma V1 does not expose
+#: this interface, so the feature must remain chain/deployment-specific.
+AXIS_ERC7575_VAULTS_BY_CHAIN: frozenset[tuple[int, HexAddress]] = frozenset({(AXIS_ETHEREUM_CHAIN_ID, AXIS_ETHEREUM_STAKED_USDX_VAULT)})
+
 #: Address-only Axis deployment index used to reject reviewed addresses on other chains.
 AXIS_VAULT_ADDRESSES: frozenset[HexAddress] = frozenset(AXIS_STAKED_USDX_BY_CHAIN.values())
 

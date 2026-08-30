@@ -34,6 +34,7 @@ EIP1967_IMPLEMENTATION_SLOT = int.from_bytes(Web3.keccak(text="eip1967.proxy.imp
 #: Reader functions and selectors confirmed against the verified V2 ABI.
 AXIS_READER_SELECTORS = {
     "asset()": "38d52e0f",
+    "share()": "a8d5fd65",
     "totalAssets()": "01e1d114",
     "totalSupply()": "18160ddd",
     "convertToAssets(uint256)": "07a2d13a",
@@ -104,7 +105,7 @@ def test_axis_staked_usdx_v2_vault(web3: Web3) -> None:
     """
     vault = create_vault_instance_autodetect(web3, AXIS_ETHEREUM_STAKED_USDX_VAULT)
 
-    assert vault.features == {ERC4626Feature.axis_like, ERC4626Feature.erc_7540_like}
+    assert vault.features == {ERC4626Feature.axis_like, ERC4626Feature.erc_7540_like, ERC4626Feature.erc_7575_like}
     assert isinstance(vault, AxisVault)
     assert vault.get_protocol_name() == "Axis"
     assert vault.name == "Staked USDx"
@@ -133,16 +134,19 @@ def test_axis_staked_usdx_v2_current_state_and_abi(live_web3: Web3) -> None:
     one_raw_share = vault.share_token.convert_to_raw(Decimal(1))
     calls = {
         "asset()": vault.vault_contract.functions.asset(),
+        "share()": "0xa8d5fd65",
         "totalAssets()": vault.vault_contract.functions.totalAssets(),
         "totalSupply()": vault.vault_contract.functions.totalSupply(),
         "convertToAssets(uint256)": vault.vault_contract.functions.convertToAssets(one_raw_share),
         "maxDeposit(address)": vault.vault_contract.functions.maxDeposit(ZERO_ADDRESS_STR),
     }
     for signature, call in calls.items():
-        call_data = call._encode_transaction_data()
+        call_data = call if isinstance(call, str) else call._encode_transaction_data()
         assert call_data[2:10] == AXIS_READER_SELECTORS[signature]
         result = live_web3.eth.call({"to": vault.vault_contract.address, "data": call_data}, block_identifier=block_number)
         assert len(result) == EVM_WORD_BYTES
+        if signature == "share()":
+            assert Web3.to_checksum_address(result[-20:]) == vault.vault_contract.address
 
     total_assets = vault.fetch_total_assets(block_number)
     total_supply = vault.fetch_total_supply(block_number)

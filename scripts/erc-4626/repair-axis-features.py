@@ -29,7 +29,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from eth_defi.erc_4626.core import ERC4262VaultDetection, ERC4626Feature, get_vault_protocol_name
-from eth_defi.erc_4626.vault_protocol.axis.constants import AXIS_NOTES, AXIS_SHORT_DESCRIPTION, AXIS_STAKED_USDX_BY_CHAIN
+from eth_defi.erc_4626.vault_protocol.axis.constants import AXIS_ERC7575_VAULTS_BY_CHAIN, AXIS_NOTES, AXIS_SHORT_DESCRIPTION, AXIS_STAKED_USDX_BY_CHAIN
 from eth_defi.erc_4626.vault_protocol.axis.tags import STRATEGY_TAGS
 from eth_defi.utils import setup_console_logging
 from eth_defi.vault.base import VaultSpec
@@ -117,8 +117,7 @@ def repair_axis_features(vault_db_path: Path = DEFAULT_VAULT_DATABASE, *, dry_ru
     """
 
     db = VaultDatabase.read(vault_db_path)
-    expected_features = {ERC4626Feature.axis_like, ERC4626Feature.erc_7540_like}
-    protocol_name = get_vault_protocol_name(expected_features)
+    protocol_name = get_vault_protocol_name({ERC4626Feature.axis_like})
     fee_data = FeeData(
         fee_mode=VaultFeeMode.internalised_skimming,
         management=0.0,
@@ -135,6 +134,9 @@ def repair_axis_features(vault_db_path: Path = DEFAULT_VAULT_DATABASE, *, dry_ru
             continue
 
         matched_rows += 1
+        expected_features = {ERC4626Feature.axis_like, ERC4626Feature.erc_7540_like}
+        if (axis_spec.chain_id, axis_spec.vault_address) in AXIS_ERC7575_VAULTS_BY_CHAIN:
+            expected_features.add(ERC4626Feature.erc_7575_like)
         changed = update_row_value(row, "features", expected_features)
 
         detection = row.get("_detection_data")
