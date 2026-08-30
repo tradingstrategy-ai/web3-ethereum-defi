@@ -8,6 +8,21 @@ DEFAULT_STRATEGY_TAGS: frozenset[StrategyTag] = frozenset({StrategyTag.perpetual
 #: Address-specific strategy classifications maintained in addition to the
 #: native perpetual-futures default. Addresses are lowercase.
 STRATEGY_TAGS: dict[str, set[StrategyTag]] = {
+    #: Vault: drkmttr.
+    #: Added: 2026-08-30.
+    #: Decision material: The public vault description calls the strategy
+    #: hybrid and identifies market-making automation. This supports the
+    #: algorithmic trading and market-making classifications.
+    #: Sources:
+    #: - https://tradingstrategy.ai/vaults/drkmttr
+    #: - https://app.hyperliquid.xyz/vaults/0xc179e03922afe8fa9533d3f896338b9fb87ce0c8
+    "0xc179e03922afe8fa9533d3f896338b9fb87ce0c8": {
+        StrategyTag.algorithmic_trading,
+        StrategyTag.liquidity_provider,
+        StrategyTag.market_maker,
+        StrategyTag.market_making,
+        StrategyTag.multistrategy,
+    },
     #: Vault: pmalt.
     #: Added: 2026-08-17.
     #: Decision material: Maintainer classification marks pmalt's former

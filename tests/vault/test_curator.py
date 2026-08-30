@@ -6,6 +6,8 @@ from PIL import Image
 
 from eth_defi.erc_4626.vault_protocol.flying_tulip.constants import FLYING_TULIP_SFTUSD_BY_CHAIN
 from eth_defi.erc_4626.vault_protocol.pallas.constants import HYPERLIQUID_CHAIN_ID, PALLAS_BASIS_TRADING_HIP_3_VAULT, PALLAS_DIRECTIONAL_VOLATILITY_VAULT
+from eth_defi.hyperliquid.constants import HYPERCORE_CHAIN_ID
+from eth_defi.hyperliquid.tags import get_strategy_tags
 from eth_defi.midas.registry import iter_midas_registry_products
 from eth_defi.tokenised_fund.asseto.constants import ASSETO_AOABT_HASHKEY, ASSETO_CURATORS
 from eth_defi.tokenised_fund.fdit.constants import FDIT_ETHEREUM
@@ -13,6 +15,7 @@ from eth_defi.tokenised_fund.kaio.constants import CASHX_ETHEREUM
 from eth_defi.tokenised_fund.libeara.constants import LIBEARA_PRODUCTS
 from eth_defi.tokenised_fund.sygnum.constants import FILQ_CURATOR_SLUG, SYGNUM_PRODUCTS_BY_CHAIN
 from eth_defi.vault.curator import build_curator_metadata_json, get_curator_available_logos, get_curator_name, identify_curator, is_protocol_curator, load_curator_map
+from eth_defi.vault.strategy_tag import StrategyTag
 
 
 def test_identify_pallas_vaults_as_protocol_curated() -> None:
@@ -56,6 +59,23 @@ def test_identify_flying_tulip_vaults_as_protocol_curated() -> None:
     assert metadata["protocol_curator"] is True
     assert metadata["canonical_feeder_id"] == "flying-tulip"
     assert any(metadata["logos"].values())
+
+
+def test_identify_darkmatter_labs_hyperliquid_vault() -> None:
+    """Attribute drkmttr to Darkmatter Labs and retain its strategy tags."""
+
+    address = "0xc179e03922afe8fa9533d3f896338b9fb87ce0c8"
+
+    assert identify_curator(HYPERCORE_CHAIN_ID, "drkmttr", "drkmttr", address, "hyperliquid") == "darkmatter-labs"
+    assert get_curator_name("darkmatter-labs") == "Darkmatter Labs"
+    assert get_strategy_tags(address) == {
+        StrategyTag.algorithmic_trading,
+        StrategyTag.liquidity_provider,
+        StrategyTag.market_maker,
+        StrategyTag.market_making,
+        StrategyTag.multistrategy,
+        StrategyTag.perpetual_futures,
+    }
 
 
 DARK_UI_BACKGROUND_LUMINANCE = 0.0098

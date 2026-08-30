@@ -418,6 +418,12 @@ CURATOR_ADDRESS_OVERRIDES: dict[tuple[int, str], str] = {
     # https://3f.xyz/
     # https://app.morpho.org/ethereum/vault/0xBEEf3f3A04e28895f3D5163d910474901981183D/3f-x-steakhouse-usdc
     (1, "0xbeef3f3a04e28895f3d5163d910474901981183d"): "3f",
+    # Darkmatter Labs' supplied public X profile identifies the curator of
+    # drkmttr. The Hyperliquid-native vault name does not contain a reusable
+    # organisation name, so preserve the attribution as an exact override.
+    # https://tradingstrategy.ai/vaults/drkmttr
+    # https://x.com/_darkmatterlabs
+    (9999, "0xc179e03922afe8fa9533d3f896338b9fb87ce0c8"): "darkmatter-labs",
     # Growi's official lending page identifies this HyperEVM Morpho Vault V2
     # as Growi Lending / Growi USDC Core.
     # https://growi.fi/lending/
