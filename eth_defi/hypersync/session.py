@@ -1,7 +1,7 @@
 """Throttle-aware Hypersync client wrapper with stream tuning.
 
 Provides a drop-in replacement for :py:class:`hypersync.HypersyncClient`
-that rate-limits every API call (``stream``, ``recv``, ``get_chain_id``,
+that rate-limits every API call (``stream``, ``get``, ``get_chain_id``,
 ``get_height``) through a shared SQLite-backed token bucket, and allows
 centralised configuration of Hypersync ``StreamConfig`` tuning parameters
 (concurrency, batch sizes, response byte limits).
@@ -114,7 +114,7 @@ class ThrottledHypersyncClient:
     """Drop-in wrapper for :py:class:`hypersync.HypersyncClient` with
     built-in rate limiting and stream tuning.
 
-    Throttles one-shot API calls (``stream``, ``get_chain_id``,
+    Throttles one-shot API calls (``stream``, ``get``, ``get_chain_id``,
     ``get_height``) through a shared :py:class:`pyrate_limiter.Limiter`
     with an SQLite-backed token bucket.
 
@@ -246,6 +246,22 @@ class ThrottledHypersyncClient:
             logger.info("Hypersync stream config: %s", ", ".join(f"{k}={v}" for k, v in active.items()))
         await _acquire_async(self._limiter, "stream-setup")
         return await self._client.stream(query, config)
+
+    async def get(self, query: hypersync.Query) -> hypersync.QueryResponse:
+        """Fetch one paginated Hypersync response.
+
+        Unlike :py:meth:`stream`, each call represents one HTTP request and
+        therefore acquires its own rate-limit slot. The caller advances
+        ``query.from_block`` using ``response.next_block`` until its requested
+        half-open range is complete.
+
+        :param query:
+            Query for the next response page.
+        :return:
+            One response page and its next block boundary.
+        """
+        await _acquire_async(self._limiter, "get")
+        return await self._client.get(query)
 
     async def get_chain_id(self):
         """Get chain ID, throttled."""

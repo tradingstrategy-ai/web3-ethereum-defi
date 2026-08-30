@@ -1,0 +1,9 @@
+feeder-id: stratum-finance
+name: Stratum Finance
+role: curator
+short_description: Stratum Finance is the manager label used for the Stratum DeFi Yield Vault.
+long_description: |
+  The [Stratum DeFi Yield Vault Enzyme Blue listing](https://app.enzyme.finance/vault/0xc368f3f4f5c1637321091bfa53de694fdf1f6740?network=ethereum) calls the product a Stratum Finance stablecoin yield vault designed to maximise yield within a predefined risk tolerance. The listing supplies no distinct human-readable curator field or verified company profile.
+other-links:
+  - title: Enzyme Blue - Stratum DeFi Yield Vault listing
+    url: https://app.enzyme.finance/vault/0xc368f3f4f5c1637321091bfa53de694fdf1f6740?network=ethereum

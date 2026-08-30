@@ -3,6 +3,7 @@
 import datetime
 import logging
 import time
+import threading
 import uuid
 from collections.abc import Iterable
 from decimal import InvalidOperation
@@ -29,6 +30,15 @@ from eth_defi.perp_dex.metrics import (
 from eth_defi.perp_dex.storage import write_perp_vault_observation_bundle
 
 logger = logging.getLogger(__name__)
+
+
+#: ``clearinghouseState`` has an API weight of two, compared with the usual
+#: twenty for Hyperliquid ``/info`` endpoints.  Nine requests per second uses
+#: 1,080 of the documented 1,200 weight-per-minute, per-IP allowance and
+#: leaves 10% capacity for unrelated clients.
+#:
+#: See https://hyperliquid.gitbook.io/hyperliquid-docs/for-developers/api/rate-limits-and-user-limits
+CLEARINGHOUSE_STATE_REQUESTS_PER_SECOND = 9.0
 
 
 def build_hyperliquid_vault_observation_bundle(
@@ -150,6 +160,10 @@ def collect_hyperliquid_vault_observations(
     Hyperliquid's public clearinghouse endpoint is read according to its
     `canonical API documentation
     <https://hyperliquid.gitbook.io/hyperliquid-docs/for-developers/api/info-endpoint/perpetuals>`__.
+    This endpoint has a lower request weight than the mixed ``/info`` traffic
+    used by the rest of the scanner, so it uses its own bounded 9 RPS limiter.
+    When Webshare proxies are available, each distinct proxy receives one
+    worker and its own limiter; direct-IP scans retain one shared limiter.
 
     :param session:
         Configured public Hyperliquid HTTP session.
@@ -167,10 +181,40 @@ def collect_hyperliquid_vault_observations(
     selected = tuple(summaries)
     if not selected:
         return 0
+
     started_at = time.perf_counter()
     logger.info("Starting Hyperliquid perp account scan for %d vault(s)", len(selected))
     worker_count = min(max_workers, len(selected))
-    results = Parallel(n_jobs=worker_count, backend="threading")(delayed(_fetch_hyperliquid_vault_bundle)(session, summary, timeout) for summary in selected)
+    if session.proxy_enabled:
+        # Each clone has an independent limiter.  Do not create multiple
+        # clones for one proxy IP, as that would exceed its documented budget.
+        worker_count = min(worker_count, session.proxy_count)
+    else:
+        # The endpoint-specific limiter is independent from the scanner's
+        # mixed-endpoint limiter.  Keep exactly one direct-IP worker so this
+        # special budget cannot be multiplied by MAX_WORKERS.
+        worker_count = 1
+
+    worker_sessions = [
+        session.clone_for_worker(
+            proxy_start_index=worker_index,
+            requests_per_second=CLEARINGHOUSE_STATE_REQUESTS_PER_SECOND,
+        )
+        for worker_index in range(worker_count)
+    ]
+    session_pool = list(worker_sessions)
+    session_lock = threading.Lock()
+
+    def _worker(summary: VaultSummary) -> tuple[PerpVaultObservationBundle, dict[str, Any]]:
+        with session_lock:
+            worker_session = session_pool.pop()
+        try:
+            return _fetch_hyperliquid_vault_bundle(worker_session, summary, timeout)
+        finally:
+            with session_lock:
+                session_pool.append(worker_session)
+
+    results = Parallel(n_jobs=worker_count, backend="threading")(delayed(_worker)(summary) for summary in selected)
     for bundle, payload in results:
         write_perp_vault_observation_bundle(connection, bundle, payload)
     logger.info(

@@ -1,0 +1,11 @@
+feeder-id: casphi
+name: CASΦ
+role: curator
+short_description: CASΦ is the manager label used for the CASΦBTC and CASΦNexus quantitative crypto strategies.
+long_description: |
+  The [CASΦBTC Enzyme Blue listing](https://app.enzyme.finance/vault/0xd89551d350532d001ad3105968fecb24b1c3cec8?network=ethereum) and its CASΦNexus counterpart use the same “Trade the Cycle. Master the Macro.” positioning and describe macro-quantitative long-short systems. Enzyme does not expose a separate curator name for either vault, so this record retains the shared public strategy-family label rather than asserting a legal entity.
+other-links:
+  - title: Enzyme Blue - CASΦBTC listing
+    url: https://app.enzyme.finance/vault/0xd89551d350532d001ad3105968fecb24b1c3cec8?network=ethereum
+  - title: Enzyme Blue - CASΦNexus listing
+    url: https://app.enzyme.finance/vault/0x2ef704ea3a9976ca32b6ab06584d31e002d6bd7c?network=ethereum

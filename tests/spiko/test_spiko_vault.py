@@ -61,6 +61,9 @@ def test_spiko_adapter_and_historical_reader(web3: Web3) -> None:
     assert vault.fetch_redemption_closed_reason() == SPIKO_PERMISSIONED_FLOW_REASON
     assert vault.get_fee_data().fee_mode is VaultFeeMode.internalised_skimming
     assert vault.get_fee_data().management == USTBL_MANAGEMENT_FEE
+    assert vault.get_fee_data().performance == 0.0
+    assert vault.get_fee_data().deposit == 0.0
+    assert vault.get_fee_data().withdraw == 0.0
     assert isinstance(vault.get_deposit_manager(), TokenisedFundDepositManager)
 
     reader = vault.get_historical_reader(stateful=True)

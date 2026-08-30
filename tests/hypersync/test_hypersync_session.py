@@ -91,6 +91,22 @@ def test_open_hypersync_stream_native_and_throttled(
     asyncio.run(_run())
 
 
+def test_throttled_get_acquires_rate_limit(
+    mock_native_client: AsyncMock,
+    mock_limiter: MagicMock,
+) -> None:
+    """Rate-limit each explicit Hypersync response page."""
+
+    query = MagicMock(spec=hypersync.Query)
+    response = MagicMock(spec=hypersync.QueryResponse)
+    mock_native_client.get.return_value = response
+    client = ThrottledHypersyncClient(mock_native_client, mock_limiter)
+
+    assert asyncio.run(client.get(query)) is response
+    mock_limiter.try_acquire.assert_called_once_with("hypersync")
+    mock_native_client.get.assert_awaited_once_with(query)
+
+
 def test_create_stream_config_overrides(throttled_client: ThrottledHypersyncClient):
     """Verify create_stream_config applies stored params and allows overrides.
 

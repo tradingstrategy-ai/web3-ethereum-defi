@@ -78,6 +78,9 @@ def test_eutbl_adapter_and_historical_reader(web3: Web3) -> None:
     assert vault.fetch_redemption_closed_reason() == SPIKO_PERMISSIONED_FLOW_REASON
     assert vault.get_fee_data().fee_mode is VaultFeeMode.internalised_skimming
     assert vault.get_fee_data().management == EUTBL_MANAGEMENT_FEE
+    assert vault.get_fee_data().performance == 0.0
+    assert vault.get_fee_data().deposit == 0.0
+    assert vault.get_fee_data().withdraw == 0.0
     assert vault.fetch_info()["source_denomination"] == "EUR"
     assert vault.fetch_info()["synthetic_usd_denomination"] is True
 

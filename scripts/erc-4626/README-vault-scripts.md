@@ -5,6 +5,120 @@ Scripts for discovering, scanning, analysing, and debugging ERC-4626 vault data.
 All scripts use environment variables for configuration.
 Run with `poetry run python scripts/erc-4626/<script>.py`.
 
+## Instructions for migration scripts
+
+Vault migration scripts are one-off operational tools used to bring existing
+production data in line with a new or corrected protocol integration. They are
+not recurring scanner entry points and must not become a second implementation
+of the normal vault pipeline.
+
+A protocol migration is usually a one-off script with two functions:
+
+1. **Fix current metadata.** Discover or select the reviewed vaults, then add or
+   repair only their rows in `vault-metadata-db.pickle`. Preserve unrelated
+   rows, manual enrichment, price data and reader state. Metadata writes must
+   be atomic or committed in resumable batches.
+2. **Backfill historical data.** Reconstruct the protocol's historical price,
+   TVL or contextual observations and write only the selected vault histories
+   through the common historical-data writers. Preserve unrelated Parquet
+   rows, the production timestamp caches and reader state unless an explicit
+   reader-state migration is the purpose of the script.
+
+For a newly added protocol, prefer a single, plainly named entry point such as
+`migrate-<protocol>-vaults.py` that runs the metadata repair and historical
+backfill in order. Keep the two operations as separate functions inside the
+script so their responsibilities remain clear and they can be tested
+independently. Use multiple scripts only when the stages have materially
+different operational requirements or need to be deployed and run separately;
+document the reason for the exception. A protocol that needs only one function
+must likewise document why the other is unnecessary.
+
+### Migration interface
+
+Ideally, `DRY_RUN` is the only migration-specific input exposed to the
+operator. Use an environment variable, not a command-line argument parser:
+
+- `DRY_RUN=true` must make no persistent changes. It should use isolated
+  temporary output files or produce a fully non-mutating plan that exercises
+  as much of the real discovery and reading path as practical.
+- `DRY_RUN=false` applies the exact reviewed migration scope. A new one-off
+  migration should default to dry-run mode unless there is a documented reason
+  not to do so.
+- Chains, addresses, factories, start blocks, end-block policy, frequency and
+  target columns should normally be reviewed constants in the script, not
+  operator-selectable migration arguments. This prevents the production
+  command from accidentally widening or narrowing the audited scope.
+- RPC URLs, API credentials, logging level, worker count and test-only storage
+  paths are infrastructure configuration rather than migration scope. Read
+  them from the existing environment conventions, give safe defaults where
+  possible and do not require them to vary in the production run command.
+
+Persistent writes must take the shared `scan-pipeline` writer lock. Migration
+scripts must be safe to rerun after interruption, observable while running and
+fail loudly without discarding existing metadata, Parquet, DuckDB, timestamp
+cache or reader-state data. In production, use the `vault-scanner-oneshot`
+Compose service so the host `~/.tradingstrategy` directory remains mounted;
+inspect `docker-compose.yml` and coordinate with `vault-scanner-looped` before
+the write run.
+
+### Pull request run reminder
+
+Every pull request that adds a migration script must include a PR comment that
+both documents the production commands and explicitly reminds an operator that
+the one-off migration still needs to be run after merge and deployment. Adding
+the script to the repository does not execute it.
+
+The comment must include:
+
+- the script's purpose and exact fixed scope;
+- required production environment variables and external services;
+- the exact `DRY_RUN=true` command and expected output or row counts;
+- the exact persistent command, including scanner stop/start or lock
+  coordination;
+- files or database tables changed, files deliberately left unchanged and any
+  required backup or persistent-cache precautions;
+- a post-run validation command or concrete success criteria; and
+- a conspicuous **Run after merge** reminder, left unresolved until an
+  operator records the date and result in the PR.
+
+Use this minimal comment structure and replace every placeholder with the
+actual production command and expected result:
+
+```markdown
+## Production migration reminder
+
+**Run after merge:** this one-off migration has not run merely because the PR
+was merged.
+
+### Dry run
+
+<exact production container command with DRY_RUN=true>
+
+Expected: <reviewed vault, row and chain counts>; no persistent files changed.
+
+### Apply and validate
+
+<exact production container command with DRY_RUN=false>
+<exact validation command>
+
+Writes: <precise files or tables>. Preserves: <precise unaffected state>.
+
+Result: pending. After execution record the UTC date, deployed commit, redacted
+provider environment, command result and validation result here.
+```
+
+Good reference implementations are:
+
+- [`migrate-gmx-vaults-metadata.py`](migrate-gmx-vaults-metadata.py) and
+  [`backfill-gmx-vault-prices.py`](backfill-gmx-vault-prices.py), which split
+  GMX catalogue metadata from stateless, address-scoped historical writing;
+- [`migrate-current-metadata.py`](../enzyme/migrate-current-metadata.py), which
+  forces Enzyme's shared engine into metadata-only mode and preserves price and
+  reader state; and
+- [`backfill-history.py`](../enzyme/backfill-history.py), which demonstrates a
+  resumable, checkpointed Enzyme metadata and historical migration when the two
+  functions must share factory discovery.
+
 ### Monad historical state
 
 [Monad full nodes retain all historical transaction data but only a
@@ -51,6 +165,112 @@ for formulas, storage and temporal-staleness semantics.
 
 These scripts form the core data pipeline for vault discovery, price scanning, and export.
 
+### Private crypto-vaults bundle
+
+When all-chain post-processing runs, it also builds the isolated private
+``crypto-vaults`` bundle. It preserves the existing public stablecoin files and
+contains stablecoin, reviewed ETH-like and reviewed BTC-like denominations.
+The symbol policy is maintained as the ``DENOMINATION_SYMBOLS`` Python
+dictionary in ``eth_defi/vault/denomination.py``. It deliberately includes
+wrapped, bridged, liquid-staking, restaking and protocol-specific wrappers. It
+does not use token addresses as an inclusion criterion.
+
+The bundle is written below the pipeline data directory as
+``crypto-vaults/crypto-cleaned-vault-prices-1d.parquet`` and its separate JSON
+metadata and sticky state. R2 publication additionally writes the current
+manifest. Its Parquet retains the final observed row for each vault/UTC date
+rather than inventing missing dates. It keeps the established
+``CleanedVaultPriceRow`` columns without adding denomination metadata or a
+crypto-specific return column. The legacy ``returns_1h`` column is recomputed
+between consecutive exported observations: it is a sparse return, not an
+hourly or guaranteed one-day return, and existing TVL-filtered rows remain
+zeroed. Lifetime metrics use the normal forward-filled daily share-price
+series. ETH and BTC amounts stay in their denomination units. The fixed
+USD-to-denomination thresholds (USD 2,000/ETH and USD 60,000/BTC) are only
+low-TVL filtering guidelines, not live valuations.
+
+Every vault entry in ``crypto-vault-metadata.json`` uses the existing
+``denomination``, ``denomination_token_address`` and ``denomination_decimals``
+fields for the observed token, and adds its ``canonical_underlying`` mapping
+(for example ``WBTC`` to ``BTC``). The existing boolean ``stablecoinish`` is
+``true`` when the vault reuses standard stablecoin history and ``false`` for
+ETH/BTC vaults whose historical cleaning is private crypto-bundle processing.
+The added classification and mapping fields exist only in the JSON bundle;
+consumers join JSON vault records to the daily crypto Parquet using the existing
+vault ``id`` column. No duplicate denomination-symbol, decimals or total-assets
+unit aliases are added: ``denomination`` is also the unit for
+``current_total_assets``, ``peak_total_assets`` and ``qualification_threshold``.
+Shared period ranking fields are left unset because USD-gated rankings across
+stablecoin, ETH and BTC native units would not be comparable.
+
+ETH/BTC records additionally contain ``periodic_metrics_usd``. It has the same
+per-period shape as ``period_results`` but converts native share-price and TVL
+bars using the canonical ETH/BTC USD rate; it is JSON-only and does not change
+the crypto Parquet schema or the established native CAGR fields. The metadata
+``usd_metrics`` section records the exact cleaned ``exchange-rates.parquet``
+snapshot, rate direction, effective-date convention and bounded-fill coverage.
+Each USD period also includes ``exchange_rate_start`` and
+``exchange_rate_end`` in USD per canonical underlying unit (for example, the
+Bitcoin prices used for a BTC vault's period endpoints).
+The provider date ``D`` is applied to the preceding UTC vault day ``D - 1``;
+gaps are forward filled for at most three days, after which USD calculations
+use only the latest contiguous covered window. Consequently, a later long
+provider gap restarts the USD lifetime view and excludes earlier rate history.
+This is a provider-snapshot guideline, not a wrapper redemption oracle.
+
+Only the configured alternative R2 bucket receives this bundle. Its objects use
+flat root keys with the ``crypto-`` prefix, such as
+``crypto-cleaned-vault-prices-1d.parquet``, ``crypto-vault-metadata.json`` and
+``crypto-vault-manifest.json``. With ``UPLOAD_PREFIX=test-``, the first key is
+``test-crypto-cleaned-vault-prices-1d.parquet``. The manifest is uploaded last
+and daily R2 backups use the established backup layout. A crypto phase failure
+is logged and contained so public exports can still complete. The crypto cleaner
+is still attempted when the common
+cleaner fails, but its metadata and R2 publication are withheld rather than
+publishing stale stablecoin rows. There is no crypto-specific skip flag: configure the
+alternative bucket and data/metadata R2 credentials for every post-processing
+run that should publish the bundle.
+
+Use the read-only audit before extending the whitelist or rolling out a new
+inventory:
+
+```shell
+VAULT_DATABASE=~/.tradingstrategy/vaults/vault-metadata-db.pickle \
+UNCLEANED_PRICE_DATABASE=~/.tradingstrategy/vaults/vault-prices-1h.parquet \
+CRYPTO_VAULT_AUDIT_STRICT=true \
+poetry run python scripts/erc-4626/audit-crypto-vault-denominations.py
+```
+
+The ETH/BTC substring candidate table is deliberately advisory. It can include
+LP, basket and unrelated protocol symbols, so strict mode does not treat an
+unreviewed candidate as proof of a missing wrapper. Strict mode does fail when
+an active classified vault has no raw price history.
+
+Run only the crypto cleaner, metadata build and private R2 export when
+repairing or publishing this bundle independently of the all-chain scanner:
+
+```shell
+source .local-test.env && \
+poetry run python scripts/erc-4626/export-crypto-vaults.py
+```
+
+Use ``CRYPTO_VAULTS_PUBLISH=false`` to generate local artefacts for inspection
+when the private R2 bucket is intentionally unavailable.
+
+Afterwards, inspect the local artefacts without network access. The report
+lists ETH- and BTC-denominated vault name, protocol, denomination token,
+base and USD lifetime CAGR, the USD metric start date, native-unit TVL and
+approximate USD-equivalent TVL. It reads the
+latest ETH and BTC rates from the local currency API DuckDB database and treats
+each wrapper as its canonical underlying; this is a comparison estimate, not a
+wrapper redemption valuation. Stablecoin and blacklisted vaults, plus values
+above the existing $100bn scanner sanity bound, are omitted from the report,
+but not changed in the exported data.
+
+```shell
+poetry run python scripts/erc-4626/examine-crypto-vault-performance.py
+```
+
 ### scan-vaults.py
 
 Discovery scan for ERC-4626 vaults on a single chain. Stores metadata in the vault database.
@@ -91,6 +311,40 @@ must seed its reviewed addresses into the lead database, refresh only those
 metadata rows, and run vault-address-scoped price history only where a
 historical price reader is supported. Follow the full requirements in
 [`README-vault-leads.md`](../../eth_defi/erc_4626/README-vault-leads.md).
+
+#### Rysk Premium migration
+
+Rysk Premium uses one fixed-scope migration script containing metadata repair
+and historical backfill functions. The reviewed scope is eight public pools as
+of 2026-08-25: four on Ethereum and four on HyperEVM. Issuer-labelled internal
+pools are excluded. The command defaults to `DRY_RUN=true`; `DRY_RUN=false` is
+the only migration-specific operator choice. RPC, Hypersync, logging and
+`MAX_WORKERS` variables remain normal infrastructure configuration.
+
+Exercise both functions without persistent writes:
+
+```shell
+source .local-test.env && \
+poetry run python scripts/erc-4626/migrate-rysk-vaults.py
+```
+
+The metadata stage reads each fixed deployment block timestamp, rebuilds the
+row through `RyskVault` and reports inserts and updates without writing. It
+then copies the production Parquet into temporary storage and exercises the
+historical merge there, alongside temporary context, token and timestamp-cache
+storage. This reports the real address-scoped deletion count without modifying
+production. The temporary workspace uses the mounted pipeline volume and
+preflights enough free space for both the Parquet copy and its atomic rewrite,
+approximately twice the production Parquet size. After inspecting the dry run,
+rerun the same command with `DRY_RUN=false`. It atomically replaces only the
+common metadata pickle after all eight rows validate, then writes only the
+eight selected address histories to `vault-prices-1h.parquet` and the Rysk
+table in `vault-historical-context.duckdb`. The persistent run holds one shared
+scanner writer lock and never changes reader state.
+
+The pull request adding or changing this script must contain the production
+container commands and an unresolved **Run after merge** reminder as described
+in [Pull request run reminder](#pull-request-run-reminder).
 
 #### Enzyme Blue and Onyx migration
 
@@ -451,6 +705,156 @@ can or cannot use. The command is read-only.
 poetry run python scripts/erc-4626/check-asseto-registry.py
 ```
 
+#### Sparse observations and daily risk metrics
+
+The common lifetime-metrics path regularises sparse price observations for
+every vault, not only GMX. It builds one calendar-day share-price series per
+vault, forward fills missing days and reuses that series for volatility,
+Sharpe and drawdown calculations across all periods. This replaces the older
+behaviour that treated irregularly spaced observations as equally spaced
+returns, so historical Sharpe and volatility values can differ from older
+exports.
+
+Forward filling is an explicit approximation: an unobserved day receives a
+zero return and accumulated movement falls on the next observed day. Metrics
+therefore depend on observation cadence. For an otherwise eligible flat period,
+the common export uses zero for volatility and Sharpe; Sharpe is mathematically
+undefined in that case, so zero is a compatibility value rather than evidence
+of a measured risk-adjusted return.
+
+#### GMX V2 liquidity-provider vaults
+
+Arbitrum and Avalanche cycles include GMX V2 GM market tokens and GLV
+multi-market tokens in the ordinary EVM vault scan. GMX V1 GLP is not
+supported. The chain cycle is:
+
+```text
+lead discovery and GMX catalogue sync
+  → prefill GMX value-and-supply observations
+  → scan_prices_for_chain() for all eligible EVM vaults
+  → common raw Parquet
+  → common cleaning and lifetime metrics
+```
+
+GMX has no ERC-4626 ``convertToAssets()`` share price. Instead the reader uses
+deposit-context ``MarketPoolValueUpdated`` and ``GlvValueUpdated`` events:
+
+```text
+share price equivalent = event USD value / corresponding event token supply
+```
+
+For GM, only post-deposit updates are accepted. GMX values deposits and
+withdrawals with different PnL-factor and maximise/minimise settings, so mixing
+the two contexts would create false returns. For GLV, ``GlvValueUpdated``
+contains value and supply after execution; GLV shares are minted or burned
+proportionally using the pre-flow ratio. GMX notes that GLV values can omit
+shift, deposit or withdrawal fees when a GLV oracle price is used. The result
+is an event-observed share-price approximation rather than a continuously
+sampled canonical NAV.
+
+The common writer retains the first row and subsequent share-price moves above
+``DEFAULT_HISTORICAL_SHARE_PRICE_CHANGE_THRESHOLD``; it ignores flow-only
+changes and sub-threshold noise. Raw Parquet remains sparse. Metric calculation
+uses observed endpoints for returns and CAGR. For daily path metrics, the common
+reader forward fills the last observation: an unobserved day receives a zero
+return and the complete intervening movement falls on the next event day. This
+is an accepted approximation that makes volatility, Sharpe and drawdown
+available. Volatility and Sharpe remain sensitive to GMX operation cadence and
+must not be interpreted as continuously sampled NAV statistics.
+
+The resulting GMX share curve is displayed in USDC, while GMX itself values the
+underlying shares in USD. The USDC label is a comparison convention: it does
+not mean every product accepts USDC or has an onchain USDC NAV. It approximates
+a single-sided USDC deposit only where USDC is accepted and does not model an
+individual request. Accepted deposit tokens are product-specific. The curve excludes
+execution fees, price impact, token spreads, deposit or withdrawal fees and
+waiting time. GMX's transaction costs are not management or performance fees;
+those two depositor-facing fields are zero in the common fee interface.
+
+The observation cache is
+``$PIPELINE_DATA_DIR/vault-historical-context.duckdb``. The file is shared by
+the scanner, but GMX owns the ``gmx_historical_context`` table. It stores only
+source event observations. Calculated share prices and TVL are written to the
+normal vault Parquet files.
+
+Use the manual scripts in this order. First idempotently migrate current
+products into the common metadata database. This refreshes existing GM and GLV
+rows by chain and share-token address, including index-aware GM names,
+backing-pair GLV names, full liquidity-provider descriptions and USDC display
+denomination:
+
+```shell
+source .local-test.env && \
+  CHAINS=arbitrum,avalanche \
+  DRY_RUN=false \
+  poetry run python scripts/erc-4626/migrate-gmx-vaults-metadata.py
+```
+
+Use ``DRY_RUN=true`` for a read-only preview, then rerun with ``false`` before
+the backfill.
+
+Run the full backfill. The script needs no chain, range or frequency
+parameters: it processes Arbitrum and Avalanche sequentially, snapshots one
+safe head per chain, and scans the half-open range from block 1 to that head
+using hourly buckets. Cache insertion is idempotent, and repeating the command
+rebuilds the same complete GMX ranges without modifying scheduled reader state.
+GMX source events use bounded Hypersync `get()` pages instead of concurrent
+native streams so dense history does not accumulate native response buffers in
+the scanner container. The shared request limiter applies to every page, so a
+full backfill favours bounded memory over maximum download speed.
+The GMX DuckDB table also avoids `PRIMARY KEY` and `UNIQUE` constraints because
+DuckDB 1.5.0 ART indexes can corrupt the native heap on large file-backed
+databases under Python 3.14. Existing indexed GMX tables are migrated
+transactionally, while application-level batch joins preserve idempotency.
+
+```shell
+source .local-test.env && \
+  poetry run python scripts/erc-4626/backfill-gmx-vault-prices.py
+```
+
+Then check source linkage, positive values, the
+``total_assets = share_price × total_supply`` identity, duplicates and the
+common change threshold:
+
+```shell
+source .local-test.env && \
+  poetry run python scripts/erc-4626/examine-gmx-vault-backfill.py
+```
+
+Finally calculate the same lifetime and three-month metrics used by the common
+export pipeline:
+
+```shell
+source .local-test.env && \
+  PRICE_DATABASE=~/.tradingstrategy/vaults/vault-prices-1h.parquet \
+  poetry run python scripts/erc-4626/examine-gmx-vault-performance.py
+```
+
+``3M CAGR``, ``3M volatility`` and ``3M Sharpe`` are ``N/A`` when the available
+observation window does not satisfy the common three-month period rules. When
+available, volatility and Sharpe are the forward-filled,
+observation-cadence-sensitive approximations described above.
+
+| Variable | Script | Description |
+|----------|--------|-------------|
+| `CHAINS` | seed | Comma-separated `arbitrum,avalanche`; defaults to both. |
+| `MAX_WORKERS` | seed, backfill | Thread worker count. |
+| `DRY_RUN` | seed, backfill | Enumerate or use temporary output without changing production files. |
+| `VAULT_DATABASE` | all | Common metadata pickle override. |
+| `UNCLEANED_PRICE_DATABASE` | backfill, structural examiner | Common raw Parquet override. |
+| `PRICE_DATABASE` | performance examiner | Cleaned or raw common Parquet input. |
+| `TOKEN_CACHE` | performance examiner | Read-only token metadata cache used for token symbols. |
+| `CONTEXT_DATABASE` | backfill, structural examiner | Shared observation-cache DuckDB override. |
+| `REQUIRE_ALL_PRODUCTS` | structural examiner | Fail when any current product has no rows; use only after a full backfill. |
+| `MIN_TVL` / `LIMIT` | performance examiner | Filter and limit the output table. |
+| `LOG_LEVEL` | seed, backfill, performance examiner | Console log level. |
+
+The scheduled pipeline prefills at most
+``GMX_INITIAL_CONTEXT_LOOKBACK_BLOCKS`` on its first run (default 100,000
+blocks), then follows the existing per-chain price-reader state. This avoids
+re-fetching a growing empty range when a chain has no recent GMX event. Use the
+manual backfill for older history.
+
 Both Lighter deployments use synthetic native-pool chain ID `9998`; their
 address prefixes distinguish price series. Lifetime-metrics export the
 additional `deployment_chain_id` (`1` for Ethereum or `4663` for Robinhood)
@@ -458,6 +862,81 @@ and `deployment` slug. The Lighter DuckDB schema migration runs automatically
 when an existing database is opened. See the
 [Lighter native-pool pipeline](../lighter/README-lighter-vaults.md) for the
 storage and partial-scan replacement rules.
+
+#### Flying Tulip reward-equivalence backfill
+
+Flying Tulip sftUSD has separately claimable FT rewards. Its historical series
+is therefore a non-redeemable,
+reward-reinvested ftUSD share-price equivalent. The complete backfill streams
+the official Ethereum, BNB Chain and Sonic sftUSD event histories with
+Hypersync, and records FT/ftUSD Curve oracle provenance in the shared context
+database. It does not directly write common price Parquet rows.
+
+Performance tracking starts at Ethereum Curve pool deployment block
+`25,531,725` (Unix timestamp `1,784,042,255`). The first sftUSD settlement on
+or after that boundary establishes an equivalent price of 1.0, and subsequent
+settlements compound returns. Earlier epochs are excluded because the
+canonical FT/ftUSD market did not yet exist. Deployment-to-boundary mint and
+burn events remain in the source cache solely to reconstruct the correct
+post-boundary supply and TVL.
+
+Curve EMA observations may be at most seven days old. This ceiling was chosen
+after the complete real backfill observed a longest post-deployment no-update
+interval of about 4.7 days. The collector and replay both enforce it, so a
+previous accepted price cannot silently bridge a longer future market gap.
+
+```shell
+source .local-test.env && \
+  poetry run python scripts/erc-4626/backfill-flying-tulip-history.py
+
+source .local-test.env && \
+  poetry run python scripts/erc-4626/examine-flying-tulip-vaults.py
+
+# Refresh only previously discovered Flying Tulip metadata rows; this never
+# changes reader state or historical price Parquet files.
+source .local-test.env && DRY_RUN=true \
+  poetry run python scripts/erc-4626/migrate-flying-tulip-vault-metadata.py
+```
+
+The examiner is read-only and fails on incomplete source history, duplicate
+event keys, non-contiguous epochs, missing or stale Curve prices, or a
+contextual-reader replay invariant failure. Set `CONTEXT_DATABASE` to inspect
+an isolated DuckDB; the reviewed dormant BNB Chain deployment is accepted as
+empty. Use `REQUIRE_ALL_CHAINS=false` only for an intentionally bounded or
+in-progress backfill.
+
+The backfill defaults to one concurrent Hypersync stream at 20 requests per
+minute. It displays progress for source chunks, timestamp cache gaps and Curve
+oracle reads; stopping it is safe because every completed source chunk,
+timestamp chunk and oracle observation is committed. A provider may still
+return a retryable rate-limit response. Use
+`FLYING_TULIP_HYPERSYNC_RPM` and `FLYING_TULIP_HYPERSYNC_CONCURRENCY` only when
+the available provider quota supports higher values. Generic `HYPERSYNC_RPM`
+and `HYPERSYNC_CONCURRENCY` take precedence.
+
+#### Flying Tulip description migration
+
+`migrate-flying-tulip-descriptions.py` is a later, copy-only repair separate
+from the original adapter metadata migration because it has materially
+different operational requirements: it needs no RPC provider and must not
+rebuild complete scanner rows. Its fixed scope is the reviewed Ethereum, BNB
+Chain and Sonic sftUSD addresses. It updates only `_short_description`,
+`_notes` and `_protocol_notes` in `vault-metadata-db.pickle`. Protocol metadata
+YAML is published separately by the normal metadata exporter.
+
+The script defaults to a non-mutating dry run and requires all three reviewed
+rows to exist with the Flying Tulip protocol classification. Persistent mode
+takes the shared `scan-pipeline` writer lock and atomically replaces the
+metadata pickle. It does not read or write price Parquet, reader state, lead
+state, timestamp caches or historical-context DuckDB files.
+
+```shell
+# Expected: three reviewed rows and up to nine changed fields; no files changed.
+DRY_RUN=true poetry run python scripts/erc-4626/migrate-flying-tulip-descriptions.py
+
+# Apply after inspecting the dry-run table.
+DRY_RUN=false poetry run python scripts/erc-4626/migrate-flying-tulip-descriptions.py
+```
 
 #### Lead discovery cache
 
@@ -1147,7 +1626,21 @@ poetry run python scripts/erc-4626/clean-prices.py
 
 ### export-sparklines.py
 
-Export all vault sparklines to Cloudflare R2. Run after cleaned prices are generated.
+Export eligible vault share-price sparklines to Cloudflare R2. Run after
+`cleaned-vault-prices-1h.parquet` is generated.
+
+A vault is eligible when its denomination is stablecoin-like, its historical
+peak TVL reaches USD 5,000 (USD 500 for the temporary ApeX exemption), and its
+first and latest finite share-price observations span at least 14 days. The
+threshold is elapsed history, not a requirement for 14 daily samples.
+
+Every published chart has a 90-day horizontal axis ending on the vault's own
+latest observation day. A vault with 14–89 days of history is drawn on the
+right, while the period before its first observation stays blank. An inactive
+vault whose latest observation is older than the dataset-wide latest timestamp
+is still rendered from its own history. The exporter publishes a listing SVG
+and social-card PNG for each vault. Both are gzip-compressed, and unchanged
+source images are skipped using checksum metadata.
 
 ```shell
 poetry run python scripts/erc-4626/export-sparklines.py
@@ -1155,7 +1648,11 @@ poetry run python scripts/erc-4626/export-sparklines.py
 
 | Variable | Description |
 |----------|-------------|
-| `MAX_WORKERS` | Optional. Parallel workers. |
+| `R2_SPARKLINE_BUCKET_NAME` | Required. Destination R2 bucket name. |
+| `R2_SPARKLINE_ENDPOINT_URL` | Required. R2 S3-compatible endpoint URL. |
+| `R2_SPARKLINE_ACCESS_KEY_ID` | Required. R2 access key ID. |
+| `R2_SPARKLINE_SECRET_ACCESS_KEY` | Required. R2 secret access key. |
+| `MAX_WORKERS` | Optional. Rendering processes and upload threads. Default: 20. |
 
 ### export-protocol-metadata.py
 
@@ -1172,7 +1669,7 @@ poetry run python scripts/erc-4626/export-protocol-metadata.py
 | `R2_VAULT_METADATA_SECRET_ACCESS_KEY` | Required. R2 secret key. |
 | `R2_VAULT_METADATA_ENDPOINT_URL` | Required. R2 endpoint URL. |
 | `R2_VAULT_METADATA_PUBLIC_URL` | Required. R2 public URL. |
-| `R2_ALTERNATIVE_VAULT_METADATA_BUCKET_NAME` | Optional. Alternative R2 bucket for the upcoming private commercial professional vault data bucket. Uses same credentials as primary. |
+| `R2_ALTERNATIVE_VAULT_METADATA_BUCKET_NAME` | Optional. Mirrors protocol metadata into the alternative bucket. |
 | `MAX_WORKERS` | Optional. Default: 20. |
 
 ### export-data-files.py
@@ -1185,11 +1682,13 @@ files, Core3 risk intelligence DuckDB, and exchange-rate DuckDB.
 source .local-test.env && poetry run python scripts/erc-4626/export-data-files.py
 ```
 
-When `R2_ALTERNATIVE_VAULT_METADATA_BUCKET_NAME` is configured, files are
-uploaded to both buckets. Daily `daily/YYYY-MM-DD/...` backup copies are created
-only in the alternative bucket. Missing files, including the Core3 and exchange-rate
-DuckDB files, are logged and skipped. Existing `vault-export-state.json` is included
+Files are uploaded only to `R2_ALTERNATIVE_VAULT_METADATA_BUCKET_NAME`. Daily
+`daily/YYYY-MM-DD/...` backup copies are created in that private bucket. Missing
+files, including the Core3 and exchange-rate DuckDB files, are logged and skipped.
+Existing `vault-export-state.json` is included
 so sticky qualification history is backed up with the rest of the production data set.
+This exporter does not remove any historic objects from other buckets; remove
+legacy public Pro artefacts separately through a controlled R2 operation.
 The exchange-rate DuckDB path uses the same `CURRENCY_API_DB_PATH` /
 `CURRENCY_API_DATABASE_PATH` configuration as the scheduled currency-rate scanner;
 without an override it is read from `$PIPELINE_DATA_DIR/exchange-rates.duckdb`.
@@ -1198,12 +1697,10 @@ fixed `vault-metadata-db.pickle` is published.
 
 | Variable | Description |
 |----------|-------------|
-| `R2_DATA_BUCKET_NAME` | R2 bucket for data files (falls back to `R2_VAULT_METADATA_BUCKET_NAME`). |
+| `R2_ALTERNATIVE_VAULT_METADATA_BUCKET_NAME` | Required. Private R2 bucket for data files. |
 | `R2_DATA_ACCESS_KEY_ID` | R2 access key (falls back to `R2_VAULT_METADATA_ACCESS_KEY_ID`). |
 | `R2_DATA_SECRET_ACCESS_KEY` | R2 secret (falls back to `R2_VAULT_METADATA_SECRET_ACCESS_KEY`). |
 | `R2_DATA_ENDPOINT_URL` | R2 endpoint (falls back to `R2_VAULT_METADATA_ENDPOINT_URL`). |
-| `R2_DATA_PUBLIC_URL` | Public base URL (falls back to `R2_VAULT_METADATA_PUBLIC_URL`). |
-| `R2_ALTERNATIVE_VAULT_METADATA_BUCKET_NAME` | Optional. Alternative bucket for private/professional data. |
 | `R2_DAILY_BACKUP` | Optional. Set to `false` to disable daily backup copies. Default: true. |
 | `CORE3_DATABASE_PATH` | Optional. Core3 DuckDB path. Default: `~/.tradingstrategy/vaults/core3/core3.duckdb`. |
 | `CURRENCY_API_DB_PATH` / `CURRENCY_API_DATABASE_PATH` | Optional. Exchange-rate DuckDB bundle path. Default: `$PIPELINE_DATA_DIR/exchange-rates.duckdb`. |
@@ -1261,6 +1758,12 @@ poetry run python scripts/erc-4626/scan-vault-posts.py
 | `LOG_LEVEL` | Optional. Default: warning. |
 
 ## Docker usage
+
+Pro vault datasets—price Parquet, local metadata pickle, data DuckDB files,
+export-state JSON and the crypto bundle—are uploaded only to their configured
+private R2 bucket. The public top-vaults feed, protocol metadata, logos and
+sparklines retain their established publication configuration. The Ethereum-only
+sample files remain the free download artefacts.
 
 The vault scanner is packaged as a Docker image via `Dockerfile.vault-scanner`.
 The default entrypoint is `scan-vaults-all-chains.py`, which scans **all chains**.
@@ -2024,7 +2527,10 @@ poetry run python scripts/erc-4626/vault-price-stats.py
 
 ### render-sparkline.py
 
-Test rendering a sparkline for a single vault and open the result in a browser.
+Render one vault with the same 14-day eligibility and fixed 90-day axis as the
+production exporter, then open the PNG in a browser. Set `VAULT_ID` to override
+the example vault. If `R2_SPARKLINE_BUCKET_NAME` is configured, the script also
+uploads the PNG under a `test-<vault-id>.png` object name.
 
 ```shell
 poetry run python scripts/erc-4626/render-sparkline.py

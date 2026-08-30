@@ -1,0 +1,31 @@
+# Flying Tulip curator - feeds provided by protocols/flying-tulip.yaml
+#
+# Alias rationale:
+# - The reviewed sftUSD positions are protocol-managed: Flying Tulip collects
+#   strategy yield and protocol fee revenue through its treasury, then can
+#   distribute FT to sftUSD stakers.
+# - Flying Tulip already has canonical protocol feed metadata, so this alias
+#   reuses those sources and avoids duplicate feed collection.
+#
+# Description and curator evidence:
+# - https://docs.flyingtulip.com/product-suite/ft-usd/
+# - https://api.flyingtulip.com/ftusd/contracts/all
+feeder-id: flying-tulip
+name: Flying Tulip
+role: curator
+canonical-feeder-id: flying-tulip
+short_description: Flying Tulip operates the ftUSD stablecoin product and its protocol-managed sftUSD staking positions.
+long_description: |
+  [Flying Tulip](https://flyingtulip.com/ftusd/) operates ftUSD and the optional
+  sftUSD staking positions reviewed here. Its [ftUSD documentation](https://docs.flyingtulip.com/product-suite/ft-usd/)
+  states that net strategy yield and protocol fee revenue are collected by the
+  treasury, then can be distributed to stakers as separately claimable FT.
+  This makes Flying Tulip the protocol-managed curator for these positions,
+  rather than an independent third-party manager. Users remain exposed to the
+  stablecoin, strategy, liquidity, redemption-queue and FT-price risks
+  described in the product documentation.
+other-links:
+  - title: Flying Tulip ftUSD documentation - strategy yield, treasury distribution and sftUSD staking
+    url: https://docs.flyingtulip.com/product-suite/ft-usd/
+  - title: Flying Tulip official ftUSD contract registry - reviewed sftUSD deployments
+    url: https://api.flyingtulip.com/ftusd/contracts/all

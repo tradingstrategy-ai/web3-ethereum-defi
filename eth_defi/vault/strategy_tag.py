@@ -29,6 +29,12 @@ class StrategyTag(str, enum.Enum):
     #: Example vault: AllDeFi Quant Directional Strategy (GRVT).
     directional_trading = "directional_trading"
 
+    #: Maintains a fixed long or short exposure to one underlying asset using
+    #: leverage. This is direct market exposure, not a trading signal,
+    #: selection method, or other trade intelligence.
+    #: Example vault: ADA 2x long (Lighter).
+    directional_leverage = "directional_leverage"
+
     #: Takes directional positions that follow sustained market movements.
     #: Example vault: Gen Wealth Algo (Hyperliquid).
     trend_following = "trend_following"

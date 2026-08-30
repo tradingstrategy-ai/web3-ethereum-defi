@@ -1,0 +1,9 @@
+feeder-id: ewpple
+name: Ewpple
+role: curator
+short_description: Ewpple is the manager label used for the Ewpple DeFi Crypto Index Fund.
+long_description: |
+  The [Ewpple DeFi Crypto Index Fund Enzyme Blue listing](https://app.enzyme.finance/vault/0xc98e070cc35b98a0f8ba7579a68a1796b014c0b9?network=polygon) sets out the EWD fund's market-cap weighted digital-asset and DeFi-token allocation approach. The available Enzyme metadata names no separate human-readable manager, so this curator record retains the distinctive fund-family name rather than inferring an organisation beyond the listing.
+other-links:
+  - title: Enzyme Blue - Ewpple DeFi Crypto Index Fund listing
+    url: https://app.enzyme.finance/vault/0xc98e070cc35b98a0f8ba7579a68a1796b014c0b9?network=polygon

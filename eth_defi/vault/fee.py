@@ -50,6 +50,13 @@ class VaultFeeMode(enum.Enum):
 #: See :py:func:`eth_defi.erc_4626.core.get_vault_protocol_name` for the names list.
 #:
 VAULT_PROTOCOL_FEE_MATRIX = {
+    # The direct sftUSD wrapper is fee-free, but FlyingTulipVault models the
+    # USDC -> ftUSD acquisition and ftUSD -> USDC redemption fees so its
+    # investor-return fields are comparable with USDC-denominated vaults.
+    "Flying Tulip": VaultFeeMode.externalised,
+    # Like Hyperliquid's HLP, GM and GLV have no manager-level depositor fees.
+    # Trading revenue and trader PnL are already reflected in their equity curve.
+    "GMX": VaultFeeMode.feeless,
     "Euler": VaultFeeMode.internalised_skimming,
     "Morpho": VaultFeeMode.internalised_skimming,
     "Enzyme": VaultFeeMode.internalised_skimming,
@@ -80,6 +87,9 @@ VAULT_PROTOCOL_FEE_MATRIX = {
     "Midas": VaultFeeMode.internalised_skimming,
     # Fund fees are internalised in NAV; request fees are read from AoABTManager.
     "Asseto": VaultFeeMode.internalised_skimming,
+    # Premium option-premium fees are not universal LP management,
+    # performance, deposit or withdrawal fees.
+    "Rysk": None,
     # Benji token contracts do not expose a fund fee schedule.
     "Franklin Templeton": None,
     # Product fee schedules are not published by the reviewed CMTAT token contracts.

@@ -142,6 +142,7 @@ Supported protocols
    arcus/index
    asseto/index
    axis/index
+   flying_tulip/index
    ondo/index
    wisdomtree/index
    libeara/index
@@ -212,6 +213,7 @@ Supported protocols
    renalta/index
    resolv/index
    royco/index
+   rysk/index
    sbold/index
    secured_finance/index
    securitize/index

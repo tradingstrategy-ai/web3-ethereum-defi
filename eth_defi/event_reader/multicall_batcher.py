@@ -49,7 +49,7 @@ from eth_defi.event_reader.multicall_timestamp import fetch_block_timestamps_mul
 from eth_defi.event_reader.timestamp_cache import DEFAULT_TIMESTAMP_CACHE_FOLDER
 from eth_defi.event_reader.web3factory import Web3Factory
 from eth_defi.middleware import ProbablyNodeHasNoBlock, is_retryable_http_exception
-from eth_defi.provider.fallback import ChainIdMismatch, FallbackProvider
+from eth_defi.provider.fallback import ChainIdMismatch, FallbackProvider, FallbackRetryConfiguration, get_fallback_provider
 from eth_defi.provider.multi_provider import MultiProviderWeb3Factory
 from eth_defi.provider.named import get_provider_name
 from eth_defi.provider.rpcdb import RPCRequestStats
@@ -765,6 +765,7 @@ class EncodedCall:
         silent_error=False,
         attempts: int = 3,
         retry_sleep=30.0,
+        retry_exceptions: set[type[Exception]] | None = None,
     ) -> bytes:
         """Return raw results of the call.
 
@@ -784,7 +785,9 @@ class EncodedCall:
             share_token_address = convert_uint256_bytes_to_address(result)
 
         :param ignore_error:
-            Set to True to inform middleware that it is normal for this call to fail and do not log it as a failed call, or retry it.
+            Mark an expected call failure, such as probing an optional Solidity
+            method. This does not suppress the exception; it disables retries
+            unless ``retry_exceptions`` explicitly allows one.
 
         :param attempts:
             Use built-in retry mechanism for flaky RPC.
@@ -792,7 +795,14 @@ class EncodedCall:
             This works regardless of middleware installed.
             Set to zero to ignore.
 
-            Cannot be used with ignore_errors.
+            With :class:`FallbackProvider`, this caps its retries after the
+            initial request instead of adding an outer retry loop.
+
+        :param retry_exceptions:
+            Transient exception classes to retry when ``ignore_error`` is set.
+            Other exceptions, including Solidity reverts, are raised after one
+            attempt. With :class:`FallbackProvider`, the allow-list also lets
+            the provider switch endpoint for the selected failure.
 
         :param gas:
             Gas limit.
@@ -809,6 +819,17 @@ class EncodedCall:
         if gas is None:
             gas = get_default_call_gas_limit(web3.eth.chain_id)
 
+        retry_exceptions = tuple(retry_exceptions or ())
+        assert not retry_exceptions or ignore_error, "retry_exceptions requires ignore_error=True"
+        fallback_provider = None
+        if getattr(web3, "provider", None) is not None:
+            try:
+                fallback_provider = get_fallback_provider(web3)
+            except AssertionError:
+                pass
+        fallback_retries = bool(retry_exceptions) and isinstance(fallback_provider, FallbackProvider)
+        fallback_retry_attempts = attempts
+
         transaction = {
             "to": self.address,
             "from": from_,
@@ -817,23 +838,43 @@ class EncodedCall:
             "ignore_error": ignore_error,  # Hint logging middleware that we should not care about if this fails
             "silent_error": silent_error,  # Hint logging middleware that we should not care about if this fails
         }
-
         attempt = 0
 
-        # Cannot use with ignore eror
-        if ignore_error:
+        if ignore_error and not retry_exceptions:
+            attempts = 0
+        elif fallback_retries:
+            # FallbackProvider performs the selected retry and endpoint rotation.
+            # Avoid repeating its entire backoff cycle in this outer loop.
             attempts = 0
 
         while True:
             try:
-                result = web3.eth.call(
-                    transaction=transaction,
-                    block_identifier=block_identifier,
-                )
+                context_token = None
+                if fallback_retries:
+                    context_token = fallback_provider.retry_configuration_context.set(
+                        FallbackRetryConfiguration(
+                            retry_exceptions=retry_exceptions,
+                            retries=fallback_retry_attempts,
+                            sleep=retry_sleep,
+                        )
+                    )
+                try:
+                    result = web3.eth.call(
+                        transaction=transaction,
+                        block_identifier=block_identifier,
+                    )
+                finally:
+                    if context_token is not None:
+                        fallback_provider.retry_configuration_context.reset(context_token)
                 return result
             except Exception as e:
                 msg = f"Call failed: {str(e)}\nBlock: {block_identifier}, chain: {web3.eth.chain_id}\nTransaction data:{pformat(transaction)}"
-                if is_retryable_http_exception(e, method="eth_call") and attempt < attempts:
+                if ignore_error:
+                    retryable = isinstance(e, retry_exceptions)
+                else:
+                    retryable = is_retryable_http_exception(e, method="eth_call")
+
+                if retryable and attempt < attempts:
                     attempt += 1
                     logger.warning(
                         "Retrying EncodedCall.call() %s/%s, %s",
@@ -992,6 +1033,14 @@ class CombinedEncodedCallResult:
 WTF_RETRY_EXCEPTIONS_MESSAGE_CLUES = {
     m.lower()
     for m in (
+        # On HyperEVM (chain 999) this is usually not a real EVM out-of-gas.
+        # Vaults that read HyperCore through the read precompiles
+        # (0x...0801 spot balance, 0x...0805 delegator summary, 0x...0809 L1
+        # block number) get a punitive gas figure attributed to them by
+        # goldsky and dRPC nodes, so a normal 40-call batch is rejected up
+        # front with -32003 "out of gas: gas required exceeds: <cap>" for any
+        # cap we send, while Alchemy executes the same batch in ~117k gas.
+        # See docs/README-hyperevm-hypercore-read-gas.md and PR #1536.
         "out of gas",
         "evm timeout",
         "request timeout",
@@ -1588,6 +1637,17 @@ class MultiprocessMulticallReader:
             # See Mantle issues.
             # This will usually fix the issue, but it if is not resolve itself in few blocks the scan will grind snail pace and
             # the underlying contract needs to be manually blacklisted.
+            #
+            # Before blacklisting a HyperEVM (chain 999) address that shows up
+            # here, check whether its valuation calls read HyperCore. Those
+            # vaults are alive and correct at the head, but their precompile
+            # reads are charged tens of millions of gas by some providers and
+            # revert with CoreReaderLib.ReadFailure (0x18c34104) as soon as the
+            # node no longer holds the matching HyperCore view. That is a
+            # provider-side artefact, not a broken contract, so blacklisting it
+            # would drop a live vault. Hyperdrive Liquid Staked Hype
+            # 0x4d0fF6a0DD9f7316b674Fb37993A3Ce28BEA340e is the worked example
+            # in docs/README-hyperevm-hypercore-read-gas.md and PR #1536.
             block_identifier_str = f"{block_identifier:,}" if type(block_identifier) == int else str(block_identifier)
             status_code = e.status_code
             headers = e.headers

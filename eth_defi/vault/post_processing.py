@@ -14,6 +14,12 @@ import os
 from pathlib import Path
 from typing import Any
 
+try:
+    import brotli
+except ImportError:
+    brotli = None
+
+import duckdb
 import pandas as pd
 import pyarrow as pa
 import pyarrow.compute as pc
@@ -22,7 +28,8 @@ import pyarrow.parquet as pq
 from eth_defi.apex.constants import APEX_CHAIN_ID, APEX_METRICS_DATABASE
 from eth_defi.apex.metrics import ApexMetricsDatabase
 from eth_defi.apex.vault_data_export import build_raw_prices_dataframe as build_apex_prices_dataframe
-from eth_defi.cloudflare_r2 import R2RetryableOperationError, calculate_bytes_digest, copy_r2_object_daily_backup, create_r2_client, upload_bytes_to_r2, upload_file_to_r2
+from eth_defi.cloudflare_r2 import R2OperationError, R2RetryableOperationError, calculate_bytes_digest, copy_r2_object_daily_backup, create_r2_client, upload_bytes_to_r2, upload_file_to_r2
+from eth_defi.currency_api.parquet import materialise_exchange_rate_parquet
 from eth_defi.grvt.constants import GRVT_CHAIN_ID, GRVT_DAILY_METRICS_DATABASE
 from eth_defi.grvt.daily_metrics import GRVTDailyMetricsDatabase
 from eth_defi.grvt.vault_data_export import build_raw_prices_dataframe as build_grvt_prices_dataframe
@@ -43,6 +50,14 @@ from eth_defi.perp_dex.storage import read_perp_vault_observations
 from eth_defi.research.wrangle_vault_prices import generate_cleaned_vault_datasets
 from eth_defi.vault import top_vaults_json
 from eth_defi.vault.base import VaultHistoricalRead
+from eth_defi.vault.crypto_vault_export import publish_crypto_vault_bundle
+from eth_defi.vault.crypto_vaults import CryptoVaultPaths, build_crypto_vault_metadata, build_crypto_vault_prices, resolve_crypto_vault_paths
+from eth_defi.vault.data_file_export import (
+    publish_exchange_rate_parquet_to_alternative_bucket,
+    resolve_exchange_rate_database_path,
+    resolve_exchange_rate_parquet_path,
+)
+from eth_defi.vault.sample_export import export_sample_files_to_r2
 from eth_defi.vault.vaultdb import DEFAULT_UNCLEANED_PRICE_DATABASE, get_pipeline_data_dir
 
 #: Required env vars for the top-vaults JSON R2 upload.
@@ -55,6 +70,9 @@ _R2_TOP_VAULTS_REQUIRED_ENV_VARS = (
 )
 
 logger = logging.getLogger(__name__)
+
+#: Access-key length below which masking would reveal the entire value.
+_MIN_MASKED_ACCESS_KEY_LENGTH = 8
 
 
 PERP_DEX_CAPABILITY_REGISTRY = PerpDexCapabilityRegistry(
@@ -101,12 +119,12 @@ def _mask_access_key_id(access_key_id: str | None) -> str:
     """
     if not access_key_id:
         return "<unknown>"
-    if len(access_key_id) <= 8:
+    if len(access_key_id) <= _MIN_MASKED_ACCESS_KEY_LENGTH:
         return access_key_id
     return f"{access_key_id[:4]}...{access_key_id[-4:]}"
 
 
-def _upload_top_vaults_json_to_bucket(
+def _upload_top_vaults_json_to_bucket(  # noqa: PLR0917 - internal upload payload has six required fields
     s3_client: Any,
     output_path: Path,
     bucket_name: str,
@@ -147,8 +165,8 @@ def _upload_top_vaults_json_to_bucket(
         Human-readable label such as ``primary`` or ``alternative``.
 
     :return:
-        ``True`` if the bucket upload succeeded or was skipped as
-        unchanged, ``False`` on failure.
+        ``True`` if the bucket upload succeeded or was skipped as unchanged,
+        otherwise ``False``.
     """
     try:
         uploaded = upload_file_to_r2(
@@ -176,10 +194,11 @@ def _upload_top_vaults_json_to_bucket(
         return False
 
     # Upload brotli-compressed variant (.json.br) alongside raw JSON.
-    # Brotli is an optional dependency — if unavailable, raw upload still succeeds.
+    # Brotli is optional; the raw JSON upload remains valid without it.
+    if brotli is None:
+        logger.warning("brotli package not installed — skipping .json.br upload for %s bucket", bucket_label)
+        return False
     try:
-        import brotli
-
         raw_bytes = output_path.read_bytes()
         compressed = brotli.compress(raw_bytes, quality=11)
         source_digest = calculate_bytes_digest(raw_bytes)
@@ -206,9 +225,6 @@ def _upload_top_vaults_json_to_bucket(
             )
         else:
             logger.info("Skipped unchanged brotli for %s s3://%s/%s.br", bucket_label, bucket_name, object_key)
-    except ImportError:
-        logger.warning("brotli package not installed — skipping .json.br upload for %s bucket", bucket_label)
-        return False
     except Exception:
         logger.exception("Brotli compression/upload failed for %s bucket — raw JSON already uploaded", bucket_label)
         return False
@@ -216,7 +232,7 @@ def _upload_top_vaults_json_to_bucket(
     return True
 
 
-def _upload_top_vaults_json_to_configured_buckets(
+def _upload_top_vaults_json_to_configured_buckets(  # noqa: PLR0917 - internal R2 configuration has six required fields
     s3_client: Any,
     output_path: Path,
     bucket_name: str,
@@ -229,34 +245,26 @@ def _upload_top_vaults_json_to_configured_buckets(
 ) -> bool:
     """Upload the generated top-vaults JSON to all configured buckets.
 
-    The primary and alternative buckets are attempted independently.
-    This means a permission issue on one bucket does not stop the other
-    upload attempt or later post-processing steps.
+    The primary and alternative buckets are attempted independently. This
+    means a permission issue on one bucket does not stop the other upload or
+    later post-processing steps.
 
     :param s3_client:
         Authenticated boto3 S3 client.
-
     :param output_path:
         Generated JSON file path.
-
     :param bucket_name:
         Primary bucket name.
-
     :param endpoint_url:
         R2 endpoint URL for logging.
-
     :param object_key:
         Destination object key.
-
     :param access_key_id:
         R2 access key ID for masked logging.
-
     :param public_url:
         Optional public URL for the primary bucket.
-
     :param alt_bucket_name:
         Optional alternative bucket name.
-
     :return:
         ``True`` if all configured uploads succeeded or were skipped as
         unchanged, otherwise ``False``.
@@ -475,7 +483,8 @@ def _merge_apex_prices_with_existing_parquet(
     return pd.concat([existing_df, fresh_df], ignore_index=True).drop_duplicates(subset=["address", "timestamp"], keep="last").reset_index(drop=True)
 
 
-def merge_native_protocols(
+def merge_native_protocols(  # noqa: PLR0914 - one established coordinator owns all native inputs
+    *,
     merge_hypercore: bool = False,
     merge_grvt: bool = False,
     merge_lighter: bool = False,
@@ -751,6 +760,110 @@ def clean_prices(
         return False
 
 
+def clean_crypto_vault_prices(
+    *,
+    vault_db_path: Path,
+    uncleaned_path: Path,
+    cleaned_path: Path,
+    cleaned_stablecoin_path: Path,
+    settlement_db_path: Path | None = None,
+) -> bool:
+    """Build the isolated daily stablecoin/ETH/BTC cleaned Parquet.
+
+    Any error is contained here so the existing stablecoin and public export
+    path can complete.  The underlying cleaner still preserves its old output
+    file through its temporary-write verification protocol.
+
+    :param vault_db_path:
+        Common vault metadata pickle.
+    :param uncleaned_path:
+        Shared raw price Parquet file.
+    :param cleaned_path:
+        Isolated crypto daily Parquet destination.
+    :param cleaned_stablecoin_path:
+        Standard stablecoin-only cleaned Parquet source.
+    :param settlement_db_path:
+        Optional settlement database.
+    :return:
+        ``True`` if the crypto cleaning phase completed.
+    """
+    try:
+        build_crypto_vault_prices(
+            vault_db_path=vault_db_path,
+            uncleaned_path=uncleaned_path,
+            cleaned_path=cleaned_path,
+            cleaned_stablecoin_path=cleaned_stablecoin_path,
+            settlement_db_path=settlement_db_path,
+        )
+        return True
+    except Exception:
+        logger.exception("Crypto vault price cleaning failed")
+        return False
+
+
+def calculate_crypto_vault_metadata(
+    *,
+    vault_db_path: Path,
+    paths: CryptoVaultPaths,
+    exchange_rate_parquet_path: Path,
+) -> dict[str, Any] | None:
+    """Calculate isolated crypto metadata while containing phase failures.
+
+    :param vault_db_path:
+        Common vault metadata pickle.
+    :param paths:
+        Explicit crypto bundle paths.
+    :param exchange_rate_parquet_path:
+        Verified exchange-rate snapshot shared with the R2 data export.
+    :return:
+        Metadata document, or ``None`` after a contained failure.
+    """
+    try:
+        return build_crypto_vault_metadata(
+            vault_db_path=vault_db_path,
+            cleaned_price_path=paths.cleaned_price_path,
+            metadata_path=paths.metadata_path,
+            sticky_state_path=paths.sticky_state_path,
+            exchange_rate_parquet_path=exchange_rate_parquet_path,
+        )
+    except Exception:
+        logger.exception("Crypto vault metadata calculation failed")
+        return None
+
+
+def export_crypto_vault_bundle(paths: CryptoVaultPaths, metadata: dict[str, Any]) -> bool:
+    """Publish the prepared private crypto bundle without propagating errors.
+
+    :param paths:
+        Explicit crypto bundle paths.
+    :param metadata:
+        Prepared metadata document.
+    :return:
+        ``True`` after successful upload and backup attempt.
+    """
+    try:
+        return publish_crypto_vault_bundle(paths, metadata)
+    except Exception:
+        logger.exception("Crypto vault bundle export failed")
+        return False
+
+
+def export_crypto_exchange_rate_parquet(parquet_path: Path) -> bool:
+    """Publish the crypto bundle's rate snapshot without stopping public work.
+
+    :param parquet_path:
+        Verified local exchange-rate Parquet used for USD metric calculation.
+    :return:
+        ``True`` when the private rate snapshot and its backup were published.
+    """
+    try:
+        publish_exchange_rate_parquet_to_alternative_bucket(parquet_path)
+        return True
+    except (AssertionError, FileNotFoundError, OSError, R2OperationError):
+        logger.exception("Crypto exchange-rate Parquet export failed")
+        return False
+
+
 def export_sparklines() -> bool:
     """Export sparkline images to R2.
 
@@ -787,9 +900,18 @@ def export_protocol_metadata() -> bool:
         return False
 
 
-def export_data_files() -> bool:
+def export_data_files(
+    exchange_rate_parquet_path: Path | None = None,
+    exchange_rate_parquet_error: Exception | None = None,
+) -> bool:
     """Export database files (parquet, pickle, DuckDB) to R2.
 
+    :param exchange_rate_parquet_path:
+        Optional exact snapshot used by the crypto USD metrics phase.
+    :param exchange_rate_parquet_error:
+        Earlier snapshot materialisation error. The export uploads unrelated
+        data and then reports this phase as failed without publishing stale
+        exchange-rate Parquet.
     :return: True if export succeeded
     """
     try:
@@ -797,7 +919,10 @@ def export_data_files() -> bool:
         spec = importlib.util.spec_from_file_location("export_data_files", "scripts/erc-4626/export-data-files.py")
         module = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(module)
-        module.main()
+        module.main(
+            exchange_rate_parquet_path=exchange_rate_parquet_path,
+            exchange_rate_parquet_error=exchange_rate_parquet_error,
+        )
         logger.info("Data file export complete")
         return True
     except R2RetryableOperationError as exc:
@@ -809,6 +934,7 @@ def export_data_files() -> bool:
 
 
 def export_sample_files(
+    *,
     skip_parquet_sample: bool = False,
     skip_json_sample: bool = False,
 ) -> bool:
@@ -830,8 +956,6 @@ def export_sample_files(
     :return: True if export succeeded
     """
     try:
-        from eth_defi.vault.sample_export import export_sample_files_to_r2
-
         logger.info("Exporting sample data files")
         export_sample_files_to_r2(
             skip_parquet_sample=skip_parquet_sample,
@@ -844,7 +968,7 @@ def export_sample_files(
         return False
 
 
-def validate_top_vaults_config(skip_top_vaults: bool = False) -> None:
+def validate_top_vaults_config(*, skip_top_vaults: bool = False) -> None:
     """Fail-fast pre-flight check for the top-vaults JSON R2 upload.
 
     Both the long-running scanner and the standalone debug entry point
@@ -877,7 +1001,7 @@ def validate_top_vaults_config(skip_top_vaults: bool = False) -> None:
         logger.info("R2 top-vaults alternative (private) bucket configured: %s", alt_bucket)
 
 
-def export_top_vaults_json(
+def export_top_vaults_json(  # noqa: PLR0914 - R2 export settings are resolved together
     vault_db_path: Path | None = None,
     cleaned_path: Path | None = None,
     output_path: Path | None = None,
@@ -889,9 +1013,8 @@ def export_top_vaults_json(
     Runs :py:mod:`eth_defi.vault.top_vaults_json` against the
     active pipeline data directory to produce
     ``top_vaults_by_chain.json``, then uploads the result to the
-    primary (public) ``R2_TOP_VAULTS_*`` bucket and, if configured,
-    also to the alternative (private) bucket via
-    ``R2_TOP_VAULTS_ALTERNATIVE_BUCKET_NAME``.
+    primary (public) ``R2_TOP_VAULTS_*`` bucket and, if configured, also to the
+    alternative (private) bucket via ``R2_TOP_VAULTS_ALTERNATIVE_BUCKET_NAME``.
 
     This is a drop-in replacement for the standalone ``vault-analysis``
     docker image: the JSON generation and the R2 upload now both live
@@ -911,9 +1034,9 @@ def export_top_vaults_json(
 
     :param output_path:
         Override for the generated JSON file. Defaults to
-        ``get_pipeline_data_dir() / "top_vaults_by_chain.json"``. The
-        filename is intentionally kept identical to the existing public
-        URL ``https://top-defi-vaults.tradingstrategy.ai/top_vaults_by_chain.json``.
+        ``get_pipeline_data_dir() / "top_vaults_by_chain.json"``. The filename
+        is intentionally kept identical to the existing public URL
+        ``https://top-defi-vaults.tradingstrategy.ai/top_vaults_by_chain.json``.
 
     :param core3_db_path:
         Override for the Core3 risk intelligence DuckDB path. When ``None``,
@@ -973,9 +1096,8 @@ def export_top_vaults_json(
             secret_access_key=secret_access_key,
         )
 
-        # TODO: phase out public R2_TOP_VAULTS_BUCKET_NAME later once
-        # downstream consumers (classification.py, add-vault-note skill,
-        # deploy-lagoon-multichain.py) migrate to the private bucket.
+        # This public feed has downstream operational consumers, so retain its
+        # established primary and optional alternative publication paths.
         alt_bucket_name = os.environ.get("R2_TOP_VAULTS_ALTERNATIVE_BUCKET_NAME")
         uploads_ok = _upload_top_vaults_json_to_configured_buckets(
             s3_client=s3_client,
@@ -1013,6 +1135,7 @@ def export_top_vaults_json(
 
 
 def run_post_processing(
+    *,
     scan_hypercore: bool = False,
     scan_grvt: bool = False,
     scan_lighter: bool = False,
@@ -1036,17 +1159,14 @@ def run_post_processing(
     settlement_db_path: Path | None = None,
     core3_db_path: Path | None = None,
     feed_db_path: Path | None = None,
+    crypto_vaults_dir: Path | None = None,
 ) -> dict[str, bool]:
     """Run full post-processing pipeline after chain scans complete.
 
-    Steps:
-    1. Merge native protocol data into uncleaned parquet
-    2. Clean prices
-    3. Export top vaults JSON to R2
-    4. Export sparklines to R2
-    5. Export protocol metadata to R2
-    6. Export data files (parquet, pickle) to R2
-    7. Export Ethereum-only sample files to R2 (public bucket only)
+    The pipeline merges native data, cleans the public and private price files,
+    calculates both metadata exports, runs the established public exports, and
+    finally publishes the private crypto bundle. Crypto failures are recorded
+    without preventing later public phases from running.
 
     :param scan_hypercore: Whether to merge Hypercore data
     :param scan_grvt: Whether to merge GRVT data
@@ -1071,11 +1191,12 @@ def run_post_processing(
     :param settlement_db_path: Override for the vault settlement DuckDB path
     :param core3_db_path: Override for the Core3 risk intelligence DuckDB path
     :param feed_db_path: Override for the vault post feed DuckDB path (curator metadata and feed entries)
+    :param crypto_vaults_dir: Override for the isolated crypto bundle directory.
     :return: Dictionary mapping step name to success boolean
     """
     steps = {}
 
-    # Step 1: Merge native protocols
+    # Merge native protocols.
     merge_results = merge_native_protocols(
         merge_hypercore=scan_hypercore,
         merge_grvt=scan_grvt,
@@ -1092,7 +1213,7 @@ def run_post_processing(
     )
     steps.update(merge_results)
 
-    # Step 2: Clean prices
+    # Clean the existing public stablecoin price file.
     if skip_cleaning:
         logger.info("Skipping price cleaning (SKIP_CLEANING=true)")
     else:
@@ -1110,7 +1231,38 @@ def run_post_processing(
     # silently re-upload stale artefacts, masking the failure.
     cleaning_ok = steps.get("clean-prices", True) if not skip_cleaning else True
 
-    # Step 3: Export top vaults JSON (depends on cleaned parquet, must run before data-file upload)
+    # Crypto price cleaning deliberately has its own contained failure boundary.
+    # It runs before public exports but cannot prevent them from completing.
+    data_dir = get_pipeline_data_dir()
+    crypto_paths = resolve_crypto_vault_paths(data_dir, crypto_vaults_dir)
+    resolved_vault_db_path = vault_db_path or data_dir / "vault-metadata-db.pickle"
+    crypto_clean_ok = clean_crypto_vault_prices(
+        vault_db_path=resolved_vault_db_path,
+        uncleaned_path=uncleaned_parquet_path or DEFAULT_UNCLEANED_PRICE_DATABASE,
+        cleaned_path=crypto_paths.cleaned_price_path,
+        cleaned_stablecoin_path=cleaned_path or data_dir / "cleaned-vault-prices-1h.parquet",
+        settlement_db_path=settlement_db_path,
+    )
+    steps["clean-crypto-vault-prices"] = crypto_clean_ok
+
+    # The crypto USD metrics and R2 data-file export must share one immutable
+    # local snapshot. A currency failure is isolated like crypto cleaning: it
+    # cannot prevent public exports, but it blocks crypto metadata publication.
+    exchange_rate_parquet_path = None
+    exchange_rate_parquet_error = None
+    try:
+        exchange_rate_parquet_path = materialise_exchange_rate_parquet(
+            source_path=resolve_exchange_rate_database_path(data_dir),
+            destination_path=resolve_exchange_rate_parquet_path(data_dir),
+        ).path
+        steps["materialise-exchange-rate-parquet"] = True
+    except (duckdb.Error, FileNotFoundError, KeyError, OSError, TypeError, ValueError, pa.ArrowException) as exc:
+        logger.exception("Exchange-rate Parquet materialisation failed")
+        exchange_rate_parquet_error = exc
+        steps["materialise-exchange-rate-parquet"] = False
+
+    # Export top vaults JSON. This depends on cleaned Parquet and must run before
+    # the public data-file upload.
     if skip_top_vaults:
         logger.info("Skipping top vaults export (SKIP_TOP_VAULTS=true)")
     elif not cleaning_ok:
@@ -1124,7 +1276,22 @@ def run_post_processing(
             feed_db_path=feed_db_path,
         )
 
-    # Step 4: Export sparklines
+    crypto_metadata = None
+    if crypto_clean_ok and cleaning_ok and exchange_rate_parquet_path is not None:
+        crypto_metadata = calculate_crypto_vault_metadata(
+            vault_db_path=resolved_vault_db_path,
+            paths=crypto_paths,
+            exchange_rate_parquet_path=exchange_rate_parquet_path,
+        )
+        steps["calculate-crypto-vault-metadata"] = crypto_metadata is not None
+    elif not crypto_clean_ok:
+        logger.warning("Skipping crypto metadata — crypto cleaning failed")
+        steps["calculate-crypto-vault-metadata"] = False
+    else:
+        logger.warning("Skipping crypto metadata — no current exchange-rate snapshot or clean price input")
+        steps["calculate-crypto-vault-metadata"] = False
+
+    # Export sparklines.
     if skip_sparklines:
         logger.info("Skipping sparkline export (SKIP_SPARKLINES=true)")
     elif not cleaning_ok:
@@ -1133,22 +1300,26 @@ def run_post_processing(
     else:
         steps["export-sparklines"] = export_sparklines()
 
-    # Step 5: Export protocol metadata (not derived from cleaned prices — always safe to run)
+    # Export protocol metadata. This is not derived from cleaned prices and is
+    # always safe to run.
     if skip_metadata:
         logger.info("Skipping metadata export (SKIP_METADATA=true)")
     else:
         steps["export-protocol-metadata"] = export_protocol_metadata()
 
-    # Step 6: Export data files
+    # Export public data files.
     if skip_data:
         logger.info("Skipping data file export (SKIP_DATA=true)")
     elif not cleaning_ok:
         logger.warning("Skipping data file export — clean_prices failed, refusing to export stale data")
         steps["export-data-files"] = False
     else:
-        steps["export-data-files"] = export_data_files()
+        steps["export-data-files"] = export_data_files(
+            exchange_rate_parquet_path=exchange_rate_parquet_path,
+            exchange_rate_parquet_error=exchange_rate_parquet_error,
+        )
 
-    # Step 7: Export Ethereum-only sample files (public bucket only)
+    # Export Ethereum-only sample files to the public bucket.
     if skip_samples:
         logger.info("Skipping sample file export (SKIP_SAMPLES=true)")
     else:
@@ -1172,5 +1343,21 @@ def run_post_processing(
                 skip_parquet_sample=not parquet_ok,
                 skip_json_sample=not json_ok,
             )
+
+    crypto_rate_published = bool(steps.get("export-data-files"))
+    if not crypto_rate_published and exchange_rate_parquet_path is not None:
+        # ``SKIP_DATA=true`` and public-data export failures must not prevent
+        # the independent private bundle. Publish the exact local snapshot
+        # before making crypto metadata current.
+        crypto_rate_published = export_crypto_exchange_rate_parquet(exchange_rate_parquet_path)
+
+    if crypto_metadata is None:
+        logger.warning("Skipping crypto bundle publication — crypto metadata was not generated")
+        steps["export-crypto-vault-bundle"] = False
+    elif not crypto_rate_published:
+        logger.warning("Skipping crypto bundle publication — exchange-rate snapshot was not published to the private bucket")
+        steps["export-crypto-vault-bundle"] = False
+    else:
+        steps["export-crypto-vault-bundle"] = export_crypto_vault_bundle(crypto_paths, crypto_metadata)
 
     return steps

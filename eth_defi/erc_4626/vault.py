@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING, Any, Iterable, Literal, TypeAlias
 
 import eth_abi
 from eth_typing import HexAddress
-from requests.exceptions import HTTPError
+from requests.exceptions import HTTPError, ReadTimeout
 from web3 import Web3
 from web3.contract import Contract
 from web3.exceptions import BadFunctionCallOutput, BlockNumberOutOfRange, ContractLogicError, Web3Exception
@@ -1067,6 +1067,8 @@ class ERC4626Vault(VaultBase):
                 silent_error=True,
                 ignore_error=True,
                 attempts=2,
+                retry_sleep=1.0,
+                retry_exceptions={ReadTimeout},
             )
             denomination_token_address = convert_uint256_bytes_to_address(result)
         except (ValueError, BadFunctionCallOutput, BadAddressError, ProbablyNodeHasNoBlock):
@@ -1176,9 +1178,8 @@ class ERC4626Vault(VaultBase):
                 extra_data=None,
             )
 
-            # Would hope to use ignore_errors here
-            # but we cannot make distinction between broken smart contract and broken RPC gateway
-            # because of how shitty EVM is
+            # Solidity reverts classify a non-ERC-7575 vault, while the
+            # explicit timeout allow-list remains eligible for RPC failover.
             # Function selector: 0xa8d5fd65
             result = erc_7575_call.call(
                 self.web3,
@@ -1186,6 +1187,8 @@ class ERC4626Vault(VaultBase):
                 ignore_error=True,
                 silent_error=True,
                 attempts=2,  # Do not do extensive attempts here
+                retry_sleep=1.0,
+                retry_exceptions={ReadTimeout},
             )
             if len(result) == 32:
                 share_token_address = convert_uint256_bytes_to_address(result)
@@ -1582,6 +1585,8 @@ class ERC4626Vault(VaultBase):
                 silent_error=True,
                 ignore_error=True,
                 attempts=2,
+                retry_sleep=1.0,
+                retry_exceptions={ReadTimeout},
             )
             paused = convert_int256_bytes_to_int(result) != 0
         except (ValueError, BadFunctionCallOutput, BadAddressError, ProbablyNodeHasNoBlock):
