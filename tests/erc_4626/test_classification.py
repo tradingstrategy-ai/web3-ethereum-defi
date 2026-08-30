@@ -56,8 +56,8 @@ def test_frax_staking_vaults_are_hardcoded_on_ethereum() -> None:
 def test_axis_staked_usdx_deployments_are_hardcoded_by_chain() -> None:
     """Route both reviewed Axis StakedUSDx vaults only on their deployment chains."""
 
-    plasma_features = {ERC4626Feature.axis_like, ERC4626Feature.erc_7540_like}
-    ethereum_features = plasma_features | {ERC4626Feature.erc_7575_like}
+    plasma_features = {ERC4626Feature.axis_like}
+    ethereum_features = plasma_features | {ERC4626Feature.erc_7540_like, ERC4626Feature.erc_7575_like}
     assert _get_hardcoded_protocol_features(AXIS_PLASMA_STAKED_USDX_VAULT, chain_id=PLASMA) == plasma_features
     assert _get_hardcoded_protocol_features(AXIS_PLASMA_STAKED_USDX_VAULT, chain_id=ETHEREUM_MAINNET) is None
     assert _get_hardcoded_protocol_features(AXIS_ETHEREUM_STAKED_USDX_VAULT, chain_id=ETHEREUM_MAINNET) == ethereum_features

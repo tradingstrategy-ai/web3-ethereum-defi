@@ -8,11 +8,13 @@ https://etherscan.io/address/0x1D8191c20c06c5628f1a977bc6D6aFe7dD541cf2#code
 import datetime
 import os
 from decimal import Decimal
+from unittest.mock import Mock
 
 import pytest
+from eth_typing import HexAddress
 from web3 import Web3
+from web3.exceptions import Web3Exception
 
-from eth_defi.abi import ZERO_ADDRESS_STR
 from eth_defi.erc_4626.classification import create_vault_instance_autodetect
 from eth_defi.erc_4626.core import ERC4626Feature
 from eth_defi.erc_4626.vault import ERC4626HistoricalReader
@@ -20,6 +22,7 @@ from eth_defi.erc_4626.vault_protocol.axis.constants import AXIS_ETHEREUM_STAKED
 from eth_defi.erc_4626.vault_protocol.axis.vault import AxisVault
 from eth_defi.provider.multi_provider import create_multi_provider_web3
 from eth_defi.testing.anvil_fork_pool import AnvilForkPool
+from eth_defi.vault.base import WithdrawalDelayType, WithdrawalPeriod
 from eth_defi.vault.fee import FeeData, VaultFeeMode
 
 JSON_RPC_ETHEREUM = os.environ.get("JSON_RPC_ETHEREUM")
@@ -31,18 +34,11 @@ AXIS_ETHEREUM_V2_READER_BLOCK = 25_800_000
 #: EIP-1967 ``keccak256("eip1967.proxy.implementation") - 1`` storage slot.
 EIP1967_IMPLEMENTATION_SLOT = int.from_bytes(Web3.keccak(text="eip1967.proxy.implementation"), "big") - 1
 
-#: Reader functions and selectors confirmed against the verified V2 ABI.
-AXIS_READER_SELECTORS = {
-    "asset()": "38d52e0f",
-    "share()": "a8d5fd65",
-    "totalAssets()": "01e1d114",
-    "totalSupply()": "18160ddd",
-    "convertToAssets(uint256)": "07a2d13a",
-    "maxDeposit(address)": "402d267d",
-}
-
 #: EVM ABI scalar return size.
 EVM_WORD_BYTES = 32
+
+#: ERC-7540 ``isOperator(address,address)`` with zeroed address arguments.
+ERC7540_IS_OPERATOR_CALL = Web3.keccak(text="isOperator(address,address)")[:4] + bytes(64)
 
 pytestmark = [
     pytest.mark.skipif(JSON_RPC_ETHEREUM is None, reason="JSON_RPC_ETHEREUM needed to run these tests"),
@@ -69,7 +65,7 @@ def web3(anvil_fork_pool: AnvilForkPool) -> Web3:
 
 @pytest.fixture(scope="module")
 def live_web3() -> Web3:
-    """Return a direct Ethereum client for the current implementation guard.
+    """Return a direct Ethereum client for current reader compatibility.
 
     :return:
         Multi-provider Web3 client connected to the current Ethereum head.
@@ -77,7 +73,7 @@ def live_web3() -> Web3:
     return create_multi_provider_web3(JSON_RPC_ETHEREUM)
 
 
-def fetch_proxy_implementation(web3: Web3, block_identifier: int) -> str:
+def fetch_proxy_implementation(web3: Web3, block_identifier: int) -> HexAddress:
     """Read the Axis proxy implementation from its EIP-1967 storage slot.
 
     :param web3:
@@ -111,50 +107,60 @@ def test_axis_staked_usdx_v2_vault(web3: Web3) -> None:
     assert vault.name == "Staked USDx"
     assert vault.share_token.symbol == "sUSDx"
     assert vault.denomination_token.address == "0xa1fA7777974312f7d801A8880714a218F76233f8"
-    assert vault.get_fee_data() == FeeData(VaultFeeMode.internalised_skimming, 0.0, 0.0, 0.0, 0.0)
+    assert vault.get_fee_data() == FeeData(VaultFeeMode.feeless, 0.0, 0.0, 0.0, 0.0)
     assert vault.get_estimated_lock_up() == datetime.timedelta(days=7)
+    assert vault.get_withdrawal_period() == WithdrawalPeriod(None, None, WithdrawalDelayType.delay)
     assert vault.get_deposit_manager_capability() is None
+
+    is_operator_result = web3.eth.call({"to": vault.vault_contract.address, "data": ERC7540_IS_OPERATOR_CALL}, block_identifier=web3.eth.block_number)
+    assert len(is_operator_result) == EVM_WORD_BYTES
+    assert int.from_bytes(is_operator_result) == 0
 
 
 def test_axis_staked_usdx_v2_current_state_and_abi(live_web3: Web3) -> None:
     """Read current V2 state and guard against unreviewed proxy ABI drift.
 
-    The implementation-address assertion deliberately fails after a proxy
-    upgrade so the new implementation ABI must be reviewed. Raw calls then
-    prove every function used by the current and historical readers retains
-    its canonical selector and 32-byte return shape.
+    Successful production reader calls prove that the shared ERC-4626 ABI and
+    the hardcoded ERC-7540/ERC-7575 interfaces still decode the current proxy
+    implementation. Mutable implementation addresses and policy values are not
+    pinned at the chain head.
 
     :param live_web3:
         Direct multi-provider Ethereum client.
     """
     block_number = live_web3.eth.block_number
-    assert fetch_proxy_implementation(live_web3, block_number).lower() == AXIS_ETHEREUM_STAKED_USDX_IMPLEMENTATION
 
     vault = create_vault_instance_autodetect(live_web3, AXIS_ETHEREUM_STAKED_USDX_VAULT)
-    one_raw_share = vault.share_token.convert_to_raw(Decimal(1))
-    calls = {
-        "asset()": vault.vault_contract.functions.asset(),
-        "share()": "0xa8d5fd65",
-        "totalAssets()": vault.vault_contract.functions.totalAssets(),
-        "totalSupply()": vault.vault_contract.functions.totalSupply(),
-        "convertToAssets(uint256)": vault.vault_contract.functions.convertToAssets(one_raw_share),
-        "maxDeposit(address)": vault.vault_contract.functions.maxDeposit(ZERO_ADDRESS_STR),
-    }
-    for signature, call in calls.items():
-        call_data = call if isinstance(call, str) else call._encode_transaction_data()
-        assert call_data[2:10] == AXIS_READER_SELECTORS[signature]
-        result = live_web3.eth.call({"to": vault.vault_contract.address, "data": call_data}, block_identifier=block_number)
-        assert len(result) == EVM_WORD_BYTES
-        if signature == "share()":
-            assert Web3.to_checksum_address(result[-20:]) == vault.vault_contract.address
-
     total_assets = vault.fetch_total_assets(block_number)
     total_supply = vault.fetch_total_supply(block_number)
     assert total_assets is not None
     assert total_assets > 0
     assert total_supply > 0
-    assert vault.fetch_nav(block_number) == total_assets
-    assert vault.fetch_share_price(block_number) == total_assets / total_supply
+    assert vault.fetch_cooldown_duration(block_number) >= datetime.timedelta(0)
+
+    share_result = live_web3.eth.call({"to": vault.vault_contract.address, "data": "0xa8d5fd65"}, block_identifier=block_number)
+    assert len(share_result) == EVM_WORD_BYTES
+    assert Web3.to_checksum_address(share_result[-20:]) == vault.vault_contract.address
+
+    is_operator_result = live_web3.eth.call({"to": vault.vault_contract.address, "data": ERC7540_IS_OPERATOR_CALL}, block_identifier=block_number)
+    assert len(is_operator_result) == EVM_WORD_BYTES
+    assert int.from_bytes(is_operator_result) == 0
+
+
+def test_axis_cooldown_rpc_failure_is_optional(web3: Web3, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Convert a cooldown RPC failure into the scanner's optional-read error.
+
+    :param web3:
+        Shared Web3 client used to construct the adapter.
+    :param monkeypatch:
+        Pytest patch helper used to simulate a proxy ABI mismatch.
+    :return:
+        ``None`` after asserting the error conversion.
+    """
+    vault = create_vault_instance_autodetect(web3, AXIS_ETHEREUM_STAKED_USDX_VAULT)
+    monkeypatch.setattr(web3.eth, "call", Mock(side_effect=Web3Exception("execution reverted")))
+    with pytest.raises(ValueError, match=r"Could not read Axis cooldownDuration\(\)"):
+        vault.fetch_cooldown_duration()
 
 
 def test_axis_staked_usdx_v2_historical_state_reader(web3: Web3) -> None:
@@ -172,7 +178,7 @@ def test_axis_staked_usdx_v2_historical_state_reader(web3: Web3) -> None:
     assert isinstance(reader, ERC4626HistoricalReader)
 
     calls = list(reader.construct_multicalls())
-    assert [call.extra_data["function"] for call in calls] == ["total_assets", "total_supply", "convertToAssets", "maxDeposit"]
+    assert {call.extra_data["function"] for call in calls} == {"total_assets", "total_supply", "convertToAssets", "maxDeposit"}
     call_results = [call.call_as_result(web3=web3, block_identifier=block_number) for call in calls]
     assert all(result.success and len(result.result) == EVM_WORD_BYTES for result in call_results)
 

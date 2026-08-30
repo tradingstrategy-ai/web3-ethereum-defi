@@ -14,16 +14,18 @@ long_description: |
 
   The reviewed deployments are the current V2 sUSDx vault on Ethereum and the
   legacy V1 vault on Plasma. Axis's [staking contract reference](https://docs.axis.to/reference/staking-contracts)
-  documents immediate deposits and an asynchronous redemption request, cooldown,
-  servicing and claim flow for V2. Holders remain exposed to USDx market and
-  liquidity risk, reward-delivery risk, and the delay before a redemption can
-  be claimed.
+  identifies both contracts. V2 uses an asynchronous redemption request,
+  cooldown, servicing and claim flow. V1 instead has a configurable cooldown:
+  direct redemption is available while the cooldown is disabled, otherwise a
+  holder must complete its cooldown and unstake flow. Holders remain exposed to
+  USDx market and liquidity risk, reward-delivery risk, and any applicable
+  redemption delay.
 fee_description: |
-  Axis does not publish a universal management, performance, deposit, or withdrawal
-  fee schedule for the reviewed sUSDx rewards vault. The value of sUSDx changes as
-  rewards vest, but this does not establish that the product is fee-free. Users
-  should review Axis's current [sUSDx documentation](https://docs.axis.to/susdx-the-rewards-vault/susdx)
-  and transaction quotes before staking or requesting a redemption.
+  The reviewed sUSDx contracts do not deduct explicit management, performance,
+  deposit, or withdrawal fees. Rewards vest into the vault exchange rate; that
+  mechanism is separate from investor-facing vault fees. Users should still
+  review Axis's current [sUSDx documentation](https://docs.axis.to/susdx-the-rewards-vault/susdx)
+  and transaction quotes before staking or redeeming.
 links:
   homepage: https://www.axis.to/
   app: https://app.axis.to/

@@ -34,18 +34,6 @@ AXIS_STAKED_USDX_BY_CHAIN: dict[int, HexAddress] = {
     AXIS_PLASMA_CHAIN_ID: AXIS_PLASMA_STAKED_USDX_VAULT,
 }
 
-#: Chain-aware Axis deployment index used by hardcoded protocol routing.
-AXIS_VAULTS_BY_CHAIN: frozenset[tuple[int, HexAddress]] = frozenset(AXIS_STAKED_USDX_BY_CHAIN.items())
-
-#: Axis deployments that expose the ERC-7575 ``share()`` accessor.
-#:
-#: V2 returns the proxy itself as its share token. Plasma V1 does not expose
-#: this interface, so the feature must remain chain/deployment-specific.
-AXIS_ERC7575_VAULTS_BY_CHAIN: frozenset[tuple[int, HexAddress]] = frozenset({(AXIS_ETHEREUM_CHAIN_ID, AXIS_ETHEREUM_STAKED_USDX_VAULT)})
-
-#: Address-only Axis deployment index used to reject reviewed addresses on other chains.
-AXIS_VAULT_ADDRESSES: frozenset[HexAddress] = frozenset(AXIS_STAKED_USDX_BY_CHAIN.values())
-
 #: Backwards-compatible Plasma chain alias.
 AXIS_CHAIN_ID = AXIS_PLASMA_CHAIN_ID
 
@@ -53,15 +41,36 @@ AXIS_CHAIN_ID = AXIS_PLASMA_CHAIN_ID
 AXIS_STAKED_USDX_VAULT = AXIS_PLASMA_STAKED_USDX_VAULT
 
 #: One-line description used by the vault list.
-AXIS_SHORT_DESCRIPTION = "USDx rewards vault with an asynchronous redemption request and claim flow."
+AXIS_SHORT_DESCRIPTION = "USDx rewards vault whose redemption flow depends on the deployment."
 
-#: Protocol-owned Markdown note that explains the redemption lifecycle.
-AXIS_NOTES = """Axis's StakedUSDx vault accepts USDx and issues sUSDx shares whose USDx value grows as rewards vest.
+#: Ethereum V2 redemption note shown in vault metadata.
+AXIS_ETHEREUM_NOTES = """Axis StakedUSDx V2 accepts USDx and issues sUSDx shares whose USDx value grows as rewards vest.
 
-Redemptions are asynchronous: request redemption, wait for the documented cooldown, then claim once Axis services the request. This vault must not be treated as immediately redeemable ERC-4626 liquidity.
+V2 redemptions are asynchronous: request redemption, wait for the contract's account policy cooldown, then claim after Axis services the request. The default cooldown is configurable and servicing has no contract-enforced maximum delay, so this vault must not be treated as immediately redeemable ERC-4626 liquidity.
 
 - [Axis StakedUSDx documentation](https://docs.axis.to/susdx-the-rewards-vault/susdx)
 - [Axis staking and unstaking guide](https://docs.axis.to/susdx-the-rewards-vault/stake-and-unstake)"""
+
+#: Plasma V1 redemption note shown in vault metadata.
+AXIS_PLASMA_NOTES = """Axis StakedUSDx V1 accepts USDx and issues sUSDx shares whose USDx value grows as rewards vest.
+
+V1 uses a governance-configurable cooldown rather than ERC-7540. When ``cooldownDuration()`` is zero, direct ERC-4626 redemption is enabled; when it is non-zero, holders use the contract's cooldown and unstake flow. Callers must read the current contract setting before choosing a redemption path.
+
+- [Axis StakedUSDx documentation](https://docs.axis.to/susdx-the-rewards-vault/susdx)
+- [Plasma V1 contract](https://plasmaexplorer.com/address/0x13A099765B34b3aAFedb8698CF7fd418E7730012)"""
+
+#: Deployment-specific notes keyed by ``(chain_id, address)``.
+AXIS_NOTES_BY_CHAIN: dict[tuple[int, HexAddress], str] = {
+    (AXIS_ETHEREUM_CHAIN_ID, AXIS_ETHEREUM_STAKED_USDX_VAULT): AXIS_ETHEREUM_NOTES,
+    (AXIS_PLASMA_CHAIN_ID, AXIS_PLASMA_STAKED_USDX_VAULT): AXIS_PLASMA_NOTES,
+}
+
+#: Backwards-compatible generic Axis note.
+AXIS_NOTES = """Axis StakedUSDx accepts USDx and issues sUSDx shares whose USDx value grows as rewards vest.
+
+Redemption mechanics differ between Ethereum V2 and Plasma V1. Callers must use the deployment-specific contract flow and current cooldown setting.
+
+- [Axis staking contract reference](https://docs.axis.to/reference/staking-contracts)"""
 
 #: First block at which the production scanner observed the Plasma V1 vault.
 AXIS_PLASMA_STAKED_USDX_FIRST_SEEN_AT_BLOCK = 18_204_445

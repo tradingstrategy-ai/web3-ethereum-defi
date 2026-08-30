@@ -5,17 +5,23 @@ import os
 
 import pytest
 from web3 import Web3
+from web3.exceptions import Web3Exception
 
 from eth_defi.erc_4626.classification import create_vault_instance_autodetect
 from eth_defi.erc_4626.core import ERC4626Feature
 from eth_defi.erc_4626.discovery_base import DEFAULT_HARDCODED_VAULT_LEAD_SOURCES
 from eth_defi.erc_4626.vault_protocol.axis.constants import AXIS_HARDCODED_LEADS, AXIS_PLASMA_STAKED_USDX_VAULT, AXIS_STAKED_USDX_BY_CHAIN
 from eth_defi.erc_4626.vault_protocol.axis.vault import AxisVault
+from eth_defi.provider.fallback import ExtraValueError
 from eth_defi.testing.anvil_fork_pool import AnvilForkPool
 from eth_defi.testing.fork_blocks import PLASMA_MIDNIGHT_BLOCK
+from eth_defi.vault.base import INSTANT_WITHDRAWAL_PERIOD
 from eth_defi.vault.fee import FeeData, VaultFeeMode
 
 JSON_RPC_PLASMA = os.environ.get("JSON_RPC_PLASMA")
+
+#: ERC-7540 ``isOperator(address,address)`` with zeroed address arguments.
+ERC7540_IS_OPERATOR_CALL = Web3.keccak(text="isOperator(address,address)")[:4] + bytes(64)
 
 pytestmark = [
     pytest.mark.skipif(JSON_RPC_PLASMA is None, reason="JSON_RPC_PLASMA needed to run these tests"),
@@ -58,7 +64,7 @@ def test_axis_staked_usdx_vault(web3: Web3) -> None:
 
     The fixed block post-dates the deployment and proves that the address-only
     classifier selects the Axis adapter while retaining the standard USDx
-    denominator and the documented asynchronous redemption limitation.
+    denominator and its current direct-redemption timing.
 
     :param web3:
         Shared Web3 client for the canonical Plasma midnight fork.
@@ -67,12 +73,17 @@ def test_axis_staked_usdx_vault(web3: Web3) -> None:
     """
     vault = create_vault_instance_autodetect(web3, AXIS_PLASMA_STAKED_USDX_VAULT)
 
-    assert vault.features == {ERC4626Feature.axis_like, ERC4626Feature.erc_7540_like}
+    assert vault.features == {ERC4626Feature.axis_like}
     assert isinstance(vault, AxisVault)
     assert vault.get_protocol_name() == "Axis"
     assert vault.name == "Staked Axis USD"
     assert vault.share_token.symbol == "sUSDx"
     assert vault.denomination_token.address == "0xA1FA77779e6866fa3eF48FC0720657E042158387"
-    assert vault.get_fee_data() == FeeData(VaultFeeMode.internalised_skimming, 0.0, 0.0, 0.0, 0.0)
-    assert vault.get_estimated_lock_up() == datetime.timedelta(days=7)
+    assert vault.get_fee_data() == FeeData(VaultFeeMode.feeless, 0.0, 0.0, 0.0, 0.0)
+    assert vault.get_estimated_lock_up() == datetime.timedelta(0)
+    assert vault.get_withdrawal_period() == INSTANT_WITHDRAWAL_PERIOD
     assert vault.get_deposit_manager_capability() is None
+    assert vault.get_strategy_tags() is not None
+
+    with pytest.raises((ExtraValueError, Web3Exception)):
+        web3.eth.call({"to": vault.vault_contract.address, "data": ERC7540_IS_OPERATOR_CALL}, block_identifier=web3.eth.block_number)

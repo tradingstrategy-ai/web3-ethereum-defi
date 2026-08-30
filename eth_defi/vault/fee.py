@@ -227,9 +227,9 @@ VAULT_PROTOCOL_FEE_MATRIX = {
     "Frax": VaultFeeMode.internalised_minting,
     # Hyperdrive - fee mode unknown (unverified contracts)
     "Hyperdrive": None,
-    # Axis's StakedUSDx rewards vest into the share price; its management,
-    # performance, deposit and withdrawal fees are all set to 0%.
-    "Axis": VaultFeeMode.internalised_skimming,
+    # Reviewed Axis StakedUSDx implementations do not deduct explicit
+    # management, performance, deposit or withdrawal fees.
+    "Axis": VaultFeeMode.feeless,
     # BaseVol - fee mode unknown
     "BaseVol": None,
     # sBOLD - yield accrues through stability pool rewards, no external fees

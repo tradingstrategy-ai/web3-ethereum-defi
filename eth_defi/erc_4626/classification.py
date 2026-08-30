@@ -18,7 +18,7 @@ from web3.types import BlockIdentifier
 from eth_defi.abi import ZERO_ADDRESS_STR
 from eth_defi.erc_4626.core import RYSK_PREMIUM_CHAIN_IDS, ERC4626Feature
 from eth_defi.erc_4626.vault_protocol.arcus.constants import ARCUS_BRIDGE_VAULT, ARCUS_CHAIN_ID
-from eth_defi.erc_4626.vault_protocol.axis.constants import AXIS_ERC7575_VAULTS_BY_CHAIN, AXIS_VAULTS_BY_CHAIN
+from eth_defi.erc_4626.vault_protocol.axis.constants import AXIS_ETHEREUM_CHAIN_ID, AXIS_ETHEREUM_STAKED_USDX_VAULT, AXIS_PLASMA_CHAIN_ID, AXIS_PLASMA_STAKED_USDX_VAULT
 from eth_defi.erc_4626.vault_protocol.flying_tulip.constants import FLYING_TULIP_SFTUSD_BY_CHAIN
 from eth_defi.erc_4626.vault_protocol.frankencoin.vault import FRANKENCOIN_SAVINGS_VAULTS
 from eth_defi.erc_4626.vault_protocol.frax.constants import FRAX_STAKING_VAULT_ADDRESSES, FRAX_STAKING_VAULTS_BY_CHAIN, FRAXLEND_DEPLOYERS_BY_CHAIN
@@ -331,9 +331,15 @@ VAULT_STREET_HARDCODED_PROTOCOLS = {PRIME_USD_ADDRESS: {ERC4626Feature.vault_str
 #: the reviewed sFRAX and sfrxUSD deployments are routed by address.
 FRAX_STAKING_HARDCODED_PROTOCOLS = {address: {ERC4626Feature.frax_staking_like} for address in FRAX_STAKING_VAULT_ADDRESSES}
 
-#: Axis's StakedUSDx contracts use generic ERC-4626/ERC-7540 interfaces, with
-#: ERC-7575 on Ethereum V2, so classify only reviewed deployments by address.
-AXIS_HARDCODED_PROTOCOLS = {address: {ERC4626Feature.axis_like, ERC4626Feature.erc_7540_like} | ({ERC4626Feature.erc_7575_like} if (chain_id, address) in AXIS_ERC7575_VAULTS_BY_CHAIN else set()) for chain_id, address in AXIS_VAULTS_BY_CHAIN}
+#: Axis's reviewed vaults cannot be identified safely from a protocol-specific
+#: accessor. V2 implements ERC-7540 and ERC-7575; Plasma V1 implements neither.
+AXIS_HARDCODED_PROTOCOLS_BY_CHAIN = {
+    (AXIS_ETHEREUM_CHAIN_ID, AXIS_ETHEREUM_STAKED_USDX_VAULT): {ERC4626Feature.axis_like, ERC4626Feature.erc_7540_like, ERC4626Feature.erc_7575_like},
+    (AXIS_PLASMA_CHAIN_ID, AXIS_PLASMA_STAKED_USDX_VAULT): {ERC4626Feature.axis_like},
+}
+
+#: Address-only compatibility index used by :data:`HARDCODED_PROTOCOLS`.
+AXIS_HARDCODED_PROTOCOLS = {address: features for (_chain_id, address), features in AXIS_HARDCODED_PROTOCOLS_BY_CHAIN.items()}
 
 #: NaraUSD+ is Nara's only reviewed production staking vault.
 NARA_HARDCODED_PROTOCOLS = {NARAUSD_PLUS_VAULT: {ERC4626Feature.nara_like}}
@@ -457,8 +463,8 @@ def _get_hardcoded_protocol_features(address: HexAddress | str, chain_id: int | 
         if normalised_address in FRAX_STAKING_VAULT_ADDRESSES:
             return None
 
-        if (chain_id, normalised_address) in AXIS_VAULTS_BY_CHAIN:
-            return AXIS_HARDCODED_PROTOCOLS[normalised_address]
+        if axis_features := AXIS_HARDCODED_PROTOCOLS_BY_CHAIN.get((chain_id, normalised_address)):
+            return axis_features
         if normalised_address in AXIS_HARDCODED_PROTOCOLS:
             return None
 
