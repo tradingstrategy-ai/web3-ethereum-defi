@@ -21,6 +21,13 @@ AXIS_PLASMA_STAKED_USDX_VAULT = HexAddress("0x13a099765b34b3aafedb8698cf7fd418e7
 #: https://etherscan.io/address/0xEB892628D1E58BC475A6dCB7F5dBC4F591632AA4
 AXIS_ETHEREUM_STAKED_USDX_VAULT = HexAddress("0xeb892628d1e58bc475a6dcb7f5dbc4f591632aa4")
 
+#: Reviewed V2 implementation currently used by the Ethereum proxy.
+#:
+#: The proxy is upgradeable, so live integration coverage asserts that this
+#: address has not changed before relying on the reviewed ERC-4626 ABI.
+#: https://etherscan.io/address/0x1D8191c20c06c5628f1a977bc6D6aFe7dD541cf2#code
+AXIS_ETHEREUM_STAKED_USDX_IMPLEMENTATION = HexAddress("0x1d8191c20c06c5628f1a977bc6d6afe7dd541cf2")
+
 #: Reviewed Axis StakedUSDx deployments keyed by EVM chain ID.
 AXIS_STAKED_USDX_BY_CHAIN: dict[int, HexAddress] = {
     AXIS_ETHEREUM_CHAIN_ID: AXIS_ETHEREUM_STAKED_USDX_VAULT,

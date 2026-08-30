@@ -9,6 +9,7 @@ request-and-claim lifecycle has been implemented and certified on an Anvil fork.
 - Product documentation: https://docs.axis.to/susdx-the-rewards-vault/susdx
 - Contract reference: https://docs.axis.to/reference/staking-contracts
 - Ethereum V2 deployment: https://etherscan.io/address/0xEB892628D1E58BC475A6dCB7F5dBC4F591632AA4
+- Ethereum V2 implementation: https://etherscan.io/address/0x1D8191c20c06c5628f1a977bc6D6aFe7dD541cf2#code
 - Plasma V1 deployment: https://plasmaexplorer.com/address/0x13A099765B34b3aAFedb8698CF7fd418E7730012
 """
 
