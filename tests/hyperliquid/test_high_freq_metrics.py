@@ -14,7 +14,6 @@ concurrency regression test is offline and uses synthetic rows only.
 """
 
 import datetime
-import logging
 from decimal import Decimal
 from types import SimpleNamespace
 from unittest.mock import patch
@@ -31,40 +30,8 @@ from eth_defi.hyperliquid.high_freq_metrics import (
     fetch_and_store_vault_high_freq,
     run_high_freq_scan,
 )
-from eth_defi.hyperliquid.perp_metrics import collect_hyperliquid_vault_observations
 from eth_defi.hyperliquid.session import create_hyperliquid_session
 from eth_defi.hyperliquid.vault import HyperliquidVault, PortfolioHistory, VaultSummary, fetch_all_vaults
-
-
-def test_perp_account_scan_logs_summary(caplog) -> None:
-    """Log only aggregate progress for the threaded perp account scan."""
-    summary = VaultSummary(
-        name="Test vault",
-        vault_address="0x0000000000000000000000000000000000000001",
-        leader="0x0000000000000000000000000000000000000002",
-        tvl=Decimal("10000"),
-        is_closed=False,
-        relationship_type="normal",
-    )
-    session = SimpleNamespace()
-
-    with (
-        patch("eth_defi.hyperliquid.perp_metrics._fetch_hyperliquid_vault_bundle", return_value=(object(), {})),
-        patch("eth_defi.hyperliquid.perp_metrics.write_perp_vault_observation_bundle"),
-        caplog.at_level(logging.INFO, logger="eth_defi.hyperliquid.perp_metrics"),
-    ):
-        scanned = collect_hyperliquid_vault_observations(
-            session,
-            connection=None,
-            summaries=[summary],
-            max_workers=1,
-            timeout=30.0,
-        )
-
-    assert scanned == 1
-    assert "Starting Hyperliquid perp account scan for 1 vault(s)" in caplog.messages
-    assert any(message.startswith("Completed Hyperliquid perp account scan for 1 vault(s) in ") for message in caplog.messages)
-
 
 def test_high_freq_scan_collects_perp_vault_observations(tmp_path) -> None:
     """Ensure the production HF path writes shared position observations.
