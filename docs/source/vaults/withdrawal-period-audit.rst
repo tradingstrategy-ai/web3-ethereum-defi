@@ -29,6 +29,8 @@ The following adapters now return ``WithdrawalPeriod`` and populate
   Liquidity can still prevent a transaction after the delay.
 * **KiloEx** — one to three documented three-day epochs, marked ``epoch``.
 * **NaraUSD+** — the live ``cooldownDuration()`` value, marked ``delay``.
+* **Axis Plasma V1** — direct redemption is marked ``instant`` while its live
+  ``cooldownDuration()`` is zero; a non-zero value becomes a fixed ``delay``.
 * **Teller** — the pool-specific ``withdrawDelayTime()`` value, marked
   ``delay``.
 * **3Jane** — the tranche-specific lock (one month for sUSD3 and zero for
@@ -60,6 +62,10 @@ minimum or maximum withdrawal periods. In particular, Bulla's published
 40-day maximum is descriptive pool material, not a smart-contract timing
 bound, and is therefore not exported as ``max_withdrawal_period``.
 
+**Axis Ethereum V2** is marked as a ``delay`` lifecycle with null timing
+bounds. Its default cooldown is configurable, account-specific policies may
+differ, and a matured request has no contract-enforced servicing deadline.
+
 Instant adapters
 ----------------
 
@@ -86,7 +92,7 @@ following adapters:
   position, an underlying strategy or an unbounded operator action. The
   current ``WithdrawalPeriod`` cannot express that conditional or unbounded
   wait.
-* **Variable or policy estimates:** Altura, Axis, Centrifuge, CrystalClear,
+* **Variable or policy estimates:** Altura, Centrifuge, CrystalClear,
   ForgeYields, Frankencoin, Liquid Royalty, Maple AQRU, Plutus,
   Umami and YieldNest.
   Their existing ``get_estimated_lock_up()`` values describe an epoch estimate,
