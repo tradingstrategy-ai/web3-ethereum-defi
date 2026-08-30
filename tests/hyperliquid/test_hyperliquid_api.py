@@ -6,11 +6,46 @@ Uses a known address with vault deposits as the test fixture.
 """
 
 import datetime
+import logging
 from decimal import Decimal
+from types import SimpleNamespace
 
 import pytest
 
-from eth_defi.hyperliquid.api import UserVaultEquity, fetch_user_vault_equities, fetch_vault_lockup_status
+from eth_defi.hyperliquid.api import (
+    UserVaultEquity,
+    fetch_perp_clearinghouse_state,
+    fetch_user_vault_equities,
+    fetch_vault_lockup_status,
+)
+
+
+def test_perp_account_value_log_is_debug_only(caplog) -> None:
+    """Keep individual perp account values out of normal scanner logs."""
+    response = SimpleNamespace(
+        raise_for_status=lambda: None,
+        json=lambda: {
+            "crossMarginSummary": {
+                "accountValue": "100050.0",
+                "totalNtlPos": "0",
+                "totalRawUsd": "100050.0",
+                "totalMarginUsed": "0",
+            },
+            "withdrawable": "100050.0",
+            "assetPositions": [],
+        },
+    )
+    session = SimpleNamespace(api_url="https://api.hyperliquid.xyz", post_info=lambda payload, timeout: response)
+
+    with caplog.at_level(logging.INFO, logger="eth_defi.hyperliquid.api"):
+        fetch_perp_clearinghouse_state(session, "0xc2d221a27eb58f5879d0400ccec8956a01634fab")
+
+    assert "perp account value" not in caplog.text
+
+    with caplog.at_level(logging.DEBUG, logger="eth_defi.hyperliquid.api"):
+        fetch_perp_clearinghouse_state(session, "0xc2d221a27eb58f5879d0400ccec8956a01634fab")
+
+    assert "User 0xc2d221a27eb58f5879d0400ccec8956a01634fab: perp account value 100050.0, 0 position(s)" in caplog.text
 
 
 @pytest.fixture(scope="module")

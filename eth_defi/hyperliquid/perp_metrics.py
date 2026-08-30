@@ -2,6 +2,7 @@
 
 import datetime
 import logging
+import time
 import threading
 import uuid
 from collections.abc import Iterable
@@ -181,6 +182,8 @@ def collect_hyperliquid_vault_observations(
     if not selected:
         return 0
 
+    started_at = time.perf_counter()
+    logger.info("Starting Hyperliquid perp account scan for %d vault(s)", len(selected))
     worker_count = min(max_workers, len(selected))
     if session.proxy_enabled:
         # Each clone has an independent limiter.  Do not create multiple
@@ -214,4 +217,9 @@ def collect_hyperliquid_vault_observations(
     results = Parallel(n_jobs=worker_count, backend="threading")(delayed(_worker)(summary) for summary in selected)
     for bundle, payload in results:
         write_perp_vault_observation_bundle(connection, bundle, payload)
+    logger.info(
+        "Completed Hyperliquid perp account scan for %d vault(s) in %.2f seconds",
+        len(results),
+        time.perf_counter() - started_at,
+    )
     return len(results)
