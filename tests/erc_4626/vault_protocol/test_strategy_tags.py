@@ -4,6 +4,8 @@ from eth_typing import HexAddress
 
 from eth_defi.enzyme.onyx_vault import EnzymeVault
 from eth_defi.erc_4626.vault_protocol.atoma.vault import ATOMA_VAULT_2_ADDRESS, ATOMA_VAULT_ADDRESS, AtomaVault
+from eth_defi.erc_4626.vault_protocol.axis.constants import AXIS_ETHEREUM_STAKED_USDX_VAULT
+from eth_defi.erc_4626.vault_protocol.axis.vault import AxisVault
 from eth_defi.erc_4626.vault_protocol.ethena.vault import EthenaVault
 from eth_defi.erc_4626.vault_protocol.ipor.vault import IPORVault
 from eth_defi.erc_4626.vault_protocol.symbiotic.vault import SymbioticVault
@@ -118,6 +120,23 @@ def test_axis_origin_strategy_tags() -> None:
         StrategyTag.delta_neutral,
         StrategyTag.multistrategy,
     }
+
+
+def test_axis_staked_usdx_strategy_tags() -> None:
+    """Axis StakedUSDx V2 returns its documented market-neutral strategy tags."""
+    vault = object.__new__(AxisVault)
+    vault.vault_address = AXIS_ETHEREUM_STAKED_USDX_VAULT
+
+    assert vault.get_strategy_tags() == {
+        StrategyTag.arbitrage,
+        StrategyTag.delta_neutral,
+        StrategyTag.funding_rate_arbitrage,
+        StrategyTag.multistrategy,
+        StrategyTag.perpetual_futures,
+    }
+
+    vault.vault_address = HexAddress("0x0000000000000000000000000000000000000000")
+    assert vault.get_strategy_tags() is None
 
 
 def test_opalaccess_liquidstone_strategy_tags() -> None:

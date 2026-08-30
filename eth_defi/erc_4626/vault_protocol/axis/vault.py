@@ -1,14 +1,15 @@
 """Axis StakedUSDx rewards vault support.
 
-Axis's reviewed Plasma deployment accepts USDx and issues sUSDx shares. Its
-redemption path is asynchronous, so this reader deliberately does not advertise
-a generic synchronous deposit manager until the request-and-claim lifecycle has
-been implemented and certified on an Anvil fork.
+Axis's reviewed Ethereum V2 and Plasma V1 deployments accept USDx and issue
+sUSDx shares. Their redemption paths are asynchronous, so this reader
+deliberately does not advertise a generic synchronous deposit manager until the
+request-and-claim lifecycle has been implemented and certified on an Anvil fork.
 
 - Homepage: https://www.axis.to/
 - Product documentation: https://docs.axis.to/susdx-the-rewards-vault/susdx
 - Contract reference: https://docs.axis.to/reference/staking-contracts
-- Reviewed deployment: https://plasmaexplorer.com/address/0x13A099765B34b3aAFedb8698CF7fd418E7730012
+- Ethereum V2 deployment: https://etherscan.io/address/0xEB892628D1E58BC475A6dCB7F5dBC4F591632AA4
+- Plasma V1 deployment: https://plasmaexplorer.com/address/0x13A099765B34b3aAFedb8698CF7fd418E7730012
 """
 
 import datetime
@@ -17,8 +18,10 @@ from eth_typing import BlockIdentifier
 
 from eth_defi.erc_4626.vault import ERC4626Vault
 from eth_defi.erc_4626.vault_protocol.axis.constants import AXIS_SHORT_DESCRIPTION
+from eth_defi.erc_4626.vault_protocol.axis.tags import STRATEGY_TAGS
 from eth_defi.types import Percent
 from eth_defi.vault.fee import VaultFeeMode
+from eth_defi.vault.strategy_tag import StrategyTag, lookup_strategy_tags
 
 
 class AxisVault(ERC4626Vault):
@@ -32,6 +35,15 @@ class AxisVault(ERC4626Vault):
     - Product documentation: https://docs.axis.to/susdx-the-rewards-vault/susdx
     - Redemption guide: https://docs.axis.to/susdx-the-rewards-vault/stake-and-unstake
     """
+
+    def get_strategy_tags(self) -> set[StrategyTag] | None:
+        """Return the maintained strategy tags for this Axis vault.
+
+        :return:
+            Copy of the tag set, or ``None`` when this deployment has not been
+            classified.
+        """
+        return lookup_strategy_tags(STRATEGY_TAGS, self.vault_address)
 
     @property
     def short_description(self) -> str:

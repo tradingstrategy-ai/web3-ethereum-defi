@@ -1,11 +1,12 @@
 """Repair historical Axis StakedUSDx vault metadata.
 
-The reviewed Axis StakedUSDx rewards vault on Plasma may have been persisted
-as a generic ERC-4626 record before address-routed Axis classification was
-introduced. Its historical NAV remains valid because the scanner reads the
-standard ``totalAssets()`` value. This migration updates only the metadata
-pickle: protocol features, display data, fees, link and redemption cooldown.
-It never alters leads, reader state or either historical-price Parquet file.
+Reviewed Axis StakedUSDx rewards vaults on Ethereum and Plasma may have been
+persisted as generic ERC-4626 records before their address-routed Axis
+classification was introduced. Their historical NAV remains valid because the
+scanner reads the standard ``totalAssets()`` value. This migration updates only
+the metadata pickle: protocol features, display data, fees, link, strategy tags
+and redemption cooldown. It never alters leads, reader state or either
+historical-price Parquet file.
 
 Usage:
 
@@ -28,25 +29,27 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from eth_defi.erc_4626.core import ERC4262VaultDetection, ERC4626Feature, get_vault_protocol_name
-from eth_defi.erc_4626.vault_protocol.axis.constants import AXIS_CHAIN_ID, AXIS_NOTES, AXIS_SHORT_DESCRIPTION, AXIS_STAKED_USDX_VAULT
+from eth_defi.erc_4626.vault_protocol.axis.constants import AXIS_NOTES, AXIS_SHORT_DESCRIPTION, AXIS_STAKED_USDX_BY_CHAIN
+from eth_defi.erc_4626.vault_protocol.axis.tags import STRATEGY_TAGS
 from eth_defi.utils import setup_console_logging
 from eth_defi.vault.base import VaultSpec
 from eth_defi.vault.fee import FeeData, VaultFeeMode
+from eth_defi.vault.strategy_tag import lookup_strategy_tags
 from eth_defi.vault.vaultdb import DEFAULT_VAULT_DATABASE, VaultDatabase, VaultRow
 
 logger = logging.getLogger(__name__)
 
 
-#: The only reviewed Axis StakedUSDx deployment to repair.
-AXIS_STAKED_USDX_SPEC = VaultSpec(AXIS_CHAIN_ID, AXIS_STAKED_USDX_VAULT)
+#: Reviewed Axis StakedUSDx deployments to repair.
+AXIS_STAKED_USDX_SPECS = tuple(VaultSpec(chain_id, address) for chain_id, address in AXIS_STAKED_USDX_BY_CHAIN.items())
 
-#: Public application page for the single reviewed Axis vault.
+#: Public application page for the reviewed Axis vaults.
 AXIS_LINK = "https://app.axis.to/"
 
 
 @dataclass(slots=True, frozen=True)
 class AxisFeatureRepairResult:
-    """Outcome of an Axis metadata repair.
+    """Outcome of an Axis metadata migration.
 
     :param matched_rows:
         Number of reviewed Axis rows present in the database.
@@ -99,9 +102,9 @@ def create_backup_path(vault_db_path: Path) -> Path:
 
 
 def repair_axis_features(vault_db_path: Path = DEFAULT_VAULT_DATABASE, *, dry_run: bool) -> AxisFeatureRepairResult:
-    """Classify the reviewed historical StakedUSDx row as Axis.
+    """Classify reviewed historical StakedUSDx rows as Axis.
 
-    The repair does not create a new row when the scanner has not yet seen the
+    The migration does not create a new row when the scanner has not yet seen a
     deployment. This keeps unrelated rows untouched and leaves discovery as the
     sole source of new vault leads.
 
@@ -114,20 +117,7 @@ def repair_axis_features(vault_db_path: Path = DEFAULT_VAULT_DATABASE, *, dry_ru
     """
 
     db = VaultDatabase.read(vault_db_path)
-    row = db.rows.get(AXIS_STAKED_USDX_SPEC)
-    if row is None:
-        logger.info("No Axis StakedUSDx row found in %s", vault_db_path)
-        return AxisFeatureRepairResult(matched_rows=0, repaired_rows=0)
-
     expected_features = {ERC4626Feature.axis_like, ERC4626Feature.erc_7540_like}
-    changed = update_row_value(row, "features", expected_features)
-
-    detection = row.get("_detection_data")
-    if isinstance(detection, ERC4262VaultDetection) and detection.features != expected_features:
-        detection.features.clear()
-        detection.features.update(expected_features)
-        changed = True
-
     protocol_name = get_vault_protocol_name(expected_features)
     fee_data = FeeData(
         fee_mode=VaultFeeMode.internalised_skimming,
@@ -136,37 +126,57 @@ def repair_axis_features(vault_db_path: Path = DEFAULT_VAULT_DATABASE, *, dry_ru
         deposit=0.0,
         withdraw=0.0,
     )
-    updates = {
-        "Protocol": protocol_name,
-        "Features": ", ".join(sorted(item.name for item in expected_features)),
-        "Mgmt fee": fee_data.management,
-        "Perf fee": fee_data.performance,
-        "Deposit fee": fee_data.deposit,
-        "Withdraw fee": fee_data.withdraw,
-        "_fees": fee_data,
-        "Link": AXIS_LINK,
-        "_lockup": datetime.timedelta(days=7),
-        "_short_description": AXIS_SHORT_DESCRIPTION,
-        "_notes": AXIS_NOTES,
-        "_deposit_manager": None,
-    }
-    metadata_changes = [update_row_value(row, key, value) for key, value in updates.items()]
-    changed = any(metadata_changes) or changed
+    matched_rows = 0
+    repaired_rows = 0
+    for axis_spec in AXIS_STAKED_USDX_SPECS:
+        row = db.rows.get(axis_spec)
+        if row is None:
+            logger.info("No Axis StakedUSDx row found for %s", axis_spec.as_string_id())
+            continue
 
-    result = AxisFeatureRepairResult(matched_rows=1, repaired_rows=int(changed))
+        matched_rows += 1
+        changed = update_row_value(row, "features", expected_features)
+
+        detection = row.get("_detection_data")
+        if isinstance(detection, ERC4262VaultDetection) and detection.features != expected_features:
+            detection.features.clear()
+            detection.features.update(expected_features)
+            changed = True
+
+        strategy_tags = lookup_strategy_tags(STRATEGY_TAGS, axis_spec.vault_address)
+        updates = {
+            "Protocol": protocol_name,
+            "Features": ", ".join(sorted(item.name for item in expected_features)),
+            "Mgmt fee": fee_data.management,
+            "Perf fee": fee_data.performance,
+            "Deposit fee": fee_data.deposit,
+            "Withdraw fee": fee_data.withdraw,
+            "_fees": fee_data,
+            "Link": AXIS_LINK,
+            "_lockup": datetime.timedelta(days=7),
+            "_short_description": AXIS_SHORT_DESCRIPTION,
+            "_notes": AXIS_NOTES,
+            "_deposit_manager": None,
+            "_strategy_tags": strategy_tags,
+        }
+        metadata_changes = [update_row_value(row, key, value) for key, value in updates.items()]
+        changed = any(metadata_changes) or changed
+        repaired_rows += int(changed)
+
+    result = AxisFeatureRepairResult(matched_rows=matched_rows, repaired_rows=repaired_rows)
     if result.repaired_rows == 0:
-        logger.info("No Axis metadata rows need repair in %s", vault_db_path)
+        logger.info("No Axis metadata rows need migration in %s", vault_db_path)
         return result
 
     if dry_run:
-        logger.info("DRY RUN: would repair Axis metadata in %s", vault_db_path)
+        logger.info("DRY RUN: would migrate %d Axis metadata rows in %s", result.repaired_rows, vault_db_path)
         return result
 
     backup_path = create_backup_path(vault_db_path)
     logger.info("Creating vault DB backup at %s", backup_path)
     shutil.copy2(vault_db_path, backup_path)
     db.write(vault_db_path)
-    logger.info("Repaired Axis metadata in %s", vault_db_path)
+    logger.info("Migrated %d Axis metadata rows in %s", result.repaired_rows, vault_db_path)
     return result
 
 

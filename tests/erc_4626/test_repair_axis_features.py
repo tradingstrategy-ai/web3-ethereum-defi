@@ -5,11 +5,14 @@ import importlib.util
 from pathlib import Path
 
 from eth_defi.erc_4626.core import ERC4262VaultDetection, ERC4626Feature
-from eth_defi.erc_4626.vault_protocol.axis.constants import AXIS_CHAIN_ID, AXIS_NOTES, AXIS_SHORT_DESCRIPTION, AXIS_STAKED_USDX_VAULT
+from eth_defi.erc_4626.vault_protocol.axis.constants import AXIS_ETHEREUM_CHAIN_ID, AXIS_NOTES, AXIS_SHORT_DESCRIPTION, AXIS_STAKED_USDX_BY_CHAIN, AXIS_VAULTS_BY_CHAIN
 from eth_defi.vault.base import VaultSpec
 from eth_defi.vault.fee import FeeData, VaultFeeMode
 from eth_defi.vault.flag import get_notes
+from eth_defi.vault.strategy_tag import StrategyTag
 from eth_defi.vault.vaultdb import VaultDatabase
+
+EXPECTED_AXIS_DEPLOYMENTS = 2
 
 
 def load_repair_module():
@@ -73,51 +76,61 @@ def create_row(spec: VaultSpec, features: set[ERC4626Feature]) -> dict:
 
 
 def test_repair_axis_features_updates_only_target_and_is_idempotent(tmp_path: Path) -> None:
-    """Persist the Axis classification without changing unrelated cache rows."""
+    """Persist both Axis classifications without changing unrelated cache rows."""
     repair = load_repair_module()
-    axis_spec = VaultSpec(AXIS_CHAIN_ID, AXIS_STAKED_USDX_VAULT)
+    axis_specs = tuple(VaultSpec(chain_id, address) for chain_id, address in AXIS_STAKED_USDX_BY_CHAIN.items())
     unrelated_spec = VaultSpec(1, "0x0000000000000000000000000000000000000001")
     axis_features = {ERC4626Feature.axis_like, ERC4626Feature.erc_7540_like}
     vault_db_path = tmp_path / "vault-metadata-db.pickle"
     VaultDatabase(
         rows={
-            axis_spec: create_row(axis_spec, {ERC4626Feature.erc_7540_like}),
+            **{axis_spec: create_row(axis_spec, {ERC4626Feature.erc_7540_like}) for axis_spec in axis_specs},
             unrelated_spec: create_row(unrelated_spec, {ERC4626Feature.morpho_like}),
-        }
+        },
     ).write(vault_db_path)
     original_unrelated_row = VaultDatabase.read(vault_db_path).rows[unrelated_spec]
 
     result = repair.repair_axis_features(vault_db_path, dry_run=False)
 
-    assert result.matched_rows == 1
-    assert result.repaired_rows == 1
+    assert result.matched_rows == EXPECTED_AXIS_DEPLOYMENTS
+    assert result.repaired_rows == EXPECTED_AXIS_DEPLOYMENTS
     assert (tmp_path / "vault-metadata-db.pickle.bak-axis-repair").exists()
     repaired_db = VaultDatabase.read(vault_db_path)
-    repaired_row = repaired_db.rows[axis_spec]
-    assert repaired_row["features"] == axis_features
-    assert repaired_row["_detection_data"].features == axis_features
-    assert repaired_row["_short_description"] == AXIS_SHORT_DESCRIPTION
-    assert repaired_row["_notes"] == AXIS_NOTES
-    assert repaired_row["_lockup"] == datetime.timedelta(days=7)
-    assert repaired_row["_fees"] == FeeData(VaultFeeMode.internalised_skimming, 0.0, 0.0, 0.0, 0.0)
+    for axis_spec in axis_specs:
+        repaired_row = repaired_db.rows[axis_spec]
+        assert repaired_row["features"] == axis_features
+        assert repaired_row["_detection_data"].features == axis_features
+        assert repaired_row["_short_description"] == AXIS_SHORT_DESCRIPTION
+        assert repaired_row["_notes"] == AXIS_NOTES
+        assert repaired_row["_lockup"] == datetime.timedelta(days=7)
+        assert repaired_row["_fees"] == FeeData(VaultFeeMode.internalised_skimming, 0.0, 0.0, 0.0, 0.0)
+
+    ethereum_spec = next(spec for spec in axis_specs if spec.chain_id == AXIS_ETHEREUM_CHAIN_ID)
+    assert repaired_db.rows[ethereum_spec]["_strategy_tags"] == {
+        StrategyTag.arbitrage,
+        StrategyTag.delta_neutral,
+        StrategyTag.funding_rate_arbitrage,
+        StrategyTag.multistrategy,
+        StrategyTag.perpetual_futures,
+    }
     assert repaired_db.rows[unrelated_spec] == original_unrelated_row
 
     repeat_result = repair.repair_axis_features(vault_db_path, dry_run=False)
 
-    assert repeat_result.matched_rows == 1
+    assert repeat_result.matched_rows == EXPECTED_AXIS_DEPLOYMENTS
     assert repeat_result.repaired_rows == 0
     assert not (tmp_path / "vault-metadata-db.pickle.bak-axis-repair.1").exists()
 
 
 def test_axis_note_is_available_to_every_rescan() -> None:
     """Expose the async-redemption warning through the scanner note registry."""
-    assert get_notes(AXIS_STAKED_USDX_VAULT, chain_id=AXIS_CHAIN_ID, protocol_name="Axis") == AXIS_NOTES
+    assert all(get_notes(address, chain_id=chain_id, protocol_name="Axis") == AXIS_NOTES for chain_id, address in AXIS_VAULTS_BY_CHAIN)
 
 
 def test_repair_axis_features_dry_run_and_missing_row_do_not_write(tmp_path: Path) -> None:
     """Leave the cache untouched during a dry run or when Axis is not present."""
     repair = load_repair_module()
-    axis_spec = VaultSpec(AXIS_CHAIN_ID, AXIS_STAKED_USDX_VAULT)
+    axis_spec = VaultSpec(AXIS_ETHEREUM_CHAIN_ID, AXIS_STAKED_USDX_BY_CHAIN[AXIS_ETHEREUM_CHAIN_ID])
     vault_db_path = tmp_path / "vault-metadata-db.pickle"
     VaultDatabase(rows={axis_spec: create_row(axis_spec, set())}).write(vault_db_path)
     original_contents = vault_db_path.read_bytes()

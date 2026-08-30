@@ -18,7 +18,7 @@ from eth_defi.erc_4626.classification import (
 )
 from eth_defi.erc_4626.core import ERC4626Feature
 from eth_defi.erc_4626.vault_protocol.arcus.constants import ARCUS_BRIDGE_VAULT, ARCUS_CHAIN_ID
-from eth_defi.erc_4626.vault_protocol.axis.constants import AXIS_STAKED_USDX_VAULT
+from eth_defi.erc_4626.vault_protocol.axis.constants import AXIS_ETHEREUM_STAKED_USDX_VAULT, AXIS_PLASMA_STAKED_USDX_VAULT
 from eth_defi.erc_4626.vault_protocol.frax.constants import FRAX_STAKING_VAULTS_BY_CHAIN
 from eth_defi.vault_street.constants import PRIME_USD_ADDRESS
 
@@ -53,11 +53,14 @@ def test_frax_staking_vaults_are_hardcoded_on_ethereum() -> None:
         assert _get_hardcoded_protocol_features(address, chain_id=ARBITRUM) is None
 
 
-def test_axis_staked_usdx_is_hardcoded_on_plasma() -> None:
-    """Route the single reviewed Axis StakedUSDx vault only on Plasma."""
+def test_axis_staked_usdx_deployments_are_hardcoded_by_chain() -> None:
+    """Route both reviewed Axis StakedUSDx vaults only on their deployment chains."""
 
-    assert _get_hardcoded_protocol_features(AXIS_STAKED_USDX_VAULT, chain_id=PLASMA) == {ERC4626Feature.axis_like, ERC4626Feature.erc_7540_like}
-    assert _get_hardcoded_protocol_features(AXIS_STAKED_USDX_VAULT, chain_id=ETHEREUM_MAINNET) is None
+    expected_features = {ERC4626Feature.axis_like, ERC4626Feature.erc_7540_like}
+    assert _get_hardcoded_protocol_features(AXIS_PLASMA_STAKED_USDX_VAULT, chain_id=PLASMA) == expected_features
+    assert _get_hardcoded_protocol_features(AXIS_PLASMA_STAKED_USDX_VAULT, chain_id=ETHEREUM_MAINNET) is None
+    assert _get_hardcoded_protocol_features(AXIS_ETHEREUM_STAKED_USDX_VAULT, chain_id=ETHEREUM_MAINNET) == expected_features
+    assert _get_hardcoded_protocol_features(AXIS_ETHEREUM_STAKED_USDX_VAULT, chain_id=PLASMA) is None
 
 
 def test_lagoon_legacy_and_recent_interfaces_are_detected() -> None:

@@ -1,5 +1,6 @@
 # 1.2
 
+- feat: Classify Axis's Ethereum V2 StakedUSDx vault alongside its Plasma V1 deployment and migrate existing cached metadata (2026-08-30)
 - fix: Restore `GMX.get_on_chain_index_tokens()`'s oracle-decoupled whitelist enumeration by calling `Markets._fetch_markets_from_onchain()` instead of a method deleted in the same commit that added this enumerator (2026-08-29)
 - feat: Export cleaned exchange-rate Parquet and USD-denominated period metrics for private ETH/BTC vault records (2026-08-28)
 - feat: Add a private crypto-vaults Parquet bundle for stablecoin, ETH and BTC-denominated vaults (2026-08-27)

@@ -9,7 +9,7 @@ from web3 import Web3
 from eth_defi.erc_4626.classification import create_vault_instance_autodetect
 from eth_defi.erc_4626.core import ERC4626Feature
 from eth_defi.erc_4626.discovery_base import DEFAULT_HARDCODED_VAULT_LEAD_SOURCES
-from eth_defi.erc_4626.vault_protocol.axis.constants import AXIS_HARDCODED_LEADS, AXIS_STAKED_USDX_VAULT
+from eth_defi.erc_4626.vault_protocol.axis.constants import AXIS_HARDCODED_LEADS, AXIS_PLASMA_STAKED_USDX_VAULT, AXIS_STAKED_USDX_BY_CHAIN
 from eth_defi.erc_4626.vault_protocol.axis.vault import AxisVault
 from eth_defi.testing.anvil_fork_pool import AnvilForkPool
 from eth_defi.testing.fork_blocks import PLASMA_MIDNIGHT_BLOCK
@@ -50,7 +50,7 @@ def test_axis_hardcoded_lead_is_registered() -> None:
         ``None`` after checking the static discovery registry.
     """
     assert ("Axis", AXIS_HARDCODED_LEADS) in DEFAULT_HARDCODED_VAULT_LEAD_SOURCES
-    assert AXIS_HARDCODED_LEADS[0][1] == AXIS_STAKED_USDX_VAULT
+    assert {(chain_id, address) for chain_id, address, _block, _timestamp in AXIS_HARDCODED_LEADS} == set(AXIS_STAKED_USDX_BY_CHAIN.items())
 
 
 def test_axis_staked_usdx_vault(web3: Web3) -> None:
@@ -65,7 +65,7 @@ def test_axis_staked_usdx_vault(web3: Web3) -> None:
     :return:
         ``None`` after asserting the immutable deployment metadata.
     """
-    vault = create_vault_instance_autodetect(web3, AXIS_STAKED_USDX_VAULT)
+    vault = create_vault_instance_autodetect(web3, AXIS_PLASMA_STAKED_USDX_VAULT)
 
     assert vault.features == {ERC4626Feature.axis_like, ERC4626Feature.erc_7540_like}
     assert isinstance(vault, AxisVault)

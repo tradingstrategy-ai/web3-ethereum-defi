@@ -4,7 +4,7 @@ import enum
 
 from eth_typing import HexAddress
 
-from eth_defi.erc_4626.vault_protocol.axis.constants import AXIS_CHAIN_ID, AXIS_NOTES, AXIS_STAKED_USDX_VAULT
+from eth_defi.erc_4626.vault_protocol.axis.constants import AXIS_NOTES, AXIS_VAULTS_BY_CHAIN
 from eth_defi.tokenised_fund.ondo.constants import ONDO_PRODUCT_NOTES, ONDO_TOKENISED_FUND_ADDRESSES
 from eth_defi.tokenised_fund.securitize.description import SECURITIZE_PRODUCT_NOTES, SECURITIZE_TOKENISED_FUND_ADDRESSES
 from eth_defi.tokenised_fund.spiko.constants import EUTBL_TOKEN_ADDRESS, USTBL_TOKEN_ADDRESS
@@ -253,7 +253,7 @@ VAULT_DESCRIPTIVE_FLAGS: dict[str, set[VaultFlag]] = {
 CHAIN_SCOPED_VAULT_NOTES: dict[tuple[int, str], str] = {
     (chain_id, address): format_handwritten_vault_note(metadata)
     for (chain_id, address), metadata in MORINI_CAPITAL_VAULT_METADATA.items()
-} | {(AXIS_CHAIN_ID, AXIS_STAKED_USDX_VAULT): AXIS_NOTES}
+} | dict.fromkeys(AXIS_VAULTS_BY_CHAIN, AXIS_NOTES)
 # fmt: on
 
 

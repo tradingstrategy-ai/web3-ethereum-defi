@@ -3,23 +3,27 @@ slug: axis
 short_description: |
   Axis offers the USDx synthetic dollar and the sUSDx rewards vault, where USDx holders receive a growing claim on USDx rewards.
 long_description: |
-  Axis operates a market-neutral arbitrage strategy and issues USDx, its synthetic dollar.
+  [Axis](https://www.axis.to/) operates a market-neutral arbitrage strategy and
+  issues USDx, its synthetic dollar. Its published [trading strategy overview](https://docs.axis.to/susdx-the-rewards-vault/how-axis-earns-yield/trading-strategies)
+  describes cross-venue and cross-currency arbitrage as the core strategies,
+  supported by delta-neutral hedging and funding-rate arbitrage.
   Users can stake USDx into the Axis Rewards Vault and receive sUSDx, a position
   whose USDx value grows as rewards vest into the vault. Axis says that rewards
   are discretionary, are not a fixed yield promise, and depend on the protocol's
   funding and vesting decisions.
 
-  The reviewed sUSDx vault is on Plasma. Deposits settle immediately, but leaving
-  the vault requires a redemption request, the documented cooldown, servicing by
-  the protocol, and a later claim. Holders remain exposed to USDx market and
-  liquidity risk, reward-delivery risk, and the delay before a redemption can be
-  claimed.
+  The reviewed deployments are the current V2 sUSDx vault on Ethereum and the
+  legacy V1 vault on Plasma. Axis's [staking contract reference](https://docs.axis.to/reference/staking-contracts)
+  documents immediate deposits and an asynchronous redemption request, cooldown,
+  servicing and claim flow for V2. Holders remain exposed to USDx market and
+  liquidity risk, reward-delivery risk, and the delay before a redemption can
+  be claimed.
 fee_description: |
   Axis does not publish a universal management, performance, deposit, or withdrawal
   fee schedule for the reviewed sUSDx rewards vault. The value of sUSDx changes as
   rewards vest, but this does not establish that the product is fee-free. Users
-  should review Axis's current documentation and transaction quotes before staking
-  or requesting a redemption.
+  should review Axis's current [sUSDx documentation](https://docs.axis.to/susdx-the-rewards-vault/susdx)
+  and transaction quotes before staking or requesting a redemption.
 links:
   homepage: https://www.axis.to/
   app: https://app.axis.to/
@@ -32,4 +36,5 @@ links:
   trading_strategy: https://tradingstrategy.ai/trading-view/vaults/protocols/axis
   integration_documentation: https://web3-ethereum-defi.readthedocs.io/vaults/axis/index.html
 example_smart_contracts:
+  - https://etherscan.io/address/0xEB892628D1E58BC475A6dCB7F5dBC4F591632AA4
   - https://plasmaexplorer.com/address/0x13A099765B34b3aAFedb8698CF7fd418E7730012

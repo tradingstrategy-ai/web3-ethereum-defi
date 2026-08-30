@@ -18,7 +18,7 @@ from web3.types import BlockIdentifier
 from eth_defi.abi import ZERO_ADDRESS_STR
 from eth_defi.erc_4626.core import RYSK_PREMIUM_CHAIN_IDS, ERC4626Feature
 from eth_defi.erc_4626.vault_protocol.arcus.constants import ARCUS_BRIDGE_VAULT, ARCUS_CHAIN_ID
-from eth_defi.erc_4626.vault_protocol.axis.constants import AXIS_CHAIN_ID, AXIS_STAKED_USDX_VAULT
+from eth_defi.erc_4626.vault_protocol.axis.constants import AXIS_VAULT_ADDRESSES, AXIS_VAULTS_BY_CHAIN
 from eth_defi.erc_4626.vault_protocol.flying_tulip.constants import FLYING_TULIP_SFTUSD_BY_CHAIN
 from eth_defi.erc_4626.vault_protocol.frankencoin.vault import FRANKENCOIN_SAVINGS_VAULTS
 from eth_defi.erc_4626.vault_protocol.frax.constants import FRAX_STAKING_VAULT_ADDRESSES, FRAX_STAKING_VAULTS_BY_CHAIN, FRAXLEND_DEPLOYERS_BY_CHAIN
@@ -331,9 +331,9 @@ VAULT_STREET_HARDCODED_PROTOCOLS = {PRIME_USD_ADDRESS: {ERC4626Feature.vault_str
 #: the reviewed sFRAX and sfrxUSD deployments are routed by address.
 FRAX_STAKING_HARDCODED_PROTOCOLS = {address: {ERC4626Feature.frax_staking_like} for address in FRAX_STAKING_VAULT_ADDRESSES}
 
-#: Axis's StakedUSDx contract uses generic ERC-4626/ERC-7540 interfaces, so
-#: classify only the reviewed Plasma deployment by address.
-AXIS_HARDCODED_PROTOCOLS = {AXIS_STAKED_USDX_VAULT: {ERC4626Feature.axis_like, ERC4626Feature.erc_7540_like}}
+#: Axis's StakedUSDx contracts use generic ERC-4626/ERC-7540 interfaces, so
+#: classify only reviewed deployments by address.
+AXIS_HARDCODED_PROTOCOLS = {address: {ERC4626Feature.axis_like, ERC4626Feature.erc_7540_like} for address in AXIS_VAULT_ADDRESSES}
 
 #: NaraUSD+ is Nara's only reviewed production staking vault.
 NARA_HARDCODED_PROTOCOLS = {NARAUSD_PLUS_VAULT: {ERC4626Feature.nara_like}}
@@ -457,9 +457,9 @@ def _get_hardcoded_protocol_features(address: HexAddress | str, chain_id: int | 
         if normalised_address in FRAX_STAKING_VAULT_ADDRESSES:
             return None
 
+        if (chain_id, normalised_address) in AXIS_VAULTS_BY_CHAIN:
+            return AXIS_HARDCODED_PROTOCOLS[normalised_address]
         if normalised_address in AXIS_HARDCODED_PROTOCOLS:
-            if chain_id == AXIS_CHAIN_ID:
-                return AXIS_HARDCODED_PROTOCOLS[normalised_address]
             return None
 
         if normalised_address in NARA_HARDCODED_PROTOCOLS:

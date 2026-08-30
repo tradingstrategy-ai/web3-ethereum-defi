@@ -8,6 +8,7 @@ import pytest
 
 from eth_defi.apex.constants import APEX_CHAIN_ID
 from eth_defi.erc_4626.core import ERC4262VaultDetection, ERC4626Feature
+from eth_defi.erc_4626.vault_protocol.axis.constants import AXIS_ETHEREUM_CHAIN_ID, AXIS_STAKED_USDX_BY_CHAIN
 from eth_defi.hyperliquid.constants import HYPERCORE_CHAIN_ID
 from eth_defi.vault.base import VaultSpec
 from eth_defi.vault.strategy_tag import StrategyTag
@@ -200,6 +201,29 @@ def test_migrate_vault_strategy_tags_follows_adapter_priority() -> None:
 
     assert result is not None
     assert result[1] == "IPOR Fusion tag resolver"
+
+
+def test_migrate_vault_strategy_tags_resolves_axis_ethereum_v2() -> None:
+    """Axis Ethereum V2 receives its maintained market-neutral strategy tags."""
+
+    migration = load_migration_module()
+    spec = VaultSpec(AXIS_ETHEREUM_CHAIN_ID, AXIS_STAKED_USDX_BY_CHAIN[AXIS_ETHEREUM_CHAIN_ID])
+    row = {
+        "_detection_data": create_detection(spec, {ERC4626Feature.axis_like}),
+    }
+
+    result = migration.resolve_strategy_tags(spec, row)
+
+    assert result == (
+        {
+            StrategyTag.arbitrage,
+            StrategyTag.delta_neutral,
+            StrategyTag.funding_rate_arbitrage,
+            StrategyTag.multistrategy,
+            StrategyTag.perpetual_futures,
+        },
+        "Axis tag resolver",
+    )
 
 
 def test_migrate_vault_strategy_tags_resolves_apex_native_rows() -> None:
