@@ -14,6 +14,7 @@ concurrency regression test is offline and uses synthetic rows only.
 """
 
 import datetime
+import logging
 from decimal import Decimal
 from types import SimpleNamespace
 from unittest.mock import patch
@@ -30,6 +31,7 @@ from eth_defi.hyperliquid.high_freq_metrics import (
     fetch_and_store_vault_high_freq,
     run_high_freq_scan,
 )
+from eth_defi.hyperliquid.perp_metrics import collect_hyperliquid_vault_observations
 from eth_defi.hyperliquid.session import create_hyperliquid_session
 from eth_defi.hyperliquid.vault import HyperliquidVault, PortfolioHistory, VaultSummary, fetch_all_vaults
 
