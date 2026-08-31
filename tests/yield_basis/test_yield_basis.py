@@ -16,6 +16,7 @@ from web3.exceptions import ContractLogicError, Web3Exception
 from eth_defi.erc_4626.classification import _get_hardcoded_protocol_features, create_vault_instance  # noqa: PLC2701
 from eth_defi.erc_4626.core import ERC4262VaultDetection, ERC4626Feature, get_vault_protocol_name, is_activity_filter_exempt
 from eth_defi.middleware import ProbablyNodeHasNoBlock
+from eth_defi.research.vault_metrics import slugify_protocol
 from eth_defi.vault.base import INSTANT_WITHDRAWAL_PERIOD, VaultSpec
 from eth_defi.vault.fee import VaultFeeMode, get_vault_fee_mode
 from eth_defi.vault.flag import VaultFlag
@@ -739,13 +740,18 @@ def test_yield_basis_catalogue_sync_is_idempotent(monkeypatch: pytest.MonkeyPatc
 
 
 def test_yield_basis_protocol_metadata() -> None:
-    """Render the public metadata and include crvUSD/volatility guidance."""
+    """Render public metadata under the canonical exported protocol slug."""
 
     repository_root = Path(__file__).resolve().parents[2]
-    metadata = build_metadata_json(repository_root / "eth_defi/data/vaults/metadata/yield-basis.yaml", "https://example.invalid")
+    metadata = build_metadata_json(repository_root / "eth_defi/data/vaults/metadata/yieldbasis.yaml", "https://example.invalid")
     assert metadata["name"] == "YieldBasis"
-    assert metadata["slug"] == "yield-basis"
-    assert metadata["logos"]["light"] == "https://example.invalid/vault-protocol-metadata/yield-basis/light.png"
+    assert metadata["slug"] == slugify_protocol(metadata["name"]) == "yieldbasis"
+    assert metadata["logos"] == {
+        "generic": "https://example.invalid/vault-protocol-metadata/yieldbasis/generic.png",
+        "dark": "https://example.invalid/vault-protocol-metadata/yieldbasis/dark.png",
+        "light": "https://example.invalid/vault-protocol-metadata/yieldbasis/light.png",
+    }
+    assert metadata["links"]["defillama"] == "https://defillama.com/protocol/yield-basis"
     assert "crvUSD" in metadata["long_description"]
     assert "BTC/ETH price movement" in metadata["long_description"]
 

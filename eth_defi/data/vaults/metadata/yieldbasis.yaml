@@ -1,5 +1,5 @@
 name: YieldBasis
-slug: yield-basis
+slug: yieldbasis
 short_description: |
   YieldBasis creates leveraged Curve liquidity positions so yb-LP holders can earn
   trading fees while retaining exposure to the underlying BTC or ETH market.
@@ -22,26 +22,24 @@ long_description: |
   See the [YieldBasis overview](https://docs.yieldbasis.com/user/overview/how-yieldbasis-works)
   and [Earn page](https://yieldbasis.com/earn) for the current product terms.
 fee_description: |
-  YieldBasis allocates product fees by minting LT shares, so those allocations
-  are reflected in each holder's share of the product. See the
-  [fee mechanics](https://docs.yieldbasis.com/user/protocol/fee-mechanics) for
-  the protocol's current distribution. Redemption proceeds can also be below
-  fundamental value because of the Temporary Redemption Discount. For USD
-  comparisons, the integration models a 0.10% conversion at both entry and exit
-  between a generic USD stablecoin and the pool's BTC or ETH token; this is an
-  accounting assumption rather than a YieldBasis fee. It excludes price impact,
-  Ethereum gas and MEV. Neither trading-fee income nor a quoted annual return
-  is guaranteed.
+  YieldBasis allocates its product fees through LT share accounting. Its
+  [fee mechanics](https://docs.yieldbasis.com/user/protocol/fee-mechanics)
+  describe how trading fees and protocol allocations are distributed. An
+  immediate redemption can realise less than fundamental value because of the
+  [Temporary Redemption Discount](https://docs.yieldbasis.com/user/protocol/fundamental-value-redemption-value-and-trd).
+  Users may also incur Ethereum network fees and any costs charged by external
+  venues used to acquire or sell the underlying asset.
 links:
   homepage: https://yieldbasis.com/
   app: https://yieldbasis.com/earn
   twitter: https://x.com/yieldbasis
   github: https://github.com/yield-basis/yb-core
   documentation: https://docs.yieldbasis.com/
-  audits: https://docs.yieldbasis.com/pdf/audit/pashov.pdf
-  fees: https://docs.yieldbasis.com/user/overview/how-yieldbasis-works
-  trading_strategy: https://tradingstrategy.ai/vaults/protocols/yield-basis
-  integration_documentation: https://web3-ethereum-defi.readthedocs.io/api/yield_basis/index.html
+  defillama: https://defillama.com/protocol/yield-basis
+  audits: https://docs.yieldbasis.com/user/reference/audits
+  fees: https://docs.yieldbasis.com/user/protocol/fee-mechanics
+  trading_strategy: https://tradingstrategy.ai/vaults/protocols/yieldbasis
+  integration_documentation: https://web3-ethereum-defi.readthedocs.io/vaults/yield_basis/index.html
 example_smart_contracts:
   - https://etherscan.io/address/0x370a449FeBb9411c95bf897021377fe0B7D100c0
   - https://etherscan.io/address/0x651D4b8168488FA163D85304662E8278d4c55BAa
