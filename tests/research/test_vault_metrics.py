@@ -209,8 +209,53 @@ def test_daily_vault_resampling_does_not_forward_fill_flow_totals() -> None:
 
     assert daily["share_price"].tolist() == [100.0, 100.0, 110.0]
     assert daily["id"].tolist() == [vault_id, vault_id, vault_id]
+    assert daily[vault_metrics.VAULT_STATE_OBSERVED_COLUMN].fillna(False).tolist() == [True, False, True]
     assert pd.isna(daily["daily_deposit_usd"].iloc[1])
     assert daily["daily_deposit_usd"].sum() == pytest.approx(30.0)
+
+
+def test_erc4626_state_deltas_derive_estimated_net_flows() -> None:
+    """Separate yield from netted ERC-4626 deposits and redemptions."""
+    prices = pd.DataFrame(
+        {
+            "total_assets": [100.0, 111.1, 107.1],
+            "total_supply": [100.0, 110.0, 105.0],
+            "share_price": [1.0, 1.01, 1.02],
+            vault_metrics.VAULT_STATE_OBSERVED_COLUMN: [True, True, True],
+        },
+        index=pd.date_range("2026-01-01", periods=3, freq="D"),
+    )
+
+    result = vault_metrics._derive_erc4626_estimated_daily_flows(prices)
+
+    assert pd.isna(result["daily_deposit_usd"].iloc[0])
+    assert pd.isna(result["daily_withdrawal_usd"].iloc[0])
+    assert result["daily_deposit_usd"].iloc[1] == pytest.approx(10.1)
+    assert result["daily_withdrawal_usd"].iloc[1] == pytest.approx(0.0)
+    assert result["daily_deposit_usd"].iloc[2] == pytest.approx(0.0)
+    assert result["daily_withdrawal_usd"].iloc[2] == pytest.approx(5.1)
+
+
+def test_erc4626_state_deltas_reject_forward_filled_scanner_gaps() -> None:
+    """Do not publish zero flow for a day without a scanner observation."""
+    vault_id = "1-0x1234"
+    sparse_prices = pd.DataFrame(
+        {
+            "chain": [1, 1],
+            "address": ["0x1234", "0x1234"],
+            "id": [vault_id, vault_id],
+            "total_assets": [100.0, 122.4],
+            "total_supply": [100.0, 120.0],
+            "share_price": [1.0, 1.02],
+        },
+        index=pd.to_datetime(["2026-01-01 12:00:00", "2026-01-03 12:00:00"]),
+    )
+    daily_prices = calculate_hourly_returns_for_all_vaults(sparse_prices)
+
+    result = vault_metrics._derive_erc4626_estimated_daily_flows(daily_prices)
+
+    assert result["daily_deposit_usd"].isna().all()
+    assert result["daily_withdrawal_usd"].isna().all()
 
 
 def test_get_trading_strategy_links_use_canonical_vault_routes():
@@ -775,6 +820,34 @@ def test_calculate_lifetime_metrics(
 
     # Verify period_results is not in formatted output
     # assert "period_results" not in formatted.columns
+
+
+def test_morpho_daily_state_pipeline_exports_estimated_period_flows(vault_db: VaultDatabase, price_df: pd.DataFrame) -> None:
+    """Export exact estimated flow values from scanned Morpho vault states."""
+    vault_id = "43111-0x05c2e246156d37b39a825a25dd08d5589e3fd883"
+    spec = VaultSpec.parse_string(vault_id)
+    daily_prices = calculate_hourly_returns_for_all_vaults(price_df.loc[price_df["id"] == vault_id])
+
+    metrics = calculate_lifetime_metrics(daily_prices, {spec: vault_db.rows[spec]})
+    sample_row = metrics.iloc[0]
+    period_results = sample_row["period_results"]
+    one_week_flow = next(period for period in period_results if period.period == "1W")
+    one_month_flow = next(period for period in period_results if period.period == "1M")
+
+    assert sample_row["protocol_slug"] == "morpho"
+    assert one_week_flow.deposit_value == pytest.approx(228_332.7404166556)
+    assert one_week_flow.redeem_value == pytest.approx(113_271.80481606776)
+    assert one_month_flow.deposit_value == pytest.approx(2_955_707.355826168)
+    assert one_month_flow.redeem_value == pytest.approx(610_400.8020997513)
+    assert one_week_flow.deposit_count is None
+    assert one_week_flow.redemption_count is None
+
+    # The deprecated 7d and 30d records alias the canonical period results.
+    legacy_netflow = {flow.period: flow for flow in sample_row["netflow"]}
+    assert legacy_netflow["7d"].deposit_usd == pytest.approx(one_week_flow.deposit_value)
+    assert legacy_netflow["7d"].withdrawal_usd == pytest.approx(one_week_flow.redeem_value)
+    assert legacy_netflow["30d"].deposit_usd == pytest.approx(one_month_flow.deposit_value)
+    assert legacy_netflow["30d"].withdrawal_usd == pytest.approx(one_month_flow.redeem_value)
 
 
 def test_event_observed_gmx_exports_approximated_daily_metrics(vault_db: VaultDatabase, price_df: pd.DataFrame) -> None:

@@ -220,14 +220,20 @@ This is a provider-snapshot guideline, not a wrapper redemption oracle.
 
 Every period result also has optional ``deposit_value``, ``redeem_value``,
 ``deposit_count`` and ``redemption_count`` fields. Monetary flow values are in
-USD because they come from the shared ``daily_deposit_usd`` and
-``daily_withdrawal_usd`` columns. These fields are currently null for ERC-4626
-vaults, including ETH/BTC vaults and their ``periodic_metrics_usd`` views,
-because the price scanner does not yet materialise daily investor flows.
-Hypercore and Lighter populate the shared flow columns. Lifetime flow values
-also remain null because the dataset does not record a reliable flow-coverage
-start. The top-level ``netflow`` export is deprecated and retained only for
-compatibility.
+USD for direct Hypercore and Lighter observations. For stablecoin-denominated
+ERC-4626 vaults, the metrics exporter estimates each daily net flow from the
+consecutive total-assets, total-supply and share-price states:
+``delta(total_assets) - previous_total_supply * delta(share_price)``. A positive
+estimate is reported as ``deposit_value`` and a negative estimate as
+``redeem_value``, denominated in the vault's stablecoin. Deposits and
+redemptions within the same day are therefore netted and cannot be separated.
+Days without an actual scanner observation remain unknown instead of being
+treated as zero flow, and any period containing such a gap remains null. Event
+counts remain null for these estimates. ETH/BTC vault flows, including their
+``periodic_metrics_usd`` views, remain unavailable until historical denomination
+conversion is implemented. Lifetime flow values also remain null because the
+dataset does not record a reliable flow-coverage start. The top-level
+``netflow`` export is deprecated and retained only for compatibility.
 
 Only the configured alternative R2 bucket receives this bundle. Its objects use
 flat root keys with the ``crypto-`` prefix, such as

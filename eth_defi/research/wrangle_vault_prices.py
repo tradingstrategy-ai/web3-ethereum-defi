@@ -108,9 +108,10 @@ class CleanedVaultPriceRow(TypedDict, total=False):
       (IPOR, Euler, Morpho, Gearbox, etc.) and NaN for others.
     - **Hypercore only** columns come from the Hyperliquid native vault API
       and are NaN for all other protocols.
-    - **Native protocol flow** columns are populated for Hypercore and Lighter,
-      which provide daily deposit/withdrawal data, and are NaN for other
-      protocols, including ERC-4626 vaults.
+    - **Investor-flow** columns contain direct daily observations for Hypercore
+      and Lighter. They remain NaN in cleaned ERC-4626 price data; the metrics
+      exporter can estimate netted stablecoin-vault flows later from consecutive
+      daily total-assets, total-supply and share-price states.
     """
 
     # -- General columns (all protocols) --
@@ -407,27 +408,27 @@ class CleanedVaultPriceRow(TypedDict, total=False):
     #: Hypercore only — empty for ordinary observations and other protocols.
     hypercore_repair_status: str
 
-    # -- Native protocol flow columns --
-    # Populated for Hypercore and Lighter. NaN for other protocols.
+    # -- Direct protocol flow columns --
+    # Directly populated for Hypercore and Lighter. NaN in cleaned ERC-4626 rows.
 
     #: Number of deposit events in the latest day.
     #:
-    #: Native protocol flow — Hypercore and Lighter. NaN for other protocols.
+    #: Direct protocol flow — Hypercore and Lighter. NaN for other protocols.
     daily_deposit_count: float
 
     #: Number of withdrawal events in the latest day.
     #:
-    #: Native protocol flow — Hypercore and Lighter. NaN for other protocols.
+    #: Direct protocol flow — Hypercore and Lighter. NaN for other protocols.
     daily_withdrawal_count: float
 
     #: Total USD deposited in the latest day.
     #:
-    #: Native protocol flow — Hypercore and Lighter. NaN for other protocols.
+    #: Direct protocol flow — Hypercore and Lighter. NaN for other protocols.
     daily_deposit_usd: float
 
     #: Total USD withdrawn in the latest day.
     #:
-    #: Native protocol flow — Hypercore and Lighter. NaN for other protocols.
+    #: Direct protocol flow — Hypercore and Lighter. NaN for other protocols.
     daily_withdrawal_usd: float
 
 
