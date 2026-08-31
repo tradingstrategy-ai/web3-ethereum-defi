@@ -1,8 +1,8 @@
 """YieldBasis Earn market support.
 
-The first integration covers the four reviewed Ethereum unstaked yb-LP/LT
-markets.  It intentionally keeps the protocol-native context separate from
-the common vault Parquet schema so crvUSD performance and underlying-asset
+The first integration covers the four reviewed Ethereum yb-LP/LT
+markets. It intentionally keeps the protocol-native context separate from
+the common vault Parquet schema so USD performance and underlying-asset
 performance can be compared without treating either as a guaranteed yield.
 """
 

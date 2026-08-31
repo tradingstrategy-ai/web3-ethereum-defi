@@ -6,12 +6,17 @@ YieldBasis API
 This module contains read-only support for the reviewed Ethereum
 `YieldBasis <https://yieldbasis.com/>`__ Earn LT markets.
 
-YieldBasis yb-LP shares are reported in crvUSD. The primary fundamental value
-is the LT native-asset ``pricePerShare()`` multiplied by the market Curve
-Cryptoswap ``price_oracle()``. Consequently, BTC/ETH price movement is part of
-the headline stablecoin-denominated return. The contextual history also retains
-native PPS, asset/crvUSD prices, effective and staked supply, and an optional
-redemption diagnostic for dual-CAGR analysis.
+YieldBasis yb-LP shares use a synthetic USD accounting denomination. The
+primary value is the underlying returned by ``preview_withdraw()`` multiplied
+by the market Curve Cryptoswap ``price_oracle()``. Consequently, both the
+Temporary Redemption Discount and BTC/ETH price movement are part of the
+headline USD return. The contextual history also retains fundamental
+underlying PPS, asset/crvUSD source prices, redemption inputs, and effective
+and staked supply for dual-CAGR analysis. A fixed 10-basis-point generic
+USD-stablecoin conversion estimate is exposed separately as both the entry and
+exit cost; it is not part of the historical equity curve. The YieldBasis
+examiner models a new depositor at fundamental PPS and an exit at redemption
+value, because TRD affects the latter but not the former.
 
 The integration covers Ethereum markets 7 (WBTC), 8 (cbBTC), 9 (tBTC) and 10
 (WETH). It is a read-only VaultBase adapter; generic ERC-4626 deposits,

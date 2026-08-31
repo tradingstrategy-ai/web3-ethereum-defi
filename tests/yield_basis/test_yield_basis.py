@@ -1,20 +1,22 @@
 """Focused no-RPC tests for the YieldBasis vault integration."""
 
 import datetime
+import logging
 from dataclasses import replace
 from decimal import Decimal
 from pathlib import Path
 from types import SimpleNamespace
 
+import duckdb
 import pandas as pd
 import pytest
 from eth_utils import to_checksum_address
-from web3.exceptions import Web3Exception
+from web3.exceptions import ContractLogicError, Web3Exception
 
 from eth_defi.erc_4626.classification import _get_hardcoded_protocol_features, create_vault_instance  # noqa: PLC2701
 from eth_defi.erc_4626.core import ERC4262VaultDetection, ERC4626Feature, get_vault_protocol_name, is_activity_filter_exempt
 from eth_defi.middleware import ProbablyNodeHasNoBlock
-from eth_defi.vault.base import VaultSpec
+from eth_defi.vault.base import INSTANT_WITHDRAWAL_PERIOD, VaultSpec
 from eth_defi.vault.fee import VaultFeeMode, get_vault_fee_mode
 from eth_defi.vault.flag import VaultFlag
 from eth_defi.vault.historical import scan_historical_prices_to_parquet
@@ -24,7 +26,7 @@ from eth_defi.vault.strategy_tag import StrategyTag
 from eth_defi.yield_basis import historical_context, vault_catalog, vault_sync
 from eth_defi.yield_basis.addresses import YIELD_BASIS_ACTIVE_MARKETS, YIELD_BASIS_STABLECOIN
 from eth_defi.yield_basis.historical_context import YieldBasisHistoricalContextStore, YieldBasisHistoricalObservation, fetch_and_store_yield_basis_historical_context
-from eth_defi.yield_basis.metrics import crvusd_return, staked_ratio, temporary_redemption_discount, underlying_return
+from eth_defi.yield_basis.metrics import estimate_usd_stablecoin_swap_cost, redemption_usd_price_per_share, round_trip_usd_stablecoin_swap_cost, staked_ratio, temporary_redemption_discount, underlying_return, usd_stablecoin_investor_return
 from eth_defi.yield_basis.tags import STRATEGY_TAGS
 from eth_defi.yield_basis.vault import YieldBasisVault
 from eth_defi.yield_basis.vault_catalog import YieldBasisMarket, YieldBasisScanPreparation
@@ -39,9 +41,17 @@ class _Call:
         self.result = result
 
     def call(self, *, block_identifier: int) -> object:
-        """Return the configured result at the shared test block."""
+        """Return the configured result or raise its configured error.
+
+        :param block_identifier:
+            Historical block expected by this focused fake.
+        :return:
+            Configured contract-call result.
+        """
 
         assert block_identifier == YIELD_BASIS_TEST_BLOCK
+        if isinstance(self.result, BaseException):
+            raise self.result
         return self.result
 
 
@@ -88,7 +98,7 @@ def test_yield_basis_reviewed_addresses_route_only_on_ethereum(monkeypatch: pyte
 
 
 def test_yield_basis_classification_and_tags_are_market_making_only(monkeypatch: pytest.MonkeyPatch) -> None:
-    """crvUSD denomination must not imply stable-yield or lending strategy."""
+    """USD denomination must not imply stable-yield or lending strategy."""
 
     assert get_vault_protocol_name({ERC4626Feature.yield_basis_lt}) == "YieldBasis"
     for review in YIELD_BASIS_ACTIVE_MARKETS.values():
@@ -107,11 +117,23 @@ def test_yield_basis_classification_and_tags_are_market_making_only(monkeypatch:
     known = YieldBasisVault(web3, VaultSpec(1, YIELD_BASIS_ACTIVE_MARKETS[7].lt_address))
     unknown = YieldBasisVault(web3, VaultSpec(1, "0x0000000000000000000000000000000000000001"))
     assert known.get_strategy_tags() == STRATEGY_TAGS[YIELD_BASIS_ACTIVE_MARKETS[7].lt_address.lower()]
+    assert known.get_withdrawal_period() is INSTANT_WITHDRAWAL_PERIOD
     assert unknown.get_strategy_tags() is None
+    notes = known.get_notes()
+    assert notes is not None
+    assert "[trading fees earned by the underlying Curve pool and YieldBasis LEVAMM](https://docs.yieldbasis.com/user/protocol/fee-mechanics)" in notes
+    assert "Performance is shown in USD using the marginal amount returned by `preview_withdraw`" in notes
+    assert "[Temporary Redemption Discount (TRD)](https://docs.yieldbasis.com/" in notes
+    assert "principal-protected stablecoin vault" not in notes
+    assert "Returns are not guaranteed" not in notes
+    assert "crvUSD can also move away from one US dollar" not in notes
+    assert "0.10% conversion" in notes
+    assert "outside the historical equity curve" in notes
+    assert "price impact" in notes
 
 
 def test_yield_basis_activity_fee_risk_and_flags() -> None:
-    """Expose protocol-wide scanner classifications without inventing fees."""
+    """Expose protocol-wide scanner classifications and fee mode."""
 
     detection = ERC4262VaultDetection(
         chain=1,
@@ -129,6 +151,30 @@ def test_yield_basis_activity_fee_risk_and_flags() -> None:
     assert VaultFlag.market_making.value == "market_making"
 
 
+def test_yield_basis_exposes_fixed_usd_entry_and_exit_cost(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Report the same fixed token-based cost in both directions.
+
+    :param monkeypatch:
+        Pytest patch fixture used to isolate LT construction without an RPC.
+    :return:
+        None.
+    """
+
+    monkeypatch.setattr("eth_defi.yield_basis.vault.fetch_yield_basis_lt", lambda _web3, _address: SimpleNamespace(functions=SimpleNamespace()))
+    vault = YieldBasisVault(SimpleNamespace(eth=SimpleNamespace(chain_id=1)), VaultSpec(1, YIELD_BASIS_ACTIVE_MARKETS[7].lt_address), default_block_identifier=YIELD_BASIS_TEST_BLOCK)
+
+    assert vault.fetch_denomination_token_address(YIELD_BASIS_TEST_BLOCK) is None
+    assert vault.fetch_denomination_token() is None
+    assert vault.get_deposit_fee(YIELD_BASIS_TEST_BLOCK) == pytest.approx(0.001)
+    assert vault.get_withdraw_fee(YIELD_BASIS_TEST_BLOCK) == pytest.approx(0.001)
+    fee_data = vault.get_fee_data()
+    assert fee_data.fee_mode is VaultFeeMode.internalised_minting
+    assert fee_data.management is None
+    assert fee_data.performance is None
+    assert fee_data.deposit == pytest.approx(0.001)
+    assert fee_data.withdraw == pytest.approx(0.001)
+
+
 def test_yield_basis_zero_supply_has_no_historical_observation(monkeypatch: pytest.MonkeyPatch) -> None:
     """Treat a deployed but unseeded LT as an expected empty observation."""
 
@@ -143,6 +189,53 @@ def test_yield_basis_zero_supply_has_no_historical_observation(monkeypatch: pyte
     vault = YieldBasisVault(web3, VaultSpec(1, YIELD_BASIS_ACTIVE_MARKETS[7].lt_address))
 
     assert vault.fetch_historical_observation(YIELD_BASIS_TEST_BLOCK) is None
+
+
+@pytest.mark.parametrize(
+    ("preview_result", "expected_log"),
+    (
+        (ContractLogicError("pool cannot quote this block"), "preview_withdraw reverted"),
+        (0, "preview_withdraw returned zero assets"),
+    ),
+)
+def test_yield_basis_unavailable_historical_preview_leaves_a_logged_gap(monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture, preview_result: object, expected_log: str) -> None:
+    """Skip one deterministic unavailable redemption preview without fallback.
+
+    A contract revert or amount that rounds to zero cannot improve by retrying
+    the same historical block. The missing sample must be visible to operators
+    and must not silently use fundamental PPS as the primary curve.
+
+    :param monkeypatch:
+        Pytest patch fixture used to isolate contract reads.
+    :param caplog:
+        Captured warning log used to verify observability.
+    :param preview_result:
+        Revert or zero result returned by the fixed-block contract fake.
+    :param expected_log:
+        Operator-visible reason expected for the omitted sample.
+    :return:
+        None.
+    """
+
+    review = YIELD_BASIS_ACTIVE_MARKETS[7]
+    lt = SimpleNamespace(
+        functions=SimpleNamespace(
+            ASSET_TOKEN=lambda: _Call(review.asset_address),
+            pricePerShare=lambda: _Call(10**18),
+            updated_balances=lambda: _Call((10**18, 0)),
+            preview_withdraw=lambda _shares: _Call(preview_result),
+        )
+    )
+    curve_pool = SimpleNamespace(functions=SimpleNamespace(price_oracle=lambda: _Call(2 * 10**18)))
+    monkeypatch.setattr("eth_defi.yield_basis.vault.fetch_yield_basis_lt", lambda _web3, _address: lt)
+    monkeypatch.setattr("eth_defi.yield_basis.vault.fetch_yield_basis_curve_pool", lambda _web3, _address: curve_pool)
+    monkeypatch.setattr(YieldBasisVault, "fetch_curve_pool_address", lambda _self, _block_identifier: "0x0000000000000000000000000000000000000001")
+    web3 = SimpleNamespace(eth=SimpleNamespace(chain_id=1))
+    vault = YieldBasisVault(web3, VaultSpec(1, review.lt_address), default_block_identifier=YIELD_BASIS_TEST_BLOCK)
+
+    with caplog.at_level(logging.WARNING):
+        assert vault.fetch_historical_observation(YIELD_BASIS_TEST_BLOCK) is None
+    assert expected_log in caplog.text
 
 
 def test_yield_basis_context_prefill_skips_zero_supply(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -256,11 +349,11 @@ def test_yield_basis_context_commits_completed_batches(tmp_path: Path, monkeypat
         return {
             "lt_address": review.lt_address,
             "asset_address": review.asset_address,
+            "asset_decimals": review.asset_decimals,
             "raw_asset_crvusd_price": 2 * 10**18,
             "raw_asset_price_per_share": 10**18,
-            "raw_preview_shares": None,
-            "raw_redemption_assets": None,
-            "redemption_missing_reason": "not requested",
+            "raw_preview_shares": 10**18,
+            "raw_redemption_assets": 9 * 10**7,
             "raw_effective_supply": 10**18,
             "raw_staked_supply": 0,
         }
@@ -299,11 +392,11 @@ def test_yield_basis_context_is_idempotent_and_conflict_safe(tmp_path: Path, mon
         block_timestamp=1_000,
         lt_address=review.lt_address,
         asset_address=review.asset_address,
+        asset_decimals=review.asset_decimals,
         raw_asset_crvusd_price=2 * 10**18,
         raw_asset_price_per_share=10**18,
         raw_preview_shares=10**18,
         raw_redemption_assets=9 * 10**7,
-        redemption_missing_reason=None,
         raw_effective_supply=10**18,
         raw_staked_supply=2 * 10**17,
     )
@@ -311,32 +404,117 @@ def test_yield_basis_context_is_idempotent_and_conflict_safe(tmp_path: Path, mon
     with YieldBasisHistoricalContextStore(context_path) as store:
         assert store.insert_observations((observation, observation)) == 1
         assert store.insert_observations((observation,)) == 0
-        changed_optional_diagnostic = replace(
-            observation,
-            raw_preview_shares=None,
-            raw_redemption_assets=None,
-            redemption_missing_reason="preview_withdraw: Web3Exception",
-        )
-        assert store.insert_observations((changed_optional_diagnostic,)) == 0
         constraints = store.connection.execute(
             "SELECT count(*) FROM duckdb_constraints() WHERE table_name LIKE 'yield_basis_%' AND constraint_type IN ('PRIMARY KEY', 'UNIQUE')",
         ).fetchone()[0]
         assert constraints == 0
         reads = list(store.iter_observations(chain_id=1, lt_address=review.lt_address, start_block=0, end_block=200, step=50))
         assert len(reads) == 1
+        assert reads[0].asset_decimals == review.asset_decimals
+        assert reads[0].asset_price_per_share == Decimal(1)
+        assert reads[0].temporary_redemption_discount == Decimal("-0.1")
+        assert reads[0].share_price == Decimal("1.8")
         assert reads[0].staked_ratio == Decimal("0.2")
         with pytest.raises(ValueError, match="context conflict"):
             store.insert_observations((replace(observation, raw_asset_price_per_share=2 * 10**18),))
+        with pytest.raises(ValueError, match="context conflict"):
+            store.insert_observations((replace(observation, raw_redemption_assets=8 * 10**7),))
 
     monkeypatch.setattr("eth_defi.yield_basis.vault.fetch_yield_basis_lt", lambda _web3, _address: SimpleNamespace(functions=SimpleNamespace()))
     vault = YieldBasisVault(SimpleNamespace(eth=SimpleNamespace(chain_id=1)), VaultSpec(1, review.lt_address))
     vault.historical_context_path = context_path
     historical_reads = tuple(vault.get_historical_reader(stateful=True).fetch_contextual_historical_reads(0, 200, 50))
-    expected_value = Decimal(2)
+    expected_value = Decimal("1.8")
     assert len(historical_reads) == 1
     assert historical_reads[0].share_price == expected_value
     assert historical_reads[0].total_supply == 1
     assert historical_reads[0].total_assets == expected_value
+
+
+def test_yield_basis_context_removes_only_legacy_rows_without_redemption_inputs(tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
+    """Preserve complete legacy rows and remove rows that cannot model TRD.
+
+    The migration fills asset precision from the immutable reviewed pair. The
+    otherwise-complete row remains valid because endpoint conversion cost is
+    no longer historical context. The reviewed incomplete-preview row is
+    visibly removed for backfill, while an unreviewed incomplete row remains
+    untouched.
+
+    :param tmp_path:
+        Isolated legacy DuckDB path.
+    :param caplog:
+        Captured warning log used to verify visible cleanup.
+    :return:
+        None.
+    """
+
+    review = YIELD_BASIS_ACTIVE_MARKETS[7]
+    context_path = tmp_path / "legacy-context.duckdb"
+    connection = duckdb.connect(str(context_path))
+    try:
+        connection.execute(
+            """
+            CREATE TABLE yield_basis_historical_context (
+                chain_id UINTEGER NOT NULL,
+                block_number UBIGINT NOT NULL,
+                block_timestamp UBIGINT NOT NULL,
+                lt_address VARCHAR NOT NULL,
+                asset_address VARCHAR NOT NULL,
+                raw_asset_crvusd_price VARCHAR NOT NULL,
+                raw_asset_price_per_share VARCHAR NOT NULL,
+                raw_preview_shares VARCHAR,
+                raw_redemption_assets VARCHAR,
+                redemption_missing_reason VARCHAR,
+                raw_effective_supply VARCHAR NOT NULL,
+                raw_staked_supply VARCHAR NOT NULL
+            )
+            """
+        )
+        connection.execute(
+            "INSERT INTO yield_basis_historical_context VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            (1, 100, 1_000, review.lt_address.lower(), review.asset_address.lower(), str(2 * 10**18), str(10**18), str(10**18), str(9 * 10**7), None, str(10**18), "0"),
+        )
+        connection.execute(
+            "INSERT INTO yield_basis_historical_context VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            (1, 150, 1_500, review.lt_address.lower(), review.asset_address.lower(), str(2 * 10**18), str(10**18), None, None, "ContractLogicError", str(10**18), "0"),
+        )
+        # A removed or not-yet-reviewed market must remain preserved without
+        # preventing the supported products from opening their shared store.
+        connection.execute(
+            "INSERT INTO yield_basis_historical_context VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            (1, 175, 1_750, "0x0000000000000000000000000000000000000001", "0x0000000000000000000000000000000000000002", str(2 * 10**18), str(10**18), None, None, "legacy unreviewed product", str(10**18), "0"),
+        )
+    finally:
+        connection.close()
+
+    replacement = YieldBasisHistoricalObservation(
+        chain_id=1,
+        block_number=150,
+        block_timestamp=1_500,
+        lt_address=review.lt_address,
+        asset_address=review.asset_address,
+        asset_decimals=review.asset_decimals,
+        raw_asset_crvusd_price=2 * 10**18,
+        raw_asset_price_per_share=10**18,
+        raw_preview_shares=10**18,
+        raw_redemption_assets=9 * 10**7,
+        raw_effective_supply=10**18,
+        raw_staked_supply=0,
+    )
+    with caplog.at_level(logging.WARNING), YieldBasisHistoricalContextStore(context_path) as store:
+        assert store.count_observations(chain_id=1, lt_address=review.lt_address) == 1
+        unreviewed_row = store.connection.execute(
+            "SELECT count(*), max(asset_decimals) FROM yield_basis_historical_context WHERE lt_address = ?",
+            ("0x0000000000000000000000000000000000000001",),
+        ).fetchone()
+        assert store.insert_observations((replacement,)) == 1
+        migrated = tuple(store.iter_observations(chain_id=1, lt_address=review.lt_address, start_block=0, end_block=200, step=50))
+
+    assert "Removing 1 legacy YieldBasis context rows" in caplog.text
+    assert unreviewed_row == (1, None)
+    assert tuple(row.block_number for row in migrated) == (100, 150)
+    assert all(row.asset_decimals == review.asset_decimals for row in migrated)
+    assert all(row.share_price == Decimal("1.8") for row in migrated)
 
 
 def test_yield_basis_context_uses_latest_observation_in_each_half_open_bucket(tmp_path: Path) -> None:
@@ -355,11 +533,11 @@ def test_yield_basis_context_uses_latest_observation_in_each_half_open_bucket(tm
         block_timestamp=1_000,
         lt_address=review.lt_address,
         asset_address=review.asset_address,
+        asset_decimals=review.asset_decimals,
         raw_asset_crvusd_price=2 * 10**18,
         raw_asset_price_per_share=10**18,
-        raw_preview_shares=None,
-        raw_redemption_assets=None,
-        redemption_missing_reason="not requested",
+        raw_preview_shares=10**18,
+        raw_redemption_assets=9 * 10**7,
         raw_effective_supply=10**18,
         raw_staked_supply=0,
     )
@@ -384,11 +562,11 @@ def test_common_parquet_writer_consumes_yield_basis_context(tmp_path: Path, monk
         block_timestamp=1_000,
         lt_address=review.lt_address,
         asset_address=review.asset_address,
+        asset_decimals=review.asset_decimals,
         raw_asset_crvusd_price=2 * 10**18,
         raw_asset_price_per_share=10**18,
-        raw_preview_shares=None,
-        raw_redemption_assets=None,
-        redemption_missing_reason="not needed by writer test",
+        raw_preview_shares=10**18,
+        raw_redemption_assets=9 * 10**7,
         raw_effective_supply=10**18,
         raw_staked_supply=0,
     )
@@ -399,7 +577,7 @@ def test_common_parquet_writer_consumes_yield_basis_context(tmp_path: Path, monk
     vault = YieldBasisVault(SimpleNamespace(eth=SimpleNamespace(chain_id=1)), VaultSpec(1, review.lt_address))
     vault.first_seen_at_block = 1
     vault.historical_context_path = context_path
-    monkeypatch.setattr(vault, "fetch_denomination_token_address", lambda _block_identifier="latest": YIELD_BASIS_STABLECOIN)
+    monkeypatch.setattr(vault, "fetch_denomination_token_address", lambda _block_identifier="latest": None)
     monkeypatch.setattr(vault, "fetch_share_token_address", lambda _block_identifier="latest": review.lt_address)
     token_cache = SimpleNamespace(
         filename=tmp_path / "token-cache.sqlite",
@@ -424,8 +602,8 @@ def test_common_parquet_writer_consumes_yield_basis_context(tmp_path: Path, monk
     assert result["rows_written"] == 1
     assert len(frame) == 1
     assert frame.iloc[0]["address"] == review.lt_address.lower()
-    assert Decimal(str(frame.iloc[0]["share_price"])) == Decimal(2)
-    assert Decimal(str(frame.iloc[0]["total_assets"])) == Decimal(2)
+    assert Decimal(str(frame.iloc[0]["share_price"])) == Decimal("1.8")
+    assert Decimal(str(frame.iloc[0]["total_assets"])) == Decimal("1.8")
 
 
 def test_yield_basis_pre_scan_validates_reviewed_factory_products(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -543,7 +721,8 @@ def test_yield_basis_catalogue_sync_is_idempotent(monkeypatch: pytest.MonkeyPatc
     assert second.updated == 1
     assert recovered.updated == 1
     assert row["Name"] == "yb-LP WBTC · market 7"
-    assert row["Denomination"] == "crvUSD"
+    assert row["Denomination"] == "USD"
+    assert row["_synthetic_usd_denomination"] is True
     assert row["_detection_data"].first_seen_at_block == review.first_seen_at_block
     assert row["_detection_data"].features == {
         ERC4626Feature.yield_basis_lt,
@@ -571,12 +750,20 @@ def test_yield_basis_protocol_metadata() -> None:
     assert "BTC/ETH price movement" in metadata["long_description"]
 
 
-def test_yield_basis_native_and_crvusd_metric_decomposition() -> None:
-    """Separate native PPS performance from BTC/ETH and crvUSD movement."""
+def test_yield_basis_underlying_and_redemption_metrics() -> None:
+    """Separate underlying PPS, gross USD and endpoint-cost performance."""
 
     scale = 10**18
     assert underlying_return(scale, scale) == Decimal("0")
-    assert crvusd_return(scale, scale, scale, int(Decimal("1.1") * scale)) == Decimal("0.1")
-    assert crvusd_return(scale, scale, scale, int(Decimal("0.9") * scale)) == Decimal("-0.1")
+    assert redemption_usd_price_per_share(scale, 90_000_000, 2 * scale, asset_decimals=8) == Decimal("1.8")
+    assert redemption_usd_price_per_share(scale, 9 * 10**17, 2 * scale, asset_decimals=18) == Decimal("1.8")
     assert temporary_redemption_discount(scale, 90_000_000, scale, asset_decimals=8) == Decimal("-0.1")
+    assert temporary_redemption_discount(scale, 9 * 10**17, scale, asset_decimals=18) == Decimal("-0.1")
     assert staked_ratio(10 * scale, 2 * scale) == Decimal("0.2")
+    underlying_token = YIELD_BASIS_ACTIVE_MARKETS[7].asset_address
+    assert estimate_usd_stablecoin_swap_cost(underlying_token) == pytest.approx(0.001)
+    assert round_trip_usd_stablecoin_swap_cost(underlying_token) == Decimal("0.001999")
+    assert usd_stablecoin_investor_return(Decimal(1), Decimal(1), underlying_token) == Decimal("-0.001999")
+    assert usd_stablecoin_investor_return(Decimal(1), Decimal("0.96"), underlying_token) == Decimal("-0.04191904")
+    with pytest.raises(ValueError, match="outside their valid range"):
+        redemption_usd_price_per_share(scale, 0, 2 * scale, asset_decimals=18)

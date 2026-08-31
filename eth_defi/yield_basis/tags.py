@@ -3,7 +3,7 @@
 from eth_defi.vault.strategy_tag import StrategyTag
 
 #: All reviewed products supply both sides of a Curve AMM through YieldBasis'
-#: LEVAMM.  The borrowed crvUSD is financing for the LP position, not evidence
+#: LEVAMM. The borrowed crvUSD is financing for the LP position, not evidence
 #: that the product is a lending or stable-yield vault.
 STRATEGY_TAGS: dict[str, set[StrategyTag]] = {
     #: Vault: YieldBasis WBTC market 7.

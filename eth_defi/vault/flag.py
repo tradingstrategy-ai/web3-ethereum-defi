@@ -208,16 +208,15 @@ SPIKO_EUTBL_NOTE = """Spiko EU T-Bills Money Market Fund (EUTBL).
 #: underlying markets, despite the single-sided USDC performance convention.
 GMX_SINGLE_SIDED_USDC_NOTE = "The vault performance approximates the single-sided USDC deposit value. GMX vaults hold exposure to all underlying tokens they market make"
 
-#: Public qualification for YieldBasis's crvUSD-denominated fundamental curve.
-#: The note is prescriptive about headline returns and uncaptured risks.
-YIELD_BASIS_NOTE = """YieldBasis leveraged liquidity-provider share (yb-LP).
+#: Public qualification for YieldBasis's USD redemption-value curve.
+#: The note gives general readers concise return and risk guidance.
+YIELD_BASIS_NOTE = """A [YieldBasis](https://yieldbasis.com/earn) yb-LP is a leveraged BTC or ETH liquidity-provider position. Its value rises and falls with the underlying asset.
 
-- **Denomination:** The headline value and return are denominated in crvUSD. The primary price is YieldBasis's fundamental ``pricePerShare()`` in the native BTC/ETH asset multiplied by the market Curve Cryptoswap asset/crvUSD oracle.
-- **Underlying exposure:** The product supplies a volatile asset (WBTC, cbBTC, tBTC or WETH) and borrowed crvUSD to a Curve pool. A rise or fall in that asset against crvUSD therefore changes the headline value even when the native-asset PPS is unchanged.
-- **How to read returns:** Use the crvUSD CAGR for the primary stablecoin-denominated result. It is not an exact US dollar return when crvUSD moves away from its peg. Compare the native-asset CAGR to separate protocol performance from BTC/ETH price movement; neither is a guaranteed fee or yield rate.
-- **Liquidity and redemption:** Fundamental value is not an executable quote. Leverage, oracle smoothing, pool liquidity, temporary redemption discounts and a killed market can delay or reduce an exit.
-- **Fees:** YieldBasis allocates protocol fees internally. The fundamental PPS already reflects the allocation borne by unstaked holders; do not subtract another estimated management or performance fee.
-- **Access:** This record covers the reviewed unstaked LT markets. It is not a stablecoin vault and it does not promise principal protection.
+yb-LP yield comes primarily from [trading fees earned by the underlying Curve pool and YieldBasis LEVAMM](https://docs.yieldbasis.com/user/protocol/fee-mechanics), after protocol fee allocations and rebalancing costs.
+
+Performance is shown in USD using the marginal amount returned by `preview_withdraw`, so the [Temporary Redemption Discount (TRD)](https://docs.yieldbasis.com/user/protocol/fundamental-value-redemption-value-and-trd) is part of the historical equity curve. [New shares mint at fundamental PPS, while exits use redemption value](https://docs.yieldbasis.com/dev/integration/deposit-withdraw); negative TRD therefore affects an immediate exit, not entry.
+
+The entry and exit fee fields each model a 0.10% conversion between a generic USD stablecoin and the pool's BTC or ETH token. These endpoint costs sit outside the historical equity curve and exclude price impact, gas and MEV.
 """
 
 #: Vault-specific notes and classifications that do not exclude a vault from

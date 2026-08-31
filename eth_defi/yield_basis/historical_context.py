@@ -1,9 +1,10 @@
 """Persist YieldBasis valuation context used by the common price scanner.
 
-The common Parquet schema intentionally remains unchanged.  This context table
-keeps the native-asset PPS, the Curve asset/crvUSD oracle, and optional exit
-diagnostics so a report can compare crvUSD and underlying-token returns on the
-same observation boundaries.
+The common Parquet schema intentionally remains unchanged. This context table
+stores the raw values needed to reproduce the primary redemption-value curve,
+its TRD and the complementary fundamental native-asset return. The fixed
+generic USD-stablecoin entry and exit costs are metadata assumptions and do
+not belong in this historical source table.
 """
 
 import datetime
@@ -28,7 +29,8 @@ from eth_defi.hypersync.hypersync_timestamp import fetch_exact_block_timestamps_
 from eth_defi.hypersync.session import ThrottledHypersyncClient
 from eth_defi.middleware import ProbablyNodeHasNoBlock
 from eth_defi.vault.vaultdb import get_pipeline_data_dir
-from eth_defi.yield_basis.metrics import LT_SHARE_SCALE, asset_crvusd_price, asset_price_per_share, crvusd_price_per_share, staked_ratio
+from eth_defi.yield_basis.addresses import YIELD_BASIS_ACTIVE_MARKETS
+from eth_defi.yield_basis.metrics import LT_SHARE_SCALE, MAX_ASSET_DECIMALS, asset_price_per_share, redemption_usd_price_per_share, staked_ratio, temporary_redemption_discount
 
 if TYPE_CHECKING:
     from eth_defi.yield_basis.vault import YieldBasisVault
@@ -55,7 +57,12 @@ def get_yield_basis_historical_context_path() -> Path:
 
 @dataclass(frozen=True, slots=True)
 class YieldBasisHistoricalObservation:
-    """One source observation for an unstaked YieldBasis LT market."""
+    """One reproducible source observation for a YieldBasis LT market.
+
+    Raw values are stored instead of pre-rounded derived metrics. This makes the
+    valuation basis auditable and lets future reports recompute fundamental
+    value, marginal redemption value and TRD without rescanning archive state.
+    """
 
     #: EVM chain ID; currently always Ethereum mainnet.
     chain_id: int
@@ -67,54 +74,100 @@ class YieldBasisHistoricalObservation:
     lt_address: HexAddress
     #: BTC or ETH underlying-token address.
     asset_address: HexAddress
+    #: ERC-20 precision needed to interpret the raw redemption amount.
+    #: Stored per row because the supported assets use both 8 and 18 decimals.
+    asset_decimals: int
     #: Raw Curve asset/crvUSD oracle value.
     raw_asset_crvusd_price: int
     #: Raw LT fundamental PPS in native-asset units.
     raw_asset_price_per_share: int
-    #: Raw LT amount passed to ``preview_withdraw``.
-    raw_preview_shares: int | None
-    #: Raw underlying amount returned by ``preview_withdraw``.
-    raw_redemption_assets: int | None
-    #: Concise reason when the optional redemption preview is unavailable.
-    redemption_missing_reason: str | None
+    #: Raw LT amount passed to ``preview_withdraw``; at most one whole share.
+    raw_preview_shares: int
+    #: Raw underlying amount returned by the same-block redemption preview.
+    raw_redemption_assets: int
     #: Raw effective LT supply from ``updated_balances()``.
     raw_effective_supply: int
     #: Raw effective LT units held by the staker.
     raw_staked_supply: int
 
     @property
-    def asset_crvusd_price(self) -> Decimal:
-        """Return the Curve oracle price in crvUSD per native asset."""
-
-        return asset_crvusd_price(self.raw_asset_crvusd_price)
-
-    @property
     def asset_price_per_share(self) -> Decimal:
-        """Return fundamental LT PPS in the native asset."""
+        """Return fundamental LT PPS in the native asset.
+
+        This diagnostic excludes TRD and BTC or ETH price movement.
+
+        :return:
+            Fundamental native-asset value of one LT share.
+        """
 
         return asset_price_per_share(self.raw_asset_price_per_share)
 
     @property
-    def share_price(self) -> Decimal:
-        """Return fundamental LT PPS converted to crvUSD."""
+    def temporary_redemption_discount(self) -> Decimal:
+        """Return marginal redemption value relative to fundamental PPS.
 
-        return crvusd_price_per_share(self.raw_asset_price_per_share, self.raw_asset_crvusd_price)
+        :return:
+            Decimal ratio where ``-0.01`` means a 1% discount.
+        """
+
+        return temporary_redemption_discount(
+            self.raw_preview_shares,
+            self.raw_redemption_assets,
+            self.raw_asset_price_per_share,
+            asset_decimals=self.asset_decimals,
+        )
+
+    @property
+    def share_price(self) -> Decimal:
+        """Return the primary marginal redemption value in USD.
+
+        The same-block redemption preview incorporates TRD once and the Curve
+        oracle incorporates BTC or ETH price movement. This product-value
+        measure remains gross of the fixed entry and exit conversion costs
+        exposed separately by the VaultBase adapter.
+
+        :return:
+            Gross marginal redemption-value equivalent per LT share in USD.
+        """
+
+        return redemption_usd_price_per_share(
+            self.raw_preview_shares,
+            self.raw_redemption_assets,
+            self.raw_asset_crvusd_price,
+            asset_decimals=self.asset_decimals,
+        )
 
     @property
     def effective_supply(self) -> Decimal:
-        """Return effective LT supply from ``updated_balances``."""
+        """Return effective LT supply from ``updated_balances``.
+
+        :return:
+            Whole LT shares including the supply represented by staked LT.
+        """
 
         return Decimal(self.raw_effective_supply) / LT_SHARE_SCALE
 
     @property
     def staked_ratio(self) -> Decimal | None:
-        """Return the effective staked-to-total LT supply ratio."""
+        """Return the effective staked-to-total LT supply ratio.
+
+        :return:
+            Decimal ratio, or ``None`` for zero effective supply.
+        """
 
         return staked_ratio(self.raw_effective_supply, self.raw_staked_supply)
 
     @property
     def total_assets(self) -> Decimal:
-        """Return crvUSD total equity implied by PPS and effective supply."""
+        """Return redemption-value-equivalent USD equity.
+
+        The multiplication applies a marginal one-share preview to effective
+        supply. It is useful for comparable TVL reporting but is not a promise
+        that the entire vault could be redeemed at the same marginal price.
+
+        :return:
+            Marginal redemption value multiplied by effective LT supply.
+        """
 
         return self.share_price * self.effective_supply
 
@@ -154,6 +207,20 @@ def _validate_uint(value: int | str, *, field: str) -> int:
     return parsed
 
 
+def _validate_asset_decimals(value: int) -> int:
+    """Validate the ERC-20 precision stored with a redemption preview.
+
+    :param value:
+        Underlying token decimal precision from the reviewed market record.
+    :return:
+        Validated precision suitable for DuckDB ``UTINYINT`` storage.
+    """
+
+    if isinstance(value, bool) or not 0 <= value <= MAX_ASSET_DECIMALS:
+        raise ValueError(f"asset_decimals must be between 0 and {MAX_ASSET_DECIMALS}, got {value!r}")
+    return value
+
+
 class YieldBasisHistoricalContextStore(AbstractContextManager):
     """Manage YieldBasis observations without DuckDB ART keys."""
 
@@ -167,10 +234,21 @@ class YieldBasisHistoricalContextStore(AbstractContextManager):
         self._create_schema()
 
     def _create_schema(self) -> None:
-        """Create the direct-column observation table.
+        """Create or explicitly migrate the direct-column observation table.
 
         Logical-key checks are performed by batch joins instead of DuckDB
-        ``PRIMARY KEY`` or ``UNIQUE`` constraints.
+        ``PRIMARY KEY`` or ``UNIQUE`` constraints. New schema columns are added
+        as nullable, as required for an append-only production migration.
+        Reviewed asset precision can be reconstructed from the immutable
+        allow-list. Legacy rows for currently reviewed products without a
+        redemption preview cannot reproduce TRD and are therefore removed for
+        the backfill to rebuild. Other products' rows remain untouched.
+        A legacy ``redemption_missing_reason`` column may remain in an existing
+        DuckDB table; it is deliberately ignored rather than destructively
+        rewriting production storage.
+
+        :return:
+            None.
         """
 
         self.connection.execute(
@@ -181,25 +259,103 @@ class YieldBasisHistoricalContextStore(AbstractContextManager):
                 block_timestamp UBIGINT NOT NULL,
                 lt_address VARCHAR NOT NULL,
                 asset_address VARCHAR NOT NULL,
+                asset_decimals UTINYINT,
                 raw_asset_crvusd_price VARCHAR NOT NULL,
                 raw_asset_price_per_share VARCHAR NOT NULL,
                 raw_preview_shares VARCHAR,
                 raw_redemption_assets VARCHAR,
-                redemption_missing_reason VARCHAR,
                 raw_effective_supply VARCHAR NOT NULL,
                 raw_staked_supply VARCHAR NOT NULL
             )
             """
         )
+        columns = {row[1] for row in self.connection.execute("PRAGMA table_info('yield_basis_historical_context')").fetchall()}
+        if "asset_decimals" not in columns:
+            # Add a nullable field first and populate only reviewed LT/asset
+            # tuples without guessing precision for other historical products.
+            self.connection.execute("ALTER TABLE yield_basis_historical_context ADD COLUMN asset_decimals UTINYINT")
+        for review in YIELD_BASIS_ACTIVE_MARKETS.values():
+            self.connection.execute(
+                """
+                UPDATE yield_basis_historical_context
+                SET asset_decimals = ?
+                WHERE asset_decimals IS NULL
+                  AND chain_id = 1
+                  AND lower(lt_address) = ?
+                  AND lower(asset_address) = ?
+                """,
+                (review.asset_decimals, review.lt_address.lower(), review.asset_address.lower()),
+            )
+        reviewed_lt_addresses = [review.lt_address.lower() for review in YIELD_BASIS_ACTIVE_MARKETS.values()]
+        unresolved = self.connection.execute(
+            """
+            SELECT chain_id, lt_address, asset_address, block_number
+            FROM yield_basis_historical_context
+            WHERE asset_decimals IS NULL
+              AND lower(lt_address) = ANY(?)
+            LIMIT 1
+            """,
+            (reviewed_lt_addresses,),
+        ).fetchone()
+        if unresolved:
+            raise RuntimeError(f"YieldBasis context has unresolved asset precision for a reviewed market at {tuple(unresolved)}")
+        incomplete_accounting = self.connection.execute(
+            """
+            SELECT count(*), min(block_number), max(block_number)
+            FROM yield_basis_historical_context
+            WHERE (raw_preview_shares IS NULL
+               OR raw_redemption_assets IS NULL)
+              AND lower(lt_address) = ANY(?)
+            """,
+            (reviewed_lt_addresses,),
+        ).fetchone()
+        incomplete_count, first_incomplete_block, last_incomplete_block = incomplete_accounting
+        if incomplete_count:
+            # These observations are re-derivable archive-node data. Keeping a
+            # legacy row would omit TRD and mix fundamental and redemption
+            # accounting bases in the same equity curve.
+            logger.warning(
+                "Removing %d legacy YieldBasis context rows without complete redemption inputs from blocks %d-%d; rebuild them with scripts/erc-4626/backfill-yield-basis-vault-prices.py",
+                incomplete_count,
+                first_incomplete_block,
+                last_incomplete_block,
+            )
+            self.connection.execute(
+                """
+                DELETE FROM yield_basis_historical_context
+                WHERE (raw_preview_shares IS NULL
+                   OR raw_redemption_assets IS NULL)
+                  AND lower(lt_address) = ANY(?)
+                """,
+                (reviewed_lt_addresses,),
+            )
 
     @staticmethod
     def _values(observation: YieldBasisHistoricalObservation) -> tuple[object, ...]:
-        """Convert an observation to the direct table representation."""
+        """Convert and validate an observation for direct table storage.
+
+        The preview input/output form one required accounting unit.
+        Observations with a reverted preview are omitted before storage;
+        fundamental PPS is never substituted into a historical row.
+
+        :param observation:
+            Exact same-block YieldBasis source values.
+        :return:
+            Values in the direct DuckDB column order.
+        """
 
         effective_supply = _validate_uint(observation.raw_effective_supply, field="raw_effective_supply")
         staked_supply = _validate_uint(observation.raw_staked_supply, field="raw_staked_supply")
         if staked_supply > effective_supply:
             message = "raw_staked_supply must not exceed raw_effective_supply"
+            raise ValueError(message)
+        preview_shares = _validate_uint(observation.raw_preview_shares, field="raw_preview_shares")
+        if preview_shares == 0:
+            message = "raw_preview_shares must be positive"
+            raise ValueError(message)
+        redemption_assets = _validate_uint(observation.raw_redemption_assets, field="raw_redemption_assets")
+        if redemption_assets == 0:
+            message = "raw_redemption_assets must be positive"
             raise ValueError(message)
         return (
             observation.chain_id,
@@ -207,11 +363,11 @@ class YieldBasisHistoricalContextStore(AbstractContextManager):
             observation.block_timestamp,
             observation.lt_address.lower(),
             observation.asset_address.lower(),
+            _validate_asset_decimals(observation.asset_decimals),
             str(_validate_uint(observation.raw_asset_crvusd_price, field="raw_asset_crvusd_price")),
             str(_validate_uint(observation.raw_asset_price_per_share, field="raw_asset_price_per_share")),
-            None if observation.raw_preview_shares is None else str(_validate_uint(observation.raw_preview_shares, field="raw_preview_shares")),
-            None if observation.raw_redemption_assets is None else str(_validate_uint(observation.raw_redemption_assets, field="raw_redemption_assets")),
-            observation.redemption_missing_reason,
+            str(preview_shares),
+            str(redemption_assets),
             str(effective_supply),
             str(staked_supply),
         )
@@ -221,10 +377,8 @@ class YieldBasisHistoricalContextStore(AbstractContextManager):
 
         One unconstrained temporary table supports both conflict detection and
         deduplication without the DuckDB ART indexes avoided by this pipeline.
-        Only the required valuation fields participate in conflict detection.
-        Redemption previews are optional diagnostics whose availability and
-        exception class can vary between RPC providers; the first stored
-        diagnostic therefore wins for an otherwise identical logical row.
+        Every source value is immutable for a logical block, so one comparison
+        covers fundamental accounting, the redemption preview and token scale.
 
         :param observations:
             Source observations to insert as one batch.
@@ -240,33 +394,36 @@ class YieldBasisHistoricalContextStore(AbstractContextManager):
             """
             CREATE TEMP TABLE yield_basis_context_batch AS
             SELECT chain_id, block_number, block_timestamp, lt_address,
-                   asset_address, raw_asset_crvusd_price,
+                   asset_address, asset_decimals, raw_asset_crvusd_price,
                    raw_asset_price_per_share, raw_preview_shares,
-                   raw_redemption_assets, redemption_missing_reason,
-                   raw_effective_supply, raw_staked_supply
+                   raw_redemption_assets, raw_effective_supply,
+                   raw_staked_supply
             FROM yield_basis_historical_context
             LIMIT 0
             """
         )
         try:
+            self.connection.execute("BEGIN TRANSACTION")
             self.connection.executemany("INSERT INTO yield_basis_context_batch VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", values)
             conflict = self.connection.execute(
                 """
                 SELECT chain_id, lt_address, block_number
                 FROM (
                     SELECT chain_id, block_number, block_timestamp, lt_address,
-                           asset_address, raw_asset_crvusd_price,
+                           asset_address, asset_decimals, raw_asset_crvusd_price,
                            raw_asset_price_per_share, raw_preview_shares,
-                           raw_redemption_assets, redemption_missing_reason,
-                           raw_effective_supply, raw_staked_supply
+                           raw_redemption_assets, raw_effective_supply,
+                           raw_staked_supply
                     FROM yield_basis_historical_context
                     UNION ALL
                     SELECT * FROM yield_basis_context_batch
                 ) rows
                 GROUP BY chain_id, lt_address, block_number
                 HAVING count(DISTINCT (block_timestamp, asset_address,
-                    raw_asset_crvusd_price, raw_asset_price_per_share,
-                    raw_effective_supply, raw_staked_supply)) > 1
+                    asset_decimals, raw_asset_crvusd_price,
+                    raw_asset_price_per_share, raw_preview_shares,
+                    raw_redemption_assets, raw_effective_supply,
+                    raw_staked_supply)) > 1
                 LIMIT 1
                 """
             ).fetchone()
@@ -277,10 +434,10 @@ class YieldBasisHistoricalContextStore(AbstractContextManager):
                 """
                 INSERT INTO yield_basis_historical_context (
                     chain_id, block_number, block_timestamp, lt_address,
-                    asset_address, raw_asset_crvusd_price,
+                    asset_address, asset_decimals, raw_asset_crvusd_price,
                     raw_asset_price_per_share, raw_preview_shares,
-                    raw_redemption_assets, redemption_missing_reason,
-                    raw_effective_supply, raw_staked_supply
+                    raw_redemption_assets, raw_effective_supply,
+                    raw_staked_supply
                 )
                 SELECT DISTINCT batch.*
                 FROM yield_basis_context_batch batch
@@ -293,7 +450,11 @@ class YieldBasisHistoricalContextStore(AbstractContextManager):
                 """
             )
             after = self.connection.execute("SELECT count(*) FROM yield_basis_historical_context").fetchone()[0]
+            self.connection.execute("COMMIT")
             return int(after - before)
+        except (duckdb.Error, ValueError):
+            self.connection.execute("ROLLBACK")
+            raise
         finally:
             self.connection.execute("DROP TABLE IF EXISTS yield_basis_context_batch")
 
@@ -330,9 +491,9 @@ class YieldBasisHistoricalContextStore(AbstractContextManager):
         rows = self.connection.execute(
             """
             SELECT block_number, block_timestamp, lt_address, asset_address,
-                   raw_asset_crvusd_price, raw_asset_price_per_share,
-                   raw_preview_shares, raw_redemption_assets,
-                   redemption_missing_reason, raw_effective_supply,
+                   asset_decimals, raw_asset_crvusd_price,
+                   raw_asset_price_per_share, raw_preview_shares,
+                   raw_redemption_assets, raw_effective_supply,
                    raw_staked_supply
             FROM yield_basis_historical_context
             WHERE chain_id = ? AND lower(lt_address) = ?
@@ -349,11 +510,11 @@ class YieldBasisHistoricalContextStore(AbstractContextManager):
                 block_timestamp=int(row[1]),
                 lt_address=row[2],
                 asset_address=row[3],
-                raw_asset_crvusd_price=int(row[4]),
-                raw_asset_price_per_share=int(row[5]),
-                raw_preview_shares=None if row[6] is None else int(row[6]),
-                raw_redemption_assets=None if row[7] is None else int(row[7]),
-                redemption_missing_reason=row[8],
+                asset_decimals=int(row[4]),
+                raw_asset_crvusd_price=int(row[5]),
+                raw_asset_price_per_share=int(row[6]),
+                raw_preview_shares=int(row[7]),
+                raw_redemption_assets=int(row[8]),
                 raw_effective_supply=int(row[9]),
                 raw_staked_supply=int(row[10]),
             )
@@ -395,7 +556,7 @@ class YieldBasisHistoricalContextStore(AbstractContextManager):
 
 
 def fetch_yield_basis_observation(vault: "YieldBasisVault", block_number: int, block_timestamp: int) -> YieldBasisHistoricalObservation | None:
-    """Read one required and optional YieldBasis valuation snapshot.
+    """Read one reproducible YieldBasis valuation snapshot.
 
     All contract values come from ``block_number`` and its timestamp comes
     from the shared cache-aware Hypersync timestamp pipeline. A zero-supply
@@ -426,8 +587,10 @@ def _fetch_optional_yield_basis_observation(vault: "YieldBasisVault", block_numb
     """Read one observation while isolating expected unavailable state.
 
     A contract-state error is ignored only before the reviewed deployment
-    block. Once the product exists, RPC and contract errors propagate so a
-    transient provider failure cannot create an unnoticed hole in history.
+    block. Once the product exists, RPC and provider errors propagate so a
+    transient failure cannot create an unnoticed hole in history. A
+    deterministic redemption-preview revert is handled by the adapter and
+    produces a logged missing sample instead.
 
     :param vault:
         Reviewed YieldBasis LT adapter.
@@ -447,7 +610,7 @@ def _fetch_optional_yield_basis_observation(vault: "YieldBasisVault", block_numb
             return None
         raise
     if observation is None:
-        logger.debug("YieldBasis LT %s has zero effective supply at block %d", vault.address, block_number)
+        logger.debug("YieldBasis LT %s has no complete valuation observation at block %d", vault.address, block_number)
     return observation
 
 
@@ -466,11 +629,11 @@ def fetch_and_store_yield_basis_historical_context(
 ) -> YieldBasisContextPrefillResult:
     """Read and persist bounded YieldBasis historical state.
 
-    Required calls are all-or-nothing for one observation. Samples before an
-    LT's reviewed deployment block are not scheduled. Successful observations
-    are persisted in bounded batches, so a later provider failure does not
-    discard the complete backfill. An unavailable redemption preview is
-    represented as a nullable diagnostic by the vault adapter.
+    All valuation calls, including the redemption preview, are required for a
+    stored observation. Samples before an LT's reviewed deployment block are
+    not scheduled, and a deterministic preview revert leaves a logged gap.
+    Successful observations are persisted in bounded batches, so a later
+    provider failure does not discard the completed part of the backfill.
 
     :param web3:
         Archive-capable Ethereum connection.

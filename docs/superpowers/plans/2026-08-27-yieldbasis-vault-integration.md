@@ -14,12 +14,15 @@ non-ERC-4626 liquidity-provider shares:
 - prefill protocol-owned historical context before the common price scan; and
 - use the normal Parquet, cleaning and lifetime-metrics pipeline.
 
-The primary denomination is Ethereum crvUSD. The primary curve must include the
-underlying BTC or ETH price move against crvUSD. A protocol-specific native
-asset curve must use the same endpoint blocks so readers can distinguish LT PPS
-performance from the market move.
+The primary denomination is synthetic USD. The primary curve must include the
+underlying BTC or ETH price move against the Curve stable-side USD proxy. A
+protocol-specific native asset curve must use the same endpoint blocks so
+readers can distinguish LT PPS performance from the market move. Because the LT
+accepts the volatile asset, USD investor returns must also apply a fixed
+10-basis-point generic stablecoin conversion once on entry and once on exit,
+without price impact.
 
-The supported unstaked products are fixed for this first implementation:
+The supported transferable yb-LP products are fixed for this first implementation:
 
 | Market ID | Underlying | LT/yb-LP share token |
 |----------:|------------|----------------------|
@@ -29,8 +32,9 @@ The supported unstaked products are fixed for this first implementation:
 | 10 | WETH | `0x2B9c9f3BdcEb5d8E36a4704F08a78Fca53343cEa` |
 
 The Factory is `0x370a449FeBb9411c95bf897021377fe0B7D100c0`.
-The required denomination token is Ethereum crvUSD at
-`0xf939E0A03FB07F59A73314E73794Be0E57ac1b4E`.
+The Factory stable-side token is Ethereum crvUSD at
+`0xf939E0A03FB07F59A73314E73794Be0E57ac1b4E`; it is validated as protocol
+plumbing rather than exported as the investor denomination token.
 
 Do not include staked gauge positions, YB incentives, Hybrid Vaults, legacy
 market performance, deposit transactions or flow reconstruction.
@@ -46,9 +50,10 @@ The public description must be prescriptive about the following points:
 
 - yb-LP is a leveraged liquidity-provider share, not a stablecoin account;
 - BTC and ETH price moves remain part of the primary result;
-- crvUSD denomination is not an exact US dollar measure during a crvUSD depeg;
+- the accounting denomination is generic USD, not a prescribed stablecoin;
 - native-asset CAGR is a diagnostic, not guaranteed yield or fee APR;
-- fundamental PPS is not an executable redemption quote; and
+- the primary curve incorporates marginal redemption value and TRD, while
+  fundamental PPS remains a diagnostic; and
 - a technical protocol-risk label does not imply low investment volatility.
 
 WBTC, cbBTC and tBTC remain separate products because each wrapper has distinct
@@ -60,30 +65,53 @@ Read all values for one observation at the same Ethereum block. Use named
 18-decimal scale constants:
 
 ```text
-native_asset_pps    = LT.pricePerShare() / PPS_SCALE
-asset_crvusd_price  = CurvePool.price_oracle() / ORACLE_SCALE
-crvusd_share_price  = native_asset_pps × asset_crvusd_price
-effective_supply    = LT.updated_balances().supply_tokens / LT_SHARE_SCALE
-total_assets_crvusd = crvusd_share_price × effective_supply
+fundamental_native_pps = LT.pricePerShare() / PPS_SCALE
+preview_shares         = min(LT_SHARE_SCALE, raw effective supply)
+redemption_native_pps  = preview_withdraw(preview_shares)
+                         / asset decimal scale
+                         / (preview_shares / LT_SHARE_SCALE)
+asset_usd_proxy_price  = CurvePool.price_oracle() / ORACLE_SCALE
+usd_share_price        = redemption_native_pps × asset_usd_proxy_price
+effective_supply       = LT.updated_balances().supply_tokens / LT_SHARE_SCALE
+total_assets_usd       = usd_share_price × effective_supply
 ```
+
+Keep this common share price gross of investor-specific swaps. Entry and exit
+fees are endpoint costs and must not be multiplied into every point of the
+equity curve. Calculate the protocol-specific net period return as:
+
+```text
+1 + net USD return
+    = (1 - fixed 10 bps entry cost)
+      × redemption USD share price at exit
+        / fundamental USD PPS at entry
+      × (1 - fixed 10 bps exit cost)
+```
+
+Model the endpoint cost as a Python function of the LT underlying-token address.
+Return a constant 10 bps for every reviewed token initially. Do not store this
+assumption in historical context or use an executable quote with
+trade-size-dependent price impact.
 
 Write the common historical row as:
 
 ```text
-share_price  = crvusd_share_price
+share_price  = usd_share_price
 total_supply = effective_supply
-total_assets = total_assets_crvusd
+total_assets = total_assets_usd
 ```
 
-Resolve the denomination token from both the Factory and LT and require it to
-match reviewed crvUSD. Export `_synthetic_usd_denomination = False`; do not use
-USDC as a substitute.
+Validate Factory and LT crvUSD wiring during the pre-scan, but export synthetic
+USD with no ERC-20 denomination address and
+`_synthetic_usd_denomination = True`.
 
 The primary and native returns have this exact relationship:
 
 ```text
-1 + crvUSD return
-    = (1 + native LT PPS return) × (1 + asset/crvUSD return)
+1 + USD return
+    = fundamental PPS end / start
+      × (1 + TRD end) / (1 + TRD start)
+      × asset/crvUSD price end / start
 ```
 
 Persist only context required by the common reader and the requested
@@ -92,15 +120,18 @@ YieldBasis-specific analysis:
 - native LT PPS;
 - Curve asset/crvUSD oracle;
 - effective and staked LT supply;
-- previewed share and underlying amounts; and
-- a concise reason when the optional redemption preview is unavailable.
+- underlying ERC-20 decimal precision;
+- previewed share and underlying amounts.
 
-Calculate native return/CAGR, temporary redemption difference and staked ratio
-from these raw values. Keep the common Parquet schema unchanged.
+Calculate redemption-basis gross USD return/CAGR, mint-to-redemption net USD
+return/CAGR, native return/CAGR, TRD and staked ratio from these raw values.
+Keep the common Parquet schema unchanged.
 
 Classify protocol fees as `VaultFeeMode.internalised_minting`. Return `None`
 for fixed management and performance percentages because LT accounting already
-reflects the allocation borne by existing unstaked holders.
+reflects the allocation borne by existing holders. Expose the fixed token-based
+10-bps estimate separately as both the standard deposit and withdrawal fee; the
+internalised fee mode preserves these two endpoint costs in net metrics.
 
 ## 1. Add the protocol package and interfaces
 
@@ -111,7 +142,7 @@ Create `eth_defi/yield_basis/` with:
 - `vault_catalog.py` for the safe pre-scan;
 - `vault_sync.py` for common metadata reconciliation;
 - `historical_context.py` for raw sampled state;
-- `metrics.py` for pure native/crvUSD and redemption calculations;
+- `metrics.py` for pure native/USD and redemption calculations;
 - `vault.py` for `YieldBasisVault` and its contextual reader;
 - `tags.py` for address-level strategy classification; and
 - `README-YieldBasis.md` for product and pipeline documentation.
@@ -168,8 +199,11 @@ Ethereum LTs; Factory reconciliation remains the discovery source of truth.
 `YieldBasisVault` must:
 
 - implement `VaultBase` directly;
-- return real crvUSD `TokenDetails` as its denomination;
-- expose current fundamental PPS, supply, total assets and contextual history;
+- return no ERC-20 denomination token and export synthetic USD metadata;
+- expose current marginal-redemption PPS, supply and total assets, plus
+  fundamental diagnostics and contextual history;
+- expose the fixed 10-bps token-based estimate as both USD-stablecoin entry and
+  exit cost while excluding price impact;
 - return market-making and liquidity-provision flags;
 - resolve maintained strategy tags by lowercase address;
 - return `None` for an unmapped address;
@@ -199,17 +233,26 @@ timestamps with the cache-aware Hypersync helper and read contract state from
 the configured archive RPC provider using a bounded threaded worker pool.
 Product/block pairs before the reviewed deployment block are not scheduled.
 The defensive read guard skips provider or contract-state failures only before
-that block; postdeployment RPC failures abort the bounded run instead of
-leaving a silent gap. A deployed zero-supply LT is omitted until it has
-investment value. Invalid decoded values propagate as errors. A reverting
-`preview_withdraw()` produces nullable diagnostic fields.
+that block; postdeployment RPC failures abort a manual bounded run instead of
+leaving a silent gap. The recurring scanner withholds YieldBasis after a
+context-prefill failure so unrelated Ethereum vaults can continue. A deployed
+zero-supply LT is omitted until it has investment value. Invalid decoded values
+propagate as errors. A deterministic `preview_withdraw()` contract revert is
+logged as a missing sample because retrying the same block cannot repair it.
+The common reader never falls back to fundamental PPS.
 
 Insert each prefill in bounded resumable batches rather than creating a DuckDB
 temporary table for every product/block pair or retaining a full backfill only
 in memory.
 
+When migrating the earlier schema, fill `asset_decimals` only for reviewed
+LT/asset pairs. Log and remove legacy rows without a complete redemption
+preview. Use the full backfill to reconstruct those blocks and replace the
+earlier YieldBasis Parquet curve. Endpoint conversion costs are fixed metadata,
+not historical observations.
+
 `YieldBasisHistoricalReader` must set `uses_contextual_history = True`, select
-the latest source row in each requested bucket, derive the common crvUSD values
+the latest source row in each requested bucket, derive the common USD values
 and yield normal `VaultHistoricalRead` objects.
 
 Scheduled scans use `YIELD_BASIS_INITIAL_CONTEXT_LOOKBACK_BLOCKS`, defaulting to
@@ -229,8 +272,8 @@ Add four scripts:
 |--------|--------------------|
 | `migrate-yield-basis-vaults-metadata.py` | Default dry run; validate and reconcile exactly four rows; never touch price or reader state |
 | `backfill-yield-basis-vault-prices.py` | Scan hourly from the earliest reviewed launch to one safe head; replace only four address histories; never pass or mutate reader state |
-| `examine-yield-basis-vault-backfill.py` | Check scope, duplicates, positive values, exact context linkage and `assets = price × supply` |
-| `examine-yield-basis-performance.py` | Show lifetime and three-month crvUSD and native CAGR on identical endpoint blocks, plus TVL, redemption difference and staked ratio |
+| `examine-yield-basis-vault-backfill.py` | Check scope, duplicates, positive values, exact context linkage, the gross redemption share-price formula and `assets = price × supply` |
+| `examine-yield-basis-performance.py` | Show lifetime and three-month redemption-basis gross USD CAGR, mint-to-redemption net USD CAGR and fundamental native CAGR on identical endpoint blocks, plus TVL, fixed conversion/round-trip cost, TRD and staked ratio |
 
 Both mutating scripts default to `DRY_RUN=true`. The price backfill retains an
 inspectable temporary directory and hashes the scheduled reader-state pickle
@@ -249,12 +292,14 @@ not scanner implementation.
 Add Sphinx vault and API pages and include them in both indexes. Add a
 prescriptive protocol note explaining:
 
-- crvUSD denomination and depeg basis;
+- synthetic USD denomination and the internal crvUSD source;
 - BTC/ETH market exposure;
 - the purpose of native-token CAGR;
-- fundamental versus executable redemption value;
-- internalised fee treatment; and
-- the read-only unstaked-LT scope.
+- the marginal redemption share-price formula and its distinction from
+  fundamental value;
+- internalised product-fee treatment and the separate fixed generic-stablecoin
+  entry and exit cost assumption, with price impact excluded; and
+- the read-only transferable-LT scope, excluding gauge incentives.
 
 Write `eth_defi/yield_basis/README-YieldBasis.md` with the same reader journey as
 the GMX vault README: product model, volatility risk, accounting, architecture,
@@ -268,33 +313,41 @@ Add focused no-RPC coverage for:
 
 - Ethereum-only hardcoded routing and exact features;
 - protocol name and activity-filter exemption;
-- fee, risk and vault flags;
+- internalised product-fee mode, fixed entry/exit costs, risk and vault
+  flags;
 - permissionless classification and its caveat;
 - exact strategy tags and an unmapped address returning `None`;
 - context idempotence, conflict rejection, bucketing and absence of ART
   constraints;
-- zero-supply launch handling and threaded context prefill;
+- logged removal of rows without complete preview inputs, zero-supply launch
+  handling and threaded context prefill;
+- deterministic preview gaps and scheduled-scan isolation after a context
+  prefill error;
 - reviewed Factory enumeration and catalogue reconciliation;
 - contextual-reader conversion to common vault rows;
-- native/crvUSD return decomposition, redemption difference and staked ratio;
+- native/USD return decomposition, redemption value, fixed-cost round-trip
+  return, TRD and staked ratio;
   and
 - metadata and logos.
 
 Add a guarded real-provider test that exercises Factory, LT, Curve and AMM
-reads plus one complete crvUSD valuation at one safe head. The default-dry-run
-metadata migration additionally checks ERC-20 metadata without writing the
-metadata database.
+reads plus complete 8-decimal WBTC and 18-decimal WETH USD valuations at one
+safe head. The default-dry-run metadata migration additionally checks ERC-20
+metadata without writing the metadata database.
 
 Acceptance criteria:
 
 - exactly four reviewed Ethereum rows are published;
 - every row uses `YieldBasisVault` and the three required features;
-- every row resolves real crvUSD as denomination;
-- a 10% asset/crvUSD move with unchanged native PPS produces about a 10%
-  primary move;
-- the examiner reports crvUSD and native CAGR on identical endpoint blocks;
+- every row exports synthetic USD as denomination;
+- a 10% asset/USD proxy move with unchanged native PPS and TRD produces about a
+  10% primary move;
+- the examiner reports redemption-basis gross USD, mint-to-redemption net USD
+  and native CAGR on identical endpoint blocks, using fundamental PPS at entry,
+  redemption value at exit and the fixed 10-bps cost once per endpoint;
 - supply-only movement cannot create false performance;
 - Factory or product validation failure cannot damage unrelated scans;
+- a YieldBasis context-prefill failure cannot stop unrelated Ethereum pricing;
 - the backfill leaves reader state unchanged; and
 - focused tests, Ruff and `git diff --check` pass.
 
@@ -308,7 +361,7 @@ Do not add these to the first implementation:
 - Hybrid Vault account aggregation;
 - transaction-building deposit or withdrawal managers;
 - investor flow reconstruction;
-- USDC conversion or an external dollar feed;
+- an executable stablecoin route or external dollar feed;
 - Factory event replay, per-market scan cursors or gap-state tables; or
 - secondary lending-oracle history not consumed by the requested metrics.
 

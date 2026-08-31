@@ -9,6 +9,7 @@ from types import SimpleNamespace
 import pytest
 from eth_typing import HexAddress
 from eth_utils import to_checksum_address
+from web3.exceptions import Web3Exception
 
 from eth_defi.compat import native_datetime_utc_now
 from eth_defi.erc_4626.core import ERC4262VaultDetection, ERC4626Feature
@@ -221,7 +222,8 @@ def test_metadata_pre_scan_failure_preserves_existing_rows(tmp_path: Path, monke
     assert persisted["Name"] == original_row["Name"]
 
 
-def test_price_scan_withholds_by_address_and_resumes_from_chain_reader_state(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+@pytest.mark.parametrize("prefill_fails", (False, True))
+def test_price_scan_withholds_by_address_and_resumes_from_chain_reader_state(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, *, prefill_fails: bool) -> None:
     """Keep unrelated vaults and resume context from common chain state.
 
     The unrelated adapter deliberately lacks ``features``. This catches a
@@ -233,6 +235,9 @@ def test_price_scan_withholds_by_address_and_resumes_from_chain_reader_state(tmp
         Isolated metadata, reader-state and output paths.
     :param monkeypatch:
         Pytest patch fixture used to isolate network and Parquet operations.
+    :param prefill_fails:
+        Simulate a transient context-prefill error while unrelated vaults
+        continue through the common writer.
     :return:
         None.
     """
@@ -280,10 +285,19 @@ def test_price_scan_withholds_by_address_and_resumes_from_chain_reader_state(tmp
     monkeypatch.setattr(scan_all_chains, "fetch_yield_basis_scan_preparation", lambda _web3, _block_number: preparation)
 
     def fake_context_prefill(**kwargs: object) -> YieldBasisContextPrefillResult:
-        """Capture the selected address scope and continuation point."""
+        """Capture the selected scope and optionally fail the prefill.
+
+        :param kwargs:
+            Production prefill arguments captured for assertions.
+        :return:
+            Empty successful result when failure simulation is disabled.
+        """
 
         captured["context_start"] = kwargs["start_block"]
         captured["context_vaults"] = tuple(vault.address.lower() for vault in kwargs["vaults"])
+        if prefill_fails:
+            message = "temporary archive provider failure"
+            raise Web3Exception(message)
         return YieldBasisContextPrefillResult(1, int(kwargs["start_block"]), int(kwargs["end_block"]), 0, 0)
 
     def fake_price_writer(**kwargs: object) -> dict[str, object]:
@@ -306,7 +320,7 @@ def test_price_scan_withholds_by_address_and_resumes_from_chain_reader_state(tmp
         end_block=SCANNER_END_BLOCK,
     )
 
-    expected_addresses = {valid_review.lt_address.lower(), UNRELATED_VAULT.lower()}
+    expected_addresses = {UNRELATED_VAULT.lower()} if prefill_fails else {valid_review.lt_address.lower(), UNRELATED_VAULT.lower()}
     assert success is True
     assert metrics["items_scanned"] == len(expected_addresses)
     assert captured["context_start"] == CHAIN_READER_BLOCK

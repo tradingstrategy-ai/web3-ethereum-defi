@@ -1,14 +1,19 @@
 """Backfill the four reviewed Ethereum YieldBasis LT price histories.
 
-This is the YieldBasis equivalent of ``backfill-gmx-vault-prices.py``.  It
+This is the YieldBasis equivalent of ``backfill-gmx-vault-prices.py``. It
 uses one reviewed half-open range, prefills the protocol-owned context table,
-and invokes the common address-scoped Parquet writer once.  It never passes a
+and invokes the common address-scoped Parquet writer once. It never passes a
 reader-state mapping, so scheduled reader progress is preserved.  ``DRY_RUN``
 defaults to true and writes an inspectable copy in a temporary directory.
+The dense shared block-timestamp cache is read in both modes; it is
+infrastructure required to avoid rebuilding millions of Ethereum timestamps,
+not a YieldBasis valuation output.
 
-Only infrastructure paths and worker/logging settings are configurable.  The
+Only infrastructure paths and worker/logging settings are configurable. The
 chain, four LT addresses, hourly frequency and historical start policy are
-reviewed constants in this script.
+reviewed constants in this script. ``TIMESTAMP_CACHE`` may point to an
+equivalent prepopulated dense cache; otherwise the canonical repository cache
+folder is used.
 """
 
 import hashlib
@@ -36,9 +41,6 @@ from eth_defi.vault.vaultdb import DEFAULT_READER_STATE_DATABASE, VaultDatabase,
 from eth_defi.yield_basis.addresses import YIELD_BASIS_ACTIVE_MARKETS
 from eth_defi.yield_basis.historical_context import YieldBasisContextPrefillResult, fetch_and_store_yield_basis_historical_context, get_yield_basis_historical_context_path
 from eth_defi.yield_basis.vault import YieldBasisVault
-
-#: Routing feature used to select exactly the reviewed LT rows.
-YIELD_BASIS_FEATURES: set[ERC4626Feature] = {ERC4626Feature.yield_basis_lt}
 
 #: Historical output frequency shared with the common hourly pipeline.
 YIELD_BASIS_FREQUENCY: str = "1h"
@@ -190,7 +192,15 @@ def run_backfill(  # noqa: PLR0914
 
 
 def main() -> None:  # noqa: PLR0914
-    """Resolve paths, run the backfill and print a product summary."""
+    """Resolve paths, run the backfill and print a product summary.
+
+    Dry-run mode isolates the mutable Parquet, context and token-cache outputs
+    in one retained directory while reusing the dense timestamp cache. Applied
+    mode writes the configured pipeline files under the scanner lock.
+
+    :return:
+        None.
+    """
 
     setup_console_logging(default_log_level=os.environ.get("LOG_LEVEL", "info"))
     pipeline_dir = get_pipeline_data_dir()
@@ -198,6 +208,12 @@ def main() -> None:  # noqa: PLR0914
     production_price_database = Path(os.environ.get("UNCLEANED_PRICE_DATABASE", pipeline_dir / "vault-prices-1h.parquet")).expanduser()
     production_context_database = Path(os.environ.get("CONTEXT_DATABASE", get_yield_basis_historical_context_path())).expanduser()
     production_token_cache = Path(os.environ.get("TOKEN_CACHE", TokenDiskCache.DEFAULT_TOKEN_DISK_CACHE_PATH)).expanduser()
+    # The dense timestamp cache is shared infrastructure, not a YieldBasis
+    # valuation output. Reuse it in dry runs as well as persistent runs. An
+    # empty temporary cache would attempt thousands of exact Hypersync reads,
+    # invite rate limiting and violate the operator rule that historical
+    # backfills start from the preserved dense per-chain cache.
+    timestamp_cache_path = Path(os.environ.get("TIMESTAMP_CACHE", DEFAULT_TIMESTAMP_CACHE_FOLDER)).expanduser()
     dry_run = os.environ.get("DRY_RUN", "true").lower() == "true"
     max_workers = int(os.environ.get("MAX_WORKERS", "4"))
 
@@ -208,14 +224,12 @@ def main() -> None:  # noqa: PLR0914
         price_database = retained_directory / production_price_database.name
         context_database = retained_directory / production_context_database.name
         token_cache_path = retained_directory / "tokens.sqlite"
-        timestamp_cache_path = retained_directory / "block-timestamp"
         if production_price_database.exists():
             shutil.copy2(production_price_database, price_database)
     else:
         price_database = production_price_database
         context_database = production_context_database
         token_cache_path = production_token_cache
-        timestamp_cache_path = DEFAULT_TIMESTAMP_CACHE_FOLDER
 
     lock = nullcontext() if dry_run else wait_other_writers(pipeline_dir / "scan-pipeline", timeout=60)
     with lock:
@@ -229,7 +243,7 @@ def main() -> None:  # noqa: PLR0914
         )
 
     rows = [(review.market_id, review.asset_symbol, review.lt_address) for review in YIELD_BASIS_ACTIVE_MARKETS.values()]
-    print(tabulate(rows, headers=("Market", "Native token", "LT address"), tablefmt="rounded_outline"))
+    print(tabulate(rows, headers=("Market", "Underlying token", "LT address"), tablefmt="rounded_outline"))
     print(f"Context observations fetched={context_result.observations_fetched}, inserted={context_result.observations_inserted}")
     print(pformat_scan_result(writer_result))
     if retained_directory is not None:

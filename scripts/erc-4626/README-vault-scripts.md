@@ -857,7 +857,7 @@ manual backfill for older history.
 
 #### YieldBasis leveraged LT markets
 
-The Ethereum YieldBasis integration covers the four reviewed unstaked LT
+The Ethereum YieldBasis integration covers the four reviewed transferable yb-LP
 markets: WBTC (market 7), cbBTC (market 8), tBTC (market 9) and WETH (market
 10). The full product, accounting, risk and pipeline explanation is in
 [`README-YieldBasis.md`](../../eth_defi/yield_basis/README-YieldBasis.md).
@@ -874,14 +874,19 @@ YieldBasis Factory pre-scan
 ```
 
 The pre-scan validates only reviewed products and the LT, Curve and AMM links
-used by valuation. Its fixed snapshot is reconciled once: immediately on a
-lead-cache hit, or after discovery on a cache miss so any same-address generic
+used by valuation and deposit availability. Its fixed snapshot is reconciled
+once: immediately on a lead-cache hit, or after discovery on a cache miss so
+any same-address generic
 row is repaired. A failure leaves existing YieldBasis data intact and does not
 stop unrelated Ethereum work. The price phase revalidates independently before
-sampling the native LT PPS, asset/crvUSD oracle, effective and staked supply,
-and optional redemption preview. It does not schedule a product before its
-reviewed deployment block and commits context in bounded idempotent batches, so
-a later provider failure retains completed work for the next run.
+sampling the underlying LT PPS, asset/crvUSD oracle, effective and staked
+supply, underlying decimal precision and marginal redemption preview. The
+preview is the primary gross share-price input. A deterministic contract revert
+leaves a logged sample gap instead of creating a fundamental-value fallback. A
+transient provider error stops the manual bounded backfill for retry; the
+recurring scanner instead withholds YieldBasis for that cycle and continues
+unrelated Ethereum vaults. Products are not scheduled before their reviewed
+deployment block, and context is committed in bounded idempotent batches.
 
 The scheduled scanner bounds its first context prefill with
 ``YIELD_BASIS_INITIAL_CONTEXT_LOOKBACK_BLOCKS`` (default 100,000 blocks). Use
@@ -915,10 +920,29 @@ source .local-test.env && DRY_RUN=false \
   poetry run python scripts/erc-4626/backfill-yield-basis-vault-prices.py
 ```
 
+Both modes reuse the canonical dense cache at
+`~/.tradingstrategy/block-timestamp` so a dry run does not bootstrap thousands
+of sparse exact-timestamp requests. `TIMESTAMP_CACHE` may override that folder
+when an operator has prepared an equivalent dense copy. The retained
+YieldBasis valuation context, token cache and Parquet remain isolated.
+
+The first run after upgrading from earlier accounting logs and removes context
+rows for the four reviewed products that cannot reproduce a TRD-inclusive
+share price; context for products outside the current allow-list is preserved.
+Endpoint conversion is a fixed VaultBase cost assumption and is not historical
+context. The full backfill reconstructs redemption inputs and replaces the four
+earlier YieldBasis histories in the address-scoped Parquet write. Do not rely
+on an ordinary bounded scanner cycle for this accounting migration.
+
 After a full backfill, run the read-only structural check and the dual-CAGR
-report. The report prints crvUSD and native-token lifetime and three-month
-CAGR using identical endpoint blocks, plus current TVL, redemption discount
-and staked ratio where available:
+report. The structural check reproduces every gross raw share price from the
+exact redemption inputs. The report prints redemption-basis gross USD CAGR and
+depositor net USD CAGR alongside fundamental underlying-token lifetime and
+three-month CAGR using identical endpoint blocks. Depositor net CAGR uses
+fundamental PPS at entry, redemption value at exit and the fixed 10-bps generic
+stablecoin conversion once at each endpoint. It does not include price impact.
+Current TVL, TRD, one-way conversion cost, round-trip cost and staked ratio are
+shown where available:
 
 ```shell
 source .local-test.env && REQUIRE_ALL_PRODUCTS=true \

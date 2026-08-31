@@ -6,7 +6,7 @@ from dataclasses import dataclass
 
 from web3 import Web3
 
-from eth_defi.erc_4626.core import ERC4262VaultDetection, ERC4626Feature
+from eth_defi.erc_4626.core import ERC4262VaultDetection
 from eth_defi.erc_4626.scan import create_vault_scan_record
 from eth_defi.token import TokenDiskCache
 from eth_defi.vault.base import VaultSpec
@@ -14,6 +14,7 @@ from eth_defi.vault.flag import YIELD_BASIS_NOTE
 from eth_defi.vault.strategy_tag import lookup_strategy_tags
 from eth_defi.vault.vaultdb import VaultDatabase, VaultRow
 from eth_defi.yield_basis.tags import STRATEGY_TAGS
+from eth_defi.yield_basis.vault import YIELD_BASIS_VAULT_FEATURES, export_yield_basis_usd_denomination
 from eth_defi.yield_basis.vault_catalog import YieldBasisMarket, YieldBasisScanPreparation, fetch_yield_basis_scan_preparation
 
 logger = logging.getLogger(__name__)
@@ -21,8 +22,27 @@ logger = logging.getLogger(__name__)
 #: Explanation exported when the reviewed AMM kill switch is active.
 YIELD_BASIS_DISABLED_DEPOSIT_REASON = "YieldBasis market is killed or not currently reviewed for publication"
 
-#: Features persisted on every reviewed YieldBasis LT row.
-YIELD_BASIS_FEATURES: frozenset[ERC4626Feature] = frozenset({ERC4626Feature.yield_basis_lt, ERC4626Feature.amm_pool_like, ERC4626Feature.share_price_equivalence})
+#: Catalogue fields that remain safe to refresh after a transient metadata
+#: read failure. Protocol component fields are selected by their prefix.
+YIELD_BASIS_CATALOGUE_FIELDS: frozenset[str] = frozenset(
+    {
+        "Name",
+        "Protocol",
+        "Denomination",
+        "Features",
+        "Link",
+        "_notes",
+        "_description",
+        "_short_description",
+        "_denomination_token",
+        "_synthetic_usd_denomination",
+        "_deposits_open",
+        "_deposit_closed_reason",
+        "_strategy_tags",
+        "features",
+        "_detection_data",
+    }
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -50,7 +70,7 @@ def _product_name(product: YieldBasisMarket) -> str:
 def _product_description(product: YieldBasisMarket) -> str:
     """Build a concise, user-facing description for one market."""
 
-    return f"YieldBasis market {product.market_id} supplies {product.review.asset_symbol} and borrowed crvUSD to a Curve Cryptoswap pool through LEVAMM. The unstaked yb-LP share is reported in crvUSD but remains exposed to {product.review.asset_symbol}/crvUSD volatility. Fundamental value can differ from an immediate redemption quote because of temporary redemption discounts, leverage, oracle and liquidity conditions."
+    return f"YieldBasis market {product.market_id} supplies {product.review.asset_symbol} and borrowed crvUSD to a Curve Cryptoswap pool through LEVAMM. The yb-LP share remains exposed to {product.review.asset_symbol} price volatility, and an immediate redemption can be below fundamental value because of the Temporary Redemption Discount."
 
 
 def _normalise_row(row: VaultRow, product: YieldBasisMarket) -> VaultRow:
@@ -58,14 +78,15 @@ def _normalise_row(row: VaultRow, product: YieldBasisMarket) -> VaultRow:
 
     row["Name"] = _product_name(product)
     row["Protocol"] = "YieldBasis"
-    row["Denomination"] = "crvUSD"
-    row["Features"] = ", ".join(sorted(feature.name for feature in YIELD_BASIS_FEATURES))
+    row["Denomination"] = "USD"
+    row["Features"] = ", ".join(sorted(feature.name for feature in YIELD_BASIS_VAULT_FEATURES))
     row["Link"] = "https://yieldbasis.com/earn"
     row["_notes"] = YIELD_BASIS_NOTE
     row["_strategy_tags"] = lookup_strategy_tags(STRATEGY_TAGS, product.lt_address)
     row["_description"] = _product_description(product)
-    row["_short_description"] = f"YieldBasis {product.review.asset_symbol}/crvUSD leveraged liquidity-provider share"
-    row["_synthetic_usd_denomination"] = False
+    row["_short_description"] = f"YieldBasis {product.review.asset_symbol} leveraged liquidity-provider share"
+    row["_denomination_token"] = export_yield_basis_usd_denomination(1)
+    row["_synthetic_usd_denomination"] = True
     row["_yield_basis_market_id"] = product.market_id
     row["_yield_basis_underlying_token"] = product.asset_address.lower()
     row["_yield_basis_underlying_symbol"] = product.review.asset_symbol
@@ -93,7 +114,7 @@ def fetch_and_sync_yield_basis_vault_catalogue(  # noqa: PLR0914
 ) -> YieldBasisCatalogueSyncResult:
     """Validate and upsert the reviewed YieldBasis products.
 
-    The function mutates only the supplied in-memory database.  Callers choose
+    The function mutates only the supplied in-memory database. Callers choose
     when to commit it, allowing a Factory-wide failure to leave the prior
     catalogue intact.
 
@@ -134,7 +155,7 @@ def fetch_and_sync_yield_basis_vault_catalogue(  # noqa: PLR0914
             address=product.lt_address.lower(),
             first_seen_at_block=first_seen_at_block,
             first_seen_at=first_seen_at,
-            features=set(YIELD_BASIS_FEATURES),
+            features=set(YIELD_BASIS_VAULT_FEATURES),
             updated_at=updated_at_datetime,
             deposit_count=0,
             redeem_count=0,
@@ -152,7 +173,7 @@ def fetch_and_sync_yield_basis_vault_catalogue(  # noqa: PLR0914
             if scan_failed:
                 # Keep previously healthy scanner fields, while replacing
                 # catalogue identity and current kill state.
-                merged.update({key: row[key] for key in row if key.startswith("_yield_basis") or key in {"Name", "Protocol", "Denomination", "Features", "Link", "_notes", "_description", "_short_description", "_synthetic_usd_denomination", "_deposits_open", "_deposit_closed_reason", "_strategy_tags", "features", "_detection_data"}})
+                merged.update({key: row[key] for key in row if key.startswith("_yield_basis") or key in YIELD_BASIS_CATALOGUE_FIELDS})
             else:
                 merged.update(row)
             row = merged

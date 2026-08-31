@@ -44,7 +44,7 @@ class YieldBasisMarketReview:
     asset_decimals: int
 
 
-#: The four active unstaked markets covered by this integration.
+#: The four active LT markets covered by this integration.
 YIELD_BASIS_ACTIVE_MARKETS: dict[int, YieldBasisMarketReview] = {
     7: YieldBasisMarketReview(
         7,

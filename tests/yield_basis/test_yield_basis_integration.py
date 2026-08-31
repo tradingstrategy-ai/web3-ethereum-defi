@@ -1,20 +1,22 @@
 """Real-provider coverage for the reviewed YieldBasis valuation path."""
 
 import os
+from decimal import Decimal
 
 import pytest
 
 from eth_defi.provider.broken_provider import get_almost_latest_block_number
 from eth_defi.provider.multi_provider import create_multi_provider_web3
 from eth_defi.vault.base import VaultSpec
-from eth_defi.yield_basis.addresses import YIELD_BASIS_ACTIVE_MARKETS, YIELD_BASIS_STABLECOIN
+from eth_defi.yield_basis.addresses import YIELD_BASIS_ACTIVE_MARKETS
+from eth_defi.yield_basis.metrics import temporary_redemption_discount
 from eth_defi.yield_basis.vault import YieldBasisVault
 from eth_defi.yield_basis.vault_catalog import fetch_yield_basis_scan_preparation
 
 JSON_RPC_ETHEREUM: str | None = os.environ.get("JSON_RPC_ETHEREUM")
 
-#: Reviewed WETH market used for the focused valuation read.
-YIELD_BASIS_LIVE_TEST_MARKET_ID: int = 10
+#: Reviewed 8-decimal WBTC and 18-decimal WETH markets used for valuation reads.
+YIELD_BASIS_LIVE_TEST_MARKET_IDS: tuple[int, ...] = (7, 10)
 
 pytestmark = pytest.mark.skipif(JSON_RPC_ETHEREUM is None, reason="JSON_RPC_ETHEREUM is required for the real YieldBasis integration test")
 
@@ -39,13 +41,34 @@ def test_real_yield_basis_catalogue_and_valuation_path() -> None:
     assert preparation.review_required == ()
     assert {product.market_id for product in preparation.products} == set(YIELD_BASIS_ACTIVE_MARKETS)
 
-    product = next(product for product in preparation.products if product.market_id == YIELD_BASIS_LIVE_TEST_MARKET_ID)
-    vault = YieldBasisVault(web3, VaultSpec(1, product.lt_address), default_block_identifier=block_number)
-    native_price_per_share = vault.fetch_native_asset_price_per_share(block_number)
-    asset_crvusd_price = vault.fetch_asset_crvusd_price(block_number)
+    products = {product.market_id: product for product in preparation.products}
+    for market_id in YIELD_BASIS_LIVE_TEST_MARKET_IDS:
+        product = products[market_id]
+        review = YIELD_BASIS_ACTIVE_MARKETS[market_id]
+        vault = YieldBasisVault(web3, VaultSpec(1, product.lt_address), default_block_identifier=block_number)
+        native_price_per_share = vault.fetch_native_asset_price_per_share(block_number)
+        asset_usd_price = vault.fetch_asset_usd_price(block_number)
+        redemption_asset_per_share = vault.fetch_redemption_asset_price_per_share(block_number)
+        observation = vault.fetch_historical_observation(block_number)
 
-    assert vault.fetch_denomination_token_address(block_number).lower() == YIELD_BASIS_STABLECOIN.lower()
-    assert native_price_per_share > 0
-    assert asset_crvusd_price > 0
-    assert vault.fetch_share_price(block_number) == native_price_per_share * asset_crvusd_price
-    assert vault.fetch_total_supply(block_number) > 0
+        assert vault.fetch_denomination_token_address(block_number) is None
+        assert native_price_per_share > 0
+        assert asset_usd_price > 0
+        assert redemption_asset_per_share > 0
+        assert vault.fetch_fundamental_share_price(block_number) == native_price_per_share * asset_usd_price
+        assert vault.fetch_share_price(block_number) == redemption_asset_per_share * asset_usd_price
+        assert vault.get_deposit_fee(block_number) == pytest.approx(0.001)
+        assert vault.get_withdraw_fee(block_number) == pytest.approx(0.001)
+        assert vault.fetch_total_supply(block_number) > 0
+        assert observation is not None
+        assert observation["asset_decimals"] == review.asset_decimals
+        assert observation["raw_preview_shares"] > 0
+        assert observation["raw_redemption_assets"] > 0
+        assert "redemption_missing_reason" not in observation
+        trd = temporary_redemption_discount(
+            int(observation["raw_preview_shares"]),
+            int(observation["raw_redemption_assets"]),
+            int(observation["raw_asset_price_per_share"]),
+            asset_decimals=review.asset_decimals,
+        )
+        assert abs(trd) < Decimal("0.2")

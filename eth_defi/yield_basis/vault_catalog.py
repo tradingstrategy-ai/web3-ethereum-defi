@@ -91,8 +91,8 @@ def _market_tuple(value: object) -> tuple[HexAddress, ...]:
 def _fetch_component_validation_failure(web3: Web3, market: YieldBasisMarket, block_number: BlockIdentifier) -> str | None:
     """Validate every component used by the valuation path.
 
-    The pre-scan deliberately checks only LT, Curve and AMM relationships that
-    affect identity, denomination, price or deposit availability.
+    The pre-scan checks only LT, Curve and AMM relationships that determine
+    product identity, quote direction, valuation or deposit availability.
 
     :param web3:
         Ethereum connection used for component contract reads.

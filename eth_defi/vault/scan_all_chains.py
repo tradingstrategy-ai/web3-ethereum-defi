@@ -989,14 +989,6 @@ def scan_prices_for_chain(
                     logger.info("No validated vaults remain on chain %d after YieldBasis price pre-scan", chain_id)
                     return True, {**metrics, "rows_written": 0, "yield_basis_observations_inserted": 0}
 
-        metrics["items_scanned"] = len(vaults)
-
-        # Dedicated or activity-filtered vault states must not move this
-        # batch's continuation point. Merge the updated subset back into the
-        # complete shared mapping after the scan.
-        scanned_specs = {vault.get_spec() for vault in vaults}
-        scanned_reader_states = {vault_spec: state for vault_spec, state in reader_states.items() if vault_spec in scanned_specs} if persist_reader_state else None
-
         gmx_prefill = None
         if gmx_rows:
             context_path = historical_context_path or get_gmx_historical_context_path()
@@ -1046,16 +1038,23 @@ def scan_prices_for_chain(
             if yield_basis_start_block < current_end_block:
                 yield_basis_addresses = {row["_detection_data"].address.lower() for row in yield_basis_rows}
                 yield_basis_vaults = [vault for vault in vaults if vault.address.lower() in yield_basis_addresses]
-                yield_basis_prefill = fetch_and_store_yield_basis_historical_context(
-                    web3=web3,
-                    vaults=yield_basis_vaults,
-                    start_block=yield_basis_start_block,
-                    end_block=current_end_block,
-                    step=context_step,
-                    max_workers=max_workers,
-                    context_path=context_path,
-                    hypersync_client=hypersync_config.hypersync_client,
-                )
+                try:
+                    yield_basis_prefill = fetch_and_store_yield_basis_historical_context(
+                        web3=web3,
+                        vaults=yield_basis_vaults,
+                        start_block=yield_basis_start_block,
+                        end_block=current_end_block,
+                        step=context_step,
+                        max_workers=max_workers,
+                        context_path=context_path,
+                        hypersync_client=hypersync_config.hypersync_client,
+                    )
+                except (BadFunctionCallOutput, ContractLogicError, Web3Exception, RuntimeError, ValueError, TypeError, ArithmeticError) as error:
+                    logger.warning("YieldBasis context prefill deferred; withholding YieldBasis adapters while unrelated vaults continue: %s", error)
+                    vaults = [vault for vault in vaults if vault.address.lower() not in yield_basis_addresses]
+                    if not vaults:
+                        logger.info("No vaults remain on chain %d after YieldBasis context prefill was deferred", chain_id)
+                        return True, {**metrics, "rows_written": 0, "yield_basis_observations_inserted": 0}
 
         flying_tulip_source_rows_inserted = 0
         if flying_tulip_rows:
@@ -1113,6 +1112,14 @@ def scan_prices_for_chain(
                 end_block=rysk_source_end_block,
                 context_path=context_path,
             )
+
+        metrics["items_scanned"] = len(vaults)
+
+        # Dedicated, activity-filtered or context-withheld vault states must
+        # not move this batch's continuation point. Merge the updated subset
+        # back into the complete shared mapping after the scan.
+        scanned_specs = {vault.get_spec() for vault in vaults}
+        scanned_reader_states = {vault_spec: state for vault_spec, state in reader_states.items() if vault_spec in scanned_specs} if persist_reader_state else None
 
         # Scan historical prices
         result = scan_historical_prices_to_parquet(
