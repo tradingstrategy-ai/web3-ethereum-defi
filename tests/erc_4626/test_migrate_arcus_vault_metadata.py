@@ -84,6 +84,7 @@ def create_stale_arcus_row(detection: ERC4262VaultDetection) -> dict:
         "_manager_name": None,
         "_short_description": None,
         "_description": None,
+        "_notes": None,
     }
 
 
@@ -101,9 +102,10 @@ def create_refreshed_arcus_row(detection: ERC4262VaultDetection) -> dict:
         "Protocol": "Arcus",
         "features": set(detection.features),
         "_detection_data": detection,
-        "_manager_name": "Arcus",
+        "_manager_name": None,
         "_short_description": "Reviewed Arcus pToken.",
         "_description": "Reviewed Arcus pToken metadata.",
+        "_notes": "Reviewed Arcus pToken mechanics.",
     }
 
 
@@ -148,6 +150,8 @@ def test_migrate_arcus_metadata_reclassifies_only_reviewed_rows(monkeypatch: pyt
     assert vault_db.rows[btc_spec]["_detection_data"].deposit_count == BTC_DEPOSIT_COUNT
     assert vault_db.rows[hood_spec]["_detection_data"].redeem_count == HOOD_REDEEM_COUNT
     assert vault_db.rows[btc_spec]["_detection_data"].updated_at == UPDATED_AT
+    assert vault_db.rows[btc_spec]["_manager_name"] is None
+    assert vault_db.rows[btc_spec]["_notes"] == "Reviewed Arcus pToken mechanics."
     assert vault_db.leads[btc_spec].deposit_count == BTC_DEPOSIT_COUNT
     assert vault_db.leads[hood_spec].withdrawal_count == HOOD_REDEEM_COUNT
     assert vault_db.rows[other_spec] is unrelated_row

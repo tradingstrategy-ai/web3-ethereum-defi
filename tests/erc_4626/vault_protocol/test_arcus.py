@@ -60,10 +60,14 @@ def test_arcus_hood_3x_long_vault(web3: Web3) -> None:
     assert vault.get_fee_mode() is None
     assert vault.get_link() == "https://app.arcus.xyz/"
 
-    assert vault.manager_name == "Arcus"
-    assert vault.short_description == "Arcus pToken labelled HOOD (3x Long)."
+    assert vault.manager_name is None
+    assert vault.short_description == "Arcus pToken targeting 3x long HOOD perpetual exposure."
     assert vault.description is not None
-    assert "does not independently verify" in vault.description
+    assert "pro-rata claim" in vault.description
+    notes = vault.get_notes()
+    assert notes is not None
+    assert "HOOD perpetual position" in notes
+    assert "not simply 3 times" in notes
 
     bridge_vault_raw = web3.eth.call({"to": Web3.to_checksum_address(ARCUS_HOOD_3X_LONG_VAULT), "data": Web3.keccak(text="bridgeVault()")[:4]})
     bridge_vault = eth_abi.decode(["address"], bridge_vault_raw)[0]
@@ -79,8 +83,11 @@ def test_arcus_btc_3x_long_vault(web3: Web3) -> None:
     assert vault.vault_contract.functions.name().call() == "BTC (3x Long)"
     assert vault.vault_contract.functions.symbol().call() == "pBTC3x"
     assert vault.vault_contract.functions.asset().call().lower() == "0x5fc5360d0400a0fd4f2af552add042d716f1d168"
-    assert vault.manager_name == "Arcus"
-    assert vault.short_description == "Arcus pToken labelled BTC (3x Long)."
+    assert vault.manager_name is None
+    assert vault.short_description == "Arcus pToken targeting 3x long BTC perpetual exposure."
+    notes = vault.get_notes()
+    assert notes is not None
+    assert "BTC perpetual position" in notes
 
     bridge_vault_raw = web3.eth.call({"to": Web3.to_checksum_address(ARCUS_BTC_3X_LONG_VAULT), "data": Web3.keccak(text="bridgeVault()")[:4]})
     bridge_vault = eth_abi.decode(["address"], bridge_vault_raw)[0]

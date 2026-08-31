@@ -13,9 +13,8 @@ class ArcusVault(ERC4626Vault):
 
     The pToken implementation behind the reviewed BeaconProxy is not
     source-verified. This adapter therefore provides generic ERC-4626 reads
-    only; it does not certify transaction flows, a withdrawal timetable, or a
-    fee schedule. A product name such as ``"BTC (3x Long)"`` is not treated as
-    independent evidence of the product mechanics.
+    only. Product descriptions come from Arcus's public pToken announcement
+    and API; they are not an independent verification of the implementation.
 
     See the `Arcus website <https://arcus.xyz/>`__ for product information.
     """
@@ -24,8 +23,8 @@ class ArcusVault(ERC4626Vault):
     def arcus_offchain_data(self) -> ArcusVaultOffchainData | None:
         """Return reviewed pToken copy.
 
-        The local overlay is address-scoped and does not make public API
-        requests, because Arcus's market catalogue is not pToken data.
+        The local overlay is address-scoped and avoids runtime API requests so
+        vault metadata scans remain deterministic.
 
         :return:
             Reviewed Arcus pToken metadata, or ``None`` for an unsupported
@@ -56,16 +55,22 @@ class ArcusVault(ERC4626Vault):
 
         return self.arcus_offchain_data["short_description"] if self.arcus_offchain_data else None
 
-    @property
-    def manager_name(self) -> str | None:
-        """Return Arcus as the reviewed protocol-level curator attribution.
+    def get_notes(self) -> str | None:
+        """Return the reviewed explanation of Arcus pToken mechanics.
+
+        Manually curated shared notes retain priority. Otherwise, reviewed
+        address-scoped copy explains how NAV, rebalancing and pooled collateral
+        affect pToken holders.
 
         :return:
-            ``"Arcus"`` for reviewed pTokens, or ``None`` when the pToken has
-            not been individually reviewed.
+            Markdown-formatted pToken notes, or ``None`` for an unreviewed
+            contract address.
         """
 
-        return self.arcus_offchain_data["curator_name"] if self.arcus_offchain_data else None
+        manual_notes = super().get_notes()
+        if manual_notes:
+            return manual_notes
+        return self.arcus_offchain_data["notes"] if self.arcus_offchain_data else None
 
     def get_management_fee(self, block_identifier: BlockIdentifier) -> float | None:  # noqa: PLR6301
         """Return the verified Arcus pToken management fee when available.

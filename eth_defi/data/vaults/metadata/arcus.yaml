@@ -3,30 +3,28 @@ slug: arcus
 short_description: |
   Self-custodial trading venue on Robinhood Chain for Stock Tokens and perpetual futures.
 long_description: |
-  Arcus is a self-custodial trading venue on Robinhood Chain. Its pTokens
-  announcement describes pTokens as transferable ERC-20 representations of a
-  proportionate interest in an Arcus perpetuals account configured for a
-  particular market and leverage level. This packages a perpetual position into
-  a token that can be held, transferred or traded without the holder separately
-  managing the account's margin and collateral.
+  Arcus is a self-custodial trading venue on Robinhood Chain. Its [pToken
+  announcement](https://arcus.xyz/blog/ptokens-a-new-primitive-on-arcus)
+  describes pTokens as transferable ERC-20 shares of an Arcus perpetuals
+  account configured for a particular market and target leverage. The account
+  automatically rebalances when exposure drifts beyond a set threshold, so the
+  holder does not separately manage its margin or collateral.
 fee_description: |
-  Arcus says it does not charge a fee on Stock Token spot trades. That statement
-  does not establish the costs of holding, trading or redeeming every Arcus
-  product: spreads, funding, conversion, withdrawal or redemption costs may
-  still apply. Arcus has not published a separate pToken management or
-  performance fee schedule; check current quotes, product terms and the
-  [launch announcement](https://arcus.xyz/blog/arcus-x-robinhood-trade-stocks-perpetuals-24-7)
-  before trading.
+  A pToken's NAV includes hourly perpetual funding and the trading costs of
+  rebalancing towards its target exposure. The current [pBTC3x vault
+  data](https://api.vaults.arcus.xyz/v1/vaults/0x4472c69d299382f8847ebce4fc6ed8e295510e3e)
+  reports a 25 basis point deposit fee and no profit share. These settings may
+  change; check current product data before trading.
 links:
   homepage: https://arcus.xyz/
   app: https://app.arcus.xyz/
   twitter: https://x.com/arcus_xyz
   github: ''
   documentation: https://docs.arcus.xyz/
-  fact_sheet: https://arcus.xyz/blog/arcus-x-robinhood-trade-stocks-perpetuals-24-7
+  fact_sheet: https://arcus.xyz/blog/ptokens-a-new-primitive-on-arcus
   defillama: ''
   audits: ''
-  fees: https://arcus.xyz/blog/arcus-x-robinhood-trade-stocks-perpetuals-24-7
+  fees: https://docs.arcus.xyz/concepts/perpetuals/fees
   trading_strategy: https://tradingstrategy.ai/trading-view/vaults/protocols/arcus
   integration_documentation: https://web3-ethereum-defi.readthedocs.io/vaults/arcus/index.html
 example_smart_contracts:

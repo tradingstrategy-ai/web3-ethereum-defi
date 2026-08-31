@@ -1,12 +1,13 @@
 """Reviewed Arcus pToken display data.
 
-Arcus's public market API describes exchange markets, not pToken contracts or
-pToken accounting.  In particular, it must not supply a pToken NAV, strategy,
-fee, or curator value.  Keep the small set of reviewed product descriptions
-local and address-scoped instead of coupling vault reads to unrelated API data.
+Arcus documents pToken mechanics in its `product announcement
+<https://arcus.xyz/blog/ptokens-a-new-primitive-on-arcus>`__ and exposes live
+values through its public vault API. The scanner keeps reviewed address-scoped
+copy locally so metadata reads stay deterministic and do not depend on an
+offchain service.
 
-The ``curator_name`` is a protocol attribution.  It is not inferred from the
-unlabelled address returned by the generic ``manager()`` accessor.
+Arcus does not identify the operator behind the address returned by the
+``manager()`` accessor, so this module does not attribute a manager name.
 """
 
 from typing import Final, TypedDict
@@ -15,35 +16,36 @@ from eth_typing import HexAddress
 
 from eth_defi.erc_4626.vault_protocol.arcus.constants import ARCUS_BTC_3X_LONG_VAULT, ARCUS_HOOD_3X_LONG_VAULT
 
+ARCUS_PTOKEN_NOTES_TEMPLATE: Final[str] = "A pToken holder's return follows the token's NAV per share, representing a proportionate claim on the vault's USDG collateral and {market} perpetual position after funding, fees and slippage. It is not simply {leverage} times the asset's total return, as automatic threshold-based rebalancing makes performance path-dependent. The pooled account, rather than individual holders, maintains the collateral required for the position. Read the [announcement](https://arcus.xyz/blog/ptokens-a-new-primitive-on-arcus) for more details."
+
 
 class ArcusVaultOffchainData(TypedDict):
     """Reviewed display data for one production Arcus pToken."""
 
-    #: Protocol-level curator attribution.
-    curator_name: str
-
     #: Listing-friendly pToken summary.
     short_description: str
 
-    #: Longer, conservative pToken explanation.
+    #: Longer pToken strategy summary.
     description: str
+
+    #: Explanation of pToken return and collateral mechanics.
+    notes: str
 
 
 #: Address-scoped product copy for reviewed production pTokens.
 #:
 #: The implementation deliberately does not extrapolate this data to every
-#: contract that shares the Arcus detection signal.  Product names alone do not
-#: establish leverage maintenance, rebalancing, fees, or redemption terms.
+#: contract that shares the Arcus detection signal.
 ARCUS_VAULT_DATA: Final[dict[HexAddress, ArcusVaultOffchainData]] = {
     ARCUS_BTC_3X_LONG_VAULT: ArcusVaultOffchainData(
-        curator_name="Arcus",
-        short_description="Arcus pToken labelled BTC (3x Long).",
-        description=("This reviewed Robinhood Chain pToken is labelled **BTC (3x Long)**. The integration does not independently verify its leverage maintenance, rebalancing, fee schedule, or redemption terms."),
+        short_description="Arcus pToken targeting 3x long BTC perpetual exposure.",
+        description="Arcus pBTC3x targets 3x long BTC exposure through perpetual futures. Each token represents a pro-rata claim on the vault's USDG collateral and open BTC perpetual position.",
+        notes=ARCUS_PTOKEN_NOTES_TEMPLATE.format(market="BTC", leverage=3),
     ),
     ARCUS_HOOD_3X_LONG_VAULT: ArcusVaultOffchainData(
-        curator_name="Arcus",
-        short_description="Arcus pToken labelled HOOD (3x Long).",
-        description=("This reviewed Robinhood Chain pToken is labelled **HOOD (3x Long)**. The integration does not independently verify its leverage maintenance, rebalancing, fee schedule, or redemption terms."),
+        short_description="Arcus pToken targeting 3x long HOOD perpetual exposure.",
+        description="Arcus pHOOD3x targets 3x long HOOD exposure through perpetual futures. Each token represents a pro-rata claim on the vault's USDG collateral and open HOOD perpetual position.",
+        notes=ARCUS_PTOKEN_NOTES_TEMPLATE.format(market="HOOD", leverage=3),
     ),
 }
 
