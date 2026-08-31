@@ -30,6 +30,7 @@ See :ref:`tutorials <tutorials>` for guides and examples on how to use the libra
    lifi/index
    derive/index
    gmx/index
+   yield_basis/index
    hyperliquid/index
    perp_dex/index
    apex/index

@@ -57,6 +57,9 @@ VAULT_PROTOCOL_FEE_MATRIX = {
     # Like Hyperliquid's HLP, GM and GLV have no manager-level depositor fees.
     # Trading revenue and trader PnL are already reflected in their equity curve.
     "GMX": VaultFeeMode.feeless,
+    # YieldBasis mints LT shares for product fees, internalising them in PPS.
+    # Deposit and withdrawal separately model stablecoin conversion costs.
+    "YieldBasis": VaultFeeMode.internalised_minting,
     "Euler": VaultFeeMode.internalised_skimming,
     "Morpho": VaultFeeMode.internalised_skimming,
     "Enzyme": VaultFeeMode.internalised_skimming,

@@ -208,6 +208,17 @@ SPIKO_EUTBL_NOTE = """Spiko EU T-Bills Money Market Fund (EUTBL).
 #: underlying markets, despite the single-sided USDC performance convention.
 GMX_SINGLE_SIDED_USDC_NOTE = "The vault performance approximates the single-sided USDC deposit value. GMX vaults hold exposure to all underlying tokens they market make"
 
+#: Public qualification for YieldBasis's USD redemption-value curve.
+#: The note gives general readers concise return and risk guidance.
+YIELD_BASIS_NOTE = """A [YieldBasis](https://yieldbasis.com/earn) yb-LP is a leveraged BTC or ETH liquidity-provider position. Its value rises and falls with the underlying asset.
+
+yb-LP yield comes primarily from [trading fees earned by the underlying Curve pool and YieldBasis LEVAMM](https://docs.yieldbasis.com/user/protocol/fee-mechanics), after protocol fee allocations and rebalancing costs.
+
+Performance is shown in USD using the marginal amount returned by `preview_withdraw`, so the [Temporary Redemption Discount (TRD)](https://docs.yieldbasis.com/user/protocol/fundamental-value-redemption-value-and-trd) is part of the historical equity curve. [New shares mint at fundamental PPS, while exits use redemption value](https://docs.yieldbasis.com/dev/integration/deposit-withdraw); negative TRD therefore affects an immediate exit, not entry.
+
+The entry and exit fee fields each model a 0.10% conversion between a generic USD stablecoin and the pool's BTC or ETH token. These endpoint costs sit outside the historical equity curve and exclude price impact, gas and MEV.
+"""
+
 #: Vault-specific notes and classifications that do not exclude a vault from
 #: research datasets.
 #:
@@ -227,6 +238,7 @@ VAULT_NOTES: dict[str, str] = {
 #: Protocol-wide descriptive notes that do not flag products as problematic.
 PROTOCOL_NOTES: dict[str, str] = {
     "GMX": GMX_SINGLE_SIDED_USDC_NOTE,
+    "YieldBasis": YIELD_BASIS_NOTE,
 }
 
 #: Product classification flags that are descriptive rather than exclusionary.

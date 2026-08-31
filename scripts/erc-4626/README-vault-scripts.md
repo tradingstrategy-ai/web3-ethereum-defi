@@ -855,6 +855,131 @@ blocks), then follows the existing per-chain price-reader state. This avoids
 re-fetching a growing empty range when a chain has no recent GMX event. Use the
 manual backfill for older history.
 
+#### YieldBasis leveraged LT markets
+
+The Ethereum YieldBasis integration covers the four reviewed transferable yb-LP
+markets: WBTC (market 7), cbBTC (market 8), tBTC (market 9) and WETH (market
+10). The full product, accounting, risk and pipeline explanation is in
+[`README-YieldBasis.md`](../../eth_defi/yield_basis/README-YieldBasis.md).
+
+The ordinary Ethereum cycle performs this protocol-specific sequence:
+
+```text
+YieldBasis Factory pre-scan
+  → lead-cache decision
+  → generic lead discovery (only when due)
+  → one metadata reconciliation
+  → prefill yield_basis_historical_context
+  → common raw Parquet price scan and cleaning
+```
+
+The pre-scan validates only reviewed products and the LT, Curve and AMM links
+used by valuation and deposit availability. Its fixed snapshot is reconciled
+once: immediately on a lead-cache hit, or after discovery on a cache miss so
+any same-address generic
+row is repaired. A failure leaves existing YieldBasis data intact and does not
+stop unrelated Ethereum work. The price phase revalidates independently before
+sampling the underlying LT PPS, asset/crvUSD oracle, effective and staked
+supply, underlying decimal precision and marginal redemption preview. The
+preview is the primary gross share-price input. A deterministic contract revert
+leaves a logged sample gap instead of creating a fundamental-value fallback. A
+transient provider error stops the manual bounded backfill for retry; the
+recurring scanner instead withholds YieldBasis for that cycle and continues
+unrelated Ethereum vaults. Products are not scheduled before their reviewed
+deployment block, and context is committed in bounded idempotent batches.
+
+The scheduled scanner bounds its first context prefill with
+``YIELD_BASIS_INITIAL_CONTEXT_LOOKBACK_BLOCKS`` (default 100,000 blocks). Use
+the manual backfill for complete reviewed history. Later cycles follow the
+shared per-chain price-reader position; YieldBasis contextual readers do not
+own separate reader-state entries. ``MAX_WORKERS`` controls the threaded
+archive-state reads and defaults to 4 in the backfill script.
+
+Run the one-off operations in this order. Both scripts have a fixed Ethereum
+scope and use environment variables for storage and infrastructure only.
+Metadata migration defaults to a dry run and never changes prices or reader
+state:
+
+```shell
+source .local-test.env && DRY_RUN=true \
+  poetry run python scripts/erc-4626/migrate-yield-basis-vaults-metadata.py
+source .local-test.env && DRY_RUN=false \
+  poetry run python scripts/erc-4626/migrate-yield-basis-vaults-metadata.py
+```
+
+The historical backfill also defaults to a retained, inspectable dry-run
+workspace. It snapshots one safe head, uses the half-open range from the
+earliest reviewed Factory event to that head, prefills all four context rows,
+and invokes the common address-scoped Parquet writer without touching scheduled
+reader state:
+
+```shell
+source .local-test.env && DRY_RUN=true \
+  poetry run python scripts/erc-4626/backfill-yield-basis-vault-prices.py
+source .local-test.env && DRY_RUN=false \
+  poetry run python scripts/erc-4626/backfill-yield-basis-vault-prices.py
+```
+
+Both modes reuse the canonical dense cache at
+`~/.tradingstrategy/block-timestamp` so a dry run does not bootstrap thousands
+of sparse exact-timestamp requests. `TIMESTAMP_CACHE` may override that folder
+when an operator has prepared an equivalent dense copy. The retained
+YieldBasis valuation context, token cache and Parquet remain isolated.
+
+The first run after upgrading from earlier accounting logs and removes context
+rows for the four reviewed products that cannot reproduce a TRD-inclusive
+share price; context for products outside the current allow-list is preserved.
+Endpoint conversion is a fixed VaultBase cost assumption and is not historical
+context. The full backfill reconstructs redemption inputs and replaces the four
+earlier YieldBasis histories in the address-scoped Parquet write. Do not rely
+on an ordinary bounded scanner cycle for this accounting migration.
+
+After a full backfill, run the read-only structural check and the dual-CAGR
+report. The structural check reproduces every gross raw share price from the
+exact redemption inputs. The report prints redemption-basis gross USD CAGR and
+depositor net USD CAGR alongside fundamental underlying-token lifetime and
+three-month CAGR using identical endpoint blocks. Depositor net CAGR uses
+fundamental PPS at entry, redemption value at exit and the fixed 10-bps generic
+stablecoin conversion once at each endpoint. It does not include price impact.
+Current TVL, TRD, one-way conversion cost, round-trip cost and staked ratio are
+shown where available:
+
+```shell
+source .local-test.env && REQUIRE_ALL_PRODUCTS=true \
+  poetry run python scripts/erc-4626/examine-yield-basis-vault-backfill.py
+source .local-test.env && \
+  poetry run python scripts/erc-4626/examine-yield-basis-performance.py
+```
+
+For a production run, stop or coordinate with `vault-scanner-looped` and keep
+the mounted pipeline directory and per-chain timestamp cache. Use the oneshot
+service so the metadata pickle, raw Parquet, context table and token cache
+remain on the host volume. Inspect the dry-run output, then repeat the
+backfill with `DRY_RUN=false` and validate with both examiner commands before
+starting the looped scanner again. The migration changes only the reviewed
+YieldBasis metadata rows; the backfill changes only those four address
+histories and the YieldBasis context table.
+Keep the retained dry-run directory until both printed examiners pass; remove
+it only after that review is complete.
+
+The mounted production equivalent is:
+
+```shell
+source ~/vault-scanner/vault-rpc.env
+cd ~/vault-scanner/web3-ethereum-defi
+docker compose stop vault-scanner-looped
+docker compose run --rm --entrypoint /bin/bash vault-scanner-oneshot \
+  -lc 'DRY_RUN=true python scripts/erc-4626/backfill-yield-basis-vault-prices.py'
+# Review the retained dry-run workspace and run the two printed examiners.
+docker compose run --rm --entrypoint /bin/bash vault-scanner-oneshot \
+  -lc 'DRY_RUN=false python scripts/erc-4626/backfill-yield-basis-vault-prices.py'
+docker compose start vault-scanner-looped
+```
+
+Run the metadata migration first when the four YieldBasis rows are absent, and
+use its same `vault-scanner-oneshot` wrapper. Do not run the persistent backfill
+while `vault-scanner-looped` or another pipeline writer is active.
+
 Both Lighter deployments use synthetic native-pool chain ID `9998`; their
 address prefixes distinguish price series. Lifetime-metrics export the
 additional `deployment_chain_id` (`1` for Ethereum or `4663` for Robinhood)
