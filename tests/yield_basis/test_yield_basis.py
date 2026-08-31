@@ -721,7 +721,7 @@ def test_yield_basis_catalogue_sync_is_idempotent(monkeypatch: pytest.MonkeyPatc
     assert second.inserted == 0
     assert second.updated == 1
     assert recovered.updated == 1
-    assert row["Name"] == "yb-LP WBTC · market 7"
+    assert row["Name"] == "yb-LP WBTC"
     assert row["Denomination"] == "USD"
     assert row["_synthetic_usd_denomination"] is True
     assert row["_detection_data"].first_seen_at_block == review.first_seen_at_block

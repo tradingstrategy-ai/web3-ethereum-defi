@@ -44,10 +44,10 @@ publication uses a reviewed address allow-list. The supported set is:
 
 | Market | Asset | LT/yb-LP address | Display name |
 |-------:|-------|------------------|--------------|
-| 7 | WBTC | `0x651D4b8168488FA163D85304662E8278d4c55BAa` | `yb-LP WBTC · market 7` |
-| 8 | cbBTC | `0x722FC3640BA007C3E9867CCdB0dCa59F2e2F29F9` | `yb-LP cbBTC · market 8` |
-| 9 | tBTC | `0x771F7290428d830ECd41E980745c327e507823Ec` | `yb-LP tBTC · market 9` |
-| 10 | WETH | `0x2B9c9f3BdcEb5d8E36a4704F08a78Fca53343cEa` | `yb-LP WETH · market 10` |
+| 7 | WBTC | `0x651D4b8168488FA163D85304662E8278d4c55BAa` | `yb-LP WBTC` |
+| 8 | cbBTC | `0x722FC3640BA007C3E9867CCdB0dCa59F2e2F29F9` | `yb-LP cbBTC` |
+| 9 | tBTC | `0x771F7290428d830ECd41E980745c327e507823Ec` | `yb-LP tBTC` |
+| 10 | WETH | `0x2B9c9f3BdcEb5d8E36a4704F08a78Fca53343cEa` | `yb-LP WETH` |
 
 The onchain Factory remains the runtime source for the LT, underlying asset,
 Curve pool and YieldBasis AMM links. The allow-list is a publication gate, not

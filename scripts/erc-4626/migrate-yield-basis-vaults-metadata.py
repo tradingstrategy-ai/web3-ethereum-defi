@@ -1,10 +1,10 @@
 """Reconcile the reviewed Ethereum YieldBasis markets into vault metadata.
 
-The migration is intentionally metadata-only.  It validates the Factory and
-all four reviewed market tuples, refreshes only YieldBasis rows, and never
-touches the common price Parquet, contextual history or reader state.  Set
-``DRY_RUN=false`` for the atomic metadata write; the default is a non-mutating
-preview.
+The migration is intentionally metadata-only. It validates the Factory and all
+four reviewed market tuples, refreshes only YieldBasis rows, and normalises
+their public display names. It never touches the common price Parquet,
+contextual history or reader state. Set ``DRY_RUN=false`` for the atomic
+metadata write; the default is a non-mutating preview.
 
 Environment variables are infrastructure overrides only:
 
@@ -24,13 +24,32 @@ from eth_defi.provider.env import read_json_rpc_url
 from eth_defi.provider.multi_provider import create_multi_provider_web3
 from eth_defi.token import TokenDiskCache
 from eth_defi.utils import setup_console_logging, wait_other_writers
+from eth_defi.vault.base import VaultSpec
 from eth_defi.vault.vaultdb import VaultDatabase, get_pipeline_data_dir
+from eth_defi.yield_basis.addresses import YIELD_BASIS_ACTIVE_MARKETS
 from eth_defi.yield_basis.vault_catalog import fetch_yield_basis_scan_preparation
 from eth_defi.yield_basis.vault_sync import fetch_and_sync_yield_basis_vault_catalogue
 
 
-def migrate_metadata(*, database_path: Path, token_cache_path: Path, dry_run: bool) -> tuple[int, int, int]:
-    """Validate and reconcile the four reviewed Ethereum markets.
+def count_legacy_market_display_names(vault_database: VaultDatabase) -> int:
+    """Count reviewed records whose display name still exposes a Factory ID.
+
+    YieldBasis Factory market IDs remain in private catalogue metadata for
+    troubleshooting, but are no longer part of public vault names. The count
+    makes the one-off migration's intended name repair visible in dry-run and
+    persistent output.
+
+    :param vault_database:
+        In-memory metadata cache before or after catalogue reconciliation.
+    :return:
+        Number of reviewed rows named with the legacy ``· market <ID>`` suffix.
+    """
+
+    return sum(vault_database.rows.get(VaultSpec(1, review.lt_address.lower()), {}).get("Name") == f"yb-LP {review.asset_symbol} · market {review.market_id}" for review in YIELD_BASIS_ACTIVE_MARKETS.values())
+
+
+def migrate_metadata(*, database_path: Path, token_cache_path: Path, dry_run: bool) -> tuple[int, int, int, int]:
+    """Validate and reconcile the four reviewed Ethereum markets and names.
 
     :param database_path:
         Metadata pickle to read and, in persistent mode, atomically replace.
@@ -39,12 +58,13 @@ def migrate_metadata(*, database_path: Path, token_cache_path: Path, dry_run: bo
     :param dry_run:
         Keep the metadata database and token cache unchanged when true.
     :return:
-        Product, insertion and update counts.
+        Product, insertion, update and legacy-name repair counts.
     """
 
     web3 = create_multi_provider_web3(read_json_rpc_url(1))
     block_number = get_almost_latest_block_number(web3)
     vault_database = VaultDatabase.read(database_path) if database_path.exists() else VaultDatabase()
+    renamed = count_legacy_market_display_names(vault_database)
     token_cache = TokenDiskCache(token_cache_path)
     try:
         preparation = fetch_yield_basis_scan_preparation(web3, block_number)
@@ -59,6 +79,7 @@ def migrate_metadata(*, database_path: Path, token_cache_path: Path, dry_run: bo
             block_number=block_number,
             preparation=preparation,
         )
+        assert count_legacy_market_display_names(vault_database) == 0, "YieldBasis catalogue reconciliation left legacy market-ID display names"
         if not dry_run:
             # Commit token metadata first.  VaultDatabase.write() is atomic,
             # so a cache failure cannot leave a newly published row referring
@@ -66,7 +87,7 @@ def migrate_metadata(*, database_path: Path, token_cache_path: Path, dry_run: bo
             token_cache.commit()
             database_path.parent.mkdir(parents=True, exist_ok=True)
             vault_database.write(database_path)
-        return result.products, result.inserted, result.updated
+        return result.products, result.inserted, result.updated, renamed
     finally:
         token_cache.close()
 
@@ -88,7 +109,7 @@ def main() -> None:
     lock = nullcontext() if dry_run else wait_other_writers(pipeline_dir / "scan-pipeline", timeout=60)
     try:
         with lock:
-            products, inserted, updated = migrate_metadata(
+            products, inserted, updated, renamed = migrate_metadata(
                 database_path=database_path,
                 token_cache_path=token_cache_path,
                 dry_run=dry_run,
@@ -99,8 +120,8 @@ def main() -> None:
 
     print(
         tabulate(
-            [(1, products, inserted, updated)],
-            headers=("Chain ID", "Products", "Inserted", "Updated"),
+            [(1, products, inserted, updated, renamed)],
+            headers=("Chain ID", "Products", "Inserted", "Updated", "Names renamed"),
             tablefmt="rounded_outline",
         ),
     )

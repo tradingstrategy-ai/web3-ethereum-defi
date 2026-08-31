@@ -898,7 +898,9 @@ archive-state reads and defaults to 4 in the backfill script.
 Run the one-off operations in this order. Both scripts have a fixed Ethereum
 scope and use environment variables for storage and infrastructure only.
 Metadata migration defaults to a dry run and never changes prices or reader
-state:
+state. It also removes the legacy ``· market <ID>`` suffix from the four
+public YieldBasis vault names while retaining the Factory ID in private
+catalogue metadata:
 
 ```shell
 source .local-test.env && DRY_RUN=true \
