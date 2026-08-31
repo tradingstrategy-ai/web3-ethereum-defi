@@ -189,11 +189,13 @@ def test_hyperliquid_grid_descriptions_are_tagged(vault_address: str, specific_t
     assert hyperliquid_tags.get_strategy_tags(vault_address) == specific_tags | {StrategyTag.perpetual_futures}
 
 
-def test_stratwise_spot_grid_vault_strategy_tags() -> None:
-    """Stratwise's spot-only grid vault receives its address-scoped tags."""
+def test_stratwise_spot_vault_strategy_tags() -> None:
+    """Stratwise's spot-only vault receives its address-scoped tags."""
     assert hyperliquid_tags.get_strategy_tags("0x0ff219ac20596b457558341bc410bc7a08a1394c") == {
         StrategyTag.algorithmic_trading,
+        StrategyTag.directional_trading,
         StrategyTag.grid_trading,
+        StrategyTag.mean_reversion,
     }
 
 

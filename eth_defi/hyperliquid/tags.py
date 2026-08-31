@@ -237,15 +237,19 @@ STRATEGY_TAGS: dict[str, set[StrategyTag]] = {
     #: Added: 2026-08-31.
     #: Decision material: The current vault description says Stratwise uses an
     #: automated AI strategy trading multiple crypto assets, with volatility
-    #: and squeeze forecasting through a dynamic grid. The official Stratwise
-    #: site describes managed AI strategies and a dynamic adaptive grid that
-    #: forecasts volatility, predicts squeezes and reoptimises the grid.
+    #: and squeeze forecasting through a dynamic grid. Stratwise's vault
+    #: disclosure describes the strategy as directional and long-biased, using
+    #: mean reversion to accumulate on pullbacks and take profit on reversion.
     #: Sources:
     #: - https://tradingstrategy.ai/vaults/stratwise-multi-asset-public
+    #: - https://x.com/StratwiseAI/status/2090441910762553405
     #: - https://stratwise.ai/
+    #: - eth_defi/data/feeds/curators/stratwise.yaml
     "0x0ff219ac20596b457558341bc410bc7a08a1394c": {
         StrategyTag.algorithmic_trading,
+        StrategyTag.directional_trading,
         StrategyTag.grid_trading,
+        StrategyTag.mean_reversion,
     },
     #: Vault: Wilkins Capital.
     #: Added: 2026-08-17.
