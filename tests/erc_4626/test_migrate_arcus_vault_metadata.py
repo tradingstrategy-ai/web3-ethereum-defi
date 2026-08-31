@@ -109,6 +109,20 @@ def create_refreshed_arcus_row(detection: ERC4262VaultDetection) -> dict:
     }
 
 
+def test_needs_metadata_refresh_matches_only_stale_arcus_fields() -> None:
+    """Refresh legacy Arcus attribution and missing copy without rejecting a future named operator."""
+
+    module = load_migration_module()
+    detection = create_detection(ARCUS_BTC_3X_LONG_VAULT, deposit_count=BTC_DEPOSIT_COUNT, redeem_count=BTC_REDEEM_COUNT)
+    detection.features.add(ERC4626Feature.arcus_like)
+    current_row = create_refreshed_arcus_row(detection)
+
+    assert not module.needs_metadata_refresh(current_row, detection)
+    assert module.needs_metadata_refresh(current_row | {"_manager_name": "Arcus"}, detection)
+    assert module.needs_metadata_refresh(current_row | {"_notes": None}, detection)
+    assert not module.needs_metadata_refresh(current_row | {"_manager_name": "Published operator"}, detection)
+
+
 def test_migrate_arcus_metadata_reclassifies_only_reviewed_rows(monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
     """Refresh stale Arcus rows without changing unrelated scanner state."""
 

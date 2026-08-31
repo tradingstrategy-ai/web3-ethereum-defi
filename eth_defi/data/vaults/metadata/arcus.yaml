@@ -13,8 +13,9 @@ fee_description: |
   A pToken's NAV includes hourly perpetual funding and the trading costs of
   rebalancing towards its target exposure. The current [pBTC3x vault
   data](https://api.vaults.arcus.xyz/v1/vaults/0x4472c69d299382f8847ebce4fc6ed8e295510e3e)
-  reports a 25 basis point deposit fee and no profit share. These settings may
-  change; check current product data before trading.
+  and [pHOOD3x vault data](https://api.vaults.arcus.xyz/v1/vaults/0xe24cabdf76dd1c2576049167eb1755c84b985c36)
+  each report a 25 basis point deposit fee and no profit share. These settings
+  may change; check current product data before trading.
 links:
   homepage: https://arcus.xyz/
   app: https://app.arcus.xyz/
@@ -24,7 +25,7 @@ links:
   fact_sheet: https://arcus.xyz/blog/ptokens-a-new-primitive-on-arcus
   defillama: ''
   audits: ''
-  fees: https://docs.arcus.xyz/concepts/perpetuals/fees
+  fees: https://api.vaults.arcus.xyz/v1/vaults
   trading_strategy: https://tradingstrategy.ai/trading-view/vaults/protocols/arcus
   integration_documentation: https://web3-ethereum-defi.readthedocs.io/vaults/arcus/index.html
 example_smart_contracts:

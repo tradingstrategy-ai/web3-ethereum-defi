@@ -34,6 +34,8 @@ def test_arcus_offchain_data_is_address_scoped(vault_address: HexAddress, market
     assert "automatic threshold-based rebalancing" in metadata["notes"]
     assert "Read the [announcement](https://arcus.xyz/blog/ptokens-a-new-primitive-on-arcus) for more details." in metadata["notes"]
     assert f"{market} perpetual position" in metadata["notes"]
+    assert metadata["deposit_fee"] == pytest.approx(0.0025)
+    assert metadata["performance_fee"] == pytest.approx(0.0)
 
 
 def test_arcus_offchain_data_excludes_unreviewed_p_tokens() -> None:

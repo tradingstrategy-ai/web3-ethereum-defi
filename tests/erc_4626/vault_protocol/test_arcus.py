@@ -12,6 +12,7 @@ from eth_defi.erc_4626.vault_protocol.arcus.constants import ARCUS_BRIDGE_VAULT,
 from eth_defi.erc_4626.vault_protocol.arcus.vault import ArcusVault
 from eth_defi.testing.anvil_fork_pool import AnvilForkPool
 from eth_defi.testing.fork_blocks import ROBINHOOD_MIDNIGHT_BLOCK
+from eth_defi.vault.fee import VaultFeeMode
 from eth_defi.vault.risk import VaultTechnicalRisk
 
 JSON_RPC_ROBINHOOD = os.environ.get("JSON_RPC_ROBINHOOD")
@@ -54,10 +55,11 @@ def test_arcus_hood_3x_long_vault(web3: Web3) -> None:
     assert vault.vault_contract.functions.asset().call().lower() == "0x5fc5360d0400a0fd4f2af552add042d716f1d168"
     assert vault.vault_contract.functions.totalAssets().call() == ARCUS_HOOD_3X_LONG_TOTAL_ASSETS
     assert vault.get_management_fee("latest") is None
-    assert vault.get_performance_fee("latest") is None
+    assert vault.get_performance_fee("latest") == pytest.approx(0.0)
+    assert vault.get_deposit_fee("latest") == pytest.approx(0.0025)
     assert vault.get_deposit_manager_capability() is None
     assert vault.get_risk() == VaultTechnicalRisk.dangerous
-    assert vault.get_fee_mode() is None
+    assert vault.get_fee_mode() is VaultFeeMode.externalised
     assert vault.get_link() == "https://app.arcus.xyz/"
 
     assert vault.manager_name is None
@@ -85,6 +87,8 @@ def test_arcus_btc_3x_long_vault(web3: Web3) -> None:
     assert vault.vault_contract.functions.asset().call().lower() == "0x5fc5360d0400a0fd4f2af552add042d716f1d168"
     assert vault.manager_name is None
     assert vault.short_description == "Arcus pToken targeting 3x long BTC perpetual exposure."
+    assert vault.get_performance_fee("latest") == pytest.approx(0.0)
+    assert vault.get_deposit_fee("latest") == pytest.approx(0.0025)
     notes = vault.get_notes()
     assert notes is not None
     assert "BTC perpetual position" in notes
