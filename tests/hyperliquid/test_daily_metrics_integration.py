@@ -443,18 +443,21 @@ def test_unified_vault_metrics_json(tmp_path):
 
     # Happy path: synthetic shared daily flows reach canonical period fields.
     arb_week = next(period for period in arb_vault["period_results"] if period["period"] == "1W")
+    assert arb_week["flow_value"] == pytest.approx(5_250.0)
     assert arb_week["deposit_value"] == pytest.approx(7_000.0)
     assert arb_week["redeem_value"] == pytest.approx(1_750.0)
     assert arb_week["deposit_count"] == 7
     assert arb_week["redemption_count"] == 14
 
     arb_month = next(period for period in arb_vault["period_results"] if period["period"] == "1M")
+    assert arb_month["flow_value"] == pytest.approx(22_500.0)
     assert arb_month["deposit_value"] == pytest.approx(30_000.0)
     assert arb_month["redeem_value"] == pytest.approx(7_500.0)
     assert arb_month["deposit_count"] == 30
     assert arb_month["redemption_count"] == 60
 
     arb_lifetime = next(period for period in arb_vault["period_results"] if period["period"] == "lifetime")
+    assert arb_lifetime["flow_value"] is None
     assert arb_lifetime["deposit_value"] is None
     assert arb_lifetime["redeem_value"] is None
     assert arb_lifetime["deposit_count"] is None

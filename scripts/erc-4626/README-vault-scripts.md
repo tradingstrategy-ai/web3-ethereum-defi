@@ -218,20 +218,21 @@ use only the latest contiguous covered window. Consequently, a later long
 provider gap restarts the USD lifetime view and excludes earlier rate history.
 This is a provider-snapshot guideline, not a wrapper redemption oracle.
 
-Every period result also has optional ``deposit_value``, ``redeem_value``,
-``deposit_count`` and ``redemption_count`` fields. Monetary flow values are in
-USD for direct Hypercore and Lighter observations. For stablecoin-denominated
-ERC-4626 vaults, the metrics exporter estimates each daily net flow from the
-consecutive total-assets, total-supply and share-price states:
-``delta(total_assets) - previous_total_supply * delta(share_price)``. A positive
-estimate is reported as ``deposit_value`` and a negative estimate as
-``redeem_value``, denominated in the vault's stablecoin. Deposits and
-redemptions within the same day are therefore netted and cannot be separated.
+Every period result has an optional signed ``flow_value`` field representing
+deposits minus redemptions. For stablecoin-denominated ERC-4626 vaults, the
+metrics exporter estimates each daily flow from consecutive total-assets,
+total-supply and share-price states:
+``delta(total_assets) - previous_total_supply * delta(share_price)``. The value
+is denominated in the vault's stablecoin. Deposits and redemptions within the
+same day are therefore netted and cannot be separated.
 Days without an actual scanner observation remain unknown instead of being
-treated as zero flow, and any period containing such a gap remains null. Event
-counts remain null for these estimates. Indexing individual ERC-4626 ``Deposit``
-and ``Withdraw`` events could provide separate gross flows and counts, but that
-more granular event reading is outside the scope of the current state-based
+treated as zero flow, and any period containing such a gap remains null.
+``deposit_value``, ``redeem_value``, ``deposit_count`` and
+``redemption_count`` are only populated when individual directional events were
+extracted for the complete period. They are currently null for ERC-4626 vaults
+and most other protocols. Indexing individual ERC-4626 ``Deposit`` and
+``Withdraw`` events could provide these gross flows and counts, but that more
+granular event reading is outside the scope of the current state-based
 calculation. ETH/BTC vault flows, including their ``periodic_metrics_usd``
 views, remain unavailable until historical denomination conversion is
 implemented. Lifetime flow values also remain null because the dataset does not

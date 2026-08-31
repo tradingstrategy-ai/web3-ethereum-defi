@@ -282,8 +282,8 @@ def test_netflow_preserves_unknown_counts_and_incomplete_amounts() -> None:
     assert day.data_complete
     assert day.deposit_count is None
     assert day.withdrawal_count is None
-    assert day.deposit_usd == pytest.approx(5.0)
-    assert day.withdrawal_usd == pytest.approx(0.0)
+    assert day.deposit_usd is None
+    assert day.withdrawal_usd is None
     assert day.net_flow_usd == pytest.approx(5.0)
 
     week = next(row for row in netflow if row.period == "7d")
@@ -324,10 +324,11 @@ def test_netflow_never_exports_partial_event_counts() -> None:
     assert netflow is not None
     week = next(row for row in netflow if row.period == "7d")
     assert week.data_complete
-    assert week.deposit_usd == pytest.approx(7.0)
-    assert week.withdrawal_usd == pytest.approx(0.0)
+    assert week.deposit_usd is None
+    assert week.withdrawal_usd is None
+    assert week.net_flow_usd == pytest.approx(7.0)
     assert week.deposit_count is None
-    assert week.withdrawal_count == 0
+    assert week.withdrawal_count is None
 
 
 def test_lighter_netflow_excludes_current_provisional_day() -> None:
@@ -348,8 +349,9 @@ def test_lighter_netflow_excludes_current_provisional_day() -> None:
 
     assert netflow is not None
     canonical_week = next(row for row in period_results if row.period == "1W")
-    assert canonical_week.deposit_value == pytest.approx(7.0)
-    assert canonical_week.redeem_value == pytest.approx(0.0)
+    assert canonical_week.flow_value == pytest.approx(7.0)
+    assert canonical_week.deposit_value is None
+    assert canonical_week.redeem_value is None
     assert canonical_week.deposit_count is None
     assert canonical_week.redemption_count is None
     lifetime = next(row for row in period_results if row.period == "lifetime")
@@ -358,11 +360,10 @@ def test_lighter_netflow_excludes_current_provisional_day() -> None:
 
     week = next(row for row in netflow if row.period == "7d")
     assert week.data_complete
-    assert week.deposit_usd == pytest.approx(7.0)
-    assert week.withdrawal_usd == pytest.approx(0.0)
+    assert week.deposit_usd is None
+    assert week.withdrawal_usd is None
     assert week.net_flow_usd == pytest.approx(7.0)
-    assert week.deposit_usd == canonical_week.deposit_value
-    assert week.withdrawal_usd == canonical_week.redeem_value
+    assert week.net_flow_usd == canonical_week.flow_value
 
 
 def test_lighter_ownership_reaches_metrics_json(tmp_path) -> None:

@@ -228,12 +228,11 @@ def test_erc4626_state_deltas_derive_estimated_net_flows() -> None:
 
     result = vault_metrics._derive_erc4626_estimated_daily_flows(prices)
 
-    assert pd.isna(result["daily_deposit_usd"].iloc[0])
-    assert pd.isna(result["daily_withdrawal_usd"].iloc[0])
-    assert result["daily_deposit_usd"].iloc[1] == pytest.approx(10.1)
-    assert result["daily_withdrawal_usd"].iloc[1] == pytest.approx(0.0)
-    assert result["daily_deposit_usd"].iloc[2] == pytest.approx(0.0)
-    assert result["daily_withdrawal_usd"].iloc[2] == pytest.approx(5.1)
+    assert pd.isna(result[vault_metrics.FLOW_VALUE_COLUMN].iloc[0])
+    assert result[vault_metrics.FLOW_VALUE_COLUMN].iloc[1] == pytest.approx(10.1)
+    assert result[vault_metrics.FLOW_VALUE_COLUMN].iloc[2] == pytest.approx(-5.1)
+    assert "daily_deposit_usd" not in result
+    assert "daily_withdrawal_usd" not in result
 
 
 def test_erc4626_state_deltas_reject_forward_filled_scanner_gaps() -> None:
@@ -254,8 +253,7 @@ def test_erc4626_state_deltas_reject_forward_filled_scanner_gaps() -> None:
 
     result = vault_metrics._derive_erc4626_estimated_daily_flows(daily_prices)
 
-    assert result["daily_deposit_usd"].isna().all()
-    assert result["daily_withdrawal_usd"].isna().all()
+    assert result[vault_metrics.FLOW_VALUE_COLUMN].isna().all()
 
 
 def test_get_trading_strategy_links_use_canonical_vault_routes():
@@ -759,6 +757,7 @@ def test_calculate_lifetime_metrics(
     assert isinstance(period_results, list)
     assert len(period_results) == 6  # 1W, 1M, 3M, 6M, 1Y, lifetime
     assert sample_row["netflow"] is None
+    assert all(period.flow_value is None for period in period_results)
     assert all(period.deposit_value is None for period in period_results)
     assert all(period.redeem_value is None for period in period_results)
     assert all(period.deposit_count is None for period in period_results)
@@ -835,19 +834,23 @@ def test_morpho_daily_state_pipeline_exports_estimated_period_flows(vault_db: Va
     one_month_flow = next(period for period in period_results if period.period == "1M")
 
     assert sample_row["protocol_slug"] == "morpho"
-    assert one_week_flow.deposit_value == pytest.approx(228_332.7404166556)
-    assert one_week_flow.redeem_value == pytest.approx(113_271.80481606776)
-    assert one_month_flow.deposit_value == pytest.approx(2_955_707.355826168)
-    assert one_month_flow.redeem_value == pytest.approx(610_400.8020997513)
+    assert one_week_flow.flow_value == pytest.approx(115_060.93560058785)
+    assert one_month_flow.flow_value == pytest.approx(2_345_306.5537264165)
+    assert one_week_flow.deposit_value is None
+    assert one_week_flow.redeem_value is None
+    assert one_month_flow.deposit_value is None
+    assert one_month_flow.redeem_value is None
     assert one_week_flow.deposit_count is None
     assert one_week_flow.redemption_count is None
 
     # The deprecated 7d and 30d records alias the canonical period results.
     legacy_netflow = {flow.period: flow for flow in sample_row["netflow"]}
-    assert legacy_netflow["7d"].deposit_usd == pytest.approx(one_week_flow.deposit_value)
-    assert legacy_netflow["7d"].withdrawal_usd == pytest.approx(one_week_flow.redeem_value)
-    assert legacy_netflow["30d"].deposit_usd == pytest.approx(one_month_flow.deposit_value)
-    assert legacy_netflow["30d"].withdrawal_usd == pytest.approx(one_month_flow.redeem_value)
+    assert legacy_netflow["7d"].net_flow_usd == pytest.approx(one_week_flow.flow_value)
+    assert legacy_netflow["30d"].net_flow_usd == pytest.approx(one_month_flow.flow_value)
+    assert legacy_netflow["7d"].deposit_usd is None
+    assert legacy_netflow["7d"].withdrawal_usd is None
+    assert legacy_netflow["30d"].deposit_usd is None
+    assert legacy_netflow["30d"].withdrawal_usd is None
 
 
 def test_event_observed_gmx_exports_approximated_daily_metrics(vault_db: VaultDatabase, price_df: pd.DataFrame) -> None:

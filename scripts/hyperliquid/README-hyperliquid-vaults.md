@@ -235,11 +235,12 @@ The cleaned Parquet gains these extra columns. For EVM vaults they are `NA`:
 
 The pipeline tracks daily deposit and withdrawal flows per vault using the
 Hyperliquid `userNonFundingLedgerUpdates` API. Complete windows are aggregated
-into `deposit_value`, `redeem_value`, `deposit_count` and `redemption_count` on
-each entry in the JSON `period_results` list. Hypercore values are denominated
-in USD because its vault flows settle in USDC. Lifetime flow values remain
-null because the shared dataset does not record the start of complete flow
-coverage.
+into `flow_value`, `deposit_value`, `redeem_value`, `deposit_count` and
+`redemption_count` on each entry in the JSON `period_results` list. Because the
+API exposes individual ledger updates, Hypercore can publish both signed flow
+and gross directional fields. Hypercore values are denominated in USD because
+its vault flows settle in USDC. Lifetime flow values remain null because the
+shared dataset does not record the start of complete flow coverage.
 
 The top-level `netflow` list and its `NetflowMetrics` dataclass are deprecated.
 They remain for compatibility: 7d and 30d values are aliases of the canonical

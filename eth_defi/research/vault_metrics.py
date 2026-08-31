@@ -105,20 +105,25 @@ VAULT_SCAN_CYCLE_NOTES = {
 class PeriodMetrics:
     """Tearsheet metrics for one period.
 
-    Deposit and redemption fields are available when the source provides
-    complete daily investor-flow data for the period. Hypercore and Lighter
-    provide direct daily observations. Stablecoin-denominated ERC-4626 vaults
-    use an estimate derived from consecutive total-assets, total-supply and
+    :attr:`flow_value` is the signed investor flow for the period: deposits
+    minus redemptions. It is available from either separately observed flows or
+    a state-based estimate. Stablecoin-denominated ERC-4626 vaults use an
+    estimate derived from consecutive total-assets, total-supply and
     share-price snapshots.
 
-    :attr:`deposit_value` and :attr:`redeem_value` are denominated in US
-    dollars for direct native-protocol sources and in the denomination
-    stablecoin for the ERC-4626 estimate. The estimated values represent the
-    positive and negative sides of net flow per scan interval: simultaneous
-    deposits and redemptions inside one interval cannot be separated. Event
-    counts therefore remain unavailable for estimated ERC-4626 flows. A day
-    without an actual scanner observation makes the containing period unknown;
-    a forward-filled state is never presented as zero flow.
+    :attr:`deposit_value`, :attr:`redeem_value`, :attr:`deposit_count` and
+    :attr:`redemption_count` describe gross directional activity and are only
+    available when individual deposit and redemption events have been
+    extracted for the complete period. This is not currently supported for
+    ERC-4626 vaults or most other protocols. These fields are never inferred
+    by splitting the sign of a net state change.
+
+    Monetary flow fields use the vault's native denomination, including ETH or
+    BTC where applicable. Values in ``periodic_metrics_usd`` use US dollars
+    instead. The current ERC-4626 :attr:`flow_value` estimate supports
+    stablecoin-denominated vaults only. A day without an actual scanner
+    observation makes the containing period unknown; a forward-filled state is
+    never presented as zero flow.
 
     Lifetime flow values remain unset because the shared dataset does not
     carry flow-coverage boundaries from which a complete lifetime window
@@ -204,22 +209,24 @@ class PeriodMetrics:
     #: Average utilisation over the period (lending vaults only, 0.0–1.0)
     avg_utilisation: Percent | None = None
 
-    #: Direct value, or the positive side of an ERC-4626 net state delta.
-    #: Indexing individual Deposit events could provide a gross value, but is
-    #: deliberately outside the scope of the current state-based calculation.
+    #: Signed flow value: deposits minus redemptions.
+    #: For ERC-4626 this is estimated from total assets and total supply.
+    flow_value: float | None = None
+
+    #: Gross deposited value, only when individual events were extracted.
+    #: Always ``None`` for the current ERC-4626 state-based calculation.
     deposit_value: float | None = None
 
-    #: Direct value, or the negative side of an ERC-4626 net state delta.
-    #: Indexing individual Withdraw events could provide a gross value, but is
-    #: deliberately outside the scope of the current state-based calculation.
+    #: Gross redeemed value, only when individual events were extracted.
+    #: Always ``None`` for the current ERC-4626 state-based calculation.
     redeem_value: float | None = None
 
-    #: Number of deposit events during the period, when exposed by the protocol.
-    #: ERC-4626 event indexing could populate this, but is out of scope for now.
+    #: Number of individually extracted deposit events during the period.
+    #: Always ``None`` for the current ERC-4626 state-based calculation.
     deposit_count: int | None = None
 
-    #: Number of redemption events during the period, when exposed by the protocol.
-    #: ERC-4626 event indexing could populate this, but is out of scope for now.
+    #: Number of individually extracted redemption events during the period.
+    #: Always ``None`` for the current ERC-4626 state-based calculation.
     redemption_count: int | None = None
 
 
@@ -278,8 +285,9 @@ class NetflowMetrics:
     """Deprecated legacy top-level deposit and withdrawal flow metrics.
 
     **Deprecated:** Do not use this dataclass in new integrations. Use
-    :class:`PeriodMetrics` and its ``deposit_value``, ``redeem_value``,
-    ``deposit_count`` and ``redemption_count`` fields instead.
+    :class:`PeriodMetrics` and its ``flow_value`` field instead. Gross
+    directional values and counts remain available there only when individual
+    events were extracted.
 
     The top-level ``netflow`` export retains this type only for backwards
     compatibility; its 7d and 30d values are aliases filled from the ``1W``
@@ -287,30 +295,32 @@ class NetflowMetrics:
 
     The temporary 1d legacy entry remains calculated directly because there
     is no matching performance period. Despite their historical ``*_usd``
-    names, monetary fields use the same units as :class:`PeriodMetrics`: USD
-    for direct native-protocol observations and the denomination stablecoin
-    for estimated ERC-4626 flows.
+    names, monetary fields use the same native denomination as
+    :class:`PeriodMetrics`; the corresponding ``periodic_metrics_usd`` view,
+    when available, uses US dollars. ``data_complete`` certifies signed
+    net-flow coverage; gross legacy fields can still be null when individual
+    events were not extracted.
     """
 
     #: Period label (e.g. ``"1d"``, ``"7d"``, ``"30d"``)
     period: str
 
-    #: Number of deposit events in the period
+    #: Number of individually extracted deposit events in the period.
     deposit_count: int | None = None
 
-    #: Number of withdrawal events in the period
+    #: Number of individually extracted withdrawal events in the period.
     withdrawal_count: int | None = None
 
-    #: Legacy deposit value; see the class-level denomination warning.
+    #: Legacy gross deposit value, only from individually extracted events.
     deposit_usd: float | None = None
 
-    #: Legacy withdrawal value; see the class-level denomination warning.
+    #: Legacy gross withdrawal value, only from individually extracted events.
     withdrawal_usd: float | None = None
 
-    #: Legacy net flow (``deposit_usd - withdrawal_usd``) in the same units.
+    #: Legacy signed flow in the same units as ``PeriodMetrics.flow_value``.
     net_flow_usd: float | None = None
 
-    #: Whether every daily monetary observation in the full period is known.
+    #: Whether every daily signed-flow observation in the full period is known.
     data_complete: bool = False
 
 
@@ -1259,26 +1269,47 @@ def _unnullify(x: str | None, default: str = "<unknown>") -> str:
     return x
 
 
-#: Daily monetary-flow columns required by period aggregation.
+#: Separately observed daily directional-flow columns.
 FLOW_AMOUNT_COLUMNS: tuple[str, str] = ("daily_deposit_usd", "daily_withdrawal_usd")
+
+#: Daily signed flow used when gross directional events are unavailable.
+FLOW_VALUE_COLUMN: str = "daily_flow_value"
+
+#: Daily event-count columns required before gross flows may be published.
+FLOW_COUNT_COLUMNS: tuple[str, str] = ("daily_deposit_count", "daily_withdrawal_count")
 
 #: Whether a regular daily row came from at least one scanner observation.
 VAULT_STATE_OBSERVED_COLUMN = "_vault_state_observed"
 
 
-def _has_daily_flow_data(prices_df: pd.DataFrame) -> bool:
-    """Check whether a price frame contains any usable daily flow amounts.
+def _has_separate_daily_flow_data(prices_df: pd.DataFrame) -> bool:
+    """Check whether any separately observed directional flow amount exists.
 
-    Both amount columns must exist. Individual period windows perform their
-    own completeness checks after this inexpensive vault-level capability
-    check.
+    This is a vault-level capability check. Full-period aggregation separately
+    verifies that every required daily amount is present.
 
     :param prices_df:
         Cleaned vault observations.
     :return:
-        ``True`` when at least one daily deposit or withdrawal amount exists.
+        ``True`` when at least one deposit or withdrawal amount exists.
     """
     return all(column in prices_df.columns for column in FLOW_AMOUNT_COLUMNS) and any(prices_df[column].notna().any() for column in FLOW_AMOUNT_COLUMNS)
+
+
+def _has_daily_flow_data(prices_df: pd.DataFrame) -> bool:
+    """Check whether a price frame contains any usable signed flow data.
+
+    A source may provide separately observed directional amounts or only a
+    signed net-flow value. Individual period windows perform their own
+    completeness checks after this inexpensive vault-level capability check.
+
+    :param prices_df:
+        Cleaned vault observations.
+    :return:
+        ``True`` when at least one daily directional or signed flow exists.
+    """
+    has_signed_flow = FLOW_VALUE_COLUMN in prices_df.columns and prices_df[FLOW_VALUE_COLUMN].notna().any()
+    return _has_separate_daily_flow_data(prices_df) or has_signed_flow
 
 
 def _derive_erc4626_estimated_daily_flows(prices_df: pd.DataFrame) -> pd.DataFrame:
@@ -1290,10 +1321,10 @@ def _derive_erc4626_estimated_daily_flows(prices_df: pd.DataFrame) -> pd.DataFra
 
         net_flow = delta_total_assets - previous_total_supply * delta_share_price
 
-    Positive intervals are exposed as deposits and negative intervals as
-    redemptions. Deposits and redemptions occurring inside the same scan
-    interval are netted, and no event counts can be inferred. Existing direct
-    flow observations always take precedence over this estimate.
+    Deposits and redemptions occurring inside the same scan interval are
+    netted, and no gross directional values or event counts can be inferred.
+    Existing direct flow observations always take precedence over this
+    estimate.
 
     :param prices_df:
         Consecutive daily vault states for one ERC-4626 vault. ``total_assets``
@@ -1302,7 +1333,7 @@ def _derive_erc4626_estimated_daily_flows(prices_df: pd.DataFrame) -> pd.DataFra
         ``_vault_state_observed`` must identify real scanner days so the
         estimator fails closed on any forward-filled input.
     :return:
-        Copy with estimated daily monetary flow columns. The first observation
+        Copy with an estimated signed daily flow column. The first observation
         and rows with unusable state remain unknown.
     """
     if _has_daily_flow_data(prices_df):
@@ -1345,8 +1376,7 @@ def _derive_erc4626_estimated_daily_flows(prices_df: pd.DataFrame) -> pd.DataFra
     dust_tolerance = total_assets.abs().mul(1e-12).clip(lower=1e-9)
     estimated_net_flow = estimated_net_flow.mask(estimated_net_flow.abs() <= dust_tolerance, 0.0)
 
-    result["daily_deposit_usd"] = estimated_net_flow.clip(lower=0.0)
-    result["daily_withdrawal_usd"] = -estimated_net_flow.clip(upper=0.0)
+    result[FLOW_VALUE_COLUMN] = estimated_net_flow
     return result
 
 
@@ -1365,9 +1395,9 @@ def _calculate_flow_window(
     presented as a complete period result.
 
     :param prices_df:
-        Cleaned price DataFrame with optional direct or estimated daily flow
-        columns. Historical column names contain ``usd`` even when an ERC-4626
-        estimate is denominated in its stablecoin.
+        Cleaned price DataFrame with optional directional event data or a
+        signed daily flow column. Historical directional column names contain
+        ``usd``; the ERC-4626 signed estimate is denominated in its stablecoin.
     :param period:
         Label stored on the compatibility record.
     :param days:
@@ -1376,33 +1406,63 @@ def _calculate_flow_window(
         Last UTC day included in the flow window.
     :return:
         Aggregated values. Callers first verify that the vault has a flow data
-        source; incomplete individual windows contain null totals.
+        source. Incomplete windows have no signed flow; gross directional
+        fields additionally require complete individual event counts.
     """
     cutoff = now_ - pd.Timedelta(days=days)
     mask = (prices_df.index > cutoff) & (prices_df.index <= now_)
     subset = prices_df.loc[mask]
-    amounts = subset[list(FLOW_AMOUNT_COLUMNS)]
     expected_dates = pd.date_range(end=now_.normalize(), periods=days, freq="D")
     observed_dates = pd.DatetimeIndex(subset.index.normalize().unique())
-    data_complete = observed_dates.equals(expected_dates) and len(subset) == days and amounts.notna().all(axis=None)
+    dates_complete = observed_dates.equals(expected_dates) and len(subset) == days
 
-    if data_complete:
-        deposit_usd = float(amounts["daily_deposit_usd"].sum())
-        withdrawal_usd = float(amounts["daily_withdrawal_usd"].sum())
+    has_directional_columns = all(column in subset.columns for column in FLOW_AMOUNT_COLUMNS)
+    directional_amounts = subset[list(FLOW_AMOUNT_COLUMNS)] if has_directional_columns else None
+    directional_complete = dates_complete and directional_amounts is not None and directional_amounts.notna().all(axis=None)
+
+    has_count_columns = all(column in subset.columns for column in FLOW_COUNT_COLUMNS)
+    counts = subset[list(FLOW_COUNT_COLUMNS)] if has_count_columns else None
+
+    # Complete count columns are the current proof that directional amounts
+    # came from individually extracted events. Aggregate-only sources must
+    # leave counts null and must never synthesise zero counts, or gross values
+    # would be exposed without event-level evidence.
+    events_complete = directional_complete and counts is not None and counts.notna().all(axis=None)
+
+    signed_flow = subset[FLOW_VALUE_COLUMN] if FLOW_VALUE_COLUMN in subset.columns else None
+    signed_complete = dates_complete and signed_flow is not None and signed_flow.notna().all()
+    data_complete = bool(directional_complete or signed_complete)
+
+    if events_complete:
+        assert directional_amounts is not None
+        deposit_usd = float(directional_amounts["daily_deposit_usd"].sum())
+        withdrawal_usd = float(directional_amounts["daily_withdrawal_usd"].sum())
+        assert counts is not None
+        deposit_count = int(counts["daily_deposit_count"].sum())
+        withdrawal_count = int(counts["daily_withdrawal_count"].sum())
     else:
         deposit_usd = None
         withdrawal_usd = None
+        deposit_count = None
+        withdrawal_count = None
 
-    deposit_count = int(subset["daily_deposit_count"].sum()) if data_complete and "daily_deposit_count" in subset and subset["daily_deposit_count"].notna().all() else None
-    withdrawal_count = int(subset["daily_withdrawal_count"].sum()) if data_complete and "daily_withdrawal_count" in subset and subset["daily_withdrawal_count"].notna().all() else None
+    if directional_complete:
+        assert directional_amounts is not None
+        net_flow = float(directional_amounts["daily_deposit_usd"].sum() - directional_amounts["daily_withdrawal_usd"].sum())
+    elif signed_complete:
+        assert signed_flow is not None
+        net_flow = float(signed_flow.sum())
+    else:
+        net_flow = None
+
     return NetflowMetrics(
         period=period,
         deposit_usd=deposit_usd,
         withdrawal_usd=withdrawal_usd,
         deposit_count=deposit_count,
         withdrawal_count=withdrawal_count,
-        net_flow_usd=deposit_usd - withdrawal_usd if data_complete else None,
-        data_complete=bool(data_complete),
+        net_flow_usd=net_flow,
+        data_complete=data_complete,
     )
 
 
@@ -1437,7 +1497,7 @@ def _attach_period_flow_metrics(
     now_: pd.Timestamp,
     exclude_current_utc_day: bool,
 ) -> None:
-    """Attach canonical deposit and redemption data to fixed period results.
+    """Attach signed flow and optional gross event data to period results.
 
     Each fixed lookback uses its full calendar-day window. Lifetime remains
     unset because price history does not establish the beginning of available
@@ -1447,7 +1507,8 @@ def _attach_period_flow_metrics(
     :param period_results:
         Performance results to enrich in place.
     :param prices_df:
-        Cleaned price DataFrame containing optional daily flow columns.
+        Cleaned price DataFrame containing optional signed flow, directional
+        amount and individual event-count columns.
     :param now_:
         Latest vault observation timestamp.
     :param exclude_current_utc_day:
@@ -1465,6 +1526,7 @@ def _attach_period_flow_metrics(
         first_day = (flow_now - lookback).normalize()
         days = (flow_now.normalize() - first_day).days
         flow = _calculate_flow_window(prices_df, period=result.period, days=days, now_=flow_now)
+        result.flow_value = flow.net_flow_usd
         result.deposit_value = flow.deposit_usd
         result.redeem_value = flow.withdrawal_usd
         result.deposit_count = flow.deposit_count
@@ -1509,7 +1571,7 @@ def _calculate_netflow_metrics(
     for label, canonical_period in (("7d", "1W"), ("30d", "1M")):
         metrics = get_period_metrics(period_results, canonical_period)
         assert metrics is not None, f"{canonical_period} period result missing"
-        data_complete = metrics.deposit_value is not None and metrics.redeem_value is not None
+        data_complete = metrics.flow_value is not None
         aliases.append(
             NetflowMetrics(
                 period=label,
@@ -1517,7 +1579,7 @@ def _calculate_netflow_metrics(
                 withdrawal_count=metrics.redemption_count,
                 deposit_usd=metrics.deposit_value,
                 withdrawal_usd=metrics.redeem_value,
-                net_flow_usd=metrics.deposit_value - metrics.redeem_value if data_complete else None,
+                net_flow_usd=metrics.flow_value,
                 data_complete=data_complete,
             )
         )
@@ -4288,7 +4350,7 @@ def _calculate_regular_daily_returns(df_work: pd.DataFrame, returns_column: str)
         if VAULT_STATE_OBSERVED_COLUMN not in group.columns:
             group[VAULT_STATE_OBSERVED_COLUMN] = True
         resampled = group.resample("D").last()
-        sparse_columns = [column for column in ("daily_deposit_count", "daily_withdrawal_count", "daily_deposit_usd", "daily_withdrawal_usd", VAULT_STATE_OBSERVED_COLUMN) if column in resampled.columns]
+        sparse_columns = [column for column in (*FLOW_COUNT_COLUMNS, *FLOW_AMOUNT_COLUMNS, FLOW_VALUE_COLUMN, VAULT_STATE_OBSERVED_COLUMN) if column in resampled.columns]
         sparse_values = resampled[sparse_columns].copy()
         resampled = resampled.ffill()
         resampled[sparse_columns] = sparse_values
