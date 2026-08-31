@@ -64,7 +64,7 @@ class YieldBasisCatalogueSyncResult:
 def _product_name(product: YieldBasisMarket) -> str:
     """Build a stable display name for one reviewed market."""
 
-    return f"yb-LP {product.review.asset_symbol} · market {product.market_id}"
+    return f"yb-LP {product.review.asset_symbol}"
 
 
 def _product_description(product: YieldBasisMarket) -> str:

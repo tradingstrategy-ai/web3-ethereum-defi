@@ -6,6 +6,16 @@ YieldBasis API
 This module contains read-only support for the reviewed Ethereum
 `YieldBasis <https://yieldbasis.com/>`__ Earn LT markets.
 
+Official resources
+~~~~~~~~~~~~~~~~~~
+
+- `Documentation <https://docs.yieldbasis.com/>`__
+- `Smart-contract source <https://github.com/yield-basis/yb-core>`__
+- `YieldBasis on X <https://x.com/yieldbasis>`__
+- `Audits and bug bounties <https://docs.yieldbasis.com/user/reference/audits>`__
+- `Fee documentation <https://docs.yieldbasis.com/user/protocol/fee-mechanics>`__
+- `YieldBasis on DefiLlama <https://defillama.com/protocol/yield-basis>`__
+
 YieldBasis yb-LP shares use a synthetic USD accounting denomination. The
 primary value is the underlying returned by ``preview_withdraw()`` multiplied
 by the market Curve Cryptoswap ``price_oracle()``. Consequently, both the

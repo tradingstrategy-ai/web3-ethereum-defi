@@ -16,6 +16,7 @@ from web3.exceptions import ContractLogicError, Web3Exception
 from eth_defi.erc_4626.classification import _get_hardcoded_protocol_features, create_vault_instance  # noqa: PLC2701
 from eth_defi.erc_4626.core import ERC4262VaultDetection, ERC4626Feature, get_vault_protocol_name, is_activity_filter_exempt
 from eth_defi.middleware import ProbablyNodeHasNoBlock
+from eth_defi.research.vault_metrics import slugify_protocol
 from eth_defi.vault.base import INSTANT_WITHDRAWAL_PERIOD, VaultSpec
 from eth_defi.vault.fee import VaultFeeMode, get_vault_fee_mode
 from eth_defi.vault.flag import VaultFlag
@@ -720,7 +721,7 @@ def test_yield_basis_catalogue_sync_is_idempotent(monkeypatch: pytest.MonkeyPatc
     assert second.inserted == 0
     assert second.updated == 1
     assert recovered.updated == 1
-    assert row["Name"] == "yb-LP WBTC · market 7"
+    assert row["Name"] == "yb-LP WBTC"
     assert row["Denomination"] == "USD"
     assert row["_synthetic_usd_denomination"] is True
     assert row["_detection_data"].first_seen_at_block == review.first_seen_at_block
@@ -739,15 +740,26 @@ def test_yield_basis_catalogue_sync_is_idempotent(monkeypatch: pytest.MonkeyPatc
 
 
 def test_yield_basis_protocol_metadata() -> None:
-    """Render the public metadata and include crvUSD/volatility guidance."""
+    """Render public metadata under the canonical exported protocol slug."""
 
     repository_root = Path(__file__).resolve().parents[2]
-    metadata = build_metadata_json(repository_root / "eth_defi/data/vaults/metadata/yield-basis.yaml", "https://example.invalid")
+    metadata = build_metadata_json(repository_root / "eth_defi/data/vaults/metadata/yieldbasis.yaml", "https://example.invalid")
     assert metadata["name"] == "YieldBasis"
-    assert metadata["slug"] == "yield-basis"
-    assert metadata["logos"]["light"] == "https://example.invalid/vault-protocol-metadata/yield-basis/light.png"
-    assert "crvUSD" in metadata["long_description"]
-    assert "BTC/ETH price movement" in metadata["long_description"]
+    assert metadata["slug"] == slugify_protocol(metadata["name"]) == "yieldbasis"
+    expected_short_description = "YieldBasis is an AMM protocol that aims to retain the equivalent performance of holding the underlying asset."
+    assert metadata["short_description"].replace("\n", " ") == expected_short_description
+    assert metadata["logos"] == {
+        "generic": "https://example.invalid/vault-protocol-metadata/yieldbasis/generic.png",
+        "dark": "https://example.invalid/vault-protocol-metadata/yieldbasis/dark.png",
+        "light": "https://example.invalid/vault-protocol-metadata/yieldbasis/light.png",
+    }
+    assert metadata["links"]["defillama"] == "https://defillama.com/protocol/yield-basis"
+    normalised_long_description = metadata["long_description"].replace("\n", " ")
+    assert "usual up-and-down price exposure" in normalised_long_description
+    assert "impermanent loss" in normalised_long_description
+    assert "sharp price drops" in normalised_long_description
+    assert "[YieldBasis announcement channel](https://t.me/yieldbasis)" in metadata["long_description"]
+    assert "[YieldBasis whitepaper](https://github.com/yield-basis/yb-paper/blob/master/leveraged-liquidity-paper.pdf)" in metadata["long_description"]
 
 
 def test_yield_basis_underlying_and_redemption_metrics() -> None:
