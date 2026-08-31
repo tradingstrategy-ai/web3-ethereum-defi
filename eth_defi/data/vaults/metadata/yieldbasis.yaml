@@ -1,26 +1,26 @@
 name: YieldBasis
 slug: yieldbasis
 short_description: |
-  YieldBasis creates leveraged Curve liquidity positions so yb-LP holders can earn
-  trading fees while retaining exposure to the underlying BTC or ETH market.
+  YieldBasis offers BTC and ETH liquidity products designed to earn a share of
+  trading fees while retaining exposure to the underlying asset.
 long_description: |
   [YieldBasis](https://yieldbasis.com/) is a decentralised liquidity protocol
-  built around leveraged positions in Curve Cryptoswap pools. A liquidity
-  provider supplies a volatile asset such as WBTC, cbBTC, tBTC or WETH while
-  the protocol borrows crvUSD and manages the position through its LEVAMM
-  design. The resulting yb-LP share is a claim on protocol-managed pool equity,
-  not a deposit account or a principal-protected stablecoin.
+  for BTC and ETH markets. Its [Earn products](https://yieldbasis.com/earn)
+  let users provide supported assets, including WBTC, cbBTC, tBTC and WETH, and
+  receive yb-LP shares.
 
-  YieldBasis aims to make liquidity provision more efficient by adjusting
-  leverage as the market changes. Holders can earn a share of trading activity,
-  but the position remains exposed to the asset's USD price, pool
-  liquidity, leverage, oracle assumptions and the protocol's redemption rules.
-  The value of a share can therefore fall. An immediate redemption can be below
-  fundamental value because of the protocol's [Temporary Redemption Discount](https://docs.yieldbasis.com/user/protocol/fundamental-value-redemption-value-and-trd),
-  which varies with the product and market state. Returns measured in USD also
-  include BTC/ETH price movement.
-  See the [YieldBasis overview](https://docs.yieldbasis.com/user/overview/how-yieldbasis-works)
-  and [Earn page](https://yieldbasis.com/earn) for the current product terms.
+  Each share represents a managed liquidity position. YieldBasis is designed to
+  let liquidity providers earn from market activity while keeping exposure to
+  their chosen BTC or ETH asset. Trading fees generated when people use the
+  market are shared with liquidity providers. The [YieldBasis overview](https://docs.yieldbasis.com/user/overview/how-yieldbasis-works)
+  explains how its liquidity products work.
+
+  A yb-LP share can rise or fall in value. BTC or ETH prices, pool liquidity,
+  leverage and market conditions can all affect the result. An immediate exit
+  can also receive less than the product's calculated value because of the
+  [Temporary Redemption Discount](https://docs.yieldbasis.com/user/protocol/fundamental-value-redemption-value-and-trd).
+  See the [Earn page](https://yieldbasis.com/earn) for current markets and
+  product terms.
 fee_description: |
   YieldBasis allocates its product fees through LT share accounting. Its
   [fee mechanics](https://docs.yieldbasis.com/user/protocol/fee-mechanics)
