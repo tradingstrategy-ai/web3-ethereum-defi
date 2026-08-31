@@ -89,6 +89,22 @@ def test_identify_curator_uses_reviewed_adapter_declaration() -> None:
     )
 
 
+def test_identify_stratwise_hyperliquid_vault() -> None:
+    """Identify Stratwise from its branded Hyperliquid vault name."""
+
+    slug = identify_curator(
+        chain_id=9999,
+        vault_token_symbol="Stratwise",
+        vault_name="Stratwise Multi-Asset Public",
+        vault_address="0x0ff219ac20596b457558341bc410bc7a08a1394c",
+        protocol_slug="hyperliquid",
+    )
+
+    assert slug == "stratwise"
+    assert not is_protocol_curator(slug)
+    assert get_curator_name(slug) == "Stratwise"
+
+
 def test_tokenised_fund_curator_metadata_has_logos() -> None:
     """Export a usable logo variant for every newly added fund manager."""
 

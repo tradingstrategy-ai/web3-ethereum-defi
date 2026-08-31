@@ -2,8 +2,24 @@
 
 from eth_defi.vault.strategy_tag import StrategyTag, combine_strategy_tags
 
-#: Hyperliquid native vaults trade perpetual futures by definition.
+#: Most Hyperliquid native vaults trade perpetual futures.
 DEFAULT_STRATEGY_TAGS: frozenset[StrategyTag] = frozenset({StrategyTag.perpetual_futures})
+
+#: These Hyperliquid products are documented as spot-only vaults, so the native
+#: perpetual-futures default does not apply. Keep the exception explicit and
+#: address-scoped.
+NON_PERPETUAL_VAULTS: frozenset[str] = frozenset(
+    {
+        #: Vault: Stratwise Multi-Asset Public.
+        #: Added: 2026-08-31.
+        #: Decision material: Stratwise and the Trading Strategy vault page
+        #: describe this as a spot-only, no-leverage strategy.
+        #: Sources:
+        #: - https://stratwise.ai/
+        #: - https://tradingstrategy.ai/vaults/stratwise-multi-asset-public
+        "0x0ff219ac20596b457558341bc410bc7a08a1394c",
+    }
+)
 
 #: Address-specific strategy classifications maintained in addition to the
 #: native perpetual-futures default. Addresses are lowercase.
@@ -217,6 +233,20 @@ STRATEGY_TAGS: dict[str, set[StrategyTag]] = {
         StrategyTag.directional_trading,
         StrategyTag.grid_trading,
     },
+    #: Vault: Stratwise Multi-Asset Public.
+    #: Added: 2026-08-31.
+    #: Decision material: The current vault description says Stratwise uses an
+    #: automated AI strategy trading multiple crypto assets, with volatility
+    #: and squeeze forecasting through a dynamic grid. The official Stratwise
+    #: site describes managed AI strategies and a dynamic adaptive grid that
+    #: forecasts volatility, predicts squeezes and reoptimises the grid.
+    #: Sources:
+    #: - https://tradingstrategy.ai/vaults/stratwise-multi-asset-public
+    #: - https://stratwise.ai/
+    "0x0ff219ac20596b457558341bc410bc7a08a1394c": {
+        StrategyTag.algorithmic_trading,
+        StrategyTag.grid_trading,
+    },
     #: Vault: Wilkins Capital.
     #: Added: 2026-08-17.
     #: Decision material: The Hyperliquid vault description explicitly says
@@ -240,4 +270,6 @@ def get_strategy_tags(address: str) -> set[StrategyTag]:
         New tag set containing the native perpetual-futures default and any
         address-specific classifications.
     """
-    return combine_strategy_tags(DEFAULT_STRATEGY_TAGS, STRATEGY_TAGS, address)
+    normalised_address = address.lower()
+    defaults = frozenset() if normalised_address in NON_PERPETUAL_VAULTS else DEFAULT_STRATEGY_TAGS
+    return combine_strategy_tags(defaults, STRATEGY_TAGS, normalised_address)

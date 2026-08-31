@@ -1,0 +1,21 @@
+feeder-id: stratwise
+name: Stratwise
+role: curator
+website: https://stratwise.ai/
+short_description: Stratwise is an AI-driven systematic crypto asset manager running non-custodial, spot-only strategies, including public vaults on Hyperliquid, that trade volatility with a machine-learning engine and no leverage.
+long_description: |
+  The [Stratwise vault](https://x.com/StratwiseAI/status/2090441910762553405) runs a systematic, multi-asset spot strategy. A machine-learning engine allocates across several assets and harvests volatility through mean-reversion, accumulating on pullbacks and taking profit on reversion. Exposure is directional and long-biased by construction; the strategy is not market-neutral and carries beta, with returns coming from that exposure managed systematically rather than discretionarily.
+
+  The vault is spot-only: no leverage, no margin, no derivatives and therefore no liquidation risk. Its stated worst case is a drawdown the strategy manages rather than an exchange-driven force-close. Exposure is bounded by hard capital-allocation limits, and diversification across multiple assets reduces single-name concentration relative to a one-coin book. Execution is fully automated; the team sets risk parameters and reviews the model regularly.
+
+  The vault operates onchain on Hyperliquid, so positions, fills and balances are visible in real time and performance can be verified at source rather than through reported figures. Deposits and withdrawals follow Hyperliquid's native vault mechanics. Denominated in USDC, the vault is intended for allocators seeking systematic, diversified and transparent exposure to crypto volatility without a leverage-and-liquidation risk profile.
+twitter: StratwiseAI
+
+# Evidence and background references.
+#
+# Stratwise links the X account from its official website metadata and footer.
+# Trading Strategy identifies the Stratwise Multi-Asset Public vault on
+# Hyperliquid and links its public vault address.
+other-links:
+  - title: Trading Strategy vault - Stratwise Multi-Asset Public
+    url: https://tradingstrategy.ai/vaults/stratwise-multi-asset-public
