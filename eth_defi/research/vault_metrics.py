@@ -204,16 +204,22 @@ class PeriodMetrics:
     #: Average utilisation over the period (lending vaults only, 0.0–1.0)
     avg_utilisation: Percent | None = None
 
-    #: Direct or estimated value deposited during the complete period.
+    #: Direct value, or the positive side of an ERC-4626 net state delta.
+    #: Indexing individual Deposit events could provide a gross value, but is
+    #: deliberately outside the scope of the current state-based calculation.
     deposit_value: float | None = None
 
-    #: Direct or estimated value redeemed during the complete period.
+    #: Direct value, or the negative side of an ERC-4626 net state delta.
+    #: Indexing individual Withdraw events could provide a gross value, but is
+    #: deliberately outside the scope of the current state-based calculation.
     redeem_value: float | None = None
 
     #: Number of deposit events during the period, when exposed by the protocol.
+    #: ERC-4626 event indexing could populate this, but is out of scope for now.
     deposit_count: int | None = None
 
     #: Number of redemption events during the period, when exposed by the protocol.
+    #: ERC-4626 event indexing could populate this, but is out of scope for now.
     redemption_count: int | None = None
 
 
@@ -1324,6 +1330,10 @@ def _derive_erc4626_estimated_daily_flows(prices_df: pd.DataFrame) -> pd.DataFra
     previous_assets = total_assets.shift(1)
     previous_supply = total_supply.shift(1)
     previous_share_price = share_price.shift(1)
+
+    # A more granular Deposit/Withdraw event index could recover separate gross
+    # flows and event counts. It is intentionally out of scope here: this path
+    # uses only the total-assets, total-supply and share-price state snapshots.
     estimated_net_flow = total_assets.diff() - previous_supply * share_price.diff()
     valid = np.isfinite(total_assets) & np.isfinite(previous_assets) & np.isfinite(total_supply) & np.isfinite(previous_supply) & np.isfinite(share_price) & np.isfinite(previous_share_price) & (total_assets >= 0) & (previous_assets >= 0) & (total_supply >= 0) & (previous_supply >= 0) & (share_price > 0) & (previous_share_price > 0)
     state_observed = result[VAULT_STATE_OBSERVED_COLUMN].fillna(False).astype(bool)

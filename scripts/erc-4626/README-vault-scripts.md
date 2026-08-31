@@ -229,11 +229,14 @@ estimate is reported as ``deposit_value`` and a negative estimate as
 redemptions within the same day are therefore netted and cannot be separated.
 Days without an actual scanner observation remain unknown instead of being
 treated as zero flow, and any period containing such a gap remains null. Event
-counts remain null for these estimates. ETH/BTC vault flows, including their
-``periodic_metrics_usd`` views, remain unavailable until historical denomination
-conversion is implemented. Lifetime flow values also remain null because the
-dataset does not record a reliable flow-coverage start. The top-level
-``netflow`` export is deprecated and retained only for compatibility.
+counts remain null for these estimates. Indexing individual ERC-4626 ``Deposit``
+and ``Withdraw`` events could provide separate gross flows and counts, but that
+more granular event reading is outside the scope of the current state-based
+calculation. ETH/BTC vault flows, including their ``periodic_metrics_usd``
+views, remain unavailable until historical denomination conversion is
+implemented. Lifetime flow values also remain null because the dataset does not
+record a reliable flow-coverage start. The top-level ``netflow`` export is
+deprecated and retained only for compatibility.
 
 Only the configured alternative R2 bucket receives this bundle. Its objects use
 flat root keys with the ``crypto-`` prefix, such as
