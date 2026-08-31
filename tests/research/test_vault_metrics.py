@@ -200,6 +200,8 @@ def test_daily_vault_resampling_does_not_forward_fill_flow_totals() -> None:
             "address": ["0x1234", "0x1234"],
             "id": [vault_id, vault_id],
             "share_price": [100.0, 110.0],
+            "total_assets": [100.0, 110.0],
+            "total_supply": [1.0, 1.0],
             "daily_deposit_usd": [10.0, 20.0],
         },
         index=pd.to_datetime(["2026-01-01 12:00:00", "2026-01-03 12:00:00"]),
@@ -209,8 +211,122 @@ def test_daily_vault_resampling_does_not_forward_fill_flow_totals() -> None:
 
     assert daily["share_price"].tolist() == [100.0, 100.0, 110.0]
     assert daily["id"].tolist() == [vault_id, vault_id, vault_id]
+    assert daily[vault_metrics.VAULT_STATE_OBSERVED_COLUMN].fillna(False).tolist() == [True, False, True]
     assert pd.isna(daily["daily_deposit_usd"].iloc[1])
     assert daily["daily_deposit_usd"].sum() == pytest.approx(30.0)
+
+
+def test_erc4626_state_deltas_derive_estimated_net_flows() -> None:
+    """Separate yield from netted ERC-4626 deposits and redemptions."""
+    prices = pd.DataFrame(
+        {
+            "total_assets": [100.0, 111.1, 107.1],
+            "total_supply": [100.0, 110.0, 105.0],
+            "share_price": [1.0, 1.01, 1.02],
+            vault_metrics.VAULT_STATE_OBSERVED_COLUMN: [True, True, True],
+        },
+        index=pd.date_range("2026-01-01", periods=3, freq="D"),
+    )
+
+    result = vault_metrics._derive_erc4626_estimated_daily_flows(prices)
+
+    assert pd.isna(result[vault_metrics.FLOW_VALUE_COLUMN].iloc[0])
+    assert result[vault_metrics.FLOW_VALUE_COLUMN].iloc[1] == pytest.approx(10.1)
+    assert result[vault_metrics.FLOW_VALUE_COLUMN].iloc[2] == pytest.approx(-5.1)
+    assert "daily_deposit_usd" not in result
+    assert "daily_withdrawal_usd" not in result
+
+
+def test_erc4626_flow_state_validation_uses_relative_and_absolute_tolerances() -> None:
+    """Allow rounding dust without accepting materially inconsistent states."""
+    state = pd.DataFrame(
+        {
+            "total_assets": [100.0, 100.0, 1e-7, 1e-7],
+            "total_supply": [100.05, 100.2, 5e-7, 2e-6],
+            "share_price": [1.0, 1.0, 1.0, 1.0],
+        }
+    )
+
+    valid = vault_metrics._get_valid_erc4626_flow_states(state)
+
+    assert valid.tolist() == [True, False, True, False]
+
+
+def test_erc4626_state_deltas_include_fee_share_mints() -> None:
+    """Treat fee-share issuance as flow because state snapshots cannot separate it."""
+    prices = pd.DataFrame(
+        {
+            "total_assets": [100.0, 100.0],
+            "total_supply": [100.0, 110.0],
+            "share_price": [1.0, 100.0 / 110.0],
+            vault_metrics.VAULT_STATE_OBSERVED_COLUMN: [True, True],
+        },
+        index=pd.date_range("2026-01-01", periods=2, freq="D"),
+    )
+
+    result = vault_metrics._derive_erc4626_estimated_daily_flows(prices)
+
+    assert result[vault_metrics.FLOW_VALUE_COLUMN].iloc[1] == pytest.approx(100.0 / 11.0)
+
+
+def test_erc4626_state_deltas_reject_forward_filled_scanner_gaps() -> None:
+    """Do not publish zero flow for a day without a scanner observation."""
+    vault_id = "1-0x1234"
+    sparse_prices = pd.DataFrame(
+        {
+            "chain": [1, 1],
+            "address": ["0x1234", "0x1234"],
+            "id": [vault_id, vault_id],
+            "total_assets": [100.0, 122.4],
+            "total_supply": [100.0, 120.0],
+            "share_price": [1.0, 1.02],
+        },
+        index=pd.to_datetime(["2026-01-01 12:00:00", "2026-01-03 12:00:00"]),
+    )
+    daily_prices = calculate_hourly_returns_for_all_vaults(sparse_prices)
+
+    result = vault_metrics._derive_erc4626_estimated_daily_flows(daily_prices)
+
+    assert result[vault_metrics.FLOW_VALUE_COLUMN].isna().all()
+
+
+def test_erc4626_state_deltas_reject_partial_scanner_states() -> None:
+    """Do not estimate flow across a day with an incomplete accounting read."""
+    vault_id = "1-0x1234"
+    prices = pd.DataFrame(
+        {
+            "chain": [1, 1, 1],
+            "address": ["0x1234", "0x1234", "0x1234"],
+            "id": [vault_id, vault_id, vault_id],
+            "total_assets": [100.0, np.nan, 122.4],
+            "total_supply": [100.0, 110.0, 120.0],
+            "share_price": [1.0, 1.01, 1.02],
+        },
+        index=pd.date_range("2026-01-01", periods=3, freq="D"),
+    )
+    daily_prices = calculate_hourly_returns_for_all_vaults(prices)
+
+    result = vault_metrics._derive_erc4626_estimated_daily_flows(daily_prices)
+
+    assert daily_prices[vault_metrics.VAULT_STATE_OBSERVED_COLUMN].tolist() == [True, False, True]
+    assert result[vault_metrics.FLOW_VALUE_COLUMN].isna().all()
+
+
+def test_erc4626_state_deltas_reject_inconsistent_accounting_states() -> None:
+    """Do not treat a broken assets/supply/share-price identity as investor flow."""
+    prices = pd.DataFrame(
+        {
+            "total_assets": [100.0, 120.0],
+            "total_supply": [100.0, 100.0],
+            "share_price": [1.0, 1.01],
+            vault_metrics.VAULT_STATE_OBSERVED_COLUMN: [True, True],
+        },
+        index=pd.date_range("2026-01-01", periods=2, freq="D"),
+    )
+
+    result = vault_metrics._derive_erc4626_estimated_daily_flows(prices)
+
+    assert result[vault_metrics.FLOW_VALUE_COLUMN].isna().all()
 
 
 def test_get_trading_strategy_links_use_canonical_vault_routes():
@@ -713,6 +829,12 @@ def test_calculate_lifetime_metrics(
     period_results = sample_row["period_results"]
     assert isinstance(period_results, list)
     assert len(period_results) == 6  # 1W, 1M, 3M, 6M, 1Y, lifetime
+    assert sample_row["netflow"] is None
+    assert all(period.flow_value is None for period in period_results)
+    assert all(period.deposit_value is None for period in period_results)
+    assert all(period.redeem_value is None for period in period_results)
+    assert all(period.deposit_count is None for period in period_results)
+    assert all(period.redemption_count is None for period in period_results)
 
     # Check one period (1M) from period_results
     one_month_result = next(p for p in period_results if p.period == "1M")
@@ -770,6 +892,38 @@ def test_calculate_lifetime_metrics(
 
     # Verify period_results is not in formatted output
     # assert "period_results" not in formatted.columns
+
+
+def test_morpho_daily_state_pipeline_exports_estimated_period_flows(vault_db: VaultDatabase, price_df: pd.DataFrame) -> None:
+    """Export exact estimated flow values from scanned Morpho vault states."""
+    vault_id = "43111-0x05c2e246156d37b39a825a25dd08d5589e3fd883"
+    spec = VaultSpec.parse_string(vault_id)
+    daily_prices = calculate_hourly_returns_for_all_vaults(price_df.loc[price_df["id"] == vault_id])
+
+    metrics = calculate_lifetime_metrics(daily_prices, {spec: vault_db.rows[spec]})
+    sample_row = metrics.iloc[0]
+    period_results = sample_row["period_results"]
+    one_week_flow = next(period for period in period_results if period.period == "1W")
+    one_month_flow = next(period for period in period_results if period.period == "1M")
+
+    assert sample_row["protocol_slug"] == "morpho"
+    assert one_week_flow.flow_value == pytest.approx(115_060.93560058785)
+    assert one_month_flow.flow_value == pytest.approx(2_345_306.5537264165)
+    assert one_week_flow.deposit_value is None
+    assert one_week_flow.redeem_value is None
+    assert one_month_flow.deposit_value is None
+    assert one_month_flow.redeem_value is None
+    assert one_week_flow.deposit_count is None
+    assert one_week_flow.redemption_count is None
+
+    # The deprecated 7d and 30d records alias the canonical period results.
+    legacy_netflow = {flow.period: flow for flow in sample_row["netflow"]}
+    assert legacy_netflow["7d"].net_flow_usd == pytest.approx(one_week_flow.flow_value)
+    assert legacy_netflow["30d"].net_flow_usd == pytest.approx(one_month_flow.flow_value)
+    assert legacy_netflow["7d"].deposit_usd is None
+    assert legacy_netflow["7d"].withdrawal_usd is None
+    assert legacy_netflow["30d"].deposit_usd is None
+    assert legacy_netflow["30d"].withdrawal_usd is None
 
 
 def test_event_observed_gmx_exports_approximated_daily_metrics(vault_db: VaultDatabase, price_df: pd.DataFrame) -> None:

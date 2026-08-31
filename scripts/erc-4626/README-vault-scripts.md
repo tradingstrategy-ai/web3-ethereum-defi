@@ -165,6 +165,30 @@ for formulas, storage and temporal-staleness semantics.
 
 These scripts form the core data pipeline for vault discovery, price scanning, and export.
 
+### Period flow metrics
+
+Every period result has an optional signed ``flow_value`` field representing
+deposits minus redemptions. For stablecoin-denominated ERC-4626 vaults, the
+metrics exporter estimates each daily flow from consecutive total-assets,
+total-supply and share-price states:
+``delta(total_assets) - previous_total_supply * delta(share_price)``. The value
+is denominated in the vault's stablecoin. Deposits and redemptions within the
+same day are netted and cannot be separated. Fee shares minted to a manager are
+also part of the supply change and therefore cannot be distinguished from
+investor deposits by this state-based estimate.
+
+Days without a fresh, internally consistent scanner state remain unknown
+instead of being treated as zero flow, and any period containing such a gap
+remains null. ``deposit_value``, ``redeem_value``, ``deposit_count`` and
+``redemption_count`` are only populated when individual directional events were
+extracted for the complete period. They are currently null for ERC-4626 vaults
+and most other protocols. Indexing individual ERC-4626 ``Deposit`` and
+``Withdraw`` events could provide these gross flows and counts, but that more
+granular event reading is outside the scope of the current state-based
+calculation. Lifetime flow values also remain null because the dataset does not
+record a reliable flow-coverage start. The top-level ``netflow`` export is
+deprecated and retained only for compatibility.
+
 ### Private crypto-vaults bundle
 
 When all-chain post-processing runs, it also builds the isolated private
@@ -217,6 +241,9 @@ gaps are forward filled for at most three days, after which USD calculations
 use only the latest contiguous covered window. Consequently, a later long
 provider gap restarts the USD lifetime view and excludes earlier rate history.
 This is a provider-snapshot guideline, not a wrapper redemption oracle.
+
+ETH/BTC vault flows, including their ``periodic_metrics_usd`` views, remain
+unavailable until historical denomination conversion is implemented.
 
 Only the configured alternative R2 bucket receives this bundle. Its objects use
 flat root keys with the ``crypto-`` prefix, such as

@@ -13,7 +13,7 @@ from eth_defi.compat import native_datetime_utc_now
 from eth_defi.lighter.daily_metrics import LighterDailyMetricsDatabase, LighterDailyPriceRow
 from eth_defi.lighter.vault import fetch_pool_daily_pnl_history, parse_lighter_pool_snapshot, pool_detail_to_daily_dataframe
 from eth_defi.lighter.vault_data_export import _derive_daily_flow_columns, build_raw_prices_dataframe, create_lighter_pool_row, merge_into_uncleaned_parquet
-from eth_defi.research.vault_metrics import _calculate_netflow_metrics, calculate_hourly_returns_for_all_vaults, calculate_lifetime_metrics, export_lifetime_row
+from eth_defi.research.vault_metrics import PeriodMetrics, _attach_period_flow_metrics, _calculate_netflow_metrics, calculate_hourly_returns_for_all_vaults, calculate_lifetime_metrics, export_lifetime_row
 from eth_defi.research.wrangle_vault_prices import process_raw_vault_scan_data
 
 
@@ -276,14 +276,16 @@ def test_netflow_preserves_unknown_counts_and_incomplete_amounts() -> None:
         index=dates,
     )
 
-    netflow = _calculate_netflow_metrics(prices, now_=dates[-1])
+    period_results = [PeriodMetrics(period=period) for period in ("1W", "1M", "3M", "6M", "1Y", "lifetime")]
+    _attach_period_flow_metrics(period_results, prices, now_=dates[-1], exclude_current_utc_day=False)
+    netflow = _calculate_netflow_metrics(prices, period_results, now_=dates[-1])
     assert netflow is not None
     day = next(row for row in netflow if row.period == "1d")
     assert day.data_complete
     assert day.deposit_count is None
     assert day.withdrawal_count is None
-    assert day.deposit_usd == pytest.approx(5.0)
-    assert day.withdrawal_usd == pytest.approx(0.0)
+    assert day.deposit_usd is None
+    assert day.withdrawal_usd is None
     assert day.net_flow_usd == pytest.approx(5.0)
 
     week = next(row for row in netflow if row.period == "7d")
@@ -295,7 +297,8 @@ def test_netflow_preserves_unknown_counts_and_incomplete_amounts() -> None:
     assert week.net_flow_usd is None
 
     prices.loc[dates[-1], "daily_deposit_usd"] = np.nan
-    incomplete = _calculate_netflow_metrics(prices, now_=dates[-1])
+    _attach_period_flow_metrics(period_results, prices, now_=dates[-1], exclude_current_utc_day=False)
+    incomplete = _calculate_netflow_metrics(prices, period_results, now_=dates[-1])
     assert incomplete is not None
     day = next(row for row in incomplete if row.period == "1d")
     assert not day.data_complete
@@ -319,19 +322,22 @@ def test_netflow_never_exports_partial_event_counts() -> None:
         index=dates,
     )
 
-    netflow = _calculate_netflow_metrics(prices, now_=dates[-1])
+    period_results = [PeriodMetrics(period=period) for period in ("1W", "1M", "3M", "6M", "1Y", "lifetime")]
+    _attach_period_flow_metrics(period_results, prices, now_=dates[-1], exclude_current_utc_day=False)
+    netflow = _calculate_netflow_metrics(prices, period_results, now_=dates[-1])
 
     assert netflow is not None
     week = next(row for row in netflow if row.period == "7d")
     assert week.data_complete
-    assert week.deposit_usd == pytest.approx(7.0)
-    assert week.withdrawal_usd == pytest.approx(0.0)
+    assert week.deposit_usd is None
+    assert week.withdrawal_usd is None
+    assert week.net_flow_usd == pytest.approx(7.0)
     assert week.deposit_count is None
-    assert week.withdrawal_count == 0
+    assert week.withdrawal_count is None
 
 
 def test_lighter_netflow_excludes_current_provisional_day() -> None:
-    """Calculate trailing Lighter flows through the latest completed UTC day."""
+    """Calculate canonical and legacy flows through the latest completed UTC day."""
     today = pd.Timestamp(native_datetime_utc_now().date())
     dates = pd.date_range(today - pd.Timedelta(days=7), periods=8, freq="D")
     prices = pd.DataFrame(
@@ -342,14 +348,27 @@ def test_lighter_netflow_excludes_current_provisional_day() -> None:
         index=dates,
     )
 
-    netflow = _calculate_netflow_metrics(prices, now_=today, exclude_current_utc_day=True)
+    period_results = [PeriodMetrics(period=period) for period in ("1W", "1M", "3M", "6M", "1Y", "lifetime")]
+    _attach_period_flow_metrics(period_results, prices, now_=today, exclude_current_utc_day=True)
+    netflow = _calculate_netflow_metrics(prices, period_results, now_=today, exclude_current_utc_day=True)
 
     assert netflow is not None
+    canonical_week = next(row for row in period_results if row.period == "1W")
+    assert canonical_week.flow_value == pytest.approx(7.0)
+    assert canonical_week.deposit_value is None
+    assert canonical_week.redeem_value is None
+    assert canonical_week.deposit_count is None
+    assert canonical_week.redemption_count is None
+    lifetime = next(row for row in period_results if row.period == "lifetime")
+    assert lifetime.deposit_value is None
+    assert lifetime.redeem_value is None
+
     week = next(row for row in netflow if row.period == "7d")
     assert week.data_complete
-    assert week.deposit_usd == pytest.approx(7.0)
-    assert week.withdrawal_usd == pytest.approx(0.0)
+    assert week.deposit_usd is None
+    assert week.withdrawal_usd is None
     assert week.net_flow_usd == pytest.approx(7.0)
+    assert week.net_flow_usd == canonical_week.flow_value
 
 
 def test_lighter_ownership_reaches_metrics_json(tmp_path) -> None:
@@ -406,7 +425,17 @@ def test_lighter_ownership_reaches_metrics_json(tmp_path) -> None:
         assert lighter["operator_share_fraction"] == pytest.approx(0.125)
         assert lighter["ownership_updated_at"] == "2025-04-01T00:00:00"
         week = next(row for row in exported["netflow"] if row["period"] == "7d")
+        period_week = next(row for row in exported["period_results"] if row["period"] == "1W")
+        period_month = next(row for row in exported["period_results"] if row["period"] == "1M")
         assert not week["data_complete"]
         assert week["net_flow_usd"] is None
+        assert period_week["deposit_value"] is None
+        assert period_week["redeem_value"] is None
+        assert period_week["deposit_count"] is None
+        assert period_week["redemption_count"] is None
+        assert period_month["deposit_value"] is None
+        assert period_month["redeem_value"] is None
+        assert period_month["deposit_count"] is None
+        assert period_month["redemption_count"] is None
     finally:
         db.close()
