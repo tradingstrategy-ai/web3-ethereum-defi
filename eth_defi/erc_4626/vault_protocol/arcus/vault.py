@@ -57,6 +57,21 @@ class ArcusVault(ERC4626Vault):
 
         return self.arcus_offchain_data["short_description"] if self.arcus_offchain_data else None
 
+    @property
+    def manager_name(self) -> str | None:
+        """Return Arcus as the protocol-level manager attribution.
+
+        Arcus is the registered protocol curator for the reviewed pToken
+        products. This display name does not identify the unlabelled address
+        returned by the onchain ``manager()`` accessor.
+
+        :return:
+            ``"Arcus"`` for reviewed pTokens, or ``None`` for an unreviewed
+            contract address.
+        """
+
+        return "Arcus" if self.arcus_offchain_data else None
+
     def get_notes(self) -> str | None:
         """Return the reviewed explanation of Arcus pToken mechanics.
 

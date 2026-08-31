@@ -62,7 +62,7 @@ def test_arcus_hood_3x_long_vault(web3: Web3) -> None:
     assert vault.get_fee_mode() is VaultFeeMode.externalised
     assert vault.get_link() == "https://app.arcus.xyz/"
 
-    assert vault.manager_name is None
+    assert vault.manager_name == "Arcus"
     assert vault.short_description == "Arcus pToken targeting 3x long HOOD perpetual exposure."
     assert vault.description is not None
     assert "pro-rata claim" in vault.description
@@ -85,7 +85,7 @@ def test_arcus_btc_3x_long_vault(web3: Web3) -> None:
     assert vault.vault_contract.functions.name().call() == "BTC (3x Long)"
     assert vault.vault_contract.functions.symbol().call() == "pBTC3x"
     assert vault.vault_contract.functions.asset().call().lower() == "0x5fc5360d0400a0fd4f2af552add042d716f1d168"
-    assert vault.manager_name is None
+    assert vault.manager_name == "Arcus"
     assert vault.short_description == "Arcus pToken targeting 3x long BTC perpetual exposure."
     assert vault.get_performance_fee("latest") == pytest.approx(0.0)
     assert vault.get_deposit_fee("latest") == pytest.approx(0.0025)

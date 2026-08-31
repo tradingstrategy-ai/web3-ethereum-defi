@@ -22,10 +22,10 @@ threshold-based rebalancing are described in Arcus's public product
 announcement; they are not independently inferred from the product labels.
 
 All reviewed pTokens return the same unlabelled EOA from ``manager()``. The
-library leaves the generic manager name unset rather than assigning an
-unsupported identity to that address. Protocol attribution comes from the
-reviewed Arcus contract-family classification, not from the ``manager()``
-accessor.
+library displays Arcus as the protocol-level curator and manager for these
+address-scoped products. This attribution comes from the reviewed Arcus
+contract-family classification and curator registry; it does not identify the
+operator behind the generic ``manager()`` address.
 
 .. autosummary::
    :toctree: _autosummary_arcus

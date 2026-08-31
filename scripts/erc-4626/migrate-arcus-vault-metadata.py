@@ -192,7 +192,7 @@ def needs_metadata_refresh(row: VaultRow, detection: ERC4262VaultDetection) -> b
             row.get("Protocol") != "Arcus",
             ERC4626Feature.arcus_like not in detection.features,
             ERC4626Feature.arcus_like not in row.get("features", set()),
-            row.get("_manager_name") == "Arcus",
+            row.get("_manager_name") != "Arcus",
             not all(row.get(field) for field in ("_short_description", "_description", "_notes")),
         )
     )

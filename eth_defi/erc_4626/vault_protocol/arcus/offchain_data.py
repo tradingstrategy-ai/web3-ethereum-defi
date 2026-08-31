@@ -6,8 +6,9 @@ values through its public vault API. The scanner keeps reviewed address-scoped
 copy locally so metadata reads stay deterministic and do not depend on an
 offchain service.
 
-Arcus does not identify the operator behind the address returned by the
-``manager()`` accessor, so this module does not attribute a manager name.
+Arcus is the protocol-level curator and manager display name for these
+address-scoped products. This attribution does not identify the operator
+behind the unlabelled address returned by the onchain ``manager()`` accessor.
 """
 
 from typing import Final, TypedDict

@@ -102,15 +102,15 @@ def create_refreshed_arcus_row(detection: ERC4262VaultDetection) -> dict:
         "Protocol": "Arcus",
         "features": set(detection.features),
         "_detection_data": detection,
-        "_manager_name": None,
+        "_manager_name": "Arcus",
         "_short_description": "Reviewed Arcus pToken.",
         "_description": "Reviewed Arcus pToken metadata.",
         "_notes": "Reviewed Arcus pToken mechanics.",
     }
 
 
-def test_needs_metadata_refresh_matches_only_stale_arcus_fields() -> None:
-    """Refresh legacy Arcus attribution and missing copy without rejecting a future named operator."""
+def test_needs_metadata_refresh_requires_arcus_manager_attribution() -> None:
+    """Refresh rows that lack the Arcus protocol-level manager attribution."""
 
     module = load_migration_module()
     detection = create_detection(ARCUS_BTC_3X_LONG_VAULT, deposit_count=BTC_DEPOSIT_COUNT, redeem_count=BTC_REDEEM_COUNT)
@@ -118,9 +118,9 @@ def test_needs_metadata_refresh_matches_only_stale_arcus_fields() -> None:
     current_row = create_refreshed_arcus_row(detection)
 
     assert not module.needs_metadata_refresh(current_row, detection)
-    assert module.needs_metadata_refresh(current_row | {"_manager_name": "Arcus"}, detection)
+    assert module.needs_metadata_refresh(current_row | {"_manager_name": None}, detection)
     assert module.needs_metadata_refresh(current_row | {"_notes": None}, detection)
-    assert not module.needs_metadata_refresh(current_row | {"_manager_name": "Published operator"}, detection)
+    assert module.needs_metadata_refresh(current_row | {"_manager_name": "Published operator"}, detection)
 
 
 def test_migrate_arcus_metadata_reclassifies_only_reviewed_rows(monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
@@ -164,7 +164,7 @@ def test_migrate_arcus_metadata_reclassifies_only_reviewed_rows(monkeypatch: pyt
     assert vault_db.rows[btc_spec]["_detection_data"].deposit_count == BTC_DEPOSIT_COUNT
     assert vault_db.rows[hood_spec]["_detection_data"].redeem_count == HOOD_REDEEM_COUNT
     assert vault_db.rows[btc_spec]["_detection_data"].updated_at == UPDATED_AT
-    assert vault_db.rows[btc_spec]["_manager_name"] is None
+    assert vault_db.rows[btc_spec]["_manager_name"] == "Arcus"
     assert vault_db.rows[btc_spec]["_notes"] == "Reviewed Arcus pToken mechanics."
     assert vault_db.leads[btc_spec].deposit_count == BTC_DEPOSIT_COUNT
     assert vault_db.leads[hood_spec].withdrawal_count == HOOD_REDEEM_COUNT
