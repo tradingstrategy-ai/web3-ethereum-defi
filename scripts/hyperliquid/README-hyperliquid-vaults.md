@@ -234,8 +234,17 @@ The cleaned Parquet gains these extra columns. For EVM vaults they are `NA`:
 ### Deposit/withdrawal netflow metrics
 
 The pipeline tracks daily deposit and withdrawal flows per vault using the
-Hyperliquid `userNonFundingLedgerUpdates` API. These are aggregated into
-`NetflowMetrics` dataclasses with 1d, 7d, and 30d periods in the JSON output.
+Hyperliquid `userNonFundingLedgerUpdates` API. Complete windows are aggregated
+into `deposit_value`, `redeem_value`, `deposit_count` and `redemption_count` on
+each entry in the JSON `period_results` list. Hypercore values are denominated
+in USD because its vault flows settle in USDC. Lifetime flow values remain
+null because the shared dataset does not record the start of complete flow
+coverage.
+
+The top-level `netflow` list and its `NetflowMetrics` dataclass are deprecated.
+They remain for compatibility: 7d and 30d values are aliases of the canonical
+1W and 1M `period_results` entries, while 1d is calculated directly because
+there is no matching period result.
 
 Flow data is only fetched for **complete days** (up to yesterday 23:59:59 UTC)
 to avoid partial-day artefacts. The backfill window is controlled by the
@@ -243,11 +252,15 @@ to avoid partial-day artefacts. The backfill window is controlled by the
 most recent N complete days and uses `COALESCE` upserts so older data is never
 overwritten with NULL.
 
+The default seven-day backfill is enough for the 1W fields. Longer period
+fields remain null until the database has accumulated or backfilled complete
+daily coverage for the full period; partial totals are never exported.
+
 The `flow_data_earliest_date` column in `vault_metadata` tracks how far back
 flow data has been backfilled per vault.
 
-Chains that do not support netflow (all EVM chains) will have `null` for the
-`netflow` field in the JSON output.
+The current ERC-4626 price scanner does not populate these daily flow columns,
+so its period flow fields and deprecated `netflow` export remain null.
 
 ## Backfilling netflow data for existing vaults
 
@@ -256,7 +269,7 @@ flow data further back than the default 7 days, use `FLOW_BACKFILL_DAYS`:
 
 ```shell
 # Backfill 90 days of deposit/withdrawal flow data
-LOG_LEVEL=info FLOW_BACKFILL_DAYS=90 python scripts/hyperliquid/daily-vault-metrics.py
+LOG_LEVEL=info FLOW_BACKFILL_DAYS=90 poetry run python scripts/hyperliquid/daily-vault-metrics.py
 ```
 
 For a specific set of vaults:

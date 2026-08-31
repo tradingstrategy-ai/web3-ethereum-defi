@@ -54,7 +54,9 @@ def _create_mock_arbitrum_vault_data(
 
     Produces raw format matching the EVM vault scanner output, so it
     can go through the standard cleaning pipeline together with
-    Hypercore data.
+    Hypercore data. The fixture injects daily flow columns to exercise the
+    shared analysis path; the production ERC-4626 scanner does not currently
+    populate them.
     """
 
     chain_id = 42161
@@ -128,6 +130,10 @@ def _create_mock_arbitrum_vault_data(
             "total_supply": 450000.0,
             "performance_fee": 0.20,
             "management_fee": 0.02,
+            "daily_deposit_count": 1,
+            "daily_withdrawal_count": 2,
+            "daily_deposit_usd": 1_000.0,
+            "daily_withdrawal_usd": 250.0,
             "errors": "",
         },
     )
@@ -435,8 +441,45 @@ def test_unified_vault_metrics_json(tmp_path):
             assert nf["deposit_count"] is None
             assert nf["withdrawal_count"] is None
 
-    # Arbitrum vault has no flow data — netflow should be null
-    assert arb_vault.get("netflow") is None, f"Arbitrum vault should have null netflow, got: {arb_vault.get('netflow')}"
+    # Happy path: synthetic shared daily flows reach canonical period fields.
+    arb_week = next(period for period in arb_vault["period_results"] if period["period"] == "1W")
+    assert arb_week["deposit_value"] == pytest.approx(7_000.0)
+    assert arb_week["redeem_value"] == pytest.approx(1_750.0)
+    assert arb_week["deposit_count"] == 7
+    assert arb_week["redemption_count"] == 14
+
+    arb_month = next(period for period in arb_vault["period_results"] if period["period"] == "1M")
+    assert arb_month["deposit_value"] == pytest.approx(30_000.0)
+    assert arb_month["redeem_value"] == pytest.approx(7_500.0)
+    assert arb_month["deposit_count"] == 30
+    assert arb_month["redemption_count"] == 60
+
+    arb_lifetime = next(period for period in arb_vault["period_results"] if period["period"] == "lifetime")
+    assert arb_lifetime["deposit_value"] is None
+    assert arb_lifetime["redeem_value"] is None
+    assert arb_lifetime["deposit_count"] is None
+    assert arb_lifetime["redemption_count"] is None
+
+    # Legacy 7d and 30d values are aliases of the canonical 1W and 1M results.
+    arb_week_legacy = next(netflow for netflow in arb_vault["netflow"] if netflow["period"] == "7d")
+    assert arb_week_legacy["deposit_usd"] == pytest.approx(7_000.0)
+    assert arb_week_legacy["withdrawal_usd"] == pytest.approx(1_750.0)
+    assert arb_week_legacy["net_flow_usd"] == pytest.approx(5_250.0)
+    assert arb_week_legacy["data_complete"] is True
+    assert arb_week_legacy["deposit_usd"] == arb_week["deposit_value"]
+    assert arb_week_legacy["withdrawal_usd"] == arb_week["redeem_value"]
+    assert arb_week_legacy["deposit_count"] == arb_week["deposit_count"]
+    assert arb_week_legacy["withdrawal_count"] == arb_week["redemption_count"]
+
+    arb_month_legacy = next(netflow for netflow in arb_vault["netflow"] if netflow["period"] == "30d")
+    assert arb_month_legacy["deposit_usd"] == pytest.approx(30_000.0)
+    assert arb_month_legacy["withdrawal_usd"] == pytest.approx(7_500.0)
+    assert arb_month_legacy["net_flow_usd"] == pytest.approx(22_500.0)
+    assert arb_month_legacy["deposit_count"] == 30
+    assert arb_month_legacy["withdrawal_count"] == 60
+    assert arb_month_legacy["data_complete"] is True
+    assert arb_month_legacy["deposit_usd"] == arb_month["deposit_value"]
+    assert arb_month_legacy["withdrawal_usd"] == arb_month["redeem_value"]
 
 
 @pytest.mark.timeout(120)

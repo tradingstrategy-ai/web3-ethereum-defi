@@ -347,9 +347,16 @@ differences only consecutive completed UTC-day `pool_inflow` and `pool_outflow`
 observations to produce daily deposit/withdrawal USD amounts. The first
 observation, a missing-day gap, a counter reset, and the current UTC day remain
 unknown rather than zero. The API does not expose transaction counts, so
-Lighter netflow records have null event-count fields. A netflow period with
-unknown amounts is marked `data_complete: false` and has null monetary totals
-rather than a misleading partial sum.
+Lighter period metrics have null `deposit_count` and `redemption_count` fields.
+Complete windows expose the USD-denominated `deposit_value` and `redeem_value`
+fields in `period_results`; incomplete windows have null values rather than a
+misleading partial sum. Lifetime flow values remain null because the shared
+dataset does not record the start of complete flow coverage.
+
+The top-level `netflow` list and `NetflowMetrics` dataclass are deprecated.
+Their 7d and 30d values are compatibility aliases of the 1W and 1M period
+results. The legacy records retain null event counts because Lighter does not
+provide them.
 
 `pool_daily_prices` remains a share-price-indexed table. A PnL observation is
 stored only when its UTC date matches a retained share-price date; total shares

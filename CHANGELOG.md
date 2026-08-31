@@ -1,5 +1,6 @@
 # 1.2
 
+- feat: Add canonical per-period vault deposit and redemption values and counts, while deprecating the legacy top-level netflow export (2026-08-31)
 - feat: Classify Axis's Ethereum V2 StakedUSDx vault, correct Plasma V1 redemption metadata, and migrate existing cached records (2026-08-30)
 - fix: Restore `GMX.get_on_chain_index_tokens()`'s oracle-decoupled whitelist enumeration by calling `Markets._fetch_markets_from_onchain()` instead of a method deleted in the same commit that added this enumerator (2026-08-29)
 - feat: Export cleaned exchange-rate Parquet and USD-denominated period metrics for private ETH/BTC vault records (2026-08-28)

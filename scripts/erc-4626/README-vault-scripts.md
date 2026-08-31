@@ -218,6 +218,17 @@ use only the latest contiguous covered window. Consequently, a later long
 provider gap restarts the USD lifetime view and excludes earlier rate history.
 This is a provider-snapshot guideline, not a wrapper redemption oracle.
 
+Every period result also has optional ``deposit_value``, ``redeem_value``,
+``deposit_count`` and ``redemption_count`` fields. Monetary flow values are in
+USD because they come from the shared ``daily_deposit_usd`` and
+``daily_withdrawal_usd`` columns. These fields are currently null for ERC-4626
+vaults, including ETH/BTC vaults and their ``periodic_metrics_usd`` views,
+because the price scanner does not yet materialise daily investor flows.
+Hypercore and Lighter populate the shared flow columns. Lifetime flow values
+also remain null because the dataset does not record a reliable flow-coverage
+start. The top-level ``netflow`` export is deprecated and retained only for
+compatibility.
+
 Only the configured alternative R2 bucket receives this bundle. Its objects use
 flat root keys with the ``crypto-`` prefix, such as
 ``crypto-cleaned-vault-prices-1d.parquet``, ``crypto-vault-metadata.json`` and

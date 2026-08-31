@@ -713,6 +713,11 @@ def test_calculate_lifetime_metrics(
     period_results = sample_row["period_results"]
     assert isinstance(period_results, list)
     assert len(period_results) == 6  # 1W, 1M, 3M, 6M, 1Y, lifetime
+    assert sample_row["netflow"] is None
+    assert all(period.deposit_value is None for period in period_results)
+    assert all(period.redeem_value is None for period in period_results)
+    assert all(period.deposit_count is None for period in period_results)
+    assert all(period.redemption_count is None for period in period_results)
 
     # Check one period (1M) from period_results
     one_month_result = next(p for p in period_results if p.period == "1M")

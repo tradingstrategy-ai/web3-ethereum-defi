@@ -103,7 +103,25 @@ VAULT_SCAN_CYCLE_NOTES = {
 
 @dataclass(slots=True)
 class PeriodMetrics:
-    """Tearsheet metrics for one period."""
+    """Tearsheet metrics for one period.
+
+    Deposit and redemption fields are only available when the source provides
+    complete daily investor-flow data for the period. The current cleaned
+    dataset provides these observations for Hypercore and Lighter; all other
+    protocol rows, including ERC-4626 vaults, do not currently provide them.
+
+    :attr:`deposit_value` and :attr:`redeem_value` are denominated in US
+    dollars because the shared source columns are ``daily_deposit_usd`` and
+    ``daily_withdrawal_usd``. They are not native-token amounts for ETH- or
+    BTC-denominated vaults.
+
+    Lifetime flow values remain unset because the shared dataset does not
+    carry flow-coverage boundaries from which a complete lifetime window
+    could be established.
+
+    The top-level ``netflow`` export remains only as a legacy compatibility
+    alias for the 7d and 30d period values.
+    """
 
     period: Period
 
@@ -181,6 +199,18 @@ class PeriodMetrics:
     #: Average utilisation over the period (lending vaults only, 0.0–1.0)
     avg_utilisation: Percent | None = None
 
+    #: Total USD value deposited during the complete period.
+    deposit_value: float | None = None
+
+    #: Total USD value redeemed during the complete period.
+    redeem_value: float | None = None
+
+    #: Number of deposit events during the period, when exposed by the protocol.
+    deposit_count: int | None = None
+
+    #: Number of redemption events during the period, when exposed by the protocol.
+    redemption_count: int | None = None
+
 
 @dataclass(slots=True)
 class USDPeriodMetrics(PeriodMetrics):
@@ -189,6 +219,8 @@ class USDPeriodMetrics(PeriodMetrics):
     This JSON-only subtype leaves the public/native :class:`PeriodMetrics`
     schema untouched. The exchange-rate fields are USD per canonical
     underlying unit, e.g. Bitcoin price in US dollars for a BTC vault.
+    Flow fields are currently unavailable for ETH/BTC vaults and remain null;
+    they are not copied from or converted alongside the price and TVL fields.
     """
 
     #: USD per canonical underlying unit at ``samples_start_at``.
@@ -232,13 +264,19 @@ class CryptoUSDConversionContext:
 
 @dataclass(slots=True)
 class NetflowMetrics:
-    """Deposit and withdrawal flow metrics for a time period.
+    """Deprecated legacy top-level deposit and withdrawal flow metrics.
 
-    Aggregates daily deposit/withdrawal event counts and USD values
-    over a given period (e.g. ``"1d"``, ``"7d"``, ``"30d"``).
+    **Deprecated:** Do not use this dataclass in new integrations. Use
+    :class:`PeriodMetrics` and its ``deposit_value``, ``redeem_value``,
+    ``deposit_count`` and ``redemption_count`` fields instead.
 
-    Only available for chains that support vault flow tracking. Sources that
-    expose monetary counters but not individual events retain null counts.
+    The top-level ``netflow`` export retains this type only for backwards
+    compatibility; its 7d and 30d values are aliases filled from the ``1W``
+    and ``1M`` :class:`PeriodMetrics` results respectively.
+
+    The temporary 1d legacy entry remains calculated directly because there
+    is no matching performance period. Its monetary fields are denominated in
+    US dollars, matching the source ``daily_*_usd`` columns.
     """
 
     #: Period label (e.g. ``"1d"``, ``"7d"``, ``"30d"``)
@@ -263,7 +301,7 @@ class NetflowMetrics:
     data_complete: bool = False
 
 
-#: Period -> Perioud duration, max sparse sample mismatch
+#: Period -> period duration, max sparse sample mismatch
 LOOKBACK_AND_TOLERANCES: dict[Period, tuple[pd.DateOffset, pd.Timedelta]] = {
     "1W": (pd.DateOffset(days=7), pd.Timedelta(days=7 + 5)),
     "1M": (pd.DateOffset(days=30), pd.Timedelta(days=60)),
@@ -1208,90 +1246,195 @@ def _unnullify(x: str | None, default: str = "<unknown>") -> str:
     return x
 
 
+#: Daily monetary-flow columns required by period aggregation.
+FLOW_AMOUNT_COLUMNS: tuple[str, str] = ("daily_deposit_usd", "daily_withdrawal_usd")
+
+
+def _has_daily_flow_data(prices_df: pd.DataFrame) -> bool:
+    """Check whether a price frame contains any usable daily flow amounts.
+
+    Both amount columns must exist. Individual period windows perform their
+    own completeness checks after this inexpensive vault-level capability
+    check.
+
+    :param prices_df:
+        Cleaned vault observations.
+    :return:
+        ``True`` when at least one daily deposit or withdrawal amount exists.
+    """
+    return all(column in prices_df.columns for column in FLOW_AMOUNT_COLUMNS) and any(prices_df[column].notna().any() for column in FLOW_AMOUNT_COLUMNS)
+
+
+def _calculate_flow_window(
+    prices_df: pd.DataFrame,
+    *,
+    period: str,
+    days: int,
+    now_: pd.Timestamp,
+) -> NetflowMetrics:
+    """Aggregate one complete calendar-day flow window.
+
+    The window must contain exactly one complete monetary-flow observation per
+    UTC day. Source-null, missing or partial windows are represented by a
+    metrics object with null totals, preventing a partial sum from being
+    presented as a complete period result.
+
+    :param prices_df:
+        Cleaned price DataFrame with optional daily USD flow columns.
+    :param period:
+        Label stored on the compatibility record.
+    :param days:
+        Number of complete UTC calendar days to aggregate.
+    :param now_:
+        Last UTC day included in the flow window.
+    :return:
+        Aggregated values. Callers first verify that the vault has a flow data
+        source; incomplete individual windows contain null totals.
+    """
+    cutoff = now_ - pd.Timedelta(days=days)
+    mask = (prices_df.index > cutoff) & (prices_df.index <= now_)
+    subset = prices_df.loc[mask]
+    amounts = subset[list(FLOW_AMOUNT_COLUMNS)]
+    expected_dates = pd.date_range(end=now_.normalize(), periods=days, freq="D")
+    observed_dates = pd.DatetimeIndex(subset.index.normalize().unique())
+    data_complete = observed_dates.equals(expected_dates) and len(subset) == days and amounts.notna().all(axis=None)
+
+    if data_complete:
+        deposit_usd = float(amounts["daily_deposit_usd"].sum())
+        withdrawal_usd = float(amounts["daily_withdrawal_usd"].sum())
+    else:
+        deposit_usd = None
+        withdrawal_usd = None
+
+    deposit_count = int(subset["daily_deposit_count"].sum()) if data_complete and "daily_deposit_count" in subset and subset["daily_deposit_count"].notna().all() else None
+    withdrawal_count = int(subset["daily_withdrawal_count"].sum()) if data_complete and "daily_withdrawal_count" in subset and subset["daily_withdrawal_count"].notna().all() else None
+    return NetflowMetrics(
+        period=period,
+        deposit_usd=deposit_usd,
+        withdrawal_usd=withdrawal_usd,
+        deposit_count=deposit_count,
+        withdrawal_count=withdrawal_count,
+        net_flow_usd=deposit_usd - withdrawal_usd if data_complete else None,
+        data_complete=bool(data_complete),
+    )
+
+
+def _get_netflow_reference_timestamp(
+    now_: pd.Timestamp,
+    *,
+    exclude_current_utc_day: bool,
+) -> pd.Timestamp:
+    """Return the last completed flow-observation timestamp for a vault.
+
+    Native sources can publish a current-day row whose deposit and redemption
+    values remain provisional. In that case, flow windows must stop at the
+    preceding UTC day while the surrounding performance periods continue to
+    use their latest price observation.
+
+    :param now_:
+        Latest available vault observation timestamp.
+    :param exclude_current_utc_day:
+        Whether the source marks its current UTC-day flow values provisional.
+    :return:
+        Timestamp of the final day eligible for flow aggregation.
+    """
+    if exclude_current_utc_day and now_.date() == native_datetime_utc_now().date():
+        return now_ - pd.Timedelta(days=1)
+    return now_
+
+
+def _attach_period_flow_metrics(
+    period_results: list[PeriodMetrics],
+    prices_df: pd.DataFrame,
+    *,
+    now_: pd.Timestamp,
+    exclude_current_utc_day: bool,
+) -> None:
+    """Attach canonical deposit and redemption data to fixed period results.
+
+    Each fixed lookback uses its full calendar-day window. Lifetime remains
+    unset because price history does not establish the beginning of available
+    flow coverage. Flow windows can end one day before performance windows for
+    sources whose current UTC-day counters are provisional.
+
+    :param period_results:
+        Performance results to enrich in place.
+    :param prices_df:
+        Cleaned price DataFrame containing optional daily flow columns.
+    :param now_:
+        Latest vault observation timestamp.
+    :param exclude_current_utc_day:
+        Whether current-day flow observations are provisional.
+    :return:
+        ``None``. ``period_results`` is updated in place.
+    """
+    if prices_df.empty or not _has_daily_flow_data(prices_df):
+        return
+    flow_now = _get_netflow_reference_timestamp(now_, exclude_current_utc_day=exclude_current_utc_day)
+    for result in period_results:
+        if result.period == "lifetime":
+            continue
+        lookback, _ = LOOKBACK_AND_TOLERANCES[result.period]
+        first_day = (flow_now - lookback).normalize()
+        days = (flow_now.normalize() - first_day).days
+        flow = _calculate_flow_window(prices_df, period=result.period, days=days, now_=flow_now)
+        result.deposit_value = flow.deposit_usd
+        result.redeem_value = flow.withdrawal_usd
+        result.deposit_count = flow.deposit_count
+        result.redemption_count = flow.withdrawal_count
+
+
 def _calculate_netflow_metrics(
     prices_df: pd.DataFrame,
     now_: pd.Timestamp | None = None,
+    *,
     exclude_current_utc_day: bool = False,
+    period_results: list[PeriodMetrics] | None = None,
 ) -> list[NetflowMetrics] | None:
-    """Aggregate daily deposit/withdrawal flow data into period summaries.
+    """Calculate legacy fixed-window flow metrics.
 
-    Computes :py:class:`NetflowMetrics` for 1d, 7d, and 30d periods by
-    summing the daily flow columns in ``prices_df``.
-
-    If monetary flow columns are missing or contain no non-null data, returns
-    ``None``. Count columns are optional because some native APIs expose only
-    cumulative monetary counters. A period is complete only when every UTC
-    day in its full calendar window has known monetary observations. Periods
-    with missing, source-null, or partial flow observations return null totals
-    rather than silently reporting a partial sum. Event counts follow the same
-    completeness rule when the source exposes them.
+    When canonical period results are supplied, the 7d and 30d entries alias
+    their 1W and 1M flow fields. Without them, this compatibility helper keeps
+    its historical standalone behaviour and calculates all three windows.
 
     :param prices_df:
-        Cleaned price DataFrame with a DatetimeIndex and optional columns
-        ``daily_deposit_usd`` and ``daily_withdrawal_usd`` plus optional event
-        count columns.
+        Cleaned price DataFrame containing optional daily flow columns.
     :param now_:
-        Reference timestamp for period lookback. Defaults to the last
-        timestamp in the DataFrame.
+        Latest vault observation timestamp, defaulting to the final row.
     :param exclude_current_utc_day:
-        Exclude the current UTC day from the lookback when its source values
-        are intentionally provisional.
+        Whether current-day flow observations are provisional.
+    :param period_results:
+        Optional canonical results from which to fill the 7d and 30d aliases.
     :return:
-        List of :py:class:`NetflowMetrics` for periods 1d, 7d, 30d,
-        or ``None`` if flow data is unavailable.
+        Legacy 1d, 7d and 30d records, or ``None`` without flow data.
     """
-    amount_cols = ["daily_deposit_usd", "daily_withdrawal_usd"]
-    count_cols = ["daily_deposit_count", "daily_withdrawal_count"]
-    if not all(col in prices_df.columns for col in amount_cols):
+    if not _has_daily_flow_data(prices_df):
         return None
-
-    # Check if there is any non-null monetary flow data at all.
-    has_data = any(prices_df[col].notna().any() for col in amount_cols)
-    if not has_data:
-        return None
-
     if now_ is None:
         now_ = prices_df.index.max()
+    flow_now = _get_netflow_reference_timestamp(now_, exclude_current_utc_day=exclude_current_utc_day)
+    day_metrics = _calculate_flow_window(prices_df, period="1d", days=1, now_=flow_now)
+    if period_results is None:
+        remaining = [_calculate_flow_window(prices_df, period=period, days=days, now_=flow_now) for period, days in (("7d", 7), ("30d", 30))]
+        return [day_metrics, *remaining]
 
-    if exclude_current_utc_day and now_.date() == native_datetime_utc_now().date():
-        now_ -= pd.Timedelta(days=1)
-
-    results: list[NetflowMetrics] = []
-    for period_label, days in [("1d", 1), ("7d", 7), ("30d", 30)]:
-        cutoff = now_ - pd.Timedelta(days=days)
-        mask = (prices_df.index > cutoff) & (prices_df.index <= now_)
-
-        subset = prices_df.loc[mask]
-        amounts = subset[amount_cols]
-        expected_dates = pd.date_range(end=now_.normalize(), periods=days, freq="D")
-        observed_dates = pd.DatetimeIndex(subset.index.normalize().unique())
-        data_complete = observed_dates.equals(expected_dates) and len(subset) == days and amounts.notna().all(axis=None)
-
-        if data_complete:
-            dep_usd = float(amounts["daily_deposit_usd"].sum())
-            wd_usd = float(amounts["daily_withdrawal_usd"].sum())
-            net_flow_usd = dep_usd - wd_usd
-        else:
-            dep_usd = None
-            wd_usd = None
-            net_flow_usd = None
-
-        deposit_count = int(subset["daily_deposit_count"].sum()) if data_complete and "daily_deposit_count" in subset and subset["daily_deposit_count"].notna().all() else None
-        withdrawal_count = int(subset["daily_withdrawal_count"].sum()) if data_complete and "daily_withdrawal_count" in subset and subset["daily_withdrawal_count"].notna().all() else None
-
-        results.append(
+    aliases = []
+    for label, canonical_period in (("7d", "1W"), ("30d", "1M")):
+        metrics = get_period_metrics(period_results, canonical_period)
+        assert metrics is not None, f"{canonical_period} period result missing"
+        data_complete = metrics.deposit_value is not None and metrics.redeem_value is not None
+        aliases.append(
             NetflowMetrics(
-                period=period_label,
-                deposit_count=deposit_count,
-                withdrawal_count=withdrawal_count,
-                deposit_usd=dep_usd,
-                withdrawal_usd=wd_usd,
-                net_flow_usd=net_flow_usd,
-                data_complete=bool(data_complete),
+                period=label,
+                deposit_count=metrics.deposit_count,
+                withdrawal_count=metrics.redemption_count,
+                deposit_usd=metrics.deposit_value,
+                withdrawal_usd=metrics.redeem_value,
+                net_flow_usd=metrics.deposit_value - metrics.redeem_value if data_complete else None,
+                data_complete=data_complete,
             )
         )
-
-    return results
+    return [day_metrics, *aliases]
 
 
 def calculate_period_metrics(
@@ -2366,14 +2509,6 @@ def calculate_vault_record(
     # period metric calculations below.
     now_ = prices_df.index.max()
 
-    # Deposit/withdrawal flow metrics aggregated over 1d, 7d, 30d periods.
-    # Only available for native protocols with daily flow data.
-    netflow = _calculate_netflow_metrics(
-        prices_df,
-        now_=now_,
-        exclude_current_utc_day=vault_metadata.get("_daily_flow_current_day_is_provisional", False),
-    )
-
     # Vault descriptions from offchain metadata (Euler, Lagoon, etc.)
     description = vault_metadata.get("_description")
     short_description = vault_metadata.get("_short_description")
@@ -2544,6 +2679,21 @@ def calculate_vault_record(
         tvl=tvl_series,
         now_=now_,
         utilisation=utilisation_series,
+    )
+    flow_current_day_is_provisional = vault_metadata.get("_daily_flow_current_day_is_provisional", False)
+    _attach_period_flow_metrics(
+        period_results,
+        prices_df,
+        now_=now_,
+        exclude_current_utc_day=flow_current_day_is_provisional,
+    )
+    # Compatibility-only field: the 7d and 30d rows are aliases of the
+    # canonical 1W and 1M period results above.
+    netflow = _calculate_netflow_metrics(
+        prices_df,
+        now_=now_,
+        exclude_current_utc_day=flow_current_day_is_provisional,
+        period_results=period_results,
     )
     periodic_metrics_usd = (
         calculate_crypto_usd_period_results(

@@ -108,9 +108,9 @@ class CleanedVaultPriceRow(TypedDict, total=False):
       (IPOR, Euler, Morpho, Gearbox, etc.) and NaN for others.
     - **Hypercore only** columns come from the Hyperliquid native vault API
       and are NaN for all other protocols.
-    - **Native protocol flow** columns are populated for native protocols
-      that provide daily deposit/withdrawal data (Hypercore, GRVT, Lighter,
-      Hibachi) and NaN for ERC-4626 vaults.
+    - **Native protocol flow** columns are populated for Hypercore and Lighter,
+      which provide daily deposit/withdrawal data, and are NaN for other
+      protocols, including ERC-4626 vaults.
     """
 
     # -- General columns (all protocols) --
@@ -408,27 +408,26 @@ class CleanedVaultPriceRow(TypedDict, total=False):
     hypercore_repair_status: str
 
     # -- Native protocol flow columns --
-    # Populated for native protocols with daily deposit/withdrawal data
-    # (Hypercore, GRVT, Lighter, Hibachi). NaN for ERC-4626 vaults.
+    # Populated for Hypercore and Lighter. NaN for other protocols.
 
     #: Number of deposit events in the latest day.
     #:
-    #: Native protocol flow — Hypercore, GRVT, Lighter, Hibachi. NaN for ERC-4626 vaults.
+    #: Native protocol flow — Hypercore and Lighter. NaN for other protocols.
     daily_deposit_count: float
 
     #: Number of withdrawal events in the latest day.
     #:
-    #: Native protocol flow — Hypercore, GRVT, Lighter, Hibachi. NaN for ERC-4626 vaults.
+    #: Native protocol flow — Hypercore and Lighter. NaN for other protocols.
     daily_withdrawal_count: float
 
     #: Total USD deposited in the latest day.
     #:
-    #: Native protocol flow — Hypercore, GRVT, Lighter, Hibachi. NaN for ERC-4626 vaults.
+    #: Native protocol flow — Hypercore and Lighter. NaN for other protocols.
     daily_deposit_usd: float
 
     #: Total USD withdrawn in the latest day.
     #:
-    #: Native protocol flow — Hypercore, GRVT, Lighter, Hibachi. NaN for ERC-4626 vaults.
+    #: Native protocol flow — Hypercore and Lighter. NaN for other protocols.
     daily_withdrawal_usd: float
 
 
