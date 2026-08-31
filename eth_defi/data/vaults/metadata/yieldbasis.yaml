@@ -4,23 +4,24 @@ short_description: |
   YieldBasis is an AMM protocol that aims to retain the equivalent performance
   of holding the underlying asset.
 long_description: |
-  [YieldBasis](https://yieldbasis.com/) is a decentralised liquidity protocol
-  for BTC and ETH markets. Its [Earn products](https://yieldbasis.com/earn)
-  let users provide supported assets, including WBTC, cbBTC, tBTC and WETH, and
-  receive yb-LP shares.
+  [YieldBasis](https://yieldbasis.com/) is a crypto protocol that lets people
+  put Bitcoin or Ethereum to work without giving up the usual up-and-down price
+  exposure of simply holding those assets. In a normal trading pool, liquidity
+  providers often end up worse off than if they had just held the coin, because
+  the pool automatically sells some of the asset as it rises and buys more as it
+  falls. YieldBasis is designed to avoid that drag: you deposit only the coin,
+  the protocol borrows a matching amount of a dollar-like stablecoin, and it
+  keeps the position balanced so your share still tracks the coin’s price
+  one-for-one while collecting trading fees.
 
-  Each share represents a managed liquidity position. YieldBasis is designed to
-  let liquidity providers earn from market activity while keeping exposure to
-  their chosen BTC or ETH asset. Trading fees generated when people use the
-  market are shared with liquidity providers. The [YieldBasis overview](https://docs.yieldbasis.com/user/overview/how-yieldbasis-works)
-  explains how its liquidity products work.
-
-  A yb-LP share can rise or fall in value. BTC or ETH prices, pool liquidity,
-  leverage and market conditions can all affect the result. An immediate exit
-  can also receive less than the product's calculated value because of the
-  [Temporary Redemption Discount](https://docs.yieldbasis.com/user/protocol/fundamental-value-redemption-value-and-trd).
-  See the [Earn page](https://yieldbasis.com/earn) for current markets and
-  product terms.
+  In practice, depositors receive a token representing their share of that
+  position. They can either keep it and earn fees in Bitcoin or Ethereum terms,
+  or stake it to receive the protocol’s YB token instead. The idea is simple for
+  users—earn yield on BTC or ETH without the usual “impermanent loss”—but it
+  still carries real risks, including sharp price drops in the underlying asset,
+  delays when withdrawing after big market moves, and reliance on the stablecoin
+  and smart contracts that power the system. See the [YieldBasis overview](https://docs.yieldbasis.com/user/overview/how-yieldbasis-works)
+  and [Earn page](https://yieldbasis.com/earn) for current product terms.
 fee_description: |
   YieldBasis allocates its product fees through LT share accounting. Its
   [fee mechanics](https://docs.yieldbasis.com/user/protocol/fee-mechanics)

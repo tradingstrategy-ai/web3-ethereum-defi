@@ -754,8 +754,10 @@ def test_yield_basis_protocol_metadata() -> None:
         "light": "https://example.invalid/vault-protocol-metadata/yieldbasis/light.png",
     }
     assert metadata["links"]["defillama"] == "https://defillama.com/protocol/yield-basis"
-    assert "BTC or ETH prices" in metadata["long_description"]
-    assert "Temporary Redemption Discount" in metadata["long_description"]
+    normalised_long_description = metadata["long_description"].replace("\n", " ")
+    assert "usual up-and-down price exposure" in normalised_long_description
+    assert "impermanent loss" in normalised_long_description
+    assert "sharp price drops" in normalised_long_description
 
 
 def test_yield_basis_underlying_and_redemption_metrics() -> None:
