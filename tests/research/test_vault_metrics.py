@@ -200,6 +200,8 @@ def test_daily_vault_resampling_does_not_forward_fill_flow_totals() -> None:
             "address": ["0x1234", "0x1234"],
             "id": [vault_id, vault_id],
             "share_price": [100.0, 110.0],
+            "total_assets": [100.0, 110.0],
+            "total_supply": [1.0, 1.0],
             "daily_deposit_usd": [10.0, 20.0],
         },
         index=pd.to_datetime(["2026-01-01 12:00:00", "2026-01-03 12:00:00"]),
@@ -235,6 +237,38 @@ def test_erc4626_state_deltas_derive_estimated_net_flows() -> None:
     assert "daily_withdrawal_usd" not in result
 
 
+def test_erc4626_flow_state_validation_uses_relative_and_absolute_tolerances() -> None:
+    """Allow rounding dust without accepting materially inconsistent states."""
+    state = pd.DataFrame(
+        {
+            "total_assets": [100.0, 100.0, 1e-7, 1e-7],
+            "total_supply": [100.05, 100.2, 5e-7, 2e-6],
+            "share_price": [1.0, 1.0, 1.0, 1.0],
+        }
+    )
+
+    valid = vault_metrics._get_valid_erc4626_flow_states(state)
+
+    assert valid.tolist() == [True, False, True, False]
+
+
+def test_erc4626_state_deltas_include_fee_share_mints() -> None:
+    """Treat fee-share issuance as flow because state snapshots cannot separate it."""
+    prices = pd.DataFrame(
+        {
+            "total_assets": [100.0, 100.0],
+            "total_supply": [100.0, 110.0],
+            "share_price": [1.0, 100.0 / 110.0],
+            vault_metrics.VAULT_STATE_OBSERVED_COLUMN: [True, True],
+        },
+        index=pd.date_range("2026-01-01", periods=2, freq="D"),
+    )
+
+    result = vault_metrics._derive_erc4626_estimated_daily_flows(prices)
+
+    assert result[vault_metrics.FLOW_VALUE_COLUMN].iloc[1] == pytest.approx(100.0 / 11.0)
+
+
 def test_erc4626_state_deltas_reject_forward_filled_scanner_gaps() -> None:
     """Do not publish zero flow for a day without a scanner observation."""
     vault_id = "1-0x1234"
@@ -252,6 +286,45 @@ def test_erc4626_state_deltas_reject_forward_filled_scanner_gaps() -> None:
     daily_prices = calculate_hourly_returns_for_all_vaults(sparse_prices)
 
     result = vault_metrics._derive_erc4626_estimated_daily_flows(daily_prices)
+
+    assert result[vault_metrics.FLOW_VALUE_COLUMN].isna().all()
+
+
+def test_erc4626_state_deltas_reject_partial_scanner_states() -> None:
+    """Do not estimate flow across a day with an incomplete accounting read."""
+    vault_id = "1-0x1234"
+    prices = pd.DataFrame(
+        {
+            "chain": [1, 1, 1],
+            "address": ["0x1234", "0x1234", "0x1234"],
+            "id": [vault_id, vault_id, vault_id],
+            "total_assets": [100.0, np.nan, 122.4],
+            "total_supply": [100.0, 110.0, 120.0],
+            "share_price": [1.0, 1.01, 1.02],
+        },
+        index=pd.date_range("2026-01-01", periods=3, freq="D"),
+    )
+    daily_prices = calculate_hourly_returns_for_all_vaults(prices)
+
+    result = vault_metrics._derive_erc4626_estimated_daily_flows(daily_prices)
+
+    assert daily_prices[vault_metrics.VAULT_STATE_OBSERVED_COLUMN].tolist() == [True, False, True]
+    assert result[vault_metrics.FLOW_VALUE_COLUMN].isna().all()
+
+
+def test_erc4626_state_deltas_reject_inconsistent_accounting_states() -> None:
+    """Do not treat a broken assets/supply/share-price identity as investor flow."""
+    prices = pd.DataFrame(
+        {
+            "total_assets": [100.0, 120.0],
+            "total_supply": [100.0, 100.0],
+            "share_price": [1.0, 1.01],
+            vault_metrics.VAULT_STATE_OBSERVED_COLUMN: [True, True],
+        },
+        index=pd.date_range("2026-01-01", periods=2, freq="D"),
+    )
+
+    result = vault_metrics._derive_erc4626_estimated_daily_flows(prices)
 
     assert result[vault_metrics.FLOW_VALUE_COLUMN].isna().all()
 

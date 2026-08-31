@@ -29,6 +29,7 @@ from eth_defi.research.vault_metrics import (
     USD_RATE_ERROR_INVALID_SERIES,
     USD_RATE_ERROR_MISSING_SERIES,
     CryptoUSDConversionContext,
+    calculate_hourly_returns_for_all_vaults,
     calculate_lifetime_metrics,
     export_lifetime_row,
 )
@@ -515,8 +516,9 @@ def build_crypto_vault_metadata(
             prices_df,
             exchange_rate_parquet_path,
         )
+    daily_prices_df = calculate_hourly_returns_for_all_vaults(prices_df)
     metrics_df = calculate_lifetime_metrics(
-        prices_df,
+        daily_prices_df,
         vault_db,
         crypto_usd_conversion_context=crypto_usd_conversion_context,
     )

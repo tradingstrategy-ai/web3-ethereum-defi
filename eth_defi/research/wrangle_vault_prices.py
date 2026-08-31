@@ -108,9 +108,10 @@ class CleanedVaultPriceRow(TypedDict, total=False):
       (IPOR, Euler, Morpho, Gearbox, etc.) and NaN for others.
     - **Hypercore only** columns come from the Hyperliquid native vault API
       and are NaN for all other protocols.
-    - **Investor-flow** columns contain direct daily observations for Hypercore
-      and Lighter. They remain NaN in cleaned ERC-4626 price data; the metrics
-      exporter can estimate netted stablecoin-vault flows later from consecutive
+    - **Investor-flow** amount columns contain direct daily observations for
+      Hypercore and Lighter. Event counts are available for Hypercore only.
+      These columns remain NaN in cleaned ERC-4626 price data; the metrics
+      exporter can estimate signed stablecoin-vault flow later from consecutive
       daily total-assets, total-supply and share-price states.
     """
 
@@ -409,16 +410,17 @@ class CleanedVaultPriceRow(TypedDict, total=False):
     hypercore_repair_status: str
 
     # -- Direct protocol flow columns --
-    # Directly populated for Hypercore and Lighter. NaN in cleaned ERC-4626 rows.
+    # Amounts are populated for Hypercore and Lighter; event counts are
+    # populated for Hypercore only. All are NaN in cleaned ERC-4626 rows.
 
     #: Number of deposit events in the latest day.
     #:
-    #: Direct protocol flow — Hypercore and Lighter. NaN for other protocols.
+    #: Direct protocol flow — Hypercore only. NaN for other protocols.
     daily_deposit_count: float
 
     #: Number of withdrawal events in the latest day.
     #:
-    #: Direct protocol flow — Hypercore and Lighter. NaN for other protocols.
+    #: Direct protocol flow — Hypercore only. NaN for other protocols.
     daily_withdrawal_count: float
 
     #: Total USD deposited in the latest day.

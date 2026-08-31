@@ -260,8 +260,10 @@ daily coverage for the full period; partial totals are never exported.
 The `flow_data_earliest_date` column in `vault_metadata` tracks how far back
 flow data has been backfilled per vault.
 
-The current ERC-4626 price scanner does not populate these daily flow columns,
-so its period flow fields and deprecated `netflow` export remain null.
+The current ERC-4626 price scanner does not populate these individual-event
+columns. Stablecoin ERC-4626 records instead estimate signed `flow_value` from
+daily vault state; their gross values and event counts remain null. Their
+deprecated 7d and 30d `netflow` records alias that signed value.
 
 ## Backfilling netflow data for existing vaults
 

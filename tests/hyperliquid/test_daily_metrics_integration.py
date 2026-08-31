@@ -54,9 +54,9 @@ def _create_mock_arbitrum_vault_data(
 
     Produces raw format matching the EVM vault scanner output, so it
     can go through the standard cleaning pipeline together with
-    Hypercore data. The fixture injects daily flow columns to exercise the
-    shared analysis path; the production ERC-4626 scanner does not currently
-    populate them.
+    Hypercore data. The production ERC-4626 scanner does not populate
+    individual flow-event columns; period signed flow is estimated from these
+    daily vault states instead.
     """
 
     chain_id = 42161
@@ -118,6 +118,11 @@ def _create_mock_arbitrum_vault_data(
     base_price = 1.0
     daily_returns = np.random.normal(0.0003, 0.005, len(dates))
     share_prices = base_price * np.cumprod(1 + daily_returns)
+    total_supplies = np.full(len(dates), 450_000.0)
+    # Put the first supply change at the second observation so cleaning removes
+    # only the initial inactive row, then add an in-window deposit for assertions.
+    total_supplies[1:] += 500.0
+    total_supplies[-5:] += 1_000.0
 
     prices_df = pd.DataFrame(
         {
@@ -126,14 +131,10 @@ def _create_mock_arbitrum_vault_data(
             "block_number": range(100000000, 100000000 + len(dates)),
             "timestamp": dates,
             "share_price": share_prices,
-            "total_assets": share_prices * 450000,
-            "total_supply": 450000.0,
+            "total_assets": share_prices * total_supplies,
+            "total_supply": total_supplies,
             "performance_fee": 0.20,
             "management_fee": 0.02,
-            "daily_deposit_count": 1,
-            "daily_withdrawal_count": 2,
-            "daily_deposit_usd": 1_000.0,
-            "daily_withdrawal_usd": 250.0,
             "errors": "",
         },
     )
@@ -305,7 +306,8 @@ def test_unified_vault_metrics_json(tmp_path):
     output_json = tmp_path / "vault-metrics.json"
 
     # Step 1: Create synthetic Arbitrum vault data (raw format)
-    _create_mock_arbitrum_vault_data(vault_db_path, uncleaned_path)
+    _, mock_arbitrum_prices = _create_mock_arbitrum_vault_data(vault_db_path, uncleaned_path)
+    expected_arbitrum_flow = float(mock_arbitrum_prices["share_price"].iloc[-5] * 1_000.0)
 
     # Step 2: Scan a single Hyperliquid vault
     session = create_hyperliquid_session()
@@ -340,6 +342,17 @@ def test_unified_vault_metrics_json(tmp_path):
         merge_into_uncleaned_parquet(db, uncleaned_path)
     finally:
         db.close()
+
+    # Add deterministic event-level Hypercore flows to the live price history.
+    # The API path itself is covered by dedicated backfill tests; this fixture
+    # verifies that supported event data reaches canonical gross period fields.
+    merged_prices = pd.read_parquet(uncleaned_path)
+    hypercore_rows = merged_prices["chain"] == HYPERCORE_CHAIN_ID
+    merged_prices.loc[hypercore_rows, "daily_deposit_count"] = 1
+    merged_prices.loc[hypercore_rows, "daily_withdrawal_count"] = 2
+    merged_prices.loc[hypercore_rows, "daily_deposit_usd"] = 1_000.0
+    merged_prices.loc[hypercore_rows, "daily_withdrawal_usd"] = 250.0
+    merged_prices.to_parquet(uncleaned_path, compression="zstd")
 
     # Step 4: Run the cleaning pipeline (processes both EVM + Hypercore data)
     generate_cleaned_vault_datasets(
@@ -441,20 +454,28 @@ def test_unified_vault_metrics_json(tmp_path):
             assert nf["deposit_count"] is None
             assert nf["withdrawal_count"] is None
 
-    # Happy path: synthetic shared daily flows reach canonical period fields.
+    # Hypercore has individual event data, so its gross fields are available.
+    hl_week = next(period for period in hl_vault["period_results"] if period["period"] == "1W")
+    assert hl_week["flow_value"] == pytest.approx(5_250.0)
+    assert hl_week["deposit_value"] == pytest.approx(7_000.0)
+    assert hl_week["redeem_value"] == pytest.approx(1_750.0)
+    assert hl_week["deposit_count"] == 7
+    assert hl_week["redemption_count"] == 14
+
+    # ERC-4626 state changes provide signed flow only; gross event fields stay null.
     arb_week = next(period for period in arb_vault["period_results"] if period["period"] == "1W")
-    assert arb_week["flow_value"] == pytest.approx(5_250.0)
-    assert arb_week["deposit_value"] == pytest.approx(7_000.0)
-    assert arb_week["redeem_value"] == pytest.approx(1_750.0)
-    assert arb_week["deposit_count"] == 7
-    assert arb_week["redemption_count"] == 14
+    assert arb_week["flow_value"] == pytest.approx(expected_arbitrum_flow)
+    assert arb_week["deposit_value"] is None
+    assert arb_week["redeem_value"] is None
+    assert arb_week["deposit_count"] is None
+    assert arb_week["redemption_count"] is None
 
     arb_month = next(period for period in arb_vault["period_results"] if period["period"] == "1M")
-    assert arb_month["flow_value"] == pytest.approx(22_500.0)
-    assert arb_month["deposit_value"] == pytest.approx(30_000.0)
-    assert arb_month["redeem_value"] == pytest.approx(7_500.0)
-    assert arb_month["deposit_count"] == 30
-    assert arb_month["redemption_count"] == 60
+    assert arb_month["flow_value"] == pytest.approx(expected_arbitrum_flow)
+    assert arb_month["deposit_value"] is None
+    assert arb_month["redeem_value"] is None
+    assert arb_month["deposit_count"] is None
+    assert arb_month["redemption_count"] is None
 
     arb_lifetime = next(period for period in arb_vault["period_results"] if period["period"] == "lifetime")
     assert arb_lifetime["flow_value"] is None
@@ -465,24 +486,22 @@ def test_unified_vault_metrics_json(tmp_path):
 
     # Legacy 7d and 30d values are aliases of the canonical 1W and 1M results.
     arb_week_legacy = next(netflow for netflow in arb_vault["netflow"] if netflow["period"] == "7d")
-    assert arb_week_legacy["deposit_usd"] == pytest.approx(7_000.0)
-    assert arb_week_legacy["withdrawal_usd"] == pytest.approx(1_750.0)
-    assert arb_week_legacy["net_flow_usd"] == pytest.approx(5_250.0)
+    assert arb_week_legacy["deposit_usd"] is None
+    assert arb_week_legacy["withdrawal_usd"] is None
+    assert arb_week_legacy["net_flow_usd"] == pytest.approx(expected_arbitrum_flow)
     assert arb_week_legacy["data_complete"] is True
-    assert arb_week_legacy["deposit_usd"] == arb_week["deposit_value"]
-    assert arb_week_legacy["withdrawal_usd"] == arb_week["redeem_value"]
-    assert arb_week_legacy["deposit_count"] == arb_week["deposit_count"]
-    assert arb_week_legacy["withdrawal_count"] == arb_week["redemption_count"]
+    assert arb_week_legacy["net_flow_usd"] == arb_week["flow_value"]
+    assert arb_week_legacy["deposit_count"] is None
+    assert arb_week_legacy["withdrawal_count"] is None
 
     arb_month_legacy = next(netflow for netflow in arb_vault["netflow"] if netflow["period"] == "30d")
-    assert arb_month_legacy["deposit_usd"] == pytest.approx(30_000.0)
-    assert arb_month_legacy["withdrawal_usd"] == pytest.approx(7_500.0)
-    assert arb_month_legacy["net_flow_usd"] == pytest.approx(22_500.0)
-    assert arb_month_legacy["deposit_count"] == 30
-    assert arb_month_legacy["withdrawal_count"] == 60
+    assert arb_month_legacy["deposit_usd"] is None
+    assert arb_month_legacy["withdrawal_usd"] is None
+    assert arb_month_legacy["net_flow_usd"] == pytest.approx(expected_arbitrum_flow)
+    assert arb_month_legacy["deposit_count"] is None
+    assert arb_month_legacy["withdrawal_count"] is None
     assert arb_month_legacy["data_complete"] is True
-    assert arb_month_legacy["deposit_usd"] == arb_month["deposit_value"]
-    assert arb_month_legacy["withdrawal_usd"] == arb_month["redeem_value"]
+    assert arb_month_legacy["net_flow_usd"] == arb_month["flow_value"]
 
 
 @pytest.mark.timeout(120)
