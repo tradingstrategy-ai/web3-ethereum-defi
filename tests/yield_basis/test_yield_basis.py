@@ -746,6 +746,8 @@ def test_yield_basis_protocol_metadata() -> None:
     metadata = build_metadata_json(repository_root / "eth_defi/data/vaults/metadata/yieldbasis.yaml", "https://example.invalid")
     assert metadata["name"] == "YieldBasis"
     assert metadata["slug"] == slugify_protocol(metadata["name"]) == "yieldbasis"
+    expected_short_description = "YieldBasis is an AMM protocol that aims to retain the equivalent performance of holding the underlying asset."
+    assert metadata["short_description"].replace("\n", " ") == expected_short_description
     assert metadata["logos"] == {
         "generic": "https://example.invalid/vault-protocol-metadata/yieldbasis/generic.png",
         "dark": "https://example.invalid/vault-protocol-metadata/yieldbasis/dark.png",

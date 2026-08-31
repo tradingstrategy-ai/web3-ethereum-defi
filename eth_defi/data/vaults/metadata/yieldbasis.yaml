@@ -1,8 +1,8 @@
 name: YieldBasis
 slug: yieldbasis
 short_description: |
-  YieldBasis offers BTC and ETH liquidity products designed to earn a share of
-  trading fees while retaining exposure to the underlying asset.
+  YieldBasis is an AMM protocol that aims to retain the equivalent performance
+  of holding the underlying asset.
 long_description: |
   [YieldBasis](https://yieldbasis.com/) is a decentralised liquidity protocol
   for BTC and ETH markets. Its [Earn products](https://yieldbasis.com/earn)
