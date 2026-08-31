@@ -22,6 +22,11 @@ long_description: |
   delays when withdrawing after big market moves, and reliance on the stablecoin
   and smart contracts that power the system. See the [YieldBasis overview](https://docs.yieldbasis.com/user/overview/how-yieldbasis-works)
   and [Earn page](https://yieldbasis.com/earn) for current product terms.
+
+  Learn more:
+
+  - [YieldBasis announcement channel](https://t.me/yieldbasis)
+  - [YieldBasis whitepaper](https://github.com/yield-basis/yb-paper/blob/master/leveraged-liquidity-paper.pdf)
 fee_description: |
   YieldBasis allocates its product fees through LT share accounting. Its
   [fee mechanics](https://docs.yieldbasis.com/user/protocol/fee-mechanics)

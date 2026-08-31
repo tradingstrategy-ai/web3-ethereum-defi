@@ -758,6 +758,8 @@ def test_yield_basis_protocol_metadata() -> None:
     assert "usual up-and-down price exposure" in normalised_long_description
     assert "impermanent loss" in normalised_long_description
     assert "sharp price drops" in normalised_long_description
+    assert "[YieldBasis announcement channel](https://t.me/yieldbasis)" in metadata["long_description"]
+    assert "[YieldBasis whitepaper](https://github.com/yield-basis/yb-paper/blob/master/leveraged-liquidity-paper.pdf)" in metadata["long_description"]
 
 
 def test_yield_basis_underlying_and_redemption_metrics() -> None:
