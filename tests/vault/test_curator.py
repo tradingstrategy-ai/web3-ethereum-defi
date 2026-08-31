@@ -1234,6 +1234,7 @@ def test_identify_arcus_protocol_curator() -> None:
     assert metadata["canonical_feeder_id"] == "arcus"
     assert metadata["website"] == "https://arcus.xyz/"
     assert metadata["twitter"] == "https://x.com/arcus_xyz"
+    assert metadata["short_description"] == "Arcus is the protocol curator of its pToken strategies on Robinhood Chain."
     assert "third-party curator has been publicly named" in metadata["long_description"]
 
 

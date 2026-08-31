@@ -9,21 +9,21 @@
 # Description sources:
 # - https://arcus.xyz/
 # - https://arcus.xyz/blog/arcus-x-robinhood-trade-stocks-perpetuals-24-7
-# - https://globaldollar.com/about-usdg
+# - https://arcus.xyz/blog/ptokens-a-new-primitive-on-arcus
 feeder-id: arcus
 name: Arcus
 role: curator
 canonical-feeder-id: arcus
-short_description: Arcus is listed as the curator of its pToken strategies on Robinhood Chain.
+short_description: Arcus is the protocol curator of its pToken strategies on Robinhood Chain.
 long_description: |
   [Arcus](https://arcus.xyz/) is a self-custodial exchange on Robinhood Chain
-  for Stock Tokens, cryptoassets and perpetual futures. Its
-  [launch announcement](https://arcus.xyz/blog/arcus-x-robinhood-trade-stocks-perpetuals-24-7)
-  describes 24/7 Stock Token trading, while product access remains subject to
-  eligibility and applicable terms.
+  for Stock Tokens, cryptoassets and perpetual futures. Its [pToken
+  announcement](https://arcus.xyz/blog/ptokens-a-new-primitive-on-arcus)
+  describes tokenised shares of automatically rebalanced Arcus perpetual
+  accounts.
 
-  Arcus is listed as curator for the pToken strategies shown here; no separate
-  third-party curator has been publicly named. They are denominated in
-  [USDG](https://globaldollar.com/about-usdg), a dollar stablecoin that Global
-  Dollar says can be redeemed one-to-one with Paxos. Assess the strategy,
-  stablecoin and product-specific liquidity and redemption terms separately.
+  Arcus is the protocol curator for the pToken strategies shown here; no
+  separate third-party curator has been publicly named.
+other-links:
+  - title: Arcus - pTokens, a new primitive on Arcus
+    url: https://arcus.xyz/blog/ptokens-a-new-primitive-on-arcus

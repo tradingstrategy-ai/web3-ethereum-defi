@@ -9,17 +9,17 @@ from eth_typing import HexAddress
 
 
 class VaultFeeMode(enum.Enum):
-    """How vault protocol account its fees.
+    """How a vault protocol accounts for its fees.
 
-    - Externalised fees: fees are deducted from the redemption amount when user withdraws.
+    - Externalised fees: fees are charged explicitly when a user enters or exits a vault.
     - Internalised fees: fees are baked into the share price (asset amount) and continuously taken from the profit.
-      There are no fees on withdraw.
+      There are no fees on withdrawal.
     """
 
     #: Vault fees are baked into the share price (asset amount).
     #:
     #: Fees are taken from the profit at the moment profit is made,
-    #: and send to another address.
+    #: and sent to another address.
     #:
     #: Example protocols: Yearn, Harvest Finance, USDAi.
     internalised_skimming = "internalised_skimming"
@@ -32,7 +32,7 @@ class VaultFeeMode(enum.Enum):
     #: Example protocols: AUTO Finance
     internalised_minting = "internalised_minting"
 
-    #: Vault fees are taken from the user explicitly at the redemption time.
+    #: Vault fees are taken from the user explicitly at deposit or redemption time.
     #:
     #: Example protocols: Lagoon Finance.
     externalised = "externalised"
@@ -204,9 +204,9 @@ VAULT_PROTOCOL_FEE_MATRIX = {
     "USDX Money": VaultFeeMode.internalised_skimming,
     # NaraUSD+ does not publish a universal management or performance fee schedule.
     "Nara": None,
-    # No pToken-specific fee schedule has been verified for reviewed Arcus
-    # products.
-    "Arcus": None,
+    # Arcus pTokens charge their entry fee explicitly instead of incorporating
+    # it into NAV per share.
+    "Arcus": VaultFeeMode.externalised,
     # Hyperlend WHLP - 10% performance fee on yield, internalised in share price
     "Hyperlend": VaultFeeMode.internalised_skimming,
     # Sentiment SuperPools - fees taken from interest earned

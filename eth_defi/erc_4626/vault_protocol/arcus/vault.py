@@ -6,6 +6,7 @@ from eth_typing import BlockIdentifier
 
 from eth_defi.erc_4626.vault import ERC4626Vault
 from eth_defi.erc_4626.vault_protocol.arcus.offchain_data import ArcusVaultOffchainData, get_arcus_vault_offchain_data
+from eth_defi.types import Percent
 
 
 class ArcusVault(ERC4626Vault):
@@ -13,9 +14,9 @@ class ArcusVault(ERC4626Vault):
 
     The pToken implementation behind the reviewed BeaconProxy is not
     source-verified. This adapter therefore provides generic ERC-4626 reads
-    only; it does not certify transaction flows, a withdrawal timetable, or a
-    fee schedule. A product name such as ``"BTC (3x Long)"`` is not treated as
-    independent evidence of the product mechanics.
+    plus reviewed, address-scoped product and fee metadata. The metadata comes
+    from Arcus's public pToken announcement and API; it is not an independent
+    verification of the implementation.
 
     See the `Arcus website <https://arcus.xyz/>`__ for product information.
     """
@@ -24,8 +25,8 @@ class ArcusVault(ERC4626Vault):
     def arcus_offchain_data(self) -> ArcusVaultOffchainData | None:
         """Return reviewed pToken copy.
 
-        The local overlay is address-scoped and does not make public API
-        requests, because Arcus's market catalogue is not pToken data.
+        The local overlay is address-scoped and avoids runtime API requests so
+        vault metadata scans remain deterministic.
 
         :return:
             Reviewed Arcus pToken metadata, or ``None`` for an unsupported
@@ -58,16 +59,37 @@ class ArcusVault(ERC4626Vault):
 
     @property
     def manager_name(self) -> str | None:
-        """Return Arcus as the reviewed protocol-level curator attribution.
+        """Return Arcus as the protocol-level manager attribution.
+
+        Arcus is the registered protocol curator for the reviewed pToken
+        products. This display name does not identify the unlabelled address
+        returned by the onchain ``manager()`` accessor.
 
         :return:
-            ``"Arcus"`` for reviewed pTokens, or ``None`` when the pToken has
-            not been individually reviewed.
+            ``"Arcus"`` for reviewed pTokens, or ``None`` for an unreviewed
+            contract address.
         """
 
-        return self.arcus_offchain_data["curator_name"] if self.arcus_offchain_data else None
+        return "Arcus" if self.arcus_offchain_data else None
 
-    def get_management_fee(self, block_identifier: BlockIdentifier) -> float | None:  # noqa: PLR6301
+    def get_notes(self) -> str | None:
+        """Return the reviewed explanation of Arcus pToken mechanics.
+
+        Manually curated shared notes retain priority. Otherwise, reviewed
+        address-scoped copy explains how NAV, rebalancing and pooled collateral
+        affect pToken holders.
+
+        :return:
+            Markdown-formatted pToken notes, or ``None`` for an unreviewed
+            contract address.
+        """
+
+        manual_notes = super().get_notes()
+        if manual_notes:
+            return manual_notes
+        return self.arcus_offchain_data["notes"] if self.arcus_offchain_data else None
+
+    def get_management_fee(self, block_identifier: BlockIdentifier) -> Percent | None:  # noqa: PLR6301
         """Return the verified Arcus pToken management fee when available.
 
         No management-fee rate has been verified for the reviewed pTokens.
@@ -81,19 +103,39 @@ class ArcusVault(ERC4626Vault):
         del block_identifier
         return None
 
-    def get_performance_fee(self, block_identifier: BlockIdentifier) -> float | None:  # noqa: PLR6301
-        """Return the verified Arcus pToken performance fee when available.
+    def get_performance_fee(self, block_identifier: BlockIdentifier) -> Percent | None:
+        """Return the reviewed Arcus pToken profit share.
 
-        No performance-fee rate has been verified for the reviewed pTokens.
+        Arcus's public vault API reports this value as ``profitShareBps``. The
+        adapter keeps an address-scoped snapshot rather than depending on the
+        API during metadata scans.
 
         :param block_identifier:
-            Block at which fee data would be read.
+            Accepted for the common vault interface. Static offchain fee data
+            is not historical.
 
         :return:
-            ``None`` because no performance-fee value is established.
+            Reviewed profit-share rate, or ``None`` for an unreviewed pToken.
         """
         del block_identifier
-        return None
+        return self.arcus_offchain_data["performance_fee"] if self.arcus_offchain_data else None
+
+    def get_deposit_fee(self, block_identifier: BlockIdentifier) -> Percent | None:
+        """Return the reviewed Arcus pToken entry fee.
+
+        Arcus's public vault API reports this value as ``depositFeeBps``. The
+        adapter keeps an address-scoped snapshot rather than depending on the
+        API during metadata scans.
+
+        :param block_identifier:
+            Accepted for the common vault interface. Static offchain fee data
+            is not historical.
+
+        :return:
+            Reviewed entry-fee rate, or ``None`` for an unreviewed pToken.
+        """
+        del block_identifier
+        return self.arcus_offchain_data["deposit_fee"] if self.arcus_offchain_data else None
 
     def get_link(self, referral: str | None = None) -> str:  # noqa: PLR6301
         """Return Arcus's public application.
