@@ -2,6 +2,7 @@
 
 import datetime
 import json
+import logging
 import os.path
 import pickle
 from dataclasses import replace
@@ -312,7 +313,7 @@ def test_erc4626_state_deltas_reject_partial_scanner_states() -> None:
     assert result[vault_metrics.FLOW_VALUE_COLUMN].isna().all()
 
 
-def test_erc4626_state_deltas_reject_inconsistent_accounting_states() -> None:
+def test_erc4626_state_deltas_reject_inconsistent_accounting_states(caplog: pytest.LogCaptureFixture) -> None:
     """Do not treat a broken assets/supply/share-price identity as investor flow."""
     prices = pd.DataFrame(
         {
@@ -324,9 +325,17 @@ def test_erc4626_state_deltas_reject_inconsistent_accounting_states() -> None:
         index=pd.date_range("2026-01-01", periods=2, freq="D"),
     )
 
-    result = vault_metrics._derive_erc4626_estimated_daily_flows(prices)
+    with caplog.at_level(logging.DEBUG, logger=vault_metrics.__name__):
+        result = vault_metrics._derive_erc4626_estimated_daily_flows(prices)
 
     assert result[vault_metrics.FLOW_VALUE_COLUMN].isna().all()
+    assert caplog.record_tuples == [
+        (
+            vault_metrics.__name__,
+            logging.DEBUG,
+            "ERC-4626 flow estimate rejected 1/1 observed intervals for <unknown> because vault accounting states were invalid or inconsistent",
+        ),
+    ]
 
 
 def test_get_trading_strategy_links_use_canonical_vault_routes():
