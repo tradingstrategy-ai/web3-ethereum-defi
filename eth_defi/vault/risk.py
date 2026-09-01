@@ -321,6 +321,38 @@ VAULT_SPECIFIC_RISK = {
     # current-state probes working again does not restore the missing history.
     "0x6ed613e86e8d0b6617e445f17323ac0162ff6ce6": VaultTechnicalRisk.blacklisted,
     "0x2b37f3566933e4dbe59c6b86bedbc91c1e04d774": VaultTechnicalRisk.blacklisted,
+    # Raga Hype Stable Strategy (rHYPE) on HyperEVM, asset USDt0
+    # 0xb8ce59fc3717ada4c02eadf9682a9e934f625ebb. The ERC-1967 proxy delegates
+    # totalAssets() to an AccountMarginSummary HyperCore precompile read at
+    # 0x...080f. At the head the direct call is cheap (~94k gas), but two copies
+    # of the normal four ERC-4626 scanner probes make both Goldsky and dRPC
+    # reject Multicall3 with out-of-gas. Alchemy can answer at the head, but
+    # totalAssets() already reverts at head-200 on Alchemy, Goldsky and dRPC:
+    # "Account margin summary precompile call failed". Repeated provider
+    # failover, smaller batches and direct calls therefore cannot produce the
+    # historical NAV required by the generic price scanner.
+    "0xa4ab2aa522234a2ea2713ebade0fec069e4f3a95": VaultTechnicalRisk.blacklisted,
+    # RatesETF (RATES) on HyperEVM, asset USDt0
+    # 0xb8ce59fc3717ada4c02eadf9682a9e934f625ebb. The proxy's totalAssets()
+    # reads HyperCore's withdrawable-balance precompile at 0x...0803. The call
+    # is ~197k gas on a working head, yet combining it with another affected
+    # vault's four ERC-4626 probes exhausts Goldsky's and dRPC's Multicall3 gas
+    # accounting. Historical calls at head-200 fail on all three configured
+    # providers with "Withdrawable precompile call failed". This has remained
+    # unreliable despite repeated provider retries, batch reduction and
+    # Alchemy failover, so it cannot be a generic historical valuation source.
+    "0xda482b56c85da2ec8e59d65ec4b1f9a6b414061e": VaultTechnicalRisk.blacklisted,
+    # Raga Hype Stable Strategy (rHYPE) on HyperEVM, asset USDt0
+    # 0xb8ce59fc3717ada4c02eadf9682a9e934f625ebb. This is a separate proxy
+    # from the rHYPE vault above; totalAssets() reaches HyperCore SpotBalance
+    # at 0x...0801. It is inexpensive (~94k gas) when the provider can serve
+    # current Core state, but duplicating its four-probe batch causes Goldsky
+    # and dRPC to reject the Multicall3 request as out of gas. At head-200 its
+    # valuation read fails on Alchemy, Goldsky and dRPC with "SpotBalance
+    # precompile call failed". Many direct-call, retry, batch-size and provider
+    # failover attempts have not made historical reads reliable; blacklist it
+    # rather than repeatedly stalling the scanner.
+    "0x77f1652d969dd56a75a2cb1a7c60fb7c314d71a3": VaultTechnicalRisk.blacklisted,
     # Rocket Markets Survivor Vaults on Monad.
     #
     # Scanner failure context:
@@ -526,6 +558,13 @@ _BROKEN_VAULT_CONTRACTS = {
     # the failing Multicall3 batch. See VAULT_SPECIFIC_RISK above.
     "0x6ED613E86e8D0b6617e445f17323AC0162FF6ce6",
     "0x2b37f3566933E4DBe59c6b86BedbC91c1E04D774",
+    # HyperEVM HyperCore-read vaults whose historical totalAssets() calls fail
+    # on every configured provider and whose repeated probe batches cause
+    # Goldsky/dRPC Multicall3 out-of-gas failures. See the address-specific
+    # rejection evidence in VAULT_SPECIFIC_RISK above.
+    "0xA4ab2Aa522234a2EA2713eBadE0fec069e4F3A95",  # Raga Hype Stable Strategy (rHYPE), AccountMarginSummary precompile 0x...080f
+    "0xdA482B56C85Da2Ec8e59d65eC4b1F9a6B414061E",  # RatesETF (RATES), Withdrawable precompile 0x...0803
+    "0x77f1652D969DD56a75a2cb1a7C60FB7C314d71a3",  # Raga Hype Stable Strategy (rHYPE), SpotBalance precompile 0x...0801
     # Rocket Markets Survivor Vault (RKTSV) on Monad. See the detailed
     # VAULT_SPECIFIC_RISK comment above. totalAssets() and convertToAssets()
     # revert at block 87,952,850 and at current head, and the Monad RPC reports
