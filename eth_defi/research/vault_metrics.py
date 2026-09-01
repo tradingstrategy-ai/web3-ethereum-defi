@@ -1414,7 +1414,7 @@ def _derive_erc4626_estimated_daily_flows(
     valid = valid_state & valid_state.shift(1, fill_value=False) & observed_intervals
     rejected_interval_count = int((observed_intervals & ~valid).sum())
     if rejected_interval_count:
-        logger.info(
+        logger.debug(
             "ERC-4626 flow estimate rejected %d/%d observed intervals for %s because vault accounting states were invalid or inconsistent",
             rejected_interval_count,
             int(observed_intervals.sum()),
