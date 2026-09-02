@@ -292,6 +292,57 @@ def test_enzyme_backfill_repairs_unknown_permissions_for_both_architectures(monk
     assert module.should_refresh_metadata(database, onyx, METADATA_END_BLOCK) is False
 
 
+def test_enzyme_backfill_blue_fee_refresh_resumes_complete_blue_rows(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Refresh Blue once per fixed head while retaining normal Onyx selection."""
+
+    module = load_backfill_module()
+    monkeypatch.delenv("ENZYME_REFRESH_EXISTING_METADATA", raising=False)
+    monkeypatch.setenv("ENZYME_REFRESH_BLUE_FEES", "true")
+    onyx = create_candidate("0x000000000000000000000000000000000000bEEF", 35_306_010)
+    blue = EnzymeBlueVaultFactoryCandidate(
+        chain=8453,
+        address=HexAddress("0x000000000000000000000000000000000000cafE"),
+        dispatcher_address=ENZYME_BLUE_DEPLOYMENTS[8453].dispatcher,
+        fund_deployer=HexAddress("0x000000000000000000000000000000000000a11c"),
+        vault_accessor=HexAddress("0x000000000000000000000000000000000000acce"),
+        fund_name="Fee repair",
+        created_block=23_200_000,
+        created_at=onyx.created_at,
+        transaction_hash="0xbead",
+        log_index=3,
+    )
+    database = module.VaultDatabase(
+        rows={
+            VaultSpec(blue.chain, blue.address): {
+                "Name": "Blue",
+                "Symbol": "BLUE",
+                "_denomination_token": {"symbol": "USDC"},
+                "_deposit_permission": "permissionless",
+                "_enzyme_metadata_version": module.ENZYME_CURRENT_METADATA_VERSION,
+                "_enzyme_metadata_checked_block": METADATA_END_BLOCK,
+            },
+            VaultSpec(onyx.chain, onyx.address): {
+                "Name": "Onyx",
+                "Symbol": "ONYX",
+                "_denomination_token": {"symbol": "USDC"},
+                "_deposit_permission": "permissionless",
+                "_short_description": None,
+                "_description": module.ONYX_PUBLIC_DESCRIPTION_UNAVAILABLE,
+                "_enzyme_metadata_version": module.ENZYME_CURRENT_METADATA_VERSION,
+                "_enzyme_onyx_permission_version": module.ENZYME_ONYX_PERMISSION_VERSION,
+                "_enzyme_onyx_description_version": module.ENZYME_ONYX_DESCRIPTION_VERSION,
+                "_enzyme_metadata_checked_block": METADATA_END_BLOCK,
+            },
+        }
+    )
+
+    assert module.should_refresh_metadata(database, blue, METADATA_END_BLOCK) is False
+    assert module.should_refresh_metadata(database, onyx, METADATA_END_BLOCK) is False
+
+    database.rows[VaultSpec(blue.chain, blue.address)]["_enzyme_metadata_checked_block"] = METADATA_END_BLOCK - 1
+    assert module.should_refresh_metadata(database, blue, METADATA_END_BLOCK) is True
+
+
 def test_enzyme_backfill_repairs_missing_onyx_description_marker(monkeypatch) -> None:
     """Use the explicit Onyx description marker as resumable metadata state."""
 

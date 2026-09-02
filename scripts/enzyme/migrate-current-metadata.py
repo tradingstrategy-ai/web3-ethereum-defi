@@ -52,26 +52,25 @@ Environment variables:
 - ``PIPELINE_LOCK_TIMEOUT``: seconds to wait for the shared writer lock,
   default ``60``.
 
-``ENZYME_SCAN_PRICES``, ``ENZYME_CLEAN_PRICES`` and
-``ENZYME_REFRESH_EXISTING_METADATA`` are deliberately overridden by this
-entry point. Use ``backfill-history.py`` for historical price work or an
-intentional unconditional metadata refresh.
+``ENZYME_SCAN_PRICES``, ``ENZYME_CLEAN_PRICES`` and refresh flags are
+deliberately overridden by this entry point. Use ``migrate-blue-fees.py`` for
+an intentional Blue-fee refresh, or ``backfill-history.py`` for historical
+price work.
 """
 
-import os
-import runpy
 from collections.abc import MutableMapping
 from pathlib import Path
 
-from eth_defi.vault.vaultdb import DEFAULT_VAULT_DATABASE
+from eth_defi.enzyme import migration
 
-#: Environment values temporarily forced while the delegated script runs.
-MIGRATION_ENVIRONMENT_VARIABLES = (
-    "ENZYME_SCAN_PRICES",
-    "ENZYME_CLEAN_PRICES",
-    "ENZYME_REFRESH_EXISTING_METADATA",
-    "ENZYME_CHECKPOINT_PATH",
-)
+MIGRATION_OVERRIDES = {
+    "ENZYME_SCAN_PRICES": "false",
+    "ENZYME_CLEAN_PRICES": "false",
+    "ENZYME_REFRESH_EXISTING_METADATA": "false",
+    "ENZYME_REFRESH_BLUE_FEES": "false",
+}
+
+CHECKPOINT_FILENAME = "enzyme-current-metadata-state.json"
 
 
 def configure_metadata_migration_environment(environment: MutableMapping[str, str]) -> None:
@@ -87,11 +86,7 @@ def configure_metadata_migration_environment(environment: MutableMapping[str, st
     :return: None.
     """
 
-    environment["ENZYME_SCAN_PRICES"] = "false"
-    environment["ENZYME_CLEAN_PRICES"] = "false"
-    environment["ENZYME_REFRESH_EXISTING_METADATA"] = "false"
-    vault_db_path = Path(environment.get("VAULT_DB_PATH", str(DEFAULT_VAULT_DATABASE))).expanduser()
-    environment.setdefault("ENZYME_CHECKPOINT_PATH", str(vault_db_path.with_name("enzyme-current-metadata-state.json")))
+    migration.configure_enzyme_migration_environment(environment, MIGRATION_OVERRIDES, CHECKPOINT_FILENAME)
 
 
 def main() -> None:
@@ -100,17 +95,7 @@ def main() -> None:
     :return: None after the delegated migration exits.
     """
 
-    previous_values = {name: os.environ.get(name) for name in MIGRATION_ENVIRONMENT_VARIABLES}
-    try:
-        configure_metadata_migration_environment(os.environ)
-        migration_path = Path(__file__).with_name("backfill-history.py")
-        runpy.run_path(str(migration_path), run_name="__main__")
-    finally:
-        for name, value in previous_values.items():
-            if value is None:
-                os.environ.pop(name, None)
-            else:
-                os.environ[name] = value
+    migration.run_enzyme_backfill_with_environment(MIGRATION_OVERRIDES, CHECKPOINT_FILENAME, Path(__file__).with_name("backfill-history.py"))
 
 
 if __name__ == "__main__":

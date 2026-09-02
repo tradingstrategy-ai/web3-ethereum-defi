@@ -16,18 +16,18 @@ def combine_user_facing_management_fee(manager_fee: Percent | None, protocol_fee
     charge through minting, asset transfers, or internal debt accounting.
 
     :param manager_fee:
-        Current vault-manager annual fee, or ``None`` when unconfigured.
+        Current vault-manager rate, or ``None`` when unconfigured.
     :param protocol_fee:
-        Current additional protocol annual fee, or ``None`` when the reviewed
+        Current additional protocol rate, or ``None`` when the reviewed
         protocol surface has no separately configured rate.
     :return:
-        The user-facing combined annual management fee, or ``None`` when both
-        components are unavailable.
+        The combined management rate, or ``None`` when both components are
+        unavailable.
     """
 
     if manager_fee is None and protocol_fee is None:
         return None
 
-    # Export what the investor pays, not what Enzyme does internally to settle
-    # or distribute either fee. A protocol fee is charged on top of manager fee.
+    # Export the combined investor-facing rate. The separate protocol field is
+    # a breakdown, not a second charge to add to this result.
     return Percent(float((manager_fee or 0) + (protocol_fee or 0)))

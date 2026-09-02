@@ -5,6 +5,8 @@ import os
 from pathlib import Path
 from types import ModuleType
 
+import pytest
+
 SCRIPT_PATH = Path(__file__).resolve().parents[2] / "scripts" / "enzyme" / "migrate-current-metadata.py"
 
 
@@ -30,6 +32,7 @@ def test_metadata_migration_forces_incremental_non_price_mode() -> None:
         "ENZYME_SCAN_PRICES": "true",
         "ENZYME_CLEAN_PRICES": "true",
         "ENZYME_REFRESH_EXISTING_METADATA": "true",
+        "ENZYME_REFRESH_BLUE_FEES": "true",
     }
 
     module.configure_metadata_migration_environment(environment)
@@ -38,19 +41,21 @@ def test_metadata_migration_forces_incremental_non_price_mode() -> None:
         "ENZYME_SCAN_PRICES": "false",
         "ENZYME_CLEAN_PRICES": "false",
         "ENZYME_REFRESH_EXISTING_METADATA": "false",
-        "ENZYME_CHECKPOINT_PATH": str(module.DEFAULT_VAULT_DATABASE.with_name("enzyme-current-metadata-state.json")),
+        "ENZYME_REFRESH_BLUE_FEES": "false",
+        "ENZYME_CHECKPOINT_PATH": str(module.migration.DEFAULT_VAULT_DATABASE.with_name("enzyme-current-metadata-state.json")),
     }
 
 
-def test_metadata_migration_delegates_to_shared_resumable_engine(monkeypatch) -> None:
+def test_metadata_migration_delegates_to_shared_resumable_engine(monkeypatch: pytest.MonkeyPatch) -> None:
     """Use the reviewed Enzyme backfill implementation instead of duplicating it."""
 
     module = load_migration_module()
     calls = []
-    monkeypatch.setattr(module.runpy, "run_path", lambda path, run_name: calls.append((Path(path), run_name)))
+    monkeypatch.setattr(module.migration.runpy, "run_path", lambda path, run_name: calls.append((Path(path), run_name)))
     monkeypatch.setenv("ENZYME_SCAN_PRICES", "true")
     monkeypatch.setenv("ENZYME_CLEAN_PRICES", "true")
     monkeypatch.setenv("ENZYME_REFRESH_EXISTING_METADATA", "true")
+    monkeypatch.setenv("ENZYME_REFRESH_BLUE_FEES", "true")
     monkeypatch.delenv("ENZYME_CHECKPOINT_PATH", raising=False)
 
     module.main()
@@ -59,6 +64,7 @@ def test_metadata_migration_delegates_to_shared_resumable_engine(monkeypatch) ->
     assert os.environ["ENZYME_SCAN_PRICES"] == "true"
     assert os.environ["ENZYME_CLEAN_PRICES"] == "true"
     assert os.environ["ENZYME_REFRESH_EXISTING_METADATA"] == "true"
+    assert os.environ["ENZYME_REFRESH_BLUE_FEES"] == "true"
     assert "ENZYME_CHECKPOINT_PATH" not in os.environ
 
 

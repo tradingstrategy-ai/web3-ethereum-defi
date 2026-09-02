@@ -7,6 +7,7 @@ from types import SimpleNamespace
 import pytest
 from eth_abi import encode
 from web3 import Web3
+from web3.exceptions import BadFunctionCallOutput
 
 from eth_defi.enzyme import blue_vault
 from eth_defi.enzyme.blue_discovery import ENZYME_BLUE_DEPLOYMENTS, EnzymeBlueVaultFactoryCandidate, decode_enzyme_blue_vault_deployed_event, fetch_enzyme_blue_dispatchers_for_chain
@@ -16,6 +17,8 @@ from eth_defi.erc_4626.core import ERC4626Feature
 from eth_defi.erc_4626.discovery_base import _prepare_probe_leads, create_enzyme_blue_factory_detection, create_enzyme_blue_potential_vault_match  # noqa: PLC2701
 from eth_defi.erc_4626.scan import fetch_deposit_permission
 from eth_defi.event_reader.multicall_batcher import EncodedCall, EncodedCallResult
+from eth_defi.provider.fallback import ExtraValueError
+from eth_defi.types import Percent
 from eth_defi.vault.base import VaultSpec
 from eth_defi.vault.deposit_redeem import VaultDepositPermission
 
@@ -240,7 +243,7 @@ def test_blue_legacy_policy_manager_fallback(monkeypatch: pytest.MonkeyPatch) ->
 
 
 def test_blue_current_fees_include_protocol_fee_in_user_facing_management_rate(monkeypatch) -> None:
-    """Show the combined Blue fee paid by an investor and its breakdown."""
+    """Fold Blue's AUM protocol fee into management and retain its reference."""
 
     vault = EnzymeBlueVault.__new__(EnzymeBlueVault)
     vault.default_block_identifier = None
@@ -269,3 +272,111 @@ def test_blue_current_fees_include_protocol_fee_in_user_facing_management_rate(m
     assert fee_data.performance == EXPECTED_PERFORMANCE_FEE
     assert fee_data.deposit == EXPECTED_ENTRANCE_FEE
     assert fee_data.withdraw == EXPECTED_EXIT_FEE
+
+
+def test_blue_current_fees_mark_absent_standard_plugins_as_zero(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Export confirmed zeroes when FeeManager enables no fee plugins.
+
+    FeeManager is the authoritative enumeration of every configured Blue fund
+    fee. An empty result therefore proves that the manager, performance,
+    entrance and exit components are all disabled.
+    """
+
+    vault = EnzymeBlueVault.__new__(EnzymeBlueVault)
+    vault.default_block_identifier = None
+    vault.comptroller_contract = SimpleNamespace(address=ACCESSOR)
+    monkeypatch.setattr(vault, "_fetch_enabled_fee_contracts", lambda _block: [])
+    monkeypatch.setattr(vault, "_fetch_protocol_fee", lambda _block: Percent(0))
+
+    fee_data = vault.get_fee_data()
+
+    assert fee_data.management == 0
+    assert fee_data.performance == 0
+    assert fee_data.deposit == 0
+    assert fee_data.withdraw == 0
+    assert fee_data.protocol == 0
+
+
+def test_blue_current_fees_fill_absent_plugins_around_enabled_exit_fee(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Keep an explicit exit fee while filling absent performance and entrance fees."""
+
+    vault = EnzymeBlueVault.__new__(EnzymeBlueVault)
+    vault.default_block_identifier = None
+    vault.comptroller_contract = SimpleNamespace(address=ACCESSOR)
+    monkeypatch.setattr(vault, "_fetch_enabled_fee_contracts", lambda _block: ["exit"])
+    monkeypatch.setattr(vault, "_fetch_protocol_fee", lambda _block: Percent(EXPECTED_PROTOCOL_FEE))
+    monkeypatch.setattr(
+        vault,
+        "_try_fee_call",
+        lambda fee, function_name, *_args, **_kwargs: 0 if (fee, function_name) == ("exit", "getInKindRateForFund") else None,
+    )
+
+    fee_data = vault.get_fee_data()
+
+    assert fee_data.management == EXPECTED_PROTOCOL_FEE
+    assert fee_data.performance == 0
+    assert fee_data.deposit == 0
+    assert fee_data.withdraw == 0
+    assert fee_data.protocol == EXPECTED_PROTOCOL_FEE
+
+
+def test_blue_current_fees_keep_management_unknown_without_protocol_deployment(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Do not claim a management fee when the protocol component is unavailable."""
+
+    vault = EnzymeBlueVault.__new__(EnzymeBlueVault)
+    vault.default_block_identifier = None
+    vault.comptroller_contract = SimpleNamespace(address=ACCESSOR)
+    monkeypatch.setattr(vault, "_fetch_enabled_fee_contracts", lambda _block: [])
+    monkeypatch.setattr(vault, "_fetch_protocol_fee", lambda _block: None)
+
+    fee_data = vault.get_fee_data()
+
+    assert fee_data.management is None
+    assert fee_data.protocol is None
+
+
+def test_blue_fee_call_propagates_provider_failure() -> None:
+    """Do not convert an RPC failure to a fee plugin that is absent."""
+
+    def raise_provider_error(**_kwargs: object) -> None:
+        """Simulate the fallback provider's final JSON-RPC failure."""
+
+        error_message = "rate limited"
+        raise ExtraValueError(error_message)
+
+    vault = EnzymeBlueVault.__new__(EnzymeBlueVault)
+    fee = SimpleNamespace(functions=SimpleNamespace(getFeeInfoForFund=lambda *_args: SimpleNamespace(call=raise_provider_error)))
+
+    with pytest.raises(ExtraValueError, match="rate limited"):
+        vault._try_fee_call(fee, "getFeeInfoForFund", ACCESSOR, block_identifier="latest")
+
+
+def test_blue_legacy_fund_deployer_has_no_protocol_fee(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Treat the missing ProtocolFeeTracker on older Blue releases as zero."""
+
+    def raise_missing_tracker(**_kwargs: object) -> None:
+        """Simulate an old FundDeployer that predates the tracker getter."""
+
+        error_message = "ProtocolFeeTracker is unavailable"
+        raise BadFunctionCallOutput(error_message)
+
+    vault = EnzymeBlueVault.__new__(EnzymeBlueVault)
+    vault.spec = VaultSpec(CHAIN_ID, VAULT)
+    vault.web3 = object()
+    deployment = ENZYME_BLUE_DEPLOYMENTS[CHAIN_ID]
+    dispatcher = SimpleNamespace(functions=SimpleNamespace(getFundDeployerForVaultProxy=lambda *_args: SimpleNamespace(call=lambda **_kwargs: FUND_DEPLOYER)))
+    fund_deployer = SimpleNamespace(functions=SimpleNamespace(getProtocolFeeTracker=lambda: SimpleNamespace(call=raise_missing_tracker)))
+
+    def fake_get_deployed_contract(_web3: object, abi_name: str, address: str) -> SimpleNamespace:
+        """Return the minimal contracts needed for the legacy release read."""
+
+        if abi_name.endswith("Dispatcher.json"):
+            assert address == deployment.dispatcher
+            return dispatcher
+        assert abi_name.endswith("FundDeployer.json")
+        assert address == FUND_DEPLOYER
+        return fund_deployer
+
+    monkeypatch.setattr(blue_vault, "get_deployed_contract", fake_get_deployed_contract)
+
+    assert vault._fetch_protocol_fee("latest") == 0
