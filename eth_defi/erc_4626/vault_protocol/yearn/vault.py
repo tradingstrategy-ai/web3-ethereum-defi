@@ -12,6 +12,7 @@ from eth_defi.abi import ZERO_ADDRESS_STR
 from eth_defi.erc_4626.core import get_deployed_erc_4626_contract
 from eth_defi.erc_4626.vault import ERC4626Vault
 from eth_defi.erc_4626.vault_protocol.yearn.deposit_redeem import YearnV3DepositManager
+from eth_defi.erc_4626.vault_protocol.yearn.notes import YEARN_VAULT_NOTES
 from eth_defi.vault.base import INSTANT_WITHDRAWAL_PERIOD, WithdrawalPeriod
 
 logger = logging.getLogger(__name__)
@@ -195,6 +196,23 @@ class YearnV3Vault(ERC4626Vault):
 
     def get_withdrawal_period(self) -> WithdrawalPeriod:
         return INSTANT_WITHDRAWAL_PERIOD
+
+    def get_notes(self) -> str | None:
+        """Return Yearn-specific notes for manually maintained vaults.
+
+        Shared manual notes retain precedence over Yearn-specific notes. This
+        allows an address to carry an operational warning without losing the
+        standard shared-vault override behaviour.
+
+        :return:
+            Markdown note for vault exports, when configured.
+        """
+
+        manual_notes = super().get_notes()
+        if manual_notes:
+            return manual_notes
+
+        return YEARN_VAULT_NOTES.get(self.address.lower())
 
     def get_link(self, referral: str | None = None) -> str:
         return f"https://yearn.fi/v3/{self.chain_id}/{self.vault_address}"
