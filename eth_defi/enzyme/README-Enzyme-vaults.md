@@ -111,6 +111,19 @@ MAX_WORKERS=8 poetry run python scripts/enzyme/migrate-current-metadata.py
 This migration uses configured RPC and Hypersync credentials, preserves price
 history, and stores a resumable checkpoint alongside the local vault database.
 
+To refresh every Blue vault's current FeeManager and ProtocolFeeTracker values
+after a fee-reader update, run the dedicated current-fee migration instead. It
+does not change historical fee series or price history:
+
+```shell
+DRY_RUN=true poetry run python scripts/enzyme/migrate-blue-fees.py
+MAX_WORKERS=8 poetry run python scripts/enzyme/migrate-blue-fees.py
+```
+
+Blue's ``Mgmt fee`` includes protocol access. ``Protocol fee`` is exported
+separately, so consumers can calculate the manager-only rate as ``Mgmt fee -
+Protocol fee``.
+
 ## Running migrations in the scanner container
 
 ``docker-compose.yml`` passes ``ENZYME_BLUE_API_TOKEN`` only to

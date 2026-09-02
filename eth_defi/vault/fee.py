@@ -338,11 +338,11 @@ class FeeData:
     #: Fee for this class
     withdraw: float | None
 
-    #: Protocol-level fee charged in addition to vault-manager fees.
+    #: Protocol-level component of the exported fee schedule.
     #:
     #: Most protocols do not expose a separate protocol charge, so this is
-    #: optional. Adapters can retain it alongside a user-facing aggregate
-    #: management fee when their protocol charges it on top of manager fees.
+    #: optional. An adapter can retain it alongside an aggregate management
+    #: fee, allowing consumers to calculate a manager-only breakdown.
     protocol: float | None = None
 
     def __post_init__(self) -> None:

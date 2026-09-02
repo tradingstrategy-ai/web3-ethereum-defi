@@ -26,6 +26,7 @@ from eth_defi.enzyme.offchain_metadata import create_enzyme_vault_link, load_enz
 from eth_defi.enzyme.onyx_flow import EnzymeVaultFlowManager
 from eth_defi.enzyme.tags import get_strategy_tags as lookup_strategy_tags
 from eth_defi.erc_4626.core import ERC4626Feature
+from eth_defi.provider.fallback import ExtraValueError
 from eth_defi.token import TokenDetails, fetch_erc20_details
 from eth_defi.types import Percent
 from eth_defi.vault.base import TradingUniverse, VaultBase, VaultFlowManager, VaultHistoricalReader, VaultInfo, VaultPortfolio, VaultSpec
@@ -349,6 +350,9 @@ class EnzymeBlueVault(VaultBase):
 
         try:
             return getattr(contract.functions, function_name)(*args).call(block_identifier=block_identifier)
+        except ExtraValueError:
+            # A provider response is not proof that a reviewed fee is absent.
+            raise
         except (ABIFunctionNotFound, BadFunctionCallOutput, ContractLogicError, ValueError):
             return None
 
@@ -361,7 +365,17 @@ class EnzymeBlueVault(VaultBase):
         return [get_deployed_contract(self.web3, "enzyme/EnzymeBlueFee.json", address) for address in addresses]
 
     def _fetch_protocol_fee(self, block_identifier: BlockIdentifier) -> Percent | None:
-        """Read the configured current Blue protocol-access rate, if enabled."""
+        """Read the configured current Blue protocol-access rate.
+
+        A reviewed Blue deployment with no ProtocolFeeTracker has explicitly
+        disabled this optional charge, so it is a confirmed zero rather than
+        unavailable fee information.
+
+        :param block_identifier: Block number or tag for the current-state
+            configuration read.
+        :return: Current protocol-access rate, zero when disabled, or
+            ``None`` for an unsupported deployment.
+        """
 
         deployment = ENZYME_BLUE_DEPLOYMENTS.get(self.chain_id)
         if deployment is None:
@@ -369,30 +383,46 @@ class EnzymeBlueVault(VaultBase):
         dispatcher = get_deployed_contract(self.web3, "enzyme/Dispatcher.json", deployment.dispatcher)
         fund_deployer_address = dispatcher.functions.getFundDeployerForVaultProxy(self.address).call(block_identifier=block_identifier)
         fund_deployer = get_deployed_contract(self.web3, "enzyme/FundDeployer.json", fund_deployer_address)
-        tracker_address = fund_deployer.functions.getProtocolFeeTracker().call(block_identifier=block_identifier)
+        try:
+            tracker_address = fund_deployer.functions.getProtocolFeeTracker().call(block_identifier=block_identifier)
+        except ExtraValueError:
+            # Do not publish a zero protocol fee when the provider failed.
+            raise
+        except (ABIFunctionNotFound, BadFunctionCallOutput, ContractLogicError, ValueError):
+            # Pre-ProtocolFeeTracker Blue releases have no protocol access fee.
+            return Percent(0)
         if tracker_address.lower() == ZERO_ADDRESS.lower():
-            return None
+            return Percent(0)
         tracker = get_deployed_contract(self.web3, "enzyme/ProtocolFeeTracker.json", tracker_address)
         fee_bps = tracker.functions.getFeeBpsForVault(self.address).call(block_identifier=block_identifier)
         return Percent(float(Decimal(fee_bps) / FEE_BPS_DENOMINATOR))
 
     def get_fee_data(self) -> FeeData:
-        """Read current Blue manager, investor, and protocol fee rates.
+        """Read current Blue investor fee rates.
 
         Blue's protocol fee is distinct from a fund's optional ManagementFee
-        plugin. The exported management fee is their user-facing combined rate,
-        while the protocol component is retained separately for transparency.
+        plugin, but it is included in the exported management fee rather than
+        exposed as a separate fee category. Enzyme's canonical `Protocol Fees
+        documentation <https://docs.enzyme.finance/user-documentation/blue-general-info/protocol-fees>`__
+        defines it as a charge on Assets Under Technology applied through share
+        inflation; unlike the PerformanceFee it is not conditional on growth
+        above a high-water mark. It is therefore a management fee for the
+        public vault export.
+
         Performance, entrance, and exit contracts store their rates in basis
-        points, as documented by Enzyme's canonical `PerformanceFee contract
-        <https://github.com/enzymefinance/protocol/blob/current/contracts/release/extensions/fee-manager/fees/PerformanceFee.sol>`__
-        and fee base contracts. ManagementFee instead stores a Ray-scaled
-        per-second compounding factor.
+        points. Enzyme's canonical `ManagementFee
+        <https://docs.enzyme.finance/enzyme-blue-protocol/fee-formulas/managementfee>`__
+        and `Performance Fee
+        <https://docs.enzyme.finance/enzyme-blue-protocol/fee-formulas/performance-fee>`__
+        documentation describes ManagementFee's Ray-scaled per-second
+        compounding factor and PerformanceFee's high-water-mark calculation.
         Historical fee configuration is TODO because Blue fee plugins,
         releases, and protocol-fee trackers can be replaced.
 
         :return:
-            Current fee settings, with the additional protocol charge in
-            :attr:`~eth_defi.vault.fee.FeeData.protocol`.
+            Current investor-facing fee settings. ``management`` includes
+            protocol access. ``protocol`` is retained as a breakdown, so the
+            manager-only rate is ``management - protocol``.
         """
 
         block_identifier = self._get_block_identifier()
@@ -408,6 +438,8 @@ class EnzymeBlueVault(VaultBase):
                 continue
             fee_info = self._try_fee_call(fee, "getFeeInfoForFund", self.comptroller_contract.address, block_identifier=block_identifier)
             if fee_info is None:
+                # The reviewed Blue plugins expose the canonical getters above.
+                # Do not turn a missing optional component into ``unknown``.
                 continue
             rate = Decimal(fee_info[0])
             # ManagementFee stores a 1e27-scaled per-second compounding factor,
@@ -421,7 +453,13 @@ class EnzymeBlueVault(VaultBase):
                 performance = Percent(float(rate / FEE_BPS_DENOMINATOR))
 
         protocol_fee = self._fetch_protocol_fee(block_identifier)
-        management = combine_user_facing_management_fee(management, protocol_fee)
+        # Missing reviewed fee plugins are zero, not unavailable metadata.
+        management = management if management is not None else Percent(0)
+        performance = performance if performance is not None else Percent(0)
+        deposit = deposit if deposit is not None else Percent(0)
+        withdraw = withdraw if withdraw is not None else Percent(0)
+        # Protocol access is included in management; see this method's docstring.
+        management = combine_user_facing_management_fee(management, protocol_fee) if protocol_fee is not None else None
         return FeeData(fee_mode=self.get_fee_mode(), management=management, performance=performance, deposit=deposit, withdraw=withdraw, protocol=protocol_fee)
 
     def get_link(self, referral: str | None = None) -> str:

@@ -399,10 +399,11 @@ state or price parquet before a rerun. `ENZYME_END_BLOCK_<chain-id>` can bound
 one chain for diagnosis; use `ENZYME_SCAN_PRICES=false` for a metadata-only
 repair. Historical fees are intentionally TODO. Current Blue metadata exports
 the user-facing management fee as the manager rate plus the additional
-ProtocolFeeTracker rate. The latter is also exported separately as ``Protocol
-fee`` for a transparent breakdown; internal
-[protocol-access settlement](https://specs.enzyme.finance/topics/protocol-fee)
-does not change the investor-facing aggregate.
+ProtocolFeeTracker rate. Enzyme defines protocol access as a fee on Assets
+Under Technology, rather than a high-water-mark performance fee, so it is
+included in management. ``Protocol fee`` is exported separately so consumers
+can calculate ``manager fee = Mgmt fee - Protocol fee``.
+See Enzyme's [canonical Protocol Fees documentation](https://docs.enzyme.finance/user-documentation/blue-general-info/protocol-fees).
 
 Historical Enzyme price rows intentionally do not populate ``deposits_open``
 or ``redemption_open``. Enzyme Blue policies and Onyx handler configurations
@@ -1294,8 +1295,10 @@ The current standard Onyx FeeHandler exposes management, performance, entrance
 and exit settings, but no separately configured protocol fee. Its ``Mgmt fee``
 is therefore its full user-facing recurring management charge. Blue's ``Mgmt
 fee`` is the corresponding investor-facing sum of the fund manager fee and
-ProtocolFeeTracker rate. ``Protocol fee`` retains the latter as a transparent
-breakdown, not as an extra charge to add again.
+ProtocolFeeTracker rate. Enzyme's protocol fee applies to Assets Under
+Technology rather than gains above a high-water mark, so it is included in
+``Mgmt fee``. ``Protocol fee`` is exported separately for the calculation
+``manager fee = Mgmt fee - Protocol fee``.
 
 Run a read-only discovery plan first:
 
@@ -1325,6 +1328,7 @@ poetry run python scripts/enzyme/backfill-history.py
 | `ENZYME_REWRITE_TARGETED` | Rewrite every selected Enzyme history from its factory creation block. Otherwise resumes after each vault's latest raw row; a new vault starts at its factory creation block. Default: false. |
 | `ENZYME_DISCOVERY_START_BLOCK` | Optional lower block for factory-event discovery. Default: the reviewed Enzyme deployment block for each chain. |
 | `ENZYME_REFRESH_EXISTING_METADATA` | Refresh good metadata rows as well as missing or broken rows. Default: false. |
+| `ENZYME_REFRESH_BLUE_FEES` | Refresh every Blue row's current fees without refreshing healthy Onyx rows. Used by `migrate-blue-fees.py`. Default: false. |
 | `FREQUENCY` | Historical frequency, `1h` or `1d`. Default: `1d`. |
 | `START_BLOCK` / `END_BLOCK` | Optional inclusive historical price bounds. `START_BLOCK` overrides the normal per-vault resume point, so use it only for a scoped repair. |
 | `ENZYME_END_BLOCK_<chain-id>` | Optional per-chain inclusive end block, useful for diagnosis without changing other chains. |
@@ -1337,7 +1341,7 @@ poetry run python scripts/enzyme/backfill-history.py
 `scripts/enzyme/export-vaults.py` prints the latest collected Enzyme rows as
 a Markdown table. It is read-only and includes the chain, name, curated short
 description, accounting unit, total value, share price, performance fee,
-user-facing management fee and a separate Blue protocol-fee breakdown. It calculates share price
+user-facing management fee, and the protocol-fee breakdown. It calculates share price
 from the latest onchain `NAV` and `Shares` stored in the metadata database.
 An Onyx value asset can be a named accounting unit instead of an ERC-20
 stablecoin, so the reported total value must not be treated as USD TVL without
@@ -1454,10 +1458,41 @@ checkpoint or metadata database. This checkpoint is intentionally separate
 from `enzyme-backfill-history-state.json`, so a metadata repair cannot discard
 an unfinished historical-price backfill.
 
+### Enzyme migrate-blue-fees.py
+
+`scripts/enzyme/migrate-blue-fees.py` refreshes only current Enzyme Blue fee
+metadata. It re-enumerates each Blue vault's configured FeeManager contracts
+and ProtocolFeeTracker, and writes management, performance, deposit,
+withdrawal and reference protocol-fee fields to the metadata database. Protocol
+access is included in management, and ``Protocol fee`` allows the manager-only
+rate to be calculated by subtraction. It never changes historical fee data,
+price Parquet files or reader state.
+
+The reader exports a zero when the authoritative FeeManager enumeration proves
+that a standard fee plugin is absent. The reader covers Enzyme Blue's complete
+canonical plugin set. The ordinary all-chain scanner refreshes the same current
+metadata on its next
+lead-discovery cache expiry (seven days by default), so later configuration
+changes reach the vault JSON export without rerunning this migration.
+
+```shell
+source .local-test.env && \
+DRY_RUN=true \
+poetry run python scripts/enzyme/migrate-blue-fees.py
+
+source .local-test.env && \
+MAX_WORKERS=8 \
+poetry run python scripts/enzyme/migrate-blue-fees.py
+```
+
+The script needs the four Enzyme RPC configurations and `HYPERSYNC_API_KEY`.
+It uses `enzyme-blue-fees-state.json` beside the vault database by default and
+forces historical-price work off.
+
 | Variable | Description |
 |----------|-------------|
 | `VAULT_DB_PATH` | Optional metadata database path. Default: production path. |
-| `ENZYME_CHECKPOINT_PATH` | Optional metadata-only checkpoint path. Default: `enzyme-current-metadata-state.json` beside the vault database. |
+| `ENZYME_CHECKPOINT_PATH` | Optional Blue-fee checkpoint path. Default: `enzyme-blue-fees-state.json` beside the vault database. |
 | `PIPELINE_LOCK_TIMEOUT` | Seconds to wait for the shared scanner writer lock. Default: `60`. |
 
 ### fix-t3tris-vaults.py

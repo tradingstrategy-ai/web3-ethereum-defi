@@ -188,14 +188,14 @@ can change over a vault's lifetime; that backfill needs component-change,
 ``RateSet``, ``EntranceFeeSet`` and ``ExitFeeSet`` event handling.
 
 Blue has a different fee model. Its fund-level FeeManager configuration can be
-combined with an additional protocol fee. The `protocol-access mechanism
-<https://specs.enzyme.finance/topics/protocol-fee>`__ can settle that charge
-either by minting shares to the ProtocolFeeReserve or by paying MLN. The
-current export's management fee is the user-facing sum of the manager and
-ProtocolFeeTracker rates. It also publishes the protocol rate separately as a
-breakdown; consumers must not add it to management a second time. Blue
-management, performance, entrance, exit and protocol rates are current reads
-only.
+combined with an additional protocol fee. Enzyme's `Protocol Fees
+<https://docs.enzyme.finance/user-documentation/blue-general-info/protocol-fees>`__
+documentation defines this as a fee on Assets Under Technology, settled by
+share inflation or MLN payment, rather than a high-water-mark performance fee.
+The current export therefore includes the ProtocolFeeTracker rate in the
+user-facing management fee. It also retains the protocol rate separately, so
+consumers can calculate the manager-only rate as ``Mgmt fee - Protocol fee``.
+Blue management, performance, entrance and exit rates are current reads only.
 Historical Blue fee configuration remains TODO because releases, FeeManager
 plugins and protocol-fee trackers can change at migration boundaries.
 

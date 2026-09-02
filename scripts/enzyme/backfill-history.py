@@ -21,6 +21,10 @@ Environment variables:
 - ``DRY_RUN``: print the discovered migration plan without writing, default ``false``.
 - ``ENZYME_SCAN_PRICES``: scan historical prices and TVL, default ``true``.
 - ``ENZYME_CLEAN_PRICES``: replace selected cleaned histories, default ``true``.
+- ``ENZYME_REFRESH_EXISTING_METADATA``: refresh every Enzyme row's current
+  metadata, default ``false``.
+- ``ENZYME_REFRESH_BLUE_FEES``: refresh every Enzyme Blue row's current fee
+  metadata, default ``false``. Used by ``migrate-blue-fees.py``.
 - ``ENZYME_REWRITE_TARGETED``: rewrite every selected vault from deployment,
   default ``false``. Vaults without price rows always start from their factory
   creation block.
@@ -699,9 +703,9 @@ def should_refresh_metadata(vault_db: VaultDatabase, candidate: EnzymeFactoryCan
     :return: ``True`` for missing, broken, or explicitly refreshed rows.
     """
 
+    row = vault_db.rows.get(VaultSpec(candidate.chain, candidate.address))
     if parse_bool_env("ENZYME_REFRESH_EXISTING_METADATA", default=False):
         return True
-    row = vault_db.rows.get(VaultSpec(candidate.chain, candidate.address))
     if row is not None and row.get("_enzyme_metadata_version") != ENZYME_CURRENT_METADATA_VERSION:
         return True
     if isinstance(candidate, EnzymeVaultFactoryCandidate) and row is not None and row.get("_enzyme_onyx_permission_version") != ENZYME_ONYX_PERMISSION_VERSION:
@@ -710,6 +714,8 @@ def should_refresh_metadata(vault_db: VaultDatabase, candidate: EnzymeFactoryCan
         return True
     if row is not None and int(row.get("_enzyme_metadata_checked_block") or 0) >= end_block:
         return False
+    if isinstance(candidate, EnzymeBlueVaultFactoryCandidate) and parse_bool_env("ENZYME_REFRESH_BLUE_FEES", default=False):
+        return True
     return not has_complete_current_metadata(vault_db, candidate)
 
 
