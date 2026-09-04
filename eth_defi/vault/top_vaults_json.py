@@ -84,6 +84,11 @@ EVENT_THRESHOLD = int(os.getenv("EVENT_THRESHOLD", "5"))  # Min event count
 #: category-return weighting. This is deliberately not configurable: category
 #: aggregates must not change because a sibling reporting script sets an env var.
 MAX_CATEGORY_ANNUALISED_RETURN = 4.0
+
+#: Minimum endpoint coverage accepted as a complete one-month category metric.
+#: The underlying period is a 30-day lookback; two days of endpoint tolerance
+#: accommodates sparse scans without treating young vault histories as 1M data.
+MIN_CATEGORY_ONE_MONTH_COVERAGE = datetime.timedelta(days=28)
 THRESHOLD_TVL = float(os.getenv("MIN_TVL", "5000"))  # Minimum TVL filter
 TOP_PER_CHAIN = int(os.getenv("TOP_PER_CHAIN", "99999"))  # Top N vaults per chain
 
@@ -940,10 +945,11 @@ def build_strategy_categories_for_export(vaults: list[dict]) -> dict[str, Strate
     Every :class:`~eth_defi.vault.strategy_tag.StrategyTag` is included, even
     if no current exported vault uses it, so consumers have a stable category
     catalogue. A vault contributes its full current USD TVL to each of its
-    additive tags. Category aggregates exclude blacklisted vaults and broken
-    TVL values; the annualised one-month return is weighted only by eligible
-    vaults with a complete, bounded one-month observation. Net annualised
-    return is used when known, with gross return as the documented fallback.
+    additive tags. Category aggregates exclude blacklisted and stale vaults as
+    well as broken TVL values; the annualised one-month return is weighted only
+    by eligible vaults with at least 28 days of bounded one-month observations.
+    Net annualised return is used when known, with gross return as the
+    documented fallback.
 
     :param vaults:
         JSON-safe exported vault records, each optionally carrying strategy
@@ -965,7 +971,8 @@ def build_strategy_categories_for_export(vaults: list[dict]) -> dict[str, Strate
     apy_weights = {tag.value: 0.0 for tag in StrategyTag}
 
     for vault in vaults:
-        if is_blacklisted_record(vault):
+        is_stale = vault.get("stale_export") is True or vault.get("stale_current_row") is True
+        if is_blacklisted_record(vault) or is_stale:
             continue
 
         raw_tags = vault.get("strategy_tags")
@@ -1022,6 +1029,8 @@ def _has_complete_bounded_one_month_metric(vault: dict, annualised_return: float
     The public row uses zero as a backwards-compatible sentinel when a
     one-month calculation was unavailable. Require the accompanying period
     diagnostics so that sentinel does not become a genuine zero-return sample.
+    A successful metric for a young vault may cover only three days, so require
+    month-scale endpoint coverage as well.
 
     :param vault:
         JSON-safe exported vault record.
@@ -1032,7 +1041,13 @@ def _has_complete_bounded_one_month_metric(vault: dict, annualised_return: float
     """
     one_month_samples = vault.get("one_month_samples")
     has_samples = isinstance(one_month_samples, (int, float)) and not isinstance(one_month_samples, bool) and one_month_samples > 0
-    return annualised_return is not None and math.isfinite(annualised_return) and abs(annualised_return) <= MAX_CATEGORY_ANNUALISED_RETURN and vault.get("one_month_start") is not None and has_samples
+    try:
+        one_month_start = normalise_datetime_to_naive_utc(vault.get("one_month_start"))
+        one_month_end = normalise_datetime_to_naive_utc(vault.get("one_month_end"))
+    except (TypeError, ValueError):
+        return False
+    has_full_coverage = one_month_start is not None and one_month_end is not None and one_month_end - one_month_start >= MIN_CATEGORY_ONE_MONTH_COVERAGE
+    return annualised_return is not None and math.isfinite(annualised_return) and abs(annualised_return) <= MAX_CATEGORY_ANNUALISED_RETURN and has_samples and has_full_coverage
 
 
 def append_strategy_categories_to_export(output_data: dict, vaults: list[dict]) -> bool:

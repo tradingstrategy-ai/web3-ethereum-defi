@@ -79,6 +79,7 @@ def test_strategy_category_export_includes_labels_and_tvl_weighted_one_month_apy
                 "one_month_cagr": 0.20,
                 "one_month_cagr_net": 0.10,
                 "one_month_start": "2026-08-01T00:00:00Z",
+                "one_month_end": "2026-09-01T00:00:00Z",
                 "one_month_samples": 31,
             },
             {
@@ -86,6 +87,7 @@ def test_strategy_category_export_includes_labels_and_tvl_weighted_one_month_apy
                 "current_nav": large_vault_tvl,
                 "one_month_cagr": 0.20,
                 "one_month_start": "2026-08-01T00:00:00Z",
+                "one_month_end": "2026-09-01T00:00:00Z",
                 "one_month_samples": 31,
             },
             {
@@ -122,6 +124,7 @@ def test_strategy_category_export_excludes_blacklisted_and_invalid_tvl() -> None
                 "current_nav": valid_tvl,
                 "one_month_cagr": valid_return,
                 "one_month_start": "2026-08-01T00:00:00Z",
+                "one_month_end": "2026-09-01T00:00:00Z",
                 "one_month_samples": 31,
             },
             {
@@ -130,6 +133,7 @@ def test_strategy_category_export_excludes_blacklisted_and_invalid_tvl() -> None
                 "one_month_cagr": 100.0,
                 "risk": top_vaults_json.BLACKLISTED_RISK_LABEL,
                 "one_month_start": "2026-08-01T00:00:00Z",
+                "one_month_end": "2026-09-01T00:00:00Z",
                 "one_month_samples": 31,
             },
             {
@@ -137,6 +141,7 @@ def test_strategy_category_export_excludes_blacklisted_and_invalid_tvl() -> None
                 "current_nav": 100_000_000_001.0,
                 "one_month_cagr": 100.0,
                 "one_month_start": "2026-08-01T00:00:00Z",
+                "one_month_end": "2026-09-01T00:00:00Z",
                 "one_month_samples": 31,
             },
         ]
@@ -148,10 +153,10 @@ def test_strategy_category_export_excludes_blacklisted_and_invalid_tvl() -> None
 
 
 def test_strategy_category_export_requires_complete_bounded_one_month_metric() -> None:
-    """Ignore sentinels and outliers when weighting one-month returns."""
+    """Ignore sentinels, partial periods, and outliers in 1M weighting."""
     valid_return = 0.10
-    expected_tvl = 2_100.0
-    expected_vault_count = 3
+    expected_tvl = 3_100.0
+    expected_vault_count = 4
     categories = top_vaults_json.build_strategy_categories_for_export(
         [
             {
@@ -159,6 +164,7 @@ def test_strategy_category_export_requires_complete_bounded_one_month_metric() -
                 "current_nav": 100.0,
                 "one_month_cagr_net": valid_return,
                 "one_month_start": "2026-08-01T00:00:00Z",
+                "one_month_end": "2026-09-01T00:00:00Z",
                 "one_month_samples": 31,
             },
             {
@@ -171,7 +177,16 @@ def test_strategy_category_export_requires_complete_bounded_one_month_metric() -
                 "current_nav": 1_000.0,
                 "one_month_cagr": 5.0,
                 "one_month_start": "2026-08-01T00:00:00Z",
+                "one_month_end": "2026-09-01T00:00:00Z",
                 "one_month_samples": 31,
+            },
+            {
+                "strategy_tags": ["lending"],
+                "current_nav": 1_000.0,
+                "one_month_cagr": 0.20,
+                "one_month_start": "2026-08-29T00:00:00Z",
+                "one_month_end": "2026-09-01T00:00:00Z",
+                "one_month_samples": 4,
             },
         ]
     )
@@ -179,6 +194,45 @@ def test_strategy_category_export_requires_complete_bounded_one_month_metric() -
     assert categories["lending"]["vault_count"] == expected_vault_count
     assert categories["lending"]["tvl_usd"] == expected_tvl
     assert categories["lending"]["one_month_apy"] == valid_return
+
+
+def test_strategy_category_export_excludes_stale_records() -> None:
+    """Do not describe replayed or old metrics as current aggregates."""
+    current_tvl = 100.0
+    records = [
+        {
+            "strategy_tags": ["lending"],
+            "current_nav": current_tvl,
+            "one_month_cagr": 0.10,
+            "one_month_start": "2026-08-01T00:00:00Z",
+            "one_month_end": "2026-09-01T00:00:00Z",
+            "one_month_samples": 31,
+        },
+        {
+            "strategy_tags": ["lending"],
+            "current_nav": 1_000_000.0,
+            "one_month_cagr": 1.0,
+            "one_month_start": "2026-08-01T00:00:00Z",
+            "one_month_end": "2026-09-01T00:00:00Z",
+            "one_month_samples": 31,
+            "stale_export": True,
+        },
+        {
+            "strategy_tags": ["lending"],
+            "current_nav": 1_000_000.0,
+            "one_month_cagr": 1.0,
+            "one_month_start": "2026-08-01T00:00:00Z",
+            "one_month_end": "2026-09-01T00:00:00Z",
+            "one_month_samples": 31,
+            "stale_current_row": True,
+        },
+    ]
+
+    categories = top_vaults_json.build_strategy_categories_for_export(records)
+
+    assert categories["lending"]["vault_count"] == 1
+    assert categories["lending"]["tvl_usd"] == current_tvl
+    assert categories["lending"]["one_month_apy"] == 0.10
 
 
 def test_strategy_tag_metadata_covers_every_tag_with_two_sentences() -> None:

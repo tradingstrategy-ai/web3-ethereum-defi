@@ -2,12 +2,13 @@
 
 import importlib.util
 import json
+import types
 from pathlib import Path
 
 import pytest
 
 
-def load_category_script():
+def load_category_script() -> types.ModuleType:
     """Load the local category-breakdown script as an importable module.
 
     :return:

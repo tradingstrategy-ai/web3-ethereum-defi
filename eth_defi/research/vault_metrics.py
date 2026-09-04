@@ -593,7 +593,8 @@ class StrategyCategoryExportRecord(TypedDict):
     description: str
 
     #: Number of eligible exported vaults carrying this category tag. Excludes
-    #: blacklisted rows and rows with missing, invalid, or broken current TVL.
+    #: blacklisted or stale rows and rows with missing, invalid, or broken
+    #: current TVL.
     vault_count: int
 
     #: Sum of current USD TVL across eligible exported vaults carrying this
@@ -602,7 +603,8 @@ class StrategyCategoryExportRecord(TypedDict):
 
     #: Current-TVL-weighted annualised one-month return, or ``None`` when no
     #: eligible tagged vault has both valid current USD TVL and a complete,
-    #: bounded 1M return observation. Net return is preferred when known.
+    #: bounded 1M return observation covering at least 28 days. Net return is
+    #: preferred when known.
     one_month_apy: float | None
 
 

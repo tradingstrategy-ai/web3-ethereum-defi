@@ -2625,12 +2625,13 @@ by its stable identifier. Each record has a plain human-readable `label`, an
 exactly two-sentence `description` that may contain Markdown glossary links,
 `vault_count`, `tvl_usd`, and `one_month_apy`; the last field is a current-
 TVL-weighted annualised one-month return, not a quoted yield, and is `null`
-when no eligible tagged vault has a complete one-month observation. It uses a
-net return when fees are known and otherwise falls back to gross return.
-Blacklisted vaults and broken TVL values are excluded from every category
-aggregate, while annualised-return outliers are excluded from return weighting
-only. Because strategy tags are additive, a vault's current TVL contributes to
-every category it carries. Category aggregation is best effort:
+when no eligible tagged vault has at least 28 days of one-month observations.
+It uses a net return when fees are known and otherwise falls back to gross
+return. Blacklisted vaults, stale fallback/current rows, and broken TVL values
+are excluded from every category aggregate, while annualised-return outliers
+are excluded from return weighting only. Because strategy tags are additive,
+a vault's current TVL contributes to every category it carries. Category
+aggregation is best effort:
 if it fails, the vault JSON is still published without `categories` and the
 scanner logs the error. The Ethereum-only `vault-metadata.sample.json`
 recalculates categories from its Ethereum vaults, so its figures do not

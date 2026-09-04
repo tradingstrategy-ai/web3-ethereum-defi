@@ -72,6 +72,7 @@ def test_sample_json_filters_core3_protocols_and_curators(tmp_path: Path):
                 "current_nav": 100.0,
                 "one_month_cagr": 0.10,
                 "one_month_start": "2026-08-01T00:00:00Z",
+                "one_month_end": "2026-09-01T00:00:00Z",
                 "one_month_samples": 31,
             },
             {"chain_id": 1, "protocol_slug": "morpho", "curator_slug": "gauntlet", "name": "Morpho Vault B"},
