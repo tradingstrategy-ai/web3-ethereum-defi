@@ -63,7 +63,18 @@ def test_sample_json_filters_core3_protocols_and_curators(tmp_path: Path):
             },
         },
         "vaults": [
-            {"chain_id": 1, "protocol_slug": "morpho", "curator_slug": "gauntlet", "name": "Morpho Vault A"},
+            {
+                "chain_id": 1,
+                "protocol_slug": "morpho",
+                "curator_slug": "gauntlet",
+                "name": "Morpho Vault A",
+                "strategy_tags": ["lending"],
+                "current_nav": 100.0,
+                "one_month_cagr": 0.10,
+                "one_month_start": "2026-08-01T00:00:00Z",
+                "one_month_end": "2026-09-01T00:00:00Z",
+                "one_month_samples": 31,
+            },
             {"chain_id": 1, "protocol_slug": "morpho", "curator_slug": "gauntlet", "name": "Morpho Vault B"},
             {"chain_id": 1, "protocol_slug": "fluid", "curator_slug": "re7-labs", "name": "Fluid Vault"},
             {"chain_id": 42161, "protocol_slug": "gains-network", "curator_slug": "gains-network", "name": "Gains Vault on Arbitrum"},
@@ -117,6 +128,14 @@ def test_sample_json_filters_core3_protocols_and_curators(tmp_path: Path):
             "commit_hash": "4cea3aa3deadbeef",
         },
     }
+
+    # Categories are recomputed from Ethereum records, rather than copied
+    # from the all-chain source export.
+    expected_lending_tvl = 100.0
+    expected_lending_return = 0.10
+    assert result["categories"]["lending"]["vault_count"] == 1
+    assert result["categories"]["lending"]["tvl_usd"] == expected_lending_tvl
+    assert result["categories"]["lending"]["one_month_apy"] == expected_lending_return
 
 
 def test_sample_parquet_has_version_metadata(tmp_path: Path) -> None:

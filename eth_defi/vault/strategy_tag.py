@@ -9,6 +9,7 @@ helper normalises adapter-supplied addresses before consulting these tables.
 
 import enum
 from collections.abc import Collection, Mapping
+from typing import TypedDict
 
 
 class StrategyTag(str, enum.Enum):
@@ -152,6 +153,152 @@ class StrategyTag(str, enum.Enum):
     #: Seeks return from the carry of an asset or position.
     #: Example vault: Staked USDe (Ethena).
     carry_trade = "carry_trade"
+
+
+class StrategyTagMetadata(TypedDict):
+    """Human-readable presentation metadata for one strategy category."""
+
+    #: Human-readable category label without Markdown links.
+    label: str
+
+    #: Exactly two sentences explaining the evidence-based tagging rule.
+    description: str
+
+
+#: Public presentation labels and category rules for every strategy tag.
+#:
+#: Descriptions deliberately contain exactly two sentences so API consumers can
+#: display them consistently without having to truncate prose.
+STRATEGY_TAG_METADATA: dict[StrategyTag, StrategyTagMetadata] = {
+    StrategyTag.unknown: {
+        "label": "Unknown strategy",
+        "description": "We use this tag only when research has explicitly established that the vault's strategy is unknown. It does not mean that an unresearched vault has been classified.",
+    },
+    StrategyTag.directional_trading: {
+        "label": "Directional trading",
+        "description": "The vault takes [directional exposure](https://tradingstrategy.ai/glossary/directional-strategy) to one or more markets and can benefit or lose from their direction. We apply this tag when the documented strategy intentionally expresses such a market view.",
+    },
+    StrategyTag.directional_leverage: {
+        "label": "Directional leverage",
+        "description": "The vault maintains a fixed leveraged long or short position in an underlying asset. We apply this tag when documented leverage creates direct directional exposure rather than reflecting a trading signal or execution method.",
+    },
+    StrategyTag.trend_following: {
+        "label": "Trend following",
+        "description": "The vault takes positions designed to follow sustained [market trends](https://tradingstrategy.ai/glossary/trend-following). We apply this tag when trend-following is documented as part of the investment process.",
+    },
+    StrategyTag.discretionary_trading: {
+        "label": "Discretionary trading",
+        "description": "The vault uses a manager's [judgement](https://tradingstrategy.ai/glossary/discretionary-investment-management) to select or manage positions. We apply this tag when the strategy documentation identifies discretionary decision-making.",
+    },
+    StrategyTag.algorithmic_trading: {
+        "label": "Algorithmic trading",
+        "description": "The vault uses [programmed rules](https://tradingstrategy.ai/glossary/algorithmic-trading) to select, execute, or manage positions. We apply this tag when automation is a documented part of the strategy rather than an implementation detail alone.",
+    },
+    StrategyTag.arbitrage: {
+        "label": "Arbitrage",
+        "description": "The vault seeks to capture price differences between markets or related instruments. We apply this tag when the manager or protocol documents arbitrage as a return source.",
+    },
+    StrategyTag.delta_neutral: {
+        "label": "Delta neutral",
+        "description": "The vault seeks to offset [directional market exposure](https://tradingstrategy.ai/glossary/delta-neutral) while earning non-directional returns. We apply this tag when the strategy documents a delta-neutral or market-neutral construction.",
+    },
+    StrategyTag.statistical_arbitrage: {
+        "label": "Statistical arbitrage",
+        "description": "The vault trades quantitatively identified [pricing patterns](https://tradingstrategy.ai/glossary/statistical-arbitrage) or statistical relationships. We apply this tag when statistical arbitrage is documented rather than inferred from quantitative branding.",
+    },
+    StrategyTag.mean_reversion: {
+        "label": "Mean reversion",
+        "description": "The vault trades [price moves](https://tradingstrategy.ai/glossary/mean-reversion) expected to return towards an average or equilibrium. We apply this tag when mean reversion is explicitly described by the strategy.",
+    },
+    StrategyTag.grid_trading: {
+        "label": "Grid trading",
+        "description": "The vault places orders at predefined price intervals to trade a market range. We apply this tag when the manager documents a grid-based execution strategy.",
+    },
+    StrategyTag.pair_trading: {
+        "label": "Pair trading",
+        "description": "The vault trades the relative price of two related assets rather than a single asset's direction. We apply this tag when the strategy documents paired long and short exposure.",
+    },
+    StrategyTag.funding_rate_arbitrage: {
+        "label": "Funding-rate arbitrage",
+        "description": "The vault seeks to capture [funding-rate differences](https://tradingstrategy.ai/glossary/funding-rate), commonly across perpetual futures markets. We apply this tag when funding payments are a documented return source.",
+    },
+    StrategyTag.lending: {
+        "label": "Lending",
+        "description": "The vault supplies assets to a [lending market](https://tradingstrategy.ai/glossary/lending-protocol) to earn interest. We apply this tag to documented lending strategies, including protocol-wide defaults where every supported vault is a lender.",
+    },
+    StrategyTag.lending_optimisation: {
+        "label": "Lending optimisation",
+        "description": "The vault allocates supplied assets between lending opportunities to improve yield. We apply this tag when active lending allocation or optimisation is documented.",
+    },
+    StrategyTag.lending_looping: {
+        "label": "Lending looping",
+        "description": "The vault borrows against supplied collateral to [recursively increase lending exposure](https://tradingstrategy.ai/glossary/recursive-looping). We apply this tag when the documented strategy uses a lending loop rather than simple lending.",
+    },
+    StrategyTag.market_making: {
+        "label": "Market making",
+        "description": "The vault provides [executable liquidity](https://tradingstrategy.ai/glossary/market-making) to buyers and sellers. We apply this tag when the vault's documented strategy is to make markets rather than merely invest in a liquidity pool.",
+    },
+    StrategyTag.liquidity_provider: {
+        "label": "Liquidity provider",
+        "description": "The vault supplies capital to a venue or protocol as a [liquidity provider](https://tradingstrategy.ai/glossary/liquidity-provider). We apply this tag when the documented role is liquidity provision, including passive provision without active quoting.",
+    },
+    StrategyTag.market_maker: {
+        "label": "Market maker",
+        "description": "The vault operates a strategy that quotes or supplies both sides of a market. We apply this tag when the documented activity is active market making.",
+    },
+    StrategyTag.market_making_amm: {
+        "label": "AMM market making",
+        "description": "The vault actively makes markets by supplying liquidity through an automated market maker. We apply this tag when the strategy itself performs market making on an AMM.",
+    },
+    StrategyTag.market_making_clob: {
+        "label": "CLOB market making",
+        "description": "The vault provides liquidity through a central limit order book. We apply this tag when the strategy documents order-book market making.",
+    },
+    StrategyTag.multistrategy: {
+        "label": "Multi-strategy",
+        "description": "The vault combines multiple distinct investment strategies. We apply this tag only when the manager documents more than one strategy as part of the mandate.",
+    },
+    StrategyTag.index: {
+        "label": "Index",
+        "description": "The vault tracks a predefined market or asset index in an index-fund style. We apply this tag when the documented objective is index exposure or replication.",
+    },
+    StrategyTag.perpetual_futures: {
+        "label": "Perpetual futures",
+        "description": "The vault trades [perpetual futures contracts](https://tradingstrategy.ai/glossary/perpetual-future). We apply this tag to documented perpetual-futures strategies and native perpetual-DEX defaults unless an explicit exception is maintained.",
+    },
+    StrategyTag.amm: {
+        "label": "Automated market maker",
+        "description": "The vault uses an [automated market maker](https://tradingstrategy.ai/glossary/amm) as its liquidity venue. We apply this tag for AMM venue exposure even when the vault is not itself an active market-making strategy.",
+    },
+    StrategyTag.rwa: {
+        "label": "Real-world assets",
+        "description": "The vault invests in [real-world assets](https://tradingstrategy.ai/glossary/rwa) or their tokenised representations. We apply this tag when the underlying exposure is documented as real-world assets.",
+    },
+    StrategyTag.rwa_credit: {
+        "label": "RWA credit",
+        "description": "The vault provides credit backed by real-world assets. We apply this tag when the strategy documents real-world asset collateral or credit exposure.",
+    },
+    StrategyTag.rwa_lending: {
+        "label": "RWA lending",
+        "description": "The vault lends against real-world assets. We apply this tag when the documented lending strategy has real-world asset exposure.",
+    },
+    StrategyTag.rwa_royalties: {
+        "label": "RWA royalties",
+        "description": "The vault invests in real-world royalty streams. We apply this tag when the documented assets are contractual royalty payments.",
+    },
+    StrategyTag.money_market_fund: {
+        "label": "Money-market fund",
+        "description": "The vault invests in money-market instruments. We apply this tag when the documented mandate is a money-market fund or equivalent cash-management product.",
+    },
+    StrategyTag.venture_funding: {
+        "label": "Venture funding",
+        "description": "The vault invests in early-stage companies or projects in a venture-capital style. We apply this tag when the documented mandate is venture funding rather than public-market exposure.",
+    },
+    StrategyTag.carry_trade: {
+        "label": "Carry trade",
+        "description": "The vault seeks return from the [carry](https://tradingstrategy.ai/glossary/carry-trade) of an asset or position. We apply this tag when carry is a documented return source, including cash-and-carry structures.",
+    },
+}
 
 
 def lookup_strategy_tags(

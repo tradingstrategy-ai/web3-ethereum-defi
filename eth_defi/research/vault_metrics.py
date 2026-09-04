@@ -12,7 +12,7 @@ from collections.abc import Mapping
 from dataclasses import asdict, dataclass, is_dataclass
 from decimal import Decimal
 from enum import Enum
-from typing import TYPE_CHECKING, Literal, TypeAlias, TypedDict
+from typing import TYPE_CHECKING, Literal, NotRequired, TypeAlias, TypedDict
 
 import numpy as np
 import pandas as pd
@@ -573,8 +573,39 @@ class VaultMetricsExport(TypedDict):
     #: Only curators present in the exported vaults are included.
     curators: dict[str, "CuratorExportRecord"]
 
+    #: Strategy category labels, rules, and aggregates keyed by strategy tag.
+    #:
+    #: Omitted only when best-effort category aggregation fails. The rest of
+    #: the public vault export remains valid and publishable in that case.
+    categories: NotRequired[dict[str, "StrategyCategoryExportRecord"]]
+
     #: List of per-vault metric records
     vaults: list[VaultMetricsRecord]
+
+
+class StrategyCategoryExportRecord(TypedDict):
+    """One public strategy category and its aggregate vault metrics."""
+
+    #: Human-readable category label without Markdown links.
+    label: str
+
+    #: Exactly two sentences describing the evidence-based category rule.
+    description: str
+
+    #: Number of eligible exported vaults carrying this category tag. Excludes
+    #: blacklisted or stale rows and rows with missing, invalid, or broken
+    #: current TVL.
+    vault_count: int
+
+    #: Sum of current USD TVL across eligible exported vaults carrying this
+    #: category tag.
+    tvl_usd: float
+
+    #: Current-TVL-weighted annualised one-month return, or ``None`` when no
+    #: eligible tagged vault has both valid current USD TVL and a complete,
+    #: bounded 1M return observation covering at least 28 days. Net return is
+    #: preferred when known.
+    one_month_apy: float | None
 
 
 def make_vault_display_flags(

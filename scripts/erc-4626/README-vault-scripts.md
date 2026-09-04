@@ -2566,9 +2566,11 @@ poetry run python scripts/erc-4626/identify-curators.py
 
 ### vault-analysis-json.py
 
-Multi-chain vault analysis with JSON export and lifetime metric analysis.
-The implementation lives in `eth_defi.vault.top_vaults_json`; the script is a
-compatibility wrapper for manual operator runs.
+Multi-chain vault analysis with JSON export and lifetime metric analysis. The
+implementation lives in `eth_defi.vault.top_vaults_json`; the script is a
+compatibility wrapper for manual operator runs. The all-chains scanner writes
+and uploads `top_vaults_by_chain.json`, while a direct manual run defaults to
+`stablecoin-vault-metrics.json` unless `OUTPUT_JSON` is set.
 
 Generates `top_vaults_by_chain.json` with the following top-level structure:
 
@@ -2589,6 +2591,9 @@ Generates `top_vaults_by_chain.json` with the following top-level structure:
   "curators": {
     "gauntlet": { "slug": "gauntlet", "name": "Gauntlet", "twitter": "https://x.com/gauntlet_xyz", "recent_posts": [...], ... },
     "hyperliquid": { "slug": "hyperliquid", "name": "Hyperliquid", "protocol_curator": true, ... }
+  },
+  "categories": {
+    "lending": { "label": "Lending", "description": "...", "vault_count": 123, "tvl_usd": 456.0, "one_month_apy": 0.05 }
   },
   "vaults": [ ... ]
 }
@@ -2614,6 +2619,23 @@ curator slug. The `curators` dict is built from curator/protocol YAML files and
 the vault post feed database at export time, and only includes curators present
 in the exported vaults. Each curator record includes up to 10 recent posts from
 Twitter, LinkedIn, and RSS feeds.
+
+The top-level `categories` dict contains every maintained strategy tag, keyed
+by its stable identifier. Each record has a plain human-readable `label`, an
+exactly two-sentence `description` that may contain Markdown glossary links,
+`vault_count`, `tvl_usd`, and `one_month_apy`; the last field is a current-
+TVL-weighted annualised one-month return, not a quoted yield, and is `null`
+when no eligible tagged vault has at least 28 days of one-month observations.
+It uses a net return when fees are known and otherwise falls back to gross
+return. Blacklisted vaults, stale fallback/current rows, and broken TVL values
+are excluded from every category aggregate, while annualised-return outliers
+are excluded from return weighting only. Because strategy tags are additive,
+a vault's current TVL contributes to every category it carries. Category
+aggregation is best effort:
+if it fails, the vault JSON is still published without `categories` and the
+scanner logs the error. The Ethereum-only `vault-metadata.sample.json`
+recalculates categories from its Ethereum vaults, so its figures do not
+describe the full multi-chain export.
 
 The export is append-biased. Once a vault passes the production `MIN_TVL` peak
 TVL filter, it is recorded in a sticky state file and remains in later exports
@@ -2685,6 +2707,22 @@ After generating, upload to R2 with rclone:
 ```shell
 rclone copy ~/.tradingstrategy/top_vaults_by_chain.json vaults-storage:top-defi-vaults/
 ```
+
+### list-vault-strategy-categories.py
+
+Print the exported strategy-category breakdown in descending USD TVL order.
+The script is local-only and deliberately requires a JSON export containing
+`categories`; it stops instead of incorrectly presenting an older untagged
+export as a zero-valued category table.
+
+```shell
+INPUT_JSON=~/.tradingstrategy/vaults/top_vaults_by_chain.json \
+  poetry run python scripts/erc-4626/list-vault-strategy-categories.py
+```
+
+| Variable | Description |
+|----------|-------------|
+| `INPUT_JSON` | Local vault JSON to tabulate. Default: `~/.tradingstrategy/vaults/top_vaults_by_chain.json`. |
 
 ### vault-analysis-gsheet.py
 
