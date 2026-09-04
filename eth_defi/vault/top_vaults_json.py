@@ -32,6 +32,7 @@ To test out Pandas warning issues in calculate_lifetime_metrics(), enable strict
 
 import datetime
 import json
+import logging
 import math
 import os
 from dataclasses import dataclass
@@ -46,6 +47,8 @@ from eth_defi.core3.database import Core3Database
 from eth_defi.core3.vault_protocol import build_core3_protocols_for_export
 from eth_defi.feed.database import DEFAULT_VAULT_POST_DATABASE, VaultPostDatabase
 from eth_defi.research.vault_metrics import (
+    MAX_VALID_NAV,
+    StrategyCategoryExportRecord,
     VaultMetricsExport,
     calculate_hourly_returns_for_all_vaults,
     calculate_lifetime_metrics,
@@ -59,6 +62,7 @@ from eth_defi.token import is_stablecoin_like
 from eth_defi.vault.base import VaultSpec  # noqa: F401
 from eth_defi.vault.curator_export import build_curators_for_export
 from eth_defi.vault.risk import VaultTechnicalRisk
+from eth_defi.vault.strategy_tag import STRATEGY_TAG_METADATA, StrategyTag
 from eth_defi.vault.vaultdb import VaultDatabase, get_pipeline_data_dir
 from eth_defi.version_info import VersionInfo
 from eth_defi.xerberus.constants import resolve_xerberus_database_path
@@ -69,12 +73,17 @@ from eth_defi.xerberus.vault_export import (
     compute_xerberus_export_stats,
 )
 
+logger = logging.getLogger(__name__)
+
 # --------------------------------------------------------------------
 # Configuration via environment variables (scalar tunables)
 # --------------------------------------------------------------------
 MONTHS = int(os.getenv("MONTHS", "3"))  # Time window in months
 EVENT_THRESHOLD = int(os.getenv("EVENT_THRESHOLD", "5"))  # Min event count
-MAX_ANNUALISED_RETURN = float(os.getenv("MAX_ANNUALISED_RETURN", "4.0"))  # Cap annualized return at 400%
+#: Reject one-month return outliers above this absolute annualised value from
+#: category-return weighting. This is deliberately not configurable: category
+#: aggregates must not change because a sibling reporting script sets an env var.
+MAX_CATEGORY_ANNUALISED_RETURN = 4.0
 THRESHOLD_TVL = float(os.getenv("MIN_TVL", "5000"))  # Minimum TVL filter
 TOP_PER_CHAIN = int(os.getenv("TOP_PER_CHAIN", "99999"))  # Top N vaults per chain
 
@@ -925,6 +934,134 @@ def validate_strict_json_serialisable(obj: dict) -> None:
     json.dumps(obj, ensure_ascii=False, allow_nan=False)
 
 
+def build_strategy_categories_for_export(vaults: list[dict]) -> dict[str, StrategyCategoryExportRecord]:
+    """Build public strategy-category labels and aggregates for exported vaults.
+
+    Every :class:`~eth_defi.vault.strategy_tag.StrategyTag` is included, even
+    if no current exported vault uses it, so consumers have a stable category
+    catalogue. A vault contributes its full current USD TVL to each of its
+    additive tags. Category aggregates exclude blacklisted vaults and broken
+    TVL values; the annualised one-month return is weighted only by eligible
+    vaults with a complete, bounded one-month observation. Net annualised
+    return is used when known, with gross return as the documented fallback.
+
+    :param vaults:
+        JSON-safe exported vault records, each optionally carrying strategy
+        tags and one-month metrics.
+    :return:
+        Category records keyed by stable strategy-tag values.
+    """
+    categories: dict[str, StrategyCategoryExportRecord] = {
+        tag.value: {
+            "label": metadata["label"],
+            "description": metadata["description"],
+            "vault_count": 0,
+            "tvl_usd": 0.0,
+            "one_month_apy": None,
+        }
+        for tag, metadata in STRATEGY_TAG_METADATA.items()
+    }
+    apy_weighted_totals = {tag.value: 0.0 for tag in StrategyTag}
+    apy_weights = {tag.value: 0.0 for tag in StrategyTag}
+
+    for vault in vaults:
+        if is_blacklisted_record(vault):
+            continue
+
+        raw_tags = vault.get("strategy_tags")
+        if not isinstance(raw_tags, list):
+            continue
+
+        tags = set()
+        for raw_tag in raw_tags:
+            try:
+                tags.add(StrategyTag(raw_tag))
+            except (TypeError, ValueError):
+                # A historical sticky row can contain an obsolete tag. It has
+                # no description in this version of the public catalogue.
+                continue
+
+        current_nav = vault.get("current_nav")
+        valid_current_nav = isinstance(current_nav, (int, float)) and not isinstance(current_nav, bool)
+        current_nav_float = float(current_nav) if valid_current_nav else None
+        if current_nav_float is not None and (not math.isfinite(current_nav_float) or current_nav_float < 0):
+            current_nav_float = None
+        if current_nav_float is None or current_nav_float > MAX_VALID_NAV:
+            continue
+
+        one_month_cagr_net = vault.get("one_month_cagr_net")
+        one_month_cagr = one_month_cagr_net if one_month_cagr_net is not None else vault.get("one_month_cagr")
+        valid_one_month_cagr = isinstance(one_month_cagr, (int, float)) and not isinstance(one_month_cagr, bool)
+        one_month_apy = float(one_month_cagr) if valid_one_month_cagr else None
+        has_complete_one_month_metric = _has_complete_bounded_one_month_metric(vault, one_month_apy)
+
+        for tag in tags:
+            category = categories.get(tag.value)
+            if category is None:
+                # Keep historic sticky rows exportable if a newer enum value
+                # reaches this code before its maintained public description.
+                # The catalogue-coverage test still requires the description
+                # to be added before this version can be released.
+                continue
+            category["vault_count"] += 1
+            category["tvl_usd"] += current_nav_float
+            if has_complete_one_month_metric:
+                apy_weighted_totals[tag.value] += current_nav_float * one_month_apy
+                apy_weights[tag.value] += current_nav_float
+
+    for tag_value, category in categories.items():
+        if apy_weights[tag_value] > 0:
+            category["one_month_apy"] = apy_weighted_totals[tag_value] / apy_weights[tag_value]
+
+    return categories
+
+
+def _has_complete_bounded_one_month_metric(vault: dict, annualised_return: float | None) -> bool:
+    """Check whether a vault has a usable one-month return for category weighting.
+
+    The public row uses zero as a backwards-compatible sentinel when a
+    one-month calculation was unavailable. Require the accompanying period
+    diagnostics so that sentinel does not become a genuine zero-return sample.
+
+    :param vault:
+        JSON-safe exported vault record.
+    :param annualised_return:
+        Net-or-gross annualised one-month return selected for the record.
+    :return:
+        ``True`` for a complete finite return within the export bound.
+    """
+    one_month_samples = vault.get("one_month_samples")
+    has_samples = isinstance(one_month_samples, (int, float)) and not isinstance(one_month_samples, bool) and one_month_samples > 0
+    return annualised_return is not None and math.isfinite(annualised_return) and abs(annualised_return) <= MAX_CATEGORY_ANNUALISED_RETURN and vault.get("one_month_start") is not None and has_samples
+
+
+def append_strategy_categories_to_export(output_data: dict, vaults: list[dict]) -> bool:
+    """Attach best-effort strategy categories without blocking the vault export.
+
+    The all-chains scanner publishes its top-vaults JSON through this module.
+    Category aggregation is useful supplementary data, but must never prevent
+    the established vault, curator, and risk exports from being written and
+    uploaded when a malformed historical row or a future category change is
+    encountered.
+
+    :param output_data:
+        JSON export mapping to enrich in place.
+    :param vaults:
+        JSON-safe exported vault records used to calculate category aggregates.
+    :return:
+        ``True`` when the ``categories`` key was attached, otherwise ``False``.
+    """
+    output_data.pop("categories", None)
+    try:
+        output_data["categories"] = build_strategy_categories_for_export(vaults)
+    except Exception:
+        # This is intentionally a fail-open boundary: category data is
+        # supplementary and must never stop established vault exports.
+        logger.exception("Strategy category export failed; publishing vault JSON without categories")
+        return False
+    return True
+
+
 def main(
     data_dir: Path | None = None,
     vault_db_path: Path | None = None,
@@ -1156,6 +1293,11 @@ def main(
         "curators": curators_export,
         "vaults": vaults,
     }
+    categories_attached = append_strategy_categories_to_export(output_data, vaults)
+    if categories_attached:
+        print(f"Built strategy category export for {len(output_data['categories']):,} tags")
+    else:
+        print("Skipped strategy category export; publishing vault JSON without categories")
     # Optional coverage stats: not on VaultMetricsExport TypedDict (extra key for consumers).
     output_data["xerberus_stats"] = xerberus_stats  # type: ignore[typeddict-unknown-key]
     print(f"Xerberus coverage: {xerberus_stats['pool_matches']} pool / {xerberus_stats['protocol_fallbacks']} protocol / {xerberus_stats['unmatched']} unmatched ({xerberus_stats['coverage_pct']}% of {xerberus_stats['total_vaults']})")

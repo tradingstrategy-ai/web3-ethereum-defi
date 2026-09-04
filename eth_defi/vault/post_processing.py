@@ -1261,8 +1261,9 @@ def run_post_processing(
         exchange_rate_parquet_error = exc
         steps["materialise-exchange-rate-parquet"] = False
 
-    # Export top vaults JSON. This depends on cleaned Parquet and must run before
-    # the public data-file upload.
+    # Export top vaults JSON, including its best-effort strategy-category
+    # aggregate. This depends on cleaned Parquet and must run before the public
+    # data-file upload.
     if skip_top_vaults:
         logger.info("Skipping top vaults export (SKIP_TOP_VAULTS=true)")
     elif not cleaning_ok:

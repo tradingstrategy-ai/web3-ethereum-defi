@@ -26,6 +26,30 @@ logger = logging.getLogger(__name__)
 ETHEREUM_CHAIN_ID = 1
 
 
+def append_sample_strategy_categories(output_data: dict, vaults: list[dict]) -> bool:
+    """Best-effort add categories without requiring scanner extras on import.
+
+    The sample exporter is usable with a minimal data-file installation. Delay
+    the scanner-only import until category aggregation is actually needed;
+    the shared helper preserves the same all-or-nothing category behaviour as
+    the full export.
+
+    :param output_data:
+        Sample JSON mapping to enrich in place.
+    :param vaults:
+        Ethereum-only JSON-safe vault records.
+    :return:
+        ``True`` when categories were attached, otherwise ``False``.
+    """
+    try:
+        from eth_defi.vault.top_vaults_json import append_strategy_categories_to_export
+    except ImportError:
+        logger.exception("Sample strategy category export unavailable; publishing sample JSON without categories")
+        output_data.pop("categories", None)
+        return False
+    return append_strategy_categories_to_export(output_data, vaults)
+
+
 def generate_sample_parquet(cleaned_path: Path, output_path: Path) -> int:
     """Filter the cleaned vault prices parquet to Ethereum only.
 
@@ -121,6 +145,9 @@ def generate_sample_json(json_path: Path, output_path: Path) -> int:
     }
     if "xerberus_stats" in data:
         sample_data["xerberus_stats"] = data["xerberus_stats"]
+    # Category aggregates must match the Ethereum-only vault rows. The helper
+    # is best effort, matching the full vault export's failure behaviour.
+    append_sample_strategy_categories(sample_data, filtered_vaults)
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
     with open(output_path, "w", encoding="utf-8") as f:

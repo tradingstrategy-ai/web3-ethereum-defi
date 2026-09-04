@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import datetime
+import re
 from decimal import Decimal
 from pathlib import Path
 
@@ -10,6 +11,7 @@ import pandas as pd
 import pytest
 
 from eth_defi.vault import top_vaults_json
+from eth_defi.vault.strategy_tag import STRATEGY_TAG_METADATA, StrategyTag
 from eth_defi.version_info import VersionInfo
 
 
@@ -57,6 +59,168 @@ def make_lifetime_df(*rows: dict) -> pd.DataFrame:
 def make_export_record(module, **kwargs) -> dict:
     """Build a JSON-safe exported row for state seeding."""
     return module.export_lifetime_row(pd.Series(make_metrics_row(**kwargs)))
+
+
+def test_strategy_category_export_includes_labels_and_tvl_weighted_one_month_apy() -> None:
+    """Export every category with two-sentence rules and additive aggregates.
+
+    A vault with more than one maintained tag contributes to each category,
+    while an unrecognised historical tag is not exposed without catalogue
+    metadata. The one-month APY uses only finite current-TVL weights and finite
+    complete annualised one-month returns.
+    """
+    small_vault_tvl = 100.0
+    large_vault_tvl = 200.0
+    categories = top_vaults_json.build_strategy_categories_for_export(
+        [
+            {
+                "strategy_tags": ["lending", "algorithmic_trading", "lending"],
+                "current_nav": small_vault_tvl,
+                "one_month_cagr": 0.20,
+                "one_month_cagr_net": 0.10,
+                "one_month_start": "2026-08-01T00:00:00Z",
+                "one_month_samples": 31,
+            },
+            {
+                "strategy_tags": ["lending", "not_a_category"],
+                "current_nav": large_vault_tvl,
+                "one_month_cagr": 0.20,
+                "one_month_start": "2026-08-01T00:00:00Z",
+                "one_month_samples": 31,
+            },
+            {
+                "strategy_tags": ["unknown"],
+                "current_nav": None,
+                "one_month_cagr": 0.50,
+            },
+        ]
+    )
+
+    assert set(categories) == {tag.value for tag in StrategyTag}
+    assert categories["lending"] == {
+        "label": "Lending",
+        "description": STRATEGY_TAG_METADATA[StrategyTag.lending]["description"],
+        "vault_count": 2,
+        "tvl_usd": 300.0,
+        "one_month_apy": pytest.approx(1 / 6),
+    }
+    assert categories["algorithmic_trading"]["vault_count"] == 1
+    assert categories["algorithmic_trading"]["tvl_usd"] == small_vault_tvl
+    assert categories["unknown"]["vault_count"] == 0
+    assert categories["unknown"]["tvl_usd"] == 0.0
+    assert categories["unknown"]["one_month_apy"] is None
+
+
+def test_strategy_category_export_excludes_blacklisted_and_invalid_tvl() -> None:
+    """Do not let rejected records distort public category aggregates."""
+    valid_tvl = 100.0
+    valid_return = 0.10
+    categories = top_vaults_json.build_strategy_categories_for_export(
+        [
+            {
+                "strategy_tags": ["lending"],
+                "current_nav": valid_tvl,
+                "one_month_cagr": valid_return,
+                "one_month_start": "2026-08-01T00:00:00Z",
+                "one_month_samples": 31,
+            },
+            {
+                "strategy_tags": ["lending"],
+                "current_nav": 1_000_000_000_000.0,
+                "one_month_cagr": 100.0,
+                "risk": top_vaults_json.BLACKLISTED_RISK_LABEL,
+                "one_month_start": "2026-08-01T00:00:00Z",
+                "one_month_samples": 31,
+            },
+            {
+                "strategy_tags": ["lending"],
+                "current_nav": 100_000_000_001.0,
+                "one_month_cagr": 100.0,
+                "one_month_start": "2026-08-01T00:00:00Z",
+                "one_month_samples": 31,
+            },
+        ]
+    )
+
+    assert categories["lending"]["vault_count"] == 1
+    assert categories["lending"]["tvl_usd"] == valid_tvl
+    assert categories["lending"]["one_month_apy"] == valid_return
+
+
+def test_strategy_category_export_requires_complete_bounded_one_month_metric() -> None:
+    """Ignore sentinels and outliers when weighting one-month returns."""
+    valid_return = 0.10
+    expected_tvl = 2_100.0
+    expected_vault_count = 3
+    categories = top_vaults_json.build_strategy_categories_for_export(
+        [
+            {
+                "strategy_tags": ["lending"],
+                "current_nav": 100.0,
+                "one_month_cagr_net": valid_return,
+                "one_month_start": "2026-08-01T00:00:00Z",
+                "one_month_samples": 31,
+            },
+            {
+                "strategy_tags": ["lending"],
+                "current_nav": 1_000.0,
+                "one_month_cagr": 0.0,
+            },
+            {
+                "strategy_tags": ["lending"],
+                "current_nav": 1_000.0,
+                "one_month_cagr": 5.0,
+                "one_month_start": "2026-08-01T00:00:00Z",
+                "one_month_samples": 31,
+            },
+        ]
+    )
+
+    assert categories["lending"]["vault_count"] == expected_vault_count
+    assert categories["lending"]["tvl_usd"] == expected_tvl
+    assert categories["lending"]["one_month_apy"] == valid_return
+
+
+def test_strategy_tag_metadata_covers_every_tag_with_two_sentences() -> None:
+    """Keep the public category catalogue complete and concise."""
+    assert set(STRATEGY_TAG_METADATA) == set(StrategyTag)
+    assert all(metadata["label"] and "[" not in metadata["label"] for metadata in STRATEGY_TAG_METADATA.values())
+    descriptions_without_markdown_links = (re.sub(r"\]\([^)]*\)", "]", metadata["description"]) for metadata in STRATEGY_TAG_METADATA.values())
+    assert all(description.count(".") == 2 for description in descriptions_without_markdown_links)
+
+
+def test_strategy_category_export_skips_a_tag_without_current_catalogue_metadata(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Keep a local export readable during an enum-and-catalogue rollout.
+
+    The catalogue coverage test above still prevents releasing an incomplete
+    registry. This fallback only protects existing sticky rows while a newer
+    persisted enum value is being reconciled with its public description.
+    """
+    monkeypatch.delitem(STRATEGY_TAG_METADATA, StrategyTag.lending)
+
+    categories = top_vaults_json.build_strategy_categories_for_export([{"strategy_tags": [StrategyTag.lending.value], "current_nav": 100.0, "one_month_cagr": 0.10}])
+
+    assert StrategyTag.lending.value not in categories
+
+
+def test_strategy_category_failure_does_not_block_vault_export(
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """A category failure logs an error without adding a partial JSON key."""
+
+    def fail_category_build(_: list[dict]) -> dict:
+        raise RuntimeError("broken category input")
+
+    monkeypatch.setattr(top_vaults_json, "build_strategy_categories_for_export", fail_category_build)
+    output_data = {"vaults": []}
+
+    with caplog.at_level("ERROR"):
+        success = top_vaults_json.append_strategy_categories_to_export(output_data, [])
+
+    assert success is False
+    assert "categories" not in output_data
+    assert "Strategy category export failed" in caplog.text
 
 
 def test_sticky_export_first_qualification_creates_state():
