@@ -775,9 +775,9 @@ def _broadcast_multiple_nodes(
                 nonce,
             )
             for provider, exception in exceptions.items():
-                name = get_provider_name(p)
-                logger.error("%s failed with: %s", name, e)
-                logger.exception(e)
+                name = get_provider_name(provider)
+                logger.error("%s failed with: %s", name, exception)
+                logger.exception(exception)
 
             # Raise the last exception
             raise exception
