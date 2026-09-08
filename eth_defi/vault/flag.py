@@ -822,6 +822,8 @@ VAULT_FLAGS_AND_NOTES: dict[str, tuple[VaultFlag | None, str]] = {
     "0x0e297de4005883c757c9f09fdf7cf1363c20e626": (VaultFlag.subvault, SUBVAULT),
     # USDC To sUSDS Depositor (Yearn on Ethereum)
     "0xda2f1b3cba732d779cff56f0cf9d3bc8aea6cd8d": (VaultFlag.subvault, SUBVAULT),
+    # DAI to USDS Depositor
+    "0xaedf7d5f3112552e110e5f9d08c9997adce0b78d": (VaultFlag.subvault, SUBVAULT),
     # Morpho Gauntlet USDT Prime Compounder
     "0x6d2981ff9b8d7edbb7604de7a65bac8694ac849f": (VaultFlag.subvault, SUBVAULT),
     # Morpho Gauntlet AUSD Vault Compounder
