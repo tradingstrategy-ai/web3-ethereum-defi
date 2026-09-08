@@ -165,16 +165,15 @@ class EnzymeVault(VaultBase):
 
         return None
 
-    def get_strategy_tags(self) -> set[StrategyTag] | None:
-        """Return documented strategy tags for this Onyx Shares vault.
+    def get_strategy_tags(self) -> set[StrategyTag]:
+        """Return default and documented strategy tags for this Onyx Shares vault.
 
-        The shared Enzyme mapping uses the canonical Shares address. An
-        unmapped address remains ``None`` because the Onyx accounting and
-        subscription metadata cannot establish the manager's strategy alone.
+        The shared Enzyme mapping uses the canonical Shares address. Every
+        Enzyme vault receives the default discretionary-trading tag, while
+        researched addresses receive additional strategy tags.
 
         :return:
-            A mutable tag set for a researched vault, or ``None`` where no
-            sufficient strategy evidence is available.
+            A mutable set of default and address-specific strategy tags.
         """
 
         return lookup_strategy_tags(self.address)

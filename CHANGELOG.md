@@ -1,5 +1,6 @@
 # 1.2
 
+- feat: Classify every Enzyme Blue and Onyx vault as discretionary trading by default and migrate cached tags (2026-09-08)
 - feat: Export documented vault strategy categories with quality-filtered TVL and one-month return aggregates, plus a local category-breakdown helper (2026-09-04)
 - feat: Add canonical signed per-period vault flow values, expose gross directional values and counts only from individually extracted events, estimate netted stablecoin ERC-4626 flows from daily vault states, and deprecate the legacy top-level netflow export (2026-08-31)
 - fix: Publish YieldBasis protocol metadata, description and listing logos under the canonical website slug (2026-08-31)
