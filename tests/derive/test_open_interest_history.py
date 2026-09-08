@@ -121,7 +121,7 @@ def test_fetch_perp_snapshots_multicall_historical(w3: Web3):
 
     1. Estimate the block number 30 days ago.
     2. Fetch snapshots at current and historical blocks.
-    3. Assert all data points are positive at both blocks.
+    3. Assert OI is positive at both blocks and validate historical prices when available.
     4. Assert OI values differ between current and 30 days ago.
     """
     # 1. Estimate block 30 days ago
@@ -147,8 +147,14 @@ def test_fetch_perp_snapshots_multicall_historical(w3: Web3):
     assert now.perp_price is not None and now.perp_price > 0
     assert now.index_price is not None and now.index_price > 0
     assert hist.open_interest is not None and hist.open_interest > 0
-    assert hist.perp_price is not None and hist.perp_price > 0
-    assert hist.index_price is not None and hist.index_price > 0
+    # Historical Derive price calls may both return ``None`` when the shared
+    # spot-feed heartbeat has expired.  Preserve that onchain refusal rather
+    # than inventing a price; a one-sided NULL would instead indicate a decode
+    # or persistence problem because both calls use the same spot feed.
+    assert (hist.perp_price is None) == (hist.index_price is None)
+    if hist.perp_price is not None:
+        assert hist.perp_price > 0
+        assert hist.index_price is not None and hist.index_price > 0
 
     # 4. OI should differ between current and 30 days ago
     assert now.open_interest != hist.open_interest, "Expected different OI at current vs 30 days ago"

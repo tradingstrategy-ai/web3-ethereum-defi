@@ -4,14 +4,14 @@ To run tests in this module:
 
 .. code-block:: shell
 
-    export JSON_RPC_BINANCE="https://bsc-dataseed.binance.org/"
-    pytest -k test_ganache
+    source .local-test.env && poetry run pytest tests/rpc/test_anvil.py
 
 """
 
 import os
 import shutil
 from collections.abc import Iterator
+from contextlib import contextmanager
 
 import flaky
 import pytest
@@ -21,7 +21,7 @@ from eth_typing import HexAddress, HexStr
 from web3 import Web3
 
 from eth_defi.gas import node_default_gas_price_strategy
-from eth_defi.provider.anvil import AnvilLaunch, ArchiveNodeRequired, fork_network_anvil, is_anvil, launch_anvil
+from eth_defi.provider.anvil import ArchiveNodeRequired, fork_network_anvil, is_anvil, launch_anvil
 from eth_defi.testing.anvil_fork_pool import AnvilForkPool
 from eth_defi.testing.evm_snapshot_fixture import evm_snapshot_revert
 from eth_defi.testing.fork_blocks import BINANCE_MIDNIGHT_BLOCK
@@ -70,37 +70,11 @@ def user_2() -> LocalAccount:
     return Account.create()
 
 
-@pytest.fixture(scope="module")
-def anvil_bnb_chain_fork(anvil_fork_pool: AnvilForkPool, large_busd_holder: HexAddress) -> AnvilLaunch:
-    """Share the canonical cached BNB fork required by the BUSD tests.
-
-    Pinning the fork to :data:`BINANCE_MIDNIGHT_BLOCK` makes its archive state
-    reproducible and lets Anvil reuse the committed RPC cache across tests and
-    CI runs.  The selected holder is part of the launch configuration because
-    Anvil must unlock it before a test can submit a BUSD transfer from it.
-
-    :return:
-        Shared Anvil process for the fixed BNB block.
-    """
-    assert JSON_RPC_BINANCE is not None
-    return anvil_fork_pool.get_launch(
-        JSON_RPC_BINANCE,
-        BINANCE_MIDNIGHT_BLOCK,
-        unlocked_addresses=[large_busd_holder],
-    )
-
-
 @pytest.fixture()
-def _evm_snapshot(anvil_bnb_chain_fork: AnvilLaunch) -> Iterator[None]:
-    """Restore the shared BNB fork after each test that uses it."""
-    yield from evm_snapshot_revert(anvil_bnb_chain_fork)
-
-
-@pytest.fixture()
-def web3(anvil_fork_pool: AnvilForkPool, _evm_snapshot: None, large_busd_holder: HexAddress) -> Web3:
+def web3(anvil_fork_pool: AnvilForkPool, large_busd_holder: HexAddress) -> Iterator[Web3]:
     """Connect to the isolated shared canonical BNB fork."""
     assert JSON_RPC_BINANCE is not None
-    web3 = anvil_fork_pool.get_web3(
+    web3, launch = anvil_fork_pool.get_web3_with_launch(
         JSON_RPC_BINANCE,
         BINANCE_MIDNIGHT_BLOCK,
         unlocked_addresses=[large_busd_holder],
@@ -109,7 +83,11 @@ def web3(anvil_fork_pool: AnvilForkPool, _evm_snapshot: None, large_busd_holder:
     # BNB proof-of-authority middleware already installed.  Injecting it here
     # again raises Web3's duplicate-middleware error on every BNB fork test.
     web3.eth.set_gas_price_strategy(node_default_gas_price_strategy)
-    return web3
+    # The pool can recycle a wedged fork at any lookup.  Taking the snapshot
+    # from the exact launch returned with this Web3 prevents an old module-level
+    # launch from being reverted after it has been replaced on another port.
+    with contextmanager(evm_snapshot_revert)(launch):
+        yield web3
 
 
 def test_anvil_output() -> None:
@@ -133,13 +111,21 @@ def test_anvil_forked_chain_id(web3: Web3) -> None:
 
 
 @requires_bnb_rpc
+# First observed on 2026-09-08: CI timed out while fetching BUSD state from a
+# moving BNB tip.  The fixed fork passes locally, but keep bounded retries until
+# the committed BSC cache contains the BUSD code and storage this test reads.
+@flaky.flaky()
 def test_anvil_fork_busd_details(web3: Web3) -> None:
     """Checks BUSD deployment on BNB chain."""
     busd = fetch_erc20_details(web3, "0xe9e7CEA3DedcA5984780Bafc599bD69ADd087D56")
     assert busd.symbol == "BUSD"
-    assert (busd.total_supply / (10**18)) > 10_000_000, "More than $10m BUSD minted"
+    assert busd.total_supply == 283_188_732_471_960_898_956_126_663
 
 
+# First observed on 2026-09-08: the CI BNB archive fork timed out before a
+# moving-tip BUSD transfer.  The fixed, cached fork passed locally on 2026-09-08,
+# but retain bounded retries until the committed BSC cache contains its BUSD state.
+@flaky.flaky()
 @requires_bnb_rpc
 def test_anvil_fork_transfer_busd(web3: Web3, large_busd_holder: HexAddress, user_1: LocalAccount) -> None:
     """Forks the BNB chain mainnet and transfers from USDC to the user."""
@@ -163,8 +149,7 @@ def test_anvil_fork_transfer_busd(web3: Web3, large_busd_holder: HexAddress, use
 @requires_bnb_rpc
 def test_anvil_latest_block(web3: Web3) -> None:
     """Fetch latest block using Anvil."""
-    # Fails randomly see https://github.com/foundry-rs/foundry/issues/4666
-    web3.eth.get_block("latest")
+    assert web3.eth.get_block("latest")["number"] == BINANCE_MIDNIGHT_BLOCK
 
 
 @pytest.mark.skip(reason="Too flaky - depends on public Polygon RPC availability and response format")
