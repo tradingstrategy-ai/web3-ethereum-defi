@@ -140,7 +140,7 @@ def test_axis_staked_usdx_strategy_tags() -> None:
 
 
 def test_opalaccess_liquidstone_strategy_tags() -> None:
-    """Return researched RWA-credit tags for OpalAccess - LiquidStone 2."""
+    """Return researched RWA-credit tags and Enzyme's default classification."""
 
     vault = object.__new__(EnzymeVault)
     vault.spec = VaultSpec(chain_id=8453, vault_address=HexAddress("0x1B6d1EDf854CA5d8A7c32DDb79C24B117eBc6433"))
@@ -148,6 +148,7 @@ def test_opalaccess_liquidstone_strategy_tags() -> None:
     tags = vault.get_strategy_tags()
 
     assert tags == {
+        StrategyTag.discretionary_trading,
         StrategyTag.multistrategy,
         StrategyTag.rwa,
         StrategyTag.rwa_credit,
@@ -156,19 +157,20 @@ def test_opalaccess_liquidstone_strategy_tags() -> None:
     assert tags is not None
     tags.add(StrategyTag.carry_trade)
     assert vault.get_strategy_tags() == {
+        StrategyTag.discretionary_trading,
         StrategyTag.multistrategy,
         StrategyTag.rwa,
         StrategyTag.rwa_credit,
     }
 
 
-def test_unmapped_enzyme_vault_has_no_strategy_tags() -> None:
-    """Preserve ``None`` for Enzyme vaults without strategy evidence."""
+def test_unmapped_enzyme_vault_has_default_strategy_tags() -> None:
+    """Classify unmapped Enzyme vaults as discretionary by default."""
 
     vault = object.__new__(EnzymeVault)
     vault.spec = VaultSpec(chain_id=8453, vault_address=HexAddress("0x0000000000000000000000000000000000000000"))
 
-    assert vault.get_strategy_tags() is None
+    assert vault.get_strategy_tags() == {StrategyTag.discretionary_trading}
 
 
 def test_missing_strategy_tags_return_none() -> None:

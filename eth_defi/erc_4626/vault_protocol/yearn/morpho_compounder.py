@@ -9,11 +9,11 @@ import datetime
 import logging
 from functools import cached_property
 
-from eth_typing import BlockIdentifier, HexAddress
+from eth_typing import BlockIdentifier
 from web3.contract import Contract
 
 from eth_defi.erc_4626.core import get_deployed_erc_4626_contract
-from eth_defi.erc_4626.vault_protocol.yearn.vault import YearnV3Vault
+from eth_defi.erc_4626.vault_protocol.yearn.vault import YearnV3Vault, create_yearn_vault_link
 
 logger = logging.getLogger(__name__)
 
@@ -35,7 +35,7 @@ class YearnMorphoCompounderStrategy(YearnV3Vault):
     More information:
 
     - `Example Yearn Morpho Compounder vault <https://etherscan.io/address/0x6D2981FF9b8d7edbb7604de7A65BAC8694ac849F>`__
-    - `Yearn website <https://yearn.fi/v3/1/0x6D2981FF9b8d7edbb7604de7A65BAC8694ac849F>`__
+    - `Yearn website <https://yearn.fi/vaults/1/0x6D2981FF9b8d7edbb7604de7A65BAC8694ac849F>`__
     - `Morpho protocol <https://morpho.org/>`__
     """
 
@@ -87,8 +87,13 @@ class YearnMorphoCompounderStrategy(YearnV3Vault):
         return datetime.timedelta(0)
 
     def get_link(self, referral: str | None = None) -> str:
-        """Get the vault's web UI link.
+        """Return the canonical current-Yearn frontend link for this vault.
 
-        Links to the Yearn V3 vault page.
+        :param referral:
+            Optional referral identifier, unsupported by Yearn.
+        :return:
+            Yearn vault URL for this chain and vault address.
         """
-        return f"https://yearn.fi/v3/{self.chain_id}/{self.vault_address}"
+
+        del referral
+        return create_yearn_vault_link(self.chain_id, self.vault_address)

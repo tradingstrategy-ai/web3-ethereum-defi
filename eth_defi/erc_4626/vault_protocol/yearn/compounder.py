@@ -14,7 +14,10 @@ import datetime
 from eth_typing import BlockIdentifier
 
 from eth_defi.erc_4626.vault import ERC4626Vault
+from eth_defi.erc_4626.vault_protocol.yearn.offchain_metadata import fetch_yearn_vault_endorsement
+from eth_defi.erc_4626.vault_protocol.yearn.vault import create_yearn_vault_link
 from eth_defi.vault.base import INSTANT_WITHDRAWAL_PERIOD, WithdrawalPeriod
+from eth_defi.vault.flag import NOT_IN_YEARN_FRONTEND, VaultFlag
 
 #: Yearn TokenizedStrategy fee precision: 10_000 basis points is 100%.
 PERFORMANCE_FEE_DENOMINATOR = 10_000
@@ -94,8 +97,39 @@ class YearnCompounderVault(ERC4626Vault):
         """
         return datetime.timedelta(0)
 
-    def get_withdrawal_period(self) -> WithdrawalPeriod:
+    def get_withdrawal_period(self) -> WithdrawalPeriod:  # noqa: PLR6301
         return INSTANT_WITHDRAWAL_PERIOD
+
+    def get_flags(self) -> set[VaultFlag]:
+        """Add an exclusion flag to unendorsed Yearn compounder contracts.
+
+        Compounder classification identifies a Yearn TokenizedStrategy vault,
+        so an explicit unendorsed yDaemon result safely marks it as unofficial.
+
+        :return:
+            Existing flags plus :attr:`VaultFlag.unofficial` only
+            when Yearn explicitly does not endorse the vault.
+        """
+
+        flags = super().get_flags()
+        if fetch_yearn_vault_endorsement(self.chain_id, self.vault_address) is False:
+            flags = set(flags)
+            flags.add(VaultFlag.unofficial)
+        return flags
+
+    def get_notes(self) -> str | None:
+        """Return manual notes before the Yearn endorsement warning.
+
+        :return:
+            Existing shared note, the unendorsed-Yearn note, or ``None``.
+        """
+
+        notes = super().get_notes()
+        if notes:
+            return notes
+        if fetch_yearn_vault_endorsement(self.chain_id, self.vault_address) is False:
+            return NOT_IN_YEARN_FRONTEND
+        return None
 
     def get_link(self, referral: str | None = None) -> str:
         """Return the direct Yearn vault page.
@@ -107,4 +141,4 @@ class YearnCompounderVault(ERC4626Vault):
             Yearn vault URL for this chain and vault address.
         """
         del referral
-        return f"https://yearn.fi/v3/{self.chain_id}/{self.vault_address}"
+        return create_yearn_vault_link(self.chain_id, self.vault_address)

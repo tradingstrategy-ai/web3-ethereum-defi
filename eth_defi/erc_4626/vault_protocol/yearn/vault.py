@@ -13,19 +13,35 @@ from eth_defi.erc_4626.core import get_deployed_erc_4626_contract
 from eth_defi.erc_4626.vault import ERC4626Vault
 from eth_defi.erc_4626.vault_protocol.yearn.deposit_redeem import YearnV3DepositManager
 from eth_defi.erc_4626.vault_protocol.yearn.notes import YEARN_VAULT_NOTES
+from eth_defi.erc_4626.vault_protocol.yearn.offchain_metadata import fetch_yearn_vault_endorsement
 from eth_defi.vault.base import INSTANT_WITHDRAWAL_PERIOD, WithdrawalPeriod
+from eth_defi.vault.flag import NOT_IN_YEARN_FRONTEND, VaultFlag
 
 logger = logging.getLogger(__name__)
+
+
+def create_yearn_vault_link(chain_id: int, vault_address: HexAddress) -> str:
+    """Create the current Yearn frontend URL for a vault.
+
+    :param chain_id:
+        EVM chain ID where the vault is deployed.
+    :param vault_address:
+        Yearn vault or TokenizedStrategy contract address.
+    :return:
+        Current Yearn vault page URL for this chain/address pair.
+    """
+
+    return f"https://yearn.fi/vaults/{chain_id}/{vault_address.lower()}"
 
 
 class YearnV3Vault(ERC4626Vault):
     """Yearn V3 vaults.
 
-    - Yearn v3 vaults are ERC-4626 compliant vaults with multiple strategies, built wit Vyper (not Solidity)
+    - Yearn V3 vaults are ERC-4626-compliant vaults with multiple strategies, built with Vyper (not Solidity)
     - Yearn vault can have multiple strategies, identified by calling `get_default_queue()`.
     - Withdraw happens in the order of this strategy queue
     - The queue strategies can be `SiloStrategy` and other Yearn vault contracts
-    - Fees are internatilised and are built into the share price: The strategies takes profit by minting more shares to the strategies themselves.
+    - Fees are internalised and built into the share price: strategies take profit by minting more shares to themselves.
       This is why external fees are set to zero.
 
     More information:
@@ -33,7 +49,7 @@ class YearnV3Vault(ERC4626Vault):
     - Example `Yearn v3 vault <https://arbiscan.io/address/0x9fa306b1f4a6a83fec98d8ebbabedff78c407f6b>`__ (Vyper)
     - `Vault contract on Github <https://github.com/yearn/yearn-vaults-v3/blob/master/contracts/VaultV3.vy>`__
     - Example `SiloStrategy contract <https://arbiscan.io/address/0xA4B8873B4629c20f2167c0A2bC33B6AF8699dDc1#code>`__
-    - `Yearn's own internal vault metadata JSON endpoint <https://ydaemon.yearn.fi/vaults/detected?limit=2000>`__ - check for `isRetired` flag
+    - `Yearn yDaemon metadata repository <https://github.com/yearn/ydaemon/tree/main/data/meta/vaults>`__ records frontend endorsement and inclusion; its data distinguishes third-party V3-compatible contracts from Yearn products.
     - Use `Yearn Powerglove to explore exposure and allocation of Yearn vaults <https://yearn-powerglove.vercel.app/vaults/42161/0xb739AE19620f7ECB4fb84727f205453aa5bc1AD2>`__
 
     Max withdrawl:
@@ -135,7 +151,7 @@ class YearnV3Vault(ERC4626Vault):
         """
         return YearnV3DepositManager(self)
 
-    def can_check_deposit(self) -> bool:
+    def can_check_deposit(self) -> bool:  # noqa: PLR6301
         """Disable generic zero-address closure detection for Yearn V3.
 
         :return:
@@ -181,21 +197,57 @@ class YearnV3Vault(ERC4626Vault):
     def fetch_strategies(self) -> list[Contract]:
         return self.vault_contract.functions.getStrategies().call()
 
-    def has_custom_fees(self) -> bool:
+    def has_custom_fees(self) -> bool:  # noqa: PLR6301
         """Deposit/withdrawal fees."""
         return False
 
-    def get_management_fee(self, block_identifier: BlockIdentifier) -> float:
+    def get_management_fee(self, block_identifier: BlockIdentifier) -> float:  # noqa: PLR6301
+        """Return the absent Yearn V3 management fee.
+
+        :param block_identifier:
+            Block number or ``"latest"``. Ignored because the fee is absent.
+        :return:
+            Always ``0.0``.
+        """
+
+        del block_identifier
         return 0.0
 
-    def get_performance_fee(self, block_identifier: BlockIdentifier) -> float | None:
+    def get_performance_fee(self, block_identifier: BlockIdentifier) -> float | None:  # noqa: PLR6301
+        """Return the absent Yearn V3 performance fee.
+
+        :param block_identifier:
+            Block number or ``"latest"``. Ignored because fees are internalised.
+        :return:
+            Always ``0.0``.
+        """
+
+        del block_identifier
         return 0.0
 
-    def get_estimated_lock_up(self) -> datetime.timedelta:
+    def get_estimated_lock_up(self) -> datetime.timedelta:  # noqa: PLR6301
         return datetime.timedelta(0)
 
-    def get_withdrawal_period(self) -> WithdrawalPeriod:
+    def get_withdrawal_period(self) -> WithdrawalPeriod:  # noqa: PLR6301
         return INSTANT_WITHDRAWAL_PERIOD
+
+    def get_flags(self) -> set[VaultFlag]:
+        """Add an exclusion flag to unendorsed Yearn V3-compatible contracts.
+
+        CAP reuses this adapter's V3 implementation but is not a Yearn product,
+        so protocol classification remains the guard before consulting Yearn's
+        endorsement catalogue.
+
+        :return:
+            Existing flags plus :attr:`VaultFlag.unofficial` only
+            when Yearn explicitly does not endorse the vault.
+        """
+
+        flags = super().get_flags()
+        if self.get_protocol_name() == "Yearn" and fetch_yearn_vault_endorsement(self.chain_id, self.vault_address) is False:
+            flags = set(flags)
+            flags.add(VaultFlag.unofficial)
+        return flags
 
     def get_notes(self) -> str | None:
         """Return Yearn-specific notes for manually maintained vaults.
@@ -212,7 +264,16 @@ class YearnV3Vault(ERC4626Vault):
         if manual_notes:
             return manual_notes
 
-        return YEARN_VAULT_NOTES.get(self.address.lower())
+        yearn_note = YEARN_VAULT_NOTES.get(self.address.lower())
+        if yearn_note:
+            return yearn_note
+
+        if self.get_protocol_name() == "Yearn" and fetch_yearn_vault_endorsement(self.chain_id, self.vault_address) is False:
+            return NOT_IN_YEARN_FRONTEND
+        return None
 
     def get_link(self, referral: str | None = None) -> str:
-        return f"https://yearn.fi/v3/{self.chain_id}/{self.vault_address}"
+        """Return the canonical current-Yearn frontend link for this vault."""
+
+        del referral
+        return create_yearn_vault_link(self.chain_id, self.vault_address)

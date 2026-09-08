@@ -145,7 +145,7 @@ class WithdrawalDelayType(enum.StrEnum):
     ``instant`` applies when the protocol has no request, cooldown or epoch
     gate; a direct ERC-4626 redemption is possible subject to liquidity.
     Examples include `Aave <https://app.aave.com/markets/>`__ and
-    `Yearn V3 <https://yearn.fi/v3>`__.
+    `Yearn V3 <https://yearn.fi/vaults>`__.
 
     ``delay`` applies when a request follows a cooldown or asynchronous
     settlement lifecycle. Examples include `Gains gUSDC <https://gains.trade/vaults/gUSDC>`__
