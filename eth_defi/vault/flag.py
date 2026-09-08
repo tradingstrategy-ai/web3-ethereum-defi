@@ -219,6 +219,11 @@ Performance is shown in USD using the marginal amount returned by `preview_withd
 The entry and exit fee fields each model a 0.10% conversion between a generic USD stablecoin and the pool's BTC or ETH token. These endpoint costs sit outside the historical equity curve and exclude price impact, gas and MEV.
 """
 
+COINFLAKES_VAULT_V2_NOTE = """Coinflakes Vault v2.0 is a DAI-denominated Yearn V3 vault whose underlying strategy is published in the [Coinflakes sDAI strategy repository](https://github.com/0xNedAlbo/coinflakes-v2-sdai-strategy). Its README describes a Yearn V3 tokenized strategy that invests in the [Savings DAI Vault](https://spark.fi/).
+
+The [strategy implementation](https://github.com/0xNedAlbo/coinflakes-v2-sdai-strategy/blob/main/src/SDAIStrategy.sol) deposits DAI into sDAI, values its sDAI position with `convertToAssets`, and withdraws sDAI to service redemptions. Its recorded deployment at `0x430af232a837510b6f677d1e5ae3715c1e94d9d7` is the strategy named in the vault's [DebtUpdated event](https://routescan.io/tx/0x5ce59e71457ea98a8e0248981770fa778e896fd7cce9fd2d5669db4642ea9ce4/eventlog?chainid=1), confirming that the repository describes this vault's underlying strategy.
+"""
+
 #: Vault-specific notes and classifications that do not exclude a vault from
 #: research datasets.
 #:
@@ -231,6 +236,8 @@ VAULT_NOTES: dict[str, str] = {
     "0x1fecf3d9d4fee7f2c02917a66028a48c6706c179": WISDOMTREE_WTGXX_NOTE,
     "0x43415eb6ff9db7e26a15b704e7a3edce97d31c4e": SUPERSTATE_USTB_NOTE,
     "0x6a7c6aa2b8b8a6a891de552bdeffa87c3f53bd46": ODA_FACT_MONY_NOTE,
+    # Coinflakes Vault v2.0, Ethereum.
+    "0x254bd33e2f62713f893f0842c99e68f855cda315": COINFLAKES_VAULT_V2_NOTE,
     USTBL_TOKEN_ADDRESS: SPIKO_USTBL_NOTE,
     EUTBL_TOKEN_ADDRESS: SPIKO_EUTBL_NOTE,
 }
