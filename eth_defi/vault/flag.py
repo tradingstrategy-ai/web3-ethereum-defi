@@ -772,6 +772,8 @@ VAULT_FLAGS_AND_NOTES: dict[str, tuple[VaultFlag | None, str]] = {
     "lighter-pool-robinhood-281474976710654": (None, LIGHTER_ROBINHOOD_LLP_INSURANCE),
     # Morpho Yearn Morpho Vault 1 Compounder (Base)
     "0xf115c134c23c7a05fbd489a8be3116ebf54b0d9f": (VaultFlag.subvault, SUBVAULT),
+    # Morpho Moonwell Flagship USDC Compounder (Base)
+    "0xd5428b889621eee8060fc105aa0ab0fa2e344468": (VaultFlag.subvault, SUBVAULT),
     # Morpho Zircuit Finance USDC on Base Compounder
     "0x049e8aab2d3ca187e47d74cf8171ad266f18643e": (VaultFlag.subvault, SUBVAULT),
     # Tulipa Capital USDT0
