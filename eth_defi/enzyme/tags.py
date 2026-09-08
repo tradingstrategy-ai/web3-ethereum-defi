@@ -4,6 +4,11 @@ from eth_typing import HexAddress
 
 from eth_defi.vault.strategy_tag import StrategyTag, lookup_strategy_tags
 
+#: Enzyme is currently used as a manager-operated asset-management platform.
+#: There is no evidence that anyone currently uses Enzyme for non-discretionary
+#: trading, so every Enzyme share vault receives this default classification.
+DEFAULT_STRATEGY_TAGS = frozenset({StrategyTag.discretionary_trading})
+
 STRATEGY_TAGS: dict[str, set[StrategyTag]] = {
     #: Vault: OpalAccess - LiquidStone 2.
     #: Added: 2026-08-23.
@@ -281,19 +286,19 @@ STRATEGY_TAGS: dict[str, set[StrategyTag]] = {
 }
 
 
-def get_strategy_tags(address: HexAddress) -> set[StrategyTag] | None:
+def get_strategy_tags(address: HexAddress) -> set[StrategyTag]:
     """Return the maintained strategy tags for an Enzyme shares address.
 
     Enzyme Blue VaultProxy and Onyx Shares deployments both use their share
-    token as the vault identity. The address mapping is therefore shared by
-    the two adapters, while retaining the ``None`` result that distinguishes
-    a vault with no researched strategy classification from an empty tag set.
+    token as the vault identity. Every Enzyme vault is classified as
+    discretionary trading by default; the shared address mapping adds any
+    further researched strategy tags.
 
     :param address:
         Canonical Enzyme Blue VaultProxy or Onyx Shares address.
     :return:
-        A mutable copy of the researched strategy tags, or ``None`` if the
-        address has no documented classification.
+        A mutable copy of the default and researched strategy tags.
     """
 
-    return lookup_strategy_tags(STRATEGY_TAGS, address)
+    address_specific_tags = lookup_strategy_tags(STRATEGY_TAGS, address)
+    return set(DEFAULT_STRATEGY_TAGS if address_specific_tags is None else DEFAULT_STRATEGY_TAGS | address_specific_tags)

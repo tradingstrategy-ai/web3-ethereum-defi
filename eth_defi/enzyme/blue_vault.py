@@ -171,16 +171,15 @@ class EnzymeBlueVault(VaultBase):
 
         return self.api_metadata.short_description if self.api_metadata else None
 
-    def get_strategy_tags(self) -> set[StrategyTag] | None:
-        """Return documented strategy tags for this Blue vault.
+    def get_strategy_tags(self) -> set[StrategyTag]:
+        """Return default and documented strategy tags for this Blue vault.
 
         The shared Enzyme mapping keys classifications by canonical share-token
-        address. Unmapped addresses intentionally return ``None`` because the
-        protocol's generic metadata does not establish an investment strategy.
+        address. Every Enzyme vault receives the default discretionary-trading
+        tag, while researched addresses receive additional strategy tags.
 
         :return:
-            A mutable tag set for a researched vault, or ``None`` when its
-            strategy remains undocumented.
+            A mutable set of default and address-specific strategy tags.
         """
 
         return lookup_strategy_tags(self.address)

@@ -93,6 +93,7 @@ NATIVE_STRATEGY_TAG_RESOLVERS: dict[ERC4626Feature, NativeStrategyTagResolver] =
 # classifying the row differently from the scanner.
 EVM_ADAPTER_FEATURE_PRIORITY: tuple[ERC4626Feature, ...] = (
     ERC4626Feature.mellow_like,
+    ERC4626Feature.enzyme_onyx_like,
     ERC4626Feature.enzyme_blue_like,
     ERC4626Feature.symbiotic_like,
     ERC4626Feature.securitize_like,
@@ -236,6 +237,7 @@ EVM_STRATEGY_TAG_RESOLVERS: dict[ERC4626Feature, StrategyTagResolver] = {
     ERC4626Feature.ethena_like: partial(lookup_strategy_tags, ETHENA_STRATEGY_TAGS),
     ERC4626Feature.axis_like: partial(lookup_strategy_tags, AXIS_STRATEGY_TAGS),
     ERC4626Feature.yieldnest_like: partial(lookup_strategy_tags, YIELDNEST_STRATEGY_TAGS),
+    ERC4626Feature.enzyme_onyx_like: get_enzyme_strategy_tags,
     ERC4626Feature.enzyme_blue_like: get_enzyme_strategy_tags,
 }
 
