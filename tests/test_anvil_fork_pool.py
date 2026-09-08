@@ -66,6 +66,32 @@ def test_anvil_fork_pool_bounds_nested_rpc_retries(monkeypatch: pytest.MonkeyPat
     assert "primary.example" in hint and "fallback.example" in hint
 
 
+def test_get_web3_with_launch_returns_the_exact_cached_launch(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Pair a mutation-safe Web3 client with the launch that created it.
+
+    A snapshot fixture must revert this exact process.  A second independent
+    ``get_launch()`` call may recycle a wedged fork between the two lookups,
+    leaving the snapshot attached to a dead process rather than the Web3 client
+    that performs the test mutation.
+
+    :param monkeypatch:
+        Pytest monkeypatch fixture.
+    """
+    launch = Mock(json_rpc_url="http://localhost:23457")
+    web3 = Mock()
+    monkeypatch.setattr(pool_module, "fork_network_anvil", Mock(return_value=launch))
+    monkeypatch.setattr(pool_module, "create_multi_provider_web3", Mock(return_value=web3))
+
+    pool = AnvilForkPool()
+    actual_web3, actual_launch = pool.get_web3_with_launch(
+        "https://primary.example https://fallback.example",
+        124,
+    )
+
+    assert actual_web3 is web3
+    assert actual_launch is launch
+
+
 @pytest.mark.parametrize("provider_count", [2, 3, 4, 10])
 def test_default_anvil_proxy_policy_is_bounded(provider_count: int) -> None:
     """Try each automatic upstream once within the local read timeout.
