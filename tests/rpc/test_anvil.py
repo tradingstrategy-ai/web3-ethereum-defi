@@ -117,7 +117,11 @@ def test_anvil_forked_chain_id(web3: Web3) -> None:
 @flaky.flaky()
 def test_anvil_fork_busd_details(web3: Web3) -> None:
     """Checks BUSD deployment on BNB chain."""
-    busd = fetch_erc20_details(web3, "0xe9e7CEA3DedcA5984780Bafc599bD69ADd087D56")
+    # Token metadata cache keys contain only chain id and address, whereas this
+    # assertion deliberately verifies BUSD supply at one historical block.
+    # Disable the process-wide cache so a moving-tip BNB fork in another test
+    # cannot provide its current supply and make this fixed-block check flaky.
+    busd = fetch_erc20_details(web3, "0xe9e7CEA3DedcA5984780Bafc599bD69ADd087D56", cache=None)
     assert busd.symbol == "BUSD"
     assert busd.total_supply == 283_188_732_471_960_898_956_126_663
 

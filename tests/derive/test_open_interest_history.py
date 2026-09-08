@@ -242,9 +242,7 @@ def test_open_interest_db_backfill_and_resume(session, w3: Web3, tmp_path):
         assert (df["perp_price"].notna() == df["index_price"].notna()).all()
         minimum_fully_priced_samples = max(1, len(df) // 2)
         priced_rows = df.dropna(subset=["perp_price", "index_price"])
-        assert len(priced_rows) >= minimum_fully_priced_samples, (
-            f"Expected at least {minimum_fully_priced_samples} fully priced ETH-PERP samples"
-        )
+        assert len(priced_rows) >= minimum_fully_priced_samples, f"Expected at least {minimum_fully_priced_samples} fully priced ETH-PERP samples"
         assert (priced_rows["perp_price"] > 0).all(), "All available perp_price values should be positive"
         assert (priced_rows["index_price"] > 0).all(), "All available index_price values should be positive"
 
