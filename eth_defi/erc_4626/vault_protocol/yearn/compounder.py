@@ -14,6 +14,7 @@ import datetime
 from eth_typing import BlockIdentifier
 
 from eth_defi.erc_4626.vault import ERC4626Vault
+from eth_defi.erc_4626.vault_protocol.yearn.links import create_yearn_vault_link
 from eth_defi.vault.base import INSTANT_WITHDRAWAL_PERIOD, WithdrawalPeriod
 
 #: Yearn TokenizedStrategy fee precision: 10_000 basis points is 100%.
@@ -107,4 +108,4 @@ class YearnCompounderVault(ERC4626Vault):
             Yearn vault URL for this chain and vault address.
         """
         del referral
-        return f"https://yearn.fi/v3/{self.chain_id}/{self.vault_address}"
+        return create_yearn_vault_link(self.chain_id, self.vault_address)
