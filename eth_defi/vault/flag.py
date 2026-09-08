@@ -396,7 +396,7 @@ MISSING_IN_PROTOCOL_FRONTEND = "This vault is missing in the protocol's primary 
 
 NOT_IN_MORPHO_API = "This vault does not appear on Morpho website."
 
-NOT_IN_YEARN_FRONTEND = "This Yearn V3-compatible vault is not endorsed or listed in the official Yearn frontend."
+NOT_IN_YEARN_FRONTEND = "This Yearn V3-compatible vault is not endorsed in Yearn's authoritative metadata."
 
 TEST_VAULT = "This appears to be a test vault and should not be shown to end users."
 
