@@ -14,10 +14,10 @@ import datetime
 from eth_typing import BlockIdentifier
 
 from eth_defi.erc_4626.vault import ERC4626Vault
-from eth_defi.erc_4626.vault_protocol.yearn.offchain_metadata import get_yearn_frontend_membership
-from eth_defi.erc_4626.vault_protocol.yearn.vault import create_yearn_vault_link, get_yearn_frontend_exclusion_note
+from eth_defi.erc_4626.vault_protocol.yearn.offchain_metadata import fetch_yearn_vault_endorsement
+from eth_defi.erc_4626.vault_protocol.yearn.vault import create_yearn_vault_link
 from eth_defi.vault.base import INSTANT_WITHDRAWAL_PERIOD, WithdrawalPeriod
-from eth_defi.vault.flag import VaultFlag
+from eth_defi.vault.flag import NOT_IN_YEARN_FRONTEND, VaultFlag
 
 #: Yearn TokenizedStrategy fee precision: 10_000 basis points is 100%.
 PERFORMANCE_FEE_DENOMINATOR = 10_000
@@ -104,28 +104,32 @@ class YearnCompounderVault(ERC4626Vault):
         """Add an exclusion flag to unendorsed Yearn compounder contracts.
 
         Compounder classification identifies a Yearn TokenizedStrategy vault,
-        so an explicit negative yDaemon result safely marks it as unavailable
-        in the official Yearn frontend.
+        so an explicit unendorsed yDaemon result safely marks it as unofficial.
 
         :return:
             Existing flags plus :attr:`VaultFlag.unofficial` only
-            when Yearn explicitly excludes the vault.
+            when Yearn explicitly does not endorse the vault.
         """
 
         flags = super().get_flags()
-        if get_yearn_frontend_membership(self.chain_id, self.vault_address) is False:
+        if fetch_yearn_vault_endorsement(self.chain_id, self.vault_address) is False:
             flags = set(flags)
             flags.add(VaultFlag.unofficial)
         return flags
 
     def get_notes(self) -> str | None:
-        """Return manual notes before the Yearn frontend-membership warning.
+        """Return manual notes before the Yearn endorsement warning.
 
         :return:
-            Existing shared note, the unlisted-Yearn note, or ``None``.
+            Existing shared note, the unendorsed-Yearn note, or ``None``.
         """
 
-        return super().get_notes() or get_yearn_frontend_exclusion_note(self.chain_id, self.vault_address)
+        notes = super().get_notes()
+        if notes:
+            return notes
+        if fetch_yearn_vault_endorsement(self.chain_id, self.vault_address) is False:
+            return NOT_IN_YEARN_FRONTEND
+        return None
 
     def get_link(self, referral: str | None = None) -> str:
         """Return the direct Yearn vault page.

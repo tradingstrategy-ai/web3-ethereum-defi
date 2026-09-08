@@ -13,7 +13,7 @@ from eth_defi.erc_4626.core import get_deployed_erc_4626_contract
 from eth_defi.erc_4626.vault import ERC4626Vault
 from eth_defi.erc_4626.vault_protocol.yearn.deposit_redeem import YearnV3DepositManager
 from eth_defi.erc_4626.vault_protocol.yearn.notes import YEARN_VAULT_NOTES
-from eth_defi.erc_4626.vault_protocol.yearn.offchain_metadata import get_yearn_frontend_membership
+from eth_defi.erc_4626.vault_protocol.yearn.offchain_metadata import fetch_yearn_vault_endorsement
 from eth_defi.vault.base import INSTANT_WITHDRAWAL_PERIOD, WithdrawalPeriod
 from eth_defi.vault.flag import NOT_IN_YEARN_FRONTEND, VaultFlag
 
@@ -32,27 +32,6 @@ def create_yearn_vault_link(chain_id: int, vault_address: HexAddress) -> str:
     """
 
     return f"https://yearn.fi/vaults/{chain_id}/{vault_address.lower()}"
-
-
-def get_yearn_frontend_exclusion_note(chain_id: int, vault_address: HexAddress) -> str | None:
-    """Create an operator note when Yearn excludes a known vault address.
-
-    The shared metadata fetch returns ``None`` for a temporary source failure.
-    That unknown state must not create a note or influence risk classification;
-    only an explicit ``False`` membership decision produces the warning.
-
-    :param chain_id:
-        EVM chain ID where the vault is deployed.
-    :param vault_address:
-        Vault contract address to look up in Yearn's metadata.
-    :return:
-        The exclusion note for a known non-Yearn frontend vault, otherwise
-        ``None``.
-    """
-
-    if get_yearn_frontend_membership(chain_id, vault_address) is False:
-        return NOT_IN_YEARN_FRONTEND
-    return None
 
 
 class YearnV3Vault(ERC4626Vault):
@@ -257,15 +236,15 @@ class YearnV3Vault(ERC4626Vault):
 
         CAP reuses this adapter's V3 implementation but is not a Yearn product,
         so protocol classification remains the guard before consulting Yearn's
-        frontend catalogue.
+        endorsement catalogue.
 
         :return:
             Existing flags plus :attr:`VaultFlag.unofficial` only
-            when Yearn explicitly excludes the vault.
+            when Yearn explicitly does not endorse the vault.
         """
 
         flags = super().get_flags()
-        if self.get_protocol_name() == "Yearn" and get_yearn_frontend_membership(self.chain_id, self.vault_address) is False:
+        if self.get_protocol_name() == "Yearn" and fetch_yearn_vault_endorsement(self.chain_id, self.vault_address) is False:
             flags = set(flags)
             flags.add(VaultFlag.unofficial)
         return flags
@@ -289,8 +268,8 @@ class YearnV3Vault(ERC4626Vault):
         if yearn_note:
             return yearn_note
 
-        if self.get_protocol_name() == "Yearn":
-            return get_yearn_frontend_exclusion_note(self.chain_id, self.vault_address)
+        if self.get_protocol_name() == "Yearn" and fetch_yearn_vault_endorsement(self.chain_id, self.vault_address) is False:
+            return NOT_IN_YEARN_FRONTEND
         return None
 
     def get_link(self, referral: str | None = None) -> str:

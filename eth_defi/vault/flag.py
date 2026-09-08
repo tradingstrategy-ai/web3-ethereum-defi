@@ -83,10 +83,11 @@ class VaultFlag(str, enum.Enum):
     #: a product a tokenised fund.
     tokenised_fund = "tokenised_fund"
 
-    #: A detectable vault is absent from the protocol's authoritative public
-    #: frontend or catalogue and therefore cannot be verified as an official
-    #: product. Use this flag for any protocol whose own metadata excludes a
-    #: vault; the deployment may be an unofficial product or a spoof attempt.
+    #: A detectable vault cannot be verified as an official product from a
+    #: protocol's authoritative metadata. Use this flag only where the source
+    #: explicitly does not endorse the vault; absence from one frontend alone
+    #: is insufficient because a protocol can endorse partner products outside
+    #: its primary frontend. The deployment may be unofficial or a spoof attempt.
     #: For example, the Yearn V3-compatible Coinflakes Vault V2.0 at
     #: ``0x254bd33e2f62713f893f0842c99e68f855cda315`` is absent from Yearn's
     #: frontend and is therefore ``unofficial``.

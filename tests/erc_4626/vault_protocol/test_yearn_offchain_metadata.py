@@ -20,8 +20,9 @@ from eth_defi.erc_4626.vault import ERC4626Vault
 from eth_defi.erc_4626.vault_protocol.cap.vault import CAPVault
 from eth_defi.erc_4626.vault_protocol.yearn.compounder import YearnCompounderVault
 from eth_defi.erc_4626.vault_protocol.yearn.offchain_metadata import (
+    CachedYearnVaultIndex,
+    fetch_yearn_vault_endorsement,
     fetch_yearn_vaults_file_for_chain,
-    get_yearn_frontend_membership,
 )
 from eth_defi.erc_4626.vault_protocol.yearn.vault import YearnV3Vault
 from eth_defi.research.vault_metrics import apply_bad_flag_check
@@ -31,6 +32,9 @@ from eth_defi.vault.risk import VaultTechnicalRisk
 
 COINFLAKES_VAULT = "0x254bd33e2f62713f893f0842c99e68f855cda315"
 OFFICIAL_YEARN_VAULT = "0x1111111111111111111111111111111111111111"
+ENDORSED_YEARN_PARTNER_VAULT = "0x2222222222222222222222222222222222222222"
+LIVE_OFFICIAL_YEARN_VAULT = "0x00c8a649c9837523ebb406ceb17a6378ab5c74cf"
+EXPECTED_CACHE_REFRESH_CALLS = 2
 
 
 def _make_ydaemon_document() -> dict[str, object]:
@@ -55,6 +59,17 @@ def _make_ydaemon_document() -> dict[str, object]:
                     "isHidden": False,
                     "inclusion": {
                         "isYearn": True,
+                    },
+                },
+            },
+            ENDORSED_YEARN_PARTNER_VAULT: {
+                "address": ENDORSED_YEARN_PARTNER_VAULT,
+                "endorsed": True,
+                "metadata": {
+                    "isHidden": False,
+                    "inclusion": {
+                        "isYearn": False,
+                        "isYearnJuiced": True,
                     },
                 },
             },
@@ -87,6 +102,8 @@ def test_yearn_static_metadata_is_cached_and_normalised(tmp_path, monkeypatch: p
     assert first is not None
     assert first[COINFLAKES_VAULT].endorsed is False
     assert first[COINFLAKES_VAULT].is_yearn is False
+    assert first[ENDORSED_YEARN_PARTNER_VAULT].endorsed is True
+    assert first[ENDORSED_YEARN_PARTNER_VAULT].is_yearn is False
     assert (tmp_path / "yearn-vaults-1.json").exists()
 
     # 3. The fresh persistent cache prevents per-vault repeated HTTP calls.
@@ -120,20 +137,35 @@ def test_corrupt_yearn_cache_is_replaced_from_the_source(tmp_path, monkeypatch: 
     assert cache_file.read_text() != "not valid json"
 
 
-def test_yearn_metadata_membership_has_safe_three_way_result(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Only a successfully loaded catalogue can classify a vault as unlisted."""
+def test_yearn_metadata_schema_without_any_official_vault_is_rejected() -> None:
+    """Fail open when a yDaemon schema change removes the inclusion fields."""
 
-    monkeypatch.setattr(yearn_metadata, "_cached_yearn_vaults", {1: yearn_metadata._parse_yearn_vault_index(_make_ydaemon_document())})
+    document = _make_ydaemon_document()
+    for metadata in document["vaults"].values():
+        metadata.pop("endorsed")
+        metadata["metadata"].pop("inclusion")
 
-    assert get_yearn_frontend_membership(1, COINFLAKES_VAULT) is False
-    assert get_yearn_frontend_membership(1, OFFICIAL_YEARN_VAULT) is True
-    assert get_yearn_frontend_membership(1, "0x000000000000000000000000000000000000dead") is False
+    with pytest.raises(ValueError, match="lacks an endorsed Yearn frontend vault"):
+        yearn_metadata._parse_yearn_vault_index(document)
+
+
+def test_yearn_metadata_endorsement_has_safe_three_way_result(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Only a successfully loaded catalogue can classify a vault as unendorsed."""
+
+    now_ = native_datetime_utc_now()
+    index = yearn_metadata._parse_yearn_vault_index(_make_ydaemon_document())
+    monkeypatch.setattr(yearn_metadata, "_cached_yearn_vaults", {1: CachedYearnVaultIndex(vaults=index, fetched_at=now_)})
+
+    assert fetch_yearn_vault_endorsement(1, COINFLAKES_VAULT) is False
+    assert fetch_yearn_vault_endorsement(1, OFFICIAL_YEARN_VAULT) is True
+    assert fetch_yearn_vault_endorsement(1, ENDORSED_YEARN_PARTNER_VAULT) is True
+    assert fetch_yearn_vault_endorsement(1, "0x000000000000000000000000000000000000dead") is False
 
     # An unavailable source is intentionally distinct from a known missing address.
     monkeypatch.setattr(yearn_metadata, "_cached_yearn_vaults", {})
     monkeypatch.setattr(yearn_metadata, "_yearn_metadata_retry_after", {})
     monkeypatch.setattr(yearn_metadata, "fetch_yearn_vaults_file_for_chain", lambda _chain_id: None)
-    assert get_yearn_frontend_membership(1, COINFLAKES_VAULT) is None
+    assert fetch_yearn_vault_endorsement(1, COINFLAKES_VAULT) is None
 
 
 def test_unavailable_yearn_metadata_retries_after_a_short_cooldown(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -144,9 +176,40 @@ def test_unavailable_yearn_metadata_retries_after_a_short_cooldown(monkeypatch: 
     monkeypatch.setattr(yearn_metadata, "_yearn_metadata_retry_after", {})
     monkeypatch.setattr(yearn_metadata, "fetch_yearn_vaults_file_for_chain", fetch_metadata)
 
-    assert get_yearn_frontend_membership(1, COINFLAKES_VAULT) is None
-    assert get_yearn_frontend_membership(1, OFFICIAL_YEARN_VAULT) is None
+    assert fetch_yearn_vault_endorsement(1, COINFLAKES_VAULT) is None
+    assert fetch_yearn_vault_endorsement(1, OFFICIAL_YEARN_VAULT) is None
     fetch_metadata.assert_called_once_with(1)
+
+
+def test_yearn_metadata_process_cache_refreshes_daily(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Refresh one worker's cached yDaemon catalogue after its cache duration.
+
+    Persistent scanner processes must observe endorsement changes without a
+    container restart, while individual vaults in the same scanner cycle reuse
+    the in-memory index.
+    """
+
+    first_document = _make_ydaemon_document()
+    refreshed_document = _make_ydaemon_document()
+    refreshed_document["vaults"][COINFLAKES_VAULT]["endorsed"] = True
+    first_index = yearn_metadata._parse_yearn_vault_index(first_document)
+    refreshed_index = yearn_metadata._parse_yearn_vault_index(refreshed_document)
+    start = native_datetime_utc_now()
+    now_ = start
+    fetch_metadata = MagicMock(side_effect=[first_index, refreshed_index])
+
+    monkeypatch.setattr(yearn_metadata, "_cached_yearn_vaults", {})
+    monkeypatch.setattr(yearn_metadata, "_yearn_metadata_retry_after", {})
+    monkeypatch.setattr(yearn_metadata, "fetch_yearn_vaults_file_for_chain", fetch_metadata)
+    monkeypatch.setattr(yearn_metadata, "native_datetime_utc_now", lambda: now_)
+
+    assert fetch_yearn_vault_endorsement(1, COINFLAKES_VAULT) is False
+    assert fetch_yearn_vault_endorsement(1, COINFLAKES_VAULT) is False
+    fetch_metadata.assert_called_once_with(1)
+
+    now_ = start + yearn_metadata.DEFAULT_CACHE_DURATION + datetime.timedelta(seconds=1)
+    assert fetch_yearn_vault_endorsement(1, COINFLAKES_VAULT) is True
+    assert fetch_metadata.call_count == EXPECTED_CACHE_REFRESH_CALLS
 
 
 def test_unlisted_yearn_vaults_are_blacklisted_in_metrics(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -158,8 +221,8 @@ def test_unlisted_yearn_vaults_are_blacklisted_in_metrics(monkeypatch: pytest.Mo
        the hard ``blacklisted`` technical-risk classification.
     """
 
-    monkeypatch.setattr(yearn_vault_module, "get_yearn_frontend_membership", lambda *_args: False)
-    monkeypatch.setattr(yearn_compounder_module, "get_yearn_frontend_membership", lambda *_args: False)
+    monkeypatch.setattr(yearn_vault_module, "fetch_yearn_vault_endorsement", lambda *_args: False)
+    monkeypatch.setattr(yearn_compounder_module, "fetch_yearn_vault_endorsement", lambda *_args: False)
     monkeypatch.setattr(ERC4626Vault, "get_flags", lambda _self: set())
     v3_vault = object.__new__(YearnV3Vault)
     v3_vault.spec = VaultSpec(chain_id=1, vault_address=COINFLAKES_VAULT)
@@ -186,6 +249,25 @@ def test_unlisted_yearn_vaults_are_blacklisted_in_metrics(monkeypatch: pytest.Mo
     assert checked_flags == flags
 
 
+def test_endorsed_yearn_partner_vaults_are_not_blacklisted(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Keep Yearn-endorsed partner products out of the unofficial classification."""
+
+    monkeypatch.setattr(yearn_vault_module, "fetch_yearn_vault_endorsement", lambda *_args: True)
+    monkeypatch.setattr(yearn_compounder_module, "fetch_yearn_vault_endorsement", lambda *_args: True)
+    monkeypatch.setattr(ERC4626Vault, "get_flags", lambda _self: set())
+    v3_vault = object.__new__(YearnV3Vault)
+    v3_vault.spec = VaultSpec(chain_id=1, vault_address=ENDORSED_YEARN_PARTNER_VAULT)
+    v3_vault.features = {ERC4626Feature.yearn_v3_like}
+    compounder_vault = object.__new__(YearnCompounderVault)
+    compounder_vault.spec = VaultSpec(chain_id=1, vault_address=ENDORSED_YEARN_PARTNER_VAULT)
+    compounder_vault.features = {ERC4626Feature.yearn_compounder_like}
+
+    assert v3_vault.get_flags() == set()
+    assert v3_vault.get_notes() is None
+    assert compounder_vault.get_flags() == set()
+    assert compounder_vault.get_notes() is None
+
+
 def test_unavailable_yearn_metadata_and_cap_vaults_are_not_blacklisted(monkeypatch: pytest.MonkeyPatch) -> None:
     """Keep unknown metadata and non-Yearn protocol adapters out of this flag.
 
@@ -194,14 +276,14 @@ def test_unavailable_yearn_metadata_and_cap_vaults_are_not_blacklisted(monkeypat
     protocol classification, so it must not be classified from Yearn metadata.
     """
 
-    monkeypatch.setattr(yearn_vault_module, "get_yearn_frontend_membership", lambda *_args: None)
+    monkeypatch.setattr(yearn_vault_module, "fetch_yearn_vault_endorsement", lambda *_args: None)
     monkeypatch.setattr(ERC4626Vault, "get_flags", lambda _self: set())
     yearn_vault = object.__new__(YearnV3Vault)
     yearn_vault.spec = VaultSpec(chain_id=1, vault_address=COINFLAKES_VAULT)
     yearn_vault.features = {ERC4626Feature.yearn_v3_like}
     assert yearn_vault.get_flags() == set()
 
-    monkeypatch.setattr(yearn_vault_module, "get_yearn_frontend_membership", lambda *_args: False)
+    monkeypatch.setattr(yearn_vault_module, "fetch_yearn_vault_endorsement", lambda *_args: False)
     cap_vault = object.__new__(CAPVault)
     cap_vault.spec = VaultSpec(chain_id=1, vault_address=COINFLAKES_VAULT)
     cap_vault.features = {ERC4626Feature.cap_like}
@@ -209,8 +291,8 @@ def test_unavailable_yearn_metadata_and_cap_vaults_are_not_blacklisted(monkeypat
 
 
 @pytest.mark.skipif(os.environ.get("RUN_YEARN_OFFCHAIN_METADATA_TEST") != "1", reason="Set RUN_YEARN_OFFCHAIN_METADATA_TEST=1 to run the live yDaemon GitHub check")
-def test_live_yearn_static_metadata_confirms_coinflakes_is_not_a_yearn_frontend_vault(tmp_path) -> None:
-    """Check the real public yDaemon metadata end-to-end for Coinflakes.
+def test_live_yearn_static_metadata_confirms_endorsement_decisions(tmp_path) -> None:
+    """Check live positive and negative yDaemon endorsement decisions.
 
     This deliberately uses an isolated cache so a stale operator cache cannot
     hide an upstream source change.
@@ -222,3 +304,6 @@ def test_live_yearn_static_metadata_confirms_coinflakes_is_not_a_yearn_frontend_
     metadata = vaults[COINFLAKES_VAULT]
     assert metadata.endorsed is False
     assert metadata.is_yearn is False
+    official_metadata = vaults[LIVE_OFFICIAL_YEARN_VAULT]
+    assert official_metadata.endorsed is True
+    assert official_metadata.is_yearn is True

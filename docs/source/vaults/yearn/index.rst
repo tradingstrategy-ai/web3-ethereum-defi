@@ -40,3 +40,4 @@ Links
    eth_defi.erc_4626.vault_protocol.yearn.vault
    eth_defi.erc_4626.vault_protocol.yearn.compounder
    eth_defi.erc_4626.vault_protocol.yearn.morpho_compounder
+   eth_defi.erc_4626.vault_protocol.yearn.offchain_metadata

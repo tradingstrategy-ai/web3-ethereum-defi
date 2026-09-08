@@ -63,13 +63,36 @@ class YearnVaultMetadata:
     is_yearn: bool
 
 
+@dataclass(slots=True, frozen=True)
+class CachedYearnVaultIndex:
+    """One worker's refreshable yDaemon metadata index.
+
+    The scanner is a persistent process.  Keep the time of the last attempted
+    refresh beside the normalised index so the process cache preserves
+    per-vault efficiency without making Yearn's endorsement decisions stale
+    until the scanner container restarts.
+
+    :param vaults:
+        Lowercase address-keyed normalised yDaemon metadata.
+    :param fetched_at:
+        Naive UTC time when this worker last refreshed the index.
+    """
+
+    #: Lowercase address-keyed normalised yDaemon metadata.
+    vaults: dict[str, YearnVaultMetadata]
+
+    #: Naive UTC time when this worker last refreshed the index.
+    fetched_at: datetime.datetime
+
+
 def _normalise_yearn_vault_metadata(metadata: dict[str, object]) -> YearnVaultMetadata:
     """Extract the frontend-membership fields from one yDaemon vault record.
 
     Source records may omit nested metadata while Yearn is processing a vault.
-    Missing or malformed fields deliberately normalise to ``False``: once a
-    complete source document has loaded, absence of an explicit endorsement or
-    frontend inclusion is a known exclusion rather than a source outage.
+    Missing or malformed fields normalise to ``False``.  The document parser
+    separately verifies that the complete document still contains at least one
+    endorsed Yearn frontend vault, preventing an upstream schema change from
+    treating every vault as a known exclusion.
 
     :param metadata:
         One address-keyed raw yDaemon vault metadata record.
@@ -100,7 +123,14 @@ def _parse_yearn_vault_index(payload: object) -> dict[str, YearnVaultMetadata]:
         message = "Yearn yDaemon metadata document must contain a vaults object"
         raise ValueError(message)
 
-    return {address.lower(): _normalise_yearn_vault_metadata(metadata) for address, metadata in vaults.items() if isinstance(address, str) and isinstance(metadata, dict)}
+    index = {address.lower(): _normalise_yearn_vault_metadata(metadata) for address, metadata in vaults.items() if isinstance(address, str) and isinstance(metadata, dict)}
+    if not index:
+        message = "Yearn yDaemon metadata document must contain vault records"
+        raise ValueError(message)
+    if not any(metadata.endorsed and metadata.is_yearn for metadata in index.values()):
+        message = "Yearn yDaemon metadata document lacks an endorsed Yearn frontend vault"
+        raise ValueError(message)
+    return index
 
 
 def _load_cached_yearn_vault_index(file: Path) -> dict[str, YearnVaultMetadata] | None:
@@ -208,17 +238,21 @@ def fetch_yearn_vaults_file_for_chain(
 
 
 #: Per-process successful catalogue cache shared by all Yearn adapters in one worker.
-_cached_yearn_vaults: dict[int, dict[str, YearnVaultMetadata]] = {}
+_cached_yearn_vaults: dict[int, CachedYearnVaultIndex] = {}
 
 #: Per-chain retry deadlines after a transient source failure.
 _yearn_metadata_retry_after: dict[int, datetime.datetime] = {}
 
 
-def get_yearn_frontend_membership(chain_id: int, vault_address: HexAddress) -> bool | None:
-    """Check whether Yearn endorses and includes a vault in its frontend.
+def fetch_yearn_vault_endorsement(chain_id: int, vault_address: HexAddress) -> bool | None:
+    """Fetch whether Yearn explicitly endorses a vault.
 
     ``False`` is returned only after successfully loading Yearn metadata and
-    finding either no address entry or an entry without both required markers.
+    finding either no address entry or an entry without an explicit endorsement.
+    An endorsed partner vault may be excluded from Yearn's primary frontend
+    (for example, a Yearn Juiced vault), but it remains an official Yearn
+    product and must not be classified as ``unofficial``.
+
     ``None`` deliberately represents unavailable metadata, preventing a
     transient GitHub or cache problem from blacklisting a vault.
 
@@ -227,27 +261,29 @@ def get_yearn_frontend_membership(chain_id: int, vault_address: HexAddress) -> b
     :param vault_address:
         Vault contract address.
     :return:
-        ``True`` for an official Yearn frontend vault, ``False`` for a known
-        unlisted contract, and ``None`` when metadata is unavailable.
+        ``True`` for a Yearn-endorsed vault, ``False`` for a known unendorsed
+        contract, and ``None`` when metadata is unavailable.
     """
 
-    vaults = _cached_yearn_vaults.get(chain_id)
-    if vaults is None:
-        now_ = native_datetime_utc_now()
+    now_ = native_datetime_utc_now()
+    cached_index = _cached_yearn_vaults.get(chain_id)
+    cache_is_stale = cached_index is None or now_ - cached_index.fetched_at > DEFAULT_CACHE_DURATION
+    if cache_is_stale:
         retry_after = _yearn_metadata_retry_after.get(chain_id)
-        if retry_after is not None and now_ < retry_after:
-            return None
+        if retry_after is None or now_ >= retry_after:
+            vaults = fetch_yearn_vaults_file_for_chain(chain_id)
+            if vaults is None:
+                _yearn_metadata_retry_after[chain_id] = now_ + UNAVAILABLE_RETRY_DELAY
+            else:
+                cached_index = CachedYearnVaultIndex(vaults=vaults, fetched_at=now_)
+                _cached_yearn_vaults[chain_id] = cached_index
+                _yearn_metadata_retry_after.pop(chain_id, None)
 
-        vaults = fetch_yearn_vaults_file_for_chain(chain_id)
-        if vaults is None:
-            _yearn_metadata_retry_after[chain_id] = now_ + UNAVAILABLE_RETRY_DELAY
-            return None
+    if cached_index is None:
+        return None
 
-        _cached_yearn_vaults[chain_id] = vaults
-        _yearn_metadata_retry_after.pop(chain_id, None)
-
-    metadata = vaults.get(vault_address.lower())
+    metadata = cached_index.vaults.get(vault_address.lower())
     if metadata is None:
         return False
 
-    return metadata.endorsed and metadata.is_yearn
+    return metadata.endorsed
