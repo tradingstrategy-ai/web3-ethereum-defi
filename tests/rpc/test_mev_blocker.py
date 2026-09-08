@@ -1,17 +1,26 @@
 """Test MEV blocker provider switching."""
 
 import datetime
+import threading
 
 import pytest
 from web3 import HTTPProvider, Web3
+from web3._utils.caching.caching_utils import generate_cache_key
 
-from eth_defi.confirmation import wait_and_broadcast_multiple_nodes_mev_blocker, ConfirmationTimedOut
+from eth_defi.confirmation import (
+    ConfirmationTimedOut,
+    fetch_fresh_singleton_receipt,
+    wait_and_broadcast_multiple_nodes_mev_blocker,
+)
 from eth_defi.provider.anvil import launch_anvil, AnvilLaunch
 from eth_defi.provider.mev_blocker import MEVBlockerProvider, get_mev_blocker_provider
+from eth_defi.provider.multi_provider import create_multi_provider_web3
+from eth_defi.provider.receipt import wait_for_transaction_receipt_robust
 
 from eth_defi.hotwallet import HotWallet
 from eth_defi.trace import assert_transaction_success_with_explanation
 from eth_defi.abi import ZERO_ADDRESS
+from eth_defi.compat import sessions
 from eth_defi.tx import get_tx_broadcast_data
 
 
@@ -159,3 +168,40 @@ def test_mev_blocker_broadcast_timeout(mev_blocker_provider: MEVBlockerProvider)
 
     with pytest.raises(ConfirmationTimedOut):
         wait_and_broadcast_multiple_nodes_mev_blocker(web3.provider, [signed_tx], max_timeout=datetime.timedelta(seconds=-1))
+
+
+def test_fresh_singleton_receipt_fetch_keeps_provider_instrumentation(anvil: AnvilLaunch) -> None:
+    """Recover a transaction receipt without replacing the singleton provider.
+
+    1. Broadcast a transaction through a singleton fallback provider.
+    2. Probe its receipt using a fresh HTTP connection.
+    3. Verify the receipt is returned through a new session without replacing the provider.
+    """
+    # 1. Broadcast a transaction through a singleton fallback provider.
+    web3 = create_multi_provider_web3(anvil.json_rpc_url, retries=0)
+    fallback_provider = web3.get_fallback_provider()
+    wallet = HotWallet.create_for_testing(web3)
+    signed_tx = wallet.sign_transaction_with_new_nonce(
+        {
+            "from": wallet.address,
+            "to": ZERO_ADDRESS,
+            "value": 1,
+            "gas": 100_000,
+            "gasPrice": web3.eth.gas_price,
+        }
+    )
+    tx_hash = web3.eth.send_raw_transaction(get_tx_broadcast_data(signed_tx))
+    wait_for_transaction_receipt_robust(web3, tx_hash, confirmation_block_count=0)
+    original_provider = fallback_provider.get_active_provider()
+    cache_key = generate_cache_key(f"{threading.get_ident()}:{original_provider.endpoint_uri}")
+    original_session = sessions.session_cache.get_cache_entry(cache_key)
+    assert original_session is not None
+
+    # 2. Fetch its receipt using a fresh HTTP connection.
+    receipt = fetch_fresh_singleton_receipt(fallback_provider, tx_hash)
+
+    # 3. Verify the receipt is returned through a new session without replacing the provider.
+    assert receipt["transactionHash"] == tx_hash
+    assert fallback_provider.get_active_provider() is original_provider
+    assert sessions.session_cache.get_cache_entry(cache_key) is not original_session
+    assert web3.eth.get_transaction_receipt(tx_hash)["transactionHash"] == tx_hash

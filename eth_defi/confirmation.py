@@ -19,12 +19,12 @@ from typing import Collection, Dict, List, Set, Union, cast
 
 from eth_account.datastructures import SignedTransaction
 from hexbytes import HexBytes
-from web3 import Web3
+from web3 import HTTPProvider, Web3
 from web3.exceptions import TransactionNotFound
 from web3.providers import BaseProvider
 
 from eth_defi.compat import native_datetime_utc_now
-from eth_defi.event_reader.fast_json_rpc import get_last_headers
+from eth_defi.event_reader.fast_json_rpc import get_last_headers, reset_http_session
 from eth_defi.hotwallet import SignedTransactionWithNonce
 from eth_defi.provider.anvil import is_anvil, mine
 from eth_defi.provider.fallback import FallbackProvider, get_fallback_provider
@@ -78,6 +78,33 @@ def is_out_of_gas(eth_rpc_error_messag: str) -> bool:
 def is_invalid_sender(eth_rpc_error_messag: str) -> bool:
     """from address missing in the tx payload"""
     return "invalid sender" in eth_rpc_error_messag
+
+
+def fetch_fresh_singleton_receipt(provider: BaseProvider, tx_hash: HexBytes) -> dict | None:
+    """Fetch a receipt after replacing a singleton RPC connection.
+
+    Reset the shared session used by the patched provider before retrying the
+    receipt read. This retains fallback-provider instrumentation and routing.
+
+    :param provider:
+        A singleton fallback provider.
+    :param tx_hash:
+        Transaction whose receipt to fetch.
+    :return:
+        The receipt from the new connection, or ``None`` if it is not visible.
+    """
+    if not isinstance(provider, FallbackProvider) or len(provider.providers) != 1:
+        return None
+
+    active_provider = provider.get_active_provider()
+    if not isinstance(active_provider, HTTPProvider):
+        return None
+
+    reset_http_session(active_provider)
+    try:
+        return Web3(active_provider).eth.get_transaction_receipt(tx_hash)
+    except TransactionNotFound:
+        return None
 
 
 def wait_transactions_to_complete(
@@ -1476,7 +1503,7 @@ def wait_and_broadcast_multiple_nodes_mev_blocker(
         transaction_provider = provider.transact_provider
         backup_provider = provider.call_provider
     else:
-        # Test path
+        # A regular provider sends transactions and serves reads.
         transaction_provider = provider
         backup_provider = provider
 
@@ -1524,14 +1551,18 @@ def wait_and_broadcast_multiple_nodes_mev_blocker(
                         time.sleep(broadcast_and_read_delay.total_seconds())
 
                 if time.time() > try_other_provider_timeout:
-                    # Also try backup provider if sequencer is blocking us for some reason
-                    logger.info("Attempting backup provider %s", backup_provider)
+                    logger.info("Checking receipt through fallback provider %s", backup_provider)
+                    try:
+                        backup_provider_receipt = backup_web3.eth.get_transaction_receipt(tx_hash)
+                    except TransactionNotFound:
+                        if backup_provider is transaction_provider:
+                            backup_provider_receipt = fetch_fresh_singleton_receipt(backup_provider, tx_hash)
+                        else:
+                            raise
 
-                    # If we do not check for this we may get "nonce too low" error when
-                    # broadcasting the same transaction, which is a bug in JSON-RPC
-                    backup_provider_receipt = backup_web3.eth.get_transaction_receipt(tx_hash)
-
-                    if not backup_provider_receipt:
+                    if backup_provider_receipt:
+                        logger.info("Received receipt through fallback provider for tx hash: %s", tx.hash.hex())
+                    elif backup_provider is not transaction_provider:
                         logger.info(
                             "No receipt, attempting to broadcast with hash: %s with backup provider %s",
                             tx.hash.hex(),
@@ -1549,9 +1580,6 @@ def wait_and_broadcast_multiple_nodes_mev_blocker(
                                 logger.info("Already known race condition: %s", str(e))
                             else:
                                 raise e
-                    else:
-                        logger.info("Received backup receipt with has tx_hash: %s", tx.hash)
-
                 logger.debug("Starting MEV Blocker confirmation cycle, unconfirmed tx is: %s, sleeping poll delay %s", tx_hash.hex(), poll_delay)
 
                 # Read receipt using read node,

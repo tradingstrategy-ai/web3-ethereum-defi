@@ -10,11 +10,12 @@ from typing import Any, cast
 
 import orjson
 from web3 import Web3
+from web3._utils.caching.caching_utils import generate_cache_key
 from web3.providers import JSONBaseProvider
 from web3.providers.rpc import HTTPProvider
 from web3.types import RPCEndpoint, RPCResponse
 
-from eth_defi.compat import get_response_from_post_request
+from eth_defi.compat import get_response_from_post_request, sessions
 from eth_defi.utils import get_url_domain
 
 logger = logging.getLogger(__name__)
@@ -107,6 +108,24 @@ def patch_provider(provider: JSONBaseProvider):
     if isinstance(provider, HTTPProvider):
         provider.make_request = _make_request.__get__(provider)
     provider.decode_rpc_response = _fast_decode_rpc_response
+
+
+def reset_http_session(provider: HTTPProvider) -> None:
+    """Drop the current thread's cached HTTP connection for an endpoint.
+
+    The next patched request creates a new :class:`requests.Session` while
+    retaining the provider's middleware, accounting and diagnostics.
+
+    :param provider:
+        HTTP provider whose cached connection is reset.
+    :return:
+        Always ``None``.
+    """
+    cache_key = generate_cache_key(f"{threading.get_ident()}:{provider.endpoint_uri}")
+    with sessions._lock:
+        session = sessions.session_cache.pop(cache_key)
+    if session is not None:
+        session.close()
 
 
 def patch_web3(web3: Web3):
