@@ -4,23 +4,23 @@ import datetime
 import threading
 
 import pytest
+from hexbytes import HexBytes
 from web3 import HTTPProvider, Web3
 from web3._utils.caching.caching_utils import generate_cache_key
 
+from eth_defi.abi import ZERO_ADDRESS
+from eth_defi.compat import sessions
 from eth_defi.confirmation import (
     ConfirmationTimedOut,
     fetch_fresh_singleton_receipt,
     wait_and_broadcast_multiple_nodes_mev_blocker,
 )
-from eth_defi.provider.anvil import launch_anvil, AnvilLaunch
+from eth_defi.hotwallet import HotWallet
+from eth_defi.provider.anvil import AnvilLaunch, launch_anvil
 from eth_defi.provider.mev_blocker import MEVBlockerProvider, get_mev_blocker_provider
 from eth_defi.provider.multi_provider import create_multi_provider_web3
-from eth_defi.provider.receipt import wait_for_transaction_receipt_robust
-
-from eth_defi.hotwallet import HotWallet
+from eth_defi.provider.receipt import ReceiptVisibilityMismatch, wait_for_transaction_receipt_robust
 from eth_defi.trace import assert_transaction_success_with_explanation
-from eth_defi.abi import ZERO_ADDRESS
-from eth_defi.compat import sessions
 from eth_defi.tx import get_tx_broadcast_data
 
 
@@ -170,14 +170,84 @@ def test_mev_blocker_broadcast_timeout(mev_blocker_provider: MEVBlockerProvider)
         wait_and_broadcast_multiple_nodes_mev_blocker(web3.provider, [signed_tx], max_timeout=datetime.timedelta(seconds=-1))
 
 
-def test_fresh_singleton_receipt_fetch_keeps_provider_instrumentation(anvil: AnvilLaunch) -> None:
-    """Recover a transaction receipt without replacing the singleton provider.
+def test_fresh_singleton_receipt_recovers_broadcast_loop(anvil: AnvilLaunch, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Recover the broadcast loop from stale singleton receipt visibility.
 
-    1. Broadcast a transaction through a singleton fallback provider.
-    2. Probe its receipt using a fresh HTTP connection.
-    3. Verify the receipt is returned through a new session without replacing the provider.
+    This reproduces the relevant shape of the 2026-09-08 Derive incident without
+    depending on an external flaky RPC: the first receipt read on the persistent
+    connection reports the transaction missing, while the read after session reset
+    reaches the real Anvil receipt.
+
+    1. Configure a singleton fallback provider whose first receipt read is stale.
+    2. Broadcast through the production confirmation loop and trigger recovery.
+    3. Verify the matching receipt used a new session and fallback instrumentation.
     """
-    # 1. Broadcast a transaction through a singleton fallback provider.
+    # 1. Configure a singleton fallback provider whose first receipt read is stale.
+    web3 = create_multi_provider_web3(anvil.json_rpc_url, retries=0)
+    fallback_provider = web3.get_fallback_provider()
+    wallet = HotWallet.create_for_testing(web3)
+    signed_tx = wallet.sign_transaction_with_new_nonce(
+        {
+            "from": wallet.address,
+            "to": ZERO_ADDRESS,
+            "value": 1,
+            "gas": 100_000,
+            "gasPrice": web3.eth.gas_price,
+        }
+    )
+    original_provider = fallback_provider.get_active_provider()
+    original_make_request = original_provider.make_request
+    cache_key = generate_cache_key(f"{threading.get_ident()}:{original_provider.endpoint_uri}")
+    original_session = sessions.session_cache.get_cache_entry(cache_key)
+    assert original_session is not None
+    receipt_reads = 0
+    receipt_sessions = []
+
+    def return_one_stale_receipt(method: str, params: list) -> dict:
+        """Simulate one load-balancer backend that has not indexed the receipt."""
+        nonlocal receipt_reads
+        if method == "eth_getTransactionReceipt":
+            receipt_reads += 1
+            receipt_sessions.append(sessions.session_cache.get_cache_entry(cache_key))
+            if receipt_reads == 1:
+                return {"jsonrpc": "2.0", "id": 1, "result": None}
+        return original_make_request(method, params)
+
+    # Mock only the first receipt response; subsequent calls still reach Anvil.
+    # This gives the test deterministic stale-then-fresh behaviour while retaining
+    # the real HTTP session manager and FallbackProvider request path.
+    monkeypatch.setattr(original_provider, "make_request", return_one_stale_receipt)
+    receipt_call_count = fallback_provider.get_total_api_call_counts()["eth_getTransactionReceipt"]
+
+    # 2. Broadcast through the production confirmation loop and trigger recovery.
+    receipts = wait_and_broadcast_multiple_nodes_mev_blocker(
+        web3.provider,
+        [signed_tx],
+        max_timeout=datetime.timedelta(seconds=2),
+        poll_delay=datetime.timedelta(milliseconds=10),
+        broadcast_and_read_delay=datetime.timedelta(0),
+        try_other_provider_delay=datetime.timedelta(seconds=-1),
+    )
+
+    # 3. Verify the matching receipt used a new session and fallback instrumentation.
+    receipt = receipts[signed_tx.hash]
+    assert receipt["transactionHash"] == signed_tx.hash
+    assert receipt_reads == 2
+    assert receipt_sessions[0] is original_session
+    assert receipt_sessions[1] is None
+    assert fallback_provider.get_active_provider() is original_provider
+    assert fallback_provider.get_total_api_call_counts()["eth_getTransactionReceipt"] == receipt_call_count + receipt_reads
+
+
+def test_fresh_singleton_receipt_validates_transaction_identity(anvil: AnvilLaunch, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Validate receipt identity without hiding a real transaction failure.
+
+    1. Broadcast and confirm a transaction through a singleton fallback provider.
+    2. Simulate a misrouted backend returning that receipt under another hash.
+    3. Verify the fresh-session helper refuses the mismatching receipt.
+    4. Verify a matching failed receipt is still returned for revert handling.
+    """
+    # 1. Broadcast and confirm a transaction through a singleton fallback provider.
     web3 = create_multi_provider_web3(anvil.json_rpc_url, retries=0)
     fallback_provider = web3.get_fallback_provider()
     wallet = HotWallet.create_for_testing(web3)
@@ -192,16 +262,33 @@ def test_fresh_singleton_receipt_fetch_keeps_provider_instrumentation(anvil: Anv
     )
     tx_hash = web3.eth.send_raw_transaction(get_tx_broadcast_data(signed_tx))
     wait_for_transaction_receipt_robust(web3, tx_hash, confirmation_block_count=0)
+
+    # 2. Simulate a misrouted backend returning that receipt under another hash.
     original_provider = fallback_provider.get_active_provider()
-    cache_key = generate_cache_key(f"{threading.get_ident()}:{original_provider.endpoint_uri}")
-    original_session = sessions.session_cache.get_cache_entry(cache_key)
-    assert original_session is not None
+    original_make_request = original_provider.make_request
+    raw_response = original_make_request("eth_getTransactionReceipt", [tx_hash.to_0x_hex()])
+    wrong_tx_hash = HexBytes("0x" + "ff" * 32)
+    wrong_response = {**raw_response, "result": {**raw_response["result"], "transactionHash": wrong_tx_hash.to_0x_hex()}}
+    response_to_return = wrong_response
 
-    # 2. Fetch its receipt using a fresh HTTP connection.
+    def return_wrong_receipt(method: str, params: list) -> dict:
+        """Return a validly shaped receipt for the wrong transaction hash."""
+        if method == "eth_getTransactionReceipt":
+            return response_to_return
+        return original_make_request(method, params)
+
+    # Mock a broken backend response because the safety property is that transport
+    # recovery must never weaken transaction identity validation.
+    monkeypatch.setattr(original_provider, "make_request", return_wrong_receipt)
+
+    # 3. Verify the fresh-session helper refuses the mismatching receipt.
+    with pytest.raises(ReceiptVisibilityMismatch, match="does not match requested transaction"):
+        fetch_fresh_singleton_receipt(fallback_provider, tx_hash)
+
+    # 4. Verify a matching failed receipt is still returned for revert handling.
+    # The recovery validates identity only: status == 0 is real chain data and the
+    # caller, not the flaky-RPC workaround, remains responsible for reporting it.
+    response_to_return = {**raw_response, "result": {**raw_response["result"], "status": "0x0"}}
     receipt = fetch_fresh_singleton_receipt(fallback_provider, tx_hash)
-
-    # 3. Verify the receipt is returned through a new session without replacing the provider.
     assert receipt["transactionHash"] == tx_hash
-    assert fallback_provider.get_active_provider() is original_provider
-    assert sessions.session_cache.get_cache_entry(cache_key) is not original_session
-    assert web3.eth.get_transaction_receipt(tx_hash)["transactionHash"] == tx_hash
+    assert receipt["status"] == 0

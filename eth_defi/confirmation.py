@@ -30,7 +30,7 @@ from eth_defi.provider.anvil import is_anvil, mine
 from eth_defi.provider.fallback import FallbackProvider, get_fallback_provider
 from eth_defi.provider.mev_blocker import MEVBlockerProvider
 from eth_defi.provider.named import get_provider_name
-from eth_defi.provider.receipt import TransactionVisibilityTimedOut, wait_for_transaction_visibility
+from eth_defi.provider.receipt import ReceiptVisibilityMismatch, TransactionVisibilityTimedOut, wait_for_transaction_visibility
 from eth_defi.revert_reason import fetch_transaction_revert_reason
 from eth_defi.timestamp import get_latest_block_timestamp
 from eth_defi.tx import DecodeFailure, decode_signed_transaction, get_tx_broadcast_data
@@ -81,10 +81,17 @@ def is_invalid_sender(eth_rpc_error_messag: str) -> bool:
 
 
 def fetch_fresh_singleton_receipt(provider: BaseProvider, tx_hash: HexBytes) -> dict | None:
-    """Fetch a receipt after replacing a singleton RPC connection.
+    """Fetch a receipt after resetting a singleton RPC connection.
 
-    Reset the shared session used by the patched provider before retrying the
-    receipt read. This retains fallback-provider instrumentation and routing.
+    Derive exposes only one public RPC URL, but that URL may load balance requests
+    across backend nodes. During the 2026-09-08 Vega incident, the transaction was
+    mined one second after broadcast while one persistent HTTP connection returned
+    ``TransactionNotFound`` for ten minutes. Resetting the cached session gives the
+    same configured URL a chance to select a backend that can see the receipt.
+
+    The retry still goes through the original :py:class:`FallbackProvider`. This
+    keeps its request/error accounting and does not turn the singleton URL into a
+    second provider or change MEV transaction routing.
 
     :param provider:
         A singleton fallback provider.
@@ -96,15 +103,33 @@ def fetch_fresh_singleton_receipt(provider: BaseProvider, tx_hash: HexBytes) -> 
     if not isinstance(provider, FallbackProvider) or len(provider.providers) != 1:
         return None
 
+    # The workaround is deliberately restricted to the Derive-shaped topology:
+    # one FallbackProvider containing one HTTP endpoint. Multi-provider setups
+    # already have a genuinely independent read provider and must retain their
+    # existing failover and MEV routing behaviour.
     active_provider = provider.get_active_provider()
     if not isinstance(active_provider, HTTPProvider):
         return None
 
+    # Drop only this thread's pooled connection. The configured provider object,
+    # request headers, timeouts and authentication remain untouched.
     reset_http_session(active_provider)
     try:
-        return Web3(active_provider).eth.get_transaction_receipt(tx_hash)
+        # Route the retry through FallbackProvider, not its child, so the fresh
+        # request is visible in the existing RPC diagnostics and counters.
+        receipt = Web3(provider).eth.get_transaction_receipt(tx_hash)
     except TransactionNotFound:
         return None
+
+    # A fresh connection is only a transport recovery mechanism. Never let a
+    # faulty or misrouted backend make us confirm a different transaction under
+    # the hash we originally broadcast. Failed receipts (status == 0) still pass
+    # this identity check and are returned for the caller's normal revert handling.
+    receipt_tx_hash = receipt.get("transactionHash")
+    if receipt_tx_hash is None or HexBytes(receipt_tx_hash) != HexBytes(tx_hash):
+        raise ReceiptVisibilityMismatch(f"Fresh singleton RPC receipt hash {receipt_tx_hash!r} does not match requested transaction {HexBytes(tx_hash).hex()}")
+
+    return receipt
 
 
 def wait_transactions_to_complete(
@@ -1555,9 +1580,17 @@ def wait_and_broadcast_multiple_nodes_mev_blocker(
                     try:
                         backup_provider_receipt = backup_web3.eth.get_transaction_receipt(tx_hash)
                     except TransactionNotFound:
+                        # With a singleton Derive FallbackProvider, "backup" and
+                        # transaction provider are the same object. Retrying it on
+                        # the same pooled HTTP connection reproduced the 2026-09-08
+                        # ten-minute false timeout, so refresh that connection once
+                        # the normal backup delay has elapsed.
                         if backup_provider is transaction_provider:
                             backup_provider_receipt = fetch_fresh_singleton_receipt(backup_provider, tx_hash)
                         else:
+                            # A separate call provider is part of the established
+                            # MEV path. Preserve its exception and rebroadcast
+                            # behaviour instead of applying the singleton workaround.
                             raise
 
                     if backup_provider_receipt:

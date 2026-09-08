@@ -121,10 +121,19 @@ def reset_http_session(provider: HTTPProvider) -> None:
     :return:
         Always ``None``.
     """
+    # get_response_from_post_request() uses Web3.py's HTTPSessionManager, whose
+    # cache key is exactly the current thread id plus endpoint URI. Reusing this
+    # key lets us evict the stale connection without replacing or reconstructing
+    # the configured HTTPProvider and its potentially sensitive request settings.
     cache_key = generate_cache_key(f"{threading.get_ident()}:{provider.endpoint_uri}")
     with sessions._lock:
+        # Remove the session while holding the manager's own lock so the next
+        # request in this thread cannot retrieve the connection being retired.
         session = sessions.session_cache.pop(cache_key)
     if session is not None:
+        # Closing after removal releases the old keep-alive socket. The next RPC
+        # call will create a new session and may reach a different load-balancer
+        # backend, which is the recovery needed by the Derive incident.
         session.close()
 
 
