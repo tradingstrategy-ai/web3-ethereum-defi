@@ -9,12 +9,11 @@ import datetime
 import logging
 from functools import cached_property
 
-from eth_typing import BlockIdentifier, HexAddress
+from eth_typing import BlockIdentifier
 from web3.contract import Contract
 
 from eth_defi.erc_4626.core import get_deployed_erc_4626_contract
-from eth_defi.erc_4626.vault_protocol.yearn.links import create_yearn_vault_link
-from eth_defi.erc_4626.vault_protocol.yearn.vault import YearnV3Vault
+from eth_defi.erc_4626.vault_protocol.yearn.vault import YearnV3Vault, create_yearn_vault_link
 
 logger = logging.getLogger(__name__)
 

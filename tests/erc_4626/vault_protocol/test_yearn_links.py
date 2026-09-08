@@ -3,9 +3,8 @@
 import pytest
 
 from eth_defi.erc_4626.vault_protocol.yearn.compounder import YearnCompounderVault
-from eth_defi.erc_4626.vault_protocol.yearn.links import create_yearn_vault_link
 from eth_defi.erc_4626.vault_protocol.yearn.morpho_compounder import YearnMorphoCompounderStrategy
-from eth_defi.erc_4626.vault_protocol.yearn.vault import YearnV3Vault
+from eth_defi.erc_4626.vault_protocol.yearn.vault import YearnV3Vault, create_yearn_vault_link
 from eth_defi.vault.base import VaultSpec
 
 VAULT_ADDRESS = "0x254bd33e2f62713f893f0842c99e68f855cda315"

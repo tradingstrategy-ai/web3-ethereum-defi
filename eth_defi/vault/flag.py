@@ -83,7 +83,13 @@ class VaultFlag(str, enum.Enum):
     #: a product a tokenised fund.
     tokenised_fund = "tokenised_fund"
 
-    #: Vault ls missing in the protocol official website and might be a spoof attempt
+    #: A detectable vault is absent from the protocol's authoritative public
+    #: frontend or catalogue and therefore cannot be verified as an official
+    #: product. Use this flag for any protocol whose own metadata excludes a
+    #: vault; the deployment may be an unofficial product or a spoof attempt.
+    #: For example, the Yearn V3-compatible Coinflakes Vault V2.0 at
+    #: ``0x254bd33e2f62713f893f0842c99e68f855cda315`` is absent from Yearn's
+    #: frontend and is therefore ``unofficial``.
     unofficial = "unofficial"
 
     #: Vault has abnormal price behaviour on low TVL
@@ -388,6 +394,8 @@ ILLIQUID_ABNORMAL_SHARE_PRICE = "Vault likely illiquid. Share price chart has ab
 MISSING_IN_PROTOCOL_FRONTEND = "This vault is missing in the protocol's primary website and cannot be verified."
 
 NOT_IN_MORPHO_API = "This vault does not appear on Morpho website."
+
+NOT_IN_YEARN_FRONTEND = "This Yearn V3-compatible vault is not endorsed or listed in the official Yearn frontend."
 
 TEST_VAULT = "This appears to be a test vault and should not be shown to end users."
 
