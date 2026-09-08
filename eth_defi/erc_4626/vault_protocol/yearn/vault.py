@@ -12,6 +12,7 @@ from eth_defi.abi import ZERO_ADDRESS_STR
 from eth_defi.erc_4626.core import get_deployed_erc_4626_contract
 from eth_defi.erc_4626.vault import ERC4626Vault
 from eth_defi.erc_4626.vault_protocol.yearn.deposit_redeem import YearnV3DepositManager
+from eth_defi.erc_4626.vault_protocol.yearn.links import create_yearn_vault_link
 from eth_defi.erc_4626.vault_protocol.yearn.notes import YEARN_VAULT_NOTES
 from eth_defi.vault.base import INSTANT_WITHDRAWAL_PERIOD, WithdrawalPeriod
 
@@ -215,4 +216,7 @@ class YearnV3Vault(ERC4626Vault):
         return YEARN_VAULT_NOTES.get(self.address.lower())
 
     def get_link(self, referral: str | None = None) -> str:
-        return f"https://yearn.fi/v3/{self.chain_id}/{self.vault_address}"
+        """Return the canonical current-Yearn frontend link for this vault."""
+
+        del referral
+        return create_yearn_vault_link(self.chain_id, self.vault_address)

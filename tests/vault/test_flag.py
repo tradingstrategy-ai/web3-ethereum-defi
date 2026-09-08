@@ -62,6 +62,21 @@ def test_spxa_is_a_tokenised_fund() -> None:
     assert not is_flagged_vault("0x99e9092bae6d4394e54034ecb1e45441678323b9")
 
 
+def test_coinflakes_vault_note_describes_the_published_sdai_strategy() -> None:
+    """Coinflakes publishes its deployed Yearn V3 sDAI strategy source."""
+
+    address = "0x254bd33e2f62713f893f0842c99e68f855cda315"
+
+    note = get_notes(address)
+
+    assert note is not None
+    assert "Coinflakes sDAI strategy repository" in note
+    assert "deposits DAI into sDAI" in note
+    assert "0x430af232a837510b6f677d1e5ae3715c1e94d9d7" in note
+    assert get_vault_special_flags(address) == set()
+    assert not is_flagged_vault(address)
+
+
 @pytest.mark.parametrize("protocol", ("Lagoon Finance", "IPOR Fusion", "Yearn"))
 def test_minimal_risk_protocols_are_reclassified_as_low(protocol: str) -> None:
     """Former minimal protocol classifications use the unified low level."""
