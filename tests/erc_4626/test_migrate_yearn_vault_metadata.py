@@ -6,7 +6,7 @@ from pathlib import Path
 import pytest
 
 from eth_defi.erc_4626.core import ERC4626Feature
-from eth_defi.erc_4626.vault_protocol.yearn.offchain_metadata import YearnVaultMetadata
+from eth_defi.erc_4626.vault_protocol.yearn.offchain_metadata import YearnDetectedVaultCatalogue, YearnDetectedVaultMetadata, YearnVaultMetadata
 from eth_defi.erc_4626.vault_protocol.yearn.vault import create_yearn_vault_link
 from eth_defi.vault.base import VaultSpec
 from eth_defi.vault.flag import NOT_IN_YEARN_FRONTEND, VaultFlag
@@ -17,6 +17,8 @@ ENDORSED_PARTNER_VAULT = "0x2222222222222222222222222222222222222222"
 MANUALLY_UNOFFICIAL_VAULT = "0x3333333333333333333333333333333333333333"
 EXPECTED_TARGET_ROWS = 3
 EXPECTED_SKIPPED_ROWS = 1
+STRATEGY_VAULT = "0x6666666666666666666666666666666666666666"
+FLEX_DESCRIPTION = "Flex USDC is an allocator vault managed by the Yearn Curation team. It lends USDC across several Flex markets."
 
 
 def load_migration_module():
@@ -69,6 +71,14 @@ def create_vault_database() -> tuple[VaultDatabase, VaultSpec]:
             "_flags": {VaultFlag.unofficial},
             "_notes": "Manual warning.",
         },
+        VaultSpec(1, STRATEGY_VAULT): {
+            "Protocol": "Yearn",
+            "Address": STRATEGY_VAULT,
+            "Link": "https://yearn.fi/vaults/old-route",
+            "features": {ERC4626Feature.yearn_compounder_like},
+            "_flags": {VaultFlag.unofficial},
+            "_notes": NOT_IN_YEARN_FRONTEND,
+        },
         VaultSpec(1, "0x4444444444444444444444444444444444444444"): {
             "Protocol": "Yearn",
             "Address": "0x4444444444444444444444444444444444444444",
@@ -104,6 +114,24 @@ def create_ydaemon_index() -> dict[str, YearnVaultMetadata]:
     }
 
 
+def create_detected_catalogue(
+    vaults: dict[tuple[int, str], YearnDetectedVaultMetadata] | None = None,
+    *,
+    is_complete: bool = True,
+) -> YearnDetectedVaultCatalogue:
+    """Create synthetic public Yearn catalogue metadata.
+
+    :param vaults:
+        Synthetic public vault-page metadata.
+    :param is_complete:
+        Whether a catalogue miss is reliable negative evidence.
+    :return:
+        Public Yearn catalogue used by migration tests.
+    """
+
+    return YearnDetectedVaultCatalogue(vaults=vaults or {}, is_complete=is_complete)
+
+
 def test_migrate_yearn_vault_metadata_updates_only_dynamic_fields(monkeypatch: pytest.MonkeyPatch) -> None:
     """Update links and dynamic endorsement fields while preserving manual decisions."""
 
@@ -125,10 +153,15 @@ def test_migrate_yearn_vault_metadata_updates_only_dynamic_fields(monkeypatch: p
         get_manual_flags,
     )
 
-    result = module.migrate_yearn_vault_metadata(vault_db, {1: create_ydaemon_index()}, dry_run=False)
+    detected_vaults = create_detected_catalogue(
+        {
+            (1, ENDORSED_PARTNER_VAULT): YearnDetectedVaultMetadata(description=FLEX_DESCRIPTION),
+        }
+    )
+    result = module.migrate_yearn_vault_metadata(vault_db, {1: create_ydaemon_index()}, dry_run=False, detected_vaults=detected_vaults)
 
-    assert result.inspected_rows == EXPECTED_TARGET_ROWS
-    assert result.updated_rows == EXPECTED_TARGET_ROWS
+    assert result.inspected_rows == EXPECTED_TARGET_ROWS + 1
+    assert result.updated_rows == EXPECTED_TARGET_ROWS + 1
     assert result.unavailable_metadata_rows == 0
     assert result.skipped_rows == EXPECTED_SKIPPED_ROWS
     unendorsed_row = vault_db.rows[VaultSpec(1, UNENDORSED_VAULT)]
@@ -139,8 +172,13 @@ def test_migrate_yearn_vault_metadata_updates_only_dynamic_fields(monkeypatch: p
     assert partner_row["_flags"] == set()
     assert partner_row["_notes"] is None
     assert partner_row["Link"] == create_yearn_vault_link(1, ENDORSED_PARTNER_VAULT)
+    assert partner_row["_description"] == FLEX_DESCRIPTION
+    assert partner_row["_short_description"] == "Flex USDC is an allocator vault managed by the Yearn Curation team."
     assert vault_db.rows[manually_unofficial_spec]["_flags"] == {VaultFlag.unofficial}
     assert vault_db.rows[manually_unofficial_spec]["_notes"] == "Manual warning."
+    strategy_row = vault_db.rows[VaultSpec(1, STRATEGY_VAULT)]
+    assert strategy_row["_flags"] == set()
+    assert strategy_row["_notes"] is None
     assert vault_db.rows[unrelated_spec]["Link"] == "https://morpho.org/"
     assert vault_db.leads[unrelated_spec] is not None
     assert vault_db.last_scanned_block == {1: 23_000_000}
@@ -155,10 +193,93 @@ def test_migrate_yearn_vault_metadata_dry_run_and_missing_source_do_not_mutate()
 
     result = module.migrate_yearn_vault_metadata(vault_db, {1: None}, dry_run=True)
 
-    assert result.inspected_rows == EXPECTED_TARGET_ROWS
-    assert result.unavailable_metadata_rows == EXPECTED_TARGET_ROWS
-    assert result.updated_rows == EXPECTED_TARGET_ROWS
+    assert result.inspected_rows == EXPECTED_TARGET_ROWS + 1
+    assert result.unavailable_metadata_rows == EXPECTED_TARGET_ROWS + 1
+    assert result.updated_rows == EXPECTED_TARGET_ROWS + 1
     assert vault_db.rows == original_rows
+
+
+def test_migrate_yearn_vault_metadata_reports_incomplete_catalogue_rows() -> None:
+    """Report rows whose public metadata may be beyond the endpoint limit."""
+
+    module = load_migration_module()
+    vault_db, _ = create_vault_database()
+    detected_vaults = create_detected_catalogue(
+        {
+            (1, ENDORSED_PARTNER_VAULT): YearnDetectedVaultMetadata(description=FLEX_DESCRIPTION),
+        },
+        is_complete=False,
+    )
+
+    result = module.migrate_yearn_vault_metadata(vault_db, {1: create_ydaemon_index()}, dry_run=True, detected_vaults=detected_vaults)
+
+    assert result.unavailable_metadata_rows == EXPECTED_TARGET_ROWS
+
+
+def test_migrate_yearn_vault_metadata_does_not_report_website_listed_rows_as_unavailable() -> None:
+    """Let a public page resolve a direct row when static metadata is unavailable."""
+
+    module = load_migration_module()
+    vault_db, _ = create_vault_database()
+    detected_vaults = create_detected_catalogue(
+        {
+            (1, ENDORSED_PARTNER_VAULT): YearnDetectedVaultMetadata(description=FLEX_DESCRIPTION),
+        }
+    )
+
+    result = module.migrate_yearn_vault_metadata(vault_db, {1: None}, dry_run=True, detected_vaults=detected_vaults)
+
+    assert result.unavailable_metadata_rows == EXPECTED_TARGET_ROWS - 1
+
+
+def test_migrate_yearn_vault_metadata_removes_stale_strategy_flag_but_keeps_manual_note(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Remove the old adapter-owned flag even when a manual note had priority."""
+
+    module = load_migration_module()
+    vault_db, _ = create_vault_database()
+    strategy_row = vault_db.rows[VaultSpec(1, STRATEGY_VAULT)]
+    strategy_row["_notes"] = "Manual operational warning."
+    monkeypatch.setattr(module, "get_vault_special_flags", lambda *_args, **_kwargs: set())
+
+    module.migrate_yearn_vault_metadata(vault_db, {1: create_ydaemon_index()}, dry_run=False, detected_vaults=create_detected_catalogue())
+
+    assert strategy_row["_flags"] == set()
+    assert strategy_row["_notes"] == "Manual operational warning."
+
+
+def test_migrate_yearn_vault_metadata_clears_removed_public_description() -> None:
+    """Clear stale website copy when Yearn retains the page without a description."""
+
+    module = load_migration_module()
+    vault_db, _ = create_vault_database()
+    row = vault_db.rows[VaultSpec(1, ENDORSED_PARTNER_VAULT)]
+    row["_description"] = "Outdated description."
+    row["_short_description"] = "Outdated description."
+    detected_vaults = create_detected_catalogue(
+        {
+            (1, ENDORSED_PARTNER_VAULT): YearnDetectedVaultMetadata(description=None),
+        }
+    )
+
+    module.migrate_yearn_vault_metadata(vault_db, {1: create_ydaemon_index()}, dry_run=False, detected_vaults=detected_vaults)
+
+    assert row["_description"] is None
+    assert row["_short_description"] is None
+
+
+def test_migrate_yearn_vault_metadata_clears_delisted_description_from_complete_catalogue() -> None:
+    """Match scanner output when a complete Yearn catalogue no longer lists a vault."""
+
+    module = load_migration_module()
+    vault_db, _ = create_vault_database()
+    row = vault_db.rows[VaultSpec(1, ENDORSED_PARTNER_VAULT)]
+    row["_description"] = "Outdated description."
+    row["_short_description"] = "Outdated description."
+
+    module.migrate_yearn_vault_metadata(vault_db, {1: create_ydaemon_index()}, dry_run=False, detected_vaults=create_detected_catalogue())
+
+    assert row["_description"] is None
+    assert row["_short_description"] is None
 
 
 def test_yearn_metadata_migration_main_creates_backup_only_when_applying(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
@@ -170,6 +291,7 @@ def test_yearn_metadata_migration_main_creates_backup_only_when_applying(tmp_pat
     vault_db.write(vault_db_path)
     monkeypatch.setattr(module, "setup_console_logging", lambda **_kwargs: None)
     monkeypatch.setattr(module, "fetch_yearn_metadata_by_chain", lambda chain_ids, _cache_path: {chain_id: create_ydaemon_index() for chain_id in chain_ids})
+    monkeypatch.setattr(module, "fetch_yearn_detected_vaults", create_detected_catalogue)
     monkeypatch.setenv("PIPELINE_DATA_DIR", str(tmp_path))
     monkeypatch.setenv("VAULT_DB_PATH", str(vault_db_path))
     monkeypatch.setenv("DRY_RUN", "true")

@@ -1,11 +1,13 @@
 #!/usr/bin/env python3
-"""Repair persisted Yearn links and yDaemon endorsement classification.
+"""Repair persisted Yearn links, descriptions, and safe classification.
 
 The normal scanner now uses `Yearn's yDaemon metadata
 <https://github.com/yearn/ydaemon/tree/main/data/meta/vaults>`__ to distinguish
-unendorsed Yearn V3-compatible contracts from official Yearn and
-Yearn-endorsed partner vaults. Existing rows need a metadata-only repair so
-their links, ``_flags`` and ``_notes`` match the current adapter behaviour.
+unendorsed direct Yearn V3-compatible contracts from official Yearn and
+Yearn-endorsed partner vaults. The public detected-vault catalogue confirms
+recent Yearn website entries and supplies descriptions. Existing rows need a
+metadata-only repair so their links, descriptions, ``_flags`` and ``_notes``
+match the current adapter behaviour.
 
 The fixed scope is persisted Yearn V3, TokenizedStrategy, compounder, and
 Morpho compounder rows. The script makes no RPC calls and does not modify
@@ -36,7 +38,14 @@ from tempfile import TemporaryDirectory
 from tabulate import tabulate
 
 from eth_defi.erc_4626.core import ERC4626Feature
-from eth_defi.erc_4626.vault_protocol.yearn.offchain_metadata import YearnVaultMetadata, fetch_yearn_vaults_file_for_chain
+from eth_defi.erc_4626.vault_protocol.yearn.offchain_metadata import (
+    YearnDetectedVaultCatalogue,
+    YearnVaultMetadata,
+    extract_yearn_short_description,
+    fetch_yearn_detected_vaults,
+    fetch_yearn_vaults_file_for_chain,
+    resolve_yearn_vault_endorsement,
+)
 from eth_defi.erc_4626.vault_protocol.yearn.vault import create_yearn_vault_link
 from eth_defi.utils import setup_console_logging, wait_other_writers
 from eth_defi.vault.base import VaultSpec
@@ -48,10 +57,21 @@ logger = logging.getLogger(__name__)
 #: Persisted scanner protocol name for the fixed Yearn migration scope.
 YEARN_PROTOCOL_NAME = "Yearn"
 
-#: Adapter feature families whose current Yearn adapters own links and endorsement flags.
-YEARN_METADATA_FEATURES = frozenset(
+#: Adapter feature families whose current Yearn adapters own their Yearn links.
+YEARN_LINK_FEATURES = frozenset(
     {
         ERC4626Feature.yearn_v3_like,
+        ERC4626Feature.yearn_tokenised_strategy,
+        ERC4626Feature.yearn_compounder_like,
+        ERC4626Feature.yearn_morpho_compounder_like,
+    }
+)
+
+#: Only direct V3 vaults have a complete enough static registry for negative
+#: unofficial classification. TokenizedStrategy and compounder adapters must
+#: retain an unknown result when absent from it.
+YEARN_STRATEGY_FEATURES = frozenset(
+    {
         ERC4626Feature.yearn_tokenised_strategy,
         ERC4626Feature.yearn_compounder_like,
         ERC4626Feature.yearn_morpho_compounder_like,
@@ -93,7 +113,7 @@ class YearnVaultMetadataMigrationResult:
     :param updated_rows:
         Number of rows changed or proposed for change.
     :param unavailable_metadata_rows:
-        Target rows whose chain yDaemon metadata could not be loaded.
+        Rows with at least one unavailable source required for their repair.
     :param skipped_rows:
         Persisted Yearn rows outside the adapter scope.
     :param updates:
@@ -106,7 +126,7 @@ class YearnVaultMetadataMigrationResult:
     #: Number of rows changed or proposed for change.
     updated_rows: int
 
-    #: Target rows whose chain yDaemon metadata could not be loaded.
+    #: Rows with at least one unavailable source required for their repair.
     unavailable_metadata_rows: int
 
     #: Persisted Yearn rows outside the adapter scope.
@@ -131,6 +151,12 @@ class _YearnVaultMetadataPlan:
 
     #: Canonical Yearn frontend link to persist when the plan is applied.
     link: str
+
+    #: Yearn public-page description to persist when available.
+    description: str | None
+
+    #: Compact Yearn public-page description to persist when available.
+    short_description: str | None
 
 
 def parse_bool_env(name: str, *, default: bool) -> bool:
@@ -184,7 +210,20 @@ def _is_yearn_metadata_row(row: VaultRow) -> bool:
         ``True`` when the row is in the fixed Yearn adapter scope.
     """
 
-    return row.get("Protocol") == YEARN_PROTOCOL_NAME and bool(_get_row_features(row) & YEARN_METADATA_FEATURES)
+    return row.get("Protocol") == YEARN_PROTOCOL_NAME and bool(_get_row_features(row) & YEARN_LINK_FEATURES)
+
+
+def _is_direct_yearn_v3_row(row: VaultRow) -> bool:
+    """Check whether a row can use the static registry for a negative result.
+
+    :param row:
+        Persisted Yearn metadata row in migration scope.
+    :return:
+        ``True`` only for the direct Yearn V3 adapter family.
+    """
+
+    features = _get_row_features(row)
+    return ERC4626Feature.yearn_v3_like in features and not bool(features & YEARN_STRATEGY_FEATURES)
 
 
 def fetch_yearn_metadata_by_chain(chain_ids: set[int], cache_path: Path) -> dict[int, dict[str, YearnVaultMetadata] | None]:
@@ -225,6 +264,7 @@ def _plan_yearn_vault_metadata_update(
     spec: VaultSpec,
     row: VaultRow,
     index: dict[str, YearnVaultMetadata] | None,
+    detected_vaults: YearnDetectedVaultCatalogue | None,
 ) -> _YearnVaultMetadataPlan:
     """Calculate one Yearn row's current adapter-owned metadata fields.
 
@@ -234,6 +274,8 @@ def _plan_yearn_vault_metadata_update(
         Persisted vault metadata row in the fixed migration scope.
     :param index:
         yDaemon chain index, or ``None`` when temporarily unavailable.
+    :param detected_vaults:
+        Public Yearn catalogue, or ``None`` when temporarily unavailable.
     :return:
         Complete non-mutating row-update plan.
     :raises ValueError:
@@ -248,20 +290,45 @@ def _plan_yearn_vault_metadata_update(
     old_notes = row.get("_notes")
     new_notes = old_notes
     new_link = create_yearn_vault_link(spec.chain_id, spec.vault_address)
+    detected_metadata = detected_vaults.get(spec.chain_id, spec.vault_address) if detected_vaults is not None else None
+    new_description = row.get("_description")
+    new_short_description = row.get("_short_description")
+    if detected_metadata is not None:
+        new_description = detected_metadata.description
+        new_short_description = extract_yearn_short_description(detected_metadata.description)
+    elif detected_vaults is not None and detected_vaults.is_complete:
+        new_description = None
+        new_short_description = None
     endorsed: bool | None = None
+    manually_unofficial = VaultFlag.unofficial in get_vault_special_flags(spec.vault_address, protocol_name=YEARN_PROTOCOL_NAME)
 
-    if index is not None:
-        metadata = index.get(spec.vault_address.lower())
-        endorsed = metadata.endorsed if metadata is not None else False
-        manually_unofficial = VaultFlag.unofficial in get_vault_special_flags(spec.vault_address, protocol_name=YEARN_PROTOCOL_NAME)
-        if endorsed and not manually_unofficial:
+    if _is_direct_yearn_v3_row(row):
+        static_endorsement = None
+        if index is not None:
+            metadata = index.get(spec.vault_address.lower())
+            static_endorsement = metadata.endorsed if metadata is not None else False
+        endorsed = resolve_yearn_vault_endorsement(
+            spec.chain_id,
+            spec.vault_address,
+            static_endorsement=static_endorsement,
+            detected_vaults=detected_vaults,
+        )
+
+        if endorsed is True and not manually_unofficial:
             new_flags.discard(VaultFlag.unofficial)
             if old_notes == NOT_IN_YEARN_FRONTEND:
                 new_notes = None
-        elif not endorsed and not manually_unofficial:
+        elif endorsed is False and not manually_unofficial:
             new_flags.add(VaultFlag.unofficial)
             if new_notes is None:
                 new_notes = NOT_IN_YEARN_FRONTEND
+    elif not _is_direct_yearn_v3_row(row) and not manually_unofficial:
+        # Prior releases applied the static registry to strategy-derived
+        # adapters. Remove the dynamic flag while retaining a separate manual
+        # note, which had priority over the old dynamic note.
+        new_flags.discard(VaultFlag.unofficial)
+        if old_notes == NOT_IN_YEARN_FRONTEND:
+            new_notes = None
 
     changed_fields = tuple(
         field
@@ -269,6 +336,8 @@ def _plan_yearn_vault_metadata_update(
             ("Link", row.get("Link"), new_link),
             ("_flags", old_flags, new_flags),
             ("_notes", old_notes, new_notes),
+            ("_description", row.get("_description"), new_description),
+            ("_short_description", row.get("_short_description"), new_short_description),
         )
         if old_value != new_value
     )
@@ -277,6 +346,8 @@ def _plan_yearn_vault_metadata_update(
         flags=new_flags,
         notes=new_notes,
         link=new_link,
+        description=new_description,
+        short_description=new_short_description,
     )
 
 
@@ -285,14 +356,16 @@ def migrate_yearn_vault_metadata(
     metadata_by_chain: dict[int, dict[str, YearnVaultMetadata] | None],
     *,
     dry_run: bool,
+    detected_vaults: YearnDetectedVaultCatalogue | None = None,
 ) -> YearnVaultMetadataMigrationResult:
     """Apply current Yearn metadata fields to persisted adapter rows.
 
-    Explicitly unendorsed rows gain ``VaultFlag.unofficial`` and its note;
-    Yearn-endorsed rows lose only the dynamically managed flag and note. Manual
+    Only direct V3 rows use a static yDaemon miss as an unofficial decision.
+    Strategy-derived rows keep a registry miss unknown; any old dynamic warning
+    from that overbroad rule is removed. A public detected-vault entry supplies
+    a description and positively overrides a lagging static source file. Manual
     address flags are never removed. Every selected row receives the current
-    deterministic Yearn frontend link even when its yDaemon metadata is
-    temporarily unavailable.
+    deterministic Yearn frontend link even when source metadata is unavailable.
 
     :param vault_db:
         Existing vault metadata database loaded from the production pickle.
@@ -300,6 +373,8 @@ def migrate_yearn_vault_metadata(
         Temporary yDaemon indices keyed by relevant chain ID.
     :param dry_run:
         Report changes without mutating ``vault_db`` when ``True``.
+    :param detected_vaults:
+        Public Yearn catalogue, or ``None`` when temporarily unavailable.
     :return:
         Target, change, unavailable-source, and skipped-row counts.
     :raises ValueError:
@@ -320,9 +395,12 @@ def migrate_yearn_vault_metadata(
 
         inspected_rows += 1
         index = metadata_by_chain.get(spec.chain_id)
-        if index is None:
+        detected_metadata = detected_vaults.get(spec.chain_id, spec.vault_address) if detected_vaults is not None else None
+        public_metadata_is_unavailable = detected_vaults is None or (not detected_vaults.is_complete and detected_metadata is None)
+        static_metadata_is_unavailable = _is_direct_yearn_v3_row(row) and index is None and detected_metadata is None
+        if public_metadata_is_unavailable or static_metadata_is_unavailable:
             unavailable_metadata_rows += 1
-        plan = _plan_yearn_vault_metadata_update(spec, row, index)
+        plan = _plan_yearn_vault_metadata_update(spec, row, index, detected_vaults)
         if not plan.update.changed_fields:
             continue
 
@@ -331,6 +409,8 @@ def migrate_yearn_vault_metadata(
             row["Link"] = plan.link
             row["_flags"] = plan.flags
             row["_notes"] = plan.notes
+            row["_description"] = plan.description
+            row["_short_description"] = plan.short_description
 
     return YearnVaultMetadataMigrationResult(
         inspected_rows=inspected_rows,
@@ -367,7 +447,8 @@ def main() -> None:
         chain_ids = {spec.chain_id for spec, row in vault_db.rows.items() if _is_yearn_metadata_row(row)}
         with TemporaryDirectory(prefix="yearn-ydaemon-") as temporary_directory:
             metadata_by_chain = fetch_yearn_metadata_by_chain(chain_ids, Path(temporary_directory))
-        result = migrate_yearn_vault_metadata(vault_db, metadata_by_chain, dry_run=dry_run)
+        detected_vaults = fetch_yearn_detected_vaults()
+        result = migrate_yearn_vault_metadata(vault_db, metadata_by_chain, dry_run=dry_run, detected_vaults=detected_vaults)
 
         report_rows = [
             {

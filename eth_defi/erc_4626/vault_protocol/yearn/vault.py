@@ -13,7 +13,14 @@ from eth_defi.erc_4626.core import get_deployed_erc_4626_contract
 from eth_defi.erc_4626.vault import ERC4626Vault
 from eth_defi.erc_4626.vault_protocol.yearn.deposit_redeem import YearnV3DepositManager
 from eth_defi.erc_4626.vault_protocol.yearn.notes import YEARN_VAULT_NOTES
-from eth_defi.erc_4626.vault_protocol.yearn.offchain_metadata import fetch_yearn_vault_endorsement
+from eth_defi.erc_4626.vault_protocol.yearn.offchain_metadata import (
+    YearnDetectedVaultCatalogue,
+    YearnDetectedVaultMetadata,
+    extract_yearn_short_description,
+    fetch_yearn_detected_vaults,
+    fetch_yearn_vault_endorsement,
+    resolve_yearn_vault_endorsement,
+)
 from eth_defi.vault.base import INSTANT_WITHDRAWAL_PERIOD, WithdrawalPeriod
 from eth_defi.vault.flag import NOT_IN_YEARN_FRONTEND, VaultFlag
 
@@ -34,7 +41,72 @@ def create_yearn_vault_link(chain_id: int, vault_address: HexAddress) -> str:
     return f"https://yearn.fi/vaults/{chain_id}/{vault_address.lower()}"
 
 
-class YearnV3Vault(ERC4626Vault):
+class YearnDetectedVaultMetadataMixin:
+    """Expose positive Yearn website metadata for supported Yearn adapters.
+
+    The public detected-vault endpoint is not an exhaustive adapter registry.
+    It may confirm a page and provide its description, but its absence must
+    never mark a vault as unofficial.
+    """
+
+    @cached_property
+    def yearn_detected_vaults(self) -> YearnDetectedVaultCatalogue | None:
+        """Fetch the public Yearn catalogue while preserving outage state.
+
+        :return:
+            Fetched catalogue, or ``None`` when temporarily unavailable.
+        """
+
+        return fetch_yearn_detected_vaults()
+
+    @cached_property
+    def yearn_detected_metadata(self) -> YearnDetectedVaultMetadata | None:
+        """Get positive public Yearn metadata for this vault when it is listed.
+
+        :return:
+            Public-page metadata, or ``None`` when the vault is absent or the
+            catalogue is temporarily unavailable.
+        """
+
+        if self.get_protocol_name() != "Yearn" or self.yearn_detected_vaults is None:
+            return None
+        return self.yearn_detected_vaults.get(self.chain_id, self.vault_address)
+
+    @property
+    def description(self) -> str | None:
+        """Return the Yearn website description when it is safely exportable.
+
+        :return:
+            Yearn-authored description, or ``None`` when unavailable or unusable.
+        """
+
+        metadata = self.yearn_detected_metadata
+        return metadata.description if metadata else None
+
+    @property
+    def short_description(self) -> str | None:
+        """Return the first bounded sentence of the Yearn website description.
+
+        :return:
+            Compact Yearn-authored description, or ``None`` when unavailable.
+        """
+
+        return extract_yearn_short_description(self.description)
+
+    def get_link(self, referral: str | None = None) -> str:
+        """Return the canonical current-Yearn frontend link for this vault.
+
+        :param referral:
+            Ignored legacy referral parameter retained for compatibility.
+        :return:
+            Canonical Yearn vault-page URL.
+        """
+
+        del referral
+        return create_yearn_vault_link(self.chain_id, self.vault_address)
+
+
+class YearnV3Vault(YearnDetectedVaultMetadataMixin, ERC4626Vault):
     """Yearn V3 vaults.
 
     - Yearn V3 vaults are ERC-4626-compliant vaults with multiple strategies, built with Vyper (not Solidity)
@@ -244,10 +316,47 @@ class YearnV3Vault(ERC4626Vault):
         """
 
         flags = super().get_flags()
-        if self.get_protocol_name() == "Yearn" and fetch_yearn_vault_endorsement(self.chain_id, self.vault_address) is False:
+        if self._is_dynamically_unofficial():
             flags = set(flags)
             flags.add(VaultFlag.unofficial)
         return flags
+
+    def _is_dynamically_unofficial(self) -> bool:
+        """Check whether both Yearn sources support an unofficial decision.
+
+        The public catalogue is a positive override for a lagging static
+        record. A catalogue outage remains unknown rather than allowing the
+        static miss to flag a recently launched public vault.
+
+        :return:
+            ``True`` only for a direct Yearn V3 vault with a complete public
+            catalogue, no public-page entry, and static non-endorsement.
+        """
+
+        if not self.supports_yearn_unofficial_classification() or self.get_protocol_name() != "Yearn":
+            return False
+        detected_vaults = self.yearn_detected_vaults
+        if detected_vaults is None or self.yearn_detected_metadata is not None:
+            return False
+        return (
+            resolve_yearn_vault_endorsement(
+                self.chain_id,
+                self.vault_address,
+                static_endorsement=fetch_yearn_vault_endorsement(self.chain_id, self.vault_address),
+                detected_vaults=detected_vaults,
+            )
+            is False
+        )
+
+    def supports_yearn_unofficial_classification(self) -> bool:  # noqa: PLR6301
+        """State whether the static V3 registry can safely classify this adapter.
+
+        :return:
+            ``True`` for direct Yearn V3 vaults; strategy-derived adapters
+            override this to retain an unknown result for a registry miss.
+        """
+
+        return True
 
     def get_notes(self) -> str | None:
         """Return Yearn-specific notes for manually maintained vaults.
@@ -268,12 +377,6 @@ class YearnV3Vault(ERC4626Vault):
         if yearn_note:
             return yearn_note
 
-        if self.get_protocol_name() == "Yearn" and fetch_yearn_vault_endorsement(self.chain_id, self.vault_address) is False:
+        if self._is_dynamically_unofficial():
             return NOT_IN_YEARN_FRONTEND
         return None
-
-    def get_link(self, referral: str | None = None) -> str:
-        """Return the canonical current-Yearn frontend link for this vault."""
-
-        del referral
-        return create_yearn_vault_link(self.chain_id, self.vault_address)

@@ -21,6 +21,29 @@ data and its selector when the RPC provider supplies them, but does not label an
 opaque provider message as a decoded Solidity error. It does not treat a
 missing approval or an RPC failure as a vault closure.
 
+Public catalogue metadata
+~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The scanner caches the public `yDaemon detected-vault catalogue
+<https://ydaemon.yearn.fi/vaults/detected?limit=2000>`__ daily. A matching
+address positively confirms that Yearn publishes a vault page and supplies the
+exported description; its bounded first sentence is the short description.
+Template descriptions with unresolved placeholders are omitted rather than
+shown on the website.
+
+The catalogue is not a complete registry for TokenizedStrategy, compounder, or
+Morpho compounder adapter shapes. Their absence is therefore always unknown,
+never ``unofficial``. For direct Yearn V3 vaults only, the versioned `yDaemon
+source metadata <https://github.com/yearn/ydaemon/tree/main/data/meta/vaults>`__
+can identify an explicit static non-endorsement. A public-page match overrides
+that static result, covering freshly launched vaults before the source files
+catch up. These are website membership signals, not safety ratings or
+investment recommendations.
+
+Use ``scripts/erc-4626/migrate-yearn-vault-metadata.py`` to repair existing
+cached Yearn rows. It defaults to a non-mutating dry run and changes only the
+metadata pickle after a successful catalogue download.
+
 Links
 ~~~~~
 
