@@ -450,6 +450,27 @@ The scanner does not support whole-chain lead resets. `RESET_LEADS` has been
 removed and setting it causes `scan-vaults.py` to fail before it makes any
 database or network changes.
 
+#### Yearn catalogue metadata migration
+
+`migrate-yearn-vault-metadata.py` refreshes the cached flags, descriptions and
+Yearn links for existing Yearn V3-family rows. It uses the public [yDaemon
+detected-vault catalogue](https://ydaemon.yearn.fi/vaults/detected?limit=2000)
+as a website-presence check: a returned address is not dynamically marked
+`unofficial`; an absent address is marked only after a complete catalogue is
+available. The result is not an endorsement or safety assessment. Hidden and
+retired metadata fields do not make an address unofficial.
+
+Always inspect the non-mutating default first:
+
+```shell
+DRY_RUN=true poetry run python scripts/erc-4626/migrate-yearn-vault-metadata.py
+```
+
+Set `DRY_RUN=false` only to create a sibling backup and atomically update
+`vault-metadata-db.pickle`. The migration does not alter leads, reader state,
+or price Parquet files. Use `VAULT_DB_PATH` to choose a non-default metadata
+database.
+
 ### update-vault-links.py
 
 Metadata-only repair for persisted native vault-app links. The script selects
