@@ -452,13 +452,15 @@ database or network changes.
 
 #### Yearn catalogue metadata migration
 
-`migrate-yearn-vault-metadata.py` refreshes the cached flags, descriptions and
-Yearn links for existing Yearn V3-family rows. It uses the public [yDaemon
-detected-vault catalogue](https://ydaemon.yearn.fi/vaults/detected?limit=2000)
-as a website-presence check: a returned address is not dynamically marked
-`unofficial`; an absent address is marked only after a complete catalogue is
-available. The result is not an endorsement or safety assessment. Hidden and
-retired metadata fields do not make an address unofficial.
+`migrate-yearn-vault-metadata.py` refreshes cached descriptions and Yearn links
+for existing Yearn V3-family rows. A match in the public [yDaemon detected-vault
+catalogue](https://ydaemon.yearn.fi/vaults/detected?limit=2000) positively
+confirms a public Yearn vault page, supplies its description and overrides a
+lagging static record. It never treats an absence as `unofficial`: the catalogue
+does not fully cover TokenizedStrategy, compounder, or Morpho compounder adapter
+shapes. Only direct Yearn V3 rows use the versioned static yDaemon metadata for
+the negative `unofficial` decision. The result is not an endorsement or safety
+assessment.
 
 Always inspect the non-mutating default first:
 

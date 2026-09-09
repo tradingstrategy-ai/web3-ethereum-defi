@@ -51,7 +51,7 @@ class YearnMorphoCompounderStrategy(YearnV3Vault):
             abi_fname="yearn/YearnV3Vault.json",
         )
 
-    def has_custom_fees(self) -> bool:
+    def has_custom_fees(self) -> bool:  # noqa: PLR6301
         """Deposit/withdrawal fees.
 
         Yearn Morpho Compounder strategies do not charge deposit/withdrawal fees.
@@ -59,7 +59,20 @@ class YearnMorphoCompounderStrategy(YearnV3Vault):
         """
         return False
 
-    def get_management_fee(self, block_identifier: BlockIdentifier) -> float:
+    def supports_yearn_unofficial_classification(self) -> bool:  # noqa: PLR6301
+        """Keep static yDaemon registry misses unknown for strategy adapters.
+
+        The static per-chain metadata does not comprehensively include Yearn
+        Morpho compounder strategies, so an absent entry is not evidence that
+        the strategy is unofficial.
+
+        :return:
+            Always ``False``.
+        """
+
+        return False
+
+    def get_management_fee(self, block_identifier: BlockIdentifier) -> float:  # noqa: PLR6301
         """Get the current management fee as a percent.
 
         Yearn strategies internalise fees into the share price.
@@ -67,9 +80,10 @@ class YearnMorphoCompounderStrategy(YearnV3Vault):
         :return:
             0.0 as fees are built into share price
         """
+        del block_identifier
         return 0.0
 
-    def get_performance_fee(self, block_identifier: BlockIdentifier) -> float | None:
+    def get_performance_fee(self, block_identifier: BlockIdentifier) -> float | None:  # noqa: PLR6301
         """Get the current performance fee as a percent.
 
         Yearn strategies internalise fees into the share price.
@@ -77,9 +91,10 @@ class YearnMorphoCompounderStrategy(YearnV3Vault):
         :return:
             0.0 as fees are built into share price
         """
+        del block_identifier
         return 0.0
 
-    def get_estimated_lock_up(self) -> datetime.timedelta:
+    def get_estimated_lock_up(self) -> datetime.timedelta:  # noqa: PLR6301
         """Get estimated lock-up period.
 
         No lock-up period for Yearn Morpho Compounder strategies.
