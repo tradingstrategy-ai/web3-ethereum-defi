@@ -36,12 +36,12 @@ DEFAULT_CACHE_PATH = DEFAULT_CACHE_ROOT / "yearn"
 #: Raw GitHub directory containing Yearn's versioned yDaemon chain documents.
 YEARN_YDAEMON_METADATA_BASE_URL = "https://raw.githubusercontent.com/yearn/ydaemon/main/data/meta/vaults"
 
-#: Live catalogue that powers Yearn's public vault pages. Unlike the static
-#: source repository, it contains recently launched vaults such as Flex USDC.
-YEARN_DETECTED_VAULTS_URL = "https://ydaemon.yearn.fi/vaults/detected?limit=2000"
-
 #: Maximum record count requested from the public detected-vault endpoint.
 YEARN_DETECTED_VAULTS_LIMIT = 2000
+
+#: Live catalogue that powers Yearn's public vault pages. Unlike the static
+#: source repository, it contains recently launched vaults such as Flex USDC.
+YEARN_DETECTED_VAULTS_URL = f"https://ydaemon.yearn.fi/vaults/detected?limit={YEARN_DETECTED_VAULTS_LIMIT}"
 
 #: Static catalogue metadata changes much less frequently than scanner cycles.
 DEFAULT_CACHE_DURATION = datetime.timedelta(days=1)
@@ -113,18 +113,56 @@ class YearnDetectedVaultMetadata:
     description: str | None
 
 
+#: Public catalogue records keyed by EVM chain ID and lowercase vault address.
+YearnDetectedVaultRecords = dict[tuple[int, str], YearnDetectedVaultMetadata]
+
+
+@dataclass(slots=True, frozen=True)
+class YearnDetectedVaultCatalogue:
+    """One public Yearn vault-page catalogue response.
+
+    A page hit is always positive evidence. A miss can support a negative
+    direct-V3 decision only when the response did not reach the requested
+    endpoint limit.
+
+    :param vaults:
+        Chain ID and lowercase address keyed public vault metadata.
+    :param is_complete:
+        Whether a catalogue miss is safe to use as negative evidence.
+    """
+
+    #: Chain ID and lowercase address keyed public vault metadata.
+    vaults: YearnDetectedVaultRecords
+
+    #: Whether a catalogue miss is safe to use as negative evidence.
+    is_complete: bool
+
+    def get(self, chain_id: int, vault_address: HexAddress) -> YearnDetectedVaultMetadata | None:
+        """Look up one vault's public-page metadata.
+
+        :param chain_id:
+            EVM chain ID of the vault.
+        :param vault_address:
+            Vault contract address.
+        :return:
+            Public metadata when Yearn lists a vault page, otherwise ``None``.
+        """
+
+        return self.vaults.get((chain_id, vault_address.lower()))
+
+
 @dataclass(slots=True, frozen=True)
 class CachedYearnDetectedVaultIndex:
     """One worker's cached public Yearn vault-page index.
 
-    :param vaults:
-        Chain ID and lowercase address keyed public vault metadata.
+    :param catalogue:
+        Public vault-page records and their completeness state.
     :param fetched_at:
         Naive UTC time when this worker last fetched the endpoint.
     """
 
-    #: Chain ID and lowercase address keyed public vault metadata.
-    vaults: dict[tuple[int, str], YearnDetectedVaultMetadata]
+    #: Public vault-page records and their completeness state.
+    catalogue: YearnDetectedVaultCatalogue
 
     #: Naive UTC time when this worker last fetched the endpoint.
     fetched_at: datetime.datetime
@@ -189,17 +227,17 @@ def _normalise_yearn_detected_description(description: object) -> str | None:
     return description
 
 
-def _parse_yearn_detected_vault_index(payload: object) -> dict[tuple[int, str], YearnDetectedVaultMetadata]:
+def _parse_yearn_detected_vault_index(payload: object) -> YearnDetectedVaultCatalogue:
     """Normalise the live detected-vault response into a public-page index.
 
-    A result exactly at the endpoint limit is still useful for positive hits,
-    but may be incomplete. Callers never infer unofficial status from a miss,
-    so truncation cannot create a false negative classification.
+    A result exactly at the endpoint limit remains useful for positive hits,
+    but is explicitly marked incomplete so callers never infer unofficial
+    status from a miss.
 
     :param payload:
         JSON-decoded detected-vault endpoint response.
     :return:
-        Chain ID and lowercase address keyed public vault metadata.
+        Public-page records and whether a miss is complete negative evidence.
     :raise ValueError:
         If the response does not have the expected list-of-vaults shape.
     """
@@ -210,7 +248,7 @@ def _parse_yearn_detected_vault_index(payload: object) -> dict[tuple[int, str], 
     if len(payload) >= YEARN_DETECTED_VAULTS_LIMIT:
         logger.warning("Yearn detected-vault response reached its limit of %d records; using it for positive matches only", len(payload))
 
-    index: dict[tuple[int, str], YearnDetectedVaultMetadata] = {}
+    index: YearnDetectedVaultRecords = {}
     for record in payload:
         if not isinstance(record, dict):
             continue
@@ -224,7 +262,7 @@ def _parse_yearn_detected_vault_index(payload: object) -> dict[tuple[int, str], 
     if not index:
         message = "Yearn detected-vault response must contain vault records"
         raise ValueError(message)
-    return index
+    return YearnDetectedVaultCatalogue(vaults=index, is_complete=len(payload) < YEARN_DETECTED_VAULTS_LIMIT)
 
 
 def _normalise_yearn_vault_metadata(metadata: dict[str, object]) -> YearnVaultMetadata:
@@ -389,7 +427,7 @@ _yearn_metadata_retry_after: dict[int, datetime.datetime] = {}
 _yearn_detected_vaults_state = YearnDetectedVaultCache()
 
 
-def fetch_yearn_detected_vaults() -> dict[tuple[int, str], YearnDetectedVaultMetadata] | None:
+def fetch_yearn_detected_vaults() -> YearnDetectedVaultCatalogue | None:
     """Fetch Yearn's public vault-page catalogue once per scanner worker.
 
     This endpoint is intentionally a positive-only source. A matching entry
@@ -406,29 +444,67 @@ def fetch_yearn_detected_vaults() -> dict[tuple[int, str], YearnDetectedVaultMet
     cached_index = _yearn_detected_vaults_state.index
     cache_is_fresh = cached_index is not None and now_ - cached_index.fetched_at <= DEFAULT_CACHE_DURATION
     if cache_is_fresh:
-        return cached_index.vaults
+        return cached_index.catalogue
 
     retry_after = _yearn_detected_vaults_state.retry_after
     if retry_after is not None and now_ < retry_after:
-        return cached_index.vaults if cached_index is not None else None
+        return cached_index.catalogue if cached_index is not None else None
 
     try:
         logger.info("Fetching Yearn public vault catalogue from %s", YEARN_DETECTED_VAULTS_URL)
         response = requests.get(YEARN_DETECTED_VAULTS_URL, timeout=30)
         response.raise_for_status()
-        index = _parse_yearn_detected_vault_index(response.json())
+        catalogue = _parse_yearn_detected_vault_index(response.json())
     except (HTTPError, RequestException, JSONDecodeError, ValueError) as error:
         _yearn_detected_vaults_state.retry_after = now_ + UNAVAILABLE_RETRY_DELAY
         if cached_index is not None:
             logger.warning("Could not refresh Yearn public vault catalogue: %s; using the previous cache", error)
-            return cached_index.vaults
+            return cached_index.catalogue
         logger.warning("Yearn public vault catalogue is unavailable: %s", error)
         return None
 
-    _yearn_detected_vaults_state.index = CachedYearnDetectedVaultIndex(vaults=index, fetched_at=now_)
+    _yearn_detected_vaults_state.index = CachedYearnDetectedVaultIndex(catalogue=catalogue, fetched_at=now_)
     _yearn_detected_vaults_state.retry_after = None
-    logger.info("Fetched %d Yearn public vault-page records", len(index))
-    return index
+    logger.info("Fetched %d Yearn public vault-page records (complete=%s)", len(catalogue.vaults), catalogue.is_complete)
+    return catalogue
+
+
+def resolve_yearn_vault_endorsement(
+    chain_id: int,
+    vault_address: HexAddress,
+    *,
+    static_endorsement: bool | None,
+    detected_vaults: YearnDetectedVaultCatalogue | None,
+) -> bool | None:
+    """Combine the public website and static yDaemon endorsement evidence.
+
+    A live public-page entry always establishes that a vault is official, even
+    if Yearn's static repository has not caught up. Otherwise both sources
+    must be available before a static non-endorsement can classify a direct V3
+    vault as unofficial. This helper intentionally does not decide whether an
+    adapter family is eligible for negative classification.
+
+    :param chain_id:
+        EVM chain ID of the vault.
+    :param vault_address:
+        Vault contract address.
+    :param static_endorsement:
+        Static yDaemon endorsement result, or ``None`` when unavailable.
+    :param detected_vaults:
+        Public-page catalogue, or ``None`` when unavailable.
+    :return:
+        ``True`` for a website-listed or statically endorsed vault, ``False``
+        for a confirmed static non-endorsement, and ``None`` when either source
+        is unavailable.
+    """
+
+    if detected_vaults is None:
+        return None
+    if detected_vaults.get(chain_id, vault_address) is not None:
+        return True
+    if not detected_vaults.is_complete:
+        return None
+    return static_endorsement
 
 
 def fetch_yearn_vault_endorsement(chain_id: int, vault_address: HexAddress) -> bool | None:

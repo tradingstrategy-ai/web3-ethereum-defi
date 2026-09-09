@@ -14,7 +14,7 @@ import datetime
 from eth_typing import BlockIdentifier
 
 from eth_defi.erc_4626.vault import ERC4626Vault
-from eth_defi.erc_4626.vault_protocol.yearn.vault import YearnDetectedVaultMetadataMixin, create_yearn_vault_link
+from eth_defi.erc_4626.vault_protocol.yearn.vault import YearnDetectedVaultMetadataMixin
 from eth_defi.vault.base import INSTANT_WITHDRAWAL_PERIOD, WithdrawalPeriod
 
 #: Yearn TokenizedStrategy fee precision: 10_000 basis points is 100%.
@@ -97,15 +97,3 @@ class YearnCompounderVault(YearnDetectedVaultMetadataMixin, ERC4626Vault):
 
     def get_withdrawal_period(self) -> WithdrawalPeriod:  # noqa: PLR6301
         return INSTANT_WITHDRAWAL_PERIOD
-
-    def get_link(self, referral: str | None = None) -> str:
-        """Return the direct Yearn vault page.
-
-        :param referral:
-            Optional referral identifier, unsupported by Yearn.
-
-        :return:
-            Yearn vault URL for this chain and vault address.
-        """
-        del referral
-        return create_yearn_vault_link(self.chain_id, self.vault_address)

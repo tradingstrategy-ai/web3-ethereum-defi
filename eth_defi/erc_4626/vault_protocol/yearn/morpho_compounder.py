@@ -13,7 +13,7 @@ from eth_typing import BlockIdentifier
 from web3.contract import Contract
 
 from eth_defi.erc_4626.core import get_deployed_erc_4626_contract
-from eth_defi.erc_4626.vault_protocol.yearn.vault import YearnV3Vault, create_yearn_vault_link
+from eth_defi.erc_4626.vault_protocol.yearn.vault import YearnV3Vault
 
 logger = logging.getLogger(__name__)
 
@@ -100,15 +100,3 @@ class YearnMorphoCompounderStrategy(YearnV3Vault):
         No lock-up period for Yearn Morpho Compounder strategies.
         """
         return datetime.timedelta(0)
-
-    def get_link(self, referral: str | None = None) -> str:
-        """Return the canonical current-Yearn frontend link for this vault.
-
-        :param referral:
-            Optional referral identifier, unsupported by Yearn.
-        :return:
-            Yearn vault URL for this chain and vault address.
-        """
-
-        del referral
-        return create_yearn_vault_link(self.chain_id, self.vault_address)

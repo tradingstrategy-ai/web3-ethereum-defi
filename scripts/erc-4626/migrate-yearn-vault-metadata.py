@@ -39,11 +39,12 @@ from tabulate import tabulate
 
 from eth_defi.erc_4626.core import ERC4626Feature
 from eth_defi.erc_4626.vault_protocol.yearn.offchain_metadata import (
-    YearnDetectedVaultMetadata,
+    YearnDetectedVaultCatalogue,
     YearnVaultMetadata,
     extract_yearn_short_description,
     fetch_yearn_detected_vaults,
     fetch_yearn_vaults_file_for_chain,
+    resolve_yearn_vault_endorsement,
 )
 from eth_defi.erc_4626.vault_protocol.yearn.vault import create_yearn_vault_link
 from eth_defi.utils import setup_console_logging, wait_other_writers
@@ -112,7 +113,7 @@ class YearnVaultMetadataMigrationResult:
     :param updated_rows:
         Number of rows changed or proposed for change.
     :param unavailable_metadata_rows:
-        Direct V3 rows missing either required classification source.
+        Rows with at least one unavailable source required for their repair.
     :param skipped_rows:
         Persisted Yearn rows outside the adapter scope.
     :param updates:
@@ -125,7 +126,7 @@ class YearnVaultMetadataMigrationResult:
     #: Number of rows changed or proposed for change.
     updated_rows: int
 
-    #: Direct V3 rows missing either required classification source.
+    #: Rows with at least one unavailable source required for their repair.
     unavailable_metadata_rows: int
 
     #: Persisted Yearn rows outside the adapter scope.
@@ -263,7 +264,7 @@ def _plan_yearn_vault_metadata_update(
     spec: VaultSpec,
     row: VaultRow,
     index: dict[str, YearnVaultMetadata] | None,
-    detected_vaults: dict[tuple[int, str], YearnDetectedVaultMetadata] | None,
+    detected_vaults: YearnDetectedVaultCatalogue | None,
 ) -> _YearnVaultMetadataPlan:
     """Calculate one Yearn row's current adapter-owned metadata fields.
 
@@ -273,6 +274,8 @@ def _plan_yearn_vault_metadata_update(
         Persisted vault metadata row in the fixed migration scope.
     :param index:
         yDaemon chain index, or ``None`` when temporarily unavailable.
+    :param detected_vaults:
+        Public Yearn catalogue, or ``None`` when temporarily unavailable.
     :return:
         Complete non-mutating row-update plan.
     :raises ValueError:
@@ -287,22 +290,29 @@ def _plan_yearn_vault_metadata_update(
     old_notes = row.get("_notes")
     new_notes = old_notes
     new_link = create_yearn_vault_link(spec.chain_id, spec.vault_address)
-    detected_metadata = detected_vaults.get((spec.chain_id, spec.vault_address.lower())) if detected_vaults is not None else None
+    detected_metadata = detected_vaults.get(spec.chain_id, spec.vault_address) if detected_vaults is not None else None
     new_description = row.get("_description")
     new_short_description = row.get("_short_description")
     if detected_metadata is not None:
         new_description = detected_metadata.description
         new_short_description = extract_yearn_short_description(detected_metadata.description)
+    elif detected_vaults is not None and detected_vaults.is_complete:
+        new_description = None
+        new_short_description = None
     endorsed: bool | None = None
     manually_unofficial = VaultFlag.unofficial in get_vault_special_flags(spec.vault_address, protocol_name=YEARN_PROTOCOL_NAME)
 
-    if _is_direct_yearn_v3_row(row) and detected_vaults is not None:
-        # A public-page match overrules a lagging static yDaemon source file.
-        if detected_metadata is not None:
-            endorsed = True
-        elif index is not None:
+    if _is_direct_yearn_v3_row(row):
+        static_endorsement = None
+        if index is not None:
             metadata = index.get(spec.vault_address.lower())
-            endorsed = metadata.endorsed if metadata is not None else False
+            static_endorsement = metadata.endorsed if metadata is not None else False
+        endorsed = resolve_yearn_vault_endorsement(
+            spec.chain_id,
+            spec.vault_address,
+            static_endorsement=static_endorsement,
+            detected_vaults=detected_vaults,
+        )
 
         if endorsed is True and not manually_unofficial:
             new_flags.discard(VaultFlag.unofficial)
@@ -346,7 +356,7 @@ def migrate_yearn_vault_metadata(
     metadata_by_chain: dict[int, dict[str, YearnVaultMetadata] | None],
     *,
     dry_run: bool,
-    detected_vaults: dict[tuple[int, str], YearnDetectedVaultMetadata] | None = None,
+    detected_vaults: YearnDetectedVaultCatalogue | None = None,
 ) -> YearnVaultMetadataMigrationResult:
     """Apply current Yearn metadata fields to persisted adapter rows.
 
@@ -364,8 +374,7 @@ def migrate_yearn_vault_metadata(
     :param dry_run:
         Report changes without mutating ``vault_db`` when ``True``.
     :param detected_vaults:
-        Positive-only public Yearn catalogue, or ``None`` when temporarily
-        unavailable.
+        Public Yearn catalogue, or ``None`` when temporarily unavailable.
     :return:
         Target, change, unavailable-source, and skipped-row counts.
     :raises ValueError:
@@ -386,7 +395,10 @@ def migrate_yearn_vault_metadata(
 
         inspected_rows += 1
         index = metadata_by_chain.get(spec.chain_id)
-        if _is_direct_yearn_v3_row(row) and (index is None or detected_vaults is None):
+        detected_metadata = detected_vaults.get(spec.chain_id, spec.vault_address) if detected_vaults is not None else None
+        public_metadata_is_unavailable = detected_vaults is None or (not detected_vaults.is_complete and detected_metadata is None)
+        static_metadata_is_unavailable = _is_direct_yearn_v3_row(row) and index is None and detected_metadata is None
+        if public_metadata_is_unavailable or static_metadata_is_unavailable:
             unavailable_metadata_rows += 1
         plan = _plan_yearn_vault_metadata_update(spec, row, index, detected_vaults)
         if not plan.update.changed_fields:

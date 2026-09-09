@@ -22,6 +22,7 @@ from eth_defi.erc_4626.vault_protocol.yearn.morpho_compounder import YearnMorpho
 from eth_defi.erc_4626.vault_protocol.yearn.offchain_metadata import (
     CachedYearnVaultIndex,
     YearnDetectedVaultCache,
+    YearnDetectedVaultCatalogue,
     YearnDetectedVaultMetadata,
     extract_yearn_short_description,
     fetch_yearn_vault_endorsement,
@@ -39,6 +40,24 @@ ENDORSED_YEARN_PARTNER_VAULT = "0x2222222222222222222222222222222222222222"
 LIVE_OFFICIAL_YEARN_VAULT = "0x00c8a649c9837523ebb406ceb17a6378ab5c74cf"
 EXPECTED_CACHE_REFRESH_CALLS = 2
 FLEX_USDC_VAULT = "0x863687e4e9751b57f38b4b0eba04744c72d0f7b8"
+
+
+def create_detected_catalogue(
+    vaults: dict[tuple[int, str], YearnDetectedVaultMetadata] | None = None,
+    *,
+    is_complete: bool = True,
+) -> YearnDetectedVaultCatalogue:
+    """Create synthetic public Yearn catalogue metadata.
+
+    :param vaults:
+        Synthetic public vault-page metadata.
+    :param is_complete:
+        Whether a catalogue miss is reliable negative evidence.
+    :return:
+        Public Yearn catalogue used by adapter tests.
+    """
+
+    return YearnDetectedVaultCatalogue(vaults=vaults or {}, is_complete=is_complete)
 
 
 def _make_ydaemon_document() -> dict[str, object]:
@@ -239,7 +258,8 @@ def test_yearn_detected_catalogue_is_cached_and_preserves_stale_data(monkeypatch
     second = yearn_metadata.fetch_yearn_detected_vaults()
     assert first is not None
     assert second == first
-    assert first[1, FLEX_USDC_VAULT].description == payload[0]["description"]
+    assert first.get(1, FLEX_USDC_VAULT).description == payload[0]["description"]
+    assert first.is_complete is True
     requests_get.assert_called_once_with(yearn_metadata.YEARN_DETECTED_VAULTS_URL, timeout=30)
 
     now_ = start + yearn_metadata.DEFAULT_CACHE_DURATION + datetime.timedelta(seconds=1)
@@ -259,6 +279,38 @@ def test_yearn_detected_catalogue_outage_retries_after_cooldown(monkeypatch: pyt
     requests_get.assert_called_once_with(yearn_metadata.YEARN_DETECTED_VAULTS_URL, timeout=30)
 
 
+def test_yearn_detected_catalogue_limit_keeps_misses_unknown(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Mark an endpoint-limit response incomplete for negative classification."""
+
+    monkeypatch.setattr(yearn_metadata, "YEARN_DETECTED_VAULTS_LIMIT", 1)
+    catalogue = yearn_metadata._parse_yearn_detected_vault_index(
+        [
+            {
+                "chainID": 1,
+                "address": FLEX_USDC_VAULT,
+                "description": "Flex USDC is an allocator vault.",
+            }
+        ]
+    )
+
+    assert catalogue.is_complete is False
+    assert yearn_metadata.resolve_yearn_vault_endorsement(1, FLEX_USDC_VAULT, static_endorsement=False, detected_vaults=catalogue) is True
+    assert yearn_metadata.resolve_yearn_vault_endorsement(1, COINFLAKES_VAULT, static_endorsement=False, detected_vaults=catalogue) is None
+
+
+def test_yearn_endorsement_resolver_requires_both_catalogues_for_negative() -> None:
+    """Combine public website and static catalogue outcomes conservatively."""
+
+    listed_catalogue = create_detected_catalogue({(1, FLEX_USDC_VAULT): YearnDetectedVaultMetadata(description="Flex USDC is an allocator vault.")})
+    complete_empty_catalogue = create_detected_catalogue()
+
+    assert yearn_metadata.resolve_yearn_vault_endorsement(1, FLEX_USDC_VAULT, static_endorsement=False, detected_vaults=listed_catalogue) is True
+    assert yearn_metadata.resolve_yearn_vault_endorsement(1, COINFLAKES_VAULT, static_endorsement=True, detected_vaults=complete_empty_catalogue) is True
+    assert yearn_metadata.resolve_yearn_vault_endorsement(1, COINFLAKES_VAULT, static_endorsement=False, detected_vaults=complete_empty_catalogue) is False
+    assert yearn_metadata.resolve_yearn_vault_endorsement(1, COINFLAKES_VAULT, static_endorsement=None, detected_vaults=complete_empty_catalogue) is None
+    assert yearn_metadata.resolve_yearn_vault_endorsement(1, COINFLAKES_VAULT, static_endorsement=False, detected_vaults=None) is None
+
+
 def test_unlisted_direct_yearn_vaults_are_blacklisted_in_metrics(monkeypatch: pytest.MonkeyPatch) -> None:
     """Unendorsed direct Yearn V3 vaults receive a bad scan flag.
 
@@ -269,7 +321,7 @@ def test_unlisted_direct_yearn_vaults_are_blacklisted_in_metrics(monkeypatch: py
     """
 
     monkeypatch.setattr(yearn_vault_module, "fetch_yearn_vault_endorsement", lambda *_args: False)
-    monkeypatch.setattr(yearn_vault_module, "fetch_yearn_detected_vaults", lambda: {})
+    monkeypatch.setattr(yearn_vault_module, "fetch_yearn_detected_vaults", create_detected_catalogue)
     monkeypatch.setattr(ERC4626Vault, "get_flags", lambda _self: set())
     v3_vault = object.__new__(YearnV3Vault)
     v3_vault.spec = VaultSpec(chain_id=1, vault_address=COINFLAKES_VAULT)
@@ -295,7 +347,7 @@ def test_listed_yearn_vaults_and_strategy_adapters_are_not_blacklisted(monkeypat
     """Keep Yearn-endorsed partner products out of the unofficial classification."""
 
     monkeypatch.setattr(yearn_vault_module, "fetch_yearn_vault_endorsement", lambda *_args: True)
-    monkeypatch.setattr(yearn_vault_module, "fetch_yearn_detected_vaults", lambda: {})
+    monkeypatch.setattr(yearn_vault_module, "fetch_yearn_detected_vaults", create_detected_catalogue)
     monkeypatch.setattr(ERC4626Vault, "get_flags", lambda _self: set())
     v3_vault = object.__new__(YearnV3Vault)
     v3_vault.spec = VaultSpec(chain_id=1, vault_address=ENDORSED_YEARN_PARTNER_VAULT)
@@ -344,7 +396,11 @@ def test_yearn_website_listing_overrides_lagging_static_metadata_and_exports_des
 
     description = "Flex USDC is an allocator vault managed by the Yearn Curation team. It lends USDC across several Flex markets."
     monkeypatch.setattr(yearn_vault_module, "fetch_yearn_vault_endorsement", lambda *_args: False)
-    monkeypatch.setattr(yearn_vault_module, "fetch_yearn_detected_vaults", lambda: {(1, FLEX_USDC_VAULT): YearnDetectedVaultMetadata(description=description)})
+    monkeypatch.setattr(
+        yearn_vault_module,
+        "fetch_yearn_detected_vaults",
+        lambda: create_detected_catalogue({(1, FLEX_USDC_VAULT): YearnDetectedVaultMetadata(description=description)}),
+    )
     monkeypatch.setattr(ERC4626Vault, "get_flags", lambda _self: set())
     vault = object.__new__(YearnV3Vault)
     vault.spec = VaultSpec(chain_id=1, vault_address=FLEX_USDC_VAULT)
@@ -360,7 +416,7 @@ def test_strategy_adapters_keep_static_catalogue_misses_unknown(monkeypatch: pyt
     """Avoid unofficial flags for TokenizedStrategy and Morpho strategy adapters."""
 
     monkeypatch.setattr(yearn_vault_module, "fetch_yearn_vault_endorsement", lambda *_args: False)
-    monkeypatch.setattr(yearn_vault_module, "fetch_yearn_detected_vaults", lambda: {})
+    monkeypatch.setattr(yearn_vault_module, "fetch_yearn_detected_vaults", create_detected_catalogue)
     monkeypatch.setattr(ERC4626Vault, "get_flags", lambda _self: set())
     compounder_vault = object.__new__(YearnCompounderVault)
     compounder_vault.spec = VaultSpec(chain_id=1, vault_address=COINFLAKES_VAULT)
@@ -389,9 +445,25 @@ def test_yearn_website_catalogue_outage_keeps_static_miss_unknown(monkeypatch: p
     assert vault.get_notes() is None
 
 
+def test_incomplete_yearn_website_catalogue_keeps_static_miss_unknown(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Avoid flagging a vault that could lie beyond the endpoint response limit."""
+
+    monkeypatch.setattr(yearn_vault_module, "fetch_yearn_vault_endorsement", lambda *_args: False)
+    monkeypatch.setattr(yearn_vault_module, "fetch_yearn_detected_vaults", lambda: create_detected_catalogue(is_complete=False))
+    monkeypatch.setattr(ERC4626Vault, "get_flags", lambda _self: set())
+    vault = object.__new__(YearnV3Vault)
+    vault.spec = VaultSpec(chain_id=1, vault_address=COINFLAKES_VAULT)
+    vault.features = {ERC4626Feature.yearn_v3_like}
+
+    assert vault.get_flags() == set()
+    assert vault.get_notes() is None
+
+
 def test_yearn_description_rejects_templates_and_long_sentence() -> None:
     """Avoid malformed or oversized short descriptions from free-form metadata."""
 
+    assert yearn_metadata._normalise_yearn_detected_description(None) is None
+    assert yearn_metadata._normalise_yearn_detected_description("") is None
     assert yearn_metadata._normalise_yearn_detected_description("Earn {{token}} rewards.") is None
     assert extract_yearn_short_description("A sentence without punctuation " * 20) is None
 
@@ -416,7 +488,8 @@ def test_live_yearn_metadata_confirms_endorsement_and_flex_description(tmp_path)
 
     detected_vaults = yearn_metadata.fetch_yearn_detected_vaults()
     assert detected_vaults is not None
-    flex_metadata = detected_vaults[1, FLEX_USDC_VAULT]
+    flex_metadata = detected_vaults.get(1, FLEX_USDC_VAULT)
+    assert flex_metadata is not None
     assert flex_metadata.description is not None
     assert flex_metadata.description.startswith("Flex USDC is an allocator vault")
     assert extract_yearn_short_description(flex_metadata.description) == "Flex USDC is an allocator vault managed by the Yearn Curation team."

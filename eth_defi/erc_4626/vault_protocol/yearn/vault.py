@@ -14,10 +14,12 @@ from eth_defi.erc_4626.vault import ERC4626Vault
 from eth_defi.erc_4626.vault_protocol.yearn.deposit_redeem import YearnV3DepositManager
 from eth_defi.erc_4626.vault_protocol.yearn.notes import YEARN_VAULT_NOTES
 from eth_defi.erc_4626.vault_protocol.yearn.offchain_metadata import (
+    YearnDetectedVaultCatalogue,
     YearnDetectedVaultMetadata,
     extract_yearn_short_description,
     fetch_yearn_detected_vaults,
     fetch_yearn_vault_endorsement,
+    resolve_yearn_vault_endorsement,
 )
 from eth_defi.vault.base import INSTANT_WITHDRAWAL_PERIOD, WithdrawalPeriod
 from eth_defi.vault.flag import NOT_IN_YEARN_FRONTEND, VaultFlag
@@ -48,12 +50,11 @@ class YearnDetectedVaultMetadataMixin:
     """
 
     @cached_property
-    def yearn_detected_vaults(self) -> dict[tuple[int, str], YearnDetectedVaultMetadata] | None:
+    def yearn_detected_vaults(self) -> YearnDetectedVaultCatalogue | None:
         """Fetch the public Yearn catalogue while preserving outage state.
 
         :return:
-            Complete fetched catalogue, or ``None`` when temporarily
-            unavailable.
+            Fetched catalogue, or ``None`` when temporarily unavailable.
         """
 
         return fetch_yearn_detected_vaults()
@@ -69,20 +70,40 @@ class YearnDetectedVaultMetadataMixin:
 
         if self.get_protocol_name() != "Yearn" or self.yearn_detected_vaults is None:
             return None
-        return self.yearn_detected_vaults.get((self.chain_id, self.vault_address.lower()))
+        return self.yearn_detected_vaults.get(self.chain_id, self.vault_address)
 
     @property
     def description(self) -> str | None:
-        """Return the Yearn website description when it is safely exportable."""
+        """Return the Yearn website description when it is safely exportable.
+
+        :return:
+            Yearn-authored description, or ``None`` when unavailable or unusable.
+        """
 
         metadata = self.yearn_detected_metadata
         return metadata.description if metadata else None
 
     @property
     def short_description(self) -> str | None:
-        """Return the first bounded sentence of the Yearn website description."""
+        """Return the first bounded sentence of the Yearn website description.
+
+        :return:
+            Compact Yearn-authored description, or ``None`` when unavailable.
+        """
 
         return extract_yearn_short_description(self.description)
+
+    def get_link(self, referral: str | None = None) -> str:
+        """Return the canonical current-Yearn frontend link for this vault.
+
+        :param referral:
+            Ignored legacy referral parameter retained for compatibility.
+        :return:
+            Canonical Yearn vault-page URL.
+        """
+
+        del referral
+        return create_yearn_vault_link(self.chain_id, self.vault_address)
 
 
 class YearnV3Vault(YearnDetectedVaultMetadataMixin, ERC4626Vault):
@@ -314,9 +335,18 @@ class YearnV3Vault(YearnDetectedVaultMetadataMixin, ERC4626Vault):
 
         if not self.supports_yearn_unofficial_classification() or self.get_protocol_name() != "Yearn":
             return False
-        if self.yearn_detected_vaults is None or self.yearn_detected_metadata is not None:
+        detected_vaults = self.yearn_detected_vaults
+        if detected_vaults is None or self.yearn_detected_metadata is not None:
             return False
-        return fetch_yearn_vault_endorsement(self.chain_id, self.vault_address) is False
+        return (
+            resolve_yearn_vault_endorsement(
+                self.chain_id,
+                self.vault_address,
+                static_endorsement=fetch_yearn_vault_endorsement(self.chain_id, self.vault_address),
+                detected_vaults=detected_vaults,
+            )
+            is False
+        )
 
     def supports_yearn_unofficial_classification(self) -> bool:  # noqa: PLR6301
         """State whether the static V3 registry can safely classify this adapter.
@@ -350,9 +380,3 @@ class YearnV3Vault(YearnDetectedVaultMetadataMixin, ERC4626Vault):
         if self._is_dynamically_unofficial():
             return NOT_IN_YEARN_FRONTEND
         return None
-
-    def get_link(self, referral: str | None = None) -> str:
-        """Return the canonical current-Yearn frontend link for this vault."""
-
-        del referral
-        return create_yearn_vault_link(self.chain_id, self.vault_address)
