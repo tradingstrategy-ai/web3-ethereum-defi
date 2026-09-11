@@ -152,7 +152,7 @@ from eth_defi.erc_4626.classification import create_vault_instance, detect_vault
 from eth_defi.erc_4626.vault import ERC4626Vault
 from eth_defi.erc_4626.vault_protocol.lagoon.config_event_scanner import build_multichain_guard_config, fetch_guard_config_events, format_guard_config_report
 from eth_defi.erc_4626.vault_protocol.lagoon.deployment import LagoonConfig, LagoonDeploymentParameters, LagoonMultichainDeployment, deploy_multichain_lagoon_vault
-from eth_defi.erc_4626.vault_protocol.lagoon.testing import fund_lagoon_vault
+from eth_defi.erc_4626.vault_protocol.lagoon.funding import fund_lagoon_vault
 from eth_defi.hotwallet import HotWallet
 from eth_defi.provider.anvil import AnvilLaunch, fork_network_anvil, fund_erc20_on_anvil
 from eth_defi.provider.multi_provider import create_multi_provider_web3

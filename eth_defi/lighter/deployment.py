@@ -9,9 +9,11 @@ is called both by the Lagoon vault deployment flow
 (:py:mod:`eth_defi.erc_4626.vault_protocol.lagoon.deployment`) and by the
 Anvil-fork tests (via :py:mod:`eth_defi.lighter.testing`).
 
-The on-chain scope is the L1 custody flow only: ``deposit`` /
-``withdraw`` / ``withdrawPendingBalance``. Account registration is off-chain
-(EIP-712 / EIP-1271 Safe signature) and does not go through the guard.
+The onchain asset-manager scope is the L1 custody flow only: ``deposit`` /
+``withdraw`` / ``withdrawPendingBalance``. Safe-owned account key registration
+uses a direct L1 ``changePubKey`` Safe transaction: it bypasses the asset-manager
+module, while the installed Safe guard permits it through the intentional
+governance bypass. Subsequent trading is offchain.
 
 See ``eth_defi/lighter/README-lighter-guard.md`` for the architecture and
 security model.
@@ -52,7 +54,7 @@ class LighterDeployment:
     .. note::
 
         **USDC-only.** This integration currently whitelists a single Lighter
-        deposit asset — USDC — whose on-chain asset index is read from
+        deposit asset — USDC — whose onchain asset index is read from
         ``ZkLighter.USDC_ASSET_INDEX()`` at whitelist time. Multiple deposit
         assets / asset indexes are not yet supported (unlike Hypercore, which
         whitelists multiple vaults via a single multicall). Adding more assets

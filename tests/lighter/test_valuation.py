@@ -1,22 +1,19 @@
 """Integration tests for Lighter account valuation."""
 
 import os
-import site
-import sys
 from decimal import Decimal
-from importlib import machinery, util
-from types import ModuleType
 
 import pytest
 
-from eth_defi.lighter.constants import LIGHTER_API_URL
+from eth_defi.lighter.api import fetch_lighter_api_key
+from eth_defi.lighter.pubkey import PUB_KEY_BYTES_SIZE
 from eth_defi.lighter.session import create_lighter_session
 from eth_defi.lighter.valuation import fetch_lighter_account_by_index, fetch_lighter_total_equity, parse_lighter_account_equity
 
 pytestmark = pytest.mark.timeout(60)
 
 ACCOUNT_INDEX = 731323
-API_KEY_INDEX = 4
+DEFAULT_API_KEY_INDEX = 4
 POSITION_COUNT = 2
 ROUNDING_TOLERANCE = Decimal("0.01")
 
@@ -72,28 +69,6 @@ def _require_env(name: str) -> str:
     if not value:
         pytest.skip(f"Set {name} to run Lighter valuation integration tests")
     return value
-
-
-def _import_lighter_sdk() -> ModuleType:
-    """Import the installed Lighter SDK, avoiding ``tests/lighter`` shadowing."""
-    existing = sys.modules.get("lighter")
-    if existing is not None and hasattr(existing, "SignerClient"):
-        return existing
-
-    for package_path in site.getsitepackages():
-        spec = machinery.PathFinder.find_spec("lighter", [package_path])
-        if spec is None or spec.loader is None:
-            continue
-        if not spec.origin or "site-packages" not in spec.origin:
-            continue
-
-        module = util.module_from_spec(spec)
-        sys.modules["lighter"] = module
-        spec.loader.exec_module(module)
-        if hasattr(module, "SignerClient"):
-            return module
-
-    pytest.skip("Install the Lighter SDK to run Lighter valuation integration tests")
 
 
 def test_parse_lighter_account_equity() -> None:
@@ -196,25 +171,9 @@ def test_parse_lighter_account_equity_rejects_non_finite_decimal() -> None:
         parse_lighter_account_equity(account)
 
 
-@pytest.mark.asyncio
-async def test_fetch_lighter_total_equity_with_registered_api_key() -> None:
-    """Fetch NAV for a real Lighter account with a registered API key."""
-    lighter = _import_lighter_sdk()
-
+def test_fetch_lighter_total_equity_for_real_account() -> None:
+    """Fetch NAV from Lighter's public API without a trading API key."""
     account_index = int(_require_env("LIGHTER_TEST_ACCOUNT_INDEX"))
-    api_private_key = _require_env("LIGHTER_TEST_ACCOUNT_API_KEY")
-    api_key_index = int(os.environ.get("LIGHTER_TEST_ACCOUNT_API_KEY_INDEX", str(API_KEY_INDEX)))
-
-    client = lighter.SignerClient(
-        url=LIGHTER_API_URL,
-        account_index=account_index,
-        api_private_keys={api_key_index: api_private_key},
-    )
-    try:
-        err = client.check_client()
-        assert err is None
-    finally:
-        await client.close()
 
     session = create_lighter_session()
     try:
@@ -227,3 +186,19 @@ async def test_fetch_lighter_total_equity_with_registered_api_key() -> None:
     assert equity.collateral >= Decimal("1")
     assert equity.available_balance >= Decimal(0)
     assert equity.calculate_total_from_parts() == pytest.approx(equity.get_total(), abs=ROUNDING_TOLERANCE)
+
+
+def test_fetch_lighter_api_key_for_real_account() -> None:
+    """Fetch the configured registered key through Lighter's public API."""
+    account_index = int(_require_env("LIGHTER_TEST_ACCOUNT_INDEX"))
+    api_key_index = int(os.environ.get("LIGHTER_TEST_ACCOUNT_API_KEY_INDEX", str(DEFAULT_API_KEY_INDEX)))
+
+    session = create_lighter_session()
+    try:
+        api_key = fetch_lighter_api_key(session, account_index, api_key_index)
+    finally:
+        session.close()
+
+    assert api_key is not None
+    assert int(api_key["api_key_index"]) == api_key_index
+    assert len(bytes.fromhex(api_key["public_key"].removeprefix("0x"))) == PUB_KEY_BYTES_SIZE
