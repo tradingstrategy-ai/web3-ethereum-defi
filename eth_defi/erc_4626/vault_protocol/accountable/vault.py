@@ -31,6 +31,7 @@ from eth_defi.vault.base import VaultHistoricalRead, VaultHistoricalReader
 from eth_defi.vault.deposit_redeem import VaultDepositManagerCapability
 from eth_defi.vault.fee import FeeData, VaultFeeMode
 from eth_defi.vault.handwritten_metadata import get_handwritten_vault_metadata
+from eth_defi.vault.strategy_tag import StrategyTag, lookup_curator_strategy_tags
 
 logger = logging.getLogger(__name__)
 
@@ -553,6 +554,15 @@ class AccountableVault(ERC4626Vault):  # noqa: PLR0904
         if self.accountable_metadata:
             return self.accountable_metadata.get("short_description")
         return None
+
+    def get_strategy_tags(self) -> set[StrategyTag] | None:
+        """Return curator-maintained strategy tags for supported products.
+
+        :return:
+            Strategy tags for a reviewed curator product, otherwise ``None``.
+        """
+
+        return lookup_curator_strategy_tags(self.chain_id, self.address)
 
     @property
     def manager_name(self) -> str | None:

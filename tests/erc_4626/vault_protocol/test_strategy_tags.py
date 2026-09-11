@@ -1,16 +1,23 @@
 """Tests for maintained vault strategy classifications."""
 
+from collections.abc import Callable
+from types import SimpleNamespace
+
+import pytest
 from eth_typing import HexAddress
 
 from eth_defi.enzyme.onyx_vault import EnzymeVault
+from eth_defi.erc_4626.vault_protocol.accountable.vault import AccountableVault
 from eth_defi.erc_4626.vault_protocol.atoma.vault import ATOMA_VAULT_2_ADDRESS, ATOMA_VAULT_ADDRESS, AtomaVault
 from eth_defi.erc_4626.vault_protocol.axis.constants import AXIS_ETHEREUM_STAKED_USDX_VAULT
 from eth_defi.erc_4626.vault_protocol.axis.vault import AxisVault
 from eth_defi.erc_4626.vault_protocol.ethena.vault import EthenaVault
 from eth_defi.erc_4626.vault_protocol.ipor.vault import IPORVault
 from eth_defi.erc_4626.vault_protocol.symbiotic.vault import SymbioticVault
+from eth_defi.erc_4626.vault_protocol.t3tris.vault import T3trisVault
 from eth_defi.erc_4626.vault_protocol.upshift.vault import UpshiftVault
 from eth_defi.erc_4626.vault_protocol.yieldnest.vault import YNRWAX_VAULT_ADDRESS, YieldNestVault
+from eth_defi.midas.vault import MidasVault
 from eth_defi.vault.base import VaultBase, VaultSpec
 from eth_defi.vault.strategy_tag import StrategyTag
 
@@ -180,3 +187,24 @@ def test_missing_strategy_tags_return_none() -> None:
 
     assert vault.get_strategy_tags() is None
     assert VaultBase.get_strategy_tags(vault) is None
+
+
+@pytest.mark.parametrize(
+    ("resolver", "chain_id", "address"),
+    (
+        (AccountableVault.get_strategy_tags, 1, "0x99351baed3d8ab544ccb08af96a105910fda71e7"),
+        (MidasVault.get_strategy_tags, 1, "0x827ce7e8e35861d9ac7fe002755767b695a5594a"),
+        (MidasVault.get_strategy_tags, 1, "0x2bf11d2e04bc40daa95c24b8b90ec4f5c57dd326"),
+        (T3trisVault.get_strategy_tags, 4663, "0x5b93dd3eb7fd224565498045f5e1a2ebda49e672"),
+    ),
+)
+def test_morini_capital_adapters_return_fx_strategy_tag(
+    resolver: Callable[[object], set[StrategyTag] | None],
+    chain_id: int,
+    address: str,
+) -> None:
+    """Non-Morpho Morini products expose FX through their scan adapters."""
+
+    vault = SimpleNamespace(chain_id=chain_id, address=HexAddress(address))
+
+    assert resolver(vault) == {StrategyTag.fx}

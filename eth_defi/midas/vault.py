@@ -30,6 +30,7 @@ from eth_defi.vault.flag import VaultFlag
 from eth_defi.vault.handwritten_metadata import get_handwritten_vault_metadata
 from eth_defi.vault.lower_case_dict import LowercaseDict
 from eth_defi.vault.price_source import PriceSource
+from eth_defi.vault.strategy_tag import StrategyTag, lookup_curator_strategy_tags
 
 MIDAS_HOMEPAGE = "https://midas.app/products"
 MIDAS_CONTRACTS_GITHUB = "https://github.com/midas-apps/contracts"
@@ -339,6 +340,15 @@ class MidasVault(VaultBase):
         if metadata:
             return metadata.short_description
         return self.product.short_description or "Midas tokenised investment product with NAV published through the Midas oracle pipeline"
+
+    def get_strategy_tags(self) -> set[StrategyTag] | None:
+        """Return curator-maintained strategy tags for supported Midas products.
+
+        :return:
+            Strategy tags for a reviewed curator product, otherwise ``None``.
+        """
+
+        return lookup_curator_strategy_tags(self.chain_id, self.address)
 
     @property
     def manager_name(self) -> str | None:

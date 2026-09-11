@@ -235,12 +235,18 @@ def test_strategy_category_export_excludes_stale_records() -> None:
     assert categories["lending"]["one_month_apy"] == 0.10
 
 
-def test_strategy_tag_metadata_covers_every_tag_with_two_sentences() -> None:
+def test_strategy_tag_metadata_covers_every_tag_with_short_descriptions() -> None:
     """Keep the public category catalogue complete and concise."""
+    max_description_length = 100
+
     assert set(STRATEGY_TAG_METADATA) == set(StrategyTag)
     assert all(metadata["label"] and "[" not in metadata["label"] for metadata in STRATEGY_TAG_METADATA.values())
-    descriptions_without_markdown_links = (re.sub(r"\]\([^)]*\)", "]", metadata["description"]) for metadata in STRATEGY_TAG_METADATA.values())
-    assert all(description.count(".") == 2 for description in descriptions_without_markdown_links)
+    descriptions = [re.sub(r"\]\([^)]*\)", "]", metadata["description"]) for metadata in STRATEGY_TAG_METADATA.values()]
+    assert all(description.count(".") == 1 for description in descriptions)
+    assert all(len(description) <= max_description_length for description in descriptions)
+    assert all("the vault" not in description.lower() and "this vault" not in description.lower() for description in descriptions)
+    assert all("we " not in description.lower() for description in descriptions)
+    assert all("documented assets" not in description.lower() for description in descriptions)
 
 
 def test_strategy_category_export_skips_a_tag_without_current_catalogue_metadata(monkeypatch: pytest.MonkeyPatch) -> None:
