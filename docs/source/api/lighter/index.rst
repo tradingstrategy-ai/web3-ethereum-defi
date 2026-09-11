@@ -22,15 +22,17 @@ The guarded Lagoon/Safe surface supports the manual mainnet custody lifecycle:
 - Guard whitelisting for Lighter ``deposit`` / ``withdraw`` /
   ``withdrawPendingBalance`` L1 calls
 - Safe-owned ``changePubKey`` API-key registration
-- Lagoon-vault helpers for USDC deposits, secure Lighter withdrawals and
-  pending-balance claims
+- Lagoon-vault helper for the minimum USDC activation deposit
 - Account valuation via public Lighter account NAV fields
-- Small manual ETH perpetual round trips through the optional Lighter SDK
+- Deployment-time trading API-key generation without an SDK dependency;
+  the separate trading tutorial uses Lighter's official SDK for order signing
 
 Tutorials
 ~~~~~~~~~
 
 - :doc:`Lighter: benchmark pools </tutorials/lighter-vault-benchmark>` - Benchmark Lighter pool performance, equity curves, and rolling returns
+- ``scripts/lagoon/lagoon-lighter-example.py`` - Deploy and activate a Lagoon vault with a Lighter API key
+- ``scripts/lagoon/lagoon-lighter-trade-example.py`` - Deploy, open and close a small ETH perpetual, and read NAV
 
 For architecture details, API endpoint reference, DuckDB schema, and
 fee model documentation, see
@@ -47,6 +49,7 @@ fee model documentation, see
    eth_defi.lighter.session
    eth_defi.lighter.constants
    eth_defi.lighter.api
+   eth_defi.lighter.api_key
    eth_defi.lighter.deployment
    eth_defi.lighter.lagoon
    eth_defi.lighter.pubkey

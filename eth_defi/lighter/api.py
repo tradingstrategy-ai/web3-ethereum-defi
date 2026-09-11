@@ -1,534 +1,341 @@
-"""Lighter API helpers for manual trading workflows.
+"""REST helpers for Lighter account activation and API-key registration.
 
-This module follows the same ``api.py`` / ``session.py`` split as other
-exchange-style integrations in :mod:`eth_defi`. It wraps the optional
-``lighter-python`` SDK for scripts and manual integration tests. It covers
-account polling, API-key registration, small trade sizing and simple
-market-order round trips.
+These helpers use Lighter's public REST API and do not require the Lighter SDK
+or an API private key. Transaction signing belongs to downstream trading code;
+this module only waits for the state created by the Lagoon deployer.
 
-Authoritative documentation:
+Authoritative Lighter documentation:
 
-- Lighter API keys: https://apidocs.lighter.xyz/docs/api-keys
-- Deposits and withdrawals:
-  https://apidocs.lighter.xyz/docs/deposits-transfers-and-withdrawals
+- Account creation: https://apidocs.lighter.xyz/docs/create-accounts-programmatically
+- API keys: https://apidocs.lighter.xyz/docs/api-keys
 """
 
-import asyncio
 import logging
 import time
-from dataclasses import dataclass
-from decimal import ROUND_CEILING, Decimal
-from typing import Any, Callable
+from decimal import Decimal
+from http import HTTPStatus
+from typing import Any
 
-from safe_eth.safe import Safe
+from eth_typing import HexAddress
+from requests import Response
+from requests.exceptions import JSONDecodeError, RequestException
 from web3 import Web3
 
-from eth_defi.hotwallet import HotWallet
-from eth_defi.lighter.constants import LIGHTER_API_URL
-from eth_defi.lighter.pubkey import MIN_API_KEY_INDEX, build_change_pubkey_safe_tx, validate_lighter_pubkey
-from eth_defi.safe.execute import execute_safe_tx
+from eth_defi.lighter.session import LighterSession
+from eth_defi.lighter.valuation import fetch_lighter_account_by_index, parse_lighter_account_equity
 
 logger = logging.getLogger(__name__)
 
 #: Ethereum deposits and secure withdrawals have a documented 1 USDC minimum.
 LIGHTER_MIN_MAINNET_USDC = Decimal("1")
 
-#: ETH perpetual market index in the official Lighter SDK examples.
-LIGHTER_ETH_MARKET_INDEX = 0
-
-#: Seconds to wait after an L2 transaction before polling account state again.
+#: Seconds to wait before polling public Lighter state again.
 LIGHTER_STATE_POLL_SECONDS = 15
 
+#: Tolerance for Lighter API decimal rounding after an L1 USDC deposit.
+LIGHTER_COLLATERAL_TOLERANCE = Decimal("0.000010")
 
-@dataclass(slots=True)
-class LighterTradeAmounts:
-    """USDC and ETH sizes used by a Lighter manual trade.
+#: HTTP status returned while a deposited account is not indexed yet.
+HTTP_BAD_REQUEST = 400
 
-    :param deposit_usdc:
-        Suggested USDC deposit amount.
-    :param position_usdc:
-        Effective ETH long notional in USDC.
-    :param base_amount:
-        Lighter integer base amount for the ETH market order.
-    :param max_buy_price:
-        Worst acceptable buy price in Lighter integer price units.
-    :param min_quote_amount:
-        ETH market minimum quote amount, as reported by Lighter.
-    :param min_base_amount:
-        ETH market minimum base amount, as reported by Lighter.
-    """
+#: Lighter error code for a not-yet-indexed account.
+LIGHTER_ACCOUNT_NOT_FOUND_CODE = 21100
 
-    deposit_usdc: Decimal
-    position_usdc: Decimal
-    base_amount: int
-    max_buy_price: int
-    min_quote_amount: Decimal
-    min_base_amount: Decimal
+#: Lighter error code for a registered API key that is not indexed yet.
+LIGHTER_API_KEY_NOT_FOUND_CODE = 21109
 
 
-def import_lighter() -> Any:
-    """Import the optional Lighter SDK with an actionable error.
+def _is_transient_lighter_api_error(error: RequestException) -> bool:
+    """Check whether a failed Lighter request is safe to retry.
 
+    Connection failures have no response. For HTTP failures, retry only rate
+    limits and server errors; permanent client errors remain fail-fast.
+
+    :param error:
+        Requests transport or HTTP exception.
     :return:
-        Imported ``lighter`` module.
+        ``True`` for connection failures, HTTP 429 and HTTP 5xx responses.
     """
+    response = error.response
+    return response is None or response.status_code == HTTPStatus.TOO_MANY_REQUESTS or response.status_code >= HTTPStatus.INTERNAL_SERVER_ERROR
+
+
+def _wait_after_transient_lighter_api_error(
+    error: RequestException,
+    *,
+    deadline: float,
+    timeout: int,
+    operation: str,
+) -> None:
+    """Pause a polling loop after a transient Lighter API failure.
+
+    The caller retains its original overall deadline. This helper never hides
+    permanent HTTP errors and does not add resumable deployment state.
+
+    :param error:
+        Requests exception raised by the latest poll.
+    :param deadline:
+        Monotonic overall polling deadline.
+    :param timeout:
+        Original overall timeout in seconds, used in the terminal error.
+    :param operation:
+        Human-readable operation for logs and errors.
+    :return:
+        ``None`` after the retry delay.
+    """
+    if not _is_transient_lighter_api_error(error):
+        raise error
+    if time.monotonic() >= deadline:
+        raise TimeoutError(f"{operation} did not complete within {timeout} seconds after transient Lighter API failures") from error
+    logger.warning("Transient Lighter API failure while waiting for %s; retrying in %d seconds: %s", operation, LIGHTER_STATE_POLL_SECONDS, error)
+    time.sleep(LIGHTER_STATE_POLL_SECONDS)
+
+
+def _has_lighter_error_code(response: Response, expected_code: int) -> bool:
+    """Check a JSON error response for a known Lighter error code.
+
+    Gateways may return HTML or another non-JSON body for an HTTP 400. In that
+    case the caller falls through to :meth:`requests.Response.raise_for_status`
+    instead of leaking a JSON decoding error into a polling loop.
+
+    :param response:
+        Lighter HTTP response.
+    :param expected_code:
+        Lighter application error code to match.
+    :return:
+        ``True`` when the response contains the expected code.
+    """
+    if response.status_code != HTTP_BAD_REQUEST:
+        return False
     try:
-        import lighter  # type: ignore[import-not-found]  # noqa: PLC0415
-    except ImportError as e:
-        msg = "The full mainnet Lighter manual test needs the optional Lighter SDK. Install it with `poetry install -E lighter`, or use the full extras install command from pyproject.toml."
-        raise ImportError(msg) from e
-    return lighter
+        data = response.json()
+    except JSONDecodeError:
+        return False
+    return data.get("code") == expected_code
 
 
-def ceil_decimal(value: Decimal, step: Decimal) -> Decimal:
-    """Round a decimal up to the next step.
+def fetch_lighter_account_index(
+    session: LighterSession,
+    l1_address: HexAddress | str,
+    timeout: float = 30.0,
+) -> int | None:
+    """Fetch the lowest Lighter account index owned by an L1 address.
 
-    :param value:
-        Value to round.
-    :param step:
-        Rounding step.
+    Lighter can return multiple subaccounts for one L1 owner. The SDK path
+    previously selected the lowest index, so preserve that deterministic rule.
+
+    Authoritative endpoint documentation:
+    https://apidocs.lighter.xyz/reference/accountsbyl1address
+
+    :param session:
+        Configured Lighter HTTP session.
+    :param l1_address:
+        Safe address which owns the Lighter account.
+    :param timeout:
+        Per-request timeout in seconds.
     :return:
-        Rounded value.
+        The lowest account index, or ``None`` until Lighter exposes one.
     """
-    return (value / step).to_integral_value(rounding=ROUND_CEILING) * step
+    response = session.get(
+        f"{session.api_url}/api/v1/accountsByL1Address",
+        params={"l1_address": Web3.to_checksum_address(l1_address)},
+        timeout=timeout,
+    )
+    if _has_lighter_error_code(response, LIGHTER_ACCOUNT_NOT_FOUND_CODE):
+        return None
+    response.raise_for_status()
+    data = response.json()
+    accounts = data.get("sub_accounts") or data.get("subAccounts") or []
+    if not accounts:
+        return None
+
+    try:
+        return min(int(account["index"]) for account in accounts)
+    except (KeyError, TypeError, ValueError) as error:
+        message = "Lighter accountsByL1Address response contains an invalid account index"
+        raise ValueError(message) from error
 
 
-async def wait_for_lighter_account(lighter: Any, safe_address: str, timeout: int = 900) -> int:
-    """Wait until Lighter API exposes an account for an L1 owner.
+def wait_for_lighter_account(
+    session: LighterSession,
+    l1_address: HexAddress | str,
+    timeout: int = 900,
+) -> int:
+    """Wait for Lighter to expose a Safe-owned account.
 
-    :param lighter:
-        Imported Lighter SDK module.
-    :param safe_address:
-        L1 owner address, usually the Lagoon Safe.
+    An Ethereum L1 deposit is processed asynchronously by Lighter. This wait
+    is observable through concise logs and terminates with ``TimeoutError`` if
+    the account never becomes visible.
+
+    :param session:
+        Configured Lighter HTTP session.
+    :param l1_address:
+        Safe address which owns the account.
     :param timeout:
         Maximum wait in seconds.
     :return:
         Lighter account index.
     """
-    api_client = lighter.ApiClient(configuration=lighter.Configuration(host=LIGHTER_API_URL))
-    account_api = lighter.AccountApi(api_client)
     deadline = time.monotonic() + timeout
-    try:
-        while True:
-            try:
-                response = await account_api.accounts_by_l1_address(l1_address=safe_address)
-                if response.sub_accounts:
-                    account = min(response.sub_accounts, key=lambda item: int(item.index))
-                    logger.info(f"  Lighter account index: {account.index}")
-                    return int(account.index)
-            except lighter.ApiException as e:
-                message = getattr(getattr(e, "data", None), "message", str(e))
-                logger.info("Lighter account not visible yet for %s: %s", safe_address, message)
-
-            if time.monotonic() >= deadline:
-                raise TimeoutError(f"Lighter did not expose an account for {safe_address} within {timeout} seconds")
-            logger.info(f"  Waiting for Lighter account creation ({LIGHTER_STATE_POLL_SECONDS}s)...")
-            await asyncio.sleep(LIGHTER_STATE_POLL_SECONDS)
-    finally:
-        await api_client.close()
+    while True:
+        try:
+            account_index = fetch_lighter_account_index(session, l1_address)
+        except RequestException as error:
+            _wait_after_transient_lighter_api_error(error, deadline=deadline, timeout=timeout, operation=f"Lighter account creation for {l1_address}")
+            continue
+        if account_index is not None:
+            logger.info("Lighter account index for %s: %d", l1_address, account_index)
+            return account_index
+        if time.monotonic() >= deadline:
+            raise TimeoutError(f"Lighter did not expose an account for {l1_address} within {timeout} seconds")
+        logger.info("Waiting for Lighter account creation (%ds)", LIGHTER_STATE_POLL_SECONDS)
+        time.sleep(LIGHTER_STATE_POLL_SECONDS)
 
 
-async def fetch_lighter_account(lighter: Any, account_index: int) -> Any:
-    """Fetch a Lighter account by index.
-
-    :param lighter:
-        Imported Lighter SDK module.
-    :param account_index:
-        Lighter account index.
-    :return:
-        Detailed account model.
-    """
-    api_client = lighter.ApiClient(configuration=lighter.Configuration(host=LIGHTER_API_URL))
-    try:
-        return await lighter.AccountApi(api_client).account(by="index", value=str(account_index))
-    finally:
-        await api_client.close()
-
-
-def unwrap_lighter_account(account: Any) -> Any | None:
-    """Unwrap a Lighter account API response.
-
-    :param account:
-        Lighter account response. The SDK returns either a ``DetailedAccounts``
-        wrapper with an ``accounts`` list or the account object itself.
-    :return:
-        The first account object, or ``None`` if the response is empty.
-    """
-    if hasattr(account, "accounts"):
-        return account.accounts[0] if account.accounts else None
-    return account
-
-
-def get_eth_position(account: Any, market_index: int = LIGHTER_ETH_MARKET_INDEX) -> Decimal:
-    """Read a signed ETH position size from a Lighter account response.
-
-    :param account:
-        Lighter detailed account model.
-    :param market_index:
-        Lighter market index.
-    :return:
-        Signed ETH position amount.
-    """
-    account = unwrap_lighter_account(account)
-    if account is None:
-        return Decimal(0)
-
-    for position in account.positions:
-        if int(position.market_id) == market_index:
-            size = Decimal(str(position.position))
-            return size if int(position.sign) >= 0 else -size
-    return Decimal(0)
-
-
-def get_lighter_available_balance(account: Any) -> Decimal:
-    """Read the available USDC balance from a Lighter account response.
-
-    :param account:
-        Lighter account response.
-    :return:
-        Available USDC collateral.
-    """
-    account = unwrap_lighter_account(account)
-    if account is None:
-        return Decimal(0)
-    return Decimal(str(account.available_balance))
-
-
-def get_lighter_collateral(account: Any) -> Decimal:
-    """Read the total USDC collateral from a Lighter account response.
-
-    :param account:
-        Lighter account response.
-    :return:
-        Total USDC collateral.
-    """
-    account = unwrap_lighter_account(account)
-    if account is None:
-        return Decimal(0)
-    return Decimal(str(account.collateral))
-
-
-async def wait_for_lighter_collateral(
-    lighter: Any,
+def wait_for_lighter_collateral(
+    session: LighterSession,
     account_index: int,
     expected_usdc: Decimal,
     timeout: int = 900,
 ) -> Decimal:
-    """Wait until the Lighter account shows deposited collateral.
+    """Wait for a Lighter account to show collateral from an L1 deposit.
 
-    L1 deposits are asynchronous. The Ethereum transaction can be mined before
-    Lighter's API reflects the credited USDC balance, so callers must wait
-    before registering a trading key and opening a position.
+    The public account endpoint reports collateral after Lighter has processed
+    the mined L1 transaction. A small fixed tolerance accounts for decimal
+    display rounding in the public API response.
 
-    :param lighter:
-        Imported Lighter SDK module.
+    :param session:
+        Configured Lighter HTTP session.
     :param account_index:
         Lighter account index.
     :param expected_usdc:
-        Expected deposited USDC amount.
+        Human-readable collateral amount expected after activation.
     :param timeout:
         Maximum wait in seconds.
     :return:
-        Observed collateral.
+        Observed collateral in USDC.
     """
     deadline = time.monotonic() + timeout
-    acceptable_shortfall = Decimal("0.000010")
     while True:
-        account = await fetch_lighter_account(lighter, account_index)
-        collateral = get_lighter_collateral(account)
-        available = get_lighter_available_balance(account)
-        if collateral >= expected_usdc - acceptable_shortfall:
-            logger.info(f"  Lighter collateral credited: {collateral} USDC, available {available} USDC")
-            return collateral
+        try:
+            account = fetch_lighter_account_by_index(session, account_index)
+        except RequestException as error:
+            _wait_after_transient_lighter_api_error(error, deadline=deadline, timeout=timeout, operation=f"collateral for Lighter account {account_index}")
+            continue
+        equity = parse_lighter_account_equity(account)
+        if equity.collateral >= expected_usdc - LIGHTER_COLLATERAL_TOLERANCE:
+            logger.info(
+                "Lighter collateral credited for account %d: %s USDC, available %s USDC",
+                account_index,
+                equity.collateral,
+                equity.available_balance,
+            )
+            return equity.collateral
         if time.monotonic() >= deadline:
-            raise TimeoutError(f"Lighter collateral did not reach {expected_usdc} USDC within {timeout} seconds; current collateral {collateral}, available {available}")
-        logger.info(f"  Waiting for Lighter collateral credit; collateral {collateral} USDC, available {available} USDC")
-        await asyncio.sleep(LIGHTER_STATE_POLL_SECONDS)
+            raise TimeoutError(f"Lighter collateral did not reach {expected_usdc} USDC within {timeout} seconds; current collateral {equity.collateral}, available {equity.available_balance}")
+        logger.info(
+            "Waiting for Lighter collateral credit: collateral %s USDC, available %s USDC (%ds)",
+            equity.collateral,
+            equity.available_balance,
+            LIGHTER_STATE_POLL_SECONDS,
+        )
+        time.sleep(LIGHTER_STATE_POLL_SECONDS)
 
 
-def sdk_pubkey_to_bytes(public_key: str) -> bytes:
-    """Convert a Lighter SDK public-key string to on-chain bytes.
+def _normalise_public_key(public_key: str) -> bytes:
+    """Decode a Lighter public-key string without exposing it in errors.
 
     :param public_key:
-        SDK public-key string, ``0x`` plus 40 bytes.
+        Hexadecimal public key returned by Lighter.
     :return:
-        Raw public-key bytes for ``changePubKey``.
+        Decoded public-key bytes.
     """
-    pubkey = bytes.fromhex(public_key.removeprefix("0x"))
-    validate_lighter_pubkey(pubkey)
-    return pubkey
+    try:
+        return bytes.fromhex(public_key.removeprefix("0x"))
+    except ValueError as error:
+        message = "Lighter API response contains a malformed public key"
+        raise ValueError(message) from error
 
 
-async def register_lighter_api_key(  # noqa: PLR0917
-    lighter: Any,
-    web3: Web3,
-    safe: Safe,
-    hot_wallet: HotWallet,
+def fetch_lighter_api_key(
+    session: LighterSession,
     account_index: int,
     api_key_index: int,
-) -> str:
-    """Generate and register a Lighter API key through a Safe.
+    timeout: float = 30.0,
+) -> dict[str, Any] | None:
+    """Fetch one Lighter API-key record from the public account API.
 
-    :param lighter:
-        Imported Lighter SDK module.
-    :param web3:
-        Web3 connection.
-    :param safe:
-        Safe that owns the Lighter account.
-    :param hot_wallet:
-        1-of-1 Safe owner.
+    :param session:
+        Configured Lighter HTTP session.
     :param account_index:
         Lighter account index.
     :param api_key_index:
-        Lighter API-key slot.
+        Requested API-key slot.
+    :param timeout:
+        Per-request timeout in seconds.
     :return:
-        SDK API private key.
+        Matching API-key response object, or ``None`` if it is not visible.
     """
-    if api_key_index < MIN_API_KEY_INDEX:
-        raise ValueError(f"Use API key index {MIN_API_KEY_INDEX} or higher; lower indices are reserved by Lighter")
-
-    private_key, public_key, err = lighter.create_api_key()
-    if err is not None:
-        raise RuntimeError(f"Could not create Lighter API key: {err}")
-
-    pubkey = sdk_pubkey_to_bytes(public_key)
-    logger.info(f"\nRegistering Lighter API key index {api_key_index} via Safe changePubKey...")
-    gas_price = max(web3.eth.gas_price * 3, 2_000_000_000)
-    safe_tx = build_change_pubkey_safe_tx(web3, safe, account_index, api_key_index, pubkey)
-    safe_tx.sign(hot_wallet.private_key.hex())
-    tx_hash, tx = execute_safe_tx(
-        safe_tx,
-        tx_sender_private_key=hot_wallet.private_key.hex(),
-        tx_gas_price=gas_price,
-        hot_wallet=hot_wallet,
+    response = session.get(
+        f"{session.api_url}/api/v1/apikeys",
+        params={"account_index": account_index, "api_key_index": api_key_index},
+        timeout=timeout,
     )
-    logger.info(f"  changePubKey tx: {tx_hash.hex()} (nonce {tx['nonce']}, gas price {tx['gasPrice']})")
-    receipt = web3.eth.wait_for_transaction_receipt(tx_hash, timeout=300)
-    if receipt["status"] != 1:
-        raise RuntimeError(f"Lighter changePubKey transaction failed: {tx_hash.hex()}")
-
-    client = lighter.SignerClient(
-        url=LIGHTER_API_URL,
-        account_index=account_index,
-        api_private_keys={api_key_index: private_key},
-    )
-    try:
-        deadline = time.monotonic() + 300
-        while True:
-            err = client.check_client()
-            if err is None:
-                logger.info("  API key is active on Lighter")
-                return private_key
-            if time.monotonic() >= deadline:
-                raise TimeoutError(f"Registered API key was not accepted by Lighter within 300 seconds: {err}")
-            logger.info(f"  Waiting for API key activation ({LIGHTER_STATE_POLL_SECONDS}s): {err}")
-            await asyncio.sleep(LIGHTER_STATE_POLL_SECONDS)
-    finally:
-        await client.close()
+    if _has_lighter_error_code(response, LIGHTER_API_KEY_NOT_FOUND_CODE):
+        return None
+    response.raise_for_status()
+    data = response.json()
+    api_keys = data.get("api_keys") or data.get("apiKeys") or []
+    for api_key in api_keys:
+        try:
+            response_index = api_key.get("api_key_index", api_key.get("apiKeyIndex"))
+            if int(response_index) == api_key_index:
+                return api_key
+        except (AttributeError, TypeError, ValueError) as error:
+            message = "Lighter apikeys response contains an invalid API-key index"
+            raise ValueError(message) from error
+    return None
 
 
-async def resolve_eth_trade_amounts(
-    lighter: Any,
-    deposit_usdc: Decimal | None = None,
-    position_usdc: Decimal | None = None,
-) -> LighterTradeAmounts:
-    """Resolve Lighter ETH market minimums and choose manual-test sizes.
-
-    :param lighter:
-        Imported Lighter SDK module.
-    :param deposit_usdc:
-        Optional explicit deposit amount.
-    :param position_usdc:
-        Optional explicit position notional.
-    :return:
-        Trade amount configuration.
-    """
-    api_client = lighter.ApiClient(configuration=lighter.Configuration(host=LIGHTER_API_URL))
-    try:
-        details = await lighter.OrderApi(api_client).order_book_details(market_id=LIGHTER_ETH_MARKET_INDEX)
-        eth_market = details.order_book_details[0]
-        min_quote_amount = Decimal(str(eth_market.min_quote_amount))
-        min_base_amount = Decimal(str(eth_market.min_base_amount))
-        last_price = Decimal(str(eth_market.last_trade_price))
-        size_decimals = int(eth_market.size_decimals)
-
-        default_position_usdc = max(LIGHTER_MIN_MAINNET_USDC, min_quote_amount) + Decimal("1")
-        resolved_position_usdc = position_usdc if position_usdc is not None else default_position_usdc
-        if resolved_position_usdc < min_quote_amount:
-            raise ValueError(f"position_usdc={resolved_position_usdc} is below Lighter ETH market min_quote_amount={min_quote_amount}")
-
-        eth_size = max(min_base_amount, resolved_position_usdc / last_price)
-        eth_size = ceil_decimal(eth_size, Decimal(1) / Decimal(10**size_decimals))
-        base_amount = int(eth_size * Decimal(10**size_decimals))
-        max_buy_price = int((last_price * Decimal("1.05") * Decimal(100)).to_integral_value(rounding=ROUND_CEILING))
-        effective_position_usdc = eth_size * last_price
-
-        default_deposit_usdc = max(LIGHTER_MIN_MAINNET_USDC, effective_position_usdc + Decimal("5"))
-        resolved_deposit_usdc = deposit_usdc if deposit_usdc is not None else default_deposit_usdc
-        if resolved_deposit_usdc < LIGHTER_MIN_MAINNET_USDC:
-            raise ValueError(f"deposit_usdc={resolved_deposit_usdc} is below Lighter's {LIGHTER_MIN_MAINNET_USDC} USDC deposit minimum")
-        if resolved_deposit_usdc <= effective_position_usdc:
-            raise ValueError(f"deposit_usdc={resolved_deposit_usdc} must be larger than the test position notional {effective_position_usdc}")
-
-        logger.info("\nLighter ETH market minimums:")
-        logger.info(f"  min_quote_amount: {min_quote_amount} USDC")
-        logger.info(f"  min_base_amount:  {min_base_amount} ETH")
-        logger.info(f"  last price:       {last_price} USDC/ETH")
-        logger.info(f"  chosen deposit:   {resolved_deposit_usdc} USDC")
-        logger.info(f"  chosen position:  {effective_position_usdc:.6f} USDC ({eth_size} ETH)")
-
-        return LighterTradeAmounts(
-            deposit_usdc=resolved_deposit_usdc,
-            position_usdc=effective_position_usdc,
-            base_amount=base_amount,
-            max_buy_price=max_buy_price,
-            min_quote_amount=min_quote_amount,
-            min_base_amount=min_base_amount,
-        )
-    finally:
-        await api_client.close()
-
-
-async def wait_for_eth_position(
-    lighter: Any,
+def wait_for_lighter_api_key(
+    session: LighterSession,
     account_index: int,
-    predicate: Callable[[Decimal], bool],
-    description: str,
+    api_key_index: int,
+    expected_public_key: str,
     timeout: int = 300,
-) -> Decimal:
-    """Wait until the ETH position matches a predicate.
+) -> None:
+    """Wait until Lighter exposes a registered API key matching a public key.
 
-    :param lighter:
-        Imported Lighter SDK module.
+    :param session:
+        Configured Lighter HTTP session.
     :param account_index:
         Lighter account index.
-    :param predicate:
-        Function receiving the signed position.
-    :param description:
-        Human-readable wait target.
+    :param api_key_index:
+        Requested API-key slot.
+    :param expected_public_key:
+        Locally generated public key, encoded as hexadecimal.
     :param timeout:
         Maximum wait in seconds.
     :return:
-        Matching position.
+        ``None`` once the exact key is visible.
     """
+    expected = _normalise_public_key(expected_public_key)
     deadline = time.monotonic() + timeout
     while True:
-        account = await fetch_lighter_account(lighter, account_index)
-        position = get_eth_position(account)
-        if predicate(position):
-            logger.info(f"  ETH position {description}: {position}")
-            return position
+        try:
+            api_key = fetch_lighter_api_key(session, account_index, api_key_index)
+        except RequestException as error:
+            _wait_after_transient_lighter_api_error(error, deadline=deadline, timeout=timeout, operation=f"API key {api_key_index} for Lighter account {account_index}")
+            continue
+        if api_key is not None:
+            public_key = api_key.get("public_key", api_key.get("publicKey"))
+            if not isinstance(public_key, str):
+                message = "Lighter apikeys response does not contain a public key"
+                raise ValueError(message)
+            if _normalise_public_key(public_key) == expected:
+                logger.info("Lighter API key %d is active for account %d", api_key_index, account_index)
+                return
         if time.monotonic() >= deadline:
-            raise TimeoutError(f"ETH position did not become {description} within {timeout} seconds; current position {position}")
-        logger.info(f"  Waiting for ETH position to become {description}; current {position}")
-        await asyncio.sleep(LIGHTER_STATE_POLL_SECONDS)
-
-
-async def trade_eth_roundtrip(
-    lighter: Any,
-    account_index: int,
-    api_private_key: str,
-    api_key_index: int,
-    amounts: LighterTradeAmounts,
-) -> None:
-    """Open and close an ETH long on Lighter.
-
-    :param lighter:
-        Imported Lighter SDK module.
-    :param account_index:
-        Lighter account index.
-    :param api_private_key:
-        SDK API private key.
-    :param api_key_index:
-        Lighter API-key slot.
-    :param amounts:
-        Trade sizing information.
-    """
-    client = lighter.SignerClient(
-        url=LIGHTER_API_URL,
-        account_index=account_index,
-        api_private_keys={api_key_index: api_private_key},
-    )
-    try:
-        err = client.check_client()
-        if err is not None:
-            raise RuntimeError(f"Lighter API key check failed: {err}")
-
-        logger.info("\nOpening ETH long on Lighter...")
-        open_tx, open_response, err = await client.create_market_order(
-            market_index=LIGHTER_ETH_MARKET_INDEX,
-            client_order_index=int(time.time()),
-            base_amount=amounts.base_amount,
-            avg_execution_price=amounts.max_buy_price,
-            is_ask=False,
-            api_key_index=api_key_index,
-        )
-        if err is not None:
-            raise RuntimeError(f"Opening ETH long failed: {err}")
-        logger.info(f"  Open order tx: {open_tx}")
-        logger.info(f"  Open response: {open_response}")
-
-        opened_position = await wait_for_eth_position(lighter, account_index, lambda position: position > 0, "open")
-
-        logger.info("\nClosing ETH long on Lighter...")
-        close_tx, close_response, err = await client.create_market_order(
-            market_index=LIGHTER_ETH_MARKET_INDEX,
-            client_order_index=int(time.time()) + 1,
-            base_amount=amounts.base_amount,
-            avg_execution_price=1,
-            is_ask=True,
-            reduce_only=True,
-            api_key_index=api_key_index,
-        )
-        if err is not None:
-            raise RuntimeError(f"Closing ETH long failed: {err}")
-        logger.info(f"  Close order tx: {close_tx}")
-        logger.info(f"  Close response: {close_response}")
-
-        await wait_for_eth_position(lighter, account_index, lambda position: abs(position) < max(opened_position / Decimal(1000), Decimal("0.000001")), "closed")
-    finally:
-        await client.close()
-
-
-async def withdraw_from_lighter(
-    lighter: Any,
-    account_index: int,
-    api_private_key: str,
-    api_key_index: int,
-    withdraw_usdc: Decimal,
-) -> None:
-    """Request a secure USDC withdrawal from Lighter.
-
-    :param lighter:
-        Imported Lighter SDK module.
-    :param account_index:
-        Lighter account index.
-    :param api_private_key:
-        SDK API private key.
-    :param api_key_index:
-        Lighter API-key slot.
-    :param withdraw_usdc:
-        Human-readable USDC withdrawal amount.
-    """
-    if withdraw_usdc < LIGHTER_MIN_MAINNET_USDC:
-        raise ValueError(f"Lighter secure withdrawals have a {LIGHTER_MIN_MAINNET_USDC} USDC minimum, got {withdraw_usdc}")
-
-    client = lighter.SignerClient(
-        url=LIGHTER_API_URL,
-        account_index=account_index,
-        api_private_keys={api_key_index: api_private_key},
-    )
-    try:
-        logger.info(f"\nRequesting Lighter secure withdrawal of {withdraw_usdc} USDC...")
-        withdraw_tx, response, err = await client.withdraw(
-            asset_id=client.ASSET_ID_USDC,
-            route_type=client.ROUTE_PERP,
-            amount=float(withdraw_usdc),
-            api_key_index=api_key_index,
-        )
-        if err is not None:
-            raise RuntimeError(f"Lighter withdrawal request failed: {err}")
-        logger.info(f"  Withdraw tx: {withdraw_tx}")
-        logger.info(f"  Withdraw response: {response}")
-    finally:
-        await client.close()
+            raise TimeoutError(f"Lighter API key {api_key_index} was not visible for account {account_index} within {timeout} seconds")
+        logger.info("Waiting for Lighter API-key registration (%ds)", LIGHTER_STATE_POLL_SECONDS)
+        time.sleep(LIGHTER_STATE_POLL_SECONDS)

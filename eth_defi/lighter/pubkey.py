@@ -2,14 +2,14 @@
 
 Creating a Lighter API key is two steps:
 
-1. **Generate** the API keypair off-chain (the `lighter-python` SDK
-   ``SignerClient``; no L1 private key needed). Use indices 4-254 for automated
-   keys; Lighter's dedicated API-key documentation reserves indices 0-3 for the
-   web/mobile UI.
+1. **Generate** the API keypair off-chain with
+   :py:func:`eth_defi.lighter.api_key.generate_lighter_api_key`; no L1 private
+   key is needed. Use indices 4-254 for automated keys; Lighter's dedicated
+   API-key documentation reserves indices 0-3 for the web/mobile UI.
 2. **Register** its public key with the Lighter account on L1 via
    ``ZkLighter.changePubKey(accountIndex, apiKeyIndex, pubKey)``. For a Gnosis
    Safe / Lagoon vault this is done as a **Safe transaction** — Lighter
-   explicitly recommends the on-chain ``ChangePubKey`` "if you're running a
+   explicitly recommends the onchain ``ChangePubKey`` "if you're running a
    multi-sig" (the SDK's EOA ``sign_change_api_key`` path needs a raw private
    key, which a Safe does not have).
 
@@ -31,8 +31,6 @@ Transaction Builder.
 Authoritative docs:
 
 - Lighter API keys: https://apidocs.lighter.xyz/docs/api-keys
-- ``lighter-python`` ``SignerClient.sign_change_api_key``:
-  https://github.com/elliottech/lighter-python/blob/main/lighter/signer_client.py
 """
 
 import logging
@@ -76,13 +74,13 @@ MIN_API_KEY_INDEX = 4
 def validate_lighter_pubkey(pubkey: bytes) -> None:
     """Validate a Lighter API-key public key client-side.
 
-    Mirrors the on-chain checks in ``ZkLighter.changePubKey`` so callers fail
+    Mirrors the onchain checks in ``ZkLighter.changePubKey`` so callers fail
     fast before submitting a transaction: the pubkey must be exactly
     :py:data:`PUB_KEY_BYTES_SIZE` bytes, each 8-byte little-endian limb must be
     strictly below :py:data:`GOLDILOCKS_MODULUS`, and it must not be all-zero.
 
     :param pubkey:
-        The API-key public key, as produced by the Lighter SDK.
+        The API-key public key produced by the native key generator.
 
     :raises ValueError:
         If the pubkey is malformed.
@@ -152,9 +150,9 @@ def build_change_pubkey_safe_tx(  # noqa: PLR0917
 ) -> SafeTx:
     """Build an (unsigned) Safe transaction calling ``ZkLighter.changePubKey``.
 
-    The Safe is the Lighter account's L1 owner. Sign + execute it with the Safe
-    owners, or post it to the Safe Transaction Service via
-    :py:func:`propose_change_pubkey`.
+    The Safe is the Lighter account's L1 owner. Sign and execute the result with
+    the Safe owners, or submit the encoded transaction through the Safe
+    Transaction Service.
 
     :return:
         An unsigned :class:`~safe_eth.safe.safe_tx.SafeTx`.
@@ -181,7 +179,8 @@ def execute_change_pubkey(  # noqa: PLR0917
     signatures in the Safe UI.
 
     :param owner_private_key:
-        The executing owner's private key (``0x``-prefixed).
+        The executing owner's hexadecimal private key, with or without a
+        ``0x`` prefix.
 
     :param hot_wallet:
         Optional owner wallet for nonce allocation. Use this in scripts that

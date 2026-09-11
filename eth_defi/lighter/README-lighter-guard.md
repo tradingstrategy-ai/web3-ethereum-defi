@@ -1,11 +1,11 @@
 # Lighter guard integration architecture
 
 Security architecture for depositing into and withdrawing from
-[Lighter](https://lighter.xyz) (a non-custodial, zero-fee perpetuals/spot DEX
+[Lighter](https://lighter.xyz) (a non-custodial perpetuals and spot DEX
 built as a zk-rollup on Ethereum L1) through an asset-managed Gnosis **Safe**
 controlled by `TradingStrategyModuleV0` / `GuardV0`.
 
-This document describes how the on-chain guard whitelisting works. It mirrors
+This document describes how the onchain guard whitelisting works. It mirrors
 the GMX (`eth_defi/gmx/README-GMX-Lagoon.md`) and Hypercore
 (`docs/README-Hypercore-guard.md`) guard integrations.
 
@@ -18,7 +18,7 @@ the GMX (`eth_defi/gmx/README-GMX-Lagoon.md`) and Hypercore
 > contract on Robinhood Chain (chain id 4663), but this repository has not
 > configured or verified that contract's address and ABI for guard use.
 >
-> Guard scope: **deposit / withdraw only** (the on-chain L1 custody flow).
+> Guard scope: **deposit / withdraw only** (the onchain L1 custody flow).
 > Lighter account creation happens when the Safe receives its first credited
 > deposit. On-book trading (`createOrder`) is signed with the Lighter API key,
 > and trading-key rotation (`changePubKey`) is a Safe-owner setup action outside
@@ -152,7 +152,7 @@ USDC and credits the Safe's Lighter account.
 2. claim:    performCall(ZkLighter, withdrawPendingBalance(safe, USDC_ASSET_INDEX, amount), 0)
 ```
 
-Funds are released on-chain directly to the Safe address.
+Funds are released onchain directly to the Safe address.
 
 ## Account valuation (off-chain)
 
@@ -170,11 +170,21 @@ balance and margin requirements so downstream systems, such as trade-executor,
 can report account state and size withdrawals without duplicating Lighter API
 parsing.
 
-The Lagoon + Lighter manual tutorial
-`scripts/lagoon/lagoon-lighter-example.py` uses this module after the ETH
-round-trip and before requesting the secure Lighter withdrawal. The guard still
-only authorises the L1 custody calls described above; valuation and trading are
-off-chain reads/signatures.
+The minimal deployment check is
+`scripts/lagoon/lagoon-lighter-example.py`. The API-key trading tutorial is
+`scripts/lagoon/lagoon-lighter-trade-example.py`: it deploys and activates a
+Lagoon vault, adds enough accounted collateral for a conservative small ETH
+position, opens and closes an ETH-USD long using the deployment-created API
+key, and then reads account NAV. It conservatively sizes the IOC order using
+the base and quote minimum fields, although Lighter documents those fields as
+maker-order constraints. The trading tutorial uses the official Lighter SDK
+for order signing and nonce management. The SDK is intentionally not an
+``eth-defi`` dependency. Follow the pinned, reproducible installation commands
+in the tutorial module docstring. Its Git revision, dependency workaround and
+compatibility warning are kept there as the single source of truth.
+
+The guard still only authorises the L1 custody calls described above;
+valuation and trading are off-chain reads and signatures.
 
 ## Account creation (deposit-driven — not a guard call)
 
@@ -196,17 +206,16 @@ account creation.
 
 Day-to-day trading uses an off-chain L2 API key. Creating one is two steps:
 
-1. **Generate** the API keypair off-chain (the `lighter-python` SDK; no L1 key
-   needed). Use indices 4–254 for automated keys: Lighter's dedicated
-   [API keys](https://apidocs.lighter.xyz/docs/api-keys) page says `{0,1,2,3}`
-   are reserved for desktop/mobile interfaces and repeats that these front-end
-   keys cannot be marked maker-only. Lighter's
-   [Get Started](https://apidocs.lighter.xyz/docs/get-started) page currently
-   says 2–254; this integration follows the stricter dedicated API-key page to
-   avoid overwriting keys used by the front-end.
+1. **Generate** the API keypair off-chain with
+   `generate_lighter_api_key` (no L1 key needed). Use indices 4–254 for
+   automated keys: Lighter's dedicated
+   [API keys](https://apidocs.lighter.xyz/docs/api-keys) page reserves
+   `{0,1,2,3}` for desktop and mobile interfaces. This integration follows
+   that dedicated page instead of the conflicting 2–254 range currently shown
+   on Lighter's introductory page.
 2. **Register** its public key on L1 via
    `ZkLighter.changePubKey(accountIndex, apiKeyIndex, pubKey)` — for a Safe this
-   is a **Safe transaction** (Lighter recommends the on-chain ChangePubKey for
+   is a **Safe transaction** (Lighter recommends the onchain ChangePubKey for
    multisigs). `changePubKey` binds to `msg.sender`'s registered account
    (`masterAccountIndex = validateAndGetAccountIndexFromAddress(msg.sender)`), so
    the Safe must already be a registered Lighter account.
@@ -261,9 +270,10 @@ tests reuse the same function.
   `setup_hypercore_whitelisting`.
 - **Deposit / withdraw only.** On-book trading (`createOrder`) and trading-key
   rotation (`changePubKey`) are out of guard scope; trading happens off-chain
-  via the Lighter L2 API. See the manual tutorial
-  `scripts/lagoon/lagoon-lighter-example.py` for the end-to-end lifecycle
-  (the off-chain trading steps cannot be simulated on a fork, like GMX keepers).
+  via the Lighter L2 API. See
+  `scripts/lagoon/lagoon-lighter-trade-example.py` for the deployment and
+  API-key trade flow. The off-chain trading steps cannot be simulated on an
+  Ethereum fork.
 
 ## Deployment note (library linking)
 

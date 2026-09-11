@@ -1,6 +1,7 @@
 # 1.2
 
 - feat: Add concise public strategy-category descriptions and classify Morini Capital foreign-currency vaults with the new FX category (2026-09-11)
+- feat: Add deployment-time Lighter account activation and API-key registration for Lagoon vaults, including private deployment-report output and an end-to-end ETH perpetual trading tutorial (2026-09-11)
 - feat: Classify every Enzyme Blue and Onyx vault as discretionary trading by default and migrate cached tags (2026-09-08)
 - feat: Export documented vault strategy categories with quality-filtered TVL and one-month return aggregates, plus a local category-breakdown helper (2026-09-04)
 - feat: Add canonical signed per-period vault flow values, expose gross directional values and counts only from individually extracted events, estimate netted stablecoin ERC-4626 flows from daily vault states, and deprecate the legacy top-level netflow export (2026-08-31)

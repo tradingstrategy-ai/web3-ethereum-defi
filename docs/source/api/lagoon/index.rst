@@ -10,6 +10,7 @@ This module provides tools for interacting with Lagoon vaults, including:
 - Deposits and redemptions
 - CoW Swap integration for vault trading
 - GMX perpetuals integration for vault trading
+- Lighter account activation and perpetuals integration
 - Offchain metadata fetching
 
 Tutorials
@@ -19,6 +20,8 @@ Tutorials
 - :ref:`lagoon-gmx` - Trading GMX perpetuals from a Lagoon vault
 - :ref:`lagoon-velora` - Velora integration
 - :ref:`lagoon-hyperliquid` - Deploying on HyperEVM with Hypercore deposits
+- ``scripts/lagoon/lagoon-lighter-example.py`` - Deploying a Lagoon vault with a Lighter API key
+- ``scripts/lagoon/lagoon-lighter-trade-example.py`` - Trading an ETH perpetual with the deployed API key
 
 .. autosummary::
    :toctree: _autosummary_lagoon
@@ -27,6 +30,7 @@ Tutorials
    eth_defi.lagoon.vault
    eth_defi.lagoon.deployment
    eth_defi.erc_4626.vault_protocol.lagoon.deposit_redeem
+   eth_defi.erc_4626.vault_protocol.lagoon.funding
    eth_defi.lagoon.cowswap
    eth_defi.lagoon.config
    eth_defi.lagoon.analysis

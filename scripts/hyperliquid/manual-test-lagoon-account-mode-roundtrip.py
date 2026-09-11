@@ -56,8 +56,7 @@ from eth_typing import HexAddress, HexStr
 from safe_eth.safe.safe import Safe
 from tabulate import tabulate
 from web3 import Web3
-from web3.contract.contract import ContractFunction
-from web3.contract.contract import Contract
+from web3.contract.contract import Contract, ContractFunction
 from web3.exceptions import ContractLogicError
 
 from eth_defi.erc_4626.classification import create_vault_instance
@@ -69,10 +68,8 @@ from eth_defi.erc_4626.vault_protocol.lagoon.deployment import (
     LagoonDeploymentParameters,
     deploy_automated_lagoon_vault,
 )
-from eth_defi.erc_4626.vault_protocol.lagoon.testing import (
-    fund_lagoon_vault,
-    redeem_vault_shares,
-)
+from eth_defi.erc_4626.vault_protocol.lagoon.funding import fund_lagoon_vault
+from eth_defi.erc_4626.vault_protocol.lagoon.testing import redeem_vault_shares
 from eth_defi.erc_4626.vault_protocol.lagoon.vault import LagoonVault
 from eth_defi.gas import estimate_gas_price
 from eth_defi.hotwallet import HotWallet
