@@ -51,3 +51,22 @@ def test_3f_steakhouse_usdc_has_rwa_lending_tags() -> None:
         StrategyTag.rwa,
         StrategyTag.rwa_lending,
     }
+
+
+@pytest.mark.parametrize(
+    "address",
+    (
+        "0x810b29d043eb851ba4cf80b1b194ed5177e70958",
+        "0x58e0f0b81576f23c5f002d949b2bb11a5d2714d6",
+    ),
+)
+def test_morini_morpho_vaults_have_fx_and_lending_tags(address: str) -> None:
+    """Morini's Morpho products retain lending alongside their FX activity."""
+
+    vault = _make_vault(MorphoV2Vault)
+    vault.vault_address = HexAddress(address)
+
+    assert vault.get_strategy_tags() == {
+        StrategyTag.fx,
+        StrategyTag.lending,
+    }

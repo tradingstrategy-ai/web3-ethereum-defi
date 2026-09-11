@@ -286,6 +286,38 @@ def test_migrate_vault_strategy_tags_resolves_liquid_royalty_rows() -> None:
     assert result == ({StrategyTag.rwa_royalties}, "Liquid Royalty tag resolver")
 
 
+@pytest.mark.parametrize(
+    ("chain_id", "address", "feature", "expected_tags"),
+    (
+        (1, "0x99351baed3d8ab544ccb08af96a105910fda71e7", ERC4626Feature.accountable_like, {StrategyTag.fx}),
+        (1, "0x827ce7e8e35861d9ac7fe002755767b695a5594a", ERC4626Feature.midas_like, {StrategyTag.fx}),
+        (1, "0x2bf11d2e04bc40daa95c24b8b90ec4f5c57dd326", ERC4626Feature.midas_like, {StrategyTag.fx}),
+        (1, "0x810b29d043eb851ba4cf80b1b194ed5177e70958", ERC4626Feature.morpho_v2_like, {StrategyTag.fx, StrategyTag.lending}),
+        (1, "0x58e0f0b81576f23c5f002d949b2bb11a5d2714d6", ERC4626Feature.morpho_v2_like, {StrategyTag.fx, StrategyTag.lending}),
+        (4663, "0x5b93dd3eb7fd224565498045f5e1a2ebda49e672", ERC4626Feature.t3tris_like, {StrategyTag.fx}),
+    ),
+)
+def test_migrate_vault_strategy_tags_resolves_morini_capital_rows(
+    chain_id: int,
+    address: str,
+    feature: ERC4626Feature,
+    expected_tags: set[StrategyTag],
+) -> None:
+    """Every Morini Capital row found in the public database receives FX."""
+
+    migration = load_migration_module()
+    spec = VaultSpec(chain_id, address)
+    row = {
+        "_detection_data": create_detection(spec, {feature}),
+    }
+
+    result = migration.resolve_strategy_tags(spec, row)
+
+    assert result is not None
+    tags, _source = result
+    assert tags == expected_tags
+
+
 def test_migrate_vault_strategy_tags_resolves_enzyme_blue_rows() -> None:
     """Enzyme Blue rows use the shared default and documented tag mapping."""
 
