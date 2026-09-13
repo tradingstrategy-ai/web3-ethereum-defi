@@ -1,8 +1,9 @@
-"""Lagoon Safe helpers for Lighter L1 deposits.
+"""Lagoon Safe helpers for Lighter L1 deposits and secure-withdrawal claims.
 
 The deployment flow transfers the minimum accounted USDC balance from a Lagoon
-Safe to Lighter through ``TradingStrategyModuleV0``. Trading and withdrawals
-are intentionally outside this custody helper.
+Safe to Lighter through ``TradingStrategyModuleV0``. A Lighter API-key secure
+withdrawal is requested off-chain; once Lighter makes it claimable, this module
+claims its L1 pending balance back to the same Safe.
 
 Authoritative Lighter deposit documentation:
 https://apidocs.lighter.xyz/docs/deposits-transfers-and-withdrawals
@@ -122,3 +123,55 @@ def deposit_usdc_from_lagoon_safe_into_lighter(
     )
     logger.info("Safe USDC balance after Lighter deposit: %s", usdc.fetch_balance_of(safe))
     return tx_hash
+
+
+def claim_usdc_to_lagoon_safe_from_lighter(
+    web3: Web3,
+    hot_wallet: HotWallet,
+    *,
+    vault: LagoonVault,
+    usdc: TokenDetails,
+    claimable_usdc: Decimal,
+    zk_lighter: HexAddress | str = LIGHTER_L1_CONTRACT,
+) -> str:
+    """Claim an already-claimable secure Lighter USDC withdrawal to the Safe.
+
+    This helper deliberately does not request a withdrawal. The request is an
+    L2 API-key operation; this is the Safe-gated L1 egress step and can only
+    name :attr:`LagoonVault.safe_address` as its receiver.
+
+    :param claimable_usdc:
+        Amount from the matching Lighter ``claimable`` withdrawal-history row.
+        Do not substitute the originally requested amount: Lighter may report
+        a different final raw amount after its own precision/fee handling.
+    """
+    if claimable_usdc <= 0:
+        raise ValueError(f"Claimable Lighter USDC must be positive, got {claimable_usdc}")
+
+    zk_lighter = Web3.to_checksum_address(zk_lighter)
+    safe = Web3.to_checksum_address(vault.safe_address)
+    zk = get_deployed_contract(web3, "lighter/ZkLighter.json", zk_lighter)
+    asset_index = zk.functions.USDC_ASSET_INDEX().call()
+    amount_raw = usdc.convert_to_raw(claimable_usdc)
+    module = get_deployed_contract(
+        web3,
+        "safe-integration/TradingStrategyModuleV0.json",
+        vault.trading_strategy_module_address,
+    )
+    claim_data = zk.functions.withdrawPendingBalance(
+        safe,
+        asset_index,
+        amount_raw,
+    )._encode_transaction_data()
+    logger.info(
+        "Claiming %s USDC from Lighter %s to Safe %s",
+        claimable_usdc,
+        zk_lighter,
+        safe,
+    )
+    return broadcast_tx(
+        web3,
+        hot_wallet,
+        module.functions.performCall(zk_lighter, claim_data, 0),
+        "Claim Lighter USDC withdrawal to Safe",
+    )
