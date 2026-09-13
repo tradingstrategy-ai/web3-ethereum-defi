@@ -186,6 +186,14 @@ compatibility warning are kept there as the single source of truth.
 The guard still only authorises the L1 custody calls described above;
 valuation and trading are off-chain reads and signatures.
 
+Authenticated SDK reads should use
+`eth_defi.lighter.sdk.LighterAuthTokenManager`: provide a callback around the
+SDK's `create_auth_token_with_expiry()` method and pass the resulting token to
+the read operation. The manager refreshes tokens before expiry and retries one
+HTTP 401 without logging token or SDK error contents. Keep withdrawal and order
+submission outside the retry wrapper unless the operation is known to be safe
+to replay.
+
 ## Account creation (deposit-driven — not a guard call)
 
 Lighter's

@@ -26,6 +26,7 @@ The guarded Lagoon/Safe surface supports the manual mainnet custody lifecycle:
 - Account valuation via public Lighter account NAV fields
 - Deployment-time trading API-key generation without an SDK dependency;
   the separate trading tutorial uses Lighter's official SDK for order signing
+- Generic auth-token refresh and retry for authenticated, idempotent SDK calls
 
 Tutorials
 ~~~~~~~~~
@@ -49,6 +50,7 @@ fee model documentation, see
    eth_defi.lighter.session
    eth_defi.lighter.constants
    eth_defi.lighter.api
+   eth_defi.lighter.sdk
    eth_defi.lighter.api_key
    eth_defi.lighter.deployment
    eth_defi.lighter.lagoon
