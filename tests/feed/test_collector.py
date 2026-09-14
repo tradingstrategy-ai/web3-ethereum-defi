@@ -50,8 +50,7 @@ ATOM_XML = b"""<?xml version="1.0" encoding="utf-8"?>
 
 
 GAUNTLET_TWITTER_LIVE_TEMPLATES = [
-    "https://xcancel.com/{handle}/rss",
-    "https://rss.xcancel.com/{handle}/rss",
+    "https://nitter.cf/{handle}/rss",
 ]
 
 GAUNTLET_LINKEDIN_LIVE_TEMPLATES = [
