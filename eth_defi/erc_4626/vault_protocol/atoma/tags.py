@@ -6,7 +6,7 @@ from eth_defi.vault.strategy_tag import StrategyTag
 #: venues to capture funding-rate spreads. Its RWA vault applies this approach
 #: to perpetual markets for traditional assets.
 STRATEGY_TAGS: dict[str, set[StrategyTag]] = {
-    #: Vault: Extended and Nado arbitrage.
+    #: Vault: Atoma Index.
     #: Added: 2026-08-18.
     #: Decision material: Atoma describes this vault as a delta-neutral USDC
     #: strategy that holds offsetting long and short perpetual positions across
@@ -20,7 +20,7 @@ STRATEGY_TAGS: dict[str, set[StrategyTag]] = {
         StrategyTag.funding_rate_arbitrage,
         StrategyTag.perpetual_futures,
     },
-    #: Vault: Atoma Index.
+    #: Vault: Atoma RWA.
     #: Added: 2026-08-22.
     #: Decision material: Atoma describes the Index as a market-neutral USDC
     #: vault for RWA perpetual markets. Its funding-arbitrage and
