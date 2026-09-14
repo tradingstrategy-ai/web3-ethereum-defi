@@ -57,12 +57,12 @@ class AtomaVaultDescription:
     description: str
 
 
-#: Atoma Vault Share (AVS) vault address on Arbitrum.
+#: Atoma Index vault address on Arbitrum.
 #:
 #: https://arbiscan.io/address/0xCC56410e1a136aF0eCEb7241c6aE394F4d8b581c
 ATOMA_VAULT_ADDRESS = HexAddress("0xcc56410e1a136af0eceb7241c6ae394f4d8b581c")
 
-#: Atoma Index (formerly Atoma Vault Share 2) vault address on Arbitrum.
+#: Atoma RWA vault address on Arbitrum.
 #:
 #: https://arbiscan.io/address/0x1C788E14d8e5B446e3F71B5142e2edaBcAB36da1
 ATOMA_VAULT_2_ADDRESS = HexAddress("0x1c788e14d8e5b446e3f71b5142e2edabcab36da1")
@@ -70,46 +70,26 @@ ATOMA_VAULT_2_ADDRESS = HexAddress("0x1c788e14d8e5b446e3f71b5142e2edabcab36da1")
 #: All supported Atoma vault addresses on Arbitrum.
 ATOMA_VAULT_ADDRESSES: frozenset[HexAddress] = frozenset((ATOMA_VAULT_ADDRESS, ATOMA_VAULT_2_ADDRESS))
 
-#: Official Atoma Index page.
-ATOMA_INDEX_URL: Final[str] = "https://app.atoma.fi/atoma-index"
-
-#: Official overview for Atoma Vault Share's perpetual DEX strategy.
-ATOMA_VAULT_OVERVIEW_URL: Final[str] = "https://atoma.fi/"
-
 #: Human-readable strategy copy for Atoma vaults without an offchain metadata API.
 #:
-#: AVS uses Nado and Extended perpetual markets, while Atoma Index trades RWA
-#: perpetual markets. Keep this address-scoped because the vaults use different
-#: strategies.
+#: Atoma Index rotates capital between paired perpetual venues, while Atoma RWA
+#: trades real-world-asset perpetual markets. Keep this address-scoped because
+#: the vaults use different strategies and risk profiles.
 ATOMA_VAULT_DESCRIPTION_OVERLAY: Final[dict[HexAddress, AtomaVaultDescription]] = {
     ATOMA_VAULT_ADDRESS: AtomaVaultDescription(
-        short_description="Market-neutral perpetuals strategy across Nado and Extended.",
-        description=" ".join(
-            (
-                "Atoma Vault is a delta-neutral USDC strategy that captures funding-rate spreads across Nado and Extended perpetual DEXs.",
-                "It holds offsetting long and short positions across the venues, seeking to avoid price-direction exposure.",
-                "Funding yield is paid into NAV in USDC, while Nado and Extended points accrue to depositors in weekly epochs.",
-                f"See [Atoma's vault overview]({ATOMA_VAULT_OVERVIEW_URL}).",
-            )
-        ),
+        short_description="Aggressive multi-venue strategy for maximum venue-point upside.",
+        description=("Aggressive multi-venue strategy: capital rotates across paired venues to chase the highest-paying opportunities and maximize points and rewards from each platform. Positions are hedged, but venue and rotation risk is higher — for depositors who want maximum upside from venue points."),
     ),
     ATOMA_VAULT_2_ADDRESS: AtomaVaultDescription(
-        short_description="Market-neutral RWA perpetuals index strategy.",
-        description=" ".join(
-            (
-                "Atoma Index is a market-neutral USDC vault for onchain real-world-asset perpetual markets, including equities, commodities and FX/rates.",
-                "It combines funding arbitrage, statistical arbitrage and protocol rewards while automatically rebalancing to avoid a directional market bet.",
-                "Funding and trading gains are paid into NAV in USDC, and protocol rewards earned by the vault are distributed to depositors.",
-                f"See [Atoma Index]({ATOMA_INDEX_URL}).",
-            )
-        ),
+        short_description="Conservative market-neutral RWA perpetuals strategy.",
+        description=("Conservative market-neutral strategy on real-world assets — stock & commodity perp markets on Lighter and trade[XYZ]. Fully hedged positions collect funding-rate spreads and cross-venue price gaps. No directional exposure, lower risk profile — the steady option."),
     ),
 }
 
 #: Curated display names for Atoma vaults whose onchain share-token names are generic.
 ATOMA_VAULT_NAME_OVERLAY: Final[dict[HexAddress, str]] = {
-    ATOMA_VAULT_ADDRESS: "Extended and Nado arbitrage",
-    ATOMA_VAULT_2_ADDRESS: "Atoma Index",
+    ATOMA_VAULT_ADDRESS: "Atoma Index",
+    ATOMA_VAULT_2_ADDRESS: "Atoma RWA",
 }
 
 #: Atoma performance fee in basis points.
@@ -149,9 +129,9 @@ class AtomaVault(ERC4626Vault):
     def name(self) -> str:
         """Return a curated name for a known Atoma strategy.
 
-        AVS2's onchain share-token name is generic, so its address-scoped
-        overlay provides a descriptive name. Other Atoma vaults retain their
-        onchain token names.
+        The onchain share-token names are generic, so the address-scoped
+        overlay provides the established public name. Other Atoma vaults retain
+        their onchain token names.
 
         :return:
             Curated name when available, otherwise the onchain token name.
@@ -166,7 +146,7 @@ class AtomaVault(ERC4626Vault):
 
         The common Atoma contract interface does not distinguish strategy
         details. The address-scoped overlay supplies reviewed offchain copy
-        only where Atoma has published a dedicated strategy announcement.
+        for the reviewed public vaults.
 
         :return:
             Full strategy description, or ``None`` when no overlay exists.

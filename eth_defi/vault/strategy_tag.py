@@ -77,7 +77,7 @@ class StrategyTag(str, enum.Enum):
     fx = "fx"
 
     #: Captures funding-rate differences, commonly between perpetual futures markets.
-    #: Example vault: Extended and Nado arbitrage (Atoma).
+    #: Example vault: Atoma Index (Atoma).
     funding_rate_arbitrage = "funding_rate_arbitrage"
 
     #: Supplies assets to a lending market to earn interest.
