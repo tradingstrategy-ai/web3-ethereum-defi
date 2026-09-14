@@ -54,8 +54,8 @@ Environment variables:
 
 ``ENZYME_SCAN_PRICES``, ``ENZYME_CLEAN_PRICES`` and refresh flags are
 deliberately overridden by this entry point. Use ``migrate-blue-fees.py`` for
-an intentional Blue-fee refresh, or ``backfill-history.py`` for historical
-price work.
+an intentional Blue-only fee refresh, ``migrate-enzyme-fees.py`` for all
+current Enzyme fees, or ``backfill-history.py`` for historical price work.
 """
 
 from collections.abc import MutableMapping
@@ -68,6 +68,7 @@ MIGRATION_OVERRIDES = {
     "ENZYME_CLEAN_PRICES": "false",
     "ENZYME_REFRESH_EXISTING_METADATA": "false",
     "ENZYME_REFRESH_BLUE_FEES": "false",
+    "ENZYME_REFRESH_ENZYME_FEES": "false",
 }
 
 CHECKPOINT_FILENAME = "enzyme-current-metadata-state.json"

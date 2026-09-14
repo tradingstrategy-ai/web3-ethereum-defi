@@ -351,6 +351,75 @@ def test_blue_fee_call_propagates_provider_failure() -> None:
         vault._try_fee_call(fee, "getFeeInfoForFund", ACCESSOR, block_identifier="latest")
 
 
+@pytest.mark.parametrize(
+    "payload",
+    [
+        {"code": 3, "message": "execution reverted"},
+        {"code": -32_000, "message": "execution reverted: unsupported selector"},
+        {"code": -32_603, "message": "Execution reverted"},
+    ],
+)
+def test_blue_fee_call_treats_unsupported_fee_getter_revert_as_absent(payload: dict[str, int | str]) -> None:
+    """A heterogeneous enabled fee plugin may reject another plugin's selector."""
+
+    def raise_unsupported_getter(**_kwargs: object) -> None:
+        """Simulate the standard revert emitted by an unrelated fee type."""
+
+        raise ExtraValueError(payload)
+
+    vault = EnzymeBlueVault.__new__(EnzymeBlueVault)
+    fee = SimpleNamespace(functions=SimpleNamespace(getRateForFund=lambda *_args: SimpleNamespace(call=raise_unsupported_getter)))
+
+    assert vault._try_fee_call(fee, "getRateForFund", ACCESSOR, block_identifier="latest") is None
+
+
+def test_blue_current_fees_handle_mixed_plugins_with_provider_reverts(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Classify mixed fee plugins despite an expected Alchemy-style revert."""
+
+    vault = EnzymeBlueVault.__new__(EnzymeBlueVault)
+    vault.default_block_identifier = None
+    vault.comptroller_contract = SimpleNamespace(address=ACCESSOR)
+    manager_annual_rate = Decimal("0.01")
+    management_per_second_rate = int(MANAGEMENT_FEE_RATE_SCALE * (1 / (1 - manager_annual_rate)) ** (1 / SECONDS_PER_YEAR))
+    unsupported_selector = ExtraValueError({"code": -32_000, "message": "execution reverted: function selector was not recognised"})
+
+    def create_call(value: object) -> SimpleNamespace:
+        """Create a minimal Web3 function call that returns or raises ``value``."""
+
+        def call(**_kwargs: object) -> object:
+            """Return the configured response for this simulated contract call."""
+
+            if isinstance(value, Exception):
+                raise value
+            return value
+
+        return SimpleNamespace(call=call)
+
+    management_fee = SimpleNamespace(
+        functions=SimpleNamespace(
+            getRateForFund=lambda *_args: create_call(unsupported_selector),
+            getInKindRateForFund=lambda *_args: create_call(unsupported_selector),
+            getFeeInfoForFund=lambda *_args: create_call((management_per_second_rate, 0)),
+        )
+    )
+    entrance_fee = SimpleNamespace(
+        functions=SimpleNamespace(
+            getRateForFund=lambda *_args: create_call(25),
+            getInKindRateForFund=lambda *_args: create_call(unsupported_selector),
+            getFeeInfoForFund=lambda *_args: create_call(unsupported_selector),
+        )
+    )
+    monkeypatch.setattr(vault, "_fetch_enabled_fee_contracts", lambda _block: [management_fee, entrance_fee])
+    monkeypatch.setattr(vault, "_fetch_protocol_fee", lambda _block: Percent(EXPECTED_PROTOCOL_FEE))
+
+    fee_data = vault.get_fee_data()
+
+    assert fee_data.management == pytest.approx(EXPECTED_TOTAL_MANAGEMENT_FEE)
+    assert fee_data.performance == 0
+    assert fee_data.deposit == 0.0025
+    assert fee_data.withdraw == 0
+
+
 def test_blue_legacy_fund_deployer_has_no_protocol_fee(monkeypatch: pytest.MonkeyPatch) -> None:
     """Treat the missing ProtocolFeeTracker on older Blue releases as zero."""
 

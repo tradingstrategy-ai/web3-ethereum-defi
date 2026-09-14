@@ -427,6 +427,29 @@ def test_enzyme_current_reader_reads_fee_trackers(monkeypatch) -> None:
     assert fee_handler_call_count == before_fee_data_call_count + 1
 
 
+def test_enzyme_current_reader_marks_absent_fee_handler_components_as_zero(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Export complete zero-fee metadata when Onyx omits its FeeHandler.
+
+    ``Shares.getFeeHandler()`` is the authoritative component reference. Its
+    zero address proves that no management, performance, entrance or exit fee
+    component is configured, so the generic return pipeline must not suppress
+    net performance for missing metadata.
+    """
+
+    vault = EnzymeVault.__new__(EnzymeVault)
+    vault.default_block_identifier = None
+    monkeypatch.setattr(vault, "fetch_fee_handler", lambda _block: None)
+    monkeypatch.setattr(vault, "get_fee_mode", lambda: VaultFeeMode.internalised_minting)
+
+    fee_data = vault.get_fee_data()
+
+    assert fee_data.management == 0
+    assert fee_data.performance == 0
+    assert fee_data.deposit == 0
+    assert fee_data.withdraw == 0
+    assert fee_data.protocol is None
+
+
 def test_enzyme_historical_reader_derives_value_asset_total_value() -> None:
     """Convert 18-decimal share price and supply to calculated total value."""
 

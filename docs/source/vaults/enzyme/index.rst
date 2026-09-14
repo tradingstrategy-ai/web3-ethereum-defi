@@ -182,7 +182,9 @@ Management and performance rates are annual fractions; entrance and exit rates
 reduce the investor's issued or redeemed shares. The standard FeeHandler has no
 separate global protocol-fee setting, so the exported Onyx management fee is
 already the full user-facing recurring charge and does not double-count a
-platform charge.
+platform charge. A configured zero address for the FeeHandler or one of its
+trackers proves that the corresponding fee is disabled, so the adapter exports
+``0.0`` rather than an unknown value.
 Historical fee rates are not yet exported, because the fee handler or tracker
 can change over a vault's lifetime; that backfill needs component-change,
 ``RateSet``, ``EntranceFeeSet`` and ``ExitFeeSet`` event handling.
@@ -196,6 +198,11 @@ The current export therefore includes the ProtocolFeeTracker rate in the
 user-facing management fee. It also retains the protocol rate separately, so
 consumers can calculate the manager-only rate as ``Mgmt fee - Protocol fee``.
 Blue management, performance, entrance and exit rates are current reads only.
+FeeManager is the authoritative enumeration of Blue plugins: when it omits a
+standard fee plugin, that fee is exported as ``0.0``. Across both Enzyme
+architectures, ``null`` is reserved for an unavailable or inconclusive read,
+never for a fee that the current configuration has proved disabled. This keeps
+the investor-facing fee schedule complete whenever Enzyme makes it available.
 Historical Blue fee configuration remains TODO because releases, FeeManager
 plugins and protocol-fee trackers can change at migration boundaries.
 

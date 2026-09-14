@@ -345,12 +345,26 @@ class EnzymeBlueVault(VaultBase):
         return VaultFeeMode.internalised_minting
 
     def _try_fee_call(self, contract: Contract, function_name: str, *args, block_identifier: BlockIdentifier) -> object | None:
-        """Call an optional Blue fee function without hiding transport errors."""
+        """Call one optional Blue fee getter without hiding provider failures.
+
+        FeeManager's authoritative enumeration contains heterogeneous fee
+        contracts.  The shared fee ABI deliberately includes the getters used
+        by the reviewed fee types, but a getter that belongs to another type
+        reverts with the standard ``execution reverted`` response.  That is a
+        negative type probe, not unavailable fee information.
+        """
 
         try:
             return getattr(contract.functions, function_name)(*args).call(block_identifier=block_identifier)
-        except ExtraValueError:
-            # A provider response is not proof that a reviewed fee is absent.
+        except ExtraValueError as error:
+            # FallbackProvider wraps JSON-RPC errors in ExtraValueError.  A
+            # standard EVM revert is how a heterogeneous fee plugin rejects an
+            # unsupported selector.  Preserve rate limits and all other RPC
+            # failures, which are not evidence that this component is absent.
+            payload = error.args[0] if error.args else None
+            message = payload.get("message") if isinstance(payload, dict) else None
+            if isinstance(message, str) and "execution reverted" in message.lower():
+                return None
             raise
         except (ABIFunctionNotFound, BadFunctionCallOutput, ContractLogicError, ValueError):
             return None

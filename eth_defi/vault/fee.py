@@ -306,7 +306,9 @@ class FeeData:
     """Track vault fee parameters
 
     - Offer methods to calculate gross/net fees based on the vault fee mode
-    - `None` means fee unknown: protocol not recognized, or fee data not available
+    - `None` means fee unknown: the protocol is not recognised or authoritative
+      fee data is unavailable. Adapters must use ``0.0`` when an authoritative
+      configuration proves that a fee class is disabled.
 
     **How fees are presented**:
 
