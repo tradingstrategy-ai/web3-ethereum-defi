@@ -33,6 +33,7 @@ def test_metadata_migration_forces_incremental_non_price_mode() -> None:
         "ENZYME_CLEAN_PRICES": "true",
         "ENZYME_REFRESH_EXISTING_METADATA": "true",
         "ENZYME_REFRESH_BLUE_FEES": "true",
+        "ENZYME_REFRESH_ENZYME_FEES": "true",
     }
 
     module.configure_metadata_migration_environment(environment)
@@ -42,6 +43,7 @@ def test_metadata_migration_forces_incremental_non_price_mode() -> None:
         "ENZYME_CLEAN_PRICES": "false",
         "ENZYME_REFRESH_EXISTING_METADATA": "false",
         "ENZYME_REFRESH_BLUE_FEES": "false",
+        "ENZYME_REFRESH_ENZYME_FEES": "false",
         "ENZYME_CHECKPOINT_PATH": str(module.migration.DEFAULT_VAULT_DATABASE.with_name("enzyme-current-metadata-state.json")),
     }
 
@@ -56,6 +58,7 @@ def test_metadata_migration_delegates_to_shared_resumable_engine(monkeypatch: py
     monkeypatch.setenv("ENZYME_CLEAN_PRICES", "true")
     monkeypatch.setenv("ENZYME_REFRESH_EXISTING_METADATA", "true")
     monkeypatch.setenv("ENZYME_REFRESH_BLUE_FEES", "true")
+    monkeypatch.setenv("ENZYME_REFRESH_ENZYME_FEES", "true")
     monkeypatch.delenv("ENZYME_CHECKPOINT_PATH", raising=False)
 
     module.main()
@@ -65,6 +68,7 @@ def test_metadata_migration_delegates_to_shared_resumable_engine(monkeypatch: py
     assert os.environ["ENZYME_CLEAN_PRICES"] == "true"
     assert os.environ["ENZYME_REFRESH_EXISTING_METADATA"] == "true"
     assert os.environ["ENZYME_REFRESH_BLUE_FEES"] == "true"
+    assert os.environ["ENZYME_REFRESH_ENZYME_FEES"] == "true"
     assert "ENZYME_CHECKPOINT_PATH" not in os.environ
 
 

@@ -46,6 +46,7 @@ MIGRATION_OVERRIDES = {
     "ENZYME_CLEAN_PRICES": "false",
     "ENZYME_REFRESH_EXISTING_METADATA": "false",
     "ENZYME_REFRESH_BLUE_FEES": "true",
+    "ENZYME_REFRESH_ENZYME_FEES": "false",
 }
 
 CHECKPOINT_FILENAME = "enzyme-blue-fees-state.json"

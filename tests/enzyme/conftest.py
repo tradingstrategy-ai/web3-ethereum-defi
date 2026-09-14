@@ -40,6 +40,7 @@ _ACTIVE_ENZYME_TEST_FILES = {
     "test_enzyme_lifetime_metrics.py",
     "test_enzyme_offchain_metadata.py",
     "test_migrate_blue_fees.py",
+    "test_migrate_enzyme_fees.py",
     "test_migrate_current_metadata.py",
     "test_onyx_vault.py",
     "test_repair_zero_gav_history.py",

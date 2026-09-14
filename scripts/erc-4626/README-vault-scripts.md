@@ -1352,6 +1352,7 @@ poetry run python scripts/enzyme/backfill-history.py
 | `ENZYME_DISCOVERY_START_BLOCK` | Optional lower block for factory-event discovery. Default: the reviewed Enzyme deployment block for each chain. |
 | `ENZYME_REFRESH_EXISTING_METADATA` | Refresh good metadata rows as well as missing or broken rows. Default: false. |
 | `ENZYME_REFRESH_BLUE_FEES` | Refresh every Blue row's current fees without refreshing healthy Onyx rows. Used by `migrate-blue-fees.py`. Default: false. |
+| `ENZYME_REFRESH_ENZYME_FEES` | Refresh every Blue and Onyx row's current fee schedule. Used by `migrate-enzyme-fees.py`. Default: false. |
 | `FREQUENCY` | Historical frequency, `1h` or `1d`. Default: `1d`. |
 | `START_BLOCK` / `END_BLOCK` | Optional inclusive historical price bounds. `START_BLOCK` overrides the normal per-vault resume point, so use it only for a scoped repair. |
 | `ENZYME_END_BLOCK_<chain-id>` | Optional per-chain inclusive end block, useful for diagnosis without changing other chains. |
@@ -1481,6 +1482,34 @@ checkpoint or metadata database. This checkpoint is intentionally separate
 from `enzyme-backfill-history-state.json`, so a metadata repair cannot discard
 an unfinished historical-price backfill.
 
+### Enzyme migrate-enzyme-fees.py
+
+`scripts/enzyme/migrate-enzyme-fees.py` refreshes the complete current
+investor-facing fee schedule for every factory-confirmed Enzyme Blue and Onyx
+vault. It writes management, performance, deposit and withdrawal fee fields;
+Blue retains its reference protocol-fee breakdown. An authoritative fee
+component enumeration that proves a class disabled is exported as ``0.0``.
+An RPC, contract or unsupported-reader failure remains unknown and prevents a
+net return from being published rather than being silently represented as zero.
+Failed fee reads are deliberately not marked complete, so rerunning the
+migration retries only those rows while completed batches remain resumable.
+The migration never changes historical fee data, price Parquet files or reader
+state.
+
+```shell
+source .local-test.env && \
+DRY_RUN=true \
+poetry run python scripts/enzyme/migrate-enzyme-fees.py
+
+source .local-test.env && \
+MAX_WORKERS=8 \
+poetry run python scripts/enzyme/migrate-enzyme-fees.py
+```
+
+The script needs the four Enzyme RPC configurations and `HYPERSYNC_API_KEY`.
+It uses `enzyme-fees-state.json` beside the vault database by default and
+forces historical-price work off.
+
 ### Enzyme migrate-blue-fees.py
 
 `scripts/enzyme/migrate-blue-fees.py` refreshes only current Enzyme Blue fee
@@ -1493,10 +1522,12 @@ price Parquet files or reader state.
 
 The reader exports a zero when the authoritative FeeManager enumeration proves
 that a standard fee plugin is absent. The reader covers Enzyme Blue's complete
-canonical plugin set. The ordinary all-chain scanner refreshes the same current
-metadata on its next
-lead-discovery cache expiry (seven days by default), so later configuration
-changes reach the vault JSON export without rerunning this migration.
+canonical plugin set. Use this targeted command only when Onyx fees do not
+need refreshing; use `migrate-enzyme-fees.py` after a change shared by both
+architectures. The ordinary all-chain scanner refreshes the same current
+metadata on its next lead-discovery cache expiry (seven days by default), so
+later configuration changes reach the vault JSON export without rerunning this
+migration.
 
 ```shell
 source .local-test.env && \

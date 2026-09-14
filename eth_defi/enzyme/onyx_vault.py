@@ -435,7 +435,7 @@ class EnzymeVault(VaultBase):
         tracker_getter: Literal["getManagementFeeTracker", "getPerformanceFeeTracker"],
         block_identifier: BlockIdentifier,
         fee_handler: Contract | None = None,
-    ) -> Percent | None:
+    ) -> Percent:
         """Read a current annual fee rate from an optional Onyx fee component.
 
         Onyx attaches fee components per Shares contract. A configured
@@ -453,17 +453,17 @@ class EnzymeVault(VaultBase):
             Already loaded handler, allowing a single metadata refresh to
             reuse the Shares ``getFeeHandler()`` result.
         :return:
-            Annual fee fraction, such as ``0.01`` for 1%, or ``None`` when
-            the Shares vehicle does not configure this tracker.
+            Annual fee fraction, such as ``0.01`` for 1%. Returns zero when
+            the authoritative FeeHandler configuration omits this tracker.
         """
 
         fee_handler = fee_handler or self.fetch_fee_handler(block_identifier)
         if fee_handler is None:
-            return None
+            return Percent(0)
 
         fee_tracker_address = getattr(fee_handler.functions, tracker_getter)().call(block_identifier=block_identifier)
         if fee_tracker_address.lower() == ZERO_ADDRESS:
-            return None
+            return Percent(0)
 
         fee_tracker = get_deployed_contract(self.web3, "enzyme_onyx/ContinuousFlatRateFeeTracker.json", fee_tracker_address)
         fee_bps = fee_tracker.functions.getRate().call(block_identifier=block_identifier)
@@ -492,7 +492,7 @@ class EnzymeVault(VaultBase):
         fee_getter: Literal["getEntranceFeeBps", "getExitFeeBps"],
         block_identifier: BlockIdentifier,
         fee_handler: Contract | None = None,
-    ) -> Percent | None:
+    ) -> Percent:
         """Read the current entrance or exit fee from the FeeHandler.
 
         Enzyme calculates these fees in shares at the configured basis-point
@@ -507,22 +507,24 @@ class EnzymeVault(VaultBase):
         :param fee_handler:
             Already loaded handler for a batched metadata read.
         :return:
-            Fee fraction, or ``None`` when no FeeHandler is configured.
+            Fee fraction. Returns zero when the authoritative FeeHandler
+            configuration is absent.
         """
 
         fee_handler = fee_handler or self.fetch_fee_handler(block_identifier)
         if fee_handler is None:
-            return None
+            return Percent(0)
         fee_bps = getattr(fee_handler.functions, fee_getter)().call(block_identifier=block_identifier)
         return Percent(float(Decimal(fee_bps) / Decimal(FEE_BPS_DENOMINATOR)))
 
-    def get_management_fee(self, block_identifier: BlockIdentifier) -> Percent | None:
+    def get_management_fee(self, block_identifier: BlockIdentifier) -> Percent:
         """Read the current annual management fee from the configured tracker.
 
         :param block_identifier:
             Block number or tag for the metadata scan.
         :return:
-            Annual management-fee fraction, or ``None`` when absent.
+            Annual management-fee fraction, or zero when no tracker is
+            configured.
         """
 
         return self.fetch_fee_tracker_rate("getManagementFeeTracker", block_identifier)
@@ -546,35 +548,35 @@ class EnzymeVault(VaultBase):
         del block_identifier
         return None
 
-    def get_performance_fee(self, block_identifier: BlockIdentifier) -> Percent | None:
+    def get_performance_fee(self, block_identifier: BlockIdentifier) -> Percent:
         """Read the current performance fee from the configured tracker.
 
         :param block_identifier:
             Block number or tag for the metadata scan.
         :return:
-            Performance-fee fraction, or ``None`` when absent.
+            Performance-fee fraction, or zero when no tracker is configured.
         """
 
         return self.fetch_fee_tracker_rate("getPerformanceFeeTracker", block_identifier)
 
-    def get_deposit_fee(self, block_identifier: BlockIdentifier) -> Percent | None:
+    def get_deposit_fee(self, block_identifier: BlockIdentifier) -> Percent:
         """Read the current entrance fee as a fraction of gross issued shares.
 
         :param block_identifier:
             Block number or tag for the metadata scan.
         :return:
-            Entrance-fee fraction, or ``None`` when no FeeHandler is present.
+            Entrance-fee fraction, or zero when no FeeHandler is present.
         """
 
         return self.fetch_fee_handler_bps("getEntranceFeeBps", block_identifier)
 
-    def get_withdraw_fee(self, block_identifier: BlockIdentifier) -> Percent | None:
+    def get_withdraw_fee(self, block_identifier: BlockIdentifier) -> Percent:
         """Read the current exit fee as a fraction of gross redeemed shares.
 
         :param block_identifier:
             Block number or tag for the metadata scan.
         :return:
-            Exit-fee fraction, or ``None`` when no FeeHandler is present.
+            Exit-fee fraction, or zero when no FeeHandler is present.
         """
 
         return self.fetch_fee_handler_bps("getExitFeeBps", block_identifier)
