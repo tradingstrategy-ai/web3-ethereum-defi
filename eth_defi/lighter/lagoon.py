@@ -140,10 +140,22 @@ def claim_usdc_to_lagoon_safe_from_lighter(
     L2 API-key operation; this is the Safe-gated L1 egress step and can only
     name :attr:`LagoonVault.safe_address` as its receiver.
 
+    :param web3:
+        Ethereum mainnet connection.
+    :param hot_wallet:
+        Asset-manager wallet authorised to call the Lagoon module.
+    :param vault:
+        Lagoon vault whose Safe receives the claimed USDC.
+    :param usdc:
+        Native Ethereum USDC token details.
     :param claimable_usdc:
         Amount from the matching Lighter ``claimable`` withdrawal-history row.
         Do not substitute the originally requested amount: Lighter may report
         a different final raw amount after its own precision/fee handling.
+    :param zk_lighter:
+        Whitelisted ZkLighter L1 contract address.
+    :return:
+        Confirmed claim transaction hash.
     """
     if claimable_usdc <= 0:
         raise ValueError(f"Claimable Lighter USDC must be positive, got {claimable_usdc}")

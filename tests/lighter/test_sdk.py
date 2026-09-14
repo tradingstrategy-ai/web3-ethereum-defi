@@ -66,7 +66,8 @@ def test_lighter_auth_token_retries_unauthorised_operation(
 
     1. Make the first fake SDK call fail with an HTTP 401-shaped exception.
     2. Assert that the manager creates a new token and retries the call once.
-    3. Assert that a non-authentication error is propagated without a retry.
+    3. Assert that a second unauthorised response is propagated after one retry.
+    4. Assert that a non-authentication error is propagated without a retry.
     """
     # 1. Create a manager and an operation whose first request is unauthorised.
     generated_tokens: list[str] = []
@@ -93,6 +94,13 @@ def test_lighter_auth_token_retries_unauthorised_operation(
 
     calls = 0
 
+    async def permanently_unauthorised(_auth_token: str) -> None:
+        nonlocal calls
+        calls += 1
+        error = RuntimeError("permanent-signed-request-secret")
+        setattr(error, "status_code", 401)
+        raise error
+
     async def permanently_failed_operation(_auth_token: str) -> None:
         nonlocal calls
         calls += 1
@@ -108,7 +116,14 @@ def test_lighter_auth_token_retries_unauthorised_operation(
             == "ok"
         )
 
-        # 3. A non-authentication failure is not retried or rewritten.
+        # 3. A permanent 401 is attempted only twice.
+        with pytest.raises(RuntimeError, match="permanent-signed-request-secret"):
+            await manager.call(
+                permanently_unauthorised,
+                operation_name="test permanent rejection",
+            )
+
+        # 4. A non-authentication failure is not retried or rewritten.
         with pytest.raises(ValueError, match="operation failed"):
             await manager.call(
                 permanently_failed_operation,
@@ -118,8 +133,8 @@ def test_lighter_auth_token_retries_unauthorised_operation(
     with caplog.at_level(logging.WARNING, logger="eth_defi.lighter.sdk"):
         asyncio.run(exercise())
     assert observed_tokens == ["token-1", "token-2"]
-    assert generated_tokens == ["token-1", "token-2"]
-    assert calls == 1
+    assert generated_tokens == ["token-1", "token-2", "token-3"]
+    assert calls == 3
     assert "signed-request-secret" not in caplog.text
 
 

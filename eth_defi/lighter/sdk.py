@@ -7,6 +7,10 @@ call once after an ``UnauthorizedException`` response. The operation receives
 the token explicitly, so the helper works with any authenticated SDK method and
 does not need to know its parameter names.
 
+The helper is asynchronous because the official Lighter SDK exposes these
+operations only as coroutines; it does not introduce asynchronous HTTP into
+the rest of eth-defi.
+
 Do not wrap a non-idempotent order or withdrawal submission unless the caller
 can prove that an unauthorised response means the request was not accepted.
 Use this helper for read-only follow-up calls, such as withdrawal-history
@@ -34,9 +38,6 @@ DEFAULT_LIGHTER_AUTH_TOKEN_TIMEOUT = 10 * 60.0
 
 #: Refresh a token before its nominal expiry to allow for request latency.
 DEFAULT_LIGHTER_AUTH_TOKEN_REFRESH_MARGIN = 30.0
-
-#: A rejected token is retried once with a newly generated token.
-DEFAULT_LIGHTER_AUTH_TOKEN_RETRIES = 1
 
 
 class LighterAuthTokenError(RuntimeError):
@@ -75,44 +76,42 @@ class LighterAuthTokenManager:
     The manager stores only the current token in memory. ``token_factory`` must
     call the SDK's token-generation method and return its ``(token, error)``
     tuple. ``call`` passes the token to an arbitrary asynchronous operation,
-    proactively refreshes it before expiry, and retries one rejected token by
-    default. Token values and SDK error payloads are deliberately excluded from
+    proactively refreshes it before expiry, and retries one rejected token.
+    Token values and SDK error payloads are deliberately excluded from
     representations and logs.
 
     The token lifetime must match the expiry requested from the SDK. The
     default is ten minutes, matching the current Lighter SDK default; callers
     can use a shorter lifetime in tests to exercise rotation.
 
-    :param token_factory:
-        Zero-argument callback returning ``(auth_token, error)``.
-    :param token_lifetime:
-        Token lifetime in seconds.
-    :param refresh_margin:
-        Number of seconds before expiry at which a token is refreshed.
-    :param max_retries:
-        Maximum number of retries after an unauthorised response.
-    :param clock:
-        Monotonic clock, injectable for deterministic tests.
     """
 
+    #: Zero-argument SDK callback returning ``(auth_token, error)``.
     token_factory: Callable[[], tuple[str | None, object | None]] = field(
         repr=False
     )
+
+    #: Token lifetime in seconds.
     token_lifetime: float = DEFAULT_LIGHTER_AUTH_TOKEN_TIMEOUT
+
+    #: Seconds before expiry at which the current token is refreshed.
     refresh_margin: float = DEFAULT_LIGHTER_AUTH_TOKEN_REFRESH_MARGIN
-    max_retries: int = DEFAULT_LIGHTER_AUTH_TOKEN_RETRIES
+
+    #: Monotonic clock, injectable for deterministic tests.
     clock: Callable[[], float] = field(default=time.monotonic, repr=False)
+
+    #: Current bearer token, deliberately excluded from representations.
     _auth_token: str | None = field(default=None, init=False, repr=False)
+
+    #: Monotonic expiry time for the current token.
     _expires_at: float = field(default=0.0, init=False, repr=False)
 
     def __post_init__(self) -> None:
-        """Validate token timing and retry settings at construction time."""
+        """Validate token timing settings at construction time."""
         if not math.isfinite(self.token_lifetime) or self.token_lifetime <= 0:
             raise ValueError("token_lifetime must be a finite positive number")
         if not math.isfinite(self.refresh_margin) or self.refresh_margin < 0:
             raise ValueError("refresh_margin must be a finite non-negative number")
-        if not isinstance(self.max_retries, int) or self.max_retries < 0:
-            raise ValueError("max_retries must be a non-negative integer")
 
     def _refresh_token(self) -> str:
         """Create a new token without exposing SDK error payloads."""
@@ -120,11 +119,16 @@ class LighterAuthTokenManager:
         self._expires_at = 0.0
         try:
             auth_token, error = self.token_factory()
-        except Exception:  # noqa: BLE001 - SDK versions expose varied errors
+        except Exception as error:  # noqa: BLE001 - SDK versions expose varied errors
+            logger.warning(
+                "Lighter authentication token creation failed (%s)",
+                type(error).__name__,
+            )
             raise LighterAuthTokenError(
                 "Could not create a Lighter authentication token"
             ) from None
         if error is not None or not isinstance(auth_token, str) or not auth_token:
+            logger.warning("Lighter authentication token creation returned no token")
             raise LighterAuthTokenError(
                 "Could not create a Lighter authentication token"
             )
@@ -161,20 +165,14 @@ class LighterAuthTokenManager:
         :return:
             The SDK operation's result.
         """
-        auth_token = self._get_token()
-        for attempt in range(self.max_retries + 1):
-            try:
-                return await operation(auth_token)
-            except Exception as error:  # noqa: BLE001 - SDK exception type is optional
-                if not is_lighter_unauthorized_exception(error):
-                    raise
-                if attempt >= self.max_retries:
-                    raise
-                logger.warning(
-                    "Lighter authentication token rejected for %s; refreshing and retrying (%d/%d)",
-                    operation_name,
-                    attempt + 1,
-                    self.max_retries,
-                )
-                auth_token = self._refresh_token()
-        raise AssertionError("Lighter auth retry loop ended unexpectedly")
+        try:
+            return await operation(self._get_token())
+        except Exception as error:  # noqa: BLE001 - SDK exception type is optional
+            if not is_lighter_unauthorized_exception(error):
+                raise
+
+        logger.warning(
+            "Lighter authentication token rejected for %s; refreshing and retrying once",
+            operation_name,
+        )
+        return await operation(self._refresh_token())
