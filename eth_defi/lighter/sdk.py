@@ -61,12 +61,7 @@ def is_lighter_unauthorized_exception(error: BaseException) -> bool:
     status = getattr(error, "status", None)
     status_code = getattr(error, "status_code", None)
     response_status = getattr(getattr(error, "response", None), "status_code", None)
-    return (
-        status in (401, "401")
-        or status_code in (401, "401")
-        or response_status in (401, "401")
-        or type(error).__name__ == "UnauthorizedException"
-    )
+    return status in (401, "401") or status_code in (401, "401") or response_status in (401, "401") or type(error).__name__ == "UnauthorizedException"
 
 
 @dataclass(slots=True)
@@ -87,9 +82,7 @@ class LighterAuthTokenManager:
     """
 
     #: Zero-argument SDK callback returning ``(auth_token, error)``.
-    token_factory: Callable[[], tuple[str | None, object | None]] = field(
-        repr=False
-    )
+    token_factory: Callable[[], tuple[str | None, object | None]] = field(repr=False)
 
     #: Token lifetime in seconds.
     token_lifetime: float = DEFAULT_LIGHTER_AUTH_TOKEN_TIMEOUT
@@ -124,24 +117,17 @@ class LighterAuthTokenManager:
                 "Lighter authentication token creation failed (%s)",
                 type(error).__name__,
             )
-            raise LighterAuthTokenError(
-                "Could not create a Lighter authentication token"
-            ) from None
+            raise LighterAuthTokenError("Could not create a Lighter authentication token") from None
         if error is not None or not isinstance(auth_token, str) or not auth_token:
             logger.warning("Lighter authentication token creation returned no token")
-            raise LighterAuthTokenError(
-                "Could not create a Lighter authentication token"
-            )
+            raise LighterAuthTokenError("Could not create a Lighter authentication token")
         self._auth_token = auth_token
         self._expires_at = self.clock() + self.token_lifetime
         return auth_token
 
     def _get_token(self) -> str:
         """Return a usable token, refreshing it near its expiry."""
-        if (
-            self._auth_token is None
-            or self.clock() >= self._expires_at - self.refresh_margin
-        ):
+        if self._auth_token is None or self.clock() >= self._expires_at - self.refresh_margin:
             return self._refresh_token()
         return self._auth_token
 
