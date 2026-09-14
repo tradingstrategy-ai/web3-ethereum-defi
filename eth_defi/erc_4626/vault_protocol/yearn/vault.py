@@ -9,7 +9,7 @@ from web3.contract import Contract
 from web3.exceptions import ABIFunctionNotFound, BadFunctionCallOutput, ContractLogicError
 
 from eth_defi.abi import ZERO_ADDRESS_STR
-from eth_defi.erc_4626.core import get_deployed_erc_4626_contract
+from eth_defi.erc_4626.core import ERC4626Feature, get_deployed_erc_4626_contract
 from eth_defi.erc_4626.vault import ERC4626Vault
 from eth_defi.erc_4626.vault_protocol.yearn.deposit_redeem import YearnV3DepositManager
 from eth_defi.erc_4626.vault_protocol.yearn.notes import YEARN_VAULT_NOTES
@@ -94,15 +94,17 @@ class YearnDetectedVaultMetadataMixin:
         return extract_yearn_short_description(self.description)
 
     def get_link(self, referral: str | None = None) -> str:
-        """Return the canonical current-Yearn frontend link for this vault.
+        """Return a Yearn link unless attribution is explicitly excluded.
 
         :param referral:
             Ignored legacy referral parameter retained for compatibility.
         :return:
-            Canonical Yearn vault-page URL.
+            Canonical Yearn vault-page or generic explorer URL.
         """
 
-        del referral
+        features = getattr(self, "features", None)
+        if features and ERC4626Feature.yearn_registry_excluded in features:
+            return super().get_link(referral)
         return create_yearn_vault_link(self.chain_id, self.vault_address)
 
 

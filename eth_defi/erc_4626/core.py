@@ -329,6 +329,15 @@ class ERC4626Feature(enum.Enum):
     #: https://etherscan.io/address/0xa10c40f9e318b0ed67ecc3499d702d8db9437228#readProxyContract
     yearn_v3_like = "yearn_v3_like"
 
+    #: Excluded from Yearn's primary vault list.
+    #:
+    #: This offchain provenance marker preserves the technical Yearn interface
+    #: feature while excluding the vault from Yearn protocol attribution. It
+    #: intentionally applies to every matching registry entry, including
+    #: Yearn-origin and Yearn Juiced vaults.
+    #: https://kong.yearn.fi/api/rest/list/vaults
+    yearn_registry_excluded = "yearn_registry_excluded"
+
     #: Yearn silo strategy
     #: By
     #:
@@ -1078,7 +1087,21 @@ def get_vault_protocol_name(features: set[ERC4626Feature]) -> str:
     :param features:
         List of detected features for a vault
     """
-    if not features:
+    if ERC4626Feature.yearn_registry_excluded in features:
+        # Keep Yearn interface features for adapter selection, but do not use
+        # them for protocol attribution when Yearn excludes the vault from its
+        # primary product list.
+        return get_vault_protocol_name(
+            features
+            - {
+                ERC4626Feature.yearn_registry_excluded,
+                ERC4626Feature.yearn_compounder_like,
+                ERC4626Feature.yearn_v3_like,
+                ERC4626Feature.yearn_tokenised_strategy,
+                ERC4626Feature.yearn_morpho_compounder_like,
+            }
+        )
+    elif not features:
         return GENERIC_ERC4626_PROTOCOL_NAME
     elif ERC4626Feature.broken in features:
         return "<not ERC-4626>"
