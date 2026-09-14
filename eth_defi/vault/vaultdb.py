@@ -83,6 +83,9 @@ class VaultRow(TypedDict):
 
     Protocol: str
 
+    #: URL-safe protocol label added during metric export and metadata repairs.
+    protocol_slug: NotRequired[str]
+
     Link: str
 
     _detection_data: ERC4262VaultDetection

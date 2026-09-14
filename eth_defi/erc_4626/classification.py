@@ -25,6 +25,7 @@ from eth_defi.erc_4626.vault_protocol.frax.constants import FRAX_STAKING_VAULT_A
 from eth_defi.erc_4626.vault_protocol.kiloex.constants import KILOEX_VAULT_ADDRESSES, KILOEX_VAULTS_BY_CHAIN
 from eth_defi.erc_4626.vault_protocol.nara.constants import NARAUSD_PLUS_VAULT
 from eth_defi.erc_4626.vault_protocol.pallas.constants import PALLAS_VAULT_ADDRESSES, PALLAS_VAULTS_BY_CHAIN
+from eth_defi.erc_4626.vault_protocol.yearn.endorsement import add_yearn_registry_exclusion
 from eth_defi.event_reader.multicall_batcher import EncodedCall, EncodedCallResult, MultiprocessMulticallReader, read_multicall_chunked
 from eth_defi.event_reader.web3factory import Web3Factory
 from eth_defi.midas.constants import MIDAS_PRODUCTS, MIDAS_PRODUCTS_BY_TOKEN
@@ -1837,7 +1838,8 @@ def identify_vault_features(
         elif _is_hypurrfi_name(name):
             features.add(ERC4626Feature.hypurrfi_like)
 
-    return features
+    # Apply the reviewed Yearn list-membership marker after ABI and name probes.
+    return add_yearn_registry_exclusion(chain_id, address, features)
 
 
 def _is_hypurrfi_name(name: str) -> bool:
