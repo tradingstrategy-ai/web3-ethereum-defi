@@ -10,11 +10,13 @@ from typing import cast
 import pytest
 from pytest import MonkeyPatch
 from requests.exceptions import RequestException
+from web3 import Web3
 
 from eth_defi.compat import native_datetime_utc_now
-from eth_defi.erc_4626.classification import create_vault_instance
+from eth_defi.erc_4626.classification import create_vault_instance, detect_vault_features
 from eth_defi.erc_4626.core import ERC4262VaultDetection, ERC4626Feature, get_vault_protocol_name
 from eth_defi.erc_4626.vault_protocol.yearn import endorsement as yearn_endorsement
+from eth_defi.erc_4626.vault_protocol.yearn.compounder import YearnCompounderVault
 from eth_defi.erc_4626.vault_protocol.yearn.endorsement import (
     YearnRegistryExclusionCache,
     YearnRegistryExclusions,
@@ -23,11 +25,13 @@ from eth_defi.erc_4626.vault_protocol.yearn.endorsement import (
     parse_yearn_registry_exclusions,
 )
 from eth_defi.erc_4626.vault_protocol.yearn.vault import YearnV3Vault
+from eth_defi.provider.multi_provider import create_multi_provider_web3
 from eth_defi.vault.base import VaultSpec
 from eth_defi.vault.curator import identify_curator
 from eth_defi.vault.vaultdb import VaultDatabase, VaultRow
 
 KATANA_USDC_STB_DEPOSITOR = "0x63a028963907f5a0c1ceb7e47100f52dfc611117"
+JSON_RPC_ETHEREUM = os.environ.get("JSON_RPC_ETHEREUM")
 
 
 def create_yearn_registry_exclusions() -> YearnRegistryExclusions:
@@ -278,6 +282,30 @@ def test_fetch_yearn_registry_exclusions_live() -> None:
     exclusions = yearn_endorsement.fetch_yearn_registry_exclusions()
     assert exclusions is not None
     assert is_yearn_registry_excluded_vault(1, KATANA_USDC_STB_DEPOSITOR, exclusions=exclusions)
+
+
+@pytest.mark.skipif(
+    os.environ.get("RUN_YEARN_REGISTRY_TEST") != "1" or JSON_RPC_ETHEREUM is None,
+    reason="Set RUN_YEARN_REGISTRY_TEST=1 and JSON_RPC_ETHEREUM to run the live Katana pipeline check",
+)
+def test_katana_empty_inclusion_vault_is_generic_through_live_pipeline() -> None:
+    """A live Katana depositor keeps its Yearn adapter but loses Yearn attribution.
+
+    This real integration covers the end-to-end path: Ethereum RPC feature
+    detection reads the vault contract, the Yearn registry adds the empty-
+    inclusion marker, and protocol attribution becomes generic ERC-4626.
+
+    :return:
+        ``None`` after validating the live vault classification.
+    """
+    web3: Web3 = create_multi_provider_web3(JSON_RPC_ETHEREUM)
+    features = detect_vault_features(web3, KATANA_USDC_STB_DEPOSITOR, verbose=False)
+    assert features == {ERC4626Feature.yearn_compounder_like, ERC4626Feature.yearn_registry_excluded}
+    assert get_vault_protocol_name(features) == "ERC-4626"
+
+    vault = create_vault_instance(web3, KATANA_USDC_STB_DEPOSITOR, features=features)
+    assert isinstance(vault, YearnCompounderVault)
+    assert vault.get_link().lower() == f"https://routescan.io/address/{KATANA_USDC_STB_DEPOSITOR}".lower()
 
 
 def test_migrate_yearn_registry_exclusions_remove_protocol_and_curator_attribution() -> None:
