@@ -1,11 +1,15 @@
 """Apply Yearn primary-list exclusions to cached ERC-4626 classifications.
 
-`Yearn's vault registry <https://kong.yearn.fi/api/rest/list/vaults>`__ marks
-some ERC-4626 deployments as excluded from its primary vault list. This is a
-front-end membership decision, not a statement that Yearn does not operate the
-vault. The migration adds an attribution marker while retaining technical Yearn
-interface features and their specialised vault adapter. It deliberately applies
-to all matching registry entries, including Yearn-origin and Yearn Juiced vaults.
+`Yearn's vault registry <https://kong.yearn.fi/api/rest/list/vaults>`__ is
+broader than Trading Strategy's Yearn-operated catalogue. This migration marks
+both its established ``isSet``/``isYearn`` exclusion and records with an empty
+``inclusion`` object as not Yearn-operated for our protocol attribution. This
+deliberately removes uncurated strategy targets and wrappers, including Katana
+Stablecoin Transformer depositors, from Yearn protocol and curated-vault lists.
+The generic Yearn web-page template may still render such a record as a Yearn
+vault; that presentation does not change our attribution policy. The migration
+retains technical Yearn interface features and their specialised vault adapter.
+It is not a statement about contract safety or code provenance.
 
 The migration changes metadata only. It does not touch price Parquet files,
 reader state, discovery leads, or any vault history.
@@ -35,7 +39,12 @@ from dataclasses import dataclass, replace
 from pathlib import Path
 
 from eth_defi.erc_4626.core import ERC4262VaultDetection, ERC4626Feature, get_vault_protocol_name
-from eth_defi.erc_4626.vault_protocol.yearn.endorsement import add_yearn_registry_exclusion, is_yearn_registry_excluded_vault
+from eth_defi.erc_4626.vault_protocol.yearn.endorsement import (
+    YearnRegistryExclusions,
+    add_yearn_registry_exclusion,
+    fetch_yearn_registry_exclusions,
+    is_yearn_registry_excluded_vault,
+)
 from eth_defi.research.vault_metrics import slugify_protocol
 from eth_defi.utils import setup_console_logging
 from eth_defi.vault.base import VaultSpec
@@ -84,7 +93,11 @@ def _get_cached_features(row: VaultRow) -> set[ERC4626Feature]:
     return set()
 
 
-def collect_yearn_registry_exclusion_updates(vault_db: VaultDatabase) -> list[YearnRegistryExclusionUpdate]:
+def collect_yearn_registry_exclusion_updates(
+    vault_db: VaultDatabase,
+    *,
+    exclusions: YearnRegistryExclusions | None = None,
+) -> list[YearnRegistryExclusionUpdate]:
     """Find Yearn-labelled rows excluded from Yearn's primary vault list.
 
     The function does not mutate the database, allowing callers to inspect
@@ -93,16 +106,25 @@ def collect_yearn_registry_exclusion_updates(vault_db: VaultDatabase) -> list[Ye
 
     :param vault_db:
         In-memory metadata database to inspect.
+    :param exclusions:
+        Optional pre-fetched Yearn primary-list exclusion index. When omitted,
+        it is fetched once for the complete migration run.
     :return:
         Proposed cached-row classification updates.
     """
+    if exclusions is None:
+        exclusions = fetch_yearn_registry_exclusions()
+    if exclusions is None:
+        message = "Cannot migrate Yearn registry exclusions because the live registry is unavailable"
+        raise RuntimeError(message)
+
     updates: list[YearnRegistryExclusionUpdate] = []
     for spec, row in vault_db.rows.items():
-        if row.get("Protocol") != "Yearn" or not is_yearn_registry_excluded_vault(spec.chain_id, spec.vault_address):
+        if row.get("Protocol") != "Yearn" or not is_yearn_registry_excluded_vault(spec.chain_id, spec.vault_address, exclusions=exclusions):
             continue
 
         old_features = _get_cached_features(row)
-        new_features = add_yearn_registry_exclusion(spec.chain_id, spec.vault_address, old_features)
+        new_features = add_yearn_registry_exclusion(spec.chain_id, spec.vault_address, old_features, exclusions=exclusions)
         new_protocol = get_vault_protocol_name(new_features)
         updates.append(
             YearnRegistryExclusionUpdate(
@@ -161,7 +183,12 @@ def create_backup_path(vault_db_path: Path) -> Path:
     return backup_path
 
 
-def migrate_yearn_registry_exclusions(vault_db_path: Path = DEFAULT_VAULT_DATABASE, *, dry_run: bool) -> list[YearnRegistryExclusionUpdate]:
+def migrate_yearn_registry_exclusions(
+    vault_db_path: Path = DEFAULT_VAULT_DATABASE,
+    *,
+    dry_run: bool,
+    exclusions: YearnRegistryExclusions | None = None,
+) -> list[YearnRegistryExclusionUpdate]:
     """Apply Yearn primary-list exclusions to a persisted metadata DB.
 
     The complete database is read and all updates are calculated before any
@@ -172,11 +199,14 @@ def migrate_yearn_registry_exclusions(vault_db_path: Path = DEFAULT_VAULT_DATABA
         Metadata database pickle to inspect and optionally update.
     :param dry_run:
         When ``True``, report proposed updates without writing a backup or DB.
+    :param exclusions:
+        Optional pre-fetched Yearn primary-list exclusion index for callers
+        that need a deterministic migration review.
     :return:
         Proposed or applied updates.
     """
     vault_db = VaultDatabase.read(vault_db_path)
-    updates = collect_yearn_registry_exclusion_updates(vault_db)
+    updates = collect_yearn_registry_exclusion_updates(vault_db, exclusions=exclusions)
     if dry_run or not updates:
         return updates
 
