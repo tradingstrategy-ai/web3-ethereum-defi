@@ -473,6 +473,61 @@ Set `DRY_RUN=false` only to create a sibling backup and atomically update
 or price Parquet files. Use `VAULT_DB_PATH` to choose a non-default metadata
 database.
 
+#### Yearn primary-list attribution migration
+
+`migrate-yearn-endorsement.py` removes the Yearn protocol and curator
+attribution from cached rows that Trading Strategy classifies as not
+Yearn-operated. It reads the live [Yearn vault registry](https://kong.yearn.fi/api/rest/list/vaults)
+once per run. This classification covers Yearn's explicit `isSet`/`isYearn`
+decision and an empty `inclusion` object.
+
+An empty inclusion object is deliberately treated as not Yearn-operated for
+our catalogue, rather than as an unknown state. The registry includes a large
+number of uncurated strategy targets and wrappers alongside Yearn products;
+keeping them would overwhelm the Yearn protocol and curated-vault lists with
+noise. Examples include Katana Stablecoin Transformer depositors
+[`0x63a0…1117`](https://yearn.fi/vaults/1/0x63a028963907f5a0c1ceb7e47100f52dfc611117)
+and
+[`0xbc64…f2e3`](https://yearn.fi/vaults/1/0xbc64210d565aabca8eb6eb795833cc505ac3647f).
+Yearn's generic public page may still label such a record as a Yearn vault;
+that template does not override this Trading Strategy attribution policy.
+
+The technical Yearn adapter and its deposit, redemption and fee handling remain
+in place; the exported protocol becomes `ERC-4626` (or another retained
+protocol feature), the curator is no longer Yearn, and the link becomes the
+generic block-explorer link. This does not make a claim about contract safety
+or code provenance.
+
+The scanner refreshes its registry index daily per worker. If Yearn is
+temporarily unavailable, it uses the previous successful index; without one,
+it leaves the normal technical classification unchanged. The migration instead
+fails before writing when it cannot obtain the registry, so do not apply a
+partial or guessed scope.
+
+Inspect the live scope before writing:
+
+```shell
+source .local-test.env && \
+  DRY_RUN=true \
+  poetry run python scripts/erc-4626/migrate-yearn-endorsement.py
+```
+
+Set `DRY_RUN=false` only after reviewing the output. The script copies a
+non-overwriting `vault-metadata-db.pickle.bak-yearn-registry-exclusion*` backup
+before atomically updating `vault-metadata-db.pickle`. It does not alter vault
+leads, reader state, price Parquet files or historical observations. Use
+`VAULT_DB` to select a non-default metadata database.
+
+Run the public registry integration check when changing this integration. It
+requires no credentials and is intentionally opt-in so the ordinary unit suite
+remains deterministic:
+
+```shell
+source .local-test.env && \
+  RUN_YEARN_REGISTRY_TEST=1 \
+  poetry run python -m pytest tests/erc_4626/test_migrate_yearn_endorsement.py -k live
+```
+
 ### update-vault-links.py
 
 Metadata-only repair for persisted native vault-app links. The script selects

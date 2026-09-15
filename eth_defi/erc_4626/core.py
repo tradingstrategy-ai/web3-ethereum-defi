@@ -317,7 +317,7 @@ class ERC4626Feature(enum.Enum):
     peapods_like = "peapods_like"
 
     #: Yearn compounding vault.
-    #: Written in Solidiy.
+    #: Written in Solidity.
     #: https://yearn.fi/
     #: https://etherscan.io/address/0x4cE9c93513DfF543Bc392870d57dF8C04e89Ba0a#readProxyContract
     #: Contracts have both proxy and non-proxy functions.
@@ -329,12 +329,16 @@ class ERC4626Feature(enum.Enum):
     #: https://etherscan.io/address/0xa10c40f9e318b0ed67ecc3499d702d8db9437228#readProxyContract
     yearn_v3_like = "yearn_v3_like"
 
-    #: Excluded from Yearn's primary vault list.
+    #: Classified as not Yearn-operated for Trading Strategy's vault catalogue.
     #:
     #: This offchain provenance marker preserves the technical Yearn interface
-    #: feature while excluding the vault from Yearn protocol attribution. It
-    #: intentionally applies to every matching registry entry, including
-    #: Yearn-origin and Yearn Juiced vaults.
+    #: feature while excluding the vault from Yearn protocol attribution.
+    #: Trading Strategy treats both an explicit negative inclusion decision and
+    #: an empty inclusion object as not Yearn-operated. The latter deliberately
+    #: removes uncurated registry noise, including the Katana Stablecoin
+    #: Transformer depositor at ``0x63a028963907f5a0c1ceb7e47100f52dfc611117``,
+    #: from Yearn protocol and curated-vault lists. This is an offchain
+    #: catalogue-attribution policy, not a safety or code-provenance judgement.
     #: https://kong.yearn.fi/api/rest/list/vaults
     yearn_registry_excluded = "yearn_registry_excluded"
 
@@ -1071,6 +1075,18 @@ GENERIC_ERC4626_PROTOCOL_SLUG_ALIASES = frozenset(
     }
 )
 
+#: Yearn ABI features retained to select the specialised adapter when the
+#: registry classifies a vault as not Yearn-operated. One shared set keeps the
+#: attribution rule and registry lookup gate consistent.
+YEARN_TECHNICAL_FEATURES = frozenset(
+    {
+        ERC4626Feature.yearn_compounder_like,
+        ERC4626Feature.yearn_v3_like,
+        ERC4626Feature.yearn_tokenised_strategy,
+        ERC4626Feature.yearn_morpho_compounder_like,
+    }
+)
+
 
 def is_generic_erc4626_protocol_slug(protocol_slug: str | None) -> bool:
     """Is this protocol slug an explicit generic ERC-4626 marker."""
@@ -1089,18 +1105,9 @@ def get_vault_protocol_name(features: set[ERC4626Feature]) -> str:
     """
     if ERC4626Feature.yearn_registry_excluded in features:
         # Keep Yearn interface features for adapter selection, but do not use
-        # them for protocol attribution when Yearn excludes the vault from its
-        # primary product list.
-        return get_vault_protocol_name(
-            features
-            - {
-                ERC4626Feature.yearn_registry_excluded,
-                ERC4626Feature.yearn_compounder_like,
-                ERC4626Feature.yearn_v3_like,
-                ERC4626Feature.yearn_tokenised_strategy,
-                ERC4626Feature.yearn_morpho_compounder_like,
-            }
-        )
+        # them for protocol attribution when our registry policy classifies the
+        # vault as not Yearn-operated.
+        return get_vault_protocol_name(features - {ERC4626Feature.yearn_registry_excluded} - YEARN_TECHNICAL_FEATURES)
     elif not features:
         return GENERIC_ERC4626_PROTOCOL_NAME
     elif ERC4626Feature.broken in features:
