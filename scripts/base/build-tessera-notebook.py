@@ -35,11 +35,12 @@ md("""
 - In this notebook, we analyse execution quality on [Tessera](https://defillama.com/protocol/tessera-v), the Wintermute proprietary AMM (propAMM) that has become one of the largest trading venues on Base
 - PropAMMs post quotes onchain from an off-chain pricing engine and are routed to by aggregators (OKX, KyberSwap, 1inch, 0x, Paraswap, Binance Wallet…) because their quoted prices beat AMM pools
 - The [0x "PropAMM Shenanigans" post](https://0x.org/post/propamm-shenanigans) documented that the quoted price does not survive until settlement: the operator refreshes a tight quote in the last Flashblock of block N, aggregators route on it, then reprices worse in the first Flashblock of block N+1 where user transactions settle, and the user's slippage tolerance silently absorbs the difference
-- We measure this over ten months of onchain history and answer four questions
+- We measure this over ten months of onchain history and answer five questions
   1. **Is the quote honest?** Does the price an aggregator routed on survive until the fill?
   2. **Who pays?** Retail vs bots, by aggregator and by front-end
-  3. **How much?** In basis points against Tessera's own quote and against a fair reference price from the deepest Uniswap V3 / Aerodrome pool, and in dollars
-  4. **When, and why?** The skim comes and goes in regimes; we detect them, test whether the keeper's onchain behaviour switches with them, measure what the market does after retail and bot fills, and look at who ends up paying at the wallet level
+  3. **Are they trading the same pairs?** Whether the bot and aggregator differences survive when the pair is held fixed
+  4. **How much?** In basis points against Tessera's own quote and against a fair reference price from the deepest Uniswap V3 / Aerodrome pool, and in dollars
+  5. **When, and why?** The skim comes and goes in regimes; we detect them, test whether the keeper's onchain behaviour switches with them, measure what the market does after retail and bot fills, and look at who ends up paying at the wallet level
 - In between we look for the mechanism: *why* retail fills are worse than bot fills on the same venue in the same blocks
 
 ## Usage
@@ -549,7 +550,7 @@ display(agg[["n", "p10", "p50", "p90", "mean"]].style.format({"n": "{:,}", "p10"
 findings("""
 **What this chart shows.** Quote-to-fill degradation for retail flow, one box per aggregator router identified on the transaction's call path, ordered by median. The box spans the 25th to 75th percentile and the whiskers the 10th to 90th.
 
-**What the result means.** Two aggregators get their users filled close to the quote: 0x (median 0.0 bps) and KyberSwap (1.4 bps). Every other aggregator sits in a narrow band around 6 bps: CoW 5.7, Paraswap 5.8, 1inch 5.9, LI.FI 5.9, the unnamed aggregator 6.0, OKX 6.0, Binance Wallet 6.1. The venue is the same and the blocks are the same; what differs is how each aggregator's transactions land in the block and, in 0x's case, whether it still routes to Tessera at all (its Tessera volume on the majors fell away in early July).
+**What the result means.** Two aggregators get their users filled close to the quote: 0x (median 0.0 bps) and KyberSwap (1.4 bps). Every other aggregator sits in a narrow band around 6 bps: CoW 5.7, Paraswap 5.8, 1inch 5.9, LI.FI 5.9, the unnamed aggregator 6.0, OKX 6.0, Binance Wallet 6.1. The venue is the same and the blocks are the same; what differs is how each aggregator's transactions land in the block and, in 0x's case, whether it still routes to Tessera at all (its Tessera volume on the majors fell away in early July). Question 3 checks whether these differences are a pair-mix effect: KyberSwap's advantage holds within every pair, 0x's holds only on the thin tokens.
 
 **What it means for retail users.** Which app a user swaps through determines whether they pay this. A user routed through OKX, 1inch, Paraswap, LI.FI or Binance Wallet pays the full skim on almost every Tessera fill; a user on 0x or KyberSwap largely does not. Users have no way of seeing this in the quote, because the quotes are identical: it only shows in the fills. Aggregators that measure their own fill quality against the quote they routed on can see it immediately, and the two that do best are the two that have said publicly that they do.
 """)
@@ -670,7 +671,181 @@ findings("""
 """)
 
 md("""
-# Question 3: how much?
+# Question 3: are they trading the same pairs?
+
+## Bots and retail trade the same markets, in very different proportions
+
+- A bot-versus-retail gap could in principle be a composition effect: if bots only traded WETH/USDC and retail only traded thin tokens, the two groups would never meet on the same pair and their fills would not be comparable
+- Here we show each flow type's mix of markets (both directions of a pair combined), as a share of that flow's trades and of its USDC volume
+""")
+
+code("""
+other_symbol = np.where(df["symbol_in"] == "USDC", df["symbol_out"], df["symbol_in"])
+has_usdc_leg = (df["symbol_in"] == "USDC") | (df["symbol_out"] == "USDC")
+df["market"] = np.where(has_usdc_leg, other_symbol + "/USDC", np.where(df["symbol_in"] < df["symbol_out"], df["symbol_in"] + "/" + df["symbol_out"], df["symbol_out"] + "/" + df["symbol_in"]))
+
+mix_trades = df.pivot_table(index="market", columns="flow", values="tx_hash", aggfunc="size", fill_value=0)
+mix_trades = mix_trades / mix_trades.sum()
+mix_volume = df.pivot_table(index="market", columns="flow", values="notional_usd", aggfunc="sum", fill_value=0)
+mix_volume = mix_volume / mix_volume.sum()
+market_order = list(mix_trades.sum(axis=1).sort_values(ascending=False).index[:8])
+
+fig = make_subplots(rows=1, cols=2, shared_yaxes=True, subplot_titles=["Share of the flow's trades", "Share of the flow's USDC volume"])
+for flow in FLOW_ORDER:
+    fig.add_bar(x=market_order, y=mix_trades.loc[market_order, flow], name=flow, marker_color=COLOURS[flow], row=1, col=1)
+    fig.add_bar(x=market_order, y=mix_volume.loc[market_order, flow], name=flow, marker_color=COLOURS[flow], showlegend=False, row=1, col=2)
+fig.update_layout(barmode="group")
+style(fig, "Market mix by flow type: what each group trades on Tessera", "Market", "Share of the flow")
+fig.update_layout(legend=dict(y=1.08), margin=dict(t=150))
+fig.update_yaxes(tickformat=".0%")
+fig.show()
+
+overlap = pd.DataFrame({
+    "overlap of trade mix": [np.minimum(mix_trades["retail"], mix_trades[f]).sum() for f in ["bot", "unlabelled"]],
+    "overlap of volume mix": [np.minimum(mix_volume["retail"], mix_volume[f]).sum() for f in ["bot", "unlabelled"]],
+}, index=["retail vs bot", "retail vs unlabelled"])
+mix_table = pd.concat({"share of trades": mix_trades.loc[market_order], "share of USDC volume": mix_volume.loc[market_order]}, axis=1)
+display(mix_table.style.format("{:.1%}"))
+display(overlap.style.format("{:.0%}"))
+""")
+
+findings("""
+**What this chart shows.** For retail, bot and unlabelled flow separately, the share of that group's trades (left) and of its USDC volume (right) that went to each market, with both directions of a pair combined. The second table is the overlap between two groups' mixes, the sum over markets of the smaller of the two shares: 100 % means identical mixes, 0 % means no market in common.
+
+**What the result means.** The two groups trade the same handful of markets in very different proportions. Bots put 59 % of their trades and 48 % of their volume into WETH/USDC, with cbBTC/USDC and EURC/USDC making up most of the rest; they barely touch VIRTUAL, VVV or AERO. Retail's largest market by trade count is VIRTUAL/USDC (34 % of trades, 11 % of volume), and only 22 % of its trades are WETH/USDC, though by volume WETH/USDC is still its largest market at 35 %. The overlap is 50 % by trades and 73 % by volume. The unlabelled flow's mix is close to retail's (83 % overlap), consistent with it being mostly unidentified retail routers.
+
+**What it means for retail users.** Retail and bots do meet on the same markets: WETH/USDC, cbBTC/USDC and EURC/USDC carry 60 % of retail's volume and 99 % of bots'. Any comparison of fill quality therefore has to be made within a market, which is what the next chart does; a group-level median mixes a thin-token-heavy retail book with a majors-only bot book, and the direction of that bias is not obvious until it is measured.
+""")
+
+md("""
+## Within every pair, retail is filled worse than bots; the pair mix cannot explain the gap
+
+- If the bot advantage were a composition effect, it would shrink or vanish once the two groups are compared on the same pair
+- We compare median quote-to-fill degradation per pair for pairs where both retail and bots have at least 500 trades, then reweight each group's per-pair medians onto the other group's pair mix
+""")
+
+code("""
+pair_flow = df.groupby(["pair", "flow"])["quote_to_fill_bps"].agg(n="size", p50="median").reset_index()
+pair_flow_pivot = pair_flow.pivot(index="pair", columns="flow", values=["n", "p50"])
+both = pair_flow_pivot[(pair_flow_pivot[("n", "retail")] >= 500) & (pair_flow_pivot[("n", "bot")] >= 500)].sort_values(("n", "retail"), ascending=False)
+
+fig = go.Figure()
+for flow in FLOW_ORDER:
+    fig.add_bar(x=both.index, y=both[("p50", flow)], name=flow, marker_color=COLOURS[flow])
+fig.add_hline(y=0, line=dict(color="#b0b0ad", dash="dot"))
+fig.update_layout(barmode="group")
+style(fig, "Median quote-to-fill degradation by pair and flow type (pairs with ≥ 500 retail and ≥ 500 bot trades)", "Pair (token in / token out)", "bps, positive = user got less than quoted").show()
+
+retail_pair_median = pair_flow[pair_flow["flow"] == "retail"].set_index("pair")["p50"]
+bot_pair_median = pair_flow[pair_flow["flow"] == "bot"].set_index("pair")["p50"]
+retail_mix = df[df["flow"] == "retail"]["pair"].value_counts(normalize=True)
+bot_mix = df[df["flow"] == "bot"]["pair"].value_counts(normalize=True)
+
+def reweight(medians: pd.Series, weights: pd.Series) -> float:
+    common = medians.index.intersection(weights.index)
+    return float((medians[common] * weights[common]).sum() / weights[common].sum())
+
+retail_on_bot_mix = reweight(retail_pair_median, bot_mix)
+bot_on_retail_mix = reweight(bot_pair_median, retail_mix)
+mix_adjusted = pd.DataFrame([
+    ("retail, own pair mix", df.loc[df["flow"] == "retail", "quote_to_fill_bps"].median()),
+    ("retail, reweighted to the bot pair mix", retail_on_bot_mix),
+    ("bot, own pair mix", df.loc[df["flow"] == "bot", "quote_to_fill_bps"].median()),
+    ("bot, reweighted to the retail pair mix", bot_on_retail_mix),
+], columns=["flow and pair mix", "median quote-to-fill bps"]).set_index("flow and pair mix")
+display(mix_adjusted.style.format("{:.2f}"))
+
+fresh_majors = df[df["pair"].isin(MAJORS) & (df["benchmark_age_blocks"] <= 3)]
+fair_by_pair = fresh_majors.groupby(["pair", "flow"])["fill_vs_benchmark_bps"].agg(n="size", p50="median").unstack("flow")
+display(fair_by_pair.style.format({c: ("{:,.0f}" if c[0] == "n" else "{:.2f}") for c in fair_by_pair.columns}, na_rep="—"))
+""")
+
+findings("""
+**What this chart shows.** Median quote-to-fill degradation per pair, retail and bots (and unlabelled) side by side, for the twelve pairs where both groups have at least 500 trades. The first table reweights each group's per-pair medians onto the other group's pair mix: "retail, reweighted to the bot pair mix" is what retail's median would be if retail traded the pairs bots trade, in the proportions bots trade them, at the fill quality retail actually gets on each pair. The second table repeats the fair-price comparison for each of the four major pairs separately.
+
+**What the result means.** On every pair where the two meet, retail is filled worse than the quote and bots are filled at or better than it: 5.6 to 6.3 bps against −0.4 to −0.6 bps on the four WETH and cbBTC pairs, 2 to 4 bps against 0 to 2 bps on the VIRTUAL and VVV pairs. Reweighting makes the gap larger, not smaller: retail's median rises from 4.6 to 5.0 bps when moved onto the bot mix, because bots concentrate on the majors, where retail is skimmed most; bots' median rises from −0.3 to +0.9 bps when moved onto the retail mix, still far below retail. Against fair, the picture is the same on each major pair taken alone: retail 4.4 to 6.1 bps worse, bots 0.9 to 1.4 bps better. Two pairs stand out. EURC/USDC, the stablecoin pair, shows no skim at all for retail (0.01 bps in both directions), so the mechanism is applied per pair and switched off on the one pair where a 5 bps move would be visible against a 1:1 peg. AERO/USDC is the one pair where bots pay retail-like degradation (5.1 bps), which suggests the bot contracts active there are not the timing bots that dominate the majors.
+
+**What it means for retail users.** Bars at exactly zero (retail and bots on EURC/USDC, unlabelled on cbBTC/USDC) are invisible; note that the unlabelled routers do pay about 5 bps on EURC/USDC, so the stablecoin exemption is not universal either. Pair choice is not a defence. A retail user buying ETH with USDC is on the pair where bots are most active and most advantaged, and the comparison is like-for-like: same pair, same venue, same blocks, opposite outcomes. Trading a thinner token halves the bps but does not remove them. The only retail-facing pair without a skim is the stablecoin pair, where the skim would have been trivially detectable.
+""")
+
+md("""
+## Aggregators send Tessera very different pair mixes
+
+- Aggregator fill quality in Question 2 could likewise be a composition effect if the good aggregators simply route different pairs
+- Here we show each aggregator's share of its Tessera retail volume by market
+""")
+
+code("""
+retail = df[df["flow"] == "retail"]
+top_aggregators = list(retail["aggregator"].value_counts().index[:8])
+agg_market_volume = retail[retail["aggregator"].isin(top_aggregators)].pivot_table(index="aggregator", columns="market", values="notional_usd", aggfunc="sum", fill_value=0)
+agg_market_volume = agg_market_volume.div(agg_market_volume.sum(axis=1), axis=0)
+agg_market_order = list(agg_market_volume.sum().sort_values(ascending=False).index[:8])
+agg_market_volume = agg_market_volume.loc[top_aggregators, agg_market_order]
+agg_market_trades = retail[retail["aggregator"].isin(top_aggregators)].pivot_table(index="aggregator", columns="market", values="tx_hash", aggfunc="size", fill_value=0)
+agg_market_trades = agg_market_trades.div(agg_market_trades.sum(axis=1), axis=0).loc[top_aggregators, agg_market_order]
+
+fig = go.Figure(go.Heatmap(
+    z=agg_market_volume.values, x=agg_market_order, y=top_aggregators,
+    text=[[f"{v:.0%}" for v in row] for row in agg_market_volume.values], texttemplate="%{text}",
+    colorscale=[[0, "#f3f7fc"], [1, COLOURS["retail"]]], zmin=0, zmax=0.65, colorbar=dict(title="share of volume", tickformat=".0%"),
+))
+style(fig, "Share of each aggregator's retail Tessera volume by market", "Market", "Aggregator", legend=False)
+fig.update_yaxes(autorange="reversed")
+fig.show()
+display(agg_market_trades.style.format("{:.1%}").set_caption("Share of each aggregator's retail Tessera trades by market"))
+""")
+
+findings("""
+**What this chart shows.** For the eight aggregators with the most retail Tessera trades, the share of that aggregator's Tessera volume in each market; each row sums to 100 %. The table gives the same split by trade count, which looks different because thin-token trades are small.
+
+**What the result means.** The mixes differ a great deal. KyberSwap sends the most stablecoin flow (31 % of its volume in EURC/USDC, the pair with no skim) and the least WETH/USDC (25 %); 0x is similar (24 % EURC/USDC) and, by trade count, 71 % of its Tessera trades are VIRTUAL and VVV. Paraswap, the unnamed aggregator and Binance Wallet are majors-heavy (50 to 63 % WETH/USDC). OKX sends almost no EURC/USDC (1.5 %) and by trade count nearly half of its trades are VIRTUAL/USDC. So the Question 2 ranking compares aggregators on different baskets, and the next chart controls for that.
+
+**What it means for retail users.** The pair a user is swapping and the aggregator they are using are not independent: the app a user picks also decides which of Tessera's markets their order is likely to land in, and therefore which per-pair skim applies. Whether the good aggregators are good because of what they route or because of how they route is the question the next chart answers.
+""")
+
+md("""
+## Within a pair, KyberSwap stays at one to two bps everywhere; 0x is protected only on the thin pairs
+
+- The same aggregator comparison, one cell per aggregator and pair, so that composition is held fixed
+- Each aggregator's per-pair medians are then reweighted onto the overall retail pair mix, giving a like-for-like ranking
+""")
+
+code("""
+agg_pair = retail[retail["aggregator"].isin(top_aggregators)].groupby(["aggregator", "pair"])["quote_to_fill_bps"].agg(n="size", p50="median").reset_index()
+agg_pair = agg_pair[agg_pair["n"] >= 300]
+pair_order_retail = list(retail["pair"].value_counts().index[:8])
+heat = agg_pair[agg_pair["pair"].isin(pair_order_retail)].pivot(index="aggregator", columns="pair", values="p50").reindex(index=top_aggregators, columns=pair_order_retail)
+heat_n = agg_pair[agg_pair["pair"].isin(pair_order_retail)].pivot(index="aggregator", columns="pair", values="n").reindex(index=top_aggregators, columns=pair_order_retail)
+
+fig = go.Figure(go.Heatmap(
+    z=heat.values, x=pair_order_retail, y=top_aggregators,
+    text=[[("—" if pd.isna(v) else f"{v:.1f}") for v in row] for row in heat.values], texttemplate="%{text}",
+    colorscale=[[0, "#fdf1f1"], [1, COLOURS["fill"]]], zmin=0, zmax=9, colorbar=dict(title="bps"),
+    hoverongaps=False,
+))
+style(fig, "Median retail quote-to-fill degradation by aggregator and pair (cells with ≥ 300 trades)", "Pair (token in / token out)", "Aggregator", legend=False)
+fig.update_yaxes(autorange="reversed")
+fig.show()
+
+agg_mix_adjusted = pd.DataFrame([
+    (a, retail.loc[retail["aggregator"] == a, "quote_to_fill_bps"].median(), reweight(agg_pair[agg_pair["aggregator"] == a].set_index("pair")["p50"], retail_mix), retail_mix.reindex(agg_pair.loc[agg_pair["aggregator"] == a, "pair"]).sum())
+    for a in top_aggregators
+], columns=["aggregator", "own pair mix", "reweighted to the retail pair mix", "share of retail mix covered"]).set_index("aggregator").sort_values("reweighted to the retail pair mix")
+display(agg_mix_adjusted.style.format({"own pair mix": "{:.2f}", "reweighted to the retail pair mix": "{:.2f}", "share of retail mix covered": "{:.0%}"}))
+display(heat_n.style.format("{:,.0f}", na_rep="—").set_caption("Trades per cell"))
+""")
+
+findings("""
+**What this chart shows.** Median retail quote-to-fill degradation for every aggregator and pair combination with at least 300 trades, the eight busiest retail pairs across the columns. The first table gives each aggregator's overall median next to the same median reweighted onto the pair mix of all retail flow, with the share of that mix the aggregator's cells cover; the second table gives the trade count behind each cell.
+
+**What the result means.** Holding the pair fixed splits the two "good" aggregators apart. KyberSwap is at 1.0 bps on the four major pairs and 2.0 bps on the thin pairs, in every cell. 0x is at 0.0 bps on VIRTUAL, VVV and AERO, where most of its trades are, but 5.7 to 6.0 bps on WETH/USDC and cbBTC/USDC, the same as everyone else. Reweighted onto the retail pair mix the two are tied, 0x at 1.7 bps and KyberSwap at 1.8, but for opposite reasons: KyberSwap is uniformly low, 0x is zero on the thin pairs (60 % of retail trades) and fully skimmed on the majors, where its users were not protected at all. OKX is the worst on the majors (7.4 bps on WETH/USDC, 8.7 on USDC/cbBTC) and about 5.5 on the thin pairs. The rest, 1inch, Paraswap, LI.FI, Binance Wallet and the unnamed aggregator, sit at 5.3 to 6.7 bps in every cell; their reweighted medians are within 0.1 bps of their raw ones. The values are quantised per aggregator and pair (KyberSwap exactly 1.0 or 2.0, 0x exactly 0.0 on thin pairs), which again reads as a configured parameter rather than market noise.
+
+**What it means for retail users.** The Question 2 answer survives the composition check with one correction. KyberSwap users really do get better fills on the same pair, so its advantage is in how it routes and settles, not in what it routes. 0x users were protected only on the thin tokens; anyone swapping ETH or BTC through 0x paid the same six bps as through OKX or 1inch, and 0x's low overall number comes from its Tessera flow being mostly VIRTUAL and VVV. For a user the practical reading is per pair: on the majors only KyberSwap's users escape the skim, and on the thin pairs KyberSwap and 0x both do.
+""")
+
+md("""
+# Question 4: how much?
 
 ## Tessera's quote beats fair by 0.2 bps; the retail fill misses fair by 6
 
@@ -982,7 +1157,7 @@ findings("""
 """)
 
 md("""
-# Question 4: when, and why?
+# Question 5: when, and why?
 
 ## Three regimes: skim, five honest days in July, skim
 
@@ -1439,6 +1614,8 @@ headline = pd.DataFrame([
     ("Tessera quote vs fair pool price (majors, retail)", f"{majors_retail['quote_vs_benchmark_bps'].median():.2f} bps better"),
     ("Best aggregator for the user", f"{best} ({agg.loc[best, 'p50']:.2f} bps)"),
     ("Worst aggregator for the user", f"{worst} ({agg.loc[worst, 'p50']:.2f} bps)"),
+    ("Retail median reweighted to the bot pair mix / bot median reweighted to the retail pair mix", f"{retail_on_bot_mix:.2f} / {bot_on_retail_mix:.2f} bps"),
+    ("Best aggregator, reweighted to the retail pair mix", f"{agg_mix_adjusted.index[0]} ({agg_mix_adjusted.iloc[0]['reweighted to the retail pair mix']:.2f} bps)"),
     ("Median user slippage tolerance (single-leg orders)", f"{bound['user_slippage_bps'].median():.0f} bps"),
     ("USD extracted from retail in window (quote-to-fill)", f"${retail['extracted_usd'].sum():,.0f}"),
     ("Estimated USD extracted over full history", f"${est['estimated_extracted_usd'].sum():,.0f}"),
