@@ -8,6 +8,7 @@ Authoritative Lighter documentation:
 
 - Account creation: https://apidocs.lighter.xyz/docs/create-accounts-programmatically
 - API keys: https://apidocs.lighter.xyz/docs/api-keys
+- Deposits and withdrawals: https://apidocs.lighter.xyz/docs/deposits-transfers-and-withdrawals
 """
 
 import logging
@@ -43,6 +44,43 @@ LIGHTER_ACCOUNT_NOT_FOUND_CODE = 21100
 
 #: Lighter error code for a registered API key that is not indexed yet.
 LIGHTER_API_KEY_NOT_FOUND_CODE = 21109
+
+
+def fetch_lighter_withdrawal_delay(
+    session: LighterSession,
+    timeout: float = 30.0,
+) -> int:
+    """Fetch Lighter's current secure-withdrawal delay in seconds.
+
+    The reported value is dynamic, so use it to inform an operator before a
+    secure withdrawal rather than hard-coding an expected delay. It is not a
+    per-withdrawal completion guarantee: wait for the withdrawal-history item
+    to become ``claimable`` before attempting an L1 claim.
+
+    Fast withdrawals have different semantics and require the L1 account's
+    EOA private key. A contract-owned Safe has no such key, so this helper is
+    for the secure-withdrawal flow used by Lagoon Safe integrations.
+
+    :param session:
+        Configured Lighter HTTP session.
+    :param timeout:
+        Per-request timeout in seconds.
+    :return:
+        Current secure-withdrawal delay in seconds.
+    """
+    response = session.get(
+        f"{session.api_url}/api/v1/withdrawalDelay",
+        timeout=timeout,
+    )
+    response.raise_for_status()
+    data = response.json()
+    try:
+        delay = int(data["seconds"])
+    except (KeyError, TypeError, ValueError) as error:
+        raise ValueError("Lighter withdrawalDelay response contains an invalid seconds value") from error
+    if delay <= 0:
+        raise ValueError(f"Lighter withdrawalDelay must be positive, got {delay}")
+    return delay
 
 
 def _is_transient_lighter_api_error(error: RequestException) -> bool:

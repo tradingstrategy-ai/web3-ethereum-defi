@@ -1,8 +1,15 @@
-"""Lagoon Safe helpers for Lighter L1 deposits.
+"""Lagoon Safe helpers for Lighter L1 deposits and secure-withdrawal claims.
 
 The deployment flow transfers the minimum accounted USDC balance from a Lagoon
-Safe to Lighter through ``TradingStrategyModuleV0``. Trading and withdrawals
-are intentionally outside this custody helper.
+Safe to Lighter through ``TradingStrategyModuleV0``. A Lighter API-key secure
+withdrawal is requested off-chain; once Lighter makes it claimable, this module
+claims its L1 pending balance back to the same Safe.
+
+The secure-withdrawal delay is dynamic. Read
+:py:func:`eth_defi.lighter.api.fetch_lighter_withdrawal_delay` for an operator
+estimate, but only a ``claimable`` withdrawal-history status permits the L1
+claim. Fast withdrawals require the L1 account's EOA private key and are not
+available to a contract-owned Safe.
 
 Authoritative Lighter deposit documentation:
 https://apidocs.lighter.xyz/docs/deposits-transfers-and-withdrawals
@@ -122,3 +129,71 @@ def deposit_usdc_from_lagoon_safe_into_lighter(
     )
     logger.info("Safe USDC balance after Lighter deposit: %s", usdc.fetch_balance_of(safe))
     return tx_hash
+
+
+def claim_usdc_to_lagoon_safe_from_lighter(
+    web3: Web3,
+    hot_wallet: HotWallet,
+    *,
+    vault: LagoonVault,
+    usdc: TokenDetails,
+    claimable_usdc: Decimal,
+    zk_lighter: HexAddress | str = LIGHTER_L1_CONTRACT,
+) -> str:
+    """Claim an already-claimable secure Lighter USDC withdrawal to the Safe.
+
+    This helper deliberately does not request a withdrawal. The request is an
+    L2 API-key operation; this is the Safe-gated L1 egress step and can only
+    name :attr:`LagoonVault.safe_address` as its receiver. Lighter's dynamic
+    secure-withdrawal delay is informational only: claim only after the
+    matching withdrawal history item is ``claimable``. A fast withdrawal is
+    not an alternative for this flow because it needs the L1 account's EOA
+    private key, whereas the account owner is a Safe contract.
+
+    :param web3:
+        Ethereum mainnet connection.
+    :param hot_wallet:
+        Asset-manager wallet authorised to call the Lagoon module.
+    :param vault:
+        Lagoon vault whose Safe receives the claimed USDC.
+    :param usdc:
+        Native Ethereum USDC token details.
+    :param claimable_usdc:
+        Amount from the matching Lighter ``claimable`` withdrawal-history row.
+        Do not substitute the originally requested amount: Lighter may report
+        a different final raw amount after its own precision/fee handling.
+    :param zk_lighter:
+        Whitelisted ZkLighter L1 contract address.
+    :return:
+        Confirmed claim transaction hash.
+    """
+    if claimable_usdc <= 0:
+        raise ValueError(f"Claimable Lighter USDC must be positive, got {claimable_usdc}")
+
+    zk_lighter = Web3.to_checksum_address(zk_lighter)
+    safe = Web3.to_checksum_address(vault.safe_address)
+    zk = get_deployed_contract(web3, "lighter/ZkLighter.json", zk_lighter)
+    asset_index = zk.functions.USDC_ASSET_INDEX().call()
+    amount_raw = usdc.convert_to_raw(claimable_usdc)
+    module = get_deployed_contract(
+        web3,
+        "safe-integration/TradingStrategyModuleV0.json",
+        vault.trading_strategy_module_address,
+    )
+    claim_data = zk.functions.withdrawPendingBalance(
+        safe,
+        asset_index,
+        amount_raw,
+    )._encode_transaction_data()
+    logger.info(
+        "Claiming %s USDC from Lighter %s to Safe %s",
+        claimable_usdc,
+        zk_lighter,
+        safe,
+    )
+    return broadcast_tx(
+        web3,
+        hot_wallet,
+        module.functions.performCall(zk_lighter, claim_data, 0),
+        "Claim Lighter USDC withdrawal to Safe",
+    )

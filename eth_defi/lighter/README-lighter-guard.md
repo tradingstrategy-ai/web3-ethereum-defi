@@ -154,6 +154,21 @@ USDC and credits the Safe's Lighter account.
 
 Funds are released onchain directly to the Safe address.
 
+### Secure withdrawal delay and Safe limitation
+
+The secure-withdrawal delay is dynamic. Query
+`eth_defi.lighter.api.fetch_lighter_withdrawal_delay()` immediately before
+requesting a withdrawal to obtain Lighter's current value in seconds. It is an
+operator estimate, not a settlement guarantee: a claim is valid only once the
+matching `withdraw_history` entry reports `claimable`.
+
+Lighter also offers a fast USDC withdrawal. It requires the L1 account's
+Ethereum EOA private key. A Lagoon owner is a Safe contract, not an EOA, and
+has no private key; therefore the guarded Safe flow supports secure withdrawal
+and its later `withdrawPendingBalance` claim only. Do not replace this flow
+with a deployer or asset-manager key: that key does not own the Lighter
+account and would break Safe custody.
+
 ## Account valuation (off-chain)
 
 Ethereum Lighter account NAV is read off-chain from the public account API, not
@@ -185,6 +200,14 @@ compatibility warning are kept there as the single source of truth.
 
 The guard still only authorises the L1 custody calls described above;
 valuation and trading are off-chain reads and signatures.
+
+Authenticated SDK reads should use
+`eth_defi.lighter.sdk.LighterAuthTokenManager`: provide a callback around the
+SDK's `create_auth_token_with_expiry()` method and pass the resulting token to
+the read operation. The manager refreshes tokens before expiry and retries one
+HTTP 401 without logging token or SDK error contents. Keep withdrawal and order
+submission outside the retry wrapper unless the operation is known to be safe
+to replay.
 
 ## Account creation (deposit-driven — not a guard call)
 

@@ -20,7 +20,11 @@ from web3.datastructures import AttributeDict
 from eth_defi.abi import get_topic_signature_from_event
 from eth_defi.hypersync.server import get_hypersync_server
 from eth_defi.timestamp import get_block_timestamp
-from eth_defi.vault.flow_events import IndexedVaultFlowLog, fetch_vault_flow_logs_for_addresses_hypersync
+from eth_defi.vault.flow_events import (
+    IndexedVaultFlowLog,
+    fetch_vault_flow_logs_for_addresses_hypersync,
+    hypersync,
+)
 from eth_defi.vault.settlement_data import VaultSettlement
 
 logger = logging.getLogger(__name__)
@@ -55,11 +59,11 @@ def should_use_hypersync() -> bool:
     """Check whether Hypersync should be used for event reads.
 
     :return:
-        ``True`` if ``HYPERSYNC_API_KEY`` exists and ``USE_HYPERSYNC`` is not
-        explicitly disabled.
+        ``True`` if the optional package and ``HYPERSYNC_API_KEY`` exist and
+        ``USE_HYPERSYNC`` is not explicitly disabled.
     """
     requested = os.environ.get("USE_HYPERSYNC", "true").lower() not in {"0", "false", "no"}
-    return requested and bool(os.environ.get("HYPERSYNC_API_KEY"))
+    return requested and hypersync is not None and bool(os.environ.get("HYPERSYNC_API_KEY"))
 
 
 def fetch_vault_settlement_logs(
