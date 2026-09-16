@@ -553,7 +553,7 @@ def create_schema(con: duckdb.DuckDBPyConnection) -> None:
             -- output token and the order was not split across venues (input amount equal, or unknown for 0x)
             o.router_returned_out,
             (o.order_dst_token_norm = t.token_out AND (o.order_src_token_norm IS NULL OR o.order_src_token_norm = t.token_in)
-             AND (o.order_amount_in IS NULL OR (t.amount_in BETWEEN o.order_amount_in * 0.98 AND o.order_amount_in))) AS order_matches_leg,
+             AND (o.order_amount_in IS NULL OR (t.amount_in::DOUBLE BETWEEN o.order_amount_in::DOUBLE * 0.98 AND o.order_amount_in::DOUBLE))) AS order_matches_leg,
             q.prev_quoted_out,
             q.same_quoted_out,
             q.prev_probe_in,
@@ -571,16 +571,16 @@ def create_schema(con: duckdb.DuckDBPyConnection) -> None:
             -- Distance between fill and the bound, in bps of the bound
             CASE WHEN c.exact_input THEN (t.amount_out - c.amount_check) * 10000.0 / NULLIF(c.amount_check, 0) END AS headroom_to_bound_bps,
             -- User-level slippage tolerance from the aggregator router, relative to the previous block Tessera quote
-            CASE WHEN o.order_dst_token_norm = t.token_out AND (o.order_src_token_norm IS NULL OR o.order_src_token_norm = t.token_in) AND (o.order_amount_in IS NULL OR (t.amount_in BETWEEN o.order_amount_in * 0.98 AND o.order_amount_in)) AND NOT COALESCE(o.exact_output, FALSE)
+            CASE WHEN o.order_dst_token_norm = t.token_out AND (o.order_src_token_norm IS NULL OR o.order_src_token_norm = t.token_in) AND (o.order_amount_in IS NULL OR (t.amount_in::DOUBLE BETWEEN o.order_amount_in::DOUBLE * 0.98 AND o.order_amount_in::DOUBLE)) AND NOT COALESCE(o.exact_output, FALSE)
                  THEN (q.prev_quoted_out - o.user_min_amount_out) * 10000.0 / NULLIF(q.prev_quoted_out, 0) END AS user_slippage_bps,
             -- Fraction of the user's tolerance the fill consumed
-            CASE WHEN o.order_dst_token_norm = t.token_out AND (o.order_src_token_norm IS NULL OR o.order_src_token_norm = t.token_in) AND (o.order_amount_in IS NULL OR (t.amount_in BETWEEN o.order_amount_in * 0.98 AND o.order_amount_in)) AND NOT COALESCE(o.exact_output, FALSE)
+            CASE WHEN o.order_dst_token_norm = t.token_out AND (o.order_src_token_norm IS NULL OR o.order_src_token_norm = t.token_in) AND (o.order_amount_in IS NULL OR (t.amount_in::DOUBLE BETWEEN o.order_amount_in::DOUBLE * 0.98 AND o.order_amount_in::DOUBLE)) AND NOT COALESCE(o.exact_output, FALSE)
                  THEN (q.prev_quoted_out - t.amount_out) * 1.0 / NULLIF(q.prev_quoted_out - o.user_min_amount_out, 0) END AS user_slippage_consumed_fraction,
             -- Distance between the fill and the user's bound, in bps of the bound; ~0 means the user got exactly their worst case
-            CASE WHEN o.order_dst_token_norm = t.token_out AND (o.order_src_token_norm IS NULL OR o.order_src_token_norm = t.token_in) AND (o.order_amount_in IS NULL OR (t.amount_in BETWEEN o.order_amount_in * 0.98 AND o.order_amount_in)) AND NOT COALESCE(o.exact_output, FALSE)
+            CASE WHEN o.order_dst_token_norm = t.token_out AND (o.order_src_token_norm IS NULL OR o.order_src_token_norm = t.token_in) AND (o.order_amount_in IS NULL OR (t.amount_in::DOUBLE BETWEEN o.order_amount_in::DOUBLE * 0.98 AND o.order_amount_in::DOUBLE)) AND NOT COALESCE(o.exact_output, FALSE)
                  THEN (t.amount_out - o.user_min_amount_out) * 10000.0 / NULLIF(o.user_min_amount_out, 0) END AS user_headroom_bps,
             -- Aggregator's own quote vs fill, where the router records the quote (Paraswap)
-            CASE WHEN o.order_dst_token_norm = t.token_out AND (o.order_src_token_norm IS NULL OR o.order_src_token_norm = t.token_in) AND (o.order_amount_in IS NULL OR (t.amount_in BETWEEN o.order_amount_in * 0.98 AND o.order_amount_in))
+            CASE WHEN o.order_dst_token_norm = t.token_out AND (o.order_src_token_norm IS NULL OR o.order_src_token_norm = t.token_in) AND (o.order_amount_in IS NULL OR (t.amount_in::DOUBLE BETWEEN o.order_amount_in::DOUBLE * 0.98 AND o.order_amount_in::DOUBLE))
                  THEN (o.aggregator_quoted_out - t.amount_out) * 10000.0 / NULLIF(o.aggregator_quoted_out, 0) END AS aggregator_quote_to_fill_bps,
             -- Whole-route outcome, valid for multi-hop routes too: how far above the user's worst case the router delivered
             CASE WHEN NOT COALESCE(o.exact_output, FALSE)
