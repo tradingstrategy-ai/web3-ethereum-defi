@@ -32,6 +32,7 @@ from eth_defi.erc_4626.vault_protocol.llama_lend.vault import LlamaLendVault
 from eth_defi.erc_4626.vault_protocol.morpho.vault_v1 import MorphoV1Vault
 from eth_defi.erc_4626.vault_protocol.morpho.vault_v2 import MorphoV2Vault
 from eth_defi.erc_4626.vault_protocol.nara.vault import NaraVault
+from eth_defi.erc_4626.vault_protocol.plutus.vault import PlutusVault
 from eth_defi.erc_4626.vault_protocol.resolv.vault import ResolvVault
 from eth_defi.erc_4626.vault_protocol.sbold.vault import SBOLDVault
 from eth_defi.erc_4626.vault_protocol.sentiment.vault import SentimentVault
@@ -97,6 +98,19 @@ def test_d2_withdrawal_period_is_epoch_based(monkeypatch: pytest.MonkeyPatch) ->
     assert period.min_period == datetime.timedelta(0)
     assert period.max_period == datetime.timedelta(days=30)
     assert period.delay_type is WithdrawalDelayType.epoch
+    assert period.estimated_settlement == datetime.timedelta(days=15)
+
+
+def test_plutus_withdrawal_period_uses_modelling_estimate() -> None:
+    """Plutus exports its conservative average manual-settlement estimate."""
+    vault = object.__new__(PlutusVault)
+
+    period = vault.get_withdrawal_period()
+
+    assert period.min_period is None
+    assert period.max_period is None
+    assert period.delay_type is WithdrawalDelayType.delay
+    assert period.estimated_settlement == datetime.timedelta(days=14)
 
 
 def test_upshift_withdrawal_period_uses_configured_lag_duration() -> None:
