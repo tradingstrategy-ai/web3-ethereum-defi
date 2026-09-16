@@ -268,6 +268,7 @@ def test_old_mainnet_out_of_gas_contract_is_skipped_by_multicall_blacklist() -> 
         ("0x6abbda8243f4bf130a97beae759a6e91522520b9", "Yearn", VaultFlag.subvault, "not intended"),
         ("0xd5428b889621eee8060fc105aa0ab0fa2e344468", "Yearn", VaultFlag.subvault, "not intended"),
         ("0x049e8aab2d3ca187e47d74cf8171ad266f18643e", "Yearn", VaultFlag.subvault, "not intended"),
+        ("0xd5428b889621eee8060fc105aa0ab0fa2e344468", "Yearn", VaultFlag.subvault, "not intended"),
         ("0xc9f01b5c6048b064e6d925d1c2d7206d4feef8a3", "Yearn", VaultFlag.subvault, "not intended"),
         ("0x93fec6639717b6215a48e5a72a162c50dcc40d68", "Yearn", VaultFlag.subvault, "not intended"),
         ("0xad755c6c31515aef8d2f830767d846774f7e9ea9", "Morpho", VaultFlag.malicious, "malicious"),
