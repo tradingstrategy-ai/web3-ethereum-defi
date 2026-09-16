@@ -1,0 +1,154 @@
+[
+ {
+  "type": "constructor",
+  "inputs": [
+   {
+    "name": "gitCommit",
+    "type": "bytes20",
+    "internalType": "bytes20"
+   }
+  ],
+  "stateMutability": "nonpayable"
+ },
+ {
+  "name": "InvalidOffset",
+  "type": "error",
+  "inputs": []
+ },
+ {
+  "name": "InvalidTarget",
+  "type": "error",
+  "inputs": []
+ },
+ {
+  "name": "GitCommit",
+  "type": "event",
+  "inputs": [
+   {
+    "name": "",
+    "type": "bytes20",
+    "indexed": true,
+    "internalType": "bytes20"
+   }
+  ],
+  "anonymous": false
+ },
+ {
+  "type": "fallback",
+  "stateMutability": "nonpayable"
+ },
+ {
+  "name": "balanceOf",
+  "type": "function",
+  "inputs": [
+   {
+    "name": "",
+    "type": "address",
+    "internalType": "address"
+   }
+  ],
+  "outputs": [],
+  "stateMutability": "pure"
+ },
+ {
+  "name": "execute",
+  "type": "function",
+  "inputs": [
+   {
+    "name": "slippage",
+    "type": "tuple",
+    "components": [
+     {
+      "name": "recipient",
+      "type": "address",
+      "internalType": "address payable"
+     },
+     {
+      "name": "buyToken",
+      "type": "address",
+      "internalType": "contract IERC20"
+     },
+     {
+      "name": "minAmountOut",
+      "type": "uint256",
+      "internalType": "uint256"
+     }
+    ],
+    "internalType": "struct ISettlerBase.AllowedSlippage"
+   },
+   {
+    "name": "actions",
+    "type": "bytes[]",
+    "internalType": "bytes[]"
+   },
+   {
+    "name": "",
+    "type": "bytes32",
+    "internalType": "bytes32"
+   }
+  ],
+  "outputs": [
+   {
+    "name": "",
+    "type": "bool",
+    "internalType": "bool"
+   }
+  ],
+  "stateMutability": "payable"
+ },
+ {
+  "name": "executeWithPermit",
+  "type": "function",
+  "inputs": [
+   {
+    "name": "slippage",
+    "type": "tuple",
+    "components": [
+     {
+      "name": "recipient",
+      "type": "address",
+      "internalType": "address payable"
+     },
+     {
+      "name": "buyToken",
+      "type": "address",
+      "internalType": "contract IERC20"
+     },
+     {
+      "name": "minAmountOut",
+      "type": "uint256",
+      "internalType": "uint256"
+     }
+    ],
+    "internalType": "struct ISettlerBase.AllowedSlippage"
+   },
+   {
+    "name": "actions",
+    "type": "bytes[]",
+    "internalType": "bytes[]"
+   },
+   {
+    "name": "",
+    "type": "bytes32",
+    "internalType": "bytes32"
+   },
+   {
+    "name": "permitData",
+    "type": "bytes",
+    "internalType": "bytes"
+   }
+  ],
+  "outputs": [
+   {
+    "name": "",
+    "type": "bool",
+    "internalType": "bool"
+   }
+  ],
+  "stateMutability": "payable"
+ },
+ {
+  "type": "receive",
+  "stateMutability": "payable"
+ }
+]

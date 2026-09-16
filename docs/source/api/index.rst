@@ -26,6 +26,7 @@ See :ref:`tutorials <tutorials>` for guides and examples on how to use the libra
    flying_tulip/index
    upshift/index
    cowswap/index
+   dex_aggregator/index
    velora/index
    lifi/index
    derive/index

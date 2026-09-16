@@ -1,0 +1,1029 @@
+[
+ {
+  "inputs": [
+   {
+    "internalType": "contract IWETH9",
+    "name": "_weth9",
+    "type": "address"
+   },
+   {
+    "internalType": "address",
+    "name": "_swapExecutor",
+    "type": "address"
+   }
+  ],
+  "stateMutability": "nonpayable",
+  "type": "constructor"
+ },
+ {
+  "inputs": [],
+  "name": "AdapterNotWhitelisted",
+  "type": "error"
+ },
+ {
+  "inputs": [
+   {
+    "internalType": "address",
+    "name": "target",
+    "type": "address"
+   }
+  ],
+  "name": "AddressEmptyCode",
+  "type": "error"
+ },
+ {
+  "inputs": [],
+  "name": "AmountMisMatch",
+  "type": "error"
+ },
+ {
+  "inputs": [],
+  "name": "BadParams",
+  "type": "error"
+ },
+ {
+  "inputs": [],
+  "name": "ContractLocked",
+  "type": "error"
+ },
+ {
+  "inputs": [
+   {
+    "internalType": "address",
+    "name": "implementation",
+    "type": "address"
+   }
+  ],
+  "name": "ERC1967InvalidImplementation",
+  "type": "error"
+ },
+ {
+  "inputs": [],
+  "name": "ERC1967NonPayable",
+  "type": "error"
+ },
+ {
+  "inputs": [],
+  "name": "EnforcedPause",
+  "type": "error"
+ },
+ {
+  "inputs": [],
+  "name": "ExpectedPause",
+  "type": "error"
+ },
+ {
+  "inputs": [],
+  "name": "FailedInnerCall",
+  "type": "error"
+ },
+ {
+  "inputs": [],
+  "name": "InputTokenNotMatchRouteFromToken",
+  "type": "error"
+ },
+ {
+  "inputs": [],
+  "name": "InsufficientETH",
+  "type": "error"
+ },
+ {
+  "inputs": [],
+  "name": "InsufficientToken",
+  "type": "error"
+ },
+ {
+  "inputs": [],
+  "name": "InsufficientWETH",
+  "type": "error"
+ },
+ {
+  "inputs": [],
+  "name": "InvalidFeePercentage",
+  "type": "error"
+ },
+ {
+  "inputs": [],
+  "name": "InvalidFeeReceiver",
+  "type": "error"
+ },
+ {
+  "inputs": [],
+  "name": "InvalidInitialization",
+  "type": "error"
+ },
+ {
+  "inputs": [],
+  "name": "MinReturnNotReached",
+  "type": "error"
+ },
+ {
+  "inputs": [],
+  "name": "NonZeroNativeToken",
+  "type": "error"
+ },
+ {
+  "inputs": [],
+  "name": "NotInitializing",
+  "type": "error"
+ },
+ {
+  "inputs": [
+   {
+    "internalType": "address",
+    "name": "owner",
+    "type": "address"
+   }
+  ],
+  "name": "OwnableInvalidOwner",
+  "type": "error"
+ },
+ {
+  "inputs": [
+   {
+    "internalType": "address",
+    "name": "account",
+    "type": "address"
+   }
+  ],
+  "name": "OwnableUnauthorizedAccount",
+  "type": "error"
+ },
+ {
+  "inputs": [],
+  "name": "PathWeightInvalid",
+  "type": "error"
+ },
+ {
+  "inputs": [],
+  "name": "RoutesLengthNotMatchRoutesAmountLength",
+  "type": "error"
+ },
+ {
+  "inputs": [],
+  "name": "TransactionDeadlinePassed",
+  "type": "error"
+ },
+ {
+  "inputs": [],
+  "name": "UUPSUnauthorizedCallContext",
+  "type": "error"
+ },
+ {
+  "inputs": [
+   {
+    "internalType": "bytes32",
+    "name": "slot",
+    "type": "bytes32"
+   }
+  ],
+  "name": "UUPSUnsupportedProxiableUUID",
+  "type": "error"
+ },
+ {
+  "inputs": [
+   {
+    "internalType": "bytes4",
+    "name": "selector",
+    "type": "bytes4"
+   }
+  ],
+  "name": "UnknownCallback",
+  "type": "error"
+ },
+ {
+  "inputs": [],
+  "name": "ZeroAddress",
+  "type": "error"
+ },
+ {
+  "inputs": [],
+  "name": "ZeroAmount",
+  "type": "error"
+ },
+ {
+  "inputs": [],
+  "name": "ZeroNativeToken",
+  "type": "error"
+ },
+ {
+  "anonymous": false,
+  "inputs": [
+   {
+    "indexed": false,
+    "internalType": "address",
+    "name": "adapter",
+    "type": "address"
+   },
+   {
+    "indexed": false,
+    "internalType": "bool",
+    "name": "whitelisted",
+    "type": "bool"
+   }
+  ],
+  "name": "AdapterWhitelisted",
+  "type": "event"
+ },
+ {
+  "anonymous": false,
+  "inputs": [
+   {
+    "indexed": true,
+    "internalType": "address",
+    "name": "newFeeReceiver",
+    "type": "address"
+   }
+  ],
+  "name": "FeeReceiverUpdated",
+  "type": "event"
+ },
+ {
+  "anonymous": false,
+  "inputs": [
+   {
+    "indexed": true,
+    "internalType": "address",
+    "name": "token",
+    "type": "address"
+   },
+   {
+    "indexed": false,
+    "internalType": "uint256",
+    "name": "feeAmount",
+    "type": "uint256"
+   },
+   {
+    "indexed": false,
+    "internalType": "address",
+    "name": "recipient",
+    "type": "address"
+   }
+  ],
+  "name": "FeeRecord",
+  "type": "event"
+ },
+ {
+  "anonymous": false,
+  "inputs": [
+   {
+    "indexed": false,
+    "internalType": "uint64",
+    "name": "version",
+    "type": "uint64"
+   }
+  ],
+  "name": "Initialized",
+  "type": "event"
+ },
+ {
+  "anonymous": false,
+  "inputs": [
+   {
+    "indexed": true,
+    "internalType": "uint256",
+    "name": "orderId",
+    "type": "uint256"
+   },
+   {
+    "indexed": false,
+    "internalType": "address",
+    "name": "inputToken",
+    "type": "address"
+   },
+   {
+    "indexed": false,
+    "internalType": "address",
+    "name": "outputToken",
+    "type": "address"
+   },
+   {
+    "indexed": false,
+    "internalType": "address",
+    "name": "sender",
+    "type": "address"
+   },
+   {
+    "indexed": false,
+    "internalType": "uint256",
+    "name": "inputAmount",
+    "type": "uint256"
+   },
+   {
+    "indexed": false,
+    "internalType": "uint256",
+    "name": "outputAmount",
+    "type": "uint256"
+   },
+   {
+    "indexed": false,
+    "internalType": "address",
+    "name": "recipient",
+    "type": "address"
+   }
+  ],
+  "name": "OrderRecord",
+  "type": "event"
+ },
+ {
+  "anonymous": false,
+  "inputs": [
+   {
+    "indexed": true,
+    "internalType": "address",
+    "name": "previousOwner",
+    "type": "address"
+   },
+   {
+    "indexed": true,
+    "internalType": "address",
+    "name": "newOwner",
+    "type": "address"
+   }
+  ],
+  "name": "OwnershipTransferStarted",
+  "type": "event"
+ },
+ {
+  "anonymous": false,
+  "inputs": [
+   {
+    "indexed": true,
+    "internalType": "address",
+    "name": "previousOwner",
+    "type": "address"
+   },
+   {
+    "indexed": true,
+    "internalType": "address",
+    "name": "newOwner",
+    "type": "address"
+   }
+  ],
+  "name": "OwnershipTransferred",
+  "type": "event"
+ },
+ {
+  "anonymous": false,
+  "inputs": [
+   {
+    "indexed": true,
+    "internalType": "uint16",
+    "name": "partnerId",
+    "type": "uint16"
+   },
+   {
+    "indexed": true,
+    "internalType": "address",
+    "name": "recipient",
+    "type": "address"
+   },
+   {
+    "indexed": true,
+    "internalType": "address",
+    "name": "token",
+    "type": "address"
+   },
+   {
+    "indexed": false,
+    "internalType": "uint256",
+    "name": "feeAmount",
+    "type": "uint256"
+   },
+   {
+    "indexed": false,
+    "internalType": "uint256",
+    "name": "surplusAmount",
+    "type": "uint256"
+   }
+  ],
+  "name": "PartnerFeeRecord",
+  "type": "event"
+ },
+ {
+  "anonymous": false,
+  "inputs": [
+   {
+    "indexed": true,
+    "internalType": "uint16",
+    "name": "partnerId",
+    "type": "uint16"
+   },
+   {
+    "indexed": true,
+    "internalType": "address",
+    "name": "recipient",
+    "type": "address"
+   },
+   {
+    "indexed": false,
+    "internalType": "uint16",
+    "name": "feeShareBps",
+    "type": "uint16"
+   },
+   {
+    "indexed": false,
+    "internalType": "uint16",
+    "name": "surplusBps",
+    "type": "uint16"
+   }
+  ],
+  "name": "PartnerSet",
+  "type": "event"
+ },
+ {
+  "anonymous": false,
+  "inputs": [
+   {
+    "indexed": false,
+    "internalType": "address",
+    "name": "account",
+    "type": "address"
+   }
+  ],
+  "name": "Paused",
+  "type": "event"
+ },
+ {
+  "anonymous": false,
+  "inputs": [
+   {
+    "indexed": false,
+    "internalType": "address",
+    "name": "account",
+    "type": "address"
+   }
+  ],
+  "name": "Unpaused",
+  "type": "event"
+ },
+ {
+  "anonymous": false,
+  "inputs": [
+   {
+    "indexed": true,
+    "internalType": "address",
+    "name": "implementation",
+    "type": "address"
+   }
+  ],
+  "name": "Upgraded",
+  "type": "event"
+ },
+ {
+  "stateMutability": "nonpayable",
+  "type": "fallback"
+ },
+ {
+  "inputs": [],
+  "name": "SWAP_EXECUTOR",
+  "outputs": [
+   {
+    "internalType": "address",
+    "name": "",
+    "type": "address"
+   }
+  ],
+  "stateMutability": "view",
+  "type": "function"
+ },
+ {
+  "inputs": [],
+  "name": "UPGRADE_INTERFACE_VERSION",
+  "outputs": [
+   {
+    "internalType": "string",
+    "name": "",
+    "type": "string"
+   }
+  ],
+  "stateMutability": "view",
+  "type": "function"
+ },
+ {
+  "inputs": [],
+  "name": "WETH9",
+  "outputs": [
+   {
+    "internalType": "contract IWETH9",
+    "name": "",
+    "type": "address"
+   }
+  ],
+  "stateMutability": "view",
+  "type": "function"
+ },
+ {
+  "inputs": [],
+  "name": "acceptOwnership",
+  "outputs": [],
+  "stateMutability": "nonpayable",
+  "type": "function"
+ },
+ {
+  "inputs": [
+   {
+    "internalType": "uint16[]",
+    "name": "partnerIds",
+    "type": "uint16[]"
+   },
+   {
+    "components": [
+     {
+      "internalType": "address",
+      "name": "recipient",
+      "type": "address"
+     },
+     {
+      "internalType": "uint16",
+      "name": "feeShareBps",
+      "type": "uint16"
+     },
+     {
+      "internalType": "uint16",
+      "name": "surplusBps",
+      "type": "uint16"
+     }
+    ],
+    "internalType": "struct IAggregator.Partner[]",
+    "name": "infos",
+    "type": "tuple[]"
+   }
+  ],
+  "name": "batchSetPartners",
+  "outputs": [],
+  "stateMutability": "nonpayable",
+  "type": "function"
+ },
+ {
+  "inputs": [],
+  "name": "feeReceiver",
+  "outputs": [
+   {
+    "internalType": "address",
+    "name": "",
+    "type": "address"
+   }
+  ],
+  "stateMutability": "view",
+  "type": "function"
+ },
+ {
+  "inputs": [
+   {
+    "internalType": "address",
+    "name": "initialOwner",
+    "type": "address"
+   },
+   {
+    "internalType": "address",
+    "name": "_feeReceiver",
+    "type": "address"
+   }
+  ],
+  "name": "initialize",
+  "outputs": [],
+  "stateMutability": "nonpayable",
+  "type": "function"
+ },
+ {
+  "inputs": [
+   {
+    "internalType": "address",
+    "name": "",
+    "type": "address"
+   }
+  ],
+  "name": "isAdapterWhitelisted",
+  "outputs": [
+   {
+    "internalType": "bool",
+    "name": "",
+    "type": "bool"
+   }
+  ],
+  "stateMutability": "view",
+  "type": "function"
+ },
+ {
+  "inputs": [],
+  "name": "owner",
+  "outputs": [
+   {
+    "internalType": "address",
+    "name": "",
+    "type": "address"
+   }
+  ],
+  "stateMutability": "view",
+  "type": "function"
+ },
+ {
+  "inputs": [
+   {
+    "internalType": "uint16",
+    "name": "",
+    "type": "uint16"
+   }
+  ],
+  "name": "partners",
+  "outputs": [
+   {
+    "internalType": "address",
+    "name": "recipient",
+    "type": "address"
+   },
+   {
+    "internalType": "uint16",
+    "name": "feeShareBps",
+    "type": "uint16"
+   },
+   {
+    "internalType": "uint16",
+    "name": "surplusBps",
+    "type": "uint16"
+   }
+  ],
+  "stateMutability": "view",
+  "type": "function"
+ },
+ {
+  "inputs": [],
+  "name": "pause",
+  "outputs": [],
+  "stateMutability": "nonpayable",
+  "type": "function"
+ },
+ {
+  "inputs": [],
+  "name": "paused",
+  "outputs": [
+   {
+    "internalType": "bool",
+    "name": "",
+    "type": "bool"
+   }
+  ],
+  "stateMutability": "view",
+  "type": "function"
+ },
+ {
+  "inputs": [],
+  "name": "pendingOwner",
+  "outputs": [
+   {
+    "internalType": "address",
+    "name": "",
+    "type": "address"
+   }
+  ],
+  "stateMutability": "view",
+  "type": "function"
+ },
+ {
+  "inputs": [],
+  "name": "proxiableUUID",
+  "outputs": [
+   {
+    "internalType": "bytes32",
+    "name": "",
+    "type": "bytes32"
+   }
+  ],
+  "stateMutability": "view",
+  "type": "function"
+ },
+ {
+  "inputs": [],
+  "name": "renounceOwnership",
+  "outputs": [],
+  "stateMutability": "nonpayable",
+  "type": "function"
+ },
+ {
+  "inputs": [
+   {
+    "internalType": "address",
+    "name": "_feeReceiver",
+    "type": "address"
+   }
+  ],
+  "name": "setFeeReceiver",
+  "outputs": [],
+  "stateMutability": "nonpayable",
+  "type": "function"
+ },
+ {
+  "inputs": [
+   {
+    "internalType": "uint256",
+    "name": "orderId",
+    "type": "uint256"
+   },
+   {
+    "components": [
+     {
+      "internalType": "address",
+      "name": "inputToken",
+      "type": "address"
+     },
+     {
+      "internalType": "address",
+      "name": "outputToken",
+      "type": "address"
+     },
+     {
+      "internalType": "uint256",
+      "name": "minOutputAmount",
+      "type": "uint256"
+     },
+     {
+      "internalType": "uint256",
+      "name": "deadline",
+      "type": "uint256"
+     }
+    ],
+    "internalType": "struct IAggregator.BaseExactInRequest",
+    "name": "request",
+    "type": "tuple"
+   },
+   {
+    "internalType": "uint256[]",
+    "name": "routesAmount",
+    "type": "uint256[]"
+   },
+   {
+    "components": [
+     {
+      "internalType": "uint256[]",
+      "name": "mixAdapters",
+      "type": "uint256[]"
+     },
+     {
+      "internalType": "address[]",
+      "name": "assetTo",
+      "type": "address[]"
+     },
+     {
+      "internalType": "uint256[]",
+      "name": "rawData",
+      "type": "uint256[]"
+     },
+     {
+      "internalType": "bytes[]",
+      "name": "extraData",
+      "type": "bytes[]"
+     },
+     {
+      "internalType": "address",
+      "name": "fromToken",
+      "type": "address"
+     }
+    ],
+    "internalType": "struct IAggregator.RouterPath[][]",
+    "name": "routes",
+    "type": "tuple[][]"
+   },
+   {
+    "internalType": "uint256",
+    "name": "feeConfig",
+    "type": "uint256"
+   },
+   {
+    "internalType": "address",
+    "name": "recipient",
+    "type": "address"
+   }
+  ],
+  "name": "swapExactIn",
+  "outputs": [
+   {
+    "internalType": "uint256",
+    "name": "outputAmtReceived",
+    "type": "uint256"
+   }
+  ],
+  "stateMutability": "payable",
+  "type": "function"
+ },
+ {
+  "inputs": [
+   {
+    "internalType": "uint256",
+    "name": "orderId",
+    "type": "uint256"
+   },
+   {
+    "components": [
+     {
+      "internalType": "address",
+      "name": "inputToken",
+      "type": "address"
+     },
+     {
+      "internalType": "address",
+      "name": "outputToken",
+      "type": "address"
+     },
+     {
+      "internalType": "uint256",
+      "name": "minOutputAmount",
+      "type": "uint256"
+     },
+     {
+      "internalType": "uint256",
+      "name": "deadline",
+      "type": "uint256"
+     }
+    ],
+    "internalType": "struct IAggregator.BaseExactInRequest",
+    "name": "request",
+    "type": "tuple"
+   },
+   {
+    "internalType": "uint256[]",
+    "name": "routesAmount",
+    "type": "uint256[]"
+   },
+   {
+    "components": [
+     {
+      "internalType": "uint256[]",
+      "name": "mixAdapters",
+      "type": "uint256[]"
+     },
+     {
+      "internalType": "address[]",
+      "name": "assetTo",
+      "type": "address[]"
+     },
+     {
+      "internalType": "uint256[]",
+      "name": "rawData",
+      "type": "uint256[]"
+     },
+     {
+      "internalType": "bytes[]",
+      "name": "extraData",
+      "type": "bytes[]"
+     },
+     {
+      "internalType": "address",
+      "name": "fromToken",
+      "type": "address"
+     }
+    ],
+    "internalType": "struct IAggregator.RouterPath[][]",
+    "name": "routes",
+    "type": "tuple[][]"
+   },
+   {
+    "internalType": "uint256",
+    "name": "feeConfig",
+    "type": "uint256"
+   },
+   {
+    "internalType": "address",
+    "name": "recipient",
+    "type": "address"
+   },
+   {
+    "internalType": "address",
+    "name": "refundTo",
+    "type": "address"
+   }
+  ],
+  "name": "swapExactInWithRefundTo",
+  "outputs": [
+   {
+    "internalType": "uint256",
+    "name": "outputAmtReceived",
+    "type": "uint256"
+   }
+  ],
+  "stateMutability": "payable",
+  "type": "function"
+ },
+ {
+  "inputs": [
+   {
+    "internalType": "uint256",
+    "name": "orderId",
+    "type": "uint256"
+   },
+   {
+    "internalType": "uint256",
+    "name": "amount",
+    "type": "uint256"
+   },
+   {
+    "internalType": "bool",
+    "name": "isWrap",
+    "type": "bool"
+   },
+   {
+    "internalType": "uint256",
+    "name": "feeConfig",
+    "type": "uint256"
+   },
+   {
+    "internalType": "address",
+    "name": "recipient",
+    "type": "address"
+   }
+  ],
+  "name": "swapWrap",
+  "outputs": [
+   {
+    "internalType": "uint256",
+    "name": "outputAmtReceived",
+    "type": "uint256"
+   }
+  ],
+  "stateMutability": "payable",
+  "type": "function"
+ },
+ {
+  "inputs": [
+   {
+    "internalType": "address",
+    "name": "token",
+    "type": "address"
+   },
+   {
+    "internalType": "address",
+    "name": "recipient",
+    "type": "address"
+   },
+   {
+    "internalType": "uint256",
+    "name": "amountMinimum",
+    "type": "uint256"
+   }
+  ],
+  "name": "sweep",
+  "outputs": [],
+  "stateMutability": "nonpayable",
+  "type": "function"
+ },
+ {
+  "inputs": [
+   {
+    "internalType": "address",
+    "name": "newOwner",
+    "type": "address"
+   }
+  ],
+  "name": "transferOwnership",
+  "outputs": [],
+  "stateMutability": "nonpayable",
+  "type": "function"
+ },
+ {
+  "inputs": [],
+  "name": "unpause",
+  "outputs": [],
+  "stateMutability": "nonpayable",
+  "type": "function"
+ },
+ {
+  "inputs": [
+   {
+    "internalType": "address",
+    "name": "newImplementation",
+    "type": "address"
+   },
+   {
+    "internalType": "bytes",
+    "name": "data",
+    "type": "bytes"
+   }
+  ],
+  "name": "upgradeToAndCall",
+  "outputs": [],
+  "stateMutability": "payable",
+  "type": "function"
+ },
+ {
+  "inputs": [
+   {
+    "internalType": "address",
+    "name": "adapter",
+    "type": "address"
+   },
+   {
+    "internalType": "bool",
+    "name": "whitelisted",
+    "type": "bool"
+   }
+  ],
+  "name": "whitelistAdapter",
+  "outputs": [],
+  "stateMutability": "nonpayable",
+  "type": "function"
+ },
+ {
+  "stateMutability": "payable",
+  "type": "receive"
+ }
+]

@@ -54,6 +54,7 @@ Tutorials and examples
    uniswap-v3-liquidity-analysis
    uniswap-v3-price-analysis
    uniswap-v3-historical-price-impact
+   tessera-propamm-slippage
    event-reader
    live-swap-minimal
    live-swap

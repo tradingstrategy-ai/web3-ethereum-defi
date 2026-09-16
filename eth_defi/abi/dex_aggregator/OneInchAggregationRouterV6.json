@@ -1,0 +1,2062 @@
+[
+ {
+  "type": "constructor",
+  "inputs": [
+   {
+    "name": "weth",
+    "type": "address",
+    "internalType": "contract IWETH"
+   }
+  ],
+  "stateMutability": "nonpayable"
+ },
+ {
+  "name": "AdvanceEpochFailed",
+  "type": "error",
+  "inputs": []
+ },
+ {
+  "name": "ArbitraryStaticCallFailed",
+  "type": "error",
+  "inputs": []
+ },
+ {
+  "name": "BadCurveSwapSelector",
+  "type": "error",
+  "inputs": []
+ },
+ {
+  "name": "BadPool",
+  "type": "error",
+  "inputs": []
+ },
+ {
+  "name": "BadSignature",
+  "type": "error",
+  "inputs": []
+ },
+ {
+  "name": "BitInvalidatedOrder",
+  "type": "error",
+  "inputs": []
+ },
+ {
+  "name": "ETHTransferFailed",
+  "type": "error",
+  "inputs": []
+ },
+ {
+  "name": "ETHTransferFailed",
+  "type": "error",
+  "inputs": []
+ },
+ {
+  "name": "EnforcedPause",
+  "type": "error",
+  "inputs": []
+ },
+ {
+  "name": "EpochManagerAndBitInvalidatorsAreIncompatible",
+  "type": "error",
+  "inputs": []
+ },
+ {
+  "name": "EthDepositRejected",
+  "type": "error",
+  "inputs": []
+ },
+ {
+  "name": "ExpectedPause",
+  "type": "error",
+  "inputs": []
+ },
+ {
+  "name": "InsufficientBalance",
+  "type": "error",
+  "inputs": []
+ },
+ {
+  "name": "InvalidMsgValue",
+  "type": "error",
+  "inputs": []
+ },
+ {
+  "name": "InvalidMsgValue",
+  "type": "error",
+  "inputs": []
+ },
+ {
+  "name": "InvalidPermit2Transfer",
+  "type": "error",
+  "inputs": []
+ },
+ {
+  "name": "InvalidShortString",
+  "type": "error",
+  "inputs": []
+ },
+ {
+  "name": "InvalidatedOrder",
+  "type": "error",
+  "inputs": []
+ },
+ {
+  "name": "MakingAmountTooLow",
+  "type": "error",
+  "inputs": []
+ },
+ {
+  "name": "MismatchArraysLengths",
+  "type": "error",
+  "inputs": []
+ },
+ {
+  "name": "OrderExpired",
+  "type": "error",
+  "inputs": []
+ },
+ {
+  "name": "OrderIsNotSuitableForMassInvalidation",
+  "type": "error",
+  "inputs": []
+ },
+ {
+  "name": "OwnableInvalidOwner",
+  "type": "error",
+  "inputs": [
+   {
+    "name": "owner",
+    "type": "address",
+    "internalType": "address"
+   }
+  ]
+ },
+ {
+  "name": "OwnableUnauthorizedAccount",
+  "type": "error",
+  "inputs": [
+   {
+    "name": "account",
+    "type": "address",
+    "internalType": "address"
+   }
+  ]
+ },
+ {
+  "name": "PartialFillNotAllowed",
+  "type": "error",
+  "inputs": []
+ },
+ {
+  "name": "Permit2TransferAmountTooHigh",
+  "type": "error",
+  "inputs": []
+ },
+ {
+  "name": "PredicateIsNotTrue",
+  "type": "error",
+  "inputs": []
+ },
+ {
+  "name": "PrivateOrder",
+  "type": "error",
+  "inputs": []
+ },
+ {
+  "name": "ReentrancyDetected",
+  "type": "error",
+  "inputs": []
+ },
+ {
+  "name": "RemainingInvalidatedOrder",
+  "type": "error",
+  "inputs": []
+ },
+ {
+  "name": "ReservesCallFailed",
+  "type": "error",
+  "inputs": []
+ },
+ {
+  "name": "ReturnAmountIsNotEnough",
+  "type": "error",
+  "inputs": [
+   {
+    "name": "result",
+    "type": "uint256",
+    "internalType": "uint256"
+   },
+   {
+    "name": "minReturn",
+    "type": "uint256",
+    "internalType": "uint256"
+   }
+  ]
+ },
+ {
+  "name": "SafeTransferFailed",
+  "type": "error",
+  "inputs": []
+ },
+ {
+  "name": "SafeTransferFromFailed",
+  "type": "error",
+  "inputs": []
+ },
+ {
+  "name": "SimulationResults",
+  "type": "error",
+  "inputs": [
+   {
+    "name": "success",
+    "type": "bool",
+    "internalType": "bool"
+   },
+   {
+    "name": "res",
+    "type": "bytes",
+    "internalType": "bytes"
+   }
+  ]
+ },
+ {
+  "name": "StringTooLong",
+  "type": "error",
+  "inputs": [
+   {
+    "name": "str",
+    "type": "string",
+    "internalType": "string"
+   }
+  ]
+ },
+ {
+  "name": "SwapWithZeroAmount",
+  "type": "error",
+  "inputs": []
+ },
+ {
+  "name": "TakingAmountExceeded",
+  "type": "error",
+  "inputs": []
+ },
+ {
+  "name": "TakingAmountTooHigh",
+  "type": "error",
+  "inputs": []
+ },
+ {
+  "name": "TransferFromMakerToTakerFailed",
+  "type": "error",
+  "inputs": []
+ },
+ {
+  "name": "TransferFromTakerToMakerFailed",
+  "type": "error",
+  "inputs": []
+ },
+ {
+  "name": "WrongSeriesNonce",
+  "type": "error",
+  "inputs": []
+ },
+ {
+  "name": "ZeroAddress",
+  "type": "error",
+  "inputs": []
+ },
+ {
+  "name": "ZeroMinReturn",
+  "type": "error",
+  "inputs": []
+ },
+ {
+  "name": "BitInvalidatorUpdated",
+  "type": "event",
+  "inputs": [
+   {
+    "name": "maker",
+    "type": "address",
+    "indexed": true,
+    "internalType": "address"
+   },
+   {
+    "name": "slotIndex",
+    "type": "uint256",
+    "indexed": false,
+    "internalType": "uint256"
+   },
+   {
+    "name": "slotValue",
+    "type": "uint256",
+    "indexed": false,
+    "internalType": "uint256"
+   }
+  ],
+  "anonymous": false
+ },
+ {
+  "name": "EIP712DomainChanged",
+  "type": "event",
+  "inputs": [],
+  "anonymous": false
+ },
+ {
+  "name": "EpochIncreased",
+  "type": "event",
+  "inputs": [
+   {
+    "name": "maker",
+    "type": "address",
+    "indexed": true,
+    "internalType": "address"
+   },
+   {
+    "name": "series",
+    "type": "uint256",
+    "indexed": false,
+    "internalType": "uint256"
+   },
+   {
+    "name": "newEpoch",
+    "type": "uint256",
+    "indexed": false,
+    "internalType": "uint256"
+   }
+  ],
+  "anonymous": false
+ },
+ {
+  "name": "OrderCancelled",
+  "type": "event",
+  "inputs": [
+   {
+    "name": "orderHash",
+    "type": "bytes32",
+    "indexed": false,
+    "internalType": "bytes32"
+   }
+  ],
+  "anonymous": false
+ },
+ {
+  "name": "OrderFilled",
+  "type": "event",
+  "inputs": [
+   {
+    "name": "orderHash",
+    "type": "bytes32",
+    "indexed": false,
+    "internalType": "bytes32"
+   },
+   {
+    "name": "remainingAmount",
+    "type": "uint256",
+    "indexed": false,
+    "internalType": "uint256"
+   }
+  ],
+  "anonymous": false
+ },
+ {
+  "name": "OwnershipTransferred",
+  "type": "event",
+  "inputs": [
+   {
+    "name": "previousOwner",
+    "type": "address",
+    "indexed": true,
+    "internalType": "address"
+   },
+   {
+    "name": "newOwner",
+    "type": "address",
+    "indexed": true,
+    "internalType": "address"
+   }
+  ],
+  "anonymous": false
+ },
+ {
+  "name": "Paused",
+  "type": "event",
+  "inputs": [
+   {
+    "name": "account",
+    "type": "address",
+    "indexed": false,
+    "internalType": "address"
+   }
+  ],
+  "anonymous": false
+ },
+ {
+  "name": "Unpaused",
+  "type": "event",
+  "inputs": [
+   {
+    "name": "account",
+    "type": "address",
+    "indexed": false,
+    "internalType": "address"
+   }
+  ],
+  "anonymous": false
+ },
+ {
+  "name": "advanceEpoch",
+  "type": "function",
+  "inputs": [
+   {
+    "name": "series",
+    "type": "uint96",
+    "internalType": "uint96"
+   },
+   {
+    "name": "amount",
+    "type": "uint256",
+    "internalType": "uint256"
+   }
+  ],
+  "outputs": [],
+  "stateMutability": "nonpayable"
+ },
+ {
+  "name": "and",
+  "type": "function",
+  "inputs": [
+   {
+    "name": "offsets",
+    "type": "uint256",
+    "internalType": "uint256"
+   },
+   {
+    "name": "data",
+    "type": "bytes",
+    "internalType": "bytes"
+   }
+  ],
+  "outputs": [
+   {
+    "name": "",
+    "type": "bool",
+    "internalType": "bool"
+   }
+  ],
+  "stateMutability": "view"
+ },
+ {
+  "name": "arbitraryStaticCall",
+  "type": "function",
+  "inputs": [
+   {
+    "name": "target",
+    "type": "address",
+    "internalType": "address"
+   },
+   {
+    "name": "data",
+    "type": "bytes",
+    "internalType": "bytes"
+   }
+  ],
+  "outputs": [
+   {
+    "name": "",
+    "type": "uint256",
+    "internalType": "uint256"
+   }
+  ],
+  "stateMutability": "view"
+ },
+ {
+  "name": "bitInvalidatorForOrder",
+  "type": "function",
+  "inputs": [
+   {
+    "name": "maker",
+    "type": "address",
+    "internalType": "address"
+   },
+   {
+    "name": "slot",
+    "type": "uint256",
+    "internalType": "uint256"
+   }
+  ],
+  "outputs": [
+   {
+    "name": "",
+    "type": "uint256",
+    "internalType": "uint256"
+   }
+  ],
+  "stateMutability": "view"
+ },
+ {
+  "name": "bitsInvalidateForOrder",
+  "type": "function",
+  "inputs": [
+   {
+    "name": "makerTraits",
+    "type": "uint256",
+    "internalType": "MakerTraits"
+   },
+   {
+    "name": "additionalMask",
+    "type": "uint256",
+    "internalType": "uint256"
+   }
+  ],
+  "outputs": [],
+  "stateMutability": "nonpayable"
+ },
+ {
+  "name": "cancelOrder",
+  "type": "function",
+  "inputs": [
+   {
+    "name": "makerTraits",
+    "type": "uint256",
+    "internalType": "MakerTraits"
+   },
+   {
+    "name": "orderHash",
+    "type": "bytes32",
+    "internalType": "bytes32"
+   }
+  ],
+  "outputs": [],
+  "stateMutability": "nonpayable"
+ },
+ {
+  "name": "cancelOrders",
+  "type": "function",
+  "inputs": [
+   {
+    "name": "makerTraits",
+    "type": "uint256[]",
+    "internalType": "MakerTraits[]"
+   },
+   {
+    "name": "orderHashes",
+    "type": "bytes32[]",
+    "internalType": "bytes32[]"
+   }
+  ],
+  "outputs": [],
+  "stateMutability": "nonpayable"
+ },
+ {
+  "name": "checkPredicate",
+  "type": "function",
+  "inputs": [
+   {
+    "name": "predicate",
+    "type": "bytes",
+    "internalType": "bytes"
+   }
+  ],
+  "outputs": [
+   {
+    "name": "",
+    "type": "bool",
+    "internalType": "bool"
+   }
+  ],
+  "stateMutability": "view"
+ },
+ {
+  "name": "clipperSwap",
+  "type": "function",
+  "inputs": [
+   {
+    "name": "clipperExchange",
+    "type": "address",
+    "internalType": "contract IClipperExchange"
+   },
+   {
+    "name": "srcToken",
+    "type": "uint256",
+    "internalType": "Address"
+   },
+   {
+    "name": "dstToken",
+    "type": "address",
+    "internalType": "contract IERC20"
+   },
+   {
+    "name": "inputAmount",
+    "type": "uint256",
+    "internalType": "uint256"
+   },
+   {
+    "name": "outputAmount",
+    "type": "uint256",
+    "internalType": "uint256"
+   },
+   {
+    "name": "goodUntil",
+    "type": "uint256",
+    "internalType": "uint256"
+   },
+   {
+    "name": "r",
+    "type": "bytes32",
+    "internalType": "bytes32"
+   },
+   {
+    "name": "vs",
+    "type": "bytes32",
+    "internalType": "bytes32"
+   }
+  ],
+  "outputs": [
+   {
+    "name": "returnAmount",
+    "type": "uint256",
+    "internalType": "uint256"
+   }
+  ],
+  "stateMutability": "payable"
+ },
+ {
+  "name": "clipperSwapTo",
+  "type": "function",
+  "inputs": [
+   {
+    "name": "clipperExchange",
+    "type": "address",
+    "internalType": "contract IClipperExchange"
+   },
+   {
+    "name": "recipient",
+    "type": "address",
+    "internalType": "address payable"
+   },
+   {
+    "name": "srcToken",
+    "type": "uint256",
+    "internalType": "Address"
+   },
+   {
+    "name": "dstToken",
+    "type": "address",
+    "internalType": "contract IERC20"
+   },
+   {
+    "name": "inputAmount",
+    "type": "uint256",
+    "internalType": "uint256"
+   },
+   {
+    "name": "outputAmount",
+    "type": "uint256",
+    "internalType": "uint256"
+   },
+   {
+    "name": "goodUntil",
+    "type": "uint256",
+    "internalType": "uint256"
+   },
+   {
+    "name": "r",
+    "type": "bytes32",
+    "internalType": "bytes32"
+   },
+   {
+    "name": "vs",
+    "type": "bytes32",
+    "internalType": "bytes32"
+   }
+  ],
+  "outputs": [
+   {
+    "name": "returnAmount",
+    "type": "uint256",
+    "internalType": "uint256"
+   }
+  ],
+  "stateMutability": "payable"
+ },
+ {
+  "name": "curveSwapCallback",
+  "type": "function",
+  "inputs": [
+   {
+    "name": "",
+    "type": "address",
+    "internalType": "address"
+   },
+   {
+    "name": "",
+    "type": "address",
+    "internalType": "address"
+   },
+   {
+    "name": "inCoin",
+    "type": "address",
+    "internalType": "address"
+   },
+   {
+    "name": "dx",
+    "type": "uint256",
+    "internalType": "uint256"
+   },
+   {
+    "name": "",
+    "type": "uint256",
+    "internalType": "uint256"
+   }
+  ],
+  "outputs": [],
+  "stateMutability": "nonpayable"
+ },
+ {
+  "name": "eip712Domain",
+  "type": "function",
+  "inputs": [],
+  "outputs": [
+   {
+    "name": "fields",
+    "type": "bytes1",
+    "internalType": "bytes1"
+   },
+   {
+    "name": "name",
+    "type": "string",
+    "internalType": "string"
+   },
+   {
+    "name": "version",
+    "type": "string",
+    "internalType": "string"
+   },
+   {
+    "name": "chainId",
+    "type": "uint256",
+    "internalType": "uint256"
+   },
+   {
+    "name": "verifyingContract",
+    "type": "address",
+    "internalType": "address"
+   },
+   {
+    "name": "salt",
+    "type": "bytes32",
+    "internalType": "bytes32"
+   },
+   {
+    "name": "extensions",
+    "type": "uint256[]",
+    "internalType": "uint256[]"
+   }
+  ],
+  "stateMutability": "view"
+ },
+ {
+  "name": "epoch",
+  "type": "function",
+  "inputs": [
+   {
+    "name": "maker",
+    "type": "address",
+    "internalType": "address"
+   },
+   {
+    "name": "series",
+    "type": "uint96",
+    "internalType": "uint96"
+   }
+  ],
+  "outputs": [
+   {
+    "name": "",
+    "type": "uint256",
+    "internalType": "uint256"
+   }
+  ],
+  "stateMutability": "view"
+ },
+ {
+  "name": "epochEquals",
+  "type": "function",
+  "inputs": [
+   {
+    "name": "maker",
+    "type": "address",
+    "internalType": "address"
+   },
+   {
+    "name": "series",
+    "type": "uint256",
+    "internalType": "uint256"
+   },
+   {
+    "name": "makerEpoch",
+    "type": "uint256",
+    "internalType": "uint256"
+   }
+  ],
+  "outputs": [
+   {
+    "name": "",
+    "type": "bool",
+    "internalType": "bool"
+   }
+  ],
+  "stateMutability": "view"
+ },
+ {
+  "name": "eq",
+  "type": "function",
+  "inputs": [
+   {
+    "name": "value",
+    "type": "uint256",
+    "internalType": "uint256"
+   },
+   {
+    "name": "data",
+    "type": "bytes",
+    "internalType": "bytes"
+   }
+  ],
+  "outputs": [
+   {
+    "name": "",
+    "type": "bool",
+    "internalType": "bool"
+   }
+  ],
+  "stateMutability": "view"
+ },
+ {
+  "name": "ethUnoswap",
+  "type": "function",
+  "inputs": [
+   {
+    "name": "minReturn",
+    "type": "uint256",
+    "internalType": "uint256"
+   },
+   {
+    "name": "dex",
+    "type": "uint256",
+    "internalType": "Address"
+   }
+  ],
+  "outputs": [
+   {
+    "name": "returnAmount",
+    "type": "uint256",
+    "internalType": "uint256"
+   }
+  ],
+  "stateMutability": "payable"
+ },
+ {
+  "name": "ethUnoswap2",
+  "type": "function",
+  "inputs": [
+   {
+    "name": "minReturn",
+    "type": "uint256",
+    "internalType": "uint256"
+   },
+   {
+    "name": "dex",
+    "type": "uint256",
+    "internalType": "Address"
+   },
+   {
+    "name": "dex2",
+    "type": "uint256",
+    "internalType": "Address"
+   }
+  ],
+  "outputs": [
+   {
+    "name": "returnAmount",
+    "type": "uint256",
+    "internalType": "uint256"
+   }
+  ],
+  "stateMutability": "payable"
+ },
+ {
+  "name": "ethUnoswap3",
+  "type": "function",
+  "inputs": [
+   {
+    "name": "minReturn",
+    "type": "uint256",
+    "internalType": "uint256"
+   },
+   {
+    "name": "dex",
+    "type": "uint256",
+    "internalType": "Address"
+   },
+   {
+    "name": "dex2",
+    "type": "uint256",
+    "internalType": "Address"
+   },
+   {
+    "name": "dex3",
+    "type": "uint256",
+    "internalType": "Address"
+   }
+  ],
+  "outputs": [
+   {
+    "name": "returnAmount",
+    "type": "uint256",
+    "internalType": "uint256"
+   }
+  ],
+  "stateMutability": "payable"
+ },
+ {
+  "name": "ethUnoswapTo",
+  "type": "function",
+  "inputs": [
+   {
+    "name": "to",
+    "type": "uint256",
+    "internalType": "Address"
+   },
+   {
+    "name": "minReturn",
+    "type": "uint256",
+    "internalType": "uint256"
+   },
+   {
+    "name": "dex",
+    "type": "uint256",
+    "internalType": "Address"
+   }
+  ],
+  "outputs": [
+   {
+    "name": "returnAmount",
+    "type": "uint256",
+    "internalType": "uint256"
+   }
+  ],
+  "stateMutability": "payable"
+ },
+ {
+  "name": "ethUnoswapTo2",
+  "type": "function",
+  "inputs": [
+   {
+    "name": "to",
+    "type": "uint256",
+    "internalType": "Address"
+   },
+   {
+    "name": "minReturn",
+    "type": "uint256",
+    "internalType": "uint256"
+   },
+   {
+    "name": "dex",
+    "type": "uint256",
+    "internalType": "Address"
+   },
+   {
+    "name": "dex2",
+    "type": "uint256",
+    "internalType": "Address"
+   }
+  ],
+  "outputs": [
+   {
+    "name": "returnAmount",
+    "type": "uint256",
+    "internalType": "uint256"
+   }
+  ],
+  "stateMutability": "payable"
+ },
+ {
+  "name": "ethUnoswapTo3",
+  "type": "function",
+  "inputs": [
+   {
+    "name": "to",
+    "type": "uint256",
+    "internalType": "Address"
+   },
+   {
+    "name": "minReturn",
+    "type": "uint256",
+    "internalType": "uint256"
+   },
+   {
+    "name": "dex",
+    "type": "uint256",
+    "internalType": "Address"
+   },
+   {
+    "name": "dex2",
+    "type": "uint256",
+    "internalType": "Address"
+   },
+   {
+    "name": "dex3",
+    "type": "uint256",
+    "internalType": "Address"
+   }
+  ],
+  "outputs": [
+   {
+    "name": "returnAmount",
+    "type": "uint256",
+    "internalType": "uint256"
+   }
+  ],
+  "stateMutability": "payable"
+ },
+ {
+  "name": "fillContractOrder",
+  "type": "function",
+  "inputs": [
+   {
+    "name": "order",
+    "type": "tuple",
+    "components": [
+     {
+      "name": "salt",
+      "type": "uint256",
+      "internalType": "uint256"
+     },
+     {
+      "name": "maker",
+      "type": "uint256",
+      "internalType": "Address"
+     },
+     {
+      "name": "receiver",
+      "type": "uint256",
+      "internalType": "Address"
+     },
+     {
+      "name": "makerAsset",
+      "type": "uint256",
+      "internalType": "Address"
+     },
+     {
+      "name": "takerAsset",
+      "type": "uint256",
+      "internalType": "Address"
+     },
+     {
+      "name": "makingAmount",
+      "type": "uint256",
+      "internalType": "uint256"
+     },
+     {
+      "name": "takingAmount",
+      "type": "uint256",
+      "internalType": "uint256"
+     },
+     {
+      "name": "makerTraits",
+      "type": "uint256",
+      "internalType": "MakerTraits"
+     }
+    ],
+    "internalType": "struct IOrderMixin.Order"
+   },
+   {
+    "name": "signature",
+    "type": "bytes",
+    "internalType": "bytes"
+   },
+   {
+    "name": "amount",
+    "type": "uint256",
+    "internalType": "uint256"
+   },
+   {
+    "name": "takerTraits",
+    "type": "uint256",
+    "internalType": "TakerTraits"
+   }
+  ],
+  "outputs": [
+   {
+    "name": "",
+    "type": "uint256",
+    "internalType": "uint256"
+   },
+   {
+    "name": "",
+    "type": "uint256",
+    "internalType": "uint256"
+   },
+   {
+    "name": "",
+    "type": "bytes32",
+    "internalType": "bytes32"
+   }
+  ],
+  "stateMutability": "nonpayable"
+ },
+ {
+  "name": "fillContractOrderArgs",
+  "type": "function",
+  "inputs": [
+   {
+    "name": "order",
+    "type": "tuple",
+    "components": [
+     {
+      "name": "salt",
+      "type": "uint256",
+      "internalType": "uint256"
+     },
+     {
+      "name": "maker",
+      "type": "uint256",
+      "internalType": "Address"
+     },
+     {
+      "name": "receiver",
+      "type": "uint256",
+      "internalType": "Address"
+     },
+     {
+      "name": "makerAsset",
+      "type": "uint256",
+      "internalType": "Address"
+     },
+     {
+      "name": "takerAsset",
+      "type": "uint256",
+      "internalType": "Address"
+     },
+     {
+      "name": "makingAmount",
+      "type": "uint256",
+      "internalType": "uint256"
+     },
+     {
+      "name": "takingAmount",
+      "type": "uint256",
+      "internalType": "uint256"
+     },
+     {
+      "name": "makerTraits",
+      "type": "uint256",
+      "internalType": "MakerTraits"
+     }
+    ],
+    "internalType": "struct IOrderMixin.Order"
+   },
+   {
+    "name": "signature",
+    "type": "bytes",
+    "internalType": "bytes"
+   },
+   {
+    "name": "amount",
+    "type": "uint256",
+    "internalType": "uint256"
+   },
+   {
+    "name": "takerTraits",
+    "type": "uint256",
+    "internalType": "TakerTraits"
+   },
+   {
+    "name": "args",
+    "type": "bytes",
+    "internalType": "bytes"
+   }
+  ],
+  "outputs": [
+   {
+    "name": "",
+    "type": "uint256",
+    "internalType": "uint256"
+   },
+   {
+    "name": "",
+    "type": "uint256",
+    "internalType": "uint256"
+   },
+   {
+    "name": "",
+    "type": "bytes32",
+    "internalType": "bytes32"
+   }
+  ],
+  "stateMutability": "nonpayable"
+ },
+ {
+  "name": "fillOrder",
+  "type": "function",
+  "inputs": [
+   {
+    "name": "order",
+    "type": "tuple",
+    "components": [
+     {
+      "name": "salt",
+      "type": "uint256",
+      "internalType": "uint256"
+     },
+     {
+      "name": "maker",
+      "type": "uint256",
+      "internalType": "Address"
+     },
+     {
+      "name": "receiver",
+      "type": "uint256",
+      "internalType": "Address"
+     },
+     {
+      "name": "makerAsset",
+      "type": "uint256",
+      "internalType": "Address"
+     },
+     {
+      "name": "takerAsset",
+      "type": "uint256",
+      "internalType": "Address"
+     },
+     {
+      "name": "makingAmount",
+      "type": "uint256",
+      "internalType": "uint256"
+     },
+     {
+      "name": "takingAmount",
+      "type": "uint256",
+      "internalType": "uint256"
+     },
+     {
+      "name": "makerTraits",
+      "type": "uint256",
+      "internalType": "MakerTraits"
+     }
+    ],
+    "internalType": "struct IOrderMixin.Order"
+   },
+   {
+    "name": "r",
+    "type": "bytes32",
+    "internalType": "bytes32"
+   },
+   {
+    "name": "vs",
+    "type": "bytes32",
+    "internalType": "bytes32"
+   },
+   {
+    "name": "amount",
+    "type": "uint256",
+    "internalType": "uint256"
+   },
+   {
+    "name": "takerTraits",
+    "type": "uint256",
+    "internalType": "TakerTraits"
+   }
+  ],
+  "outputs": [
+   {
+    "name": "",
+    "type": "uint256",
+    "internalType": "uint256"
+   },
+   {
+    "name": "",
+    "type": "uint256",
+    "internalType": "uint256"
+   },
+   {
+    "name": "",
+    "type": "bytes32",
+    "internalType": "bytes32"
+   }
+  ],
+  "stateMutability": "payable"
+ },
+ {
+  "name": "fillOrderArgs",
+  "type": "function",
+  "inputs": [
+   {
+    "name": "order",
+    "type": "tuple",
+    "components": [
+     {
+      "name": "salt",
+      "type": "uint256",
+      "internalType": "uint256"
+     },
+     {
+      "name": "maker",
+      "type": "uint256",
+      "internalType": "Address"
+     },
+     {
+      "name": "receiver",
+      "type": "uint256",
+      "internalType": "Address"
+     },
+     {
+      "name": "makerAsset",
+      "type": "uint256",
+      "internalType": "Address"
+     },
+     {
+      "name": "takerAsset",
+      "type": "uint256",
+      "internalType": "Address"
+     },
+     {
+      "name": "makingAmount",
+      "type": "uint256",
+      "internalType": "uint256"
+     },
+     {
+      "name": "takingAmount",
+      "type": "uint256",
+      "internalType": "uint256"
+     },
+     {
+      "name": "makerTraits",
+      "type": "uint256",
+      "internalType": "MakerTraits"
+     }
+    ],
+    "internalType": "struct IOrderMixin.Order"
+   },
+   {
+    "name": "r",
+    "type": "bytes32",
+    "internalType": "bytes32"
+   },
+   {
+    "name": "vs",
+    "type": "bytes32",
+    "internalType": "bytes32"
+   },
+   {
+    "name": "amount",
+    "type": "uint256",
+    "internalType": "uint256"
+   },
+   {
+    "name": "takerTraits",
+    "type": "uint256",
+    "internalType": "TakerTraits"
+   },
+   {
+    "name": "args",
+    "type": "bytes",
+    "internalType": "bytes"
+   }
+  ],
+  "outputs": [
+   {
+    "name": "",
+    "type": "uint256",
+    "internalType": "uint256"
+   },
+   {
+    "name": "",
+    "type": "uint256",
+    "internalType": "uint256"
+   },
+   {
+    "name": "",
+    "type": "bytes32",
+    "internalType": "bytes32"
+   }
+  ],
+  "stateMutability": "payable"
+ },
+ {
+  "name": "gt",
+  "type": "function",
+  "inputs": [
+   {
+    "name": "value",
+    "type": "uint256",
+    "internalType": "uint256"
+   },
+   {
+    "name": "data",
+    "type": "bytes",
+    "internalType": "bytes"
+   }
+  ],
+  "outputs": [
+   {
+    "name": "",
+    "type": "bool",
+    "internalType": "bool"
+   }
+  ],
+  "stateMutability": "view"
+ },
+ {
+  "name": "hashOrder",
+  "type": "function",
+  "inputs": [
+   {
+    "name": "order",
+    "type": "tuple",
+    "components": [
+     {
+      "name": "salt",
+      "type": "uint256",
+      "internalType": "uint256"
+     },
+     {
+      "name": "maker",
+      "type": "uint256",
+      "internalType": "Address"
+     },
+     {
+      "name": "receiver",
+      "type": "uint256",
+      "internalType": "Address"
+     },
+     {
+      "name": "makerAsset",
+      "type": "uint256",
+      "internalType": "Address"
+     },
+     {
+      "name": "takerAsset",
+      "type": "uint256",
+      "internalType": "Address"
+     },
+     {
+      "name": "makingAmount",
+      "type": "uint256",
+      "internalType": "uint256"
+     },
+     {
+      "name": "takingAmount",
+      "type": "uint256",
+      "internalType": "uint256"
+     },
+     {
+      "name": "makerTraits",
+      "type": "uint256",
+      "internalType": "MakerTraits"
+     }
+    ],
+    "internalType": "struct IOrderMixin.Order"
+   }
+  ],
+  "outputs": [
+   {
+    "name": "",
+    "type": "bytes32",
+    "internalType": "bytes32"
+   }
+  ],
+  "stateMutability": "view"
+ },
+ {
+  "name": "increaseEpoch",
+  "type": "function",
+  "inputs": [
+   {
+    "name": "series",
+    "type": "uint96",
+    "internalType": "uint96"
+   }
+  ],
+  "outputs": [],
+  "stateMutability": "nonpayable"
+ },
+ {
+  "name": "lt",
+  "type": "function",
+  "inputs": [
+   {
+    "name": "value",
+    "type": "uint256",
+    "internalType": "uint256"
+   },
+   {
+    "name": "data",
+    "type": "bytes",
+    "internalType": "bytes"
+   }
+  ],
+  "outputs": [
+   {
+    "name": "",
+    "type": "bool",
+    "internalType": "bool"
+   }
+  ],
+  "stateMutability": "view"
+ },
+ {
+  "name": "not",
+  "type": "function",
+  "inputs": [
+   {
+    "name": "data",
+    "type": "bytes",
+    "internalType": "bytes"
+   }
+  ],
+  "outputs": [
+   {
+    "name": "",
+    "type": "bool",
+    "internalType": "bool"
+   }
+  ],
+  "stateMutability": "view"
+ },
+ {
+  "name": "or",
+  "type": "function",
+  "inputs": [
+   {
+    "name": "offsets",
+    "type": "uint256",
+    "internalType": "uint256"
+   },
+   {
+    "name": "data",
+    "type": "bytes",
+    "internalType": "bytes"
+   }
+  ],
+  "outputs": [
+   {
+    "name": "",
+    "type": "bool",
+    "internalType": "bool"
+   }
+  ],
+  "stateMutability": "view"
+ },
+ {
+  "name": "owner",
+  "type": "function",
+  "inputs": [],
+  "outputs": [
+   {
+    "name": "",
+    "type": "address",
+    "internalType": "address"
+   }
+  ],
+  "stateMutability": "view"
+ },
+ {
+  "name": "pause",
+  "type": "function",
+  "inputs": [],
+  "outputs": [],
+  "stateMutability": "nonpayable"
+ },
+ {
+  "name": "paused",
+  "type": "function",
+  "inputs": [],
+  "outputs": [
+   {
+    "name": "",
+    "type": "bool",
+    "internalType": "bool"
+   }
+  ],
+  "stateMutability": "view"
+ },
+ {
+  "name": "permitAndCall",
+  "type": "function",
+  "inputs": [
+   {
+    "name": "permit",
+    "type": "bytes",
+    "internalType": "bytes"
+   },
+   {
+    "name": "action",
+    "type": "bytes",
+    "internalType": "bytes"
+   }
+  ],
+  "outputs": [],
+  "stateMutability": "payable"
+ },
+ {
+  "name": "rawRemainingInvalidatorForOrder",
+  "type": "function",
+  "inputs": [
+   {
+    "name": "maker",
+    "type": "address",
+    "internalType": "address"
+   },
+   {
+    "name": "orderHash",
+    "type": "bytes32",
+    "internalType": "bytes32"
+   }
+  ],
+  "outputs": [
+   {
+    "name": "",
+    "type": "uint256",
+    "internalType": "uint256"
+   }
+  ],
+  "stateMutability": "view"
+ },
+ {
+  "name": "remainingInvalidatorForOrder",
+  "type": "function",
+  "inputs": [
+   {
+    "name": "maker",
+    "type": "address",
+    "internalType": "address"
+   },
+   {
+    "name": "orderHash",
+    "type": "bytes32",
+    "internalType": "bytes32"
+   }
+  ],
+  "outputs": [
+   {
+    "name": "",
+    "type": "uint256",
+    "internalType": "uint256"
+   }
+  ],
+  "stateMutability": "view"
+ },
+ {
+  "name": "renounceOwnership",
+  "type": "function",
+  "inputs": [],
+  "outputs": [],
+  "stateMutability": "nonpayable"
+ },
+ {
+  "name": "rescueFunds",
+  "type": "function",
+  "inputs": [
+   {
+    "name": "token",
+    "type": "address",
+    "internalType": "contract IERC20"
+   },
+   {
+    "name": "amount",
+    "type": "uint256",
+    "internalType": "uint256"
+   }
+  ],
+  "outputs": [],
+  "stateMutability": "nonpayable"
+ },
+ {
+  "name": "simulate",
+  "type": "function",
+  "inputs": [
+   {
+    "name": "target",
+    "type": "address",
+    "internalType": "address"
+   },
+   {
+    "name": "data",
+    "type": "bytes",
+    "internalType": "bytes"
+   }
+  ],
+  "outputs": [],
+  "stateMutability": "nonpayable"
+ },
+ {
+  "name": "swap",
+  "type": "function",
+  "inputs": [
+   {
+    "name": "executor",
+    "type": "address",
+    "internalType": "contract IAggregationExecutor"
+   },
+   {
+    "name": "desc",
+    "type": "tuple",
+    "components": [
+     {
+      "name": "srcToken",
+      "type": "address",
+      "internalType": "contract IERC20"
+     },
+     {
+      "name": "dstToken",
+      "type": "address",
+      "internalType": "contract IERC20"
+     },
+     {
+      "name": "srcReceiver",
+      "type": "address",
+      "internalType": "address payable"
+     },
+     {
+      "name": "dstReceiver",
+      "type": "address",
+      "internalType": "address payable"
+     },
+     {
+      "name": "amount",
+      "type": "uint256",
+      "internalType": "uint256"
+     },
+     {
+      "name": "minReturnAmount",
+      "type": "uint256",
+      "internalType": "uint256"
+     },
+     {
+      "name": "flags",
+      "type": "uint256",
+      "internalType": "uint256"
+     }
+    ],
+    "internalType": "struct GenericRouter.SwapDescription"
+   },
+   {
+    "name": "data",
+    "type": "bytes",
+    "internalType": "bytes"
+   }
+  ],
+  "outputs": [
+   {
+    "name": "returnAmount",
+    "type": "uint256",
+    "internalType": "uint256"
+   },
+   {
+    "name": "spentAmount",
+    "type": "uint256",
+    "internalType": "uint256"
+   }
+  ],
+  "stateMutability": "payable"
+ },
+ {
+  "name": "transferOwnership",
+  "type": "function",
+  "inputs": [
+   {
+    "name": "newOwner",
+    "type": "address",
+    "internalType": "address"
+   }
+  ],
+  "outputs": [],
+  "stateMutability": "nonpayable"
+ },
+ {
+  "name": "uniswapV3SwapCallback",
+  "type": "function",
+  "inputs": [
+   {
+    "name": "amount0Delta",
+    "type": "int256",
+    "internalType": "int256"
+   },
+   {
+    "name": "amount1Delta",
+    "type": "int256",
+    "internalType": "int256"
+   },
+   {
+    "name": "",
+    "type": "bytes",
+    "internalType": "bytes"
+   }
+  ],
+  "outputs": [],
+  "stateMutability": "nonpayable"
+ },
+ {
+  "name": "unoswap",
+  "type": "function",
+  "inputs": [
+   {
+    "name": "token",
+    "type": "uint256",
+    "internalType": "Address"
+   },
+   {
+    "name": "amount",
+    "type": "uint256",
+    "internalType": "uint256"
+   },
+   {
+    "name": "minReturn",
+    "type": "uint256",
+    "internalType": "uint256"
+   },
+   {
+    "name": "dex",
+    "type": "uint256",
+    "internalType": "Address"
+   }
+  ],
+  "outputs": [
+   {
+    "name": "returnAmount",
+    "type": "uint256",
+    "internalType": "uint256"
+   }
+  ],
+  "stateMutability": "nonpayable"
+ },
+ {
+  "name": "unoswap2",
+  "type": "function",
+  "inputs": [
+   {
+    "name": "token",
+    "type": "uint256",
+    "internalType": "Address"
+   },
+   {
+    "name": "amount",
+    "type": "uint256",
+    "internalType": "uint256"
+   },
+   {
+    "name": "minReturn",
+    "type": "uint256",
+    "internalType": "uint256"
+   },
+   {
+    "name": "dex",
+    "type": "uint256",
+    "internalType": "Address"
+   },
+   {
+    "name": "dex2",
+    "type": "uint256",
+    "internalType": "Address"
+   }
+  ],
+  "outputs": [
+   {
+    "name": "returnAmount",
+    "type": "uint256",
+    "internalType": "uint256"
+   }
+  ],
+  "stateMutability": "nonpayable"
+ },
+ {
+  "name": "unoswap3",
+  "type": "function",
+  "inputs": [
+   {
+    "name": "token",
+    "type": "uint256",
+    "internalType": "Address"
+   },
+   {
+    "name": "amount",
+    "type": "uint256",
+    "internalType": "uint256"
+   },
+   {
+    "name": "minReturn",
+    "type": "uint256",
+    "internalType": "uint256"
+   },
+   {
+    "name": "dex",
+    "type": "uint256",
+    "internalType": "Address"
+   },
+   {
+    "name": "dex2",
+    "type": "uint256",
+    "internalType": "Address"
+   },
+   {
+    "name": "dex3",
+    "type": "uint256",
+    "internalType": "Address"
+   }
+  ],
+  "outputs": [
+   {
+    "name": "returnAmount",
+    "type": "uint256",
+    "internalType": "uint256"
+   }
+  ],
+  "stateMutability": "nonpayable"
+ },
+ {
+  "name": "unoswapTo",
+  "type": "function",
+  "inputs": [
+   {
+    "name": "to",
+    "type": "uint256",
+    "internalType": "Address"
+   },
+   {
+    "name": "token",
+    "type": "uint256",
+    "internalType": "Address"
+   },
+   {
+    "name": "amount",
+    "type": "uint256",
+    "internalType": "uint256"
+   },
+   {
+    "name": "minReturn",
+    "type": "uint256",
+    "internalType": "uint256"
+   },
+   {
+    "name": "dex",
+    "type": "uint256",
+    "internalType": "Address"
+   }
+  ],
+  "outputs": [
+   {
+    "name": "returnAmount",
+    "type": "uint256",
+    "internalType": "uint256"
+   }
+  ],
+  "stateMutability": "nonpayable"
+ },
+ {
+  "name": "unoswapTo2",
+  "type": "function",
+  "inputs": [
+   {
+    "name": "to",
+    "type": "uint256",
+    "internalType": "Address"
+   },
+   {
+    "name": "token",
+    "type": "uint256",
+    "internalType": "Address"
+   },
+   {
+    "name": "amount",
+    "type": "uint256",
+    "internalType": "uint256"
+   },
+   {
+    "name": "minReturn",
+    "type": "uint256",
+    "internalType": "uint256"
+   },
+   {
+    "name": "dex",
+    "type": "uint256",
+    "internalType": "Address"
+   },
+   {
+    "name": "dex2",
+    "type": "uint256",
+    "internalType": "Address"
+   }
+  ],
+  "outputs": [
+   {
+    "name": "returnAmount",
+    "type": "uint256",
+    "internalType": "uint256"
+   }
+  ],
+  "stateMutability": "nonpayable"
+ },
+ {
+  "name": "unoswapTo3",
+  "type": "function",
+  "inputs": [
+   {
+    "name": "to",
+    "type": "uint256",
+    "internalType": "Address"
+   },
+   {
+    "name": "token",
+    "type": "uint256",
+    "internalType": "Address"
+   },
+   {
+    "name": "amount",
+    "type": "uint256",
+    "internalType": "uint256"
+   },
+   {
+    "name": "minReturn",
+    "type": "uint256",
+    "internalType": "uint256"
+   },
+   {
+    "name": "dex",
+    "type": "uint256",
+    "internalType": "Address"
+   },
+   {
+    "name": "dex2",
+    "type": "uint256",
+    "internalType": "Address"
+   },
+   {
+    "name": "dex3",
+    "type": "uint256",
+    "internalType": "Address"
+   }
+  ],
+  "outputs": [
+   {
+    "name": "returnAmount",
+    "type": "uint256",
+    "internalType": "uint256"
+   }
+  ],
+  "stateMutability": "nonpayable"
+ },
+ {
+  "name": "unpause",
+  "type": "function",
+  "inputs": [],
+  "outputs": [],
+  "stateMutability": "nonpayable"
+ },
+ {
+  "type": "receive",
+  "stateMutability": "payable"
+ }
+]
