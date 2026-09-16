@@ -423,11 +423,11 @@ def identify_call_path(frames: list[tuple], tx_from: str | None = None, tx_to: s
     elif tx_from and tx_to and tx_from.lower() == tx_to.lower():
         wallet_kind = "eip7702-self"
 
+    # A bot contract anywhere on the path makes this bot flow, even when it routes through an aggregator
+    if any(label.startswith("bot-") or label in BOT_MARKER_LABELS for label in labels):
+        aggregator = "bot"
     if aggregator is None:
         for label in labels:
-            if label.startswith("bot-") or label in BOT_MARKER_LABELS:
-                aggregator = "bot"
-                break
             if label in ("cowswap", "lifi", "binance-wallet"):
                 aggregator = label
                 break

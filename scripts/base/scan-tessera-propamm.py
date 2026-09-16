@@ -518,7 +518,7 @@ def create_schema(con: duckdb.DuckDBPyConnection) -> None:
             t.log_index,
             -- Aggregator from the trace when known, else from the labelled transaction target
             -- (lets newly identified routers classify already-traced trades without re-tracing)
-            coalesce(o.aggregator, rl.aggregator, CASE WHEN rl.kind = 'bot' THEN 'bot' END) AS aggregator,
+            CASE WHEN rl.kind = 'bot' OR o.frontend LIKE 'bot-%' THEN 'bot' ELSE coalesce(o.aggregator, rl.aggregator) END AS aggregator,
             o.aggregator AS traced_aggregator,
             rl.label AS router_label,
             btc.tx_count,
