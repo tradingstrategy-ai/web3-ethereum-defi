@@ -45,6 +45,10 @@ deliberately have no ``PRIMARY KEY`` or ``UNIQUE`` constraints, see
   token, input amount, **user minimum output (slippage bound)**, aggregator's
   own quote where recorded (Paraswap), recipient, front-end hints
   (KyberSwap ``clientData``, 0x ``zid``), wallet kind.
+- ``router_labels`` — every known router, wrapper, wallet and bot address
+  from :py:mod:`eth_defi.dex_aggregator.router_calldata`, with the aggregator
+  slug it implies. Joined on ``trades.tx_to`` as a fallback so newly labelled
+  routers classify old trades.
 - ``trade_tx_inputs`` — the outer transaction target, selector and raw
   calldata taken from the trace root frame, so router-specific ``minReturn``
   decoders (OKX, 1inch, KyberSwap, 0x, ERC-4337 user operations) can be
@@ -63,8 +67,18 @@ Benchmark reference prices (``benchmark_pools``, ``benchmark_swaps``,
 view) live in the same file and are owned by
 ``scripts/base/scan-tessera-benchmark-prices.py``; run it after this script.
 
-The script is resumable: the last scanned block is stored in ``scan_state``
-and each phase only processes rows that lack enrichment.
+Reruns backfill whatever is missing. ``scan_state`` remembers the first and
+last scanned block and the earliest enrichment start ever requested:
+
+- Activity scan: a rerun continues from the last scanned block to the tip. A
+  ``START_BLOCK`` below the first scanned block scans the earlier gap first,
+  then continues forward.
+- Enrichment: ``ENRICH_START_BLOCK`` is persisted as the minimum ever given,
+  so a plain rerun keeps filling any trade in that range that still lacks a
+  trace or quotes (after a crash, a new label set, a widened window).
+- ``router_labels`` is rewritten from the code tables every run, so relabelled
+  or newly identified routers apply to already-traced trades through the
+  ``trade_analysis`` view without re-tracing.
 
 Usage::
 
@@ -111,8 +125,9 @@ Environment variables:
   available and is the better flashblock proxy, so this is only needed when
   the transaction-index position is wanted. Very expensive on a full scan.
 - ``ENRICH_START_BLOCK`` — only trace and quote trades at or after this
-  block, default ``0`` (all). Use it to bound the slow RPC phases on a full
-  history scan; the phases are resumable and pick up remaining trades later.
+  block. Persisted as the minimum ever requested (``scan_state``), so a rerun
+  without it keeps backfilling the same range; pass a lower value to widen.
+  Unset on a fresh database means everything, which is days of RPC work.
 - ``HYPERSYNC_RECV_TIMEOUT`` — seconds to wait for one stream response, default ``120``.
 - ``HYPERSYNC_MAX_ATTEMPTS`` — retries per Hypersync stream chunk before the
   script raises and exits, default ``10``. Base's Hypersync endpoint has
@@ -163,7 +178,7 @@ from eth_defi.provider.multi_provider import create_multi_provider_web3
 from eth_defi.token import fetch_erc20_details
 from eth_defi.utils import setup_console_logging
 from eth_defi.compat import native_datetime_utc_now
-from eth_defi.dex_aggregator.router_calldata import identify_call_path
+from eth_defi.dex_aggregator.router_calldata import identify_call_path, router_label_rows
 from eth_defi.vault.flow_events import decode_hypersync_int
 
 logger = logging.getLogger(__name__)
@@ -222,9 +237,9 @@ class ScanConfig:
 
     #: Output DuckDB file
     duckdb_path: Path
-    #: First block to scan, inclusive
-    start_block: int
-    #: Last block to scan, inclusive
+    #: Block ranges to scan, inclusive, in order: an earlier gap first, then the forward continuation
+    scan_ranges: list[tuple[int, int]]
+    #: Chain tip minus safety margin
     end_block: int
     #: Blocks per Hypersync query
     chunk_blocks: int
@@ -412,6 +427,17 @@ def create_schema(con: duckdb.DuckDBPyConnection) -> None:
         )
     """)
     con.execute("""
+        CREATE TABLE IF NOT EXISTS router_labels (
+            address VARCHAR,
+            label VARCHAR,
+            kind VARCHAR,
+            aggregator VARCHAR,
+            updated_at TIMESTAMP
+        )
+    """)
+    # Added after the first production scan; additive, existing rows stay NULL
+    con.execute("ALTER TABLE trade_orders ADD COLUMN IF NOT EXISTS path_addresses VARCHAR")
+    con.execute("""
         CREATE TABLE IF NOT EXISTS trade_tx_inputs (
             tx_hash VARCHAR,
             tx_to VARCHAR,
@@ -490,6 +516,11 @@ def create_schema(con: duckdb.DuckDBPyConnection) -> None:
             t.tx_hash,
             t.tx_index,
             t.log_index,
+            -- Aggregator from the trace when known, else from the labelled transaction target
+            -- (lets newly identified routers classify already-traced trades without re-tracing)
+            coalesce(o.aggregator, rl.aggregator, CASE WHEN rl.kind = 'bot' THEN 'bot' END) AS aggregator,
+            o.aggregator AS traced_aggregator,
+            rl.label AS router_label,
             btc.tx_count,
             (t.tx_index + 1.0) / btc.tx_count AS rel_tx_position,
             t.cumulative_gas_used * 1.0 / NULLIF(t.block_gas_used, 0) AS rel_gas_position,
@@ -508,7 +539,6 @@ def create_schema(con: duckdb.DuckDBPyConnection) -> None:
             c.caller AS inner_caller,
             c.exact_input,
             c.amount_check,
-            o.aggregator,
             o.frontend,
             o.wallet_kind,
             o.path_labels,
@@ -565,6 +595,7 @@ def create_schema(con: duckdb.DuckDBPyConnection) -> None:
         LEFT JOIN q ON q.tx_hash = t.tx_hash AND q.log_index = t.log_index
         LEFT JOIN c ON c.tx_hash = t.tx_hash AND c.call_ordinal = t.call_ordinal
         LEFT JOIN o ON o.tx_hash = t.tx_hash AND o.call_ordinal = t.call_ordinal
+        LEFT JOIN router_labels rl ON lower(rl.address) = lower(t.tx_to)
     """)
     con.execute("""
         CREATE OR REPLACE VIEW price_update_analysis AS
@@ -576,6 +607,16 @@ def create_schema(con: duckdb.DuckDBPyConnection) -> None:
         FROM price_updates p
         LEFT JOIN block_tx_counts btc ON btc.block_number = p.block_number
     """)
+
+
+def write_router_labels(con: duckdb.DuckDBPyConnection) -> None:
+    """Replace router_labels with the current code tables."""
+    rows = [dict(r, updated_at=native_datetime_utc_now()) for r in router_label_rows()]
+    con.begin()
+    con.execute("DELETE FROM router_labels")
+    insert_frame(con, "router_labels", pd.DataFrame(rows), ["address", "label", "kind", "aggregator", "updated_at"])
+    con.commit()
+    logger.info("Wrote %d router labels", len(rows))
 
 
 def read_scan_state(con: duckdb.DuckDBPyConnection, key: str) -> int | None:
@@ -866,7 +907,10 @@ def scan_activity_chunk(
     insert_frame(con, "price_updates", pd.DataFrame(update_rows), update_columns)
     insert_frame(con, "blocks", pd.DataFrame(block_rows), ["block_number", "timestamp", "gas_used", "base_fee_per_gas"])
     insert_frame(con, "block_tx_counts", pd.DataFrame(count_rows), ["block_number", "tx_count"])
-    write_scan_state(con, "last_scanned_block", end_block)
+    first = read_scan_state(con, "first_scanned_block")
+    last = read_scan_state(con, "last_scanned_block")
+    write_scan_state(con, "first_scanned_block", min(first, start_block) if first is not None else start_block)
+    write_scan_state(con, "last_scanned_block", max(last, end_block) if last is not None else end_block)
     con.commit()
     return len(trade_rows), len(update_rows)
 
@@ -930,6 +974,7 @@ def identify_order(tx_hash: str, ordinal: int, path: list[dict], tx_from: str | 
         "frontend": ident.frontend,
         "wallet_kind": ident.wallet_kind,
         "path_labels": json.dumps(ident.labels),
+        "path_addresses": json.dumps(ident.path_addresses),
         "path_depth": len(path) - 1,
         "router": order.router if order else None,
         "router_function": order.function if order else None,
@@ -1013,6 +1058,7 @@ def enrich_traces(con: duckdb.DuckDBPyConnection, web3: Web3, max_workers: int, 
         "tx_hash", "call_ordinal", "aggregator", "frontend", "wallet_kind", "path_labels", "path_depth", "router", "router_function",
         "router_frame_depth", "order_src_token", "order_dst_token", "order_amount_in", "user_min_amount_out", "user_max_amount_in",
         "aggregator_quoted_out", "order_recipient", "order_deadline", "client_data", "exact_output", "router_returned_out",
+        "path_addresses",
     ]  # fmt: skip
     chunks_since_checkpoint = 0
     with tqdm(total=len(pending), desc="debug_traceTransaction", unit="tx") as progress:
@@ -1171,19 +1217,45 @@ def resolve_config(con: duckdb.DuckDBPyConnection, client: ThrottledHypersyncCli
     tip_safety = int(os.environ.get("TIP_SAFETY_BLOCKS", "10"))
     end_block = int(os.environ.get("END_BLOCK", tip - tip_safety))
 
+    first = read_scan_state(con, "first_scanned_block")
+    last = read_scan_state(con, "last_scanned_block")
+    if first is None and last is not None:
+        # Database predates the first-block marker: derive it from the data once
+        first = con.execute("SELECT min(block_number) FROM blocks").fetchone()[0]
+        if first is not None:
+            con.begin()
+            write_scan_state(con, "first_scanned_block", int(first))
+            con.commit()
+    scan_ranges: list[tuple[int, int]] = []
     if "START_BLOCK" in os.environ:
-        start_block = int(os.environ["START_BLOCK"])
-    else:
-        last = read_scan_state(con, "last_scanned_block")
-        if last is not None:
-            start_block = last + 1
+        requested = max(int(os.environ["START_BLOCK"]), TESSERA_DEPLOY_BLOCK)
+        if first is not None and requested < first:
+            # Backfill the gap before what we already have, then continue forward from the end
+            scan_ranges.append((requested, first - 1))
+            scan_ranges.append((last + 1, end_block))
+        elif last is not None:
+            scan_ranges.append((max(requested, last + 1), end_block))
         else:
-            start_block = end_block - int(os.environ.get("LOOKBACK_BLOCKS", "43200"))
-    start_block = max(start_block, TESSERA_DEPLOY_BLOCK)
+            scan_ranges.append((requested, end_block))
+    elif last is not None:
+        scan_ranges.append((last + 1, end_block))
+    else:
+        scan_ranges.append((max(end_block - int(os.environ.get("LOOKBACK_BLOCKS", "43200")), TESSERA_DEPLOY_BLOCK), end_block))
+    scan_ranges = [(a, b) for a, b in scan_ranges if b >= a]
+
+    # The enrichment start sticks at the earliest value ever requested, so plain reruns keep backfilling that range
+    previous_enrich_start = read_scan_state(con, "enrich_start_block")
+    requested_enrich_start = int(os.environ["ENRICH_START_BLOCK"]) if "ENRICH_START_BLOCK" in os.environ else None
+    candidates = [v for v in (previous_enrich_start, requested_enrich_start) if v is not None]
+    enrich_start_block = min(candidates) if candidates else 0
+    if enrich_start_block != previous_enrich_start:
+        con.begin()
+        write_scan_state(con, "enrich_start_block", enrich_start_block)
+        con.commit()
 
     return ScanConfig(
         duckdb_path=duckdb_path,
-        start_block=start_block,
+        scan_ranges=scan_ranges,
         end_block=end_block,
         chunk_blocks=int(os.environ.get("CHUNK_BLOCKS", "10000")),
         checkpoint_every_chunks=int(os.environ.get("CHECKPOINT_EVERY_CHUNKS", "20")),
@@ -1194,7 +1266,7 @@ def resolve_config(con: duckdb.DuckDBPyConnection, client: ThrottledHypersyncCli
         enrich_quotes=env_bool("ENRICH_QUOTES", True),
         probe_fraction=float(os.environ.get("PROBE_FRACTION", "0.01")),
         max_workers=int(os.environ.get("MAX_WORKERS", "8")),
-        enrich_start_block=int(os.environ.get("ENRICH_START_BLOCK", "0")),
+        enrich_start_block=enrich_start_block,
         recv_timeout=float(os.environ.get("HYPERSYNC_RECV_TIMEOUT", "120")),
     )
 
@@ -1272,26 +1344,28 @@ def main() -> None:
     try:
         create_schema(con)
         config = resolve_config(con, client, duckdb_path)
-        logger.info("Scanning Tessera on Base, blocks %s - %s (%d blocks) into %s", f"{config.start_block:,}", f"{config.end_block:,}", config.end_block - config.start_block + 1, duckdb_path)
-
-        if config.end_block >= config.start_block:
-            chunk_starts = range(config.start_block, config.end_block + 1, config.chunk_blocks)
+        write_router_labels(con)
+        if config.scan_ranges:
+            logger.info("Scanning Tessera on Base, ranges %s into %s", ", ".join(f"{a:,}-{b:,}" for a, b in config.scan_ranges), duckdb_path)
             total_trades = total_updates = 0
             chunks_since_checkpoint = 0
-            chunk_progress = tqdm(chunk_starts, desc="Tessera activity scan", unit="chunk")
-            for chunk_start in chunk_progress:
-                ensure_disk_space(duckdb_path, config.min_free_disk_gb)
-                chunk_end = min(chunk_start + config.chunk_blocks - 1, config.end_block)
-                started = time.time()
-                trades, updates = scan_activity_chunk(con, client, chunk_start, chunk_end, config.scan_block_tx_counts, config.recv_timeout)
-                total_trades += trades
-                total_updates += updates
-                chunk_progress.set_postfix({"block": f"{chunk_end:,}", "trades": f"{total_trades:,}", "updates": f"{total_updates:,}"})
-                logger.info("Blocks %s - %s: %d trades, %d price updates in %.1f s", f"{chunk_start:,}", f"{chunk_end:,}", trades, updates, time.time() - started)
-                chunks_since_checkpoint = checkpoint_if_due(con, duckdb_path, chunks_since_checkpoint, config.checkpoint_every_chunks)
+            for range_start, range_end in config.scan_ranges:
+                chunk_starts = range(range_start, range_end + 1, config.chunk_blocks)
+                chunk_progress = tqdm(chunk_starts, desc=f"Tessera activity scan {range_start:,}-{range_end:,}", unit="chunk")
+                for chunk_start in chunk_progress:
+                    ensure_disk_space(duckdb_path, config.min_free_disk_gb)
+                    chunk_end = min(chunk_start + config.chunk_blocks - 1, range_end)
+                    started = time.time()
+                    trades, updates = scan_activity_chunk(con, client, chunk_start, chunk_end, config.scan_block_tx_counts, config.recv_timeout)
+                    total_trades += trades
+                    total_updates += updates
+                    chunk_progress.set_postfix({"block": f"{chunk_end:,}", "trades": f"{total_trades:,}", "updates": f"{total_updates:,}"})
+                    logger.info("Blocks %s - %s: %d trades, %d price updates in %.1f s", f"{chunk_start:,}", f"{chunk_end:,}", trades, updates, time.time() - started)
+                    chunks_since_checkpoint = checkpoint_if_due(con, duckdb_path, chunks_since_checkpoint, config.checkpoint_every_chunks)
             logger.info("Activity scan done: %d trades, %d price updates", total_trades, total_updates)
         else:
-            logger.info("Nothing new to scan, last scanned block is %s", f"{config.start_block - 1:,}")
+            logger.info("Nothing new to scan, coverage is blocks %s - %s", read_scan_state(con, "first_scanned_block"), read_scan_state(con, "last_scanned_block"))
+        logger.info("Enrichment covers trades from block %s", f"{config.enrich_start_block:,}")
 
         refresh_tokens(con, web3)
 

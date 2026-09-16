@@ -54,6 +54,8 @@ AGGREGATOR_ROUTERS: dict[str, tuple[str, str]] = {
     "0x1111111254eeb25477b68fb85ed929f73a960582": ("1inch", "OneInchAggregationRouterV5.json"),
     "0x6a000f20005980200259b80c5102003040001068": ("paraswap", "ParaswapAugustusV6_2.json"),
     "0x4f6f91599858bf0d19fabcf2c5d591fe13f7c059": ("0x", "ZeroExSettler.json"),
+    "0x7747f8d2a76bd6345cc29622a946a929647f2359": ("0x", "ZeroExSettler.json"),
+    "0xc8f6b8ba0dc0f175b568b99440b0867f69a29265": ("okx", "OKXDexRouter.json"),
     "0x2f68417a18da681589f4ea64b9cc9839209acff7": ("aggregator-2f68", "Aggregator2f68.json"),
 }
 
@@ -62,6 +64,10 @@ AGGREGATOR_ROUTERS: dict[str, tuple[str, str]] = {
 #: These identify the front-end, wallet or wrapper layer. They are not decoded.
 PATH_LABELS: dict[str, str] = {
     "0x0000000000001ff3684f28c67538d4d072c22734": "0x-allowance-holder",
+    "0xc87de04e2ec1f4282dff2933a2d58199f688fc3d": "0x-aggregator-guard",
+    "0xb92fe925dc43a0ecde6c8b1a2709c170ec4fff4f": "relay",
+    "0xd62b33a7df4d0ca5edd373576e48f73366e36179": "nft-farm-strategy",
+    "0xbdc020668ad2a69603a85ad35b5f9a20af906845": "nft-farm-strategy",
     "0x9008d19f58aabd9ed0d60971565aa8510560ab41": "cowswap",
     "0x1231deb6f5749ef6ce6943a275a1d3e7486f4eae": "lifi",
     "0xccc88a9d1b4ed6b0eaba998850414b24f1c315be": "relay",
@@ -77,7 +83,25 @@ PATH_LABELS: dict[str, str] = {
     "0xa654a1c821f7604b5500a2fe8de67a737497d10d": "bot-a654",
     "0xaf3cefe9fbfb4962ef010d4b880a31297ec8260a": "bot-af3c",
     "0x7b579d9d147e65dfbdb7abb6bf2e41c7ad8c2c46": "bot-7b57",
+    # Reads Tessera's keeper price store and Chainlink feeds before trading, then trades via the flashloan helper;
+    # thousands of sender wallets, fills at the bottom of the block better than the quote. Same operator rotates contracts.
+    "0x2dec2fd5c3fca86249e9bc670ed3097be531fe78": "bot-2dec",
+    "0x81a59fa98fc7d9d67d696a117f24c133f1d04908": "bot-81a5",
+    "0xc0269fc72c0138a3a551ccf07f0819adabaa8973": "bot-c026",
+    "0x9ab3e4b61dd4d8bb533732be7061f28a401df7ea": "bot-9ab3",
 }
+
+#: Labels that mark bot flow even when no ``bot-*`` contract is on the path
+BOT_MARKER_LABELS = {"flashloan-helper"}
+
+#: Wrapper labels that belong to exactly one aggregator, so the aggregator is known even when its router frame was not decoded
+WRAPPER_AGGREGATOR = {
+    "0x-allowance-holder": "0x",
+    "0x-aggregator-guard": "0x",
+}
+
+#: Wallet-layer labels, neither aggregator nor front-end
+WALLET_LABELS = {"erc4337-entrypoint-v0.6", "erc4337-entrypoint-v0.7", "coinbase-smart-wallet"}
 
 #: Placeholder addresses aggregators use for the native token
 NATIVE_TOKEN_ALIASES = {
@@ -140,6 +164,8 @@ class CallPathIdentification:
     wallet_kind: str = "eoa"
     #: Best-effort description of the front-end layer: first label that is not a wallet or aggregator
     frontend: str | None = None
+    #: Every contract address on the path from the transaction root to the venue, lowercase, in call order
+    path_addresses: list[str] = field(default_factory=list)
 
 
 _contracts: dict[str, Contract] = {}
@@ -372,6 +398,7 @@ def identify_call_path(frames: list[tuple], tx_from: str | None = None, tx_to: s
     labels: list[str] = []
     order: RouterOrder | None = None
     aggregator: str | None = None
+    path_addresses: list[str] = []
 
     for depth, frame in enumerate(frames):
         to, calldata = frame[0], frame[1]
@@ -379,6 +406,7 @@ def identify_call_path(frames: list[tuple], tx_from: str | None = None, tx_to: s
         if not to:
             continue
         key = to.lower()
+        path_addresses.append(key)
         if key in AGGREGATOR_ROUTERS:
             slug = AGGREGATOR_ROUTERS[key][0]
             labels.append(slug)
@@ -397,19 +425,46 @@ def identify_call_path(frames: list[tuple], tx_from: str | None = None, tx_to: s
 
     if aggregator is None:
         for label in labels:
+            if label.startswith("bot-") or label in BOT_MARKER_LABELS:
+                aggregator = "bot"
+                break
             if label in ("cowswap", "lifi", "binance-wallet"):
                 aggregator = label
                 break
-            if label.startswith("bot-"):
-                aggregator = "bot"
+            if label in WRAPPER_AGGREGATOR:
+                aggregator = WRAPPER_AGGREGATOR[label]
                 break
 
     frontend = next(
-        (label for label in labels if not label.startswith("erc4337") and label not in _DECODERS and label != "coinbase-smart-wallet" and label != "0x-allowance-holder"),
+        (label for label in labels if label not in WALLET_LABELS and label not in _DECODERS and label not in WRAPPER_AGGREGATOR and label not in BOT_MARKER_LABELS),
         None,
     )
 
-    return CallPathIdentification(order=order, labels=labels, aggregator=aggregator, wallet_kind=wallet_kind, frontend=frontend)
+    return CallPathIdentification(order=order, labels=labels, aggregator=aggregator, wallet_kind=wallet_kind, frontend=frontend, path_addresses=path_addresses)
+
+
+def router_label_rows() -> list[dict]:
+    """Flatten the known-contract tables into rows for a database label table.
+
+    :return:
+        One dict per known address with ``address`` (checksummed), ``label``,
+        ``kind`` (``aggregator``, ``bot``, ``wallet`` or ``wrapper``) and
+        ``aggregator`` (the slug when the address implies exactly one aggregator).
+    """
+    rows = []
+    for address, (slug, _abi) in AGGREGATOR_ROUTERS.items():
+        rows.append({"address": Web3.to_checksum_address(address), "label": slug, "kind": "aggregator", "aggregator": slug})
+    for address, label in PATH_LABELS.items():
+        if label.startswith("bot-") or label in BOT_MARKER_LABELS:
+            kind, slug = "bot", "bot"
+        elif label in WALLET_LABELS:
+            kind, slug = "wallet", None
+        elif label in ("cowswap", "lifi", "binance-wallet"):
+            kind, slug = "aggregator", label
+        else:
+            kind, slug = "wrapper", WRAPPER_AGGREGATOR.get(label)
+        rows.append({"address": Web3.to_checksum_address(address), "label": label, "kind": kind, "aggregator": slug})
+    return rows
 
 
 def order_to_json(order: RouterOrder | None) -> str | None:

@@ -57,9 +57,11 @@ Environment variables:
 - ``JSON_RPC_BASE``, ``HYPERSYNC_API_KEY`` — as for the main scanner.
 - ``TESSERA_DUCKDB_PATH`` — default ``~/.tradingstrategy/tessera/tessera-base.duckdb``;
   must already contain ``trades`` and ``tokens`` (pair discovery reads them).
-- ``START_BLOCK`` / ``END_BLOCK`` — explicit range. ``START_BLOCK`` defaults
-  to the saved ``benchmark_last_scanned_block`` + 1, else
-  ``BENCHMARK_START_BLOCK`` (default ``50000000``).
+- ``START_BLOCK`` / ``END_BLOCK`` — explicit range. Without ``START_BLOCK`` a
+  rerun continues from the saved last block to the tip (first run:
+  ``BENCHMARK_START_BLOCK``, default ``50000000``). A ``START_BLOCK`` below the
+  saved first block backfills that earlier gap first, then continues forward.
+  Derived tables are rebuilt over the whole covered range every run.
 - ``CHUNK_BLOCKS`` — default ``30000``; keep it small enough that a chunk
   needs fewer than 30 Hypersync pages (about 7,000 blocks per page on swap-dense ranges).
 - ``BENCHMARK_MAX_PAIRS`` — how many top Tessera pairs to benchmark, default ``8``.
@@ -70,9 +72,14 @@ Environment variables:
   free Hypersync tier allows 30 requests/minute, so pages must be large.
 - ``HYPERSYNC_PAGES_PER_MINUTE`` (default ``25``) — sleep between chunks so the
   amortised page rate stays under the server budget.
-- ``REBUILD_START_BLOCK`` — rebuild ``benchmark_block_prices`` and
-  ``trade_benchmarks`` from this block instead of the scan start; use after a
-  run that resumed part-way so the derived tables cover the whole range.
+- ``REBUILD_START_BLOCK`` — rebuild the derived tables from this block instead
+  of the saved first block (rarely needed).
+- ``REDISCOVER_POOLS`` — re-select reference pools instead of keeping the ones
+  chosen by earlier runs. Pools are sticky per pair by default because changing
+  a pool leaves the already scanned range without its swaps. If you do change
+  pools, ``RESCAN`` the whole covered range afterwards.
+- ``RESCAN`` — with explicit ``START_BLOCK`` and ``END_BLOCK``, scan exactly
+  that range again even if already covered (repair mode).
 - ``CHECKPOINT_EVERY_CHUNKS`` (default ``5``), ``MIN_FREE_DISK_GB`` (default ``10``),
   ``HYPERSYNC_RECV_TIMEOUT``, ``HYPERSYNC_MAX_ATTEMPTS``, ``HYPERSYNC_MAX_BACKOFF_SECONDS``,
   ``HYPERSYNC_RPM`` — as for the main scanner.
@@ -159,7 +166,8 @@ class BenchmarkConfig:
     """Runtime configuration parsed from environment variables."""
 
     duckdb_path: Path
-    start_block: int
+    #: Block ranges to scan, inclusive, in order: an earlier gap first, then the forward continuation
+    scan_ranges: list[tuple[int, int]]
     end_block: int
     chunk_blocks: int
     max_pairs: int
@@ -168,6 +176,10 @@ class BenchmarkConfig:
     checkpoint_every_chunks: int
     min_free_disk_gb: float
     recv_timeout: float
+    #: Re-select reference pools instead of keeping earlier choices
+    rediscover_pools: bool
+    #: Scan exactly START_BLOCK..END_BLOCK even if already covered (repair)
+    rescan: bool
 
 
 @dataclass(slots=True)
@@ -494,13 +506,34 @@ def describe_pool(web3: Web3, con: duckdb.DuckDBPyConnection, pool: str, protoco
     )
 
 
+def load_existing_pools(con: duckdb.DuckDBPyConnection) -> list[BenchmarkPool]:
+    """Reference pools chosen by earlier runs."""
+    rows = con.execute("SELECT pool, protocol, token0, token1, decimals0, decimals1, fee_bps, tick_spacing, recent_swaps FROM benchmark_pools").fetchall()
+    return [BenchmarkPool(address=r[0], protocol=r[1], token0=r[2], token1=r[3], decimals0=int(r[4]), decimals1=int(r[5]), fee_bps=r[6], tick_spacing=r[7], recent_swaps=int(r[8] or 0)) for r in rows]
+
+
 def choose_pools(con: duckdb.DuckDBPyConnection, web3: Web3, client: ThrottledHypersyncClient, config: BenchmarkConfig) -> list[BenchmarkPool]:
-    """Pick one reference pool per top Tessera pair, or use the override list."""
+    """Pick one reference pool per top Tessera pair, or use the override list.
+
+    A pair keeps the pool chosen by an earlier run: swapping the reference
+    pool mid-history would leave the previously scanned range without swaps
+    for the new pool and silently stale per-trade benchmarks. Set
+    ``REDISCOVER_POOLS=true`` (and rescan the whole range) to change pools.
+    """
     if config.pool_override:
         chosen = [describe_pool(web3, con, pool, "override", 0) for pool in config.pool_override]
         return [p for p in chosen if p is not None]
 
+    existing = load_existing_pools(con)
+    covered_pairs = {frozenset((p.token0.lower(), p.token1.lower())) for p in existing}
+    if existing and not config.rediscover_pools:
+        logger.info("Keeping %d reference pools from earlier runs (REDISCOVER_POOLS=true to re-select)", len(existing))
+
     pairs = fetch_top_pairs(con, config.max_pairs)
+    if not config.rediscover_pools:
+        pairs = [(a, b, n) for a, b, n in pairs if frozenset((a.lower(), b.lower())) not in covered_pairs]
+        if not pairs:
+            return existing
     logger.info("Discovering reference pools for %d pairs", len(pairs))
     candidates: dict[str, tuple[str, str, str, int | None]] = {}
     for token_a, token_b, n in pairs:
@@ -516,7 +549,7 @@ def choose_pools(con: duckdb.DuckDBPyConnection, web3: Web3, client: ThrottledHy
         if swaps > best.get(pair, (-1, "", ""))[0]:
             best[pair] = (swaps, pool, protocol)
 
-    chosen = []
+    chosen = [] if config.rediscover_pools else list(existing)
     for pair, (swaps, pool, protocol) in best.items():
         if swaps == 0:
             logger.warning("No recent swaps in any candidate pool for %s, skipping", pair)
@@ -611,7 +644,10 @@ def scan_swap_chunk(con: duckdb.DuckDBPyConnection, client: ThrottledHypersyncCl
     con.begin()
     con.execute("DELETE FROM benchmark_swaps WHERE block_number BETWEEN ? AND ?", [start_block, end_block])
     insert_frame(con, "benchmark_swaps", pd.DataFrame(rows), SWAP_COLUMNS)
-    write_scan_state(con, "benchmark_last_scanned_block", end_block)
+    first = read_scan_state(con, "benchmark_first_scanned_block")
+    last = read_scan_state(con, "benchmark_last_scanned_block")
+    write_scan_state(con, "benchmark_first_scanned_block", min(first, start_block) if first is not None else start_block)
+    write_scan_state(con, "benchmark_last_scanned_block", max(last, end_block) if last is not None else end_block)
     con.commit()
     return len(rows), pages
 
@@ -701,15 +737,38 @@ def resolve_config(con: duckdb.DuckDBPyConnection, client: ThrottledHypersyncCli
     """Build the run configuration from environment variables and saved state."""
     tip = asyncio.run(client.get_height())
     end_block = int(os.environ.get("END_BLOCK", tip - int(os.environ.get("TIP_SAFETY_BLOCKS", "10"))))
-    if "START_BLOCK" in os.environ:
-        start_block = int(os.environ["START_BLOCK"])
+    first = read_scan_state(con, "benchmark_first_scanned_block")
+    last = read_scan_state(con, "benchmark_last_scanned_block")
+    if first is None and last is not None:
+        # Database predates the first-block marker: derive it from the data once
+        first = con.execute("SELECT min(block_number) FROM benchmark_swaps").fetchone()[0]
+        if first is not None:
+            con.begin()
+            write_scan_state(con, "benchmark_first_scanned_block", int(first))
+            con.commit()
+    scan_ranges: list[tuple[int, int]] = []
+    rescan = os.environ.get("RESCAN", "false").lower() in ("1", "true", "yes")
+    if rescan:
+        assert "START_BLOCK" in os.environ and "END_BLOCK" in os.environ, "RESCAN=true needs explicit START_BLOCK and END_BLOCK"
+        scan_ranges.append((int(os.environ["START_BLOCK"]), end_block))
+    elif "START_BLOCK" in os.environ:
+        requested = int(os.environ["START_BLOCK"])
+        if first is not None and requested < first:
+            scan_ranges.append((requested, first - 1))
+            scan_ranges.append((last + 1, end_block))
+        elif last is not None:
+            scan_ranges.append((max(requested, last + 1), end_block))
+        else:
+            scan_ranges.append((requested, end_block))
+    elif last is not None:
+        scan_ranges.append((last + 1, end_block))
     else:
-        last = read_scan_state(con, "benchmark_last_scanned_block")
-        start_block = last + 1 if last is not None else int(os.environ.get("BENCHMARK_START_BLOCK", "50000000"))
+        scan_ranges.append((int(os.environ.get("BENCHMARK_START_BLOCK", "50000000")), end_block))
+    scan_ranges = [(a, b) for a, b in scan_ranges if b >= a]
     override = [Web3.to_checksum_address(p.strip()) for p in os.environ.get("BENCHMARK_POOLS", "").split(",") if p.strip()]
     return BenchmarkConfig(
         duckdb_path=duckdb_path,
-        start_block=start_block,
+        scan_ranges=scan_ranges,
         end_block=end_block,
         chunk_blocks=int(os.environ.get("CHUNK_BLOCKS", "30000")),
         max_pairs=int(os.environ.get("BENCHMARK_MAX_PAIRS", "8")),
@@ -718,6 +777,8 @@ def resolve_config(con: duckdb.DuckDBPyConnection, client: ThrottledHypersyncCli
         checkpoint_every_chunks=int(os.environ.get("CHECKPOINT_EVERY_CHUNKS", "5")),
         min_free_disk_gb=float(os.environ.get("MIN_FREE_DISK_GB", "10")),
         recv_timeout=float(os.environ.get("HYPERSYNC_RECV_TIMEOUT", "120")),
+        rediscover_pools=os.environ.get("REDISCOVER_POOLS", "false").lower() in ("1", "true", "yes"),
+        rescan=rescan,
     )
 
 
@@ -754,21 +815,21 @@ def main() -> None:
     try:
         create_schema(con)
         config = resolve_config(con, client, duckdb_path)
-        logger.info("Benchmark scan blocks %s - %s (%d blocks) into %s", f"{config.start_block:,}", f"{config.end_block:,}", config.end_block - config.start_block + 1, duckdb_path)
+        logger.info("Benchmark scan ranges %s into %s", ", ".join(f"{a:,}-{b:,}" for a, b in config.scan_ranges) or "none", duckdb_path)
 
         pools = choose_pools(con, web3, client, config)
         assert pools, "No reference pools could be chosen"
         store_pools(con, pools)
         pool_map = {p.address.lower(): p for p in pools}
 
-        if config.end_block >= config.start_block:
-            chunk_starts = range(config.start_block, config.end_block + 1, config.chunk_blocks)
-            total = 0
-            chunks_since_checkpoint = 0
-            progress = tqdm(chunk_starts, desc="Benchmark swap scan", unit="chunk")
+        total = 0
+        chunks_since_checkpoint = 0
+        for range_start, range_end in config.scan_ranges:
+            chunk_starts = range(range_start, range_end + 1, config.chunk_blocks)
+            progress = tqdm(chunk_starts, desc=f"Benchmark swap scan {range_start:,}-{range_end:,}", unit="chunk")
             for chunk_start in progress:
                 ensure_disk_space(duckdb_path, config.min_free_disk_gb)
-                chunk_end = min(chunk_start + config.chunk_blocks - 1, config.end_block)
+                chunk_end = min(chunk_start + config.chunk_blocks - 1, range_end)
                 started = time.time()
                 n, pages = scan_swap_chunk(con, client, pool_map, chunk_start, chunk_end, config.recv_timeout)
                 total += n
@@ -776,14 +837,14 @@ def main() -> None:
                 logger.info("Blocks %s - %s: %d swaps in %d pages, %.1f s", f"{chunk_start:,}", f"{chunk_end:,}", n, pages, time.time() - started)
                 chunks_since_checkpoint = checkpoint_if_due(con, duckdb_path, chunks_since_checkpoint, config.checkpoint_every_chunks)
                 pace_pages(pages, started)
+        if config.scan_ranges:
             logger.info("Swap scan done: %d swaps", total)
         else:
-            logger.info("Nothing new to scan, last benchmarked block is %s", f"{config.start_block - 1:,}")
+            logger.info("Nothing new to scan")
 
-        # Derived tables cover the whole benchmarked range, so a run that resumed
-        # part-way (or REBUILD_START_BLOCK) still rebuilds earlier chunks' rows.
-        rebuild_start = int(os.environ.get("REBUILD_START_BLOCK", config.start_block))
-        rebuild_end = max(config.end_block, config.start_block - 1)
+        # Derived tables always cover the whole benchmarked range so earlier gaps and new trades are picked up
+        rebuild_start = int(os.environ.get("REBUILD_START_BLOCK", read_scan_state(con, "benchmark_first_scanned_block") or 0))
+        rebuild_end = read_scan_state(con, "benchmark_last_scanned_block") or 0
         if rebuild_end >= rebuild_start:
             prices, benchmarks = rebuild_block_prices(con, rebuild_start, rebuild_end)
             logger.info("Rebuilt %d end-of-block benchmark prices and %d per-trade benchmarks for blocks %s - %s", prices, benchmarks, f"{rebuild_start:,}", f"{rebuild_end:,}")
