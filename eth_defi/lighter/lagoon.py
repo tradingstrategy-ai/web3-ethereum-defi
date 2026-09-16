@@ -5,6 +5,12 @@ Safe to Lighter through ``TradingStrategyModuleV0``. A Lighter API-key secure
 withdrawal is requested off-chain; once Lighter makes it claimable, this module
 claims its L1 pending balance back to the same Safe.
 
+The secure-withdrawal delay is dynamic. Read
+:py:func:`eth_defi.lighter.api.fetch_lighter_withdrawal_delay` for an operator
+estimate, but only a ``claimable`` withdrawal-history status permits the L1
+claim. Fast withdrawals require the L1 account's EOA private key and are not
+available to a contract-owned Safe.
+
 Authoritative Lighter deposit documentation:
 https://apidocs.lighter.xyz/docs/deposits-transfers-and-withdrawals
 """
@@ -138,7 +144,11 @@ def claim_usdc_to_lagoon_safe_from_lighter(
 
     This helper deliberately does not request a withdrawal. The request is an
     L2 API-key operation; this is the Safe-gated L1 egress step and can only
-    name :attr:`LagoonVault.safe_address` as its receiver.
+    name :attr:`LagoonVault.safe_address` as its receiver. Lighter's dynamic
+    secure-withdrawal delay is informational only: claim only after the
+    matching withdrawal history item is ``claimable``. A fast withdrawal is
+    not an alternative for this flow because it needs the L1 account's EOA
+    private key, whereas the account owner is a Safe contract.
 
     :param web3:
         Ethereum mainnet connection.
