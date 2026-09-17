@@ -634,9 +634,78 @@ display(tol.style.format({"n": "{:,}", "degradation_p50": "{:.2f}", "degradation
 findings("""
 **What these charts show.** From the aggregator router's calldata we decoded the minimum output each user accepted; relative to Tessera's quote that is the user's slippage tolerance in basis points. The first chart is the distribution of tolerances, the second is the degradation actually taken within each tolerance bucket. Only orders where the router's order maps onto this single Tessera leg are included, so multi-hop routes are excluded.
 
-**What the result means.** Tolerances cluster at front-end defaults: 50, 100, 200 and 300 bps, with a median of 99 bps. The degradation taken does not grow with the tolerance given; it is about two to four bps whether the user allowed 50 bps or 300. The median fill consumes under one percent of the tolerance and only 1.4 % of fills land within a basis point of the user's bound. The venue takes a fixed few bps, not "whatever the user allowed", and it stays far enough inside the bound that the transaction never reverts.
+**What the result means.** Tolerances cluster at front-end defaults: 50, 100, 200 and 300 bps, with a median of 99 bps. The degradation taken does not grow with the tolerance given: above about 15 bps of tolerance it is about two to four bps whether the user allowed 50 bps or 300 (the next section looks at the orders below that). The median fill consumes under one percent of the tolerance and only 1.4 % of fills land within a basis point of the user's bound. The venue takes a fixed few bps, not "whatever the user allowed", and it stays far enough inside the bound that the transaction never reverts.
 
 **What it means for retail users.** Tightening the slippage setting from 1 % to 0.1 % would not remove a four-bp skim, because four bps is inside either. A tolerance of 100 bps, which is what most apps set by default, gives the venue twenty-five times the room it uses. The setting protects the user against a large price move between quote and settlement; it offers no protection against a small, deliberate one, which is exactly what this is. Users who see their trades succeed inside their tolerance reasonably conclude the fill was fine.
+""")
+
+md("""
+## The skim never exceeds the tolerance, and appears as soon as the tolerance allows it
+
+- The bucketed view above hides the individual orders. Here every single-leg retail order is a dot: the tolerance the user set against the degradation they received, jittered so that the quantised values (front-end defaults on one axis, whole basis points on the other) do not collapse onto each other
+- The dashed curve is the fill landing exactly at the user's bound; a fill above it would have reverted, so no dot can be there
+- A heatmap of the same data by bucket, and the share of the tolerance consumed per aggregator, follow
+""")
+
+code("""
+scatter_aggregators = [a for a in ["kyberswap", "0x", "okx", "paraswap", "1inch", "aggregator-2f68"] if (bound["aggregator"] == a).sum() >= 300]
+rng = np.random.default_rng(0)
+jitter = bound[bound["aggregator"].isin(scatter_aggregators)].copy()
+jitter["x"] = jitter["user_slippage_bps"].clip(lower=0.5) * np.exp(rng.normal(0, 0.04, len(jitter)))
+jitter["y"] = jitter["quote_to_fill_bps"] + rng.normal(0, 0.12, len(jitter))
+
+fig = go.Figure()
+for name in scatter_aggregators:
+    sub = jitter[jitter["aggregator"] == name]
+    fig.add_scatter(x=sub["x"], y=sub["y"], mode="markers", marker=dict(color=AGGREGATOR_COLOURS[name], size=4, opacity=0.18), showlegend=False, hoverinfo="skip")
+    fig.add_scatter(x=[None], y=[None], mode="markers", name=f"{name} (n={len(sub):,})", marker=dict(color=AGGREGATOR_COLOURS[name], size=10))
+diagonal = np.logspace(np.log10(0.5), np.log10(20), 60)
+fig.add_scatter(x=diagonal, y=diagonal, mode="lines", name="fill exactly at the user's bound (reverts above)", line=dict(color="#6f6f6c", dash="dash", width=1.5))
+style(fig, "Realised degradation vs the slippage tolerance the user set, one dot per single-leg retail order (jittered)", "User tolerance relative to Tessera's quote, bps (log scale)", "Realised quote-to-fill degradation, bps")
+fig.update_xaxes(type="log", range=[np.log10(0.5), 3], tickvals=[1, 5, 10, 25, 50, 100, 200, 300, 500, 1000], ticktext=["1", "5", "10", "25", "50", "100", "200", "300", "500", "1000"])
+fig.update_yaxes(range=[-3, 16])
+fig.show()
+
+tolerance_edges = [0, 5, 15, 35, 75, 150, 250, 400, 1000]
+tolerance_labels = ["under 5", "5–15", "15–35", "35–75", "75–150", "150–250", "250–400", "400–1000"]
+realised_edges = [-np.inf, 0.5, 1.5, 3, 5, 7, 10, np.inf]
+realised_labels = ["≤0", "1", "2", "3–5", "5–7", "7–10", ">10"]
+bound["tolerance_bin"] = pd.cut(bound["user_slippage_bps"], tolerance_edges, labels=tolerance_labels, include_lowest=True)
+bound["realised_bin"] = pd.cut(bound["quote_to_fill_bps"], realised_edges, labels=realised_labels)
+grid_counts = bound.pivot_table(index="realised_bin", columns="tolerance_bin", values="quote_to_fill_bps", aggfunc="size", fill_value=0, observed=False)
+grid_share = grid_counts / grid_counts.sum()
+
+fig = go.Figure(go.Heatmap(
+    z=grid_share.values, x=[f"{c}<br>n={grid_counts[c].sum():,}" for c in grid_share.columns], y=list(grid_share.index),
+    text=[[f"{v:.0%}" for v in row] for row in grid_share.values], texttemplate="%{text}",
+    colorscale=[[0, "#fdf1f1"], [1, COLOURS["fill"]]], zmin=0, zmax=0.85, colorbar=dict(title="share of<br>column", tickformat=".0%"),
+))
+style(fig, "Realised degradation by tolerance bucket, share of each tolerance column", "User tolerance, bps", "Realised degradation, bps", legend=False)
+fig.show()
+
+fig = go.Figure()
+for name in scatter_aggregators:
+    v = bound.loc[bound["aggregator"] == name, "user_slippage_consumed_fraction"].clip(0, 1).sort_values()
+    fig.add_scatter(x=v.values, y=np.linspace(0, 1, len(v)), mode="lines", name=f"{name} (median {v.median():.1%})", line=dict(color=AGGREGATOR_COLOURS[name], width=2))
+style(fig, "Share of the user's tolerance consumed by the fill, cumulative distribution by aggregator", "Realised degradation as a share of the tolerance (100 % = fill exactly at the bound)", "Share of orders")
+fig.update_xaxes(range=[0, 1], tickformat=".0%")
+fig.update_yaxes(tickformat=".0%")
+fig.show()
+
+by_agg_tol = bound[bound["aggregator"].isin(scatter_aggregators)].groupby(["aggregator", "tolerance_bin"], observed=True)["quote_to_fill_bps"].agg(n="size", p50="median").reset_index()
+by_agg_tol.loc[by_agg_tol["n"] < 40, "p50"] = np.nan
+display(by_agg_tol.pivot(index="aggregator", columns="tolerance_bin", values="p50").style.format("{:.2f}", na_rep="—").set_caption("Median realised degradation, bps, by aggregator and tolerance bucket (cells with fewer than 40 orders suppressed)"))
+near_bound = bound.groupby("tolerance_bin", observed=True)["user_headroom_bps"].apply(lambda s: (s < 1).mean()).to_frame("fills within 1 bp of the bound")
+near_bound["orders"] = grid_counts.sum()
+display(near_bound.T.style.format({c: "{:.1%}" for c in near_bound.index}, subset=pd.IndexSlice[["fills within 1 bp of the bound"], :]).format("{:,.0f}", subset=pd.IndexSlice[["orders"], :]))
+""")
+
+findings("""
+**What these charts show.** The first chart is every single-leg retail order with a decoded tolerance, one jittered dot per order, coloured by aggregator, with the tolerance on a log axis and the realised degradation on a linear one; the dashed curve is where a fill would land exactly at the user's bound. The second is the same data as a heatmap, each tolerance column normalised to 100 %, so it reads as "given this tolerance, how was the order filled". The third is the share of the tolerance the fill consumed, as a cumulative distribution per aggregator. The tables give the median degradation per aggregator and tolerance bucket, and how often fills land within a basis point of the bound.
+
+**What the result means.** The dots form horizontal bands, not a diagonal: the realised degradation sits at 0, 1, 2, 4, 6 and 12 bps whatever the tolerance, and which band an order lands in is decided by the aggregator (KyberSwap at 1 to 2, 0x at 0, OKX, Paraswap and 1inch at 5 to 7 with a tail to 12). The one place the tolerance does matter is at the bottom of the range. When the user allowed less than 5 bps, 82 % of fills are at the quote and 27 % land within a basis point of the bound; within the aggregators that are otherwise skimmed, the median drops to zero or one basis point (OKX and Paraswap 0.0, 1inch 1.0, on 48 to 97 orders each). From 5 bps of tolerance upwards the full skim is present, and above 35 bps the share filled at the quote no longer depends on the tolerance at all (24 to 57 % by column, driven by which aggregator dominates the column). The dashed bound line is empty above it by construction, and the >10 bps row of the heatmap only fills in where the tolerance permits it. In consumed-tolerance terms the median fill uses 0.6 % of the room on KyberSwap, 0 % on 0x, 3 % on 1inch, 7 % on OKX and 12 % on Paraswap; 99 % of fills use less than three quarters of it.
+
+**What it means for retail users.** The slippage setting is a ceiling the venue respects, not a dial the venue reads. Above about 5 bps of tolerance the amount taken is fixed by the aggregator's path, so lowering a default 100 bps to 50 or 25 changes nothing; below 5 bps the skim cannot fit and the fill lands at the quote, either because the venue prices inside the bound or because the transactions that would have breached it reverted and never became fills (we only see successful trades, so the two cannot be separated here). The practical reading is uncomfortable: the only setting that protects against this skim is one tight enough to cause reverts on ordinary market moves, which is why no front-end sets it, and why the aggregator's own fill checks, not the user's slippage field, are where the protection has to live.
 """)
 
 md("""
