@@ -5,7 +5,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from eth_defi.erc_4626.classification import _get_hardcoded_protocol_features, create_vault_instance
+from eth_defi.erc_4626.classification import _get_hardcoded_protocol_features, create_vault_instance  # noqa: PLC2701
 from eth_defi.erc_4626.core import ERC4626Feature, get_vault_protocol_name
 from eth_defi.erc_4626.vault_protocol.flying_tulip.constants import FLYING_TULIP_FT_BY_CHAIN, FLYING_TULIP_SFTUSD_BY_CHAIN, FLYING_TULIP_USDC_MINT_REDEEM_FEE_BY_CHAIN
 from eth_defi.erc_4626.vault_protocol.flying_tulip.vault import FLYING_TULIP_UNSUPPORTED_FLOW_REASON, FlyingTulipVault
@@ -64,15 +64,21 @@ def test_flying_tulip_queue_aware_transaction_support_is_fail_closed() -> None:
     assert FLYING_TULIP_UNSUPPORTED_FLOW_REASON
 
 
-def test_flying_tulip_strategy_tags_are_evidence_scoped() -> None:
-    """Expose only the documented current strategy and leave BNB untagged."""
+def test_flying_tulip_strategy_tags_cover_documented_strategy_mix() -> None:
+    """Expose Flying Tulip's documented strategy mix and leave BNB untagged."""
 
     ethereum = FlyingTulipVault(SimpleNamespace(eth=SimpleNamespace(chain_id=1)), VaultSpec(1, FLYING_TULIP_SFTUSD_BY_CHAIN[1]))
     sonic = FlyingTulipVault(SimpleNamespace(eth=SimpleNamespace(chain_id=146)), VaultSpec(146, FLYING_TULIP_SFTUSD_BY_CHAIN[146]))
     bnb = FlyingTulipVault(SimpleNamespace(eth=SimpleNamespace(chain_id=56)), VaultSpec(56, FLYING_TULIP_SFTUSD_BY_CHAIN[56]))
 
-    assert ethereum.get_strategy_tags() == {StrategyTag.lending}
-    assert sonic.get_strategy_tags() == {StrategyTag.lending}
+    expected = {
+        StrategyTag.carry_trade,
+        StrategyTag.delta_neutral,
+        StrategyTag.lending,
+        StrategyTag.multistrategy,
+    }
+    assert ethereum.get_strategy_tags() == expected
+    assert sonic.get_strategy_tags() == expected
     assert bnb.get_strategy_tags() is None
 
 
