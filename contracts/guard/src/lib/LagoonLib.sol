@@ -454,9 +454,10 @@ library LagoonLib {
         settlementWindow = _effectiveSettlementWindow(config);
         uint256 windowStartTimestamp = config.windowStartTimestamp;
         // forge-lint: disable-next-line(block-timestamp)
-        if (windowStartTimestamp != 0 && block.timestamp < windowStartTimestamp + settlementWindow) {
+        uint256 windowEndTimestamp_ = _settlementWindowEnd(windowStartTimestamp, settlementWindow);
+        if (windowStartTimestamp != 0 && block.timestamp < windowEndTimestamp_) {
             settledAmountInWindow = config.settledAmountInWindow;
-            windowEndTimestamp = windowStartTimestamp + settlementWindow;
+            windowEndTimestamp = windowEndTimestamp_;
         }
     }
 
@@ -506,9 +507,10 @@ library LagoonLib {
         settlementWindow = _effectiveSettlementWindow(config);
         uint256 windowStartTimestamp = config.windowStartTimestamp;
         // forge-lint: disable-next-line(block-timestamp)
-        if (windowStartTimestamp != 0 && block.timestamp < windowStartTimestamp + settlementWindow) {
+        uint256 windowEndTimestamp_ = _settlementWindowEnd(windowStartTimestamp, settlementWindow);
+        if (windowStartTimestamp != 0 && block.timestamp < windowEndTimestamp_) {
             settledAmountInWindow = config.settledAmountInWindow;
-            windowEndTimestamp = windowStartTimestamp + settlementWindow;
+            windowEndTimestamp = windowEndTimestamp_;
         }
     }
 
@@ -604,7 +606,7 @@ library LagoonLib {
         if (grossSettlementAmount != 0) {
             bool startsFreshWindow = snapshot.windowStartTimestamp == 0
                 // forge-lint: disable-next-line(block-timestamp)
-                || block.timestamp >= snapshot.windowStartTimestamp + snapshot.settlementWindow;
+                || block.timestamp >= _settlementWindowEnd(snapshot.windowStartTimestamp, snapshot.settlementWindow);
             uint256 alreadyUsed = startsFreshWindow ? 0 : snapshot.settledAmountInWindow;
             if (
                 alreadyUsed > snapshot.maxSettlementAmount
@@ -621,7 +623,7 @@ library LagoonLib {
             LagoonStorage storage config = _storage();
             uint256 windowStartTimestamp = startsFreshWindow ? block.timestamp : snapshot.windowStartTimestamp;
             uint256 settledAmountInWindow = alreadyUsed + grossSettlementAmount;
-            uint256 windowEndTimestamp = windowStartTimestamp + snapshot.settlementWindow;
+            uint256 windowEndTimestamp = _settlementWindowEnd(windowStartTimestamp, snapshot.settlementWindow);
             config.windowStartTimestamp = windowStartTimestamp;
             config.settledAmountInWindow = settledAmountInWindow;
             emit LagoonSettlementWindowUpdated(
@@ -649,6 +651,26 @@ library LagoonLib {
             return DEFAULT_LAGOON_SETTLEMENT_WINDOW;
         }
         return configuredWindow;
+    }
+
+    /// Calculate a settlement-window expiry without allowing a configuration to brick validation.
+    ///
+    /// A duration close to ``type(uint256).max`` is unusual but owner-configurable.
+    /// Saturating the expiry makes it an effectively unexpired window rather than
+    /// reverting every settlement and state query through checked addition.
+    ///
+    /// @param windowStartTimestamp Timestamp at which the active window started.
+    /// @param settlementWindow Configured duration in seconds.
+    /// @return Window expiry, saturated at the maximum representable timestamp.
+    function _settlementWindowEnd(uint256 windowStartTimestamp, uint256 settlementWindow)
+        private
+        pure
+        returns (uint256)
+    {
+        unchecked {
+            uint256 windowEndTimestamp = windowStartTimestamp + settlementWindow;
+            return windowEndTimestamp < windowStartTimestamp ? type(uint256).max : windowEndTimestamp;
+        }
     }
 
     // ----- Configuration validation helpers -----

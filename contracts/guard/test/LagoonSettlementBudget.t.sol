@@ -164,6 +164,22 @@ contract LagoonSettlementBudgetTest is Test {
         assertEq(endAfterEmpty, 0);
     }
 
+    function testMaximumWindowDoesNotOverflowSettlementAccounting() public {
+        harness.configure(address(vault), address(asset), address(silo), CAP, type(uint256).max);
+        vm.warp(type(uint256).max - 1);
+
+        harness.executeSettlement(vault, 1 * USDC, 0);
+        (uint256 window, uint256 used, uint256 end) = _state();
+        assertEq(window, type(uint256).max);
+        assertEq(used, 1 * USDC);
+        assertEq(end, type(uint256).max);
+
+        harness.executeSettlement(vault, 1 * USDC, 0);
+        (, used, end) = _state();
+        assertEq(used, 2 * USDC);
+        assertEq(end, type(uint256).max);
+    }
+
     function testDirectSettlementDoesNotChangeAssetManagerBudget() public {
         vault.settle(20 * USDC, 0);
         (uint256 window, uint256 used, uint256 end) = _state();
