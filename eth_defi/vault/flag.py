@@ -4,7 +4,7 @@ import enum
 
 from eth_typing import HexAddress
 
-from eth_defi.erc_4626.vault_protocol.axis.constants import AXIS_CHAIN_ID, AXIS_NOTES, AXIS_STAKED_USDX_VAULT
+from eth_defi.erc_4626.vault_protocol.axis.constants import AXIS_NOTES_BY_CHAIN
 from eth_defi.tokenised_fund.ondo.constants import ONDO_PRODUCT_NOTES, ONDO_TOKENISED_FUND_ADDRESSES
 from eth_defi.tokenised_fund.securitize.description import SECURITIZE_PRODUCT_NOTES, SECURITIZE_TOKENISED_FUND_ADDRESSES
 from eth_defi.tokenised_fund.spiko.constants import EUTBL_TOKEN_ADDRESS, USTBL_TOKEN_ADDRESS
@@ -65,16 +65,32 @@ class VaultFlag(str, enum.Enum):
     # Properitary trading
     proprietary_trading = "proprietary_trading"
 
+    #: The vault supplies automated-market-maker inventory and is exposed to
+    #: trader profit and loss.
+    market_making = "market_making"
+
+    #: The vault represents a pro-rata share of protocol liquidity.
+    liquidity_provision = "liquidity_provision"
+
     #: This vault represents an underlying wrapped asset like a share
     wrapped_asset = "wrapped_asset"
 
-    #: This vault represents shares in a tokenised fund.
+    #: This vault represents shares in a legally structured tokenised fund.
     #:
     #: Fund assets, NAV calculation and investor eligibility can be managed
-    #: off-chain by the fund issuer.
+    #: off-chain by the fund issuer. Apply this only where the product has a
+    #: legal fund structure; epoch-settled DeFi vault shares alone do not make
+    #: a product a tokenised fund.
     tokenised_fund = "tokenised_fund"
 
-    #: Vault ls missing in the protocol official website and might be a spoof attempt
+    #: A detectable vault cannot be verified as an official product from a
+    #: protocol's authoritative metadata. Use this flag only where the source
+    #: explicitly does not endorse the vault; absence from one frontend alone
+    #: is insufficient because a protocol can endorse partner products outside
+    #: its primary frontend. The deployment may be unofficial or a spoof attempt.
+    #: For example, the Yearn V3-compatible Coinflakes Vault V2.0 at
+    #: ``0x254bd33e2f62713f893f0842c99e68f855cda315`` is absent from Yearn's
+    #: frontend and is therefore ``unofficial``.
     unofficial = "unofficial"
 
     #: Vault has abnormal price behaviour on low TVL
@@ -193,6 +209,23 @@ SPIKO_EUTBL_NOTE = """Spiko EU T-Bills Money Market Fund (EUTBL).
 - **Fees:** Spiko states a 0.25% annual management fee, reflected in NAV/share.
 """
 
+#: Public qualification for GMX's share-price-equivalent performance curve.
+#:
+#: GMX liquidity-provider shares retain exposure to every token in their
+#: underlying markets, despite the single-sided USDC performance convention.
+GMX_SINGLE_SIDED_USDC_NOTE = "The vault performance approximates the single-sided USDC deposit value. GMX vaults hold exposure to all underlying tokens they market make"
+
+#: Public qualification for YieldBasis's USD redemption-value curve.
+#: The note gives general readers concise return and risk guidance.
+YIELD_BASIS_NOTE = """A [YieldBasis](https://yieldbasis.com/earn) yb-LP is a leveraged BTC or ETH liquidity-provider position. Its value rises and falls with the underlying asset.
+
+yb-LP yield comes primarily from [trading fees earned by the underlying Curve pool and YieldBasis LEVAMM](https://docs.yieldbasis.com/user/protocol/fee-mechanics), after protocol fee allocations and rebalancing costs.
+
+Performance is shown in USD using the marginal amount returned by `preview_withdraw`, so the [Temporary Redemption Discount (TRD)](https://docs.yieldbasis.com/user/protocol/fundamental-value-redemption-value-and-trd) is part of the historical equity curve. [New shares mint at fundamental PPS, while exits use redemption value](https://docs.yieldbasis.com/dev/integration/deposit-withdraw); negative TRD therefore affects an immediate exit, not entry.
+
+The entry and exit fee fields each model a 0.10% conversion between a generic USD stablecoin and the pool's BTC or ETH token. These endpoint costs sit outside the historical equity curve and exclude price impact, gas and MEV.
+"""
+
 #: Vault-specific notes and classifications that do not exclude a vault from
 #: research datasets.
 #:
@@ -207,6 +240,12 @@ VAULT_NOTES: dict[str, str] = {
     "0x6a7c6aa2b8b8a6a891de552bdeffa87c3f53bd46": ODA_FACT_MONY_NOTE,
     USTBL_TOKEN_ADDRESS: SPIKO_USTBL_NOTE,
     EUTBL_TOKEN_ADDRESS: SPIKO_EUTBL_NOTE,
+}
+
+#: Protocol-wide descriptive notes that do not flag products as problematic.
+PROTOCOL_NOTES: dict[str, str] = {
+    "GMX": GMX_SINGLE_SIDED_USDC_NOTE,
+    "YieldBasis": YIELD_BASIS_NOTE,
 }
 
 #: Product classification flags that are descriptive rather than exclusionary.
@@ -233,7 +272,7 @@ VAULT_DESCRIPTIVE_FLAGS: dict[str, set[VaultFlag]] = {
 CHAIN_SCOPED_VAULT_NOTES: dict[tuple[int, str], str] = {
     (chain_id, address): format_handwritten_vault_note(metadata)
     for (chain_id, address), metadata in MORINI_CAPITAL_VAULT_METADATA.items()
-} | {(AXIS_CHAIN_ID, AXIS_STAKED_USDX_VAULT): AXIS_NOTES}
+} | AXIS_NOTES_BY_CHAIN
 # fmt: on
 
 
@@ -264,8 +303,9 @@ def get_vault_special_flags(address: str | HexAddress, protocol_name: str | None
 def get_notes(address: HexAddress | str, chain_id: int | None = None, protocol_name: str | None = None) -> str | None:
     """Get vault-specific notes.
 
-    Notes can come from the descriptive notes matrix, special vault flags or
-    chain-wide defaults. Descriptive notes do not make a vault flagged.
+    Notes can come from the descriptive vault or protocol notes matrices,
+    special vault flags or chain-wide defaults. Descriptive notes do not make
+    a vault flagged.
 
     :param address:
         Vault address (will be lowercased).
@@ -291,6 +331,10 @@ def get_notes(address: HexAddress | str, chain_id: int | None = None, protocol_n
         protocol_entry = PROTOCOL_FLAGS_AND_NOTES.get(protocol_name)
         if protocol_entry:
             return protocol_entry[1]
+
+        note = PROTOCOL_NOTES.get(protocol_name)
+        if note:
+            return note
 
     # Default note for all Hypercore vaults
     from eth_defi.hyperliquid.constants import HYPERCORE_CHAIN_ID
@@ -351,6 +395,8 @@ ILLIQUID_ABNORMAL_SHARE_PRICE = "Vault likely illiquid. Share price chart has ab
 MISSING_IN_PROTOCOL_FRONTEND = "This vault is missing in the protocol's primary website and cannot be verified."
 
 NOT_IN_MORPHO_API = "This vault does not appear on Morpho website."
+
+NOT_IN_YEARN_FRONTEND = "This Yearn V3-compatible vault is not endorsed in Yearn's authoritative metadata."
 
 TEST_VAULT = "This appears to be a test vault and should not be shown to end users."
 
@@ -772,6 +818,8 @@ VAULT_FLAGS_AND_NOTES: dict[str, tuple[VaultFlag | None, str]] = {
     "lighter-pool-robinhood-281474976710654": (None, LIGHTER_ROBINHOOD_LLP_INSURANCE),
     # Morpho Yearn Morpho Vault 1 Compounder (Base)
     "0xf115c134c23c7a05fbd489a8be3116ebf54b0d9f": (VaultFlag.subvault, SUBVAULT),
+    # Morpho Moonwell Flagship USDC Compounder (Base)
+    "0xd5428b889621eee8060fc105aa0ab0fa2e344468": (VaultFlag.subvault, SUBVAULT),
     # Morpho Zircuit Finance USDC on Base Compounder
     "0x049e8aab2d3ca187e47d74cf8171ad266f18643e": (VaultFlag.subvault, SUBVAULT),
     # Tulipa Capital USDT0
@@ -785,6 +833,8 @@ VAULT_FLAGS_AND_NOTES: dict[str, tuple[VaultFlag | None, str]] = {
     "0x0e297de4005883c757c9f09fdf7cf1363c20e626": (VaultFlag.subvault, SUBVAULT),
     # USDC To sUSDS Depositor (Yearn on Ethereum)
     "0xda2f1b3cba732d779cff56f0cf9d3bc8aea6cd8d": (VaultFlag.subvault, SUBVAULT),
+    # DAI to USDS Depositor
+    "0xaedf7d5f3112552e110e5f9d08c9997adce0b78d": (VaultFlag.subvault, SUBVAULT),
     # Morpho Gauntlet USDT Prime Compounder
     "0x6d2981ff9b8d7edbb7604de7a65bac8694ac849f": (VaultFlag.subvault, SUBVAULT),
     # Morpho Gauntlet AUSD Vault Compounder

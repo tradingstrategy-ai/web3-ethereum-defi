@@ -26,9 +26,27 @@ from eth_defi.vault import scan_all_chains
 from eth_defi.vault.base import VaultSpec
 from eth_defi.vault.scan_all_chains import ChainConfig
 from eth_defi.vault.vaultdb import VaultDatabase
+from eth_defi.yield_basis.vault_catalog import YieldBasisScanPreparation
 
 LAST_CACHED_BLOCK = 456
 FULL_SCAN_BLOCK = 789
+
+
+def _isolate_yield_basis_pre_scan(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Keep lead-cache tests independent of YieldBasis contract reads.
+
+    :param monkeypatch:
+        Pytest monkeypatch fixture used to replace the protocol pre-scan.
+    :return:
+        None.
+    """
+
+    monkeypatch.setattr(scan_all_chains, "get_almost_latest_block_number", lambda _web3: FULL_SCAN_BLOCK)
+    monkeypatch.setattr(
+        scan_all_chains,
+        "fetch_yield_basis_scan_preparation",
+        lambda _web3, block_number: YieldBasisScanPreparation(1, block_number, False, None, (), ("not exercised by lead-cache test",)),
+    )
 
 
 def test_function_source_hash_ignores_name_and_docstring() -> None:
@@ -122,6 +140,8 @@ def test_fresh_state_skips_lead_discovery(
 ) -> None:
     """A matching fresh state returns without calling the costly scanner."""
 
+    _isolate_yield_basis_pre_scan(monkeypatch)
+
     vault_db_path = tmp_path / "vault-metadata-db.pickle"
     vault_db = VaultDatabase(last_scanned_block={1: LAST_CACHED_BLOCK})
     vault_db.write(vault_db_path)
@@ -178,6 +198,8 @@ def test_signature_change_forces_metadata_refresh_and_saves_state(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """A changed configuration invokes metadata refresh and persists its state."""
+
+    _isolate_yield_basis_pre_scan(monkeypatch)
 
     vault_db_path = tmp_path / "vault-metadata-db.pickle"
 
@@ -324,6 +346,8 @@ def test_failed_metadata_refresh_keeps_previous_cache_state(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """A failed refresh does not hide a retry behind a fresh cache timestamp."""
+
+    _isolate_yield_basis_pre_scan(monkeypatch)
 
     vault_db_path = tmp_path / "vault-metadata-db.pickle"
     VaultDatabase(last_scanned_block={1: LAST_CACHED_BLOCK}).write(vault_db_path)

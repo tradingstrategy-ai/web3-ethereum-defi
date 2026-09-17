@@ -86,6 +86,17 @@ class VaultTechnicalRisk(enum.Enum):
 #: See :py:func:`eth_defi.erc_4626.core.get_vault_protocol_name` for the names list.
 #:
 VAULT_PROTOCOL_RISK_MATRIX = {
+    # Flying Tulip's reviewed sftUSD vault, wrapper and circuit breaker are
+    # upgradeable and no public report-level audit covering these deployments
+    # has been identified.
+    "Flying Tulip": VaultTechnicalRisk.severe,
+    # GMX V2 is an established, open-source liquidity protocol with publicly
+    # verifiable deployments. Market and oracle exposure remain separate from
+    # this technical smart-contract-risk classification.
+    "GMX": VaultTechnicalRisk.low,
+    # YieldBasis contracts and deployment records are public and maintained,
+    # but leveraged AMM/oracle controls remain material protocol risks.
+    "YieldBasis": VaultTechnicalRisk.low,
     "Euler": VaultTechnicalRisk.negligible,
     "Morpho": VaultTechnicalRisk.negligible,
     "Enzyme": VaultTechnicalRisk.low,
@@ -103,6 +114,9 @@ VAULT_PROTOCOL_RISK_MATRIX = {
     "Midas": VaultTechnicalRisk.low,
     # Asseto's AoABT deployment has verified contracts and a public audit.
     "Asseto": VaultTechnicalRisk.low,
+    # Rysk Premium uses curator-controlled, epoch-priced option-writing pools.
+    # The Rysk contracts and the NAV committee process require separate review.
+    "Rysk": None,
     # Franklin Templeton Benji is a permissioned, proprietary fund-token
     # platform. Product and operational risks need human assessment.
     "Franklin Templeton": None,
@@ -304,23 +318,174 @@ VAULT_SPECIFIC_RISK = {
     # Superform vault - no indication of underlying activity or positions
     # https://app.superform.xyz/vault/1_0x942bed98560e9b2aa0d4ec76bbda7a7e55f6b2d6
     "0x942bed98560e9b2aa0d4ec76bbda7a7e55f6b2d6": VaultTechnicalRisk.blacklisted,
-    # LONGV4 HyperEVM vault - totalAssets() and convertToAssets() run out of gas
-    # with CALL_GAS=2,000,000 and poison historical scanner Multicall3 batches.
-    "0x2eee42a0704dd4c0ff8141f85e24de9085a76093": VaultTechnicalRisk.blacklisted,
-    # Altcopy Flagship and Index HyperEVM vaults. At block 41,487,203 all
-    # configured RPC providers reject the scanner's 2,000,000-gas
-    # totalAssets(), convertToAssets() and maxDeposit() probes. The two vaults
-    # therefore poison historical Multicall3 batches and cannot be exported
-    # safely as generic ERC-4626 vaults.
-    "0xcdb9671e671562b60481e4929ef80a5360af718b": VaultTechnicalRisk.blacklisted,
+    # -----------------------------------------------------------------------
+    # HyperEVM (chain id 999) vaults that value themselves from HyperCore
+    #
+    # Full write-up, measurements and reproduction snippet:
+    #   docs/README-hyperevm-hypercore-read-gas.md
+    # Investigation, blacklist audit and the reasoning behind these entries:
+    #   https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/1536
+    #
+    # Read this before adding, removing or trusting any HyperEVM entry below.
+    #
+    # What HyperCore is
+    # -----------------
+    # Hyperliquid runs two paired execution environments: HyperCore (the L1
+    # order book, spot balances, staking and vault equity) and HyperEVM (the
+    # EVM chain). A HyperEVM contract cannot read HyperCore storage directly;
+    # it staticcalls the HyperCore *read precompiles* in the range
+    # 0x...0800 - 0x...0810:
+    #
+    #   0x...0800 position              0x...0806 mark price
+    #   0x...0801 spot balance          0x...0807 oracle price
+    #   0x...0802 user vault equity     0x...0808 spot price
+    #   0x...0803 withdrawable          0x...0809 L1 block number
+    #   0x...0804 delegations           0x...080a-0x...080c asset/token info
+    #   0x...0805 delegator summary     0x...0810 core user exists
+    #
+    # Vaults whose NAV lives on HyperCore therefore call precompiles inside
+    # totalAssets(), and transitively inside convertToAssets() and
+    # maxDeposit(). totalSupply() stays a plain ERC-20 storage read.
+    #
+    # The fingerprint
+    # ---------------
+    # That asymmetry is how this failure mode is recognised: totalAssets(),
+    # convertToAssets() and maxDeposit() misbehave while totalSupply() always
+    # answers. A vault that is dead or cooked fails on all four.
+    #
+    # Failure mode A - the HyperCore view is only available near the head
+    # -------------------------------------------------------------------
+    # A read precompile answers from the node's live HyperCore view, not from
+    # the historical EVM state trie. Outside that view the staticcall fails and
+    # the contract turns it into a revert. Hyperdrive's CoreReaderLib raises
+    # ReadFailure(address) = 0x18c34104, whose argument names the precompile
+    # that could not be read; other implementations use their own strings, for
+    # example "SpotBalance precompile call failed".
+    #
+    # Measured on 2026-08-28: for HYPED the boundary was a single block, with
+    # totalAssets() reverting up to 44,372,819 and succeeding from 44,372,820,
+    # roughly two minutes behind the head. At the same block one provider
+    # answers and another reverts, and the two swap places minutes later. So
+    # this is a per-node, per-moment property, not a property of the block, and
+    # no provider can reconstruct these vaults' NAV for an arbitrary past
+    # block. Historical gaps for such a vault must never be "repaired" by
+    # rescanning: the data does not exist anywhere.
+    #
+    # Failure mode B - provider gas accounting, not real out of gas
+    # -------------------------------------------------------------
+    # goldsky and dRPC attribute an enormous gas figure to precompile
+    # staticcalls. The same totalAssets() that executes in about 117k gas on
+    # Alchemy is accounted at tens of millions there, and Alchemy's own
+    # estimate_gas for it inside Multicall3 reports 2,843,730. Consequences:
+    #
+    # - The batch is rejected up front with
+    #   -32003 "out of gas: gas required exceeds: <cap>", echoing whatever cap
+    #   we send: 1M, 10M, 30M, 100M and 299M all come back refused. Nothing
+    #   actually runs out of gas during execution.
+    # - Multicall3 tryBlockAndAggregate() concatenates every sub-call, so one
+    #   such vault aborts the whole historical price batch and the scanner
+    #   loops with provider rotation and batch shrinking. Shrinking only helps
+    #   when the offending vault happens to drop out of the batch, which is why
+    #   the failure looks random and moves between fallbacks.
+    #
+    # How to diagnose before touching this list
+    # -----------------------------------------
+    # 1. Replay the logged tryBlockAndAggregate (0x399542e9) payload group by
+    #    group per address, and duplicate one address's calls x2 / x4 / x8. A
+    #    real hog fails alone when duplicated; a bystander never does.
+    # 2. Call *without* an explicit gas field. An imposed cap produces false
+    #    verdicts: the 2,000,000 CALL_GAS default of
+    #    scripts/erc-4626/poke-hyperevm-vault-calls.py is what wrongly
+    #    condemned LONGV4 and Altcopy Flagship, see below.
+    # 3. Probe at head, head-20k, head-100k and head-500k on every provider in
+    #    JSON_RPC_HYPERLIQUID, not just the one that failed.
+    # 4. Run debug_traceCall with callTracer and list the callees in the
+    #    0x...0800 - 0x...0810 range. This works even for unverified vaults and
+    #    proves the HyperCore dependency.
+    # 5. Fetch verified source through the Etherscan v2 unified API with
+    #    chainid=999 (Sourcify has no HyperEVM coverage) and grep for
+    #    CoreReaderLib. Resolve the proxy implementation first.
+    #
+    # Blacklist policy for this failure mode
+    # --------------------------------------
+    # Blacklist only when the whole valuation surface is unusable, including at
+    # the head, on every provider. A provider refusing to price a batch, or an
+    # exceeded cap that we imposed ourselves, is not evidence of a broken
+    # contract, and blacklisting on that basis silently deletes a live vault
+    # from reports. Hyperdrive Liquid Staked Hype
+    # 0x4d0fF6a0DD9f7316b674Fb37993A3Ce28BEA340e is the worked counter-example:
+    # it triggers both failure modes and is deliberately kept off this list.
+    #
+    # The entries below are blacklisted for the narrower reason that their
+    # historical valuation is unobtainable on every provider, which is what the
+    # price pipeline needs. They are live at the head, so if a head-NAV-only
+    # path is ever added they should be revisited.
+    # -----------------------------------------------------------------------
+    #
+    # Altcopy Index. debug_traceCall shows totalAssets() reading the spot
+    # balance precompile 0x...0801 and the user vault equity precompile
+    # 0x...0802 eight times. Cheap at the head (estimate_gas 222,530, 8,168
+    # USDC of assets) but the call fails at head-20k, head-100k and head-500k
+    # on every provider (PR #1536).
+    #
+    # LONGV4 0x2eee42a0704dd4c0ff8141f85e24de9085a76093 and Altcopy Flagship
+    # 0xcdb9671e671562b60481e4929ef80a5360af718b were removed from this list on
+    # 2026-08-28. Their entries claimed "all providers reject the 2,000,000-gas
+    # probes", which was diagnosis step 2 above going wrong: that 2M is our own
+    # CALL_GAS default, not a provider limit. Without it LONGV4 reads to
+    # head-500k on Alchemy and Altcopy Flagship reads to head-500k on all three
+    # providers (PR #1536).
     "0xf8f7c57fb94cc1f7f2c77dc29b5216c4d3c3125d": VaultTechnicalRisk.blacklisted,
-    # Hyperdrive HLP and Gamma Symphony Vault on HyperEVM. At historical block
-    # 41,858,003 their totalAssets(), convertToAssets() and maxDeposit() calls
-    # revert with the 0x18c34104 custom error, leaving only totalSupply()
-    # usable. This poisons their historical Multicall3 price-reader batch;
-    # current-state probes working again does not restore the missing history.
+    # Hyperdrive HLP and Gamma Symphony Vault. Both failure modes above,
+    # measured on 2026-08-28 (PR #1536):
+    #
+    # - Both proxies share the implementation
+    #   0xa05959fbd41e30396446c36d099e5f3b20fb6ad6, verified on chain 999 as
+    #   TokenizedVaultUpgradeable, which consumes the same CoreReaderLib as
+    #   HYPED. debug_traceCall shows totalAssets() staticcalling the L1 block
+    #   number precompile 0x...0809.
+    # - They answer at the head (9,024 USDC and 36 USDC of assets), so the
+    #   0x18c34104 = ReadFailure(0x...0809) reverts recorded for them at block
+    #   41,858,003 and at head-20,000 on all three providers mean "no
+    #   historical NAV", not "broken vault".
+    # - totalSupply() has always worked, which is the fingerprint above.
+    #
+    # Current-state probes working again does not restore the missing history,
+    # so they stay listed until a head-only valuation path exists.
     "0x6ed613e86e8d0b6617e445f17323ac0162ff6ce6": VaultTechnicalRisk.blacklisted,
     "0x2b37f3566933e4dbe59c6b86bedbc91c1e04d774": VaultTechnicalRisk.blacklisted,
+    # Raga Hype Stable Strategy (rHYPE) on HyperEVM, asset USDt0
+    # 0xb8ce59fc3717ada4c02eadf9682a9e934f625ebb. The ERC-1967 proxy delegates
+    # totalAssets() to an AccountMarginSummary HyperCore precompile read at
+    # 0x...080f. At the head the direct call is cheap (~94k gas), but two copies
+    # of the normal four ERC-4626 scanner probes make both Goldsky and dRPC
+    # reject Multicall3 with out-of-gas. Alchemy can answer at the head, but
+    # totalAssets() already reverts at head-200 on Alchemy, Goldsky and dRPC:
+    # "Account margin summary precompile call failed". Repeated provider
+    # failover, smaller batches and direct calls therefore cannot produce the
+    # historical NAV required by the generic price scanner.
+    "0xa4ab2aa522234a2ea2713ebade0fec069e4f3a95": VaultTechnicalRisk.blacklisted,
+    # RatesETF (RATES) on HyperEVM, asset USDt0
+    # 0xb8ce59fc3717ada4c02eadf9682a9e934f625ebb. The proxy's totalAssets()
+    # reads HyperCore's withdrawable-balance precompile at 0x...0803. The call
+    # is ~197k gas on a working head, yet combining it with another affected
+    # vault's four ERC-4626 probes exhausts Goldsky's and dRPC's Multicall3 gas
+    # accounting. Historical calls at head-200 fail on all three configured
+    # providers with "Withdrawable precompile call failed". This has remained
+    # unreliable despite repeated provider retries, batch reduction and
+    # Alchemy failover, so it cannot be a generic historical valuation source.
+    "0xda482b56c85da2ec8e59d65ec4b1f9a6b414061e": VaultTechnicalRisk.blacklisted,
+    # Raga Hype Stable Strategy (rHYPE) on HyperEVM, asset USDt0
+    # 0xb8ce59fc3717ada4c02eadf9682a9e934f625ebb. This is a separate proxy
+    # from the rHYPE vault above; totalAssets() reaches HyperCore SpotBalance
+    # at 0x...0801. It is inexpensive (~94k gas) when the provider can serve
+    # current Core state, but duplicating its four-probe batch causes Goldsky
+    # and dRPC to reject the Multicall3 request as out of gas. At head-200 its
+    # valuation read fails on Alchemy, Goldsky and dRPC with "SpotBalance
+    # precompile call failed". Many direct-call, retry, batch-size and provider
+    # failover attempts have not made historical reads reliable; blacklist it
+    # rather than repeatedly stalling the scanner.
+    "0x77f1652d969dd56a75a2cb1a7c60fb7c314d71a3": VaultTechnicalRisk.blacklisted,
     # Rocket Markets Survivor Vaults on Monad.
     #
     # Scanner failure context:
@@ -517,15 +682,45 @@ _BROKEN_VAULT_CONTRACTS = {
     "0x5705554BAa86Da01fF4A82d29a1598c5B3A8B476",  # Open PnL feed helper contract for broken Gains vault on Berachain
     "0x8fF6aDBC653405245B6b686E31b14A7da7000281",  # BNB broken contract
     "0x6949bcab16c0B389095C5b744f6FBF9741A1b3b6",  # Test vault on Monad
-    "0x2eEe42A0704DD4C0fF8141f85E24De9085A76093",  # LONGV4 HyperEVM vault - totalAssets() and convertToAssets() hit BasicOutOfGas(2000000), poisoning historical scanner Multicall3 batches
-    "0xcDB9671E671562B60481e4929eF80A5360af718b",  # Altcopy Flagship HyperEVM vault - its core ERC-4626 probes hit BasicOutOfGas(2000000) at block 41,487,203
-    "0xF8F7c57FB94CC1F7f2C77Dc29b5216C4D3C3125d",  # Altcopy Index HyperEVM vault - totalAssets() hits BasicOutOfGas(2000000) at block 41,487,203
-    # Hyperdrive HLP and Gamma Symphony Vault on HyperEVM. At block
-    # 41,858,003, totalAssets(), convertToAssets() and maxDeposit() revert
-    # with 0x18c34104, so they cannot provide historical valuations and poison
-    # the failing Multicall3 batch. See VAULT_SPECIFIC_RISK above.
+    # HyperEVM (chain id 999) vaults that read HyperCore.
+    #
+    # These are a different animal from the dead 2017 mainnet contracts around
+    # them. They are live, they answer at the head, and only their *history* is
+    # unobtainable, because a HyperCore read precompile serves the node's live
+    # view. They are listed here so their calls never enter a historical
+    # Multicall3 batch, where goldsky and dRPC reject the whole batch with
+    # -32003 "out of gas" for any cap we send. The failure mechanism, the
+    # measurements and the diagnosis checklist are written out in full above
+    # the same addresses in VAULT_SPECIFIC_RISK, and in
+    # docs/README-hyperevm-hypercore-read-gas.md / PR #1536.
+    #
+    # Do not add a HyperEVM address here just because a provider refused a
+    # batch or because an imposed CALL_GAS cap was exceeded. LONGV4
+    # 0x2eEe42A0704DD4C0fF8141f85E24De9085A76093 and Altcopy Flagship
+    # 0xcDB9671E671562B60481e4929eF80A5360af718b were listed here for
+    # BasicOutOfGas(2000000), which was our own 2M diagnostic cap rather than a
+    # provider limit; both read to head-500k without it and were unlisted on
+    # 2026-08-28 (PR #1536).
+    "0xF8F7c57FB94CC1F7f2C77Dc29b5216C4D3C3125d",  # Altcopy Index - totalAssets() staticcalls the HyperCore spot balance precompile 0x...0801 and the user vault equity precompile 0x...0802 eight times (debug_traceCall); 8,168 USDC at head, no readable history on any provider
+    # Hyperdrive HLP and Gamma Symphony Vault. Both proxies run the verified
+    # implementation 0xa05959fbd41e30396446c36d099e5f3b20fb6ad6
+    # (TokenizedVaultUpgradeable, a CoreReaderLib consumer). Their
+    # totalAssets(), convertToAssets() and maxDeposit() staticcall the L1 block
+    # number precompile 0x...0809 and revert with 0x18c34104 =
+    # CoreReaderLib.ReadFailure(0x...0809) outside the node's HyperCore view,
+    # for example at block 41,858,003 and at head-20,000 on all three
+    # providers, while totalSupply() keeps working. They hold 9,024 USDC and 36
+    # USDC at the head, so this is missing history, not a broken vault
+    # (PR #1536).
     "0x6ED613E86e8D0b6617e445f17323AC0162FF6ce6",
     "0x2b37f3566933E4DBe59c6b86BedbC91c1E04D774",
+    # HyperEVM HyperCore-read vaults whose historical totalAssets() calls fail
+    # on every configured provider and whose repeated probe batches cause
+    # Goldsky/dRPC Multicall3 out-of-gas failures. See the address-specific
+    # rejection evidence in VAULT_SPECIFIC_RISK above.
+    "0xA4ab2Aa522234a2EA2713eBadE0fec069e4F3A95",  # Raga Hype Stable Strategy (rHYPE), AccountMarginSummary precompile 0x...080f
+    "0xdA482B56C85Da2Ec8e59d65eC4b1F9a6B414061E",  # RatesETF (RATES), Withdrawable precompile 0x...0803
+    "0x77f1652D969DD56a75a2cb1a7C60FB7C314d71a3",  # Raga Hype Stable Strategy (rHYPE), SpotBalance precompile 0x...0801
     # Rocket Markets Survivor Vault (RKTSV) on Monad. See the detailed
     # VAULT_SPECIFIC_RISK comment above. totalAssets() and convertToAssets()
     # revert at block 87,952,850 and at current head, and the Monad RPC reports
@@ -548,7 +743,16 @@ _BROKEN_VAULT_CONTRACTS = {
     "0x1681f371c88b0655d32e61e83d398c75dcdfcd13",
     "0x5a8aFb250525aB8Fa85EF9a5f260Eb11B77a409a",  # Age old mainnet contract from 2017 (block 4,655,173) - burns all forwarded gas before reverting, poisoning the multicall probe batch with out-of-gas (-32003)
     "0x162428775A4C6c513FF8722B91D1aF45a9Caff41",  # Unverified old mainnet EtherDelta-style DEX from 2018 (block 4,934,650) - deposit/trade/withdraw methods, not a vault
-    "0xd3F41DAC84594332E4fF3C7fd2242DeAF7857e79",  # HYPE Funding Yield (HFY) HyperEVM USDt0 vault - totalAssets() and convertToAssets() hit HyperCore SpotBalance precompile revert at block 39,542,844, poisoning Multicall3 scanner batches with out-of-gas (-32003)
+    # HYPE Funding Yield (HFY), HyperEVM USD0 vault. Same HyperCore mechanism as
+    # the cluster above: totalAssets() staticcalls the spot balance precompile
+    # 0x...0801 (debug_traceCall, 2026-08-28) and the unverified runtime
+    # bytecode carries the strings "SpotBalance precompile call failed",
+    # "MarkPx precompile call failed", "Position precompile call failed" and
+    # "Withdrawable precompile call failed"; goldsky answers
+    # "execution reverted: SpotBalance precompile ...". It holds 10 USD0 at the
+    # head and estimates at 126,909 gas there, but historical reads revert on
+    # every provider, so only head valuations exist (PR #1536).
+    "0xd3F41DAC84594332E4fF3C7fd2242DeAF7857e79",
 }
 
 #: Cause excessive gas fees, RPC havoc.
@@ -556,4 +760,12 @@ _BROKEN_VAULT_CONTRACTS = {
 #: Old Ethereum mainnet contracts when revert was not properly existing.
 #: Harmless but cause extra RPC load.
 #: These fail when we probe contract calls to identify them.
+#:
+#: Membership hides an address from discovery, reports and the historical price
+#: reader alike, so it is not a "skip the history" switch. The HyperEVM entries
+#: are listed under protest for exactly that reason: those vaults are alive at
+#: the head and only their HyperCore-backed history is unreadable. See the
+#: mechanism block above the same addresses in :py:data:`VAULT_SPECIFIC_RISK`,
+#: ``docs/README-hyperevm-hypercore-read-gas.md`` and PR #1536 before adding a
+#: chain 999 address here.
 BROKEN_VAULT_CONTRACTS = {addr.lower() for addr in _BROKEN_VAULT_CONTRACTS}

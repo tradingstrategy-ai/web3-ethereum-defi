@@ -14,9 +14,11 @@ from eth_defi.hyperliquid import tags as hyperliquid_tags
 from eth_defi.hyperliquid.vault_data_export import create_hyperliquid_vault_row
 from eth_defi.lighter import tags as lighter_tags
 from eth_defi.lighter.vault_data_export import create_lighter_pool_row
-from eth_defi.vault.strategy_tag import StrategyTag, get_strategy_tag_display_label
+from eth_defi.vault.strategy_tag import STRATEGY_TAG_METADATA, StrategyTag
 
 EXPECTED_GRVT_VAULT_COUNT = 26
+EXPECTED_LIGHTER_STRATEGY_TAGGED_VAULT_COUNT = 231
+EXPECTED_LIGHTER_DIRECTIONAL_LEVERAGE_VAULT_COUNT = 194
 
 
 def test_market_making_is_the_only_general_market_tag() -> None:
@@ -24,7 +26,7 @@ def test_market_making_is_the_only_general_market_tag() -> None:
     assert StrategyTag("market_maker") is StrategyTag.market_making
     assert "market_maker" not in {tag.value for tag in StrategyTag}
     assert StrategyTag.market_making_clob.value == "market_making_clob"
-    assert get_strategy_tag_display_label(StrategyTag.market_making_clob) == "Orderbook market making"
+    assert STRATEGY_TAG_METADATA[StrategyTag.market_making_clob]["label"] == "Orderbook market making"
 
 
 def test_native_perp_dex_vault_rows_have_default_strategy_tag() -> None:
@@ -197,6 +199,16 @@ def test_hyperliquid_grid_descriptions_are_tagged(vault_address: str, specific_t
     assert hyperliquid_tags.get_strategy_tags(vault_address) == specific_tags | {StrategyTag.perpetual_futures}
 
 
+def test_stratwise_spot_vault_strategy_tags() -> None:
+    """Stratwise's spot-only vault receives its address-scoped tags."""
+    assert hyperliquid_tags.get_strategy_tags("0x0ff219ac20596b457558341bc410bc7a08a1394c") == {
+        StrategyTag.algorithmic_trading,
+        StrategyTag.directional_trading,
+        StrategyTag.grid_trading,
+        StrategyTag.mean_reversion,
+    }
+
+
 def test_lighter_grid_description_is_tagged() -> None:
     """The long-only Lighter grid pool receives its supported tags."""
     assert lighter_tags.get_strategy_tags("lighter-pool-281474976552443") == {
@@ -204,6 +216,39 @@ def test_lighter_grid_description_is_tagged() -> None:
         StrategyTag.grid_trading,
         StrategyTag.perpetual_futures,
     }
+
+
+def test_lighter_auto_rebalanced_pools_are_directional_leverage() -> None:
+    """Lighter's fixed 2x pools are direct leveraged exposure, not trade intelligence."""
+    expected = {
+        StrategyTag.directional_trading,
+        StrategyTag.directional_leverage,
+        StrategyTag.perpetual_futures,
+    }
+
+    #: ADA 2x long is the documented representative direct-leverage pool.
+    assert lighter_tags.get_strategy_tags("lighter-pool-281474976708413") == expected
+    assert len(lighter_tags.DIRECTIONAL_LEVERAGE_VAULTS) == EXPECTED_LIGHTER_DIRECTIONAL_LEVERAGE_VAULT_COUNT
+    assert all(lighter_tags.get_strategy_tags(address) == expected for address in lighter_tags.DIRECTIONAL_LEVERAGE_VAULTS)
+
+
+def test_lighter_documented_delta_neutral_grid_pool_is_tagged() -> None:
+    """Shrimp Liquidity Provider receives every tag stated in its description."""
+    assert lighter_tags.get_strategy_tags("lighter-pool-281474976666704") == {
+        StrategyTag.algorithmic_trading,
+        StrategyTag.delta_neutral,
+        StrategyTag.grid_trading,
+        StrategyTag.perpetual_futures,
+    }
+
+
+def test_all_lighter_strategy_mapping_entries_use_supported_resolvers() -> None:
+    """Every maintained Lighter classification augments the native default."""
+    assert len(lighter_tags.STRATEGY_TAGS) == EXPECTED_LIGHTER_STRATEGY_TAGGED_VAULT_COUNT
+
+    for address, specific_tags in lighter_tags.STRATEGY_TAGS.items():
+        assert address == address.lower()
+        assert lighter_tags.get_strategy_tags(address) == specific_tags | {StrategyTag.perpetual_futures}
 
 
 def test_hlp_and_fire_liquidity_provider_are_market_making() -> None:
@@ -221,7 +266,7 @@ def test_hlp_and_fire_liquidity_provider_are_market_making() -> None:
 
 def test_native_perp_liquidity_providers_are_market_making_clob() -> None:
     """Native perpetual-DEX liquidity-provider mappings operate on CLOBs."""
-    for module in (apex_tags, grvt_tags, hibachi_tags, hyperliquid_tags):
+    for module in (apex_tags, grvt_tags, hibachi_tags, hyperliquid_tags, lighter_tags):
         for address, tags in module.STRATEGY_TAGS.items():
             if StrategyTag.liquidity_provider in tags:
                 assert StrategyTag.market_making_clob in module.get_strategy_tags(address)

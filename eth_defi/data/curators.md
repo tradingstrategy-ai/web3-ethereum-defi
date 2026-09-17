@@ -135,6 +135,7 @@ Sorted by pool TVL.
 |---------|---------|---------|-------|
 | Edge & Hedge | | [@blothecap](https://x.com/blothecap) | Quantitative delta neutral L/S, ~3x leverage, ~110% CAGR backtest (~$2.4M TVL). Also on Hyperliquid |
 | Systemic Strategies | | [@SystemicStratHL](https://x.com/SystemicStratHL) | Grid long/short strategies ("Peter Schiff's vault" and others) (~$768k TVL). Also on Hyperliquid |
+| Dima | | [@dima_quant](https://x.com/dima_quant) | Automated 20-day breakout and delta-neutral long/short pools. Separate from Systemic Strategies |
 | Alleged Alpha | | [@allegedalpha](https://x.com/allegedalpha) | Systematic multi-strategy L/S; targets Sharpe ~3, APR >100% (~$514k TVL) |
 | Silentist | https://www.silentist.xyz | [@silentist_inc](https://x.com/silentist_inc) | VC-backed quant team; BTC/bluechip ALTs, 37% trend, 37% reversion, 25% neutral (~$53k TVL). Also on GRVT and Hyperliquid |
 | Gamma Strategies | https://www.gamma.xyz | [@GammaStrategies](https://x.com/GammaStrategies) | Manages "Symphony" pool (multi-strategy market-neutral); known for concentrated liquidity management on Uniswap and other DEXes (~$51k TVL) |

@@ -1,0 +1,13 @@
+feeder-id: darkmatter-labs
+name: Darkmatter Labs
+role: curator
+short_description: Darkmatter Labs curates the drkmttr automated market-making vault on Hyperliquid.
+long_description: |
+  Darkmatter Labs is the curator associated with the [drkmttr vault](https://tradingstrategy.ai/vaults/drkmttr), a native perpetual trading vault on Hyperliquid.
+  The public vault listing describes a hybrid strategy with market-making automation. The curator's public identity is provided through its [X profile](https://x.com/_darkmatterlabs).
+twitter: _darkmatterlabs
+
+# Evidence and background references.
+other-links:
+  - title: Trading Strategy vault page - drkmttr Hyperliquid vault, attributed to Darkmatter Labs
+    url: https://tradingstrategy.ai/vaults/drkmttr

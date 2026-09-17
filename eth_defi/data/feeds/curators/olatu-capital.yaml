@@ -1,0 +1,9 @@
+feeder-id: olatu-capital
+name: Olatu Capital
+role: curator
+short_description: Olatu Capital is the manager label used for a conservative long-term DeFi investment vault.
+long_description: |
+  The [Olatu Capital Enzyme Blue listing](https://app.enzyme.finance/vault/0x1c6a1591d4a25e1ab258e3476bab4c022df79055?network=ethereum) describes a conservative strategy investing in established projects for long-term appreciation while using DeFi policies to optimise returns. No separate Enzyme curator field or independently verified public manager profile is available for this vault.
+other-links:
+  - title: Enzyme Blue - Olatu Capital listing
+    url: https://app.enzyme.finance/vault/0x1c6a1591d4a25e1ab258e3476bab4c022df79055?network=ethereum

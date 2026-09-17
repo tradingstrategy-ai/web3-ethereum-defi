@@ -123,9 +123,14 @@ def test_accountable_susn_vault(
 @pytest.mark.timeout(180)
 @flaky.flaky
 def test_accountable_hyperithm_fee_configuration(web3: Web3) -> None:
-    """Read the complete legacy fee configuration for the Hyperithm vault.
+    """Read Hyperithm's current V2 Accountable fee configuration.
 
     https://tradingstrategy.ai/vaults/hyperithm-delta-neutral-vault
+
+    Hyperithm replaced aHYPER's 20% performance fee with a 0.5% annual
+    management fee on 2026-09-09. The live Monad fork deliberately reads the
+    current configuration because Monad cannot provide archive-complete state.
+    https://x.com/hyperithm/status/2097507545250455831
     """
     vault = create_vault_instance_autodetect(
         web3,
@@ -136,16 +141,16 @@ def test_accountable_hyperithm_fee_configuration(web3: Web3) -> None:
     fees = vault.fetch_accountable_fees()
 
     assert fees.strategy_address == Web3.to_checksum_address("0xD0943c76ee287793559c1dF82E5B2B858Dd01Ef3")
-    assert fees.fee_manager_address == Web3.to_checksum_address("0x4DE9B4d7b70d1680cD8E3A2C60717cBbe6014991")
+    assert fees.fee_manager_address == Web3.to_checksum_address("0x0E503d4B0d463855E819D7201f6BD2604d423C4C")
     assert fees.basis_points == ACCOUNTABLE_FEE_DENOMINATOR
-    assert fees.supports_management_fee is False
+    assert fees.supports_management_fee is True
     assert fees.establishment_fee == 0.0
-    assert fees.management_fee == 0.0
-    assert fees.performance_fee == pytest.approx(0.20)
-    assert fees.manager_performance_fee_split == pytest.approx(0.75)
-    assert fees.protocol_performance_fee_split == pytest.approx(0.25)
-    assert fees.manager_management_fee_split is None
-    assert fees.protocol_management_fee_split is None
+    assert fees.management_fee == pytest.approx(0.005)
+    assert fees.performance_fee == 0.0
+    assert fees.manager_performance_fee_split == 1.0
+    assert fees.protocol_performance_fee_split == 0.0
+    assert fees.manager_management_fee_split == 0.0
+    assert fees.protocol_management_fee_split == 1.0
     assert fees.prepayment_fee == pytest.approx(0.02)
     assert fees.vault_minimum_deposit_raw is not None
     assert fees.strategy_minimum_deposit_raw is not None
@@ -154,8 +159,8 @@ def test_accountable_hyperithm_fee_configuration(web3: Web3) -> None:
     assert fees.minimum_deposit == vault.denomination_token.convert_to_decimals(fees.minimum_deposit_raw)
 
     standard_fees = vault.get_fee_data()
-    assert standard_fees.management == 0.0
-    assert standard_fees.performance == pytest.approx(0.20)
+    assert standard_fees.management == pytest.approx(0.005)
+    assert standard_fees.performance == 0.0
     assert standard_fees.deposit == 0.0
     assert standard_fees.withdraw == 0.0
 

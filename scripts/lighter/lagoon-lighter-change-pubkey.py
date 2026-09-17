@@ -1,11 +1,13 @@
 """Print a Lighter ``changePubKey`` (API-key registration) transaction for the Safe Transaction Builder.
 
 Registering a Lighter API key for a Safe-controlled (Lagoon vault) account is an
-on-chain ``ZkLighter.changePubKey(accountIndex, apiKeyIndex, pubKey)`` call made
-**from the Safe** (Lighter recommends the on-chain ChangePubKey for multisigs).
+onchain ``ZkLighter.changePubKey(accountIndex, apiKeyIndex, pubKey)`` call made
+**from the Safe** (Lighter recommends the onchain ChangePubKey for multisigs).
 This is a privileged setup action by the Safe owners (governance) — it is *not*
 part of the asset-manager guard whitelist, so it goes directly through the Safe,
-not the ``TradingStrategyModule``'s restricted ``performCall`` path.
+not the ``TradingStrategyModule``'s restricted ``performCall`` path. The Safe
+guard sees the direct transaction and permits it through its intentional
+governance bypass.
 
 This CLI does **not** sign or send anything. It prints the transaction so you
 can paste it into the Safe{Wallet} **Transaction Builder** (use "Custom data":
@@ -13,14 +15,15 @@ the ``To`` address, ``ETH value`` 0, and the raw ``Data`` hex), then collect the
 multisig signatures in the Safe UI. (Same idea as the manual guard-migration
 instructions printed by trade-executor's ``lagoon-deploy-vault`` command.)
 
-Generate the API keypair off-chain first (the ``lighter-python`` SDK); pass the
-resulting public key as ``PUB_KEY`` (40-byte hex).
+Generate the API keypair first with
+``eth_defi.lighter.api_key.generate_lighter_api_key``; pass its public key as
+``PUB_KEY`` (40-byte hex).
 
 Example::
 
     SAFE_ADDRESS=0xYourSafe ACCOUNT_INDEX=12345 API_KEY_INDEX=4 \
         PUB_KEY=0x0101...<40 bytes> \
-        python scripts/lighter/lagoon-lighter-change-pubkey.py
+        poetry run python scripts/lighter/lagoon-lighter-change-pubkey.py
 
 Environment variables
 ---------------------
@@ -46,13 +49,18 @@ ETHEREUM_CHAIN_ID = 1
 
 
 def _require(name: str) -> str:
+    """Read a required environment variable.
+
+    :param name: Environment variable name.
+    :return: Non-empty environment variable value.
+    """
     value = os.environ.get(name)
     if not value:
         raise ValueError(f"{name} is required")
     return value
 
 
-def _change_pubkey_abi() -> dict:
+def _change_pubkey_abi() -> dict[str, object]:
     """Return the ``changePubKey`` ABI fragment (for the Safe Transaction Builder)."""
     abi = get_abi_by_filename("lighter/ZkLighter.json")["abi"]
     for entry in abi:
@@ -62,7 +70,11 @@ def _change_pubkey_abi() -> dict:
     raise RuntimeError(msg)
 
 
-def main():
+def main() -> None:
+    """Print an unsigned Lighter key-registration transaction.
+
+    :return: ``None`` after printing the Safe Transaction Builder payload.
+    """
     safe_address = Web3.to_checksum_address(_require("SAFE_ADDRESS"))
     account_index = int(_require("ACCOUNT_INDEX"))
     api_key_index = int(os.environ.get("API_KEY_INDEX", "4"))

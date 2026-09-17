@@ -10,5 +10,7 @@ specific to the original Ethereum deployment.
 
 See :py:mod:`eth_defi.lighter.vault` for pool-related functionality,
 :py:mod:`eth_defi.lighter.daily_metrics` for the daily metrics pipeline and
-:py:mod:`eth_defi.lighter.valuation` for account NAV helpers.
+:py:mod:`eth_defi.lighter.valuation` for account NAV helpers. Authenticated
+SDK integrations can use :py:mod:`eth_defi.lighter.sdk` for short-lived token
+refresh and retry around idempotent calls.
 """

@@ -15,7 +15,9 @@ from eth_defi.provider.fallback import FallbackProvider
 from eth_defi.provider.receipt import (
     ReceiptVisibilityMismatch,
     ReceiptVisibilityTimedOut,
+    TransactionVisibilityTimedOut,
     get_read_providers,
+    wait_for_transaction_visibility,
     wait_for_transaction_receipt_robust,
 )
 
@@ -37,6 +39,11 @@ def _raw_receipt(
     }
 
 
+def _raw_transaction(tx_hash: str = TX_HASH) -> dict:
+    """Create a minimal raw JSON-RPC transaction response."""
+    return {"hash": tx_hash}
+
+
 class FakeProvider:
     """Minimal provider supporting direct raw JSON-RPC calls."""
 
@@ -44,20 +51,32 @@ class FakeProvider:
         self,
         name: str,
         receipts: list[dict | None] | None = None,
+        transactions: list[dict | None | BaseException] | None = None,
         block_number: str | list[str | BaseException] = "0x2",
     ):
         self.endpoint_uri = f"https://{name}.example"
         self.receipts = receipts or [_raw_receipt()]
+        self.transactions = transactions or [_raw_transaction()]
         self.block_numbers = block_number if isinstance(block_number, list) else [block_number]
         self.calls: list[str] = []
+        self.request_params: list[tuple[str, list]] = []
 
     def make_request(self, method: str, params: list) -> dict:
         self.calls.append(method)
+        self.request_params.append((method, params))
         if method == "eth_getTransactionReceipt":
             if len(self.receipts) > 1:
                 result = self.receipts.pop(0)
             else:
                 result = self.receipts[0]
+            if isinstance(result, BaseException):
+                raise result
+            return {"jsonrpc": "2.0", "id": 1, "result": result}
+        if method == "eth_getTransactionByHash":
+            if len(self.transactions) > 1:
+                result = self.transactions.pop(0)
+            else:
+                result = self.transactions[0]
             if isinstance(result, BaseException):
                 raise result
             return {"jsonrpc": "2.0", "id": 1, "result": result}
@@ -205,6 +224,120 @@ def test_get_read_providers_anvil_active_only(monkeypatch: pytest.MonkeyPatch):
 
     # 3. Check only the active provider is returned.
     assert get_read_providers(web3) == [provider_2]
+
+
+def test_wait_for_transaction_visibility_immediate(monkeypatch: pytest.MonkeyPatch):
+    """Continue immediately when every read provider has the transaction.
+
+    1. Create two read providers that both have the pending transaction.
+    2. Wait for transaction visibility.
+    3. Check each provider was queried once and its transaction is returned.
+    """
+
+    # 1. Create two read providers that both have the pending transaction.
+    provider_1 = FakeProvider("read-1")
+    provider_2 = FakeProvider("read-2")
+    web3 = FakeWeb3(FallbackProvider([provider_1, provider_2]))
+    monkeypatch.setattr(receipt_module, "_is_anvil", lambda web3: False)
+
+    # 2. Wait for transaction visibility.
+    transaction = wait_for_transaction_visibility(
+        web3,
+        TX_HASH,
+        timeout=1,
+        poll_delay=0.001,
+        max_poll_delay=0.002,
+    )
+
+    # 3. Check each provider was queried once and its transaction is returned.
+    assert transaction == _raw_transaction()
+    assert provider_1.calls == ["eth_getTransactionByHash"]
+    assert provider_2.calls == ["eth_getTransactionByHash"]
+    assert provider_1.request_params == [("eth_getTransactionByHash", [TX_HASH])]
+
+
+def test_wait_for_transaction_visibility_polls_again_before_short_timeout(monkeypatch: pytest.MonkeyPatch):
+    """Poll again before a sub-second visibility deadline expires.
+
+    1. Create a provider that sees the transaction on its second request.
+    2. Wait with a short visibility timeout.
+    3. Check the second poll returned the transaction.
+    """
+
+    # 1. Create a provider that sees the transaction on its second request.
+    provider = FakeProvider("read-1", transactions=[None, _raw_transaction()])
+    web3 = FakeWeb3(FallbackProvider([provider]))
+    monkeypatch.setattr(receipt_module, "_is_anvil", lambda web3: False)
+
+    # 2. Wait with a short visibility timeout.
+    transaction = wait_for_transaction_visibility(
+        web3,
+        TX_HASH,
+        timeout=0.01,
+        poll_delay=0.001,
+        max_poll_delay=0.002,
+    )
+
+    # 3. Check the second poll returned the transaction.
+    assert transaction == _raw_transaction()
+    assert provider.calls.count("eth_getTransactionByHash") == 2
+
+
+def test_wait_for_transaction_visibility_allows_partial_after_timeout(monkeypatch: pytest.MonkeyPatch):
+    """Progress when one read provider fails after the visibility deadline.
+
+    1. Create one provider with the transaction and one failing provider.
+    2. Wait through a short all-provider visibility deadline.
+    3. Check the visible transaction is returned instead of raising an error.
+    """
+
+    # 1. Create one provider with the transaction and one failing provider.
+    provider_1 = FakeProvider("read-1")
+    provider_2 = FakeProvider("read-2", transactions=[ProviderConnectionError("permanent RPC failure")])
+    web3 = FakeWeb3(FallbackProvider([provider_1, provider_2]))
+    monkeypatch.setattr(receipt_module, "_is_anvil", lambda web3: False)
+
+    # 2. Wait through a short all-provider visibility deadline.
+    transaction = wait_for_transaction_visibility(
+        web3,
+        TX_HASH,
+        timeout=0.01,
+        poll_delay=0.001,
+        max_poll_delay=0.002,
+    )
+
+    # 3. Check the visible transaction is returned instead of raising an error.
+    assert transaction == _raw_transaction()
+    assert provider_2.calls.count("eth_getTransactionByHash") > 1
+
+
+def test_wait_for_transaction_visibility_times_out_without_any_response(monkeypatch: pytest.MonkeyPatch):
+    """Fail when no read provider sees the transaction before the deadline.
+
+    1. Create two providers that never return the pending transaction.
+    2. Wait with a short visibility deadline.
+    3. Check the error reports both missing providers.
+    """
+
+    # 1. Create two providers that never return the pending transaction.
+    provider_1 = FakeProvider("read-1", transactions=[None])
+    provider_2 = FakeProvider("read-2", transactions=[None])
+    web3 = FakeWeb3(FallbackProvider([provider_1, provider_2]))
+    monkeypatch.setattr(receipt_module, "_is_anvil", lambda web3: False)
+
+    # 2. Wait with a short visibility deadline.
+    with pytest.raises(TransactionVisibilityTimedOut) as exc_info:
+        wait_for_transaction_visibility(
+            web3,
+            TX_HASH,
+            timeout=0.01,
+            poll_delay=0.001,
+            max_poll_delay=0.002,
+        )
+
+    # 3. Check the error reports both missing providers.
+    assert "read-1.example" in str(exc_info.value)
+    assert "read-2.example" in str(exc_info.value)
 
 
 def test_wait_for_transaction_receipt_robust_immediate(monkeypatch: pytest.MonkeyPatch):

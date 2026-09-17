@@ -187,7 +187,15 @@ def needs_metadata_refresh(row: VaultRow, detection: ERC4262VaultDetection) -> b
         ``True`` when rebuilding the row is required.
     """
 
-    return row.get("Protocol") != "Arcus" or ERC4626Feature.arcus_like not in detection.features or ERC4626Feature.arcus_like not in row.get("features", set()) or row.get("_manager_name") != "Arcus" or not row.get("_short_description") or not row.get("_description")
+    return any(
+        (
+            row.get("Protocol") != "Arcus",
+            ERC4626Feature.arcus_like not in detection.features,
+            ERC4626Feature.arcus_like not in row.get("features", set()),
+            row.get("_manager_name") != "Arcus",
+            not all(row.get(field) for field in ("_short_description", "_description", "_notes")),
+        )
+    )
 
 
 def create_lead_from_detection(detection: ERC4262VaultDetection) -> PotentialVaultMatch:
@@ -262,6 +270,8 @@ def migrate_arcus_metadata(
             rebuilt_row = create_vault_scan_record(web3, detection, web3.eth.block_number, token_cache)
             if rebuilt_row.get("Protocol") != "Arcus":
                 raise ValueError(f"Arcus target {spec} rebuilt with unexpected protocol {rebuilt_row.get('Protocol')!r}")
+            if needs_metadata_refresh(rebuilt_row, detection):
+                raise ValueError(f"Arcus target {spec} metadata refresh did not converge")
             replacements[spec] = rebuilt_row
 
         if spec not in vault_db.leads:

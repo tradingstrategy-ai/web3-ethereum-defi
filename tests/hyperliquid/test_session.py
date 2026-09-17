@@ -266,6 +266,17 @@ def test_direct_worker_clone_shares_rate_limiter_adapter(tmp_path) -> None:
     assert clone.get_adapter("https://api.hyperliquid.xyz") is session.get_adapter("https://api.hyperliquid.xyz")
 
 
+def test_direct_worker_clone_can_use_a_single_endpoint_specific_rate_limit(tmp_path) -> None:
+    """A separately bounded direct-IP phase can opt into its documented API budget."""
+    session = create_hyperliquid_session(rate_limit_db_path=tmp_path / "direct.sqlite")
+    expected_requests_per_second = 9.0
+
+    clone = session.clone_for_worker(proxy_start_index=0, requests_per_second=expected_requests_per_second)
+
+    assert clone.get_adapter("https://api.hyperliquid.xyz") is not session.get_adapter("https://api.hyperliquid.xyz")
+    assert clone._adapter_config["requests_per_second"] == expected_requests_per_second
+
+
 def test_proxy_worker_clone_uses_independent_rate_limiter_adapter(tmp_path) -> None:
     """Proxy worker clones keep independent limiters for independent IPs."""
     session = create_hyperliquid_session(

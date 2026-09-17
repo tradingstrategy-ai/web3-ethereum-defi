@@ -1,46 +1,53 @@
-"""Ganache mainnet fork test examples.
+"""Anvil mainnet fork test examples.
 
 To run tests in this module:
 
 .. code-block:: shell
 
-    export JSON_RPC_BINANCE="https://bsc-dataseed.binance.org/"
-    pytest -k test_ganache
+    source .local-test.env && poetry run pytest tests/rpc/test_anvil.py
 
 """
 
-import logging
 import os
 import shutil
+from collections.abc import Iterator
+from contextlib import contextmanager
 
 import flaky
 import pytest
 from eth_account import Account
 from eth_account.signers.local import LocalAccount
 from eth_typing import HexAddress, HexStr
-from web3 import HTTPProvider, Web3
-# from web3.middleware import buffered_gas_estimate_middleware
-# Should be migrated to
-# from web3.middleware import BufferedGasEstimateMiddleware
+from web3 import Web3
 
-from eth_defi.chain import install_chain_middleware
 from eth_defi.gas import node_default_gas_price_strategy
-from eth_defi.provider.anvil import fork_network_anvil, is_anvil
-from eth_defi.revert_reason import TransactionReverted
+from eth_defi.provider.anvil import ArchiveNodeRequired, fork_network_anvil, is_anvil, launch_anvil
+from eth_defi.testing.anvil_fork_pool import AnvilForkPool
+from eth_defi.testing.evm_snapshot_fixture import evm_snapshot_revert
+from eth_defi.testing.fork_blocks import BINANCE_MIDNIGHT_BLOCK
 from eth_defi.token import fetch_erc20_details
 
+JSON_RPC_BINANCE = os.environ.get("JSON_RPC_BINANCE")
+
 # https://docs.pytest.org/en/latest/how-to/skipping.html#skip-all-test-functions-of-a-class-or-module
-pytestmark = pytest.mark.skipif(
-    (os.environ.get("JSON_RPC_BINANCE") is None) or (shutil.which("anvil") is None),
-    reason="Set JSON_RPC_BINANCE env install anvil command to run these tests",
+pytestmark = [
+    pytest.mark.skipif(shutil.which("anvil") is None, reason="Install anvil to run these tests"),
+    # Keep all users of the canonical BNB fork on one worker so they share its
+    # persisted Anvil RPC cache instead of repeatedly replaying archive state.
+    pytest.mark.xdist_group("fork:binance:midnight"),
+]
+
+requires_bnb_rpc = pytest.mark.skipif(
+    JSON_RPC_BINANCE is None,
+    reason="Set JSON_RPC_BINANCE to run BNB fork tests",
 )
 
 
-@pytest.fixture()
+@pytest.fixture(scope="module")
 def large_busd_holder() -> HexAddress:
     """A random account picked from BNB Smart chain that holds a lot of BUSD.
 
-    This account is unlocked on Ganache, so you have access to good BUSD stash.
+    This account is unlocked on Anvil, so the fork can transfer its BUSD.
 
     `To find large holder accounts, use bscscan <https://bscscan.com/token/0xe9e7cea3dedca5984780bafc599bd69add087d56#balances>`_.
     """
@@ -64,63 +71,67 @@ def user_2() -> LocalAccount:
 
 
 @pytest.fixture()
-def anvil_bnb_chain_fork(request, large_busd_holder, user_1, user_2) -> str:
-    """Create a testable fork of live BNB chain.
-
-    :return: JSON-RPC URL for Web3
-    """
-    mainnet_rpc = os.environ["JSON_RPC_BINANCE"]
-    launch = fork_network_anvil(mainnet_rpc, unlocked_addresses=[large_busd_holder])
-    try:
-        yield launch.json_rpc_url
-    finally:
-        # Wind down Anvil process after the test is complete
-        launch.close(log_level=logging.ERROR)
-
-
-@pytest.fixture()
-def web3(anvil_bnb_chain_fork: str):
-    """Set up a local unit testing blockchain."""
-    # https://web3py.readthedocs.io/en/stable/examples.html#contract-unit-tests-in-python
-    web3 = Web3(HTTPProvider(anvil_bnb_chain_fork))
-    # Anvil needs POA middlware if parent chain needs POA middleware
-    install_chain_middleware(web3)
+def web3(anvil_fork_pool: AnvilForkPool, large_busd_holder: HexAddress) -> Iterator[Web3]:
+    """Connect to the isolated shared canonical BNB fork."""
+    assert JSON_RPC_BINANCE is not None
+    web3, launch = anvil_fork_pool.get_web3_with_launch(
+        JSON_RPC_BINANCE,
+        BINANCE_MIDNIGHT_BLOCK,
+        unlocked_addresses=[large_busd_holder],
+    )
+    # ``AnvilForkPool.get_web3()`` creates its multi-provider client with the
+    # BNB proof-of-authority middleware already installed.  Injecting it here
+    # again raises Web3's duplicate-middleware error on every BNB fork test.
     web3.eth.set_gas_price_strategy(node_default_gas_price_strategy)
-    return web3
+    # The pool can recycle a wedged fork at any lookup.  Taking the snapshot
+    # from the exact launch returned with this Web3 prevents an old module-level
+    # launch from being reverted after it has been replaced on another port.
+    with contextmanager(evm_snapshot_revert)(launch):
+        yield web3
 
 
-def test_anvil_output():
+def test_anvil_output() -> None:
     """Read anvil output from stdout."""
-    # mainnet_rpc = os.environ["JSON_RPC_BINANCE"]
-    # process, cmd = _launch("anvil")
-
-    mainnet_rpc = os.environ["JSON_RPC_BINANCE"]
-    launch = fork_network_anvil(mainnet_rpc)
+    # This only verifies local Anvil process output.  Do not create an unrelated
+    # BNB fork here: that used a moving chain tip and made a local smoke test
+    # fail when the remote BNB provider rejected or timed out during genesis.
+    launch = launch_anvil()
     try:
-        stdout, stderr = launch.close()
+        stdout, _stderr = launch.close()
         assert b"https://github.com/foundry-rs/foundry" in stdout, f"Did not see the market string in stdout: {stdout}"
     finally:
         launch.close()
 
 
-def test_anvil_forked_chain_id(web3: Web3):
+@requires_bnb_rpc
+def test_anvil_forked_chain_id(web3: Web3) -> None:
     """Anvil pipes through the forked chain id."""
     assert web3.eth.chain_id == 56
     assert is_anvil(web3)
 
 
-# Flaky because uses live node
+@requires_bnb_rpc
+# First observed on 2026-09-08: CI timed out while fetching BUSD state from a
+# moving BNB tip.  The fixed fork passes locally, but keep bounded retries until
+# the committed BSC cache contains the BUSD code and storage this test reads.
 @flaky.flaky()
-def test_anvil_fork_busd_details(web3: Web3, large_busd_holder: HexAddress, user_1):
+def test_anvil_fork_busd_details(web3: Web3) -> None:
     """Checks BUSD deployment on BNB chain."""
-    busd = fetch_erc20_details(web3, "0xe9e7CEA3DedcA5984780Bafc599bD69ADd087D56")
+    # Token metadata cache keys contain only chain id and address, whereas this
+    # assertion deliberately verifies BUSD supply at one historical block.
+    # Disable the process-wide cache so a moving-tip BNB fork in another test
+    # cannot provide its current supply and make this fixed-block check flaky.
+    busd = fetch_erc20_details(web3, "0xe9e7CEA3DedcA5984780Bafc599bD69ADd087D56", cache=None)
     assert busd.symbol == "BUSD"
-    assert (busd.total_supply / (10**18)) > 10_000_000, "More than $10m BUSD minted"
+    assert busd.total_supply == 283_188_732_471_960_898_956_126_663
 
 
-# Flaky because uses live node
+# First observed on 2026-09-08: the CI BNB archive fork timed out before a
+# moving-tip BUSD transfer.  The fixed, cached fork passed locally on 2026-09-08,
+# but retain bounded retries until the committed BSC cache contains its BUSD state.
 @flaky.flaky()
-def test_anvil_fork_transfer_busd(web3: Web3, large_busd_holder: HexAddress, user_1):
+@requires_bnb_rpc
+def test_anvil_fork_transfer_busd(web3: Web3, large_busd_holder: HexAddress, user_1: LocalAccount) -> None:
     """Forks the BNB chain mainnet and transfers from USDC to the user."""
 
     # BUSD deployment on BNB chain
@@ -131,17 +142,18 @@ def test_anvil_fork_transfer_busd(web3: Web3, large_busd_holder: HexAddress, use
     # Transfer 500 BUSD to the user 1
     tx_hash = busd.functions.transfer(user_1.address, 500 * 10**18).transact({"from": large_busd_holder})
 
-    # Because Ganache has instamine turned on by default, we do not need to wait for the transaction
+    # Anvil mines instantly by default, but wait explicitly for a receipt so
+    # this continues to validate the transfer if that local default changes.
     receipt = web3.eth.wait_for_transaction_receipt(tx_hash)
-    assert receipt.status == 1, "BUSD transfer reverted"
+    assert receipt["status"] == 1, "BUSD transfer reverted"
 
     assert busd.functions.balanceOf(user_1.address).call() == 500 * 10**18
 
 
-def test_anvil_latest_block(web3: Web3, large_busd_holder: HexAddress, user_1):
+@requires_bnb_rpc
+def test_anvil_latest_block(web3: Web3) -> None:
     """Fetch latest block using Anvil."""
-    # Fails randomly see https://github.com/foundry-rs/foundry/issues/4666
-    latest_block = web3.eth.get_block("latest")
+    assert web3.eth.get_block("latest")["number"] == BINANCE_MIDNIGHT_BLOCK
 
 
 @pytest.mark.skip(reason="Too flaky - depends on public Polygon RPC availability and response format")
@@ -159,8 +171,6 @@ def test_archive_node_required_exception():
         This test uses a public RPC that may rate limit requests.
         The @flaky decorator handles intermittent failures.
     """
-    from eth_defi.provider.anvil import fork_network_anvil, ArchiveNodeRequired
-
     # Public Polygon RPC - known to NOT be an archive node
     public_polygon_rpc = "https://polygon-rpc.com/"
 

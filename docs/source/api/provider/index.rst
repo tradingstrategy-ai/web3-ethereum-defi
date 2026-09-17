@@ -1,7 +1,7 @@
 JSON-RPC provider API
 ---------------------
 
-This submodule offers functionality to connect and enhance robustness of various EVM JSON-RPC API providers..
+This submodule offers functionality to connect to and improve the resilience of EVM JSON-RPC API providers.
 
 - See :ref:`multi rpc` for a tutorial
 
@@ -10,7 +10,7 @@ This submodule offers functionality to connect and enhance robustness of various
 - `Malicious Extractable Value (MEV) <https://tradingstrategy.ai/glossary/mev>`__ mitigations
   in :py:mod:`eth_defi.provider.mev_blocker`
 
-- Using multiple JSON-PRC providers and fallback providers in :py:mod:`eth_defi.provider.fallback`
+- Using multiple JSON-RPC providers and fallback providers in :py:mod:`eth_defi.provider.fallback`
 
 - Classifying why an upstream call failed (out of credits, rate limited, timeout)
   in :py:mod:`eth_defi.provider.rpc_failure`
@@ -37,3 +37,14 @@ This submodule offers functionality to connect and enhance robustness of various
    eth_defi.provider.rpc_failure
    eth_defi.provider.rpcdb
    eth_defi.provider.tenderly
+
+Selective retries for optional contract calls
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+An optional Solidity method probe can use
+:py:meth:`eth_defi.event_reader.multicall_batcher.EncodedCall.call` with
+``ignore_error=True``. This does not swallow its exception: it disables retries
+for expected contract reverts. Pass
+``retry_exceptions={requests.exceptions.ReadTimeout}`` to retry only a
+transient request timeout and let the fallback provider switch endpoint. The
+call's ``attempts`` and ``retry_sleep`` bound these selected fallback retries.

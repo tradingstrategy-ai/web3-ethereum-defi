@@ -9,6 +9,7 @@ helper normalises adapter-supplied addresses before consulting these tables.
 
 import enum
 from collections.abc import Collection, Mapping
+from typing import TypedDict
 
 
 class StrategyTag(str, enum.Enum):
@@ -28,6 +29,12 @@ class StrategyTag(str, enum.Enum):
     #: Takes directional exposure to one or more markets.
     #: Example vault: AllDeFi Quant Directional Strategy (GRVT).
     directional_trading = "directional_trading"
+
+    #: Maintains a fixed long or short exposure to one underlying asset using
+    #: leverage. This is direct market exposure, not a trading signal,
+    #: selection method, or other trade intelligence.
+    #: Example vault: ADA 2x long (Lighter).
+    directional_leverage = "directional_leverage"
 
     #: Takes directional positions that follow sustained market movements.
     #: Example vault: Gen Wealth Algo (Hyperliquid).
@@ -65,8 +72,12 @@ class StrategyTag(str, enum.Enum):
     #: Example vault: pmalt (Hyperliquid).
     pair_trading = "pair_trading"
 
+    #: Trades foreign currencies.
+    #: Example vault: Morini FXArbUSDTRY (Accountable).
+    fx = "fx"
+
     #: Captures funding-rate differences, commonly between perpetual futures markets.
-    #: Example vault: Extended and Nado arbitrage (Atoma).
+    #: Example vault: Atoma Index (Atoma).
     funding_rate_arbitrage = "funding_rate_arbitrage"
 
     #: Supplies assets to a lending market to earn interest.
@@ -164,29 +175,191 @@ class StrategyTag(str, enum.Enum):
         return None
 
 
-#: Human-readable labels that differ from the normalised tag identifier.
+class StrategyTagMetadata(TypedDict):
+    """Human-readable presentation metadata for one strategy category."""
+
+    #: Human-readable category label without Markdown links.
+    label: str
+
+    #: Short, plain-language summary of the investment activity.
+    description: str
+
+
+#: Public presentation labels and summaries for every strategy tag.
 #:
-#: Consumers can use this mapping for presentation while retaining the stable
-#: machine-readable :class:`StrategyTag` values in their data contracts.
-STRATEGY_TAG_DISPLAY_LABELS: dict[StrategyTag, str] = {
-    StrategyTag.market_making_clob: "Orderbook market making",
+#: Descriptions are deliberately brief so API consumers can display them in a
+#: summary table without truncating the activity being described.
+STRATEGY_TAG_METADATA: dict[StrategyTag, StrategyTagMetadata] = {
+    StrategyTag.unknown: {
+        "label": "Unknown strategy",
+        "description": "The investment approach is unknown.",
+    },
+    StrategyTag.directional_trading: {
+        "label": "Directional trading",
+        "description": "Takes [long or short positions](https://tradingstrategy.ai/glossary/directional-strategy) to profit from rising or falling markets.",
+    },
+    StrategyTag.directional_leverage: {
+        "label": "Directional leverage",
+        "description": "Amplifies a fixed long or short position with borrowed capital.",
+    },
+    StrategyTag.trend_following: {
+        "label": "Trend following",
+        "description": "Rides [sustained price movements](https://tradingstrategy.ai/glossary/trend-following), buying strength or selling weakness.",
+    },
+    StrategyTag.discretionary_trading: {
+        "label": "Discretionary trading",
+        "description": "A [human manager](https://tradingstrategy.ai/glossary/discretionary-investment-management) chooses and adjusts positions using judgement and market insight.",
+    },
+    StrategyTag.algorithmic_trading: {
+        "label": "Algorithmic trading",
+        "description": "[Software-driven rules](https://tradingstrategy.ai/glossary/algorithmic-trading) choose, execute and manage trades automatically.",
+    },
+    StrategyTag.arbitrage: {
+        "label": "Arbitrage",
+        "description": "Buys where prices are lower and sells where they are higher.",
+    },
+    StrategyTag.delta_neutral: {
+        "label": "Delta neutral",
+        "description": "Balances [long and short exposure](https://tradingstrategy.ai/glossary/delta-neutral) to reduce the impact of market direction.",
+    },
+    StrategyTag.statistical_arbitrage: {
+        "label": "Statistical arbitrage",
+        "description": "Uses [statistical patterns](https://tradingstrategy.ai/glossary/statistical-arbitrage) to trade temporary pricing gaps between related markets.",
+    },
+    StrategyTag.mean_reversion: {
+        "label": "Mean reversion",
+        "description": "Trades on the expectation that [prices will return towards their usual range](https://tradingstrategy.ai/glossary/mean-reversion).",
+    },
+    StrategyTag.grid_trading: {
+        "label": "Grid trading",
+        "description": "Places staggered buy and sell orders across a price range.",
+    },
+    StrategyTag.pair_trading: {
+        "label": "Pair trading",
+        "description": "Trades one related asset against another to profit from relative price changes.",
+    },
+    StrategyTag.fx: {
+        "label": "FX",
+        "description": "Trading related to foreign currencies.",
+    },
+    StrategyTag.funding_rate_arbitrage: {
+        "label": "Funding-rate arbitrage",
+        "description": "Balances opposing futures positions to collect differences in recurring [funding payments](https://tradingstrategy.ai/glossary/funding-rate).",
+    },
+    StrategyTag.lending: {
+        "label": "Lending",
+        "description": "Supplies assets to [lending markets](https://tradingstrategy.ai/glossary/lending-protocol) and earns interest from borrowers.",
+    },
+    StrategyTag.lending_optimisation: {
+        "label": "Lending optimisation",
+        "description": "Moves capital between lending markets to pursue the best available yield.",
+    },
+    StrategyTag.lending_looping: {
+        "label": "Lending looping",
+        "description": "Repeatedly [borrows and resupplies assets](https://tradingstrategy.ai/glossary/recursive-looping) to amplify lending returns and risk.",
+    },
+    StrategyTag.market_making: {
+        "label": "Market making",
+        "description": "Continuously [offers to buy and sell](https://tradingstrategy.ai/glossary/market-making), earning from the spread between prices.",
+    },
+    StrategyTag.liquidity_provider: {
+        "label": "Liquidity provider",
+        "description": "[Supplies capital that others can trade against](https://tradingstrategy.ai/glossary/liquidity-provider), earning fees or rewards.",
+    },
+    StrategyTag.market_making_amm: {
+        "label": "AMM market making",
+        "description": "Supplies assets to automated trading pools and earns a share of trading fees.",
+    },
+    StrategyTag.market_making_clob: {
+        "label": "Orderbook market making",
+        "description": "Posts buy and sell orders on an order book to earn trading spreads.",
+    },
+    StrategyTag.multistrategy: {
+        "label": "Multi-strategy",
+        "description": "Combines several investment approaches within one portfolio.",
+    },
+    StrategyTag.index: {
+        "label": "Index",
+        "description": "Tracks a defined basket of assets to mirror its overall market performance.",
+    },
+    StrategyTag.perpetual_futures: {
+        "label": "Perpetual futures",
+        "description": "Trades [futures contracts without an expiry date](https://tradingstrategy.ai/glossary/perpetual-future), often using leverage.",
+    },
+    StrategyTag.amm: {
+        "label": "Automated market maker",
+        "description": "Trades or supplies liquidity through [pools where prices adjust automatically](https://tradingstrategy.ai/glossary/amm).",
+    },
+    StrategyTag.rwa: {
+        "label": "Real-world assets",
+        "description": "Invests in [tokenised claims on assets and income from outside crypto markets](https://tradingstrategy.ai/glossary/rwa).",
+    },
+    StrategyTag.rwa_credit: {
+        "label": "RWA credit",
+        "description": "Finances loans secured by property, invoices or other real-world assets.",
+    },
+    StrategyTag.rwa_lending: {
+        "label": "RWA lending",
+        "description": "Lends money to real-world borrowers or against real-world collateral.",
+    },
+    StrategyTag.rwa_royalties: {
+        "label": "RWA royalties",
+        "description": "Buys rights to income from music, media or other royalty streams.",
+    },
+    StrategyTag.money_market_fund: {
+        "label": "Money-market fund",
+        "description": "Holds short-term, highly liquid debt instruments for steady income.",
+    },
+    StrategyTag.venture_funding: {
+        "label": "Venture funding",
+        "description": "Backs early-stage companies or projects in pursuit of long-term growth.",
+    },
+    StrategyTag.carry_trade: {
+        "label": "Carry trade",
+        "description": "Earns [recurring income from holding assets or balancing related positions](https://tradingstrategy.ai/glossary/carry-trade).",
+    },
 }
 
 
-def get_strategy_tag_display_label(tag: StrategyTag) -> str:
-    """Return the human-readable label for a strategy tag.
+#: Morini Capital manages foreign-currency strategies across several vault
+#: protocols. These chain-scoped addresses were reviewed from the public vault
+#: metadata database on 2026-09-11.
+MORINI_CAPITAL_STRATEGY_TAGS = frozenset({StrategyTag.fx})
 
-    The default renders the persisted snake-case identifier as a sentence-case
-    label. Explicit entries in :data:`STRATEGY_TAG_DISPLAY_LABELS` cover tags
-    whose preferred public wording differs from that mechanical rendering.
+#: Chain-scoped classifications that follow a curator across vault protocols.
+CURATOR_STRATEGY_TAGS: dict[tuple[int, str], frozenset[StrategyTag]] = {
+    #: Accountable: https://piku.co/vaults/detail/aFXArbUSDTRY
+    (1, "0x99351baed3d8ab544ccb08af96a105910fda71e7"): MORINI_CAPITAL_STRATEGY_TAGS,
+    #: Midas: https://piku.co/vaults/detail/StockMarketTRBasisTrade
+    (1, "0x827ce7e8e35861d9ac7fe002755767b695a5594a"): MORINI_CAPITAL_STRATEGY_TAGS,
+    #: Midas: https://piku.co/vaults/detail/CarryTradeUSDTRYLeverage
+    (1, "0x2bf11d2e04bc40daa95c24b8b90ec4f5c57dd326"): MORINI_CAPITAL_STRATEGY_TAGS,
+    #: Morpho: Morini RLUSD Emerging Yield
+    (1, "0x810b29d043eb851ba4cf80b1b194ed5177e70958"): MORINI_CAPITAL_STRATEGY_TAGS,
+    #: Morpho: Morini USDC Emerging Yield
+    (1, "0x58e0f0b81576f23c5f002d949b2bb11a5d2714d6"): MORINI_CAPITAL_STRATEGY_TAGS,
+    #: T3tris: Morini StockMarketTRBasisTrade Vault
+    (4663, "0x5b93dd3eb7fd224565498045f5e1a2ebda49e672"): MORINI_CAPITAL_STRATEGY_TAGS,
+}
 
-    :param tag:
-        Stable machine-readable strategy tag.
+
+def lookup_curator_strategy_tags(chain_id: int, address: str) -> set[StrategyTag] | None:
+    """Look up a cross-protocol curator classification.
+
+    Curator classifications are chain-scoped because the same contract address
+    can identify unrelated deployments on different EVM networks. Returning a
+    fresh set prevents callers from mutating the maintained source mapping.
+
+    :param chain_id:
+        EVM chain identifier.
+    :param address:
+        Vault contract or share-token address.
     :return:
-        Public-facing strategy label.
+        Curator-maintained strategy tags, or ``None`` when no mapping exists.
     """
 
-    return STRATEGY_TAG_DISPLAY_LABELS.get(tag, tag.value.replace("_", " ").capitalize())
+    tags = CURATOR_STRATEGY_TAGS.get((chain_id, address.lower()))
+    return set(tags) if tags is not None else None
 
 
 def lookup_strategy_tags(

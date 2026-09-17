@@ -272,16 +272,15 @@ Design notes:
 
 .. warning::
 
-    **Proof-of-concept, gated on CI.** The repository documents that repeated
+    **Use mutation isolation sparingly.** The repository documents that repeated
     snapshot/revert cycles on a long-lived, module/session-scoped fork can
     degrade Anvil responsiveness and hang CI under ``pytest-xdist`` (see the
-    ``AnvilSnapshotState`` docstring in :mod:`eth_defi.provider.anvil`). The
-    initial proof-of-concept only shares forks between **read-only** tests, which
-    do not mutate fork state and therefore need no snapshot/revert between tests.
-    Mutating tests that share a fork must additionally reset it with
-    :func:`eth_defi.testing.evm_snapshot_fixture.evm_snapshot_revert` or
-    :func:`eth_defi.provider.anvil.reset_anvil_snapshot`; that path is not yet
-    wired here, pending a bounded CI run that proves no xdist hang.
+    ``AnvilSnapshotState`` docstring in :mod:`eth_defi.provider.anvil`). Most
+    pooled users must therefore remain **read-only**. A small mutating test may
+    share a fork only when its function-scoped fixture obtains the current
+    launch and pairs it with
+    :func:`eth_defi.testing.evm_snapshot_fixture.evm_snapshot_revert`; do not
+    snapshot a separately cached launch, because pool recycling can replace it.
 """
 
 import dataclasses
@@ -625,18 +624,47 @@ class AnvilForkPool:
         :return:
             A :class:`web3.Web3` connected to the shared Anvil RPC endpoint.
         """
+        web3, _launch = self.get_web3_with_launch(
+            rpc_url,
+            fork_block_number,
+            web3_retries=web3_retries,
+            web3_http_timeout=web3_http_timeout,
+            **launch_kwargs,
+        )
+        return web3
+
+    def get_web3_with_launch(
+        self,
+        rpc_url: str,
+        fork_block_number: int,
+        *,
+        web3_retries: int = POOL_WEB3_RETRIES,
+        web3_http_timeout: tuple[float, float] = POOL_WEB3_HTTP_TIMEOUT,
+        **launch_kwargs: Any,
+    ) -> tuple[Web3, AnvilLaunch]:
+        """Return a pooled Web3 connection together with its exact live launch.
+
+        Mutating tests need the returned launch for ``evm_snapshot`` / revert
+        isolation.  Returning both from the same liveness-checked lookup avoids
+        a stale fixture retaining a process that :meth:`get_launch` recycled
+        before the test obtained its Web3 connection.
+
+        :return:
+            Fresh Web3 client and the exact pooled Anvil process it targets.
+        """
         launch = self.get_launch(rpc_url, fork_block_number, **launch_kwargs)
         # Pass the redacted upstream vendor domain(s) as the error hint. The
         # returned Web3 points at local Anvil, so a fork-setup failure (e.g. the
         # 60s eth_chainId read timeout) otherwise names only "localhost:<port>";
         # the hint surfaces which upstream provider to investigate / top up in
         # the raised RuntimeError ("... Hint is forking upstream provider(s): X").
-        return create_multi_provider_web3(
+        web3 = create_multi_provider_web3(
             launch.json_rpc_url,
             default_http_timeout=web3_http_timeout,
             retries=web3_retries,
             hint=f"forking upstream provider(s): {_redacted_upstream(rpc_url)}",
         )
+        return web3, launch
 
     def close_all(self) -> None:
         """Tear down every launched Anvil process.

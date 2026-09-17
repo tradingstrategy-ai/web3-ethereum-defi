@@ -1,0 +1,9 @@
+feeder-id: niska-capital
+name: Niska Capital
+role: curator
+short_description: Niska Capital is the manager label used for the Niska Capital Fund I crypto portfolio.
+long_description: |
+  The [Niska Capital Fund I Enzyme Blue listing](https://app.enzyme.finance/vault/0x308b02c6a4e346f1f6fb5c7d79d0de2c4f3abb82?network=ethereum) presents the fund's three investment baskets: long-term holdings, momentum investments, and interaction with the Ethereum ecosystem. The Enzyme metadata does not expose a separate manager field, so this record preserves the investment-manager name displayed by the vault.
+other-links:
+  - title: Enzyme Blue - Niska Capital Fund I listing
+    url: https://app.enzyme.finance/vault/0x308b02c6a4e346f1f6fb5c7d79d0de2c4f3abb82?network=ethereum

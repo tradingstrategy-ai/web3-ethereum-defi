@@ -8,6 +8,7 @@ import pytest
 
 from eth_defi.apex.constants import APEX_CHAIN_ID
 from eth_defi.erc_4626.core import ERC4262VaultDetection, ERC4626Feature
+from eth_defi.erc_4626.vault_protocol.axis.constants import AXIS_ETHEREUM_CHAIN_ID, AXIS_STAKED_USDX_BY_CHAIN
 from eth_defi.hyperliquid.constants import HYPERCORE_CHAIN_ID
 from eth_defi.vault.base import VaultSpec
 from eth_defi.vault.strategy_tag import StrategyTag
@@ -202,6 +203,29 @@ def test_migrate_vault_strategy_tags_follows_adapter_priority() -> None:
     assert result[1] == "IPOR Fusion tag resolver"
 
 
+def test_migrate_vault_strategy_tags_resolves_axis_ethereum_v2() -> None:
+    """Axis Ethereum V2 receives its maintained market-neutral strategy tags."""
+
+    migration = load_migration_module()
+    spec = VaultSpec(AXIS_ETHEREUM_CHAIN_ID, AXIS_STAKED_USDX_BY_CHAIN[AXIS_ETHEREUM_CHAIN_ID])
+    row = {
+        "_detection_data": create_detection(spec, {ERC4626Feature.axis_like}),
+    }
+
+    result = migration.resolve_strategy_tags(spec, row)
+
+    assert result == (
+        {
+            StrategyTag.arbitrage,
+            StrategyTag.delta_neutral,
+            StrategyTag.funding_rate_arbitrage,
+            StrategyTag.multistrategy,
+            StrategyTag.perpetual_futures,
+        },
+        "Axis tag resolver",
+    )
+
+
 def test_migrate_vault_strategy_tags_resolves_apex_native_rows() -> None:
     """ApeX official rows retain their documented market-making tags."""
 
@@ -259,6 +283,73 @@ def test_migrate_vault_strategy_tags_resolves_liquid_royalty_rows() -> None:
     result = migration.resolve_strategy_tags(spec, row)
 
     assert result == ({StrategyTag.rwa_royalties}, "Liquid Royalty tag resolver")
+
+
+@pytest.mark.parametrize(
+    ("chain_id", "address", "feature", "expected_tags"),
+    (
+        (1, "0x99351baed3d8ab544ccb08af96a105910fda71e7", ERC4626Feature.accountable_like, {StrategyTag.fx}),
+        (1, "0x827ce7e8e35861d9ac7fe002755767b695a5594a", ERC4626Feature.midas_like, {StrategyTag.fx}),
+        (1, "0x2bf11d2e04bc40daa95c24b8b90ec4f5c57dd326", ERC4626Feature.midas_like, {StrategyTag.fx}),
+        (1, "0x810b29d043eb851ba4cf80b1b194ed5177e70958", ERC4626Feature.morpho_v2_like, {StrategyTag.fx, StrategyTag.lending}),
+        (1, "0x58e0f0b81576f23c5f002d949b2bb11a5d2714d6", ERC4626Feature.morpho_v2_like, {StrategyTag.fx, StrategyTag.lending}),
+        (4663, "0x5b93dd3eb7fd224565498045f5e1a2ebda49e672", ERC4626Feature.t3tris_like, {StrategyTag.fx}),
+    ),
+)
+def test_migrate_vault_strategy_tags_resolves_morini_capital_rows(
+    chain_id: int,
+    address: str,
+    feature: ERC4626Feature,
+    expected_tags: set[StrategyTag],
+) -> None:
+    """Every Morini Capital row found in the public database receives FX."""
+
+    migration = load_migration_module()
+    spec = VaultSpec(chain_id, address)
+    row = {
+        "_detection_data": create_detection(spec, {feature}),
+    }
+
+    result = migration.resolve_strategy_tags(spec, row)
+
+    assert result is not None
+    tags, _source = result
+    assert tags == expected_tags
+
+
+def test_migrate_vault_strategy_tags_resolves_enzyme_blue_rows() -> None:
+    """Enzyme Blue rows use the shared default and documented tag mapping."""
+
+    migration = load_migration_module()
+    spec = VaultSpec(1, "0xd89551d350532d001ad3105968fecb24b1c3cec8")
+    row = {
+        "_detection_data": create_detection(spec, {ERC4626Feature.enzyme_blue_like}),
+    }
+
+    result = migration.resolve_strategy_tags(spec, row)
+
+    assert result == (
+        {
+            StrategyTag.algorithmic_trading,
+            StrategyTag.discretionary_trading,
+            StrategyTag.directional_trading,
+        },
+        "Enzyme tag resolver",
+    )
+
+
+def test_migrate_vault_strategy_tags_resolves_enzyme_onyx_rows() -> None:
+    """Enzyme Onyx rows receive the shared default Enzyme tag."""
+
+    migration = load_migration_module()
+    spec = VaultSpec(8453, "0x0000000000000000000000000000000000000001")
+    row = {
+        "_detection_data": create_detection(spec, {ERC4626Feature.enzyme_onyx_like}),
+    }
+
+    result = migration.resolve_strategy_tags(spec, row)
+
+    assert result == ({StrategyTag.discretionary_trading}, "Enzyme tag resolver")
 
 
 @pytest.mark.parametrize(

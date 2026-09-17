@@ -38,13 +38,14 @@ https://docs.gmx.io/docs/api/contracts#event-monitoring
 """
 
 import logging
+from collections.abc import Iterator
 from dataclasses import dataclass, field
-from typing import Iterator, Literal
+from typing import Literal
 
 from eth_typing import HexAddress
+from eth_utils import keccak, to_checksum_address
 from web3 import Web3
 from web3.contract import Contract
-from eth_utils import keccak, to_checksum_address
 
 from eth_defi.gmx.constants import GMX_EVENT_EMITTER_ABI
 from eth_defi.gmx.contracts import get_contract_addresses
@@ -54,6 +55,18 @@ logger = logging.getLogger(__name__)
 
 #: Module-level cache for EventEmitter contract instances, keyed by (web3 id, chain_name)
 _event_emitter_cache: dict[tuple, Contract] = {}
+
+#: EventEmitter topic signatures are constants and are reused for every log in
+#: large historical streams.
+EVENT_LOG_SIGNATURE = keccak(
+    text="EventLog(address,string,string,(((string,address)[],(string,address[])[]),((string,uint256)[],(string,uint256[])[]),((string,int256)[],(string,int256[])[]),((string,bool)[],(string,bool[])[]),((string,bytes32)[],(string,bytes32[])[]),((string,bytes)[],(string,bytes[])[]),((string,string)[],(string,string[])[])))",
+).hex()
+EVENT_LOG1_SIGNATURE = keccak(
+    text="EventLog1(address,string,string,bytes32,(((string,address)[],(string,address[])[]),((string,uint256)[],(string,uint256[])[]),((string,int256)[],(string,int256[])[]),((string,bool)[],(string,bool[])[]),((string,bytes32)[],(string,bytes32[])[]),((string,bytes)[],(string,bytes[])[]),((string,string)[],(string,string[])[])))",
+).hex()
+EVENT_LOG2_SIGNATURE = keccak(
+    text="EventLog2(address,string,string,bytes32,bytes32,(((string,address)[],(string,address[])[]),((string,uint256)[],(string,uint256[])[]),((string,int256)[],(string,int256[])[]),((string,bool)[],(string,bool[])[]),((string,bytes32)[],(string,bytes32[])[]),((string,bytes)[],(string,bytes[])[]),((string,string)[],(string,string[])[])))",
+).hex()
 
 
 def get_event_name_hash(event_name: str) -> str:
@@ -476,17 +489,6 @@ def decode_gmx_event(
     """
     event_emitter = event_emitter_contract or _get_event_emitter_contract(web3)
 
-    # Get event signatures for EventLog, EventLog1, EventLog2
-    event_log_sig = keccak(
-        text="EventLog(address,string,string,(((string,address)[],(string,address[])[]),((string,uint256)[],(string,uint256[])[]),((string,int256)[],(string,int256[])[]),((string,bool)[],(string,bool[])[]),((string,bytes32)[],(string,bytes32[])[]),((string,bytes)[],(string,bytes[])[]),((string,string)[],(string,string[])[])))",
-    ).hex()
-    event_log1_sig = keccak(
-        text="EventLog1(address,string,string,bytes32,(((string,address)[],(string,address[])[]),((string,uint256)[],(string,uint256[])[]),((string,int256)[],(string,int256[])[]),((string,bool)[],(string,bool[])[]),((string,bytes32)[],(string,bytes32[])[]),((string,bytes)[],(string,bytes[])[]),((string,string)[],(string,string[])[])))",
-    ).hex()
-    event_log2_sig = keccak(
-        text="EventLog2(address,string,string,bytes32,bytes32,(((string,address)[],(string,address[])[]),((string,uint256)[],(string,uint256[])[]),((string,int256)[],(string,int256[])[]),((string,bool)[],(string,bool[])[]),((string,bytes32)[],(string,bytes32[])[]),((string,bytes)[],(string,bytes[])[]),((string,string)[],(string,string[])[])))",
-    ).hex()
-
     topics = log.get("topics", [])
     if not topics:
         return None
@@ -503,11 +505,11 @@ def decode_gmx_event(
     # Determine event type
     # Note: keccak().hex() returns hex without 0x prefix, so no stripping needed
     event_type = None
-    if first_topic == event_log_sig.lower():
+    if first_topic == EVENT_LOG_SIGNATURE:
         event_type = "EventLog"
-    elif first_topic == event_log1_sig.lower():
+    elif first_topic == EVENT_LOG1_SIGNATURE:
         event_type = "EventLog1"
-    elif first_topic == event_log2_sig.lower():
+    elif first_topic == EVENT_LOG2_SIGNATURE:
         event_type = "EventLog2"
 
     if not event_type:

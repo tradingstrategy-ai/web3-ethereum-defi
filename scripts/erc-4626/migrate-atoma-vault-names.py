@@ -1,13 +1,13 @@
-"""Apply curated display names to the two cached Atoma vault records.
+"""Apply curated names and strategy descriptions to cached Atoma vault records.
 
 Atoma's ERC-4626 share-token ``name()`` values are generic and do not identify
 the strategy.  The Atoma adapter now provides reviewed address-scoped display
-names, but existing vault metadata pickles retain the previous onchain values.
-This targeted migration persists the two curated names without making RPC
-calls, rescanning vaults, or modifying any price, reader-state, or other
-metadata fields.
+names and strategy copy, but existing vault metadata pickles retain the
+previous values. This targeted migration persists the two curated names and
+their address-scoped descriptions without making RPC calls, rescanning vaults,
+or modifying any price or reader-state data.
 
-The target names are ``Extended and Nado arbitrage`` and ``Atoma Index``.
+The target names are ``Atoma Index`` and ``Atoma RWA``.
 
 The generic ``migrate-vault-token-metadata.py`` command must not be used for
 this repair: it deliberately reads the onchain token names and would overwrite
@@ -39,7 +39,7 @@ from pathlib import Path
 
 from tabulate import tabulate
 
-from eth_defi.erc_4626.vault_protocol.atoma.vault import ATOMA_VAULT_NAME_OVERLAY
+from eth_defi.erc_4626.vault_protocol.atoma.vault import ATOMA_VAULT_DESCRIPTION_OVERLAY, ATOMA_VAULT_NAME_OVERLAY
 from eth_defi.utils import setup_console_logging
 from eth_defi.vault.base import VaultSpec
 from eth_defi.vault.vaultdb import DEFAULT_VAULT_DATABASE, VaultDatabase
@@ -55,16 +55,28 @@ ATOMA_VAULT_NAME_UPDATES: dict[VaultSpec, str] = {VaultSpec(ATOMA_CHAIN_ID, addr
 
 @dataclass(slots=True, frozen=True)
 class AtomaVaultNameUpdate:
-    """Describe one cached Atoma vault display-name change."""
+    """Describe one cached Atoma vault metadata update."""
 
     #: Chain and vault address identifying the cached metadata row.
     spec: VaultSpec
 
-    #: Generic name currently persisted in the metadata database.
+    #: Existing display name in the metadata database.
     old_name: str | None
 
     #: Curated address-scoped display name to persist.
     new_name: str
+
+    #: Existing listing description in the metadata database.
+    old_short_description: str | None
+
+    #: Curated listing description to persist.
+    new_short_description: str
+
+    #: Existing full strategy description in the metadata database.
+    old_description: str | None
+
+    #: Curated full strategy description to persist.
+    new_description: str
 
 
 @dataclass(slots=True, frozen=True)
@@ -122,7 +134,7 @@ def create_backup_path(vault_db_path: Path) -> Path:
 
 
 def collect_atoma_vault_name_updates(vault_db: VaultDatabase) -> tuple[AtomaVaultNameUpdate, ...]:
-    """Collect the two reviewed Atoma name updates from a metadata cache.
+    """Collect the two reviewed Atoma metadata updates from a metadata cache.
 
     Both target rows must be present before the migration can continue. This
     prevents an incomplete or unrelated cache from receiving a partial repair.
@@ -148,9 +160,23 @@ def collect_atoma_vault_name_updates(vault_db: VaultDatabase) -> tuple[AtomaVaul
         ATOMA_VAULT_NAME_UPDATES.items(),
         key=lambda item: (item[0].chain_id, item[0].vault_address),
     ):
-        old_name = vault_db.rows[spec].get("Name")
-        if old_name != new_name:
-            updates.append(AtomaVaultNameUpdate(spec=spec, old_name=old_name, new_name=new_name))
+        row = vault_db.rows[spec]
+        metadata = ATOMA_VAULT_DESCRIPTION_OVERLAY[spec.vault_address]
+        old_name = row.get("Name")
+        old_short_description = row.get("_short_description")
+        old_description = row.get("_description")
+        if (old_name, old_short_description, old_description) != (new_name, metadata.short_description, metadata.description):
+            updates.append(
+                AtomaVaultNameUpdate(
+                    spec=spec,
+                    old_name=old_name,
+                    new_name=new_name,
+                    old_short_description=old_short_description,
+                    new_short_description=metadata.short_description,
+                    old_description=old_description,
+                    new_description=metadata.description,
+                )
+            )
     return tuple(updates)
 
 
@@ -161,8 +187,9 @@ def migrate_atoma_vault_names(
 ) -> AtomaVaultNameMigrationResult:
     """Persist address-scoped Atoma strategy names in a vault metadata cache.
 
-    The migration is idempotent and writes only ``Name`` on the two known
-    Arbitrum Atoma rows. It creates a sibling backup before its first write.
+    The migration is idempotent and writes only ``Name``, ``_short_description``
+    and ``_description`` on the two known Arbitrum Atoma rows. It creates a
+    sibling backup before its first write.
 
     :param vault_db_path:
         Existing vault metadata pickle to inspect and optionally update.
@@ -179,8 +206,18 @@ def migrate_atoma_vault_names(
     if updates:
         print(
             tabulate(
-                [[update.spec.chain_id, update.spec.vault_address, update.old_name, update.new_name] for update in updates],
-                headers=["chain", "address", "old name", "new name"],
+                [
+                    [
+                        update.spec.chain_id,
+                        update.spec.vault_address,
+                        update.old_name,
+                        update.new_name,
+                        update.old_short_description,
+                        update.new_short_description,
+                    ]
+                    for update in updates
+                ],
+                headers=["chain", "address", "old name", "new name", "old short description", "new short description"],
                 tablefmt="simple",
             )
         )
@@ -197,6 +234,8 @@ def migrate_atoma_vault_names(
     shutil.copy2(vault_db_path, backup_path)
     for update in updates:
         vault_db.rows[update.spec]["Name"] = update.new_name
+        vault_db.rows[update.spec]["_short_description"] = update.new_short_description
+        vault_db.rows[update.spec]["_description"] = update.new_description
     vault_db.write(vault_db_path)
     logger.info("Updated %d Atoma vault names in %s", len(updates), vault_db_path)
     return result

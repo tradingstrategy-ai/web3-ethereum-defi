@@ -9,7 +9,6 @@ Tests cover:
 
 import os
 from decimal import Decimal
-from pathlib import Path
 
 import flaky
 import pytest
@@ -35,7 +34,6 @@ def web3() -> Web3:
 @flaky.flaky
 def test_euler_metadata(
     web3: Web3,
-    tmp_path: Path,
 ):
     """Read Euler vault metadata and confirm backward-compatible API still works.
 
@@ -91,7 +89,6 @@ def test_euler_metadata(
 @flaky.flaky
 def test_euler_metadata_products_json(
     web3: Web3,
-    tmp_path: Path,
 ):
     """Verify the new products.json metadata fields for a vault that IS listed.
 
@@ -121,7 +118,7 @@ def test_euler_metadata_products_json(
     # 3. New fields from products.json
     expected_products = {
         ("euler-prime", "Euler Prime", ("euler-dao",)),
-        ("k3-prime", "K3 Capital Prime Market", ("k3",)),
+        ("k3-prime", "K3 Capital Prime Market", ("k3-capital",)),
     }
     assert (meta["product"], meta["product_name"], tuple(meta["entities"])) in expected_products
     assert meta["deprecated"] is False

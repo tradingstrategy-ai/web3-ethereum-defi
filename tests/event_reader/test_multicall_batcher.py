@@ -1,11 +1,13 @@
 """Regression tests for historical multicall timestamp handling."""
 
 import datetime
+import json
 from collections.abc import Callable, Iterable, Iterator
 from types import SimpleNamespace
 from unittest.mock import MagicMock
 
 import pytest
+from web3 import HTTPProvider, Web3
 
 from eth_defi.event_reader import multicall_batcher
 from eth_defi.provider.rpcdb import RPCRequestStats
@@ -36,6 +38,158 @@ def test_historical_state_exception_is_not_same_provider_retryable() -> None:
     assert not isinstance(error, multicall_batcher.MulticallRetryable)
     assert error.status_code == HTTP_OK
     assert error.headers == {"endpoint_uri": "alchemy"}
+
+
+def test_encoded_call_retries_allowlisted_timeout_when_other_errors_are_ignored(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Retry an opted-in transport timeout while preserving Solidity-revert handling.
+
+    A metadata probe uses ``ignore_error`` because a non-ERC-4626 vault may
+    revert its ``asset()`` method. It must still retry explicitly allowlisted
+    transport errors instead of treating a temporary gateway outage as a
+    conclusive missing method.
+    """
+
+    attempts = 0
+
+    class FakeEth:
+        """Return after one selected transient failure."""
+
+        chain_id = 8453
+
+        def call(self, transaction: dict, block_identifier: int) -> bytes:
+            """Fail once without serialising Python exception classes."""
+
+            nonlocal attempts
+            assert block_identifier == 50_395_218
+            assert "retry_exceptions" not in transaction
+            json.dumps(transaction)
+            attempts += 1
+            if attempts == 1:
+                raise multicall_batcher.ReadTimeout("dRPC timed out")
+            return b"reply"
+
+    monkeypatch.setattr(multicall_batcher.time, "sleep", lambda _seconds: None)
+    call = multicall_batcher.EncodedCall.from_keccak_signature(
+        address="0x0000000000000000000000000000000000000001",
+        signature=b"\x00\x00\x00\x00",
+        function="asset",
+        data=b"",
+        extra_data=None,
+    )
+
+    result = call.call(
+        SimpleNamespace(eth=FakeEth()),
+        block_identifier=50_395_218,
+        ignore_error=True,
+        attempts=1,
+        retry_sleep=0,
+        retry_exceptions={multicall_batcher.ReadTimeout},
+    )
+
+    assert result == b"reply"
+    assert attempts == 2
+
+
+def test_encoded_call_allowlist_is_not_sent_to_plain_http_provider(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Keep retry exception classes out of a JSON-RPC transaction payload.
+
+    A direct ``HTTPProvider`` has no fallback layer to remove internal retry
+    hints. The transaction must therefore remain JSON-serialisable.
+    """
+
+    provider = HTTPProvider("https://plain-provider.example")
+    web3 = Web3(provider)
+    requests: list[tuple[str, list]] = []
+
+    def capture_request(method: str, params: list) -> dict:
+        """Record the formatted request without making a network call."""
+
+        json.dumps({"method": method, "params": params})
+        requests.append((method, params))
+        if method == "eth_chainId":
+            return {"jsonrpc": "2.0", "id": 1, "result": hex(8453)}
+        return {"jsonrpc": "2.0", "id": 1, "result": "0x"}
+
+    monkeypatch.setattr(provider, "make_request", capture_request)
+    call = multicall_batcher.EncodedCall.from_keccak_signature(
+        address="0x0000000000000000000000000000000000000001",
+        signature=b"\x00\x00\x00\x00",
+        function="asset",
+        data=b"",
+        extra_data=None,
+    )
+
+    assert (
+        call.call(
+            web3,
+            block_identifier=50_395_218,
+            gas=1_000_000,
+            ignore_error=True,
+            retry_exceptions={multicall_batcher.ReadTimeout},
+        )
+        == b""
+    )
+    eth_call_params = next(params for method, params in requests if method == "eth_call")
+    assert "retry_exceptions" not in eth_call_params[0]
+
+
+def test_encoded_call_requires_ignore_error_for_retry_allowlist() -> None:
+    """Reject an allow-list whose retry semantics would otherwise be a no-op."""
+
+    call = multicall_batcher.EncodedCall.from_keccak_signature(
+        address="0x0000000000000000000000000000000000000001",
+        signature=b"\x00\x00\x00\x00",
+        function="asset",
+        data=b"",
+        extra_data=None,
+    )
+
+    with pytest.raises(AssertionError, match="retry_exceptions requires ignore_error=True"):
+        call.call(
+            SimpleNamespace(eth=SimpleNamespace(chain_id=8453)),
+            block_identifier=50_395_218,
+            gas=1_000_000,
+            retry_exceptions={multicall_batcher.ReadTimeout},
+        )
+
+
+def test_encoded_call_does_not_retry_solidity_revert_with_timeout_allowlist(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Keep an ignored Solidity-level revert outside a timeout retry allow-list."""
+
+    attempts = 0
+
+    class FakeEth:
+        """Always simulate a contract revert."""
+
+        chain_id = 8453
+
+        def call(self, transaction: dict, block_identifier: int) -> bytes:
+            """Raise a non-allowlisted EVM error."""
+
+            nonlocal attempts
+            attempts += 1
+            raise ValueError({"code": 3, "message": "execution reverted"})
+
+    monkeypatch.setattr(multicall_batcher.time, "sleep", lambda _seconds: None)
+    call = multicall_batcher.EncodedCall.from_keccak_signature(
+        address="0x0000000000000000000000000000000000000001",
+        signature=b"\x00\x00\x00\x00",
+        function="asset",
+        data=b"",
+        extra_data=None,
+    )
+
+    with pytest.raises(ValueError, match="execution reverted"):
+        call.call(
+            SimpleNamespace(eth=FakeEth()),
+            block_identifier=50_395_218,
+            ignore_error=True,
+            attempts=2,
+            retry_sleep=0,
+            retry_exceptions={multicall_batcher.ReadTimeout},
+        )
+
+    assert attempts == 1
 
 
 def test_historical_state_rotation_wraps_from_last_provider_to_first_two(monkeypatch: pytest.MonkeyPatch) -> None:

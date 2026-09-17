@@ -734,6 +734,29 @@ def test_approximate_hypercore_carries_rows_after_terminal_wipe_out() -> None:
     ]
 
 
+def test_calculate_vault_returns_drops_invalid_share_price_observations() -> None:
+    """Drop null, non-finite, and negative prices while retaining a wipe-out."""
+    messages: list[str] = []
+    index = pd.date_range("2026-01-01", periods=5, freq="D")
+    prices = pd.DataFrame(
+        {
+            "id": ["1-0xvault"] * 5,
+            "share_price": pd.Series(
+                pd.arrays.ArrowExtensionArray(pa.array([1.0, float("nan"), float("inf"), -1.0, 0.0], type=pa.float64())),
+                index=index,
+            ),
+        },
+        index=index,
+    )
+
+    assert prices["share_price"].isna().sum() == 0
+
+    result = calculate_vault_returns(prices, logger=messages.append)
+
+    assert result["share_price"].tolist() == [1.0, 0.0]
+    assert messages == ["Dropping 3 invalid share-price observations"]
+
+
 def test_approximate_hypercore_prevents_partial_repair_spike() -> None:
     """One repaired and one raw synthetic unit cannot create a clean return."""
     prices_df = pd.DataFrame(

@@ -23,6 +23,7 @@ AEGIS_YUSD_BINANCE_ADDRESS = "0xAB3dBcD9B096C3fF76275038bf58eAC10D22C61f"
 AEGIS_YUSD_AVALANCHE_ADDRESS = "0xca2671Dcd031a72359f456C212F62A9bDa737cD7"
 AEGIS_JUSD_ADDRESS = "0xc86168d2424d28942EE0866F043c1206bc9E4900"
 NOON_SUSN_ADDRESS = "0xE24a3DC889621612422A64E6388927901608B91D"
+AXIS_USDX_PLASMA_ADDRESS = "0xA1FA77779e6866fa3eF48FC0720657E042158387"
 
 
 @dataclass(slots=True)
@@ -138,6 +139,27 @@ slug: usdx
 """
     )
     return yaml_path
+
+
+def test_address_slug_lookup_keeps_axis_usdx_separate_from_kava_usdx(tmp_path: Path) -> None:
+    """Resolve Axis USDx by its contract address, never the shared ticker."""
+    _write_usdx_yaml(tmp_path)
+    (tmp_path / "usdx-axis.yaml").write_text(
+        f"""symbol: USDx
+name: Axis USDx
+slug: usdx-axis
+category: stablecoin
+ambiguous_symbol: true
+contract_addresses:
+  - chain: plasma
+    address: '{AXIS_USDX_PLASMA_ADDRESS}'
+"""
+    )
+
+    feeder = StablecoinRateFeeder(tmp_path)
+
+    assert feeder.get_denomination_token_slug(AXIS_USDX_PLASMA_ADDRESS) == "usdx-axis"
+    assert feeder.get_denomination_token_slug(USDX_ADDRESS) == "usdx"
 
 
 def _write_fiat_stablecoin_yaml(data_dir: Path, symbol: str, name: str, coingecko_id: str) -> Path:

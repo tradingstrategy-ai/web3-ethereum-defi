@@ -8,7 +8,7 @@ from web3 import Web3
 
 from eth_defi.erc_4626.classification import HARDCODED_PROTOCOLS, create_vault_instance
 from eth_defi.erc_4626.core import ERC4626Feature, get_vault_protocol_name
-from eth_defi.erc_4626.vault_protocol.atoma.vault import ATOMA_INDEX_URL, ATOMA_VAULT_2_ADDRESS, ATOMA_VAULT_ADDRESS, ATOMA_VAULT_ADDRESSES, ATOMA_VAULT_OVERVIEW_URL, AtomaVault
+from eth_defi.erc_4626.vault_protocol.atoma.vault import ATOMA_VAULT_2_ADDRESS, ATOMA_VAULT_ADDRESS, ATOMA_VAULT_ADDRESSES, AtomaVault
 from eth_defi.vault.base import VaultSpec
 from eth_defi.vault.fee import VaultFeeMode
 from eth_defi.vault.risk import VaultTechnicalRisk
@@ -56,24 +56,22 @@ def test_atoma_static_fee_metadata() -> None:
     assert net_fee_data.withdraw == pytest.approx(0.005)
     assert vault.get_estimated_lock_up() == datetime.timedelta(days=7)
     assert vault.get_link() == "https://app.atoma.fi/"
-    assert vault.name == "Extended and Nado arbitrage"
-    assert vault.short_description == "Market-neutral perpetuals strategy across Nado and Extended."
+    assert vault.name == "Atoma Index"
+    assert vault.short_description == "Aggressive multi-venue strategy for maximum venue-point upside."
     assert vault.description is not None
-    assert "funding-rate spreads across Nado and Extended perpetual DEXs" in vault.description
-    assert "[Atoma's vault overview](https://atoma.fi/)" in vault.description
-    assert ATOMA_VAULT_OVERVIEW_URL in vault.description
+    assert "capital rotates across paired venues" in vault.description
+    assert "venue and rotation risk is higher" in vault.description
 
 
-def test_atoma_index_description_overlay() -> None:
-    """Atoma Index has current source-linked RWA strategy copy and name."""
+def test_atoma_rwa_description_overlay() -> None:
+    """Atoma RWA has the established conservative RWA strategy copy and name."""
     vault = AtomaVault(Web3(), VaultSpec(42161, ATOMA_VAULT_2_ADDRESS), features={ERC4626Feature.atoma_like})
 
-    assert vault.name == "Atoma Index"
-    assert vault.short_description == "Market-neutral RWA perpetuals index strategy."
+    assert vault.name == "Atoma RWA"
+    assert vault.short_description == "Conservative market-neutral RWA perpetuals strategy."
     assert vault.description is not None
-    assert "equities, commodities and FX/rates" in vault.description
-    assert "funding arbitrage, statistical arbitrage and protocol rewards" in vault.description
-    assert f"[Atoma Index]({ATOMA_INDEX_URL})" in vault.description
+    assert "stock & commodity perp markets on Lighter and trade[XYZ]" in vault.description
+    assert "No directional exposure, lower risk profile" in vault.description
 
 
 @pytest.mark.parametrize(

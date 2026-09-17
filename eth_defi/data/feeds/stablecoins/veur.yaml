@@ -7,6 +7,6 @@ twitter: vnx_platform
 linkedin: vnx-io
 rss: https://vnx.li/feed/
 linkedin-rss-hub-disabled-at: 2026-06-09
-rss-failure-at: 2026-08-17
+rss-failure-at: 2026-08-28
 rss-failure-status-code: 404
 rss-failure-exception-message: "404 Client Error: Not Found for url: https://vnx.li/feed/"

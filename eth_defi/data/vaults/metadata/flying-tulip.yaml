@@ -1,0 +1,57 @@
+name: Flying Tulip
+slug: flying-tulip
+short_description: |
+  Flying Tulip uses lending, staking and market-neutral strategies to generate yield and FT rewards for sftUSD holders.
+long_description: |
+  [Flying Tulip](https://flyingtulip.com/) is an onchain financial platform
+  founded by [Andre Cronje](https://blog.flyingtulip.com/flying-tulip-raises-200m/).
+  It offers dollar-focused saving, lending and trading products centred around
+  ftUSD. Holders can stake ftUSD for sftUSD to receive variable yield and FT
+  rewards.
+
+  Flying Tulip attracted attention for the size and unusual structure of its
+  launch funding. In September 2025, the project [announced a $200 million private round](https://blog.flyingtulip.com/flying-tulip-raises-200m/)
+  involving investors including Brevan Howard Digital, CoinFund, FalconX and
+  Susquehanna Crypto. A [February 2026 update](https://blog.flyingtulip.com/flying-tulip-sale-update/)
+  later reported approximately $183.9 million held across its private,
+  institutional, community and public sale rounds after withdrawals and
+  refunds.
+
+  Instead of using a conventional token sale, Flying Tulip gave primary
+  participants FT positions with a [continuing redemption right](https://docs.flyingtulip.com/capital-allocation/).
+  Participants can return their position and reclaim the same asset and amount
+  they originally contributed, while withdrawing the FT permanently gives up
+  that right. The contributed capital is used in yield-producing strategies,
+  with the proceeds helping to fund the project, and the team received no
+  initial token allocation. The redemption mechanism depends on available
+  reserves and protocol parameters; it is not insured or guaranteed.
+fee_description: |
+  The ftUSD-to-sftUSD staking conversion does not publish a management,
+  performance, deposit or withdrawal fee. FT rewards are separately claimable
+  and their distribution is determined by realised strategy returns and
+  protocol policy, rather than by an automatic increase in the sftUSD
+  conversion value.
+
+  A USDC-funded position enters through the separate [ftUSD mint and redemption route](https://docs.flyingtulip.com/product-suite/ft-usd/).
+  At the reviewed USDC configuration, this route charges 0.07% to mint ftUSD
+  and 0.07% to redeem it on Ethereum and Sonic; BNB Chain charges 0.10% in
+  each direction. These are acquisition and exit costs rather than direct fees
+  charged by the sftUSD staking position. Collateral-specific settings can
+  change; the [verified MintAndRedeem contract](https://etherscan.io/address/0xAa48EcBC843cF7E9A29155D112b8Cb27902bD23C#code)
+  is the authoritative onchain source. Users may also incur network fees and,
+  if they sell claimed FT, trading fees and price impact.
+links:
+  homepage: https://flyingtulip.com/
+  app: https://flyingtulip.com/ftusd/
+  twitter: https://x.com/flyingtulip_
+  github: https://github.com/flyingtulipdotcom
+  documentation: https://docs.flyingtulip.com/product-suite/ft-usd/
+  defillama: https://defillama.com/protocol/flying-tulip
+  audits: https://github.com/flyingtulipdotcom/security
+  fees: https://docs.flyingtulip.com/product-suite/ft-usd/
+  trading_strategy: https://tradingstrategy.ai/trading-view/vaults/protocols/flying-tulip
+  integration_documentation: https://web3-ethereum-defi.readthedocs.io/vaults/flying_tulip/index.html
+example_smart_contracts:
+  - https://etherscan.io/address/0xeb48218a4c35C814C7678cBcae88C6Ee037F7625
+  - https://bscscan.com/address/0xe1716796d6Bf37e4049bdb6e1150Cb713800FeEe
+  - https://sonicscan.org/address/0xD1E5A86f1005F6356Bd022C587dE0f430CD2aeb1
