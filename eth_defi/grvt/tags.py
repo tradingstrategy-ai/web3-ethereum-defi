@@ -48,8 +48,8 @@ STRATEGY_TAGS: dict[str, set[StrategyTag]] = {
     "vlt:2zqttakxz5jkdjuyjpbwudibkbw": {
         StrategyTag.algorithmic_trading,
         StrategyTag.liquidity_provider,
-        StrategyTag.market_maker,
         StrategyTag.market_making,
+        StrategyTag.market_making_clob,
     },
     #: Vault: AI Alpha Strategy.
     #: Added: 2026-08-17.
@@ -173,8 +173,8 @@ STRATEGY_TAGS: dict[str, set[StrategyTag]] = {
         StrategyTag.delta_neutral,
         StrategyTag.discretionary_trading,
         StrategyTag.liquidity_provider,
-        StrategyTag.market_maker,
         StrategyTag.market_making,
+        StrategyTag.market_making_clob,
     },
     #: Vault: ProjectBTC - Liquidity Cycle Protocol.
     #: Added: 2026-08-17.
@@ -202,7 +202,6 @@ STRATEGY_TAGS: dict[str, set[StrategyTag]] = {
         StrategyTag.algorithmic_trading,
         StrategyTag.delta_neutral,
         StrategyTag.directional_trading,
-        StrategyTag.market_maker,
         StrategyTag.market_making,
         StrategyTag.mean_reversion,
     },
@@ -247,7 +246,6 @@ STRATEGY_TAGS: dict[str, set[StrategyTag]] = {
     #: - eth_defi/grvt/vault.py
     "vlt:371sgbnors7u71g6wpoo1lrst4p": {
         StrategyTag.algorithmic_trading,
-        StrategyTag.market_maker,
         StrategyTag.market_making,
         StrategyTag.mean_reversion,
     },
@@ -264,7 +262,6 @@ STRATEGY_TAGS: dict[str, set[StrategyTag]] = {
     "vlt:386cnqkc6tb186ix2mtgayhbfrz": {
         StrategyTag.algorithmic_trading,
         StrategyTag.liquidity_provider,
-        StrategyTag.market_maker,
         StrategyTag.market_making,
         StrategyTag.market_making_clob,
         StrategyTag.mean_reversion,

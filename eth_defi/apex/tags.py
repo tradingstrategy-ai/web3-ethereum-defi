@@ -25,8 +25,8 @@ STRATEGY_TAGS: dict[str, set[StrategyTag]] = {
     #: - eth_defi/apex/constants.py
     "apex-vault-10000": {
         StrategyTag.liquidity_provider,
-        StrategyTag.market_maker,
         StrategyTag.market_making,
+        StrategyTag.market_making_clob,
     },
     #: Vault: New Vault (New User Vault).
     #: Added: 2026-08-23.
@@ -38,8 +38,8 @@ STRATEGY_TAGS: dict[str, set[StrategyTag]] = {
     #: - eth_defi/apex/constants.py
     "apex-vault-10001": {
         StrategyTag.liquidity_provider,
-        StrategyTag.market_maker,
         StrategyTag.market_making,
+        StrategyTag.market_making_clob,
     },
 }
 

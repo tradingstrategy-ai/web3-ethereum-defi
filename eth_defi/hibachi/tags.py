@@ -31,8 +31,8 @@ STRATEGY_TAGS: dict[str, set[StrategyTag]] = {
     #: - eth_defi/hibachi/README.md
     "hibachi-vault-3": {
         StrategyTag.liquidity_provider,
-        StrategyTag.market_maker,
         StrategyTag.market_making,
+        StrategyTag.market_making_clob,
     },
 }
 

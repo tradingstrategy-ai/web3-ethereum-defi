@@ -99,8 +99,8 @@ def test_migrate_vault_strategy_tags_updates_evm_and_native_rows(tmp_path: Path)
     }
     assert migrated_db.rows[hyperliquid_spec]["_strategy_tags"] == {
         StrategyTag.liquidity_provider,
-        StrategyTag.market_maker,
         StrategyTag.market_making,
+        StrategyTag.market_making_clob,
         StrategyTag.perpetual_futures,
     }
     assert migrated_db.rows[unresolved_spec]["_strategy_tags"] == {StrategyTag.unknown}
@@ -203,7 +203,7 @@ def test_migrate_vault_strategy_tags_follows_adapter_priority() -> None:
 
 
 def test_migrate_vault_strategy_tags_resolves_apex_native_rows() -> None:
-    """ApeX native rows receive the platform's perpetual-futures default."""
+    """ApeX official rows retain their documented market-making tags."""
 
     migration = load_migration_module()
     spec = VaultSpec(APEX_CHAIN_ID, "apex-vault-10001")
@@ -213,7 +213,15 @@ def test_migrate_vault_strategy_tags_resolves_apex_native_rows() -> None:
 
     result = migration.resolve_strategy_tags(spec, row)
 
-    assert result == ({StrategyTag.perpetual_futures}, "ApeX native resolver")
+    assert result == (
+        {
+            StrategyTag.liquidity_provider,
+            StrategyTag.market_making,
+            StrategyTag.market_making_clob,
+            StrategyTag.perpetual_futures,
+        },
+        "ApeX native resolver",
+    )
 
 
 def test_migrate_vault_strategy_tags_resolves_kiloex_rows() -> None:
@@ -231,7 +239,6 @@ def test_migrate_vault_strategy_tags_resolves_kiloex_rows() -> None:
         {
             StrategyTag.amm,
             StrategyTag.liquidity_provider,
-            StrategyTag.market_maker,
             StrategyTag.market_making,
             StrategyTag.market_making_amm,
             StrategyTag.perpetual_futures,

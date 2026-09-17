@@ -14,7 +14,6 @@ def test_popt_v1_1_usdc_lp_strategy_tags() -> None:
     assert vault.get_strategy_tags() == {
         StrategyTag.amm,
         StrategyTag.liquidity_provider,
-        StrategyTag.market_maker,
         StrategyTag.market_making,
         StrategyTag.market_making_amm,
     }

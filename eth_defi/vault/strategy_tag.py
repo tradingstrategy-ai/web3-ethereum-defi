@@ -89,10 +89,6 @@ class StrategyTag(str, enum.Enum):
     #: Example vault: Hyperliquidity Provider (HLP).
     liquidity_provider = "liquidity_provider"
 
-    #: Operates a strategy that quotes or supplies both sides of a market.
-    #: Example vault: Grvt Liquidity Provider (GLP).
-    market_maker = "market_maker"
-
     #: Actively makes markets by supplying liquidity through an automated
     #: market maker.
     #: Example vault: gTrade (Gains Network USDC).
@@ -146,6 +142,51 @@ class StrategyTag(str, enum.Enum):
     #: Seeks return from the carry of an asset or position.
     #: Example vault: Staked USDe (Ethena).
     carry_trade = "carry_trade"
+
+    @classmethod
+    def _missing_(cls, value: object) -> "StrategyTag | None":
+        """Map retired persisted values to their canonical strategy tags.
+
+        Retain read compatibility for prior metadata pickles while
+        canonicalising duplicate market-making values.
+
+        :param value:
+            Unrecognised enum value being deserialised.
+        :return:
+            The canonical tag for a retired value, or ``None`` otherwise.
+        """
+
+        legacy_tag_replacements = {
+            "market_maker": cls.market_making,
+        }
+        if isinstance(value, str):
+            return legacy_tag_replacements.get(value)
+        return None
+
+
+#: Human-readable labels that differ from the normalised tag identifier.
+#:
+#: Consumers can use this mapping for presentation while retaining the stable
+#: machine-readable :class:`StrategyTag` values in their data contracts.
+STRATEGY_TAG_DISPLAY_LABELS: dict[StrategyTag, str] = {
+    StrategyTag.market_making_clob: "Orderbook market making",
+}
+
+
+def get_strategy_tag_display_label(tag: StrategyTag) -> str:
+    """Return the human-readable label for a strategy tag.
+
+    The default renders the persisted snake-case identifier as a sentence-case
+    label. Explicit entries in :data:`STRATEGY_TAG_DISPLAY_LABELS` cover tags
+    whose preferred public wording differs from that mechanical rendering.
+
+    :param tag:
+        Stable machine-readable strategy tag.
+    :return:
+        Public-facing strategy label.
+    """
+
+    return STRATEGY_TAG_DISPLAY_LABELS.get(tag, tag.value.replace("_", " ").capitalize())
 
 
 def lookup_strategy_tags(

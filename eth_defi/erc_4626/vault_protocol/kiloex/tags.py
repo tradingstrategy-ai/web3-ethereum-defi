@@ -5,7 +5,6 @@ from eth_defi.vault.strategy_tag import StrategyTag
 _KILOEX_TAGS: set[StrategyTag] = {
     StrategyTag.amm,
     StrategyTag.liquidity_provider,
-    StrategyTag.market_maker,
     StrategyTag.market_making,
     StrategyTag.market_making_amm,
     StrategyTag.perpetual_futures,
