@@ -22,12 +22,12 @@
 //
 // Amount caps alone are insufficient because an asset manager could submit
 // several individually valid settlements in quick succession. Every enabled
-// cap is therefore paired with a positive cooldown. A successful automated
-// settlement which moves a non-zero gross amount records its block timestamp,
-// and another non-zero asset-manager settlement cannot complete until the
-// cooldown has elapsed. Empty settlements neither start nor extend a cooldown
-// and remain callable while one is active. The default is 24 hours. Direct Safe
-// governance calls bypass this module policy for deliberate recovery.
+// cap is therefore paired with a positive settlement window. Successful
+// automated settlements consume their gross flow from that window's budget;
+// a settlement is rejected only when its gross flow would make the cumulative
+// total exceed the cap. Empty settlements neither create nor alter a window.
+// The default window is 24 hours. Direct Safe governance calls bypass this
+// module policy for deliberate recovery.
 //
 // Balance invariant
 // -----------------
@@ -81,10 +81,10 @@ bytes4 constant SEL_SETTLE_REDEEM = 0xa03d55e3; // settleRedeem()
 bytes4 constant SEL_SETTLE_DEPOSIT_UINT = 0xd24ca58a; // settleDeposit(uint256)
 bytes4 constant SEL_SETTLE_REDEEM_UINT = 0xa627df66; // settleRedeem(uint256)
 
-// Default delay between non-zero asset-manager settlements. Keep this as a
+// Default duration of the asset-manager gross-settlement budget. Keep this as a
 // top-level constant so GuardV0Base can preserve its existing public
 // whitelistLagoonWithSettlementLimit() ABI while applying the safe default.
-uint256 constant DEFAULT_LAGOON_SETTLEMENT_COOLDOWN = 1 days;
+uint256 constant DEFAULT_LAGOON_SETTLEMENT_WINDOW = 1 days;
 
 /// Minimal stock Lagoon v0.5 interface needed to bind a configured asset.
 ///
@@ -111,8 +111,9 @@ library LagoonLib {
 
     // Namespace version v1 describes this library's storage layout. It is
     // independent of GuardV0Base.getInternalVersion(), which describes the
-    // public guard implementation version. Never change the meaning or order
-    // of existing LagoonStorage fields without migrating this namespace.
+    // public guard implementation version. Append storage fields only; the v4
+    // public implementation deliberately reuses the old timestamp slot as a
+    // window start because a fresh module is deployed with the new code.
     bytes32 constant STORAGE_SLOT = keccak256("eth_defi.lagoon.v1");
 
     /// Singleton Lagoon configuration stored in the calling guard/module.
@@ -134,13 +135,18 @@ library LagoonLib {
         // Zero is a valid strict cap: only a zero-asset settlement can pass.
         uint256 maxSettlementAmount;
 
-        // Minimum delay in seconds between successful asset-manager
-        // settlements. This is non-zero whenever limitEnabled is true.
-        uint256 settlementCooldown;
+        // Fixed duration in seconds for the gross-settlement budget. This is
+        // non-zero whenever limitEnabled is true.
+        uint256 settlementWindow;
 
-        // Block timestamp of the latest non-zero capped asset-manager
-        // settlement. Rejected and direct-governance calls never update it.
-        uint256 lastSettlementTimestamp;
+        // Block timestamp when the current gross-settlement window started.
+        // Rejected, empty and direct-governance calls never update it.
+        uint256 windowStartTimestamp;
+
+        // Gross amount consumed in the active settlement window. This field is
+        // appended after the v1 cooldown layout; the previous timestamp slot is
+        // reinterpreted as this window's start only by v4 guard modules.
+        uint256 settledAmountInWindow;
     }
 
     /// Transient pre-execution values used for atomic post-call verification.
@@ -161,14 +167,13 @@ library LagoonLib {
         // configuration even if the implementation evolves later.
         uint256 maxSettlementAmount;
 
-        // Cooldown copied before execution for the success event and next
-        // allowed timestamp after a non-zero settlement.
-        uint256 settlementCooldown;
+        // Settlement window copied before execution for consistent accounting.
+        uint256 settlementWindow;
 
-        // Earliest timestamp for another non-zero settlement, or zero before
-        // the first one. Post-call validation needs the measured gross amount
-        // before deciding whether this restriction applies.
-        uint256 nextSettlementTimestamp;
+        // Window state copied before execution. Post-call validation needs the
+        // measured gross amount before deciding whether to open a new window.
+        uint256 windowStartTimestamp;
+        uint256 settledAmountInWindow;
 
         // Underlying asset balance held by pendingSilo before settlement.
         uint256 siloBalanceBefore;
@@ -201,14 +206,11 @@ library LagoonLib {
     /// avoids leaving stale call-site permissions or indexer records behind.
     error LagoonVaultAlreadyConfigured(address configuredVault, address requestedVault);
 
-    /// The measured deposit-plus-redemption movement was above the cap.
-    error LagoonSettlementLimitExceeded(uint256 actualAmount, uint256 maxAmount);
+    /// A cumulative gross settlement would exceed the active window's cap.
+    error LagoonSettlementWindowLimitExceeded(uint256 alreadyUsed, uint256 newGrossAmount, uint256 maxAmount);
 
-    /// Governance supplied a zero cooldown for an enabled safety policy.
-    error LagoonInvalidSettlementCooldown(uint256 settlementCooldown);
-
-    /// An asset manager attempted another settlement before the safety delay.
-    error LagoonSettlementCooldownActive(uint256 currentTimestamp, uint256 nextSettlementTimestamp);
+    /// Governance supplied a zero settlement window for an enabled safety policy.
+    error LagoonInvalidSettlementWindow(uint256 settlementWindow);
 
     /// The Silo moved in the opposite direction to a stock v0.5 settlement.
     error LagoonSiloBalanceIncreased(uint256 beforeBalance, uint256 afterBalance);
@@ -231,18 +233,18 @@ library LagoonLib {
         string notes
     );
 
-    /// Record the time-based half of the settlement safety configuration.
+    /// Record the settlement-window half of the safety configuration.
     ///
     /// This separate event preserves the existing LagoonSettlementLimitSet
     /// signature for indexers. Older limit events imply the 24-hour default;
     /// this event records an explicit default or governance override.
-    event LagoonSettlementCooldownSet(address indexed vault, uint256 settlementCooldown, string notes);
+    event LagoonSettlementCooldownSet(address indexed vault, uint256 settlementWindow, string notes);
 
     /// Record a successful post-execution settlement measurement.
     ///
     /// This event is absent for rejected settlements because the outer EVM
     /// revert rolls back all logs. Rejection is observable through the custom
-    /// LagoonSettlementLimitExceeded error and failed transaction receipt.
+    /// LagoonSettlementWindowLimitExceeded error and failed transaction receipt.
     event LagoonSettlementValidated(
         address indexed vault,
         uint256 depositAssets,
@@ -251,9 +253,14 @@ library LagoonLib {
         uint256 maxSettlementAmount
     );
 
-    /// Record when a successful non-zero automated settlement starts cooldown.
-    event LagoonSettlementCooldownStarted(
-        address indexed vault, uint256 settlementTimestamp, uint256 nextSettlementTimestamp
+    /// Record gross-budget accounting for a successful non-zero settlement.
+    event LagoonSettlementWindowUpdated(
+        address indexed vault,
+        uint256 grossSettlementAmount,
+        uint256 settledAmountInWindow,
+        uint256 maxSettlementAmount,
+        uint256 windowStartTimestamp,
+        uint256 windowEndTimestamp
     );
 
     /// Resolve this library's namespaced storage in the caller's context.
@@ -287,7 +294,7 @@ library LagoonLib {
     ///
     /// This is the backwards-compatible route used by existing deployments.
     /// Reapplying it to a safety-configured vault intentionally clears all
-    /// amount and cooldown metadata, providing a governance-controlled way to
+    /// amount and settlement-window metadata, providing a governance-controlled way to
     /// disable enforcement while preserving the original whitelist API and
     /// event. A different vault cannot replace the vault paired during deployment.
     ///
@@ -302,16 +309,18 @@ library LagoonLib {
         config.asset = address(0);
         config.pendingSilo = address(0);
         config.maxSettlementAmount = 0;
-        config.settlementCooldown = 0;
-        config.lastSettlementTimestamp = 0;
+        config.settlementWindow = 0;
+        config.windowStartTimestamp = 0;
+        config.settledAmountInWindow = 0;
         emit LagoonVaultApproved(vault, notes);
     }
 
-    /// Allowlist a Lagoon vault with the default 24-hour cooldown.
+    /// Allowlist a Lagoon vault with the default 24-hour settlement window.
     ///
     /// This shorter entry point accepts only the settlement amount. Applying
-    /// the safe default here ensures callers gain rate limiting without another
-    /// argument. Callers needing an override use the explicit function below.
+    /// the safe default here ensures callers gain cumulative budget accounting
+    /// without another argument. Callers needing an override use the explicit
+    /// function below.
     ///
     /// @param vault Stock Lagoon vault to allowlist.
     /// @param asset Vault underlying ERC-20 returned by vault.asset().
@@ -326,7 +335,7 @@ library LagoonLib {
         string calldata notes
     ) external {
         _whitelistVaultWithSettlementSafety(
-            vault, asset, pendingSilo, maxSettlementAmount, DEFAULT_LAGOON_SETTLEMENT_COOLDOWN, notes
+            vault, asset, pendingSilo, maxSettlementAmount, DEFAULT_LAGOON_SETTLEMENT_WINDOW, notes
         );
     }
 
@@ -340,20 +349,20 @@ library LagoonLib {
     /// @param asset Vault underlying ERC-20 returned by vault.asset().
     /// @param pendingSilo Vault-specific Lagoon Silo holding queued deposits.
     /// @param maxSettlementAmount Maximum gross asset-manager settlement in raw units.
-    /// @param settlementCooldown Minimum seconds between non-zero settlements.
+    /// @param settlementWindow Duration of the gross-settlement budget in seconds.
     /// @param notes Human-readable governance audit note.
     function whitelistVaultWithSettlementLimitAndCooldown(
         address vault,
         address asset,
         address pendingSilo,
         uint256 maxSettlementAmount,
-        uint256 settlementCooldown,
+        uint256 settlementWindow,
         string calldata notes
     ) external {
-        _whitelistVaultWithSettlementSafety(vault, asset, pendingSilo, maxSettlementAmount, settlementCooldown, notes);
+        _whitelistVaultWithSettlementSafety(vault, asset, pendingSilo, maxSettlementAmount, settlementWindow, notes);
     }
 
-    /// Validate and store one amount-and-cooldown safety policy.
+    /// Validate and store one amount-and-window safety policy.
     ///
     /// Centralising the write path keeps the default and explicit public
     /// library entry points behaviourally identical except for the duration.
@@ -362,12 +371,12 @@ library LagoonLib {
         address asset,
         address pendingSilo,
         uint256 maxSettlementAmount,
-        uint256 settlementCooldown,
+        uint256 settlementWindow,
         string calldata notes
     ) private {
         _validateConfiguration(vault, asset, pendingSilo);
-        if (settlementCooldown == 0) {
-            revert LagoonInvalidSettlementCooldown(settlementCooldown);
+        if (settlementWindow == 0) {
+            revert LagoonInvalidSettlementWindow(settlementWindow);
         }
 
         LagoonStorage storage config = _storage();
@@ -376,11 +385,13 @@ library LagoonLib {
         config.asset = asset;
         config.pendingSilo = pendingSilo;
         config.maxSettlementAmount = maxSettlementAmount;
-        config.settlementCooldown = settlementCooldown;
+        config.settlementWindow = settlementWindow;
+        config.windowStartTimestamp = 0;
+        config.settledAmountInWindow = 0;
 
         emit LagoonVaultApproved(vault, notes);
         emit LagoonSettlementLimitSet(vault, asset, pendingSilo, maxSettlementAmount, true, notes);
-        emit LagoonSettlementCooldownSet(vault, settlementCooldown, notes);
+        emit LagoonSettlementCooldownSet(vault, settlementWindow, notes);
     }
 
     // ----- Configuration reads -----
@@ -421,33 +432,35 @@ library LagoonLib {
     /// Return the time-based settlement safety state without changing the
     /// backwards-compatible getVaultConfig() return shape.
     ///
-    /// A configured capped vault always reports a positive cooldown. A zero
+    /// A configured capped vault always reports a positive window. A zero
     /// stored value is interpreted as the 24-hour default so a guard upgraded
     /// from the first amount-only implementation fails safe. Unlimited and
     /// unknown vaults return three zero values.
     ///
     /// @param vault Lagoon vault address to inspect.
-    /// @return settlementCooldown Minimum seconds between non-zero settlements.
-    /// @return lastSettlementTimestamp Latest non-zero automated settlement.
-    /// @return nextSettlementTimestamp Earliest next non-zero settlement time.
+    /// @return settlementWindow Gross-settlement budget duration in seconds.
+    /// @return settledAmountInWindow Gross amount consumed in the active window.
+    /// @return windowEndTimestamp Active window expiry, or zero when inactive.
     function getSettlementCooldownConfig(address vault)
         external
         view
-        returns (uint256 settlementCooldown, uint256 lastSettlementTimestamp, uint256 nextSettlementTimestamp)
+        returns (uint256 settlementWindow, uint256 settledAmountInWindow, uint256 windowEndTimestamp)
     {
         LagoonStorage storage config = _storage();
         if (config.vault == address(0) || config.vault != vault || !config.limitEnabled) {
             return (0, 0, 0);
         }
 
-        settlementCooldown = _effectiveSettlementCooldown(config);
-        lastSettlementTimestamp = config.lastSettlementTimestamp;
-        if (lastSettlementTimestamp != 0) {
-            nextSettlementTimestamp = lastSettlementTimestamp + settlementCooldown;
+        settlementWindow = _effectiveSettlementWindow(config);
+        uint256 windowStartTimestamp = config.windowStartTimestamp;
+        // forge-lint: disable-next-line(block-timestamp)
+        if (windowStartTimestamp != 0 && block.timestamp < windowStartTimestamp + settlementWindow) {
+            settledAmountInWindow = config.settledAmountInWindow;
+            windowEndTimestamp = windowStartTimestamp + settlementWindow;
         }
     }
 
-    /// Return the complete amount-and-cooldown safety state in one call.
+    /// Return the complete amount-and-window safety state in one call.
     ///
     /// GuardV0Base exposes this convenience read to offchain deployment and
     /// monitoring tools. Keeping the storage aggregation here avoids two
@@ -457,13 +470,13 @@ library LagoonLib {
     ///
     /// @param vault Lagoon vault address to inspect.
     /// @return allowed Whether the singleton vault is allowlisted.
-    /// @return limitEnabled Whether amount-and-cooldown safety is enabled.
+    /// @return limitEnabled Whether amount-and-window safety is enabled.
     /// @return asset Underlying ERC-20 measured by the validator.
     /// @return pendingSilo Pending-deposit Silo measured by the validator.
     /// @return maxSettlementAmount Inclusive gross amount safety limit.
-    /// @return settlementCooldown Delay between non-zero settlements in seconds.
-    /// @return lastSettlementTimestamp Latest non-zero settlement Unix timestamp.
-    /// @return nextSettlementTimestamp Earliest next non-zero settlement Unix timestamp.
+    /// @return settlementWindow Gross-settlement budget duration in seconds.
+    /// @return settledAmountInWindow Gross amount consumed in the active window.
+    /// @return windowEndTimestamp Active window expiry, or zero when inactive.
     function getSettlementSafetyConfig(address vault)
         external
         view
@@ -473,9 +486,9 @@ library LagoonLib {
             address asset,
             address pendingSilo,
             uint256 maxSettlementAmount,
-            uint256 settlementCooldown,
-            uint256 lastSettlementTimestamp,
-            uint256 nextSettlementTimestamp
+            uint256 settlementWindow,
+            uint256 settledAmountInWindow,
+            uint256 windowEndTimestamp
         )
     {
         LagoonStorage storage config = _storage();
@@ -490,10 +503,12 @@ library LagoonLib {
             return (allowed, limitEnabled, asset, pendingSilo, maxSettlementAmount, 0, 0, 0);
         }
 
-        settlementCooldown = _effectiveSettlementCooldown(config);
-        lastSettlementTimestamp = config.lastSettlementTimestamp;
-        if (lastSettlementTimestamp != 0) {
-            nextSettlementTimestamp = lastSettlementTimestamp + settlementCooldown;
+        settlementWindow = _effectiveSettlementWindow(config);
+        uint256 windowStartTimestamp = config.windowStartTimestamp;
+        // forge-lint: disable-next-line(block-timestamp)
+        if (windowStartTimestamp != 0 && block.timestamp < windowStartTimestamp + settlementWindow) {
+            settledAmountInWindow = config.settledAmountInWindow;
+            windowEndTimestamp = windowStartTimestamp + settlementWindow;
         }
     }
 
@@ -516,24 +531,20 @@ library LagoonLib {
         }
         if (!config.limitEnabled) return context;
 
-        // Capture rather than enforce the current time window. Lagoon must run
+        // Capture rather than enforce the current window. Lagoon must run
         // before the validator can distinguish an empty settlement, which is
-        // always allowed, from a non-zero settlement subject to cooldown. A
+        // always allowed, from a non-zero settlement subject to the budget. A
         // later rejection remains safe because the post-call revert atomically
         // rolls back the complete Safe and Lagoon execution.
-        uint256 settlementCooldown = _effectiveSettlementCooldown(config);
-        uint256 lastSettlementTimestamp = config.lastSettlementTimestamp;
-        uint256 nextSettlementTimestamp;
-        if (lastSettlementTimestamp != 0) {
-            nextSettlementTimestamp = lastSettlementTimestamp + settlementCooldown;
-        }
+        uint256 settlementWindow = _effectiveSettlementWindow(config);
 
         SettlementSnapshot memory snapshot;
         snapshot.asset = config.asset;
         snapshot.pendingSilo = config.pendingSilo;
         snapshot.maxSettlementAmount = config.maxSettlementAmount;
-        snapshot.settlementCooldown = settlementCooldown;
-        snapshot.nextSettlementTimestamp = nextSettlementTimestamp;
+        snapshot.settlementWindow = settlementWindow;
+        snapshot.windowStartTimestamp = config.windowStartTimestamp;
+        snapshot.settledAmountInWindow = config.settledAmountInWindow;
         snapshot.siloBalanceBefore = IERC20(config.asset).balanceOf(config.pendingSilo);
         snapshot.vaultBalanceBefore = IERC20(config.asset).balanceOf(vault);
 
@@ -550,8 +561,8 @@ library LagoonLib {
     /// SettlementSnapshot or assumes how Lagoon measures a settlement. The
     /// function rejects unexpected balance directions, calculates deposit and
     /// redemption deltas independently, and compares their gross sum with the
-    /// configured inclusive cap. Equality is accepted; only actual amounts
-    /// strictly greater than maxSettlementAmount revert.
+    /// configured inclusive cumulative cap. Equality is accepted; only a gross
+    /// amount which pushes active-window usage above maxSettlementAmount reverts.
     ///
     /// A revert propagates through TradingStrategyModuleV0 and Safe execution,
     /// atomically undoing the settlement. This property is the enforcement
@@ -583,54 +594,61 @@ library LagoonLib {
         uint256 depositAssets = snapshot.siloBalanceBefore - siloBalanceAfter;
         uint256 redeemAssets = vaultBalanceAfter - snapshot.vaultBalanceBefore;
         grossSettlementAmount = depositAssets + redeemAssets;
-        if (grossSettlementAmount > snapshot.maxSettlementAmount) {
-            revert LagoonSettlementLimitExceeded(grossSettlementAmount, snapshot.maxSettlementAmount);
-        }
-
         emit LagoonSettlementValidated(
             vault, depositAssets, redeemAssets, grossSettlementAmount, snapshot.maxSettlementAmount
         );
 
         // Empty Lagoon settlements are operational no-ops and must not start,
-        // extend or be blocked by the cooldown. Only non-zero gross movement
+        // extend or reset a settlement window. Only non-zero gross movement
         // reaches the timestamp check and storage write below.
         if (grossSettlementAmount != 0) {
-            // A cooldown necessarily follows the chain's consensus timestamp.
-            // Small validator drift cannot materially bypass the 24-hour
-            // default; governance must choose custom durations with the same
-            // timestamp tolerance in mind.
+            bool startsFreshWindow = snapshot.windowStartTimestamp == 0
+                // forge-lint: disable-next-line(block-timestamp)
+                || block.timestamp >= snapshot.windowStartTimestamp + snapshot.settlementWindow;
+            uint256 alreadyUsed = startsFreshWindow ? 0 : snapshot.settledAmountInWindow;
             if (
-                snapshot.nextSettlementTimestamp != 0 &&
-                    // forge-lint: disable-next-line(block-timestamp)
-                    block.timestamp < snapshot.nextSettlementTimestamp
+                alreadyUsed > snapshot.maxSettlementAmount
+                    || grossSettlementAmount > snapshot.maxSettlementAmount - alreadyUsed
             ) {
-                revert LagoonSettlementCooldownActive(block.timestamp, snapshot.nextSettlementTimestamp);
+                revert LagoonSettlementWindowLimitExceeded(
+                    alreadyUsed, grossSettlementAmount, snapshot.maxSettlementAmount
+                );
             }
 
             // Only a fully validated non-zero asset-manager settlement reaches
             // this write. Any later revert rolls it back with Lagoon. Rejected,
-            // empty and direct-governance settlements leave the timestamp alone.
+            // empty and direct-governance settlements leave accounting alone.
             LagoonStorage storage config = _storage();
-            config.lastSettlementTimestamp = block.timestamp;
-            uint256 nextSettlementTimestamp = block.timestamp + snapshot.settlementCooldown;
-            emit LagoonSettlementCooldownStarted(vault, block.timestamp, nextSettlementTimestamp);
+            uint256 windowStartTimestamp = startsFreshWindow ? block.timestamp : snapshot.windowStartTimestamp;
+            uint256 settledAmountInWindow = alreadyUsed + grossSettlementAmount;
+            uint256 windowEndTimestamp = windowStartTimestamp + snapshot.settlementWindow;
+            config.windowStartTimestamp = windowStartTimestamp;
+            config.settledAmountInWindow = settledAmountInWindow;
+            emit LagoonSettlementWindowUpdated(
+                vault,
+                grossSettlementAmount,
+                settledAmountInWindow,
+                snapshot.maxSettlementAmount,
+                windowStartTimestamp,
+                windowEndTimestamp
+            );
         }
     }
 
-    /// Resolve the configured cooldown with a fail-safe migration default.
+    /// Resolve the configured settlement window with a fail-safe migration default.
     ///
     /// The zero fallback protects any amount-only v1 storage written before
-    /// the cooldown field existed. New configuration rejects zero explicitly,
+    /// the settlement-window field existed. New configuration rejects zero explicitly,
     /// so this branch is only a backwards-compatibility safety net.
     ///
     /// @param config Lagoon singleton storage.
-    /// @return Cooldown duration in seconds.
-    function _effectiveSettlementCooldown(LagoonStorage storage config) private view returns (uint256) {
-        uint256 configuredCooldown = config.settlementCooldown;
-        if (configuredCooldown == 0) {
-            return DEFAULT_LAGOON_SETTLEMENT_COOLDOWN;
+    /// @return Settlement-window duration in seconds.
+    function _effectiveSettlementWindow(LagoonStorage storage config) private view returns (uint256) {
+        uint256 configuredWindow = config.settlementWindow;
+        if (configuredWindow == 0) {
+            return DEFAULT_LAGOON_SETTLEMENT_WINDOW;
         }
-        return configuredCooldown;
+        return configuredWindow;
     }
 
     // ----- Configuration validation helpers -----

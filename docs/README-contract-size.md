@@ -11,7 +11,7 @@ to stay within the [EIP-170 24,576-byte limit](https://eips.ethereum.org/EIPS/ei
 | GuardV0 | guard | 21,691 | 88.3% | 2,885 |
 | GmxLib | guard | 6,153 | 25.0% | 18,423 |
 | HypercoreVaultLib | guard | 3,927 | 16.0% | 20,649 |
-| LagoonLib | guard | 4,928 | 20.1% | 19,648 |
+| LagoonLib | guard | 5,154 | 21.0% | 19,422 |
 | CowSwapLib | guard | 3,464 | 14.1% | 21,112 |
 | UniswapLib | guard | 3,333 | 13.6% | 21,243 |
 | VeloraLib | guard | 2,686 | 10.9% | 21,890 |
@@ -106,7 +106,7 @@ DELEGATECALL context.
 |---------|---------|-------------:|-------------|
 | `GmxLib` | GMX V2 perpetuals: router/market whitelisting, multicall validation | 6,153 | `keccak256("eth_defi.gmx.v1")` |
 | `HypercoreVaultLib` | Hypercore vault deposit/action validation, CoreWriter checking | 3,927 | `keccak256("eth_defi.hypercore.vault.v1")` |
-| `LagoonLib` | Lagoon allowlisting, atomic gross-settlement validation and cooldown state | 4,928 | `keccak256("eth_defi.lagoon.v1")` |
+| `LagoonLib` | Lagoon allowlisting, atomic cumulative gross-settlement-window validation | 5,154 | `keccak256("eth_defi.lagoon.v1")` |
 | `CowSwapLib` | CowSwap order creation, GPv2Order hashing, presigning, and swap validation | 3,464 | `keccak256("eth_defi.cowswap.v1")` |
 | `UniswapLib` | Uniswap V2 swap path validation, V3 exactInput/exactOutput/SwapRouter02 recipient checks | 3,333 | None (stateless) |
 | `VeloraLib` | Velora (ParaSwap) swapper whitelisting, swap validation, balance-envelope verification | 2,686 | `keccak256("eth_defi.velora.v1")` |

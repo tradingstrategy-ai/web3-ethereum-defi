@@ -1,5 +1,6 @@
 # 1.2
 
+- fix: Accumulate Lagoon automated settlement gross flow in a fixed daily budget window, including Lighter's initial Lagoon subscription (2026-09-17)
 - fix: Add a guarded Lagoon Safe claim helper and automatically refresh short-lived Lighter SDK authentication tokens for idempotent calls (2026-09-14)
 - feat: Add concise public strategy-category descriptions and classify Morini Capital foreign-currency vaults with the new FX category (2026-09-11)
 - feat: Add deployment-time Lighter account activation and API-key registration for Lagoon vaults, including private deployment-report output and an end-to-end ETH perpetual trading tutorial (2026-09-11)

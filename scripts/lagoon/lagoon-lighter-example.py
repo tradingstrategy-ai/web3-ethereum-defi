@@ -1,8 +1,8 @@
 """Deploy and activate a Lighter-enabled Lagoon vault on Ethereum mainnet.
 
 This is a one-shot manual provider check for the package deployment path. It
-creates a fresh Lagoon vault, makes the fixed 1 USDC accounted activation
-deposit, registers a Lighter API key before the requested Safe owners and
+creates a fresh Lagoon vault, makes the fixed 20 USDC accounted bootstrap
+subscription, transfers 1 USDC to Lighter, registers a Lighter API key before the requested Safe owners and
 threshold are configured, writes the secret-bearing report with mode ``0600``,
 and prints only a redacted summary. It does not trade, withdraw, resume a
 previous run, or attempt recovery.
@@ -14,8 +14,8 @@ Environment variables
     Ethereum mainnet RPC endpoint. Required.
 ``LIGHTER_TEST_PRIVATE_KEY``
     Funded deployer, Safe owner, depositor and asset-manager key. Required. It
-    needs ETH for deployment gas and at least 1 native Ethereum USDC for
-    Lighter activation.
+    needs ETH for deployment gas and at least 20 native Ethereum USDC for the
+    Lighter bootstrap subscription.
 ``LIGHTER_API_KEY_INDEX``
     Optional Lighter API-key slot. Defaults to 4.
 ``LIGHTER_DEPLOYMENT_REPORT``
@@ -27,6 +27,7 @@ Environment variables
 
 import logging
 import os
+from decimal import Decimal
 from pathlib import Path
 
 from web3 import Web3
@@ -104,6 +105,7 @@ def deploy_lighter_vault(web3: Web3, hot_wallet: HotWallet, etherscan_api_key: s
         lighter_api_key_index=api_key_index,
         use_forge=True,
         assets=[LIGHTER_USDC_ETHEREUM],
+        max_settlement_amount=Decimal(5_000),
         etherscan_api_key=etherscan_api_key,
         between_contracts_delay_seconds=0.0,
     )
