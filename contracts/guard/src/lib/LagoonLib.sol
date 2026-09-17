@@ -110,10 +110,9 @@ library LagoonLib {
     // ----- Diamond storage -----
 
     // Namespace version v1 describes this library's storage layout. It is
-    // independent of GuardV0Base.getInternalVersion(), which describes the
-    // public guard implementation version. Append storage fields only; the v4
-    // public implementation deliberately reuses the old timestamp slot as a
-    // window start because a fresh module is deployed with the new code.
+    // independent of GuardV0Base.getInternalVersion(). Guard modules are
+    // deployed, not upgraded, so v4 can reuse the old timestamp slot as the
+    // start of its settlement window and append the accumulated amount.
     bytes32 constant STORAGE_SLOT = keccak256("eth_defi.lagoon.v1");
 
     /// Singleton Lagoon configuration stored in the calling guard/module.
@@ -339,11 +338,11 @@ library LagoonLib {
         );
     }
 
-    /// Allowlist a Lagoon vault and enable custom settlement safety controls.
+    /// Allowlist a Lagoon vault and enable a custom settlement-window budget.
     ///
     /// The function validates the relationship between vault, asset and Silo
-    /// before storing configuration. GuardV0Base separately allowlists all
-    /// supported settlement call sites after this delegatecall succeeds.
+    /// before storing configuration. Its cooldown name is retained only for
+    /// ABI compatibility; ``settlementWindow`` is a budget duration.
     ///
     /// @param vault Stock Lagoon vault to allowlist.
     /// @param asset Vault underlying ERC-20 returned by vault.asset().
@@ -429,12 +428,12 @@ library LagoonLib {
         return (true, config.limitEnabled, config.asset, config.pendingSilo, config.maxSettlementAmount);
     }
 
-    /// Return the time-based settlement safety state without changing the
-    /// backwards-compatible getVaultConfig() return shape.
+    /// Return settlement-window state without changing getVaultConfig().
     ///
-    /// A configured capped vault always reports a positive window. A zero
-    /// stored value is interpreted as the 24-hour default so a guard upgraded
-    /// from the first amount-only implementation fails safe. Unlimited and
+    /// The cooldown name is retained only for ABI compatibility; v4 returns a
+    /// window duration, used amount and active-window end.
+    ///
+    /// Capped vaults always have a positive configured window. Unlimited and
     /// unknown vaults return three zero values.
     ///
     /// @param vault Lagoon vault address to inspect.
@@ -451,10 +450,10 @@ library LagoonLib {
             return (0, 0, 0);
         }
 
-        settlementWindow = _effectiveSettlementWindow(config);
+        settlementWindow = config.settlementWindow;
         uint256 windowStartTimestamp = config.windowStartTimestamp;
-        // forge-lint: disable-next-line(block-timestamp)
         uint256 windowEndTimestamp_ = _settlementWindowEnd(windowStartTimestamp, settlementWindow);
+        // forge-lint: disable-next-line(block-timestamp)
         if (windowStartTimestamp != 0 && block.timestamp < windowEndTimestamp_) {
             settledAmountInWindow = config.settledAmountInWindow;
             windowEndTimestamp = windowEndTimestamp_;
@@ -504,10 +503,10 @@ library LagoonLib {
             return (allowed, limitEnabled, asset, pendingSilo, maxSettlementAmount, 0, 0, 0);
         }
 
-        settlementWindow = _effectiveSettlementWindow(config);
+        settlementWindow = config.settlementWindow;
         uint256 windowStartTimestamp = config.windowStartTimestamp;
-        // forge-lint: disable-next-line(block-timestamp)
         uint256 windowEndTimestamp_ = _settlementWindowEnd(windowStartTimestamp, settlementWindow);
+        // forge-lint: disable-next-line(block-timestamp)
         if (windowStartTimestamp != 0 && block.timestamp < windowEndTimestamp_) {
             settledAmountInWindow = config.settledAmountInWindow;
             windowEndTimestamp = windowEndTimestamp_;
@@ -538,13 +537,11 @@ library LagoonLib {
         // always allowed, from a non-zero settlement subject to the budget. A
         // later rejection remains safe because the post-call revert atomically
         // rolls back the complete Safe and Lagoon execution.
-        uint256 settlementWindow = _effectiveSettlementWindow(config);
-
         SettlementSnapshot memory snapshot;
         snapshot.asset = config.asset;
         snapshot.pendingSilo = config.pendingSilo;
         snapshot.maxSettlementAmount = config.maxSettlementAmount;
-        snapshot.settlementWindow = settlementWindow;
+        snapshot.settlementWindow = config.settlementWindow;
         snapshot.windowStartTimestamp = config.windowStartTimestamp;
         snapshot.settledAmountInWindow = config.settledAmountInWindow;
         snapshot.siloBalanceBefore = IERC20(config.asset).balanceOf(config.pendingSilo);
@@ -637,31 +634,14 @@ library LagoonLib {
         }
     }
 
-    /// Resolve the configured settlement window with a fail-safe migration default.
+    /// Return a settlement-window expiry, saturating extreme owner input.
     ///
-    /// The zero fallback protects any amount-only v1 storage written before
-    /// the settlement-window field existed. New configuration rejects zero explicitly,
-    /// so this branch is only a backwards-compatibility safety net.
+    /// Saturation makes an impractically long owner-configured window remain
+    /// active instead of making settlement validation revert through overflow.
     ///
-    /// @param config Lagoon singleton storage.
-    /// @return Settlement-window duration in seconds.
-    function _effectiveSettlementWindow(LagoonStorage storage config) private view returns (uint256) {
-        uint256 configuredWindow = config.settlementWindow;
-        if (configuredWindow == 0) {
-            return DEFAULT_LAGOON_SETTLEMENT_WINDOW;
-        }
-        return configuredWindow;
-    }
-
-    /// Calculate a settlement-window expiry without allowing a configuration to brick validation.
-    ///
-    /// A duration close to ``type(uint256).max`` is unusual but owner-configurable.
-    /// Saturating the expiry makes it an effectively unexpired window rather than
-    /// reverting every settlement and state query through checked addition.
-    ///
-    /// @param windowStartTimestamp Timestamp at which the active window started.
+    /// @param windowStartTimestamp Timestamp at which the window started.
     /// @param settlementWindow Configured duration in seconds.
-    /// @return Window expiry, saturated at the maximum representable timestamp.
+    /// @return Window expiry, saturated at the maximum timestamp.
     function _settlementWindowEnd(uint256 windowStartTimestamp, uint256 settlementWindow)
         private
         pure

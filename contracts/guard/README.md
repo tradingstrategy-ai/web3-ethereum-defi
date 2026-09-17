@@ -1,4 +1,4 @@
-# GuardV0 — on-chain trade validation for asset management
+# GuardV0 — onchain trade validation for asset management
 
 GuardV0 is a guard-pattern smart contract that validates every action an asset manager
 performs on behalf of asset owners. It works with **any vault or multisignature wallet**
@@ -160,10 +160,11 @@ The complete transaction reverts when `gross amount + used amount in the active
 window > maxSettlementAmount`, rolling back Lagoon accounting and all token
 transfers. Equality is accepted. This is a reject policy, not partial settlement.
 Governance may recover an oversized queue with a direct Safe transaction. Direct
-Safe transactions intentionally bypass module policy.
+Safe transactions intentionally bypass module policy, but still require the
+Safe's normal owner authorisation; an asset manager cannot use that path.
 
 A per-call amount limit would still let an asset manager submit several individually
-valid non-zero settlements to drain the vault. `LagoonLib` instead opens a fixed
+valid non-zero settlements and exceed the intended allowance. `LagoonLib` instead opens a fixed
 window on the first successful non-zero settlement and accumulates each later gross
 amount in it. A settlement is rejected only when the accumulated total would exceed
 the cap; the next non-zero settlement after expiry opens a fresh window. Because the
@@ -210,7 +211,7 @@ on the library extraction pattern and compiler settings.
 
 The Python module
 [`config_event_scanner`](../../eth_defi/erc_4626/vault_protocol/lagoon/config_event_scanner.py)
-decodes the full cross-chain guard configuration by scanning on-chain events
+decodes the full cross-chain guard configuration by scanning onchain events
 emitted during deployment. It follows CCTP destination chains automatically
 to build a multichain picture.
 

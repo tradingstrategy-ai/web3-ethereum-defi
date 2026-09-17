@@ -1,4 +1,4 @@
-"""Decode cross-chain Lagoon + Safe + TradingStrategyModuleV0 guard configuration from on-chain events.
+"""Decode cross-chain Lagoon + Safe + TradingStrategyModuleV0 guard configuration from onchain events.
 
 Scans all GuardV0Base and library configuration events emitted by the
 TradingStrategyModuleV0 contract, optionally following CCTP destination
@@ -438,7 +438,7 @@ def resolve_token_label(
     Falls back to the raw address if resolution fails.
 
     :param web3:
-        Web3 connection for on-chain lookups.
+        Web3 connection for onchain lookups.
 
     :param address:
         ERC-20 token contract address.
@@ -473,7 +473,7 @@ def resolve_address_label(
     5. ``<unknown>`` — last resort
 
     :param web3:
-        Web3 connection for on-chain lookups.  If ``None``, only
+        Web3 connection for onchain lookups.  If ``None``, only
         label dicts are checked.
 
     :param address:
@@ -576,7 +576,7 @@ def resolve_hypercore_vault_labels(
 ) -> dict[str, str]:
     """Resolve Hypercore vault addresses to human-readable names via the Hyperliquid API.
 
-    Hypercore vaults do not implement ``name()`` on-chain; their names
+    Hypercore vaults do not implement ``name()`` onchain; their names
     are stored off-chain in the Hyperliquid API (``vaultDetails`` endpoint).
 
     :param vault_addresses:
@@ -683,7 +683,7 @@ def format_chain_config_detailed(
     labels: dict[str, str] = {}
     safe_checksum = Web3.to_checksum_address(cfg.safe_address)
     labels[safe_checksum] = "<our multisig>"
-    # Resolve Hypercore vault names via Hyperliquid API (they lack on-chain name())
+    # Resolve Hypercore vault names via Hyperliquid API (they lack an onchain name())
     if cfg.hypercore_vaults:
         try:
             labels.update(resolve_hypercore_vault_labels(cfg.hypercore_vaults))

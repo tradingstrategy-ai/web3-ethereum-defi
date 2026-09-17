@@ -437,11 +437,12 @@ abstract contract GuardV0Base is IGuard, Multicall {
         _allowLagoonSettlementCallSites(vault, notes);
     }
 
-    /// Enable Lagoon asset-manager settlement safety with a custom window.
+    /// Enable a Lagoon asset-manager settlement budget with a custom window.
     ///
     /// The amount-only whitelistLagoonWithSettlementLimit() overload applies
     /// the conservative 24-hour default. This explicit variant lets governance
     /// choose a different positive duration without changing that shorter API.
+    /// The cooldown name is retained only for ABI compatibility.
     /// Direct Safe governance settlement remains outside module policy.
     ///
     /// @param vault Paired stock Lagoon v0.5 vault.
@@ -544,7 +545,8 @@ abstract contract GuardV0Base is IGuard, Multicall {
     /// Return the settlement-window state paired with a Lagoon amount cap.
     ///
     /// Kept separate from getLagoonSettlementConfig() so integrations which
-    /// only need window state can read a smaller focused tuple.
+    /// only need window state can read a smaller focused tuple. The cooldown
+    /// name is retained only for ABI compatibility.
     function getLagoonSettlementCooldownConfig(address vault)
         public
         view
