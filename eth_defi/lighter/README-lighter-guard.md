@@ -216,11 +216,10 @@ to replay.
 A Lighter-enabled Lagoon deployment subscribes an initial 20 USDC through the
 normal Lagoon lifecycle, then transfers 1 USDC from the Safe to Lighter for
 account activation. This leaves 19 USDC in the Safe as an executor reserve.
-When a 5,000-USDC settlement-window budget is configured, the 20-USDC
-subscription consumes part of its cumulative allowance. The 1-USDC Lighter
-activation transfer is a direct Safe governance call, not a Lagoon settlement.
-The next normal 20-USDC investor settlement therefore succeeds immediately
-with 40 USDC of the 5,000-USDC window used.
+The settlement budget applies equally to every automated Lagoon settlement,
+including the initial subscription. With a 5,000-USDC budget, the bootstrap
+subscription and next 20-USDC investor settlement use 40 USDC together.
+Account activation remains an ordinary direct Safe transfer.
 
 Lighter's
 [Create accounts programmatically](https://apidocs.lighter.xyz/docs/create-accounts-programmatically)

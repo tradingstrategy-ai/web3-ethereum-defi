@@ -16,10 +16,10 @@ empty settlements do not start, extend, or reset one. Direct Safe governance
 settlements continue to bypass the module policy.
 
 The Lighter bootstrap path must leave a newly deployed vault with 20 USDC
-subscribed, 1 USDC credited to Lighter, and 19 USDC in the Safe. The initial
-subscription and first ordinary 20-USDC investor settlement both consume the
-same 5,000-USDC settlement window, so the latter succeeds immediately with
-40 USDC of gross usage.
+subscribed, 1 USDC credited to Lighter, and 19 USDC in the Safe. Every
+automated Lagoon settlement uses the same 5,000-USDC window, so the first
+ordinary 20-USDC investor settlement succeeds immediately with 40 USDC of
+gross usage.
 
 ## Diagnosis
 
@@ -81,10 +81,8 @@ Solidity compatibility selectors and use the version getters to distinguish
 old cooldown deployments from the new cumulative-budget semantics.
 
 For bootstrap, do not add an exemption, a second configuration step, or an
-unlimited interval. Configure the normal settlement budget during deployment.
-The initial 20-USDC subscription consumes part of it; the 1-USDC Lighter
-activation is a direct Safe transfer and does not call Lagoon settlement.
-The following normal investor settlement remains comfortably below the cap.
+unlimited interval. Configure the normal settlement budget during deployment
+and apply it identically to every automated Lagoon settlement.
 
 Do not add generic multi-vault accounting, bootstrap exemptions, or a Guard
 function that lets an asset manager reset usage. Reapplying or disabling the
