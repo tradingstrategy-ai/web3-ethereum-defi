@@ -49,6 +49,10 @@ deliberately have no ``PRIMARY KEY`` or ``UNIQUE`` constraints, see
   from :py:mod:`eth_defi.dex_aggregator.router_calldata`, with the aggregator
   slug it implies. Joined on ``trades.tx_to`` as a fallback so newly labelled
   routers classify old trades.
+- For ElfomoFi trades, which are not traced, ``trade_orders`` is filled from
+  the root transaction calldata streamed from Hypersync (``ENRICH_ELFOMO_ORDERS``),
+  unwrapping the 0x AllowanceHolder; wrapper flow (Relay, LI.FI, ERC-4337)
+  stays undecoded.
 - ``trade_tx_inputs`` — the outer transaction target, selector and raw
   calldata taken from the trace root frame, so router-specific ``minReturn``
   decoders (OKX, 1inch, KyberSwap, 0x, ERC-4337 user operations) can be
@@ -218,6 +222,12 @@ SELECTOR_SWAP_WITH_CALLBACK = "0x15b8527c"
 #: tesseraSwapViewAmounts(address,address,int256)
 SELECTOR_VIEW_AMOUNTS = Web3.keccak(text="tesseraSwapViewAmounts(address,address,int256)")[0:4]
 
+#: 0x AllowanceHolder, the transaction target of 0x flow; wraps the Settler call in ``exec()``
+ZEROEX_ALLOWANCE_HOLDER: HexAddress = "0x0000000000001fF3684f28c67538d4D072C22734"
+
+#: AllowanceHolder ``exec(address operator, address token, uint256 amount, address payable target, bytes data)``
+SELECTOR_ALLOWANCE_HOLDER_EXEC = "0x" + Web3.keccak(text="exec(address,address,uint256,address,bytes)")[0:4].hex()
+
 #: DuckDB HUGEINT upper bound; token amounts above this are stored as NULL
 HUGEINT_MAX = 2**127 - 1
 
@@ -255,6 +265,8 @@ class ScanConfig:
     store_tx_input: bool
     #: Run historical quote enrichment
     enrich_quotes: bool
+    #: Decode ElfomoFi orders from root transaction calldata streamed from Hypersync
+    enrich_elfomo_orders: bool
     #: Probe size fraction for price impact quotes
     probe_fraction: float
     #: Threads for RPC phases
@@ -1181,6 +1193,123 @@ def enrich_quotes(con: duckdb.DuckDBPyConnection, web3: Web3, probe_fraction: fl
             chunks_since_checkpoint = checkpoint_if_due(con, duckdb_path, chunks_since_checkpoint, checkpoint_every_chunks)
 
 
+def build_elfomo_input_query(start_block: int, end_block: int) -> hypersync.Query:
+    """ElfomoFi trade logs joined with their transactions, calldata included.
+
+    ElfomoFi trades are not traced (the trace enrichment is Tessera-only), so
+    the user's order is decoded from the root transaction calldata instead.
+    """
+    return hypersync.Query(
+        from_block=start_block,
+        to_block=end_block + 1,
+        logs=[hypersync.LogSelection(address=[ELFOMO_SWAP.lower()], topics=[[ELFOMO_TRADE_TOPIC]])],
+        field_selection=hypersync.FieldSelection(
+            block=[BlockField.NUMBER],
+            log=[LogField.BLOCK_NUMBER, LogField.TRANSACTION_HASH],
+            transaction=[TransactionField.BLOCK_NUMBER, TransactionField.HASH, TransactionField.FROM, TransactionField.TO, TransactionField.INPUT],
+        ),
+    )
+
+
+def unwrap_root_frame(tx_to: str | None, tx_input: str) -> list[dict]:
+    """Reconstruct as much of the call path as the root calldata allows.
+
+    Direct router calls (OKX, KyberSwap, 1inch, Paraswap) are one frame. 0x
+    flow enters through the AllowanceHolder, whose ``exec()`` carries the
+    Settler address and calldata as arguments, so that inner frame can be
+    recovered without a trace. Wrappers (Relay, LI.FI, ERC-4337 entry points)
+    cannot be unwrapped here; those orders stay undecoded.
+
+    :return:
+        Frames as ``{"to", "input"}`` dicts, root first, for :py:func:`identify_order`.
+    """
+    path = [{"to": tx_to, "input": tx_input}]
+    if tx_to and tx_to.lower() == ZEROEX_ALLOWANCE_HOLDER.lower() and tx_input[:10] == SELECTOR_ALLOWANCE_HOLDER_EXEC:
+        try:
+            _operator, _token, _amount, target, data = eth_abi.decode(["address", "address", "uint256", "address", "bytes"], to_bytes(tx_input)[4:])
+        except eth_abi.exceptions.DecodingError as e:
+            logger.warning("Cannot decode AllowanceHolder exec() calldata: %s", e)
+            return path
+        path.append({"to": Web3.to_checksum_address(target), "input": "0x" + data.hex()})
+    return path
+
+
+def enrich_elfomo_orders(
+    con: duckdb.DuckDBPyConnection,
+    client: ThrottledHypersyncClient,
+    start_block: int,
+    end_block: int,
+    chunk_blocks: int,
+    store_tx_input: bool,
+    recv_timeout: float,
+    duckdb_path: Path,
+    min_free_disk_gb: float,
+    checkpoint_every_chunks: int,
+) -> None:
+    """Populate trade_orders (and trade_tx_inputs) for ElfomoFi trades from root calldata.
+
+    Streams ElfomoFi trade transactions with their calldata from Hypersync in
+    block chunks, decodes the aggregator order where the transaction target is
+    a known router (or the 0x AllowanceHolder), and stores one ``trade_orders``
+    row per transaction with ``call_ordinal`` 0. Transactions that already have
+    orders (typically split routes that also touched Tessera and were traced)
+    are left alone. Progress is kept in ``scan_state`` so reruns resume.
+    """
+    resume = read_scan_state(con, "elfomo_orders_last_block")
+    first_block = max(start_block, resume + 1) if resume is not None else start_block
+    if first_block > end_block:
+        logger.info("ElfomoFi orders already decoded up to block %s", f"{end_block:,}")
+        return
+    logger.info("Decoding ElfomoFi orders from calldata, blocks %s - %s", f"{first_block:,}", f"{end_block:,}")
+
+    order_columns = [
+        "tx_hash", "call_ordinal", "aggregator", "frontend", "wallet_kind", "path_labels", "path_depth", "router", "router_function",
+        "router_frame_depth", "order_src_token", "order_dst_token", "order_amount_in", "user_min_amount_out", "user_max_amount_in",
+        "aggregator_quoted_out", "order_recipient", "order_deadline", "client_data", "exact_output", "router_returned_out",
+        "path_addresses",
+    ]  # fmt: skip
+    chunks_since_checkpoint = 0
+    total_orders = total_decoded = 0
+    chunk_starts = range(first_block, end_block + 1, chunk_blocks)
+    chunk_progress = tqdm(chunk_starts, desc="ElfomoFi order decode", unit="chunk")
+    for chunk_start in chunk_progress:
+        ensure_disk_space(duckdb_path, min_free_disk_gb)
+        chunk_end = min(chunk_start + chunk_blocks - 1, end_block)
+        started = time.time()
+        _, txs, _ = collect_stream(client, build_elfomo_input_query(chunk_start, chunk_end), f"elfomo calldata {chunk_start:,}-{chunk_end:,}", recv_timeout)
+        chunk_hashes = "SELECT tx_hash FROM trades WHERE venue = 'elfomo' AND block_number BETWEEN ? AND ?"
+        have_input = {h for (h,) in con.execute(f"SELECT tx_hash FROM trade_tx_inputs WHERE tx_hash IN ({chunk_hashes})", [chunk_start, chunk_end]).fetchall()}
+        have_order = {h for (h,) in con.execute(f"SELECT tx_hash FROM trade_orders WHERE tx_hash IN ({chunk_hashes})", [chunk_start, chunk_end]).fetchall()}
+
+        input_rows = []
+        order_rows = []
+        seen: set[str] = set()
+        for tx in txs:
+            if tx.hash in seen:
+                continue
+            seen.add(tx.hash)
+            tx_input = tx.input or "0x"
+            tx_to = Web3.to_checksum_address(tx.to) if tx.to else None
+            tx_from = Web3.to_checksum_address(tx.from_) if tx.from_ else None
+            if store_tx_input and tx.hash not in have_input:
+                input_rows.append({"tx_hash": tx.hash, "tx_to": tx_to, "selector": tx_input[:10] if len(tx_input) >= 10 else None, "input": tx_input, "input_length": (len(tx_input) - 2) // 2})
+            if tx.hash not in have_order:
+                order_rows.append(identify_order(tx.hash, 0, unwrap_root_frame(tx_to, tx_input), tx_from, tx_to))
+
+        decoded = sum(1 for r in order_rows if r["user_min_amount_out"] is not None)
+        total_orders += len(order_rows)
+        total_decoded += decoded
+        con.begin()
+        insert_frame(con, "trade_tx_inputs", pd.DataFrame(input_rows), ["tx_hash", "tx_to", "selector", "input", "input_length"])
+        insert_frame(con, "trade_orders", pd.DataFrame(order_rows), order_columns)
+        write_scan_state(con, "elfomo_orders_last_block", chunk_end)
+        con.commit()
+        chunk_progress.set_postfix({"block": f"{chunk_end:,}", "orders": f"{total_orders:,}", "with bound": f"{total_decoded:,}"})
+        logger.info("Blocks %s - %s: %d ElfomoFi transactions, %d orders stored, %d with a user bound, in %.1f s", f"{chunk_start:,}", f"{chunk_end:,}", len(seen), len(order_rows), decoded, time.time() - started)
+        chunks_since_checkpoint = checkpoint_if_due(con, duckdb_path, chunks_since_checkpoint, checkpoint_every_chunks)
+    logger.info("ElfomoFi order decode done: %d orders, %d with a user bound", total_orders, total_decoded)
+
+
 def refresh_tokens(con: duckdb.DuckDBPyConnection, web3: Web3) -> None:
     """Fetch symbol and decimals for tokens not yet in the tokens table."""
     missing = [
@@ -1264,6 +1393,7 @@ def resolve_config(con: duckdb.DuckDBPyConnection, client: ThrottledHypersyncCli
         enrich_traces=env_bool("ENRICH_TRACES", True),
         store_tx_input=env_bool("STORE_TX_INPUT", True),
         enrich_quotes=env_bool("ENRICH_QUOTES", True),
+        enrich_elfomo_orders=env_bool("ENRICH_ELFOMO_ORDERS", True),
         probe_fraction=float(os.environ.get("PROBE_FRACTION", "0.01")),
         max_workers=int(os.environ.get("MAX_WORKERS", "8")),
         enrich_start_block=enrich_start_block,
@@ -1368,6 +1498,9 @@ def main() -> None:
         logger.info("Enrichment covers trades from block %s", f"{config.enrich_start_block:,}")
 
         refresh_tokens(con, web3)
+
+        if config.enrich_elfomo_orders:
+            enrich_elfomo_orders(con, client, config.enrich_start_block, read_scan_state(con, "last_scanned_block") or config.end_block, config.chunk_blocks, config.store_tx_input, config.recv_timeout, duckdb_path, config.min_free_disk_gb, config.checkpoint_every_chunks)
 
         if config.enrich_traces:
             enrich_traces(con, web3, config.max_workers, config.store_tx_input, config.enrich_start_block, duckdb_path, config.min_free_disk_gb, config.checkpoint_every_chunks)

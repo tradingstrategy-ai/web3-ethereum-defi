@@ -709,6 +709,51 @@ findings("""
 """)
 
 md("""
+## In dollars, the shortfall runs parallel to the bound at a fixed fraction of it
+
+- The same orders again, but in absolute terms: the room the user allowed in dollars (tolerance × trade size) against the dollars the fill fell short of the quote, both on log axes
+- A fixed skim in basis points is a fixed fraction of the tolerance whatever the trade size, so on log-log axes each aggregator's orders line up parallel to the bound
+- Orders filled at or better than the quote have no positive shortfall and cannot be drawn on a log axis; they are counted in the text instead
+""")
+
+code("""
+usd = bound[bound["notional_usd"].notna() & (bound["notional_usd"] > 0)].copy()
+usd["tolerance_usd"] = usd["user_slippage_bps"] / 1e4 * usd["notional_usd"]
+usd["realised_usd"] = usd["quote_to_fill_bps"] / 1e4 * usd["notional_usd"]
+positive = usd[(usd["realised_usd"] > 0) & (usd["tolerance_usd"] > 0)]
+
+fig = go.Figure()
+for name in scatter_aggregators:
+    sub = positive[positive["aggregator"] == name]
+    fig.add_scatter(x=sub["tolerance_usd"], y=sub["realised_usd"], mode="markers", marker=dict(color=AGGREGATOR_COLOURS[name], size=4, opacity=0.25), showlegend=False, hoverinfo="skip")
+    fig.add_scatter(x=[None], y=[None], mode="markers", name=f"{name} (n={len(sub):,})", marker=dict(color=AGGREGATOR_COLOURS[name], size=10))
+diagonal_usd = np.logspace(-4, 4, 50)
+fig.add_scatter(x=diagonal_usd, y=diagonal_usd, mode="lines", name="shortfall = tolerance (fill exactly at the bound)", line=dict(color="#6f6f6c", dash="dash", width=1.5))
+style(fig, "Realised shortfall vs the room the user allowed, in dollars, per single-leg retail order", "Tolerance the user allowed, USD (log scale)", "Realised shortfall, USD (log scale)")
+fig.update_xaxes(type="log", range=[-3, 4])
+fig.update_yaxes(type="log", range=[-4, 3])
+fig.show()
+
+usd_summary = pd.DataFrame({
+    "orders": [len(usd), len(positive)],
+    "median": [usd["tolerance_usd"].median(), positive["realised_usd"].median()],
+    "p90": [usd["tolerance_usd"].quantile(0.9), positive["realised_usd"].quantile(0.9)],
+    "p99": [usd["tolerance_usd"].quantile(0.99), positive["realised_usd"].quantile(0.99)],
+    "max": [usd["tolerance_usd"].max(), positive["realised_usd"].max()],
+}, index=["tolerance allowed, USD (all orders)", "realised shortfall, USD (orders with a positive shortfall)"])
+display(usd_summary.style.format({"orders": "{:,}", "median": "${:,.2f}", "p90": "${:,.2f}", "p99": "${:,.2f}", "max": "${:,.2f}"}))
+print(f"{(usd['realised_usd'] <= 0).mean():.0%} of orders were filled at or better than the quote and are not drawn; of the rest, {(positive['realised_usd'] > 0.1 * positive['tolerance_usd']).mean():.0%} lost more than a tenth of the room they allowed.")
+""")
+
+findings("""
+**What this chart shows.** Each single-leg retail order with a USDC leg as a dot: on the x axis the slippage room the user allowed in dollars, on the y axis the dollars the fill fell short of Tessera's quote, both logarithmic, coloured by aggregator. The dashed diagonal is a fill exactly at the user's bound. The table gives the dollar distributions; the third of orders filled at or better than the quote have no positive shortfall and are not drawn.
+
+**What the result means.** The dots form bands parallel to the diagonal rather than scattered around it, one band per aggregator: OKX, Paraswap, 1inch and the unnamed aggregator a factor of about ten to twenty below the bound, KyberSwap a factor of fifty to a hundred, 0x further still. A band parallel to the diagonal is the signature of a fixed cost in basis points, because a fixed fraction of the trade is a fixed fraction of the tolerance whatever the size. The vertical stripes at $1.5, $5 and $100 are front-end defaults meeting round trade sizes. In money the amounts are small: the median order allowed $1.10 of room and, where it lost anything, lost two cents; the 99th percentile lost $5.80 against $109 allowed; the largest single shortfall is $123. A quarter of the orders with a shortfall lost more than a tenth of the room they had allowed.
+
+**What it means for retail users.** Seen in dollars the skim is invisible to the person paying it: cents on a typical trade, a few dollars on a large one, always a small fraction of a slippage allowance they set in percent and never think of in dollars. The same chart also shows why the setting cannot help: the room allowed is usually ten to a hundred times the amount taken, and the amount taken scales with the trade exactly as the room does, so no size and no reasonable setting moves an order out of its band.
+""")
+
+md("""
 ## Small trades are hit hardest in bps, mid-size trades in dollars
 
 - Is the skim a flat fee-like amount or does it scale with size like adverse selection would?
@@ -1673,9 +1718,12 @@ elf = con.execute(\"\"\"
         a.block_number, a.timestamp, a.tx_hash, a.log_index, a.tx_index,
         a.token_in, a.token_out, a.symbol_in, a.symbol_out, a.amount_in_decimal, a.amount_out_decimal,
         a.aggregator AS router_aggregator, a.frontend, a.wallet_kind, a.is_self_call, a.tx_from, a.rel_gas_position,
+        a.order_matches_leg, a.user_min_amount_out, o.exact_output, tok.decimals AS decimals_out,
         t.quote_id, t.partner_id, t.tx_to
     FROM trade_analysis a
     JOIN trades t ON t.tx_hash = a.tx_hash AND t.log_index = a.log_index
+    LEFT JOIN tokens tok ON tok.address = a.token_out
+    LEFT JOIN trade_orders o ON o.tx_hash = a.tx_hash AND o.call_ordinal = 0
     WHERE a.venue = 'elfomo' AND a.block_number >= ?
 \"\"\", [WINDOW_START_BLOCK]).df()
 elf["pair"] = elf["symbol_in"] + "/" + elf["symbol_out"]
@@ -1895,6 +1943,68 @@ findings("""
 """)
 
 md("""
+## Against their own quotes, ElfomoFi orders sit on the zero line at every tolerance; Tessera orders sit in bands above it
+
+- The tolerance-versus-realised scatter from Question 2, with ElfomoFi added in its own colour. ElfomoFi orders were not traced, so their user bound is decoded from the root transaction calldata (direct OKX, KyberSwap, 1inch and Paraswap calls, and 0x calls unwrapped through the AllowanceHolder); orders through Relay, LI.FI and smart wallets have no decoded bound on either venue
+- ElfomoFi's tolerance is measured against the price packed in its quote id and its realised value is the fill against that same price, so both axes mean the same thing as for Tessera: what the user allowed, and what the venue took, relative to the venue's own quote
+""")
+
+code("""
+elf["quoted_out_decimal"] = np.where(elf["sells_token"], elf["amount_in_decimal"] * elf["quote_price_usdc"], elf["amount_in_decimal"] / elf["quote_price_usdc"])
+elf["min_out_decimal"] = elf["user_min_amount_out"].astype("float64") / np.power(10.0, elf["decimals_out"].astype("float64"))
+elf["user_slippage_bps"] = (elf["quoted_out_decimal"] - elf["min_out_decimal"]) * 1e4 / elf["quoted_out_decimal"]
+elf_bound = elf[
+    (elf["flow"] == "retail") & elf["order_matches_leg"].fillna(False) & ~elf["exact_output"].fillna(False)
+    & elf["market"].str.endswith("/USDC") & elf["user_slippage_bps"].between(0, 1000) & elf["fill_vs_quote_bps"].notna()
+].copy()
+
+rng = np.random.default_rng(1)
+venue_points = {
+    "Tessera": bound[["user_slippage_bps", "quote_to_fill_bps", "aggregator"]].rename(columns={"quote_to_fill_bps": "realised_bps"}),
+    "ElfomoFi": elf_bound[["user_slippage_bps", "fill_vs_quote_bps", "aggregator"]].rename(columns={"fill_vs_quote_bps": "realised_bps"}),
+}
+fig = go.Figure()
+for venue, colour in [("Tessera", VENUE_COLOURS["tessera"]), ("ElfomoFi", VENUE_COLOURS["elfomo"])]:
+    pts = venue_points[venue]
+    x = pts["user_slippage_bps"].clip(lower=0.5) * np.exp(rng.normal(0, 0.04, len(pts)))
+    y = pts["realised_bps"] + rng.normal(0, 0.12, len(pts))
+    fig.add_scatter(x=x, y=y, mode="markers", marker=dict(color=colour, size=4, opacity=0.15), showlegend=False, hoverinfo="skip")
+    fig.add_scatter(x=[None], y=[None], mode="markers", name=f"{venue} (n={len(pts):,})", marker=dict(color=colour, size=10))
+fig.add_scatter(x=diagonal, y=diagonal, mode="lines", name="fill exactly at the user's bound (reverts above)", line=dict(color="#6f6f6c", dash="dash", width=1.5))
+style(fig, "Realised degradation vs the user's tolerance, Tessera and ElfomoFi, one dot per single-leg retail order (jittered)", "User tolerance relative to the venue's own quote, bps (log scale)", "Realised degradation vs the venue's own quote, bps")
+fig.update_xaxes(type="log", range=[np.log10(0.5), 3], tickvals=[1, 5, 10, 25, 50, 100, 200, 300, 500, 1000], ticktext=["1", "5", "10", "25", "50", "100", "200", "300", "500", "1000"])
+fig.update_yaxes(range=[-3, 16])
+fig.show()
+
+venue_tolerance = pd.DataFrame({
+    venue: {
+        "orders with a decoded bound": len(pts),
+        "median tolerance, bps": pts["user_slippage_bps"].median(),
+        "median realised, bps": pts["realised_bps"].median(),
+        "p90 realised, bps": pts["realised_bps"].quantile(0.9),
+        "share of tolerance consumed, median": (pts["realised_bps"] / pts["user_slippage_bps"]).clip(-0.5, 1.5).median(),
+        "fills within 1 bp of the bound": ((pts["user_slippage_bps"] - pts["realised_bps"]) < 1).mean(),
+    }
+    for venue, pts in venue_points.items()
+})
+display(venue_tolerance.style.format("{:,.2f}").format("{:,.0f}", subset=pd.IndexSlice[["orders with a decoded bound"], :]).format("{:.1%}", subset=pd.IndexSlice[["share of tolerance consumed, median", "fills within 1 bp of the bound"], :]))
+by_venue_agg = pd.concat({
+    venue: pts.groupby("aggregator")["realised_bps"].agg(n="size", p50="median", p90=lambda s: s.quantile(0.9))
+    for venue, pts in venue_points.items()
+}, axis=1)
+by_venue_agg = by_venue_agg[(by_venue_agg[("Tessera", "n")].fillna(0) >= 200) | (by_venue_agg[("ElfomoFi", "n")].fillna(0) >= 200)]
+display(by_venue_agg.style.format({c: ("{:,.0f}" if c[1] == "n" else "{:.2f}") for c in by_venue_agg.columns}, na_rep="—").set_caption("Realised degradation vs the venue's own quote by aggregator, single-leg retail orders with a decoded bound"))
+""")
+
+findings("""
+**What this chart shows.** The same axes as the Tessera-only scatter in Question 2, now with ElfomoFi's single-leg retail orders in orange: the tolerance the user set against the venue's own quote, and how far below that quote the fill landed. The first table compares the two venues on the same statistics; the second breaks the realised degradation down by aggregator on each venue.
+
+**What the result means.** The ElfomoFi cloud is a flat line at zero across the whole tolerance range: 34,666 orders with a decoded bound, a median realised degradation of 0.27 bps and a 90th percentile under 1.4 bps for every aggregator, 3 % of the tolerance consumed at the median, and 1.2 % of fills within a basis point of the bound, all of them orders that allowed under two basis points. The faint orange trace at about 5 bps is 1.7 % of ElfomoFi orders, mostly WETH/USDC through 0x and KyberSwap, and is the only part of ElfomoFi's cloud that resembles Tessera's. The Tessera cloud, in the same picture, is the familiar set of bands at 2, 4, 6 and 12 bps. The two samples differ in composition, which the second table shows: on ElfomoFi most OKX and KyberSwap orders are split across several venues, so only the 0x-dominated single-leg subset qualifies, and 0x sets far tighter bounds there (median 5 bps) than any aggregator sets on Tessera, which it can do because ElfomoFi's quote is a firm, time-stamped price. That is part of the finding: a venue that settles at its quote can be routed with a two-to-five bps bound, and its fills show no sign of pressure against it; Tessera cannot be, because a five bps bound would collide with the skim on most fills.
+
+**What it means for retail users.** This is the cleanest statement of the finding in the notebook: two venues, the same users, the same apps, the same slippage settings, the same weeks. One venue settles at its quote and leaves the tolerance unused, however tight it is set; the other settles a few basis points inside the tolerance on nearly every fill and never far enough to revert. The slippage setting looks identical from the user's side in both cases, which is why it cannot be the user's instrument for telling the two apart.
+""")
+
+md("""
 ## Against the reference pool, ElfomoFi retail fills are at fair; Tessera retail fills are six bps below
 
 - The final comparison uses the same yardstick for both venues: the marginal price of the deepest WETH/USDC and cbBTC/USDC pool at the end of the previous block, taken from `benchmark_block_prices`, with reference prices older than three blocks dropped
@@ -1999,6 +2109,7 @@ headline = pd.DataFrame([
     ("Affected recipient keys", f"{len(affected):,} of {len(wallets):,}; median ${affected['shortfall_vs_quote_usd'].median():,.2f} over a median of {affected['trades'].median():.0f} trade(s); {share_once:.0%} traded once"),
     ("Keys with ≥ $100 traded", f"{len(sized):,}; median ${sized['shortfall_vs_quote_usd'].median():,.2f} over {sized['trades'].median():.0f} trades"),
     ("ElfomoFi trades in window / share with a mapped aggregator", f"{len(elf):,} / {elf['aggregator'].notna().mean():.0%}"),
+    ("Median realised vs own quote for orders with a decoded bound, Tessera vs ElfomoFi", f"{venue_tolerance.loc['median realised, bps', 'Tessera']:.2f} vs {venue_tolerance.loc['median realised, bps', 'ElfomoFi']:.2f} bps"),
     ("ElfomoFi median fill vs its own quote, retail / bot", f"{elf.loc[elf['flow'] == 'retail', 'fill_vs_quote_bps'].median():.2f} / {elf.loc[elf['flow'] == 'bot', 'fill_vs_quote_bps'].median():.2f} bps"),
     ("ElfomoFi median retail fill vs fair pool price (majors)", f"{fair_by_venue.loc[('ElfomoFi', 'retail'), 'p50']:+.2f} bps (Tessera {fair_by_venue.loc[('Tessera', 'retail'), 'p50']:+.2f})"),
 ], columns=["Metric", "Value"])
