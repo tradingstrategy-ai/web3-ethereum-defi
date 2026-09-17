@@ -10,10 +10,16 @@ STRATEGY_TAGS: dict[str, set[StrategyTag]] = {
     #: construction and resulting carry. Flying Tulip's June update confirms
     #: that the fully onchain delta-neutral architecture was deployed on
     #: Ethereum and that collateral and delta-neutral strategy yield is
-    #: distributed to sftUSD stakers. These are distinct strategy components,
-    #: so the vault is also classified as multi-strategy.
+    #: distributed to sftUSD stakers. The Capital Allocation documentation
+    #: identifies primary-issued FT as a Perpetual PUT with a standing right to
+    #: exit at par, while the PUT Marketplace documentation describes trading
+    #: those positions as PUT options. This instrument-level options component
+    #: is included alongside the vault's lending, delta-neutral and carry
+    #: strategy tags; these distinct components also warrant multi-strategy.
     #: Sources:
+    #: - https://docs.flyingtulip.com/capital-allocation/
     #: - https://docs.flyingtulip.com/product-suite/ft-usd/
+    #: - https://docs.flyingtulip.com/product-suite/ftput-marketplace/
     #: - https://blog.flyingtulip.com/flying-tulip-june-update/
     #: - https://tradingstrategy.ai/vaults/staked-flying-tulip-usd-6
     #: - eth_defi/erc_4626/vault_protocol/flying_tulip/vault.py
@@ -22,6 +28,7 @@ STRATEGY_TAGS: dict[str, set[StrategyTag]] = {
         StrategyTag.delta_neutral,
         StrategyTag.lending,
         StrategyTag.multistrategy,
+        StrategyTag.options,
     },
     #: Vault: Staked Flying Tulip USD (Sonic).
     #: Added: 2026-09-17.
@@ -30,10 +37,16 @@ STRATEGY_TAGS: dict[str, set[StrategyTag]] = {
     #: construction and resulting carry. Flying Tulip's June update confirms
     #: that the fully onchain delta-neutral architecture was deployed first on
     #: Sonic and that collateral and delta-neutral strategy yield is distributed
-    #: to sftUSD stakers. These are distinct strategy components, so the vault
-    #: is also classified as multi-strategy.
+    #: to sftUSD stakers. The Capital Allocation documentation identifies
+    #: primary-issued FT as a Perpetual PUT with a standing right to exit at
+    #: par, while the PUT Marketplace documentation describes trading those
+    #: positions as PUT options. This instrument-level options component is
+    #: included alongside the vault's lending, delta-neutral and carry strategy
+    #: tags; these distinct components also warrant multi-strategy.
     #: Sources:
+    #: - https://docs.flyingtulip.com/capital-allocation/
     #: - https://docs.flyingtulip.com/product-suite/ft-usd/
+    #: - https://docs.flyingtulip.com/product-suite/ftput-marketplace/
     #: - https://blog.flyingtulip.com/flying-tulip-june-update/
     #: - eth_defi/erc_4626/vault_protocol/flying_tulip/vault.py
     "0xd1e5a86f1005f6356bd022c587de0f430cd2aeb1": {
@@ -41,5 +54,6 @@ STRATEGY_TAGS: dict[str, set[StrategyTag]] = {
         StrategyTag.delta_neutral,
         StrategyTag.lending,
         StrategyTag.multistrategy,
+        StrategyTag.options,
     },
 }

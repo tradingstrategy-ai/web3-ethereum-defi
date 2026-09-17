@@ -46,6 +46,7 @@ def test_flying_tulip_official_proxies_are_chain_aware_and_route_to_adapter() ->
         assert "[Ethereum FT/ftUSD Curve pool]" in vault.get_notes()
         assert "divided by the average amount staked during the period" in vault.get_notes()
         assert "Withdrawals may be subject to a variable exit delay or cooldown" in vault.get_notes()
+        assert "[Flying Tulip strategy documentation]" in vault.short_description
         assert vault.get_historical_reader(stateful=True).uses_contextual_history
         assert vault.get_historical_reader(stateful=True).uses_share_price_equivalence
 
@@ -76,6 +77,7 @@ def test_flying_tulip_strategy_tags_cover_documented_strategy_mix() -> None:
         StrategyTag.delta_neutral,
         StrategyTag.lending,
         StrategyTag.multistrategy,
+        StrategyTag.options,
     }
     assert ethereum.get_strategy_tags() == expected
     assert sonic.get_strategy_tags() == expected
@@ -90,7 +92,7 @@ def test_flying_tulip_public_metadata_risk_and_fee_classification() -> None:
     assert metadata["name"] == "Flying Tulip"
     assert metadata["slug"] == "flying-tulip"
     assert metadata["logos"]["light"] == "https://example.invalid/vault-protocol-metadata/flying-tulip/light.png"
-    assert metadata["short_description"] == "Flying Tulip uses lending, staking and market-neutral strategies to generate yield and FT rewards for sftUSD holders."
+    assert metadata["short_description"] == "Flying Tulip uses [lending, staking and market-neutral strategies](https://docs.flyingtulip.com/product-suite/ft-usd/) to generate yield and FT rewards for sftUSD holders."
     assert "founded by [Andre Cronje]" in metadata["long_description"]
     assert "$200 million private round" in metadata["long_description"]
     assert "0.07%" in metadata["fee_description"]

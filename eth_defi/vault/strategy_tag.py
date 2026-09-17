@@ -121,6 +121,10 @@ class StrategyTag(str, enum.Enum):
     #: Example vault: Grvt Liquidity Provider (GLP).
     perpetual_futures = "perpetual_futures"
 
+    #: Uses options or option-like instruments as part of the strategy.
+    #: Example vault: Staked Flying Tulip USD.
+    options = "options"
+
     #: Uses an automated market maker as the liquidity venue, regardless of
     #: whether the vault itself runs a market-making strategy.
     #: Example vault: gTrade (Gains Network USDC).
@@ -285,6 +289,10 @@ STRATEGY_TAG_METADATA: dict[StrategyTag, StrategyTagMetadata] = {
     StrategyTag.perpetual_futures: {
         "label": "Perpetual futures",
         "description": "Trades [futures contracts without an expiry date](https://tradingstrategy.ai/glossary/perpetual-future), often using leverage.",
+    },
+    StrategyTag.options: {
+        "label": "Options",
+        "description": "Uses [options or option-like instruments](https://tradingstrategy.ai/glossary/options) to create or manage investment exposure.",
     },
     StrategyTag.amm: {
         "label": "Automated market maker",
