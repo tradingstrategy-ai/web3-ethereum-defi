@@ -35,12 +35,13 @@ md("""
 - In this notebook, we analyse execution quality on [Tessera](https://defillama.com/protocol/tessera-v), the Wintermute proprietary AMM (propAMM) that has become one of the largest trading venues on Base
 - PropAMMs post quotes onchain from an off-chain pricing engine and are routed to by aggregators (OKX, KyberSwap, 1inch, 0x, Paraswap, Binance Wallet…) because their quoted prices beat AMM pools
 - The [0x "PropAMM Shenanigans" post](https://0x.org/post/propamm-shenanigans) documented that the quoted price does not survive until settlement: the operator refreshes a tight quote in the last Flashblock of block N, aggregators route on it, then reprices worse in the first Flashblock of block N+1 where user transactions settle, and the user's slippage tolerance silently absorbs the difference
-- We measure this over ten months of onchain history and answer five questions
+- We measure this over ten months of onchain history and answer six questions
   1. **Is the quote honest?** Does the price an aggregator routed on survive until the fill?
   2. **Who pays?** Retail vs bots, by aggregator and by front-end
   3. **Are they trading the same pairs?** Whether the bot and aggregator differences survive when the pair is held fixed
   4. **How much?** In basis points against Tessera's own quote and against a fair reference price from the deepest Uniswap V3 / Aerodrome pool, and in dollars
   5. **When, and why?** The skim comes and goes in regimes; we detect them, test whether the keeper's onchain behaviour switches with them, measure what the market does after retail and bot fills, and look at who ends up paying at the wallet level
+  6. **Are Tessera and ElfomoFi behaving the same?** The same measurements on the other propAMM on Base, using its `partnerId` and a decoded `quoteId`
 - In between we look for the mechanism: *why* retail fills are worse than bot fills on the same venue in the same blocks
 
 ## Usage
@@ -1585,6 +1586,305 @@ findings("""
 """)
 
 md("""
+# Question 6: are Tessera and ElfomoFi behaving the same?
+
+## ElfomoFi is the second propAMM on Base and trades more often than Tessera
+
+- [ElfomoFi](https://basescan.org/address/0xf0f0F0F0FB0d738452EfD03A28e8be14C76d5f73) is the other proprietary AMM on Base that aggregators route to. The collector stores its `ElfomoTrade` events in the same `trades` table, so the two venues can be compared over the same window, the same blocks and the same aggregators
+- ElfomoFi's event carries two fields Tessera's does not: an indexed `partnerId` (the integration that requested the quote) and a `quoteId`, which turns out to be a packed struct containing the quote's timestamp and its price. Both are decoded below
+- Here we compare activity per week; ElfomoFi has no historical quote calls, traces or benchmark rows in the database, so everything about it comes from the event, the transaction and the decoded quote id
+""")
+
+code("""
+VENUE_COLOURS = {"tessera": COLOURS["quote"], "elfomo": "#eda100"}
+VENUE_NAMES = {"tessera": "Tessera", "elfomo": "ElfomoFi"}
+
+elf = con.execute(\"\"\"
+    SELECT
+        a.block_number, a.timestamp, a.tx_hash, a.log_index, a.tx_index,
+        a.token_in, a.token_out, a.symbol_in, a.symbol_out, a.amount_in_decimal, a.amount_out_decimal,
+        a.aggregator AS router_aggregator, a.frontend, a.wallet_kind, a.is_self_call, a.tx_from, a.rel_gas_position,
+        t.quote_id, t.partner_id, t.tx_to
+    FROM trade_analysis a
+    JOIN trades t ON t.tx_hash = a.tx_hash AND t.log_index = a.log_index
+    WHERE a.venue = 'elfomo' AND a.block_number >= ?
+\"\"\", [WINDOW_START_BLOCK]).df()
+elf["pair"] = elf["symbol_in"] + "/" + elf["symbol_out"]
+elf["notional_usd"] = np.where(elf["token_in"] == USDC, elf["amount_in_decimal"], np.where(elf["token_out"] == USDC, elf["amount_out_decimal"], np.nan))
+elf_other = np.where(elf["symbol_in"] == "USDC", elf["symbol_out"], elf["symbol_in"])
+elf["market"] = np.where((elf["symbol_in"] == "USDC") | (elf["symbol_out"] == "USDC"), elf_other + "/USDC", elf["symbol_in"] + "/" + elf["symbol_out"])
+elf["week"] = elf["timestamp"].dt.to_period("W").dt.start_time
+df["week"] = df["timestamp"].dt.to_period("W").dt.start_time
+
+weekly = pd.concat({
+    "tessera": df.groupby("week").agg(trades=("tx_hash", "size"), volume_usd=("notional_usd", "sum")),
+    "elfomo": elf.groupby("week").agg(trades=("tx_hash", "size"), volume_usd=("notional_usd", "sum")),
+}, axis=1)
+weekly = weekly.iloc[1:-1]  # drop the partial first and last weeks
+
+fig = make_subplots(rows=1, cols=2, subplot_titles=["Trades per week", "USDC-leg volume per week, USD millions"])
+for venue in ["tessera", "elfomo"]:
+    fig.add_scatter(x=weekly.index, y=weekly[(venue, "trades")], mode="lines+markers", name=VENUE_NAMES[venue], line=dict(color=VENUE_COLOURS[venue], width=2), marker=dict(size=6), row=1, col=1)
+    fig.add_scatter(x=weekly.index, y=weekly[(venue, "volume_usd")] / 1e6, mode="lines+markers", name=VENUE_NAMES[venue], line=dict(color=VENUE_COLOURS[venue], width=2), marker=dict(size=6), showlegend=False, row=1, col=2)
+style(fig, "Tessera and ElfomoFi activity per week, analysis window", "", "")
+fig.update_layout(legend=dict(y=1.08), margin=dict(t=150))
+fig.update_yaxes(rangemode="tozero")
+fig.show()
+
+venue_totals = pd.DataFrame({
+    "Tessera": [len(df), df["notional_usd"].sum(), df["pair"].nunique(), df["tx_from"].nunique(), df["timestamp"].min(), df["timestamp"].max()],
+    "ElfomoFi": [len(elf), elf["notional_usd"].sum(), elf["pair"].nunique(), elf["tx_from"].nunique(), elf["timestamp"].min(), elf["timestamp"].max()],
+}, index=["trades", "USDC-leg volume", "pairs traded", "distinct transaction senders", "first trade", "last trade"])
+display(venue_totals.T.style.format({"trades": "{:,}", "USDC-leg volume": "${:,.0f}", "pairs traded": "{:,}", "distinct transaction senders": "{:,}", "first trade": "{:%Y-%m-%d}", "last trade": "{:%Y-%m-%d}"}))
+""")
+
+findings("""
+**What this chart shows.** Trades per week and USDC-leg volume per week for the two propAMMs over the analysis window, with the partial first and last weeks dropped, and a table of totals.
+
+**What the result means.** ElfomoFi is the busier venue by count: 877k trades against Tessera's 729k in the same eleven weeks, from about 99k distinct sending addresses against Tessera's 112k. Tessera carries more than twice the dollar volume ($1.24B against $0.52B) because of its bot flow, which trades in large clips; without the bots the two venues' retail volumes are similar. Both venues' trade counts dipped in late July and early August and roughly tripled from mid-August. Tessera's volume jump in the week of 16 August is the arrival of the bot fleet seen in Question 5; ElfomoFi's volume rose only modestly over the same weeks.
+
+**What it means for retail users.** A retail order routed to a propAMM on Base is at least as likely to land on ElfomoFi as on Tessera. Whether ElfomoFi treats that order the way Tessera does is the question the rest of this section answers, using the same measurements as before: who trades there, where their fills land in the block, how the fill compares with the venue's own quote, and how it compares with the reference pool.
+""")
+
+md("""
+## The two venues share the majors; Tessera adds Base-native tokens, ElfomoFi adds tokenised stocks
+
+- The same market-mix comparison as in Question 3, this time between venues rather than between flow types
+""")
+
+code("""
+venue_mix = pd.concat({
+    "Tessera": df["market"].value_counts(normalize=True),
+    "ElfomoFi": elf["market"].value_counts(normalize=True),
+}, axis=1).fillna(0)
+venue_mix_order = list(venue_mix.max(axis=1).sort_values(ascending=False).index[:12])
+
+fig = go.Figure()
+for venue, key in [("Tessera", "tessera"), ("ElfomoFi", "elfomo")]:
+    fig.add_bar(x=venue_mix_order, y=venue_mix.loc[venue_mix_order, venue], name=venue, marker_color=VENUE_COLOURS[key])
+fig.update_layout(barmode="group")
+style(fig, "Share of each venue's trades by market", "Market", "Share of the venue's trades")
+fig.update_yaxes(tickformat=".0%")
+fig.show()
+display(venue_mix.loc[venue_mix_order].style.format("{:.1%}"))
+""")
+
+findings("""
+**What this chart shows.** For each venue, the share of its trades in each market, both directions combined, for the twelve largest markets across the two venues.
+
+**What the result means.** WETH/USDC and cbBTC/USDC are common to both and dominate ElfomoFi (72 % and 23 % of its trades). Beyond the majors the venues specialise: Tessera makes markets in Base-native tokens (VIRTUAL, VVV, AERO) and EURC; ElfomoFi makes markets in tokenised US stocks (AAPLc, NVDAc, SPCXc, METAc, AMZNc, TSLAc, GOOGLc), which have no onchain reference price at all. NVDAc is the only non-major traded on both, and only since late August.
+
+**What it means for retail users.** For a WETH or cbBTC swap against USDC, an aggregator can pick either venue and the comparison below is like-for-like. For a Base-native token or a tokenised stock there is only one propAMM in the running, so the aggregator's choice is between that venue and the AMM pools, and for the stocks there is no pool to check the price against.
+""")
+
+md("""
+## ElfomoFi's `partnerId` names the aggregator; 0x, KyberSwap and OKX send it two thirds of its flow
+
+- ElfomoFi stamps every trade with the partner id of the integration that requested the quote. We map partner ids to aggregators using the trades where the call path already identified the router, then use the mapping to label trades whose router is unknown
+- A partner id is mapped when at least 200 of its trades carry a router label and at least 80 % of those agree
+""")
+
+code("""
+labelled = elf[elf["router_aggregator"].notna() & (elf["router_aggregator"] != "bot")]
+partner_map = labelled.groupby("partner_id")["router_aggregator"].agg(
+    labelled_trades="size",
+    top_aggregator=lambda s: s.value_counts().index[0],
+    agreement=lambda s: s.value_counts(normalize=True).iloc[0],
+)
+partner_map["trades"] = elf["partner_id"].value_counts()
+partner_map["share of ElfomoFi trades"] = partner_map["trades"] / len(elf)
+partner_map["mapped"] = (partner_map["labelled_trades"] >= 200) & (partner_map["agreement"] >= 0.8)
+partner_map = partner_map.sort_values("trades", ascending=False)
+display(partner_map[["trades", "share of ElfomoFi trades", "labelled_trades", "top_aggregator", "agreement", "mapped"]].style.format({"trades": "{:,}", "share of ElfomoFi trades": "{:.1%}", "labelled_trades": "{:,}", "agreement": "{:.0%}"}))
+
+partner_to_aggregator = partner_map.loc[partner_map["mapped"], "top_aggregator"].to_dict()
+elf["aggregator"] = elf["router_aggregator"].where(elf["router_aggregator"].notna(), elf["partner_id"].map(partner_to_aggregator))
+elf["flow"] = np.select(
+    [(elf["aggregator"] == "bot") | elf["is_self_call"].fillna(False), elf["aggregator"].notna()],
+    ["bot", "retail"],
+    default="unlabelled",
+)
+
+agg_share = pd.concat({
+    "Tessera": df["aggregator"].fillna("unlabelled").value_counts(normalize=True),
+    "ElfomoFi": elf["aggregator"].fillna("unlabelled").value_counts(normalize=True),
+}, axis=1).fillna(0)
+agg_share_order = [a for a in agg_share.max(axis=1).sort_values(ascending=False).index if a != "unlabelled"][:9] + ["unlabelled"]
+
+fig = go.Figure()
+for venue, key in [("Tessera", "tessera"), ("ElfomoFi", "elfomo")]:
+    fig.add_bar(x=agg_share_order, y=agg_share.loc[agg_share_order, venue], name=venue, marker_color=VENUE_COLOURS[key])
+fig.update_layout(barmode="group")
+style(fig, "Share of each venue's trades by aggregator (ElfomoFi labelled by call path, then by partner id)", "Aggregator", "Share of the venue's trades")
+fig.update_yaxes(tickformat=".0%")
+fig.show()
+
+flow_share = pd.concat({"Tessera": df["flow"].value_counts(normalize=True), "ElfomoFi": elf["flow"].value_counts(normalize=True)}, axis=1).reindex(FLOW_ORDER)
+display(flow_share.style.format("{:.1%}").set_caption("Share of trades by flow type"))
+""")
+
+findings("""
+**What these show.** The first table is the partner-id mapping: for each ElfomoFi partner id, how many trades carry it, how many of those had a router identified on the call path, which aggregator that router belonged to and how consistently. The chart is the share of each venue's trades by aggregator once the mapping is applied to ElfomoFi's unlabelled trades; the second table is the resulting retail, bot and unlabelled split per venue.
+
+**What the result means.** The partner ids map cleanly: 15 is 0x (99 % agreement), 8 is KyberSwap (96 %), 23 is OKX (98 %), 32 is Binance Wallet (100 %), 333 and 62 are CoW, 90 is LI.FI. Two ids do not map: 0, which is the "no partner" default used by LI.FI, 1inch, CoW, Binance Wallet and smart-wallet flow alike, and 999, a mixed bag. Applying the mapping raises ElfomoFi's labelled share from 35 % to 64 % of trades. Of all its trades, 0x routes 23 %, KyberSwap 17 %, OKX 15 % and Binance Wallet 4 % (35 %, 27 %, 23 % and 6 % of the labelled trades); 0x, which has all but left Tessera, is ElfomoFi's largest integration. Bots are 2 % of ElfomoFi's trades against 22 % of Tessera's. The remaining 34 % unlabelled ElfomoFi flow is mostly partner 0 arriving through Relay and ERC-4337 entry points, and the most active senders in it are the same addresses that head Tessera's most-affected-keys table: automated strategies that use both venues.
+
+**What it means for retail users.** ElfomoFi is a retail venue in a way Tessera is not: almost no bot flow, and the aggregators that measure their fills (0x, KyberSwap) route most of its volume. A partner id in the event also means anyone can attribute an ElfomoFi fill to the integration that requested it without a transaction trace, which is the kind of transparency that makes fill-quality monitoring cheap.
+""")
+
+md("""
+## ElfomoFi fills are spread evenly through the block; nobody clusters at the keeper's refresh
+
+- On Tessera, bot fills pile up in the last tenth of the block, at the keeper's refresh, and retail is spread through the middle. The same distribution for ElfomoFi shows whether there is a block position worth fighting for there
+""")
+
+code("""
+position_bins = np.linspace(0, 1, 11)
+position_labels = [f"{i/10:.1f}–{(i+1)/10:.1f}" for i in range(10)]
+
+fig = make_subplots(rows=1, cols=2, shared_yaxes=True, subplot_titles=["Tessera", "ElfomoFi"])
+for col, frame in enumerate([df, elf], start=1):
+    for flow in FLOW_ORDER:
+        sub = frame[frame["flow"] == flow]
+        hist = pd.cut(sub["rel_gas_position"], bins=position_bins, labels=position_labels, include_lowest=True).value_counts(normalize=True).reindex(position_labels)
+        fig.add_bar(x=position_labels, y=hist.values, name=flow, marker_color=COLOURS[flow], showlegend=col == 1, row=1, col=col)
+fig.update_layout(barmode="group")
+style(fig, "Where fills land in the block, by venue and flow type", "Position in block (0 = top, 1 = bottom)", "Share of the flow's fills")
+fig.update_layout(legend=dict(y=1.08), margin=dict(t=150))
+fig.update_yaxes(tickformat=".0%")
+fig.show()
+
+position_table = pd.concat({
+    venue: pd.cut(frame["rel_gas_position"], bins=position_bins, labels=position_labels, include_lowest=True).groupby(frame["flow"], observed=True).value_counts(normalize=True).unstack().reindex(FLOW_ORDER)
+    for venue, frame in [("Tessera", df), ("ElfomoFi", elf)]
+})
+display(position_table.style.format("{:.1%}"))
+""")
+
+findings("""
+**What this chart shows.** The distribution of fills over position in the block for retail, bot and unlabelled flow, one panel per venue, on the same axis as the Tessera-only chart in the mechanism section.
+
+**What the result means.** Tessera's signature is there on the left: 81 % of bot fills in the last fifth of the block, retail spread through the middle. On the right there is no signature. ElfomoFi's retail, bot and unlabelled fills are all spread through the block at roughly a tenth per bin, with a mild dip in the very last bin for everyone. There is no block position that ElfomoFi's bots prefer, which means there is no state of the venue that is worth waiting for.
+
+**What it means for retail users.** The Tessera mechanism needs two things: a price that is worse in the middle of the block than at its ends, and a class of trader positioned to trade only at the ends. ElfomoFi shows neither. A retail transaction that lands wherever the sequencer puts it is, on ElfomoFi, in the same position as every other transaction.
+""")
+
+md("""
+## ElfomoFi's quote id carries a timestamp and a price, and the fill matches it to a third of a basis point
+
+- ElfomoFi's `quoteId` is not an opaque counter. Written as a 256-bit word it is a packed struct; its low 20 bytes contain a Unix timestamp and, in the last four bytes, a price with six significant figures. The timestamp is the moment the quote was issued off-chain; the price is the price it promised
+- We recover the price scale per market by finding the power of ten that brings the median fill price closest to the packed value, then compare every fill with the quote it carried, exactly as the Tessera section compares fills with the end-of-previous-block quote
+- Positive means the user received less than the quote promised; the Tessera curves are the same quote-to-fill distributions as in Question 1
+""")
+
+code("""
+packed = elf["quote_id"].map(lambda q: f"{int(q):064x}").str[-40:]
+elf["quote_timestamp"] = packed.str[14:22].map(lambda x: int(x, 16))
+elf["quote_price_raw"] = packed.str[32:40].map(lambda x: int(x, 16))
+elf["quote_age_s"] = elf["timestamp"].map(lambda t: int(t.timestamp())) - elf["quote_timestamp"]
+elf["sells_token"] = elf["symbol_in"] != "USDC"
+elf["fill_price_usdc"] = np.where(elf["sells_token"], elf["amount_out_decimal"] / elf["amount_in_decimal"], elf["amount_in_decimal"] / elf["amount_out_decimal"])
+usdc_markets = elf[elf["market"].str.endswith("/USDC")]
+
+def price_scale(frame: pd.DataFrame) -> float:
+    \"\"\"Power of ten that maps the packed six-significant-figure price onto USDC per token for this market.\"\"\"
+    ratio = (frame["fill_price_usdc"] / frame["quote_price_raw"]).median()
+    return 10 ** round(np.log10(ratio))
+
+scales = usdc_markets.groupby("market").apply(price_scale, include_groups=False)
+elf["quote_price_usdc"] = elf["quote_price_raw"] * elf["market"].map(scales)
+elf["fill_vs_quote_bps"] = np.where(elf["sells_token"], (1 - elf["fill_price_usdc"] / elf["quote_price_usdc"]) * 1e4, (elf["fill_price_usdc"] / elf["quote_price_usdc"] - 1) * 1e4)
+elf.loc[~elf["market"].str.endswith("/USDC"), "fill_vs_quote_bps"] = np.nan
+
+print("Quote age at fill (seconds):", elf["quote_age_s"].describe(percentiles=[0.1, 0.5, 0.9, 0.99]).round(2).to_dict())
+display(pd.DataFrame({"price scale": scales, "trades": usdc_markets["market"].value_counts()}).style.format({"price scale": "{:g}", "trades": "{:,}"}).set_caption("Recovered price scale per market (USDC per token = packed value × scale)"))
+
+fig = go.Figure()
+grid = np.linspace(-5, 15, 401)
+for venue, frame, column, dash in [("Tessera", df, "quote_to_fill_bps", "solid"), ("ElfomoFi", elf, "fill_vs_quote_bps", "dash")]:
+    for flow in ["retail", "bot"]:
+        v = frame.loc[frame["flow"] == flow, column].dropna()
+        fig.add_scatter(x=grid, y=np.searchsorted(np.sort(v.values), grid) / len(v), mode="lines", name=f"{venue} {flow} (median {v.median():.2f} bps, n={len(v):,})", line=dict(color=COLOURS[flow], width=2, dash=dash))
+fig.add_vline(x=0, line=dict(color="#b0b0ad", dash="dot"))
+style(fig, "Fill vs the venue's own quote, cumulative distribution: Tessera (solid) and ElfomoFi (dashed)", "bps, positive = user got less than the quote", "Share of trades")
+fig.update_yaxes(tickformat=".0%")
+fig.show()
+
+quote_table = pd.concat({
+    "Tessera": df.groupby("flow")["quote_to_fill_bps"].describe(percentiles=[0.1, 0.5, 0.9])[["count", "10%", "50%", "90%", "mean"]],
+    "ElfomoFi": elf.groupby("flow")["fill_vs_quote_bps"].describe(percentiles=[0.1, 0.5, 0.9])[["count", "10%", "50%", "90%", "mean"]],
+}).reindex(pd.MultiIndex.from_product([["Tessera", "ElfomoFi"], FLOW_ORDER]))
+display(quote_table.style.format({"count": "{:,.0f}", "10%": "{:.2f}", "50%": "{:.2f}", "90%": "{:.2f}", "mean": "{:.2f}"}))
+display(elf[elf["market"].str.endswith("/USDC")].groupby(["market", "flow"])["fill_vs_quote_bps"].median().unstack().reindex(columns=FLOW_ORDER).style.format("{:.2f}", na_rep="—").set_caption("ElfomoFi median fill vs quote by market, bps"))
+""")
+
+findings("""
+**What this chart shows.** For every ElfomoFi trade, the fill price against the price packed into the trade's own quote id, as cumulative curves for retail and bots, drawn over the corresponding Tessera curves from Question 1. The first table gives the quote age at fill and the recovered price scale per market; the second the distribution per venue and flow; the third ElfomoFi's median per market.
+
+**What the result means.** The decode is exact enough to be certain of: the quote is filled 3 seconds after its timestamp in 99 % of trades (never more than 15), and the fill matches the packed price to within 0.2 to 0.3 bps for WETH and cbBTC, in both directions, for retail, bots and unlabelled flow alike; tokenised stocks sit at a flat 1.4 bps, which reads as a fee. ElfomoFi's curves are vertical at a third of a basis point for 85 % of trades, with a step at 1.4 bps from the tokenised stocks and a thin tail out to a few bps (retail p90 1.4 bps). Tessera's retail curve, on the same axis, is the 4.6 bps staircase. ElfomoFi issues a signed, time-stamped price and settles at it; Tessera publishes a price to a store and settles at whatever the store says when the transaction executes.
+
+**What it means for retail users.** This is what an honest quote looks like in the data: the number the aggregator routed on is the number the user receives, to the rounding. The Tessera gap is not a cost of doing business for propAMMs on Base, or an artefact of Flashblocks, or of Base's sequencer; another propAMM on the same chain, serving the same aggregators, in the same blocks, does not have it.
+""")
+
+md("""
+## Against the reference pool, ElfomoFi retail fills are at fair; Tessera retail fills are six bps below
+
+- The final comparison uses the same yardstick for both venues: the marginal price of the deepest WETH/USDC and cbBTC/USDC pool at the end of the previous block, taken from `benchmark_block_prices`, with reference prices older than three blocks dropped
+- Tessera values are the ones from Question 4; ElfomoFi values are computed here with the same pool per pair and the same sign convention (positive = user received less than fair)
+""")
+
+code("""
+pair_pool = con.execute(\"\"\"
+    SELECT a.symbol_in || '/' || a.symbol_out AS pair, tb.pool, count(*) AS n
+    FROM trade_benchmarks tb JOIN trade_analysis a ON a.tx_hash = tb.tx_hash AND a.log_index = tb.log_index
+    WHERE a.block_number >= ? GROUP BY 1, 2
+\"\"\", [WINDOW_START_BLOCK]).df().sort_values("n", ascending=False).drop_duplicates("pair").set_index("pair")["pool"]
+pool_info = con.execute("SELECT pool, symbol0, symbol1 FROM benchmark_pools").df().set_index("pool")
+block_prices = con.execute("SELECT pool, block_number AS benchmark_block, price AS benchmark_price FROM benchmark_block_prices WHERE block_number >= ? ORDER BY block_number", [WINDOW_START_BLOCK - 10_000]).df()
+
+elf_majors = elf[elf["pair"].isin(MAJORS)].copy()
+elf_majors["pool"] = elf_majors["pair"].map(pair_pool)
+elf_majors["quote_block"] = elf_majors["block_number"] - 1
+elf_majors = pd.merge_asof(elf_majors.sort_values("quote_block"), block_prices, left_on="quote_block", right_on="benchmark_block", by="pool", direction="backward")
+elf_majors["benchmark_age_blocks"] = elf_majors["quote_block"] - elf_majors["benchmark_block"]
+elf_majors["sells_token0"] = elf_majors["symbol_in"] == elf_majors["pool"].map(pool_info["symbol0"])
+elf_majors["fill_price_t1_per_t0"] = np.where(elf_majors["sells_token0"], elf_majors["amount_out_decimal"] / elf_majors["amount_in_decimal"], elf_majors["amount_in_decimal"] / elf_majors["amount_out_decimal"])
+elf_majors["fill_vs_benchmark_bps"] = np.where(
+    elf_majors["sells_token0"],
+    (elf_majors["benchmark_price"] - elf_majors["fill_price_t1_per_t0"]) / elf_majors["benchmark_price"] * 1e4,
+    (elf_majors["fill_price_t1_per_t0"] - elf_majors["benchmark_price"]) / elf_majors["benchmark_price"] * 1e4,
+)
+elf_fresh = elf_majors[elf_majors["benchmark_age_blocks"] <= 3]
+tes_fresh = df[df["pair"].isin(MAJORS) & (df["benchmark_age_blocks"] <= 3)]
+
+fair_by_venue = pd.concat({
+    "Tessera": tes_fresh.groupby("flow")["fill_vs_benchmark_bps"].agg(n="size", p50="median", mean="mean"),
+    "ElfomoFi": elf_fresh.groupby("flow")["fill_vs_benchmark_bps"].agg(n="size", p50="median", mean="mean"),
+}).reindex(pd.MultiIndex.from_product([["Tessera", "ElfomoFi"], FLOW_ORDER]))
+
+fig = go.Figure()
+for venue, key in [("Tessera", "tessera"), ("ElfomoFi", "elfomo")]:
+    fig.add_bar(x=FLOW_ORDER, y=fair_by_venue.loc[venue, "p50"].values, name=venue, marker_color=VENUE_COLOURS[key])
+fig.add_hline(y=0, line=dict(color="#b0b0ad", dash="dot"))
+fig.update_layout(barmode="group")
+style(fig, "Median fill vs reference pool mid by venue and flow type (WETH/USDC and cbBTC/USDC, reference ≤ 3 blocks old)", "Flow type", "bps, positive = user got less than fair").show()
+display(fair_by_venue.style.format({"n": "{:,}", "p50": "{:.2f}", "mean": "{:.2f}"}))
+
+fair_by_pair_venue = pd.concat({
+    "Tessera": tes_fresh[tes_fresh["flow"] == "retail"].groupby("pair")["fill_vs_benchmark_bps"].median(),
+    "ElfomoFi": elf_fresh[elf_fresh["flow"] == "retail"].groupby("pair")["fill_vs_benchmark_bps"].median(),
+}, axis=1)
+display(fair_by_pair_venue.style.format("{:.2f}", na_rep="—").set_caption("Retail median fill vs fair by pair, bps"))
+""")
+
+findings("""
+**What this chart shows.** Median fill against the reference pool mid for retail, bot and unlabelled flow, Tessera and ElfomoFi side by side, on WETH/USDC and cbBTC/USDC with a reference price no more than three blocks old. The tables give counts and means, and the retail figure per pair.
+
+**What the result means.** On the same pairs, against the same pool, in the same weeks: Tessera retail is filled 6.0 bps below the pool mid, ElfomoFi retail 0.2 bps above it. ElfomoFi's bots are at the mid and its unlabelled flow 0.1 bps above; there is no group on ElfomoFi that is systematically ahead of or behind any other. On cbBTC/USDC ElfomoFi retail is about 1.5 to 2 bps better than the Aerodrome mid, which is what a market maker quoting inside a 5 bp pool looks like. The mean for ElfomoFi retail is slightly positive (0.4 bps) because of a thin tail of large trades with price impact, not because of a level shift.
+
+**What it means for retail users.** ElfomoFi delivers what the routing decision assumed: a fill at or inside the pool price. Tessera delivers a quote inside the pool price and a fill outside it. The two venues are answering the same aggregators' requests for the same tokens, so the six-bp difference is not the cost of trading a propAMM on Base; it is the cost of trading this one. For a user the actionable reading is that "propAMM" is not the risk, and neither is "aggregator" by itself: the combination of a venue whose settlement price can differ from its quote and an aggregator that does not check its fills is.
+""")
+
+md("""
 ## Summary
 
 - Headline numbers for the analysis window
@@ -1629,6 +1929,9 @@ headline = pd.DataFrame([
     ("Retail shortfall vs fair on majors / bot gain vs fair", f"${retail_ledger.sum():,.0f} / ${-bot_ledger.sum():,.0f} (not a transfer, see text)"),
     ("Affected recipient keys", f"{len(affected):,} of {len(wallets):,}; median ${affected['shortfall_vs_quote_usd'].median():,.2f} over a median of {affected['trades'].median():.0f} trade(s); {share_once:.0%} traded once"),
     ("Keys with ≥ $100 traded", f"{len(sized):,}; median ${sized['shortfall_vs_quote_usd'].median():,.2f} over {sized['trades'].median():.0f} trades"),
+    ("ElfomoFi trades in window / share with a mapped aggregator", f"{len(elf):,} / {elf['aggregator'].notna().mean():.0%}"),
+    ("ElfomoFi median fill vs its own quote, retail / bot", f"{elf.loc[elf['flow'] == 'retail', 'fill_vs_quote_bps'].median():.2f} / {elf.loc[elf['flow'] == 'bot', 'fill_vs_quote_bps'].median():.2f} bps"),
+    ("ElfomoFi median retail fill vs fair pool price (majors)", f"{fair_by_venue.loc[('ElfomoFi', 'retail'), 'p50']:+.2f} bps (Tessera {fair_by_venue.loc[('Tessera', 'retail'), 'p50']:+.2f})"),
 ], columns=["Metric", "Value"])
 display(headline.style.hide(axis="index"))
 """)
