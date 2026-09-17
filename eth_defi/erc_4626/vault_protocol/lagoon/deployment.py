@@ -1555,10 +1555,18 @@ def deploy_safe_trading_strategy_module(
             big_block_gas_limit = HYPEREVM_BIG_BLOCK_GAS_LIMIT
         else:
             big_block_gas_limit = actual_block_gas_limit
-        # Gas for library deployments that run in small blocks
-        guard_gas = min(10_000_000, actual_block_gas_limit - 100_000)
-        # Gas for TradingStrategyModuleV0 which runs inside big_blocks_for_deployment()
-        module_gas = min(10_000_000, big_block_gas_limit - 100_000)
+        if is_hyperevm(chain_id):
+            # Library deployments run in small blocks, while the module uses a
+            # HyperEVM large block. Explicit limits avoid inaccurate estimates
+            # from a small latest block.
+            guard_gas = min(10_000_000, actual_block_gas_limit - 100_000)
+            module_gas = min(10_000_000, big_block_gas_limit - 100_000)
+        else:
+            # Let Ethereum estimate each deployment. A 10M gas limit would
+            # reserve 10M times the EIP-1559 fee cap from the deployer balance,
+            # even though these contracts use substantially less gas.
+            guard_gas = None
+            module_gas = None
 
         # TradingStrategyModuleV0 uses external Forge libraries via DELEGATECALL:
         # - UniswapLib: Uniswap V2/V3 swap validation
@@ -1672,7 +1680,11 @@ def deploy_safe_trading_strategy_module(
         from eth_defi.hyperliquid.block import big_blocks_for_deployment
 
         with big_blocks_for_deployment(web3, _deployer_account._private_key.hex()):
-            logger.info("Deploying TradingStrategyModuleV0 with libraries %s and gas %d", library_addresses, module_gas)
+            logger.info(
+                "Deploying TradingStrategyModuleV0 with libraries %s and gas %s",
+                library_addresses,
+                module_gas if module_gas is not None else "node estimate",
+            )
             module = deploy_contract(
                 web3,
                 "safe-integration/TradingStrategyModuleV0.json",

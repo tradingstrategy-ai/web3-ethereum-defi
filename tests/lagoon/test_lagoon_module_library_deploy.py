@@ -13,11 +13,13 @@ from eth_defi.erc_4626.vault_protocol.lagoon.deployment import (
 )
 
 
-def _make_fake_web3() -> SimpleNamespace:
+def _make_fake_web3(
+    chain_id: int = 1,
+) -> SimpleNamespace:
     """Create a tiny Web3 stub for module deployment tests."""
     return SimpleNamespace(
         eth=SimpleNamespace(
-            chain_id=1,
+            chain_id=chain_id,
             get_block=lambda _block_id: {"gasLimit": 30_000_000},
         )
     )
@@ -145,13 +147,20 @@ def test_deploy_safe_trading_strategy_module_deploys_uniswap_library_when_enable
 def test_deploy_safe_trading_strategy_module_deploys_lagoon_library_by_default(
     monkeypatch: MonkeyPatch,
 ):
-    """Deploy and link LagoonLib by default for source-chain Lagoon modules."""
+    """Use node gas estimation for Ethereum Lagoon-module deployments.
 
+    1. Build a fake Ethereum deployment environment.
+    2. Capture deployment helper arguments without broadcasting transactions.
+    3. Verify LagoonLib and the module omit an explicit 10M gas limit.
+    """
+
+    # 1. Build a fake Ethereum deployment environment.
     web3 = _make_fake_web3()
     safe = _make_fake_safe()
     deployer: LocalAccount = Account.create()
     deploy_calls: list[dict] = []
 
+    # 2. Capture deployment helper arguments without broadcasting transactions.
     def fake_deploy_contract(_web3, contract_name: str, _deployer, *constructor_args, **kwargs):
         deploy_calls.append(
             {
@@ -171,6 +180,7 @@ def test_deploy_safe_trading_strategy_module_deploys_lagoon_library_by_default(
         _no_op_big_blocks,
     )
 
+    # 3. Verify LagoonLib and the module omit an explicit 10M gas limit.
     deploy_safe_trading_strategy_module(
         web3=web3,
         deployer=deployer,
@@ -182,4 +192,54 @@ def test_deploy_safe_trading_strategy_module_deploys_lagoon_library_by_default(
         "guard/LagoonLib.json",
         "safe-integration/TradingStrategyModuleV0.json",
     ]
+    assert deploy_calls[0]["kwargs"]["gas"] is None
+    assert deploy_calls[1]["kwargs"]["gas"] is None
     assert deploy_calls[1]["kwargs"]["libraries"]["LagoonLib"] == "0x0000000000000000000000000000000000000001"
+
+
+def test_deploy_safe_trading_strategy_module_keeps_fixed_gas_on_hyperevm(
+    monkeypatch: MonkeyPatch,
+):
+    """Keep explicit gas limits for HyperEVM's dual-block deployment path.
+
+    1. Build a fake HyperEVM deployment environment with a 30M gas block.
+    2. Capture deployment helper arguments without broadcasting transactions.
+    3. Verify LagoonLib and the module retain the 10M HyperEVM gas limit.
+    """
+
+    # 1. Build a fake HyperEVM deployment environment with a 30M gas block.
+    web3 = _make_fake_web3(chain_id=999)
+    safe = _make_fake_safe()
+    deployer: LocalAccount = Account.create()
+    deploy_calls: list[dict] = []
+
+    # 2. Capture deployment helper arguments without broadcasting transactions.
+    def fake_deploy_contract(_web3, contract_name: str, _deployer, *constructor_args, **kwargs):
+        deploy_calls.append(
+            {
+                "contract_name": contract_name,
+                "constructor_args": constructor_args,
+                "kwargs": kwargs,
+            }
+        )
+        return SimpleNamespace(address=f"0x{len(deploy_calls):040x}")
+
+    monkeypatch.setattr(
+        "eth_defi.erc_4626.vault_protocol.lagoon.deployment.deploy_contract",
+        fake_deploy_contract,
+    )
+    monkeypatch.setattr(
+        "eth_defi.hyperliquid.block.big_blocks_for_deployment",
+        _no_op_big_blocks,
+    )
+
+    # 3. Verify LagoonLib and the module retain the 10M HyperEVM gas limit.
+    deploy_safe_trading_strategy_module(
+        web3=web3,
+        deployer=deployer,
+        safe=safe,
+        enable_on_safe=False,
+    )
+
+    assert deploy_calls[0]["kwargs"]["gas"] == 10_000_000
+    assert deploy_calls[1]["kwargs"]["gas"] == 10_000_000
