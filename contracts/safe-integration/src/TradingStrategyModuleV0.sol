@@ -54,13 +54,15 @@ contract TradingStrategyModuleV0 is Module, GuardV0Base {
      *   payable performCall().
      * - v0.5: Added Lagoon v0.5 maximum gross settlement and cooldown safety
      *   validation for asset-manager calls.
+     * - v0.6: Replaced one-settlement cooldown enforcement with a cumulative
+     *   gross settlement-window budget for asset-manager calls.
      */
     function getTradingStrategyModuleVersion()
         public
         pure
         returns (string memory)
     {
-        return "v0.5";
+        return "v0.6";
     }
 
     /**

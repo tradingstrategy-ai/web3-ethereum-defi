@@ -211,6 +211,16 @@ to replay.
 
 ## Account creation (deposit-driven — not a guard call)
 
+### Lagoon bootstrap reserve
+
+A Lighter-enabled Lagoon deployment subscribes an initial 20 USDC through the
+normal Lagoon lifecycle, then transfers 1 USDC from the Safe to Lighter for
+account activation. This leaves 19 USDC in the Safe as an executor reserve.
+The settlement budget applies equally to every automated Lagoon settlement,
+including the initial subscription. With a 5,000-USDC budget, the bootstrap
+subscription and next 20-USDC investor settlement use 40 USDC together.
+Account activation remains an ordinary direct Safe transfer.
+
 Lighter's
 [Create accounts programmatically](https://apidocs.lighter.xyz/docs/create-accounts-programmatically)
 documentation says an account can be created by depositing assets to Lighter.

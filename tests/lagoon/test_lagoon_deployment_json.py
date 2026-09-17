@@ -145,7 +145,7 @@ def test_lagoon_deployment_report_is_private_and_exclusive(tmp_path: Path) -> No
 def test_activate_lighter_account_registers_key_after_minimum_deposit(monkeypatch: pytest.MonkeyPatch) -> None:
     """The deployment ceremony deposits, observes and registers one API key."""
     events: list[object] = []
-    balances = iter((Decimal(0), Decimal(0), Decimal(1)))
+    balances = iter((Decimal(0), Decimal(0), Decimal(20)))
     token = SimpleNamespace(
         address=UNDERLYING,
         symbol="USDC",
@@ -210,7 +210,7 @@ def test_activate_lighter_account_registers_key_after_minimum_deposit(monkeypatc
     )
 
     assert events == [
-        ("fund", Decimal(1)),
+        ("fund", Decimal(20)),
         ("sleep", lagoon_deployment.LIGHTER_ACTIVATION_BALANCE_POLL_SECONDS),
         ("deposit", Decimal(1), MODULE),
         ("account", SAFE),
@@ -274,7 +274,7 @@ def create_valid_lighter_config() -> tuple[dict[str, object], HotWallet]:
         ({"existing_safe_address": SAFE}, ValueError, "new full Lagoon vault"),
         ({"primary_asset_manager": ASSET_MANAGER}, ValueError, "primary asset manager"),
         ({"lighter_api_key_index": 255}, ValueError, "lighter_api_key_index"),
-        ({"max_settlement_amount": Decimal("0.5")}, ValueError, "at least 1"),
+        ({"max_settlement_amount": Decimal("0.5")}, ValueError, "at least 20"),
     ],
 )
 def test_validate_lighter_api_key_deployment_rejects_invalid_config(
@@ -286,25 +286,25 @@ def test_validate_lighter_api_key_deployment_rejects_invalid_config(
     """Activation validation rejects unsupported topology before network reads."""
     kwargs, _deployer = create_valid_lighter_config()
     kwargs.update(overrides)
-    monkeypatch.setattr(lagoon_deployment, "fetch_erc20_details", lambda *_args, **_kwargs: SimpleNamespace(symbol="USDC", fetch_balance_of=lambda _address: Decimal("1")))
+    monkeypatch.setattr(lagoon_deployment, "fetch_erc20_details", lambda *_args, **_kwargs: SimpleNamespace(symbol="USDC", fetch_balance_of=lambda _address: Decimal("20")))
 
     with pytest.raises(error_type, match=match):
         lagoon_deployment._validate_lighter_api_key_deployment_config(**kwargs)
 
 
 def test_validate_lighter_api_key_deployment_checks_deployer_balance(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Activation validation requires the fixed one-USDC activation amount."""
+    """Activation validation requires the fixed 20-USDC Lagoon subscription."""
     kwargs, _deployer = create_valid_lighter_config()
-    monkeypatch.setattr(lagoon_deployment, "fetch_erc20_details", lambda *_args, **_kwargs: SimpleNamespace(symbol="USDC", fetch_balance_of=lambda _address: Decimal("0.99")))
+    monkeypatch.setattr(lagoon_deployment, "fetch_erc20_details", lambda *_args, **_kwargs: SimpleNamespace(symbol="USDC", fetch_balance_of=lambda _address: Decimal("19.99")))
 
-    with pytest.raises(ValueError, match="at least 1 USDC"):
+    with pytest.raises(ValueError, match="at least 20 USDC"):
         lagoon_deployment._validate_lighter_api_key_deployment_config(**kwargs)
 
 
 def test_validate_lighter_api_key_deployment_accepts_canonical_config(monkeypatch: pytest.MonkeyPatch) -> None:
     """Canonical Ethereum USDC deployment configuration passes validation."""
     kwargs, _deployer = create_valid_lighter_config()
-    monkeypatch.setattr(lagoon_deployment, "fetch_erc20_details", lambda *_args, **_kwargs: SimpleNamespace(symbol="USDC", fetch_balance_of=lambda _address: Decimal("1")))
+    monkeypatch.setattr(lagoon_deployment, "fetch_erc20_details", lambda *_args, **_kwargs: SimpleNamespace(symbol="USDC", fetch_balance_of=lambda _address: Decimal("20")))
 
     lagoon_deployment._validate_lighter_api_key_deployment_config(**kwargs)
 

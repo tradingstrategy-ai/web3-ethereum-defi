@@ -83,21 +83,20 @@ logger = logging.getLogger(__name__)
 
 DEFAULT_RATE_UPDATE_COOLDOWN = 86400
 
-#: Default minimum delay between non-zero asset-manager Lagoon settlements.
-#:
-#: The maximum gross settlement amount is a safety feature, so it must also
-#: rate-limit repeated below-cap calls. Twenty-four hours gives governance time
-#: to observe and respond to each automated movement while retaining a direct
-#: Safe recovery path.
-DEFAULT_LAGOON_SETTLEMENT_COOLDOWN = 24 * 60 * 60
+#: Default fixed window for the asset-manager's gross Lagoon settlement budget.
+DEFAULT_LAGOON_SETTLEMENT_WINDOW = 24 * 60 * 60
+
+#: Initial Lagoon subscription for a Lighter-enabled vault. One USDC is then
+#: transferred to Lighter activation, retaining 19 USDC in the Safe reserve.
+LIGHTER_BOOTSTRAP_SUBSCRIPTION = Decimal(20)
 
 DEFAULT_MANAGEMENT_RATE = 200
 
 DEFAULT_PERFORMANCE_RATE = 2000
 
 #: Earliest GuardV0 internal ABI version with the complete Lagoon v0.5
-#: asset-manager settlement safety policy: gross cap plus enforced cooldown.
-LAGOON_SETTLEMENT_LIMIT_INTERNAL_VERSION = 3
+#: asset-manager settlement safety policy: cumulative gross cap plus window.
+LAGOON_SETTLEMENT_LIMIT_INTERNAL_VERSION = 4
 
 #: Safety multiplier applied to the node ``eth_estimateGas`` result for guard
 #: setup / deployment broadcasts.
@@ -137,7 +136,7 @@ LEGACY_LAGOON_VAULT_JSON = "lagoon/Vault.json"
 
 def _validate_lagoon_settlement_limit_config(
     max_settlement_amount: Decimal | None,
-    settlement_cooldown: int,
+    settlement_window: int,
     vault_abi: str,
     satellite_chain: bool,
 ) -> None:
@@ -149,9 +148,9 @@ def _validate_lagoon_settlement_limit_config(
 
     :param max_settlement_amount:
         Human-readable underlying-token limit, or ``None`` for unlimited mode.
-    :param settlement_cooldown:
-        Minimum seconds between non-zero asset-manager settlements. Used only
-        when ``max_settlement_amount`` enables the safety feature.
+    :param settlement_window:
+        Fixed duration in seconds for the cumulative gross settlement budget.
+        Used only when ``max_settlement_amount`` enables the safety feature.
     :param vault_abi:
         Packaged Lagoon vault ABI selected by the deployment.
     :param satellite_chain:
@@ -163,8 +162,8 @@ def _validate_lagoon_settlement_limit_config(
     assert isinstance(max_settlement_amount, Decimal), "max_settlement_amount must be Decimal"
     assert max_settlement_amount.is_finite(), "max_settlement_amount must be finite"
     assert max_settlement_amount >= 0, "max_settlement_amount cannot be negative"
-    assert type(settlement_cooldown) is int, "settlement_cooldown must be an int number of seconds"
-    assert settlement_cooldown > 0, "settlement_cooldown must be positive when max_settlement_amount is configured"
+    assert type(settlement_window) is int, "settlement_window must be an int number of seconds"
+    assert settlement_window > 0, "settlement_window must be positive when max_settlement_amount is configured"
     assert vault_abi == DEFAULT_LAGOON_VAULT_JSON, f"max_settlement_amount requires the stock Lagoon v0.5 vault ABI {DEFAULT_LAGOON_VAULT_JSON}, got {vault_abi}"
     assert not satellite_chain, "max_settlement_amount cannot be configured on a satellite chain without a Lagoon vault"
 
@@ -365,13 +364,12 @@ class LagoonConfig:
     vault's underlying token and pending-deposit Silo, and enables atomic
     post-call validation in ``TradingStrategyModuleV0``.
 
-    The safety feature controls gross underlying-token movement in one
-    asset-manager settlement transaction and rate-limits non-zero calls.
+    The safety feature controls cumulative gross underlying-token movement in
+    one fixed settlement window.
     Deposit assets moving from the Silo to the Safe and redemption assets
     moving from the Safe to the vault are added rather than netted. The paired
-    :attr:`settlement_cooldown` defaults to 24 hours so an asset manager cannot
-    drain the vault with repeated individually valid non-zero calls. Empty
-    settlements neither start nor wait for cooldown. The policy does not
+    :attr:`settlement_window` defaults to 24 hours. Empty settlements neither
+    start nor alter a window. The policy does not
     validate the NAV supplied to Lagoon. Safe governance can still settle
     directly without going through the asset-manager module.
     """
@@ -426,9 +424,10 @@ class LagoonConfig:
     #: Activate the Safe-owned Lighter account and register a trading API key.
     #:
     #: This Ethereum-only deployment ceremony funds the Safe through Lagoon,
-    #: deposits :data:`LIGHTER_MIN_MAINNET_USDC`, then performs ``changePubKey``
-    #: before the requested Safe owners and threshold are configured. The
-    #: deployer remains an owner, matching the existing Lagoon deployment flow.
+    #: subscribes :data:`LIGHTER_BOOTSTRAP_SUBSCRIPTION` through Lagoon, transfers
+    #: one USDC to Lighter, then performs ``changePubKey`` before the requested
+    #: Safe owners and threshold are configured. The deployer remains an owner,
+    #: matching the existing Lagoon deployment flow.
     generate_lighter_api_key: bool = False
 
     #: User API-key slot to register during Lighter activation.
@@ -482,7 +481,7 @@ class LagoonConfig:
     #: Deploy fresh Lagoon protocol (fee registry + vault implementation + factory)
     from_the_scratch: bool = False
 
-    #: Maximum gross Lagoon v0.5 settlement per asset-manager transaction.
+    #: Maximum cumulative gross Lagoon v0.5 settlement in one asset-manager window.
     #:
     #: Expressed as a :class:`~decimal.Decimal` in human-readable underlying
     #: token units; for example, ``Decimal("10000")`` means 10,000 USDC for a
@@ -500,15 +499,13 @@ class LagoonConfig:
     #: the post-call balance check.
     max_settlement_amount: Decimal | None = None
 
-    #: Minimum delay between non-zero asset-manager Lagoon settlements.
+    #: Fixed duration of the cumulative gross settlement budget.
     #:
     #: Expressed in seconds and enforced only when ``max_settlement_amount`` is
-    #: configured. The default is 24 hours. Empty settlements do not start or
-    #: extend the cooldown and remain callable while it is active. The value
-    #: must be positive because a zero cooldown would allow repeated non-zero
-    #: below-cap calls and defeat the safety feature. Direct Safe governance
-    #: calls bypass this module policy.
-    settlement_cooldown: int = DEFAULT_LAGOON_SETTLEMENT_COOLDOWN
+    #: configured. The default is 24 hours. Empty settlements do not start,
+    #: extend or reset the window. The value must be positive. Direct Safe
+    #: governance calls bypass this module policy.
+    settlement_window: int = DEFAULT_LAGOON_SETTLEMENT_WINDOW
 
     #: Hypercore native vault addresses to whitelist (HyperEVM only).
     #: When set, also whitelists CoreWriter and CoreDepositWallet.
@@ -557,7 +554,7 @@ class LagoonConfig:
             self.asset_managers = [self.asset_manager]
         _validate_lagoon_settlement_limit_config(
             self.max_settlement_amount,
-            self.settlement_cooldown,
+            self.settlement_window,
             self.vault_abi,
             self.satellite_chain,
         )
@@ -1743,7 +1740,7 @@ def setup_guard(
     underlying_token_address: HexAddress | None = None,
     lagoon_pending_silo_address: HexAddress | None = None,
     lagoon_max_settlement_amount_raw: int | None = None,
-    lagoon_settlement_cooldown: int = DEFAULT_LAGOON_SETTLEMENT_COOLDOWN,
+    lagoon_settlement_window: int = DEFAULT_LAGOON_SETTLEMENT_WINDOW,
 ) -> list[WhitelistEntry]:
     """Set up a TradingStrategyModuleV0 guard for its paired Lagoon vault and Safe.
 
@@ -1764,8 +1761,8 @@ def setup_guard(
     :func:`deploy_automated_lagoon_vault` or :class:`LagoonConfig`, which accept
     a human-readable :class:`~decimal.Decimal` and perform the token-decimal
     conversion. ``None`` selects the legacy unlimited allowlist call; zero is a
-    valid strict cap. Every enabled cap also requires a positive cooldown;
-    ``lagoon_settlement_cooldown`` defaults to 24 hours.
+    valid strict cap. Every enabled cap also requires a positive window;
+    ``lagoon_settlement_window`` defaults to 24 hours.
 
     :param vault:
         The stock Lagoon v0.5 vault paired with ``safe`` and ``module``.
@@ -1789,10 +1786,9 @@ def setup_guard(
         asset-manager ``performCall()`` transaction. ``None`` preserves the
         unlimited legacy policy; ``0`` enables a zero-movement-only policy.
 
-    :param lagoon_settlement_cooldown:
-        Minimum seconds between non-zero capped asset-manager settlements.
-        Defaults to 24 hours. A repeated non-zero call inside this window
-        reverts during atomic post-call validation; empty and direct Safe
+    :param lagoon_settlement_window:
+        Fixed duration in seconds for the capped asset-manager's cumulative
+        gross settlement budget. Defaults to 24 hours. Empty and direct Safe
         governance transactions remain available.
 
     :param any_hypercore_vault:
@@ -1822,8 +1818,8 @@ def setup_guard(
         # validation-only GuardV0/SimpleVaultV0 path.
         assert type(lagoon_max_settlement_amount_raw) is int, "lagoon_max_settlement_amount_raw must be an int"
         assert lagoon_max_settlement_amount_raw >= 0, "lagoon_max_settlement_amount_raw cannot be negative"
-        assert type(lagoon_settlement_cooldown) is int, "lagoon_settlement_cooldown must be an int"
-        assert lagoon_settlement_cooldown > 0, "lagoon_settlement_cooldown must be positive"
+        assert type(lagoon_settlement_window) is int, "lagoon_settlement_window must be an int"
+        assert lagoon_settlement_window > 0, "lagoon_settlement_window must be positive"
         assert vault is not None, "Lagoon settlement safety requires a Lagoon vault"
         assert underlying_token_address is not None, "Lagoon settlement safety requires underlying token"
         assert lagoon_pending_silo_address is not None, "Lagoon settlement safety requires pending Silo"
@@ -2220,7 +2216,7 @@ def setup_guard(
                 underlying_token_address,
                 lagoon_pending_silo_address,
                 lagoon_max_settlement_amount_raw,
-                lagoon_settlement_cooldown,
+                lagoon_settlement_window,
                 "Enable vault settlement safety",
             )
         tx_hash = _broadcast(call)
@@ -2234,11 +2230,11 @@ def setup_guard(
                 Web3.to_checksum_address(underlying_token_address),
                 Web3.to_checksum_address(lagoon_pending_silo_address),
                 lagoon_max_settlement_amount_raw,
-                lagoon_settlement_cooldown,
+                lagoon_settlement_window,
                 0,
                 0,
             ], f"Unexpected Lagoon settlement safety configuration: {configured}"
-            limit_description = f"{lagoon_max_settlement_amount_raw} raw units; {lagoon_settlement_cooldown}s cooldown; asset {underlying_token_address}; Silo {lagoon_pending_silo_address}"
+            limit_description = f"{lagoon_max_settlement_amount_raw} raw units; {lagoon_settlement_window}s settlement window; asset {underlying_token_address}; Silo {lagoon_pending_silo_address}"
             entries.append(WhitelistEntry("Vault settlement safety", limit_description, vault.address))
     else:
         logger.info("Skipping vault settlement whitelisting (satellite chain, no vault)")
@@ -2323,12 +2319,12 @@ def _validate_lighter_api_key_deployment_config(
         raise ValueError(message)
     if not MIN_API_KEY_INDEX <= lighter_api_key_index <= MAX_API_KEY_INDEX:
         raise ValueError(f"lighter_api_key_index must be {MIN_API_KEY_INDEX}..{MAX_API_KEY_INDEX}")
-    if max_settlement_amount is not None and max_settlement_amount < LIGHTER_MIN_MAINNET_USDC:
-        raise ValueError(f"max_settlement_amount must be at least {LIGHTER_MIN_MAINNET_USDC} for Lighter activation")
+    if max_settlement_amount is not None and max_settlement_amount < LIGHTER_BOOTSTRAP_SUBSCRIPTION:
+        raise ValueError(f"max_settlement_amount must be at least {LIGHTER_BOOTSTRAP_SUBSCRIPTION} for Lighter bootstrap")
 
     usdc = fetch_erc20_details(web3, canonical_lighter.usdc, chain_id=LIGHTER_ETHEREUM_DEPLOYMENT_CHAIN_ID)
-    if usdc.fetch_balance_of(deployer.address) < LIGHTER_MIN_MAINNET_USDC:
-        raise ValueError(f"Deployer needs at least {LIGHTER_MIN_MAINNET_USDC} {usdc.symbol} for Lighter activation")
+    if usdc.fetch_balance_of(deployer.address) < LIGHTER_BOOTSTRAP_SUBSCRIPTION:
+        raise ValueError(f"Deployer needs at least {LIGHTER_BOOTSTRAP_SUBSCRIPTION} {usdc.symbol} for Lighter bootstrap")
 
 
 def _activate_lighter_account(
@@ -2386,10 +2382,10 @@ def _activate_lighter_account(
         asset_manager=deployer.address,
         test_account_with_balance=deployer.address,
         trading_strategy_module_address=module_address,
-        amount=LIGHTER_MIN_MAINNET_USDC,
+        amount=LIGHTER_BOOTSTRAP_SUBSCRIPTION,
         hot_wallet=deployer,
     )
-    expected_raw_amount = activation_token.convert_to_raw(LIGHTER_MIN_MAINNET_USDC)
+    expected_raw_amount = activation_token.convert_to_raw(LIGHTER_BOOTSTRAP_SUBSCRIPTION)
     balance_deadline = time.monotonic() + LIGHTER_ACTIVATION_BALANCE_TIMEOUT
     while True:
         safe_balance_after_funding = activation_token.fetch_balance_of(safe.address)
@@ -2494,7 +2490,7 @@ def deploy_automated_lagoon_vault(
     safe_salt_nonce: int | None = None,
     safe_proxy_factory_address: HexAddress | str | None = None,
     max_settlement_amount: Decimal | None = None,
-    settlement_cooldown: int = DEFAULT_LAGOON_SETTLEMENT_COOLDOWN,
+    settlement_window: int = DEFAULT_LAGOON_SETTLEMENT_WINDOW,
 ) -> LagoonAutomatedDeployment:
     """Deploy a full Lagoon setup with a guard.
 
@@ -2537,12 +2533,10 @@ def deploy_automated_lagoon_vault(
     netting. A rejected settlement reverts the complete Lagoon transaction.
     ``None`` preserves the historical unlimited settlement behaviour, while
     ``Decimal(0)`` permits only zero measured movement. Every successful
-    non-zero call starts ``settlement_cooldown``, which defaults to 24 hours,
-    so the asset manager cannot drain the vault through repeated below-cap
-    settlements. Empty settlements do not start, extend or wait for cooldown.
+    non-zero call consumes its gross flow from ``settlement_window``, which
+    defaults to 24 hours. Empty settlements do not start, extend or reset it.
 
-    The amount check is per transaction and the cooldown rate-limits those
-    transactions over time. It does not validate the NAV passed to Lagoon or
+    The amount check is cumulative within the configured window. It does not validate the NAV passed to Lagoon or
     restrict transactions signed directly by Safe governance. It requires the
     stock Lagoon v0.5 ABI and is unavailable on satellite chains, which have no
     Lagoon vault.
@@ -2554,13 +2548,13 @@ def deploy_automated_lagoon_vault(
     :param config:
         Pass a :class:`LagoonConfig` object instead of individual kwargs.
         When provided, all individual deployment kwargs, including
-        ``max_settlement_amount`` and ``settlement_cooldown``, are ignored in favour of the values on the
+        ``max_settlement_amount`` and ``settlement_window``, are ignored in favour of the values on the
         configuration object.
 
     :param generate_lighter_api_key:
-        Activate a canonical Ethereum Lighter account with the fixed 1 USDC
-        Lagoon subscription and register a new API key before the Safe owners
-        are finalised. Defaults to ``False``.
+        Activate a canonical Ethereum Lighter account after a fixed 20 USDC
+        Lagoon bootstrap subscription and register a new API key before the
+        Safe owners are finalised. Defaults to ``False``.
 
     :param lighter_api_key_index:
         Automated Lighter API-key slot to register when activation is enabled.
@@ -2572,10 +2566,10 @@ def deploy_automated_lagoon_vault(
         behaviour. See :attr:`LagoonConfig.max_settlement_amount` for security
         semantics and supported topology.
 
-    :param settlement_cooldown:
-        Positive minimum delay in seconds between non-zero capped asset-manager
-        settlements. Defaults to 24 hours. Empty settlements do not start or
-        wait for it. Ignored when the maximum amount safety feature is disabled.
+    :param settlement_window:
+        Positive fixed duration in seconds for the capped asset-manager's
+        cumulative gross settlement budget. Defaults to 24 hours. Ignored when
+        the maximum amount safety feature is disabled.
 
     :param any_hypercore_vault:
         Enable the narrow, HyperEVM-only dynamic native-vault policy instead
@@ -2642,7 +2636,7 @@ def deploy_automated_lagoon_vault(
         deploy_retries = config.deploy_retries
         satellite_chain = config.satellite_chain
         max_settlement_amount = config.max_settlement_amount
-        settlement_cooldown = config.settlement_cooldown
+        settlement_window = config.settlement_window
     else:
         # Legacy kwargs: validate required arguments
         assert parameters is not None, "parameters required when config not provided"
@@ -2654,7 +2648,7 @@ def deploy_automated_lagoon_vault(
 
     _validate_lagoon_settlement_limit_config(
         max_settlement_amount,
-        settlement_cooldown,
+        settlement_window,
         vault_abi,
         satellite_chain,
     )
@@ -3001,7 +2995,7 @@ def deploy_automated_lagoon_vault(
         underlying_token_address=parameters.underlying,
         lagoon_pending_silo_address=lagoon_pending_silo_address,
         lagoon_max_settlement_amount_raw=lagoon_max_settlement_amount_raw,
-        lagoon_settlement_cooldown=settlement_cooldown,
+        lagoon_settlement_window=settlement_window,
     )
 
     # Approve GMX collateral tokens for SyntheticsRouter via performCall.
@@ -3225,7 +3219,7 @@ def deploy_multichain_lagoon_vault(
     All configs must share the same ``safe_salt_nonce`` to ensure deterministic
     Safe addresses.
 
-    ``LagoonConfig.max_settlement_amount`` and its cooldown are forwarded to the public
+    ``LagoonConfig.max_settlement_amount`` and its settlement window are forwarded to the public
     single-chain deployment API and is converted using that chain's underlying
     token decimals. Configure it only for chains which deploy or reuse a Lagoon
     vault. Satellite chains contain only a Safe and guard module and therefore
@@ -3245,7 +3239,7 @@ def deploy_multichain_lagoon_vault(
         The ``parameters.underlying`` field is auto-resolved per chain from
         :data:`eth_defi.token.USDC_NATIVE_TOKEN` if set to a zero/empty address.
         Set ``max_settlement_amount`` independently on each non-satellite config
-        to enable the atomic gross-settlement cap and cooldown safety feature
+        to enable the atomic cumulative gross-settlement window safety feature
         for that chain's Lagoon vault.
 
     :param max_workers:
