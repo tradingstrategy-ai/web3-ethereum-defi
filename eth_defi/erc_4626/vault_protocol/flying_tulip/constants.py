@@ -80,7 +80,7 @@ FLYING_TULIP_HARDCODED_LEADS = (
 )
 
 #: Human-readable scanner description.
-FLYING_TULIP_SHORT_DESCRIPTION = "ftUSD staking vault with externally distributed FT rewards and conditional queued redemptions."
+FLYING_TULIP_SHORT_DESCRIPTION = "ftUSD staking vault with externally distributed FT rewards and conditional queued redemptions. See the [Flying Tulip strategy documentation](https://docs.flyingtulip.com/product-suite/ft-usd/) for its yield sources and strategy design."
 
 #: USDC ``MintAndRedeem`` fees used to model Flying Tulip vault equivalents.
 #:

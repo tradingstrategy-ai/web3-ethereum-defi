@@ -1,7 +1,7 @@
 name: Flying Tulip
 slug: flying-tulip
 short_description: |
-  Flying Tulip uses lending, staking and market-neutral strategies to generate yield and FT rewards for sftUSD holders.
+  Flying Tulip uses [lending, staking and market-neutral strategies](https://docs.flyingtulip.com/product-suite/ft-usd/) to generate yield and FT rewards for sftUSD holders.
 long_description: |
   [Flying Tulip](https://flyingtulip.com/) is an onchain financial platform
   founded by [Andre Cronje](https://blog.flyingtulip.com/flying-tulip-raises-200m/).
