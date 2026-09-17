@@ -44,7 +44,6 @@ def test_kiloex_hardcoded_vault_detection(chain_id: int, address: str, expected_
     assert vault.get_strategy_tags() == {
         StrategyTag.amm,
         StrategyTag.liquidity_provider,
-        StrategyTag.market_maker,
         StrategyTag.market_making,
         StrategyTag.market_making_amm,
         StrategyTag.perpetual_futures,

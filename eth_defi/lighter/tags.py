@@ -1761,8 +1761,8 @@ STRATEGY_TAGS: dict[str, set[StrategyTag]] = {
     #: - https://app.lighter.xyz/public-pools/281474976710654
     "lighter-pool-281474976710654": {
         StrategyTag.liquidity_provider,
-        StrategyTag.market_maker,
         StrategyTag.market_making,
+        StrategyTag.market_making_clob,
     },
     #: Vault: Lighter Robinhood Liquidity Provider (LLP).
     #: Added: 2026-08-26.
@@ -1771,8 +1771,8 @@ STRATEGY_TAGS: dict[str, set[StrategyTag]] = {
     #: - https://robinhoodchain.lighter.xyz/public-pools/281474976710654
     "lighter-pool-robinhood-281474976710654": {
         StrategyTag.liquidity_provider,
-        StrategyTag.market_maker,
         StrategyTag.market_making,
+        StrategyTag.market_making_clob,
     },
     #: Vault: Guinea Pool.
     #: Added: 2026-08-26.
@@ -1879,8 +1879,8 @@ STRATEGY_TAGS: dict[str, set[StrategyTag]] = {
     #: - https://app.lighter.xyz/public-pools/281474976680784
     "lighter-pool-281474976680784": {
         StrategyTag.liquidity_provider,
-        StrategyTag.market_maker,
         StrategyTag.market_making,
+        StrategyTag.market_making_clob,
     },
     #: Vault: PAWNZI ALGO - PROFITABLE (REAL).
     #: Added: 2026-08-26.

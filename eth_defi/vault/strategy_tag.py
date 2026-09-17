@@ -100,10 +100,6 @@ class StrategyTag(str, enum.Enum):
     #: Example vault: Hyperliquidity Provider (HLP).
     liquidity_provider = "liquidity_provider"
 
-    #: Operates a strategy that quotes or supplies both sides of a market.
-    #: Example vault: Grvt Liquidity Provider (GLP).
-    market_maker = "market_maker"
-
     #: Actively makes markets by supplying liquidity through an automated
     #: market maker.
     #: Example vault: gTrade (Gains Network USDC).
@@ -157,6 +153,26 @@ class StrategyTag(str, enum.Enum):
     #: Seeks return from the carry of an asset or position.
     #: Example vault: Staked USDe (Ethena).
     carry_trade = "carry_trade"
+
+    @classmethod
+    def _missing_(cls, value: object) -> "StrategyTag | None":
+        """Map retired persisted values to their canonical strategy tags.
+
+        Retain read compatibility for prior metadata pickles while
+        canonicalising duplicate market-making values.
+
+        :param value:
+            Unrecognised enum value being deserialised.
+        :return:
+            The canonical tag for a retired value, or ``None`` otherwise.
+        """
+
+        legacy_tag_replacements = {
+            "market_maker": cls.market_making,
+        }
+        if isinstance(value, str):
+            return legacy_tag_replacements.get(value)
+        return None
 
 
 class StrategyTagMetadata(TypedDict):
@@ -250,16 +266,12 @@ STRATEGY_TAG_METADATA: dict[StrategyTag, StrategyTagMetadata] = {
         "label": "Liquidity provider",
         "description": "[Supplies capital that others can trade against](https://tradingstrategy.ai/glossary/liquidity-provider), earning fees or rewards.",
     },
-    StrategyTag.market_maker: {
-        "label": "Market maker",
-        "description": "Actively quotes both buy and sell prices to keep a market liquid.",
-    },
     StrategyTag.market_making_amm: {
         "label": "AMM market making",
         "description": "Supplies assets to automated trading pools and earns a share of trading fees.",
     },
     StrategyTag.market_making_clob: {
-        "label": "CLOB market making",
+        "label": "Orderbook market making",
         "description": "Posts buy and sell orders on an order book to earn trading spreads.",
     },
     StrategyTag.multistrategy: {

@@ -35,8 +35,8 @@ STRATEGY_TAGS: dict[str, set[StrategyTag]] = {
     "0xc179e03922afe8fa9533d3f896338b9fb87ce0c8": {
         StrategyTag.algorithmic_trading,
         StrategyTag.liquidity_provider,
-        StrategyTag.market_maker,
         StrategyTag.market_making,
+        StrategyTag.market_making_clob,
         StrategyTag.multistrategy,
     },
     #: Vault: pmalt.
@@ -60,8 +60,8 @@ STRATEGY_TAGS: dict[str, set[StrategyTag]] = {
     #: - https://hyperliquid.gitbook.io/hyperliquid-docs/hypercore/vaults
     "0xdfc24b077bc1425ad1dea75bcb6f8158e10df303": {
         StrategyTag.liquidity_provider,
-        StrategyTag.market_maker,
         StrategyTag.market_making,
+        StrategyTag.market_making_clob,
     },
     #: Vault: Growi HF.
     #: Added: 2026-08-17.

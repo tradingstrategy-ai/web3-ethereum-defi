@@ -71,8 +71,8 @@ def test_identify_darkmatter_labs_hyperliquid_vault() -> None:
     assert get_strategy_tags(address) == {
         StrategyTag.algorithmic_trading,
         StrategyTag.liquidity_provider,
-        StrategyTag.market_maker,
         StrategyTag.market_making,
+        StrategyTag.market_making_clob,
         StrategyTag.multistrategy,
         StrategyTag.perpetual_futures,
     }

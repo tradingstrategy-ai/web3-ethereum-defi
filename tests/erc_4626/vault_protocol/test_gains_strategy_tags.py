@@ -52,7 +52,6 @@ def test_gtrade_database_addresses_are_all_classified() -> None:
     expected = {
         StrategyTag.amm,
         StrategyTag.liquidity_provider,
-        StrategyTag.market_maker,
         StrategyTag.market_making,
         StrategyTag.market_making_amm,
         StrategyTag.perpetual_futures,

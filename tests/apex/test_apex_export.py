@@ -177,7 +177,7 @@ def test_apex_official_vault_export_uses_curated_descriptions(tmp_path: Path) ->
     assert row["_lockup"] is None
     assert row["_strategy_tags"] == {
         StrategyTag.liquidity_provider,
-        StrategyTag.market_maker,
         StrategyTag.market_making,
+        StrategyTag.market_making_clob,
         StrategyTag.perpetual_futures,
     }
