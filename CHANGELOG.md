@@ -1,5 +1,6 @@
 # 1.2
 
+- feat: Add GMX trader funding-fee discovery, guarded claim transaction construction and receipt decoding (2026-09-18)
 - fix: Accumulate all automated Lagoon settlement gross flow in a fixed daily budget window (2026-09-17)
 - fix: Add a guarded Lagoon Safe claim helper and automatically refresh short-lived Lighter SDK authentication tokens for idempotent calls (2026-09-14)
 - feat: Add concise public strategy-category descriptions and classify Morini Capital foreign-currency vaults with the new FX category (2026-09-11)
