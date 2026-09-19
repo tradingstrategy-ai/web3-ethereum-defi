@@ -66,6 +66,32 @@ def test_anvil_fork_pool_bounds_nested_rpc_retries(monkeypatch: pytest.MonkeyPat
     assert "primary.example" in hint and "fallback.example" in hint
 
 
+def test_get_web3_with_launch_returns_the_exact_cached_launch(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Pair a mutation-safe Web3 client with the launch that created it.
+
+    A snapshot fixture must revert this exact process.  A second independent
+    ``get_launch()`` call may recycle a wedged fork between the two lookups,
+    leaving the snapshot attached to a dead process rather than the Web3 client
+    that performs the test mutation.
+
+    :param monkeypatch:
+        Pytest monkeypatch fixture.
+    """
+    launch = Mock(json_rpc_url="http://localhost:23457")
+    web3 = Mock()
+    monkeypatch.setattr(pool_module, "fork_network_anvil", Mock(return_value=launch))
+    monkeypatch.setattr(pool_module, "create_multi_provider_web3", Mock(return_value=web3))
+
+    pool = AnvilForkPool()
+    actual_web3, actual_launch = pool.get_web3_with_launch(
+        "https://primary.example https://fallback.example",
+        124,
+    )
+
+    assert actual_web3 is web3
+    assert actual_launch is launch
+
+
 @pytest.mark.parametrize("provider_count", [2, 3, 4, 10])
 def test_default_anvil_proxy_policy_is_bounded(provider_count: int) -> None:
     """Try each automatic upstream once within the local read timeout.
@@ -83,6 +109,79 @@ def test_default_anvil_proxy_policy_is_bounded(provider_count: int) -> None:
     assert config.backoff == 0
     combined_requests_timeout = min(config.timeout, 5.0) + config.timeout
     assert combined_requests_timeout * provider_count <= anvil_module.ANVIL_PROXY_TOTAL_TIMEOUT
+    proxy = Mock(spec=RPCProxy)
+    proxy.config = config
+    assert anvil_module._get_proxy_client_timeout(proxy, minimum_timeout=3.0) <= anvil_module.ANVIL_PROXY_TOTAL_TIMEOUT + 1.0
+
+
+def test_archive_preflight_uses_proxy_failover_budget(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Give archive preflight time to complete the proxy's bounded failover pass.
+
+    1. Set up a three-attempt proxy and a successful bootstrap Web3 response.
+    2. Stop launch immediately after capturing the archive-preflight arguments.
+    3. Verify the preflight targets the proxy and uses its full client budget.
+
+    :param monkeypatch:
+        Pytest monkeypatch fixture.
+
+    :return:
+        None.
+    """
+    # 1. Set up a three-attempt proxy and a successful bootstrap Web3 response.
+    proxy = Mock(spec=RPCProxy)
+    proxy.url = "http://127.0.0.1:23456"
+    proxy.config = RPCProxyConfig(timeout=7.0, retries=3, backoff=0.5)
+    expected_timeout = 38.25
+    monkeypatch.setattr(anvil_module, "start_rpc_proxy", Mock(return_value=proxy))
+    web3 = Mock()
+    web3.eth.block_number = 100
+    web3.eth.chain_id = 8453
+    monkeypatch.setattr(anvil_module, "Web3", Mock(return_value=web3))
+
+    preflight = Mock(side_effect=RuntimeError("stop after preflight"))
+    monkeypatch.setattr(anvil_module, "_verify_archive_node_access", preflight)
+
+    # 2. Stop launch immediately after capturing the archive-preflight arguments.
+    with pytest.raises(RuntimeError, match="stop after preflight"):
+        anvil_module.launch_anvil(
+            "https://primary.example https://fallback.example",
+            fork_block_number=50,
+            proxy_multiple_upstream=True,
+            test_request_timeout=3.0,
+        )
+
+    # 3. Verify the preflight targets the proxy and uses its full client budget.
+    assert anvil_module._get_proxy_client_timeout(proxy, minimum_timeout=3.0) == pytest.approx(expected_timeout)
+    assert preflight.call_args.kwargs["rpc_url"] == proxy.url
+    assert preflight.call_args.kwargs["timeout"] == pytest.approx(expected_timeout)
+
+
+def test_archive_preflight_rejects_proxy_failure(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Reject a proxy response after every upstream archive request has failed.
+
+    1. Make the archive probe receive the proxy's HTTP 502 JSON-RPC error.
+    2. Run the archive preflight against the fixed historical block.
+    3. Verify that it fails immediately instead of starting Anvil.
+
+    :param monkeypatch:
+        Pytest monkeypatch fixture.
+
+    :return:
+        None.
+    """
+    # 1. Make the archive probe receive the proxy's HTTP 502 JSON-RPC error.
+    response = Mock(ok=False, status_code=502, headers={})
+    response.json.return_value = {"error": {"code": -32603, "message": "All upstream providers failed"}}
+    monkeypatch.setattr(anvil_module.requests, "post", Mock(return_value=response))
+
+    # 2-3. Run the preflight and reject the failed proxy response.
+    with pytest.raises(anvil_module.ArchiveNodeRequired, match="HTTP 502"):
+        anvil_module._verify_archive_node_access(
+            web3=Mock(),
+            rpc_url="http://127.0.0.1:23456",
+            fork_block_number=50,
+            current_block=100,
+        )
 
 
 def test_launch_anvil_preserves_proxy_modes(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -90,6 +189,9 @@ def test_launch_anvil_preserves_proxy_modes(monkeypatch: pytest.MonkeyPatch) -> 
 
     The deliberately dead upstreams stop each launch at its smoke test, after
     the proxy-selection branch has run but before an Anvil process is spawned.
+    When automatic or caller-provided proxying is enabled, the raised URL must
+    be the proxy, proving both ordinary bootstrap calls and archive preflight
+    can use the configured upstream failover policy.
 
     :param monkeypatch:
         Pytest monkeypatch fixture.
@@ -100,10 +202,11 @@ def test_launch_anvil_preserves_proxy_modes(monkeypatch: pytest.MonkeyPatch) -> 
     rpc_url = "http://127.0.0.1:1 http://127.0.0.1:2"
     managed_proxy = Mock(spec=RPCProxy)
     managed_proxy.url = "http://127.0.0.1:23456"
+    managed_proxy.config = anvil_module._create_default_anvil_proxy_config(2)
     start_rpc_proxy = Mock(return_value=managed_proxy)
     monkeypatch.setattr(anvil_module, "start_rpc_proxy", start_rpc_proxy)
 
-    with pytest.raises(ValueError, match="RPC smoke test failed"):
+    with pytest.raises(ValueError, match="127.0.0.1:23456"):
         anvil_module.launch_anvil(
             rpc_url,
             proxy_multiple_upstream=True,
@@ -117,7 +220,7 @@ def test_launch_anvil_preserves_proxy_modes(monkeypatch: pytest.MonkeyPatch) -> 
 
     explicit_config = RPCProxyConfig(timeout=7.0, retries=3)
     start_rpc_proxy.reset_mock()
-    with pytest.raises(ValueError, match="RPC smoke test failed"):
+    with pytest.raises(ValueError, match="127.0.0.1:23456"):
         anvil_module.launch_anvil(
             rpc_url,
             proxy_multiple_upstream=explicit_config,
@@ -126,7 +229,7 @@ def test_launch_anvil_preserves_proxy_modes(monkeypatch: pytest.MonkeyPatch) -> 
     assert start_rpc_proxy.call_args.kwargs["config"] is explicit_config
 
     start_rpc_proxy.reset_mock()
-    with pytest.raises(ValueError, match="RPC smoke test failed"):
+    with pytest.raises(ValueError, match="RPC smoke test failed for http://127.0.0.1:[12]"):
         anvil_module.launch_anvil(
             rpc_url,
             proxy_multiple_upstream=False,
@@ -136,7 +239,8 @@ def test_launch_anvil_preserves_proxy_modes(monkeypatch: pytest.MonkeyPatch) -> 
 
     caller_proxy = object.__new__(RPCProxy)
     caller_proxy.url = "http://127.0.0.1:23457"
-    with pytest.raises(ValueError, match="RPC smoke test failed"):
+    caller_proxy.config = RPCProxyConfig(timeout=7.0, retries=3)
+    with pytest.raises(ValueError, match="127.0.0.1:23457"):
         anvil_module.launch_anvil(
             rpc_url,
             proxy_multiple_upstream=caller_proxy,

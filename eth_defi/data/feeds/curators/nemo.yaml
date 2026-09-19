@@ -4,6 +4,7 @@ role: curator
 upshift-strategist:
   - NEMO
 website: https://nemo.trading/
+twitter: NEMOtradingHQ
 short_description: NEMO is the strategist for Upshift's Prime yield vaults on Ethereum.
 long_description: |
   Upshift lists NEMO as the strategist for its NEMO USDC Prime and NEMO ETH Prime vaults on Ethereum. The strategist label is the public protocol-native attribution used for the vaults because Upshift does not expose a separate curator field.

@@ -21,6 +21,12 @@ Environment variables:
 - ``DRY_RUN``: print the discovered migration plan without writing, default ``false``.
 - ``ENZYME_SCAN_PRICES``: scan historical prices and TVL, default ``true``.
 - ``ENZYME_CLEAN_PRICES``: replace selected cleaned histories, default ``true``.
+- ``ENZYME_REFRESH_EXISTING_METADATA``: refresh every Enzyme row's current
+  metadata, default ``false``.
+- ``ENZYME_REFRESH_BLUE_FEES``: refresh every Enzyme Blue row's current fee
+  metadata, default ``false``. Used by ``migrate-blue-fees.py``.
+- ``ENZYME_REFRESH_ENZYME_FEES``: refresh every Enzyme Blue and Onyx row's
+  current fee metadata, default ``false``. Used by ``migrate-enzyme-fees.py``.
 - ``ENZYME_REWRITE_TARGETED``: rewrite every selected vault from deployment,
   default ``false``. Vaults without price rows always start from their factory
   creation block.
@@ -84,6 +90,7 @@ from eth_defi.vault.base import VaultBase, VaultSpec
 from eth_defi.vault.deposit_redeem import VaultDepositPermission
 from eth_defi.vault.historical import pformat_scan_result, scan_historical_prices_to_parquet
 from eth_defi.vault.vaultdb import DEFAULT_RAW_PRICE_DATABASE, DEFAULT_READER_STATE_DATABASE, DEFAULT_UNCLEANED_PRICE_DATABASE, DEFAULT_VAULT_DATABASE, VaultDatabase
+from eth_defi.vault.fee import BROKEN_FEE_DATA, FeeData
 
 logger = logging.getLogger(__name__)
 
@@ -98,6 +105,11 @@ CHECKPOINT_VERSION = 1
 #: Increment when current metadata semantics change and existing rows need one
 #: new adapter read even when a resumable checkpoint retains the same head.
 ENZYME_CURRENT_METADATA_VERSION = 2
+
+#: Increment when current Enzyme fee semantics change. The marker permits one
+#: explicit fee migration while retaining batch-level resumability at a fixed
+#: discovery checkpoint.
+ENZYME_FEE_METADATA_VERSION = 1
 
 #: Increment only when Onyx deposit-handler classification changes. Keeping
 #: this separate from the general metadata version avoids rereading thousands
@@ -696,21 +708,53 @@ def should_refresh_metadata(vault_db: VaultDatabase, candidate: EnzymeFactoryCan
     :param vault_db: Existing vault metadata database.
     :param candidate: Factory-discovered Enzyme vault.
     :param end_block: Fixed current-state block for this migration attempt.
-    :return: ``True`` for missing, broken, or explicitly refreshed rows.
+    :return: ``True`` for missing, broken, or stale-version rows.
     """
 
+    row = vault_db.rows.get(VaultSpec(candidate.chain, candidate.address))
     if parse_bool_env("ENZYME_REFRESH_EXISTING_METADATA", default=False):
         return True
-    row = vault_db.rows.get(VaultSpec(candidate.chain, candidate.address))
     if row is not None and row.get("_enzyme_metadata_version") != ENZYME_CURRENT_METADATA_VERSION:
         return True
     if isinstance(candidate, EnzymeVaultFactoryCandidate) and row is not None and row.get("_enzyme_onyx_permission_version") != ENZYME_ONYX_PERMISSION_VERSION:
         return True
     if isinstance(candidate, EnzymeVaultFactoryCandidate) and row is not None and row.get("_enzyme_onyx_description_version") != ENZYME_ONYX_DESCRIPTION_VERSION:
         return True
+    if is_fee_metadata_refresh_requested(candidate) and (row is None or row.get("_enzyme_fee_metadata_version") != ENZYME_FEE_METADATA_VERSION):
+        return True
     if row is not None and int(row.get("_enzyme_metadata_checked_block") or 0) >= end_block:
         return False
     return not has_complete_current_metadata(vault_db, candidate)
+
+
+def is_fee_metadata_refresh_requested(candidate: EnzymeFactoryCandidate) -> bool:
+    """Return whether the current migration explicitly refreshes this fee row.
+
+    The all-Enzyme switch selects both architectures. The retained legacy
+    switch selects Blue only, so operators can still run a narrowly scoped
+    repair without changing Onyx rows.
+
+    :param candidate: Factory-confirmed Enzyme vault.
+    :return: ``True`` when this candidate belongs to a requested fee refresh.
+    """
+
+    return parse_bool_env("ENZYME_REFRESH_ENZYME_FEES", default=False) or (isinstance(candidate, EnzymeBlueVaultFactoryCandidate) and parse_bool_env("ENZYME_REFRESH_BLUE_FEES", default=False))
+
+
+def has_successful_fee_metadata_refresh(record: dict) -> bool:
+    """Return whether a metadata row contains a completed fee-reader result.
+
+    ``BROKEN_FEE_DATA`` and an absent value represent a transient or unsupported
+    reader failure. They intentionally remain unversioned so a later run can
+    retry them, while a conclusive ``FeeData`` result receives the durable
+    version marker and participates in batch-level resume skipping.
+
+    :param record: Scanner metadata row returned for one Enzyme vault.
+    :return: ``True`` when the fee reader produced a non-broken ``FeeData``.
+    """
+
+    fees = record.get("_fees")
+    return isinstance(fees, FeeData) and fees is not BROKEN_FEE_DATA
 
 
 def update_enzyme_vault_links(vault_db: VaultDatabase, candidates: Iterable[EnzymeFactoryCandidate]) -> int:
@@ -962,6 +1006,8 @@ def _run_migration() -> None:  # noqa: PLR0914 - linear migration steps favour o
                 # retries these rows automatically.
                 record["_enzyme_metadata_checked_block"] = run.end_block
                 record["_enzyme_metadata_version"] = ENZYME_CURRENT_METADATA_VERSION
+                if is_fee_metadata_refresh_requested(candidate) and has_successful_fee_metadata_refresh(record):
+                    record["_enzyme_fee_metadata_version"] = ENZYME_FEE_METADATA_VERSION
                 if isinstance(candidate, EnzymeVaultFactoryCandidate):
                     record["_enzyme_onyx_permission_version"] = ENZYME_ONYX_PERMISSION_VERSION
                     record["_enzyme_onyx_description_version"] = ENZYME_ONYX_DESCRIPTION_VERSION

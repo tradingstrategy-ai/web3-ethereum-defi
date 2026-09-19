@@ -1,0 +1,54 @@
+name: YieldBasis
+slug: yieldbasis
+short_description: |
+  YieldBasis is an AMM protocol that aims to retain the equivalent performance
+  of holding the underlying asset.
+long_description: |
+  [YieldBasis](https://yieldbasis.com/) is a crypto protocol that lets people
+  put Bitcoin or Ethereum to work without giving up the usual up-and-down price
+  exposure of simply holding those assets. In a normal trading pool, liquidity
+  providers often end up worse off than if they had just held the coin, because
+  the pool automatically sells some of the asset as it rises and buys more as it
+  falls. YieldBasis is designed to avoid that drag: you deposit only the coin,
+  the protocol borrows a matching amount of a dollar-like stablecoin, and it
+  keeps the position balanced so your share still tracks the coin’s price
+  one-for-one while collecting trading fees.
+
+  In practice, depositors receive a token representing their share of that
+  position. They can either keep it and earn fees in Bitcoin or Ethereum terms,
+  or stake it to receive the protocol’s YB token instead. The idea is simple for
+  users—earn yield on BTC or ETH without the usual “impermanent loss”—but it
+  still carries real risks, including sharp price drops in the underlying asset,
+  delays when withdrawing after big market moves, and reliance on the stablecoin
+  and smart contracts that power the system. See the [YieldBasis overview](https://docs.yieldbasis.com/user/overview/how-yieldbasis-works)
+  and [Earn page](https://yieldbasis.com/earn) for current product terms.
+
+  Learn more:
+
+  - [YieldBasis announcement channel](https://t.me/yieldbasis)
+  - [YieldBasis whitepaper](https://github.com/yield-basis/yb-paper/blob/master/leveraged-liquidity-paper.pdf)
+fee_description: |
+  YieldBasis allocates its product fees through LT share accounting. Its
+  [fee mechanics](https://docs.yieldbasis.com/user/protocol/fee-mechanics)
+  describe how trading fees and protocol allocations are distributed. An
+  immediate redemption can realise less than fundamental value because of the
+  [Temporary Redemption Discount](https://docs.yieldbasis.com/user/protocol/fundamental-value-redemption-value-and-trd).
+  Users may also incur Ethereum network fees and any costs charged by external
+  venues used to acquire or sell the underlying asset.
+links:
+  homepage: https://yieldbasis.com/
+  app: https://yieldbasis.com/earn
+  twitter: https://x.com/yieldbasis
+  github: https://github.com/yield-basis/yb-core
+  documentation: https://docs.yieldbasis.com/
+  defillama: https://defillama.com/protocol/yield-basis
+  audits: https://docs.yieldbasis.com/user/reference/audits
+  fees: https://docs.yieldbasis.com/user/protocol/fee-mechanics
+  trading_strategy: https://tradingstrategy.ai/vaults/protocols/yieldbasis
+  integration_documentation: https://web3-ethereum-defi.readthedocs.io/vaults/yield_basis/index.html
+example_smart_contracts:
+  - https://etherscan.io/address/0x370a449FeBb9411c95bf897021377fe0B7D100c0
+  - https://etherscan.io/address/0x651D4b8168488FA163D85304662E8278d4c55BAa
+  - https://etherscan.io/address/0x722FC3640BA007C3E9867CCdB0dCa59F2e2F29F9
+  - https://etherscan.io/address/0x771F7290428d830ECd41E980745c327e507823Ec
+  - https://etherscan.io/address/0x2B9c9f3BdcEb5d8E36a4704F08a78Fca53343cEa

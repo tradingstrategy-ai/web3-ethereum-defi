@@ -176,6 +176,11 @@ Recorded for reference only — these are **working vaults**, not blacklisted:
 
 ## Related
 
+- [`README-hyperevm-hypercore-read-gas.md`](README-hyperevm-hypercore-read-gas.md)
+  — the other HyperEVM multicall failure mode on the same chain: vaults that read
+  HyperCore through precompiles get tens of millions of gas attributed to them and
+  abort the batch with `-32003 out of gas`, and revert with
+  `CoreReaderLib.ReadFailure` (`0x18c34104`) outside the node's HyperCore view.
 - [`eth_defi/event_reader/multicall_batcher.py`](../eth_defi/event_reader/multicall_batcher.py)
   — retry loop and the failover helpers.
 - `WTF_RETRY_EXCEPTIONS_MESSAGE_CLUES` in the same file still classifies

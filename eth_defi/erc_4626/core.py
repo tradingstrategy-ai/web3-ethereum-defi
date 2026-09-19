@@ -25,6 +25,9 @@ MIN_PRICE_SCAN_DEPOSIT_COUNT = 5
 #: :py:data:`MIN_PRICE_SCAN_DEPOSIT_COUNT`.
 MIN_PRICE_SCAN_CONFIGURATION_EVENT_COUNT = 1
 
+#: Chains with verified Rysk Premium LiquidityPool deployments.
+RYSK_PREMIUM_CHAIN_IDS = {1, 999}
+
 
 class ERC4626Feature(enum.Enum):
     """Additional extensionsERc-4626 vault may have.
@@ -80,6 +83,13 @@ class ERC4626Feature(enum.Enum):
     #: Routing marker for non-ERC-4626 Asseto products that are read through
     #: a :py:class:`eth_defi.vault.base.VaultBase` adapter.
     asseto_like = "asseto_like"
+
+    #: Rysk Premium epoch-settled DeFi option-writing pool share, not a fund.
+    #:
+    #: https://docs.rysk.finance/rysk-premium/rysk-premium-explainer
+    #: Routing marker for non-ERC-4626 Rysk Premium LP shares discovered and
+    #: priced from protocol-specific onchain events.
+    rysk_premium_like = "rysk_premium_like"
 
     #: Franklin Templeton Benji tokenised fund share.
     #:
@@ -137,6 +147,46 @@ class ERC4626Feature(enum.Enum):
 
     #: OpenEden permissioned TBILL fund shares.
     openeden_like = "openeden_like"
+
+    #: GMX V2 GM market-token liquidity-provider share.
+    #:
+    #: https://docs.gmx.io/docs/providing-liquidity/
+    gmx_gm = "gmx_gm"
+
+    #: GMX V2 GLV multi-market liquidity-provider share.
+    #:
+    #: https://docs.gmx.io/docs/providing-liquidity/
+    gmx_glv = "gmx_glv"
+
+    #: YieldBasis unstaked yb-LP leveraged liquidity-provider share.
+    #:
+    #: YieldBasis LTs are ERC-20 shares whose fundamental value is read from
+    #: ``pricePerShare()`` and a Curve Cryptoswap asset/crvUSD oracle.
+    #: https://docs.yieldbasis.com/user/overview/how-yieldbasis-works
+    yield_basis_lt = "yield_basis_lt"
+
+    #: Vault-like share that represents liquidity in an automated market maker pool.
+    #:
+    #: GMX GM and GLV tokens are market-making claims on pools that hold the
+    #: assets used to settle swaps and perpetual-trading PnL.
+    #: https://docs.gmx.io/docs/providing-liquidity/
+    amm_pool_like = "amm_pool_like"
+
+    #: Vault-like product without a standard contract share-price method.
+    #:
+    #: GMX GM and GLV holders earn or lose value through their pro-rata claim
+    #: on the market pool: trader PnL changes the pool value, while a share of
+    #: trading, liquidation, borrowing and swap fees accrues to liquidity
+    #: providers. The scanner therefore derives a USD NAV-per-token equivalent
+    #: from GMX pool-value and token-supply events.
+    share_price_equivalence = "share_price_equivalence"
+
+    #: Flying Tulip's externally rewarded sftUSD vault.
+    #:
+    #: sftUSD deliberately keeps its ERC-4626 conversion at one ftUSD per
+    #: share.  Its FT reward distributions are represented separately through
+    #: a :attr:`share_price_equivalence` historical series.
+    flying_tulip_like = "flying_tulip_like"
 
     #: Theo multi-asset iToken tokenised funds.
     theo_itoken_like = "theo_itoken_like"
@@ -267,7 +317,7 @@ class ERC4626Feature(enum.Enum):
     peapods_like = "peapods_like"
 
     #: Yearn compounding vault.
-    #: Written in Solidiy.
+    #: Written in Solidity.
     #: https://yearn.fi/
     #: https://etherscan.io/address/0x4cE9c93513DfF543Bc392870d57dF8C04e89Ba0a#readProxyContract
     #: Contracts have both proxy and non-proxy functions.
@@ -278,6 +328,19 @@ class ERC4626Feature(enum.Enum):
     #: https://yearn.fi/
     #: https://etherscan.io/address/0xa10c40f9e318b0ed67ecc3499d702d8db9437228#readProxyContract
     yearn_v3_like = "yearn_v3_like"
+
+    #: Classified as not Yearn-operated for Trading Strategy's vault catalogue.
+    #:
+    #: This offchain provenance marker preserves the technical Yearn interface
+    #: feature while excluding the vault from Yearn protocol attribution.
+    #: Trading Strategy treats both an explicit negative inclusion decision and
+    #: an empty inclusion object as not Yearn-operated. The latter deliberately
+    #: removes uncurated registry noise, including the Katana Stablecoin
+    #: Transformer depositor at ``0x63a028963907f5a0c1ceb7e47100f52dfc611117``,
+    #: from Yearn protocol and curated-vault lists. This is an offchain
+    #: catalogue-attribution policy, not a safety or code-provenance judgement.
+    #: https://kong.yearn.fi/api/rest/list/vaults
+    yearn_registry_excluded = "yearn_registry_excluded"
 
     #: Yearn silo strategy
     #: By
@@ -952,7 +1015,12 @@ def is_activity_filter_exempt(detection: "ERC4262VaultDetection") -> bool:
     contracts. Upshift multi-asset vaults are another exception: older
     production metadata can be seeded or refreshed by address after the custom
     event support lands, and targeted price rescans should not be blocked by a
-    stale low deposit counter. T3tris migration-pool vaults are handled
+    stale low deposit counter. GMX GM and GLV products are enumerated from the
+    protocol Reader contracts and use asynchronous ExchangeRouter requests, so
+    they do not emit the ERC-4626 flow events counted by this filter. Rysk
+    Premium is discovered from epoch-price configuration and may have a valid
+    finalised curve below the generic LP-deposit threshold. T3tris migration-pool
+    vaults are handled
     separately by :py:func:`passes_price_scan_activity_filter`, which requires
     a recorded configuration event instead of broadly exempting the protocol.
 
@@ -970,6 +1038,10 @@ def is_activity_filter_exempt(detection: "ERC4262VaultDetection") -> bool:
             ERC4626Feature.enzyme_onyx_like,
             ERC4626Feature.enzyme_blue_like,
             ERC4626Feature.upshift_multi_asset_like,
+            ERC4626Feature.gmx_gm,
+            ERC4626Feature.gmx_glv,
+            ERC4626Feature.yield_basis_lt,
+            ERC4626Feature.rysk_premium_like,
         )
     )
 
@@ -1003,6 +1075,18 @@ GENERIC_ERC4626_PROTOCOL_SLUG_ALIASES = frozenset(
     }
 )
 
+#: Yearn ABI features retained to select the specialised adapter when the
+#: registry classifies a vault as not Yearn-operated. One shared set keeps the
+#: attribution rule and registry lookup gate consistent.
+YEARN_TECHNICAL_FEATURES = frozenset(
+    {
+        ERC4626Feature.yearn_compounder_like,
+        ERC4626Feature.yearn_v3_like,
+        ERC4626Feature.yearn_tokenised_strategy,
+        ERC4626Feature.yearn_morpho_compounder_like,
+    }
+)
+
 
 def is_generic_erc4626_protocol_slug(protocol_slug: str | None) -> bool:
     """Is this protocol slug an explicit generic ERC-4626 marker."""
@@ -1019,7 +1103,12 @@ def get_vault_protocol_name(features: set[ERC4626Feature]) -> str:
     :param features:
         List of detected features for a vault
     """
-    if not features:
+    if ERC4626Feature.yearn_registry_excluded in features:
+        # Keep Yearn interface features for adapter selection, but do not use
+        # them for protocol attribution when our registry policy classifies the
+        # vault as not Yearn-operated.
+        return get_vault_protocol_name(features - {ERC4626Feature.yearn_registry_excluded} - YEARN_TECHNICAL_FEATURES)
+    elif not features:
         return GENERIC_ERC4626_PROTOCOL_NAME
     elif ERC4626Feature.broken in features:
         return "<not ERC-4626>"
@@ -1049,8 +1138,16 @@ def get_vault_protocol_name(features: set[ERC4626Feature]) -> str:
         return "Kinexys"
     elif ERC4626Feature.midas_like in features:
         return "Midas"
+    elif ERC4626Feature.gmx_gm in features or ERC4626Feature.gmx_glv in features:
+        return "GMX"
+    elif ERC4626Feature.yield_basis_lt in features:
+        return "YieldBasis"
+    elif ERC4626Feature.flying_tulip_like in features:
+        return "Flying Tulip"
     elif ERC4626Feature.asseto_like in features:
         return "Asseto"
+    elif ERC4626Feature.rysk_premium_like in features:
+        return "Rysk"
     elif ERC4626Feature.franklin_like in features:
         return "Franklin Templeton"
     elif ERC4626Feature.securitize_like in features:

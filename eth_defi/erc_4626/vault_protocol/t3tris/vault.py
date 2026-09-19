@@ -27,6 +27,7 @@ from eth_defi.erc_4626.vault_protocol.t3tris.offchain_metadata import T3trisVaul
 from eth_defi.event_reader.conversion import convert_int256_bytes_to_int, convert_uint256_bytes_to_address
 from eth_defi.event_reader.multicall_batcher import EncodedCall, EncodedCallResult
 from eth_defi.vault.base import DEPOSIT_CLOSED_BY_ADMIN, VaultHistoricalRead, VaultHistoricalReader
+from eth_defi.vault.strategy_tag import StrategyTag, lookup_curator_strategy_tags
 
 logger = logging.getLogger(__name__)
 
@@ -611,6 +612,15 @@ class T3trisVault(ERC4626Vault):
         parts = [metadata.get("category"), metadata.get("rating")]
         parts.extend(metadata.get("attributes") or [])
         return ", ".join(part for part in parts if part) or None
+
+    def get_strategy_tags(self) -> set[StrategyTag] | None:
+        """Return curator-maintained strategy tags for supported products.
+
+        :return:
+            Strategy tags for a reviewed curator product, otherwise ``None``.
+        """
+
+        return lookup_curator_strategy_tags(self.chain_id, self.address)
 
     @property
     def manager_name(self) -> str | None:

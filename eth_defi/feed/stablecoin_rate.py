@@ -154,6 +154,7 @@ _CHAIN_ALIASES_TO_ID: dict[str, int] = {
     "berachain": 80094,
     "hyperevm": 999,
     "hyperliquid": 999,
+    "plasma": 9745,
     "xlayer": 196,
     "x_layer": 196,
     "x-layer": 196,
@@ -379,6 +380,29 @@ class StablecoinRateFeeder:
     _depegged_symbols: set[str] | None = field(default=None, init=False, repr=False)
     _rate_contracts: dict[tuple[int, str], DenominationTokenRate] | None = field(default=None, init=False, repr=False)
     _rate_symbols: dict[str, DenominationTokenRate] | None = field(default=None, init=False, repr=False)
+    _address_slugs: dict[str, str] | None = field(default=None, init=False, repr=False)
+
+    def get_denomination_token_slug(self, address: HexAddress | str | None) -> str | None:
+        """Resolve a denomination token to its stablecoin metadata slug.
+
+        Token symbols are not unique: the legacy Kava USDX and Axis USDx are
+        unrelated assets. Contract addresses are globally unique, so this
+        lookup deliberately uses only the token address and never falls back to
+        the symbol.
+
+        :param address:
+            Denomination token contract address.
+
+        :return:
+            Stablecoin metadata slug for a known address, or ``None``.
+        """
+        if not address:
+            return None
+
+        if self._address_slugs is None:
+            self._address_slugs = build_stablecoin_address_slug_lookup(self.data_dir)
+
+        return self._address_slugs.get(str(address).lower())
 
     def get_denomination_token_rate_section(
         self,
@@ -917,6 +941,32 @@ def build_stablecoin_rate_lookups(data_dir: Path = STABLECOINS_DATA_DIR) -> tupl
 
     symbol_rates = {symbol: matches[0][1] for symbol, matches in symbol_candidates.items() if len(matches) == 1}
     return contract_rates, symbol_rates
+
+
+def build_stablecoin_address_slug_lookup(data_dir: Path = STABLECOINS_DATA_DIR) -> dict[str, str]:
+    """Build an address-to-stablecoin-slug lookup from package metadata.
+
+    This lookup identifies the stablecoin shown in vault metrics. It must not
+    use a token ticker because different issuers can reuse the same symbol.
+    Addresses are globally unique, so chain identifiers are intentionally not
+    part of the key.
+
+    :param data_dir:
+        Directory containing stablecoin metadata YAML files.
+
+    :return:
+        Lower-cased token addresses mapped to stablecoin metadata slugs.
+
+    """
+    address_slugs: dict[str, str] = {}
+    for target in iter_stablecoin_rate_targets(data_dir):
+        for _, address in target.contract_addresses:
+            # Preserve the original slug for a renamed token, such as
+            # agEUR/EURA. Both entries document the same contract, which is
+            # still a unique asset identity.
+            address_slugs.setdefault(address, target.slug)
+
+    return address_slugs
 
 
 def apply_coingecko_mapping_file(data_dir: Path, mapping_path: Path, progress_bar: bool = False) -> int:

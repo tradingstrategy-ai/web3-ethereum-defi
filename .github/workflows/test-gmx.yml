@@ -162,6 +162,8 @@ jobs:
           # Arbitrum mainnet RPC is required for GMX tests (GMX is on Arbitrum)
           # Used for mainnet fork testing in conftest.py
           JSON_RPC_ARBITRUM: ${{ secrets.JSON_RPC_ARBITRUM }}
+          # Historical GMX event ingestion uses the common Hypersync backend.
+          HYPERSYNC_API_KEY: ${{ secrets.HYPERSYNC_API_KEY }}
           # Arbitrum Sepolia testnet RPC for testnet GMX tests
           # Used for testnet integration tests
           ARBITRUM_SEPOLIA_RPC_URL: ${{ secrets.ARBITRUM_SEPOLIA_RPC_URL }}

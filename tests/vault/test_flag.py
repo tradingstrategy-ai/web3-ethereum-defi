@@ -3,7 +3,7 @@
 import pytest
 
 from eth_defi.vault.flag import BAD_FLAGS, VaultFlag, get_notes, get_vault_special_flags, is_flagged_vault
-from eth_defi.vault.risk import BROKEN_VAULT_CONTRACTS, VaultTechnicalRisk, get_vault_risk
+from eth_defi.vault.risk import BROKEN_VAULT_CONTRACTS, VAULT_SPECIFIC_RISK, VaultTechnicalRisk, get_vault_risk
 
 
 def test_not_in_morpho_api_is_bad_flag():
@@ -133,11 +133,12 @@ def test_summer_fi_protocol_vaults_are_blacklisted() -> None:
 @pytest.mark.parametrize(
     "address",
     [
-        "0x2eee42a0704dd4c0ff8141f85e24de9085a76093",
-        "0xcdb9671e671562b60481e4929ef80a5360af718b",
         "0xf8f7c57fb94cc1f7f2c77dc29b5216c4d3c3125d",
         "0x6ed613e86e8d0b6617e445f17323ac0162ff6ce6",
         "0x2b37f3566933e4dbe59c6b86bedbc91c1e04d774",
+        "0xa4ab2aa522234a2ea2713ebade0fec069e4f3a95",
+        "0xda482b56c85da2ec8e59d65ec4b1f9a6b414061e",
+        "0x77f1652d969dd56a75a2cb1a7c60fb7c314d71a3",
         "0x1462519131836e6eff76ccf7720c323604f380c7",
         "0x2b1264bde2dccfa82a42e4c141094f9dede63537",
         "0x1681f371c88b0655d32e61e83d398c75dcdfcd13",
@@ -168,6 +169,50 @@ def test_mainstreet_finance_vaults_are_blacklisted(address: str) -> None:
 def test_altura_vaults_are_blacklisted() -> None:
     """All Altura vaults are hard-blacklisted."""
     assert get_vault_risk("Altura") == VaultTechnicalRisk.blacklisted
+
+
+@pytest.mark.parametrize(
+    "address",
+    [
+        # LONGV4 - reads the HyperCore position (0x...0800) and withdrawable
+        # (0x...0803) precompiles, but answers at head-500,000 on Alchemy.
+        "0x2eee42a0704dd4c0ff8141f85e24de9085a76093",
+        # Altcopy Flagship - reads the HyperCore spot balance precompile
+        # (0x...0801), and answers at head-500,000 on all three providers.
+        "0xcdb9671e671562b60481e4929ef80a5360af718b",
+    ],
+)
+def test_healed_hyperevm_vault_is_unblacklisted(address: str) -> None:
+    """HyperEVM vaults blacklisted for a 2M CALL_GAS artefact are readable again.
+
+    Their old blacklist entries claimed every provider rejected the probes. That
+    was the 2,000,000-gas cap of
+    ``scripts/erc-4626/poke-hyperevm-vault-calls.py``, not a provider limit, so
+    both vaults were unlisted on 2026-08-28.
+
+    See ``docs/README-hyperevm-hypercore-read-gas.md``.
+    """
+
+    assert address not in BROKEN_VAULT_CONTRACTS
+    assert address not in VAULT_SPECIFIC_RISK
+
+
+def test_hypercore_reading_vault_is_not_blacklisted() -> None:
+    """Hyperdrive Liquid Staked Hype stays scannable despite -32003 out of gas batches.
+
+    Its totalAssets(), convertToAssets() and maxDeposit() read HyperCore through
+    the read precompiles, which makes goldsky and dRPC reject whole Multicall3
+    batches and makes the calls revert with CoreReaderLib.ReadFailure
+    (0x18c34104) outside the node's HyperCore view. The vault is alive at the
+    head, so this provider-side artefact must not turn into a blacklist entry.
+
+    See ``docs/README-hyperevm-hypercore-read-gas.md``.
+    """
+    address = "0x4d0ff6a0dd9f7316b674fb37993a3ce28bea340e"
+
+    assert address not in BROKEN_VAULT_CONTRACTS
+    assert address not in VAULT_SPECIFIC_RISK
+    assert get_vault_risk("Hyperdrive", address) == VaultTechnicalRisk.dangerous
 
 
 def test_old_mainnet_out_of_gas_contract_is_skipped_by_multicall_blacklist() -> None:
@@ -218,8 +263,10 @@ def test_old_mainnet_out_of_gas_contract_is_skipped_by_multicall_blacklist() -> 
         ("0xd80c3e98c9093b41645c07c2b6d956136f89559b", "Euler", VaultFlag.illiquid, "illiquid"),
         ("0xd0ee0cf300dfb598270cd7f4d0c6e0d8f6e13f29", "Altura", VaultFlag.controversial, "controversial"),
         ("0xda2f1b3cba732d779cff56f0cf9d3bc8aea6cd8d", "Yearn", VaultFlag.subvault, "not intended"),
+        ("0xaedf7d5f3112552e110e5f9d08c9997adce0b78d", "<protocol not yet identified>", VaultFlag.subvault, "not intended"),
         ("0x8092c20351cf4048b464df2144dc8a4dd49ce71d", "Morpho", VaultFlag.subvault, "not intended"),
         ("0x6abbda8243f4bf130a97beae759a6e91522520b9", "Yearn", VaultFlag.subvault, "not intended"),
+        ("0xd5428b889621eee8060fc105aa0ab0fa2e344468", "Yearn", VaultFlag.subvault, "not intended"),
         ("0x049e8aab2d3ca187e47d74cf8171ad266f18643e", "Yearn", VaultFlag.subvault, "not intended"),
         ("0xc9f01b5c6048b064e6d925d1c2d7206d4feef8a3", "Yearn", VaultFlag.subvault, "not intended"),
         ("0x93fec6639717b6215a48e5a72a162c50dcc40d68", "Yearn", VaultFlag.subvault, "not intended"),

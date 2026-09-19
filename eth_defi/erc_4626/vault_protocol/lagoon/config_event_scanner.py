@@ -1,4 +1,4 @@
-"""Decode cross-chain Lagoon + Safe + TradingStrategyModuleV0 guard configuration from on-chain events.
+"""Decode cross-chain Lagoon + Safe + TradingStrategyModuleV0 guard configuration from onchain events.
 
 Scans all GuardV0Base and library configuration events emitted by the
 TradingStrategyModuleV0 contract, optionally following CCTP destination
@@ -245,11 +245,11 @@ class LagoonSettlementLimitConfig:
     #: Whether the limit is currently enforced
     enabled: bool
 
-    #: Minimum seconds between non-zero asset-manager settlements.
+    #: Configured duration in seconds for settlement safety.
     #:
-    #: The default preserves the fail-safe interpretation of amount-only
-    #: configuration events emitted before the explicit cooldown event existed.
-    settlement_cooldown: int = 24 * 60 * 60
+    #: The event ABI is compatible with pre-v4 cooldown modules, so event-only
+    #: scans intentionally retain neutral duration wording.
+    settlement_window: int = 24 * 60 * 60
 
 
 @dataclass(slots=True, frozen=True)
@@ -375,7 +375,7 @@ class MultichainGuardConfig:
                 lines.append("  Lagoon settlement safety:")
                 for vault in cfg.lagoon_vaults:
                     limit = limits_by_vault.get(vault)
-                    status = f"{limit.max_settlement_amount} raw units; {limit.settlement_cooldown}s cooldown" if limit and limit.enabled else "unlimited"
+                    status = f"{limit.max_settlement_amount} raw units; {limit.settlement_window}s configured duration" if limit and limit.enabled else "unlimited"
                     lines.append(f"    {vault}: {status}")
             _section(lines, "ERC-4626 vaults", cfg.erc4626_vaults)
 
@@ -438,7 +438,7 @@ def resolve_token_label(
     Falls back to the raw address if resolution fails.
 
     :param web3:
-        Web3 connection for on-chain lookups.
+        Web3 connection for onchain lookups.
 
     :param address:
         ERC-20 token contract address.
@@ -473,7 +473,7 @@ def resolve_address_label(
     5. ``<unknown>`` — last resort
 
     :param web3:
-        Web3 connection for on-chain lookups.  If ``None``, only
+        Web3 connection for onchain lookups.  If ``None``, only
         label dicts are checked.
 
     :param address:
@@ -576,7 +576,7 @@ def resolve_hypercore_vault_labels(
 ) -> dict[str, str]:
     """Resolve Hypercore vault addresses to human-readable names via the Hyperliquid API.
 
-    Hypercore vaults do not implement ``name()`` on-chain; their names
+    Hypercore vaults do not implement ``name()`` onchain; their names
     are stored off-chain in the Hyperliquid API (``vaultDetails`` endpoint).
 
     :param vault_addresses:
@@ -683,7 +683,7 @@ def format_chain_config_detailed(
     labels: dict[str, str] = {}
     safe_checksum = Web3.to_checksum_address(cfg.safe_address)
     labels[safe_checksum] = "<our multisig>"
-    # Resolve Hypercore vault names via Hyperliquid API (they lack on-chain name())
+    # Resolve Hypercore vault names via Hyperliquid API (they lack an onchain name())
     if cfg.hypercore_vaults:
         try:
             labels.update(resolve_hypercore_vault_labels(cfg.hypercore_vaults))
@@ -739,7 +739,7 @@ def format_chain_config_detailed(
         settlement_limits = []
         for vault in cfg.lagoon_vaults:
             limit = limits_by_vault.get(vault)
-            status = f"{limit.max_settlement_amount} raw units; {limit.settlement_cooldown}s cooldown" if limit and limit.enabled else "unlimited"
+            status = f"{limit.max_settlement_amount} raw units; {limit.settlement_window}s configured duration" if limit and limit.enabled else "unlimited"
             settlement_limits.append(f"{_label(vault)}: {status}")
         sections.append(("Lagoon settlement safety", settlement_limits))
 
@@ -1142,7 +1142,7 @@ def _format_chain_config_markdown(
         settlement_limits = []
         for vault in cfg.lagoon_vaults:
             limit = limits_by_vault.get(vault)
-            status = f"{limit.max_settlement_amount} raw units; {limit.settlement_cooldown}s cooldown" if limit and limit.enabled else "unlimited"
+            status = f"{limit.max_settlement_amount} raw units; {limit.settlement_window}s configured duration" if limit and limit.enabled else "unlimited"
             settlement_limits.append(f"{_addr_labelled(vault)}: {status}")
         sections.append(("Lagoon settlement safety", settlement_limits))
 
@@ -2257,7 +2257,7 @@ def _build_chain_config(
             if current_limit is not None:
                 lagoon_settlement_limits[vault] = replace(
                     current_limit,
-                    settlement_cooldown=args["settlementCooldown"],
+                    settlement_window=args["settlementWindow"],
                 )
         elif name == "ERC4626Approved":
             erc4626_vaults.add(args["vault"])

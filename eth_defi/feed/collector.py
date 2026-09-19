@@ -69,10 +69,9 @@ class AllBridgesFailedError(RuntimeError):
 
 #: Default Twitter/X RSS bridge URL templates used when no ``TWITTER_FEED_URL_TEMPLATES``
 #: environment variable is set.  Each template must contain a ``{handle}`` placeholder.
-#: Verified working as of 2026-04-03.
+#: Verified working as of 2026-09-14.
 DEFAULT_TWITTER_URL_TEMPLATES: list[str] = [
-    "https://xcancel.com/{handle}/rss",
-    "https://rss.xcancel.com/{handle}/rss",
+    "https://nitter.cf/{handle}/rss",
 ]
 
 #: Default LinkedIn RSS bridge URL templates used when no ``LINKEDIN_FEED_URL_TEMPLATES``

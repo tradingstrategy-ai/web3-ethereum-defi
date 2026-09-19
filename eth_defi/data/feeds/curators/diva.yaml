@@ -1,0 +1,14 @@
+feeder-id: diva
+name: Diva Staking
+role: curator
+website: https://www.divastaking.com/
+short_description: Diva Staking is an Ethereum liquid-staking protocol governed by the Diva DAO.
+long_description: |
+  [Diva Staking](https://docs.divastaking.com/) describes a liquid-staking protocol using distributed validator technology, while its [DAO documentation](https://docs.divastaking.com/dao/) states that the DAO governs the protocol's launch and operation. The Enzyme Blue Early Stakers vault listings identify the Diva DAO as offering their deposit incentives, so these two vaults are attributed to Diva Staking as protocol-operated products.
+other-links:
+  - title: Diva Staking documentation
+    url: https://docs.divastaking.com/
+  - title: Enzyme Blue - Diva Early Stakers ETH Vault
+    url: https://app.enzyme.finance/vault/0x16770d642e882e1769ce4ac8612b8bc0601506fc?network=ethereum
+  - title: Enzyme Blue - Diva Early Stakers stETH Vault
+    url: https://app.enzyme.finance/vault/0x1ce8aafb51e79f6bdc0ef2ebd6fd34b00620f6db?network=ethereum

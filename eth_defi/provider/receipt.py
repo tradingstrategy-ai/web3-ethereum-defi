@@ -86,6 +86,10 @@ class ReceiptVisibilityTimedOut(TimeoutError):
     """Timed out before all read providers could see a transaction receipt."""
 
 
+class TransactionVisibilityTimedOut(TimeoutError):
+    """Timed out before enough read providers could see a transaction."""
+
+
 class ReceiptVisibilityMismatch(RuntimeError):
     """Read providers returned conflicting receipt data for the same transaction."""
 
@@ -139,6 +143,12 @@ def _get_provider_label(index: int, provider: BaseProvider) -> str:
 def _fetch_raw_receipt(provider: BaseProvider, tx_hash_hex: str) -> dict | None:
     """Fetch raw JSON-RPC receipt data from a provider."""
     response = provider.make_request("eth_getTransactionReceipt", [tx_hash_hex])
+    return response.get("result")
+
+
+def _fetch_raw_transaction(provider: BaseProvider, tx_hash_hex: str) -> dict | None:
+    """Fetch raw JSON-RPC transaction data from a provider."""
+    response = provider.make_request("eth_getTransactionByHash", [tx_hash_hex])
     return response.get("result")
 
 
@@ -239,6 +249,131 @@ def _get_insufficient_confirmations(
             insufficient.append(f"{label} ({confirmations}/{confirmation_block_count})")
 
     return insufficient
+
+
+def wait_for_transaction_visibility(
+    web3: Web3,
+    tx_hash: HexBytes | str,
+    timeout: float,
+    poll_delay: float = 1.0,
+    max_poll_delay: float = 5.0,
+    allow_partial_visibility_after_timeout: bool = True,
+) -> dict:
+    """Wait for a transaction to become visible through read RPC providers.
+
+    Unlike :py:func:`wait_for_transaction_receipt_robust`, this checks a pending
+    transaction with ``eth_getTransactionByHash``. It gates sequential nonce
+    broadcasts: the following transaction is sent as soon as every configured
+    read provider can return the preceding transaction.
+
+    At timeout, one visible transaction response is enough to proceed by
+    default. This prevents a failed or lagging read provider from unnecessarily
+    blocking the batch. It does not confirm that the transaction was mined.
+
+    :param timeout:
+        Maximum seconds to wait for all read providers to see the transaction.
+    :param poll_delay:
+        Initial delay between visibility polls.
+    :param max_poll_delay:
+        Maximum adaptive delay between visibility polls.
+    :param allow_partial_visibility_after_timeout:
+        Proceed at timeout when at least one read provider sees the transaction.
+    :return:
+        Raw JSON-RPC transaction data from one provider that sees the hash.
+    :raise TransactionVisibilityTimedOut:
+        No read provider saw the transaction before the timeout, or all-provider
+        visibility was required and did not happen.
+    """
+    assert timeout > 0, f"timeout must be positive, got {timeout}"
+    assert poll_delay > 0, f"poll_delay must be positive, got {poll_delay}"
+    assert max_poll_delay >= poll_delay, f"max_poll_delay must be >= poll_delay, got {max_poll_delay} < {poll_delay}"
+
+    tx_hash_bytes = HexBytes(tx_hash)
+    tx_hash_hex = tx_hash_bytes.to_0x_hex()
+    provider_entries = list(enumerate(get_read_providers(web3)))
+    assert provider_entries, "No read providers configured"
+    provider_labels = [_get_provider_label(index, provider) for index, provider in provider_entries]
+    deadline = time.monotonic() + timeout
+    current_delay = poll_delay
+    last_missing: list[str] = []
+    last_errors: dict[str, str] = {}
+    seen_transactions: dict[str, dict] = {}
+
+    logger.info(
+        "Waiting for transaction visibility on all read providers, tx_hash=%s, providers=%s, timeout=%s, poll_delay=%s, max_poll_delay=%s",
+        tx_hash_hex,
+        provider_labels,
+        timeout,
+        poll_delay,
+        max_poll_delay,
+    )
+
+    while time.monotonic() < deadline:
+        transactions: dict[str, dict] = {}
+        missing = []
+        errors = {}
+
+        for index, provider in provider_entries:
+            label = _get_provider_label(index, provider)
+            try:
+                transaction = _fetch_raw_transaction(provider, tx_hash_hex)
+            except PROVIDER_READ_EXCEPTIONS as e:
+                errors[label] = str(e)
+                missing.append(label)
+                logger.warning(
+                    "Could not fetch transaction from read provider, tx_hash=%s, provider=%s",
+                    tx_hash_hex,
+                    label,
+                    exc_info=True,
+                )
+                continue
+
+            if transaction is None:
+                missing.append(label)
+                logger.debug(
+                    "Read provider does not yet see transaction, tx_hash=%s, provider=%s",
+                    tx_hash_hex,
+                    label,
+                )
+            else:
+                transactions[label] = transaction
+                seen_transactions[label] = transaction
+                logger.debug(
+                    "Read provider sees transaction, tx_hash=%s, provider=%s",
+                    tx_hash_hex,
+                    label,
+                )
+
+        if not missing and len(transactions) == len(provider_entries):
+            logger.info(
+                "Transaction is visible on all read providers, tx_hash=%s",
+                tx_hash_hex,
+            )
+            return next(iter(transactions.values()))
+
+        last_missing = missing
+        last_errors = errors
+        sleep_for = min(current_delay, max(0, deadline - time.monotonic()))
+        if sleep_for > 0:
+            time.sleep(sleep_for)
+        current_delay = min(max_poll_delay, current_delay * 1.5)
+
+    if allow_partial_visibility_after_timeout and seen_transactions:
+        logger.warning(
+            "Proceeding after transaction visibility timeout because transaction is visible on %d/%d read providers, tx_hash=%s, responding_providers=%s, missing_providers=%s, provider_errors=%s",
+            len(seen_transactions),
+            len(provider_entries),
+            tx_hash_hex,
+            list(seen_transactions),
+            last_missing,
+            last_errors,
+        )
+        return next(iter(seen_transactions.values()))
+
+    detail = ", ".join(last_missing) if last_missing else "none"
+    error_detail = "; ".join(f"{label}: {error}" for label, error in last_errors.items())
+    extra = f" Last errors: {error_detail}." if error_detail else ""
+    raise TransactionVisibilityTimedOut(f"Timed out after {timeout} seconds waiting for transaction {tx_hash_hex} on all read providers. Missing providers: {detail}.{extra}")
 
 
 def wait_for_transaction_receipt_robust(

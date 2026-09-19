@@ -86,9 +86,9 @@ class GetOpenInterest(GetData):
 
             index_token_address = self.markets.get_index_token_address(market_key)
 
-            # Skip markets with invalid index token addresses
-            if index_token_address == "0x0000000000000000000000000000000000000000":
-                logger.warning("Skipping market %s with zero index token address", market_key)
+            # Swap-only markets have no index token and therefore no position open interest.
+            if not index_token_address or index_token_address == "0x0000000000000000000000000000000000000000":
+                logger.warning("Skipping market %s without an index token address", market_key)
                 continue
 
             market = [

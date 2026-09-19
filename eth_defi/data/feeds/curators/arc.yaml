@@ -1,0 +1,11 @@
+feeder-id: arc
+name: ARC
+role: curator
+short_description: ARC is the strategy-operator label used for the Gemini, Leo, and Scorpio Enzyme vault family.
+long_description: |
+  The [Leo BTC Bull Run Enzyme Blue listing](https://app.enzyme.finance/vault/0xb99463e453e2a7ce9fcea6df0bf6991cffef13d1?network=arbitrum) states that its signal execution uses ARC's infrastructure and references ARC Supernova. The [Gemini listing](https://app.enzyme.finance/vault/0x11d41452fcd89c3622f20e680ebbec8587483a63?network=arbitrum) calls the product ARC MV Gemini and describes the related Gemini BTC, ETH, and SOL systems. This record retains the published operating brand without inferring an undisclosed legal entity.
+other-links:
+  - title: Enzyme Blue - Leo BTC Bull Run listing
+    url: https://app.enzyme.finance/vault/0xb99463e453e2a7ce9fcea6df0bf6991cffef13d1?network=arbitrum
+  - title: Enzyme Blue - ARC MV Gemini listing
+    url: https://app.enzyme.finance/vault/0x11d41452fcd89c3622f20e680ebbec8587483a63?network=arbitrum

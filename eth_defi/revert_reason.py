@@ -50,7 +50,7 @@ def extract_revert_data(error: Exception) -> bytes | None:
     nested ``data``/``result`` mapping, or an exception argument string.
 
     This is useful for preflight simulations such as GuardV0 settlement. A
-    gross-flow cap breach and an active cooldown are valid contract outcomes
+    gross-flow settlement-window budget breach is a valid contract outcome
     that a caller may turn into a deferred action; insufficient liquidity,
     access-control failures and unknown selectors must remain failures.
     Recovering raw data lets protocol code decode only its explicitly supported

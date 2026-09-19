@@ -1,0 +1,6 @@
+[
+  {"stateMutability":"view","type":"function","name":"is_killed","inputs":[],"outputs":[{"name":"","type":"bool"}]},
+  {"stateMutability":"view","type":"function","name":"STABLECOIN","inputs":[],"outputs":[{"name":"","type":"address"}]},
+  {"stateMutability":"view","type":"function","name":"COLLATERAL","inputs":[],"outputs":[{"name":"","type":"address"}]},
+  {"stateMutability":"view","type":"function","name":"LT_CONTRACT","inputs":[],"outputs":[{"name":"","type":"address"}]}
+]

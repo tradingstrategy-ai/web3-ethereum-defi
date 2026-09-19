@@ -38,3 +38,6 @@ normalises addresses supplied by adapters before reading these mappings.
    eth_defi.vault.settlement_data
    eth_defi.vault.data_file_export
    eth_defi.vault.top_vaults_json
+   eth_defi.vault.denomination
+   eth_defi.vault.crypto_vaults
+   eth_defi.vault.crypto_vault_export

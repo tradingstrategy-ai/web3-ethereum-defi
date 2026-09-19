@@ -16,6 +16,9 @@ class PriceSource(str, enum.Enum):
     #: Read directly from historical smart-contract state.
     smart_contract_state = "smart-contract-state"
 
+    #: Reconstructed from authoritative smart-contract events.
+    smart_contract_event = "smart-contract-event"
+
     #: Read from a protocol or product API.
     api = "api"
 

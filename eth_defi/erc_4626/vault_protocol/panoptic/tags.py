@@ -19,7 +19,6 @@ STRATEGY_TAGS: dict[str, set[StrategyTag]] = {
     "0xabbad7a755bdf9bbec357e2bdf4c02934a8d7a71": {
         StrategyTag.amm,
         StrategyTag.liquidity_provider,
-        StrategyTag.market_maker,
         StrategyTag.market_making,
         StrategyTag.market_making_amm,
     },

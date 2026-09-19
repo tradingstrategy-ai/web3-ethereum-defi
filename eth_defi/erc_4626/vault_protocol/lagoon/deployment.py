@@ -8,15 +8,17 @@ Lagoon automatised vault consists of
 - TradingStrategyModuleV0 module enabling guarded automated trade executor for the Safe
 - Support deployments with Forge and Etherscan verification
 
-Any Safe must be deployed as 1-of-1 deployer address multisig and multisig holders changed after the deployment.
+The Safe starts as a 1-of-1 deployer-owned multisig. Requested owners and the
+final threshold are configured during deployment; the deployer remains an owner.
 """
 
 import copy
+import json
 import logging
 import os
 import time
 from contextlib import nullcontext
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, field
 from decimal import Decimal
 from io import StringIO
 from pathlib import Path
@@ -42,6 +44,7 @@ from eth_defi.deploy import deploy_contract
 from eth_defi.erc_4626.core import ERC4626Feature
 from eth_defi.erc_4626.vault import ERC4626Vault
 from eth_defi.erc_4626.vault_protocol.lagoon.beacon_proxy import deploy_beacon_proxy
+from eth_defi.erc_4626.vault_protocol.lagoon.funding import fund_lagoon_vault
 from eth_defi.erc_4626.vault_protocol.lagoon.vault import LagoonSatelliteVault, LagoonVault
 from eth_defi.foundry.forge import deploy_contract_with_forge
 from eth_defi.gas import apply_gas, estimate_gas_price
@@ -50,7 +53,13 @@ from eth_defi.hotwallet import HotWallet
 from eth_defi.hyperliquid.block import HYPEREVM_FAST_BLOCK_GAS_LIMIT
 from eth_defi.hyperliquid.core_writer import CORE_DEPOSIT_WALLET, CORE_WRITER_ADDRESS
 from eth_defi.hyperliquid.guard_whitelist import get_core_deposit_wallet
+from eth_defi.lighter.api import LIGHTER_MIN_MAINNET_USDC, wait_for_lighter_account, wait_for_lighter_api_key, wait_for_lighter_collateral
+from eth_defi.lighter.api_key import generate_lighter_api_key as generate_lighter_api_key_pair
+from eth_defi.lighter.constants import LIGHTER_ETHEREUM_DEPLOYMENT_CHAIN_ID
 from eth_defi.lighter.deployment import LighterDeployment, setup_lighter_whitelisting
+from eth_defi.lighter.lagoon import deposit_usdc_from_lagoon_safe_into_lighter
+from eth_defi.lighter.pubkey import MAX_API_KEY_INDEX, MIN_API_KEY_INDEX, execute_change_pubkey
+from eth_defi.lighter.session import create_lighter_session
 from eth_defi.provider.anvil import is_anvil
 from eth_defi.safe.deployment import (
     DEFAULT_TX_CONFIRMATION_TIMEOUT,
@@ -74,28 +83,27 @@ logger = logging.getLogger(__name__)
 
 DEFAULT_RATE_UPDATE_COOLDOWN = 86400
 
-#: Default minimum delay between non-zero asset-manager Lagoon settlements.
-#:
-#: The maximum gross settlement amount is a safety feature, so it must also
-#: rate-limit repeated below-cap calls. Twenty-four hours gives governance time
-#: to observe and respond to each automated movement while retaining a direct
-#: Safe recovery path.
-DEFAULT_LAGOON_SETTLEMENT_COOLDOWN = 24 * 60 * 60
+#: Default fixed window for the asset-manager's gross Lagoon settlement budget.
+DEFAULT_LAGOON_SETTLEMENT_WINDOW = 24 * 60 * 60
+
+#: Initial Lagoon subscription for a Lighter-enabled vault. One USDC is then
+#: transferred to Lighter activation, retaining 19 USDC in the Safe reserve.
+LIGHTER_BOOTSTRAP_SUBSCRIPTION = Decimal(20)
 
 DEFAULT_MANAGEMENT_RATE = 200
 
 DEFAULT_PERFORMANCE_RATE = 2000
 
 #: Earliest GuardV0 internal ABI version with the complete Lagoon v0.5
-#: asset-manager settlement safety policy: gross cap plus enforced cooldown.
-LAGOON_SETTLEMENT_LIMIT_INTERNAL_VERSION = 3
+#: asset-manager settlement safety policy: cumulative gross cap plus window.
+LAGOON_SETTLEMENT_LIMIT_INTERNAL_VERSION = 4
 
 #: Safety multiplier applied to the node ``eth_estimateGas`` result for guard
 #: setup / deployment broadcasts.
 #:
 #: Some L2s — Arbitrum in particular — under-estimate ``eth_estimateGas`` for
 #: simple guard-configuration calls (e.g. ``allowReceiver``), causing the
-#: transaction to revert on-chain with "out of gas" even though the estimate
+#: transaction to revert onchain with "out of gas" even though the estimate
 #: was accepted.  A multiplier on the estimate avoids this; the sender is still
 #: only charged for gas actually used, so over-provisioning the limit is free.
 DEFAULT_DEPLOYMENT_GAS_MULTIPLIER = 2.0
@@ -106,6 +114,12 @@ DEFAULT_DEPLOYMENT_GAS_MULTIPLIER = 2.0
 #: The 40-vault batch, including CoreWriter and USDC setup, is regression-tested
 #: to consume less than 2M gas on the fixed HyperEVM fork.
 HYPERCORE_MULTICALL_CHUNK_SIZE = 40
+
+#: Maximum wait for a load-balanced read RPC to observe activation funding.
+LIGHTER_ACTIVATION_BALANCE_TIMEOUT = 120
+
+#: Delay between Safe-balance reads after Lagoon settlement.
+LIGHTER_ACTIVATION_BALANCE_POLL_SECONDS = 5
 
 
 CONTRACTS_ROOT = Path(os.path.dirname(__file__)) / ".." / ".." / ".." / ".." / "contracts"
@@ -122,7 +136,7 @@ LEGACY_LAGOON_VAULT_JSON = "lagoon/Vault.json"
 
 def _validate_lagoon_settlement_limit_config(
     max_settlement_amount: Decimal | None,
-    settlement_cooldown: int,
+    settlement_window: int,
     vault_abi: str,
     satellite_chain: bool,
 ) -> None:
@@ -134,9 +148,9 @@ def _validate_lagoon_settlement_limit_config(
 
     :param max_settlement_amount:
         Human-readable underlying-token limit, or ``None`` for unlimited mode.
-    :param settlement_cooldown:
-        Minimum seconds between non-zero asset-manager settlements. Used only
-        when ``max_settlement_amount`` enables the safety feature.
+    :param settlement_window:
+        Fixed duration in seconds for the cumulative gross settlement budget.
+        Used only when ``max_settlement_amount`` enables the safety feature.
     :param vault_abi:
         Packaged Lagoon vault ABI selected by the deployment.
     :param satellite_chain:
@@ -148,8 +162,8 @@ def _validate_lagoon_settlement_limit_config(
     assert isinstance(max_settlement_amount, Decimal), "max_settlement_amount must be Decimal"
     assert max_settlement_amount.is_finite(), "max_settlement_amount must be finite"
     assert max_settlement_amount >= 0, "max_settlement_amount cannot be negative"
-    assert type(settlement_cooldown) is int, "settlement_cooldown must be an int number of seconds"
-    assert settlement_cooldown > 0, "settlement_cooldown must be positive when max_settlement_amount is configured"
+    assert type(settlement_window) is int, "settlement_window must be an int number of seconds"
+    assert settlement_window > 0, "settlement_window must be positive when max_settlement_amount is configured"
     assert vault_abi == DEFAULT_LAGOON_VAULT_JSON, f"max_settlement_amount requires the stock Lagoon v0.5 vault ABI {DEFAULT_LAGOON_VAULT_JSON}, got {vault_abi}"
     assert not satellite_chain, "max_settlement_amount cannot be configured on a satellite chain without a Lagoon vault"
 
@@ -350,13 +364,12 @@ class LagoonConfig:
     vault's underlying token and pending-deposit Silo, and enables atomic
     post-call validation in ``TradingStrategyModuleV0``.
 
-    The safety feature controls gross underlying-token movement in one
-    asset-manager settlement transaction and rate-limits non-zero calls.
+    The safety feature controls cumulative gross underlying-token movement in
+    one fixed settlement window.
     Deposit assets moving from the Silo to the Safe and redemption assets
     moving from the Safe to the vault are added rather than netted. The paired
-    :attr:`settlement_cooldown` defaults to 24 hours so an asset manager cannot
-    drain the vault with repeated individually valid non-zero calls. Empty
-    settlements neither start nor wait for cooldown. The policy does not
+    :attr:`settlement_window` defaults to 24 hours. Empty settlements neither
+    start nor alter a window. The policy does not
     validate the NAV supplied to Lagoon. Safe governance can still settle
     directly without going through the asset-manager module.
     """
@@ -408,6 +421,18 @@ class LagoonConfig:
     #: Lighter (zk-rollup perps DEX, Ethereum L1) deployment for whitelisting
     lighter_deployment: "LighterDeployment | None" = None
 
+    #: Activate the Safe-owned Lighter account and register a trading API key.
+    #:
+    #: This Ethereum-only deployment ceremony funds the Safe through Lagoon,
+    #: subscribes :data:`LIGHTER_BOOTSTRAP_SUBSCRIPTION` through Lagoon, transfers
+    #: one USDC to Lighter, then performs ``changePubKey`` before the requested
+    #: Safe owners and threshold are configured. The deployer remains an owner,
+    #: matching the existing Lagoon deployment flow.
+    generate_lighter_api_key: bool = False
+
+    #: User API-key slot to register during Lighter activation.
+    lighter_api_key_index: int = MIN_API_KEY_INDEX
+
     #: CCTP V2 deployment for cross-chain USDC transfers
     cctp_deployment: CCTPDeployment | None = None
 
@@ -456,7 +481,7 @@ class LagoonConfig:
     #: Deploy fresh Lagoon protocol (fee registry + vault implementation + factory)
     from_the_scratch: bool = False
 
-    #: Maximum gross Lagoon v0.5 settlement per asset-manager transaction.
+    #: Maximum cumulative gross Lagoon v0.5 settlement in one asset-manager window.
     #:
     #: Expressed as a :class:`~decimal.Decimal` in human-readable underlying
     #: token units; for example, ``Decimal("10000")`` means 10,000 USDC for a
@@ -474,15 +499,13 @@ class LagoonConfig:
     #: the post-call balance check.
     max_settlement_amount: Decimal | None = None
 
-    #: Minimum delay between non-zero asset-manager Lagoon settlements.
+    #: Fixed duration of the cumulative gross settlement budget.
     #:
     #: Expressed in seconds and enforced only when ``max_settlement_amount`` is
-    #: configured. The default is 24 hours. Empty settlements do not start or
-    #: extend the cooldown and remain callable while it is active. The value
-    #: must be positive because a zero cooldown would allow repeated non-zero
-    #: below-cap calls and defeat the safety feature. Direct Safe governance
-    #: calls bypass this module policy.
-    settlement_cooldown: int = DEFAULT_LAGOON_SETTLEMENT_COOLDOWN
+    #: configured. The default is 24 hours. Empty settlements do not start,
+    #: extend or reset the window. The value must be positive. Direct Safe
+    #: governance calls bypass this module policy.
+    settlement_window: int = DEFAULT_LAGOON_SETTLEMENT_WINDOW
 
     #: Hypercore native vault addresses to whitelist (HyperEVM only).
     #: When set, also whitelists CoreWriter and CoreDepositWallet.
@@ -531,7 +554,7 @@ class LagoonConfig:
             self.asset_managers = [self.asset_manager]
         _validate_lagoon_settlement_limit_config(
             self.max_settlement_amount,
-            self.settlement_cooldown,
+            self.settlement_window,
             self.vault_abi,
             self.satellite_chain,
         )
@@ -549,6 +572,40 @@ class WhitelistEntry:
 
     #: On-chain address, or empty string for non-address entries
     address: HexAddress | str = ""
+
+
+@dataclass(slots=True, frozen=True)
+class LighterAccountSetup:
+    """Registered Lighter account details created by Lagoon deployment.
+
+    The private key is present only on a successful in-memory deployment or a
+    deliberately secret-bearing report. Redacted report hydration sets it to
+    ``None``.
+    """
+
+    #: Lighter account owned by the deployed Safe.
+    account_index: int
+
+    #: Registered Lighter API-key slot.
+    api_key_index: int
+
+    #: Private key for downstream trading, never included in ``repr()``.
+    private_key: str | None = field(repr=False)
+
+    #: Registered 40-byte Lighter public key.
+    public_key: str
+
+    #: Fixed Lagoon-accounted amount deposited to activate Lighter.
+    activation_amount: Decimal
+
+    #: Lighter L1 deposit transaction hash.
+    deposit_tx_hash: str
+
+    #: Safe ``changePubKey`` transaction hash.
+    change_pubkey_tx_hash: str
+
+    #: Collateral observed by the Lighter public API after activation.
+    observed_collateral: Decimal
 
 
 @dataclass(slots=True, frozen=True)
@@ -596,6 +653,9 @@ class LagoonAutomatedDeployment:
     #: Items whitelisted on the guard during deployment.
     whitelisted_items: tuple[WhitelistEntry, ...] = ()
 
+    #: Optional Lighter activation and API-key registration completed during deployment.
+    lighter_account_setup: LighterAccountSetup | None = None
+
     @property
     def safe(self) -> Safe:
         return self.vault.safe
@@ -638,6 +698,16 @@ class LagoonAutomatedDeployment:
             "Safe salt nonce": self.safe_salt_nonce,
         }
 
+        if self.lighter_account_setup is not None:
+            fields.update(
+                {
+                    "Lighter account": self.lighter_account_setup.account_index,
+                    "Lighter API-key index": self.lighter_account_setup.api_key_index,
+                    "Lighter public key": self.lighter_account_setup.public_key,
+                    "Lighter collateral": self.lighter_account_setup.observed_collateral,
+                }
+            )
+
         if not self.is_satellite:
             vault = self.vault
             fields["Vault"] = vault.address
@@ -650,7 +720,7 @@ class LagoonAutomatedDeployment:
 
         return fields
 
-    def as_json_friendly_dict(self) -> dict[str, Any]:
+    def as_json_friendly_dict(self, *, include_secrets: bool = False) -> dict[str, Any]:
         """Get JSON-serialisable deployment data.
 
         :class:`LagoonAutomatedDeployment` contains live Web3 contract and
@@ -658,6 +728,10 @@ class LagoonAutomatedDeployment:
         captures the deployment as plain JSON values, keeping enough addresses
         and parameters to reconstruct the deployment object with
         :py:meth:`from_json_friendly_dict`.
+
+        :param include_secrets:
+            Include the Lighter API private key. Use this only for a local file
+            created with restrictive permissions.
 
         :return:
             JSON-serialisable Lagoon deployment information.
@@ -681,7 +755,22 @@ class LagoonAutomatedDeployment:
             "gas_used": str(self.gas_used) if self.gas_used is not None else None,
             "safe_salt_nonce": self.safe_salt_nonce,
             "whitelisted_items": [asdict(entry) for entry in self.whitelisted_items],
+            "lighter_account_setup": None,
         }
+
+        if self.lighter_account_setup is not None:
+            lighter_data = {
+                "account_index": self.lighter_account_setup.account_index,
+                "api_key_index": self.lighter_account_setup.api_key_index,
+                "public_key": self.lighter_account_setup.public_key,
+                "activation_amount": str(self.lighter_account_setup.activation_amount),
+                "deposit_tx_hash": self.lighter_account_setup.deposit_tx_hash,
+                "change_pubkey_tx_hash": self.lighter_account_setup.change_pubkey_tx_hash,
+                "observed_collateral": str(self.lighter_account_setup.observed_collateral),
+            }
+            if include_secrets:
+                lighter_data["private_key"] = self.lighter_account_setup.private_key
+            data["lighter_account_setup"] = lighter_data
 
         if not self.is_satellite:
             vault = self.vault
@@ -697,13 +786,35 @@ class LagoonAutomatedDeployment:
 
         return data
 
+    def write_json_file(self, path: Path, *, include_secrets: bool = False) -> None:
+        """Create a private deployment-report file without overwriting data.
+
+        Deployment reports may contain API private keys when explicitly
+        requested, so both redacted and secret-bearing files are created with
+        mode ``0600``. The exclusive create also prevents accidental loss of a
+        previous report.
+
+        :param path:
+            New report path. Its parent directory is created when needed.
+        :param include_secrets:
+            Include the Lighter API private key in the report.
+        :return:
+            ``None`` after the complete JSON document is written.
+        """
+        path.parent.mkdir(parents=True, exist_ok=True)
+        payload = json.dumps(self.as_json_friendly_dict(include_secrets=include_secrets), indent=2, sort_keys=True) + "\n"
+        fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+        with os.fdopen(fd, "w", encoding="utf-8") as report_file:
+            report_file.write(payload)
+
     @classmethod
     def from_json_friendly_dict(cls, web3: Web3, data: dict[str, Any]) -> "LagoonAutomatedDeployment":
         """Recreate deployment information from JSON data.
 
         This recreates the live Web3 contract and vault reader objects from
-        addresses stored by :py:meth:`as_json_friendly_dict`. The JSON payload
-        does not contain private keys or signed transactions.
+        addresses stored by :py:meth:`as_json_friendly_dict`. The payload may
+        contain a Lighter private key only when its writer explicitly requested
+        secret-bearing output; it never contains signed transactions.
 
         :param web3:
             Web3 connection for the deployment chain.
@@ -763,6 +874,20 @@ class LagoonAutomatedDeployment:
                 require_denomination_token=True,
             )
 
+        lighter_data = data.get("lighter_account_setup")
+        lighter_account_setup = None
+        if lighter_data is not None:
+            lighter_account_setup = LighterAccountSetup(
+                account_index=int(lighter_data["account_index"]),
+                api_key_index=int(lighter_data["api_key_index"]),
+                private_key=lighter_data.get("private_key"),
+                public_key=lighter_data["public_key"],
+                activation_amount=Decimal(lighter_data["activation_amount"]),
+                deposit_tx_hash=lighter_data["deposit_tx_hash"],
+                change_pubkey_tx_hash=lighter_data["change_pubkey_tx_hash"],
+                observed_collateral=Decimal(lighter_data["observed_collateral"]),
+            )
+
         return cls(
             chain_id=chain_id,
             vault=vault,
@@ -780,6 +905,7 @@ class LagoonAutomatedDeployment:
             gas_used=Decimal(data["gas_used"]) if data.get("gas_used") else None,
             safe_salt_nonce=data.get("safe_salt_nonce"),
             whitelisted_items=tuple(WhitelistEntry(**entry) for entry in data.get("whitelisted_items", [])),
+            lighter_account_setup=lighter_account_setup,
         )
 
     def pformat(self) -> str:
@@ -1166,7 +1292,7 @@ def deploy_lagoon(
 
         When deployer is a :class:`~eth_defi.hotwallet.HotWallet`, uses its
         internal nonce counter (avoids stale reads from load-balanced RPCs).
-        For a plain :class:`LocalAccount`, falls back to on-chain nonce lookup.
+        For a plain :class:`LocalAccount`, falls back to onchain nonce lookup.
         """
         if isinstance(deployer, HotWallet):
             return deployer.allocate_nonce(), deployer.account
@@ -1429,10 +1555,18 @@ def deploy_safe_trading_strategy_module(
             big_block_gas_limit = HYPEREVM_BIG_BLOCK_GAS_LIMIT
         else:
             big_block_gas_limit = actual_block_gas_limit
-        # Gas for library deployments that run in small blocks
-        guard_gas = min(10_000_000, actual_block_gas_limit - 100_000)
-        # Gas for TradingStrategyModuleV0 which runs inside big_blocks_for_deployment()
-        module_gas = min(10_000_000, big_block_gas_limit - 100_000)
+        if is_hyperevm(chain_id):
+            # Library deployments run in small blocks, while the module uses a
+            # HyperEVM large block. Explicit limits avoid inaccurate estimates
+            # from a small latest block.
+            guard_gas = min(10_000_000, actual_block_gas_limit - 100_000)
+            module_gas = min(10_000_000, big_block_gas_limit - 100_000)
+        else:
+            # Let Ethereum estimate each deployment. A 10M gas limit would
+            # reserve 10M times the EIP-1559 fee cap from the deployer balance,
+            # even though these contracts use substantially less gas.
+            guard_gas = None
+            module_gas = None
 
         # TradingStrategyModuleV0 uses external Forge libraries via DELEGATECALL:
         # - UniswapLib: Uniswap V2/V3 swap validation
@@ -1546,7 +1680,11 @@ def deploy_safe_trading_strategy_module(
         from eth_defi.hyperliquid.block import big_blocks_for_deployment
 
         with big_blocks_for_deployment(web3, _deployer_account._private_key.hex()):
-            logger.info("Deploying TradingStrategyModuleV0 with libraries %s and gas %d", library_addresses, module_gas)
+            logger.info(
+                "Deploying TradingStrategyModuleV0 with libraries %s and gas %s",
+                library_addresses,
+                module_gas if module_gas is not None else "node estimate",
+            )
             module = deploy_contract(
                 web3,
                 "safe-integration/TradingStrategyModuleV0.json",
@@ -1614,7 +1752,7 @@ def setup_guard(
     underlying_token_address: HexAddress | None = None,
     lagoon_pending_silo_address: HexAddress | None = None,
     lagoon_max_settlement_amount_raw: int | None = None,
-    lagoon_settlement_cooldown: int = DEFAULT_LAGOON_SETTLEMENT_COOLDOWN,
+    lagoon_settlement_window: int = DEFAULT_LAGOON_SETTLEMENT_WINDOW,
 ) -> list[WhitelistEntry]:
     """Set up a TradingStrategyModuleV0 guard for its paired Lagoon vault and Safe.
 
@@ -1635,8 +1773,8 @@ def setup_guard(
     :func:`deploy_automated_lagoon_vault` or :class:`LagoonConfig`, which accept
     a human-readable :class:`~decimal.Decimal` and perform the token-decimal
     conversion. ``None`` selects the legacy unlimited allowlist call; zero is a
-    valid strict cap. Every enabled cap also requires a positive cooldown;
-    ``lagoon_settlement_cooldown`` defaults to 24 hours.
+    valid strict cap. Every enabled cap also requires a positive window;
+    ``lagoon_settlement_window`` defaults to 24 hours.
 
     :param vault:
         The stock Lagoon v0.5 vault paired with ``safe`` and ``module``.
@@ -1660,10 +1798,9 @@ def setup_guard(
         asset-manager ``performCall()`` transaction. ``None`` preserves the
         unlimited legacy policy; ``0`` enables a zero-movement-only policy.
 
-    :param lagoon_settlement_cooldown:
-        Minimum seconds between non-zero capped asset-manager settlements.
-        Defaults to 24 hours. A repeated non-zero call inside this window
-        reverts during atomic post-call validation; empty and direct Safe
+    :param lagoon_settlement_window:
+        Fixed duration in seconds for the capped asset-manager's cumulative
+        gross settlement budget. Defaults to 24 hours. Empty and direct Safe
         governance transactions remain available.
 
     :param any_hypercore_vault:
@@ -1693,8 +1830,8 @@ def setup_guard(
         # validation-only GuardV0/SimpleVaultV0 path.
         assert type(lagoon_max_settlement_amount_raw) is int, "lagoon_max_settlement_amount_raw must be an int"
         assert lagoon_max_settlement_amount_raw >= 0, "lagoon_max_settlement_amount_raw cannot be negative"
-        assert type(lagoon_settlement_cooldown) is int, "lagoon_settlement_cooldown must be an int"
-        assert lagoon_settlement_cooldown > 0, "lagoon_settlement_cooldown must be positive"
+        assert type(lagoon_settlement_window) is int, "lagoon_settlement_window must be an int"
+        assert lagoon_settlement_window > 0, "lagoon_settlement_window must be positive"
         assert vault is not None, "Lagoon settlement safety requires a Lagoon vault"
         assert underlying_token_address is not None, "Lagoon settlement safety requires underlying token"
         assert lagoon_pending_silo_address is not None, "Lagoon settlement safety requires pending Silo"
@@ -2091,7 +2228,7 @@ def setup_guard(
                 underlying_token_address,
                 lagoon_pending_silo_address,
                 lagoon_max_settlement_amount_raw,
-                lagoon_settlement_cooldown,
+                lagoon_settlement_window,
                 "Enable vault settlement safety",
             )
         tx_hash = _broadcast(call)
@@ -2105,16 +2242,225 @@ def setup_guard(
                 Web3.to_checksum_address(underlying_token_address),
                 Web3.to_checksum_address(lagoon_pending_silo_address),
                 lagoon_max_settlement_amount_raw,
-                lagoon_settlement_cooldown,
+                lagoon_settlement_window,
                 0,
                 0,
             ], f"Unexpected Lagoon settlement safety configuration: {configured}"
-            limit_description = f"{lagoon_max_settlement_amount_raw} raw units; {lagoon_settlement_cooldown}s cooldown; asset {underlying_token_address}; Silo {lagoon_pending_silo_address}"
+            limit_description = f"{lagoon_max_settlement_amount_raw} raw units; {lagoon_settlement_window}s settlement window; asset {underlying_token_address}; Silo {lagoon_pending_silo_address}"
             entries.append(WhitelistEntry("Vault settlement safety", limit_description, vault.address))
     else:
         logger.info("Skipping vault settlement whitelisting (satellite chain, no vault)")
 
     return entries
+
+
+def _validate_lighter_api_key_deployment_config(
+    *,
+    web3: Web3,
+    deployer: LocalAccount | HotWallet,
+    parameters: LagoonDeploymentParameters,
+    primary_asset_manager: HexAddress,
+    lighter_deployment: LighterDeployment | None,
+    generate_lighter_api_key: bool,
+    lighter_api_key_index: int,
+    guard_only: bool,
+    satellite_chain: bool,
+    existing_vault_address: HexAddress | str | None,
+    existing_safe_address: HexAddress | str | None,
+    max_settlement_amount: Decimal | None,
+) -> None:
+    """Validate the narrow Ethereum Lighter activation deployment topology.
+
+    All checks execute before the first deployment transaction. The normal
+    Lagoon deployer remains unchanged unless the opt-in flag is set.
+
+    :param web3:
+        Web3 connection for the prospective deployment.
+    :param deployer:
+        Deployment signer.
+    :param parameters:
+        Lagoon vault parameters.
+    :param primary_asset_manager:
+        First configured Lagoon asset manager.
+    :param lighter_deployment:
+        Lighter guard deployment configuration.
+    :param generate_lighter_api_key:
+        Whether Lighter activation is enabled.
+    :param lighter_api_key_index:
+        Requested Lighter API-key index.
+    :param guard_only:
+        Whether only a guard is being deployed.
+    :param satellite_chain:
+        Whether this is a satellite deployment.
+    :param existing_vault_address:
+        Optional existing Lagoon vault address.
+    :param existing_safe_address:
+        Optional existing Safe address.
+    :param max_settlement_amount:
+        Optional Lagoon asset-manager settlement cap.
+    :return:
+        ``None`` after validation.
+    """
+    if not generate_lighter_api_key:
+        return
+
+    if not isinstance(deployer, HotWallet):
+        message = "generate_lighter_api_key requires a HotWallet deployer"
+        raise TypeError(message)
+    if web3.eth.chain_id != LIGHTER_ETHEREUM_DEPLOYMENT_CHAIN_ID:
+        message = f"generate_lighter_api_key is supported only on Ethereum chain ID {LIGHTER_ETHEREUM_DEPLOYMENT_CHAIN_ID}"
+        raise ValueError(message)
+    if lighter_deployment is None:
+        message = "generate_lighter_api_key requires lighter_deployment"
+        raise ValueError(message)
+    canonical_lighter = LighterDeployment.create_ethereum()
+    if Web3.to_checksum_address(lighter_deployment.zk_lighter) != canonical_lighter.zk_lighter or Web3.to_checksum_address(lighter_deployment.usdc) != canonical_lighter.usdc:
+        message = "generate_lighter_api_key requires the canonical Ethereum Lighter deployment"
+        raise ValueError(message)
+    if Web3.to_checksum_address(parameters.underlying) != canonical_lighter.usdc:
+        message = "generate_lighter_api_key requires native Ethereum USDC as Lagoon underlying"
+        raise ValueError(message)
+    if guard_only or satellite_chain or existing_vault_address or existing_safe_address:
+        message = "generate_lighter_api_key requires a new full Lagoon vault deployment"
+        raise ValueError(message)
+    if Web3.to_checksum_address(primary_asset_manager) != Web3.to_checksum_address(deployer.address):
+        message = "generate_lighter_api_key requires the deployer as the primary asset manager"
+        raise ValueError(message)
+    if Web3.to_checksum_address(parameters.valuationManager) != Web3.to_checksum_address(deployer.address):
+        message = "generate_lighter_api_key requires the deployer as the valuation manager"
+        raise ValueError(message)
+    if not MIN_API_KEY_INDEX <= lighter_api_key_index <= MAX_API_KEY_INDEX:
+        raise ValueError(f"lighter_api_key_index must be {MIN_API_KEY_INDEX}..{MAX_API_KEY_INDEX}")
+    if max_settlement_amount is not None and max_settlement_amount < LIGHTER_BOOTSTRAP_SUBSCRIPTION:
+        raise ValueError(f"max_settlement_amount must be at least {LIGHTER_BOOTSTRAP_SUBSCRIPTION} for Lighter bootstrap")
+
+    usdc = fetch_erc20_details(web3, canonical_lighter.usdc, chain_id=LIGHTER_ETHEREUM_DEPLOYMENT_CHAIN_ID)
+    if usdc.fetch_balance_of(deployer.address) < LIGHTER_BOOTSTRAP_SUBSCRIPTION:
+        raise ValueError(f"Deployer needs at least {LIGHTER_BOOTSTRAP_SUBSCRIPTION} {usdc.symbol} for Lighter bootstrap")
+
+
+def _activate_lighter_account(
+    *,
+    web3: Web3,
+    deployer: HotWallet,
+    safe: Safe,
+    vault_address: HexAddress,
+    module_address: HexAddress,
+    vault_abi: str,
+    lighter_deployment: LighterDeployment,
+    api_key_index: int,
+) -> LighterAccountSetup:
+    """Fund, activate and register a Lighter API key for a newly deployed Safe.
+
+    This intentionally performs one linear, fail-fast ceremony while the
+    deployer can execute the Safe as its initial sole owner. There is no
+    automatic recovery state: an interrupted ceremony is reported as a failed
+    deployment so an operator can inspect the onchain state before taking
+    another action.
+
+    :param web3:
+        Ethereum Web3 connection.
+    :param deployer:
+        Initial sole Safe owner and Lagoon asset manager. The existing Lagoon
+        deployment flow retains the deployer when adding requested owners.
+    :param safe:
+        Newly deployed Safe.
+    :param vault_address:
+        Newly deployed Lagoon vault address.
+    :param module_address:
+        Trading strategy module address.
+    :param vault_abi:
+        Packaged Lagoon vault ABI selection.
+    :param lighter_deployment:
+        Canonical Ethereum Lighter contracts.
+    :param api_key_index:
+        Lighter API-key slot to register.
+    :return:
+        Generated key material and confirmed activation metadata.
+    """
+    chain_id = web3.eth.chain_id
+    lighter_vault = LagoonVault(
+        web3,
+        VaultSpec(chain_id, vault_address),
+        trading_strategy_module_address=module_address,
+        vault_abi=vault_abi,
+        default_block_identifier="latest",
+    )
+    activation_token = fetch_erc20_details(web3, lighter_deployment.usdc, chain_id=chain_id)
+    safe_balance_before = activation_token.fetch_balance_of(safe.address)
+    fund_lagoon_vault(
+        web3=web3,
+        vault_address=vault_address,
+        asset_manager=deployer.address,
+        test_account_with_balance=deployer.address,
+        trading_strategy_module_address=module_address,
+        amount=LIGHTER_BOOTSTRAP_SUBSCRIPTION,
+        hot_wallet=deployer,
+    )
+    expected_raw_amount = activation_token.convert_to_raw(LIGHTER_BOOTSTRAP_SUBSCRIPTION)
+    balance_deadline = time.monotonic() + LIGHTER_ACTIVATION_BALANCE_TIMEOUT
+    while True:
+        safe_balance_after_funding = activation_token.fetch_balance_of(safe.address)
+        funded_raw_amount = activation_token.convert_to_raw(safe_balance_after_funding - safe_balance_before)
+        if funded_raw_amount >= expected_raw_amount:
+            break
+        if time.monotonic() >= balance_deadline:
+            message = "Lagoon activation funding did not credit the expected Lighter deposit amount to the Safe"
+            raise RuntimeError(message)
+        logger.warning(
+            "Lagoon activation funding is not visible on the read RPC; retrying in %d seconds",
+            LIGHTER_ACTIVATION_BALANCE_POLL_SECONDS,
+        )
+        time.sleep(LIGHTER_ACTIVATION_BALANCE_POLL_SECONDS)
+
+    deposit_tx_hash = deposit_usdc_from_lagoon_safe_into_lighter(
+        web3=web3,
+        hot_wallet=deployer,
+        vault=lighter_vault,
+        usdc=activation_token,
+        deposit_usdc=LIGHTER_MIN_MAINNET_USDC,
+        zk_lighter=lighter_deployment.zk_lighter,
+    )
+
+    session = create_lighter_session()
+    try:
+        account_index = wait_for_lighter_account(session, safe.address)
+        observed_collateral = wait_for_lighter_collateral(
+            session,
+            account_index,
+            LIGHTER_MIN_MAINNET_USDC,
+        )
+        api_key = generate_lighter_api_key_pair(api_key_index)
+        change_pubkey_tx_hash = execute_change_pubkey(
+            web3=web3,
+            safe=safe,
+            owner_private_key=deployer.private_key.hex(),
+            account_index=account_index,
+            api_key_index=api_key.api_key_index,
+            pubkey=bytes.fromhex(api_key.public_key.removeprefix("0x")),
+            zk_lighter=lighter_deployment.zk_lighter,
+            hot_wallet=deployer,
+        )
+        wait_for_lighter_api_key(
+            session,
+            account_index,
+            api_key.api_key_index,
+            api_key.public_key,
+            timeout=900,
+        )
+    finally:
+        session.close()
+
+    return LighterAccountSetup(
+        account_index=account_index,
+        api_key_index=api_key.api_key_index,
+        private_key=api_key.private_key,
+        public_key=api_key.public_key,
+        activation_amount=LIGHTER_MIN_MAINNET_USDC,
+        deposit_tx_hash=deposit_tx_hash,
+        change_pubkey_tx_hash=Web3.to_hex(change_pubkey_tx_hash),
+        observed_collateral=observed_collateral,
+    )
 
 
 def deploy_automated_lagoon_vault(
@@ -2134,6 +2480,8 @@ def deploy_automated_lagoon_vault(
     velora: bool = False,
     gmx_deployment: GMXDeployment | None = None,
     lighter_deployment: "LighterDeployment | None" = None,
+    generate_lighter_api_key: bool = False,
+    lighter_api_key_index: int = MIN_API_KEY_INDEX,
     cctp_deployment: CCTPDeployment | None = None,
     hypercore_vaults: list[HexAddress | str] | None = None,
     any_hypercore_vault: bool = False,
@@ -2154,7 +2502,7 @@ def deploy_automated_lagoon_vault(
     safe_salt_nonce: int | None = None,
     safe_proxy_factory_address: HexAddress | str | None = None,
     max_settlement_amount: Decimal | None = None,
-    settlement_cooldown: int = DEFAULT_LAGOON_SETTLEMENT_COOLDOWN,
+    settlement_window: int = DEFAULT_LAGOON_SETTLEMENT_WINDOW,
 ) -> LagoonAutomatedDeployment:
     """Deploy a full Lagoon setup with a guard.
 
@@ -2170,7 +2518,8 @@ def deploy_automated_lagoon_vault(
     - Multiple asset-manager keys may share the same Guard rights; today this
       mainly supports separate FreqTrade and GMX trading keys, but other
       workflows may use the same pattern in the future
-    - Any Safe must be deployed as 1-of-1 deployer address multisig and multisig holders changed after the deployment.
+    - The Safe starts 1-of-1 with the deployer; requested owners and the final
+      threshold are configured before this function returns.
 
     .. warning::
 
@@ -2196,12 +2545,10 @@ def deploy_automated_lagoon_vault(
     netting. A rejected settlement reverts the complete Lagoon transaction.
     ``None`` preserves the historical unlimited settlement behaviour, while
     ``Decimal(0)`` permits only zero measured movement. Every successful
-    non-zero call starts ``settlement_cooldown``, which defaults to 24 hours,
-    so the asset manager cannot drain the vault through repeated below-cap
-    settlements. Empty settlements do not start, extend or wait for cooldown.
+    non-zero call consumes its gross flow from ``settlement_window``, which
+    defaults to 24 hours. Empty settlements do not start, extend or reset it.
 
-    The amount check is per transaction and the cooldown rate-limits those
-    transactions over time. It does not validate the NAV passed to Lagoon or
+    The amount check is cumulative within the configured window. It does not validate the NAV passed to Lagoon or
     restrict transactions signed directly by Safe governance. It requires the
     stock Lagoon v0.5 ABI and is unavailable on satellite chains, which have no
     Lagoon vault.
@@ -2213,8 +2560,16 @@ def deploy_automated_lagoon_vault(
     :param config:
         Pass a :class:`LagoonConfig` object instead of individual kwargs.
         When provided, all individual deployment kwargs, including
-        ``max_settlement_amount`` and ``settlement_cooldown``, are ignored in favour of the values on the
+        ``max_settlement_amount`` and ``settlement_window``, are ignored in favour of the values on the
         configuration object.
+
+    :param generate_lighter_api_key:
+        Activate a canonical Ethereum Lighter account after a fixed 20 USDC
+        Lagoon bootstrap subscription and register a new API key before the
+        Safe owners are finalised. Defaults to ``False``.
+
+    :param lighter_api_key_index:
+        Automated Lighter API-key slot to register when activation is enabled.
 
     :param max_settlement_amount:
         Optional maximum gross Lagoon settlement for one asset-manager module
@@ -2223,10 +2578,10 @@ def deploy_automated_lagoon_vault(
         behaviour. See :attr:`LagoonConfig.max_settlement_amount` for security
         semantics and supported topology.
 
-    :param settlement_cooldown:
-        Positive minimum delay in seconds between non-zero capped asset-manager
-        settlements. Defaults to 24 hours. Empty settlements do not start or
-        wait for it. Ignored when the maximum amount safety feature is disabled.
+    :param settlement_window:
+        Positive fixed duration in seconds for the capped asset-manager's
+        cumulative gross settlement budget. Defaults to 24 hours. Ignored when
+        the maximum amount safety feature is disabled.
 
     :param any_hypercore_vault:
         Enable the narrow, HyperEVM-only dynamic native-vault policy instead
@@ -2237,7 +2592,7 @@ def deploy_automated_lagoon_vault(
         Deploy a new version of the guard smart contract and skip deploying the actual vault.
 
     :param from_the_scratch:
-        Need to deloy a fee registry contract as well.
+        Deploy a fee registry contract as well.
 
         A new chain deployment.
 
@@ -2268,6 +2623,8 @@ def deploy_automated_lagoon_vault(
         velora = config.velora
         gmx_deployment = config.gmx_deployment
         lighter_deployment = config.lighter_deployment
+        generate_lighter_api_key = config.generate_lighter_api_key
+        lighter_api_key_index = config.lighter_api_key_index
         cctp_deployment = config.cctp_deployment
         any_hypercore_vault = config.any_hypercore_vault
         any_asset = config.any_asset
@@ -2291,7 +2648,7 @@ def deploy_automated_lagoon_vault(
         deploy_retries = config.deploy_retries
         satellite_chain = config.satellite_chain
         max_settlement_amount = config.max_settlement_amount
-        settlement_cooldown = config.settlement_cooldown
+        settlement_window = config.settlement_window
     else:
         # Legacy kwargs: validate required arguments
         assert parameters is not None, "parameters required when config not provided"
@@ -2303,7 +2660,7 @@ def deploy_automated_lagoon_vault(
 
     _validate_lagoon_settlement_limit_config(
         max_settlement_amount,
-        settlement_cooldown,
+        settlement_window,
         vault_abi,
         satellite_chain,
     )
@@ -2318,6 +2675,21 @@ def deploy_automated_lagoon_vault(
     asset_manager = primary_asset_manager
     if parameters.valuationManager is None:
         parameters.valuationManager = primary_asset_manager
+
+    _validate_lighter_api_key_deployment_config(
+        web3=web3,
+        deployer=deployer,
+        parameters=parameters,
+        primary_asset_manager=primary_asset_manager,
+        lighter_deployment=lighter_deployment,
+        generate_lighter_api_key=generate_lighter_api_key,
+        lighter_api_key_index=lighter_api_key_index,
+        guard_only=guard_only,
+        satellite_chain=satellite_chain,
+        existing_vault_address=existing_vault_address,
+        existing_safe_address=existing_safe_address,
+        max_settlement_amount=max_settlement_amount,
+    )
 
     legacy = vault_abi == LEGACY_LAGOON_VAULT_JSON
 
@@ -2385,7 +2757,7 @@ def deploy_automated_lagoon_vault(
             deployer.sync_nonce(web3)
             # Apply a safety multiplier over the node's gas estimate. On Arbitrum
             # (incl. Sepolia) eth_estimateGas under-estimates guard-setup calls
-            # like allowReceiver, which then revert on-chain with "out of gas".
+            # like allowReceiver, which then revert onchain with "out of gas".
             # Falls back to the default auto-estimate if estimation raises.
             gas_limit = None
             try:
@@ -2469,7 +2841,7 @@ def deploy_automated_lagoon_vault(
 
         # When no HotWallet is available, Safe deployment bypasses nonce
         # tracking (uses LocalAccount directly via safe-eth-py).  Sync so
-        # subsequent deploys use the correct on-chain nonce.
+        # subsequent deploys use the correct onchain nonce.
         # When HotWallet IS available, nonce was already allocated via
         # hot_wallet.allocate_nonce() inside deploy_safe_with_deterministic_address.
         if isinstance(deployer, HotWallet) and safe_salt_nonce is None:
@@ -2635,7 +3007,7 @@ def deploy_automated_lagoon_vault(
         underlying_token_address=parameters.underlying,
         lagoon_pending_silo_address=lagoon_pending_silo_address,
         lagoon_max_settlement_amount_raw=lagoon_max_settlement_amount_raw,
-        lagoon_settlement_cooldown=settlement_cooldown,
+        lagoon_settlement_window=settlement_window,
     )
 
     # Approve GMX collateral tokens for SyntheticsRouter via performCall.
@@ -2668,6 +3040,7 @@ def deploy_automated_lagoon_vault(
     assert_transaction_success_with_explanation(web3, tx_hash, timeout=DEFAULT_TX_CONFIRMATION_TIMEOUT)
 
     gas_estimate = estimate_gas_price(web3)
+    lighter_account_setup = None
 
     if not guard_only and not satellite_chain:
         # 2. USDC.approve() for redemptions on Safe
@@ -2697,6 +3070,20 @@ def deploy_automated_lagoon_vault(
             gnosis_sleep = 20.0
             logger.info("Gnosis GS206 sync issue sleep %s seconds", gnosis_sleep)
             time.sleep(gnosis_sleep)
+
+        if generate_lighter_api_key:
+            assert isinstance(deployer, HotWallet)
+            assert lighter_deployment is not None
+            lighter_account_setup = _activate_lighter_account(
+                web3=web3,
+                deployer=deployer,
+                safe=safe,
+                vault_address=vault_contract.address,
+                module_address=module.address,
+                vault_abi=vault_abi,
+                lighter_deployment=lighter_deployment,
+                api_key_index=lighter_api_key_index,
+            )
 
         # 3. Set Gnosis to a true multisig
         # DOES NOT REMOVE DEPLOYER
@@ -2753,6 +3140,7 @@ def deploy_automated_lagoon_vault(
         gas_used=Decimal((start_balance - end_balance) / 10**18),
         safe_salt_nonce=safe_salt_nonce,
         whitelisted_items=tuple(whitelisted_items),
+        lighter_account_setup=lighter_account_setup,
     )
 
 
@@ -2843,7 +3231,7 @@ def deploy_multichain_lagoon_vault(
     All configs must share the same ``safe_salt_nonce`` to ensure deterministic
     Safe addresses.
 
-    ``LagoonConfig.max_settlement_amount`` and its cooldown are forwarded to the public
+    ``LagoonConfig.max_settlement_amount`` and its settlement window are forwarded to the public
     single-chain deployment API and is converted using that chain's underlying
     token decimals. Configure it only for chains which deploy or reuse a Lagoon
     vault. Satellite chains contain only a Safe and guard module and therefore
@@ -2863,7 +3251,7 @@ def deploy_multichain_lagoon_vault(
         The ``parameters.underlying`` field is auto-resolved per chain from
         :data:`eth_defi.token.USDC_NATIVE_TOKEN` if set to a zero/empty address.
         Set ``max_settlement_amount`` independently on each non-satellite config
-        to enable the atomic gross-settlement cap and cooldown safety feature
+        to enable the atomic cumulative gross-settlement window safety feature
         for that chain's Lagoon vault.
 
     :param max_workers:

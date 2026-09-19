@@ -26,6 +26,18 @@ enabling you to:
 For the core ERC-4626 functionality shared across all vault protocols, see
 :py:mod:`eth_defi.erc_4626`.
 
+Fee metadata
+------------
+
+Every vault adapter must export the complete investor-facing fee schedule that
+its authoritative onchain or documented protocol configuration makes
+available: management, performance, deposit and withdrawal fees. A confirmed
+disabled fee is recorded as ``0.0``; ``null`` is reserved for a fee class that
+cannot be established safely. This distinction is required for meaningful net
+return calculations: the metrics pipeline withholds a net result whenever a
+fee that can affect an investor's return is unknown, rather than silently
+treating it as zero.
+
 Deposit manager capability metadata
 -----------------------------------
 
@@ -142,6 +154,7 @@ Supported protocols
    arcus/index
    asseto/index
    axis/index
+   flying_tulip/index
    ondo/index
    wisdomtree/index
    libeara/index
@@ -202,6 +215,7 @@ Supported protocols
    wstgbp/index
    midas/index
    vault_street/index
+   yield_basis/index
    usyc/index
    morpho/index
    nashpoint/index
@@ -212,6 +226,7 @@ Supported protocols
    renalta/index
    resolv/index
    royco/index
+   rysk/index
    sbold/index
    secured_finance/index
    securitize/index

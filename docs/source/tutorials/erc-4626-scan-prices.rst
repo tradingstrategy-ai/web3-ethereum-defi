@@ -134,32 +134,52 @@ Cleaning data
 The raw vault data contains a lot of abnormalities like almost infinite profits,
 broken smart contracts, missing names and so on.
 
-- Cleaning only supports stablecoin-nominated vaults, i.e. vaults that have denomination token in stablecoin.
-  Cleaning process currently discards the data for other denonimations. If you need to access e.g.
-  ETH-nominated vaults, you need to clean the data yourselfs
-- Denormalise vault data to a single Parquet/Dataframe that can be handled without ``vault-db.pickle`` file,
-  in any programming environment
-- We calculate 1h returns for each vault
-- We calculate rolling returns and such performance metrics
+- The public hourly cleaning output supports stablecoin-denominated vaults. The
+  all-chain post-processing pipeline additionally writes a private
+  ``crypto-vaults`` bundle for stablecoin, reviewed ETH-like and reviewed
+  BTC-like denomination symbols. It preserves one actual observation per UTC
+  day and does not change the public stablecoin output or add columns to
+  ``CleanedVaultPriceRow``. ETH/BTC selection is symbol-whitelist based; token
+  contract addresses are reported by the audit command but do not decide
+  membership.
+- The private vault JSON metadata preserves the observed wrapper in the
+  existing ``denomination`` field and adds its mapped native underlying (for
+  example ``WBTC`` → ``BTC``). Its existing ``stablecoinish`` boolean is true
+  for records that reuse standard stablecoin history, and false for ETH/BTC
+  records cleaned in the private crypto bundle. The ``denomination`` field is
+  also the unit for native total-assets and qualification-threshold values.
+- Denormalise vault data to a single Parquet/DataFrame that can be handled
+  without a ``vault-db.pickle`` file in any programming environment.
+- Calculate observation-to-observation returns in the legacy ``returns_1h``
+  column. For the private daily crypto Parquet this is a sparse return between
+  consecutive exported observations, not an hourly or guaranteed one-day
+  return. Rows rejected by the existing TVL return filter remain zeroed.
+- Calculate rolling returns and other performance metrics.
+
+Crypto metadata leaves the shared period ranking fields unset. Comparing ranks
+across stablecoin, ETH and BTC native-unit TVL thresholds would be misleading;
+the bundle's lifetime return, CAGR and other per-vault metrics are still
+calculated normally.
 
 
-The script will
-- Read ``~/tradingstrategy/vaults/vault-prices-1h.parquet``
-- Write ``~/tradingstrategy/cleaned-vaults/vault-prices-1h.parquet``
+The script will:
+
+- read ``~/.tradingstrategy/vaults/vault-prices-1h.parquet``; and
+- write ``~/.tradingstrategy/vaults/cleaned-vault-prices-1h.parquet``.
 
 .. code-block:: shell
 
-   python scripts/erc-4626/clean-prices.py
+   poetry run python scripts/erc-4626/clean-prices.py
 
 Scanning all chains
 -------------------
 
-There is`scan-vaults-all-chains.sh <https://github.com/tradingstrategy-ai/web3-ethereum-defi/blob/master/scripts/erc-4626/scan-vaults-all-chains.sh>`__
+There is a `scan-vaults-all-chains.sh <https://github.com/tradingstrategy-ai/web3-ethereum-defi/blob/master/scripts/erc-4626/scan-vaults-all-chains.sh>`__
 shell script to scan vaults across multiple chains.
 
 You need to feed it multiple RPC endpoints like:
 
-.. code-block::
+.. code-block:: shell
 
     export JSON_RPC_ETHEREUM=...
     export JSON_RPC_BASE=...

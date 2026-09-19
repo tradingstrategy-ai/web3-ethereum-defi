@@ -1,21 +1,22 @@
-"""Test sparkline export inclusion policy."""
+"""Test standalone sparkline export orchestration."""
 
 from __future__ import annotations
 
 import importlib.util
 from pathlib import Path
-from types import SimpleNamespace
+from types import ModuleType, SimpleNamespace
 
 import pandas as pd
+import pytest
+from joblib import Parallel, delayed
 
+from eth_defi.research.sparkline import prepare_sparkline_data
 from eth_defi.vault.base import VaultSpec
 
 
-def _load_export_sparklines_module():
-    """Load the standalone sparkline export script as a Python module.
-
-    The production scanner imports this script dynamically, so this test loads
-    the same file rather than duplicating its inclusion policy.
+@pytest.fixture(scope="module")
+def export_sparklines_module() -> ModuleType:
+    """Load the standalone exporter using the production import mechanism.
 
     :return:
         Imported sparkline export module.
@@ -31,15 +32,12 @@ def _load_export_sparklines_module():
 
 
 def _make_vault_row(spec: VaultSpec, protocol: str) -> dict:
-    """Create a minimal stablecoin vault row for sparkline selection tests.
-
-    The selector needs only a persisted specification, protocol display name,
-    and denomination; other scanner metadata is unrelated to TVL eligibility.
+    """Create a minimal stablecoin vault row for inclusion tests.
 
     :param spec:
         Synthetic vault identity.
     :param protocol:
-        Protocol display name emitted by the scanner.
+        Protocol display name.
     :return:
         Minimal compatible vault metadata row.
     """
@@ -50,17 +48,15 @@ def _make_vault_row(spec: VaultSpec, protocol: str) -> dict:
     }
 
 
-def test_apex_sparkline_threshold_exemption() -> None:
-    """Include USDT 500 ApeX vaults without lowering the global threshold.
+def test_apex_sparkline_threshold_exemption(export_sparklines_module: ModuleType) -> None:
+    """Include USD 500 ApeX vaults without lowering the global threshold.
 
-    ApeX is intentionally exempt while it is new and has little TVL. A
-    non-ApeX vault at the same TVL remains below the standard threshold, and
-    ApeX still needs to reach the lower USDT 500 floor.
-
+    :param export_sparklines_module:
+        Dynamically loaded standalone exporter module.
     :return:
         None. Assertions validate the peak-TVL inclusion policy.
     """
-    module = _load_export_sparklines_module()
+    module = export_sparklines_module
     apex_eligible = VaultSpec(9995, "apex-vault-eligible")
     apex_below_floor = VaultSpec(9995, "apex-vault-below-floor")
     non_apex_small = VaultSpec(1, "0x0000000000000000000000000000000000000001")
@@ -88,3 +84,27 @@ def test_apex_sparkline_threshold_exemption() -> None:
     included = module.get_included_vault_ids(vault_db, prices_df)
 
     assert included == {apex_eligible.as_string_id(), non_apex_large.as_string_id()}
+
+
+def test_rendered_images_cross_joblib_process_boundary(export_sparklines_module: ModuleType) -> None:
+    """Return SVG and PNG dictionaries from standalone-script workers.
+
+    :param export_sparklines_module:
+        Dynamically loaded standalone exporter module.
+    :return:
+        None. Assertions validate Loky serialisation and image formats.
+    """
+    module = export_sparklines_module
+    index = pd.date_range("2026-08-01", periods=15, freq="D", name="timestamp")
+    prices_df = pd.DataFrame(
+        {"share_price": [1.0] * len(index), "total_assets": [10_000.0] * len(index)},
+        index=index,
+    )
+    sparkline_data = prepare_sparkline_data(prices_df)
+    assert sparkline_data is not None
+
+    results = Parallel(n_jobs=2, prefer="processes")(delayed(module.render_vault_sparklines)(f"vault-{index}", sparkline_data) for index in range(2))
+
+    assert [[image["extension"] for image in vault_images] for vault_images in results] == [["svg", "png"], ["svg", "png"]]
+    assert all(vault_images[0]["payload"].startswith(b"<?xml") for vault_images in results)
+    assert all(vault_images[1]["payload"].startswith(b"\x89PNG") for vault_images in results)
