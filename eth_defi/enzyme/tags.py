@@ -283,6 +283,78 @@ STRATEGY_TAGS: dict[str, set[StrategyTag]] = {
     #: Sources:
     #: - https://app.enzyme.finance/vault/0xd2c89dc816d0d2e9a52ab5124c66a2a731a74a7d?network=arbitrum
     "0xd2c89dc816d0d2e9a52ab5124c66a2a731a74a7d": {StrategyTag.algorithmic_trading, StrategyTag.directional_trading, StrategyTag.trend_following},
+    #: Vault: First Lomonosov.
+    #: Added: 2026-09-19.
+    #: Decision material: The fund's official prospectus describes a
+    #: diversified index-oriented portfolio with quarterly rebalancing.
+    #: Sources:
+    #: - https://app.enzyme.finance/vault/0x7928c8c704b3aa79b6ecdd7b3e878613b194a99f?network=ethereum
+    #: - https://lomonosov-n-fund.github.io/posts/%D0%9F%D1%80%D0%BE%D1%81%D0%BF%D0%B5%D0%BA%D1%82/
+    "0x7928c8c704b3aa79b6ecdd7b3e878613b194a99f": {StrategyTag.index},
+    #: Vault: Rix Crypto Fund II.
+    #: Added: 2026-09-19.
+    #: Decision material: Mavrix's Enzyme profile describes fundamental
+    #: research, tactical exposure changes, and a multi-strategy portfolio.
+    #: Sources:
+    #: - https://app.enzyme.finance/vault/0xa5c5554fff234e26d20daa8e1ba1fffbc8a1da38?network=ethereum
+    #: - https://mavrixventures.co/
+    "0xa5c5554fff234e26d20daa8e1ba1fffbc8a1da38": {StrategyTag.directional_trading, StrategyTag.multistrategy},
+    #: Vault: Morpheus Alpha Swing Trading (MAST).
+    #: Added: 2026-09-19.
+    #: Decision material: Morpheus Trading Group's official announcement
+    #: identifies MAST as its crypto swing-trading fund.
+    #: Sources:
+    #: - https://app.enzyme.finance/vault/0x9bd983c846042fe5ccde737eb8caa2a07d074e07?network=ethereum
+    #: - https://morpheustrading.com/blog/best-crypto-swing-trades-aug-2021/
+    "0x9bd983c846042fe5ccde737eb8caa2a07d074e07": {StrategyTag.directional_trading},
+    #: Vault: Hill View Assets.
+    #: Added: 2026-09-19.
+    #: Decision material: Hill View Assets describes Uniswap liquidity
+    #: positions and transaction-fee returns for its investment club.
+    #: Sources:
+    #: - https://app.enzyme.finance/vault/0xc6ab5794cd8d9169abacfe7412da4e3e5c12a29d?network=ethereum
+    #: - https://hillviewassets.com/
+    "0xc6ab5794cd8d9169abacfe7412da4e3e5c12a29d": {StrategyTag.amm, StrategyTag.liquidity_provider},
+    #: Vault: Hill View Assets Polygon listing (Sasquatch).
+    #: Added: 2026-09-19.
+    #: Decision material: The same official Hill View Assets page links this
+    #: Polygon product and describes the fund's Uniswap liquidity approach.
+    #: Sources:
+    #: - https://app.enzyme.finance/vault/0x3abee8231fc8d67406fa4c2b247d22b0e338e73e?network=polygon
+    #: - https://hillviewassets.com/
+    "0x3abee8231fc8d67406fa4c2b247d22b0e338e73e": {StrategyTag.amm, StrategyTag.liquidity_provider},
+    #: Vault: Techemy Capital - Holistic ETH-BTC Fund.
+    #: Added: 2026-09-19.
+    #: Decision material: Techemy describes actively managed ETH/BTC
+    #: portfolios using multiple trading and hedging strategies.
+    #: Sources:
+    #: - https://app.enzyme.finance/vault/0xded69068a94776a23f5bdafc6b4c6894bc88e82c?network=ethereum
+    #: - https://techemy.capital/invest-in-defi/holistic-eth-btc-portfolio/
+    "0xded69068a94776a23f5bdafc6b4c6894bc88e82c": {StrategyTag.directional_trading, StrategyTag.multistrategy},
+    #: Vault: Techemy Capital - Managed DeFi Portfolio.
+    #: Added: 2026-09-19.
+    #: Decision material: Techemy describes this as a managed DeFi portfolio
+    #: executed with multiple trading and hedging strategies.
+    #: Sources:
+    #: - https://app.enzyme.finance/vault/0x01c7b0e79e7599184c2adbf4666e122e88382d2f?network=ethereum
+    #: - https://techemy.capital/services/
+    "0x01c7b0e79e7599184c2adbf4666e122e88382d2f": {StrategyTag.directional_trading, StrategyTag.multistrategy},
+    #: Vault: Techemy Capital - Holistic ETH-BTC (Polygon).
+    #: Added: 2026-09-19.
+    #: Decision material: The Polygon deployment belongs to the same
+    #: documented Holistic ETH-BTC portfolio family.
+    #: Sources:
+    #: - https://app.enzyme.finance/vault/0x671641e3fcc4dd1d31ff6c08598ee4f91bb13203?network=polygon
+    #: - https://techemy.capital/invest-in-defi/holistic-eth-btc-portfolio/
+    "0x671641e3fcc4dd1d31ff6c08598ee4f91bb13203": {StrategyTag.directional_trading, StrategyTag.multistrategy},
+    #: Vault: Niska Capital Fund I (Polygon).
+    #: Added: 2026-09-19.
+    #: Decision material: Niska's manager copy describes HODL, momentum,
+    #: DeFi and staking baskets for this Polygon deployment.
+    #: Sources:
+    #: - https://app.enzyme.finance/vault/0xe113eee61b9cda3ec99b02645d361d8d0aa08a63?network=polygon
+    #: - https://www.niskacapital.com/
+    "0xe113eee61b9cda3ec99b02645d361d8d0aa08a63": {StrategyTag.directional_trading, StrategyTag.multistrategy, StrategyTag.trend_following},
 }
 
 

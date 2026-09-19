@@ -335,6 +335,14 @@ CURATOR_NAME_PATTERNS: dict[str, list[str]] = {
     # as "Stratum" or "Walled", which would cause unrelated false positives.
     "stratum-finance": ["Stratum DeFi"],
     "walled-capital": ["Walled Fund"],
+    # The Defiable fund pages use the short brand in both vault names.
+    "defiable-asset-management": ["Defiable"],
+    # The vault title uses Mojomix without the DAO suffix.
+    "mojomix-dao": ["Mojomix"],
+    # The public title omits the full fund name.
+    "first-lomonosov-crypto-fund": ["First Lomonosov"],
+    # The MAST product title is the public Morpheus fund brand.
+    "morpheus-trading-group": ["Morpheus Alpha Swing Trading"],
 }
 
 #: Distributor / sponsor curators whose brand is a white-label wrapper.
@@ -394,6 +402,27 @@ CURATOR_ADDRESS_OVERRIDES: dict[tuple[int, str], str] = {
     (1, "0xb8f69b26316818db0ea3b6d1639fedf744a2df41"): "bgroup",
     (1, "0x10c4f975d37903cb278e6b531c0979fc1a0e1875"): "bgroup",
     (1, "0x46593ac12cacd3f89395483288dffd2b550ff85d"): "bgroup",
+    # Defiable's archived fund pages link these two Blue products under the
+    # same Defiable Asset Management brand.
+    # https://web.archive.org/web/20240109072457id_/https://defiable.ca/defiable-large-cap-fund/
+    # https://web.archive.org/web/20240109072525id_/https://defiable.ca/defiable-mid-cap-fund/
+    (1, "0x3d81ed103cd7bbd434954b197b9aeed565be3ec2"): "defiable-asset-management",
+    (1, "0xe0f1a74b6f340d1dfefe4b0268f04b23cc665f27"): "defiable-asset-management",
+    # Mavrix Ventures' official site links the Rix Crypto Fund II product.
+    # https://mavrixventures.co/
+    (1, "0xa5c5554fff234e26d20daa8e1ba1fffbc8a1da38"): "mavrix-ventures",
+    # The same public Float Locker profile supplies both Enzyme products; the
+    # Causality Group title is retained as a product label only.
+    # https://floatlocker.gumroad.com/
+    (137, "0x508ee35f32d8fcbdfe8caa79e938814ac1bac04f"): "defi-coinoisseurs",
+    (137, "0x4134d87c87df974577c580561b4776c2ab70cb43"): "defi-coinoisseurs",
+    # Hill View Assets' homepage links both the Ethereum and Polygon products.
+    # https://hillviewassets.com/
+    (1, "0xc6ab5794cd8d9169abacfe7412da4e3e5c12a29d"): "hill-view-assets",
+    (137, "0x3abee8231fc8d67406fa4c2b247d22b0e338e73e"): "hill-view-assets",
+    # The MAST announcement identifies Morpheus Trading Group's fund.
+    # https://morpheustrading.com/blog/best-crypto-swing-trades-aug-2021/
+    (1, "0x9bd983c846042fe5ccde737eb8caa2a07d074e07"): "morpheus-trading-group",
     # The ARC Enzyme Blue listings identify the Gemini, Leo, and Scorpio
     # products as one strategy family, but individual vault titles omit ARC.
     # https://app.enzyme.finance/vault/0x11d41452fcd89c3622f20e680ebbec8587483a63?network=arbitrum

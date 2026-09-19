@@ -1,0 +1,9 @@
+feeder-id: primus-crypto-fund
+name: Primus Crypto Fund
+role: curator
+short_description: Primus Crypto Fund is a private, non-custodial crypto investment fund with invitation-based manager information.
+long_description: |
+  The [Primus Crypto Fund Enzyme Blue listing](https://app.enzyme.finance/vault/0x04ed87d15ec5cca07c163e9a7ed65e2bc0b1cf33?network=ethereum) describes a private, non-custodial fund and states that administrator information is shared privately with invited participants. Its public [whitelist form](https://forms.gle/CPwfHsaMkETgE4n58) uses the Primus Crypto Fund name. This record identifies the published fund brand without inferring a legal entity or undisclosed manager.
+other-links:
+  - title: Primus Crypto Fund whitelist form
+    url: https://forms.gle/CPwfHsaMkETgE4n58

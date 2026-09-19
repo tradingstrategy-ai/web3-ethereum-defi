@@ -74,6 +74,44 @@ ENZYME_TWITTER_PROFILE_DOMAINS = frozenset({"x.com", "twitter.com"})
 #: Profile hosts normalised to Telegram handles.
 ENZYME_TELEGRAM_PROFILE_DOMAINS = frozenset({"t.me", "telegram.me", "telegram.dog"})
 
+#: Community platforms that are valid contact URLs but not manager identities.
+ENZYME_NON_MANAGER_WEBSITE_DOMAINS = frozenset(
+    {
+        "discord.gg",
+        "discord.com",
+        "discordapp.com",
+        "forms.gle",
+        "facebook.com",
+        "github.com",
+        "instagram.com",
+        "linkedin.com",
+        "members.arcrypto.io",
+        "medium.com",
+        "t.me",
+        "telegram.me",
+        "twitter.com",
+        "x.com",
+        "youtube.com",
+    }
+)
+
+#: Generic email local parts that identify an inbox rather than a manager.
+#: Keep these out of the public manager field so a website domain can be used
+#: as the fallback identifier when it is available.
+ENZYME_GENERIC_MANAGER_EMAIL_LOCAL_PARTS = frozenset(
+    {
+        "admin",
+        "contact",
+        "fund",
+        "hello",
+        "info",
+        "investors",
+        "manager",
+        "support",
+        "team",
+    }
+)
+
 #: The exact public catalogue note used when an Onyx manager description is
 #: unavailable through a documented public source.
 ONYX_PUBLIC_DESCRIPTION_UNAVAILABLE = "Description is not publicly available"
@@ -182,7 +220,8 @@ def _extract_website_domain(website_url: str | None) -> str | None:
     """Extract a website hostname without guessing a manager display name.
 
     :param website_url: Public manager or vault website URL.
-    :return: Lower-case hostname without ``www.``, or ``None`` for an unusable URL.
+    :return: Lower-case hostname without ``www.``, or ``None`` for an unusable
+        or generic community URL.
     """
 
     if website_url is None:
@@ -191,7 +230,10 @@ def _extract_website_domain(website_url: str | None) -> str | None:
         parsed = urlsplit(website_url)
         if parsed.hostname is None and not parsed.scheme:
             parsed = urlsplit(f"https://{website_url}")
-        return parsed.hostname.lower().removeprefix("www.") if parsed.hostname else None
+        hostname = parsed.hostname.lower().removeprefix("www.") if parsed.hostname else None
+        if hostname and any(hostname == domain or hostname.endswith(f".{domain}") for domain in ENZYME_NON_MANAGER_WEBSITE_DOMAINS):
+            return None
+        return hostname
     except ValueError:
         return None
 
@@ -224,7 +266,7 @@ def _derive_manager_name(
         return telegram
     if contact_email and "@" in contact_email:
         local_part, _separator, _domain = contact_email.partition("@")
-        if local_part and local_part.casefold() not in {"admin", "contact", "hello", "info", "support", "team"}:
+        if local_part and local_part.casefold() not in ENZYME_GENERIC_MANAGER_EMAIL_LOCAL_PARTS:
             return local_part
     return _extract_website_domain(website_url)
 
@@ -445,16 +487,25 @@ def load_enzyme_vault_metadata_cache(
         if not Web3.is_address(address):
             logger.warning("Skipping Enzyme metadata cache record with invalid address %r", address)
             continue
+        contact_email = _normalise_optional_text(record.get("contact_email"))
+        telegram = _normalise_social_handle(record.get("telegram"), domains=ENZYME_TELEGRAM_PROFILE_DOMAINS)
+        twitter = _normalise_social_handle(record.get("twitter"), domains=ENZYME_TWITTER_PROFILE_DOMAINS)
+        website_url = _normalise_website_url(record.get("website_url"))
         metadata[_metadata_key(chain_id, address)] = EnzymeVaultMetadata(
             short_description=_normalise_optional_text(record.get("short_description")),
             description=_normalise_optional_text(record.get("description")),
             manager_description=_normalise_optional_text(record.get("manager_description")),
             contact_info=_normalise_optional_text(record.get("contact_info")),
-            contact_email=_normalise_optional_text(record.get("contact_email")),
-            telegram=_normalise_social_handle(record.get("telegram"), domains=ENZYME_TELEGRAM_PROFILE_DOMAINS),
-            twitter=_normalise_social_handle(record.get("twitter"), domains=ENZYME_TWITTER_PROFILE_DOMAINS),
-            website_url=_normalise_website_url(record.get("website_url")),
-            manager_name=_normalise_optional_text(record.get("manager_name")),
+            contact_email=contact_email,
+            telegram=telegram,
+            twitter=twitter,
+            website_url=website_url,
+            manager_name=_derive_manager_name(
+                twitter=twitter,
+                telegram=telegram,
+                contact_email=contact_email,
+                website_url=website_url,
+            ),
         )
     return metadata
 

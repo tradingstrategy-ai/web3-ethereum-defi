@@ -1,0 +1,18 @@
+feeder-id: techemy-capital
+name: Techemy Capital
+role: curator
+website: https://techemy.capital
+twitter: TechemyCapital
+linkedin: techemy-capital-ltd
+short_description: Techemy Capital is a New Zealand-authorised digital-asset investment-management firm offering funds-management and DeFi portfolios.
+long_description: |
+  [Techemy Capital](https://techemy.capital/about/) describes itself as a New Zealand-authorised digital-asset investment-management firm. Its [services page](https://techemy.capital/services/) and the [Holistic ETH-BTC portfolio page](https://techemy.capital/invest-in-defi/holistic-eth-btc-portfolio/) document its funds-management and DeFi offerings. Techemy's [Enzyme partnership announcement](https://www.globenewswire.com/news-release/2021/02/10/2173445/0/en/Techemy-Capital-and-Enzyme-Finance-Partner-to-Launch-Holistic-ETH-BTC-Portfolio.html) identifies the Enzyme portfolio relationship.
+other-links:
+  - title: Enzyme Blue - Techemy Capital Holistic ETH-BTC Fund
+    url: https://app.enzyme.finance/vault/0xded69068a94776a23f5bdafc6b4c6894bc88e82c?network=ethereum
+  - title: Enzyme Blue - Techemy Capital Managed DeFi Portfolio
+    url: https://app.enzyme.finance/vault/0x01c7b0e79e7599184c2adbf4666e122e88382d2f?network=ethereum
+  - title: Enzyme Blue - Techemy Capital Holistic ETH-BTC Polygon
+    url: https://app.enzyme.finance/vault/0x671641e3fcc4dd1d31ff6c08598ee4f91bb13203?network=polygon
+  - title: Techemy Capital managed DeFi portfolio announcement
+    url: https://www.globenewswire.com/news-release/2021/04/21/2214433/0/en/Techemy-Capital-Launches-Managed-DeFi-Portfolio-Competitive-Solution-for-the-Ethereum-DeFi-Ecosystem.html

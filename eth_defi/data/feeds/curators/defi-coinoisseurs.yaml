@@ -1,0 +1,13 @@
+feeder-id: defi-coinoisseurs
+name: DeFi COINoisseurs
+role: curator
+website: https://floatlocker.gumroad.com/
+twitter: FLOAT_LOCKER
+short_description: DeFi COINoisseurs (Float Locker) publishes and manages Uniswap V3 concentrated-liquidity strategies and education.
+long_description: |
+  The verified [DeFi COINoisseurs Gumroad profile](https://floatlocker.gumroad.com/) identifies the creator brand and its [Uniswap V3 strategy product](https://floatlocker.gumroad.com/l/mjazI) describes Float Locker's concentrated-liquidity approach and mentorship. The [public professional profile](https://www.linkedin.com/in/john-afravi) independently links the Float Locker account and Uniswap V3 work. This record uses the public brand and does not attribute the separate Causality Group name to an unrelated company.
+other-links:
+  - title: Enzyme Blue - DeFi COINoisseurs listing
+    url: https://app.enzyme.finance/vault/0x4134d87c87df974577c580561b4776c2ab70cb43?network=polygon
+  - title: Enzyme Blue - Causality Group Fund listing
+    url: https://app.enzyme.finance/vault/0x508ee35f32d8fcbdfe8caa79e938814ac1bac04f?network=polygon

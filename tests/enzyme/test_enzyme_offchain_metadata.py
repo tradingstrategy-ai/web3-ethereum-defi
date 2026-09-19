@@ -212,10 +212,14 @@ def test_fetch_enzyme_app_vault_metadata_batch_live() -> None:
         ({"telegram": "alpha_telegram", "websiteUrl": "https://alpha.example"}, "alpha_telegram"),
         ({"email": "alpha-team@example.com", "websiteUrl": "https://alpha.example"}, "alpha-team"),
         ({"email": "info@example.com", "websiteUrl": "https://alpha.example"}, "alpha.example"),
+        ({"email": "investors@example.com", "websiteUrl": "https://alpha.example"}, "alpha.example"),
         ({"websiteUrl": "https://alpha.example/path"}, "alpha.example"),
         ({"twitter": "https://x.com/alpha_manager", "websiteUrl": "https://wrong.example"}, "alpha_manager"),
         ({"telegram": "t.me/alpha_telegram", "websiteUrl": "https://wrong.example"}, "alpha_telegram"),
         ({"websiteUrl": "www.alpha.example/path"}, "alpha.example"),
+        ({"websiteUrl": "https://discord.gg/manager-community"}, None),
+        ({"websiteUrl": "https://members.arcrypto.io/orientation"}, None),
+        ({"websiteUrl": "https://forms.gle/example"}, None),
     ],
 )
 def test_parse_enzyme_app_vault_metadata_derives_manager_identifier(profile: dict[str, str], expected_manager_name: str) -> None:
@@ -312,6 +316,15 @@ def test_enzyme_metadata_cache_keeps_version_one_descriptions_until_refresh(tmp_
 
     assert load_enzyme_vault_metadata_cache(cache_path) == {BLUE_METADATA_KEY: EnzymeVaultMetadata(short_description="Existing tagline", description="Existing description")}
     assert load_enzyme_vault_metadata_cache(cache_path, minimum_version=2) == {}
+
+
+def test_enzyme_metadata_cache_recalculates_stale_community_manager_name(tmp_path) -> None:
+    """Do not retain a cached Discord hostname as a manager identity."""
+
+    cache_path = tmp_path / "enzyme-vault-metadata.json"
+    cache_path.write_text('{"version": 2, "vaults": [{"chain_id": 1, "address": "0x000000000000000000000000000000000000bEEF", "website_url": "https://discord.gg/manager-community", "manager_name": "discord.gg"}]}')
+
+    assert load_enzyme_vault_metadata_cache(cache_path) == {BLUE_METADATA_KEY: EnzymeVaultMetadata(website_url="https://discord.gg/manager-community")}
 
 
 def test_parse_enzyme_app_vault_metadata_discards_invalid_social_urls() -> None:

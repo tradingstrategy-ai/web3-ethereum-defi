@@ -1,0 +1,12 @@
+feeder-id: first-lomonosov-crypto-fund
+name: First Lomonosov Crypto Fund
+role: curator
+website: https://lomonosov-n-fund.github.io
+short_description: First Lomonosov Crypto Fund is an index-oriented digital-asset investment fund.
+long_description: |
+  The [fund's official site](https://lomonosov-n-fund.github.io/about/) describes digital-asset and index-fund management. Its [prospectus](https://lomonosov-n-fund.github.io/posts/%D0%9F%D1%80%D0%BE%D1%81%D0%BF%D0%B5%D0%BA%D1%82/) documents a diversified portfolio with quarterly rebalancing and links the corresponding Enzyme vault. The public [reports repository](https://github.com/lomonosov-n-fund/reports) provides supporting onchain research material.
+other-links:
+  - title: Enzyme Blue - First Lomonosov listing
+    url: https://app.enzyme.finance/vault/0x7928c8c704b3aa79b6ecdd7b3e878613b194a99f?network=ethereum
+  - title: First Lomonosov Crypto Fund prospectus
+    url: https://lomonosov-n-fund.github.io/posts/%D0%9F%D1%80%D0%BE%D1%81%D0%BF%D0%B5%D0%BA%D1%82/

@@ -1,0 +1,10 @@
+feeder-id: mavrix-ventures
+name: Mavrix Ventures
+role: curator
+website: https://mavrixventures.co/
+short_description: Mavrix Ventures is an onchain investment club investing in digital assets and decentralised applications across Web3.
+long_description: |
+  [Mavrix Ventures](https://mavrixventures.co/) describes an onchain investment club investing in digital assets, NFTs and decentralised applications. Its homepage identifies the [Rix Crypto Fund II Enzyme listing](https://v3.enzyme.finance/vault/0xa5c5554fff234e26d20daa8e1ba1fffbc8a1da38/overview) as a fund launched by Mavrix Ventures. The listing's manager copy describes a discretionary, multi-strategy digital-asset portfolio without making performance or custody claims.
+other-links:
+  - title: Enzyme Blue - Rix Crypto Fund II listing
+    url: https://app.enzyme.finance/vault/0xa5c5554fff234e26d20daa8e1ba1fffbc8a1da38?network=ethereum
