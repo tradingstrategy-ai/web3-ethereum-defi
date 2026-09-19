@@ -1,0 +1,12 @@
+feeder-id: hill-view-assets
+name: Hill View Assets
+role: curator
+website: https://hillviewassets.com
+short_description: Hill View Assets is a friends-and-family investment club operating Enzyme vaults that provide Uniswap liquidity positions.
+long_description: |
+  [Hill View Assets](https://hillviewassets.com/) describes a friends-and-family investment club focused on Uniswap liquidity positions and transaction fees. Its homepage links the [Ethereum Hill View Assets vault](https://hillviewassets.enzyme.community/vault/0xc6ab5794cd8d9169abacfe7412da4e3e5c12a29d) and [Polygon L2 Test Vault](https://hillviewassets.enzyme.community/vault/0x3abee8231fc8d67406fa4c2b247d22b0e338e73e?network=polygon). This record does not infer the identity behind the vault's contact email.
+other-links:
+  - title: Enzyme Blue - Hill View Assets listing
+    url: https://app.enzyme.finance/vault/0xc6ab5794cd8d9169abacfe7412da4e3e5c12a29d?network=ethereum
+  - title: Enzyme Blue - Hill View Assets Polygon listing
+    url: https://app.enzyme.finance/vault/0x3abee8231fc8d67406fa4c2b247d22b0e338e73e?network=polygon

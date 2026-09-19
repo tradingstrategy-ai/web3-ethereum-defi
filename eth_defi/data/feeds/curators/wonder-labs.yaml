@@ -1,0 +1,11 @@
+feeder-id: wonder-labs
+name: Wonder Labs
+role: curator
+short_description: Wonder Labs is the historical investment-vehicle brand behind the Wonder Labs Fund I Enzyme listing.
+long_description: |
+  The [archived Wonder Labs website](https://web.archive.org/web/20220901124743/https://wonderlabs.tech/) described Wonder Labs as a digital-asset investment vehicle and linked its Fund I Enzyme listing. This record preserves that historical public fund identity without treating the current Wonder Labs engineering website as evidence of an active crypto-management business.
+other-links:
+  - title: Enzyme Blue - Wonder Labs Fund I listing
+    url: https://app.enzyme.finance/vault/0xaf408c0bf86bf2eb69470139758483bf367d79ce?network=ethereum
+  - title: Archived Wonder Labs homepage
+    url: https://web.archive.org/web/20220901124743/https://wonderlabs.tech/

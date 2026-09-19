@@ -1,0 +1,14 @@
+feeder-id: defiable-asset-management
+name: Defiable Asset Management
+role: curator
+twitter: Defiable_Crypto
+short_description: Defiable Asset Management is the digital-asset manager behind the Defiable Large Cap and Mid/Small Cap funds.
+long_description: |
+  The [archived Defiable Large Cap fund page](https://web.archive.org/web/20240109072457id_/https://defiable.ca/defiable-large-cap-fund/) and [Mid/Small Cap fund page](https://web.archive.org/web/20240109072525id_/https://defiable.ca/defiable-mid-cap-fund/) describe the two fund products and link their Enzyme Blue vaults. The public [Defiable X profile](https://x.com/Defiable_Crypto) uses the Defiable Asset Management brand. These references document the historical fund identity without making claims about the current status of the parked website.
+other-links:
+  - title: Enzyme Blue - Defiable Large Cap listing
+    url: https://app.enzyme.finance/vault/0x3d81ed103cd7bbd434954b197b9aeed565be3ec2?network=ethereum
+  - title: Enzyme Blue - Defiable Mid/Small Cap listing
+    url: https://app.enzyme.finance/vault/0xe0f1a74b6f340d1dfefe4b0268f04b23cc665f27?network=ethereum
+  - title: Archived Defiable services page
+    url: https://web.archive.org/web/20240109072620id_/https://defiable.ca/services/

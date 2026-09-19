@@ -80,16 +80,35 @@ ENZYME_NON_MANAGER_WEBSITE_DOMAINS = frozenset(
         "discord.gg",
         "discord.com",
         "discordapp.com",
+        "forms.gle",
         "facebook.com",
         "github.com",
         "instagram.com",
         "linkedin.com",
+        "members.arcrypto.io",
         "medium.com",
         "t.me",
         "telegram.me",
         "twitter.com",
         "x.com",
         "youtube.com",
+    }
+)
+
+#: Generic email local parts that identify an inbox rather than a manager.
+#: Keep these out of the public manager field so a website domain can be used
+#: as the fallback identifier when it is available.
+ENZYME_GENERIC_MANAGER_EMAIL_LOCAL_PARTS = frozenset(
+    {
+        "admin",
+        "contact",
+        "fund",
+        "hello",
+        "info",
+        "investors",
+        "manager",
+        "support",
+        "team",
     }
 )
 
@@ -247,7 +266,7 @@ def _derive_manager_name(
         return telegram
     if contact_email and "@" in contact_email:
         local_part, _separator, _domain = contact_email.partition("@")
-        if local_part and local_part.casefold() not in {"admin", "contact", "hello", "info", "support", "team"}:
+        if local_part and local_part.casefold() not in ENZYME_GENERIC_MANAGER_EMAIL_LOCAL_PARTS:
             return local_part
     return _extract_website_domain(website_url)
 

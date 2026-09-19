@@ -1,9 +1,18 @@
 feeder-id: bgroup
-name: Bgroup
+name: Bgroup Finance
 role: curator
-short_description: Bgroup is the manager label used for the B100, BBTC, and BGC Enzyme fund family.
+website: https://bgroup.finance
+twitter: BGroupFinance
+linkedin: bgroup-finance
+short_description: Bgroup Finance is an onchain crypto asset manager behind the B100, BBTC, and BGC Enzyme fund family.
 long_description: |
-  The [B100 Enzyme Blue listing](https://app.enzyme.finance/vault/0xb8f69b26316818db0ea3b6d1639fedf744a2df41?network=ethereum) explicitly presents BBTC and BGC as other Bgroup vaults. The listing provides no separate human-readable manager field or public organisation profile, so this record preserves the manager label used by that vault family without inferring ownership or affiliation.
+  The archived [B100 fund page](https://web.archive.org/web/20241205111741id_/https://bgroup.finance/b100-crypto-index-fund) describes Bgroup Finance as an onchain crypto asset manager, links the B100 Enzyme vault, and identifies its public social profiles. The archived [BBTC page](https://web.archive.org/web/20241205092306id_/https://bgroup.finance/bbtc-crypto-index-fund) and [BGC page](https://web.archive.org/web/20241205104151id_/https://bgroup.finance/bgc-crypto-index-fund) document the related products. The live domain is currently parked, so these references establish the historical public fund identity without claiming that the site is currently active.
 other-links:
   - title: Enzyme Blue - B100 listing naming the Bgroup vault family
     url: https://app.enzyme.finance/vault/0xb8f69b26316818db0ea3b6d1639fedf744a2df41?network=ethereum
+  - title: Archived Bgroup Finance B100 fund page
+    url: https://web.archive.org/web/20241205111741id_/https://bgroup.finance/b100-crypto-index-fund
+  - title: Archived Bgroup Finance BBTC fund page
+    url: https://web.archive.org/web/20241205092306id_/https://bgroup.finance/bbtc-crypto-index-fund
+  - title: Archived Bgroup Finance BGC fund page
+    url: https://web.archive.org/web/20241205104151id_/https://bgroup.finance/bgc-crypto-index-fund

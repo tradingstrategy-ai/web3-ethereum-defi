@@ -212,11 +212,14 @@ def test_fetch_enzyme_app_vault_metadata_batch_live() -> None:
         ({"telegram": "alpha_telegram", "websiteUrl": "https://alpha.example"}, "alpha_telegram"),
         ({"email": "alpha-team@example.com", "websiteUrl": "https://alpha.example"}, "alpha-team"),
         ({"email": "info@example.com", "websiteUrl": "https://alpha.example"}, "alpha.example"),
+        ({"email": "investors@example.com", "websiteUrl": "https://alpha.example"}, "alpha.example"),
         ({"websiteUrl": "https://alpha.example/path"}, "alpha.example"),
         ({"twitter": "https://x.com/alpha_manager", "websiteUrl": "https://wrong.example"}, "alpha_manager"),
         ({"telegram": "t.me/alpha_telegram", "websiteUrl": "https://wrong.example"}, "alpha_telegram"),
         ({"websiteUrl": "www.alpha.example/path"}, "alpha.example"),
         ({"websiteUrl": "https://discord.gg/manager-community"}, None),
+        ({"websiteUrl": "https://members.arcrypto.io/orientation"}, None),
+        ({"websiteUrl": "https://forms.gle/example"}, None),
     ],
 )
 def test_parse_enzyme_app_vault_metadata_derives_manager_identifier(profile: dict[str, str], expected_manager_name: str) -> None:

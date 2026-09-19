@@ -1,0 +1,12 @@
+feeder-id: mojomix-dao
+name: Mojomix DAO
+role: curator
+linkedin: mojomixdao
+short_description: Mojomix DAO is a decentralised crypto investment fund organised as a remote, borderless community.
+long_description: |
+  [Mojomix DAO's company profile](https://www.linkedin.com/company/mojomixdao/) describes a borderless crypto investment fund and decentralised asset-management community. The [Mojomix Enzyme Blue listing](https://app.enzyme.finance/vault/0xea2c32c03575433d04898deb28db2f17d710b60a?network=ethereum) identifies the same Mojomix DAO and its investment group. No current website is included because the former mojomix.io domain is parked.
+other-links:
+  - title: Mojomix DAO company profile
+    url: https://www.linkedin.com/company/mojomixdao/
+  - title: Enzyme Blue - Mojomix listing
+    url: https://app.enzyme.finance/vault/0xea2c32c03575433d04898deb28db2f17d710b60a?network=ethereum
