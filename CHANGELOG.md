@@ -1,5 +1,6 @@
 # 1.2
 
+- feat: Read public Enzyme Blue manager profiles from the app's undocumented GraphQL endpoint, persist public contact channels and manager identifiers with a website-domain fallback, and expose them through Blue vault metadata (2026-09-19)
 - feat: Add Flying Tulip perpetual-PUT options strategy classification and linked strategy descriptions (2026-09-17)
 - fix: Accumulate all automated Lagoon settlement gross flow in a fixed daily budget window (2026-09-17)
 - fix: Add a guarded Lagoon Safe claim helper and automatically refresh short-lived Lighter SDK authentication tokens for idempotent calls (2026-09-14)

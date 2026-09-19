@@ -25,50 +25,56 @@ that policy it is ``permissionless`` for wallet identity. This does not
 guarantee that every deposit will succeed, because other fund policies and
 approvals can still apply.
 
-### Blue descriptions
+### Blue descriptions and manager contacts
 
 Vault share-token contracts provide a name but no manager-authored strategy
-text. Enzyme's authenticated
-[GetVault API](https://sdk.enzyme.finance/api/endpoints/vault/) is the
-authoritative source for Blue listing metadata:
+text. Enzyme's vault-detail application currently exposes Blue profile data
+through an undocumented public GraphQL ``vaultProfile`` query. The query is
+not a stable external API contract, so its use is isolated to the metadata
+migration and must be reviewed when the app changes. It provides:
 
-- API ``tagline`` becomes the short description.
-- API ``description`` becomes the long description.
+- ``tagline`` becomes the short description.
+- ``description`` becomes the long description.
+- manager biography, free-form contact information, public email, Telegram,
+  X/Twitter and website fields are retained in the Enzyme metadata cache.
+- a manager identifier uses X/Twitter, Telegram or a non-generic email local
+  part when supplied, and otherwise falls back to the website domain.
 - An empty successful response means that the manager has supplied no public
   copy. The scanner leaves that description field empty.
 
-The scheduled scanner never makes a per-vault API request. Instead,
+The scheduled scanner never makes a per-vault app-profile request. Instead,
 ``scripts/enzyme/migrate-offchain-metadata.py`` creates the versioned cache at
 ``~/.tradingstrategy/cache/enzyme/vault-metadata.json`` and updates the local
-vault database in one transaction. In apply mode it checkpoints successful API
-replies in ``enzyme-offchain-metadata-state.json`` beside the metadata pickle,
-then resumes only the missing replies after an interruption. The checkpoint is
-deleted after the complete cache/database update; set
+vault database after all profiles have been collected. In apply mode it
+checkpoints successful app-profile replies in
+``enzyme-offchain-metadata-state.json`` beside the metadata pickle, then
+resumes only the missing replies after an interruption. The checkpoint is
+deleted after both cache and database writes complete; set
 ``ENZYME_METADATA_STATE_PATH`` to use another location. Adapters read the
-published cache without a token.
+published cache without contacting the app backend.
 
-To conserve the Enzyme API quota, the migration only reads vaults whose
-recorded accounting-unit NAV exceeds 1,000 in a reviewed USD-pegged unit, 1 in
-an ETH-equivalent unit, or 0.1 in a BTC-equivalent unit. Unsupported
-denominations are skipped rather than converted through an inferred price. The
+Adapters retain compatibility with cache version one during an upgrade, so the
+scanner preserves existing descriptions before this migration completes. The
+migration does not reuse that older cache: it refreshes every Blue profile and
+publishes the contact fields in cache version two.
+
+The migration reads every discovered Blue vault regardless of its NAV or
+denomination, because contact metadata is independent of asset value. The
 exact retired generated fallback fields are cleared locally for every Blue row,
-without an API request, so older databases cannot keep invented copy.
-After a complete cache/database update, later runs reuse the cache without a
-token. Set ``ENZYME_METADATA_REFRESH=true`` with a token to fetch every
-eligible Blue row again.
-
-Create a token in the Enzyme application, store it only in the operator's
-secret environment, and run the migration serially. The provider can return
-``429`` with ``Retry-After``; do not increase concurrency to work around it.
+so older databases cannot keep invented copy. After a complete cache/database
+update, later runs reuse the cache. Set ``ENZYME_METADATA_REFRESH=true`` to
+fetch every Blue vault again. Requests are strictly serial in batches of at
+most five; stop if the undocumented backend changes its schema or response
+behaviour.
+``ENZYME_REQUEST_INTERVAL_SECONDS`` defaults to one second between request
+batches, protecting the endpoint from rate limiting during the full catalogue
+refresh.
 
 ```shell
 source .local-test.env
-DRY_RUN=true MAX_WORKERS=1 poetry run python scripts/enzyme/migrate-offchain-metadata.py
-DRY_RUN=false MAX_WORKERS=1 poetry run python scripts/enzyme/migrate-offchain-metadata.py
+DRY_RUN=true poetry run python scripts/enzyme/migrate-offchain-metadata.py
+DRY_RUN=false poetry run python scripts/enzyme/migrate-offchain-metadata.py
 ```
-
-The variable must be named ``ENZYME_BLUE_API_TOKEN``. Never commit it, print
-it, or put it in a command line.
 
 ## Enzyme Onyx
 
@@ -128,9 +134,6 @@ Blue-only repair, but is not sufficient for an all-Enzyme fee-reader change.
 
 ## Running migrations in the scanner container
 
-``docker-compose.yml`` passes ``ENZYME_BLUE_API_TOKEN`` only to
-``vault-scanner-oneshot``. The token must be exported in the environment that
-launches Compose; it is not baked into the image or persisted in the repository.
 Stop the looped scanner before modifying its shared metadata state.
 
 ```shell
@@ -138,7 +141,7 @@ source ~/vault-scanner/vault-rpc.env
 cd ~/vault-scanner/web3-ethereum-defi
 docker compose stop vault-scanner-looped
 docker compose --profile oneshot run --rm --entrypoint /bin/bash vault-scanner-oneshot \
-  -c 'DRY_RUN=false MAX_WORKERS=1 poetry run python scripts/enzyme/migrate-offchain-metadata.py'
+  -c 'DRY_RUN=false poetry run python scripts/enzyme/migrate-offchain-metadata.py'
 docker compose start vault-scanner-looped
 ```
 

@@ -1,67 +1,63 @@
 #!/usr/bin/env python3
-"""Fetch and persist Enzyme Blue manager-entered listing metadata.
+"""Fetch and persist Enzyme Blue manager profile metadata.
 
-Enzyme's authenticated ``GetVault`` API is the authoritative source for
-manager-entered Blue vault taglines and descriptions. This command fetches
-those fields for the Enzyme Blue rows already present in the local vault
-metadata database, stores successful replies in the shared Enzyme cache, and
-updates the public ``_short_description`` and ``_description`` fields.
+Enzyme's vault-detail app exposes Blue vault profiles through an undocumented,
+unauthenticated GraphQL ``vaultProfile`` query. This command snapshots the
+public vault and manager fields for every discovered Enzyme Blue row, stores
+successful replies in the shared Enzyme cache, and updates the public
+``_short_description``, ``_description`` and ``_manager_name`` fields.
 
-The Enzyme API documents the Blue deployments on Ethereum, Polygon, Base and
-Arbitrum. Enzyme Onyx descriptions are editable in the management application,
-but no public metadata endpoint is documented for it. This migration therefore
-does not alter Onyx rows or scrape a gated UI.
+This is intentionally isolated from the regular scanner because Enzyme has not
+published a stable external contract for this app backend. Enzyme Onyx remains
+out of scope: no equivalent public profile reader has been established.
 
 The command starts in dry-run mode. It never alters historical prices, scanner
-reader state or discovery leads. A failed API response aborts before either the
+reader state or discovery leads. A failed app response aborts before either the
 database or cache is written. In apply mode, successful responses are saved in
 a small migration-only state file after each request batch, so a later retry
-does not repeat completed API reads. The exact retired generated Blue fallback
-text is also cleared locally without an API request.
+does not repeat completed app reads. The exact retired generated Blue fallback
+text is also cleared locally without an app request.
 
 Usage::
 
-    source .local-test.env && ENZYME_BLUE_API_TOKEN=... \\
-        poetry run python scripts/enzyme/migrate-offchain-metadata.py
+    source .local-test.env && poetry run python scripts/enzyme/migrate-offchain-metadata.py
 
-    source .local-test.env && ENZYME_BLUE_API_TOKEN=... DRY_RUN=false \\
-        poetry run python scripts/enzyme/migrate-offchain-metadata.py
+    source .local-test.env && DRY_RUN=false poetry run python scripts/enzyme/migrate-offchain-metadata.py
+
+Every discovered Blue vault is collected regardless of its current NAV or
+denomination, because contact metadata is independent of asset value.
 
 Environment variables:
 
-- ``ENZYME_BLUE_API_TOKEN``: bearer token generated in the Enzyme app, required
-  when an eligible row must be fetched or explicitly refreshed.
 - ``DRY_RUN``: print proposed changes without writing, default ``true``.
 - ``VAULT_DB_PATH``: metadata pickle to update, default pipeline location.
-- ``ENZYME_METADATA_CACHE_PATH``: persistent API cache location.
+- ``ENZYME_METADATA_CACHE_PATH``: persistent app-profile cache location.
 - ``ENZYME_METADATA_STATE_PATH``: resumable migration state path. Defaults to
   ``enzyme-offchain-metadata-state.json`` next to the vault database and is
   deleted only after a complete cache/database update.
-- ``ENZYME_METADATA_REFRESH``: fetch every eligible Blue row again instead of
-  reusing a completed cache entry, default ``false``.
-- Only Blue vaults whose recorded accounting-unit NAV exceeds 1,000 USD,
-  1 ETH or 0.1 BTC equivalents are collected. Unsupported denominations are
-  skipped rather than converted using an inferred exchange rate.
-- ``MAX_WORKERS``: bounded concurrent API requests, default ``1``. Keep this
-  conservative because Enzyme returns ``429`` with a ``Retry-After`` header
-  when a token exceeds its request quota.
+- ``ENZYME_METADATA_REFRESH``: fetch every Blue row again instead of reusing
+  a completed cache entry, default ``false``.
+- ``ENZYME_PROFILE_BATCH_SIZE``: public GraphQL profile aliases per serial
+  request, default ``5``. Enzyme currently enforces this five-alias limit.
+- ``ENZYME_REQUEST_INTERVAL_SECONDS``: minimum wait after each request batch,
+  default ``1``. Keep this rate limit in place to avoid Cloudflare and backend
+  throttling while collecting the complete Blue catalogue.
 - ``API_TIMEOUT``: per-request timeout in seconds, default ``30``.
 - ``BACKUP_PATH``: optional database backup destination for a real run.
 
-Official API documentation:
-https://sdk.enzyme.finance/api/overview/
+The app implementation currently uses ``https://app.enzyme.finance/api/graphql``.
 """
 
 import json
+import logging
 import os
 import shutil
+import time
 from collections.abc import Iterator
 from dataclasses import dataclass
-from decimal import Decimal, InvalidOperation
 from pathlib import Path
 
 from eth_typing import HexAddress
-from joblib import Parallel, delayed
 from requests import RequestException, Session
 from tabulate import tabulate
 from tqdm_loggable.auto import tqdm
@@ -69,9 +65,11 @@ from tqdm_loggable.auto import tqdm
 from eth_defi.compat import native_datetime_utc_now
 from eth_defi.enzyme.offchain_metadata import (
     DEFAULT_ENZYME_METADATA_CACHE_PATH,
+    ENZYME_APP_MAX_PROFILE_ALIASES,
+    ENZYME_METADATA_CACHE_VERSION,
     EnzymeVaultMetadata,
-    create_enzyme_api_session,
-    fetch_enzyme_api_vault_metadata,
+    create_enzyme_app_session,
+    fetch_enzyme_app_vault_metadata_batch,
     load_enzyme_vault_metadata_cache,
     write_enzyme_vault_metadata_cache,
 )
@@ -80,58 +78,30 @@ from eth_defi.utils import wait_other_writers
 from eth_defi.vault.base import VaultSpec
 from eth_defi.vault.vaultdb import VaultDatabase, VaultRow, get_pipeline_data_dir
 
-ENZYME_METADATA_STATE_VERSION = 1
+logger = logging.getLogger(__name__)
 
-#: Minimum recorded NAV by accounting-unit family for API metadata collection.
-#: The database stores values in each vault's denomination, not a universal
-#: USD price feed. Keep symbols only where the denomination itself is a
-#: reviewed USD, ETH or BTC equivalent.
-MINIMUM_NAV_BY_VALUE_UNIT = {
-    **dict.fromkeys({"USD", "USDC", "USDC.E", "USDBC", "USDT", "USDT0", "USD₮0", "DAI", "USDS", "SUSD", "BUSD", "FRAX", "USDE", "SUSDE", "GHO", "PYUSD", "RLUSD"}, Decimal("1000")),
-    **dict.fromkeys({"ETH", "WETH", "STETH", "WSTETH", "RETH", "CBETH", "WEETH", "OSETH"}, Decimal("1")),
-    **dict.fromkeys({"BTC", "WBTC", "CBBTC", "IBTC", "TBTC", "FBTC", "LBTC"}, Decimal("0.1")),
-}
+ENZYME_METADATA_STATE_VERSION = 3
+PREVIOUS_ENZYME_METADATA_STATE_VERSION = 2
 
-#: Exact retired Blue fallback text. It is cleared locally without an API read
-#: so the current API-only description policy also repairs older database rows.
+#: Exact retired Blue fallback text. It is cleared locally without an app read
+#: so the profile-only description policy also repairs older database rows.
 LEGACY_BLUE_SHORT_DESCRIPTION = "Enzyme Blue tokenised digital-asset investment vehicle."
 LEGACY_BLUE_DESCRIPTION_SUFFIX = " is an Enzyme Blue tokenised investment vehicle. Investors hold ERC-20 shares while the vault manager controls the investment configuration and portfolio operations. No manager-provided strategy description is available in this catalogue entry."
 
 
 @dataclass(slots=True, frozen=True)
-class EnzymeMetadataFetchResult:
-    """One official API fetch outcome, kept separate from database mutation.
-
-    :param vault_spec: Existing Enzyme Blue vault identity.
-    :param metadata: Parsed API result, including a valid empty result.
-    :param error: Request or schema error, if collection failed.
-    """
-
-    #: Existing Enzyme Blue vault identity.
-    vault_spec: VaultSpec
-    #: Parsed response, including a valid empty API reply.
-    metadata: EnzymeVaultMetadata | None = None
-    #: Request or response-validation error.
-    error: str | None = None
-
-
-@dataclass(slots=True, frozen=True)
 class EnzymeMetadataUpdate:
-    """One address-specific public database description update.
-
-    :param vault_spec: Existing database row identity.
-    :param short_description: Resolved short description.
-    :param description: Resolved long description.
-    :param changed_fields: Fields whose persisted value differs.
-    """
+    """One address-specific public database profile update."""
 
     #: Existing database row identity.
     vault_spec: VaultSpec
-    #: Official API tagline, if supplied.
+    #: App-profile tagline, if supplied.
     short_description: str | None
-    #: Official API long description, if supplied.
+    #: App-profile long description, if supplied.
     description: str | None
-    #: Public row fields that differ from the successful API reply.
+    #: Public manager identity from the app profile, if supplied.
+    manager_name: str | None
+    #: Public row fields that differ from the successful app-profile reply.
     changed_fields: tuple[str, ...]
 
 
@@ -194,7 +164,7 @@ def resolve_backup_path(vault_db_path: Path) -> Path:
 
 
 def resolve_state_path(vault_db_path: Path) -> Path:
-    """Resolve the durable state file for unfinished API collection.
+    """Resolve the durable state file for unfinished app-profile collection.
 
     :param vault_db_path: Metadata pickle updated only after full collection.
     :return: Explicit state path or a small sibling JSON file.
@@ -206,12 +176,18 @@ def resolve_state_path(vault_db_path: Path) -> Path:
     return vault_db_path.with_name("enzyme-offchain-metadata-state.json")
 
 
-def load_metadata_state(state_path: Path, selected_specs: set[VaultSpec]) -> dict[VaultSpec, EnzymeVaultMetadata]:
-    """Load successful API replies saved by an interrupted migration.
+def load_metadata_state(  # noqa: PLR0914 - Validates every persisted app-profile field.
+    state_path: Path,
+    selected_specs: set[VaultSpec],
+    *,
+    refresh: bool = False,
+) -> dict[VaultSpec, EnzymeVaultMetadata]:
+    """Load successful app-profile replies saved by an interrupted migration.
 
     :param state_path: Migration-only JSON checkpoint path.
     :param selected_specs: Currently eligible Blue vault identities.
-    :return: Valid completed API replies that still belong to this migration.
+    :param refresh: Whether the current run deliberately refetches every profile.
+    :return: Valid completed app-profile replies that still belong to this migration.
     :raise RuntimeError: If the operator must inspect a malformed state file.
     """
 
@@ -220,9 +196,24 @@ def load_metadata_state(state_path: Path, selected_specs: set[VaultSpec]) -> dic
     try:
         with state_path.open() as inp:
             payload = json.load(inp)
-        if not isinstance(payload, dict) or payload.get("version") != ENZYME_METADATA_STATE_VERSION:
+        if not isinstance(payload, dict):
+            message = "state must be a JSON object"
+            raise ValueError(message)
+        version = payload.get("version")
+        if version == 1:
+            # Version one did not contain contact data and must not suppress a
+            # complete profile refresh.
+            logger.warning("Discarding pre-contact Enzyme metadata state %s", state_path)
+            return {}
+        if version not in {PREVIOUS_ENZYME_METADATA_STATE_VERSION, ENZYME_METADATA_STATE_VERSION}:
             message = "unsupported state version"
             raise ValueError(message)
+        if version == ENZYME_METADATA_STATE_VERSION and payload.get("refresh") is not refresh:
+            logger.info("Ignoring Enzyme metadata state %s from a different refresh mode", state_path)
+            return {}
+        if version == PREVIOUS_ENZYME_METADATA_STATE_VERSION and refresh:
+            logger.info("Ignoring unmarked Enzyme metadata state %s during a full refresh", state_path)
+            return {}
         records = payload.get("vaults")
         if not isinstance(records, list):
             message = "vaults must be a list"
@@ -234,25 +225,52 @@ def load_metadata_state(state_path: Path, selected_specs: set[VaultSpec]) -> dic
                 raise ValueError(message)
             short_description = record.get("short_description")
             description = record.get("description")
+            manager_description = record.get("manager_description")
+            contact_info = record.get("contact_info")
+            contact_email = record.get("contact_email")
+            telegram = record.get("telegram")
+            twitter = record.get("twitter")
+            website_url = record.get("website_url")
+            manager_name = record.get("manager_name")
             if short_description is not None and not isinstance(short_description, str):
                 message = "invalid short description"
                 raise ValueError(message)
             if description is not None and not isinstance(description, str):
                 message = "invalid description"
                 raise ValueError(message)
+            profile_fields = (manager_description, contact_info, contact_email, telegram, twitter, website_url, manager_name)
+            if any(value is not None and not isinstance(value, str) for value in profile_fields):
+                message = "invalid manager profile field"
+                raise ValueError(message)
             vault_spec = VaultSpec(record["chain_id"], record["address"].lower())
             if vault_spec in selected_specs:
-                state[vault_spec] = EnzymeVaultMetadata(short_description=short_description, description=description)
+                state[vault_spec] = EnzymeVaultMetadata(
+                    short_description=short_description,
+                    description=description,
+                    manager_description=manager_description,
+                    contact_info=contact_info,
+                    contact_email=contact_email,
+                    telegram=telegram,
+                    twitter=twitter,
+                    website_url=website_url,
+                    manager_name=manager_name,
+                )
         return state
     except (OSError, json.JSONDecodeError, ValueError) as error:
         raise RuntimeError(f"Cannot resume Enzyme metadata state {state_path}: {error}") from error
 
 
-def write_metadata_state(state_path: Path, state: dict[VaultSpec, EnzymeVaultMetadata]) -> None:
-    """Atomically checkpoint successful API replies without publishing them.
+def write_metadata_state(
+    state_path: Path,
+    state: dict[VaultSpec, EnzymeVaultMetadata],
+    *,
+    refresh: bool = False,
+) -> None:
+    """Atomically checkpoint successful app-profile replies without publishing them.
 
     :param state_path: Migration-only JSON checkpoint path.
-    :param state: Address-indexed successful official API replies.
+    :param state: Address-indexed successful app-profile replies.
+    :param refresh: Whether the saved replies all came from a forced refresh.
     :return: None after atomically replacing the checkpoint.
     """
 
@@ -262,6 +280,13 @@ def write_metadata_state(state_path: Path, state: dict[VaultSpec, EnzymeVaultMet
             "address": spec.vault_address.lower(),
             "short_description": metadata.short_description,
             "description": metadata.description,
+            "manager_description": metadata.manager_description,
+            "contact_info": metadata.contact_info,
+            "contact_email": metadata.contact_email,
+            "telegram": metadata.telegram,
+            "twitter": metadata.twitter,
+            "website_url": metadata.website_url,
+            "manager_name": metadata.manager_name,
         }
         for spec, metadata in sorted(state.items(), key=lambda item: (item[0].chain_id, item[0].vault_address.lower()))
     ]
@@ -269,7 +294,7 @@ def write_metadata_state(state_path: Path, state: dict[VaultSpec, EnzymeVaultMet
     temporary_path = state_path.with_suffix(f"{state_path.suffix}.tmp")
     with wait_other_writers(state_path):
         with temporary_path.open("wt") as out:
-            json.dump({"version": ENZYME_METADATA_STATE_VERSION, "vaults": records}, out, indent=2, sort_keys=True)
+            json.dump({"version": ENZYME_METADATA_STATE_VERSION, "refresh": refresh, "vaults": records}, out, indent=2, sort_keys=True)
             out.write("\n")
         temporary_path.replace(state_path)
 
@@ -289,35 +314,6 @@ def is_enzyme_blue_row(row: VaultRow) -> bool:
     return ERC4626Feature.enzyme_blue_like.value in feature_values
 
 
-def get_metadata_value_unit(row: VaultRow) -> str | None:
-    """Read the persisted accounting-unit symbol used for the NAV threshold.
-
-    :param row: Persisted vault metadata row.
-    :return: Uppercase accounting-unit symbol, if known.
-    """
-
-    value_unit = row.get("Denomination")
-    return value_unit.upper() if isinstance(value_unit, str) else None
-
-
-def has_description_metadata_minimum_value(row: VaultRow) -> bool:
-    """Check whether a Blue row meets the API-collection value threshold.
-
-    :param row: Persisted Blue vault metadata row with accounting-unit NAV.
-    :return: ``True`` only above the reviewed USD, ETH or BTC-equivalent limit.
-    """
-
-    value_unit = get_metadata_value_unit(row)
-    threshold = MINIMUM_NAV_BY_VALUE_UNIT.get(value_unit)
-    if threshold is None:
-        return False
-    try:
-        nav = Decimal(str(row.get("NAV")))
-    except (InvalidOperation, ValueError):
-        return False
-    return nav.is_finite() and nav > threshold
-
-
 def iter_all_enzyme_blue_rows(vault_db: VaultDatabase) -> Iterator[tuple[VaultSpec, VaultRow]]:
     """Yield every existing Enzyme Blue row in deterministic order.
 
@@ -332,7 +328,7 @@ def iter_all_enzyme_blue_rows(vault_db: VaultDatabase) -> Iterator[tuple[VaultSp
 def create_legacy_fallback_clear_update(vault_spec: VaultSpec, row: VaultRow) -> EnzymeMetadataUpdate | None:
     """Plan removal of retired generated Blue fallback fields independently.
 
-    The old resolver filled absent API fields separately, so a row can contain
+    The old resolver filled absent profile fields separately, so a row can contain
     a real manager field alongside one invented fallback field. Each exact
     generated fragment is therefore cleared independently and the other field
     is preserved.
@@ -350,61 +346,61 @@ def create_legacy_fallback_clear_update(vault_spec: VaultSpec, row: VaultRow) ->
         vault_spec,
         None if has_legacy_short else row.get("_short_description"),
         None if has_legacy_description else row.get("_description"),
+        row.get("_manager_name"),
         tuple(field for field, enabled in (("_short_description", has_legacy_short), ("_description", has_legacy_description)) if enabled),
     )
 
 
-def fetch_one_enzyme_metadata(
-    vault_spec: VaultSpec,
+def fetch_enzyme_metadata_batch(
+    vault_specs: list[VaultSpec],
     *,
-    api_token: str,
     timeout: float,
     session: Session,
-) -> EnzymeMetadataFetchResult:
-    """Fetch one Blue row while preserving individual failures for reporting.
+) -> dict[VaultSpec, EnzymeVaultMetadata]:
+    """Fetch one serial GraphQL alias batch.
 
-    :param vault_spec: Existing Blue VaultProxy identity.
-    :param api_token: Enzyme API bearer token.
+    :param vault_specs: Existing Blue VaultProxy identities for one HTTP request.
     :param timeout: Per-request HTTP timeout.
     :param session: Shared retrying HTTP session.
-    :return: Parsed result or explicit error without mutating persistent state.
+    :return: Metadata indexed by its existing Blue vault identity.
+    :raise RuntimeError: If the app endpoint or its response fails.
     """
 
     try:
-        metadata = fetch_enzyme_api_vault_metadata(
+        fetched_metadata = fetch_enzyme_app_vault_metadata_batch(
             session,
-            chain_id=vault_spec.chain_id,
-            shares_address=vault_spec.vault_address,
-            api_token=api_token,
+            shares_addresses=[spec.vault_address for spec in vault_specs],
             timeout=timeout,
         )
-        return EnzymeMetadataFetchResult(vault_spec, metadata=metadata)
+        return {vault_spec: fetched_metadata[HexAddress(vault_spec.vault_address.lower())] for vault_spec in vault_specs}
     except (RequestException, ValueError) as error:
-        return EnzymeMetadataFetchResult(vault_spec, error=str(error))
+        addresses = ", ".join(vault_spec.vault_address for vault_spec in vault_specs[:3])
+        raise RuntimeError(f"Enzyme app-profile batch failed for {addresses}: {error}") from error
 
 
 def create_metadata_update(vault_spec: VaultSpec, row: VaultRow, metadata: EnzymeVaultMetadata) -> EnzymeMetadataUpdate:
-    """Replace description fields with a successful official API response.
+    """Replace profile fields with a successful Enzyme app response.
 
     :param vault_spec: Existing Blue VaultProxy identity.
     :param row: Existing metadata row.
-    :param metadata: Successful official API result, possibly without text.
-    :return: API replacement values, which can be absent when Enzyme has no copy.
+    :param metadata: Successful app profile, possibly without text or contacts.
+    :return: Profile replacement values, which can be absent when Enzyme has no copy.
     """
 
     updates = {
         "_short_description": metadata.short_description,
         "_description": metadata.description,
+        "_manager_name": metadata.manager_name,
     }
     changed_fields = tuple(field for field, value in updates.items() if row.get(field) != value)
-    return EnzymeMetadataUpdate(vault_spec, metadata.short_description, metadata.description, changed_fields)
+    return EnzymeMetadataUpdate(vault_spec, metadata.short_description, metadata.description, metadata.manager_name, changed_fields)
 
 
 def apply_metadata_updates(vault_db: VaultDatabase, updates: list[EnzymeMetadataUpdate]) -> None:
-    """Apply only description fields owned by this migration in memory.
+    """Apply only app-profile fields owned by this migration in memory.
 
     :param vault_db: Loaded database to modify.
-    :param updates: Planned API description updates.
+    :param updates: Planned app-profile updates.
     :return: None after replacing changed rows in memory.
     """
 
@@ -414,6 +410,7 @@ def apply_metadata_updates(vault_db: VaultDatabase, updates: list[EnzymeMetadata
         row = vault_db.rows[update.vault_spec].copy()
         row["_short_description"] = update.short_description
         row["_description"] = update.description
+        row["_manager_name"] = update.manager_name
         vault_db.rows[update.vault_spec] = row
 
 
@@ -423,58 +420,52 @@ def fetch_enzyme_metadata(
     state_path: Path,
     cache_path: Path,
     dry_run: bool,
-    max_workers: int,
+    profile_batch_size: int,
+    request_interval_seconds: float,
     timeout: float,
 ) -> tuple[dict[VaultSpec, EnzymeVaultMetadata], int, dict[tuple[int, HexAddress], EnzymeVaultMetadata]]:
-    """Collect eligible official metadata, resuming state and completed cache entries.
+    """Collect Enzyme app profiles, resuming state and completed cache entries.
 
-    The API request follows Enzyme's `GetVault documentation
-    <https://sdk.enzyme.finance/api/endpoints/vault/>`__. A completed cache is
-    reused by default, whereas ``ENZYME_METADATA_REFRESH=true`` intentionally
-    reads every eligible vault again.
+    The request follows the current public vault-detail page's undocumented
+    GraphQL query. A completed cache is reused by default, whereas
+    ``ENZYME_METADATA_REFRESH=true`` intentionally reads every vault again.
 
     :param selected_rows: Eligible Blue database rows in deterministic order.
     :param state_path: Migration-only state checkpoint path.
-    :param cache_path: Durable official metadata cache path.
+    :param cache_path: Durable app-profile cache path.
     :param dry_run: Whether successful replies must remain transient.
-    :param max_workers: Bounded request concurrency.
-    :param timeout: Per-request API timeout in seconds.
+    :param profile_batch_size: Vault profile aliases per serial request.
+    :param request_interval_seconds: Minimum pause after each request batch.
+    :param timeout: Per-request app-profile timeout in seconds.
     :return: Collected metadata, request count and existing durable cache.
-    :raise RuntimeError: If a required token is absent or any API read fails.
+    :raise RuntimeError: If any app-profile read fails.
     """
 
     if not selected_rows:
         return {}, 0, {}
 
     selected_specs = {spec for spec, _row in selected_rows}
-    state = load_metadata_state(state_path, selected_specs)
-    cached_metadata = load_enzyme_vault_metadata_cache(cache_path)
-    if not parse_bool_env("ENZYME_METADATA_REFRESH", default=False):
+    refresh = parse_bool_env("ENZYME_METADATA_REFRESH", default=False)
+    state = load_metadata_state(state_path, selected_specs, refresh=refresh)
+    cached_metadata = load_enzyme_vault_metadata_cache(cache_path, minimum_version=ENZYME_METADATA_CACHE_VERSION)
+    if not refresh:
         state.update({spec: metadata for spec in selected_specs - state.keys() if (metadata := cached_metadata.get((spec.chain_id, HexAddress(spec.vault_address.lower())))) is not None})
     missing_specs = [spec for spec, _row in selected_rows if spec not in state]
     if not missing_specs:
         return state, 0, cached_metadata
 
-    api_token = os.environ.get("ENZYME_BLUE_API_TOKEN")
-    if not api_token:
-        message = "ENZYME_BLUE_API_TOKEN is required to fetch official Enzyme Blue vault metadata"
-        raise RuntimeError(message)
-    session = create_enzyme_api_session(max_workers)
+    session = create_enzyme_app_session()
     try:
         with tqdm(total=len(selected_rows), initial=len(state), desc="Fetching Enzyme Blue metadata") as progress:
-            for start in range(0, len(missing_specs), max_workers):
-                batch_specs = missing_specs[start : start + max_workers]
-                batch_results = Parallel(n_jobs=max_workers, backend="threading")(delayed(fetch_one_enzyme_metadata)(spec, api_token=api_token, timeout=timeout, session=session) for spec in batch_specs)
-                successes = [result for result in batch_results if result.metadata is not None]
-                state.update({result.vault_spec: result.metadata for result in successes})
-                if not dry_run and successes:
-                    write_metadata_state(state_path, state)
-                progress.update(len(batch_results))
-                failures = [result for result in batch_results if result.error]
-                if failures:
-                    examples = "; ".join(f"{item.vault_spec.vault_address}: {item.error}" for item in failures[:3])
-                    checkpoint_status = "no checkpoint was written in dry-run mode" if dry_run else f"state was saved for {len(state)} of {len(selected_rows)} rows"
-                    raise RuntimeError(f"Enzyme metadata fetch failed for {len(failures)} vaults; {checkpoint_status}. Examples: {examples}")
+            for start in range(0, len(missing_specs), profile_batch_size):
+                batch_specs = missing_specs[start : start + profile_batch_size]
+                batch_metadata = fetch_enzyme_metadata_batch(batch_specs, timeout=timeout, session=session)
+                state.update(batch_metadata)
+                if not dry_run:
+                    write_metadata_state(state_path, state, refresh=refresh)
+                progress.update(len(batch_metadata))
+                if start + len(batch_specs) < len(missing_specs):
+                    time.sleep(request_interval_seconds)
     finally:
         session.close()
 
@@ -483,20 +474,24 @@ def fetch_enzyme_metadata(
 
 
 def main() -> None:  # noqa: PLR0914 - Keeps the one-shot migration transaction visible in one place.
-    """Fetch eligible Blue descriptions and optionally persist metadata repairs.
+    """Fetch every Blue profile and optionally persist metadata repairs.
 
     :return: None after printing the migration plan or completing a safe write.
-    :raise RuntimeError: If any official API response fails before a real write.
+    :raise RuntimeError: If any app-profile response fails before a real write.
     """
 
     dry_run = parse_bool_env("DRY_RUN", default=True)
-    max_workers = int(os.environ.get("MAX_WORKERS", "1"))
+    profile_batch_size = int(os.environ.get("ENZYME_PROFILE_BATCH_SIZE", "5"))
+    request_interval_seconds = float(os.environ.get("ENZYME_REQUEST_INTERVAL_SECONDS", "1"))
     timeout = float(os.environ.get("API_TIMEOUT", "30"))
-    if max_workers < 1:
-        message = "MAX_WORKERS must be positive"
-        raise ValueError(message)
     if timeout <= 0:
         message = "API_TIMEOUT must be positive"
+        raise ValueError(message)
+    if not 1 <= profile_batch_size <= ENZYME_APP_MAX_PROFILE_ALIASES:
+        message = f"ENZYME_PROFILE_BATCH_SIZE must be between 1 and {ENZYME_APP_MAX_PROFILE_ALIASES}"
+        raise ValueError(message)
+    if request_interval_seconds < 0:
+        message = "ENZYME_REQUEST_INTERVAL_SECONDS must be non-negative"
         raise ValueError(message)
 
     vault_db_path = resolve_vault_database_path()
@@ -505,7 +500,7 @@ def main() -> None:  # noqa: PLR0914 - Keeps the one-shot migration transaction 
     cache_path = resolve_cache_path()
     vault_db = VaultDatabase.read(vault_db_path)
     blue_rows = list(iter_all_enzyme_blue_rows(vault_db))
-    selected_rows = [(spec, row) for spec, row in blue_rows if has_description_metadata_minimum_value(row)]
+    selected_rows = blue_rows
     legacy_clear_updates = [update for spec, row in blue_rows if (update := create_legacy_fallback_clear_update(spec, row))]
     if not selected_rows and not legacy_clear_updates:
         print("No Enzyme Blue metadata updates are needed.")
@@ -517,29 +512,28 @@ def main() -> None:  # noqa: PLR0914 - Keeps the one-shot migration transaction 
         state_path=state_path,
         cache_path=cache_path,
         dry_run=dry_run,
-        max_workers=max_workers,
+        profile_batch_size=profile_batch_size,
+        request_interval_seconds=request_interval_seconds,
         timeout=timeout,
     )
-    successful = [EnzymeMetadataFetchResult(spec, metadata=state[spec]) for spec, _row in selected_rows]
-
     rows_by_spec = dict(selected_rows)
-    api_updates = [create_metadata_update(result.vault_spec, rows_by_spec[result.vault_spec], result.metadata) for result in successful]
+    api_updates = [create_metadata_update(vault_spec, rows_by_spec[vault_spec], metadata) for vault_spec, metadata in state.items()]
     changed_updates = legacy_clear_updates + [update for update in api_updates if update.changed_fields]
-    unsupported_value_units = sum(get_metadata_value_unit(row) not in MINIMUM_NAV_BY_VALUE_UNIT for _spec, row in blue_rows)
-    below_minimum_or_missing_value = len(blue_rows) - len(selected_rows) - unsupported_value_units
-    with_short_description = sum(result.metadata.short_description is not None for result in successful)
-    with_description = sum(result.metadata.description is not None for result in successful)
+    with_short_description = sum(metadata.short_description is not None for metadata in state.values())
+    with_description = sum(metadata.description is not None for metadata in state.values())
+    with_manager_name = sum(metadata.manager_name is not None for metadata in state.values())
+    with_contact = sum(any((metadata.contact_info, metadata.contact_email, metadata.telegram, metadata.twitter, metadata.website_url)) for metadata in state.values())
     print(
         tabulate(
             [
                 ["All Enzyme Blue rows", len(blue_rows)],
-                ["Eligible Enzyme Blue rows", len(selected_rows)],
-                ["Below minimum or missing NAV", below_minimum_or_missing_value],
-                ["Unsupported value units", unsupported_value_units],
-                ["Reused official API replies", len(selected_rows) - request_count],
+                ["Collected Enzyme Blue rows", len(selected_rows)],
+                ["Reused app-profile replies", len(selected_rows) - request_count],
                 ["Legacy fallback rows repaired", len(legacy_clear_updates)],
-                ["Official API taglines", with_short_description],
-                ["Official API descriptions", with_description],
+                ["App-profile taglines", with_short_description],
+                ["App-profile descriptions", with_description],
+                ["App-profile contacts", with_contact],
+                ["Derived manager identifiers", with_manager_name],
                 ["Rows with database changes", len({update.vault_spec for update in changed_updates})],
                 ["Mode", "dry run" if dry_run else "apply"],
             ],
@@ -550,7 +544,7 @@ def main() -> None:  # noqa: PLR0914 - Keeps the one-shot migration transaction 
     if dry_run:
         return
 
-    cache_updates = {(result.vault_spec.chain_id, HexAddress(result.vault_spec.vault_address.lower())): result.metadata for result in successful}
+    cache_updates = {(vault_spec.chain_id, HexAddress(vault_spec.vault_address.lower())): metadata for vault_spec, metadata in state.items()}
     cache_changed = any(cached_metadata.get(key) != metadata for key, metadata in cache_updates.items())
     if cache_changed:
         cached_metadata.update(cache_updates)
