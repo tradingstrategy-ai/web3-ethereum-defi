@@ -12,6 +12,7 @@ from eth_defi.enzyme import blue_vault
 from eth_defi.enzyme.blue_discovery import ENZYME_BLUE_DEPLOYMENTS, EnzymeBlueVaultFactoryCandidate, decode_enzyme_blue_vault_deployed_event, fetch_enzyme_blue_dispatchers_for_chain
 from eth_defi.enzyme.blue_historical import EnzymeBlueVaultHistoricalReader
 from eth_defi.enzyme.blue_vault import ALLOWED_DEPOSIT_RECIPIENTS_POLICY_IDENTIFIER, ENZYME_BLUE_LEGACY_POLICY_MANAGERS, FEE_BPS_DENOMINATOR, MANAGEMENT_FEE_RATE_SCALE, SECONDS_PER_YEAR, EnzymeBlueVault
+from eth_defi.enzyme.offchain_metadata import EnzymeVaultMetadata
 from eth_defi.erc_4626.core import ERC4626Feature
 from eth_defi.erc_4626.discovery_base import _prepare_probe_leads, create_enzyme_blue_factory_detection, create_enzyme_blue_potential_vault_match  # noqa: PLC2701
 from eth_defi.erc_4626.scan import fetch_deposit_permission
@@ -80,6 +81,32 @@ def test_blue_link_opens_address_specific_enzyme_page(chain_id: int, network: st
     vault.spec = VaultSpec(chain_id, VAULT)
 
     assert vault.get_link() == f"https://app.enzyme.finance/vault/{Web3.to_checksum_address(VAULT)}?network={network}"
+
+
+def test_blue_vault_exposes_cached_manager_identifier() -> None:
+    """Expose cached public contact details as the manager information."""
+
+    vault = EnzymeBlueVault.__new__(EnzymeBlueVault)
+    vault.spec = VaultSpec(CHAIN_ID, VAULT)
+    vault.comptroller_contract = SimpleNamespace(address=ACCESSOR)
+    vault.denomination_token = SimpleNamespace(address="0x0000000000000000000000000000000000000001")
+    vault.api_metadata = EnzymeVaultMetadata(
+        contact_email="manager@example.com",
+        twitter="vault_manager",
+        website_url="https://manager.example.com",
+        manager_name="vault_manager",
+    )
+
+    assert vault.manager_name == "vault_manager"
+    assert vault.fetch_info()["manager"] == {
+        "name": "vault_manager",
+        "description": None,
+        "contact_info": None,
+        "email": "manager@example.com",
+        "telegram": None,
+        "twitter": "vault_manager",
+        "website_url": "https://manager.example.com",
+    }
 
 
 def test_blue_historical_reader_derives_price_and_tvl() -> None:

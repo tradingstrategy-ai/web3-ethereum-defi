@@ -160,13 +160,13 @@ class EnzymeBlueVault(VaultBase):
 
     @property
     def description(self) -> str | None:
-        """Return optional official offchain listing copy for this Blue vault."""
+        """Return optional app-profile listing copy for this Blue vault."""
 
         return self.api_metadata.description if self.api_metadata else None
 
     @property
     def short_description(self) -> str | None:
-        """Return optional official offchain table copy for this Blue vault."""
+        """Return optional app-profile table copy for this Blue vault."""
 
         return self.api_metadata.short_description if self.api_metadata else None
 
@@ -186,7 +186,7 @@ class EnzymeBlueVault(VaultBase):
 
     @property
     def manager_name(self) -> str | None:
-        """Return optional official manager name."""
+        """Return optional app-profile manager identifier."""
 
         return self.api_metadata.manager_name if self.api_metadata else None
 
@@ -243,9 +243,31 @@ class EnzymeBlueVault(VaultBase):
         return self.fetch_total_assets(block_identifier)
 
     def fetch_info(self) -> VaultInfo:
-        """Return the paired current Blue core contract addresses."""
+        """Return current Blue contract and public manager profile details.
 
-        return {"vault": self.address, "comptroller": self.comptroller_contract.address, "denomination_asset": self.denomination_token.address}
+        The manager object is populated from the cache written by the bounded
+        app-profile migration. It is intentionally optional because the app
+        backend is undocumented and a manager may leave any contact field
+        empty.
+
+        :return: Blue contract addresses and cached manager profile fields.
+        """
+
+        metadata = self.api_metadata
+        return {
+            "vault": self.address,
+            "comptroller": self.comptroller_contract.address,
+            "denomination_asset": self.denomination_token.address,
+            "manager": {
+                "name": self.manager_name,
+                "description": metadata.manager_description if metadata else None,
+                "contact_info": metadata.contact_info if metadata else None,
+                "email": metadata.contact_email if metadata else None,
+                "telegram": metadata.telegram if metadata else None,
+                "twitter": metadata.twitter if metadata else None,
+                "website_url": metadata.website_url if metadata else None,
+            },
+        }
 
     def fetch_portfolio(self, universe: TradingUniverse, block_identifier: BlockIdentifier | None = None) -> VaultPortfolio:
         """Return empty positions until Blue portfolio accounting is integrated."""
