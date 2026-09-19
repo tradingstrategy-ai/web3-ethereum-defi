@@ -28,11 +28,10 @@ def propose_safe_transaction(
 ) -> SafeTx:
     """Create a signed Safe Transaction Service proposal without broadcasting it.
 
-    On 2026-09-19, this function successfully proposed a zero-value,
-    state-free ``totalAssets()`` Safe transaction for the deployed Lighter
-    tutorial vault while ``SAFE_TRANSACTION_SERVICE_API_KEY`` was unset. The
-    API key is therefore optional, although recommended for production rate
-    limits and reliability.
+    On 2026-09-19, the deployed Lighter tutorial Safe accepted and indexed a
+    zero-value, state-free ``totalAssets()`` proposal while
+    ``SAFE_TRANSACTION_SERVICE_API_KEY`` was unset. The key is optional, but
+    Safe recommends it in production for higher rate limits and reliability.
 
     :param safe:
         The Safe instance
