@@ -73,9 +73,7 @@ def propose_safe_transaction(
     owner_account = Account.from_key(private_key)
     safe_owners = {owner.lower() for owner in safe.retrieve_owners()}
     if owner_account.address.lower() not in safe_owners:
-        raise SafeTxProposalError(
-            f"Proposer {owner_account.address} is not an owner of Safe {safe.address}"
-        )
+        raise SafeTxProposalError(f"Proposer {owner_account.address} is not an owner of Safe {safe.address}")
 
     # A Transaction Service proposal is not an on-chain execution, so it must
     # not include a Safe refund configuration. The Safe UI estimates execution
