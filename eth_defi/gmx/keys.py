@@ -129,6 +129,7 @@ EXECUTE_SHIFT_FEATURE_DISABLED = create_hash_string("EXECUTE_SHIFT_FEATURE_DISAB
 CANCEL_SHIFT_FEATURE_DISABLED = create_hash_string("CANCEL_SHIFT_FEATURE_DISABLED")
 CREATE_GLV_DEPOSIT_FEATURE_DISABLED = create_hash_string("CREATE_GLV_DEPOSIT_FEATURE_DISABLED")
 GENERAL_CLAIM_FEATURE_DISABLED = create_hash_string("GENERAL_CLAIM_FEATURE_DISABLED")
+CLAIM_FUNDING_FEES_FEATURE_DISABLED = create_hash_string("CLAIM_FUNDING_FEES_FEATURE_DISABLED")
 
 # ==============================================================================
 # Claimable Amounts & Factors
@@ -737,6 +738,19 @@ def general_claim_feature_disabled_key(distribution_id: int) -> bytes:
     :return: Keccak-256 hashed key
     """
     return create_hash(["bytes32", "uint256"], [GENERAL_CLAIM_FEATURE_DISABLED, distribution_id])
+
+
+def claim_funding_fees_feature_disabled_key(module: str) -> bytes:
+    """Get claim funding fees feature disabled key.
+
+    Mirrors ``Keys.claimFundingFeesFeatureDisabledKey(address module)`` in
+    gmx-synthetics. Governance can pause ``claimFundingFees`` per claiming
+    module, so the key is scoped by the module (contract) address.
+
+    :param module: The claiming module (contract) address
+    :return: Keccak-256 hashed key
+    """
+    return create_hash(["bytes32", "address"], [CLAIM_FUNDING_FEES_FEATURE_DISABLED, module])
 
 
 def claimable_fee_amount_key(market: str, token: str) -> bytes:

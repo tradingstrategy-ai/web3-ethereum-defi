@@ -17,6 +17,7 @@ from eth_defi.gmx.market_depth import (
 )
 from eth_defi.gmx.core.borrow_apr import GetBorrowAPR
 from eth_defi.gmx.core.claimable_fees import GetClaimableFees
+from eth_defi.gmx.core.claimable_funding_fees import GetClaimableFundingFees
 from eth_defi.gmx.core.funding_fee import GetFundingFee
 from eth_defi.gmx.core.get_data import GetData
 from eth_defi.gmx.core.glv_stats import GlvStats
@@ -32,6 +33,7 @@ __all__ = [
     "GetAvailableLiquidity",
     "GetBorrowAPR",
     "GetClaimableFees",
+    "GetClaimableFundingFees",
     "GetFundingFee",
     "GetData",
     "GetGMPrices",

@@ -61,6 +61,7 @@ from eth_defi.gmx.types import MarketData, PositionSideData, PriceData, TVLData
 from eth_defi.gmx.core.available_liquidity import GetAvailableLiquidity
 from eth_defi.gmx.core.borrow_apr import GetBorrowAPR
 from eth_defi.gmx.core.claimable_fees import GetClaimableFees
+from eth_defi.gmx.core.claimable_funding_fees import GetClaimableFundingFees
 from eth_defi.gmx.core.pool_tvl import GetPoolTVL as ContractTVL
 from eth_defi.gmx.core.funding_fee import GetFundingFee
 from eth_defi.gmx.core.gm_prices import GetGMPrices as GMPrices
@@ -169,6 +170,27 @@ class GMXMarketData:
         :rtype: MarketData
         """
         return GetClaimableFees(self.gmx_config).get_data()
+
+    def get_claimable_funding_fees(self, account: str) -> MarketData:
+        """
+        Get the funding fees a position-holder account can claim across all markets.
+
+        GMX V2 accrues funding fees continuously per ``(market, token, account)``.
+        Unlike :meth:`get_claimable_fees`, which reads the market-level LP fee pool,
+        this reads the per-account trader funding receipts that
+        ``ExchangeRouter.claimFundingFees`` releases, valued in USD.
+
+        :param account:
+            The position-holder account whose claimable funding receipts are read.
+            For a Lagoon vault this is the vault's Gnosis Safe address, because the
+            claim reaches the ExchangeRouter through the Safe.
+
+        :return:
+            Dictionary containing the total USD value, the reported parameter name,
+            and a per-market breakdown of long, short and total claimable funding
+        :rtype: MarketData
+        """
+        return GetClaimableFundingFees(self.gmx_config, account).get_data()
 
     def get_contract_tvl(self) -> TVLData:
         """

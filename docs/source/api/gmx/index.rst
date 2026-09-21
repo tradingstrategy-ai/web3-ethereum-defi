@@ -98,6 +98,7 @@ More info
 
    eth_defi.gmx.api
    eth_defi.gmx.base
+   eth_defi.gmx.claim
    eth_defi.gmx.config
    eth_defi.gmx.constants
    eth_defi.gmx.market_depth
