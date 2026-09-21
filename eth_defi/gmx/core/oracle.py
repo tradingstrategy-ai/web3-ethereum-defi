@@ -15,6 +15,7 @@ from eth_typing import HexAddress
 from eth_utils import to_checksum_address
 from requests import Response
 
+from eth_defi.gmx.constants import GMX_API_URLS_FALLBACK, GMX_API_URLS_FALLBACK_2
 from eth_defi.gmx.contracts import _get_clean_api_urls, _get_clean_backup_urls
 from eth_defi.gmx.types import PriceData
 
@@ -77,6 +78,10 @@ class OraclePrices:
         logging.info("Using oracle for chain '%s' (requested chain: '%s')", oracle_chain, chain)
         self.oracle_url = clean_api_urls[oracle_chain] + "/signed_prices/latest"
         self.backup_oracle_url = clean_backup_urls.get(oracle_chain, "") + "/signed_prices/latest" if clean_backup_urls.get(oracle_chain) else None
+
+        # Tried after the backup, in this order: fallback, then fallback-2.
+        # gmxapi.ai (GMX_API_URLS_FALLBACK_3) is left out on purpose, it answers 404 on /signed_prices/latest.
+        self.fallback_oracle_urls: list[str] = [table[oracle_chain] + "/signed_prices/latest" for table in (GMX_API_URLS_FALLBACK, GMX_API_URLS_FALLBACK_2) if oracle_chain in table]
 
     def _translate_address_for_oracle(self, address: HexAddress) -> HexAddress:
         """Translate testnet token address to mainnet equivalent for oracle lookup.
@@ -168,18 +173,23 @@ class OraclePrices:
     def _make_query(self, max_retries=5, initial_backoff=1, max_backoff=60) -> Response | None:
         """Make request using oracle URL with retry mechanism.
 
-        :param max_retries: Maximum number of retry attempts
+        Tries the primary, backup, fallback and fallback-2 API tiers in that
+        order and returns the first response. Setting ``backup_oracle_url`` to
+        ``None`` disables failover altogether (primary only).
+
+        :param max_retries: Maximum number of retry attempts per tier
         :param initial_backoff: Initial backoff time in seconds
         :type initial_backoff: float
         :param max_backoff: Maximum backoff time in seconds
         :type max_backoff: float
         :return: Raw request response
         :rtype: requests.models.Response
-        :raises requests.exceptions.RequestException: If all retry attempts fail
+        :raises requests.exceptions.RequestException: If all retry attempts fail on every tier
         """
         urls = [self.oracle_url]
         if self.backup_oracle_url:
             urls.append(self.backup_oracle_url)
+            urls.extend(self.fallback_oracle_urls)
 
         last_exception = None
 
@@ -192,6 +202,8 @@ class OraclePrices:
                     logging.debug("Querying oracle at %s", url)
                     response = requests.get(url, timeout=30)  # Added timeout for safety
                     response.raise_for_status()  # Raise exception for 4XX/5XX status codes
+                    if url != urls[0]:
+                        logging.info("Oracle prices served by failover endpoint %s", url)
                     return response
 
                 except requests.exceptions.HTTPError as e:
