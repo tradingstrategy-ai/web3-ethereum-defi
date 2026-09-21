@@ -72,7 +72,7 @@ The guard dispatcher validates calls to the following protocols:
 | **Upshift** | Built-in | `deposit`, instant/queued redemption and claim receiver validation |
 | **CowSwap** | [CowSwapLib](./src/lib/CowSwapLib.sol) | Development adapter; not approved for product use |
 | **Velora (ParaSwap)** | [VeloraLib](./src/lib/VeloraLib.sol) | Development adapter; not approved for product use |
-| **GMX V2** | [GmxLib](./src/lib/GmxLib.sol) | Perpetuals multicall validation with market/router whitelisting |
+| **GMX V2** | [GmxLib](./src/lib/GmxLib.sol) | Perpetuals multicall validation with market/router whitelisting and per-call receiver checks for orders, funding-fee, affiliate-reward and collateral claims |
 | **Hypercore** | [HypercoreVaultLib](./src/lib/HypercoreVaultLib.sol) | HyperEVM native vault deposits, CoreWriter action validation |
 | **Lighter (Ethereum)** | [LighterLib](./src/lib/LighterLib.sol) | Ethereum `ZkLighter` USDC deposit/withdraw validation with receiver + asset-index checks; Robinhood custody is not supported ([docs](../../eth_defi/lighter/README-lighter-guard.md)) |
 | **ERC-20** | Built-in | `approve`, `transfer` to whitelisted addresses only |
@@ -127,6 +127,29 @@ USDC behind an attacker-controlled caller. The mint recipient and destination do
 independently allowlisted. See Circle's [CCTP contract interface reference](https://developers.circle.com/cctp/references/contract-interfaces).
 This validation does not cap the burn amount or CCTP `maxFee`; deployments requiring
 monetary limits need an explicit policy for those values.
+
+### GMX V2 inner-call validation
+
+`whitelistGMX()` allow-lists only `ExchangeRouter.multicall(bytes[])` as an outer call
+site. The outer check sees the selector but cannot inspect arguments, so
+`GmxLib.validateMulticall()` decodes the `bytes[]` payload and validates every inner
+call against the whitelisted router, its OrderVault, the allowed markets and the
+allowed receivers:
+
+- `createOrder` — order receiver and cancellation receiver, market, initial collateral
+  token and every market on the swap path
+- `sendWnt` / `sendTokens` — the receiver must be the configured OrderVault
+- `cancelOrder` / `updateOrder` — no fund-flow destination. GMX restricts both to the
+  order's owner, so a vault can only modify its own orders
+- `claimFundingFees`, `claimAffiliateRewards` and `claimCollateral` — the `receiver`
+  must be a whitelisted receiver, normally the Safe. Without this check an asset
+  manager could redirect claimed fees to an arbitrary address
+- any other selector reverts with `GMX: Unknown function in multicall`
+
+Claiming funding fees therefore has to travel inside a `multicall`, which
+`eth_defi/gmx/claim.py` and `scripts/gmx/gmx_claim_funding_fees.py` do. Do **not**
+allow-list `claimFundingFees` as a direct call site: with no inner decoding the
+receiver would go unchecked.
 
 ### Lagoon v0.5 asset-manager settlement safety
 
