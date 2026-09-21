@@ -198,7 +198,7 @@ A claim pays in each market's **long or short backing token**, never an arbitrar
 - GMX only ever writes `claimableFundingAmountKey(market, token, account)` with `token` equal to `market.longToken` or `market.shortToken`, so no other token can be claimed.
 - Which of the two a receiver gets is decided by GMX's funding split, which follows the collateral the paying side posted.
 
-For the Arbitrum perp markets that means the long side pays out WETH or WBTC while the short side pays out USDC, and markets whose long and short tokens are both USDC (the `*2` markets) pay entirely in USDC. The USD figures shown are oracle valuations for display, not a payout denomination, and there is no on-chain swap: this call path has no swap entry point.
+For the Arbitrum perp markets the short side therefore pays out USDC, while the long side pays out whatever the market actually holds: WETH for the `[WETH-USDC]` variants, WBTC for `[WBTC-USDC]`, and the index token itself where it is usable collateral, such as ARB or GMX. GMX lists several variants per index token, so a market's long token is **not** necessarily the index token — read `market.longToken` instead of assuming. Markets whose long and short tokens are both USDC (the `*2` markets) pay entirely in USDC. The USD figures shown are oracle valuations for display, not a payout denomination, and there is no on-chain swap: this call path has no swap entry point.
 
 ### Reading the claimable amounts
 
@@ -232,6 +232,15 @@ poetry run python scripts/gmx/gmx_claim_funding_fees.py \
 | Signing key | `exchange.ccxt_config.privateKey`, then `exchange.private_key` |
 | RPC endpoint | `exchange.ccxt_config.rpcUrl`, then `exchange.rpc_url` |
 | Vault address | `exchange.ccxt_config.options.vaultAddress` |
+
+Keys copied from a block explorer or a freqtrade secrets file often omit the `0x` prefix; the script adds it when missing. A blank key is treated as absent rather than as the literal `0x`.
+
+`--dry-run` is also the supported way to check the reader against live state, since it reads every market and both token sides but sends nothing:
+
+```
+poetry run python scripts/gmx/gmx_claim_funding_fees.py \
+    --rpc-url "$JSON_RPC_ARBITRUM" --private-key 0x<account key> --dry-run
+```
 
 ### Execution modes
 

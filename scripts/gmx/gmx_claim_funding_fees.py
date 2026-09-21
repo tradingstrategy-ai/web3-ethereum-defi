@@ -216,6 +216,27 @@ class ClaimSettings(NamedTuple):
     vault_address: str | None
 
 
+def normalise_private_key(raw_key: str | None) -> str | None:
+    """Normalise a signing key to the ``0x``-prefixed form the wallets require.
+
+    Keys copied out of block explorers, wallets and freqtrade secrets files are
+    frequently stored without the prefix, while
+    :meth:`~eth_defi.hotwallet.HotWallet.from_private_key` asserts on the
+    prefixed form, so add it here rather than failing later.
+
+    :param raw_key:
+        Signing key from the command line or a configuration file.
+    :return:
+        The prefixed key, or ``None`` when no key was supplied.
+    """
+    if not raw_key:
+        return None
+    key = raw_key.strip()
+    if not key:
+        return None
+    return key if key.startswith("0x") else f"0x{key}"
+
+
 def resolve_claim_settings(args: argparse.Namespace, file_config: dict) -> ClaimSettings:
     """Resolve the signing key, RPC endpoint and vault address for a claim.
 
@@ -233,7 +254,7 @@ def resolve_claim_settings(args: argparse.Namespace, file_config: dict) -> Claim
         If the signing key or RPC endpoint cannot be resolved anywhere, or the
         configured vault address is not a valid address.
     """
-    private_key = resolve_setting(args.private_key, file_config, "exchange.ccxt_config.privateKey", "exchange.private_key")
+    private_key = normalise_private_key(resolve_setting(args.private_key, file_config, "exchange.ccxt_config.privateKey", "exchange.private_key"))
     if not private_key:
         sys.exit("No signing key: pass --private-key, or set exchange.ccxt_config.privateKey (or exchange.private_key) through --config / --secrets")
 

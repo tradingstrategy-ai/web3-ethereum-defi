@@ -201,6 +201,46 @@ def patch_runtime(
     return calls
 
 
+def test_normalise_private_key_adds_missing_prefix() -> None:
+    """Keys stored without the 0x prefix are prefixed, and blanks stay absent."""
+
+    module = load_claim_module()
+    bare_key = "ab" * 32
+
+    assert module.normalise_private_key(None) is None
+    assert module.normalise_private_key("") is None
+    assert module.normalise_private_key("   ") is None
+    assert module.normalise_private_key(bare_key) == f"0x{bare_key}"
+    assert module.normalise_private_key(f"0x{bare_key}") == f"0x{bare_key}"
+    assert module.normalise_private_key(f" 0x{bare_key} ") == f"0x{bare_key}"
+
+
+def test_resolve_claim_settings_prefixes_bare_key_from_config(tmp_path: Path) -> None:
+    """A freqtrade secrets file may store the key without the 0x prefix."""
+
+    module = load_claim_module()
+    bare_key = "ab" * 32
+    config_file = write_non_lagoon_config(tmp_path / "config.json", private_key=bare_key)
+    file_config = module.load_config_files([str(config_file)])
+
+    settings = module.resolve_claim_settings(make_args(), file_config)
+
+    assert settings.private_key == f"0x{bare_key}"
+
+
+def test_resolve_claim_settings_rejects_whitespace_only_key(tmp_path: Path) -> None:
+    """A blank key is treated as missing rather than becoming the literal ``0x``."""
+
+    module = load_claim_module()
+    config_file = write_non_lagoon_config(tmp_path / "config.json", private_key="   ")
+    file_config = module.load_config_files([str(config_file)])
+
+    with pytest.raises(SystemExit) as exit_info:
+        module.resolve_claim_settings(make_args(rpc_url="https://rpc.example"), file_config)
+
+    assert "No signing key" in str(exit_info.value)
+
+
 def test_load_config_files_merges_config_then_secrets(tmp_path: Path) -> None:
     """The secrets file overrides the config file without losing its sibling keys."""
 
