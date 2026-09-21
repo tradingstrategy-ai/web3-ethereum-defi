@@ -1,6 +1,6 @@
 # 1.2
 
-- fix: Make the GMX oracle price query (`/signed_prices/latest`) fail over across all four API tiers (primary, backup, fallback, fallback-2) instead of stopping after the backup, and log which endpoint served the prices when the primary is down (2026-09-21)
+- fix: Make the GMX oracle price query (`/signed_prices/latest`) fail over across all four API tiers (primary, backup, fallback, fallback-2) instead of stopping after the backup, log which endpoint served the prices when the primary is down, and remember hosts that fail at connection level across the sync, async and oracle failover drivers so that one dead host no longer costs every request its own retries (2026-09-21)
 - feat: Read public Enzyme Blue manager profiles from the app's undocumented GraphQL endpoint, persist public contact channels and manager identifiers with a website-domain fallback, and expose them through Blue vault metadata (2026-09-19)
 - feat: Add Flying Tulip perpetual-PUT options strategy classification and linked strategy descriptions (2026-09-17)
 - fix: Accumulate all automated Lagoon settlement gross flow in a fixed daily budget window (2026-09-17)

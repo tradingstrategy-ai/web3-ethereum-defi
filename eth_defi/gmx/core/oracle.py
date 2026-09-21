@@ -17,6 +17,7 @@ from requests import Response
 
 from eth_defi.gmx.constants import GMX_API_URLS_FALLBACK, GMX_API_URLS_FALLBACK_2
 from eth_defi.gmx.contracts import _get_clean_api_urls, _get_clean_backup_urls
+from eth_defi.gmx.tier_health import TIER_DOWN_COOLDOWN_SECONDS, healthy_first, mark_tier_down
 from eth_defi.gmx.types import PriceData
 
 # Module-level cache for oracle prices with timestamps
@@ -177,6 +178,11 @@ class OraclePrices:
         order and returns the first response. Setting ``backup_oracle_url`` to
         ``None`` disables failover altogether (primary only).
 
+        A host that fails at connection level is remembered in
+        :py:mod:`eth_defi.gmx.tier_health`, shared with the other GMX API
+        drivers. It is then tried last and given one attempt, unless it is the
+        last tier in line.
+
         :param max_retries: Maximum number of retry attempts per tier
         :param initial_backoff: Initial backoff time in seconds
         :type initial_backoff: float
@@ -191,9 +197,14 @@ class OraclePrices:
             urls.append(self.backup_oracle_url)
             urls.extend(self.fallback_oracle_urls)
 
+        # Hosts that an earlier request found unreachable go last, so this query
+        # does not pay for that discovery again.
+        ordered_urls = healthy_first(urls)
+
         last_exception = None
 
-        for url in urls:
+        for position, url in enumerate(ordered_urls):
+            is_last_resort = position == len(ordered_urls) - 1
             attempts = 0
             backoff = initial_backoff
 
@@ -202,7 +213,7 @@ class OraclePrices:
                     logging.debug("Querying oracle at %s", url)
                     response = requests.get(url, timeout=30)  # Added timeout for safety
                     response.raise_for_status()  # Raise exception for 4XX/5XX status codes
-                    if url != urls[0]:
+                    if url != self.oracle_url:
                         logging.info("Oracle prices served by failover endpoint %s", url)
                     return response
 
@@ -216,6 +227,16 @@ class OraclePrices:
                     # 5xx errors fall through to general RequestException handling (retry)
                     attempts += 1
                     last_exception = e
+
+                except requests.exceptions.ConnectionError as e:
+                    last_exception = e
+                    newly_down = mark_tier_down(url)
+                    if not is_last_resort:
+                        # One WARNING when the host goes down, quiet while other requests find the same.
+                        log = logging.warning if newly_down else logging.debug
+                        log("Oracle host %s unreachable: %s. Failing over, skipping this host for %.0fs", url, e, TIER_DOWN_COOLDOWN_SECONDS)
+                        break  # Break inner loop, try next URL
+                    attempts += 1
 
                 except (requests.exceptions.RequestException, requests.exceptions.Timeout) as e:
                     attempts += 1

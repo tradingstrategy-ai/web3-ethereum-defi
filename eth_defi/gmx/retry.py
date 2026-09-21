@@ -23,6 +23,7 @@ from eth_defi.gmx.constants import (
     GMX_API_URLS_FALLBACK_3,
 )
 from eth_defi.gmx.ticker_validation import GMXInvalidPayloadError
+from eth_defi.gmx.tier_health import TIER_DOWN_COOLDOWN_SECONDS, healthy_first, mark_tier_down
 
 logger = logging.getLogger(__name__)
 
@@ -141,13 +142,19 @@ def _try_api_with_retries(  # noqa: PLR0917  # endpoint-retry state passed posit
     timeout: float,
     retry_config: GMXRetryConfig,
     api_name: str,
+    *,
     validate: Callable[[Any], bool] | None = None,
+    is_last_resort: bool = True,
 ) -> tuple[dict | None, Exception | None]:
     """Try API endpoint with retries, exponential backoff, and validation.
 
     A non-retryable 4xx or an invalid payload fails over immediately (no
     backoff). A retryable failure (5xx, 408, 429, transport error) is retried
     with exponential backoff.
+
+    A connection-level failure (refused, TLS handshake, DNS, connect timeout)
+    marks the host down in :py:mod:`eth_defi.gmx.tier_health`, and unless this is
+    the last tier in line the host is abandoned at once instead of retried.
 
     :param base_url:
         Base URL of the API
@@ -165,6 +172,9 @@ def _try_api_with_retries(  # noqa: PLR0917  # endpoint-retry state passed posit
         Optional callable taking the parsed payload and returning ``True``
         when valid. A ``False`` result treats that endpoint's response as a
         failure.
+    :param is_last_resort:
+        ``True`` when no other tier is left to fail over to. Only then is a
+        host that is unreachable at connection level retried with backoff.
     :return:
         Tuple of (result, error). If successful, result is dict and error is None.
         If failed, result is None and error is the last exception.
@@ -220,6 +230,18 @@ def _try_api_with_retries(  # noqa: PLR0917  # endpoint-retry state passed posit
 
         except requests.RequestException as e:
             last_error = e
+            if isinstance(e, requests.exceptions.ConnectionError):
+                newly_down = mark_tier_down(base_url)
+                if not is_last_resort:
+                    # One WARNING when the host goes down, quiet while other requests find the same.
+                    log = logger.warning if newly_down else logger.debug
+                    log(
+                        "GMX %s API unreachable: %s. Failing over, skipping this host for %.0fs",
+                        api_name,
+                        e,
+                        TIER_DOWN_COOLDOWN_SECONDS,
+                    )
+                    return None, last_error
             if attempt < retry_config.max_retries - 1:
                 logger.warning(
                     "GMX %s API attempt %d/%d failed: %s. Retrying in %.1fs",
@@ -269,6 +291,11 @@ def make_gmx_api_request(  # noqa: PLR0917  # central failover entry point; depr
     5. Wait initial_delay, then repeat full cycle
     6. After full_cycle_retries full cycles, raise GMXAPIUnavailable
 
+    A host that fails at connection level is remembered for
+    :py:data:`~eth_defi.gmx.tier_health.TIER_DOWN_COOLDOWN_SECONDS`. Until then
+    requests try it last and give it one attempt, unless it is the last tier in
+    line. Other failures (5xx, 4xx, invalid payload) are never remembered.
+
     :param chain:
         Chain name (e.g., "arbitrum", "avalanche")
     :param endpoint:
@@ -299,15 +326,18 @@ def make_gmx_api_request(  # noqa: PLR0917  # central failover entry point; depr
 
     chain_lower = chain.lower()
 
-    # Get primary, backup, and fallback URLs
-    primary_url = GMX_API_URLS.get(chain_lower)
-    backup_url = GMX_API_URLS_BACKUP.get(chain_lower)
-    fallback_url = GMX_API_URLS_FALLBACK.get(chain_lower)
-    fallback_url_2 = GMX_API_URLS_FALLBACK_2.get(chain_lower)
+    # Failover order: primary, backup, fallback, fallback-2, then gmxapi.ai
+    tier_tables = (("primary", GMX_API_URLS), ("backup", GMX_API_URLS_BACKUP), ("fallback", GMX_API_URLS_FALLBACK), ("fallback-2", GMX_API_URLS_FALLBACK_2))
+    tiers: list[tuple[str, str]] = [(name, table[chain_lower]) for name, table in tier_tables if table.get(chain_lower)]
     fallback_url_3 = GMX_API_URLS_FALLBACK_3.get(chain_lower)
 
-    if not primary_url and not backup_url and not fallback_url and not fallback_url_2 and not fallback_url_3:
+    if not tiers and not fallback_url_3:
         raise ValueError(f"No GMX API URLs configured for chain: {chain}")
+
+    # gmxapi.ai serves v2 paths only (e.g. /markets, /tokens, /apy): the DigitalOcean v1 host
+    # serves /prices* and /signed_prices* instead, and gmxapi.ai 404s on those.
+    if fallback_url_3 and not endpoint.startswith(("/prices", "/signed_prices")):
+        tiers.append(("fallback-3", fallback_url_3))
 
     last_error = None
     attempts: list[str] = []
@@ -324,88 +354,24 @@ def make_gmx_api_request(  # noqa: PLR0917  # central failover entry point; depr
             )
             time.sleep(wait_time)
 
-        # Try primary API
-        if primary_url:
+        # Hosts that an earlier request found unreachable go last, so this request
+        # does not pay for that discovery again.
+        ordered_tiers = healthy_first(tiers, key=lambda tier: tier[1])
+        for position, (api_name, base_url) in enumerate(ordered_tiers):
             result, error = _try_api_with_retries(
-                primary_url,
+                base_url,
                 endpoint,
                 params,
                 timeout,
                 retry_config,
-                "primary",
+                api_name,
                 validate=validate,
+                is_last_resort=position == len(ordered_tiers) - 1,
             )
             if result is not None:
                 return result
             last_error = error
-            attempts.append(f"primary: {error}")
-
-        # Try backup API
-        if backup_url:
-            result, error = _try_api_with_retries(
-                backup_url,
-                endpoint,
-                params,
-                timeout,
-                retry_config,
-                "backup",
-                validate=validate,
-            )
-            if result is not None:
-                return result
-            last_error = error
-            attempts.append(f"backup: {error}")
-
-        # Try fallback API
-        if fallback_url:
-            result, error = _try_api_with_retries(
-                fallback_url,
-                endpoint,
-                params,
-                timeout,
-                retry_config,
-                "fallback",
-                validate=validate,
-            )
-            if result is not None:
-                return result
-            last_error = error
-            attempts.append(f"fallback: {error}")
-
-        # Try second fallback API
-        if fallback_url_2:
-            result, error = _try_api_with_retries(
-                fallback_url_2,
-                endpoint,
-                params,
-                timeout,
-                retry_config,
-                "fallback-2",
-                validate=validate,
-            )
-            if result is not None:
-                return result
-            last_error = error
-            attempts.append(f"fallback-2: {error}")
-
-        # Try third fallback API (gmxapi.ai) — only for v2 paths
-        # (e.g. /markets, /tokens, /apy).  The DigitalOcean v1 host serves
-        # /prices* and /signed_prices* instead; gmxapi.ai 404s on those.
-        is_price_endpoint = endpoint.startswith("/prices") or endpoint.startswith("/signed_prices")
-        if fallback_url_3 and not is_price_endpoint:
-            result, error = _try_api_with_retries(
-                fallback_url_3,
-                endpoint,
-                params,
-                timeout,
-                retry_config,
-                "fallback-3",
-                validate=validate,
-            )
-            if result is not None:
-                return result
-            last_error = error
-            attempts.append(f"fallback-3: {error}")
+            attempts.append(f"{api_name}: {error}")
 
     logger.error(
         "GMX API unavailable for %s on %s after %d cycle(s): %s",

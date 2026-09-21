@@ -28,6 +28,7 @@ from eth_defi.gmx.constants import (
 )
 from eth_defi.gmx.core import oracle as oracle_module
 from eth_defi.gmx.core.oracle import OraclePrices, clear_oracle_prices_cache
+from eth_defi.gmx.tier_health import clear_tier_health
 
 ORACLE_PATH = "/signed_prices/latest"
 
@@ -74,11 +75,13 @@ PAYLOAD = {"signedPrices": [SIGNED_PRICE_ENTRY]}
 
 @pytest.fixture(autouse=True)
 def _isolated_oracle_module(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
-    """Skip real backoff sleeps in the oracle module and isolate its module-level price cache."""
+    """Skip real backoff sleeps in the oracle module and isolate its module-level price cache and host health."""
     clear_oracle_prices_cache()
+    clear_tier_health()
     monkeypatch.setattr(oracle_module, "time", SimpleNamespace(sleep=lambda _seconds: None, time=time.time))
     yield
     clear_oracle_prices_cache()
+    clear_tier_health()
 
 
 def _response(status_code: int, payload: dict) -> requests.Response:

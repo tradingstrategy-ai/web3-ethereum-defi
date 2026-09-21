@@ -25,6 +25,7 @@ from eth_defi.gmx.order.base_order import BaseOrder
 from eth_defi.gmx.order.swap_order import SwapOrder
 from eth_defi.gmx.retry import GMXRetryConfig
 from eth_defi.gmx.synthetic_tokens import get_gmx_synthetic_token_by_symbol
+from eth_defi.gmx.tier_health import clear_tier_health
 from eth_defi.gmx.trading import GMXTrading
 from eth_defi.hotwallet import HotWallet
 from eth_defi.provider.anvil import AnvilLaunch, fork_network_anvil
@@ -62,6 +63,18 @@ GMX_READ_ONLY_POOLED_FORK_FIXTURES = frozenset({"gmx_open_positions"})
 
 # Set up logging for debugging
 logger = logging.getLogger(__name__)
+
+
+@pytest.fixture(autouse=True)
+def _reset_gmx_tier_health() -> Generator[None, None, None]:
+    """Forget which GMX API hosts were marked down.
+
+    The record is module-level state. Without this reset, a test that simulates
+    a dead host would reorder the failover chain of every test after it.
+    """
+    clear_tier_health()
+    yield
+    clear_tier_health()
 
 
 @pytest.hookimpl(tryfirst=True)
