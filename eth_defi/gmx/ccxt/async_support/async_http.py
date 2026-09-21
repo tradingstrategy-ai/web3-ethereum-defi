@@ -10,6 +10,7 @@ import aiohttp
 from eth_defi.gmx.constants import GMX_API_URLS, GMX_API_URLS_BACKUP, GMX_API_URLS_FALLBACK, GMX_API_URLS_FALLBACK_2
 from eth_defi.gmx.retry import GMXAPIUnavailable, is_retryable_http_status
 from eth_defi.gmx.ticker_validation import GMXInvalidPayloadError
+from eth_defi.gmx.tier_health import TIER_DOWN_COOLDOWN_SECONDS, healthy_first, mark_tier_down
 
 logger = logging.getLogger(__name__)
 
@@ -32,6 +33,10 @@ async def async_make_gmx_api_request(  # noqa: PLR0917  # failover driver mirror
     ``gmxapi.ai`` v2 tier) with a single cycle and ad-hoc
     ``max_retries``/``retry_delay`` kwargs rather than
     :class:`~eth_defi.gmx.retry.GMXRetryConfig`.
+
+    A host that refuses the connection (or drops the TLS handshake) is recorded
+    in :py:mod:`eth_defi.gmx.tier_health`, shared with the sync driver. Requests
+    try such a host last and give it one attempt, unless it is the last tier in line.
 
     :param chain: Chain name (e.g., "arbitrum", "avalanche")
     :param endpoint: API endpoint path (e.g., "/prices/tickers")
@@ -67,7 +72,11 @@ async def async_make_gmx_api_request(  # noqa: PLR0917  # failover driver mirror
     last_error: Exception | None = None
 
     try:  # noqa: PLR1702  # failover loop mirrors the sync driver's nesting
-        for url, url_type in urls_to_try:
+        # Hosts that an earlier request found unreachable go last, so this request
+        # does not pay for that discovery again.
+        ordered_urls = healthy_first(urls_to_try, key=lambda item: item[0])
+        for position, (url, url_type) in enumerate(ordered_urls):
+            is_last_resort = position == len(ordered_urls) - 1
             logger.debug("Trying %s GMX API: %s", url_type, url)
 
             for attempt in range(max_retries):
@@ -115,6 +124,18 @@ async def async_make_gmx_api_request(  # noqa: PLR0917  # failover driver mirror
 
                 except (aiohttp.ClientError, asyncio.TimeoutError) as e:
                     last_error = e
+                    if isinstance(e, aiohttp.ClientConnectorError):
+                        newly_down = mark_tier_down(url)
+                        if not is_last_resort:
+                            # One WARNING when the host goes down, quiet while other requests find the same.
+                            log = logger.warning if newly_down else logger.debug
+                            log(
+                                "GMX %s API unreachable: %s. Failing over, skipping this host for %.0fs",
+                                url_type,
+                                e,
+                                TIER_DOWN_COOLDOWN_SECONDS,
+                            )
+                            break
                     if attempt < max_retries - 1:
                         delay = retry_delay * (2**attempt)
                         logger.warning(
