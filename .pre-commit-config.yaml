@@ -1,0 +1,14 @@
+repos:
+  # Match the repository's CI lint gate exactly: .github/workflows/lint.yml runs
+  # `ruff format --check` with ruff 0.11.13 (the version pinned in
+  # pyproject.toml's dev dependencies). Keep this pin in sync with both.
+  #
+  # Note: `ruff check` is deliberately NOT included. CI does not enforce it and
+  # the codebase has long-standing, intentional lint violations (e.g. the
+  # backward-compatibility camelCase aliases and a __main__ demo `print` in
+  # eth_defi/gmx/keys.py), so a blocking lint hook would churn unrelated files
+  # and fail on every commit that touches them.
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.11.13
+    hooks:
+      - id: ruff-format
