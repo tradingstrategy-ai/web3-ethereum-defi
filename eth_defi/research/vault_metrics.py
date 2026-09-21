@@ -91,6 +91,20 @@ MAX_VALID_SHARE_PRICE: USDollarAmount = 1_000_000
 #: that produce extreme volatility numbers.
 MAX_VALID_VOLATILITY: Percent = 10_000
 
+#: Minimum calendar duration required before reporting a Sharpe ratio.
+#:
+#: Short-lived vaults can show mechanically extreme annualised Sharpe ratios
+#: because a few nearly identical price observations imply implausibly low
+#: volatility. This is a data-quality floor, not a claim that two weeks is a
+#: statistically sufficient track record.
+MINIMUM_SHARPE_SAMPLE_DURATION = pd.Timedelta(days=14)
+
+#: Minimum price observations required before reporting a Sharpe ratio.
+#:
+#: The duration floor alone does not reject a sparse series. Ten prices yield
+#: nine returns, enough to avoid ranking a vault from only a handful of moves.
+MINIMUM_SHARPE_PRICE_SAMPLES = 10
+
 #: Human-readable note suffixes for vault scan cycles slower than active hourly scans.
 VAULT_SCAN_CYCLE_NOTES = {
     "early": "The vault data might be updated infrequently because the vault has low TVL and is still in the initial sampling period.",
@@ -1200,7 +1214,8 @@ def calculate_sharpe_ratio_from_returns(
     daily_returns: pd.Series,
     risk_free_rate: float = 0.00,
     annualisation_factor: float = 365,
-) -> float:
+    sample_duration: pd.Timedelta | None = None,
+) -> float | None:
     """Calculate annualised Sharpe ratio from regular daily returns.
 
     Sparse change-only observations must be converted to one price per
@@ -1218,17 +1233,24 @@ def calculate_sharpe_ratio_from_returns(
         Annualised risk-free rate. Defaults to zero.
     :param annualisation_factor:
         Calendar periods per year. Crypto vaults use 365 daily periods.
+    :param sample_duration:
+        Calendar duration covered by the return series. When supplied, it must
+        meet :py:data:`MINIMUM_SHARPE_SAMPLE_DURATION`.
     :return:
-        Annualised Sharpe ratio, or ``NaN`` with insufficient observations or
-        zero volatility.
+        Annualised Sharpe ratio, or ``None`` when the available history cannot
+        support the ranking statistic.
     """
 
     assert isinstance(daily_returns, pd.Series), f"daily_returns must be a pandas Series, got {type(daily_returns)}"
 
     clean = pd.to_numeric(daily_returns, errors="coerce")
     clean = clean[np.isfinite(clean)].dropna()
-    if len(clean) < 2:
-        return np.nan  # Not enough data
+    if sample_duration is not None:
+        if len(clean) + 1 < MINIMUM_SHARPE_PRICE_SAMPLES:
+            return None
+
+        if sample_duration < MINIMUM_SHARPE_SAMPLE_DURATION:
+            return None
 
     mean_daily_return = clean.mean()
     annualised_return = mean_daily_return * annualisation_factor
@@ -1237,7 +1259,7 @@ def calculate_sharpe_ratio_from_returns(
     annualised_volatility = daily_volatility * np.sqrt(annualisation_factor)
 
     if annualised_volatility == 0:
-        return np.nan  # Avoid division by zero
+        return None
     sharpe = (annualised_return - risk_free_rate) / annualised_volatility
 
     return sharpe
@@ -1933,11 +1955,12 @@ def calculate_period_metrics(
     period_daily_returns = daily_returns.loc[daily_start:samples_end_at]
     period_daily_returns = period_daily_returns.loc[period_daily_returns.index > daily_start]
     volatility = calculate_annualised_volatility_from_daily_returns(period_daily_returns)
-    sharpe = calculate_sharpe_ratio_from_returns(period_daily_returns)
-    if not np.isfinite(sharpe):
-        # Common exported period metrics use zero for an eligible flat series,
-        # where Sharpe is mathematically undefined because volatility is zero.
-        sharpe = 0
+    sharpe = calculate_sharpe_ratio_from_returns(
+        period_daily_returns,
+        sample_duration=sample_duration,
+    )
+    if sharpe is not None and not np.isfinite(sharpe):
+        sharpe = None
 
     # Calculate max drawdown directly from share prices.
     # Forward-filled daily prices put every vault on the same calendar while
@@ -3724,7 +3747,7 @@ def format_lifetime_table(
         return ", ".join(str(val) for val in v)
 
     df["three_months_volatility"] = df["three_months_volatility"].apply(lambda x: f"{x:.1%}")
-    df["three_months_sharpe"] = df["three_months_sharpe"].apply(lambda x: f"{x:.1f}")
+    df["three_months_sharpe"] = df["three_months_sharpe"].apply(lambda x: f"{x:.1f}" if pd.notna(x) else "---")
     df["event_count"] = df["event_count"].apply(lambda x: f"{x:,}")
     df["risk"] = df["risk"].apply(lambda x: x.get_risk_level_name() if x is not None else "Unknown")
     df["lockup"] = df["lockup"].apply(lambda x: f"{x.days}" if pd.notna(x) else "---")
