@@ -12,7 +12,7 @@ This module provides Python integration for Anvil.
 
 - Anvil is mostly used in mainnet fork test cases.
 
-- Anvil is a more stable an alternative to Ganache (:py:mod:`eth_defi.ganache`)
+- Anvil is a more stable alternative to Ganache (:py:mod:`eth_defi.ganache`)
 
 - Anvil is part of `Foundry <https://github.com/foundry-rs/foundry>`__,
   a toolkit for Ethereum application development.
@@ -721,7 +721,7 @@ class AnvilLaunch:
             Block the execution until anvil is gone
 
         :param block_timeout:
-            How long time we try to kill Anvil until giving up.
+            How long we wait for Anvil to exit before giving up.
 
         A graceful shutdown gives Anvil time to flush
         ``~/.foundry/cache/rpc/<network>/<block>/storage.json``. If the
@@ -1180,7 +1180,7 @@ def launch_anvil(
             # Set up a local unit testing blockchain
             # https://web3py.readthedocs.io/en/stable/examples.html#contract-unit-tests-in-python
             web3 = Web3(HTTPProvider(anvil_bnb_chain_fork))
-            # Anvil needs POA middlware if parent chain needs POA middleware
+            # Anvil needs POA middleware if the parent chain needs POA middleware.
             install_chain_middleware(web3)
             web3.eth.set_gas_price_strategy(node_default_gas_price_strategy)
             return web3
@@ -1291,7 +1291,7 @@ def launch_anvil(
     :param hardfork:
         EVM version to use
 
-    :param step_tracing:
+    :param steps_tracing:
         Enable Anvil step tracing.
 
         Needed to get structured logs.
@@ -1306,7 +1306,7 @@ def launch_anvil(
         budget so it can receive the fallback result.
 
     :param fork_block_number:
-        For at a specific block height of the parent chain.
+        Fork at a specific block height of the parent chain.
 
         If not given, fork at the latest block.
         Needs an archive node to work.
@@ -1318,17 +1318,17 @@ def launch_anvil(
         upstream RPC responds with ``{"message":"Unknown block","code":26}``
         while resolving ``latest`` during genesis creation.
 
-    :parma code_size_limit:
-        Max smart contract size
+    :param code_size_limit:
+        Maximum smart contract size.
 
     :param rpc_smoke_test:
         Check that the RPC is working before attempting to start Anvil
 
-    :parma log_wait:
-        Display info level logging while waiting for Anvil to start.
+    :param log_wait:
+        Display info-level logging while waiting for Anvil to start.
 
     :param verbose:
-        Make Anvil the proces to dump a lot of stuff to stdout/stderr.
+        Make Anvil the process dump a lot of output to stdout/stderr.
 
         See -vvvv https://getfoundry.sh/anvil/reference/anvil
 
