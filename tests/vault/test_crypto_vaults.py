@@ -34,6 +34,7 @@ from eth_defi.vault.denomination import (
     classify_denomination,
     convert_usd_threshold_to_denomination,
     normalise_denomination_symbol,
+    resolve_sparkline_tvl_threshold,
 )
 from eth_defi.vault.vaultdb import VaultDatabase
 
@@ -71,6 +72,20 @@ def test_denomination_classifier_and_fixed_thresholds() -> None:
     assert convert_usd_threshold_to_denomination(Decimal("5000"), "USDC") == Decimal("5000")
     assert convert_usd_threshold_to_denomination(Decimal("5000"), "wstETH") == Decimal("2.5")
     assert convert_usd_threshold_to_denomination(Decimal("5000"), "cbBTC") == Decimal("0.08333333333333333333333333333")
+
+
+def test_sparkline_tvl_thresholds_use_explicit_family_policy() -> None:
+    """Sparkline cadence thresholds cover native and wrapped denominations."""
+    assert resolve_sparkline_tvl_threshold("USDC") == Decimal("5000")
+    assert resolve_sparkline_tvl_threshold("sUSDe") == Decimal("5000")
+    assert resolve_sparkline_tvl_threshold("WETH") == Decimal("2.5")
+    assert resolve_sparkline_tvl_threshold("wstETH") == Decimal("2.5")
+    assert resolve_sparkline_tvl_threshold("WBTC") == Decimal("0.1")
+    assert resolve_sparkline_tvl_threshold("cbBTC") == Decimal("0.1")
+    with pytest.raises(ValueError, match="Unsupported denomination"):
+        resolve_sparkline_tvl_threshold("SOL")
+    with pytest.raises(ValueError, match="Unsupported denomination"):
+        resolve_sparkline_tvl_threshold(" ")
 
 
 def test_crypto_native_admission_uses_native_peak_thresholds_without_usd() -> None:

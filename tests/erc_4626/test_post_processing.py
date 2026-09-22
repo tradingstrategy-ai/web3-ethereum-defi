@@ -12,6 +12,18 @@ from eth_defi.vault import post_processing
 brotli = pytest.importorskip("brotli", reason="brotli not installed (cloudflare_r2 extra)")
 
 
+def test_export_sparklines_contains_corrupt_vault_database(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A corrupt metadata pickle must not abort later post-processing stages."""
+
+    def raise_corrupt_database(**_: object) -> None:
+        message = "truncated pickle"
+        raise EOFError(message)
+
+    monkeypatch.setattr(post_processing, "run_sparkline_export", raise_corrupt_database)
+
+    assert post_processing.export_sparklines() is False
+
+
 @pytest.mark.parametrize(("cleaning_ok", "skip_data", "export_ok", "override_path"), [(True, False, True, False), (True, False, False, False), (True, True, True, False), (False, False, True, False), (True, False, True, True)])
 def test_manifest_requires_successful_private_export(
     tmp_path: Path,

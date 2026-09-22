@@ -31,59 +31,58 @@ def export_sparklines_module() -> ModuleType:
     return module
 
 
-def _make_vault_row(spec: VaultSpec, protocol: str) -> dict:
-    """Create a minimal stablecoin vault row for inclusion tests.
+def _make_vault_row(spec: VaultSpec, denomination: str) -> dict:
+    """Create a minimal vault row for inclusion tests.
 
     :param spec:
         Synthetic vault identity.
-    :param protocol:
-        Protocol display name.
+    :param denomination:
+        Persisted denomination symbol.
     :return:
         Minimal compatible vault metadata row.
     """
     return {
-        "Protocol": protocol,
-        "Denomination": "USDT",
+        "Protocol": "Example",
+        "Denomination": denomination,
         "_detection_data": SimpleNamespace(get_spec=lambda: spec),
     }
 
 
-def test_apex_sparkline_threshold_exemption(export_sparklines_module: ModuleType) -> None:
-    """Include USD 500 ApeX vaults without lowering the global threshold.
+def test_sparkline_inclusion_covers_supported_families_without_peak_gate(export_sparklines_module: ModuleType) -> None:
+    """Include stablecoin, ETH and BTC vaults based on finite input rows.
 
     :param export_sparklines_module:
         Dynamically loaded standalone exporter module.
     :return:
-        None. Assertions validate the peak-TVL inclusion policy.
+        None. Assertions validate the family-based inclusion policy.
     """
     module = export_sparklines_module
-    apex_eligible = VaultSpec(9995, "apex-vault-eligible")
-    apex_below_floor = VaultSpec(9995, "apex-vault-below-floor")
-    non_apex_small = VaultSpec(1, "0x0000000000000000000000000000000000000001")
-    non_apex_large = VaultSpec(1, "0x0000000000000000000000000000000000000002")
+    stablecoin = VaultSpec(1, "0x0000000000000000000000000000000000000001")
+    eth = VaultSpec(1, "0x0000000000000000000000000000000000000002")
+    btc = VaultSpec(1, "0x0000000000000000000000000000000000000003")
+    unsupported = VaultSpec(1, "0x0000000000000000000000000000000000000004")
     vault_db = SimpleNamespace(
         rows={
-            apex_eligible: _make_vault_row(apex_eligible, "ApeX"),
-            apex_below_floor: _make_vault_row(apex_below_floor, "ApeX"),
-            non_apex_small: _make_vault_row(non_apex_small, "Other protocol"),
-            non_apex_large: _make_vault_row(non_apex_large, "Other protocol"),
+            stablecoin: _make_vault_row(stablecoin, "USDC"),
+            eth: _make_vault_row(eth, "WETH"),
+            btc: _make_vault_row(btc, "WBTC"),
+            unsupported: _make_vault_row(unsupported, "SOL"),
         }
     )
+    index = pd.date_range("2026-01-01", periods=15, freq="D", name="timestamp")
+    ids = [stablecoin.as_string_id(), eth.as_string_id(), btc.as_string_id(), unsupported.as_string_id()]
     prices_df = pd.DataFrame(
         {
-            "id": [
-                apex_eligible.as_string_id(),
-                apex_below_floor.as_string_id(),
-                non_apex_small.as_string_id(),
-                non_apex_large.as_string_id(),
-            ],
-            "total_assets": [500, 499, 500, 5000],
-        }
-    )
+            "id": [vault_id for _ in index for vault_id in ids],
+            "share_price": [1.0] * (len(ids) * len(index)),
+            "total_assets": [value for _ in index for value in (1, 0.01, 0.001, 10_000)],
+        },
+        index=index.repeat(len(ids)),
+    ).sort_index()
 
     included = module.get_included_vault_ids(vault_db, prices_df)
 
-    assert included == {apex_eligible.as_string_id(), non_apex_large.as_string_id()}
+    assert included == {stablecoin.as_string_id(), eth.as_string_id(), btc.as_string_id()}
 
 
 def test_rendered_images_cross_joblib_process_boundary(export_sparklines_module: ModuleType) -> None:

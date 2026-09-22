@@ -11,6 +11,7 @@ Used by both :py:mod:`scan-vaults-all-chains` and
 import importlib.util
 import logging
 import os
+import pickle  # noqa: S403 - VaultDatabase already uses trusted local pickle state.
 import time
 from pathlib import Path
 from typing import Any
@@ -48,6 +49,7 @@ from eth_defi.lighter.vault_data_export import get_lighter_price_deployments
 from eth_defi.perp_dex.adapter import PerpDexCapability, PerpDexCapabilityRegistry, embed_perp_capability_registry
 from eth_defi.perp_dex.parquet import attach_perp_metrics_to_price_rows, derive_perp_vault_metric_snapshots
 from eth_defi.perp_dex.storage import read_perp_vault_observations
+from eth_defi.research.sparkline_export import run_sparkline_export
 from eth_defi.research.wrangle_vault_prices import generate_cleaned_vault_datasets
 from eth_defi.vault import top_vaults_json
 from eth_defi.vault.base import VaultHistoricalRead
@@ -892,20 +894,42 @@ def export_crypto_exchange_rate_parquet(parquet_path: Path) -> bool:
         return False
 
 
-def export_sparklines() -> bool:
-    """Export sparkline images to R2.
+def export_sparklines(
+    *,
+    prices_path: Path | None = None,
+    vault_db_path: Path | None = None,
+    state_path: Path | None = None,
+) -> bool:
+    """Export sparkline images to R2 through the typed library entry point.
 
-    :return: True if export succeeded
+    The scanner already holds the shared ``scan-pipeline`` writer lock when
+    this function is called from post-processing. The standalone script owns
+    the same lock around its direct library call.
+
+    :param prices_path:
+        Current crypto daily price Parquet.
+    :param vault_db_path:
+        Current vault metadata database.
+    :param state_path:
+        Persistent sparkline publication state.
+    :return:
+        True if export succeeds.
     """
     try:
         logger.info("Creating sparkline images")
-        spec = importlib.util.spec_from_file_location("export_sparklines", "scripts/erc-4626/export-sparklines.py")
-        module = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(module)
-        module.main()
+        data_dir = get_pipeline_data_dir()
+        result = run_sparkline_export(
+            data_dir=data_dir,
+            prices_path=prices_path,
+            vault_db_path=vault_db_path,
+            state_path=state_path,
+        )
+        if not result.success:
+            logger.error("Sparkline export completed with %d failed vaults", result.counters["failed"])
+            return False
         logger.info("Sparkline export complete")
         return True
-    except Exception:
+    except (EOFError, KeyError, ImportError, OSError, pickle.UnpicklingError, pa.ArrowException, R2OperationError, RuntimeError, TypeError, ValueError):
         logger.exception("Export sparklines failed")
         return False
 
@@ -1332,11 +1356,15 @@ def run_post_processing(  # noqa: PLR0914 - orchestration keeps stage options ex
     # Export sparklines.
     if skip_sparklines:
         logger.info("Skipping sparkline export (SKIP_SPARKLINES=true)")
-    elif not cleaning_ok:
-        logger.warning("Skipping sparkline export — clean_prices failed, refusing to export from stale data")
+    elif not cleaning_ok or not crypto_clean_ok:
+        logger.warning("Skipping sparkline export — current public or crypto cleaning failed, refusing to export stale data")
         steps["export-sparklines"] = False
     else:
-        steps["export-sparklines"] = export_sparklines()
+        steps["export-sparklines"] = export_sparklines(
+            prices_path=crypto_paths.cleaned_price_path,
+            vault_db_path=resolved_vault_db_path,
+            state_path=data_dir / "sparkline-export-state.json",
+        )
 
     # Export protocol metadata. This is not derived from cleaned prices and is
     # always safe to run.

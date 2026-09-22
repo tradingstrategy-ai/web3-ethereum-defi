@@ -1875,6 +1875,7 @@ source .local-test.env && \
 | `MERGE_LIGHTER` | Optional. Merge Lighter native pool data. Default: false. |
 | `SKIP_DATA` | Optional. Skip main data-file export and readiness manifest publication. Other exports, including the private crypto bundle, still run. Default: false. |
 | `SKIP_SPARKLINES` / `SKIP_METADATA` / `SKIP_TOP_VAULTS` | Optional. Independently skip the corresponding export. These do not disable main data-file or manifest publication. Default: false. |
+| `FORCE_SPARKLINE_EXPORT` | Optional. Force sparkline rendering/publication despite the low-TVL cadence, retry backoff or local input-digest match. Default: false. |
 | `PIPELINE_DATA_DIR` | Optional. Pipeline files and price-scan provenance directory. Default: `~/.tradingstrategy/vaults`. |
 | `SKIP_SAMPLES` | Optional. Skip Ethereum-only sample file export. Default: false. |
 | `LOG_LEVEL` | Optional. Default: info. |
@@ -2009,21 +2010,31 @@ poetry run python scripts/erc-4626/clean-prices.py
 
 ### export-sparklines.py
 
-Export eligible vault share-price sparklines to Cloudflare R2. Run after
-`cleaned-vault-prices-1h.parquet` is generated.
+Export eligible vault share-price sparklines to Cloudflare R2. Run after the
+crypto daily file `crypto-vaults/crypto-cleaned-vault-prices-1d.parquet` is
+generated. This standalone operator command neither refreshes that input nor
+checks its age; use `post-process-prices.py` when the current scan must be
+cleaned and validated before publication.
 
-A vault is eligible when its denomination is stablecoin-like, its historical
-peak TVL reaches USD 5,000 (USD 500 for the temporary ApeX exemption), and its
-first and latest finite share-price observations span at least 14 days. The
-threshold is elapsed history, not a requirement for 14 daily samples.
+A vault is eligible when its denomination is a supported stablecoin, ETH or
+BTC family and its first and latest finite share-price observations span at
+least 14 days. Low-TVL vaults (below 5,000 stablecoin units, 2.5 ETH or 0.1
+BTC) are successfully published at most once every 72 hours; high-TVL vaults
+are considered on every invocation. The persistent
+`sparkline-export-state.json` file records cadence, input hashes and bounded
+failure backoff, renderer version and the non-secret R2 destination identity.
+The BTC boundary is the explicit 0.1 BTC native-unit policy; its USD-equivalent
+conversion is only a fixed consistency check, not a live valuation. Set
+`FORCE_SPARKLINE_EXPORT=true` to repair state or remote object drift.
 
 Every published chart has a 90-day horizontal axis ending on the vault's own
 latest observation day. A vault with 14–89 days of history is drawn on the
 right, while the period before its first observation stays blank. An inactive
 vault whose latest observation is older than the dataset-wide latest timestamp
-is still rendered from its own history. The exporter publishes a listing SVG
-and social-card PNG for each vault. Both are gzip-compressed, and unchanged
-source images are skipped using checksum metadata.
+is still rendered from its own history. The exporter publishes one 100 × 25
+SVG and one 300 × 300 PNG for each vault. Both are gzip-compressed, and
+unchanged source images are skipped using the local input digest before any
+rendering or R2 request.
 
 ```shell
 poetry run python scripts/erc-4626/export-sparklines.py
@@ -2035,7 +2046,15 @@ poetry run python scripts/erc-4626/export-sparklines.py
 | `R2_SPARKLINE_ENDPOINT_URL` | Required. R2 S3-compatible endpoint URL. |
 | `R2_SPARKLINE_ACCESS_KEY_ID` | Required. R2 access key ID. |
 | `R2_SPARKLINE_SECRET_ACCESS_KEY` | Required. R2 secret access key. |
-| `MAX_WORKERS` | Optional. Rendering processes and upload threads. Default: 20. |
+| `SPARKLINE_MAX_WORKERS` | Optional. Sparkline rendering and upload threads. Default: 8. |
+| `SPARKLINE_BATCH_SIZE` | Optional. Vaults retained in one render/upload batch. Default: 100. |
+| `FORCE_SPARKLINE_EXPORT` | Optional. Bypass cadence, retry backoff and local unchanged-input skips. Default: false. |
+
+For a production-shaped no-upload smoke test, run
+`poetry run python scripts/erc-4626/benchmark-sparklines.py`. It selects the
+first 100 eligible IDs in stable order, reports preparation/render/compression
+timings and payload sizes, and never creates an R2 client. Set
+`SPARKLINE_BENCHMARK_SAMPLE_SIZE` to change the sample size.
 
 ### export-protocol-metadata.py
 

@@ -49,6 +49,20 @@ ETH_USD_GUIDELINE_RATE = Decimal("2000")
 #: Fixed USD guideline price for one BTC-like underlying unit.
 BTC_USD_GUIDELINE_RATE = Decimal("60000")
 
+#: Low-TVL sparkline policy guideline for stablecoin-denominated vaults.
+SPARKLINE_STABLECOIN_TVL_THRESHOLD_USD = Decimal("5000")
+
+#: Low-TVL sparkline policy guideline for ETH-denominated vaults.
+SPARKLINE_ETH_TVL_THRESHOLD = Decimal("2.5")
+
+#: Low-TVL sparkline policy guideline for BTC-denominated vaults.
+SPARKLINE_BTC_TVL_THRESHOLD = Decimal("0.1")
+
+#: Equivalent USD policy amount used to derive the explicit 0.1 BTC threshold.
+#:
+#: This is a publication-policy conversion, not a live BTC valuation.
+SPARKLINE_BTC_TVL_THRESHOLD_USD = SPARKLINE_BTC_TVL_THRESHOLD * BTC_USD_GUIDELINE_RATE
+
 
 #: Reviewed ETH/BTC denomination symbols mapped to family and wrapper kind.
 #:
@@ -213,3 +227,38 @@ def convert_usd_threshold_to_denomination(
     if family is DenominationFamily.btc:
         return usd_threshold / BTC_USD_GUIDELINE_RATE
     raise ValueError(f"Unsupported denomination symbol for threshold conversion: {denomination_symbol!r}")
+
+
+def resolve_sparkline_tvl_threshold(denomination_symbol: str | None) -> Decimal:
+    """Resolve the below-threshold cadence boundary for one denomination.
+
+    The sparkline publication policy uses fixed, reviewed thresholds in the
+    vault's native unit. Stablecoins and ETH use the existing USD 5,000
+    conversion helper. BTC uses the USD-equivalent of the explicit 0.1 BTC
+    policy so that the converter does not reduce it to 0.083333 BTC.
+
+    :param denomination_symbol:
+        Persisted vault denomination symbol, including wrapped variants.
+    :return:
+        Native-unit boundary; values strictly below it use the low-TVL cadence.
+    :raises ValueError:
+        If the denomination is outside the supported stablecoin/ETH/BTC
+        families.
+    """
+    family = classify_denomination(denomination_symbol)
+    if family is DenominationFamily.stablecoin:
+        usd_threshold = SPARKLINE_STABLECOIN_TVL_THRESHOLD_USD
+        expected_threshold = usd_threshold
+    elif family is DenominationFamily.eth:
+        usd_threshold = SPARKLINE_STABLECOIN_TVL_THRESHOLD_USD
+        expected_threshold = SPARKLINE_ETH_TVL_THRESHOLD
+    elif family is DenominationFamily.btc:
+        usd_threshold = SPARKLINE_BTC_TVL_THRESHOLD_USD
+        expected_threshold = SPARKLINE_BTC_TVL_THRESHOLD
+    else:
+        raise ValueError(f"Unsupported denomination symbol for sparkline TVL threshold: {denomination_symbol!r}")
+
+    threshold = convert_usd_threshold_to_denomination(usd_threshold, denomination_symbol or "")
+    if threshold != expected_threshold:
+        raise RuntimeError(f"Sparkline threshold conversion drifted for {denomination_symbol!r}: expected {expected_threshold}, got {threshold}")
+    return threshold

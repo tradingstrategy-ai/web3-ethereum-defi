@@ -155,8 +155,9 @@ if [[ "$SCAN_PRICES" == "true" ]]; then python scripts/erc-4626/scan-prices.py ;
 echo "Cleaning vault data"
 python scripts/erc-4626/clean-prices.py
 
-echo "Creating sparkline images"
-python scripts/erc-4626/export-sparklines.py
+# Sparkline export reads the canonical crypto daily Parquet, which this legacy
+# cleaner does not generate. The production post-processing pipeline exports
+# sparklines only after both public and crypto cleaning succeed.
 
 echo "Exporting metadata files"
 python scripts/erc-4626/export-protocol-metadata.py

@@ -59,7 +59,8 @@ Pipeline control:
 - ``SKIP_DATA``: Skip data file (parquet, pickle) export to R2 (default: ``false``)
 - ``SKIP_SAMPLES``: Skip Ethereum-only sample file export to R2 (default: ``false``)
 - ``UPLOAD_PREFIX``: Prefix for uploaded data file keys, e.g. ``test-`` (default: ``""``). Applies to all R2 uploads including the top-vaults JSON.
-- ``MAX_WORKERS``: Number of parallel workers for rendering/uploading (default: ``20``)
+- ``SPARKLINE_MAX_WORKERS``: Sparkline rendering and upload thread count
+  (default: ``8``)
 
 Sparkline R2 bucket (required unless ``SKIP_SPARKLINES=true``):
 
