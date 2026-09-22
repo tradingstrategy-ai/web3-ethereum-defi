@@ -263,10 +263,14 @@ def _calculate_sparkline_coordinates(  # noqa: PLR0914
     if values.size == 0:
         message = "Cannot render sparkline without finite share prices"
         raise ValueError(message)
+    # Parquet-backed DatetimeIndex values may use microsecond resolution while
+    # ``Timestamp.value`` is always nanoseconds.  Convert both sides to the
+    # same unit before mapping timestamps onto the chart width.
+    timestamp_ns = prices_df.index.astype("datetime64[ns]").asi8
     start_ns = start_at.value
     end_ns = end_at.value
     span_ns = end_ns - start_ns
-    x_values = np.clip((prices_df.index.view("int64") - start_ns) / span_ns * width, 0.0, float(width))
+    x_values = np.clip((timestamp_ns - start_ns) / span_ns * width, 0.0, float(width))
     y_min = float(np.min(values))
     y_max = float(np.max(values))
     y_range = y_max - y_min

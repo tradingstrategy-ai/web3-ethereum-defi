@@ -191,3 +191,14 @@ def test_direct_renderers_use_sparse_step_paths_and_support_one_point() -> None:
     assert b" V " in svg
     one_point = render_sparkline_svg(pd.DataFrame({"share_price": [1.0]}, index=pd.DatetimeIndex([index[0]], name="timestamp")))
     assert b"M 0" in one_point
+
+
+def test_direct_renderers_normalise_parquet_datetime_resolution() -> None:
+    """Microsecond Parquet timestamps still span the full chart width."""
+    index = pd.DatetimeIndex(pd.date_range("2026-07-01", periods=16, freq="D"), dtype="datetime64[us]", name="timestamp")
+    prepared = prepare_sparkline_data(pd.DataFrame({"share_price": [1.0 + i / 100 for i in range(16)]}, index=index))
+
+    assert prepared is not None
+    coordinates = sparkline._calculate_sparkline_coordinates(prepared, width=SPARKLINE_SVG_WIDTH, height=SPARKLINE_SVG_HEIGHT, margin_ratio=4)
+    assert coordinates.points[0][0] > 0.0
+    assert coordinates.points[-1][0] == pytest.approx(SPARKLINE_SVG_WIDTH)
