@@ -58,6 +58,7 @@ from eth_defi.vault.data_file_export import (
     resolve_exchange_rate_parquet_path,
 )
 from eth_defi.vault.sample_export import export_sample_files_to_r2
+from eth_defi.vault.scan_manifest import publish_vault_scan_manifest
 from eth_defi.vault.vaultdb import DEFAULT_UNCLEANED_PRICE_DATABASE, get_pipeline_data_dir
 
 #: Required env vars for the top-vaults JSON R2 upload.
@@ -1160,6 +1161,7 @@ def run_post_processing(
     core3_db_path: Path | None = None,
     feed_db_path: Path | None = None,
     crypto_vaults_dir: Path | None = None,
+    price_scan_state_path: Path | None = None,
 ) -> dict[str, bool]:
     """Run full post-processing pipeline after chain scans complete.
 
@@ -1192,6 +1194,8 @@ def run_post_processing(
     :param core3_db_path: Override for the Core3 risk intelligence DuckDB path
     :param feed_db_path: Override for the vault post feed DuckDB path (curator metadata and feed entries)
     :param crypto_vaults_dir: Override for the isolated crypto bundle directory.
+    :param price_scan_state_path: Price-only scan provenance written by the
+        scanner. Defaults next to the cleaned price file.
     :return: Dictionary mapping step name to success boolean
     """
     steps = {}
@@ -1319,6 +1323,20 @@ def run_post_processing(
             exchange_rate_parquet_path=exchange_rate_parquet_path,
             exchange_rate_parquet_error=exchange_rate_parquet_error,
         )
+
+    # Publish readiness only after the cleaned price upload has succeeded.
+    # This small JSON object is intentionally last so polling never observes
+    # provenance for a parquet object that is not yet available.
+    if not skip_data and cleaning_ok and steps.get("export-data-files") is not False:
+        manifest_state_path = price_scan_state_path or (Path(cleaned_path).parent if cleaned_path else data_dir) / "vault-price-scan-state.json"
+        try:
+            steps["publish-vault-scan-manifest"] = publish_vault_scan_manifest(
+                cleaned_price_path=cleaned_path or data_dir / "cleaned-vault-prices-1h.parquet",
+                price_scan_state_path=manifest_state_path,
+            )
+        except Exception:
+            logger.exception("Vault scan manifest publication failed")
+            steps["publish-vault-scan-manifest"] = False
 
     # Export Ethereum-only sample files to the public bucket.
     if skip_samples:
