@@ -31,6 +31,7 @@ To test out Pandas warning issues in calculate_lifetime_metrics(), enable strict
 """
 
 import datetime
+import gc
 import json
 import logging
 import math
@@ -1227,6 +1228,11 @@ def main(
     else:
         returns_df = calculate_hourly_returns_for_all_vaults(prices_df)
 
+    # Free the multi-GB raw price frame before the memory-peak metrics
+    # phase; nothing below needs it.
+    del prices_df
+    gc.collect()
+
     # Build Core3 protocol-level risk data up front, so it can be attached
     # both per-vault (compact ``core3`` summary inside each vault record) and
     # at the top level of the export (full ``core3_protocols`` dict).
@@ -1278,6 +1284,10 @@ def main(
 
     print(f"Calculated lifetime metrics for {len(lifetime_data_df):,} vaults with {len(lifetime_data_df.columns):,} columns")
     computed_vault_ids = set(lifetime_data_df["id"].astype(str)) if len(lifetime_data_df) else set()
+
+    # Free the daily-returns frame before sticky processing and export.
+    del returns_df
+    gc.collect()
 
     sticky_result = apply_sticky_export_state(
         lifetime_data_df,

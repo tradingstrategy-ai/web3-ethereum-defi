@@ -6,6 +6,7 @@ serialisation helpers so that public stablecoin exports remain unchanged.
 """
 
 import hashlib
+import gc
 import json
 import logging
 import os
@@ -989,6 +990,9 @@ def build_crypto_vault_metadata(  # noqa: PLR0914 - this coordinator keeps the i
             stable_vault_rows,
             stablecoin_rate_feeder=stablecoin_rate_feeder,
         )
+        # Free the daily stablecoin frame before the native metrics phase.
+        del daily_stable_prices_df
+        gc.collect()
     logger.info("Calculated stablecoin crypto metrics in %.2fs", time.perf_counter() - stable_metrics_started)
 
     native_metrics_started = time.perf_counter()
@@ -999,6 +1003,11 @@ def build_crypto_vault_metadata(  # noqa: PLR0914 - this coordinator keeps the i
         crypto_usd_conversion_context,
     )
     logger.info("Calculated native crypto metrics in %.2fs", time.perf_counter() - native_metrics_started)
+
+    # Free the multi-GB price frames before the serialisation and record
+    # loop; nothing below needs them.
+    del prices_df, stable_prices_df, native_prices_df
+    gc.collect()
 
     serialisation_started = time.perf_counter()
     selected_records: list[dict[str, Any]] = []
