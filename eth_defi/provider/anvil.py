@@ -40,6 +40,14 @@ archive provider — e.g. to diagnose ``read_timeout`` fork-setup failures on CI
 healthy cold fork completes in ~seconds, so a 60 s timeout means a slow or
 rate-limited upstream, not an undersized timeout.
 
+For the complete operator checklist, including provider cache misses, wedged
+local Anvil processes, graceful-shutdown cache loss, and Foundry saved-state
+compatibility, see the `Anvil failure modes
+<https://github.com/tradingstrategy-ai/web3-ethereum-defi/blob/master/eth_defi/testing/README.md#anvil-failure-modes>`__
+section in :file:`eth_defi/testing/README.md`. The observed Foundry-version
+failures and the successful pinned-release combination are recorded in `PR
+#1589 <https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/1589>`__.
+
 The code was originally lifted from Brownie project.
 """
 
@@ -542,6 +550,12 @@ def make_anvil_custom_rpc_request(web3: Web3, method: str, args: Optional[list] 
 
     - `See the Anvil custom RPC methods here <https://book.getfoundry.sh/reference/anvil/>`__.
 
+    These methods address the local Anvil process. A timeout can therefore be
+    caused by a wedged local process or, for a fork, by Anvil waiting for an
+    uncached upstream reply. Use the `Anvil failure modes
+    <https://github.com/tradingstrategy-ai/web3-ethereum-defi/blob/master/eth_defi/testing/README.md#anvil-failure-modes>`__
+    section to classify the failure before retrying it.
+
     :param method:
         RPC endpoint name
 
@@ -624,7 +638,7 @@ def _warm_up_fork_block(
 
 @dataclass
 class AnvilLaunch:
-    """Control Anvil processes launched on background.
+    """Control Anvil processes launched in the background.
 
     Comes with a helpful :py:meth:`close` method when it is time to put Anvil rest.
 
@@ -633,6 +647,16 @@ class AnvilLaunch:
     callers. The module-level metadata registry mirrors these values only so
     that later ``create_multi_provider_web3(launch.json_rpc_url)`` calls can
     attach the same context to retry diagnostics.
+
+    A fixed ``fork_block_number`` does not make the fork independent of its
+    archive provider: uncached replies and bootstrap checks can still be live
+    RPC calls. A local ``ReadTimeout`` may therefore mean that Anvil is waiting
+    for an upstream provider, that the local process is wedged, or that a
+    saved-state/Foundry release combination is incompatible. See the
+    `Anvil failure modes
+    <https://github.com/tradingstrategy-ai/web3-ethereum-defi/blob/master/eth_defi/testing/README.md#anvil-failure-modes>`__
+    section and `PR #1589
+    <https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/1589>`__.
     """
 
     #: Which port was bound by the Anvil
@@ -699,8 +723,16 @@ class AnvilLaunch:
         :param block_timeout:
             How long time we try to kill Anvil until giving up.
 
+        A graceful shutdown gives Anvil time to flush
+        ``~/.foundry/cache/rpc/<network>/<block>/storage.json``. If the
+        process does not exit within the bounded graceful-shutdown timeout,
+        this method falls back to ``SIGKILL`` and the fork cache may be
+        incomplete. See the `Anvil failure modes
+        <https://github.com/tradingstrategy-ai/web3-ethereum-defi/blob/master/eth_defi/testing/README.md#anvil-failure-modes>`__
+        section.
+
         :return:
-            Anvil stdout, stderr as string
+            Anvil stdout and stderr as bytes.
         """
         try:
             stdout, stderr = shutdown_hard(
@@ -1092,6 +1124,16 @@ def launch_anvil(
 
     This function waits `launch_wait_seconds` in order to `anvil` process to start
     and complete the chain fork.
+
+    .. note::
+
+        A fixed ``fork_block_number`` makes cache keys and test assertions
+        reproducible, but it does not make the fork offline. Anvil still reads
+        uncached state from the upstream archive. For failure classification and
+        the required warm-cache workflow, see the `Anvil failure modes
+        <https://github.com/tradingstrategy-ai/web3-ethereum-defi/blob/master/eth_defi/testing/README.md#anvil-failure-modes>`__
+        section and `PR #1589
+        <https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/1589>`__.
 
     **Unit test backend**:
 
@@ -1796,7 +1838,12 @@ class AnvilSnapshotState:
         chain). Additionally, module-scoped Anvil forks combined with repeated
         snapshot/revert cycles can hang on CI runners under ``pytest-xdist``
         parallel execution, likely due to Anvil process responsiveness
-        degradation after many revert cycles.
+        degradation after many revert cycles. This is a local Anvil failure
+        mode, distinct from an upstream provider timeout. See the `Anvil
+        failure modes
+        <https://github.com/tradingstrategy-ai/web3-ethereum-defi/blob/master/eth_defi/testing/README.md#anvil-failure-modes>`__
+        section and `PR #1589
+        <https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/1589>`__.
 
     Example:
 
@@ -1863,13 +1910,49 @@ def reset_anvil_snapshot(web3: Web3, state: AnvilSnapshotState) -> None:
     state.snapshot_id = snapshot(web3)
 
 
-def dump_state(web3: Web3) -> int:
-    """Call evm_snapshot on Anvil"""
+def dump_state(web3: Web3) -> str:
+    """Serialise the current Anvil EVM state.
+
+    Calls Anvil's ``anvil_dumpState`` custom RPC method. The returned text can
+    be written to a ``*.anvilstate`` file and restored with
+    :func:`load_state`. The saved-state format is tied to the Foundry/Anvil
+    release that produced it; pair the file with the same pinned toolchain.
+
+    See the `Anvil failure modes
+    <https://github.com/tradingstrategy-ai/web3-ethereum-defi/blob/master/eth_defi/testing/README.md#anvil-failure-modes>`__
+    section and `PR #1589
+    <https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/1589>`__.
+
+    :param web3:
+        Web3 connection to the local Anvil JSON-RPC endpoint.
+
+    :return:
+        Anvil's serialised EVM state.
+    """
     return make_anvil_custom_rpc_request(web3, "anvil_dumpState")
 
 
-def load_state(web3: Web3, state: str) -> int:
-    """Call evm_snapshot on Anvil"""
+def load_state(web3: Web3, state: str) -> Any:
+    """Restore a serialised EVM state into Anvil.
+
+    Calls Anvil's ``anvil_loadState`` custom RPC method with text returned by
+    :func:`dump_state`. A timeout from this method is a local saved-state or
+    Foundry/Anvil compatibility failure when the request is addressed to
+    ``localhost``; retrying the upstream archive provider does not repair it.
+    See the `Anvil failure modes
+    <https://github.com/tradingstrategy-ai/web3-ethereum-defi/blob/master/eth_defi/testing/README.md#anvil-failure-modes>`__
+    section and `PR #1589
+    <https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/1589>`__.
+
+    :param web3:
+        Web3 connection to the local Anvil JSON-RPC endpoint.
+
+    :param state:
+        Serialised state returned by :func:`dump_state`.
+
+    :return:
+        The raw result returned by Anvil's custom RPC method.
+    """
     return make_anvil_custom_rpc_request(web3, "anvil_loadState", [state])
 
 

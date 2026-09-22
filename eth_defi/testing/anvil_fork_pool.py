@@ -49,11 +49,13 @@ for the flush before falling back to ``SIGKILL``; without that the cache is neve
 written and every run cold-fetches. When many
 characterisation tests fork **the same fixed block**, they read overlapping
 state, so that on-disk cache becomes dense and later runs replay from disk
-instead of re-hammering the upstream archive node. CI restores and re-saves this
-directory across runs (see the "Foundry fork RPC cache" steps in
-``.github/workflows/test-vault-protocol.yml`` and
+instead of re-hammering the upstream archive node. CI restores this directory
+from the repository-supplied seed before the tests start (see
+``eth_defi/testing/rpc_cache.py`` and
 ``docs/README-test-suite-performance.md``), so a warm cache turns cold-archive
 stalls (the ~476 s startup seen on cold Ethereum archive forks) into ~seconds.
+The seed must be captured with the same pinned Foundry release as CI; a graceful
+close is required to flush it.
 
 Forking ``latest`` or a per-test arbitrary block breaks all three benefits: the
 cache key never repeats, nothing is shared, and every run pays full
@@ -139,6 +141,21 @@ HTTP error). With a **single** provider there is no proxy and no failover: a
 :class:`SingleRpcProviderWarning` is emitted and the only signal is the local
 ``eth_chainId`` read timeout — configure a second provider to get both failover
 and the diagnosis.
+
+Failure-mode reference
+----------------------
+
+The practical operator matrix is maintained in the
+``eth_defi/testing/README.md`` section
+`Anvil failure modes
+<https://github.com/tradingstrategy-ai/web3-ethereum-defi/blob/master/eth_defi/testing/README.md#anvil-failure-modes>`__.
+It distinguishes an upstream cache miss or provider outage from a genuinely
+wedged local Anvil process and from an incompatible ``anvil_loadState`` saved
+state. A fixed block still permits live archive reads for replies missing from
+the seed; a timeout that cannot be reproduced with the same warm seed and
+toolchain is normally a provider/CI symptom. The version investigation and
+full tracebacks are recorded in `PR #1589
+<https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/1589>`__.
 
 Wedged-fork recycling — one bad fork must not fail its whole group
 ------------------------------------------------------------------

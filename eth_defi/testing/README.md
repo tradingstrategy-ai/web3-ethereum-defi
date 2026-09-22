@@ -9,8 +9,8 @@ rate-limited. The helpers here attack both:
    instead of launching one each.
 2. **A canonical block per chain** — so those tests share a fork *and* their
    archive reads land in a dense, reusable on-disk cache.
-3. **The Foundry fork RPC cache** — persisted across CI runs so warm runs barely
-   touch the upstream archive.
+3. **The Foundry fork RPC cache** — committed for reproducible warm starts in CI
+   and locally, so warm runs barely touch the upstream archive.
 4. **Per-test snapshot/revert** — cheap state isolation on a shared fork.
 
 If you are writing a new fork test, read this before copying an old per-file
@@ -21,6 +21,9 @@ If you are writing a new fork test, read this before copying an old per-file
 > copy-paste module skeleton — is the module docstring of
 > [`eth_defi/testing/anvil_fork_pool.py`](anvil_fork_pool.py). This README is a
 > practical companion; when the two disagree, the docstring wins.
+>
+> The operator checklist for diagnosing a failed fork is in [Anvil failure
+> modes](#anvil-failure-modes).
 
 ## The pieces
 
@@ -146,6 +149,9 @@ Anvil caches archive reads at a fixed block under
 `~/.foundry/cache/rpc/<network>/<block>/storage.json`. Because all same-chain
 tests share one canonical block, that cache is small and dense — warm runs replay
 from disk and barely touch (and so are not throttled by) the upstream archive.
+The committed seeds are generated with the CI-pinned Foundry/Anvil release
+(`v1.3.2` at the time of writing); the cache format is release-sensitive, so
+refresh a seed and its toolchain together.
 
 ### How persistence actually works (the graceful-shutdown requirement)
 
@@ -214,7 +220,15 @@ fork: see **“Generic policy assertions must not inherit lifecycle fork
 exceptions”** in [`anvil_fork_pool.py`](anvil_fork_pool.py). The standard
 ERC-4626 Guard policy test named there is the reference implementation.
 
-## Cold-fork read timeouts (the "out of credits" red herring)
+## Anvil failure modes
+
+This section is the troubleshooting checklist for Anvil fork failures. A fixed
+fork block and a committed `storage.json` seed make a test reproducible, but do
+not make it an offline replay: bootstrap checks and cache misses can still make
+live archive RPC calls. A failure that only appears in CI is therefore not
+automatically an Anvil or library regression.
+
+### Cold-fork read timeouts (the "out of credits" red herring)
 
 The vault-protocol / GMX jobs sometimes fail at fork setup with a 60-second
 `eth_chainId` read timeout. The error historically hinted "you might be out of
@@ -237,6 +251,72 @@ primary remedy. Also useful: two space-separated `JSON_RPC_*` providers per chai
 for failover, or a provider that does not throttle the CI IP. Run the measurement
 script from a machine with the CI RPC secrets to compare against the ~3 s
 baseline.
+
+### Provider failures and cache misses
+
+HTTP 500 responses, `header for hash not found`, connection errors, and a
+`read_timeout` that disappears when the same fixed-block test is rerun locally
+with the committed seed are upstream-provider or runner symptoms. A fixed block
+still needs the provider for every reply not present in `storage.json`; a sparse
+seed therefore does not protect the test from a bad provider. Do not increase
+the local Web3 timeout to hide this failure. Instead, inspect the automatic
+proxy's provider warnings, configure more than one `JSON_RPC_*` endpoint, and
+warm and commit the missing replies with the exact pinned Anvil version.
+
+If the timeout cannot be reproduced locally with the same fixed block, Anvil
+release, cache seed, and comparable concurrency, treat it as an upstream or CI
+provider problem until Anvil's own logs show evidence to the contrary. The
+original investigation and representative full tracebacks are recorded in
+[`PR #1589`](https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/1589).
+
+### Local Anvil wedges and localhost timeouts
+
+The `localhost` URL in a test traceback only identifies the test-to-Anvil hop;
+Anvil may itself be blocked waiting for an upstream archive response. Use the
+captured proxy warnings and Anvil logs to distinguish that case from a genuinely
+wedged local process:
+
+- an upstream URL, HTTP response, or provider timeout in the logs means the
+  cache/provider path needs attention;
+- a warm fixed-block fork whose upstream requests have completed but which still
+  cannot answer `eth_chainId` or a custom RPC request is a local Anvil wedge;
+- a reused pooled fork should be disposed and relaunched. The
+  `AnvilForkPool` liveness probe does this automatically for reused forks; do not
+  keep retrying a dead local process or blame the archive provider without
+  evidence.
+
+Repeated snapshot/revert cycles can also degrade a long-lived fork under
+`pytest-xdist`. Keep the warning in the `AnvilSnapshotState` docstring in mind
+and use a fresh fork when a test leaves the process unresponsive.
+
+### Saved-state and Foundry release incompatibility
+
+`anvil_dumpState`/`anvil_loadState` saved states and the fork `storage.json`
+cache are Anvil-release-sensitive artefacts. Pair a checked-in
+`*.anvilstate` file, the fork RPC seed, and the Foundry/Anvil binary that wrote
+them. In the compatibility investigation, Foundry `v1.5.0` and `v1.7.1` timed
+out in local `anvil_loadState` while restoring
+`tests/aave_v3/aave_v3_deployment.anvilstate`; Foundry `v1.8.3` introduced a
+broader set of Anvil-dependent regressions. The CI-compatible release used by
+the repository is `v1.3.2`.
+
+These failures are local saved-state compatibility failures, not archive RPC
+failures. When changing Foundry, regenerate saved states and fixed-block seeds
+together, then run the complete affected integration group. See the evidence
+and attempted-version history in
+[`PR #1589`](https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/1589).
+
+### Graceful shutdown and incomplete seeds
+
+Anvil writes `storage.json` only during graceful shutdown. A `SIGKILL`, a
+crashed process, or a teardown that reaches the bounded `SIGKILL` fallback can
+leave a seed missing or incomplete. That condition causes later runs to make
+live provider calls; it is not proof that the provider was healthy or unhealthy.
+Use `AnvilLaunch.close()`, inspect the resulting file, and refresh the seed from
+a clean cache before diagnosing a provider failure.
+
+The cache-seed layout and refresh procedure live in
+[`eth_defi/testing/rpc_cache_seed/README.md`](rpc_cache_seed/README.md).
 
 ## 6. The committed token cache (ERC-20 + vault token addresses)
 
