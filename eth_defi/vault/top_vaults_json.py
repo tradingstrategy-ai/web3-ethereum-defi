@@ -462,6 +462,9 @@ def find_non_serializable_paths(obj, path=None, results=None):
 
     # Valid primitive types
     if isinstance(obj, (str, int, float, bool, type(None))):
+        # Strict JSON cannot represent NaN or infinity, so reject them
+        # here; this replaces the old json.dumps(allow_nan=False) backstop
+        # without building a throwaway JSON string.
         if isinstance(obj, float) and not math.isfinite(obj):
             results.append((path, f"Non-finite float: {obj}"))
         return results
@@ -1233,6 +1236,7 @@ def main(
     metrics_state = load_metrics_state(metrics_state_path, now)
     seen_vault_ids = set(gate_df["id"].astype(str).unique()) & allowed_vault_id_set
     current_tvl_by_id, peak_tvl_by_id = compute_vault_tvl_observations(gate_df)
+    # Release the gate frame before the due-filtered read allocates.
     del gate_df
     free_memory()
     family_by_id = {vault_id: DenominationFamily.stablecoin.value for vault_id in seen_vault_ids}
