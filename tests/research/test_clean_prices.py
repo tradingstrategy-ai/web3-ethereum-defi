@@ -418,6 +418,55 @@ def test_empty_denomination_selection_retains_cleaned_schema() -> None:
     assert {"raw_share_price", "returns_1h", "perp_position_data_status"}.issubset(cleaned.columns)
 
 
+def test_public_cleaner_preserves_existing_output_when_selection_is_empty(
+    vault_db: Path,
+    raw_price_df: Path,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A metadata regression cannot replace the public history with zero rows.
+
+    The lower-level transformation retains a typed empty frame for targeted
+    ETH/BTC cleaning. The public writer must nevertheless fail closed before
+    replacing its last known-good Parquet when a full selection is empty.
+
+    :param vault_db:
+        Sample vault metadata database.
+    :param raw_price_df:
+        Sample raw vault price Parquet.
+    :param tmp_path:
+        Temporary output directory.
+    :param monkeypatch:
+        Pytest patch helper used to simulate an empty full selection.
+    """
+    cleaned_path = tmp_path / "cleaned-vault-prices.parquet"
+    generate_cleaned_vault_datasets(
+        vault_db_path=vault_db,
+        price_df_path=raw_price_df,
+        cleaned_price_df_path=cleaned_path,
+        logger=lambda _message: None,
+    )
+    expected = pd.read_parquet(cleaned_path)
+    empty_cleaned_rows = expected.iloc[0:0].copy()
+
+    monkeypatch.setattr(
+        vault_price_wrangle,
+        "process_raw_vault_scan_data",
+        lambda *_args, **_kwargs: empty_cleaned_rows,
+    )
+
+    with pytest.raises(ValueError, match=r"Refusing to replace.*with zero rows"):
+        generate_cleaned_vault_datasets(
+            vault_db_path=vault_db,
+            price_df_path=raw_price_df,
+            cleaned_price_df_path=cleaned_path,
+            logger=lambda _message: None,
+        )
+
+    actual = pd.read_parquet(cleaned_path)
+    pd.testing.assert_frame_equal(actual, expected)
+
+
 def test_missing_metadata_ids_without_context_use_diagnostic_fallback() -> None:
     """An explicit ID series may contain a vault absent from the context frame."""
     messages: list[str] = []

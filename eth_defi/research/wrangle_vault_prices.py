@@ -1227,11 +1227,12 @@ def remove_inactive_lead_time(  # noqa: PLR0914 - positional mask stages are del
         first_valid = group_start + int(group_valid_positions[0])
         initial_supply = safe_supply_values[first_valid]
         changed = safe_supply_values[group_start:group_end] != initial_supply
-        # Preserve the old Pandas distinction: a NumPy float ``NaN`` compares
-        # unequal and therefore starts the lead-time boundary, while nullable
-        # Arrow/Pandas extension values become ``False`` through the legacy
-        # ``fillna(False)`` path.  Raw production Parquet uses Arrow-nullable
-        # columns, but callers still rely on the NumPy behaviour.
+        # TODO (PR #1586 data-correctness review): ``pd.isna()`` collapses an
+        # IEEE NaN stored inside ``double[pyarrow]`` and a true Arrow null into
+        # the same mask.  The pre-optimisation Pandas path treated IEEE NaN as
+        # a supply change but ignored Arrow nulls.  Keep the current optimised
+        # behaviour for now, but distinguish the Arrow validity bitmap here if
+        # exact legacy inactive-lead boundaries become important.
         if pd.api.types.is_extension_array_dtype(total_supply.dtype):
             changed &= ~missing_supply[group_start:group_end]
         changed[: first_valid - group_start] = False
@@ -1896,6 +1897,12 @@ def _fix_outlier_share_prices(  # noqa: PLR0914 - array repair keeps correlated 
     # Fill candidate NaNs without crossing a vault boundary.  A global
     # cumulative gather is equivalent to per-group ffill/bfill once positions
     # before the current group are invalidated by its start/end boundary.
+    # TODO (PR #1586 data-correctness review): NumPy treats IEEE NaN as a
+    # missing candidate and searches past it.  The legacy Arrow-backed
+    # ffill/bfill path did not fill IEEE NaN, so an EVM-only clean can now
+    # repair a spike that the old implementation left untouched.  This is
+    # accepted for now; preserve this note until the intended NaN policy is
+    # covered by an explicit regression test.
     candidate_positions = np.arange(row_count, dtype=np.int64)
     valid_next_shift = ~np.isnan(next_shift)
     last_valid = np.maximum.accumulate(np.where(valid_next_shift, candidate_positions, -1))
@@ -2571,6 +2578,8 @@ def generate_cleaned_vault_datasets(  # noqa: PLR0914,PLR0917 - stable cleaner o
         Raw Parquet stores these as ``chain`` and ``address`` rather than the
         derived ``id`` column. The crypto-only cleaner uses this to avoid
         materialising unrelated raw histories before denomination selection.
+        A targeted clean may produce a typed zero-row output. When omitted,
+        a zero-row result is rejected to protect the last valid public output.
 
     :return:
         ``None``. The verified output is atomically installed at
@@ -2651,6 +2660,17 @@ def generate_cleaned_vault_datasets(  # noqa: PLR0914,PLR0917 - stable cleaner o
         crypto_min_tvl_usd=crypto_min_tvl_usd,
     )
     logger(f"Vault cleaning stage Python transforms: {len(prices_df):,} -> {len(enhanced_prices_df):,} rows in {time.perf_counter() - process_started_at:.2f}s")
+
+    # A full clean writes the public stablecoin history.  Zero selected rows
+    # indicate an empty raw source or a metadata-classification regression,
+    # not a valid publication.  Fail before settlement and temporary-file
+    # creation so the last known-good public Parquet and sidecar stay intact.
+    # Targeted crypto cleans pass ``raw_vault_specs`` and may legitimately
+    # materialise a typed empty result for their isolated temporary output.
+    if raw_vault_specs is None and enhanced_prices_df.empty:
+        message = "Refusing to replace the public cleaned vault price dataset with zero rows"
+        raise ValueError(message)
+
     logger(f"We have {len(enhanced_prices_df):,} price rows in the cleaned prices DataFrame before settlement annotation")
     settlement_started_at = time.perf_counter()
     enhanced_prices_df = merge_vault_settlements_into_cleaned_prices(enhanced_prices_df, settlement_db_path=settlement_db_path)
