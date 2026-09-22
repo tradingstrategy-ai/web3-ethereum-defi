@@ -705,6 +705,23 @@ VAULT_ADDRESSES=0xdfc24b077bc1425ad1dea75bcb6f8158e10df303,0x1e37a337ed460039d1b
 The multi-chain `scan-vaults-all-chains.py` script can include Hyperliquid vaults
 when the `SCAN_HYPERCORE` environment variable is set.
 
+### Published readiness for live strategies
+
+The all-chains wrapper records successful HyperCore price collection under
+chain ID `9999` in `vault-price-scan-state.json`. After cleaned prices are
+exported, post-processing publishes an uncached private receipt containing
+that completion time, the cleaned history's latest HyperCore timestamp and
+the uploaded price ETag. See the
+[vault scan manifest guide](../../docs/README-vault-scan-manifest.md) for
+the schema and serving/deployment requirements.
+
+Four-hour observations are expected: neither hourly forward-filled rows nor
+a chain-wide latest timestamp prove every vault has a complete daily candle.
+Standalone native scans do not publish this all-chains receipt. A successful
+local DuckDB update is therefore not evidence that consumers can download
+the corresponding price snapshot yet. `SKIP_POST_PROCESSING=true` also
+prevents the all-chains wrapper from publishing a new receipt.
+
 ### Scan only Hypercore vaults (skip all EVM chains)
 
 Use `DISABLE_CHAINS` to skip every EVM chain, leaving only Hypercore:
