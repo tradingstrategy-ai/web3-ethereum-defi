@@ -1,24 +1,15 @@
-"""Vault adapter for Lagoon Finance protocol.
+"""Lagoon Finance vault adapter.
 
-*Notes on active Lagoon development*:
+The adapter detects explicit Lagoon releases through ``version()`` and falls
+back to the historical ``pendingSilo()`` probe for deployments without a
+version getter. Lagoon v0.6 and the characterised v1.0 deployment share the
+official v0.6 read interface used here. The v1 implementation is unverified,
+so compatibility is limited to the calls and storage fields covered by the
+fixed-block Base integration test.
 
-Lagoon v0.5.0 changes to the original release
-
-- Affect the vault interactions greatlty
-- Vault initialisation parameters changed: fee registry and wrapped native token moved from parameters payload to constructor arguments
-- Beacon proxy replaced with BeaconProxyFactory.createVault() patterns
-- ``pendingSilo()`` accessor removed, now needs a direct storage slot read
-- ``safe()`` accessor added
-
-How to detect version:
-
-- Call pendingSilo(): if reverts is a new version
-
-How to get ``pendingSilo()``: see :py:meth:`eth_defi.lagoon.vault.LagoonVault.silo_address`.
-
-Lagoon error code translation.
-
-- `See Codeslaw page to translate custome errors to human readable <https://www.codeslaw.app/contracts/base/0xe50554ec802375c9c3f9c087a8a7bb8c26d3dedf?tab=abi>`__
+Deployment support remains pinned to Lagoon v0.5 artefacts. See the
+`official Lagoon source <https://github.com/hopperlabsxyz/lagoon-v0>`__ and the
+ABI provenance in :file:`eth_defi/abi/lagoon/README.md`.
 """
 
 import datetime
@@ -49,8 +40,10 @@ from eth_defi.event_reader.multicall_batcher import EncodedCall
 from eth_defi.provider.fallback import ExtraValueError
 from eth_defi.safe.safe_compat import create_safe_ethereum_client
 from eth_defi.trace import assert_transaction_success_with_explanation
+from eth_defi.types import Percent
 from eth_defi.vault.base import VaultFlowManager, VaultInfo, VaultSpec, WithdrawalDelayType, WithdrawalPeriod
 from eth_defi.vault.deposit_redeem import VaultDepositManagerCapability
+from eth_defi.vault.fee import FeeData
 from eth_defi.vault.flag import MISSING_IN_PROTOCOL_FRONTEND, VaultFlag
 
 if TYPE_CHECKING:
@@ -65,11 +58,20 @@ DEFAULT_LAGOON_POST_VALUATION_GAS = 500_000
 #: How much gas we use for valuation post
 DEFAULT_LAGOON_SETTLE_GAS = 500_000
 
-#: Minimal interface for Lagoon v0.6's access-policy view.
+#: Lagoon fee rates use basis points, where 10,000 is 100%.
+LAGOON_FEE_RATE_DENOMINATOR = 10_000
+
+#: JSON-RPC error code used for an EVM execution revert.
+JSON_RPC_EXECUTION_REVERT_CODE = 3
+
+#: Minimal interface for the Lagoon v0.6-compatible access-policy view.
 #:
-#: Canonical source:
+#: The canonical definition is v0.6 source. The production v1 deployment is
+#: covered only through fixed-block characterisation because its implementation
+#: source is not verified.
+#:
 #: https://github.com/hopperlabsxyz/lagoon-v0/blob/a8e73f5a5276aa4047b901083cbce127d7f7b470/src/v0.6.0/Accessable.sol
-LAGOON_V06_ACCESS_ABI = [
+LAGOON_MODERN_ACCESS_ABI = [
     {
         "inputs": [{"internalType": "address", "name": "account", "type": "address"}],
         "name": "isAllowed",
@@ -97,7 +99,7 @@ def _is_empty_execution_revert(error: ExtraValueError) -> bool:
     if not error.args or not isinstance(error.args[0], dict):
         return False
     response = error.args[0]
-    return response.get("code") == 3 and response.get("data") == "0x" and "execution reverted" in str(response.get("message", "")).lower()
+    return response.get("code") == JSON_RPC_EXECUTION_REVERT_CODE and response.get("data") == "0x" and "execution reverted" in str(response.get("message", "")).lower()
 
 
 class LagoonVaultInfo(VaultInfo):
@@ -109,13 +111,13 @@ class LagoonVaultInfo(VaultInfo):
     #: Lagoon vault deployment info
     safe: HexAddress
     #: Lagoon vault deployment info
-    whitelistManager: HexAddress  # Can be 0x0000000000000000000000000000000000000000
+    whitelistManager: HexAddress  # noqa: N815 - Preserve the public info-dict key.
     #: Lagoon vault deployment info
-    feeReceiver: HexAddress
+    feeReceiver: HexAddress  # noqa: N815 - Preserve the public info-dict key.
     #: Lagoon vault deployment info
-    feeRegistry: HexAddress
+    feeRegistry: HexAddress  # noqa: N815 - Preserve the public info-dict key.
     #: Lagoon vault deployment info
-    valuationManager: HexAddress
+    valuationManager: HexAddress  # noqa: N815 - Preserve the public info-dict key.
 
     #: Safe multisig core info
     address: ChecksumAddress
@@ -144,6 +146,42 @@ class LagoonVersion(enum.Enum):
     v_0_5_0 = "v0.5.0"
     v_0_4_0 = "v0.4.0"
     v_0_6_0 = "v0.6.0"
+    v_1_0_0 = "v1.0.0"
+
+
+#: Versions handled through the observed v0.6-compatible read surface.
+LAGOON_MODERN_VERSIONS: frozenset[LagoonVersion] = frozenset(
+    {
+        LagoonVersion.v_0_6_0,
+        LagoonVersion.v_1_0_0,
+    }
+)
+
+#: ERC-7201 ``hopper.storage.Roles`` slot from the official Lagoon v0.6 source.
+#: https://github.com/hopperlabsxyz/lagoon-v0/blob/a8e73f5a5276aa4047b901083cbce127d7f7b470/src/v0.6.0/libraries/RolesLib.sol
+LAGOON_MODERN_ROLES_STORAGE_SLOT = int(
+    "0x7c302ed2c673c3d6b4551cf74a01ee649f887e14fd20d13dbca1b6099534d900",
+    16,
+)
+
+#: ERC-7201 ``hopper.storage.ERC7540`` slot plus the ``pendingSilo`` field's
+#: eight-slot offset in the official Lagoon v0.6 storage layout.
+#: https://github.com/hopperlabsxyz/lagoon-v0/blob/a8e73f5a5276aa4047b901083cbce127d7f7b470/src/v0.6.0/libraries/ERC7540Lib.sol
+LAGOON_PENDING_SILO_STORAGE_SLOT = int(
+    "0x5c74d456014b1c0eb4368d944667a568313858a3029a650ff0cb7b56f8b57a08",
+    16,
+)
+
+#: ABI selected after ``version()`` detection. The adapter historically used
+#: the v0.5 ABI for v0.4. The unverified v1 deployment uses the official v0.6
+#: ABI only as a fixed-block-tested compatibility interface.
+LAGOON_VAULT_ABI_BY_VERSION: dict[LagoonVersion, str] = {
+    LagoonVersion.legacy: "lagoon/Vault.json",
+    LagoonVersion.v_0_4_0: "lagoon/v0.5.0/Vault.json",
+    LagoonVersion.v_0_5_0: "lagoon/v0.5.0/Vault.json",
+    LagoonVersion.v_0_6_0: "lagoon/v0.6.0/Vault.json",
+    LagoonVersion.v_1_0_0: "lagoon/v0.6.0/Vault.json",
+}
 
 
 class AutomatedSafe:
@@ -311,7 +349,7 @@ class AutomatedSafe:
         self,
         func_call: ContractFunction,
         value: int = 0,
-        abi_version: str = None,
+        abi_version: str | None = None,
     ) -> ContractFunction:
         """Create a Safe multisig transaction using TradingStrategyModuleV0.
 
@@ -379,35 +417,27 @@ class LagoonSatelliteVault(AutomatedSafe):
         return self._automated_safe_web3
 
 
-class LagoonVault(ERC7540Vault, AutomatedSafe):
+class LagoonVault(ERC7540Vault, AutomatedSafe):  # noqa: PLR0904 - Protocol adapter surface mirrors the base vault API.
     """Python interface for interacting with Lagoon Finance vaults.
 
-    For information see :py:class:`~eth_defi.vault.base.VaultBase` base class documentation.
+    Lagoon separates managed assets in a Safe from asynchronous requests held
+    by a pending Silo. The Silo's denomination-token balance represents pending
+    deposits, while its vault-share balance represents pending redemptions.
+    Settlements publish a new total-asset valuation and process queued requests.
 
-    Example vault: https://basescan.org/address/0x6a5ea384e394083149ce39db29d5787a658aa98a#readContract
-
-    Notes
-
-    - Vault contract knows about Safe, Safe does not know about the Vault
-    - Ok so for settlement you dont have to worry about this metric, the only thing you have to value is the assets inside the safe (what you currently have under management) and update the NAV of the vault by calling updateNewTotalAssets (ex: if you have 1M inside the vault and 500K pending deposit you only need to call updateTotalAssets with the 1M that are currently inside the safe). Then, to settle you just call settleDeposit and the vault calculate everything for you.
-    - To monitor the pending deposits it's a bit more complicated. You have to check the balanceOf the pendingSilo contract (0xAD1241Ba37ab07fFc5d38e006747F8b92BB217D5) in term of underlying (here USDC) for pending deposit and in term of shares (so the vault itself) for pending withdraw requests
-
-    Lagoon tokens can be in
-
-    - Safe: Tradeable assets
-    - Silo: pending deposits (USDC)
-    - Vault: pending redemptions (USDC)
-    - User wallets: after `deposit()` have been called share tokens are moved to the user wallet
+    See :class:`~eth_defi.vault.base.VaultBase` for the common vault API and
+    `ERC-7540 <https://eips.ethereum.org/EIPS/eip-7540>`__ for the asynchronous
+    request lifecycle.
     """
 
-    def __init__(
+    def __init__(  # noqa: PLR0917 - Constructor follows the shared vault adapter API.
         self,
         web3: Web3,
         spec: VaultSpec,
         trading_strategy_module_address: HexAddress | None = None,
         token_cache: dict | None = None,
         vault_abi: str | None = None,
-        features: set[ERC4626Feature] = None,
+        features: set[ERC4626Feature] | None = None,
         default_block_identifier: BlockIdentifier | None = None,
         **kwargs,
     ):
@@ -437,10 +467,7 @@ class LagoonVault(ERC7540Vault, AutomatedSafe):
 
         if vault_abi is None:
             version = self.version
-            if version == LagoonVersion.legacy:
-                vault_abi = "lagoon/Vault.json"
-            else:
-                vault_abi = "lagoon/v0.5.0/Vault.json"
+            vault_abi = LAGOON_VAULT_ABI_BY_VERSION[version]
 
         self.vault_abi = vault_abi
         self.check_version_compatibility()
@@ -449,13 +476,23 @@ class LagoonVault(ERC7540Vault, AutomatedSafe):
         return f"<Lagoon vault:{self.vault_contract.address} safe:{self.safe_address}>"
 
     def fetch_version(self) -> LagoonVersion:
-        """Figure out Lagoon version.
+        """Read and classify the deployed Lagoon version.
 
-        - Poke the smart contract with probe functions to get version
-        - Specifically call pendingSilo() that has been removed because the contract is too big
-        - Our ABI definitions and callign conventions change between Lagoon versions
+        Explicit version strings are mapped through :class:`LagoonVersion`.
+        Deployments without ``version()`` retain the historical
+        ``pendingSilo()`` probe: a successful call is legacy, while an empty
+        revert identifies the v0.5-compatible family.
+
+        Both probes use :attr:`default_block_identifier` when supplied so
+        proxy upgrades cannot mix current and historical state.
+
+        :return:
+            Supported Lagoon version family.
+        :raise NotImplementedError:
+            If ``version()`` returns a release this adapter does not support.
         """
 
+        block_identifier = self._get_block_identifier()
         probe_call = EncodedCall.from_keccak_signature(
             function="version",
             address=Web3.to_checksum_address(self.spec.vault_address),
@@ -464,19 +501,17 @@ class LagoonVault(ERC7540Vault, AutomatedSafe):
             extra_data={},
         )
         try:
-            result = probe_call.call(self.web3, block_identifier="latest")
+            result = probe_call.call(self.web3, block_identifier=block_identifier)
             decoded = eth_abi.decode(["string"], result)
             decoded_version = decoded[0]
-            if decoded_version == "v0.4.0":
-                return LagoonVersion.v_0_4_0
-            elif decoded_version == "v0.5.0":
-                return LagoonVersion.v_0_5_0
-            elif decoded_version == "v0.6.0":
-                return LagoonVersion.v_0_6_0
-            else:
-                raise NotImplementedError(f"Unknown Lagoon version {decoded_version} for vault {self.spec.vault_address}")
         except (ValueError, ContractLogicError, InsufficientDataBytes):
             pass
+        else:
+            try:
+                return LagoonVersion(decoded_version)
+            except ValueError as e:
+                message = f"Unknown Lagoon version {decoded_version} for vault {self.spec.vault_address} on chain {self.chain_id} at block {block_identifier}"
+                raise NotImplementedError(message) from e
 
         probe_call = EncodedCall.from_keccak_signature(
             function="pendingSilo",
@@ -487,12 +522,10 @@ class LagoonVault(ERC7540Vault, AutomatedSafe):
         )
 
         try:
-            probe_call.call(self.web3, block_identifier="latest")
-            version = LagoonVersion.legacy
+            probe_call.call(self.web3, block_identifier=block_identifier)
+            return LagoonVersion.legacy
         except (ValueError, ContractLogicError, InsufficientDataBytes):
-            version = LagoonVersion.v_0_5_0
-
-        return version
+            return LagoonVersion.v_0_5_0
 
     def check_version_compatibility(self):
         """Throw if there is mismatch between ABI and contract exposed EVM calls"""
@@ -507,12 +540,15 @@ class LagoonVault(ERC7540Vault, AutomatedSafe):
 
     @cached_property
     def version(self) -> LagoonVersion:
-        """Get Lagoon version.
+        """Return the cached deployed Lagoon version.
 
-        - Cached property to avoid multiple calls
+        The first access performs the network probes in
+        :meth:`fetch_version`; subsequent accesses reuse the result.
+
+        :return:
+            Supported Lagoon version family.
         """
-        version = self.fetch_version()
-        return version
+        return self.fetch_version()
 
     @cached_property
     def lagoon_metadata(self) -> LagoonVaultMetadata | None:
@@ -632,23 +668,21 @@ class LagoonVault(ERC7540Vault, AutomatedSafe):
 
     @cached_property
     def access_contract(self) -> Contract:
-        """Get Lagoon v0.6's ``isAllowed(address)`` access interface.
+        """Bind the v0.6-compatible ``isAllowed(address)`` interface.
 
         Lagoon v0.6 replaced ``Whitelistable`` with the canonical
         `Accessable contract
         <https://github.com/hopperlabsxyz/lagoon-v0/blob/a8e73f5a5276aa4047b901083cbce127d7f7b470/src/v0.6.0/Accessable.sol>`__.
-        This is versioned source on the upstream ``main`` branch; the pinned
-        revision did not have a ``v0.6.0`` GitHub release or tag.
-        The one-function interface is bound separately because the repository
-        intentionally continues to use the compatible v0.5 vault ABI for
-        general v0.6 reads.
+        The characterised v1 deployment exposes the same selector. Its
+        implementation is unverified, so the adapter does not infer any wider
+        v1 access-control guarantees from this compatibility call.
 
         :return:
             Contract proxy exposing ``isAllowed(address)``.
         """
         return self.web3.eth.contract(
             address=Web3.to_checksum_address(self.spec.vault_address),
-            abi=LAGOON_V06_ACCESS_ABI,
+            abi=LAGOON_MODERN_ACCESS_ABI,
         )
 
     def is_whitelisted_deposit(self) -> bool:
@@ -671,10 +705,11 @@ class LagoonVault(ERC7540Vault, AutomatedSafe):
         canonical `AccessableLib.isAllowed implementation
         <https://github.com/hopperlabsxyz/lagoon-v0/blob/a8e73f5a5276aa4047b901083cbce127d7f7b470/src/v0.6.0/libraries/AccessableLib.sol#L131-L161>`__
         returns ``False`` for the zero address in whitelist mode and ``True``
-        under the default-open blacklist mode. Therefore v0.6 uses
-        ``isAllowed(0x0)`` as its version-specific sentinel. Individual
-        account admission must still be checked separately because blacklist
-        and sanctions rules may deny an otherwise default-open account.
+        under the default-open blacklist mode. Therefore the modern adapter
+        uses ``isAllowed(0x0)`` as its version-specific sentinel. The v1 route
+        relies only on fixed-block compatibility with this selector, not on
+        verified v1 source. Individual account admission must still be checked
+        because an otherwise default-open account may be denied.
 
         :return:
             ``True`` when the vault uses whitelist mode.
@@ -683,16 +718,16 @@ class LagoonVault(ERC7540Vault, AutomatedSafe):
             If the deployed Lagoon version exposes neither the policy getter
             nor its version-specific account-access fallback.
         """
-        if self.version == LagoonVersion.v_0_6_0:
+        if self.version in LAGOON_MODERN_VERSIONS:
             try:
                 # The zero address can never submit a transaction and granting
                 # it explicit access has no meaningful use.
                 return not self.is_account_whitelisted(ZERO_ADDRESS_STR)
             except NotImplementedError as e:
-                raise NotImplementedError(f"Lagoon v0.6.0 vault {self.address} does not expose isAllowed(address)") from e
+                raise NotImplementedError(f"Lagoon {self.version.value} vault {self.address} does not expose isAllowed(address)") from e
 
         try:
-            return bool(self.whitelist_contract.functions.isWhitelistActivated().call())
+            return bool(self.whitelist_contract.functions.isWhitelistActivated().call(block_identifier=self._get_block_identifier()))
         except ExtraValueError as e:
             if not _is_empty_execution_revert(e):
                 raise
@@ -725,8 +760,9 @@ class LagoonVault(ERC7540Vault, AutomatedSafe):
         <https://github.com/hopperlabsxyz/lagoon-v0/blob/a8e73f5a5276aa4047b901083cbce127d7f7b470/src/v0.6.0/libraries/AccessableLib.sol#L131-L161>`__
         combines whitelist or blacklist mode with an optional external
         sanctions oracle. Thus this method's historical name means "admitted
-        by Lagoon's access policy" for v0.6. The pinned upstream revision did
-        not have a ``v0.6.0`` GitHub release or tag.
+        by Lagoon's access policy" for the v0.6-compatible route. The v1
+        implementation is unverified and is supported only to the extent
+        covered by the fixed-block integration test.
 
         :param address:
             Account whose access status is queried.
@@ -738,18 +774,19 @@ class LagoonVault(ERC7540Vault, AutomatedSafe):
             If the deployed Lagoon version does not expose its expected access
             getter.
         """
-        if self.version == LagoonVersion.v_0_6_0:
+        block_identifier = self._get_block_identifier()
+        if self.version in LAGOON_MODERN_VERSIONS:
             try:
-                return bool(self.access_contract.functions.isAllowed(Web3.to_checksum_address(address)).call())
+                return bool(self.access_contract.functions.isAllowed(Web3.to_checksum_address(address)).call(block_identifier=block_identifier))
             except ExtraValueError as e:
                 if not _is_empty_execution_revert(e):
                     raise
-                raise NotImplementedError(f"Lagoon v0.6.0 vault {self.address} does not expose isAllowed(address)") from e
+                raise NotImplementedError(f"Lagoon {self.version.value} vault {self.address} does not expose isAllowed(address)") from e
             except (BadFunctionCallOutput, ContractLogicError) as e:
-                raise NotImplementedError(f"Lagoon v0.6.0 vault {self.address} does not expose isAllowed(address)") from e
+                raise NotImplementedError(f"Lagoon {self.version.value} vault {self.address} does not expose isAllowed(address)") from e
 
         try:
-            return bool(self.whitelist_contract.functions.isWhitelisted(Web3.to_checksum_address(address)).call())
+            return bool(self.whitelist_contract.functions.isWhitelisted(Web3.to_checksum_address(address)).call(block_identifier=block_identifier))
         except ExtraValueError as e:
             if not _is_empty_execution_revert(e):
                 raise
@@ -757,10 +794,10 @@ class LagoonVault(ERC7540Vault, AutomatedSafe):
         except (BadFunctionCallOutput, ContractLogicError) as e:
             raise NotImplementedError(f"Lagoon vault {self.address} does not expose isWhitelisted(address)") from e
 
-    def has_block_range_event_support(self):
+    def has_block_range_event_support(self):  # noqa: PLR6301 - Implements the instance-level base API.
         return True
 
-    def has_deposit_distribution_to_all_positions(self):
+    def has_deposit_distribution_to_all_positions(self):  # noqa: PLR6301 - Implements the instance-level base API.
         return False
 
     def get_flow_manager(self) -> "LagoonFlowManager":
@@ -769,27 +806,76 @@ class LagoonVault(ERC7540Vault, AutomatedSafe):
     def fetch_vault_info(self) -> dict:
         """Get all information we can extract from the vault smart contracts."""
         vault = self.vault_contract
+        block_identifier = self._get_block_identifier()
         try:
-            roles_tuple = vault.functions.getRolesStorage().call()
-            whitelistManager, feeReceiver, safe, feeRegistry, valuationManager = roles_tuple
+            if self.version in LAGOON_MODERN_VERSIONS:
+                roles_tuple = self._fetch_modern_roles(block_identifier)
+            else:
+                roles_tuple = vault.functions.getRolesStorage().call(block_identifier=block_identifier)
+            whitelist_manager, fee_receiver, safe, fee_registry, valuation_manager = roles_tuple
             broken = False
-        except (ValueError, BadFunctionCallOutput) as e:
-            logger.error("Failed to fetch Lagoon roles for vault %s, error: %s", self.vault_address, e, exc_info=e)
-            whitelistManager = feeReceiver = safe = feeRegistry = valuationManager = None
+        except (ValueError, BadFunctionCallOutput, ExtraValueError) as e:
+            logger.error("Failed to fetch Lagoon roles for vault %s at block %s, error: %s", self.vault_address, block_identifier, e, exc_info=e)
+            whitelist_manager = fee_receiver = safe = fee_registry = valuation_manager = None
             broken = True
 
-        asset = vault.functions.asset().call()
+        asset = vault.functions.asset().call(block_identifier=block_identifier)
         return {
             "address": vault.address,
-            "whitelistManager": whitelistManager,
-            "feeReceiver": feeReceiver,
-            "feeRegistry": feeRegistry,
-            "valuationManager": valuationManager,
+            "whitelistManager": whitelist_manager,
+            "feeReceiver": fee_receiver,
+            "feeRegistry": fee_registry,
+            "valuationManager": valuation_manager,
             "safe": safe,
             "asset": asset,
             "tradingStrategyModuleAddress": self.trading_strategy_module_address,
             "broken": broken,
         }
+
+    def _fetch_address_from_storage(self, slot: int, block_identifier: BlockIdentifier) -> HexAddress:
+        """Read an address stored in the low 20 bytes of an EVM storage slot.
+
+        The official `v0.6 role storage layout
+        <https://github.com/hopperlabsxyz/lagoon-v0/blob/a8e73f5a5276aa4047b901083cbce127d7f7b470/src/v0.6.0/libraries/RolesLib.sol>`__
+        stores each role address in its own Solidity word. The pending Silo
+        address uses the same low-20-byte encoding in its ERC-7540 namespace.
+
+        :param slot:
+            Storage slot to read from the vault proxy.
+        :param block_identifier:
+            Historical block at which to read the slot.
+        :return:
+            Checksummed address decoded from the slot.
+        """
+        value = self.web3.eth.get_storage_at(
+            self.vault_address,
+            slot,
+            block_identifier=block_identifier,
+        )
+        return Web3.to_checksum_address(value[-20:])
+
+    def _fetch_modern_roles(self, block_identifier: BlockIdentifier) -> tuple[HexAddress, HexAddress, HexAddress, HexAddress, HexAddress]:
+        """Read the modern Lagoon role addresses from ERC-7201 storage.
+
+        The official v0.6 ``RolesStorage`` struct places the five addresses
+        consumed by :class:`LagoonVaultInfo` in consecutive slots. The
+        characterised v1 proxy has matching values at the fixed test block,
+        but its unverified implementation is not assumed to be generally
+        storage-compatible beyond these fields.
+
+        :param block_identifier:
+            Historical block at which to read the role namespace.
+        :return:
+            Whitelist manager, fee receiver, Safe, fee registry and valuation
+            manager addresses in the same order as the legacy getter.
+        """
+        return (
+            self._fetch_address_from_storage(LAGOON_MODERN_ROLES_STORAGE_SLOT, block_identifier),
+            self._fetch_address_from_storage(LAGOON_MODERN_ROLES_STORAGE_SLOT + 1, block_identifier),
+            self._fetch_address_from_storage(LAGOON_MODERN_ROLES_STORAGE_SLOT + 2, block_identifier),
+            self._fetch_address_from_storage(LAGOON_MODERN_ROLES_STORAGE_SLOT + 3, block_identifier),
+            self._fetch_address_from_storage(LAGOON_MODERN_ROLES_STORAGE_SLOT + 4, block_identifier),
+        )
 
     def fetch_info(self) -> LagoonVaultInfo:
         """Use :py:meth:`info` property for cached access.
@@ -843,26 +929,21 @@ class LagoonVault(ERC7540Vault, AutomatedSafe):
 
     @cached_property
     def silo_address(self) -> HexAddress:
-        """Pending Silo contract address.
+        """Return the pending Silo contract address.
+
+        Legacy vaults expose ``pendingSilo()`` directly. Versioned deployments
+        use the storage slot documented by the official `v0.6 ERC7540Lib source
+        <https://github.com/hopperlabsxyz/lagoon-v0/blob/a8e73f5a5276aa4047b901083cbce127d7f7b470/src/v0.6.0/libraries/ERC7540Lib.sol>`__.
+        The v1 path is restricted to the storage field characterised by the
+        fixed-block production test.
 
         :return:
-            Checksummed Silo contract addrewss "pendingSilo".
+            Checksummed Silo contract address.
         """
-
-        # Because of EVM is such piece of shit,
-        # Lagoon team removed pendingSilo() function
-        # as they hit the contract size limit
-        vault_contract = self.vault_contract
-        if self.version in (LagoonVersion.v_0_5_0, LagoonVersion.v_0_4_0, LagoonVersion.v_0_6_0):
-            web3 = self.web3
-            # Magic storage slot for Silo address
-            slot = "0x5c74d456014b1c0eb4368d944667a568313858a3029a650ff0cb7b56f8b57a08"
-            value = web3.eth.get_storage_at(vault_contract.address, slot)
-            # Take the last 20 bytes as the address
-            silo_address = Web3.to_checksum_address("0x" + value.hex()[-40:])
-        else:
-            silo_address = vault_contract.functions.pendingSilo().call()
-        return silo_address
+        block_identifier = self._get_block_identifier()
+        if self.version == LagoonVersion.legacy:
+            return self.vault_contract.functions.pendingSilo().call(block_identifier=block_identifier)
+        return self._fetch_address_from_storage(LAGOON_PENDING_SILO_STORAGE_SLOT, block_identifier)
 
     @cached_property
     def silo_contract(self) -> Contract:
@@ -899,7 +980,7 @@ class LagoonVault(ERC7540Vault, AutomatedSafe):
         bound_func = self.vault_contract.functions.updateNewTotalAssets(raw_amount)
         return bound_func
 
-    def settle_via_trading_strategy_module(self, valuation: Decimal = None, abi_version: None = None) -> ContractFunction:
+    def settle_via_trading_strategy_module(self, valuation: Decimal | None = None, abi_version: str | None = None) -> ContractFunction:
         """Settle the new valuation and deposits.
 
         - settleDeposit will also settle the redeems request if possible. If there are enough assets in the safe it will settleRedeem
@@ -976,24 +1057,114 @@ class LagoonVault(ERC7540Vault, AutomatedSafe):
 
         return tx_hash
 
-    def get_management_fee(self, block_identifier: BlockIdentifier) -> float:
-        """Get Lagoon vault rates"""
-        rates = self.vault_contract.functions.feeRates().call(block_identifier=block_identifier)
-        return rates[0] / 10_000
+    def _fetch_fee_rates(self, block_identifier: BlockIdentifier) -> tuple[int, ...]:
+        """Read the raw fee-rate tuple exposed by this Lagoon release.
 
-    def get_performance_fee(self, block_identifier: BlockIdentifier) -> float:
-        """Get Lagoon vault rates"""
-        # struct Rates {
-        #     uint16 managementRate;
-        #     uint16 performanceRate;
-        # }
-        rates = self.vault_contract.functions.feeRates().call(block_identifier=block_identifier)
-        return rates[1] / 10_000
+        Legacy ABIs expose management and performance rates. The official
+        `v0.6 vault source
+        <https://github.com/hopperlabsxyz/lagoon-v0/blob/a8e73f5a5276aa4047b901083cbce127d7f7b470/src/v0.6.0/vault/Vault-v0.6.0.sol>`__
+        adds entry, exit and synchronous-redemption haircut rates. The
+        characterised v1 deployment returns the same five-field tuple at the
+        fixed integration-test block.
+
+        :param block_identifier:
+            Historical block at which to read the fee rates.
+        :return:
+            ABI-specific tuple of basis-point fee rates.
+        """
+        return tuple(self.vault_contract.functions.feeRates().call(block_identifier=block_identifier))
+
+    def get_management_fee(self, block_identifier: BlockIdentifier) -> Percent:
+        """Get the Lagoon management fee as a fraction from zero to one.
+
+        :param block_identifier:
+            Historical block at which to read the fee rate.
+        :return:
+            Management fee fraction.
+        """
+        return self._fetch_fee_rates(block_identifier)[0] / LAGOON_FEE_RATE_DENOMINATOR
+
+    def get_performance_fee(self, block_identifier: BlockIdentifier) -> Percent:
+        """Get the Lagoon performance fee as a fraction from zero to one.
+
+        :param block_identifier:
+            Historical block at which to read the fee rate.
+        :return:
+            Performance fee fraction.
+        """
+        return self._fetch_fee_rates(block_identifier)[1] / LAGOON_FEE_RATE_DENOMINATOR
+
+    def get_deposit_fee(self, block_identifier: BlockIdentifier) -> Percent:
+        """Get the modern Lagoon entry fee as a fraction from 0 to 1.
+
+        Lagoon v0.6 returns the entry rate in basis points, and the fixed-block
+        v1 deployment exposes the same field. Older versions do not expose it
+        and retain the generic zero-fee behaviour.
+
+        :param block_identifier:
+            Historical block at which to read the fee rate.
+        :return:
+            Entry fee fraction.
+        """
+        if self.version not in LAGOON_MODERN_VERSIONS:
+            return 0.0
+        return self._fetch_fee_rates(block_identifier)[2] / LAGOON_FEE_RATE_DENOMINATOR
+
+    def get_withdraw_fee(self, block_identifier: BlockIdentifier) -> Percent:
+        """Get the modern Lagoon exit fee as a fraction from 0 to 1.
+
+        Lagoon v0.6 exposes a separate haircut rate for synchronous redemption,
+        so it is intentionally not folded into this asynchronous exit fee. The
+        fixed-block v1 deployment exposes the same two fields.
+
+        :param block_identifier:
+            Historical block at which to read the fee rate.
+        :return:
+            Exit fee fraction.
+        """
+        if self.version not in LAGOON_MODERN_VERSIONS:
+            return 0.0
+        return self._fetch_fee_rates(block_identifier)[3] / LAGOON_FEE_RATE_DENOMINATOR
+
+    def get_fee_data(self) -> FeeData:
+        """Read all Lagoon fee fields at the adapter's selected block.
+
+        Lagoon exposes the generic fee fields in one ``feeRates()`` call. Read
+        that tuple once so fixed-block scans cannot mix historical vault state
+        with current fee state and ordinary scans avoid duplicate RPC calls.
+
+        :return:
+            Normalised management, performance, deposit and withdrawal fees.
+        """
+        block_identifier = self._get_block_identifier()
+        rates = self._fetch_fee_rates(block_identifier)
+        modern = self.version in LAGOON_MODERN_VERSIONS
+        return FeeData(
+            fee_mode=self.get_fee_mode(),
+            management=rates[0] / LAGOON_FEE_RATE_DENOMINATOR,
+            performance=rates[1] / LAGOON_FEE_RATE_DENOMINATOR,
+            deposit=rates[2] / LAGOON_FEE_RATE_DENOMINATOR if modern else 0.0,
+            withdraw=rates[3] / LAGOON_FEE_RATE_DENOMINATOR if modern else 0.0,
+        )
+
+    def has_custom_fees(self) -> bool:
+        """Return whether Lagoon exposes a fee outside the generic fee model.
+
+        The generic vault model has no field for Lagoon v0.6's synchronous
+        redemption haircut. The characterised v1 deployment exposes the same
+        fifth rate, so a non-zero value is reported as a custom fee.
+
+        :return:
+            ``True`` when the modern haircut rate is non-zero.
+        """
+        if self.version not in LAGOON_MODERN_VERSIONS:
+            return False
+        return self._fetch_fee_rates(self._get_block_identifier())[4] != 0
 
     def is_trading_strategy_module_enabled(self) -> bool:
         """Check if TradingStrategyModuleV0 is enabled on the Safe multisig."""
         assert self.trading_strategy_module_address, "TradingStrategyModuleV0 address must be separately given in the configuration"
-        return self.safe.contract.functions.isModuleEnabled(self.trading_strategy_module_address).call() == True
+        return bool(self.safe.contract.functions.isModuleEnabled(self.trading_strategy_module_address).call())
 
     def get_deposit_manager(self) -> "LagoonDepositManager":
         """Create Lagoon's ERC-7540 deposit manager.
@@ -1004,11 +1175,12 @@ class LagoonVault(ERC7540Vault, AutomatedSafe):
         :return:
             Lagoon-specific extension of the generic ERC-7540 manager.
         """
-        from eth_defi.erc_4626.vault_protocol.lagoon.deposit_redeem import LagoonDepositManager
+        # Imported here because the deposit manager imports :class:`LagoonVault`.
+        from eth_defi.erc_4626.vault_protocol.lagoon.deposit_redeem import LagoonDepositManager  # noqa: PLC0415
 
         return LagoonDepositManager(self)
 
-    def get_deposit_manager_capability(self) -> VaultDepositManagerCapability:
+    def get_deposit_manager_capability(self) -> VaultDepositManagerCapability:  # noqa: PLR6301 - Implements the instance-level base API.
         """Declare Lagoon's asynchronously settleable manager lifecycle.
 
         Lagoon accepts the standard ERC-7540 request types and its selected
@@ -1032,26 +1204,21 @@ class LagoonVault(ERC7540Vault, AutomatedSafe):
             supports_anvil_settlement=True,
         )
 
-    def can_check_deposit(self) -> bool:
+    def can_check_deposit(self) -> bool:  # noqa: PLR6301 - Implements the instance-level base API.
         """Lagoon's maxDeposit does not work correctly for deposit availability checks."""
         return False
 
-    def get_link(self, referral: str | None = None) -> str:
+    def get_link(self, referral: str | None = None) -> str:  # noqa: ARG002 - Signature follows the shared vault API.
         return f"https://app.lagoon.finance/vault/{self.chain_id}/{self.vault_address}"
 
 
 class LagoonFlowManager(VaultFlowManager):
-    """Manage deposit/redemption queue for Lagoon.
+    """Read Lagoon's asynchronous deposit and redemption queues.
 
-    - Lagoon uses `ERC-7540 <https://eips.ethereum.org/EIPS/eip-7540>`__ Asynchronous ERC-4626 Tokenized Vaults for
-      deposits and redemptions flow
-
-    On the Lagoon flow:
-
-        Ok so for settlement you dont have to worry about this metric, the only thing you have to value is the assets inside the safe (what you currently have under management) and update the NAV of the vault by calling updateNewTotalAssets (ex: if you have 1M inside the vault and 500K pending deposit you only need to call updateTotalAssets with the 1M that are currently inside the safe). Then, to settle you just call settleDeposit and the vault calculate everything for you.
-
-        To monitor the pending deposits it's a bit more complicated. You have to check the balanceOf the pendingSilo contract (0xAD1241Ba37ab07fFc5d38e006747F8b92BB217D5) in term of underlying (here USDC) for pending deposit and in term of shares (so the vault itself) for pending withdraw requests
-
+    Lagoon follows the `ERC-7540
+    <https://eips.ethereum.org/EIPS/eip-7540>`__ request-settle-claim lifecycle.
+    Pending deposits are the Silo's denomination-token balance and pending
+    redemptions are its vault-share balance.
     """
 
     def __init__(self, vault: LagoonVault) -> None:
@@ -1065,16 +1232,16 @@ class LagoonFlowManager(VaultFlowManager):
         silo = self.vault.silo_contract
         return self.vault.underlying_token.fetch_balance_of(silo.address, block_identifier)
 
-    def fetch_pending_deposit_events(self, range: BlockRange) -> None:
+    def fetch_pending_deposit_events(self, range: BlockRange) -> None:  # noqa: A002 - Signature follows the flow-manager API.
         raise NotImplementedError()
 
-    def fetch_pending_redemption_event(self, range: BlockRange) -> None:
+    def fetch_pending_redemption_event(self, range: BlockRange) -> None:  # noqa: A002 - Signature follows the flow-manager API.
         raise NotImplementedError()
 
-    def fetch_processed_deposit_event(self, range: BlockRange) -> None:
+    def fetch_processed_deposit_event(self, range: BlockRange) -> None:  # noqa: A002 - Signature follows the flow-manager API.
         pass
 
-    def fetch_processed_redemption_event(self, vault: VaultSpec, range: BlockRange) -> None:
+    def fetch_processed_redemption_event(self, vault: VaultSpec, range: BlockRange) -> None:  # noqa: A002 - Signature follows the flow-manager API.
         raise NotImplementedError()
 
     def calculate_underlying_needed_for_redemptions(self, block_identifier: BlockIdentifier) -> Decimal:
