@@ -9,6 +9,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 import pyarrow as pa
+import pyarrow.dataset as ds
 import pyarrow.parquet as pq
 import pytest
 import zstandard as zstd
@@ -23,10 +24,11 @@ from eth_defi.research.wrangle_vault_prices import (
     discard_hypercore_pre_recapitalisation_history,
     fix_outlier_share_prices,
     generate_cleaned_vault_datasets,
+    materialise_daily_crypto_prices,
     remove_inactive_lead_time,
     replace_cleaned_vault_histories,
 )
-from eth_defi.vault.base import VaultHistoricalRead
+from eth_defi.vault.base import VaultHistoricalRead, VaultSpec
 from eth_defi.vault.settlement_data import VaultSettlement, VaultSettlementDatabase
 from eth_defi.version_info import PARQUET_VERSION_METADATA_KEY
 
@@ -84,10 +86,11 @@ def test_clean_vault_price_data(
     """
 
     dst = tmp_path / "cleaned-vault-prices.parquet"
+    daily_dst = tmp_path / "cleaned-vault-prices-1d.parquet"
 
     logger = logging.getLogger(__name__)
 
-    generate_cleaned_vault_datasets(vault_db_path=vault_db, price_df_path=raw_price_df, cleaned_price_df_path=dst, logger=logger.info)
+    generate_cleaned_vault_datasets(vault_db_path=vault_db, price_df_path=raw_price_df, cleaned_price_df_path=dst, daily_price_df_path=daily_dst, logger=logger.info)
 
     assert dst.exists()
     df = pd.read_parquet(dst)
@@ -113,6 +116,10 @@ def test_clean_vault_price_data(
     assert "written_at" in df.columns
 
     assert PARQUET_VERSION_METADATA_KEY in pq.read_metadata(dst).metadata
+    hourly = pd.read_parquet(dst)
+    expected_daily = materialise_daily_crypto_prices(hourly)
+    actual_daily = pd.read_parquet(daily_dst)
+    assert pa.Table.from_pandas(expected_daily).equals(pa.Table.from_pandas(actual_daily))
 
 
 def test_clean_vault_price_data_with_settlement_markers(
@@ -356,6 +363,124 @@ def test_remove_inactive_lead_time_with_nullable_pyarrow_supply():
     result = remove_inactive_lead_time(df, logger=lambda _: None)
 
     assert result["total_supply"].tolist() == [0.0, pd.NA, 0.0, 200.0]
+
+
+def test_grouped_cleaners_reject_non_contiguous_vault_rows() -> None:
+    """Fail before positional kernels can cross an interleaved vault boundary."""
+    frame = pd.DataFrame(
+        {
+            "id": ["vault-a", "vault-b", "vault-a", "vault-b"],
+            "total_supply": [100.0, 100.0, 200.0, 200.0],
+            "share_price": [1.0, 1.0, 1.1, 1.1],
+        },
+        index=pd.date_range("2026-09-22", periods=4, freq="h"),
+    )
+
+    with pytest.raises(AssertionError, match="contiguous before inactive"):
+        remove_inactive_lead_time(frame, logger=lambda _: None)
+    with pytest.raises(AssertionError, match="contiguous before outlier"):
+        fix_outlier_share_prices(frame, logger=lambda _: None)
+
+
+def test_grouped_cleaners_reject_non_chronological_vault_rows() -> None:
+    """Fail before positional look-around treats a later row as earlier history."""
+    frame = pd.DataFrame(
+        {
+            "id": ["vault-a"] * 3,
+            "total_supply": [100.0, 200.0, 300.0],
+            "share_price": [1.0, 1.1, 1.2],
+        },
+        index=pd.to_datetime(["2026-09-22 00:00:00", "2026-09-22 02:00:00", "2026-09-22 01:00:00"]),
+    )
+
+    with pytest.raises(AssertionError, match="chronological before inactive"):
+        remove_inactive_lead_time(frame, logger=lambda _: None)
+    with pytest.raises(AssertionError, match="chronological before outlier"):
+        fix_outlier_share_prices(frame, logger=lambda _: None)
+
+
+def test_empty_denomination_selection_retains_cleaned_schema() -> None:
+    """A valid empty selection remains writable instead of failing metadata validation."""
+    raw = pd.DataFrame(
+        {
+            "chain": pd.Series(dtype="int64"),
+            "address": pd.Series(dtype="string"),
+            "timestamp": pd.Series(dtype="datetime64[ns]"),
+            "share_price": pd.Series(dtype="float64"),
+            "total_assets": pd.Series(dtype="float64"),
+            "total_supply": pd.Series(dtype="float64"),
+        }
+    )
+
+    cleaned = vault_price_wrangle.process_raw_vault_scan_data({}, raw, logger=lambda _: None)
+
+    assert cleaned.empty
+    assert {"raw_share_price", "returns_1h", "perp_position_data_status"}.issubset(cleaned.columns)
+
+
+def test_public_cleaner_preserves_existing_output_when_selection_is_empty(
+    vault_db: Path,
+    raw_price_df: Path,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A metadata regression cannot replace the public history with zero rows.
+
+    The lower-level transformation retains a typed empty frame for targeted
+    ETH/BTC cleaning. The public writer must nevertheless fail closed before
+    replacing its last known-good Parquet when a full selection is empty.
+
+    :param vault_db:
+        Sample vault metadata database.
+    :param raw_price_df:
+        Sample raw vault price Parquet.
+    :param tmp_path:
+        Temporary output directory.
+    :param monkeypatch:
+        Pytest patch helper used to simulate an empty full selection.
+    """
+    cleaned_path = tmp_path / "cleaned-vault-prices.parquet"
+    generate_cleaned_vault_datasets(
+        vault_db_path=vault_db,
+        price_df_path=raw_price_df,
+        cleaned_price_df_path=cleaned_path,
+        logger=lambda _message: None,
+    )
+    expected = pd.read_parquet(cleaned_path)
+    empty_cleaned_rows = expected.iloc[0:0].copy()
+
+    monkeypatch.setattr(
+        vault_price_wrangle,
+        "process_raw_vault_scan_data",
+        lambda *_args, **_kwargs: empty_cleaned_rows,
+    )
+
+    with pytest.raises(ValueError, match=r"Refusing to replace.*with zero rows"):
+        generate_cleaned_vault_datasets(
+            vault_db_path=vault_db,
+            price_df_path=raw_price_df,
+            cleaned_price_df_path=cleaned_path,
+            logger=lambda _message: None,
+        )
+
+    actual = pd.read_parquet(cleaned_path)
+    pd.testing.assert_frame_equal(actual, expected)
+
+
+def test_missing_metadata_ids_without_context_use_diagnostic_fallback() -> None:
+    """An explicit ID series may contain a vault absent from the context frame."""
+    messages: list[str] = []
+    prices = pd.DataFrame(columns=["id", "chain", "address", "timestamp"])
+
+    missing = vault_price_wrangle.check_missing_metadata(
+        {},
+        pd.Series(["1-0xmissing"], dtype="string"),
+        prices,
+        logger=messages.append,
+    )
+
+    assert missing == {"1-0xmissing"}
+    assert any("chain=?, address=?, 0 price rows" in message for message in messages)
 
 
 def test_approximate_hypercore_share_prices_from_pnl_nav() -> None:
@@ -1048,6 +1173,24 @@ def test_clean_by_tvl_keeps_hypercore_price_return_consistent() -> None:
     assert result["tvl_filtering_mask"].tolist() == [True, True]
 
 
+def test_clean_by_tvl_reuses_group_codes_after_rows_are_dropped() -> None:
+    """Scatter cached group means correctly when factor codes contain gaps."""
+    prices_df = pd.DataFrame(
+        {
+            "id": ["vault-a", "vault-c"],
+            vault_price_wrangle.INTERNAL_VAULT_GROUP_COLUMN: [0, 2],
+            "chain": [1, 1],
+            "total_assets": [100.0, 200.0],
+            "returns_1h": [0.1, 0.2],
+        },
+        index=pd.date_range("2026-01-01", periods=2, freq="h"),
+    )
+
+    result = clean_by_tvl({}, prices_df, logger=lambda _message: None)
+
+    assert result["avg_assets_by_vault"].tolist() == [100.0, 200.0]
+
+
 def test_native_protocol_columns_survive_evm_scan_rewrite(tmp_path: Path):
     """Native protocol columns must survive the EVM scanner's parquet rewrite.
 
@@ -1259,3 +1402,55 @@ def test_fix_outlier_share_prices_with_duplicate_timestamps():
     assert spike["share_price"] == 1.0
     assert len(result) == len(df)
     assert result.index.duplicated().any()
+
+
+def test_mixed_protocol_reconstruction_uses_row_positions() -> None:
+    """Copy EVM repairs without overwriting Hypercore rows at duplicate timestamps."""
+    duplicate_timestamp = pd.Timestamp("2026-07-01 01:00:00")
+    target = pd.DataFrame(
+        {
+            "id": ["hypercore-a", "evm-a", "hypercore-b", "evm-b"],
+            "chain": [vault_price_wrangle.HYPERCORE_CHAIN_ID, 1, vault_price_wrangle.HYPERCORE_CHAIN_ID, 8453],
+            "share_price": pd.array([10.0, 1.0, 20.0, 2.0], dtype="float64[pyarrow]"),
+            vault_price_wrangle.INTERNAL_VAULT_GROUP_COLUMN: [0, 1, 2, 3],
+        },
+        index=pd.DatetimeIndex([duplicate_timestamp] * 4, name="timestamp"),
+    )
+    evm_positions = np.array([1, 3], dtype=np.int64)
+    repaired = target.iloc[evm_positions].copy()
+    repaired["share_price"] = [1.1, 2.2]
+    repaired["raw_share_price"] = [1.0, 2.0]
+    target["raw_share_price"] = target["share_price"]
+
+    vault_price_wrangle._copy_columns_by_position(
+        target,
+        repaired,
+        evm_positions,
+        excluded_columns={"id", vault_price_wrangle.INTERNAL_VAULT_GROUP_COLUMN},
+    )
+
+    assert target["share_price"].tolist() == [10.0, 1.1, 20.0, 2.2]
+    assert target["raw_share_price"].tolist() == [10.0, 1.0, 20.0, 2.0]
+    assert target["id"].tolist() == ["hypercore-a", "evm-a", "hypercore-b", "evm-b"]
+    assert str(target["share_price"].dtype) == "double[pyarrow]"
+    assert str(target["raw_share_price"].dtype) == "double[pyarrow]"
+
+
+def test_arrow_dataset_filter_preserves_chain_address_pairs() -> None:
+    """Predicate push-down must not match the same address on another chain."""
+    shared_address = "0x0000000000000000000000000000000000000001"
+    selected_spec = VaultSpec(1, shared_address)
+    table = pa.table(
+        {
+            "chain": [1, 8453, 1],
+            "address": [shared_address, shared_address, "0x0000000000000000000000000000000000000002"],
+            "row": ["selected", "wrong-chain", "wrong-address"],
+        }
+    )
+    dataset = ds.dataset(table)
+
+    selected = dataset.to_table(filter=vault_price_wrangle._build_vault_price_dataset_filter({selected_spec}))
+    empty = dataset.to_table(filter=vault_price_wrangle._build_vault_price_dataset_filter(set()))
+
+    assert selected["row"].to_pylist() == ["selected"]
+    assert empty.num_rows == 0

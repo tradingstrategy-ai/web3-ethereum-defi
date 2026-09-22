@@ -4,6 +4,7 @@ import datetime
 from collections.abc import Iterable
 from decimal import Decimal
 
+import numpy as np
 import pandas as pd
 import pyarrow as pa
 from packaging.version import Version
@@ -120,18 +121,37 @@ def _semantic_bundle_signature(account: pd.Series, positions: pd.DataFrame) -> t
     :return:
         Hashable account and position value tuple.
     """
-    excluded = {"snapshot_id", "written_at"}
+    # Ranking helpers are attached only while selecting corrections and are
+    # not part of the persisted account observation's business meaning.
+    excluded = {"snapshot_id", "written_at", "_perp_group_order", "_perp_collector_version"}
     account_values = tuple((key, str(value)) for key, value in sorted(account.items()) if key not in excluded)
     position_values = tuple(tuple((key, str(value)) for key, value in sorted(row.items()) if key != "snapshot_id") for _, row in positions.sort_values("source_market_id").iterrows())
     return account_values, position_values
 
 
-def select_perp_observation_corrections(accounts: pd.DataFrame, positions: pd.DataFrame) -> pd.DataFrame:
+def select_perp_observation_corrections(accounts: pd.DataFrame, positions: pd.DataFrame) -> pd.DataFrame:  # noqa: PLR0914 - correction ranking keeps explicit intermediate masks
     """Select one immutable bundle for every identity/effective-time correction set.
 
     The latest write wins; a same-write tie uses PEP 440 collector version.
     Equal-rank conflicting bundles fail hard instead of combining stale and
-    corrected position rows.
+    corrected position rows.  The common latest-write path is selected with
+    vectorised group transforms.  Python work is retained only for the
+    exceptional equal-rank semantic comparison, where preserving the exact
+    existing conflict policy is more important than avoiding a small loop.
+
+    Performance history
+    -------------------
+
+    Baseline (2026-09-22, local production-format copies): 186,115 ApeX
+    account rows and no position rows took about 172.57 seconds; 58,697
+    Hypercore high-frequency account rows and 475,450 position rows took
+    about 56.67 seconds.  A later production-format copy took 11.65 seconds
+    for 210,200 ApeX accounts with a 548 MiB peak RSS, and 8.13 seconds for
+    77,757 Hypercore accounts and 632,324 positions with a 774 MiB peak RSS.
+    The row counts differ, so these results demonstrate capacity rather than a
+    like-for-like speed-up. Measurements include correction selection,
+    position aggregation and output normalisation in a fresh Python process;
+    host-cache variance is expected.
 
     :param accounts:
         Account observation rows read from common DuckDB storage.
@@ -147,29 +167,56 @@ def select_perp_observation_corrections(accounts: pd.DataFrame, positions: pd.Da
     if missing:
         raise ValueError(f"Account observations missing correction columns: {sorted(missing)}")
 
-    selected_indices: list[int] = []
     group_columns = ["protocol_slug", "deployment_slug", "dataset_chain_id", "dataset_address", "position_effective_at"]
-    for _, group in accounts.groupby(group_columns, dropna=False, sort=False):
-        latest_written_at = group["written_at"].max()
-        latest = group[group["written_at"] == latest_written_at].copy()
-        parsed_versions = latest["collector_version"].map(Version)
-        winning_version = max(parsed_versions)
-        winning = latest[parsed_versions == winning_version]
-        if len(winning) == 1:
-            selected_indices.append(int(winning.index[0]))
-            continue
-        signatures = {
-            _semantic_bundle_signature(
-                row,
-                positions[positions["snapshot_id"] == row["snapshot_id"]],
-            )
-            for _, row in winning.iterrows()
-        }
-        if len(signatures) != 1:
-            msg = "Ambiguous equal-rank perp observation correction"
-            raise ValueError(msg)
-        selected_indices.append(int(winning.sort_values("snapshot_id").index[0]))
-    return accounts.loc[selected_indices].copy()
+
+    # ``ngroup`` preserves the first-seen group order used by the old loop.
+    # Keep that order as an explicit column because DuckDB and grouped Pandas
+    # transforms do not promise the same output ordering by themselves.
+    account_groups = accounts.groupby(group_columns, dropna=False, sort=False)
+    group_order = account_groups.ngroup()
+    latest_written_at = account_groups["written_at"].transform("max")
+    if latest_written_at.isna().any():
+        msg = "Perp observation correction group has no written_at value"
+        raise ValueError(msg)
+    latest_mask = accounts["written_at"].eq(latest_written_at)
+    latest = accounts.loc[latest_mask].copy()
+    latest["_perp_group_order"] = group_order.loc[latest.index].to_numpy()
+
+    # Validate every latest candidate just as the previous per-group loop did.
+    # Only ranking is deferred to tied candidates; an invalid singleton version
+    # must continue to fail rather than silently changing data-quality policy.
+    latest["_perp_collector_version"] = latest["collector_version"].map(Version)
+    winning_version = latest.groupby(group_columns, dropna=False, sort=False)["_perp_collector_version"].transform("max")
+    winning = latest.loc[latest["_perp_collector_version"].eq(winning_version)].copy()
+
+    # Most groups have one winner.  Restrict the remaining Python work to ties;
+    # it is the only path that needs the complete semantic position bundle.
+    winner_counts = winning.groupby(group_columns, dropna=False, sort=False)["snapshot_id"].transform("size")
+    unique_winners = winning.loc[winner_counts.eq(1)]
+    selected_indices = list(zip(unique_winners.index, unique_winners["_perp_group_order"], strict=True))
+
+    tied = winning.loc[winner_counts.gt(1)].copy()
+    if not tied.empty:
+        # Build the lookup once.  The old implementation scanned the complete
+        # positions frame for every tied candidate, which became quadratic when
+        # a correction group contained several snapshots.
+        position_groups = positions.groupby("snapshot_id", sort=False, dropna=False).groups
+        for _, tied_group in tied.groupby(group_columns, dropna=False, sort=False):
+            signatures: set[tuple] = set()
+            for _, row in tied_group.iterrows():
+                position_indexes = position_groups.get(row["snapshot_id"], [])
+                candidate_positions = positions.loc[position_indexes]
+                signatures.add(_semantic_bundle_signature(row, candidate_positions))
+            if len(signatures) != 1:
+                msg = "Ambiguous equal-rank perp observation correction"
+                raise ValueError(msg)
+            # Preserve the old deterministic snapshot-id tie-break.
+            selected_index = tied_group.sort_values("snapshot_id", kind="stable").index[0]
+            selected_indices.append((selected_index, tied_group["_perp_group_order"].iloc[0]))
+
+    selected_indices.sort(key=lambda item: item[1])
+    selected = accounts.loc[[index for index, _ in selected_indices]].copy()
+    return selected
 
 
 def derive_perp_vault_metric_snapshots(accounts: pd.DataFrame, positions: pd.DataFrame) -> pd.DataFrame:
@@ -398,19 +445,45 @@ def finalise_perp_metric_columns(
         Global acceptable observation age.
     :return:
         Finalised common metric columns.
+
+    Performance history
+    -------------------
+
+    Baseline (2026-09-22 production run): this policy ran after cleaning on
+    the full 10,116,623-row stablecoin frame and constructed a MultiIndex for
+    every row even though registered native accounts are sparse.  The
+    optimised policy took 9.99 seconds in the production-shaped stablecoin
+    run.  The old implementation did not have an isolated timer, so a
+    standalone speed-up and stage RSS are not available; the full cleaner
+    fell from 11m25s to 146.02s, with 20.4 GiB peak process RSS.
     """
     frame = ensure_perp_metric_columns(frame)
     registered_tuples = tuple(registered_perp_vaults)
     registered = pd.MultiIndex.from_tuples(registered_tuples, names=["chain", "address"]) if registered_tuples else pd.MultiIndex.from_arrays([[], []], names=["chain", "address"])
+    # Preserve the original whole-frame validation contract.  Narrowing the
+    # expensive identity construction must not let a malformed chain value on
+    # an unregistered chain pass silently.
+    numeric_chains = pd.to_numeric(frame["chain"], errors="raise").astype("int64")
     empty_status = frame["perp_position_data_status"].isna() | (frame["perp_position_data_status"] == "")
-    frame_identity = pd.MultiIndex.from_arrays(
-        [
-            pd.to_numeric(frame["chain"], errors="raise").astype("int64"),
-            frame["address"].astype("string").str.lower(),
-        ],
-        names=["chain", "address"],
-    )
-    is_registered = pd.Series(frame_identity.isin(registered), index=frame.index)
+    # Only rows on chains present in the registered native index can become
+    # ``not_collected``.  Building a MultiIndex for every cleaned row made the
+    # default-only stablecoin path allocate two large temporary arrays; keep
+    # the exact membership semantics while constructing identities on this
+    # sparse candidate subset only.
+    is_registered = pd.Series(False, index=frame.index)
+    if registered_tuples:
+        registered_chain_ids = {int(chain_id) for chain_id, _ in registered_tuples}
+        candidate_positions = np.flatnonzero(numeric_chains.isin(registered_chain_ids).to_numpy(dtype=bool, na_value=False))
+        candidate_rows = frame.iloc[candidate_positions]
+        candidate_identity = pd.MultiIndex.from_arrays(
+            [
+                numeric_chains.iloc[candidate_positions],
+                candidate_rows["address"].astype("string").str.lower(),
+            ],
+            names=["chain", "address"],
+        )
+        # Assign by row position because timestamp labels may be duplicated.
+        is_registered.iloc[candidate_positions] = candidate_identity.isin(registered)
     frame.loc[empty_status & is_registered, "perp_position_data_status"] = PerpParquetDataStatus.not_collected.value
     frame.loc[empty_status & ~is_registered, "perp_position_data_status"] = PerpParquetDataStatus.not_applicable.value
 
