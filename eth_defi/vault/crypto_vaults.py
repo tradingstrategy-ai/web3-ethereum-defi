@@ -10,20 +10,22 @@ import json
 import logging
 import os
 import tempfile
+import time
 from dataclasses import dataclass
 from decimal import Decimal
 from pathlib import Path
 from types import MappingProxyType
 from typing import Any
 
+import numpy as np
 import pandas as pd
-import pyarrow as pa
-import pyarrow.parquet as pq
 from atomicwrites import atomic_write
+from tqdm_loggable.auto import tqdm
 
 from eth_defi.compat import native_datetime_utc_now
 from eth_defi.currency_api.cleaning import KNOWN_BAD_RATES
 from eth_defi.currency_api.constants import SOURCE_NAME
+from eth_defi.feed.stablecoin_rate import StablecoinRateFeeder
 from eth_defi.research.vault_metrics import (
     USD_RATE_ERROR_INSUFFICIENT_COVERAGE,
     USD_RATE_ERROR_INVALID_SERIES,
@@ -31,7 +33,9 @@ from eth_defi.research.vault_metrics import (
     CryptoUSDConversionContext,
     calculate_hourly_returns_for_all_vaults,
     calculate_lifetime_metrics,
+    calculate_vault_record,
     export_lifetime_row,
+    slugify_vaults,
 )
 from eth_defi.research.wrangle_vault_prices import (
     filter_vaults_by_denomination_families,
@@ -56,7 +60,7 @@ from eth_defi.vault.vaultdb import VaultDatabase, VaultRow
 CRYPTO_VAULTS_BUNDLE_NAME = "crypto-vaults"
 
 #: Stable schema version for crypto metadata, sticky state and manifests.
-CRYPTO_VAULTS_SCHEMA_VERSION = 1
+CRYPTO_VAULTS_SCHEMA_VERSION = 2
 
 #: Private daily Parquet filename for the isolated crypto-vaults bundle.
 CRYPTO_CLEANED_PRICE_FILENAME = "crypto-cleaned-vault-prices-1d.parquet"
@@ -75,6 +79,47 @@ USD_RATE_BOUNDS = {
     DenominationFamily.btc.value: (100.0, 1_000_000.0),
 }
 
+#: Hard native-unit admission thresholds for the private crypto bundle.
+#:
+#: These values deliberately do not use a live USD conversion.  The source
+#: denomination family is the unit used by ``total_assets`` in the cleaned
+#: price data, so the policy cannot drift as exchange rates change.
+CRYPTO_NATIVE_MIN_PEAK_TOTAL_ASSETS = MappingProxyType(
+    {
+        DenominationFamily.eth: Decimal("2.5"),
+        DenominationFamily.btc: Decimal("0.1"),
+    }
+)
+
+#: Columns read by ``calculate_vault_record`` on the native fast path.
+#:
+#: Keeping this projection explicit prevents large descriptive/object columns
+#: from being copied into every per-vault group. Optional columns retain the
+#: protocol-specific fields that the common record builder can export.
+NATIVE_METRIC_COLUMNS = (
+    "id",
+    "chain",
+    "event_count",
+    "block_number",
+    "share_price",
+    "total_assets",
+    "vault_poll_frequency",
+    "available_liquidity",
+    "utilisation",
+    "leader_fraction",
+    "leader_commission",
+    "account_pnl",
+    "follower_count",
+    "cumulative_volume",
+    "perp_position_data_status",
+    "perp_long_notional",
+    "perp_short_notional",
+    "perp_largest_position_notional",
+    "perp_open_position_count",
+    "perp_metrics_observed_at",
+    "perp_quote_asset",
+)
+
 
 @dataclass(frozen=True, slots=True)
 class USDExchangeRateSeriesBuild:
@@ -92,6 +137,55 @@ class USDExchangeRateSeriesBuild:
 
     #: Stable reason USD metrics cannot be calculated for this family.
     error_reason: str | None
+
+
+@dataclass(frozen=True, slots=True)
+class CryptoNativeAdmission:
+    """Summarise native-unit admission for one cleaned price frame.
+
+    The summary is calculated from the lifetime maximum finite
+    ``total_assets`` value for each ETH/BTC vault. It is also used to filter
+    the cleaned Parquet before the expensive metadata calculation.
+    """
+
+    #: Native ETH/BTC vault IDs represented by the input frame.
+    native_ids: frozenset[str]
+
+    #: IDs whose lifetime peak reaches the configured family threshold.
+    qualifying_ids: frozenset[str]
+
+    #: Number of ETH/BTC source rows represented by the input frame.
+    native_row_count: int
+
+    #: Number of source rows belonging to qualifying IDs.
+    qualifying_row_count: int
+
+    #: Per-family vault and row counts for audit logging.
+    family_counts: dict[str, dict[str, int]]
+
+    @property
+    def skipped_ids(self) -> frozenset[str]:
+        """Return native IDs rejected by the hard threshold.
+
+        The difference is computed from immutable ID sets, so callers cannot
+        accidentally alter the admission decision.
+
+        :return:
+            Rejected native vault IDs.
+        """
+        return self.native_ids - self.qualifying_ids
+
+    @property
+    def skipped_row_count(self) -> int:
+        """Return the number of native rows belonging to rejected IDs.
+
+        This count is derived from the source and qualifying row totals used
+        by the admission log.
+
+        :return:
+            Number of rejected source rows.
+        """
+        return self.native_row_count - self.qualifying_row_count
 
 
 @dataclass(frozen=True, slots=True)
@@ -124,6 +218,9 @@ class CryptoVaultPaths:
 def resolve_crypto_vault_paths(data_dir: Path, directory: Path | None = None) -> CryptoVaultPaths:
     """Resolve crypto bundle paths under one pipeline data directory.
 
+    Every private bundle artefact is derived here so cleaning, metadata
+    generation and publication cannot silently choose different locations.
+
     :param data_dir:
         Root pipeline data directory.
     :param directory:
@@ -140,6 +237,140 @@ def resolve_crypto_vault_paths(data_dir: Path, directory: Path | None = None) ->
         compressed_metadata_path=metadata_path.with_suffix(".json.br"),
         sticky_state_path=bundle_dir / "crypto-vault-export-state.json",
         manifest_path=bundle_dir / "crypto-vault-manifest.json",
+    )
+
+
+def _family_by_vault_id(vault_db: VaultDatabase) -> dict[str, DenominationFamily]:
+    """Build the current denomination-family lookup keyed by vault ID.
+
+    Classification stays in one helper so admission and metadata partitioning
+    always use the same reviewed denomination policy.
+
+    :param vault_db:
+        Vault metadata database containing the reviewed denomination symbols.
+    :return:
+        Mapping from serialised vault ID to its classified denomination family.
+    """
+    return {spec.as_string_id(): classify_denomination(row.get("Denomination")) for spec, row in vault_db.rows.items()}
+
+
+def _calculate_native_family_admission(native_frame: pd.DataFrame, peak_assets: pd.Series) -> tuple[dict[str, dict[str, int]], frozenset[str]]:
+    """Calculate per-family native admission counts and qualifying IDs.
+
+    Each family is compared directly in its native unit. The returned counts
+    are diagnostic only and do not become part of the exported data contract.
+
+    :param native_frame:
+        Projected native rows with ``id``, ``family`` and ``total_assets``.
+    :param peak_assets:
+        Finite lifetime maximum asset values indexed by vault ID.
+    :return:
+        Per-family audit counts and the union of qualifying IDs.
+    """
+    qualifying_ids: set[str] = set()
+    family_counts: dict[str, dict[str, int]] = {}
+    for family, decimal_threshold in CRYPTO_NATIVE_MIN_PEAK_TOTAL_ASSETS.items():
+        family_mask = native_frame["family"] == family
+        family_ids = set(native_frame.loc[family_mask, "id"])
+        threshold = float(decimal_threshold)
+        qualifying_family_ids = set(peak_assets.loc[peak_assets.index.isin(family_ids) & peak_assets.ge(threshold)].index)
+        qualifying_ids.update(qualifying_family_ids)
+        family_rows = int(family_mask.sum())
+        qualifying_rows = int(native_frame["id"].isin(qualifying_family_ids).sum())
+        family_counts[family.value] = {
+            "vaults": len(family_ids),
+            "qualifying": len(qualifying_family_ids),
+            "skipped": len(family_ids - qualifying_family_ids),
+            "rows": family_rows,
+            "qualifying_rows": qualifying_rows,
+            "skipped_rows": family_rows - qualifying_rows,
+        }
+    return family_counts, frozenset(qualifying_ids)
+
+
+def calculate_crypto_native_admission(vault_db: VaultDatabase, prices_df: pd.DataFrame) -> CryptoNativeAdmission:
+    """Calculate hard ETH/BTC admission from native lifetime peak assets.
+
+    The helper reads only ``id`` and ``total_assets`` plus the denomination
+    family from the vault database. Invalid, negative and non-finite asset
+    observations cannot qualify a vault. Threshold comparisons use the
+    float64 representation actually stored in the Parquet, with the Decimal
+    constants converted once at the policy boundary.
+
+    :param vault_db:
+        Vault metadata database used to classify each price row.
+    :param prices_df:
+        Cleaned price rows with ``id`` and ``total_assets`` columns.
+    :return:
+        Native admission summary including qualifying IDs and audit counts.
+    :raises ValueError:
+        If the input frame lacks the columns required for native admission.
+    """
+    required_columns = {"id", "total_assets"}
+    missing_columns = required_columns - set(prices_df.columns)
+    if missing_columns:
+        raise ValueError(f"Native admission requires columns: {sorted(missing_columns)!r}")
+
+    family_by_id = _family_by_vault_id(vault_db)
+    ids = prices_df["id"].astype(str)
+    families = ids.map(family_by_id)
+    native_mask = families.isin(tuple(CRYPTO_NATIVE_MIN_PEAK_TOTAL_ASSETS))
+    native_frame = pd.DataFrame(
+        {
+            "id": ids.loc[native_mask],
+            "family": families.loc[native_mask],
+            "total_assets": pd.to_numeric(prices_df.loc[native_mask, "total_assets"], errors="coerce").astype("float64"),
+        }
+    )
+    native_ids = frozenset(native_frame["id"].unique())
+    if native_frame.empty:
+        return CryptoNativeAdmission(
+            native_ids=frozenset(),
+            qualifying_ids=frozenset(),
+            native_row_count=0,
+            qualifying_row_count=0,
+            family_counts={family.value: {"vaults": 0, "qualifying": 0, "skipped": 0, "rows": 0, "qualifying_rows": 0, "skipped_rows": 0} for family in CRYPTO_NATIVE_MIN_PEAK_TOTAL_ASSETS},
+        )
+
+    valid_assets = native_frame["total_assets"].notna() & np.isfinite(native_frame["total_assets"]) & native_frame["total_assets"].ge(0)
+    valid_native = native_frame.loc[valid_assets]
+    peak_assets = valid_native.groupby("id", sort=False, observed=True)["total_assets"].max()
+
+    family_counts, qualifying_ids = _calculate_native_family_admission(native_frame, peak_assets)
+    qualifying_row_count = int(native_frame["id"].isin(qualifying_ids).sum())
+    return CryptoNativeAdmission(
+        native_ids=native_ids,
+        qualifying_ids=frozenset(qualifying_ids),
+        native_row_count=len(native_frame),
+        qualifying_row_count=qualifying_row_count,
+        family_counts=family_counts,
+    )
+
+
+def _log_crypto_native_admission(admission: CryptoNativeAdmission, *, phase: str) -> None:
+    """Log one auditable native admission summary for a long-running phase.
+
+    The message exposes both accepted and excluded work without adding
+    transient run counters to the persistent metadata schema.
+
+    :param admission:
+        Calculated native admission summary.
+    :param phase:
+        Human-readable phase name for the log record.
+    :return:
+        ``None``.
+    """
+    btc = admission.family_counts[DenominationFamily.btc.value]
+    eth = admission.family_counts[DenominationFamily.eth.value]
+    logger.info(
+        "Crypto native admission (%s): BTC %d/%d vaults, ETH %d/%d vaults; %d vaults and %d rows excluded",
+        phase,
+        btc["qualifying"],
+        btc["vaults"],
+        eth["qualifying"],
+        eth["vaults"],
+        len(admission.skipped_ids),
+        admission.skipped_row_count,
     )
 
 
@@ -205,7 +436,12 @@ def build_crypto_vault_prices(
                 vault_db=vault_db,
                 logger=logger.info,
             )
-            price_frames.append(pd.read_parquet(eth_btc_path, dtype_backend="pyarrow"))
+            eth_btc_prices = pd.read_parquet(eth_btc_path, dtype_backend="pyarrow")
+            admission = calculate_crypto_native_admission(vault_db, eth_btc_prices)
+            _log_crypto_native_admission(admission, phase="cleaning")
+            qualifying_ids = admission.qualifying_ids
+            eth_btc_prices = eth_btc_prices.loc[eth_btc_prices["id"].astype(str).isin(qualifying_ids)]
+            price_frames.append(eth_btc_prices)
     else:
         logger.info("No ETH/BTC vaults in the metadata database")
     combined = pd.concat(price_frames).sort_values(["id", "timestamp"], kind="stable")
@@ -213,8 +449,7 @@ def build_crypto_vault_prices(
     os.close(temporary_fd)
     temporary_path = Path(temporary_path_text)
     try:
-        table = pa.Table.from_pandas(combined)
-        pq.write_table(table, temporary_path, compression="zstd")
+        combined.to_parquet(temporary_path, compression="zstd")
         verify_parquet_file(temporary_path, expected_rows=len(combined), required_columns=["id", "share_price", "timestamp", "returns_1h"])
         os.replace(temporary_path, cleaned_path)
     finally:
@@ -224,6 +459,9 @@ def build_crypto_vault_prices(
 def _load_sticky_state(path: Path) -> dict[str, Any]:
     """Load the isolated sticky state without resetting corrupt production data.
 
+    Missing state starts clean, version-one state is migrated explicitly, and
+    malformed or unknown versions fail closed to preserve operator evidence.
+
     :param path:
         Sticky-state JSON file.
     :return:
@@ -232,13 +470,25 @@ def _load_sticky_state(path: Path) -> dict[str, Any]:
     if not path.exists():
         return {"schema_version": CRYPTO_VAULTS_SCHEMA_VERSION, "vaults": {}}
     state = json.loads(path.read_text(encoding="utf-8"))
-    if state.get("schema_version") != CRYPTO_VAULTS_SCHEMA_VERSION or not isinstance(state.get("vaults"), dict):
+    if not isinstance(state, dict) or not isinstance(state.get("vaults"), dict):
         raise ValueError(f"Invalid crypto vault sticky state: {path}")
-    return state
+    schema_version = state.get("schema_version")
+    if schema_version == CRYPTO_VAULTS_SCHEMA_VERSION:
+        return state
+    if schema_version == 1:
+        logger.info("Migrating crypto vault sticky state from schema version 1: %s", path)
+        return {
+            "schema_version": CRYPTO_VAULTS_SCHEMA_VERSION,
+            "vaults": dict(state["vaults"]),
+        }
+    raise ValueError(f"Invalid crypto vault sticky state schema version in {path}: {schema_version!r}")
 
 
 def _save_json_atomic(payload: dict[str, Any], path: Path) -> None:
     """Validate and atomically write one JSON document.
+
+    Validation rejects non-finite values before the temporary file replaces
+    an existing production artefact.
 
     :param payload:
         Strictly JSON-serialisable document.
@@ -256,12 +506,17 @@ def _save_json_atomic(payload: dict[str, Any], path: Path) -> None:
 def build_crypto_vault_record(record: dict[str, Any], vault_row: VaultRow, threshold_usd: Decimal) -> tuple[dict[str, Any], Decimal]:
     """Convert one common metric record to the crypto bundle schema.
 
+    The transformation preserves the observed denomination while replacing
+    mixed-unit rankings and choosing the applicable stablecoin or native
+    qualification policy.
+
     :param record:
         Serialised common metric record.
     :param vault_row:
         Source vault database row.
     :param threshold_usd:
-        Fixed USD qualification guideline.
+        Fixed USD qualification guideline for stablecoin records. ETH/BTC
+        records use ``CRYPTO_NATIVE_MIN_PEAK_TOTAL_ASSETS`` instead.
     :return:
         Native-unit crypto record and its resolved qualification threshold.
     """
@@ -271,7 +526,10 @@ def build_crypto_vault_record(record: dict[str, Any], vault_row: VaultRow, thres
     wrapper_kind = get_denomination_wrapper_kind(symbol)
     assert family is DenominationFamily.stablecoin or wrapper_kind is not None
     token_data = vault_row.get("_denomination_token") or {}
-    threshold = convert_usd_threshold_to_denomination(threshold_usd, symbol)
+    if family in CRYPTO_NATIVE_MIN_PEAK_TOTAL_ASSETS:
+        threshold = CRYPTO_NATIVE_MIN_PEAK_TOTAL_ASSETS[family]
+    else:
+        threshold = convert_usd_threshold_to_denomination(threshold_usd, symbol)
     result = dict(record)
     # Reuse the established JSON fields for the observed token and asset unit;
     # do not add crypto-only symbol, decimals or unit aliases.
@@ -316,6 +574,9 @@ def build_crypto_vault_record(record: dict[str, Any], vault_row: VaultRow, thres
 
 def _validate_crypto_price_rows(vault_db: VaultDatabase, prices_df: pd.DataFrame) -> None:
     """Ensure crypto price rows have matching supported vault metadata.
+
+    Validation happens before calculations so stale IDs or newly unsupported
+    denominations cannot produce a partial private bundle.
 
     :param vault_db:
         Common vault metadata database.
@@ -372,7 +633,8 @@ def build_crypto_usd_conversion_context(
     vault_families = {spec.as_string_id(): family.value for spec, row in vault_db.rows.items() if (family := classify_denomination(row.get("Denomination"))) in {DenominationFamily.eth, DenominationFamily.btc}}
     rate_rows = exchange_rates.loc[(exchange_rates["base_currency"] == "usd") & (exchange_rates["source"] == SOURCE_NAME) & exchange_rates["quote_currency"].isin(("eth", "btc"))].copy()
     if rate_rows.empty:
-        raise ValueError("Exchange-rate Parquet has no fawazahmed0 USD→ETH/BTC rates")
+        message = "Exchange-rate Parquet has no fawazahmed0 USD→ETH/BTC rates"
+        raise ValueError(message)
     rate_rows["date"] = pd.to_datetime(rate_rows["date"], errors="raise").dt.normalize()
     rate_rows["rate"] = pd.to_numeric(rate_rows["rate"], errors="coerce")
 
@@ -411,6 +673,9 @@ def _build_effective_usd_rate_series(
     price_end: pd.Timestamp,
 ) -> USDExchangeRateSeriesBuild:
     """Validate and regularise one ETH/BTC provider series.
+
+    Provider observations are inverted to USD per native asset, shifted to
+    their effective vault date and forward-filled only across bounded gaps.
 
     :param family:
         Canonical ``eth`` or ``btc`` denomination family.
@@ -468,7 +733,80 @@ def _build_effective_usd_rate_series(
     return USDExchangeRateSeriesBuild(effective_rates, coverage, None)
 
 
-def build_crypto_vault_metadata(
+def _build_native_crypto_metrics(
+    prices_df: pd.DataFrame,
+    vault_db: VaultDatabase,
+    stablecoin_rate_feeder: StablecoinRateFeeder,
+    crypto_usd_conversion_context: CryptoUSDConversionContext | None,
+) -> pd.DataFrame:
+    """Calculate native ETH/BTC records without whole-frame regularisation.
+
+    Native records do not support the stablecoin ERC-4626 flow estimator, and
+    ``calculate_vault_record`` already regularises each vault's share-price
+    series for its period metrics. Calling it directly avoids resampling all
+    49 source columns and avoids the mixed-unit ranking pass. The projected
+    frame retains every column read by the common record builder, including
+    protocol-specific optional fields.
+
+    :param prices_df:
+        Cleaned, threshold-filtered native price rows with a UTC datetime index.
+    :param vault_db:
+        Vault metadata for the native rows.
+    :param stablecoin_rate_feeder:
+        One shared feeder used to avoid duplicate metadata scans.
+    :param crypto_usd_conversion_context:
+        Optional exchange-rate context for additive USD period metrics.
+    :return:
+        One raw metric Series per native vault, or an empty DataFrame.
+    """
+    if prices_df.empty:
+        return pd.DataFrame()
+    if not isinstance(prices_df.index, pd.DatetimeIndex):
+        message = "Native crypto metrics require a DatetimeIndex"
+        raise TypeError(message)
+    required_columns = {"id", "chain", "event_count", "block_number", "share_price", "total_assets"}
+    missing_columns = required_columns - set(prices_df.columns)
+    if missing_columns:
+        raise ValueError(f"Native crypto metrics require columns: {sorted(missing_columns)!r}")
+
+    projected_columns = [column for column in NATIVE_METRIC_COLUMNS if column in prices_df.columns]
+    projected_prices = prices_df.loc[:, projected_columns].sort_index(kind="stable")
+    price_ids = set(projected_prices["id"].astype(str))
+    vault_rows = {spec: row for spec, row in vault_db.rows.items() if spec.as_string_id() in price_ids}
+    slugify_vaults(vaults=vault_rows)
+    month_ago = projected_prices.index.max() - pd.Timedelta(days=30)
+    three_months_ago = projected_prices.index.max() - pd.Timedelta(days=90)
+    grouped_vaults = projected_prices.groupby("id", group_keys=False, sort=False, observed=True)
+    generated_at = pd.Timestamp(native_datetime_utc_now())
+    records: list[pd.Series] = []
+    for vault_id, group in tqdm(grouped_vaults, desc="Calculating native crypto metrics", total=grouped_vaults.ngroups):
+        try:
+            # The old full-frame route keeps one midnight row per observed day,
+            # then forward-fills calendar gaps. Reproduce that semantic on the
+            # projected metric columns only; this avoids resampling the full
+            # object-heavy source frame while preserving lifetime sample counts.
+            group = group.sort_index(kind="stable")
+            group = group.resample("D").last().ffill()
+            group["id"] = str(vault_id)
+            record = calculate_vault_record(
+                group,
+                vault_rows,
+                month_ago,
+                three_months_ago,
+                vault_id=str(vault_id),
+                stablecoin_rate_feeder=stablecoin_rate_feeder,
+                crypto_usd_conversion_context=crypto_usd_conversion_context,
+            )
+        except (ArithmeticError, AssertionError, KeyError, TypeError, ValueError):
+            logger.exception("Skipping invalid native crypto metrics record for %s", vault_id)
+            continue
+        record["generated_at"] = generated_at
+        records.append(record)
+
+    return pd.DataFrame(records)
+
+
+def build_crypto_vault_metadata(  # noqa: PLR0914 - this coordinator keeps the isolated export phases explicit
     *,
     vault_db_path: Path,
     cleaned_price_path: Path,
@@ -496,7 +834,8 @@ def build_crypto_vault_metadata(
         vaults. Stablecoin records deliberately do not get a duplicate USD
         metric view.
     :param threshold_usd:
-        Optional fixed USD guideline; defaults to environment/config value.
+        Optional fixed USD guideline for stablecoin sticky admission; defaults
+        to environment/config value. ETH/BTC admission is native-unit based.
     :return:
         JSON-serialisable metadata document.
     """
@@ -507,44 +846,93 @@ def build_crypto_vault_metadata(
     if not isinstance(prices_df.index, pd.DatetimeIndex):
         prices_df["timestamp"] = pd.to_datetime(prices_df["timestamp"])
         prices_df.set_index("timestamp", inplace=True)
+    prices_df["id"] = prices_df["id"].astype(str)
     _validate_crypto_price_rows(vault_db, prices_df)
+
+    admission_started = time.perf_counter()
+    admission = calculate_crypto_native_admission(vault_db, prices_df)
+    _log_crypto_native_admission(admission, phase="metadata")
+    family_by_id = _family_by_vault_id(vault_db)
+    family_series = prices_df["id"].map(family_by_id)
+    stable_mask = family_series == DenominationFamily.stablecoin
+    native_mask = family_series.isin(tuple(CRYPTO_NATIVE_MIN_PEAK_TOTAL_ASSETS)) & prices_df["id"].isin(admission.qualifying_ids)
+    stable_prices_df = prices_df.loc[stable_mask]
+    native_prices_df = prices_df.loc[native_mask]
+    stable_price_ids = set(stable_prices_df["id"])
+    stable_vault_rows = {spec: row for spec, row in vault_db.rows.items() if family_by_id[spec.as_string_id()] is DenominationFamily.stablecoin and spec.as_string_id() in stable_price_ids}
+    logger.info(
+        "Prepared crypto metric inputs: %d stablecoin rows/%d vaults, %d native rows/%d vaults in %.2fs",
+        len(stable_prices_df),
+        stable_prices_df["id"].nunique(),
+        len(native_prices_df),
+        native_prices_df["id"].nunique(),
+        time.perf_counter() - admission_started,
+    )
+
     crypto_usd_conversion_context = None
     usd_metrics_provenance = None
-    if exchange_rate_parquet_path is not None:
+    if exchange_rate_parquet_path is not None and not native_prices_df.empty:
         crypto_usd_conversion_context, usd_metrics_provenance = build_crypto_usd_conversion_context(
             vault_db,
             prices_df,
             exchange_rate_parquet_path,
         )
-    daily_prices_df = calculate_hourly_returns_for_all_vaults(prices_df)
-    metrics_df = calculate_lifetime_metrics(
-        daily_prices_df,
+
+    stablecoin_rate_feeder = StablecoinRateFeeder()
+    stable_metrics_started = time.perf_counter()
+    if stable_prices_df.empty:
+        stable_metrics_df = pd.DataFrame()
+    else:
+        daily_stable_prices_df = calculate_hourly_returns_for_all_vaults(stable_prices_df)
+        stable_metrics_df = calculate_lifetime_metrics(
+            daily_stable_prices_df,
+            stable_vault_rows,
+            stablecoin_rate_feeder=stablecoin_rate_feeder,
+        )
+    logger.info("Calculated stablecoin crypto metrics in %.2fs", time.perf_counter() - stable_metrics_started)
+
+    native_metrics_started = time.perf_counter()
+    native_metrics_df = _build_native_crypto_metrics(
+        native_prices_df,
         vault_db,
-        crypto_usd_conversion_context=crypto_usd_conversion_context,
+        stablecoin_rate_feeder,
+        crypto_usd_conversion_context,
     )
+    logger.info("Calculated native crypto metrics in %.2fs", time.perf_counter() - native_metrics_started)
+
+    serialisation_started = time.perf_counter()
     state = _load_sticky_state(sticky_state_path)
     selected_records: list[dict[str, Any]] = []
     current_ids: set[str] = set()
 
-    for _, metric_row in metrics_df.iterrows():
-        vault_id = str(metric_row["id"])
-        vault_row = vault_db.rows[VaultSpec.parse_string(vault_id, separator="-")]
-        record, resolved_threshold = build_crypto_vault_record(export_lifetime_row(metric_row), vault_row, threshold_usd)
-        current_ids.add(vault_id)
-        peak_assets = record.get("peak_total_assets")
-        qualifies = peak_assets is not None and float(peak_assets) >= float(resolved_threshold)
-        prior = state["vaults"].get(vault_id)
-        if qualifies or (prior and prior.get("denomination_family") == record["denomination_family"]):
-            record["sticky_export"] = not qualifies
-            selected_records.append(record)
-            state["vaults"][vault_id] = {
-                "denomination_family": record["denomination_family"],
-                "denomination_symbol": record["denomination"],
-                "threshold": float(resolved_threshold),
-                "updated_at": native_datetime_utc_now().isoformat(),
-            }
+    for metric_df in (stable_metrics_df, native_metrics_df):
+        for _, metric_row in metric_df.iterrows():
+            vault_id = str(metric_row["id"])
+            vault_row = vault_db.rows[VaultSpec.parse_string(vault_id, separator="-")]
+            record, resolved_threshold = build_crypto_vault_record(export_lifetime_row(metric_row), vault_row, threshold_usd)
+            current_ids.add(vault_id)
+            family = record["denomination_family"]
+            peak_assets = record.get("peak_total_assets")
+            qualifies = peak_assets is not None and float(peak_assets) >= float(resolved_threshold)
+            prior = state["vaults"].get(vault_id)
+            if family in {DenominationFamily.eth.value, DenominationFamily.btc.value}:
+                include = vault_id in admission.qualifying_ids
+                qualifies = include
+            else:
+                include = qualifies or (prior and prior.get("denomination_family") == family)
+            if include:
+                record["sticky_export"] = not qualifies
+                selected_records.append(record)
+                state["vaults"][vault_id] = {
+                    "denomination_family": family,
+                    "denomination_symbol": record["denomination"],
+                    "threshold": float(resolved_threshold),
+                    "updated_at": native_datetime_utc_now().isoformat(),
+                }
 
-    state["vaults"] = {key: value for key, value in state["vaults"].items() if key in current_ids}
+    native_family_names = {DenominationFamily.eth.value, DenominationFamily.btc.value}
+    state["vaults"] = {key: value for key, value in state["vaults"].items() if key in current_ids and (value.get("denomination_family") not in native_family_names or key in admission.qualifying_ids)}
+    selected_records.sort(key=lambda record: str(record.get("id", "")))
     metadata = {
         "bundle": CRYPTO_VAULTS_BUNDLE_NAME,
         "schema_version": CRYPTO_VAULTS_SCHEMA_VERSION,
@@ -554,10 +942,16 @@ def build_crypto_vault_metadata(
         "denomination_families": list(CRYPTO_DENOMINATION_FAMILY_NAMES),
         "threshold_usd_guideline": float(threshold_usd),
         "fixed_usd_rates": {"ETH": float(ETH_USD_GUIDELINE_RATE), "BTC": float(BTC_USD_GUIDELINE_RATE)},
+        "native_min_peak_total_assets": {family.value: float(threshold) for family, threshold in CRYPTO_NATIVE_MIN_PEAK_TOTAL_ASSETS.items()},
         "vaults": selected_records,
     }
     if usd_metrics_provenance is not None:
         metadata["usd_metrics"] = usd_metrics_provenance
     _save_json_atomic(metadata, metadata_path)
     _save_json_atomic(state, sticky_state_path)
+    logger.info(
+        "Built and saved %d crypto vault records in %.2fs",
+        len(selected_records),
+        time.perf_counter() - serialisation_started,
+    )
     return metadata

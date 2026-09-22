@@ -209,9 +209,12 @@ crypto-specific return column. The legacy ``returns_1h`` column is recomputed
 between consecutive exported observations: it is a sparse return, not an
 hourly or guaranteed one-day return, and existing TVL-filtered rows remain
 zeroed. Lifetime metrics use the normal forward-filled daily share-price
-series. ETH and BTC amounts stay in their denomination units. The fixed
-USD-to-denomination thresholds (USD 2,000/ETH and USD 60,000/BTC) are only
-low-TVL filtering guidelines, not live valuations.
+series. ETH and BTC amounts stay in their denomination units. Native admission
+uses each family lifetime peak ``total_assets`` with hard thresholds of
+``2.5`` ETH-family units and ``0.1`` BTC-family units. The older fixed
+USD-to-denomination values (USD 2,000/ETH and USD 60,000/BTC) remain only as
+compatibility metadata for older consumers; they do not determine ETH/BTC
+admission. The separate USD threshold continues to govern stablecoin records.
 
 Every vault entry in ``crypto-vault-metadata.json`` uses the existing
 ``denomination``, ``denomination_token_address`` and ``denomination_decimals``
@@ -283,6 +286,25 @@ poetry run python scripts/erc-4626/export-crypto-vaults.py
 
 Use ``CRYPTO_VAULTS_PUBLISH=false`` to generate local artefacts for inspection
 when the private R2 bucket is intentionally unavailable.
+
+Measure the native metadata optimisation against a deterministic local subset
+without publishing anything. Set ``CRYPTO_BENCHMARK_PRICE_DATABASE`` to a
+retained unfiltered crypto Parquet to report threshold admission counts;
+``CRYPTO_BENCHMARK_N=0`` runs all native candidates:
+
+```shell
+CRYPTO_BENCHMARK_N=50 \
+CRYPTO_BENCHMARK_PRICE_DATABASE=~/.tradingstrategy/vaults/crypto-vaults/crypto-cleaned-vault-prices-1d.parquet \
+poetry run python scripts/erc-4626/benchmark-crypto-vault-metadata.py
+```
+
+The benchmark selects candidate IDs by SHA-256 and reports qualifying and
+rejected counts separately. Both timed routes receive exactly the same
+qualifying rows, so the reported speed-up measures the projected metric path
+and does not count the threshold reduction as an algorithmic gain. Process RSS
+is intentionally omitted because sequential routes in one interpreter do not
+have independent high-water marks. The script never writes bundle files or
+uploads to R2.
 
 Afterwards, inspect the local artefacts without network access. The report
 lists ETH- and BTC-denominated vault name, protocol, denomination token,
@@ -780,6 +802,26 @@ for the JSON schema, storage mapping and deployment checks.
 No separate manifest enable flag is needed. The authenticated serving endpoint
 and its Worker/CDN cache policy must be deployed and checked before a strategy
 uses the receipt; uploading the R2 object alone does not enable the endpoint.
+
+To smoke-test the manifest producer against the production local price snapshot
+and private R2 bucket without replacing the live receipt, run:
+
+```shell
+# On the scanner host, from its deployed checkout.
+source ~/vault-scanner/vault-rpc.env && \
+  poetry run python scripts/erc-4626/smoke-test-vault-scan-manifest.py
+```
+
+The script uploads a uniquely named JSON object below `smoke-tests/`, reads it
+back, and verifies its JSON, MIME type, `no-store` policy and ETag binding to
+the existing private price object. It also requires the local and private price
+files to have the same byte length before it writes the receipt, preventing a
+manual test from pairing freshness fields with a stale uploaded Parquet. It
+leaves the audit object in R2 and refuses any `MANIFEST_SMOKE_OBJECT_KEY`
+outside that namespace. Local secret files that omit the production deployment
+bucket variable may select an equivalent private test destination with
+`MANIFEST_SMOKE_BUCKET_NAME`; the production alternative bucket remains the
+default.
 
 ### Xerberus risk enrichment
 

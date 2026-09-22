@@ -1,6 +1,7 @@
 """Unit tests for the isolated crypto-vaults export primitives."""
 
 from decimal import Decimal
+from math import nextafter
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -13,13 +14,17 @@ from eth_defi.research.wrangle_vault_prices import (
     filter_vaults_by_stablecoin,
     materialise_daily_crypto_prices,
 )
-from eth_defi.vault import crypto_vault_export
+from eth_defi.vault import crypto_vault_export, crypto_vaults
 from eth_defi.vault.base import VaultSpec
 from eth_defi.vault.crypto_vault_export import build_crypto_vault_manifest, publish_crypto_vault_bundle
 from eth_defi.vault.crypto_vaults import (
+    CRYPTO_NATIVE_MIN_PEAK_TOTAL_ASSETS,
+    CRYPTO_VAULTS_SCHEMA_VERSION,
     CryptoVaultPaths,
     build_crypto_usd_conversion_context,
+    build_crypto_vault_prices,
     build_crypto_vault_record,
+    calculate_crypto_native_admission,
     resolve_crypto_vault_paths,
 )
 from eth_defi.vault.denomination import (
@@ -67,6 +72,71 @@ def test_denomination_classifier_and_fixed_thresholds() -> None:
     assert convert_usd_threshold_to_denomination(Decimal("5000"), "cbBTC") == Decimal("0.08333333333333333333333333333")
 
 
+def test_crypto_native_admission_uses_native_peak_thresholds_without_usd() -> None:
+    """Native admission honours exact BTC/ETH boundaries and ignores USD inputs."""
+    eth_qualifying = VaultSpec(1, "0x0000000000000000000000000000000000000010")
+    eth_rejected = VaultSpec(1, "0x0000000000000000000000000000000000000011")
+    btc_qualifying = VaultSpec(1, "0x0000000000000000000000000000000000000012")
+    btc_rejected = VaultSpec(1, "0x0000000000000000000000000000000000000013")
+    rows = {
+        eth_qualifying: _vault_row(1, eth_qualifying.vault_address, "ETH"),
+        eth_rejected: _vault_row(1, eth_rejected.vault_address, "wstETH"),
+        btc_qualifying: _vault_row(1, btc_qualifying.vault_address, "BTC"),
+        btc_rejected: _vault_row(1, btc_rejected.vault_address, "WBTC"),
+    }
+    prices = pd.DataFrame(
+        {
+            "id": [
+                eth_qualifying.as_string_id(),
+                eth_rejected.as_string_id(),
+                btc_qualifying.as_string_id(),
+                btc_rejected.as_string_id(),
+            ],
+            "total_assets": [2.5, nextafter(2.5, 0.0), 0.1, nextafter(0.1, 0.0)],
+        }
+    )
+
+    admission = calculate_crypto_native_admission(VaultDatabase(rows=rows), prices)
+
+    assert admission.qualifying_ids == frozenset({eth_qualifying.as_string_id(), btc_qualifying.as_string_id()})
+    assert admission.skipped_ids == frozenset({eth_rejected.as_string_id(), btc_rejected.as_string_id()})
+    assert admission.family_counts[DenominationFamily.eth.value]["qualifying"] == 1
+    assert admission.family_counts[DenominationFamily.btc.value]["qualifying"] == 1
+    assert CRYPTO_NATIVE_MIN_PEAK_TOTAL_ASSETS[DenominationFamily.eth] == Decimal("2.5")
+    assert CRYPTO_NATIVE_MIN_PEAK_TOTAL_ASSETS[DenominationFamily.btc] == Decimal("0.1")
+
+
+def test_crypto_native_admission_rejects_invalid_peak_assets() -> None:
+    """Missing, negative and non-finite native TVL cannot pass admission."""
+    eth_spec = VaultSpec(1, "0x0000000000000000000000000000000000000020")
+    rows = {eth_spec: _vault_row(1, eth_spec.vault_address, "ETH")}
+    prices = pd.DataFrame(
+        {
+            "id": [eth_spec.as_string_id()] * 3,
+            "total_assets": [None, -1.0, float("inf")],
+        }
+    )
+
+    admission = calculate_crypto_native_admission(VaultDatabase(rows=rows), prices)
+
+    assert admission.qualifying_ids == frozenset()
+    assert admission.native_ids == frozenset({eth_spec.as_string_id()})
+
+
+def test_crypto_sticky_state_migrates_schema_v1_without_resetting(tmp_path: Path) -> None:
+    """Version-one sticky entries survive the explicit schema migration."""
+    state_path = tmp_path / "crypto-state.json"
+    state_path.write_text(
+        '{"schema_version": 1, "vaults": {"1-0xstable": {"denomination_family": "stablecoin"}}}',
+        encoding="utf-8",
+    )
+
+    state = crypto_vaults._load_sticky_state(state_path)
+
+    assert state["schema_version"] == CRYPTO_VAULTS_SCHEMA_VERSION
+    assert state["vaults"]["1-0xstable"]["denomination_family"] == "stablecoin"
+
+
 def test_crypto_selection_retains_cleaned_price_schema() -> None:
     """Crypto denomination selection does not add metadata columns."""
     stable_spec = VaultSpec(1, "0x0000000000000000000000000000000000000001")
@@ -91,6 +161,65 @@ def test_crypto_selection_retains_cleaned_price_schema() -> None:
     assert stable["id"].tolist() == [stable_spec.as_string_id()]
     assert crypto.columns.tolist() == prices.columns.tolist()
     assert crypto["id"].tolist() == prices["id"].tolist()
+
+
+def test_crypto_price_build_filters_native_rows(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """The cleaned private Parquet excludes rejected native vaults before publication."""
+    stable_spec = VaultSpec(1, "0x0000000000000000000000000000000000000030")
+    eth_spec = VaultSpec(1, "0x0000000000000000000000000000000000000031")
+    rejected_spec = VaultSpec(1, "0x0000000000000000000000000000000000000032")
+    rows = {
+        stable_spec: _vault_row(1, stable_spec.vault_address, "USDC"),
+        eth_spec: _vault_row(1, eth_spec.vault_address, "ETH"),
+        rejected_spec: _vault_row(1, rejected_spec.vault_address, "WBTC"),
+    }
+    native_prices = pd.DataFrame(
+        {
+            "id": [eth_spec.as_string_id(), rejected_spec.as_string_id()],
+            "timestamp": pd.to_datetime(["2026-01-01", "2026-01-01"]),
+            "chain": [1, 1],
+            "address": [eth_spec.vault_address, rejected_spec.vault_address],
+            "block_number": [1, 1],
+            "event_count": [1, 1],
+            "share_price": [1.0, 1.0],
+            "total_assets": [2.5, 0.01],
+            "returns_1h": [0.0, 0.0],
+        }
+    )
+    stable_prices = pd.DataFrame(
+        {
+            "id": [stable_spec.as_string_id()],
+            "timestamp": pd.to_datetime(["2026-01-01"]),
+            "chain": [1],
+            "address": [stable_spec.vault_address],
+            "block_number": [1],
+            "event_count": [1],
+            "share_price": [1.0],
+            "total_assets": [10_000.0],
+            "returns_1h": [0.0],
+        }
+    ).set_index("timestamp")
+
+    def fake_generate_cleaned_vault_datasets(**kwargs: object) -> None:
+        """Provide a cleaner-shaped native file without scanning a chain."""
+        native_prices.to_parquet(kwargs["cleaned_price_df_path"])
+
+    monkeypatch.setattr(crypto_vaults, "generate_cleaned_vault_datasets", fake_generate_cleaned_vault_datasets)
+    vault_db_path = tmp_path / "vault-db.pickle"
+    VaultDatabase(rows=rows).write(vault_db_path)
+    stable_path = tmp_path / "stable.parquet"
+    stable_prices.to_parquet(stable_path)
+    cleaned_path = tmp_path / "crypto.parquet"
+
+    build_crypto_vault_prices(
+        vault_db_path=vault_db_path,
+        uncleaned_path=tmp_path / "raw.parquet",
+        cleaned_path=cleaned_path,
+        cleaned_stablecoin_path=stable_path,
+    )
+
+    result = pd.read_parquet(cleaned_path)
+    assert set(result["id"]) == {stable_spec.as_string_id(), eth_spec.as_string_id()}
 
 
 def test_daily_materialisation_preserves_last_observation_and_schema() -> None:
@@ -197,6 +326,7 @@ def test_crypto_metadata_identifies_underlying_and_stablecoinish_history() -> No
     assert wbtc_record["denomination_decimals"] == DENOMINATION_DECIMALS
     assert wbtc_record["canonical_underlying"] == "BTC"
     assert wbtc_record["stablecoinish"] is False
+    assert wbtc_record["qualification_threshold"] == pytest.approx(0.1)
     assert wbtc_record["period_results"][0] == {
         "ranking_overall": None,
         "ranking_chain": None,
@@ -269,6 +399,7 @@ def test_manifest_describes_flat_crypto_payloads(tmp_path: Path) -> None:
         ],
         "threshold_usd_guideline": 5000.0,
         "fixed_usd_rates": {"ETH": 2000, "BTC": 60000},
+        "native_min_peak_total_assets": {"eth": 2.5, "btc": 0.1},
     }
 
     manifest = build_crypto_vault_manifest(paths, metadata)
@@ -284,6 +415,7 @@ def test_manifest_describes_flat_crypto_payloads(tmp_path: Path) -> None:
         "crypto-vault-export-state.json",
     }
     assert manifest["files"]["crypto-vault-metadata.json"]["sha256"]
+    assert manifest["native_min_peak_total_assets"] == {"eth": 2.5, "btc": 0.1}
 
 
 def test_crypto_bundle_reports_missing_brotli_at_publication_time(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
