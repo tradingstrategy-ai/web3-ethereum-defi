@@ -7,6 +7,7 @@ import hashlib
 import json
 import logging
 import os
+import time
 from pathlib import Path
 from typing import Any
 
@@ -26,6 +27,9 @@ logger = logging.getLogger(__name__)
 
 def _get_r2_configuration() -> tuple[str, str, str, str]:
     """Resolve private R2 configuration from the established environment names.
+
+    The lookup follows the same preferred and legacy variable order used by
+    the other private vault publishers and reports every missing value at once.
 
     :return:
         Alternative bucket name, endpoint URL, access key ID and secret key.
@@ -73,6 +77,9 @@ def _write_brotli_metadata(paths: CryptoVaultPaths) -> None:
 def _get_payload_paths(paths: CryptoVaultPaths, *, include_manifest: bool = False) -> tuple[tuple[str, Path], ...]:
     """Return payload object names and local paths in publication order.
 
+    Keeping order in one helper ensures the manifest is appended only as the
+    final commit marker and never hashed as one of its own payloads.
+
     :param paths:
         Local bundle paths.
     :param include_manifest:
@@ -91,6 +98,9 @@ def _get_payload_paths(paths: CryptoVaultPaths, *, include_manifest: bool = Fals
 
 def build_crypto_vault_manifest(paths: CryptoVaultPaths, metadata: dict[str, Any]) -> dict[str, Any]:
     """Build the current flat-key bundle manifest from local payloads.
+
+    The manifest binds each local payload by size and SHA-256 digest and
+    repeats the native threshold policy needed by consumers to audit admission.
 
     :param paths:
         Local bundle paths.
@@ -112,7 +122,7 @@ def build_crypto_vault_manifest(paths: CryptoVaultPaths, metadata: dict[str, Any
     # Pandas restores a Parquet ``timestamp`` index as an index, whereas
     # hand-crafted or legacy files can retain it as a regular column.
     timestamps = prices_df.index if isinstance(prices_df.index, pd.DatetimeIndex) else pd.to_datetime(prices_df["timestamp"])
-    return {
+    manifest = {
         "bundle": CRYPTO_VAULTS_BUNDLE_NAME,
         "schema_version": CRYPTO_VAULTS_SCHEMA_VERSION,
         "generated_at": metadata["generated_at"],
@@ -130,6 +140,9 @@ def build_crypto_vault_manifest(paths: CryptoVaultPaths, metadata: dict[str, Any
         "fixed_usd_rates": metadata["fixed_usd_rates"],
         "sampling": "sparse daily observations; metrics use forward-filled calendar-day prices",
     }
+    if "native_min_peak_total_assets" in metadata:
+        manifest["native_min_peak_total_assets"] = metadata["native_min_peak_total_assets"]
+    return manifest
 
 
 def publish_crypto_vault_bundle(paths: CryptoVaultPaths, metadata: dict[str, Any]) -> bool:
@@ -147,6 +160,7 @@ def publish_crypto_vault_bundle(paths: CryptoVaultPaths, metadata: dict[str, Any
         ``True`` when all uploads complete; exceptions propagate to the guarded
         post-processing phase.
     """
+    publication_started = time.perf_counter()
     bucket_name, endpoint_url, access_key_id, secret_access_key = _get_r2_configuration()
     logger.info("Publishing %s bundle to private R2 bucket %s", CRYPTO_VAULTS_BUNDLE_NAME, bucket_name)
     _write_brotli_metadata(paths)
@@ -176,4 +190,10 @@ def publish_crypto_vault_bundle(paths: CryptoVaultPaths, metadata: dict[str, Any
     if os.environ.get("R2_DAILY_BACKUP", "true").lower() != "false":
         for object_key in published_keys:
             copy_r2_object_daily_backup(client, bucket_name, object_key)
+    logger.info(
+        "Published %s bundle with %d objects in %.2fs",
+        CRYPTO_VAULTS_BUNDLE_NAME,
+        len(published_keys),
+        time.perf_counter() - publication_started,
+    )
     return True

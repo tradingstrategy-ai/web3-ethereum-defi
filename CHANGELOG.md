@@ -1,6 +1,7 @@
 # 1.2
 
 - feat: Add fixed-block-tested Lagoon 1.0 vault read and scanner compatibility using the official v0.6 ABI surface (2026-09-22).
+- feat: Reduce private BTC/ETH vault export work with fixed native peak-TVL thresholds and a projected per-vault metric path, while leaving stablecoin and generic exports unchanged (2026-09-22).
 - fix: Accept decimal scaled Ember API values when parsing vault fees, APY and TVL, and preserve numeric zero (2026-09-22).
 - feat: Publish an uncached vault scan manifest after cleaned price uploads, with per-chain price-scan provenance, cleaned timestamps and the source price ETag (2026-09-22).
 - fix: Make the GMX oracle price query (`/signed_prices/latest`) fail over across all four API tiers (primary, backup, fallback, fallback-2) instead of stopping after the backup, log which endpoint served the prices when the primary is down, and remember hosts that fail at connection level across the sync, async and oracle failover drivers so that one dead host no longer costs every request its own retries (2026-09-21)
