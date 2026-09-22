@@ -6,7 +6,7 @@ from decimal import Decimal
 from eth_typing import HexAddress, HexStr
 from hexbytes import HexBytes
 
-from eth_defi.erc_4626.vault_protocol.lagoon.vault import LagoonVault, LagoonVersion
+from eth_defi.erc_4626.vault_protocol.lagoon.vault import LAGOON_MODERN_VERSIONS, LagoonVault
 from eth_defi.erc_7540.deposit_redeem import (
     ERC7540DepositManager as GenericERC7540DepositManager,
 )
@@ -35,7 +35,7 @@ logger = logging.getLogger(__name__)
 #: ``NotWhitelisted()`` custom-error selector in Lagoon v0.5 and earlier.
 NOT_WHITELISTED_SELECTOR = HexBytes("0x584a7938")
 
-#: ``AddressNotAllowed(address)`` custom-error selector in Lagoon v0.6.
+#: ``AddressNotAllowed(address)`` selector used by v0.6 and observed on v1.
 ADDRESS_NOT_ALLOWED_SELECTOR = HexBytes("0x51ee5ed5")
 
 #: ``requestDeposit(uint256,address,address)`` Lagoon entry-point selector.
@@ -93,16 +93,18 @@ class LagoonDepositManager(GenericERC7540DepositManager):
 
     **Whitelisting / access control.** Deposit admission is version specific and
     checked before broadcast by :meth:`_assert_deposit_request_available` /
-    :meth:`can_create_deposit_request`. Lagoon v0.5 and earlier derive whitelist
-    mode from ``isWhitelisted(0x0)`` and admit an account with
-    ``isWhitelisted(account)``; Lagoon v0.6 uses the access layer's
-    ``isAllowed(0x0)`` / ``isAllowed(account)`` (supporting whitelist mode,
-    blacklist mode and an external sanctions oracle). Both flow through
+    :meth:`can_create_deposit_request`. Lagoon v0.4 reads its explicit policy
+    getter, while v0.5 derives whitelist mode from ``isWhitelisted(0x0)``;
+    both admit an account with ``isWhitelisted(account)``. Lagoon v0.6 uses the access layer's
+    ``isAllowed(0x0)`` / ``isAllowed(account)`` for whitelist, blacklist and
+    sanctions checks; the characterised v1 deployment exposes the same view.
+    Both flow through
     :meth:`LagoonVault.is_whitelisted_deposit` and
     :meth:`LagoonVault.is_account_whitelisted`. A denial raises
     :class:`~eth_defi.vault.deposit_redeem.WhitelistingRequired` (decoded error
     ``NotWhitelisted`` / :data:`NOT_WHITELISTED_SELECTOR` for v0.5, or
-    ``AddressNotAllowed`` / :data:`ADDRESS_NOT_ALLOWED_SELECTOR` for v0.6); an
+    ``AddressNotAllowed`` / :data:`ADDRESS_NOT_ALLOWED_SELECTOR` for modern
+    v0.6 and v1 vaults); an
     undeterminable policy or a paused vault raises
     :class:`~eth_defi.vault.deposit_redeem.VaultFlowUnavailable` (fails closed).
 
@@ -172,15 +174,17 @@ class LagoonDepositManager(GenericERC7540DepositManager):
             )
 
         if not is_anvil(self.web3):
+            message = "Lagoon force_settle() requires an Anvil provider"
             raise UnsupportedVaultSimulation(
-                "Lagoon force_settle() requires an Anvil provider",
+                message,
                 unsupported_reason="anvil_provider_required",
                 protocol=self.vault.get_protocol_name(),
                 vault_address=self.vault.address,
             )
         if ticket is None:
+            message = "Lagoon force_settle() requires an async request ticket"
             raise UnsupportedVaultSimulation(
-                "Lagoon force_settle() requires an async request ticket",
+                message,
                 unsupported_reason="anvil_settlement_ticket_required",
                 protocol=self.vault.get_protocol_name(),
                 vault_address=self.vault.address,
@@ -198,7 +202,8 @@ class LagoonDepositManager(GenericERC7540DepositManager):
                 vault_address=self.vault.address,
             )
 
-        from eth_defi.erc_4626.vault_protocol.lagoon.testing import force_lagoon_settle
+        # Imported here because the testing helper imports :class:`LagoonVault`.
+        from eth_defi.erc_4626.vault_protocol.lagoon.testing import force_lagoon_settle  # noqa: PLC0415
 
         valuation_manager = self.vault.valuation_manager
         safe_address = self.vault.safe_address
@@ -327,8 +332,9 @@ class LagoonDepositManager(GenericERC7540DepositManager):
         # provider even if a future caller forgets the is_anvil() guard that
         # force_settle() already applies.
         if not is_anvil(web3):
+            message = "Lagoon Safe settlement provisioning is Anvil-only"
             raise UnsupportedVaultSimulation(
-                "Lagoon Safe settlement provisioning is Anvil-only",
+                message,
                 unsupported_reason="anvil_provider_required",
                 protocol=self.vault.get_protocol_name(),
                 vault_address=self.vault.address,
@@ -423,8 +429,9 @@ class LagoonDepositManager(GenericERC7540DepositManager):
         """Reject a Lagoon access-policy denial before request broadcast.
 
         Lagoon v0.5 derives whitelist mode from ``isWhitelisted(0x0)``.
-        Lagoon v0.6 uses ``isAllowed(0x0)`` because its access layer supports
-        whitelist mode, blacklist mode and an external sanctions oracle.
+        Lagoon v0.6 uses ``isAllowed(0x0)`` for whitelist, blacklist and
+        sanctions checks. The characterised v1 deployment exposes the same
+        selector, without verified source for wider semantic claims.
 
         :param owner:
             Request owner and controller.
@@ -433,8 +440,9 @@ class LagoonDepositManager(GenericERC7540DepositManager):
             denied.
         """
         if self._is_vault_paused():
+            message = "Lagoon deposit requests are paused"
             raise VaultFlowUnavailable(
-                "Lagoon deposit requests are paused",
+                message,
                 protocol="Lagoon",
                 vault_address=self.vault.address,
                 caller=owner,
@@ -445,8 +453,9 @@ class LagoonDepositManager(GenericERC7540DepositManager):
         try:
             self.vault.is_whitelisted_deposit()
         except NotImplementedError as e:
+            message = "Lagoon deposit access policy cannot be determined"
             raise VaultFlowUnavailable(
-                "Lagoon deposit access policy cannot be determined",
+                message,
                 protocol="Lagoon",
                 vault_address=self.vault.address,
                 caller=owner,
@@ -457,8 +466,9 @@ class LagoonDepositManager(GenericERC7540DepositManager):
         try:
             account_allowed = self.vault.is_account_whitelisted(owner)
         except NotImplementedError as e:
+            message = "Lagoon deposit account admission cannot be determined"
             raise VaultFlowUnavailable(
-                "Lagoon deposit account admission cannot be determined",
+                message,
                 protocol="Lagoon",
                 vault_address=self.vault.address,
                 caller=owner,
@@ -469,7 +479,7 @@ class LagoonDepositManager(GenericERC7540DepositManager):
         if account_allowed:
             return
 
-        is_v06 = self.vault.version == LagoonVersion.v_0_6_0
+        is_modern = self.vault.version in LAGOON_MODERN_VERSIONS
         # Self-describing message for diagnostics: chain id, vault and depositor
         # embedded in the text (see WhitelistingRequired docstring).
         raise WhitelistingRequired(
@@ -479,9 +489,9 @@ class LagoonDepositManager(GenericERC7540DepositManager):
             caller=owner,
             direction="deposit",
             phase="preflight",
-            decoded_error="AddressNotAllowed" if is_v06 else "NotWhitelisted",
+            decoded_error="AddressNotAllowed" if is_modern else "NotWhitelisted",
             function_selector=REQUEST_DEPOSIT_SELECTOR,
-            error_selector=ADDRESS_NOT_ALLOWED_SELECTOR if is_v06 else NOT_WHITELISTED_SELECTOR,
+            error_selector=ADDRESS_NOT_ALLOWED_SELECTOR if is_modern else NOT_WHITELISTED_SELECTOR,
         )
 
     def get_deposit_event_signatures(self) -> set[HexStr]:

@@ -13,6 +13,13 @@ This module provides tools for interacting with Lagoon vaults, including:
 - Lighter account activation and perpetuals integration
 - Offchain metadata fetching
 
+The ERC-4626 adapter can read and scan known Lagoon releases through v0.6 and
+the fixed-block-characterised v1.0 compatibility surface. The v1
+implementation is not verified, so the adapter uses the official v0.6 ABI only
+for calls and storage fields covered by its Base integration test. Vault
+deployment remains pinned to the repository's v0.5 artefacts; v1 deployment
+and upgrade support are not provided.
+
 Tutorials
 ~~~~~~~~~
 

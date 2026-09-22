@@ -164,19 +164,11 @@ def force_lagoon_settle(
     valuation_tx_hash = vault.vault_contract.functions.updateNewTotalAssets(raw_nav).transact({"from": asset_manager, "gas": gas_limit})
     assert_transaction_success_with_explanation(web3, valuation_tx_hash)
 
-    # Lagoon security fix
-    #     function settleDeposit(uint256 _newTotalAssets) public virtual;
-    #
-    # We always send the `settleDeposit(uint256)` selector. This is correct for
-    # every Lagoon version this repo integrates: v0.4.0/v0.5.0/v0.6.0 declare
-    # `settleDeposit(uint256)`, and the "legacy"-detected deployments we settle
-    # on a fork (e.g. 722Capital) run an upgraded beacon implementation that
-    # also accepts the uint256 form. Only a genuinely ancient implementation
-    # that exposes the argument-less `settleDeposit()` would revert on this
-    # selector; none of the deployments in scope are that old. If such a vault
-    # is ever encountered, switch on `vault.version == LagoonVersion.legacy`
-    # here (or reuse the version-aware production settle wrappers on
-    # LagoonVault) rather than hardcoding a single selector.
+    # Lagoon v0.4 through v0.6 declare ``settleDeposit(uint256)``. The v1
+    # compatibility ABI retains this selector, but the read-only v1
+    # characterisation does not establish settlement compatibility. The legacy
+    # deployments exercised by this helper use upgraded beacon implementations
+    # that also accept it.
     call = EncodedCall.from_keccak_signature(
         address=vault.address,
         function="settleDeposit()",
