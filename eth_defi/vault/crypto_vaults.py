@@ -6,7 +6,6 @@ serialisation helpers so that public stablecoin exports remain unchanged.
 """
 
 import hashlib
-import gc
 import json
 import logging
 import os
@@ -31,6 +30,7 @@ from eth_defi.research.metrics_freshness import (
     CRYPTO_METRICS_STATE_FILENAME,
     clear_period_rankings,
     compute_vault_tvl_observations,
+    free_memory,
     load_metrics_state,
     load_valid_previous_crypto_records,
     partition_due_vault_ids,
@@ -979,6 +979,11 @@ def build_crypto_vault_metadata(  # noqa: PLR0914 - this coordinator keeps the i
             exchange_rate_parquet_path,
         )
 
+    # Free the full crypto price frame and the admission masks before the
+    # memory-peak metrics phases; nothing below needs them.
+    del prices_df, family_series, stable_mask, native_mask
+    free_memory()
+
     stablecoin_rate_feeder = StablecoinRateFeeder()
     stable_metrics_started = time.perf_counter()
     if stable_prices_df.empty:
@@ -992,7 +997,7 @@ def build_crypto_vault_metadata(  # noqa: PLR0914 - this coordinator keeps the i
         )
         # Free the daily stablecoin frame before the native metrics phase.
         del daily_stable_prices_df
-        gc.collect()
+        free_memory()
     logger.info("Calculated stablecoin crypto metrics in %.2fs", time.perf_counter() - stable_metrics_started)
 
     native_metrics_started = time.perf_counter()
@@ -1004,10 +1009,10 @@ def build_crypto_vault_metadata(  # noqa: PLR0914 - this coordinator keeps the i
     )
     logger.info("Calculated native crypto metrics in %.2fs", time.perf_counter() - native_metrics_started)
 
-    # Free the multi-GB price frames before the serialisation and record
+    # Free the remaining price frames before the serialisation and record
     # loop; nothing below needs them.
-    del prices_df, stable_prices_df, native_prices_df
-    gc.collect()
+    del stable_prices_df, native_prices_df
+    free_memory()
 
     serialisation_started = time.perf_counter()
     selected_records: list[dict[str, Any]] = []

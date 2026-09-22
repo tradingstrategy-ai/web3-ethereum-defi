@@ -41,6 +41,7 @@ per-vault export threshold, not the freshness constant.
 """
 
 import datetime
+import gc
 import hashlib
 import json
 import logging
@@ -49,6 +50,7 @@ import os
 from pathlib import Path
 
 import pandas as pd
+import pyarrow as pa
 from atomicwrites import atomic_write
 
 logger = logging.getLogger(__name__)
@@ -84,6 +86,19 @@ LOW_TVL_THRESHOLDS_BY_FAMILY: dict[str, float] = {
     "eth": LOW_TVL_THRESHOLD_ETH,
     "btc": LOW_TVL_THRESHOLD_BTC,
 }
+
+
+def free_memory() -> None:
+    """Release freed buffers back to the operating system.
+
+    ``gc.collect()`` alone is not enough under pandas 3, where string
+    column buffers belong to Arrow's allocator: memory is freed logically
+    but can stay in the allocator and keep RSS high.
+    ``pa.default_memory_pool().release_unused()`` returns those buffers to
+    the OS. Call after deleting a large frame.
+    """
+    gc.collect()
+    pa.default_memory_pool().release_unused()
 
 
 def low_tvl_threshold_for_family(family: str | None) -> float:
