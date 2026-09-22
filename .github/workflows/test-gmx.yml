@@ -103,9 +103,9 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/.foundry/bin
-          key: foundry-toolchain-v1.3.2-${{ runner.os }}
+          key: foundry-toolchain-v1.7.1-${{ runner.os }}
           restore-keys: |
-            foundry-toolchain-v1.3.2-
+            foundry-toolchain-v1.7.1-
             foundry-toolchain-
 
       # No fork RPC cache step: the warm fork cache ships in the repo
@@ -117,7 +117,7 @@ jobs:
           # pick a nightly release from: https://github.com/foundry-rs/foundry/releases
           # version: "nightly-de33b6af53005037b463318d2628b5cfcaf39916"
           #version: "nightly-fdd321bac95f0935529164a88faf99d4d5cfa321"
-          version: "v1.3.2"
+          version: "v1.7.1"
 
       # Verify the correct Web3.py version is installed
       # This helps debug any remaining issues.
