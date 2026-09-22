@@ -24,7 +24,7 @@ DEFAULT_SPARKLINE_WINDOW = pd.Timedelta(days=90)
 MIN_SPARKLINE_HISTORY = pd.Timedelta(days=14)
 
 #: Versioned visual contract used by canonical input digests and state.
-SPARKLINE_RENDERER_VERSION = 2
+SPARKLINE_RENDERER_VERSION = 3
 
 #: Public sparkline dimensions.
 SPARKLINE_SVG_WIDTH = 100
@@ -379,9 +379,10 @@ def render_sparkline_svg(
     line_path = _svg_path(line_points)
     area_path = _svg_area_path(coordinates, line_points) if not coordinates.is_constant else ""
     area_element = "" if coordinates.is_constant else f'<path d="{area_path}" fill="url(#sparkline-gradient)" />'
-    # The filled area does not span the full chart height, so the SVG default
-    # ``objectBoundingBox`` units would compress the gradient unlike PNG.
-    svg = f'<?xml version="1.0" encoding="UTF-8" standalone="no"?>\n<svg xmlns="http://www.w3.org/2000/svg" width="{width}" height="{height}" viewBox="0 0 {width} {height}"><defs><linearGradient id="sparkline-gradient" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="0" y2="{height}"><stop offset="0%" stop-color="{line_color}" stop-opacity="{SPARKLINE_GRADIENT_ALPHA:.3f}" /><stop offset="100%" stop-color="{bg_color}" stop-opacity="{SPARKLINE_GRADIENT_ALPHA:.3f}" /></linearGradient></defs><rect x="0" y="0" width="{width}" height="{height}" fill="{bg_color}" />{area_element}<path d="{line_path}" fill="none" stroke="{SPARKLINE_LINE_COLOR}" stroke-width="{line_width}" stroke-linecap="round" stroke-linejoin="round" /></svg>\n'
+    # End the fade at the polygon baseline. Ending it at the canvas bottom
+    # leaves a tinted row where the fill is clipped and creates a visible seam.
+    gradient_end_y = _format_svg_number(coordinates.baseline_y)
+    svg = f'<?xml version="1.0" encoding="UTF-8" standalone="no"?>\n<svg xmlns="http://www.w3.org/2000/svg" width="{width}" height="{height}" viewBox="0 0 {width} {height}"><defs><linearGradient id="sparkline-gradient" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="0" y2="{gradient_end_y}"><stop offset="0%" stop-color="{line_color}" stop-opacity="{SPARKLINE_GRADIENT_ALPHA:.3f}" /><stop offset="100%" stop-color="{bg_color}" stop-opacity="{SPARKLINE_GRADIENT_ALPHA:.3f}" /></linearGradient></defs><rect x="0" y="0" width="{width}" height="{height}" fill="{bg_color}" />{area_element}<path d="{line_path}" fill="none" stroke="{SPARKLINE_LINE_COLOR}" stroke-width="{line_width}" stroke-linecap="round" stroke-linejoin="round" /></svg>\n'
     return svg.encode("utf-8")
 
 
@@ -389,20 +390,25 @@ def render_sparkline_svg(
 def _cached_sparkline_gradient(
     scaled_width: int,
     scaled_height: int,
+    gradient_end_row: int,
     top_colour: tuple[int, int, int],
     background: tuple[int, int, int],
 ) -> bytes:
     """Build one immutable supersampled gradient and cache its raw pixels.
 
-    The gradient is independent of vault prices; only the supersampled output
-    dimensions and the two colours affect its pixels. Returning raw bytes keeps
-    the cached value immutable and gives each renderer its own Pillow image,
-    which is safe when several sparkline workers render concurrently.
+    The gradient is independent of vault prices after its baseline row is
+    resolved. The supersampled dimensions, fade endpoint and colours determine
+    its pixels. Returning raw bytes keeps the cached value immutable and gives
+    each renderer its own Pillow image, which is safe when several sparkline
+    workers render concurrently.
 
     :param scaled_width:
         Supersampled image width in pixels.
     :param scaled_height:
         Supersampled image height in pixels.
+    :param gradient_end_row:
+        Supersampled row where the gradient reaches the background colour.
+        All following rows remain the background colour.
     :param top_colour:
         RGB colour at the top of the gradient.
     :param background:
@@ -410,9 +416,10 @@ def _cached_sparkline_gradient(
     :return:
         Raw RGB pixel bytes for a ``scaled_width`` by ``scaled_height`` image.
     """
-    denominator = max(1, scaled_height - 1)
+    assert 0 < gradient_end_row < scaled_height, f"Invalid gradient end row {gradient_end_row} for height {scaled_height}"
     gradient = Image.new("RGB", (1, scaled_height))
-    gradient.putdata(tuple(tuple(round(top_colour[channel] * (1.0 - row / denominator) + background[channel] * (row / denominator)) for channel in range(3)) for row in range(scaled_height)))
+    positions = tuple(min(1.0, row / gradient_end_row) for row in range(scaled_height))
+    gradient.putdata(tuple(tuple(round(top_colour[channel] * (1.0 - position) + background[channel] * position) for channel in range(3)) for position in positions))
     return gradient.resize((scaled_width, scaled_height), Image.Resampling.NEAREST).tobytes()
 
 
@@ -465,10 +472,11 @@ def render_sparkline_png(  # noqa: PLR0914
     image = Image.new("RGB", (scaled_width, scaled_height), background)
 
     if not coordinates.is_constant:
+        gradient_end_row = min(scaled_height - 1, max(1, round(coordinates.baseline_y * scale)))
         gradient = Image.frombytes(
             "RGB",
             (scaled_width, scaled_height),
-            _cached_sparkline_gradient(scaled_width, scaled_height, top_colour, background),
+            _cached_sparkline_gradient(scaled_width, scaled_height, gradient_end_row, top_colour, background),
         )
         mask = Image.new("L", (scaled_width, scaled_height), 0)
         mask_points = [(round(x * scale), round(y * scale)) for x, y in line_points]

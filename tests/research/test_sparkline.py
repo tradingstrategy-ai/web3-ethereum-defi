@@ -1,5 +1,6 @@
 """Regression tests for vault sparkline preparation and rendering."""
 
+import math
 from io import BytesIO
 from xml.etree import ElementTree as ET  # noqa: S405
 
@@ -7,7 +8,7 @@ import matplotlib.dates as mdates
 import numpy as np
 import pandas as pd
 import pytest
-from PIL import Image
+from PIL import Image, ImageColor
 
 from eth_defi.research import sparkline
 from eth_defi.research.sparkline import (
@@ -25,14 +26,19 @@ from eth_defi.research.sparkline import (
 
 
 def test_png_gradient_pixels_are_cached() -> None:
-    """Repeated renders reuse the immutable gradient pixel cache."""
+    """Repeated renders reuse a gradient that reaches background at baseline."""
     sparkline._cached_sparkline_gradient.cache_clear()
     try:
-        first = sparkline._cached_sparkline_gradient(600, 600, (34, 180, 82), (40, 40, 39))
-        second = sparkline._cached_sparkline_gradient(600, 600, (34, 180, 82), (40, 40, 39))
+        background = (40, 40, 39)
+        first = sparkline._cached_sparkline_gradient(600, 600, 525, (34, 180, 82), background)
+        second = sparkline._cached_sparkline_gradient(600, 600, 525, (34, 180, 82), background)
 
         assert first == second
         assert sparkline._cached_sparkline_gradient.cache_info().hits == 1
+        gradient = Image.frombytes("RGB", (600, 600), first)
+        assert gradient.getpixel((300, 500)) != background
+        assert gradient.getpixel((300, 525)) == background
+        assert gradient.getpixel((300, 526)) == background
     finally:
         sparkline._cached_sparkline_gradient.cache_clear()
 
@@ -182,8 +188,8 @@ def test_direct_renderers_handle_constant_series_and_keep_dimensions() -> None:
         assert image.size == (SPARKLINE_PNG_WIDTH, SPARKLINE_PNG_HEIGHT)
 
 
-def test_svg_gradient_uses_full_canvas_coordinates() -> None:
-    """Keep SVG gradient interpolation aligned with the PNG renderer."""
+def test_svg_gradient_fades_to_area_baseline() -> None:
+    """Keep the SVG fill continuous with the background below its baseline."""
     index = pd.date_range("2026-07-01", periods=3, freq="D", name="timestamp")
     prices_df = pd.DataFrame({"share_price": [1.0, 1.01, 1.02]}, index=index)
 
@@ -194,7 +200,24 @@ def test_svg_gradient_uses_full_canvas_coordinates() -> None:
     assert gradient.attrib["x1"] == "0"
     assert gradient.attrib["y1"] == "0"
     assert gradient.attrib["x2"] == "0"
-    assert gradient.attrib["y2"] == str(SPARKLINE_SVG_HEIGHT)
+    coordinates = sparkline._calculate_sparkline_coordinates(prices_df, width=SPARKLINE_SVG_WIDTH, height=SPARKLINE_SVG_HEIGHT, margin_ratio=sparkline.SPARKLINE_SVG_MARGIN_RATIO)
+    assert float(gradient.attrib["y2"]) == pytest.approx(coordinates.baseline_y, abs=0.001)
+    assert float(gradient.attrib["y2"]) < SPARKLINE_SVG_HEIGHT
+
+
+def test_png_gradient_has_no_baseline_seam() -> None:
+    """The final PNG reaches its background before the area mask is clipped."""
+    index = pd.date_range("2026-07-01", periods=3, freq="D", name="timestamp")
+    prices_df = pd.DataFrame({"share_price": [1.0, 1.01, 1.02]}, index=index)
+
+    coordinates = sparkline._calculate_sparkline_coordinates(prices_df, width=SPARKLINE_PNG_WIDTH, height=SPARKLINE_PNG_HEIGHT, margin_ratio=sparkline.SPARKLINE_PNG_MARGIN_RATIO)
+    with Image.open(BytesIO(render_sparkline_png(prices_df))) as image:
+        sample_x = 225
+        upper_pixel = image.getpixel((sample_x, math.floor(coordinates.baseline_y) - 1))
+        lower_pixel = image.getpixel((sample_x, math.ceil(coordinates.baseline_y) + 1))
+        background = ImageColor.getrgb(sparkline.SPARKLINE_BACKGROUND_COLOR)
+
+    assert upper_pixel == lower_pixel == background
 
 
 def test_direct_renderers_use_sparse_step_paths_and_support_one_point() -> None:
