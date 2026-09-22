@@ -64,9 +64,9 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/.foundry/bin
-          key: foundry-toolchain-v1.8.3-${{ runner.os }}
+          key: foundry-toolchain-v1.7.1-${{ runner.os }}
           restore-keys: |
-            foundry-toolchain-v1.8.3-
+            foundry-toolchain-v1.7.1-
             foundry-toolchain-
 
       # No fork RPC cache step: the warm fork cache ships in the repo
@@ -75,7 +75,7 @@ jobs:
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@v1
         with:
-          version: "v1.8.3"
+          version: "v1.7.1"
 
       - name: Run slow tests
         run: |

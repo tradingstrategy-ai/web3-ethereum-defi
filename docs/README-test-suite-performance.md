@@ -583,11 +583,11 @@ immutable so it never accumulates new fork state.
 
 3. **Split the Foundry cache: immutable toolchain vs one stable accumulating RPC
    cache. (done)** Previously every workflow cached all of `~/.foundry` under the
-   static key `foundry-v1.8.3-${{ runner.os }}`, so the toolchain and the fork RPC
+   static key `foundry-v1.7.1-${{ runner.os }}`, so the toolchain and the fork RPC
    cache shared one immutable key and **new fork reads under `~/.foundry/cache/rpc`
    were never saved**.
    - Keep the *toolchain* (`~/.foundry/bin`) under an immutable
-   `foundry-toolchain-v1.8.3-*` key. (`foundry-rs/foundry-toolchain` also caches
+   `foundry-toolchain-v1.7.1-*` key. (`foundry-rs/foundry-toolchain` also caches
      the binary itself — the explicit toolchain cache is a belt-and-braces.)
    - The fork RPC cache is **one stable, self-warming cache** — the simplest
      design that persists and grows without any resets or a separate warmer job.
@@ -602,8 +602,8 @@ immutable so it never accumulates new fork state.
 
      Because GitHub caches are immutable (saved only on a key miss), a *fixed* key
      would freeze after the first save; so we use a unique-per-run key
-     `foundry-rpc-v1.8.3-${{ runner.os }}-${{ github.run_id }}` with a **stable
-     restore-keys prefix** `foundry-rpc-v1.8.3-${{ runner.os }}-`, split into
+     `foundry-rpc-v1.7.1-${{ runner.os }}-${{ github.run_id }}` with a **stable
+     restore-keys prefix** `foundry-rpc-v1.7.1-${{ runner.os }}-`, split into
      `actions/cache/restore` + `actions/cache/save` with **`if: always()`**. Each
      run restores the newest accumulated cache and saves back a superset, so the
      cache **self-warms and persists across runs with no monthly reset**. It is
@@ -613,7 +613,7 @@ immutable so it never accumulates new fork state.
      `rpc/<network-name>/<block>/storage.json` (e.g. `rpc/base/48956940/storage.json`)
      — keyed by Foundry's **network name, not chain id**, with a per-block
      directory. Cache the whole `~/.foundry/cache/rpc` tree rather than a guessed
-     sub-path, and **re-validate the exact layout against pinned Foundry v1.8.3**
+     sub-path, and **re-validate the exact layout against pinned Foundry v1.7.1**
      before relying on it (it has changed across versions). Note the network-name
      keying: confirm two different upstream endpoints for the same chain cannot
      collide before sharing this cache. At a fixed `fork_block_number` the entries
