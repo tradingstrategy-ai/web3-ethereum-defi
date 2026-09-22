@@ -478,3 +478,126 @@ def test_crypto_two_run_patch_keeps_previous_record(tmp_path: Path, monkeypatch:
     assert mock_calls[-1] == {vault_id, small_vault_id}
     assert [record["id"] for record in metadata["vaults"]] == [vault_id]
     assert metrics_state_path.exists()
+
+
+def test_top_vaults_json_freshness_gate_end_to_end(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """The stablecoin export's pruned gate read and due-filtered metrics read.
+
+    ``calculate_lifetime_metrics`` is mocked because the metric mathematics
+    itself is covered by its own extensive tests; this test exercises the
+    read path and the freshness wiring around it (gate partition, due-only
+    metrics input, sticky replay bookkeeping, state commit).
+
+    1. Run 1 (cold): both vaults are due and computed; only vault A (peak
+       6,000 USD) passes the export filter.
+    2. Run 2: vault A stays due through the export-threshold rule and is
+       recomputed; vault B (peak and current 100 USD) is skipped as fresh
+       low-TVL and its state timestamp does not advance.
+    3. Run 3: the freshness state file is deleted; both vaults become due
+       again (self-healing from state loss).
+    """
+    from eth_defi.compat import native_datetime_utc_now
+    from eth_defi.vault import top_vaults_json
+
+    monkeypatch.delenv("VAULT_EXPORT_STATE_PATH", raising=False)
+    monkeypatch.delenv("VAULT_METRICS_STATE_PATH", raising=False)
+
+    vault_address = "0x00000000000000000000000000000000000000aa"
+    vault_id = f"1-{vault_address}"
+    small_vault_address = "0x00000000000000000000000000000000000000bb"
+    small_vault_id = f"1-{small_vault_address}"
+    fixed_generated_at = pd.Timestamp("2026-09-22T00:00:00")
+    last_updated_at = native_datetime_utc_now() - datetime.timedelta(days=1)
+
+    def make_vault_row(address: str) -> dict:
+        return {
+            "Denomination": "USDC",
+            "Protocol": "Sky",
+            "_detection_data": SimpleNamespace(chain=1, address=address),
+            "_denomination_token": {"address": "0x00000000000000000000000000000000000000cc", "decimals": 6},
+        }
+
+    vault_db_path = tmp_path / "vault-metadata-db.pickle"
+    VaultDatabase(
+        rows={
+            VaultSpec(1, vault_address): make_vault_row(vault_address),
+            VaultSpec(1, small_vault_address): make_vault_row(small_vault_address),
+        }
+    ).write(vault_db_path)
+
+    prices = pd.DataFrame(
+        [
+            {"id": vault_id, "chain": 1, "address": vault_address, "share_price": 1.0, "total_assets": 6000.0, "timestamp": "2026-09-01 00:00:00"},
+            {"id": vault_id, "chain": 1, "address": vault_address, "share_price": 1.0, "total_assets": 100.0, "timestamp": "2026-09-21 00:00:00"},
+            {"id": small_vault_id, "chain": 1, "address": small_vault_address, "share_price": 1.0, "total_assets": 100.0, "timestamp": "2026-09-01 00:00:00"},
+            {"id": small_vault_id, "chain": 1, "address": small_vault_address, "share_price": 1.0, "total_assets": 100.0, "timestamp": "2026-09-21 00:00:00"},
+        ]
+    )
+    prices["timestamp"] = pd.to_datetime(prices["timestamp"])
+    prices.set_index("timestamp", inplace=True)
+    parquet_path = tmp_path / "prices.parquet"
+    prices.to_parquet(parquet_path)
+
+    mock_calls: list[set[str]] = []
+
+    def fake_calculate_lifetime_metrics(returns_df, vault_db, core3_protocols=None, xerberus_pools=None, xerberus_protocols=None):  # noqa: ARG001
+        vault_ids = set(returns_df["id"].astype(str))
+        mock_calls.append(vault_ids)
+        records = [
+            {
+                "id": vault_id_,
+                "chain_id": 1,
+                "address": vault_id_.split("-", 1)[1],
+                "name": f"Vault {vault_id_[-4:]}",
+                "protocol_slug": "sky",
+                "curator_slug": "test-curator",
+                "current_nav": 100.0,
+                "peak_nav": 6000.0 if vault_id_ == vault_id else 100.0,
+                "last_updated_at": last_updated_at,
+                "period_results": [],
+                "generated_at": fixed_generated_at,
+            }
+            for vault_id_ in sorted(vault_ids)
+        ]
+        return pd.DataFrame(records)
+
+    monkeypatch.setattr(top_vaults_json, "calculate_lifetime_metrics", fake_calculate_lifetime_metrics)
+
+    output_path = tmp_path / "stablecoin-vault-metrics.json"
+
+    def run_main() -> dict:
+        return top_vaults_json.main(
+            data_dir=tmp_path,
+            vault_db_path=vault_db_path,
+            parquet_path=parquet_path,
+            output_path=output_path,
+            core3_db_path=Path("/nonexistent"),
+            xerberus_db_path=Path("/nonexistent"),
+            feed_db_path=Path("/nonexistent"),
+        )
+
+    # 1: cold run computes both vaults; only vault A passes the export filter
+    output = run_main()
+    assert mock_calls[-1] == {vault_id, small_vault_id}
+    assert [record["id"] for record in output["vaults"]] == [vault_id]
+    sticky_after_run1 = json.loads((tmp_path / "vault-export-state.json").read_text(encoding="utf-8"))["vaults"]
+    assert vault_id in sticky_after_run1
+    assert small_vault_id not in sticky_after_run1
+    state_after_run1 = json.loads((tmp_path / "vault-metrics-state.json").read_text(encoding="utf-8"))["vaults"]
+    first_run_updated_at = state_after_run1[vault_id]["metrics_updated_at"]
+    assert state_after_run1[small_vault_id]["metrics_updated_at"] is not None
+
+    # 2: vault A is recomputed through the export-threshold rule; vault B is
+    # skipped as fresh low-TVL and its timestamp does not advance
+    output = run_main()
+    assert mock_calls[-1] == {vault_id}
+    assert [record["id"] for record in output["vaults"]] == [vault_id]
+    state_after_run2 = json.loads((tmp_path / "vault-metrics-state.json").read_text(encoding="utf-8"))["vaults"]
+    assert state_after_run2[small_vault_id]["metrics_updated_at"] == state_after_run1[small_vault_id]["metrics_updated_at"]
+    assert state_after_run2[vault_id]["metrics_updated_at"] >= first_run_updated_at
+
+    # 3: state loss makes both vaults due again (self-healing full recompute)
+    (tmp_path / "vault-metrics-state.json").unlink()
+    output = run_main()
+    assert mock_calls[-1] == {vault_id, small_vault_id}
+    assert [record["id"] for record in output["vaults"]] == [vault_id]

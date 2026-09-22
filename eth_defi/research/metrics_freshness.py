@@ -96,6 +96,9 @@ def free_memory() -> None:
     but can stay in the allocator and keep RSS high.
     ``pa.default_memory_pool().release_unused()`` returns those buffers to
     the OS. Call after deleting a large frame.
+
+    See `pyarrow.MemoryPool.release_unused
+    <https://arrow.apache.org/docs/python/generated/pyarrow.MemoryPool.html#pyarrow.MemoryPool.release_unused>`__.
     """
     gc.collect()
     pa.default_memory_pool().release_unused()
@@ -242,11 +245,14 @@ def _finite_or_none(value: object) -> float | None:
 def compute_vault_tvl_observations(prices_df: pd.DataFrame) -> tuple[dict[str, float | None], dict[str, float | None]]:
     """Cheap per-vault current and peak TVL from raw price rows.
 
-    One ``groupby("id")`` pass over the filtered price frame: the last
-    non-null ``total_assets`` observation is the current TVL and the maximum
-    is the peak TVL. No metrics calculation is needed for the due/skip
-    decision. When the ``total_assets`` column is missing, empty lookups are
-    returned so every vault falls back to the safe "due" default.
+    One ``groupby("id")`` pass over the price frame: the last non-null
+    ``total_assets`` observation is the current TVL and the maximum is the
+    peak TVL. No metrics calculation is needed for the due/skip decision.
+    The frame may be unfiltered (every denomination): the lookups simply
+    cover every vault in it, and callers restrict the due/skip decision to
+    their own vault set afterwards. When the ``total_assets`` column is
+    missing, empty lookups are returned so every vault falls back to the
+    safe "due" default.
 
     :param prices_df:
         Vault price rows with ``id`` and ``total_assets`` columns.

@@ -1100,13 +1100,15 @@ def _log_phase_rss(phase: str) -> None:
 
     Attributes memory peaks to pipeline phases when tuning the metrics
     export memory footprint; the metrics export is the pipeline's largest
-    memory consumer.
+    memory consumer. Prints like the rest of the pipeline progress output
+    so the lines are visible in script runs, not only under configured
+    logging.
 
     :param phase:
         Human-readable phase name.
     """
     process = psutil.Process()
-    logger.info("Phase %s complete: RSS %.1f GiB", phase, process.memory_info().rss / (1024**3))
+    print(f"Phase {phase} complete: RSS {process.memory_info().rss / (1024**3):.1f} GiB")
 
 
 def main(
@@ -1193,10 +1195,11 @@ def main(
     vault_db = VaultDatabase.read(vault_db_path)
 
     # The freshness gate needs only identity and TVL columns, so read those
-    # first instead of materialising the full 48-column frame.
+    # first instead of materialising the full wide frame. The parquet
+    # stores the timestamp index as a column, hence the -1.
     gate_df = pd.read_parquet(parquet_path, columns=["timestamp", "id", "chain", "address", "total_assets"])
     chains = gate_df["chain"].unique()
-    price_columns = pq.ParquetFile(parquet_path).metadata.num_columns
+    price_columns = pq.read_metadata(parquet_path).num_columns - 1
 
     print(f"Loaded {len(vault_db):,} vault metadata entries and {len(gate_df):,} price rows across {len(chains):,} chains from {gate_df.index.min()} to {gate_df.index.max()}; price columns: {price_columns:,}")
 
@@ -1231,6 +1234,7 @@ def main(
     seen_vault_ids = set(gate_df["id"].astype(str).unique()) & allowed_vault_id_set
     current_tvl_by_id, peak_tvl_by_id = compute_vault_tvl_observations(gate_df)
     del gate_df
+    free_memory()
     family_by_id = {vault_id: DenominationFamily.stablecoin.value for vault_id in seen_vault_ids}
     export_threshold_by_id = {vault_id: resolve_export_threshold_tvl({"protocol_slug": slugify_protocol(v["Protocol"])}, THRESHOLD_TVL) for vault_id, v in zip(allowed_vault_ids, usd_vaults)}
     due_vault_ids, skipped_vault_ids = partition_due_vault_ids(
@@ -1256,7 +1260,7 @@ def main(
     else:
         returns_df = calculate_hourly_returns_for_all_vaults(prices_df)
 
-    # Free the multi-GB raw price frame before the memory-peak metrics
+    # Free the due-filtered price frame before the memory-peak metrics
     # phase; nothing below needs it.
     del prices_df
     free_memory()
