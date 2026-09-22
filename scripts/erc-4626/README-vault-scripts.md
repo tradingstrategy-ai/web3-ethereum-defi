@@ -755,6 +755,32 @@ poetry run python scripts/erc-4626/scan-vaults-all-chains.py
 | `XERBERUS_FETCH_VAULT_LIST` | Optional. Poll platform vault lists. Default: true. |
 | `XERBERUS_FETCH_REPORTS` | Optional. Backfill dendrogram report URLs. Default: true. |
 
+#### Published price readiness
+
+The all-chains pipeline publishes a small private `vault-scan-manifest.json`
+after a successful cleaned-price data export. Live strategies can poll this
+receipt instead of repeatedly downloading the full Parquet history. See the
+[manifest contract and operations guide](../../docs/README-vault-scan-manifest.md)
+for the JSON schema, storage mapping and deployment checks.
+
+- Successful EVM and HyperCore price scans update
+  `$PIPELINE_DATA_DIR/vault-price-scan-state.json`. Metadata-only scans do not
+  advance these timestamps; skipped chains retain their previous provenance.
+- Post-processing combines this provenance with per-chain maximum timestamps
+  from the cleaned prices, obtains the uploaded price object's ETag, and writes
+  `{UPLOAD_PREFIX}vault-scan-manifest.json` to
+  `R2_ALTERNATIVE_VAULT_METADATA_BUCKET_NAME` with `Cache-Control: no-store`.
+- `SKIP_POST_PROCESSING=true` prevents publication. A failed or skipped data
+  export cannot publish a new receipt. The old remote receipt may remain, so
+  its existence alone is not evidence of a successful current scan.
+- HyperCore uses chain ID `9999`, not HyperEVM's `999`. Approximately four-hour
+  source observations do not imply an observation exactly at midnight or 24
+  independent hourly samples. The chain maximum is not per-vault completeness.
+
+No separate manifest enable flag is needed. The authenticated serving endpoint
+and its Worker/CDN cache policy must be deployed and checked before a strategy
+uses the receipt; uploading the R2 object alone does not enable the endpoint.
+
 ### Xerberus risk enrichment
 
 Xerberus composite vault/protocol scores are stored in
@@ -1280,6 +1306,12 @@ same commit under `metadata.version.commit_hash` with its `updated_at`
 timestamp, while `scan-cycle-state.json` contains `generated_at`,
 `metadata.version.commit_hash`, and an `items` mapping.
 
+These operational/version records are not price-readiness receipts.
+`vault-price-scan-state.json` separately tracks successful price collection;
+the remote `vault-scan-manifest.json` binds that provenance and cleaned
+timestamps to the uploaded price ETag. It does not certify the freshness of
+metadata, risk metrics, crypto-bundle files or public samples.
+
 The raw `vault-prices-1h.parquet`, cleaned
 `cleaned-vault-prices-1h.parquet`, and Ethereum sample Parquet carry the same
 Docker version mapping in their file-level `metadata.version` key. The value
@@ -1785,12 +1817,13 @@ Use to debug post-processing independently of the full chain scan.
 # Full pipeline (merge + clean + export to R2)
 source .local-test.env && poetry run python scripts/erc-4626/post-process-prices.py
 
-# Only clean, skip R2 upload
-SKIP_EXPORT=true poetry run python scripts/erc-4626/post-process-prices.py
+# Skip main data-file upload and its readiness manifest (other exports still run)
+SKIP_DATA=true poetry run python scripts/erc-4626/post-process-prices.py
 
 # Include native protocol merges
-MERGE_HYPERCORE=true MERGE_GRVT=true MERGE_LIGHTER=true \
-  source .local-test.env && poetry run python scripts/erc-4626/post-process-prices.py
+source .local-test.env && \
+  MERGE_HYPERCORE=true MERGE_GRVT=true MERGE_LIGHTER=true \
+  poetry run python scripts/erc-4626/post-process-prices.py
 ```
 
 | Variable | Description |
@@ -1798,9 +1831,19 @@ MERGE_HYPERCORE=true MERGE_GRVT=true MERGE_LIGHTER=true \
 | `MERGE_HYPERCORE` | Optional. Merge Hyperliquid native vault data. Default: false. |
 | `MERGE_GRVT` | Optional. Merge GRVT native vault data. Default: false. |
 | `MERGE_LIGHTER` | Optional. Merge Lighter native pool data. Default: false. |
-| `SKIP_EXPORT` | Optional. Skip sparkline and metadata export to R2. Default: false. |
+| `SKIP_DATA` | Optional. Skip main data-file export and readiness manifest publication. Other exports, including the private crypto bundle, still run. Default: false. |
+| `SKIP_SPARKLINES` / `SKIP_METADATA` / `SKIP_TOP_VAULTS` | Optional. Independently skip the corresponding export. These do not disable main data-file or manifest publication. Default: false. |
+| `PIPELINE_DATA_DIR` | Optional. Pipeline files and price-scan provenance directory. Default: `~/.tradingstrategy/vaults`. |
 | `SKIP_SAMPLES` | Optional. Skip Ethereum-only sample file export. Default: false. |
 | `LOG_LEVEL` | Optional. Default: info. |
+
+This wrapper also publishes the readiness manifest after successful main data
+export. It reads existing price-scan provenance; rerunning post-processing does
+not invent a new scan completion time. Missing provenance is published as
+`null`. `SKIP_EXPORT` is not a supported switch, and `SKIP_DATA` is not a
+general offline mode: the separate crypto bundle still requires private R2
+configuration. Use `clean-prices.py` for the standalone cleaner rather than
+assuming the full post-processing pipeline is non-mutating.
 
 ### repair-vault-features.py
 
@@ -1992,6 +2035,13 @@ The exchange-rate DuckDB path uses the same `CURRENCY_API_DB_PATH` /
 without an override it is read from `$PIPELINE_DATA_DIR/exchange-rates.duckdb`.
 Run this after metadata-only repairs such as `repair-vault-features.py` so the
 fixed `vault-metadata-db.pickle` is published.
+
+Running `export-data-files.py` directly does **not** publish a new scan
+manifest. The post-processing wrapper owns that step after export succeeds.
+Replacing the price object directly can leave the previous receipt's ETag
+unmatched; readiness consumers must wait for a matching publication, not use
+the old receipt with the new bytes. The scan receipt is separate from the
+crypto-vaults bundle's own manifest.
 
 | Variable | Description |
 |----------|-------------|

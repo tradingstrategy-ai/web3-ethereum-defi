@@ -2471,6 +2471,8 @@ def run_scan_tick(
     xerberus_fetch_vault_list: bool = True,
     xerberus_fetch_reports: bool = True,
     scan_xerberus: bool = False,
+    price_scan_state_path: Path | None = None,
+    on_price_scan_success: Callable[[str], None] | None = None,
 ) -> dict[str, ChainResult]:
     """Execute one scan tick: EVM chains + native protocols + post-processing.
 
@@ -2483,6 +2485,12 @@ def run_scan_tick(
         an interrupted scan does not re-fetch already-completed items on
         restart.  Not related to post-processing — post-processing always
         runs after all data fetches complete.
+    :param on_price_scan_success:
+        Optional callback invoked only after a successful price scan. This is
+        separate from generic cycle state so metadata-only scans cannot advance
+        price freshness in the published manifest.
+    :param price_scan_state_path:
+        Optional price-only provenance path passed to post-processing.
 
     :param core3_db_path:
         Path to the Core3 risk intelligence DuckDB. Forwarded to
@@ -2685,6 +2693,9 @@ def run_scan_tick(
             # Save cycle state for data fetching progress — not related to post-processing
             if on_item_success:
                 on_item_success(chain.name)
+            chain_id = r.chain_id or get_chain_id_by_name(chain.name)
+            if scan_prices and r.price_scan_ok and on_price_scan_success and chain_id is not None:
+                on_price_scan_success(str(chain_id))
             update_chain_settlement_result(chain, chain_result=r)
         elif r.status == "failed":
             logger.error("%s: FAILED - %s", chain.name, r.error)
@@ -2717,6 +2728,8 @@ def run_scan_tick(
             # Save cycle state for data fetching progress — not related to post-processing
             if on_item_success:
                 on_item_success("Hypercore")
+            if r.price_scan_ok and on_price_scan_success:
+                on_price_scan_success(str(get_chain_id_by_name("Hypercore")))
         elif r.status == "failed":
             logger.error("Hypercore: FAILED - %s", r.error)
         print_dashboard(results, display_order, uncleaned_price_path=uncleaned_price_path)
@@ -2958,6 +2971,9 @@ def run_scan_tick(
                 # Save cycle state for data fetching progress — not related to post-processing
                 if on_item_success:
                     on_item_success(chain.name)
+                chain_id = result.chain_id or get_chain_id_by_name(chain.name)
+                if scan_prices and result.price_scan_ok and on_price_scan_success and chain_id is not None:
+                    on_price_scan_success(str(chain_id))
                 update_chain_settlement_result(chain, chain_result=result)
             else:
                 logger.error("%s (retry %d): FAILED - %s", chain.name, attempt, result.error)
@@ -3007,6 +3023,7 @@ def run_scan_tick(
             core3_db_path=core3_db_path,
             feed_db_path=feed_db_path,
             crypto_vaults_dir=vault_db_path.parent / CRYPTO_VAULTS_BUNDLE_NAME,
+            price_scan_state_path=price_scan_state_path or ((cleaned_price_path or uncleaned_price_path).parent / "vault-price-scan-state.json"),
         )
         for step, success in post_results.items():
             logger.info("Post-processing %s: %s", step, "SUCCESS" if success else "FAILED")
@@ -3163,6 +3180,7 @@ def main():
     cleaned_price_path = data_dir / "cleaned-vault-prices-1h.parquet"
     reader_state_path = data_dir / "vault-reader-state-1h.pickle"
     cycle_state_path = data_dir / "scan-cycle-state.json"
+    price_scan_state_path = data_dir / "vault-price-scan-state.json"
     pipeline_lock_path = data_dir / "scan-pipeline"
     backup_dir = data_dir / "backups"
     lighter_db_path = data_dir / "lighter-pools.duckdb"
@@ -3386,6 +3404,7 @@ def main():
         bkp_files=bkp_files,
         bkp_dir=backup_dir,
         cleaned_price_path=cleaned_price_path,
+        price_scan_state_path=price_scan_state_path,
         excluded_chains=[c.name for c in skipped_by_order + disabled_chains],
         hypercore_mode=hypercore_mode,
         core3_db_path=core3_db_path,
@@ -3403,6 +3422,24 @@ def main():
         lead_discovery_state_timeout=lead_discovery_state_timeout,
         force_lead_discovery=force_lead_discovery,
     )
+
+    # Price provenance is intentionally separate from generic scan-cycle state:
+    # metadata-only scans must never make the readiness manifest look fresher.
+    price_scan_state = load_cycle_state(price_scan_state_path)
+
+    def _save_price_scan(name: str) -> None:
+        """Persist price provenance when ``run_scan_tick`` reports success.
+
+        This callback deliberately does not share generic cycle state: a
+        metadata refresh must not make the published price receipt fresher.
+
+        :param name: Decimal chain-ID key supplied by the successful scan.
+        :return: None; the price-only JSON state is updated on disc.
+        """
+        price_scan_state[name] = native_datetime_utc_now().isoformat()
+        save_cycle_state(price_scan_state, price_scan_state_path)
+
+    tick_kwargs["on_price_scan_success"] = _save_price_scan
 
     # Clear cycle state on disc so the first tick rescans everything.
     # Subsequent cycles use normal cycle logic because incremental saves

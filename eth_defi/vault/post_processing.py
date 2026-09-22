@@ -58,6 +58,7 @@ from eth_defi.vault.data_file_export import (
     resolve_exchange_rate_parquet_path,
 )
 from eth_defi.vault.sample_export import export_sample_files_to_r2
+from eth_defi.vault.scan_manifest import publish_vault_scan_manifest
 from eth_defi.vault.vaultdb import DEFAULT_UNCLEANED_PRICE_DATABASE, get_pipeline_data_dir
 
 #: Required env vars for the top-vaults JSON R2 upload.
@@ -1160,6 +1161,7 @@ def run_post_processing(
     core3_db_path: Path | None = None,
     feed_db_path: Path | None = None,
     crypto_vaults_dir: Path | None = None,
+    price_scan_state_path: Path | None = None,
 ) -> dict[str, bool]:
     """Run full post-processing pipeline after chain scans complete.
 
@@ -1192,6 +1194,8 @@ def run_post_processing(
     :param core3_db_path: Override for the Core3 risk intelligence DuckDB path
     :param feed_db_path: Override for the vault post feed DuckDB path (curator metadata and feed entries)
     :param crypto_vaults_dir: Override for the isolated crypto bundle directory.
+    :param price_scan_state_path: Price-only scan provenance written by the
+        scanner. Defaults next to the cleaned price file.
     :return: Dictionary mapping step name to success boolean
     """
     steps = {}
@@ -1262,8 +1266,8 @@ def run_post_processing(
         steps["materialise-exchange-rate-parquet"] = False
 
     # Export top vaults JSON, including its best-effort strategy-category
-    # aggregate. This depends on cleaned Parquet and must run before the public
-    # data-file upload.
+    # aggregate. This depends on cleaned Parquet and must run before the
+    # private data-file upload.
     if skip_top_vaults:
         logger.info("Skipping top vaults export (SKIP_TOP_VAULTS=true)")
     elif not cleaning_ok:
@@ -1308,7 +1312,7 @@ def run_post_processing(
     else:
         steps["export-protocol-metadata"] = export_protocol_metadata()
 
-    # Export public data files.
+    # Export complete data files to the private bucket.
     if skip_data:
         logger.info("Skipping data file export (SKIP_DATA=true)")
     elif not cleaning_ok:
@@ -1319,6 +1323,23 @@ def run_post_processing(
             exchange_rate_parquet_path=exchange_rate_parquet_path,
             exchange_rate_parquet_error=exchange_rate_parquet_error,
         )
+
+    # Publish readiness only after the cleaned price upload has succeeded.
+    # Sample exports below are independent; the manifest commits only private
+    # cleaned prices, not every artefact produced by post-processing.
+    if steps.get("export-data-files") is True:
+        manifest_state_path = price_scan_state_path or (Path(cleaned_path).parent if cleaned_path else data_dir) / "vault-price-scan-state.json"
+        try:
+            exported_price_path = data_dir / "cleaned-vault-prices-1h.parquet"
+            if cleaned_path is not None and cleaned_path.resolve() != exported_price_path.resolve():
+                raise ValueError("Cannot publish readiness for a cleaned_path override: private export uses the pipeline data directory")
+            steps["publish-vault-scan-manifest"] = publish_vault_scan_manifest(
+                cleaned_price_path=exported_price_path,
+                price_scan_state_path=manifest_state_path,
+            )
+        except (RuntimeError, ValueError, OSError, pa.ArrowException):
+            logger.exception("Vault scan manifest publication failed")
+            steps["publish-vault-scan-manifest"] = False
 
     # Export Ethereum-only sample files to the public bucket.
     if skip_samples:

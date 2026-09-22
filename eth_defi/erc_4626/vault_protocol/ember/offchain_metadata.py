@@ -169,21 +169,26 @@ def _fetch_ember_vaults(
         return []
 
 
-def _parse_e_value(value: str | None, divisor: float) -> float | None:
-    """Parse an E-encoded numeric string from the Ember API.
+def _parse_e_value(value: str | int | float | None, divisor: float) -> float | None:
+    """Convert a scaled Ember API value to floating-point metadata.
 
-    Some vaults return empty strings instead of numeric values
-    (e.g. beta vaults with no APY data).
+    Used by :func:`_parse_vault_metadata` for fees, APY and TVL. The API's
+    E9/E18 suffix specifies scaling, not an integer-only representation:
+    reported APY can contain decimal strings such as ``"57888888.89"``.
+    Empty strings and null represent missing data; numeric zero is valid.
 
     :param value:
-        Raw string value from API (e.g. ``"1000000000"``)
+        Raw numeric value or numeric string from the Ember API.
 
     :param divisor:
         Divisor to convert to human-readable value (e.g. ``1e9``)
+
+    :return:
+        Unscaled floating-point value, or ``None`` for missing data.
     """
-    if not value:
+    if value is None or value == "":
         return None
-    return int(value) / divisor
+    return float(value) / divisor
 
 
 def _parse_int_or_none(value: str | int | None) -> int | None:
