@@ -48,7 +48,8 @@ fi
 echo "Cleaning vault data"
 python scripts/erc-4626/clean-prices.py
 
-echo "Creating sparkline images"
-python scripts/erc-4626/export-sparklines.py
+# Sparkline export reads the canonical crypto daily Parquet, which this legacy
+# cleaner does not generate. Run post-process-prices.py to clean and export a
+# current snapshot after the required chain scans complete.
 
 echo "All done"

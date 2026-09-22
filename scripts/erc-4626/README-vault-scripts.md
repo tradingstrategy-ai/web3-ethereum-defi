@@ -2012,7 +2012,9 @@ poetry run python scripts/erc-4626/clean-prices.py
 
 Export eligible vault share-price sparklines to Cloudflare R2. Run after the
 crypto daily file `crypto-vaults/crypto-cleaned-vault-prices-1d.parquet` is
-generated.
+generated. This standalone operator command neither refreshes that input nor
+checks its age; use `post-process-prices.py` when the current scan must be
+cleaned and validated before publication.
 
 A vault is eligible when its denomination is a supported stablecoin, ETH or
 BTC family and its first and latest finite share-price observations span at

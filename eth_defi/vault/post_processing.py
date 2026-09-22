@@ -11,6 +11,7 @@ Used by both :py:mod:`scan-vaults-all-chains` and
 import importlib.util
 import logging
 import os
+import pickle  # noqa: S403 - VaultDatabase already uses trusted local pickle state.
 import time
 from pathlib import Path
 from typing import Any
@@ -48,6 +49,7 @@ from eth_defi.lighter.vault_data_export import get_lighter_price_deployments
 from eth_defi.perp_dex.adapter import PerpDexCapability, PerpDexCapabilityRegistry, embed_perp_capability_registry
 from eth_defi.perp_dex.parquet import attach_perp_metrics_to_price_rows, derive_perp_vault_metric_snapshots
 from eth_defi.perp_dex.storage import read_perp_vault_observations
+from eth_defi.research.sparkline_export import run_sparkline_export
 from eth_defi.research.wrangle_vault_prices import generate_cleaned_vault_datasets
 from eth_defi.vault import top_vaults_json
 from eth_defi.vault.base import VaultHistoricalRead
@@ -915,8 +917,6 @@ def export_sparklines(
     """
     try:
         logger.info("Creating sparkline images")
-        from eth_defi.research.sparkline_export import run_sparkline_export  # noqa: PLC0415
-
         data_dir = get_pipeline_data_dir()
         result = run_sparkline_export(
             data_dir=data_dir,
@@ -929,7 +929,7 @@ def export_sparklines(
             return False
         logger.info("Sparkline export complete")
         return True
-    except (ImportError, OSError, R2OperationError, RuntimeError, TypeError, ValueError):
+    except (EOFError, KeyError, ImportError, OSError, pickle.UnpicklingError, pa.ArrowException, R2OperationError, RuntimeError, TypeError, ValueError):
         logger.exception("Export sparklines failed")
         return False
 

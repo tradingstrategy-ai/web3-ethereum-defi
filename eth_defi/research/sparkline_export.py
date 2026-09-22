@@ -683,11 +683,14 @@ def run_sparkline_export(  # noqa: PLR0914
             )
             entry_renderer_is_current = entry.get("renderer_version") == SPARKLINE_RENDERER_VERSION
             entry_target_is_current = entry.get("publication_target") == publication_target
+            publication_is_invalidated = not renderer_state_is_current or not entry_renderer_is_current or not entry_target_is_current
             if not _is_due(
                 entry,
-                low_tvl=low_tvl,
+                # A renderer or destination change invalidates the low-TVL
+                # cadence, but a failed attempt must still honour its backoff.
+                low_tvl=low_tvl and not publication_is_invalidated,
                 now=now,
-                force=force or not renderer_state_is_current or not entry_renderer_is_current or not entry_target_is_current,
+                force=force,
             ):
                 next_retry_at = _parse_timestamp(entry.get("next_retry_at"))
                 if next_retry_at is not None and next_retry_at > now:
