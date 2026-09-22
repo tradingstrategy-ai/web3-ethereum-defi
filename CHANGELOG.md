@@ -1,6 +1,7 @@
 # 1.2
 
 - feat: Bound deterministic sparkline rendering and R2 publication with daily crypto input, persistent cadence state and a three-day low-TVL throttle (2026-09-22).
+- feat: Recalculate low-TVL vault metrics only every three days with a staggered freshness gate, per-vault metrics state files and a validated crypto record patch, cutting the hourly metrics workload to the due cohort (2026-09-22).
 - feat: Add fixed-block-tested Lagoon 1.0 vault read and scanner compatibility using the official v0.6 ABI surface (2026-09-22).
 - feat: Reduce private BTC/ETH vault export work with fixed native peak-TVL thresholds and a projected per-vault metric path, while leaving stablecoin and generic exports unchanged (2026-09-22).
 - fix: Accept decimal scaled Ember API values when parsing vault fees, APY and TVL, and preserve numeric zero (2026-09-22).

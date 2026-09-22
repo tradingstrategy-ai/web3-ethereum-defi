@@ -17,7 +17,9 @@ from eth_defi.cloudflare_r2 import copy_r2_object_daily_backup, create_r2_client
 from eth_defi.core3.constants import resolve_core3_database_path
 from eth_defi.currency_api.constants import CURRENCY_API_DATABASE
 from eth_defi.currency_api.parquet import materialise_exchange_rate_parquet
+from eth_defi.research.metrics_freshness import CRYPTO_METRICS_STATE_FILENAME, VAULT_METRICS_STATE_FILENAME
 from eth_defi.utils import setup_console_logging
+from eth_defi.vault.crypto_vaults import CRYPTO_VAULTS_BUNDLE_NAME
 from eth_defi.vault.settlement_data import (
     VAULT_SETTLEMENT_DATABASE_FILENAME,
     checkpoint_vault_settlement_database_if_exists,
@@ -97,7 +99,14 @@ def get_data_file_paths(
         Files to upload, including optional files that may be skipped later
         if they do not exist.
     """
-    sticky_export_state_paths = [base_path / "vault-export-state.json"]
+    sticky_export_state_paths = [
+        base_path / "vault-export-state.json",
+        # Metrics freshness gate state for the stablecoin and crypto bundles.
+        # Losing either file means one full low-TVL recompute, so back them up
+        # with the other scanner state.
+        base_path / VAULT_METRICS_STATE_FILENAME,
+        base_path / CRYPTO_VAULTS_BUNDLE_NAME / CRYPTO_METRICS_STATE_FILENAME,
+    ]
     exchange_rate_path = exchange_rate_db_path or resolve_exchange_rate_database_path(base_path)
     paths = [
         base_path / "vault-prices-1h.parquet",

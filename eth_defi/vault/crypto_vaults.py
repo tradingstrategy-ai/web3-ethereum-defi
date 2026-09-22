@@ -26,6 +26,16 @@ from eth_defi.compat import native_datetime_utc_now
 from eth_defi.currency_api.cleaning import KNOWN_BAD_RATES
 from eth_defi.currency_api.constants import SOURCE_NAME
 from eth_defi.feed.stablecoin_rate import StablecoinRateFeeder
+from eth_defi.research.metrics_freshness import (
+    CRYPTO_METRICS_STATE_FILENAME,
+    clear_period_rankings,
+    compute_vault_tvl_observations,
+    load_metrics_state,
+    load_valid_previous_crypto_records,
+    partition_due_vault_ids,
+    refresh_metrics_state,
+    save_metrics_state,
+)
 from eth_defi.research.vault_metrics import (
     USD_RATE_ERROR_INSUFFICIENT_COVERAGE,
     USD_RATE_ERROR_INVALID_SERIES,
@@ -612,20 +622,7 @@ def build_crypto_vault_record(record: dict[str, Any], vault_row: VaultRow, thres
     # Rankings produced by the common metrics calculator use USD TVL gates and
     # a mixed comparison set. They are not meaningful for native ETH/BTC units,
     # so retain the shared period schema while explicitly leaving ranks unset.
-    period_results = result.get("period_results")
-    if isinstance(period_results, list):
-        result["period_results"] = [
-            {
-                **period,
-                "ranking_overall": None,
-                "ranking_chain": None,
-                "ranking_protocol": None,
-                "ranking_curator": None,
-            }
-            if isinstance(period, dict)
-            else period
-            for period in period_results
-        ]
+    clear_period_rankings(result)
     result.pop("denomination_token_rate", None)
     return result, threshold
 
@@ -927,6 +924,51 @@ def build_crypto_vault_metadata(  # noqa: PLR0914 - this coordinator keeps the i
         time.perf_counter() - admission_started,
     )
 
+    # Freshness gate: recalculate low-TVL stablecoin vaults only every
+    # LOW_TVL_METRICS_MAX_AGE. Native ETH/BTC vaults are deliberately not
+    # gated: their admission already requires a lifetime peak at or above the
+    # native export threshold, so every admitted native vault is
+    # export-relevant and must stay fresh. There are two skip classes:
+    #
+    # 1. Sticky-active vaults (previously exported or retained): a skipped
+    #    vault's previous record is read back from the metadata JSON (before
+    #    it is overwritten) and re-attached, but only when the whole previous
+    #    document and the per-vault family and threshold still match this
+    #    process.
+    # 2. Never-exported vaults with no sticky entry and a raw peak below the
+    #    export threshold: they provably cannot enter the export this run (no
+    #    qualification, no sticky retention), so nothing needs to be patched
+    #    and the record is simply absent, exactly as when they are computed.
+    now = native_datetime_utc_now()
+    state = _load_sticky_state(sticky_state_path)
+    metrics_state_path = sticky_state_path.parent / CRYPTO_METRICS_STATE_FILENAME
+    metrics_state = load_metrics_state(metrics_state_path, now)
+    previous_records = load_valid_previous_crypto_records(
+        metadata_path,
+        schema_version=CRYPTO_VAULTS_SCHEMA_VERSION,
+        whitelist_sha256=get_denomination_whitelist_digest(),
+    )
+    seen_stable_ids = set(stable_prices_df["id"])
+    current_tvl_by_id, peak_tvl_by_id = compute_vault_tvl_observations(stable_prices_df)
+    stable_family_by_id = dict.fromkeys(seen_stable_ids, DenominationFamily.stablecoin.value)
+    stable_export_threshold_by_id = {vault_id: float(convert_usd_threshold_to_denomination(threshold_usd, vault_db.rows[VaultSpec.parse_string(vault_id, separator="-")]["Denomination"])) for vault_id in seen_stable_ids}
+    record_patchable_ids = {vault_id for vault_id, record in previous_records.items() if vault_id in seen_stable_ids and record.get("denomination_family") == DenominationFamily.stablecoin.value and record.get("qualification_threshold") == stable_export_threshold_by_id.get(vault_id)}
+    no_record_skippable_ids = {vault_id for vault_id in seen_stable_ids if vault_id not in state["vaults"] and (peak_tvl_by_id.get(vault_id) is None or peak_tvl_by_id[vault_id] < stable_export_threshold_by_id[vault_id])}
+    due_stable_ids, skipped_stable_ids = partition_due_vault_ids(
+        seen_stable_ids,
+        metrics_state,
+        current_tvl_by_id,
+        peak_tvl_by_id,
+        stable_family_by_id,
+        stable_export_threshold_by_id,
+        now,
+        patchable_ids=record_patchable_ids | no_record_skippable_ids,
+    )
+    logger.info("Metrics freshness: %d stablecoin vaults due, %d low-TVL vaults still fresh", len(due_stable_ids), len(skipped_stable_ids))
+    stable_prices_df = stable_prices_df.loc[stable_prices_df["id"].isin(due_stable_ids)]
+    stable_price_ids = set(stable_prices_df["id"])
+    stable_vault_rows = {spec: row for spec, row in stable_vault_rows.items() if spec.as_string_id() in stable_price_ids}
+
     crypto_usd_conversion_context = None
     usd_metrics_provenance = None
     if exchange_rate_parquet_path is not None and not native_prices_df.empty:
@@ -959,7 +1001,6 @@ def build_crypto_vault_metadata(  # noqa: PLR0914 - this coordinator keeps the i
     logger.info("Calculated native crypto metrics in %.2fs", time.perf_counter() - native_metrics_started)
 
     serialisation_started = time.perf_counter()
-    state = _load_sticky_state(sticky_state_path)
     selected_records: list[dict[str, Any]] = []
     current_ids: set[str] = set()
 
@@ -988,6 +1029,16 @@ def build_crypto_vault_metadata(  # noqa: PLR0914 - this coordinator keeps the i
                     "updated_at": native_datetime_utc_now().isoformat(),
                 }
 
+    # Re-attach validated previous records for skipped low-TVL stablecoin
+    # vaults. The per-vault generated_at inside each record is the "last
+    # metrics updated" signal, and rankings were already cleared when the
+    # record was built. Skipped vaults without a patchable record (never
+    # exported, peak below the export threshold) contribute nothing, exactly
+    # as when they are computed.
+    for vault_id in sorted(skipped_stable_ids & record_patchable_ids):
+        selected_records.append(previous_records[vault_id])
+        current_ids.add(vault_id)
+
     native_family_names = {DenominationFamily.eth.value, DenominationFamily.btc.value}
     state["vaults"] = {key: value for key, value in state["vaults"].items() if key in current_ids and (value.get("denomination_family") not in native_family_names or key in admission.qualifying_ids)}
     selected_records.sort(key=lambda record: str(record.get("id", "")))
@@ -1007,6 +1058,25 @@ def build_crypto_vault_metadata(  # noqa: PLR0914 - this coordinator keeps the i
         metadata["usd_metrics"] = usd_metrics_provenance
     _save_json_atomic(metadata, metadata_path)
     _save_json_atomic(state, sticky_state_path)
+
+    # The freshness state is committed after the output JSON and sticky state:
+    # a crash between the writes leaves state stale so vaults recompute next
+    # run, never the reverse (state fresh but no published record).
+    computed_stable_ids = set(stable_metrics_df["id"].astype(str)) if len(stable_metrics_df) else set()
+    # Vaults skipped without a patchable record provably cannot enter the
+    # export (no sticky entry, peak below the export threshold), so their
+    # freshness timestamp still advances: not advancing it would make the
+    # whole never-exported cohort due again on the next run.
+    refresh_metrics_state(
+        metrics_state,
+        seen_stable_ids,
+        computed_stable_ids | (skipped_stable_ids - record_patchable_ids),
+        current_tvl_by_id,
+        peak_tvl_by_id,
+        stable_family_by_id,
+        now,
+    )
+    save_metrics_state(metrics_state, metrics_state_path)
     logger.info(
         "Built and saved %d crypto vault records in %.2fs",
         len(selected_records),
