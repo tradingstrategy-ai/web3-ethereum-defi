@@ -929,7 +929,7 @@ def export_sparklines(
             return False
         logger.info("Sparkline export complete")
         return True
-    except (OSError, R2OperationError, RuntimeError, TypeError, ValueError):
+    except (ImportError, OSError, R2OperationError, RuntimeError, TypeError, ValueError):
         logger.exception("Export sparklines failed")
         return False
 

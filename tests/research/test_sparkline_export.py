@@ -155,12 +155,14 @@ def test_export_state_skips_unchanged_high_tvl_without_rendering(tmp_path: Path,
         prices_path=prices_path,
         state_path=state_path,
         max_workers=1,
+        force=False,
     )
     second = sparkline_export.run_sparkline_export(
         vault_db_path=vault_db_path,
         prices_path=prices_path,
         state_path=state_path,
         max_workers=1,
+        force=False,
     )
 
     assert first.success and second.success
