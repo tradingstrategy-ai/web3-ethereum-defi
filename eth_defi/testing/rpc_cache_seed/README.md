@@ -24,8 +24,10 @@ name** (not chain id), then block, then the cache file:
 rpc_cache_seed/
   mainnet/25598869/storage.json
   arbitrum/487039644/storage.json
+  base/30659990/storage.json  # Lagoon Base lifecycle characterisation
   base/49030926/storage.json
   base/51649628/storage.json  # Lagoon v1 production characterisation
+  bsc/111758906/storage.json  # BUSD fork state for tests/rpc/test_anvil.py
   ...
 ```
 
@@ -38,6 +40,20 @@ was observed failing, and is required by
 `tests/lagoon/test_lagoon_v1.py`. The canonical Base midnight block predates
 that deployment, so replacing this seed with a midnight block would not test
 the production compatibility boundary.
+
+`base/30659990/` is another intentional fixed-block exception. It is the
+historical Base block used by the shared Lagoon fork fixture in
+`tests/lagoon/conftest.py` and by some Guard integration tests. The seed contains
+the reads captured from the Lagoon lifecycle and selected Guard paths. It
+reduces cold archive reads but is not an exhaustive cache of every test at this
+block; cache misses still use the configured provider.
+
+The BSC midnight seed contains the BUSD contract code, the unlocked historical
+holder account, and the metadata and balance slots used by
+`tests/rpc/test_anvil.py`. Bootstrap checks still reach the configured provider,
+through the bounded failover proxy when multiple providers are configured.
+Anvil uses the seed for captured BUSD state and its configured provider for any
+cache misses.
 
 ## Capturing a seed file
 
@@ -55,9 +71,9 @@ via the `ETH_DEFI_RPC_CACHE_SEED_DIR` environment variable.
 ## Archive bootstrap and cache invariant
 
 Stored state covers repeatable historical reads after Anvil starts. The initial
-chain-identity and archive-availability checks are necessarily remote, so with
-multiple providers they must use the same bounded failover proxy as Anvil; no
-setup check may make the first provider a single point of failure. To refresh a
-seed, start with an empty Foundry cache directory, run its complete fixed-block
-integration group, then commit the `storage.json` written when Anvil closes
-cleanly.
+chain-identity check, and any enabled archive-availability check, are
+necessarily remote. With multiple providers, they must use the same bounded
+failover proxy as Anvil; no setup check may make the first provider a single
+point of failure. To refresh a seed, start with an empty Foundry cache
+directory, run its complete fixed-block integration group, then commit the
+`storage.json` written when Anvil closes cleanly.
