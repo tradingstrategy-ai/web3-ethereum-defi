@@ -22,12 +22,15 @@ GMX V2 batches order operations via `ExchangeRouter.multicall()`. The Guard vali
 | `sendWnt(address,uint256)` | Send ETH for keeper execution fee |
 | `sendTokens(address,address,uint256)` | Send ERC20 collateral to order vault |
 | `createOrder(tuple)` | Create the GMX position order |
+| `claimFundingFees(address[],address[],address)` | Claim accrued funding fees to the receiver |
 
 **Open long (native ETH)**: `[sendWnt(orderVault, collateral+fee), createOrder(...)]`
 
 **Open short (ERC20)**: `[sendWnt(orderVault, fee), sendTokens(token, orderVault, amount), createOrder(...)]`
 
 **Close position**: `[sendWnt(orderVault, fee), createOrder(...)]`
+
+**Claim funding fees**: `[claimFundingFees(markets, tokens, receiver)]` — no `sendWnt`, see [Claiming funding fees](#claiming-funding-fees)
 
 ## Opening and closing long and short positions
 
@@ -177,6 +180,80 @@ Safe ETH      ──sendWnt──────────▶  OrderVault (keeper
 ```
 
 > **Note**: for a USDC-collateralised long, "collateral + PnL" above is two separate token transfers, not one — see the note under "Opening a long" above.
+
+## Claiming funding fees
+
+GMX V2 accrues funding fees continuously per `(market, token, account)` and releases them through `ExchangeRouter.claimFundingFees(markets, tokens, receiver)`. The Guard allow-lists only the `ExchangeRouter.multicall()` outer call site, so a claim travels as a one-element multicall:
+
+```
+ExchangeRouter.multicall([ claimFundingFees(markets, tokens, receiver) ])
+```
+
+No `sendWnt` is required. Orders go through the keeper and need a native execution fee, but a claim is a direct transfer from the market to the receiver, so the transaction costs native gas only and the Safe needs no ETH. The signer pays that gas: the EOA in EOA mode, the asset manager in vault mode.
+
+### Payout token
+
+A claim pays in each market's **long or short backing token**, never an arbitrary token:
+
+- GMX only ever writes `claimableFundingAmountKey(market, token, account)` with `token` equal to `market.longToken` or `market.shortToken`, so no other token can be claimed.
+- Which of the two a receiver gets is decided by GMX's funding split, which follows the collateral the paying side posted.
+
+For the Arbitrum perp markets the short side therefore pays out USDC, while the long side pays out whatever the market actually holds: WETH for the `[WETH-USDC]` variants, WBTC for `[WBTC-USDC]`, and the index token itself where it is usable collateral, such as ARB or GMX. GMX lists several variants per index token, so a market's long token is **not** necessarily the index token — read `market.longToken` instead of assuming. Markets whose long and short tokens are both USDC (the `*2` markets) pay entirely in USDC. The USD figures shown are oracle valuations for display, not a payout denomination, and there is no on-chain swap: this call path has no swap entry point.
+
+### Reading the claimable amounts
+
+[GetClaimableFundingFees](core/claimable_funding_fees.py) multicalls `DataStore.getUint()` across every market and both token sides, then values each nonzero receipt with the market's oracle prices. [claim.py](claim.py) claims what was found:
+
+| API | Returns |
+|-----|---------|
+| `GetClaimableFundingFees.get_per_market_claimable_funding_fees()` | Per market, the long and short raw amount and USD value |
+| `GetClaimableFundingFees.get_claim_args()` | The aligned `(markets, tokens)` arrays a claim needs |
+| `claim_funding_fees(config, wallet, markets, tokens)` | One encoded claim transaction |
+| `claim_all_funding_fees(config, wallet)` | Discover and claim every nonzero receipt in a single transaction |
+
+### Script
+
+```
+poetry run python scripts/gmx/gmx_claim_funding_fees.py \
+    --rpc-url "$JSON_RPC_ARBITRUM" --private-key 0x... [--vault 0x...] [--dry-run]
+```
+
+Rather than passing the key on the command line, the script reads it — together with the RPC endpoint and vault address — from a freqtrade configuration file and its secrets file:
+
+```
+poetry run python scripts/gmx/gmx_claim_funding_fees.py \
+    --config configs/gmx_eth.json --secrets configs/gmx_eth.secrets.json --dry-run
+```
+
+`--config` and `--secrets` are repeatable and deep-merged in the order given, so later files override earlier ones. Values are looked up in this order, and an explicit flag always wins:
+
+| Setting | Configuration paths |
+|---------|---------------------|
+| Signing key | `exchange.ccxt_config.privateKey`, then `exchange.private_key` |
+| RPC endpoint | `exchange.ccxt_config.rpcUrl`, then `exchange.rpc_url` |
+| Vault address | `exchange.ccxt_config.options.vaultAddress` |
+
+Keys copied from a block explorer or a freqtrade secrets file often omit the `0x` prefix; the script adds it when missing. A blank key is treated as absent rather than as the literal `0x`.
+
+`--dry-run` is also the supported way to check the reader against live state, since it reads every market and both token sides but sends nothing:
+
+```
+poetry run python scripts/gmx/gmx_claim_funding_fees.py \
+    --rpc-url "$JSON_RPC_ARBITRUM" --private-key 0x<account key> --dry-run
+```
+
+### Execution modes
+
+The mode follows the same rule as the freqtrade adapter: a configured vault address selects Lagoon vault mode, its absence selects EOA mode.
+
+| Configuration | Mode | Funding account | Signer and gas payer |
+|---------------|------|-----------------|----------------------|
+| `exchange.private_key` / `exchange.ccxt_config.privateKey` | EOA | the signing account | the signing account |
+| either, plus `--vault` or `exchange.ccxt_config.options.vaultAddress` | Lagoon vault | the vault's Gnosis Safe | the asset manager |
+
+In vault mode the claim is wrapped in the Safe's `TradingStrategyModuleV0` `performCall()`, so the Safe is `msg.sender` and the default `receiver`. That default is also what the Guard requires: the claim passes the receiver check only for a whitelisted receiver, which in a Lagoon deployment is the Safe itself. A malformed vault address is rejected outright instead of falling back to EOA mode, which would claim the funding to the asset manager instead of the vault Safe.
+
+The script prints the detected mode, funding account and signer before it opens a connection, then prints the nonzero `(market, side)` receipts and, unless `--dry-run` is set, submits one claim transaction and waits for the receipt. An account with nothing claimable exits without sending a transaction.
 
 ## Guard validation
 
