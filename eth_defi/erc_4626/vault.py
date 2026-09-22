@@ -1106,7 +1106,7 @@ class ERC4626Vault(VaultBase):
                 )
             return result
         else:
-            logger.info(
+            logger.debug(
                 "Vault %s asset() returned no address (block_identifier=%s)",
                 self.address,
                 block_identifier,
