@@ -1266,8 +1266,8 @@ def run_post_processing(
         steps["materialise-exchange-rate-parquet"] = False
 
     # Export top vaults JSON, including its best-effort strategy-category
-    # aggregate. This depends on cleaned Parquet and must run before the public
-    # data-file upload.
+    # aggregate. This depends on cleaned Parquet and must run before the
+    # private data-file upload.
     if skip_top_vaults:
         logger.info("Skipping top vaults export (SKIP_TOP_VAULTS=true)")
     elif not cleaning_ok:
@@ -1312,7 +1312,7 @@ def run_post_processing(
     else:
         steps["export-protocol-metadata"] = export_protocol_metadata()
 
-    # Export public data files.
+    # Export complete data files to the private bucket.
     if skip_data:
         logger.info("Skipping data file export (SKIP_DATA=true)")
     elif not cleaning_ok:
@@ -1325,16 +1325,19 @@ def run_post_processing(
         )
 
     # Publish readiness only after the cleaned price upload has succeeded.
-    # This small JSON object is intentionally last so polling never observes
-    # provenance for a parquet object that is not yet available.
-    if not skip_data and cleaning_ok and steps.get("export-data-files") is not False:
+    # Sample exports below are independent; the manifest commits only private
+    # cleaned prices, not every artefact produced by post-processing.
+    if steps.get("export-data-files") is True:
         manifest_state_path = price_scan_state_path or (Path(cleaned_path).parent if cleaned_path else data_dir) / "vault-price-scan-state.json"
         try:
+            exported_price_path = data_dir / "cleaned-vault-prices-1h.parquet"
+            if cleaned_path is not None and cleaned_path.resolve() != exported_price_path.resolve():
+                raise ValueError("Cannot publish readiness for a cleaned_path override: private export uses the pipeline data directory")
             steps["publish-vault-scan-manifest"] = publish_vault_scan_manifest(
-                cleaned_price_path=cleaned_path or data_dir / "cleaned-vault-prices-1h.parquet",
+                cleaned_price_path=exported_price_path,
                 price_scan_state_path=manifest_state_path,
             )
-        except Exception:
+        except (RuntimeError, ValueError, OSError, pa.ArrowException):
             logger.exception("Vault scan manifest publication failed")
             steps["publish-vault-scan-manifest"] = False
 

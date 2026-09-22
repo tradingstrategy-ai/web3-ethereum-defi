@@ -15,6 +15,10 @@ Strategy-tag mapping modules keep EVM address keys as plain lowercase strings
 instead of ``HexAddress(...)`` constructor calls. The shared lookup helper
 normalises addresses supplied by adapters before reading these mappings.
 
+The `vault scan manifest contract <https://github.com/tradingstrategy-ai/web3-ethereum-defi/blob/master/docs/README-vault-scan-manifest.md>`__
+describes private R2 keys, freshness timestamps and cache policy for live
+strategy readiness polling.
+
 .. autosummary::
    :toctree: _autosummary_vault
    :recursive:

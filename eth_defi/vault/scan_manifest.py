@@ -11,11 +11,17 @@ by ``R2_ALTERNATIVE_VAULT_METADATA_BUCKET_NAME``. Its key is
 the upload explicitly sets ``application/json`` and ``Cache-Control: no-store``.
 The serving worker and CDN must also honour that policy; R2 metadata alone
 cannot prove that a readiness poll will bypass every intermediate cache.
+
+See `Cloudflare R2 object metadata <https://developers.cloudflare.com/r2/api/s3/api/>`__
+for the S3-compatible HEAD and upload operations used here. Operational details
+and the consumer contract are documented in ``docs/README-vault-scan-manifest.md``.
 """
 
 import datetime
 import json
+import logging
 import os
+import re
 from pathlib import Path
 from typing import Literal, TypedDict
 
@@ -25,9 +31,16 @@ from eth_defi.chain import get_chain_name
 from eth_defi.cloudflare_r2 import create_r2_client, fetch_r2_object_head, upload_bytes_to_r2
 from eth_defi.compat import native_datetime_utc_now
 
+logger = logging.getLogger(__name__)
+
 
 class VaultPriceFileManifest(TypedDict):
-    """Identify the cleaned price object represented by a manifest."""
+    """Bind freshness claims to the private price object the consumer downloads.
+
+    Filled by :func:`build_vault_scan_manifest` from the publisher's R2 HEAD
+    response. Consumers compare the opaque ETag, including multipart suffixes,
+    with the download response; it is not a content hash they must recompute.
+    """
 
     #: Exact private R2 object key, retained for audit only.
     key: str
@@ -37,7 +50,13 @@ class VaultPriceFileManifest(TypedDict):
 
 
 class VaultChainScanManifest(TypedDict):
-    """Published price freshness for one numeric chain ID."""
+    """Separate successful collection from the newest published observation.
+
+    The builder combines scanner provenance with cleaned parquet maxima. A
+    metadata-only scan cannot advance collection time, and a completed price
+    scan need not have received new candles. Both fields are UTC ISO-8601
+    strings ending in ``Z``, or ``None`` when unknown.
+    """
 
     #: Human-readable label; consumers select chains by numeric key.
     name: str
@@ -51,7 +70,13 @@ class VaultChainScanManifest(TypedDict):
 
 
 class VaultScanManifest(TypedDict):
-    """Small receipt published after a cleaned price upload."""
+    """Wire contract polled before a live strategy downloads its universe.
+
+    :func:`publish_vault_scan_manifest` serialises this mapping as JSON after
+    private price export. The matching consumer is
+    ``tradingstrategy.vault_scan_manifest.VaultScanManifest``. Chain-wide
+    freshness is a scheduling hint, not a guarantee that every vault has data.
+    """
 
     #: Wire schema version; the consumer currently supports version 1 only.
     schema_version: Literal[1]
@@ -67,17 +92,31 @@ class VaultScanManifest(TypedDict):
 
 
 def _format_utc(timestamp: datetime.datetime) -> str:
-    """Serialise a naive or aware datetime in the manifest's UTC format."""
+    """Normalise producer timestamps to the consumer's UTC wire format.
+
+    Used for both persisted scan provenance and Arrow price timestamps so
+    their timezone representations do not change readiness comparisons.
+
+    :param timestamp: Naive UTC or timezone-aware instant.
+    :return: ISO-8601 UTC timestamp with a trailing ``Z``.
+    """
 
     if timestamp.tzinfo is not None:
         timestamp = timestamp.astimezone(datetime.timezone.utc).replace(tzinfo=None)
-    timestamp = timestamp.replace(microsecond=timestamp.microsecond)
     value = timestamp.isoformat(timespec="microseconds").rstrip("0").rstrip(".")
     return f"{value}Z"
 
 
 def _load_price_scan_state(path: Path) -> dict[str, str | None]:
-    """Load price-specific scan provenance, tolerating a missing first run."""
+    """Read the scanner's separate price-success state for manifest creation.
+
+    A first run without persisted provenance produces unknown scan times,
+    never inferred successes. Support the scanner's ``items`` wrapper and a
+    plain mapping used by manual producers.
+
+    :param path: Local JSON written by the scanner's price-success callback.
+    :return: Decimal chain-ID keys mapped to UTC timestamp strings or ``None``.
+    """
 
     if not path.exists():
         return {}
@@ -87,11 +126,15 @@ def _load_price_scan_state(path: Path) -> dict[str, str | None]:
         raise ValueError(f"Price scan state at {path} must contain an object")
     normalised: dict[str, str | None] = {}
     for name, value in items.items():
+        if not re.fullmatch(r"[1-9][0-9]*", str(name)):
+            raise ValueError(f"Invalid chain ID {name!r} in price scan state at {path}")
         if value is None:
             normalised[str(name)] = None
         elif isinstance(value, str):
             timestamp = datetime.datetime.fromisoformat(value.replace("Z", "+00:00"))
             normalised[str(name)] = _format_utc(timestamp)
+        else:
+            raise ValueError(f"Invalid price scan timestamp for chain {name} at {path}")
     return normalised
 
 
@@ -103,6 +146,12 @@ def build_vault_scan_manifest(
     published_at: datetime.datetime,
 ) -> VaultScanManifest:
     """Build a v1 manifest from the exact cleaned parquet being published.
+
+    Called by :func:`publish_vault_scan_manifest` after private price export.
+    Only ``chain`` (numeric chain ID) and ``timestamp`` (Arrow timestamp) are
+    loaded; aggregation stays in Arrow to avoid materialising millions of
+    historical rows as Python objects. Sparse four-hour observations remain
+    valid inputs: no artificial hourly completeness requirement is applied.
 
     :param cleaned_price_path:
         Cleaned parquet snapshot that was uploaded before this call.
@@ -118,23 +167,15 @@ def build_vault_scan_manifest(
         JSON-serialisable manifest mapping.
     """
 
+    price_etag = price_etag.strip('"')
+    if not price_etag or price_etag.startswith("W/") or '"' in price_etag:
+        raise ValueError(f"Expected a strong opaque price ETag, got {price_etag!r}")
     table = pq.read_table(cleaned_price_path, columns=["chain", "timestamp"])
     # Aggregate in Arrow: the cleaned history contains millions of hourly
     # rows, but the receipt needs only one timestamp per chain. Sparse native
     # vault observations do not require an hourly sample-count threshold.
     maxima = table.group_by("chain").aggregate([("timestamp", "max")])
-    latest_by_chain: dict[str, datetime.datetime] = {}
-    for row in maxima.to_pylist():
-        chain = row.get("chain")
-        timestamp = row.get("timestamp_max")
-        if chain is None or timestamp is None:
-            continue
-        chain_key = str(int(chain))
-        if timestamp.tzinfo is not None:
-            timestamp = timestamp.astimezone(datetime.timezone.utc).replace(tzinfo=None)
-        previous = latest_by_chain.get(chain_key)
-        if previous is None or timestamp > previous:
-            latest_by_chain[chain_key] = timestamp
+    latest_by_chain = {str(int(row["chain"])): row["timestamp_max"] for row in maxima.to_pylist() if row["chain"] is not None and row["timestamp_max"] is not None}
 
     scan_state = _load_price_scan_state(price_scan_state_path)
     chains: dict[str, VaultChainScanManifest] = {}
@@ -168,6 +209,8 @@ def publish_vault_scan_manifest(
     The price object must already be uploaded. The manifest uses ``no-store``
     so the authenticated JSON endpoint can be polled without a stale edge or
     client cache. Existing unrelated data-file cache policy is unchanged.
+    Called by :func:`eth_defi.vault.post_processing.run_post_processing` after
+    successful export, under the scanner's existing single-writer lock.
 
     :param cleaned_price_path:
         Exact cleaned parquet snapshot that was uploaded.
@@ -177,10 +220,12 @@ def publish_vault_scan_manifest(
         Optional publication timestamp; defaults to the current UTC time.
 
     :return:
-        ``True`` after publication, ``False`` when the price object is absent.
+        ``True`` after publication, ``False`` when the local price file is
+        absent. Missing remote objects or configuration raise an error.
     """
 
     if not cleaned_price_path.is_file():
+        logger.warning("Skipping vault scan manifest: local price file missing: %s", cleaned_price_path)
         return False
     bucket_name = os.environ.get("R2_ALTERNATIVE_VAULT_METADATA_BUCKET_NAME")
     access_key_id = os.environ.get("R2_DATA_ACCESS_KEY_ID") or os.environ.get("R2_VAULT_METADATA_ACCESS_KEY_ID")
@@ -213,4 +258,5 @@ def publish_vault_scan_manifest(
         content_type="application/json",
         cache_control="no-store",
     )
+    logger.info("Published vault scan manifest for %d chains to s3://%s/%s", len(manifest["chains"]), bucket_name, manifest_key)
     return True

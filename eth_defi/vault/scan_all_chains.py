@@ -2728,8 +2728,8 @@ def run_scan_tick(
             # Save cycle state for data fetching progress — not related to post-processing
             if on_item_success:
                 on_item_success("Hypercore")
-            if on_price_scan_success:
-                on_price_scan_success(str(get_chain_id_by_name("Hypercore") or 9999))
+            if r.price_scan_ok and on_price_scan_success:
+                on_price_scan_success(str(get_chain_id_by_name("Hypercore")))
         elif r.status == "failed":
             logger.error("Hypercore: FAILED - %s", r.error)
         print_dashboard(results, display_order, uncleaned_price_path=uncleaned_price_path)
@@ -3428,6 +3428,14 @@ def main():
     price_scan_state = load_cycle_state(price_scan_state_path)
 
     def _save_price_scan(name: str) -> None:
+        """Persist price provenance when ``run_scan_tick`` reports success.
+
+        This callback deliberately does not share generic cycle state: a
+        metadata refresh must not make the published price receipt fresher.
+
+        :param name: Decimal chain-ID key supplied by the successful scan.
+        :return: None; the price-only JSON state is updated on disc.
+        """
         price_scan_state[name] = native_datetime_utc_now().isoformat()
         save_cycle_state(price_scan_state, price_scan_state_path)
 
