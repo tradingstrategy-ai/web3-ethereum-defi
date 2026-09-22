@@ -24,7 +24,7 @@ DEFAULT_SPARKLINE_WINDOW = pd.Timedelta(days=90)
 MIN_SPARKLINE_HISTORY = pd.Timedelta(days=14)
 
 #: Versioned visual contract used by canonical input digests and state.
-SPARKLINE_RENDERER_VERSION = 1
+SPARKLINE_RENDERER_VERSION = 2
 
 #: Public sparkline dimensions.
 SPARKLINE_SVG_WIDTH = 100
@@ -379,7 +379,9 @@ def render_sparkline_svg(
     line_path = _svg_path(line_points)
     area_path = _svg_area_path(coordinates, line_points) if not coordinates.is_constant else ""
     area_element = "" if coordinates.is_constant else f'<path d="{area_path}" fill="url(#sparkline-gradient)" />'
-    svg = f'<?xml version="1.0" encoding="UTF-8" standalone="no"?>\n<svg xmlns="http://www.w3.org/2000/svg" width="{width}" height="{height}" viewBox="0 0 {width} {height}"><defs><linearGradient id="sparkline-gradient" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="{line_color}" stop-opacity="{SPARKLINE_GRADIENT_ALPHA:.3f}" /><stop offset="100%" stop-color="{bg_color}" stop-opacity="{SPARKLINE_GRADIENT_ALPHA:.3f}" /></linearGradient></defs><rect x="0" y="0" width="{width}" height="{height}" fill="{bg_color}" />{area_element}<path d="{line_path}" fill="none" stroke="{SPARKLINE_LINE_COLOR}" stroke-width="{line_width}" stroke-linecap="round" stroke-linejoin="round" /></svg>\n'
+    # The filled area does not span the full chart height, so the SVG default
+    # ``objectBoundingBox`` units would compress the gradient unlike PNG.
+    svg = f'<?xml version="1.0" encoding="UTF-8" standalone="no"?>\n<svg xmlns="http://www.w3.org/2000/svg" width="{width}" height="{height}" viewBox="0 0 {width} {height}"><defs><linearGradient id="sparkline-gradient" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="0" y2="{height}"><stop offset="0%" stop-color="{line_color}" stop-opacity="{SPARKLINE_GRADIENT_ALPHA:.3f}" /><stop offset="100%" stop-color="{bg_color}" stop-opacity="{SPARKLINE_GRADIENT_ALPHA:.3f}" /></linearGradient></defs><rect x="0" y="0" width="{width}" height="{height}" fill="{bg_color}" />{area_element}<path d="{line_path}" fill="none" stroke="{SPARKLINE_LINE_COLOR}" stroke-width="{line_width}" stroke-linecap="round" stroke-linejoin="round" /></svg>\n'
     return svg.encode("utf-8")
 
 

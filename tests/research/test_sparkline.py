@@ -182,6 +182,21 @@ def test_direct_renderers_handle_constant_series_and_keep_dimensions() -> None:
         assert image.size == (SPARKLINE_PNG_WIDTH, SPARKLINE_PNG_HEIGHT)
 
 
+def test_svg_gradient_uses_full_canvas_coordinates() -> None:
+    """Keep SVG gradient interpolation aligned with the PNG renderer."""
+    index = pd.date_range("2026-07-01", periods=3, freq="D", name="timestamp")
+    prices_df = pd.DataFrame({"share_price": [1.0, 1.01, 1.02]}, index=index)
+
+    root = ET.fromstring(render_sparkline_svg(prices_df))  # noqa: S314
+    gradient = next(element for element in root.iter() if element.tag.endswith("linearGradient"))
+
+    assert gradient.attrib["gradientUnits"] == "userSpaceOnUse"
+    assert gradient.attrib["x1"] == "0"
+    assert gradient.attrib["y1"] == "0"
+    assert gradient.attrib["x2"] == "0"
+    assert gradient.attrib["y2"] == str(SPARKLINE_SVG_HEIGHT)
+
+
 def test_direct_renderers_use_sparse_step_paths_and_support_one_point() -> None:
     """Direct output preserves step semantics without hourly materialisation."""
     index = pd.DatetimeIndex([pd.Timestamp("2026-07-01"), pd.Timestamp("2026-07-03")], name="timestamp")
