@@ -3225,6 +3225,7 @@ def main():
         crypto_paths.compressed_metadata_path,
         crypto_paths.manifest_path,
         crypto_paths.sticky_state_path,
+        data_dir / "sparkline-export-state.json",
     ]
 
     # Test mode - filter chains if TEST_CHAINS is set

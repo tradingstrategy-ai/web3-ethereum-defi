@@ -1,11 +1,40 @@
 """Regression tests for vault sparkline preparation and rendering."""
 
+from io import BytesIO
+from xml.etree import ElementTree as ET  # noqa: S405
+
 import matplotlib.dates as mdates
 import numpy as np
 import pandas as pd
 import pytest
+from PIL import Image
 
-from eth_defi.research.sparkline import export_sparkline_as_png, export_sparkline_as_svg, prepare_sparkline_data, render_sparkline_gradient
+from eth_defi.research import sparkline
+from eth_defi.research.sparkline import (
+    SPARKLINE_PNG_HEIGHT,
+    SPARKLINE_PNG_WIDTH,
+    SPARKLINE_SVG_HEIGHT,
+    SPARKLINE_SVG_WIDTH,
+    export_sparkline_as_png,
+    export_sparkline_as_svg,
+    prepare_sparkline_data,
+    render_sparkline_gradient,
+    render_sparkline_png,
+    render_sparkline_svg,
+)
+
+
+def test_png_gradient_pixels_are_cached() -> None:
+    """Repeated renders reuse the immutable gradient pixel cache."""
+    sparkline._cached_sparkline_gradient.cache_clear()
+    try:
+        first = sparkline._cached_sparkline_gradient(600, 600, (34, 180, 82), (40, 40, 39))
+        second = sparkline._cached_sparkline_gradient(600, 600, (34, 180, 82), (40, 40, 39))
+
+        assert first == second
+        assert sparkline._cached_sparkline_gradient.cache_info().hits == 1
+    finally:
+        sparkline._cached_sparkline_gradient.cache_clear()
 
 
 def test_gradient_sparkline_ignores_nullable_share_prices() -> None:
@@ -131,3 +160,34 @@ def test_sparkline_preparation_sorts_input_and_rejects_missing_prices() -> None:
     assert prepared is not None
     assert prepared.prices_df.index.is_monotonic_increasing
     assert prepare_sparkline_data(missing_prices_df) is None
+
+
+def test_direct_renderers_handle_constant_series_and_keep_dimensions() -> None:
+    """Constant-price charts omit the degenerate area and remain deterministic."""
+    index = pd.date_range("2026-07-01", periods=3, freq="D", name="timestamp")
+    prices_df = pd.DataFrame({"share_price": [1.0, 1.0, 1.0]}, index=index)
+
+    first_svg = render_sparkline_svg(prices_df)
+    second_svg = render_sparkline_svg(prices_df)
+    first_png = render_sparkline_png(prices_df)
+    second_png = render_sparkline_png(prices_df)
+
+    assert first_svg == second_svg
+    assert first_png == second_png
+    root = ET.fromstring(first_svg)  # noqa: S314
+    assert root.attrib["width"] == str(SPARKLINE_SVG_WIDTH)
+    assert root.attrib["height"] == str(SPARKLINE_SVG_HEIGHT)
+    assert not any(element.tag.endswith("path") and element.attrib.get("fill") == "url(#sparkline-gradient)" for element in root)
+    with Image.open(BytesIO(first_png)) as image:
+        assert image.size == (SPARKLINE_PNG_WIDTH, SPARKLINE_PNG_HEIGHT)
+
+
+def test_direct_renderers_use_sparse_step_paths_and_support_one_point() -> None:
+    """Direct output preserves step semantics without hourly materialisation."""
+    index = pd.DatetimeIndex([pd.Timestamp("2026-07-01"), pd.Timestamp("2026-07-03")], name="timestamp")
+    prices_df = pd.DataFrame({"share_price": [1.0, 1.2]}, index=index)
+    svg = render_sparkline_svg(prices_df)
+    assert b" H " in svg
+    assert b" V " in svg
+    one_point = render_sparkline_svg(pd.DataFrame({"share_price": [1.0]}, index=pd.DatetimeIndex([index[0]], name="timestamp")))
+    assert b"M 0" in one_point
