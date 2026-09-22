@@ -1,5 +1,6 @@
 """Unit tests for the isolated crypto-vaults export primitives."""
 
+import os
 from decimal import Decimal
 from math import nextafter
 from pathlib import Path
@@ -269,6 +270,65 @@ def test_daily_materialisation_recomputes_sparse_returns() -> None:
     result = materialise_daily_crypto_prices(prices)
 
     assert result["returns_1h"].tolist() == pytest.approx([0.0, 0.25, 0.0])
+
+
+def test_crypto_builder_uses_fresh_daily_sidecar_and_rejects_stale_one(tmp_path: Path) -> None:
+    """Use the atomic daily derivative only while it is newer than hourly data."""
+    spec = VaultSpec(1, "0x0000000000000000000000000000000000000001")
+    vault_db_path = tmp_path / "vault-metadata-db.pickle"
+    VaultDatabase(rows={spec: _vault_row(1, spec.vault_address, "USDC")}).write(vault_db_path)
+
+    hourly_path = tmp_path / "cleaned-vault-prices-1h.parquet"
+    sidecar_path = tmp_path / "cleaned-vault-prices-1d.parquet"
+    output_path = tmp_path / "crypto-vault-prices.parquet"
+    expected_sidecar_rows = 1
+    expected_hourly_rows = 2
+    timestamps = pd.to_datetime(["2026-01-01 10:00:00", "2026-01-02 10:00:00"])
+    hourly = pd.DataFrame(
+        {
+            "id": [spec.as_string_id()] * 2,
+            "share_price": [1.0, 1.1],
+            "returns_1h": [0.0, 0.1],
+        },
+        index=pd.Index(timestamps, name="timestamp"),
+    )
+    hourly.to_parquet(hourly_path)
+    hourly.iloc[[1]].to_parquet(sidecar_path)
+
+    build_crypto_vault_prices(
+        vault_db_path=vault_db_path,
+        uncleaned_path=tmp_path / "uncleaned.parquet",
+        cleaned_path=output_path,
+        cleaned_stablecoin_path=hourly_path,
+        cleaned_stablecoin_daily_path=sidecar_path,
+    )
+    assert len(pd.read_parquet(output_path)) == expected_sidecar_rows
+
+    # Make the hourly source newer to exercise the safe fallback path.
+    sidecar_mtime = sidecar_path.stat().st_mtime_ns
+    newer_mtime = sidecar_mtime + 1_000_000_000
+    os.utime(hourly_path, ns=(newer_mtime, newer_mtime))
+    assert hourly_path.stat().st_mtime_ns > sidecar_mtime
+    build_crypto_vault_prices(
+        vault_db_path=vault_db_path,
+        uncleaned_path=tmp_path / "uncleaned.parquet",
+        cleaned_path=output_path,
+        cleaned_stablecoin_path=hourly_path,
+        cleaned_stablecoin_daily_path=sidecar_path,
+    )
+    assert len(pd.read_parquet(output_path)) == expected_hourly_rows
+
+    # The sidecar is only a derivative; it must not conceal a missing public
+    # source after an interrupted restore or cleanup.
+    hourly_path.unlink()
+    with pytest.raises(FileNotFoundError, match=str(hourly_path)):
+        build_crypto_vault_prices(
+            vault_db_path=vault_db_path,
+            uncleaned_path=tmp_path / "uncleaned.parquet",
+            cleaned_path=output_path,
+            cleaned_stablecoin_path=hourly_path,
+            cleaned_stablecoin_daily_path=sidecar_path,
+        )
 
 
 def test_assign_unique_names_only_repairs_40acres() -> None:

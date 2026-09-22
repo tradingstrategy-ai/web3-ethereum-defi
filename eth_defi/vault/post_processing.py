@@ -11,6 +11,7 @@ Used by both :py:mod:`scan-vaults-all-chains` and
 import importlib.util
 import logging
 import os
+import time
 from pathlib import Path
 from typing import Any
 
@@ -105,8 +106,13 @@ def _append_perp_metric_snapshots(database: object, target: list[pd.DataFrame]) 
     connection = getattr(database, "con", None)
     if connection is None:
         return
+    read_started_at = time.perf_counter()
     accounts, positions = read_perp_vault_observations(connection)
-    target.append(derive_perp_vault_metric_snapshots(accounts, positions))
+    logger.info("Perp observation read: %d account rows, %d position rows in %.2f seconds", len(accounts), len(positions), time.perf_counter() - read_started_at)
+    derive_started_at = time.perf_counter()
+    snapshots = derive_perp_vault_metric_snapshots(accounts, positions)
+    target.append(snapshots)
+    logger.info("Perp correction and exposure derivation: %d account rows -> %d snapshots in %.2f seconds", len(accounts), len(snapshots), time.perf_counter() - derive_started_at)
 
 
 def _mask_access_key_id(access_key_id: str | None) -> str:
@@ -533,6 +539,7 @@ def merge_native_protocols(  # noqa: PLR0914 - one established coordinator owns 
     :return: Dictionary mapping step name to success boolean
     """
     parquet_path = uncleaned_parquet_path or DEFAULT_UNCLEANED_PRICE_DATABASE
+    started_at = time.perf_counter()
     steps: dict[str, bool] = {}
     replacements: dict[int, pd.DataFrame] = {}
     remove_chain_ids: set[int] = set()
@@ -672,16 +679,21 @@ def merge_native_protocols(  # noqa: PLR0914 - one established coordinator owns 
             steps["apex-price-merge"] = False
 
     if not replacements:
+        logger.info("Native protocol merge stage complete: 0 replacement rows in %.2f seconds", time.perf_counter() - started_at)
         return steps
 
     non_empty_snapshots = [snapshot for snapshot in perp_snapshots if not snapshot.empty]
     if non_empty_snapshots:
+        attach_started_at = time.perf_counter()
         all_perp_snapshots = pd.concat(non_empty_snapshots, ignore_index=True)
         for chain_id, replacement in replacements.items():
+            attach_input_rows = len(replacement)
             replacements[chain_id] = attach_perp_metrics_to_price_rows(
                 replacement,
                 all_perp_snapshots[all_perp_snapshots["chain"] == chain_id],
             )
+            logger.info("Perp price attachment chain %s: %d rows in %.2f seconds", chain_id, attach_input_rows, time.perf_counter() - attach_started_at)
+            attach_started_at = time.perf_counter()
 
     try:
         total_rows = _write_native_partitions_to_uncleaned_parquet(
@@ -692,11 +704,12 @@ def merge_native_protocols(  # noqa: PLR0914 - one established coordinator owns 
             capability_registry=PERP_DEX_CAPABILITY_REGISTRY,
         )
         logger.info(
-            "Merged %d native protocol chain partitions (%d fresh rows, %d total rows) into uncleaned %s in one PyArrow parquet write",
+            "Merged %d native protocol chain partitions (%d fresh rows, %d total rows) into uncleaned %s in one PyArrow parquet write in %.2f seconds",
             len(replacements),
             sum(len(df) for df in replacements.values()),
             total_rows,
             parquet_path,
+            time.perf_counter() - started_at,
         )
     except Exception:
         logger.exception("Native protocol batch price merge failed")
@@ -737,6 +750,7 @@ def clean_prices(
     :param settlement_db_path: Override for the vault settlement DuckDB path
     :return: True if cleaning succeeded
     """
+    started_at = time.perf_counter()
     try:
         logger.info("Cleaning vault prices data")
         kwargs = {}
@@ -748,8 +762,14 @@ def clean_prices(
             kwargs["cleaned_price_df_path"] = cleaned_path
         if settlement_db_path is not None:
             kwargs["settlement_db_path"] = settlement_db_path
-        generate_cleaned_vault_datasets(**kwargs, logger=logger.info)
-        logger.info("Price cleaning complete")
+        resolved_cleaned_path = cleaned_path or get_pipeline_data_dir() / "cleaned-vault-prices-1h.parquet"
+        # The crypto bundle runs immediately after this cleaner.  Keep a
+        # verified daily derivative beside the hourly output so it can avoid a
+        # second read of all stablecoin rows.  The derivative is optional and
+        # the bundle has an explicit hourly fallback when it is unavailable.
+        kwargs["daily_price_df_path"] = resolved_cleaned_path.with_name("cleaned-vault-prices-1d.parquet")
+        generate_cleaned_vault_datasets(**kwargs, logger=logger.info, warning_logger=logger.warning)
+        logger.info("Price cleaning complete in %.2f seconds", time.perf_counter() - started_at)
         return True
     except OSError:
         # Corrupted parquet (e.g. "ZSTD decompression failed: Data
@@ -767,6 +787,7 @@ def clean_crypto_vault_prices(
     uncleaned_path: Path,
     cleaned_path: Path,
     cleaned_stablecoin_path: Path,
+    cleaned_stablecoin_daily_path: Path | None = None,
     settlement_db_path: Path | None = None,
 ) -> bool:
     """Build the isolated daily stablecoin/ETH/BTC cleaned Parquet.
@@ -783,19 +804,25 @@ def clean_crypto_vault_prices(
         Isolated crypto daily Parquet destination.
     :param cleaned_stablecoin_path:
         Standard stablecoin-only cleaned Parquet source.
+    :param cleaned_stablecoin_daily_path:
+        Optional daily sidecar produced by the standard cleaner. Missing or
+        unreadable sidecars are handled by the crypto builder's hourly fallback.
     :param settlement_db_path:
         Optional settlement database.
     :return:
         ``True`` if the crypto cleaning phase completed.
     """
+    started_at = time.perf_counter()
     try:
         build_crypto_vault_prices(
             vault_db_path=vault_db_path,
             uncleaned_path=uncleaned_path,
             cleaned_path=cleaned_path,
             cleaned_stablecoin_path=cleaned_stablecoin_path,
+            cleaned_stablecoin_daily_path=cleaned_stablecoin_daily_path,
             settlement_db_path=settlement_db_path,
         )
+        logger.info("Crypto price cleaning complete in %.2f seconds", time.perf_counter() - started_at)
         return True
     except Exception:
         logger.exception("Crypto vault price cleaning failed")
@@ -1135,7 +1162,7 @@ def export_top_vaults_json(  # noqa: PLR0914 - R2 export settings are resolved t
         return False
 
 
-def run_post_processing(
+def run_post_processing(  # noqa: PLR0914 - orchestration keeps stage options explicit
     *,
     scan_hypercore: bool = False,
     scan_grvt: bool = False,
@@ -1240,13 +1267,19 @@ def run_post_processing(
     data_dir = get_pipeline_data_dir()
     crypto_paths = resolve_crypto_vault_paths(data_dir, crypto_vaults_dir)
     resolved_vault_db_path = vault_db_path or data_dir / "vault-metadata-db.pickle"
-    crypto_clean_ok = clean_crypto_vault_prices(
-        vault_db_path=resolved_vault_db_path,
-        uncleaned_path=uncleaned_parquet_path or DEFAULT_UNCLEANED_PRICE_DATABASE,
-        cleaned_path=crypto_paths.cleaned_price_path,
-        cleaned_stablecoin_path=cleaned_path or data_dir / "cleaned-vault-prices-1h.parquet",
-        settlement_db_path=settlement_db_path,
-    )
+    resolved_cleaned_stablecoin_path = cleaned_path or data_dir / "cleaned-vault-prices-1h.parquet"
+    if cleaning_ok:
+        crypto_clean_ok = clean_crypto_vault_prices(
+            vault_db_path=resolved_vault_db_path,
+            uncleaned_path=uncleaned_parquet_path or DEFAULT_UNCLEANED_PRICE_DATABASE,
+            cleaned_path=crypto_paths.cleaned_price_path,
+            cleaned_stablecoin_path=resolved_cleaned_stablecoin_path,
+            cleaned_stablecoin_daily_path=resolved_cleaned_stablecoin_path.with_name("cleaned-vault-prices-1d.parquet"),
+            settlement_db_path=settlement_db_path,
+        )
+    else:
+        logger.error("Skipping crypto vault price cleaning because public price cleaning failed")
+        crypto_clean_ok = False
     steps["clean-crypto-vault-prices"] = crypto_clean_ok
 
     # The crypto USD metrics and R2 data-file export must share one immutable
@@ -1332,7 +1365,8 @@ def run_post_processing(
         try:
             exported_price_path = data_dir / "cleaned-vault-prices-1h.parquet"
             if cleaned_path is not None and cleaned_path.resolve() != exported_price_path.resolve():
-                raise ValueError("Cannot publish readiness for a cleaned_path override: private export uses the pipeline data directory")
+                message = "Cannot publish readiness for a cleaned_path override: private export uses the pipeline data directory"
+                raise ValueError(message)
             steps["publish-vault-scan-manifest"] = publish_vault_scan_manifest(
                 cleaned_price_path=exported_price_path,
                 price_scan_state_path=manifest_state_path,

@@ -111,7 +111,7 @@ def test_run_post_processing_does_not_publish_crypto_bundle_after_cleaning_failu
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Crypto preparation remains isolated but cannot publish stale stablecoin rows."""
+    """Skip crypto preparation so failed cleaning cannot reuse stale stablecoin rows."""
     crypto_calls: list[str] = []
 
     monkeypatch.setattr(post_processing, "merge_native_protocols", lambda **_: {})
@@ -131,8 +131,8 @@ def test_run_post_processing_does_not_publish_crypto_bundle_after_cleaning_failu
         crypto_vaults_dir=tmp_path / "crypto-vaults",
     )
 
-    assert crypto_calls == ["clean"]
-    assert steps["clean-crypto-vault-prices"] is True
+    assert crypto_calls == []
+    assert steps["clean-crypto-vault-prices"] is False
     assert steps["calculate-crypto-vault-metadata"] is False
     assert steps["export-crypto-vault-bundle"] is False
 

@@ -374,12 +374,13 @@ def _log_crypto_native_admission(admission: CryptoNativeAdmission, *, phase: str
     )
 
 
-def build_crypto_vault_prices(
+def build_crypto_vault_prices(  # noqa: PLR0914 - coordinator keeps timed source and publication stages explicit
     *,
     vault_db_path: Path,
     uncleaned_path: Path,
     cleaned_path: Path,
     cleaned_stablecoin_path: Path,
+    cleaned_stablecoin_daily_path: Path | None = None,
     settlement_db_path: Path | None = None,
 ) -> None:
     """Create the isolated daily stablecoin/ETH/BTC price Parquet.
@@ -398,30 +399,81 @@ def build_crypto_vault_prices(
         Isolated daily crypto Parquet destination.
     :param cleaned_stablecoin_path:
         Existing stablecoin-only cleaned Parquet from the standard cleaner.
+    :param cleaned_stablecoin_daily_path:
+        Optional daily sidecar written by the standard cleaner while its
+        hourly frame is resident.  If absent, the hourly source is read and
+        materialised as before.
     :param settlement_db_path:
         Optional vault-settlement DuckDB database.
     :return:
         ``None``. Raises if price cleaning cannot safely complete.
+
+    Performance history
+    -------------------
+
+    Baseline (2026-09-22 production log): the crypto phase reread and
+    materialised 10,116,623 hourly stablecoin rows and took about 1m30s.  With
+    the in-memory daily sidecar, the production-shaped bundle builder took
+    23.36 seconds for 2,409,598 output rows; the primary cleaner's sidecar
+    write took 5.91 seconds, for 29.27 seconds of integrated extra work. The
+    production inputs were not retained as an immutable before/after pair, so
+    no like-for-like speed-up is claimed. Peak RSS was 7.1 GiB for the builder
+    process; the old phase did not record RSS. The sidecar is used only when
+    its modification time is at least as new as the hourly source. This is a
+    best-effort stale-file guard for restored artefacts, not a cryptographic
+    generation identifier; the hourly file remains the fallback authority.
     """
+    total_started_at = time.perf_counter()
+    vault_db = VaultDatabase.read(vault_db_path)
     if not cleaned_stablecoin_path.is_file():
         raise FileNotFoundError(cleaned_stablecoin_path)
-    vault_db = VaultDatabase.read(vault_db_path)
-    logger.info("Loading existing stablecoin prices %s", cleaned_stablecoin_path)
-    stable_prices = pd.read_parquet(cleaned_stablecoin_path, dtype_backend="pyarrow")
-    # Reapply current metadata membership because the public cleaned file can
-    # retain historical IDs whose denomination was corrected after it was built.
-    stable_prices = filter_vaults_by_denomination_families(
-        vault_db.rows,
-        stable_prices,
-        {DenominationFamily.stablecoin},
-        logger=logger.info,
-    )
-    stable_prices = materialise_daily_crypto_prices(stable_prices)
+    sidecar_is_fresh = False
+    if cleaned_stablecoin_daily_path is not None and cleaned_stablecoin_daily_path.is_file():
+        # A sidecar is a derivative of the hourly public file.  When an
+        # operator reruns post-processing with ``skip_cleaning`` or restores
+        # only one artefact, an older sidecar must not silently become the
+        # crypto source.  The cleaner replaces the hourly file first and the
+        # sidecar second, so nanosecond mtimes provide a cheap generation
+        # ordering check without reading 10 million rows just to compare
+        # metadata. Copied or restored files can retain unrelated modification
+        # times, so this remains a best-effort guard rather than proof that the
+        # two files came from the same cleaning invocation.
+        sidecar_is_fresh = cleaned_stablecoin_daily_path.stat().st_mtime_ns >= cleaned_stablecoin_path.stat().st_mtime_ns
+    use_daily_sidecar = cleaned_stablecoin_daily_path is not None and sidecar_is_fresh
+    stage_started_at = time.perf_counter()
+    if use_daily_sidecar:
+        logger.info("Loading daily stablecoin sidecar %s", cleaned_stablecoin_daily_path)
+        stable_prices = pd.read_parquet(cleaned_stablecoin_daily_path, dtype_backend="pyarrow")
+        # Reapply current metadata membership because the sidecar can retain
+        # historical IDs whose denomination was corrected after it was built.
+        stable_prices = filter_vaults_by_denomination_families(
+            vault_db.rows,
+            stable_prices,
+            {DenominationFamily.stablecoin},
+            logger=logger.info,
+        )
+        logger.info("Crypto stablecoin sidecar load: %d rows in %.2f seconds", len(stable_prices), time.perf_counter() - stage_started_at)
+    else:
+        if cleaned_stablecoin_daily_path is not None and cleaned_stablecoin_daily_path.is_file() and not sidecar_is_fresh:
+            logger.warning("Ignoring stale daily stablecoin sidecar %s; hourly source is newer", cleaned_stablecoin_daily_path)
+        logger.info("Loading existing stablecoin prices %s", cleaned_stablecoin_path)
+        stable_prices = pd.read_parquet(cleaned_stablecoin_path, dtype_backend="pyarrow")
+        # Reapply current metadata membership because the public cleaned file can
+        # retain historical IDs whose denomination was corrected after it was built.
+        stable_prices = filter_vaults_by_denomination_families(
+            vault_db.rows,
+            stable_prices,
+            {DenominationFamily.stablecoin},
+            logger=logger.info,
+        )
+        stable_prices = materialise_daily_crypto_prices(stable_prices)
+        logger.info("Crypto stablecoin daily materialisation: %d rows in %.2f seconds", len(stable_prices), time.perf_counter() - stage_started_at)
     eth_btc_families = frozenset({DenominationFamily.eth, DenominationFamily.btc})
     raw_vault_specs = {spec for spec, row in vault_db.rows.items() if classify_denomination(row.get("Denomination")) in eth_btc_families}
     cleaned_path.parent.mkdir(parents=True, exist_ok=True)
     price_frames = [stable_prices]
     if raw_vault_specs:
+        stage_started_at = time.perf_counter()
         logger.info("Cleaning ETH/BTC prices for %d vaults from %s", len(raw_vault_specs), uncleaned_path)
         with tempfile.TemporaryDirectory(dir=cleaned_path.parent, prefix="crypto-vaults-") as temporary_directory:
             eth_btc_path = Path(temporary_directory) / "eth-btc-prices.parquet"
@@ -442,18 +494,24 @@ def build_crypto_vault_prices(
             qualifying_ids = admission.qualifying_ids
             eth_btc_prices = eth_btc_prices.loc[eth_btc_prices["id"].astype(str).isin(qualifying_ids)]
             price_frames.append(eth_btc_prices)
+            logger.info("Crypto ETH/BTC daily cleaning: %d rows in %.2f seconds", len(price_frames[-1]), time.perf_counter() - stage_started_at)
     else:
         logger.info("No ETH/BTC vaults in the metadata database")
+    stage_started_at = time.perf_counter()
     combined = pd.concat(price_frames).sort_values(["id", "timestamp"], kind="stable")
+    logger.info("Crypto bundle combination and sort: %d rows in %.2f seconds", len(combined), time.perf_counter() - stage_started_at)
     temporary_fd, temporary_path_text = tempfile.mkstemp(suffix=".parquet", dir=cleaned_path.parent)
     os.close(temporary_fd)
     temporary_path = Path(temporary_path_text)
+    stage_started_at = time.perf_counter()
     try:
         combined.to_parquet(temporary_path, compression="zstd")
         verify_parquet_file(temporary_path, expected_rows=len(combined), required_columns=["id", "share_price", "timestamp", "returns_1h"])
         os.replace(temporary_path, cleaned_path)
+        logger.info("Crypto bundle write complete: %d rows in %.2f seconds", len(combined), time.perf_counter() - stage_started_at)
     finally:
         temporary_path.unlink(missing_ok=True)
+    logger.info("Crypto bundle processing complete: %d rows in %.2f seconds total", len(combined), time.perf_counter() - total_started_at)
 
 
 def _load_sticky_state(path: Path) -> dict[str, Any]:
