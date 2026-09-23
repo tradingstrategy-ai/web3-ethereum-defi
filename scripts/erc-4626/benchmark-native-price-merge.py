@@ -130,7 +130,7 @@ def build_native_price_frames(data_dir: Path) -> dict[int, pd.DataFrame]:
     :param data_dir:
         Directory containing the production DuckDB files.
     :return:
-        Fresh non-empty native frames keyed by their synthetic chain ID.
+        Current non-empty native snapshots keyed by their synthetic chain ID.
     """
     frames: dict[int, pd.DataFrame] = {}
     daily_path = _resolve_path("HYPERLIQUID_DB_PATH", data_dir / "hyperliquid-vaults.duckdb")
@@ -245,12 +245,12 @@ def _target_schema(existing_schema: pa.Schema, native_frames: dict[int, pd.DataF
     """Construct the production writer schema for Arrow candidates.
 
     Canonical fields use the repository's exact types. Extra native fields are
-    unified across the current parquet and fresh source frames.
+    unified across the current parquet and current source snapshots.
 
     :param existing_schema:
         Schema of the current uncleaned parquet.
     :param native_frames:
-        Fresh source data keyed by chain ID.
+        Current source snapshots keyed by chain ID.
     :return:
         Canonical schema followed by compatible extra native fields.
     """
@@ -292,7 +292,7 @@ def _arrow_native_table(existing_schema: pa.Schema, native_frames: dict[int, pd.
     :param existing_schema:
         Schema of the current uncleaned parquet.
     :param native_frames:
-        Fresh source data keyed by chain ID.
+        Current source snapshots keyed by chain ID.
     :return:
         Combined native rows and their exact target schema.
     """
@@ -361,7 +361,7 @@ def benchmark_pandas(input_path: Path, native_frames: dict[int, pd.DataFrame], r
     :param input_path:
         Production parquet input path.
     :param native_frames:
-        Fresh source data keyed by chain ID.
+        Current source snapshots keyed by chain ID.
     :param run:
         One-indexed repetition number.
     :return:
@@ -383,7 +383,7 @@ def benchmark_pyarrow(input_path: Path, native_frames: dict[int, pd.DataFrame], 
     :param input_path:
         Production parquet input path.
     :param native_frames:
-        Fresh source data keyed by chain ID.
+        Current source snapshots keyed by chain ID.
     :param run:
         One-indexed repetition number.
     :return:
@@ -412,7 +412,7 @@ def benchmark_duckdb(input_path: Path, native_frames: dict[int, pd.DataFrame], r
     :param input_path:
         Production parquet input path.
     :param native_frames:
-        Fresh source data keyed by chain ID.
+        Current source snapshots keyed by chain ID.
     :param run:
         One-indexed repetition number.
     :return:
@@ -424,8 +424,8 @@ def benchmark_duckdb(input_path: Path, native_frames: dict[int, pd.DataFrame], r
     native_table, schema = _arrow_native_table(existing_schema, native_frames)
     parquet_file = pq.ParquetFile(input_path)
     chain_table = pq.read_table(input_path, columns=["chain"])
-    replaced_rows = pc.sum(pc.is_in(chain_table["chain"], value_set=pa.array(list(native_frames)))).as_py() or 0
-    expected_rows = parquet_file.metadata.num_rows - replaced_rows + len(native_table)
+    removed_rows = pc.sum(pc.is_in(chain_table["chain"], value_set=pa.array(list(native_frames)))).as_py() or 0
+    expected_rows = parquet_file.metadata.num_rows - removed_rows + len(native_table)
     chain_ids = ", ".join(str(chain_id) for chain_id in native_frames)
     escaped_input = str(input_path).replace("'", "''")
     escaped_output = str(output_path).replace("'", "''")

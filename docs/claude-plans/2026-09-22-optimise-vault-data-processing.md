@@ -18,10 +18,14 @@ The post-scan cleaning and merge stage took 19 minutes 30 seconds before upload 
 
 | Stage | Production elapsed | Share of measured post-processing | Rows or observations |
 |---|---:|---:|---:|
-| Native protocol price merge | 6m 35s | 34% | 1,894,949 fresh rows; 22,552,978 total raw rows |
+| Native protocol price merge | 6m 35s | 34% | 1,894,949 replacement partition rows; 22,552,978 total raw rows |
 | Stablecoin cleaning | 11m 25s | 58% | 22,552,978 raw rows to 10,116,623 cleaned rows |
 | Crypto cleaning and bundle construction | 1m 30s | 8% | 2,958,819 selected raw rows; 2,409,598 combined output rows |
 | **Total** | **19m 30s** | **100%** | |
+
+The native replacement count above is the size of overlapping replacement
+partitions, not the number of newly collected observations. Dataset growth
+must be calculated from the raw Parquet row count before and after replacement.
 
 The largest individually visible delays were:
 
@@ -500,7 +504,7 @@ Kimi also identified hypotheses that must be measured rather than accepted as fa
 
 The measurements below were collected on 2026-09-22 against the current
 production-format copy (`vault-prices-1h.parquet`, 22,552,978 rows, 38
-columns, 333,430,642 bytes) and fresh protocol DuckDB copies.  The original
+columns, 333,430,642 bytes) and current protocol DuckDB copies.  The original
 production log did not record peak RSS, so an absent baseline is explicitly
 marked rather than inferred.  Native merge numbers are replacement-only when
 labelled as such; source export and price attachment remain a separate Phase 7

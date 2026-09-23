@@ -1855,6 +1855,15 @@ Standalone post-processing pipeline: merges native protocol data, cleans prices,
 and uploads to R2. Each step reports success/failure and exits with code 1 if any step fails.
 Use to debug post-processing independently of the full chain scan.
 
+Native protocol databases expose overlapping history snapshots, so their source
+row counts are not newly collected rows. The final merge log reports
+`replacement_rows`, `removed_rows`, `rows_before`, `rows_after` and signed
+`net_rows`. Replacement rows are the rows written into replacement partitions;
+they can include ApeX history preserved because its bounded API no longer
+returns it. Use `net_rows` to measure raw-price dataset growth. Do not sum
+`replacement_rows` across runs: most of those rows replace the same native
+partitions on every scheduled scan.
+
 ```shell
 # Full pipeline (merge + clean + export to R2)
 source .local-test.env && poetry run python scripts/erc-4626/post-process-prices.py
@@ -1865,6 +1874,7 @@ SKIP_DATA=true poetry run python scripts/erc-4626/post-process-prices.py
 # Include native protocol merges
 source .local-test.env && \
   MERGE_HYPERCORE=true MERGE_GRVT=true MERGE_LIGHTER=true \
+  MERGE_HIBACHI=true MERGE_APEX=true \
   poetry run python scripts/erc-4626/post-process-prices.py
 ```
 
@@ -1873,6 +1883,8 @@ source .local-test.env && \
 | `MERGE_HYPERCORE` | Optional. Merge Hyperliquid native vault data. Default: false. |
 | `MERGE_GRVT` | Optional. Merge GRVT native vault data. Default: false. |
 | `MERGE_LIGHTER` | Optional. Merge Lighter native pool data. Default: false. |
+| `MERGE_HIBACHI` | Optional. Merge Hibachi native vault data. Default: false. |
+| `MERGE_APEX` | Optional. Merge ApeX native vault data. Default: false. |
 | `SKIP_DATA` | Optional. Skip main data-file export and readiness manifest publication. Other exports, including the private crypto bundle, still run. Default: false. |
 | `SKIP_SPARKLINES` / `SKIP_METADATA` / `SKIP_TOP_VAULTS` | Optional. Independently skip the corresponding export. These do not disable main data-file or manifest publication. Default: false. |
 | `FORCE_SPARKLINE_EXPORT` | Optional. Force sparkline rendering/publication despite the low-TVL cadence, retry backoff or local input-digest match. Default: false. |

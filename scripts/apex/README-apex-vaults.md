@@ -140,7 +140,8 @@ retains the independent 24-hour historical eligibility gate.
 The unified Parquet export is append-and-correct by synthetic vault address
 and exact timestamp. If ApeX later omits older source history or the local
 DuckDB is rebuilt, the export preserves previously collected unmatched rows;
-fresh rows still correct existing values at the same logical key.
+rows in the current source snapshot still correct existing values at the same
+logical key. The snapshot row count is not a count of newly collected rows.
 
 ## Environment configuration
 

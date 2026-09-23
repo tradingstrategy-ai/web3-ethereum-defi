@@ -1,5 +1,6 @@
 """Tests for batched native-protocol Parquet price merging."""
 
+import logging
 from pathlib import Path
 
 import pandas as pd
@@ -44,6 +45,7 @@ def _prices(chain: int, address: str, timestamp: str) -> pd.DataFrame:
 def test_merge_native_protocols_rewrites_parquet_once_and_preserves_empty_source(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
 ) -> None:
     """Batch successful native sources and retain the prior empty-source partition.
 
@@ -55,6 +57,7 @@ def test_merge_native_protocols_rewrites_parquet_once_and_preserves_empty_source
        data, and append-and-corrected ApeX history.
     """
     parquet_path = tmp_path / "vault-prices-1h.parquet"
+    caplog.set_level(logging.INFO, logger=post_processing.__name__)
     existing_apex_overlap = _prices(APEX_CHAIN_ID, "apex-vault-new", "2025-01-02")
     existing_apex_overlap["share_price"] = 0.9
     existing_df = pd.concat(
@@ -162,6 +165,49 @@ def test_merge_native_protocols_rewrites_parquet_once_and_preserves_empty_source
     assert result_df.loc[result_df["address"] == "hypercore-new", "account_pnl"].iloc[0] == pytest.approx(123.0)
     assert result_df.loc[result_df["address"] == "apex-vault-new", "share_price"].iloc[0] == pytest.approx(1.0)
     assert {hyperliquid_db_path, hyperliquid_hf_db_path}.issubset(perp_snapshot_paths)
+    assert "Native protocol merge complete: partitions=4 replacement_rows=6 removed_rows=7 rows_before=9 rows_after=8 net_rows=-1" in caplog.text
+    assert "fresh rows" not in caplog.text
+
+
+def test_native_arrow_merge_reports_net_dataset_growth(tmp_path: Path) -> None:
+    """Distinguish a complete replacement snapshot from retained row growth.
+
+    A two-row source snapshot replaces one existing native row while the EVM
+    partition remains untouched. The accounting must report two replacement
+    rows but only one net new row in the combined dataset.
+
+    :param tmp_path:
+        Temporary directory supplied by pytest.
+    """
+    parquet_path = tmp_path / "vault-prices-1h.parquet"
+    existing_df = pd.concat(
+        [
+            _prices(1, "0xevm", "2025-01-01"),
+            _prices(HYPERCORE_CHAIN_ID, "hypercore-old", "2025-01-01"),
+        ],
+        ignore_index=True,
+    )
+    replacement_df = pd.concat(
+        [
+            _prices(HYPERCORE_CHAIN_ID, "hypercore-old", "2025-01-01"),
+            _prices(HYPERCORE_CHAIN_ID, "hypercore-new", "2025-01-02"),
+        ],
+        ignore_index=True,
+    )
+    VaultHistoricalRead.write_uncleaned_parquet(existing_df, parquet_path)
+
+    stats = post_processing._write_native_partitions_to_uncleaned_parquet(
+        parquet_path,
+        {HYPERCORE_CHAIN_ID: replacement_df},
+    )
+
+    assert stats == post_processing.NativePartitionMergeStats(
+        rows_before=2,
+        replacement_rows=2,
+        removed_rows=1,
+        rows_after=3,
+    )
+    assert stats.net_rows == 1
 
 
 def test_partial_lighter_merge_preserves_other_deployment_and_legacy_partition(
@@ -256,7 +302,8 @@ def test_native_arrow_merge_preserves_original_parquet_when_verification_fails(
 
     def fail_verification(*_: object, **__: object) -> None:
         """Simulate a corrupt temporary parquet output."""
-        raise ParquetVerificationError("simulated verification failure")
+        message = "simulated verification failure"
+        raise ParquetVerificationError(message)
 
     monkeypatch.setattr(base, "verify_parquet_file", fail_verification)
 

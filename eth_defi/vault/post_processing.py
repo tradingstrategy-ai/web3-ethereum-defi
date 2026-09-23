@@ -13,6 +13,7 @@ import logging
 import os
 import pickle  # noqa: S403 - VaultDatabase already uses trusted local pickle state.
 import time
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
@@ -77,6 +78,40 @@ logger = logging.getLogger(__name__)
 
 #: Access-key length below which masking would reveal the entire value.
 _MIN_MASKED_ACCESS_KEY_LENGTH = 8
+
+
+@dataclass(frozen=True, slots=True)
+class NativePartitionMergeStats:
+    """Describe the row accounting for one native partition replacement.
+
+    Native source databases expose overlapping history snapshots. These counts
+    distinguish the rows used to replace partitions from the net growth of the
+    combined raw-price dataset.
+    """
+
+    #: Raw-price rows before the replacement.
+    rows_before: int
+
+    #: Rows written into replacement partitions, including preserved ApeX history.
+    replacement_rows: int
+
+    #: Existing raw-price rows removed before writing the replacements.
+    removed_rows: int
+
+    #: Raw-price rows after the replacement.
+    rows_after: int
+
+    @property
+    def net_rows(self) -> int:
+        """Return the change in retained raw-price rows.
+
+        This is the dataset growth metric. Replacement rows must not be used
+        as a proxy because native source snapshots overlap between runs.
+
+        :return:
+            Signed difference between output and input row counts.
+        """
+        return self.rows_after - self.rows_before
 
 
 PERP_DEX_CAPABILITY_REGISTRY = PerpDexCapabilityRegistry(
@@ -317,13 +352,13 @@ def _create_native_merge_schema(existing_schema: pa.Schema | None, replacements:
 
     Canonical raw-price columns use the exact types required by the EVM
     scanner. Extra native-protocol fields are retained from the existing
-    parquet and unified with fresh source frames, so a native merge cannot
+    parquet and unified with current source snapshots, so a native merge cannot
     discard fields such as Hypercore account metrics.
 
     :param existing_schema:
         Existing raw-price Parquet schema, or ``None`` when creating it.
     :param replacements:
-        Fresh native price frames keyed by their synthetic chain IDs.
+        Current native price snapshots keyed by their synthetic chain IDs.
     :return:
         Canonical schema followed by compatible native-only fields.
     """
@@ -351,7 +386,7 @@ def _align_native_merge_table(table: pa.Table, schema: pa.Schema) -> pa.Table:
     the full raw parquet into a pandas DataFrame.
 
     :param table:
-        Existing or fresh native Arrow table.
+        Existing or current native Arrow table.
     :param schema:
         Required output schema.
     :return:
@@ -376,18 +411,19 @@ def _write_native_partitions_to_uncleaned_parquet(
     remove_chain_ids: set[int] | None = None,
     replacement_address_patterns: dict[int, set[str]] | None = None,
     capability_registry: PerpDexCapabilityRegistry | None = None,
-) -> int:
+) -> NativePartitionMergeStats:
     """Replace native chain partitions using PyArrow without full pandas conversion.
 
     The existing file is read as an Arrow table, only the successful native
-    chains are removed, and fresh source frames are converted and aligned once.
+    chains are removed, and current source snapshots are converted and aligned
+    once.
     The combined table is sorted for compression efficiency, verified in a
     sibling temporary file, and atomically swapped into place.
 
     :param parquet_path:
         Raw vault-price parquet to update.
     :param replacements:
-        Fresh, non-empty source frames keyed by their synthetic chain IDs.
+        Current, non-empty source snapshots keyed by their synthetic chain IDs.
     :param remove_chain_ids:
         Additional obsolete chain partitions to remove without replacing.
         Currently used to clean the legacy Lighter Robinhood synthetic chain
@@ -398,13 +434,14 @@ def _write_native_partitions_to_uncleaned_parquet(
         independently successful Ethereum or Robinhood scan replaces only its
         own addresses within chain 9998.
     :return:
-        Total row count in the new raw parquet.
+        Replacement and net-growth row accounting for the new raw parquet.
     """
     assert replacements, "At least one native chain replacement is required"
     replacement_address_patterns = replacement_address_patterns or {}
-    assert set(replacement_address_patterns).issubset(replacements), "Address-scoped replacement requires a fresh frame for the same chain"
+    assert set(replacement_address_patterns).issubset(replacements), "Address-scoped replacement requires a current snapshot for the same chain"
 
     existing_table = pq.read_table(parquet_path) if parquet_path.exists() else None
+    rows_before = len(existing_table) if existing_table is not None else 0
     schema = _create_native_merge_schema(existing_table.schema if existing_table is not None else None, replacements)
     replacement_tables = [_align_native_merge_table(pa.Table.from_pandas(frame, preserve_index=False), schema) for frame in replacements.values()]
     native_table = pa.concat_tables(replacement_tables)
@@ -433,10 +470,13 @@ def _write_native_partitions_to_uncleaned_parquet(
             )
             chain_mask = pc.or_(chain_mask, scoped_chain_mask)
 
-        retained_table = _align_native_merge_table(existing_table.filter(pc.invert(chain_mask)), schema)
+        retained_source_table = existing_table.filter(pc.invert(chain_mask))
+        removed_rows = rows_before - len(retained_source_table)
+        retained_table = _align_native_merge_table(retained_source_table, schema)
         combined_table = pa.concat_tables([retained_table, native_table])
     else:
         parquet_path.parent.mkdir(parents=True, exist_ok=True)
+        removed_rows = 0
         combined_table = native_table
 
     sort_indices = pc.sort_indices(
@@ -450,46 +490,51 @@ def _write_native_partitions_to_uncleaned_parquet(
 
     VaultHistoricalRead.write_uncleaned_arrow_table(combined_table, parquet_path)
 
-    return len(combined_table)
+    return NativePartitionMergeStats(
+        rows_before=rows_before,
+        replacement_rows=len(native_table),
+        removed_rows=removed_rows,
+        rows_after=len(combined_table),
+    )
 
 
 def _merge_apex_prices_with_existing_parquet(
     parquet_path: Path,
-    fresh_df: pd.DataFrame,
+    source_df: pd.DataFrame,
 ) -> pd.DataFrame:
     """Preserve ApeX history that is absent from the current DuckDB export.
 
     ApeX retains only a bounded amount of platform history, and its local
-    DuckDB may be rebuilt after state loss. A non-empty current export is
-    therefore not necessarily a complete replacement for the ApeX synthetic
-    chain partition. Existing rows are retained unless a fresh row has the
-    same synthetic vault address and exact timestamp, in which case the fresh
-    observation corrects the earlier value.
+    DuckDB may be rebuilt after state loss. A non-empty current source
+    snapshot is therefore not necessarily a complete replacement for the ApeX
+    synthetic chain partition. Existing rows are retained unless a current
+    source row has the same synthetic vault address and exact timestamp, in
+    which case the source observation corrects the earlier value.
 
     Only the ApeX partition is read into pandas. The full Parquet file remains
     in Arrow form for the later atomic native-protocol batch write.
 
     :param parquet_path:
         Existing raw vault-price Parquet path.
-    :param fresh_df:
-        Non-empty ApeX raw price rows exported from the current DuckDB.
+    :param source_df:
+        Non-empty ApeX raw price snapshot exported from the current DuckDB.
     :return:
-        Append-and-correct ApeX rows containing both retained and fresh
+        Append-and-correct ApeX rows containing both retained and current
         observations.
     """
-    assert not fresh_df.empty, "A non-empty ApeX frame is required"
+    assert not source_df.empty, "A non-empty ApeX source snapshot is required"
     if not parquet_path.exists():
-        return fresh_df
+        return source_df
 
     existing_table = pq.read_table(
         parquet_path,
         filters=[("chain", "=", APEX_CHAIN_ID)],
     )
     if len(existing_table) == 0:
-        return fresh_df
+        return source_df
 
     existing_df = existing_table.to_pandas()
-    return pd.concat([existing_df, fresh_df], ignore_index=True).drop_duplicates(subset=["address", "timestamp"], keep="last").reset_index(drop=True)
+    return pd.concat([existing_df, source_df], ignore_index=True).drop_duplicates(subset=["address", "timestamp"], keep="last").reset_index(drop=True)
 
 
 def merge_native_protocols(  # noqa: PLR0914 - one established coordinator owns all native inputs
@@ -579,7 +624,7 @@ def merge_native_protocols(  # noqa: PLR0914 - one established coordinator owns 
                 logger.warning("No Hyperliquid data to merge from either database")
             else:
                 replacements[HYPERCORE_CHAIN_ID] = hypercore_df
-            logger.info("Hypercore price merge: %d fresh Hyperliquid price entries", len(hypercore_df))
+            logger.info("Native price source snapshot: protocol=Hypercore rows=%d", len(hypercore_df))
             steps["hypercore-price-merge"] = True
         except Exception:
             logger.exception("Hypercore price merge failed")
@@ -599,7 +644,7 @@ def merge_native_protocols(  # noqa: PLR0914 - one established coordinator owns 
                 logger.warning("No GRVT data to merge")
             else:
                 replacements[GRVT_CHAIN_ID] = grvt_df
-            logger.info("GRVT price merge: %d fresh GRVT price entries", len(grvt_df))
+            logger.info("Native price source snapshot: protocol=GRVT rows=%d", len(grvt_df))
             steps["grvt-price-merge"] = True
         except Exception:
             logger.exception("GRVT price merge failed")
@@ -623,15 +668,15 @@ def merge_native_protocols(  # noqa: PLR0914 - one established coordinator owns 
                     replacements[int(chain_id)] = deployment_df
                     # Both Lighter deployments share chain 9998 but are scanned
                     # independently. Restrict replacement to deployment address
-                    # namespaces present in this fresh export, preventing a
+                    # namespaces present in this current snapshot, preventing a
                     # partial scan from deleting the other deployment's data.
                     replacement_address_patterns[int(chain_id)] = {deployment.pool_address_pattern for deployment in fresh_deployments}
                 # The short-lived 9996 partition contains Robinhood only. Do
-                # not remove it until fresh Robinhood data is available; an
+                # not remove it until current Robinhood data is available; an
                 # Ethereum-only scan is not a valid replacement for it.
                 if LIGHTER_ROBINHOOD in fresh_deployments:
                     remove_chain_ids.add(LIGHTER_LEGACY_ROBINHOOD_CHAIN_ID)
-            logger.info("Lighter price merge: %d fresh Lighter price entries", len(lighter_df))
+            logger.info("Native price source snapshot: protocol=Lighter rows=%d", len(lighter_df))
             steps["lighter-price-merge"] = True
         except Exception:
             logger.exception("Lighter price merge failed")
@@ -651,7 +696,7 @@ def merge_native_protocols(  # noqa: PLR0914 - one established coordinator owns 
                 logger.warning("No Hibachi data to merge")
             else:
                 replacements[HIBACHI_CHAIN_ID] = hibachi_df
-            logger.info("Hibachi price merge: %d fresh Hibachi price entries", len(hibachi_df))
+            logger.info("Native price source snapshot: protocol=Hibachi rows=%d", len(hibachi_df))
             steps["hibachi-price-merge"] = True
         except Exception:
             logger.exception("Hibachi price merge failed")
@@ -674,7 +719,7 @@ def merge_native_protocols(  # noqa: PLR0914 - one established coordinator owns 
                     parquet_path,
                     apex_df,
                 )
-            logger.info("ApeX price merge: %d fresh ApeX price entries", len(apex_df))
+            logger.info("Native price source snapshot: protocol=ApeX rows=%d", len(apex_df))
             steps["apex-price-merge"] = True
         except Exception:
             logger.exception("ApeX price merge failed")
@@ -698,7 +743,7 @@ def merge_native_protocols(  # noqa: PLR0914 - one established coordinator owns 
             attach_started_at = time.perf_counter()
 
     try:
-        total_rows = _write_native_partitions_to_uncleaned_parquet(
+        merge_stats = _write_native_partitions_to_uncleaned_parquet(
             parquet_path,
             replacements,
             remove_chain_ids=remove_chain_ids,
@@ -706,10 +751,13 @@ def merge_native_protocols(  # noqa: PLR0914 - one established coordinator owns 
             capability_registry=PERP_DEX_CAPABILITY_REGISTRY,
         )
         logger.info(
-            "Merged %d native protocol chain partitions (%d fresh rows, %d total rows) into uncleaned %s in one PyArrow parquet write in %.2f seconds",
+            "Native protocol merge complete: partitions=%d replacement_rows=%d removed_rows=%d rows_before=%d rows_after=%d net_rows=%+d output=%s elapsed=%.2fs",
             len(replacements),
-            sum(len(df) for df in replacements.values()),
-            total_rows,
+            merge_stats.replacement_rows,
+            merge_stats.removed_rows,
+            merge_stats.rows_before,
+            merge_stats.rows_after,
+            merge_stats.net_rows,
             parquet_path,
             time.perf_counter() - started_at,
         )
