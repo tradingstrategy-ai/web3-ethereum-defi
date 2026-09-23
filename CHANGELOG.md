@@ -1,5 +1,6 @@
 # 1.2
 
+- feat: Prepare and render vault sparklines in bounded process batches by default while retaining threaded R2 uploads (2026-09-23).
 - feat: Bound deterministic sparkline rendering and R2 publication with daily crypto input, persistent cadence state and a three-day low-TVL throttle (2026-09-22).
 - feat: Recalculate low-TVL vault metrics only every three days with a staggered freshness gate, per-vault metrics state files and a validated crypto record patch, cutting the hourly metrics workload to the due cohort and peak export memory from 26.9 GiB to 15.7 GiB (2026-09-22).
 - feat: Add fixed-block-tested Lagoon 1.0 vault read and scanner compatibility using the official v0.6 ABI surface (2026-09-22).
