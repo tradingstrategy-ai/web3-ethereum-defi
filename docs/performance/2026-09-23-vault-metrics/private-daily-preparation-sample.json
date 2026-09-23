@@ -1,0 +1,18 @@
+{
+  "source": "/home/mikko/.tradingstrategy/crypto-vaults/crypto-cleaned-vault-prices-1d.parquet",
+  "sample_vaults": 100,
+  "source_rows": 17906,
+  "daily_rows": 55288,
+  "source_columns": 48,
+  "candidate_columns": 31,
+  "baseline_preparation_seconds": 5.566,
+  "candidate_preparation_seconds": 0.51,
+  "speedup": 10.91,
+  "baseline_metric_seconds": 4.142,
+  "candidate_metric_seconds": 1.687,
+  "daily_value_differences": {},
+  "metric_column_differences": [
+    "generated_at"
+  ],
+  "scope": "isolated local stablecoin sample, not production cycle"
+}

@@ -1,33 +1,30 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-"""
-Multi-chain vault analysis + safe JSON export.
+"""Calculate and publish stablecoin vault metrics as strict JSON.
 
-Features:
-- Performs lifetime metric analysis for all available chains.
-- Filters and formats results for the top-performing vaults.
-- Safely exports to JSON with NaN/Inf -> null sanitization.
-- Normalizes column keys into snake_case.
-- Uses column-wise .map(parse_value) to comply with modern pandas.
-- Uses allow_nan=False to guarantee strict JSON validity.
+The exporter reads cleaned hourly prices, calculates due vault metrics, and
+reuses sticky records for eligible vaults that were not recalculated. It
+rejects non-finite or otherwise unsupported JSON values before replacing the
+public file and persisted state.
 
-To test out:
+To run a standalone export:
 
 .. code-block:: shell
 
-    OUTPUT_JSON=/tmp/top-vaults.json VAULT_EXPORT_STATE_PATH=/tmp/vault-export-state.json python -m eth_defi.vault.top_vaults_json
+    OUTPUT_JSON=/tmp/top-vaults.json VAULT_EXPORT_STATE_PATH=/tmp/vault-export-state.json VAULT_METRICS_STATE_PATH=/tmp/vault-metrics-state.json poetry run python -m eth_defi.vault.top_vaults_json
 
 The legacy wrapper also works:
 
 .. code-block:: shell
 
-    OUTPUT_JSON=/tmp/top-vaults.json VAULT_EXPORT_STATE_PATH=/tmp/vault-export-state.json python scripts/erc-4626/vault-analysis-json.py
+    OUTPUT_JSON=/tmp/top-vaults.json VAULT_EXPORT_STATE_PATH=/tmp/vault-export-state.json VAULT_METRICS_STATE_PATH=/tmp/vault-metrics-state.json poetry run python scripts/erc-4626/vault-analysis-json.py
 
 To test out Pandas warning issues in calculate_lifetime_metrics(), enable strict warnings:
 
 .. code-block:: shell
-    PYTHONWARNINGS="error::RuntimeWarning" python -m eth_defi.vault.top_vaults_json
+
+    PYTHONWARNINGS="error::RuntimeWarning" poetry run python -m eth_defi.vault.top_vaults_json
 """
 
 import datetime
@@ -63,6 +60,7 @@ from eth_defi.research.metrics_freshness import (
 )
 from eth_defi.research.vault_metrics import (
     MAX_VALID_NAV,
+    UNUSED_METRIC_PRICE_COLUMNS,
     StrategyCategoryExportRecord,
     VaultMetricsExport,
     calculate_hourly_returns_for_all_vaults,
@@ -92,34 +90,6 @@ from eth_defi.xerberus.vault_export import (
 )
 
 logger = logging.getLogger(__name__)
-
-# The top-vault exporter obtains identity, names, fees, and publication
-# metadata from VaultDatabase. These cleaned-price columns do not contribute
-# to metrics or JSON records; ``returns_1h`` is rebuilt during daily prep.
-# Select by exclusion so newly added price fields remain available by default.
-_UNUSED_TOP_VAULT_PRICE_COLUMNS = frozenset(
-    {
-        "errors",
-        "max_deposit",
-        "max_redeem",
-        "redemption_open",
-        "trading",
-        "written_at",
-        "epoch_reset",
-        "hypercore_source",
-        "hypercore_repair_status",
-        "vault_settlement_at",
-        "raw_share_price",
-        "avg_assets_by_vault",
-        "dynamic_tvl_threshold",
-        "tvl_filtering_mask",
-        "returns_1h",
-        "name",
-        "protocol",
-        "performance_fee",
-        "management_fee",
-    }
-)
 
 # --------------------------------------------------------------------
 # Configuration via environment variables (scalar tunables)
@@ -173,8 +143,8 @@ def resolve_export_threshold_tvl(record: dict, default_threshold: float) -> floa
     return PROTOCOL_MIN_TVL_OVERRIDES.get(record.get("protocol_slug"), default_threshold)
 
 
-#: Default output filename when no ``OUTPUT_JSON`` override is supplied
-#: and no ``output_path`` is passed to :py:func:`main`.
+#: Default output filename when no ``output_path`` is passed to :py:func:`main`.
+#: Standalone calls may override it with ``OUTPUT_JSON``.
 DEFAULT_OUTPUT_FILENAME = "stablecoin-vault-metrics.json"
 
 STICKY_EXPORT_STATE_SCHEMA_VERSION = 1
@@ -254,20 +224,22 @@ class CurrentVaultRow:
     fresh: bool
 
 
-def _resolve_defaults_from_env() -> dict:
-    """Read env-var defaults for manual invocation.
+def _resolve_default_paths(data_dir: Path | None = None) -> dict[str, Path]:
+    """Resolve input and output defaults under one pipeline directory.
 
-    Returns a dict of path defaults that the ``__main__`` entrypoint
-    passes into :py:func:`main`. Keeping this in a function (rather than
-    at module import time) means env vars are re-read on every call and
-    can be set by the caller just before invocation.
+    Standalone calls use ``DATA_DIR`` and ``OUTPUT_JSON``. An explicit
+    ``data_dir`` anchors the metadata, Parquet and public-output defaults
+    there without inheriting a process-wide output override.
 
-    :return:
-        Dict with keys ``data_dir``, ``vault_db_path``, ``parquet_path``,
-        ``output_path`` suitable for splatting into :py:func:`main`.
+    :param data_dir: Explicit pipeline directory, or ``None`` for environment defaults.
+    :return: Data directory and default metadata, Parquet and output paths.
     """
-    data_dir = Path(os.getenv("DATA_DIR", str(get_pipeline_data_dir()))).expanduser()
-    env_output_json = os.getenv("OUTPUT_JSON")
+    if data_dir is None:
+        data_dir = Path(os.getenv("DATA_DIR", str(get_pipeline_data_dir()))).expanduser()
+        env_output_json = os.getenv("OUTPUT_JSON")
+    else:
+        data_dir = Path(data_dir)
+        env_output_json = None
     output_path = Path(env_output_json).expanduser() if env_output_json else data_dir / DEFAULT_OUTPUT_FILENAME
     return {
         "data_dir": data_dir,
@@ -1261,11 +1233,10 @@ def main(
 ) -> VaultMetricsExport:
     """Main execution function for vault analysis and JSON export.
 
-    All four arguments are independently overridable. When a path
-    argument is ``None``, it is derived from ``data_dir`` so that a
-    caller passing only ``data_dir`` reads *and* writes under that
-    directory consistently — never a mix of ``data_dir`` for reads and
-    ``~/.tradingstrategy/vaults`` for writes.
+    All path arguments are independently overridable. Passing only
+    ``data_dir`` anchors the metadata, Parquet and public-output defaults
+    there. The sticky and metrics state paths have separate environment
+    overrides for intentional alternate pipelines.
 
     Before metrics are calculated, the in-memory metadata passes through the
     registered best-effort export cleanup hooks. Hook failures are logged and
@@ -1274,13 +1245,13 @@ def main(
     :param data_dir:
         Pipeline data directory. When ``None``, falls back to the
         ``DATA_DIR`` env var (default ``~/.tradingstrategy/vaults``).
-        Acts as the anchor for both ``parquet_path`` and ``output_path``
-        defaults when those are also ``None``.
+        Anchors metadata, Parquet and public-output defaults when those
+        paths are also ``None``. An explicit directory ignores ``OUTPUT_JSON``;
+        callers can override the public path with ``output_path``.
 
     :param vault_db_path:
-        Path to the vault metadata pickle. When ``None``,
-        :py:meth:`VaultDatabase.read` uses
-        :py:data:`eth_defi.vault.vaultdb.DEFAULT_VAULT_DATABASE`.
+        Path to the vault metadata pickle. When ``None``, defaults to
+        ``data_dir / "vault-metadata-db.pickle"``.
 
     :param parquet_path:
         Path to the cleaned vault prices parquet. When ``None``,
@@ -1288,11 +1259,8 @@ def main(
 
     :param output_path:
         Destination JSON path. When ``None``, defaults to
-        ``data_dir / DEFAULT_OUTPUT_FILENAME``. The ``OUTPUT_JSON`` env
-        var is honoured by :py:func:`_resolve_defaults_from_env` in the
-        ``__main__`` entrypoint, not by :py:func:`main` itself, so
-        in-process callers get deterministic path anchoring with no env
-        var surprises.
+        ``data_dir / DEFAULT_OUTPUT_FILENAME``. A call with no explicit
+        ``data_dir`` honours ``OUTPUT_JSON`` for standalone exports.
 
     :param core3_db_path:
         Path to the Core3 risk intelligence DuckDB database.
@@ -1312,20 +1280,11 @@ def main(
         then :py:data:`~eth_defi.feed.database.DEFAULT_VAULT_POST_DATABASE`.
         The database is only opened if the resolved file exists on disk.
     """
-    defaults = _resolve_defaults_from_env()
-    if data_dir is None:
-        data_dir = defaults["data_dir"]
-    if vault_db_path is None:
-        vault_db_path = defaults["vault_db_path"]
-    if parquet_path is None:
-        parquet_path = defaults["parquet_path"]
-    if output_path is None:
-        output_path = defaults["output_path"]
-
-    data_dir = Path(data_dir)
-    vault_db_path = Path(vault_db_path)
-    parquet_path = Path(parquet_path)
-    output_path = Path(output_path)
+    defaults = _resolve_default_paths(data_dir)
+    data_dir = defaults["data_dir"]
+    vault_db_path = Path(vault_db_path) if vault_db_path is not None else defaults["vault_db_path"]
+    parquet_path = Path(parquet_path) if parquet_path is not None else defaults["parquet_path"]
+    output_path = Path(output_path) if output_path is not None else defaults["output_path"]
 
     now = native_datetime_utc_now()
     phase_diagnostics = _PhaseDiagnostics.start()
@@ -1398,7 +1357,7 @@ def main(
     # Read the full frame only for the due vaults: steady-state runs
     # materialise roughly half the rows. The empty-string sentinel covers
     # an all-fresh run without a special empty-frame path.
-    metric_price_columns = [name for name in pq.read_schema(parquet_path).names if name not in _UNUSED_TOP_VAULT_PRICE_COLUMNS]
+    metric_price_columns = [name for name in pq.read_schema(parquet_path).names if name not in UNUSED_METRIC_PRICE_COLUMNS]
     prices_df = pd.read_parquet(parquet_path, columns=metric_price_columns, filters=[("id", "in", due_vault_ids or [""])])
     free_memory()
     logger.info("Due-filtered hourly price rows: %d", len(prices_df))
@@ -1565,7 +1524,6 @@ def main(
     validate_strict_json_serialisable(sticky_result.state)
 
     # 7️⃣ Write to JSON file (strict mode)
-    output_path.parent.mkdir(parents=True, exist_ok=True)
     _write_strict_json(output_path, output_data, validated=True)
 
     save_sticky_export_state(sticky_result.state, sticky_state_path, validated=True)

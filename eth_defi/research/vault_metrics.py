@@ -65,6 +65,32 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+#: Cleaned-price columns not used by daily returns or lifetime metrics.
+#: Select by exclusion so future price fields remain available by default.
+UNUSED_METRIC_PRICE_COLUMNS = frozenset(
+    {
+        "errors",
+        "max_deposit",
+        "max_redeem",
+        "redemption_open",
+        "trading",
+        "written_at",
+        "epoch_reset",
+        "hypercore_source",
+        "hypercore_repair_status",
+        "vault_settlement_at",
+        "raw_share_price",
+        "avg_assets_by_vault",
+        "dynamic_tvl_threshold",
+        "tvl_filtering_mask",
+        "returns_1h",
+        "name",
+        "protocol",
+        "performance_fee",
+        "management_fee",
+    }
+)
+
 #: Percent as the floating point.
 #:
 #: 0.01 = 1%
@@ -4470,7 +4496,7 @@ def cross_check_data(
     return errors
 
 
-def _calculate_regular_daily_returns(df_work: pd.DataFrame, returns_column: str) -> pd.DataFrame:
+def _calculate_regular_daily_returns(df_work: pd.DataFrame, returns_column: str, *, sparse_daily_input: bool = False) -> pd.DataFrame:
     """Regularise sparse vault prices and calculate one return per calendar day.
 
     Share prices and descriptive metadata are forward filled independently for
@@ -4486,6 +4512,10 @@ def _calculate_regular_daily_returns(df_work: pd.DataFrame, returns_column: str)
         attached only to their original observation day.
     :param returns_column:
         Name assigned to the calculated percentage-return column.
+    :param sparse_daily_input:
+        Input already has at most one observation per vault and UTC day.
+        Reindex that observation directly onto calendar days instead of
+        repeating a daily aggregation.
     :return:
         Daily vault rows with the requested return column.
     """
@@ -4502,7 +4532,21 @@ def _calculate_regular_daily_returns(df_work: pd.DataFrame, returns_column: str)
             group[VAULT_STATE_OBSERVED_COLUMN] = state_fresh
         else:
             group[VAULT_STATE_OBSERVED_COLUMN] = group[VAULT_STATE_OBSERVED_COLUMN].fillna(False).astype(bool) & state_fresh
-        resampled = group.resample("D").last()
+        if sparse_daily_input:
+            observation_days = group.index.normalize()
+            if observation_days.has_duplicates:
+                duplicates = observation_days[observation_days.duplicated(keep=False)]
+                raise ValueError(f"Duplicate sparse daily observations for {chain_val}-{addr_val} on {duplicates.min().date()} ({len(duplicates)} rows across {duplicates.nunique()} days)")
+            group.index = observation_days
+            calendar_days = pd.date_range(observation_days.min(), observation_days.max(), freq="D", name=df_work.index.name)
+            resampled = group.reindex(calendar_days)
+            # Arrow floating columns can contain IEEE NaN values which
+            # ``ffill`` does not treat as null. The resample path turns them
+            # into nulls; NumPy floats preserve the same fill behaviour.
+            float_columns = [column for column in resampled.columns if pd.api.types.is_float_dtype(resampled[column].dtype)]
+            resampled[float_columns] = resampled[float_columns].astype("float64")
+        else:
+            resampled = group.resample("D").last()
         # ``daily_flow_value`` is currently derived after regularisation, but
         # keep it sparse here so a future direct signed-flow source cannot be
         # repeated across forward-filled gap days.
@@ -4547,6 +4591,22 @@ def calculate_hourly_returns_for_all_vaults(df_work: pd.DataFrame) -> pd.DataFra
     """
 
     return _calculate_regular_daily_returns(df_work, "returns_1h")
+
+
+def calculate_sparse_daily_returns_for_all_vaults(df_work: pd.DataFrame) -> pd.DataFrame:
+    """Regularise one real daily observation per vault for lifetime metrics.
+
+    The private crypto price Parquet already contains the final real row for
+    each vault and UTC day. Calendar gaps still need forward-filled prices,
+    while flow columns and observed-state markers must remain sparse.
+
+    :param df_work:
+        Sparse daily vault prices with a timestamp index and at most one row
+        per ``chain``, ``address`` and UTC day.
+    :return:
+        Consecutive daily rows with the compatibility ``returns_1h`` column.
+    """
+    return _calculate_regular_daily_returns(df_work, "returns_1h", sparse_daily_input=True)
 
 
 def display_vault_chart_and_tearsheet(

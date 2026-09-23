@@ -245,7 +245,13 @@ crypto-specific return column. The legacy ``returns_1h`` column is recomputed
 between consecutive exported observations: it is a sparse return, not an
 hourly or guaranteed one-day return, and existing TVL-filtered rows remain
 zeroed. Lifetime metrics use the normal forward-filled daily share-price
-series. ETH and BTC amounts stay in their denomination units. Native admission
+series. The [private metadata builder](../../eth_defi/vault/crypto_vaults.py)
+prepares stablecoin metrics directly from these sparse daily rows in memory,
+filling calendar gaps without repeating the daily aggregation. It drops
+cleaned-price columns unused by returns and lifetime metrics before this step.
+INFO logs report source read, freshness filtering, daily preparation and metric
+calculation times separately, with row counts and a preparation-end RSS sample.
+ETH and BTC amounts stay in their denomination units. Native admission
 uses each family lifetime peak ``total_assets`` with hard thresholds of
 ``2.5`` ETH-family units and ``0.1`` BTC-family units. The older fixed
 USD-to-denomination values (USD 2,000/ETH and USD 60,000/BTC) remain only as
@@ -2877,6 +2883,9 @@ and uploads `top_vaults_by_chain.json`, while a direct manual run defaults to
 `stablecoin-vault-metrics.json` unless `OUTPUT_JSON` is set. Standalone runs
 configure INFO logging, including phase duration, boundary RSS, major page
 faults and the due-vault counts. `LOG_LEVEL` overrides the log level.
+In the looped scanner, these INFO lines are written to
+`logs/scan-all-chains.log`. The default `LOG_LEVEL=warning` keeps them out of
+`docker compose logs`; set `LOG_LEVEL=info` to include them there.
 
 The generated JSON has the following top-level structure:
 

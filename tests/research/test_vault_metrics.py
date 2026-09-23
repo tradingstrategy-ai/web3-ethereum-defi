@@ -38,6 +38,7 @@ from eth_defi.research.vault_metrics import (
     calculate_period_metrics,
     calculate_returns,
     calculate_sharpe_ratio_from_returns,
+    calculate_sparse_daily_returns_for_all_vaults,
     cross_check_data,
     display_vault_chart_and_tearsheet,
     export_lifetime_row,
@@ -251,6 +252,66 @@ def test_daily_vault_resampling_does_not_forward_fill_flow_totals() -> None:
     assert daily[vault_metrics.VAULT_STATE_OBSERVED_COLUMN].fillna(False).tolist() == [True, False, True]
     assert pd.isna(daily["daily_deposit_usd"].iloc[1])
     assert daily["daily_deposit_usd"].sum() == pytest.approx(30.0)
+
+
+def test_sparse_daily_return_preparation_matches_resampling() -> None:
+    """Preserve calendar gaps, sparse flows and partial accounting states."""
+    rows = pd.DataFrame(
+        {
+            "chain": [1, 1, 1, 2, 2],
+            "address": ["0xaaa", "0xaaa", "0xaaa", "0xbbb", "0xbbb"],
+            "id": ["1-0xaaa"] * 3 + ["2-0xbbb"] * 2,
+            "share_price": [1.0, 1.1, 1.2, 2.0, 2.2],
+            "total_assets": [100.0, np.nan, 120.0, 200.0, 220.0],
+            "total_supply": [100.0, 100.0, 100.0, 100.0, 100.0],
+            "daily_deposit_usd": [10.0, np.nan, 20.0, 5.0, 7.0],
+            "daily_withdrawal_count": [0, 1, 2, 0, 1],
+        },
+        index=pd.to_datetime(["2026-01-01 12:00", "2026-01-03 23:00", "2026-01-05 02:00", "2026-01-02 08:00", "2026-01-04 08:00"]),
+    )
+    rows.index.name = "timestamp"
+    rows = rows.iloc[[2, 0, 4, 1, 3]]
+
+    expected = calculate_hourly_returns_for_all_vaults(rows)
+    actual = calculate_sparse_daily_returns_for_all_vaults(rows)
+
+    pd.testing.assert_frame_equal(actual, expected, check_dtype=False)
+
+
+def test_sparse_daily_return_preparation_rejects_duplicate_days() -> None:
+    """Reject input that does not satisfy the daily sidecar contract."""
+    rows = pd.DataFrame(
+        {"chain": [1, 1], "address": ["0xaaa", "0xaaa"], "share_price": [1.0, 1.1]},
+        index=pd.to_datetime(["2026-01-01 12:00", "2026-01-01 23:00"]),
+    )
+
+    with pytest.raises(ValueError, match="Duplicate sparse daily observations"):
+        calculate_sparse_daily_returns_for_all_vaults(rows)
+
+
+def test_sparse_daily_return_preparation_fills_arrow_nan(tmp_path: Path) -> None:
+    """Treat Arrow IEEE NaN as a missing value during forward fill."""
+    rows = pd.DataFrame(
+        {
+            "chain": [1, 1, 1],
+            "address": ["0xaaa"] * 3,
+            "share_price": [1.0, 1.1, 1.2],
+            "total_assets": pd.arrays.ArrowExtensionArray(pa.array([100.0, float("nan"), 120.0], type=pa.float64(), from_pandas=False)),
+            "total_supply": [100.0, 100.0, 100.0],
+        },
+        index=pd.to_datetime(["2026-01-01 12:00", "2026-01-03 12:00", "2026-01-05 12:00"]),
+    )
+
+    parquet_path = tmp_path / "sparse-daily.parquet"
+    rows.to_parquet(parquet_path)
+    restored_rows = pd.read_parquet(parquet_path, dtype_backend="pyarrow")
+    restored_rows.index = pd.DatetimeIndex(pd.to_datetime(restored_rows.index))
+
+    actual = calculate_sparse_daily_returns_for_all_vaults(restored_rows)
+    expected = calculate_hourly_returns_for_all_vaults(restored_rows)
+
+    assert actual["total_assets"].tolist() == [100.0, 100.0, 100.0, 100.0, 120.0]
+    pd.testing.assert_frame_equal(actual, expected, check_dtype=False)
 
 
 def test_erc4626_state_deltas_derive_estimated_net_flows() -> None:

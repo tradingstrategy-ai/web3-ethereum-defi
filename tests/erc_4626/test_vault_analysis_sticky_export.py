@@ -23,6 +23,29 @@ def get_top_vaults_json_module():
     return top_vaults_json
 
 
+def test_explicit_data_dir_anchors_default_paths(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """An in-process export keeps its paths together despite process overrides.
+
+    :param tmp_path: Explicit pipeline directory.
+    :param monkeypatch: Set unrelated standalone path overrides.
+    :return: ``None`` after checking all default paths.
+    """
+    monkeypatch.setenv("DATA_DIR", str(tmp_path / "other"))
+    monkeypatch.setenv("OUTPUT_JSON", str(tmp_path / "other.json"))
+
+    paths = top_vaults_json._resolve_default_paths(tmp_path)
+
+    assert paths == {
+        "data_dir": tmp_path,
+        "vault_db_path": tmp_path / "vault-metadata-db.pickle",
+        "parquet_path": tmp_path / "cleaned-vault-prices-1h.parquet",
+        "output_path": tmp_path / "stablecoin-vault-metrics.json",
+    }
+    standalone_paths = top_vaults_json._resolve_default_paths()
+    assert standalone_paths["data_dir"] == tmp_path / "other"
+    assert standalone_paths["output_path"] == tmp_path / "other.json"
+
+
 def make_metrics_row(
     *,
     chain_id: int = 1,

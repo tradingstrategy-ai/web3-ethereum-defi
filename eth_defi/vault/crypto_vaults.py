@@ -19,6 +19,7 @@ from typing import Any
 
 import numpy as np
 import pandas as pd
+import psutil
 from atomicwrites import atomic_write
 from tqdm_loggable.auto import tqdm
 
@@ -38,12 +39,13 @@ from eth_defi.research.metrics_freshness import (
     save_metrics_state,
 )
 from eth_defi.research.vault_metrics import (
+    UNUSED_METRIC_PRICE_COLUMNS,
     USD_RATE_ERROR_INSUFFICIENT_COVERAGE,
     USD_RATE_ERROR_INVALID_SERIES,
     USD_RATE_ERROR_MISSING_SERIES,
     CryptoUSDConversionContext,
-    calculate_hourly_returns_for_all_vaults,
     calculate_lifetime_metrics,
+    calculate_sparse_daily_returns_for_all_vaults,
     calculate_vault_record,
     export_lifetime_row,
     slugify_vaults,
@@ -898,11 +900,13 @@ def build_crypto_vault_metadata(  # noqa: PLR0914 - this coordinator keeps the i
     if threshold_usd is None:
         threshold_usd = Decimal(os.environ.get("CRYPTO_VAULTS_MIN_TVL_USD", "5000"))
     vault_db = VaultDatabase.read(vault_db_path)
+    read_started_at = time.perf_counter()
     prices_df = pd.read_parquet(cleaned_price_path)
     if not isinstance(prices_df.index, pd.DatetimeIndex):
         prices_df["timestamp"] = pd.to_datetime(prices_df["timestamp"])
         prices_df.set_index("timestamp", inplace=True)
     prices_df["id"] = prices_df["id"].astype(str)
+    logger.info("Crypto metric source read: %d rows, %d columns in %.2fs", len(prices_df), len(prices_df.columns), time.perf_counter() - read_started_at)
     _validate_crypto_price_rows(vault_db, prices_df)
 
     admission_started = time.perf_counter()
@@ -940,6 +944,7 @@ def build_crypto_vault_metadata(  # noqa: PLR0914 - this coordinator keeps the i
     #    export threshold: they provably cannot enter the export this run (no
     #    qualification, no sticky retention), so nothing needs to be patched
     #    and the record is simply absent, exactly as when they are computed.
+    freshness_started_at = time.perf_counter()
     now = native_datetime_utc_now()
     state = _load_sticky_state(sticky_state_path)
     metrics_state_path = sticky_state_path.parent / CRYPTO_METRICS_STATE_FILENAME
@@ -969,6 +974,7 @@ def build_crypto_vault_metadata(  # noqa: PLR0914 - this coordinator keeps the i
     stable_prices_df = stable_prices_df.loc[stable_prices_df["id"].isin(due_stable_ids)]
     stable_price_ids = set(stable_prices_df["id"])
     stable_vault_rows = {spec: row for spec, row in stable_vault_rows.items() if spec.as_string_id() in stable_price_ids}
+    logger.info("Crypto stablecoin freshness filtering: %d due vaults, %d rows in %.2fs", len(due_stable_ids), len(stable_prices_df), time.perf_counter() - freshness_started_at)
 
     crypto_usd_conversion_context = None
     usd_metrics_provenance = None
@@ -988,13 +994,30 @@ def build_crypto_vault_metadata(  # noqa: PLR0914 - this coordinator keeps the i
     stable_metrics_started = time.perf_counter()
     if stable_prices_df.empty:
         stable_metrics_df = pd.DataFrame()
+        logger.info("Crypto stablecoin daily preparation skipped: no due rows")
+        del stable_prices_df
     else:
-        daily_stable_prices_df = calculate_hourly_returns_for_all_vaults(stable_prices_df)
+        prep_started_at = time.perf_counter()
+        metric_columns = [column for column in stable_prices_df.columns if column not in UNUSED_METRIC_PRICE_COLUMNS]
+        metric_prices_df = stable_prices_df.loc[:, metric_columns]
+        daily_stable_prices_df = calculate_sparse_daily_returns_for_all_vaults(metric_prices_df)
+        logger.info(
+            "Crypto stablecoin daily preparation: %d source rows, %d daily rows, %d of %d columns in %.2fs, RSS %.2f GiB",
+            len(stable_prices_df),
+            len(daily_stable_prices_df),
+            len(metric_columns),
+            len(stable_prices_df.columns),
+            time.perf_counter() - prep_started_at,
+            psutil.Process().memory_info().rss / (1024**3),
+        )
+        del metric_prices_df, stable_prices_df
+        metric_started_at = time.perf_counter()
         stable_metrics_df = calculate_lifetime_metrics(
             daily_stable_prices_df,
             stable_vault_rows,
             stablecoin_rate_feeder=stablecoin_rate_feeder,
         )
+        logger.info("Crypto stablecoin lifetime metrics: %d vaults in %.2fs", len(stable_metrics_df), time.perf_counter() - metric_started_at)
         # Free the daily stablecoin frame before the native metrics phase.
         del daily_stable_prices_df
         free_memory()
@@ -1011,7 +1034,7 @@ def build_crypto_vault_metadata(  # noqa: PLR0914 - this coordinator keeps the i
 
     # Free the remaining price frames before the serialisation and record
     # loop; nothing below needs them.
-    del stable_prices_df, native_prices_df
+    del native_prices_df
     free_memory()
 
     serialisation_started = time.perf_counter()
