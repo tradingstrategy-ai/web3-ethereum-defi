@@ -8,7 +8,7 @@ import datetime
 import logging
 import math
 import warnings
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from dataclasses import asdict, dataclass, is_dataclass
 from decimal import Decimal
 from enum import Enum
@@ -64,6 +64,32 @@ if TYPE_CHECKING:
     from eth_defi.vault.curator_export import CuratorExportRecord
 
 logger = logging.getLogger(__name__)
+
+#: Cleaned-price columns not used by daily returns or lifetime metrics.
+#: Select by exclusion so future price fields remain available by default.
+UNUSED_METRIC_PRICE_COLUMNS = frozenset(
+    {
+        "errors",
+        "max_deposit",
+        "max_redeem",
+        "redemption_open",
+        "trading",
+        "written_at",
+        "epoch_reset",
+        "hypercore_source",
+        "hypercore_repair_status",
+        "vault_settlement_at",
+        "raw_share_price",
+        "avg_assets_by_vault",
+        "dynamic_tvl_threshold",
+        "tvl_filtering_mask",
+        "returns_1h",
+        "name",
+        "protocol",
+        "performance_fee",
+        "management_fee",
+    }
+)
 
 #: Percent as the floating point.
 #:
@@ -4441,19 +4467,25 @@ def format_ffn_performance_stats_grouped(
 def cross_check_data(
     vault_db: VaultDatabase,
     prices_df: pd.DataFrame,
-    printer=print,
+    printer: Callable[[str], None] = print,
 ) -> int:
-    """Check that VaultDatabase has metadata for all price_df vaults and vice versa.
+    """Check that each price identity has a vault metadata entry.
 
-    :return:
-        Number of problem entries.
+    Hourly price data repeats each chain and address many times. Deduplicate
+    these columns before building string keys so the check scales with the
+    number of vaults rather than the number of price rows. The ``id`` column
+    is deliberately not used: the existing check validates chain and address.
 
-        Should be zero.
+    :param vault_db: Metadata keyed by chain and address.
+    :param prices_df: Price rows containing ``chain`` and ``address`` columns.
+    :param printer: Report one message per distinct missing vault identity.
+    :return: Number of distinct missing vault identities; normally zero.
     """
 
     vault_db_entries = set(k.as_string_id() for k in vault_db.keys())
 
-    prices_df_ids = set(prices_df["chain"].astype(str) + "-" + prices_df["address"].astype(str))
+    identity_pairs = prices_df[["chain", "address"]].drop_duplicates()
+    prices_df_ids = set(identity_pairs["chain"].astype(str) + "-" + identity_pairs["address"].astype(str))
 
     errors = 0
     for entry in prices_df_ids:
@@ -4464,7 +4496,7 @@ def cross_check_data(
     return errors
 
 
-def _calculate_regular_daily_returns(df_work: pd.DataFrame, returns_column: str) -> pd.DataFrame:
+def _calculate_regular_daily_returns(df_work: pd.DataFrame, returns_column: str, *, sparse_daily_input: bool = False) -> pd.DataFrame:
     """Regularise sparse vault prices and calculate one return per calendar day.
 
     Share prices and descriptive metadata are forward filled independently for
@@ -4480,6 +4512,10 @@ def _calculate_regular_daily_returns(df_work: pd.DataFrame, returns_column: str)
         attached only to their original observation day.
     :param returns_column:
         Name assigned to the calculated percentage-return column.
+    :param sparse_daily_input:
+        Input already has at most one observation per vault and UTC day.
+        Reindex that observation directly onto calendar days instead of
+        repeating a daily aggregation.
     :return:
         Daily vault rows with the requested return column.
     """
@@ -4487,7 +4523,8 @@ def _calculate_regular_daily_returns(df_work: pd.DataFrame, returns_column: str)
     assert isinstance(df_work, pd.DataFrame)
     assert isinstance(df_work.index, pd.DatetimeIndex), "DataFrame index must be a DatetimeIndex"
     result_dfs = []
-    for (chain_val, addr_val), group in df_work.groupby(["chain", "address"]):
+    grouped_vaults = df_work.groupby(["chain", "address"])
+    for (chain_val, addr_val), group in tqdm(grouped_vaults, desc="Preparing daily vault returns", total=grouped_vaults.ngroups):
         group = group.copy()
         has_complete_state_columns = all(column in group.columns for column in ERC4626_FLOW_STATE_COLUMNS)
         state_fresh = group[list(ERC4626_FLOW_STATE_COLUMNS)].notna().all(axis=1) if has_complete_state_columns else pd.Series(False, index=group.index)
@@ -4495,7 +4532,21 @@ def _calculate_regular_daily_returns(df_work: pd.DataFrame, returns_column: str)
             group[VAULT_STATE_OBSERVED_COLUMN] = state_fresh
         else:
             group[VAULT_STATE_OBSERVED_COLUMN] = group[VAULT_STATE_OBSERVED_COLUMN].fillna(False).astype(bool) & state_fresh
-        resampled = group.resample("D").last()
+        if sparse_daily_input:
+            observation_days = group.index.normalize()
+            if observation_days.has_duplicates:
+                duplicates = observation_days[observation_days.duplicated(keep=False)]
+                raise ValueError(f"Duplicate sparse daily observations for {chain_val}-{addr_val} on {duplicates.min().date()} ({len(duplicates)} rows across {duplicates.nunique()} days)")
+            group.index = observation_days
+            calendar_days = pd.date_range(observation_days.min(), observation_days.max(), freq="D", name=df_work.index.name)
+            resampled = group.reindex(calendar_days)
+            # Arrow floating columns can contain IEEE NaN values which
+            # ``ffill`` does not treat as null. The resample path turns them
+            # into nulls; NumPy floats preserve the same fill behaviour.
+            float_columns = [column for column in resampled.columns if pd.api.types.is_float_dtype(resampled[column].dtype)]
+            resampled[float_columns] = resampled[float_columns].astype("float64")
+        else:
+            resampled = group.resample("D").last()
         # ``daily_flow_value`` is currently derived after regularisation, but
         # keep it sparse here so a future direct signed-flow source cannot be
         # repeated across forward-filled gap days.
@@ -4540,6 +4591,22 @@ def calculate_hourly_returns_for_all_vaults(df_work: pd.DataFrame) -> pd.DataFra
     """
 
     return _calculate_regular_daily_returns(df_work, "returns_1h")
+
+
+def calculate_sparse_daily_returns_for_all_vaults(df_work: pd.DataFrame) -> pd.DataFrame:
+    """Regularise one real daily observation per vault for lifetime metrics.
+
+    The private crypto price Parquet already contains the final real row for
+    each vault and UTC day. Calendar gaps still need forward-filled prices,
+    while flow columns and observed-state markers must remain sparse.
+
+    :param df_work:
+        Sparse daily vault prices with a timestamp index and at most one row
+        per ``chain``, ``address`` and UTC day.
+    :return:
+        Consecutive daily rows with the compatibility ``returns_1h`` column.
+    """
+    return _calculate_regular_daily_returns(df_work, "returns_1h", sparse_daily_input=True)
 
 
 def display_vault_chart_and_tearsheet(
@@ -4693,6 +4760,11 @@ def export_lifetime_row(row: pd.Series) -> dict:
         return value
 
     out = {k: _serialize(v) for k, v in row.to_dict().items()}
+
+    # Scanner flags are a set; their iteration order must not change JSON
+    # bytes or the sticky export record between otherwise identical runs.
+    if isinstance(out.get("flags"), list):
+        out["flags"].sort()
 
     # Legacy field mappings
     out["management_fee"] = out.get("mgmt_fee")

@@ -115,3 +115,60 @@ def test_fetch_recent_posts_by_feeder(tmp_path: Path):
 
     finally:
         db.close()
+
+
+def test_fetch_recent_posts_ties_are_stable_at_limit(tmp_path: Path) -> None:
+    """Equal-time posts use their source and external IDs at the cut-off.
+
+    Posts from two sources share one feeder and one publication time. The
+    ranking and the returned order must use the same tie-breakers, including
+    when the limit excludes one tied post.
+
+    :param tmp_path: Isolated feed database location.
+    :return: ``None`` after checking the selected post titles.
+    """
+    db = VaultPostDatabase(tmp_path / "tied-posts.duckdb")
+    try:
+        source_ids = [
+            db.upsert_tracked_source(
+                TrackedPostSource(
+                    feeder_id="shared",
+                    name=name,
+                    role="curator",
+                    website="https://example.com",
+                    source_type="rss",
+                    source_key=name,
+                    canonical_url=f"https://example.com/{name}",
+                    mapping_file=Path(f"{name}.yaml"),
+                )
+            )
+            for name in ("first", "second")
+        ]
+        tied_at = datetime.datetime(2026, 6, 1, 12, 0)
+
+        def post(external_id: str, published_at: datetime.datetime) -> CollectedPost:
+            """Build one uniquely identified test post.
+
+            :param external_id: Stored post identity and visible title.
+            :param published_at: Shared or newer publication time.
+            :return: Post to insert into the feed database.
+            """
+            return CollectedPost(
+                external_post_id=external_id,
+                title=external_id,
+                post_url=f"https://example.com/{external_id}",
+                published_at=published_at,
+                fetched_at=published_at,
+                short_description=external_id,
+                full_text=external_id,
+            )
+
+        db.insert_posts(source_ids[0], [post("z", tied_at), post("a", tied_at), post("newest", tied_at + datetime.timedelta(hours=1))])
+        db.insert_posts(source_ids[1], [post("b", tied_at)])
+
+        expected = ["newest", "a", "z"]
+        for _ in range(3):
+            rows = db.fetch_recent_posts_by_feeder(["shared"], max_per_feeder=3)["shared"]
+            assert [row["title"] for row in rows] == expected
+    finally:
+        db.close()

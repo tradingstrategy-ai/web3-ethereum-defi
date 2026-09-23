@@ -1,0 +1,10 @@
+{
+  "compressed_bytes": 3165467,
+  "cpu_seconds": 50.969,
+  "input_bytes": 75687923,
+  "peak_rss_kib": 152736,
+  "quality": 11,
+  "source": "/tmp/white-snake-vault-top-20260923/top_vaults_by_chain.json",
+  "uploads_included": false,
+  "wall_seconds": 50.972
+}

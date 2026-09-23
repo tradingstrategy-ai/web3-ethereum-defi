@@ -799,7 +799,8 @@ class VaultPostDatabase:
         """Fetch the most recent posts for each feeder across all source types.
 
         Joins ``tracked_sources`` and ``posts`` on ``source_id``, ranks
-        posts per feeder by ``COALESCE(published_at, fetched_at) DESC``,
+        posts per feeder by ``COALESCE(published_at, fetched_at) DESC`` and
+        the stable post identity for equal-time entries,
         and returns the *max_per_feeder* newest posts per feeder.
 
         :param feeder_ids:
@@ -829,10 +830,12 @@ class VaultPostDatabase:
                     p.full_text,
                     p.post_url,
                     ts.source_type,
+                    p.source_id,
+                    p.external_post_id,
                     COALESCE(p.published_at, p.fetched_at) AS published_at,
                     ROW_NUMBER() OVER (
                         PARTITION BY ts.feeder_id
-                        ORDER BY COALESCE(p.published_at, p.fetched_at) DESC
+                        ORDER BY COALESCE(p.published_at, p.fetched_at) DESC, p.source_id, p.external_post_id
                     ) AS rn
                 FROM tracked_sources ts
                 JOIN posts p ON ts.source_id = p.source_id
@@ -841,7 +844,7 @@ class VaultPostDatabase:
             SELECT feeder_id, title, short_description, full_text, post_url, source_type, published_at
             FROM ranked
             WHERE rn <= ?
-            ORDER BY feeder_id, published_at DESC
+            ORDER BY feeder_id, published_at DESC, source_id, external_post_id
             """,
             ids + [max_per_feeder],
         ).fetchall()

@@ -1,0 +1,23 @@
+{
+  "top_vaults_by_chain.json": {
+    "curator_post_reorders_with_equal_position_timestamps": 14,
+    "flag_list_reorders": 190,
+    "other_list_reorders": 0,
+    "other_value_differences": 0,
+    "parsed_json_equal": false
+  },
+  "vault-export-state.json": {
+    "curator_post_reorders_with_equal_position_timestamps": 0,
+    "flag_list_reorders": 190,
+    "other_list_reorders": 0,
+    "other_value_differences": 0,
+    "parsed_json_equal": false
+  },
+  "vault-metrics-state.json": {
+    "curator_post_reorders_with_equal_position_timestamps": 0,
+    "flag_list_reorders": 0,
+    "other_list_reorders": 0,
+    "other_value_differences": 0,
+    "parsed_json_equal": true
+  }
+}

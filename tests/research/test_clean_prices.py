@@ -1412,14 +1412,18 @@ def test_mixed_protocol_reconstruction_uses_row_positions() -> None:
             "id": ["hypercore-a", "evm-a", "hypercore-b", "evm-b"],
             "chain": [vault_price_wrangle.HYPERCORE_CHAIN_ID, 1, vault_price_wrangle.HYPERCORE_CHAIN_ID, 8453],
             "share_price": pd.array([10.0, 1.0, 20.0, 2.0], dtype="float64[pyarrow]"),
+            "name": pd.array(["hypercore-a", "evm-a", "hypercore-b", "evm-b"], dtype="string[pyarrow]"),
+            "deposits_open": pd.array([None, None, None, None], dtype="bool[pyarrow]"),
             vault_price_wrangle.INTERNAL_VAULT_GROUP_COLUMN: [0, 1, 2, 3],
         },
         index=pd.DatetimeIndex([duplicate_timestamp] * 4, name="timestamp"),
     )
     evm_positions = np.array([1, 3], dtype=np.int64)
-    repaired = target.iloc[evm_positions].copy()
+    original = target.iloc[evm_positions].copy()
+    repaired = original.copy()
     repaired["share_price"] = [1.1, 2.2]
     repaired["raw_share_price"] = [1.0, 2.0]
+    repaired["deposits_open"] = pd.array([True, False], dtype="bool[pyarrow]")
     target["raw_share_price"] = target["share_price"]
 
     vault_price_wrangle._copy_columns_by_position(
@@ -1427,11 +1431,14 @@ def test_mixed_protocol_reconstruction_uses_row_positions() -> None:
         repaired,
         evm_positions,
         excluded_columns={"id", vault_price_wrangle.INTERNAL_VAULT_GROUP_COLUMN},
+        original_source=original,
     )
 
     assert target["share_price"].tolist() == [10.0, 1.1, 20.0, 2.2]
     assert target["raw_share_price"].tolist() == [10.0, 1.0, 20.0, 2.0]
     assert target["id"].tolist() == ["hypercore-a", "evm-a", "hypercore-b", "evm-b"]
+    assert target["name"].tolist() == ["hypercore-a", "evm-a", "hypercore-b", "evm-b"]
+    assert target["deposits_open"].tolist() == [pd.NA, True, pd.NA, False]
     assert str(target["share_price"].dtype) == "double[pyarrow]"
     assert str(target["raw_share_price"].dtype) == "double[pyarrow]"
 

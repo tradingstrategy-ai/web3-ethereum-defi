@@ -2040,6 +2040,8 @@ def _copy_columns_by_position(
     source: pd.DataFrame,
     row_positions: np.ndarray,
     excluded_columns: Collection[str] = frozenset(),
+    *,
+    original_source: pd.DataFrame | None = None,
 ) -> None:
     """Copy a cleaned subset back without duplicate-index label alignment.
 
@@ -2057,6 +2059,10 @@ def _copy_columns_by_position(
         One-dimensional integer positions identifying destination rows.
     :param excluded_columns:
         Identity or helper columns which the cleaner must not rewrite.
+    :param original_source:
+        Original selected rows in the same positional order as ``source`` and
+        ``row_positions``. Columns that are exactly unchanged in the cleaned
+        source need no expensive mixed-frame positional assignment.
     :return:
         ``None``.
     """
@@ -2064,8 +2070,12 @@ def _copy_columns_by_position(
     assert len(source) == len(row_positions), "Source rows and destination positions must match"
     missing_columns = set(source.columns) - set(target.columns)
     assert not missing_columns, f"Source columns missing from target: {sorted(missing_columns)}"
+    if original_source is not None:
+        assert len(original_source) == len(source), "Original and cleaned subset lengths must match"
     for column in source.columns:
         if column in excluded_columns:
+            continue
+        if original_source is not None and column in original_source.columns and source[column].dtype == original_source[column].dtype and source[column].equals(original_source[column]):
             continue
         target.iloc[row_positions, target.columns.get_loc(column)] = source[column].array
 
@@ -2251,6 +2261,7 @@ def process_raw_vault_scan_data(  # noqa: PLR0914 - established cleaner orchestr
             fixed_evm,
             evm_positions,
             excluded_columns={"id", INTERNAL_VAULT_GROUP_COLUMN},
+            original_source=evm_df,
         )
         del evm_df, fixed_evm, evm_positions
         logger(f"Vault cleaning stage EVM outlier repair: {stage_input_rows:,} -> {stage_input_rows:,} rows in {time.perf_counter() - stage_started_at:.2f}s")

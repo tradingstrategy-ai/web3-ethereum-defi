@@ -1,0 +1,24 @@
+{
+  "compression_calls": 1,
+  "cpu_seconds": 50.716,
+  "input_bytes": 75649906,
+  "network_calls_included": false,
+  "success": true,
+  "uploads": [
+    {
+      "bucket": "primary",
+      "digest_id": 126661072404784,
+      "key": "top_vaults_by_chain.json.br",
+      "payload_id": 110327544984064,
+      "payload_size": 3164566
+    },
+    {
+      "bucket": "alternative",
+      "digest_id": 126661072404784,
+      "key": "top_vaults_by_chain.json.br",
+      "payload_id": 110327544984064,
+      "payload_size": 3164566
+    }
+  ],
+  "wall_seconds": 50.72
+}

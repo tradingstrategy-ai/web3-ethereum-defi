@@ -1,0 +1,94 @@
+         50326045 function calls (49277854 primitive calls) in 18.020 seconds
+
+   Ordered by: cumulative time
+   List reduced from 1898 to 40 due to restriction <40>
+
+   ncalls  tottime  percall  cumtime  percall filename:lineno(function)
+      3/2    0.000    0.000   16.758    8.379 threading.py:651(wait)
+      3/2    0.000    0.000   16.758    8.379 threading.py:337(wait)
+     12/7    0.003    0.000   16.758    2.394 {method 'acquire' of '_thread.lock' objects}
+      2/1    0.022    0.011   16.755   16.755 vault_metrics.py:3261(calculate_lifetime_metrics)
+      250    0.038    0.000   16.482    0.066 vault_metrics.py:2478(calculate_vault_record)
+      476    0.000    0.000    6.069    0.013 parser.py:318(load)
+      476    0.014    0.000    6.068    0.013 parser.py:271(generic_load)
+      250    0.000    0.000    3.818    0.015 stablecoin_rate.py:386(get_denomination_token_slug)
+        1    0.000    0.000    3.818    3.818 stablecoin_rate.py:978(build_stablecoin_address_slug_lookup)
+        1    0.000    0.000    3.818    3.818 stablecoin_rate.py:520(load_stablecoin_rate_targets)
+      225    0.001    0.000    3.818    0.017 stablecoin_rate.py:503(iter_stablecoin_rate_targets)
+      212    0.000    0.000    3.806    0.018 stablecoin_metadata.py:620(read_stablecoin_metadata)
+      476    0.005    0.000    3.556    0.007 main.py:975(load)
+      476    0.001    0.000    3.522    0.007 constructor.py:111(get_single_data)
+    27664    0.040    0.000    3.415    0.000 indexing.py:1192(__getitem__)
+      476    0.002    0.000    3.382    0.007 composer.py:70(get_single_node)
+      476    0.001    0.000    3.307    0.007 composer.py:95(compose_document)
+22799/476    0.062    0.000    3.303    0.007 composer.py:109(compose_node)
+ 1702/476    0.020    0.000    3.273    0.007 composer.py:199(compose_mapping_node)
+      250    0.012    0.000    3.130    0.013 vault_metrics.py:2025(calculate_period_results)
+     1500    0.100    0.000    3.117    0.002 vault_metrics.py:1715(calculate_period_metrics)
+    64029    0.030    0.000    3.050    0.000 parser.py:135(check_event)
+      912    0.009    0.000    2.732    0.003 vault_metrics.py:1539(_calculate_flow_window)
+      250    0.055    0.000    2.423    0.010 vault_metrics.py:1615(_attach_period_flow_metrics)
+      250    0.001    0.000    2.403    0.010 curator.py:940(identify_curator)
+      239    0.000    0.000    2.369    0.010 curator.py:806(_build_matching_patterns)
+       69    0.001    0.000    2.351    0.034 curator.py:774(load_curator_map)
+      264    0.002    0.000    2.346    0.009 curator.py:720(_load_curator_yaml)
+      264    0.001    0.000    2.343    0.009 sources.py:1012(load_feeder_metadata)
+ 2313/476    0.003    0.000    2.276    0.005 validators.py:16(__call__)
+   195038    0.159    0.000    2.252    0.000 parser.py:194(check_token)
+ 1702/476    0.037    0.000    2.246    0.005 compound.py:159(validate)
+     9264    0.016    0.000    2.075    0.000 indexing.py:1415(_getitem_axis)
+   295650    0.498    0.000    1.948    0.000 scanner.py:1815(_gather_comments)
+    10748    0.036    0.000    1.821    0.000 parser.py:636(parse_block_mapping_value)
+      213    0.010    0.000    1.675    0.008 vault_metrics.py:1407(_derive_erc4626_estimated_daily_flows)
+     5097    0.027    0.000    1.604    0.000 generic.py:4010(take)
+      212    0.000    0.000    1.598    0.008 any_validator.py:53(validate)
+      912    0.028    0.000    1.404    0.002 vault_metrics.py:1487(_get_complete_flow_window)
+     3132    0.006    0.000    1.400    0.000 indexing.py:1221(_getbool_axis)
+
+
+         50326045 function calls (49277854 primitive calls) in 18.020 seconds
+
+   Ordered by: internal time
+   List reduced from 1898 to 40 due to restriction <40>
+
+   ncalls  tottime  percall  cumtime  percall filename:lineno(function)
+7972032/7930270    0.917    0.000    1.191    0.000 {built-in method builtins.isinstance}
+   295650    0.498    0.000    1.948    0.000 scanner.py:1815(_gather_comments)
+597119/45122    0.326    0.000    1.000    0.000 copy.py:110(deepcopy)
+2663231/2381685    0.268    0.000    0.326    0.000 {built-in method builtins.len}
+    32495    0.265    0.000    0.273    0.000 compute.py:467(take)
+    88475    0.247    0.000    0.613    0.000 array.py:722(__getitem__)
+   899474    0.240    0.000    0.553    0.000 comments.py:616(__iter__)
+    80155    0.231    0.000    0.399    0.000 __init__.py:8(unidecode)
+   602355    0.228    0.000    0.498    0.000 scanner.py:204(need_more_tokens)
+    16232    0.224    0.000    0.637    0.000 scanner.py:1545(scan_plain)
+   182979    0.222    0.000    0.875    0.000 yamlpointer.py:175(_individual_get)
+   641252    0.221    0.000    0.221    0.000 {method 'sub' of 're.Pattern' objects}
+    82091    0.198    0.000    0.282    0.000 generic.py:6131(__finalize__)
+    80155    0.195    0.000    0.994    0.000 slugify.py:75(slugify)
+1214100/1210049    0.193    0.000    0.215    0.000 {built-in method builtins.getattr}
+   610532    0.182    0.000    0.206    0.000 scanner.py:349(stale_possible_simple_keys)
+  1513798    0.163    0.000    0.174    0.000 {built-in method builtins.hasattr}
+   195038    0.159    0.000    2.252    0.000 parser.py:194(check_token)
+  1710999    0.152    0.000    0.152    0.000 {method 'append' of 'list' objects}
+   135719    0.147    0.000    0.147    0.000 {method 'reduce' of 'numpy.ufunc' objects}
+   820008    0.135    0.000    0.220    0.000 comments.py:757(__getitem__)
+    17931    0.132    0.000    0.720    0.000 datetimelike.py:385(__getitem__)
+   822826    0.124    0.000    0.124    0.000 {method 'get' of 'dict' objects}
+    71724    0.122    0.000    0.262    0.000 typing.py:184(_type_check)
+    25059    0.118    0.000    0.410    0.000 construction.py:531(sanitize_array)
+   178485    0.116    0.000    0.129    0.000 reader.py:167(forward)
+   828645    0.114    0.000    0.165    0.000 scanner.py:92(flow_level)
+    24283    0.113    0.000    1.168    0.000 managers.py:396(apply)
+   161379    0.112    0.000    0.192    0.000 annotationlib.py:316(__hash__)
+    91796    0.102    0.000    0.188    0.000 array.py:310(__init__)
+91452/51109    0.101    0.000    0.199    0.000 copy.py:181(_deepcopy_tuple)
+     1500    0.100    0.000    3.117    0.002 vault_metrics.py:1715(calculate_period_metrics)
+    36851    0.098    0.000    0.211    0.000 string_arrow.py:133(__init__)
+    97024    0.097    0.000    0.200    0.000 generic.py:6208(__setattr__)
+    22799    0.097    0.000    1.095    0.000 parser.py:353(parse_node)
+   899474    0.096    0.000    0.099    0.000 comments.py:832(_keys)
+   413795    0.095    0.000    0.230    0.000 generic.py:43(_instancecheck)
+51796/50401    0.094    0.000    0.749    0.000 copy.py:228(_reconstruct)
+20338/20088    0.093    0.000    0.684    0.000 series.py:369(__init__)
+  1060024    0.092    0.000    0.092    0.000 {built-in method builtins.id}

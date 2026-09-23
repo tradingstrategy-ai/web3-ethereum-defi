@@ -245,7 +245,13 @@ crypto-specific return column. The legacy ``returns_1h`` column is recomputed
 between consecutive exported observations: it is a sparse return, not an
 hourly or guaranteed one-day return, and existing TVL-filtered rows remain
 zeroed. Lifetime metrics use the normal forward-filled daily share-price
-series. ETH and BTC amounts stay in their denomination units. Native admission
+series. The [private metadata builder](../../eth_defi/vault/crypto_vaults.py)
+prepares stablecoin metrics directly from these sparse daily rows in memory,
+filling calendar gaps without repeating the daily aggregation. It drops
+cleaned-price columns unused by returns and lifetime metrics before this step.
+INFO logs report source read, freshness filtering, daily preparation and metric
+calculation times separately, with row counts and a preparation-end RSS sample.
+ETH and BTC amounts stay in their denomination units. Native admission
 uses each family lifetime peak ``total_assets`` with hard thresholds of
 ``2.5`` ETH-family units and ``0.1`` BTC-family units. The older fixed
 USD-to-denomination values (USD 2,000/ETH and USD 60,000/BTC) remain only as
@@ -2874,9 +2880,14 @@ Multi-chain vault analysis with JSON export and lifetime metric analysis. The
 implementation lives in `eth_defi.vault.top_vaults_json`; the script is a
 compatibility wrapper for manual operator runs. The all-chains scanner writes
 and uploads `top_vaults_by_chain.json`, while a direct manual run defaults to
-`stablecoin-vault-metrics.json` unless `OUTPUT_JSON` is set.
+`stablecoin-vault-metrics.json` unless `OUTPUT_JSON` is set. Standalone runs
+configure INFO logging, including phase duration, boundary RSS, major page
+faults and the due-vault counts. `LOG_LEVEL` overrides the log level.
+In the looped scanner, these INFO lines are written to
+`logs/scan-all-chains.log`. The default `LOG_LEVEL=warning` keeps them out of
+`docker compose logs`; set `LOG_LEVEL=info` to include them there.
 
-Generates `top_vaults_by_chain.json` with the following top-level structure:
+The generated JSON has the following top-level structure:
 
 ```json
 {
@@ -2974,6 +2985,8 @@ uses `Content-Encoding: br` and `Content-Type: application/json` so that
 browsers transparently decompress it.
 
 Brotli compression uses quality 11 (maximum, suitable for offline pipelines).
+When an alternative bucket is configured, the same compressed bytes and source
+digest are reused for both bucket uploads.
 If the `brotli` package is not installed, the upload fails with a logged warning
 and the function returns `False` — the raw JSON is still uploaded first.
 
@@ -2990,11 +3003,11 @@ shared sticky state file under the pipeline data directory:
 OUTPUT_JSON=~/.tradingstrategy/top_vaults_by_chain.json poetry run python scripts/erc-4626/vault-analysis-json.py
 ```
 
-For local scratch exports, set both `OUTPUT_JSON` and `VAULT_EXPORT_STATE_PATH`
-to temporary paths:
+For local scratch exports, set the output and both freshness-state paths to
+temporary locations:
 
 ```shell
-OUTPUT_JSON=/tmp/top-vaults.json VAULT_EXPORT_STATE_PATH=/tmp/vault-export-state.json poetry run python scripts/erc-4626/vault-analysis-json.py
+OUTPUT_JSON=/tmp/top-vaults.json VAULT_EXPORT_STATE_PATH=/tmp/vault-export-state.json VAULT_METRICS_STATE_PATH=/tmp/vault-metrics-state.json poetry run python scripts/erc-4626/vault-analysis-json.py
 ```
 
 | Variable | Description |
@@ -3004,6 +3017,8 @@ OUTPUT_JSON=/tmp/top-vaults.json VAULT_EXPORT_STATE_PATH=/tmp/vault-export-state
 | `FEED_DB_PATH` | Optional. Vault post feed DuckDB path. Falls back to `DB_PATH` (used by the feed collector). Default: `~/.tradingstrategy/vaults/vault-post-database.duckdb`. |
 | `R2_VAULT_METADATA_PUBLIC_URL` | Optional. Public base URL for curator logo URLs in the export. |
 | `VAULT_EXPORT_STATE_PATH` | Optional. Explicit sticky export state path for scratch or alternate-pipeline runs. Defaults to `vault-export-state.json` under the data directory. |
+| `VAULT_METRICS_STATE_PATH` | Optional. Explicit metric freshness state path for scratch runs. Defaults to `vault-metrics-state.json` under the data directory. |
+| `LOG_LEVEL` | Optional. Standalone log level. Defaults to `info`. |
 | `STICKY_STALE_WARNING_AGE_DAYS` | Optional. Age in days after which stale annotations and warnings are emitted. Default: 14. |
 
 After generating, upload to R2 with rclone:

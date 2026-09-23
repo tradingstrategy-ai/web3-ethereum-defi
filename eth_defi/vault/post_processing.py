@@ -13,8 +13,9 @@ import logging
 import os
 import pickle  # noqa: S403 - VaultDatabase already uses trusted local pickle state.
 import time
+from functools import cache
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
 try:
     import brotli
@@ -30,7 +31,7 @@ import pyarrow.parquet as pq
 from eth_defi.apex.constants import APEX_CHAIN_ID, APEX_METRICS_DATABASE
 from eth_defi.apex.metrics import ApexMetricsDatabase
 from eth_defi.apex.vault_data_export import build_raw_prices_dataframe as build_apex_prices_dataframe
-from eth_defi.cloudflare_r2 import R2OperationError, R2RetryableOperationError, calculate_bytes_digest, copy_r2_object_daily_backup, create_r2_client, upload_bytes_to_r2, upload_file_to_r2
+from eth_defi.cloudflare_r2 import R2OperationError, R2RetryableOperationError, R2SourceDigest, calculate_bytes_digest, copy_r2_object_daily_backup, create_r2_client, upload_bytes_to_r2, upload_file_to_r2
 from eth_defi.currency_api.parquet import materialise_exchange_rate_parquet
 from eth_defi.grvt.constants import GRVT_CHAIN_ID, GRVT_DAILY_METRICS_DATABASE
 from eth_defi.grvt.daily_metrics import GRVTDailyMetricsDatabase
@@ -133,6 +134,24 @@ def _mask_access_key_id(access_key_id: str | None) -> str:
     return f"{access_key_id[:4]}...{access_key_id[-4:]}"
 
 
+def _prepare_top_vaults_brotli_payload(output_path: Path) -> tuple[bytes, R2SourceDigest, int]:
+    """Read, hash, and compress one top-vault JSON artefact for bucket reuse.
+
+    The caller caches this result only for the current publication. A later
+    export may replace the file at the same path and must prepare new bytes.
+
+    :param output_path: Generated JSON file to publish.
+    :return: Compressed payload, digest of the raw JSON, and raw byte count.
+    """
+    assert brotli is not None
+    raw_bytes = output_path.read_bytes()
+    source_digest = calculate_bytes_digest(raw_bytes)
+    started_at = time.perf_counter()
+    compressed = brotli.compress(raw_bytes, quality=11)
+    logger.info("Top-vault Brotli compression: %d -> %d bytes in %.2fs", len(raw_bytes), len(compressed), time.perf_counter() - started_at)
+    return compressed, source_digest, len(raw_bytes)
+
+
 def _upload_top_vaults_json_to_bucket(  # noqa: PLR0917 - internal upload payload has six required fields
     s3_client: Any,
     output_path: Path,
@@ -143,6 +162,7 @@ def _upload_top_vaults_json_to_bucket(  # noqa: PLR0917 - internal upload payloa
     *,
     public_url: str = "",
     bucket_label: str,
+    brotli_payload_factory: Callable[[], tuple[bytes, R2SourceDigest, int]] | None = None,
 ) -> bool:
     """Upload the generated top-vaults JSON to one configured bucket.
 
@@ -172,6 +192,9 @@ def _upload_top_vaults_json_to_bucket(  # noqa: PLR0917 - internal upload payloa
 
     :param bucket_label:
         Human-readable label such as ``primary`` or ``alternative``.
+
+    :param brotli_payload_factory:
+        Per-publication cached payload supplier shared by both buckets.
 
     :return:
         ``True`` if the bucket upload succeeded or was skipped as unchanged,
@@ -208,10 +231,12 @@ def _upload_top_vaults_json_to_bucket(  # noqa: PLR0917 - internal upload payloa
         logger.warning("brotli package not installed — skipping .json.br upload for %s bucket", bucket_label)
         return False
     try:
-        raw_bytes = output_path.read_bytes()
-        compressed = brotli.compress(raw_bytes, quality=11)
-        source_digest = calculate_bytes_digest(raw_bytes)
+        if brotli_payload_factory is None:
+            compressed, source_digest, raw_size = _prepare_top_vaults_brotli_payload(output_path)
+        else:
+            compressed, source_digest, raw_size = brotli_payload_factory()
 
+        upload_started_at = time.perf_counter()
         br_uploaded = upload_bytes_to_r2(
             s3_client=s3_client,
             payload=compressed,
@@ -222,7 +247,8 @@ def _upload_top_vaults_json_to_bucket(  # noqa: PLR0917 - internal upload payloa
             source_digest=source_digest,
             skip_if_current=True,
         )
-        ratio = len(compressed) / len(raw_bytes) * 100 if raw_bytes else 0
+        logger.info("Top-vault Brotli %s bucket upload/check: %.2fs", bucket_label, time.perf_counter() - upload_started_at)
+        ratio = len(compressed) / raw_size * 100 if raw_size else 0
         if br_uploaded:
             logger.info(
                 "Uploaded brotli %s.br to %s s3://%s/%s.br (%.1f%% of original)",
@@ -278,6 +304,18 @@ def _upload_top_vaults_json_to_configured_buckets(  # noqa: PLR0917 - internal R
         ``True`` if all configured uploads succeeded or were skipped as
         unchanged, otherwise ``False``.
     """
+
+    @cache
+    def brotli_payload() -> tuple[bytes, R2SourceDigest, int]:
+        """Prepare compression on first use and reuse it for this publication.
+
+        The no-argument cache is local to this call, so a later scanner round
+        always reads its newly generated JSON artefact.
+
+        :return: Compressed bytes, source digest and source size.
+        """
+        return _prepare_top_vaults_brotli_payload(output_path)
+
     primary_success = _upload_top_vaults_json_to_bucket(
         s3_client=s3_client,
         output_path=output_path,
@@ -287,6 +325,7 @@ def _upload_top_vaults_json_to_configured_buckets(  # noqa: PLR0917 - internal R
         access_key_id=access_key_id,
         public_url=public_url,
         bucket_label="primary",
+        brotli_payload_factory=brotli_payload,
     )
 
     alternative_success = True
@@ -299,6 +338,7 @@ def _upload_top_vaults_json_to_configured_buckets(  # noqa: PLR0917 - internal R
             object_key=object_key,
             access_key_id=access_key_id,
             bucket_label="alternative",
+            brotli_payload_factory=brotli_payload,
         )
 
         daily_backup_enabled = os.environ.get("R2_DAILY_BACKUP", "true").lower() != "false"
