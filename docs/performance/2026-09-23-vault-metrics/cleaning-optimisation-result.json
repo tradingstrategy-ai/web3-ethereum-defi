@@ -1,0 +1,23 @@
+{
+  "parquet_outputs": {
+    "daily": {
+      "byte_identical": true,
+      "sha256_after": "2b72886d9072a2ce5f06fe8b8ac9cc8b3f08672877ef00b08fd434df203878b8",
+      "sha256_before": "2b72886d9072a2ce5f06fe8b8ac9cc8b3f08672877ef00b08fd434df203878b8"
+    },
+    "hourly": {
+      "byte_identical": true,
+      "sha256_after": "ec0aa442b09991f49f7b26634e0e0285fd30181bacca4a175f8ffb2f7cdaeb2d",
+      "sha256_before": "ec0aa442b09991f49f7b26634e0e0285fd30181bacca4a175f8ffb2f7cdaeb2d"
+    }
+  },
+  "peak_rss_kib": {
+    "after": 18322944,
+    "before": 21486064
+  },
+  "scope": "Same raw Parquet, vault metadata, settlement DB and stablecoin family on vitalik8; output Parquet files compared byte-for-byte.",
+  "wall_seconds": {
+    "after": 63.535,
+    "before": 100.33
+  }
+}

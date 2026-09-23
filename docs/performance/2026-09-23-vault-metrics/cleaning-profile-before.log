@@ -1,0 +1,52 @@
+2026-09-23 14:55:11,055 INFO Loading vault database /home/mikko/.tradingstrategy/vault-metadata-db.pickle
+2026-09-23 14:55:12,328 INFO Loading prices /home/mikko/.tradingstrategy/vault-prices-1h.parquet
+2026-09-23 14:55:14,113 INFO Price data has 25,289 unique vault ids, vault database has 51,907 vault ids
+2026-09-23 14:55:14,123 INFO Vault cleaning stage metadata identity scan: 22,552,978 rows in 1.78s
+2026-09-23 14:55:14,850 INFO Vault cleaning stage raw Parquet read: 10,338,606 rows in 0.70s
+2026-09-23 14:55:14,916 INFO We have 50,364 vault leads in the vault database and 10,338,606 price rows in the raw prices DataFrame
+2026-09-23 14:55:15,014 INFO Fixed 27055 duplicate vault names, 12445 vaults had empty names, duplicate names with NAV: 1908
+2026-09-23 14:55:15,014 INFO Example vault with empty name: {'Symbol': '', 'Name': '(Arbitrum) #6568', 'Address': '0xa5b496386610b5a4db68ee87ed8aef20a6786682', 'Protocol': '<unknown>', 'Denomination': '', 'Share token': '', 'NAV': 0, 'Peak NAV': 0, 'Mgmt fee': None, 'Perf fee': None, 'Shares': 0, 'Features': '', 'features': {<ERC4626Feature.broken: 'broken'>}, 'First seen': datetime.datetime(2023, 12, 31, 5, 20, 6), 'Link': None, '_detection_data': ERC4262VaultDetection(chain=42161, address='0xa5b496386610b5a4db68ee87ed8aef20a6786682', first_seen_at_block=165525528, first_seen_at=datetime.datetime(2023, 12, 31, 5, 20, 6), features={<ERC4626Feature.broken: 'broken'>}, updated_at=datetime.datetime(2026, 9, 17, 8, 12, 12, 487962), deposit_count=555, redeem_count=0, configuration_count=0, current_deposit_permission=None), '_fees': None, '_flags': {}, '_strategy_tags': None, '_notes': None, '_deposit_manager': None, '_deposit_permission': 'unknown', '_withdrawal_period': None, '_whitelist_notes': None, '_minimum_deposit': None, '_minimum_redemption': None, '_share_price_source': None}
+2026-09-23 14:55:15,573 INFO Price data has 14,565 unique vault ids, vault database has 51,907 vault ids
+2026-09-23 14:55:15,799 INFO Selected 25,200 vaults and 10,338,606 price rows for denomination families ['stablecoin']
+2026-09-23 14:55:26,001 INFO Vault cleaning stage metadata/filter: 10,338,606 -> 10,338,606 rows in 11.09s
+2026-09-23 14:55:39,921 INFO Vault cleaning stage sort: 10,338,606 rows in 3.73s
+2026-09-23 14:55:43,322 INFO Removed inactive lead time: 10,338,606 -> 10,135,503 rows (203,103 removed from 10508 vaults)
+2026-09-23 14:55:43,575 INFO Vault cleaning stage inactive lead time: 10,338,606 -> 10,135,503 rows in 3.51s
+2026-09-23 14:55:46,068 INFO Discarded 5,459 initial low-TVL Hypercore price rows across 327 vaults; tracking starts at $1,000 NAV and 0 vaults have not reached it
+2026-09-23 14:55:46,172 INFO Vault cleaning stage Hypercore initial low-TVL discard: 10,135,503 -> 10,130,044 rows in 2.60s
+2026-09-23 14:55:48,726 INFO Discarded 421 pre-recapitalisation Hypercore price rows across 5 vaults; new epochs start once NAV reaches $1,000 after 7 days 00:00:00
+2026-09-23 14:55:48,863 INFO Vault cleaning stage Hypercore recapitalisation discard: 10,130,044 -> 10,129,623 rows in 2.69s
+2026-09-23 14:55:51,074 INFO Approximated Hypercore economic share prices for 613 vaults using 516,159 four-hour PnL/NAV checkpoints; carried 1,078,530 non-performance rows, repaired 268 delayed NAV confirmations, deferred 0 missing-input rows and 61 uncorroborated losses, capped 10 gains and recorded 1 terminal wipe-outs
+2026-09-23 14:55:51,105 INFO Vault cleaning stage Hypercore PnL/NAV approximation: 10,129,623 -> 10,129,623 rows in 2.24s
+2026-09-23 14:55:53,073 INFO Share-price outlier EVM selection: 8,535,236 rows in 1.93s
+2026-09-23 14:55:53,098 INFO Share-price outlier frame preparation: 8,535,236 rows in 0.02s
+2026-09-23 14:55:55,152 INFO Share-price outlier state forward-fill: 8,535,236 rows in 2.05s
+2026-09-23 14:55:55,798 INFO Share-price outlier group arrays: 8,535,236 rows in 0.65s
+2026-09-23 14:55:59,488 INFO Share-price outlier array kernel: 8,535,236 rows in 3.69s
+2026-09-23 14:55:59,566 INFO Share prices fix count 6555, updated 6,555 / 8,535,236 rows with abnormal share_price spikes (> 33.00%)
+2026-09-23 14:56:29,114 INFO Share-price outlier write-back: 43 columns in 29.53s; slowest [('name', 8.429404110647738), ('deposit_closed_reason', 8.01000517513603), ('protocol', 3.718992071226239), ('hypercore_repair_status', 2.7148139188066125), ('address', 0.47237986978143454)]
+2026-09-23 14:56:29,327 INFO Vault cleaning stage EVM outlier repair: 8,535,236 -> 8,535,236 rows in 38.20s
+2026-09-23 14:56:29,428 INFO Dropping 13,000 invalid share-price observations
+2026-09-23 14:56:32,465 INFO Vault cleaning stage return calculation: 10,129,623 -> 10,116,623 rows in 3.14s
+2026-09-23 14:56:32,514 INFO Found 1,833 outlier returns > 50.000000%; top vaults by count: DeFi Quant Trading=196, Majora Spark WXDAI=48, mortgagefi-conversion-usdc-cbbtc (Base) #980=37
+2026-09-23 14:56:32,525 INFO Vault cleaning stage return cleaning: 10,116,623 -> 10,116,623 rows in 0.06s
+2026-09-23 14:56:32,689 INFO Setting returns to zero for 1,313,113 / 10,116,623 data points where total_assets < 2.00% of all-time average TVL
+2026-09-23 14:56:32,817 INFO Vault cleaning stage TVL cleaning: 10,116,623 -> 10,116,623 rows in 0.29s
+2026-09-23 14:56:39,646 INFO Vault cleaning stage perpetual metric finalisation: 10,116,623 -> 10,116,623 rows in 6.73s
+2026-09-23 14:56:39,648 INFO Vault cleaning stage Python transforms: 10,338,606 -> 10,116,623 rows in 84.73s
+2026-09-23 14:56:39,648 INFO We have 10,116,623 price rows in the cleaned prices DataFrame before settlement annotation
+2026-09-23 14:56:39,683 INFO Closing vault settlement database at /home/mikko/.tradingstrategy/vault-settlements.duckdb
+2026-09-23 14:56:39,698 INFO Starting vault settlement annotation: 10116623 price rows, 11486 settlement rows
+2026-09-23 14:56:40,945 INFO Prepared vault settlement annotation groups: 10116623 price rows across 12795 vaults, 11486 settlement rows across 432 vaults
+2026-09-23 14:56:41,405 INFO Vault settlement annotation complete: 4743 price rows annotated across 330 vaults in 1.7 seconds
+2026-09-23 14:56:41,416 INFO Merged vault settlement data: 4743 price rows annotated
+2026-09-23 14:56:41,457 INFO Vault cleaning stage settlement annotation: 10,116,623 rows in 1.81s
+2026-09-23 14:56:44,391 INFO Vault cleaning stage output sort: 10,116,623 rows in 2.91s
+2026-09-23 14:56:44,426 INFO Vault cleaning stage Arrow conversion: 10,116,623 rows in 0.04s
+2026-09-23 14:56:47,872 INFO Vault cleaning stage Parquet write: 10,116,623 rows in 3.45s
+2026-09-23 14:56:47,874 INFO Parquet verification passed for /tmp/white-snake-clean-20260923/tmp0ans6nxu.parquet: 10116623 rows, 49 columns, 259507014 bytes
+2026-09-23 14:56:47,874 INFO Vault cleaning stage Parquet verification: 10,116,623 rows in 0.00s
+2026-09-23 14:56:51,015 INFO Parquet verification passed for /tmp/white-snake-clean-20260923/tmp0lza6jpl.parquet: 1945631 rows, 49 columns, 59157081 bytes
+2026-09-23 14:56:51,015 INFO Vault cleaning stage daily sidecar write: 1,945,631 rows to /tmp/white-snake-clean-20260923/reference-daily.parquet in 3.14s
+2026-09-23 14:56:51,032 INFO Saved cleaned vault prices to /tmp/white-snake-clean-20260923/reference-hourly.parquet, total 10,116,623 rows, file size is 247.49 MB; total elapsed 99.98s
+{"cpu_seconds": 115.89, "families": ["stablecoin"], "input": {"column_count": 38, "mtime_ns": 1790095143253953385, "path": "/home/mikko/.tradingstrategy/vault-prices-1h.parquet", "row_count": 22552978, "schema": [{"name": "chain", "type": "uint32"}, {"name": "address", "type": "string"}, {"name": "block_number", "type": "uint64"}, {"name": "timestamp", "type": "timestamp[ms]"}, {"name": "share_price", "type": "double"}, {"name": "total_assets", "type": "double"}, {"name": "total_supply", "type": "double"}, {"name": "performance_fee", "type": "float"}, {"name": "management_fee", "type": "float"}, {"name": "errors", "type": "string"}, {"name": "vault_poll_frequency", "type": "string"}, {"name": "max_deposit", "type": "double"}, {"name": "max_redeem", "type": "double"}, {"name": "deposits_open", "type": "string"}, {"name": "redemption_open", "type": "string"}, {"name": "trading", "type": "string"}, {"name": "available_liquidity", "type": "double"}, {"name": "utilisation", "type": "float"}, {"name": "written_at", "type": "timestamp[ms]"}, {"name": "perp_long_notional", "type": "double"}, {"name": "perp_short_notional", "type": "double"}, {"name": "perp_open_position_count", "type": "int64"}, {"name": "perp_largest_position_notional", "type": "double"}, {"name": "perp_quote_asset", "type": "string"}, {"name": "perp_position_data_status", "type": "string"}, {"name": "perp_metrics_observed_at", "type": "timestamp[ms]"}, {"name": "leader_fraction", "type": "double"}, {"name": "leader_commission", "type": "double"}, {"name": "daily_deposit_count", "type": "double"}, {"name": "daily_withdrawal_count", "type": "double"}, {"name": "daily_deposit_usd", "type": "double"}, {"name": "daily_withdrawal_usd", "type": "double"}, {"name": "account_pnl", "type": "double"}, {"name": "follower_count", "type": "double"}, {"name": "cumulative_volume", "type": "double"}, {"name": "deposit_closed_reason", "type": "large_string"}, {"name": "epoch_reset", "type": "bool"}, {"name": "hypercore_source", "type": "large_string"}], "size_bytes": 333430642}, "output_columns": 49, "output_is_temporary": false, "output_path": "/tmp/white-snake-clean-20260923/reference-hourly.parquet", "output_rows": 10116623, "peak_rss_kib": 21486064, "settlements": {"enabled": true, "mtime_ns": 1790095246400881140, "path": "/home/mikko/.tradingstrategy/vault-settlements.duckdb", "row_count": 11486, "size_bytes": 3158016}, "vault_metadata": {"mtime_ns": 1790095081067599831, "path": "/home/mikko/.tradingstrategy/vault-metadata-db.pickle", "size_bytes": 53933036}, "wall_seconds": 100.33}

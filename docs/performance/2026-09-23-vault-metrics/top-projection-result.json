@@ -1,0 +1,20 @@
+{
+  "after": {
+    "daily_prep_seconds": 36.217,
+    "metric_loop_seconds": 121.23,
+    "peak_rss_kib": 8681320,
+    "wall_seconds": 181.792
+  },
+  "before": {
+    "daily_prep_seconds": 96.202,
+    "metric_loop_seconds": 136.866,
+    "peak_rss_kib": 17395404,
+    "wall_seconds": 257.215
+  },
+  "canonical_json_and_state_equal": true,
+  "due_vaults": 5765,
+  "input_price_rows": 10116623,
+  "network_uploads_included": false,
+  "raw_byte_difference": "JSON and state bytes differed. A recursive comparison found only 190 reordered flag lists and 14 reordered curator-post lists with equal published_at at each position; see top-projection-ordering.json. Byte-for-byte parity is unproven.",
+  "raw_json_byte_equal": false
+}

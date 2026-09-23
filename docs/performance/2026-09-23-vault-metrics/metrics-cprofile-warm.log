@@ -1,0 +1,1 @@
+{"cache_phase": "warm", "daily_rows": 130444, "metrics_rows": 250, "peak_rss_kib": 3511496, "price_mtime_ns": 1790095127735114707, "price_path": "/home/mikko/.tradingstrategy/cleaned-vault-prices-1h.parquet", "sample_vaults": 250, "scope": "calculate_lifetime_metrics and callees only; cProfile instrumentation adds overhead", "wall_seconds": 11.937}

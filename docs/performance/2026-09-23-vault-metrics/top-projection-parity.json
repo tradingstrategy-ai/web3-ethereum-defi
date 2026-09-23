@@ -1,0 +1,20 @@
+{
+  "top_vaults_by_chain.json": {
+    "canonical_equal": true,
+    "canonical_sha256_after": "843a1a8ab5da5bd24f97abfa73b673e6b60af9b0ef2fbb674b562bccb8a60ac5",
+    "canonical_sha256_before": "843a1a8ab5da5bd24f97abfa73b673e6b60af9b0ef2fbb674b562bccb8a60ac5",
+    "raw_byte_equal": false
+  },
+  "vault-export-state.json": {
+    "canonical_equal": true,
+    "canonical_sha256_after": "2801dd1cddc4a135b94c1c90801b7d198ef4503a93c3116a97eabfab5e7b1fb5",
+    "canonical_sha256_before": "2801dd1cddc4a135b94c1c90801b7d198ef4503a93c3116a97eabfab5e7b1fb5",
+    "raw_byte_equal": false
+  },
+  "vault-metrics-state.json": {
+    "canonical_equal": true,
+    "canonical_sha256_after": "7078375429dfc4026460548cae10441da52703b75ece8d1d16ed343be3bcac8d",
+    "canonical_sha256_before": "7078375429dfc4026460548cae10441da52703b75ece8d1d16ed343be3bcac8d",
+    "raw_byte_equal": false
+  }
+}

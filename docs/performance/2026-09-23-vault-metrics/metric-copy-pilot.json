@@ -1,0 +1,14 @@
+{
+  "extrapolation_warning": "Timed standalone operations only; group and metric call overhead omitted.",
+  "sample": {
+    "groups": 500,
+    "sorted_and_complete": 500,
+    "valid_rows": 254723
+  },
+  "seconds": {
+    "index_guard": 0.008,
+    "sort_existing": 0.284,
+    "valid_row_positions": 0.222,
+    "valid_rows_copy": 0.304
+  }
+}

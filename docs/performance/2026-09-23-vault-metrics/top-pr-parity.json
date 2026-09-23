@@ -1,0 +1,32 @@
+{
+  "top_vaults_by_chain.json": {
+    "curator_post_reorders_with_equal_position_timestamps": 27,
+    "flag_list_reorders": 174,
+    "other_list_reorders": 0,
+    "other_value_differences": 0,
+    "parsed_json_equal": false,
+    "projection_sha256": "ef9b4e73cea5d28016926f2261d1d2dc651359a824de8ff6d172fcd944b13783",
+    "raw_byte_equal": false,
+    "reference_sha256": "0803045afd047c73fffbff57076e84049a15d6ba3905b9a3c718655e12d7abbb"
+  },
+  "vault-export-state.json": {
+    "curator_post_reorders_with_equal_position_timestamps": 0,
+    "flag_list_reorders": 174,
+    "other_list_reorders": 0,
+    "other_value_differences": 0,
+    "parsed_json_equal": false,
+    "projection_sha256": "dbdb25bf158fb2567cef4afec2a6191ce4dd01814c00466f50f67e9a7c092840",
+    "raw_byte_equal": false,
+    "reference_sha256": "715969731687d8feb16340737f5fd7788581a06e3d847e8de9215f30c48b34cc"
+  },
+  "vault-metrics-state.json": {
+    "curator_post_reorders_with_equal_position_timestamps": 0,
+    "flag_list_reorders": 0,
+    "other_list_reorders": 0,
+    "other_value_differences": 0,
+    "parsed_json_equal": true,
+    "projection_sha256": "d50cb61a8e659a596e97fc6278705c5de29d739abbc5bb95157f11f19af3069c",
+    "raw_byte_equal": false,
+    "reference_sha256": "f62ec3692dbb74bce9d284e9a102961e3f710748e24b8826ffc2d91326af268a"
+  }
+}

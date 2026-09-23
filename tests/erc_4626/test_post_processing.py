@@ -327,6 +327,56 @@ def test_brotli_upload_params(
     assert decompressed == json_content.encode("utf-8")
 
 
+def test_two_bucket_publication_compresses_once(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Both buckets receive identical compressed bytes and source metadata.
+
+    The second bucket must reuse the first bucket's prepared artifact even
+    when R2 reports that the first compressed upload is already current.
+
+    :param tmp_path: Isolated JSON artifact location.
+    :param monkeypatch: Replace R2 calls and count Brotli invocations.
+    :return: ``None`` after asserting both upload payloads.
+    """
+    output_path = tmp_path / "top_vaults_by_chain.json"
+    source_bytes = b'{"vaults": [{"id": "1-example"}]}'
+    output_path.write_bytes(source_bytes)
+    real_compress = brotli.compress
+    compression_calls = 0
+    uploads: list[dict] = []
+
+    def counted_compress(payload: bytes, *, quality: int) -> bytes:
+        nonlocal compression_calls
+        compression_calls += 1
+        return real_compress(payload, quality=quality)
+
+    def fake_upload_bytes_to_r2(**kwargs: object) -> bool:
+        uploads.append(kwargs)
+        return kwargs["bucket_name"] == "alternative"
+
+    monkeypatch.setattr(post_processing.brotli, "compress", counted_compress)
+    monkeypatch.setattr(post_processing, "upload_file_to_r2", lambda **_: True)
+    monkeypatch.setattr(post_processing, "upload_bytes_to_r2", fake_upload_bytes_to_r2)
+    monkeypatch.setenv("R2_DAILY_BACKUP", "false")
+
+    assert post_processing._upload_top_vaults_json_to_configured_buckets(
+        s3_client=object(),
+        output_path=output_path,
+        bucket_name="primary",
+        endpoint_url="https://example.r2.cloudflarestorage.com",
+        object_key="top_vaults_by_chain.json",
+        access_key_id="test-key-12345678",
+        alt_bucket_name="alternative",
+    )
+    assert compression_calls == 1
+    assert [call["bucket_name"] for call in uploads] == ["primary", "alternative"]
+    assert uploads[0]["payload"] is uploads[1]["payload"]
+    assert uploads[0]["source_digest"] is uploads[1]["source_digest"]
+    assert brotli.decompress(uploads[0]["payload"]) == source_bytes
+
+
 def test_brotli_failure_returns_false(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,

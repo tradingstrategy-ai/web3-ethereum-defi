@@ -7,8 +7,7 @@ code can import it normally. Keep this script so existing operator commands
 continue to work.
 """
 
-from eth_defi.vault.top_vaults_json import main
-
+from eth_defi.vault.top_vaults_json import run_cli
 
 if __name__ == "__main__":
-    main()
+    run_cli()

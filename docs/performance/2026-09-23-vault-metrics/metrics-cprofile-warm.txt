@@ -1,0 +1,94 @@
+         28359867 function calls (27988032 primitive calls) in 11.934 seconds
+
+   Ordered by: cumulative time
+   List reduced from 1535 to 40 due to restriction <40>
+
+   ncalls  tottime  percall  cumtime  percall filename:lineno(function)
+      3/2    0.000    0.000   10.666    5.333 threading.py:651(wait)
+      3/2    0.000    0.000   10.666    5.333 threading.py:337(wait)
+     12/7    0.002    0.000   10.666    1.524 {method 'acquire' of '_thread.lock' objects}
+      2/1    0.023    0.011   10.663   10.663 vault_metrics.py:3261(calculate_lifetime_metrics)
+      250    0.037    0.000   10.388    0.042 vault_metrics.py:2478(calculate_vault_record)
+    27664    0.039    0.000    3.431    0.000 indexing.py:1192(__getitem__)
+      250    0.012    0.000    3.153    0.013 vault_metrics.py:2025(calculate_period_results)
+     1500    0.100    0.000    3.141    0.002 vault_metrics.py:1715(calculate_period_metrics)
+      912    0.009    0.000    2.752    0.003 vault_metrics.py:1539(_calculate_flow_window)
+      250    0.056    0.000    2.441    0.010 vault_metrics.py:1615(_attach_period_flow_metrics)
+     9264    0.016    0.000    2.086    0.000 indexing.py:1415(_getitem_axis)
+      213    0.010    0.000    1.686    0.008 vault_metrics.py:1407(_derive_erc4626_estimated_daily_flows)
+     5097    0.028    0.000    1.619    0.000 generic.py:4010(take)
+      912    0.028    0.000    1.417    0.002 vault_metrics.py:1487(_get_complete_flow_window)
+     3132    0.005    0.000    1.410    0.000 indexing.py:1221(_getbool_axis)
+     9581    0.029    0.000    1.341    0.000 frame.py:4337(__getitem__)
+     1586    0.007    0.000    1.309    0.001 vault_metrics.py:1517(_get_complete_flow_columns)
+    18400    0.033    0.000    1.255    0.000 indexing.py:1740(_getitem_axis)
+        1    0.013    0.013    1.255    1.255 vault_metrics.py:1268(slugify_vaults)
+     4227    0.009    0.000    1.224    0.000 managers.py:1044(take)
+    51907    0.059    0.000    1.184    0.000 vault_metrics.py:1284(_slugify)
+    24283    0.114    0.000    1.176    0.000 managers.py:396(apply)
+    10544    0.011    0.000    1.157    0.000 frame.py:4292(_ixs)
+     4227    0.052    0.000    1.053    0.000 managers.py:792(reindex_indexer)
+    80155    0.196    0.000    1.009    0.000 slugify.py:75(slugify)
+6426518/6384756    0.750    0.000    0.986    0.000 {built-in method builtins.isinstance}
+     2288    0.052    0.000    0.901    0.000 managers.py:1132(fast_xs)
+    35124    0.046    0.000    0.809    0.000 blocks.py:995(take_nd)
+     1964    0.012    0.000    0.797    0.000 base.py:6288(_get_indexer_strict)
+15288/11994    0.014    0.000    0.754    0.000 common.py:67(new_method)
+    14229    0.011    0.000    0.751    0.000 _decorators.py:328(wrapper)
+42493/39321    0.053    0.000    0.732    0.000 take.py:57(take_nd)
+    17931    0.133    0.000    0.727    0.000 datetimelike.py:385(__getitem__)
+     7149    0.008    0.000    0.704    0.000 generic.py:6560(copy)
+20338/20088    0.094    0.000    0.689    0.000 series.py:369(__init__)
+     7575    0.012    0.000    0.653    0.000 managers.py:718(copy)
+    51907    0.038    0.000    0.640    0.000 vault_metrics.py:677(slugify_vault)
+16008/1758    0.081    0.000    0.628    0.000 cast.py:1306(find_common_type)
+     1552    0.001    0.000    0.626    0.000 managers.py:111(interleaved_dtype)
+     6132    0.010    0.000    0.621    0.000 indexing.py:1451(_get_slice_axis)
+
+
+         28359867 function calls (27988032 primitive calls) in 11.934 seconds
+
+   Ordered by: internal time
+   List reduced from 1535 to 40 due to restriction <40>
+
+   ncalls  tottime  percall  cumtime  percall filename:lineno(function)
+6426518/6384756    0.750    0.000    0.986    0.000 {built-in method builtins.isinstance}
+    32495    0.270    0.000    0.278    0.000 compute.py:467(take)
+    88475    0.249    0.000    0.617    0.000 array.py:722(__getitem__)
+    80155    0.235    0.000    0.407    0.000 __init__.py:8(unidecode)
+   641252    0.226    0.000    0.226    0.000 {method 'sub' of 're.Pattern' objects}
+    82091    0.199    0.000    0.286    0.000 generic.py:6131(__finalize__)
+    80155    0.196    0.000    1.009    0.000 slugify.py:75(slugify)
+1028185/1024134    0.151    0.000    0.173    0.000 {built-in method builtins.getattr}
+   135719    0.149    0.000    0.149    0.000 {method 'reduce' of 'numpy.ufunc' objects}
+855097/573647    0.140    0.000    0.197    0.000 {built-in method builtins.len}
+    17931    0.133    0.000    0.727    0.000 datetimelike.py:385(__getitem__)
+    71724    0.123    0.000    0.269    0.000 typing.py:184(_type_check)
+    25059    0.120    0.000    0.413    0.000 construction.py:531(sanitize_array)
+    24283    0.114    0.000    1.176    0.000 managers.py:396(apply)
+   161379    0.113    0.000    0.192    0.000 annotationlib.py:316(__hash__)
+  1306326    0.109    0.000    0.109    0.000 {method 'append' of 'list' objects}
+    91796    0.104    0.000    0.190    0.000 array.py:310(__init__)
+     1500    0.100    0.000    3.141    0.002 vault_metrics.py:1715(calculate_period_metrics)
+    36851    0.098    0.000    0.212    0.000 string_arrow.py:133(__init__)
+    97024    0.098    0.000    0.202    0.000 generic.py:6208(__setattr__)
+   413795    0.096    0.000    0.234    0.000 generic.py:43(_instancecheck)
+20338/20088    0.094    0.000    0.689    0.000 series.py:369(__init__)
+    78348    0.090    0.000    0.132    0.000 base.py:652(_simple_new)
+     9000    0.090    0.000    0.508    0.000 dtypes.py:2451(_get_common_dtype)
+    77313    0.089    0.000    0.115    0.000 generic.py:258(__init__)
+   413795    0.088    0.000    0.133    0.000 generic.py:38(_check)
+    32495    0.086    0.000    0.608    0.000 array.py:1539(take)
+    54978    0.083    0.000    0.125    0.000 utils.py:416(getitem_returns_view)
+16008/1758    0.081    0.000    0.628    0.000 cast.py:1306(find_common_type)
+    96136    0.074    0.000    0.130    0.000 __init__.py:330(_compile)
+   125312    0.073    0.000    0.224    0.000 utils.py:441(check_array_indexer)
+    70083    0.072    0.000    0.445    0.000 blocks.py:639(copy)
+    13161    0.071    0.000    0.082    0.000 compute.py:256(wrapper)
+  1165850    0.066    0.000    0.066    0.000 {built-in method builtins.ord}
+    72510    0.062    0.000    0.286    0.000 common.py:1821(pandas_dtype)
+   430344    0.061    0.000    0.107    0.000 annotationlib.py:292(__eq__)
+   100796    0.060    0.000    0.078    0.000 dtypes.py:2193(__init__)
+   140506    0.060    0.000    0.136    0.000 dtypes.py:2213(__eq__)
+    51907    0.059    0.000    1.184    0.000 vault_metrics.py:1284(_slugify)
+      250    0.056    0.000    2.441    0.010 vault_metrics.py:1615(_attach_period_flow_metrics)

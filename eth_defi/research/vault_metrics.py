@@ -4487,7 +4487,8 @@ def _calculate_regular_daily_returns(df_work: pd.DataFrame, returns_column: str)
     assert isinstance(df_work, pd.DataFrame)
     assert isinstance(df_work.index, pd.DatetimeIndex), "DataFrame index must be a DatetimeIndex"
     result_dfs = []
-    for (chain_val, addr_val), group in df_work.groupby(["chain", "address"]):
+    grouped_vaults = df_work.groupby(["chain", "address"])
+    for (chain_val, addr_val), group in tqdm(grouped_vaults, desc="Preparing daily vault returns", total=grouped_vaults.ngroups):
         group = group.copy()
         has_complete_state_columns = all(column in group.columns for column in ERC4626_FLOW_STATE_COLUMNS)
         state_fresh = group[list(ERC4626_FLOW_STATE_COLUMNS)].notna().all(axis=1) if has_complete_state_columns else pd.Series(False, index=group.index)
