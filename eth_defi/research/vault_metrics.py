@@ -29,7 +29,7 @@ from eth_defi.chain import get_chain_name
 from eth_defi.compat import native_datetime_utc_now
 from eth_defi.core3.vault_protocol import Core3ExportRecord, Core3VaultSection, build_core3_vault_section
 from eth_defi.erc_4626.classification import HARDCODED_PROTOCOLS
-from eth_defi.erc_4626.core import ERC4262VaultDetection
+from eth_defi.erc_4626.core import ERC4262VaultDetection, ERC4626Feature
 from eth_defi.erc_4626.vault_protocol.morpho.flag_analytics import MorphoFlagAnalytics, analyze_morpho_flags
 from eth_defi.feed.stablecoin_rate import DenominationTokenRate, StablecoinRateFeeder
 from eth_defi.perp_dex.export import build_perp_dex_other_data
@@ -2683,6 +2683,7 @@ def calculate_vault_record(
         protocols=xerberus_protocols or {},
     )
 
+    detection: ERC4262VaultDetection = vault_metadata["_detection_data"]
     curator_slug = identify_curator(
         chain_id=chain_id,
         vault_token_symbol=share_token,
@@ -2692,6 +2693,8 @@ def calculate_vault_record(
         manager_name=vault_metadata.get("_manager_name") or "",
         declared_curator_slug=vault_metadata.get("_curator_slug"),
     )
+    if ERC4626Feature.yearn_registry_excluded in detection.features and curator_slug == "yearn":
+        curator_slug = None
     curator_name = get_curator_name(curator_slug) if curator_slug else None
 
     trading_strategy_link = _get_trading_strategy_vault_link(
@@ -2881,7 +2884,6 @@ def calculate_vault_record(
     else:
         manual_review_status = str(manual_review_status_raw)
 
-    detection: ERC4262VaultDetection = vault_metadata["_detection_data"]
     features = sorted([f.name for f in detection.features])
 
     # Token addresses and decimals.

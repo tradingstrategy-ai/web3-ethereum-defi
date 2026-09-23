@@ -40,6 +40,21 @@ that static result, covering freshly launched vaults before the source files
 catch up. These are website membership signals, not safety ratings or
 investment recommendations.
 
+Public export attribution has one additional guard: rows currently detected as
+Yearn are checked against the positive entries in the official `Kong registry
+<https://kong.yearn.fi/api/rest/list/vaults>`__. A row retains public Yearn
+attribution only when its matching entry has ``inclusion.isYearn`` set to true.
+An absent, empty or negative inclusion receives the
+``yearn_registry_excluded`` feature marker, while its technical Yearn features
+remain available to the adapter. The remaining features normally classify the
+row as generic ERC-4626, but can preserve a more specific detected protocol.
+This is a catalogue-attribution rule, not an ownership or safety claim.
+
+A temporary registry failure, malformed response or implausibly small positive
+catalogue is logged and skips only this best-effort cleanup hook. It cannot stop
+the vault scanner or the rest of the JSON export. A generic Yearn URL route
+rendering a page shell is not evidence that the address is in the catalogue.
+
 Use ``scripts/erc-4626/migrate-yearn-vault-metadata.py`` to repair existing
 cached Yearn rows. It defaults to a non-mutating dry run and changes only the
 metadata pickle after a successful catalogue download.
@@ -65,3 +80,4 @@ Links
    eth_defi.erc_4626.vault_protocol.yearn.morpho_compounder
    eth_defi.erc_4626.vault_protocol.yearn.offchain_metadata
    eth_defi.erc_4626.vault_protocol.yearn.endorsement
+   eth_defi.erc_4626.vault_protocol.yearn.export_cleanup

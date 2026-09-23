@@ -1348,6 +1348,32 @@ def test_calculate_lifetime_metrics_uses_declared_curator_slug(
     assert metrics.iloc[0]["curator_name"] == "Wellington Management"
 
 
+def test_calculate_lifetime_metrics_does_not_infer_yearn_curator_for_excluded_vault(
+    vault_db: VaultDatabase,
+    price_df: pd.DataFrame,
+) -> None:
+    """The Yearn exclusion marker also blocks name-based Yearn curation."""
+
+    vault_id = "43111-0x614eb485de3c6c49701b40806ac1b985ad6f0a2f"
+    spec = VaultSpec.parse_string(vault_id)
+    vault_row = dict(vault_db.rows[spec])
+    vault_row["Name"] = "Sturdy GHO/yearn curve strategy"
+    vault_row["Protocol"] = "ERC-4626"
+    vault_row["protocol_slug"] = "erc-4626"
+    vault_row["_curator_slug"] = None
+    detection = vault_row["_detection_data"]
+    vault_row["_detection_data"] = replace(
+        detection,
+        features=set(detection.features) | {ERC4626Feature.yearn_v3_like, ERC4626Feature.yearn_registry_excluded},
+    )
+    vault_prices = price_df.loc[price_df["id"] == vault_id]
+
+    metrics = calculate_lifetime_metrics(vault_prices, {spec: vault_row})
+
+    assert metrics.iloc[0]["curator_slug"] is None
+    assert metrics.iloc[0]["curator_name"] is None
+
+
 def test_calculate_lifetime_metrics_does_not_apply_non_d2_protocol_notes(
     vault_db: VaultDatabase,
     price_df: pd.DataFrame,

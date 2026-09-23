@@ -539,8 +539,14 @@ def test_top_vaults_json_freshness_gate_end_to_end(tmp_path: Path, monkeypatch: 
     prices.to_parquet(parquet_path)
 
     mock_calls: list[set[str]] = []
+    post_processor_calls: list[str] = []
+
+    def fake_run_vault_export_post_processors(_vault_db: VaultDatabase) -> set[str]:
+        post_processor_calls.append("post-processing")
+        return set()
 
     def fake_calculate_lifetime_metrics(returns_df, vault_db, core3_protocols=None, xerberus_pools=None, xerberus_protocols=None):  # noqa: ARG001
+        assert post_processor_calls
         vault_ids = set(returns_df["id"].astype(str))
         mock_calls.append(vault_ids)
         records = [
@@ -562,6 +568,7 @@ def test_top_vaults_json_freshness_gate_end_to_end(tmp_path: Path, monkeypatch: 
         return pd.DataFrame(records)
 
     monkeypatch.setattr(top_vaults_json, "calculate_lifetime_metrics", fake_calculate_lifetime_metrics)
+    monkeypatch.setattr(top_vaults_json, "run_vault_export_post_processors", fake_run_vault_export_post_processors)
 
     output_path = tmp_path / "stablecoin-vault-metrics.json"
 
@@ -601,3 +608,4 @@ def test_top_vaults_json_freshness_gate_end_to_end(tmp_path: Path, monkeypatch: 
     output = run_main()
     assert mock_calls[-1] == {vault_id, small_vault_id}
     assert [record["id"] for record in output["vaults"]] == [vault_id]
+    assert len(post_processor_calls) == 3

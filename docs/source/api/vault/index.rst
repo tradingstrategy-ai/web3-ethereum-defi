@@ -43,6 +43,7 @@ strategy readiness polling.
    eth_defi.vault.data_file_export
    eth_defi.vault.scan_manifest
    eth_defi.vault.top_vaults_json
+   eth_defi.vault.export_post_processing
    eth_defi.vault.denomination
    eth_defi.vault.crypto_vaults
    eth_defi.vault.crypto_vault_export

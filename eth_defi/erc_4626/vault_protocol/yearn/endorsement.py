@@ -1,4 +1,4 @@
-"""Yearn primary-list exclusions used for protocol attribution.
+"""Explicit Yearn primary-list exclusions used during vault scanning.
 
 `Yearn's public vault registry <https://kong.yearn.fi/api/rest/list/vaults>`__
 is broader than Trading Strategy's Yearn-operated vault catalogue. We classify
@@ -8,11 +8,14 @@ a vault as not Yearn-operated when the registry explicitly sets
 Transformer depositors ``0x63a028963907f5a0c1ceb7e47100f52dfc611117`` and
 ``0xbc64210d565aabca8eb6eb795833cc505ac3647f``.
 
-This deliberately removes uncurated strategy targets and wrappers from the
-Yearn protocol and curated-vault lists. The generic Yearn web-page template may
-still render such a record as a Yearn vault; that presentation does not change
-our attribution policy. The marker is not an assertion about contract safety,
-code provenance, or who technically deployed a contract.
+This scan-time check deliberately removes known uncurated strategy targets and
+wrappers from Yearn protocol and curated-vault lists. It does not treat an
+address missing from the registry as negative. Public export applies a separate
+positive-match rule in
+:py:mod:`eth_defi.erc_4626.vault_protocol.yearn.export_cleanup` to close that
+gap. A generic Yearn route may render for an arbitrary address; that is not
+catalogue evidence. Neither rule asserts contract ownership, safety, or code
+provenance.
 
 The scanner preserves technical Yearn interface features for the appropriate
 vault adapter, but records a provenance marker so protocol and curator views do
