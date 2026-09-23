@@ -39,6 +39,8 @@ from dataclasses import dataclass
 from pathlib import Path
 
 import pandas as pd
+import psutil
+import pyarrow.parquet as pq
 from atomicwrites import atomic_write
 
 from eth_defi.compat import native_datetime_utc_now
@@ -46,6 +48,16 @@ from eth_defi.core3.constants import CORE3_DATABASE_PATH
 from eth_defi.core3.database import Core3Database
 from eth_defi.core3.vault_protocol import build_core3_protocols_for_export
 from eth_defi.feed.database import DEFAULT_VAULT_POST_DATABASE, VaultPostDatabase
+from eth_defi.research.metrics_freshness import (
+    clear_period_rankings,
+    compute_vault_tvl_observations,
+    free_memory,
+    load_metrics_state,
+    partition_due_vault_ids,
+    refresh_metrics_state,
+    resolve_metrics_state_path,
+    save_metrics_state,
+)
 from eth_defi.research.vault_metrics import (
     MAX_VALID_NAV,
     StrategyCategoryExportRecord,
@@ -61,6 +73,7 @@ from eth_defi.token import is_stablecoin_like
 # Import core TradingStrategy / eth_defi modules
 from eth_defi.vault.base import VaultSpec  # noqa: F401
 from eth_defi.vault.curator_export import build_curators_for_export
+from eth_defi.vault.denomination import DenominationFamily
 from eth_defi.vault.risk import VaultTechnicalRisk
 from eth_defi.vault.strategy_tag import STRATEGY_TAG_METADATA, StrategyTag
 from eth_defi.vault.vaultdb import VaultDatabase, get_pipeline_data_dir
@@ -449,6 +462,11 @@ def find_non_serializable_paths(obj, path=None, results=None):
 
     # Valid primitive types
     if isinstance(obj, (str, int, float, bool, type(None))):
+        # Strict JSON cannot represent NaN or infinity, so reject them
+        # here; this replaces the old json.dumps(allow_nan=False) backstop
+        # without building a throwaway JSON string.
+        if isinstance(obj, float) and not math.isfinite(obj):
+            results.append((path, f"Non-finite float: {obj}"))
         return results
 
     # Handle lists: recurse on each element
@@ -667,6 +685,10 @@ def annotate_fallback_record(record: dict, state_entry: dict, fallback_reason: s
     annotated["risk_possibly_stale"] = True
     annotated["first_qualified_at"] = state_entry.get("first_qualified_at")
     annotated["last_qualified_at"] = state_entry.get("last_qualified_at")
+    # Rankings are computed over the vaults recalculated in the same run, so
+    # a replayed record carries ranks from a different vault universe that
+    # would duplicate and devalue current curator ranks.
+    clear_period_rankings(annotated)
     if fallback_reason:
         annotated["fallback_reason"] = fallback_reason
     return annotated
@@ -936,7 +958,6 @@ def validate_strict_json_serialisable(obj: dict) -> None:
             path_str = " -> ".join(str(p) for p in path)
             print(f" - Path: {path_str}: {issue}")
         raise ValueError("Non-serializable values found; aborting JSON export.")
-    json.dumps(obj, ensure_ascii=False, allow_nan=False)
 
 
 def build_strategy_categories_for_export(vaults: list[dict]) -> dict[str, StrategyCategoryExportRecord]:
@@ -1077,6 +1098,22 @@ def append_strategy_categories_to_export(output_data: dict, vaults: list[dict]) 
     return True
 
 
+def _log_phase_rss(phase: str) -> None:
+    """Log process RSS at a pipeline phase boundary.
+
+    Attributes memory peaks to pipeline phases when tuning the metrics
+    export memory footprint; the metrics export is the pipeline's largest
+    memory consumer. Prints like the rest of the pipeline progress output
+    so the lines are visible in script runs, not only under configured
+    logging.
+
+    :param phase:
+        Human-readable phase name.
+    """
+    process = psutil.Process()
+    print(f"Phase {phase} complete: RSS {process.memory_info().rss / (1024**3):.1f} GiB")
+
+
 def main(
     data_dir: Path | None = None,
     vault_db_path: Path | None = None,
@@ -1159,10 +1196,15 @@ def main(
     # Step 2: Load database and parquet price data
     # --------------------------------------------------------------------
     vault_db = VaultDatabase.read(vault_db_path)
-    prices_df = pd.read_parquet(parquet_path)
-    chains = prices_df["chain"].unique()
 
-    print(f"Loaded {len(vault_db):,} vault metadata entries and {len(prices_df):,} price rows across {len(chains):,} chains from {prices_df.index.min()} to {prices_df.index.max()}; price columns: {len(prices_df.columns):,}")
+    # The freshness gate needs only identity and TVL columns, so read those
+    # first instead of materialising the full wide frame. The parquet
+    # stores the timestamp index as a column, hence the -1.
+    gate_df = pd.read_parquet(parquet_path, columns=["timestamp", "id", "chain", "address", "total_assets"])
+    chains = gate_df["chain"].unique()
+    price_columns = pq.read_metadata(parquet_path).num_columns - 1
+
+    print(f"Loaded {len(vault_db):,} vault metadata entries and {len(gate_df):,} price rows across {len(chains):,} chains from {gate_df.index.min()} to {gate_df.index.max()}; price columns: {price_columns:,}")
 
     # sample_vault = next(iter(vault_db.values()))
     # print("We have vault metadata keys: ", ", ".join(c for c in sample_vault.keys()))
@@ -1170,22 +1212,63 @@ def main(
 
     errors = cross_check_data(
         vault_db,
-        prices_df,
+        gate_df,
     )
     assert errors == 0, f"Data Cross-check found: {errors} errors"
+    _log_phase_rss("parquet-read")
 
     usd_vaults = [v for v in vault_db.values() if is_stablecoin_like(v["Denomination"])]
     print(f"The report covers {len(usd_vaults):,} stablecoin-denominated vaults out of {len(vault_db):,} total vaults")
 
     # Build chain-address strings for vaults we are interested in.
     # Remove Silo vaults that cause havoc after xUSD incident.
-    allowed_vault_ids = (str(v["_detection_data"].chain) + "-" + v["_detection_data"].address for v in usd_vaults)
+    allowed_vault_ids = [str(v["_detection_data"].chain) + "-" + v["_detection_data"].address for v in usd_vaults]
+    allowed_vault_id_set = set(allowed_vault_ids)
+    stablecoin_mask = gate_df["id"].isin(allowed_vault_id_set)
+    print(f"Filtered stablecoin-denominated price data has {int(stablecoin_mask.sum()):,} rows")
 
-    # Filter out prices to contain only data for vaults we are interested in
-    prices_df = prices_df.loc[prices_df["id"].isin(allowed_vault_ids)]
-    print(f"Filtered stablecoin-denominated price data has {len(prices_df):,} rows")
+    # Freshness gate: recalculate low-TVL vaults only every
+    # LOW_TVL_METRICS_MAX_AGE. Skipped vaults that were previously exported
+    # are replayed by the sticky export state below, preserving their
+    # original per-vault generated_at; never-exported skipped vaults
+    # contribute nothing to the export, exactly as when they are computed.
+    metrics_state_path = resolve_metrics_state_path(data_dir)
+    metrics_state = load_metrics_state(metrics_state_path, now)
+    seen_vault_ids = set(gate_df["id"].astype(str).unique()) & allowed_vault_id_set
+    current_tvl_by_id, peak_tvl_by_id = compute_vault_tvl_observations(gate_df)
+    # Release the gate frame before the due-filtered read allocates.
+    del gate_df
+    free_memory()
+    family_by_id = {vault_id: DenominationFamily.stablecoin.value for vault_id in seen_vault_ids}
+    export_threshold_by_id = {vault_id: resolve_export_threshold_tvl({"protocol_slug": slugify_protocol(v["Protocol"])}, THRESHOLD_TVL) for vault_id, v in zip(allowed_vault_ids, usd_vaults)}
+    due_vault_ids, skipped_vault_ids = partition_due_vault_ids(
+        seen_vault_ids,
+        metrics_state,
+        current_tvl_by_id,
+        peak_tvl_by_id,
+        family_by_id,
+        export_threshold_by_id,
+        now,
+    )
+    print(f"Metrics freshness: {len(due_vault_ids):,} vaults due, {len(skipped_vault_ids):,} low-TVL vaults still fresh")
 
-    returns_df = calculate_hourly_returns_for_all_vaults(prices_df)
+    # Read the full frame only for the due vaults: steady-state runs
+    # materialise roughly half the rows. The empty-string sentinel covers
+    # an all-fresh run without a special empty-frame path.
+    prices_df = pd.read_parquet(parquet_path, filters=[("id", "in", due_vault_ids or [""])])
+    free_memory()
+    _log_phase_rss("due-filtered-read")
+
+    if prices_df.empty:
+        returns_df = prices_df
+    else:
+        returns_df = calculate_hourly_returns_for_all_vaults(prices_df)
+
+    # Free the due-filtered price frame before the memory-peak metrics
+    # phase; nothing below needs it.
+    del prices_df
+    free_memory()
+    _log_phase_rss("daily-prep")
 
     # Build Core3 protocol-level risk data up front, so it can be attached
     # both per-vault (compact ``core3`` summary inside each vault record) and
@@ -1237,6 +1320,12 @@ def main(
     )
 
     print(f"Calculated lifetime metrics for {len(lifetime_data_df):,} vaults with {len(lifetime_data_df.columns):,} columns")
+    computed_vault_ids = set(lifetime_data_df["id"].astype(str)) if len(lifetime_data_df) else set()
+
+    # Free the daily-returns frame before sticky processing and export.
+    del returns_df
+    free_memory()
+    _log_phase_rss("metrics")
 
     sticky_result = apply_sticky_export_state(
         lifetime_data_df,
@@ -1246,6 +1335,12 @@ def main(
         stale_warning_age_days=stale_warning_age_days,
     )
     vaults = sticky_result.vaults
+
+    # Free the metrics frame before curator building, validation and the
+    # JSON write; the sticky result holds new dicts, not references into it.
+    del lifetime_data_df
+    free_memory()
+    _log_phase_rss("sticky")
 
     # 6️⃣ Restrict the top-level Core3 protocol risk data to protocols that
     # actually survived the export filter. Core3 data is per-protocol (not
@@ -1331,6 +1426,22 @@ def main(
 
     save_sticky_export_state(sticky_result.state, sticky_state_path)
     print(f"Sticky export state: loaded {sticky_result.stats.loaded_state_entries:,} vault entries from {sticky_state_path}")
+
+    # The freshness state is committed after the output JSON: a crash between
+    # the two leaves state stale so vaults recompute next run, never the
+    # reverse (state fresh but no published record).
+    refresh_metrics_state(
+        metrics_state,
+        seen_vault_ids,
+        computed_vault_ids,
+        current_tvl_by_id,
+        peak_tvl_by_id,
+        family_by_id,
+        now,
+    )
+    save_metrics_state(metrics_state, metrics_state_path)
+    _log_phase_rss("export-write")
+    print(f"Metrics freshness state: {len(computed_vault_ids):,} vaults recomputed, {len(skipped_vault_ids):,} low-TVL vaults kept")
     print(f"Current filter passed: {sticky_result.stats.current_filter_passed:,}")
     if sticky_result.stats.previous_current_filter_count is not None and sticky_result.stats.previous_current_filter_count > 0:
         previous_count = sticky_result.stats.previous_current_filter_count

@@ -23,6 +23,7 @@ benchmark renders samples without reading or writing publication state.
    eth_defi.research.candle
    eth_defi.research.sparkline
    eth_defi.research.sparkline_export
+   eth_defi.research.metrics_freshness
    eth_defi.research.value_table
    eth_defi.research.vault_benchmark
    eth_defi.research.vault_correlation

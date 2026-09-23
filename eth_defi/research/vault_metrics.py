@@ -3439,54 +3439,52 @@ def calculate_vault_rankings(
     """
     periods: list[Period] = list(LOOKBACK_AND_TOLERANCES.keys())
 
+    # Extract row-wise inputs once into plain lists: the previous
+    # implementation re-fetched every column through ``results_df.loc[idx]``
+    # twice per period (12 x N DataFrame row accesses), which dominated this
+    # function for large vault counts.
+    period_results_col = results_df["period_results"].tolist()
+    risk_col = results_df["risk"].tolist()
+    protocol_col = results_df["protocol"].tolist() if "protocol" in results_df.columns else [None] * len(results_df)
+    deposit_closed_col = results_df["deposit_closed_reason"].tolist() if "deposit_closed_reason" in results_df.columns else [None] * len(results_df)
+    chain_col = results_df["chain"]
+    protocol_slug_col = results_df["protocol_slug"]
+    curator_slug_col = results_df["curator_slug"]
+
     for period in periods:
         # Build Series of CAGR values for this period with different TVL thresholds
-        cagr_values_chain_protocol = []
-        cagr_values_overall = []
-        cagr_values_curator = []
+        row_count = len(results_df)
+        cagr_values_chain_protocol = [pd.NA] * row_count
+        cagr_values_overall = [pd.NA] * row_count
+        cagr_values_curator = [pd.NA] * row_count
 
-        for idx in results_df.index:
-            row = results_df.loc[idx]
-            period_results = row["period_results"]
+        for i, period_results in enumerate(period_results_col):
             pm = get_period_metrics(period_results, period)
-
             if pm is None or pm.error_reason is not None:
-                cagr_values_chain_protocol.append(pd.NA)
-                cagr_values_overall.append(pd.NA)
-                cagr_values_curator.append(pd.NA)
                 continue
 
             # Use net CAGR, fall back to gross
             cagr = pm.cagr_net if pm.cagr_net is not None else pm.cagr_gross
 
             # Apply exclusion criteria (common checks)
-            is_blacklisted = row["risk"] == VaultTechnicalRisk.blacklisted
-            deposit_closed_reason = row.get("deposit_closed_reason")
-            is_disabled_gmx = row.get("protocol") == "GMX" and pd.notna(deposit_closed_reason) and bool(deposit_closed_reason)
+            is_blacklisted = risk_col[i] == VaultTechnicalRisk.blacklisted
+            deposit_closed_reason = deposit_closed_col[i]
+            is_disabled_gmx = protocol_col[i] == "GMX" and pd.notna(deposit_closed_reason) and bool(deposit_closed_reason)
             tvl = pm.tvl_end if pd.notna(pm.tvl_end) else 0
             has_no_cagr = cagr is None or cagr == 0 or pd.isna(cagr)
 
             # Chain/protocol rankings use lower TVL threshold
-            has_low_tvl_chain_protocol = tvl < min_tvl_chain_protocol
-            if is_blacklisted or is_disabled_gmx or has_low_tvl_chain_protocol or has_no_cagr:
-                cagr_values_chain_protocol.append(pd.NA)
-            else:
-                cagr_values_chain_protocol.append(cagr)
+            if not (is_blacklisted or is_disabled_gmx or tvl < min_tvl_chain_protocol or has_no_cagr):
+                cagr_values_chain_protocol[i] = cagr
 
             # Curator rankings include smaller vaults, but still omit unknown
             # curators because there is no meaningful comparison group.
-            has_low_tvl_curator = tvl < min_tvl_curator
-            if is_blacklisted or is_disabled_gmx or has_low_tvl_curator or has_no_cagr:
-                cagr_values_curator.append(pd.NA)
-            else:
-                cagr_values_curator.append(cagr)
+            if not (is_blacklisted or is_disabled_gmx or tvl < min_tvl_curator or has_no_cagr):
+                cagr_values_curator[i] = cagr
 
             # Overall rankings use higher TVL threshold
-            has_low_tvl_overall = tvl < min_tvl_overall
-            if is_blacklisted or is_disabled_gmx or has_low_tvl_overall or has_no_cagr:
-                cagr_values_overall.append(pd.NA)
-            else:
-                cagr_values_overall.append(cagr)
+            if not (is_blacklisted or is_disabled_gmx or tvl < min_tvl_overall or has_no_cagr):
+                cagr_values_overall[i] = cagr
 
         cagr_series_chain_protocol = pd.Series(cagr_values_chain_protocol, index=results_df.index)
         cagr_series_overall = pd.Series(cagr_values_overall, index=results_df.index)
@@ -3494,18 +3492,23 @@ def calculate_vault_rankings(
 
         # Calculate rankings with different series
         overall_ranks = cagr_series_overall.rank(method="min", ascending=False, na_option="keep")
-        chain_ranks = cagr_series_chain_protocol.groupby(results_df["chain"]).rank(method="min", ascending=False, na_option="keep")
-        protocol_ranks = cagr_series_chain_protocol.groupby(results_df["protocol_slug"]).rank(method="min", ascending=False, na_option="keep")
-        curator_ranks = cagr_series_curator.groupby(results_df["curator_slug"]).rank(method="min", ascending=False, na_option="keep")
+        chain_ranks = cagr_series_chain_protocol.groupby(chain_col).rank(method="min", ascending=False, na_option="keep")
+        protocol_ranks = cagr_series_chain_protocol.groupby(protocol_slug_col).rank(method="min", ascending=False, na_option="keep")
+        curator_ranks = cagr_series_curator.groupby(curator_slug_col).rank(method="min", ascending=False, na_option="keep")
+
+        overall_ranks_list = overall_ranks.tolist()
+        chain_ranks_list = chain_ranks.tolist()
+        protocol_ranks_list = protocol_ranks.tolist()
+        curator_ranks_list = curator_ranks.tolist()
 
         # Update PeriodMetrics objects in-place
-        for idx in results_df.index:
-            pm = get_period_metrics(results_df.loc[idx, "period_results"], period)
+        for i, period_results in enumerate(period_results_col):
+            pm = get_period_metrics(period_results, period)
             if pm is not None:
-                pm.ranking_overall = int(overall_ranks[idx]) if pd.notna(overall_ranks[idx]) else None
-                pm.ranking_chain = int(chain_ranks[idx]) if pd.notna(chain_ranks[idx]) else None
-                pm.ranking_protocol = int(protocol_ranks[idx]) if pd.notna(protocol_ranks[idx]) else None
-                pm.ranking_curator = int(curator_ranks[idx]) if pd.notna(curator_ranks[idx]) else None
+                pm.ranking_overall = int(overall_ranks_list[i]) if pd.notna(overall_ranks_list[i]) else None
+                pm.ranking_chain = int(chain_ranks_list[i]) if pd.notna(chain_ranks_list[i]) else None
+                pm.ranking_protocol = int(protocol_ranks_list[i]) if pd.notna(protocol_ranks_list[i]) else None
+                pm.ranking_curator = int(curator_ranks_list[i]) if pd.notna(curator_ranks_list[i]) else None
 
     return results_df
 

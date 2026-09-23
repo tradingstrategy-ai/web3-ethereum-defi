@@ -950,3 +950,29 @@ def test_sticky_export_invalid_fallback_record_is_suppressed():
     # 4. Assert structural suppression is persisted
     assert result.state["vaults"][key]["status"] == "suppressed"
     assert result.state["vaults"][key]["suppression_reason"] == "invalid_last_exported_record"
+
+
+def test_validate_strict_json_serialisable_rejects_non_finite_floats() -> None:
+    """Non-finite floats are reported by the path walker with their paths.
+
+    1. A NaN and an infinity nested inside the document are both reported.
+    2. A clean document passes without raising.
+    """
+    module = get_top_vaults_json_module()
+    dirty = {
+        "vaults": [
+            {"id": "1-0xa", "cagr": float("nan")},
+            {"id": "1-0xb", "period_results": [{"tvl_end": float("inf")}]},
+        ]
+    }
+
+    # 1
+    with pytest.raises(ValueError, match="Non-serializable values found"):
+        module.validate_strict_json_serialisable(dirty)
+    paths = module.find_non_serializable_paths(dirty)
+    assert len(paths) == 2
+    assert any("nan" in issue for _, issue in paths)
+    assert any("inf" in issue for _, issue in paths)
+
+    # 2
+    module.validate_strict_json_serialisable({"vaults": [{"id": "1-0xa", "cagr": 0.05}]})

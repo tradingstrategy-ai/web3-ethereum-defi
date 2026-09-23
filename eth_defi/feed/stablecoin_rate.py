@@ -31,6 +31,7 @@ import tempfile
 import urllib.parse
 import urllib.request
 from dataclasses import dataclass, field
+from functools import cache
 from pathlib import Path
 from typing import Any, Iterator, Sequence, TypeVar
 
@@ -516,6 +517,37 @@ def iter_stablecoin_rate_targets(data_dir: Path = STABLECOINS_DATA_DIR) -> Itera
             yield _build_target(yaml_path, None, slug, symbol, data.get("category", ""), data)
 
 
+@cache
+def load_stablecoin_rate_targets(data_dir: Path = STABLECOINS_DATA_DIR) -> tuple[StablecoinRateTarget, ...]:
+    """Parse all stablecoin YAML files once and cache the targets in-process forever.
+
+    The metrics pipeline builds three lookups (rate, depeg, address-slug) from
+    the same YAML metadata, and re-parsing every file for each lookup dominated
+    the metrics loop. The YAML files never meaningfully change for the metrics
+    consumer, so the parsed target list is cached in-process memory forever:
+    no TTL, no mtime checks, no invalidation. A process restart picks up any
+    edits.
+
+    Accepted consequence: the scanner's own metadata export refreshes
+    stablecoin rates into these YAMLs after metrics export, and the separate
+    post-scanner service writes ``depegged_at`` markers into the same shared
+    directory. A long-running scanner process will therefore not see
+    refreshed rates, new depeg markers, or vault blacklisting from a newly
+    depegged denomination token until it restarts (it restarts on every
+    deploy). This is a deliberate product decision: stablecoin USD rates
+    move slowly and the depeg blacklist is enforced again on the next
+    restart.
+
+    :param data_dir:
+        Directory of stablecoin metadata YAML files. Part of the cache key, so
+        distinct directories (e.g. pytest ``tmp_path``) do not collide.
+
+    :return:
+        Immutable tuple of parsed :class:`StablecoinRateTarget` entries.
+    """
+    return tuple(iter_stablecoin_rate_targets(data_dir))
+
+
 def fetch_stablecoin_rates(targets: Sequence[StablecoinRateTarget], timeout: float = 20.0, progress_bar: bool = False) -> dict[str, dict[str, Any]]:
     """Fetch CoinGecko prices for due stablecoin targets.
 
@@ -881,7 +913,7 @@ def build_depegged_stablecoin_lookups(data_dir: Path = STABLECOINS_DATA_DIR) -> 
     depegged_symbol_candidates: set[str] = set()
     depegged_without_contract: list[StablecoinRateTarget] = []
 
-    for target in iter_stablecoin_rate_targets(data_dir):
+    for target in load_stablecoin_rate_targets(data_dir):
         normalised_symbol = normalise_token_symbol(target.symbol)
         # ``non_evm`` tokens have no ERC-20 on any indexed chain, so they have no
         # EVM symbol presence and must never participate in ticker matching —
@@ -928,7 +960,7 @@ def build_stablecoin_rate_lookups(data_dir: Path = STABLECOINS_DATA_DIR) -> tupl
     contract_rates: dict[tuple[int, str], DenominationTokenRate] = {}
     symbol_candidates: dict[str, list[tuple[StablecoinRateTarget, DenominationTokenRate]]] = {}
 
-    for target in iter_stablecoin_rate_targets(data_dir):
+    for target in load_stablecoin_rate_targets(data_dir):
         rate = _target_to_denomination_rate(target)
         for contract_key in target.contract_addresses:
             contract_rates[contract_key] = rate
@@ -959,7 +991,7 @@ def build_stablecoin_address_slug_lookup(data_dir: Path = STABLECOINS_DATA_DIR) 
 
     """
     address_slugs: dict[str, str] = {}
-    for target in iter_stablecoin_rate_targets(data_dir):
+    for target in load_stablecoin_rate_targets(data_dir):
         for _, address in target.contract_addresses:
             # Preserve the original slug for a renamed token, such as
             # agEUR/EURA. Both entries document the same contract, which is
