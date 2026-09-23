@@ -165,6 +165,42 @@ for formulas, storage and temporal-staleness semantics.
 
 These scripts form the core data pipeline for vault discovery, price scanning, and export.
 
+### Vault export post-processing hooks
+
+Before metrics and public vault JSON records are built, the exporter runs a
+small ordered set of in-memory cleanup hooks. The first hook,
+`clean_yearn_vault_metadata`, checks rows currently attributed to Yearn against
+the official [Yearn Kong registry](https://kong.yearn.fi/api/rest/list/vaults).
+It uses one catalogue request and a vectorised Pandas metadata join. A
+row keeps Yearn attribution only when the matching registry entry has
+`inclusion.isYearn == true`. An absent, empty, or negative inclusion is marked
+with `yearn_registry_excluded`; technical Yearn features remain available for
+adapter behaviour. The protocol is then derived from the remaining non-Yearn
+features, which normally produces generic `ERC-4626` but may retain a more
+specific detected protocol. The homepage becomes a generic explorer link.
+Rows already carrying the marker are revisited so an old sticky export cannot
+retain a Yearn curator or homepage link.
+
+The hook is best effort by design. A Yearn API timeout, malformed response, or
+implausibly small positive catalogue is logged and contained by the hook
+runner; the scanner continues with the existing metadata and publishes
+unrelated vaults. The hook never writes `vault-metadata-db.pickle`, reads RPC
+state, or scans price Parquet. Corrected rows with stale sticky JSON records are
+refreshed once; already-corrected records retain the normal metrics freshness
+cadence.
+
+To verify a generated export without changing production state:
+
+```shell
+VAULT_JSON=~/.tradingstrategy/vaults/top_vaults_by_chain.json \
+  poetry run python scripts/erc-4626/yearn/verify-yearn-export-cleanup.py
+```
+
+The verifier reports Monad Yearn-compatible rows in a table and exits non-zero
+for a row still attributed to Yearn without a positive match, an excluded row
+that still has Yearn attribution, or an invalid generated JSON file. Rows
+already attributed to another protocol are outside this hook's scope.
+
 ### Period flow metrics
 
 Every period result has an optional signed ``flow_value`` field representing
@@ -498,8 +534,8 @@ database.
 #### Yearn primary-list attribution migration
 
 `migrate-yearn-endorsement.py` removes the Yearn protocol and curator
-attribution from cached rows that Trading Strategy classifies as not
-Yearn-operated. It reads the live [Yearn vault registry](https://kong.yearn.fi/api/rest/list/vaults)
+attribution from cached rows with an explicit negative Yearn registry decision.
+It reads the live [Yearn vault registry](https://kong.yearn.fi/api/rest/list/vaults)
 once per run. This classification covers Yearn's explicit `isSet`/`isYearn`
 decision and an empty `inclusion` object.
 
@@ -511,8 +547,8 @@ noise. Examples include Katana Stablecoin Transformer depositors
 [`0x63a0…1117`](https://yearn.fi/vaults/1/0x63a028963907f5a0c1ceb7e47100f52dfc611117)
 and
 [`0xbc64…f2e3`](https://yearn.fi/vaults/1/0xbc64210d565aabca8eb6eb795833cc505ac3647f).
-Yearn's generic public page may still label such a record as a Yearn vault;
-that template does not override this Trading Strategy attribution policy.
+Yearn's generic route may render a page shell for an arbitrary address, so the
+existence of that URL is not positive catalogue membership.
 
 The technical Yearn adapter and its deposit, redemption and fee handling remain
 in place; the exported protocol becomes `ERC-4626` (or another retained
@@ -525,6 +561,11 @@ temporarily unavailable, it uses the previous successful index; without one,
 it leaves the normal technical classification unchanged. The migration instead
 fails before writing when it cannot obtain the registry, so do not apply a
 partial or guessed scope.
+
+This migration is intentionally narrower than the export hook above: it only
+persists explicit negative decisions. It does not treat a missing registry row
+as negative. The export hook closes that gap safely by requiring a positive
+match in memory and failing open when the complete catalogue is unavailable.
 
 Inspect the live scope before writing:
 

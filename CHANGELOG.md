@@ -1,5 +1,6 @@
 # 1.2
 
+- feat: Clean public Yearn vault attribution against the official positive catalogue before JSON export, without allowing an offchain API failure to stop the scanner (2026-09-23).
 - feat: Prepare and render vault sparklines in bounded process batches by default while retaining threaded R2 uploads (2026-09-23).
 - feat: Bound deterministic sparkline rendering and R2 publication with daily crypto input, persistent cadence state and a three-day low-TVL throttle (2026-09-22).
 - feat: Recalculate low-TVL vault metrics only every three days with a staggered freshness gate, per-vault metrics state files and a validated crypto record patch, cutting the hourly metrics workload to the due cohort and peak export memory from 26.9 GiB to 15.7 GiB (2026-09-22).

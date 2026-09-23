@@ -329,16 +329,14 @@ class ERC4626Feature(enum.Enum):
     #: https://etherscan.io/address/0xa10c40f9e318b0ed67ecc3499d702d8db9437228#readProxyContract
     yearn_v3_like = "yearn_v3_like"
 
-    #: Classified as not Yearn-operated for Trading Strategy's vault catalogue.
+    #: Excluded from Yearn attribution in Trading Strategy's vault catalogue.
     #:
     #: This offchain provenance marker preserves the technical Yearn interface
     #: feature while excluding the vault from Yearn protocol attribution.
-    #: Trading Strategy treats both an explicit negative inclusion decision and
-    #: an empty inclusion object as not Yearn-operated. The latter deliberately
-    #: removes uncurated registry noise, including the Katana Stablecoin
-    #: Transformer depositor at ``0x63a028963907f5a0c1ceb7e47100f52dfc611117``,
-    #: from Yearn protocol and curated-vault lists. This is an offchain
-    #: catalogue-attribution policy, not a safety or code-provenance judgement.
+    #: The scanner adds it for explicit negative registry decisions. The export
+    #: cleanup also adds it when a Yearn-labelled row lacks the registry's
+    #: positive ``inclusion.isYearn`` decision. This is an offchain catalogue
+    #: attribution policy, not an ownership, safety, or code-provenance claim.
     #: https://kong.yearn.fi/api/rest/list/vaults
     yearn_registry_excluded = "yearn_registry_excluded"
 

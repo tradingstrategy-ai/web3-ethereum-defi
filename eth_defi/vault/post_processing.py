@@ -1072,6 +1072,11 @@ def export_top_vaults_json(  # noqa: PLR0914 - R2 export settings are resolved t
     docker image: the JSON generation and the R2 upload now both live
     inside the scanner post-processing pipeline.
 
+    The JSON generation includes the best-effort vault export cleanup hooks.
+    An unavailable Yearn offchain registry is contained by the hook runner;
+    it does not abort this post-processing process or prevent unrelated export
+    steps from running.
+
     Honours ``UPLOAD_PREFIX`` for test isolation — with
     ``UPLOAD_PREFIX=test-`` the object key becomes
     ``test-top_vaults_by_chain.json`` in both buckets.

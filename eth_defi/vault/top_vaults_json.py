@@ -71,9 +71,10 @@ from eth_defi.research.vault_metrics import (
 from eth_defi.token import is_stablecoin_like
 
 # Import core TradingStrategy / eth_defi modules
-from eth_defi.vault.base import VaultSpec  # noqa: F401
+from eth_defi.vault.base import VaultSpec
 from eth_defi.vault.curator_export import build_curators_for_export
 from eth_defi.vault.denomination import DenominationFamily
+from eth_defi.vault.export_post_processing import run_vault_export_post_processors
 from eth_defi.vault.risk import VaultTechnicalRisk
 from eth_defi.vault.strategy_tag import STRATEGY_TAG_METADATA, StrategyTag
 from eth_defi.vault.vaultdb import VaultDatabase, get_pipeline_data_dir
@@ -331,6 +332,67 @@ def make_vault_export_state_key_from_record(record: dict) -> str:
             chain_id_text, address = vault_id.split("-", 1)
             chain_id = int(chain_id_text)
     return make_vault_export_state_key(chain_id, address)
+
+
+def _find_stale_post_processed_vault_ids(
+    vault_db: VaultDatabase,
+    changed_vault_ids: set[str],
+    sticky_state: dict,
+) -> set[str]:
+    """Find changed vaults whose sticky records still contain old metadata.
+
+    The cleanup hook runs on every export because the scanner metadata pickle is
+    intentionally unchanged. Only a sticky record whose exported attribution is
+    still different is forced through metrics. This comparison avoids repeatedly
+    recalculating metrics for already-corrected low-TVL vaults.
+
+    :param vault_db:
+        Cleaned in-memory vault metadata database.
+    :param changed_vault_ids:
+        IDs reported by export post-processors.
+    :param sticky_state:
+        Loaded sticky export state.
+    :return:
+        IDs that need a fresh metrics row in this export.
+    """
+
+    stale_ids: set[str] = set()
+    state_vaults = sticky_state.get("vaults", {})
+    for vault_id in changed_vault_ids:
+        state_entry = state_vaults.get(vault_id)
+        if not isinstance(state_entry, dict):
+            continue
+        last_record = state_entry.get("last_exported_record")
+        if not isinstance(last_record, dict):
+            stale_ids.add(vault_id)
+            continue
+        try:
+            spec = VaultSpec.parse_string(vault_id, separator="-")
+        except (TypeError, ValueError) as error:
+            logger.warning("Ignoring malformed post-processor vault ID %r: %s", vault_id, error)
+            continue
+        row = vault_db.get(spec)
+        if row is None:
+            continue
+        detection = row.get("_detection_data")
+        expected_features = sorted(feature.name for feature in getattr(detection, "features", set()))
+        current_attribution = (
+            row.get("Protocol"),
+            row.get("protocol_slug"),
+            row.get("Link"),
+            row.get("_curator_slug") if row.get("_curator_slug") == "yearn" else None,
+            expected_features,
+        )
+        previous_attribution = (
+            last_record.get("protocol"),
+            last_record.get("protocol_slug"),
+            last_record.get("link"),
+            last_record.get("curator_slug") if last_record.get("curator_slug") == "yearn" else None,
+            sorted(last_record.get("features") or []),
+        )
+        if current_attribution != previous_attribution:
+            stale_ids.add(vault_id)
+    return stale_ids
 
 
 def resolve_sticky_export_state_path(data_dir: Path) -> Path:
@@ -1131,6 +1193,10 @@ def main(
     directory consistently — never a mix of ``data_dir`` for reads and
     ``~/.tradingstrategy/vaults`` for writes.
 
+    Before metrics are calculated, the in-memory metadata passes through the
+    registered best-effort export cleanup hooks. Hook failures are logged and
+    contained so this function can still publish the existing vault data.
+
     :param data_dir:
         Pipeline data directory. When ``None``, falls back to the
         ``DATA_DIR`` env var (default ``~/.tradingstrategy/vaults``).
@@ -1196,6 +1262,7 @@ def main(
     # Step 2: Load database and parquet price data
     # --------------------------------------------------------------------
     vault_db = VaultDatabase.read(vault_db_path)
+    changed_vault_ids = run_vault_export_post_processors(vault_db)
 
     # The freshness gate needs only identity and TVL columns, so read those
     # first instead of materialising the full wide frame. The parquet
@@ -1250,6 +1317,11 @@ def main(
         export_threshold_by_id,
         now,
     )
+    forced_vault_ids = _find_stale_post_processed_vault_ids(vault_db, changed_vault_ids, sticky_state) & seen_vault_ids
+    due_vault_ids.update(forced_vault_ids)
+    skipped_vault_ids.difference_update(forced_vault_ids)
+    if forced_vault_ids:
+        logger.info("Vault export post-processing forced %d stale attribution rows through metrics", len(forced_vault_ids))
     print(f"Metrics freshness: {len(due_vault_ids):,} vaults due, {len(skipped_vault_ids):,} low-TVL vaults still fresh")
 
     # Read the full frame only for the due vaults: steady-state runs
