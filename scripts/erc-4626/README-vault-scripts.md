@@ -2046,15 +2046,58 @@ poetry run python scripts/erc-4626/export-sparklines.py
 | `R2_SPARKLINE_ENDPOINT_URL` | Required. R2 S3-compatible endpoint URL. |
 | `R2_SPARKLINE_ACCESS_KEY_ID` | Required. R2 access key ID. |
 | `R2_SPARKLINE_SECRET_ACCESS_KEY` | Required. R2 secret access key. |
-| `SPARKLINE_MAX_WORKERS` | Optional. Sparkline rendering and upload threads. Default: 8. |
+| `SPARKLINE_RENDER_WORKERS` | Optional. Number of sparkline preparation and rendering workers. Default: 6 processes; set `SPARKLINE_RENDER_BACKEND=threads` to use threads. |
+| `SPARKLINE_UPLOAD_WORKERS` | Optional. Number of concurrent R2 upload threads. Default: 8. |
+| `SPARKLINE_RENDER_BACKEND` | Optional. `processes` or `threads`. Default: `processes`. |
+| `SPARKLINE_MAX_WORKERS` | Deprecated. Fallback for upload threads only; it does not increase the default process count. |
 | `SPARKLINE_BATCH_SIZE` | Optional. Vaults retained in one render/upload batch. Default: 100. |
 | `FORCE_SPARKLINE_EXPORT` | Optional. Bypass cadence, retry backoff and local unchanged-input skips. Default: false. |
 
-For a production-shaped no-upload smoke test, run
+For a production-shaped no-upload benchmark, run
 `poetry run python scripts/erc-4626/benchmark-sparklines.py`. It selects the
-first 100 eligible IDs in stable order, reports preparation/render/compression
-timings and payload sizes, and never creates an R2 client. Set
-`SPARKLINE_BENCHMARK_SAMPLE_SIZE` to change the sample size.
+first 100 eligible IDs in stable order, prepares them in the parent for an
+isolated render comparison, measures three runs after a warm-up, and reports
+render/compression timings, image hashes and sampled process-tree RSS. It never
+creates an R2 client. Set
+`SPARKLINE_BENCHMARK_SAMPLE_SIZE=all` to benchmark every eligible vault.
+`SPARKLINE_BENCHMARK_REPEATS` and `SPARKLINE_BATCH_SIZE` control repetitions
+and batch size. Set `SPARKLINE_BENCHMARK_FULL_EXPORT=true` to run one forced
+full coordinator benchmark, including worker-side preparation and cadence
+checks, with uploads disabled and state written only to a temporary directory.
+Compare `SPARKLINE_RENDER_BACKEND=threads` with
+`processes` at render worker counts 4, 6 and 8; keep input files and worker
+IDs the same for each comparison.
+
+The exporter now sends each vault's price rows to a render worker for history
+preparation, TVL classification, cadence and digest checks, and image rendering.
+The parent retains publication state and uploads finished images using threads.
+It groups source rows once into contiguous vault slices and saves state after
+each batch. Earlier process-only rendering gave little full-run benefit because
+preparation and eligibility checks remained in the parent.
+The completion log's `insufficient_history` count now reports supported vaults
+without 14 days of finite share-price history; they are not counted as eligible.
+
+On the same 15,340-vault input, forced full exports without uploads measured:
+
+| Implementation | Workers | Time | Peak sampled process-tree RSS |
+|---|---:|---:|---:|
+| Previous, threaded rendering | 8 | 81.47 s | 3.73 GiB |
+| Previous, process rendering only | 8 | 79.21 s | 5.17 GiB |
+| Current, worker-side preparation and rendering | 6 processes | 37.02 s | 4.63 GiB |
+| Current, worker-side preparation and rendering | 8 processes | 33.23 s | 5.10 GiB |
+
+Six render processes are the default: about 55% less no-upload time than the
+previous threaded run while staying below the 5 GiB process-tree RSS target.
+Eight processes saved another 3.8 seconds but exceeded that target. These
+full-run timings are individual local measurements, not a prediction of live
+R2 upload throughput. Summed process-tree RSS counts shared pages more than
+once; it is useful for comparing settings, not an exact physical-memory cost.
+A 100-vault isolated sample took 0.690 seconds with one thread and 0.175
+seconds with eight, so rendering already benefited from threads; the larger
+gain comes from moving the surrounding per-vault work to child processes.
+The RSS numbers are for the standalone sparkline export, not the complete
+scanner; monitor the scanner container after deployment because Joblib may
+retain idle worker processes between exports.
 
 ### export-protocol-metadata.py
 
