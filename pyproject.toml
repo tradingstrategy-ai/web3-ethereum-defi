@@ -60,7 +60,7 @@ urllib3 = ">=2.6.3"
 cachetools = ">=4" 
 eth-bloom = "^2.0.0" 
 futureproof = "^0.3.1" 
-orjson = ">=3.10.0" # Fast JSON decoding for JSON-RPC responses
+orjson = ">=3.10.0" # Fast JSON-RPC decoding and vault publication encoding
 # Brotli compression for R2 JSON uploads (transparent browser decompression)
 brotli = {version = "^1.1.0", optional = true}
 psutil = "^5.9.0" 

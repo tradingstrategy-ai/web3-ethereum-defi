@@ -1,0 +1,141 @@
+{
+  "cpu_seconds": 178.622,
+  "fixed_now": "2026-09-23T15:00:00",
+  "force_all_columns": false,
+  "input": {
+    "metadata_mtime_ns": 1790095081067599831,
+    "metadata_size_bytes": 53933036,
+    "price_mtime_ns": 1790095127735114707,
+    "price_path": "/home/mikko/.tradingstrategy/cleaned-vault-prices-1h.parquet",
+    "price_rows": 10116623,
+    "price_size_bytes": 259507258
+  },
+  "output_size_bytes": 75647738,
+  "output_vaults": 5431,
+  "peak_rss_kib": 8637432,
+  "phase": "warm",
+  "stages": [
+    {
+      "cpu_seconds": 0.845,
+      "rows": 10116623,
+      "stage": "read_parquet",
+      "wall_seconds": 0.216
+    },
+    {
+      "cpu_seconds": 0.378,
+      "stage": "cross_check_data",
+      "wall_seconds": 0.378
+    },
+    {
+      "cpu_seconds": 0.248,
+      "stage": "compute_vault_tvl_observations",
+      "wall_seconds": 0.248
+    },
+    {
+      "cpu_seconds": 0.429,
+      "stage": "free_memory",
+      "wall_seconds": 0.429
+    },
+    {
+      "cpu_seconds": 0.032,
+      "due_vaults": 5765,
+      "skipped_vaults": 7030,
+      "stage": "partition_due_vault_ids",
+      "wall_seconds": 0.032
+    },
+    {
+      "cpu_seconds": 4.799,
+      "rows": 8490655,
+      "stage": "read_parquet",
+      "wall_seconds": 0.384
+    },
+    {
+      "cpu_seconds": 0.475,
+      "stage": "free_memory",
+      "wall_seconds": 0.475
+    },
+    {
+      "cpu_seconds": 34.921,
+      "rows": 2851489,
+      "stage": "calculate_hourly_returns_for_all_vaults",
+      "wall_seconds": 34.925
+    },
+    {
+      "cpu_seconds": 0.524,
+      "stage": "free_memory",
+      "wall_seconds": 0.524
+    },
+    {
+      "cpu_seconds": 0.165,
+      "stage": "build_core3_protocols_for_export",
+      "wall_seconds": 0.099
+    },
+    {
+      "cpu_seconds": 0.183,
+      "stage": "build_xerberus_pool_lookup",
+      "wall_seconds": 0.127
+    },
+    {
+      "cpu_seconds": 0.042,
+      "stage": "build_xerberus_protocols_for_export",
+      "wall_seconds": 0.031
+    },
+    {
+      "cpu_seconds": 121.869,
+      "rows": 5765,
+      "stage": "calculate_lifetime_metrics",
+      "wall_seconds": 121.885
+    },
+    {
+      "cpu_seconds": 0.651,
+      "stage": "free_memory",
+      "wall_seconds": 0.651
+    },
+    {
+      "cpu_seconds": 5.982,
+      "stage": "apply_sticky_export_state",
+      "wall_seconds": 5.984
+    },
+    {
+      "cpu_seconds": 0.506,
+      "stage": "free_memory",
+      "wall_seconds": 0.506
+    },
+    {
+      "cpu_seconds": 0.646,
+      "stage": "build_curators_for_export",
+      "wall_seconds": 0.605
+    },
+    {
+      "cpu_seconds": 0.021,
+      "stage": "append_strategy_categories_to_export",
+      "wall_seconds": 0.021
+    },
+    {
+      "cpu_seconds": 0.496,
+      "stage": "validate_strict_json_serialisable",
+      "wall_seconds": 0.496
+    },
+    {
+      "cpu_seconds": 0.527,
+      "stage": "validate_strict_json_serialisable",
+      "wall_seconds": 0.527
+    },
+    {
+      "cpu_seconds": 0.105,
+      "stage": "save_sticky_export_state",
+      "wall_seconds": 0.105
+    },
+    {
+      "cpu_seconds": 0.053,
+      "stage": "json_dump",
+      "wall_seconds": 0.053
+    },
+    {
+      "cpu_seconds": 0.053,
+      "stage": "save_metrics_state",
+      "wall_seconds": 0.053
+    }
+  ],
+  "wall_seconds": 173.628
+}

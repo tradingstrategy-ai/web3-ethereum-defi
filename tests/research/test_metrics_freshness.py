@@ -609,3 +609,25 @@ def test_top_vaults_json_freshness_gate_end_to_end(tmp_path: Path, monkeypatch: 
     assert mock_calls[-1] == {vault_id, small_vault_id}
     assert [record["id"] for record in output["vaults"]] == [vault_id]
     assert len(post_processor_calls) == 3
+
+    # A failed public write must not advance either persisted state file.
+    sticky_path = tmp_path / "vault-export-state.json"
+    metrics_path = tmp_path / "vault-metrics-state.json"
+    previous_files = {path: path.read_bytes() for path in (output_path, sticky_path, metrics_path)}
+
+    def fail_public_write(path: Path, payload: dict, *, validated: bool = False) -> None:
+        """Fail at the public-file boundary after strict prevalidation.
+
+        :param path: JSON destination being written.
+        :param payload: Validated export payload.
+        :param validated: Whether the caller completed strict validation.
+        :return: Never returns for the public destination.
+        """
+        assert path == output_path
+        assert validated
+        raise OSError("simulated public JSON write failure")
+
+    monkeypatch.setattr(top_vaults_json, "_write_strict_json", fail_public_write)
+    with pytest.raises(OSError, match="simulated public JSON write failure"):
+        run_main()
+    assert all(path.read_bytes() == previous for path, previous in previous_files.items())

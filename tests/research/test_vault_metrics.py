@@ -38,6 +38,7 @@ from eth_defi.research.vault_metrics import (
     calculate_period_metrics,
     calculate_returns,
     calculate_sharpe_ratio_from_returns,
+    cross_check_data,
     display_vault_chart_and_tearsheet,
     export_lifetime_row,
     format_lifetime_table,
@@ -576,6 +577,38 @@ def test_export_lifetime_row_converts_non_finite_numpy_scalars_to_null() -> None
 
     assert exported["last_share_price"] is None
     assert exported["current_nav"] is None
+
+
+def test_export_lifetime_row_sorts_flags() -> None:
+    """Unordered scanner flags produce a stable JSON list."""
+    exported = export_lifetime_row(pd.Series({"flags": {VaultFlag.redeem, VaultFlag.deposit, VaultFlag.paused}}))
+
+    assert exported["flags"] == ["deposit", "paused", "redeem"]
+
+
+def test_cross_check_data_preserves_distinct_identity_errors() -> None:
+    """Repeated, mismatched-ID and missing-value rows keep the old contract.
+
+    :return: ``None`` after checking one message per missing chain/address pair.
+    """
+    vault_db = VaultDatabase(rows={VaultSpec(chain_id=1, vault_address="0xaaa"): {}})
+    prices = pd.DataFrame(
+        {
+            "chain": [1, 1, 1, 2, 2, pd.NA, 1, float("nan")],
+            "address": ["0xaaa", "0xaaa", "0xaaa", "0xbbb", "0xbbb", "0xccc", pd.NA, "0xddd"],
+            "id": ["wrong", "1-0xaaa", "1-0xaaa", "2-0xbbb", "2-0xbbb", "missing", "missing", "missing"],
+        }
+    )
+    messages: list[str] = []
+
+    # The old full-row expression defines the behaviour for each supported
+    # pandas version, including how its string conversion handles nulls.
+    legacy_ids = set(prices["chain"].astype(str) + "-" + prices["address"].astype(str))
+    expected = {f"Price data has entry {entry} that is not in vault database" for entry in legacy_ids if entry != "1-0xaaa"}
+
+    assert cross_check_data(vault_db, prices, printer=messages.append) == len(expected)
+    assert set(messages) == expected
+    assert "Price data has entry 2-0xbbb that is not in vault database" in messages
 
 
 def test_calculate_lifetime_metrics_prepares_daily_series_once_per_vault(

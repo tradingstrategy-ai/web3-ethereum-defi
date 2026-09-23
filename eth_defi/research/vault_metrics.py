@@ -8,7 +8,7 @@ import datetime
 import logging
 import math
 import warnings
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from dataclasses import asdict, dataclass, is_dataclass
 from decimal import Decimal
 from enum import Enum
@@ -4441,19 +4441,25 @@ def format_ffn_performance_stats_grouped(
 def cross_check_data(
     vault_db: VaultDatabase,
     prices_df: pd.DataFrame,
-    printer=print,
+    printer: Callable[[str], None] = print,
 ) -> int:
-    """Check that VaultDatabase has metadata for all price_df vaults and vice versa.
+    """Check that each price identity has a vault metadata entry.
 
-    :return:
-        Number of problem entries.
+    Hourly price data repeats each chain and address many times. Deduplicate
+    these columns before building string keys so the check scales with the
+    number of vaults rather than the number of price rows. The ``id`` column
+    is deliberately not used: the existing check validates chain and address.
 
-        Should be zero.
+    :param vault_db: Metadata keyed by chain and address.
+    :param prices_df: Price rows containing ``chain`` and ``address`` columns.
+    :param printer: Report one message per distinct missing vault identity.
+    :return: Number of distinct missing vault identities; normally zero.
     """
 
     vault_db_entries = set(k.as_string_id() for k in vault_db.keys())
 
-    prices_df_ids = set(prices_df["chain"].astype(str) + "-" + prices_df["address"].astype(str))
+    identity_pairs = prices_df[["chain", "address"]].drop_duplicates()
+    prices_df_ids = set(identity_pairs["chain"].astype(str) + "-" + identity_pairs["address"].astype(str))
 
     errors = 0
     for entry in prices_df_ids:
@@ -4694,6 +4700,11 @@ def export_lifetime_row(row: pd.Series) -> dict:
         return value
 
     out = {k: _serialize(v) for k, v in row.to_dict().items()}
+
+    # Scanner flags are a set; their iteration order must not change JSON
+    # bytes or the sticky export record between otherwise identical runs.
+    if isinstance(out.get("flags"), list):
+        out["flags"].sort()
 
     # Legacy field mappings
     out["management_fee"] = out.get("mgmt_fee")

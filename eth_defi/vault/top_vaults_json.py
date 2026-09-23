@@ -40,6 +40,7 @@ import time
 from dataclasses import dataclass
 from pathlib import Path
 
+import orjson
 import pandas as pd
 import psutil
 import pyarrow.parquet as pq
@@ -505,17 +506,18 @@ def load_sticky_export_state(path: Path, now: datetime.datetime) -> dict:
     return state
 
 
-def save_sticky_export_state(state: dict, path: Path) -> None:
+def save_sticky_export_state(state: dict, path: Path, *, validated: bool = False) -> None:
     """Atomically write sticky export state.
 
     :param state:
         State mapping.
     :param path:
         Destination path.
+    :param validated:
+        The exporter already checked this state before writing its public JSON.
+        Standalone callers leave this false to retain strict validation.
     """
-    path.parent.mkdir(parents=True, exist_ok=True)
-    with atomic_write(str(path), mode="w", overwrite=True, encoding="utf-8") as f:
-        json.dump(state, f, indent=2, ensure_ascii=False, allow_nan=False)
+    _write_strict_json(path, state, validated=validated)
 
 
 def build_export_metadata(version_info: VersionInfo | None = None) -> dict:
@@ -1053,6 +1055,32 @@ def validate_strict_json_serialisable(obj: dict) -> None:
         raise ValueError("Non-serializable values found; aborting JSON export.")
 
 
+def _write_strict_json(path: Path, payload: dict, *, validated: bool = False) -> None:
+    """Atomically write validated JSON, preferring the existing ``orjson`` dependency.
+
+    Standard JSON handles a few values that ``orjson`` does not, notably
+    integers wider than 64 bits. Fall back only when the faster encoder
+    rejects an otherwise valid payload; preserve the old output contract.
+
+    :param path: Destination JSON path.
+    :param payload: JSON object to write.
+    :param validated: Caller has already run strict path-aware validation.
+    :return: ``None`` after replacing the file atomically.
+    """
+    if not validated:
+        validate_strict_json_serialisable(payload)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        encoded = orjson.dumps(payload, option=orjson.OPT_INDENT_2)
+    except orjson.JSONEncodeError as error:
+        logger.warning("Using standard JSON encoder for %s: %s", path, error)
+        with atomic_write(str(path), mode="w", overwrite=True, encoding="utf-8") as handle:
+            json.dump(payload, handle, indent=2, ensure_ascii=False, allow_nan=False)
+    else:
+        with atomic_write(str(path), mode="wb", overwrite=True) as handle:
+            handle.write(encoded)
+
+
 def build_strategy_categories_for_export(vaults: list[dict]) -> dict[str, StrategyCategoryExportRecord]:
     """Build public strategy-category labels and aggregates for exported vaults.
 
@@ -1515,9 +1543,9 @@ def main(
     output_data: VaultMetricsExport = {
         "generated_at": format_state_timestamp(now),
         "metadata": export_metadata,
-        "core3_protocols": core3_protocols,
-        "xerberus_protocols": xerberus_protocols,
-        "curators": curators_export,
+        "core3_protocols": dict(sorted(core3_protocols.items())),
+        "xerberus_protocols": dict(sorted(xerberus_protocols.items())),
+        "curators": dict(sorted(curators_export.items())),
         "vaults": vaults,
     }
     categories_attached = append_strategy_categories_to_export(output_data, vaults)
@@ -1538,10 +1566,9 @@ def main(
 
     # 7️⃣ Write to JSON file (strict mode)
     output_path.parent.mkdir(parents=True, exist_ok=True)
-    with atomic_write(str(output_path), mode="w", overwrite=True, encoding="utf-8") as f:
-        json.dump(output_data, f, indent=2, ensure_ascii=False, allow_nan=False)
+    _write_strict_json(output_path, output_data, validated=True)
 
-    save_sticky_export_state(sticky_result.state, sticky_state_path)
+    save_sticky_export_state(sticky_result.state, sticky_state_path, validated=True)
     logger.info("Sticky export state: loaded %d vault entries from %s", sticky_result.stats.loaded_state_entries, sticky_state_path)
 
     # The freshness state is committed after the output JSON: a crash between
