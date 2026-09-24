@@ -422,7 +422,6 @@ poetry run python scripts/erc-4626/scan-arc-vaults.py
 | `JSON_RPC_ETHEREUM` | Fallback source only: must contain a compatible Goldsky Ethereum endpoint ending in `/1`. |
 | `HYPERSYNC_API_KEY` | Required Envio API key for Arc historical discovery. |
 | `ARC_PIPELINE_DATA_DIR` | Optional isolated local state directory. Default: `~/.tradingstrategy/vaults/arc-initial-scan`. |
-| `ARC_FORCE_LEAD_DISCOVERY` | Optional. Set to `true` to bypass the Arc local lead-discovery cache. Default: `false`. |
 | `MAX_WORKERS` | Optional metadata-reader worker count. Default: 16. |
 | `LOG_LEVEL` | Optional logging level. Default: `info`. |
 
@@ -1409,9 +1408,9 @@ ORDER BY chain, phase;
 Arc, Tempo and Robinhood Chain are scanned when `JSON_RPC_ARC`,
 `JSON_RPC_TEMPO` and `JSON_RPC_ROBINHOOD` are configured. Arc currently runs
 lead discovery and metadata refresh, while its per-chain configuration
-suppresses generic share-price history, dedicated tokenised-fund feeds and
-settlement-event backfills even when production sets `SCAN_PRICES=true`.
-Populate and validate
+suppresses generic share-price history and dedicated tokenised-fund feeds even
+when production sets `SCAN_PRICES=true`. Settlement-event scanning remains
+independently controlled by `SCAN_VAULT_SETTLEMENTS`. Populate and validate
 `~/.tradingstrategy/block-timestamp/5042-timestamps.duckdb` and historical
 Multicall reads before enabling Arc prices in `build_chain_configs()`. Prefer
 `scan-arc-vaults.py` above for Arc's first isolated discovery. For a focused

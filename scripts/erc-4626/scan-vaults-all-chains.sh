@@ -124,12 +124,10 @@ export JSON_RPC_URL=$JSON_RPC_TEMPO
 python scripts/erc-4626/scan-vaults.py
 if [[ "$SCAN_PRICES" == "true" ]]; then python scripts/erc-4626/scan-prices.py ; fi
 
-if [[ -n "${JSON_RPC_ARC:-}" ]]; then
-    export JSON_RPC_URL=$JSON_RPC_ARC
-    python scripts/erc-4626/scan-vaults.py
-    # Arc historical price scanning stays disabled until its timestamp cache
-    # and archive-state coverage have been validated in production.
-fi
+export JSON_RPC_URL=$JSON_RPC_ARC
+python scripts/erc-4626/scan-vaults.py
+# Arc historical price scanning stays disabled until its timestamp cache and
+# archive-state coverage have been validated in production.
 
 export JSON_RPC_URL=$JSON_RPC_ROBINHOOD
 python scripts/erc-4626/scan-vaults.py

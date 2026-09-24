@@ -129,7 +129,6 @@ def main() -> None:
 
     rpc_url, rpc_source = resolve_arc_rpc_url()
     max_workers = int(os.environ.get("MAX_WORKERS", "16"))
-    force_lead_discovery = os.environ.get("ARC_FORCE_LEAD_DISCOVERY", "false").lower() == "true"
     verified_rpc_url, latest_block = verify_archive_node(rpc_url, "Arc")
     logger.info(
         "Starting Arc vault discovery from %s at block %s with %d workers; local state is %s",
@@ -143,7 +142,6 @@ def main() -> None:
         rpc_url=verified_rpc_url,
         max_workers=max_workers,
         vault_db_path=data_dir / "vault-metadata-db.pickle",
-        force_lead_discovery=force_lead_discovery,
     )
     if not success:
         logger.error("Arc vault discovery failed: %s", metrics.get("error", "unknown error"))

@@ -64,8 +64,9 @@ historical share-price reads.
   is now verified and is included in the supported-chain mapping.
 - Arc is scheduled for discovery and metadata refresh, but its per-chain
   `scan_prices` setting is false. The production-wide `SCAN_PRICES=true`
-  setting cannot start generic prices, tokenised-fund prices or settlement
-  backfills for Arc prematurely.
+  setting cannot start generic or tokenised-fund prices for Arc prematurely.
+  Settlement-event scanning remains independent because it uses HyperSync and
+  does not require historical contract state.
 - USDC is Arc's native gas asset but the scanner is read-only. Do not invent a
   wrapped-native-token address, a sequencer configuration, or transaction
   settings. Add a mainnet USDC contract to `USDC_NATIVE_TOKEN` or stablecoin
@@ -117,8 +118,8 @@ historical share-price reads.
      fast EVM networks. This makes Arc eligible for lead discovery, timestamp
      prepopulation, cache healing, cycle controls, and `CHAIN_ORDER` /
      `TEST_CHAINS` selection without enabling historical prices.
-   - Apply the same per-chain gate to dedicated tokenised-fund prices and
-     settlement-event backfills so no secondary reader bypasses the rollout.
+   - Apply the same per-chain gate to dedicated tokenised-fund prices so no
+     secondary price reader bypasses the rollout.
    - Add `JSON_RPC_ARC: ${JSON_RPC_ARC:-}` to both `vault-scanner-oneshot` and
      `vault-scanner-looped` in `docker-compose.yml`.
    - Add metadata discovery to the legacy

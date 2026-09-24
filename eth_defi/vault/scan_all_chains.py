@@ -2606,9 +2606,6 @@ def run_scan_tick(
             return
 
         dashboard_result = results[chain.name]
-        if not chain.scan_prices:
-            logger.info("%s: settlement scan skipped by the per-chain rollout gate", chain.name)
-            return
         if skip_reason is not None:
             logger.info("%s: settlement scan skipped: %s", chain.name, skip_reason)
             return
