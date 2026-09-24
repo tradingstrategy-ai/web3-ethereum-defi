@@ -370,9 +370,10 @@ Discovery scan for ERC-4626 vaults on a single chain. Stores metadata in the vau
 JSON_RPC_URL=$JSON_RPC_BASE poetry run python scripts/erc-4626/scan-vaults.py
 ```
 
-For Tempo or Robinhood Chain, set `JSON_RPC_TEMPO` or `JSON_RPC_ROBINHOOD` to
-an archive-capable provider endpoint and pass it through as the single-chain
-`JSON_RPC_URL`:
+For Tempo or Robinhood Chain, set `JSON_RPC_TEMPO` or
+`JSON_RPC_ROBINHOOD` to an archive-capable provider endpoint and pass it
+through as the single-chain `JSON_RPC_URL`. Use the isolated Arc bootstrap
+script below for Arc's initial discovery.
 
 ```shell
 LOG_LEVEL=info JSON_RPC_URL=$JSON_RPC_TEMPO poetry run python scripts/erc-4626/scan-vaults.py
@@ -389,6 +390,40 @@ LOG_LEVEL=info JSON_RPC_URL=$JSON_RPC_TEMPO poetry run python scripts/erc-4626/s
 | `HYPERSYNC_RPM` | Optional. Hypersync API requests-per-minute limit. Default: 80, leaving headroom below the 100 RPM quota observed for basic API keys. Throttling is always on; lower this further after persistent 429 errors. |
 | `HYPERSYNC_CONCURRENCY` | Optional. Number of Hypersync requests in flight per stream — the main throughput knob. Default: server default (10). Increase for dense workloads, decrease for rate-limited plans. See [Envio StreamConfig tuning](https://docs.envio.dev/docs/HyperSync/stream-config-tuning). |
 | `RPC_TRACKING_DATABASE_PATH` | Optional. Shared JSON-RPC accounting DuckDB. Default: `~/.tradingstrategy/rpc-tracking.duckdb`. |
+
+### scan-arc-vaults.py
+
+Run the initial Arc mainnet discovery locally without altering the shared vault
+scanner database, price Parquet files, reader state or exports. Its Arc vault
+database, incremental lead cursor and log live in
+`~/.tradingstrategy/vaults/arc-initial-scan` by default. Normal metadata reads
+may refresh chain-keyed token and protocol caches outside that directory. The
+script performs no historical price scan or post-processing. Do not copy its
+isolated vault pickle over the production vault database.
+
+[Arc mainnet uses chain ID 5042](https://developers.circle.com/stablefx/howtos/connect-wallet-console),
+and [Envio provides first-class Arc HyperSync support](https://envio.dev/chains/arc)
+at `https://arc.hypersync.xyz`. The script requires `HYPERSYNC_API_KEY` and
+uses that service for historical event discovery. It prefers `JSON_RPC_ARC`;
+when that is unset, it derives the Goldsky Arc endpoint from a Goldsky entry in
+`JSON_RPC_ETHEREUM` by replacing the final `/1` chain-id component with
+`/5042`. Its own status messages identify only the environment source, while
+the provider preflight reports redacted domains and failure categories instead
+of credential-bearing URLs.
+
+```shell
+source .local-test.env && \
+poetry run python scripts/erc-4626/scan-arc-vaults.py
+```
+
+| Variable | Description |
+|----------|-------------|
+| `JSON_RPC_ARC` | Optional preferred archive-capable Arc provider. A space-separated fallback configuration is accepted. The preflight reads account state at block 1 and the chain head. |
+| `JSON_RPC_ETHEREUM` | Fallback source only: must contain a compatible Goldsky Ethereum endpoint ending in `/1`. |
+| `HYPERSYNC_API_KEY` | Required Envio API key for Arc historical discovery. |
+| `ARC_PIPELINE_DATA_DIR` | Optional isolated local state directory. Default: `~/.tradingstrategy/vaults/arc-initial-scan`. |
+| `MAX_WORKERS` | Optional metadata-reader worker count. Default: 16. |
+| `LOG_LEVEL` | Optional logging level. Default: `info`. |
 
 #### Required protocol-specific lead migrations
 
@@ -784,7 +819,7 @@ poetry run python scripts/erc-4626/scan-vaults-all-chains.py
 
 | Variable | Description |
 |----------|-------------|
-| `SCAN_PRICES` | Optional. Scan prices after vault discovery, including dedicated tokenised-fund feeds. Default: false in the command; production Compose defaults to true. |
+| `SCAN_PRICES` | Optional. Scan generic ERC-4626 prices after vault discovery for chains whose configuration permits it, and enable separately scheduled tokenised-fund feeds. Default: false in the command; production Compose defaults to true. A per-chain opt-out such as Arc applies only to the generic chain price scan. |
 | `SKIP_TOKENISED_FUNDS` | Optional. When `SCAN_PRICES=true`, disable dedicated tokenised-fund price feeds and return their registered products to the generic chain price scan. Default: false. |
 | `TOKENISED_FUND_PROTOCOLS` | Optional. Comma-separated focused feed selection, e.g. `securitize,asseto`. Unselected feeds remain visible as disabled; their products stay in the generic chain scan. |
 | `TOKENISED_FUND_MAX_WORKERS` | Optional. Historical reader workers for tokenised-fund feeds. Default: 8. |
@@ -1370,8 +1405,17 @@ GROUP BY chain, phase
 ORDER BY chain, phase;
 ```
 
-Tempo and Robinhood Chain are scanned when `JSON_RPC_TEMPO` and
-`JSON_RPC_ROBINHOOD` are configured. For a focused Tempo-only dry run:
+Arc, Tempo and Robinhood Chain are scanned when `JSON_RPC_ARC`,
+`JSON_RPC_TEMPO` and `JSON_RPC_ROBINHOOD` are configured. Arc currently runs
+lead discovery and metadata refresh, while its per-chain configuration
+suppresses generic share-price history even when production sets
+`SCAN_PRICES=true`. Dedicated tokenised-fund feeds and settlement-event
+scanning retain their existing independent chain selection. No dedicated Arc
+tokenised-fund product is currently registered. Populate and validate
+`~/.tradingstrategy/block-timestamp/5042-timestamps.duckdb` and historical
+Multicall reads before enabling Arc prices in `build_chain_configs()`. Prefer
+`scan-arc-vaults.py` above for Arc's first isolated discovery. For a focused
+Tempo-only dry run:
 
 ```shell
 source .local-test.env && \
@@ -1380,6 +1424,11 @@ SCAN_PRICES=false \
 SKIP_POST_PROCESSING=true \
 poetry run python scripts/erc-4626/scan-vaults-all-chains.py
 ```
+
+Adding Arc changes the lead-discovery configuration signature. The first
+production cycle after deployment will therefore refresh discovery and
+metadata for every configured EVM chain once; schedule the rollout with that
+one-off provider load in mind.
 
 #### Pipeline logs and JSON provenance
 

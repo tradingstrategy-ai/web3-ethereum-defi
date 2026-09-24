@@ -36,7 +36,7 @@ from decimal import Decimal
 from requests import Session
 from web3 import Web3
 
-from eth_defi.derive.constants import DERIVE_MAINNET_API_URL, DERIVE_MAINNET_RPC_URL
+from eth_defi.derive.constants import DERIVE_MAINNET_API_URL
 from eth_defi.event_reader.multicall_batcher import get_multicall_contract
 
 logger = logging.getLogger(__name__)
@@ -245,19 +245,24 @@ def fetch_funding_rate_history(
     :param timeout:
         HTTP request timeout in seconds.
     :return:
-        List of funding rate entries sorted by timestamp ascending.
+        Funding rate entries within the requested inclusive time bounds,
+        sorted by timestamp ascending.
     :raises ValueError:
         If the API returns an error response.
     """
     url = f"{base_url}/public/get_funding_rate_history"
 
     params: dict = {"instrument_name": instrument_name}
+    start_timestamp_ms = None
+    end_timestamp_ms = None
 
     if start_time is not None:
-        params["start_timestamp"] = int(start_time.replace(tzinfo=datetime.timezone.utc).timestamp() * 1000)
+        start_timestamp_ms = int(start_time.replace(tzinfo=datetime.timezone.utc).timestamp() * 1000)
+        params["start_timestamp"] = start_timestamp_ms
 
     if end_time is not None:
-        params["end_timestamp"] = int(end_time.replace(tzinfo=datetime.timezone.utc).timestamp() * 1000)
+        end_timestamp_ms = int(end_time.replace(tzinfo=datetime.timezone.utc).timestamp() * 1000)
+        params["end_timestamp"] = end_timestamp_ms
 
     response = session.post(
         url,
@@ -273,6 +278,14 @@ def fetch_funding_rate_history(
     entries = []
     for item in history:
         ts_ms = int(item["timestamp"])
+        # Derive may include the immediately preceding hourly sample even when
+        # ``start_timestamp`` is aligned to an exact hour. Enforce the public
+        # wrapper's requested inclusive bounds so database chunks cannot write
+        # observations from outside their requested range.
+        if start_timestamp_ms is not None and ts_ms < start_timestamp_ms:
+            continue
+        if end_timestamp_ms is not None and ts_ms > end_timestamp_ms:
+            continue
         ts_dt = datetime.datetime.fromtimestamp(ts_ms / 1000, tz=datetime.timezone.utc).replace(tzinfo=None)
         entries.append(
             FundingRateEntry(

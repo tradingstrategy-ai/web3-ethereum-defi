@@ -45,3 +45,32 @@ def test_verify_archive_node_skips_genesis_state_probe_for_monad(
     assert rpc_url == "https://rpc.example"
     assert latest_block == LATEST_BLOCK
     assert get_balance.call_args_list == [call("0x0000000000000000000000000000000000000000", block_identifier=block_number) for block_number in expected_blocks]
+
+
+def test_verify_archive_node_does_not_log_rpc_credentials(
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Provider failures expose a category and domain, never the raw URL.
+
+    :param monkeypatch:
+        Pytest monkeypatch fixture.
+    :param caplog:
+        Captured verifier logs.
+    :return:
+        ``None``. Assertions verify that credential material is redacted.
+    """
+    secret = "rpc-secret-that-must-not-be-logged"
+
+    def fail_to_connect(*_args: object, **_kwargs: object) -> None:
+        """Raise an error whose message resembles a credential-bearing provider exception."""
+
+        raise ConnectionError(f"Could not connect to https://rpc.example/v2/key?secret={secret}")
+
+    monkeypatch.setattr(multi_provider, "create_multi_provider_web3", fail_to_connect)
+
+    with pytest.raises(RuntimeError, match="failure_mode="):
+        verify_archive_node(f"https://rpc.example/v2/key?secret={secret}", "Arc")
+
+    assert "rpc.example" in caplog.text
+    assert secret not in caplog.text

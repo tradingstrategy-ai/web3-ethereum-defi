@@ -6,7 +6,7 @@
 from web3 import Web3
 
 #: HyperSync server URLs by chain id.
-#: Updated 2026-07-10.
+#: Updated 2026-09-24.
 HYPERSYNC_SERVES = {
     1: "https://eth.hypersync.xyz",  # Ethereum Mainnet
     10: "https://optimism.hypersync.xyz",  # Optimism
@@ -50,6 +50,7 @@ HYPERSYNC_SERVES = {
     4326: "https://megaeth.hypersync.xyz",  # MegaETH
     4663: "https://4663.hypersync.xyz",  # Robinhood Chain
     5000: "https://mantle.hypersync.xyz",  # Mantle
+    5042: "https://arc.hypersync.xyz",  # Arc mainnet
     5115: "https://citrea-testnet.hypersync.xyz",  # Citrea Testnet
     5330: "https://superseed.hypersync.xyz",  # Superseed
     6342: "https://megaeth-testnet.hypersync.xyz",  # MegaETH Testnet
@@ -101,7 +102,7 @@ HYPERSYNC_SERVES = {
 def get_hypersync_server(web3: Web3 | int, allow_missing=False) -> str | None:
     """Get HyperSync server for Web3 instance or by chain id"""
 
-    if type(web3) == int:
+    if type(web3) is int:
         chain_id = web3
     else:
         chain_id = web3.eth.chain_id
@@ -122,7 +123,7 @@ def is_hypersync_supported_chain(web3: Web3 | int) -> bool:
     Based on our internal server mapping.
     """
 
-    if type(web3) == int:
+    if type(web3) is int:
         chain_id = web3
     else:
         chain_id = web3.eth.chain_id

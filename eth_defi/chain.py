@@ -154,6 +154,7 @@ CHAIN_NAMES = {
     146: "Sonic",
     34443: "Mode",
     5000: "Mantle",
+    5042: "Arc",
     999: "Hyperliquid",  # HyperEVM, see https://hyperliquid.gitbook.io/hyperliquid-docs/for-developers/hyperevm
     998: "Hyperliquid_Testnet",  # HyperEVM testnet
     4217: "Tempo",
@@ -246,6 +247,7 @@ CHAIN_HOMEPAGES = {
     146: {"name": "Sonic", "homepage": "https://www.soniclabs.com/"},  # Formerly Fantom Sonic
     34443: {"name": "Mode", "homepage": "https://www.mode.network"},
     5000: {"name": "Mantle", "homepage": "https://www.mantle.xyz"},
+    5042: {"name": "Arc", "homepage": "https://arc.io"},
     999: {"name": "Hyperliquid", "homepage": "https://hyperliquid.xyz"},  # HyperEVM, see https://hyperliquid.gitbook.io/hyperliquid-docs/for-developers/hyperevm
     998: {"name": "Hyperliquid Testnet", "homepage": "https://hyperliquid.xyz"},  # HyperEVM testnet
     9997: {"name": "Hibachi", "homepage": "https://hibachi.xyz"},  # Synthetic in-house ID, not EVM RPC
@@ -296,6 +298,9 @@ EVM_BLOCK_TIMES = {
     146: 1,  # Sonic (estimated ~1 second, designed for speed; confirm with official sources)
     34443: 2,  # Mode (~2 seconds, typical for Optimistic rollups)
     5000: 2,  # Mantle (~2 seconds, based on its Ethereum L2 design)
+    # Measured from Arc blocks 22,406,355 to 22,506,355 on 2026-09-24:
+    # 50,769 seconds / 100,000 blocks = 0.50769 seconds per block.
+    5042: 0.5,  # Arc mainnet, EVM-compatible USDC-gas L1 with sub-second finality
     #: HyperEVM uses a dual-block architecture: small blocks (2M gas, ~1s) and large blocks (30M gas, ~60s).
     #: Contract deployments >2M gas require opting in to large blocks via ``evmUserModify`` with ``usingBigBlocks``.
     #: See `HyperEVM dual-block architecture <https://hyperliquid.gitbook.io/hyperliquid-docs/for-developers/hyperevm/dual-block-architecture>`__.

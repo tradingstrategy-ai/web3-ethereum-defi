@@ -213,6 +213,8 @@ def test_morpho_not_found_adds_dynamic_flag_and_note(monkeypatch: pytest.MonkeyP
         (4217, "Tempo", MorphoV2Vault, "eth_defi.erc_4626.vault_protocol.morpho.vault_v2"),
         (4663, "Robinhood", MorphoV1Vault, "eth_defi.erc_4626.vault_protocol.morpho.vault_v1"),
         (4663, "Robinhood", MorphoV2Vault, "eth_defi.erc_4626.vault_protocol.morpho.vault_v2"),
+        (5042, "Arc", MorphoV1Vault, "eth_defi.erc_4626.vault_protocol.morpho.vault_v1"),
+        (5042, "Arc", MorphoV2Vault, "eth_defi.erc_4626.vault_protocol.morpho.vault_v2"),
     ],
 )
 def test_morpho_api_not_found_bypass_chains_are_temporarily_not_blacklisted(
@@ -221,8 +223,8 @@ def test_morpho_api_not_found_bypass_chains_are_temporarily_not_blacklisted(
     chain_name: str,
     vault_class: type[MorphoV1Vault] | type[MorphoV2Vault],
     module_path: str,
-):
-    """Tempo and Robinhood API coverage gaps do not hide detected Morpho vaults."""
+) -> None:
+    """New-chain Morpho API coverage gaps do not hide detected vaults."""
     _patch_base_vault_flags(monkeypatch)
 
     def fake_fetch_morpho_vault_api_result(*_args, **_kwargs) -> MorphoVaultAPIResult:

@@ -176,6 +176,7 @@ Tests use the public Derive Chain RPC and REST API (no credentials needed).
 ### Funding rate API (discovered 2026-03-18)
 
 - **Parameter names**: The API requires `start_timestamp` / `end_timestamp` (not `start_time` / `end_time` as the docs suggest). Using the wrong names silently falls back to the most recent 30 days.
+- **Boundary samples**: The API may include the hourly sample immediately before `start_timestamp`. `fetch_funding_rate_history()` clips returned rows to the requested inclusive bounds before returning or persisting them.
 - **Maximum window**: The API returns empty results for windows >= 30 days. The maximum usable window is **28 days** (29 days also works but 28 is a safe round number).
 - **Pagination ignored**: `page` and `page_size` parameters are accepted but have no effect — the API always returns all entries in the requested time window.
 - **Full history available**: Despite the docs claiming a 30-day limit, the correct parameter names allow querying data back to instrument inception (ETH-PERP since 2024-01-05, ~800+ days).
