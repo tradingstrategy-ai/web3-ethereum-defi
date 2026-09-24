@@ -34,6 +34,9 @@ Usage:
     # Include ApeX native vaults
     SCAN_APEX=true python scripts/erc-4626/scan-vaults-all-chains.py
 
+    # Include Derive v3 mainnet native vaults
+    SCAN_DERIVE_V3=true python scripts/erc-4626/scan-vaults-all-chains.py
+
     # Core3 risk intelligence enrichment runs by default when CORE3_API_KEY is set.
     # Disable it explicitly if needed.
     SKIP_CORE3=true python scripts/erc-4626/scan-vaults-all-chains.py
@@ -98,6 +101,7 @@ Environment variables:
     - SCAN_LIGHTER: "true" to scan both Ethereum and Robinhood Lighter native pools via public endpoints (default: "false")
     - SCAN_HIBACHI: "true" to scan Hibachi native vaults via public endpoints (default: "false")
     - SCAN_APEX: "true" to scan ApeX native vaults and due history via public endpoints (default: "false")
+    - SCAN_DERIVE_V3: "true" to scan Derive v3 mainnet native vaults (default: "false")
     - SCAN_VAULT_SETTLEMENTS: "false" to skip per-chain Lagoon and D2 settlement event scanning.
       When enabled, events are stored in vault-settlements.duckdb before price cleaning;
       vault_settlement_at is merged into the cleaned price frame during cleaning (default: "true")

@@ -274,6 +274,8 @@ VAULT_PROTOCOL_RISK_MATRIX = {
     "Lighter": VaultTechnicalRisk.severe,
     # Hibachi - closed-source native perp venue
     "Hibachi": VaultTechnicalRisk.severe,
+    # Native managed exchange subaccounts; a vault-specific risk review is pending.
+    "Derive": None,
     # ApeX - closed-source native perp venue with centrally published metrics
     "ApeX": VaultTechnicalRisk.severe,
     # Inverse Finance - sDOLA savings vault, open source but limited audits

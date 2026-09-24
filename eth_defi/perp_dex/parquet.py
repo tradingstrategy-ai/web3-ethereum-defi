@@ -9,7 +9,10 @@ import pandas as pd
 import pyarrow as pa
 from packaging.version import Version
 
+from eth_defi.derive.tags import get_strategy_tags
+from eth_defi.derive.v3_constants import DERIVE_V3_CHAIN_ID
 from eth_defi.perp_dex.metrics import PerpParquetDataStatus
+from eth_defi.vault.strategy_tag import StrategyTag
 
 PERP_METRICS_MAX_AGE = datetime.timedelta(hours=6)
 
@@ -21,10 +24,9 @@ PERP_METRICS_MAX_AGE = datetime.timedelta(hours=6)
 #: an account can receive this alignment.
 PERP_METRICS_MAX_FORWARD_ALIGNMENT = datetime.timedelta(days=2)
 
-#: Native chains whose price rows represent perpetual DEX vault accounts.
-#: This is used only for the generic ``not_collected`` default; adapters own
-#: real source observations and availability states.
-PERP_DEX_NATIVE_CHAIN_IDS = frozenset({325, 9994, 9995, 9997, 9998, 9999})
+#: Native chains with potential perpetual DEX vault accounts. Derive also
+#: hosts non-perpetual strategies, so its vaults need address-level filtering.
+PERP_DEX_NATIVE_CHAIN_IDS = frozenset({325, DERIVE_V3_CHAIN_ID, 9994, 9995, 9997, 9998, 9999})
 
 PERP_VAULT_PARQUET_FIELDS = (
     pa.field("perp_long_notional", pa.float64()),
@@ -422,6 +424,12 @@ def build_registered_perp_vault_index(frame: pd.DataFrame) -> pd.MultiIndex:
     native = frame.loc[frame["chain"].isin(PERP_DEX_NATIVE_CHAIN_IDS), ["chain", "address"]].dropna().drop_duplicates().copy()
     native["chain"] = native["chain"].astype("int64")
     native["address"] = native["address"].astype("string").str.lower()
+    derive_rows = native["chain"].eq(DERIVE_V3_CHAIN_ID)
+    if derive_rows.any():
+        classified = native.loc[derive_rows, "address"].map(lambda address: StrategyTag.perpetual_futures in (get_strategy_tags(address) or ()))
+        keep = ~derive_rows.to_numpy()
+        keep[derive_rows.to_numpy()] = classified.to_numpy(dtype=bool)
+        native = native.iloc[keep]
     return pd.MultiIndex.from_frame(native, names=["chain", "address"])
 
 

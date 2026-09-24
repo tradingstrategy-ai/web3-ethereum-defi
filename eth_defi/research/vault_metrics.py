@@ -2895,6 +2895,15 @@ def calculate_vault_record(
             "ownership_updated_at": vault_metadata.get("_lighter_ownership_updated_at"),
         }
 
+    if protocol == "Derive":
+        # Native vault accounting is USD even when the accepted deposit
+        # asset is ETH, BTC or another token. Keep the source asset separate
+        # so USD share prices are never presented as token-denominated prices.
+        other_data["derive"] = {
+            "deposit_asset": vault_metadata.get("_derive_deposit_asset"),
+            "curator": vault_metadata.get("_derive_curator"),
+        }
+
     # Manual review decision from the Hyperliquid review Google Sheet.
     # Captured into the pickle by
     # :py:func:`eth_defi.hyperliquid.vault_data_export.merge_into_vault_database`
@@ -3546,7 +3555,7 @@ def calculate_vault_rankings(
 #:
 #: These vaults get their data from off-chain APIs (e.g. GRVT, Hyperliquid, Lighter)
 #: or are hardcoded protocol entries that may lack standard ERC-4626 events.
-SPECIAL_VAULT_PROTOCOL_SLUGS = {"grvt", "hyperliquid", "lighter", "hibachi"}
+SPECIAL_VAULT_PROTOCOL_SLUGS = {"grvt", "hyperliquid", "lighter", "hibachi", "derive"}
 
 
 def is_special_vault(

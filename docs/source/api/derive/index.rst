@@ -1,7 +1,14 @@
 Derive API
 ----------
 
-Derive.xyz decentralised perpetuals and options exchange integration with session key authentication.
+Derive.xyz exchange integration. The existing account and trading modules below
+use the v2 API. The :doc:`v3 vault collector <v3-vaults>` uses the separate
+public v3 API and requires no session key.
+
+.. toctree::
+   :maxdepth: 1
+
+   v3-vaults
 
 Preface
 ~~~~~~~

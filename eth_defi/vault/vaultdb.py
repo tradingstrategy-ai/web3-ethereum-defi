@@ -188,6 +188,12 @@ class VaultRow(TypedDict):
     #: :class:`~eth_defi.vault.base.VaultSpec` identity.
     _deployment_chain_id: NotRequired[int | None]
 
+    #: Derive v3 deposit asset, separate from its USD accounting denomination.
+    _derive_deposit_asset: NotRequired[dict | None]
+
+    #: Derive v3 curator wallet; not necessarily a public display name.
+    _derive_curator: NotRequired[str | None]
+
     #: Source used to produce the vault share-price series.
     #:
     #: Missing in legacy pickles and adapters without a known price source.

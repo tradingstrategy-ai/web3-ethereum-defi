@@ -857,6 +857,12 @@ class ERC4626Feature(enum.Enum):
     #: https://hibachi.xyz/vaults
     hibachi_native = "hibachi_native"
 
+    #: Derive v3 native vault
+    #:
+    #: Managed native subaccount on Derive v3, rather than ERC-4626 shares.
+    #: https://app.derive.xyz/v3
+    derive_v3_native = "derive_v3_native"
+
     #: ApeX native vault
     #:
     #: Native ApeX Omni perpetuals trading vault.
@@ -1446,6 +1452,9 @@ def get_vault_protocol_name(features: set[ERC4626Feature]) -> str:
 
     elif ERC4626Feature.hibachi_native in features:
         return "Hibachi"
+
+    elif ERC4626Feature.derive_v3_native in features:
+        return "Derive"
 
     elif ERC4626Feature.apex_native in features:
         return "ApeX"

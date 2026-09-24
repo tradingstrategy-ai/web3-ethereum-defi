@@ -256,6 +256,10 @@ VAULT_PROTOCOL_FEE_MATRIX = {
     # Hibachi - all vault-level fees are zero (management, performance, deposit, withdrawal)
     # Platform charges trading taker fees and deposit/withdrawal fees at exchange level
     "Hibachi": VaultFeeMode.feeless,
+    # Derive v3 curator fees settle through dilutive share mints. Historical
+    # mark-to-market share prices include the actual settlement when it occurs.
+    # https://docs.derive.xyz/vaults/fees
+    "Derive": VaultFeeMode.internalised_minting,
     # ApeX exposes raw fee-like fields, but their units and application are
     # not documented authoritatively by the public vault API.
     "ApeX": None,
