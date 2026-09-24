@@ -152,29 +152,50 @@ of total vault capital (verified 2026-03-09). The `vaultDetails` API returns a
 `leaderFraction` field representing the leader's current capital share (e.g.
 `0.05` = 5% of vault capital is owned by the leader).
 
-We track this as `leader_fraction` in `vault_daily_prices` to monitor how the
-leader's skin-in-the-game evolves over time. Scanner snapshots carry the
-observed value; older historical rows without a snapshot have `NULL`.
-The raw export may forward-fill the value for display, but this does not make
-that carried value a fresh observation.
+We store each observed share as `leader_fraction` in `vault_daily_prices`.
+Older rows without a snapshot have `NULL`. The raw export can carry the last
+share forward for display, but uses only actual observations when applying
+the deposit policy described below.
 
-The documented 5% rule prevents a **leader withdrawal** that would take the
-leader below the minimum; it does not document a follower-deposit amount cap.
-Until that behaviour is verified, our trading policy declines new capital in
-normal vaults with a freshly observed `leader_fraction < 0.055`. This is a
-conservative zero **policy** `max_deposit`, not a source-reported closure or
-venue cap. The raw export sets `deposits_open` from the nullable `isClosed` and
-`allowDeposits` source flags: `false` only for confirmed closure/disabled
-deposits, `true` for explicit permission, and null when permission is unknown.
-`deposit_closed_reason` is reserved for confirmed closure. HLP parents retain
-their existing `allowDeposits` exception. Only an observation that actually
-contains the low leader share gets a zero policy cap; a forward-filled share
-does not make later rows newly capped. Historical rows without source flags
-remain unknown rather than being rewritten as open.
-The metadata pickle separately retains `_hyperliquid_deposits_open` from the
-latest actual `vaultDetails` flags. The metadata normaliser uses it to preserve
-explicitly open vaults; a retained legacy row with neither this marker nor a
-source-backed closure reason is classified as unknown.
+### Deposit permission and the leader-share policy
+
+The documented 5% rule restricts leader withdrawals. It does not establish
+whether a follower deposit can dilute the leader below 5%. Until that behaviour
+is verified, our trading policy rejects new deposits into normal vaults when
+an observed `leader_fraction` is below 0.055.
+
+`classify_hyperliquid_vault_deposit()` is shared by the exporter and live
+executor. It produces these raw export values:
+
+| Source observation | `deposits_open` | `deposit_closed_reason` | `max_deposit` (USDC) |
+| --- | --- | --- | --- |
+| `isClosed=true` | `"false"` | Permanently closed | null |
+| `allowDeposits=false`, except HLP parents | `"false"` | Deposits disabled by leader | null |
+| Required permission flag missing, with no explicit closure | null | null | null |
+| Open flags and observed normal-vault leader share below 5.5% | `"true"` | null | `0.0` |
+| Open flags, with no observed low-share condition | `"true"` | null | null |
+
+Consumers must check permission as well as the amount limit. A null
+`max_deposit` means no amount limit was recorded; it does not establish that
+deposits are allowed. HLP parents ignore `allowDeposits` and the leader-share
+policy, but still honour `isClosed`.
+
+The exporter carries permission flags forward within each vault's history.
+It writes the zero policy limit only on a row that contains a leader-share
+observation. For example, a later price-only row can still say deposits are
+open while its `max_deposit` is null. That row cannot establish whether the
+low-share policy would have blocked a live deposit at that time.
+
+The metadata pickle stores the latest permission separately in
+`_hyperliquid_deposits_open`. The normaliser uses this marker when present;
+older rows fall back to recognised closure or leader-share warning text. An
+absent legacy reason alone leaves permission unknown.
+
+These changes take effect in published historical data after the normal
+scanner regenerates the cleaned price files and readiness manifest. Changing
+the exporter code does not repair previously published R2 objects. Existing
+database values created by the old open-by-default parser also cannot be
+distinguished from observed flags without the original response.
 
 The API also returns a `leaderCommission` field which we store as
 `leader_commission`. The exact semantics of this field are not yet fully

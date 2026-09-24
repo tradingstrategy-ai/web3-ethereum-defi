@@ -68,10 +68,15 @@ _PUBLIC_DEPOSIT_CLOSED_REASONS = {
 
 
 def _classify_public_deposits_from_reason(deposit_closed_reason: str | None) -> bool | None:
-    """Classify public deposit availability from a generated source reason.
+    """Recover permission from the reason stored by an older exporter.
+
+    Retained metadata may have a reason but no original API flags. The old
+    exporter emitted the leader-share warning only after checking that
+    deposits were open. An absent reason is ambiguous: it can also come from
+    incomplete source data.
 
     :param deposit_closed_reason:
-        Source-backed closure reason, non-blocking warning, or ``None``.
+        Stored closure reason, legacy leader-share warning, or ``None``.
     :return:
         ``True`` for open, ``False`` for explicitly closed, or ``None`` for an
         unrecognised or incomplete source state.
@@ -84,17 +89,15 @@ def _classify_public_deposits_from_reason(deposit_closed_reason: str | None) -> 
 
 
 def classify_hyperliquid_vault_deposit_access(deposit_closed_reason: str | None) -> PerpVaultDepositAccess:
-    """Classify one Hyperliquid vault from its persisted availability reason.
+    """Convert a legacy Hyperliquid reason into the shared deposit-access format.
 
-    The `Hyperliquid vault-details response
-    <https://hyperliquid.gitbook.io/hyperliquid-docs/for-developers/api/info-endpoint>`__
-    provides the source flags used to generate this reason. Keeping the final
-    mapping as a pure function lets current and retained metadata rows use the
-    same compatibility classification.
+    The metadata normaliser and migration script use this when a retained row
+    lacks ``_hyperliquid_deposits_open``. New rows should be classified from
+    their API flags with :func:`classify_hyperliquid_vault_deposit`. A missing
+    or unrecognised legacy reason returns unknown permission.
 
     :param deposit_closed_reason:
-        Source-backed closure reason, non-blocking warning, or unavailable
-        status marker.
+        Stored closure reason, leader-share warning, or unavailable marker.
     :return:
         Shared native-perp deposit-access classification.
     """
@@ -301,16 +304,16 @@ def create_hyperliquid_vault_row(
 
 
 def normalise_hyperliquid_deposit_permissions(vault_db: VaultDatabase) -> int:
-    """Normalise Hyperliquid rows from their last observed deposit state.
+    """Refresh exported permissions after merging scanner metadata.
 
-    Current rows carry the latest source permission independently of closure
-    reason. Older retained rows may lack that marker and can only be classified
-    from their last source-backed closure reason. Reclassifying both sets makes
-    the migration idempotent and repairs earlier exporter versions.
-    Explicit closure reasons map to the qualified native-perp ``whitelisted``
-    compatibility value. A legacy leader-share warning proves an open source
-    permission; a retained row with no source flags or reason is ``unknown``.
-    Unrecognised retained reasons are also ``unknown``.
+    Read ``_hyperliquid_deposits_open`` on current rows. For retained rows
+    without that marker, recognise the older closure and leader-share reason
+    strings; leave missing or unrecognised reasons as unknown. Repeated calls
+    leave already-correct rows unchanged.
+
+    The shared native-perp schema represents disabled public deposits as
+    ``whitelisted`` with an explanatory note. That value does not imply that
+    Hyperliquid exposes an address whitelist.
 
     :param vault_db:
         Shared vault metadata database being migrated in place.
@@ -340,21 +343,24 @@ def _compute_deposit_state_columns(
     prices_df: pd.DataFrame,
     observed_leader_fraction: pd.Series,
 ) -> tuple[pd.Series, pd.Series, pd.Series]:
-    """Classify permission and a low-share policy cap for each price row.
+    """Build the three deposit-state columns used by the raw price export.
 
-    Called by both daily and high-frequency exports. Source permission flags
-    may be carried forward, but a zero capacity policy is emitted only where
-    the scanner actually observed leader share on that row. A carried value
-    has no reliable observation age and must not fabricate a fresh cap.
+    Daily and high-frequency exports carry the last observed permission flags
+    forward. The leader-share policy uses only the original observation on
+    each row, so a carried share cannot extend a zero deposit limit into a
+    later price-only row.
 
     :param prices_df:
         Price rows with nullable ``is_closed`` and ``allow_deposits`` flags,
         optional ``relationship_type``, and forward-filled snapshot fields.
     :param observed_leader_fraction:
-        The original, non-forward-filled leader-fraction column.
+        Original leader-fraction values, indexed like ``prices_df``. Each
+        value is a fraction or missing; capture this before forward-filling.
     :return:
-        ``(deposits_open, deposit_closed_reason, max_deposit)`` Series using
-        string booleans, nullable reason text, and nullable USDC amount.
+        Series with the input index: permission as ``"true"``, ``"false"``
+        or ``None``; closure reason as text or ``None``; and the policy deposit
+        limit in USDC as ``0.0`` or ``NaN``. A missing limit does not establish
+        permission to deposit.
     """
     open_values = []
     reasons = []

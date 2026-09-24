@@ -81,10 +81,10 @@ class VaultSnapshot:
     #: Vault manager/operator address
     leader: HexAddress
 
-    #: Whether vault is closed for deposits
+    #: Source ``isClosed`` flag, or ``None`` when the summary omits it.
     is_closed: bool | None
 
-    #: Whether vault allows deposits (from vaultDetails API)
+    #: ``vaultDetails.allowDeposits``, or ``None`` when the source omits the flag.
     allow_deposits: bool | None
 
     #: Vault relationship type (normal, child, parent)

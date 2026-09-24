@@ -92,9 +92,9 @@ class HyperliquidMetricsDatabaseBase:
             )
         """)
 
-        # Older scanner databases required these flags and invented an open
-        # default. Future API responses must be able to retain missing flags
-        # as unknown without discarding the existing observations.
+        # Allow missing API flags in databases created by the older schema.
+        # Existing values cannot distinguish observed flags from old defaults,
+        # so this migration preserves them and changes only nullability.
         columns = self.con.execute("PRAGMA table_info('vault_metadata')").fetchall()
         for name in ("is_closed", "allow_deposits"):
             if any(column[1] == name and column[3] for column in columns):

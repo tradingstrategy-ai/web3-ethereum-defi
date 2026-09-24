@@ -129,6 +129,7 @@ class VaultInfo:
     #: Whether the vault has been permanently closed and is no longer operational.
     #:
     #: From the Hyperliquid ``vaultDetails`` API ``isClosed`` field.
+    #: ``None`` means the response omitted the field.
     #:
     #: See https://hyperliquid.gitbook.io/hyperliquid-docs/for-developers/api/info-endpoint
     is_closed: bool | None
@@ -138,6 +139,7 @@ class VaultInfo:
     #: disabled (``allow_deposits=False``) — the leader controls this independently.
     #:
     #: From the Hyperliquid ``vaultDetails`` API ``allowDeposits`` field.
+    #: ``None`` means the response omitted the field.
     #:
     #: See https://hyperliquid.gitbook.io/hyperliquid-docs/for-developers/api/info-endpoint
     allow_deposits: bool | None
@@ -169,8 +171,8 @@ class VaultInfo:
     parent: HexAddress | None = None
 
 
-#: Conservative trading policy while Hyperliquid's 5% leader rule is not
-#: documented as a follower-deposit limit. It is not a venue-reported cap.
+#: Reject new deposits when an observed leader share is below 5.5%.
+#: This is our trading policy; Hyperliquid has not supplied this amount limit.
 LEADER_FRACTION_NO_BUY_THRESHOLD: Percent = 0.055
 
 #: Legacy warning text retained only to interpret older metadata rows.
@@ -179,18 +181,20 @@ LEADER_FRACTION_DEPOSIT_WARNING = "Leader share of the vault capital near allowe
 
 @dataclass(slots=True)
 class HyperliquidVaultDepositStatus:
-    """Separate public deposit permission from our conservative amount policy.
+    """Deposit permission and the amount allowed by our trading policy.
 
-    Used by the price exporter, live pricing model and pre-transaction check.
-    A zero ``max_deposit`` caused by low leader share is our temporary no-buy
-    policy, not a claim that Hyperliquid reported a zero-capacity vault.
+    The price exporter and trade-executor use this result to apply the same
+    low-leader-share rule without labelling an open vault as closed. Callers
+    must check ``deposits_open`` as well as ``max_deposit``: an absent amount
+    limit does not imply permission to deposit.
     """
 
     #: Permission reported by the API, or unknown if a required flag is absent.
     deposits_open: bool | None
-    #: Source-backed reason for confirmed closure only.
+    #: Reason derived from an explicit closed or deposits-disabled API flag.
     closed_reason: str | None = None
-    #: Zero for the temporary low-share policy; otherwise no known amount cap.
+    #: Maximum new deposit in USDC: zero under the low-share policy, otherwise
+    #: ``None``. Closure and unknown permission are carried in ``deposits_open``.
     max_deposit: Decimal | None = None
     #: Explanation of a low-share policy block, not a closure reason.
     capacity_warning: str | None = None
@@ -202,14 +206,20 @@ def classify_hyperliquid_vault_deposit(
     relationship_type: str = "normal",
     leader_fraction: Percent | None = None,
 ) -> HyperliquidVaultDepositStatus:
-    """Classify the source flags without inventing a follower-deposit limit.
+    """Read deposit permission and apply the 5.5% leader-share trading policy.
 
-    The documented 5% leader minimum restricts leader withdrawals; it does
-    not establish a follower-deposit amount limit. Until that rule is verified,
-    the existing 5.5% early-warning boundary remains a conservative *policy*
-    no-buy for an observed low-share normal vault. Callers may omit
-    ``leader_fraction`` when its observation is stale, without converting an
-    explicitly open vault into a closure.
+    Used by the daily and high-frequency exporters, live pricing, and the
+    execution-time deposit check. Explicit closure takes precedence over
+    missing flags. For an open normal vault, an observed leader share below
+    5.5% sets the allowed deposit to zero. HLP parents ignore ``allow_deposits``
+    and the leader-share policy, but still honour ``is_closed``.
+
+    Hyperliquid's `5% leader requirement
+    <https://hyperliquid.gitbook.io/hyperliquid-docs/hypercore/vaults/for-vault-leaders-legacy>`__
+    restricts leader withdrawals. Whether it also limits follower deposits is
+    unresolved, so the 5.5% boundary remains a conservative trading policy.
+    Exporters must pass ``None`` for a forward-filled leader share: this
+    function does not track the age of an observation.
 
     :param is_closed:
         Nullable ``vaultDetails.isClosed`` source flag.
@@ -218,11 +228,10 @@ def classify_hyperliquid_vault_deposit(
     :param relationship_type:
         Vault relationship type; HLP parent ignores ``allowDeposits``.
     :param leader_fraction:
-        Fresh, observed leader share, or ``None`` if absent or stale.
+        Leader equity as a fraction of vault capital, e.g. ``0.06`` for 6%.
+        Use ``None`` if the row contains no actual observation.
     :return:
-        Separate permission, confirmed-closure reason and policy capacity.
-
-    Source: https://hyperliquid.gitbook.io/hyperliquid-docs/hypercore/vaults/for-vault-leaders-legacy
+        API permission, any closure reason, and any trading-policy amount limit.
     """
     if is_closed is True:
         return HyperliquidVaultDepositStatus(False, "Vault is permanently closed")

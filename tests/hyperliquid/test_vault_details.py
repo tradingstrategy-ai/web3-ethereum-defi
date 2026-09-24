@@ -21,7 +21,7 @@ def test_missing_vault_details_flags_remain_unknown():
     1. Parse a minimal valid ``vaultDetails`` payload with no deposit flags.
     2. Verify both flags and the resulting public permission stay unknown.
     """
-    # 1. Parsing must preserve missing source fields, not insert old defaults.
+    # 1. Parsing needs no HTTP call; the mock only supplies the session argument.
     vault = HyperliquidVault(session=MagicMock(), vault_address="0x0000000000000000000000000000000000000001")
     info = vault._parse_vault_details(
         {
@@ -31,7 +31,7 @@ def test_missing_vault_details_flags_remain_unknown():
         }
     )
 
-    # 2. The shared classifier then fails closed without claiming closure.
+    # 2. Missing flags remain unknown for the caller to handle.
     assert info.is_closed is None
     assert info.allow_deposits is None
     status = classify_hyperliquid_vault_deposit(info.is_closed, info.allow_deposits)

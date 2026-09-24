@@ -231,7 +231,7 @@ def test_hf_export_forward_fills_sparse_metadata_snapshots(tmp_path):
 
 
 def test_hf_low_share_policy_cap_requires_an_observed_row(tmp_path):
-    """HF permission remains open while only a fresh low share gets a zero cap.
+    """Keep a carried leader share from extending a historical deposit limit.
 
     1. Store a low-share vault-details observation and a later price-only row.
     2. Export both rows and distinguish source permission from policy capacity.
@@ -265,7 +265,7 @@ def test_hf_low_share_policy_cap_requires_an_observed_row(tmp_path):
             ]
         )
 
-        # 2. A carried source permission does not turn the warning into closure.
+        # 2. Permission carries forward, but only the observed row gets a cap.
         rows = build_raw_prices_dataframe_hf(db).sort_values("timestamp")
         assert rows["deposits_open"].tolist() == ["true", "true"]
         assert rows["deposit_closed_reason"].isna().all()
