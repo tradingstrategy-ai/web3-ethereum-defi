@@ -265,8 +265,8 @@ The cleaned Parquet gains these extra columns. For EVM vaults they are `NA`:
 - `apr` -- Hyperliquid's pre-computed annual percentage rate
 - `cumulative_pnl` -- cumulative total PnL in USD
 - `daily_pnl` -- daily PnL in USD
-- `leader_fraction` -- leader's capital share of the vault (e.g. 0.10 = 10%), latest row only
-- `leader_commission` -- leader commission value from the API (semantics unclear), latest row only
+- `leader_fraction` -- leader's capital share of the vault (e.g. 0.10 = 10%), observed on the latest row and carried forward by the exporter. Only an actual observation can set the zero-deposit policy limit.
+- `leader_commission` -- leader commission value from the API (semantics unclear), observed on the latest row and carried forward by the exporter.
 - `daily_deposit_count` -- number of deposit events on that day
 - `daily_withdrawal_count` -- number of withdrawal events on that day
 - `daily_deposit_usd` -- total USD deposited on that day

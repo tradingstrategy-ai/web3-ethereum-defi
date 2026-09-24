@@ -433,13 +433,11 @@ def build_permission_updates(
             new_access = classify_perp_vault_deposit_access(public_deposits_open=None)
         elif spec in source_access:
             new_access = source_access[spec]
-            if protocol == "Hyperliquid" and old_access.deposit_closed_reason == LEADER_FRACTION_DEPOSIT_WARNING and new_access.permission is VaultDepositPermission.permissionless:
-                new_access = classify_hyperliquid_vault_deposit_access(LEADER_FRACTION_DEPOSIT_WARNING)
         elif protocol == "Hyperliquid":
             if "_hyperliquid_deposits_open" in row:
                 new_access = classify_perp_vault_deposit_access(
                     public_deposits_open=row["_hyperliquid_deposits_open"],
-                    closed_reason=row.get("_deposit_closed_reason"),
+                    closed_reason=None if row.get("_deposit_closed_reason") == LEADER_FRACTION_DEPOSIT_WARNING else row.get("_deposit_closed_reason"),
                 )
             else:
                 new_access = classify_hyperliquid_vault_deposit_access(row.get("_deposit_closed_reason"))
@@ -476,6 +474,11 @@ def apply_permission_updates(vault_db: VaultDatabase, updates: tuple[PerpDexPerm
         row["_deposit_permission"] = update.new_access.permission.value
         row["_whitelist_notes"] = update.new_access.whitelist_notes
         row["_deposit_closed_reason"] = update.new_access.deposit_closed_reason
+        if update.protocol == "Hyperliquid":
+            # Preserve the source evidence when clearing a legacy warning.
+            # Otherwise the next export would see no flags and no reason.
+            permission = update.new_access.permission
+            row["_hyperliquid_deposits_open"] = None if permission is VaultDepositPermission.unknown else permission is VaultDepositPermission.permissionless
         vault_db.rows[update.spec] = row
 
 

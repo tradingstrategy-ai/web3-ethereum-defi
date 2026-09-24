@@ -632,7 +632,7 @@ def test_deposit_closed_vault_pipeline(tmp_path):
     assert exported["leader_commission"] is not None, "leader_commission should be in JSON export"
 
 
-def test_deposit_closed_reason_leader_fraction():
+def test_deposit_closed_reason_leader_fraction() -> None:
     """Keep venue permission distinct from an unverified low-share cap.
 
     1. Check healthy and missing-share open observations.

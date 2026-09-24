@@ -81,7 +81,7 @@ class VaultSnapshot:
     #: Vault manager/operator address
     leader: HexAddress
 
-    #: Source ``isClosed`` flag, or ``None`` when the summary omits it.
+    #: Permanent closure from ``isClosed``, or ``None`` when omitted.
     is_closed: bool | None
 
     #: ``vaultDetails.allowDeposits``, or ``None`` when the source omits the flag.
@@ -165,9 +165,6 @@ class VaultSnapshotDatabase:
         # Create folder if needed
         path.parent.mkdir(parents=True, exist_ok=True)
 
-        # Lazy import to avoid import-time dependency
-        import duckdb
-
         self.path = path
         self.con = duckdb.connect(str(path))
         self._init_schema()
@@ -207,8 +204,11 @@ class VaultSnapshotDatabase:
             )
         """)
 
+        # Preserve missing flags in older snapshots as unknown.
+        self.con.execute("ALTER TABLE vault_snapshots ADD COLUMN IF NOT EXISTS allow_deposits BOOLEAN")
         columns = self.con.execute("PRAGMA table_info('vault_snapshots')").fetchall()
         for name in ("is_closed", "allow_deposits"):
+            self.con.execute(f"ALTER TABLE vault_snapshots ALTER COLUMN {name} DROP DEFAULT")
             if any(column[1] == name and column[3] for column in columns):
                 self.con.execute(f"ALTER TABLE vault_snapshots ALTER COLUMN {name} DROP NOT NULL")
 
@@ -217,14 +217,6 @@ class VaultSnapshotDatabase:
             self.con.execute("""
                 ALTER TABLE vault_snapshots ADD COLUMN scan_disabled_reason VARCHAR
             """)
-        except duckdb.CatalogException:
-            # Column already exists
-            pass
-
-        # Add allow_deposits column if it doesn't exist (migration for existing databases).
-        # Older snapshots without this source flag remain unknown.
-        try:
-            self.con.execute("ALTER TABLE vault_snapshots ADD COLUMN allow_deposits BOOLEAN")
         except duckdb.CatalogException:
             # Column already exists
             pass

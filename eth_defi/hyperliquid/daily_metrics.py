@@ -382,14 +382,6 @@ class HyperliquidDailyMetricsDatabase(HyperliquidMetricsDatabaseBase):
             )
         """)
 
-        # Migration for existing databases: add allow_deposits column.
-        # Existing history without this flag is unknown, not confirmed open.
-        try:
-            self.con.execute("ALTER TABLE vault_metadata ADD COLUMN allow_deposits BOOLEAN")
-        except duckdb.CatalogException:
-            # Column already exists
-            pass
-
         # Migration for existing databases: add deposit status columns to daily prices
         try:
             self.con.execute("ALTER TABLE vault_daily_prices ADD COLUMN is_closed BOOLEAN")

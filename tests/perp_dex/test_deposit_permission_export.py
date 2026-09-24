@@ -11,7 +11,7 @@ import pytest
 from eth_defi.apex.vault_data_export import create_apex_vault_row
 from eth_defi.grvt.vault_data_export import create_grvt_vault_row
 from eth_defi.hibachi.vault_data_export import create_hibachi_vault_row
-from eth_defi.hyperliquid.vault_data_export import create_hyperliquid_vault_row, normalise_hyperliquid_deposit_permissions
+from eth_defi.hyperliquid.vault_data_export import LEADER_FRACTION_DEPOSIT_WARNING, create_hyperliquid_vault_row, normalise_hyperliquid_deposit_permissions
 from eth_defi.hyperliquid.vault_data_export import merge_into_vault_database as merge_hyperliquid_vault_database
 from eth_defi.lighter.vault_data_export import create_lighter_pool_row
 from eth_defi.perp_dex.vault import PERP_VAULT_PUBLIC_DEPOSITS_CLOSED_NOTE, classify_perp_vault_deposit_access
@@ -371,10 +371,11 @@ def test_legacy_hyperliquid_rows_migrate_from_last_observed_deposit_state() -> N
     assert normalise_hyperliquid_deposit_permissions(vault_db) == 0
 
 
-def test_fresh_hyperliquid_open_row_stays_permissionless_after_normalisation() -> None:
+@pytest.mark.parametrize("legacy_warning", [False, True])
+def test_hyperliquid_open_row_stays_permissionless_after_normalisation(legacy_warning: bool) -> None:
     """A source-open metadata row must not become unknown on the merge pass.
 
-    1. Build a row from explicit open flags, including a low-share warning.
+    1. Build an open row, optionally reverting it to the old low-share warning.
     2. Run the same normaliser used by the production metadata merge.
     3. Verify the persisted source marker keeps permissionless classification.
     """
@@ -391,14 +392,18 @@ def test_fresh_hyperliquid_open_row_stays_permissionless_after_normalisation() -
     )
     vault_db = VaultDatabase()
     vault_db.rows[spec] = row
+    if legacy_warning:
+        row.pop("_hyperliquid_deposits_open")
+        row["_deposit_closed_reason"] = LEADER_FRACTION_DEPOSIT_WARNING
 
     # 2. This pass follows every scanner metadata merge.
-    assert normalise_hyperliquid_deposit_permissions(vault_db) == 0
+    assert normalise_hyperliquid_deposit_permissions(vault_db) == int(legacy_warning)
 
     # 3. The same row can be reloaded and normalised without losing evidence.
     assert row["_hyperliquid_deposits_open"] is True
     assert row["_deposit_closed_reason"] is None
     assert row["_deposit_permission"] == VaultDepositPermission.permissionless.value
+    assert normalise_hyperliquid_deposit_permissions(vault_db) == 0
 
 
 def test_legacy_hyperliquid_unknown_reason_does_not_claim_public_access() -> None:

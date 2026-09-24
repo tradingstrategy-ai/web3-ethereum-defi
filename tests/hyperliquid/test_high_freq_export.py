@@ -10,6 +10,7 @@ Tests that build_raw_prices_dataframe_hf() produces correct output:
 """
 
 import datetime
+from pathlib import Path
 
 import pandas as pd
 import pytest
@@ -19,9 +20,42 @@ from eth_defi.hyperliquid.high_freq_metrics import (
     HyperliquidHighFreqMetricsDatabase,
     HyperliquidHighFreqPriceRow,
 )
-from eth_defi.hyperliquid.vault_data_export import build_raw_prices_dataframe_hf, create_hyperliquid_vault_row
+from eth_defi.hyperliquid.vault_data_export import _prepare_hypercore_export, build_raw_prices_dataframe_hf, create_hyperliquid_vault_row
 from eth_defi.research.vault_metrics import calculate_hourly_returns_for_all_vaults, calculate_lifetime_metrics, export_lifetime_row
 from eth_defi.research.wrangle_vault_prices import process_raw_vault_scan_data
+
+
+@pytest.mark.parametrize("timestamp_column", ["date", "timestamp"])
+def test_export_keeps_timestamps_aligned_when_sorting(timestamp_column: str) -> None:
+    """Sorting sparse observations must not move permission onto a different day.
+
+    1. Supply out-of-order rows with duplicate DataFrame indices.
+    2. Run the helper shared by daily and high-frequency exports.
+    3. Check prices, permission and policy limits remain on the observed dates.
+    """
+    # 1. The first chronological row contains the only low-share observation.
+    prices = pd.DataFrame(
+        {
+            "vault_address": ["0x01", "0x01"],
+            timestamp_column: pd.to_datetime(["2026-09-24", "2026-09-23"]),
+            "share_price": [1.2, 1.0],
+            "tvl": [12000.0, 10000.0],
+            "is_closed": [None, False],
+            "allow_deposits": [None, True],
+            "leader_fraction": [None, 0.05],
+        },
+        index=[0, 0],
+    )
+
+    # 2. The helper owns sorting and forward-fill alignment.
+    exported = _prepare_hypercore_export(prices, timestamp_column, {}, "hf")
+
+    # 3. Permission carries forward, but the observed policy limit does not.
+    assert exported["timestamp"].tolist() == list(pd.to_datetime(["2026-09-23", "2026-09-24"]))
+    assert exported["share_price"].tolist() == [1.0, 1.2]
+    assert exported["deposits_open"].tolist() == ["true", "true"]
+    assert exported["max_deposit"].iloc[0] == 0.0
+    assert pd.isna(exported["max_deposit"].iloc[1])
 
 
 @pytest.mark.timeout(30)
@@ -230,7 +264,7 @@ def test_hf_export_forward_fills_sparse_metadata_snapshots(tmp_path):
         db.close()
 
 
-def test_hf_low_share_policy_cap_requires_an_observed_row(tmp_path):
+def test_hf_low_share_policy_cap_requires_an_observed_row(tmp_path: Path) -> None:
     """Keep a carried leader share from extending a historical deposit limit.
 
     1. Store a low-share vault-details observation and a later price-only row.

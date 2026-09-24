@@ -175,7 +175,7 @@ class VaultInfo:
 #: This is our trading policy; Hyperliquid has not supplied this amount limit.
 LEADER_FRACTION_NO_BUY_THRESHOLD: Percent = 0.055
 
-#: Legacy warning text retained only to interpret older metadata rows.
+#: Low-share policy warning, also recognised when reading older metadata rows.
 LEADER_FRACTION_DEPOSIT_WARNING = "Leader share of the vault capital near allowed Hyperliquid minimum and new capital may not be accepted"
 
 
@@ -306,7 +306,7 @@ class VaultSummary:
     leader: HexAddress
     #: Total Value Locked (USD)
     tvl: Decimal
-    #: Whether deposits are closed, or unknown if the summary omitted the flag.
+    #: Permanent closure from ``isClosed``, or unknown when the flag is omitted.
     is_closed: bool | None
     #: Vault relationship type (normal, child, parent)
     relationship_type: str

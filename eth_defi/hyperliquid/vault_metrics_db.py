@@ -92,11 +92,16 @@ class HyperliquidMetricsDatabaseBase:
             )
         """)
 
+        # Both daily and high-frequency databases share this metadata schema.
+        # Older databases may lack allow_deposits entirely.
+        self.con.execute("ALTER TABLE vault_metadata ADD COLUMN IF NOT EXISTS allow_deposits BOOLEAN")
+
         # Allow missing API flags in databases created by the older schema.
         # Existing values cannot distinguish observed flags from old defaults,
-        # so this migration preserves them and changes only nullability.
+        # so this migration preserves them but stops defaulting future rows.
         columns = self.con.execute("PRAGMA table_info('vault_metadata')").fetchall()
         for name in ("is_closed", "allow_deposits"):
+            self.con.execute(f"ALTER TABLE vault_metadata ALTER COLUMN {name} DROP DEFAULT")
             if any(column[1] == name and column[3] for column in columns):
                 self.con.execute(f"ALTER TABLE vault_metadata ALTER COLUMN {name} DROP NOT NULL")
 

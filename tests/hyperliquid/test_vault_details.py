@@ -15,7 +15,7 @@ import pytest
 from eth_defi.hyperliquid.vault import HyperliquidVault, PortfolioHistory, VaultFollower, VaultInfo, classify_hyperliquid_vault_deposit
 
 
-def test_missing_vault_details_flags_remain_unknown():
+def test_missing_vault_details_flags_remain_unknown() -> None:
     """Do not silently turn an incomplete API response into an open vault.
 
     1. Parse a minimal valid ``vaultDetails`` payload with no deposit flags.
