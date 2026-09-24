@@ -14,6 +14,7 @@ from collections.abc import Iterator
 from contextlib import contextmanager
 from decimal import Decimal
 
+import flaky
 import pytest
 from eth_typing import HexAddress, HexStr
 from web3 import Web3
@@ -97,6 +98,11 @@ def test_anvil_forked_chain_id(web3: Web3) -> None:
     assert is_anvil(web3)
 
 
+# Flaky marker added 2026-09-24: the BNB archive provider returned a
+# ``Temporary internal error. Please retry`` HTTP 500 while Anvil fetched BUSD
+# storage in three CI runs; this fixed-block test passed in the matching local
+# run, so retry the external read without hiding a deterministic failure.
+@flaky.flaky(max_runs=3)
 @requires_bnb_rpc
 def test_anvil_fork_busd_details(web3: Web3) -> None:
     """Checks BUSD deployment on BNB chain."""
@@ -109,6 +115,11 @@ def test_anvil_fork_busd_details(web3: Web3) -> None:
     assert busd.total_supply == BUSD_TOTAL_SUPPLY
 
 
+# Flaky marker added 2026-09-24: the BNB archive provider returned a
+# ``Temporary internal error. Please retry`` HTTP 500 while Anvil fetched BUSD
+# storage in three CI runs; this fixed-block test passed in the matching local
+# run, so retry the external read without hiding a deterministic failure.
+@flaky.flaky(max_runs=3)
 @requires_bnb_rpc
 def test_anvil_fork_transfer_busd(web3: Web3) -> None:
     """Transfer a fixed BUSD amount from a historical holder to a test user."""
