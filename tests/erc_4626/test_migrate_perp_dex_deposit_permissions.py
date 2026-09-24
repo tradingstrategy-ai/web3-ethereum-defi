@@ -246,8 +246,12 @@ def test_migrate_perp_dex_permissions_preserves_hyperliquid_leader_warning(tmp_p
         description=None,
         tvl=1.0,
         create_time=datetime.datetime(2026, 8, 1, 12, 0),  # noqa: DTZ001 - Repository convention is naive UTC.
+        is_closed=False,
+        allow_deposits=True,
         leader_fraction=0.05,
     )
+    # Retained metadata from the old exporter can still contain this warning.
+    row["_deposit_closed_reason"] = LEADER_FRACTION_DEPOSIT_WARNING
     assert row["_deposit_closed_reason"] == LEADER_FRACTION_DEPOSIT_WARNING
     VaultDatabase(rows={spec: row}).write(vault_db_path)
     source_paths = migration.PerpDexSourcePaths(**source_path_map)
@@ -256,3 +260,34 @@ def test_migrate_perp_dex_permissions_preserves_hyperliquid_leader_warning(tmp_p
 
     assert not result.updates
     assert result.unresolved_rows == 0
+
+
+def test_retained_source_open_hyperliquid_row_keeps_permission(tmp_path: Path) -> None:
+    """A retained row's explicit source marker survives a metadata-only migration.
+
+    1. Build an open Hyperliquid row absent from the current scanner database.
+    2. Simulate stale unknown permission and run the migration planner.
+    3. Verify it restores permissionless rather than inferring unknown.
+    """
+    migration = load_migration_module()
+    source_paths = migration.PerpDexSourcePaths(**create_source_databases(tmp_path))
+
+    # 1. The source database exists but no longer contains this vault.
+    spec, row = create_hyperliquid_vault_row(
+        vault_address="0x9999999999999999999999999999999999999999",
+        name="Retained open vault",
+        description=None,
+        tvl=1.0,
+        create_time=datetime.datetime(2026, 8, 1, 12, 0),  # noqa: DTZ001 - Repository convention is naive UTC.
+        is_closed=False,
+        allow_deposits=True,
+    )
+
+    # 2. Repair the exported classification from the cached source marker.
+    row["_deposit_permission"] = "unknown"
+    updates, unresolved = migration.build_permission_updates(VaultDatabase(rows={spec: row}), source_paths)
+
+    # 3. An absent closure reason alone would not prove openness.
+    assert unresolved == 0
+    assert len(updates) == 1
+    assert updates[0].new_access.permission.value == "permissionless"

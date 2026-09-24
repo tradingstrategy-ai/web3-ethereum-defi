@@ -230,6 +230,51 @@ def test_hf_export_forward_fills_sparse_metadata_snapshots(tmp_path):
         db.close()
 
 
+def test_hf_low_share_policy_cap_requires_an_observed_row(tmp_path):
+    """HF permission remains open while only a fresh low share gets a zero cap.
+
+    1. Store a low-share vault-details observation and a later price-only row.
+    2. Export both rows and distinguish source permission from policy capacity.
+    """
+    db = HyperliquidHighFreqMetricsDatabase(tmp_path / "hf-low-share.duckdb")
+    try:
+        address = "0xcccc0000000000000000000000000000cccccccc"
+        timestamp = datetime.datetime(2026, 9, 23, 12)
+        # 1. The second row has no new leader-fraction observation.
+        db.upsert_high_freq_prices(
+            [
+                HyperliquidHighFreqPriceRow(
+                    vault_address=address,
+                    timestamp=timestamp,
+                    share_price=1.0,
+                    tvl=100000.0,
+                    cumulative_pnl=0.0,
+                    is_closed=False,
+                    allow_deposits=True,
+                    leader_fraction=0.05,
+                    written_at=native_datetime_utc_now(),
+                ),
+                HyperliquidHighFreqPriceRow(
+                    vault_address=address,
+                    timestamp=timestamp + datetime.timedelta(hours=4),
+                    share_price=1.01,
+                    tvl=101000.0,
+                    cumulative_pnl=1000.0,
+                    written_at=native_datetime_utc_now(),
+                ),
+            ]
+        )
+
+        # 2. A carried source permission does not turn the warning into closure.
+        rows = build_raw_prices_dataframe_hf(db).sort_values("timestamp")
+        assert rows["deposits_open"].tolist() == ["true", "true"]
+        assert rows["deposit_closed_reason"].isna().all()
+        assert rows.iloc[0]["max_deposit"] == pytest.approx(0.0)
+        assert pd.isna(rows.iloc[1]["max_deposit"])
+    finally:
+        db.close()
+
+
 @pytest.mark.timeout(30)
 def test_hf_export_hlp_parent_ignores_leader_fraction(tmp_path):
     """HLP parent HF rows stay deposit-open even with tiny leader_fraction."""

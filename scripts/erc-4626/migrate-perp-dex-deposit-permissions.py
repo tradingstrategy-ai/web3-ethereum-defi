@@ -387,7 +387,8 @@ def build_permission_updates(
     """Compare cached permissions with current read-only source state.
 
     Hyperliquid rows retained after disappearing from the current source table
-    are classified from their last cached closure reason. Other protocols keep
+    use an explicit cached permission marker when present, then fall back to
+    a source-backed legacy closure reason. Other protocols keep
     their existing value when the source database has no matching identity.
 
     :param vault_db:
@@ -435,7 +436,13 @@ def build_permission_updates(
             if protocol == "Hyperliquid" and old_access.deposit_closed_reason == LEADER_FRACTION_DEPOSIT_WARNING and new_access.permission is VaultDepositPermission.permissionless:
                 new_access = classify_hyperliquid_vault_deposit_access(LEADER_FRACTION_DEPOSIT_WARNING)
         elif protocol == "Hyperliquid":
-            new_access = classify_hyperliquid_vault_deposit_access(row.get("_deposit_closed_reason"))
+            if "_hyperliquid_deposits_open" in row:
+                new_access = classify_perp_vault_deposit_access(
+                    public_deposits_open=row["_hyperliquid_deposits_open"],
+                    closed_reason=row.get("_deposit_closed_reason"),
+                )
+            else:
+                new_access = classify_hyperliquid_vault_deposit_access(row.get("_deposit_closed_reason"))
         else:
             unresolved_rows += 1
             continue

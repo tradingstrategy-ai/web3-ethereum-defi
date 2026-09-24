@@ -33,6 +33,8 @@ LEGACY_HYPERLIQUID_VAULT_COUNT = 2
             description="Public Hyperliquid native vault.",
             tvl=1_000_000.0,
             create_time=FIRST_SEEN,
+            is_closed=False,
+            allow_deposits=True,
         ),
         lambda: create_hyperliquid_vault_row(
             vault_address="0x2222222222222222222222222222222222222222",
@@ -40,6 +42,7 @@ LEGACY_HYPERLIQUID_VAULT_COUNT = 2
             description="Public HLP parent vault.",
             tvl=1_000_000.0,
             create_time=FIRST_SEEN,
+            is_closed=False,
             allow_deposits=False,
             relationship_type="parent",
         ),
@@ -242,8 +245,8 @@ def test_hibachi_without_public_deposit_status_exports_unknown() -> None:
 def test_hyperliquid_missing_public_status_exports_unknown() -> None:
     """Missing Hyperliquid source flags do not imply public availability.
 
-    Both canonical API flags are absent, so the row must retain an unavailable
-    marker and export ``unknown``.
+    Both canonical API flags are absent, so the row has no closure reason and
+    exports ``unknown`` rather than inventing open permission.
     """
     _spec, row = create_hyperliquid_vault_row(
         vault_address="0x6666666666666666666666666666666666666666",
@@ -256,7 +259,8 @@ def test_hyperliquid_missing_public_status_exports_unknown() -> None:
     )
 
     assert row["_deposit_permission"] == VaultDepositPermission.unknown.value
-    assert row["_deposit_closed_reason"] == "Hyperliquid public deposit status is unavailable"
+    assert row["_deposit_closed_reason"] is None
+    assert row["_hyperliquid_deposits_open"] is None
     assert row["_whitelist_notes"] is None
 
 
@@ -289,7 +293,8 @@ def test_hyperliquid_merge_keeps_nan_public_status_unknown(tmp_path: Path) -> No
     row = next(iter(vault_db.rows.values()))
 
     assert row["_deposit_permission"] == VaultDepositPermission.unknown.value
-    assert row["_deposit_closed_reason"] == "Hyperliquid public deposit status is unavailable"
+    assert row["_deposit_closed_reason"] is None
+    assert row["_hyperliquid_deposits_open"] is None
 
 
 def test_unknown_apex_status_exports_unknown() -> None:
@@ -329,7 +334,7 @@ def test_closed_perp_vault_access_requires_qualification() -> None:
 
 
 def test_legacy_hyperliquid_rows_migrate_from_last_observed_deposit_state() -> None:
-    """Retained Hyperliquid rows use their last source-backed closure reason.
+    """Retained Hyperliquid rows use only source-backed permission evidence.
 
     The normaliser repairs rows omitted from a later source scan and remains
     idempotent after the first correction.
@@ -350,7 +355,9 @@ def test_legacy_hyperliquid_rows_migrate_from_last_observed_deposit_state() -> N
         is_closed=True,
     )
     open_row.pop("_deposit_permission")
+    open_row.pop("_hyperliquid_deposits_open")
     closed_row.pop("_deposit_permission")
+    closed_row.pop("_hyperliquid_deposits_open")
     vault_db = VaultDatabase()
     vault_db.rows[open_spec] = open_row
     vault_db.rows[closed_spec] = closed_row
@@ -358,10 +365,40 @@ def test_legacy_hyperliquid_rows_migrate_from_last_observed_deposit_state() -> N
     changed = normalise_hyperliquid_deposit_permissions(vault_db)
 
     assert changed == LEGACY_HYPERLIQUID_VAULT_COUNT
-    assert open_row["_deposit_permission"] == VaultDepositPermission.permissionless.value
+    assert open_row["_deposit_permission"] == VaultDepositPermission.unknown.value
     assert closed_row["_deposit_permission"] == VaultDepositPermission.whitelisted.value
     assert PERP_VAULT_PUBLIC_DEPOSITS_CLOSED_NOTE in closed_row["_whitelist_notes"]
     assert normalise_hyperliquid_deposit_permissions(vault_db) == 0
+
+
+def test_fresh_hyperliquid_open_row_stays_permissionless_after_normalisation() -> None:
+    """A source-open metadata row must not become unknown on the merge pass.
+
+    1. Build a row from explicit open flags, including a low-share warning.
+    2. Run the same normaliser used by the production metadata merge.
+    3. Verify the persisted source marker keeps permissionless classification.
+    """
+    # 1. Low share concerns amount policy, not API deposit permission.
+    spec, row = create_hyperliquid_vault_row(
+        vault_address="0x8888888888888888888888888888888888888888",
+        name="Open low-share vault",
+        description=None,
+        tvl=1_000_000.0,
+        create_time=FIRST_SEEN,
+        is_closed=False,
+        allow_deposits=True,
+        leader_fraction=0.05,
+    )
+    vault_db = VaultDatabase()
+    vault_db.rows[spec] = row
+
+    # 2. This pass follows every scanner metadata merge.
+    assert normalise_hyperliquid_deposit_permissions(vault_db) == 0
+
+    # 3. The same row can be reloaded and normalised without losing evidence.
+    assert row["_hyperliquid_deposits_open"] is True
+    assert row["_deposit_closed_reason"] is None
+    assert row["_deposit_permission"] == VaultDepositPermission.permissionless.value
 
 
 def test_legacy_hyperliquid_unknown_reason_does_not_claim_public_access() -> None:
@@ -378,6 +415,8 @@ def test_legacy_hyperliquid_unknown_reason_does_not_claim_public_access() -> Non
         create_time=FIRST_SEEN,
     )
     row["_deposit_closed_reason"] = "Future source status"
+    row.pop("_hyperliquid_deposits_open")
+    row["_deposit_permission"] = VaultDepositPermission.permissionless.value
     vault_db = VaultDatabase()
     vault_db.rows[spec] = row
 

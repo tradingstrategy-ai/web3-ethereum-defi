@@ -153,8 +153,28 @@ of total vault capital (verified 2026-03-09). The `vaultDetails` API returns a
 `0.05` = 5% of vault capital is owned by the leader).
 
 We track this as `leader_fraction` in `vault_daily_prices` to monitor how the
-leader's skin-in-the-game evolves over time. Only the latest daily row carries
-the value; historical rows have `NULL` (we only know the current snapshot).
+leader's skin-in-the-game evolves over time. Scanner snapshots carry the
+observed value; older historical rows without a snapshot have `NULL`.
+The raw export may forward-fill the value for display, but this does not make
+that carried value a fresh observation.
+
+The documented 5% rule prevents a **leader withdrawal** that would take the
+leader below the minimum; it does not document a follower-deposit amount cap.
+Until that behaviour is verified, our trading policy declines new capital in
+normal vaults with a freshly observed `leader_fraction < 0.055`. This is a
+conservative zero **policy** `max_deposit`, not a source-reported closure or
+venue cap. The raw export sets `deposits_open` from the nullable `isClosed` and
+`allowDeposits` source flags: `false` only for confirmed closure/disabled
+deposits, `true` for explicit permission, and null when permission is unknown.
+`deposit_closed_reason` is reserved for confirmed closure. HLP parents retain
+their existing `allowDeposits` exception. Only an observation that actually
+contains the low leader share gets a zero policy cap; a forward-filled share
+does not make later rows newly capped. Historical rows without source flags
+remain unknown rather than being rewritten as open.
+The metadata pickle separately retains `_hyperliquid_deposits_open` from the
+latest actual `vaultDetails` flags. The metadata normaliser uses it to preserve
+explicitly open vaults; a retained legacy row with neither this marker nor a
+source-backed closure reason is classified as unknown.
 
 The API also returns a `leaderCommission` field which we store as
 `leader_commission`. The exact semantics of this field are not yet fully
