@@ -102,7 +102,7 @@ HYPERSYNC_SERVES = {
 def get_hypersync_server(web3: Web3 | int, allow_missing=False) -> str | None:
     """Get HyperSync server for Web3 instance or by chain id"""
 
-    if type(web3) == int:
+    if type(web3) is int:
         chain_id = web3
     else:
         chain_id = web3.eth.chain_id
@@ -123,7 +123,7 @@ def is_hypersync_supported_chain(web3: Web3 | int) -> bool:
     Based on our internal server mapping.
     """
 
-    if type(web3) == int:
+    if type(web3) is int:
         chain_id = web3
     else:
         chain_id = web3.eth.chain_id

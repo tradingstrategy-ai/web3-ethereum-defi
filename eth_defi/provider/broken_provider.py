@@ -82,7 +82,7 @@ def get_block_tip_latency(web3: Web3) -> int:
     """
     latency_override = getattr(web3, "block_tip_latency", None)
     if latency_override is not None:
-        assert type(latency_override) == int, f"Got {latency_override.__class__}"
+        assert type(latency_override) is int, f"Got {latency_override.__class__}"
         return latency_override
 
     return get_default_block_tip_latency(web3)
@@ -303,7 +303,7 @@ def verify_archive_node(rpc_url: str, chain_name: str) -> tuple[str, int]:
             web3 = create_multi_provider_web3(endpoint, retries=2)
 
             # Check latest block
-            step = f"eth_blockNumber()"
+            step = "eth_blockNumber()"
             latest_block = web3.eth.block_number
             if first_latest_block is None:
                 first_latest_block = latest_block
