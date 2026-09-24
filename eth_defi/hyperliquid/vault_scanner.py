@@ -81,11 +81,11 @@ class VaultSnapshot:
     #: Vault manager/operator address
     leader: HexAddress
 
-    #: Whether vault is closed for deposits
-    is_closed: bool
+    #: Permanent closure from ``isClosed``, or ``None`` when omitted.
+    is_closed: bool | None
 
-    #: Whether vault allows deposits (from vaultDetails API)
-    allow_deposits: bool
+    #: ``vaultDetails.allowDeposits``, or ``None`` when the source omits the flag.
+    allow_deposits: bool | None
 
     #: Vault relationship type (normal, child, parent)
     relationship_type: str
@@ -165,9 +165,6 @@ class VaultSnapshotDatabase:
         # Create folder if needed
         path.parent.mkdir(parents=True, exist_ok=True)
 
-        # Lazy import to avoid import-time dependency
-        import duckdb
-
         self.path = path
         self.con = duckdb.connect(str(path))
         self._init_schema()
@@ -188,8 +185,8 @@ class VaultSnapshotDatabase:
                 -- Basic vault info
                 name VARCHAR NOT NULL,
                 leader VARCHAR NOT NULL,
-                is_closed BOOLEAN NOT NULL,
-                allow_deposits BOOLEAN NOT NULL DEFAULT TRUE,
+                is_closed BOOLEAN,
+                allow_deposits BOOLEAN,
                 relationship_type VARCHAR NOT NULL,
                 create_time TIMESTAMP,
 
@@ -207,21 +204,19 @@ class VaultSnapshotDatabase:
             )
         """)
 
+        # Preserve missing flags in older snapshots as unknown.
+        self.con.execute("ALTER TABLE vault_snapshots ADD COLUMN IF NOT EXISTS allow_deposits BOOLEAN")
+        columns = self.con.execute("PRAGMA table_info('vault_snapshots')").fetchall()
+        for name in ("is_closed", "allow_deposits"):
+            self.con.execute(f"ALTER TABLE vault_snapshots ALTER COLUMN {name} DROP DEFAULT")
+            if any(column[1] == name and column[3] for column in columns):
+                self.con.execute(f"ALTER TABLE vault_snapshots ALTER COLUMN {name} DROP NOT NULL")
+
         # Add scan_disabled_reason column if it doesn't exist (migration for existing databases)
         try:
             self.con.execute("""
                 ALTER TABLE vault_snapshots ADD COLUMN scan_disabled_reason VARCHAR
             """)
-        except duckdb.CatalogException:
-            # Column already exists
-            pass
-
-        # Add allow_deposits column if it doesn't exist (migration for existing databases).
-        # DuckDB does not support ADD COLUMN with NOT NULL DEFAULT, so we
-        # add a nullable column and backfill existing rows with TRUE.
-        try:
-            self.con.execute("ALTER TABLE vault_snapshots ADD COLUMN allow_deposits BOOLEAN")
-            self.con.execute("UPDATE vault_snapshots SET allow_deposits = TRUE WHERE allow_deposits IS NULL")
         except duckdb.CatalogException:
             # Column already exists
             pass
@@ -541,7 +536,7 @@ def scan_vaults(
         """Process a single vault summary into a snapshot."""
         # Fetch follower count and allow_deposits if requested
         follower_count = None
-        allow_deposits = True
+        allow_deposits = None
         if fetch_follower_counts:
             vault = HyperliquidVault(
                 session=session,

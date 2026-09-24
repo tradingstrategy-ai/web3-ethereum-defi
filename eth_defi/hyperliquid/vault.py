@@ -129,18 +129,20 @@ class VaultInfo:
     #: Whether the vault has been permanently closed and is no longer operational.
     #:
     #: From the Hyperliquid ``vaultDetails`` API ``isClosed`` field.
+    #: ``None`` means the response omitted the field.
     #:
     #: See https://hyperliquid.gitbook.io/hyperliquid-docs/for-developers/api/info-endpoint
-    is_closed: bool
+    is_closed: bool | None
     #: Whether the vault is currently accepting new deposits from followers.
     #:
     #: A vault can be operational (``is_closed=False``) but still have deposits
     #: disabled (``allow_deposits=False``) — the leader controls this independently.
     #:
     #: From the Hyperliquid ``vaultDetails`` API ``allowDeposits`` field.
+    #: ``None`` means the response omitted the field.
     #:
     #: See https://hyperliquid.gitbook.io/hyperliquid-docs/for-developers/api/info-endpoint
-    allow_deposits: bool
+    allow_deposits: bool | None
     #: Vault relationship type (normal, child, parent)
     relationship_type: str
     #: Leader performance fee as a fraction (e.g. ``0.1`` for 10%).
@@ -167,6 +169,79 @@ class VaultInfo:
     leader_commission: float | None = None
     #: Parent vault address if this is a child vault
     parent: HexAddress | None = None
+
+
+#: Reject new deposits when an observed leader share is below 5.5%.
+#: This is our trading policy; Hyperliquid has not supplied this amount limit.
+LEADER_FRACTION_NO_BUY_THRESHOLD: Percent = 0.055
+
+#: Low-share policy warning, also recognised when reading older metadata rows.
+LEADER_FRACTION_DEPOSIT_WARNING = "Leader share of the vault capital near allowed Hyperliquid minimum and new capital may not be accepted"
+
+
+@dataclass(slots=True)
+class HyperliquidVaultDepositStatus:
+    """Deposit permission and the amount allowed by our trading policy.
+
+    The price exporter and trade-executor use this result to apply the same
+    low-leader-share rule without labelling an open vault as closed. Callers
+    must check ``deposits_open`` as well as ``max_deposit``: an absent amount
+    limit does not imply permission to deposit.
+    """
+
+    #: Permission reported by the API, or unknown if a required flag is absent.
+    deposits_open: bool | None
+    #: Reason derived from an explicit closed or deposits-disabled API flag.
+    closed_reason: str | None = None
+    #: Maximum new deposit in USDC: zero under the low-share policy, otherwise
+    #: ``None``. Closure and unknown permission are carried in ``deposits_open``.
+    max_deposit: Decimal | None = None
+    #: Explanation of a low-share policy block, not a closure reason.
+    capacity_warning: str | None = None
+
+
+def classify_hyperliquid_vault_deposit(
+    is_closed: bool | None,
+    allow_deposits: bool | None,
+    relationship_type: str = "normal",
+    leader_fraction: Percent | None = None,
+) -> HyperliquidVaultDepositStatus:
+    """Read deposit permission and apply the 5.5% leader-share trading policy.
+
+    Used by the daily and high-frequency exporters, live pricing, and the
+    execution-time deposit check. Explicit closure takes precedence over
+    missing flags. For an open normal vault, an observed leader share below
+    5.5% sets the allowed deposit to zero. HLP parents ignore ``allow_deposits``
+    and the leader-share policy, but still honour ``is_closed``.
+
+    Hyperliquid's `5% leader requirement
+    <https://hyperliquid.gitbook.io/hyperliquid-docs/hypercore/vaults/for-vault-leaders-legacy>`__
+    restricts leader withdrawals. Whether it also limits follower deposits is
+    unresolved, so the 5.5% boundary remains a conservative trading policy.
+    Exporters must pass ``None`` for a forward-filled leader share: this
+    function does not track the age of an observation.
+
+    :param is_closed:
+        Nullable ``vaultDetails.isClosed`` source flag.
+    :param allow_deposits:
+        Nullable ``vaultDetails.allowDeposits`` source flag.
+    :param relationship_type:
+        Vault relationship type; HLP parent ignores ``allowDeposits``.
+    :param leader_fraction:
+        Leader equity as a fraction of vault capital, e.g. ``0.06`` for 6%.
+        Use ``None`` if the row contains no actual observation.
+    :return:
+        API permission, any closure reason, and any trading-policy amount limit.
+    """
+    if is_closed is True:
+        return HyperliquidVaultDepositStatus(False, "Vault is permanently closed")
+    if allow_deposits is False and relationship_type != "parent":
+        return HyperliquidVaultDepositStatus(False, "Vault deposits disabled by leader")
+    if is_closed is None or (allow_deposits is None and relationship_type != "parent"):
+        return HyperliquidVaultDepositStatus(None)
+    if relationship_type == "normal" and leader_fraction is not None and float(leader_fraction) < LEADER_FRACTION_NO_BUY_THRESHOLD:
+        return HyperliquidVaultDepositStatus(True, max_deposit=Decimal(0), capacity_warning=LEADER_FRACTION_DEPOSIT_WARNING)
+    return HyperliquidVaultDepositStatus(True)
 
 
 def estimate_max_withdrawal_commission(
@@ -231,8 +306,8 @@ class VaultSummary:
     leader: HexAddress
     #: Total Value Locked (USD)
     tvl: Decimal
-    #: Whether deposits are closed
-    is_closed: bool
+    #: Permanent closure from ``isClosed``, or unknown when the flag is omitted.
+    is_closed: bool | None
     #: Vault relationship type (normal, child, parent)
     relationship_type: str
     #: Vault creation timestamp
@@ -375,8 +450,8 @@ class HyperliquidVault:
             portfolio=portfolio,
             max_distributable=Decimal(str(data.get("maxDistributable", "0"))),
             max_withdrawable=Decimal(str(data.get("maxWithdrawable", "0"))),
-            is_closed=data.get("isClosed", False),
-            allow_deposits=data.get("allowDeposits", True),
+            is_closed=data.get("isClosed"),
+            allow_deposits=data.get("allowDeposits"),
             relationship_type=relationship_type,
             commission_rate=data.get("leaderCommission"),
             leader_fraction=data.get("leaderFraction"),
@@ -568,7 +643,7 @@ def fetch_all_vaults(
             vault_address=summary.get("vaultAddress", ""),
             leader=summary.get("leader", ""),
             tvl=Decimal(str(summary.get("tvl", "0"))),
-            is_closed=summary.get("isClosed", False),
+            is_closed=summary.get("isClosed"),
             relationship_type=relationship.get("type", "normal"),
             create_time=datetime.fromtimestamp(create_time_millis / 1000) if create_time_millis else None,
             apr=item.get("apr"),

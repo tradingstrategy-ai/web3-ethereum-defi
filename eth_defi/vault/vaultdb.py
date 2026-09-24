@@ -147,6 +147,11 @@ class VaultRow(TypedDict):
     #: exported at top level. Missing values in legacy pickles mean ``unknown``.
     _deposit_permission: NotRequired[str]
 
+    #: Permission derived from the latest Hyperliquid vault-details flags.
+    #: The metadata normaliser uses this marker to distinguish an open vault
+    #: from an older row whose missing closure reason is ambiguous.
+    _hyperliquid_deposits_open: NotRequired[bool | None]
+
     #: Optional caveat for the exported vault-wide whitelist classification.
     _whitelist_notes: NotRequired[str | None]
 

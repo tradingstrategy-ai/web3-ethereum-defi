@@ -152,9 +152,50 @@ of total vault capital (verified 2026-03-09). The `vaultDetails` API returns a
 `leaderFraction` field representing the leader's current capital share (e.g.
 `0.05` = 5% of vault capital is owned by the leader).
 
-We track this as `leader_fraction` in `vault_daily_prices` to monitor how the
-leader's skin-in-the-game evolves over time. Only the latest daily row carries
-the value; historical rows have `NULL` (we only know the current snapshot).
+We store each observed share as `leader_fraction` in `vault_daily_prices`.
+Older rows without a snapshot have `NULL`. The raw export can carry the last
+share forward for display, but uses only actual observations when applying
+the deposit policy described below.
+
+### Deposit permission and the leader-share policy
+
+The documented 5% rule restricts leader withdrawals. It does not establish
+whether a follower deposit can dilute the leader below 5%. Until that behaviour
+is verified, our trading policy rejects new deposits into normal vaults when
+an observed `leader_fraction` is below 0.055.
+
+`classify_hyperliquid_vault_deposit()` is shared by the exporter and live
+executor. It produces these raw export values:
+
+| Source observation | `deposits_open` | `deposit_closed_reason` | `max_deposit` (USDC) |
+| --- | --- | --- | --- |
+| `isClosed=true` | `"false"` | Permanently closed | null |
+| `allowDeposits=false`, except HLP parents | `"false"` | Deposits disabled by leader | null |
+| Required permission flag missing, with no explicit closure | null | null | null |
+| Open flags and observed normal-vault leader share below 5.5% | `"true"` | null | `0.0` |
+| Open flags, with no observed low-share condition | `"true"` | null | null |
+
+Consumers must check permission as well as the amount limit. A null
+`max_deposit` means no amount limit was recorded; it does not establish that
+deposits are allowed. HLP parents ignore `allowDeposits` and the leader-share
+policy, but still honour `isClosed`.
+
+The exporter carries permission flags forward within each vault's history.
+It writes the zero policy limit only on a row that contains a leader-share
+observation. For example, a later price-only row can still say deposits are
+open while its `max_deposit` is null. That row cannot establish whether the
+low-share policy would have blocked a live deposit at that time.
+
+The metadata pickle stores the latest permission separately in
+`_hyperliquid_deposits_open`. The normaliser uses this marker when present;
+older rows fall back to recognised closure or leader-share warning text. An
+absent legacy reason alone leaves permission unknown.
+
+These changes take effect in published historical data after the normal
+scanner regenerates the cleaned price files and readiness manifest. Changing
+the exporter code does not repair previously published R2 objects. Existing
+database values created by the old open-by-default parser also cannot be
+distinguished from observed flags without the original response.
 
 The API also returns a `leaderCommission` field which we store as
 `leader_commission`. The exact semantics of this field are not yet fully
@@ -224,8 +265,8 @@ The cleaned Parquet gains these extra columns. For EVM vaults they are `NA`:
 - `apr` -- Hyperliquid's pre-computed annual percentage rate
 - `cumulative_pnl` -- cumulative total PnL in USD
 - `daily_pnl` -- daily PnL in USD
-- `leader_fraction` -- leader's capital share of the vault (e.g. 0.10 = 10%), latest row only
-- `leader_commission` -- leader commission value from the API (semantics unclear), latest row only
+- `leader_fraction` -- leader's capital share of the vault (e.g. 0.10 = 10%), observed on the latest row and carried forward by the exporter. Only an actual observation can set the zero-deposit policy limit.
+- `leader_commission` -- leader commission value from the API (semantics unclear), observed on the latest row and carried forward by the exporter.
 - `daily_deposit_count` -- number of deposit events on that day
 - `daily_withdrawal_count` -- number of withdrawal events on that day
 - `daily_deposit_usd` -- total USD deposited on that day

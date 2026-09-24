@@ -8,10 +8,35 @@ as the test case (Trading Strategy - IchiV3 LS).
 """
 
 from decimal import Decimal
+from unittest.mock import MagicMock
 
 import pytest
 
-from eth_defi.hyperliquid.vault import HyperliquidVault, PortfolioHistory, VaultFollower, VaultInfo
+from eth_defi.hyperliquid.vault import HyperliquidVault, PortfolioHistory, VaultFollower, VaultInfo, classify_hyperliquid_vault_deposit
+
+
+def test_missing_vault_details_flags_remain_unknown() -> None:
+    """Do not silently turn an incomplete API response into an open vault.
+
+    1. Parse a minimal valid ``vaultDetails`` payload with no deposit flags.
+    2. Verify both flags and the resulting public permission stay unknown.
+    """
+    # 1. Parsing needs no HTTP call; the mock only supplies the session argument.
+    vault = HyperliquidVault(session=MagicMock(), vault_address="0x0000000000000000000000000000000000000001")
+    info = vault._parse_vault_details(
+        {
+            "name": "Missing flags",
+            "vaultAddress": vault.vault_address,
+            "leader": "0x0000000000000000000000000000000000000002",
+        }
+    )
+
+    # 2. Missing flags remain unknown for the caller to handle.
+    assert info.is_closed is None
+    assert info.allow_deposits is None
+    status = classify_hyperliquid_vault_deposit(info.is_closed, info.allow_deposits)
+    assert status.deposits_open is None
+    assert status.closed_reason is None
 
 
 @pytest.fixture(scope="module")

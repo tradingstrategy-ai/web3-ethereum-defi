@@ -7,6 +7,7 @@ snapshots in a DuckDB database.
 from pathlib import Path
 
 import pandas as pd
+import pytest
 
 from eth_defi.hyperliquid.session import create_hyperliquid_session
 from eth_defi.hyperliquid.vault_scanner import (
@@ -15,6 +16,47 @@ from eth_defi.hyperliquid.vault_scanner import (
     VaultSnapshotDatabase,
     scan_vaults,
 )
+
+
+@pytest.mark.parametrize("missing_flag_column", [False, True])
+def test_snapshot_schema_preserves_unknown_permission(tmp_path: Path, missing_flag_column: bool) -> None:
+    """Migrate snapshot flags without turning missing permission into open access.
+
+    1. Create the old non-null/default schema, optionally without allow_deposits.
+    2. Reopen the file through the scanner database initialiser.
+    3. Check omitted flags stay null and existing rows survive a second reopen.
+    """
+    path = tmp_path / "legacy-snapshots.duckdb"
+
+    # 1. Simulate the flag constraints used by the old scanner.
+    db = VaultSnapshotDatabase(path)
+    try:
+        db.con.execute("ALTER TABLE vault_snapshots ALTER COLUMN is_closed SET NOT NULL")
+        db.con.execute("ALTER TABLE vault_snapshots ALTER COLUMN is_closed SET DEFAULT FALSE")
+        if missing_flag_column:
+            db.con.execute("ALTER TABLE vault_snapshots DROP COLUMN allow_deposits")
+        else:
+            db.con.execute("ALTER TABLE vault_snapshots ALTER COLUMN allow_deposits SET NOT NULL")
+            db.con.execute("ALTER TABLE vault_snapshots ALTER COLUMN allow_deposits SET DEFAULT TRUE")
+    finally:
+        db.close()
+
+    # 2. Missing flags must no longer pick up the old permissive defaults.
+    db = VaultSnapshotDatabase(path)
+    try:
+        db.con.execute("""
+            INSERT INTO vault_snapshots (snapshot_timestamp, vault_address, name, leader, relationship_type, tvl)
+            VALUES ('2026-09-24', '0x01', 'Missing flags', '0x02', 'normal', 10000)
+        """)
+    finally:
+        db.close()
+
+    # 3. Migration is idempotent and does not discard the snapshot.
+    db = VaultSnapshotDatabase(path)
+    try:
+        assert db.con.execute("SELECT is_closed, allow_deposits FROM vault_snapshots").fetchall() == [(None, None)]
+    finally:
+        db.close()
 
 
 def test_scan_vaults_without_followers(tmp_path: Path):
