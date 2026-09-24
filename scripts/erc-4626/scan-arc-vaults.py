@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 """Run an isolated initial ERC-4626 vault discovery scan for Arc mainnet.
 
-The script stores only Arc discovery metadata and its incremental discovery
-cursor under a dedicated local directory.  It never scans prices, performs
-post-processing, or changes the shared vault-scanner state.
+The script stores its Arc vault database and incremental discovery cursor under
+a dedicated local directory. It never scans prices, performs post-processing,
+or changes the shared production vault database. Chain-keyed token and protocol
+metadata caches may still be refreshed by the normal metadata readers.
 
 Usage:
 
@@ -25,9 +26,8 @@ from urllib.parse import urlsplit, urlunsplit
 from tabulate import tabulate
 
 from eth_defi.provider.broken_provider import verify_archive_node
-from eth_defi.vault.scan_all_chains import scan_vaults_for_chain
 from eth_defi.utils import setup_console_logging
-
+from eth_defi.vault.scan_all_chains import scan_vaults_for_chain
 
 logger = logging.getLogger(__name__)
 
@@ -53,11 +53,13 @@ def derive_arc_goldsky_rpc_url(ethereum_rpc_url: str) -> str:
     """
     parsed = urlsplit(ethereum_rpc_url)
     if parsed.hostname != GOLDSKY_HOST:
-        raise ValueError("Expected a Goldsky RPC endpoint")
+        message = "Expected a Goldsky RPC endpoint"
+        raise ValueError(message)
 
     path_parts = parsed.path.rstrip("/").split("/")
     if path_parts[-1] != "1":
-        raise ValueError("Expected Goldsky Ethereum endpoint path to end in chain id 1")
+        message = "Expected Goldsky Ethereum endpoint path to end in chain id 1"
+        raise ValueError(message)
 
     path_parts[-1] = str(ARC_CHAIN_ID)
     return urlunsplit((parsed.scheme, parsed.netloc, "/".join(path_parts), parsed.query, parsed.fragment))
@@ -87,29 +89,8 @@ def resolve_arc_rpc_url() -> tuple[str, str]:
         except ValueError:
             continue
 
-    raise ValueError("Set JSON_RPC_ARC or configure a Goldsky Ethereum endpoint ending in /1 in JSON_RPC_ETHEREUM")
-
-
-def read_env_bool(name: str, default: bool) -> bool:
-    """Read one strictly formatted boolean environment variable.
-
-    :param name:
-        Name of the environment variable.
-    :param default:
-        Value used when the variable is absent.
-    :return:
-        Parsed boolean value.
-    :raises ValueError:
-        If the configured value is neither ``true`` nor ``false``.
-    """
-    value = os.environ.get(name)
-    if value is None:
-        return default
-    if value.casefold() == "true":
-        return True
-    if value.casefold() == "false":
-        return False
-    raise ValueError(f"{name} must be true or false, got {value!r}")
+    message = "Set JSON_RPC_ARC or configure a Goldsky Ethereum endpoint ending in /1 in JSON_RPC_ETHEREUM"
+    raise ValueError(message)
 
 
 def resolve_pipeline_data_dir() -> Path:
@@ -148,7 +129,7 @@ def main() -> None:
 
     rpc_url, rpc_source = resolve_arc_rpc_url()
     max_workers = int(os.environ.get("MAX_WORKERS", "16"))
-    force_lead_discovery = read_env_bool("ARC_FORCE_LEAD_DISCOVERY", default=False)
+    force_lead_discovery = os.environ.get("ARC_FORCE_LEAD_DISCOVERY", "false").lower() == "true"
     verified_rpc_url, latest_block = verify_archive_node(rpc_url, "Arc")
     logger.info(
         "Starting Arc vault discovery from %s at block %s with %d workers; local state is %s",

@@ -3,28 +3,28 @@
 from eth_defi.hypersync.server import get_hypersync_server, is_hypersync_supported_chain
 
 
-def test_robinhood_hypersync_server():
+def test_robinhood_hypersync_server() -> None:
     """Robinhood Chain has a configured Hypersync endpoint."""
 
     assert is_hypersync_supported_chain(4663) is True
     assert get_hypersync_server(4663) == "https://4663.hypersync.xyz"
 
 
-def test_arc_testnet_hypersync_server():
+def test_arc_testnet_hypersync_server() -> None:
     """Arc Testnet has a configured Hypersync endpoint."""
 
     assert is_hypersync_supported_chain(5042002) is True
     assert get_hypersync_server(5042002) == "https://arc-testnet.hypersync.xyz"
 
 
-def test_arc_mainnet_hypersync_server():
+def test_arc_mainnet_hypersync_server() -> None:
     """Arc mainnet has a configured Hypersync endpoint."""
 
     assert is_hypersync_supported_chain(5042) is True
     assert get_hypersync_server(5042) == "https://arc.hypersync.xyz"
 
 
-def test_tempo_hypersync_server():
+def test_tempo_hypersync_server() -> None:
     """Tempo has a configured Hypersync endpoint."""
 
     assert is_hypersync_supported_chain(4217) is True

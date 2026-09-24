@@ -59,9 +59,10 @@ Discovery scan for ERC-4626 vaults on a single chain. Stores metadata in the vau
 JSON_RPC_URL=$JSON_RPC_BASE poetry run python scripts/erc-4626/scan-vaults.py
 ```
 
-For Arc, Tempo or Robinhood Chain, set `JSON_RPC_ARC`, `JSON_RPC_TEMPO` or
+For Tempo or Robinhood Chain, set `JSON_RPC_TEMPO` or
 `JSON_RPC_ROBINHOOD` to an archive-capable provider endpoint and pass it
-through as the single-chain `JSON_RPC_URL`:
+through as the single-chain `JSON_RPC_URL`. Use the isolated Arc bootstrap
+script below for Arc's initial discovery.
 
 ```shell
 LOG_LEVEL=info JSON_RPC_URL=$JSON_RPC_TEMPO poetry run python scripts/erc-4626/scan-vaults.py
@@ -82,16 +83,22 @@ LOG_LEVEL=info JSON_RPC_URL=$JSON_RPC_TEMPO poetry run python scripts/erc-4626/s
 ### scan-arc-vaults.py
 
 Run the initial Arc mainnet discovery locally without altering the shared vault
-scanner database, price Parquet files, reader state or exports. The script
-stores only Arc metadata, its incremental lead cursor and a log in
-`~/.tradingstrategy/vaults/arc-initial-scan` by default. It performs no
-historical price scan or post-processing.
+scanner database, price Parquet files, reader state or exports. Its Arc vault
+database, incremental lead cursor and log live in
+`~/.tradingstrategy/vaults/arc-initial-scan` by default. Normal metadata reads
+may refresh chain-keyed token and protocol caches outside that directory. The
+script performs no historical price scan or post-processing. Do not copy its
+isolated vault pickle over the production vault database.
 
-The script requires `HYPERSYNC_API_KEY` and reads historical events through
-Envio Hypersync. It prefers `JSON_RPC_ARC`; when that is unset, it derives the
-Goldsky Arc endpoint from the Goldsky item in `JSON_RPC_ETHEREUM` by replacing
-the final `/1` chain-id component with `/5042`. It never displays the resolved
-RPC URL, which can contain credentials.
+[Arc mainnet uses chain ID 5042](https://developers.circle.com/stablefx/howtos/connect-wallet-console),
+and [Envio provides first-class Arc HyperSync support](https://envio.dev/chains/arc)
+at `https://arc.hypersync.xyz`. The script requires `HYPERSYNC_API_KEY` and
+uses that service for historical event discovery. It prefers `JSON_RPC_ARC`;
+when that is unset, it derives the Goldsky Arc endpoint from a Goldsky entry in
+`JSON_RPC_ETHEREUM` by replacing the final `/1` chain-id component with
+`/5042`. Its own status messages identify only the environment source, while
+the provider preflight reports redacted domains and failure categories instead
+of credential-bearing URLs.
 
 ```shell
 source .local-test.env && \
@@ -100,7 +107,7 @@ poetry run python scripts/erc-4626/scan-arc-vaults.py
 
 | Variable | Description |
 |----------|-------------|
-| `JSON_RPC_ARC` | Optional preferred archive-capable Arc provider. A space-separated fallback configuration is accepted. |
+| `JSON_RPC_ARC` | Optional preferred archive-capable Arc provider. A space-separated fallback configuration is accepted. The preflight reads account state at block 1 and the chain head. |
 | `JSON_RPC_ETHEREUM` | Fallback source only: must contain a compatible Goldsky Ethereum endpoint ending in `/1`. |
 | `HYPERSYNC_API_KEY` | Required Envio API key for Arc historical discovery. |
 | `ARC_PIPELINE_DATA_DIR` | Optional isolated local state directory. Default: `~/.tradingstrategy/vaults/arc-initial-scan`. |
@@ -384,7 +391,7 @@ poetry run python scripts/erc-4626/scan-vaults-all-chains.py
 
 | Variable | Description |
 |----------|-------------|
-| `SCAN_PRICES` | Optional. Scan prices after vault discovery, including dedicated tokenised-fund feeds. Default: false in the command; production Compose defaults to true. |
+| `SCAN_PRICES` | Optional. Scan prices after vault discovery for chains whose configuration permits it, including dedicated tokenised-fund feeds. Default: false in the command; production Compose defaults to true. A per-chain opt-out takes precedence during staged rollouts such as Arc. |
 | `SKIP_TOKENISED_FUNDS` | Optional. When `SCAN_PRICES=true`, disable dedicated tokenised-fund price feeds and return their registered products to the generic chain price scan. Default: false. |
 | `TOKENISED_FUND_PROTOCOLS` | Optional. Comma-separated focused feed selection, e.g. `securitize,asseto`. Unselected feeds remain visible as disabled; their products stay in the generic chain scan. |
 | `TOKENISED_FUND_MAX_WORKERS` | Optional. Historical reader workers for tokenised-fund feeds. Default: 8. |
@@ -573,8 +580,14 @@ ORDER BY chain, phase;
 ```
 
 Arc, Tempo and Robinhood Chain are scanned when `JSON_RPC_ARC`,
-`JSON_RPC_TEMPO` and `JSON_RPC_ROBINHOOD` are configured. Prefer
-`scan-arc-vaults.py` above for Arc's initial isolated discovery. For a focused
+`JSON_RPC_TEMPO` and `JSON_RPC_ROBINHOOD` are configured. Arc currently runs
+lead discovery and metadata refresh, while its per-chain configuration
+suppresses generic share-price history, dedicated tokenised-fund feeds and
+settlement-event backfills even when production sets `SCAN_PRICES=true`.
+Populate and validate
+`~/.tradingstrategy/block-timestamp/5042-timestamps.duckdb` and historical
+Multicall reads before enabling Arc prices in `build_chain_configs()`. Prefer
+`scan-arc-vaults.py` above for Arc's first isolated discovery. For a focused
 Tempo-only dry run:
 
 ```shell
@@ -584,6 +597,11 @@ SCAN_PRICES=false \
 SKIP_POST_PROCESSING=true \
 poetry run python scripts/erc-4626/scan-vaults-all-chains.py
 ```
+
+Adding Arc changes the lead-discovery configuration signature. The first
+production cycle after deployment will therefore refresh discovery and
+metadata for every configured EVM chain once; schedule the rollout with that
+one-off provider load in mind.
 
 #### Pipeline logs and JSON provenance
 

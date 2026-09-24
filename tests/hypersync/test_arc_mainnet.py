@@ -3,16 +3,14 @@
 import asyncio
 import os
 
-import hypersync
 import pytest
 
-from eth_defi.hypersync.server import get_hypersync_server
-
+from eth_defi.hypersync.utils import configure_hypersync_from_env
 
 ARC_CHAIN_ID = 5042
 HYPERSYNC_API_KEY = os.environ.get("HYPERSYNC_API_KEY")
 
-pytestmark = pytest.mark.skipif(not HYPERSYNC_API_KEY, reason="Set HYPERSYNC_API_KEY environment variable to run this test")
+pytestmark = pytest.mark.skipif(not HYPERSYNC_API_KEY, reason="Set HYPERSYNC_API_KEY to run this test")
 
 
 def test_arc_mainnet_hypersync_endpoint() -> None:
@@ -31,12 +29,9 @@ def test_arc_mainnet_hypersync_endpoint() -> None:
         :return:
             Arc chain id and the current indexed height.
         """
-        client = hypersync.HypersyncClient(
-            hypersync.ClientConfig(
-                url=get_hypersync_server(ARC_CHAIN_ID),
-                bearer_token=HYPERSYNC_API_KEY,
-            )
-        )
+        config = configure_hypersync_from_env(ARC_CHAIN_ID, hypersync_api_key=HYPERSYNC_API_KEY)
+        client = config.hypersync_client
+        assert client is not None
         return await client.get_chain_id(), await client.get_height()
 
     chain_id, height = asyncio.run(fetch_chain_metadata())

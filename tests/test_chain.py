@@ -40,7 +40,7 @@ def test_tempo_chain_metadata(monkeypatch: pytest.MonkeyPatch):
     assert get_chain_homepage(TEMPO_CHAIN_ID) == ("Tempo", "https://tempo.xyz")
 
 
-def test_arc_chain_metadata(monkeypatch: pytest.MonkeyPatch):
+def test_arc_chain_metadata(monkeypatch: pytest.MonkeyPatch) -> None:
     """Arc chain metadata resolves through public helper APIs."""
 
     monkeypatch.setenv("JSON_RPC_ARC", "https://arc.example")

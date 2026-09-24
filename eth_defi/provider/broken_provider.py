@@ -23,6 +23,7 @@ from eth_defi.provider.ankr import is_ankr
 from eth_defi.provider.anvil import is_anvil, is_mainnet_fork
 from eth_defi.provider.fallback import FallbackProvider
 from eth_defi.provider.mev_blocker import MEVBlockerProvider
+from eth_defi.provider.rpc_failure import classify_rpc_failure
 from eth_defi.utils import get_url_domain
 
 logger = logging.getLogger(__name__)
@@ -326,20 +327,21 @@ def verify_archive_node(rpc_url: str, chain_name: str) -> tuple[str, int]:
             )
         except Exception as e:
             headers = get_last_headers()
-            faulty.append((domain, str(e), headers, latest_block))
+            failure_mode = classify_rpc_failure(e).value
+            faulty.append((domain, failure_mode, headers, latest_block))
             logger.error(
-                "%s: Provider %s failed %s check at step %s (block number %s): %s\nHTTP response headers: %s",
+                "%s: Provider %s failed %s check at step %s (block number %s): failure_mode=%s\nHTTP response headers: %s",
                 chain_name,
                 domain,
                 verification_label,
                 step,
                 f"{latest_block:,}" if latest_block is not None else "unknown",
-                e,
+                failure_mode,
                 pformat(headers),
             )
 
     if not working:
-        faulty_str = ", ".join(f"{d} (block {b:,}, {err})" if b is not None else f"{d} ({err})" for d, err, _h, b in faulty)
+        faulty_str = ", ".join(f"{d} (block {b:,}, failure_mode={err})" if b is not None else f"{d} (failure_mode={err})" for d, err, _h, b in faulty)
         raise RuntimeError(f"{chain_name}: All {len(endpoints)} RPC providers failed {verification_label} verification. Faulty: [{faulty_str}].")
 
     if faulty:

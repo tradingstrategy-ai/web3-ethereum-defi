@@ -96,15 +96,15 @@ MORPHO_API_SUPPORTED_CHAINS = frozenset(
 #: Chains where a missing Morpho API record must not blacklist an otherwise
 #: detected Morpho vault.
 #:
-#: Robinhood Chain and Tempo launched with active Morpho vaults before the
+#: Arc, Robinhood Chain and Tempo launched with active Morpho vaults before the
 #: public API had complete coverage. Some legitimate vaults therefore do not
 #: resolve by address. Until Morpho's API provides complete coverage, retain
-#: on-chain detected vaults in the universe and omit only unavailable API
+#: onchain detected vaults in the universe and omit only unavailable API
 #: warning enrichment.
 #:
-#: Remove either chain from this set once its production Morpho vaults reliably
+#: Remove a chain from this set once its production Morpho vaults reliably
 #: resolve through the public API.
-MORPHO_API_NOT_FOUND_FLAG_BYPASS_CHAINS = frozenset({4217, 4663})  # Tempo, Robinhood Chain
+MORPHO_API_NOT_FOUND_FLAG_BYPASS_CHAINS = frozenset({4217, 4663, 5042})  # Tempo, Robinhood Chain, Arc
 
 logger = logging.getLogger(__name__)
 
@@ -112,8 +112,7 @@ logger = logging.getLogger(__name__)
 def is_morpho_api_not_found_flag_bypassed(chain_id: int) -> bool:
     """Check whether a missing Morpho API record is temporarily non-fatal.
 
-    This narrowly scopes temporary Tempo and Robinhood Chain data-quality
-    workarounds.
+    This narrowly scopes temporary new-chain data-quality workarounds.
     It does not suppress RED-level warnings returned by the API, nor does it
     affect normal missing-vault handling on any other chain.
 
