@@ -40,8 +40,8 @@ from eth_defi.hyperliquid.api import fetch_portfolio
 from eth_defi.hyperliquid.session import HyperliquidSession
 from eth_defi.hyperliquid.trade_history_db import DEFAULT_TRADE_HISTORY_DB_PATH
 from eth_defi.research.perf_metrics import (
-    compute_calmar,
     compute_cagr,
+    compute_calmar,
     compute_max_drawdown,
     compute_sharpe,
     compute_sortino,
@@ -442,8 +442,17 @@ class TraderStatsDatabase:
         hour_dow_df: pd.DataFrame | None = None,
         position_durations: pd.DataFrame | None = None,
     ) -> dict | None:
-        """Compute metrics for a single trader from daily PnL."""
+        """Compute metrics for a single trader from daily PnL.
+
+        The cache contains only dates with fills or funding payments. Risk
+        metrics need consecutive calendar days, so missing dates are inserted
+        as zero-PnL days before returns, Sharpe and Sortino are calculated.
+        """
         group = daily_pnl_group.sort_values("trade_date").reset_index(drop=True)
+
+        pnl_by_day = group.set_index(pd.to_datetime(group["trade_date"]))["daily_net_pnl"]
+        calendar_index = pd.date_range(pnl_by_day.index.min(), pnl_by_day.index.max(), freq="D")
+        daily_net_pnl = pnl_by_day.reindex(calendar_index, fill_value=0.0)
 
         fa_row = fill_agg.loc[fill_agg["address"] == address]
         if fa_row.empty:
@@ -453,8 +462,9 @@ class TraderStatsDatabase:
         dep_row = deposits.loc[deposits["address"] == address]
         initial_capital = float(dep_row.iloc[0]["total_deposits"]) if not dep_row.empty and dep_row.iloc[0]["total_deposits"] > 0 else None
 
-        net_pnl = group["daily_net_pnl"].sum()
+        net_pnl = daily_net_pnl.sum()
         days = len(group)
+        calendar_days = len(daily_net_pnl)
         active_days_val = float(fa["active_days"]) if fa["active_days"] > 0 else 1.0
         trades_per_day = float(fa["fill_count"]) / max(active_days_val, 1.0)
 
@@ -465,20 +475,23 @@ class TraderStatsDatabase:
         calmar_val = None
 
         if initial_capital is not None and initial_capital > 0:
-            cumulative_pnl = group["daily_net_pnl"].cumsum()
+            cumulative_pnl = daily_net_pnl.cumsum()
             equity_curve = pd.Series((initial_capital + cumulative_pnl).values, dtype=float)
 
             if (equity_curve > 0).all():
                 daily_returns = equity_curve.pct_change().dropna()
 
-                cagr_val = compute_cagr(float(equity_curve.iloc[0]), float(equity_curve.iloc[-1]), days)
+                cagr_val = compute_cagr(float(equity_curve.iloc[0]), float(equity_curve.iloc[-1]), calendar_days)
                 sharpe_val = compute_sharpe(daily_returns)
                 sortino_val = compute_sortino(daily_returns)
                 max_dd_val = compute_max_drawdown(equity_curve)
                 calmar_val = compute_calmar(cagr_val, max_dd_val)
         else:
-            sharpe_val = compute_sharpe(group["daily_net_pnl"])
-            sortino_val = compute_sortino(group["daily_net_pnl"])
+            # Absolute dollar PnL is not a return series. Without starting
+            # capital there is no valid percentage-return input for Sharpe or
+            # Sortino, so leave both metrics unavailable.
+            sharpe_val = None
+            sortino_val = None
 
         pnl_components = self.cache_con.execute(
             """

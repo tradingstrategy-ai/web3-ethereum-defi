@@ -41,9 +41,11 @@ from eth_typing import HexAddress
 from tabulate import tabulate
 
 from eth_defi.apex.tags import get_strategy_tags as get_apex_strategy_tags
+from eth_defi.enzyme.tags import get_strategy_tags as get_enzyme_strategy_tags
 from eth_defi.erc_4626.core import ERC4262VaultDetection, ERC4626Feature, get_vault_protocol_name
 from eth_defi.erc_4626.vault_protocol.aave.tags import get_strategy_tags as get_aave_strategy_tags
 from eth_defi.erc_4626.vault_protocol.atoma.tags import STRATEGY_TAGS as ATOMA_STRATEGY_TAGS
+from eth_defi.erc_4626.vault_protocol.axis.tags import STRATEGY_TAGS as AXIS_STRATEGY_TAGS
 from eth_defi.erc_4626.vault_protocol.centrifuge.tags import STRATEGY_TAGS as CENTRIFUGE_STRATEGY_TAGS
 from eth_defi.erc_4626.vault_protocol.ethena.tags import STRATEGY_TAGS as ETHENA_STRATEGY_TAGS
 from eth_defi.erc_4626.vault_protocol.euler.tags import get_strategy_tags as get_euler_strategy_tags
@@ -64,7 +66,7 @@ from eth_defi.tokenised_fund.securitize.tags import STRATEGY_TAGS as SECURITIZE_
 from eth_defi.tokenised_fund.spiko.tags import STRATEGY_TAGS as SPIKO_STRATEGY_TAGS
 from eth_defi.utils import setup_console_logging
 from eth_defi.vault.base import VaultSpec
-from eth_defi.vault.strategy_tag import StrategyTag, lookup_strategy_tags
+from eth_defi.vault.strategy_tag import StrategyTag, lookup_curator_strategy_tags, lookup_strategy_tags
 from eth_defi.vault.vaultdb import DEFAULT_VAULT_DATABASE, VaultDatabase, VaultRow
 
 logger = logging.getLogger(__name__)
@@ -91,6 +93,8 @@ NATIVE_STRATEGY_TAG_RESOLVERS: dict[ERC4626Feature, NativeStrategyTagResolver] =
 # classifying the row differently from the scanner.
 EVM_ADAPTER_FEATURE_PRIORITY: tuple[ERC4626Feature, ...] = (
     ERC4626Feature.mellow_like,
+    ERC4626Feature.enzyme_onyx_like,
+    ERC4626Feature.enzyme_blue_like,
     ERC4626Feature.symbiotic_like,
     ERC4626Feature.securitize_like,
     ERC4626Feature.usyc_like,
@@ -231,7 +235,10 @@ EVM_STRATEGY_TAG_RESOLVERS: dict[ERC4626Feature, StrategyTagResolver] = {
     ERC4626Feature.upshift_like: partial(lookup_strategy_tags, UPSHIFT_STRATEGY_TAGS),
     ERC4626Feature.centrifuge_like: partial(lookup_strategy_tags, CENTRIFUGE_STRATEGY_TAGS),
     ERC4626Feature.ethena_like: partial(lookup_strategy_tags, ETHENA_STRATEGY_TAGS),
+    ERC4626Feature.axis_like: partial(lookup_strategy_tags, AXIS_STRATEGY_TAGS),
     ERC4626Feature.yieldnest_like: partial(lookup_strategy_tags, YIELDNEST_STRATEGY_TAGS),
+    ERC4626Feature.enzyme_onyx_like: get_enzyme_strategy_tags,
+    ERC4626Feature.enzyme_blue_like: get_enzyme_strategy_tags,
 }
 
 
@@ -366,6 +373,7 @@ def resolve_strategy_tags(spec: VaultSpec, row: VaultRow) -> tuple[set[StrategyT
         row lacks usable detection metadata or a maintained resolver.
     """
 
+    curator_tags = lookup_curator_strategy_tags(spec.chain_id, spec.vault_address)
     detection = row.get("_detection_data")
     if not isinstance(detection, ERC4262VaultDetection):
         return None
@@ -374,22 +382,29 @@ def resolve_strategy_tags(spec: VaultSpec, row: VaultRow) -> tuple[set[StrategyT
     native_feature = next((feature for feature in NATIVE_STRATEGY_TAG_RESOLVERS if feature in detection.features), None)
     native_resolver = NATIVE_STRATEGY_TAG_RESOLVERS.get(native_feature) if native_feature is not None else None
     if native_resolver is not None:
-        return native_resolver(spec.vault_address), f"{protocol_name} native resolver"
+        return native_resolver(spec.vault_address) | (curator_tags or set()), f"{protocol_name} native resolver"
 
     evm_feature = next((feature for feature in EVM_ADAPTER_FEATURE_PRIORITY if feature in detection.features), None)
     if evm_feature is None:
+        if curator_tags is not None:
+            return curator_tags, f"{protocol_name} curator tag resolver"
         # Do not clear a manually persisted classification merely because this
         # migration has not yet learned about the adapter.
         return None
 
     evm_resolver = EVM_STRATEGY_TAG_RESOLVERS.get(evm_feature)
     if evm_resolver is None:
+        if curator_tags is not None:
+            return curator_tags, f"{protocol_name} curator tag resolver"
         # The scanner will instantiate the higher-priority adapter, but this
         # migration deliberately does not construct adapters or make RPC calls.
         # Preserve any existing manual tags until a direct resolver is added.
         return None
 
-    return evm_resolver(spec.vault_address), f"{protocol_name} tag resolver"
+    adapter_tags = evm_resolver(spec.vault_address)
+    if curator_tags is not None:
+        adapter_tags = (adapter_tags or set()) | curator_tags
+    return adapter_tags, f"{protocol_name} tag resolver"
 
 
 def collect_strategy_tag_updates(vault_db: VaultDatabase) -> tuple[tuple[StrategyTagUpdate, ...], int, int]:

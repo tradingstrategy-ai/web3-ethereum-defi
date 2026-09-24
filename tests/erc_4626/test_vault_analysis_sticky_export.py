@@ -3,19 +3,47 @@
 from __future__ import annotations
 
 import datetime
+import json
+import re
 from decimal import Decimal
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
 import pytest
 
 from eth_defi.vault import top_vaults_json
+from eth_defi.vault.flag import VaultFlag
+from eth_defi.vault.strategy_tag import STRATEGY_TAG_METADATA, StrategyTag
 from eth_defi.version_info import VersionInfo
 
 
 def get_top_vaults_json_module():
     """Return the importable top-vaults JSON exporter module."""
     return top_vaults_json
+
+
+def test_explicit_data_dir_anchors_default_paths(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """An in-process export keeps its paths together despite process overrides.
+
+    :param tmp_path: Explicit pipeline directory.
+    :param monkeypatch: Set unrelated standalone path overrides.
+    :return: ``None`` after checking all default paths.
+    """
+    monkeypatch.setenv("DATA_DIR", str(tmp_path / "other"))
+    monkeypatch.setenv("OUTPUT_JSON", str(tmp_path / "other.json"))
+
+    paths = top_vaults_json._resolve_default_paths(tmp_path)
+
+    assert paths == {
+        "data_dir": tmp_path,
+        "vault_db_path": tmp_path / "vault-metadata-db.pickle",
+        "parquet_path": tmp_path / "cleaned-vault-prices-1h.parquet",
+        "output_path": tmp_path / "stablecoin-vault-metrics.json",
+    }
+    standalone_paths = top_vaults_json._resolve_default_paths()
+    assert standalone_paths["data_dir"] == tmp_path / "other"
+    assert standalone_paths["output_path"] == tmp_path / "other.json"
 
 
 def make_metrics_row(
@@ -57,6 +85,228 @@ def make_lifetime_df(*rows: dict) -> pd.DataFrame:
 def make_export_record(module, **kwargs) -> dict:
     """Build a JSON-safe exported row for state seeding."""
     return module.export_lifetime_row(pd.Series(make_metrics_row(**kwargs)))
+
+
+def test_strategy_category_export_includes_labels_and_tvl_weighted_one_month_apy() -> None:
+    """Export every category with two-sentence rules and additive aggregates.
+
+    A vault with more than one maintained tag contributes to each category,
+    while an unrecognised historical tag is not exposed without catalogue
+    metadata. The one-month APY uses only finite current-TVL weights and finite
+    complete annualised one-month returns.
+    """
+    small_vault_tvl = 100.0
+    large_vault_tvl = 200.0
+    categories = top_vaults_json.build_strategy_categories_for_export(
+        [
+            {
+                "strategy_tags": ["lending", "algorithmic_trading", "lending"],
+                "current_nav": small_vault_tvl,
+                "one_month_cagr": 0.20,
+                "one_month_cagr_net": 0.10,
+                "one_month_start": "2026-08-01T00:00:00Z",
+                "one_month_end": "2026-09-01T00:00:00Z",
+                "one_month_samples": 31,
+            },
+            {
+                "strategy_tags": ["lending", "not_a_category"],
+                "current_nav": large_vault_tvl,
+                "one_month_cagr": 0.20,
+                "one_month_start": "2026-08-01T00:00:00Z",
+                "one_month_end": "2026-09-01T00:00:00Z",
+                "one_month_samples": 31,
+            },
+            {
+                "strategy_tags": ["unknown"],
+                "current_nav": None,
+                "one_month_cagr": 0.50,
+            },
+        ]
+    )
+
+    assert set(categories) == {tag.value for tag in StrategyTag}
+    assert categories["lending"] == {
+        "label": "Lending",
+        "description": STRATEGY_TAG_METADATA[StrategyTag.lending]["description"],
+        "vault_count": 2,
+        "tvl_usd": 300.0,
+        "one_month_apy": pytest.approx(1 / 6),
+    }
+    assert categories["algorithmic_trading"]["vault_count"] == 1
+    assert categories["algorithmic_trading"]["tvl_usd"] == small_vault_tvl
+    assert categories["unknown"]["vault_count"] == 0
+    assert categories["unknown"]["tvl_usd"] == 0.0
+    assert categories["unknown"]["one_month_apy"] is None
+
+
+def test_strategy_category_export_excludes_blacklisted_and_invalid_tvl() -> None:
+    """Do not let rejected records distort public category aggregates."""
+    valid_tvl = 100.0
+    valid_return = 0.10
+    categories = top_vaults_json.build_strategy_categories_for_export(
+        [
+            {
+                "strategy_tags": ["lending"],
+                "current_nav": valid_tvl,
+                "one_month_cagr": valid_return,
+                "one_month_start": "2026-08-01T00:00:00Z",
+                "one_month_end": "2026-09-01T00:00:00Z",
+                "one_month_samples": 31,
+            },
+            {
+                "strategy_tags": ["lending"],
+                "current_nav": 1_000_000_000_000.0,
+                "one_month_cagr": 100.0,
+                "risk": top_vaults_json.BLACKLISTED_RISK_LABEL,
+                "one_month_start": "2026-08-01T00:00:00Z",
+                "one_month_end": "2026-09-01T00:00:00Z",
+                "one_month_samples": 31,
+            },
+            {
+                "strategy_tags": ["lending"],
+                "current_nav": 100_000_000_001.0,
+                "one_month_cagr": 100.0,
+                "one_month_start": "2026-08-01T00:00:00Z",
+                "one_month_end": "2026-09-01T00:00:00Z",
+                "one_month_samples": 31,
+            },
+        ]
+    )
+
+    assert categories["lending"]["vault_count"] == 1
+    assert categories["lending"]["tvl_usd"] == valid_tvl
+    assert categories["lending"]["one_month_apy"] == valid_return
+
+
+def test_strategy_category_export_requires_complete_bounded_one_month_metric() -> None:
+    """Ignore sentinels, partial periods, and outliers in 1M weighting."""
+    valid_return = 0.10
+    expected_tvl = 3_100.0
+    expected_vault_count = 4
+    categories = top_vaults_json.build_strategy_categories_for_export(
+        [
+            {
+                "strategy_tags": ["lending"],
+                "current_nav": 100.0,
+                "one_month_cagr_net": valid_return,
+                "one_month_start": "2026-08-01T00:00:00Z",
+                "one_month_end": "2026-09-01T00:00:00Z",
+                "one_month_samples": 31,
+            },
+            {
+                "strategy_tags": ["lending"],
+                "current_nav": 1_000.0,
+                "one_month_cagr": 0.0,
+            },
+            {
+                "strategy_tags": ["lending"],
+                "current_nav": 1_000.0,
+                "one_month_cagr": 5.0,
+                "one_month_start": "2026-08-01T00:00:00Z",
+                "one_month_end": "2026-09-01T00:00:00Z",
+                "one_month_samples": 31,
+            },
+            {
+                "strategy_tags": ["lending"],
+                "current_nav": 1_000.0,
+                "one_month_cagr": 0.20,
+                "one_month_start": "2026-08-29T00:00:00Z",
+                "one_month_end": "2026-09-01T00:00:00Z",
+                "one_month_samples": 4,
+            },
+        ]
+    )
+
+    assert categories["lending"]["vault_count"] == expected_vault_count
+    assert categories["lending"]["tvl_usd"] == expected_tvl
+    assert categories["lending"]["one_month_apy"] == valid_return
+
+
+def test_strategy_category_export_excludes_stale_records() -> None:
+    """Do not describe replayed or old metrics as current aggregates."""
+    current_tvl = 100.0
+    records = [
+        {
+            "strategy_tags": ["lending"],
+            "current_nav": current_tvl,
+            "one_month_cagr": 0.10,
+            "one_month_start": "2026-08-01T00:00:00Z",
+            "one_month_end": "2026-09-01T00:00:00Z",
+            "one_month_samples": 31,
+        },
+        {
+            "strategy_tags": ["lending"],
+            "current_nav": 1_000_000.0,
+            "one_month_cagr": 1.0,
+            "one_month_start": "2026-08-01T00:00:00Z",
+            "one_month_end": "2026-09-01T00:00:00Z",
+            "one_month_samples": 31,
+            "stale_export": True,
+        },
+        {
+            "strategy_tags": ["lending"],
+            "current_nav": 1_000_000.0,
+            "one_month_cagr": 1.0,
+            "one_month_start": "2026-08-01T00:00:00Z",
+            "one_month_end": "2026-09-01T00:00:00Z",
+            "one_month_samples": 31,
+            "stale_current_row": True,
+        },
+    ]
+
+    categories = top_vaults_json.build_strategy_categories_for_export(records)
+
+    assert categories["lending"]["vault_count"] == 1
+    assert categories["lending"]["tvl_usd"] == current_tvl
+    assert categories["lending"]["one_month_apy"] == 0.10
+
+
+def test_strategy_tag_metadata_covers_every_tag_with_short_descriptions() -> None:
+    """Keep the public category catalogue complete and concise."""
+    max_description_length = 100
+
+    assert set(STRATEGY_TAG_METADATA) == set(StrategyTag)
+    assert all(metadata["label"] and "[" not in metadata["label"] for metadata in STRATEGY_TAG_METADATA.values())
+    descriptions = [re.sub(r"\]\([^)]*\)", "]", metadata["description"]) for metadata in STRATEGY_TAG_METADATA.values()]
+    assert all(description.count(".") == 1 for description in descriptions)
+    assert all(len(description) <= max_description_length for description in descriptions)
+    assert all("the vault" not in description.lower() and "this vault" not in description.lower() for description in descriptions)
+    assert all("we " not in description.lower() for description in descriptions)
+    assert all("documented assets" not in description.lower() for description in descriptions)
+
+
+def test_strategy_category_export_skips_a_tag_without_current_catalogue_metadata(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Keep a local export readable during an enum-and-catalogue rollout.
+
+    The catalogue coverage test above still prevents releasing an incomplete
+    registry. This fallback only protects existing sticky rows while a newer
+    persisted enum value is being reconciled with its public description.
+    """
+    monkeypatch.delitem(STRATEGY_TAG_METADATA, StrategyTag.lending)
+
+    categories = top_vaults_json.build_strategy_categories_for_export([{"strategy_tags": [StrategyTag.lending.value], "current_nav": 100.0, "one_month_cagr": 0.10}])
+
+    assert StrategyTag.lending.value not in categories
+
+
+def test_strategy_category_failure_does_not_block_vault_export(
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """A category failure logs an error without adding a partial JSON key."""
+
+    def fail_category_build(_: list[dict]) -> dict:
+        raise RuntimeError("broken category input")
+
+    monkeypatch.setattr(top_vaults_json, "build_strategy_categories_for_export", fail_category_build)
+    output_data = {"vaults": []}
+
+    with caplog.at_level("ERROR"):
+        success = top_vaults_json.append_strategy_categories_to_export(output_data, [])
+
+    assert success is False
+    assert "categories" not in output_data
+    assert "Strategy category export failed" in caplog.text
 
 
 def test_sticky_export_first_qualification_creates_state():
@@ -726,3 +976,94 @@ def test_sticky_export_invalid_fallback_record_is_suppressed():
     # 4. Assert structural suppression is persisted
     assert result.state["vaults"][key]["status"] == "suppressed"
     assert result.state["vaults"][key]["suppression_reason"] == "invalid_last_exported_record"
+
+
+def test_validate_strict_json_serialisable_rejects_non_finite_floats() -> None:
+    """Non-finite floats are reported by the path walker with their paths.
+
+    1. A NaN and an infinity nested inside the document are both reported.
+    2. A clean document passes without raising.
+    """
+    module = get_top_vaults_json_module()
+    dirty = {
+        "vaults": [
+            {"id": "1-0xa", "cagr": float("nan")},
+            {"id": "1-0xb", "period_results": [{"tvl_end": float("inf")}]},
+        ]
+    }
+
+    # 1
+    with pytest.raises(ValueError, match="Non-serializable values found"):
+        module.validate_strict_json_serialisable(dirty)
+    paths = module.find_non_serializable_paths(dirty)
+    assert len(paths) == 2
+    assert any("nan" in issue for _, issue in paths)
+    assert any("inf" in issue for _, issue in paths)
+
+    # 2
+    module.validate_strict_json_serialisable({"vaults": [{"id": "1-0xa", "cagr": 0.05}]})
+
+
+@pytest.mark.parametrize("invalid", [float("nan"), float("inf"), Decimal("1"), datetime.datetime(2026, 1, 1), np.int64(1)])
+def test_strict_json_writer_preserves_file_on_invalid_value(tmp_path: Path, caplog: pytest.LogCaptureFixture, invalid: object) -> None:
+    """Rejected nested values retain the previous public file.
+
+    :param tmp_path: Isolated output directory.
+    :param caplog: Capture the path-aware validation message.
+    :param invalid: Value rejected by the existing strict validator.
+    :return: ``None`` after checking atomic failure behaviour.
+    """
+    output_path = tmp_path / "top-vaults.json"
+    output_path.write_text("previous output", encoding="utf-8")
+
+    with pytest.raises(ValueError, match="Non-serializable values found"):
+        top_vaults_json._write_strict_json(output_path, {"vaults": [{"value": invalid}]})
+
+    assert "vaults -> 0 -> value" in caplog.text
+    assert output_path.read_text(encoding="utf-8") == "previous output"
+
+
+def test_strict_json_writer_rejects_nested_non_string_key(tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
+    """A non-string key retains the old path-aware validation error."""
+    output_path = tmp_path / "top-vaults.json"
+    output_path.write_text("previous output", encoding="utf-8")
+
+    with pytest.raises(ValueError, match="Non-serializable values found"):
+        top_vaults_json._write_strict_json(output_path, {"vaults": [{1: "invalid"}]})
+
+    assert "vaults -> 0 -> 1" in caplog.text
+    assert output_path.read_text(encoding="utf-8") == "previous output"
+
+
+@pytest.mark.parametrize("value", [2**80, 2**64 - 1, -(2**63), np.float64(0.125), VaultFlag.deposit, "NUL:\x00 separator:\u2028 delete:\x7f"])
+def test_strict_json_writer_preserves_accepted_values(tmp_path: Path, value: object) -> None:
+    """The fast encoder and fallback retain standard JSON values."""
+    output_path = tmp_path / "top-vaults.json"
+    document = {"vaults": [{"value": value}]}
+
+    top_vaults_json._write_strict_json(output_path, document)
+
+    expected = json.loads(json.dumps(document, ensure_ascii=False, allow_nan=False))
+    assert json.loads(output_path.read_text(encoding="utf-8")) == expected
+
+
+def test_strict_json_writer_preserves_file_for_invalid_unicode(tmp_path: Path) -> None:
+    """A lone surrogate fails as before without replacing the public file."""
+    output_path = tmp_path / "top-vaults.json"
+    output_path.write_text("previous output", encoding="utf-8")
+
+    with pytest.raises(UnicodeEncodeError):
+        top_vaults_json._write_strict_json(output_path, {"vaults": [{"name": "broken\ud800"}]})
+
+    assert output_path.read_text(encoding="utf-8") == "previous output"
+
+
+def test_sticky_state_writer_rejects_non_finite_value(tmp_path: Path) -> None:
+    """Standalone state writes retain strict NaN rejection."""
+    path = tmp_path / "vault-export-state.json"
+    path.write_text("previous state", encoding="utf-8")
+
+    with pytest.raises(ValueError, match="Non-serializable values found"):
+        top_vaults_json.save_sticky_export_state({"vaults": {"bad": {"value": float("nan")}}}, path)
+
+    assert path.read_text(encoding="utf-8") == "previous state"

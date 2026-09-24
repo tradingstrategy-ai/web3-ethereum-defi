@@ -1,0 +1,9 @@
+feeder-id: artemis-trust
+name: Artemis Trust
+role: curator
+short_description: Artemis Trust is the community-managed Web3 investment fund named by its Enzyme vault listing.
+long_description: |
+  The [Artemis Trust Enzyme Blue listing](https://app.enzyme.finance/vault/0x62cd97c6900d07a72eb318fdd0dff462b4a3d7e8?network=polygon) describes an invite-only friends-and-family investment fund using DeFi liquidity pools, staking, yield farming, and long-term Web3 allocations. Its public app profile calls the operator Artemis Trust and provides contact guidance, but does not disclose a separate legal organisation; this record therefore preserves the fund brand without attributing it to Avantgarde Finance.
+other-links:
+  - title: Enzyme Blue - Artemis Trust listing
+    url: https://app.enzyme.finance/vault/0x62cd97c6900d07a72eb318fdd0dff462b4a3d7e8?network=polygon

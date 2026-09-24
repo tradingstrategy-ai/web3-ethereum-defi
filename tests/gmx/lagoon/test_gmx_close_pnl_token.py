@@ -30,6 +30,7 @@ import logging
 import os
 from decimal import Decimal
 
+import flaky
 import pytest
 
 from eth_defi.gmx.constants import OrderType
@@ -340,6 +341,8 @@ def test_close_profitable_short_is_unaffected_by_pnl_swap_fix(lagoon_gmx_fork_en
     assert usdc_delta > collateral_usd + 0.5 * expected_profit_usd, f"USDC only increased by {usdc_delta:.2f}, expected collateral (~${collateral_usd:.2f}) plus most of the ~${expected_profit_usd:.2f} short profit"
 
 
+# Flaky since 2026-08-23: CI keeper execution succeeded but the Reader returned no position; the fixed-block test passes locally.
+@flaky.flaky(max_runs=3, min_passes=1)
 def test_take_profit_order_execution_pays_pnl_in_usdc(lagoon_gmx_fork_env: LagoonGMXForkEnv):
     """A triggered take-profit order must pay PnL in USDC, not native ETH.
 
@@ -488,6 +491,8 @@ def test_take_profit_order_execution_pays_pnl_in_usdc(lagoon_gmx_fork_env: Lagoo
     assert usdc_delta > collateral_usd + 0.5 * expected_profit_usd, f"USDC only increased by {usdc_delta:.2f}, expected collateral (~${collateral_usd:.2f}) plus most of the ~${expected_profit_usd:.2f} take-profit"
 
 
+# Flaky since 2026-08-23: CI keeper execution succeeded but the Reader returned no position; the fixed-block test passes locally.
+@flaky.flaky(max_runs=3, min_passes=1)
 def test_close_profitable_long_with_no_swap_pays_pnl_in_weth(lagoon_gmx_fork_env: LagoonGMXForkEnv):
     """``no_swap`` (0) leaves the WETH PnL leg unconverted and unwrapped.
 

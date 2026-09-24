@@ -38,3 +38,35 @@ def test_manual_aave_tags_are_added_to_automatic_lending(monkeypatch: pytest.Mon
         StrategyTag.algorithmic_trading,
         StrategyTag.lending,
     }
+
+
+def test_3f_steakhouse_usdc_has_rwa_lending_tags() -> None:
+    """3F's reviewed Morpho vault is classified as RWA-backed lending."""
+
+    vault = _make_vault(MorphoV2Vault)
+    vault.vault_address = HexAddress("0xBEEf3f3A04e28895f3D5163d910474901981183D")
+
+    assert vault.get_strategy_tags() == {
+        StrategyTag.lending,
+        StrategyTag.rwa,
+        StrategyTag.rwa_lending,
+    }
+
+
+@pytest.mark.parametrize(
+    "address",
+    (
+        "0x810b29d043eb851ba4cf80b1b194ed5177e70958",
+        "0x58e0f0b81576f23c5f002d949b2bb11a5d2714d6",
+    ),
+)
+def test_morini_morpho_vaults_have_fx_and_lending_tags(address: str) -> None:
+    """Morini's Morpho products retain lending alongside their FX activity."""
+
+    vault = _make_vault(MorphoV2Vault)
+    vault.vault_address = HexAddress(address)
+
+    assert vault.get_strategy_tags() == {
+        StrategyTag.fx,
+        StrategyTag.lending,
+    }

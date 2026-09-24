@@ -522,7 +522,9 @@ def fetch_vault_summary_history(
     df = pd.DataFrame(records).set_index("timestamp").sort_index()
 
     # Resample to daily, taking the last share price of each day
-    daily = df.resample("D").last().dropna()
+    # Risk metrics require one observation for every consecutive calendar day;
+    # carry the last known share price through days without an API sample.
+    daily = df.resample("D").last().ffill().dropna()
 
     if daily.empty or len(daily) < 2:
         return pd.DataFrame(columns=["share_price", "daily_return"])

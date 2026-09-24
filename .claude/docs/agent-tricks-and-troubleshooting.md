@@ -28,7 +28,7 @@ Apply these whenever this file is required before an agent CLI run:
 - For plan reviews with Claude CLI, default to the no-tools inline review pattern after the primary agent has inspected the relevant code. Only use a grounded tool-using review when fresh repository inspection is actually required.
 - For code and PR reviews with Claude CLI, scope the request to correctness bugs, behavioural regressions, missing tests, security or money-movement risks, and repository instruction compliance. Ask for findings first with file:line references and residual risks. These reviews need repository inspection: do not use `--tools ""` or tell Claude not to use tools.
 - For long Claude CLI reviews, use streaming output (`--output-format stream-json --verbose`) and a wall-clock timeout. If a grounded review produces no output after roughly one minute, stop it and repeat it for a smaller, tool-enabled file group. A no-tools review is only valid when the complete review material is embedded in the prompt, such as a plan or document.
-- Do not paste huge diffs into Claude, Codex, or Grok prompts. Make the agent inspect `git status --short`, `git diff --name-only`, and targeted hunks, or provide only the plan text for no-tools plan reviews.
+- Do not paste huge diffs into Claude, Codex, or Grok prompts. Make the agent inspect `git status --short`, `git diff --stat`, `git diff --name-only`, and targeted hunks. Never ask it to dump a whole PR diff or run `gh pr diff | head -N` for a large `N`.
 - For non-interactive Codex reviews, use `codex exec --json` in read-only mode. Plain text mode can buffer output and look hung.
 - Before trusting any external-agent "no findings" result, verify it reviewed the correct worktree and non-empty diff. For a streaming Claude review, require a successful `result` event with a final verdict; tool calls, thinking events, and a live process are not a completed review.
 
@@ -325,6 +325,31 @@ and web search/fetch. It deliberately also retains write permissions for normal
 implementation work. A review prompt must still explicitly say **do not edit
 files, change GitHub state, or run tests**.
 
+`--allowedTools` is additive: it does not reliably remove a broader project
+permission that is already present in `.claude/settings.json`. For a strictly
+read-only review of already identified files, use `--safe-mode` and explicitly
+deny mutation-capable tools. `--safe-mode` retains normal authentication; the
+explicit denial is what enforces the narrow tool set:
+
+```shell
+nohup timeout 120 claude -p "Inspect only eth_defi/example.py and report correctness findings with file:line references. Use Read only. Do not make changes." \
+  --model opus \
+  --effort low \
+  --safe-mode \
+  --permission-mode dontAsk \
+  --allowedTools "Read" \
+  --disallowedTools "Bash,Edit,Write,MultiEdit,Skill,Task" \
+  --output-format stream-json \
+  --verbose \
+  --no-session-persistence \
+  < /dev/null > /tmp/claude-read-review.jsonl 2>&1 &
+```
+
+Use this strict pattern only when the primary agent has already established the
+reviewed paths and diff. A grounded PR review that needs Git or GitHub commands
+must retain Bash, but its prompt must name the allowed read-only commands and
+the narrow file group.
+
 Run the smoke test below before a costly review. It proves the actual current
 worktree can use local disk, GitHub and web tools; do not claim a completed
 review unless it returns a final result.
@@ -353,11 +378,13 @@ as incomplete.
 
 ### Foreground command-window limits
 
-Some agent runners terminate a foreground command after roughly 30 seconds,
-even when Claude is actively reading files and emitting streaming JSON. This
-can leave a review with only tool calls and no final findings. Do not rely on a
-foreground `claude -p` invocation for a non-trivial worktree review in those
-environments.
+Some agent runners end foreground output capture after roughly 30 seconds,
+even when Claude is actively reading files and emitting streaming JSON. The
+Claude child may then continue after its output pipe has disappeared, causing
+the outer command to report an empty completion. This is neither a successful
+review nor evidence of an authentication failure: its final answer cannot be
+recovered from that foreground capture. Do not rely on a foreground `claude -p`
+invocation for a non-trivial worktree review in those environments.
 
 Start the review in the background and write the raw JSONL stream to a temporary
 file instead. Restrict tools to read-only operations and redirect stdin so the
@@ -369,12 +396,16 @@ the worktree; it does not override the separate one-minute no-output rule for a
 grounded Claude review.
 
 ```shell
-nohup timeout 900 claude -p "Review the current uncommitted worktree diff for correctness bugs only. Do not edit files or run tests. Return findings first with file:line references." \
+nohup timeout 900 claude -p "Review the current uncommitted worktree diff for correctness bugs only. Do not edit files, change GitHub state, or run tests. First inspect git status --short, git diff --stat, and git diff --name-only. Review only the resulting relevant file group with targeted diffs; do not dump the full diff. Return findings first with file:line references." \
+  --model opus \
+  --effort low \
   --permission-mode dontAsk \
   --allowedTools "Bash,Read,Grep,Glob,WebSearch,WebFetch" \
+  --disallowedTools "Edit,Write,MultiEdit,Skill,Task" \
   --output-format stream-json \
   --verbose \
   --no-session-persistence \
+  --debug-file /tmp/claude-review.debug.log \
   < /dev/null > /tmp/claude-review.jsonl 2>&1 &
 ```
 
@@ -393,6 +424,13 @@ event, narrow the file scope and repeat the background review rather than trying
 to resume a `--no-session-persistence` session. Do not describe a partial event
 stream as a review result, and do not fall back to a no-tools review unless the
 complete target content is supplied in its prompt.
+
+If the JSONL stream stops growing for one minute, terminate the process, keep
+the JSONL and debug log for diagnosis, and start a new smaller review. Inspect
+the debug log for the last dispatched tool and server errors; do not paste or
+commit it because it can include repository context. A clean `claude doctor`
+and `claude auth status`, together with a successful small detached Read-only
+review, means the broad prompt or tool scope is the likely problem.
 
 ### Reviewing a plan or document with Claude CLI
 

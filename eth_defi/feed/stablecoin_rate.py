@@ -31,6 +31,7 @@ import tempfile
 import urllib.parse
 import urllib.request
 from dataclasses import dataclass, field
+from functools import cache
 from pathlib import Path
 from typing import Any, Iterator, Sequence, TypeVar
 
@@ -154,6 +155,7 @@ _CHAIN_ALIASES_TO_ID: dict[str, int] = {
     "berachain": 80094,
     "hyperevm": 999,
     "hyperliquid": 999,
+    "plasma": 9745,
     "xlayer": 196,
     "x_layer": 196,
     "x-layer": 196,
@@ -379,6 +381,29 @@ class StablecoinRateFeeder:
     _depegged_symbols: set[str] | None = field(default=None, init=False, repr=False)
     _rate_contracts: dict[tuple[int, str], DenominationTokenRate] | None = field(default=None, init=False, repr=False)
     _rate_symbols: dict[str, DenominationTokenRate] | None = field(default=None, init=False, repr=False)
+    _address_slugs: dict[str, str] | None = field(default=None, init=False, repr=False)
+
+    def get_denomination_token_slug(self, address: HexAddress | str | None) -> str | None:
+        """Resolve a denomination token to its stablecoin metadata slug.
+
+        Token symbols are not unique: the legacy Kava USDX and Axis USDx are
+        unrelated assets. Contract addresses are globally unique, so this
+        lookup deliberately uses only the token address and never falls back to
+        the symbol.
+
+        :param address:
+            Denomination token contract address.
+
+        :return:
+            Stablecoin metadata slug for a known address, or ``None``.
+        """
+        if not address:
+            return None
+
+        if self._address_slugs is None:
+            self._address_slugs = build_stablecoin_address_slug_lookup(self.data_dir)
+
+        return self._address_slugs.get(str(address).lower())
 
     def get_denomination_token_rate_section(
         self,
@@ -490,6 +515,37 @@ def iter_stablecoin_rate_targets(data_dir: Path = STABLECOINS_DATA_DIR) -> Itera
                 yield _build_target(yaml_path, entry_index, slug, symbol, data.get("category", ""), entry)
         else:
             yield _build_target(yaml_path, None, slug, symbol, data.get("category", ""), data)
+
+
+@cache
+def load_stablecoin_rate_targets(data_dir: Path = STABLECOINS_DATA_DIR) -> tuple[StablecoinRateTarget, ...]:
+    """Parse all stablecoin YAML files once and cache the targets in-process forever.
+
+    The metrics pipeline builds three lookups (rate, depeg, address-slug) from
+    the same YAML metadata, and re-parsing every file for each lookup dominated
+    the metrics loop. The YAML files never meaningfully change for the metrics
+    consumer, so the parsed target list is cached in-process memory forever:
+    no TTL, no mtime checks, no invalidation. A process restart picks up any
+    edits.
+
+    Accepted consequence: the scanner's own metadata export refreshes
+    stablecoin rates into these YAMLs after metrics export, and the separate
+    post-scanner service writes ``depegged_at`` markers into the same shared
+    directory. A long-running scanner process will therefore not see
+    refreshed rates, new depeg markers, or vault blacklisting from a newly
+    depegged denomination token until it restarts (it restarts on every
+    deploy). This is a deliberate product decision: stablecoin USD rates
+    move slowly and the depeg blacklist is enforced again on the next
+    restart.
+
+    :param data_dir:
+        Directory of stablecoin metadata YAML files. Part of the cache key, so
+        distinct directories (e.g. pytest ``tmp_path``) do not collide.
+
+    :return:
+        Immutable tuple of parsed :class:`StablecoinRateTarget` entries.
+    """
+    return tuple(iter_stablecoin_rate_targets(data_dir))
 
 
 def fetch_stablecoin_rates(targets: Sequence[StablecoinRateTarget], timeout: float = 20.0, progress_bar: bool = False) -> dict[str, dict[str, Any]]:
@@ -857,7 +913,7 @@ def build_depegged_stablecoin_lookups(data_dir: Path = STABLECOINS_DATA_DIR) -> 
     depegged_symbol_candidates: set[str] = set()
     depegged_without_contract: list[StablecoinRateTarget] = []
 
-    for target in iter_stablecoin_rate_targets(data_dir):
+    for target in load_stablecoin_rate_targets(data_dir):
         normalised_symbol = normalise_token_symbol(target.symbol)
         # ``non_evm`` tokens have no ERC-20 on any indexed chain, so they have no
         # EVM symbol presence and must never participate in ticker matching —
@@ -904,7 +960,7 @@ def build_stablecoin_rate_lookups(data_dir: Path = STABLECOINS_DATA_DIR) -> tupl
     contract_rates: dict[tuple[int, str], DenominationTokenRate] = {}
     symbol_candidates: dict[str, list[tuple[StablecoinRateTarget, DenominationTokenRate]]] = {}
 
-    for target in iter_stablecoin_rate_targets(data_dir):
+    for target in load_stablecoin_rate_targets(data_dir):
         rate = _target_to_denomination_rate(target)
         for contract_key in target.contract_addresses:
             contract_rates[contract_key] = rate
@@ -917,6 +973,32 @@ def build_stablecoin_rate_lookups(data_dir: Path = STABLECOINS_DATA_DIR) -> tupl
 
     symbol_rates = {symbol: matches[0][1] for symbol, matches in symbol_candidates.items() if len(matches) == 1}
     return contract_rates, symbol_rates
+
+
+def build_stablecoin_address_slug_lookup(data_dir: Path = STABLECOINS_DATA_DIR) -> dict[str, str]:
+    """Build an address-to-stablecoin-slug lookup from package metadata.
+
+    This lookup identifies the stablecoin shown in vault metrics. It must not
+    use a token ticker because different issuers can reuse the same symbol.
+    Addresses are globally unique, so chain identifiers are intentionally not
+    part of the key.
+
+    :param data_dir:
+        Directory containing stablecoin metadata YAML files.
+
+    :return:
+        Lower-cased token addresses mapped to stablecoin metadata slugs.
+
+    """
+    address_slugs: dict[str, str] = {}
+    for target in load_stablecoin_rate_targets(data_dir):
+        for _, address in target.contract_addresses:
+            # Preserve the original slug for a renamed token, such as
+            # agEUR/EURA. Both entries document the same contract, which is
+            # still a unique asset identity.
+            address_slugs.setdefault(address, target.slug)
+
+    return address_slugs
 
 
 def apply_coingecko_mapping_file(data_dir: Path, mapping_path: Path, progress_bar: bool = False) -> int:

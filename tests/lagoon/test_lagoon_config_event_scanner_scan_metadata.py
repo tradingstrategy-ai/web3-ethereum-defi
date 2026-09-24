@@ -48,7 +48,7 @@ def test_build_guard_config_tracks_latest_lagoon_settlement_limit():
             event_name="LagoonSettlementCooldownSet",
             args={
                 "vault": vault,
-                "settlementCooldown": 43_200,
+                "settlementWindow": 43_200,
                 "notes": "capped",
             },
             block_number=1,
@@ -70,10 +70,10 @@ def test_build_guard_config_tracks_latest_lagoon_settlement_limit():
     assert limit.asset == asset
     assert limit.pending_silo == pending_silo
     assert limit.max_settlement_amount == 8_000_000
-    assert limit.settlement_cooldown == 43_200
+    assert limit.settlement_window == 43_200
     assert limit.enabled
     assert "8000000 raw units" in config.format_human_readable()
-    assert "43200s cooldown" in config.format_human_readable()
+    assert "43200s configured duration" in config.format_human_readable()
 
     events.append(
         DecodedGuardEvent(

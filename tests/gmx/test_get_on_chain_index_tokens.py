@@ -34,13 +34,28 @@ _BTC_MARKET_ADDR = "0x47c031236e19d024b42f8AE6780E44A573170703"
 _CHZ_MARKET_ADDR = "0x4fDd333FF9cA409df583f306B6F5a7fFdC9573d1"
 
 
-def _raw_market(market: str, index: str) -> tuple[str, str, str, str]:
-    return (market, index, _USDC, _USDC)
+def _raw_market(market: str, index: str) -> dict[str, str]:
+    return {
+        "market_address": market,
+        "index_token_address": index,
+        "long_token_address": _USDC,
+        "short_token_address": _USDC,
+        "is_listed": True,
+    }
 
 
-def _build_gmx_stub(raw_markets: list[tuple[str, str, str, str]]):
+def _build_gmx_stub(raw_markets: list[dict[str, str]]):
     """Build a barely-instantiated ``GMX`` whose ``get_on_chain_index_tokens``
-    can be called against a mocked ``Markets`` instance."""
+    can be called against a mocked ``Markets`` instance.
+
+    Mocks :meth:`Markets._fetch_markets_from_onchain` — the real pure
+    on-chain enumeration path ``get_on_chain_index_tokens`` calls. Its
+    predecessor, ``_get_available_markets_raw``, was deleted from
+    ``Markets`` by the same commit that introduced this method (issue #67
+    combined refactor); this test used to monkeypatch that phantom method
+    back onto the class, which papered over the break instead of catching
+    it — see ``tradingstrategy-ai/freqtrade-multistrategy-orchestrator#519``.
+    """
     from eth_defi.gmx.ccxt.exchange import GMX
     from eth_defi.gmx.core import markets as markets_mod
 
@@ -50,11 +65,16 @@ def _build_gmx_stub(raw_markets: list[tuple[str, str, str, str]]):
     gmx.config.chain = "arbitrum"
     gmx.config.web3 = MagicMock()
 
-    # Patch the Markets._get_available_markets_raw used inside the method.
-    def _fake_raw(_self):
+    # Guard against repeating the exact bug this test suite is named after:
+    # assert the target method already exists before overwriting it, so a
+    # future refactor that renames/removes it fails this test loudly instead
+    # of silently re-creating the phantom-method pattern.
+    assert hasattr(markets_mod.Markets, "_fetch_markets_from_onchain"), "Markets._fetch_markets_from_onchain no longer exists — update GMX.get_on_chain_index_tokens() and this test's mock target together"
+
+    def _fake_onchain(_self):
         return list(raw_markets)
 
-    markets_mod.Markets._get_available_markets_raw = _fake_raw  # type: ignore[assignment]
+    markets_mod.Markets._fetch_markets_from_onchain = _fake_onchain  # type: ignore[assignment]
     return gmx
 
 

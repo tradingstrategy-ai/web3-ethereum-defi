@@ -1,4 +1,4 @@
-# GuardV0 — on-chain trade validation for asset management
+# GuardV0 — onchain trade validation for asset management
 
 GuardV0 is a guard-pattern smart contract that validates every action an asset manager
 performs on behalf of asset owners. It works with **any vault or multisignature wallet**
@@ -133,11 +133,16 @@ monetary limits need an explicit policy for those values.
 Lagoon deployments may set `LagoonConfig.max_settlement_amount` as a safety limit on
 the gross underlying amount processed by an asset-manager settlement transaction.
 The default is `None`, which preserves the legacy unlimited behaviour. When the
-feature is enabled, `LagoonConfig.settlement_cooldown` also rate-limits non-zero
-asset-manager settlements and defaults to 24 hours.
+feature is enabled, `LagoonConfig.settlement_window` defines the fixed
+24-hour-by-default gross-settlement budget window.
 
-The complete amount-and-cooldown policy is identified by Guard internal version 3 and
-`TradingStrategyModuleV0` ABI version `v0.5`.
+The complete cumulative amount-and-window policy is identified by Guard internal
+version 4 and `TradingStrategyModuleV0` ABI version `v0.6`.
+
+The compatibility getter `getLagoonSettlementCooldownConfig()` keeps its
+three-value ABI shape, but in version 4 it returns `(settlementWindow,
+settledAmountInWindow, windowEndTimestamp)`. Consumers of a module version 3
+must continue to interpret the latter values as the legacy cooldown timestamps.
 
 Stock Lagoon v0.5 does not expose one public value covering the gross underlying
 movement of both deposit and redemption queues, and it always settles a snapshotted
@@ -151,20 +156,25 @@ redeem assets  = vault balance after - vault balance before
 gross amount   = deposit assets + redeem assets
 ```
 
-The complete transaction reverts when `gross amount > maxSettlementAmount`, rolling
-back Lagoon accounting and all token transfers. This is a reject policy, not partial
-settlement. Governance may recover an oversized queue with a direct Safe transaction.
-Direct Safe transactions intentionally bypass module policy.
+The complete transaction reverts when `gross amount + used amount in the active
+window > maxSettlementAmount`, rolling back Lagoon accounting and all token
+transfers. Equality is accepted. This is a reject policy, not partial settlement.
+Governance may recover an oversized queue with a direct Safe transaction. Direct
+Safe transactions intentionally bypass module policy, but still require the
+Safe's normal owner authorisation; an asset manager cannot use that path.
 
 A per-call amount limit would still let an asset manager submit several individually
-valid non-zero settlements to drain the vault. After every successful capped settlement
-with non-zero gross movement, `LagoonLib` records the block timestamp and rejects
-another non-zero asset-manager settlement until the configured positive cooldown has
-elapsed. Because the gross amount is only known after Lagoon executes, this check runs
-in atomic post-call validation: rejection rolls back the Safe and Lagoon transaction.
-Empty settlements do not start or extend the cooldown and remain callable while it is
-active. Rejected or reverted settlements also leave cooldown state unchanged. The
-onchain and Python API default is 86,400 seconds (24 hours).
+valid non-zero settlements and exceed the intended allowance. `LagoonLib` instead opens a fixed
+window on the first successful non-zero settlement and accumulates each later gross
+amount in it. A settlement is rejected only when the accumulated total would exceed
+the cap; the next non-zero settlement after expiry opens a fresh window. Because the
+gross amount is only known after Lagoon executes, this check runs in atomic post-call
+validation: rejection rolls back the Safe and Lagoon transaction. Empty settlements
+do not start, extend or reset the window. Rejected or reverted settlements also leave
+the accounting unchanged. The onchain and Python API default is 86,400 seconds (24
+hours). This is a fixed, not rolling, window: a full window may settle just before
+expiry and a new full window immediately after it, so governance must not treat the
+cap as a rolling 24-hour throughput limit.
 
 `TradingStrategyModuleV0` only carries a generic post-call validation context around
 Safe execution. Validator selection is a hardcoded `GuardV0Base` enum and dispatcher;
@@ -173,11 +183,11 @@ vault integrations can add another reviewed validator kind without adding
 protocol-specific execution code to the module.
 
 Re-calling `whitelistLagoonWithSettlementLimit()` updates an existing cap and applies
-the 24-hour cooldown default. `whitelistLagoonWithSettlementLimitAndCooldown()` accepts
-an explicit positive cooldown. Calling the backwards-compatible `whitelistLagoon()`
-resets the vault to unlimited mode. The cap is stored in raw underlying-token units
-onchain; Python deployment configuration accepts a human-readable `Decimal` and
-performs the conversion.
+the 24-hour window default. The compatible
+`whitelistLagoonWithSettlementLimitAndCooldown()` selector accepts an explicit positive
+window duration. Calling the backwards-compatible `whitelistLagoon()` resets the vault
+to unlimited mode. The cap is stored in raw underlying-token units onchain; Python
+deployment configuration accepts a human-readable `Decimal` and performs the conversion.
 
 The balance-envelope guarantee assumes a conventional non-rebasing token without
 transfer fees. It does not validate the `_newTotalAssets` settlement argument, which is
@@ -201,7 +211,7 @@ on the library extraction pattern and compiler settings.
 
 The Python module
 [`config_event_scanner`](../../eth_defi/erc_4626/vault_protocol/lagoon/config_event_scanner.py)
-decodes the full cross-chain guard configuration by scanning on-chain events
+decodes the full cross-chain guard configuration by scanning onchain events
 emitted during deployment. It follows CCTP destination chains automatically
 to build a multichain picture.
 

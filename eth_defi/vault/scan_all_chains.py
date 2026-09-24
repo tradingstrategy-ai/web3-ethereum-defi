@@ -35,22 +35,19 @@ import pyarrow as pa
 import pyarrow.parquet as pq
 from atomicwrites import atomic_write
 from filelock import Timeout as FileLockTimeout
-from web3.exceptions import Web3Exception
+from web3.exceptions import BadFunctionCallOutput, ContractLogicError, Web3Exception
 
 from eth_defi.apex.constants import APEX_METRICS_DATABASE
 from eth_defi.apex.metrics import ApexMetricsDatabase
 from eth_defi.apex.metrics import run_scan as apex_run_scan
 from eth_defi.apex.session import create_apex_session_pool
 from eth_defi.apex.vault_data_export import merge_into_vault_database as apex_merge_vault_db
-from eth_defi.chain import get_chain_id_by_name, get_chain_name
+from eth_defi.chain import EVM_BLOCK_TIMES, get_chain_id_by_name, get_chain_name
 from eth_defi.compat import native_datetime_utc_now
 from eth_defi.core3.constants import resolve_core3_database_path
 from eth_defi.core3.mappings import CORE3_MAPPINGS
 from eth_defi.core3.scanner import scan_projects as core3_scan_projects
 from eth_defi.core3.session import create_core3_session
-from eth_defi.xerberus.constants import resolve_xerberus_api_email, resolve_xerberus_database_path
-from eth_defi.xerberus.scanner import scan_xerberus as xerberus_scan
-from eth_defi.xerberus.session import create_xerberus_session
 from eth_defi.currency_api.constants import (
     CURRENCY_API_DATABASE,
     DEFAULT_BASE_CURRENCY,
@@ -59,7 +56,7 @@ from eth_defi.currency_api.constants import (
 )
 from eth_defi.currency_api.scanner import run_incremental_scan as currency_run_incremental_scan
 from eth_defi.erc_4626.classification import HARDCODED_PROTOCOLS, create_vault_instance
-from eth_defi.erc_4626.core import MIN_PRICE_SCAN_DEPOSIT_COUNT, passes_price_scan_activity_filter
+from eth_defi.erc_4626.core import MIN_PRICE_SCAN_DEPOSIT_COUNT, ERC4626Feature, passes_price_scan_activity_filter
 from eth_defi.erc_4626.lead_discovery_state import (
     DEFAULT_LEAD_DISCOVERY_STATE_TIMEOUT,
     LeadDiscoveryState,
@@ -73,7 +70,15 @@ from eth_defi.erc_4626.lead_scan_core import scan_leads
 from eth_defi.erc_4626.settlement_scan import (
     fetch_and_store_vault_settlements_for_chain,
 )
+from eth_defi.erc_4626.vault_protocol.flying_tulip.constants import FLYING_TULIP_CURVE_CANONICAL_START_BLOCK
+from eth_defi.erc_4626.vault_protocol.flying_tulip.historical_context import FlyingTulipHistoricalContextStore, fetch_and_store_flying_tulip_source_history, fetch_flying_tulip_proxy_deployment_block
+from eth_defi.erc_4626.vault_protocol.flying_tulip.reward_price import fetch_and_store_flying_tulip_reward_prices
+from eth_defi.erc_4626.vault_protocol.flying_tulip.vault import get_flying_tulip_historical_context_path
+from eth_defi.erc_4626.vault_protocol.rysk.historical_context import fetch_and_store_rysk_premium_history, get_rysk_historical_context_path
 from eth_defi.feed.database import resolve_feed_database_path
+from eth_defi.gmx.historical_context import fetch_and_store_gmx_historical_share_prices, get_gmx_historical_context_path
+from eth_defi.gmx.vault_catalog import GMX_CHAIN_NAMES_BY_ID
+from eth_defi.gmx.vault_sync import GMXVaultCatalogueSyncResult, fetch_and_sync_gmx_vault_catalogue
 from eth_defi.grvt.daily_metrics import run_daily_scan as grvt_run_daily_scan
 from eth_defi.grvt.vault_data_export import merge_into_vault_database as grvt_merge_vault_db
 from eth_defi.hibachi.constants import HIBACHI_DAILY_METRICS_DATABASE
@@ -86,7 +91,8 @@ from eth_defi.lighter.constants import LIGHTER_DAILY_METRICS_DATABASE, LIGHTER_D
 from eth_defi.lighter.daily_metrics import run_daily_scan as lighter_run_daily_scan
 from eth_defi.lighter.session import create_lighter_session
 from eth_defi.lighter.vault_data_export import merge_into_vault_database as lighter_merge_vault_db
-from eth_defi.provider.broken_provider import verify_archive_node
+from eth_defi.provider.broken_provider import get_almost_latest_block_number, verify_archive_node
+from eth_defi.provider.env import read_json_rpc_url
 from eth_defi.provider.multi_provider import MultiProviderWeb3Factory, create_multi_provider_web3
 from eth_defi.provider.rpcdb import RPCRequestStats, RPCUsageDatabase, format_rpc_usage_report, resolve_rpc_tracking_database_path
 from eth_defi.rate_limit import clear_sqlite_rate_limit_databases
@@ -103,6 +109,7 @@ from eth_defi.tokenised_fund.scan import (
 )
 from eth_defi.utils import setup_console_logging, wait_other_writers
 from eth_defi.vault.base import VaultSpec
+from eth_defi.vault.crypto_vaults import CRYPTO_VAULTS_BUNDLE_NAME, resolve_crypto_vault_paths
 from eth_defi.vault.historical import scan_historical_prices_to_parquet
 from eth_defi.vault.post_processing import run_post_processing, validate_top_vaults_config
 from eth_defi.vault.settlement_data import (
@@ -112,6 +119,12 @@ from eth_defi.vault.settlement_data import (
 )
 from eth_defi.vault.vaultdb import DEFAULT_READER_STATE_DATABASE, DEFAULT_UNCLEANED_PRICE_DATABASE, DEFAULT_VAULT_DATABASE, VaultDatabase, get_pipeline_data_dir
 from eth_defi.version_info import VersionInfo
+from eth_defi.xerberus.constants import resolve_xerberus_api_email, resolve_xerberus_database_path
+from eth_defi.xerberus.scanner import scan_xerberus as xerberus_scan
+from eth_defi.xerberus.session import create_xerberus_session
+from eth_defi.yield_basis.historical_context import fetch_and_store_yield_basis_historical_context, get_yield_basis_historical_context_path
+from eth_defi.yield_basis.vault_catalog import YieldBasisScanPreparation, fetch_yield_basis_scan_preparation
+from eth_defi.yield_basis.vault_sync import YieldBasisCatalogueSyncResult, fetch_and_sync_yield_basis_vault_catalogue
 
 #: How many days of backups to keep
 BACKUP_RETENTION_DAYS = int(os.environ.get("BACKUP_RETENTION_DAYS", "7"))
@@ -120,6 +133,14 @@ CORE3_PROTOCOL_NAME = "Core3"
 XERBERUS_PROTOCOL_NAME = "Xerberus"
 CURRENCY_RATES_PROTOCOL_NAME = "CurrencyRates"
 CURRENCY_RATES_DEFAULT_CYCLE = datetime.timedelta(hours=24)
+
+#: Bound the first scheduled GMX observation fetch. Older history is introduced by
+#: the explicit backfill script rather than delaying an ordinary chain cycle.
+GMX_INITIAL_CONTEXT_LOOKBACK_BLOCKS = 100_000
+
+#: Bound the first scheduled YieldBasis observation fetch. The dedicated
+#: backfill script supplies older history without delaying normal chain scans.
+YIELD_BASIS_INITIAL_CONTEXT_LOOKBACK_BLOCKS = 100_000
 
 logger = logging.getLogger(__name__)
 
@@ -643,9 +664,82 @@ def scan_vaults_for_chain(
     try:
         web3 = create_multi_provider_web3(rpc_url, rpc_request_stats=stats)
         chain_id = web3.eth.chain_id
+
+        def fetch_and_sync_current_gmx_catalogue(block_number: int) -> GMXVaultCatalogueSyncResult | None:
+            """Refresh GMX products independently of generic lead discovery."""
+
+            if chain_id not in GMX_CHAIN_NAMES_BY_ID:
+                return None
+            current_db = VaultDatabase.read(vault_db_path)
+            gmx_token_cache = TokenDiskCache()
+            sync_result = fetch_and_sync_gmx_vault_catalogue(
+                web3=web3,
+                vault_db=current_db,
+                token_cache=gmx_token_cache,
+                block_number=block_number,
+                max_workers=max_workers,
+            )
+            gmx_token_cache.commit()
+            current_db.write(vault_db_path)
+            return sync_result
+
+        def fetch_and_sync_current_yield_basis_catalogue(preparation: YieldBasisScanPreparation) -> YieldBasisCatalogueSyncResult | None:
+            """Merge one validated YieldBasis pre-scan into current metadata.
+
+            YieldBasis LTs do not emit the generic ERC-4626 lead events used by
+            ``scan_leads``. Reusing the preparation lets the pre- and
+            post-discovery merges share one fixed set of Factory reads.
+
+            :param preparation:
+                Validated products from the current Ethereum chain cycle.
+            :return:
+                Reconciliation counts, or ``None`` after an isolated metadata
+                read failure.
+            """
+
+            assert chain_id == 1 and preparation.factory_valid
+            current_db = VaultDatabase.read(vault_db_path) if vault_db_path.exists() else VaultDatabase()
+            yb_token_cache = TokenDiskCache()
+            try:
+                sync_result = fetch_and_sync_yield_basis_vault_catalogue(
+                    web3=web3,
+                    vault_db=current_db,
+                    token_cache=yb_token_cache,
+                    preparation=preparation,
+                )
+                yb_token_cache.commit()
+                current_db.write(vault_db_path)
+                return sync_result
+            except (BadFunctionCallOutput, ContractLogicError, Web3Exception, RuntimeError, ValueError, TypeError, ArithmeticError) as error:
+                logger.warning("YieldBasis metadata reconciliation deferred to the next chain cycle: %s", error)
+                return None
+            finally:
+                yb_token_cache.close()
+
         enabled_chains = [(config.name, config.env_var) for config in build_chain_configs() if config.scan_vaults]
         signature, signature_configuration = create_lead_discovery_signature(enabled_chains)
         state_path = get_lead_discovery_state_path(vault_db_path.parent, chain_id)
+
+        # Factory-backed YieldBasis products need a narrow validation pass
+        # before the generic lead-cache decision: LT contracts do not provide
+        # the ERC-4626 event surface used by ordinary lead discovery.
+        yield_basis_preparation = None
+        yield_basis_sync = None
+        if chain_id == 1:
+            try:
+                safe_head = get_almost_latest_block_number(web3)
+                preparation = fetch_yield_basis_scan_preparation(web3, safe_head)
+            except (BadFunctionCallOutput, ContractLogicError, Web3Exception, RuntimeError, ValueError, TypeError, ArithmeticError) as error:
+                logger.warning("YieldBasis pre-scan deferred to the next chain cycle: %s", error)
+            else:
+                if not preparation.factory_valid:
+                    logger.warning("YieldBasis pre-scan rejected Ethereum Factory; keeping existing metadata: %s", "; ".join(preparation.review_required))
+                elif not preparation.products:
+                    logger.warning("YieldBasis pre-scan found no reviewed products; keeping existing metadata: %s", "; ".join(preparation.review_required))
+                else:
+                    yield_basis_preparation = preparation
+                    if preparation.review_required:
+                        logger.warning("YieldBasis pre-scan withheld some markets for review: %s", "; ".join(preparation.review_required))
 
         existing_db = VaultDatabase.read(vault_db_path) if vault_db_path.exists() else None
         existing_lead_addresses = set(existing_db.get_existing_leads_by_chain(chain_id)) if existing_db is not None else set()
@@ -670,8 +764,12 @@ def scan_vaults_for_chain(
         if cache_miss_reason is None:
             assert existing_db is not None
             assert state is not None
-            chain_rows = [row for row in existing_db.rows.values() if row["_detection_data"].chain == chain_id]
             last_block = existing_db.last_scanned_block[chain_id]
+            gmx_sync = fetch_and_sync_current_gmx_catalogue(getattr(web3.eth, "block_number", last_block))
+            if yield_basis_preparation is not None:
+                yield_basis_sync = fetch_and_sync_current_yield_basis_catalogue(yield_basis_preparation)
+            existing_db = VaultDatabase.read(vault_db_path)
+            chain_rows = [row for row in existing_db.rows.values() if row["_detection_data"].chain == chain_id]
             logger.debug(
                 "Lead discovery cache hit for chain %d: state=%s, age=%s, last refresh block=%d, timeout=%s, signature=%s",
                 chain_id,
@@ -686,7 +784,10 @@ def scan_vaults_for_chain(
                 "start_block": last_block,
                 "end_block": last_block,
                 "vault_count": len(chain_rows),
-                "new_vaults": 0,
+                "new_vaults": (gmx_sync.inserted if gmx_sync else 0) + (yield_basis_sync.inserted if yield_basis_sync else 0),
+                "gmx_products": gmx_sync.products if gmx_sync else 0,
+                "yield_basis_products": yield_basis_sync.products if yield_basis_sync else 0,
+                "yield_basis_review_required": len(yield_basis_sync.review_required) if yield_basis_sync else 0,
                 "items_scanned": 0,
                 "lead_discovery_cache_hit": True,
             }
@@ -711,6 +812,11 @@ def scan_vaults_for_chain(
         )
         items_scanned = report.items_scanned
 
+        gmx_sync = fetch_and_sync_current_gmx_catalogue(report.end_block)
+        # Reconcile after generic discovery so a broken ERC-4626 candidate
+        # cannot replace a reviewed Factory product in the same cycle.
+        if yield_basis_preparation is not None:
+            yield_basis_sync = fetch_and_sync_current_yield_basis_catalogue(yield_basis_preparation)
         refreshed_db = VaultDatabase.read(vault_db_path)
         refreshed_chain_rows = [row for row in refreshed_db.rows.values() if row["_detection_data"].chain == chain_id]
 
@@ -730,7 +836,10 @@ def scan_vaults_for_chain(
             "start_block": report.start_block,
             "end_block": report.end_block,
             "vault_count": len(refreshed_chain_rows),
-            "new_vaults": len(set(report.leads) - existing_lead_addresses),
+            "new_vaults": len(set(report.leads) - existing_lead_addresses) + (gmx_sync.inserted if gmx_sync else 0) + (yield_basis_sync.inserted if yield_basis_sync else 0),
+            "gmx_products": gmx_sync.products if gmx_sync else 0,
+            "yield_basis_products": yield_basis_sync.products if yield_basis_sync else 0,
+            "yield_basis_review_required": len(yield_basis_sync.review_required) if yield_basis_sync else 0,
             "items_scanned": items_scanned,
             "lead_discovery_cache_hit": False,
         }
@@ -755,6 +864,11 @@ def scan_prices_for_chain(
     hypersync_concurrency: int | None = None,
     rpc_request_stats: RPCRequestStats | None = None,
     excluded_specs: frozenset[VaultSpec] = frozenset(),
+    historical_context_path: Path | None = None,
+    start_block: int | None = None,
+    end_block: int | None = None,
+    vault_addresses: set[str] | None = None,
+    persist_reader_state: bool = True,
 ) -> tuple[bool, dict]:
     """Scan historical prices for a single chain.
 
@@ -768,6 +882,11 @@ def scan_prices_for_chain(
     :param excluded_specs:
         Exact products owned by ready dedicated tokenised-fund feeds. Disabled,
         unselected and product-filtered vaults remain under generic ownership.
+    :param historical_context_path: Optional shared contextual-reader DuckDB path.
+    :param start_block: Optional inclusive manual scan boundary.
+    :param end_block: Optional exclusive manual scan boundary.
+    :param vault_addresses: Optional lower-case address subset for a bounded repair.
+    :param persist_reader_state: Persist scheduled reader state; disable for manual backfills.
     :return: Tuple of (success, metrics_dict)
     """
     stats = rpc_request_stats or RPCRequestStats()
@@ -796,15 +915,31 @@ def scan_prices_for_chain(
 
         # Load reader states
         reader_states = {}
-        if reader_state_path.exists():
+        if persist_reader_state and reader_state_path.exists():
             reader_states = pickle.load(reader_state_path.open("rb"))
 
         # Filter vaults for this chain
         chain_vaults = [v for v in vault_db.rows.values() if v["_detection_data"].chain == chain_id]
+        if vault_addresses is not None:
+            if not vault_addresses:
+                raise ValueError("vault_addresses cannot be empty")
+            vault_addresses = {address.lower() for address in vault_addresses}
+            chain_vaults = [row for row in chain_vaults if row["_detection_data"].address.lower() in vault_addresses]
+        # Keep only this chain's rows during network reads and price scanning;
+        # the all-chain metadata database otherwise needlessly raises peak RSS.
+        del vault_db
 
         if len(chain_vaults) == 0:
             logger.info("No vaults on chain %d, skipping price scan", chain_id)
             return True, {**metrics, "rows_written": 0}
+
+        gmx_features = {ERC4626Feature.gmx_gm, ERC4626Feature.gmx_glv}
+        gmx_rows = [row for row in chain_vaults if row["_detection_data"].features & gmx_features]
+        yield_basis_features = {ERC4626Feature.yield_basis_lt}
+        yield_basis_rows = [row for row in chain_vaults if row["_detection_data"].features & yield_basis_features]
+        flying_tulip_features = {ERC4626Feature.flying_tulip_like}
+        flying_tulip_rows = [row for row in chain_vaults if row["_detection_data"].features & flying_tulip_features]
+        rysk_rows = [row for row in chain_vaults if ERC4626Feature.rysk_premium_like in row["_detection_data"].features]
 
         # Create vault instances with filtering
         vaults = []
@@ -824,22 +959,186 @@ def scan_prices_for_chain(
             vault = create_vault_instance(web3, detection.address, detection.features, token_cache=token_cache)
             if vault:
                 vault.first_seen_at_block = detection.first_seen_at_block
+                if detection.features & gmx_features:
+                    vault.historical_context_path = historical_context_path or get_gmx_historical_context_path()
+                elif detection.features & yield_basis_features:
+                    vault.historical_context_path = historical_context_path or get_yield_basis_historical_context_path()
+                elif detection.features & flying_tulip_features:
+                    vault.historical_context_path = historical_context_path or get_flying_tulip_historical_context_path()
+                elif ERC4626Feature.rysk_premium_like in detection.features:
+                    vault.historical_context_path = historical_context_path or get_rysk_historical_context_path()
                 vaults.append(vault)
+
+        if vault_addresses is not None:
+            instantiated_addresses = {vault.address.lower() for vault in vaults}
+            if instantiated_addresses != vault_addresses:
+                missing = sorted(vault_addresses - instantiated_addresses)
+                message = f"Could not instantiate every selected vault; refusing bounded deletion: {missing}"
+                raise ValueError(message)
 
         if len(vaults) == 0:
             logger.info("No vaults to scan on chain %d after filtering", chain_id)
             return True, {**metrics, "rows_written": 0}
 
-        metrics["items_scanned"] = len(vaults)
-
-        # Dedicated or activity-filtered vault states must not move this
-        # batch's continuation point. Merge the updated subset back into the
-        # complete shared mapping after the scan.
-        scanned_specs = {vault.get_spec() for vault in vaults}
-        scanned_reader_states = {vault_spec: state for vault_spec, state in reader_states.items() if vault_spec in scanned_specs}
-
         # Configure HyperSync (shares throttle with vault lead discovery)
         hypersync_config = configure_hypersync_from_env(web3, concurrency=hypersync_concurrency)
+
+        current_end_block = end_block if end_block is not None else web3.eth.block_number
+
+        if yield_basis_rows:
+            # The metadata phase may have been skipped, failed, or run against
+            # a different head from this price phase. Revalidate the small
+            # Factory catalogue before touching the YieldBasis context or
+            # selecting its adapters. If it is unavailable, withhold those
+            # adapters while unrelated vaults continue through the shared
+            # writer. Rows before the writer's current replacement window are
+            # preserved.
+            try:
+                yield_basis_preparation = fetch_yield_basis_scan_preparation(web3, current_end_block)
+            except (BadFunctionCallOutput, ContractLogicError, Web3Exception, RuntimeError, ValueError, TypeError, ArithmeticError) as error:
+                logger.warning("YieldBasis price pre-scan deferred; withholding YieldBasis adapters from this writer cycle: %s", error)
+                yield_basis_preparation = None
+            valid_yield_basis_addresses = {product.lt_address.lower() for product in yield_basis_preparation.products} if yield_basis_preparation and yield_basis_preparation.factory_valid else set()
+            invalid_yield_basis_addresses = {row["_detection_data"].address.lower() for row in yield_basis_rows} - valid_yield_basis_addresses
+            if invalid_yield_basis_addresses:
+                logger.warning("YieldBasis price scan withheld unvalidated products: %s", ", ".join(sorted(invalid_yield_basis_addresses)))
+                yield_basis_rows = [row for row in yield_basis_rows if row["_detection_data"].address.lower() in valid_yield_basis_addresses]
+                vaults = [vault for vault in vaults if vault.address.lower() not in invalid_yield_basis_addresses]
+                if not vaults:
+                    logger.info("No validated vaults remain on chain %d after YieldBasis price pre-scan", chain_id)
+                    return True, {**metrics, "rows_written": 0, "yield_basis_observations_inserted": 0}
+
+        gmx_prefill = None
+        if gmx_rows:
+            context_path = historical_context_path or get_gmx_historical_context_path()
+            context_path.parent.mkdir(parents=True, exist_ok=True)
+            initial_lookback = int(os.environ.get("GMX_INITIAL_CONTEXT_LOOKBACK_BLOCKS", GMX_INITIAL_CONTEXT_LOOKBACK_BLOCKS))
+            chain_reader_start = max(((state["last_block"] or 0) for spec, state in (reader_states or {}).items() if spec.chain_id == chain_id), default=0)
+            if start_block is not None:
+                gmx_start_block = start_block
+            elif chain_reader_start:
+                gmx_start_block = chain_reader_start
+            else:
+                gmx_start_block = max(0, current_end_block - initial_lookback)
+            if gmx_start_block < current_end_block:
+                gmx_prefill = fetch_and_store_gmx_historical_share_prices(
+                    web3=web3,
+                    hypersync_client=hypersync_config.hypersync_client,
+                    start_block=gmx_start_block,
+                    end_block=current_end_block,
+                    context_path=context_path,
+                    product_addresses=(row["_detection_data"].address for row in gmx_rows),
+                )
+
+        yield_basis_prefill = None
+        if yield_basis_rows:
+            context_path = historical_context_path or get_yield_basis_historical_context_path()
+            context_path.parent.mkdir(parents=True, exist_ok=True)
+            block_time = EVM_BLOCK_TIMES.get(chain_id)
+            if block_time is None:
+                raise ValueError(f"No configured block time for YieldBasis chain {chain_id}")
+            context_step = int((datetime.timedelta(days=1) if frequency == "1d" else datetime.timedelta(hours=1)) / datetime.timedelta(seconds=block_time))
+            if context_step <= 0:
+                context_step = 1
+            # Contextual readers do not own reader-state entries. Follow the
+            # common per-chain writer position, as GMX does, so routine cycles
+            # fetch only the range that the shared writer is about to consume.
+            chain_reader_start = max(((state["last_block"] or 0) for spec, state in (reader_states or {}).items() if spec.chain_id == chain_id), default=0)
+            first_seen_block = min(row["_detection_data"].first_seen_at_block for row in yield_basis_rows)
+            if start_block is not None:
+                yield_basis_start_block = max(start_block, first_seen_block)
+            elif chain_reader_start:
+                yield_basis_start_block = max(chain_reader_start, first_seen_block)
+            else:
+                yield_basis_start_block = max(
+                    first_seen_block,
+                    current_end_block - int(os.environ.get("YIELD_BASIS_INITIAL_CONTEXT_LOOKBACK_BLOCKS", YIELD_BASIS_INITIAL_CONTEXT_LOOKBACK_BLOCKS)),
+                )
+            if yield_basis_start_block < current_end_block:
+                yield_basis_addresses = {row["_detection_data"].address.lower() for row in yield_basis_rows}
+                yield_basis_vaults = [vault for vault in vaults if vault.address.lower() in yield_basis_addresses]
+                try:
+                    yield_basis_prefill = fetch_and_store_yield_basis_historical_context(
+                        web3=web3,
+                        vaults=yield_basis_vaults,
+                        start_block=yield_basis_start_block,
+                        end_block=current_end_block,
+                        step=context_step,
+                        max_workers=max_workers,
+                        context_path=context_path,
+                        hypersync_client=hypersync_config.hypersync_client,
+                    )
+                except (BadFunctionCallOutput, ContractLogicError, Web3Exception, RuntimeError, ValueError, TypeError, ArithmeticError) as error:
+                    logger.warning("YieldBasis context prefill deferred; withholding YieldBasis adapters while unrelated vaults continue: %s", error)
+                    vaults = [vault for vault in vaults if vault.address.lower() not in yield_basis_addresses]
+                    if not vaults:
+                        logger.info("No vaults remain on chain %d after YieldBasis context prefill was deferred", chain_id)
+                        return True, {**metrics, "rows_written": 0, "yield_basis_observations_inserted": 0}
+
+        flying_tulip_source_rows_inserted = 0
+        if flying_tulip_rows:
+            if hypersync_config.hypersync_client is None:
+                raise RuntimeError(f"Flying Tulip history on chain {chain_id} requires a configured Hypersync client")
+            context_path = historical_context_path or get_flying_tulip_historical_context_path()
+            context_path.parent.mkdir(parents=True, exist_ok=True)
+            # Keep the contextual event cache clear of the reorg-prone head.
+            # The dedicated Flying Tulip backfill uses the same safe boundary.
+            flying_tulip_source_end_block = min(current_end_block, get_almost_latest_block_number(web3))
+            for row in flying_tulip_rows:
+                detection = row["_detection_data"]
+                with FlyingTulipHistoricalContextStore(context_path) as store:
+                    source_start = store.fetch_next_source_block(chain_id, detection.address)
+                if source_start is None:
+                    source_start = fetch_flying_tulip_proxy_deployment_block(web3, detection.address, flying_tulip_source_end_block)
+                if source_start < flying_tulip_source_end_block:
+                    prefill = fetch_and_store_flying_tulip_source_history(
+                        web3=web3,
+                        hypersync_client=hypersync_config.hypersync_client,
+                        start_block=source_start,
+                        end_block=flying_tulip_source_end_block,
+                        context_path=context_path,
+                    )
+                    flying_tulip_source_rows_inserted += prefill.rows_inserted
+            if chain_id == 1:
+                ethereum_web3 = web3
+                ethereum_hypersync = hypersync_config.hypersync_client
+            else:
+                ethereum_web3 = create_multi_provider_web3(read_json_rpc_url(1))
+                ethereum_hypersync = configure_hypersync_from_env(ethereum_web3, concurrency=hypersync_concurrency).hypersync_client
+            if ethereum_hypersync is None:
+                raise RuntimeError("Flying Tulip reward-price mapping requires a configured Ethereum Hypersync client")
+            else:
+                ethereum_end_block = flying_tulip_source_end_block if chain_id == 1 else get_almost_latest_block_number(ethereum_web3)
+                fetch_and_store_flying_tulip_reward_prices(
+                    ethereum_web3=ethereum_web3,
+                    ethereum_hypersync_client=ethereum_hypersync,
+                    chain_id=chain_id,
+                    ethereum_start_block=FLYING_TULIP_CURVE_CANONICAL_START_BLOCK,
+                    ethereum_end_block=ethereum_end_block,
+                    context_path=context_path,
+                )
+
+        rysk_prefill = None
+        if rysk_rows:
+            if hypersync_config.hypersync_client is None:
+                raise RuntimeError(f"Rysk Premium history on chain {chain_id} requires a configured Hypersync client")
+            context_path = historical_context_path or get_rysk_historical_context_path()
+            rysk_source_end_block = min(current_end_block, get_almost_latest_block_number(web3))
+            rysk_prefill = fetch_and_store_rysk_premium_history(
+                web3=web3,
+                hypersync_client=hypersync_config.hypersync_client,
+                pool_start_blocks={row["_detection_data"].address: row["_detection_data"].first_seen_at_block for row in rysk_rows},
+                end_block=rysk_source_end_block,
+                context_path=context_path,
+            )
+
+        metrics["items_scanned"] = len(vaults)
+
+        # Dedicated, activity-filtered or context-withheld vault states must
+        # not move this batch's continuation point. Merge the updated subset
+        # back into the complete shared mapping after the scan.
+        scanned_specs = {vault.get_spec() for vault in vaults}
+        scanned_reader_states = {vault_spec: state for vault_spec, state in reader_states.items() if vault_spec in scanned_specs} if persist_reader_state else None
 
         # Scan historical prices
         result = scan_historical_prices_to_parquet(
@@ -847,8 +1146,8 @@ def scan_prices_for_chain(
             web3=web3,
             web3factory=web3factory,
             vaults=vaults,
-            start_block=None,
-            end_block=web3.eth.block_number,
+            start_block=start_block,
+            end_block=current_end_block,
             max_workers=max_workers,
             chunk_size=32,
             token_cache=token_cache,
@@ -860,7 +1159,7 @@ def scan_prices_for_chain(
         )
 
         # Save reader states atomically to avoid corruption on interruption
-        if result["reader_states"]:
+        if persist_reader_state and result["reader_states"]:
             reader_states.update(result["reader_states"])
             with atomic_write(str(reader_state_path), mode="wb", overwrite=True) as f:
                 pickle.dump(reader_states, f)
@@ -870,6 +1169,10 @@ def scan_prices_for_chain(
             "rows_written": result["rows_written"],
             "start_block": result["start_block"],
             "end_block": result["end_block"],
+            "gmx_observations_inserted": gmx_prefill.observations_inserted if gmx_prefill else 0,
+            "yield_basis_observations_inserted": yield_basis_prefill.observations_inserted if yield_basis_prefill else 0,
+            "flying_tulip_source_rows_inserted": flying_tulip_source_rows_inserted,
+            "rysk_observations_inserted": rysk_prefill.observations_inserted if rysk_prefill else 0,
         }
 
     except Exception as e:
@@ -891,6 +1194,7 @@ def scan_chain(
     rpc_cycle_started: datetime.date | None = None,
     rpc_cycle_number: int | None = None,
     excluded_price_specs: frozenset[VaultSpec] = frozenset(),
+    historical_context_path: Path | None = None,
     *,
     lead_discovery_state_timeout: datetime.timedelta = DEFAULT_LEAD_DISCOVERY_STATE_TIMEOUT,
     force_lead_discovery: bool = False,
@@ -910,6 +1214,7 @@ def scan_chain(
     :param excluded_price_specs: Vaults owned by a dedicated price scanner.
     :param lead_discovery_state_timeout: Maximum age of a successful incremental lead and metadata refresh.
     :param force_lead_discovery: Bypass a valid discovery cache on this scan.
+    :param historical_context_path: Shared contextual-reader DuckDB path
     :return: Scan result
     """
     result = ChainResult(name=config.name, status="running", retry_attempt=retry_attempt)
@@ -1001,6 +1306,7 @@ def scan_chain(
             vault_db_path=vault_db_path,
             uncleaned_price_path=uncleaned_price_path,
             reader_state_path=reader_state_path,
+            historical_context_path=historical_context_path,
             hypersync_concurrency=hypersync_concurrency,
             rpc_request_stats=price_stats,
             excluded_specs=excluded_price_specs,
@@ -2077,6 +2383,7 @@ def backup_pipeline_files(backup_files: list[Path] | None = None, backup_dir: Pa
             DEFAULT_UNCLEANED_PRICE_DATABASE,
             DEFAULT_READER_STATE_DATABASE,
             DEFAULT_VAULT_DATABASE,
+            get_gmx_historical_context_path(),
             HYPERLIQUID_DAILY_METRICS_DATABASE,
             GRVT_DAILY_METRICS_DATABASE,
             LIGHTER_DAILY_METRICS_DATABASE,
@@ -2179,6 +2486,7 @@ def run_scan_tick(
     tokenised_fund_scheduling_enabled: bool = False,
     tokenised_fund_enabled_chain_ids: frozenset[int] = frozenset(),
     disabled_items: dict[str, str] | None = None,
+    historical_context_path: Path | None = None,
     *,
     lead_discovery_state_timeout: datetime.timedelta = DEFAULT_LEAD_DISCOVERY_STATE_TIMEOUT,
     force_lead_discovery: bool = False,
@@ -2186,6 +2494,8 @@ def run_scan_tick(
     xerberus_fetch_vault_list: bool = True,
     xerberus_fetch_reports: bool = True,
     scan_xerberus: bool = False,
+    price_scan_state_path: Path | None = None,
+    on_price_scan_success: Callable[[str], None] | None = None,
 ) -> dict[str, ChainResult]:
     """Execute one scan tick: EVM chains + native protocols + post-processing.
 
@@ -2198,6 +2508,12 @@ def run_scan_tick(
         an interrupted scan does not re-fetch already-completed items on
         restart.  Not related to post-processing — post-processing always
         runs after all data fetches complete.
+    :param on_price_scan_success:
+        Optional callback invoked only after a successful price scan. This is
+        separate from generic cycle state so metadata-only scans cannot advance
+        price freshness in the published manifest.
+    :param price_scan_state_path:
+        Optional price-only provenance path passed to post-processing.
 
     :param core3_db_path:
         Path to the Core3 risk intelligence DuckDB. Forwarded to
@@ -2209,6 +2525,8 @@ def run_scan_tick(
     :param core3_scan_scope:
         ``"mapped"`` limits Core3 API detail and history calls to projects
         used by the vault export. ``"all"`` refreshes the complete catalogue.
+    :param historical_context_path:
+        Shared contextual-reader DuckDB used by GMX price scans.
 
     :param feed_db_path:
         Path to the vault post feed DuckDB used to enrich the top-vaults
@@ -2368,6 +2686,7 @@ def run_scan_tick(
                 vault_db_path=vault_db_path,
                 uncleaned_price_path=uncleaned_price_path,
                 reader_state_path=reader_state_path,
+                historical_context_path=historical_context_path,
                 hypersync_concurrency=hypersync_concurrency,
                 rpc_usage_database=rpc_usage_database,
                 rpc_cycle_started=rpc_cycle_started,
@@ -2400,6 +2719,9 @@ def run_scan_tick(
             # Save cycle state for data fetching progress — not related to post-processing
             if on_item_success:
                 on_item_success(chain.name)
+            chain_id = r.chain_id or get_chain_id_by_name(chain.name)
+            if scan_prices and r.price_scan_ok and on_price_scan_success and chain_id is not None:
+                on_price_scan_success(str(chain_id))
             update_chain_settlement_result(chain, chain_result=r)
         elif r.status == "failed":
             logger.error("%s: FAILED - %s", chain.name, r.error)
@@ -2432,6 +2754,8 @@ def run_scan_tick(
             # Save cycle state for data fetching progress — not related to post-processing
             if on_item_success:
                 on_item_success("Hypercore")
+            if r.price_scan_ok and on_price_scan_success:
+                on_price_scan_success(str(get_chain_id_by_name("Hypercore")))
         elif r.status == "failed":
             logger.error("Hypercore: FAILED - %s", r.error)
         print_dashboard(results, display_order, uncleaned_price_path=uncleaned_price_path)
@@ -2655,6 +2979,7 @@ def run_scan_tick(
                     vault_db_path=vault_db_path,
                     uncleaned_price_path=uncleaned_price_path,
                     reader_state_path=reader_state_path,
+                    historical_context_path=historical_context_path,
                     hypersync_concurrency=hypersync_concurrency,
                     rpc_usage_database=rpc_usage_database,
                     rpc_cycle_started=rpc_cycle_started,
@@ -2672,6 +2997,9 @@ def run_scan_tick(
                 # Save cycle state for data fetching progress — not related to post-processing
                 if on_item_success:
                     on_item_success(chain.name)
+                chain_id = result.chain_id or get_chain_id_by_name(chain.name)
+                if scan_prices and result.price_scan_ok and on_price_scan_success and chain_id is not None:
+                    on_price_scan_success(str(chain_id))
                 update_chain_settlement_result(chain, chain_result=result)
             else:
                 logger.error("%s (retry %d): FAILED - %s", chain.name, attempt, result.error)
@@ -2720,6 +3048,8 @@ def run_scan_tick(
             settlement_db_path=settlement_db_path,
             core3_db_path=core3_db_path,
             feed_db_path=feed_db_path,
+            crypto_vaults_dir=vault_db_path.parent / CRYPTO_VAULTS_BUNDLE_NAME,
+            price_scan_state_path=price_scan_state_path or ((cleaned_price_path or uncleaned_price_path).parent / "vault-price-scan-state.json"),
         )
         for step, success in post_results.items():
             logger.info("Post-processing %s: %s", step, "SUCCESS" if success else "FAILED")
@@ -2876,11 +3206,13 @@ def main():
     cleaned_price_path = data_dir / "cleaned-vault-prices-1h.parquet"
     reader_state_path = data_dir / "vault-reader-state-1h.pickle"
     cycle_state_path = data_dir / "scan-cycle-state.json"
+    price_scan_state_path = data_dir / "vault-price-scan-state.json"
     pipeline_lock_path = data_dir / "scan-pipeline"
     backup_dir = data_dir / "backups"
     lighter_db_path = data_dir / "lighter-pools.duckdb"
     hibachi_db_path = data_dir / "hibachi-vaults.duckdb"
     apex_db_path = data_dir / "apex-vaults.duckdb"
+    historical_context_db_path = data_dir / "vault-historical-context.duckdb"
     hypercore_mode = os.environ.get("HYPERCORE_MODE", "daily").strip().lower()
     hyperliquid_db_path = data_dir / "hyperliquid-vaults.duckdb"
     hyperliquid_hf_db_path = data_dir / "hyperliquid-vaults-hf.duckdb"
@@ -2898,6 +3230,7 @@ def main():
     # export reads the same database the feed collector writes.
     feed_db_path = resolve_feed_database_path()
 
+    crypto_paths = resolve_crypto_vault_paths(data_dir)
     bkp_files = [
         uncleaned_price_path,
         reader_state_path,
@@ -2908,10 +3241,17 @@ def main():
         lighter_db_path,
         hibachi_db_path,
         apex_db_path,
+        historical_context_db_path,
         settlement_db_path,
         core3_db_path,
         xerberus_db_path,
         currency_api_db_path,
+        crypto_paths.cleaned_price_path,
+        crypto_paths.metadata_path,
+        crypto_paths.compressed_metadata_path,
+        crypto_paths.manifest_path,
+        crypto_paths.sticky_state_path,
+        data_dir / "sparkline-export-state.json",
     ]
 
     # Test mode - filter chains if TEST_CHAINS is set
@@ -3081,6 +3421,7 @@ def main():
         vault_db_path=vault_db_path,
         uncleaned_price_path=uncleaned_price_path,
         reader_state_path=reader_state_path,
+        historical_context_path=historical_context_db_path,
         hyperliquid_db_path=hyperliquid_db_path,
         hyperliquid_hf_db_path=hyperliquid_hf_db_path,
         grvt_db_path=grvt_db_path,
@@ -3090,6 +3431,7 @@ def main():
         bkp_files=bkp_files,
         bkp_dir=backup_dir,
         cleaned_price_path=cleaned_price_path,
+        price_scan_state_path=price_scan_state_path,
         excluded_chains=[c.name for c in skipped_by_order + disabled_chains],
         hypercore_mode=hypercore_mode,
         core3_db_path=core3_db_path,
@@ -3107,6 +3449,24 @@ def main():
         lead_discovery_state_timeout=lead_discovery_state_timeout,
         force_lead_discovery=force_lead_discovery,
     )
+
+    # Price provenance is intentionally separate from generic scan-cycle state:
+    # metadata-only scans must never make the readiness manifest look fresher.
+    price_scan_state = load_cycle_state(price_scan_state_path)
+
+    def _save_price_scan(name: str) -> None:
+        """Persist price provenance when ``run_scan_tick`` reports success.
+
+        This callback deliberately does not share generic cycle state: a
+        metadata refresh must not make the published price receipt fresher.
+
+        :param name: Decimal chain-ID key supplied by the successful scan.
+        :return: None; the price-only JSON state is updated on disc.
+        """
+        price_scan_state[name] = native_datetime_utc_now().isoformat()
+        save_cycle_state(price_scan_state, price_scan_state_path)
+
+    tick_kwargs["on_price_scan_success"] = _save_price_scan
 
     # Clear cycle state on disc so the first tick rescans everything.
     # Subsequent cycles use normal cycle logic because incremental saves

@@ -130,6 +130,7 @@ Environment variables:
     - SKIP_POST_PROCESSING: "true" to skip post-processing steps (default: "false")
     - SKIP_CLEANING: "true" to skip price cleaning step (default: "false")
     - SKIP_SPARKLINES: "true" to skip sparkline image export to R2 (default: "false")
+    - FORCE_SPARKLINE_EXPORT: "true" to bypass sparkline cadence, retry backoff and local input-digest skips (default: "false")
     - SKIP_METADATA: "true" to skip protocol/stablecoin metadata export to R2 (default: "false")
     - SKIP_DATA: "true" to skip data file (parquet, pickle) export to R2 (default: "false")
     - REFRESH_STABLECOIN_RATES: "false" to skip CoinGecko stablecoin rate refresh before metadata export (default: "true")

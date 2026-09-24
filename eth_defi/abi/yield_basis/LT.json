@@ -1,0 +1,9 @@
+[
+  {"stateMutability":"view","type":"function","name":"pricePerShare","inputs":[],"outputs":[{"name":"","type":"uint256"}]},
+  {"stateMutability":"view","type":"function","name":"updated_balances","inputs":[],"outputs":[{"name":"supply_tokens","type":"uint256"},{"name":"staked_tokens","type":"uint256"}]},
+  {"stateMutability":"view","type":"function","name":"preview_withdraw","inputs":[{"name":"tokens","type":"uint256"}],"outputs":[{"name":"","type":"uint256"}]},
+  {"stateMutability":"view","type":"function","name":"CRYPTOPOOL","inputs":[],"outputs":[{"name":"","type":"address"}]},
+  {"stateMutability":"view","type":"function","name":"STABLECOIN","inputs":[],"outputs":[{"name":"","type":"address"}]},
+  {"stateMutability":"view","type":"function","name":"ASSET_TOKEN","inputs":[],"outputs":[{"name":"","type":"address"}]},
+  {"stateMutability":"view","type":"function","name":"amm","inputs":[],"outputs":[{"name":"","type":"address"}]}
+]

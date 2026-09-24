@@ -90,7 +90,7 @@ from eth_defi.erc_4626.vault_protocol.lagoon.deployment import (
     LagoonDeploymentParameters,
     deploy_automated_lagoon_vault,
 )
-from eth_defi.erc_4626.vault_protocol.lagoon.testing import fund_lagoon_vault
+from eth_defi.erc_4626.vault_protocol.lagoon.funding import fund_lagoon_vault
 from eth_defi.erc_4626.vault_protocol.lagoon.vault import LagoonVault
 from eth_defi.gmx.contracts import NETWORK_TOKENS, get_contract_addresses
 from eth_defi.gmx.lagoon.approvals import UNLIMITED, approve_gmx_collateral_via_vault
@@ -107,7 +107,6 @@ from eth_defi.provider.multi_provider import create_multi_provider_web3
 from eth_defi.token import USDC_NATIVE_TOKEN, USDC_WHALE, WRAPPED_NATIVE_TOKEN, fetch_erc20_details
 from eth_defi.trace import assert_transaction_success_with_explanation
 from eth_defi.utils import setup_console_logging
-
 
 logger = logging.getLogger(__name__)
 

@@ -1,0 +1,136 @@
+{
+  "runs": [
+    {
+      "variant": "reference",
+      "source": "/tmp/white-snake-pr-projection/top_vaults_by_chain.json",
+      "source_size_bytes": 75643107,
+      "validation_seconds": 0.475,
+      "write_seconds": 1.232,
+      "total_seconds": 1.707,
+      "output_size_bytes": 75643107,
+      "output_sha256": "ef9b4e73cea5d28016926f2261d1d2dc651359a824de8ff6d172fcd944b13783",
+      "peak_rss_kib": 1044912
+    },
+    {
+      "variant": "reference",
+      "source": "/tmp/white-snake-pr-projection/top_vaults_by_chain.json",
+      "source_size_bytes": 75643107,
+      "validation_seconds": 0.503,
+      "write_seconds": 1.297,
+      "total_seconds": 1.8,
+      "output_size_bytes": 75643107,
+      "output_sha256": "ef9b4e73cea5d28016926f2261d1d2dc651359a824de8ff6d172fcd944b13783",
+      "peak_rss_kib": 1045932
+    },
+    {
+      "variant": "reference",
+      "source": "/tmp/white-snake-pr-projection/top_vaults_by_chain.json",
+      "source_size_bytes": 75643107,
+      "validation_seconds": 0.48,
+      "write_seconds": 1.265,
+      "total_seconds": 1.745,
+      "output_size_bytes": 75643107,
+      "output_sha256": "ef9b4e73cea5d28016926f2261d1d2dc651359a824de8ff6d172fcd944b13783",
+      "peak_rss_kib": 1046980
+    },
+    {
+      "variant": "orjson",
+      "source": "/tmp/white-snake-pr-projection/top_vaults_by_chain.json",
+      "source_size_bytes": 75643107,
+      "validation_seconds": 0.479,
+      "write_seconds": 0.061,
+      "total_seconds": 0.54,
+      "output_size_bytes": 75640655,
+      "output_sha256": "e79ab073ac75084777a778285458665a656840f4baf5666497836d5ac0a5fbf7",
+      "peak_rss_kib": 1046144
+    },
+    {
+      "variant": "orjson",
+      "source": "/tmp/white-snake-pr-projection/top_vaults_by_chain.json",
+      "source_size_bytes": 75643107,
+      "validation_seconds": 0.465,
+      "write_seconds": 0.078,
+      "total_seconds": 0.543,
+      "output_size_bytes": 75640655,
+      "output_sha256": "e79ab073ac75084777a778285458665a656840f4baf5666497836d5ac0a5fbf7",
+      "peak_rss_kib": 1048400
+    },
+    {
+      "variant": "orjson",
+      "source": "/tmp/white-snake-pr-projection/top_vaults_by_chain.json",
+      "source_size_bytes": 75643107,
+      "validation_seconds": 0.502,
+      "write_seconds": 0.077,
+      "total_seconds": 0.579,
+      "output_size_bytes": 75640655,
+      "output_sha256": "e79ab073ac75084777a778285458665a656840f4baf5666497836d5ac0a5fbf7",
+      "peak_rss_kib": 1047796
+    },
+    {
+      "variant": "reference",
+      "source": "/tmp/white-snake-pr-projection/vault-export-state.json",
+      "source_size_bytes": 80438210,
+      "validation_seconds": 0.484,
+      "write_seconds": 1.335,
+      "total_seconds": 1.819,
+      "output_size_bytes": 80438210,
+      "output_sha256": "dbdb25bf158fb2567cef4afec2a6191ce4dd01814c00466f50f67e9a7c092840",
+      "peak_rss_kib": 1089468
+    },
+    {
+      "variant": "reference",
+      "source": "/tmp/white-snake-pr-projection/vault-export-state.json",
+      "source_size_bytes": 80438210,
+      "validation_seconds": 0.505,
+      "write_seconds": 1.383,
+      "total_seconds": 1.888,
+      "output_size_bytes": 80438210,
+      "output_sha256": "dbdb25bf158fb2567cef4afec2a6191ce4dd01814c00466f50f67e9a7c092840",
+      "peak_rss_kib": 1088040
+    },
+    {
+      "variant": "reference",
+      "source": "/tmp/white-snake-pr-projection/vault-export-state.json",
+      "source_size_bytes": 80438210,
+      "validation_seconds": 0.498,
+      "write_seconds": 1.39,
+      "total_seconds": 1.888,
+      "output_size_bytes": 80438210,
+      "output_sha256": "dbdb25bf158fb2567cef4afec2a6191ce4dd01814c00466f50f67e9a7c092840",
+      "peak_rss_kib": 1090348
+    },
+    {
+      "variant": "orjson",
+      "source": "/tmp/white-snake-pr-projection/vault-export-state.json",
+      "source_size_bytes": 80438210,
+      "validation_seconds": 0.483,
+      "write_seconds": 0.082,
+      "total_seconds": 0.565,
+      "output_size_bytes": 80435758,
+      "output_sha256": "949342d188aa74554e7d3e2b262d98de9b5f92a9bc7dd5a9f8b7245698764fed",
+      "peak_rss_kib": 1090140
+    },
+    {
+      "variant": "orjson",
+      "source": "/tmp/white-snake-pr-projection/vault-export-state.json",
+      "source_size_bytes": 80438210,
+      "validation_seconds": 0.499,
+      "write_seconds": 0.077,
+      "total_seconds": 0.576,
+      "output_size_bytes": 80435758,
+      "output_sha256": "949342d188aa74554e7d3e2b262d98de9b5f92a9bc7dd5a9f8b7245698764fed",
+      "peak_rss_kib": 1089480
+    },
+    {
+      "variant": "orjson",
+      "source": "/tmp/white-snake-pr-projection/vault-export-state.json",
+      "source_size_bytes": 80438210,
+      "validation_seconds": 0.49,
+      "write_seconds": 0.075,
+      "total_seconds": 0.565,
+      "output_size_bytes": 80435758,
+      "output_sha256": "949342d188aa74554e7d3e2b262d98de9b5f92a9bc7dd5a9f8b7245698764fed",
+      "peak_rss_kib": 1089868
+    }
+  ]
+}

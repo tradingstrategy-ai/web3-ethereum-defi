@@ -1,6 +1,39 @@
 # 1.2
 
 - feat: Add Arc mainnet metadata, HyperSync lookup, fully price-gated vault-scanner scheduling, temporary Morpho API coverage handling, Docker RPC wiring and an isolated initial vault-discovery script (2026-09-24)
+- feat: Clean public Yearn vault attribution against the official positive catalogue before JSON export, without allowing an offchain API failure to stop the scanner (2026-09-23).
+- feat: Prepare and render vault sparklines in bounded process batches by default while retaining threaded R2 uploads (2026-09-23).
+- feat: Bound deterministic sparkline rendering and R2 publication with daily crypto input, persistent cadence state and a three-day low-TVL throttle (2026-09-22).
+- feat: Recalculate low-TVL vault metrics only every three days with a staggered freshness gate, per-vault metrics state files and a validated crypto record patch, cutting the hourly metrics workload to the due cohort and peak export memory from 26.9 GiB to 15.7 GiB (2026-09-22).
+- feat: Add fixed-block-tested Lagoon 1.0 vault read and scanner compatibility using the official v0.6 ABI surface (2026-09-22).
+- feat: Reduce private BTC/ETH vault export work with fixed native peak-TVL thresholds and a projected per-vault metric path, while leaving stablecoin and generic exports unchanged (2026-09-22).
+- fix: Accept decimal scaled Ember API values when parsing vault fees, APY and TVL, and preserve numeric zero (2026-09-22).
+- feat: Publish an uncached vault scan manifest after cleaned price uploads, with per-chain price-scan provenance, cleaned timestamps and the source price ETag (2026-09-22).
+- fix: Make the GMX oracle price query (`/signed_prices/latest`) fail over across all four API tiers (primary, backup, fallback, fallback-2) instead of stopping after the backup, log which endpoint served the prices when the primary is down, and remember hosts that fail at connection level across the sync, async and oracle failover drivers so that one dead host no longer costs every request its own retries (2026-09-21)
+- feat: Read public Enzyme Blue manager profiles from the app's undocumented GraphQL endpoint, persist public contact channels and manager identifiers with a website-domain fallback, and expose them through Blue vault metadata (2026-09-19)
+- feat: Add Flying Tulip perpetual-PUT options strategy classification and linked strategy descriptions (2026-09-17)
+- fix: Accumulate all automated Lagoon settlement gross flow in a fixed daily budget window (2026-09-17)
+- fix: Add a guarded Lagoon Safe claim helper and automatically refresh short-lived Lighter SDK authentication tokens for idempotent calls (2026-09-14)
+- feat: Add concise public strategy-category descriptions and classify Morini Capital foreign-currency vaults with the new FX category (2026-09-11)
+- feat: Add deployment-time Lighter account activation and API-key registration for Lagoon vaults, including private deployment-report output and an end-to-end ETH perpetual trading tutorial (2026-09-11)
+- feat: Classify every Enzyme Blue and Onyx vault as discretionary trading by default and migrate cached tags (2026-09-08)
+- feat: Export documented vault strategy categories with quality-filtered TVL and one-month return aggregates, plus a local category-breakdown helper (2026-09-04)
+- feat: Add canonical signed per-period vault flow values, expose gross directional values and counts only from individually extracted events, estimate netted stablecoin ERC-4626 flows from daily vault states, and deprecate the legacy top-level netflow export (2026-08-31)
+- fix: Publish YieldBasis protocol metadata, description and listing logos under the canonical website slug (2026-08-31)
+- feat: Classify Axis's Ethereum V2 StakedUSDx vault, correct Plasma V1 redemption metadata, and migrate existing cached records (2026-08-30)
+- fix: Restore `GMX.get_on_chain_index_tokens()`'s oracle-decoupled whitelist enumeration by calling `Markets._fetch_markets_from_onchain()` instead of a method deleted in the same commit that added this enumerator (2026-08-29)
+- feat: Export cleaned exchange-rate Parquet and USD-denominated period metrics for private ETH/BTC vault records (2026-08-28)
+- feat: Add YieldBasis Earn vault discovery, crvUSD and native-asset performance tracking, historical backfill tooling and reviewed Ethereum market metadata (2026-08-28)
+- feat: Add a private crypto-vaults Parquet bundle for stablecoin, ETH and BTC-denominated vaults (2026-08-27)
+- feat: Mark GMX GM and GLV vaults as automated-market-maker pool shares (2026-08-26)
+- feat: Add directional-leverage classifications for Lighter's fixed 2x long and short pool family (2026-08-26)
+- feat: Categorise all current Lighter public vault strategies, including auto-rebalanced directional products, documented managed pools and both protocol liquidity pools (2026-08-26)
+- feat: Add Dima curator attribution for three Lighter pools, including the automated breakout and long/short strategies (2026-08-26)
+- feat: Add Rysk Premium onchain option-pool discovery, finalised epoch share-price history, backfill tooling and vault metadata (2026-08-25)
+- feat: Add GMX V2 GM and GLV vault catalogue discovery, supply-normalised historical USD equity curves and incremental all-chain scanner integration (2026-08-23)
+- fix: Regularise sparse observations for every vault to one forward-filled calendar-day series before calculating volatility, Sharpe and drawdown metrics (2026-08-23)
+- Fix bounded vault-price rescans to replace only the requested half-open block range while preserving the legacy ERC-4626 sparse-change rules (2026-08-23)
+- feat: Add Flying Tulip sftUSD protocol metadata, documentation, feed registration and vault risk and fee classifications (2026-08-24)
 - fix: Stop GMX profitable-long closes from leaking PnL as unaccounted native ETH into the Safe, and price GMX positions and non-stablecoin Safe reserves correctly in vault NAV (2026-08-20)
 - feat: Add authenticated Enzyme Blue manager-entered listing descriptions with neutral Blue fallback copy; mark all Onyx descriptions as not publicly available rather than publishing unverified manager copy; replace the horizontal wordmark listing artwork with the official standalone Enzyme brand mark; add direct address-specific vault links; and add a resumable current-metadata migration plus current handler-indexed Onyx and PolicyManager-based Blue deposit-permission auditing with an optional official Enzyme API comparison (2026-08-21)
 - feat: Fix GMX API failover so a transient upstream 5xx on one price endpoint no longer kills live trading bots. The sync and async ticker transports now fail over immediately on non-retryable 4xx, treat a degraded 200 (empty, truncated or wrong-schema ticker payload) as an endpoint failure instead of caching it, and raise `ccxt.ExchangeNotAvailable` instead of a fatal `ValueError`/`ExchangeError` when a ticker is missing or every endpoint is down. Adds a default-off stale-price fallback and a per-endpoint `GMXAPIUnavailable` attempt summary for diagnostics. The async driver now retries 3 times per tier (was 2) to match the sync driver (2026-08-21)

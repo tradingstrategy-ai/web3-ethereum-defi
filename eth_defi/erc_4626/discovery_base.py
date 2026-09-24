@@ -10,6 +10,7 @@
 - Supports Atoma WithdrawalClaimed events
 - Supports T3tris flow and vault-configuration events
 - Supports Securitize DSToken Issue events
+- Supports Rysk Premium epoch-price configuration events
 """
 
 import abc
@@ -22,14 +23,17 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Type, TypeAlias
 
 from eth_typing import HexAddress
+from web3 import Web3
 from web3.contract.contract import ContractEvent
+from web3.exceptions import CannotHandleRequest
 
 from eth_defi.abi import get_contract
 from eth_defi.compat import native_datetime_utc_now
 from eth_defi.enzyme.onyx_permission import fetch_onyx_current_deposit_permissions
 from eth_defi.erc_4626.classification import ODA_FACT_HARDCODED_LEADS, probe_vaults
-from eth_defi.erc_4626.core import ERC4262VaultDetection, ERC4626Feature, get_erc_4626_contract
+from eth_defi.erc_4626.core import RYSK_PREMIUM_CHAIN_IDS, ERC4262VaultDetection, ERC4626Feature, get_erc_4626_contract
 from eth_defi.erc_4626.vault_protocol.axis.constants import AXIS_HARDCODED_LEADS
+from eth_defi.erc_4626.vault_protocol.flying_tulip.constants import FLYING_TULIP_HARDCODED_LEADS
 from eth_defi.erc_4626.vault_protocol.nara.constants import NARAUSD_PLUS_HARDCODED_LEADS
 from eth_defi.erc_4626.vault_protocol.pallas.constants import PALLAS_HARDCODED_LEADS
 from eth_defi.erc_4626.vault_protocol.t3tris.constants import T3TRIS_HARDCODED_LEADS
@@ -82,6 +86,7 @@ DEFAULT_HARDCODED_VAULT_LEAD_SOURCES: HardcodedVaultLeadSources = (
     ("Shift", SHIFT_HARDCODED_LEADS),
     ("Nara", NARAUSD_PLUS_HARDCODED_LEADS),
     ("Axis", AXIS_HARDCODED_LEADS),
+    ("Flying Tulip", FLYING_TULIP_HARDCODED_LEADS),
     ("Pallas", PALLAS_HARDCODED_LEADS),
     ("T3tris", T3TRIS_HARDCODED_LEADS),
 )
@@ -483,6 +488,50 @@ def get_securitize_dstoken_discovery_events(web3) -> list[Type[ContractEvent]]:
     return [dstoken_contract.events.Issue]
 
 
+def get_rysk_premium_discovery_events(web3: Web3) -> list[type[ContractEvent]]:
+    """Return the Rysk Premium price event used for lead discovery.
+
+    Rysk pools are not ERC-4626 contracts. Their verified LiquidityPool
+    implementation emits ``EpochPriceSet(uint256 indexed epoch, uint256
+    depositPrice, uint256 withdrawalPrice)`` before an epoch can execute. This
+    protocol-specific topic avoids the shared MasterChef ``Deposit`` signature.
+    The later feature probe confirms the Rysk contract surface before export.
+
+    A provider-less :class:`web3.Web3` is accepted for ABI-focused unit tests.
+    Connected unsupported chains return no Rysk events.
+
+    Verified implementation: https://etherscan.io/address/0x6ca8d390c37acc6883e96fa5283246fc39239741#code
+
+    :param web3:
+        Web3 instance used to construct the event type.
+    :return:
+        Rysk price event type on Ethereum and HyperEVM, otherwise an empty list.
+    """
+
+    try:
+        chain_id = web3.eth.chain_id
+    except CannotHandleRequest:
+        chain_id = None
+    if chain_id is not None and chain_id not in RYSK_PREMIUM_CHAIN_IDS:
+        return []
+
+    event_contract = web3.eth.contract(
+        abi=[
+            {
+                "anonymous": False,
+                "inputs": [
+                    {"indexed": True, "internalType": "uint256", "name": "epoch", "type": "uint256"},
+                    {"indexed": False, "internalType": "uint256", "name": "depositPrice", "type": "uint256"},
+                    {"indexed": False, "internalType": "uint256", "name": "withdrawalPrice", "type": "uint256"},
+                ],
+                "name": "EpochPriceSet",
+                "type": "event",
+            }
+        ]
+    )
+    return [event_contract.events.EpochPriceSet]
+
+
 def get_vault_discovery_events(web3) -> list[Type[ContractEvent]]:
     """Get all events used in vault discovery, including protocol-specific ones.
 
@@ -496,6 +545,7 @@ def get_vault_discovery_events(web3) -> list[Type[ContractEvent]]:
     - Atoma WithdrawalClaimed event
     - T3tris DepositRequest/RedeemRequest and configuration events
     - Securitize DSToken Issue event
+    - Rysk Premium epoch-price configuration event
 
     :return:
         List of contract event types in order:
@@ -508,9 +558,10 @@ def get_vault_discovery_events(web3) -> list[Type[ContractEvent]]:
          AtomaVault.WithdrawalClaimed,
          T3trisVault.DepositRequest, T3trisVault.RedeemRequest,
          T3trisVault.<configuration events>,
-         SecuritizeDSToken.Issue]
+         SecuritizeDSToken.Issue,
+         RyskLiquidityPool.EpochPriceSet]
     """
-    return get_standard_erc_4626_vault_discovery_events(web3) + get_brink_vault_discovery_events(web3) + get_ember_vault_discovery_events(web3) + get_token_gateway_discovery_events(web3) + get_royco_tranche_discovery_events(web3) + get_upshift_multi_asset_discovery_events(web3) + get_atoma_vault_discovery_events(web3) + get_t3tris_vault_discovery_events(web3) + get_t3tris_vault_configuration_discovery_events(web3) + get_securitize_dstoken_discovery_events(web3)
+    return get_standard_erc_4626_vault_discovery_events(web3) + get_brink_vault_discovery_events(web3) + get_ember_vault_discovery_events(web3) + get_token_gateway_discovery_events(web3) + get_royco_tranche_discovery_events(web3) + get_upshift_multi_asset_discovery_events(web3) + get_atoma_vault_discovery_events(web3) + get_t3tris_vault_discovery_events(web3) + get_t3tris_vault_configuration_discovery_events(web3) + get_securitize_dstoken_discovery_events(web3) + get_rysk_premium_discovery_events(web3)
 
 
 def get_vault_event_topic_map(web3) -> dict[str, VaultEventKind]:
@@ -524,6 +575,7 @@ def get_vault_event_topic_map(web3) -> dict[str, VaultEventKind]:
     from eth_defi.abi import get_topic_signature_from_event
 
     t3tris_configuration_events = get_t3tris_vault_configuration_discovery_events(web3)
+    rysk_configuration_events = get_rysk_premium_discovery_events(web3)
     event_groups = (
         (get_standard_erc_4626_vault_discovery_events(web3), (VaultEventKind.deposit, VaultEventKind.withdraw)),
         (get_brink_vault_discovery_events(web3), (VaultEventKind.deposit, VaultEventKind.withdraw)),
@@ -535,6 +587,7 @@ def get_vault_event_topic_map(web3) -> dict[str, VaultEventKind]:
         (get_t3tris_vault_discovery_events(web3), (VaultEventKind.deposit, VaultEventKind.withdraw)),
         (t3tris_configuration_events, (VaultEventKind.configuration,) * len(t3tris_configuration_events)),
         (get_securitize_dstoken_discovery_events(web3), (VaultEventKind.deposit,)),
+        (rysk_configuration_events, (VaultEventKind.configuration,) * len(rysk_configuration_events)),
     )
     return {get_topic_signature_from_event(event): event_kind for events, event_kinds in event_groups for event, event_kind in zip(events, event_kinds, strict=True)}
 

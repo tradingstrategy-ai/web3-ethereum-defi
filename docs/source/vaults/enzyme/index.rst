@@ -77,25 +77,25 @@ discovery catalogue because they do not identify an individual vault.
 Listing metadata
 ----------------
 
-Enzyme share-token contracts provide a vault name, but not a manager-entered
-strategy narrative. For Blue vaults, the authenticated `Enzyme GetVault API
-<https://sdk.enzyme.finance/api/endpoints/vault/>`__ is the authoritative
-offchain metadata source. It returns a manager-entered ``tagline`` for the
-catalogue's short description, plus a ``description`` for the product-detail
-view. The API documentation says it aggregates Enzyme-managed offchain sources
-including vault descriptions, rather than merely reproducing onchain ERC-20
-names.
+Enzyme share-token contracts provide a vault name but not a manager-entered
+strategy narrative. Blue's vault-detail app currently reads profiles through
+an undocumented, unauthenticated GraphQL ``vaultProfile`` query. It supplies
+the ``tagline`` and ``description`` used by the catalogue, plus manager
+biography and public contact channels. This reader is not a stable public API
+contract and must be reviewed when the app changes.
 
-The scanner does not call that API per vault during each chain scan. The
-metadata migration gathers all existing Blue rows through a bounded,
-authenticated batch and writes a versioned JSON cache under
+The scanner does not call the app for each vault during a chain scan. The
+metadata migration gathers all existing Blue rows through small serial GraphQL
+batches and writes a versioned JSON cache under
 ``~/.tradingstrategy/cache/enzyme/vault-metadata.json``. Blue adapters read
-that cache without credentials, so the scheduled scanner remains deterministic
-and does not turn a temporary API failure into a database-wide description
-rewrite.
+that cache without contacting the app, so a temporary app failure cannot cause
+a database-wide description rewrite. An empty successful profile is evidence
+that the manager supplied no public copy, not a failed lookup.
 
-The migration retains a successful API response with empty fields: this is
-evidence that the manager has supplied no public copy, not a failed lookup.
+The scanner remains compatible with the previous cache schema during an
+upgrade, preserving existing Blue descriptions until the offchain migration
+completes. That migration ignores the older schema and refreshes every Blue
+profile before publishing contact fields in cache version two.
 
 Onyx supports manager-editable vault and collection taglines and descriptions
 in its management application, but Enzyme does not document a public API for
@@ -103,8 +103,8 @@ this data. The scanner therefore does not scrape a gated interface or consume
 an undocumented endpoint. Every refreshed Onyx row has an empty short
 description and the exact long-description marker ``Description is not
 publicly available``; a dedicated migration marker refreshes older generic
-copy once. Blue leaves each description field empty when its official API
-response has no manager text.
+copy once. Blue leaves each description field empty when its app profile has
+no manager text.
 
 Deposit permission and availability
 -----------------------------------
@@ -182,20 +182,27 @@ Management and performance rates are annual fractions; entrance and exit rates
 reduce the investor's issued or redeemed shares. The standard FeeHandler has no
 separate global protocol-fee setting, so the exported Onyx management fee is
 already the full user-facing recurring charge and does not double-count a
-platform charge.
+platform charge. A configured zero address for the FeeHandler or one of its
+trackers proves that the corresponding fee is disabled, so the adapter exports
+``0.0`` rather than an unknown value.
 Historical fee rates are not yet exported, because the fee handler or tracker
 can change over a vault's lifetime; that backfill needs component-change,
 ``RateSet``, ``EntranceFeeSet`` and ``ExitFeeSet`` event handling.
 
 Blue has a different fee model. Its fund-level FeeManager configuration can be
-combined with an additional protocol fee. The `protocol-access mechanism
-<https://specs.enzyme.finance/topics/protocol-fee>`__ can settle that charge
-either by minting shares to the ProtocolFeeReserve or by paying MLN. The
-current export's management fee is the user-facing sum of the manager and
-ProtocolFeeTracker rates. It also publishes the protocol rate separately as a
-breakdown; consumers must not add it to management a second time. Blue
-management, performance, entrance, exit and protocol rates are current reads
-only.
+combined with an additional protocol fee. Enzyme's `Protocol Fees
+<https://docs.enzyme.finance/user-documentation/blue-general-info/protocol-fees>`__
+documentation defines this as a fee on Assets Under Technology, settled by
+share inflation or MLN payment, rather than a high-water-mark performance fee.
+The current export therefore includes the ProtocolFeeTracker rate in the
+user-facing management fee. It also retains the protocol rate separately, so
+consumers can calculate the manager-only rate as ``Mgmt fee - Protocol fee``.
+Blue management, performance, entrance and exit rates are current reads only.
+FeeManager is the authoritative enumeration of Blue plugins: when it omits a
+standard fee plugin, that fee is exported as ``0.0``. Across both Enzyme
+architectures, ``null`` is reserved for an unavailable or inconclusive read,
+never for a fee that the current configuration has proved disabled. This keeps
+the investor-facing fee schedule complete whenever Enzyme makes it available.
 Historical Blue fee configuration remains TODO because releases, FeeManager
 plugins and protocol-fee trackers can change at migration boundaries.
 
@@ -247,7 +254,7 @@ Blue permission reads cover Sulu and the deprecated Encore and Phoenix policy
 managers and whitelist identifiers used by the Enzyme website. Current NAV and
 fee fields remain blank when a deprecated vault can no longer execute its old
 release calls; name, symbol, denomination and the architecture-specific
-description policy remain mandatory. Blue API fields are optional, whereas
+description policy remain mandatory. Blue app-profile fields are optional, whereas
 Onyx must have an empty short description and the explicit unavailable
 long-description marker.
 
@@ -259,45 +266,39 @@ long-description marker.
 Offchain description migration
 ------------------------------
 
-``scripts/enzyme/migrate-offchain-metadata.py`` fetches Enzyme Blue vault
-taglines and descriptions above its recorded accounting-unit NAV threshold from
-Enzyme's authenticated ``GetVault`` API, warms the durable adapter cache and
-updates the public metadata pickle.
-It is deliberately a separate migration: it has no JSON-RPC or Hypersync work,
-does not change historical price data, and does not attempt unsupported Onyx
-UI scraping. It starts in dry-run mode and writes neither cache nor database
-if any API response fails. A real run creates a timestamped backup of the
-metadata pickle before modifying it.
+``scripts/enzyme/migrate-offchain-metadata.py`` snapshots the app-profile
+fields for every discovered Blue vault, warms the durable adapter cache and
+updates the public metadata pickle. It retains a vault tagline and description,
+manager biography, free-form contact information, email, Telegram, X/Twitter
+and website. The manager identifier uses Twitter, Telegram or a non-generic
+email local part; where none exists, it falls back to the website domain.
 
-While collecting, a real run writes the successful API replies to
-``enzyme-offchain-metadata-state.json`` next to the metadata pickle. This
-minimal migration-only checkpoint resumes after an interruption without
-repeating completed API reads. It is deleted only after the cache and metadata
-pickle have both been updated successfully; set ``ENZYME_METADATA_STATE_PATH``
+The migration is separate from scanning: it has no JSON-RPC or Hypersync work,
+does not change historical prices, and does not query Onyx. It starts in
+dry-run mode. An app-profile failure prevents publication. A real run creates a
+timestamped database backup, writes completed profile batches to
+``enzyme-offchain-metadata-state.json``, then removes the checkpoint only after
+both the cache and database write succeed. Set ``ENZYME_METADATA_STATE_PATH``
 to override its location.
 
-To conserve Enzyme API quota, only Blue rows with a recorded NAV greater than
-1,000 in a reviewed USD-pegged accounting unit, 1 in an ETH-equivalent unit,
-or 0.1 in a BTC-equivalent unit are collected. The migration does not convert
-unsupported denominations through an inferred exchange rate. It also clears
-the exact retired generated Blue fallback fields locally for every Blue row;
-this does not make an API request and ensures older rows do not retain invented
-copy.
-After a complete cache/database update, later runs reuse the cache without a
-token. Set ``ENZYME_METADATA_REFRESH=true`` with a token to fetch all eligible
-Blue rows again.
+Every discovered Blue vault is collected regardless of NAV or denomination.
+The migration also clears the exact retired generated Blue fallback fields
+locally for every Blue row, ensuring older rows do not retain invented copy.
+After a complete cache/database update, later runs reuse the cache. Set
+``ENZYME_METADATA_REFRESH=true`` to fetch all Blue rows again.
+``ENZYME_REQUEST_INTERVAL_SECONDS`` defaults to one second between request
+batches to avoid backend and Cloudflare rate limits during a full refresh.
+Requests are strictly serial and each batch contains at most five aliases,
+which is the current app-enforced limit.
 
-Create an API token in the `Enzyme application
-<https://app.enzyme.finance/account/api-tokens>`__, then run:
+Run the migration as follows:
 
 .. code-block:: shell
 
     source .local-test.env
-    ENZYME_BLUE_API_TOKEN="$ENZYME_BLUE_API_TOKEN" \
-        poetry run python scripts/enzyme/migrate-offchain-metadata.py
+    poetry run python scripts/enzyme/migrate-offchain-metadata.py
 
-    ENZYME_BLUE_API_TOKEN="$ENZYME_BLUE_API_TOKEN" DRY_RUN=false MAX_WORKERS=1 \
-        poetry run python scripts/enzyme/migrate-offchain-metadata.py
+    DRY_RUN=false poetry run python scripts/enzyme/migrate-offchain-metadata.py
 
 For production, first stop ``vault-scanner-looped`` and run this command in
 the one-shot container described above, so the cache and metadata database are
@@ -314,7 +315,7 @@ mounted production state, then restart the looped service:
     cd ~/vault-scanner/web3-ethereum-defi
     docker compose stop vault-scanner-looped
     docker compose run --rm --entrypoint /bin/bash \
-        -e ENZYME_BLUE_API_TOKEN -e MAX_WORKERS=1 vault-scanner-oneshot \
+        vault-scanner-oneshot \
         -c 'poetry run python scripts/enzyme/migrate-offchain-metadata.py'
     docker compose start vault-scanner-looped
 

@@ -12,16 +12,18 @@ No live HyperSync connection needed — uses mocked async generators.
 
 import asyncio
 import datetime
+from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pandas as pd
 
 from eth_defi.event_reader.block_header import BlockHeader
-from eth_defi.event_reader.timestamp_cache import BlockTimestampDatabase
+from eth_defi.event_reader.timestamp_cache import BlockTimestampDatabase, BlockTimestampSlicer
 from eth_defi.hypersync.hypersync_timestamp import (
     HypersyncFlaky,
     fetch_block_timestamps_using_hypersync_cached,
     fetch_block_timestamps_using_hypersync_cached_async,
+    fetch_exact_block_timestamps_using_hypersync_cached_async,
     fetch_sparse_block_timestamps_using_hypersync_cached_async,
     get_hypersync_block_height_with_retries,
     is_hypersync_next_block_range_error,
@@ -247,6 +249,46 @@ def test_sparse_hypersync_timestamp_fetch_reads_only_sampled_cache_misses(tmp_pa
 
     assert fetch_calls == [(1_000, 1_000), (1_200, 1_200), (1_300, 1_300)]
     assert all(slicer[block_number] is not None for block_number in (1_000, 1_100, 1_200, 1_300))
+    slicer.close()
+
+
+def test_exact_hypersync_timestamp_fetch_accepts_irregular_blocks(tmp_path: Path) -> None:
+    """Fetch distinct event blocks without filling the gaps between them.
+
+    :param tmp_path:
+        Isolated persistent timestamp-cache directory.
+    :return:
+        None.
+    """
+
+    fetch_calls: list[tuple[int, int]] = []
+
+    async def mock_get_timestamps(client, chain_id, start_block, end_block, timeout=120.0, display_progress=True, progress_throttle=10_000, validate_chain_id=True, reason=None):
+        """Yield one deterministic header for each exact request."""
+
+        fetch_calls.append((start_block, end_block))
+        yield _make_block_header(start_block)
+
+    async def _run() -> BlockTimestampSlicer:
+        """Run the exact collector with its network stream mocked."""
+
+        with patch(
+            "eth_defi.hypersync.hypersync_timestamp.get_block_timestamps_using_hypersync_async",
+            side_effect=mock_get_timestamps,
+        ):
+            return await fetch_exact_block_timestamps_using_hypersync_cached_async(
+                client=MagicMock(),
+                chain_id=1,
+                block_numbers=(1_000, 1_333, 1_000),
+                cache_path=tmp_path,
+                display_progress=False,
+            )
+
+    slicer = asyncio.run(_run())
+
+    assert fetch_calls == [(1_000, 1_000), (1_333, 1_333)]
+    assert slicer[1_000] is not None
+    assert slicer[1_333] is not None
     slicer.close()
 
 

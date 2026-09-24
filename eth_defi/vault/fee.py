@@ -9,17 +9,17 @@ from eth_typing import HexAddress
 
 
 class VaultFeeMode(enum.Enum):
-    """How vault protocol account its fees.
+    """How a vault protocol accounts for its fees.
 
-    - Externalised fees: fees are deducted from the redemption amount when user withdraws.
+    - Externalised fees: fees are charged explicitly when a user enters or exits a vault.
     - Internalised fees: fees are baked into the share price (asset amount) and continuously taken from the profit.
-      There are no fees on withdraw.
+      There are no fees on withdrawal.
     """
 
     #: Vault fees are baked into the share price (asset amount).
     #:
     #: Fees are taken from the profit at the moment profit is made,
-    #: and send to another address.
+    #: and sent to another address.
     #:
     #: Example protocols: Yearn, Harvest Finance, USDAi.
     internalised_skimming = "internalised_skimming"
@@ -32,7 +32,7 @@ class VaultFeeMode(enum.Enum):
     #: Example protocols: AUTO Finance
     internalised_minting = "internalised_minting"
 
-    #: Vault fees are taken from the user explicitly at the redemption time.
+    #: Vault fees are taken from the user explicitly at deposit or redemption time.
     #:
     #: Example protocols: Lagoon Finance.
     externalised = "externalised"
@@ -50,6 +50,16 @@ class VaultFeeMode(enum.Enum):
 #: See :py:func:`eth_defi.erc_4626.core.get_vault_protocol_name` for the names list.
 #:
 VAULT_PROTOCOL_FEE_MATRIX = {
+    # The direct sftUSD wrapper is fee-free, but FlyingTulipVault models the
+    # USDC -> ftUSD acquisition and ftUSD -> USDC redemption fees so its
+    # investor-return fields are comparable with USDC-denominated vaults.
+    "Flying Tulip": VaultFeeMode.externalised,
+    # Like Hyperliquid's HLP, GM and GLV have no manager-level depositor fees.
+    # Trading revenue and trader PnL are already reflected in their equity curve.
+    "GMX": VaultFeeMode.feeless,
+    # YieldBasis mints LT shares for product fees, internalising them in PPS.
+    # Deposit and withdrawal separately model stablecoin conversion costs.
+    "YieldBasis": VaultFeeMode.internalised_minting,
     "Euler": VaultFeeMode.internalised_skimming,
     "Morpho": VaultFeeMode.internalised_skimming,
     "Enzyme": VaultFeeMode.internalised_skimming,
@@ -80,6 +90,9 @@ VAULT_PROTOCOL_FEE_MATRIX = {
     "Midas": VaultFeeMode.internalised_skimming,
     # Fund fees are internalised in NAV; request fees are read from AoABTManager.
     "Asseto": VaultFeeMode.internalised_skimming,
+    # Premium option-premium fees are not universal LP management,
+    # performance, deposit or withdrawal fees.
+    "Rysk": None,
     # Benji token contracts do not expose a fund fee schedule.
     "Franklin Templeton": None,
     # Product fee schedules are not published by the reviewed CMTAT token contracts.
@@ -191,9 +204,9 @@ VAULT_PROTOCOL_FEE_MATRIX = {
     "USDX Money": VaultFeeMode.internalised_skimming,
     # NaraUSD+ does not publish a universal management or performance fee schedule.
     "Nara": None,
-    # No pToken-specific fee schedule has been verified for reviewed Arcus
-    # products.
-    "Arcus": None,
+    # Arcus pTokens charge their entry fee explicitly instead of incorporating
+    # it into NAV per share.
+    "Arcus": VaultFeeMode.externalised,
     # Hyperlend WHLP - 10% performance fee on yield, internalised in share price
     "Hyperlend": VaultFeeMode.internalised_skimming,
     # Sentiment SuperPools - fees taken from interest earned
@@ -217,9 +230,9 @@ VAULT_PROTOCOL_FEE_MATRIX = {
     "Frax": VaultFeeMode.internalised_minting,
     # Hyperdrive - fee mode unknown (unverified contracts)
     "Hyperdrive": None,
-    # Axis's StakedUSDx rewards vest into the share price; its management,
-    # performance, deposit and withdrawal fees are all set to 0%.
-    "Axis": VaultFeeMode.internalised_skimming,
+    # Reviewed Axis StakedUSDx implementations do not deduct explicit
+    # management, performance, deposit or withdrawal fees.
+    "Axis": VaultFeeMode.feeless,
     # BaseVol - fee mode unknown
     "BaseVol": None,
     # sBOLD - yield accrues through stability pool rewards, no external fees
@@ -293,7 +306,9 @@ class FeeData:
     """Track vault fee parameters
 
     - Offer methods to calculate gross/net fees based on the vault fee mode
-    - `None` means fee unknown: protocol not recognized, or fee data not available
+    - `None` means fee unknown: the protocol is not recognised or authoritative
+      fee data is unavailable. Adapters must use ``0.0`` when an authoritative
+      configuration proves that a fee class is disabled.
 
     **How fees are presented**:
 
@@ -325,11 +340,11 @@ class FeeData:
     #: Fee for this class
     withdraw: float | None
 
-    #: Protocol-level fee charged in addition to vault-manager fees.
+    #: Protocol-level component of the exported fee schedule.
     #:
     #: Most protocols do not expose a separate protocol charge, so this is
-    #: optional. Adapters can retain it alongside a user-facing aggregate
-    #: management fee when their protocol charges it on top of manager fees.
+    #: optional. An adapter can retain it alongside an aggregate management
+    #: fee, allowing consumers to calculate a manager-only breakdown.
     protocol: float | None = None
 
     def __post_init__(self) -> None:

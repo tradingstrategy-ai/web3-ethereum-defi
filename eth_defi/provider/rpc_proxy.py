@@ -738,6 +738,10 @@ class RPCProxy:
     #: URL clients should connect to (``http://localhost:{port}``)
     url: str
 
+    #: Effective upstream policy, exposed for callers that need to wait for a
+    #: complete failover pass (such as Anvil archive preflight).
+    config: RPCProxyConfig
+
     #: Per-provider statistics, keyed by provider display name
     #: (URL with API keys stripped) for easy lookup.
     provider_stats: dict[str, UpstreamRPCProviderStatistics]
@@ -928,6 +932,7 @@ def start_rpc_proxy(
         name=proxy_name,
         port=port,
         url=url,
+        config=config,
         provider_stats=provider_stats,
         _server_thread=server_thread,
         _http_server=server,

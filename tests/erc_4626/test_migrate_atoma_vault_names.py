@@ -26,16 +26,20 @@ def load_migration_module():
     return module
 
 
-def create_row(name: str) -> dict:
+def create_row(name: str, *, description: str | None = None, short_description: str | None = None) -> dict:
     """Create a minimal vault metadata row for migration tests.
 
     :param name:
         Persisted vault name.
+    :param description:
+        Persisted long strategy description.
+    :param short_description:
+        Persisted listing description.
     :return:
         Compatible minimal metadata row.
     """
 
-    return {"Name": name, "Protocol": "Atoma"}
+    return {"Name": name, "Protocol": "Atoma", "_description": description, "_short_description": short_description}
 
 
 def create_vault_database(migration) -> VaultDatabase:
@@ -58,8 +62,8 @@ def test_atoma_vault_name_updates_use_the_reviewed_strategy_names() -> None:
     migration = load_migration_module()
 
     assert migration.ATOMA_VAULT_NAME_UPDATES == {
-        VaultSpec(42_161, "0xcc56410e1a136af0eceb7241c6ae394f4d8b581c"): "Extended and Nado arbitrage",
-        VaultSpec(42_161, "0x1c788e14d8e5b446e3f71b5142e2edabcab36da1"): "Atoma Index",
+        VaultSpec(42_161, "0xcc56410e1a136af0eceb7241c6ae394f4d8b581c"): "Atoma Index",
+        VaultSpec(42_161, "0x1c788e14d8e5b446e3f71b5142e2edabcab36da1"): "Atoma RWA",
     }
 
 
@@ -76,13 +80,16 @@ def test_migrate_atoma_vault_names_updates_only_the_two_target_rows(tmp_path: Pa
 
     assert result.inspected_rows == len(migration.ATOMA_VAULT_NAME_UPDATES) + 1
     assert {update.spec for update in result.updates} == set(migration.ATOMA_VAULT_NAME_UPDATES)
-    assert "old name" in captured.out
+    assert "new short description" in captured.out
     assert (tmp_path / "vault-metadata-db.pickle.bak-atoma-vault-names").exists()
 
     migrated_db = VaultDatabase.read(vault_db_path)
     for spec, expected_name in migration.ATOMA_VAULT_NAME_UPDATES.items():
         assert migrated_db.rows[spec]["Name"] == expected_name
         assert migrated_db.rows[spec]["Protocol"] == "Atoma"
+        metadata = migration.ATOMA_VAULT_DESCRIPTION_OVERLAY[spec.vault_address]
+        assert migrated_db.rows[spec]["_short_description"] == metadata.short_description
+        assert migrated_db.rows[spec]["_description"] == metadata.description
     unrelated_spec = VaultSpec(1, "0x0000000000000000000000000000000000000001")
     assert migrated_db.rows[unrelated_spec]["Name"] == "Unrelated vault"
 
@@ -99,6 +106,8 @@ def test_migrate_atoma_vault_names_dry_run_does_not_write(tmp_path: Path) -> Non
     assert len(result.updates) == len(migration.ATOMA_VAULT_NAME_UPDATES)
     unchanged_db = VaultDatabase.read(vault_db_path)
     assert {row["Name"] for spec, row in unchanged_db.rows.items() if spec in migration.ATOMA_VAULT_NAME_UPDATES} == {"Atoma Vault Share"}
+    assert {row["_short_description"] for spec, row in unchanged_db.rows.items() if spec in migration.ATOMA_VAULT_NAME_UPDATES} == {None}
+    assert {row["_description"] for spec, row in unchanged_db.rows.items() if spec in migration.ATOMA_VAULT_NAME_UPDATES} == {None}
     assert not (tmp_path / "vault-metadata-db.pickle.bak-atoma-vault-names").exists()
 
 

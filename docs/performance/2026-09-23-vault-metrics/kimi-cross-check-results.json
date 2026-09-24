@@ -1,0 +1,52 @@
+{
+  "runs": [
+    {
+      "variant": "reference",
+      "rows": 10116623,
+      "errors": 0,
+      "error_messages": [],
+      "wall_seconds": 5.638,
+      "peak_rss_kib": 2039952
+    },
+    {
+      "variant": "reference",
+      "rows": 10116623,
+      "errors": 0,
+      "error_messages": [],
+      "wall_seconds": 5.61,
+      "peak_rss_kib": 2038832
+    },
+    {
+      "variant": "reference",
+      "rows": 10116623,
+      "errors": 0,
+      "error_messages": [],
+      "wall_seconds": 5.527,
+      "peak_rss_kib": 2054188
+    },
+    {
+      "variant": "distinct_pairs",
+      "rows": 10116623,
+      "errors": 0,
+      "error_messages": [],
+      "wall_seconds": 0.357,
+      "peak_rss_kib": 2040316
+    },
+    {
+      "variant": "distinct_pairs",
+      "rows": 10116623,
+      "errors": 0,
+      "error_messages": [],
+      "wall_seconds": 0.355,
+      "peak_rss_kib": 2024972
+    },
+    {
+      "variant": "distinct_pairs",
+      "rows": 10116623,
+      "errors": 0,
+      "error_messages": [],
+      "wall_seconds": 0.359,
+      "peak_rss_kib": 2031320
+    }
+  ]
+}

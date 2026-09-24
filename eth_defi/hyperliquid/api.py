@@ -840,7 +840,7 @@ def fetch_perp_clearinghouse_state(
             )
         )
 
-    logger.info(
+    logger.debug(
         "User %s: perp account value %s, %d position(s)",
         user,
         margin_summary.account_value,

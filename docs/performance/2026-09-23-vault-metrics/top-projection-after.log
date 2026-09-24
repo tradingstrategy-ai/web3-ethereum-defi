@@ -1,0 +1,81 @@
+BENCHMARK_STAGE {"cpu_seconds": 0.914, "rows": 10116623, "stage": "read_parquet", "wall_seconds": 0.305}
+2026-09-23 15:05:50,664 INFO Loaded 51907 vault metadata entries and 10116623 price rows across 29 chains from 2022-03-10 14:38:58 to 2026-09-22 15:14:43.301000; price columns: 48
+BENCHMARK_STAGE {"cpu_seconds": 5.721, "stage": "cross_check_data", "wall_seconds": 5.721}
+2026-09-23 15:05:56,386 INFO Phase parquet-read complete: 8.82s, RSS 2.7 GiB, process major faults +0, host swap pages in/out +3087/+0
+The report covers 25,200 stablecoin-denominated vaults out of 51,907 total vaults
+2026-09-23 15:05:56,636 INFO Filtered stablecoin-denominated price data has 10116623 rows
+BENCHMARK_STAGE {"cpu_seconds": 0.256, "stage": "compute_vault_tvl_observations", "wall_seconds": 0.256}
+BENCHMARK_STAGE {"cpu_seconds": 0.444, "stage": "free_memory", "wall_seconds": 0.444}
+BENCHMARK_STAGE {"cpu_seconds": 0.032, "due_vaults": 5765, "skipped_vaults": 7030, "stage": "partition_due_vault_ids", "wall_seconds": 0.032}
+2026-09-23 15:05:57,594 INFO Metrics freshness: 5765 vaults due, 7030 low-TVL vaults still fresh
+BENCHMARK_STAGE {"cpu_seconds": 4.763, "rows": 8490655, "stage": "read_parquet", "wall_seconds": 0.389}
+BENCHMARK_STAGE {"cpu_seconds": 0.462, "stage": "free_memory", "wall_seconds": 0.462}
+2026-09-23 15:05:58,446 INFO Due-filtered hourly price rows: 8490655
+2026-09-23 15:05:58,447 INFO Phase due-filtered-read complete: 2.06s, RSS 4.0 GiB, process major faults +0, host swap pages in/out +466/+0
+2026-09-23 15:05:58,662 INFO Progress on:Preparing daily vault returns -/5765 rate:- remaining:? elapsed:00:00 postfix:-
+2026-09-23 15:06:08,665 INFO Progress on:Preparing daily vault returns 1.61kit/5.76kit rate:205.9it/s remaining:00:20 elapsed:00:10 postfix:-
+2026-09-23 15:06:18,706 INFO Progress on:Preparing daily vault returns 3.27kit/5.76kit rate:200.5it/s remaining:00:12 elapsed:00:20 postfix:-
+2026-09-23 15:06:28,778 INFO Progress on:Preparing daily vault returns 5.06kit/5.76kit rate:192.9it/s remaining:00:03 elapsed:00:30 postfix:-
+2026-09-23 15:06:32,471 INFO Progress on:Preparing daily vault returns 5.76kit/5.76kit rate:181.4it/s remaining:00:00 elapsed:00:33 postfix:-
+BENCHMARK_STAGE {"cpu_seconds": 36.214, "rows": 2851489, "stage": "calculate_hourly_returns_for_all_vaults", "wall_seconds": 36.217}
+BENCHMARK_STAGE {"cpu_seconds": 0.528, "stage": "free_memory", "wall_seconds": 0.528}
+2026-09-23 15:06:35,234 INFO Phase daily-prep complete: 36.78s, RSS 2.8 GiB, process major faults +0, host swap pages in/out +15950/+4285
+Opened Core3 risk database at /tmp/white-snake-top-ab-projection/core3.duckdb with 1428 projects
+2026-09-23 15:06:35,552 INFO Built Core3 export records for 20 / 127 protocol slugs
+BENCHMARK_STAGE {"cpu_seconds": 0.114, "stage": "build_core3_protocols_for_export", "wall_seconds": 0.073}
+2026-09-23 15:06:35,553 INFO Closing Core3 database at /tmp/white-snake-top-ab-projection/core3.duckdb
+Opened Xerberus risk database at /tmp/white-snake-top-ab-projection/xerberus.duckdb with 105 pools and 53 protocols
+2026-09-23 15:06:35,717 INFO Built Xerberus pool lookup with 105 keys
+BENCHMARK_STAGE {"cpu_seconds": 0.186, "stage": "build_xerberus_pool_lookup", "wall_seconds": 0.129}
+2026-09-23 15:06:35,749 INFO Built Xerberus protocol export for 25 / 127 slugs
+BENCHMARK_STAGE {"cpu_seconds": 0.044, "stage": "build_xerberus_protocols_for_export", "wall_seconds": 0.032}
+2026-09-23 15:06:35,750 INFO Closing Xerberus database at /tmp/white-snake-top-ab-projection/xerberus.duckdb
+2026-09-23 15:06:36,366 INFO Progress on:Calculating vault performance metrics -/5765 rate:- remaining:? elapsed:00:00 postfix:-
+2026-09-23 15:06:46,412 INFO Progress on:Calculating vault performance metrics 351it/5.76kit rate:47.2it/s remaining:01:54 elapsed:00:10 postfix:-
+2026-09-23 15:06:56,420 INFO Progress on:Calculating vault performance metrics 833it/5.76kit rate:44.5it/s remaining:01:50 elapsed:00:20 postfix:-
+2026-09-23 15:07:06,438 INFO Progress on:Calculating vault performance metrics 1.31kit/5.76kit rate:46.2it/s remaining:01:36 elapsed:00:30 postfix:-
+2026-09-23 15:07:16,475 INFO Progress on:Calculating vault performance metrics 1.79kit/5.76kit rate:49.4it/s remaining:01:20 elapsed:00:40 postfix:-
+2026-09-23 15:07:26,540 INFO Progress on:Calculating vault performance metrics 2.23kit/5.76kit rate:44.8it/s remaining:01:18 elapsed:00:50 postfix:-
+2026-09-23 15:07:36,620 INFO Progress on:Calculating vault performance metrics 2.72kit/5.76kit rate:46.6it/s remaining:01:05 elapsed:01:00 postfix:-
+2026-09-23 15:07:46,683 INFO Progress on:Calculating vault performance metrics 3.19kit/5.76kit rate:50.9it/s remaining:00:50 elapsed:01:10 postfix:-
+2026-09-23 15:07:56,709 INFO Progress on:Calculating vault performance metrics 3.66kit/5.76kit rate:53.1it/s remaining:00:39 elapsed:01:20 postfix:-
+2026-09-23 15:08:06,751 INFO Progress on:Calculating vault performance metrics 4.13kit/5.76kit rate:25.5it/s remaining:01:03 elapsed:01:30 postfix:-
+2026-09-23 15:08:16,838 INFO Progress on:Calculating vault performance metrics 4.61kit/5.76kit rate:48.9it/s remaining:00:23 elapsed:01:40 postfix:-
+2026-09-23 15:08:26,941 INFO Progress on:Calculating vault performance metrics 5.18kit/5.76kit rate:65.7it/s remaining:00:08 elapsed:01:50 postfix:-
+2026-09-23 15:08:36,378 INFO Progress on:Calculating vault performance metrics 5.76kit/5.76kit rate:62.7it/s remaining:00:00 elapsed:02:00 postfix:-
+2026-09-23 15:08:36,778 INFO Calculated signed period flow metrics for 1342/5765 vaults
+BENCHMARK_STAGE {"cpu_seconds": 121.081, "rows": 5765, "stage": "calculate_lifetime_metrics", "wall_seconds": 121.23}
+2026-09-23 15:08:36,992 INFO Calculated lifetime metrics for 5765 vaults with 109 columns
+BENCHMARK_STAGE {"cpu_seconds": 0.655, "stage": "free_memory", "wall_seconds": 0.655}
+2026-09-23 15:08:37,914 INFO Phase metrics complete: 122.68s, RSS 2.1 GiB, process major faults +0, host swap pages in/out +86525/+42435
+BENCHMARK_STAGE {"cpu_seconds": 6.02, "stage": "apply_sticky_export_state", "wall_seconds": 6.021}
+BENCHMARK_STAGE {"cpu_seconds": 0.513, "stage": "free_memory", "wall_seconds": 0.513}
+2026-09-23 15:08:44,497 INFO Phase sticky complete: 6.59s, RSS 2.2 GiB, process major faults +0, host swap pages in/out +5726/+34
+Opened feed database at /tmp/white-snake-top-ab-projection/vault-post-database.duckdb
+2026-09-23 15:08:45,186 INFO Built curator export for 208 curators
+BENCHMARK_STAGE {"cpu_seconds": 0.617, "stage": "build_curators_for_export", "wall_seconds": 0.599}
+2026-09-23 15:08:45,187 INFO Closing vault post database at /tmp/white-snake-top-ab-projection/vault-post-database.duckdb
+Built curator export for 208 curators
+BENCHMARK_STAGE {"cpu_seconds": 0.018, "stage": "append_strategy_categories_to_export", "wall_seconds": 0.018}
+Built strategy category export for 33 tags
+Xerberus coverage: 67 pool / 1592 protocol / 3772 unmatched (30.55% of 5431)
+BENCHMARK_STAGE {"cpu_seconds": 0.486, "stage": "validate_strict_json_serialisable", "wall_seconds": 0.486}
+BENCHMARK_STAGE {"cpu_seconds": 0.51, "stage": "validate_strict_json_serialisable", "wall_seconds": 0.51}
+BENCHMARK_STAGE {"cpu_seconds": 1.337, "stage": "json_dump", "wall_seconds": 1.443}
+BENCHMARK_STAGE {"cpu_seconds": 1.442, "stage": "json_dump", "wall_seconds": 1.442}
+BENCHMARK_STAGE {"cpu_seconds": 1.447, "stage": "save_sticky_export_state", "wall_seconds": 1.447}
+Sticky export state: loaded 5,431 vault entries from /tmp/white-snake-top-ab-projection/vault-export-state.json
+BENCHMARK_STAGE {"cpu_seconds": 0.056, "stage": "json_dump", "wall_seconds": 0.056}
+BENCHMARK_STAGE {"cpu_seconds": 0.057, "stage": "save_metrics_state", "wall_seconds": 0.057}
+2026-09-23 15:08:49,198 INFO Phase export-write complete: 4.70s, RSS 1.5 GiB, process major faults +0, host swap pages in/out +5438/+7255
+2026-09-23 15:08:49,198 INFO Metrics freshness state: 5765 vaults recomputed, 7030 low-TVL vaults kept
+Current filter passed: 5,462
+Sticky additions: 0
+Sticky fallback exports: 0
+Current-row structural fallbacks: 0
+Structurally suppressed vaults: 0
+Stale warning vaults: 703
+Missing protocol slugs for sticky rows: 0
+Missing curator slugs for sticky rows: 0
+Exported 5,431 vault rows to /tmp/white-snake-top-ab-projection/top_vaults_by_chain.json
+BENCHMARK_RESULT {"cpu_seconds": 186.799, "fixed_now": "2026-09-23T15:00:00", "force_all_columns": false, "input": {"metadata_mtime_ns": 1790095081067599831, "metadata_size_bytes": 53933036, "price_mtime_ns": 1790095127735114707, "price_path": "/home/mikko/.tradingstrategy/cleaned-vault-prices-1h.parquet", "price_rows": 10116623, "price_size_bytes": 259507258}, "output_size_bytes": 75649906, "output_vaults": 5431, "peak_rss_kib": 8681320, "phase": "warm", "stages": [{"cpu_seconds": 0.914, "rows": 10116623, "stage": "read_parquet", "wall_seconds": 0.305}, {"cpu_seconds": 5.721, "stage": "cross_check_data", "wall_seconds": 5.721}, {"cpu_seconds": 0.256, "stage": "compute_vault_tvl_observations", "wall_seconds": 0.256}, {"cpu_seconds": 0.444, "stage": "free_memory", "wall_seconds": 0.444}, {"cpu_seconds": 0.032, "due_vaults": 5765, "skipped_vaults": 7030, "stage": "partition_due_vault_ids", "wall_seconds": 0.032}, {"cpu_seconds": 4.763, "rows": 8490655, "stage": "read_parquet", "wall_seconds": 0.389}, {"cpu_seconds": 0.462, "stage": "free_memory", "wall_seconds": 0.462}, {"cpu_seconds": 36.214, "rows": 2851489, "stage": "calculate_hourly_returns_for_all_vaults", "wall_seconds": 36.217}, {"cpu_seconds": 0.528, "stage": "free_memory", "wall_seconds": 0.528}, {"cpu_seconds": 0.114, "stage": "build_core3_protocols_for_export", "wall_seconds": 0.073}, {"cpu_seconds": 0.186, "stage": "build_xerberus_pool_lookup", "wall_seconds": 0.129}, {"cpu_seconds": 0.044, "stage": "build_xerberus_protocols_for_export", "wall_seconds": 0.032}, {"cpu_seconds": 121.081, "rows": 5765, "stage": "calculate_lifetime_metrics", "wall_seconds": 121.23}, {"cpu_seconds": 0.655, "stage": "free_memory", "wall_seconds": 0.655}, {"cpu_seconds": 6.02, "stage": "apply_sticky_export_state", "wall_seconds": 6.021}, {"cpu_seconds": 0.513, "stage": "free_memory", "wall_seconds": 0.513}, {"cpu_seconds": 0.617, "stage": "build_curators_for_export", "wall_seconds": 0.599}, {"cpu_seconds": 0.018, "stage": "append_strategy_categories_to_export", "wall_seconds": 0.018}, {"cpu_seconds": 0.486, "stage": "validate_strict_json_serialisable", "wall_seconds": 0.486}, {"cpu_seconds": 0.51, "stage": "validate_strict_json_serialisable", "wall_seconds": 0.51}, {"cpu_seconds": 1.337, "stage": "json_dump", "wall_seconds": 1.443}, {"cpu_seconds": 1.442, "stage": "json_dump", "wall_seconds": 1.442}, {"cpu_seconds": 1.447, "stage": "save_sticky_export_state", "wall_seconds": 1.447}, {"cpu_seconds": 0.056, "stage": "json_dump", "wall_seconds": 0.056}, {"cpu_seconds": 0.057, "stage": "save_metrics_state", "wall_seconds": 0.057}], "wall_seconds": 181.792}

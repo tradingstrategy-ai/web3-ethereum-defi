@@ -193,7 +193,9 @@ def main() -> None:
                 "Share price": format_metric(share_price),
                 "Performance fee": format_metric(row.get("Perf fee")),
                 "Management fee (user-facing)": format_metric(row.get("Mgmt fee")),
-                "Protocol fee": format_metric(row.get("Protocol fee")),
+                # Reference only: subtract this from management only to show a
+                # manager-only rate. It is already included in investor fees.
+                "Protocol fee (included in management)": format_metric(row.get("Protocol fee")),
             }
         )
     print(tabulate(table, headers="keys", tablefmt="github"))

@@ -23,6 +23,7 @@ AEGIS_YUSD_BINANCE_ADDRESS = "0xAB3dBcD9B096C3fF76275038bf58eAC10D22C61f"
 AEGIS_YUSD_AVALANCHE_ADDRESS = "0xca2671Dcd031a72359f456C212F62A9bDa737cD7"
 AEGIS_JUSD_ADDRESS = "0xc86168d2424d28942EE0866F043c1206bc9E4900"
 NOON_SUSN_ADDRESS = "0xE24a3DC889621612422A64E6388927901608B91D"
+AXIS_USDX_PLASMA_ADDRESS = "0xA1FA77779e6866fa3eF48FC0720657E042158387"
 
 
 @dataclass(slots=True)
@@ -138,6 +139,27 @@ slug: usdx
 """
     )
     return yaml_path
+
+
+def test_address_slug_lookup_keeps_axis_usdx_separate_from_kava_usdx(tmp_path: Path) -> None:
+    """Resolve Axis USDx by its contract address, never the shared ticker."""
+    _write_usdx_yaml(tmp_path)
+    (tmp_path / "usdx-axis.yaml").write_text(
+        f"""symbol: USDx
+name: Axis USDx
+slug: usdx-axis
+category: stablecoin
+ambiguous_symbol: true
+contract_addresses:
+  - chain: plasma
+    address: '{AXIS_USDX_PLASMA_ADDRESS}'
+"""
+    )
+
+    feeder = StablecoinRateFeeder(tmp_path)
+
+    assert feeder.get_denomination_token_slug(AXIS_USDX_PLASMA_ADDRESS) == "usdx-axis"
+    assert feeder.get_denomination_token_slug(USDX_ADDRESS) == "usdx"
 
 
 def _write_fiat_stablecoin_yaml(data_dir: Path, symbol: str, name: str, coingecko_id: str) -> Path:
@@ -1495,3 +1517,70 @@ def test_packaged_apyusd_manual_depeg_blacklists_pinned_contracts() -> None:
 
     assert (1, "0x38eeb52f0771140d10c4e9a9a72349a329fe8a6a") in depegged_contracts
     assert (8453, "0x2c271ddf484ac0386d216eb7eb9ff02d4dc0f6aa") in depegged_contracts
+
+
+def test_stablecoin_yaml_metadata_parsed_once(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Stablecoin YAML files are parsed once and cached in-process forever.
+
+    ``read_stablecoin_metadata`` is spied (not mocked) so the real strict YAML
+    parsing still runs; the spy only counts calls. The in-process edit
+    sub-check documents the accepted consequence of the forever cache: edits
+    are not picked up until the process restarts.
+
+    1. Write two real minimal stablecoin YAML files.
+    2. Build all three lookups and count parser calls: one parse per file, not
+       one per lookup.
+    3. Edit a YAML in place and rebuild: the cached value is served.
+    """
+    yaml_file_count = 2
+    stablecoin_rate.load_stablecoin_rate_targets.cache_clear()
+
+    usdc_address = "0x0000000000000000000000000000000000000001"
+    for slug, symbol in (("usdc", "USDC"), ("usdt", "USDT")):
+        (tmp_path / f"{slug}.yaml").write_text(
+            f"""symbol: {symbol}
+name: Test {symbol}
+short_description: Test {symbol}
+long_description: ''
+category: stablecoin
+source_currency: usd
+source_currency_source: manual
+links:
+  homepage: https://www.example.com
+slug: {slug}
+contract_addresses:
+  - chain: ethereum
+    address: '{usdc_address}'
+checks:
+  twitter_last_post_at: ''
+  domain_up_at: ''
+  marked_dead_at: ''
+  information_found_missing_at: ''
+""",
+            encoding="utf-8",
+        )
+
+    # 2
+    real_read = stablecoin_rate.read_stablecoin_metadata
+    call_count = 0
+
+    def counting_read(path):
+        nonlocal call_count
+        call_count += 1
+        return real_read(path)
+
+    monkeypatch.setattr(stablecoin_rate, "read_stablecoin_metadata", counting_read)
+    contract_rates, _symbol_rates = stablecoin_rate.build_stablecoin_rate_lookups(tmp_path)
+    stablecoin_rate.build_depegged_stablecoin_lookups(tmp_path)
+    address_slugs = stablecoin_rate.build_stablecoin_address_slug_lookup(tmp_path)
+    assert call_count == yaml_file_count
+    assert (1, usdc_address) in contract_rates
+    assert address_slugs[usdc_address] == "usdc"
+
+    # 3
+    (tmp_path / "usdc.yaml").write_text((tmp_path / "usdc.yaml").read_text(encoding="utf-8").replace("slug: usdc", "slug: usdc-renamed"), encoding="utf-8")
+    _, symbol_rates_after = stablecoin_rate.build_stablecoin_rate_lookups(tmp_path)
+    assert call_count == yaml_file_count
+    assert "USDC" in symbol_rates_after
+
+    stablecoin_rate.load_stablecoin_rate_targets.cache_clear()

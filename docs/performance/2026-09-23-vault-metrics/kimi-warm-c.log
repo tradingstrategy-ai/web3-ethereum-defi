@@ -1,0 +1,105 @@
+2026-09-23 17:05:31,424 INFO Yearn export cleanup: catalogue=921 candidates=1455 rejected=565 changed=1232
+2026-09-23 17:05:31,424 INFO Vault export post-processor clean_yearn_vault_metadata completed: changed=1232 elapsed=0.545s
+BENCHMARK_STAGE {"cpu_seconds": 0.845, "rows": 10116623, "stage": "read_parquet", "wall_seconds": 0.216}
+2026-09-23 17:05:31,675 INFO Loaded 51907 vault metadata entries and 10116623 price rows across 29 chains from 2022-03-10 14:38:58 to 2026-09-22 15:14:43.301000; price columns: 48
+BENCHMARK_STAGE {"cpu_seconds": 0.378, "stage": "cross_check_data", "wall_seconds": 0.378}
+2026-09-23 17:05:32,053 INFO Phase parquet-read complete: 3.93s, RSS 2.1 GiB, process major faults +0
+2026-09-23 17:05:32,070 INFO The report covers 25200 stablecoin-denominated vaults out of 51907 total vaults
+2026-09-23 17:05:32,267 INFO Filtered stablecoin-denominated price data has 10116623 rows
+BENCHMARK_STAGE {"cpu_seconds": 0.248, "stage": "compute_vault_tvl_observations", "wall_seconds": 0.248}
+BENCHMARK_STAGE {"cpu_seconds": 0.429, "stage": "free_memory", "wall_seconds": 0.429}
+BENCHMARK_STAGE {"cpu_seconds": 0.032, "due_vaults": 5765, "skipped_vaults": 7030, "stage": "partition_due_vault_ids", "wall_seconds": 0.032}
+2026-09-23 17:05:33,216 INFO Metrics freshness: 5765 vaults due, 7030 low-TVL vaults still fresh
+BENCHMARK_STAGE {"cpu_seconds": 4.799, "rows": 8490655, "stage": "read_parquet", "wall_seconds": 0.384}
+BENCHMARK_STAGE {"cpu_seconds": 0.475, "stage": "free_memory", "wall_seconds": 0.475}
+2026-09-23 17:05:34,076 INFO Due-filtered hourly price rows: 8490655
+2026-09-23 17:05:34,077 INFO Phase due-filtered-read complete: 2.02s, RSS 3.9 GiB, process major faults +0
+2026-09-23 17:05:34,294 INFO Progress on:Preparing daily vault returns -/5765 rate:- remaining:? elapsed:00:00 postfix:-
+2026-09-23 17:05:44,358 INFO Progress on:Preparing daily vault returns 1.70kit/5.76kit rate:208.0it/s remaining:00:19 elapsed:00:10 postfix:-
+2026-09-23 17:05:54,378 INFO Progress on:Preparing daily vault returns 3.47kit/5.76kit rate:212.4it/s remaining:00:10 elapsed:00:20 postfix:-
+2026-09-23 17:06:04,481 INFO Progress on:Preparing daily vault returns 5.29kit/5.76kit rate:203.4it/s remaining:00:02 elapsed:00:30 postfix:-
+2026-09-23 17:06:06,909 INFO Progress on:Preparing daily vault returns 5.76kit/5.76kit rate:193.0it/s remaining:00:00 elapsed:00:32 postfix:-
+BENCHMARK_STAGE {"cpu_seconds": 34.921, "rows": 2851489, "stage": "calculate_hourly_returns_for_all_vaults", "wall_seconds": 34.925}
+BENCHMARK_STAGE {"cpu_seconds": 0.524, "stage": "free_memory", "wall_seconds": 0.524}
+2026-09-23 17:06:09,546 INFO Phase daily-prep complete: 35.47s, RSS 2.7 GiB, process major faults +0
+2026-09-23 17:06:09,792 INFO Opened Core3 risk database at /tmp/white-snake-kimi-run-c/core3.duckdb with 1428 projects
+2026-09-23 17:06:09,891 INFO Built Core3 export records for 20 / 127 protocol slugs
+BENCHMARK_STAGE {"cpu_seconds": 0.165, "stage": "build_core3_protocols_for_export", "wall_seconds": 0.099}
+2026-09-23 17:06:09,891 INFO Closing Core3 database at /tmp/white-snake-kimi-run-c/core3.duckdb
+2026-09-23 17:06:09,927 INFO Opened Xerberus risk database at /tmp/white-snake-kimi-run-c/xerberus.duckdb with 105 pools and 53 protocols
+2026-09-23 17:06:10,054 INFO Built Xerberus pool lookup with 105 keys
+BENCHMARK_STAGE {"cpu_seconds": 0.183, "stage": "build_xerberus_pool_lookup", "wall_seconds": 0.127}
+2026-09-23 17:06:10,085 INFO Built Xerberus protocol export for 25 / 127 slugs
+BENCHMARK_STAGE {"cpu_seconds": 0.042, "stage": "build_xerberus_protocols_for_export", "wall_seconds": 0.031}
+2026-09-23 17:06:10,086 INFO Closing Xerberus database at /tmp/white-snake-kimi-run-c/xerberus.duckdb
+2026-09-23 17:06:10,610 INFO Progress on:Calculating vault performance metrics -/5765 rate:- remaining:? elapsed:00:00 postfix:-
+2026-09-23 17:06:20,701 INFO Progress on:Calculating vault performance metrics 376it/5.76kit rate:50.4it/s remaining:01:46 elapsed:00:10 postfix:-
+2026-09-23 17:06:30,795 INFO Progress on:Calculating vault performance metrics 858it/5.76kit rate:48.3it/s remaining:01:41 elapsed:00:20 postfix:-
+2026-09-23 17:06:40,821 INFO Progress on:Calculating vault performance metrics 1.34kit/5.76kit rate:46.5it/s remaining:01:35 elapsed:00:30 postfix:-
+2026-09-23 17:06:50,883 INFO Progress on:Calculating vault performance metrics 1.82kit/5.76kit rate:49.0it/s remaining:01:20 elapsed:00:40 postfix:-
+2026-09-23 17:07:00,908 INFO Progress on:Calculating vault performance metrics 2.24kit/5.76kit rate:44.6it/s remaining:01:19 elapsed:00:50 postfix:-
+2026-09-23 17:07:10,951 INFO Progress on:Calculating vault performance metrics 2.73kit/5.76kit rate:47.6it/s remaining:01:03 elapsed:01:00 postfix:-
+2026-09-23 17:07:21,032 INFO Progress on:Calculating vault performance metrics 3.20kit/5.76kit rate:46.3it/s remaining:00:55 elapsed:01:10 postfix:-
+2026-09-23 17:07:31,045 INFO Progress on:Calculating vault performance metrics 3.67kit/5.76kit rate:50.6it/s remaining:00:41 elapsed:01:20 postfix:-
+2026-09-23 17:07:41,134 INFO Progress on:Calculating vault performance metrics 4.13kit/5.76kit rate:24.5it/s remaining:01:06 elapsed:01:30 postfix:-
+2026-09-23 17:07:51,196 INFO Progress on:Calculating vault performance metrics 4.59kit/5.76kit rate:47.1it/s remaining:00:24 elapsed:01:40 postfix:-
+2026-09-23 17:08:01,202 INFO Progress on:Calculating vault performance metrics 5.16kit/5.76kit rate:71.1it/s remaining:00:08 elapsed:01:50 postfix:-
+2026-09-23 17:08:11,235 INFO Progress on:Calculating vault performance metrics 5.76kit/5.76kit rate:60.1it/s remaining:00:00 elapsed:02:00 postfix:-
+2026-09-23 17:08:11,320 INFO Progress on:Calculating vault performance metrics 5.76kit/5.76kit rate:60.1it/s remaining:00:00 elapsed:02:00 postfix:-
+2026-09-23 17:08:11,762 INFO Calculated signed period flow metrics for 1342/5765 vaults
+BENCHMARK_STAGE {"cpu_seconds": 121.869, "rows": 5765, "stage": "calculate_lifetime_metrics", "wall_seconds": 121.885}
+2026-09-23 17:08:11,982 INFO Calculated lifetime metrics for 5765 vaults with 109 columns
+BENCHMARK_STAGE {"cpu_seconds": 0.651, "stage": "free_memory", "wall_seconds": 0.651}
+2026-09-23 17:08:13,026 INFO Phase metrics complete: 123.48s, RSS 2.1 GiB, process major faults +0
+BENCHMARK_STAGE {"cpu_seconds": 5.982, "stage": "apply_sticky_export_state", "wall_seconds": 5.984}
+BENCHMARK_STAGE {"cpu_seconds": 0.506, "stage": "free_memory", "wall_seconds": 0.506}
+2026-09-23 17:08:19,566 INFO Phase sticky complete: 6.54s, RSS 2.0 GiB, process major faults +0
+2026-09-23 17:08:19,662 INFO Opened feed database at /tmp/white-snake-kimi-run-c/vault-post-database.duckdb
+2026-09-23 17:08:20,266 INFO Built curator export for 208 curators
+BENCHMARK_STAGE {"cpu_seconds": 0.646, "stage": "build_curators_for_export", "wall_seconds": 0.605}
+2026-09-23 17:08:20,267 INFO Closing vault post database at /tmp/white-snake-kimi-run-c/vault-post-database.duckdb
+2026-09-23 17:08:20,280 INFO Built curator export for 208 curators
+BENCHMARK_STAGE {"cpu_seconds": 0.021, "stage": "append_strategy_categories_to_export", "wall_seconds": 0.021}
+2026-09-23 17:08:20,301 INFO Built strategy category export for 33 tags
+2026-09-23 17:08:20,301 INFO Xerberus coverage: 67 pool / 1592 protocol / 3772 unmatched (30.55% of 5431)
+BENCHMARK_STAGE {"cpu_seconds": 0.496, "stage": "validate_strict_json_serialisable", "wall_seconds": 0.496}
+BENCHMARK_STAGE {"cpu_seconds": 0.527, "stage": "validate_strict_json_serialisable", "wall_seconds": 0.527}
+BENCHMARK_STAGE {"cpu_seconds": 0.105, "stage": "save_sticky_export_state", "wall_seconds": 0.105}
+2026-09-23 17:08:21,524 INFO Sticky export state: loaded 5431 vault entries from /tmp/white-snake-kimi-run-c/vault-export-state.json
+BENCHMARK_STAGE {"cpu_seconds": 0.053, "stage": "json_dump", "wall_seconds": 0.053}
+BENCHMARK_STAGE {"cpu_seconds": 0.053, "stage": "save_metrics_state", "wall_seconds": 0.053}
+2026-09-23 17:08:21,609 INFO Phase export-write complete: 2.04s, RSS 1.5 GiB, process major faults +0
+2026-09-23 17:08:21,609 INFO Metrics freshness state: 5765 vaults recomputed, 7030 low-TVL vaults kept
+2026-09-23 17:08:21,609 INFO Current filter passed: 5462
+2026-09-23 17:08:21,609 INFO Sticky additions: 0
+2026-09-23 17:08:21,609 INFO Sticky fallback exports: 0
+2026-09-23 17:08:21,609 INFO Current-row structural fallbacks: 0
+2026-09-23 17:08:21,609 INFO Structurally suppressed vaults: 0
+2026-09-23 17:08:21,609 INFO Stale warning vaults: 703
+2026-09-23 17:08:21,609 INFO Missing protocol slugs for sticky rows: 0
+2026-09-23 17:08:21,609 INFO Missing curator slugs for sticky rows: 0
+2026-09-23 17:08:21,609 INFO Exported 5431 vault rows to /tmp/white-snake-kimi-run-c/top_vaults_by_chain.json
+BENCHMARK_RESULT {"cpu_seconds": 178.622, "fixed_now": "2026-09-23T15:00:00", "force_all_columns": false, "input": {"metadata_mtime_ns": 1790095081067599831, "metadata_size_bytes": 53933036, "price_mtime_ns": 1790095127735114707, "price_path": "/home/mikko/.tradingstrategy/cleaned-vault-prices-1h.parquet", "price_rows": 10116623, "price_size_bytes": 259507258}, "output_size_bytes": 75647738, "output_vaults": 5431, "peak_rss_kib": 8637432, "phase": "warm", "stages": [{"cpu_seconds": 0.845, "rows": 10116623, "stage": "read_parquet", "wall_seconds": 0.216}, {"cpu_seconds": 0.378, "stage": "cross_check_data", "wall_seconds": 0.378}, {"cpu_seconds": 0.248, "stage": "compute_vault_tvl_observations", "wall_seconds": 0.248}, {"cpu_seconds": 0.429, "stage": "free_memory", "wall_seconds": 0.429}, {"cpu_seconds": 0.032, "due_vaults": 5765, "skipped_vaults": 7030, "stage": "partition_due_vault_ids", "wall_seconds": 0.032}, {"cpu_seconds": 4.799, "rows": 8490655, "stage": "read_parquet", "wall_seconds": 0.384}, {"cpu_seconds": 0.475, "stage": "free_memory", "wall_seconds": 0.475}, {"cpu_seconds": 34.921, "rows": 2851489, "stage": "calculate_hourly_returns_for_all_vaults", "wall_seconds": 34.925}, {"cpu_seconds": 0.524, "stage": "free_memory", "wall_seconds": 0.524}, {"cpu_seconds": 0.165, "stage": "build_core3_protocols_for_export", "wall_seconds": 0.099}, {"cpu_seconds": 0.183, "stage": "build_xerberus_pool_lookup", "wall_seconds": 0.127}, {"cpu_seconds": 0.042, "stage": "build_xerberus_protocols_for_export", "wall_seconds": 0.031}, {"cpu_seconds": 121.869, "rows": 5765, "stage": "calculate_lifetime_metrics", "wall_seconds": 121.885}, {"cpu_seconds": 0.651, "stage": "free_memory", "wall_seconds": 0.651}, {"cpu_seconds": 5.982, "stage": "apply_sticky_export_state", "wall_seconds": 5.984}, {"cpu_seconds": 0.506, "stage": "free_memory", "wall_seconds": 0.506}, {"cpu_seconds": 0.646, "stage": "build_curators_for_export", "wall_seconds": 0.605}, {"cpu_seconds": 0.021, "stage": "append_strategy_categories_to_export", "wall_seconds": 0.021}, {"cpu_seconds": 0.496, "stage": "validate_strict_json_serialisable", "wall_seconds": 0.496}, {"cpu_seconds": 0.527, "stage": "validate_strict_json_serialisable", "wall_seconds": 0.527}, {"cpu_seconds": 0.105, "stage": "save_sticky_export_state", "wall_seconds": 0.105}, {"cpu_seconds": 0.053, "stage": "json_dump", "wall_seconds": 0.053}, {"cpu_seconds": 0.053, "stage": "save_metrics_state", "wall_seconds": 0.053}], "wall_seconds": 173.628}
+	Command being timed: "timeout 600 poetry run python docs/performance/2026-09-23-vault-metrics/benchmark-top-vaults.py"
+	User time (seconds): 184.55
+	System time (seconds): 7.64
+	Percent of CPU this job got: 108%
+	Elapsed (wall clock) time (h:mm:ss or m:ss): 2:56.50
+	Average shared text size (kbytes): 0
+	Average unshared data size (kbytes): 0
+	Average stack size (kbytes): 0
+	Average total size (kbytes): 0
+	Maximum resident set size (kbytes): 8637432
+	Average resident set size (kbytes): 0
+	Major (requiring I/O) page faults: 0
+	Minor (reclaiming a frame) page faults: 6496699
+	Voluntary context switches: 12806
+	Involuntary context switches: 1542
+	Swaps: 0
+	File system inputs: 0
+	File system outputs: 288
+	Socket messages sent: 0
+	Socket messages received: 0
+	Signals delivered: 0
+	Page size (bytes): 4096
+	Exit status: 0

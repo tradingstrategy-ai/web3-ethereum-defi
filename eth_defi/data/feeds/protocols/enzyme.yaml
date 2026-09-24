@@ -5,3 +5,19 @@ website: https://enzyme.finance/
 linkedin: enzymefinance
 # twitter: not found
 # rss: not found
+short_description: One of the oldest onchain asset-management protocols, Enzyme provides tokenised-finance infrastructure for businesses and institutions.
+long_description: |
+  Enzyme is one of the oldest onchain asset-management protocols, with a mainnet track record extending back to 2019. It began in 2017 as Melon Protocol, was rebranded as Enzyme in 2020, and is now positioned as infrastructure for tokenised finance. The original Melonport founders were [Mona El Isa and Reto Trinkler](https://medium.com/enzymefinance/melonport-progress-update-6-months-later-eec22f5de85c); Enzyme's current company history identifies El Isa as its founder and documents the protocol's progression from asset-management software to a business-and-institutional platform.
+
+  The business now offers Enzyme Blue for tokenised funds, liquidity pools and other managed onchain products, Enzyme Onyx for tokenised-wallet infrastructure, and Enzyme Myso for options products. The expansion followed the 2024 acquisition of Myso Finance and reflects Enzyme's presence across fund managers, liquid-staking projects and blockchain banks, as described in its [governance overview](https://docs.enzyme.finance/about-enzyme/governance) and [company history](https://www.enzyme.finance/about-us).
+
+  Security and operating history are central to its proposition. Enzyme has maintained a public mainnet presence for more than six years, states that new releases receive reviews from multiple auditors, and runs an [Immunefi bug-bounty programme](https://docs.enzyme.finance/onyx-protocol/security/bug-bounty). These practices support a strong long-term track record, but each vault remains a separate investment product: investors should assess its manager, configuration, asset and oracle risks before depositing.
+other-links:
+  - title: Enzyme governance and protocol history
+    url: https://docs.enzyme.finance/about-enzyme/governance
+  - title: Enzyme company history
+    url: https://www.enzyme.finance/about-us
+  - title: Enzyme security and risk documentation
+    url: https://docs.enzyme.finance/user-documentation/blue-general-info/risks
+  - title: Enzyme Blue and Onyx product history
+    url: https://enzyme.finance/blog-posts/the-catalyst

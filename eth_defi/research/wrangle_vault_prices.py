@@ -15,10 +15,13 @@ The output is a cleaned DataFrame conforming to
 """
 
 import os
-import pickle
 import tempfile
+import time
 import warnings
 from bisect import bisect_right
+from collections import defaultdict
+from collections.abc import Collection, Iterable, Mapping
+from decimal import Decimal
 from pathlib import Path
 from typing import Callable, TypedDict
 
@@ -26,8 +29,8 @@ import numpy as np
 import pandas as pd
 import pyarrow as pa
 import pyarrow.compute as pc
+import pyarrow.dataset as ds
 import pyarrow.parquet as pq
-from eth_typing import HexAddress
 from IPython.display import display
 from tqdm_loggable.auto import tqdm
 
@@ -35,9 +38,13 @@ from eth_defi.chain import get_chain_name
 from eth_defi.hyperliquid.constants import HYPERCORE_CHAIN_ID
 from eth_defi.perp_dex.adapter import embed_perp_capability_registry, load_perp_capability_registry
 from eth_defi.perp_dex.parquet import PERP_DEX_NATIVE_CHAIN_IDS, build_registered_perp_vault_index, finalise_perp_metric_columns
-from eth_defi.token import is_stablecoin_like
 from eth_defi.types import Percent
 from eth_defi.vault.base import VaultSpec, verify_parquet_file
+from eth_defi.vault.denomination import (
+    DenominationFamily,
+    classify_denomination,
+    convert_usd_threshold_to_denomination,
+)
 from eth_defi.vault.settlement_data import (
     merge_vault_settlements_into_cleaned_prices,
 )
@@ -74,6 +81,15 @@ MIN_HYPERCORE_INITIAL_TRACKING_ASSETS = MIN_HYPERCORE_RECAPITALISATION_ASSETS
 #: Ignore isolated zero-NAV observations that recover before this delay.
 MIN_HYPERCORE_RECAPITALISATION_RECOVERY_DELAY = pd.Timedelta(days=7)
 
+#: Minimum observations needed to infer the median sampling interval.
+MIN_ROWS_FOR_INTERVAL_ESTIMATE = 2
+
+#: Internal integer grouping key reused across the large cleaning stages.
+#:
+#: The column is removed before a cleaned frame is returned. Keeping one
+#: first-seen factorisation avoids repeatedly hashing millions of string IDs.
+INTERNAL_VAULT_GROUP_COLUMN = "_vault_group_code"
+
 
 class CleanedVaultPriceRow(TypedDict, total=False):
     """Schema for a single row in the cleaned vault price DataFrame.
@@ -84,7 +100,9 @@ class CleanedVaultPriceRow(TypedDict, total=False):
 
     It extends :py:class:`~eth_defi.vault.base.RawVaultPriceRow` with
     denormalised metadata columns (``id``, ``name``, ``event_count``,
-    ``protocol``) and computed columns (``returns_1h``).
+    ``protocol``) and computed columns (``returns_1h``). ``returns_1h`` is a
+    legacy name: it is the return between consecutive observations and does
+    not guarantee a one-hour interval.
     The DataFrame uses a :py:class:`~pandas.DatetimeIndex` built from the
     ``timestamp`` column.
 
@@ -97,9 +115,11 @@ class CleanedVaultPriceRow(TypedDict, total=False):
       (IPOR, Euler, Morpho, Gearbox, etc.) and NaN for others.
     - **Hypercore only** columns come from the Hyperliquid native vault API
       and are NaN for all other protocols.
-    - **Native protocol flow** columns are populated for native protocols
-      that provide daily deposit/withdrawal data (Hypercore, GRVT, Lighter,
-      Hibachi) and NaN for ERC-4626 vaults.
+    - **Investor-flow** amount columns contain direct daily observations for
+      Hypercore and Lighter. Event counts are available for Hypercore only.
+      These columns remain NaN in cleaned ERC-4626 price data; the metrics
+      exporter can estimate signed stablecoin-vault flow later from consecutive
+      daily total-assets, total-supply and share-price states.
     """
 
     # -- General columns (all protocols) --
@@ -276,7 +296,7 @@ class CleanedVaultPriceRow(TypedDict, total=False):
     #: Lending only — IPOR, Euler, Morpho, Gearbox, etc. NaN for other protocols.
     available_liquidity: float
 
-    #: Utilisation ratio (0.0–1.0) for lending vaults. NaN if not applicable.
+    #: Utilisation ratio (0.0-1.0) for lending vaults. NaN if not applicable.
     #:
     #: .. warning::
     #:
@@ -341,12 +361,12 @@ class CleanedVaultPriceRow(TypedDict, total=False):
     # -- Hypercore only columns --
     # Populated for native Hyperliquid vaults (chain 9999). NaN for all other protocols.
 
-    #: Fraction of vault assets controlled by the leader (0.0–1.0).
+    #: Fraction of vault assets controlled by the leader (0.0-1.0).
     #:
     #: Hypercore only — NaN for all other protocols.
     leader_fraction: float
 
-    #: Commission rate charged by the vault leader (0.0–1.0).
+    #: Commission rate charged by the vault leader (0.0-1.0).
     #:
     #: Hypercore only — NaN for all other protocols.
     leader_commission: float
@@ -396,28 +416,28 @@ class CleanedVaultPriceRow(TypedDict, total=False):
     #: Hypercore only — empty for ordinary observations and other protocols.
     hypercore_repair_status: str
 
-    # -- Native protocol flow columns --
-    # Populated for native protocols with daily deposit/withdrawal data
-    # (Hypercore, GRVT, Lighter, Hibachi). NaN for ERC-4626 vaults.
+    # -- Direct protocol flow columns --
+    # Amounts are populated for Hypercore and Lighter; event counts are
+    # populated for Hypercore only. All are NaN in cleaned ERC-4626 rows.
 
     #: Number of deposit events in the latest day.
     #:
-    #: Native protocol flow — Hypercore, GRVT, Lighter, Hibachi. NaN for ERC-4626 vaults.
+    #: Direct protocol flow — Hypercore only. NaN for other protocols.
     daily_deposit_count: float
 
     #: Number of withdrawal events in the latest day.
     #:
-    #: Native protocol flow — Hypercore, GRVT, Lighter, Hibachi. NaN for ERC-4626 vaults.
+    #: Direct protocol flow — Hypercore only. NaN for other protocols.
     daily_withdrawal_count: float
 
     #: Total USD deposited in the latest day.
     #:
-    #: Native protocol flow — Hypercore, GRVT, Lighter, Hibachi. NaN for ERC-4626 vaults.
+    #: Direct protocol flow — Hypercore and Lighter. NaN for other protocols.
     daily_deposit_usd: float
 
     #: Total USD withdrawn in the latest day.
     #:
-    #: Native protocol flow — Hypercore, GRVT, Lighter, Hibachi. NaN for ERC-4626 vaults.
+    #: Direct protocol flow — Hypercore and Lighter. NaN for other protocols.
     daily_withdrawal_usd: float
 
 
@@ -427,7 +447,7 @@ PRIORITY_SORT_IDS = [
 ]
 
 
-def get_vaults_by_id(rows: dict[VaultSpec, VaultRow]) -> dict[str, VaultRow]:
+def get_vaults_by_id(rows: Mapping[VaultSpec, VaultRow]) -> dict[str, VaultRow]:
     """Build a dictionary of vaults by their chain-address id.
 
     :param rows:
@@ -533,14 +553,37 @@ def derive_deposit_closed_reason(prices_df: pd.DataFrame) -> pd.DataFrame:
 def assign_unique_names(
     rows: dict[VaultSpec, VaultRow],
     prices_df: pd.DataFrame,
-    logger=print,
-    duplicate_nav_threshold=1000,
+    logger: Callable[[str], None] = print,
+    duplicate_nav_threshold: float = 1000,
+    *,
+    assign_names: bool = True,
 ) -> pd.DataFrame:
     """Ensure all vaults have unique human-readable name.
 
     - Rerwrite metadata rows
     - Find duplicate vault names
     - Add a running counter to the name to make it unique
+
+    The raw price frame can contain many more rows than the selected
+    denomination family.  Callers may therefore request only the canonical
+    ``id`` column first, filter the frame, and add names afterwards.  The
+    default remains ``True`` for notebook and script callers that expect the
+    historical behaviour.
+
+    :param rows:
+        Vault metadata keyed by :class:`VaultSpec`.
+    :param prices_df:
+        Raw price rows to receive ``id`` and optionally ``name``.
+    :param logger:
+        Logging callback for metadata repair diagnostics.
+    :param duplicate_nav_threshold:
+        NAV threshold used by the duplicate-name diagnostic.
+    :param assign_names:
+        Whether to materialise the human-readable name column.  Set to
+        ``False`` when the caller will filter by denomination before mapping
+        names across the large raw frame.
+    :return:
+        The input frame with canonical identifiers and, by default, names.
     """
     vaults_by_id = get_vaults_by_id(rows)
 
@@ -550,14 +593,15 @@ def assign_unique_names(
     used_names = set()
     empty_names = set()
 
-    for id, vault in vaults_by_id.items():
-        # TODO: hack
-        # 40acres forgot to name their vault
-        if vault["Name"] == "Vault":
-            vault["Name"] == "40acres"
+    for vault_id, vault in vaults_by_id.items():
+        # 40acres historically exposed the generic ERC-4626 name ``Vault``.
+        # Restrict this compatibility repair to the detected protocol so other
+        # vaults with the same generic name retain their own identity.
+        if vault["Name"] == "Vault" and vault.get("Protocol") == "40acres":
+            vault["Name"] = "40acres"
 
-        if vault["Name"] in (None, ""):
-            empty_names.add(id)
+        if vault["Name"] in {None, ""}:
+            empty_names.add(vault_id)
 
         if vault["Name"] in used_names:
             chain_name = get_chain_name(vault["_detection_data"].chain)
@@ -578,37 +622,96 @@ def assign_unique_names(
     logger(f"Fixed {counter} duplicate vault names, {len(empty_names)} vaults had empty names, duplicate names with NAV: {duplicate_names_with_nav}")
 
     if empty_names:
-        example_id = list(empty_names)[0]
+        example_id = next(iter(empty_names))
         example = vaults_by_id[example_id]
         logger(f"Example vault with empty name: {example}")
 
     # Vaults are identified by their chain and address tuple, make this one human-readable column
     # to make DataFrame wrangling easier
     prices_df["id"] = prices_df["chain"].astype(str) + "-" + prices_df["address"].astype(str)
-    prices_df["name"] = prices_df["id"].apply(lambda x: vaults_by_id[x]["Name"] if x in vaults_by_id else None)
-
-    # 40acres fix - they did not name their vault,
-    # More about this later
-    prices_df["name"] = prices_df["name"].fillna("<unknown>")
+    if assign_names:
+        # ``Series.map`` performs one vectorised dictionary lookup per row and
+        # avoids a Python callback for every raw observation.  Missing metadata
+        # is deliberately retained as ``<unknown>`` until the caller's
+        # explicit metadata check decides whether those rows are dropped.
+        name_by_id = {vault_id: vault["Name"] for vault_id, vault in vaults_by_id.items()}
+        prices_df["name"] = prices_df["id"].map(name_by_id).fillna("<unknown>")
 
     return prices_df
 
 
-def add_denormalised_vault_data(
-    rows: dict[HexAddress, VaultRow],
+def assign_vault_names(
+    rows: Mapping[VaultSpec, VaultRow],
     prices_df: pd.DataFrame,
-    logger=print,
+) -> pd.DataFrame:
+    """Map repaired vault names onto an already filtered price frame.
+
+    Name assignment is intentionally separate from :func:`assign_unique_names`
+    so denomination filtering can happen before the large row-wise mapping.
+    The metadata repair loop still runs once per vault, while this operation is
+    one vectorised lookup over the selected rows.
+
+    Performance history
+    -------------------
+
+    Baseline (2026-09-22 production run): name and denormalised metadata were
+    mapped before filtering 22,552,978 raw rows as part of the approximately
+    2m14s metadata/selection/sort segment.  In the production-shaped rerun,
+    the complete post-read metadata/filter stage (including this mapping,
+    denomination membership and default-column expansion) took 12.54 seconds
+    on 10,338,606 selected rows; the subsequent sort took 6.56 seconds.  The
+    name-only operation was not isolated, so no separate speed-up or stage RSS
+    is claimed.  The combined metadata/filter/sort segment, including the
+    compact identity scan and Arrow read, was 24.58 seconds with 20.4 GiB
+    peak process RSS.
+
+    :param rows:
+        Vault metadata keyed by :class:`VaultSpec`.
+    :param prices_df:
+        Filtered rows containing the canonical ``id`` column.
+    :return:
+        The input frame with a filled ``name`` column.
+    """
+    vaults_by_id = get_vaults_by_id(rows)
+    name_by_id = {vault_id: vault["Name"] for vault_id, vault in vaults_by_id.items()}
+    prices_df["name"] = prices_df["id"].map(name_by_id).fillna("<unknown>")
+    return prices_df
+
+
+def add_denormalised_vault_data(
+    rows: dict[VaultSpec, VaultRow],
+    prices_df: pd.DataFrame,
+    logger: Callable[[str], None] = print,
 ) -> pd.DataFrame:
     """Add denormalised data to the prices DataFrame.
 
-    - Take data from vault database and duplicate it across every row
-    - Add protocol name and event count columns
+    Protocol names and event counts are mapped from the metadata database onto
+    every selected observation. Unknown identifiers remain a hard error because
+    silently exporting partially enriched rows would corrupt downstream reports.
+
+    :param rows:
+        Vault metadata keyed by vault specification.
+    :param prices_df:
+        Selected price rows containing the canonical ``id`` column.
+    :param logger:
+        Diagnostic callback accepting one message.
+    :return:
+        The input frame with ``event_count`` and ``protocol`` columns.
     """
 
     vaults_by_id = get_vaults_by_id(rows)
     try:
-        prices_df["event_count"] = prices_df["id"].apply(lambda x: vaults_by_id[x]["_detection_data"].deposit_count + vaults_by_id[x]["_detection_data"].redeem_count)
-        prices_df["protocol"] = prices_df["id"].apply(lambda x: vaults_by_id[x]["Protocol"] if x in vaults_by_id else None)
+        # Keep the old hard failure for an unknown id, but do the large lookup
+        # with vectorised maps rather than invoking two Python lambdas for every
+        # selected price observation.
+        known_ids = prices_df["id"].isin(vaults_by_id)
+        if not bool(known_ids.all()):
+            missing_id = prices_df.loc[~known_ids, "id"].iloc[0]
+            raise KeyError(missing_id)
+        event_counts = {vault_id: vault["_detection_data"].deposit_count + vault["_detection_data"].redeem_count for vault_id, vault in vaults_by_id.items()}
+        protocols = {vault_id: vault["Protocol"] for vault_id, vault in vaults_by_id.items()}
+        prices_df["event_count"] = prices_df["id"].map(event_counts)
+        prices_df["protocol"] = prices_df["id"].map(protocols)
     except KeyError as e:
         logger(f"Likely metadata issue: {e}")
         raise
@@ -616,33 +719,56 @@ def add_denormalised_vault_data(
     return prices_df
 
 
-def filter_vaults_by_stablecoin(
-    rows: dict[HexAddress, VaultRow],
+def filter_vaults_by_denomination_families(
+    rows: Mapping[VaultSpec, VaultRow],
     prices_df: pd.DataFrame,
-    logger=print,
+    denomination_families: Iterable[DenominationFamily],
+    *,
+    logger: Callable[[str], None] = print,
 ) -> pd.DataFrame:
-    """Reduce vaults to stablecoin vaults only.
+    """Reduce vault price rows to selected denomination families.
 
+    Classification is based only on the denomination symbol stored in vault
+    metadata.  This preserves the legacy stablecoin filter while allowing the
+    isolated crypto bundle to select reviewed ETH/BTC wrappers.
 
-    - In this notebooks, we focus on stablecoin yield
-    - Do not consider WETH, other native token vaults, as their returns calculation
-      would need to match the appreciation of underlying assets
-    - [is_stablecoin_like](https://web3-ethereum-defi.readthedocs.io/api/core/_autosummary/eth_defi.token.is_stablecoin_like.html?highlight=is_stablecoin_like#eth_defi.token.is_stablecoin_like) supports GHO, crvUSD and other DeFi/algorithmic stablecoins
-    - Note that this picks up very few EUR and other fiat-nominated vaults
-
+    :param rows:
+        Vault metadata rows keyed by vault specification.
+    :param prices_df:
+        Raw/enriched price rows containing the canonical ``id`` column.
+    :param denomination_families:
+        Families to retain.
+    :param logger:
+        Log adapter.
+    :return:
+        Input rows whose vault metadata belongs to a requested family.
     """
+    families = frozenset(denomination_families)
+    assert families, "At least one denomination family must be selected"
+    selected_specs = {spec for spec, vault in rows.items() if classify_denomination(vault.get("Denomination")) in families}
+    allowed_vault_ids = {spec.as_string_id() for spec in selected_specs}
+    filtered = prices_df.loc[prices_df["id"].isin(allowed_vault_ids)].copy()
+    logger(f"Selected {len(selected_specs):,} vaults and {len(filtered):,} price rows for denomination families {sorted(f.value for f in families)}")
+    return filtered
 
-    usd_vaults = [v for v in rows.values() if is_stablecoin_like(v["Denomination"])]
-    logger(f"We have {len(usd_vaults)} stablecoin-nominated vaults out of {len(rows)} total vaults")
 
-    # Build chain-address strings for vaults we are interested in
-    allowed_vault_ids = set(str(v["_detection_data"].chain) + "-" + v["_detection_data"].address for v in usd_vaults)
+def filter_vaults_by_stablecoin(
+    rows: Mapping[VaultSpec, VaultRow],
+    prices_df: pd.DataFrame,
+    logger: Callable[[str], None] = print,
+) -> pd.DataFrame:
+    """Reduce vaults to stablecoin vaults using the compatibility selection.
 
-    # Filter out prices to contain only data for vaults we are interested in
-    prices_df = prices_df.loc[prices_df["id"].isin(allowed_vault_ids)]
-    logger(f"Filtered out prices have {len(prices_df):,} rows")
-
-    return prices_df
+    :param rows:
+        Vault metadata rows keyed by vault specification.
+    :param prices_df:
+        Raw/enriched price rows containing the canonical ``id`` column.
+    :param logger:
+        Log adapter.
+    :return:
+        Stablecoin-denominated price rows.
+    """
+    return filter_vaults_by_denomination_families(rows, prices_df, {DenominationFamily.stablecoin}, logger=logger)
 
 
 def calculate_vault_returns(
@@ -651,7 +777,7 @@ def calculate_vault_returns(
 ) -> pd.DataFrame:
     """Calculate returns for each vault.
 
-    Filter out reads without a share price and add the compatibility
+    Discard invalid share-price observations and add the compatibility
     ``returns_1h`` column. Consecutive zero prices after a complete loss carry
     a zero return: the loss was already recorded by the first transition to
     zero, and leaving later ``0 / 0`` changes as NaN makes the terminal curve
@@ -671,16 +797,28 @@ def calculate_vault_returns(
         Notebook, console, or structured-log adapter accepting one message.
     :return:
         Price rows with ``returns_1h`` calculated between consecutive rows.
+
+    Performance history
+    -------------------
+
+    Baseline (2026-09-22 production run): the implementation performed two
+    grouped passes over the cleaned frame (`shift` and `pct_change`), but the
+    source log did not isolate their elapsed time.  The optimised one-shift
+    implementation completed the complete return-calculation stage in 5.30
+    seconds for 10,129,623 rows; stage-only speed-up and RSS are therefore not
+    available.  The surrounding production-shaped cleaner run recorded 20.4
+    GiB peak process RSS.
     """
     assert isinstance(prices_df, pd.DataFrame), "prices_df must be a pandas DataFrame"
 
-    missing_share_price_mask = prices_df["share_price"].isna()
-    bad_share_price_df = prices_df[missing_share_price_mask]
-    if len(bad_share_price_df) > 0:
-        logger(f"We have NaN share price for {len(bad_share_price_df):,} rows, these will be dropped")
-        prices_df = prices_df[~missing_share_price_mask]
-
-    assert prices_df["share_price"].isna().sum() == 0, "share_price column must not contain NaN values"
+    share_prices = sanitise_share_price_observations(prices_df["share_price"])
+    invalid_share_price_mask = share_prices.isna()
+    invalid_share_price_count = invalid_share_price_mask.sum()
+    if invalid_share_price_count:
+        logger(f"Dropping {invalid_share_price_count:,} invalid share-price observations")
+        prices_df = prices_df.loc[~invalid_share_price_mask].copy()
+        share_prices = share_prices.loc[~invalid_share_price_mask]
+    prices_df["share_price"] = share_prices
     # NOTE: ``returns_1h`` is a misnomer.  The column is ``pct_change()``
     # between consecutive rows regardless of their actual time delta.
     # For EVM chains scanned at 1h frequency the name is accurate, but
@@ -688,15 +826,41 @@ def calculate_vault_returns(
     # spaced at daily or irregular intervals — producing ~24h or
     # variable-interval returns labelled "1h".  Renaming would break
     # every downstream consumer so the name is kept for compatibility.
-    previous_share_price = prices_df.groupby("id")["share_price"].shift(1)
-    prices_df["returns_1h"] = prices_df.groupby("id")["share_price"].pct_change()
+    group_column = INTERNAL_VAULT_GROUP_COLUMN if INTERNAL_VAULT_GROUP_COLUMN in prices_df.columns else "id"
+    previous_share_price = prices_df.groupby(group_column, sort=False)["share_price"].shift(1)
+    # ``share_prices`` contains no missing values after sanitisation, so the
+    # compatibility pct-change is exactly current / previous - 1.  Reusing the
+    # one grouped shift avoids a second hash-grouping and preserves infinities
+    # for transitions from zero, which the later cleaners already handle.
+    prices_df["returns_1h"] = prices_df["share_price"].div(previous_share_price).sub(1.0)
     repeated_zero_price = (prices_df["share_price"] == 0) & (previous_share_price == 0)
     prices_df.loc[repeated_zero_price, "returns_1h"] = 0.0
     return prices_df
 
 
-def clean_returns(
-    rows: dict[HexAddress, VaultRow],
+def sanitise_share_price_observations(share_price_observations: pd.Series) -> pd.Series:
+    """Normalise share prices and mark unusable observations as missing.
+
+    Scanner failures may be persisted as IEEE ``NaN`` values in a PyArrow
+    ``double`` column. Unlike Arrow nulls, these values are not consistently
+    removed by :meth:`pandas.Series.dropna` until they are converted to a
+    NumPy-backed floating-point series. Negative share prices are invalid as
+    well, whereas zero is a valid complete-loss value.
+
+    :param share_price_observations:
+        Sparse share prices indexed by naive UTC timestamps. Values are
+        expected to be non-negative denomination-token amounts.
+    :return:
+        Float64 series preserving the original index and order. Invalid,
+        non-finite, and negative values are represented as ``NaN``.
+    """
+    prices = pd.to_numeric(share_price_observations, errors="coerce").astype("float64")
+    valid = np.isfinite(prices.to_numpy()) & (prices >= 0)
+    return prices.where(valid)
+
+
+def clean_returns(  # noqa: PLR0917 - stable cleaner API used by scripts and notebooks
+    rows: dict[VaultSpec, VaultRow],
     prices_df: pd.DataFrame,
     logger=print,
     outlier_threshold=0.50,  # Set threshold we suspect not valid returns for one day
@@ -731,10 +895,9 @@ def clean_returns(
         high_returns_mask &= returns_df["chain"] != HYPERCORE_CHAIN_ID
     outlier_returns = returns_df[high_returns_mask]
 
-    # Sort by return value (highest first)
-    outlier_returns = outlier_returns.sort_values(by=returns_col, ascending=False)
-
-    # Show a compact summary instead of dumping sample DataFrames to logs.
+    # Show a compact summary instead of dumping sample DataFrames to logs.  The
+    # group counts do not depend on return ordering, so sorting this potentially
+    # wide frame only for logging needlessly copies millions of rows.
     if len(outlier_returns) > 0:
         outlier_counts = outlier_returns.groupby("name").size().sort_values(ascending=False)
         top_outlier_counts = ", ".join(f"{name}={count:,}" for name, count in outlier_counts.head(3).items())
@@ -748,11 +911,11 @@ def clean_returns(
     return returns_df
 
 
-def clean_by_tvl(
-    rows: dict[HexAddress, VaultRow],
+def clean_by_tvl(  # noqa: PLR0917 - stable cleaner API used by scripts and notebooks
+    rows: dict[VaultSpec, VaultRow],
     prices_df: pd.DataFrame,
     logger=print,
-    tvl_threshold_min=1000.00,
+    tvl_threshold_min: float | Mapping[str, float] | Callable[[str], float] = 1000.00,
     tvl_threshold_max=99_000_000_000,  # USD 99B
     tvl_threshold_min_dynamic=0.02,
     returns_col="returns_1h",
@@ -777,7 +940,9 @@ def clean_by_tvl(
     :param logger:
         Notebook, console, or structured-log adapter accepting one message.
     :param tvl_threshold_min:
-        Absolute minimum NAV in USD.
+        Absolute minimum NAV, vault-id mapping, or vault-id callback for a
+        denomination-aware threshold. Legacy callers retain the USD scalar
+        default.
     :param tvl_threshold_max:
         Absolute maximum NAV in USD.
     :param tvl_threshold_min_dynamic:
@@ -798,7 +963,13 @@ def clean_by_tvl(
     # Create a mask based on TVL conditions.
     # Clean up returns during low TVL periods
     # pd.Timestamp("2024-02-10")
-    mask = returns_df["total_assets"] < tvl_threshold_min
+    if isinstance(tvl_threshold_min, Mapping):
+        minimum_thresholds = returns_df["id"].map(tvl_threshold_min)
+    elif callable(tvl_threshold_min):
+        minimum_thresholds = returns_df["id"].map(tvl_threshold_min)
+    else:
+        minimum_thresholds = float(tvl_threshold_min)
+    mask = returns_df["total_assets"] < minimum_thresholds
     mask |= returns_df["total_assets"] > tvl_threshold_max
 
     # Clean up by dynamic TVL threshold filtering
@@ -807,9 +978,28 @@ def clean_by_tvl(
     # https://x.com/moo9000/status/1914746350216077544
 
     # Calculate all-time average of total_assets for each vault
-    avg_assets_by_vault = returns_df.groupby("id")["total_assets"].mean()
-    returns_df["avg_assets_by_vault"] = returns_df["id"].map(avg_assets_by_vault)
-    returns_df["dynamic_tvl_threshold"] = returns_df["id"].map(avg_assets_by_vault) * tvl_threshold_min_dynamic
+    group_column = INTERNAL_VAULT_GROUP_COLUMN if INTERNAL_VAULT_GROUP_COLUMN in returns_df.columns else "id"
+    avg_assets_by_vault = returns_df.groupby(group_column, sort=False)["total_assets"].mean()
+    if group_column == "id":
+        average_assets = returns_df["id"].map(avg_assets_by_vault)
+    else:
+        # Group codes remain attached after row-dropping stages, so their
+        # values can have gaps even though the original factorisation was
+        # contiguous.  Scatter means into a code-sized array before taking;
+        # indexing the shorter grouped result directly would mis-map or fail.
+        codes = returns_df[group_column].to_numpy(dtype=np.int64)
+        if len(codes) == 0:
+            average_assets = pd.Series(index=returns_df.index, dtype="float64")
+        else:
+            average_assets_by_code = np.full(int(codes.max()) + 1, np.nan, dtype="float64")
+            grouped_codes = avg_assets_by_vault.index.to_numpy(dtype=np.int64)
+            average_assets_by_code[grouped_codes] = avg_assets_by_vault.to_numpy(dtype="float64")
+            average_assets = pd.Series(
+                average_assets_by_code[codes],
+                index=returns_df.index,
+            )
+    returns_df["avg_assets_by_vault"] = average_assets
+    returns_df["dynamic_tvl_threshold"] = returns_df["avg_assets_by_vault"] * tvl_threshold_min_dynamic
 
     # Create a mask for rows where total_assets is below the threshold
     below_threshold_mask = returns_df["total_assets"] < returns_df["dynamic_tvl_threshold"]
@@ -822,7 +1012,7 @@ def clean_by_tvl(
     # so that we zero the returns of the following day
     with warnings.catch_warnings():
         warnings.simplefilter("ignore", FutureWarning)
-        mask |= mask.groupby(returns_df["id"]).shift(1).fillna(False)
+        mask |= mask.groupby(returns_df[group_column], sort=False).shift(1).fillna(False)
 
     # Hypercore returns are already bounded and audited by the PnL/NAV index.
     # Keep its price-derived return internally consistent, while retaining the
@@ -841,7 +1031,7 @@ def clean_by_tvl(
 def filter_unneeded_row(
     prices_df: pd.DataFrame,
     logger=print,
-    epsilon=0.0025,  #
+    epsilon=0.0025,
 ) -> pd.DataFrame:
     """Dedpulicate data rows with epsilon.
 
@@ -968,9 +1158,9 @@ def filter_unneeded_row(
     return filtered_df
 
 
-def remove_inactive_lead_time(
+def remove_inactive_lead_time(  # noqa: PLR0914 - positional mask stages are deliberately explicit
     prices_df: pd.DataFrame,
-    logger=print,
+    logger: Callable[[str], None] = print,
 ) -> pd.DataFrame:
     """Remove initial inactive period from each vault's price history.
 
@@ -988,80 +1178,80 @@ def remove_inactive_lead_time(
         multiple blocks per second. One-second accuracy is sufficient for
         price cleaning, so equal timestamp rows are retained and evaluated by
         their row positions instead of being deduplicated.
-
+    :param logger:
+        Progress callback accepting one message.
     :return:
         DataFrame with inactive lead time removed for each vault
+
+    Performance history
+    -------------------
+
+    Baseline (2026-09-22 production run): 10,338,606 stablecoin rows took 42
+    seconds in a DataFrame-returning ``groupby().apply()``.  The positional
+    mask implementation took 6.87 seconds for the same row count (6.1x),
+    removing 203,103 rows.  Stage-only RSS was not sampled; the complete
+    production-shaped cleaner peaked at 20.4 GiB.
     """
 
     original_row_count = len(prices_df)
+    if original_row_count <= 1:
+        logger(f"Removed inactive lead time: {original_row_count:,} -> {original_row_count:,} rows (0 removed from 0 vaults)")
+        return prices_df
+
+    # The frame is already sorted by id and timestamp.  Work with contiguous
+    # integer ranges instead of constructing one DataFrame per vault through
+    # groupby.apply(); duplicate timestamp labels therefore remain harmless.
+    group_column = INTERNAL_VAULT_GROUP_COLUMN if INTERNAL_VAULT_GROUP_COLUMN in prices_df.columns else "id"
+    ids = prices_df[group_column].to_numpy()
+    group_starts = np.r_[0, np.flatnonzero(ids[1:] != ids[:-1]) + 1]
+    assert len(group_starts) == prices_df[group_column].nunique(dropna=False), "Vault rows must be contiguous before inactive lead-time removal"
+    timestamp_values = pd.to_datetime(prices_df.index).to_numpy(dtype="datetime64[ns]")
+    same_group = ids[1:] == ids[:-1]
+    assert not np.any(same_group & (timestamp_values[1:] < timestamp_values[:-1])), "Vault rows must be chronological before inactive lead-time removal"
+    group_ends = np.r_[group_starts[1:], original_row_count]
+    total_supply = prices_df["total_supply"]
+    valid_supply = total_supply.gt(0).fillna(False).to_numpy(dtype=bool, na_value=False)
+    supply_values = total_supply.to_numpy(dtype=object, na_value=np.nan)
+    missing_supply = pd.isna(supply_values)
+    safe_supply_values = np.asarray(supply_values, dtype=object).copy()
+    safe_supply_values[missing_supply] = 0
+
+    keep_mask = np.ones(original_row_count, dtype=bool)
     rows_removed = 0
     vaults_affected = 0
+    for group_start, group_end in zip(group_starts, group_ends, strict=True):
+        group_valid_positions = np.flatnonzero(valid_supply[group_start:group_end])
+        if group_valid_positions.size == 0:
+            continue
 
-    def _find_first_supply_change(group: pd.DataFrame) -> pd.DataFrame:
-        """Find the first row where total_supply changes from its initial value."""
-        nonlocal rows_removed
-        nonlocal vaults_affected
+        first_valid = group_start + int(group_valid_positions[0])
+        initial_supply = safe_supply_values[first_valid]
+        changed = safe_supply_values[group_start:group_end] != initial_supply
+        # TODO (PR #1586 data-correctness review): ``pd.isna()`` collapses an
+        # IEEE NaN stored inside ``double[pyarrow]`` and a true Arrow null into
+        # the same mask.  The pre-optimisation Pandas path treated IEEE NaN as
+        # a supply change but ignored Arrow nulls.  Keep the current optimised
+        # behaviour for now, but distinguish the Arrow validity bitmap here if
+        # exact legacy inactive-lead boundaries become important.
+        if pd.api.types.is_extension_array_dtype(total_supply.dtype):
+            changed &= ~missing_supply[group_start:group_end]
+        changed[: first_valid - group_start] = False
+        changed_positions = np.flatnonzero(changed)
+        keep_start = int(changed_positions[0] + group_start) if changed_positions.size else first_valid
 
-        if len(group) <= 1:
-            return group
-
-        # Skip initial rows with zero or NaN total_supply to find first valid value
-        valid_supply_mask = (group["total_supply"] > 0) & pd.notna(group["total_supply"])
-        if not valid_supply_mask.any():
-            # No valid total_supply values - keep all data
-            return group
-
-        # Derive locations from the boolean mask, instead of resolving a
-        # timestamp label through the index. A vault can have multiple
-        # observations with the same timestamp, in which case get_loc()
-        # returns a slice rather than one integer position.
-        first_valid_loc = int(valid_supply_mask.to_numpy(dtype=bool, na_value=False).argmax())
-        initial_supply = group.iloc[first_valid_loc]["total_supply"]
-
-        # Find the first index where total_supply differs from initial value
-        # Only consider rows from first_valid_loc onwards
-        remaining_group = group.iloc[first_valid_loc:]
-        # The raw Parquet is read using the PyArrow nullable dtype backend.
-        # A missing supply reading is not an activation change, and must not
-        # leave ``pd.NA`` values in the NumPy array used to locate a change.
-        supply_changed_mask = (remaining_group["total_supply"] != initial_supply).fillna(False)
-
-        if not supply_changed_mask.any():
-            # Total supply never changed after initial valid value - keep from first valid
-            if first_valid_loc > 0:
-                vaults_affected += 1
-                rows_removed += first_valid_loc
-            return remaining_group
-
-        # Get the index of the first change
-        first_change_loc = int(supply_changed_mask.to_numpy(dtype=bool, na_value=False).argmax())
-
-        # Calculate total rows to remove (invalid initial rows + constant supply rows)
-        total_lead_rows = first_valid_loc + first_change_loc
-
-        if total_lead_rows > 0:
+        if keep_start > group_start:
+            keep_mask[group_start:keep_start] = False
+            rows_removed += keep_start - group_start
             vaults_affected += 1
-            rows_removed += total_lead_rows
 
-        # Return only rows from the first change onwards
-        return remaining_group.iloc[first_change_loc:]
-
-    filtered_df = prices_df.groupby("id", group_keys=True, sort=False).apply(
-        _find_first_supply_change,
-        include_groups=False,
-    )
-
-    # groupby() added id as a MultiIndex level, unwind this back
-    # as other functions do not expect it
-    if isinstance(filtered_df.index, pd.MultiIndex):
-        filtered_df = filtered_df.reset_index(level="id")
+    filtered_df = prices_df.iloc[keep_mask]
 
     logger(f"Removed inactive lead time: {original_row_count:,} -> {len(filtered_df):,} rows ({rows_removed:,} removed from {vaults_affected} vaults)")
 
     return filtered_df
 
 
-def _repair_hypercore_delayed_nav_returns(
+def _repair_hypercore_delayed_nav_returns(  # noqa: PLR0914 - array repair keeps correlated state local
     checkpoint_timestamp_ns: np.ndarray,
     checkpoint_nav: np.ndarray,
     checkpoint_pnl: np.ndarray,
@@ -1586,22 +1776,195 @@ def discard_hypercore_pre_recapitalisation_history(  # noqa: PLR0914
     return filtered_prices_df
 
 
+def _fix_outlier_share_prices(  # noqa: PLR0914 - array repair keeps correlated state local
+    prices_df: pd.DataFrame,
+    logger: Callable[[str], None],
+    max_diff: float,
+    look_back_hours: int,
+    look_ahead_hours: int,
+) -> pd.DataFrame:
+    """Repair share-price spikes with positional NumPy gathers.
+
+    The previous implementation paid for a full DataFrame ``groupby().apply()``
+    callback, forward-filled every column once per vault and indexed each
+    abnormal row with ``iloc``/``iat``.  This implementation keeps the same
+    group-local fill and boundary semantics, but performs candidate lookup and
+    repair decisions on contiguous numerical arrays.  The complete legacy
+    frame is still returned, including its forward-filled state columns and
+    untouched interval-flow observations.
+
+    Performance history
+    -------------------
+
+    Baseline (2026-09-22 production run): 8,535,236 EVM rows took 3 minutes
+    57 seconds.  The optimised production-shaped EVM repair stage, including
+    mixed Hypercore/EVM positional reconstruction, took 55.71 seconds for the
+    same 8,535,236 rows (4.3x).  Its forward-fill substage took 4.14 seconds
+    and the numerical gather/mask kernel 1.17 seconds.  Stage-only RSS was not
+    sampled; the complete cleaner peaked at 20.4 GiB.
+
+    :param prices_df:
+        Price rows sorted contiguously by ``id`` and timestamp.
+    :param logger:
+        Logging callback accepting one message.
+    :param max_diff:
+        Symmetric relative change threshold for an outlier.
+    :param look_back_hours:
+        Nominal look-back window in hours.
+    :param look_ahead_hours:
+        Nominal look-ahead window in hours.
+    :return:
+        Cleaned frame with the original index and columns.
+    """
+    original_index = prices_df.index.copy()
+    working = prices_df.reset_index(drop=True).copy()
+    working["raw_share_price"] = working["share_price"]
+    if working.empty:
+        working.index = original_index
+        working.index.name = prices_df.index.name
+        return working
+
+    flow_columns = [
+        column
+        for column in (
+            "daily_deposit_count",
+            "daily_withdrawal_count",
+            "daily_deposit_usd",
+            "daily_withdrawal_usd",
+        )
+        if column in working.columns
+    ]
+    source_flows = working[flow_columns].copy()
+    group_column = INTERNAL_VAULT_GROUP_COLUMN if INTERNAL_VAULT_GROUP_COLUMN in working.columns else "id"
+    state_columns = [column for column in working.columns if column not in {"id", group_column, *flow_columns}]
+
+    # Preserve the old output side effect (all sparse state columns are filled
+    # per vault) with one grouped operation rather than one DataFrame callback
+    # and temporary frame allocation per vault. Flow observations are interval
+    # facts, so restore their original unknown markers afterwards.
+    fill_started_at = time.perf_counter()
+    working[state_columns] = working.groupby(group_column, sort=False, observed=True)[state_columns].ffill()
+    if flow_columns:
+        working[flow_columns] = source_flows
+    logger(f"Share-price outlier state forward-fill: {len(working):,} rows in {time.perf_counter() - fill_started_at:.2f}s")
+
+    ids = working[group_column].to_numpy()
+    row_count = len(working)
+    group_starts = np.r_[0, np.flatnonzero(ids[1:] != ids[:-1]) + 1]
+    assert len(group_starts) == working[group_column].nunique(dropna=False), "Vault rows must be contiguous before outlier repair"
+    timestamp_values = pd.to_datetime(original_index).to_numpy(dtype="datetime64[ns]")
+    same_group = ids[1:] == ids[:-1]
+    assert not np.any(same_group & (timestamp_values[1:] < timestamp_values[:-1])), "Vault rows must be chronological before outlier repair"
+    group_ends = np.r_[group_starts[1:], row_count]
+    share_values = pd.to_numeric(working["share_price"], errors="coerce").to_numpy(dtype="float64", na_value=np.nan)
+    raw_values = pd.to_numeric(working["raw_share_price"], errors="coerce").to_numpy(dtype="float64", na_value=np.nan)
+    group_sizes = group_ends - group_starts
+    group_count = len(group_starts)
+    effective_look_backs = np.full(group_count, look_back_hours, dtype=np.int64)
+    effective_look_aheads = np.full(group_count, look_ahead_hours, dtype=np.int64)
+    if isinstance(original_index, pd.DatetimeIndex):
+        # Interval inference remains one small loop per vault.  The expensive
+        # candidate gathers below operate on one contiguous array instead of
+        # allocating and filling two arrays for every group.
+        for group_number, (group_start, group_end) in enumerate(zip(group_starts, group_ends, strict=True)):
+            group_size = int(group_end - group_start)
+            if group_size < MIN_ROWS_FOR_INTERVAL_ESTIMATE:
+                continue
+            median_interval_ns = np.median(np.diff(timestamp_values[group_start:group_end].astype("int64")))
+            if np.isfinite(median_interval_ns) and median_interval_ns > 0:
+                rows_per_hour = pd.Timedelta(hours=1).value / median_interval_ns
+                effective_look_backs[group_number] = max(1, round(look_back_hours * rows_per_hour))
+                effective_look_aheads[group_number] = max(1, round(look_ahead_hours * rows_per_hour))
+
+    row_positions = np.arange(row_count, dtype=np.int64)
+    group_starts_per_row = np.repeat(group_starts, group_sizes)
+    group_ends_per_row = np.repeat(group_ends, group_sizes)
+    local_positions = row_positions - group_starts_per_row
+    group_sizes_per_row = np.repeat(group_sizes, group_sizes)
+    look_backs_per_row = np.repeat(effective_look_backs, group_sizes)
+    look_aheads_per_row = np.repeat(effective_look_aheads, group_sizes)
+
+    kernel_started_at = time.perf_counter()
+    next_shift = np.full(row_count, np.nan, dtype="float64")
+    next_positions = row_positions + look_aheads_per_row
+    valid_next = local_positions + look_aheads_per_row < group_sizes_per_row
+    next_shift[valid_next] = share_values[next_positions[valid_next]]
+    prev_shift = np.full(row_count, np.nan, dtype="float64")
+    prev_positions = row_positions - look_backs_per_row
+    valid_previous = local_positions >= look_backs_per_row
+    prev_shift[valid_previous] = share_values[prev_positions[valid_previous]]
+
+    # Fill candidate NaNs without crossing a vault boundary.  A global
+    # cumulative gather is equivalent to per-group ffill/bfill once positions
+    # before the current group are invalidated by its start/end boundary.
+    # TODO (PR #1586 data-correctness review): NumPy treats IEEE NaN as a
+    # missing candidate and searches past it.  The legacy Arrow-backed
+    # ffill/bfill path did not fill IEEE NaN, so an EVM-only clean can now
+    # repair a spike that the old implementation left untouched.  This is
+    # accepted for now; preserve this note until the intended NaN policy is
+    # covered by an explicit regression test.
+    candidate_positions = np.arange(row_count, dtype=np.int64)
+    valid_next_shift = ~np.isnan(next_shift)
+    last_valid = np.maximum.accumulate(np.where(valid_next_shift, candidate_positions, -1))
+    last_valid[last_valid < group_starts_per_row] = -1
+    next_candidate = np.full(row_count, np.nan, dtype="float64")
+    has_next_candidate = last_valid >= 0
+    next_candidate[has_next_candidate] = next_shift[last_valid[has_next_candidate]]
+
+    valid_previous_shift = ~np.isnan(prev_shift)
+    next_valid = np.minimum.accumulate(np.where(valid_previous_shift, candidate_positions, row_count)[::-1])[::-1]
+    next_valid[next_valid >= group_ends_per_row] = row_count
+    prev_candidate = np.full(row_count, np.nan, dtype="float64")
+    has_previous_candidate = next_valid < row_count
+    prev_candidate[has_previous_candidate] = prev_shift[next_valid[has_previous_candidate]]
+
+    with np.errstate(divide="ignore", invalid="ignore"):
+        pct_change_prev = np.maximum(
+            np.abs(prev_candidate / share_values - 1),
+            np.abs(share_values / prev_candidate - 1),
+        )
+        pct_change_next = np.maximum(
+            np.abs(next_candidate / share_values - 1),
+            np.abs(share_values / next_candidate - 1),
+        )
+        abnormal = (pct_change_prev > max_diff) | (pct_change_next > max_diff)
+        candidate_pair_change = np.maximum(
+            np.abs(next_candidate / prev_candidate - 1),
+            np.abs(prev_candidate / next_candidate - 1),
+        )
+
+    repairable = abnormal & ~np.isnan(next_candidate) & ~np.isnan(prev_candidate) & (prev_candidate != 0) & (next_candidate != 0) & (candidate_pair_change < max_diff)
+    repaired_values = share_values.copy()
+    repaired_values[repairable] = (next_candidate[repairable] + prev_candidate[repairable]) / 2
+    share_prices_fixed = int(repairable.sum())
+    logger(f"Share-price outlier array kernel: {row_count:,} rows in {time.perf_counter() - kernel_started_at:.2f}s")
+
+    working["share_price"] = repaired_values
+    changed_share_values = working["share_price"].to_numpy(dtype="float64", na_value=np.nan)
+    change_mask = (changed_share_values != raw_values) & ~np.isnan(raw_values)
+    change_count = int(change_mask.sum())
+    logger(f"Share prices fix count {share_prices_fixed}, updated {change_count:,} / {len(working):,} rows with abnormal share_price spikes (> {max_diff:.2%})")
+
+    working.index = original_index
+    working.index.name = prices_df.index.name
+    return working
+
+
 def fix_outlier_share_prices(
     prices_df: pd.DataFrame,
-    logger=print,
-    max_diff=0.33,
-    look_back_hours=24,
-    look_ahead_hours=24,
+    logger: Callable[[str], None] = print,
+    max_diff: Percent = 0.33,
+    look_back_hours: int = 24,
+    look_ahead_hours: int = 24,
 ) -> pd.DataFrame:
-    """Fix out rows with share price that is too high.
+    """Repair isolated share-price observations that disagree with their neighbours.
 
-    - Sometimes share price jump to an outlier value and back
-    - This caused abnormal returns in returns calculations, messing all volatility numbers, sharpe,
-      charts, etc.
-    - The root cause is bad oracles, fat fingers, MEV trades, etc.
-    - The lookback window is time-based (hours), not row-based, so it works
-      correctly for vaults with non-hourly polling intervals
-    - See ``check-share-price`` script for inspecting individual prices
+    Scanner inputs can briefly jump because of oracle errors, bad transactions
+    or other source anomalies and then return to the surrounding level. The
+    cleaner replaces an observation only when both time-scaled neighbours
+    corroborate one another. The original value remains available for audit in
+    ``raw_share_price``. See the ``check-share-price`` script for individual
+    investigations.
 
     Case Fluegel DAO:
 
@@ -1617,189 +1980,44 @@ def fix_outlier_share_prices(
     | 2024-07-16 18:02:57 | 8453  | 0x277a3c57f3236a7d458576074d7c3d7046eb26c | 17181815     | 1.64        | 382,282.78   | 232,929.92   |
     +---------------------+-------+-------------------------------------------+--------------+-------------+--------------+--------------+
 
-    Case Untangle Finance:
-
-    .. code-block:: none
-
-        Abnormal share price detected for 42161-0x4a3f7dd63077cde8d7eff3c958eb69a3dd7d31a9 at index 2025-10-12 23:14:19 (3206): fixing: 1.038721 -> 1.038721, prev: 1.038827, next: 0.444865
-        Abnormal share price detected for 42161-0x4a3f7dd63077cde8d7eff3c958eb69a3dd7d31a9 at index 2025-10-13 00:14:13 (3207): fixing: 1.038931 -> 1.038931, prev: 1.038801, next: 0.444865
-        Abnormal share price detected for 42161-0x4a3f7dd63077cde8d7eff3c958eb69a3dd7d31a9 at index 2025-10-13 01:14:09 (3208): fixing: 1.038931 -> 1.038931, prev: 1.038801, next: 0.444865
-        Abnormal share price detected for 42161-0x4a3f7dd63077cde8d7eff3c958eb69a3dd7d31a9 at index 2025-10-13 02:14:03 (3209): fixing: 1.038931 -> 1.038931, prev: 1.038801, next: 0.444865
-        Abnormal share price detected for 42161-0x4a3f7dd63077cde8d7eff3c958eb69a3dd7d31a9 at index 2025-10-13 03:14:01 (3210): fixing: 1.038931 -> 1.038931, prev: 1.038801, next: 0.444865
-        Abnormal share price detected for 42161-0x4a3f7dd63077cde8d7eff3c958eb69a3dd7d31a9 at index 2025-10-13 04:13:56 (3211): fixing: 1.038931 -> 1.038931, prev: 1.038801, next: 0.444865
-        Abnormal share price detected for 42161-0x4a3f7dd63077cde8d7eff3c958eb69a3dd7d31a9 at index 2025-10-13 05:13:53 (3212): fixing: 1.038931 -> 1.038931, prev: 1.038801, next: 0.468629
-        Abnormal share price detected for 42161-0x4a3f7dd63077cde8d7eff3c958eb69a3dd7d31a9 at index 2025-10-13 06:13:51 (3213): fixing: 1.039134 -> 1.039134, prev: 1.038439, next: 0.468629
-        Abnormal share price detected for 42161-0x4a3f7dd63077cde8d7eff3c958eb69a3dd7d31a9 at index 2025-10-13 07:13:45 (3214): fixing: 1.039134 -> 1.039134, prev: 1.038439, next: 0.468629
-        Abnormal share price detected for 42161-0x4a3f7dd63077cde8d7eff3c958eb69a3dd7d31a9 at index 2025-10-13 08:13:40 (3215): fixing: 1.039134 -> 1.039134, prev: 1.038439, next: 0.468629
-        Abnormal share price detected for 42161-0x4a3f7dd63077cde8d7eff3c958eb69a3dd7d31a9 at index 2025-10-13 09:13:37 (3216): fixing: 1.039134 -> 1.039134, prev: 1.038439, next: 0.482511
-        Abnormal share price detected for 42161-0x4a3f7dd63077cde8d7eff3c958eb69a3dd7d31a9 at index 2025-10-13 10:13:27 (3217): fixing: 1.039134 -> 1.039134, prev: 1.038439, next: 0.482511
-        Abnormal share price detected for 42161-0x4a3f7dd63077cde8d7eff3c958eb69a3dd7d31a9 at index 2025-10-13 11:13:21 (3218): fixing: 1.039134 -> 1.039134, prev: 1.038439, next: 0.482511
-        Abnormal share price detected for 42161-0x4a3f7dd63077cde8d7eff3c958eb69a3dd7d31a9 at index 2025-10-14 00:11:51 (3230): fixing: 0.444865 -> 1.0405275, prev: 1.038721, next: 1.042334
-        Abnormal share price detected for 42161-0x4a3f7dd63077cde8d7eff3c958eb69a3dd7d31a9 at index 2025-10-14 01:11:42 (3231): fixing: 0.444865 -> 1.0406325, prev: 1.038931, next: 1.042334
-        Abnormal share price detected for 42161-0x4a3f7dd63077cde8d7eff3c958eb69a3dd7d31a9 at index 2025-10-14 02:11:33 (3232): fixing: 0.444865 -> 1.0407335, prev: 1.038931, next: 1.042536
-        Abnormal share price detected for 42161-0x4a3f7dd63077cde8d7eff3c958eb69a3dd7d31a9 at index 2025-10-14 03:11:36 (3233): fixing: 0.444865 -> 1.0407335, prev: 1.038931, next: 1.042536
-        Abnormal share price detected for 42161-0x4a3f7dd63077cde8d7eff3c958eb69a3dd7d31a9 at index 2025-10-14 04:11:26 (3234): fixing: 0.444865 -> 1.0407335, prev: 1.038931, next: 1.042536
-        Abnormal share price detected for 42161-0x4a3f7dd63077cde8d7eff3c958eb69a3dd7d31a9 at index 2025-10-14 05:11:17 (3235): fixing: 0.444865 -> 1.0407335, prev: 1.038931, next: 1.042536
-        Abnormal share price detected for 42161-0x4a3f7dd63077cde8d7eff3c958eb69a3dd7d31a9 at index 2025-10-14 06:11:10 (3236): fixing: 0.468629 -> 1.0407335, prev: 1.038931, next: 1.042536
-        Abnormal share price detected for 42161-0x4a3f7dd63077cde8d7eff3c958eb69a3dd7d31a9 at index 2025-10-14 07:11:01 (3237): fixing: 0.468629 -> 1.040835, prev: 1.039134, next: 1.042536
-        Abnormal share price detected for 42161-0x4a3f7dd63077cde8d7eff3c958eb69a3dd7d31a9 at index 2025-10-14 08:10:52 (3238): fixing: 0.468629 -> 1.0406445, prev: 1.039134, next: 1.042155
-        Abnormal share price detected for 42161-0x4a3f7dd63077cde8d7eff3c958eb69a3dd7d31a9 at index 2025-10-14 11:10:26 (3239): fixing: 0.468629 -> 1.0406445, prev: 1.039134, next: 1.042155
-        Abnormal share price detected for 42161-0x4a3f7dd63077cde8d7eff3c958eb69a3dd7d31a9 at index 2025-10-14 12:10:18 (3240): fixing: 0.482511 -> 1.0406445, prev: 1.039134, next: 1.042155
-        Abnormal share price detected for 42161-0x4a3f7dd63077cde8d7eff3c958eb69a3dd7d31a9 at index 2025-10-14 13:10:09 (3241): fixing: 0.482511 -> 1.0406445, prev: 1.039134, next: 1.042155
-        Abnormal share price detected for 42161-0x4a3f7dd63077cde8d7eff3c958eb69a3dd7d31a9 at index 2025-10-14 14:10:01 (3242): fixing: 0.482511 -> 1.0406445, prev: 1.039134, next: 1.042155
-        Abnormal share price detected for 42161-0x4a3f7dd63077cde8d7eff3c958eb69a3dd7d31a9 at index 2025-10-15 04:08:39 (3254): fixing: 1.042334 -> 1.042334, prev: 0.444865, next: 1.04251
-        Abnormal share price detected for 42161-0x4a3f7dd63077cde8d7eff3c958eb69a3dd7d31a9 at index 2025-10-15 05:08:33 (3255): fixing: 1.042334 -> 1.042334, prev: 0.444865, next: 1.04251
-        Abnormal share price detected for 42161-0x4a3f7dd63077cde8d7eff3c958eb69a3dd7d31a9 at index 2025-10-15 06:08:29 (3256): fixing: 1.042536 -> 1.042536, prev: 0.444865, next: 1.04251
-        Abnormal share price detected for 42161-0x4a3f7dd63077cde8d7eff3c958eb69a3dd7d31a9 at index 2025-10-15 07:08:24 (3257): fixing: 1.042536 -> 1.042536, prev: 0.444865, next: 1.04251
-        Abnormal share price detected for 42161-0x4a3f7dd63077cde8d7eff3c958eb69a3dd7d31a9 at index 2025-10-15 08:08:20 (3258): fixing: 1.042536 -> 1.042536, prev: 0.444865, next: 1.04251
-        Abnormal share price detected for 42161-0x4a3f7dd63077cde8d7eff3c958eb69a3dd7d31a9 at index 2025-10-15 09:08:12 (3259): fixing: 1.042536 -> 1.042536, prev: 0.444865, next: 1.04251
-        Abnormal share price detected for 42161-0x4a3f7dd63077cde8d7eff3c958eb69a3dd7d31a9 at index 2025-10-15 10:08:07 (3260): fixing: 1.042536 -> 1.042536, prev: 0.468629, next: 1.042519
-        Abnormal share price detected for 42161-0x4a3f7dd63077cde8d7eff3c958eb69a3dd7d31a9 at index 2025-10-15 11:08:03 (3261): fixing: 1.042536 -> 1.042536, prev: 0.468629, next: 1.042519
-        Abnormal share price detected for 42161-0x4a3f7dd63077cde8d7eff3c958eb69a3dd7d31a9 at index 2025-10-15 12:07:55 (3262): fixing: 1.042155 -> 1.042155, prev: 0.468629, next: 1.042519
-        Abnormal share price detected for 42161-0x4a3f7dd63077cde8d7eff3c958eb69a3dd7d31a9 at index 2025-10-15 13:07:51 (3263): fixing: 1.042155 -> 1.042155, prev: 0.468629, next: 1.042519
-        Abnormal share price detected for 42161-0x4a3f7dd63077cde8d7eff3c958eb69a3dd7d31a9 at index 2025-10-15 14:07:49 (3264): fixing: 1.042155 -> 1.042155, prev: 0.482511, next: 1.042519
-        Abnormal share price detected for 42161-0x4a3f7dd63077cde8d7eff3c958eb69a3dd7d31a9 at index 2025-10-15 15:07:42 (3265): fixing: 1.042155 -> 1.042155, prev: 0.482511, next: 1.042519
-        Abnormal share price detected for 42161-0x4a3f7dd63077cde8d7eff3c958eb69a3dd7d31a9 at index 2025-10-15 16:07:36 (3266): fixing: 1.042155 -> 1.042155, prev: 0.482511, next: 1.042354
-        Abnormal share price detected for 42161-0x4a3f7dd63077cde8d7eff3c958eb69a3dd7d31a9 at index 2025-10-23 02:04:05 (3433): fixing: 1.036482 -> 1.036482, prev: 1.126302, next: 0.487429
-        Abnormal share price detected for 42161-0x4a3f7dd63077cde8d7eff3c958eb69a3dd7d31a9 at index 2025-10-24 06:01:21 (3457): fixing: 0.487429 -> 1.041995, prev: 1.036482, next: 1.047508
-
-
+    :param prices_df:
+        Price rows sorted by vault identifier and timestamp. The frame must
+        contain ``id`` and numeric ``share_price`` columns and use a datetime
+        index for time-based window scaling.
+    :param logger:
+        Progress callback accepting one message.
+    :param max_diff:
+        Symmetric relative-change threshold used to identify an outlier.
+    :param look_back_hours:
+        Nominal look-back window in hours.
+    :param look_ahead_hours:
+        Nominal look-ahead window in hours.
+    :return:
+        A frame with repaired ``share_price`` values and the original values
+        retained in ``raw_share_price``.
     """
-
-    # Store unfiltered share prices for the later examination
-    prices_df["raw_share_price"] = prices_df["share_price"]
-
-    share_prices_fixed = 0
-
-    def _clean_share_price_for_pair(group: pd.DataFrame) -> pd.DataFrame:
-        """Apply rolling window clean up technique that checks if 24h past and future prices are aligned, but the current price is not,
-        then overwrite with the avg of past and future prices."""
-        nonlocal share_prices_fixed
-
-        # group = group.copy()
-
-        if len(prices_df) == 0:
-            return prices_df
-
-        # Flow rows are interval observations, not state snapshots. Preserve
-        # their unknown markers while filling sparse vault state used by the
-        # share-price cleaner.
-        flow_columns = [
-            column
-            for column in (
-                "daily_deposit_count",
-                "daily_withdrawal_count",
-                "daily_deposit_usd",
-                "daily_withdrawal_usd",
-            )
-            if column in group.columns
-        ]
-        source_flows = group[flow_columns].copy()
-        group = group.ffill()
-        group[flow_columns] = source_flows
-
-        # Compute row-based shift from actual time spacing so that vaults
-        # with non-hourly polling (daily, weekly) get a sensible window.
-        if isinstance(group.index, pd.DatetimeIndex) and len(group) >= 2:
-            median_interval = group.index.to_series().diff().median()
-            if pd.notna(median_interval) and median_interval > pd.Timedelta(0):
-                rows_per_hour = pd.Timedelta(hours=1) / median_interval
-                effective_look_back = max(1, round(look_back_hours * rows_per_hour))
-                effective_look_ahead = max(1, round(look_ahead_hours * rows_per_hour))
-            else:
-                effective_look_back = look_back_hours
-                effective_look_ahead = look_ahead_hours
-        else:
-            effective_look_back = look_back_hours
-            effective_look_ahead = look_ahead_hours
-
-        group["next_price_candidate"] = group["share_price"].shift(-effective_look_ahead).ffill()
-        group["prev_price_candidate"] = group["share_price"].shift(effective_look_back).bfill()
-
-        # Calculate forward and backward percentage change for each vault.
-        # Use symmetric max(a/b, b/a) - 1 so that spikes are detected regardless
-        # of which value sits in the denominator.
-        group["pct_change_prev"] = np.maximum(
-            (group["prev_price_candidate"] / group["share_price"] - 1).abs(),
-            (group["share_price"] / group["prev_price_candidate"] - 1).abs(),
-        )
-        group["pct_change_next"] = np.maximum(
-            (group["next_price_candidate"] / group["share_price"] - 1).abs(),
-            (group["share_price"] / group["next_price_candidate"] - 1).abs(),
-        )
-
-        # 2025-10-24 05:01:27  42161  0x4a3f7dd63077cde8d7eff3c958eb69a3dd7d31a9     392792321     1.046227  144437.368503  138055.399019              NaN             NaN         42161-0x4a3f7dd63077cde8d7eff3c958eb69a3dd7d31a9  USDn2           60  Untangle Finance         1.046227
-        # 2025-10-24 06:01:21  42161  0x4a3f7dd63077cde8d7eff3c958eb69a3dd7d31a9     392806721     0.487429   67292.321607  138055.399019              NaN             NaN         42161-0x4a3f7dd63077cde8d7eff3c958eb69a3dd7d31a9  USDn2           60  Untangle Finance         0.487429
-        # 2025-10-24 07:01:10  42161  0x4a3f7dd63077cde8d7eff3c958eb69a3dd7d31a9     392821121     1.047508  144614.157347  138055.399019              NaN             NaN         42161-0x4a3f7dd63077cde8d7eff3c958eb69a3dd7d31a9  USDn2           60  Untangle Finance         1.047508
-
-        # Mark rows where both changes exceed the threshold (spike and recovery)
-        abnormal_mask = (group["pct_change_prev"] > max_diff) | (group["pct_change_next"] > max_diff)
-
-        group["fixed_share_price"] = np.nan
-        fixed_share_price_col = group.columns.get_loc("fixed_share_price")
-
-        # Work with row positions because timestamp labels are not unique on
-        # high-throughput chains. ``get_loc()`` and ``loc[]`` would otherwise
-        # select every row with the same timestamp.
-        abnormal_positions = np.flatnonzero(abnormal_mask.to_numpy(dtype=bool, na_value=False))
-        for idx_loc in abnormal_positions:
-            current_price = group.iloc[idx_loc]["share_price"]
-            next_price = group.iloc[idx_loc]["next_price_candidate"]
-            prev_price = group.iloc[idx_loc]["prev_price_candidate"]
-            # Start and end of the group
-            if pd.isna(next_price) or pd.isna(prev_price):
-                continue
-
-            # The next 24h and prev 24h price are less than max diff apart from each other,
-            # but the current price is an outlier, fix it
-            if prev_price != 0 and next_price != 0 and max(abs(next_price / prev_price - 1), abs(prev_price / next_price - 1)) < max_diff:
-                fixed_price = (next_price + prev_price) / 2
-                share_prices_fixed += 1
-            else:
-                # Maybe a genuine crash
-                fixed_price = current_price
-
-            group.iat[idx_loc, fixed_share_price_col] = fixed_price
-
-        # Apply the fixes
-        share_price_col = group.columns.get_loc("share_price")
-        fixed_positions = np.flatnonzero(group["fixed_share_price"].notna().to_numpy(dtype=bool, na_value=False))
-        group.iloc[fixed_positions, share_price_col] = group.iloc[fixed_positions, fixed_share_price_col].to_numpy()
-        # group["id"] = vault_id
-
-        # Don't export extra columns, only needed for calculations and debugging
-        del group["prev_price_candidate"]
-        del group["next_price_candidate"]
-        del group["pct_change_prev"]
-        del group["pct_change_next"]
-        del group["fixed_share_price"]
-
-        return group
-
-    # TODO: How to fix warning here so that id column is retained?
-    # /Users/moo/code/trade-executor/deps/web3-ethereum-defi/eth_defi/research/wrangle_vault_prices.py:575: FutureWarning: DataFrameGroupBy.apply operated on the grouping columns. This behavior is deprecated, and in a future version of pandas the grouping columns will be excluded from the operation. Either pass `include_groups=False` to exclude the groupings or explicitly select the grouping columns after groupby to silence this warning.
-    filtered_all_df = prices_df.groupby("id", group_keys=True, sort=False).apply(_clean_share_price_for_pair, include_groups=False)
-
-    change_mask = (filtered_all_df["share_price"] != filtered_all_df["raw_share_price"]) & pd.notna(filtered_all_df["raw_share_price"])
-    change_count = len(change_mask[change_mask == True])
-
-    logger(f"Share prices fix count {share_prices_fixed}, updated {change_count:,} / {len(filtered_all_df):,} rows with abnormal share_price spikes (> {max_diff:.2%})")
-
-    # groupby() added id as a MultiIndex level (id, timestamp), unwind back
-    if isinstance(filtered_all_df.index, pd.MultiIndex):
-        filtered_all_df.reset_index(level="id", inplace=True)
-
-    return filtered_all_df
+    return _fix_outlier_share_prices(prices_df, logger, max_diff, look_back_hours, look_ahead_hours)
 
 
 def sort_and_index_vault_prices(
     prices_df: pd.DataFrame,
     priority_ids: list[str],
-):
-    """Set up the order of vaults for processing.
+) -> pd.DataFrame:
+    """Sort observations into the stable order expected by cleaning stages.
 
-    - If we do debugging we want vaults we debug go first,
-      as the pipeline takes several minutes to run
+    Priority vaults are placed first for interactive diagnostics; all rows are
+    then ordered by identifier and timestamp. Pandas' multi-key
+    lexicographical sorter retains the input order of identical keys, including
+    duplicate timestamps; later positional kernels treat that order as
+    authoritative. The single-key ``kind`` option is deliberately not cited as
+    the guarantee because Pandas ignores it for multi-key sorts.
+
+    :param prices_df:
+        Price rows with a datetime index and canonical ``id`` column.
+    :param priority_ids:
+        Vault identifiers that should be processed before the remaining rows.
+    :return:
+        Sorted rows with ``timestamp`` restored as the index.
     """
 
     assert isinstance(prices_df.index, pd.DatetimeIndex) or pd.api.types.is_datetime64_any_dtype(prices_df.index), f"Expected datetime index, got: {type(prices_df.index)}, dtype: {prices_df.index.dtype}"
@@ -1817,12 +2035,60 @@ def sort_and_index_vault_prices(
     return prices_df
 
 
-def process_raw_vault_scan_data(
+def _copy_columns_by_position(
+    target: pd.DataFrame,
+    source: pd.DataFrame,
+    row_positions: np.ndarray,
+    excluded_columns: Collection[str] = frozenset(),
+    *,
+    original_source: pd.DataFrame | None = None,
+) -> None:
+    """Copy a cleaned subset back without duplicate-index label alignment.
+
+    The source frame must have been selected from ``target`` with
+    ``target.iloc[row_positions]`` and must retain that row order.  Copying one
+    column at a time preserves extension dtypes and avoids materialising the
+    full mixed-protocol frame as an object array.  Integer positions are
+    essential because several observations may share the same timestamp.
+
+    :param target:
+        Full destination DataFrame modified in place.
+    :param source:
+        Cleaned subset with the same number and ordering as ``row_positions``.
+    :param row_positions:
+        One-dimensional integer positions identifying destination rows.
+    :param excluded_columns:
+        Identity or helper columns which the cleaner must not rewrite.
+    :param original_source:
+        Original selected rows in the same positional order as ``source`` and
+        ``row_positions``. Columns that are exactly unchanged in the cleaned
+        source need no expensive mixed-frame positional assignment.
+    :return:
+        ``None``.
+    """
+    assert row_positions.ndim == 1, "Row positions must be one-dimensional"
+    assert len(source) == len(row_positions), "Source rows and destination positions must match"
+    missing_columns = set(source.columns) - set(target.columns)
+    assert not missing_columns, f"Source columns missing from target: {sorted(missing_columns)}"
+    if original_source is not None:
+        assert len(original_source) == len(source), "Original and cleaned subset lengths must match"
+    for column in source.columns:
+        if column in excluded_columns:
+            continue
+        if original_source is not None and column in original_source.columns and source[column].dtype == original_source[column].dtype and source[column].equals(original_source[column]):
+            continue
+        target.iloc[row_positions, target.columns.get_loc(column)] = source[column].array
+
+
+def process_raw_vault_scan_data(  # noqa: PLR0914 - established cleaner orchestration API
     rows: dict[VaultSpec, VaultRow] | VaultDatabase,
     prices_df: pd.DataFrame,
-    logger=print,
-    display: Callable = lambda x: None,
+    logger: Callable[[str], None] = print,
+    display: Callable[[pd.DataFrame], None] = lambda _: None,
     diagnose_vault_id: str | None = None,
+    *,
+    denomination_families: Iterable[DenominationFamily] | None = None,
+    crypto_min_tvl_usd: Decimal | None = None,
 ) -> pd.DataFrame:
     """Preprocess vault data for further analysis.
 
@@ -1832,19 +2098,46 @@ def process_raw_vault_scan_data(
     - Calculate returns, rolling metrics
 
     :param rows:
-        Metadata rows from vault database
-
+        Metadata rows from the vault database, or a loaded database instance.
+    :param prices_df:
+        Raw price observations containing at least chain, address, timestamp,
+        share-price, total-assets and total-supply columns.
     :param logger:
-        Notebook / console printer function
-
+        Notebook, console or structured-log callback accepting one message.
     :param display:
-        Display Pandas DataFrame function
+        Optional DataFrame display callback used for one-vault diagnostics.
+    :param diagnose_vault_id:
+        Optional canonical vault identifier to show between cleaning stages.
+    :param denomination_families:
+        Denomination families to retain; defaults to stablecoins.
+    :param crypto_min_tvl_usd:
+        Optional USD TVL threshold converted into ETH/BTC denomination units.
+    :return:
+        Cleaned, denormalised price observations ordered by vault and time.
+
+    Performance history
+    -------------------
+
+    Baseline (2026-09-22 production run): stablecoin cleaning processed
+    22,552,978 raw rows and took about 11 minutes 25 seconds.  The first
+    optimisation pass filters before wide enrichment, reuses integer group
+    codes and replaces the inactive-lead and outlier callbacks with positional
+    array masks.  The production-shaped rerun processed 22,552,978 raw rows,
+    selected 10,338,606 stablecoin rows and produced 10,116,623 cleaned rows
+    in 146.02 seconds, versus 11m25s in the source log (4.7x).  Peak process
+    RSS was 20.4 GiB versus no RSS measurement in the original log.  The
+    stage breakdown is emitted by this function's timer logs; the exact input
+    was the 333,430,642-byte, 38-column Parquet copy from 2026-09-22.
     """
 
-    prices_df = ensure_vault_state_columns(prices_df)
-    prices_df = derive_deposit_closed_reason(prices_df)
+    stage_started_at = time.perf_counter()
+    raw_row_count = len(prices_df)
 
-    assign_unique_names(rows, prices_df, logger)
+    # Only the canonical id is needed for metadata validation and denomination
+    # selection.  State defaults, protocol names and event counts are wide
+    # columns; materialising them before this filter made the full 22-million
+    # row sort pay for data that was immediately discarded.
+    assign_unique_names(rows, prices_df, logger, assign_names=False)
 
     missing_ids = check_missing_metadata(rows, prices_df["id"], prices_df, logger)
     if missing_ids:
@@ -1852,7 +2145,23 @@ def process_raw_vault_scan_data(
         prices_df = prices_df[~prices_df["id"].isin(missing_ids)]
         logger(f"Dropped {before_count - len(prices_df):,} price rows for {len(missing_ids):,} vaults without metadata")
 
+    families = frozenset(denomination_families or {DenominationFamily.stablecoin})
+    prices_df = filter_vaults_by_denomination_families(
+        rows,
+        prices_df,
+        families,
+        logger=logger,
+    )
+
+    # Add the wide compatibility/state columns only after the selected family
+    # has been reduced.  This preserves every output default while shrinking
+    # all later groupby, sort and cleaner allocations.
+    prices_df = ensure_vault_state_columns(prices_df)
+    prices_df = derive_deposit_closed_reason(prices_df)
+    assign_vault_names(rows, prices_df)
     prices_df = add_denormalised_vault_data(rows, prices_df, logger)
+
+    logger(f"Vault cleaning stage metadata/filter: {raw_row_count:,} -> {len(prices_df):,} rows in {time.perf_counter() - stage_started_at:.2f}s")
 
     if diagnose_vault_id:
         vault_prices_df = prices_df[prices_df["id"] == diagnose_vault_id]
@@ -1868,24 +2177,46 @@ def process_raw_vault_scan_data(
     prices_df["timestamp"] = pd.to_datetime(prices_df["timestamp"])
     prices_df = prices_df.set_index("timestamp")
 
+    sort_started_at = time.perf_counter()
     prices_df = sort_and_index_vault_prices(prices_df, PRIORITY_SORT_IDS)
-    prices_df = filter_vaults_by_stablecoin(rows, prices_df, logger)
+    logger(f"Vault cleaning stage sort: {len(prices_df):,} rows in {time.perf_counter() - sort_started_at:.2f}s")
     if prices_df.empty:
-        logger("No stablecoin-nominated price rows remain; skipping return and TVL cleaning")
-        return prices_df
+        logger("No selected denomination price rows remain; skipping return and TVL cleaning")
+        # Preserve the public cleaned schema even when a valid denomination
+        # selection has no rows.  Downstream Parquet verification requires
+        # the audit and return columns, and finalisation supplies typed perp
+        # defaults without inventing an observation.
+        prices_df["raw_share_price"] = prices_df["share_price"].astype("float64")
+        prices_df["returns_1h"] = pd.Series(index=prices_df.index, dtype="float64")
+        return finalise_perp_metric_columns(prices_df, ())
+
+    # All later stages consume the same stable ``id`` order.  Factorise it once
+    # after the only required sort and carry the integer code through row masks;
+    # the helper is dropped before returning so it never becomes part of the
+    # public Parquet schema.
+    prices_df[INTERNAL_VAULT_GROUP_COLUMN] = pd.factorize(prices_df["id"], sort=False)[0].astype("int32")
     # Disabled as low and does not result to any savings
     # prices_df = filter_unneeded_row(prices_df, logger)
 
+    stage_input_rows = len(prices_df)
+    stage_started_at = time.perf_counter()
     prices_df = remove_inactive_lead_time(prices_df, logger)
+    logger(f"Vault cleaning stage inactive lead time: {stage_input_rows:,} -> {len(prices_df):,} rows in {time.perf_counter() - stage_started_at:.2f}s")
 
     # Hypercore's share price is a reconstructed PnL/NAV performance index.
     # Do not let an insignificant bootstrap deposit become its lifetime basis.
+    stage_input_rows = len(prices_df)
+    stage_started_at = time.perf_counter()
     prices_df = discard_hypercore_initial_low_tvl_history(prices_df, logger)
+    logger(f"Vault cleaning stage Hypercore initial low-TVL discard: {stage_input_rows:,} -> {len(prices_df):,} rows in {time.perf_counter() - stage_started_at:.2f}s")
 
     # A complete Hypercore wipe-out followed by later deposits is a new
     # investment epoch, not a recoverable price movement. Begin the cleaned
     # history from the meaningful recapitalisation point.
+    stage_input_rows = len(prices_df)
+    stage_started_at = time.perf_counter()
     prices_df = discard_hypercore_pre_recapitalisation_history(prices_df, logger)
+    logger(f"Vault cleaning stage Hypercore recapitalisation discard: {stage_input_rows:,} -> {len(prices_df):,} rows in {time.perf_counter() - stage_started_at:.2f}s")
 
     if diagnose_vault_id:
         vault_prices_df = prices_df[prices_df["id"] == diagnose_vault_id]
@@ -1895,7 +2226,10 @@ def process_raw_vault_scan_data(
     # Hyperliquid does not expose an authoritative historical unit price or
     # share supply. Replace every raw Hypercore scanner unit with one
     # conservative PnL/NAV performance index before calculating returns.
+    stage_input_rows = len(prices_df)
+    stage_started_at = time.perf_counter()
     prices_df = approximate_hypercore_share_prices_from_pnl_nav(prices_df, logger)
+    logger(f"Vault cleaning stage Hypercore PnL/NAV approximation: {stage_input_rows:,} -> {len(prices_df):,} rows in {time.perf_counter() - stage_started_at:.2f}s")
 
     # The generic fixer derives one row offset from each vault's median polling
     # interval. Hypercore mixes roughly 20-minute, daily, and weekly rows, so one
@@ -1908,11 +2242,34 @@ def process_raw_vault_scan_data(
 
     if has_hypercore and has_evm:
         # Fix outlier share prices only for EVM rows, operating in-place
-        evm_df = prices_df.loc[~hypercore_mask]
+        stage_input_rows = int((~hypercore_mask).sum())
+        stage_started_at = time.perf_counter()
+        evm_positions = np.flatnonzero((~hypercore_mask).to_numpy(dtype=bool, na_value=False))
+        # Use integer row positions for both extraction and reconstruction. A
+        # timestamp label can repeat, and DataFrame ``.loc`` assignment then
+        # spends tens of seconds aligning a wide duplicate-index frame even
+        # though the cleaner's row order is already authoritative.
+        evm_df = prices_df.iloc[evm_positions]
         fixed_evm = fix_outlier_share_prices(evm_df, logger)
-        prices_df.loc[~hypercore_mask] = fixed_evm
+        # Assign one extension-array column at a time. Converting the complete
+        # mixed Arrow-backed frame to one object ``ndarray`` both spikes RSS and
+        # makes PyArrow string blocks attempt to box millions of values. The
+        # per-column positional writes retain each destination dtype and avoid
+        # duplicate-index alignment.
+        _copy_columns_by_position(
+            prices_df,
+            fixed_evm,
+            evm_positions,
+            excluded_columns={"id", INTERNAL_VAULT_GROUP_COLUMN},
+            original_source=evm_df,
+        )
+        del evm_df, fixed_evm, evm_positions
+        logger(f"Vault cleaning stage EVM outlier repair: {stage_input_rows:,} -> {stage_input_rows:,} rows in {time.perf_counter() - stage_started_at:.2f}s")
     elif has_evm:
+        stage_input_rows = len(prices_df)
+        stage_started_at = time.perf_counter()
         prices_df = fix_outlier_share_prices(prices_df, logger)
+        logger(f"Vault cleaning stage EVM outlier repair: {stage_input_rows:,} -> {len(prices_df):,} rows in {time.perf_counter() - stage_started_at:.2f}s")
     else:
         logger("Skipping fix_outlier_share_prices() for Hypercore-only dataset")
 
@@ -1921,35 +2278,145 @@ def process_raw_vault_scan_data(
         logger("After fix_outlier_share_prices():")
         display(vault_prices_df)
 
-    prices_df = calculate_vault_returns(prices_df)
+    stage_input_rows = len(prices_df)
+    stage_started_at = time.perf_counter()
+    prices_df = calculate_vault_returns(prices_df, logger=logger)
+    logger(f"Vault cleaning stage return calculation: {stage_input_rows:,} -> {len(prices_df):,} rows in {time.perf_counter() - stage_started_at:.2f}s")
 
+    stage_input_rows = len(prices_df)
+    stage_started_at = time.perf_counter()
     prices_df = clean_returns(
         rows,
         prices_df,
         logger=logger,
         display=display,
     )
+    logger(f"Vault cleaning stage return cleaning: {stage_input_rows:,} -> {len(prices_df):,} rows in {time.perf_counter() - stage_started_at:.2f}s")
 
     if diagnose_vault_id:
         vault_prices_df = prices_df[prices_df["id"] == diagnose_vault_id]
         logger("After clean_returns():")
         display(vault_prices_df)
 
+    tvl_threshold: float | Mapping[str, float] | Callable[[str], float] = 1000.0
+    if families != {DenominationFamily.stablecoin}:
+        base_guideline = crypto_min_tvl_usd or Decimal(os.environ.get("CRYPTO_VAULTS_MIN_TVL_USD", "5000"))
+        tvl_threshold = {str(v["_detection_data"].chain) + "-" + v["_detection_data"].address: float(convert_usd_threshold_to_denomination(base_guideline, v["Denomination"])) for v in rows.values() if classify_denomination(v["Denomination"]) in families}
+
+    stage_input_rows = len(prices_df)
+    stage_started_at = time.perf_counter()
     prices_df = clean_by_tvl(
         rows,
         prices_df,
         logger,
+        tvl_threshold_min=tvl_threshold,
     )
+    logger(f"Vault cleaning stage TVL cleaning: {stage_input_rows:,} -> {len(prices_df):,} rows in {time.perf_counter() - stage_started_at:.2f}s")
     registered_perp_vaults = build_registered_perp_vault_index(prices_df)
+    stage_input_rows = len(prices_df)
+    stage_started_at = time.perf_counter()
     prices_df = finalise_perp_metric_columns(prices_df, registered_perp_vaults)
+    logger(f"Vault cleaning stage perpetual metric finalisation: {stage_input_rows:,} -> {len(prices_df):,} rows in {time.perf_counter() - stage_started_at:.2f}s")
+    prices_df.drop(columns=[INTERNAL_VAULT_GROUP_COLUMN], inplace=True, errors="ignore")
     return prices_df
 
 
+def materialise_daily_crypto_prices(prices_df: pd.DataFrame) -> pd.DataFrame:
+    """Select one real end-of-day observation per vault.
+
+    The exported parquet deliberately preserves only real observations.  Metric
+    calculations subsequently build their own forward-filled daily view using
+    :func:`eth_defi.research.vault_metrics.prepare_daily_share_price_series`.
+
+    :param prices_df:
+        Cleaned selected-family price rows with timestamp/index, ``id`` and
+        ``share_price`` columns.
+    :return:
+        Chronologically sorted, observation-preserving daily price rows using
+        the existing cleaned-price schema.
+    """
+    frame = prices_df.reset_index() if "timestamp" not in prices_df.columns else prices_df.copy()
+    frame["timestamp"] = pd.to_datetime(frame["timestamp"])
+    frame["_utc_date"] = frame["timestamp"].dt.floor("D")
+    sort_columns = ["id", "timestamp"]
+    if "block_number" in frame.columns:
+        sort_columns.append("block_number")
+    frame = frame.sort_values(sort_columns, kind="stable")
+    daily = frame.groupby(["id", "_utc_date"], sort=False, as_index=False).tail(1).copy()
+    daily = daily.sort_values(["id", "timestamp"], kind="stable")
+    if "returns_1h" in daily.columns:
+        # ``returns_1h`` is a legacy name. Crypto Parquet is sparse daily, so
+        # this is the return since the preceding exported observation.
+        daily["returns_1h"] = daily.groupby("id", sort=False)["share_price"].pct_change(fill_method=None).fillna(0.0)
+        if "tvl_filtering_mask" in daily.columns:
+            daily.loc[daily["tvl_filtering_mask"].fillna(False).astype(bool), "returns_1h"] = 0.0
+    daily.drop(columns=["_utc_date"], inplace=True)
+    daily.set_index("timestamp", inplace=True)
+    return daily
+
+
+def write_daily_crypto_prices_sidecar(
+    prices_df: pd.DataFrame,
+    destination_path: Path,
+    logger: Callable[[str], None] = print,
+) -> int:
+    """Write an atomic daily sidecar from an already-cleaned price frame.
+
+    The scheduled scanner otherwise writes the hourly stablecoin Parquet and
+    immediately reads all of its rows again when building the private crypto
+    bundle.  Materialising this small observation-preserving sidecar while the
+    cleaned frame is already resident removes that second wide read.  The
+    derivative is written to a temporary sibling and verified before replace,
+    so an interrupted scan cannot replace a valid previous sidecar with a
+    partial file.
+
+    :param prices_df:
+        Settlement-annotated cleaned hourly rows with a timestamp index.
+    :param destination_path:
+        Atomic daily Parquet destination.
+    :param logger:
+        Progress callback.
+    :return:
+        Number of daily rows written.
+
+    Performance history
+    -------------------
+
+    Baseline (2026-09-22 production run): crypto construction reread
+    10,116,623 hourly stablecoin rows before daily materialisation.  In the
+    2026-09-22 production-shaped run, the sidecar contained 1,945,631
+    rows and its atomic write took 5.91 seconds.  The old path reread and
+    materialised 10,116,623 hourly rows; that wide reread was not isolated in
+    the source log, so no standalone speed-up or sidecar RSS is claimed.  The
+    complete cleaner's peak process RSS was 20.4 GiB.
+    """
+    started_at = time.perf_counter()
+    daily_prices = materialise_daily_crypto_prices(prices_df)
+    destination_path.parent.mkdir(parents=True, exist_ok=True)
+    temporary_fd, temporary_path_text = tempfile.mkstemp(suffix=".parquet", dir=destination_path.parent)
+    temporary_path = Path(temporary_path_text)
+    try:
+        os.close(temporary_fd)
+        table = pa.Table.from_pandas(daily_prices)
+        table = table.replace_schema_metadata(stamp_parquet_schema_metadata(table.schema).metadata)
+        pq.write_table(table, temporary_path, compression="zstd")
+        verify_parquet_file(
+            temporary_path,
+            expected_rows=len(daily_prices),
+            required_columns=["id", "share_price", "timestamp", "returns_1h"],
+        )
+        os.replace(temporary_path, destination_path)
+    finally:
+        temporary_path.unlink(missing_ok=True)
+    logger(f"Vault cleaning stage daily sidecar write: {len(daily_prices):,} rows to {destination_path} in {time.perf_counter() - started_at:.2f}s")
+    return len(daily_prices)
+
+
 def check_missing_metadata(
-    rows: dict,
+    rows: Mapping[VaultSpec, VaultRow],
     price_ids: pd.Series,
     prices_df: pd.DataFrame,
-    logger=print,
+    logger: Callable[[str], None] = print,
 ) -> set[str]:
     """Check that we have metadata for all vaults in the prices DataFrame.
 
@@ -1959,41 +2426,64 @@ def check_missing_metadata(
     at error level and their IDs returned so the caller can drop them.
 
     :param rows:
-        Metadata rows from vault database
-
+        Metadata rows keyed by vault specification.
+    :param price_ids:
+        Canonical identifier series corresponding to ``prices_df``.
     :param prices_df:
         The full prices DataFrame, used to extract context for missing vaults.
-
+    :param logger:
+        Diagnostic callback accepting one message.
     :return:
         Set of vault IDs that are missing from the metadata.
         These should be dropped from the price data before further processing.
+
+    Performance history
+    -------------------
+
+    The previous implementation rescanned the full price frame once per
+    missing identifier to build an error message.  Build one grouped context
+    table for the missing subset instead; normal runs with no missing IDs take
+    the same cheap path.
     """
 
     assert isinstance(price_ids, pd.Series)
 
-    unique_price_ids = sorted(list(price_ids.unique()))
+    unique_price_ids = sorted(price_ids.unique())
 
     vaults_by_id = get_vaults_by_id(rows)
 
     logger(f"Price data has {len(unique_price_ids):,} unique vault ids, vault database has {len(vaults_by_id):,} vault ids")
 
-    assert len(unique_price_ids) > 0, "No vault ids in price data"
+    if not unique_price_ids:
+        return set()
 
-    missing_ids = set()
+    missing_ids = set(unique_price_ids) - set(vaults_by_id)
 
-    for vault_id in unique_price_ids:
-        if vault_id not in vaults_by_id:
-            missing_ids.add(vault_id)
-
-            # Extract context from the price rows for this vault
-            vault_rows = prices_df[prices_df["id"] == vault_id]
-            row_count = len(vault_rows)
-            chain = vault_rows["chain"].iloc[0] if row_count > 0 else "?"
-            address = vault_rows["address"].iloc[0] if row_count > 0 else "?"
-            chain_name = get_chain_name(chain) if isinstance(chain, int) else str(chain)
-            first_ts = vault_rows["timestamp"].min() if row_count > 0 else "?"
-            last_ts = vault_rows["timestamp"].max() if row_count > 0 else "?"
-            logger(f"ERROR: Missing metadata for vault {vault_id} (chain={chain_name}, address={address}, {row_count:,} price rows, {first_ts} to {last_ts}), dropping from price data")
+    if missing_ids:
+        # Restrict the groupby to missing rows and aggregate all diagnostic
+        # fields once.  The old per-ID boolean scan multiplied its cost by the
+        # number of missing vaults and competed with the main denomination
+        # filter on large raw files.
+        missing_rows = prices_df.loc[prices_df["id"].isin(missing_ids)]
+        contexts = missing_rows.groupby("id", sort=False).agg(
+            row_count=("id", "size"),
+            chain=("chain", "first"),
+            address=("address", "first"),
+            first_timestamp=("timestamp", "min"),
+            last_timestamp=("timestamp", "max"),
+        )
+        for vault_id in sorted(missing_ids):
+            if vault_id in contexts.index:
+                context = contexts.loc[vault_id]
+                chain = context["chain"]
+                chain_name = get_chain_name(chain) if isinstance(chain, int) else str(chain)
+                logger(f"ERROR: Missing metadata for vault {vault_id} (chain={chain_name}, address={context['address']}, {int(context['row_count']):,} price rows, {context['first_timestamp']} to {context['last_timestamp']}), dropping from price data")
+            else:
+                # ``price_ids`` is an explicit API input and older callers may
+                # validate IDs which are absent from the contextual frame.
+                # Retain the previous diagnostic fallback instead of raising a
+                # secondary KeyError that hides the actual missing metadata.
+                logger(f"ERROR: Missing metadata for vault {vault_id} (chain=?, address=?, 0 price rows, ? to ?), dropping from price data")
 
     if missing_ids:
         logger(f"ERROR: Missing vault metadata for {len(missing_ids):,} vault ids out of {len(unique_price_ids):,}, dropping their price rows. This may be caused by a case mismatch between address formats in the price data vs vault database.")
@@ -2001,38 +2491,162 @@ def check_missing_metadata(
     return missing_ids
 
 
-def generate_cleaned_vault_datasets(
-    vault_db_path=DEFAULT_VAULT_DATABASE,
-    price_df_path=DEFAULT_UNCLEANED_PRICE_DATABASE,
-    cleaned_price_df_path=Path.home() / ".tradingstrategy" / "vaults" / "cleaned-vault-prices-1h.parquet",
-    settlement_db_path: Path | None = None,
-    logger=print,
-    display=display,
-    diagnose_vault_id: str | None = None,
-):
-    """A command line script entry point to take raw scanned vault price data and clean it up to a format that can be analysed.
+def _build_vault_price_dataset_filter(vault_specs: Collection[VaultSpec]) -> ds.Expression:
+    """Build an exact Arrow predicate for a set of chain/address identities.
 
-    - Reads ``vault-prices-1h.parquet`` and generates ``cleaned-vault-prices-1h.parquet``
-    - Calculate returns and various performance metrics to be included with prices data
-    - Clean returns from abnormalities
+    Raw Parquet stores the two identity columns separately, while the cleaner
+    derives its Pandas ``id`` later.  Per-chain ``isin`` predicates preserve
+    that exact pair relationship and let the Arrow scanner discard unrelated
+    rows before any object-backed Pandas columns are materialised.
+
+    :param vault_specs:
+        Metadata identities to retain.
+    :return:
+        Arrow dataset filter expression.
+    """
+    addresses_by_chain: dict[int, set[str]] = defaultdict(set)
+    for spec in vault_specs:
+        # ``VaultSpec`` normalises addresses to lowercase, but keep the
+        # normalisation explicit here because raw scanner Parquet is written
+        # with lowercase address strings and Arrow comparisons are exact.
+        addresses_by_chain[spec.chain_id].add(spec.vault_address.lower())
+    if not addresses_by_chain:
+        # ``isin([])`` is a valid false predicate and keeps an empty metadata
+        # selection from accidentally falling back to a full raw-file read.
+        return ds.field("chain").isin([])
+
+    predicates = [(ds.field("chain") == chain_id) & ds.field("address").isin(sorted(addresses)) for chain_id, addresses in addresses_by_chain.items()]
+    predicate = predicates[0]
+    for additional_predicate in predicates[1:]:
+        predicate |= additional_predicate
+    return predicate
+
+
+def generate_cleaned_vault_datasets(  # noqa: PLR0914,PLR0917 - stable cleaner orchestration API
+    vault_db_path: Path = DEFAULT_VAULT_DATABASE,
+    price_df_path: Path = DEFAULT_UNCLEANED_PRICE_DATABASE,
+    cleaned_price_df_path: Path = DEFAULT_RAW_PRICE_DATABASE,
+    settlement_db_path: Path | None = None,
+    logger: Callable[[str], None] = print,
+    warning_logger: Callable[[str], None] | None = None,
+    display: Callable[[pd.DataFrame], None] = display,
+    diagnose_vault_id: str | None = None,
+    vault_db: VaultDatabase | None = None,
+    *,
+    denomination_families: Iterable[DenominationFamily] | None = None,
+    daily_materialisation: bool = False,
+    daily_price_df_path: Path | None = None,
+    crypto_min_tvl_usd: Decimal | None = None,
+    raw_vault_specs: Collection[VaultSpec] | None = None,
+) -> None:
+    """Clean raw scanned vault prices and atomically write an analysis dataset.
+
+    - Reads ``vault-prices-1h.parquet`` and generates a cleaned Parquet dataset
+    - Calculates returns and related fields included with price data
+    - Cleans abnormal returns
     - Stamp the cleaned Parquet with the current Docker ``metadata.version``
       provenance, matching vault scanner JSON exports
 
     .. note::
 
-        Drops non-stablecoin vaults. The cleaning is currently applicable
-        for stable vaults only.
+        Defaults to stablecoin-only selection for compatibility.  The isolated
+        crypto bundle passes explicitly reviewed stablecoin, ETH and BTC families.
+
+    :param vault_db_path:
+        Vault metadata pickle path.
+    :param price_df_path:
+        Raw scanner Parquet source.
+    :param cleaned_price_df_path:
+        Atomic cleaned Parquet destination.
+    :param settlement_db_path:
+        Optional settlement database used to annotate cleaned observations.
+    :param logger:
+        Progress callback accepting one message.
+    :param warning_logger:
+        Optional warning callback for recoverable sidecar failures. Defaults
+        to ``logger`` for notebook callers without structured log levels.
+    :param display:
+        Optional DataFrame display callback for diagnostics.
+    :param diagnose_vault_id:
+        Optional canonical vault identifier to show between cleaning stages.
+    :param vault_db:
+        Optional preloaded vault metadata database. Supplying it avoids a
+        second pickle read when callers derive ``raw_vault_specs`` from the same
+        metadata.
+    :param denomination_families:
+        Denomination families to retain; defaults to stablecoins.
+    :param daily_materialisation:
+        Whether the primary output itself should contain one row per UTC day.
+    :param daily_price_df_path:
+        Optional atomic daily sidecar destination. When supplied, the sidecar
+        is materialised from the settlement-annotated hourly frame before the
+        frame is released, allowing the crypto bundle to avoid rereading the
+        full stablecoin Parquet.
+    :param crypto_min_tvl_usd:
+        Optional USD TVL threshold for crypto-denominated vaults.
+    :param raw_vault_specs:
+        Optional source vault identities to push down to the Parquet reader.
+        Raw Parquet stores these as ``chain`` and ``address`` rather than the
+        derived ``id`` column. The crypto-only cleaner uses this to avoid
+        materialising unrelated raw histories before denomination selection.
+        A targeted clean may produce a typed zero-row output. When omitted,
+        a zero-row result is rejected to protect the last valid public output.
+
+    :return:
+        ``None``. The verified output is atomically installed at
+        ``cleaned_price_df_path``.
+
+    Performance history
+    -------------------
+
+    Baseline (2026-09-22 production log): the default stablecoin cleaner
+    processed 22,552,978 raw rows to 10,116,623 cleaned rows in about 11m25s.
+    The production-shaped rerun processed the same row counts in 146.02s
+    (4.7x), with 20.4 GiB peak process RSS.  The measured input fingerprint
+    was the 333,430,642-byte, 38-column raw Parquet copy from 2026-09-22;
+    output had 49 columns and 10,116,623 rows.  This timer covers metadata
+    filtering, all Python transforms, settlement annotation, Arrow conversion,
+    write, verification and the optional sidecar when requested.
     """
 
     assert vault_db_path.exists()
     assert price_df_path.exists()
+    warning_logger = warning_logger or logger
+    pipeline_started_at = time.perf_counter()
 
-    logger(f"Loading vault database {vault_db_path}")
-    vault_db: VaultDatabase = pickle.load(vault_db_path.open("rb"))
+    if vault_db is None:
+        logger(f"Loading vault database {vault_db_path}")
+        vault_db = VaultDatabase.read(vault_db_path)
+    else:
+        logger(f"Using preloaded vault database {vault_db_path}")
+
+    rows = vault_db.rows
+    selected_families = frozenset(denomination_families or {DenominationFamily.stablecoin})
+    filter_specs = set(raw_vault_specs) if raw_vault_specs is not None else {spec for spec, row in rows.items() if classify_denomination(row.get("Denomination")) in selected_families}
+    if raw_vault_specs is not None and not filter_specs:
+        message = "raw_vault_specs must not be empty when Parquet push-down is requested"
+        raise ValueError(message)
 
     logger(f"Loading prices {price_df_path}")
     raw_schema = pq.read_schema(price_df_path)
-    prices_df = pd.read_parquet(price_df_path, dtype_backend="pyarrow")
+    dataset = ds.dataset(price_df_path, format="parquet")
+    dataset_filter = _build_vault_price_dataset_filter(filter_specs)
+    if raw_vault_specs is None:
+        # Keep the legacy missing-metadata diagnostic without materialising all
+        # 38 raw columns. The compact identity scan is released before the
+        # selected wide table is converted to Pandas.
+        identity_started_at = time.perf_counter()
+        identity_table = dataset.to_table(columns=["chain", "address", "timestamp"])
+        identity_frame = identity_table.to_pandas(types_mapper=pd.ArrowDtype)
+        identity_frame["id"] = identity_frame["chain"].astype(str) + "-" + identity_frame["address"].astype(str)
+        check_missing_metadata(rows, identity_frame["id"], identity_frame, logger)
+        logger(f"Vault cleaning stage metadata identity scan: {len(identity_frame):,} rows in {time.perf_counter() - identity_started_at:.2f}s")
+        del identity_frame, identity_table
+    read_started_at = time.perf_counter()
+    selected_table = dataset.to_table(filter=dataset_filter)
+    prices_df = selected_table.to_pandas(types_mapper=pd.ArrowDtype)
+    del selected_table, dataset
+    logger(f"Vault cleaning stage raw Parquet read: {len(prices_df):,} rows in {time.perf_counter() - read_started_at:.2f}s")
 
     # A registry is mandatory once an artefact contains collected perp DEX
     # metrics. This deliberately fails rather than silently consulting a
@@ -2046,23 +2660,46 @@ def generate_cleaned_vault_datasets(
 
     logger(f"We have {vault_db.get_lead_count():,} vault leads in the vault database and {len(prices_df):,} price rows in the raw prices DataFrame")
 
-    rows = vault_db.rows
-
+    process_started_at = time.perf_counter()
     enhanced_prices_df = process_raw_vault_scan_data(
         rows,
         prices_df,
         logger,
         display=display,
         diagnose_vault_id=diagnose_vault_id,
+        denomination_families=selected_families,
+        crypto_min_tvl_usd=crypto_min_tvl_usd,
     )
+    logger(f"Vault cleaning stage Python transforms: {len(prices_df):,} -> {len(enhanced_prices_df):,} rows in {time.perf_counter() - process_started_at:.2f}s")
+
+    # A full clean writes the public stablecoin history.  Zero selected rows
+    # indicate an empty raw source or a metadata-classification regression,
+    # not a valid publication.  Fail before settlement and temporary-file
+    # creation so the last known-good public Parquet and sidecar stay intact.
+    # Targeted crypto cleans pass ``raw_vault_specs`` and may legitimately
+    # materialise a typed empty result for their isolated temporary output.
+    if raw_vault_specs is None and enhanced_prices_df.empty:
+        message = "Refusing to replace the public cleaned vault price dataset with zero rows"
+        raise ValueError(message)
+
     logger(f"We have {len(enhanced_prices_df):,} price rows in the cleaned prices DataFrame before settlement annotation")
+    settlement_started_at = time.perf_counter()
     enhanced_prices_df = merge_vault_settlements_into_cleaned_prices(enhanced_prices_df, settlement_db_path=settlement_db_path)
+    logger(f"Vault cleaning stage settlement annotation: {len(enhanced_prices_df):,} rows in {time.perf_counter() - settlement_started_at:.2f}s")
+
+    if daily_materialisation:
+        daily_started_at = time.perf_counter()
+        before_daily_rows = len(enhanced_prices_df)
+        enhanced_prices_df = materialise_daily_crypto_prices(enhanced_prices_df)
+        logger(f"Vault cleaning stage daily materialisation: {before_daily_rows:,} -> {len(enhanced_prices_df):,} rows in {time.perf_counter() - daily_started_at:.2f}s")
 
     # Free the original uncleaned DataFrame to reduce peak memory
     del prices_df
 
     # Sort for better compression
+    sort_started_at = time.perf_counter()
     enhanced_prices_df.sort_values(by=["id", "timestamp"], inplace=True)
+    logger(f"Vault cleaning stage output sort: {len(enhanced_prices_df):,} rows in {time.perf_counter() - sort_started_at:.2f}s")
 
     # Write to a temp file, verify, then atomically replace the target.
     # If verification fails, the original cleaned parquet is preserved.
@@ -2072,24 +2709,49 @@ def generate_cleaned_vault_datasets(
     )
     try:
         os.close(temp_fd)
+        arrow_started_at = time.perf_counter()
         table = pa.Table.from_pandas(enhanced_prices_df)
         if perp_capability_registry is not None:
             table = table.replace_schema_metadata(embed_perp_capability_registry(table.schema, perp_capability_registry).metadata)
         table = table.replace_schema_metadata(stamp_parquet_schema_metadata(table.schema).metadata)
+        logger(f"Vault cleaning stage Arrow conversion: {len(enhanced_prices_df):,} rows in {time.perf_counter() - arrow_started_at:.2f}s")
+        write_started_at = time.perf_counter()
         pq.write_table(table, temp_path, compression="zstd")
+        logger(f"Vault cleaning stage Parquet write: {len(enhanced_prices_df):,} rows in {time.perf_counter() - write_started_at:.2f}s")
+        verify_started_at = time.perf_counter()
         verify_parquet_file(
             temp_path,
             expected_rows=len(enhanced_prices_df),
-            required_columns=["id", "share_price", "raw_share_price", "returns_1h", "timestamp"],
+            required_columns=[
+                "id",
+                "share_price",
+                "raw_share_price",
+                "returns_1h",
+                "timestamp",
+            ],
         )
+        logger(f"Vault cleaning stage Parquet verification: {len(enhanced_prices_df):,} rows in {time.perf_counter() - verify_started_at:.2f}s")
         os.replace(temp_path, str(cleaned_price_df_path))
     except BaseException:
         if os.path.exists(temp_path):
             os.unlink(temp_path)
         raise
 
+    if daily_price_df_path is not None:
+        try:
+            # Write after the hourly replace so normal scanner runs give the
+            # sidecar a newer mtime. The reader uses that order as a cheap
+            # stale-file guard, while still treating the hourly file as the
+            # authority when copied or restored mtimes are inconclusive.
+            write_daily_crypto_prices_sidecar(enhanced_prices_df, daily_price_df_path, logger=logger)
+        except (KeyError, OSError, ValueError, pa.ArrowException) as exc:
+            # The hourly public output remains authoritative. Crypto bundle
+            # construction detects a missing sidecar and safely falls back to
+            # the existing hourly reread, while the failure remains visible.
+            warning_logger(f"Daily crypto sidecar unavailable ({exc}); crypto bundle will fall back to hourly stablecoin data")
+
     fsize = cleaned_price_df_path.stat().st_size
-    logger(f"Saved cleaned vault prices to {cleaned_price_df_path}, total {len(enhanced_prices_df):,} rows, file size is {fsize / 1024 / 1024:.2f} MB")
+    logger(f"Saved cleaned vault prices to {cleaned_price_df_path}, total {len(enhanced_prices_df):,} rows, file size is {fsize / 1024 / 1024:.2f} MB; total elapsed {time.perf_counter() - pipeline_started_at:.2f}s")
 
 
 def replace_cleaned_vault_histories(  # noqa: PLR0914

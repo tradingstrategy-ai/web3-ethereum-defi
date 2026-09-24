@@ -7,6 +7,7 @@ import duckdb
 import pandas as pd
 import pyarrow as pa
 import pytest
+from packaging.version import InvalidVersion
 
 from eth_defi.hyperliquid.api import AssetPosition, MarginSummary, PerpClearinghouseState
 from eth_defi.hyperliquid.perp_metrics import build_hyperliquid_vault_observation_bundle
@@ -33,6 +34,7 @@ from eth_defi.perp_dex.parquet import (
     derive_perp_vault_metric_snapshots,
     finalise_perp_metric_columns,
     normalise_perp_metric_parquet_dtypes,
+    select_perp_observation_corrections,
 )
 from eth_defi.perp_dex.storage import (
     initialise_perp_vault_observation_schema,
@@ -188,6 +190,73 @@ def test_equal_rank_conflicting_corrections_fail() -> None:
         connection.close()
 
 
+def test_pep440_version_ordering_wins_same_write_correction() -> None:
+    """Use PEP 440 ordering rather than lexical collector-version order."""
+    connection = duckdb.connect(":memory:")
+    try:
+        initialise_perp_vault_observation_schema(connection)
+        written_at = _dt("2026-07-24T12:01:00")
+        write_perp_vault_observation_bundle(connection, _bundle("v1.9", written_at, collector_version="1.9"), {"response": "old"})
+        write_perp_vault_observation_bundle(connection, _bundle("v1.10", written_at, collector_version="1.10"), {"response": "new"})
+        accounts, positions = read_perp_vault_observations(connection)
+
+        selected = select_perp_observation_corrections(accounts, positions)
+
+        assert selected.iloc[0]["snapshot_id"] == "v1.10"
+    finally:
+        connection.close()
+
+
+def test_invalid_latest_singleton_collector_version_still_fails() -> None:
+    """Validate even a singleton latest correction before ranking fast paths."""
+    connection = duckdb.connect(":memory:")
+    try:
+        initialise_perp_vault_observation_schema(connection)
+        write_perp_vault_observation_bundle(
+            connection,
+            _bundle("invalid", _dt("2026-07-24T12:01:00")),
+            {"response": "valid-storage-row"},
+        )
+        accounts, positions = read_perp_vault_observations(connection)
+        # Storage validation rejects malformed versions at write time. Mutate
+        # the read frame to exercise the correction selector's own fail-fast
+        # validation contract for a singleton latest candidate.
+        accounts.loc[0, "collector_version"] = "not-a-pep440-version"
+
+        with pytest.raises(InvalidVersion):
+            select_perp_observation_corrections(accounts, positions)
+    finally:
+        connection.close()
+
+
+def test_correction_group_without_written_time_fails() -> None:
+    """Do not silently discard a correction group whose rank cannot be determined."""
+    connection = duckdb.connect(":memory:")
+    try:
+        initialise_perp_vault_observation_schema(connection)
+        write_perp_vault_observation_bundle(connection, _bundle("missing-write", _dt("2026-07-24T12:01:00")), {"response": "snapshot"})
+        accounts, positions = read_perp_vault_observations(connection)
+        accounts["written_at"] = pd.NaT
+
+        with pytest.raises(ValueError, match="no written_at"):
+            select_perp_observation_corrections(accounts, positions)
+    finally:
+        connection.close()
+
+
+def test_storage_reader_rejects_unrecognised_schema_columns() -> None:
+    """Require projection semantics to be updated with every storage migration."""
+    connection = duckdb.connect(":memory:")
+    try:
+        initialise_perp_vault_observation_schema(connection)
+        connection.execute("ALTER TABLE perp_vault_position_observations ADD COLUMN future_semantic VARCHAR")
+
+        with pytest.raises(ValueError, match="Unexpected perp_vault_position_observations schema"):
+            read_perp_vault_observations(connection)
+    finally:
+        connection.close()
+
+
 def test_stale_metrics_retain_values_and_measurement_timestamp() -> None:
     """Stale values remain auditable through their status and observation time."""
     connection = duckdb.connect(":memory:")
@@ -247,6 +316,20 @@ def test_forward_fill_keeps_stale_metrics_with_original_timestamp() -> None:
     assert filled.iloc[-1]["perp_long_notional"] == EXPECTED_LONG_NOTIONAL
     assert filled.iloc[-1]["perp_open_position_count"] == EXPECTED_OPEN_POSITION_COUNT
     assert filled.iloc[-1]["perp_metrics_observed_at"] == pd.Timestamp("2026-07-24T00:00:00")
+
+
+def test_finaliser_validates_chain_values_outside_registered_subset() -> None:
+    """Sparse identity matching must retain whole-frame chain validation."""
+    frame = pd.DataFrame(
+        {
+            "chain": [TEST_PERP_CHAIN_ID, "not-a-chain"],
+            "address": ["vault-1", "unregistered"],
+            "timestamp": [_dt("2026-07-24T00:00:00"), _dt("2026-07-24T00:00:00")],
+        }
+    )
+
+    with pytest.raises(ValueError, match="Unable to parse string"):
+        finalise_perp_metric_columns(frame, {(TEST_PERP_CHAIN_ID, "vault-1")})
 
 
 def test_observation_timestamp_uses_second_resolution() -> None:

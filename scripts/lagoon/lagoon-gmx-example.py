@@ -174,7 +174,8 @@ from eth_defi.chain import get_chain_name
 from eth_defi.confirmation import broadcast_and_wait_transactions_to_complete
 from eth_defi.erc_4626.vault_protocol.lagoon.config_event_scanner import build_multichain_guard_config, fetch_guard_config_events, format_guard_config_report
 from eth_defi.erc_4626.vault_protocol.lagoon.deployment import LagoonAutomatedDeployment, LagoonDeploymentParameters, deploy_automated_lagoon_vault
-from eth_defi.erc_4626.vault_protocol.lagoon.testing import fund_lagoon_vault, redeem_vault_shares
+from eth_defi.erc_4626.vault_protocol.lagoon.funding import fund_lagoon_vault
+from eth_defi.erc_4626.vault_protocol.lagoon.testing import redeem_vault_shares
 from eth_defi.erc_4626.vault_protocol.lagoon.vault import LagoonVault
 from eth_defi.gas import apply_gas, estimate_gas_price
 from eth_defi.gmx.ccxt import GMX
@@ -726,7 +727,7 @@ def deposit_to_vault(
 ) -> None:
     """Deposit USDC into the Lagoon vault.
 
-    Uses :func:`~eth_defi.erc_4626.vault_protocol.lagoon.testing.fund_lagoon_vault`
+    Uses :func:`~eth_defi.erc_4626.vault_protocol.lagoon.funding.fund_lagoon_vault`
     to handle the full ERC-7540 async deposit flow (request → settle → finalise).
 
     :param web3: Web3 instance

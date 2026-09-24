@@ -9,6 +9,9 @@ We keep forking real chains; we stop paying for the same fork many times over.
 > (`eth_defi/testing/fork_blocks.py`), snapshot/revert isolation, once-per-session
 > deployments, and reference tests. This document is the background/plan; that
 > one is the usage guide.
+> For troubleshooting, use its [Anvil failure modes](../eth_defi/testing/README.md#anvil-failure-modes)
+> section, including the distinction between provider cache misses, local Anvil
+> wedges, and Foundry saved-state incompatibility.
 
 > This plan was reviewed by Codex (`gpt-5.6-sol`, grounded read-only) on
 > 2026-07-24. The findings are folded in below — most importantly the existing
@@ -132,15 +135,13 @@ broken tests (`test_hyperlend`, `test_singularity`, …), and chains without a
 usable archive block (Monad; Mantle's header failed to parse). These need
 per-file work, not the mechanical transform.
 
-**Cache persistence (the key "use RPC less" fix).** The fork RPC cache only
-helps if it survives between runs, but `actions/cache@v4` **saves only on job
-success** — and the fork-heavy jobs were failing, so the cache stayed cold and
-every run re-hammered the archive (the 476 s stalls). All three fork workflows
-(`test.yml`, `test-gmx.yml`, `test-vault-protocol.yml`) now split the RPC cache
-into `actions/cache/restore` + `actions/cache/save` with `if: always()`, so
-blocks read on one run — even a failing one — replay from disk on the next.
-Combined with per-chain normalisation (one block per chain), the warm cache is
-small and dense.
+**Cache persistence (the key "use RPC less" fix).** The former fork-heavy
+workflow used `actions/cache@v4`, whose immutable save-on-success behaviour left
+the cache cold when a job failed. That design is now superseded: the committed
+seed under `eth_defi/testing/rpc_cache_seed/` is copied into each runner before
+forks launch, so failing jobs do not prevent the next run from starting warm.
+Per-chain normalisation keeps the checked-in seed small and dense; refresh it
+with the exact pinned Foundry release after intentionally warming new replies.
 
 ## Critical-path fixes (2026-07-24, after first CI results)
 
@@ -267,15 +268,13 @@ instead of the current generic `eth_chainId` `RuntimeError`.
 
 ### Supporting levers (harden, once B + diagnostics land)
 
-- **Lever A — durable, pre-warmed fork RPC cache.** The current cache is
-  best-effort GH Actions cache (immutable, 7-day / 10 GB LRU, saved via
-  `if: always()` under a `run_id` key). The #1370 run even logged the race —
-  *"Failed to save … another job may be creating this cache"*. On any cold-cache
-  run the archive stampede returns. Make the cache authoritative: a **scheduled
-  cache-warmer job** that forks every `*_MIDNIGHT_BLOCK` for every chain and
-  populates `~/.foundry/cache/rpc`, with PR runs restoring **read-only** (no
-  per-run save race). Optionally back it with durable storage (Cloudflare R2 —
-  the repo already ships the `cloudflare_r2` extra) so it is not LRU-evicted.
+- **Lever A — durable, pre-warmed fork RPC cache.** The former best-effort
+  GitHub Actions cache is superseded by the repository-supplied seed under
+  `eth_defi/testing/rpc_cache_seed/`. The session fixture copies it into each
+  runner's Foundry cache, so a cold Actions cache still starts with deterministic
+  fixed-block replies and there is no per-run fork-cache save race. The remaining
+  maintenance task is to enrich the seed from complete fixed-block integration
+  groups; see `eth_defi/testing/rpc_cache_seed/README.md`.
 - **Lever C — bound concurrent upstream load (done).** `-n auto` on a Beefy
   runner forks each chain once *per worker* (the pool is session-scoped = per
   worker), multiplying cold-start upstream connections and exhausting the
@@ -428,6 +427,11 @@ not just GitHub Actions. The per-run `actions/cache` fork-RPC steps were removed
 in favour of this committed seed. This is the primary remedy, ahead of provider
 failover or a non-throttling provider. See `eth_defi/testing/README.md` §5.
 
+For the release-compatibility failures observed while testing Foundry updates,
+including `anvil_loadState` timeouts and the broad `v1.8.3` regressions, see
+the [Anvil failure modes](../eth_defi/testing/README.md#anvil-failure-modes)
+section and [PR #1589](https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/1589).
+
 ## Why
 
 The suite is an integration suite behaving like a unit suite:
@@ -539,10 +543,9 @@ launch-count / revert-count caps and periodic Anvil recycling as a safety valve.
 ### Goal
 
 Cut cold-run wall time and archive RPC traffic by fixing every cache layer in
-the CI workflows, not just the Anvil fork cache. Today the three test workflows
-(`test.yml`, `test-gmx.yml`, `test-slow.yml`) cache inconsistently: keys drift,
-the main job rebuilds its whole virtualenv every run, and the Foundry cache is
-immutable so it never accumulates new fork state.
+the CI workflows, not just the Anvil fork cache. The fork cache itself is now
+seeded from committed fixed-block replies; this section covers the remaining
+workflow and dependency caches.
 
 ### Shared GitHub Actions cache semantics (apply to every step below)
 
@@ -581,44 +584,19 @@ immutable so it never accumulates new fork state.
    drifting keys (`gmx-venv-…`, `slow-venv-…`, `docs-venv-…`). All four explicit
    steps were removed so the built-in cache is the single mechanism everywhere.
 
-3. **Split the Foundry cache: immutable toolchain vs one stable accumulating RPC
-   cache. (done)** Previously every workflow cached all of `~/.foundry` under the
-   static key `foundry-v1.2.3-${{ runner.os }}`, so the toolchain and the fork RPC
-   cache shared one immutable key and **new fork reads under `~/.foundry/cache/rpc`
-   were never saved**.
-   - Keep the *toolchain* (`~/.foundry/bin`) under an immutable
-     `foundry-toolchain-v1.2.3-*` key. (`foundry-rs/foundry-toolchain` also caches
-     the binary itself — the explicit toolchain cache is a belt-and-braces.)
-   - The fork RPC cache is **one stable, self-warming cache** — the simplest
-     design that persists and grows without any resets or a separate warmer job.
+3. **Cache the Foundry toolchain and commit fixed-block RPC replies. (done)**
+   Workflows cache only the immutable `~/.foundry/bin` toolchain with the
+   `foundry-toolchain-v1.3.2-*` key. Fork replies are committed under
+   `eth_defi/testing/rpc_cache_seed/` and copied into each worker's Foundry cache
+   by the session fixture; a cold runner therefore starts with the same replies
+   as a warm runner.
 
-     > **Superseded (2026-07-25).** The `actions/cache` design described in this
-     > bullet was **removed**. Anvil only flushes its fork cache on a *graceful*
-     > shutdown, and teardown `SIGKILL`'d it, so `actions/cache` never had
-     > anything to save. The warm cache is now **committed to the repo**
-     > (`eth_defi/testing/rpc_cache_seed/`) and applied by a session fixture — see
-     > the dated "graceful shutdown" note above and `eth_defi/testing/README.md`
-     > §5. The rest of this bullet is retained as historical design context.
-
-     Because GitHub caches are immutable (saved only on a key miss), a *fixed* key
-     would freeze after the first save; so we use a unique-per-run key
-     `foundry-rpc-v1.2.3-${{ runner.os }}-${{ github.run_id }}` with a **stable
-     restore-keys prefix** `foundry-rpc-v1.2.3-${{ runner.os }}-`, split into
-     `actions/cache/restore` + `actions/cache/save` with **`if: always()`**. Each
-     run restores the newest accumulated cache and saves back a superset, so the
-     cache **self-warms and persists across runs with no monthly reset**. It is
-     naturally bounded (a finite set of fixed fork blocks), and GitHub's 7-day
-     eviction / 10 GB LRU handle any dead entries.
-   - Anvil writes fork reads under `~/.foundry/cache/rpc/`. The observed layout is
-     `rpc/<network-name>/<block>/storage.json` (e.g. `rpc/base/48956940/storage.json`)
-     — keyed by Foundry's **network name, not chain id**, with a per-block
-     directory. Cache the whole `~/.foundry/cache/rpc` tree rather than a guessed
-     sub-path, and **re-validate the exact layout against pinned Foundry v1.2.3**
-     before relying on it (it has changed across versions). Note the network-name
-     keying: confirm two different upstream endpoints for the same chain cannot
-     collide before sharing this cache. At a fixed `fork_block_number` the entries
-     are stable and reusable; do **not** cache mutable-tip forks. This is what
-     makes Lever 1's shared forks also fast on a cold worker.
+   Anvil stores replies as `rpc/<network-name>/<block>/storage.json` (for example,
+   `rpc/base/48956940/storage.json`). The network name and fixed block number are
+   part of the cache key, so cache only deterministic historical forks. Refresh a
+   seed using the exact pinned Anvil version after changing a fork test, because
+   the cache file format changes between Foundry releases. Do not cache mutable-tip
+   forks.
 
 4. **Cache git submodules / avoid re-cloning heavy ones. (deferred)**
    `test.yml`'s checkout uses `submodules: true`, re-cloning large submodules

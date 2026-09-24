@@ -8,6 +8,8 @@ import logging
 import random
 import time
 from collections import Counter, defaultdict
+from contextvars import ContextVar
+from dataclasses import dataclass
 from pprint import pformat
 from typing import Any, cast
 
@@ -87,6 +89,32 @@ class ProviderNotAvailable(ChainIdMismatch):
     """
 
 
+@dataclass(frozen=True, slots=True)
+class FallbackRetryConfiguration:
+    """Bound selected fallback retries for one optional contract call.
+
+    :py:class:`EncodedCall` uses this context-local configuration while probing
+    optional Solidity methods. It preserves the caller's retry budget without
+    placing Python exception classes in a JSON-RPC transaction payload.
+
+    :param retry_exceptions:
+        Exception classes which remain retryable despite ``ignore_error``.
+    :param retries:
+        Maximum number of fallback retries after the initial request.
+    :param sleep:
+        Seconds to wait before each selected retry.
+    """
+
+    #: Exception classes which remain retryable despite ``ignore_error``.
+    retry_exceptions: tuple[type[Exception], ...]
+
+    #: Maximum number of fallback retries after the initial request.
+    retries: int
+
+    #: Seconds to wait before each selected retry.
+    sleep: float
+
+
 class FallbackProvider(BaseNamedProvider):
     """Fault-tolerance for JSON-RPC requests with multiple providers.
 
@@ -158,6 +186,12 @@ class FallbackProvider(BaseNamedProvider):
         """
 
         super().__init__()
+
+        #: Context-local retry configuration supplied by :py:meth:`EncodedCall.call`.
+        #:
+        #: Keeping Python exception classes out of the transaction payload prevents
+        #: Web3 from serialising them to JSON-RPC.
+        self.retry_configuration_context: ContextVar[FallbackRetryConfiguration | None] = ContextVar("fallback_retry_configuration", default=None)
 
         self.providers = providers
 
@@ -542,27 +576,29 @@ class FallbackProvider(BaseNamedProvider):
         - If there are errors try cycle through providers and sleep
           between cycles until one provider works
 
-        - Use a special "ignore_error" parameter to skip retries,
-          if given in ``eth_call`` payload.
+        - ``ignore_error`` marks an expected call failure and disables retries.
+          A context-local retry configuration can selectively re-enable matching
+          transient exception classes with a bounded retry budget.
         """
 
-        # The caller has requested not to retry.
-        # Set in EncodedCall.call(ignore_error=True)
         ignore_error = silent_error = False
         param_1 = params[0] if isinstance(params, (tuple, list)) and len(params) > 0 else None
         if param_1 and isinstance(param_1, dict):
+            param_1 = param_1.copy()
+            params = [param_1, *params[1:]]
             ignore_error = param_1.pop("ignore_error", False)
-            if ignore_error:
-                # Don't pass the flag to RPC
-                params = [param_1, *params[1:]]
-
             silent_error = param_1.pop("silent_error", False)
-            if silent_error:
-                # Don't pass the flag to RPC
-                params = [param_1, *params[1:]]
 
+        retry_configuration = self.retry_configuration_context.get()
+        retry_exceptions: tuple[type[Exception], ...] = ()
+        retries = self.retries
         current_sleep = self.sleep
-        for i in range(self.retries + 1):
+        if ignore_error and retry_configuration is not None:
+            retry_exceptions = retry_configuration.retry_exceptions
+            retries = min(retry_configuration.retries, self.retries)
+            current_sleep = retry_configuration.sleep
+
+        for i in range(retries + 1):
             provider = self.get_active_provider()
             self._record_rpc_call(provider, str(method))
             error_recorded = False
@@ -618,22 +654,25 @@ class FallbackProvider(BaseNamedProvider):
                         name = get_provider_name(provider)
                         logger.error("Provider %s: %s", name, e.response.text)
 
-                # Honour eth eth_call() payload data and don't try retry, logging, etc.
                 if ignore_error:
-                    raise
+                    if not retry_exceptions or not isinstance(e, retry_exceptions):
+                        raise
+                    retryable = True
+                else:
+                    retryable = is_retryable_http_exception(
+                        e,
+                        retryable_rpc_error_codes=self.retryable_rpc_error_codes,
+                        retryable_status_codes=self.retryable_status_codes,
+                        retryable_exceptions=self.retryable_exceptions,
+                        method=method,
+                        params=params,
+                    )
 
-                if is_retryable_http_exception(
-                    e,
-                    retryable_rpc_error_codes=self.retryable_rpc_error_codes,
-                    retryable_status_codes=self.retryable_status_codes,
-                    retryable_exceptions=self.retryable_exceptions,
-                    method=method,
-                    params=params,
-                ):
+                if retryable:
                     if self.has_multiple_providers():
                         self.switch_provider()
 
-                    if i < self.retries:
+                    if i < retries:
                         # Black messes up string new lines here
                         # See https://github.com/psf/black/issues/1837
                         if logger.isEnabledFor(self.switchover_noisiness):
@@ -649,7 +688,7 @@ class FallbackProvider(BaseNamedProvider):
                                 pformat(headers),
                                 current_sleep,
                                 i + 1,
-                                self.retries,
+                                retries,
                             )
                         time.sleep(current_sleep)
                         current_sleep *= self.backoff

@@ -1,7 +1,5 @@
 """Tests for vault post-processing error handling."""
 
-from __future__ import annotations
-
 import logging
 from pathlib import Path
 from types import SimpleNamespace
@@ -12,6 +10,57 @@ from eth_defi.cloudflare_r2 import R2RetryableOperationError
 from eth_defi.vault import post_processing
 
 brotli = pytest.importorskip("brotli", reason="brotli not installed (cloudflare_r2 extra)")
+
+
+def test_export_sparklines_contains_corrupt_vault_database(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A corrupt metadata pickle must not abort later post-processing stages."""
+
+    def raise_corrupt_database(**_: object) -> None:
+        message = "truncated pickle"
+        raise EOFError(message)
+
+    monkeypatch.setattr(post_processing, "run_sparkline_export", raise_corrupt_database)
+
+    assert post_processing.export_sparklines() is False
+
+
+@pytest.mark.parametrize(("cleaning_ok", "skip_data", "export_ok", "override_path"), [(True, False, True, False), (True, False, False, False), (True, True, True, False), (False, False, True, False), (True, False, True, True)])
+def test_manifest_requires_successful_private_export(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    cleaning_ok: bool,
+    skip_data: bool,
+    export_ok: bool,
+    override_path: bool,
+) -> None:
+    """Publish a readiness receipt only after successful cleaning and export.
+
+    Run the real post-processing coordinator with isolated phase functions so
+    a failed or disabled upstream phase cannot advertise fresh live inputs.
+
+    :param tmp_path: Isolated pipeline directory.
+    :param monkeypatch: Replace expensive scanner phases for this unit test.
+    :param cleaning_ok: Whether cleaning produced a valid current snapshot.
+    :param skip_data: Whether private export is disabled by the operator.
+    :param export_ok: Whether the private export succeeded.
+    :param override_path: Use a local snapshot the exporter did not upload.
+    :return: None; checks the order and presence of receipt publication.
+    """
+    calls: list[str] = []
+    monkeypatch.setattr(post_processing, "get_pipeline_data_dir", lambda: tmp_path)
+    monkeypatch.setattr(post_processing, "merge_native_protocols", lambda **_: {})
+    monkeypatch.setattr(post_processing, "clean_prices", lambda **_: cleaning_ok)
+    monkeypatch.setattr(post_processing, "clean_crypto_vault_prices", lambda **_: False)
+    monkeypatch.setattr(post_processing, "materialise_exchange_rate_parquet", lambda **_: SimpleNamespace(path=tmp_path / "rates.parquet"))
+    monkeypatch.setattr(post_processing, "export_data_files", lambda **_: calls.append("export") or export_ok)
+    monkeypatch.setattr(post_processing, "publish_vault_scan_manifest", lambda **_: calls.append("manifest") or True)
+    post_processing.run_post_processing(skip_top_vaults=True, skip_sparklines=True, skip_metadata=True, skip_samples=True, skip_data=skip_data, cleaned_path=tmp_path / "other.parquet" if override_path else None)
+    expected = []
+    if cleaning_ok and not skip_data:
+        expected.append("export")
+        if export_ok and not override_path:
+            expected.append("manifest")
+    assert calls == expected
 
 
 def test_clean_prices_uses_structured_logger(
@@ -32,6 +81,74 @@ def test_clean_prices_uses_structured_logger(
     assert any(record.name == post_processing.__name__ and record.message == "Wrangler progress" for record in caplog.records)
 
 
+def test_run_post_processing_contains_crypto_failures_and_keeps_public_skips(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Crypto processing is always attempted but remains isolated from public work."""
+    crypto_calls: list[tuple[str, object]] = []
+
+    monkeypatch.setattr(post_processing, "merge_native_protocols", lambda **_: {})
+    exchange_rate_path = tmp_path / "exchange-rates.parquet"
+    exchange_rate_path.write_bytes(b"rate snapshot")
+    monkeypatch.setattr(post_processing, "clean_crypto_vault_prices", lambda **kwargs: crypto_calls.append(("clean", kwargs)) or True)
+    monkeypatch.setattr(post_processing, "materialise_exchange_rate_parquet", lambda **_: SimpleNamespace(path=exchange_rate_path))
+    monkeypatch.setattr(post_processing, "calculate_crypto_vault_metadata", lambda **kwargs: crypto_calls.append(("metadata", kwargs)) or {"vaults": []})
+    monkeypatch.setattr(post_processing, "export_crypto_exchange_rate_parquet", lambda path: crypto_calls.append(("rate", path)) or True)
+    monkeypatch.setattr(post_processing, "export_crypto_vault_bundle", lambda paths, metadata: crypto_calls.append(("export", (paths, metadata))) or False)
+
+    steps = post_processing.run_post_processing(
+        skip_cleaning=True,
+        skip_top_vaults=True,
+        skip_sparklines=True,
+        skip_metadata=True,
+        skip_data=True,
+        skip_samples=True,
+        vault_db_path=tmp_path / "vault-metadata-db.pickle",
+        uncleaned_parquet_path=tmp_path / "vault-prices-1h.parquet",
+        crypto_vaults_dir=tmp_path / "crypto-vaults",
+    )
+
+    assert [name for name, _ in crypto_calls] == ["clean", "metadata", "rate", "export"]
+    clean_kwargs = crypto_calls[0][1]
+    assert isinstance(clean_kwargs, dict)
+    assert clean_kwargs["cleaned_path"] == tmp_path / "crypto-vaults" / "crypto-cleaned-vault-prices-1d.parquet"
+    assert steps["clean-crypto-vault-prices"] is True
+    assert steps["materialise-exchange-rate-parquet"] is True
+    assert steps["calculate-crypto-vault-metadata"] is True
+    assert steps["export-crypto-vault-bundle"] is False
+
+
+def test_run_post_processing_does_not_publish_crypto_bundle_after_cleaning_failure(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Skip crypto preparation so failed cleaning cannot reuse stale stablecoin rows."""
+    crypto_calls: list[str] = []
+
+    monkeypatch.setattr(post_processing, "merge_native_protocols", lambda **_: {})
+    monkeypatch.setattr(post_processing, "clean_prices", lambda **_: False)
+    monkeypatch.setattr(post_processing, "clean_crypto_vault_prices", lambda **_: crypto_calls.append("clean") or True)
+    monkeypatch.setattr(post_processing, "calculate_crypto_vault_metadata", lambda **_: crypto_calls.append("metadata") or {"vaults": []})
+    monkeypatch.setattr(post_processing, "export_crypto_vault_bundle", lambda *_: crypto_calls.append("export") or True)
+
+    steps = post_processing.run_post_processing(
+        skip_top_vaults=True,
+        skip_sparklines=True,
+        skip_metadata=True,
+        skip_data=True,
+        skip_samples=True,
+        vault_db_path=tmp_path / "vault-metadata-db.pickle",
+        uncleaned_parquet_path=tmp_path / "vault-prices-1h.parquet",
+        crypto_vaults_dir=tmp_path / "crypto-vaults",
+    )
+
+    assert crypto_calls == []
+    assert steps["clean-crypto-vault-prices"] is False
+    assert steps["calculate-crypto-vault-metadata"] is False
+    assert steps["export-crypto-vault-bundle"] is False
+
+
 def test_export_data_files_logs_retryable_r2_failure_as_warning_without_traceback(
     monkeypatch: pytest.MonkeyPatch,
     caplog: pytest.LogCaptureFixture,
@@ -39,7 +156,7 @@ def test_export_data_files_logs_retryable_r2_failure_as_warning_without_tracebac
     """Transient R2 failures should await the scanner's next export attempt quietly."""
     retryable_error = R2RetryableOperationError("R2 CompleteMultipartUpload failed with http_status=500")
 
-    def fake_main() -> None:
+    def fake_main(**_: object) -> None:
         raise retryable_error
 
     module = SimpleNamespace(main=fake_main)
@@ -93,7 +210,7 @@ def test_export_top_vaults_json_passes_pipeline_data_dir(
 
     monkeypatch.setattr(post_processing, "get_pipeline_data_dir", lambda: tmp_path)
     monkeypatch.setattr(post_processing.top_vaults_json, "main", fake_main)
-    monkeypatch.setattr(post_processing, "create_r2_client", lambda **kwargs: object())
+    monkeypatch.setattr(post_processing, "create_r2_client", lambda **_: object())
     monkeypatch.setattr(post_processing, "_upload_top_vaults_json_to_configured_buckets", fake_upload_top_vaults_json_to_configured_buckets)
     monkeypatch.setenv("R2_TOP_VAULTS_BUCKET_NAME", "top-vaults")
     monkeypatch.setenv("R2_TOP_VAULTS_ACCESS_KEY_ID", "access-key")
@@ -126,7 +243,8 @@ def test_upload_top_vaults_json_to_configured_buckets_continues_after_primary_fa
     def fake_upload_file_to_r2(*, bucket_name: str, **_: object) -> bool:
         upload_attempts.append(bucket_name)
         if bucket_name == "public-bucket":
-            raise RuntimeError("403 Forbidden")
+            message = "403 Forbidden"
+            raise RuntimeError(message)
         return True
 
     monkeypatch.setattr(post_processing, "upload_file_to_r2", fake_upload_file_to_r2)
@@ -175,7 +293,7 @@ def test_brotli_upload_params(
         brotli_calls.append(kwargs)
         return True
 
-    def fake_calculate_bytes_digest(payload: bytes):
+    def fake_calculate_bytes_digest(_payload: bytes):
         return "fake-digest"
 
     monkeypatch.setattr(post_processing, "upload_file_to_r2", fake_upload_file_to_r2)
@@ -209,6 +327,56 @@ def test_brotli_upload_params(
     assert decompressed == json_content.encode("utf-8")
 
 
+def test_two_bucket_publication_compresses_once(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Both buckets receive identical compressed bytes and source metadata.
+
+    The second bucket must reuse the first bucket's prepared artifact even
+    when R2 reports that the first compressed upload is already current.
+
+    :param tmp_path: Isolated JSON artifact location.
+    :param monkeypatch: Replace R2 calls and count Brotli invocations.
+    :return: ``None`` after asserting both upload payloads.
+    """
+    output_path = tmp_path / "top_vaults_by_chain.json"
+    source_bytes = b'{"vaults": [{"id": "1-example"}]}'
+    output_path.write_bytes(source_bytes)
+    real_compress = brotli.compress
+    compression_calls = 0
+    uploads: list[dict] = []
+
+    def counted_compress(payload: bytes, *, quality: int) -> bytes:
+        nonlocal compression_calls
+        compression_calls += 1
+        return real_compress(payload, quality=quality)
+
+    def fake_upload_bytes_to_r2(**kwargs: object) -> bool:
+        uploads.append(kwargs)
+        return kwargs["bucket_name"] == "alternative"
+
+    monkeypatch.setattr(post_processing.brotli, "compress", counted_compress)
+    monkeypatch.setattr(post_processing, "upload_file_to_r2", lambda **_: True)
+    monkeypatch.setattr(post_processing, "upload_bytes_to_r2", fake_upload_bytes_to_r2)
+    monkeypatch.setenv("R2_DAILY_BACKUP", "false")
+
+    assert post_processing._upload_top_vaults_json_to_configured_buckets(
+        s3_client=object(),
+        output_path=output_path,
+        bucket_name="primary",
+        endpoint_url="https://example.r2.cloudflarestorage.com",
+        object_key="top_vaults_by_chain.json",
+        access_key_id="test-key-12345678",
+        alt_bucket_name="alternative",
+    )
+    assert compression_calls == 1
+    assert [call["bucket_name"] for call in uploads] == ["primary", "alternative"]
+    assert uploads[0]["payload"] is uploads[1]["payload"]
+    assert uploads[0]["source_digest"] is uploads[1]["source_digest"]
+    assert brotli.decompress(uploads[0]["payload"]) == source_bytes
+
+
 def test_brotli_failure_returns_false(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -231,10 +399,11 @@ def test_brotli_failure_returns_false(
         raw_calls.append(kwargs)
         return True
 
-    def fake_upload_bytes_to_r2(**kwargs) -> bool:
-        raise RuntimeError("Simulated brotli upload failure")
+    def fake_upload_bytes_to_r2(**_: object) -> bool:
+        message = "Simulated brotli upload failure"
+        raise RuntimeError(message)
 
-    def fake_calculate_bytes_digest(payload: bytes):
+    def fake_calculate_bytes_digest(_payload: bytes):
         return "fake-digest"
 
     monkeypatch.setattr(post_processing, "upload_file_to_r2", fake_upload_file_to_r2)

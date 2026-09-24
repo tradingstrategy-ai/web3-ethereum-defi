@@ -12,19 +12,20 @@ and `HOOD (3x Long) <https://robinhoodchain.blockscout.com/address/0xe24CABDf76D
 contracts return the same bridge-vault value. Both are BeaconProxy contracts;
 their current implementation is not source-verified.
 
-The resulting reader provides standard ERC-4626 read operations only. It does
-not advertise a deposit/redeem manager, a binding withdrawal time, or a
-management/performance fee because those behaviours have not been certified.
-The product labels alone do not prove leverage maintenance, rebalancing, fees,
-or redemption terms. The reader uses small, reviewed address-scoped copy for
-BTC and HOOD and does not use Arcus's unrelated exchange-market API as a pToken
-data or NAV source.
+The resulting reader provides standard ERC-4626 read operations and reviewed,
+address-scoped product metadata for BTC and HOOD. The metadata includes a
+reviewed snapshot of the deposit fee and profit share published by Arcus's
+public pToken vault API without making runtime API requests. It does not
+advertise a deposit/redeem manager or binding withdrawal time because those
+behaviours have not been certified. The pToken mechanics and automatic
+threshold-based rebalancing are described in Arcus's public product
+announcement; they are not independently inferred from the product labels.
 
 All reviewed pTokens return the same unlabelled EOA from ``manager()``. The
-library therefore attributes them to Arcus as protocol-curated products, rather
-than creating an unsupported third-party curator identity. This attribution is
-limited to the reviewed Arcus contract family; it is not derived from that
-generic accessor.
+library displays Arcus as the protocol-level curator and manager for these
+address-scoped products. This attribution comes from the reviewed Arcus
+contract-family classification and curator registry; it does not identify the
+operator behind the generic ``manager()`` address.
 
 .. autosummary::
    :toctree: _autosummary_arcus

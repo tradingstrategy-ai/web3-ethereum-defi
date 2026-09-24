@@ -1,0 +1,14 @@
+{
+  "benchmark_scope": "isolated local pipeline on read-only current-format source; no R2 upload",
+  "data_location": "/home/mikko/.tradingstrategy",
+  "date_utc": "2026-09-23T14:26:17Z",
+  "git_head": "08d2a5ab87ea29d84d58474d9bd500eff78621cb",
+  "hostname": "vitalik8",
+  "logical_cpus": 96,
+  "memory_total_bytes": 134689411072,
+  "pandas": "3.0.1",
+  "pyarrow": "23.0.1",
+  "python": "3.14.7",
+  "swap_total_bytes": 274877898752,
+  "swap_used_bytes_at_capture": 102733230080
+}

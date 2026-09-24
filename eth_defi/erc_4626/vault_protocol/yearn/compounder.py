@@ -14,6 +14,7 @@ import datetime
 from eth_typing import BlockIdentifier
 
 from eth_defi.erc_4626.vault import ERC4626Vault
+from eth_defi.erc_4626.vault_protocol.yearn.vault import YearnDetectedVaultMetadataMixin
 from eth_defi.vault.base import INSTANT_WITHDRAWAL_PERIOD, WithdrawalPeriod
 
 #: Yearn TokenizedStrategy fee precision: 10_000 basis points is 100%.
@@ -31,7 +32,7 @@ _PERFORMANCE_FEE_ABI = [
 ]
 
 
-class YearnCompounderVault(ERC4626Vault):
+class YearnCompounderVault(YearnDetectedVaultMetadataMixin, ERC4626Vault):
     """Read fee data from Yearn TokenizedStrategy compounder vaults.
 
     These vaults expose a performance-fee percentage but no annual management,
@@ -94,17 +95,5 @@ class YearnCompounderVault(ERC4626Vault):
         """
         return datetime.timedelta(0)
 
-    def get_withdrawal_period(self) -> WithdrawalPeriod:
+    def get_withdrawal_period(self) -> WithdrawalPeriod:  # noqa: PLR6301
         return INSTANT_WITHDRAWAL_PERIOD
-
-    def get_link(self, referral: str | None = None) -> str:
-        """Return the direct Yearn vault page.
-
-        :param referral:
-            Optional referral identifier, unsupported by Yearn.
-
-        :return:
-            Yearn vault URL for this chain and vault address.
-        """
-        del referral
-        return f"https://yearn.fi/v3/{self.chain_id}/{self.vault_address}"

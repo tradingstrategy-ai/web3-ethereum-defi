@@ -9,7 +9,7 @@ import datetime
 import logging
 from functools import cached_property
 
-from eth_typing import BlockIdentifier, HexAddress
+from eth_typing import BlockIdentifier
 from web3.contract import Contract
 
 from eth_defi.erc_4626.core import get_deployed_erc_4626_contract
@@ -35,7 +35,7 @@ class YearnMorphoCompounderStrategy(YearnV3Vault):
     More information:
 
     - `Example Yearn Morpho Compounder vault <https://etherscan.io/address/0x6D2981FF9b8d7edbb7604de7A65BAC8694ac849F>`__
-    - `Yearn website <https://yearn.fi/v3/1/0x6D2981FF9b8d7edbb7604de7A65BAC8694ac849F>`__
+    - `Yearn website <https://yearn.fi/vaults/1/0x6D2981FF9b8d7edbb7604de7A65BAC8694ac849F>`__
     - `Morpho protocol <https://morpho.org/>`__
     """
 
@@ -51,7 +51,7 @@ class YearnMorphoCompounderStrategy(YearnV3Vault):
             abi_fname="yearn/YearnV3Vault.json",
         )
 
-    def has_custom_fees(self) -> bool:
+    def has_custom_fees(self) -> bool:  # noqa: PLR6301
         """Deposit/withdrawal fees.
 
         Yearn Morpho Compounder strategies do not charge deposit/withdrawal fees.
@@ -59,7 +59,20 @@ class YearnMorphoCompounderStrategy(YearnV3Vault):
         """
         return False
 
-    def get_management_fee(self, block_identifier: BlockIdentifier) -> float:
+    def supports_yearn_unofficial_classification(self) -> bool:  # noqa: PLR6301
+        """Keep static yDaemon registry misses unknown for strategy adapters.
+
+        The static per-chain metadata does not comprehensively include Yearn
+        Morpho compounder strategies, so an absent entry is not evidence that
+        the strategy is unofficial.
+
+        :return:
+            Always ``False``.
+        """
+
+        return False
+
+    def get_management_fee(self, block_identifier: BlockIdentifier) -> float:  # noqa: PLR6301
         """Get the current management fee as a percent.
 
         Yearn strategies internalise fees into the share price.
@@ -67,9 +80,10 @@ class YearnMorphoCompounderStrategy(YearnV3Vault):
         :return:
             0.0 as fees are built into share price
         """
+        del block_identifier
         return 0.0
 
-    def get_performance_fee(self, block_identifier: BlockIdentifier) -> float | None:
+    def get_performance_fee(self, block_identifier: BlockIdentifier) -> float | None:  # noqa: PLR6301
         """Get the current performance fee as a percent.
 
         Yearn strategies internalise fees into the share price.
@@ -77,18 +91,12 @@ class YearnMorphoCompounderStrategy(YearnV3Vault):
         :return:
             0.0 as fees are built into share price
         """
+        del block_identifier
         return 0.0
 
-    def get_estimated_lock_up(self) -> datetime.timedelta:
+    def get_estimated_lock_up(self) -> datetime.timedelta:  # noqa: PLR6301
         """Get estimated lock-up period.
 
         No lock-up period for Yearn Morpho Compounder strategies.
         """
         return datetime.timedelta(0)
-
-    def get_link(self, referral: str | None = None) -> str:
-        """Get the vault's web UI link.
-
-        Links to the Yearn V3 vault page.
-        """
-        return f"https://yearn.fi/v3/{self.chain_id}/{self.vault_address}"

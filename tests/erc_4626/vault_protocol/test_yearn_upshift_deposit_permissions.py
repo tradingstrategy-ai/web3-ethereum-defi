@@ -6,7 +6,22 @@ import pytest
 
 from eth_defi.abi import ZERO_ADDRESS_STR
 from eth_defi.erc_4626.vault_protocol.upshift.vault import UpshiftVault
+from eth_defi.erc_4626.vault_protocol.yearn.notes import YBOLD_VAULT, YSYBOLD_VAULT
 from eth_defi.erc_4626.vault_protocol.yearn.vault import YearnV3Vault
+from eth_defi.vault.base import VaultSpec
+
+
+def test_ybold_note_links_to_yield_bearing_staking_vault() -> None:
+    """yBOLD must explain that only the ysyBOLD staking vault earns yield."""
+    vault = object.__new__(YearnV3Vault)
+    vault.spec = VaultSpec(chain_id=1, vault_address=YBOLD_VAULT)
+    vault.features = None
+
+    note = vault.get_notes()
+
+    assert note is not None
+    assert "does not accrue yield" in note
+    assert f"[ysyBOLD](https://yearn.fi/vaults/1/{YSYBOLD_VAULT})" in note
 
 
 def test_yearn_without_deposit_limit_module_is_permissionless() -> None:

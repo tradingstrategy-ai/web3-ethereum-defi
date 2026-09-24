@@ -1,43 +1,46 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-"""
-Multi-chain vault analysis + safe JSON export.
+"""Calculate and publish stablecoin vault metrics as strict JSON.
 
-Features:
-- Performs lifetime metric analysis for all available chains.
-- Filters and formats results for the top-performing vaults.
-- Safely exports to JSON with NaN/Inf -> null sanitization.
-- Normalizes column keys into snake_case.
-- Uses column-wise .map(parse_value) to comply with modern pandas.
-- Uses allow_nan=False to guarantee strict JSON validity.
+The exporter reads cleaned hourly prices, calculates due vault metrics, and
+reuses sticky records for eligible vaults that were not recalculated. It
+rejects non-finite or otherwise unsupported JSON values before replacing the
+public file and persisted state.
 
-To test out:
+To run a standalone export:
 
 .. code-block:: shell
 
-    OUTPUT_JSON=/tmp/top-vaults.json VAULT_EXPORT_STATE_PATH=/tmp/vault-export-state.json python -m eth_defi.vault.top_vaults_json
+    OUTPUT_JSON=/tmp/top-vaults.json VAULT_EXPORT_STATE_PATH=/tmp/vault-export-state.json VAULT_METRICS_STATE_PATH=/tmp/vault-metrics-state.json poetry run python -m eth_defi.vault.top_vaults_json
 
 The legacy wrapper also works:
 
 .. code-block:: shell
 
-    OUTPUT_JSON=/tmp/top-vaults.json VAULT_EXPORT_STATE_PATH=/tmp/vault-export-state.json python scripts/erc-4626/vault-analysis-json.py
+    OUTPUT_JSON=/tmp/top-vaults.json VAULT_EXPORT_STATE_PATH=/tmp/vault-export-state.json VAULT_METRICS_STATE_PATH=/tmp/vault-metrics-state.json poetry run python scripts/erc-4626/vault-analysis-json.py
 
 To test out Pandas warning issues in calculate_lifetime_metrics(), enable strict warnings:
 
 .. code-block:: shell
-    PYTHONWARNINGS="error::RuntimeWarning" python -m eth_defi.vault.top_vaults_json
+
+    PYTHONWARNINGS="error::RuntimeWarning" poetry run python -m eth_defi.vault.top_vaults_json
 """
 
 import datetime
 import json
+import logging
 import math
 import os
+import resource
+import time
 from dataclasses import dataclass
 from pathlib import Path
 
+import orjson
 import pandas as pd
+import psutil
+import pyarrow.parquet as pq
 from atomicwrites import atomic_write
 
 from eth_defi.compat import native_datetime_utc_now
@@ -45,7 +48,20 @@ from eth_defi.core3.constants import CORE3_DATABASE_PATH
 from eth_defi.core3.database import Core3Database
 from eth_defi.core3.vault_protocol import build_core3_protocols_for_export
 from eth_defi.feed.database import DEFAULT_VAULT_POST_DATABASE, VaultPostDatabase
+from eth_defi.research.metrics_freshness import (
+    clear_period_rankings,
+    compute_vault_tvl_observations,
+    free_memory,
+    load_metrics_state,
+    partition_due_vault_ids,
+    refresh_metrics_state,
+    resolve_metrics_state_path,
+    save_metrics_state,
+)
 from eth_defi.research.vault_metrics import (
+    MAX_VALID_NAV,
+    UNUSED_METRIC_PRICE_COLUMNS,
+    StrategyCategoryExportRecord,
     VaultMetricsExport,
     calculate_hourly_returns_for_all_vaults,
     calculate_lifetime_metrics,
@@ -54,11 +70,15 @@ from eth_defi.research.vault_metrics import (
     slugify_protocol,
 )
 from eth_defi.token import is_stablecoin_like
+from eth_defi.utils import setup_console_logging
 
 # Import core TradingStrategy / eth_defi modules
-from eth_defi.vault.base import VaultSpec  # noqa: F401
+from eth_defi.vault.base import VaultSpec
 from eth_defi.vault.curator_export import build_curators_for_export
+from eth_defi.vault.denomination import DenominationFamily
+from eth_defi.vault.export_post_processing import run_vault_export_post_processors
 from eth_defi.vault.risk import VaultTechnicalRisk
+from eth_defi.vault.strategy_tag import STRATEGY_TAG_METADATA, StrategyTag
 from eth_defi.vault.vaultdb import VaultDatabase, get_pipeline_data_dir
 from eth_defi.version_info import VersionInfo
 from eth_defi.xerberus.constants import resolve_xerberus_database_path
@@ -69,12 +89,22 @@ from eth_defi.xerberus.vault_export import (
     compute_xerberus_export_stats,
 )
 
+logger = logging.getLogger(__name__)
+
 # --------------------------------------------------------------------
 # Configuration via environment variables (scalar tunables)
 # --------------------------------------------------------------------
 MONTHS = int(os.getenv("MONTHS", "3"))  # Time window in months
 EVENT_THRESHOLD = int(os.getenv("EVENT_THRESHOLD", "5"))  # Min event count
-MAX_ANNUALISED_RETURN = float(os.getenv("MAX_ANNUALISED_RETURN", "4.0"))  # Cap annualized return at 400%
+#: Reject one-month return outliers above this absolute annualised value from
+#: category-return weighting. This is deliberately not configurable: category
+#: aggregates must not change because a sibling reporting script sets an env var.
+MAX_CATEGORY_ANNUALISED_RETURN = 4.0
+
+#: Minimum endpoint coverage accepted as a complete one-month category metric.
+#: The underlying period is a 30-day lookback; two days of endpoint tolerance
+#: accommodates sparse scans without treating young vault histories as 1M data.
+MIN_CATEGORY_ONE_MONTH_COVERAGE = datetime.timedelta(days=28)
 THRESHOLD_TVL = float(os.getenv("MIN_TVL", "5000"))  # Minimum TVL filter
 TOP_PER_CHAIN = int(os.getenv("TOP_PER_CHAIN", "99999"))  # Top N vaults per chain
 
@@ -113,8 +143,8 @@ def resolve_export_threshold_tvl(record: dict, default_threshold: float) -> floa
     return PROTOCOL_MIN_TVL_OVERRIDES.get(record.get("protocol_slug"), default_threshold)
 
 
-#: Default output filename when no ``OUTPUT_JSON`` override is supplied
-#: and no ``output_path`` is passed to :py:func:`main`.
+#: Default output filename when no ``output_path`` is passed to :py:func:`main`.
+#: Standalone calls may override it with ``OUTPUT_JSON``.
 DEFAULT_OUTPUT_FILENAME = "stablecoin-vault-metrics.json"
 
 STICKY_EXPORT_STATE_SCHEMA_VERSION = 1
@@ -194,20 +224,22 @@ class CurrentVaultRow:
     fresh: bool
 
 
-def _resolve_defaults_from_env() -> dict:
-    """Read env-var defaults for manual invocation.
+def _resolve_default_paths(data_dir: Path | None = None) -> dict[str, Path]:
+    """Resolve input and output defaults under one pipeline directory.
 
-    Returns a dict of path defaults that the ``__main__`` entrypoint
-    passes into :py:func:`main`. Keeping this in a function (rather than
-    at module import time) means env vars are re-read on every call and
-    can be set by the caller just before invocation.
+    Standalone calls use ``DATA_DIR`` and ``OUTPUT_JSON``. An explicit
+    ``data_dir`` anchors the metadata, Parquet and public-output defaults
+    there without inheriting a process-wide output override.
 
-    :return:
-        Dict with keys ``data_dir``, ``vault_db_path``, ``parquet_path``,
-        ``output_path`` suitable for splatting into :py:func:`main`.
+    :param data_dir: Explicit pipeline directory, or ``None`` for environment defaults.
+    :return: Data directory and default metadata, Parquet and output paths.
     """
-    data_dir = Path(os.getenv("DATA_DIR", str(get_pipeline_data_dir()))).expanduser()
-    env_output_json = os.getenv("OUTPUT_JSON")
+    if data_dir is None:
+        data_dir = Path(os.getenv("DATA_DIR", str(get_pipeline_data_dir()))).expanduser()
+        env_output_json = os.getenv("OUTPUT_JSON")
+    else:
+        data_dir = Path(data_dir)
+        env_output_json = None
     output_path = Path(env_output_json).expanduser() if env_output_json else data_dir / DEFAULT_OUTPUT_FILENAME
     return {
         "data_dir": data_dir,
@@ -306,6 +338,67 @@ def make_vault_export_state_key_from_record(record: dict) -> str:
     return make_vault_export_state_key(chain_id, address)
 
 
+def _find_stale_post_processed_vault_ids(
+    vault_db: VaultDatabase,
+    changed_vault_ids: set[str],
+    sticky_state: dict,
+) -> set[str]:
+    """Find changed vaults whose sticky records still contain old metadata.
+
+    The cleanup hook runs on every export because the scanner metadata pickle is
+    intentionally unchanged. Only a sticky record whose exported attribution is
+    still different is forced through metrics. This comparison avoids repeatedly
+    recalculating metrics for already-corrected low-TVL vaults.
+
+    :param vault_db:
+        Cleaned in-memory vault metadata database.
+    :param changed_vault_ids:
+        IDs reported by export post-processors.
+    :param sticky_state:
+        Loaded sticky export state.
+    :return:
+        IDs that need a fresh metrics row in this export.
+    """
+
+    stale_ids: set[str] = set()
+    state_vaults = sticky_state.get("vaults", {})
+    for vault_id in changed_vault_ids:
+        state_entry = state_vaults.get(vault_id)
+        if not isinstance(state_entry, dict):
+            continue
+        last_record = state_entry.get("last_exported_record")
+        if not isinstance(last_record, dict):
+            stale_ids.add(vault_id)
+            continue
+        try:
+            spec = VaultSpec.parse_string(vault_id, separator="-")
+        except (TypeError, ValueError) as error:
+            logger.warning("Ignoring malformed post-processor vault ID %r: %s", vault_id, error)
+            continue
+        row = vault_db.get(spec)
+        if row is None:
+            continue
+        detection = row.get("_detection_data")
+        expected_features = sorted(feature.name for feature in getattr(detection, "features", set()))
+        current_attribution = (
+            row.get("Protocol"),
+            row.get("protocol_slug"),
+            row.get("Link"),
+            row.get("_curator_slug") if row.get("_curator_slug") == "yearn" else None,
+            expected_features,
+        )
+        previous_attribution = (
+            last_record.get("protocol"),
+            last_record.get("protocol_slug"),
+            last_record.get("link"),
+            last_record.get("curator_slug") if last_record.get("curator_slug") == "yearn" else None,
+            sorted(last_record.get("features") or []),
+        )
+        if current_attribution != previous_attribution:
+            stale_ids.add(vault_id)
+    return stale_ids
+
+
 def resolve_sticky_export_state_path(data_dir: Path) -> Path:
     """Resolve the sticky export state path.
 
@@ -385,17 +478,18 @@ def load_sticky_export_state(path: Path, now: datetime.datetime) -> dict:
     return state
 
 
-def save_sticky_export_state(state: dict, path: Path) -> None:
+def save_sticky_export_state(state: dict, path: Path, *, validated: bool = False) -> None:
     """Atomically write sticky export state.
 
     :param state:
         State mapping.
     :param path:
         Destination path.
+    :param validated:
+        The exporter already checked this state before writing its public JSON.
+        Standalone callers leave this false to retain strict validation.
     """
-    path.parent.mkdir(parents=True, exist_ok=True)
-    with atomic_write(str(path), mode="w", overwrite=True, encoding="utf-8") as f:
-        json.dump(state, f, indent=2, ensure_ascii=False, allow_nan=False)
+    _write_strict_json(path, state, validated=validated)
 
 
 def build_export_metadata(version_info: VersionInfo | None = None) -> dict:
@@ -435,6 +529,11 @@ def find_non_serializable_paths(obj, path=None, results=None):
 
     # Valid primitive types
     if isinstance(obj, (str, int, float, bool, type(None))):
+        # Strict JSON cannot represent NaN or infinity, so reject them
+        # here; this replaces the old json.dumps(allow_nan=False) backstop
+        # without building a throwaway JSON string.
+        if isinstance(obj, float) and not math.isfinite(obj):
+            results.append((path, f"Non-finite float: {obj}"))
         return results
 
     # Handle lists: recurse on each element
@@ -653,6 +752,10 @@ def annotate_fallback_record(record: dict, state_entry: dict, fallback_reason: s
     annotated["risk_possibly_stale"] = True
     annotated["first_qualified_at"] = state_entry.get("first_qualified_at")
     annotated["last_qualified_at"] = state_entry.get("last_qualified_at")
+    # Rankings are computed over the vaults recalculated in the same run, so
+    # a replayed record carries ranks from a different vault universe that
+    # would duplicate and devalue current curator ranks.
+    clear_period_rankings(annotated)
     if fallback_reason:
         annotated["fallback_reason"] = fallback_reason
     return annotated
@@ -802,7 +905,7 @@ def apply_sticky_export_state(
         try:
             current_row = make_current_vault_row(row, now, stale_warning_age_days)
         except (TypeError, ValueError) as e:
-            print(f"Skipping metrics row with invalid vault identity: {e}")
+            logger.warning("Skipping metrics row with invalid vault identity: %s", e)
             continue
         current_rows[current_row.key] = current_row
 
@@ -917,12 +1020,206 @@ def validate_strict_json_serialisable(obj: dict) -> None:
     """
     results = find_non_serializable_paths(obj)
     if results:
-        print("Found non-serializable values in output data:")
+        logger.error("Found non-serializable values in output data:")
         for path, issue in results:
             path_str = " -> ".join(str(p) for p in path)
-            print(f" - Path: {path_str}: {issue}")
+            logger.error(" - Path: %s: %s", path_str, issue)
         raise ValueError("Non-serializable values found; aborting JSON export.")
-    json.dumps(obj, ensure_ascii=False, allow_nan=False)
+
+
+def _write_strict_json(path: Path, payload: dict, *, validated: bool = False) -> None:
+    """Atomically write validated JSON, preferring the existing ``orjson`` dependency.
+
+    Standard JSON handles a few values that ``orjson`` does not, notably
+    integers wider than 64 bits. Fall back only when the faster encoder
+    rejects an otherwise valid payload; preserve the old output contract.
+
+    :param path: Destination JSON path.
+    :param payload: JSON object to write.
+    :param validated: Caller has already run strict path-aware validation.
+    :return: ``None`` after replacing the file atomically.
+    """
+    if not validated:
+        validate_strict_json_serialisable(payload)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        encoded = orjson.dumps(payload, option=orjson.OPT_INDENT_2)
+    except orjson.JSONEncodeError as error:
+        logger.warning("Using standard JSON encoder for %s: %s", path, error)
+        with atomic_write(str(path), mode="w", overwrite=True, encoding="utf-8") as handle:
+            json.dump(payload, handle, indent=2, ensure_ascii=False, allow_nan=False)
+    else:
+        with atomic_write(str(path), mode="wb", overwrite=True) as handle:
+            handle.write(encoded)
+
+
+def build_strategy_categories_for_export(vaults: list[dict]) -> dict[str, StrategyCategoryExportRecord]:
+    """Build public strategy-category labels and aggregates for exported vaults.
+
+    Every :class:`~eth_defi.vault.strategy_tag.StrategyTag` is included, even
+    if no current exported vault uses it, so consumers have a stable category
+    catalogue. A vault contributes its full current USD TVL to each of its
+    additive tags. Category aggregates exclude blacklisted and stale vaults as
+    well as broken TVL values; the annualised one-month return is weighted only
+    by eligible vaults with at least 28 days of bounded one-month observations.
+    Net annualised return is used when known, with gross return as the
+    documented fallback.
+
+    :param vaults:
+        JSON-safe exported vault records, each optionally carrying strategy
+        tags and one-month metrics.
+    :return:
+        Category records keyed by stable strategy-tag values.
+    """
+    categories: dict[str, StrategyCategoryExportRecord] = {
+        tag.value: {
+            "label": metadata["label"],
+            "description": metadata["description"],
+            "vault_count": 0,
+            "tvl_usd": 0.0,
+            "one_month_apy": None,
+        }
+        for tag, metadata in STRATEGY_TAG_METADATA.items()
+    }
+    apy_weighted_totals = {tag.value: 0.0 for tag in StrategyTag}
+    apy_weights = {tag.value: 0.0 for tag in StrategyTag}
+
+    for vault in vaults:
+        is_stale = vault.get("stale_export") is True or vault.get("stale_current_row") is True
+        if is_blacklisted_record(vault) or is_stale:
+            continue
+
+        raw_tags = vault.get("strategy_tags")
+        if not isinstance(raw_tags, list):
+            continue
+
+        tags = set()
+        for raw_tag in raw_tags:
+            try:
+                tags.add(StrategyTag(raw_tag))
+            except (TypeError, ValueError):
+                # A historical sticky row can contain an obsolete tag. It has
+                # no description in this version of the public catalogue.
+                continue
+
+        current_nav = vault.get("current_nav")
+        valid_current_nav = isinstance(current_nav, (int, float)) and not isinstance(current_nav, bool)
+        current_nav_float = float(current_nav) if valid_current_nav else None
+        if current_nav_float is not None and (not math.isfinite(current_nav_float) or current_nav_float < 0):
+            current_nav_float = None
+        if current_nav_float is None or current_nav_float > MAX_VALID_NAV:
+            continue
+
+        one_month_cagr_net = vault.get("one_month_cagr_net")
+        one_month_cagr = one_month_cagr_net if one_month_cagr_net is not None else vault.get("one_month_cagr")
+        valid_one_month_cagr = isinstance(one_month_cagr, (int, float)) and not isinstance(one_month_cagr, bool)
+        one_month_apy = float(one_month_cagr) if valid_one_month_cagr else None
+        has_complete_one_month_metric = _has_complete_bounded_one_month_metric(vault, one_month_apy)
+
+        for tag in tags:
+            category = categories.get(tag.value)
+            if category is None:
+                # Keep historic sticky rows exportable if a newer enum value
+                # reaches this code before its maintained public description.
+                # The catalogue-coverage test still requires the description
+                # to be added before this version can be released.
+                continue
+            category["vault_count"] += 1
+            category["tvl_usd"] += current_nav_float
+            if has_complete_one_month_metric:
+                apy_weighted_totals[tag.value] += current_nav_float * one_month_apy
+                apy_weights[tag.value] += current_nav_float
+
+    for tag_value, category in categories.items():
+        if apy_weights[tag_value] > 0:
+            category["one_month_apy"] = apy_weighted_totals[tag_value] / apy_weights[tag_value]
+
+    return categories
+
+
+def _has_complete_bounded_one_month_metric(vault: dict, annualised_return: float | None) -> bool:
+    """Check whether a vault has a usable one-month return for category weighting.
+
+    The public row uses zero as a backwards-compatible sentinel when a
+    one-month calculation was unavailable. Require the accompanying period
+    diagnostics so that sentinel does not become a genuine zero-return sample.
+    A successful metric for a young vault may cover only three days, so require
+    month-scale endpoint coverage as well.
+
+    :param vault:
+        JSON-safe exported vault record.
+    :param annualised_return:
+        Net-or-gross annualised one-month return selected for the record.
+    :return:
+        ``True`` for a complete finite return within the export bound.
+    """
+    one_month_samples = vault.get("one_month_samples")
+    has_samples = isinstance(one_month_samples, (int, float)) and not isinstance(one_month_samples, bool) and one_month_samples > 0
+    try:
+        one_month_start = normalise_datetime_to_naive_utc(vault.get("one_month_start"))
+        one_month_end = normalise_datetime_to_naive_utc(vault.get("one_month_end"))
+    except (TypeError, ValueError):
+        return False
+    has_full_coverage = one_month_start is not None and one_month_end is not None and one_month_end - one_month_start >= MIN_CATEGORY_ONE_MONTH_COVERAGE
+    return annualised_return is not None and math.isfinite(annualised_return) and abs(annualised_return) <= MAX_CATEGORY_ANNUALISED_RETURN and has_samples and has_full_coverage
+
+
+def append_strategy_categories_to_export(output_data: dict, vaults: list[dict]) -> bool:
+    """Attach best-effort strategy categories without blocking the vault export.
+
+    The all-chains scanner publishes its top-vaults JSON through this module.
+    Category aggregation is useful supplementary data, but must never prevent
+    the established vault, curator, and risk exports from being written and
+    uploaded when a malformed historical row or a future category change is
+    encountered.
+
+    :param output_data:
+        JSON export mapping to enrich in place.
+    :param vaults:
+        JSON-safe exported vault records used to calculate category aggregates.
+    :return:
+        ``True`` when the ``categories`` key was attached, otherwise ``False``.
+    """
+    output_data.pop("categories", None)
+    try:
+        output_data["categories"] = build_strategy_categories_for_export(vaults)
+    except Exception:
+        # This is intentionally a fail-open boundary: category data is
+        # supplementary and must never stop established vault exports.
+        logger.exception("Strategy category export failed; publishing vault JSON without categories")
+        return False
+    return True
+
+
+@dataclass(slots=True)
+class _PhaseDiagnostics:
+    """Track elapsed time and process memory between export phases."""
+
+    #: Start of the current phase on the monotonic clock.
+    started_at: float
+    #: Process major page-fault counter at phase start.
+    major_faults: int
+
+    @classmethod
+    def start(cls) -> "_PhaseDiagnostics":
+        """Capture the initial process counters for this export.
+
+        :return: Diagnostics state ready for the first phase boundary.
+        """
+        return cls(time.perf_counter(), resource.getrusage(resource.RUSAGE_SELF).ru_majflt)
+
+    def log(self, phase: str) -> None:
+        """Log one completed phase and reset counters for the next phase.
+
+        :param phase: Human-readable name of the phase just completed.
+        :return: ``None`` after emitting the diagnostic record.
+        """
+        now = time.perf_counter()
+        major_faults = resource.getrusage(resource.RUSAGE_SELF).ru_majflt
+        rss_gib = psutil.Process().memory_info().rss / (1024**3)
+        logger.info("Phase %s complete: %.2fs, RSS %.1f GiB, process major faults +%d", phase, now - self.started_at, rss_gib, major_faults - self.major_faults)
+        self.started_at = now
+        self.major_faults = major_faults
 
 
 def main(
@@ -936,22 +1233,25 @@ def main(
 ) -> VaultMetricsExport:
     """Main execution function for vault analysis and JSON export.
 
-    All four arguments are independently overridable. When a path
-    argument is ``None``, it is derived from ``data_dir`` so that a
-    caller passing only ``data_dir`` reads *and* writes under that
-    directory consistently — never a mix of ``data_dir`` for reads and
-    ``~/.tradingstrategy/vaults`` for writes.
+    All path arguments are independently overridable. Passing only
+    ``data_dir`` anchors the metadata, Parquet and public-output defaults
+    there. The sticky and metrics state paths have separate environment
+    overrides for intentional alternate pipelines.
+
+    Before metrics are calculated, the in-memory metadata passes through the
+    registered best-effort export cleanup hooks. Hook failures are logged and
+    contained so this function can still publish the existing vault data.
 
     :param data_dir:
         Pipeline data directory. When ``None``, falls back to the
         ``DATA_DIR`` env var (default ``~/.tradingstrategy/vaults``).
-        Acts as the anchor for both ``parquet_path`` and ``output_path``
-        defaults when those are also ``None``.
+        Anchors metadata, Parquet and public-output defaults when those
+        paths are also ``None``. An explicit directory ignores ``OUTPUT_JSON``;
+        callers can override the public path with ``output_path``.
 
     :param vault_db_path:
-        Path to the vault metadata pickle. When ``None``,
-        :py:meth:`VaultDatabase.read` uses
-        :py:data:`eth_defi.vault.vaultdb.DEFAULT_VAULT_DATABASE`.
+        Path to the vault metadata pickle. When ``None``, defaults to
+        ``data_dir / "vault-metadata-db.pickle"``.
 
     :param parquet_path:
         Path to the cleaned vault prices parquet. When ``None``,
@@ -959,11 +1259,8 @@ def main(
 
     :param output_path:
         Destination JSON path. When ``None``, defaults to
-        ``data_dir / DEFAULT_OUTPUT_FILENAME``. The ``OUTPUT_JSON`` env
-        var is honoured by :py:func:`_resolve_defaults_from_env` in the
-        ``__main__`` entrypoint, not by :py:func:`main` itself, so
-        in-process callers get deterministic path anchoring with no env
-        var surprises.
+        ``data_dir / DEFAULT_OUTPUT_FILENAME``. A call with no explicit
+        ``data_dir`` honours ``OUTPUT_JSON`` for standalone exports.
 
     :param core3_db_path:
         Path to the Core3 risk intelligence DuckDB database.
@@ -983,22 +1280,14 @@ def main(
         then :py:data:`~eth_defi.feed.database.DEFAULT_VAULT_POST_DATABASE`.
         The database is only opened if the resolved file exists on disk.
     """
-    defaults = _resolve_defaults_from_env()
-    if data_dir is None:
-        data_dir = defaults["data_dir"]
-    if vault_db_path is None:
-        vault_db_path = defaults["vault_db_path"]
-    if parquet_path is None:
-        parquet_path = defaults["parquet_path"]
-    if output_path is None:
-        output_path = defaults["output_path"]
-
-    data_dir = Path(data_dir)
-    vault_db_path = Path(vault_db_path)
-    parquet_path = Path(parquet_path)
-    output_path = Path(output_path)
+    defaults = _resolve_default_paths(data_dir)
+    data_dir = defaults["data_dir"]
+    vault_db_path = Path(vault_db_path) if vault_db_path is not None else defaults["vault_db_path"]
+    parquet_path = Path(parquet_path) if parquet_path is not None else defaults["parquet_path"]
+    output_path = Path(output_path) if output_path is not None else defaults["output_path"]
 
     now = native_datetime_utc_now()
+    phase_diagnostics = _PhaseDiagnostics.start()
     sticky_state_path = resolve_sticky_export_state_path(data_dir)
     stale_warning_age_days = int(os.getenv("STICKY_STALE_WARNING_AGE_DAYS", str(STICKY_STALE_WARNING_AGE_DAYS_DEFAULT)))
     sticky_state = load_sticky_export_state(sticky_state_path, now)
@@ -1007,33 +1296,83 @@ def main(
     # Step 2: Load database and parquet price data
     # --------------------------------------------------------------------
     vault_db = VaultDatabase.read(vault_db_path)
-    prices_df = pd.read_parquet(parquet_path)
-    chains = prices_df["chain"].unique()
+    changed_vault_ids = run_vault_export_post_processors(vault_db)
 
-    print(f"Loaded {len(vault_db):,} vault metadata entries and {len(prices_df):,} price rows across {len(chains):,} chains from {prices_df.index.min()} to {prices_df.index.max()}; price columns: {len(prices_df.columns):,}")
+    # The freshness gate needs only identity and TVL columns, so read those
+    # first instead of materialising the full wide frame. The parquet
+    # stores the timestamp index as a column, hence the -1.
+    gate_df = pd.read_parquet(parquet_path, columns=["timestamp", "id", "chain", "address", "total_assets"])
+    chains = gate_df["chain"].unique()
+    price_columns = pq.read_metadata(parquet_path).num_columns - 1
 
-    # sample_vault = next(iter(vault_db.values()))
-    # print("We have vault metadata keys: ", ", ".join(c for c in sample_vault.keys()))
-    # display(pd.Series(sample_vault))
+    logger.info("Loaded %d vault metadata entries and %d price rows across %d chains from %s to %s; price columns: %d", len(vault_db), len(gate_df), len(chains), gate_df.index.min(), gate_df.index.max(), price_columns)
 
     errors = cross_check_data(
         vault_db,
-        prices_df,
+        gate_df,
     )
     assert errors == 0, f"Data Cross-check found: {errors} errors"
+    phase_diagnostics.log("parquet-read")
 
     usd_vaults = [v for v in vault_db.values() if is_stablecoin_like(v["Denomination"])]
-    print(f"The report covers {len(usd_vaults):,} stablecoin-denominated vaults out of {len(vault_db):,} total vaults")
+    logger.info("The report covers %d stablecoin-denominated vaults out of %d total vaults", len(usd_vaults), len(vault_db))
 
     # Build chain-address strings for vaults we are interested in.
     # Remove Silo vaults that cause havoc after xUSD incident.
-    allowed_vault_ids = (str(v["_detection_data"].chain) + "-" + v["_detection_data"].address for v in usd_vaults)
+    allowed_vault_ids = [str(v["_detection_data"].chain) + "-" + v["_detection_data"].address for v in usd_vaults]
+    allowed_vault_id_set = set(allowed_vault_ids)
+    stablecoin_mask = gate_df["id"].isin(allowed_vault_id_set)
+    logger.info("Filtered stablecoin-denominated price data has %d rows", int(stablecoin_mask.sum()))
 
-    # Filter out prices to contain only data for vaults we are interested in
-    prices_df = prices_df.loc[prices_df["id"].isin(allowed_vault_ids)]
-    print(f"Filtered stablecoin-denominated price data has {len(prices_df):,} rows")
+    # Freshness gate: recalculate low-TVL vaults only every
+    # LOW_TVL_METRICS_MAX_AGE. Skipped vaults that were previously exported
+    # are replayed by the sticky export state below, preserving their
+    # original per-vault generated_at; never-exported skipped vaults
+    # contribute nothing to the export, exactly as when they are computed.
+    metrics_state_path = resolve_metrics_state_path(data_dir)
+    metrics_state = load_metrics_state(metrics_state_path, now)
+    seen_vault_ids = set(gate_df["id"].astype(str).unique()) & allowed_vault_id_set
+    current_tvl_by_id, peak_tvl_by_id = compute_vault_tvl_observations(gate_df)
+    # Release the gate frame before the due-filtered read allocates.
+    del gate_df
+    free_memory()
+    family_by_id = {vault_id: DenominationFamily.stablecoin.value for vault_id in seen_vault_ids}
+    export_threshold_by_id = {vault_id: resolve_export_threshold_tvl({"protocol_slug": slugify_protocol(v["Protocol"])}, THRESHOLD_TVL) for vault_id, v in zip(allowed_vault_ids, usd_vaults)}
+    due_vault_ids, skipped_vault_ids = partition_due_vault_ids(
+        seen_vault_ids,
+        metrics_state,
+        current_tvl_by_id,
+        peak_tvl_by_id,
+        family_by_id,
+        export_threshold_by_id,
+        now,
+    )
+    forced_vault_ids = _find_stale_post_processed_vault_ids(vault_db, changed_vault_ids, sticky_state) & seen_vault_ids
+    due_vault_ids.update(forced_vault_ids)
+    skipped_vault_ids.difference_update(forced_vault_ids)
+    if forced_vault_ids:
+        logger.info("Vault export post-processing forced %d stale attribution rows through metrics", len(forced_vault_ids))
+    logger.info("Metrics freshness: %d vaults due, %d low-TVL vaults still fresh", len(due_vault_ids), len(skipped_vault_ids))
 
-    returns_df = calculate_hourly_returns_for_all_vaults(prices_df)
+    # Read the full frame only for the due vaults: steady-state runs
+    # materialise roughly half the rows. The empty-string sentinel covers
+    # an all-fresh run without a special empty-frame path.
+    metric_price_columns = [name for name in pq.read_schema(parquet_path).names if name not in UNUSED_METRIC_PRICE_COLUMNS]
+    prices_df = pd.read_parquet(parquet_path, columns=metric_price_columns, filters=[("id", "in", due_vault_ids or [""])])
+    free_memory()
+    logger.info("Due-filtered hourly price rows: %d", len(prices_df))
+    phase_diagnostics.log("due-filtered-read")
+
+    if prices_df.empty:
+        returns_df = prices_df
+    else:
+        returns_df = calculate_hourly_returns_for_all_vaults(prices_df)
+
+    # Free the due-filtered price frame before the memory-peak metrics
+    # phase; nothing below needs it.
+    del prices_df
+    free_memory()
+    phase_diagnostics.log("daily-prep")
 
     # Build Core3 protocol-level risk data up front, so it can be attached
     # both per-vault (compact ``core3`` summary inside each vault record) and
@@ -1051,7 +1390,7 @@ def main(
     if core3_db_path.exists():
         core3_db = Core3Database(core3_db_path)
         try:
-            print(f"Opened Core3 risk database at {core3_db_path} with {core3_db.get_project_count()} projects")
+            logger.info("Opened Core3 risk database at %s with %d projects", core3_db_path, core3_db.get_project_count())
             # Derive protocol slugs directly from vault metadata (slugify_vaults
             # has not run yet at this point, so compute the slug from "Protocol").
             core3_protocols = build_core3_protocols_for_export(core3_db, all_protocol_slugs)
@@ -1070,7 +1409,7 @@ def main(
         xerberus_db = XerberusDatabase(xerberus_db_path, read_only=True)
         try:
             counts = xerberus_db.get_entity_counts()
-            print(f"Opened Xerberus risk database at {xerberus_db_path} with {counts['distinct_pools']} pools and {counts['distinct_protocols']} protocols")
+            logger.info("Opened Xerberus risk database at %s with %d pools and %d protocols", xerberus_db_path, counts["distinct_pools"], counts["distinct_protocols"])
             xerberus_pools = build_xerberus_pool_lookup(xerberus_db)
             xerberus_protocols = build_xerberus_protocols_for_export(xerberus_db, all_protocol_slugs)
         finally:
@@ -1084,7 +1423,13 @@ def main(
         xerberus_protocols=xerberus_protocols,
     )
 
-    print(f"Calculated lifetime metrics for {len(lifetime_data_df):,} vaults with {len(lifetime_data_df.columns):,} columns")
+    logger.info("Calculated lifetime metrics for %d vaults with %d columns", len(lifetime_data_df), len(lifetime_data_df.columns))
+    computed_vault_ids = set(lifetime_data_df["id"].astype(str)) if len(lifetime_data_df) else set()
+
+    # Free the daily-returns frame before sticky processing and export.
+    del returns_df
+    free_memory()
+    phase_diagnostics.log("metrics")
 
     sticky_result = apply_sticky_export_state(
         lifetime_data_df,
@@ -1094,6 +1439,12 @@ def main(
         stale_warning_age_days=stale_warning_age_days,
     )
     vaults = sticky_result.vaults
+
+    # Free the metrics frame before curator building, validation and the
+    # JSON write; the sticky result holds new dicts, not references into it.
+    del lifetime_data_df
+    free_memory()
+    phase_diagnostics.log("sticky")
 
     # 6️⃣ Restrict the top-level Core3 protocol risk data to protocols that
     # actually survived the export filter. Core3 data is per-protocol (not
@@ -1122,7 +1473,7 @@ def main(
     if feed_db_path.exists():
         feed_db = VaultPostDatabase(feed_db_path)
         try:
-            print(f"Opened feed database at {feed_db_path}")
+            logger.info("Opened feed database at %s", feed_db_path)
             curators_export = build_curators_for_export(
                 unique_curator_slugs,
                 feed_db=feed_db,
@@ -1142,7 +1493,7 @@ def main(
     sticky_result.stats.missing_protocol_slugs = len(sticky_protocol_slugs - set(core3_protocols.keys()))
     sticky_result.stats.missing_curator_slugs = len(sticky_curator_slugs - set(curators_export.keys()))
 
-    print(f"Built curator export for {len(curators_export)} curators")
+    logger.info("Built curator export for %d curators", len(curators_export))
 
     # 7️⃣ Add metadata and deep sanitize.
     # The git version stamp identifies which exporter build produced the file,
@@ -1151,14 +1502,19 @@ def main(
     output_data: VaultMetricsExport = {
         "generated_at": format_state_timestamp(now),
         "metadata": export_metadata,
-        "core3_protocols": core3_protocols,
-        "xerberus_protocols": xerberus_protocols,
-        "curators": curators_export,
+        "core3_protocols": dict(sorted(core3_protocols.items())),
+        "xerberus_protocols": dict(sorted(xerberus_protocols.items())),
+        "curators": dict(sorted(curators_export.items())),
         "vaults": vaults,
     }
+    categories_attached = append_strategy_categories_to_export(output_data, vaults)
+    if categories_attached:
+        logger.info("Built strategy category export for %d tags", len(output_data["categories"]))
+    else:
+        logger.info("Skipped strategy category export; publishing vault JSON without categories")
     # Optional coverage stats: not on VaultMetricsExport TypedDict (extra key for consumers).
     output_data["xerberus_stats"] = xerberus_stats  # type: ignore[typeddict-unknown-key]
-    print(f"Xerberus coverage: {xerberus_stats['pool_matches']} pool / {xerberus_stats['protocol_fallbacks']} protocol / {xerberus_stats['unmatched']} unmatched ({xerberus_stats['coverage_pct']}% of {xerberus_stats['total_vaults']})")
+    logger.info("Xerberus coverage: %d pool / %d protocol / %d unmatched (%s%% of %d)", xerberus_stats["pool_matches"], xerberus_stats["protocol_fallbacks"], xerberus_stats["unmatched"], xerberus_stats["coverage_pct"], xerberus_stats["total_vaults"])
 
     # The state file is published with the other scanner data files. Keep its
     # timestamp and build provenance available for incident investigation.
@@ -1168,29 +1524,55 @@ def main(
     validate_strict_json_serialisable(sticky_result.state)
 
     # 7️⃣ Write to JSON file (strict mode)
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-    with atomic_write(str(output_path), mode="w", overwrite=True, encoding="utf-8") as f:
-        json.dump(output_data, f, indent=2, ensure_ascii=False, allow_nan=False)
+    _write_strict_json(output_path, output_data, validated=True)
 
-    save_sticky_export_state(sticky_result.state, sticky_state_path)
-    print(f"Sticky export state: loaded {sticky_result.stats.loaded_state_entries:,} vault entries from {sticky_state_path}")
-    print(f"Current filter passed: {sticky_result.stats.current_filter_passed:,}")
+    save_sticky_export_state(sticky_result.state, sticky_state_path, validated=True)
+    logger.info("Sticky export state: loaded %d vault entries from %s", sticky_result.stats.loaded_state_entries, sticky_state_path)
+
+    # The freshness state is committed after the output JSON: a crash between
+    # the two leaves state stale so vaults recompute next run, never the
+    # reverse (state fresh but no published record).
+    refresh_metrics_state(
+        metrics_state,
+        seen_vault_ids,
+        computed_vault_ids,
+        current_tvl_by_id,
+        peak_tvl_by_id,
+        family_by_id,
+        now,
+    )
+    save_metrics_state(metrics_state, metrics_state_path)
+    phase_diagnostics.log("export-write")
+    logger.info("Metrics freshness state: %d vaults recomputed, %d low-TVL vaults kept", len(computed_vault_ids), len(skipped_vault_ids))
+    logger.info("Current filter passed: %d", sticky_result.stats.current_filter_passed)
     if sticky_result.stats.previous_current_filter_count is not None and sticky_result.stats.previous_current_filter_count > 0:
         previous_count = sticky_result.stats.previous_current_filter_count
         current_count = sticky_result.stats.current_filter_passed
         if current_count < previous_count * 0.8:
-            print(f"WARNING: current filter rows dropped from {previous_count:,} to {current_count:,}")
-    print(f"Sticky additions: {sticky_result.stats.sticky_additions:,}")
-    print(f"Sticky fallback exports: {sticky_result.stats.sticky_fallback_exports:,}")
-    print(f"Current-row structural fallbacks: {sticky_result.stats.current_row_structural_fallbacks:,}")
-    print(f"Structurally suppressed vaults: {sticky_result.stats.structurally_suppressed_vaults:,}")
-    print(f"Stale warning vaults: {sticky_result.stats.stale_warning_vaults:,}")
-    print(f"Missing protocol slugs for sticky rows: {sticky_result.stats.missing_protocol_slugs:,}")
-    print(f"Missing curator slugs for sticky rows: {sticky_result.stats.missing_curator_slugs:,}")
+            logger.warning("Current filter rows dropped from %d to %d", previous_count, current_count)
+    logger.info("Sticky additions: %d", sticky_result.stats.sticky_additions)
+    logger.info("Sticky fallback exports: %d", sticky_result.stats.sticky_fallback_exports)
+    logger.info("Current-row structural fallbacks: %d", sticky_result.stats.current_row_structural_fallbacks)
+    logger.info("Structurally suppressed vaults: %d", sticky_result.stats.structurally_suppressed_vaults)
+    logger.info("Stale warning vaults: %d", sticky_result.stats.stale_warning_vaults)
+    logger.info("Missing protocol slugs for sticky rows: %d", sticky_result.stats.missing_protocol_slugs)
+    logger.info("Missing curator slugs for sticky rows: %d", sticky_result.stats.missing_curator_slugs)
 
-    print(f"Exported {len(vaults):,} vault rows to {output_path}")
+    logger.info("Exported %d vault rows to %s", len(vaults), output_path)
     return output_data
 
 
-if __name__ == "__main__":
+def run_cli() -> None:
+    """Run the top-vault export with visible phase logging.
+
+    Both the module entry point and the compatibility script use this helper
+    so standalone runs report progress even without scanner logging setup.
+
+    :return: ``None`` after the JSON export completes.
+    """
+    setup_console_logging(default_log_level="info")
     main()
+
+
+if __name__ == "__main__":
+    run_cli()

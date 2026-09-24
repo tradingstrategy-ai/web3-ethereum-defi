@@ -1,14 +1,23 @@
 """Tests for maintained vault strategy classifications."""
 
+from collections.abc import Callable
+from types import SimpleNamespace
+
+import pytest
 from eth_typing import HexAddress
 
 from eth_defi.enzyme.onyx_vault import EnzymeVault
+from eth_defi.erc_4626.vault_protocol.accountable.vault import AccountableVault
 from eth_defi.erc_4626.vault_protocol.atoma.vault import ATOMA_VAULT_2_ADDRESS, ATOMA_VAULT_ADDRESS, AtomaVault
+from eth_defi.erc_4626.vault_protocol.axis.constants import AXIS_ETHEREUM_STAKED_USDX_VAULT
+from eth_defi.erc_4626.vault_protocol.axis.vault import AxisVault
 from eth_defi.erc_4626.vault_protocol.ethena.vault import EthenaVault
 from eth_defi.erc_4626.vault_protocol.ipor.vault import IPORVault
 from eth_defi.erc_4626.vault_protocol.symbiotic.vault import SymbioticVault
+from eth_defi.erc_4626.vault_protocol.t3tris.vault import T3trisVault
 from eth_defi.erc_4626.vault_protocol.upshift.vault import UpshiftVault
 from eth_defi.erc_4626.vault_protocol.yieldnest.vault import YNRWAX_VAULT_ADDRESS, YieldNestVault
+from eth_defi.midas.vault import MidasVault
 from eth_defi.vault.base import VaultBase, VaultSpec
 from eth_defi.vault.strategy_tag import StrategyTag
 
@@ -101,7 +110,6 @@ def test_kpk_usdc_liquidlane_strategy_tags() -> None:
     assert vault.get_strategy_tags() == {
         StrategyTag.algorithmic_trading,
         StrategyTag.liquidity_provider,
-        StrategyTag.market_maker,
         StrategyTag.market_making,
         StrategyTag.rwa,
     }
@@ -120,8 +128,25 @@ def test_axis_origin_strategy_tags() -> None:
     }
 
 
+def test_axis_staked_usdx_strategy_tags() -> None:
+    """Axis StakedUSDx V2 returns its documented market-neutral strategy tags."""
+    vault = object.__new__(AxisVault)
+    vault.vault_address = AXIS_ETHEREUM_STAKED_USDX_VAULT
+
+    assert vault.get_strategy_tags() == {
+        StrategyTag.arbitrage,
+        StrategyTag.delta_neutral,
+        StrategyTag.funding_rate_arbitrage,
+        StrategyTag.multistrategy,
+        StrategyTag.perpetual_futures,
+    }
+
+    vault.vault_address = HexAddress("0x0000000000000000000000000000000000000000")
+    assert vault.get_strategy_tags() is None
+
+
 def test_opalaccess_liquidstone_strategy_tags() -> None:
-    """Return researched RWA-credit tags for OpalAccess - LiquidStone 2."""
+    """Return researched RWA-credit tags and Enzyme's default classification."""
 
     vault = object.__new__(EnzymeVault)
     vault.spec = VaultSpec(chain_id=8453, vault_address=HexAddress("0x1B6d1EDf854CA5d8A7c32DDb79C24B117eBc6433"))
@@ -129,6 +154,7 @@ def test_opalaccess_liquidstone_strategy_tags() -> None:
     tags = vault.get_strategy_tags()
 
     assert tags == {
+        StrategyTag.discretionary_trading,
         StrategyTag.multistrategy,
         StrategyTag.rwa,
         StrategyTag.rwa_credit,
@@ -137,19 +163,20 @@ def test_opalaccess_liquidstone_strategy_tags() -> None:
     assert tags is not None
     tags.add(StrategyTag.carry_trade)
     assert vault.get_strategy_tags() == {
+        StrategyTag.discretionary_trading,
         StrategyTag.multistrategy,
         StrategyTag.rwa,
         StrategyTag.rwa_credit,
     }
 
 
-def test_unmapped_enzyme_vault_has_no_strategy_tags() -> None:
-    """Preserve ``None`` for Enzyme vaults without strategy evidence."""
+def test_unmapped_enzyme_vault_has_default_strategy_tags() -> None:
+    """Classify unmapped Enzyme vaults as discretionary by default."""
 
     vault = object.__new__(EnzymeVault)
     vault.spec = VaultSpec(chain_id=8453, vault_address=HexAddress("0x0000000000000000000000000000000000000000"))
 
-    assert vault.get_strategy_tags() is None
+    assert vault.get_strategy_tags() == {StrategyTag.discretionary_trading}
 
 
 def test_missing_strategy_tags_return_none() -> None:
@@ -159,3 +186,24 @@ def test_missing_strategy_tags_return_none() -> None:
 
     assert vault.get_strategy_tags() is None
     assert VaultBase.get_strategy_tags(vault) is None
+
+
+@pytest.mark.parametrize(
+    ("resolver", "chain_id", "address"),
+    (
+        (AccountableVault.get_strategy_tags, 1, "0x99351baed3d8ab544ccb08af96a105910fda71e7"),
+        (MidasVault.get_strategy_tags, 1, "0x827ce7e8e35861d9ac7fe002755767b695a5594a"),
+        (MidasVault.get_strategy_tags, 1, "0x2bf11d2e04bc40daa95c24b8b90ec4f5c57dd326"),
+        (T3trisVault.get_strategy_tags, 4663, "0x5b93dd3eb7fd224565498045f5e1a2ebda49e672"),
+    ),
+)
+def test_morini_capital_adapters_return_fx_strategy_tag(
+    resolver: Callable[[object], set[StrategyTag] | None],
+    chain_id: int,
+    address: str,
+) -> None:
+    """Non-Morpho Morini products expose FX through their scan adapters."""
+
+    vault = SimpleNamespace(chain_id=chain_id, address=HexAddress(address))
+
+    assert resolver(vault) == {StrategyTag.fx}

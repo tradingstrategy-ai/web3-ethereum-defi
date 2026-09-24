@@ -1,0 +1,15 @@
+{
+  "baseline_seconds": 45.781,
+  "baseline_records": 283,
+  "candidate_seconds": 16.464,
+  "candidate_records": 283,
+  "metadata_json_byte_equal": true,
+  "sticky_state_byte_equal": true,
+  "metrics_state_byte_equal": true,
+  "source_sha256": "76704fa1fa0cc865d593e4e77da9ffb5865530dd13d4978d47a219ab6ec52758",
+  "vault_db_sha256": "a8132aa08ef8face36f08f532aca358df49da4b0bf6a37e020f4b15b3a7c55a6",
+  "sampled_ids_sha256": "dd4bb947e95080692533192362285af06daffa5a1cc9a4f5ebeafeb08b4615ba",
+  "selected_vaults": 500,
+  "source_rows": 89153,
+  "fixed_now": "2026-09-23T12:00:00"
+}

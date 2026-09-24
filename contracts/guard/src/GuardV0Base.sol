@@ -333,9 +333,10 @@ abstract contract GuardV0Base is IGuard, Multicall {
      * We bump up when new whitelistings added.
      * Version 2 adds Lagoon v0.5 settlement-limit configuration.
      * Version 3 makes the limit an amount-and-cooldown safety policy.
+     * Version 4 changes it to a cumulative gross settlement-window budget.
      */
     function getInternalVersion() public pure returns (uint8) {
-        return 3;
+        return 4;
     }
 
     function allowCallSite(address target, bytes4 selector, string calldata notes) public onlyGuardOwner {
@@ -436,30 +437,31 @@ abstract contract GuardV0Base is IGuard, Multicall {
         _allowLagoonSettlementCallSites(vault, notes);
     }
 
-    /// Enable Lagoon asset-manager settlement safety with a custom cooldown.
+    /// Enable a Lagoon asset-manager settlement budget with a custom window.
     ///
     /// The amount-only whitelistLagoonWithSettlementLimit() overload applies
     /// the conservative 24-hour default. This explicit variant lets governance
-    /// choose a different positive delay without changing that shorter API.
+    /// choose a different positive duration without changing that shorter API.
+    /// The cooldown name is retained only for ABI compatibility.
     /// Direct Safe governance settlement remains outside module policy.
     ///
     /// @param vault Paired stock Lagoon v0.5 vault.
     /// @param asset Vault underlying token measured by LagoonLib.
     /// @param pendingSilo Pending-deposit Silo measured by LagoonLib.
     /// @param maxSettlementAmount Maximum gross asset-manager settlement.
-    /// @param settlementCooldown Minimum seconds between non-zero settlements.
+    /// @param settlementWindow Gross settlement budget duration in seconds.
     /// @param notes Human-readable governance audit note.
     function whitelistLagoonWithSettlementLimitAndCooldown(
         address vault,
         address asset,
         address pendingSilo,
         uint256 maxSettlementAmount,
-        uint256 settlementCooldown,
+        uint256 settlementWindow,
         string calldata notes
     ) public onlyGuardOwner {
         require(LagoonLib.isDeployed());
         LagoonLib.whitelistVaultWithSettlementLimitAndCooldown(
-            vault, asset, pendingSilo, maxSettlementAmount, settlementCooldown, notes
+            vault, asset, pendingSilo, maxSettlementAmount, settlementWindow, notes
         );
         _allowLagoonSettlementCallSites(vault, notes);
     }
@@ -540,14 +542,15 @@ abstract contract GuardV0Base is IGuard, Multicall {
         return LagoonLib.getVaultConfig(vault);
     }
 
-    /// Return the cooldown state paired with a Lagoon settlement amount cap.
+    /// Return the settlement-window state paired with a Lagoon amount cap.
     ///
     /// Kept separate from getLagoonSettlementConfig() so integrations which
-    /// only need cooldown state can read a smaller focused tuple.
+    /// only need window state can read a smaller focused tuple. The cooldown
+    /// name is retained only for ABI compatibility.
     function getLagoonSettlementCooldownConfig(address vault)
         public
         view
-        returns (uint256 settlementCooldown, uint256 lastSettlementTimestamp, uint256 nextSettlementTimestamp)
+        returns (uint256 settlementWindow, uint256 settledAmountInWindow, uint256 windowEndTimestamp)
     {
         require(LagoonLib.isDeployed());
         return LagoonLib.getSettlementCooldownConfig(vault);
@@ -556,20 +559,20 @@ abstract contract GuardV0Base is IGuard, Multicall {
     /// Return the complete Lagoon asset-manager settlement safety state.
     ///
     /// This convenience interface combines the focused amount configuration
-    /// and cooldown getters. Integrations can use one GuardV0Base
+    /// and window getters. Integrations can use one GuardV0Base
     /// call to discover whether safety is enabled, the measured contracts and
-    /// maximum gross amount, and the Unix epoch when another non-zero automated
-    /// settlement may complete. Empty settlements are not subject to that epoch.
+    /// maximum gross amount, cumulative usage, and active window end. Empty
+    /// settlements do not alter that state.
     ///
     /// @param vault Paired Lagoon vault to query.
     /// @return allowed Whether the singleton vault is allowlisted.
-    /// @return limitEnabled Whether amount-and-cooldown safety is enabled.
+    /// @return limitEnabled Whether amount-and-window safety is enabled.
     /// @return asset Underlying ERC-20 measured by LagoonLib.
     /// @return pendingSilo Pending-deposit Silo measured by LagoonLib.
     /// @return maxSettlementAmount Inclusive gross amount safety limit.
-    /// @return settlementCooldown Delay between non-zero settlements in seconds.
-    /// @return lastSettlementTimestamp Latest non-zero settlement Unix timestamp.
-    /// @return nextSettlementTimestamp Earliest next non-zero settlement Unix timestamp.
+    /// @return settlementWindow Gross settlement budget duration in seconds.
+    /// @return settledAmountInWindow Gross amount consumed in active window.
+    /// @return windowEndTimestamp Active window expiry, or zero when inactive.
     function getLagoonSettlementSafetyConfig(address vault)
         public
         view
@@ -579,9 +582,9 @@ abstract contract GuardV0Base is IGuard, Multicall {
             address asset,
             address pendingSilo,
             uint256 maxSettlementAmount,
-            uint256 settlementCooldown,
-            uint256 lastSettlementTimestamp,
-            uint256 nextSettlementTimestamp
+            uint256 settlementWindow,
+            uint256 settledAmountInWindow,
+            uint256 windowEndTimestamp
         )
     {
         require(LagoonLib.isDeployed());

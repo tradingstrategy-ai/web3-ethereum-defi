@@ -343,13 +343,11 @@ In practice:
    RSS or Atom document
 
 When `TWITTER_RSS_BASE_URLS` is not set, the collector uses
-`DEFAULT_TWITTER_URL_TEMPLATES` (xcancel.com and rss.xcancel.com).
+`DEFAULT_TWITTER_URL_TEMPLATES` (`nitter.cf`).
 
-Real live bridge examples that were verified during implementation on
-2026-04-03:
+Real live bridge example verified on 2026-09-14:
 
-- `https://xcancel.com/gauntlet_xyz/rss`
-- `https://rss.xcancel.com/gauntlet_xyz/rss`
+- `https://nitter.cf/gauntlet_xyz/rss`
 
 ### LinkedIn sources
 
