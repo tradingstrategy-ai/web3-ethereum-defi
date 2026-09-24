@@ -13,6 +13,8 @@ ROBINHOOD_CHAIN_ID = 4663
 ROBINHOOD_BLOCK_TIME = 0.25
 TEMPO_CHAIN_ID = 4217
 TEMPO_BLOCK_TIME = 0.5
+ARC_CHAIN_ID = 5042
+ARC_BLOCK_TIME = 0.5
 
 
 def test_robinhood_chain_metadata():
@@ -36,6 +38,19 @@ def test_tempo_chain_metadata(monkeypatch: pytest.MonkeyPatch):
     assert read_json_rpc_url(TEMPO_CHAIN_ID) == "https://tempo.example"
     assert get_evm_block_time(TEMPO_CHAIN_ID) == TEMPO_BLOCK_TIME
     assert get_chain_homepage(TEMPO_CHAIN_ID) == ("Tempo", "https://tempo.xyz")
+
+
+def test_arc_chain_metadata(monkeypatch: pytest.MonkeyPatch):
+    """Arc chain metadata resolves through public helper APIs."""
+
+    monkeypatch.setenv("JSON_RPC_ARC", "https://arc.example")
+
+    assert get_chain_name(ARC_CHAIN_ID) == "Arc"
+    assert get_chain_id_by_name("Arc") == ARC_CHAIN_ID
+    assert get_json_rpc_env(ARC_CHAIN_ID) == "JSON_RPC_ARC"
+    assert read_json_rpc_url(ARC_CHAIN_ID) == "https://arc.example"
+    assert get_evm_block_time(ARC_CHAIN_ID) == ARC_BLOCK_TIME
+    assert get_chain_homepage(ARC_CHAIN_ID) == ("Arc", "https://arc.io")
 
 
 def test_has_not_graphql_support():

@@ -76,6 +76,16 @@ def test_tempo_chain_is_scheduled_for_vault_scans():
     assert tempo.scan_vaults is True
 
 
+def test_arc_chain_is_scheduled_for_vault_scans():
+    """Arc is available as an EVM vault scanner target."""
+
+    configs = {config.name: config for config in build_chain_configs()}
+
+    arc = configs["Arc"]
+    assert arc.env_var == "JSON_RPC_ARC"
+    assert arc.scan_vaults is True
+
+
 def test_linea_uses_poa_middleware_for_historical_settlement_reads():
     """Linea historical settlement backfills need PoA extra-data handling."""
 

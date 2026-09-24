@@ -26,7 +26,7 @@ the first reviewed Arc vaults require one.
   `CHAIN_NAMES`, `EVM_BLOCK_TIMES`, production scanner configuration, Docker
   environment passthrough, or operator documentation.
 
-## Provider and indexer status (checked 2026-09-16)
+## Provider and indexer status (checked 2026-09-24)
 
 - The Arc endpoint derived from the configured Ethereum Goldsky URL by replacing
   its final chain-id path segment (`1` → `5042`) works. It returned
@@ -37,14 +37,12 @@ the first reviewed Arc vaults require one.
   `network=ethereum` with `network=arc` returns HTTP `403` for chain ID, head,
   and block reads. Do not add it to `JSON_RPC_ARC` until dRPC enables Arc for
   the existing API key or issues an Arc-capable key.
-- No usable public Arc mainnet Hypersync stream was confirmed. The conventional
-  `arc.hypersync.xyz` and `5042.hypersync.xyz` hosts did not resolve, while
-  `arc-mainnet.hypersync.xyz` refused the connection. Envio HyperRPC's
-  `arc.rpc.hypersync.xyz` resolves but requires authentication and is an RPC
-  service, not evidence of an indexed Hypersync event stream. Therefore Arc
-  must remain outside production ERC-4626 discovery and timestamp operations
-  until Envio publishes a working mainnet stream and the bounded event test
-  passes.
+- Envio now lists Arc as a first-class chain and serves its indexed mainnet
+  stream at `https://arc.hypersync.xyz`. On 23 September 2026, an authenticated
+  check using the configured `HYPERSYNC_API_KEY` returned `chain_id = 5042` and
+  a positive indexed height. This clears the original Hypersync gate. The
+  repository adds a minimal authenticated integration test to retain that
+  evidence.
 
 ## Constraints and decisions
 
@@ -53,9 +51,8 @@ the first reviewed Arc vaults require one.
 - Keep testnet and mainnet separate. Do not repurpose chain ID `5042002` or add
   the testnet to the production all-chain schedule.
 - Historical event and timestamp reads require Hypersync. Do not make
-  JSON-RPC `eth_getLogs` a production fallback. Arc should not be scheduled
-  until Envio publishes and the team verifies a mainnet endpoint. This gate is
-  currently unmet.
+  JSON-RPC `eth_getLogs` a production fallback. Arc's Envio mainnet endpoint
+  is now verified and is included in the supported-chain mapping.
 - USDC is Arc's native gas asset but the scanner is read-only. Do not invent a
   wrapped-native-token address, a sequencer configuration, or transaction
   settings. Add a mainnet USDC contract to `USDC_NATIVE_TOKEN` or stablecoin
@@ -74,10 +71,10 @@ the first reviewed Arc vaults require one.
      test historical `eth_call` at representative early blocks before enabling
      price history.
    - Confirm the public Arc mainnet Hypersync URL with Envio's supported-network
-     documentation or Envio support. Smoke-test its height and a bounded
-     ERC-4626 `Deposit`/`Withdraw` stream. Record the exact URL and verification
-     date in the implementation notes; do not infer it from the existing
-     `arc-testnet` hostname.
+     documentation or Envio support. This was verified at
+     `https://arc.hypersync.xyz` on 23 September 2026 using an authenticated
+     chain-id and height check. Retain a bounded event-stream check if a future
+     provider incident requires deeper diagnosis.
    - Query a short recent block range to measure the observed effective block
      interval. Store a non-zero float in `EVM_BLOCK_TIMES[5042]`; do not assume
      a particular value solely from Arc's sub-second-finality claim, especially
@@ -120,9 +117,10 @@ the first reviewed Arc vaults require one.
 
 4. Validate generic ERC-4626 coverage and add only evidence-backed protocol work.
 
-   - First run Arc discovery in an isolated `PIPELINE_DATA_DIR` with
-     `SCAN_PRICES=false`; inspect lead count, classification outcome, metadata
-     failures, token symbols, and detected Aave/Morpho contracts.
+   - First run Arc discovery with `scripts/erc-4626/scan-arc-vaults.py`; it
+     stores metadata and the discovery cursor in an isolated local directory.
+     Inspect lead count, classification outcome, metadata failures, token
+     symbols, and detected Aave/Morpho contracts.
    - Treat `ERC-4626` as the initial eligibility boundary. Aave markets or
      other contracts that are not vault share tokens should not be forced into
      the ERC-4626 pipeline.
@@ -161,11 +159,11 @@ the first reviewed Arc vaults require one.
      mainnet Arc endpoint separately from the existing testnet assertion.
    - Extend `tests/vault/test_scan_all_chains_config.py` to require
      `ChainConfig("Arc", "JSON_RPC_ARC", True)`.
-   - Add a minimal Arc integration test guarded by `JSON_RPC_ARC` and
-     `HYPERSYNC_API_KEY`. It must verify chain ID, a successful current-state
-     multicall read, and a bounded real Hypersync event/timestamp response; it
-     should be opt-in locally or placed in the appropriate slow integration
-     workflow so ordinary CI remains deterministic.
+   - Add a minimal Arc integration test guarded by `HYPERSYNC_API_KEY`. It must
+     verify the authenticated Envio chain ID and indexed height; retain the
+     corresponding real provider result in the pull request. Add a bounded
+     event-stream assertion after the initial vault scan identifies a stable
+     real target.
    - Once discovered, add at least one fixed, real Arc ERC-4626 vault test. It
      should assert classification and current metadata against the configured
      provider; use a historic fork only after Arc/Anvil compatibility and a
@@ -188,12 +186,7 @@ the first reviewed Arc vaults require one.
 ```shell
 # Isolated discovery first: no shared production state and no price writes.
 source .local-test.env && \
-PIPELINE_DATA_DIR=/tmp/arc-vault-pipeline \
-TEST_CHAINS=Arc \
-SCAN_PRICES=false \
-SKIP_POST_PROCESSING=true \
-MAX_CYCLES=1 \
-poetry run python scripts/erc-4626/scan-vaults-all-chains.py
+poetry run python scripts/erc-4626/scan-arc-vaults.py
 
 # After the mainnet Hypersync mapping and archive provider have been verified,
 # fill only Arc's missing timestamp range.

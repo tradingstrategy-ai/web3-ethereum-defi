@@ -59,9 +59,9 @@ Discovery scan for ERC-4626 vaults on a single chain. Stores metadata in the vau
 JSON_RPC_URL=$JSON_RPC_BASE poetry run python scripts/erc-4626/scan-vaults.py
 ```
 
-For Tempo or Robinhood Chain, set `JSON_RPC_TEMPO` or `JSON_RPC_ROBINHOOD` to
-an archive-capable provider endpoint and pass it through as the single-chain
-`JSON_RPC_URL`:
+For Arc, Tempo or Robinhood Chain, set `JSON_RPC_ARC`, `JSON_RPC_TEMPO` or
+`JSON_RPC_ROBINHOOD` to an archive-capable provider endpoint and pass it
+through as the single-chain `JSON_RPC_URL`:
 
 ```shell
 LOG_LEVEL=info JSON_RPC_URL=$JSON_RPC_TEMPO poetry run python scripts/erc-4626/scan-vaults.py
@@ -78,6 +78,35 @@ LOG_LEVEL=info JSON_RPC_URL=$JSON_RPC_TEMPO poetry run python scripts/erc-4626/s
 | `HYPERSYNC_RPM` | Optional. Hypersync API requests-per-minute limit. Default: 80, leaving headroom below the 100 RPM quota observed for basic API keys. Throttling is always on; lower this further after persistent 429 errors. |
 | `HYPERSYNC_CONCURRENCY` | Optional. Number of Hypersync requests in flight per stream — the main throughput knob. Default: server default (10). Increase for dense workloads, decrease for rate-limited plans. See [Envio StreamConfig tuning](https://docs.envio.dev/docs/HyperSync/stream-config-tuning). |
 | `RPC_TRACKING_DATABASE_PATH` | Optional. Shared JSON-RPC accounting DuckDB. Default: `~/.tradingstrategy/rpc-tracking.duckdb`. |
+
+### scan-arc-vaults.py
+
+Run the initial Arc mainnet discovery locally without altering the shared vault
+scanner database, price Parquet files, reader state or exports. The script
+stores only Arc metadata, its incremental lead cursor and a log in
+`~/.tradingstrategy/vaults/arc-initial-scan` by default. It performs no
+historical price scan or post-processing.
+
+The script requires `HYPERSYNC_API_KEY` and reads historical events through
+Envio Hypersync. It prefers `JSON_RPC_ARC`; when that is unset, it derives the
+Goldsky Arc endpoint from the Goldsky item in `JSON_RPC_ETHEREUM` by replacing
+the final `/1` chain-id component with `/5042`. It never displays the resolved
+RPC URL, which can contain credentials.
+
+```shell
+source .local-test.env && \
+poetry run python scripts/erc-4626/scan-arc-vaults.py
+```
+
+| Variable | Description |
+|----------|-------------|
+| `JSON_RPC_ARC` | Optional preferred archive-capable Arc provider. A space-separated fallback configuration is accepted. |
+| `JSON_RPC_ETHEREUM` | Fallback source only: must contain a compatible Goldsky Ethereum endpoint ending in `/1`. |
+| `HYPERSYNC_API_KEY` | Required Envio API key for Arc historical discovery. |
+| `ARC_PIPELINE_DATA_DIR` | Optional isolated local state directory. Default: `~/.tradingstrategy/vaults/arc-initial-scan`. |
+| `ARC_FORCE_LEAD_DISCOVERY` | Optional. Set to `true` to bypass the Arc local lead-discovery cache. Default: `false`. |
+| `MAX_WORKERS` | Optional metadata-reader worker count. Default: 16. |
+| `LOG_LEVEL` | Optional logging level. Default: `info`. |
 
 #### Required protocol-specific lead migrations
 
@@ -543,8 +572,10 @@ GROUP BY chain, phase
 ORDER BY chain, phase;
 ```
 
-Tempo and Robinhood Chain are scanned when `JSON_RPC_TEMPO` and
-`JSON_RPC_ROBINHOOD` are configured. For a focused Tempo-only dry run:
+Arc, Tempo and Robinhood Chain are scanned when `JSON_RPC_ARC`,
+`JSON_RPC_TEMPO` and `JSON_RPC_ROBINHOOD` are configured. Prefer
+`scan-arc-vaults.py` above for Arc's initial isolated discovery. For a focused
+Tempo-only dry run:
 
 ```shell
 source .local-test.env && \

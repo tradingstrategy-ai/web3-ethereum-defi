@@ -575,6 +575,7 @@ def build_chain_configs() -> list[ChainConfig]:
         ChainConfig("Base", "JSON_RPC_BASE", True),
         ChainConfig("Arbitrum", "JSON_RPC_ARBITRUM", True),
         ChainConfig("Tempo", "JSON_RPC_TEMPO", True),
+        ChainConfig("Arc", "JSON_RPC_ARC", True),
         ChainConfig("Robinhood", "JSON_RPC_ROBINHOOD", True),
         ChainConfig("Ethereum", "JSON_RPC_ETHEREUM", True),
         ChainConfig("Linea", "JSON_RPC_LINEA", True),

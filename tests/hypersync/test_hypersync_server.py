@@ -17,6 +17,13 @@ def test_arc_testnet_hypersync_server():
     assert get_hypersync_server(5042002) == "https://arc-testnet.hypersync.xyz"
 
 
+def test_arc_mainnet_hypersync_server():
+    """Arc mainnet has a configured Hypersync endpoint."""
+
+    assert is_hypersync_supported_chain(5042) is True
+    assert get_hypersync_server(5042) == "https://arc.hypersync.xyz"
+
+
 def test_tempo_hypersync_server():
     """Tempo has a configured Hypersync endpoint."""
 
