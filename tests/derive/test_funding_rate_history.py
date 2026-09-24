@@ -8,12 +8,38 @@ No credentials required — uses public API only.
 
 import datetime
 from decimal import Decimal
+from unittest.mock import MagicMock
 
 import pytest
 
 from eth_defi.derive.api import FundingRateEntry, fetch_funding_rate_history, fetch_perpetual_instruments
 from eth_defi.derive.historical import DeriveFundingRateDatabase
 from eth_defi.derive.session import create_derive_session
+
+
+def test_fetch_funding_rate_history_clips_api_boundary_samples() -> None:
+    """Discard leading and trailing samples returned outside the requested window."""
+    start = datetime.datetime(2026, 2, 26, 0, 0)
+    end = datetime.datetime(2026, 2, 26, 2, 0)
+    hourly_timestamps = [start - datetime.timedelta(hours=1), start, start + datetime.timedelta(hours=1), end, end + datetime.timedelta(hours=1)]
+    response = MagicMock()
+    response.json.return_value = {
+        "result": {
+            "funding_rate_history": [
+                {
+                    "timestamp": int(timestamp.replace(tzinfo=datetime.timezone.utc).timestamp() * 1000),
+                    "funding_rate": "0.00001",
+                }
+                for timestamp in hourly_timestamps
+            ],
+        },
+    }
+    session = MagicMock()
+    session.post.return_value = response
+
+    rates = fetch_funding_rate_history(session, "ETH-PERP", start_time=start, end_time=end)
+
+    assert [rate.timestamp for rate in rates] == hourly_timestamps[1:4]
 
 
 @pytest.fixture(scope="module")
