@@ -11,9 +11,10 @@ long_description: |
 fee_description: |
   Each vault configures [management and performance fees](https://docs.derive.xyz/vaults/fees)
   in basis points.
-  Fees settle through dilutive share mints during deposit and withdrawal
-  settlement. Source historical share prices and live simulated prices have
-  different accounting moments.
+  At deposit and withdrawal settlement, the protocol pays fees by issuing
+  shares, reducing other holders' proportional ownership. The live simulated
+  share price includes pending fees; the historical series records sampled
+  prices and reflects fee settlement when it occurs.
 links:
   homepage: https://www.derive.xyz
   app: https://app.derive.xyz/v3

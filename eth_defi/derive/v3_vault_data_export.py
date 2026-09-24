@@ -42,7 +42,7 @@ def _decimal_or_none(value: object) -> Decimal | None:
 
 
 def _value_or_none(value: object) -> object | None:
-    """Convert a nullable DuckDB/Pandas value to an ordinary optional value.
+    """Replace Pandas null markers with Python ``None``.
 
     :param value: Value read from the metadata dataframe.
     :return: Original value or ``None`` for Pandas nulls.
@@ -164,7 +164,11 @@ def build_raw_prices_dataframe(db: DeriveV3VaultDatabase) -> pd.DataFrame:
     no hourly interpolation or substitution of the live simulated price.
 
     :param db: Open Derive v3 DuckDB reader.
-    :return: Raw price rows, or an empty dataframe when mainnet has no history.
+    :return: DataFrame with the columns in
+        :class:`~eth_defi.vault.base.RawVaultPriceRow`: naive UTC timestamps,
+        numeric USD ``share_price`` and ``total_assets`` (nullable NAV), and
+        numeric ``total_supply`` in native shares. Empty when no mainnet
+        history is stored. ``block_number`` is zero for these API observations.
     """
     prices = db.get_vault_prices("mainnet")
     if prices.empty:
@@ -192,8 +196,9 @@ def build_raw_prices_dataframe(db: DeriveV3VaultDatabase) -> pd.DataFrame:
 def merge_into_vault_database(db: DeriveV3VaultDatabase, vault_db_path: Path) -> VaultDatabase:
     """Upsert mainnet Derive metadata while retaining all existing vaults.
 
-    An empty listing leaves the persisted shared pickle untouched. Closed or
-    delisted vaults remain available from their last successfully stored row.
+    If DuckDB has no mainnet metadata, the pickle is not written. Otherwise
+    stored mainnet records are merged, including records retained after a
+    vault disappears from the API listing. Existing unrelated vaults remain.
 
     :param db: Open Derive v3 DuckDB reader.
     :param vault_db_path: Shared vault metadata pickle path.

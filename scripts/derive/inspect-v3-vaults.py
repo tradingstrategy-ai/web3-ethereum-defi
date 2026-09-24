@@ -23,11 +23,12 @@ logger = logging.getLogger(__name__)
 
 
 def main() -> None:  # noqa: PLR0914 - one operator summary covers both deployments
-    """Display read-only source summaries for the selected deployments.
+    """Display vault metadata and a recent history sample for each deployment.
 
     The public `Derive v3 API <https://docs.derive.xyz/api-reference/>`__ is
-    queried directly. A missing history series or empty mainnet listing is
-    reported explicitly instead of fabricating a price.
+    queried directly. Empty listings and missing history are shown in the
+    output. API errors are collected while inspection continues, then cause
+    a non-zero exit so operators can distinguish incomplete output.
 
     :return: ``None``.
     """

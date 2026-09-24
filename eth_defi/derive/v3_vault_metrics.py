@@ -29,8 +29,10 @@ logger = logging.getLogger(__name__)
 class DeriveV3VaultDatabase:
     """File-backed public vault metadata and daily performance observations.
 
-    Rows are identified by ``(network, subaccount_id, timestamp)`` in the
-    ingestion code. The tables have no ART-backed unique constraints.
+    Metadata is keyed by ``(network, subaccount_id)``; prices also include
+    ``timestamp``. Amounts are stored as decimal strings. Ingestion handles
+    duplicate keys without unique constraints because large ART indexes have
+    caused native DuckDB crashes under Python 3.14 in this repository.
 
     :param path: Destination DuckDB file.
     """
@@ -78,8 +80,9 @@ class DeriveV3VaultDatabase:
     def store_vault(self, network: str, vault: DeriveV3Vault, prices: list[DeriveV3VaultPrice]) -> None:
         """Replace one vault's metadata and fetched history transactionally.
 
-        Existing history outside the fetched time span is preserved. Repeated
-        scans replace only matching timestamps and remain idempotent.
+        A fetched point replaces the stored point at the same timestamp.
+        All other timestamps survive, including gaps within the fetched range.
+        ``observed_at`` retains the first scan time when metadata is refreshed.
 
         :param network: Source deployment name.
         :param vault: Fresh public vault metadata.
@@ -115,9 +118,8 @@ class DeriveV3VaultDatabase:
             self.con.execute("ROLLBACK")
             raise
 
-        # The public API exposes USD equity but not current positions. Only
-        # vaults with evidence-backed perpetual strategies enter the shared
-        # perp DEX observation tables.
+        # Only mainnet vaults tagged as perpetual strategies belong in the
+        # perp DEX tables. Store public USD equity with positions unavailable.
         address = make_derive_v3_vault_address(vault.subaccount_id)
         tags = get_strategy_tags(address)
         if network == "mainnet" and tags is not None and StrategyTag.perpetual_futures in tags:
@@ -145,6 +147,9 @@ class DeriveV3VaultDatabase:
     def get_vault_metadata(self, network: str) -> pd.DataFrame:
         """Read current vault metadata for one deployment.
 
+        Includes previously stored vaults that no longer appear in the API
+        listing. ``first_price_at`` comes from the earliest stored price.
+
         :param network: ``testnet`` or ``mainnet``.
         :return: DataFrame with the ``vault_metadata`` columns and nullable
             ``first_price_at`` as a naive UTC timestamp. One row per vault.
@@ -163,8 +168,12 @@ class DeriveV3VaultDatabase:
     def get_vault_prices(self, network: str) -> pd.DataFrame:
         """Read sampled vault prices for one deployment.
 
+        Rows are ordered by subaccount ID, then observation timestamp.
+
         :param network: ``testnet`` or ``mainnet``.
-        :return: DataFrame with the ``vault_prices`` columns.
+        :return: DataFrame with integer ``subaccount_id``, naive UTC
+            ``timestamp`` and ``written_at``, string ``network``, and decimal
+            strings ``share_price``, ``nav_usd`` (nullable) and ``total_shares``.
         """
         return self.con.execute("SELECT * FROM vault_prices WHERE network = ? ORDER BY subaccount_id, timestamp", [network]).df()
 
@@ -181,13 +190,15 @@ class DeriveV3VaultDatabase:
 def scan_derive_v3_vaults(client: DeriveV3VaultClient, db_path: Path, vault_ids: set[int] | None = None) -> tuple[int, int]:
     """Fetch all public v3 vaults and persist their daily price history.
 
-    An empty vault listing leaves previously stored observations intact. This
-    matters while the production deployment has not listed any vaults.
+    Fetches the full available daily history on every run. Each vault commits
+    separately; a fetch failure stops the scan and leaves earlier commits
+    intact. An empty listing succeeds without deleting stored observations.
 
     :param client: Public API client with a selected deployment.
     :param db_path: Destination DuckDB file.
     :param vault_ids: Optional native subaccount ID filter.
-    :return: Pair of vault and price observation counts written this run.
+    :return: Vaults processed and performance points fetched this run. These
+        counts include replacements of previously stored records.
     """
     vaults = list(client.fetch_vaults())
     if vault_ids is not None:

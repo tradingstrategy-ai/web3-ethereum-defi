@@ -57,7 +57,7 @@ class DeriveV3Vault:
     #: Live mark-to-market NAV in USD, if priceable.
     nav_usd: Decimal | None
 
-    #: Live simulated share price after accrued fee settlement.
+    #: Live USD price per share, assuming accrued fees were settled now.
     share_price_usd: Decimal | None
 
     #: Outstanding native shares.
@@ -131,10 +131,10 @@ class DeriveV3VaultPrice:
     #: Naive UTC observation time.
     timestamp: datetime.datetime
 
-    #: Native USD share price.
+    #: Historical USD price per native share.
     share_price: Decimal
 
-    #: Vault NAV in USD, or ``None`` when unpriceable.
+    #: Vault NAV in USD, or ``None`` when the API cannot value the vault.
     nav_usd: Decimal | None
 
     #: Outstanding native shares.
@@ -144,8 +144,8 @@ class DeriveV3VaultPrice:
     def from_api(cls, subaccount_id: int, value: dict) -> "DeriveV3VaultPrice":
         """Parse a performance point and normalise its Unix timestamp.
 
-        Derive's OpenAPI text describes milliseconds, while the live testnet
-        API currently returns seconds. Both units are accepted explicitly.
+        Derive's OpenAPI text describes milliseconds. Testnet responses on
+        24 September 2026 used seconds, so the parser accepts both units.
 
         :param subaccount_id: Vault subaccount ID from the request.
         :param value: ``VaultPerformancePointResponse`` object.
@@ -166,8 +166,12 @@ class DeriveV3VaultPrice:
 class DeriveV3VaultClient:
     """Synchronous client for the public Derive v3 vault endpoints.
 
-    The deployment is an explicit constructor choice to prevent accidental
-    mixing of testnet and mainnet vault IDs. No credentials are needed.
+    Defaults to testnet. Pass ``network="mainnet"`` for production data;
+    subaccount IDs are scoped to a deployment. No credentials are needed.
+
+    The default session retries HTTP 429 and selected server errors up to
+    three times. A supplied session keeps its own retry configuration.
+    :meth:`close` closes either session, including one supplied by the caller.
 
     :param network: ``testnet`` or ``mainnet``.
     :param session: Optional configured HTTP session.
@@ -186,7 +190,10 @@ class DeriveV3VaultClient:
             self.session.mount("https://", HTTPAdapter(max_retries=retry))
 
     def _post(self, method: str, params: dict) -> dict | list[dict]:
-        """Call a public JSON-RPC method through Derive's HTTP path transport.
+        """POST parameters to a public endpoint and unwrap its response.
+
+        Derive accepts a JSON parameter object at ``/v3/public/<method>``
+        and returns a JSON-RPC-style ``result`` or ``error`` envelope.
 
         :param method: Path such as ``public/get_vaults``.
         :param params: JSON request object.
@@ -203,7 +210,10 @@ class DeriveV3VaultClient:
         return body["result"]
 
     def fetch_vaults(self, page_size: int = 100) -> Iterator[DeriveV3Vault]:
-        """Iterate every vault in the chosen deployment.
+        """Fetch each page of the deployment's public vault listing.
+
+        An empty listing yields no records. HTTP and response errors propagate
+        to the caller, so an unavailable API is distinguishable from no vaults.
 
         :param page_size: API page size, between 1 and 100.
         :return: Vault records in API page order.
@@ -226,8 +236,8 @@ class DeriveV3VaultClient:
     def fetch_vault(self, subaccount_id: int) -> dict:
         """Fetch a full public native vault record for manual inspection.
 
-        The full source response is retained as a dictionary because Derive
-        can add vault configuration fields without changing the listing shape.
+        Returns the response without parsing it into :class:`DeriveV3Vault`,
+        so callers can inspect fields absent from the listing model.
         See `public/get_vault
         <https://docs.derive.xyz/api-reference/vault-shareholders/publicget_vault>`__.
 
@@ -265,7 +275,8 @@ class DeriveV3VaultClient:
 
         :param subaccount_id: Native vault subaccount ID.
         :param resolution: Sampling resolution supported by Derive.
-        :param limit: Maximum points per page, 1 to 10,000.
+        :param limit: Points per request, 1 to 10,000. This does not limit the
+            total number of points yielded across pages.
         :return: Historical observations, newest first.
         """
         if resolution not in {"1h", "8h", "24h", "1wk"}:

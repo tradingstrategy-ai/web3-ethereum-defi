@@ -1,13 +1,13 @@
 """Maintained strategy classifications for Derive v3 native vaults.
 
-Derive vaults may use options, perpetuals, spot or lending. No strategy tag is
-inferred solely from Derive hosting a vault. Add a mainnet address here only
-after reviewing the current curator description and primary source evidence.
+Derive vaults may use options, perpetuals, spot or lending. For each mainnet
+entry, record the source supporting its classification in a nearby comment.
+Do not add testnet vaults. A missing entry means the strategy is unclassified.
 """
 
 from eth_defi.vault.strategy_tag import StrategyTag
 
-#: Mainnet synthetic address to evidence-backed strategy tags.
+#: Mainnet synthetic vault address to reviewed strategy tags.
 STRATEGY_TAGS: dict[str, set[StrategyTag]] = {}
 
 

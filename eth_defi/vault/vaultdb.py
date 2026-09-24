@@ -191,7 +191,7 @@ class VaultRow(TypedDict):
     #: Derive v3 deposit asset, separate from its USD accounting denomination.
     _derive_deposit_asset: NotRequired[dict | None]
 
-    #: Derive v3 curator wallet; not necessarily a public display name.
+    #: Derive v3 curator wallet address, retained for later identity verification.
     _derive_curator: NotRequired[str | None]
 
     #: Source used to produce the vault share-price series.

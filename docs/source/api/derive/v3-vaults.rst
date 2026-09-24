@@ -2,10 +2,11 @@ Derive v3 native vaults
 -----------------------
 
 The `operator README <https://github.com/tradingstrategy-ai/web3-ethereum-defi/blob/master/scripts/derive/README-Derive-vaults.md>`__
-describes inspection, storage and shared scanner switches.
+contains commands for inspecting both deployments, collecting history and
+configuring the shared scanner.
 
-Derive v3 vaults are managed subaccounts with native shares, rather than
-ERC-4626 contracts. The `Derive v3 vault guide
+Derive v3 vaults hold assets in managed exchange subaccounts and issue native
+shares. They have no ERC-4626 contract interface. The `Derive v3 vault guide
 <https://docs.derive.xyz/vaults/create-a-vault>`__ describes their accounting,
 fees and curator role. The public `vault listing
 <https://docs.derive.xyz/api-reference/vault-shareholders/publicget_vaults>`__
@@ -22,13 +23,19 @@ the DuckDB destination and ``VAULT_IDS`` filters native subaccount IDs. By
 default, testnet and mainnet use separate files under
 ``~/.tradingstrategy/vaults/``. Each observation retains the deployment name
 as well. The shared exporter reads mainnet rows only. The collector keeps
-source decimal strings and stores the API's daily
-performance points without inventing prices when NAV is unavailable. The
+amounts as decimal strings and stores daily performance points. A missing
+NAV remains null; a vault with no history produces no price rows. The
 public `currency listing
 <https://docs.derive.xyz/api-reference/market-data/publicget_all_currencies>`__
 resolves each vault's internal deposit-asset address to a symbol and decimal
 count, where available. The full public vault record is retained as JSON so
-new fee, benchmark or access fields can be inspected without a rescan.
+fields omitted from the parsed model can be inspected later.
+
+The all-chain scanner enables Derive mainnet by default; set
+``SCAN_DERIVE_V3=false`` to disable it. Shared rows use dataset chain ID
+``9993`` and address ``derive-v3-vault-{subaccount_id}``. This chain ID is an
+internal identifier, not an EVM RPC chain ID. Prices and NAV use USD units;
+deposit-asset metadata is exported separately under ``other_data.derive``.
 
 Current Derive-side limits
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -56,10 +63,9 @@ The `fee guide <https://docs.derive.xyz/vaults/fees>`__ explains that fees
 settle as dilutive share mints during deposit and withdrawal settlement. The
 historical ``share_price`` is the sampled mark-to-market series; the live
 ``simulated_share_price_usd`` includes a hypothetical accrued-fee settlement.
-They should not be combined into a single history without defining the
-accounting basis. Curator-supplied descriptions and whitelist settings also
-need separate validation before they are treated as investment facts.
-The source also has no ERC-20 vault share token or ERC-4626 deposit manager.
+The collector stores the simulated price in metadata and uses only
+``share_price`` for historical prices. Appending the simulated price to that
+series would mix prices with different treatment of pending fees.
 The ``whitelist_only`` field describes account approval separately from the
 vault's closed status; an open request still requires curator settlement.
 
@@ -75,8 +81,9 @@ specification <https://docs.derive.xyz/openapi.json>`__ instead provides
 wallet sessions. A curator must delegate access to its vault subaccount,
 such as with a `read-only session key
 <https://docs.derive.xyz/authentication/access-scopes>`__, before these
-positions can be collected. Until then, exposure metrics are unknown and
-must remain null rather than zero.
+positions can be read. This integration does not implement private position
+collection, and vault-specific session access has not been tested. Exported
+exposure metrics remain null, indicating unavailable data.
 
 API modules
 ~~~~~~~~~~~

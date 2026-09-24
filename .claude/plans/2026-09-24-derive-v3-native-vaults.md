@@ -1,15 +1,17 @@
 # Derive v3 native vault plan
 
+Implemented in PR #1597. This file records the scope and checks; use
+`scripts/derive/README-Derive-vaults.md` for current operator instructions.
+
 ## Scope
 
 Add Derive v3 native vaults using the same API → DuckDB → shared vault metadata
 and prices path as GRVT, Lighter, Hibachi and ApeX. The production all-chain
 loop reads **mainnet only**. A manual command inspects mainnet and testnet.
 
-This worktree already has a public v3 client, a DuckDB collector, a standalone
-scan script, tests and a short API page. Extend those files. Keep Derive v2
-authentication and data separate. On 24 September 2026 the public testnet API
-listed 18 vaults, while mainnet listed none; recheck before implementation.
+Keep Derive v2 authentication and data separate. On 24 September 2026 the
+public testnet API listed 18 vaults, while mainnet listed none. An empty
+mainnet listing must succeed without removing stored data.
 
 ## 1. Operator README
 
@@ -41,12 +43,11 @@ existing HTTP session unless the v3 API needs different retry or rate-limit
 settings; never send v2 authentication to public v3 endpoints. Retain source
 decimal values and complete history, and make repeated scans update matching
 timestamps without deleting older points. A failed fetch must leave prior
-data intact. The current v3 tables are untracked local work, so fix their
-schema directly where needed. Keep bulk DuckDB tables free of `PRIMARY KEY`
+data intact. Keep bulk DuckDB tables free of `PRIMARY KEY`
 and `UNIQUE` constraints, as required by the repository's DuckDB guidance.
 
-Add `eth_defi/derive/tags.py` for evidence-backed, vault-specific strategy
-tags. Do not assign every Derive vault a perpetual-futures tag: strategies may
+Add `eth_defi/derive/tags.py` for reviewed mainnet strategy tags, with a source
+for each classification. Do not tag testnet vaults. Strategies may
 include options, spot and lending. Add the native feature and protocol
 metadata needed by the shared catalogue. For vaults classified as perp DEX
 vaults, follow GRVT and Hibachi's shared account-observation schema: publish
@@ -62,7 +63,9 @@ prices; use synthetic chain ID `9993` and address
 data, then register it in the chain metadata and native scanner mappings.
 Map deposit token metadata, fee rates, share supply, NAV, access restrictions
 and source description into `VaultRow`.
-Also map curator, direct vault link, cooldown and deposit permission; convert
+Retain the curator wallet without inferring an organisation from the vault
+name. Link to the app landing page until a per-vault route is verified.
+Map cooldown and deposit permission; convert
 fee basis points to fractions and set the fee mode to match Derive's
 share-minting settlements. Register the native feature/name, synthetic
 address prefix, special offchain-vault slug, fee/risk matrix entries, protocol
@@ -77,8 +80,8 @@ without history.
 Add `SCAN_DERIVE_V3` to `eth_defi/vault/scan_all_chains.py` as one scheduled
 native item. Its wrapper must use the canonical mainnet API and mainnet
 DuckDB only; testnet must not enter the shared pickle or Parquet. Include the
-flag and cycle in the scanner script and Compose configuration, defaulting
-the flag to off until a real mainnet vault can be checked end to end.
+flag and cycle in the scanner script and Compose configuration. Scanning is
+enabled by default; `SCAN_DERIVE_V3=false` disables it.
 
 Extend native post-processing to merge Derive prices. Preserve existing
 history when the API or local DuckDB has fewer rows: for each vault and
@@ -87,8 +90,7 @@ An empty mainnet listing or missing DuckDB must leave existing shared data
 untouched; retain vaults that disappear from a later listing. Wire the merge
 through both the all-chain runner and `post-process-prices.py` with a
 `MERGE_DERIVE_V3` switch, and add the mainnet Derive DuckDB to scanner backups.
-Follow the current scanner lock
-and close database connections.
+Use the existing scanner lock and close database connections after each scan.
 
 ## Verification
 

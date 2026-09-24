@@ -27,6 +27,9 @@ logger = logging.getLogger(__name__)
 def main() -> None:
     """Run the public Derive v3 vault scan with environment configuration.
 
+    Defaults to testnet and writes only the selected deployment's DuckDB.
+    Use the all-chain scanner to update shared vault metadata and prices.
+
     :return: ``None``.
     """
     setup_console_logging(default_log_level=os.environ.get("LOG_LEVEL", "info"))

@@ -5,7 +5,7 @@ from pathlib import Path
 #: Synthetic dataset partition for Derive v3 native vaults. Not an EVM chain.
 DERIVE_V3_CHAIN_ID = 9993
 
-#: Canonical production reader state under the scanner's persistent mount.
+#: Default mainnet DuckDB path. The all-chain scanner honours ``PIPELINE_DATA_DIR``.
 DERIVE_V3_MAINNET_DATABASE = Path.home() / ".tradingstrategy" / "vaults" / "derive-v3-mainnet-vaults.duckdb"
 
 #: Isolated testnet observations; never merged into the production catalogue.

@@ -498,13 +498,18 @@ def _write_native_partitions_to_uncleaned_parquet(
 
 
 def _merge_native_history_with_existing_parquet(parquet_path: Path, fresh_df: pd.DataFrame, chain_id: int) -> pd.DataFrame:
-    """Retain older ApeX or Derive rows and correct matching vault timestamps.
+    """Merge new ApeX or Derive prices without discarding stored history.
+
+    A rebuilt DuckDB or shorter API response may contain only part of a
+    vault's history. Preserve existing rows unless the export supplies the
+    same vault address and timestamp, in which case the new value wins.
 
     Only the selected synthetic chain partition is read into Pandas. The
     complete Parquet file stays in Arrow form for the later atomic write.
 
     :param parquet_path: Existing raw price Parquet path.
-    :param fresh_df: Non-empty exported native observations.
+    :param fresh_df: Non-empty frame with the shared raw price columns,
+        including string ``address`` and naive UTC ``timestamp``.
     :param chain_id: Synthetic chain partition to read.
     :return: Combined rows for the native partition.
     """
@@ -549,10 +554,10 @@ def merge_native_protocols(  # noqa: PLR0914 - one established coordinator owns 
     merged together so that switching between modes never loses
     historical data. All enabled native sources are collected before the
     existing parquet is read, then their chain partitions are replaced and
-    the result is written once. ApeX is append-and-correct by synthetic vault
-    address and exact timestamp because its source may no longer return older
-    observations. This avoids repeatedly rewriting the much larger EVM data
-    set without risking loss of previously collected ApeX history.
+    the result is written once. For ApeX and Derive, new rows replace only matching
+    vault addresses and timestamps; all other stored prices are retained.
+    This preserves history when an API response or rebuilt DuckDB contains
+    fewer observations than the existing Parquet file.
 
     An unavailable, empty, or failed source leaves its existing chain
     partition untouched. This preserves the previous per-source failure

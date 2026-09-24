@@ -108,7 +108,7 @@ def test_v3_public_testnet_vault_api() -> None:
 
 
 def test_v3_public_mainnet_listing() -> None:
-    """Exercise the canonical production public listing, including empty state.
+    """Check that the mainnet API returns a parseable, possibly empty listing.
 
     :return: ``None``.
     """
@@ -304,7 +304,7 @@ def test_v3_all_chain_flag_and_empty_mainnet_scan(tmp_path: Path, monkeypatch: p
 
 
 def test_v3_perp_observation_requires_vault_tag(tmp_path: Path, vault_record: dict, monkeypatch: pytest.MonkeyPatch) -> None:
-    """Publish unavailable positions only for an evidence-classified vault.
+    """Create a perp account observation only for a vault tagged perpetual_futures.
 
     :param tmp_path: Isolated file-backed observation database.
     :param vault_record: API-shaped vault source record.

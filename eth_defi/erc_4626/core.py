@@ -859,7 +859,7 @@ class ERC4626Feature(enum.Enum):
 
     #: Derive v3 native vault
     #:
-    #: Managed native subaccount on Derive v3, rather than ERC-4626 shares.
+    #: Managed exchange subaccount with native shares and public API pricing.
     #: https://app.derive.xyz/v3
     derive_v3_native = "derive_v3_native"
 

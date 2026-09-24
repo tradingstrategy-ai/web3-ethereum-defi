@@ -1931,9 +1931,9 @@ def scan_apex_fn(
 def scan_derive_v3_fn(db_path: Path = DERIVE_V3_MAINNET_DATABASE, vault_db_path: Path = DEFAULT_VAULT_DATABASE) -> ChainResult:
     """Scan public Derive v3 mainnet vaults and merge shared metadata.
 
-    The canonical mainnet client is fixed here so testnet cannot enter the
-    production catalogue. An empty listing is a successful, non-destructive
-    scan.
+    Always queries mainnet, regardless of the standalone scanner's network
+    setting. An empty listing succeeds with zero counts and retains stored
+    data. API and storage errors are reported as a failed scan result.
 
     :param db_path: Mainnet Derive DuckDB destination.
     :param vault_db_path: Shared vault metadata pickle.
