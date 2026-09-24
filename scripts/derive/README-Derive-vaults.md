@@ -34,9 +34,9 @@ replace matching timestamps and retain older points. A failed vault fetch
 leaves that vault's earlier data intact. The DuckDB stores the full source
 metadata record alongside parsed fields.
 
-To add **mainnet** vaults to the shared catalogue and price pipeline, set
-`SCAN_DERIVE_V3=true` for `scan-vaults-all-chains.py`. The production flag is
-off by default. The all-chain scanner always uses the mainnet API and the
+**Mainnet** vaults are added to the shared catalogue and price pipeline by
+default in `scan-vaults-all-chains.py`. Set `SCAN_DERIVE_V3=false` to skip them.
+The all-chain scanner always uses the mainnet API and the
 mainnet DuckDB. Post-processing can be run separately with
 `MERGE_DERIVE_V3=true` in `post-process-prices.py`. Existing price rows are
 kept when the API returns a shorter series, and an empty listing does not

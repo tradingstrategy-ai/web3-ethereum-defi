@@ -3160,7 +3160,7 @@ def main():
     scan_lighter = os.environ.get("SCAN_LIGHTER", "false").lower() == "true"
     scan_hibachi = os.environ.get("SCAN_HIBACHI", "false").lower() == "true"
     scan_apex = os.environ.get("SCAN_APEX", "false").lower() == "true"
-    scan_derive_v3 = os.environ.get("SCAN_DERIVE_V3", "false").lower() == "true"
+    scan_derive_v3 = os.environ.get("SCAN_DERIVE_V3", "true").lower() == "true"
     skip_core3 = os.environ.get("SKIP_CORE3", "false").lower() == "true"
     scan_core3 = should_scan_core3(skip_core3=skip_core3, core3_api_key=os.environ.get("CORE3_API_KEY"))
     skip_xerberus = os.environ.get("SKIP_XERBERUS", "false").lower() == "true"

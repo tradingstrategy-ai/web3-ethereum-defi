@@ -808,7 +808,7 @@ poetry run python scripts/erc-4626/scan-vaults-all-chains.py
 | `SCAN_LIGHTER` | Optional. Enable native pool scanning for both Lighter Ethereum and Lighter Robinhood. Default: false. |
 | `SCAN_HIBACHI` | Optional. Enable Hibachi native vault scanning. Default: false. |
 | `SCAN_APEX` | Optional. Enable ApeX native vault scanning and due history maintenance. Default: false. |
-| `SCAN_DERIVE_V3` | Optional. Enable Derive v3 mainnet native vault scanning. Default: false. |
+| `SCAN_DERIVE_V3` | Optional. Set to `false` to skip Derive v3 mainnet native vault scanning. Default: true. |
 
 | `SCAN_VAULT_SETTLEMENTS` | Optional. Scan Lagoon and D2 settlement events during each successful EVM chain cycle. Default: true. The scan fills `vault-settlements.duckdb` before price cleaning; `vault_settlement_at` is then merged into the cleaned price frame during cleaning. Set to `false` only for debugging runs where new settlement event reads are deliberately skipped. Settlement scan failures are logged and shown in the dashboard without aborting the rest of the scanner cycle. |
 | `VAULT_SETTLEMENT_START_BLOCK` | Optional. Inclusive settlement scan start block for forced backfills. Normally unset so scans continue incrementally from `vault-settlements.duckdb`. |

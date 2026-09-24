@@ -266,7 +266,7 @@ def test_v3_perp_registration_is_vault_specific(monkeypatch: pytest.MonkeyPatch)
 
 
 def test_v3_all_chain_flag_and_empty_mainnet_scan(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    """Schedule an opt-in item and leave shared outputs untouched when empty.
+    """Schedule a mainnet item and leave shared outputs untouched when empty.
 
     :param tmp_path: Isolated scanner output directory.
     :param monkeypatch: Replace the public client with an empty mainnet source.
