@@ -819,7 +819,7 @@ poetry run python scripts/erc-4626/scan-vaults-all-chains.py
 
 | Variable | Description |
 |----------|-------------|
-| `SCAN_PRICES` | Optional. Scan prices after vault discovery for chains whose configuration permits it, including dedicated tokenised-fund feeds. Default: false in the command; production Compose defaults to true. A per-chain opt-out takes precedence during staged rollouts such as Arc. |
+| `SCAN_PRICES` | Optional. Scan generic ERC-4626 prices after vault discovery for chains whose configuration permits it, and enable separately scheduled tokenised-fund feeds. Default: false in the command; production Compose defaults to true. A per-chain opt-out such as Arc applies only to the generic chain price scan. |
 | `SKIP_TOKENISED_FUNDS` | Optional. When `SCAN_PRICES=true`, disable dedicated tokenised-fund price feeds and return their registered products to the generic chain price scan. Default: false. |
 | `TOKENISED_FUND_PROTOCOLS` | Optional. Comma-separated focused feed selection, e.g. `securitize,asseto`. Unselected feeds remain visible as disabled; their products stay in the generic chain scan. |
 | `TOKENISED_FUND_MAX_WORKERS` | Optional. Historical reader workers for tokenised-fund feeds. Default: 8. |
@@ -1408,9 +1408,10 @@ ORDER BY chain, phase;
 Arc, Tempo and Robinhood Chain are scanned when `JSON_RPC_ARC`,
 `JSON_RPC_TEMPO` and `JSON_RPC_ROBINHOOD` are configured. Arc currently runs
 lead discovery and metadata refresh, while its per-chain configuration
-suppresses generic share-price history and dedicated tokenised-fund feeds even
-when production sets `SCAN_PRICES=true`. Settlement-event scanning remains
-independently controlled by `SCAN_VAULT_SETTLEMENTS`. Populate and validate
+suppresses generic share-price history even when production sets
+`SCAN_PRICES=true`. Dedicated tokenised-fund feeds and settlement-event
+scanning retain their existing independent chain selection. No dedicated Arc
+tokenised-fund product is currently registered. Populate and validate
 `~/.tradingstrategy/block-timestamp/5042-timestamps.duckdb` and historical
 Multicall reads before enabling Arc prices in `build_chain_configs()`. Prefer
 `scan-arc-vaults.py` above for Arc's first isolated discovery. For a focused

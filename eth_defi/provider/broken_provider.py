@@ -292,7 +292,11 @@ def verify_archive_node(rpc_url: str, chain_name: str) -> tuple[str, int]:
         raise RuntimeError(f"{chain_name}: No call endpoints found in RPC configuration")
 
     working = []  # (endpoint_url, domain, latest_block)
-    faulty = []  # (domain, error_message)
+    # Store only the redacted provider domain and a bounded failure category.
+    # The same values are later included in the raised all-providers-failed
+    # error, so retaining ``str(exception)`` here would leak it even if the
+    # immediate log statement were redacted.
+    faulty = []  # (domain, failure_mode, response_headers, latest_block)
     first_latest_block = None
 
     for endpoint in endpoints:
@@ -327,6 +331,21 @@ def verify_archive_node(rpc_url: str, chain_name: str) -> tuple[str, int]:
             )
         except Exception as e:
             headers = get_last_headers()
+
+            # Never log or retain the raw provider exception here. Requests,
+            # Web3 and provider-specific errors commonly include the complete
+            # request URL. Private RPC services often put API credentials in a
+            # path segment or query parameter; the Arc Goldsky URL derived by
+            # ``scan-arc-vaults.py`` is one concrete example. This preflight
+            # writes to both the console and persistent scanner logs, so a
+            # transient connection or HTTP failure could otherwise persist the
+            # credential long after the failed run.
+            #
+            # Keep the operationally useful, non-secret parts instead: the
+            # redacted domain, failed JSON-RPC step, last observed block and a
+            # normalised failure category. The category is also stored in
+            # ``faulty`` below so the final ``RuntimeError`` remains safe for
+            # callers that log or serialise its message.
             failure_mode = classify_rpc_failure(e).value
             faulty.append((domain, failure_mode, headers, latest_block))
             logger.error(

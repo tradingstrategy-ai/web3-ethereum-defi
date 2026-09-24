@@ -26,7 +26,7 @@ import re
 import sys
 import time
 import traceback
-from collections.abc import Callable, Iterable
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -620,20 +620,6 @@ def build_chain_configs() -> list[ChainConfig]:
         ChainConfig("Soneium", "JSON_RPC_SONEIUM"),
         ChainConfig("Optimism", "JSON_RPC_OPTIMISM"),
     ]
-
-
-def get_price_enabled_chain_ids(chains: Iterable[ChainConfig]) -> frozenset[int]:
-    """Resolve chain IDs whose scheduled price readers may run.
-
-    This shared allowlist covers both generic ERC-4626 history and dedicated
-    tokenised-fund feeds, so a staged chain rollout has one price gate.
-
-    :param chains:
-        Scheduled EVM chain configurations.
-    :return:
-        Known chain IDs whose per-chain price switch is enabled.
-    """
-    return frozenset(chain_id for chain in chains if chain.scan_prices and (chain_id := get_chain_id_by_name(chain.name)) is not None)
 
 
 def scan_vaults_for_chain(
@@ -3399,7 +3385,7 @@ def main():
         tokenised_fund_scanners=ready_tokenised_fund_scanners,
         tokenised_fund_max_workers=tokenised_fund_max_workers,
         tokenised_fund_scheduling_enabled=tokenised_fund_scheduling_enabled,
-        tokenised_fund_enabled_chain_ids=get_price_enabled_chain_ids(chains),
+        tokenised_fund_enabled_chain_ids=frozenset(chain_id for chain in chains if (chain_id := get_chain_id_by_name(chain.name)) is not None),
         disabled_items=tokenised_fund_disabled_items,
         scan_xerberus=scan_xerberus,
         max_workers=max_workers,

@@ -87,15 +87,6 @@ def test_arc_chain_is_scheduled_for_metadata_only_vault_scans() -> None:
     assert arc.scan_prices is False
 
 
-def test_arc_price_gate_covers_dedicated_price_readers() -> None:
-    """Tokenised-fund scheduling uses the same per-chain rollout gate."""
-
-    enabled_chain_ids = scan_all_chains.get_price_enabled_chain_ids(build_chain_configs())
-
-    assert 1 in enabled_chain_ids
-    assert 5042 not in enabled_chain_ids
-
-
 def test_chain_price_opt_out_overrides_global_switch(monkeypatch: pytest.MonkeyPatch) -> None:
     """A staged chain rollout cannot inherit the production price switch.
 
