@@ -314,6 +314,23 @@ def test_sparse_daily_return_preparation_fills_arrow_nan(tmp_path: Path) -> None
     pd.testing.assert_frame_equal(actual, expected, check_dtype=False)
 
 
+def _estimate_erc4626_flows(prices: pd.DataFrame) -> np.ndarray | None:
+    """Run the ERC-4626 flow estimator on a single-vault test frame.
+
+    Converts the frame the same way :func:`calculate_lifetime_metrics` does,
+    so the estimator sees the same time-ordered arrays as in production.
+    """
+    price_frame = vault_metrics._prepare_vault_price_frame(prices)
+    vault = vault_metrics._select_vault_arrays(price_frame, np.arange(len(prices)))
+    return vault_metrics._estimate_erc4626_daily_flows(
+        vault.timestamp_ns,
+        vault.columns.get("total_assets"),
+        vault.columns.get("total_supply"),
+        vault.columns.get("share_price"),
+        vault.state_observed,
+    )
+
+
 def test_erc4626_state_deltas_derive_estimated_net_flows() -> None:
     """Separate yield from netted ERC-4626 deposits and redemptions."""
     prices = pd.DataFrame(
@@ -326,13 +343,13 @@ def test_erc4626_state_deltas_derive_estimated_net_flows() -> None:
         index=pd.date_range("2026-01-01", periods=3, freq="D"),
     )
 
-    result = vault_metrics._derive_erc4626_estimated_daily_flows(prices)
+    result = _estimate_erc4626_flows(prices)
 
-    assert pd.isna(result[vault_metrics.FLOW_VALUE_COLUMN].iloc[0])
-    assert result[vault_metrics.FLOW_VALUE_COLUMN].iloc[1] == pytest.approx(10.1)
-    assert result[vault_metrics.FLOW_VALUE_COLUMN].iloc[2] == pytest.approx(-5.1)
-    assert "daily_deposit_usd" not in result
-    assert "daily_withdrawal_usd" not in result
+    # Only a signed net flow is estimated: state snapshots cannot separate
+    # gross deposits from redemptions, so no directional values exist.
+    assert np.isnan(result[0])
+    assert result[1] == pytest.approx(10.1)
+    assert result[2] == pytest.approx(-5.1)
 
 
 def test_erc4626_flow_state_validation_uses_relative_and_absolute_tolerances() -> None:
@@ -345,7 +362,11 @@ def test_erc4626_flow_state_validation_uses_relative_and_absolute_tolerances() -
         }
     )
 
-    valid = vault_metrics._get_valid_erc4626_flow_states(state)
+    valid = vault_metrics._get_valid_erc4626_flow_states(
+        state["total_assets"].to_numpy(),
+        state["total_supply"].to_numpy(),
+        state["share_price"].to_numpy(),
+    )
 
     assert valid.tolist() == [True, False, True, False]
 
@@ -362,9 +383,9 @@ def test_erc4626_state_deltas_include_fee_share_mints() -> None:
         index=pd.date_range("2026-01-01", periods=2, freq="D"),
     )
 
-    result = vault_metrics._derive_erc4626_estimated_daily_flows(prices)
+    result = _estimate_erc4626_flows(prices)
 
-    assert result[vault_metrics.FLOW_VALUE_COLUMN].iloc[1] == pytest.approx(100.0 / 11.0)
+    assert result[1] == pytest.approx(100.0 / 11.0)
 
 
 def test_erc4626_state_deltas_reject_forward_filled_scanner_gaps() -> None:
@@ -383,9 +404,9 @@ def test_erc4626_state_deltas_reject_forward_filled_scanner_gaps() -> None:
     )
     daily_prices = calculate_hourly_returns_for_all_vaults(sparse_prices)
 
-    result = vault_metrics._derive_erc4626_estimated_daily_flows(daily_prices)
+    result = _estimate_erc4626_flows(daily_prices)
 
-    assert result[vault_metrics.FLOW_VALUE_COLUMN].isna().all()
+    assert np.isnan(result).all()
 
 
 def test_erc4626_state_deltas_reject_partial_scanner_states() -> None:
@@ -404,10 +425,10 @@ def test_erc4626_state_deltas_reject_partial_scanner_states() -> None:
     )
     daily_prices = calculate_hourly_returns_for_all_vaults(prices)
 
-    result = vault_metrics._derive_erc4626_estimated_daily_flows(daily_prices)
+    result = _estimate_erc4626_flows(daily_prices)
 
     assert daily_prices[vault_metrics.VAULT_STATE_OBSERVED_COLUMN].tolist() == [True, False, True]
-    assert result[vault_metrics.FLOW_VALUE_COLUMN].isna().all()
+    assert np.isnan(result).all()
 
 
 def test_erc4626_state_deltas_reject_inconsistent_accounting_states(caplog: pytest.LogCaptureFixture) -> None:
@@ -423,9 +444,9 @@ def test_erc4626_state_deltas_reject_inconsistent_accounting_states(caplog: pyte
     )
 
     with caplog.at_level(logging.DEBUG, logger=vault_metrics.__name__):
-        result = vault_metrics._derive_erc4626_estimated_daily_flows(prices)
+        result = _estimate_erc4626_flows(prices)
 
-    assert result[vault_metrics.FLOW_VALUE_COLUMN].isna().all()
+    assert np.isnan(result).all()
     assert caplog.record_tuples == [
         (
             vault_metrics.__name__,
@@ -682,14 +703,14 @@ def test_calculate_lifetime_metrics_prepares_daily_series_once_per_vault(
     vault_id = "43111-0x05c2e246156d37b39a825a25dd08d5589e3fd883"
     spec = VaultSpec.parse_string(vault_id)
     calls = 0
-    original = vault_metrics.prepare_daily_share_price_series
+    original = vault_metrics._prepare_daily_share_price_arrays
 
-    def count_preparations(observations: pd.Series) -> tuple[pd.Series, pd.Series]:
+    def count_preparations(observation_ns: np.ndarray, observation_prices: np.ndarray) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
         nonlocal calls
         calls += 1
-        return original(observations)
+        return original(observation_ns, observation_prices)
 
-    monkeypatch.setattr(vault_metrics, "prepare_daily_share_price_series", count_preparations)
+    monkeypatch.setattr(vault_metrics, "_prepare_daily_share_price_arrays", count_preparations)
     calculate_lifetime_metrics(price_df.loc[price_df["id"] == vault_id], {spec: dict(vault_db.rows[spec])})
 
     assert calls == 1
@@ -1965,3 +1986,154 @@ def test_export_lifetime_row_converts_nested_decimals_to_strict_json_floats() ->
         "fee_tiers": [0.001, None],
     }
     json.dumps(result, allow_nan=False)
+
+
+def _build_regularisation_frame(first_vault_has_gap: bool) -> pd.DataFrame:
+    """Build a small multi-vault frame covering the daily regularisation cases.
+
+    - Vault ``0xa`` sorts first. It either skips a calendar day or not, which
+      decides the concatenated dtype of NumPy bool columns in pandas.
+    - Vault ``0xb`` has two rows on one day, an Arrow null and an Arrow IEEE
+      ``NaN`` in ``total_assets``, a sparse flow value and a calendar gap.
+    - Vault ``0xc`` has a single row.
+    """
+    first_vault_times = ["2026-01-01 01:00", "2026-01-03 01:00"] if first_vault_has_gap else ["2026-01-01 01:00", "2026-01-02 01:00"]
+    times = pd.to_datetime([*first_vault_times, "2026-01-01 03:00", "2026-01-01 09:00", "2026-01-02 05:00", "2026-01-04 05:00", "2026-01-02 12:00"]).as_unit("ms")
+    return pd.DataFrame(
+        {
+            "id": ["1-0xa", "1-0xa", "1-0xb", "1-0xb", "1-0xb", "1-0xb", "1-0xc"],
+            "chain": pd.array([1] * 7, dtype="uint32[pyarrow]"),
+            "address": ["0xa", "0xa", "0xb", "0xb", "0xb", "0xb", "0xc"],
+            "share_price": [1.0, 1.1, 2.0, 2.1, np.nan, 2.3, 5.0],
+            # Arrow keeps an IEEE NaN distinct from a null; pandas' resample
+            # treats the two differently, which the array path must reproduce.
+            "total_assets": pd.arrays.ArrowExtensionArray(pa.array([10.0, 11.0, 20.0, float("nan"), None, 23.0, 50.0], from_pandas=False)),
+            "total_supply": [10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0],
+            "event_count": np.array([1, 2, 1, 2, 3, 4, 1], dtype="int64"),
+            "daily_deposit_usd": pd.array([None, None, 5.0, None, None, 7.0, None], dtype="double[pyarrow]"),
+            "vault_poll_frequency": pd.array(["hourly", None, "daily", "daily", None, "daily", None], dtype="string"),
+        },
+        index=pd.DatetimeIndex(times, name="timestamp"),
+    )
+
+
+@pytest.mark.parametrize("first_vault_has_gap", [True, False])
+def test_daily_regularisation_arrays_match_per_vault_reference(first_vault_has_gap: bool) -> None:
+    """The whole-frame daily regularisation reproduces the per-vault pandas loop exactly.
+
+    Both orders matter: pandas concatenates a bool column with float64
+    vault results to float64 or object depending on the first vault.
+    """
+    frame = _build_regularisation_frame(first_vault_has_gap)
+    assert vault_metrics._can_regularise_daily_with_arrays(frame)
+
+    expected = vault_metrics._regularise_daily_per_vault(frame, "returns_1h", sparse_daily_input=False)
+    actual = vault_metrics._regularise_daily_with_arrays(frame, "returns_1h")
+
+    pd.testing.assert_frame_equal(actual, expected, check_exact=True)
+
+
+def test_period_metrics_start_at_first_duplicate_timestamp() -> None:
+    """Several observations sharing the start timestamp all belong to the period."""
+    index = pd.DatetimeIndex(pd.to_datetime(["2026-01-01", "2026-01-01", "2026-01-10", "2026-01-20"]))
+    share_price = pd.Series([1.0, 1.5, 1.6, 2.0], index=index)
+    daily_prices, daily_returns = prepare_daily_share_price_series(share_price)
+    fees = FeeData(fee_mode=VaultFeeMode.feeless, management=0, performance=0, deposit=0, withdraw=0)
+
+    result = calculate_period_metrics(
+        period="lifetime",
+        gross_fee_data=fees,
+        net_fee_data=fees,
+        share_price_hourly=share_price,
+        share_price_daily=daily_prices,
+        daily_returns=daily_returns,
+        tvl=pd.Series([100.0, 110.0, 120.0, 130.0], index=index),
+        now_=index[-1],
+    )
+
+    assert result.error_reason is None
+    assert result.raw_samples == 4
+    assert result.share_price_start == 1.0
+    assert result.returns_gross == pytest.approx(1.0)
+    assert result.tvl_start == 100.0
+    assert result.tvl_low == 100.0
+    assert result.tvl_high == 130.0
+
+
+def test_calculate_vault_record_sorts_rows_by_time(vault_db: VaultDatabase, price_df: pd.DataFrame) -> None:
+    """Shuffled price rows give the same period metrics as time-ordered rows."""
+    vault_id = "43111-0x05c2e246156d37b39a825a25dd08d5589e3fd883"
+    spec = VaultSpec.parse_string(vault_id)
+    rows = price_df.loc[price_df["id"] == vault_id]
+    metadata = {spec: dict(vault_db.rows[spec])}
+    vault_metrics.slugify_vaults(metadata)
+
+    # Keep the last row last: values such as the current TVL come from the
+    # last row in source order, as they always have.
+    rng = np.random.default_rng(1)
+    shuffled = pd.concat([rows.iloc[:-1].iloc[rng.permutation(len(rows) - 1)], rows.iloc[-1:]])
+
+    ordered = vault_metrics.calculate_vault_record(rows, metadata, vault_id=vault_id)
+    reordered = vault_metrics.calculate_vault_record(shuffled, metadata, vault_id=vault_id)
+
+    assert reordered["period_results"] == ordered["period_results"]
+    assert reordered["current_nav"] == ordered["current_nav"]
+    assert reordered["first_updated_block"] == ordered["first_updated_block"]
+    assert reordered["last_updated_block"] == ordered["last_updated_block"]
+
+
+def test_prepare_daily_share_price_series_ignores_rows_without_timestamp() -> None:
+    """A row without a timestamp is ignored, as pandas resample() ignored it."""
+    prices = pd.Series([1.0, 2.0, 3.0], index=pd.DatetimeIndex(["2024-01-01", None, "2024-01-03"]))
+
+    daily_prices, _daily_returns = prepare_daily_share_price_series(prices)
+
+    assert daily_prices.tolist() == [1.0, 1.0, 3.0]
+
+
+def test_period_metrics_reject_unsorted_or_missing_timestamps() -> None:
+    """Unsorted or NaT observation timestamps fail instead of giving wrong metrics."""
+    index = pd.date_range("2024-01-01", periods=60, freq="D")
+    prices = pd.Series(np.linspace(1, 2, 60), index=index)
+    daily_prices, daily_returns = prepare_daily_share_price_series(prices)
+    fees = FeeData(fee_mode=VaultFeeMode.feeless, management=0, performance=0, deposit=0, withdraw=0)
+    unsorted = prices.iloc[[0, 2, 1, *range(3, 60)]]
+    missing_time = pd.Series(prices.to_numpy(), index=pd.DatetimeIndex([*index[:30], pd.NaT, *index[31:]]))
+
+    for observations in (unsorted, missing_time):
+        with pytest.raises(ValueError, match="sorted by time without NaT"):
+            calculate_period_metrics("1M", fees, fees, observations, daily_prices, daily_returns, observations, index[-1])
+
+
+def test_period_metrics_daily_window_starts_at_first_duplicate_day() -> None:
+    """A duplicated daily label at the period start belongs to the daily window."""
+    index = pd.date_range("2024-01-01", periods=40, freq="D")
+    observations = pd.Series(np.linspace(1, 2, 40), index=index)
+    daily_prices = pd.Series([0.5, *np.linspace(1, 2, 40)], index=pd.DatetimeIndex([index[0], *index]))
+    fees = FeeData(fee_mode=VaultFeeMode.feeless, management=0, performance=0, deposit=0, withdraw=0)
+
+    result = calculate_period_metrics(
+        "lifetime",
+        fees,
+        fees,
+        observations,
+        daily_prices,
+        daily_prices.pct_change(fill_method=None),
+        observations,
+        index[-1],
+    )
+
+    assert result.daily_samples == 41
+
+
+def test_calculate_lifetime_metrics_skips_vault_without_usable_share_price(vault_db: VaultDatabase, price_df: pd.DataFrame) -> None:
+    """One vault without any usable share price is skipped, not fatal to the export."""
+    vault_ids = sorted(price_df["id"].unique())[:2]
+    broken_id, healthy_id = vault_ids
+    prices = price_df.loc[price_df["id"].isin(vault_ids)].copy()
+    prices.loc[prices["id"] == broken_id, "share_price"] = np.nan
+    metadata = {spec: dict(row) for spec, row in vault_db.rows.items() if spec.as_string_id() in vault_ids}
+
+    metrics = calculate_lifetime_metrics(prices, metadata)
+
+    assert metrics["id"].tolist() == [healthy_id]

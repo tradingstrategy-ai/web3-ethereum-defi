@@ -2326,9 +2326,12 @@ def process_raw_vault_scan_data(  # noqa: PLR0914 - established cleaner orchestr
 def materialise_daily_crypto_prices(prices_df: pd.DataFrame) -> pd.DataFrame:
     """Select one real end-of-day observation per vault.
 
-    The exported parquet deliberately preserves only real observations.  Metric
-    calculations subsequently build their own forward-filled daily view using
-    :func:`eth_defi.research.vault_metrics.prepare_daily_share_price_series`.
+    The exported parquet deliberately preserves only real observations. The
+    crypto bundle regularises them to calendar days when it calculates
+    metrics: stablecoin vaults with
+    :func:`eth_defi.research.vault_metrics.calculate_sparse_daily_returns_for_all_vaults`,
+    and ETH/BTC vaults one vault at a time in
+    :mod:`eth_defi.vault.crypto_vaults`.
 
     :param prices_df:
         Cleaned selected-family price rows with timestamp/index, ``id`` and

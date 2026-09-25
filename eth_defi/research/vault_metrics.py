@@ -8,7 +8,7 @@ import datetime
 import logging
 import math
 import warnings
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Iterator, Mapping
 from dataclasses import asdict, dataclass, is_dataclass
 from decimal import Decimal
 from enum import Enum
@@ -32,7 +32,7 @@ from eth_defi.erc_4626.classification import HARDCODED_PROTOCOLS
 from eth_defi.erc_4626.core import ERC4262VaultDetection, ERC4626Feature
 from eth_defi.erc_4626.vault_protocol.morpho.flag_analytics import MorphoFlagAnalytics, analyze_morpho_flags
 from eth_defi.feed.stablecoin_rate import DenominationTokenRate, StablecoinRateFeeder
-from eth_defi.perp_dex.export import build_perp_dex_other_data
+from eth_defi.perp_dex.export import PERP_DEX_ROW_COLUMNS, build_perp_dex_other_data
 from eth_defi.research.value_table import format_grouped_series_as_multi_column_grid
 from eth_defi.research.wrangle_vault_prices import forward_fill_vault, sanitise_share_price_observations
 from eth_defi.token import is_stablecoin_like, normalise_token_symbol
@@ -1188,24 +1188,121 @@ def prepare_daily_share_price_series(
 
     Build this pair once per vault and pass it to every period calculation.
 
+    This pandas entry point shares its calculation with the array path used
+    by :func:`calculate_lifetime_metrics`, see
+    :func:`_prepare_daily_share_price_arrays`, so both produce the same curve.
+
     :param share_price_observations:
-        Sparse share-price observations with a :class:`pandas.DatetimeIndex`.
-        Values must be decimal share-price levels, not returns.
+        Sparse share-price observations with a naive UTC
+        :class:`pandas.DatetimeIndex`. Values must be decimal share-price
+        levels, not returns.
     :return:
         Approximate regular daily share prices and their daily percentage
-        returns. The first return is ``NaN`` because no preceding daily price
-        exists.
+        returns, indexed by calendar day with ``freq="D"``. The first return
+        is ``NaN`` because no preceding daily price exists.
     """
 
     assert isinstance(share_price_observations, pd.Series)
     assert isinstance(share_price_observations.index, pd.DatetimeIndex)
-    observations = sanitise_share_price_observations(share_price_observations).dropna().sort_index(kind="stable")
+    # Calendar days are derived from UTC nanoseconds, which is only correct
+    # for the naive UTC timestamps used throughout this package.
+    assert share_price_observations.index.tz is None, "Share-price timestamps must be naive UTC"
+    observations = sanitise_share_price_observations(share_price_observations).dropna()
+    # resample() ignores rows without a timestamp; the array helper needs them removed.
+    observations = observations.loc[observations.index.notna()].sort_index(kind="stable")
     if observations.empty:
         empty = pd.Series(index=pd.DatetimeIndex([], name=share_price_observations.index.name), dtype="float64")
         return empty, empty.copy()
-    daily_prices = observations.resample("D").last().ffill()
-    daily_returns = daily_prices.pct_change(fill_method=None)
-    return daily_prices, daily_returns
+    daily_ns, daily_prices, daily_returns = _prepare_daily_share_price_arrays(_datetime_index_to_ns(observations.index), observations.to_numpy())
+    # Keep the input's timestamp resolution, as resample() did.
+    index_unit = np.datetime_data(observations.index.dtype)[0]
+    index = pd.DatetimeIndex(daily_ns.astype("datetime64[ns]"), name=observations.index.name, freq="D").as_unit(index_unit)
+    return pd.Series(daily_prices, index=index, name=observations.name), pd.Series(daily_returns, index=index, name=observations.name)
+
+
+def _finite_returns(daily_returns: np.ndarray) -> np.ndarray:
+    """Keep only finite daily returns.
+
+    A zero previous price produces an infinite or ``NaN`` return, and the
+    first day has no return at all. Neither is a usable observation for
+    volatility or Sharpe.
+
+    :param daily_returns:
+        Daily percentage returns as ``float64``.
+    :return:
+        The finite values, in their original order.
+    """
+    return daily_returns[np.isfinite(daily_returns)]
+
+
+def _calculate_annualised_volatility_from_clean_returns(
+    clean_returns: np.ndarray,
+    annualisation_factor: float = 365,
+) -> float:
+    """Annualised volatility of already-cleaned daily returns.
+
+    See :func:`calculate_annualised_volatility_from_daily_returns`.
+
+    :param clean_returns:
+        Finite daily returns, for example from :func:`_finite_returns`.
+    :param annualisation_factor:
+        Calendar periods per year.
+    :return:
+        Annualised sample standard deviation (``ddof=1``, as pandas uses), or
+        the integer ``0`` with fewer than two returns or a non-finite result.
+        The integer is kept because the value is published as JSON.
+    """
+    if len(clean_returns) < 2:
+        return 0
+    volatility = clean_returns.std(ddof=1) * np.sqrt(annualisation_factor)
+    return float(volatility) if np.isfinite(volatility) else 0
+
+
+def _calculate_sharpe_ratio_from_clean_returns(
+    clean_returns: np.ndarray,
+    risk_free_rate: float = 0.00,
+    annualisation_factor: float = 365,
+    sample_duration: pd.Timedelta | None = None,
+) -> float | None:
+    """Annualised Sharpe ratio of already-cleaned daily returns.
+
+    See :func:`calculate_sharpe_ratio_from_returns`.
+
+    :param clean_returns:
+        Finite daily returns, for example from :func:`_finite_returns`.
+    :param risk_free_rate:
+        Annualised risk-free rate.
+    :param annualisation_factor:
+        Calendar periods per year.
+    :param sample_duration:
+        Calendar duration covered by the return series, or ``None`` to skip
+        the minimum-history checks.
+    :return:
+        Annualised Sharpe ratio, ``None`` when the history is too short or has
+        zero volatility, or ``NaN`` when fewer than two returns exist and no
+        ``sample_duration`` was supplied.
+    """
+    if sample_duration is not None:
+        # One more price than returns: n returns come from n + 1 prices.
+        if len(clean_returns) + 1 < MINIMUM_SHARPE_PRICE_SAMPLES:
+            return None
+
+        if sample_duration < MINIMUM_SHARPE_SAMPLE_DURATION:
+            return None
+
+    # Mean and standard deviation of an empty or one-value array are NaN, and
+    # the Sharpe ratio becomes NaN, which callers treat as unavailable. NumPy
+    # also warns about it; the warning is silenced because NaN is expected.
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", RuntimeWarning)
+        mean_daily_return = clean_returns.mean()
+        daily_volatility = clean_returns.std(ddof=1)
+    annualised_return = mean_daily_return * annualisation_factor
+    annualised_volatility = daily_volatility * np.sqrt(annualisation_factor)
+
+    if annualised_volatility == 0:
+        return None
+    return (annualised_return - risk_free_rate) / annualised_volatility
 
 
 def calculate_annualised_volatility_from_daily_returns(
@@ -1225,15 +1322,8 @@ def calculate_annualised_volatility_from_daily_returns(
         returns or a non-finite result. For a forward-filled sparse source,
         this is an observation-cadence-sensitive approximation.
     """
-
-    clean = pd.to_numeric(daily_returns, errors="coerce")
-    clean = clean[np.isfinite(clean)].dropna()
-    if len(clean) < 2:
-        return 0
-    with warnings.catch_warnings():
-        warnings.simplefilter("ignore", RuntimeWarning)
-        volatility = clean.std() * np.sqrt(annualisation_factor)
-    return float(volatility) if np.isfinite(volatility) else 0
+    clean = _finite_returns(_series_to_float_array(daily_returns))
+    return _calculate_annualised_volatility_from_clean_returns(clean, annualisation_factor)
 
 
 def calculate_sharpe_ratio_from_returns(
@@ -1269,26 +1359,8 @@ def calculate_sharpe_ratio_from_returns(
 
     assert isinstance(daily_returns, pd.Series), f"daily_returns must be a pandas Series, got {type(daily_returns)}"
 
-    clean = pd.to_numeric(daily_returns, errors="coerce")
-    clean = clean[np.isfinite(clean)].dropna()
-    if sample_duration is not None:
-        if len(clean) + 1 < MINIMUM_SHARPE_PRICE_SAMPLES:
-            return None
-
-        if sample_duration < MINIMUM_SHARPE_SAMPLE_DURATION:
-            return None
-
-    mean_daily_return = clean.mean()
-    annualised_return = mean_daily_return * annualisation_factor
-
-    daily_volatility = clean.std()
-    annualised_volatility = daily_volatility * np.sqrt(annualisation_factor)
-
-    if annualised_volatility == 0:
-        return None
-    sharpe = (annualised_return - risk_free_rate) / annualised_volatility
-
-    return sharpe
+    clean = _finite_returns(_series_to_float_array(daily_returns))
+    return _calculate_sharpe_ratio_from_clean_returns(clean, risk_free_rate, annualisation_factor, sample_duration)
 
 
 def slugify_vaults(vaults: dict[VaultSpec, VaultRow]) -> list[VaultRow] | None:
@@ -1394,47 +1466,82 @@ class _FlowWindow:
     redemption_count: int | None = None
 
 
-def _has_daily_flow_data(prices_df: pd.DataFrame) -> bool:
-    """Check whether a price frame contains any usable signed flow data.
+#: Nanoseconds in one calendar day, the unit of the integer timestamps below.
+#:
+#: The metric helpers work on ``int64`` nanosecond timestamps, because integer
+#: comparison and :func:`numpy.searchsorted` are far cheaper than pandas label
+#: lookups on a :class:`pandas.DatetimeIndex`. Integer division by this
+#: constant gives the UTC calendar day of a naive UTC timestamp.
+NANOSECONDS_PER_DAY = 86_400 * 1_000_000_000
+
+
+def _has_flow_values(flows: Mapping[str, np.ndarray]) -> bool:
+    """Check whether a vault has any usable daily flow observation.
 
     A source may provide separately observed directional amounts or only a
     signed net-flow value. Individual period windows perform their own
     completeness checks after this inexpensive vault-level capability check.
 
-    :param prices_df:
-        Cleaned vault observations.
+    Values are ``float64`` arrays where a missing observation is ``NaN``. The
+    arrays are converted from Arrow-backed columns, which can distinguish an
+    Arrow null from an IEEE ``NaN``. The conversion deliberately treats both as
+    missing: a ``NaN`` flow is not a usable observation.
+
+    :param flows:
+        Flow columns keyed by name. Only columns present in the source frame
+        are included.
     :return:
         ``True`` when at least one daily directional or signed flow exists.
     """
-    has_directional_flow = all(column in prices_df.columns for column in FLOW_AMOUNT_COLUMNS) and any(prices_df[column].notna().any() for column in FLOW_AMOUNT_COLUMNS)
-    has_signed_flow = FLOW_VALUE_COLUMN in prices_df.columns and prices_df[FLOW_VALUE_COLUMN].notna().any()
+    # Directional flow needs both the deposit and withdrawal columns to exist,
+    # but one observed value in either of them is enough to consider the
+    # source a flow provider.
+    has_directional_flow = all(column in flows for column in FLOW_AMOUNT_COLUMNS) and any((~np.isnan(flows[column])).any() for column in FLOW_AMOUNT_COLUMNS)
+    has_signed_flow = FLOW_VALUE_COLUMN in flows and bool((~np.isnan(flows[FLOW_VALUE_COLUMN])).any())
     return has_directional_flow or has_signed_flow
 
 
-def _get_valid_erc4626_flow_states(state: pd.DataFrame) -> pd.Series:
+def _get_valid_erc4626_flow_states(
+    total_assets: np.ndarray,
+    total_supply: np.ndarray,
+    share_price: np.ndarray,
+) -> np.ndarray:
     """Validate ERC-4626 accounting states used for flow estimation.
 
     A valid row has finite, non-negative assets and supply, a positive share
-    price, and satisfies the ERC-4626 accounting identity within the configured
-    relative tolerance.
+    price, and satisfies the ERC-4626 accounting identity
+    ``total_assets == total_supply * share_price`` within
+    :data:`MAX_ERC4626_FLOW_STATE_RESIDUAL` relative tolerance.
 
-    :param state:
-        Numeric daily DataFrame containing :data:`ERC4626_FLOW_STATE_COLUMNS`.
+    :param total_assets:
+        Total assets per daily row, in the denomination token.
+    :param total_supply:
+        Share supply per daily row, in human-readable share units.
+    :param share_price:
+        Share price per daily row, in the denomination token.
     :return:
-        Boolean series identifying usable accounting states.
+        Boolean array identifying usable accounting states.
     """
-    total_assets = state["total_assets"]
-    state_is_valid = np.isfinite(state).all(axis=1) & state[["total_assets", "total_supply"]].ge(0).all(axis=1) & state["share_price"].gt(0)
-    state_residual = (total_assets - state["total_supply"] * state["share_price"]).abs()
-    state_is_consistent = state_residual <= total_assets.abs().mul(MAX_ERC4626_FLOW_STATE_RESIDUAL).clip(lower=1e-6)
+    with np.errstate(invalid="ignore"):
+        # Comparisons with NaN are False, so any missing value fails the row.
+        state_is_valid = np.isfinite(total_assets) & np.isfinite(total_supply) & np.isfinite(share_price) & (total_assets >= 0) & (total_supply >= 0) & (share_price > 0)
+        state_residual = np.abs(total_assets - total_supply * share_price)
+        # The absolute floor of 1e-6 stops tiny vaults from failing on
+        # rounding noise that is large relative to their near-zero assets.
+        tolerance = np.maximum(np.abs(total_assets) * MAX_ERC4626_FLOW_STATE_RESIDUAL, 1e-6)
+        state_is_consistent = state_residual <= tolerance
     return state_is_valid & state_is_consistent
 
 
-def _derive_erc4626_estimated_daily_flows(
-    prices_df: pd.DataFrame,
+def _estimate_erc4626_daily_flows(
+    timestamp_ns: np.ndarray,
+    total_assets: np.ndarray | None,
+    total_supply: np.ndarray | None,
+    share_price: np.ndarray | None,
+    state_observed: np.ndarray | None,
     *,
     vault_id: str | None = None,
-) -> pd.DataFrame:
+) -> np.ndarray | None:
     """Estimate netted ERC-4626 flows from consecutive daily vault states.
 
     A raw total-assets change includes both investor flows and vault
@@ -1445,52 +1552,63 @@ def _derive_erc4626_estimated_daily_flows(
 
     Deposits and redemptions occurring inside the same scan interval are
     netted, and no gross directional values or event counts can be inferred.
-    Existing direct flow observations always take precedence over this
-    estimate.
+    The caller must only use this estimate when the vault has no direct flow
+    observations, because those always take precedence.
 
-    :param prices_df:
-        Consecutive daily vault states for one ERC-4626 vault. ``total_assets``
-        and ``share_price`` are expressed in the denomination token, while
-        ``total_supply`` is expressed in human-readable share-token units.
-        ``_vault_state_observed`` must identify real scanner days so the
-        estimator fails closed on any forward-filled input.
+    The inputs are the regular daily rows produced by
+    :func:`calculate_hourly_returns_for_all_vaults`, sorted by time. Share
+    price must be the raw numeric value, not the sanitised observation series,
+    because the accounting identity is checked against what the scanner read.
+
+    :param timestamp_ns:
+        Daily row timestamps in nanoseconds, ascending.
+    :param total_assets:
+        Total assets per row, or ``None`` when the column is absent.
+    :param total_supply:
+        Share supply per row, or ``None`` when the column is absent.
+    :param share_price:
+        Raw share price per row, or ``None`` when the column is absent.
+    :param state_observed:
+        Whether each daily row holds a real, complete scanner state rather
+        than a forward-filled one, or ``None`` when the marker is absent.
     :param vault_id:
         Optional vault identifier included in diagnostic logging.
     :return:
-        Copy with an estimated signed daily flow column. The first observation
-        and rows with unusable state remain unknown.
+        Estimated signed flow for each row, with ``NaN`` for the first row and
+        rows with unusable state, or ``None`` when an estimate is impossible.
     """
-    if _has_daily_flow_data(prices_df):
-        return prices_df
-
     vault_label = vault_id or "<unknown>"
-    if not set(ERC4626_FLOW_STATE_COLUMNS).issubset(prices_df.columns) or VAULT_STATE_OBSERVED_COLUMN not in prices_df.columns:
+    if total_assets is None or total_supply is None or share_price is None or state_observed is None:
         logger.debug("ERC-4626 flow estimate skipped for %s: complete daily vault-state columns or freshness marker missing", vault_label)
-        return prices_df
+        return None
 
     # The calculation is only meaningful between consecutive daily states.
     # Sparse scanner observations would silently combine several days into one
     # interval and then make complete period windows impossible to establish.
-    observed_dates = prices_df.index.normalize()
-    if not observed_dates.is_unique:
+    observed_days = timestamp_ns // NANOSECONDS_PER_DAY
+    day_steps = np.diff(observed_days)
+    if (day_steps == 0).any():
         logger.debug("ERC-4626 flow estimate skipped for %s: duplicate daily vault-state rows", vault_label)
-        return prices_df
-    expected_dates = pd.date_range(start=observed_dates.min(), end=observed_dates.max(), freq="D")
-    if not observed_dates.equals(expected_dates):
+        return None
+    if (day_steps != 1).any():
         logger.debug("ERC-4626 flow estimate skipped for %s: vault states are not a consecutive daily series", vault_label)
-        return prices_df
-
-    result = prices_df.copy()
-    state = result[list(ERC4626_FLOW_STATE_COLUMNS)].apply(pd.to_numeric, errors="coerce").astype("float64")
+        return None
 
     # A more granular Deposit/Withdraw event index could recover separate gross
     # flows and event counts. It is intentionally out of scope here: this path
     # uses only the total-assets, total-supply and share-price state snapshots.
-    estimated_net_flow = state["total_assets"].diff() - state["total_supply"].shift(1) * state["share_price"].diff()
-    valid_state = _get_valid_erc4626_flow_states(state)
-    state_observed = result[VAULT_STATE_OBSERVED_COLUMN].fillna(False).astype(bool)
-    observed_intervals = state_observed & state_observed.shift(1, fill_value=False)
-    valid = valid_state & valid_state.shift(1, fill_value=False) & observed_intervals
+    estimated_net_flow = np.full(len(timestamp_ns), np.nan)
+    with np.errstate(invalid="ignore", over="ignore"):
+        estimated_net_flow[1:] = np.diff(total_assets) - total_supply[:-1] * np.diff(share_price)
+
+    # A day-to-day change is usable only when both endpoint states are valid
+    # and both were really observed. A forward-filled day repeats yesterday's
+    # state, and would otherwise produce a fake zero flow.
+    valid_state = _get_valid_erc4626_flow_states(total_assets, total_supply, share_price)
+    observed_intervals = np.zeros(len(timestamp_ns), dtype=bool)
+    observed_intervals[1:] = state_observed[1:] & state_observed[:-1]
+    valid = observed_intervals.copy()
+    valid[1:] &= valid_state[1:] & valid_state[:-1]
     rejected_interval_count = int((observed_intervals & ~valid).sum())
     if rejected_interval_count:
         logger.debug(
@@ -1499,86 +1617,40 @@ def _derive_erc4626_estimated_daily_flows(
             int(observed_intervals.sum()),
             vault_label,
         )
-    estimated_net_flow = estimated_net_flow.where(valid)
+    estimated_net_flow[~valid] = np.nan
 
     # Suppress floating-point cancellation dust without hiding economically
     # meaningful small flows. Scanner state values are already floating point.
-    dust_tolerance = state["total_assets"].abs().mul(1e-12).clip(lower=1e-9)
-    estimated_net_flow = estimated_net_flow.mask(estimated_net_flow.abs() <= dust_tolerance, 0.0)
-
-    result[FLOW_VALUE_COLUMN] = estimated_net_flow
-    return result
-
-
-def _get_complete_flow_window(
-    prices_df: pd.DataFrame,
-    *,
-    days: int,
-    now_: pd.Timestamp,
-) -> pd.DataFrame | None:
-    """Select one complete calendar-day flow window.
-
-    A usable window contains exactly one observation for every UTC calendar
-    day. Individual source-column completeness is checked separately.
-
-    :param prices_df:
-        Cleaned daily vault observations.
-    :param days:
-        Number of complete UTC calendar days to aggregate.
-    :param now_:
-        Last UTC day included in the flow window.
-    :return:
-        Selected daily rows, or ``None`` when dates are incomplete.
-    """
-    cutoff = now_ - pd.Timedelta(days=days)
-    mask = (prices_df.index > cutoff) & (prices_df.index <= now_)
-    subset = prices_df.loc[mask]
-    expected_dates = pd.date_range(end=now_.normalize(), periods=days, freq="D")
-    observed_dates = pd.DatetimeIndex(subset.index.normalize().unique())
-    if not observed_dates.equals(expected_dates) or len(subset) != days:
-        return None
-    return subset
-
-
-def _get_complete_flow_columns(
-    window: pd.DataFrame,
-    columns: tuple[str, ...],
-) -> pd.DataFrame | None:
-    """Select fully populated source columns from a flow window.
-
-    Missing columns and null observations make the requested source
-    unavailable without affecting alternative signed-flow sources.
-
-    :param window:
-        Complete daily flow rows selected by :func:`_get_complete_flow_window`.
-    :param columns:
-        Source columns that must be present and non-null.
-    :return:
-        Selected values, or ``None`` when the source is incomplete.
-    """
-    if not all(column in window.columns for column in columns):
-        return None
-    values = window[list(columns)]
-    return values if values.notna().all(axis=None) else None
+    with np.errstate(invalid="ignore"):
+        dust_tolerance = np.maximum(np.abs(total_assets) * 1e-12, 1e-9)
+        estimated_net_flow[np.abs(estimated_net_flow) <= dust_tolerance] = 0.0
+    return estimated_net_flow
 
 
 def _calculate_flow_window(
-    prices_df: pd.DataFrame,
+    timestamp_ns: np.ndarray,
+    flows: Mapping[str, np.ndarray],
     *,
     days: int,
     now_: pd.Timestamp,
 ) -> _FlowWindow:
     """Aggregate one complete calendar-day flow window.
 
-    The signed result accepts either complete directional amounts or a complete
-    signed source column. Gross values additionally require complete event
-    counts, which are the current evidence that individual events were
-    extracted rather than aggregate counters inferred.
+    A usable window contains exactly one row for every UTC calendar day in
+    ``(now_ - days, now_]``. The signed result accepts either complete
+    directional amounts or a complete signed source column. Gross values
+    additionally require complete event counts, which are the current
+    evidence that individual events were extracted rather than aggregate
+    counters inferred.
 
-    :param prices_df:
-        Cleaned price DataFrame with optional directional event data or a
-        signed daily flow column. Historical directional column names contain
-        ``usd``; the ERC-4626 signed estimate is denominated in its stablecoin.
+    :param timestamp_ns:
+        Daily row timestamps in nanoseconds, ascending. These are all rows of
+        the vault, including rows whose share price is unusable.
+    :param flows:
+        Optional directional, count and signed flow columns as ``float64``
+        arrays aligned with ``timestamp_ns``. Historical directional column
+        names contain ``usd``; the ERC-4626 signed estimate is denominated in
+        its stablecoin.
     :param days:
         Number of complete UTC calendar days to aggregate.
     :param now_:
@@ -1588,29 +1660,51 @@ def _calculate_flow_window(
         gross directional fields additionally require complete individual
         event counts.
     """
-    window = _get_complete_flow_window(prices_df, days=days, now_=now_)
-    if window is None:
+    # Rows strictly after the cutoff and at or before now_. With sorted
+    # timestamps, two binary searches replace a boolean mask over the frame.
+    now_ns = now_.value
+    cutoff_ns = (now_ - pd.Timedelta(days=days)).value
+    window_start = np.searchsorted(timestamp_ns, cutoff_ns, side="right")
+    window_end = np.searchsorted(timestamp_ns, now_ns, side="right")
+    if window_end - window_start != days:
         return _FlowWindow()
 
-    directional_amounts = _get_complete_flow_columns(window, FLOW_AMOUNT_COLUMNS)
+    # With exactly `days` rows, the window is complete only when they fall on
+    # the `days` consecutive calendar days ending on now_'s day, one each.
+    window_days = timestamp_ns[window_start:window_end] // NANOSECONDS_PER_DAY
+    last_day = now_ns // NANOSECONDS_PER_DAY
+    if not np.array_equal(window_days, np.arange(last_day - days + 1, last_day + 1)):
+        return _FlowWindow()
+
+    def complete_columns(columns: tuple[str, ...]) -> list[np.ndarray] | None:
+        # A missing column or any missing day makes this source unusable,
+        # without affecting the alternative signed-flow source.
+        if not all(column in flows for column in columns):
+            return None
+        values = [flows[column][window_start:window_end] for column in columns]
+        return values if all(not np.isnan(value).any() for value in values) else None
+
+    directional_amounts = complete_columns(FLOW_AMOUNT_COLUMNS)
     if directional_amounts is not None:
-        deposit_value = float(directional_amounts["daily_deposit_usd"].sum())
-        redeem_value = float(directional_amounts["daily_withdrawal_usd"].sum())
+        deposits, withdrawals = directional_amounts
+        deposit_value = float(deposits.sum())
+        redeem_value = float(withdrawals.sum())
         flow_value = deposit_value - redeem_value
-        counts = _get_complete_flow_columns(window, FLOW_COUNT_COLUMNS)
+        counts = complete_columns(FLOW_COUNT_COLUMNS)
         if counts is not None:
+            deposit_counts, withdrawal_counts = counts
             return _FlowWindow(
                 flow_value=flow_value,
                 deposit_value=deposit_value,
                 redeem_value=redeem_value,
-                deposit_count=int(counts["daily_deposit_count"].sum()),
-                redemption_count=int(counts["daily_withdrawal_count"].sum()),
+                deposit_count=int(deposit_counts.sum()),
+                redemption_count=int(withdrawal_counts.sum()),
             )
         return _FlowWindow(flow_value=flow_value)
 
-    signed_flow = _get_complete_flow_columns(window, (FLOW_VALUE_COLUMN,))
+    signed_flow = complete_columns((FLOW_VALUE_COLUMN,))
     if signed_flow is not None:
-        return _FlowWindow(flow_value=float(signed_flow[FLOW_VALUE_COLUMN].sum()))
+        return _FlowWindow(flow_value=float(signed_flow[0].sum()))
     return _FlowWindow()
 
 
@@ -1640,7 +1734,8 @@ def _get_netflow_reference_timestamp(
 
 def _attach_period_flow_metrics(
     period_results: list[PeriodMetrics],
-    prices_df: pd.DataFrame,
+    timestamp_ns: np.ndarray,
+    flows: Mapping[str, np.ndarray],
     *,
     now_: pd.Timestamp,
     exclude_current_utc_day: bool,
@@ -1654,9 +1749,12 @@ def _attach_period_flow_metrics(
 
     :param period_results:
         Performance results to enrich in place.
-    :param prices_df:
-        Cleaned price DataFrame containing optional signed flow, directional
-        amount and individual event-count columns.
+    :param timestamp_ns:
+        Daily row timestamps in nanoseconds, ascending.
+    :param flows:
+        Optional signed flow, directional amount and individual event-count
+        columns as ``float64`` arrays aligned with ``timestamp_ns``. Pass the
+        ERC-4626 estimate under :data:`FLOW_VALUE_COLUMN` when one was derived.
     :param now_:
         Latest vault observation timestamp.
     :param exclude_current_utc_day:
@@ -1664,7 +1762,7 @@ def _attach_period_flow_metrics(
     :return:
         ``None``. ``period_results`` is updated in place.
     """
-    if prices_df.empty or not _has_daily_flow_data(prices_df):
+    if len(timestamp_ns) == 0 or not _has_flow_values(flows):
         return
     flow_now = _get_netflow_reference_timestamp(now_, exclude_current_utc_day=exclude_current_utc_day)
     for result in period_results:
@@ -1673,7 +1771,7 @@ def _attach_period_flow_metrics(
         lookback, _ = LOOKBACK_AND_TOLERANCES[result.period]
         first_day = (flow_now - lookback).normalize()
         days = (flow_now.normalize() - first_day).days
-        flow = _calculate_flow_window(prices_df, days=days, now_=flow_now)
+        flow = _calculate_flow_window(timestamp_ns, flows, days=days, now_=flow_now)
         result.flow_value = flow.flow_value
         result.deposit_value = flow.deposit_value
         result.redeem_value = flow.redeem_value
@@ -1682,7 +1780,8 @@ def _attach_period_flow_metrics(
 
 
 def _calculate_netflow_metrics(
-    prices_df: pd.DataFrame,
+    timestamp_ns: np.ndarray,
+    flows: Mapping[str, np.ndarray],
     period_results: list[PeriodMetrics],
     now_: pd.Timestamp | None = None,
     *,
@@ -1693,8 +1792,11 @@ def _calculate_netflow_metrics(
     The 7d and 30d entries alias the canonical 1W and 1M flow fields. The 1d
     entry is calculated directly because there is no matching period result.
 
-    :param prices_df:
-        Cleaned price DataFrame containing optional daily flow columns.
+    :param timestamp_ns:
+        Daily row timestamps in nanoseconds, ascending.
+    :param flows:
+        Optional daily flow columns as ``float64`` arrays aligned with
+        ``timestamp_ns``.
     :param period_results:
         Canonical results from which to fill the 7d and 30d aliases.
     :param now_:
@@ -1704,12 +1806,12 @@ def _calculate_netflow_metrics(
     :return:
         Legacy 1d, 7d and 30d records, or ``None`` without flow data.
     """
-    if not _has_daily_flow_data(prices_df):
+    if not _has_flow_values(flows):
         return None
     if now_ is None:
-        now_ = prices_df.index.max()
+        now_ = pd.Timestamp(int(timestamp_ns.max()))
     flow_now = _get_netflow_reference_timestamp(now_, exclude_current_utc_day=exclude_current_utc_day)
-    day_flow = _calculate_flow_window(prices_df, days=1, now_=flow_now)
+    day_flow = _calculate_flow_window(timestamp_ns, flows, days=1, now_=flow_now)
     day_metrics = NetflowMetrics(
         period="1d",
         deposit_count=day_flow.deposit_count,
@@ -1738,71 +1840,174 @@ def _calculate_netflow_metrics(
     return [day_metrics, *aliases]
 
 
-def calculate_period_metrics(
-    period: Period,
-    gross_fee_data: FeeData,
-    net_fee_data: FeeData,
+@dataclass(slots=True)
+class _PeriodInputs:
+    """One vault's price, return and TVL series as NumPy arrays.
+
+    :func:`calculate_period_metrics` runs six times per vault, once for each
+    lookback in :data:`LOOKBACK_AND_TOLERANCES`. Slicing pandas objects by
+    timestamp label costs tens of microseconds per operation, and that
+    overhead dominated the whole metrics export. The same lookups on sorted
+    ``int64`` nanosecond arrays are binary searches with
+    :func:`numpy.searchsorted`, so the series are converted once per vault
+    and shared by all periods.
+
+    Every ``*_ns`` array is sorted ascending. Value arrays are ``float64``
+    and use ``NaN`` for a missing value.
+    """
+
+    #: Sparse share-price observation times, in nanoseconds.
+    observation_ns: np.ndarray
+
+    #: The same observation times as ``datetime64`` in the source index
+    #: unit. Timestamps written to :class:`PeriodMetrics` are created from
+    #: these, so they keep the unit the previous pandas code produced.
+    observation_times: np.ndarray
+
+    #: Sparse share-price observations.
+    observation_prices: np.ndarray
+
+    #: Regular calendar-day timestamps of the forward-filled daily prices.
+    daily_ns: np.ndarray
+
+    #: Forward-filled daily share prices.
+    daily_prices: np.ndarray
+
+    #: Timestamps of ``daily_returns``. Normally the same array as ``daily_ns``.
+    daily_return_ns: np.ndarray
+
+    #: Daily percentage returns of ``daily_prices``; the first value is ``NaN``.
+    daily_returns: np.ndarray
+
+    #: Timestamps of the TVL observations. TVL comes from every price row,
+    #: including rows whose share price is unusable, so it has its own times.
+    tvl_ns: np.ndarray
+
+    #: Total value locked per TVL observation.
+    tvl: np.ndarray
+
+    #: Timestamps of the regular daily utilisation series, if any.
+    utilisation_ns: np.ndarray | None = None
+
+    #: Forward-filled daily utilisation for lending vaults, if any.
+    utilisation: np.ndarray | None = None
+
+    #: Native fee-basis share prices aligned with ``observation_ns``, for the
+    #: USD view of an ETH/BTC vault.
+    native_fee_prices: np.ndarray | None = None
+
+    #: USD-per-underlying exchange rates aligned with ``observation_ns``.
+    exchange_rates: np.ndarray | None = None
+
+
+def _datetime_index_to_ns(index: pd.Index) -> np.ndarray:
+    """Convert a timestamp index to ``int64`` nanoseconds.
+
+    :param index:
+        A :class:`pandas.DatetimeIndex` in any resolution.
+    :return:
+        Nanoseconds since the Unix epoch.
+    """
+    return pd.DatetimeIndex(index).as_unit("ns").asi8
+
+
+def _series_to_float_array(series: pd.Series) -> np.ndarray:
+    """Convert a numeric series to ``float64`` with ``NaN`` for missing values.
+
+    ``pd.to_numeric(errors="coerce")`` runs first so that a non-numeric value
+    becomes missing instead of raising during the ``float64`` conversion. Arrow nulls and IEEE ``NaN`` values
+    both become ``NaN``.
+
+    :param series:
+        Numeric, Arrow-backed or object series.
+    :return:
+        ``float64`` array of the same length.
+    """
+    return pd.to_numeric(series, errors="coerce").to_numpy(dtype="float64", na_value=np.nan)
+
+
+def _resample_daily_last_forward_filled(timestamp_ns: np.ndarray, values: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+    """Regularise sorted observations to one value per calendar day.
+
+    This is the array form of ``series.resample("D").last().ffill()`` for a
+    series without missing values: each UTC calendar day takes its last
+    observation, and days without observations repeat the previous day.
+
+    :param timestamp_ns:
+        Observation times in nanoseconds, ascending.
+    :param values:
+        Observed values without ``NaN``.
+    :return:
+        Midnight timestamps of every calendar day from the first to the last
+        observation, and the value for each of those days.
+    """
+    if len(timestamp_ns) == 0:
+        return np.empty(0, dtype="int64"), np.empty(0, dtype="float64")
+    days = timestamp_ns // NANOSECONDS_PER_DAY
+    # Index of the last observation on each day that has observations.
+    last_of_day = np.flatnonzero(np.append(days[1:] != days[:-1], True))
+    observed_days = days[last_of_day]
+    calendar_days = np.arange(observed_days[0], observed_days[-1] + 1)
+    # For each calendar day, the most recent observed day at or before it.
+    # This is the forward fill.
+    source = np.searchsorted(observed_days, calendar_days, side="right") - 1
+    return calendar_days * NANOSECONDS_PER_DAY, values[last_of_day][source]
+
+
+def _prepare_daily_share_price_arrays(observation_ns: np.ndarray, observation_prices: np.ndarray) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """Array form of :func:`prepare_daily_share_price_series`.
+
+    The caller passes observations that are already sanitised with
+    :func:`~eth_defi.research.wrangle_vault_prices.sanitise_share_price_observations`
+    semantics, without missing values and sorted by time, so they are not
+    sanitised or sorted again.
+
+    :param observation_ns:
+        Valid share-price observation times in nanoseconds, ascending.
+    :param observation_prices:
+        Valid share prices.
+    :return:
+        Daily timestamps, forward-filled daily prices and daily returns. The
+        first return is ``NaN`` because no preceding daily price exists.
+    """
+    daily_ns, daily_prices = _resample_daily_last_forward_filled(observation_ns, observation_prices)
+    daily_returns = np.full(len(daily_prices), np.nan)
+    # Same arithmetic as pandas pct_change(): a zero previous price yields
+    # inf or NaN, which the risk metrics later discard as non-finite.
+    with np.errstate(divide="ignore", invalid="ignore"):
+        daily_returns[1:] = daily_prices[1:] / daily_prices[:-1] - 1
+    return daily_ns, daily_prices, daily_returns
+
+
+def _period_inputs_from_series(
     share_price_hourly: pd.Series,
     share_price_daily: pd.Series,
     daily_returns: pd.Series,
     tvl: pd.Series,
-    now_: pd.Timestamp,
+    *,
     utilisation: pd.Series | None = None,
     native_fee_share_price: pd.Series | None = None,
     exchange_rate: pd.Series | None = None,
-) -> PeriodMetrics:
-    """Calculate metrics for one period.
+) -> _PeriodInputs:
+    """Convert the pandas period inputs to :class:`_PeriodInputs`.
 
-    :param period:
-        Period identifier (1W, 1M, 3M, 6M, 1Y, lifetime)
-
-    :param gross_fee_data:
-        Fee data before fee mode adjustments
-
-    :param net_fee_data:
-        Fee data after fee mode adjustments (for net return calculations)
-
-    :param share_price_hourly:
-        Sparse source share-price observations with a DatetimeIndex. The
-        historical name is retained for API compatibility; the series is not
-        assumed to contain every hour.
-
-    :param share_price_daily:
-        Regular, forward-filled daily share-price series prepared once for the
-        vault with :func:`prepare_daily_share_price_series`. For sparse sources,
-        this is an explicit approximation rather than a continuous NAV series.
-
-    :param daily_returns:
-        Regular daily returns derived once from ``share_price_daily``. The same
-        series must be passed to every period calculation for the vault.
-        Unobserved days have zero return and the next observed day receives the
-        accumulated movement.
-
-    :param tvl:
-        Total value locked series with DatetimeIndex
-
-    :param now_:
-        The reference timestamp (usually the last timestamp in the data)
-
-    :param utilisation:
-        Optional regular daily utilisation series (lending vaults only,
-        values 0.0–1.0). When provided, ``avg_utilisation`` is a calendar-day
-        average for the period rather than an observation-frequency average.
-
-    :param native_fee_share_price:
-        Optional sparse native-denomination prices aligned to
-        ``share_price_hourly``. USD metrics use these values when calculating
-        externalised investor fees, so a vault performance fee is never charged
-        on ETH/BTC/USD market appreciation.
-
-    :param exchange_rate:
-        Optional USD-per-underlying sparse rate series aligned to
-        ``share_price_hourly``. Must be supplied together with
-        ``native_fee_share_price``.
+    Used by the public pandas entry points :func:`calculate_period_metrics`
+    and :func:`calculate_period_results`. The lifetime export builds
+    :class:`_PeriodInputs` directly from its arrays and skips this conversion.
 
     :return:
-        PeriodMetrics dataclass with calculated metrics
+        Array inputs for :func:`_calculate_period_metrics_from_arrays`.
+    :raises ValueError:
+        If the USD fee-basis prices and exchange rates are not supplied
+        together, or are not aligned with ``share_price_hourly``. The array
+        path looks them up by position, so misalignment would silently read
+        the wrong values. Also raised when a series index is not sorted by
+        time or contains ``NaT``: binary search on such an index returns
+        plausible but wrong results, where ``Index.asof()`` used to fail.
     """
+    for name, series in (("share_price_hourly", share_price_hourly), ("share_price_daily", share_price_daily), ("daily_returns", daily_returns), ("tvl", tvl), ("utilisation", utilisation)):
+        if series is not None and (series.index.hasnans or not series.index.is_monotonic_increasing):
+            raise ValueError(f"{name} index must be sorted by time without NaT")
     if (native_fee_share_price is None) != (exchange_rate is None):
         raise ValueError("native_fee_share_price and exchange_rate must be supplied together")
     if native_fee_share_price is not None and not native_fee_share_price.index.equals(share_price_hourly.index):
@@ -1810,38 +2015,98 @@ def calculate_period_metrics(
     if exchange_rate is not None and not exchange_rate.index.equals(share_price_hourly.index):
         raise ValueError("exchange_rate must align with share_price_hourly")
 
-    if share_price_hourly.empty:
+    return _PeriodInputs(
+        observation_ns=_datetime_index_to_ns(share_price_hourly.index),
+        observation_times=share_price_hourly.index.to_numpy(),
+        observation_prices=_series_to_float_array(share_price_hourly),
+        daily_ns=_datetime_index_to_ns(share_price_daily.index),
+        daily_prices=_series_to_float_array(share_price_daily),
+        daily_return_ns=_datetime_index_to_ns(daily_returns.index),
+        daily_returns=_series_to_float_array(daily_returns),
+        tvl_ns=_datetime_index_to_ns(tvl.index),
+        tvl=_series_to_float_array(tvl),
+        utilisation_ns=_datetime_index_to_ns(utilisation.index) if utilisation is not None else None,
+        utilisation=_series_to_float_array(utilisation) if utilisation is not None else None,
+        native_fee_prices=_series_to_float_array(native_fee_share_price) if native_fee_share_price is not None else None,
+        exchange_rates=_series_to_float_array(exchange_rate) if exchange_rate is not None else None,
+    )
+
+
+def _calculate_period_metrics_from_arrays(
+    period: Period,
+    gross_fee_data: FeeData,
+    net_fee_data: FeeData,
+    inputs: _PeriodInputs,
+    now_: pd.Timestamp,
+) -> PeriodMetrics:
+    """Calculate metrics for one period from array inputs.
+
+    This is the implementation behind :func:`calculate_period_metrics`; see
+    that function for the metric definitions. The metrics are defined with
+    pandas label operations; each one is computed here as an equivalent
+    binary search on sorted nanosecond timestamps:
+
+    - ``index.asof(t)``, the last label at or before ``t``, is position
+      ``searchsorted(ns, t, "right") - 1``; ``-1`` means no such label.
+    - ``series.loc[a:b]`` is positions ``searchsorted(ns, a, "left")`` up to
+      ``searchsorted(ns, b, "right")``. With duplicate timestamps this still
+      starts at the first duplicate, like the label slice.
+
+    Timestamps, durations, error messages and number types in the result match
+    the pandas definitions exactly, because they are published in the vault
+    JSON.
+
+    :param period:
+        Period identifier (1W, 1M, 3M, 6M, 1Y, lifetime)
+    :param gross_fee_data:
+        Fee data before fee mode adjustments
+    :param net_fee_data:
+        Fee data after fee mode adjustments (for net return calculations)
+    :param inputs:
+        The vault's price, return and TVL arrays.
+    :param now_:
+        The reference timestamp (usually the last timestamp in the data)
+    :return:
+        PeriodMetrics dataclass with calculated metrics
+    """
+    observation_ns = inputs.observation_ns
+    observation_count = len(observation_ns)
+    if observation_count == 0:
         return PeriodMetrics(period=period, period_end_at=now_, error_reason="Vault has no usable share-price observations")
 
     period_duration, period_tolerance = LOOKBACK_AND_TOLERANCES[period]
 
     if period == "lifetime":
-        period_start_at = share_price_hourly.index[0]
+        period_start_at = pd.Timestamp(inputs.observation_times[0])
         period_end_at = now_
     else:
         period_start_at = now_ - period_duration
         period_end_at = now_
 
     # Find the nearest available sample at or before period_start_at
-    samples_start_at = share_price_hourly.index.asof(period_start_at)
+    start_position = int(np.searchsorted(observation_ns, period_start_at.value, side="right")) - 1
 
     # Handle case where no sample exists at or before period_start_at
     # (i.e. vault is younger than the requested period)
-    if pd.isna(samples_start_at):
+    if start_position < 0:
         # Fall back to the first available sample and clamp period_start_at
         # so it does not appear to precede the vault's actual inception
-        samples_start_at = share_price_hourly.index[0]
+        start_position = 0
+        samples_start_at = pd.Timestamp(inputs.observation_times[0])
         period_start_at = samples_start_at
+    else:
+        samples_start_at = pd.Timestamp(inputs.observation_times[start_position])
 
-    period_samples_hourly = share_price_hourly.loc[samples_start_at:]
+    # The period's observations run from the first row carrying the start
+    # timestamp to the end. Several rows can share one timestamp.
+    samples_start_ns = observation_ns[start_position]
+    first = int(np.searchsorted(observation_ns, samples_start_ns, side="left"))
+    raw_samples = observation_count - first
 
-    if len(period_samples_hourly) == 0:
-        return PeriodMetrics(period=period, raw_samples=0, period_start_at=period_start_at, period_end_at=period_end_at, error_reason="Period did not contain any samples")
+    samples_end_at = pd.Timestamp(inputs.observation_times[-1])
+    samples_end_ns = observation_ns[-1]
 
-    samples_end_at = period_samples_hourly.index[-1]
-    raw_samples = len(period_samples_hourly)
-
-    if len(period_samples_hourly) == 1:
+    if raw_samples == 1:
         return PeriodMetrics(
             period=period,
             raw_samples=raw_samples,
@@ -1852,7 +2117,8 @@ def calculate_period_metrics(
             samples_end_at=samples_end_at,
         )
 
-    # Check if sample duration exceeds tolerance
+    # Check if sample duration exceeds tolerance. Keep a real Timedelta: its
+    # text form is part of the published error message.
     sample_duration = samples_end_at - samples_start_at
     if sample_duration > period_tolerance:
         return PeriodMetrics(
@@ -1865,10 +2131,14 @@ def calculate_period_metrics(
             error_reason=f"Sample duration {sample_duration} exceeds tolerance {period_tolerance}",
         )
 
-    # Filter daily samples for the period
-    # Use asof to find nearest daily sample at or before samples_start_at
-    daily_start = share_price_daily.index.asof(samples_start_at)
-    if pd.isna(daily_start):
+    # The daily curve starts at the last calendar day at or before the first
+    # sample, so the risk metrics see the price level in force at that time.
+    daily_start = int(np.searchsorted(inputs.daily_ns, samples_start_ns, side="right")) - 1
+    if daily_start >= 0:
+        # Like the observation window above, a label slice starts at the
+        # first of several rows sharing the start timestamp.
+        daily_start = int(np.searchsorted(inputs.daily_ns, inputs.daily_ns[daily_start], side="left"))
+    if daily_start < 0:
         return PeriodMetrics(
             period=period,
             raw_samples=raw_samples,
@@ -1878,14 +2148,20 @@ def calculate_period_metrics(
             samples_start_at=samples_start_at,
             samples_end_at=samples_end_at,
         )
-
-    period_samples_daily = share_price_daily.loc[daily_start:samples_end_at]
+    daily_start_ns = inputs.daily_ns[daily_start]
+    daily_end = int(np.searchsorted(inputs.daily_ns, samples_end_ns, side="right"))
+    period_samples_daily = inputs.daily_prices[daily_start:daily_end]
     daily_samples = len(period_samples_daily)
 
-    # Extract start and end share prices.
-    # Coerce to Python float to avoid pd.NA from PyArrow backend.
-    share_price_start = float(period_samples_hourly.iloc[0]) if pd.notna(period_samples_hourly.iloc[0]) else 0
-    share_price_end = float(period_samples_hourly.iloc[-1]) if pd.notna(period_samples_hourly.iloc[-1]) else 0
+    # Extract start and end share prices as Python floats. Python float
+    # exponentiation raises OverflowError, which the CAGR cap below relies on;
+    # NumPy scalars would silently return inf instead.
+    share_price_start = float(inputs.observation_prices[first])
+    share_price_end = float(inputs.observation_prices[-1])
+    if math.isnan(share_price_start):
+        share_price_start = 0
+    if math.isnan(share_price_end):
+        share_price_end = 0
 
     # Calculate gross returns
     if share_price_start == 0:
@@ -1899,26 +2175,30 @@ def calculate_period_metrics(
     net_performance_known = gross_fee_data.fee_mode is not None and net_fee_data.can_calculate_investor_net_performance()
     returns_net = None
     if net_performance_known:
+        # The USD view charges fees on the native-denomination price, so a
+        # performance fee is never charged on ETH/BTC market appreciation.
+        native_prices = inputs.native_fee_prices
         net_return_native = calculate_net_profit(
             start=samples_start_at,
             end=samples_end_at,
-            share_price_start=float(native_fee_share_price.loc[samples_start_at]) if native_fee_share_price is not None else share_price_start,
-            share_price_end=float(native_fee_share_price.loc[samples_end_at]) if native_fee_share_price is not None else share_price_end,
+            share_price_start=float(native_prices[first]) if native_prices is not None else share_price_start,
+            share_price_end=float(native_prices[-1]) if native_prices is not None else share_price_end,
             management_fee_annual=net_fee_data.management,
             performance_fee=net_fee_data.performance,
             deposit_fee=net_fee_data.deposit,
             withdrawal_fee=net_fee_data.withdraw,
             sample_count=raw_samples,
         )
-        if exchange_rate is None:
+        if inputs.exchange_rates is None:
             returns_net = net_return_native
         else:
-            rate_start = float(exchange_rate.loc[samples_start_at])
-            rate_end = float(exchange_rate.loc[samples_end_at])
+            rate_start = float(inputs.exchange_rates[first])
+            rate_end = float(inputs.exchange_rates[-1])
             returns_net = (1.0 + net_return_native) * (rate_end / rate_start) - 1.0
 
     # Calculate CAGR (gross and net)
     # CAGR formula: (1 + return) ^ (1/years) - 1
+    # Timedelta.days counts whole days: a 13.9-day sample is 13 days here.
     years = sample_duration.days / 365.25
     base_gross = 1 + returns_gross
     base_net = 1 + returns_net if returns_net is not None else None
@@ -1977,11 +2257,14 @@ def calculate_period_metrics(
     # next event day. Volatility and Sharpe are cadence-sensitive approximations.
     # The daily return at daily_start belongs to the preceding day-to-day
     # interval, which begins outside this period. Exclude it consistently for
-    # every risk metric.
-    period_daily_returns = daily_returns.loc[daily_start:samples_end_at]
-    period_daily_returns = period_daily_returns.loc[period_daily_returns.index > daily_start]
-    volatility = calculate_annualised_volatility_from_daily_returns(period_daily_returns)
-    sharpe = calculate_sharpe_ratio_from_returns(
+    # every risk metric: start strictly after daily_start.
+    returns_start = int(np.searchsorted(inputs.daily_return_ns, daily_start_ns, side="right"))
+    returns_end = int(np.searchsorted(inputs.daily_return_ns, samples_end_ns, side="right"))
+    # Volatility and Sharpe share one cleaned return array instead of each
+    # re-cleaning the same slice.
+    period_daily_returns = _finite_returns(inputs.daily_returns[returns_start:returns_end])
+    volatility = _calculate_annualised_volatility_from_clean_returns(period_daily_returns)
+    sharpe = _calculate_sharpe_ratio_from_clean_returns(
         period_daily_returns,
         sample_duration=sample_duration,
     )
@@ -1991,34 +2274,44 @@ def calculate_period_metrics(
     # Calculate max drawdown directly from share prices.
     # Forward-filled daily prices put every vault on the same calendar while
     # preserving the observed stepwise equity curve.
-    period_prices = period_samples_daily.dropna()
+    period_prices = period_samples_daily[~np.isnan(period_samples_daily)]
     if len(period_prices) >= 2:
+        with np.errstate(divide="ignore", invalid="ignore"):
+            running_max = np.maximum.accumulate(period_prices)
+            drawdown = (period_prices - running_max) / running_max
+        # pandas min() skipped NaN from 0/0; nanmin keeps that behaviour.
+        # An all-NaN drawdown gives NaN, which the finiteness check turns to 0.
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", RuntimeWarning)
-            running_max = period_prices.cummax()
-            drawdown = (period_prices - running_max) / running_max
-            max_drawdown = drawdown.min()  # Most negative value
-            if not np.isfinite(max_drawdown):
-                max_drawdown = 0
+            max_drawdown = np.nanmin(drawdown)  # Most negative value
+        if not np.isfinite(max_drawdown):
+            max_drawdown = 0
     else:
         max_drawdown = 0
 
     # Extract TVL metrics.
-    # Coerce to Python float to avoid pd.NA leaking into PeriodMetrics
-    # (pd.NA breaks boolean checks like ``tvl or 0``).
-    period_tvl = tvl.loc[samples_start_at:samples_end_at]
+    # Convert to Python float, and use 0 for missing values, so no NaN
+    # reaches PeriodMetrics consumers such as ``tvl or 0``.
+    tvl_start_position = int(np.searchsorted(inputs.tvl_ns, samples_start_ns, side="left"))
+    tvl_end_position = int(np.searchsorted(inputs.tvl_ns, samples_end_ns, side="right"))
+    period_tvl = inputs.tvl[tvl_start_position:tvl_end_position]
     if len(period_tvl) > 0:
-        tvl_start = float(period_tvl.iloc[0]) if pd.notna(period_tvl.iloc[0]) else 0
-        tvl_end = float(period_tvl.iloc[-1]) if pd.notna(period_tvl.iloc[-1]) else 0
-        tvl_low = float(period_tvl.min()) if pd.notna(period_tvl.min()) else 0
-        tvl_high = float(period_tvl.max()) if pd.notna(period_tvl.max()) else 0
+        tvl_start = float(period_tvl[0]) if not np.isnan(period_tvl[0]) else 0
+        tvl_end = float(period_tvl[-1]) if not np.isnan(period_tvl[-1]) else 0
+        present_tvl = period_tvl[~np.isnan(period_tvl)]
+        tvl_low = float(present_tvl.min()) if len(present_tvl) else 0
+        tvl_high = float(present_tvl.max()) if len(present_tvl) else 0
     else:
         tvl_start = tvl_end = tvl_low = tvl_high = 0
 
-    # Average utilisation for lending vaults.
+    # Average utilisation for lending vaults. The input is a regular daily
+    # series, so the mean is a calendar-day average for the period.
     avg_utilisation = None
-    if utilisation is not None:
-        period_utilisation = utilisation.loc[daily_start:samples_end_at].dropna()
+    if inputs.utilisation is not None:
+        utilisation_start = int(np.searchsorted(inputs.utilisation_ns, daily_start_ns, side="left"))
+        utilisation_end = int(np.searchsorted(inputs.utilisation_ns, samples_end_ns, side="right"))
+        period_utilisation = inputs.utilisation[utilisation_start:utilisation_end]
+        period_utilisation = period_utilisation[~np.isnan(period_utilisation)]
         if len(period_utilisation) > 0:
             avg_utilisation = float(period_utilisation.mean())
 
@@ -2048,6 +2341,111 @@ def calculate_period_metrics(
     )
 
 
+def calculate_period_metrics(
+    period: Period,
+    gross_fee_data: FeeData,
+    net_fee_data: FeeData,
+    share_price_hourly: pd.Series,
+    share_price_daily: pd.Series,
+    daily_returns: pd.Series,
+    tvl: pd.Series,
+    now_: pd.Timestamp,
+    utilisation: pd.Series | None = None,
+    native_fee_share_price: pd.Series | None = None,
+    exchange_rate: pd.Series | None = None,
+) -> PeriodMetrics:
+    """Calculate metrics for one period.
+
+    This pandas entry point converts its inputs with
+    :func:`_period_inputs_from_series` and delegates to
+    :func:`_calculate_period_metrics_from_arrays`. Batch calculations should
+    convert once per vault and call :func:`calculate_period_results` instead.
+
+    :param period:
+        Period identifier (1W, 1M, 3M, 6M, 1Y, lifetime)
+
+    :param gross_fee_data:
+        Fee data before fee mode adjustments
+
+    :param net_fee_data:
+        Fee data after fee mode adjustments (for net return calculations)
+
+    :param share_price_hourly:
+        Sparse source share-price observations with a DatetimeIndex. The
+        historical name is retained for API compatibility; the series is not
+        assumed to contain every hour.
+
+    :param share_price_daily:
+        Regular, forward-filled daily share-price series prepared once for the
+        vault with :func:`prepare_daily_share_price_series`. For sparse sources,
+        this is an explicit approximation rather than a continuous NAV series.
+
+    :param daily_returns:
+        Regular daily returns derived once from ``share_price_daily``. The same
+        series must be passed to every period calculation for the vault.
+        Unobserved days have zero return and the next observed day receives the
+        accumulated movement.
+
+    :param tvl:
+        Total value locked series with DatetimeIndex
+
+    :param now_:
+        The reference timestamp (usually the last timestamp in the data)
+
+    :param utilisation:
+        Optional regular daily utilisation series (lending vaults only,
+        values 0.0–1.0). When provided, ``avg_utilisation`` is a calendar-day
+        average for the period rather than an observation-frequency average.
+
+    :param native_fee_share_price:
+        Optional sparse native-denomination prices aligned to
+        ``share_price_hourly``. USD metrics use these values when calculating
+        externalised investor fees, so a vault performance fee is never charged
+        on ETH/BTC/USD market appreciation.
+
+    :param exchange_rate:
+        Optional USD-per-underlying sparse rate series aligned to
+        ``share_price_hourly``. Must be supplied together with
+        ``native_fee_share_price``.
+
+    :return:
+        PeriodMetrics dataclass with calculated metrics
+    """
+    inputs = _period_inputs_from_series(
+        share_price_hourly,
+        share_price_daily,
+        daily_returns,
+        tvl,
+        utilisation=utilisation,
+        native_fee_share_price=native_fee_share_price,
+        exchange_rate=exchange_rate,
+    )
+    return _calculate_period_metrics_from_arrays(period, gross_fee_data, net_fee_data, inputs, now_)
+
+
+def _calculate_period_results_from_arrays(
+    *,
+    gross_fee_data: FeeData,
+    net_fee_data: FeeData,
+    inputs: _PeriodInputs,
+    now_: pd.Timestamp,
+) -> list[PeriodMetrics]:
+    """Calculate every established period from one set of array inputs.
+
+    :param gross_fee_data:
+        Vault fee schedule before fee-mode adjustments.
+    :param net_fee_data:
+        Investor-facing fee schedule after fee-mode adjustments.
+    :param inputs:
+        The vault's price, return and TVL arrays, converted once.
+    :param now_:
+        Last timestamp of the selected metric segment.
+    :return:
+        One :class:`PeriodMetrics` instance for each established lookback.
+    """
+    return [_calculate_period_metrics_from_arrays(period, gross_fee_data, net_fee_data, inputs, now_) for period in LOOKBACK_AND_TOLERANCES]
+
+
 def calculate_period_results(
     *,
     gross_fee_data: FeeData,
@@ -2067,6 +2465,9 @@ def calculate_period_results(
     fee semantics. The daily curve is independently supplied for volatility,
     Sharpe and drawdown. USD metrics reuse this helper with native fee-basis
     prices and matching USD-per-underlying rates.
+
+    The pandas inputs are converted to arrays once and shared by all six
+    periods; see :func:`_calculate_period_metrics_from_arrays`.
 
     :param gross_fee_data:
         Vault fee schedule before fee-mode adjustments.
@@ -2091,22 +2492,16 @@ def calculate_period_results(
     :return:
         One :class:`PeriodMetrics` instance for each established lookback.
     """
-    return [
-        calculate_period_metrics(
-            period=period,
-            gross_fee_data=gross_fee_data,
-            net_fee_data=net_fee_data,
-            share_price_hourly=share_price_observations,
-            share_price_daily=share_price_daily,
-            daily_returns=daily_returns,
-            tvl=tvl,
-            now_=now_,
-            utilisation=utilisation,
-            native_fee_share_price=native_fee_share_price,
-            exchange_rate=exchange_rate,
-        )
-        for period in LOOKBACK_AND_TOLERANCES
-    ]
+    inputs = _period_inputs_from_series(
+        share_price_observations,
+        share_price_daily,
+        daily_returns,
+        tvl,
+        utilisation=utilisation,
+        native_fee_share_price=native_fee_share_price,
+        exchange_rate=exchange_rate,
+    )
+    return _calculate_period_results_from_arrays(gross_fee_data=gross_fee_data, net_fee_data=net_fee_data, inputs=inputs, now_=now_)
 
 
 def calculate_crypto_usd_period_results(
@@ -2463,12 +2858,7 @@ def get_latest_vault_poll_frequency(prices_df: pd.DataFrame) -> str | None:
     if "vault_poll_frequency" not in prices_df.columns:
         return None
 
-    for raw_value in reversed(prices_df["vault_poll_frequency"].tolist()):
-        vault_poll_frequency = normalise_vault_poll_frequency(raw_value)
-        if vault_poll_frequency is not None:
-            return vault_poll_frequency
-
-    return None
+    return _latest_vault_poll_frequency_from_values(prices_df["vault_poll_frequency"].to_numpy(dtype=object))
 
 
 def extend_notes_with_vault_scan_cycle(notes: str | None, vault_poll_frequency: str | None) -> str | None:
@@ -2501,12 +2891,292 @@ def extend_notes_with_vault_scan_cycle(notes: str | None, vault_poll_frequency: 
     return scan_cycle_note
 
 
+#: Numeric price columns that the metric calculations read as arrays.
+#:
+#: Everything else a record needs from the price rows is a single exported
+#: scalar, such as the latest block number. Those scalars are read directly
+#: from the source frame so they keep their original Python or NumPy type.
+METRIC_ARRAY_COLUMNS: tuple[str, ...] = (
+    "share_price",
+    "total_assets",
+    "total_supply",
+    "utilisation",
+    *FLOW_AMOUNT_COLUMNS,
+    *FLOW_COUNT_COLUMNS,
+    FLOW_VALUE_COLUMN,
+)
+
+#: Placeholder integer that pandas uses for ``NaT`` in ``int64`` timestamps.
+_NAT_NS = np.iinfo(np.int64).min
+
+
+@dataclass(slots=True)
+class _VaultPriceFrame:
+    """Price rows of one or more vaults with metric columns as NumPy arrays.
+
+    Converting a column from pandas to NumPy has a fixed cost per call.
+    Paying it once for the whole multi-vault frame, instead of once per vault
+    and column, is what makes the per-vault loop cheap. All arrays keep the
+    source frame's row order, so a row position means the same row in the
+    arrays and in :attr:`frame`.
+    """
+
+    #: The source frame. Exported scalars, such as block numbers and chain
+    #: IDs, are read from its columns by position.
+    frame: pd.DataFrame
+
+    #: Row timestamps in nanoseconds. ``NaT`` rows hold :data:`_NAT_NS`.
+    timestamp_ns: np.ndarray
+
+    #: Row timestamps as ``datetime64`` in the source index unit.
+    timestamps: np.ndarray
+
+    #: :data:`METRIC_ARRAY_COLUMNS` present in the frame, as ``float64``.
+    columns: dict[str, np.ndarray]
+
+    #: :data:`VAULT_STATE_OBSERVED_COLUMN` as booleans, or ``None`` when absent.
+    state_observed: np.ndarray | None
+
+    #: Raw ``vault_poll_frequency`` values, or ``None`` when absent.
+    poll_frequency: np.ndarray | None
+
+
+@dataclass(slots=True)
+class _VaultArrays:
+    """One vault's rows of a :class:`_VaultPriceFrame`, ready for the metric code.
+
+    Some published values come from the vault's last row in source order,
+    or from all of its rows, such as the current and peak TVL. The metrics
+    use the rows ordered by time, without ``NaT`` rows. Both views are kept,
+    so each value comes from the rows its definition names. The scanner's
+    frames are already time-ordered, so in practice the two views contain
+    the same rows.
+    """
+
+    #: The shared multi-vault frame.
+    price_frame: _VaultPriceFrame
+
+    #: Source-frame positions of every row of this vault, in source order.
+    #: The last entry is the vault's last row in source order.
+    source_positions: np.ndarray
+
+    #: Source-frame positions of the rows with a timestamp, sorted by time.
+    sorted_positions: np.ndarray
+
+    #: Timestamps of ``sorted_positions`` in nanoseconds.
+    timestamp_ns: np.ndarray
+
+    #: Timestamps of ``sorted_positions`` as ``datetime64``.
+    timestamps: np.ndarray
+
+    #: Metric columns for ``sorted_positions``, as ``float64``.
+    columns: dict[str, np.ndarray]
+
+    #: Observed-state marker for ``sorted_positions``, or ``None``.
+    state_observed: np.ndarray | None
+
+    def has_column(self, name: str) -> bool:
+        """Check whether the source frame has a column.
+
+        :param name:
+            Column name.
+        :return:
+            ``True`` when the column exists, even if all values are missing.
+        """
+        return name in self.price_frame.frame.columns
+
+    def last_value(self, name: str) -> object:
+        """Read a column value from the vault's last row in source order.
+
+        The value keeps the type pandas returns for a single cell, for
+        example a Python ``int`` from an Arrow ``uint64`` column or
+        ``numpy.float64`` from a NumPy column. These values are published as
+        they are, so their type must not change.
+
+        :param name:
+            Column name.
+        :return:
+            The cell value, which may be a missing-value marker.
+        """
+        return self.price_frame.frame[name].iloc[self.source_positions[-1]]
+
+    def sorted_value(self, name: str, index: int) -> object:
+        """Read a column value from a row in time order.
+
+        :param name:
+            Column name.
+        :param index:
+            Position within ``sorted_positions``.
+        :return:
+            The cell value with its pandas scalar type.
+        """
+        return self.price_frame.frame[name].iloc[self.sorted_positions[index]]
+
+
+def _prepare_vault_price_frame(frame: pd.DataFrame) -> _VaultPriceFrame:
+    """Convert the metric columns of a price frame to NumPy once.
+
+    :param frame:
+        Price rows of one or more vaults, conforming to
+        :py:class:`~eth_defi.research.wrangle_vault_prices.CleanedVaultPriceRow`,
+        with a :class:`pandas.DatetimeIndex`.
+    :return:
+        The frame with its array columns.
+    """
+    assert isinstance(frame.index, pd.DatetimeIndex), f"Expected DatetimeIndex, got {type(frame.index)}"
+    # Flow windows derive calendar days from UTC nanoseconds.
+    assert frame.index.tz is None, "Price timestamps must be naive UTC"
+    state_observed = None
+    if VAULT_STATE_OBSERVED_COLUMN in frame.columns:
+        # Missing markers mean "not observed". The daily preparation stores
+        # the marker as float64 after concatenation, so reuse pandas'
+        # truthiness rules instead of assuming a boolean dtype.
+        state_observed = frame[VAULT_STATE_OBSERVED_COLUMN].fillna(False).astype(bool).to_numpy()
+    return _VaultPriceFrame(
+        frame=frame,
+        timestamp_ns=_datetime_index_to_ns(frame.index),
+        timestamps=frame.index.to_numpy(),
+        columns={name: _series_to_float_array(frame[name]) for name in METRIC_ARRAY_COLUMNS if name in frame.columns},
+        state_observed=state_observed,
+        poll_frequency=frame["vault_poll_frequency"].to_numpy(dtype=object) if "vault_poll_frequency" in frame.columns else None,
+    )
+
+
+def _select_vault_arrays(price_frame: _VaultPriceFrame, source_positions: np.ndarray) -> _VaultArrays:
+    """Take one vault's rows from a prepared price frame.
+
+    Rows without a timestamp are dropped from the time-ordered view and the
+    rest are stable-sorted by time, like
+    ``loc[~index.isna()].sort_index(kind="stable")``. Already sorted input,
+    the normal case, skips the sort.
+
+    :param price_frame:
+        Prepared multi-vault frame.
+    :param source_positions:
+        This vault's row positions, in source order.
+    :return:
+        The vault's arrays.
+    """
+    timestamp_ns = price_frame.timestamp_ns[source_positions]
+    if (timestamp_ns != _NAT_NS).all() and (timestamp_ns[1:] >= timestamp_ns[:-1]).all():
+        sorted_positions = source_positions
+    else:
+        kept = source_positions[timestamp_ns != _NAT_NS]
+        sorted_positions = kept[np.argsort(price_frame.timestamp_ns[kept], kind="stable")]
+        timestamp_ns = price_frame.timestamp_ns[sorted_positions]
+    return _VaultArrays(
+        price_frame=price_frame,
+        source_positions=source_positions,
+        sorted_positions=sorted_positions,
+        timestamp_ns=timestamp_ns,
+        timestamps=price_frame.timestamps[sorted_positions],
+        columns={name: values[sorted_positions] for name, values in price_frame.columns.items()},
+        state_observed=price_frame.state_observed[sorted_positions] if price_frame.state_observed is not None else None,
+    )
+
+
+def _iterate_vault_arrays(price_frame: _VaultPriceFrame) -> Iterator[tuple[str, _VaultArrays]]:
+    """Split a prepared multi-vault frame into vaults, in sorted ID order.
+
+    Yields the same vaults, in the same order and with the same rows, as
+    ``frame.groupby("id", sort=True)``, but without copying every column of
+    every group into a new DataFrame. Each vault is one slice of a single
+    stable argsort of the factorised IDs, so the per-vault cost is a few
+    small array takes.
+
+    :param price_frame:
+        Prepared multi-vault frame with an ``id`` column.
+    :return:
+        ``(vault_id, arrays)`` pairs, sorted by vault ID like the groupby was.
+        Rows with a missing ID are skipped, as groupby skipped them.
+    """
+    codes, vault_ids = pd.factorize(price_frame.frame["id"], sort=True)
+    # Stable sort keeps each vault's rows in source order.
+    order = np.argsort(codes, kind="stable")
+    sorted_codes = codes[order]
+    # factorize() marks missing IDs with -1; they sort first and are skipped.
+    first_valid = int(np.searchsorted(sorted_codes, 0, side="left"))
+    boundaries = np.flatnonzero(np.diff(sorted_codes[first_valid:])) + 1 + first_valid
+    starts = np.concatenate([[first_valid], boundaries])
+    ends = np.concatenate([boundaries, [len(order)]])
+    for start, end in zip(starts, ends, strict=True):
+        if start == end:
+            continue
+        yield str(vault_ids[sorted_codes[start]]), _select_vault_arrays(price_frame, order[start:end])
+
+
+def _latest_vault_poll_frequency_from_values(values: np.ndarray | None) -> str | None:
+    """Return the newest non-empty scan cycle from values in source order.
+
+    :param values:
+        Raw ``vault_poll_frequency`` values, or ``None`` when the column is absent.
+    :return:
+        Latest scan cycle string, or ``None``.
+    """
+    if values is None:
+        return None
+    # Walk backwards: most vaults have a value on their last row, so this
+    # normally stops after one element.
+    for raw_value in values[::-1]:
+        vault_poll_frequency = normalise_vault_poll_frequency(raw_value)
+        if vault_poll_frequency is not None:
+            return vault_poll_frequency
+    return None
+
+
 def calculate_vault_record(
     prices_df: pd.DataFrame,
     vault_metadata_rows: dict[VaultSpec, VaultRow],
-    month_ago: pd.Timestamp,
-    three_months_ago: pd.Timestamp,
     vault_id: str | None = None,
+    core3_protocols: dict[str, Core3ExportRecord] | None = None,
+    xerberus_pools: dict[tuple[int, str], XerberusPoolLookupRow] | None = None,
+    xerberus_protocols: dict[str, XerberusProtocolExportRecord] | None = None,
+    stablecoin_rate_feeder: StablecoinRateFeeder | None = None,
+    crypto_usd_conversion_context: CryptoUSDConversionContext | None = None,
+) -> pd.Series:
+    """Process a single vault metadata + prices to calculate its full data.
+
+    Single-vault DataFrame entry point. It converts the frame with
+    :func:`_prepare_vault_price_frame` and calls
+    :func:`_calculate_vault_record_from_arrays`, the implementation that
+    :func:`calculate_lifetime_metrics` uses for every vault. Batch callers
+    should use :func:`calculate_lifetime_metrics`, which converts the whole
+    multi-vault frame once instead of once per vault.
+
+    :param prices_df:
+        Price DataFrame for a single vault, conforming to
+        :py:class:`~eth_defi.research.wrangle_vault_prices.CleanedVaultPriceRow`.
+        ERC-4626 flow estimation requires the consecutive daily frame produced
+        by :func:`calculate_hourly_returns_for_all_vaults`; other callers retain
+        null flow fields and log the reason.
+
+    :param vault_id:
+        Vault ID string. If not provided, extracted from prices_df["id"].
+
+    See :func:`_calculate_vault_record_from_arrays` for the other parameters.
+
+    :return:
+        Series with calculated metrics
+    """
+    price_frame = _prepare_vault_price_frame(prices_df)
+    vault = _select_vault_arrays(price_frame, np.arange(len(prices_df)))
+    return _calculate_vault_record_from_arrays(
+        vault,
+        vault_metadata_rows,
+        vault_id=vault_id if vault_id is not None else prices_df["id"].iloc[0],
+        core3_protocols=core3_protocols,
+        xerberus_pools=xerberus_pools,
+        xerberus_protocols=xerberus_protocols,
+        stablecoin_rate_feeder=stablecoin_rate_feeder,
+        crypto_usd_conversion_context=crypto_usd_conversion_context,
+    )
+
+
+def _calculate_vault_record_from_arrays(
+    vault: _VaultArrays,
+    vault_metadata_rows: dict[VaultSpec, VaultRow],
+    *,
+    vault_id: str,
     core3_protocols: dict[str, Core3ExportRecord] | None = None,
     xerberus_pools: dict[tuple[int, str], XerberusPoolLookupRow] | None = None,
     xerberus_protocols: dict[str, XerberusProtocolExportRecord] | None = None,
@@ -2517,24 +3187,24 @@ def calculate_vault_record(
 
     - Exported to frontend, everything
 
-    :param prices_df:
-        Price DataFrame for a single vault, conforming to
-        :py:class:`~eth_defi.research.wrangle_vault_prices.CleanedVaultPriceRow`.
-        ERC-4626 flow estimation requires the consecutive daily frame produced
-        by :func:`calculate_hourly_returns_for_all_vaults`; other callers retain
+    The numeric work runs on NumPy arrays prepared once for the whole
+    multi-vault frame; see :class:`_VaultPriceFrame`. When this function
+    worked on a pandas DataFrame per vault, about 88% of its time on a
+    1,000-vault production sample went to slicing and copying those small
+    frames rather than to the metric arithmetic.
+
+    :param vault:
+        The vault's price rows, from :func:`_iterate_vault_arrays` or
+        :func:`_select_vault_arrays`. ERC-4626 flow estimation requires the
+        consecutive daily rows produced by
+        :func:`calculate_hourly_returns_for_all_vaults`; other callers retain
         null flow fields and log the reason.
 
     :param vault_metadata_rows:
         Dictionary of vault metadata keyed by VaultSpec
 
-    :param month_ago:
-        Timestamp for 1-month lookback
-
-    :param three_months_ago:
-        Timestamp for 3-month lookback
-
     :param vault_id:
-        Vault ID string. If not provided, extracted from prices_df["id"].
+        Vault ID string in ``chain-address`` form.
 
     :param core3_protocols:
         Optional Core3 risk records keyed by our protocol slug, as
@@ -2572,8 +3242,7 @@ def calculate_vault_record(
     :return:
         Series with calculated metrics
     """
-    # Extract the group name (id_val)
-    id_val = vault_id if vault_id is not None else prices_df["id"].iloc[0]
+    id_val = vault_id
 
     # Extract vault metadata
     vault_spec = VaultSpec.parse_string(id_val, separator="-")
@@ -2587,9 +3256,17 @@ def calculate_vault_record(
     share_token = _unnullify(vault_metadata.get("Share token"), "<broken>")
     normalised_denomination = normalise_token_symbol(denomination)
 
-    max_nav = prices_df["total_assets"].max()
-    current_nav = prices_df["total_assets"].iloc[-1]
-    chain_id = prices_df["chain"].iloc[-1]
+    # The peak is taken over every row of the vault, and the "current" values
+    # come from its last row in source order, not the rows ordered by time;
+    # see _VaultArrays.
+    all_total_assets = vault.price_frame.columns["total_assets"][vault.source_positions]
+    if np.isnan(all_total_assets).all():
+        # No usable value: keep pandas' own missing-value result.
+        max_nav = vault.price_frame.frame["total_assets"].iloc[vault.source_positions].max()
+    else:
+        max_nav = float(np.nanmax(all_total_assets))
+    current_nav = vault.last_value("total_assets")
+    chain_id = vault.last_value("chain")
 
     # Native vault integrations may use a synthetic chain ID as their dataset
     # identity. For now Lighter uses this optional metadata to expose whether a
@@ -2642,11 +3319,12 @@ def calculate_vault_record(
     withdrawal_fee = fee_data.withdraw
 
     link = vault_metadata.get("Link")
-    event_count = prices_df["event_count"].iloc[-1]
+    event_count = vault.last_value("event_count")
 
     risk = vault_metadata.get("_risk") or get_vault_risk(protocol, vault_address)
     notes = vault_metadata.get("_notes") or get_notes(vault_address, chain_id=chain_id)
-    vault_poll_frequency = get_latest_vault_poll_frequency(prices_df)
+    poll_frequency_values = vault.price_frame.poll_frequency
+    vault_poll_frequency = _latest_vault_poll_frequency_from_values(poll_frequency_values[vault.source_positions] if poll_frequency_values is not None else None)
     raw_share_price_source = vault_metadata.get("_share_price_source")
     if raw_share_price_source is None:
         share_price_source = None
@@ -2771,12 +3449,12 @@ def calculate_vault_record(
     # Lending statistics from historical price data (latest values)
     available_liquidity = None
     utilisation = None
-    if "available_liquidity" in prices_df.columns:
-        last_liquidity = prices_df["available_liquidity"].iloc[-1]
+    if vault.has_column("available_liquidity"):
+        last_liquidity = vault.last_value("available_liquidity")
         if pd.notna(last_liquidity):
             available_liquidity = float(last_liquidity)
-    if "utilisation" in prices_df.columns:
-        last_utilisation = prices_df["utilisation"].iloc[-1]
+    if vault.has_column("utilisation"):
+        last_utilisation = vault.last_value("utilisation")
         if pd.notna(last_utilisation):
             utilisation = float(last_utilisation)
 
@@ -2792,30 +3470,32 @@ def calculate_vault_record(
     account_pnl = None
     follower_count = None
     cumulative_volume = None
-    if "leader_fraction" in prices_df.columns:
-        last_val = prices_df["leader_fraction"].iloc[-1]
+    if vault.has_column("leader_fraction"):
+        last_val = vault.last_value("leader_fraction")
         if pd.notna(last_val):
             leader_fraction = float(last_val)
-    if "leader_commission" in prices_df.columns:
-        last_val = prices_df["leader_commission"].iloc[-1]
+    if vault.has_column("leader_commission"):
+        last_val = vault.last_value("leader_commission")
         if pd.notna(last_val):
             leader_commission = float(last_val)
-    if "account_pnl" in prices_df.columns:
-        last_val = prices_df["account_pnl"].iloc[-1]
+    if vault.has_column("account_pnl"):
+        last_val = vault.last_value("account_pnl")
         if pd.notna(last_val):
             account_pnl = float(last_val)
-    if "follower_count" in prices_df.columns:
-        last_val = prices_df["follower_count"].iloc[-1]
+    if vault.has_column("follower_count"):
+        last_val = vault.last_value("follower_count")
         if pd.notna(last_val):
             follower_count = int(last_val)
-    if "cumulative_volume" in prices_df.columns:
-        last_val = prices_df["cumulative_volume"].iloc[-1]
+    if vault.has_column("cumulative_volume"):
+        last_val = vault.last_value("cumulative_volume")
         if pd.notna(last_val):
             cumulative_volume = float(last_val)
 
     # Reference timestamp for period lookback — used by both netflow and
-    # period metric calculations below.
-    now_ = prices_df.index.max()
+    # period metric calculations below. The rows are time-sorted, so the
+    # last timestamp is the latest one. A vault without timestamps gets NaT,
+    # as DatetimeIndex.max() returned.
+    now_ = pd.Timestamp(vault.timestamps[-1]) if len(vault.timestamps) else pd.NaT
 
     # Vault descriptions from offchain metadata (Euler, Lagoon, etc.)
     description = vault_metadata.get("_description")
@@ -2880,7 +3560,10 @@ def calculate_vault_record(
         # YELLOW flags do not trigger VaultFlag.morpho_issues. Example: ["bad_debt_realized", "not_whitelisted"]
         "morpho_yellow_flags": morpho_yellow_flags,
     }
-    perp_dex_data = build_perp_dex_other_data(prices_df.iloc[-1])
+    # Pass only the cells the builder reads. Extracting a whole row from a
+    # frame with mixed column types makes pandas find a common type across
+    # every column, which is slow for a single row.
+    perp_dex_data = build_perp_dex_other_data({name: vault.last_value(name) for name in PERP_DEX_ROW_COLUMNS if vault.has_column(name)})
     if perp_dex_data is not None:
         other_data["perp_dex"] = perp_dex_data
 
@@ -2966,8 +3649,11 @@ def calculate_vault_record(
     # and performance fees are already reflected in the share price.
     known_fee = net_fee_data.can_calculate_investor_net_performance()
 
-    # Ensure prices_df index is monotonic and clean
-    prices_df = prices_df.loc[~prices_df.index.isna()].sort_index(kind="stable")
+    # From here on, work on the time-ordered rows with a timestamp, prepared
+    # by _select_vault_arrays().
+    timestamp_ns = vault.timestamp_ns
+    columns = vault.columns
+    flows = {name: columns[name] for name in (*FLOW_AMOUNT_COLUMNS, *FLOW_COUNT_COLUMNS, FLOW_VALUE_COLUMN) if name in columns}
 
     # The regular daily frame contains aligned ERC-4626 total assets, supply
     # and share prices. Use these states for a simple net-flow estimate when a
@@ -2979,66 +3665,108 @@ def calculate_vault_record(
     # for an EVM-scanned vault, including legacy records without source metadata.
     first_seen_block = detection.first_seen_at_block
     supports_erc4626_flow_estimate = first_seen_block is not None and first_seen_block > 0 and is_stablecoin_like(normalised_denomination)
-    if supports_erc4626_flow_estimate:
-        prices_df = _derive_erc4626_estimated_daily_flows(prices_df, vault_id=id_val)
+    # A direct flow feed always takes precedence. Only a vault without one
+    # gets the state-based estimate, which then becomes its signed flow
+    # column. The flow windows below check for usable flow data again, on
+    # the columns after this step, so an estimated flow counts as flow data.
+    if supports_erc4626_flow_estimate and not _has_flow_values(flows):
+        estimated_flow = _estimate_erc4626_daily_flows(
+            timestamp_ns,
+            columns.get("total_assets"),
+            columns.get("total_supply"),
+            columns.get("share_price"),
+            vault.state_observed,
+            vault_id=id_val,
+        )
+        if estimated_flow is not None:
+            flows[FLOW_VALUE_COLUMN] = estimated_flow
 
     # Build one regular daily price/return pair for all period calculations.
-    # ``prices_df`` contains sparse change-only observations despite the
-    # historical ``share_price_hourly`` variable name. Forward filling is an
-    # accepted approximation, including for operation-observed GMX curves:
-    # missing days are flat and the next event day carries accumulated movement.
-    share_price_observations = sanitise_share_price_observations(prices_df["share_price"])
-    valid_share_price = share_price_observations.notna()
-    valid_price_rows = prices_df.loc[valid_share_price]
-    share_price_hourly = share_price_observations.loc[valid_share_price]
-    share_price_daily, daily_returns = prepare_daily_share_price_series(share_price_hourly)
-    tvl_series = prices_df["total_assets"]
-    utilisation_series = None
-    if "utilisation" in prices_df.columns:
-        utilisation_observations = pd.to_numeric(prices_df["utilisation"], errors="coerce").dropna()
-        if not utilisation_observations.empty:
-            utilisation_series = utilisation_observations.resample("D").last().ffill()
+    # The rows are sparse change-only observations despite the historical
+    # ``share_price_hourly`` naming. Forward filling is an accepted
+    # approximation, including for operation-observed GMX curves: missing
+    # days are flat and the next event day carries accumulated movement.
+    #
+    # A share price is a usable observation when it is finite and not
+    # negative; zero is a valid complete-loss value. This matches
+    # sanitise_share_price_observations().
+    raw_share_price = columns["share_price"]
+    with np.errstate(invalid="ignore"):
+        valid_rows = np.flatnonzero(np.isfinite(raw_share_price) & (raw_share_price >= 0))
+    observation_ns = timestamp_ns[valid_rows]
+    observation_times = vault.timestamps[valid_rows]
+    observation_prices = raw_share_price[valid_rows]
+    daily_ns, daily_prices, daily_returns = _prepare_daily_share_price_arrays(observation_ns, observation_prices)
 
-    period_results = calculate_period_results(
+    # Lending vaults: a regular daily utilisation series, so the period
+    # average weights each calendar day equally regardless of scan cadence.
+    utilisation_ns = utilisation_daily = None
+    if "utilisation" in columns:
+        utilisation_values = columns["utilisation"]
+        utilisation_present = ~np.isnan(utilisation_values)
+        if utilisation_present.any():
+            utilisation_ns, utilisation_daily = _resample_daily_last_forward_filled(timestamp_ns[utilisation_present], utilisation_values[utilisation_present])
+
+    period_inputs = _PeriodInputs(
+        observation_ns=observation_ns,
+        observation_times=observation_times,
+        observation_prices=observation_prices,
+        daily_ns=daily_ns,
+        daily_prices=daily_prices,
+        daily_return_ns=daily_ns,
+        daily_returns=daily_returns,
+        # TVL uses every time-ordered row, including rows whose share price
+        # is unusable: the vault held assets on those days regardless.
+        tvl_ns=timestamp_ns,
+        tvl=columns["total_assets"],
+        utilisation_ns=utilisation_ns,
+        utilisation=utilisation_daily,
+    )
+    period_results = _calculate_period_results_from_arrays(
         gross_fee_data=gross_fee_data,
         net_fee_data=net_fee_data,
-        share_price_observations=share_price_hourly,
-        share_price_daily=share_price_daily,
-        daily_returns=daily_returns,
-        tvl=tvl_series,
+        inputs=period_inputs,
         now_=now_,
-        utilisation=utilisation_series,
     )
     flow_current_day_is_provisional = vault_metadata.get("_daily_flow_current_day_is_provisional", False)
     _attach_period_flow_metrics(
         period_results,
-        prices_df,
+        timestamp_ns,
+        flows,
         now_=now_,
         exclude_current_utc_day=flow_current_day_is_provisional,
     )
     # Compatibility-only field: the 7d and 30d rows are aliases of the
     # canonical 1W and 1M period results above.
     netflow = _calculate_netflow_metrics(
-        prices_df,
+        timestamp_ns,
+        flows,
         period_results,
         now_=now_,
         exclude_current_utc_day=flow_current_day_is_provisional,
     )
-    periodic_metrics_usd = (
-        calculate_crypto_usd_period_results(
+
+    periodic_metrics_usd = None
+    if crypto_usd_conversion_context is not None:
+        # The USD view is built for ETH/BTC vaults only, and aligns vault
+        # observations with daily exchange rates by timestamp label. That
+        # alignment stays in pandas; build the Series it expects only here.
+        periodic_metrics_usd = calculate_crypto_usd_period_results(
             context=crypto_usd_conversion_context,
             vault_id=id_val,
-            native_share_price_observations=share_price_hourly,
-            native_daily_share_prices=share_price_daily,
-            native_total_assets=tvl_series,
+            native_share_price_observations=pd.Series(observation_prices, index=pd.DatetimeIndex(observation_times)),
+            native_daily_share_prices=pd.Series(daily_prices, index=pd.DatetimeIndex(daily_ns)),
+            native_total_assets=pd.Series(columns["total_assets"], index=pd.DatetimeIndex(vault.timestamps)),
             gross_fee_data=gross_fee_data,
             net_fee_data=net_fee_data,
         )
-        if crypto_usd_conversion_context is not None
-        else None
-    )
 
-    current_share_price = share_price_hourly.iloc[-1]
+    if len(valid_rows) == 0:
+        # A vault without a single usable share price cannot produce a
+        # record. calculate_lifetime_metrics() logs and skips it, like other
+        # invalid vault data, so one broken vault does not stop the export.
+        raise ValueError(f"Vault {id_val} has no usable share-price observations")
+    current_share_price = observation_prices[-1]
     risk, notes, flags = apply_abnormal_value_checks(
         risk=risk,
         notes=notes,
@@ -3058,9 +3786,9 @@ def calculate_vault_record(
     one_month_pm = get_period_metrics(period_results, "1M")
 
     # Lifetime metrics
-    lifetime_start_date = share_price_hourly.index[0]
-    lifetime_end_date = share_price_hourly.index[-1]
-    lifetime_samples = len(share_price_hourly)
+    lifetime_start_date = pd.Timestamp(observation_times[0])
+    lifetime_end_date = pd.Timestamp(observation_times[-1])
+    lifetime_samples = len(observation_ns)
     age = (lifetime_end_date - lifetime_start_date).days / 365.25
 
     # Legacy: Lifetime metrics
@@ -3145,13 +3873,13 @@ def calculate_vault_record(
 
     fee_label = create_fee_label(fee_data)
 
-    last_price_row = valid_price_rows.iloc[-1]
-    first_price_row = valid_price_rows.iloc[0]
-    last_updated_at = last_price_row.name
-    last_updated_block = last_price_row["block_number"]
-    last_share_price = share_price_hourly.iloc[-1]
-    first_updated_at = first_price_row.name
-    first_updated_block = first_price_row["block_number"]
+    # First and last rows with a usable share price. Block numbers are read
+    # from the source column so they keep their exported integer type.
+    last_updated_at = lifetime_end_date
+    last_updated_block = vault.sorted_value("block_number", valid_rows[-1])
+    last_share_price = observation_prices[-1]
+    first_updated_at = lifetime_start_date
+    first_updated_block = vault.sorted_value("block_number", valid_rows[0])
     risk_numeric = risk.value if isinstance(risk, VaultTechnicalRisk) else None
 
     return pd.Series(
@@ -3314,6 +4042,14 @@ def calculate_lifetime_metrics(
 
     Lookback based on the last entry.
 
+    Performance: the frame's metric columns are converted to NumPy once
+    (:func:`_prepare_vault_price_frame`), and each vault is then a set of
+    array slices instead of a pandas group. On the 2026-09-25 production
+    snapshot of 12,795 stablecoin vaults, this took 22.8 s, compared with
+    235 s for a pandas group per vault, with identical exported rows. Most of
+    that time had gone into pandas overhead on small per-vault frames, not
+    into the metric arithmetic.
+
     Each output row contains a ``share_price_source`` string describing how
     the adapter obtained its share-price observations, or ``None`` for legacy
     metadata and adapters without a price source.
@@ -3377,25 +4113,25 @@ def calculate_lifetime_metrics(
 
     assert isinstance(vaults_by_id, dict), "vaults_by_id should be a dictionary of vault metadata"
 
-    month_ago = df.index.max() - pd.Timedelta(days=30)
-    three_months_ago = df.index.max() - pd.Timedelta(days=90)
-
     slugify_vaults(vaults=vaults_by_id)
 
     if stablecoin_rate_feeder is None:
         stablecoin_rate_feeder = StablecoinRateFeeder()
 
+    # Convert the metric columns of the whole frame to NumPy once. The loop
+    # below then takes each vault's rows as small array slices instead of
+    # materialising one pandas DataFrame per vault; see _VaultPriceFrame.
+    price_frame = _prepare_vault_price_frame(df)
+    vault_count = df["id"].nunique()
+
     # Each vault is an independent export record. A corrupted historical row
     # must not prevent the remaining vaults from being published.
-    grouped_vaults = df.groupby("id", group_keys=False, sort=True)
     records: list[pd.Series] = []
-    for vault_id, group in tqdm(grouped_vaults, desc="Calculating vault performance metrics", total=grouped_vaults.ngroups):
+    for vault_id, vault in tqdm(_iterate_vault_arrays(price_frame), desc="Calculating vault performance metrics", total=vault_count):
         try:
-            record = calculate_vault_record(
-                group,
+            record = _calculate_vault_record_from_arrays(
+                vault,
                 vaults_by_id,
-                month_ago,
-                three_months_ago,
                 vault_id=vault_id,
                 core3_protocols=core3_protocols,
                 xerberus_pools=xerberus_pools,
@@ -4505,6 +5241,199 @@ def cross_check_data(
     return errors
 
 
+def _can_regularise_daily_with_arrays(df_work: pd.DataFrame) -> bool:
+    """Check whether the whole-frame daily regularisation supports a frame.
+
+    The array implementation reproduces pandas' per-vault
+    ``resample("D").last()`` result, including the column dtypes pandas
+    produces when the per-vault results are concatenated. That reproduction
+    is written for the column types the cleaned price Parquet contains. Other
+    frames, for example hand-built test frames with unusual dtypes, use the
+    original per-vault pandas loop.
+
+    :param df_work:
+        Vault price rows indexed by timestamp.
+    :return:
+        ``True`` when :func:`_regularise_daily_with_arrays` can process the frame.
+    """
+    if "share_price" not in df_work.columns or df_work["share_price"].dtype != np.dtype("float64"):
+        return False
+    if df_work.index.hasnans or df_work.index.tz is not None:
+        # Calendar days are computed from UTC nanoseconds; timezone-aware
+        # input keeps pandas' local-day resampling.
+        return False
+    for dtype in df_work.dtypes:
+        # Extension arrays (Arrow, nullable, string) and NumPy float and
+        # datetime columns keep their dtype through resampling with missing
+        # values. NumPy integer and bool columns change dtype; those two
+        # cases are reproduced below. Anything else uses the pandas loop.
+        if isinstance(dtype, pd.api.extensions.ExtensionDtype):
+            continue
+        if dtype.kind not in "fMiub":
+            return False
+    return True
+
+
+def _regularise_daily_with_arrays(df_work: pd.DataFrame, returns_column: str) -> pd.DataFrame:
+    """Regularise every vault to calendar days in one pass over the frame.
+
+    Produces exactly the frame that the per-vault loop in
+    :func:`_calculate_regular_daily_returns` builds from
+    ``resample("D").last()``, forward filling, returns and ``pd.concat()``,
+    but with a fixed number of whole-frame array operations per column
+    instead of about 6 ms of pandas overhead per vault. On the 12,795-vault
+    production snapshot the loop took about 77 s and this function 12 s.
+
+    For each vault, output rows are the calendar days from its first to its
+    last observation. Each output cell is the last non-missing value of that
+    column on that day, by source row order, as ``resample().last()`` picks
+    it. Non-sparse columns then take the most recent earlier value within the
+    same vault, which is the forward fill.
+
+    :param df_work:
+        Vault price rows accepted by :func:`_can_regularise_daily_with_arrays`.
+    :param returns_column:
+        Name assigned to the calculated percentage-return column.
+    :return:
+        Daily vault rows, identical to the per-vault implementation.
+    """
+    frame = df_work.copy(deep=False)
+
+    # Same freshness marker as the pandas loop: a day's state is observed
+    # only when its source row had all three accounting values.
+    has_complete_state_columns = all(column in frame.columns for column in ERC4626_FLOW_STATE_COLUMNS)
+    state_fresh = frame[list(ERC4626_FLOW_STATE_COLUMNS)].notna().all(axis=1).to_numpy() if has_complete_state_columns else np.zeros(len(frame), dtype=bool)
+    if VAULT_STATE_OBSERVED_COLUMN in frame.columns:
+        frame[VAULT_STATE_OBSERVED_COLUMN] = frame[VAULT_STATE_OBSERVED_COLUMN].fillna(False).astype(bool).to_numpy() & state_fresh
+    else:
+        frame[VAULT_STATE_OBSERVED_COLUMN] = state_fresh
+
+    # Vault groups in the same order as groupby(["chain", "address"]), which
+    # sorts by the key and drops rows with a missing key.
+    grouped = frame.groupby(["chain", "address"], sort=True)
+    group_codes = grouped.ngroup().to_numpy()
+    group_keys = grouped.size().index
+    source_rows = np.flatnonzero(group_codes >= 0)
+    group_codes = group_codes[source_rows]
+    group_count = len(group_keys)
+
+    # Calendar of each vault: its first to last UTC day with observations.
+    days = frame.index.as_unit("ns").asi8[source_rows] // NANOSECONDS_PER_DAY
+    first_day = np.full(group_count, np.iinfo(np.int64).max)
+    last_day = np.full(group_count, np.iinfo(np.int64).min)
+    np.minimum.at(first_day, group_codes, days)
+    np.maximum.at(last_day, group_codes, days)
+    calendar_length = last_day - first_day + 1
+    group_start = np.concatenate([[0], np.cumsum(calendar_length)[:-1]])
+    output_count = int(calendar_length.sum())
+    output_group = np.repeat(np.arange(group_count), calendar_length)
+    output_days = np.arange(output_count) - group_start[output_group] + first_day[output_group]
+
+    # Output row of every source row. A stable sort by output row keeps
+    # source order within each day, so "last" means the last source row.
+    output_row = group_start[group_codes] + days - first_day[group_codes]
+    by_output_row = np.argsort(output_row, kind="stable")
+    sorted_source_rows = source_rows[by_output_row]
+    sorted_output_row = output_row[by_output_row]
+
+    # A day with no source rows at all is an empty resample bin. For NumPy
+    # integer and bool columns, pandas then switches that vault's result to
+    # float64, which changes the concatenated dtype below.
+    rows_per_output = np.bincount(output_row, minlength=output_count)
+    group_has_empty_bin = np.zeros(group_count, dtype=bool)
+    group_has_empty_bin[output_group[rows_per_output == 0]] = True
+
+    output_positions = np.arange(output_count)
+
+    def last_valid_source_row(is_missing: np.ndarray) -> np.ndarray:
+        """Source row of each day's last non-missing value, or -1."""
+        valid = ~is_missing[sorted_source_rows]
+        valid_at = np.flatnonzero(valid)
+        rows = sorted_output_row[valid_at]
+        # Last entry of each run of equal output rows.
+        is_last = np.append(rows[1:] != rows[:-1], True) if len(rows) else np.empty(0, dtype=bool)
+        result = np.full(output_count, -1, dtype=np.int64)
+        result[rows[is_last]] = sorted_source_rows[valid_at[is_last]]
+        return result
+
+    def forward_fill(source_row: np.ndarray) -> np.ndarray:
+        """Carry each vault's latest known source row over later empty days."""
+        known_at = np.where(source_row >= 0, output_positions, -1)
+        carried = np.maximum.accumulate(known_at)
+        # Never carry a value from the previous vault's calendar.
+        carried[carried < group_start[output_group]] = -1
+        return np.where(carried >= 0, source_row[np.maximum(carried, 0)], -1)
+
+    sparse_columns = {column for column in (*FLOW_COUNT_COLUMNS, *FLOW_AMOUNT_COLUMNS, FLOW_VALUE_COLUMN, VAULT_STATE_OBSERVED_COLUMN) if column in frame.columns}
+    output_columns: dict[str, object] = {}
+    for column in frame.columns:
+        series = frame[column]
+        dtype = series.dtype
+        source_row = last_valid_source_row(series.isna().to_numpy())
+        if isinstance(dtype, pd.ArrowDtype) and dtype.kind == "f":
+            # An Arrow float column can hold IEEE NaN as a real value, which
+            # isna() does not report. resample().last() skips only nulls, so
+            # a NaN can be the day's last value, but it comes back as a null
+            # that the forward fill then replaces. Reproduce both steps.
+            float_values = series.to_numpy(dtype="float64", na_value=np.nan)
+            source_row[(source_row >= 0) & np.isnan(float_values[np.maximum(source_row, 0)])] = -1
+        if column not in sparse_columns:
+            source_row = forward_fill(source_row)
+        if isinstance(dtype, pd.api.extensions.ExtensionDtype) or dtype.kind in "fM":
+            # Missing-value-capable types: -1 becomes the dtype's own NA.
+            output_columns[column] = series.array.take(source_row, allow_fill=True)
+        elif dtype.kind in "iu":
+            numbers = series.to_numpy()
+            if group_has_empty_bin.any():
+                # Any vault with an empty day produced float64, and concat
+                # widens the int64 results of the other vaults to match.
+                taken = numbers[np.maximum(source_row, 0)].astype("float64")
+                taken[source_row < 0] = np.nan
+                output_columns[column] = taken
+            else:
+                output_columns[column] = numbers[source_row]
+        else:
+            # NumPy bool: vaults without empty days keep bool, vaults with
+            # them become float64 1.0/0.0/NaN. When both occur, pandas'
+            # concat takes its cue from the first vault: a float64 first
+            # vault gives float64 for all, a bool first vault gives object
+            # with the original bools and floats mixed. Verified on pandas
+            # 3.0 with every two-to-four vault ordering.
+            flags = series.to_numpy()
+            if not group_has_empty_bin.any():
+                output_columns[column] = flags[source_row]
+            else:
+                as_float = flags[np.maximum(source_row, 0)].astype("float64")
+                as_float[source_row < 0] = np.nan
+                if group_has_empty_bin.all() or group_has_empty_bin[0]:
+                    output_columns[column] = as_float
+                else:
+                    mixed = as_float.astype(object)
+                    bool_rows = ~group_has_empty_bin[output_group]
+                    mixed[bool_rows] = flags[source_row[bool_rows]].astype(object)
+                    output_columns[column] = mixed
+
+    index_unit = np.datetime_data(frame.index.dtype)[0]
+    index = pd.DatetimeIndex((output_days * NANOSECONDS_PER_DAY).astype("datetime64[ns]"), name=frame.index.name).as_unit(index_unit)
+    result = pd.DataFrame(output_columns, index=index)
+
+    # Same returns as pct_change(fill_method=None).fillna(0) per vault: the
+    # first day of each vault has no previous price and gets 0.
+    share_price = result["share_price"].to_numpy()
+    returns = np.full(output_count, np.nan)
+    with np.errstate(divide="ignore", invalid="ignore"):
+        returns[1:] = share_price[1:] / share_price[:-1] - 1
+    returns[group_start] = np.nan
+    returns[np.isnan(returns)] = 0.0
+    result[returns_column] = returns
+
+    # The pandas loop overwrote these with the group key; build them the
+    # same way, from the key values, so their dtypes match too.
+    result["chain"] = pd.Series(np.repeat(np.array(group_keys.get_level_values(0).tolist()), calendar_length), index=index)
+    result["address"] = pd.Series(np.repeat(np.array(group_keys.get_level_values(1).tolist(), dtype=object), calendar_length), index=index)
+    return result
+
+
 def _calculate_regular_daily_returns(df_work: pd.DataFrame, returns_column: str, *, sparse_daily_input: bool = False) -> pd.DataFrame:
     """Regularise sparse vault prices and calculate one return per calendar day.
 
@@ -4514,6 +5443,14 @@ def _calculate_regular_daily_returns(df_work: pd.DataFrame, returns_column: str,
     records whether the final source row for the day contained all three vault
     accounting values; state-delta estimates use it to reject missing or filled
     state.
+
+    Hourly input with the cleaned Parquet's column types goes through
+    :func:`_regularise_daily_with_arrays`, which processes all vaults in one
+    pass. Its output is identical, dtypes included, to the per-vault pandas
+    loop in :func:`_regularise_daily_per_vault`: on the 2026-09-25
+    production snapshot of 12,795 stablecoin vaults and 10.1 million rows,
+    both produced the same frame, in 11.9 s instead of 76.7 s. Sparse daily
+    input and other frames still use the per-vault loop.
 
     :param df_work:
         Vault price rows indexed by timestamp, with ``chain``, ``address`` and
@@ -4531,6 +5468,27 @@ def _calculate_regular_daily_returns(df_work: pd.DataFrame, returns_column: str,
 
     assert isinstance(df_work, pd.DataFrame)
     assert isinstance(df_work.index, pd.DatetimeIndex), "DataFrame index must be a DatetimeIndex"
+    if not sparse_daily_input and _can_regularise_daily_with_arrays(df_work):
+        return _regularise_daily_with_arrays(df_work, returns_column)
+    return _regularise_daily_per_vault(df_work, returns_column, sparse_daily_input=sparse_daily_input)
+
+
+def _regularise_daily_per_vault(df_work: pd.DataFrame, returns_column: str, *, sparse_daily_input: bool) -> pd.DataFrame:
+    """Per-vault pandas implementation of :func:`_calculate_regular_daily_returns`.
+
+    Used for sparse daily input and for frames that
+    :func:`_can_regularise_daily_with_arrays` does not support. It is also
+    the reference that the array implementation is tested against.
+
+    :param df_work:
+        Vault price rows indexed by timestamp.
+    :param returns_column:
+        Name assigned to the calculated percentage-return column.
+    :param sparse_daily_input:
+        Input already has at most one observation per vault and UTC day.
+    :return:
+        Daily vault rows with the requested return column.
+    """
     result_dfs = []
     grouped_vaults = df_work.groupby(["chain", "address"])
     for (chain_val, addr_val), group in tqdm(grouped_vaults, desc="Preparing daily vault returns", total=grouped_vaults.ngroups):
