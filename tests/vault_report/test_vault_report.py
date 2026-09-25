@@ -109,13 +109,13 @@ def make_vault_record(address: str, **overrides) -> dict:
 def vault_records() -> list[dict]:
     """Synthetic vaults covering each filter rule."""
     return [
-        make_vault_record("0xaa", one_month_cagr_net=0.20),
+        make_vault_record("0xaa", one_month_cagr_net=0.20, three_months_cagr=0.18),
         make_vault_record("0xbb", one_month_cagr_net=None, one_month_cagr=0.15),
         make_vault_record("0xcc", one_month_cagr_net=0.50, risk="Blacklisted"),
         make_vault_record("0xdd", one_month_cagr_net=0.60, end_date="2026-08-01T00:00:00"),
         make_vault_record("0xee", one_month_cagr_net=0.90, current_nav=50_000.0),
-        make_vault_record("0xff", chain="Hypercore", protocol="Hyperliquid", protocol_slug="hyperliquid", one_month_cagr_net=100.0, one_month_returns=0.9, event_count=2, flags=["perp_dex_trading_vault"], three_months_volatility=0.8),
-        make_vault_record("0x11", chain="Hypercore", protocol="Hyperliquid", protocol_slug="hyperliquid", one_month_cagr_net=100.0, one_month_returns=1.5, event_count=2, flags=["perp_dex_trading_vault"], three_months_volatility=0.8),
+        make_vault_record("0xff", chain="Hypercore", protocol="Hyperliquid", protocol_slug="hyperliquid", one_month_cagr_net=100.0, one_month_returns=0.9, three_months_returns=1.0, event_count=2, flags=["perp_dex_trading_vault"], three_months_volatility=0.8),
+        make_vault_record("0x11", chain="Hypercore", protocol="Hyperliquid", protocol_slug="hyperliquid", one_month_cagr_net=100.0, one_month_returns=1.5, three_months_returns=2.0, event_count=2, flags=["perp_dex_trading_vault"], three_months_volatility=0.8),
         make_vault_record("0x22", chain="Base", one_month_cagr_net=0.05, current_nav=3_000_000.0, years=0.1, period_results=[{"period": "1M", "tvl_start": 1_000_000.0, "tvl_end": 3_000_000.0}]),
         make_vault_record("0x33", protocol="ERC-4626", protocol_slug="erc-4626", strategy_tags=None, one_month_cagr_net=0.30),
         make_vault_record("0x55", protocol="Yearn", protocol_slug="yearn", strategy_tags=None, one_month_cagr_net=0.12),
@@ -190,8 +190,8 @@ def test_average_yields(vaults_df: pd.DataFrame):
     assert "1-0x33" not in yield_vaults.index  # Generic ERC-4626 vault without an identified protocol
 
     by_chain = calculate_average_yields(yield_vaults, "chain")
-    # Ethereum: 0.20 @ 1M, 0.15 @ 1M, 0.90 @ 50k, 0.12 @ 1M, 0.045 @ 1M
-    assert by_chain.loc["Ethereum", "avg_return"] == pytest.approx((0.20 + 0.15 + 0.90 * 0.05 + 0.12 + 0.045) / 4.05)
+    # Averages use the annualised three-month return. Ethereum: 0.18 @ $1M, then 0.09 @ $1M, $50k, $1M and $1M
+    assert by_chain.loc["Ethereum", "avg_return"] == pytest.approx((0.18 + 0.09 * 3 + 0.09 * 0.05) / 4.05)
     assert list(calculate_chain_yields(yield_vaults, ReportCriteria(yield_top_chains=1)).index) == ["Ethereum"]
 
     protocols = calculate_protocol_yields(yield_vaults, criteria)

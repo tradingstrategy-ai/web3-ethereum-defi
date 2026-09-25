@@ -155,10 +155,10 @@ these filters; its footer shows only the minimum TVL and the data date.
 
 All listings exclude blacklisted vaults and vaults whose data is more than a
 week older than the report date. Performance charts draw the 90-day equity
-curves, in percent, of the first rows of their table in one
+curves, in percent, of the top vaults of each group by three-month return in one
 chart with a shared axis, so they can be compared directly. The legend and the benchmark line ends show annualised
 returns over each line's span, capped at >9,999% like the tables. The legend
-numbers are table ranks, repeated as badges at the line ends. Days without a share price update are interpolated, so sparsely
+numbers are chart ranks, repeated as badges at the line ends. Days without a share price update are interpolated, so sparsely
 updated vaults do not draw staircases. Vaults younger than 90
 days start at 0% at launch. A single vault far
 above the others is drawn off scale with a ▲ marker, and the axis switches to
@@ -180,6 +180,9 @@ compares performance. See
 - Returns are annualised: (n) net of fees, (g) gross when fee data is not
   available. The export caps annualised returns at 10,000%, shown as `>9,999%`
   like on the website; ties are ranked by the absolute one-month return.
+- Tables rank by the annualised one-month return, like the website. All charts
+  use the steadier annualised three-month return instead, see
+  [README-blog-post-outline.md](./README-blog-post-outline.md#common-rules).
 - "3M price" shows the website's published 90-day sparkline (PNG, so it
   survives newsletter email clients). Low-TVL vaults may not have one yet.
 - Tables have no risk rating column. The technical risk rating is used only to

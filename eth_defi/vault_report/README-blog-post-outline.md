@@ -67,13 +67,14 @@ pile automatically. No report change is needed.
 
 ## Common rules
 
-- **Charts and risk:** charts get shared without the tables around them, so the hero image, the performance charts and the risk and return chart leave out vaults rated Dangerous or worse (`ReportCriteria.chart_min_excluded_risk`). The tables keep them. Tables have no risk rating column. A performance chart then shows the next vaults of the table, and its legend keeps the table ranks, so the numbers can skip.
+- **Charts and risk:** charts get shared without the tables around them, so the hero image, the performance charts and the risk and return chart leave out vaults rated Dangerous or worse (`ReportCriteria.chart_min_excluded_risk`). The tables keep them. Tables have no risk rating column. A performance chart then shows the next vaults instead.
 - **No repeated text:** the notes above a chart only add what its title, subtitle and axes do not already say.
 
 - **Eligibility:** blacklisted vaults and vaults whose data is more than a week older than the report date are left out of every section. Vaults without an identified protocol are left out of every performance comparison, see [Unidentified protocols](#unidentified-protocols).
-- **Ranking metric:** "by return" is the annualised one-month return (1M CAGR), net of fees (n) when fee data exists and gross (g) otherwise. The website ranks vaults by the same metric. "By Sharpe" is the three-month Sharpe ratio.
+- **Ranking metric:** tables rank "by return" on the annualised one-month return (1M CAGR), net of fees (n) when fee data exists and gross (g) otherwise, like the website. "By Sharpe" is the three-month Sharpe ratio.
+- **Chart metric:** all charts use the steadier annualised three-month return (`sections.CHART_RETURN`): the average yield dot plots, the hero image and the choice of vaults in the performance charts, which show the top 8 of each group by three-month return rather than the top of the table. Their legend numbers are chart ranks. The Sharpe ratio chart ranks by three-month Sharpe ratio. The T-bill caption above the tables stays on one-month returns.
 - **Table thresholds:** at least $100k TVL. Lending and other vaults also need at least 10 deposit and redemption events. Tables list the top 20.
-- **Performance charts:** 90-day equity curves, in percent, of the top 8 vaults of the table below, all in one chart with a shared axis so they can be compared directly. The chart subtitle states the minimum TVL and that the legend returns are annualised; the legend shows the numbers only, without "ann." or a start date. The Sharpe ratio section draws the 90-day rolling Sharpe ratio instead of equity, calculated like the table's 3M Sharpe, so the latest values match the table. Legend numbers are table ranks; each legend entry shows the vault's curator, protocol and chain with their icons under the name. The benchmarks used by at least half of the vaults are drawn in grey: the US 3M T-bill for calm yield vaults, BTC and ETH for perp DEX and volatile vaults. A single vault far above the others is drawn off scale, and returns above 100% switch the axis to a log scale.
+- **Performance charts:** 90-day equity curves, in percent, of the top 8 vaults of the group by three-month return, all in one chart with a shared axis so they can be compared directly. The chart subtitle states the minimum TVL and that the legend returns are annualised; the legend shows the numbers only, without "ann." or a start date. The Sharpe ratio section draws the 90-day rolling Sharpe ratio instead of equity, calculated like the table's 3M Sharpe, so the latest values match the table. Legend numbers are chart ranks; each legend entry shows the vault's curator, protocol and chain with their icons under the name. The benchmarks used by at least half of the vaults are drawn in grey: the US 3M T-bill for calm yield vaults, BTC and ETH for perp DEX and volatile vaults. A single vault far above the others is drawn off scale, and returns above 100% switch the axis to a log scale.
 
 ## Outline
 
@@ -124,7 +125,7 @@ Outliers above 400% annualised return or 50% annualised volatility are left out 
 
 ## Decisions to confirm
 
-1. **"By CAGR" means the annualised one-month return**, the metric the website ranks by. Ranking by three-month CAGR would be steadier; for perp DEX vaults, the one-month value often hits the export's 10,000% cap.
+1. **"By CAGR" in tables means the annualised one-month return**, the metric the website ranks by; the charts use the three-month return. For perp DEX vaults, both often hit the export's 10,000% cap.
 2. **The top 10 protocols are the largest by TVL, each with at least $1M TVL.** Ranking by yield among protocols with $1M TVL gives a different list, led by small volatile protocols: YieldBasis, GMX and Enzyme were all above 90% in September 2026.
 3. **TVL changes include returns as well as deposits and redemptions.** The export has estimated net flows (`flow_value`) for only about 1,100 of 5,500 vaults, so dollar TVL changes are used. Funds listed under several share tokens, such as the Janus Henderson Anemoy fund classes on Centrifuge, can appear more than once.
 4. **The lending classification is partly a curated protocol list**, because strategy tags cover only Aave, Euler and Morpho vaults. Tagging more protocol adapters would retire the list.
