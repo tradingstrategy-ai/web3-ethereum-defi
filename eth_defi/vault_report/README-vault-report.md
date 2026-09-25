@@ -168,9 +168,9 @@ like the exported 3M Sharpe, so its latest values match the table.
 
 ### AMM pools
 
-AMM pools (GMX GM and GLV pools, the Curve-based YieldBasis, Gains Network,
-KiloEx) earn trading fees on pooled crypto, so their returns follow the price of
-the pooled assets. They get their own *AMM pools* section with at least $1M TVL
+AMM pools, GMX GM and GLV pools and the Curve-based YieldBasis, are the vaults
+with the `amm_pool_like` feature that the scanner sets. They earn trading fees
+on pooled crypto, so their returns follow the price of the pooled assets. They get their own *AMM pools* section with at least $1M TVL
 and are left out of every other ranking and chart by default, counted only in
 the TVL summaries. Set `ReportCriteria.include_amm_pools` to rank them with
 the other vaults. See

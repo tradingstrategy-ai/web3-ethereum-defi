@@ -23,6 +23,7 @@ from dataclasses import dataclass, field
 
 import pandas as pd
 
+from eth_defi.erc_4626.core import ERC4626Feature
 from eth_defi.research.vault_metrics import USDollarAmount, _get_trading_strategy_chain_link, _get_trading_strategy_protocol_link
 from eth_defi.types import Percent
 from eth_defi.vault.risk import VaultTechnicalRisk
@@ -56,13 +57,9 @@ LENDING_STRATEGY_TAGS = frozenset({"lending", "lending_optimisation", "lending_l
 #: adapters would make this list unnecessary.
 LENDING_PROTOCOL_SLUGS = frozenset({"aave", "morpho", "euler", "fluid", "spark", "silo-finance", "llama-lend", "curvance", "dolomite", "gearbox", "sentiment", "arcadia-finance", "term-finance", "40acres", "3jane", "frax"})
 
-#: Strategy tags of automated market maker pools, e.g. YieldBasis, Gains Network gTrade and KiloEx.
-#: ``liquidity_provider`` alone is not enough: perp DEX liquidity vaults like Hyperliquid HLP carry it too.
-AMM_STRATEGY_TAGS = frozenset({"amm", "market_making_amm"})
-
-#: Protocols whose vaults are all AMM pools, including untagged ones: GMX GM and GLV pools, and the
-#: Curve-based YieldBasis and Curve pools
-AMM_PROTOCOL_SLUGS = frozenset({"gmx", "yieldbasis", "curve"})
+#: Vault feature of AMM liquidity-provider shares, set by the scanner for GMX GM and GLV pools and
+#: Curve-based YieldBasis LTs, see :py:attr:`eth_defi.erc_4626.core.ERC4626Feature.amm_pool_like`
+AMM_POOL_FEATURE = ERC4626Feature.amm_pool_like.value
 
 #: Vault flag for tokenised funds, such as money market and treasury funds
 TOKENISED_FUND_FLAG = "tokenised_fund"
@@ -337,18 +334,19 @@ def classify_vault(vault: pd.Series) -> str:
     """Classify a vault into one of the report's vault groups.
 
     :param vault:
-        Vault metrics row with ``is_perp_dex``, ``flags``, ``strategy_tags`` and ``protocol_slug``.
+        Vault metrics row with ``features``, ``is_perp_dex``, ``flags``, ``strategy_tags`` and ``protocol_slug``.
 
     :return:
         :py:data:`AMM`, :py:data:`PERP_DEX`, :py:data:`TOKENISED_FUND`, :py:data:`LENDING` or :py:data:`OTHER`.
     """
-    tags = vault["strategy_tags"] if isinstance(vault["strategy_tags"], list) else []
-    if AMM_STRATEGY_TAGS.intersection(tags) or vault["protocol_slug"] in AMM_PROTOCOL_SLUGS:
+    features = vault.get("features")
+    if isinstance(features, list) and AMM_POOL_FEATURE in features:
         return AMM
     if vault["is_perp_dex"]:
         return PERP_DEX
     if TOKENISED_FUND_FLAG in (vault["flags"] if isinstance(vault["flags"], list) else []):
         return TOKENISED_FUND
+    tags = vault["strategy_tags"] if isinstance(vault["strategy_tags"], list) else []
     if LENDING_STRATEGY_TAGS.intersection(tags) or vault["protocol_slug"] in LENDING_PROTOCOL_SLUGS:
         return LENDING
     return OTHER
