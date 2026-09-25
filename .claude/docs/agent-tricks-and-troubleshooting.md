@@ -711,6 +711,41 @@ file before acting on it.
   a "no findings" result (see "The agent reviews the wrong tree").
 - **Clean up.** Remove `/tmp/grok-*.json` and prompt files after the run.
 
+## Kimi Code CLI
+
+Observed with `kimi` 2.0.2 (`~/.kimi-code/bin/kimi`) on 2026-09-25.
+
+- Non-interactive runs use `-p "prompt"` with `--output-format stream-json`.
+  Attach extra read-only context directories with `--add-dir`, e.g. the website
+  frontend checkout.
+- The model is chosen with `-m <alias>` from `~/.kimi-code/config.toml`.
+  K3 is `kimi-code/k3`, which defaults to `high` effort. There is no CLI flag for
+  the reasoning effort; it comes from the alias's `default_effort`. For max
+  effort, add a separate alias rather than editing the managed one. The session
+  log records the effort as `"thinkingEffort":"max"`:
+
+  ```toml
+  [models."kimi-code/k3-max"]
+  provider = "managed:kimi-code"
+  model = "k3"
+  max_context_size = 1048576
+  capabilities = [ "thinking", "always_thinking", "image_in", "video_in", "tool_use", "dynamically_loaded_tools" ]
+  support_efforts = [ "low", "high", "max" ]
+  default_effort = "max"
+  ```
+
+- Tell Kimi explicitly that the review is read-only. It reads files and runs
+  shell commands itself.
+- A grounded plan review at max effort took about 45 minutes. Run it in the
+  background and poll the JSONL file. The run is finished when the final
+  `session.resume_hint` event appears; the review is the last assistant message
+  without tool calls.
+
+```shell
+nohup kimi -m kimi-code/k3-max --add-dir /path/to/frontend -p "$(cat prompt.txt)" \
+  --output-format stream-json < /dev/null > /tmp/kimi-review.jsonl 2> /tmp/kimi-review.err &
+```
+
 ## Cross-agent review patterns
 
 Use the other agent as a reviewer when:
