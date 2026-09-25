@@ -318,11 +318,17 @@ def classify_vault(vault: pd.Series) -> str:
     return OTHER
 
 
+#: Column with the return used by all charts: the annualised three-month return, net of fees when known.
+#: Tables rank by the one-month return like the website; charts use the steadier three-month return.
+CHART_RETURN = "three_months_cagr_best"
+
+
 def rank_vaults(df: pd.DataFrame, column: str = "one_month_cagr_best") -> pd.DataFrame:
     """Sort vaults by a metric, best first.
 
     The export caps annualised returns at 10,000%, so ties are broken with
-    the absolute one-month return.
+    the absolute return of the same period: three months for three-month
+    metrics, one month otherwise.
 
     :param df:
         Vault metrics.
@@ -333,7 +339,8 @@ def rank_vaults(df: pd.DataFrame, column: str = "one_month_cagr_best") -> pd.Dat
     :return:
         Sorted vault metrics.
     """
-    return df.sort_values([column, "one_month_returns"], ascending=False, na_position="last")
+    tie_breaker = "three_months_returns" if column.startswith("three_months") else "one_month_returns"
+    return df.sort_values([column, tie_breaker], ascending=False, na_position="last")
 
 
 def select_group(eligible_df: pd.DataFrame, criteria: ReportCriteria, group: str, *, by: str = "one_month_cagr_best") -> pd.DataFrame:
@@ -436,12 +443,12 @@ def select_average_yield_vaults(eligible_df: pd.DataFrame, criteria: ReportCrite
         Selected vaults.
     """
     df = eligible_df
-    mask = (df["current_nav"] >= criteria.yield_min_vault_tvl) & (df["one_month_cagr_best"] <= criteria.yield_max_return) & (df["three_months_volatility"] <= criteria.yield_max_volatility)
+    mask = (df["current_nav"] >= criteria.yield_min_vault_tvl) & (df[CHART_RETURN] <= criteria.yield_max_return) & (df["three_months_volatility"] <= criteria.yield_max_volatility)
     return df.loc[mask]
 
 
 def calculate_average_yields(yield_vaults: pd.DataFrame, group_column: str) -> pd.DataFrame:
-    """Calculate the TVL-weighted average one-month yield per group.
+    """Calculate the TVL-weighted average three-month yield per group.
 
     :param yield_vaults:
         Output of :py:func:`select_average_yield_vaults`.
@@ -451,10 +458,10 @@ def calculate_average_yields(yield_vaults: pd.DataFrame, group_column: str) -> p
 
     :return:
         DataFrame indexed by group with columns ``tvl`` (USD), ``avg_return``
-        (TVL-weighted annualised one-month return, 0.05 = 5%) and ``vault_count``.
+        (TVL-weighted annualised three-month return, 0.05 = 5%) and ``vault_count``.
     """
     df = yield_vaults
-    grouped = df.assign(weighted=df["current_nav"] * df["one_month_cagr_best"]).groupby(group_column).agg(tvl=("current_nav", "sum"), weighted=("weighted", "sum"), vault_count=("current_nav", "size"))
+    grouped = df.assign(weighted=df["current_nav"] * df[CHART_RETURN]).groupby(group_column).agg(tvl=("current_nav", "sum"), weighted=("weighted", "sum"), vault_count=("current_nav", "size"))
     grouped["avg_return"] = grouped["weighted"] / grouped["tvl"]
     return grouped[["tvl", "avg_return", "vault_count"]]
 

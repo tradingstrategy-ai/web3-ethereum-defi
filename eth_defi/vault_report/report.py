@@ -54,6 +54,7 @@ from eth_defi.vault_report.logos import fetch_chain_logo_uri, load_benchmark_log
 from eth_defi.vault_report.post import PostContext, build_post_html, build_preview_html, make_month_label, make_report_slug, make_report_title
 from eth_defi.vault_report.sections import (
     CHAIN_TABLE_COLUMNS,
+    CHART_RETURN,
     LENDING,
     OTHER,
     PERP_DEX,
@@ -68,6 +69,7 @@ from eth_defi.vault_report.sections import (
     calculate_tvl_changes,
     exclude_chart_risks,
     filter_eligible_vaults,
+    rank_vaults,
     render_section_table,
     select_average_yield_vaults,
     select_comparable_vaults,
@@ -262,8 +264,9 @@ def make_criteria_notes(criteria: ReportCriteria) -> dict[str, list[str]]:
     active = f"at least {criteria.min_events} deposit and redemption events"
     unidentified = "Vaults without an identified protocol, such as generic ERC-4626 vaults, are left out, because their data is often unreliable"
     # The notes explain what the chart subtitles and axes do not already say
-    chart_risk = "Vaults rated Dangerous or worse by our technical risk framework are left out of the chart but listed in the table"
-    benchmarks = "Benchmarks: the 3-month US Treasury bill for calm yield vaults, BTC and ETH for volatile vaults; the legend numbers are table ranks"
+    chart_risk = "Vaults rated Dangerous or worse by our technical risk framework are left out of the charts but listed in the tables"
+    benchmarks = "Benchmarks: the 3-month US Treasury bill for calm yield vaults, BTC and ETH for volatile vaults"
+    chart_ranking = f"The chart shows the top {criteria.performance_chart_vaults} vaults of the group by annualised three-month return, which is steadier than the table's one-month ranking"
     average = [
         f"Vaults with at least {format_usd(criteria.yield_min_vault_tvl)} TVL; outliers above {criteria.yield_max_return:.0%} annualised return or {criteria.yield_max_volatility:.0%} annualised volatility excluded",
         unidentified,
@@ -289,11 +292,11 @@ def make_criteria_notes(criteria: ReportCriteria) -> dict[str, list[str]]:
             TABLE_FORMAT_NOTE,
             live.format(url="https://tradingstrategy.ai/trading-view/vaults"),
         ],
-        "lending": ["Vaults supplying stablecoins to lending markets, identified by their strategy or lending protocol", benchmarks, chart_risk],
-        "perp_dex": ["Hyperliquid, GRVT, Lighter and other perpetual futures DEX vaults", chart_risk],
+        "lending": ["Vaults supplying stablecoins to lending markets, identified by their strategy or lending protocol", chart_ranking, benchmarks, chart_risk],
+        "perp_dex": ["Hyperliquid, GRVT, Lighter and other perpetual futures DEX vaults", chart_ranking, chart_risk],
         "perp_dex_sharpe": ["The same vaults ranked by three-month Sharpe ratio, rewarding steady returns over high but volatile ones", "The legend shows the latest Sharpe ratio", chart_risk],
-        "other": ["Yield aggregators, trading and other vaults that are not lending, perp DEX or tokenised fund vaults", benchmarks, chart_risk],
-        "tokenised_funds": ["Onchain money market, treasury and credit funds", min_tvl, benchmarks, chart_risk],
+        "other": ["Yield aggregators, trading and other vaults that are not lending, perp DEX or tokenised fund vaults", chart_ranking, benchmarks, chart_risk],
+        "tokenised_funds": ["Onchain money market, treasury and credit funds", min_tvl, chart_ranking, benchmarks, chart_risk],
         "new": [f"Vaults launched in the last {criteria.new_vault_max_age.days} days", f"Minimum {format_usd(criteria.new_vault_min_tvl)} TVL and {active}; perp DEX vaults excluded", unidentified],
         "risk_return": [
             f"Vaults with annualised three-month returns above {criteria.scatter_max_return:.0%} are drawn as triangles on the top edge",
@@ -401,9 +404,11 @@ def render_report_charts(
     yield_universe = select_yield_vaults(comparable_df, criteria)
     protocol_slugs = eligible_df.drop_duplicates("protocol").set_index("protocol")["protocol_slug"]
 
-    # Charts show the top of each table, leaving out Dangerous and worse vaults; the legend keeps the table rank
-    performance_vaults = {key: exclude_chart_risks(sections[key].vaults_df.assign(table_rank=range(1, len(sections[key].vaults_df) + 1)), criteria).head(criteria.performance_chart_vaults) for key in BEST_SECTIONS if key in sections}
-    hero_vaults = yield_universe.loc[(yield_universe["one_month_cagr_best"] <= criteria.chart_max_return) & (yield_universe["three_months_volatility"] <= criteria.hero_max_volatility)].pipe(exclude_chart_risks, criteria).head(5)
+    # Charts rank by the annualised three-month return, which is steadier than the tables' one-month ranking,
+    # and leave out Dangerous and worse vaults. The Sharpe ratio chart keeps its three-month Sharpe ranking.
+    performance_vaults = {key: select_group(comparable_df, criteria, group, by=metric if key == "perp_dex_sharpe" else CHART_RETURN).pipe(exclude_chart_risks, criteria).head(criteria.performance_chart_vaults) for key, (group, metric) in BEST_SECTIONS.items() if key in sections}
+    hero_candidates = yield_universe.loc[(yield_universe[CHART_RETURN] <= criteria.chart_max_return) & (yield_universe["three_months_volatility"] <= criteria.hero_max_volatility)]
+    hero_vaults = rank_vaults(hero_candidates, CHART_RETURN).pipe(exclude_chart_risks, criteria).head(5)
 
     chart_ids = set(hero_vaults.index) | {vault_id for df in performance_vaults.values() for vault_id in df.index}
     share_prices = read_vault_share_prices(data.prices_path, sorted(chart_ids), start_at=data.data_end_at - PRICE_HISTORY)
@@ -474,13 +479,13 @@ def render_report_charts(
     # The legend shows annualised returns without a unit label, so the subtitle states it
     period = f"over {PERFORMANCE_WINDOW.days} days, returns annualised"
     selection = f"Top {criteria.performance_chart_vaults} {{by}} with at least {format_usd(criteria.min_tvl)} TVL"
-    by_return = selection.format(by="by return")
+    by_return = selection.format(by="by 3M return")
     performance_panels = {
         "lending": ChartPanel("Performance of the best-performing lending vaults", f"{by_return}, {period}, against their benchmarks", "tradingstrategy.ai/trading-view/vaults"),
         "perp_dex": ChartPanel("Performance of the best-performing perp DEX vaults", f"{by_return}, {period}, against BTC and ETH", "tradingstrategy.ai/trading-view/vaults"),
         "perp_dex_sharpe": ChartPanel("Performance of perp DEX vaults with the best Sharpe ratio", f"{selection.format(by='by 3M Sharpe ratio')}, against BTC and ETH", "tradingstrategy.ai/trading-view/vaults"),
         "other": ChartPanel("Performance of other best-performing vaults", f"{by_return}, {period}, against their benchmarks", "tradingstrategy.ai/trading-view/vaults"),
-        "tokenised_funds": ChartPanel("Performance of the best-performing tokenised funds", f"{selection.format(by='funds by return')}, {period}, against their benchmarks", "tradingstrategy.ai/trading-view/vaults/funds"),
+        "tokenised_funds": ChartPanel("Performance of the best-performing tokenised funds", f"{selection.format(by='funds by 3M return')}, {period}, against their benchmarks", "tradingstrategy.ai/trading-view/vaults/funds"),
     }
     benchmark_logos = {name: load_benchmark_logo_uri(name) for name in benchmark_indices}
     for key, df in performance_vaults.items():
@@ -491,7 +496,6 @@ def render_report_charts(
                 vault_id=vault_id,
                 name=vault["name"] or vault["address"],
                 properties=vault_properties[vault_id],
-                rank=int(vault["table_rank"]),
                 benchmarks=select_benchmarks(vault, criteria.crypto_benchmark_min_volatility, criteria.crypto_benchmark_max_drawdown),
             )
             for vault_id, vault in df.iterrows()

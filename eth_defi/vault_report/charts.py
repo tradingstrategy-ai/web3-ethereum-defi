@@ -35,7 +35,7 @@ from PIL import Image, ImageFont
 from plotly.graph_objects import Figure
 
 from eth_defi.vault_report.benchmarks import BTC, ETH, TREASURY_BILL
-from eth_defi.vault_report.sections import CAPPED_ANNUALISED_RETURN
+from eth_defi.vault_report.sections import CAPPED_ANNUALISED_RETURN, CHART_RETURN
 from eth_defi.vault_report.theme import ASSETS_DIR, FONT_REGULAR, ChartTheme, apply_theme
 
 logger = logging.getLogger(__name__)
@@ -333,7 +333,7 @@ class PerformanceSeries:
     #: Benchmark names the vault is compared with, see :py:func:`eth_defi.vault_report.benchmarks.select_benchmarks`
     benchmarks: tuple[str, ...]
 
-    #: Rank in the table, shown in the legend and the line end badge. Defaults to the position in the chart.
+    #: Rank shown in the legend and the line end badge. Defaults to the position in the chart.
     rank: int | None = None
 
 
@@ -415,7 +415,7 @@ def create_performance_figure(
     Each line shows the equity change in percent since the start of the window.
     All vaults share the time axis and the equity axis, so their equity curves
     can be compared directly. Vault colours
-    follow the table order, and the legend numbers match the table rows. The
+    follow the ranking order, and the legend numbers are the ranks. The
     legend and line end labels show annualised returns over each line's span, as
     bare percentages; the chart subtitle says they are annualised. A vault
     younger than the window starts from 0% at its first data point.
@@ -645,7 +645,7 @@ def create_average_yield_figure(
         or :py:func:`~eth_defi.vault_report.sections.calculate_protocol_yields`.
 
     :param vault_returns:
-        Vaults counted in the averages, with the ``group_column`` and ``one_month_cagr_best`` columns.
+        Vaults counted in the averages, with the ``group_column`` and ``three_months_cagr_best`` columns.
 
     :param group_column:
         ``chain`` or ``protocol``.
@@ -672,8 +672,8 @@ def create_average_yield_figure(
     clip = max_return * 100
 
     points = vault_returns.loc[vault_returns[group_column].isin(positions)].copy()
-    points["x"] = (points["one_month_cagr_best"] * 100).clip(lower=-5, upper=clip)
-    points["marker"] = np.select([points["one_month_cagr_best"] * 100 > clip, points["one_month_cagr_best"] * 100 < -5], ["triangle-right", "triangle-left"], "circle")
+    points["x"] = (points[CHART_RETURN] * 100).clip(lower=-5, upper=clip)
+    points["marker"] = np.select([points[CHART_RETURN] * 100 > clip, points[CHART_RETURN] * 100 < -5], ["triangle-right", "triangle-left"], "circle")
     # Deterministic vertical jitter so dots of one group do not sit on top of each other
     points["y"] = [positions[group] + ((zlib.crc32(vault_id.encode()) % 1000) / 1000 - 0.5) * 0.44 for vault_id, group in zip(points.index, points[group_column], strict=True)]
 
@@ -694,7 +694,7 @@ def create_average_yield_figure(
     height = max(IMAGE_HEIGHT, 140 + 58 * len(df))
     apply_theme(fig, theme, IMAGE_WIDTH, height)
     # Margins sized so the labels, the plot and the right column fill the panel width
-    fig.update_layout(xaxis_title="1M annualised return (%)", margin={"l": 254, "r": 264, "t": 50, "b": 90})
+    fig.update_layout(xaxis_title="3M annualised return (%)", margin={"l": 254, "r": 264, "t": 50, "b": 90})
     fig.update_xaxes(showgrid=True, gridcolor=theme.grid, range=[-6, clip + 2], ticksuffix="%", zeroline=True, zerolinecolor=theme.axis, zerolinewidth=1)
     fig.update_yaxes(showgrid=False, showticklabels=False, showline=False, zeroline=False, range=[-0.7, len(df) - 0.3])
 

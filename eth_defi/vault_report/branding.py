@@ -403,7 +403,7 @@ def render_hero_image(
     spark_right = spark_left + (200 if square else 240)
     header_font = _font(15)
     draw.text((spark_left, rows_top - 30), "90-day price", font=header_font, fill=theme.muted_text)
-    header = "1M return, annualised"
+    header = "3M return, annualised"
     draw.text((width - pad - draw.textlength(header, font=header_font), rows_top - 30), header, font=header_font, fill=theme.muted_text)
     for rank, (vault_id, vault) in enumerate(rows.iterrows(), start=1):
         top = rows_top + (rank - 1) * row_height
@@ -430,7 +430,7 @@ def render_hero_image(
         if vault_id in sparklines:
             _draw_sparkline(image, sparklines[vault_id], (spark_left, top + 6, spark_right, top + 50), theme.positive)
             draw = ImageDraw.Draw(image)
-        value = format_return(vault["one_month_cagr_net"], vault["one_month_cagr"]).replace(" (n)", "").replace(" (g)", "")
+        value = format_return(vault["three_months_cagr_net"], vault["three_months_cagr"]).replace(" (n)", "").replace(" (g)", "")
         value_font = _font(34, bold=True)
         draw.text((width - pad - draw.textlength(value, font=value_font), top + 6), value, font=value_font, fill=theme.positive)
 
