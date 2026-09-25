@@ -41,7 +41,6 @@ from eth_defi.vault_report.sections import (
     exclude_chart_risks,
     filter_eligible_vaults,
     format_return,
-    format_risk_badge,
     format_sharpe,
     format_vault_cells,
     is_identified_protocol,
@@ -574,16 +573,13 @@ def test_vault_properties(vaults_df: pd.DataFrame):
     assert [prop.text for prop in make_vault_properties(vault, DARK_THEME, lambda chain: None)] == ["Morpho"]
 
 
-def test_table_badges_and_sparklines(vaults_df: pd.DataFrame):
-    """Tables show risk pills and sparklines only for vaults that have one."""
-    assert ">Low<" in format_risk_badge("Low")
-    assert ">Unrated<" in format_risk_badge(None)
-    assert "<a " not in format_risk_badge(None)
+def test_table_sparklines(vaults_df: pd.DataFrame):
+    """Tables show sparklines only for vaults that have one, and no risk rating column."""
     table = render_section_table(ReportSection(vaults_df.loc[["1-0xaa", "1-0xbb"]], sparkline_ids=frozenset({"1-0xaa"})))
     assert table.count("sparkline-90d-") == 1
     assert "sparkline-90d-1-0xaa.png" in table
     assert table.startswith("<table>")
-    assert "<span" in format_risk_badge(None)  # Unrated is muted text, not a pill link
+    assert "Risk" not in table
 
 
 def test_compose_chart_panel(tmp_path: Path):

@@ -262,7 +262,7 @@ def make_criteria_notes(criteria: ReportCriteria) -> dict[str, list[str]]:
     active = f"at least {criteria.min_events} deposit and redemption events"
     unidentified = "Vaults without an identified protocol, such as generic ERC-4626 vaults, are left out, because their data is often unreliable"
     # The notes explain what the chart subtitles and axes do not already say
-    chart_risk = "Vaults rated Dangerous or worse are left out of the chart but listed in the table with their risk rating"
+    chart_risk = "Vaults rated Dangerous or worse by our technical risk framework are left out of the chart but listed in the table"
     benchmarks = "Benchmarks: the 3-month US Treasury bill for calm yield vaults, BTC and ETH for volatile vaults; the legend numbers are table ranks"
     average = [
         f"Vaults with at least {format_usd(criteria.yield_min_vault_tvl)} TVL; outliers above {criteria.yield_max_return:.0%} annualised return or {criteria.yield_max_volatility:.0%} annualised volatility excluded",

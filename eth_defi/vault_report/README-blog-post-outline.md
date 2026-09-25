@@ -67,7 +67,7 @@ pile automatically. No report change is needed.
 
 ## Common rules
 
-- **Charts and risk:** charts get shared without the tables around them, so the hero image, the performance charts and the risk and return chart leave out vaults rated Dangerous or worse (`ReportCriteria.chart_min_excluded_risk`). The tables keep them, with their risk rating. A performance chart then shows the next vaults of the table, and its legend keeps the table ranks, so the numbers can skip.
+- **Charts and risk:** charts get shared without the tables around them, so the hero image, the performance charts and the risk and return chart leave out vaults rated Dangerous or worse (`ReportCriteria.chart_min_excluded_risk`). The tables keep them. Tables have no risk rating column. A performance chart then shows the next vaults of the table, and its legend keeps the table ranks, so the numbers can skip.
 - **No repeated text:** the notes above a chart only add what its title, subtitle and axes do not already say.
 
 - **Eligibility:** blacklisted vaults and vaults whose data is more than a week older than the report date are left out of every section. Vaults without an identified protocol are left out of every performance comparison, see [Unidentified protocols](#unidentified-protocols).

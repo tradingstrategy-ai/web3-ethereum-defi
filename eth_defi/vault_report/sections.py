@@ -41,22 +41,6 @@ MAX_DISPLAYED_SHARPE = 100
 #: The top vaults export caps annualised returns at 10,000%; values at the cap are displayed as ``>9,999%``
 CAPPED_ANNUALISED_RETURN = 99.99
 
-#: Risk badge colours as (background, text), for the light blog page.
-#: Follows the status palette: good, warning, serious and critical, plus grey for unrated vaults.
-RISK_BADGE_COLOURS = {
-    "Negligible": ("#dff3df", "#0a6e0a"),
-    "Low": ("#dff3df", "#0a6e0a"),
-    "High": ("#fdf0d3", "#7a5100"),
-    "Dangerous": ("#fbe2d6", "#933a15"),
-    "Severe": ("#f8dada", "#9e2424"),
-}
-
-#: Badge colours for vaults without a technical risk rating; the mid-grey text stays readable on the dark blog page and in light newsletters
-UNRATED_BADGE_COLOURS = ("#ecebe8", "#8f8d88")
-
-#: Link target of the risk badges
-RISK_FRAMEWORK_URL = "https://tradingstrategy.ai/blog/announcing-vault-technical-risk-framework-beta"
-
 #: Public vault sparkline images, rendered by :py:mod:`eth_defi.research.sparkline_export`
 #: PNG rather than SVG, because email clients such as Gmail strip SVG images from newsletters
 SPARKLINE_URL = "https://vault-sparklines.tradingstrategy.ai/sparkline-90d-{vault_id}.png"
@@ -137,7 +121,7 @@ class ReportCriteria:
 
     #: Lowest technical risk level left out of the charts: the hero image, the performance charts and
     #: risk and return. Dangerous and above, see :py:class:`eth_defi.vault.risk.VaultTechnicalRisk`.
-    #: Charts get shared without the tables, so tables keep these vaults with their risk rating.
+    #: Charts get shared without the tables, so tables keep these vaults.
     #: Unrated vaults are shown.
     chart_min_excluded_risk: int = VaultTechnicalRisk.dangerous.value
 
@@ -183,7 +167,6 @@ VAULT_TABLE_COLUMNS = [
     "Lifetime ann.",
     "3M Sharpe",
     "TVL USD (peak)",
-    "Risk",
     "Age (y)",
     "Token",
     "Chain",
@@ -199,7 +182,6 @@ CHAIN_TABLE_COLUMNS = [
     "3M ann.",
     "Lifetime ann.",
     "TVL USD (peak)",
-    "Risk",
     "Age (y)",
     "Token",
 ]
@@ -208,7 +190,7 @@ CHAIN_TABLE_COLUMNS = [
 NUMERIC_COLUMNS = {"3M Sharpe", "Age (y)"}
 
 #: Columns whose values must not wrap onto two lines
-NOWRAP_COLUMNS = {"1M ann.", "3M ann.", "Lifetime ann.", "TVL USD (peak)", "Risk"}
+NOWRAP_COLUMNS = {"1M ann.", "3M ann.", "Lifetime ann.", "TVL USD (peak)"}
 
 #: Explanation of the table cell formats, shown once above the first table
 TABLE_FORMAT_NOTE = "Returns are annualised: (n) net of fees, (g) gross when fee data is not available. TVL shows the current value, with the all-time peak in brackets."
@@ -608,27 +590,6 @@ def format_tvl(current: USDollarAmount | None, peak: USDollarAmount | None) -> s
     return f"{current:,.0f} ({peak:,.0f})"
 
 
-def format_risk_badge(risk: str | None) -> str:
-    """Render a technical risk rating as a coloured pill.
-
-    The label carries the meaning, so colour is never the only signal.
-    Unrated vaults, about a third of all vaults, get muted plain text instead
-    of a pill, so the pills stand out.
-
-    :param risk:
-        Risk label from the top vaults export, or ``None``.
-
-    :return:
-        HTML ``<a>`` pill linking to the risk framework, or muted text.
-    """
-    if not (isinstance(risk, str) and risk):
-        return f'<span style="color:{UNRATED_BADGE_COLOURS[1]};font-size:12px">Unrated</span>'
-    label = risk
-    background, text = RISK_BADGE_COLOURS.get(label, UNRATED_BADGE_COLOURS)
-    style = f"display:inline-block;padding:1px 9px;border-radius:999px;background:{background};color:{text};font-size:12px;font-weight:600;text-decoration:none;white-space:nowrap"
-    return f'<a href="{RISK_FRAMEWORK_URL}" style="{style}">{html.escape(label)}</a>'
-
-
 def format_vault_cells(row: pd.Series, sparkline_ids: frozenset[str] = frozenset()) -> dict[str, str]:
     """Format one vault as HTML table cells.
 
@@ -656,7 +617,6 @@ def format_vault_cells(row: pd.Series, sparkline_ids: frozenset[str] = frozenset
         "Lifetime ann.": html.escape(format_return(row["cagr_net"], row["cagr"])),
         "3M Sharpe": html.escape(format_sharpe(row["three_months_sharpe_best"])),
         "TVL USD (peak)": html.escape(format_tvl(row["current_nav"], row["peak_nav"])),
-        "Risk": format_risk_badge(row["risk"]),
         "Age (y)": f"{row['years']:.2f}" if pd.notna(row["years"]) else "---",
         "Token": html.escape(row["denomination"] or ""),
         "Chain": _link(row["chain"], _get_trading_strategy_chain_link(row["chain"])),
