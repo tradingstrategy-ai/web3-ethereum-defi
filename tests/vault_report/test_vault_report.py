@@ -232,7 +232,7 @@ def test_daily_prices_and_performance(prices_path: Path):
     outlier_series = [PerformanceSeries(vault_id, vault_id, None, (TREASURY_BILL,)) for vault_id in outlier_prices.columns]
     fig = create_performance_figure(outlier_series, outlier_prices, indices, DARK_THEME)
     assert fig.layout.yaxis.type != "log"
-    assert fig.layout.yaxis.range[1] < 10
+    assert fig.layout.yaxis.range[1] < 110  # The $100 equity curves of the calm vaults, not the 10× outlier
     assert any(annotation.text == "▲ 3" for annotation in fig.layout.annotations)
 
 

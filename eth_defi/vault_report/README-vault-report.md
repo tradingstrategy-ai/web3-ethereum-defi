@@ -133,12 +133,12 @@ square cards. It leaves out vaults above 400% annualised return, above 50%
 volatility or with a Severe or Dangerous risk rating.
 
 All listings exclude blacklisted vaults and vaults whose data is more than a
-week older than the report date. Performance charts compare the first rows
-of their table in one chart with a shared axis, so their equity curves can be
-compared directly. The legend numbers are table ranks, repeated as badges at
+week older than the report date. Performance charts draw the equity curves,
+the value of $100 invested 90 days ago, of the first rows of their table in one
+chart with a shared axis, so they can be compared directly. The legend numbers are table ranks, repeated as badges at
 the line ends. Days without a share price update are interpolated, so sparsely
 updated vaults do not draw staircases. Vaults younger than 90
-days start at 0% at launch, marked "since" in the legend. A single vault far
+days start at $100 at launch, marked "since" in the legend. A single vault far
 above the others is drawn off scale with a ▲ marker, and the axis switches to
 a log scale when returns exceed 100%.
 

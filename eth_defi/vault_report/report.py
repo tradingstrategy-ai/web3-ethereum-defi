@@ -219,7 +219,7 @@ def make_criteria_notes(criteria: ReportCriteria) -> dict[str, list[str]]:
     live = '<a href="{url}">View the live benchmark</a> to examine the data in real time'
     min_tvl = f"Minimum {format_usd(criteria.min_tvl)} TVL"
     active = f"at least {criteria.min_events} deposit and redemption events"
-    performance = "The chart compares the 90-day return of the top {count} vaults of the table with {benchmark}; the legend numbers are table ranks"
+    performance = "The chart compares the equity curves, the value of $100 invested 90 days ago, of the top {count} vaults of the table with {benchmark}; the legend numbers are table ranks"
     matching = "the benchmarks matching the vaults: the 3-month US Treasury bill for calm yield vaults, BTC and ETH for volatile vaults"
     average = [
         "Each small dot is a vault's annualised one-month return; the large dot is the TVL-weighted average",
@@ -403,14 +403,15 @@ def render_report_charts(
             ChartPanel("Inflows and outflows", f"The {criteria.tvl_change_top_n} largest TVL increases and decreases over the last 30 days, in US dollars", "tradingstrategy.ai/trading-view/vaults"),
         )
 
-    period = f"{PERFORMANCE_WINDOW.days}-day return, not annualised"
-    count = criteria.performance_chart_vaults
+    period = f"$100 invested {PERFORMANCE_WINDOW.days} days ago"
+    selection = f"Top {criteria.performance_chart_vaults} {{by}} with at least {format_usd(criteria.min_tvl)} TVL"
+    by_return = selection.format(by="by return")
     performance_panels = {
-        "lending": ChartPanel("Performance of the best-performing lending vaults", f"Top {count} of the table, {period}, against their benchmarks", "tradingstrategy.ai/trading-view/vaults"),
-        "perp_dex": ChartPanel("Performance of the best-performing perp DEX vaults", f"Top {count} by return, {period}, against BTC and ETH", "tradingstrategy.ai/trading-view/vaults"),
-        "perp_dex_sharpe": ChartPanel("Performance of perp DEX vaults with the best Sharpe ratio", f"Top {count} by 3M Sharpe ratio, {period}, against BTC and ETH", "tradingstrategy.ai/trading-view/vaults"),
-        "other": ChartPanel("Performance of other best-performing vaults", f"Top {count} of the table, {period}, against their benchmarks", "tradingstrategy.ai/trading-view/vaults"),
-        "tokenised_funds": ChartPanel("Performance of the best-performing tokenised funds", f"Top {count} of the table, {period}, against their benchmarks", "tradingstrategy.ai/trading-view/vaults/funds"),
+        "lending": ChartPanel("Performance of the best-performing lending vaults", f"{by_return}, {period}, against their benchmarks", "tradingstrategy.ai/trading-view/vaults"),
+        "perp_dex": ChartPanel("Performance of the best-performing perp DEX vaults", f"{by_return}, {period}, against BTC and ETH", "tradingstrategy.ai/trading-view/vaults"),
+        "perp_dex_sharpe": ChartPanel("Performance of perp DEX vaults with the best Sharpe ratio", f"{selection.format(by='by 3M Sharpe ratio')}, {period}, against BTC and ETH", "tradingstrategy.ai/trading-view/vaults"),
+        "other": ChartPanel("Performance of other best-performing vaults", f"{by_return}, {period}, against their benchmarks", "tradingstrategy.ai/trading-view/vaults"),
+        "tokenised_funds": ChartPanel("Performance of the best-performing tokenised funds", f"{selection.format(by='funds by return')}, {period}, against their benchmarks", "tradingstrategy.ai/trading-view/vaults/funds"),
     }
     for key, df in performance_vaults.items():
         if not len(df):
