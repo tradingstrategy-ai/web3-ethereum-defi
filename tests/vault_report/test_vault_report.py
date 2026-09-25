@@ -539,8 +539,8 @@ def test_compose_chart_panel(tmp_path: Path):
     render.save(chart)
     output = compose_chart_panel(chart, DARK_THEME, "Title", "Subtitle", "Data 2026-09-25", "tradingstrategy.ai", tmp_path / "panel.png")
     image = Image.open(output)
-    # The 1200×600 content is resized to the 1312 px inner width: header 120, gaps 2×28, footer 103
-    assert image.size == (PANEL_WIDTH, 120 + 28 + 656 + 28 + 103)
+    # The 1200×600 content is resized to the 1312 px inner width: header 120, gaps 2×28, footer 107
+    assert image.size == (PANEL_WIDTH, 120 + 28 + 656 + 28 + 107)
     assert image.getpixel((0, 0))[3] == 0
     assert image.getpixel((PANEL_PADDING - 1, 500))[:3] != image.getpixel((PANEL_PADDING + 1, 500))[:3]
     assert image.getpixel((PANEL_WIDTH - PANEL_PADDING, 500))[:3] != image.getpixel((PANEL_WIDTH - PANEL_PADDING - 2, 500))[:3]
@@ -548,7 +548,7 @@ def test_compose_chart_panel(tmp_path: Path):
     # Long titles and subtitles wrap to more lines instead of being truncated, and the header grows
     long_title = "Performance of the best-performing perpetual futures DEX vaults with the best Sharpe ratio this month"
     output = compose_chart_panel(chart, DARK_THEME, long_title, f"{long_title}, {long_title}", "Data 2026-09-25", "tradingstrategy.ai", tmp_path / "long.png")
-    assert Image.open(output).size == (PANEL_WIDTH, 120 + 50 + 32 + 28 + 656 + 28 + 103)  # One more title line and one more subtitle line
+    assert Image.open(output).size == (PANEL_WIDTH, 120 + 50 + 32 + 28 + 656 + 28 + 107)  # One more title line and one more subtitle line
 
 
 def test_wrap_label():

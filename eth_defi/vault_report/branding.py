@@ -24,7 +24,7 @@ from PIL import Image, ImageDraw, ImageFilter, ImageFont
 
 from eth_defi.vault_report.logos import load_protocol_logo_path
 from eth_defi.vault_report.sections import format_return
-from eth_defi.vault_report.theme import FONT_REGULAR, FONT_SEMIBOLD, ChartTheme
+from eth_defi.vault_report.theme import ASSETS_DIR, FONT_REGULAR, FONT_SEMIBOLD, ChartTheme
 
 logger = logging.getLogger(__name__)
 
@@ -48,14 +48,6 @@ PANEL_WIDTH = 1400
 
 #: Colour distance from the surface above which a chart pixel counts as content
 CONTENT_THRESHOLD = 6
-
-#: Brand mark candles as (x0, y0, x1, y1, colour) in the 60×60 ``brand-mark.svg`` view box
-BRAND_MARK_CANDLES = (
-    (5, 12, 15, 60, "#22B554"),
-    (18, 12, 28, 36, "#F62F2F"),
-    (31, 24, 41, 48, "#F62F2F"),
-    (44, 0, 54, 48, "#22B554"),
-)
 
 
 def _font(size: int, *, bold: bool = False) -> ImageFont.FreeTypeFont:
@@ -142,11 +134,14 @@ def _wrap_text(draw: ImageDraw.ImageDraw, text: str, font: ImageFont.FreeTypeFon
     return lines or [""]
 
 
-def draw_brand_mark(image: Image.Image, x: int, y: int, size: int) -> None:
-    """Draw the Trading Strategy candle brand mark.
+def draw_brand_logo(image: Image.Image, x: int, y: int, height: int, theme: ChartTheme) -> int:
+    """Draw the TradingStrategy.ai logo: the candle mark and the wordmark with the ``.ai`` suffix.
+
+    Uses the PNG renders of ``logo-horizontal-ai.svg`` made by
+    ``scripts/erc-4626/render-vault-report-logo.py``, because Pillow cannot draw SVG.
 
     :param image:
-        RGBA image to draw on.
+        RGBA image to draw on in place.
 
     :param x:
         Left edge.
@@ -154,13 +149,19 @@ def draw_brand_mark(image: Image.Image, x: int, y: int, size: int) -> None:
     :param y:
         Top edge.
 
-    :param size:
-        Width and height in pixels.
+    :param height:
+        Logo height in pixels; the candle mark fills it.
+
+    :param theme:
+        Chart theme; dark themes use the light wordmark.
+
+    :return:
+        Drawn logo width in pixels.
     """
-    draw = ImageDraw.Draw(image)
-    scale = size / 60
-    for x0, y0, x1, y1, colour in BRAND_MARK_CANDLES:
-        draw.rounded_rectangle((x + x0 * scale, y + y0 * scale, x + x1 * scale, y + y1 * scale), radius=5 * scale, fill=colour)
+    logo = Image.open(ASSETS_DIR / f"logo-horizontal-ai-{theme.name}.png").convert("RGBA")
+    logo = logo.resize((round(logo.width * height / logo.height), height), Image.Resampling.LANCZOS)
+    image.alpha_composite(logo, (x, y))
+    return logo.width
 
 
 def _draw_glow(image: Image.Image, theme: ChartTheme, radius: int) -> None:
@@ -277,7 +278,7 @@ def compose_chart_panel(chart_png: Path, theme: ChartTheme, title: str, subtitle
             logger.warning("Chart %s content is %d px wide, resized by %.0f%% to fit the panel", chart_png, content.width, (scale - 1) * 100)
         content = content.resize((inner_width, round(content.height * scale)), Image.Resampling.LANCZOS)
     # The footer text sits 44 px above the bottom edge, like the other panel margins
-    footer_height = 103
+    footer_height = 107
     title_font, subtitle_font = _font(40, bold=True), _font(24)
     # Long titles and subtitles wrap to more lines, and the header grows to fit them
     measure = ImageDraw.Draw(content)
@@ -299,11 +300,8 @@ def compose_chart_panel(chart_png: Path, theme: ChartTheme, title: str, subtitle
     footer_top = header_height + chart_height
     draw.line((pad, footer_top + 4, width - pad, footer_top + 4), fill=_hex_to_rgba(theme.axis, 90), width=1)
     text_y = footer_top + 30
-    draw_brand_mark(panel, pad, text_y - 3, 30)
-    brand_font = _font(24, bold=True)
-    draw.text((pad + 42, text_y), "Trading Strategy", font=brand_font, fill=theme.text)
-    note_x = pad + 42 + draw.textlength("Trading Strategy", font=brand_font) + 18
-    draw.text((note_x, text_y + 1), footer_note, font=_font(22), fill=theme.muted_text)
+    logo_width = draw_brand_logo(panel, pad, footer_top + 22, 41, theme)
+    draw.text((pad + logo_width + 22, text_y + 1), footer_note, font=_font(22), fill=theme.muted_text)
     link_font = _font(22)
     draw.text((width - pad - draw.textlength(link, font=link_font), text_y + 1), link, font=link_font, fill=theme.muted_text)
 
@@ -414,8 +412,7 @@ def render_hero_image(
     draw = ImageDraw.Draw(image)
     pad = 56
 
-    draw_brand_mark(image, pad, 44, 40)
-    draw.text((pad + 54, 48), "Trading Strategy", font=_font(28, bold=True), fill=theme.text)
+    draw_brand_logo(image, pad, 42, 44, theme)
     badge = "Monthly vault report"
     badge_font = _font(20)
     badge_width = draw.textlength(badge, font=badge_font) + 36
