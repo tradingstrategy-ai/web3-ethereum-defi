@@ -416,7 +416,8 @@ def create_performance_figure(
     All vaults share the time axis and the equity axis, so their equity curves
     can be compared directly. Vault colours
     follow the table order, and the legend numbers match the table rows. The
-    legend and line end labels show annualised returns over each line's span. A vault
+    legend and line end labels show annualised returns over each line's span, as
+    bare percentages; the chart subtitle says they are annualised. A vault
     younger than the window starts from 0% at its first data point.
 
     Benchmarks used by at least half of the vaults, see
@@ -531,7 +532,7 @@ def create_performance_figure(
         if days < 1:
             return "---"
         annualised = ((1 + performance.iloc[-1] / 100) ** (365 / days) - 1) * 100
-        return f">{CAPPED_ANNUALISED_RETURN * 100:,.0f}% ann." if annualised > CAPPED_ANNUALISED_RETURN * 100 else f"{annualised:+,.1f}% ann."
+        return f">{CAPPED_ANNUALISED_RETURN * 100:,.0f}%" if annualised > CAPPED_ANNUALISED_RETURN * 100 else f"{annualised:+,.1f}%"
 
     fig = go.Figure()
     entries = []
@@ -549,9 +550,8 @@ def create_performance_figure(
         # A surface-coloured casing under each line keeps crossing lines apart
         fig.add_trace(go.Scatter(x=performance.index, y=scale(performance), mode="lines", line={"color": theme.surface, "width": 8}, showlegend=False, hoverinfo="skip"))
         fig.add_trace(go.Scatter(x=performance.index, y=scale(performance), mode="lines", name=item.name, line={"color": colour, "width": 3.5}))
-        since = f" since {performance.index[0]:%b %d}" if performance.index[0] > start_at + pd.Timedelta(days=3) else ""
         note = " ▲" if item.vault_id in off_scale else ""
-        entries.append(LegendEntry(f"{rank}. {item.name}", colour, detail=f"{describe(vaults[item.vault_id])}{since}{note}", properties=item.properties))
+        entries.append(LegendEntry(f"{rank}. {item.name}", colour, detail=f"{describe(vaults[item.vault_id])}{note}", properties=item.properties))
         badge = {"font": {"size": 15, "color": theme.surface, "weight": 700}, "bgcolor": colour, "borderpad": 3}
         if item.vault_id in off_scale:
             fig.add_annotation(text=f"▲ {rank}", x=exit_at, y=1, xref="x", yref="paper", yanchor="top", showarrow=False, **badge)

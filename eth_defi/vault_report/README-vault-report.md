@@ -160,7 +160,7 @@ chart with a shared axis, so they can be compared directly. The legend and the b
 returns over each line's span, capped at >9,999% like the tables. The legend
 numbers are table ranks, repeated as badges at the line ends. Days without a share price update are interpolated, so sparsely
 updated vaults do not draw staircases. Vaults younger than 90
-days start at 0% at launch, marked "since" in the legend. A single vault far
+days start at 0% at launch. A single vault far
 above the others is drawn off scale with a ▲ marker, and the axis switches to
 a log scale when returns exceed 100%. The perp DEX Sharpe ratio chart draws the
 90-day rolling Sharpe ratio on a scale starting at 0 instead, calculated from forward-filled daily prices
