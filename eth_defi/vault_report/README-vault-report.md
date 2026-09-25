@@ -128,7 +128,8 @@ short, the post has:
 
 - average yield dot plots for the 10 largest blockchains and the 10 largest
   protocols by TVL, against the T-bill;
-- stablecoin vault TVL by protocol over 12 months;
+- stablecoin TVL by DeFi vault protocol and stablecoin NAV by tokenised fund
+  over 12 months;
 - inflows and outflows: the largest 30-day TVL changes in dollars;
 - the best-performing vaults, split into lending, perp DEX by return, perp DEX
   by Sharpe ratio and other vaults, each with a performance chart and a table;

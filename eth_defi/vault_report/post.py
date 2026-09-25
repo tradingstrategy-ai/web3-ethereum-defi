@@ -87,10 +87,17 @@ SECTION_TEMPLATES = (
     ),
     SectionTemplate(
         key="protocol_tvl",
-        heading_id="stablecoin-vault-tvl-by-protocol",
-        heading="Stablecoin vault TVL by protocol",
-        charts=(("protocol_tvl", "Stablecoin vault TVL by protocol"),),
+        heading_id="stablecoin-tvl-by-defi-vault-protocol",
+        heading="Stablecoin TVL by DeFi vault protocol",
+        charts=(("protocol_tvl", "Stablecoin TVL by DeFi vault protocol"),),
         editor_note="Comment on the TVL trend: which protocols grew or shrank.",
+    ),
+    SectionTemplate(
+        key="fund_nav",
+        heading_id="stablecoin-nav-by-tokenised-fund",
+        heading="Stablecoin NAV by tokenised fund",
+        charts=(("fund_nav", "Stablecoin NAV by tokenised fund"),),
+        editor_note="Comment on the tokenised fund trend: which funds grew or shrank.",
     ),
     SectionTemplate(
         key="tvl_changes",

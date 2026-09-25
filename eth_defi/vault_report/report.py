@@ -60,6 +60,7 @@ from eth_defi.vault_report.sections import (
     ReportCriteria,
     ReportSection,
     calculate_chain_yields,
+    calculate_fund_nav_history,
     calculate_protocol_tvl_history,
     calculate_protocol_yields,
     calculate_tvl_changes,
@@ -233,9 +234,15 @@ def make_criteria_notes(criteria: ReportCriteria) -> dict[str, list[str]]:
         "chain_yields": [f"The {criteria.yield_top_chains} largest blockchains by stablecoin vault TVL, perp DEX vaults included", *average, live.format(url="https://tradingstrategy.ai/trading-view/vaults/chains")],
         "protocol_yields": [f"The {criteria.yield_top_protocols} largest identified vault protocols by stablecoin vault TVL, with at least {format_usd(criteria.yield_min_protocol_tvl)} TVL", *average, live.format(url="https://tradingstrategy.ai/trading-view/vaults/protocols")],
         "protocol_tvl": [
-            "Weekly total value locked in stablecoin vaults over the last year, by vault protocol",
+            "Weekly total value locked in stablecoin DeFi vaults over the last year, by vault protocol; tokenised funds are shown separately below",
             f"Excludes blacklisted vaults and TVL data points above {format_usd(TVL_OUTLIER_THRESHOLD)}, like the website's TVL charts",
             live.format(url="https://tradingstrategy.ai/trading-view/vaults/historical-tvl-protocol?history=1y"),
+        ],
+        "fund_nav": [
+            "Weekly net asset value of tokenised money market, treasury and credit funds over the last year, by fund",
+            "A fund deployed on several chains under the same name is counted once",
+            f"Excludes blacklisted funds and data points above {format_usd(TVL_OUTLIER_THRESHOLD)}",
+            live.format(url="https://tradingstrategy.ai/trading-view/vaults/funds"),
         ],
         "tvl_changes": [
             f"The {criteria.tvl_change_top_n} largest TVL increases and decreases over the last 30 days, in US dollars",
@@ -382,8 +389,15 @@ def render_report_charts(
 
     tvl_vaults = select_tvl_history_vaults(data.vaults_df)
     tvl_history = read_vault_tvl_history(data.prices_path, list(tvl_vaults.index), start_at=data.data_end_at - TVL_HISTORY)
-    protocol_tvl = calculate_protocol_tvl_history(tvl_history, tvl_vaults) if not tvl_history.empty else empty
-    tvl_vault_slugs = tvl_vaults.drop_duplicates("protocol").set_index("protocol")["protocol_slug"]
+    # DeFi vault protocols and tokenised funds are charted separately
+    is_fund = tvl_vaults["group"] == TOKENISED_FUND
+    defi_vaults, fund_vaults = tvl_vaults.loc[~is_fund], tvl_vaults.loc[is_fund]
+    defi_history = tvl_history[[vault_id for vault_id in tvl_history.columns if vault_id in defi_vaults.index]]
+    fund_history = tvl_history[[vault_id for vault_id in tvl_history.columns if vault_id in fund_vaults.index]]
+    protocol_tvl = calculate_protocol_tvl_history(defi_history, defi_vaults) if len(defi_history.columns) else empty
+    fund_nav = calculate_fund_nav_history(fund_history, fund_vaults) if len(fund_history.columns) else empty
+    tvl_vault_slugs = defi_vaults.drop_duplicates("protocol").set_index("protocol")["protocol_slug"]
+    fund_slugs = fund_vaults.assign(name=fund_vaults["name"].fillna(fund_vaults["address"])).drop_duplicates("name").set_index("name")["protocol_slug"]
     tvl_changes = calculate_tvl_changes(eligible_df, criteria)
 
     difference = "Small dots: vaults · large dots: TVL-weighted average · right: difference to the US 3M T-bill and TVL"
@@ -400,7 +414,12 @@ def render_report_charts(
     if len(protocol_tvl):
         figures["protocol_tvl"] = (
             create_protocol_tvl_figure(protocol_tvl, theme, {name: load_protocol_logo_uri(tvl_vault_slugs.get(name), theme) for name in protocol_tvl.columns}, watermark),
-            ChartPanel("Stablecoin vault TVL by protocol", "Weekly total value locked over the last 12 months", "tradingstrategy.ai/trading-view/vaults/historical-tvl-protocol"),
+            ChartPanel("Stablecoin TVL by DeFi vault protocol", "Weekly total value locked over the last 12 months, tokenised funds excluded", "tradingstrategy.ai/trading-view/vaults/historical-tvl-protocol"),
+        )
+    if len(fund_nav):
+        figures["fund_nav"] = (
+            create_protocol_tvl_figure(fund_nav, theme, {name: load_protocol_logo_uri(fund_slugs.get(name), theme) for name in fund_nav.columns}, watermark, value_label="NAV"),
+            ChartPanel("Stablecoin NAV by tokenised fund", "Weekly net asset value over the last 12 months", "tradingstrategy.ai/trading-view/vaults/funds"),
         )
     if len(tvl_changes):
         figures["tvl_changes"] = (

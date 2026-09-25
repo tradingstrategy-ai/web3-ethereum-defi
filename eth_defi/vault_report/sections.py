@@ -647,6 +647,34 @@ def select_tvl_history_vaults(vaults_df: pd.DataFrame) -> pd.DataFrame:
     return vaults_df.loc[vaults_df["risk"] != BLACKLISTED_RISK]
 
 
+def _group_tvl_history(tvl_history: pd.DataFrame, groups: pd.Series, top_n: int, excluded: str | None = None) -> pd.DataFrame:
+    """Sum vault TVL history per group, keeping the largest groups and summing the rest.
+
+    :param tvl_history:
+        Output of :py:func:`eth_defi.vault_report.data.read_vault_tvl_history`, one column per vault id.
+
+    :param groups:
+        Vault id -> group name.
+
+    :param top_n:
+        Groups shown separately, by their latest TVL.
+
+    :param excluded:
+        Group never shown separately, e.g. unknown protocols.
+
+    :return:
+        DataFrame with one column per group, largest first, then ``Other`` if any vaults remain.
+    """
+    by_group = tvl_history.T.groupby(groups.reindex(tvl_history.columns)).sum(min_count=1).T.fillna(0)
+    ranked = by_group.iloc[-1].sort_values(ascending=False).index
+    top = [group for group in ranked if group != excluded][:top_n]
+    result = by_group[top].copy()
+    rest = by_group.drop(columns=top)
+    if len(rest.columns):
+        result["Other"] = rest.sum(axis=1)
+    return result
+
+
 def calculate_protocol_tvl_history(tvl_history: pd.DataFrame, vaults_df: pd.DataFrame, top_n: int = 7) -> pd.DataFrame:
     """Sum vault TVL history per protocol.
 
@@ -663,9 +691,24 @@ def calculate_protocol_tvl_history(tvl_history: pd.DataFrame, vaults_df: pd.Data
         DataFrame with one column per protocol, largest first, then ``Other``.
     """
     protocols = vaults_df["protocol"].where(vaults_df["protocol_slug"] != UNKNOWN_PROTOCOL_SLUG, "Unknown protocol")
-    by_protocol = tvl_history.T.groupby(protocols.reindex(tvl_history.columns)).sum(min_count=1).T.fillna(0)
-    ranked = by_protocol.iloc[-1].sort_values(ascending=False).index
-    top = [protocol for protocol in ranked if protocol != "Unknown protocol"][:top_n]
-    result = by_protocol[top].copy()
-    result["Other"] = by_protocol.drop(columns=top).sum(axis=1)
-    return result
+    return _group_tvl_history(tvl_history, protocols, top_n, excluded="Unknown protocol")
+
+
+def calculate_fund_nav_history(tvl_history: pd.DataFrame, funds_df: pd.DataFrame, top_n: int = 7) -> pd.DataFrame:
+    """Sum tokenised fund NAV history per fund.
+
+    A fund deployed on several chains under the same name is counted as one fund.
+
+    :param tvl_history:
+        Output of :py:func:`eth_defi.vault_report.data.read_vault_tvl_history`, one column per vault id.
+
+    :param funds_df:
+        Tokenised fund metrics with ``name`` and ``address`` columns, indexed by vault id.
+
+    :param top_n:
+        Funds shown separately, by their latest NAV. The rest are summed as ``Other``.
+
+    :return:
+        DataFrame with one column per fund, largest first, then ``Other`` if more funds remain.
+    """
+    return _group_tvl_history(tvl_history, funds_df["name"].fillna(funds_df["address"]), top_n)

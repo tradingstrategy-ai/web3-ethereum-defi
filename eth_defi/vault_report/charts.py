@@ -774,21 +774,25 @@ def create_protocol_tvl_figure(
     theme: ChartTheme,
     logos: dict[str, str | None] | None = None,
     watermark_uri: str | None = None,
+    value_label: str = "TVL",
 ) -> Figure:
-    """Draw stacked TVL by protocol with a glowing total line.
+    """Draw stacked TVL by protocol or fund with a glowing total line.
 
     :param tvl_by_protocol:
-        Periodic TVL in USD, one column per protocol in stacking order (largest
-        first), with at most seven protocols and ``Other``.
+        Periodic TVL in USD, one column per protocol or fund in stacking order
+        (largest first), with at most seven groups and ``Other``.
 
     :param theme:
         Chart theme.
 
     :param logos:
-        Protocol name -> logo data URI.
+        Protocol or fund name -> logo data URI.
 
     :param watermark_uri:
         Watermark logo data URI.
+
+    :param value_label:
+        Name of the value on the y axis, e.g. ``TVL`` or ``NAV``.
 
     :return:
         Plotly figure.
@@ -800,15 +804,15 @@ def create_protocol_tvl_figure(
     for colour, protocol in zip(colours, tvl_by_protocol.columns, strict=False):
         series = tvl_by_protocol[protocol] / 1e9
         fig.add_trace(go.Scatter(x=series.index, y=series.to_numpy(), mode="lines", stackgroup="tvl", name=protocol, line={"width": 0, "color": colour}, fillcolor=to_rgba(colour, 0.56)))
-        entries.append(LegendEntry(f"{protocol} ${series.iloc[-1]:,.1f}B", colour, logos.get(protocol)))
+        entries.append(LegendEntry(f"{protocol} {_format_usd_short(series.iloc[-1] * 1e9)}", colour, logos.get(protocol)))
 
     total = tvl_by_protocol.sum(axis=1) / 1e9
     add_glow_line(fig, total.index, total.to_numpy(), theme.positive, "Total")
-    entries.insert(0, LegendEntry(f"Total ${total.iloc[-1]:,.1f}B", theme.positive))
+    entries.insert(0, LegendEntry(f"Total {_format_usd_short(total.iloc[-1] * 1e9)}", theme.positive))
 
     apply_theme(fig, theme, IMAGE_WIDTH, IMAGE_HEIGHT)
     # The protocol legend is short, so it needs less room than LEGEND_MARGIN and the plot fills the panel width
-    fig.update_layout(margin={"l": 90, "r": 360, "t": 30, "b": 70}, yaxis_title="TVL (USD billion)")
+    fig.update_layout(margin={"l": 90, "r": 360, "t": 30, "b": 70}, yaxis_title=f"{value_label} (USD billion)")
     fig.update_yaxes(side="left", rangemode="tozero")
     add_logo_legend(fig, entries, theme, row_height=0.1)
     add_watermark(fig, watermark_uri, theme)
