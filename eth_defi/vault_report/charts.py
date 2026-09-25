@@ -146,15 +146,16 @@ def add_logo_legend(fig: Figure, entries: list[LegendEntry], theme: ChartTheme, 
     for i, entry in enumerate(entries):
         y = top - i * row_height
         fig.add_shape(type="line", xref="paper", yref="paper", x0=1.03, x1=1.075, y0=y, y1=y, line={"color": entry.colour, "width": 6, "dash": entry.dash})
-        text_x = 1.09
         if entry.logo_uri:
             fig.add_layout_image(source=entry.logo_uri, xref="paper", yref="paper", x=1.09, y=y, sizex=0.034, sizey=0.05, xanchor="left", yanchor="middle")
-            text_x = 1.132
+        lines = textwrap.wrap(entry.label, width=24)
+        if len(lines) > 2:
+            lines = [lines[0], shorten_label(" ".join(lines[1:]), 24)]
         fig.add_annotation(
-            text="<br>".join(textwrap.wrap(entry.label, width=24)[:2]),
+            text="<br>".join(lines),
             xref="paper",
             yref="paper",
-            x=text_x,
+            x=1.132,
             y=y,
             xanchor="left",
             yanchor="middle",
@@ -381,7 +382,7 @@ def create_chain_yield_figure(
     apply_theme(fig, theme, IMAGE_WIDTH, height)
     fig.update_layout(xaxis_title="TVL-weighted 1M annualised return (%)", bargap=0.28, margin={"l": 280, "r": 120, "t": 50, "b": 90})
     fig.update_xaxes(showgrid=True, gridcolor=theme.grid, rangemode="tozero")
-    fig.update_yaxes(showgrid=False, showticklabels=False, showline=False, range=[-0.7, len(df) - 0.3])
+    fig.update_yaxes(showgrid=False, showticklabels=False, showline=False, zeroline=False, range=[-0.7, len(df) - 0.3])
 
     for position, chain in enumerate(df.index):
         logo = chain_logos.get(chain)
@@ -409,6 +410,9 @@ def create_risk_return_figure(
 
     Uses annualised three-month volatility rather than Sharpe, because
     near-zero-volatility lending vaults have Sharpe ratios in the millions.
+    Vaults above ``max_return`` are drawn as triangles on the top edge, so the
+    bulk of the market is not squashed into a flat band. Unclassified vaults
+    are drawn first in a neutral colour, so classified strategies stand out.
 
     :param vaults_df:
         Vaults with ``three_months_volatility``, ``three_months_cagr_best``,
@@ -430,52 +434,70 @@ def create_risk_return_figure(
         Watermark logo data URI.
 
     :param label_count:
-        Label the vaults with the highest returns directly.
+        Label the vaults with the highest returns within the clip directly.
 
     :return:
         Plotly figure.
     """
     df = vaults_df.dropna(subset=["three_months_volatility", "three_months_cagr_best", "current_nav"]).copy()
-    df["x"] = (df["three_months_volatility"].clip(lower=1e-4)) * 100
+    min_volatility = 1e-4
+    df["x"] = df["three_months_volatility"].clip(lower=min_volatility) * 100
+    df["clipped"] = df["three_months_cagr_best"] > max_return
     df["y"] = df["three_months_cagr_best"].clip(lower=-0.5, upper=max_return) * 100
-    df["size"] = np.sqrt(df["current_nav"])
-    df["category"] = df["strategy_tags"].apply(lambda tags: category_labels.get(tags[0], tags[0]) if isinstance(tags, list) and tags else "Unknown")
-    top_categories = df["category"].value_counts().index[: len(theme.series_colours) - 1].tolist()
-    df["category"] = df["category"].where(df["category"].isin(top_categories), "Other")
+    # Area ∝ TVL, capped so the few multi-billion vaults do not cover the chart
+    df["size"] = np.sqrt(df["current_nav"].clip(upper=2e9))
+    df["category"] = df["strategy_tags"].apply(lambda tags: category_labels.get(tags[0], tags[0]) if isinstance(tags, list) and tags else "Unclassified")
+    classified = df.loc[df["category"] != "Unclassified", "category"].value_counts().index[: len(theme.series_colours) - 1].tolist()
+    df["category"] = df["category"].where(df["category"].isin(classified) | (df["category"] == "Unclassified"), "Other")
 
     fig = go.Figure()
-    size_ref = 2.0 * df["size"].max() / (46**2)
-    colours = dict(zip(top_categories, theme.series_colours, strict=False)) | {"Other": theme.muted_text}
-    for category in [*top_categories, "Other"]:
-        group = df.loc[df["category"] == category]
+    size_ref = 2.0 * df["size"].max() / (40**2)
+    colours = dict(zip(classified, theme.series_colours, strict=False)) | {"Other": theme.neutral, "Unclassified": theme.neutral}
+    for category in ["Unclassified", *classified, "Other"]:
+        group = df.loc[(df["category"] == category) & ~df["clipped"]]
         if group.empty:
             continue
+        opacity = 0.45 if category == "Unclassified" else 0.8
         fig.add_trace(
             go.Scatter(
                 x=group["x"],
                 y=group["y"],
                 mode="markers",
                 name=f"{category} ({len(group)})",
-                marker={"size": group["size"], "sizemode": "area", "sizeref": size_ref, "sizemin": 4, "color": to_rgba(colours[category], 0.7), "line": {"color": theme.surface, "width": 1.5}},
+                marker={
+                    "size": group["size"],
+                    "sizemode": "area",
+                    "sizeref": size_ref,
+                    "sizemin": 4,
+                    "color": to_rgba(colours[category], opacity),
+                    "line": {"color": theme.surface, "width": 1.5},
+                },
             )
         )
 
-    for _, vault in df.nlargest(label_count, "y").iterrows():
-        fig.add_annotation(x=np.log10(vault["x"]), y=vault["y"], text=shorten_label(vault["name"] or vault["address"], 26), showarrow=True, arrowcolor=theme.axis, ax=30, ay=-24, font={"size": 15, "color": theme.text})
+    clipped = df.loc[df["clipped"]]
+    if len(clipped):
+        fig.add_trace(go.Scatter(x=clipped["x"], y=clipped["y"], mode="markers", name=f"Above {max_return:.0%} ({len(clipped)})", marker={"size": 14, "symbol": "triangle-up", "color": theme.text}))
+
+    # Alternate label offsets so neighbouring labels do not overlap
+    offsets = [(34, -28), (34, 30), (-34, -48), (-34, 44)]
+    for i, (_, vault) in enumerate(df.loc[~df["clipped"]].nlargest(label_count, "y").iterrows()):
+        ax, ay = offsets[i % len(offsets)]
+        fig.add_annotation(x=np.log10(vault["x"]), y=vault["y"], text=shorten_label(vault["name"] or vault["address"], 26), showarrow=True, arrowcolor=theme.axis, ax=ax, ay=ay, font={"size": 15, "color": theme.text})
 
     if benchmark_yield is not None:
         fig.add_hline(y=benchmark_yield * 100, line={"color": theme.benchmark, "width": 3, "dash": "dash"})
-        fig.add_annotation(text=f"US 3M T-bill {benchmark_yield:.1%}", xref="paper", x=0.0, y=benchmark_yield * 100, yanchor="bottom", xanchor="left", showarrow=False, font={"size": 17, "color": theme.benchmark})
+        fig.add_annotation(text=f"US 3M T-bill {benchmark_yield:.1%}", xref="paper", x=1.0, y=benchmark_yield * 100, yanchor="bottom", xanchor="right", yshift=4, showarrow=False, font={"size": 17, "color": theme.benchmark})
 
     apply_theme(fig, theme, IMAGE_WIDTH, 900)
     fig.update_layout(
         xaxis_title="3M volatility, annualised (%, log scale)",
         yaxis_title="3M return, annualised (%)",
-        margin={"l": 90, "r": 330, "t": 30, "b": 80},
+        margin={"l": 90, "r": 330, "t": 40, "b": 80},
         legend={"font": {"size": 17, "color": theme.text}, "x": 1.02, "y": 1, "xanchor": "left", "itemsizing": "constant", "title": {"text": "Strategy", "font": {"color": theme.text}}},
     )
-    fig.update_xaxes(type="log", showgrid=True, gridcolor=theme.grid)
-    fig.update_yaxes(side="left")
+    fig.update_xaxes(type="log", showgrid=True, gridcolor=theme.grid, range=[np.log10(min_volatility * 100) - 0.1, np.log10(df["x"].max()) + 0.1])
+    fig.update_yaxes(side="left", range=[min(df["y"].min(), 0) - 5, max_return * 100 + 8])
     add_watermark(fig, watermark_uri, theme)
     return fig
 
@@ -531,9 +553,9 @@ def create_movers_figure(
 
         marker = {"new": "NEW", "up": f"▲{change.previous_rank - change.current_rank if change.previous_rank else ''}", "down": f"▼{change.current_rank - change.previous_rank if change.previous_rank else ''}", "same": "="}[change.status]
         label = shorten_label(labels.get(change.vault_id, change.vault_id), 32)
-        text_x_shift = 58 if logos.get(change.vault_id) else 18
+        text_x_shift = 72
         if logos.get(change.vault_id):
-            fig.add_layout_image(source=logos[change.vault_id], xref="paper", yref="y", x=1.0, y=change.current_rank, sizex=0.045, sizey=0.8, xanchor="left", yanchor="middle")
+            fig.add_layout_image(source=logos[change.vault_id], xref="paper", yref="y", x=1.025, y=change.current_rank, sizex=0.045, sizey=0.8, xanchor="left", yanchor="middle")
         fig.add_annotation(
             text=f"<b>#{change.current_rank}</b> {label}  <span style='color:{colour}'>{marker}</span>",
             x=1,
@@ -580,7 +602,7 @@ def create_protocol_tvl_figure(
     logos = logos or {}
     fig = go.Figure()
     entries = []
-    colours = [*theme.series_colours[: len(tvl_by_protocol.columns) - 1], theme.muted_text] if "Other" in tvl_by_protocol.columns else list(theme.series_colours)
+    colours = [*theme.series_colours[: len(tvl_by_protocol.columns) - 1], theme.neutral] if "Other" in tvl_by_protocol.columns else list(theme.series_colours)
     for colour, protocol in zip(colours, tvl_by_protocol.columns, strict=False):
         series = tvl_by_protocol[protocol] / 1e9
         fig.add_trace(go.Scatter(x=series.index, y=series.to_numpy(), mode="lines", stackgroup="tvl", name=protocol, line={"width": 0, "color": colour}, fillcolor=to_rgba(colour, 0.56)))

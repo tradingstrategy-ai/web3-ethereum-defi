@@ -6,8 +6,10 @@ table (Ghost post HTML). Vault links in older posts look like
 ``/trading-view/vaults/{slug}``. Links are resolved to vault ids by address
 when present, otherwise by the vault slug in the current top vaults export.
 
-Future reports also store their rankings in ``report.json``, see
-:py:func:`eth_defi.vault_report.report.write_report_manifest`.
+Reports also store their rankings in ``report.json``, see
+:py:func:`eth_defi.vault_report.report.write_report_manifest`. When the
+previous report's bundle is available, its stored ranking is used instead of
+parsing HTML.
 
 The previous table may include vaults that the current report lists in a
 different section, e.g. perp DEX vaults before they were separated. Previous
@@ -21,6 +23,8 @@ import urllib.parse
 from dataclasses import dataclass
 
 import pandas as pd
+
+from eth_defi.research.vault_metrics import _get_chain_slug
 
 logger = logging.getLogger(__name__)
 
@@ -79,28 +83,35 @@ def parse_ranked_vault_links(post_html: str, heading_id: str) -> list[str]:
 def resolve_vault_id(link: str, vaults_df: pd.DataFrame) -> str | None:
     """Resolve a vault page link to a vault id.
 
+    Links with an ``a=`` address parameter resolve by address. Other links
+    resolve by vault slug; a slug shared by vaults on several chains resolves
+    only when the link names the chain, ``/trading-view/{chain}/vaults/{slug}``.
+
     :param link:
         Vault page URL from a report table.
 
     :param vaults_df:
-        Current vault metrics with ``address``, ``vault_slug`` and ``id`` columns.
+        Current vault metrics with ``address``, ``vault_slug``, ``chain`` and ``id`` columns.
 
     :return:
-        Vault id, or ``None`` if the vault is not in the current export.
+        Vault id, or ``None`` if the vault is not in the current export or the link is ambiguous.
     """
     parsed = urllib.parse.urlparse(link)
-    slug = parsed.path.rstrip("/").split("/")[-1]
+    path = parsed.path.rstrip("/").split("/")
+    slug = path[-1]
+    chain_slug = path[-3] if len(path) >= 4 and path[-2] == "vaults" and path[-3] != "trading-view" else None
     address = urllib.parse.parse_qs(parsed.query).get("a", [None])[0]
 
-    if address:
-        candidates = vaults_df.loc[vaults_df["address"].str.lower() == address.lower()]
+    candidates = vaults_df.loc[vaults_df["address"].str.lower() == address.lower()] if address else vaults_df.loc[vaults_df["vault_slug"] == slug]
+    if len(candidates) > 1 and chain_slug:
+        candidates = candidates.loc[candidates["chain"].apply(_get_chain_slug) == chain_slug]
+    if len(candidates) > 1 and address:
+        candidates = candidates.loc[candidates["vault_slug"] == slug]
+    if len(candidates) != 1:
         if len(candidates) > 1:
-            candidates = candidates.loc[candidates["vault_slug"] == slug] if (candidates["vault_slug"] == slug).any() else candidates
-        if len(candidates):
-            return candidates.index[0]
-
-    candidates = vaults_df.loc[vaults_df["vault_slug"] == slug]
-    return candidates.index[0] if len(candidates) else None
+            logger.info("Ambiguous previous report link %s matches %d vaults", link, len(candidates))
+        return None
+    return candidates.index[0]
 
 
 def calculate_rank_changes(previous_ids: list[str | None], current_ids: list[str], top_n: int = 20) -> tuple[list[RankChange], list[str]]:

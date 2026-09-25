@@ -56,7 +56,8 @@ UNRATED_BADGE_COLOURS = ("#ecebe8", "#52514e")
 RISK_FRAMEWORK_URL = "https://tradingstrategy.ai/blog/announcing-vault-technical-risk-framework-beta"
 
 #: Public vault sparkline images, rendered by :py:mod:`eth_defi.research.sparkline_export`
-SPARKLINE_URL = "https://vault-sparklines.tradingstrategy.ai/sparkline-90d-{vault_id}.svg"
+#: PNG rather than SVG, because email clients such as Gmail strip SVG images from newsletters
+SPARKLINE_URL = "https://vault-sparklines.tradingstrategy.ai/sparkline-90d-{vault_id}.png"
 
 
 @dataclass(slots=True)
@@ -107,10 +108,21 @@ class ReportCriteria:
     #: Capped by the eight-colour categorical chart palette.
     chart_vault_count: int = 8
 
-    #: Leave vaults above this annualised one-month return out of rolling return charts.
+    #: Leave vaults above this annualised one-month return out of rolling return charts and the hero image.
     #:
     #: A single outlier flattens all other lines. The vaults are still listed in the tables.
     chart_max_return: Percent = 4.0
+
+    #: Leave vaults above this annualised three-month volatility out of rolling return charts.
+    #:
+    #: Leveraged tokens and trading vaults swing tens of percent and flatten the yield vault lines.
+    chart_max_volatility: Percent = 0.5
+
+    #: Technical risk ratings left out of the hero image, which promotes vaults on social media
+    hero_excluded_risks: tuple[str, ...] = ("Dangerous", "Severe")
+
+    #: Clip the risk and return scatter's y axis at this annualised return; vaults above are drawn on the top edge
+    scatter_max_return: Percent = 1.0
 
     #: Minimum TVL for the correlation matrix vaults
     correlation_min_tvl: USDollarAmount = 50_000
@@ -140,14 +152,14 @@ class ReportCriteria:
 VAULT_TABLE_COLUMNS = [
     "Vault",
     "3M price",
-    "1M return ann. (net / gross)",
-    "3M return ann. (net / gross)",
-    "Lifetime return ann. (net / gross)",
-    "3M sharpe",
-    "TVL USD (current / peak)",
+    "1M ann.",
+    "3M ann.",
+    "Lifetime ann.",
+    "3M Sharpe",
+    "TVL USD (peak)",
     "Risk",
-    "Age (years)",
-    "Denomination",
+    "Age (y)",
+    "Token",
     "Chain",
     "Protocol",
 ]
@@ -157,29 +169,35 @@ CHAIN_TABLE_COLUMNS = [
     "Chain",
     "Protocol",
     "Vault",
-    "1M return ann. (net / gross)",
-    "3M return ann. (net / gross)",
-    "Lifetime return ann. (net / gross)",
-    "TVL USD (current / peak)",
+    "1M ann.",
+    "3M ann.",
+    "Lifetime ann.",
+    "TVL USD (peak)",
     "Risk",
-    "Age (years)",
-    "Denomination",
+    "Age (y)",
+    "Token",
 ]
 
 #: Columns for the correlation vault table
 CORRELATION_TABLE_COLUMNS = [
     "Vault",
-    "3M return ann. (net / gross)",
-    "3M sharpe",
-    "Age (years)",
+    "3M ann.",
+    "3M Sharpe",
+    "Age (y)",
     "Chain",
     "Protocol",
-    "Denomination",
-    "TVL USD (current / peak)",
+    "Token",
+    "TVL USD (peak)",
 ]
 
 #: Right-aligned numeric columns
-NUMERIC_COLUMNS = {"3M sharpe", "Age (years)"}
+NUMERIC_COLUMNS = {"3M Sharpe", "Age (y)"}
+
+#: Columns whose values must not wrap onto two lines
+NOWRAP_COLUMNS = {"1M ann.", "3M ann.", "Lifetime ann.", "TVL USD (peak)", "Risk"}
+
+#: Explanation of the table cell formats, shown once above the first table
+TABLE_FORMAT_NOTE = "Returns are annualised: (n) net of fees, (g) gross when fee data is not available. TVL shows the current value, with the all-time peak in brackets."
 
 
 @dataclass(slots=True)
@@ -415,14 +433,18 @@ def format_risk_badge(risk: str | None) -> str:
     """Render a technical risk rating as a coloured pill.
 
     The label carries the meaning, so colour is never the only signal.
+    Unrated vaults, about a third of all vaults, get muted plain text instead
+    of a pill, so the pills stand out.
 
     :param risk:
         Risk label from the top vaults export, or ``None``.
 
     :return:
-        HTML ``<a>`` pill linking to the risk framework.
+        HTML ``<a>`` pill linking to the risk framework, or muted text.
     """
-    label = risk if isinstance(risk, str) and risk else "Unrated"
+    if not (isinstance(risk, str) and risk):
+        return f'<span style="color:{UNRATED_BADGE_COLOURS[1]};font-size:12px">Unrated</span>'
+    label = risk
     background, text = RISK_BADGE_COLOURS.get(label, UNRATED_BADGE_COLOURS)
     style = f"display:inline-block;padding:1px 9px;border-radius:999px;background:{background};color:{text};font-size:12px;font-weight:600;text-decoration:none;white-space:nowrap"
     return f'<a href="{RISK_FRAMEWORK_URL}" style="{style}">{html.escape(label)}</a>'
@@ -451,14 +473,14 @@ def format_vault_cells(row: pd.Series, sparkline_ids: frozenset[str] = frozenset
     return {
         "Vault": _link(row["name"] or row["address"], row["trading_strategy_link"]),
         "3M price": sparkline,
-        "1M return ann. (net / gross)": html.escape(format_return(row["one_month_cagr_net"], row["one_month_cagr"])),
-        "3M return ann. (net / gross)": html.escape(format_return(row["three_months_cagr_net"], row["three_months_cagr"])),
-        "Lifetime return ann. (net / gross)": html.escape(format_return(row["cagr_net"], row["cagr"])),
-        "3M sharpe": html.escape(format_sharpe(row["three_months_sharpe_best"])),
-        "TVL USD (current / peak)": html.escape(format_tvl(row["current_nav"], row["peak_nav"])),
+        "1M ann.": html.escape(format_return(row["one_month_cagr_net"], row["one_month_cagr"])),
+        "3M ann.": html.escape(format_return(row["three_months_cagr_net"], row["three_months_cagr"])),
+        "Lifetime ann.": html.escape(format_return(row["cagr_net"], row["cagr"])),
+        "3M Sharpe": html.escape(format_sharpe(row["three_months_sharpe_best"])),
+        "TVL USD (peak)": html.escape(format_tvl(row["current_nav"], row["peak_nav"])),
         "Risk": format_risk_badge(row["risk"]),
-        "Age (years)": f"{row['years']:.2f}" if pd.notna(row["years"]) else "---",
-        "Denomination": html.escape(row["denomination"] or ""),
+        "Age (y)": f"{row['years']:.2f}" if pd.notna(row["years"]) else "---",
+        "Token": html.escape(row["denomination"] or ""),
         "Chain": _link(row["chain"], _get_trading_strategy_chain_link(row["chain"])),
         "Protocol": _link(row["protocol"], _get_trading_strategy_protocol_link(row["protocol_slug"])) if known_protocol else "",
     }
@@ -468,19 +490,22 @@ def render_section_table(section: ReportSection) -> str:
     """Render a report section as a HTML table for the blog.
 
     The table markup matches the tables in the previous blog posts, so the
-    Ghost theme styles them the same way. The table is wrapped in a
-    horizontally scrollable container for narrow screens.
+    blog styles them the same way. The blog frontend (``BlogPostContent.svelte``)
+    wraps post tables in a horizontally scrollable container on narrow screens.
 
     :param section:
         Report section.
 
     :return:
-        HTML string.
+        HTML ``<table>`` string.
     """
     columns = section.columns
 
     def _align(column: str) -> str:
         return "right" if column in NUMERIC_COLUMNS else "left"
+
+    def _style(column: str) -> str:
+        return f"text-align:{_align(column)}" + (";white-space:nowrap" if column in NOWRAP_COLUMNS else "")
 
     header = "".join(f'<th style="text-align:{_align(c)}">{html.escape(c)}</th>' for c in columns)
     if section.numbered:
@@ -489,20 +514,19 @@ def render_section_table(section: ReportSection) -> str:
     rows = []
     for rank, (_, vault) in enumerate(section.vaults_df.iterrows(), start=1):
         cells = format_vault_cells(vault, section.sparkline_ids)
-        tds = "".join(f'<td style="text-align:{_align(c)}">{cells[c]}</td>' for c in columns)
+        tds = "".join(f'<td style="{_style(c)}">{cells[c]}</td>' for c in columns)
         if section.numbered:
             tds = f'<td style="text-align:right">{rank}</td>' + tds
         rows.append(f"<tr>{tds}</tr>")
 
-    table = "<table>\n<thead>\n<tr>" + header + "</tr>\n</thead>\n<tbody>\n" + "\n".join(rows) + "\n</tbody>\n</table>"
-    return f'<div style="overflow-x:auto">\n{table}\n</div>'
+    return "<table>\n<thead>\n<tr>" + header + "</tr>\n</thead>\n<tbody>\n" + "\n".join(rows) + "\n</tbody>\n</table>"
 
 
 def select_tvl_history_vaults(vaults_df: pd.DataFrame) -> pd.DataFrame:
     """Select vaults whose TVL history is counted in the market TVL chart.
 
-    Excludes blacklisted vaults and vaults flagged with an abnormal TVL, so a
-    broken share token cannot dominate the stacked chart.
+    Excludes blacklisted vaults, like the website's historical TVL charts, so
+    the totals match the website.
 
     :param vaults_df:
         All vault metrics.
@@ -510,8 +534,7 @@ def select_tvl_history_vaults(vaults_df: pd.DataFrame) -> pd.DataFrame:
     :return:
         Vaults to include.
     """
-    abnormal = vaults_df["flags"].apply(lambda flags: "abnormal_tvl" in (flags or []))
-    return vaults_df.loc[(vaults_df["risk"] != BLACKLISTED_RISK) & ~abnormal]
+    return vaults_df.loc[vaults_df["risk"] != BLACKLISTED_RISK]
 
 
 def calculate_protocol_tvl_history(tvl_history: pd.DataFrame, vaults_df: pd.DataFrame, top_n: int = 7) -> pd.DataFrame:

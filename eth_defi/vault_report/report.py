@@ -33,7 +33,7 @@ from tqdm_loggable.auto import tqdm
 from eth_defi.research.vault_correlation import choose_vaults_for_correlation_comparison
 from eth_defi.research.vault_metrics import USDollarAmount
 from eth_defi.vault_report.benchmarks import calculate_treasury_bill_rolling_returns, fetch_treasury_bill_yields, get_latest_yield
-from eth_defi.vault_report.branding import compose_chart_panel, render_hero_image
+from eth_defi.vault_report.branding import SQUARE_HERO_SIZE, compose_chart_panel, render_hero_image
 from eth_defi.vault_report.charts import (
     calculate_rolling_returns,
     create_chain_yield_figure,
@@ -53,6 +53,7 @@ from eth_defi.vault_report.post import PostContext, build_post_html, build_previ
 from eth_defi.vault_report.sections import (
     CHAIN_TABLE_COLUMNS,
     CORRELATION_TABLE_COLUMNS,
+    TABLE_FORMAT_NOTE,
     UNKNOWN_PROTOCOL_SLUG,
     ReportCriteria,
     ReportSection,
@@ -223,6 +224,7 @@ def make_criteria_notes(criteria: ReportCriteria) -> dict[str, list[str]]:
             f"The charts show three-month rolling returns for the top vaults, and for the top low-volatility vaults, against the 3-month US Treasury bill. Vaults with over {criteria.chart_max_return:.0%} annualised returns are left out for readability",
             f"Minimum {format_usd(criteria.min_tvl)} TVL",
             yield_vaults,
+            TABLE_FORMAT_NOTE,
         ],
         "movers": [
             f"How the top {MOVERS_TOP_N} vaults changed since the previous report, among the vaults eligible for the list above",
@@ -291,7 +293,40 @@ def build_report_sections(eligible_df: pd.DataFrame, criteria: ReportCriteria) -
     return {key: section for key, section in sections.items() if len(section.vaults_df) > 0}
 
 
-def calculate_movers(previous: GhostPost | None, vaults_df: pd.DataFrame, ranking: list[str]) -> list[RankChange]:
+def read_previous_ranking(report_dir: Path) -> list[str] | None:
+    """Read the stored best-performing vaults ranking of an earlier report bundle.
+
+    :param report_dir:
+        Bundle directory of the earlier report, ``{cache}/reports/{slug}``.
+
+    :return:
+        Ranked vault ids, or ``None`` if the bundle or its ranking does not exist.
+    """
+    path = report_dir / "report.json"
+    if not path.exists():
+        return None
+    return json.loads(path.read_text()).get("rankings", {}).get("best")
+
+
+def make_benchmark_caption(best_df: pd.DataFrame, benchmark_yield: float | None) -> str | None:
+    """Summarise how many listed vaults beat the Treasury bill.
+
+    :param best_df:
+        Vaults in the best-performing vaults table.
+
+    :param benchmark_yield:
+        Latest 3-month US Treasury bill yield as a fraction, or ``None``.
+
+    :return:
+        One sentence, or ``None`` without benchmark data.
+    """
+    if benchmark_yield is None or best_df.empty:
+        return None
+    beat = int((best_df["one_month_cagr_best"] > benchmark_yield).sum())
+    return f"{beat} of the {len(best_df)} vaults below beat the 3-month US Treasury bill yield of {benchmark_yield:.1%} over the last month."
+
+
+def calculate_movers(previous: GhostPost | None, vaults_df: pd.DataFrame, ranking: list[str], previous_ranking: list[str] | None = None) -> list[RankChange]:
     """Compare the current best-performing vaults ranking with the previous report.
 
     :param previous:
@@ -303,13 +338,20 @@ def calculate_movers(previous: GhostPost | None, vaults_df: pd.DataFrame, rankin
     :param ranking:
         Current ranking universe, best first, not truncated.
 
+    :param previous_ranking:
+        Stored ranking of the previous report, see :py:func:`read_previous_ranking`.
+        Preferred over parsing the previous post HTML.
+
     :return:
         Rank changes of the current top list, or an empty list without a usable previous ranking.
     """
-    if previous is None or not previous.html:
+    if previous_ranking is not None:
+        previous_ids: list[str | None] = list(previous_ranking)
+    elif previous is not None and previous.html:
+        links = parse_ranked_vault_links(previous.html, "the-best-performing-vaults")
+        previous_ids = [resolve_vault_id(link, vaults_df) for link in links]
+    else:
         return []
-    links = parse_ranked_vault_links(previous.html, "the-best-performing-vaults")
-    previous_ids = [resolve_vault_id(link, vaults_df) for link in links]
     if not any(previous_ids):
         logger.warning("Could not resolve any vault of the previous report %s", previous.slug)
         return []
@@ -327,6 +369,8 @@ def render_report_charts(
     output_dir: Path,
     cache_dir: Path,
     previous: GhostPost | None = None,
+    previous_ranking: list[str] | None = None,
+    tbill_yields: pd.Series | None = None,
 ) -> tuple[dict[str, Path], Path]:
     """Render all branded report charts and the hero image.
 
@@ -357,8 +401,15 @@ def render_report_charts(
     :param previous:
         Previous report post, for the movers chart.
 
+    :param previous_ranking:
+        Stored ranking of the previous report.
+
+    :param tbill_yields:
+        US Treasury bill yields, see :py:func:`eth_defi.vault_report.benchmarks.fetch_treasury_bill_yields`.
+
     :return:
-        Tuple (chart key -> PNG path, hero image path).
+        Tuple (chart key -> PNG path, hero image path). The square hero image is
+        written next to the hero image as ``hero-square.png``.
     """
     empty = pd.DataFrame()
     data_date = data.data_end_at.strftime("%Y-%m-%d")
@@ -367,7 +418,9 @@ def render_report_charts(
 
     def _chartable(section_key: str) -> pd.DataFrame:
         df = sections[section_key].vaults_df if section_key in sections else empty
-        return df.loc[df["one_month_cagr_best"] <= criteria.chart_max_return].head(criteria.chart_vault_count) if len(df) else df
+        if not len(df):
+            return df
+        return df.loc[(df["one_month_cagr_best"] <= criteria.chart_max_return) & (df["three_months_volatility"] <= criteria.chart_max_volatility)].head(criteria.chart_vault_count)
 
     rolling_vaults = {"best_rolling": _chartable("best"), "low_volatility_rolling": _chartable("low_volatility")}
     correlation_df = sections["correlation"].vaults_df if "correlation" in sections else empty
@@ -379,7 +432,6 @@ def render_report_charts(
         logger.warning("No price data for the chart vaults in %s, leaving out the price charts", data.prices_path)
         rolling_vaults, correlation_df = {}, empty
 
-    tbill_yields = fetch_treasury_bill_yields(cache_dir)
     tbill_latest = get_latest_yield(tbill_yields) if tbill_yields is not None else None
     tbill_rolling = calculate_treasury_bill_rolling_returns(tbill_yields, datetime.timedelta(days=90), rolling_returns.index) if tbill_yields is not None and not rolling_returns.empty else None
 
@@ -413,16 +465,20 @@ def render_report_charts(
             figures[key] = (create_rolling_returns_figure(rolling_returns, labels, theme, protocol_logos, tbill_rolling, watermark), panels[key])
 
     figures["risk_return"] = (
-        create_risk_return_figure(best_all, {tag: category.get("label", tag) for tag, category in data.categories.items()}, theme, criteria.chart_max_return, tbill_latest, watermark),
+        create_risk_return_figure(best_all, {tag: category.get("label", tag) for tag, category in data.categories.items()}, theme, criteria.scatter_max_return, tbill_latest, watermark),
         ChartPanel("Risk and return of stablecoin yield vaults", f"{len(best_all)} vaults with at least {format_usd(criteria.min_tvl)} TVL, bubble area shows TVL", "tradingstrategy.ai/trading-view/vaults/yield-risk"),
     )
 
-    changes = calculate_movers(previous, data.vaults_df, list(best_all.index))
+    changes = calculate_movers(previous, data.vaults_df, list(best_all.index), previous_ranking)
     if changes and previous is not None and previous.published_at is not None:
         names = {vault_id: best_all.loc[vault_id, "name"] or vault_id for vault_id in (c.vault_id for c in changes)}
         figures["movers"] = (
             create_movers_figure(changes, names, theme, previous.published_at.strftime("%B %Y"), make_month_label(data.data_end_at), protocol_logos),
-            ChartPanel(f"Top {MOVERS_TOP_N} movers", f"Rank changes since the {previous.published_at.strftime('%B %Y')} report", "tradingstrategy.ai/trading-view/vaults"),
+            ChartPanel(
+                f"Top {MOVERS_TOP_N} movers",
+                f"Rank changes since the {previous.published_at.strftime('%B %Y')} report; previous ranks recalculated among vaults eligible this month",
+                "tradingstrategy.ai/trading-view/vaults",
+            ),
         )
 
     if len(correlation_df):
@@ -437,9 +493,12 @@ def render_report_charts(
         path = render_figure_png(fig, chart_dir / f"{key}.png")
         chart_paths[key] = compose_chart_panel(path, theme, panel.title, panel.subtitle, f"Data {data_date}", panel.link, path)
 
-    hero_vaults = _chartable("best").head(5)
-    hero_subtitle = f"1M annualised return · stablecoin yield vaults with ≥ {format_usd(criteria.min_tvl)} TVL · data {data_date}"
-    hero_path = render_hero_image(hero_vaults, make_month_label(data.data_end_at), hero_subtitle, theme, output_dir / "hero.png")
+    hero_vaults = _chartable("best")
+    hero_vaults = hero_vaults.loc[~hero_vaults["risk"].isin(criteria.hero_excluded_risks)].head(5)
+    hero_subtitle = f"1M annualised return · ≥ {format_usd(criteria.min_tvl)} TVL · high-risk vaults excluded · {data_date}"
+    month_label = make_month_label(data.data_end_at)
+    hero_path = render_hero_image(hero_vaults, month_label, hero_subtitle, theme, output_dir / "hero.png")
+    render_hero_image(hero_vaults, month_label, hero_subtitle, theme, output_dir / "hero-square.png", size=SQUARE_HERO_SIZE)
     return chart_paths, hero_path
 
 
@@ -454,6 +513,7 @@ def generate_monthly_vault_report(
     theme: ChartTheme = DARK_THEME,
     cache_dir: Path | None = None,
     check_sparklines: bool = True,
+    previous_ranking: list[str] | None = None,
 ) -> GeneratedReport:
     """Generate the report tables, charts and post body into a local bundle.
 
@@ -484,11 +544,15 @@ def generate_monthly_vault_report(
     :param check_sparklines:
         Check which vaults have a published sparkline and show them in the tables.
 
+    :param previous_ranking:
+        Stored ranking of the previous report, see :py:func:`read_previous_ranking`.
+
     :return:
         Generated report description.
     """
     criteria = criteria or ReportCriteria()
     cache_dir = cache_dir or output_dir / "cache"
+    tbill_yields = fetch_treasury_bill_yields(cache_dir)
     (output_dir / "tables").mkdir(parents=True, exist_ok=True)
 
     data_end_at = data.data_end_at
@@ -504,9 +568,12 @@ def generate_monthly_vault_report(
         (output_dir / "tables" / f"{key}.html").write_text(tables[key])
         section.vaults_df[CSV_COLUMNS].to_csv(output_dir / "tables" / f"{key}.csv", index=False)
 
-    chart_paths, hero_path = render_report_charts(data, eligible_df, sections, criteria, theme, output_dir, cache_dir, previous) if render_charts else ({}, None)
+    chart_paths, hero_path = render_report_charts(data, eligible_df, sections, criteria, theme, output_dir, cache_dir, previous, previous_ranking, tbill_yields) if render_charts else ({}, None)
 
     month_label = make_month_label(data_end_at)
+    tbill_latest = get_latest_yield(tbill_yields) if tbill_yields is not None else None
+    best_caption = make_benchmark_caption(sections["best"].vaults_df, tbill_latest)
+    captions = {"best": best_caption} if best_caption else {}
     context = PostContext(
         month_label=month_label,
         stats=calculate_report_stats(data.vaults_df, eligible_df, data_end_at),
@@ -515,6 +582,7 @@ def generate_monthly_vault_report(
         criteria_notes=make_criteria_notes(criteria),
         previous=previous,
         changelog_entries=changelog_entries or [],
+        captions=captions,
     )
     report = GeneratedReport(
         output_dir=output_dir,
@@ -562,6 +630,7 @@ def write_report_manifest(report: GeneratedReport, ghost_post: GhostPost | None 
         "sections": {key: len(section.vaults_df) for key, section in report.sections.items()},
         "charts": report.context.charts,
         "hero": report.hero_path.relative_to(report.output_dir).as_posix() if report.hero_path else None,
+        "hero_square": "hero-square.png" if report.hero_path else None,
         "rankings": report.rankings,
         "previous_report_slug": previous.slug if previous else None,
         "ghost_draft": {"id": ghost_post.id, "slug": ghost_post.slug, "editor_url": editor_url} if ghost_post else None,
@@ -610,6 +679,7 @@ def publish_report_draft(
         custom_excerpt=report.excerpt,
         tags=tags,
         feature_image=feature_image,
+        feature_image_alt=f"The best-performing stablecoin vaults, {report.context.month_label}",
         overwrite_draft=overwrite_draft,
     )
     write_report_manifest(report, post, admin_client.get_editor_url(post))

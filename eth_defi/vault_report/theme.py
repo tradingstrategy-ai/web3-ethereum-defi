@@ -7,9 +7,12 @@ amber benchmark colour. The light theme is the original report style.
 
 Categorical series colours use a fixed-order eight-colour palette whose adjacent
 pairs stay distinguishable with colour vision deficiency. Each theme uses the
-palette's own steps for its surface; both were validated with the dataviz
-palette validator (light against ``#ffffff``, dark against ``#232322``). The
-website's 20-colour protocol palette is not used, because several of its
+palette's own lightness steps for its surface. The palettes were checked on
+2026-09-25 with an OKLab palette checker outside this repository: the worst
+adjacent colour-vision-deficiency difference was ΔE 9.1 for the light palette
+against ``#fcfcfb`` and ΔE 8.4 for the dark palette against ``#232322``
+(target ≥ 8). All dark colours have at least 3:1 contrast on the dark surface.
+The website's 20-colour protocol palette is not used, because several of its
 adjacent pairs are not distinguishable with colour vision deficiency.
 
 Charts use the bundled `Inter <https://rsms.me/inter/>`__ font (SIL Open Font
@@ -69,6 +72,9 @@ class ChartTheme:
     #: Benchmark lines such as US Treasury bills
     benchmark: str
 
+    #: Low-emphasis neutral for "Other" and unclassified groups
+    neutral: str
+
     #: Diverging colour scale for correlations: negative, neutral, positive
     diverging: tuple[str, str, str]
 
@@ -94,6 +100,7 @@ DARK_THEME = ChartTheme(
     positive="#22b453",
     negative="#f97676",
     benchmark="#fbbf24",
+    neutral="#5e5c5a",
     diverging=("#e66767", "#383835", "#3987e5"),
     glow=(34, 180, 83, 46),
     watermark="#d5deea",
@@ -112,6 +119,7 @@ LIGHT_THEME = ChartTheme(
     positive="#0f8a3c",
     negative="#d03b3b",
     benchmark="#b7791f",
+    neutral="#b9b8b3",
     diverging=("#e34948", "#f0efec", "#2a78d6"),
     glow=(34, 180, 83, 28),
     watermark="#0b0b14",

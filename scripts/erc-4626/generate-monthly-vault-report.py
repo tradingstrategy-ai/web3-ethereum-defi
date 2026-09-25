@@ -40,7 +40,7 @@ from eth_defi.utils import setup_console_logging
 from eth_defi.vault_report.data import fetch_vault_report_data
 from eth_defi.vault_report.ghost import GhostAdminClient, GhostContentClient
 from eth_defi.vault_report.post import REPORT_SLUG_PREFIX, make_report_slug, read_changelog_entries
-from eth_defi.vault_report.report import generate_monthly_vault_report, publish_report_draft
+from eth_defi.vault_report.report import generate_monthly_vault_report, publish_report_draft, read_previous_ranking
 from eth_defi.vault_report.sections import ReportCriteria
 from eth_defi.vault_report.theme import get_theme
 
@@ -108,6 +108,9 @@ def main() -> None:
     changelog_entries = read_changelog_entries(CHANGELOG_PATH, since=changelog_since)[:MAX_CHANGELOG_ENTRIES]
 
     output_dir = _env_path("OUTPUT_DIR") or cache_dir / "reports" / make_report_slug(data.data_end_at)
+    previous_ranking = read_previous_ranking(cache_dir / "reports" / previous.slug) if previous else None
+    if previous_ranking:
+        logger.info("Using the stored ranking of the previous report %s", previous.slug)
     report = generate_monthly_vault_report(
         data,
         output_dir=output_dir,
@@ -118,6 +121,7 @@ def main() -> None:
         theme=get_theme(os.environ.get("CHART_THEME", "dark")),
         cache_dir=cache_dir / "assets",
         check_sparklines=os.environ.get("CHECK_SPARKLINES", "true").strip().lower() != "false",
+        previous_ranking=previous_ranking,
     )
 
     rows = [[key, len(section.vaults_df), section.vaults_df.iloc[0]["name"]] for key, section in report.sections.items()]

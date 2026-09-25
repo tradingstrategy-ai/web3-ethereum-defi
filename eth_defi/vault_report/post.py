@@ -148,6 +148,9 @@ class PostContext:
     #: Recent changelog entries offered to the editor for the report content updates section
     changelog_entries: list[str] = field(default_factory=list)
 
+    #: Section key -> one data-driven sentence shown after the section introduction, plain text
+    captions: dict[str, str] = field(default_factory=dict)
+
 
 def make_month_label(data_end_at: datetime.datetime) -> str:
     """Create a human-readable report month.
@@ -326,6 +329,8 @@ def build_post_html(context: PostContext) -> str:
         if template.key not in context.tables and not any(chart_key in context.charts for chart_key, _ in template.charts):
             continue
         parts += [f'<h2 id="{template.heading_id}">{template.heading}</h2>', template.intro]
+        if template.key in context.captions:
+            parts.append(f"<p><strong>{html.escape(context.captions[template.key])}</strong></p>")
         if template.editor_note:
             parts.append(_editor_note(template.editor_note))
         parts.append(_bullets(context.criteria_notes.get(template.key, [])))

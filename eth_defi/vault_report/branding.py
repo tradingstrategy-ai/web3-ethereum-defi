@@ -6,8 +6,9 @@ rendered by Kaleido first and composited with Pillow afterwards:
 - :py:func:`compose_chart_panel` puts a chart PNG in a rounded panel with a
   title header, a green corner glow and a brand footer carrying the data
   date and a link to the live chart, so a screenshotted chart still credits us.
-- :py:func:`render_hero_image` draws the 1200×630 social image of the month's
-  top vaults, also used as the Ghost feature image.
+- :py:func:`render_hero_image` draws the social image of the month's top
+  vaults: 1200×630 for link previews and the Ghost feature image, and a square
+  version for posting on X.
 
 The look follows the website's chart panels, e.g. ``HistoricalTvlGroupChart.svelte``
 in the frontend: radius 1.5rem, a faint top-left radial glow in the bullish
@@ -23,8 +24,11 @@ from eth_defi.vault_report.logos import load_protocol_logo_path
 from eth_defi.vault_report.sections import format_return
 from eth_defi.vault_report.theme import FONT_REGULAR, FONT_SEMIBOLD, ChartTheme
 
-#: Social image size used by X, LinkedIn and Telegram link previews
+#: Social image size used by LinkedIn, Telegram and Facebook link previews, and the Ghost feature image
 HERO_SIZE = (1200, 630)
+
+#: Square social image for X, which shows link previews of the blog as square ``summary`` cards
+SQUARE_HERO_SIZE = (1080, 1080)
 
 #: Panel corner radius in pixels, 1.5rem at 2× scale
 PANEL_RADIUS = 36
@@ -207,8 +211,36 @@ def compose_chart_panel(chart_png: Path, theme: ChartTheme, title: str, subtitle
     return output_path
 
 
-def render_hero_image(vaults_df: pd.DataFrame, month_label: str, subtitle: str, theme: ChartTheme, output_path: Path) -> Path:
-    """Draw the 1200×630 social image of the month's top vaults.
+def _draw_monogram(image: Image.Image, text: str, x: int, y: int, size: int, theme: ChartTheme) -> None:
+    """Draw a round letter badge in place of a missing protocol logo.
+
+    :param image:
+        RGBA image to draw on.
+
+    :param text:
+        Name whose first letter is drawn.
+
+    :param x:
+        Left edge.
+
+    :param y:
+        Top edge.
+
+    :param size:
+        Diameter in pixels.
+
+    :param theme:
+        Chart theme.
+    """
+    draw = ImageDraw.Draw(image)
+    draw.ellipse((x, y, x + size, y + size), fill=theme.neutral)
+    letter = (text.strip()[:1] or "?").upper()
+    font = _font(int(size * 0.55), bold=True)
+    draw.text((x + size / 2, y + size / 2), letter, font=font, fill=theme.text, anchor="mm")
+
+
+def render_hero_image(vaults_df: pd.DataFrame, month_label: str, subtitle: str, theme: ChartTheme, output_path: Path, size: tuple[int, int] = HERO_SIZE) -> Path:
+    """Draw the social image of the month's top vaults.
 
     :param vaults_df:
         Top vaults in rank order, at most five are drawn. Must not contain
@@ -226,13 +258,17 @@ def render_hero_image(vaults_df: pd.DataFrame, month_label: str, subtitle: str, 
     :param output_path:
         Where to write the PNG.
 
+    :param size:
+        :py:data:`HERO_SIZE` or :py:data:`SQUARE_HERO_SIZE`.
+
     :return:
         ``output_path``.
     """
-    image = Image.new("RGBA", HERO_SIZE, _hex_to_rgba(theme.page_background))
-    _draw_glow(image, theme, radius=700)
+    width, height = size
+    square = height > width * 0.8
+    image = Image.new("RGBA", size, _hex_to_rgba(theme.page_background))
+    _draw_glow(image, theme, radius=int(width * 0.6))
     draw = ImageDraw.Draw(image)
-    width, height = HERO_SIZE
     pad = 56
 
     draw_brand_mark(image, pad, 44, 40)
@@ -243,30 +279,37 @@ def render_hero_image(vaults_df: pd.DataFrame, month_label: str, subtitle: str, 
     draw.rounded_rectangle((width - pad - badge_width, 44, width - pad, 84), radius=20, outline=_hex_to_rgba(theme.axis), width=2)
     draw.text((width - pad - badge_width + 18, 53), badge, font=badge_font, fill=theme.muted_text)
 
-    draw.text((pad, 116), "Best-performing stablecoin vaults", font=_font(52, bold=True), fill=theme.text)
-    draw.text((pad, 180), month_label, font=_font(32), fill=theme.positive)
+    title_top = 150 if square else 116
+    draw.text((pad, title_top), "Best-performing stablecoin vaults", font=_font(50 if square else 52, bold=True), fill=theme.text)
+    draw.text((pad, title_top + 64), month_label, font=_font(32), fill=theme.positive)
 
     rows = vaults_df.head(5)
-    max_return = max(rows["one_month_cagr_best"].max(), 1e-9)
-    bar_left, bar_max = 690, 330
+    max_return = max(rows["one_month_cagr_best"].max(), 1e-9) if len(rows) else 1.0
+    rows_top, row_height = (330, 118) if square else (250, 66)
+    bar_left = int(width * (0.56 if square else 0.575))
+    bar_max = width - bar_left - pad - 150
     for rank, (_, vault) in enumerate(rows.iterrows(), start=1):
-        top = 250 + (rank - 1) * 66
+        top = rows_top + (rank - 1) * row_height
         draw.text((pad, top + 12), str(rank), font=_font(28, bold=True), fill=theme.muted_text)
         logo_path = load_protocol_logo_path(vault["protocol_slug"], theme)
+        protocol = vault["protocol"] if vault["protocol_slug"] != "protocol-not-yet-identified" else "Unknown protocol"
         if logo_path:
             logo = Image.open(logo_path).convert("RGBA")
             logo.thumbnail((40, 40))
             image.alpha_composite(logo, (pad + 40, top + 8 + (40 - logo.height) // 2))
+        else:
+            _draw_monogram(image, protocol, pad + 40, top + 8, 40, theme)
         name_x = pad + 96
         draw.text((name_x, top + 2), _fit_text(draw, vault["name"] or vault["address"], _font(26, bold=True), bar_left - name_x - 24), font=_font(26, bold=True), fill=theme.text)
-        protocol = vault["protocol"] if vault["protocol_slug"] != "protocol-not-yet-identified" else "Unknown protocol"
         draw.text((name_x, top + 34), _fit_text(draw, f"{vault['chain']} · {protocol}", _font(18), bar_left - name_x - 24), font=_font(18), fill=theme.muted_text)
         bar_width = max(8, int(bar_max * vault["one_month_cagr_best"] / max_return))
         draw.rounded_rectangle((bar_left, top + 14, bar_left + bar_width, top + 42), radius=14, fill=theme.positive)
         value = format_return(vault["one_month_cagr_net"], vault["one_month_cagr"])
         draw.text((bar_left + bar_width + 14, top + 11), value.replace(" (n)", "").replace(" (g)", ""), font=_font(26, bold=True), fill=theme.text)
 
-    draw.text((pad, height - 50), subtitle, font=_font(18), fill=theme.muted_text)
+    footer_font = _font(18)
+    footer_text = _fit_text(draw, subtitle, footer_font, width - 2 * pad - 220)
+    draw.text((pad, height - 50), footer_text, font=footer_font, fill=theme.muted_text)
     draw.text((width - pad - draw.textlength("tradingstrategy.ai", font=_font(20, bold=True)), height - 52), "tradingstrategy.ai", font=_font(20, bold=True), fill=theme.text)
     image.convert("RGB").save(output_path, format="PNG", optimize=True)
     return output_path

@@ -14,14 +14,14 @@ from PIL import Image
 
 from eth_defi.research.vault_correlation import choose_vaults_for_correlation_comparison
 from eth_defi.vault_report import report as report_module
-from eth_defi.vault_report.benchmarks import calculate_treasury_bill_rolling_returns, convert_discount_to_investment_yield
-from eth_defi.vault_report.branding import HERO_SIZE, compose_chart_panel
+from eth_defi.vault_report.benchmarks import calculate_treasury_bill_rolling_returns
+from eth_defi.vault_report.branding import HERO_SIZE, SQUARE_HERO_SIZE, compose_chart_panel
 from eth_defi.vault_report.charts import CHOREOGRAPHER_CHROME_PATH, calculate_rolling_returns, create_correlation_figure, create_rolling_returns_figure
 from eth_defi.vault_report.data import VaultReportData, calculate_daily_share_prices, prepare_vault_metrics, read_vault_share_prices, read_vault_tvl_history
 from eth_defi.vault_report.ghost import GhostAdminClient, GhostAPIError, GhostContentClient, GhostPost, create_ghost_admin_token
 from eth_defi.vault_report.movers import calculate_rank_changes, parse_ranked_vault_links, resolve_vault_id
 from eth_defi.vault_report.post import extract_section_html, make_report_slug, read_changelog_entries
-from eth_defi.vault_report.report import generate_monthly_vault_report, publish_report_draft
+from eth_defi.vault_report.report import generate_monthly_vault_report, publish_report_draft, read_previous_ranking
 from eth_defi.vault_report.sections import (
     ReportCriteria,
     ReportSection,
@@ -224,6 +224,8 @@ def test_generate_report_bundle(tmp_path: Path, vaults_df: pd.DataFrame, prices_
     assert manifest["sections"]["perp_dex"] == 2
     assert (tmp_path / "out" / "tables" / "best.csv").exists()
     assert manifest["rankings"]["best"] == ["1-0xaa", "1-0xbb", "1-0x22"]
+    assert read_previous_ranking(tmp_path / "out") == ["1-0xaa", "1-0xbb", "1-0x22"]
+    assert "3 of the 3 vaults below beat the 3-month US Treasury bill yield of 4.0%" in post_html
     assert "vault-sparklines.tradingstrategy.ai" in post_html
 
     # An existing draft is checked before any chart is uploaded
@@ -248,6 +250,7 @@ def test_render_report_charts(tmp_path: Path, vaults_df: pd.DataFrame, prices_pa
         assert image.mode == "RGBA"
         assert image.getpixel((0, 0))[3] == 0  # Rounded panel corner is transparent
     assert Image.open(report.hero_path).size == HERO_SIZE
+    assert Image.open(tmp_path / "out" / "hero-square.png").size == SQUARE_HERO_SIZE
     assert 'src="charts/best_rolling.png"' in (tmp_path / "out" / "post.html").read_text()
 
 
@@ -395,8 +398,7 @@ def test_create_or_update_draft(existing_status: str | None, overwrite: bool, ex
 
 
 def test_treasury_bill_benchmark():
-    """Discount rates convert to investment yields, and daily accrual matches compounding."""
-    assert convert_discount_to_investment_yield(pd.Series([0.04])).iloc[0] == pytest.approx(365 * 0.04 / (360 - 91 * 0.04))
+    """Daily accrual over the rolling window matches compounding."""
     yields = pd.Series(0.0365, index=pd.date_range("2026-01-02", periods=200, freq="B"))
     index = pd.date_range("2026-06-01", "2026-06-30", freq="D")
     rolling = calculate_treasury_bill_rolling_returns(yields, datetime.timedelta(days=90), index)
@@ -410,6 +412,14 @@ def test_movers(vaults_df: pd.DataFrame):
     assert len(links) == 4
     previous_ids = [resolve_vault_id(link, vaults_df) for link in links]
     assert previous_ids == ["1-0xff", "1-0xbb", "1-0x22", None]
+
+    # A slug shared by vaults on two chains resolves only with the chain in the link
+    twin = vaults_df.loc[["1-0x22"]].assign(id="42161-0x22", chain="Arbitrum")
+    twin.index = ["42161-0x22"]
+    with_twin = pd.concat([vaults_df.assign(vault_slug=vaults_df["vault_slug"].replace("vault-0x22", "shared")), twin.assign(vault_slug="shared")])
+    assert resolve_vault_id("https://tradingstrategy.ai/trading-view/vaults/shared", with_twin) is None
+    assert resolve_vault_id("https://tradingstrategy.ai/trading-view/base/vaults/shared", with_twin) == "1-0x22"
+    assert resolve_vault_id("https://tradingstrategy.ai/trading-view/arbitrum/vaults/shared", with_twin) == "42161-0x22"
 
     changes, dropped = calculate_rank_changes(previous_ids, ["1-0xaa", "1-0x22", "1-0xbb"], top_n=2)
     assert [(c.vault_id, c.previous_rank, c.status) for c in changes] == [("1-0xaa", None, "new"), ("1-0x22", 2, "same")]
@@ -428,10 +438,12 @@ def test_table_badges_and_sparklines(vaults_df: pd.DataFrame):
     """Tables show risk pills and sparklines only for vaults that have one."""
     assert ">Low<" in format_risk_badge("Low")
     assert ">Unrated<" in format_risk_badge(None)
+    assert "<a " not in format_risk_badge(None)
     table = render_section_table(ReportSection(vaults_df.loc[["1-0xaa", "1-0xbb"]], sparkline_ids=frozenset({"1-0xaa"})))
     assert table.count("sparkline-90d-") == 1
-    assert "sparkline-90d-1-0xaa.svg" in table
-    assert table.startswith('<div style="overflow-x:auto">')
+    assert "sparkline-90d-1-0xaa.png" in table
+    assert table.startswith("<table>")
+    assert "<span" in format_risk_badge(None)  # Unrated is muted text, not a pill link
 
 
 def test_compose_chart_panel(tmp_path: Path):

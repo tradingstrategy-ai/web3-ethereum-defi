@@ -137,26 +137,21 @@ Plotly figures reusable in notebooks.
 
 ### 3. US Treasury bill benchmark
 
-- Data: FRED `DTB3` (3-month T-bill secondary market rate, daily), CSV export
-  `https://fred.stlouisfed.org/graph/fredgraph.csv?id=DTB3`, no API key.
-  The frontend uses FRED plus the Treasury Fiscal Data API with a file
-  cache, because FRED rate-limits; mirror that.
-  `fetch_treasury_bill_rates(cache_dir, max_age=1 day) -> pd.Series` (percent,
-  daily). On failure, log a warning and return the cached copy or `None`. The
-  chart then omits the benchmark; the report is never aborted over it.
-- Rolling return charts: convert the rate series to a 90-day compounded
-  return, `prod(1 + r_d/365)` over the window, and draw it as a dashed amber
-  (`#fbbf24`) line labelled "US 3M T-bill". The same 90-day window as the
-  vault lines keeps it comparable.
-- Chain yield chart: a vertical dashed amber line at the latest T-bill yield,
-  labelled "US T-bill 4.1%".
-- Correctness: DTB3 is a discount rate on a bank-discount basis. The
-  difference from the investment yield is small but should be noted in the
-  chart note, or converted: `y = 365*d/(360 - 91*d)`.
-- Tests: conversion on a fixed series, cache fallback when the HTTP fetch
-  raises, and the chart skips the line when the series is `None`.
-- Real integration test: fetch DTB3 and assert the latest value is between 0
-  and 20.
+- Data: FRED `DGS3MO` (3-month Treasury constant maturity yield, daily,
+  investment basis), CSV export
+  `https://fred.stlouisfed.org/graph/fredgraph.csv?id=DGS3MO`, no API key. This
+  is the series the website's vault pages use. Cache the CSV for a day;
+  `fetch_treasury_bill_yields(cache_dir) -> pd.Series | None`. On failure, log a
+  warning and use the cached copy or `None`, in which case the charts omit the
+  benchmark. The report is never aborted over it. (The first draft used `DTB3`
+  with a discount-to-investment conversion; the Kimi review corrected this.)
+- Rolling return charts: accrue each calendar day at the day's yield,
+  `prod(1 + r_d/365)` over the 90-day window, forward filling weekends, and
+  draw it as a dashed amber (`#fbbf24`) line labelled "US 3M T-bill".
+- Chain yield and risk/return charts: a dashed amber line at the latest yield.
+- Tests: daily compounding on a fixed series; the charts skip the line when
+  the series is `None`. Real integration test: fetch DGS3MO and assert a recent
+  value between 0 and 20%.
 
 ### 4. Glowing line and area styling
 
@@ -327,7 +322,7 @@ Plotly figures reusable in notebooks.
 - Image tests: dimensions, background pixel colours and the absence of
   exceptions. No brittle whole-image golden comparisons; use a region hash
   only for deterministic Pillow-drawn elements such as the footer.
-- Real integration tests, guarded and skipped without network: FRED DTB3,
+- Real integration tests, guarded and skipped without network: FRED DGS3MO,
   chain logo endpoint, sparkline HEAD.
 - Visual acceptance: generate a contact sheet of all charts in both themes
   and post it as a PR comment. Create a Ghost draft once the Admin key exists,
@@ -348,6 +343,11 @@ Plotly figures reusable in notebooks.
 
 ## Open questions
 
+Resolved during implementation, see the Kimi review below: 1 (dark default;
+the blog is dark), 2 (bundled Inter), 3 (brand SVGs copied into
+`eth_defi/vault_report/assets`), 4 (the frontend makes tables scroll) and
+5 (mirror the website's DuckDB query; `total_assets` is already USD).
+
 1. **Dark or light default.** The blog page is light, and dark charts will
    look like framed cards on it. The website look argues for dark.
 2. **Font.** Neue Haas Grotesk is licensed and cannot be bundled. Options:
@@ -363,3 +363,57 @@ Plotly figures reusable in notebooks.
 4. **Table width** with the two new columns in the Ghost theme.
 5. **Stacked TVL data parity** with the website chart: which vault set and
    currency conversion the frontend uses.
+
+## Kimi Max review
+
+Kimi K3 reviewed the complete plan at maximum reasoning effort on 2026-09-25,
+with read access to this repository, the website frontend and the generated
+charts. Its verdict was "approve with conditions". The implementation
+incorporates its findings:
+
+- **Benchmark series:** the website uses FRED `DGS3MO` (investment basis), not
+  `DTB3` (bank-discount basis). Switched, and dropped the discount conversion.
+- **Logo variants:** `light.png` is for dark backgrounds. The implementation
+  maps the dark theme to `light.png`, as the README specifies.
+- **Movers population:** 22 of February's 50 vaults are now perp DEX vaults and
+  8 are blacklisted. Previous ranks are recalculated among vaults eligible this
+  month, and the chart subtitle says so. Ambiguous slugs resolve only with a
+  chain in the link. Next month's run reads the stored `report.json` ranking.
+- **TVL parity:** the website aggregates weekly with DuckDB
+  `arg_max(total_assets, timestamp)`, drops points above $50B and excludes
+  blacklisted vaults. `total_assets` is already USD, EUR vaults included. The
+  implementation mirrors this, which also cut the step from 50 s to 0.2 s.
+- **The blog is dark:** `tradingstrategy.ai/blog` is rendered by the frontend
+  with `data-color-mode="dark"`. That settles open question 1: dark by default.
+- **X cards:** the frontend uses a `summary` card for blog posts, so X shows the
+  feature image as a square thumbnail. A square hero variant was added; switching
+  posts to `summary_large_image` would be a one-line frontend change, tracked separately.
+- **Tables:** the frontend already wraps tables in a scrolling container, so
+  the extra wrapper was removed. Sparklines use PNG, because Gmail strips SVG.
+  Unrated vaults show muted text instead of a pill.
+- **Font:** settled on bundled Inter, shared by Chrome (private
+  `FONTCONFIG_FILE`) and Pillow, so each image uses one typeface.
+- **Scatter:** the volatility axis is floored, returns are clipped at 100% with
+  outlier triangles, and bubble sizes are capped.
+
+The palette validation tool the plan cites is not part of this repository;
+`theme.py` records the checked values instead.
+
+## Implementation status
+
+Implemented in PR #1600 (2026-09-25): items 1-12, plus the square hero image
+and a caption that counts the vaults beating the T-bill.
+
+Follow-up candidates, from the review and Kimi's suggestions:
+
+- a T-bill spread column in the tables;
+- the largest one-month TVL gainers and losers in dollars;
+- a distribution of one-month returns;
+- TVL by risk rating;
+- median yield by strategy, once strategy tag coverage improves;
+- the website's cumulative TVL versus return curve;
+- month-over-month arrows on the chain chart;
+- a US savings rate benchmark;
+- per-chain champion cards;
+- a methodology card;
+- the frontend `summary_large_image` change.
