@@ -28,6 +28,8 @@ https://etherscan.io/address/0x23848fc9b4da2b686358d39403d07256b51a3e9c#code
 
 import bisect
 import logging
+import re
+import time
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 from decimal import ROUND_HALF_UP, Decimal
@@ -37,6 +39,7 @@ import eth_abi
 from eth_typing import HexAddress
 from web3 import Web3
 
+from eth_defi.hypersync.hypersync_timestamp import is_hypersync_rate_limit_error
 from eth_defi.tokenised_fund.securitize.description import ARKVX_ETHEREUM
 from eth_defi.types import Percent
 from eth_defi.vault.flow_events import IndexedVaultFlowLog, decode_indexed_event_uint, event_data_to_bytes, fetch_vault_flow_logs_hypersync, normalise_event_topic
@@ -61,6 +64,20 @@ WAD = Decimal(10**18)
 #: more likely means the settler changed its fee gross-up, which would shift the
 #: whole reconstructed series.
 SETTLEMENT_NAV_JUMP_WARNING_THRESHOLD = Decimal("0.20")
+
+#: Hypersync attempts before a rate-limited settlement fetch fails.
+SETTLEMENT_FETCH_ATTEMPTS = 6
+
+#: Seconds added to the server-stated ``resets_in`` before retrying.
+#:
+#: ``resets_in`` is reported in whole seconds, so wait a little past it. A
+#: shared API key that another consumer saturates can still lose the race.
+SETTLEMENT_FETCH_RESET_MARGIN = 5
+
+#: Fallback wait in seconds when a rate-limit error has no ``resets_in``.
+#:
+#: Longer than Hypersync's 60-second rate-limit window.
+SETTLEMENT_FETCH_RETRY_SLEEP = 61
 
 
 class SecuritizeSettlementError(RuntimeError):
@@ -223,8 +240,15 @@ def fetch_settlement_prices(
     hypersync_client: "ThrottledHypersyncClient",
     feed: SecuritizeSettlementFeed,
     end_block: int,
+    attempts: int = SETTLEMENT_FETCH_ATTEMPTS,
 ) -> list[SecuritizeSettlementPrice]:
     """Fetch the settlement NAV timeline with Hypersync.
+
+    Hypersync is a hard requirement: there is no RPC or archive-state
+    fallback. The repository's Hypersync client disables internal retries, so
+    a rate-limited request is retried here. Each wait lasts until the
+    server-stated ``resets_in``, because a shared API key's quota is usually
+    only available right after its 60-second window resets.
 
     :param hypersync_client:
         Hypersync client for ``feed.chain_id``, created with
@@ -233,23 +257,40 @@ def fetch_settlement_prices(
         Reviewed settlement feed.
     :param end_block:
         Inclusive last block to read.
+    :param attempts:
+        Maximum Hypersync attempts when rate limited.
     :return:
         Deposit settlement prices sorted by block number.
     :raises RuntimeError:
+        If Hypersync stays rate limited after all attempts, or
         If Hypersync returns no deposit settlement although ``end_block`` is at
         or after the known first settlement. An incomplete index must abort
         the scan rather than rewrite priced history as unpriced rows.
     """
 
+    assert hypersync_client is not None, f"Securitize settlement NAV for {feed.token} requires a Hypersync client"
     if end_block < feed.first_block:
         return []
-    logs = fetch_vault_flow_logs_hypersync(
-        hypersync_client=hypersync_client,
-        vault_address=feed.vault,
-        topic0_list=[DEPOSIT_GENERATION_FULFILLED_TOPIC, REDEMPTION_GENERATION_FULFILLED_TOPIC],
-        start_block=feed.first_block,
-        end_block=end_block,
-    )
+    for attempt in range(1, attempts + 1):
+        try:
+            logs = fetch_vault_flow_logs_hypersync(
+                hypersync_client=hypersync_client,
+                vault_address=feed.vault,
+                topic0_list=[DEPOSIT_GENERATION_FULFILLED_TOPIC, REDEMPTION_GENERATION_FULFILLED_TOPIC],
+                start_block=feed.first_block,
+                end_block=end_block,
+            )
+            break
+        except RuntimeError as e:
+            if not is_hypersync_rate_limit_error(e):
+                raise
+            if attempt == attempts:
+                logger.error("Hypersync settlement fetch for %s still rate limited after %d attempts", feed.vault, attempts, exc_info=True)
+                raise
+            resets_in = re.search(r"resets_in=(\d+)s", str(e))
+            wait = int(resets_in.group(1)) + SETTLEMENT_FETCH_RESET_MARGIN if resets_in else SETTLEMENT_FETCH_RETRY_SLEEP
+            logger.warning("Hypersync rate limited fetching settlements for %s (attempt %d/%d); retrying in %d s", feed.vault, attempt, attempts, wait)
+            time.sleep(wait)
     prices = decode_settlement_prices(logs, feed)
     if not prices:
         raise RuntimeError(f"Hypersync returned no deposit settlements for {feed.vault} in blocks {feed.first_block:,} - {end_block:,}, although the first settlement is at block {feed.first_block:,}")

@@ -377,3 +377,21 @@ all verified and fixed:
 - The notes described the staleness as a one-business-day lag. They now say
   the price stays at the last settled value until deposits settle again.
 
+
+## Hypersync as a hard requirement
+
+Settlement NAV has no RPC or archive-state fallback:
+
+- `fetch_settlement_prices()` asserts that a Hypersync client is supplied.
+  `SecuritizeVault.settlement_prices` raises `RuntimeError` when
+  `configure_hypersync_from_env()` returns no client, and an empty timeline
+  after the known first settlement is an error. In every case the scan aborts
+  and the atomic Parquet rewrite keeps existing rows.
+- The repository's Hypersync client disables internal retries, so a
+  rate-limited settlement fetch is retried up to six times. Each wait lasts
+  until the server-stated `resets_in` plus a five-second margin.
+- On 2026-09-25 the shared `HYPERSYNC_API_KEY` was saturated by another
+  consumer: 30,000 cost units per 60-second window, 1,000 per query, with
+  `x-ratelimit-remaining: 0` for most of each window. Fetches succeeded only
+  intermittently. Production needs a dedicated or higher-tier key for this
+  scheduler item to be reliable.

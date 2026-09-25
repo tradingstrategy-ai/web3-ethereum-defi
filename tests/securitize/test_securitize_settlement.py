@@ -221,8 +221,39 @@ def test_empty_settlement_timeline_is_an_error(monkeypatch: pytest.MonkeyPatch) 
     monkeypatch.setattr(settlement_module, "fetch_vault_flow_logs_hypersync", lambda **_kwargs: [])
 
     with pytest.raises(RuntimeError, match="no deposit settlements"):
+        fetch_settlement_prices(object(), ARKVX_FEED, ARKVX_TEST_BLOCK)
+    assert fetch_settlement_prices(object(), ARKVX_FEED, ARKVX_FEED.first_block - 1) == []
+
+
+def test_settlement_fetch_requires_hypersync() -> None:
+    """Refuse to price settlements without a Hypersync client."""
+
+    with pytest.raises(AssertionError, match="requires a Hypersync client"):
         fetch_settlement_prices(None, ARKVX_FEED, ARKVX_TEST_BLOCK)
-    assert fetch_settlement_prices(None, ARKVX_FEED, ARKVX_FEED.first_block - 1) == []
+
+
+def test_settlement_fetch_retries_rate_limit_until_reset(monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture) -> None:
+    """Wait for the server-stated rate-limit reset, then retry."""
+
+    deposit_log = create_settlement_log(DEPOSIT_GENERATION_FULFILLED_TOPIC, 1, ARKVX_FEED.first_block, encode(["uint256", "uint256"], [ARKVX_SETTLEMENTS[0][2], 520_000_000]))
+    responses = [RuntimeError("inner receiver\nCaused by:\n    1: rate limited by server (remaining=0/30 reqs, resets_in=7s)"), [deposit_log]]
+    sleeps: list[int] = []
+
+    def fetch_logs(**_kwargs: object) -> list[IndexedVaultFlowLog]:
+        response = responses.pop(0)
+        if isinstance(response, Exception):
+            raise response
+        return response
+
+    monkeypatch.setattr(settlement_module, "fetch_vault_flow_logs_hypersync", fetch_logs)
+    monkeypatch.setattr(settlement_module.time, "sleep", sleeps.append)
+
+    with caplog.at_level(logging.WARNING):
+        prices = fetch_settlement_prices(object(), ARKVX_FEED, ARKVX_TEST_BLOCK)
+
+    assert [price.share_price for price in prices] == [Decimal("60.51")]
+    assert sleeps == [12]
+    assert "retrying in 12 s" in caplog.text
 
 
 @pytest.fixture(scope="module")
