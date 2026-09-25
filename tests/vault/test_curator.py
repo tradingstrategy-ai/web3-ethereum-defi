@@ -14,7 +14,7 @@ from eth_defi.tokenised_fund.fdit.constants import FDIT_ETHEREUM
 from eth_defi.tokenised_fund.kaio.constants import CASHX_ETHEREUM
 from eth_defi.tokenised_fund.libeara.constants import LIBEARA_PRODUCTS
 from eth_defi.tokenised_fund.sygnum.constants import FILQ_CURATOR_SLUG, SYGNUM_PRODUCTS_BY_CHAIN
-from eth_defi.vault.curator import build_curator_metadata_json, get_curator_available_logos, get_curator_name, identify_curator, is_protocol_curator, load_curator_map
+from eth_defi.vault.curator import ARC_CHAIN_ID, build_curator_metadata_json, get_curator_available_logos, get_curator_name, identify_curator, is_protocol_curator, load_curator_map
 from eth_defi.vault.strategy_tag import StrategyTag
 
 
@@ -76,6 +76,37 @@ def test_identify_darkmatter_labs_hyperliquid_vault() -> None:
         StrategyTag.multistrategy,
         StrategyTag.perpetual_futures,
     }
+
+
+def test_identify_arc_vault_curators() -> None:
+    """Resolve every listed Arc Morpho V2 vault to its published curator.
+
+    Morpho's Arc metadata uses curator names that differ from some vault
+    titles. The manager field is therefore the authoritative input for the
+    mapping, while the Arc network name must not match the unrelated ARC
+    Enzyme curator.
+    """
+
+    cases = {
+        "0x8e357432cc12ff425c36432f312968aeb16112af": ("Galaxy USDC", "Galaxy Curation", "galaxy"),
+        "0x5befab92a5a3d60f578cb51eeb4e4fd50a1e3123": ("Keyrock Prime USDC", "Keyrock", "keyrock"),
+        "0x389abdf4355e0cf4f19298179991705a98f21c18": ("Galaxy EURC", "Galaxy Curation", "galaxy"),
+        "0x7610094b846657dcf166d59e42973db52c7015f9": ("Bitwise Premium RWA USDC", "Bitwise", "bitwise"),
+        "0xdeccd53be5453215821184824b519e04c7e00bc7": ("Gauntlet USDC Prime", "Gauntlet", "gauntlet"),
+        "0xbeef0016cb2fd5c352ea7ca08a9f54739dfa7298": ("Steakhouse Prime USDC", "Steakhouse Financial", "steakhouse-financial"),
+        "0xbeef00be37bde921bae06fad223125bab16c41d1": ("Steakhouse Prime EURC", "Steakhouse Financial", "steakhouse-financial"),
+        "0x05863f54b05e96092069ef30c9ca6060336e50b9": ("Gauntlet EURC Prime", "Gauntlet", "gauntlet"),
+        "0x9503d4eccee1046610ec1467f58b6bc23fce157e": ("Pangolins USDC", "Pangolins", "pangolins"),
+        "0x10af7238c6355aa8ddb5ed60e2e9b55a72827b51": ("Gauntlet USDC Balanced", "Gauntlet", "gauntlet"),
+        "0xf0943081f646f21cf5bfba8e0f670c4248ab0ba5": ("KPK wARS Yield", "KPK", "kpk"),
+        "0x6bdfe1165d5165808d02de05969c9a19e9b7cf30": ("Dialectic RWA USDC", "Dialectic Meccanico", "dialectic"),
+        "0xbd69ce1b1027e932158aa96a873a91c41cb729f9": ("Flowmark USDC Turbo", "Flowmark", "flowmark"),
+    }
+    for address, (name, manager_name, expected) in cases.items():
+        assert identify_curator(ARC_CHAIN_ID, "", name, address, "morpho", manager_name) == expected
+
+    assert identify_curator(ARC_CHAIN_ID, "", "Ample Arc USDC", "0x0", "euler") is None
+    assert identify_curator(ARC_CHAIN_ID, "", "Arc Test 2", "0x0", "morpho") is None
 
 
 DARK_UI_BACKGROUND_LUMINANCE = 0.0098

@@ -368,6 +368,9 @@ PROTOCOL_BOUND_CURATOR_SLUGS: set[str] = {
     "frax-finance",
 }
 
+#: Arc mainnet chain ID; the chain name is not a curator identity.
+ARC_CHAIN_ID = 5042
+
 #: Protocol-specific curator metadata fields in curator YAML files.
 PROTOCOL_MANAGER_YAML_FIELDS: dict[str, str] = {
     "ipor-fusion": "ipor-atomist",
@@ -1042,13 +1045,17 @@ def identify_curator(  # noqa: PLR0917
     if manager_slug := _identify_curator_by_protocol_manager_name(protocol_slug, manager_name):
         return manager_slug
 
+    # ARC is an Arbitrum Enzyme strategy label, not evidence of the Arc chain's
+    # curator. Keep its existing address overrides authoritative on Arbitrum.
+    name_exclusions = PROTOCOL_BOUND_CURATOR_SLUGS | ({"arc"} if chain_id == ARC_CHAIN_ID else set())
+
     # 8. Ordinary vault-name fuzzy matching. Protocol-bound curators must have
     #    already matched by protocol slug and cannot be inferred from an asset.
-    if vault_slug := _identify_curator_by_patterns(vault_name, patterns, exclude_slugs=PROTOCOL_BOUND_CURATOR_SLUGS):
+    if vault_slug := _identify_curator_by_patterns(vault_name, patterns, exclude_slugs=name_exclusions):
         return vault_slug
 
     # 9. Legacy fuzzy matching against manager name for native marketplaces like GRVT.
-    if manager_slug := _identify_curator_by_patterns(manager_name, patterns, exclude_slugs=PROTOCOL_BOUND_CURATOR_SLUGS):
+    if manager_slug := _identify_curator_by_patterns(manager_name, patterns, exclude_slugs=name_exclusions):
         return manager_slug
 
     return None

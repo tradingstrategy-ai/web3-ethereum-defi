@@ -23,6 +23,23 @@ STRATEGY_TAGS: dict[str, set[StrategyTag]] = {
     #: Vault: Morini USDC Emerging Yield on Ethereum.
     #: Added: 2026-09-11 from the public vault metadata database.
     "0x58e0f0b81576f23c5f002d949b2bb11a5d2714d6": {StrategyTag.fx},
+    #: Vault: Bitwise Premium RWA USDC on Arc.
+    #: Added: 2026-09-25.
+    #: Decision material: Bitwise describes PAPY-USDC as lending against a
+    #: diversified set of overcollateralised real-world assets.
+    #: Sources:
+    #: - https://bitwiseinvestments.com/newsroom/the-bitwise-premium-rwa-vault-papy-expands-to-arc-with-usdc-deposits
+    #: - https://app.morpho.org/arc/vault/0x7610094B846657dCF166D59e42973db52c7015F9/bitwise-premium-rwa-usdc
+    "0x7610094b846657dcf166d59e42973db52c7015f9": {StrategyTag.rwa, StrategyTag.rwa_lending},
+    #: Vault: Dialectic RWA USDC on Arc.
+    #: Added: 2026-09-25.
+    #: Decision material: Dialectic's Morpho announcement describes this
+    #: vault as lending against a curated set of tokenised-credit and RWA
+    #: collateral.
+    #: Sources:
+    #: - https://forum.morpho.org/t/introducing-dialectic-meccanico-by-dialectic-vaults-on-morpho/2334
+    #: - https://app.morpho.org/arc/vault/0x6bdfe1165d5165808d02de05969c9a19e9b7cf30/dialectic-rwa-usdc
+    "0x6bdfe1165d5165808d02de05969c9a19e9b7cf30": {StrategyTag.rwa, StrategyTag.rwa_lending},
 }
 
 
