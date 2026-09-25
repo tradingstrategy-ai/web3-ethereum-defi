@@ -25,6 +25,7 @@ import pandas as pd
 
 from eth_defi.research.vault_metrics import USDollarAmount, _get_trading_strategy_chain_link, _get_trading_strategy_protocol_link
 from eth_defi.types import Percent
+from eth_defi.vault.risk import VaultTechnicalRisk
 
 logger = logging.getLogger(__name__)
 
@@ -134,8 +135,9 @@ class ReportCriteria:
     #: where one outlier number would dwarf the others
     chart_max_return: Percent = 4.0
 
-    #: Technical risk ratings left out of the hero image, which promotes vaults on social media
-    hero_excluded_risks: tuple[str, ...] = ("Dangerous", "Severe")
+    #: Lowest technical risk level left out of the hero image, which promotes vaults on social media:
+    #: Dangerous and above, see :py:class:`eth_defi.vault.risk.VaultTechnicalRisk`. Unrated vaults are shown.
+    hero_min_excluded_risk: int = VaultTechnicalRisk.dangerous.value
 
     #: Leave vaults above this annualised three-month volatility out of the hero image
     hero_max_volatility: Percent = 0.5
