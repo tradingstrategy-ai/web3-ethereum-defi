@@ -6,8 +6,9 @@
   ``eth_defi/vault_report/assets/benchmarks``, copied from the website frontend
   (``src/lib/assets/logos/tokens``), the same logos as its vault comparison chart.
 - Protocol logos come from this repository's vault metadata,
-  ``eth_defi/data/vaults/formatted_logos/{slug}/{light,dark}.png``. ``light.png``
-  is for dark backgrounds and ``dark.png`` for light backgrounds; either may be missing.
+  ``eth_defi/data/vaults/formatted_logos/{slug}/{light,dark,generic}.png``, for
+  protocols and curators alike. ``light.png`` is for dark backgrounds and
+  ``dark.png`` for light backgrounds; ``generic.png`` is the fallback when neither exists.
 - Chain logos are downloaded from the website, ``https://tradingstrategy.ai/logos/blockchains/{slug}``,
   and cached on disk.
 
@@ -58,14 +59,14 @@ def load_protocol_logo_path(protocol_slug: str | None, theme: ChartTheme) -> Pat
         Protocol slug from the vault metadata.
 
     :param theme:
-        Chart theme; dark themes use ``light.png``.
+        Chart theme; dark themes use ``light.png``, then ``dark.png``, then ``generic.png``.
 
     :return:
         PNG path, or ``None`` if the protocol has no logo.
     """
     if not protocol_slug:
         return None
-    variants = ("light.png", "dark.png") if theme.name == "dark" else ("dark.png", "light.png")
+    variants = ("light.png", "dark.png", "generic.png") if theme.name == "dark" else ("dark.png", "light.png", "generic.png")
     return next((path for variant in variants if (path := PROTOCOL_LOGO_DIR / protocol_slug / variant).exists()), None)
 
 

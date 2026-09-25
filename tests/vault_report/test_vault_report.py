@@ -18,12 +18,12 @@ from eth_defi.research.vault_metrics import calculate_sharpe_ratio_from_returns
 from eth_defi.vault_report import report as report_module
 from eth_defi.vault_report.benchmarks import BTC, ETH, TREASURY_BILL, calculate_treasury_bill_index, select_benchmarks
 from eth_defi.vault_report.branding import HERO_SIZE, PANEL_PADDING, PANEL_WIDTH, SQUARE_HERO_SIZE, compose_chart_panel
-from eth_defi.vault_report.charts import CHOREOGRAPHER_CHROME_PATH, PerformanceSeries, calculate_period_performance, calculate_rolling_sharpe, create_performance_figure, wrap_label
+from eth_defi.vault_report.charts import CHOREOGRAPHER_CHROME_PATH, PerformanceSeries, VaultProperty, calculate_period_performance, calculate_rolling_sharpe, create_performance_figure, wrap_label
 from eth_defi.vault_report.data import VaultReportData, calculate_daily_share_prices, prepare_vault_metrics, read_vault_share_prices, read_vault_tvl_history
 from eth_defi.vault_report.ghost import GhostAdminClient, GhostAPIError, GhostContentClient, GhostPost, create_ghost_admin_token
 from eth_defi.vault_report.logos import load_benchmark_logo_uri
 from eth_defi.vault_report.post import extract_section_html, make_report_slug, read_changelog_entries
-from eth_defi.vault_report.report import generate_monthly_vault_report, publish_report_draft
+from eth_defi.vault_report.report import generate_monthly_vault_report, make_vault_properties, publish_report_draft
 from eth_defi.vault_report.sections import (
     LENDING,
     OTHER,
@@ -230,7 +230,7 @@ def test_daily_prices_and_performance(prices_path: Path):
 
     # All vaults share one chart: a casing, a line and an end dot per vault, and each available benchmark once
     indices = {TREASURY_BILL: calculate_treasury_bill_index(pd.Series(0.04, index=daily.index), daily.index[-1])}
-    series = [PerformanceSeries("1-0xaa", "A", None, (TREASURY_BILL,)), PerformanceSeries("1-0xbb", "B", None, (BTC, ETH, TREASURY_BILL))]
+    series = [PerformanceSeries("1-0xaa", "A", (VaultProperty("Morpho"), VaultProperty("Ethereum")), (TREASURY_BILL,)), PerformanceSeries("1-0xbb", "B", (), (BTC, ETH, TREASURY_BILL))]
     fig = create_performance_figure(series, daily, indices, DARK_THEME)
     assert [trace.name for trace in fig.data if trace.mode == "lines" and trace.name] == ["A", "B", TREASURY_BILL]
     assert fig.layout.yaxis.type != "log"
@@ -250,7 +250,7 @@ def test_daily_prices_and_performance(prices_path: Path):
     calm = pd.Series(np.linspace(100, 101, len(daily)), index=daily.index)
     spiky = pd.Series(np.linspace(100, 1_000, len(daily)), index=daily.index)
     outlier_prices = pd.DataFrame({"calm1": calm, "calm2": calm * 1.001, "spiky": spiky})
-    outlier_series = [PerformanceSeries(vault_id, vault_id, None, (TREASURY_BILL,)) for vault_id in outlier_prices.columns]
+    outlier_series = [PerformanceSeries(vault_id, vault_id, (), (TREASURY_BILL,)) for vault_id in outlier_prices.columns]
     fig = create_performance_figure(outlier_series, outlier_prices, indices, DARK_THEME)
     assert fig.layout.yaxis.type != "log"
     assert fig.layout.yaxis.range[1] < 110  # The $100 equity curves of the calm vaults, not the 10× outlier
@@ -267,7 +267,7 @@ def test_rolling_sharpe_chart():
     assert sharpe.iloc[-1] == pytest.approx(expected)
 
     indices = {TREASURY_BILL: calculate_treasury_bill_index(pd.Series(0.04, index=index), index[-1]), BTC: prices["b"] * 2}
-    series = [PerformanceSeries("a", "A", None, (BTC, TREASURY_BILL)), PerformanceSeries("b", "B", None, (BTC, TREASURY_BILL))]
+    series = [PerformanceSeries("a", "A", (), (BTC, TREASURY_BILL)), PerformanceSeries("b", "B", (), (BTC, TREASURY_BILL))]
     fig = create_performance_figure(series, prices, indices, DARK_THEME, measure="sharpe")
     assert [trace.name for trace in fig.data if trace.mode == "lines" and trace.name] == ["A", "B", BTC]
     assert fig.layout.yaxis.title.text == "90-day rolling Sharpe ratio"
@@ -545,6 +545,19 @@ def test_unidentified_protocols(vaults_df: pd.DataFrame):
     assert not is_identified_protocol(None, None)
     assert vaults_df.loc["1-0x33", "protocol_label"] == OTHER_PROTOCOL
     assert format_vault_cells(vaults_df.loc["1-0x33"])["Protocol"] == OTHER_PROTOCOL
+
+
+def test_vault_properties(vaults_df: pd.DataFrame):
+    """Charts show the curator, protocol and chain under a vault name, without repeating the protocol."""
+    vault = vaults_df.loc["1-0xaa"].copy()
+    vault["curator_name"], vault["curator_slug"] = "Steakhouse Financial", "steakhouse"
+    properties = make_vault_properties(vault, DARK_THEME, lambda chain: f"logo:{chain}")
+    assert [prop.text for prop in properties] == ["Steakhouse Financial", "Morpho", "Ethereum"]
+    assert properties[2].logo_uri == "logo:Ethereum"
+
+    # A protocol curating its own vault, on a chain named after the protocol, is shown once
+    vault["curator_name"], vault["curator_slug"], vault["chain"] = "Morpho", "morpho", "Morpho"
+    assert [prop.text for prop in make_vault_properties(vault, DARK_THEME, lambda chain: None)] == ["Morpho"]
 
 
 def test_table_badges_and_sparklines(vaults_df: pd.DataFrame):
