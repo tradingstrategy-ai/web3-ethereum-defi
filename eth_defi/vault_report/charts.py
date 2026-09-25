@@ -892,7 +892,7 @@ def create_risk_return_figure(
 
     apply_theme(fig, theme, IMAGE_WIDTH, 900)
     fig.update_layout(
-        xaxis_title="3-month volatility (log scale)",
+        xaxis_title="3-month volatility, annualised (log scale)",
         yaxis_title="3-month return, annualised",
         margin={"l": 90, "r": 330, "t": 40, "b": 80},
         legend={"font": {"size": 17, "color": theme.text}, "x": 1.02, "y": 1, "xanchor": "left", "itemsizing": "constant", "title": {"text": "Strategy", "font": {"color": theme.text}}},
@@ -945,7 +945,11 @@ def create_protocol_tvl_figure(
     apply_theme(fig, theme, LEGEND_CHART_WIDTH, IMAGE_HEIGHT)
     # The protocol legend is short, so it needs less room than LEGEND_MARGIN and the plot fills the panel width
     fig.update_layout(margin={"l": 90, "r": 360, "t": 30, "b": 70}, yaxis_title=value_label)
-    fig.update_yaxes(side="left", rangemode="tozero", tickprefix="$", ticksuffix="B")
+    # Dollar ticks in billions, with a plain $0 at the baseline
+    top = float(tvl_by_protocol.sum(axis=1).max()) / 1e9
+    step = next((step for step in (0.5, 1, 2, 5, 10, 20, 50) if top / step <= 8), 100)
+    ticks = np.arange(0, top * 1.05 + step, step)
+    fig.update_yaxes(side="left", rangemode="tozero", tickvals=ticks, ticktext=[f"${tick:g}B" if tick else "$0" for tick in ticks])
     add_logo_legend(fig, entries, theme, row_height=0.1)
     return fig
 
