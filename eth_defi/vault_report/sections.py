@@ -74,8 +74,17 @@ LENDING_PROTOCOL_SLUGS = frozenset({"aave", "morpho", "euler", "fluid", "spark",
 #: Vault flag for tokenised funds, such as money market and treasury funds
 TOKENISED_FUND_FLAG = "tokenised_fund"
 
-#: Protocol slugs that are placeholders rather than protocols, left out of the protocol yield chart
-GENERIC_PROTOCOL_SLUGS = frozenset({UNKNOWN_PROTOCOL_SLUG, "erc-4626", "unknown"})
+#: Protocol slugs that mean the vault's protocol has not been identified yet: generic ERC-4626 and
+#: ERC-7540 vaults and placeholders. The same set as the website's ``isUnknownVaultProtocol()``
+#: in ``src/lib/top-vaults/helpers.ts``.
+UNIDENTIFIED_PROTOCOL_SLUGS = frozenset({UNKNOWN_PROTOCOL_SLUG, "erc-4626", "unknown", "unknown-erc-7450"})
+
+#: Protocol names, lower case, that mean the same
+UNIDENTIFIED_PROTOCOL_NAMES = frozenset({"", "unknown", "unknown vault protocol"})
+
+#: Label of the single pile of vaults whose protocol is not identified. Charts also sum
+#: their small protocols into it, so unidentified vaults never show as a protocol of their own.
+OTHER_PROTOCOL = "Other"
 
 #: Vault group labels, see :py:func:`classify_vault`
 LENDING = "lending"
@@ -246,6 +255,28 @@ def filter_eligible_vaults(
     eligible = vaults_df.loc[mask]
     logger.info("Eligible vaults for the report: %d out of %d", len(eligible), len(vaults_df))
     return eligible
+
+
+def is_identified_protocol(protocol: str | None, protocol_slug: str | None) -> bool:
+    """Check whether a vault's protocol has been identified.
+
+    Generic ERC-4626 and ERC-7540 vaults, unknown and placeholder protocols
+    are not identified. The report puts them all in one :py:data:`OTHER_PROTOCOL`
+    pile until their protocols are mapped, following the website's
+    ``isUnknownVaultProtocol()``.
+
+    :param protocol:
+        Protocol name.
+
+    :param protocol_slug:
+        Protocol slug.
+
+    :return:
+        ``True`` for a named, mapped protocol.
+    """
+    name = (protocol or "").strip().lower()
+    slug = (protocol_slug or "").strip().lower()
+    return bool(name) and not name.startswith("<") and name not in UNIDENTIFIED_PROTOCOL_NAMES and slug not in UNIDENTIFIED_PROTOCOL_SLUGS
 
 
 def classify_vault(vault: pd.Series) -> str:
@@ -443,7 +474,7 @@ def calculate_protocol_yields(yield_vaults: pd.DataFrame, criteria: ReportCriter
         :py:attr:`ReportCriteria.yield_top_protocols` protocols by TVL with at
         least :py:attr:`ReportCriteria.yield_min_protocol_tvl` TVL.
     """
-    identified = yield_vaults.loc[~yield_vaults["protocol_slug"].isin(GENERIC_PROTOCOL_SLUGS)]
+    identified = yield_vaults.loc[yield_vaults["protocol_identified"]]
     yields = calculate_average_yields(identified, "protocol")
     return yields.loc[yields["tvl"] >= criteria.yield_min_protocol_tvl].nlargest(criteria.yield_top_protocols, "tvl")
 
@@ -579,7 +610,6 @@ def format_vault_cells(row: pd.Series, sparkline_ids: frozenset[str] = frozenset
 
     vault_id = row["id"]
     sparkline = f'<img src="{SPARKLINE_URL.format(vault_id=vault_id)}" width="72" height="18" alt="" style="width:72px;max-width:none;height:18px;vertical-align:middle">' if vault_id in sparkline_ids else ""
-    known_protocol = row["protocol_slug"] != UNKNOWN_PROTOCOL_SLUG
     return {
         "Vault": _link(row["name"] or row["address"], row["trading_strategy_link"]),
         "3M price": sparkline,
@@ -592,7 +622,7 @@ def format_vault_cells(row: pd.Series, sparkline_ids: frozenset[str] = frozenset
         "Age (y)": f"{row['years']:.2f}" if pd.notna(row["years"]) else "---",
         "Token": html.escape(row["denomination"] or ""),
         "Chain": _link(row["chain"], _get_trading_strategy_chain_link(row["chain"])),
-        "Protocol": _link(row["protocol"], _get_trading_strategy_protocol_link(row["protocol_slug"])) if known_protocol else "",
+        "Protocol": _link(row["protocol"], _get_trading_strategy_protocol_link(row["protocol_slug"])) if row["protocol_identified"] else OTHER_PROTOCOL,
     }
 
 
@@ -682,16 +712,16 @@ def calculate_protocol_tvl_history(tvl_history: pd.DataFrame, vaults_df: pd.Data
         Output of :py:func:`eth_defi.vault_report.data.read_vault_tvl_history`, one column per vault id.
 
     :param vaults_df:
-        Vault metrics with ``protocol`` and ``protocol_slug`` columns, indexed by vault id.
+        Vault metrics with a ``protocol_label`` column, indexed by vault id.
 
     :param top_n:
-        Protocols shown separately, by their latest TVL. The rest are summed as ``Other``.
+        Identified protocols shown separately, by their latest TVL. Smaller protocols and
+        vaults without an identified protocol are summed as :py:data:`OTHER_PROTOCOL`.
 
     :return:
         DataFrame with one column per protocol, largest first, then ``Other``.
     """
-    protocols = vaults_df["protocol"].where(vaults_df["protocol_slug"] != UNKNOWN_PROTOCOL_SLUG, "Unknown protocol")
-    return _group_tvl_history(tvl_history, protocols, top_n, excluded="Unknown protocol")
+    return _group_tvl_history(tvl_history, vaults_df["protocol_label"], top_n, excluded=OTHER_PROTOCOL)
 
 
 def calculate_fund_nav_history(tvl_history: pd.DataFrame, funds_df: pd.DataFrame, top_n: int = 7) -> pd.DataFrame:

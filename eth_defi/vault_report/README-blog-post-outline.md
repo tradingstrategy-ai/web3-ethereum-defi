@@ -29,6 +29,27 @@ Every stablecoin vault belongs to one group (`classify_vault()`):
 | Lending | A lending strategy tag, or a known lending protocol (`LENDING_PROTOCOL_SLUGS`: Aave, Morpho, Euler, Fluid, Spark, Silo, Llama Lend, Curvance and others) |
 | Other | Everything else: yield aggregators, trading vaults, RWA and synthetic dollar vaults |
 
+## Unidentified protocols
+
+Vaults whose protocol has not been mapped yet form one **Other** pile, never a
+protocol of their own. This covers:
+
+- generic ERC-4626 vaults (`erc-4626`)
+- unknown and placeholder protocols (`unknown`, `protocol-not-yet-identified`, `unknown-erc-7450`)
+- empty protocol names, "Unknown", "Unknown vault protocol" and `<…>` placeholder names
+
+The rule is `is_identified_protocol()` in `eth_defi.vault_report.sections`, the
+same as the website's `isUnknownVaultProtocol()` in the frontend
+(`src/lib/top-vaults/helpers.ts`). In the report:
+
+- **TVL by DeFi vault protocol:** unidentified vaults are summed into Other, together with the protocols outside the top 7
+- **Average yield by protocol:** unidentified vaults are left out; Other is not a protocol
+- **Tables and hero image:** the protocol column shows Other, without a protocol link
+- **Report statistics:** unidentified vaults do not count as identified protocols
+
+When a protocol is mapped in the vault metadata, its vaults leave the Other
+pile automatically. No report change is needed.
+
 ## Common rules
 
 - **Eligibility:** blacklisted vaults and vaults whose data is more than a week older than the report date are left out of every section.
