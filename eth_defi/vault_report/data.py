@@ -294,9 +294,10 @@ def read_vault_share_prices(
 def calculate_daily_share_prices(prices_df: pd.DataFrame) -> pd.DataFrame:
     """Resample share prices to a daily wide table.
 
-    Each vault series is forward filled between its first and last data point
-    only, so a vault does not appear to exist before it launched or after it
-    stopped reporting.
+    Days without an observation are interpolated in time between the vault's
+    first and last data point only, so sparsely updated vaults draw a straight
+    accrual line instead of a staircase, and a vault does not appear to exist
+    before it launched or after it stopped reporting.
 
     :param prices_df:
         Output of :py:func:`read_vault_share_prices`.
@@ -308,7 +309,7 @@ def calculate_daily_share_prices(prices_df: pd.DataFrame) -> pd.DataFrame:
     if len(prices_df) == 0:
         return pd.DataFrame()
     daily = prices_df.pivot_table(index="timestamp", columns="id", values="share_price", aggfunc="last").resample("D").last()
-    return daily.ffill().where(daily.bfill().notna())
+    return daily.interpolate(method="time", limit_area="inside")
 
 
 #: TVL points above this are broken share tokens; the same threshold as the
