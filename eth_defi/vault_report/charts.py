@@ -49,6 +49,11 @@ IMAGE_HEIGHT = 800
 #: Chrome downloaded by ``plotly_get_chrome`` / ``kaleido_get_chrome`` on Linux
 CHOREOGRAPHER_CHROME_PATH = Path("~/.local/share/choreographer/deps/chrome-linux64/chrome").expanduser()
 
+#: Width of charts with a logo legend. The legend margin shrinks to the measured legend, so these
+#: charts are drawn narrower to give content about as wide as the panel's inner width, and every
+#: chart is shown at the same scale, see :py:func:`eth_defi.vault_report.branding.compose_chart_panel`.
+LEGEND_CHART_WIDTH = IMAGE_WIDTH - 70
+
 #: Width of the right margin that holds a logo legend
 LEGEND_MARGIN = 430
 
@@ -257,32 +262,47 @@ def add_logo_legend(fig: Figure, entries: list[LegendEntry], theme: ChartTheme, 
         Minimum paper height of one entry. A legend taller than the plot makes the figure taller.
     """
     fig.update_layout(showlegend=False)
-    plot_width = fig.layout.width - fig.layout.margin.l - fig.layout.margin.r
-    plot_height = fig.layout.height - fig.layout.margin.t - fig.layout.margin.b
-    # Lay the legend out in pixels, then grow the figure if the legend does not fit
+    # Lay the legend out in pixels right of the plot: swatch, optional logo, then the text
     line_pixels, gap_pixels = 22, 18
-    # Entries with a logo next to the label, e.g. protocols in the TVL chart, need room for it
-    text_x = 1.132 if any(entry.logo_uri for entry in entries) else 1.09
-    text_width = fig.layout.margin.r - (text_x - 1) * plot_width - 44
+    swatch_pixels = (26, 64)
+    logo_pixels = 76
+    text_pixels = 112 if any(entry.logo_uri for entry in entries) else 76
+    text_width = fig.layout.margin.r - text_pixels - 20
     layouts = []
+    widest = 0.0
     for entry in entries:
         lines = textwrap.wrap(entry.label, width=28 if entry.detail or entry.properties else 24) or [entry.label]
-        property_rows = len(layout_properties(entry.properties, text_width)) if entry.properties else 0
-        height = len(lines) * line_pixels + property_rows * PROPERTY_ROW_HEIGHT + (line_pixels if entry.detail else 0)
-        layouts.append((entry, lines, max(row_height * plot_height, height + gap_pixels)))
+        property_rows = layout_properties(entry.properties, text_width) if entry.properties else []
+        height = len(lines) * line_pixels + len(property_rows) * PROPERTY_ROW_HEIGHT + (line_pixels if entry.detail else 0)
+        widths = [_measure_text(line, 17) for line in lines]
+        widths += [offset + (PROPERTY_ICON_SIZE + 5 if prop.logo_uri else 0) + _measure_text(prop.text) for row in property_rows for prop, offset in row[-1:]]
+        widths += [_measure_text(entry.detail, 17)] if entry.detail else []
+        widest = max(widest, *widths)
+        layouts.append((entry, lines, height + gap_pixels))
+
+    # Shrink the right margin to the legend's measured width, so the plot fills the rest and
+    # every chart's content spans the same width in the panel
+    fig.update_layout(margin={"r": min(fig.layout.margin.r, round(text_pixels + widest + 12))})
+    plot_width = fig.layout.width - fig.layout.margin.l - fig.layout.margin.r
+    plot_height = fig.layout.height - fig.layout.margin.t - fig.layout.margin.b
+    layouts = [(entry, lines, max(row_height * plot_height, pitch)) for entry, lines, pitch in layouts]
     needed = sum(pitch for _, _, pitch in layouts) - (1 - top) * plot_height
     if needed > plot_height:
         fig.update_layout(height=fig.layout.height + needed - plot_height)
         plot_height = needed
 
+    def paper_x(pixels: float) -> float:
+        return 1 + pixels / plot_width
+
+    text_x = paper_x(text_pixels)
     # Entries hang from the top of their first line, so wrapped labels grow downwards
     y = top + line_pixels / 2 / plot_height
     for entry, lines, pitch in layouts:
         # The swatch and the logo sit next to the first line
         first_line = y - line_pixels / 2 / plot_height
-        fig.add_shape(type="line", xref="paper", yref="paper", x0=1.03, x1=1.075, y0=first_line, y1=first_line, line={"color": entry.colour, "width": 6, "dash": entry.dash})
+        fig.add_shape(type="line", xref="paper", yref="paper", x0=paper_x(swatch_pixels[0]), x1=paper_x(swatch_pixels[1]), y0=first_line, y1=first_line, line={"color": entry.colour, "width": 6, "dash": entry.dash})
         if entry.logo_uri:
-            fig.add_layout_image(source=entry.logo_uri, xref="paper", yref="paper", x=1.09, y=first_line, sizex=0.034, sizey=34 / plot_height, xanchor="left", yanchor="middle")
+            fig.add_layout_image(source=entry.logo_uri, xref="paper", yref="paper", x=paper_x(logo_pixels), y=first_line, sizex=30 / plot_width, sizey=30 / plot_height, xanchor="left", yanchor="middle")
         fig.add_annotation(text="<br>".join(lines), xref="paper", yref="paper", x=text_x, y=y, xanchor="left", yanchor="top", align="left", showarrow=False, font={"size": 17, "color": theme.text})
         cursor = y - len(lines) * line_pixels / plot_height
         if entry.properties:
@@ -562,7 +582,8 @@ def create_performance_figure(
     for name, performance in benchmarks.items():
         fig.add_trace(go.Scatter(x=performance.index, y=scale(performance), mode="lines", name=name, line={"color": to_rgba(theme.muted_text, 0.75), "width": 2, "dash": BENCHMARK_DASHES[name]}, hoverinfo="skip"))
         logo = (benchmark_logos or {}).get(name)
-        entries.append(LegendEntry(name, to_rgba(theme.muted_text, 0.75), logo, dash=BENCHMARK_DASHES[name], detail=describe(performance)))
+        # Benchmark logos use the same small icon row as the vaults' curator, protocol and chain
+        entries.append(LegendEntry(name, to_rgba(theme.muted_text, 0.75), dash=BENCHMARK_DASHES[name], detail=describe(performance), properties=(VaultProperty("Benchmark", logo),)))
         # The line end shows the benchmark logo and value; the name is only needed without a logo
         text = describe(performance) if logo else f"{name.removeprefix('US 3M ')} {describe(performance)}"
         labels.append((position(performance.iloc[-1]), text, {"font": {"size": 15, "color": theme.muted_text}}, logo))
@@ -585,7 +606,7 @@ def create_performance_figure(
             fig.add_layout_image(source=logo, xref="paper", yref="paper", x=(label_at - start_at) / (x_end - start_at), y=y, sizex=0.032, sizey=0.032, xanchor="left", yanchor="middle")
         fig.add_annotation(text=text, x=label_at, xshift=30 if logo else 0, y=y, xref="x", yref="paper", xanchor="left", yanchor="middle", showarrow=False, **style)
 
-    apply_theme(fig, theme, IMAGE_WIDTH, IMAGE_HEIGHT + 100)
+    apply_theme(fig, theme, LEGEND_CHART_WIDTH, IMAGE_HEIGHT + 100)
     fig.update_layout(margin={"l": 110, "r": LEGEND_MARGIN, "t": 30, "b": 70})
     # The range leaves room for the end labels; ticks stop at the data date
     ticks = pd.date_range(end=end_at, periods=7, freq="14D")
@@ -914,7 +935,7 @@ def create_protocol_tvl_figure(
     add_glow_line(fig, total.index, total.to_numpy(), theme.positive, "Total")
     entries.insert(0, LegendEntry(f"Total {_format_usd_short(total.iloc[-1] * 1e9)}", theme.positive))
 
-    apply_theme(fig, theme, IMAGE_WIDTH, IMAGE_HEIGHT)
+    apply_theme(fig, theme, LEGEND_CHART_WIDTH, IMAGE_HEIGHT)
     # The protocol legend is short, so it needs less room than LEGEND_MARGIN and the plot fills the panel width
     fig.update_layout(margin={"l": 90, "r": 360, "t": 30, "b": 70}, yaxis_title=f"{value_label} (USD billion)")
     fig.update_yaxes(side="left", rangemode="tozero")
