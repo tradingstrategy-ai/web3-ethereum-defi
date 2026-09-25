@@ -239,12 +239,55 @@ def _draw_monogram(image: Image.Image, text: str, x: int, y: int, size: int, the
     draw.text((x + size / 2, y + size / 2), letter, font=font, fill=theme.text, anchor="mm")
 
 
-def render_hero_image(vaults_df: pd.DataFrame, month_label: str, subtitle: str, theme: ChartTheme, output_path: Path, size: tuple[int, int] = HERO_SIZE) -> Path:
+def _draw_sparkline(image: Image.Image, values: pd.Series, box: tuple[int, int, int, int], colour: str) -> None:
+    """Draw a small price line with a faint fill underneath.
+
+    :param image:
+        RGBA image to draw on.
+
+    :param values:
+        Prices in time order.
+
+    :param box:
+        (left, top, right, bottom) pixel box.
+
+    :param colour:
+        Line colour.
+    """
+    values = values.dropna()
+    if len(values) < 2:
+        return
+    left, top, right, bottom = box
+    low, high = float(values.min()), float(values.max())
+    span = high - low or 1.0
+    points = [(left + (right - left) * i / (len(values) - 1), bottom - (bottom - top) * (float(v) - low) / span) for i, v in enumerate(values)]
+    layer = Image.new("RGBA", image.size, (0, 0, 0, 0))
+    draw = ImageDraw.Draw(layer)
+    draw.polygon([*points, (right, bottom), (left, bottom)], fill=_hex_to_rgba(colour, 40))
+    draw.line(points, fill=_hex_to_rgba(colour), width=3, joint="curve")
+    image.alpha_composite(layer)
+
+
+def render_hero_image(
+    vaults_df: pd.DataFrame,
+    sparklines: dict[str, pd.Series],
+    month_label: str,
+    subtitle: str,
+    theme: ChartTheme,
+    output_path: Path,
+    size: tuple[int, int] = HERO_SIZE,
+) -> Path:
     """Draw the social image of the month's top vaults.
 
+    Each vault is a row with its logo, name, a 90-day price sparkline and its
+    return as a large number. Returns are shown as numbers rather than bars,
+    because a yield is a rate, not a quantity.
+
     :param vaults_df:
-        Top vaults in rank order, at most five are drawn. Must not contain
-        capped outlier returns, which would dwarf the other bars.
+        Top vaults in rank order, at most five are drawn.
+
+    :param sparklines:
+        Vault id -> daily share prices for the sparkline.
 
     :param month_label:
         E.g. ``September 2026``.
@@ -284,11 +327,14 @@ def render_hero_image(vaults_df: pd.DataFrame, month_label: str, subtitle: str, 
     draw.text((pad, title_top + 64), month_label, font=_font(32), fill=theme.positive)
 
     rows = vaults_df.head(5)
-    max_return = max(rows["one_month_cagr_best"].max(), 1e-9) if len(rows) else 1.0
     rows_top, row_height = (330, 118) if square else (250, 66)
-    bar_left = int(width * (0.56 if square else 0.575))
-    bar_max = width - bar_left - pad - 150
-    for rank, (_, vault) in enumerate(rows.iterrows(), start=1):
+    spark_left = int(width * (0.52 if square else 0.56))
+    spark_right = spark_left + (200 if square else 240)
+    header_font = _font(15)
+    draw.text((spark_left, rows_top - 30), "90-day price", font=header_font, fill=theme.muted_text)
+    header = "1M return, annualised"
+    draw.text((width - pad - draw.textlength(header, font=header_font), rows_top - 30), header, font=header_font, fill=theme.muted_text)
+    for rank, (vault_id, vault) in enumerate(rows.iterrows(), start=1):
         top = rows_top + (rank - 1) * row_height
         draw.text((pad, top + 12), str(rank), font=_font(28, bold=True), fill=theme.muted_text)
         logo_path = load_protocol_logo_path(vault["protocol_slug"], theme)
@@ -300,12 +346,14 @@ def render_hero_image(vaults_df: pd.DataFrame, month_label: str, subtitle: str, 
         else:
             _draw_monogram(image, protocol, pad + 40, top + 8, 40, theme)
         name_x = pad + 96
-        draw.text((name_x, top + 2), _fit_text(draw, vault["name"] or vault["address"], _font(26, bold=True), bar_left - name_x - 24), font=_font(26, bold=True), fill=theme.text)
-        draw.text((name_x, top + 34), _fit_text(draw, f"{vault['chain']} · {protocol}", _font(18), bar_left - name_x - 24), font=_font(18), fill=theme.muted_text)
-        bar_width = max(8, int(bar_max * vault["one_month_cagr_best"] / max_return))
-        draw.rounded_rectangle((bar_left, top + 14, bar_left + bar_width, top + 42), radius=14, fill=theme.positive)
-        value = format_return(vault["one_month_cagr_net"], vault["one_month_cagr"])
-        draw.text((bar_left + bar_width + 14, top + 11), value.replace(" (n)", "").replace(" (g)", ""), font=_font(26, bold=True), fill=theme.text)
+        draw.text((name_x, top + 2), _fit_text(draw, vault["name"] or vault["address"], _font(26, bold=True), spark_left - name_x - 24), font=_font(26, bold=True), fill=theme.text)
+        draw.text((name_x, top + 34), _fit_text(draw, f"{vault['chain']} · {protocol}", _font(18), spark_left - name_x - 24), font=_font(18), fill=theme.muted_text)
+        if vault_id in sparklines:
+            _draw_sparkline(image, sparklines[vault_id], (spark_left, top + 6, spark_right, top + 50), theme.positive)
+            draw = ImageDraw.Draw(image)
+        value = format_return(vault["one_month_cagr_net"], vault["one_month_cagr"]).replace(" (n)", "").replace(" (g)", "")
+        value_font = _font(34, bold=True)
+        draw.text((width - pad - draw.textlength(value, font=value_font), top + 6), value, font=value_font, fill=theme.positive)
 
     footer_font = _font(18)
     footer_text = _fit_text(draw, subtitle, footer_font, width - 2 * pad - 220)

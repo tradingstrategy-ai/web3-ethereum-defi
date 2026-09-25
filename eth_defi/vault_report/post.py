@@ -68,8 +68,8 @@ SECTION_TEMPLATES = (
     SectionTemplate(
         key="chain_yields",
         heading_id="average-vault-yield-per-blockchain",
-        heading="Average vault yield per blockchain",
-        charts=(("chain_yields", "Average stablecoin vault yield by blockchain"),),
+        heading="Vault yield per blockchain",
+        charts=(("chain_yields", "Stablecoin vault yield by blockchain against the US Treasury bill"),),
     ),
     SectionTemplate(
         key="protocol_tvl",
@@ -83,7 +83,7 @@ SECTION_TEMPLATES = (
         heading_id="the-best-performing-vaults",
         heading="The best-performing vaults",
         intro="<p>Here you can find the stablecoin vaults with the best monthly returns.</p>",
-        charts=(("best_rolling", "3M rolling returns of the best-performing vaults"), ("low_volatility_rolling", "3M rolling returns of low-volatility vaults")),
+        charts=(("best_performance", "90-day performance of the best-performing vaults against benchmarks"), ("low_volatility_performance", "90-day performance of low-volatility vaults against the US Treasury bill")),
         editor_note="Comment on the top vaults of the month.",
     ),
     SectionTemplate(
@@ -103,7 +103,8 @@ SECTION_TEMPLATES = (
         key="perp_dex",
         heading_id="the-best-performing-perp-dex-vaults",
         heading="The best-performing perp DEX vaults",
-        intro=("<p>Perpetual futures DEX native vaults run active trading strategies, like market making and directional trading. Their returns are more volatile than yield vaults, so we list them separately.</p>"),
+        intro="<p>Perpetual futures DEX native vaults run active trading strategies, like market making and directional trading. Their returns are more volatile than yield vaults, so we list them separately and compare them with BTC and ETH.</p>",
+        charts=(("perp_dex_performance", "90-day performance of perp DEX vaults against BTC and ETH"),),
     ),
     SectionTemplate(
         key="correlation",

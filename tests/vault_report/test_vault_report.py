@@ -14,9 +14,9 @@ from PIL import Image
 
 from eth_defi.research.vault_correlation import choose_vaults_for_correlation_comparison
 from eth_defi.vault_report import report as report_module
-from eth_defi.vault_report.benchmarks import calculate_treasury_bill_rolling_returns
+from eth_defi.vault_report.benchmarks import BTC, ETH, TREASURY_BILL, calculate_treasury_bill_index, select_benchmarks
 from eth_defi.vault_report.branding import HERO_SIZE, SQUARE_HERO_SIZE, compose_chart_panel
-from eth_defi.vault_report.charts import CHOREOGRAPHER_CHROME_PATH, calculate_rolling_returns, create_correlation_figure, create_rolling_returns_figure
+from eth_defi.vault_report.charts import CHOREOGRAPHER_CHROME_PATH, PerformancePanel, calculate_period_performance, create_correlation_figure, create_performance_grid_figure
 from eth_defi.vault_report.data import VaultReportData, calculate_daily_share_prices, prepare_vault_metrics, read_vault_share_prices, read_vault_tvl_history
 from eth_defi.vault_report.ghost import GhostAdminClient, GhostAPIError, GhostContentClient, GhostPost, create_ghost_admin_token
 from eth_defi.vault_report.movers import calculate_rank_changes, parse_ranked_vault_links, resolve_vault_id
@@ -127,6 +127,9 @@ def offline_report(monkeypatch: pytest.MonkeyPatch) -> None:
     """
     yields = pd.Series(0.04, index=pd.date_range(DATA_END_AT - datetime.timedelta(days=400), DATA_END_AT, freq="D"))
     monkeypatch.setattr(report_module, "fetch_treasury_bill_yields", lambda cache_dir: yields)
+    days = pd.date_range(DATA_END_AT - datetime.timedelta(days=200), DATA_END_AT, freq="D")
+    crypto = {BTC: pd.Series(range(100, 100 + len(days)), index=days, dtype=float), ETH: pd.Series(range(200, 200 - len(days), -1), index=days, dtype=float)}
+    monkeypatch.setattr(report_module, "fetch_benchmark_indices", lambda start_at, end_at, cache_dir, treasury_yields: {TREASURY_BILL: calculate_treasury_bill_index(treasury_yields, end_at), **crypto})
     monkeypatch.setattr(report_module, "fetch_chain_logo_uri", lambda chain, cache_dir: None)
     monkeypatch.setattr(report_module, "fetch_available_sparklines", lambda vault_ids: set(list(vault_ids)[:1]))
 
@@ -170,23 +173,23 @@ def test_formatting():
     assert format_sharpe(float("nan")) == "---"
 
 
-def test_daily_prices_and_rolling_returns(prices_path: Path):
-    """Share prices are read without the pandas index and rolling returns use the window start price."""
+def test_daily_prices_and_performance(prices_path: Path):
+    """Share prices are read without the pandas index, and performance starts from the window start."""
     prices = read_vault_share_prices(prices_path, ["1-0xaa", "1-0xbb"])
     assert set(prices["id"]) == {"1-0xaa", "1-0xbb"}
     daily = calculate_daily_share_prices(prices)
     assert list(daily.columns) == ["1-0xaa", "1-0xbb"]
 
-    rolling = calculate_rolling_returns(daily, window=datetime.timedelta(days=90))
-    last = daily.index[-1]
-    expected = (daily.loc[last, "1-0xaa"] / daily.loc[last - pd.Timedelta(days=90), "1-0xaa"] - 1) * 100
-    assert rolling.loc[last, "1-0xaa"] == pytest.approx(expected)
-    # Before a full window, returns are since inception
-    assert rolling["1-0xaa"].iloc[0] == pytest.approx(0)
+    start = daily.index[-1] - pd.Timedelta(days=90)
+    performance = calculate_period_performance(daily["1-0xaa"], start)
+    assert performance.iloc[0] == 0
+    assert performance.iloc[-1] == pytest.approx((daily["1-0xaa"].iloc[-1] / daily.loc[start, "1-0xaa"] - 1) * 100)
 
-    # Two series get the glow style: an underlay and a line each
-    fig = create_rolling_returns_figure(rolling, {"1-0xaa": "A", "1-0xbb": "B"}, DARK_THEME)
-    assert len(fig.data) == 4
+    # Each panel draws its benchmarks, then the vault as a glow underlay and a line
+    indices = {TREASURY_BILL: calculate_treasury_bill_index(pd.Series(0.04, index=daily.index), daily.index[-1])}
+    panels = [PerformancePanel("1-0xaa", "A", "Ethereum · Morpho", None, (TREASURY_BILL,)), PerformancePanel("1-0xbb", "B", "Ethereum · Morpho", None, (BTC, ETH))]
+    fig = create_performance_grid_figure(panels, daily, indices, DARK_THEME)
+    assert len(fig.data) == 1 + 2 + 2  # T-bill + two vault traces for A; BTC and ETH are missing, two vault traces for B
     fig = create_correlation_figure(daily, {"1-0xaa": "A", "1-0xbb": "B"}, DARK_THEME)
     assert fig.data[0].z.shape == (2, 2)
 
@@ -229,7 +232,7 @@ def test_generate_report_bundle(tmp_path: Path, vaults_df: pd.DataFrame, prices_
     assert "vault-sparklines.tradingstrategy.ai" in post_html
 
     # An existing draft is checked before any chart is uploaded
-    report.chart_paths = {"best_rolling": tmp_path / "missing.png"}
+    report.chart_paths = {"best_performance": tmp_path / "missing.png"}
     client = GhostAdminClient("https://example.ghost.io", "key:" + "00" * 32)
     client.session = FakeSession("draft")
     with pytest.raises(GhostAPIError):
@@ -244,14 +247,16 @@ def test_render_report_charts(tmp_path: Path, vaults_df: pd.DataFrame, prices_pa
     previous = GhostPost(id="p0", title="Previous", slug="previous", status="published", published_at=datetime.datetime(2026, 8, 25), updated_at=None, html=previous_table)
     data = VaultReportData(vaults_df=vaults_df, prices_path=prices_path)
     report = generate_monthly_vault_report(data, output_dir=tmp_path / "out", criteria=ReportCriteria(correlation_min_tvl=0, chain_yield_min_chain_tvl=0), previous=previous)
-    assert set(report.chart_paths) == {"chain_yields", "protocol_tvl", "best_rolling", "low_volatility_rolling", "risk_return", "movers", "correlation"}
+    assert set(report.chart_paths) == {"chain_yields", "protocol_tvl", "best_performance", "low_volatility_performance", "perp_dex_performance", "risk_return", "movers", "correlation"}
     for path in report.chart_paths.values():
         image = Image.open(path)
         assert image.mode == "RGBA"
         assert image.getpixel((0, 0))[3] == 0  # Rounded panel corner is transparent
     assert Image.open(report.hero_path).size == HERO_SIZE
     assert Image.open(tmp_path / "out" / "hero-square.png").size == SQUARE_HERO_SIZE
-    assert 'src="charts/best_rolling.png"' in (tmp_path / "out" / "post.html").read_text()
+    post_html = (tmp_path / "out" / "post.html").read_text()
+    assert 'src="charts/best_performance.png"' in post_html
+    assert 'src="charts/perp_dex_performance.png"' in post_html
 
 
 @pytest.mark.skipif(not CHOREOGRAPHER_CHROME_PATH.exists(), reason="Kaleido needs Chrome, install with plotly_get_chrome")
@@ -398,11 +403,29 @@ def test_create_or_update_draft(existing_status: str | None, overwrite: bool, ex
 
 
 def test_treasury_bill_benchmark():
-    """Daily accrual over the rolling window matches compounding."""
+    """Daily accrual, with weekends forward filled, matches compounding."""
     yields = pd.Series(0.0365, index=pd.date_range("2026-01-02", periods=200, freq="B"))
-    index = pd.date_range("2026-06-01", "2026-06-30", freq="D")
-    rolling = calculate_treasury_bill_rolling_returns(yields, datetime.timedelta(days=90), index)
-    assert rolling.iloc[-1] == pytest.approx(((1 + 0.0365 / 365) ** 90 - 1) * 100)
+    index = calculate_treasury_bill_index(yields, datetime.datetime(2026, 6, 30))
+    assert index.loc["2026-06-30"] / index.loc["2026-04-01"] == pytest.approx((1 + 0.0365 / 365) ** 90)
+
+
+def test_select_benchmarks(vaults_df: pd.DataFrame):
+    """Benchmarks follow the website rules for perp and GMX vaults, and vault activity otherwise."""
+
+    def _select(**overrides) -> tuple[str, ...]:
+        vault = vaults_df.loc["1-0xaa"].copy()
+        for key, value in overrides.items():
+            vault[key] = value
+        return select_benchmarks(vault, min_volatility=0.25, max_drawdown=-0.10)
+
+    assert _select() == (TREASURY_BILL,)
+    assert _select(flags=["perp_dex_trading_vault"]) == (BTC, ETH)
+    assert _select(chain_id=325) == (BTC, ETH)
+    assert _select(three_months_volatility=0.4) == (BTC, ETH)
+    assert _select(three_months_max_drawdown=-0.2) == (BTC, ETH)
+    assert _select(protocol_slug="gmx", vault_slug="gm-btc-usdc") == (BTC,)
+    assert _select(protocol_slug="gmx", vault_slug="gm-swap-usdc-usdt", name="GM swap [USDC-USDT]") == (TREASURY_BILL,)
+    assert _select(protocol_slug="gmx", vault_slug="glv-weth-usdc") == (BTC, ETH)
 
 
 def test_movers(vaults_df: pd.DataFrame):

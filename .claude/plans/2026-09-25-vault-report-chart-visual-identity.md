@@ -417,3 +417,21 @@ Follow-up candidates, from the review and Kimi's suggestions:
 - per-chain champion cards;
 - a methodology card;
 - the frontend `summary_large_image` change.
+
+## Follow-up: chart forms and activity-based benchmarks
+
+After reviewing v2, the chart forms were changed (2026-09-25):
+
+- Yields are rates, not quantities, so the chain yield bar chart became a dot
+  plot: individual vaults as small dots, the TVL-weighted average as a large
+  dot, and the difference to the T-bill in percentage points.
+- The 3M rolling return lines were hard to read: the window moves at both ends,
+  young vaults start mid-chart, and the metric appears nowhere else. They were
+  replaced by small multiples of the 90-day return, one panel per vault,
+  showing the first rows of the table.
+- Each panel is compared with the benchmark matching the vault's activity,
+  like the website: the T-bill for calm yield vaults, BTC and ETH (from
+  Coinbase, the website's source) for perp DEX, GMX and volatile vaults. The
+  perp DEX section got its own performance chart.
+- The hero bars became 90-day sparklines, with the returns as large numbers.
+

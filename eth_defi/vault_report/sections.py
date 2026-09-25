@@ -103,23 +103,27 @@ class ReportCriteria:
     #: Maximum annualised three-month volatility for the low-volatility chart
     low_volatility_threshold: Percent = 0.005
 
-    #: Number of vaults drawn in rolling return charts.
-    #:
-    #: Capped by the eight-colour categorical chart palette.
-    chart_vault_count: int = 8
-
-    #: Leave vaults above this annualised one-month return out of rolling return charts and the hero image.
-    #:
-    #: A single outlier flattens all other lines. The vaults are still listed in the tables.
+    #: Leave vaults above this annualised one-month return out of the hero image,
+    #: where one outlier bar or number would dwarf the others
     chart_max_return: Percent = 4.0
 
-    #: Leave vaults above this annualised three-month volatility out of rolling return charts.
-    #:
-    #: Leveraged tokens and trading vaults swing tens of percent and flatten the yield vault lines.
-    chart_max_volatility: Percent = 0.5
+    #: Vaults at or above this annualised three-month volatility are compared with BTC and ETH instead of the Treasury bill
+    crypto_benchmark_min_volatility: Percent = 0.25
+
+    #: Vaults with a three-month drawdown at or below this are compared with BTC and ETH instead of the Treasury bill
+    crypto_benchmark_max_drawdown: Percent = -0.10
+
+    #: Number of vaults in each performance chart grid
+    performance_chart_vaults: int = 8
+
+    #: Clip individual vault returns in the chain yield dot plot at this annualised return
+    chain_yield_chart_max_return: Percent = 0.4
 
     #: Technical risk ratings left out of the hero image, which promotes vaults on social media
     hero_excluded_risks: tuple[str, ...] = ("Dangerous", "Severe")
+
+    #: Leave vaults above this annualised three-month volatility out of the hero image
+    hero_max_volatility: Percent = 0.5
 
     #: Clip the risk and return scatter's y axis at this annualised return; vaults above are drawn on the top edge
     scatter_max_return: Percent = 1.0
@@ -336,6 +340,26 @@ def select_vaults_by_chain(eligible_df: pd.DataFrame, criteria: ReportCriteria) 
     return top.sort_values(["chain", "one_month_cagr_best"], ascending=[True, False])
 
 
+def select_chain_yield_vaults(eligible_df: pd.DataFrame, criteria: ReportCriteria) -> pd.DataFrame:
+    """Select the vaults counted in the chain yield averages.
+
+    Leaves out small vaults, outliers above :py:attr:`ReportCriteria.chain_yield_max_return`
+    and volatile vaults above :py:attr:`ReportCriteria.chain_yield_max_volatility`.
+
+    :param eligible_df:
+        Output of :py:func:`filter_eligible_vaults`.
+
+    :param criteria:
+        Report thresholds.
+
+    :return:
+        Selected vaults.
+    """
+    df = eligible_df
+    mask = (df["current_nav"] >= criteria.chain_yield_min_vault_tvl) & (df["one_month_cagr_best"] <= criteria.chain_yield_max_return) & (df["three_months_volatility"] <= criteria.chain_yield_max_volatility)
+    return df.loc[mask]
+
+
 def calculate_chain_yields(eligible_df: pd.DataFrame, criteria: ReportCriteria) -> pd.DataFrame:
     """Calculate TVL-weighted average one-month yield per chain.
 
@@ -359,9 +383,7 @@ def calculate_chain_yields(eligible_df: pd.DataFrame, criteria: ReportCriteria) 
         (TVL-weighted annualised one-month return, 0.05 = 5%) and ``vault_count``,
         sorted by ``avg_return`` descending.
     """
-    df = eligible_df
-    mask = (df["current_nav"] >= criteria.chain_yield_min_vault_tvl) & (df["one_month_cagr_best"] <= criteria.chain_yield_max_return) & (df["three_months_volatility"] <= criteria.chain_yield_max_volatility)
-    df = df.loc[mask]
+    df = select_chain_yield_vaults(eligible_df, criteria)
     grouped = df.assign(weighted=df["current_nav"] * df["one_month_cagr_best"]).groupby("chain").agg(tvl=("current_nav", "sum"), weighted=("weighted", "sum"), vault_count=("current_nav", "size"))
     grouped["avg_return"] = grouped["weighted"] / grouped["tvl"]
     grouped = grouped.loc[grouped["tvl"] >= criteria.chain_yield_min_chain_tvl, ["tvl", "avg_return", "vault_count"]]
