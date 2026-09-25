@@ -15,14 +15,18 @@ in the frontend: radius 1.5rem, a faint top-left radial glow in the bullish
 colour, and a 1 px highlight border.
 """
 
+import logging
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
 from PIL import Image, ImageDraw, ImageFilter, ImageFont
 
 from eth_defi.vault_report.logos import load_protocol_logo_path
 from eth_defi.vault_report.sections import format_return
 from eth_defi.vault_report.theme import FONT_REGULAR, FONT_SEMIBOLD, ChartTheme
+
+logger = logging.getLogger(__name__)
 
 #: Social image size used by LinkedIn, Telegram and Facebook link previews, and the Ghost feature image
 HERO_SIZE = (1200, 630)
@@ -32,6 +36,18 @@ SQUARE_HERO_SIZE = (1080, 1080)
 
 #: Panel corner radius in pixels, 1.5rem at 2× scale
 PANEL_RADIUS = 36
+
+#: Padding between the panel border and its content: the header text, the chart content and the footer
+PANEL_PADDING = 44
+
+#: Gap between the subtitle and the chart content, and between the chart content and the footer rule
+PANEL_CONTENT_GAP = 28
+
+#: Width of every chart panel, so charts show at the same scale in the post
+PANEL_WIDTH = 1400
+
+#: Colour distance from the surface above which a chart pixel counts as content
+CONTENT_THRESHOLD = 6
 
 #: Brand mark candles as (x0, y0, x1, y1, colour) in the 60×60 ``brand-mark.svg`` view box
 BRAND_MARK_CANDLES = (
@@ -186,8 +202,44 @@ def _round_corners(image: Image.Image, theme: ChartTheme) -> Image.Image:
     return result
 
 
+def crop_to_content(image: Image.Image, background: str, threshold: int = CONTENT_THRESHOLD) -> Image.Image:
+    """Crop a chart render to its drawn pixels.
+
+    Plotly margins leave uneven empty space around axis titles, labels and
+    legends. Cropping to the drawn content lets the panel apply the same
+    padding on every side of every chart.
+
+    :param image:
+        Chart render on a transparent or uniform background.
+
+    :param background:
+        Background colour, ``#rrggbb``, for renders without transparency.
+
+    :param threshold:
+        Alpha, or summed RGB distance from the background, above which a pixel is content.
+
+    :return:
+        Cropped image, or the original image if it has no content.
+    """
+    pixels = np.asarray(image.convert("RGBA")).astype(int)
+    if pixels[:, :, 3].min() < 255:
+        # Transparent render: content is whatever is drawn
+        content = pixels[:, :, 3] > threshold
+    else:
+        content = np.abs(pixels[:, :, :3] - np.array(_hex_to_rgba(background)[:3])).sum(axis=2) > threshold
+    rows, columns = np.nonzero(content)
+    if not len(rows):
+        return image
+    return image.crop((columns.min(), rows.min(), columns.max() + 1, rows.max() + 1))
+
+
 def compose_chart_panel(chart_png: Path, theme: ChartTheme, title: str, subtitle: str, footer_note: str, link: str, output_path: Path) -> Path:
     """Frame a chart image in a branded panel.
+
+    The chart is cropped to its content, resized to the inner width of a
+    :py:data:`PANEL_WIDTH` panel and padded by :py:data:`PANEL_PADDING` on the
+    left and right, and by :py:data:`PANEL_CONTENT_GAP` above and below, so
+    every panel has the same size, scale and margins regardless of its Plotly layout.
 
     :param chart_png:
         Chart image rendered with the same theme surface colour.
@@ -213,27 +265,38 @@ def compose_chart_panel(chart_png: Path, theme: ChartTheme, title: str, subtitle
     :return:
         ``output_path``.
     """
-    chart = Image.open(chart_png).convert("RGBA")
-    footer_height, pad = 84, 44
+    # The chart content gets the same padding on every side. Content is resized to the panel's inner width,
+    # a few percent at most, because the Plotly layouts are tuned to fill it.
+    content = crop_to_content(Image.open(chart_png).convert("RGBA"), theme.surface)
+    pad, gap = PANEL_PADDING, PANEL_CONTENT_GAP
+    width = PANEL_WIDTH
+    inner_width = width - 2 * pad
+    if content.width != inner_width:
+        scale = inner_width / content.width
+        if abs(scale - 1) > 0.05:
+            logger.warning("Chart %s content is %d px wide, resized by %.0f%% to fit the panel", chart_png, content.width, (scale - 1) * 100)
+        content = content.resize((inner_width, round(content.height * scale)), Image.Resampling.LANCZOS)
+    # The footer text sits 44 px above the bottom edge, like the other panel margins
+    footer_height = 103
     title_font, subtitle_font = _font(40, bold=True), _font(24)
     # Long titles and subtitles wrap to more lines, and the header grows to fit them
-    measure = ImageDraw.Draw(chart)
-    title_lines = _wrap_text(measure, title, title_font, chart.width - 2 * pad)
-    subtitle_lines = _wrap_text(measure, subtitle, subtitle_font, chart.width - 2 * pad)
-    subtitle_top = 34 + 50 * len(title_lines) + 2
-    header_height = subtitle_top + 32 * len(subtitle_lines) + 10
-    panel = Image.new("RGBA", (chart.width, chart.height + header_height + footer_height), _hex_to_rgba(theme.surface))
-    _draw_glow(panel, theme, radius=int(chart.width * 0.35))
-    panel.alpha_composite(chart, (0, header_height))
+    measure = ImageDraw.Draw(content)
+    title_lines = _wrap_text(measure, title, title_font, width - 2 * pad)
+    subtitle_lines = _wrap_text(measure, subtitle, subtitle_font, width - 2 * pad)
+    subtitle_top = 36 + 50 * len(title_lines) + 2
+    header_height = subtitle_top + 32 * len(subtitle_lines)
+    chart_height = gap + content.height + gap
+    panel = Image.new("RGBA", (width, header_height + chart_height + footer_height), _hex_to_rgba(theme.surface))
+    _draw_glow(panel, theme, radius=int(width * 0.35))
+    panel.alpha_composite(content, (pad, header_height + gap))
 
     draw = ImageDraw.Draw(panel)
-    width = panel.width
     for i, line in enumerate(title_lines):
-        draw.text((pad, 34 + 50 * i), line, font=title_font, fill=theme.text)
+        draw.text((pad, 36 + 50 * i), line, font=title_font, fill=theme.text)
     for i, line in enumerate(subtitle_lines):
         draw.text((pad, subtitle_top + 32 * i), line, font=subtitle_font, fill=theme.muted_text)
 
-    footer_top = header_height + chart.height
+    footer_top = header_height + chart_height
     draw.line((pad, footer_top + 4, width - pad, footer_top + 4), fill=_hex_to_rgba(theme.axis, 90), width=1)
     text_y = footer_top + 30
     draw_brand_mark(panel, pad, text_y - 3, 30)

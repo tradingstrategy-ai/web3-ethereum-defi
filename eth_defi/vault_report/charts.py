@@ -585,7 +585,8 @@ def create_average_yield_figure(
 
     height = max(IMAGE_HEIGHT, 140 + 58 * len(df))
     apply_theme(fig, theme, IMAGE_WIDTH, height)
-    fig.update_layout(xaxis_title="1M annualised return (%)", margin={"l": 280, "r": 290, "t": 50, "b": 90})
+    # Margins sized so the labels, the plot and the right column fill the panel width
+    fig.update_layout(xaxis_title="1M annualised return (%)", margin={"l": 254, "r": 264, "t": 50, "b": 90})
     fig.update_xaxes(showgrid=True, gridcolor=theme.grid, range=[-6, clip + 2], ticksuffix="%", zeroline=True, zerolinecolor=theme.axis, zerolinewidth=1)
     fig.update_yaxes(showgrid=False, showticklabels=False, showline=False, zeroline=False, range=[-0.7, len(df) - 0.3])
 
@@ -806,7 +807,8 @@ def create_protocol_tvl_figure(
     entries.insert(0, LegendEntry(f"Total ${total.iloc[-1]:,.1f}B", theme.positive))
 
     apply_theme(fig, theme, IMAGE_WIDTH, IMAGE_HEIGHT)
-    fig.update_layout(margin={"l": 90, "r": LEGEND_MARGIN, "t": 30, "b": 70}, yaxis_title="TVL (USD billion)")
+    # The protocol legend is short, so it needs less room than LEGEND_MARGIN and the plot fills the panel width
+    fig.update_layout(margin={"l": 90, "r": 360, "t": 30, "b": 70}, yaxis_title="TVL (USD billion)")
     fig.update_yaxes(side="left", rangemode="tozero")
     add_logo_legend(fig, entries, theme, row_height=0.1)
     add_watermark(fig, watermark_uri, theme)
@@ -846,6 +848,10 @@ def render_figure_png(fig: Figure, path: Path) -> Path:
     :py:data:`~eth_defi.vault_report.theme.FONT_FAMILY` font is made available
     to Chrome, see :py:func:`_configure_fonts`.
 
+    The chart is rendered on a transparent background, so the panel surface
+    and its corner glow show through evenly when
+    :py:func:`eth_defi.vault_report.branding.compose_chart_panel` frames it.
+
     :param fig:
         Plotly figure with width and height set in its layout.
 
@@ -864,8 +870,9 @@ def render_figure_png(fig: Figure, path: Path) -> Path:
         logging.getLogger(noisy_logger).setLevel(logging.WARNING)
 
     path.parent.mkdir(parents=True, exist_ok=True)
+    transparent = go.Figure(fig).update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)")
     try:
-        fig.write_image(path, format="png")
+        transparent.write_image(path, format="png")
     except RuntimeError as e:
         raise RuntimeError("Could not render chart PNG. Kaleido needs Chrome: run `poetry run plotly_get_chrome` or set BROWSER_PATH to a Chrome binary.") from e
     logger.info("Rendered chart %s", path)
