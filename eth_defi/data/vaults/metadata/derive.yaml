@@ -1,0 +1,28 @@
+name: Derive
+slug: derive
+short_description: |
+  Native managed vaults on the Derive v3 exchange.
+long_description: |
+  [Derive v3 native vaults](https://docs.derive.xyz/vaults/create-a-vault)
+  are managed exchange subaccounts with shares.
+  Curators choose strategies and settle depositor requests. Vault strategies
+  may include derivatives, spot trading and lending. Historical vault share
+  prices and NAV are reported in USD.
+fee_description: |
+  Each vault configures [management and performance fees](https://docs.derive.xyz/vaults/fees)
+  in basis points.
+  At deposit and withdrawal settlement, the protocol pays fees by issuing
+  shares, reducing other holders' proportional ownership. The live simulated
+  share price includes pending fees; the historical series records sampled
+  prices and reflects fee settlement when it occurs.
+links:
+  homepage: https://www.derive.xyz
+  app: https://app.derive.xyz/v3
+  twitter: https://x.com/derivexyz
+  github: https://github.com/derivexyz
+  documentation: https://docs.derive.xyz/vaults/create-a-vault
+  defillama:
+  audits:
+  fees: https://docs.derive.xyz/vaults/fees
+  trading_strategy: https://tradingstrategy.ai/trading-view/vaults/protocols/derive
+  integration_documentation: https://web3-ethereum-defi.readthedocs.io/api/derive/index.html

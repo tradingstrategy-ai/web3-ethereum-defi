@@ -138,6 +138,7 @@ SEQUENCERS: dict[int, dict[str, str]] = {
 #: Manually maintained shorthand names for different EVM chains
 CHAIN_NAMES = {
     325: "Grvt",  # GRVT (Gravity Markets) decentralised perp DEX
+    9993: "Derive V3",  # Synthetic dataset ID for native Derive v3 vaults (not an EVM chain)
     9994: "Pacifica",  # Synthetic in-house ID for Pacifica/Solana native vaults (non-EVM)
     9995: "ApeX",  # Synthetic in-house ID for ApeX Omni native vaults (non-EVM)
     9997: "Hibachi",  # Synthetic in-house ID for Hibachi native vaults (non-EVM, not an EVM JSON-RPC chain ID)
@@ -235,6 +236,7 @@ def get_foundry_network_name(chain_id: int) -> str | None:
 #: For linking on reports
 CHAIN_HOMEPAGES = {
     325: {"name": "GRVT", "homepage": "https://grvt.io"},
+    9993: {"name": "Derive V3", "homepage": "https://www.derive.xyz"},
     9995: {"name": "ApeX", "homepage": "https://www.apex.exchange"},  # Synthetic in-house ID, not EVM RPC
     1: {"name": "Ethereum", "homepage": "https://ethereum.org"},
     56: {"name": "Binance", "homepage": "https://www.bnbchain.org"},

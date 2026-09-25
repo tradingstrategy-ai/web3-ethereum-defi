@@ -1012,6 +1012,12 @@ def identify_curator(  # noqa: PLR0917
     if declared_curator_slug:
         return declared_curator_slug
 
+    # Derive publishes the curator wallet, but a vault display name is not
+    # evidence that this wallet belongs to an organisation named in the title.
+    # Attribute it only through a reviewed address override or declaration.
+    if protocol_slug == "derive":
+        return None
+
     # 3. Blanket protocol-curated protocols (all vaults are protocol-operated)
     if protocol_slug in PROTOCOL_CURATED_SLUGS:
         return protocol_slug

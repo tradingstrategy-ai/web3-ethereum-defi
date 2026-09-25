@@ -1,6 +1,6 @@
 """Post-processing pipeline for vault price data.
 
-Merges native protocol data (Hypercore, GRVT, Lighter, Hibachi, ApeX) into the
+Merges native protocol data (Hypercore, GRVT, Lighter, Hibachi, ApeX, Derive v3) into the
 uncleaned parquet, runs the cleaning pipeline, and optionally
 uploads results to R2.
 
@@ -33,6 +33,9 @@ from eth_defi.apex.metrics import ApexMetricsDatabase
 from eth_defi.apex.vault_data_export import build_raw_prices_dataframe as build_apex_prices_dataframe
 from eth_defi.cloudflare_r2 import R2OperationError, R2RetryableOperationError, R2SourceDigest, calculate_bytes_digest, copy_r2_object_daily_backup, create_r2_client, upload_bytes_to_r2, upload_file_to_r2
 from eth_defi.currency_api.parquet import materialise_exchange_rate_parquet
+from eth_defi.derive.v3_constants import DERIVE_V3_CHAIN_ID, DERIVE_V3_MAINNET_DATABASE
+from eth_defi.derive.v3_vault_data_export import build_raw_prices_dataframe as build_derive_v3_prices_dataframe
+from eth_defi.derive.v3_vault_metrics import DeriveV3VaultDatabase
 from eth_defi.grvt.constants import GRVT_CHAIN_ID, GRVT_DAILY_METRICS_DATABASE
 from eth_defi.grvt.daily_metrics import GRVTDailyMetricsDatabase
 from eth_defi.grvt.vault_data_export import build_raw_prices_dataframe as build_grvt_prices_dataframe
@@ -88,6 +91,7 @@ PERP_DEX_CAPABILITY_REGISTRY = PerpDexCapabilityRegistry(
         PerpDexCapability("grvt", "mainnet", "USDT", False, "authentication_required", 86_400, 0),
         PerpDexCapability("hibachi", "mainnet", "USDT", False, "not_public", 86_400, 0),
         PerpDexCapability("apex", "omni", "USDT", False, "authentication_required", 14_400, 0),
+        PerpDexCapability("derive", "mainnet", "USD", False, "authentication_required", 86_400, 0),
     )
 )
 
@@ -493,37 +497,29 @@ def _write_native_partitions_to_uncleaned_parquet(
     return len(combined_table)
 
 
-def _merge_apex_prices_with_existing_parquet(
-    parquet_path: Path,
-    fresh_df: pd.DataFrame,
-) -> pd.DataFrame:
-    """Preserve ApeX history that is absent from the current DuckDB export.
+def _merge_native_history_with_existing_parquet(parquet_path: Path, fresh_df: pd.DataFrame, chain_id: int) -> pd.DataFrame:
+    """Merge new ApeX or Derive prices without discarding stored history.
 
-    ApeX retains only a bounded amount of platform history, and its local
-    DuckDB may be rebuilt after state loss. A non-empty current export is
-    therefore not necessarily a complete replacement for the ApeX synthetic
-    chain partition. Existing rows are retained unless a fresh row has the
-    same synthetic vault address and exact timestamp, in which case the fresh
-    observation corrects the earlier value.
+    A rebuilt DuckDB or shorter API response may contain only part of a
+    vault's history. Preserve existing rows unless the export supplies the
+    same vault address and timestamp, in which case the new value wins.
 
-    Only the ApeX partition is read into pandas. The full Parquet file remains
-    in Arrow form for the later atomic native-protocol batch write.
+    Only the selected synthetic chain partition is read into Pandas. The
+    complete Parquet file stays in Arrow form for the later atomic write.
 
-    :param parquet_path:
-        Existing raw vault-price Parquet path.
-    :param fresh_df:
-        Non-empty ApeX raw price rows exported from the current DuckDB.
-    :return:
-        Append-and-correct ApeX rows containing both retained and fresh
-        observations.
+    :param parquet_path: Existing raw price Parquet path.
+    :param fresh_df: Non-empty frame with the shared raw price columns,
+        including string ``address`` and naive UTC ``timestamp``.
+    :param chain_id: Synthetic chain partition to read.
+    :return: Combined rows for the native partition.
     """
-    assert not fresh_df.empty, "A non-empty ApeX frame is required"
+    assert not fresh_df.empty, "A non-empty native frame is required"
     if not parquet_path.exists():
         return fresh_df
 
     existing_table = pq.read_table(
         parquet_path,
-        filters=[("chain", "=", APEX_CHAIN_ID)],
+        filters=[("chain", "=", chain_id)],
     )
     if len(existing_table) == 0:
         return fresh_df
@@ -539,6 +535,7 @@ def merge_native_protocols(  # noqa: PLR0914 - one established coordinator owns 
     merge_lighter: bool = False,
     merge_hibachi: bool = False,
     merge_apex: bool = False,
+    merge_derive_v3: bool = False,
     uncleaned_parquet_path: Path | None = None,
     hyperliquid_db_path: Path | None = None,
     hyperliquid_hf_db_path: Path | None = None,
@@ -546,6 +543,7 @@ def merge_native_protocols(  # noqa: PLR0914 - one established coordinator owns 
     lighter_db_path: Path | None = None,
     hibachi_db_path: Path | None = None,
     apex_db_path: Path | None = None,
+    derive_v3_db_path: Path | None = None,
 ) -> dict[str, bool]:
     """Merge native protocol price data into the uncleaned parquet in one pass.
 
@@ -556,10 +554,10 @@ def merge_native_protocols(  # noqa: PLR0914 - one established coordinator owns 
     merged together so that switching between modes never loses
     historical data. All enabled native sources are collected before the
     existing parquet is read, then their chain partitions are replaced and
-    the result is written once. ApeX is append-and-correct by synthetic vault
-    address and exact timestamp because its source may no longer return older
-    observations. This avoids repeatedly rewriting the much larger EVM data
-    set without risking loss of previously collected ApeX history.
+    the result is written once. For ApeX and Derive, new rows replace only matching
+    vault addresses and timestamps; all other stored prices are retained.
+    This preserves history when an API response or rebuilt DuckDB contains
+    fewer observations than the existing Parquet file.
 
     An unavailable, empty, or failed source leaves its existing chain
     partition untouched. This preserves the previous per-source failure
@@ -571,6 +569,7 @@ def merge_native_protocols(  # noqa: PLR0914 - one established coordinator owns 
     :param merge_lighter: Merge Lighter native pool data
     :param merge_hibachi: Merge Hibachi native vault data
     :param merge_apex: Merge ApeX native vault data
+    :param merge_derive_v3: Merge Derive v3 mainnet native vault data
     :param uncleaned_parquet_path: Override for the uncleaned parquet path
     :param hyperliquid_db_path: Override for the daily Hyperliquid DuckDB path
     :param hyperliquid_hf_db_path: Override for the HF Hyperliquid DuckDB path
@@ -578,6 +577,7 @@ def merge_native_protocols(  # noqa: PLR0914 - one established coordinator owns 
     :param lighter_db_path: Override for the Lighter DuckDB path
     :param hibachi_db_path: Override for the Hibachi DuckDB path
     :param apex_db_path: Override for the ApeX DuckDB path
+    :param derive_v3_db_path: Override for the Derive v3 mainnet DuckDB path
     :return: Dictionary mapping step name to success boolean
     """
     parquet_path = uncleaned_parquet_path or DEFAULT_UNCLEANED_PRICE_DATABASE
@@ -710,15 +710,32 @@ def merge_native_protocols(  # noqa: PLR0914 - one established coordinator owns 
             if apex_df.empty:
                 logger.warning("No ApeX data to merge")
             else:
-                replacements[APEX_CHAIN_ID] = _merge_apex_prices_with_existing_parquet(
-                    parquet_path,
-                    apex_df,
-                )
+                replacements[APEX_CHAIN_ID] = _merge_native_history_with_existing_parquet(parquet_path, apex_df, APEX_CHAIN_ID)
             logger.info("ApeX price merge: %d fresh ApeX price entries", len(apex_df))
             steps["apex-price-merge"] = True
         except Exception:
             logger.exception("ApeX price merge failed")
             steps["apex-price-merge"] = False
+
+    if merge_derive_v3:
+        try:
+            d_db_path = derive_v3_db_path or DERIVE_V3_MAINNET_DATABASE
+            if not d_db_path.exists():
+                logger.info("No Derive v3 mainnet DuckDB to merge at %s", d_db_path)
+            else:
+                db = DeriveV3VaultDatabase(d_db_path)
+                try:
+                    derive_df = build_derive_v3_prices_dataframe(db)
+                    _append_perp_metric_snapshots(db, perp_snapshots)
+                finally:
+                    db.close()
+                if not derive_df.empty:
+                    replacements[DERIVE_V3_CHAIN_ID] = _merge_native_history_with_existing_parquet(parquet_path, derive_df, DERIVE_V3_CHAIN_ID)
+                logger.info("Derive v3 price merge: %d fresh mainnet rows", len(derive_df))
+            steps["derive-v3-price-merge"] = True
+        except Exception:
+            logger.exception("Derive v3 price merge failed")
+            steps["derive-v3-price-merge"] = False
 
     if not replacements:
         logger.info("Native protocol merge stage complete: 0 replacement rows in %.2f seconds", time.perf_counter() - started_at)
@@ -760,6 +777,7 @@ def merge_native_protocols(  # noqa: PLR0914 - one established coordinator owns 
             ("grvt-price-merge", GRVT_CHAIN_ID),
             ("hibachi-price-merge", HIBACHI_CHAIN_ID),
             ("apex-price-merge", APEX_CHAIN_ID),
+            ("derive-v3-price-merge", DERIVE_V3_CHAIN_ID),
         ):
             if chain_id in replacements:
                 steps[step_name] = False
@@ -1238,6 +1256,7 @@ def run_post_processing(  # noqa: PLR0914 - orchestration keeps stage options ex
     scan_lighter: bool = False,
     scan_hibachi: bool = False,
     scan_apex: bool = False,
+    scan_derive_v3: bool = False,
     skip_cleaning: bool = False,
     skip_top_vaults: bool = False,
     skip_sparklines: bool = False,
@@ -1251,6 +1270,7 @@ def run_post_processing(  # noqa: PLR0914 - orchestration keeps stage options ex
     lighter_db_path: Path | None = None,
     hibachi_db_path: Path | None = None,
     apex_db_path: Path | None = None,
+    derive_v3_db_path: Path | None = None,
     vault_db_path: Path | None = None,
     cleaned_path: Path | None = None,
     settlement_db_path: Path | None = None,
@@ -1271,6 +1291,7 @@ def run_post_processing(  # noqa: PLR0914 - orchestration keeps stage options ex
     :param scan_lighter: Whether to merge Lighter data
     :param scan_hibachi: Whether to merge Hibachi data
     :param scan_apex: Whether to merge ApeX data
+    :param scan_derive_v3: Whether to merge Derive v3 mainnet data
     :param skip_cleaning: Skip price cleaning step
     :param skip_top_vaults: Skip top-vaults JSON generation and R2 upload
     :param skip_sparklines: Skip sparkline image export to R2
@@ -1284,6 +1305,7 @@ def run_post_processing(  # noqa: PLR0914 - orchestration keeps stage options ex
     :param lighter_db_path: Override for the Lighter DuckDB path
     :param hibachi_db_path: Override for the Hibachi DuckDB path
     :param apex_db_path: Override for the ApeX DuckDB path
+    :param derive_v3_db_path: Override for the Derive v3 mainnet DuckDB path
     :param vault_db_path: Override for the vault database pickle path
     :param cleaned_path: Override for the cleaned parquet output path
     :param settlement_db_path: Override for the vault settlement DuckDB path
@@ -1303,6 +1325,7 @@ def run_post_processing(  # noqa: PLR0914 - orchestration keeps stage options ex
         merge_lighter=scan_lighter,
         merge_hibachi=scan_hibachi,
         merge_apex=scan_apex,
+        merge_derive_v3=scan_derive_v3,
         uncleaned_parquet_path=uncleaned_parquet_path,
         hyperliquid_db_path=hyperliquid_db_path,
         hyperliquid_hf_db_path=hyperliquid_hf_db_path,
@@ -1310,6 +1333,7 @@ def run_post_processing(  # noqa: PLR0914 - orchestration keeps stage options ex
         lighter_db_path=lighter_db_path,
         hibachi_db_path=hibachi_db_path,
         apex_db_path=apex_db_path,
+        derive_v3_db_path=derive_v3_db_path,
     )
     steps.update(merge_results)
 

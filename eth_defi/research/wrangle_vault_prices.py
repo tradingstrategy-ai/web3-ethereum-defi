@@ -136,6 +136,8 @@ class CleanedVaultPriceRow(TypedDict, total=False):
     #:   see :py:data:`~eth_defi.hibachi.constants.HIBACHI_CHAIN_ID`
     #: - ``9995`` — ApeX native vaults,
     #:   see :py:data:`~eth_defi.apex.constants.APEX_CHAIN_ID`
+    #: - ``9993`` — Derive v3 native vaults,
+    #:   see :py:data:`~eth_defi.derive.v3_constants.DERIVE_V3_CHAIN_ID`
     #: - ``325`` — GRVT (Gravity Markets),
     #:   see :py:data:`~eth_defi.grvt.constants.GRVT_CHAIN_ID`
     #:

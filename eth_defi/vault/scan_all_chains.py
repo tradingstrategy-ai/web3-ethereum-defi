@@ -1,7 +1,7 @@
 """Scan ERC-4626 vaults across all supported chains.
 
 Multi-chain vault scanning pipeline with retry logic, native protocol
-support (Hypercore, GRVT, Lighter, Hibachi, ApeX), looped scheduling, and
+support (Hypercore, GRVT, Lighter, Hibachi, ApeX, Derive v3), looped scheduling, and
 post-processing.  Extracted from the
 ``scripts/erc-4626/scan-vaults-all-chains.py`` CLI wrapper.
 
@@ -55,6 +55,10 @@ from eth_defi.currency_api.constants import (
     SOURCE_NAME,
 )
 from eth_defi.currency_api.scanner import run_incremental_scan as currency_run_incremental_scan
+from eth_defi.derive.v3_constants import DERIVE_V3_MAINNET_DATABASE
+from eth_defi.derive.v3_vault_data_export import merge_into_vault_database as derive_merge_vault_db
+from eth_defi.derive.v3_vault_metrics import DeriveV3VaultDatabase, scan_derive_v3_vaults
+from eth_defi.derive.v3_vaults import DeriveV3VaultClient
 from eth_defi.erc_4626.classification import HARDCODED_PROTOCOLS, create_vault_instance
 from eth_defi.erc_4626.core import MIN_PRICE_SCAN_DEPOSIT_COUNT, ERC4626Feature, passes_price_scan_activity_filter
 from eth_defi.erc_4626.lead_discovery_state import (
@@ -343,6 +347,7 @@ def build_active_protocols(
     scan_currency_rates: bool,
     tokenised_fund_scanners: tuple[TokenisedFundPriceScanSpec, ...] = (),
     scan_xerberus: bool = False,
+    scan_derive_v3: bool = False,
 ) -> list[str]:
     """Build scheduled non-EVM scan item names.
 
@@ -360,6 +365,8 @@ def build_active_protocols(
         Include Hibachi native vaults.
     :param scan_apex:
         Include ApeX native vaults.
+    :param scan_derive_v3:
+        Include Derive v3 mainnet native vaults.
     :param scan_core3:
         Include Core3 enrichment data.
     :param scan_currency_rates:
@@ -382,6 +389,8 @@ def build_active_protocols(
         all_protocols.append("Hibachi")
     if scan_apex:
         all_protocols.append("ApeX")
+    if scan_derive_v3:
+        all_protocols.append("Derive V3")
     if scan_core3:
         all_protocols.append(CORE3_PROTOCOL_NAME)
     if scan_xerberus:
@@ -1928,6 +1937,41 @@ def scan_apex_fn(
     return result
 
 
+def scan_derive_v3_fn(db_path: Path = DERIVE_V3_MAINNET_DATABASE, vault_db_path: Path = DEFAULT_VAULT_DATABASE) -> ChainResult:
+    """Scan public Derive v3 mainnet vaults and merge shared metadata.
+
+    Always queries mainnet, regardless of the standalone scanner's network
+    setting. An empty listing succeeds with zero counts and retains stored
+    data. API and storage errors are reported as a failed scan result.
+
+    :param db_path: Mainnet Derive DuckDB destination.
+    :param vault_db_path: Shared vault metadata pickle.
+    :return: Native scan result.
+    """
+    result = ChainResult(name="Derive V3", status="running")
+    start_time = time.time()
+    client = DeriveV3VaultClient(network="mainnet")
+    try:
+        result.vault_count, result.price_rows = scan_derive_v3_vaults(client, db_path)
+        db = DeriveV3VaultDatabase(db_path)
+        try:
+            derive_merge_vault_db(db, vault_db_path)
+        finally:
+            db.close()
+        result.vault_scan_ok = True
+        result.price_scan_ok = True
+        result.status = "success"
+    except Exception as exc:
+        logger.exception("Derive v3 mainnet scan failed")
+        result.status = "failed"
+        result.error = str(exc)
+        result.traceback_str = traceback.format_exc()
+    finally:
+        client.close()
+    result.duration = time.time() - start_time
+    return result
+
+
 def scan_core3_fn(
     core3_db_path: Path,
     max_workers: int = 8,
@@ -2374,6 +2418,7 @@ def backup_pipeline_files(backup_files: list[Path] | None = None, backup_dir: Pa
             GRVT_DAILY_METRICS_DATABASE,
             LIGHTER_DAILY_METRICS_DATABASE,
             HIBACHI_DAILY_METRICS_DATABASE,
+            DERIVE_V3_MAINNET_DATABASE,
         ]
 
     if backup_dir is None:
@@ -2450,6 +2495,8 @@ def run_scan_tick(
     apex_db_path: Path,
     bkp_files: list[Path],
     bkp_dir: Path,
+    scan_derive_v3: bool = False,
+    derive_v3_db_path: Path | None = None,
     cleaned_price_path: Path | None = None,
     excluded_chains: list[str] | None = None,
     hypercore_mode: str = "daily",
@@ -2830,6 +2877,17 @@ def run_scan_tick(
             logger.error("ApeX: FAILED - %s", apex_result.error)
         print_dashboard(results, display_order, uncleaned_price_path=uncleaned_price_path)
 
+    if scan_derive_v3 and "Derive V3" in active_protocols:
+        logger.info("Scanning Derive v3 mainnet native vaults")
+        results["Derive V3"] = scan_derive_v3_fn(
+            db_path=derive_v3_db_path or DERIVE_V3_MAINNET_DATABASE,
+            vault_db_path=vault_db_path,
+        )
+        derive_result = results["Derive V3"]
+        if derive_result.status == "success" and on_item_success:
+            on_item_success("Derive V3")
+        print_dashboard(results, display_order, uncleaned_price_path=uncleaned_price_path)
+
     if scan_core3 and CORE3_PROTOCOL_NAME in active_protocols:
         logger.info("Scanning Core3 (risk intelligence enrichment)")
         results[CORE3_PROTOCOL_NAME] = scan_core3_fn(
@@ -3013,6 +3071,8 @@ def run_scan_tick(
             scan_lighter=scan_lighter,
             scan_hibachi=scan_hibachi,
             scan_apex=scan_apex,
+            scan_derive_v3=scan_derive_v3,
+            derive_v3_db_path=derive_v3_db_path,
             skip_cleaning=skip_cleaning,
             skip_top_vaults=skip_top_vaults,
             skip_sparklines=skip_sparklines,
@@ -3109,6 +3169,7 @@ def main():
     scan_lighter = os.environ.get("SCAN_LIGHTER", "false").lower() == "true"
     scan_hibachi = os.environ.get("SCAN_HIBACHI", "false").lower() == "true"
     scan_apex = os.environ.get("SCAN_APEX", "false").lower() == "true"
+    scan_derive_v3 = os.environ.get("SCAN_DERIVE_V3", "true").lower() == "true"
     skip_core3 = os.environ.get("SKIP_CORE3", "false").lower() == "true"
     scan_core3 = should_scan_core3(skip_core3=skip_core3, core3_api_key=os.environ.get("CORE3_API_KEY"))
     skip_xerberus = os.environ.get("SKIP_XERBERUS", "false").lower() == "true"
@@ -3195,6 +3256,7 @@ def main():
     lighter_db_path = data_dir / "lighter-pools.duckdb"
     hibachi_db_path = data_dir / "hibachi-vaults.duckdb"
     apex_db_path = data_dir / "apex-vaults.duckdb"
+    derive_v3_db_path = data_dir / "derive-v3-mainnet-vaults.duckdb"
     historical_context_db_path = data_dir / "vault-historical-context.duckdb"
     hypercore_mode = os.environ.get("HYPERCORE_MODE", "daily").strip().lower()
     hyperliquid_db_path = data_dir / "hyperliquid-vaults.duckdb"
@@ -3224,6 +3286,7 @@ def main():
         lighter_db_path,
         hibachi_db_path,
         apex_db_path,
+        derive_v3_db_path,
         historical_context_db_path,
         settlement_db_path,
         core3_db_path,
@@ -3251,13 +3314,14 @@ def main():
     version_info = VersionInfo.read_docker_version()
     logger.info("Docker image version: tag=%s, commit=%s", version_info.tag, version_info.commit_hash)
     logger.info(
-        "SCAN_PRICES: %s, SCAN_HYPERCORE: %s, SCAN_GRVT: %s, SCAN_LIGHTER: %s, SCAN_HIBACHI: %s, SCAN_APEX: %s, SKIP_CORE3: %s, CORE3: %s, SKIP_XERBERUS: %s, XERBERUS: %s, SKIP_CURRENCY_RATES: %s, CURRENCY_RATES: %s, RETRY_COUNT: %d, MAX_WORKERS: %d, CORE3_MAX_WORKERS: %d, CURRENCY_API_MAX_WORKERS: %d, FREQUENCY: %s",
+        "SCAN_PRICES: %s, SCAN_HYPERCORE: %s, SCAN_GRVT: %s, SCAN_LIGHTER: %s, SCAN_HIBACHI: %s, SCAN_APEX: %s, SCAN_DERIVE_V3: %s, SKIP_CORE3: %s, CORE3: %s, SKIP_XERBERUS: %s, XERBERUS: %s, SKIP_CURRENCY_RATES: %s, CURRENCY_RATES: %s, RETRY_COUNT: %d, MAX_WORKERS: %d, CORE3_MAX_WORKERS: %d, CURRENCY_API_MAX_WORKERS: %d, FREQUENCY: %s",
         scan_prices,
         scan_hypercore,
         scan_grvt,
         scan_lighter,
         scan_hibachi,
         scan_apex,
+        scan_derive_v3,
         skip_core3,
         scan_core3,
         skip_xerberus,
@@ -3353,6 +3417,7 @@ def main():
         scan_lighter=scan_lighter,
         scan_hibachi=scan_hibachi,
         scan_apex=scan_apex,
+        scan_derive_v3=scan_derive_v3,
         scan_core3=scan_core3,
         scan_currency_rates=scan_currency_rates,
         tokenised_fund_scanners=ready_tokenised_fund_scanners,
@@ -3380,6 +3445,7 @@ def main():
         scan_lighter=scan_lighter,
         scan_hibachi=scan_hibachi,
         scan_apex=scan_apex,
+        scan_derive_v3=scan_derive_v3,
         scan_core3=scan_core3,
         scan_currency_rates=scan_currency_rates,
         tokenised_fund_scanners=ready_tokenised_fund_scanners,
@@ -3411,6 +3477,7 @@ def main():
         lighter_db_path=lighter_db_path,
         hibachi_db_path=hibachi_db_path,
         apex_db_path=apex_db_path,
+        derive_v3_db_path=derive_v3_db_path,
         bkp_files=bkp_files,
         bkp_dir=backup_dir,
         cleaned_price_path=cleaned_price_path,

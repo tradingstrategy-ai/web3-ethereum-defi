@@ -149,6 +149,7 @@ protocol-specific JSON reader is maintained.
 | GRVT | Yes | No | `authentication_required` |
 | Hibachi | Yes | No | `not_public` |
 | ApeX | Yes | No | `authentication_required` |
+| Derive v3 (perp-classified vaults only) | Yes | No | `authentication_required` |
 
 The shared cleaned columns are `perp_long_notional`, `perp_short_notional`,
 `perp_open_position_count`, `perp_largest_position_notional`,
@@ -832,7 +833,7 @@ poetry run python scripts/erc-4626/scan-vaults-all-chains.py
 | `LOG_LEVEL` | Optional. Default: WARNING. |
 | `PIPELINE_DATA_DIR` | Optional. Directory for all pipeline files (parquet, pickle, DuckDB, state). Default: `~/.tradingstrategy/vaults`. |
 | `LOOP_INTERVAL_SECONDS` | Optional. When >0, enables looped mode — ticks every N seconds. Default: 0 (single run). |
-| `SCAN_CYCLES` | Optional. Per-item cycle intervals, e.g. `Ethereum=8h,Base=8h,Arbitrum=8h,Lighter Ethereum=4h,Lighter Robinhood=4h,GRVT=4h,Hypercore=4h,Hibachi=4h,ApeX=4h,Core3=24h`. Legacy `Lighter=4h` applies to both Lighter deployments. |
+| `SCAN_CYCLES` | Optional. Per-item cycle intervals, e.g. `Ethereum=8h,Base=8h,Arbitrum=8h,Lighter Ethereum=4h,Lighter Robinhood=4h,GRVT=4h,Hypercore=4h,Hibachi=4h,ApeX=4h,Derive V3=24h,Core3=24h`. Legacy `Lighter=4h` applies to both Lighter deployments. |
 | `DEFAULT_CYCLE` | Optional. Default cycle for items not in `SCAN_CYCLES`. Default: `24h`. |
 | `MAX_CYCLES` | Optional. Exit after N cycles (for testing). Default: 0 (unlimited). |
 | `LEAD_DISCOVERY_STATE_TIMEOUT` | Optional. Lead-discovery cache lifetime. A matching per-chain JSON state skips the incremental lead scan and metadata refresh until it expires. An expiry resumes from the saved cursor and refreshes all vault metadata. Default: `7d`. |
@@ -842,11 +843,12 @@ poetry run python scripts/erc-4626/scan-vaults-all-chains.py
 | `SCAN_LIGHTER` | Optional. Enable native pool scanning for both Lighter Ethereum and Lighter Robinhood. Default: false. |
 | `SCAN_HIBACHI` | Optional. Enable Hibachi native vault scanning. Default: false. |
 | `SCAN_APEX` | Optional. Enable ApeX native vault scanning and due history maintenance. Default: false. |
+| `SCAN_DERIVE_V3` | Optional. Set to `false` to skip Derive v3 mainnet native vault scanning. Default: true. |
 
 | `SCAN_VAULT_SETTLEMENTS` | Optional. Scan Lagoon and D2 settlement events during each successful EVM chain cycle. Default: true. The scan fills `vault-settlements.duckdb` before price cleaning; `vault_settlement_at` is then merged into the cleaned price frame during cleaning. Set to `false` only for debugging runs where new settlement event reads are deliberately skipped. Settlement scan failures are logged and shown in the dashboard without aborting the rest of the scanner cycle. |
 | `VAULT_SETTLEMENT_START_BLOCK` | Optional. Inclusive settlement scan start block for forced backfills. Normally unset so scans continue incrementally from `vault-settlements.duckdb`. |
 | `VAULT_SETTLEMENT_END_BLOCK` | Optional. Inclusive settlement scan end block for forced backfills. Normally unset so scans continue up to the just-completed chain scan end block. |
-| `SKIP_CORE3` | Optional. Skip Core3 risk intelligence enrichment. Default: false. Core3 is default-on enrichment for the top-vaults JSON, unlike optional native vault sources that use opt-in `SCAN_*` flags. |
+| `SKIP_CORE3` | Optional. Skip Core3 risk intelligence enrichment. Default: false. Core3 runs when its API key is configured and adds risk data to the top-vaults JSON. |
 | `CORE3_API_KEY` | Optional. Core3 API key. If missing, Core3 is disabled for the run with a warning. |
 | `CORE3_DATABASE_PATH` | Optional. Core3 DuckDB path. Default: `~/.tradingstrategy/vaults/core3/core3.duckdb`. |
 | `CURRENCY_API_DB_PATH` / `CURRENCY_API_DATABASE_PATH` | Optional. Exchange-rate DuckDB bundle path. Default: `$PIPELINE_DATA_DIR/exchange-rates.duckdb`. |

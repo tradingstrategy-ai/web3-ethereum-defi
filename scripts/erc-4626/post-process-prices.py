@@ -52,6 +52,7 @@ Pipeline control:
 - ``MERGE_LIGHTER``: Merge Lighter native pool data (default: ``false``)
 - ``MERGE_HIBACHI``: Merge Hibachi native vault data (default: ``false``)
 - ``MERGE_APEX``: Merge ApeX native vault data (default: ``false``)
+- ``MERGE_DERIVE_V3``: Merge Derive v3 mainnet native vault data (default: ``false``)
 - ``SKIP_CLEANING``: Skip price cleaning step (default: ``false``)
 - ``SKIP_TOP_VAULTS``: Skip top-vaults JSON generation and R2 upload (default: ``false``)
 - ``SKIP_SPARKLINES``: Skip sparkline image export to R2 (default: ``false``)
@@ -169,6 +170,7 @@ def main() -> None:
         "scan_lighter": _read_boolean("MERGE_LIGHTER"),
         "scan_hibachi": _read_boolean("MERGE_HIBACHI"),
         "scan_apex": _read_boolean("MERGE_APEX"),
+        "scan_derive_v3": _read_boolean("MERGE_DERIVE_V3"),
     }
     skip_options = {
         "skip_cleaning": _read_boolean("SKIP_CLEANING"),
@@ -199,6 +201,7 @@ def main() -> None:
         "lighter_db_path": data_dir / "lighter-pools.duckdb",
         "hibachi_db_path": data_dir / "hibachi-vaults.duckdb",
         "apex_db_path": data_dir / "apex-vaults.duckdb",
+        "derive_v3_db_path": data_dir / "derive-v3-mainnet-vaults.duckdb",
         "settlement_db_path": get_default_vault_settlement_database_path(),
     }
 

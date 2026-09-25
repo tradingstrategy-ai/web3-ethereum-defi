@@ -2,6 +2,13 @@
 
 [Derive.xyz](https://derive.xyz/) (formerly Lyra) is a decentralised perpetuals and options exchange built on Derive Chain (OP Stack L2, chain ID 957).
 
+The account, funding and open-interest modules below use the v2 API. For the
+separate v3 native vault API, see the [v3 vault collector](../../docs/source/api/derive/v3-vaults.rst).
+For operator commands and source limits, see the [Derive vault README](../../scripts/derive/README-Derive-vaults.md).
+Its public testnet endpoints can be scanned without credentials using
+`scripts/derive/scan-v3-vaults.py`; mainnet and testnet observations are stored
+separately.
+
 - [Derive API reference](https://docs.derive.xyz/reference/)
 - [Funding rate history endpoint](https://docs.derive.xyz/reference/post_public-get-funding-rate-history)
 - [Statistics endpoint](https://docs.derive.xyz/reference/post_public-statistics) (open interest)
