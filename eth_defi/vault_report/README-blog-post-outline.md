@@ -67,6 +67,9 @@ pile automatically. No report change is needed.
 
 ## Common rules
 
+- **Charts and risk:** charts get shared without the tables around them, so the hero image, the performance charts and the risk and return chart leave out vaults rated Dangerous or worse (`ReportCriteria.chart_min_excluded_risk`). The tables keep them, with their risk rating. A performance chart then shows the next vaults of the table, and its legend keeps the table ranks, so the numbers can skip.
+- **No repeated text:** the notes above a chart only add what its title, subtitle and axes do not already say.
+
 - **Eligibility:** blacklisted vaults and vaults whose data is more than a week older than the report date are left out of every section. Vaults without an identified protocol are left out of every performance comparison, see [Unidentified protocols](#unidentified-protocols).
 - **Ranking metric:** "by return" is the annualised one-month return (1M CAGR), net of fees (n) when fee data exists and gross (g) otherwise. The website ranks vaults by the same metric. "By Sharpe" is the three-month Sharpe ratio.
 - **Table thresholds:** at least $100k TVL. Lending and other vaults also need at least 10 deposit and redemption events. Tables list the top 20.

@@ -135,9 +135,11 @@ class ReportCriteria:
     #: where one outlier number would dwarf the others
     chart_max_return: Percent = 4.0
 
-    #: Lowest technical risk level left out of the hero image, which promotes vaults on social media:
-    #: Dangerous and above, see :py:class:`eth_defi.vault.risk.VaultTechnicalRisk`. Unrated vaults are shown.
-    hero_min_excluded_risk: int = VaultTechnicalRisk.dangerous.value
+    #: Lowest technical risk level left out of the charts: the hero image, the performance charts and
+    #: risk and return. Dangerous and above, see :py:class:`eth_defi.vault.risk.VaultTechnicalRisk`.
+    #: Charts get shared without the tables, so tables keep these vaults with their risk rating.
+    #: Unrated vaults are shown.
+    chart_min_excluded_risk: int = VaultTechnicalRisk.dangerous.value
 
     #: Leave vaults above this annualised three-month volatility out of the hero image
     hero_max_volatility: Percent = 0.5
@@ -257,6 +259,21 @@ def filter_eligible_vaults(
     eligible = vaults_df.loc[mask]
     logger.info("Eligible vaults for the report: %d out of %d", len(eligible), len(vaults_df))
     return eligible
+
+
+def exclude_chart_risks(vaults_df: pd.DataFrame, criteria: ReportCriteria) -> pd.DataFrame:
+    """Leave out vaults whose risk rating is too high to feature in a chart.
+
+    :param vaults_df:
+        Vault metrics with ``risk_numeric``.
+
+    :param criteria:
+        Report thresholds, see :py:attr:`ReportCriteria.chart_min_excluded_risk`.
+
+    :return:
+        Vaults rated below the threshold, and unrated vaults.
+    """
+    return vaults_df.loc[~(vaults_df["risk_numeric"] >= criteria.chart_min_excluded_risk)]
 
 
 def select_comparable_vaults(eligible_df: pd.DataFrame) -> pd.DataFrame:

@@ -333,6 +333,9 @@ class PerformanceSeries:
     #: Benchmark names the vault is compared with, see :py:func:`eth_defi.vault_report.benchmarks.select_benchmarks`
     benchmarks: tuple[str, ...]
 
+    #: Rank in the table, shown in the legend and the line end badge. Defaults to the position in the chart.
+    rank: int | None = None
+
 
 #: Benchmark line dash styles. Benchmarks share one neutral colour, so they do not compete with the vault colours.
 BENCHMARK_DASHES = {TREASURY_BILL: "dash", BTC: "dot", ETH: "dashdot"}
@@ -538,6 +541,7 @@ def create_performance_figure(
         if performance is None:
             continue
         colour = theme.series_colours[i]
+        rank = item.rank or i + 1
         if item.vault_id in off_scale:
             # Draw an off-scale line only until it leaves the top of the chart, where a marker continues it
             exit_at = performance.index[performance > high][0]
@@ -547,13 +551,13 @@ def create_performance_figure(
         fig.add_trace(go.Scatter(x=performance.index, y=scale(performance), mode="lines", name=item.name, line={"color": colour, "width": 3.5}))
         since = f" since {performance.index[0]:%b %d}" if performance.index[0] > start_at + pd.Timedelta(days=3) else ""
         note = " ▲" if item.vault_id in off_scale else ""
-        entries.append(LegendEntry(f"{i + 1}. {item.name}", colour, detail=f"{describe(vaults[item.vault_id])}{since}{note}", properties=item.properties))
+        entries.append(LegendEntry(f"{rank}. {item.name}", colour, detail=f"{describe(vaults[item.vault_id])}{since}{note}", properties=item.properties))
         badge = {"font": {"size": 15, "color": theme.surface, "weight": 700}, "bgcolor": colour, "borderpad": 3}
         if item.vault_id in off_scale:
-            fig.add_annotation(text=f"▲ {i + 1}", x=exit_at, y=1, xref="x", yref="paper", yanchor="top", showarrow=False, **badge)
+            fig.add_annotation(text=f"▲ {rank}", x=exit_at, y=1, xref="x", yref="paper", yanchor="top", showarrow=False, **badge)
         else:
             fig.add_trace(go.Scatter(x=performance.index[-1:], y=scale(performance)[-1:], mode="markers", marker={"size": 11, "color": colour, "line": {"color": theme.surface, "width": 2}}, showlegend=False, hoverinfo="skip"))
-            labels.append((position(performance.iloc[-1]), f"{i + 1}", badge, None))
+            labels.append((position(performance.iloc[-1]), f"{rank}", badge, None))
 
     for name, performance in benchmarks.items():
         fig.add_trace(go.Scatter(x=performance.index, y=scale(performance), mode="lines", name=name, line={"color": to_rgba(theme.muted_text, 0.75), "width": 2, "dash": BENCHMARK_DASHES[name]}, hoverinfo="skip"))
