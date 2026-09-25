@@ -10,8 +10,8 @@ by :py:mod:`eth_defi.vault_report.branding`. Styling follows
 - Benchmarks matching the vaults' activity: the US Treasury bill for calm
   yield vaults, BTC and ETH for trading and volatile vaults, see
   :py:mod:`eth_defi.vault_report.benchmarks`
-- Performance as cumulative returns of all compared vaults in one chart with a
-  shared axis, yields as dots on a rate scale, and dollar TVL changes as
+- Performance as equity curves (value of $100 invested) of all compared vaults
+  in one chart with a shared axis, yields as dots on a rate scale, and dollar TVL changes as
   diverging bars
 - A faint logo watermark inside the plot area, as on the website charts
 - Glowing lines for charts with few series, like the website's hero charts
@@ -209,8 +209,11 @@ class PerformanceSeries:
 #: Benchmark line dash styles. Benchmarks share one neutral colour, so they do not compete with the vault colours.
 BENCHMARK_DASHES = {TREASURY_BILL: "dash", BTC: "dot", ETH: "dashdot"}
 
-#: Candidate y axis ticks of a log-scale performance chart, as cumulative returns in percent
-LOG_SCALE_TICKS = (-90, -50, -20, 0, 20, 50, 100, 200, 500, 1_000, 2_000, 5_000, 10_000, 20_000, 50_000)
+#: Value of the equity curves at the window start, in US dollars
+EQUITY_CURVE_BASE = 100
+
+#: Candidate y axis ticks of a log-scale equity curve chart, in US dollars
+LOG_SCALE_TICKS = (10, 20, 50, 80, 100, 120, 150, 200, 300, 500, 1_000, 2_000, 5_000, 10_000, 20_000, 50_000)
 
 
 def calculate_period_performance(series: pd.Series, start_at: pd.Timestamp) -> pd.Series:
@@ -243,12 +246,13 @@ def create_performance_figure(
     log_threshold: float = 100.0,
     outlier_ratio: float = 5.0,
 ) -> Figure:
-    """Draw the cumulative returns of vaults and their benchmarks in one chart.
+    """Draw the equity curves of vaults and their benchmarks in one chart.
 
-    All vaults share the time axis and the return axis, so their equity curves
-    can be compared directly. Vault colours follow the table order, and the
-    legend numbers match the table rows. A vault younger than the window starts
-    from 0% at its first data point.
+    Each line shows the value of $100 invested at the start of the window, like
+    the website's vault comparison chart. All vaults share the time axis and the
+    value axis, so their equity curves can be compared directly. Vault colours
+    follow the table order, and the legend numbers match the table rows. A vault
+    younger than the window starts from $100 at its first data point.
 
     Benchmarks used by at least half of the vaults, see
     :py:func:`eth_defi.vault_report.benchmarks.select_benchmarks`, are drawn
@@ -261,7 +265,7 @@ def create_performance_figure(
     Otherwise one anomalous vault would flatten all others.
 
     When the remaining lines return more than ``log_threshold`` percent, the y
-    axis switches to a log scale of growth. Its ticks are still labelled as returns.
+    axis switches to a log scale.
 
     :param series:
         Vaults in table order, at most as many as the theme has series colours.
@@ -315,18 +319,25 @@ def create_performance_figure(
     log_scale = high > log_threshold
 
     def scale(values: pd.Series) -> np.ndarray:
-        return (1 + values / 100).to_numpy() if log_scale else values.to_numpy()
+        # Cumulative return in percent -> value of $100 invested
+        return (EQUITY_CURVE_BASE * (1 + values / 100)).to_numpy()
 
-    padding = (high - low) * 0.06 + 0.2
+    bottom, top = EQUITY_CURVE_BASE * (1 + low / 100), EQUITY_CURVE_BASE * (1 + high / 100)
+    padding = (top - bottom) * 0.06 + 0.2
     if log_scale:
-        y_range = (np.log10(max(1 + (low - padding) / 100, (1 + low / 100) * 0.9)), np.log10(1 + (high + padding) / 100))
+        y_range = (np.log10(max(bottom - padding, bottom * 0.9)), np.log10(top + padding))
     else:
-        y_range = (low - padding, high + padding)
+        y_range = (bottom - padding, top + padding)
 
     def position(value: float) -> float:
         # Paper y coordinate of a cumulative return, for the end labels
-        axis_value = np.log10(1 + value / 100) if log_scale else value
+        equity = EQUITY_CURVE_BASE * (1 + value / 100)
+        axis_value = np.log10(equity) if log_scale else equity
         return (axis_value - y_range[0]) / (y_range[1] - y_range[0])
+
+    def describe(value: float) -> str:
+        # End value of the $100 investment
+        return f"${EQUITY_CURVE_BASE * (1 + value / 100):,.2f}"
 
     fig = go.Figure()
     entries = []
@@ -344,8 +355,8 @@ def create_performance_figure(
         fig.add_trace(go.Scatter(x=performance.index, y=scale(performance), mode="lines", line={"color": theme.surface, "width": 8}, showlegend=False, hoverinfo="skip"))
         fig.add_trace(go.Scatter(x=performance.index, y=scale(performance), mode="lines", name=item.name, line={"color": colour, "width": 3.5}))
         since = f" since {performance.index[0]:%b %d}" if performance.index[0] > start_at + pd.Timedelta(days=3) else ""
-        note = " · off scale" if item.vault_id in off_scale else ""
-        entries.append(LegendEntry(f"{i + 1}. {item.name}", colour, item.logo_uri, detail=f"{vaults[item.vault_id].iloc[-1]:+,.1f}%{since}{note}"))
+        note = " · ▲ off scale" if item.vault_id in off_scale else ""
+        entries.append(LegendEntry(f"{i + 1}. {item.name}", colour, item.logo_uri, detail=f"{describe(vaults[item.vault_id].iloc[-1])}{since}{note}"))
         badge = {"font": {"size": 15, "color": theme.surface, "weight": 700}, "bgcolor": colour, "borderpad": 3}
         if item.vault_id in off_scale:
             fig.add_annotation(text=f"▲ {i + 1}", x=exit_at, y=1, xref="x", yref="paper", yanchor="top", showarrow=False, **badge)
@@ -355,17 +366,21 @@ def create_performance_figure(
 
     for name, performance in benchmarks.items():
         fig.add_trace(go.Scatter(x=performance.index, y=scale(performance), mode="lines", name=name, line={"color": to_rgba(theme.muted_text, 0.75), "width": 2, "dash": BENCHMARK_DASHES[name]}, hoverinfo="skip"))
-        labels.append((position(performance.iloc[-1]), f"{name.removeprefix('US 3M ')} {performance.iloc[-1]:+,.1f}%", {"font": {"size": 15, "color": theme.muted_text}}))
+        labels.append((position(performance.iloc[-1]), f"{name.removeprefix('US 3M ')} {describe(performance.iloc[-1])}", {"font": {"size": 15, "color": theme.muted_text}}))
 
     # Direct labels right of the line ends, pushed apart so they do not overlap
     min_gap = 0.042
-    placed = []
-    for y, text, style in sorted(labels, key=lambda label: -label[0]):
-        y = min(y, placed[-1][0] - min_gap) if placed else min(y, 0.98)
-        placed.append((y, text, style))
-    shift = max(0.0, 0.02 - placed[-1][0]) if placed else 0.0
-    for y, text, style in placed:
-        fig.add_annotation(text=text, x=end_at + pd.Timedelta(days=1.5), y=y + shift, xref="x", yref="paper", xanchor="left", yanchor="middle", showarrow=False, **style)
+    ordered = sorted(labels, key=lambda label: -label[0])
+    positions = [min(max(label[0], 0.02), 0.98) for label in ordered]
+    # Push down from the top, then back up from the bottom, keeping the order
+    for i in range(1, len(positions)):
+        positions[i] = min(positions[i], positions[i - 1] - min_gap)
+    if positions:
+        positions[-1] = max(positions[-1], 0.02)
+    for i in range(len(positions) - 2, -1, -1):
+        positions[i] = max(positions[i], positions[i + 1] + min_gap)
+    for y, (_, text, style) in zip(positions, ordered, strict=True):
+        fig.add_annotation(text=text, x=end_at + pd.Timedelta(days=1.5), y=y, xref="x", yref="paper", xanchor="left", yanchor="middle", showarrow=False, **style)
 
     apply_theme(fig, theme, IMAGE_WIDTH, IMAGE_HEIGHT + 100)
     fig.update_layout(margin={"l": 110, "r": LEGEND_MARGIN, "t": 30, "b": 70})
@@ -373,12 +388,12 @@ def create_performance_figure(
     ticks = pd.date_range(end=end_at, periods=7, freq="14D")
     fig.update_xaxes(range=[start_at, end_at + pd.Timedelta(window) * 0.16], tickvals=ticks[ticks >= start_at], tickformat="%b %d", showgrid=False)
     if log_scale:
-        ticks = [tick for tick in LOG_SCALE_TICKS if low - 5 <= tick <= high * 1.1]
-        fig.update_yaxes(type="log", range=list(y_range), tickvals=[1 + tick / 100 for tick in ticks], ticktext=[f"{tick:+,}%" if tick else "0%" for tick in ticks], title="Cumulative return (log scale)")
+        ticks = [tick for tick in LOG_SCALE_TICKS if 10 ** y_range[0] <= tick <= 10 ** y_range[1]]
+        fig.update_yaxes(type="log", range=list(y_range), tickvals=ticks, ticktext=[f"${tick:,}" for tick in ticks], title="Value of $100 invested (log scale)")
     else:
-        fig.update_yaxes(range=list(y_range), ticksuffix="%", title="Cumulative return")
+        fig.update_yaxes(range=list(y_range), tickprefix="$", tickformat=",.0f" if top - bottom > 3 else ",.1f", title="Value of $100 invested")
     fig.update_yaxes(side="left", zeroline=False)
-    fig.add_hline(y=1 if log_scale else 0, line={"color": theme.axis, "width": 1.5}, layer="below")
+    fig.add_hline(y=EQUITY_CURVE_BASE, line={"color": theme.axis, "width": 1.5}, layer="below")
     add_logo_legend(fig, entries, theme, row_height=min(0.1, 0.98 / max(len(entries), 1)))
     add_watermark(fig, watermark_uri, theme)
     return fig
