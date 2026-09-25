@@ -302,7 +302,7 @@ def test_rolling_sharpe_chart():
     series = [PerformanceSeries("a", "A", (), (BTC, TREASURY_BILL)), PerformanceSeries("b", "B", (), (BTC, TREASURY_BILL))]
     fig = create_performance_figure(series, prices, indices, DARK_THEME, measure="sharpe")
     assert [trace.name for trace in fig.data if trace.mode == "lines" and trace.name] == ["A", "B", BTC]
-    assert fig.layout.yaxis.title.text == "90-day rolling Sharpe ratio"
+    assert fig.layout.yaxis.title.text == "Sharpe ratio, 90-day rolling"
     assert fig.layout.yaxis.range[0] == 0
 
 

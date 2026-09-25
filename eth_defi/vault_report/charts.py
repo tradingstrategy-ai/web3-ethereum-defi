@@ -613,11 +613,11 @@ def create_performance_figure(
     fig.update_xaxes(range=[start_at, x_end], tickvals=ticks[ticks >= start_at], tickformat="%b %d", showgrid=False)
     if log_scale:
         ticks = [tick for tick in LOG_SCALE_TICKS if 10 ** y_range[0] <= tick <= 10 ** y_range[1]]
-        fig.update_yaxes(type="log", title="Equity % (log scale)")
+        fig.update_yaxes(type="log", title="Return since start (log scale)")
     else:
         step = next((step for step in LINEAR_TICK_STEPS if (y_range[1] - y_range[0]) / step <= 7), LINEAR_TICK_STEPS[-1])
         ticks = list(np.arange(np.ceil((y_range[0] - baseline) / step) * step, y_range[1] - baseline, step) + baseline)
-        fig.update_yaxes(title=f"{sharpe_window.days}-day rolling Sharpe ratio" if sharpe else "Equity %")
+        fig.update_yaxes(title=f"Sharpe ratio, {sharpe_window.days}-day rolling" if sharpe else "Return since start")
     ticktext = [f"{tick:,.4g}" for tick in ticks] if sharpe else [f"{tick - EQUITY_CURVE_BASE:+,.4g}%" if round(tick, 6) != EQUITY_CURVE_BASE else "0%" for tick in ticks]
     fig.update_yaxes(range=list(y_range), tickvals=ticks, ticktext=ticktext)
     fig.update_yaxes(side="left", zeroline=False)
@@ -715,7 +715,7 @@ def create_average_yield_figure(
     height = max(IMAGE_HEIGHT, 140 + 58 * len(df))
     apply_theme(fig, theme, IMAGE_WIDTH, height)
     # Margins sized so the labels, the plot and the right column fill the panel width
-    fig.update_layout(xaxis_title="3M annualised return (%)", margin={"l": 254, "r": 264, "t": 50, "b": 90})
+    fig.update_layout(xaxis_title="3-month yield, annualised", margin={"l": 254, "r": 264, "t": 50, "b": 90})
     fig.update_xaxes(showgrid=True, gridcolor=theme.grid, range=[-6, clip + 2], ticksuffix="%", zeroline=True, zerolinecolor=theme.axis, zerolinewidth=1)
     fig.update_yaxes(showgrid=False, showticklabels=False, showline=False, zeroline=False, range=[-0.7, len(df) - 0.3])
 
@@ -780,8 +780,12 @@ def create_tvl_change_figure(changes: pd.DataFrame, theme: ChartTheme, propertie
     height = max(IMAGE_HEIGHT, 120 + 72 * len(df))
     apply_theme(fig, theme, IMAGE_WIDTH, height)
     span = float(values.abs().max()) * 1.25 if len(values) else 1.0
-    fig.update_layout(xaxis_title="TVL change over 30 days (USD million)", bargap=0.3, margin={"l": 470, "r": 60, "t": 30, "b": 90})
-    fig.update_xaxes(showgrid=True, gridcolor=theme.grid, range=[-span, span], zeroline=True, zerolinecolor=theme.muted_text, zerolinewidth=2)
+    # Dollar ticks, e.g. -$200M and +$200M, so the axis title needs no unit
+    step = next((step for step in (10, 20, 25, 50, 100, 200, 250, 500, 1_000, 2_000, 5_000) if span / step <= 4), 10_000)
+    ticks = np.arange(-(span // step) * step, span + step / 2, step)
+    ticktext = [f"{'-' if tick < 0 else '+' if tick > 0 else ''}${abs(tick):,.0f}M" if tick else "$0" for tick in ticks]
+    fig.update_layout(xaxis_title="TVL change in 30 days", bargap=0.3, margin={"l": 470, "r": 60, "t": 30, "b": 90})
+    fig.update_xaxes(showgrid=True, gridcolor=theme.grid, range=[-span, span], tickvals=ticks, ticktext=ticktext, zeroline=True, zerolinecolor=theme.muted_text, zerolinewidth=2)
     fig.update_yaxes(showgrid=False, showticklabels=False, showline=False, zeroline=False, range=[-0.7, len(df) - 0.3])
     # Labels in the left margin: the vault name, then its curator, protocol and chain with their icons
     plot_width = IMAGE_WIDTH - fig.layout.margin.l - fig.layout.margin.r
@@ -888,13 +892,16 @@ def create_risk_return_figure(
 
     apply_theme(fig, theme, IMAGE_WIDTH, 900)
     fig.update_layout(
-        xaxis_title="3M volatility, annualised (%, log scale)",
-        yaxis_title="3M return, annualised (%)",
+        xaxis_title="3-month volatility (log scale)",
+        yaxis_title="3-month return, annualised",
         margin={"l": 90, "r": 330, "t": 40, "b": 80},
         legend={"font": {"size": 17, "color": theme.text}, "x": 1.02, "y": 1, "xanchor": "left", "itemsizing": "constant", "title": {"text": "Strategy", "font": {"color": theme.text}}},
     )
-    fig.update_xaxes(type="log", showgrid=True, gridcolor=theme.grid, range=[np.log10(min_volatility * 100) - 0.1, np.log10(df["x"].max()) + 0.1])
-    fig.update_yaxes(side="left", range=[min(df["y"].min(), 0) - 5, max_return * 100 + 8])
+    # Decade ticks with a percent sign, instead of Plotly's unlabelled 2 and 5 minor ticks
+    x_range = (np.log10(min_volatility * 100) - 0.1, np.log10(df["x"].max()) + 0.1)
+    x_ticks = [10.0**power for power in range(int(np.floor(x_range[0])), int(np.ceil(x_range[1])) + 1) if x_range[0] <= power <= x_range[1]]
+    fig.update_xaxes(type="log", showgrid=True, gridcolor=theme.grid, range=list(x_range), tickvals=x_ticks, ticktext=[f"{tick:g}%" for tick in x_ticks])
+    fig.update_yaxes(side="left", range=[min(df["y"].min(), 0) - 5, max_return * 100 + 8], ticksuffix="%")
     return fig
 
 
@@ -937,8 +944,8 @@ def create_protocol_tvl_figure(
 
     apply_theme(fig, theme, LEGEND_CHART_WIDTH, IMAGE_HEIGHT)
     # The protocol legend is short, so it needs less room than LEGEND_MARGIN and the plot fills the panel width
-    fig.update_layout(margin={"l": 90, "r": 360, "t": 30, "b": 70}, yaxis_title=f"{value_label} (USD billion)")
-    fig.update_yaxes(side="left", rangemode="tozero")
+    fig.update_layout(margin={"l": 90, "r": 360, "t": 30, "b": 70}, yaxis_title=value_label)
+    fig.update_yaxes(side="left", rangemode="tozero", tickprefix="$", ticksuffix="B")
     add_logo_legend(fig, entries, theme, row_height=0.1)
     return fig
 
