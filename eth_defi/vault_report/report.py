@@ -44,7 +44,7 @@ from eth_defi.vault_report.charts import (
     create_risk_return_figure,
     render_figure_png,
 )
-from eth_defi.vault_report.data import VaultReportData, calculate_daily_share_prices, fetch_available_sparklines, read_vault_share_prices, read_vault_tvl_history
+from eth_defi.vault_report.data import TVL_OUTLIER_THRESHOLD, VaultReportData, calculate_daily_share_prices, fetch_available_sparklines, read_vault_share_prices, read_vault_tvl_history
 from eth_defi.vault_report.ghost import GhostAdminClient, GhostPost
 from eth_defi.vault_report.logos import fetch_chain_logo_uri, load_protocol_logo_uri, load_watermark_logo_uri
 from eth_defi.vault_report.movers import RankChange, calculate_rank_changes, parse_ranked_vault_links, resolve_vault_id
@@ -225,7 +225,7 @@ def make_criteria_notes(criteria: ReportCriteria) -> dict[str, list[str]]:
         ],
         "protocol_tvl": [
             "Weekly total value locked in stablecoin vaults over the last year, by vault protocol",
-            "Excludes blacklisted vaults and vaults with abnormal TVL data",
+            f"Excludes blacklisted vaults and TVL data points above {format_usd(TVL_OUTLIER_THRESHOLD)}, like the website's TVL charts",
             live.format(url="https://tradingstrategy.ai/trading-view/vaults/historical-tvl-protocol?history=1y"),
         ],
         "best": [
@@ -241,7 +241,7 @@ def make_criteria_notes(criteria: ReportCriteria) -> dict[str, list[str]]:
         ],
         "risk_return": [
             "Each bubble is a vault from the best-performing vaults universe; bubble area shows TVL",
-            f"Annualised three-month returns are clipped at {criteria.chart_max_return:.0%}; volatility is on a log scale",
+            f"Vaults with annualised three-month returns above {criteria.scatter_max_return:.0%} are drawn as triangles on the top edge; volatility is on a log scale",
         ],
         "perp_dex": [
             f"Hyperliquid, GRVT, Lighter and other perpetual futures DEX vaults with minimum {format_usd(criteria.perp_dex_min_tvl)} TVL",
