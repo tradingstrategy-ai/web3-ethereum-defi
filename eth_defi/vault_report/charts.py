@@ -11,7 +11,7 @@ by :py:mod:`eth_defi.vault_report.branding`. Styling follows
   dashed) for calm yield vaults, BTC and ETH (dotted) for trading and volatile
   vaults, see :py:mod:`eth_defi.vault_report.benchmarks`
 - Performance as cumulative returns over a common period in small multiples,
-  and yields as dots on a rate scale, not bars
+  yields as dots on a rate scale, and dollar TVL changes as diverging bars
 - A faint logo watermark inside the plot area, as on the website charts
 - Glowing lines for charts with few series, like the website's hero charts
 """
@@ -32,7 +32,6 @@ from plotly.graph_objects import Figure
 from plotly.subplots import make_subplots
 
 from eth_defi.vault_report.benchmarks import BTC, ETH, TREASURY_BILL
-from eth_defi.vault_report.movers import RankChange
 from eth_defi.vault_report.theme import ASSETS_DIR, ChartTheme, apply_theme
 
 logger = logging.getLogger(__name__)
@@ -341,89 +340,57 @@ def create_performance_grid_figure(
     return fig
 
 
-def create_correlation_figure(
-    daily_prices: pd.DataFrame,
-    labels: dict[str, str],
-    theme: ChartTheme,
-    period: datetime.timedelta = datetime.timedelta(days=90),
-) -> Figure:
-    """Draw a daily returns correlation heatmap.
+def _format_usd_short(value: float) -> str:
+    """Format a dollar amount compactly for chart labels.
 
-    The heatmap fills the plot area, so it has no watermark.
-
-    :param daily_prices:
-        Output of :py:func:`eth_defi.vault_report.data.calculate_daily_share_prices`.
-
-    :param labels:
-        Vault id -> axis label, in display order.
-
-    :param theme:
-        Chart theme.
-
-    :param period:
-        Correlation lookback period.
+    :param value:
+        Amount in USD, may be negative.
 
     :return:
-        Plotly figure.
+        E.g. ``$23.7B``, ``$540M`` or ``-$1.2M``.
     """
-    ids = [vault_id for vault_id in labels if vault_id in daily_prices.columns]
-    prices = daily_prices[ids]
-    prices = prices.loc[prices.index > prices.index.max() - period]
-    correlation = prices.pct_change(fill_method=None).corr()
-    names = [shorten_label(labels[vault_id]) for vault_id in ids]
-    negative, neutral, positive = theme.diverging
-
-    fig = go.Figure(
-        data=go.Heatmap(
-            z=correlation.to_numpy(),
-            x=names,
-            y=names,
-            zmin=-1,
-            zmax=1,
-            colorscale=[[0.0, negative], [0.5, neutral], [1.0, positive]],
-            text=correlation.map(lambda value: f"{value:.2f}" if pd.notna(value) else "").to_numpy(),
-            texttemplate="%{text}",
-            textfont={"size": 13, "color": theme.text},
-            xgap=2,
-            ygap=2,
-            hoverongaps=False,
-            colorbar={"tickfont": {"color": theme.muted_text}, "outlinewidth": 0},
-        )
-    )
-    apply_theme(fig, theme, IMAGE_WIDTH, 1100)
-    fig.update_layout(margin={"l": 320, "r": 40, "t": 20, "b": 240})
-    fig.update_xaxes(tickangle=45, tickfont={"size": 14}, showline=False, ticks="")
-    fig.update_yaxes(side="left", tickfont={"size": 14}, autorange="reversed", showgrid=False, showline=False)
-    return fig
+    sign = "-" if value < 0 else ""
+    value = abs(value)
+    if value >= 1e9:
+        return f"{sign}${value / 1e9:.1f}B"
+    if value >= 1e6:
+        return f"{sign}${value / 1e6:.1f}M"
+    return f"{sign}${value / 1e3:.0f}k"
 
 
-def create_chain_yield_figure(
-    chain_yields: pd.DataFrame,
+def create_average_yield_figure(
+    yields: pd.DataFrame,
     vault_returns: pd.DataFrame,
+    group_column: str,
     theme: ChartTheme,
-    chain_logos: dict[str, str | None] | None = None,
+    logos: dict[str, str | None] | None = None,
     benchmark_yield: float | None = None,
     watermark_uri: str | None = None,
     max_return: float = 0.4,
 ) -> Figure:
-    """Draw a dot plot of vault yields per chain against the Treasury bill.
+    """Draw a dot plot of vault yields per chain or protocol against the Treasury bill.
 
-    A yield is a position on a rate scale, not a quantity, so each chain is a
+    A yield is a position on a rate scale, not a quantity, so each group is a
     row of dots rather than a bar: small dots for individual vaults, showing the
     spread, and a large dot for the TVL-weighted average. The right-hand column
-    gives the average and its difference to the Treasury bill in percentage points.
+    gives the average, its difference to the Treasury bill in percentage points,
+    and the group's TVL.
 
-    :param chain_yields:
-        Output of :py:func:`eth_defi.vault_report.sections.calculate_chain_yields`.
+    :param yields:
+        Output of :py:func:`eth_defi.vault_report.sections.calculate_chain_yields`
+        or :py:func:`~eth_defi.vault_report.sections.calculate_protocol_yields`.
 
     :param vault_returns:
-        Vaults counted in the averages, with ``chain`` and ``one_month_cagr_best`` columns.
+        Vaults counted in the averages, with the ``group_column`` and ``one_month_cagr_best`` columns.
+
+    :param group_column:
+        ``chain`` or ``protocol``.
 
     :param theme:
         Chart theme.
 
-    :param chain_logos:
-        Chain name -> logo data URI.
+    :param logos:
+        Group name -> logo data URI.
 
     :param benchmark_yield:
         Latest US Treasury bill yield as a fraction.
@@ -438,16 +405,16 @@ def create_chain_yield_figure(
     :return:
         Plotly figure.
     """
-    chain_logos = chain_logos or {}
-    df = chain_yields.sort_values("avg_return")
-    positions = {chain: position for position, chain in enumerate(df.index)}
+    logos = logos or {}
+    df = yields.sort_values("avg_return")
+    positions = {group: position for position, group in enumerate(df.index)}
     clip = max_return * 100
 
-    points = vault_returns.loc[vault_returns["chain"].isin(positions)].copy()
+    points = vault_returns.loc[vault_returns[group_column].isin(positions)].copy()
     points["x"] = (points["one_month_cagr_best"] * 100).clip(lower=-5, upper=clip)
     points["marker"] = np.select([points["one_month_cagr_best"] * 100 > clip, points["one_month_cagr_best"] * 100 < -5], ["triangle-right", "triangle-left"], "circle")
-    # Deterministic vertical jitter so dots of one chain do not sit on top of each other
-    points["y"] = [positions[chain] + ((zlib.crc32(vault_id.encode()) % 1000) / 1000 - 0.5) * 0.44 for vault_id, chain in zip(points.index, points["chain"], strict=True)]
+    # Deterministic vertical jitter so dots of one group do not sit on top of each other
+    points["y"] = [positions[group] + ((zlib.crc32(vault_id.encode()) % 1000) / 1000 - 0.5) * 0.44 for vault_id, group in zip(points.index, points[group_column], strict=True)]
 
     fig = go.Figure()
     fig.add_trace(go.Scatter(x=points["x"], y=points["y"], mode="markers", marker={"size": 7, "symbol": points["marker"], "color": to_rgba(theme.muted_text, 0.35)}, hoverinfo="skip", showlegend=False))
@@ -463,34 +430,82 @@ def create_chain_yield_figure(
         )
     )
 
-    height = max(IMAGE_HEIGHT, 140 + 46 * len(df))
+    height = max(IMAGE_HEIGHT, 140 + 58 * len(df))
     apply_theme(fig, theme, IMAGE_WIDTH, height)
-    fig.update_layout(xaxis_title="1M annualised return (%)", margin={"l": 280, "r": 230, "t": 50, "b": 90})
+    fig.update_layout(xaxis_title="1M annualised return (%)", margin={"l": 280, "r": 290, "t": 50, "b": 90})
     fig.update_xaxes(showgrid=True, gridcolor=theme.grid, range=[-6, clip + 2], ticksuffix="%", zeroline=True, zerolinecolor=theme.axis, zerolinewidth=1)
     fig.update_yaxes(showgrid=False, showticklabels=False, showline=False, zeroline=False, range=[-0.7, len(df) - 0.3])
 
-    for position, (chain, row) in enumerate(df.iterrows()):
+    for position, (group, row) in enumerate(df.iterrows()):
         fig.add_shape(type="line", xref="paper", yref="y", x0=0, x1=1, y0=position, y1=position, line={"color": theme.grid, "width": 1}, layer="below")
-        logo = chain_logos.get(chain)
+        logo = logos.get(group)
         if logo:
-            fig.add_layout_image(source=logo, xref="paper", yref="y", x=-0.235, y=position, sizex=0.028, sizey=0.75, xanchor="left", yanchor="middle")
-        fig.add_annotation(text=chain, xref="paper", yref="y", x=-0.2, y=position, xanchor="left", showarrow=False, font={"size": 20, "color": theme.text})
-        spread = f"  {(row['avg_return'] - benchmark_yield) * 100:+.1f} pp" if benchmark_yield is not None else ""
+            fig.add_layout_image(source=logo, xref="paper", yref="y", x=-0.235, y=position, sizex=0.03, sizey=0.6, xanchor="left", yanchor="middle")
+        fig.add_annotation(text=shorten_label(group, 17), xref="paper", yref="y", x=-0.19, y=position, xanchor="left", showarrow=False, font={"size": 20, "color": theme.text})
+        spread = f" {(row['avg_return'] - benchmark_yield) * 100:+.1f} pp" if benchmark_yield is not None else ""
         fig.add_annotation(
-            text=f"<b>{row['avg_return']:.1%}</b><span style='color:{theme.muted_text}'>{spread}</span>",
+            text=f"<b>{row['avg_return']:.1%}</b><span style='color:{theme.muted_text}'>{spread} · {_format_usd_short(row['tvl'])}</span>",
             xref="paper",
             yref="y",
             x=1.02,
             y=position,
             xanchor="left",
             showarrow=False,
-            font={"size": 19, "color": theme.text},
+            font={"size": 18, "color": theme.text},
         )
 
     if benchmark_yield is not None:
         fig.add_vline(x=benchmark_yield * 100, line={"color": theme.benchmark, "width": 3, "dash": "dash"})
         fig.add_annotation(text=f"US 3M T-bill {benchmark_yield:.1%}", x=benchmark_yield * 100, xref="x", y=1.0, yref="paper", yanchor="bottom", showarrow=False, font={"size": 18, "color": theme.benchmark})
     add_watermark(fig, watermark_uri, theme)
+    return fig
+
+
+def create_tvl_change_figure(changes: pd.DataFrame, theme: ChartTheme, logos: dict[str, str | None] | None = None) -> Figure:
+    """Draw the largest one-month TVL increases and decreases as diverging bars.
+
+    Dollar amounts are quantities, so bars are the right form here: increases
+    extend right in green, decreases left in red, with the amount labelled.
+
+    :param changes:
+        Output of :py:func:`eth_defi.vault_report.sections.calculate_tvl_changes`, largest increase first.
+
+    :param theme:
+        Chart theme.
+
+    :param logos:
+        Vault id -> protocol logo data URI.
+
+    :return:
+        Plotly figure.
+    """
+    logos = logos or {}
+    df = changes.iloc[::-1]
+    values = df["tvl_change"] / 1e6
+    fig = go.Figure(
+        go.Bar(
+            x=values,
+            y=list(range(len(df))),
+            orientation="h",
+            marker={"color": [theme.positive if value >= 0 else theme.negative for value in values], "cornerradius": 5},
+            text=[("+" if value >= 0 else "") + _format_usd_short(change) for value, change in zip(values, df["tvl_change"], strict=True)],
+            textposition="outside",
+            textfont={"color": theme.text, "size": 17},
+            cliponaxis=False,
+        )
+    )
+    height = max(IMAGE_HEIGHT, 140 + 40 * len(df))
+    apply_theme(fig, theme, IMAGE_WIDTH, height)
+    span = float(values.abs().max()) * 1.25 if len(values) else 1.0
+    fig.update_layout(xaxis_title="TVL change over 30 days (USD million)", bargap=0.3, margin={"l": 470, "r": 60, "t": 30, "b": 90})
+    fig.update_xaxes(showgrid=True, gridcolor=theme.grid, range=[-span, span], zeroline=True, zerolinecolor=theme.muted_text, zerolinewidth=2)
+    fig.update_yaxes(showgrid=False, showticklabels=False, showline=False, zeroline=False, range=[-0.7, len(df) - 0.3])
+    for position, (vault_id, vault) in enumerate(df.iterrows()):
+        logo = logos.get(vault_id)
+        if logo:
+            fig.add_layout_image(source=logo, xref="paper", yref="y", x=-0.52, y=position, sizex=0.03, sizey=0.7, xanchor="left", yanchor="middle")
+        label = f"{shorten_label(vault['name'] or vault['address'], 30)}  <span style='color:{theme.muted_text}'>{vault['chain']}</span>"
+        fig.add_annotation(text=label, xref="paper", yref="y", x=-0.475, y=position, xanchor="left", showarrow=False, font={"size": 17, "color": theme.text})
     return fig
 
 
@@ -596,79 +611,6 @@ def create_risk_return_figure(
     fig.update_xaxes(type="log", showgrid=True, gridcolor=theme.grid, range=[np.log10(min_volatility * 100) - 0.1, np.log10(df["x"].max()) + 0.1])
     fig.update_yaxes(side="left", range=[min(df["y"].min(), 0) - 5, max_return * 100 + 8])
     add_watermark(fig, watermark_uri, theme)
-    return fig
-
-
-def create_movers_figure(
-    changes: list[RankChange],
-    labels: dict[str, str],
-    theme: ChartTheme,
-    previous_label: str,
-    current_label: str,
-    logos: dict[str, str | None] | None = None,
-) -> Figure:
-    """Draw a slope chart of rank changes between two reports.
-
-    Status is shown both by colour and by a text marker (▲, ▼, NEW), so colour
-    is never the only signal.
-
-    :param changes:
-        Output of :py:func:`eth_defi.vault_report.movers.calculate_rank_changes`.
-
-    :param labels:
-        Vault id -> display name.
-
-    :param theme:
-        Chart theme.
-
-    :param previous_label:
-        Column heading of the previous ranking, e.g. ``February 2026``.
-
-    :param current_label:
-        Column heading of the current ranking.
-
-    :param logos:
-        Vault id -> protocol logo data URI.
-
-    :return:
-        Plotly figure.
-    """
-    logos = logos or {}
-    top_n = len(changes)
-    shown_previous = [c.previous_rank for c in changes if c.previous_rank is not None]
-    bottom = max([top_n, *shown_previous]) + 1
-    status_colour = {"new": theme.positive, "up": theme.positive, "down": theme.negative, "same": theme.muted_text}
-
-    fig = go.Figure()
-    for change in changes:
-        colour = status_colour[change.status]
-        if change.previous_rank is not None:
-            fig.add_trace(go.Scatter(x=[0, 1], y=[change.previous_rank, change.current_rank], mode="lines+markers", line={"color": to_rgba(colour, 0.85), "width": 3}, marker={"size": 11, "color": colour}, hoverinfo="skip"))
-            fig.add_annotation(text=f"#{change.previous_rank}", x=0, y=change.previous_rank, xanchor="right", xshift=-14, showarrow=False, font={"size": 15, "color": theme.muted_text})
-        else:
-            fig.add_trace(go.Scatter(x=[1], y=[change.current_rank], mode="markers", marker={"size": 13, "color": colour, "symbol": "star"}, hoverinfo="skip"))
-
-        marker = {"new": "NEW", "up": f"▲{change.previous_rank - change.current_rank if change.previous_rank else ''}", "down": f"▼{change.current_rank - change.previous_rank if change.previous_rank else ''}", "same": "="}[change.status]
-        label = shorten_label(labels.get(change.vault_id, change.vault_id), 32)
-        text_x_shift = 72
-        if logos.get(change.vault_id):
-            fig.add_layout_image(source=logos[change.vault_id], xref="paper", yref="y", x=1.025, y=change.current_rank, sizex=0.045, sizey=0.8, xanchor="left", yanchor="middle")
-        fig.add_annotation(
-            text=f"<b>#{change.current_rank}</b> {label}  <span style='color:{colour}'>{marker}</span>",
-            x=1,
-            y=change.current_rank,
-            xanchor="left",
-            xshift=text_x_shift,
-            showarrow=False,
-            font={"size": 17, "color": theme.text},
-        )
-
-    apply_theme(fig, theme, IMAGE_WIDTH, max(IMAGE_HEIGHT, 90 + 44 * top_n))
-    fig.update_layout(showlegend=False, margin={"l": 360, "r": 560, "t": 70, "b": 20})
-    fig.update_xaxes(range=[-0.02, 1.02], showline=False, showticklabels=False, ticks="")
-    fig.update_yaxes(range=[bottom, 0.3], showgrid=False, showticklabels=False, showline=False, zeroline=False)
-    for x, text in ((0, previous_label), (1, current_label)):
-        fig.add_annotation(text=f"<b>{text}</b>", x=x, y=1.0, yref="paper", yanchor="bottom", showarrow=False, font={"size": 20, "color": theme.text})
     return fig
 
 

@@ -81,9 +81,6 @@ class ChartTheme:
     #: ETH benchmark line, the Ethereum brand blue as on the website
     eth: str
 
-    #: Diverging colour scale for correlations: negative, neutral, positive
-    diverging: tuple[str, str, str]
-
     #: Top-left panel glow colour, RGBA
     glow: tuple[int, int, int, int]
 
@@ -109,7 +106,6 @@ DARK_THEME = ChartTheme(
     neutral="#5e5c5a",
     btc="#f7931a",
     eth="#8c9eff",
-    diverging=("#e66767", "#383835", "#3987e5"),
     glow=(34, 180, 83, 46),
     watermark="#d5deea",
     watermark_opacity=0.07,
@@ -130,7 +126,6 @@ LIGHT_THEME = ChartTheme(
     neutral="#b9b8b3",
     btc="#d97706",
     eth="#4f63d2",
-    diverging=("#e34948", "#f0efec", "#2a78d6"),
     glow=(34, 180, 83, 28),
     watermark="#0b0b14",
     watermark_opacity=0.06,

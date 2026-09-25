@@ -11,12 +11,13 @@ completes with the monthly news.
   matches the `live vault dashboard <https://tradingstrategy.ai/trading-view/vaults>`__
 - Share price history for the charts comes from the Pro vault dataset download
 - The 3-month US Treasury yield from `FRED <https://fred.stlouisfed.org/series/DGS3MO>`__
-  is drawn as a benchmark
+  and BTC and ETH prices are drawn as benchmarks
 - The previous report is read with the Ghost Content API to carry over
-  evergreen sections and compare rankings, and the draft is created with the Ghost Admin API
+  evergreen sections, and the draft is created with the Ghost Admin API
 
 Run it with ``scripts/erc-4626/generate-monthly-vault-report.py``. See
-``eth_defi/vault_report/README-vault-report.md`` for the operator guide.
+``eth_defi/vault_report/README-vault-report.md`` for the operator guide and
+``eth_defi/vault_report/README-blog-post-outline.md`` for the post outline.
 
 .. autosummary::
    :toctree: _autosummary_vault_report
@@ -29,7 +30,6 @@ Run it with ``scripts/erc-4626/generate-monthly-vault-report.py``. See
    eth_defi.vault_report.branding
    eth_defi.vault_report.logos
    eth_defi.vault_report.benchmarks
-   eth_defi.vault_report.movers
    eth_defi.vault_report.post
    eth_defi.vault_report.ghost
    eth_defi.vault_report.report

@@ -21,8 +21,8 @@ Environment variables:
 - ``GHOST_ADMIN_API_URL``: defaults to ``GHOST_CONTENT_API_URL``
 - ``GHOST_ADMIN_API_KEY``: ``{id}:{secret}`` Admin API key; when set, upload charts and create the draft post
 - ``GHOST_OVERWRITE_DRAFT``: set ``true`` to replace an existing draft with the same slug
-- ``MIN_TVL``: minimum TVL for the main listing, default 200,000 USD
-- ``TOP_N``: vaults per listing, default 50
+- ``MIN_TVL``: minimum TVL for the best-performing vault tables, default 100,000 USD
+- ``TOP_N``: vaults per best-performing table, default 20
 - ``RENDER_CHARTS``: set ``false`` to skip chart rendering
 - ``CHART_THEME``: ``dark`` (default, the website look) or ``light``
 - ``CHECK_SPARKLINES``: set ``false`` to leave sparklines out of the tables
@@ -40,7 +40,7 @@ from eth_defi.utils import setup_console_logging
 from eth_defi.vault_report.data import fetch_vault_report_data
 from eth_defi.vault_report.ghost import GhostAdminClient, GhostContentClient
 from eth_defi.vault_report.post import REPORT_SLUG_PREFIX, make_report_slug, read_changelog_entries
-from eth_defi.vault_report.report import generate_monthly_vault_report, publish_report_draft, read_previous_ranking
+from eth_defi.vault_report.report import generate_monthly_vault_report, publish_report_draft
 from eth_defi.vault_report.sections import ReportCriteria
 from eth_defi.vault_report.theme import get_theme
 
@@ -83,9 +83,10 @@ def main() -> None:
     setup_console_logging(default_log_level=os.environ.get("LOG_LEVEL", "info"))
 
     cache_dir = _env_path("CACHE_DIR") or Path("~/.cache/tradingstrategy/vault-report").expanduser()
+    defaults = ReportCriteria()
     criteria = ReportCriteria(
-        min_tvl=float(os.environ.get("MIN_TVL", "200000")),
-        top_n=int(os.environ.get("TOP_N", "50")),
+        min_tvl=float(os.environ.get("MIN_TVL", defaults.min_tvl)),
+        top_n=int(os.environ.get("TOP_N", defaults.top_n)),
     )
 
     data = fetch_vault_report_data(
@@ -108,9 +109,6 @@ def main() -> None:
     changelog_entries = read_changelog_entries(CHANGELOG_PATH, since=changelog_since)[:MAX_CHANGELOG_ENTRIES]
 
     output_dir = _env_path("OUTPUT_DIR") or cache_dir / "reports" / make_report_slug(data.data_end_at)
-    previous_ranking = read_previous_ranking(cache_dir / "reports" / previous.slug) if previous else None
-    if previous_ranking:
-        logger.info("Using the stored ranking of the previous report %s", previous.slug)
     report = generate_monthly_vault_report(
         data,
         output_dir=output_dir,
@@ -121,7 +119,6 @@ def main() -> None:
         theme=get_theme(os.environ.get("CHART_THEME", "dark")),
         cache_dir=cache_dir / "assets",
         check_sparklines=os.environ.get("CHECK_SPARKLINES", "true").strip().lower() != "false",
-        previous_ranking=previous_ranking,
     )
 
     rows = [[key, len(section.vaults_df), section.vaults_df.iloc[0]["name"]] for key, section in report.sections.items()]
