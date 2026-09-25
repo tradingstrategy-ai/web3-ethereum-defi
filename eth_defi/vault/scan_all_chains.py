@@ -104,6 +104,7 @@ from eth_defi.token import TokenDiskCache
 from eth_defi.tokenised_fund.scan import (
     TOKENISED_FUND_PRICE_DEFAULT_CYCLE,
     TOKENISED_FUND_PRICE_SCANNERS,
+    TOKENISED_FUND_SCAN_EXCEPTIONS,
     TokenisedFundPriceScanContext,
     TokenisedFundPriceScanSpec,
     load_tokenised_fund_last_timestamps,
@@ -2979,7 +2980,7 @@ def run_scan_tick(
                 end_block=scan_result.end_block,
                 duration=time.monotonic() - started_at,
             )
-        except (RuntimeError, ValueError, OSError, pa.ArrowException, Web3Exception) as exc:
+        except TOKENISED_FUND_SCAN_EXCEPTIONS as exc:
             logger.exception("%s tokenised-fund price scan failed", scanner.dashboard_name)
             results[scanner.dashboard_name] = ChainResult(
                 name=scanner.dashboard_name,

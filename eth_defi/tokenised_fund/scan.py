@@ -16,7 +16,9 @@ from pathlib import Path
 import pyarrow as pa
 import pyarrow.compute as pc
 import pyarrow.parquet as pq
+from eth_abi.exceptions import DecodingError
 from eth_typing import HexAddress
+from web3.exceptions import Web3Exception
 
 from eth_defi.erc_4626.classification import create_vault_instance
 from eth_defi.erc_4626.core import ERC4626Feature
@@ -39,6 +41,23 @@ from eth_defi.vault.vaultdb import VaultDatabase, VaultRow
 logger = logging.getLogger(__name__)
 
 TOKENISED_FUND_PRICE_DEFAULT_CYCLE = datetime.timedelta(hours=24)
+
+#: Failures contained to one tokenised-fund product or scheduler item.
+#:
+#: Adapter, provider and data failures of one product must not stop the other
+#: products of the same protocol, other scheduler items or the scanner process.
+TOKENISED_FUND_SCAN_EXCEPTIONS: tuple[type[Exception], ...] = (
+    RuntimeError,
+    ValueError,
+    OSError,
+    ArithmeticError,
+    AssertionError,
+    LookupError,
+    TypeError,
+    DecodingError,
+    pa.ArrowException,
+    Web3Exception,
+)
 
 
 @dataclass(slots=True, frozen=True)
@@ -160,7 +179,9 @@ TOKENISED_FUND_PRICE_SCANNERS: tuple[TokenisedFundPriceScanSpec, ...] = (
     TokenisedFundPriceScanSpec("midas", "Midas", ERC4626Feature.midas_like, _is_midas_tokenised_fund),
     TokenisedFundPriceScanSpec("ondo", "Ondo", ERC4626Feature.ondo_like),
     TokenisedFundPriceScanSpec("openeden", "OpenEden", ERC4626Feature.openeden_like),
-    TokenisedFundPriceScanSpec("securitize", "Securitize", ERC4626Feature.securitize_like, _is_price_capable_securitize_product),
+    # Settlement-priced products can be sampled before Hypersync indexes the
+    # latest settlement, so replay a bounded tail to correct those rows.
+    TokenisedFundPriceScanSpec("securitize", "Securitize", ERC4626Feature.securitize_like, _is_price_capable_securitize_product, refetch_tail=True),
     TokenisedFundPriceScanSpec("spiko", "Spiko", ERC4626Feature.spiko_like),
     TokenisedFundPriceScanSpec("superstate", "Superstate", ERC4626Feature.superstate_like),
     TokenisedFundPriceScanSpec("sygnum", "Sygnum", ERC4626Feature.sygnum_like),
@@ -377,7 +398,10 @@ def run_tokenised_fund_price_scan(  # noqa: PLR0914 - explicit production resour
     :return:
         Aggregate scan result across every configured target chain.
     :raise RuntimeError:
-        If the metadata database or a selected product adapter is invalid.
+        If the metadata database or a selected product adapter is invalid, or
+        after all products were attempted when any product scan failed. A
+        failed product does not stop the remaining products, whose rows are
+        written independently.
     """
 
     registry_diagnostics: list[str] = []
@@ -416,6 +440,7 @@ def run_tokenised_fund_price_scan(  # noqa: PLR0914 - explicit production resour
         return TokenisedFundPriceScanResult(0, 0, None, None, None, "; ".join(sorted(set(diagnostics))))
 
     rows_written = 0
+    failures: list[tuple[str, Exception]] = []
     first_start: int | None = None
     last_end: int | None = None
     token_cache = TokenDiskCache()
@@ -459,28 +484,39 @@ def run_tokenised_fund_price_scan(  # noqa: PLR0914 - explicit production resour
                     diagnostics.append(f"{target.as_string_id()} stored block {start_block} is ahead of RPC head {end_block}")
                     logger.warning("Skipping %s because stored block %d is ahead of RPC head %d", target.as_string_id(), start_block, end_block)
                     continue
-                result = scan_historical_prices_to_parquet(
-                    output_fname=context.raw_price_path,
-                    web3=web3,
-                    web3factory=web3factory,
-                    vaults=[vault],
-                    start_block=start_block,
-                    end_block=end_block,
-                    max_workers=context.max_workers,
-                    chunk_size=32,
-                    token_cache=token_cache,
-                    write_all_samples=True,
-                    frequency="1d",
-                    reader_states=None,
-                    hypersync_client=hypersync_client,
-                    rpc_request_stats=context.rpc_request_stats,
-                    vault_addresses={target.vault_address},
-                )
+                try:
+                    result = scan_historical_prices_to_parquet(
+                        output_fname=context.raw_price_path,
+                        web3=web3,
+                        web3factory=web3factory,
+                        vaults=[vault],
+                        start_block=start_block,
+                        end_block=end_block,
+                        max_workers=context.max_workers,
+                        chunk_size=32,
+                        token_cache=token_cache,
+                        write_all_samples=True,
+                        frequency="1d",
+                        reader_states=None,
+                        hypersync_client=hypersync_client,
+                        rpc_request_stats=context.rpc_request_stats,
+                        vault_addresses={target.vault_address},
+                    )
+                except TOKENISED_FUND_SCAN_EXCEPTIONS as exc:
+                    # The Parquet rewrite is atomic, so this product keeps its
+                    # existing rows; the item is retried on the next tick.
+                    logger.warning("%s price scan failed for %s; continuing with remaining products: %s", spec.dashboard_name, target.as_string_id(), exc)
+                    failures.append((target.as_string_id(), exc))
+                    continue
                 rows_written += result["rows_written"]
                 first_start = result["start_block"] if first_start is None else min(first_start, result["start_block"])
                 last_end = result["end_block"] if last_end is None else max(last_end, result["end_block"])
     finally:
         token_cache.commit()
+
+    if failures:
+        failed_ids = ", ".join(target_id for target_id, _ in failures)
+        raise RuntimeError(f"{spec.dashboard_name} price scan failed for {len(failures)} of {len(target_specs)} products: {failed_ids}") from failures[0][1]
 
     raw_table = pq.read_table(context.raw_price_path, columns=["chain", "address", "timestamp", "share_price"]) if context.raw_price_path.exists() else None
     return TokenisedFundPriceScanResult(

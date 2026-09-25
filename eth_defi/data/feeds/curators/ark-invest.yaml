@@ -1,0 +1,22 @@
+feeder-id: ark-invest
+name: ARK Invest
+role: curator
+website: https://www.ark-invest.com/
+short_description: ARK Invest is an investment manager focused on disruptive innovation across public and private markets.
+long_description: |
+  [ARK Invest](https://www.ark-invest.com/) (ARK Investment Management LLC) is an SEC-registered investment adviser. It manages exchange-traded funds and other investment products focused on disruptive innovation, including artificial intelligence, robotics, energy storage, genomics and blockchain technology.
+
+  ARK manages the [ARK Venture Fund](https://www.ark-funds.com/funds/arkvx), a registered closed-end interval fund investing in private and public companies. In September 2026, ARK and Securitize [announced a tokenised share class of the fund](https://www.prnewswire.com/news-releases/ark-invest-tokenizes-ark-venture-fund-arkvx-with-securitize-302888300.html) on Ethereum, with Securitize providing the tokenisation and investor-onboarding infrastructure while ARK manages the underlying fund.
+twitter: ARKInvest
+linkedin: ark-investment-management
+rss: https://www.ark-invest.com/feed
+
+other-links:
+  - title: ARK Venture Fund official fund page
+    url: https://www.ark-funds.com/funds/arkvx
+  - title: PR Newswire - ARK Invest tokenizes ARK Venture Fund (ARKVX) with Securitize
+    url: https://www.prnewswire.com/news-releases/ark-invest-tokenizes-ark-venture-fund-arkvx-with-securitize-302888300.html
+  - title: SEC EDGAR - ARK Venture Fund prospectus and SAI dated 2025-10-28
+    url: https://www.sec.gov/Archives/edgar/data/1905088/000121390025102648/ea0260971-01_486bpos.htm
+  - title: SEC - Investment Company Act Release No. 36333 permitting a tokenised ARK Venture Fund share class
+    url: https://www.sec.gov/Archives/edgar/data/1905088/999999999726001524/filename1.pdf

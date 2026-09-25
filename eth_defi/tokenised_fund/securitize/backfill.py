@@ -126,6 +126,7 @@ from eth_defi.research.wrangle_vault_prices import replace_cleaned_vault_histori
 from eth_defi.token import TokenDiskCache
 from eth_defi.tokenised_fund.securitize.description import SECURITIZE_PRODUCTS, SecuritizeProduct
 from eth_defi.tokenised_fund.securitize.redstone import REDSTONE_SECURITIZE_FEEDS
+from eth_defi.tokenised_fund.securitize.settlement import SECURITIZE_SETTLEMENT_FEEDS
 from eth_defi.utils import setup_console_logging
 from eth_defi.vault.base import VaultBase, VaultSpec
 from eth_defi.vault.historical import ParquetScanResult, pformat_scan_result, scan_historical_prices_to_parquet
@@ -228,12 +229,32 @@ def iter_products() -> Iterable[SecuritizeProduct]:
             yield product
 
 
+def get_price_first_block(product: SecuritizeProduct) -> int | None:
+    """Return the first block at which the scanner can price a product.
+
+    Descriptive source labels are not executable configuration. A product is
+    price-capable only when it has a reviewed static estimate, an actual
+    RedStone feed registry entry or a reviewed subscription-settlement feed.
+
+    :param product:
+        Reviewed Securitize product.
+    :return:
+        ``0`` for a static estimate, the feed's first valid block for RedStone
+        and settlement feeds, or ``None`` when no NAV source is configured.
+    """
+
+    if product.estimated_nav_per_share is not None:
+        return 0
+    key = product.chain_id, product.token
+    feed = REDSTONE_SECURITIZE_FEEDS.get(key) or SECURITIZE_SETTLEMENT_FEEDS.get(key)
+    return feed.first_block if feed is not None else None
+
+
 def has_historical_price(product: SecuritizeProduct) -> bool:
     """Check whether the scanner can produce price history for a product.
 
-    Descriptive source labels are not executable configuration. A product is
-    price-capable only when it has a reviewed static estimate or an actual
-    RedStone feed registry entry.
+    Products without a reviewed NAV source remain metadata-only leads and are
+    excluded from historical price scans.
 
     :param product:
         Reviewed Securitize product.
@@ -241,7 +262,7 @@ def has_historical_price(product: SecuritizeProduct) -> bool:
         ``True`` when the historical reader can calculate NAV and TVL.
     """
 
-    return product.estimated_nav_per_share is not None or (product.chain_id, product.token) in REDSTONE_SECURITIZE_FEEDS
+    return get_price_first_block(product) is not None
 
 
 def create_price_row_report(
@@ -255,7 +276,8 @@ def create_price_row_report(
     Counts come from the scanner's existing in-memory export pass. The report
     therefore does not reread the output Parquet file. A completed scan must
     produce at least one non-null share-price row for every product whose
-    static estimate or RedStone feed is available in the scanned block range.
+    static estimate, RedStone feed or settlement feed is available in the
+    scanned block range.
 
     :param products:
         Reviewed products on one chain.
@@ -289,8 +311,8 @@ def create_price_row_report(
             if not price_capable:
                 status = "no NAV source"
 
-            feed = REDSTONE_SECURITIZE_FEEDS.get((product.chain_id, product.token))
-            price_expected = product.estimated_nav_per_share is not None or (feed is not None and scan_result["end_block"] >= feed.first_block)
+            price_first_block = get_price_first_block(product)
+            price_expected = price_first_block is not None and scan_result["end_block"] >= price_first_block
             if price_expected and price_rows == 0:
                 raise RuntimeError(f"Securitize historical scan produced no share-price rows for {product.product_name} ({product.chain_id}:{product.token})")
 

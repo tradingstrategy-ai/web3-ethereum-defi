@@ -15,7 +15,7 @@ from eth_defi.erc_4626.core import ERC4626Feature
 from eth_defi.erc_4626.discovery_base import VaultEventKind, get_securitize_dstoken_discovery_events, get_vault_event_topic_map
 from eth_defi.provider.anvil import AnvilLaunch, fork_network_anvil
 from eth_defi.provider.multi_provider import create_multi_provider_web3
-from eth_defi.tokenised_fund.securitize.description import ACRED_ETHEREUM, ARCOIN_ETHEREUM, BCAP_ETHEREUM, BUIDL_ARBITRUM, BUIDL_AVALANCHE, BUIDL_ETHEREUM, BUIDL_I_ETHEREUM, BUIDL_OPTIMISM, BUIDL_POLYGON, COSX_ETHEREUM, HLSCOPE_ETHEREUM, MI4_MANTLE, PRTS_ETHEREUM, SCI2_ETHEREUM, SECURITIZE_PRODUCTS, SPICE_VC_ETHEREUM, STAC_ETHEREUM, VBILL_ETHEREUM
+from eth_defi.tokenised_fund.securitize.description import ACRED_ETHEREUM, ARCOIN_ETHEREUM, ARKVX_ETHEREUM, BCAP_ETHEREUM, BUIDL_ARBITRUM, BUIDL_AVALANCHE, BUIDL_ETHEREUM, BUIDL_I_ETHEREUM, BUIDL_OPTIMISM, BUIDL_POLYGON, COSX_ETHEREUM, HLSCOPE_ETHEREUM, MI4_MANTLE, PRTS_ETHEREUM, SCI2_ETHEREUM, SECURITIZE_PRODUCTS, SPICE_VC_ETHEREUM, STAC_ETHEREUM, VBILL_ETHEREUM
 from eth_defi.tokenised_fund.securitize.historical import SecuritizeVaultHistoricalReader
 from eth_defi.tokenised_fund.securitize.vault import BUIDL_ESTIMATED_NAV_PER_SHARE, BUIDL_ETHEREUM_ADDRESS, SECURITIZE_RESTRICTED_FLOW_REASON, SecuritizeVault
 from eth_defi.vault.base import VaultSpec
@@ -64,7 +64,7 @@ def test_securitize_dstoken_classification_and_issue_lead_event() -> None:
 def test_securitize_product_registry() -> None:
     """Look up every manually-described Securitize fund by DSToken address."""
 
-    products = (BUIDL_ETHEREUM, BUIDL_POLYGON, BUIDL_AVALANCHE, BUIDL_OPTIMISM, BUIDL_ARBITRUM, BUIDL_I_ETHEREUM, ACRED_ETHEREUM, VBILL_ETHEREUM, STAC_ETHEREUM, ARCOIN_ETHEREUM, SPICE_VC_ETHEREUM, HLSCOPE_ETHEREUM, BCAP_ETHEREUM, COSX_ETHEREUM, SCI2_ETHEREUM, PRTS_ETHEREUM, MI4_MANTLE)
+    products = (BUIDL_ETHEREUM, BUIDL_POLYGON, BUIDL_AVALANCHE, BUIDL_OPTIMISM, BUIDL_ARBITRUM, BUIDL_I_ETHEREUM, ACRED_ETHEREUM, VBILL_ETHEREUM, STAC_ETHEREUM, ARCOIN_ETHEREUM, SPICE_VC_ETHEREUM, HLSCOPE_ETHEREUM, BCAP_ETHEREUM, COSX_ETHEREUM, SCI2_ETHEREUM, PRTS_ETHEREUM, MI4_MANTLE, ARKVX_ETHEREUM)
     assert {SECURITIZE_PRODUCTS[product.chain_id, product.token] for product in products} == set(products)
     assert all(product.notes.startswith(product.product_name) for product in products)
     assert MI4_MANTLE.homepage == "https://securitize.io/primary-market/mantle-index-four-fund"
