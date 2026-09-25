@@ -16,7 +16,9 @@ by :py:mod:`eth_defi.vault_report.branding`. Styling follows
 - Glowing lines for charts with few series, like the website's hero charts
 """
 
+import base64
 import datetime
+import io
 import logging
 import os
 import tempfile
@@ -29,11 +31,12 @@ from typing import Literal
 import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
+from PIL import Image, ImageFont
 from plotly.graph_objects import Figure
 
 from eth_defi.vault_report.benchmarks import BTC, ETH, TREASURY_BILL
 from eth_defi.vault_report.sections import CAPPED_ANNUALISED_RETURN
-from eth_defi.vault_report.theme import ASSETS_DIR, ChartTheme, apply_theme
+from eth_defi.vault_report.theme import ASSETS_DIR, FONT_REGULAR, ChartTheme, apply_theme
 
 logger = logging.getLogger(__name__)
 
@@ -48,6 +51,31 @@ CHOREOGRAPHER_CHROME_PATH = Path("~/.local/share/choreographer/deps/chrome-linux
 
 #: Width of the right margin that holds a logo legend
 LEGEND_MARGIN = 430
+
+
+#: Font size of the curator, protocol and chain row under a vault name, in pixels
+PROPERTY_FONT_SIZE = 14
+
+#: Icon size in the property row, in pixels
+PROPERTY_ICON_SIZE = 17
+
+#: Height of one property row, in pixels
+PROPERTY_ROW_HEIGHT = 21
+
+
+@dataclass(slots=True, frozen=True)
+class VaultProperty:
+    """A vault property shown under the vault name: its curator, protocol or chain.
+
+    Properties are drawn in the order curator, protocol, chain, each with its
+    own icon, see :py:func:`add_property_rows`.
+    """
+
+    #: Label text, e.g. ``Steakhouse Financial``, ``Morpho`` or ``Base``
+    text: str
+
+    #: Logo data URI, or ``None`` to draw the text only
+    logo_uri: str | None = None
 
 
 @dataclass(slots=True, frozen=True)
@@ -66,8 +94,11 @@ class LegendEntry:
     #: Plotly line dash style of the swatch
     dash: str = "solid"
 
-    #: Muted second line, e.g. the final return. When set, the label is shortened to one line.
+    #: Muted last line, e.g. the final return
     detail: str | None = None
+
+    #: Curator, protocol and chain drawn with their icons under the label
+    properties: tuple[VaultProperty, ...] = ()
 
 
 def to_rgba(colour: str, alpha: float) -> str:
@@ -102,6 +133,100 @@ def wrap_label(text: str, width: int) -> str:
     return "<br>".join(textwrap.wrap(text, width=width)) or text
 
 
+def _measure_text(text: str, size: int = PROPERTY_FONT_SIZE) -> float:
+    """Measure text width in pixels with the bundled chart font.
+
+    :param text:
+        Text.
+
+    :param size:
+        Font size in pixels.
+
+    :return:
+        Width in pixels.
+    """
+    return ImageFont.truetype(str(FONT_REGULAR), size).getlength(text)
+
+
+def layout_properties(properties: tuple[VaultProperty, ...], width: float) -> list[list[tuple[VaultProperty, float]]]:
+    """Flow vault properties into rows that fit a width.
+
+    :param properties:
+        Properties in drawing order.
+
+    :param width:
+        Available width in pixels.
+
+    :return:
+        Rows of ``(property, x offset in pixels)``.
+    """
+    rows: list[list[tuple[VaultProperty, float]]] = []
+    cursor = 0.0
+    for prop in properties:
+        item_width = (PROPERTY_ICON_SIZE + 5 if prop.logo_uri else 0) + _measure_text(prop.text)
+        if not rows or (cursor > 0 and cursor + item_width > width):
+            rows.append([])
+            cursor = 0.0
+        rows[-1].append((prop, cursor))
+        cursor += item_width + 16
+    return rows
+
+
+def add_property_rows(
+    fig: Figure,
+    properties: tuple[VaultProperty, ...],
+    theme: ChartTheme,
+    x: float,
+    y: float,
+    yref: str,
+    width: float,
+    x_pixels: float,
+    y_pixels: float,
+) -> int:
+    """Draw a vault's curator, protocol and chain under its name, each with its icon.
+
+    :param fig:
+        Figure to modify.
+
+    :param properties:
+        Properties in drawing order.
+
+    :param theme:
+        Chart theme.
+
+    :param x:
+        Paper x coordinate of the row start.
+
+    :param y:
+        Centre of the first row, in ``yref`` units.
+
+    :param yref:
+        ``paper`` or ``y``.
+
+    :param width:
+        Available width in pixels; properties flow to more rows when needed.
+
+    :param x_pixels:
+        Pixels per paper x unit, the plot width.
+
+    :param y_pixels:
+        Pixels per ``yref`` unit.
+
+    :return:
+        Number of rows drawn.
+    """
+    rows = layout_properties(properties, width)
+    for i, row in enumerate(rows):
+        centre = y - i * PROPERTY_ROW_HEIGHT / y_pixels
+        for prop, offset in row:
+            item_x = x + offset / x_pixels
+            if prop.logo_uri:
+                fig.add_layout_image(source=prop.logo_uri, xref="paper", yref=yref, x=item_x, y=centre, sizex=PROPERTY_ICON_SIZE / x_pixels, sizey=PROPERTY_ICON_SIZE / y_pixels, xanchor="left", yanchor="middle")
+                item_x += (PROPERTY_ICON_SIZE + 5) / x_pixels
+            fig.add_annotation(text=prop.text, xref="paper", yref=yref, x=item_x, y=centre, xanchor="left", yanchor="middle", showarrow=False, font={"size": PROPERTY_FONT_SIZE, "color": theme.muted_text})
+    return len(rows)
+
+
 def add_logo_legend(fig: Figure, entries: list[LegendEntry], theme: ChartTheme, top: float = 1.0, row_height: float = 0.088) -> None:
     """Draw a legend with logos in the right margin.
 
@@ -110,8 +235,11 @@ def add_logo_legend(fig: Figure, entries: list[LegendEntry], theme: ChartTheme, 
     :py:data:`LEGEND_MARGIN` pixels, and its height and margins must be set
     before calling this.
 
-    Labels are word-wrapped to full length. Entries are spaced at least
-    ``row_height`` apart, and further when a wrapped label needs more room.
+    Labels are word-wrapped to full length. An entry's curator, protocol and
+    chain are drawn under its label with their icons, see
+    :py:func:`add_property_rows`, and its detail line last. Entries are spaced
+    at least ``row_height`` apart, and further when they need more room; the
+    figure grows taller rather than letting entries overlap.
 
     :param fig:
         Figure to modify.
@@ -126,41 +254,43 @@ def add_logo_legend(fig: Figure, entries: list[LegendEntry], theme: ChartTheme, 
         Paper y coordinate of the first entry.
 
     :param row_height:
-        Minimum paper height of one entry.
+        Minimum paper height of one entry. A legend taller than the plot makes the figure taller.
     """
     fig.update_layout(showlegend=False)
+    plot_width = fig.layout.width - fig.layout.margin.l - fig.layout.margin.r
     plot_height = fig.layout.height - fig.layout.margin.t - fig.layout.margin.b
-    line_height, gap = 22 / plot_height, 18 / plot_height
-    texts = []
+    # Lay the legend out in pixels, then grow the figure if the legend does not fit
+    line_pixels, gap_pixels = 22, 18
+    # Entries with a logo next to the label, e.g. protocols in the TVL chart, need room for it
+    text_x = 1.132 if any(entry.logo_uri for entry in entries) else 1.09
+    text_width = fig.layout.margin.r - (text_x - 1) * plot_width - 44
+    layouts = []
     for entry in entries:
-        lines = textwrap.wrap(entry.label, width=28 if entry.detail else 24) or [entry.label]
-        if entry.detail:
-            lines.append(f"<span style='color:{theme.muted_text}'>{entry.detail}</span>")
-        texts.append(lines)
-    pitches = [max(row_height, len(lines) * line_height + gap) for lines in texts]
-    # Squeeze the spacing if the wrapped legend would not fit the plot height
-    squeeze = min(1.0, (top + line_height) / sum(pitches)) if pitches else 1.0
+        lines = textwrap.wrap(entry.label, width=28 if entry.detail or entry.properties else 24) or [entry.label]
+        property_rows = len(layout_properties(entry.properties, text_width)) if entry.properties else 0
+        height = len(lines) * line_pixels + property_rows * PROPERTY_ROW_HEIGHT + (line_pixels if entry.detail else 0)
+        layouts.append((entry, lines, max(row_height * plot_height, height + gap_pixels)))
+    needed = sum(pitch for _, _, pitch in layouts) - (1 - top) * plot_height
+    if needed > plot_height:
+        fig.update_layout(height=fig.layout.height + needed - plot_height)
+        plot_height = needed
+
     # Entries hang from the top of their first line, so wrapped labels grow downwards
-    y = top + line_height / 2
-    for entry, lines, pitch in zip(entries, texts, pitches, strict=True):
+    y = top + line_pixels / 2 / plot_height
+    for entry, lines, pitch in layouts:
         # The swatch and the logo sit next to the first line
-        first_line = y - line_height / 2
+        first_line = y - line_pixels / 2 / plot_height
         fig.add_shape(type="line", xref="paper", yref="paper", x0=1.03, x1=1.075, y0=first_line, y1=first_line, line={"color": entry.colour, "width": 6, "dash": entry.dash})
         if entry.logo_uri:
-            fig.add_layout_image(source=entry.logo_uri, xref="paper", yref="paper", x=1.09, y=first_line, sizex=0.034, sizey=0.05, xanchor="left", yanchor="middle")
-        fig.add_annotation(
-            text="<br>".join(lines),
-            xref="paper",
-            yref="paper",
-            x=1.132,
-            y=y,
-            xanchor="left",
-            yanchor="top",
-            align="left",
-            showarrow=False,
-            font={"size": 17, "color": theme.text},
-        )
-        y -= pitch * squeeze
+            fig.add_layout_image(source=entry.logo_uri, xref="paper", yref="paper", x=1.09, y=first_line, sizex=0.034, sizey=34 / plot_height, xanchor="left", yanchor="middle")
+        fig.add_annotation(text="<br>".join(lines), xref="paper", yref="paper", x=text_x, y=y, xanchor="left", yanchor="top", align="left", showarrow=False, font={"size": 17, "color": theme.text})
+        cursor = y - len(lines) * line_pixels / plot_height
+        if entry.properties:
+            rows = add_property_rows(fig, entry.properties, theme, text_x, cursor - PROPERTY_ROW_HEIGHT / plot_height / 2, "paper", text_width, plot_width, plot_height)
+            cursor -= rows * PROPERTY_ROW_HEIGHT / plot_height
+        if entry.detail:
+            fig.add_annotation(text=entry.detail, xref="paper", yref="paper", x=text_x, y=cursor, xanchor="left", yanchor="top", align="left", showarrow=False, font={"size": 17, "color": theme.muted_text})
+        y -= pitch / plot_height
 
 
 def add_glow_line(fig: Figure, x: pd.Index, y: np.ndarray, colour: str, name: str) -> None:
@@ -197,8 +327,8 @@ class PerformanceSeries:
     #: Vault name
     name: str
 
-    #: Protocol logo data URI, or ``None``
-    logo_uri: str | None
+    #: Curator, protocol and chain shown under the name in the legend
+    properties: tuple[VaultProperty, ...]
 
     #: Benchmark names the vault is compared with, see :py:func:`eth_defi.vault_report.benchmarks.select_benchmarks`
     benchmarks: tuple[str, ...]
@@ -417,7 +547,7 @@ def create_performance_figure(
         fig.add_trace(go.Scatter(x=performance.index, y=scale(performance), mode="lines", name=item.name, line={"color": colour, "width": 3.5}))
         since = f" since {performance.index[0]:%b %d}" if performance.index[0] > start_at + pd.Timedelta(days=3) else ""
         note = " ▲" if item.vault_id in off_scale else ""
-        entries.append(LegendEntry(f"{i + 1}. {item.name}", colour, item.logo_uri, detail=f"{describe(vaults[item.vault_id])}{since}{note}"))
+        entries.append(LegendEntry(f"{i + 1}. {item.name}", colour, detail=f"{describe(vaults[item.vault_id])}{since}{note}", properties=item.properties))
         badge = {"font": {"size": 15, "color": theme.surface, "weight": 700}, "bgcolor": colour, "borderpad": 3}
         if item.vault_id in off_scale:
             fig.add_annotation(text=f"▲ {i + 1}", x=exit_at, y=1, xref="x", yref="paper", yanchor="top", showarrow=False, **badge)
@@ -589,7 +719,7 @@ def create_average_yield_figure(
     return fig
 
 
-def create_tvl_change_figure(changes: pd.DataFrame, theme: ChartTheme, logos: dict[str, str | None] | None = None) -> Figure:
+def create_tvl_change_figure(changes: pd.DataFrame, theme: ChartTheme, properties: dict[str, tuple[VaultProperty, ...]] | None = None) -> Figure:
     """Draw the largest one-month TVL increases and decreases as diverging bars.
 
     Dollar amounts are quantities, so bars are the right form here: increases
@@ -601,13 +731,13 @@ def create_tvl_change_figure(changes: pd.DataFrame, theme: ChartTheme, logos: di
     :param theme:
         Chart theme.
 
-    :param logos:
-        Vault id -> protocol logo data URI.
+    :param properties:
+        Vault id -> curator, protocol and chain, drawn with their icons under the vault name.
 
     :return:
         Plotly figure.
     """
-    logos = logos or {}
+    properties = properties or {}
     df = changes.iloc[::-1]
     values = df["tvl_change"] / 1e6
     fig = go.Figure(
@@ -622,18 +752,24 @@ def create_tvl_change_figure(changes: pd.DataFrame, theme: ChartTheme, logos: di
             cliponaxis=False,
         )
     )
-    height = max(IMAGE_HEIGHT, 140 + 50 * len(df))
+    height = max(IMAGE_HEIGHT, 120 + 72 * len(df))
     apply_theme(fig, theme, IMAGE_WIDTH, height)
     span = float(values.abs().max()) * 1.25 if len(values) else 1.0
     fig.update_layout(xaxis_title="TVL change over 30 days (USD million)", bargap=0.3, margin={"l": 470, "r": 60, "t": 30, "b": 90})
     fig.update_xaxes(showgrid=True, gridcolor=theme.grid, range=[-span, span], zeroline=True, zerolinecolor=theme.muted_text, zerolinewidth=2)
     fig.update_yaxes(showgrid=False, showticklabels=False, showline=False, zeroline=False, range=[-0.7, len(df) - 0.3])
+    # Labels in the left margin: the vault name, then its curator, protocol and chain with their icons
+    plot_width = IMAGE_WIDTH - fig.layout.margin.l - fig.layout.margin.r
+    unit_pixels = (height - fig.layout.margin.t - fig.layout.margin.b) / max(len(df), 1)
+    label_x, label_width = -0.515, 0.515 * plot_width - 20
     for position, (vault_id, vault) in enumerate(df.iterrows()):
-        logo = logos.get(vault_id)
-        if logo:
-            fig.add_layout_image(source=logo, xref="paper", yref="y", x=-0.52, y=position, sizex=0.03, sizey=0.7, xanchor="left", yanchor="middle")
-        label = f"{wrap_label(vault['name'] or vault['address'], 34)}  <span style='color:{theme.muted_text}'>{vault['chain']}</span>"
-        fig.add_annotation(text=label, xref="paper", yref="y", x=-0.475, y=position, xanchor="left", align="left", showarrow=False, font={"size": 17, "color": theme.text})
+        lines = textwrap.wrap(vault["name"] or vault["address"], width=40) or [""]
+        vault_properties = properties.get(vault_id, ())
+        property_rows = len(layout_properties(vault_properties, label_width)) if vault_properties else 0
+        top = position + (len(lines) * 21 + property_rows * PROPERTY_ROW_HEIGHT) / 2 / unit_pixels
+        fig.add_annotation(text="<br>".join(lines), xref="paper", yref="y", x=label_x, y=top, xanchor="left", yanchor="top", align="left", showarrow=False, font={"size": 17, "color": theme.text})
+        if vault_properties:
+            add_property_rows(fig, vault_properties, theme, label_x, top - (len(lines) * 21 + PROPERTY_ROW_HEIGHT / 2) / unit_pixels, "y", label_width, plot_width, unit_pixels)
     return fig
 
 
@@ -780,6 +916,38 @@ def create_protocol_tvl_figure(
     fig.update_yaxes(side="left", rangemode="tozero")
     add_logo_legend(fig, entries, theme, row_height=0.1)
     return fig
+
+
+def rasterise_logos(logo_uris: set[str], size: int = 96) -> dict[str, Image.Image]:
+    """Convert logo data URIs to Pillow images for the Pillow-drawn hero image.
+
+    PNG logos are decoded directly. SVG logos, such as the website's chain
+    logos, are rendered by Kaleido in one pass: Pillow cannot draw SVG.
+
+    :param logo_uris:
+        PNG or SVG data URIs.
+
+    :param size:
+        Rendered size of an SVG logo in pixels.
+
+    :return:
+        Data URI -> RGBA image.
+    """
+    images = {}
+    svgs = sorted(uri for uri in logo_uris if uri.startswith("data:image/svg+xml"))
+    for uri in logo_uris - set(svgs):
+        images[uri] = Image.open(io.BytesIO(base64.b64decode(uri.split(",", 1)[1]))).convert("RGBA")
+    if svgs:
+        fig = go.Figure()
+        fig.update_layout(width=size * len(svgs), height=size, margin={"l": 0, "r": 0, "t": 0, "b": 0}, xaxis_visible=False, yaxis_visible=False)
+        for i, uri in enumerate(svgs):
+            fig.add_layout_image(source=uri, xref="paper", yref="paper", x=i / len(svgs), y=1, sizex=1 / len(svgs), sizey=1, xanchor="left", yanchor="top")
+        with tempfile.TemporaryDirectory() as tmp:
+            sheet = Image.open(render_figure_png(fig, Path(tmp) / "logos.png")).convert("RGBA")
+            sheet.load()
+        for i, uri in enumerate(svgs):
+            images[uri] = sheet.crop((i * size, 0, (i + 1) * size, size))
+    return images
 
 
 def _configure_fonts() -> None:

@@ -27,6 +27,7 @@ import dataclasses
 import datetime
 import json
 import logging
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -38,11 +39,13 @@ from eth_defi.vault_report.benchmarks import fetch_benchmark_indices, fetch_trea
 from eth_defi.vault_report.branding import SQUARE_HERO_SIZE, compose_chart_panel, render_hero_image
 from eth_defi.vault_report.charts import (
     PerformanceSeries,
+    VaultProperty,
     create_average_yield_figure,
     create_performance_figure,
     create_protocol_tvl_figure,
     create_risk_return_figure,
     create_tvl_change_figure,
+    rasterise_logos,
     render_figure_png,
 )
 from eth_defi.vault_report.data import TVL_OUTLIER_THRESHOLD, VaultReportData, calculate_daily_share_prices, fetch_available_sparklines, read_vault_share_prices, read_vault_tvl_history
@@ -211,6 +214,39 @@ def calculate_report_stats(vaults_df: pd.DataFrame, eligible_df: pd.DataFrame, d
     ]
 
 
+def make_vault_properties(vault: pd.Series, theme: ChartTheme, chain_logo: Callable[[str], str | None]) -> tuple[VaultProperty, ...]:
+    """List the curator, protocol and chain shown under a vault name in the charts.
+
+    The curator is left out when the vault has none or when it is the
+    protocol itself, e.g. a protocol curating its own vaults, and the chain
+    when it has the protocol's name, e.g. a native perp DEX chain. Protocol and
+    curator logos come from the vault metadata, chain logos from the website.
+
+    :param vault:
+        Vault metrics row with ``curator_name``, ``curator_slug``, ``protocol_label``,
+        ``protocol_slug``, ``protocol_identified`` and ``chain``.
+
+    :param theme:
+        Chart theme, for logo variants.
+
+    :param chain_logo:
+        Chain name -> logo data URI, or ``None``.
+
+    :return:
+        Properties in the order curator, protocol, chain.
+    """
+    properties = []
+    curator, curator_slug = vault.get("curator_name"), vault.get("curator_slug")
+    protocol = vault["protocol_label"]
+    if isinstance(curator, str) and curator.strip() and curator_slug != vault["protocol_slug"] and curator.strip().lower() != protocol.lower():
+        properties.append(VaultProperty(curator.strip(), load_protocol_logo_uri(curator_slug if isinstance(curator_slug, str) else None, theme)))
+    properties.append(VaultProperty(protocol, load_protocol_logo_uri(vault["protocol_slug"], theme) if vault["protocol_identified"] else None))
+    # Native perp DEX chains share the protocol's name, e.g. GRVT on GRVT, so the chain is shown once
+    if vault["chain"].strip().lower() != protocol.lower():
+        properties.append(VaultProperty(vault["chain"], chain_logo(vault["chain"])))
+    return tuple(properties)
+
+
 def make_criteria_notes(criteria: ReportCriteria) -> dict[str, list[str]]:
     """Describe the selection criteria of each section for readers.
 
@@ -371,7 +407,6 @@ def render_report_charts(
     # Performance charts compare only vaults with an identified protocol; TVL charts use all eligible vaults
     comparable_df = select_comparable_vaults(eligible_df)
     yield_universe = select_yield_vaults(comparable_df, criteria)
-    protocol_logos = {vault_id: load_protocol_logo_uri(slug, theme) for vault_id, slug in eligible_df["protocol_slug"].items()}
     protocol_slugs = eligible_df.drop_duplicates("protocol").set_index("protocol")["protocol_slug"]
 
     performance_vaults = {key: sections[key].vaults_df.head(criteria.performance_chart_vaults) for key in BEST_SECTIONS if key in sections}
@@ -391,7 +426,14 @@ def render_report_charts(
     average_yield_vaults = select_average_yield_vaults(comparable_df, criteria)
     chain_yields = calculate_chain_yields(average_yield_vaults, criteria)
     protocol_yields = calculate_protocol_yields(average_yield_vaults, criteria)
-    chain_logos = {chain: fetch_chain_logo_uri(chain, cache_dir / "logos") for chain in chain_yields.index}
+    chain_logo_cache: dict[str, str | None] = {}
+
+    def chain_logo(chain: str) -> str | None:
+        if chain not in chain_logo_cache:
+            chain_logo_cache[chain] = fetch_chain_logo_uri(chain, cache_dir / "logos")
+        return chain_logo_cache[chain]
+
+    chain_logos = {chain: chain_logo(chain) for chain in chain_yields.index}
     protocol_group_logos = {name: load_protocol_logo_uri(protocol_slugs.get(name), theme) for name in protocol_yields.index}
 
     tvl_vaults = select_tvl_history_vaults(data.vaults_df)
@@ -406,6 +448,8 @@ def render_report_charts(
     tvl_vault_slugs = defi_vaults.loc[defi_vaults["protocol_identified"]].drop_duplicates("protocol").set_index("protocol")["protocol_slug"]
     fund_slugs = fund_vaults.assign(name=fund_vaults["name"].fillna(fund_vaults["address"])).drop_duplicates("name").set_index("name")["protocol_slug"]
     tvl_changes = calculate_tvl_changes(eligible_df, criteria)
+    # Curator, protocol and chain under each vault name, with their icons
+    vault_properties = {vault_id: make_vault_properties(eligible_df.loc[vault_id], theme, chain_logo) for vault_id in chart_ids | set(tvl_changes.index)}
 
     difference = "Small dots: vaults · large dots: TVL-weighted average · right: difference to the US 3M T-bill and TVL"
     figures = {
@@ -430,7 +474,7 @@ def render_report_charts(
         )
     if len(tvl_changes):
         figures["tvl_changes"] = (
-            create_tvl_change_figure(tvl_changes, theme, protocol_logos),
+            create_tvl_change_figure(tvl_changes, theme, vault_properties),
             ChartPanel("Inflows and outflows", f"The {criteria.tvl_change_top_n} largest TVL increases and decreases over the last 30 days, in US dollars", "tradingstrategy.ai/trading-view/vaults"),
         )
 
@@ -452,7 +496,7 @@ def render_report_charts(
             PerformanceSeries(
                 vault_id=vault_id,
                 name=vault["name"] or vault["address"],
-                logo_uri=protocol_logos.get(vault_id),
+                properties=vault_properties[vault_id],
                 benchmarks=select_benchmarks(vault, criteria.crypto_benchmark_min_volatility, criteria.crypto_benchmark_max_drawdown),
             )
             for vault_id, vault in df.iterrows()
@@ -477,8 +521,10 @@ def render_report_charts(
     sparkline_start = pd.Timestamp(data.data_end_at - PERFORMANCE_WINDOW)
     sparklines = {vault_id: daily_prices.loc[daily_prices.index >= sparkline_start, vault_id] for vault_id in hero_vaults.index if vault_id in daily_prices.columns}
     hero_subtitle = f"1M annualised return · ≥ {format_usd(criteria.min_tvl)} TVL · high-risk vaults excluded · {data_date}"
-    hero_path = render_hero_image(hero_vaults, sparklines, month_label, hero_subtitle, theme, output_dir / "hero.png")
-    render_hero_image(hero_vaults, sparklines, month_label, hero_subtitle, theme, output_dir / "hero-square.png", size=SQUARE_HERO_SIZE)
+    hero_logos = rasterise_logos({prop.logo_uri for vault_id in hero_vaults.index for prop in vault_properties[vault_id] if prop.logo_uri})
+    hero_properties = {vault_id: [(prop.text, hero_logos.get(prop.logo_uri)) for prop in vault_properties[vault_id]] for vault_id in hero_vaults.index}
+    hero_path = render_hero_image(hero_vaults, sparklines, month_label, hero_subtitle, theme, output_dir / "hero.png", properties=hero_properties)
+    render_hero_image(hero_vaults, sparklines, month_label, hero_subtitle, theme, output_dir / "hero-square.png", size=SQUARE_HERO_SIZE, properties=hero_properties)
     return chart_paths, hero_path
 
 

@@ -15,7 +15,7 @@ adds. The pipeline that generates the post is described in
 | Title | The best-performing stablecoin vaults, {Month YYYY} |
 | Slug | `the-best-performing-stablecoin-vaults-{month}-{yyyy}` |
 | Excerpt | The best stablecoin yield in DeFi, {Month YYYY} report. |
-| Feature image | 1200×630 hero: the top 5 stablecoin yield vaults with 90-day sparklines, excluding Severe and Dangerous risk vaults |
+| Feature image | 1200×630 hero: the top 5 stablecoin yield vaults with their curator, protocol and chain, and 90-day sparklines, excluding Severe and Dangerous risk vaults |
 | Social image for X | `hero-square.png`, 1080×1080, attached by hand when posting |
 
 ## Vault groups
@@ -70,7 +70,7 @@ pile automatically. No report change is needed.
 - **Eligibility:** blacklisted vaults and vaults whose data is more than a week older than the report date are left out of every section. Vaults without an identified protocol are left out of every performance comparison, see [Unidentified protocols](#unidentified-protocols).
 - **Ranking metric:** "by return" is the annualised one-month return (1M CAGR), net of fees (n) when fee data exists and gross (g) otherwise. The website ranks vaults by the same metric. "By Sharpe" is the three-month Sharpe ratio.
 - **Table thresholds:** at least $100k TVL. Lending and other vaults also need at least 10 deposit and redemption events. Tables list the top 20.
-- **Performance charts:** 90-day equity curves, in percent, of the top 8 vaults of the table below, all in one chart with a shared axis so they can be compared directly. The chart subtitle states the minimum TVL, and the legend shows annualised returns. The Sharpe ratio section draws the 90-day rolling Sharpe ratio instead of equity, calculated like the table's 3M Sharpe, so the latest values match the table. Legend numbers are table ranks. The benchmarks used by at least half of the vaults are drawn in grey: the US 3M T-bill for calm yield vaults, BTC and ETH for perp DEX and volatile vaults. A single vault far above the others is drawn off scale, and returns above 100% switch the axis to a log scale.
+- **Performance charts:** 90-day equity curves, in percent, of the top 8 vaults of the table below, all in one chart with a shared axis so they can be compared directly. The chart subtitle states the minimum TVL, and the legend shows annualised returns. The Sharpe ratio section draws the 90-day rolling Sharpe ratio instead of equity, calculated like the table's 3M Sharpe, so the latest values match the table. Legend numbers are table ranks; each legend entry shows the vault's curator, protocol and chain with their icons under the name. The benchmarks used by at least half of the vaults are drawn in grey: the US 3M T-bill for calm yield vaults, BTC and ETH for perp DEX and volatile vaults. A single vault far above the others is drawn off scale, and returns above 100% switch the axis to a log scale.
 
 ## Outline
 

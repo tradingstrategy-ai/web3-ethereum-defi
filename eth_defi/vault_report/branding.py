@@ -22,7 +22,6 @@ import numpy as np
 import pandas as pd
 from PIL import Image, ImageDraw, ImageFilter, ImageFont
 
-from eth_defi.vault_report.logos import load_protocol_logo_path
 from eth_defi.vault_report.sections import format_return
 from eth_defi.vault_report.theme import ASSETS_DIR, FONT_REGULAR, FONT_SEMIBOLD, ChartTheme
 
@@ -309,34 +308,6 @@ def compose_chart_panel(chart_png: Path, theme: ChartTheme, title: str, subtitle
     return output_path
 
 
-def _draw_monogram(image: Image.Image, text: str, x: int, y: int, size: int, theme: ChartTheme) -> None:
-    """Draw a round letter badge in place of a missing protocol logo.
-
-    :param image:
-        RGBA image to draw on.
-
-    :param text:
-        Name whose first letter is drawn.
-
-    :param x:
-        Left edge.
-
-    :param y:
-        Top edge.
-
-    :param size:
-        Diameter in pixels.
-
-    :param theme:
-        Chart theme.
-    """
-    draw = ImageDraw.Draw(image)
-    draw.ellipse((x, y, x + size, y + size), fill=theme.neutral)
-    letter = (text.strip()[:1] or "?").upper()
-    font = _font(int(size * 0.55), bold=True)
-    draw.text((x + size / 2, y + size / 2), letter, font=font, fill=theme.text, anchor="mm")
-
-
 def _draw_sparkline(image: Image.Image, values: pd.Series, box: tuple[int, int, int, int], colour: str) -> None:
     """Draw a small price line with a faint fill underneath.
 
@@ -374,12 +345,14 @@ def render_hero_image(
     theme: ChartTheme,
     output_path: Path,
     size: tuple[int, int] = HERO_SIZE,
+    properties: dict[str, list[tuple[str, Image.Image | None]]] | None = None,
 ) -> Path:
     """Draw the social image of the month's top vaults.
 
-    Each vault is a row with its logo, name, a 90-day price sparkline and its
-    return as a large number. Returns are shown as numbers rather than bars,
-    because a yield is a rate, not a quantity.
+    Each vault is a row with its name, its curator, protocol and chain with
+    their icons under the name, a 90-day price sparkline and its return as a
+    large number. Returns are shown as numbers rather than bars, because a
+    yield is a rate, not a quantity.
 
     :param vaults_df:
         Top vaults in rank order, at most five are drawn.
@@ -402,9 +375,15 @@ def render_hero_image(
     :param size:
         :py:data:`HERO_SIZE` or :py:data:`SQUARE_HERO_SIZE`.
 
+    :param properties:
+        Vault id -> ``(text, icon)`` pairs in the order curator, protocol, chain,
+        see :py:func:`eth_defi.vault_report.report.make_vault_properties`. Vaults
+        without an entry show their chain and protocol as text.
+
     :return:
         ``output_path``.
     """
+    properties = properties or {}
     width, height = size
     square = height > width * 0.8
     image = Image.new("RGBA", size, _hex_to_rgba(theme.page_background))
@@ -434,17 +413,25 @@ def render_hero_image(
     for rank, (vault_id, vault) in enumerate(rows.iterrows(), start=1):
         top = rows_top + (rank - 1) * row_height
         draw.text((pad, top + 12), str(rank), font=_font(28, bold=True), fill=theme.muted_text)
-        logo_path = load_protocol_logo_path(vault["protocol_slug"], theme)
-        protocol = vault["protocol_label"]
-        if logo_path:
-            logo = Image.open(logo_path).convert("RGBA")
-            logo.thumbnail((40, 40))
-            image.alpha_composite(logo, (pad + 40, top + 8 + (40 - logo.height) // 2))
-        else:
-            _draw_monogram(image, protocol, pad + 40, top + 8, 40, theme)
-        name_x = pad + 96
-        draw.text((name_x, top + 2), _fit_text(draw, vault["name"] or vault["address"], _font(26, bold=True), spark_left - name_x - 24), font=_font(26, bold=True), fill=theme.text)
-        draw.text((name_x, top + 34), _fit_text(draw, f"{vault['chain']} · {protocol}", _font(18), spark_left - name_x - 24), font=_font(18), fill=theme.muted_text)
+        name_x = pad + 44
+        text_right = spark_left - 24
+        draw.text((name_x, top + 2), _fit_text(draw, vault["name"] or vault["address"], _font(26, bold=True), text_right - name_x), font=_font(26, bold=True), fill=theme.text)
+        # Curator, protocol and chain under the name, each with its own icon
+        property_font = _font(18)
+        x = name_x
+        for text, icon in properties.get(vault_id, [(vault["protocol_label"], None), (vault["chain"], None)]):
+            if icon is not None:
+                if x + 22 > text_right:
+                    break
+                icon = icon.copy()
+                icon.thumbnail((20, 20))
+                image.alpha_composite(icon, (x, top + 36 + (20 - icon.height) // 2))
+                x += 26
+            if text_right - x < 40:
+                break
+            fitted = _fit_text(draw, text, property_font, text_right - x)
+            draw.text((x, top + 34), fitted, font=property_font, fill=theme.muted_text)
+            x += int(draw.textlength(fitted, font=property_font)) + 18
         if vault_id in sparklines:
             _draw_sparkline(image, sparklines[vault_id], (spark_left, top + 6, spark_right, top + 50), theme.positive)
             draw = ImageDraw.Draw(image)

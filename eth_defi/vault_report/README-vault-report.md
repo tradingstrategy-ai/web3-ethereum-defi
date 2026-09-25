@@ -71,7 +71,10 @@ the page. `CHART_THEME=light` switches to a light theme, e.g. for newsletters.
   fitted to the panel's inner width, so every panel is 1400 px wide with a
   44 px margin on all four sides, whatever its Plotly margins. Keep new Plotly
   layouts within 5% of that inner width; the pipeline warns otherwise.
-  Titles, subtitles, legend
+  Wherever a chart names a vault (the hero image, performance chart legends and
+  inflows and outflows), the curator, protocol and chain follow under the name
+  in that order, each with its own icon. A curator that is the protocol itself,
+  or a chain named after the protocol, is shown once. Titles, subtitles, legend
   entries and vault labels word-wrap instead of being truncated, so names are
   always shown in full.
 - **Font:** the bundled [Inter](https://rsms.me/inter/) (SIL Open Font Licence)
