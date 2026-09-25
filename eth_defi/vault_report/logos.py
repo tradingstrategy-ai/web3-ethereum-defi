@@ -2,6 +2,9 @@
 
 - Brand logos are bundled in ``eth_defi/vault_report/assets``, copied from the
   website frontend (``src/lib/assets``).
+- Benchmark logos (BTC, ETH, US Treasury) are bundled in
+  ``eth_defi/vault_report/assets/benchmarks``, copied from the website frontend
+  (``src/lib/assets/logos/tokens``), the same logos as its vault comparison chart.
 - Protocol logos come from this repository's vault metadata,
   ``eth_defi/data/vaults/formatted_logos/{slug}/{light,dark}.png``. ``light.png``
   is for dark backgrounds and ``dark.png`` for light backgrounds; either may be missing.
@@ -19,12 +22,16 @@ from pathlib import Path
 import requests
 
 from eth_defi.research.vault_metrics import _get_chain_slug
+from eth_defi.vault_report.benchmarks import BTC, ETH, TREASURY_BILL
 from eth_defi.vault_report.theme import ASSETS_DIR, ChartTheme
 
 logger = logging.getLogger(__name__)
 
 #: Protocol logos maintained in the vault metadata
 PROTOCOL_LOGO_DIR = Path(__file__).parents[1] / "data" / "vaults" / "formatted_logos"
+
+#: Benchmark name -> bundled logo file
+BENCHMARK_LOGO_FILES = {TREASURY_BILL: "us-treasury.svg", BTC: "btc.svg", ETH: "eth.svg"}
 
 #: Chain logo endpoint of the website
 CHAIN_LOGO_URL = "https://tradingstrategy.ai/logos/blockchains/{slug}"
@@ -126,3 +133,16 @@ def load_watermark_logo_uri(theme: ChartTheme) -> str:
     svg = (ASSETS_DIR / "logo-horizontal.svg").read_text()
     svg = re.sub(r'fill="#[0-9A-Fa-f]{6}"', f'fill="{theme.watermark}"', svg)
     return to_data_uri(svg.encode(), "image/svg+xml")
+
+
+def load_benchmark_logo_uri(benchmark: str) -> str | None:
+    """Load a benchmark logo as a data URI.
+
+    :param benchmark:
+        Benchmark name, see :py:mod:`eth_defi.vault_report.benchmarks`.
+
+    :return:
+        SVG data URI, or ``None`` for a benchmark without a logo.
+    """
+    filename = BENCHMARK_LOGO_FILES.get(benchmark)
+    return to_data_uri((ASSETS_DIR / "benchmarks" / filename).read_bytes(), "image/svg+xml") if filename else None
