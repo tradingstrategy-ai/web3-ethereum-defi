@@ -13,7 +13,6 @@ by :py:mod:`eth_defi.vault_report.branding`. Styling follows
 - Performance as equity curves in percent of all compared vaults in one chart
   with a shared axis, yields as dots on a rate scale, and dollar TVL changes as
   diverging bars
-- A faint logo watermark inside the plot area, as on the website charts
 - Glowing lines for charts with few series, like the website's hero charts
 """
 
@@ -101,22 +100,6 @@ def wrap_label(text: str, width: int) -> str:
         Label with ``<br>`` line breaks.
     """
     return "<br>".join(textwrap.wrap(text, width=width)) or text
-
-
-def add_watermark(fig: Figure, watermark_uri: str | None, theme: ChartTheme) -> None:
-    """Add the faint brand logo in the top-left corner of the plot area.
-
-    :param fig:
-        Figure to modify.
-
-    :param watermark_uri:
-        Output of :py:func:`eth_defi.vault_report.logos.load_watermark_logo_uri`, or ``None`` to skip.
-
-    :param theme:
-        Chart theme.
-    """
-    if watermark_uri:
-        fig.add_layout_image(source=watermark_uri, xref="paper", yref="paper", x=0.015, y=0.985, sizex=0.26, sizey=0.1, xanchor="left", yanchor="top", opacity=theme.watermark_opacity, layer="below")
 
 
 def add_logo_legend(fig: Figure, entries: list[LegendEntry], theme: ChartTheme, top: float = 1.0, row_height: float = 0.088) -> None:
@@ -288,7 +271,6 @@ def create_performance_figure(
     benchmark_indices: dict[str, pd.Series],
     theme: ChartTheme,
     window: datetime.timedelta = datetime.timedelta(days=90),
-    watermark_uri: str | None = None,
     log_threshold: float = 100.0,
     outlier_ratio: float = 5.0,
     benchmark_logos: dict[str, str | None] | None = None,
@@ -331,9 +313,6 @@ def create_performance_figure(
 
     :param window:
         Performance period.
-
-    :param watermark_uri:
-        Watermark logo data URI.
 
     :param log_threshold:
         Cumulative return in percent above which the y axis is logarithmic.
@@ -489,7 +468,6 @@ def create_performance_figure(
     fig.update_yaxes(side="left", zeroline=False)
     fig.add_hline(y=baseline, line={"color": theme.axis, "width": 1.5}, layer="below")
     add_logo_legend(fig, entries, theme, row_height=min(0.1, 0.98 / max(len(entries), 1)))
-    add_watermark(fig, watermark_uri, theme)
     return fig
 
 
@@ -518,7 +496,6 @@ def create_average_yield_figure(
     theme: ChartTheme,
     logos: dict[str, str | None] | None = None,
     benchmark_yield: float | None = None,
-    watermark_uri: str | None = None,
     max_return: float = 0.4,
 ) -> Figure:
     """Draw a dot plot of vault yields per chain or protocol against the Treasury bill.
@@ -547,9 +524,6 @@ def create_average_yield_figure(
 
     :param benchmark_yield:
         Latest US Treasury bill yield as a fraction.
-
-    :param watermark_uri:
-        Watermark logo data URI.
 
     :param max_return:
         Clip individual vault dots at this annualised return, and below at -5%;
@@ -612,7 +586,6 @@ def create_average_yield_figure(
     if benchmark_yield is not None:
         fig.add_vline(x=benchmark_yield * 100, line={"color": theme.benchmark, "width": 3, "dash": "dash"})
         fig.add_annotation(text=f"US 3M T-bill {benchmark_yield:.1%}", x=benchmark_yield * 100, xref="x", y=1.0, yref="paper", yanchor="bottom", showarrow=False, font={"size": 18, "color": theme.benchmark})
-    add_watermark(fig, watermark_uri, theme)
     return fig
 
 
@@ -670,7 +643,6 @@ def create_risk_return_figure(
     theme: ChartTheme,
     max_return: float,
     benchmark_yield: float | None = None,
-    watermark_uri: str | None = None,
     label_count: int = 6,
 ) -> Figure:
     """Draw a risk/return bubble scatter of vaults.
@@ -696,9 +668,6 @@ def create_risk_return_figure(
 
     :param benchmark_yield:
         Latest US Treasury bill yield as a fraction, drawn as a reference line.
-
-    :param watermark_uri:
-        Watermark logo data URI.
 
     :param label_count:
         Label the vaults with the highest returns within the clip directly.
@@ -765,7 +734,6 @@ def create_risk_return_figure(
     )
     fig.update_xaxes(type="log", showgrid=True, gridcolor=theme.grid, range=[np.log10(min_volatility * 100) - 0.1, np.log10(df["x"].max()) + 0.1])
     fig.update_yaxes(side="left", range=[min(df["y"].min(), 0) - 5, max_return * 100 + 8])
-    add_watermark(fig, watermark_uri, theme)
     return fig
 
 
@@ -773,7 +741,6 @@ def create_protocol_tvl_figure(
     tvl_by_protocol: pd.DataFrame,
     theme: ChartTheme,
     logos: dict[str, str | None] | None = None,
-    watermark_uri: str | None = None,
     value_label: str = "TVL",
 ) -> Figure:
     """Draw stacked TVL by protocol or fund with a glowing total line.
@@ -787,9 +754,6 @@ def create_protocol_tvl_figure(
 
     :param logos:
         Protocol or fund name -> logo data URI.
-
-    :param watermark_uri:
-        Watermark logo data URI.
 
     :param value_label:
         Name of the value on the y axis, e.g. ``TVL`` or ``NAV``.
@@ -815,7 +779,6 @@ def create_protocol_tvl_figure(
     fig.update_layout(margin={"l": 90, "r": 360, "t": 30, "b": 70}, yaxis_title=f"{value_label} (USD billion)")
     fig.update_yaxes(side="left", rangemode="tozero")
     add_logo_legend(fig, entries, theme, row_height=0.1)
-    add_watermark(fig, watermark_uri, theme)
     return fig
 
 

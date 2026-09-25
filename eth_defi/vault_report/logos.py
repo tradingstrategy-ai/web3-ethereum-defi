@@ -16,7 +16,6 @@ Missing logos are never an error: callers get ``None`` and draw the chart withou
 
 import base64
 import logging
-import re
 from pathlib import Path
 
 import requests
@@ -116,23 +115,6 @@ def fetch_chain_logo_uri(chain_name: str, cache_dir: Path, timeout: float = 20.0
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_bytes(resp.content)
     return to_data_uri(path.read_bytes(), "image/svg+xml")
-
-
-def load_watermark_logo_uri(theme: ChartTheme) -> str:
-    """Load the TradingStrategy.ai logo recoloured for a chart watermark.
-
-    The website watermark recolours the whole logo, candles included, to a
-    single colour and draws it at a low opacity, see ``src/lib/echarts/watermark.ts``.
-
-    :param theme:
-        Chart theme.
-
-    :return:
-        SVG data URI.
-    """
-    svg = (ASSETS_DIR / "logo-horizontal-ai.svg").read_text()
-    svg = re.sub(r'fill="#[0-9A-Fa-f]{6}"', f'fill="{theme.watermark}"', svg)
-    return to_data_uri(svg.encode(), "image/svg+xml")
 
 
 def load_benchmark_logo_uri(benchmark: str) -> str | None:

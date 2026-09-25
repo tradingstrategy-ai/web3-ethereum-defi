@@ -47,7 +47,7 @@ from eth_defi.vault_report.charts import (
 )
 from eth_defi.vault_report.data import TVL_OUTLIER_THRESHOLD, VaultReportData, calculate_daily_share_prices, fetch_available_sparklines, read_vault_share_prices, read_vault_tvl_history
 from eth_defi.vault_report.ghost import GhostAdminClient, GhostPost
-from eth_defi.vault_report.logos import fetch_chain_logo_uri, load_benchmark_logo_uri, load_protocol_logo_uri, load_watermark_logo_uri
+from eth_defi.vault_report.logos import fetch_chain_logo_uri, load_benchmark_logo_uri, load_protocol_logo_uri
 from eth_defi.vault_report.post import PostContext, build_post_html, build_preview_html, make_month_label, make_report_slug, make_report_title
 from eth_defi.vault_report.sections import (
     CHAIN_TABLE_COLUMNS,
@@ -362,7 +362,6 @@ def render_report_charts(
     empty = pd.DataFrame()
     data_date = data.data_end_at.strftime("%Y-%m-%d")
     month_label = make_month_label(data.data_end_at)
-    watermark = load_watermark_logo_uri(theme)
     yield_universe = select_yield_vaults(eligible_df, criteria)
     protocol_logos = {vault_id: load_protocol_logo_uri(slug, theme) for vault_id, slug in eligible_df["protocol_slug"].items()}
     protocol_slugs = eligible_df.drop_duplicates("protocol").set_index("protocol")["protocol_slug"]
@@ -403,22 +402,22 @@ def render_report_charts(
     difference = "Small dots: vaults · large dots: TVL-weighted average · right: difference to the US 3M T-bill and TVL"
     figures = {
         "chain_yields": (
-            create_average_yield_figure(chain_yields, average_yield_vaults, "chain", theme, chain_logos, tbill_latest, watermark, criteria.yield_chart_max_return),
+            create_average_yield_figure(chain_yields, average_yield_vaults, "chain", theme, chain_logos, tbill_latest, criteria.yield_chart_max_return),
             ChartPanel(f"Stablecoin vault yield on the {criteria.yield_top_chains} largest blockchains", difference, "tradingstrategy.ai/trading-view/vaults/chains"),
         ),
         "protocol_yields": (
-            create_average_yield_figure(protocol_yields, average_yield_vaults, "protocol", theme, protocol_group_logos, tbill_latest, watermark, criteria.yield_chart_max_return),
+            create_average_yield_figure(protocol_yields, average_yield_vaults, "protocol", theme, protocol_group_logos, tbill_latest, criteria.yield_chart_max_return),
             ChartPanel(f"Stablecoin vault yield of the {criteria.yield_top_protocols} largest protocols", difference, "tradingstrategy.ai/trading-view/vaults/protocols"),
         ),
     }
     if len(protocol_tvl):
         figures["protocol_tvl"] = (
-            create_protocol_tvl_figure(protocol_tvl, theme, {name: load_protocol_logo_uri(tvl_vault_slugs.get(name), theme) for name in protocol_tvl.columns}, watermark),
+            create_protocol_tvl_figure(protocol_tvl, theme, {name: load_protocol_logo_uri(tvl_vault_slugs.get(name), theme) for name in protocol_tvl.columns}),
             ChartPanel("Stablecoin TVL by DeFi vault protocol", "Weekly total value locked over the last 12 months, tokenised funds excluded", "tradingstrategy.ai/trading-view/vaults/historical-tvl-protocol"),
         )
     if len(fund_nav):
         figures["fund_nav"] = (
-            create_protocol_tvl_figure(fund_nav, theme, {name: load_protocol_logo_uri(fund_slugs.get(name), theme) for name in fund_nav.columns}, watermark, value_label="NAV"),
+            create_protocol_tvl_figure(fund_nav, theme, {name: load_protocol_logo_uri(fund_slugs.get(name), theme) for name in fund_nav.columns}, value_label="NAV"),
             ChartPanel("Stablecoin NAV by tokenised fund", "Weekly net asset value over the last 12 months", "tradingstrategy.ai/trading-view/vaults/funds"),
         )
     if len(tvl_changes):
@@ -451,13 +450,13 @@ def render_report_charts(
             for vault_id, vault in df.iterrows()
         ]
         if key == "perp_dex_sharpe":
-            figure = create_performance_figure(series, sharpe_prices, benchmark_indices, theme, PERFORMANCE_WINDOW, watermark, benchmark_logos=benchmark_logos, measure="sharpe", sharpe_window=SHARPE_WINDOW)
+            figure = create_performance_figure(series, sharpe_prices, benchmark_indices, theme, PERFORMANCE_WINDOW, benchmark_logos=benchmark_logos, measure="sharpe", sharpe_window=SHARPE_WINDOW)
         else:
-            figure = create_performance_figure(series, daily_prices, benchmark_indices, theme, PERFORMANCE_WINDOW, watermark, benchmark_logos=benchmark_logos)
+            figure = create_performance_figure(series, daily_prices, benchmark_indices, theme, PERFORMANCE_WINDOW, benchmark_logos=benchmark_logos)
         figures[f"{key}_performance"] = (figure, performance_panels[key])
 
     figures["risk_return"] = (
-        create_risk_return_figure(yield_universe, {tag: category.get("label", tag) for tag, category in data.categories.items()}, theme, criteria.scatter_max_return, tbill_latest, watermark),
+        create_risk_return_figure(yield_universe, {tag: category.get("label", tag) for tag, category in data.categories.items()}, theme, criteria.scatter_max_return, tbill_latest),
         ChartPanel("Risk and return of stablecoin yield vaults", f"{len(yield_universe)} vaults with at least {format_usd(criteria.min_tvl)} TVL, bubble area shows TVL", "tradingstrategy.ai/trading-view/vaults/yield-risk"),
     )
 

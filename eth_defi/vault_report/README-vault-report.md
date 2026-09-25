@@ -71,7 +71,7 @@ the page. `CHART_THEME=light` switches to a light theme, e.g. for newsletters.
   fitted to the panel's inner width, so every panel is 1400 px wide with a
   44 px margin on all four sides, whatever its Plotly margins. Keep new Plotly
   layouts within 5% of that inner width; the pipeline warns otherwise.
-  A faint logo watermark sits inside the plot area. Titles, subtitles, legend
+  Titles, subtitles, legend
   entries and vault labels word-wrap instead of being truncated, so names are
   always shown in full.
 - **Font:** the bundled [Inter](https://rsms.me/inter/) (SIL Open Font Licence)
@@ -81,8 +81,8 @@ the page. `CHART_THEME=light` switches to a light theme, e.g. for newsletters.
   `BROWSER_PATH` at an existing Chrome binary. Set `RENDER_CHARTS=false` to skip the charts.
 - **Brand assets:** `logo-horizontal.svg` and `brand-mark.svg` in
   `eth_defi/vault_report/assets` are copied from the frontend
-  (`src/lib/assets`); re-copy them if the brand changes. The charts, panel
-  footers and hero images use the TradingStrategy.ai logo,
+  (`src/lib/assets`); re-copy them if the brand changes. The panel footers
+  and hero images use the TradingStrategy.ai logo,
   `logo-horizontal-ai.svg`: the website logo with a `.ai` suffix built from the
   wordmark's own glyphs. `scripts/erc-4626/render-vault-report-logo.py`
   rebuilds it and its PNG renders for the Pillow-drawn footers and heroes;
