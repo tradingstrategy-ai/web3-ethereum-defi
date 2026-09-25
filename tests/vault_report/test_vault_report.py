@@ -7,6 +7,7 @@ import hmac
 import json
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
 import pytest
 import requests
@@ -16,7 +17,7 @@ from eth_defi.research.vault_correlation import choose_vaults_for_correlation_co
 from eth_defi.vault_report import report as report_module
 from eth_defi.vault_report.benchmarks import BTC, ETH, TREASURY_BILL, calculate_treasury_bill_index, select_benchmarks
 from eth_defi.vault_report.branding import HERO_SIZE, SQUARE_HERO_SIZE, compose_chart_panel
-from eth_defi.vault_report.charts import CHOREOGRAPHER_CHROME_PATH, PerformancePanel, calculate_period_performance, create_performance_grid_figure
+from eth_defi.vault_report.charts import CHOREOGRAPHER_CHROME_PATH, PerformanceSeries, calculate_period_performance, create_performance_figure
 from eth_defi.vault_report.data import VaultReportData, calculate_daily_share_prices, prepare_vault_metrics, read_vault_share_prices, read_vault_tvl_history
 from eth_defi.vault_report.ghost import GhostAdminClient, GhostAPIError, GhostContentClient, GhostPost, create_ghost_admin_token
 from eth_defi.vault_report.post import extract_section_html, make_report_slug, read_changelog_entries
@@ -213,11 +214,26 @@ def test_daily_prices_and_performance(prices_path: Path):
     assert performance.iloc[0] == 0
     assert performance.iloc[-1] == pytest.approx((daily["1-0xaa"].iloc[-1] / daily.loc[start, "1-0xaa"] - 1) * 100)
 
-    # Each panel draws its benchmarks, then the vault as a glow underlay and a line
+    # All vaults share one chart: a line and an end dot per vault, and each available benchmark once
     indices = {TREASURY_BILL: calculate_treasury_bill_index(pd.Series(0.04, index=daily.index), daily.index[-1])}
-    panels = [PerformancePanel("1-0xaa", "A", "Ethereum · Morpho", None, (TREASURY_BILL,)), PerformancePanel("1-0xbb", "B", "Ethereum · Morpho", None, (BTC, ETH))]
-    fig = create_performance_grid_figure(panels, daily, indices, DARK_THEME)
-    assert len(fig.data) == 1 + 2 + 2  # T-bill + two vault traces for A; BTC and ETH are missing, two vault traces for B
+    series = [PerformanceSeries("1-0xaa", "A", None, (TREASURY_BILL,)), PerformanceSeries("1-0xbb", "B", None, (BTC, ETH, TREASURY_BILL))]
+    fig = create_performance_figure(series, daily, indices, DARK_THEME)
+    assert [trace.name for trace in fig.data if trace.mode == "lines"] == ["A", "B", TREASURY_BILL]
+    assert fig.layout.yaxis.type != "log"
+
+    # A vault returning more than the threshold switches the shared axis to a log scale
+    fig = create_performance_figure(series, daily, indices, DARK_THEME, log_threshold=-100)
+    assert fig.layout.yaxis.type == "log"
+
+    # One vault far above the others is drawn off scale, and the axis fits the rest
+    calm = pd.Series(np.linspace(100, 101, len(daily)), index=daily.index)
+    spiky = pd.Series(np.linspace(100, 1_000, len(daily)), index=daily.index)
+    outlier_prices = pd.DataFrame({"calm1": calm, "calm2": calm * 1.001, "spiky": spiky})
+    outlier_series = [PerformanceSeries(vault_id, vault_id, None, (TREASURY_BILL,)) for vault_id in outlier_prices.columns]
+    fig = create_performance_figure(outlier_series, outlier_prices, indices, DARK_THEME)
+    assert fig.layout.yaxis.type != "log"
+    assert fig.layout.yaxis.range[1] < 10
+    assert any(annotation.text == "▲" for annotation in fig.layout.annotations)
 
 
 def test_generate_report_bundle(tmp_path: Path, vaults_df: pd.DataFrame, prices_path: Path):

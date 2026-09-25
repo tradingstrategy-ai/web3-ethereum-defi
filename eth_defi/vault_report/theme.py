@@ -75,12 +75,6 @@ class ChartTheme:
     #: Low-emphasis neutral for "Other" and unclassified groups
     neutral: str
 
-    #: BTC benchmark line, the Bitcoin brand orange as on the website
-    btc: str
-
-    #: ETH benchmark line, the Ethereum brand blue as on the website
-    eth: str
-
     #: Top-left panel glow colour, RGBA
     glow: tuple[int, int, int, int]
 
@@ -104,8 +98,6 @@ DARK_THEME = ChartTheme(
     negative="#f97676",
     benchmark="#fbbf24",
     neutral="#5e5c5a",
-    btc="#f7931a",
-    eth="#8c9eff",
     glow=(34, 180, 83, 46),
     watermark="#d5deea",
     watermark_opacity=0.07,
@@ -124,8 +116,6 @@ LIGHT_THEME = ChartTheme(
     negative="#d03b3b",
     benchmark="#b7791f",
     neutral="#b9b8b3",
-    btc="#d97706",
-    eth="#4f63d2",
     glow=(34, 180, 83, 28),
     watermark="#0b0b14",
     watermark_opacity=0.06,

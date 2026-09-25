@@ -34,7 +34,7 @@ Every stablecoin vault belongs to one group (`classify_vault()`):
 - **Eligibility:** blacklisted vaults and vaults whose data is more than a week older than the report date are left out of every section.
 - **Ranking metric:** "by return" is the annualised one-month return (1M CAGR), net of fees (n) when fee data exists and gross (g) otherwise. The website ranks vaults by the same metric. "By Sharpe" is the three-month Sharpe ratio.
 - **Table thresholds:** at least $100k TVL. Lending and other vaults also need at least 10 deposit and redemption events. Tables list the top 20.
-- **Performance charts:** small multiples of the 90-day return of the top 8 vaults of the table below each chart. Each vault is compared with the benchmark that matches its activity: the US 3M T-bill for calm yield vaults, BTC and ETH for perp DEX and volatile vaults.
+- **Performance charts:** the 90-day cumulative returns of the top 8 vaults of the table below, all in one chart with a shared axis so they can be compared directly. Legend numbers are table ranks. The benchmarks used by at least half of the vaults are drawn in grey: the US 3M T-bill for calm yield vaults, BTC and ETH for perp DEX and volatile vaults. A single vault far above the others is drawn off scale, and returns above 100% switch the axis to a log scale.
 
 ## Outline
 
@@ -79,6 +79,7 @@ Outliers above 400% annualised return or 50% annualised volatility are left out 
 | Tokenised funds section added | Funds such as BlackRock BUIDL move the largest amounts, and readers compare them with DeFi yield |
 | Average yield by protocol added; average yield by blockchain limited to the 10 largest chains | Comparable overviews of the largest markets |
 | Low-volatility performance chart removed | Covered by the lending section |
+| Performance small multiples replaced with one shared chart per section | Equity curves can only be compared on the same axis |
 
 ## Decisions to confirm
 
