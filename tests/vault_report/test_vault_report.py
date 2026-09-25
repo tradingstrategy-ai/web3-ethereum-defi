@@ -225,7 +225,7 @@ def test_generate_report_bundle(tmp_path: Path, vaults_df: pd.DataFrame, prices_
     assert (tmp_path / "out" / "tables" / "best.csv").exists()
     assert manifest["rankings"]["best"] == ["1-0xaa", "1-0xbb", "1-0x22"]
     assert read_previous_ranking(tmp_path / "out") == ["1-0xaa", "1-0xbb", "1-0x22"]
-    assert "3 of the 3 vaults below beat the 3-month US Treasury bill yield of 4.0%" in post_html
+    assert "3 of the 3 stablecoin yield vaults with at least $200k TVL beat the 3-month US Treasury bill yield of 4.0%" in post_html
     assert "vault-sparklines.tradingstrategy.ai" in post_html
 
     # An existing draft is checked before any chart is uploaded

@@ -308,22 +308,29 @@ def read_previous_ranking(report_dir: Path) -> list[str] | None:
     return json.loads(path.read_text()).get("rankings", {}).get("best")
 
 
-def make_benchmark_caption(best_df: pd.DataFrame, benchmark_yield: float | None) -> str | None:
-    """Summarise how many listed vaults beat the Treasury bill.
+def make_benchmark_caption(universe_df: pd.DataFrame, benchmark_yield: float | None, min_tvl: USDollarAmount) -> str | None:
+    """Summarise how many yield vaults beat the Treasury bill.
 
-    :param best_df:
-        Vaults in the best-performing vaults table.
+    Uses the whole ranking universe, not the top of the table, which beats the
+    benchmark by construction.
+
+    :param universe_df:
+        All vaults eligible for the best-performing vaults ranking.
 
     :param benchmark_yield:
         Latest 3-month US Treasury bill yield as a fraction, or ``None``.
 
+    :param min_tvl:
+        TVL threshold of the universe, for the sentence.
+
     :return:
         One sentence, or ``None`` without benchmark data.
     """
-    if benchmark_yield is None or best_df.empty:
+    if benchmark_yield is None or universe_df.empty:
         return None
-    beat = int((best_df["one_month_cagr_best"] > benchmark_yield).sum())
-    return f"{beat} of the {len(best_df)} vaults below beat the 3-month US Treasury bill yield of {benchmark_yield:.1%} over the last month."
+    returns = universe_df["one_month_cagr_best"]
+    beat = int((returns > benchmark_yield).sum())
+    return f"{beat} of the {len(universe_df)} stablecoin yield vaults with at least {format_usd(min_tvl)} TVL beat the 3-month US Treasury bill yield of {benchmark_yield:.1%} over the last month. Their median annualised one-month return was {returns.median():.1%}."
 
 
 def calculate_movers(previous: GhostPost | None, vaults_df: pd.DataFrame, ranking: list[str], previous_ranking: list[str] | None = None) -> list[RankChange]:
@@ -572,7 +579,7 @@ def generate_monthly_vault_report(
 
     month_label = make_month_label(data_end_at)
     tbill_latest = get_latest_yield(tbill_yields) if tbill_yields is not None else None
-    best_caption = make_benchmark_caption(sections["best"].vaults_df, tbill_latest)
+    best_caption = make_benchmark_caption(select_best_vaults(eligible_df, criteria), tbill_latest, criteria.min_tvl)
     captions = {"best": best_caption} if best_caption else {}
     context = PostContext(
         month_label=month_label,
