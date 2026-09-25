@@ -32,6 +32,7 @@ import plotly.graph_objects as go
 from plotly.graph_objects import Figure
 
 from eth_defi.vault_report.benchmarks import BTC, ETH, TREASURY_BILL
+from eth_defi.vault_report.sections import CAPPED_ANNUALISED_RETURN
 from eth_defi.vault_report.theme import ASSETS_DIR, ChartTheme, apply_theme
 
 logger = logging.getLogger(__name__)
@@ -255,7 +256,8 @@ def create_performance_figure(
     Each line shows the equity change in percent since the start of the window.
     All vaults share the time axis and the equity axis, so their equity curves
     can be compared directly. Vault colours
-    follow the table order, and the legend numbers match the table rows. A vault
+    follow the table order, and the legend numbers match the table rows. The
+    legend and line end labels show annualised returns over each line's span. A vault
     younger than the window starts from 0% at its first data point.
 
     Benchmarks used by at least half of the vaults, see
@@ -265,7 +267,7 @@ def create_performance_figure(
 
     A vault whose peak return exceeds ``outlier_ratio`` times the median vault
     peak, the benchmark peaks and 10% is drawn off scale: the axis fits the other lines, and
-    the outlier leaves the top edge with a marker and "off scale" in the legend.
+    the outlier leaves the top edge with a marker, repeated as ▲ in the legend.
     Otherwise one anomalous vault would flatten all others.
 
     When the remaining lines return more than ``log_threshold`` percent, the y
@@ -343,9 +345,13 @@ def create_performance_figure(
         axis_value = np.log10(equity) if log_scale else equity
         return (axis_value - y_range[0]) / (y_range[1] - y_range[0])
 
-    def describe(value: float) -> str:
-        # End equity change
-        return f"{value:+,.1f}%"
+    def describe(performance: pd.Series) -> str:
+        # Annualised return over the line's own span, capped like the tables
+        days = (performance.index[-1] - performance.index[0]) / pd.Timedelta(days=1)
+        if days < 1:
+            return "---"
+        annualised = ((1 + performance.iloc[-1] / 100) ** (365 / days) - 1) * 100
+        return f">{CAPPED_ANNUALISED_RETURN * 100:,.0f}% ann." if annualised > CAPPED_ANNUALISED_RETURN * 100 else f"{annualised:+,.1f}% ann."
 
     fig = go.Figure()
     entries = []
@@ -363,8 +369,8 @@ def create_performance_figure(
         fig.add_trace(go.Scatter(x=performance.index, y=scale(performance), mode="lines", line={"color": theme.surface, "width": 8}, showlegend=False, hoverinfo="skip"))
         fig.add_trace(go.Scatter(x=performance.index, y=scale(performance), mode="lines", name=item.name, line={"color": colour, "width": 3.5}))
         since = f" since {performance.index[0]:%b %d}" if performance.index[0] > start_at + pd.Timedelta(days=3) else ""
-        note = " · ▲ off scale" if item.vault_id in off_scale else ""
-        entries.append(LegendEntry(f"{i + 1}. {item.name}", colour, item.logo_uri, detail=f"{describe(vaults[item.vault_id].iloc[-1])}{since}{note}"))
+        note = " ▲" if item.vault_id in off_scale else ""
+        entries.append(LegendEntry(f"{i + 1}. {item.name}", colour, item.logo_uri, detail=f"{describe(vaults[item.vault_id])}{since}{note}"))
         badge = {"font": {"size": 15, "color": theme.surface, "weight": 700}, "bgcolor": colour, "borderpad": 3}
         if item.vault_id in off_scale:
             fig.add_annotation(text=f"▲ {i + 1}", x=exit_at, y=1, xref="x", yref="paper", yanchor="top", showarrow=False, **badge)
@@ -375,9 +381,9 @@ def create_performance_figure(
     for name, performance in benchmarks.items():
         fig.add_trace(go.Scatter(x=performance.index, y=scale(performance), mode="lines", name=name, line={"color": to_rgba(theme.muted_text, 0.75), "width": 2, "dash": BENCHMARK_DASHES[name]}, hoverinfo="skip"))
         logo = (benchmark_logos or {}).get(name)
-        entries.append(LegendEntry(name, to_rgba(theme.muted_text, 0.75), logo, dash=BENCHMARK_DASHES[name], detail=describe(performance.iloc[-1])))
+        entries.append(LegendEntry(name, to_rgba(theme.muted_text, 0.75), logo, dash=BENCHMARK_DASHES[name], detail=describe(performance)))
         # The line end shows the benchmark logo and return; the name is only needed without a logo
-        text = describe(performance.iloc[-1]) if logo else f"{name.removeprefix('US 3M ')} {describe(performance.iloc[-1])}"
+        text = describe(performance) if logo else f"{name.removeprefix('US 3M ')} {describe(performance)}"
         labels.append((position(performance.iloc[-1]), text, {"font": {"size": 15, "color": theme.muted_text}}, logo))
 
     # Direct labels right of the line ends, pushed apart so they do not overlap
