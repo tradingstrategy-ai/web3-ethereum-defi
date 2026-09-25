@@ -79,8 +79,11 @@ logger = logging.getLogger(__name__)
 #: Period of the performance charts and hero sparklines
 PERFORMANCE_WINDOW = datetime.timedelta(days=90)
 
-#: Price history read for charts: the performance window plus a margin
-PRICE_HISTORY = datetime.timedelta(days=100)
+#: Rolling window of the Sharpe ratio chart
+SHARPE_WINDOW = datetime.timedelta(days=90)
+
+#: Price history read for charts: the performance window, the Sharpe ratio window before it, and a margin
+PRICE_HISTORY = PERFORMANCE_WINDOW + SHARPE_WINDOW + datetime.timedelta(days=10)
 
 #: History shown in the TVL by protocol chart
 TVL_HISTORY = datetime.timedelta(days=365)
@@ -248,7 +251,7 @@ def make_criteria_notes(criteria: ReportCriteria) -> dict[str, list[str]]:
         "perp_dex": ["Hyperliquid, GRVT, Lighter and other perpetual futures DEX vaults", performance.format(count=criteria.performance_chart_vaults, benchmark="BTC and ETH")],
         "perp_dex_sharpe": [
             "The same vaults ranked by three-month Sharpe ratio, rewarding steady returns over high but volatile ones",
-            performance.format(count=criteria.performance_chart_vaults, benchmark="BTC and ETH"),
+            f"The chart shows the 90-day rolling Sharpe ratio of the top {criteria.performance_chart_vaults} vaults of the table over the last 90 days, against BTC and ETH; the legend shows the latest value",
         ],
         "other": ["Yield aggregators, trading and other vaults that are not lending, perp DEX or tokenised fund vaults", performance.format(count=criteria.performance_chart_vaults, benchmark=matching)],
         "tokenised_funds": ["Onchain money market, treasury and credit funds", min_tvl, performance.format(count=criteria.performance_chart_vaults, benchmark=matching)],
@@ -361,13 +364,15 @@ def render_report_charts(
     hero_vaults = yield_universe.loc[(yield_universe["one_month_cagr_best"] <= criteria.chart_max_return) & (yield_universe["three_months_volatility"] <= criteria.hero_max_volatility) & ~yield_universe["risk"].isin(criteria.hero_excluded_risks)].head(5)
 
     chart_ids = set(hero_vaults.index) | {vault_id for df in performance_vaults.values() for vault_id in df.index}
-    daily_prices = calculate_daily_share_prices(read_vault_share_prices(data.prices_path, sorted(chart_ids), start_at=data.data_end_at - PRICE_HISTORY))
+    share_prices = read_vault_share_prices(data.prices_path, sorted(chart_ids), start_at=data.data_end_at - PRICE_HISTORY)
+    daily_prices = calculate_daily_share_prices(share_prices)
+    sharpe_prices = calculate_daily_share_prices(share_prices, interpolate=False)
     if daily_prices.empty:
         logger.warning("No price data for the chart vaults in %s, leaving out the performance charts", data.prices_path)
         performance_vaults = {}
 
     tbill_latest = get_latest_yield(tbill_yields) if tbill_yields is not None else None
-    benchmark_indices = fetch_benchmark_indices(data.data_end_at - PERFORMANCE_WINDOW - datetime.timedelta(days=7), data.data_end_at, cache_dir, tbill_yields)
+    benchmark_indices = fetch_benchmark_indices(data.data_end_at - PRICE_HISTORY, data.data_end_at, cache_dir, tbill_yields)
 
     average_yield_vaults = select_average_yield_vaults(eligible_df, criteria)
     chain_yields = calculate_chain_yields(average_yield_vaults, criteria)
@@ -409,7 +414,7 @@ def render_report_charts(
     performance_panels = {
         "lending": ChartPanel("Performance of the best-performing lending vaults", f"{by_return}, {period}, against their benchmarks", "tradingstrategy.ai/trading-view/vaults"),
         "perp_dex": ChartPanel("Performance of the best-performing perp DEX vaults", f"{by_return}, {period}, against BTC and ETH", "tradingstrategy.ai/trading-view/vaults"),
-        "perp_dex_sharpe": ChartPanel("Performance of perp DEX vaults with the best Sharpe ratio", f"{selection.format(by='by 3M Sharpe ratio')}, {period}, against BTC and ETH", "tradingstrategy.ai/trading-view/vaults"),
+        "perp_dex_sharpe": ChartPanel("Performance of perp DEX vaults with the best Sharpe ratio", f"{selection.format(by='by 3M Sharpe ratio')}, {SHARPE_WINDOW.days}-day rolling Sharpe ratio, against BTC and ETH", "tradingstrategy.ai/trading-view/vaults"),
         "other": ChartPanel("Performance of other best-performing vaults", f"{by_return}, {period}, against their benchmarks", "tradingstrategy.ai/trading-view/vaults"),
         "tokenised_funds": ChartPanel("Performance of the best-performing tokenised funds", f"{selection.format(by='funds by return')}, {period}, against their benchmarks", "tradingstrategy.ai/trading-view/vaults/funds"),
     }
@@ -426,7 +431,11 @@ def render_report_charts(
             )
             for vault_id, vault in df.iterrows()
         ]
-        figures[f"{key}_performance"] = (create_performance_figure(series, daily_prices, benchmark_indices, theme, PERFORMANCE_WINDOW, watermark, benchmark_logos=benchmark_logos), performance_panels[key])
+        if key == "perp_dex_sharpe":
+            figure = create_performance_figure(series, sharpe_prices, benchmark_indices, theme, PERFORMANCE_WINDOW, watermark, benchmark_logos=benchmark_logos, measure="sharpe", sharpe_window=SHARPE_WINDOW)
+        else:
+            figure = create_performance_figure(series, daily_prices, benchmark_indices, theme, PERFORMANCE_WINDOW, watermark, benchmark_logos=benchmark_logos)
+        figures[f"{key}_performance"] = (figure, performance_panels[key])
 
     figures["risk_return"] = (
         create_risk_return_figure(yield_universe, {tag: category.get("label", tag) for tag, category in data.categories.items()}, theme, criteria.scatter_max_return, tbill_latest, watermark),

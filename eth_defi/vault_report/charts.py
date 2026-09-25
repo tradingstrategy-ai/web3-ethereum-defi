@@ -25,6 +25,7 @@ import textwrap
 import zlib
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Literal
 
 import numpy as np
 import pandas as pd
@@ -240,6 +241,34 @@ def calculate_period_performance(series: pd.Series, start_at: pd.Timestamp) -> p
     return (values / values.iloc[0] - 1) * 100
 
 
+def calculate_rolling_sharpe(prices: pd.Series, window: datetime.timedelta = datetime.timedelta(days=90), min_periods: int = 30) -> pd.Series:
+    """Calculate a rolling annualised Sharpe ratio from daily prices.
+
+    Uses the same method as the exported three-month Sharpe ratio, see
+    :py:func:`eth_defi.research.vault_metrics.calculate_sharpe_ratio_from_returns`:
+    daily percentage returns, mean over standard deviation, annualised with
+    365 days and a zero risk-free rate. The input must be forward filled, not
+    interpolated, like the exporter's daily prices, so the values match the
+    tables' "3M Sharpe" column.
+
+    :param prices:
+        Forward-filled daily share prices or benchmark values.
+
+    :param window:
+        Rolling window.
+
+    :param min_periods:
+        Minimum number of daily returns before a value is drawn.
+
+    :return:
+        Rolling Sharpe ratio, without undefined values.
+    """
+    returns = prices.dropna().pct_change()
+    rolling = returns.rolling(window.days, min_periods=min_periods)
+    sharpe = rolling.mean() / rolling.std() * np.sqrt(365)
+    return sharpe.replace([np.inf, -np.inf], np.nan).dropna()
+
+
 def create_performance_figure(
     series: list[PerformanceSeries],
     daily_prices: pd.DataFrame,
@@ -250,6 +279,8 @@ def create_performance_figure(
     log_threshold: float = 100.0,
     outlier_ratio: float = 5.0,
     benchmark_logos: dict[str, str | None] | None = None,
+    measure: Literal["equity", "sharpe"] = "equity",
+    sharpe_window: datetime.timedelta = datetime.timedelta(days=90),
 ) -> Figure:
     """Draw the equity curves of vaults and their benchmarks in one chart.
 
@@ -301,6 +332,16 @@ def create_performance_figure(
         Benchmark name -> logo data URI, see :py:func:`eth_defi.vault_report.logos.load_benchmark_logo_uri`.
         Drawn in the legend and at the benchmark line ends.
 
+    :param measure:
+        ``equity`` draws equity curves. ``sharpe`` draws the rolling Sharpe ratio
+        over ``sharpe_window`` instead, see :py:func:`calculate_rolling_sharpe`;
+        ``daily_prices`` must then be forward filled and cover the window before
+        the chart start. The legend shows the latest value, and the US Treasury
+        bill, which has no volatility, is left out.
+
+    :param sharpe_window:
+        Rolling window of the Sharpe ratio.
+
     :return:
         Plotly figure.
     """
@@ -308,31 +349,43 @@ def create_performance_figure(
     end_at = daily_prices.index.max()
     start_at = end_at - pd.Timedelta(window)
 
+    sharpe = measure == "sharpe"
+
+    def measure_line(values: pd.Series) -> pd.Series:
+        # Equity change in percent, or the rolling Sharpe ratio, within the chart window
+        if sharpe:
+            return calculate_rolling_sharpe(values, sharpe_window).loc[start_at:end_at]
+        return calculate_period_performance(values, start_at)
+
     vaults = {}
     for item in series:
         if item.vault_id not in daily_prices.columns:
             logger.warning("No price data for vault %s, left out of the performance chart", item.vault_id)
             continue
-        performance = calculate_period_performance(daily_prices[item.vault_id], start_at)
-        if len(performance):
-            vaults[item.vault_id] = performance
+        line = measure_line(daily_prices[item.vault_id])
+        if len(line):
+            vaults[item.vault_id] = line
 
-    wanted = [name for name in BENCHMARK_DASHES if name in benchmark_indices and 2 * sum(name in item.benchmarks for item in series) >= len(series)]
-    benchmarks = {name: calculate_period_performance(benchmark_indices[name].reindex(daily_prices.index, method="ffill"), start_at) for name in wanted}
-    benchmarks = {name: performance for name, performance in benchmarks.items() if len(performance)}
+    wanted = [name for name in BENCHMARK_DASHES if name in benchmark_indices and 2 * sum(name in item.benchmarks for item in series) >= len(series) and not (sharpe and name == TREASURY_BILL)]
+    benchmarks = {name: measure_line(benchmark_indices[name] if sharpe else benchmark_indices[name].reindex(daily_prices.index, method="ffill")) for name in wanted}
+    benchmarks = {name: line for name, line in benchmarks.items() if len(line)}
 
-    peaks = pd.Series({vault_id: performance.max() for vault_id, performance in vaults.items()}, dtype=float)
-    reference = max([peaks.median(), 10.0, *(performance.max() for performance in benchmarks.values())])
+    peaks = pd.Series({vault_id: line.max() for vault_id, line in vaults.items()}, dtype=float)
+    reference = max([peaks.median(), 3.0 if sharpe else 10.0, *(line.max() for line in benchmarks.values())])
     off_scale = set(peaks.index[peaks > outlier_ratio * reference]) if len(peaks) > 2 else set()
-    lines = [*(performance for vault_id, performance in vaults.items() if vault_id not in off_scale), *benchmarks.values()]
+    lines = [*(line for vault_id, line in vaults.items() if vault_id not in off_scale), *benchmarks.values()]
     low, high = (min(line.min() for line in lines), max(line.max() for line in lines)) if lines else (0.0, 0.0)
-    log_scale = high > log_threshold
+    log_scale = not sharpe and high > log_threshold
+
+    def to_axis(values: pd.Series | float) -> pd.Series | float:
+        # Equity change in percent -> equity index, so a log axis works; Sharpe ratios as is
+        return values if sharpe else EQUITY_CURVE_BASE * (1 + values / 100)
 
     def scale(values: pd.Series) -> np.ndarray:
-        # Cumulative return in percent -> equity index
-        return (EQUITY_CURVE_BASE * (1 + values / 100)).to_numpy()
+        return to_axis(values).to_numpy()
 
-    bottom, top = EQUITY_CURVE_BASE * (1 + low / 100), EQUITY_CURVE_BASE * (1 + high / 100)
+    baseline = 0.0 if sharpe else EQUITY_CURVE_BASE
+    bottom, top = to_axis(low), to_axis(high)
     padding = (top - bottom) * 0.06 + 0.2
     if log_scale:
         y_range = (np.log10(max(bottom - padding, bottom * 0.9)), np.log10(top + padding))
@@ -340,13 +393,14 @@ def create_performance_figure(
         y_range = (bottom - padding, top + padding)
 
     def position(value: float) -> float:
-        # Paper y coordinate of a cumulative return, for the end labels
-        equity = EQUITY_CURVE_BASE * (1 + value / 100)
-        axis_value = np.log10(equity) if log_scale else equity
+        # Paper y coordinate of a line end, for the end labels
+        axis_value = np.log10(to_axis(value)) if log_scale else to_axis(value)
         return (axis_value - y_range[0]) / (y_range[1] - y_range[0])
 
     def describe(performance: pd.Series) -> str:
-        # Annualised return over the line's own span, capped like the tables
+        # Latest Sharpe ratio, or the annualised return over the line's own span, capped like the tables
+        if sharpe:
+            return f"{performance.iloc[-1]:,.2f}"
         days = (performance.index[-1] - performance.index[0]) / pd.Timedelta(days=1)
         if days < 1:
             return "---"
@@ -382,7 +436,7 @@ def create_performance_figure(
         fig.add_trace(go.Scatter(x=performance.index, y=scale(performance), mode="lines", name=name, line={"color": to_rgba(theme.muted_text, 0.75), "width": 2, "dash": BENCHMARK_DASHES[name]}, hoverinfo="skip"))
         logo = (benchmark_logos or {}).get(name)
         entries.append(LegendEntry(name, to_rgba(theme.muted_text, 0.75), logo, dash=BENCHMARK_DASHES[name], detail=describe(performance)))
-        # The line end shows the benchmark logo and return; the name is only needed without a logo
+        # The line end shows the benchmark logo and value; the name is only needed without a logo
         text = describe(performance) if logo else f"{name.removeprefix('US 3M ')} {describe(performance)}"
         labels.append((position(performance.iloc[-1]), text, {"font": {"size": 15, "color": theme.muted_text}}, logo))
 
@@ -414,11 +468,12 @@ def create_performance_figure(
         fig.update_yaxes(type="log", title="Equity % (log scale)")
     else:
         step = next((step for step in LINEAR_TICK_STEPS if (y_range[1] - y_range[0]) / step <= 7), LINEAR_TICK_STEPS[-1])
-        ticks = list(np.arange(np.ceil((y_range[0] - EQUITY_CURVE_BASE) / step) * step, y_range[1] - EQUITY_CURVE_BASE, step) + EQUITY_CURVE_BASE)
-        fig.update_yaxes(title="Equity %")
-    fig.update_yaxes(range=list(y_range), tickvals=ticks, ticktext=[f"{tick - EQUITY_CURVE_BASE:+,.4g}%" if round(tick, 6) != EQUITY_CURVE_BASE else "0%" for tick in ticks])
+        ticks = list(np.arange(np.ceil((y_range[0] - baseline) / step) * step, y_range[1] - baseline, step) + baseline)
+        fig.update_yaxes(title=f"{sharpe_window.days}-day rolling Sharpe ratio" if sharpe else "Equity %")
+    ticktext = [f"{tick:,.4g}" for tick in ticks] if sharpe else [f"{tick - EQUITY_CURVE_BASE:+,.4g}%" if round(tick, 6) != EQUITY_CURVE_BASE else "0%" for tick in ticks]
+    fig.update_yaxes(range=list(y_range), tickvals=ticks, ticktext=ticktext)
     fig.update_yaxes(side="left", zeroline=False)
-    fig.add_hline(y=EQUITY_CURVE_BASE, line={"color": theme.axis, "width": 1.5}, layer="below")
+    fig.add_hline(y=baseline, line={"color": theme.axis, "width": 1.5}, layer="below")
     add_logo_legend(fig, entries, theme, row_height=min(0.1, 0.98 / max(len(entries), 1)))
     add_watermark(fig, watermark_uri, theme)
     return fig
