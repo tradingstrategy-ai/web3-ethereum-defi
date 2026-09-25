@@ -150,7 +150,7 @@ Ghost feature image, and a 1080×1080 version for X, which shows blog links as
 square cards. It leaves out vaults above 400% annualised return, above 50%
 volatility or with a Dangerous or worse risk rating; the performance charts and
 the risk and return chart leave out Dangerous or worse vaults as well, while the
-tables keep them with their risk rating. The image does not state
+tables keep them. The image does not state
 these filters; its footer shows only the minimum TVL and the data date.
 
 All listings exclude blacklisted vaults and vaults whose data is more than a
@@ -182,9 +182,8 @@ compares performance. See
   like on the website; ties are ranked by the absolute one-month return.
 - "3M price" shows the website's published 90-day sparkline (PNG, so it
   survives newsletter email clients). Low-TVL vaults may not have one yet.
-- "Risk" shows the technical risk rating as a coloured pill linking to the
-  [risk framework](https://tradingstrategy.ai/blog/announcing-vault-technical-risk-framework-beta).
-  Unrated vaults show muted text.
+- Tables have no risk rating column. The technical risk rating is used only to
+  leave Dangerous or worse vaults out of the charts.
 
 The thresholds live in `eth_defi.vault_report.sections.ReportCriteria`.
 
