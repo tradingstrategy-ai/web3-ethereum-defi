@@ -98,6 +98,34 @@ def _fit_text(draw: ImageDraw.ImageDraw, text: str, font: ImageFont.FreeTypeFont
     return text.rstrip() + "…"
 
 
+def _wrap_text(draw: ImageDraw.ImageDraw, text: str, font: ImageFont.FreeTypeFont, max_width: float) -> list[str]:
+    """Word-wrap text to lines that fit a width.
+
+    :param draw:
+        Drawing context.
+
+    :param text:
+        Text.
+
+    :param font:
+        Font used to measure the text.
+
+    :param max_width:
+        Maximum line width in pixels.
+
+    :return:
+        Lines, at least one.
+    """
+    lines: list[str] = []
+    for word in text.split():
+        candidate = f"{lines[-1]} {word}" if lines else word
+        if lines and draw.textlength(candidate, font=font) <= max_width:
+            lines[-1] = candidate
+        else:
+            lines.append(word)
+    return lines or [""]
+
+
 def draw_brand_mark(image: Image.Image, x: int, y: int, size: int) -> None:
     """Draw the Trading Strategy candle brand mark.
 
@@ -171,7 +199,7 @@ def compose_chart_panel(chart_png: Path, theme: ChartTheme, title: str, subtitle
         Panel title, heading case.
 
     :param subtitle:
-        One-line description of what the chart shows.
+        Description of what the chart shows. Long titles and subtitles are word-wrapped.
 
     :param footer_note:
         Short footer text, e.g. the data date.
@@ -186,15 +214,24 @@ def compose_chart_panel(chart_png: Path, theme: ChartTheme, title: str, subtitle
         ``output_path``.
     """
     chart = Image.open(chart_png).convert("RGBA")
-    header_height, footer_height, pad = 128, 84, 44
+    footer_height, pad = 84, 44
+    title_font, subtitle_font = _font(40, bold=True), _font(24)
+    # Long titles and subtitles wrap to more lines, and the header grows to fit them
+    measure = ImageDraw.Draw(chart)
+    title_lines = _wrap_text(measure, title, title_font, chart.width - 2 * pad)
+    subtitle_lines = _wrap_text(measure, subtitle, subtitle_font, chart.width - 2 * pad)
+    subtitle_top = 34 + 50 * len(title_lines) + 2
+    header_height = subtitle_top + 32 * len(subtitle_lines) + 10
     panel = Image.new("RGBA", (chart.width, chart.height + header_height + footer_height), _hex_to_rgba(theme.surface))
     _draw_glow(panel, theme, radius=int(chart.width * 0.35))
     panel.alpha_composite(chart, (0, header_height))
 
     draw = ImageDraw.Draw(panel)
     width = panel.width
-    draw.text((pad, 34), _fit_text(draw, title, _font(40, bold=True), width - 2 * pad), font=_font(40, bold=True), fill=theme.text)
-    draw.text((pad, 86), _fit_text(draw, subtitle, _font(24), width - 2 * pad), font=_font(24), fill=theme.muted_text)
+    for i, line in enumerate(title_lines):
+        draw.text((pad, 34 + 50 * i), line, font=title_font, fill=theme.text)
+    for i, line in enumerate(subtitle_lines):
+        draw.text((pad, subtitle_top + 32 * i), line, font=subtitle_font, fill=theme.muted_text)
 
     footer_top = header_height + chart.height
     draw.line((pad, footer_top + 4, width - pad, footer_top + 4), fill=_hex_to_rgba(theme.axis, 90), width=1)

@@ -67,7 +67,9 @@ the page. `CHART_THEME=light` switches to a light theme, e.g. for newsletters.
 - **Rendering:** Plotly figures are rendered by Kaleido (headless Chrome), then
   framed with Pillow: a rounded panel with a title header, a green corner glow
   and a footer carrying the brand, the data date and a link to the live chart.
-  A faint logo watermark sits inside the plot area.
+  A faint logo watermark sits inside the plot area. Titles, subtitles, legend
+  entries and vault labels word-wrap instead of being truncated, so names are
+  always shown in full.
 - **Font:** the bundled [Inter](https://rsms.me/inter/) (SIL Open Font Licence)
   font is used both by Chrome, through a private `FONTCONFIG_FILE`, and by Pillow.
   Nothing is installed system-wide.
@@ -145,7 +147,7 @@ updated vaults do not draw staircases. Vaults younger than 90
 days start at 0% at launch, marked "since" in the legend. A single vault far
 above the others is drawn off scale with a ▲ marker, and the axis switches to
 a log scale when returns exceed 100%. The perp DEX Sharpe ratio chart draws the
-90-day rolling Sharpe ratio instead, calculated from forward-filled daily prices
+90-day rolling Sharpe ratio on a scale starting at 0 instead, calculated from forward-filled daily prices
 like the exported 3M Sharpe, so its latest values match the table.
 
 ### Tables

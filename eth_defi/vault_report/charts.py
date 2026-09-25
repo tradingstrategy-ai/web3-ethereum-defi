@@ -88,19 +88,19 @@ def to_rgba(colour: str, alpha: float) -> str:
     return f"rgba({red},{green},{blue},{alpha})"
 
 
-def shorten_label(text: str, max_length: int = 36) -> str:
-    """Truncate a long label with an ellipsis.
+def wrap_label(text: str, width: int) -> str:
+    """Word-wrap a chart label to Plotly ``<br>`` lines without truncating it.
 
     :param text:
         Label.
 
-    :param max_length:
-        Maximum length including the ellipsis.
+    :param width:
+        Maximum characters per line.
 
     :return:
-        Label of at most ``max_length`` characters.
+        Label with ``<br>`` line breaks.
     """
-    return text if len(text) <= max_length else text[: max_length - 1].rstrip() + "…"
+    return "<br>".join(textwrap.wrap(text, width=width)) or text
 
 
 def add_watermark(fig: Figure, watermark_uri: str | None, theme: ChartTheme) -> None:
@@ -124,7 +124,11 @@ def add_logo_legend(fig: Figure, entries: list[LegendEntry], theme: ChartTheme, 
 
     Plotly legends cannot show images, so the legend is drawn with shapes,
     layout images and annotations. The figure needs a right margin of
-    :py:data:`LEGEND_MARGIN` pixels.
+    :py:data:`LEGEND_MARGIN` pixels, and its height and margins must be set
+    before calling this.
+
+    Labels are word-wrapped to full length. Entries are spaced at least
+    ``row_height`` apart, and further when a wrapped label needs more room.
 
     :param fig:
         Figure to modify.
@@ -139,20 +143,28 @@ def add_logo_legend(fig: Figure, entries: list[LegendEntry], theme: ChartTheme, 
         Paper y coordinate of the first entry.
 
     :param row_height:
-        Paper height of one entry.
+        Minimum paper height of one entry.
     """
     fig.update_layout(showlegend=False)
-    for i, entry in enumerate(entries):
-        y = top - i * row_height
-        fig.add_shape(type="line", xref="paper", yref="paper", x0=1.03, x1=1.075, y0=y, y1=y, line={"color": entry.colour, "width": 6, "dash": entry.dash})
-        if entry.logo_uri:
-            fig.add_layout_image(source=entry.logo_uri, xref="paper", yref="paper", x=1.09, y=y, sizex=0.034, sizey=0.05, xanchor="left", yanchor="middle")
+    plot_height = fig.layout.height - fig.layout.margin.t - fig.layout.margin.b
+    line_height, gap = 22 / plot_height, 18 / plot_height
+    texts = []
+    for entry in entries:
+        lines = textwrap.wrap(entry.label, width=28 if entry.detail else 24) or [entry.label]
         if entry.detail:
-            lines = [shorten_label(entry.label, 28), f"<span style='color:{theme.muted_text}'>{entry.detail}</span>"]
-        else:
-            lines = textwrap.wrap(entry.label, width=24)
-            if len(lines) > 2:
-                lines = [lines[0], shorten_label(" ".join(lines[1:]), 24)]
+            lines.append(f"<span style='color:{theme.muted_text}'>{entry.detail}</span>")
+        texts.append(lines)
+    pitches = [max(row_height, len(lines) * line_height + gap) for lines in texts]
+    # Squeeze the spacing if the wrapped legend would not fit the plot height
+    squeeze = min(1.0, (top + line_height) / sum(pitches)) if pitches else 1.0
+    # Entries hang from the top of their first line, so wrapped labels grow downwards
+    y = top + line_height / 2
+    for entry, lines, pitch in zip(entries, texts, pitches, strict=True):
+        # The swatch and the logo sit next to the first line
+        first_line = y - line_height / 2
+        fig.add_shape(type="line", xref="paper", yref="paper", x0=1.03, x1=1.075, y0=first_line, y1=first_line, line={"color": entry.colour, "width": 6, "dash": entry.dash})
+        if entry.logo_uri:
+            fig.add_layout_image(source=entry.logo_uri, xref="paper", yref="paper", x=1.09, y=first_line, sizex=0.034, sizey=0.05, xanchor="left", yanchor="middle")
         fig.add_annotation(
             text="<br>".join(lines),
             xref="paper",
@@ -160,11 +172,12 @@ def add_logo_legend(fig: Figure, entries: list[LegendEntry], theme: ChartTheme, 
             x=1.132,
             y=y,
             xanchor="left",
-            yanchor="middle",
+            yanchor="top",
             align="left",
             showarrow=False,
             font={"size": 17, "color": theme.text},
         )
+        y -= pitch * squeeze
 
 
 def add_glow_line(fig: Figure, x: pd.Index, y: np.ndarray, colour: str, name: str) -> None:
@@ -385,12 +398,13 @@ def create_performance_figure(
         return to_axis(values).to_numpy()
 
     baseline = 0.0 if sharpe else EQUITY_CURVE_BASE
-    bottom, top = to_axis(low), to_axis(high)
+    # Sharpe ratios are drawn on a 0-x scale; negative values are clipped at the bottom edge
+    bottom, top = (0.0, high) if sharpe else (to_axis(low), to_axis(high))
     padding = (top - bottom) * 0.06 + 0.2
     if log_scale:
         y_range = (np.log10(max(bottom - padding, bottom * 0.9)), np.log10(top + padding))
     else:
-        y_range = (bottom - padding, top + padding)
+        y_range = (0.0 if sharpe else bottom - padding, top + padding)
 
     def position(value: float) -> float:
         # Paper y coordinate of a line end, for the end labels
@@ -580,7 +594,7 @@ def create_average_yield_figure(
         logo = logos.get(group)
         if logo:
             fig.add_layout_image(source=logo, xref="paper", yref="y", x=-0.235, y=position, sizex=0.03, sizey=0.6, xanchor="left", yanchor="middle")
-        fig.add_annotation(text=shorten_label(group, 17), xref="paper", yref="y", x=-0.19, y=position, xanchor="left", showarrow=False, font={"size": 20, "color": theme.text})
+        fig.add_annotation(text=wrap_label(group, 16), xref="paper", yref="y", x=-0.19, y=position, xanchor="left", align="left", showarrow=False, font={"size": 20, "color": theme.text})
         # Round before formatting so a tiny negative difference does not print as -0.0
         spread = f" {round((row['avg_return'] - benchmark_yield) * 100, 1) + 0.0:+.1f} pp" if benchmark_yield is not None else ""
         fig.add_annotation(
@@ -634,7 +648,7 @@ def create_tvl_change_figure(changes: pd.DataFrame, theme: ChartTheme, logos: di
             cliponaxis=False,
         )
     )
-    height = max(IMAGE_HEIGHT, 140 + 40 * len(df))
+    height = max(IMAGE_HEIGHT, 140 + 50 * len(df))
     apply_theme(fig, theme, IMAGE_WIDTH, height)
     span = float(values.abs().max()) * 1.25 if len(values) else 1.0
     fig.update_layout(xaxis_title="TVL change over 30 days (USD million)", bargap=0.3, margin={"l": 470, "r": 60, "t": 30, "b": 90})
@@ -644,8 +658,8 @@ def create_tvl_change_figure(changes: pd.DataFrame, theme: ChartTheme, logos: di
         logo = logos.get(vault_id)
         if logo:
             fig.add_layout_image(source=logo, xref="paper", yref="y", x=-0.52, y=position, sizex=0.03, sizey=0.7, xanchor="left", yanchor="middle")
-        label = f"{shorten_label(vault['name'] or vault['address'], 30)}  <span style='color:{theme.muted_text}'>{vault['chain']}</span>"
-        fig.add_annotation(text=label, xref="paper", yref="y", x=-0.475, y=position, xanchor="left", showarrow=False, font={"size": 17, "color": theme.text})
+        label = f"{wrap_label(vault['name'] or vault['address'], 34)}  <span style='color:{theme.muted_text}'>{vault['chain']}</span>"
+        fig.add_annotation(text=label, xref="paper", yref="y", x=-0.475, y=position, xanchor="left", align="left", showarrow=False, font={"size": 17, "color": theme.text})
     return fig
 
 
@@ -735,7 +749,7 @@ def create_risk_return_figure(
     offsets = [(34, -28), (34, 30), (-34, -48), (-34, 44)]
     for i, (_, vault) in enumerate(df.loc[~df["clipped"]].nlargest(label_count, "y").iterrows()):
         ax, ay = offsets[i % len(offsets)]
-        fig.add_annotation(x=np.log10(vault["x"]), y=vault["y"], text=shorten_label(vault["name"] or vault["address"], 26), showarrow=True, arrowcolor=theme.axis, ax=ax, ay=ay, font={"size": 15, "color": theme.text})
+        fig.add_annotation(x=np.log10(vault["x"]), y=vault["y"], text=wrap_label(vault["name"] or vault["address"], 24), align="left", showarrow=True, arrowcolor=theme.axis, ax=ax, ay=ay, font={"size": 15, "color": theme.text})
 
     if benchmark_yield is not None:
         fig.add_hline(y=benchmark_yield * 100, line={"color": theme.benchmark, "width": 3, "dash": "dash"})

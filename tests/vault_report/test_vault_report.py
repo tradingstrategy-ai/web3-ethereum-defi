@@ -18,7 +18,7 @@ from eth_defi.research.vault_metrics import calculate_sharpe_ratio_from_returns
 from eth_defi.vault_report import report as report_module
 from eth_defi.vault_report.benchmarks import BTC, ETH, TREASURY_BILL, calculate_treasury_bill_index, select_benchmarks
 from eth_defi.vault_report.branding import HERO_SIZE, SQUARE_HERO_SIZE, compose_chart_panel
-from eth_defi.vault_report.charts import CHOREOGRAPHER_CHROME_PATH, PerformanceSeries, calculate_period_performance, calculate_rolling_sharpe, create_performance_figure
+from eth_defi.vault_report.charts import CHOREOGRAPHER_CHROME_PATH, PerformanceSeries, calculate_period_performance, calculate_rolling_sharpe, create_performance_figure, wrap_label
 from eth_defi.vault_report.data import VaultReportData, calculate_daily_share_prices, prepare_vault_metrics, read_vault_share_prices, read_vault_tvl_history
 from eth_defi.vault_report.ghost import GhostAdminClient, GhostAPIError, GhostContentClient, GhostPost, create_ghost_admin_token
 from eth_defi.vault_report.logos import load_benchmark_logo_uri
@@ -259,6 +259,7 @@ def test_rolling_sharpe_chart():
     fig = create_performance_figure(series, prices, indices, DARK_THEME, measure="sharpe")
     assert [trace.name for trace in fig.data if trace.mode == "lines" and trace.name] == ["A", "B", BTC]
     assert fig.layout.yaxis.title.text == "90-day rolling Sharpe ratio"
+    assert fig.layout.yaxis.range[0] == 0
 
 
 def test_generate_report_bundle(tmp_path: Path, vaults_df: pd.DataFrame, prices_path: Path):
@@ -531,3 +532,15 @@ def test_compose_chart_panel(tmp_path: Path):
     assert image.size == (1400, 800 + 128 + 84)
     assert image.getpixel((0, 0))[3] == 0
     assert image.getpixel((700, 500))[3] == 255
+
+    # Long titles and subtitles wrap to more lines instead of being truncated, and the header grows
+    long_title = "Performance of the best-performing perpetual futures DEX vaults with the best Sharpe ratio this month"
+    output = compose_chart_panel(chart, DARK_THEME, long_title, f"{long_title}, {long_title}", "Data 2026-09-25", "tradingstrategy.ai", tmp_path / "long.png")
+    assert Image.open(output).size == (1400, 800 + 128 + 50 + 32 + 84)  # One more title line and one more subtitle line
+
+
+def test_wrap_label():
+    """Chart labels wrap to full length instead of being truncated."""
+    label = wrap_label("Janus Henderson Anemoy Treasury Fund", 20)
+    assert label == "Janus Henderson<br>Anemoy Treasury Fund"
+    assert wrap_label("Morpho", 16) == "Morpho"
