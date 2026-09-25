@@ -2080,3 +2080,60 @@ def test_calculate_vault_record_sorts_rows_by_time(vault_db: VaultDatabase, pric
     assert reordered["current_nav"] == ordered["current_nav"]
     assert reordered["first_updated_block"] == ordered["first_updated_block"]
     assert reordered["last_updated_block"] == ordered["last_updated_block"]
+
+
+def test_prepare_daily_share_price_series_ignores_rows_without_timestamp() -> None:
+    """A row without a timestamp is ignored, as pandas resample() ignored it."""
+    prices = pd.Series([1.0, 2.0, 3.0], index=pd.DatetimeIndex(["2024-01-01", None, "2024-01-03"]))
+
+    daily_prices, _daily_returns = prepare_daily_share_price_series(prices)
+
+    assert daily_prices.tolist() == [1.0, 1.0, 3.0]
+
+
+def test_period_metrics_reject_unsorted_or_missing_timestamps() -> None:
+    """Unsorted or NaT observation timestamps fail instead of giving wrong metrics."""
+    index = pd.date_range("2024-01-01", periods=60, freq="D")
+    prices = pd.Series(np.linspace(1, 2, 60), index=index)
+    daily_prices, daily_returns = prepare_daily_share_price_series(prices)
+    fees = FeeData(fee_mode=VaultFeeMode.feeless, management=0, performance=0, deposit=0, withdraw=0)
+    unsorted = prices.iloc[[0, 2, 1, *range(3, 60)]]
+    missing_time = pd.Series(prices.to_numpy(), index=pd.DatetimeIndex([*index[:30], pd.NaT, *index[31:]]))
+
+    for observations in (unsorted, missing_time):
+        with pytest.raises(ValueError, match="sorted by time without NaT"):
+            calculate_period_metrics("1M", fees, fees, observations, daily_prices, daily_returns, observations, index[-1])
+
+
+def test_period_metrics_daily_window_starts_at_first_duplicate_day() -> None:
+    """A duplicated daily label at the period start belongs to the daily window."""
+    index = pd.date_range("2024-01-01", periods=40, freq="D")
+    observations = pd.Series(np.linspace(1, 2, 40), index=index)
+    daily_prices = pd.Series([0.5, *np.linspace(1, 2, 40)], index=pd.DatetimeIndex([index[0], *index]))
+    fees = FeeData(fee_mode=VaultFeeMode.feeless, management=0, performance=0, deposit=0, withdraw=0)
+
+    result = calculate_period_metrics(
+        "lifetime",
+        fees,
+        fees,
+        observations,
+        daily_prices,
+        daily_prices.pct_change(fill_method=None),
+        observations,
+        index[-1],
+    )
+
+    assert result.daily_samples == 41
+
+
+def test_calculate_lifetime_metrics_skips_vault_without_usable_share_price(vault_db: VaultDatabase, price_df: pd.DataFrame) -> None:
+    """One vault without any usable share price is skipped, not fatal to the export."""
+    vault_ids = sorted(price_df["id"].unique())[:2]
+    broken_id, healthy_id = vault_ids
+    prices = price_df.loc[price_df["id"].isin(vault_ids)].copy()
+    prices.loc[prices["id"] == broken_id, "share_price"] = np.nan
+    metadata = {spec: dict(row) for spec, row in vault_db.rows.items() if spec.as_string_id() in vault_ids}
+
+    metrics = calculate_lifetime_metrics(prices, metadata)
+
+    assert metrics["id"].tolist() == [healthy_id]

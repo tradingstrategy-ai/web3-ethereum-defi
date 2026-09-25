@@ -1207,7 +1207,9 @@ def prepare_daily_share_price_series(
     # Calendar days are derived from UTC nanoseconds, which is only correct
     # for the naive UTC timestamps used throughout this package.
     assert share_price_observations.index.tz is None, "Share-price timestamps must be naive UTC"
-    observations = sanitise_share_price_observations(share_price_observations).dropna().sort_index(kind="stable")
+    observations = sanitise_share_price_observations(share_price_observations).dropna()
+    # resample() ignores rows without a timestamp; the array helper needs them removed.
+    observations = observations.loc[observations.index.notna()].sort_index(kind="stable")
     if observations.empty:
         empty = pd.Series(index=pd.DatetimeIndex([], name=share_price_observations.index.name), dtype="float64")
         return empty, empty.copy()
@@ -1999,8 +2001,13 @@ def _period_inputs_from_series(
         If the USD fee-basis prices and exchange rates are not supplied
         together, or are not aligned with ``share_price_hourly``. The array
         path looks them up by position, so misalignment would silently read
-        the wrong values.
+        the wrong values. Also raised when a series index is not sorted by
+        time or contains ``NaT``: binary search on such an index returns
+        plausible but wrong results, where ``Index.asof()`` used to fail.
     """
+    for name, series in (("share_price_hourly", share_price_hourly), ("share_price_daily", share_price_daily), ("daily_returns", daily_returns), ("tvl", tvl), ("utilisation", utilisation)):
+        if series is not None and (series.index.hasnans or not series.index.is_monotonic_increasing):
+            raise ValueError(f"{name} index must be sorted by time without NaT")
     if (native_fee_share_price is None) != (exchange_rate is None):
         raise ValueError("native_fee_share_price and exchange_rate must be supplied together")
     if native_fee_share_price is not None and not native_fee_share_price.index.equals(share_price_hourly.index):
@@ -2127,6 +2134,10 @@ def _calculate_period_metrics_from_arrays(
     # The daily curve starts at the last calendar day at or before the first
     # sample, so the risk metrics see the price level in force at that time.
     daily_start = int(np.searchsorted(inputs.daily_ns, samples_start_ns, side="right")) - 1
+    if daily_start >= 0:
+        # Like the observation window above, a label slice starts at the
+        # first of several rows sharing the start timestamp.
+        daily_start = int(np.searchsorted(inputs.daily_ns, inputs.daily_ns[daily_start], side="left"))
     if daily_start < 0:
         return PeriodMetrics(
             period=period,
@@ -3013,6 +3024,8 @@ def _prepare_vault_price_frame(frame: pd.DataFrame) -> _VaultPriceFrame:
         The frame with its array columns.
     """
     assert isinstance(frame.index, pd.DatetimeIndex), f"Expected DatetimeIndex, got {type(frame.index)}"
+    # Flow windows derive calendar days from UTC nanoseconds.
+    assert frame.index.tz is None, "Price timestamps must be naive UTC"
     state_observed = None
     if VAULT_STATE_OBSERVED_COLUMN in frame.columns:
         # Missing markers mean "not observed". The daily preparation stores
@@ -3750,10 +3763,9 @@ def _calculate_vault_record_from_arrays(
 
     if len(valid_rows) == 0:
         # A vault without a single usable share price cannot produce a
-        # record. calculate_lifetime_metrics() deliberately does not catch
-        # IndexError, so this stops the export instead of silently dropping
-        # the vault.
-        raise IndexError(f"Vault {id_val} has no usable share-price observations")
+        # record. calculate_lifetime_metrics() logs and skips it, like other
+        # invalid vault data, so one broken vault does not stop the export.
+        raise ValueError(f"Vault {id_val} has no usable share-price observations")
     current_share_price = observation_prices[-1]
     risk, notes, flags = apply_abnormal_value_checks(
         risk=risk,
@@ -5246,7 +5258,9 @@ def _can_regularise_daily_with_arrays(df_work: pd.DataFrame) -> bool:
     """
     if "share_price" not in df_work.columns or df_work["share_price"].dtype != np.dtype("float64"):
         return False
-    if df_work.index.hasnans:
+    if df_work.index.hasnans or df_work.index.tz is not None:
+        # Calendar days are computed from UTC nanoseconds; timezone-aware
+        # input keeps pandas' local-day resampling.
         return False
     for dtype in df_work.dtypes:
         # Extension arrays (Arrow, nullable, string) and NumPy float and

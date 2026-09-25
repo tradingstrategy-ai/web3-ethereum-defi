@@ -258,3 +258,20 @@ Deviations from the plan:
 - Clean-up during review: the unused `month_ago` and `three_months_ago` parameters were removed from `calculate_vault_record()` and its callers, since the period lookbacks come from `LOOKBACK_AND_TOLERANCES`. `prepare_daily_share_price_series()` now delegates to the same array helper as the lifetime metrics; on 400 production vaults its output was identical to the pandas resample, index frequency included.
 
 Local test results: 240 tests passed across the metric, flow, freshness, crypto, sticky-export, Hyperliquid, Lighter and Derive suites. After Foundry v1.3.2 was installed, the 14 Enzyme, Midas and Spiko Anvil fork tests also passed. Two Hypersync tests (GMX oracle and Midas history) failed with provider HTTP 429 or `get arrow` errors in the price scan, before any metrics code ran.
+
+## Code review
+
+On 2026-09-25, Kimi Code CLI 2.0.2 with `kimi-code/k3` (high effort) reviewed the committed diff read-only, using 22 tool calls; it changed no files. It found no bugs for inputs that meet the cleaned-Parquet contract. It flagged out-of-contract inputs where the array code could return a quiet answer instead of the old failure. Each finding was checked against `master` before acting on it.
+
+| Finding | Severity | Verified against `master` | Disposition |
+|---|---|---|---|
+| A NaT row makes `prepare_daily_share_price_series()` return an empty series | Should fix | Real: `master` ignored the row | Fixed: rows without a timestamp are dropped first. Test added. |
+| Unsorted or NaT observation timestamps give silent metrics | Should fix | Real: `master` raised `ValueError` from `Index.asof()` | Fixed: the pandas entry points raise `ValueError`. Test added. |
+| A vault whose rows are all NaT could abort the whole export with `IndexError` | Should fix | Real for ERC-4626-eligible vaults | Fixed: a vault without any usable share price now raises `ValueError`, which the loop logs and skips, as its documented intent says. `master` aborted for such vaults when they were not ERC-4626-eligible; no production vault hits this path. Test added. |
+| A duplicated daily label at the period start shifts the daily window | Nit | Real: 41 versus 40 daily samples | Fixed: the window starts at the first duplicate, like the observation window. Test added. |
+| Categorical `chain`/`address` keys create phantom rows | Nit | Not reproducible: pandas 3 groups only observed categories | No change. |
+| Arrow `uint64` `total_assets` would publish `max_nav` as a float | Nit | Unreachable: the cleaned schema stores `total_assets` as a float | No change. |
+| Timezone-aware indexes use UTC days | Nit | Out of convention: the repository uses naive UTC | Guarded: the array regularisation falls back to pandas, and the record path asserts naive UTC. |
+| Non-numeric flow values count as missing; float count sums | Nit | Documented; unreachable on the cleaned Parquet | No change. |
+
+After the fixes, parity was re-run: zero differing values on all 12,795 stablecoin vaults and all 1,601 native ETH/BTC vaults. 258 tests passed; the one failure was a Hypersync HTTP 429 in a price-history test.
