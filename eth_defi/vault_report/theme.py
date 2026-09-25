@@ -78,12 +78,6 @@ class ChartTheme:
     #: Top-left panel glow colour, RGBA
     glow: tuple[int, int, int, int]
 
-    #: Watermark logo colour
-    watermark: str
-
-    #: Watermark opacity, 0-1
-    watermark_opacity: float
-
 
 DARK_THEME = ChartTheme(
     name="dark",
@@ -99,8 +93,6 @@ DARK_THEME = ChartTheme(
     benchmark="#fbbf24",
     neutral="#5e5c5a",
     glow=(34, 180, 83, 46),
-    watermark="#d5deea",
-    watermark_opacity=0.07,
 )
 
 LIGHT_THEME = ChartTheme(
@@ -117,8 +109,6 @@ LIGHT_THEME = ChartTheme(
     benchmark="#b7791f",
     neutral="#b9b8b3",
     glow=(34, 180, 83, 28),
-    watermark="#0b0b14",
-    watermark_opacity=0.06,
 )
 
 #: Available themes by name
