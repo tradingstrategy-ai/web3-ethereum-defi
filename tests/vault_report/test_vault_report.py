@@ -11,13 +11,13 @@ import numpy as np
 import pandas as pd
 import pytest
 import requests
-from PIL import Image
+from PIL import Image, ImageDraw
 
 from eth_defi.research.vault_correlation import choose_vaults_for_correlation_comparison
 from eth_defi.research.vault_metrics import calculate_sharpe_ratio_from_returns
 from eth_defi.vault_report import report as report_module
 from eth_defi.vault_report.benchmarks import BTC, ETH, TREASURY_BILL, calculate_treasury_bill_index, select_benchmarks
-from eth_defi.vault_report.branding import HERO_SIZE, SQUARE_HERO_SIZE, compose_chart_panel
+from eth_defi.vault_report.branding import HERO_SIZE, PANEL_PADDING, PANEL_WIDTH, SQUARE_HERO_SIZE, compose_chart_panel
 from eth_defi.vault_report.charts import CHOREOGRAPHER_CHROME_PATH, PerformanceSeries, calculate_period_performance, calculate_rolling_sharpe, create_performance_figure, wrap_label
 from eth_defi.vault_report.data import VaultReportData, calculate_daily_share_prices, prepare_vault_metrics, read_vault_share_prices, read_vault_tvl_history
 from eth_defi.vault_report.ghost import GhostAdminClient, GhostAPIError, GhostContentClient, GhostPost, create_ghost_admin_token
@@ -524,19 +524,23 @@ def test_table_badges_and_sparklines(vaults_df: pd.DataFrame):
 
 
 def test_compose_chart_panel(tmp_path: Path):
-    """The branded panel adds a header and footer and has transparent rounded corners."""
+    """The panel crops the chart to its content and pads it evenly, with transparent rounded corners."""
     chart = tmp_path / "chart.png"
-    Image.new("RGB", (1400, 800), DARK_THEME.surface).save(chart)
+    render = Image.new("RGBA", (1400, 800), (0, 0, 0, 0))
+    ImageDraw.Draw(render).rectangle((100, 100, 1299, 699), fill=DARK_THEME.series_colours[0])
+    render.save(chart)
     output = compose_chart_panel(chart, DARK_THEME, "Title", "Subtitle", "Data 2026-09-25", "tradingstrategy.ai", tmp_path / "panel.png")
     image = Image.open(output)
-    assert image.size == (1400, 800 + 128 + 84)
+    # The 1200×600 content is resized to the 1312 px inner width: header 120, gaps 2×28, footer 103
+    assert image.size == (PANEL_WIDTH, 120 + 28 + 656 + 28 + 103)
     assert image.getpixel((0, 0))[3] == 0
-    assert image.getpixel((700, 500))[3] == 255
+    assert image.getpixel((PANEL_PADDING - 1, 500))[:3] != image.getpixel((PANEL_PADDING + 1, 500))[:3]
+    assert image.getpixel((PANEL_WIDTH - PANEL_PADDING, 500))[:3] != image.getpixel((PANEL_WIDTH - PANEL_PADDING - 2, 500))[:3]
 
     # Long titles and subtitles wrap to more lines instead of being truncated, and the header grows
     long_title = "Performance of the best-performing perpetual futures DEX vaults with the best Sharpe ratio this month"
     output = compose_chart_panel(chart, DARK_THEME, long_title, f"{long_title}, {long_title}", "Data 2026-09-25", "tradingstrategy.ai", tmp_path / "long.png")
-    assert Image.open(output).size == (1400, 800 + 128 + 50 + 32 + 84)  # One more title line and one more subtitle line
+    assert Image.open(output).size == (PANEL_WIDTH, 120 + 50 + 32 + 28 + 656 + 28 + 103)  # One more title line and one more subtitle line
 
 
 def test_wrap_label():

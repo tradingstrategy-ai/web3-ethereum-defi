@@ -64,9 +64,13 @@ Charts follow the dark look of the website's vault pages. The blog itself is
 rendered by the website frontend in dark mode, so the charts sit naturally on
 the page. `CHART_THEME=light` switches to a light theme, e.g. for newsletters.
 
-- **Rendering:** Plotly figures are rendered by Kaleido (headless Chrome), then
-  framed with Pillow: a rounded panel with a title header, a green corner glow
-  and a footer carrying the brand, the data date and a link to the live chart.
+- **Rendering:** Plotly figures are rendered by Kaleido (headless Chrome) on a
+  transparent background, then framed with Pillow: a rounded panel with a title
+  header, a green corner glow and a footer carrying the brand, the data date
+  and a link to the live chart. The chart is cropped to its drawn content and
+  fitted to the panel's inner width, so every panel is 1400 px wide with a
+  44 px margin on all four sides, whatever its Plotly margins. Keep new Plotly
+  layouts within 5% of that inner width; the pipeline warns otherwise.
   A faint logo watermark sits inside the plot area. Titles, subtitles, legend
   entries and vault labels word-wrap instead of being truncated, so names are
   always shown in full.
