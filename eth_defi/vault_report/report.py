@@ -37,9 +37,9 @@ from eth_defi.research.vault_metrics import USDollarAmount
 from eth_defi.vault_report.benchmarks import fetch_benchmark_indices, fetch_treasury_bill_yields, get_latest_yield, select_benchmarks
 from eth_defi.vault_report.branding import SQUARE_HERO_SIZE, compose_chart_panel, render_hero_image
 from eth_defi.vault_report.charts import (
-    PerformancePanel,
+    PerformanceSeries,
     create_average_yield_figure,
-    create_performance_grid_figure,
+    create_performance_figure,
     create_protocol_tvl_figure,
     create_risk_return_figure,
     create_tvl_change_figure,
@@ -219,8 +219,8 @@ def make_criteria_notes(criteria: ReportCriteria) -> dict[str, list[str]]:
     live = '<a href="{url}">View the live benchmark</a> to examine the data in real time'
     min_tvl = f"Minimum {format_usd(criteria.min_tvl)} TVL"
     active = f"at least {criteria.min_events} deposit and redemption events"
-    performance = "The chart shows the 90-day return of the top {count} vaults against {benchmark}"
-    matching = "a benchmark matching each vault: the 3-month US Treasury bill for calm yield vaults, BTC and ETH for volatile vaults"
+    performance = "The chart compares the 90-day return of the top {count} vaults of the table with {benchmark}; the legend numbers are table ranks"
+    matching = "the benchmarks matching the vaults: the 3-month US Treasury bill for calm yield vaults, BTC and ETH for volatile vaults"
     average = [
         "Each small dot is a vault's annualised one-month return; the large dot is the TVL-weighted average",
         f"Vaults with at least {format_usd(criteria.yield_min_vault_tvl)} TVL; outliers above {criteria.yield_max_return:.0%} annualised return or {criteria.yield_max_volatility:.0%} annualised volatility excluded",
@@ -406,26 +406,25 @@ def render_report_charts(
     period = f"{PERFORMANCE_WINDOW.days}-day return, not annualised"
     count = criteria.performance_chart_vaults
     performance_panels = {
-        "lending": ChartPanel("Performance of the best-performing lending vaults", f"Top {count} of the table, {period}, against the benchmark matching each vault", "tradingstrategy.ai/trading-view/vaults"),
+        "lending": ChartPanel("Performance of the best-performing lending vaults", f"Top {count} of the table, {period}, against their benchmarks", "tradingstrategy.ai/trading-view/vaults"),
         "perp_dex": ChartPanel("Performance of the best-performing perp DEX vaults", f"Top {count} by return, {period}, against BTC and ETH", "tradingstrategy.ai/trading-view/vaults"),
         "perp_dex_sharpe": ChartPanel("Performance of perp DEX vaults with the best Sharpe ratio", f"Top {count} by 3M Sharpe ratio, {period}, against BTC and ETH", "tradingstrategy.ai/trading-view/vaults"),
-        "other": ChartPanel("Performance of other best-performing vaults", f"Top {count} of the table, {period}, against the benchmark matching each vault", "tradingstrategy.ai/trading-view/vaults"),
-        "tokenised_funds": ChartPanel("Performance of the best-performing tokenised funds", f"Top {count} of the table, {period}, against the benchmark matching each fund", "tradingstrategy.ai/trading-view/vaults/funds"),
+        "other": ChartPanel("Performance of other best-performing vaults", f"Top {count} of the table, {period}, against their benchmarks", "tradingstrategy.ai/trading-view/vaults"),
+        "tokenised_funds": ChartPanel("Performance of the best-performing tokenised funds", f"Top {count} of the table, {period}, against their benchmarks", "tradingstrategy.ai/trading-view/vaults/funds"),
     }
     for key, df in performance_vaults.items():
         if not len(df):
             continue
-        panels = [
-            PerformancePanel(
+        series = [
+            PerformanceSeries(
                 vault_id=vault_id,
                 name=vault["name"] or vault["address"],
-                subtitle=f"{vault['chain']} · {vault['protocol'] if vault['protocol_slug'] != UNKNOWN_PROTOCOL_SLUG else 'Unknown protocol'}",
                 logo_uri=protocol_logos.get(vault_id),
                 benchmarks=select_benchmarks(vault, criteria.crypto_benchmark_min_volatility, criteria.crypto_benchmark_max_drawdown),
             )
             for vault_id, vault in df.iterrows()
         ]
-        figures[f"{key}_performance"] = (create_performance_grid_figure(panels, daily_prices, benchmark_indices, theme, PERFORMANCE_WINDOW), performance_panels[key])
+        figures[f"{key}_performance"] = (create_performance_figure(series, daily_prices, benchmark_indices, theme, PERFORMANCE_WINDOW, watermark), performance_panels[key])
 
     figures["risk_return"] = (
         create_risk_return_figure(yield_universe, {tag: category.get("label", tag) for tag, category in data.categories.items()}, theme, criteria.scatter_max_return, tbill_latest, watermark),

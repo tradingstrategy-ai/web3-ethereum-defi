@@ -133,10 +133,12 @@ square cards. It leaves out vaults above 400% annualised return, above 50%
 volatility or with a Severe or Dangerous risk rating.
 
 All listings exclude blacklisted vaults and vaults whose data is more than a
-week older than the report date. Performance charts show the first rows of
-their table, each vault in its own panel with its own y axis, so volatile
-vaults do not flatten calm ones. Vaults younger than 90 days start at launch,
-marked "since" in the panel.
+week older than the report date. Performance charts compare the first rows
+of their table in one chart with a shared axis, so their equity curves can be
+compared directly. The legend numbers are table ranks. Vaults younger than 90
+days start at 0% at launch, marked "since" in the legend. A single vault far
+above the others is drawn off scale with a ▲ marker, and the axis switches to
+a log scale when returns exceed 100%.
 
 ### Tables
 
