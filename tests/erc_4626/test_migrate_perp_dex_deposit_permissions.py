@@ -12,7 +12,7 @@ import pytest
 from eth_defi.apex.vault_data_export import create_apex_vault_row
 from eth_defi.grvt.vault_data_export import create_grvt_vault_row
 from eth_defi.hibachi.vault_data_export import create_hibachi_vault_row
-from eth_defi.hyperliquid.vault_data_export import LEADER_FRACTION_DEPOSIT_WARNING, create_hyperliquid_vault_row
+from eth_defi.hyperliquid.vault_data_export import LEADER_FRACTION_DEPOSIT_WARNING, create_hyperliquid_vault_row, normalise_hyperliquid_deposit_permissions
 from eth_defi.lighter.vault_data_export import create_lighter_pool_row
 from eth_defi.vault.base import VaultSpec
 from eth_defi.vault.vaultdb import VaultDatabase, VaultRow
@@ -228,17 +228,21 @@ def test_migrate_perp_dex_permissions_refuses_partial_apply(tmp_path: Path, monk
     assert not tuple(tmp_path.glob("*.before-perp-dex-deposit-permission-migration*"))
 
 
-def test_migrate_perp_dex_permissions_preserves_hyperliquid_leader_warning(tmp_path: Path) -> None:
-    """Metadata-only repair retains a warning absent from the source table.
+@pytest.mark.parametrize("source_present", [False, True])
+def test_migrate_perp_dex_permissions_clears_hyperliquid_leader_warning(tmp_path: Path, source_present: bool) -> None:
+    """Remove a legacy policy warning without losing the evidence of permission.
 
-    :param tmp_path:
-        Temporary directory supplied by pytest.
+    1. Store an old warning, with or without a current source row.
+    2. Preview and apply the metadata repair.
+    3. Check the reason is cleared and repeated normalisation stays open.
     """
     migration = load_migration_module()
     vault_db_path = tmp_path / "vault-metadata-db.pickle"
     source_path_map = create_source_databases(tmp_path)
-    with closing(duckdb.connect(str(source_path_map["hyperliquid"]))) as connection:
-        connection.execute("INSERT INTO vault_metadata VALUES (?, ?, ?)", ["0x0000000000000000000000000000000000000002", False, True])
+    # 1. Test both direct source evidence and the legacy warning fallback.
+    if source_present:
+        with closing(duckdb.connect(str(source_path_map["hyperliquid"]))) as connection:
+            connection.execute("INSERT INTO vault_metadata VALUES (?, ?, ?)", ["0x0000000000000000000000000000000000000002", False, True])
 
     spec, row = create_hyperliquid_vault_row(
         vault_address="0x0000000000000000000000000000000000000002",
@@ -246,13 +250,58 @@ def test_migrate_perp_dex_permissions_preserves_hyperliquid_leader_warning(tmp_p
         description=None,
         tvl=1.0,
         create_time=datetime.datetime(2026, 8, 1, 12, 0),  # noqa: DTZ001 - Repository convention is naive UTC.
+        is_closed=False,
+        allow_deposits=True,
         leader_fraction=0.05,
     )
-    assert row["_deposit_closed_reason"] == LEADER_FRACTION_DEPOSIT_WARNING
+    # Retained metadata from the old exporter can still contain this warning.
+    row["_deposit_closed_reason"] = LEADER_FRACTION_DEPOSIT_WARNING
+    row.pop("_hyperliquid_deposits_open")
     VaultDatabase(rows={spec: row}).write(vault_db_path)
     source_paths = migration.PerpDexSourcePaths(**source_path_map)
 
+    # 2. Dry-run reports the change; apply it to the in-memory database.
     result = migration.migrate_perp_dex_deposit_permissions(vault_db_path, source_paths, dry_run=True)
-
-    assert not result.updates
+    assert len(result.updates) == 1
     assert result.unresolved_rows == 0
+    vault_db = VaultDatabase(rows={spec: row})
+    migration.apply_permission_updates(vault_db, result.updates)
+
+    # 3. Clearing the warning must not turn a known-open row into unknown.
+    repaired = vault_db.rows[spec]
+    assert repaired["_deposit_closed_reason"] is None
+    assert repaired["_deposit_permission"] == "permissionless"
+    assert repaired["_hyperliquid_deposits_open"] is True
+    assert normalise_hyperliquid_deposit_permissions(vault_db) == 0
+    assert normalise_hyperliquid_deposit_permissions(vault_db) == 0
+
+
+def test_retained_source_open_hyperliquid_row_keeps_permission(tmp_path: Path) -> None:
+    """A retained row's explicit source marker survives a metadata-only migration.
+
+    1. Build an open Hyperliquid row absent from the current scanner database.
+    2. Simulate stale unknown permission and run the migration planner.
+    3. Verify it restores permissionless rather than inferring unknown.
+    """
+    migration = load_migration_module()
+    source_paths = migration.PerpDexSourcePaths(**create_source_databases(tmp_path))
+
+    # 1. The source database exists but no longer contains this vault.
+    spec, row = create_hyperliquid_vault_row(
+        vault_address="0x9999999999999999999999999999999999999999",
+        name="Retained open vault",
+        description=None,
+        tvl=1.0,
+        create_time=datetime.datetime(2026, 8, 1, 12, 0),  # noqa: DTZ001 - Repository convention is naive UTC.
+        is_closed=False,
+        allow_deposits=True,
+    )
+
+    # 2. Repair the exported classification from the cached source marker.
+    row["_deposit_permission"] = "unknown"
+    updates, unresolved = migration.build_permission_updates(VaultDatabase(rows={spec: row}), source_paths)
+
+    # 3. An absent closure reason alone would not prove openness.
+    assert unresolved == 0
+    assert len(updates) == 1
+    assert updates[0].new_access.permission.value == "permissionless"

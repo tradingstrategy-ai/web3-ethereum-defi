@@ -518,7 +518,7 @@ def get_due_items(
 
 @dataclass(slots=True)
 class ChainConfig:
-    """Configuration for scanning a single chain"""
+    """Configuration for scanning a single EVM chain."""
 
     #: Chain name (e.g., "Ethereum")
     name: str
@@ -526,8 +526,11 @@ class ChainConfig:
     #: Environment variable name for RPC URL (e.g., "JSON_RPC_ETHEREUM")
     env_var: str
 
-    #: Whether to scan vaults (False only for Unichain)
-    scan_vaults: bool
+    #: Whether to discover vaults and refresh their metadata
+    scan_vaults: bool = True
+
+    #: Whether the global price-scan switch applies to this chain
+    scan_prices: bool = True
 
 
 @dataclass(slots=True)
@@ -593,36 +596,38 @@ class ChainResult:
 
 
 def build_chain_configs() -> list[ChainConfig]:
-    """Build list of chain configurations.
+    """Build the EVM chain configurations used by the vault pipeline.
 
-    Returns chains in the same order as scan-vaults-all-chains.sh
+    :return:
+        Chain discovery and price-scan configuration in execution order.
     """
     return [
-        ChainConfig("Megaeth", "JSON_RPC_MEGAETH", True),
-        ChainConfig("Sonic", "JSON_RPC_SONIC", True),
-        ChainConfig("Monad", "JSON_RPC_MONAD", True),
-        ChainConfig("Hyperliquid", "JSON_RPC_HYPERLIQUID", True),
-        ChainConfig("Base", "JSON_RPC_BASE", True),
-        ChainConfig("Arbitrum", "JSON_RPC_ARBITRUM", True),
-        ChainConfig("Tempo", "JSON_RPC_TEMPO", True),
-        ChainConfig("Robinhood", "JSON_RPC_ROBINHOOD", True),
-        ChainConfig("Ethereum", "JSON_RPC_ETHEREUM", True),
-        ChainConfig("Linea", "JSON_RPC_LINEA", True),
-        ChainConfig("Gnosis", "JSON_RPC_GNOSIS", True),
-        ChainConfig("Zora", "JSON_RPC_ZORA", True),
-        ChainConfig("Polygon", "JSON_RPC_POLYGON", True),
-        ChainConfig("Avalanche", "JSON_RPC_AVALANCHE", True),
-        ChainConfig("Berachain", "JSON_RPC_BERACHAIN", True),
-        ChainConfig("Unichain", "JSON_RPC_UNICHAIN", False),  # Prices only
-        ChainConfig("Hemi", "JSON_RPC_HEMI", True),
-        ChainConfig("Plasma", "JSON_RPC_PLASMA", True),
-        ChainConfig("Binance", "JSON_RPC_BINANCE", True),
-        ChainConfig("Mantle", "JSON_RPC_MANTLE", True),
-        ChainConfig("Katana", "JSON_RPC_KATANA", True),
-        ChainConfig("Ink", "JSON_RPC_INK", True),
-        ChainConfig("Blast", "JSON_RPC_BLAST", True),
-        ChainConfig("Soneium", "JSON_RPC_SONEIUM", True),
-        ChainConfig("Optimism", "JSON_RPC_OPTIMISM", True),
+        ChainConfig("Megaeth", "JSON_RPC_MEGAETH"),
+        ChainConfig("Sonic", "JSON_RPC_SONIC"),
+        ChainConfig("Monad", "JSON_RPC_MONAD"),
+        ChainConfig("Hyperliquid", "JSON_RPC_HYPERLIQUID"),
+        ChainConfig("Base", "JSON_RPC_BASE"),
+        ChainConfig("Arbitrum", "JSON_RPC_ARBITRUM"),
+        ChainConfig("Tempo", "JSON_RPC_TEMPO"),
+        ChainConfig("Arc", "JSON_RPC_ARC", scan_prices=False),
+        ChainConfig("Robinhood", "JSON_RPC_ROBINHOOD"),
+        ChainConfig("Ethereum", "JSON_RPC_ETHEREUM"),
+        ChainConfig("Linea", "JSON_RPC_LINEA"),
+        ChainConfig("Gnosis", "JSON_RPC_GNOSIS"),
+        ChainConfig("Zora", "JSON_RPC_ZORA"),
+        ChainConfig("Polygon", "JSON_RPC_POLYGON"),
+        ChainConfig("Avalanche", "JSON_RPC_AVALANCHE"),
+        ChainConfig("Berachain", "JSON_RPC_BERACHAIN"),
+        ChainConfig("Unichain", "JSON_RPC_UNICHAIN", scan_vaults=False),
+        ChainConfig("Hemi", "JSON_RPC_HEMI"),
+        ChainConfig("Plasma", "JSON_RPC_PLASMA"),
+        ChainConfig("Binance", "JSON_RPC_BINANCE"),
+        ChainConfig("Mantle", "JSON_RPC_MANTLE"),
+        ChainConfig("Katana", "JSON_RPC_KATANA"),
+        ChainConfig("Ink", "JSON_RPC_INK"),
+        ChainConfig("Blast", "JSON_RPC_BLAST"),
+        ChainConfig("Soneium", "JSON_RPC_SONEIUM"),
+        ChainConfig("Optimism", "JSON_RPC_OPTIMISM"),
     ]
 
 
@@ -1192,7 +1197,8 @@ def scan_chain(
     """Scan a single chain (vaults and optionally prices).
 
     :param config: Chain configuration
-    :param scan_prices: Whether to scan prices
+    :param scan_prices: Whether price scanning is globally enabled. The chain
+        configuration may still disable it during a staged rollout.
     :param max_workers: Number of parallel workers
     :param frequency: Scan frequency
     :param retry_attempt: Retry attempt number (0 for first)
@@ -1207,6 +1213,9 @@ def scan_chain(
     :return: Scan result
     """
     result = ChainResult(name=config.name, status="running", retry_attempt=retry_attempt)
+    price_scan_enabled = scan_prices and config.scan_prices
+    if scan_prices and not config.scan_prices:
+        logger.info("%s: historical price readers are disabled by the per-chain rollout gate", config.name)
 
     def record_rpc_usage(phase: str, stats: RPCRequestStats, metrics: dict) -> None:
         """Persist one phase attempt without turning observability into a retry."""
@@ -1283,7 +1292,7 @@ def scan_chain(
             result.traceback_str = vault_metrics.get("traceback")
 
     # Scan prices
-    if scan_prices:
+    if price_scan_enabled:
         price_stats = RPCRequestStats()
         price_success, price_metrics = scan_prices_for_chain(
             rpc_url,
@@ -1324,7 +1333,7 @@ def scan_chain(
 
     # Determine overall status
     vault_ok = result.vault_scan_ok if config.scan_vaults else True
-    price_ok = result.price_scan_ok if scan_prices else True
+    price_ok = result.price_scan_ok if price_scan_enabled else True
 
     if vault_ok and price_ok:
         result.status = "success"

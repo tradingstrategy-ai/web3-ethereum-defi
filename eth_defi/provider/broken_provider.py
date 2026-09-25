@@ -23,6 +23,7 @@ from eth_defi.provider.ankr import is_ankr
 from eth_defi.provider.anvil import is_anvil, is_mainnet_fork
 from eth_defi.provider.fallback import FallbackProvider
 from eth_defi.provider.mev_blocker import MEVBlockerProvider
+from eth_defi.provider.rpc_failure import classify_rpc_failure
 from eth_defi.utils import get_url_domain
 
 logger = logging.getLogger(__name__)
@@ -81,7 +82,7 @@ def get_block_tip_latency(web3: Web3) -> int:
     """
     latency_override = getattr(web3, "block_tip_latency", None)
     if latency_override is not None:
-        assert type(latency_override) == int, f"Got {latency_override.__class__}"
+        assert type(latency_override) is int, f"Got {latency_override.__class__}"
         return latency_override
 
     return get_default_block_tip_latency(web3)
@@ -291,7 +292,11 @@ def verify_archive_node(rpc_url: str, chain_name: str) -> tuple[str, int]:
         raise RuntimeError(f"{chain_name}: No call endpoints found in RPC configuration")
 
     working = []  # (endpoint_url, domain, latest_block)
-    faulty = []  # (domain, error_message)
+    # Store only the redacted provider domain and a bounded failure category.
+    # The same values are later included in the raised all-providers-failed
+    # error, so retaining ``str(exception)`` here would leak it even if the
+    # immediate log statement were redacted.
+    faulty = []  # (domain, failure_mode, response_headers, latest_block)
     first_latest_block = None
 
     for endpoint in endpoints:
@@ -302,7 +307,7 @@ def verify_archive_node(rpc_url: str, chain_name: str) -> tuple[str, int]:
             web3 = create_multi_provider_web3(endpoint, retries=2)
 
             # Check latest block
-            step = f"eth_blockNumber()"
+            step = "eth_blockNumber()"
             latest_block = web3.eth.block_number
             if first_latest_block is None:
                 first_latest_block = latest_block
@@ -326,20 +331,36 @@ def verify_archive_node(rpc_url: str, chain_name: str) -> tuple[str, int]:
             )
         except Exception as e:
             headers = get_last_headers()
-            faulty.append((domain, str(e), headers, latest_block))
+
+            # Never log or retain the raw provider exception here. Requests,
+            # Web3 and provider-specific errors commonly include the complete
+            # request URL. Private RPC services often put API credentials in a
+            # path segment or query parameter; the Arc Goldsky URL derived by
+            # ``scan-arc-vaults.py`` is one concrete example. This preflight
+            # writes to both the console and persistent scanner logs, so a
+            # transient connection or HTTP failure could otherwise persist the
+            # credential long after the failed run.
+            #
+            # Keep the operationally useful, non-secret parts instead: the
+            # redacted domain, failed JSON-RPC step, last observed block and a
+            # normalised failure category. The category is also stored in
+            # ``faulty`` below so the final ``RuntimeError`` remains safe for
+            # callers that log or serialise its message.
+            failure_mode = classify_rpc_failure(e).value
+            faulty.append((domain, failure_mode, headers, latest_block))
             logger.error(
-                "%s: Provider %s failed %s check at step %s (block number %s): %s\nHTTP response headers: %s",
+                "%s: Provider %s failed %s check at step %s (block number %s): failure_mode=%s\nHTTP response headers: %s",
                 chain_name,
                 domain,
                 verification_label,
                 step,
                 f"{latest_block:,}" if latest_block is not None else "unknown",
-                e,
+                failure_mode,
                 pformat(headers),
             )
 
     if not working:
-        faulty_str = ", ".join(f"{d} (block {b:,}, {err})" if b is not None else f"{d} ({err})" for d, err, _h, b in faulty)
+        faulty_str = ", ".join(f"{d} (block {b:,}, failure_mode={err})" if b is not None else f"{d} (failure_mode={err})" for d, err, _h, b in faulty)
         raise RuntimeError(f"{chain_name}: All {len(endpoints)} RPC providers failed {verification_label} verification. Faulty: [{faulty_str}].")
 
     if faulty:

@@ -10,6 +10,7 @@ All tests use synthetic data — no AWS or Hyperliquid API access required.
 import datetime
 import io
 from decimal import Decimal
+from pathlib import Path
 
 import pandas as pd
 import pytest
@@ -27,7 +28,9 @@ from eth_defi.hyperliquid.backfill import (
     run_s3_extract,
 )
 from eth_defi.hyperliquid.daily_metrics import HyperliquidDailyMetricsDatabase, HyperliquidDailyPriceRow, fetch_and_store_vault
+from eth_defi.hyperliquid.high_freq_metrics import HyperliquidHighFreqMetricsDatabase
 from eth_defi.hyperliquid.vault import PortfolioHistory, VaultInfo, VaultSummary
+from eth_defi.hyperliquid.vault_data_export import build_raw_prices_dataframe, create_hyperliquid_vault_row
 
 VAULT_A = "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
 VAULT_B = "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
@@ -686,7 +689,7 @@ def test_fetch_and_store_vault_preserves_historical_apr_on_resume(tmp_path, monk
         )
 
         fetches = iter([first_vault_info, second_vault_info])
-        monkeypatch.setattr("eth_defi.hyperliquid.daily_metrics.HyperliquidVault.fetch_info", lambda self: next(fetches))
+        monkeypatch.setattr("eth_defi.hyperliquid.daily_metrics.HyperliquidVault.fetch_metadata", lambda self: next(fetches))
 
         first_summary = VaultSummary(
             name="Test Vault",
@@ -999,7 +1002,6 @@ def test_tombstone_stale_vaults(tmp_path):
 
 def test_build_raw_prices_deposits_open_healthy(tmp_path):
     """Healthy vault with deposits open has deposit_closed_reason=None and deposits_open='true'."""
-    from eth_defi.hyperliquid.vault_data_export import build_raw_prices_dataframe
 
     metrics_db_path = tmp_path / "metrics.duckdb"
     db = HyperliquidDailyMetricsDatabase(metrics_db_path)
@@ -1029,7 +1031,6 @@ def test_build_raw_prices_deposits_open_healthy(tmp_path):
 
 def test_build_raw_prices_includes_account_pnl(tmp_path):
     """Raw Hyperliquid export exposes scalar passthrough metrics."""
-    from eth_defi.hyperliquid.vault_data_export import build_raw_prices_dataframe
 
     metrics_db_path = tmp_path / "metrics.duckdb"
     db = HyperliquidDailyMetricsDatabase(metrics_db_path)
@@ -1055,10 +1056,14 @@ def test_build_raw_prices_includes_account_pnl(tmp_path):
         db.close()
 
 
-def test_build_raw_prices_deposit_closed_leader_fraction(tmp_path):
-    """Leader fraction below threshold produces deposit_closed_reason with 'Leader share' message."""
-    from eth_defi.hyperliquid.vault_data_export import build_raw_prices_dataframe
+def test_build_raw_prices_low_leader_fraction_is_capacity_not_closure(tmp_path: Path) -> None:
+    """An observed low share limits buys without mislabelling source closure.
 
+    1. Export a price row with explicit open flags and low leader share.
+    2. Assert permission remains open while the policy amount is zero.
+    """
+
+    # 1. Store an explicitly open source snapshot with a low leader share.
     metrics_db_path = tmp_path / "metrics.duckdb"
     db = HyperliquidDailyMetricsDatabase(metrics_db_path)
     try:
@@ -1073,10 +1078,11 @@ def test_build_raw_prices_deposit_closed_leader_fraction(tmp_path):
         result = build_raw_prices_dataframe(db)
         assert len(result) == 1
 
+        # 2. The backtest gate sees a zero policy cap, not a false closure.
         row = result.iloc[0]
-        assert row["deposit_closed_reason"] is not None
-        assert "Leader share" in row["deposit_closed_reason"]
-        assert row["deposits_open"] == "false"
+        assert row["deposit_closed_reason"] is None
+        assert row["deposits_open"] == "true"
+        assert row["max_deposit"] == pytest.approx(0.0)
 
     finally:
         db.close()
@@ -1084,7 +1090,6 @@ def test_build_raw_prices_deposit_closed_leader_fraction(tmp_path):
 
 def test_build_raw_prices_hlp_parent_ignores_leader_fraction(tmp_path):
     """HLP parent vault rows stay deposit-open even with tiny leader_fraction."""
-    from eth_defi.hyperliquid.vault_data_export import build_raw_prices_dataframe
 
     metrics_db_path = tmp_path / "metrics.duckdb"
     db = HyperliquidDailyMetricsDatabase(metrics_db_path)
@@ -1102,15 +1107,43 @@ def test_build_raw_prices_hlp_parent_ignores_leader_fraction(tmp_path):
 
         assert row["deposit_closed_reason"] is None
         assert row["deposits_open"] == "true"
+        assert pd.isna(row["max_deposit"])
         assert row["performance_fee"] == pytest.approx(0.0)
 
     finally:
         db.close()
 
 
+def test_low_share_cap_not_carried_into_unobserved_row(tmp_path: Path) -> None:
+    """Do not infer capacity from a forward-filled leader-share snapshot.
+
+    1. Store an observed low-share day followed by a price-only day.
+    2. Verify the source permission carries but the policy cap does not.
+    """
+
+    # 1. The later price has no fresh leader-fraction observation.
+    db = HyperliquidDailyMetricsDatabase(tmp_path / "metrics.duckdb")
+    try:
+        _setup_metrics_db_with_metadata(db, VAULT_A)
+        db.upsert_daily_prices(
+            [
+                _make_daily_price_row(VAULT_A, datetime.date(2024, 1, 1), is_closed=False, allow_deposits=True, leader_fraction=0.05),
+                _make_daily_price_row(VAULT_A, datetime.date(2024, 1, 2)),
+            ]
+        )
+        db.save()
+
+        # 2. A stale share cannot become a newly observed zero cap.
+        rows = build_raw_prices_dataframe(db).sort_values("timestamp")
+        assert rows["deposits_open"].tolist() == ["true", "true"]
+        assert rows.iloc[0]["max_deposit"] == pytest.approx(0.0)
+        assert pd.isna(rows.iloc[1]["max_deposit"])
+    finally:
+        db.close()
+
+
 def test_build_raw_prices_deposit_closed_allow_deposits(tmp_path):
     """allow_deposits=False produces correct deposit_closed_reason."""
-    from eth_defi.hyperliquid.vault_data_export import build_raw_prices_dataframe
 
     metrics_db_path = tmp_path / "metrics.duckdb"
     db = HyperliquidDailyMetricsDatabase(metrics_db_path)
@@ -1134,7 +1167,6 @@ def test_build_raw_prices_deposit_closed_allow_deposits(tmp_path):
 
 def test_build_raw_prices_unknown_state_rows(tmp_path):
     """Rows before first state observation have deposit_closed_reason=None (not misclassified)."""
-    from eth_defi.hyperliquid.vault_data_export import build_raw_prices_dataframe
 
     metrics_db_path = tmp_path / "metrics.duckdb"
     db = HyperliquidDailyMetricsDatabase(metrics_db_path)
@@ -1180,21 +1212,78 @@ def test_deposit_closed_reason_in_cleaned_data():
 
     assert "deposit_closed_reason" in df.columns
 
-    # "true" → None (deposits open)
-    assert df.iloc[0]["deposit_closed_reason"] is None
+    # "true" → empty marker (deposits open)
+    assert df.iloc[0]["deposit_closed_reason"] == ""
     # "false" → reason filled in
     assert df.iloc[1]["deposit_closed_reason"] == "Vault deposits disabled"
-    # "true" → None
-    assert df.iloc[2]["deposit_closed_reason"] is None
+    # "true" → empty marker
+    assert df.iloc[2]["deposit_closed_reason"] == ""
     # "false" → reason filled in
     assert df.iloc[3]["deposit_closed_reason"] == "Vault deposits disabled"
-    # "" (unknown) → None
-    assert df.iloc[4]["deposit_closed_reason"] is None
+    # An empty legacy marker remains empty; it is not a closure reason.
+    assert df.iloc[4]["deposit_closed_reason"] == ""
+
+
+@pytest.mark.parametrize("database_class", [HyperliquidDailyMetricsDatabase, HyperliquidHighFreqMetricsDatabase])
+@pytest.mark.parametrize("missing_flag_column", [False, True])
+def test_existing_metrics_database_accepts_unknown_deposit_flags(
+    tmp_path: Path,
+    database_class: type[HyperliquidDailyMetricsDatabase | HyperliquidHighFreqMetricsDatabase],
+    missing_flag_column: bool,
+) -> None:
+    """Reopen an older scanner schema without inventing open permission.
+
+    1. Recreate an older schema with non-null flags or a missing flag column.
+    2. Reopen the database and write a vault whose API omitted both flags.
+    3. Check the persisted flags remain unknown.
+    """
+    path = tmp_path / "legacy-vault-flags.duckdb"
+
+    # 1. Daily and high-frequency databases must migrate the shared metadata.
+    db = database_class(path)
+    try:
+        db.con.execute("ALTER TABLE vault_metadata ALTER COLUMN is_closed SET NOT NULL")
+        db.con.execute("ALTER TABLE vault_metadata ALTER COLUMN is_closed SET DEFAULT FALSE")
+        if missing_flag_column:
+            db.con.execute("ALTER TABLE vault_metadata DROP COLUMN allow_deposits")
+        else:
+            db.con.execute("ALTER TABLE vault_metadata ALTER COLUMN allow_deposits SET NOT NULL")
+            db.con.execute("ALTER TABLE vault_metadata ALTER COLUMN allow_deposits SET DEFAULT TRUE")
+    finally:
+        db.close()
+
+    # 2. Reopen the database and write a vault whose API omitted both flags.
+    db = database_class(path)
+    try:
+        db.upsert_vault_metadata(
+            vault_address=VAULT_A,
+            name="Missing flags",
+            leader="0x0000000000000000000000000000000000000001",
+            description=None,
+            is_closed=None,
+            allow_deposits=None,
+            relationship_type="normal",
+            create_time=None,
+            commission_rate=None,
+            follower_count=None,
+            tvl=None,
+            apr=None,
+        )
+
+        # 3. Check the persisted flags remain unknown.
+        flags = db.con.execute(
+            "SELECT is_closed, allow_deposits FROM vault_metadata WHERE vault_address = ?",
+            [VAULT_A],
+        ).fetchone()
+        assert flags == (None, None)
+        columns = db.con.execute("PRAGMA table_info('vault_metadata')").fetchall()
+        assert all(column[4] is None for column in columns if column[1] in ("is_closed", "allow_deposits"))
+    finally:
+        db.close()
 
 
 def test_process_raw_vault_scan_data_preserves_hyperliquid_scalars(tmp_path):
     """Cleaned price data keeps Hyperliquid scalar passthrough columns intact."""
-    from eth_defi.hyperliquid.vault_data_export import build_raw_prices_dataframe, create_hyperliquid_vault_row
     from eth_defi.research.wrangle_vault_prices import process_raw_vault_scan_data
 
     metrics_db_path = tmp_path / "metrics.duckdb"
@@ -1240,7 +1329,6 @@ def test_process_raw_vault_scan_data_preserves_hyperliquid_scalars(tmp_path):
 
 def test_hyperliquid_scalars_reach_lifetime_metrics_export(tmp_path):
     """Hyperliquid scalar passthrough fields reach lifetime metrics and JSON export."""
-    from eth_defi.hyperliquid.vault_data_export import build_raw_prices_dataframe, create_hyperliquid_vault_row
     from eth_defi.research.vault_metrics import calculate_hourly_returns_for_all_vaults, calculate_lifetime_metrics, export_lifetime_row
     from eth_defi.research.wrangle_vault_prices import process_raw_vault_scan_data
 

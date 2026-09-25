@@ -1,6 +1,8 @@
 # 1.2
 
 - feat: Add mainnet-only Derive v3 native vault discovery, daily price history and shared vault export, with separate testnet inspection and storage (2026-09-24).
+- feat: Add Arc mainnet metadata, HyperSync lookup, generic share-price-gated vault-scanner scheduling, temporary Morpho API coverage handling, Docker RPC wiring and an isolated initial vault-discovery script (2026-09-24)
+- fix: Clip Derive funding-rate API responses to the requested time range when the service includes a preceding boundary sample (2026-09-24)
 - feat: Clean public Yearn vault attribution against the official positive catalogue before JSON export, without allowing an offchain API failure to stop the scanner (2026-09-23).
 - feat: Prepare and render vault sparklines in bounded process batches by default while retaining threaded R2 uploads (2026-09-23).
 - feat: Bound deterministic sparkline rendering and R2 publication with daily crypto input, persistent cadence state and a three-day low-TVL throttle (2026-09-22).

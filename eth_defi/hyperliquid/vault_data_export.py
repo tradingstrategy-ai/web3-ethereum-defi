@@ -40,6 +40,11 @@ from eth_defi.hyperliquid.constants import HYPERCORE_CHAIN_ID, HYPERLIQUID_DAILY
 from eth_defi.hyperliquid.daily_metrics import HyperliquidDailyMetricsDatabase
 from eth_defi.hyperliquid.high_freq_metrics import HyperliquidHighFreqMetricsDatabase
 from eth_defi.hyperliquid.tags import get_strategy_tags
+from eth_defi.hyperliquid.vault import (
+    LEADER_FRACTION_DEPOSIT_WARNING,
+    LEADER_FRACTION_NO_BUY_THRESHOLD,
+    classify_hyperliquid_vault_deposit,
+)
 from eth_defi.hyperliquid.vault_review_sync import ReviewStatus
 from eth_defi.perp_dex.vault import PerpVaultDepositAccess, classify_perp_vault_deposit_access
 from eth_defi.vault.base import VaultHistoricalRead, VaultSpec
@@ -52,22 +57,8 @@ from eth_defi.vault.vaultdb import VaultDatabase, VaultRow
 logger = logging.getLogger(__name__)
 
 
-#: If the leader's share of vault capital drops below this threshold,
-#: we warn that new deposits may not be accepted because the leader
-#: must maintain at least 5% of total vault capital.
-#:
-#: The threshold is set 0.5% above the Hyperliquid minimum (5%) to
-#: give an early warning before deposits are actually blocked.
-#:
-#: Source: https://hyperliquid.gitbook.io/hyperliquid-docs/hypercore/vaults/for-vault-leaders-legacy
-#: Verified: 2026-03-09
-LEADER_FRACTION_WARNING_THRESHOLD: float = 0.055
-
-#: Availability warning which does not prove that deposits are closed.
-LEADER_FRACTION_DEPOSIT_WARNING = "Leader share of the vault capital near allowed Hyperliquid minimum and new capital may not be accepted"
-
-#: Stored reason when source deposit flags are incomplete.
-PUBLIC_DEPOSIT_STATUS_UNAVAILABLE = "Hyperliquid public deposit status is unavailable"
+#: Existing import name for the shared conservative no-buy boundary.
+LEADER_FRACTION_WARNING_THRESHOLD = LEADER_FRACTION_NO_BUY_THRESHOLD
 
 #: Last-known deposit reasons that mean public deposits were explicitly closed.
 _PUBLIC_DEPOSIT_CLOSED_REASONS = {
@@ -76,85 +67,43 @@ _PUBLIC_DEPOSIT_CLOSED_REASONS = {
 }
 
 
-def _get_deposit_closed_reason(
-    is_closed: bool | None,
-    allow_deposits: bool | None,
-    leader_fraction: float | None = None,
-    relationship_type: str = "normal",
-) -> str | None:
-    """Return a deposit-availability reason or warning.
-
-    Permanent closure and disabled deposits are blocking reasons. A low leader
-    fraction is retained as a non-blocking warning and does not change the
-    public-deposit permission classification.
-
-    :param is_closed:
-        Whether the vault is permanently closed, or ``None`` when the source
-        field is unavailable.
-    :param allow_deposits:
-        Whether the vault currently accepts deposits, or ``None`` when the
-        source field is unavailable.
-    :param leader_fraction:
-        Leader's fraction of total vault capital (e.g. 0.10 = 10%).
-        If below :py:data:`LEADER_FRACTION_WARNING_THRESHOLD`, a warning
-        is returned even when the vault nominally accepts deposits.
-    :param relationship_type:
-        Vault relationship type: ``"normal"``, ``"parent"`` (HLP), or ``"child"``.
-        For an HLP parent, the integration preserves its existing behaviour and
-        treats ``allow_deposits`` as non-authoritative.
-    :return:
-        Closure reason, non-blocking warning, unavailable marker, or ``None``
-        when public deposits are open.
-    """
-    if is_closed is True:
-        return "Vault is permanently closed"
-    if is_closed is None:
-        return PUBLIC_DEPOSIT_STATUS_UNAVAILABLE
-    # The integration's existing HLP-parent exception treats this API field as
-    # non-authoritative.
-    if relationship_type == "parent":
-        return None
-    if allow_deposits is None:
-        return PUBLIC_DEPOSIT_STATUS_UNAVAILABLE
-    if allow_deposits is False:
-        return "Vault deposits disabled by leader"
-    if leader_fraction is not None and leader_fraction < LEADER_FRACTION_WARNING_THRESHOLD:
-        return LEADER_FRACTION_DEPOSIT_WARNING
-    return None
-
-
 def _classify_public_deposits_from_reason(deposit_closed_reason: str | None) -> bool | None:
-    """Classify public deposit availability from a generated source reason.
+    """Recover permission from the reason stored by an older exporter.
+
+    Retained metadata may have a reason but no original API flags. The old
+    exporter emitted the leader-share warning only after checking that
+    deposits were open. An absent reason is ambiguous: it can also come from
+    incomplete source data.
 
     :param deposit_closed_reason:
-        Source-backed closure reason, non-blocking warning, or ``None``.
+        Stored closure reason, legacy leader-share warning, or ``None``.
     :return:
         ``True`` for open, ``False`` for explicitly closed, or ``None`` for an
         unrecognised or incomplete source state.
     """
     if deposit_closed_reason in _PUBLIC_DEPOSIT_CLOSED_REASONS:
         return False
-    if deposit_closed_reason in {None, LEADER_FRACTION_DEPOSIT_WARNING}:
+    if deposit_closed_reason == LEADER_FRACTION_DEPOSIT_WARNING:
         return True
     return None
 
 
 def classify_hyperliquid_vault_deposit_access(deposit_closed_reason: str | None) -> PerpVaultDepositAccess:
-    """Classify one Hyperliquid vault from its persisted availability reason.
+    """Convert a legacy Hyperliquid reason into the shared deposit-access format.
 
-    The `Hyperliquid vault-details response
-    <https://hyperliquid.gitbook.io/hyperliquid-docs/for-developers/api/info-endpoint>`__
-    provides the source flags used to generate this reason. Keeping the final
-    mapping as a pure function lets current and retained metadata rows use the
-    same compatibility classification.
+    The metadata normaliser and migration script use this when a retained row
+    lacks ``_hyperliquid_deposits_open``. New rows should be classified from
+    their API flags with :func:`classify_hyperliquid_vault_deposit`. A missing
+    or unrecognised legacy reason returns unknown permission.
 
     :param deposit_closed_reason:
-        Source-backed closure reason, non-blocking warning, or unavailable
-        status marker.
+        Stored closure reason, leader-share warning, or unavailable marker.
     :return:
         Shared native-perp deposit-access classification.
     """
     public_deposits_open = _classify_public_deposits_from_reason(deposit_closed_reason)
+    if deposit_closed_reason == LEADER_FRACTION_DEPOSIT_WARNING:
+        deposit_closed_reason = None
     return classify_perp_vault_deposit_access(public_deposits_open=public_deposits_open, closed_reason=deposit_closed_reason)
 
 
@@ -212,8 +161,8 @@ def create_hyperliquid_vault_row(
     tvl: float,
     create_time: datetime.datetime | None,
     follower_count: int | None = None,
-    is_closed: bool | None = False,
-    allow_deposits: bool | None = True,
+    is_closed: bool | None = None,
+    allow_deposits: bool | None = None,
     relationship_type: str = "normal",
     leader_fraction: float | None = None,
     manual_review_status: ReviewStatus | None = None,
@@ -260,8 +209,9 @@ def create_hyperliquid_vault_row(
         vaults, ``"parent"`` for HLP, ``"child"`` for HLP sub-vaults.
     :param leader_fraction:
         Leader's fraction of total vault capital (e.g. 0.10 = 10%).
-        Used for :py:func:`_get_deposit_closed_reason` to warn when
-        close to the Hyperliquid 5% minimum.
+        Ignored; retained for existing metadata callers.
+        The raw price exporter applies the no-buy policy to timestamped
+        observations; shared metadata must not label it as closure.
     :param manual_review_status:
         Manual review decision for this vault captured from the Hyperliquid
         review Google Sheet. Stored on the row so downstream exports
@@ -309,8 +259,9 @@ def create_hyperliquid_vault_row(
         withdraw=0.0,
     )
 
-    deposit_closed_reason = _get_deposit_closed_reason(is_closed, allow_deposits, leader_fraction, relationship_type)
-    deposit_access = classify_hyperliquid_vault_deposit_access(deposit_closed_reason)
+    status = classify_hyperliquid_vault_deposit(is_closed, allow_deposits, relationship_type)
+    deposit_closed_reason = status.closed_reason
+    deposit_access = classify_perp_vault_deposit_access(public_deposits_open=status.deposits_open, closed_reason=deposit_closed_reason)
 
     row: VaultRow = {
         "Symbol": (name or "")[:10],
@@ -346,6 +297,7 @@ def create_hyperliquid_vault_row(
         "_risk": risk,
         "_manual_review_status": manual_review_status,
         "_deposit_permission": deposit_access.permission.value,
+        "_hyperliquid_deposits_open": status.deposits_open,
         "_whitelist_notes": deposit_access.whitelist_notes,
         "_share_price_source": PriceSource.approximation,
     }
@@ -355,15 +307,16 @@ def create_hyperliquid_vault_row(
 
 
 def normalise_hyperliquid_deposit_permissions(vault_db: VaultDatabase) -> int:
-    """Normalise Hyperliquid rows from their last observed deposit state.
+    """Refresh exported permissions after merging scanner metadata.
 
-    Current rows have just been rebuilt from source state. Older retained rows
-    may no longer be present in the scanner database, but still contain their
-    last deposit-closure reason. Reclassifying both sets makes the migration
-    idempotent and also repairs metadata written by earlier exporter versions.
-    Explicit closure reasons map to the qualified native-perp ``whitelisted``
-    compatibility value; an open state or leader-share warning maps to
-    ``permissionless``. Unrecognised retained reasons map to ``unknown``.
+    Read ``_hyperliquid_deposits_open`` on current rows. For retained rows
+    without that marker, recognise the older closure and leader-share reason
+    strings; leave missing or unrecognised reasons as unknown. Repeated calls
+    leave already-correct rows unchanged.
+
+    The shared native-perp schema represents disabled public deposits as
+    ``whitelisted`` with an explanatory note. That value does not imply that
+    Hyperliquid exposes an address whitelist.
 
     :param vault_db:
         Shared vault metadata database being migrated in place.
@@ -375,63 +328,77 @@ def normalise_hyperliquid_deposit_permissions(vault_db: VaultDatabase) -> int:
         if row.get("Protocol") != "Hyperliquid":
             continue
         deposit_closed_reason = row.get("_deposit_closed_reason")
-        deposit_access = classify_hyperliquid_vault_deposit_access(deposit_closed_reason)
-        if row.get("_deposit_permission") != deposit_access.permission.value or row.get("_whitelist_notes") != deposit_access.whitelist_notes:
+        if deposit_closed_reason == LEADER_FRACTION_DEPOSIT_WARNING:
+            # The old exporter wrote this warning only after checking flags.
+            # Retain that evidence before removing the misleading reason.
+            row.setdefault("_hyperliquid_deposits_open", True)
+            deposit_closed_reason = None
+        if "_hyperliquid_deposits_open" in row:
+            deposit_access = classify_perp_vault_deposit_access(
+                public_deposits_open=row["_hyperliquid_deposits_open"],
+                closed_reason=deposit_closed_reason,
+            )
+        else:
+            deposit_access = classify_hyperliquid_vault_deposit_access(deposit_closed_reason)
+        if row.get("_deposit_permission") != deposit_access.permission.value or row.get("_whitelist_notes") != deposit_access.whitelist_notes or row.get("_deposit_closed_reason") != deposit_access.deposit_closed_reason:
             row["_deposit_permission"] = deposit_access.permission.value
             row["_whitelist_notes"] = deposit_access.whitelist_notes
+            row["_deposit_closed_reason"] = deposit_access.deposit_closed_reason
             changed += 1
     return changed
 
 
-def _compute_deposit_closed_reason_column(prices_df: pd.DataFrame) -> pd.Series:
-    """Compute per-row deposit_closed_reason from forward-filled vault state columns.
+def _compute_deposit_state_columns(
+    prices_df: pd.DataFrame,
+    observed_leader_fraction: pd.Series,
+) -> tuple[pd.Series, pd.Series, pd.Series]:
+    """Build the three deposit-state columns used by the raw price export.
 
-    Uses :py:func:`_get_deposit_closed_reason` with an explicit NaN guard:
-    rows where ``is_closed`` or ``allow_deposits`` are still missing after
-    forward-fill get ``None`` (unknown state) instead of being misclassified.
+    Daily and high-frequency exports carry the last observed permission flags
+    forward. The leader-share policy uses only the original observation on
+    each row, so a carried share cannot extend a zero deposit limit into a
+    later price-only row.
 
     :param prices_df:
-        DataFrame with ``is_closed``, ``allow_deposits``, ``leader_fraction``
-        columns (forward-filled within each vault group).
+        Price rows with nullable ``is_closed`` and ``allow_deposits`` flags,
+        optional ``relationship_type``, and forward-filled snapshot fields.
+    :param observed_leader_fraction:
+        Original leader-fraction values, indexed like ``prices_df``. Each
+        value is a fraction or missing; capture this before forward-filling.
     :return:
-        Series of ``str | None`` — reason string when deposits are closed,
-        ``None`` when deposits are open or state is unknown.
+        Series with the input index: permission as ``"true"``, ``"false"``
+        or ``None``; closure reason as text or ``None``; and the policy deposit
+        limit in USDC as ``0.0`` or ``NaN``. A missing limit does not establish
+        permission to deposit.
     """
-    has_is_closed = "is_closed" in prices_df.columns
-    has_allow_deposits = "allow_deposits" in prices_df.columns
-
-    if not has_is_closed or not has_allow_deposits:
-        return pd.Series([None] * len(prices_df), index=prices_df.index)
-
+    open_values = []
     reasons = []
-    for _, row in prices_df.iterrows():
+    caps = []
+    for index, row in prices_df.iterrows():
         is_closed = row.get("is_closed")
         allow_deposits = row.get("allow_deposits")
-
-        # NaN is truthy in bool context — guard against missing state
-        if pd.isna(is_closed) or pd.isna(allow_deposits):
-            reasons.append(None)
-            continue
-
-        lf = row.get("leader_fraction")
         relationship_type = row.get("relationship_type", "normal")
-        reasons.append(
-            _get_deposit_closed_reason(
-                is_closed=bool(is_closed),
-                allow_deposits=bool(allow_deposits),
-                leader_fraction=float(lf) if pd.notna(lf) else None,
-                relationship_type=str(relationship_type) if pd.notna(relationship_type) else "normal",
-            )
+        observed_fraction = observed_leader_fraction.loc[index]
+        status = classify_hyperliquid_vault_deposit(
+            is_closed=_normalise_optional_bool(is_closed),
+            allow_deposits=_normalise_optional_bool(allow_deposits),
+            relationship_type=str(relationship_type) if pd.notna(relationship_type) else "normal",
+            leader_fraction=float(observed_fraction) if pd.notna(observed_fraction) else None,
         )
-
-    return pd.Series(reasons, index=prices_df.index)
+        open_values.append(None if status.deposits_open is None else str(status.deposits_open).lower())
+        reasons.append(status.closed_reason)
+        caps.append(float(status.max_deposit) if status.max_deposit is not None else np.nan)
+    return (
+        pd.Series(open_values, index=prices_df.index, dtype=object),
+        pd.Series(reasons, index=prices_df.index, dtype=object),
+        pd.Series(caps, index=prices_df.index, dtype=float),
+    )
 
 
 def _prepare_hypercore_export(
     prices_df: pd.DataFrame,
-    timestamp_values,
+    timestamp_column: str,
     flow_col_map: dict[str, str],
-    sort_columns: list[str],
     hypercore_source: str,
 ) -> pd.DataFrame:
     """Shared helper for building Hypercore export DataFrames.
@@ -441,15 +408,13 @@ def _prepare_hypercore_export(
 
     :param prices_df:
         Raw price data from DuckDB (daily or HF).
-    :param timestamp_values:
-        Array of timestamp values for the output ``timestamp`` column.
+    :param timestamp_column:
+        Source datetime column, ``date`` or ``timestamp``. Sort it with the
+        vault address before deriving output arrays so timestamps stay aligned.
     :param flow_col_map:
         Mapping from output column name to source column name in
         ``prices_df`` (e.g. ``{"daily_deposit_count": "daily_deposit_count"}``
         for daily, ``{"daily_deposit_count": "deposit_count"}`` for HF).
-    :param sort_columns:
-        Columns to sort by before forward-filling (e.g.
-        ``["vault_address", "date"]`` or ``["vault_address", "timestamp"]``).
     :param hypercore_source:
         Provenance label for the exported observations: ``"daily"`` or
         ``"hf"``. This remains in the raw parquet so the wrangle step can
@@ -464,6 +429,8 @@ def _prepare_hypercore_export(
     # observed history so raw and cleaned consumers do not need to
     # reimplement "last non-null per vault" logic. Rows before the first
     # observed snapshot remain NULL.
+    prices_df = prices_df.sort_values(["vault_address", timestamp_column]).reset_index(drop=True)
+    observed_leader_fraction = prices_df.get("leader_fraction", pd.Series(np.nan, index=prices_df.index)).copy()
     snapshot_cols = [
         "is_closed",
         "allow_deposits",
@@ -474,21 +441,19 @@ def _prepare_hypercore_export(
     ]
     existing_snapshot_cols = [c for c in snapshot_cols if c in prices_df.columns]
     if existing_snapshot_cols:
-        prices_df = prices_df.sort_values(sort_columns)
         prices_df[existing_snapshot_cols] = prices_df.groupby("vault_address")[existing_snapshot_cols].ffill()
 
-    # Compute deposit_closed_reason per row from forward-filled state.
-    deposit_reasons = _compute_deposit_closed_reason_column(prices_df)
-
-    # Derive deposits_open string for backwards compatibility with ERC-4626 column.
-    has_state = prices_df["is_closed"].notna() if "is_closed" in prices_df.columns else pd.Series(False, index=prices_df.index)
-    deposits_open = pd.Series([None] * len(prices_df), index=prices_df.index, dtype=object)
-    deposits_open[has_state & deposit_reasons.isna()] = "true"
-    deposits_open[has_state & deposit_reasons.notna()] = "false"
+    deposits_open, deposit_reasons, max_deposit = _compute_deposit_state_columns(prices_df, observed_leader_fraction)
 
     chain_id = HYPERCORE_CHAIN_ID
 
-    def _col(name: str, default=np.nan):
+    def _col(name: str, default: object = np.nan) -> object:
+        """Return an optional column's array, or a scalar to broadcast on export.
+
+        :param name: Source column in the sorted price frame.
+        :param default: Missing-field value for all output rows.
+        :return: Source values or the supplied scalar default.
+        """
         return prices_df[name].values if name in prices_df.columns else default
 
     # Normal Hyperliquid vaults charge the fixed 10% leader profit share.
@@ -509,7 +474,7 @@ def _prepare_hypercore_export(
             "chain": chain_id,
             "address": prices_df["vault_address"].values,
             "block_number": 0,
-            "timestamp": timestamp_values,
+            "timestamp": pd.to_datetime(prices_df[timestamp_column]).values,
             "share_price": prices_df["share_price"].values,
             "total_assets": prices_df["tvl"].values,
             "account_pnl": _col("cumulative_pnl"),
@@ -521,6 +486,7 @@ def _prepare_hypercore_export(
             "errors": "",
             "deposits_open": deposits_open.values,
             "deposit_closed_reason": deposit_reasons.values,
+            "max_deposit": max_deposit.values,
             "leader_fraction": _col("leader_fraction"),
             "leader_commission": _col("leader_commission"),
             "daily_deposit_count": _col(flow_col_map.get("daily_deposit_count", "daily_deposit_count")),
@@ -551,10 +517,11 @@ def build_raw_prices_dataframe(db: HyperliquidDailyMetricsDatabase) -> pd.DataFr
     The output has ``timestamp`` as a column (not index), matching
     the raw uncleaned Parquet format.
 
-    Includes per-row ``deposit_closed_reason`` (str or None) and
-    ``deposits_open`` (str "true"/"false" or None) columns derived
-    from forward-filled ``is_closed``, ``allow_deposits``, and
-    ``leader_fraction`` state columns in the DuckDB.
+    Permission comes from the last observed ``is_closed`` and
+    ``allow_deposits`` flags. ``deposit_closed_reason`` contains only explicit
+    closure; an observed low leader share instead sets ``max_deposit`` to zero.
+    See :func:`_compute_deposit_state_columns` for column types and the rule
+    for carrying sparse observations forward.
 
     Also exposes Hyperliquid's raw cumulative account PnL as
     ``account_pnl`` so downstream consumers can compare the website-style
@@ -575,9 +542,8 @@ def build_raw_prices_dataframe(db: HyperliquidDailyMetricsDatabase) -> pd.DataFr
 
     result = _prepare_hypercore_export(
         prices_df,
-        timestamp_values=pd.to_datetime(prices_df["date"]).values,
+        timestamp_column="date",
         flow_col_map={},  # Daily columns already named daily_*
-        sort_columns=["vault_address", "date"],
         hypercore_source="daily",
     )
     return result
@@ -635,7 +601,6 @@ def merge_into_vault_database(
         vault_db = VaultDatabase()
 
     metadata_df = db.get_all_vault_metadata()
-    leader_fractions = db.get_latest_leader_fractions()
 
     added = 0
     updated = 0
@@ -661,7 +626,6 @@ def merge_into_vault_database(
             is_closed=_normalise_optional_bool(row.get("is_closed")),
             allow_deposits=_normalise_optional_bool(row.get("allow_deposits")),
             relationship_type=row.get("relationship_type", "normal") or "normal",
-            leader_fraction=leader_fractions.get(address),
             manual_review_status=manual_review_status,
         )
 
@@ -784,14 +748,13 @@ def build_raw_prices_dataframe_hf(db: HyperliquidHighFreqMetricsDatabase) -> pd.
     # for downstream compatibility.
     result = _prepare_hypercore_export(
         prices_df,
-        timestamp_values=prices_df["timestamp"].values,
+        timestamp_column="timestamp",
         flow_col_map={
             "daily_deposit_count": "deposit_count",
             "daily_withdrawal_count": "withdrawal_count",
             "daily_deposit_usd": "deposit_usd",
             "daily_withdrawal_usd": "withdrawal_usd",
         },
-        sort_columns=["vault_address", "timestamp"],
         hypercore_source="hf",
     )
     return result

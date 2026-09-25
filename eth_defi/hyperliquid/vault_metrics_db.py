@@ -79,8 +79,8 @@ class HyperliquidMetricsDatabaseBase:
                 name VARCHAR NOT NULL,
                 leader VARCHAR NOT NULL,
                 description VARCHAR,
-                is_closed BOOLEAN NOT NULL,
-                allow_deposits BOOLEAN NOT NULL DEFAULT TRUE,
+                is_closed BOOLEAN,
+                allow_deposits BOOLEAN,
                 relationship_type VARCHAR NOT NULL,
                 create_time TIMESTAMP,
                 commission_rate DOUBLE,
@@ -91,6 +91,19 @@ class HyperliquidMetricsDatabaseBase:
                 flow_data_earliest_date DATE
             )
         """)
+
+        # Both daily and high-frequency databases share this metadata schema.
+        # Older databases may lack allow_deposits entirely.
+        self.con.execute("ALTER TABLE vault_metadata ADD COLUMN IF NOT EXISTS allow_deposits BOOLEAN")
+
+        # Allow missing API flags in databases created by the older schema.
+        # Existing values cannot distinguish observed flags from old defaults,
+        # so this migration preserves them but stops defaulting future rows.
+        columns = self.con.execute("PRAGMA table_info('vault_metadata')").fetchall()
+        for name in ("is_closed", "allow_deposits"):
+            self.con.execute(f"ALTER TABLE vault_metadata ALTER COLUMN {name} DROP DEFAULT")
+            if any(column[1] == name and column[3] for column in columns):
+                self.con.execute(f"ALTER TABLE vault_metadata ALTER COLUMN {name} DROP NOT NULL")
 
     def _init_price_schema(self):
         """Create the price table.  Must be overridden by subclasses."""
@@ -104,14 +117,14 @@ class HyperliquidMetricsDatabaseBase:
         name: str,
         leader: HexAddress,
         description: str | None,
-        is_closed: bool,
+        is_closed: bool | None,
         relationship_type: str,
         create_time: datetime.datetime | None,
         commission_rate: float | None,
         follower_count: int | None,
         tvl: float | None,
         apr: float | None,
-        allow_deposits: bool = True,
+        allow_deposits: bool | None = None,
         flow_data_earliest_date: datetime.date | None = None,
     ):
         """Insert or update a vault's metadata.
@@ -169,14 +182,15 @@ class HyperliquidMetricsDatabaseBase:
 
     def update_vault_tvl_bulk(
         self,
-        updates: list[tuple[float, bool, float | None, str]],
+        updates: list[tuple[float, bool | None, float | None, str]],
     ):
         """Bulk-update TVL, is_closed, and APR for existing vaults.
 
         Only updates rows that already exist in ``vault_metadata``.
 
         :param updates:
-            List of tuples ``(tvl, is_closed, apr, vault_address)``.
+            List of tuples ``(tvl, is_closed, apr, vault_address)``. Missing
+            bulk-list flags do not erase a previously observed closure state.
         """
         if not updates:
             return
@@ -184,7 +198,7 @@ class HyperliquidMetricsDatabaseBase:
             """
             UPDATE vault_metadata
             SET tvl = ?,
-                is_closed = ?,
+                is_closed = COALESCE(?, is_closed),
                 apr = ?,
                 last_updated = CURRENT_TIMESTAMP
             WHERE vault_address = ?
