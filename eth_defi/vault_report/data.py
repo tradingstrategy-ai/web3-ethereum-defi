@@ -18,17 +18,19 @@ directory and can be passed as local paths instead of downloading them.
 import datetime
 import json
 import logging
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
 import pandas as pd
 import pyarrow.compute as pc
 import pyarrow.parquet as pq
 import requests
+from joblib import Parallel, delayed
 from tqdm_loggable.auto import tqdm
 
 from eth_defi.compat import native_datetime_utc_now
 from eth_defi.research.vault_metrics import MAX_VALID_NAV
+from eth_defi.vault_report.sections import SPARKLINE_URL
 
 logger = logging.getLogger(__name__)
 
@@ -61,6 +63,9 @@ class VaultReportData:
 
     #: Path to the cleaned vault price Parquet file used for charts
     prices_path: Path
+
+    #: Strategy category key -> category description, from the top vaults export
+    categories: dict[str, dict] = field(default_factory=dict)
 
     @property
     def data_end_at(self) -> datetime.datetime:
@@ -147,7 +152,8 @@ def _pick_net(df: pd.DataFrame, column: str) -> pd.Series:
     :return:
         Net values where known, gross values otherwise.
     """
-    return df[f"{column}_net"].fillna(df[column])
+    # All-null JSON columns come through as object dtype
+    return pd.to_numeric(df[f"{column}_net"], errors="coerce").fillna(pd.to_numeric(df[column], errors="coerce"))
 
 
 def prepare_vault_metrics(vaults: list[dict]) -> pd.DataFrame:
@@ -158,6 +164,7 @@ def prepare_vault_metrics(vaults: list[dict]) -> pd.DataFrame:
 
     - ``one_month_cagr_best``: net annualised one-month return when fee data
       is known, otherwise gross
+    - ``three_months_cagr_best``: the same for the annualised three-month return
     - ``three_months_sharpe_best``: net Sharpe, falling back to gross
     - ``is_perp_dex``: perpetual DEX native trading vault
     - ``end_date``, ``start_date``: parsed as naive UTC timestamps
@@ -179,6 +186,7 @@ def prepare_vault_metrics(vaults: list[dict]) -> pd.DataFrame:
         df[column] = pd.to_datetime(df[column])
 
     df["one_month_cagr_best"] = _pick_net(df, "one_month_cagr")
+    df["three_months_cagr_best"] = _pick_net(df, "three_months_cagr")
     df["three_months_sharpe_best"] = _pick_net(df, "three_months_sharpe")
     df["is_perp_dex"] = df["flags"].apply(lambda flags: PERP_DEX_TRADING_VAULT_FLAG in (flags or []))
 
@@ -226,7 +234,7 @@ def fetch_vault_report_data(
         data = json.load(inp)
     vaults_df = prepare_vault_metrics(data["vaults"])
     logger.info("Loaded %d vaults from %s, generated at %s", len(vaults_df), top_vaults_json_path, data["generated_at"])
-    return VaultReportData(vaults_df=vaults_df, prices_path=prices_path)
+    return VaultReportData(vaults_df=vaults_df, prices_path=prices_path, categories=data.get("categories", {}))
 
 
 def read_vault_share_prices(
@@ -280,3 +288,73 @@ def calculate_daily_share_prices(prices_df: pd.DataFrame) -> pd.DataFrame:
         return pd.DataFrame()
     daily = prices_df.pivot_table(index="timestamp", columns="id", values="share_price", aggfunc="last").resample("D").last()
     return daily.ffill().where(daily.bfill().notna())
+
+
+def read_vault_tvl_history(
+    prices_path: Path,
+    vault_ids: list[str],
+    start_at: datetime.datetime,
+    frequency: str = "W",
+) -> pd.DataFrame:
+    """Read TVL history for vaults, resampled to a fixed frequency.
+
+    Each vault's TVL is forward filled between its first and last data point
+    only. Values above :py:data:`~eth_defi.research.vault_metrics.MAX_VALID_NAV`
+    come from broken share tokens and are treated as missing.
+
+    :param prices_path:
+        Cleaned vault price Parquet with ``id``, ``timestamp`` and ``total_assets`` columns.
+
+    :param vault_ids:
+        Vault ids to read.
+
+    :param start_at:
+        Skip rows before this timestamp.
+
+    :param frequency:
+        Pandas resampling frequency.
+
+    :return:
+        DataFrame indexed by period end with one TVL column per vault id, in
+        the vault denomination (USD for stablecoin vaults).
+    """
+    expression = pc.field("id").isin(vault_ids) & (pc.field("timestamp") >= pd.Timestamp(start_at))
+    df = pq.read_table(prices_path, columns=["id", "timestamp", "total_assets"], filters=expression).to_pandas(ignore_metadata=True)
+    logger.info("Read %d TVL rows for %d vaults from %s", len(df), df["id"].nunique(), prices_path)
+    if len(df) == 0:
+        return pd.DataFrame()
+    df = df.loc[(df["total_assets"] >= 0) & (df["total_assets"] <= MAX_VALID_NAV)]
+    periodic = df.pivot_table(index="timestamp", columns="id", values="total_assets", aggfunc="last").resample(frequency).last()
+    return periodic.ffill().where(periodic.bfill().notna())
+
+
+def fetch_available_sparklines(vault_ids: list[str], max_workers: int = 16, timeout: float = 20.0) -> set[str]:
+    """Check which vaults have a published 90-day sparkline image.
+
+    Low-TVL vaults are rendered on a slower cadence and may not have a sparkline.
+
+    :param vault_ids:
+        Vault ids to check.
+
+    :param max_workers:
+        Parallel HTTP HEAD requests.
+
+    :param timeout:
+        HTTP timeout in seconds.
+
+    :return:
+        Vault ids with a sparkline.
+    """
+
+    def _exists(vault_id: str) -> bool:
+        try:
+            return requests.head(SPARKLINE_URL.format(vault_id=vault_id), timeout=timeout).status_code == 200
+        except requests.RequestException as e:
+            logger.warning("Could not check sparkline for %s: %s", vault_id, e)
+            return False
+
+    unique_ids = sorted(set(vault_ids))
+    results = Parallel(n_jobs=max_workers, backend="threading")(delayed(_exists)(vault_id) for vault_id in tqdm(unique_ids, desc="Checking sparklines"))
+    available = {vault_id for vault_id, exists in zip(unique_ids, results, strict=True) if exists}
+    logger.info("Sparklines available for %d of %d vaults", len(available), len(unique_ids))
+    return available

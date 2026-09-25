@@ -24,6 +24,8 @@ Environment variables:
 - ``MIN_TVL``: minimum TVL for the main listing, default 200,000 USD
 - ``TOP_N``: vaults per listing, default 50
 - ``RENDER_CHARTS``: set ``false`` to skip chart rendering
+- ``CHART_THEME``: ``dark`` (default, the website look) or ``light``
+- ``CHECK_SPARKLINES``: set ``false`` to leave sparklines out of the tables
 - ``LOG_LEVEL``: default ``info``
 """
 
@@ -40,6 +42,7 @@ from eth_defi.vault_report.ghost import GhostAdminClient, GhostContentClient
 from eth_defi.vault_report.post import REPORT_SLUG_PREFIX, make_report_slug, read_changelog_entries
 from eth_defi.vault_report.report import generate_monthly_vault_report, publish_report_draft
 from eth_defi.vault_report.sections import ReportCriteria
+from eth_defi.vault_report.theme import get_theme
 
 logger = logging.getLogger(__name__)
 
@@ -105,8 +108,17 @@ def main() -> None:
     changelog_entries = read_changelog_entries(CHANGELOG_PATH, since=changelog_since)[:MAX_CHANGELOG_ENTRIES]
 
     output_dir = _env_path("OUTPUT_DIR") or cache_dir / "reports" / make_report_slug(data.data_end_at)
-    render_charts = os.environ.get("RENDER_CHARTS", "true").strip().lower() != "false"
-    report = generate_monthly_vault_report(data, output_dir=output_dir, criteria=criteria, previous=previous, changelog_entries=changelog_entries, render_charts=render_charts)
+    report = generate_monthly_vault_report(
+        data,
+        output_dir=output_dir,
+        criteria=criteria,
+        previous=previous,
+        changelog_entries=changelog_entries,
+        render_charts=os.environ.get("RENDER_CHARTS", "true").strip().lower() != "false",
+        theme=get_theme(os.environ.get("CHART_THEME", "dark")),
+        cache_dir=cache_dir / "assets",
+        check_sparklines=os.environ.get("CHECK_SPARKLINES", "true").strip().lower() != "false",
+    )
 
     rows = [[key, len(section.vaults_df), section.vaults_df.iloc[0]["name"]] for key, section in report.sections.items()]
     print(tabulate(rows, headers=["Section", "Vaults", "Top vault"], tablefmt="fancy_grid"))

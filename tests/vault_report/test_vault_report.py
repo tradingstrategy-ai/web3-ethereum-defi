@@ -10,23 +10,33 @@ from pathlib import Path
 import pandas as pd
 import pytest
 import requests
+from PIL import Image
 
 from eth_defi.research.vault_correlation import choose_vaults_for_correlation_comparison
+from eth_defi.vault_report import report as report_module
+from eth_defi.vault_report.benchmarks import calculate_treasury_bill_rolling_returns, convert_discount_to_investment_yield
+from eth_defi.vault_report.branding import HERO_SIZE, compose_chart_panel
 from eth_defi.vault_report.charts import CHOREOGRAPHER_CHROME_PATH, calculate_rolling_returns, create_correlation_figure, create_rolling_returns_figure
-from eth_defi.vault_report.data import VaultReportData, calculate_daily_share_prices, prepare_vault_metrics, read_vault_share_prices
+from eth_defi.vault_report.data import VaultReportData, calculate_daily_share_prices, prepare_vault_metrics, read_vault_share_prices, read_vault_tvl_history
 from eth_defi.vault_report.ghost import GhostAdminClient, GhostAPIError, GhostContentClient, GhostPost, create_ghost_admin_token
+from eth_defi.vault_report.movers import calculate_rank_changes, parse_ranked_vault_links, resolve_vault_id
 from eth_defi.vault_report.post import extract_section_html, make_report_slug, read_changelog_entries
 from eth_defi.vault_report.report import generate_monthly_vault_report, publish_report_draft
 from eth_defi.vault_report.sections import (
     ReportCriteria,
+    ReportSection,
     calculate_chain_yields,
+    calculate_protocol_tvl_history,
     filter_eligible_vaults,
     format_return,
+    format_risk_badge,
     format_sharpe,
+    render_section_table,
     select_best_vaults,
     select_perp_dex_vaults,
     select_vaults_by_chain,
 )
+from eth_defi.vault_report.theme import DARK_THEME
 
 DATA_END_AT = datetime.datetime(2026, 9, 24)
 
@@ -70,6 +80,8 @@ def make_vault_record(address: str, **overrides) -> dict:
         "start_date": "2025-03-01T00:00:00",
         "end_date": DATA_END_AT.isoformat(),
         "trading_strategy_link": f"https://tradingstrategy.ai/trading-view/vaults/{address}",
+        "vault_slug": f"vault-{address}",
+        "strategy_tags": ["lending"],
     }
     record.update(overrides)
     return record
@@ -100,11 +112,23 @@ def vaults_df(vault_records: list[dict]) -> pd.DataFrame:
 def prices_path(tmp_path: Path, vault_records: list[dict]) -> Path:
     """Hourly share prices, stored with timestamp as the pandas index like the production file."""
     timestamps = pd.date_range(DATA_END_AT - datetime.timedelta(days=200), DATA_END_AT, freq="6h")
-    frames = [pd.DataFrame({"timestamp": timestamps, "id": record["id"], "share_price": 1.0 + 0.0002 * i * pd.RangeIndex(len(timestamps))}) for i, record in enumerate(vault_records, start=1)]
+    frames = [pd.DataFrame({"timestamp": timestamps, "id": record["id"], "share_price": 1.0 + 0.0002 * i * pd.RangeIndex(len(timestamps)), "total_assets": 1_000_000.0 * i}) for i, record in enumerate(vault_records, start=1)]
     df = pd.concat(frames).set_index("timestamp")
     path = tmp_path / "prices.parquet"
     df.to_parquet(path)
     return path
+
+
+@pytest.fixture(autouse=True)
+def offline_report(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Replace network reads of the report pipeline with synthetic data.
+
+    Real providers are covered by ``test_vault_report_live.py``.
+    """
+    yields = pd.Series(0.04, index=pd.date_range(DATA_END_AT - datetime.timedelta(days=400), DATA_END_AT, freq="D"))
+    monkeypatch.setattr(report_module, "fetch_treasury_bill_yields", lambda cache_dir: yields)
+    monkeypatch.setattr(report_module, "fetch_chain_logo_uri", lambda chain, cache_dir: None)
+    monkeypatch.setattr(report_module, "fetch_available_sparklines", lambda vault_ids: set(list(vault_ids)[:1]))
 
 
 def test_filter_and_rank_sections(vaults_df: pd.DataFrame):
@@ -140,7 +164,8 @@ def test_formatting():
     assert format_return(0.1234, 0.2) == "12.3% (n)"
     assert format_return(None, 0.0) == "0.0% (g)"
     assert format_return(None, None) == "---"
-    assert format_return(100.0, None) == "10,000.0% (n)"
+    assert format_return(100.0, None) == ">9,999% (n)"
+    assert format_return(99.0, None) == "9,900.0% (n)"
     assert format_sharpe(8_205_524.0) == ">100"
     assert format_sharpe(float("nan")) == "---"
 
@@ -159,9 +184,10 @@ def test_daily_prices_and_rolling_returns(prices_path: Path):
     # Before a full window, returns are since inception
     assert rolling["1-0xaa"].iloc[0] == pytest.approx(0)
 
-    fig = create_rolling_returns_figure(rolling, {"1-0xaa": "A", "1-0xbb": "B"}, title="Test")
-    assert len(fig.data) == 2
-    fig = create_correlation_figure(daily, {"1-0xaa": "A", "1-0xbb": "B"})
+    # Two series get the glow style: an underlay and a line each
+    fig = create_rolling_returns_figure(rolling, {"1-0xaa": "A", "1-0xbb": "B"}, DARK_THEME)
+    assert len(fig.data) == 4
+    fig = create_correlation_figure(daily, {"1-0xaa": "A", "1-0xbb": "B"}, DARK_THEME)
     assert fig.data[0].z.shape == (2, 2)
 
 
@@ -197,6 +223,8 @@ def test_generate_report_bundle(tmp_path: Path, vaults_df: pd.DataFrame, prices_
     assert manifest["sections"]["best"] == 3
     assert manifest["sections"]["perp_dex"] == 2
     assert (tmp_path / "out" / "tables" / "best.csv").exists()
+    assert manifest["rankings"]["best"] == ["1-0xaa", "1-0xbb", "1-0x22"]
+    assert "vault-sparklines.tradingstrategy.ai" in post_html
 
     # An existing draft is checked before any chart is uploaded
     report.chart_paths = {"best_rolling": tmp_path / "missing.png"}
@@ -209,11 +237,17 @@ def test_generate_report_bundle(tmp_path: Path, vaults_df: pd.DataFrame, prices_
 
 @pytest.mark.skipif(not CHOREOGRAPHER_CHROME_PATH.exists(), reason="Kaleido needs Chrome, install with plotly_get_chrome")
 def test_render_report_charts(tmp_path: Path, vaults_df: pd.DataFrame, prices_path: Path):
-    """Charts render as PNG files."""
+    """All charts render as branded PNG panels, and the hero image has the social card size."""
+    previous_table = '<h2 id="the-best-performing-vaults">Best</h2><table><tbody><tr><td><a href="https://tradingstrategy.ai/trading-view/vaults/vault-0xbb">B</a></td></tr><tr><td><a href="https://tradingstrategy.ai/trading-view/vaults/vault-0xaa">A</a></td></tr></tbody></table>'
+    previous = GhostPost(id="p0", title="Previous", slug="previous", status="published", published_at=datetime.datetime(2026, 8, 25), updated_at=None, html=previous_table)
     data = VaultReportData(vaults_df=vaults_df, prices_path=prices_path)
-    report = generate_monthly_vault_report(data, output_dir=tmp_path / "out", criteria=ReportCriteria(correlation_min_tvl=0, chain_yield_min_chain_tvl=0))
-    assert set(report.chart_paths) == {"chain_yields", "best_rolling", "low_volatility_rolling", "correlation"}
-    assert all(path.read_bytes().startswith(b"\x89PNG") for path in report.chart_paths.values())
+    report = generate_monthly_vault_report(data, output_dir=tmp_path / "out", criteria=ReportCriteria(correlation_min_tvl=0, chain_yield_min_chain_tvl=0), previous=previous)
+    assert set(report.chart_paths) == {"chain_yields", "protocol_tvl", "best_rolling", "low_volatility_rolling", "risk_return", "movers", "correlation"}
+    for path in report.chart_paths.values():
+        image = Image.open(path)
+        assert image.mode == "RGBA"
+        assert image.getpixel((0, 0))[3] == 0  # Rounded panel corner is transparent
+    assert Image.open(report.hero_path).size == HERO_SIZE
     assert 'src="charts/best_rolling.png"' in (tmp_path / "out" / "post.html").read_text()
 
 
@@ -221,10 +255,10 @@ def test_render_report_charts(tmp_path: Path, vaults_df: pd.DataFrame, prices_pa
 def test_render_report_charts_without_prices(tmp_path: Path, vaults_df: pd.DataFrame):
     """Missing price history leaves out the price charts instead of aborting the report."""
     empty_prices = tmp_path / "empty.parquet"
-    pd.DataFrame({"id": ["1-0xother"], "timestamp": [pd.Timestamp(DATA_END_AT)], "share_price": [1.0]}).to_parquet(empty_prices)
+    pd.DataFrame({"id": ["1-0xother"], "timestamp": [pd.Timestamp(DATA_END_AT)], "share_price": [1.0], "total_assets": [1.0]}).to_parquet(empty_prices)
     data = VaultReportData(vaults_df=vaults_df, prices_path=empty_prices)
     report = generate_monthly_vault_report(data, output_dir=tmp_path / "out", criteria=ReportCriteria(correlation_min_tvl=0, chain_yield_min_chain_tvl=0))
-    assert set(report.chart_paths) == {"chain_yields"}
+    assert set(report.chart_paths) == {"chain_yields", "risk_return"}
     assert "best" in report.context.tables
 
 
@@ -358,3 +392,54 @@ def test_create_or_update_draft(existing_status: str | None, overwrite: bool, ex
         post = client.create_or_update_draft("Title", "s", "<p>Body</p>", overwrite_draft=overwrite)
         assert post.status == "draft"
         assert client.session.calls[-1][0] == expected
+
+
+def test_treasury_bill_benchmark():
+    """Discount rates convert to investment yields, and daily accrual matches compounding."""
+    assert convert_discount_to_investment_yield(pd.Series([0.04])).iloc[0] == pytest.approx(365 * 0.04 / (360 - 91 * 0.04))
+    yields = pd.Series(0.0365, index=pd.date_range("2026-01-02", periods=200, freq="B"))
+    index = pd.date_range("2026-06-01", "2026-06-30", freq="D")
+    rolling = calculate_treasury_bill_rolling_returns(yields, datetime.timedelta(days=90), index)
+    assert rolling.iloc[-1] == pytest.approx(((1 + 0.0365 / 365) ** 90 - 1) * 100)
+
+
+def test_movers(vaults_df: pd.DataFrame):
+    """Previous table links resolve by address or slug, and ranks are recalculated in the current universe."""
+    post_html = '<h2 id="the-best-performing-vaults">Best</h2><table><tbody><tr><td><a href="https://tradingstrategy.ai/trading-view/hypercore/vaults/x?a=0xFF&amp;ref=x">Perp</a></td></tr><tr><td><a href="https://tradingstrategy.ai/trading-view/ethereum/vaults/old-name?a=0xbb">B</a></td></tr><tr><td><a href="https://tradingstrategy.ai/trading-view/vaults/vault-0x22">C</a></td></tr><tr><td><a href="https://tradingstrategy.ai/trading-view/vaults/gone">Gone</a></td></tr></tbody></table>'
+    links = parse_ranked_vault_links(post_html, "the-best-performing-vaults")
+    assert len(links) == 4
+    previous_ids = [resolve_vault_id(link, vaults_df) for link in links]
+    assert previous_ids == ["1-0xff", "1-0xbb", "1-0x22", None]
+
+    changes, dropped = calculate_rank_changes(previous_ids, ["1-0xaa", "1-0x22", "1-0xbb"], top_n=2)
+    assert [(c.vault_id, c.previous_rank, c.status) for c in changes] == [("1-0xaa", None, "new"), ("1-0x22", 2, "same")]
+    assert dropped == ["1-0xbb"]
+
+
+def test_protocol_tvl_history(vaults_df: pd.DataFrame, prices_path: Path):
+    """Weekly TVL is summed per protocol with the tail grouped as Other."""
+    tvl = read_vault_tvl_history(prices_path, list(vaults_df.index), start_at=DATA_END_AT - datetime.timedelta(days=60))
+    by_protocol = calculate_protocol_tvl_history(tvl, vaults_df, top_n=1)
+    assert list(by_protocol.columns) == ["Morpho", "Other"]
+    assert by_protocol.iloc[-1].sum() == pytest.approx(tvl.iloc[-1].sum())
+
+
+def test_table_badges_and_sparklines(vaults_df: pd.DataFrame):
+    """Tables show risk pills and sparklines only for vaults that have one."""
+    assert ">Low<" in format_risk_badge("Low")
+    assert ">Unrated<" in format_risk_badge(None)
+    table = render_section_table(ReportSection(vaults_df.loc[["1-0xaa", "1-0xbb"]], sparkline_ids=frozenset({"1-0xaa"})))
+    assert table.count("sparkline-90d-") == 1
+    assert "sparkline-90d-1-0xaa.svg" in table
+    assert table.startswith('<div style="overflow-x:auto">')
+
+
+def test_compose_chart_panel(tmp_path: Path):
+    """The branded panel adds a header and footer and has transparent rounded corners."""
+    chart = tmp_path / "chart.png"
+    Image.new("RGB", (1400, 800), DARK_THEME.surface).save(chart)
+    output = compose_chart_panel(chart, DARK_THEME, "Title", "Subtitle", "Data 2026-09-25", "tradingstrategy.ai", tmp_path / "panel.png")
+    image = Image.open(output)
+    assert image.size == (1400, 800 + 128 + 84)
+    assert image.getpixel((0, 0))[3] == 0
+    assert image.getpixel((700, 500))[3] == 255

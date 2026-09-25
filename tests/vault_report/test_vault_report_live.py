@@ -11,11 +11,14 @@ import os
 import uuid
 from pathlib import Path
 
+import pandas as pd
 import pytest
 import requests
 
+from eth_defi.vault_report.benchmarks import fetch_treasury_bill_yields
 from eth_defi.vault_report.data import TOP_VAULTS_JSON_URL, VAULT_PRICES_DOWNLOAD_URL
 from eth_defi.vault_report.ghost import GhostAdminClient, GhostContentClient
+from eth_defi.vault_report.logos import fetch_chain_logo_uri
 from eth_defi.vault_report.post import REPORT_SLUG_PREFIX, extract_section_html
 
 GHOST_CONTENT_API_URL = os.environ.get("GHOST_CONTENT_API_URL")
@@ -93,3 +96,17 @@ def test_ghost_admin_api_draft(tmp_path: Path):
     finally:
         client.delete_post(post.id)
     assert client.fetch_post_by_slug(slug) is None
+
+
+def test_treasury_bill_yields_available(tmp_path: Path):
+    """FRED serves recent 3-month Treasury bill rates without an API key."""
+    yields = fetch_treasury_bill_yields(tmp_path)
+    assert yields is not None
+    assert 0 < yields.iloc[-1] < 0.2
+    assert yields.index[-1] > pd.Timestamp.now() - pd.Timedelta(days=14)
+
+
+def test_chain_logo_available(tmp_path: Path):
+    """The website serves chain logos, and Hypercore maps to the Hyperliquid logo."""
+    for chain in ("Ethereum", "Hypercore"):
+        assert fetch_chain_logo_uri(chain, tmp_path).startswith("data:image/svg+xml;base64,")
