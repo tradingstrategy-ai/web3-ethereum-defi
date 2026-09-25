@@ -96,6 +96,7 @@ See :ref:`tutorials <tutorials>` for guides and examples on how to use the libra
    price_oracle/index
    currency_api/index
    research/index
+   vault_report/index
 
 
 Indices and tables
