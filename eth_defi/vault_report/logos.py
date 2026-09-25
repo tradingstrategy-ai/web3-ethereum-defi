@@ -119,7 +119,7 @@ def fetch_chain_logo_uri(chain_name: str, cache_dir: Path, timeout: float = 20.0
 
 
 def load_watermark_logo_uri(theme: ChartTheme) -> str:
-    """Load the horizontal brand logo recoloured for a chart watermark.
+    """Load the TradingStrategy.ai logo recoloured for a chart watermark.
 
     The website watermark recolours the whole logo, candles included, to a
     single colour and draws it at a low opacity, see ``src/lib/echarts/watermark.ts``.
@@ -130,7 +130,7 @@ def load_watermark_logo_uri(theme: ChartTheme) -> str:
     :return:
         SVG data URI.
     """
-    svg = (ASSETS_DIR / "logo-horizontal.svg").read_text()
+    svg = (ASSETS_DIR / "logo-horizontal-ai.svg").read_text()
     svg = re.sub(r'fill="#[0-9A-Fa-f]{6}"', f'fill="{theme.watermark}"', svg)
     return to_data_uri(svg.encode(), "image/svg+xml")
 

@@ -81,7 +81,12 @@ the page. `CHART_THEME=light` switches to a light theme, e.g. for newsletters.
   `BROWSER_PATH` at an existing Chrome binary. Set `RENDER_CHARTS=false` to skip the charts.
 - **Brand assets:** `logo-horizontal.svg` and `brand-mark.svg` in
   `eth_defi/vault_report/assets` are copied from the frontend
-  (`src/lib/assets`); re-copy them if the brand changes. The BTC, ETH and US
+  (`src/lib/assets`); re-copy them if the brand changes. The charts, panel
+  footers and hero images use the TradingStrategy.ai logo,
+  `logo-horizontal-ai.svg`: the website logo with a `.ai` suffix built from the
+  wordmark's own glyphs. `scripts/erc-4626/render-vault-report-logo.py`
+  rebuilds it and its PNG renders for the Pillow-drawn footers and heroes;
+  rerun it after re-copying `logo-horizontal.svg`. The BTC, ETH and US
   Treasury logos in `assets/benchmarks` come from the frontend's
   `src/lib/assets/logos/tokens`, as used by its vault comparison chart; the
   performance charts show them in the legend and at the benchmark line ends.
