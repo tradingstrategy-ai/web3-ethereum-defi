@@ -20,6 +20,7 @@ from eth_defi.vault_report.branding import HERO_SIZE, SQUARE_HERO_SIZE, compose_
 from eth_defi.vault_report.charts import CHOREOGRAPHER_CHROME_PATH, PerformanceSeries, calculate_period_performance, create_performance_figure
 from eth_defi.vault_report.data import VaultReportData, calculate_daily_share_prices, prepare_vault_metrics, read_vault_share_prices, read_vault_tvl_history
 from eth_defi.vault_report.ghost import GhostAdminClient, GhostAPIError, GhostContentClient, GhostPost, create_ghost_admin_token
+from eth_defi.vault_report.logos import load_benchmark_logo_uri
 from eth_defi.vault_report.post import extract_section_html, make_report_slug, read_changelog_entries
 from eth_defi.vault_report.report import generate_monthly_vault_report, publish_report_draft
 from eth_defi.vault_report.sections import (
@@ -220,6 +221,13 @@ def test_daily_prices_and_performance(prices_path: Path):
     fig = create_performance_figure(series, daily, indices, DARK_THEME)
     assert [trace.name for trace in fig.data if trace.mode == "lines" and trace.name] == ["A", "B", TREASURY_BILL]
     assert fig.layout.yaxis.type != "log"
+
+    # Benchmark logos are drawn in the legend and at the line end
+    logos = {TREASURY_BILL: load_benchmark_logo_uri(TREASURY_BILL), BTC: load_benchmark_logo_uri(BTC), ETH: load_benchmark_logo_uri(ETH)}
+    assert all(uri.startswith("data:image/svg+xml;base64,") for uri in logos.values())
+    assert load_benchmark_logo_uri("Unknown") is None
+    fig = create_performance_figure(series, daily, indices, DARK_THEME, benchmark_logos=logos)
+    assert sum(image.source == logos[TREASURY_BILL] for image in fig.layout.images) == 2
 
     # A vault returning more than the threshold switches the shared axis to a log scale
     fig = create_performance_figure(series, daily, indices, DARK_THEME, log_threshold=-100)

@@ -47,7 +47,7 @@ from eth_defi.vault_report.charts import (
 )
 from eth_defi.vault_report.data import TVL_OUTLIER_THRESHOLD, VaultReportData, calculate_daily_share_prices, fetch_available_sparklines, read_vault_share_prices, read_vault_tvl_history
 from eth_defi.vault_report.ghost import GhostAdminClient, GhostPost
-from eth_defi.vault_report.logos import fetch_chain_logo_uri, load_protocol_logo_uri, load_watermark_logo_uri
+from eth_defi.vault_report.logos import fetch_chain_logo_uri, load_benchmark_logo_uri, load_protocol_logo_uri, load_watermark_logo_uri
 from eth_defi.vault_report.post import PostContext, build_post_html, build_preview_html, make_month_label, make_report_slug, make_report_title
 from eth_defi.vault_report.sections import (
     CHAIN_TABLE_COLUMNS,
@@ -413,6 +413,7 @@ def render_report_charts(
         "other": ChartPanel("Performance of other best-performing vaults", f"{by_return}, {period}, against their benchmarks", "tradingstrategy.ai/trading-view/vaults"),
         "tokenised_funds": ChartPanel("Performance of the best-performing tokenised funds", f"{selection.format(by='funds by return')}, {period}, against their benchmarks", "tradingstrategy.ai/trading-view/vaults/funds"),
     }
+    benchmark_logos = {name: load_benchmark_logo_uri(name) for name in benchmark_indices}
     for key, df in performance_vaults.items():
         if not len(df):
             continue
@@ -425,7 +426,7 @@ def render_report_charts(
             )
             for vault_id, vault in df.iterrows()
         ]
-        figures[f"{key}_performance"] = (create_performance_figure(series, daily_prices, benchmark_indices, theme, PERFORMANCE_WINDOW, watermark), performance_panels[key])
+        figures[f"{key}_performance"] = (create_performance_figure(series, daily_prices, benchmark_indices, theme, PERFORMANCE_WINDOW, watermark, benchmark_logos=benchmark_logos), performance_panels[key])
 
     figures["risk_return"] = (
         create_risk_return_figure(yield_universe, {tag: category.get("label", tag) for tag, category in data.categories.items()}, theme, criteria.scatter_max_return, tbill_latest, watermark),

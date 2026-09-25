@@ -75,8 +75,11 @@ the page. `CHART_THEME=light` switches to a light theme, e.g. for newsletters.
   `BROWSER_PATH` at an existing Chrome binary. Set `RENDER_CHARTS=false` to skip the charts.
 - **Brand assets:** `logo-horizontal.svg` and `brand-mark.svg` in
   `eth_defi/vault_report/assets` are copied from the frontend
-  (`src/lib/assets`); re-copy them if the brand changes. Protocol logos come
-  from `eth_defi/data/vaults/formatted_logos`.
+  (`src/lib/assets`); re-copy them if the brand changes. The BTC, ETH and US
+  Treasury logos in `assets/benchmarks` come from the frontend's
+  `src/lib/assets/logos/tokens`, as used by its vault comparison chart; the
+  performance charts show them in the legend and at the benchmark line ends.
+  Protocol logos come from `eth_defi/data/vaults/formatted_logos`.
 - **Palettes:** eight fixed-order categorical colours, checked for colour vision
   deficiency on both theme surfaces; see `eth_defi.vault_report.theme`.
 

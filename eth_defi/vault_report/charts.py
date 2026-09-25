@@ -248,6 +248,7 @@ def create_performance_figure(
     watermark_uri: str | None = None,
     log_threshold: float = 100.0,
     outlier_ratio: float = 5.0,
+    benchmark_logos: dict[str, str | None] | None = None,
 ) -> Figure:
     """Draw the equity curves of vaults and their benchmarks in one chart.
 
@@ -293,6 +294,10 @@ def create_performance_figure(
 
     :param outlier_ratio:
         Peak return multiple of the median vault peak above which a vault is drawn off scale.
+
+    :param benchmark_logos:
+        Benchmark name -> logo data URI, see :py:func:`eth_defi.vault_report.logos.load_benchmark_logo_uri`.
+        Drawn in the legend and at the benchmark line ends.
 
     :return:
         Plotly figure.
@@ -365,11 +370,15 @@ def create_performance_figure(
             fig.add_annotation(text=f"▲ {i + 1}", x=exit_at, y=1, xref="x", yref="paper", yanchor="top", showarrow=False, **badge)
         else:
             fig.add_trace(go.Scatter(x=performance.index[-1:], y=scale(performance)[-1:], mode="markers", marker={"size": 11, "color": colour, "line": {"color": theme.surface, "width": 2}}, showlegend=False, hoverinfo="skip"))
-            labels.append((position(performance.iloc[-1]), f"{i + 1}", badge))
+            labels.append((position(performance.iloc[-1]), f"{i + 1}", badge, None))
 
     for name, performance in benchmarks.items():
         fig.add_trace(go.Scatter(x=performance.index, y=scale(performance), mode="lines", name=name, line={"color": to_rgba(theme.muted_text, 0.75), "width": 2, "dash": BENCHMARK_DASHES[name]}, hoverinfo="skip"))
-        labels.append((position(performance.iloc[-1]), f"{name.removeprefix('US 3M ')} {describe(performance.iloc[-1])}", {"font": {"size": 15, "color": theme.muted_text}}))
+        logo = (benchmark_logos or {}).get(name)
+        entries.append(LegendEntry(name, to_rgba(theme.muted_text, 0.75), logo, dash=BENCHMARK_DASHES[name], detail=describe(performance.iloc[-1])))
+        # The line end shows the benchmark logo and return; the name is only needed without a logo
+        text = describe(performance.iloc[-1]) if logo else f"{name.removeprefix('US 3M ')} {describe(performance.iloc[-1])}"
+        labels.append((position(performance.iloc[-1]), text, {"font": {"size": 15, "color": theme.muted_text}}, logo))
 
     # Direct labels right of the line ends, pushed apart so they do not overlap
     min_gap = 0.042
@@ -382,14 +391,18 @@ def create_performance_figure(
         positions[-1] = max(positions[-1], 0.02)
     for i in range(len(positions) - 2, -1, -1):
         positions[i] = max(positions[i], positions[i + 1] + min_gap)
-    for y, (_, text, style) in zip(positions, ordered, strict=True):
-        fig.add_annotation(text=text, x=end_at + pd.Timedelta(days=1.5), y=y, xref="x", yref="paper", xanchor="left", yanchor="middle", showarrow=False, **style)
+    label_at = end_at + pd.Timedelta(days=1.5)
+    x_end = end_at + pd.Timedelta(window) * 0.16
+    for y, (_, text, style, logo) in zip(positions, ordered, strict=True):
+        if logo:
+            fig.add_layout_image(source=logo, xref="paper", yref="paper", x=(label_at - start_at) / (x_end - start_at), y=y, sizex=0.032, sizey=0.032, xanchor="left", yanchor="middle")
+        fig.add_annotation(text=text, x=label_at, xshift=30 if logo else 0, y=y, xref="x", yref="paper", xanchor="left", yanchor="middle", showarrow=False, **style)
 
     apply_theme(fig, theme, IMAGE_WIDTH, IMAGE_HEIGHT + 100)
     fig.update_layout(margin={"l": 110, "r": LEGEND_MARGIN, "t": 30, "b": 70})
     # The range leaves room for the end labels; ticks stop at the data date
     ticks = pd.date_range(end=end_at, periods=7, freq="14D")
-    fig.update_xaxes(range=[start_at, end_at + pd.Timedelta(window) * 0.16], tickvals=ticks[ticks >= start_at], tickformat="%b %d", showgrid=False)
+    fig.update_xaxes(range=[start_at, x_end], tickvals=ticks[ticks >= start_at], tickformat="%b %d", showgrid=False)
     if log_scale:
         ticks = [tick for tick in LOG_SCALE_TICKS if 10 ** y_range[0] <= tick <= 10 ** y_range[1]]
         fig.update_yaxes(type="log", title="Equity % (log scale)")
