@@ -27,6 +27,7 @@ from eth_defi.vault_report.report import generate_monthly_vault_report, publish_
 from eth_defi.vault_report.sections import (
     LENDING,
     OTHER,
+    OTHER_PROTOCOL,
     PERP_DEX,
     TOKENISED_FUND,
     ReportCriteria,
@@ -41,6 +42,8 @@ from eth_defi.vault_report.sections import (
     format_return,
     format_risk_badge,
     format_sharpe,
+    format_vault_cells,
+    is_identified_protocol,
     render_section_table,
     select_average_yield_vaults,
     select_group,
@@ -512,11 +515,28 @@ def test_protocol_tvl_history(vaults_df: pd.DataFrame, prices_path: Path):
     assert list(by_protocol.columns) == ["Morpho", "Other"]
     assert by_protocol.iloc[-1].sum() == pytest.approx(tvl.iloc[-1].sum())
 
+    # Generic ERC-4626 vaults are never a protocol of their own, but part of the Other pile
+    by_protocol = calculate_protocol_tvl_history(tvl, vaults_df, top_n=10)
+    assert "ERC-4626" not in by_protocol.columns
+    assert by_protocol["Other"].iloc[-1] == pytest.approx(tvl["1-0x33"].iloc[-1])
+
     # Tokenised fund NAV is grouped per fund name, without Other when every fund is shown
     funds = vaults_df.loc[vaults_df["group"] == TOKENISED_FUND]
     by_fund = calculate_fund_nav_history(tvl[list(funds.index)], funds)
     assert list(by_fund.columns) == list(funds["name"])
     assert by_fund.iloc[-1].sum() == pytest.approx(tvl[list(funds.index)].iloc[-1].sum())
+
+
+def test_unidentified_protocols(vaults_df: pd.DataFrame):
+    """Generic ERC-4626, unknown and placeholder protocols form one Other pile, like on the website."""
+    assert is_identified_protocol("Morpho", "morpho")
+    assert not is_identified_protocol("ERC-4626", "erc-4626")
+    assert not is_identified_protocol("<unknown ERC-4626>", "protocol-not-yet-identified")
+    assert not is_identified_protocol("Unknown vault protocol", "unknown")
+    assert not is_identified_protocol("Some vault", "unknown-erc-7450")
+    assert not is_identified_protocol(None, None)
+    assert vaults_df.loc["1-0x33", "protocol_label"] == OTHER_PROTOCOL
+    assert format_vault_cells(vaults_df.loc["1-0x33"])["Protocol"] == OTHER_PROTOCOL
 
 
 def test_table_badges_and_sparklines(vaults_df: pd.DataFrame):

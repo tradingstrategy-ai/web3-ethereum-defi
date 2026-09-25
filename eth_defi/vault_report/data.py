@@ -31,7 +31,7 @@ from tqdm_loggable.auto import tqdm
 
 from eth_defi.compat import native_datetime_utc_now
 from eth_defi.research.vault_metrics import MAX_VALID_NAV, USDollarAmount
-from eth_defi.vault_report.sections import SPARKLINE_URL, classify_vault
+from eth_defi.vault_report.sections import OTHER_PROTOCOL, SPARKLINE_URL, classify_vault, is_identified_protocol
 
 logger = logging.getLogger(__name__)
 
@@ -213,6 +213,9 @@ def prepare_vault_metrics(vaults: list[dict]) -> pd.DataFrame:
     for column in ("current_nav", "peak_nav"):
         df[column] = df[column].where(df[column] <= MAX_VALID_NAV)
     df["group"] = df.apply(classify_vault, axis=1)
+    # Generic ERC-4626, unknown and placeholder protocols form one "Other" pile until they are mapped
+    df["protocol_identified"] = [is_identified_protocol(protocol, slug) for protocol, slug in zip(df["protocol"], df["protocol_slug"], strict=True)]
+    df["protocol_label"] = df["protocol"].where(df["protocol_identified"], OTHER_PROTOCOL)
     return df
 
 

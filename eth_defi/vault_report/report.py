@@ -56,7 +56,6 @@ from eth_defi.vault_report.sections import (
     PERP_DEX,
     TABLE_FORMAT_NOTE,
     TOKENISED_FUND,
-    UNKNOWN_PROTOCOL_SLUG,
     ReportCriteria,
     ReportSection,
     calculate_chain_yields,
@@ -200,7 +199,7 @@ def calculate_report_stats(vaults_df: pd.DataFrame, eligible_df: pd.DataFrame, d
     :return:
         Plain text bullet points.
     """
-    protocol_count = vaults_df.loc[vaults_df["protocol_slug"] != UNKNOWN_PROTOCOL_SLUG, "protocol_slug"].nunique()
+    protocol_count = vaults_df.loc[vaults_df["protocol_identified"], "protocol_slug"].nunique()
     denominations = eligible_df.groupby("normalised_denomination")["current_nav"].sum().sort_values(ascending=False)
     return [
         f"{vaults_df['chain'].nunique()} blockchains and {protocol_count} identified vault protocols",
@@ -395,7 +394,7 @@ def render_report_charts(
     fund_history = tvl_history[[vault_id for vault_id in tvl_history.columns if vault_id in fund_vaults.index]]
     protocol_tvl = calculate_protocol_tvl_history(defi_history, defi_vaults) if len(defi_history.columns) else empty
     fund_nav = calculate_fund_nav_history(fund_history, fund_vaults) if len(fund_history.columns) else empty
-    tvl_vault_slugs = defi_vaults.drop_duplicates("protocol").set_index("protocol")["protocol_slug"]
+    tvl_vault_slugs = defi_vaults.loc[defi_vaults["protocol_identified"]].drop_duplicates("protocol").set_index("protocol")["protocol_slug"]
     fund_slugs = fund_vaults.assign(name=fund_vaults["name"].fillna(fund_vaults["address"])).drop_duplicates("name").set_index("name")["protocol_slug"]
     tvl_changes = calculate_tvl_changes(eligible_df, criteria)
 

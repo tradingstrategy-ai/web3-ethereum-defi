@@ -435,7 +435,7 @@ def render_hero_image(
         top = rows_top + (rank - 1) * row_height
         draw.text((pad, top + 12), str(rank), font=_font(28, bold=True), fill=theme.muted_text)
         logo_path = load_protocol_logo_path(vault["protocol_slug"], theme)
-        protocol = vault["protocol"] if vault["protocol_slug"] != "protocol-not-yet-identified" else "Unknown protocol"
+        protocol = vault["protocol_label"]
         if logo_path:
             logo = Image.open(logo_path).convert("RGBA")
             logo.thumbnail((40, 40))

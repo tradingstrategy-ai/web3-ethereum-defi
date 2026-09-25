@@ -160,6 +160,12 @@ a log scale when returns exceed 100%. The perp DEX Sharpe ratio chart draws the
 90-day rolling Sharpe ratio on a scale starting at 0 instead, calculated from forward-filled daily prices
 like the exported 3M Sharpe, so its latest values match the table.
 
+### Unidentified protocols
+
+Generic ERC-4626 vaults, unknown and placeholder protocols form one "Other" pile
+until their protocols are mapped, following the website's rule. See
+[README-blog-post-outline.md](./README-blog-post-outline.md#unidentified-protocols).
+
 ### Tables
 
 - Returns are annualised: (n) net of fees, (g) gross when fee data is not
