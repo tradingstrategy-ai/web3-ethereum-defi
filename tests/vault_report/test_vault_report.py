@@ -46,6 +46,7 @@ from eth_defi.vault_report.sections import (
     is_identified_protocol,
     render_section_table,
     select_average_yield_vaults,
+    select_comparable_vaults,
     select_group,
     select_vaults_by_chain,
     select_yield_vaults,
@@ -115,6 +116,7 @@ def vault_records() -> list[dict]:
         make_vault_record("0x11", chain="Hypercore", protocol="Hyperliquid", protocol_slug="hyperliquid", one_month_cagr_net=100.0, one_month_returns=1.5, event_count=2, flags=["perp_dex_trading_vault"], three_months_volatility=0.8),
         make_vault_record("0x22", chain="Base", one_month_cagr_net=0.05, current_nav=3_000_000.0, years=0.1, period_results=[{"period": "1M", "tvl_start": 1_000_000.0, "tvl_end": 3_000_000.0}]),
         make_vault_record("0x33", protocol="ERC-4626", protocol_slug="erc-4626", strategy_tags=None, one_month_cagr_net=0.30),
+        make_vault_record("0x55", protocol="Yearn", protocol_slug="yearn", strategy_tags=None, one_month_cagr_net=0.12),
         make_vault_record("0x44", protocol="Securitize", protocol_slug="securitize", strategy_tags=None, flags=["tokenised_fund"], one_month_cagr_net=0.045, event_count=2, period_results=[{"period": "1M", "tvl_start": 2_000_000.0, "tvl_end": 1_000_000.0}]),
     ]
 
@@ -155,18 +157,23 @@ def test_filter_and_group_sections(vaults_df: pd.DataFrame):
     """Vaults are grouped, filtered by TVL and activity, and ranked by return or Sharpe."""
     criteria = ReportCriteria()
     eligible = filter_eligible_vaults(vaults_df, DATA_END_AT, criteria)
-    assert set(eligible["address"]) == {"0xaa", "0xbb", "0xee", "0xff", "0x11", "0x22", "0x33", "0x44"}
-    assert eligible["group"].to_dict() == {"1-0xaa": LENDING, "1-0xbb": LENDING, "1-0xee": LENDING, "1-0xff": PERP_DEX, "1-0x11": PERP_DEX, "1-0x22": LENDING, "1-0x33": OTHER, "1-0x44": TOKENISED_FUND}
+    assert set(eligible["address"]) == {"0xaa", "0xbb", "0xee", "0xff", "0x11", "0x22", "0x33", "0x44", "0x55"}
+    assert eligible["group"].to_dict() == {"1-0xaa": LENDING, "1-0xbb": LENDING, "1-0xee": LENDING, "1-0xff": PERP_DEX, "1-0x11": PERP_DEX, "1-0x22": LENDING, "1-0x33": OTHER, "1-0x44": TOKENISED_FUND, "1-0x55": OTHER}
 
     # 0xee is below the $100k TVL threshold
     assert list(select_group(eligible, criteria, LENDING)["address"]) == ["0xaa", "0xbb", "0x22"]
     # Tied capped annualised returns are ranked by the absolute monthly return; perp vaults need no deposit events
     assert list(select_group(eligible, criteria, PERP_DEX)["address"]) == ["0x11", "0xff"]
     assert list(select_group(eligible, criteria, PERP_DEX, by="three_months_sharpe_best")["address"]) == ["0x11", "0xff"]
-    assert list(select_group(eligible, criteria, OTHER)["address"]) == ["0x33"]
+    assert list(select_group(eligible, criteria, OTHER)["address"]) == ["0x33", "0x55"]
     # Tokenised funds need no deposit events either
     assert list(select_group(eligible, criteria, TOKENISED_FUND)["address"]) == ["0x44"]
-    assert set(select_yield_vaults(eligible, criteria)["address"]) == {"0xaa", "0xbb", "0x22", "0x33", "0x44"}
+    assert set(select_yield_vaults(eligible, criteria)["address"]) == {"0xaa", "0xbb", "0x22", "0x33", "0x44", "0x55"}
+
+    # Performance comparisons leave out vaults without an identified protocol, here the generic ERC-4626 vault
+    comparable = select_comparable_vaults(eligible)
+    assert set(comparable["address"]) == set(eligible["address"]) - {"0x33"}
+    assert list(select_group(comparable, criteria, OTHER)["address"]) == ["0x55"]
 
     by_chain = select_vaults_by_chain(eligible, ReportCriteria(chain_top_n=1))
     assert list(by_chain["address"]) == ["0x22", "0x33", "0x11"]
@@ -176,17 +183,18 @@ def test_average_yields(vaults_df: pd.DataFrame):
     """Average yields are TVL-weighted, exclude outliers and volatile vaults, and leave out placeholder protocols."""
     criteria = ReportCriteria()
     eligible = filter_eligible_vaults(vaults_df, DATA_END_AT, criteria)
-    yield_vaults = select_average_yield_vaults(eligible, criteria)
+    yield_vaults = select_average_yield_vaults(select_comparable_vaults(eligible), criteria)
     assert "1-0xff" not in yield_vaults.index  # 80% volatility
+    assert "1-0x33" not in yield_vaults.index  # Generic ERC-4626 vault without an identified protocol
 
     by_chain = calculate_average_yields(yield_vaults, "chain")
-    # Ethereum: 0.20 @ 1M, 0.15 @ 1M, 0.90 @ 50k, 0.30 @ 1M, 0.045 @ 1M
-    assert by_chain.loc["Ethereum", "avg_return"] == pytest.approx((0.20 + 0.15 + 0.90 * 0.05 + 0.30 + 0.045) / 4.05)
+    # Ethereum: 0.20 @ 1M, 0.15 @ 1M, 0.90 @ 50k, 0.12 @ 1M, 0.045 @ 1M
+    assert by_chain.loc["Ethereum", "avg_return"] == pytest.approx((0.20 + 0.15 + 0.90 * 0.05 + 0.12 + 0.045) / 4.05)
     assert list(calculate_chain_yields(yield_vaults, ReportCriteria(yield_top_chains=1)).index) == ["Ethereum"]
 
     protocols = calculate_protocol_yields(yield_vaults, criteria)
     assert "ERC-4626" not in protocols.index
-    assert set(protocols.index) == {"Morpho", "Securitize"}
+    assert set(protocols.index) == {"Morpho", "Securitize", "Yearn"}
 
 
 def test_tvl_changes(vaults_df: pd.DataFrame):
