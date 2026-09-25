@@ -230,15 +230,17 @@ class SecuritizeVault(TokenisedFundVault):
 
         :return:
             Deposit settlement prices up to the current head, sorted by block.
-        :raises SecuritizeSettlementError:
-            If Hypersync is unavailable on the product chain.
+        :raises RuntimeError:
+            If Hypersync is unavailable on the product chain. This is not a
+            :py:class:`SecuritizeSettlementError`, so the historical reader
+            aborts instead of writing unpriced rows.
         """
 
         feed = self.settlement_feed
         assert feed is not None, f"No settlement NAV feed configured for Securitize DSToken {self.address}"
         hypersync_client = configure_hypersync_from_env(self.web3).hypersync_client
         if hypersync_client is None:
-            raise SecuritizeSettlementError(f"Securitize settlement NAV for {self.address} requires Hypersync on chain {self.chain_id}")
+            raise RuntimeError(f"Securitize settlement NAV for {self.address} requires Hypersync on chain {self.chain_id}")
         return fetch_settlement_prices(hypersync_client, feed, self.web3.eth.block_number)
 
     def fetch_settlement_price_at(self, block_number: int) -> SecuritizeSettlementPrice | None:
@@ -560,13 +562,16 @@ class SecuritizeVault(TokenisedFundVault):
         return self.get_fee_data().performance
 
     def get_estimated_lock_up(self) -> datetime.timedelta | None:
-        """Return the reviewed product lock-up.
+        """Return unknown product lock-up.
+
+        Interval funds such as ARKVX offer quarterly, possibly prorated,
+        repurchases rather than a fixed lock-up, so no estimate is exported.
 
         :return:
-            Typical exit delay, or ``None`` when redemption terms are unknown.
+            ``None`` because redemption terms are product-specific.
         """
 
-        return self.product.lock_up if self.product is not None else None
+        return None
 
     def get_link(self, referral: str | None = None) -> str:
         """Return the appropriate product or protocol page.

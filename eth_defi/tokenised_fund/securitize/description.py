@@ -7,7 +7,6 @@ from the DSToken scan and official issuer address lists. It intentionally
 excludes company securities and test tokens.
 """
 
-import datetime
 from dataclasses import dataclass, field
 from decimal import Decimal
 
@@ -49,8 +48,6 @@ class SecuritizeProduct:
     #: Excluded from hashing because :py:class:`FeeData` is mutable and
     #: products are used as dictionary keys.
     fee_data: FeeData | None = field(default=None, hash=False, compare=False)
-    #: Typical wait before an investor can exit, or ``None`` when unknown.
-    lock_up: datetime.timedelta | None = None
 
 
 BUIDL_FUND_PAGE_URL = "https://www.blackrock.com/us/individual/products/buidl/"
@@ -461,7 +458,7 @@ ARKVX_ETHEREUM = SecuritizeProduct(
 - **Liquidity and redemptions:** The fund's shares are not listed on an exchange, and the prospectus says no secondary market is expected. The SEC relief permits tokenised shares to trade on alternative trading systems, but ARK's tokenisation announcement still states that no secondary market is expected to develop. The fund's main liquidity route is its quarterly Rule 23c-3 repurchase offers, made in March, June, September and December, for 5% to 25% of outstanding shares at NAV; the fund expects to offer 5%. When tenders exceed the offer, repurchases are prorated, so a holder may not be able to sell all of their shares in a given quarter. The current offer's deadline is 2026-09-30 ([notice]({ARKVX_REPURCHASE_OFFER_URL})).
 - **Distributions:** The fund intends to make annual distributions, reinvested in shares unless the holder opts out. How the tokenised class receives distributions is not yet documented.
 - **Token structure and eligibility:** ARKVX tokens are Securitize DSTokens. Only investors who have passed identity and eligibility checks can subscribe, redeem or receive transfers, and only into whitelisted wallets. Subscriptions are paid in USDC through Securitize's ERC-7540-style subscription vault. They are batched into generations that settle after NAV is struck; the first settlements came one to two business days apart. The prospectus sets a USD 500 minimum investment for Class D, and press coverage reports the same minimum for the tokenised route.
-- **Price data in this listing:** The share price is rebuilt from onchain deposit settlement events. Each settlement records a USDC price that includes the 2% subscription fee, so NAV/share is the settlement price multiplied by 0.98, rounded to cents. This matches ARK's published NAV for the business day before each settlement. The price therefore updates only when deposits settle and lags the fund's own NAV by one business day. TVL covers onchain tokenised shares only, not the whole fund.
+- **Price data in this listing:** The share price is rebuilt from onchain deposit settlement events. Each settlement records a USDC price that includes the 2% subscription fee, so NAV/share is the settlement price multiplied by 0.98, rounded to cents. This matches ARK's published NAV for the business day before each settlement. The price updates only when deposits settle, so it lags the fund's own NAV by at least one business day and stays at the last settled value until deposits settle again. TVL covers onchain tokenised shares only, not the whole fund.
 - **Fund page:** [ARK Venture Fund]({ARKVX_FUND_PAGE_URL}).
 """,
     estimated_nav_per_share=None,
@@ -476,8 +473,6 @@ ARKVX_ETHEREUM = SecuritizeProduct(
         deposit=0.02,
         withdraw=0.0,
     ),
-    # Rule 23c-3 repurchase offers are quarterly; oversubscribed offers are prorated.
-    lock_up=datetime.timedelta(days=90),
 )
 
 #: Supported Securitize investment funds keyed by chain and DSToken address.

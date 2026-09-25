@@ -12,6 +12,7 @@ from web3 import Web3
 
 from eth_defi.hypersync.utils import configure_hypersync_from_env
 from eth_defi.provider.multi_provider import create_multi_provider_web3
+from eth_defi.tokenised_fund.securitize import settlement as settlement_module
 from eth_defi.tokenised_fund.securitize.backfill import has_historical_price
 from eth_defi.tokenised_fund.securitize.description import ARKVX_ETHEREUM, ARKVX_PROSPECTUS_URL, ARKVX_REPURCHASE_OFFER_URL, ARKVX_SEC_ORDER_URL
 from eth_defi.tokenised_fund.securitize.settlement import (
@@ -194,9 +195,34 @@ def test_arkvx_product_metadata() -> None:
     assert vault.get_share_price_source() == PriceSource.smart_contract_event
     assert fee_data.fee_mode == VaultFeeMode.internalised_skimming
     assert (fee_data.management, fee_data.performance, fee_data.deposit, fee_data.withdraw) == (0.0275, 0.0, 0.02, 0.0)
-    assert vault.get_estimated_lock_up() == datetime.timedelta(days=90)
+    assert vault.get_estimated_lock_up() is None
     assert all(url in vault.get_notes() for url in (ARKVX_PROSPECTUS_URL, ARKVX_SEC_ORDER_URL, ARKVX_REPURCHASE_OFFER_URL))
     assert ARKVX_FEED.vault in BROKEN_VAULT_CONTRACTS
+
+
+def test_arkvx_historical_reader_aborts_when_timeline_unavailable() -> None:
+    """Abort instead of writing unpriced rows when the settlement timeline cannot be read."""
+
+    vault = SecuritizeVault(Web3(), VaultSpec(chain_id=ARKVX_ETHEREUM.chain_id, vault_address=ARKVX_ETHEREUM.token))
+
+    def fail_settlement_lookup(block_number: int) -> None:
+        raise RuntimeError(f"Settlement timeline unavailable at block {block_number}")
+
+    vault.fetch_settlement_price_at = fail_settlement_lookup
+    reader = vault.get_historical_reader(stateful=False)
+
+    with pytest.raises(RuntimeError, match="timeline unavailable"):
+        reader.process_result(ARKVX_TEST_BLOCK, datetime.datetime(2026, 9, 24, 22, 0, tzinfo=datetime.UTC).replace(tzinfo=None), [])
+
+
+def test_empty_settlement_timeline_is_an_error(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Treat an empty Hypersync result after the known first settlement as an incomplete index."""
+
+    monkeypatch.setattr(settlement_module, "fetch_vault_flow_logs_hypersync", lambda **_kwargs: [])
+
+    with pytest.raises(RuntimeError, match="no deposit settlements"):
+        fetch_settlement_prices(None, ARKVX_FEED, ARKVX_TEST_BLOCK)
+    assert fetch_settlement_prices(None, ARKVX_FEED, ARKVX_FEED.first_block - 1) == []
 
 
 @pytest.fixture(scope="module")

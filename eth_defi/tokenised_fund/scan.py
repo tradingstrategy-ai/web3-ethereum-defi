@@ -160,7 +160,9 @@ TOKENISED_FUND_PRICE_SCANNERS: tuple[TokenisedFundPriceScanSpec, ...] = (
     TokenisedFundPriceScanSpec("midas", "Midas", ERC4626Feature.midas_like, _is_midas_tokenised_fund),
     TokenisedFundPriceScanSpec("ondo", "Ondo", ERC4626Feature.ondo_like),
     TokenisedFundPriceScanSpec("openeden", "OpenEden", ERC4626Feature.openeden_like),
-    TokenisedFundPriceScanSpec("securitize", "Securitize", ERC4626Feature.securitize_like, _is_price_capable_securitize_product),
+    # Settlement-priced products can be sampled before Hypersync indexes the
+    # latest settlement, so replay a bounded tail to correct those rows.
+    TokenisedFundPriceScanSpec("securitize", "Securitize", ERC4626Feature.securitize_like, _is_price_capable_securitize_product, refetch_tail=True),
     TokenisedFundPriceScanSpec("spiko", "Spiko", ERC4626Feature.spiko_like),
     TokenisedFundPriceScanSpec("superstate", "Superstate", ERC4626Feature.superstate_like),
     TokenisedFundPriceScanSpec("sygnum", "Sygnum", ERC4626Feature.sygnum_like),

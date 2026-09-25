@@ -235,6 +235,10 @@ def fetch_settlement_prices(
         Inclusive last block to read.
     :return:
         Deposit settlement prices sorted by block number.
+    :raises RuntimeError:
+        If Hypersync returns no deposit settlement although ``end_block`` is at
+        or after the known first settlement. An incomplete index must abort
+        the scan rather than rewrite priced history as unpriced rows.
     """
 
     if end_block < feed.first_block:
@@ -247,6 +251,8 @@ def fetch_settlement_prices(
         end_block=end_block,
     )
     prices = decode_settlement_prices(logs, feed)
+    if not prices:
+        raise RuntimeError(f"Hypersync returned no deposit settlements for {feed.vault} in blocks {feed.first_block:,} - {end_block:,}, although the first settlement is at block {feed.first_block:,}")
     logger.info("Fetched %d Securitize settlement prices for %s up to block %d", len(prices), feed.token, end_block)
     return prices
 

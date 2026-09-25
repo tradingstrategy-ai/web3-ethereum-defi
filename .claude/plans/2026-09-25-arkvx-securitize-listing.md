@@ -126,12 +126,11 @@ hard-coding them:
   `SecuritizeVaultHistoricalReader.process_result()`. The RedStone and
   fixed-price branches stay unchanged.
 
-### Product fee and lock-up metadata
+### Product fee metadata
 
-Today `SecuritizeVault.get_fee_data()` returns `BROKEN_FEE_DATA`. Add two
-optional fields to `SecuritizeProduct`, `fee_data: FeeData | None` and
-`lock_up: datetime.timedelta | None`, and use them when a product sets them.
-Other products keep `BROKEN_FEE_DATA` and no lock-up.
+Today `SecuritizeVault.get_fee_data()` returns `BROKEN_FEE_DATA`. Add an
+optional `fee_data: FeeData | None` field to `SecuritizeProduct` and use it
+when a product sets it. Other products keep `BROKEN_FEE_DATA`.
 
 For ARKVX:
 
@@ -148,8 +147,9 @@ For ARKVX:
   and the onchain settlement arithmetic, not an SEC filing.
 - `withdraw=0`: the prospectus and SEC application state that no early
   repurchase fee applies.
-- `lock_up=90 days`: the quarterly Rule 23c-3 repurchase cadence. A code
-  comment ties the value to that cadence; proration risk is in the notes.
+- No lock-up is exported. Quarterly repurchase offers are expected to cover
+  only 5% of shares and can be prorated, so a fixed lock-up period would
+  suggest an exit time the fund does not offer.
 
 ### Keep the subscription contract out of the vault list
 
@@ -254,7 +254,7 @@ ARK Venture Fund (ARKVX), tokenised on Ethereum through Securitize.
 - **Liquidity and redemptions:** The fund's shares are not listed on an exchange, and the prospectus says no secondary market is expected. The SEC relief permits tokenised shares to trade on alternative trading systems, but ARK's tokenisation announcement still states that no secondary market is expected to develop. The fund's main liquidity route is its quarterly Rule 23c-3 repurchase offers, made in March, June, September and December, for 5%–25% of outstanding shares at NAV; the fund expects to offer 5%. When tenders exceed the offer, repurchases are prorated, so a holder may not be able to sell all of their shares in a given quarter. The current offer's deadline is 2026-09-30 ([notice]({ARKVX_REPURCHASE_OFFER_URL})).
 - **Distributions:** The fund intends to make annual distributions, reinvested in shares unless the holder opts out. How the tokenised class receives distributions is not yet documented.
 - **Token structure and eligibility:** ARKVX tokens are Securitize DSTokens. Only investors who have passed identity and eligibility checks can subscribe, redeem or receive transfers, and only into whitelisted wallets. Subscriptions are paid in USDC through Securitize's ERC-7540-style `AsyncFundVault`. They are batched into generations that settle after NAV is struck; the first settlements came one to two business days apart. The prospectus sets a USD 500 minimum investment for Class D, and press coverage reports the same minimum for the tokenised route.
-- **Price data in this listing:** The share price is rebuilt from onchain `DepositGenerationFulfilled` settlement events. Each settlement records a USDC price that includes the 2% subscription fee, so NAV/share = settlement price × 0.98, rounded to cents. This matches ARK's published NAV for the business day before each settlement. The price therefore updates only when deposits settle and lags the fund's own NAV by one business day. TVL covers onchain tokenised shares only, not the whole fund.
+- **Price data in this listing:** The share price is rebuilt from onchain `DepositGenerationFulfilled` settlement events. Each settlement records a USDC price that includes the 2% subscription fee, so NAV/share = settlement price × 0.98, rounded to cents. This matches ARK's published NAV for the business day before each settlement. The price updates only when deposits settle, so it lags the fund's own NAV by at least one business day and stays at the last settled value until deposits settle again. TVL covers onchain tokenised shares only, not the whole fund.
 - **Fund page:** [ARK Venture Fund]({ARKVX_FUND_PAGE_URL}).
 ```
 
@@ -275,7 +275,9 @@ The product uses `curator_slug="ark-invest"` and `manager_name="ARK Invest"`.
      `totalSupply` result;
    - the redemption warning and the >20% jump warning (`caplog`);
    - `has_historical_price()` true for ARKVX;
-   - `FeeData`, lock-up, price source and notes links for ARKVX;
+   - `FeeData`, no lock-up, price source and notes links for ARKVX;
+   - an unavailable or empty settlement timeline aborts the scan instead of
+     writing unpriced rows;
    - the subscription contract is in `BROKEN_VAULT_CONTRACTS`.
 2. Extend the registry, curator and strategy-tag tests with ARKVX.
 3. Fixed-block archive test, with no Anvil. The shared
@@ -355,3 +357,23 @@ The Kimi K3 plan review (2026-09-25) was applied as follows:
   stub under `docs/source/api`.
 - Add one `CHANGELOG.md` line: ARK Venture Fund (ARKVX) Securitize listing with
   settlement-based NAV history (2026-09-25).
+
+## Codex review decisions
+
+The Codex (`gpt-6-sol`) review of PR #1599 on 2026-09-25 found four issues,
+all verified and fixed:
+
+- An unavailable Hypersync client raised `SecuritizeSettlementError`, which the
+  reader turned into unpriced rows. The scheduler restarts at the last priced
+  block, so this could erode priced history cycle after cycle. Unavailability
+  now raises `RuntimeError`, and an empty timeline after the known first
+  settlement is an error, so the scan aborts and the atomic Parquet rewrite
+  keeps existing rows.
+- A timeline fetched before Hypersync indexed a new settlement would write
+  stale prices that the scheduler never revisited. The `securitize` scheduler
+  item now uses `refetch_tail=True`, replaying the latest seven stored samples.
+- The exported 90-day lock-up suggested an exit time the fund does not offer.
+  It is removed.
+- The notes described the staleness as a one-business-day lag. They now say
+  the price stays at the last settled value until deposits settle again.
+
