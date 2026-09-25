@@ -442,7 +442,8 @@ def create_average_yield_figure(
         if logo:
             fig.add_layout_image(source=logo, xref="paper", yref="y", x=-0.235, y=position, sizex=0.03, sizey=0.6, xanchor="left", yanchor="middle")
         fig.add_annotation(text=shorten_label(group, 17), xref="paper", yref="y", x=-0.19, y=position, xanchor="left", showarrow=False, font={"size": 20, "color": theme.text})
-        spread = f" {(row['avg_return'] - benchmark_yield) * 100:+.1f} pp" if benchmark_yield is not None else ""
+        # Round before formatting so a tiny negative difference does not print as -0.0
+        spread = f" {round((row['avg_return'] - benchmark_yield) * 100, 1) + 0.0:+.1f} pp" if benchmark_yield is not None else ""
         fig.add_annotation(
             text=f"<b>{row['avg_return']:.1%}</b><span style='color:{theme.muted_text}'>{spread} · {_format_usd_short(row['tvl'])}</span>",
             xref="paper",
