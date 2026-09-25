@@ -300,7 +300,7 @@ def make_criteria_notes(criteria: ReportCriteria) -> dict[str, list[str]]:
         "perp_dex_sharpe": ["The same vaults ranked by three-month Sharpe ratio, rewarding steady returns over high but volatile ones", "The legend shows the latest Sharpe ratio", chart_risk],
         "other": ["Yield aggregators, trading and other vaults that are not lending, perp DEX, AMM or tokenised fund vaults", chart_ranking, benchmarks, chart_risk],
         "amm": [
-            "Automated market maker pools, such as GMX GM and GLV pools and the Curve-based YieldBasis: their returns include the price moves of the pooled assets, so they are ranked separately",
+            "GMX GM and GLV pools and the Curve-based YieldBasis pools: their returns include the price moves of the pooled assets, so they are ranked separately",
             f"Minimum {format_usd(criteria.amm_min_tvl)} TVL",
             chart_ranking,
             benchmarks,

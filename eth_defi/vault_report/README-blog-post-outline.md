@@ -24,7 +24,7 @@ Every stablecoin vault belongs to one group (`classify_vault()`):
 
 | Group | Rule |
 |---|---|
-| AMM pool | Tagged `amm` or `market_making_amm`, or a GMX, YieldBasis or Curve vault: GMX GM and GLV pools, the Curve-based YieldBasis yb-LP, Gains Network gTrade, KiloEx. Perp DEX liquidity vaults tagged only `liquidity_provider`, like Hyperliquid HLP, stay perp DEX |
+| AMM pool | The `amm_pool_like` vault feature (`ERC4626Feature.amm_pool_like`), which the scanner sets for GMX GM and GLV pools and the Curve-based YieldBasis LTs. Strategy tags are not used: vaults tagged `amm`, such as Gains Network gTrade and KiloEx, stay in their other groups |
 | Perpetual futures DEX | Flagged `perp_dex_trading_vault`: Hyperliquid, GRVT, Lighter, Hibachi, ApeX |
 | Tokenised fund | Flagged `tokenised_fund`: money market, treasury and credit funds such as BlackRock BUIDL |
 | Lending | A lending strategy tag, or a known lending protocol (`LENDING_PROTOCOL_SLUGS`: Aave, Morpho, Euler, Fluid, Spark, Silo, Llama Lend, Curvance and others) |

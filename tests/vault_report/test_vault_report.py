@@ -184,16 +184,18 @@ def test_filter_and_group_sections(vaults_df: pd.DataFrame):
 
 
 def test_amm_pools(vault_records: list[dict]):
-    """AMM pools get their own section with a $1M TVL minimum and are left out of other rankings by default."""
+    """GMX and Curve AMM pools, identified by the amm_pool_like feature, get their own section with a $1M TVL minimum and are left out of other rankings by default."""
     records = [
         *vault_records,
-        make_vault_record("0x66", chain="Arbitrum", protocol="GMX", protocol_slug="gmx", strategy_tags=None, one_month_cagr_net=0.9, three_months_cagr=2.4, current_nav=5_000_000.0),
-        make_vault_record("0x77", protocol="YieldBasis", protocol_slug="yieldbasis", strategy_tags=["amm", "liquidity_provider"], one_month_cagr_net=0.5, current_nav=500_000.0),
+        make_vault_record("0x66", chain="Arbitrum", protocol="GMX", protocol_slug="gmx", strategy_tags=None, features=["amm_pool_like", "gmx_gm"], one_month_cagr_net=0.9, three_months_cagr=2.4, current_nav=5_000_000.0),
+        make_vault_record("0x77", protocol="YieldBasis", protocol_slug="yieldbasis", strategy_tags=["amm"], features=["amm_pool_like", "yield_basis_lt"], one_month_cagr_net=0.5, current_nav=500_000.0),
+        # AMM-style strategy tags without the AMM pool feature do not make a vault an AMM pool
+        make_vault_record("0x99", protocol="Gains Network", protocol_slug="gains-network", strategy_tags=["amm", "market_making_amm"]),
         make_vault_record("0x88", chain="Hypercore", protocol="Hyperliquid", protocol_slug="hyperliquid", strategy_tags=["liquidity_provider"], flags=["perp_dex_trading_vault"], event_count=2),
     ]
     criteria = ReportCriteria()
     comparable = select_comparable_vaults(filter_eligible_vaults(prepare_vault_metrics(records), DATA_END_AT, criteria))
-    assert comparable.loc[["1-0x66", "1-0x77", "1-0x88"], "group"].tolist() == [AMM, AMM, PERP_DEX]
+    assert comparable.loc[["1-0x66", "1-0x77", "1-0x88", "1-0x99"], "group"].tolist() == [AMM, AMM, PERP_DEX, OTHER]
 
     # The AMM table needs $1M TVL, so the $500k YieldBasis pool is left out
     assert list(select_group(comparable, criteria, AMM)["address"]) == ["0x66"]
