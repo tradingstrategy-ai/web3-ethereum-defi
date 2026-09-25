@@ -38,6 +38,7 @@ from eth_defi.vault_report.sections import (
     calculate_protocol_tvl_history,
     calculate_protocol_yields,
     calculate_tvl_changes,
+    exclude_chart_risks,
     filter_eligible_vaults,
     format_return,
     format_risk_badge,
@@ -243,6 +244,10 @@ def test_daily_prices_and_performance(prices_path: Path):
     assert load_benchmark_logo_uri("Unknown") is None
     fig = create_performance_figure(series, daily, indices, DARK_THEME, benchmark_logos=logos)
     assert sum(image.source == logos[TREASURY_BILL] for image in fig.layout.images) == 2
+
+    # Legends and line end badges show the table rank, which can skip vaults left out of the chart
+    fig = create_performance_figure([PerformanceSeries("1-0xaa", "A", (), (TREASURY_BILL,), rank=3)], daily, indices, DARK_THEME)
+    assert any(annotation.text.startswith("3. A") for annotation in fig.layout.annotations)
 
     # A vault returning more than the threshold switches the shared axis to a log scale
     fig = create_performance_figure(series, daily, indices, DARK_THEME, log_threshold=-100)
@@ -547,6 +552,13 @@ def test_unidentified_protocols(vaults_df: pd.DataFrame):
     assert not is_identified_protocol(None, None)
     assert vaults_df.loc["1-0x33", "protocol_label"] == OTHER_PROTOCOL
     assert format_vault_cells(vaults_df.loc["1-0x33"])["Protocol"] == OTHER_PROTOCOL
+
+
+def test_chart_risk_filter(vaults_df: pd.DataFrame):
+    """Charts leave out vaults rated Dangerous or worse; unrated and Severe vaults stay."""
+    df = vaults_df.loc[["1-0xaa", "1-0xbb", "1-0x22", "1-0x55"]].copy()
+    df["risk_numeric"] = [20.0, 40.0, 50.0, float("nan")]
+    assert list(exclude_chart_risks(df, ReportCriteria())["address"]) == ["0xaa", "0xbb", "0x55"]
 
 
 def test_vault_properties(vaults_df: pd.DataFrame):
